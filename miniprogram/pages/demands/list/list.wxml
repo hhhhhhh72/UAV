@@ -1,1 +1,45 @@
-<view class="container"><text>需求list</text></view>
+<!-- 需求大厅 -->
+<view class="page">
+  <view class="search-row" bindtap="onSearchTap">
+    <view class="search-box">
+      <text>🔍 搜索需求关键词</text>
+    </view>
+  </view>
+
+  <scroll-view class="filter-tabs" scroll-x enable-flex>
+    <view class="tab {{activeType === '' ? 'tab-active' : ''}}" bindtap="onTypeTap" data-type="">全部</view>
+    <view class="tab {{activeType === item.key ? 'tab-active' : ''}}" wx:for="{{bizTypes}}" wx:key="key" bindtap="onTypeTap" data-type="{{item.key}}">{{item.name}}</view>
+  </scroll-view>
+
+  <view class="sort-row">
+    <text class="result-count">共 {{total}} 条</text>
+    <text class="sort-item {{sort === 'newest' ? 'active' : ''}}" bindtap="onSortTap" data-sort="newest">最新</text>
+    <text class="sort-item {{sort === 'budget' ? 'active' : ''}}" bindtap="onSortTap" data-sort="budget">预算</text>
+  </view>
+
+  <scroll-view class="list-scroll" scroll-y bindscrolltolower="onLoadMore" lower-threshold="150">
+    <view class="demand-card" wx:for="{{demands}}" wx:key="id" bindtap="onTap" data-id="{{item.id}}">
+      <view class="flex-between">
+        <view class="flex gap-sm">
+          <text class="tag tag-blue">{{item.bizTypeText}}</text>
+          <text class="tag tag-amber">{{item.district}}</text>
+        </view>
+        <text class="price">¥{{item.budgetText}}</text>
+      </view>
+      <text class="card-title">{{item.title}}</text>
+      <text class="card-desc">{{item.description || '暂无描述'}}</text>
+      <view class="flex-between" style="margin-top:16rpx">
+        <text class="text-muted text-small">{{item.publisher_name}}</text>
+        <text class="text-muted text-small">{{item.timeAgo}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{loading}}" class="load-tip"><text class="text-muted text-small">加载中...</text></view>
+    <view wx:if="{{!loading && demands.length > 0 && demands.length >= total}}" class="load-tip"><text class="text-muted text-small">— 已加载全部 —</text></view>
+
+    <view wx:if="{{!loading && demands.length === 0}}" class="empty-state">
+      <text style="font-size:80rpx">📋</text>
+      <text>暂无需求</text>
+    </view>
+  </scroll-view>
+</view>

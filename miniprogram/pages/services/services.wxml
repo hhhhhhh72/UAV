@@ -1,1 +1,13 @@
-<view class="container"><text>services</text></view>
+<view class="page">
+  <view class="hero">
+    <text class="hero-title">低空经济生态服务</text>
+    <text class="hero-desc">七大系统 · 212项服务</text>
+  </view>
+  <view class="service-grid">
+    <view class="service-card" wx:for="{{services}}" wx:key="id" bindtap="onTap" data-id="{{item.id}}">
+      <text class="service-icon">{{item.icon}}</text>
+      <text class="service-name">{{item.name}}</text>
+      <text class="service-desc">{{item.desc}}</text>
+    </view>
+  </view>
+</view>

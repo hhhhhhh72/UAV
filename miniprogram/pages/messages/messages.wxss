@@ -1,1 +1,5 @@
-.container { padding: 32rpx; }
+.page { background: var(--gray-200); min-height: 100vh; padding: var(--space-md); }
+.msg-card { background: var(--white); border-radius: var(--radius-md); padding: var(--space-lg); margin-bottom: var(--space-sm); box-shadow: var(--shadow-card); }
+.msg-title { font-size: var(--text-md); font-weight: 600; flex:1; }
+.dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: var(--red-600); }
+.msg-content { display: block; font-size: var(--text-sm); color: var(--gray-600); margin: var(--space-sm) 0; }
