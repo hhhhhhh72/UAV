@@ -90,6 +90,9 @@ func main() {
 		poolRepo         repository.ResourcePoolRepository
 		testSiteRepo     repository.TestSiteRepository
 		exhibitionRepo   repository.ExhibitionRepository
+		transRepo        repository.TransformationRepository
+		collegeRepo      repository.CollegeRepository
+		coopRepo         repository.CooperationRepository
 		expertRepo       repository.ExpertRepository
 		caseRepo         repository.CaseRepository
 		complianceRepo   repository.ComplianceRepository
@@ -156,6 +159,9 @@ func main() {
 		poolRepo = memory.NewResourcePoolRepository()
 		testSiteRepo = memory.NewTestSiteRepository()
 		exhibitionRepo = memory.NewExhibitionRepository()
+		transRepo = memory.NewTransformationRepository()
+		collegeRepo = memory.NewCollegeRepository()
+		coopRepo = memory.NewCooperationRepository()
 		refreshTokenRepo = pgStore.NewRefreshTokenRepository()
 		expertRepo = pgStore.NewExpertRepository()
 		caseRepo = pgStore.NewCaseRepository()
@@ -206,6 +212,9 @@ func main() {
 		poolRepo = memory.NewResourcePoolRepository()
 		testSiteRepo = memory.NewTestSiteRepository()
 		exhibitionRepo = memory.NewExhibitionRepository()
+		transRepo = memory.NewTransformationRepository()
+		collegeRepo = memory.NewCollegeRepository()
+		coopRepo = memory.NewCooperationRepository()
 		expertRepo = memory.NewExpertRepository()
 		caseRepo = memory.NewCaseRepository()
 		complianceRepo = memory.NewComplianceRepository()
@@ -265,6 +274,9 @@ func main() {
 		app.SetResearchProjectService(service.NewResearchProjectService(researchRepo))
 		app.SetProjectAppService(service.NewProjectAppService(projAppRepo))
 		app.SetCompetitionService(service.NewCompetitionService(competitionRepo))
+	app.SetTransformationService(service.NewTransformationService(transRepo))
+	app.SetCollegeService(service.NewCollegeService(collegeRepo))
+	app.SetCooperationService(service.NewCooperationService(coopRepo))
 		app.SetEventService(service.NewEventService(eventRepo))
 		app.SetResourceService(service.NewResourceService(resourceRepo))
 		app.SetEmergencyService(service.NewEmergencyService(emergencyRepo))

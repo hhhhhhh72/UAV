@@ -424,3 +424,25 @@ type ExhibitionRepository interface {
 	ListBooths(exhibitionID string) ([]domain.ExhibitionBooth, error)
 	UpdateBoothStatus(id, status string) (domain.ExhibitionBooth, error)
 }
+
+// ── Batch2: 成果转化 + 院校 + 校企 (per .doc) ──
+
+type TransformationRepository interface {
+	Create(domain.Transformation) (domain.Transformation, error)
+	FindByID(id string) (domain.Transformation, error)
+	List(ownerID string) ([]domain.Transformation, error)
+	Update(domain.Transformation) (domain.Transformation, error)
+}
+
+type CollegeRepository interface {
+	Create(domain.College) (domain.College, error)
+	FindByID(id string) (domain.College, error)
+	List(region string) ([]domain.College, error)
+}
+
+type CooperationRepository interface {
+	Create(domain.CooperationProgram) (domain.CooperationProgram, error)
+	FindByID(id string) (domain.CooperationProgram, error)
+	List(enterpriseID string) ([]domain.CooperationProgram, error)
+	UpdateStatus(id, status string) (domain.CooperationProgram, error)
+}

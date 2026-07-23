@@ -80,6 +80,9 @@ type Server struct {
 poolSvc       *service.ResourcePoolService
 	testSiteSvc   *service.TestSiteService
 	exhibitionSvc *service.ExhibitionService
+	transSvc       *service.TransformationService
+	collegeSvc     *service.CollegeService
+	coopSvc        *service.CooperationService
 	userRepo      repository.UserRepository
 	refreshRepo   repository.RefreshTokenRepository
 	tokens        *TokenManager
@@ -218,6 +221,9 @@ func (s *Server) SetMatchingService(svc *service.MatchingService)           { s.
 func (s *Server) SetPoolService(svc *service.ResourcePoolService)         { s.poolSvc = svc }
 func (s *Server) SetTestSiteService(svc *service.TestSiteService)       { s.testSiteSvc = svc }
 func (s *Server) SetExhibitionService(svc *service.ExhibitionService)   { s.exhibitionSvc = svc }
+func (s *Server) SetTransformationService(svc *service.TransformationService) { s.transSvc = svc }
+func (s *Server) SetCollegeService(svc *service.CollegeService)           { s.collegeSvc = svc }
+func (s *Server) SetCooperationService(svc *service.CooperationService)   { s.coopSvc = svc }
 
 // audit records a write operation to the audit log if a writer is configured.
 func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resourceID, result string) {
@@ -349,6 +355,7 @@ func (s *Server) Router() http.Handler {
 	s.registerPhase3Routes(mux)
 	s.registerBizRoutes(mux)
 s.registerBatch1Routes(mux)
+	s.registerBatch2Routes(mux)
 	// Files
 	mux.HandleFunc("POST /api/v1/files/upload", s.uploadFile)
 	mux.HandleFunc("POST /api/v1/enterprises/{id}/documents", s.attachEnterpriseDocument)
