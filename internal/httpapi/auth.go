@@ -149,6 +149,16 @@ func isPublicPath(path string) bool {
 		"/api/v1/events",
 		"/api/v1/industry-resources",
 		"/api/v1/emergency-resources",
+		"/api/v1/resource-pools",
+		"/api/v1/test-sites",
+		"/api/v1/exhibitions",
+		"/api/v1/transformations",
+		"/api/v1/colleges",
+		"/api/v1/cooperation-programs",
+		"/api/v1/rescue-cases",
+		"/api/v1/emergency-depts",
+		"/api/v1/emergency-drills",
+		"/api/v1/association-members",
 	}
 	for _, p := range publicPrefixes {
 		if strings.HasPrefix(path, p) {
