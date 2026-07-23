@@ -1,2 +1,0 @@
-.search-bar { padding: 24rpx; background: #1A4789; }
-.search-bar input { background: rgba(255,255,255,0.15); border-radius: 32rpx; height: 64rpx; padding: 0 32rpx; color: white; }
