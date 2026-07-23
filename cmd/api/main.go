@@ -87,6 +87,9 @@ func main() {
 		enrollRepo       repository.EnrollmentRepository
 		tradeOrderRepo   repository.TradeOrderRepository
 		escrowRepo       repository.EscrowRepository
+		poolRepo         repository.ResourcePoolRepository
+		testSiteRepo     repository.TestSiteRepository
+		exhibitionRepo   repository.ExhibitionRepository
 		expertRepo       repository.ExpertRepository
 		caseRepo         repository.CaseRepository
 		complianceRepo   repository.ComplianceRepository
@@ -150,6 +153,9 @@ func main() {
 		enrollRepo = pgStore.NewEnrollmentRepository()
 		tradeOrderRepo = pgStore.NewTradeOrderRepository()
 		escrowRepo = pgStore.NewEscrowRepository()
+		poolRepo = memory.NewResourcePoolRepository()
+		testSiteRepo = memory.NewTestSiteRepository()
+		exhibitionRepo = memory.NewExhibitionRepository()
 		refreshTokenRepo = pgStore.NewRefreshTokenRepository()
 		expertRepo = pgStore.NewExpertRepository()
 		caseRepo = pgStore.NewCaseRepository()
@@ -197,6 +203,9 @@ func main() {
 		enrollRepo = memory.NewEnrollmentRepository()
 		tradeOrderRepo = memory.NewTradeOrderRepository()
 		escrowRepo = memory.NewEscrowRepository()
+		poolRepo = memory.NewResourcePoolRepository()
+		testSiteRepo = memory.NewTestSiteRepository()
+		exhibitionRepo = memory.NewExhibitionRepository()
 		expertRepo = memory.NewExpertRepository()
 		caseRepo = memory.NewCaseRepository()
 		complianceRepo = memory.NewComplianceRepository()
@@ -259,6 +268,9 @@ func main() {
 		app.SetEventService(service.NewEventService(eventRepo))
 		app.SetResourceService(service.NewResourceService(resourceRepo))
 		app.SetEmergencyService(service.NewEmergencyService(emergencyRepo))
+	app.SetPoolService(service.NewResourcePoolService(poolRepo))
+	app.SetTestSiteService(service.NewTestSiteService(testSiteRepo))
+	app.SetExhibitionService(service.NewExhibitionService(exhibitionRepo))
 	app.SetMatchingService(service.NewMatchingService(demandRepo))
 	app.SetMatchingService(service.NewMatchingService(demandRepo))
 	}

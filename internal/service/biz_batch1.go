@@ -1,0 +1,116 @@
+package service
+
+import (
+	"fmt"
+	"time"
+
+	"drone-platform/internal/domain"
+	"drone-platform/internal/repository"
+)
+
+// ── ResourcePool Service ──
+
+type ResourcePoolService struct{ repo repository.ResourcePoolRepository }
+
+func NewResourcePoolService(r repository.ResourcePoolRepository) *ResourcePoolService {
+	return &ResourcePoolService{repo: r}
+}
+
+func (s *ResourcePoolService) Create(name, poolType, description, ownerID string) (domain.ResourcePool, error) {
+	p := domain.ResourcePool{ID: fmt.Sprintf("pool-%d", time.Now().UnixNano()),
+		Name: name, PoolType: poolType, Description: description, OwnerID: ownerID,
+		Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	return s.repo.Create(p)
+}
+func (s *ResourcePoolService) List(poolType string) ([]domain.ResourcePool, error) {
+	return s.repo.List(poolType)
+}
+func (s *ResourcePoolService) Get(id string) (domain.ResourcePool, error) {
+	return s.repo.FindByID(id)
+}
+func (s *ResourcePoolService) AddMember(poolID, resID, resType string, quantity int) (domain.ResourcePoolMember, error) {
+	m := domain.ResourcePoolMember{ID: fmt.Sprintf("rpm-%d", time.Now().UnixNano()),
+		PoolID: poolID, ResID: resID, ResType: resType, Quantity: quantity,
+		Status: "standby", JoinedAt: time.Now()}
+	return s.repo.AddMember(m)
+}
+func (s *ResourcePoolService) ListMembers(poolID string) ([]domain.ResourcePoolMember, error) {
+	return s.repo.ListMembers(poolID)
+}
+
+// ── TestSite Service ──
+
+type TestSiteService struct{ repo repository.TestSiteRepository }
+
+func NewTestSiteService(r repository.TestSiteRepository) *TestSiteService {
+	return &TestSiteService{repo: r}
+}
+
+func (s *TestSiteService) Create(name, siteType, location, bookingRule, ownerID string, priceFen int64, facilities []string) (domain.TestSite, error) {
+	ts := domain.TestSite{ID: fmt.Sprintf("tst-%d", time.Now().UnixNano()),
+		Name: name, SiteType: siteType, OwnerID: ownerID, Location: location,
+		Facilities: facilities, PriceFen: priceFen, BookingRule: bookingRule,
+		Status: "available", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	return s.repo.Create(ts)
+}
+func (s *TestSiteService) List(siteType string) ([]domain.TestSite, error) {
+	return s.repo.List(siteType)
+}
+func (s *TestSiteService) Get(id string) (domain.TestSite, error) {
+	return s.repo.FindByID(id)
+}
+func (s *TestSiteService) Book(siteID, userID, purpose string, startTime, endTime time.Time) (domain.TestSiteBooking, error) {
+	// Check conflicts
+	bookings, err := s.repo.ListBookings(siteID)
+	if err != nil { return domain.TestSiteBooking{}, err }
+	for _, b := range bookings {
+		if b.Status == "approved" && !(endTime.Before(b.StartTime) || startTime.After(b.EndTime)) {
+			return domain.TestSiteBooking{}, fmt.Errorf("time slot conflicted")
+		}
+	}
+	bk := domain.TestSiteBooking{ID: fmt.Sprintf("tsbk-%d", time.Now().UnixNano()),
+		SiteID: siteID, UserID: userID, Purpose: purpose,
+		StartTime: startTime, EndTime: endTime, Status: "pending", CreatedAt: time.Now()}
+	return s.repo.CreateBooking(bk)
+}
+func (s *TestSiteService) ReviewBooking(bookingID, status, note string) (domain.TestSiteBooking, error) {
+	return s.repo.UpdateBookingStatus(bookingID, status, note)
+}
+func (s *TestSiteService) ListBookings(siteID string) ([]domain.TestSiteBooking, error) {
+	return s.repo.ListBookings(siteID)
+}
+
+// ── Exhibition Service ──
+
+type ExhibitionService struct{ repo repository.ExhibitionRepository }
+
+func NewExhibitionService(r repository.ExhibitionRepository) *ExhibitionService {
+	return &ExhibitionService{repo: r}
+}
+
+func (s *ExhibitionService) Create(title, category, description, location, organizer, coverURL string, startDate, endDate time.Time, boothCount int, boothPrice int64) (domain.Exhibition, error) {
+	e := domain.Exhibition{ID: fmt.Sprintf("expo-%d", time.Now().UnixNano()),
+		Title: title, Category: category, Description: description, Location: location,
+		Organizer: organizer, CoverURL: coverURL, StartDate: startDate, EndDate: endDate,
+		BoothCount: boothCount, BoothPrice: boothPrice, Status: "draft",
+		CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	return s.repo.Create(e)
+}
+func (s *ExhibitionService) List(page, pageSize int) ([]domain.Exhibition, int, error) {
+	return s.repo.List((page-1)*pageSize, pageSize)
+}
+func (s *ExhibitionService) Get(id string) (domain.Exhibition, error) {
+	return s.repo.FindByID(id)
+}
+func (s *ExhibitionService) ApplyBooth(exhibitionID, exhibitorID, boothNumber, exhibitName, exhibitDesc string) (domain.ExhibitionBooth, error) {
+	b := domain.ExhibitionBooth{ID: fmt.Sprintf("exbk-%d", time.Now().UnixNano()),
+		ExhibitionID: exhibitionID, ExhibitorID: exhibitorID, BoothNumber: boothNumber,
+		ExhibitName: exhibitName, ExhibitDesc: exhibitDesc, Status: "applied", CreatedAt: time.Now()}
+	return s.repo.CreateBooth(b)
+}
+func (s *ExhibitionService) ListBooths(exhibitionID string) ([]domain.ExhibitionBooth, error) {
+	return s.repo.ListBooths(exhibitionID)
+}
+func (s *ExhibitionService) ReviewBooth(boothID, status string) (domain.ExhibitionBooth, error) {
+	return s.repo.UpdateBoothStatus(boothID, status)
+}

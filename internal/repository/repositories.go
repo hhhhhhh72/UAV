@@ -396,3 +396,31 @@ type EmergencyRepository interface {
 	CreateDispatch(domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
 	ListDispatches(offset, limit int) ([]domain.EmergencyDispatch, int, error)
 }
+
+// ── Batch1: 产业资源池 + 测试预约 + 展会 (per .doc) ──
+
+type ResourcePoolRepository interface {
+	Create(domain.ResourcePool) (domain.ResourcePool, error)
+	FindByID(id string) (domain.ResourcePool, error)
+	List(poolType string) ([]domain.ResourcePool, error)
+	AddMember(domain.ResourcePoolMember) (domain.ResourcePoolMember, error)
+	ListMembers(poolID string) ([]domain.ResourcePoolMember, error)
+}
+
+type TestSiteRepository interface {
+	Create(domain.TestSite) (domain.TestSite, error)
+	FindByID(id string) (domain.TestSite, error)
+	List(siteType string) ([]domain.TestSite, error)
+	CreateBooking(domain.TestSiteBooking) (domain.TestSiteBooking, error)
+	UpdateBookingStatus(id, status, note string) (domain.TestSiteBooking, error)
+	ListBookings(siteID string) ([]domain.TestSiteBooking, error)
+}
+
+type ExhibitionRepository interface {
+	Create(domain.Exhibition) (domain.Exhibition, error)
+	FindByID(id string) (domain.Exhibition, error)
+	List(offset, limit int) ([]domain.Exhibition, int, error)
+	CreateBooth(domain.ExhibitionBooth) (domain.ExhibitionBooth, error)
+	ListBooths(exhibitionID string) ([]domain.ExhibitionBooth, error)
+	UpdateBoothStatus(id, status string) (domain.ExhibitionBooth, error)
+}
