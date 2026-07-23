@@ -1,0 +1,9 @@
+.cache/
+.claude/
+.superpowers/
+cover.out
+*.exe
+logs/
+uploads/
+platform_config.json
+frontend/

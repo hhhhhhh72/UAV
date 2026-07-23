@@ -1,0 +1,29 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 赛道门框 -->
+  <rect x="20" y="30" width="8" height="40" rx="2" fill="#424245" opacity="0.9"/>
+  <rect x="72" y="30" width="8" height="40" rx="2" fill="#424245" opacity="0.9"/>
+  <rect x="20" y="25" width="60" height="8" rx="2" fill="#424245" opacity="0.9"/>
+  
+  <!-- 无人机轮廓 -->
+  <g transform="translate(50, 50)">
+    <!-- 机身 -->
+    <ellipse cx="0" cy="0" rx="12" ry="6" fill="#424245" opacity="0.95"/>
+    
+    <!-- 四个螺旋桨臂 -->
+    <line x1="-8" y1="-3" x2="-18" y2="-12" stroke="#424245" stroke-width="2" opacity="0.9"/>
+    <line x1="8" y1="-3" x2="18" y2="-12" stroke="#424245" stroke-width="2" opacity="0.9"/>
+    <line x1="-8" y1="3" x2="-18" y2="12" stroke="#424245" stroke-width="2" opacity="0.9"/>
+    <line x1="8" y1="3" x2="18" y2="12" stroke="#424245" stroke-width="2" opacity="0.9"/>
+    
+    <!-- 螺旋桨圆盘 -->
+    <circle cx="-18" cy="-12" r="6" fill="none" stroke="#424245" stroke-width="1.5" opacity="0.7"/>
+    <circle cx="18" cy="-12" r="6" fill="none" stroke="#424245" stroke-width="1.5" opacity="0.7"/>
+    <circle cx="-18" cy="12" r="6" fill="none" stroke="#424245" stroke-width="1.5" opacity="0.7"/>
+    <circle cx="18" cy="12" r="6" fill="none" stroke="#424245" stroke-width="1.5" opacity="0.7"/>
+  </g>
+  
+  <!-- 速度线 -->
+  <line x1="15" y1="45" x2="5" y2="45" stroke="#424245" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <line x1="18" y1="50" x2="3" y2="50" stroke="#424245" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <line x1="15" y1="55" x2="5" y2="55" stroke="#424245" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+</svg>

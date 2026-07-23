@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS assignments;
+DROP TABLE IF EXISTS labour_quotes;
+DROP TABLE IF EXISTS labour_orders;
+DROP TABLE IF EXISTS listing_favorites;
+DROP TABLE IF EXISTS listings;
+DROP TABLE IF EXISTS reports;
+DROP TABLE IF EXISTS comments;
+DROP TABLE IF EXISTS posts;

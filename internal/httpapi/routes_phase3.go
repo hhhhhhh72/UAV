@@ -1,0 +1,41 @@
+package httpapi
+
+import "net/http"
+
+func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/v1/training-courses/{id}/enroll", s.enrollCourse)
+	mux.HandleFunc("POST /api/v1/training-courses/{id}/pay-and-enroll", s.payAndEnroll)
+	mux.HandleFunc("GET /api/v1/training-courses/{id}/enrollments", s.listEnrollments)
+	mux.HandleFunc("GET /api/v1/enrollments/mine", s.listMyEnrollments)
+	mux.HandleFunc("POST /api/v1/enrollments/{id}/complete", s.completeEnrollment)
+	mux.HandleFunc("GET /api/v1/certificates/expiring", s.listExpiringCerts)
+	mux.HandleFunc("GET /api/v1/inspections/expiring", s.listExpiringInspections)
+	mux.HandleFunc("POST /api/v1/trade-orders", s.createTradeOrder)
+	mux.HandleFunc("PATCH /api/v1/trade-orders/{id}/status", s.updateTradeOrderStatus)
+	mux.HandleFunc("GET /api/v1/trade-orders/mine", s.listMyTradeOrders)
+	mux.HandleFunc("GET /api/v1/admin/dashboard", s.adminDashboard)
+	// Escrow (资金托管)
+	mux.HandleFunc("POST /api/v1/escrow/deposit", s.escrowDeposit)
+	mux.HandleFunc("POST /api/v1/escrow/freeze", s.escrowFreeze)
+	mux.HandleFunc("POST /api/v1/escrow/release", s.escrowRelease)
+	mux.HandleFunc("POST /api/v1/escrow/refund", s.escrowRefund)
+	mux.HandleFunc("GET /api/v1/escrow/balance", s.escrowBalance)
+	mux.HandleFunc("GET /api/v1/escrow/transactions", s.escrowTransactions)
+	// News (行业资讯)
+	mux.HandleFunc("POST /api/v1/articles", s.createArticle)
+	mux.HandleFunc("GET /api/v1/articles", s.listArticles)
+	mux.HandleFunc("POST /api/v1/articles/{id}/publish", s.publishArticle)
+	// Reviews + Venues
+	mux.HandleFunc("POST /api/v1/reviews", s.submitReview)
+	mux.HandleFunc("GET /api/v1/reviews", s.listReviews)
+	mux.HandleFunc("GET /api/v1/admin/reviews", s.listAllReviews)
+	mux.HandleFunc("POST /api/v1/admin/reviews/{id}/approve", s.approveReview)
+	mux.HandleFunc("POST /api/v1/admin/reviews/{id}/reject", s.rejectReview)
+	mux.HandleFunc("DELETE /api/v1/admin/reviews/{id}", s.deleteReview)
+	mux.HandleFunc("POST /api/v1/admin/users", s.createUser)
+	mux.HandleFunc("GET /api/v1/admin/users", s.listUsers)
+	mux.HandleFunc("POST /api/v1/admin/users/{id}/role", s.updateUserRole)
+	mux.HandleFunc("POST /api/v1/venues", s.createVenue)
+	mux.HandleFunc("GET /api/v1/venues", s.listVenues)
+	mux.HandleFunc("POST /api/v1/venues/{id}/book", s.bookVenue)
+}

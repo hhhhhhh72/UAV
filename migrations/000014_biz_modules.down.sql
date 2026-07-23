@@ -1,0 +1,17 @@
+DROP TABLE IF EXISTS emergency_dispatches;
+DROP TABLE IF EXISTS emergency_resources;
+DROP TABLE IF EXISTS industry_resources;
+DROP TABLE IF EXISTS industry_reports;
+DROP TABLE IF EXISTS member_portfolios;
+DROP TABLE IF EXISTS event_registrations;
+DROP TABLE IF EXISTS association_events;
+DROP TABLE IF EXISTS competition_registrations;
+DROP TABLE IF EXISTS competitions;
+DROP TABLE IF EXISTS research_projects;
+DROP TABLE IF EXISTS rd_challenges;
+DROP TABLE IF EXISTS achievements;
+DROP TABLE IF EXISTS project_applications;
+DROP TABLE IF EXISTS standard_docs;
+DROP TABLE IF EXISTS compliance_docs;
+DROP TABLE IF EXISTS case_entries;
+DROP TABLE IF EXISTS experts;

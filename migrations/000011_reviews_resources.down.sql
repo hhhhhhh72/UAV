@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS venue_bookings;
+DROP TABLE IF EXISTS venues;
+DROP TABLE IF EXISTS reviews;

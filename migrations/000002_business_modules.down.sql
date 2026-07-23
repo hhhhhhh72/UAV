@@ -1,0 +1,14 @@
+DROP TABLE IF EXISTS loan_applications;
+DROP TABLE IF EXISTS annual_inspections;
+DROP TABLE IF EXISTS insurance_policies;
+DROP TABLE IF EXISTS repair_orders;
+DROP TABLE IF EXISTS drone_products;
+DROP TABLE IF EXISTS certified_pilots;
+DROP TABLE IF EXISTS instructors;
+DROP TABLE IF EXISTS training_courses;
+DROP TABLE IF EXISTS certificates;
+DROP TABLE IF EXISTS demand_bids;
+ALTER TABLE demands DROP COLUMN IF EXISTS biz_fields;
+ALTER TABLE demands DROP COLUMN IF EXISTS budget_fen;
+ALTER TABLE demands DROP COLUMN IF EXISTS biz_type;
+ALTER TABLE demands DROP COLUMN IF EXISTS city_code;

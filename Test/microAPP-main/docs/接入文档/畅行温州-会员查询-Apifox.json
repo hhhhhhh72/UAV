@@ -1,0 +1,31 @@
+{
+  "info": {
+    "name": "畅行温州 会员授权访问",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "cxwz-member-query"
+  },
+  "item": [
+    {
+      "name": "会员查询 member/query/V1",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json;charset=utf-8" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"joininstid\": \"00000015\",\n  \"joininstssn\": \"20260122085906374788\",\n  \"reqdate\": \"20260122\",\n  \"reqtime\": \"085906\",\n  \"hdataenc\": \"LeounLGOdgl568M2ChqK3o+JaLHewez8aqsUjqMtoYRs0WCuBEx2RXLsgnVfLhvqB5b47fgU59WP4sZ8wePlIA==\",\n  \"dataenc\": \"wlEXxJXGiMPI5Sw73to+6F9rYnvMU80vWKl9jWDq0g1r4RvqHOkd/WI7eykSrcPm9J4vdrHUuO1wUCLX01e9/Q==\",\n  \"sign\": \"Vr3Ak3hy22KXQAjthJVlx7DmXO9S7Ym5+/HlLuR0wJ6XSGoXc+yh3hsJChS+wGBx+0rUKaUBsmLxayCKau+O5Q==\"\n}"
+        },
+        "url": {
+          "raw": "https://dev.jieyisoft.com:11296/member/authaccess/member/query/V1",
+          "protocol": "https",
+          "host": ["dev", "jieyisoft", "com"],
+          "port": "11296",
+          "path": ["member", "authaccess", "member", "query", "V1"]
+        },
+        "description": "1. 在项目 backend 目录执行: node create-request.js [authcode]\n2. 复制输出的 Request Body 整段 JSON 粘贴到本请求 Body\n3. 发送请求\n\n接入参数: joininstid 00000015, hdata(instid 00000001, mchntid 150000150001, chnlid 03), authinstid 00000015"
+      }
+    }
+  ]
+}

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>无人机产业综合服务平台 · 管理后台</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js" integrity="sha384-o5uz97et3bErHvpKfD4Jz4n0JfhJDWABFuF4NP+iEEDxE1VwMWJ19QGR0lqFZnr6" crossorigin="anonymous"></script>
+<style>
+:root {
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --surface-alt: #f3f4f8;
+  --text: #1a1d28;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --accent: #4f46e5;
+  --accent-light: #eef2ff;
+  --accent-glow: rgba(79,70,229,0.12);
+  --green: #10b981;
+  --green-light: #ecfdf5;
+  --orange: #f59e0b;
+  --orange-light: #fffbeb;
+  --red: #ef4444;
+  --red-light: #fef2f2;
+  --purple: #8b5cf6;
+  --teal: #06b6d4;
+  --border: #e5e7eb;
+  --border-light: #f3f4f6;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.04);
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --sidebar-w: 232px;
+  --header-h: 60px;
+  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+
+/* ===== Sidebar ===== */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);background:linear-gradient(180deg,#111827 0%,#1a2332 100%);display:flex;flex-direction:column;z-index:200;transition:transform .3s cubic-bezier(0.4,0,0.2,1);overflow:hidden}
+.sidebar::before{content:'';position:absolute;top:-80px;right:-80px;width:200px;height:200px;background:radial-gradient(circle,rgba(79,70,229,0.15) 0%,transparent 70%);pointer-events:none}
+.sidebar-brand{height:var(--header-h);display:flex;align-items:center;padding:0 20px;gap:12px;position:relative}
+.sidebar-brand .logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;box-shadow:0 4px 12px rgba(79,70,229,0.35)}
+.sidebar-brand .brand-text{font-size:15px;font-weight:700;color:#fff;letter-spacing:-0.3px}
+.sidebar-nav{flex:1;overflow-y:auto;padding:4px 0;position:relative}
+.nav-group-label{font-size:10px;color:rgba(255,255,255,0.35);padding:20px 20px 8px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.nav-item{display:flex;align-items:center;padding:10px 20px;margin:1px 10px;border-radius:var(--radius-sm);color:rgba(255,255,255,0.6);text-decoration:none;font-size:13px;font-weight:450;transition:all var(--transition);cursor:pointer;gap:10px;border:none;background:none;width:calc(100% - 20px);text-align:left;position:relative}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.9)}
+.nav-item.active{background:rgba(79,70,229,0.25);color:#fff;font-weight:550;box-shadow:0 2px 8px rgba(79,70,229,0.15)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:20px;background:var(--accent);border-radius:0 3px 3px 0}
+.nav-item .badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;padding:2px 8px;border-radius:12px;font-weight:700;min-width:20px;text-align:center;box-shadow:0 2px 4px rgba(239,68,68,0.3)}
+.sidebar-footer{padding:6px 0;border-top:1px solid rgba(255,255,255,0.06)}
+/* ===== Main ===== */
+.main{margin-left:var(--sidebar-w);flex:1;min-width:0;display:flex;flex-direction:column;min-height:100vh;background:var(--bg)}
+.header{height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;flex-shrink:0;box-shadow:var(--shadow-sm)}
+.header h1{font-size:16px;font-weight:650;letter-spacing:-0.3px;color:var(--text)}
+.header .user{font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--surface-alt);border-radius:20px}
+.content{padding:24px;flex:1;overflow-y:auto}
+/* ===== Metric Cards ===== */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:24px;max-width:1280px}
+.metric-card{background:var(--surface);border-radius:var(--radius-lg);padding:22px 24px;box-shadow:var(--shadow-sm);transition:all var(--transition);position:relative;overflow:hidden;border:1px solid var(--border-light)}
+.metric-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),#7c3aed);opacity:0;transition:opacity var(--transition)}
+.metric-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.metric-card:hover::after{opacity:1}
+.metric-label{font-size:11px;color:var(--text-muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.metric-value{font-size:32px;font-weight:750;color:var(--text);line-height:1.1;letter-spacing:-0.5px;font-feature-settings:'tnum';font-variant-numeric:tabular-nums}
+.metric-sub{font-size:11px;color:var(--text-muted);margin-top:6px;display:flex;align-items:center;gap:4px}
+/* ===== Panel ===== */
+.panel{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);margin-bottom:20px;overflow:hidden;max-width:1280px;border:1px solid var(--border-light)}
+.panel-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface)}
+.panel-header h3{font-size:14px;font-weight:650;color:var(--text);letter-spacing:-0.2px}
+.panel-body{overflow-x:auto}
+.panel-body.padded{padding:24px}
+/* Charts Row */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1280px;margin-bottom:20px}
+.chart-card{background:var(--surface);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-sm);border:1px solid var(--border-light);transition:box-shadow var(--transition)}
+.chart-card:hover{box-shadow:var(--shadow-md)}
+.chart-wide{grid-column:span 1}
+.chart-narrow{grid-column:span 1}
+.chart-full{grid-column:span 2}
+.chart-title{font-size:13px;font-weight:650;color:var(--text);margin-bottom:12px;letter-spacing:-0.2px}
+/* Pie legend */
+.pie-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px}
+.pie-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px currentColor;opacity:0.3}
+.pie-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);font-weight:500}
+/* ===== Table ===== */
+table{width:100%;border-collapse:collapse}
+th,td{padding:13px 18px;text-align:left;font-size:13px}
+th{background:var(--surface-alt);color:var(--text-secondary);font-weight:650;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid var(--border)}
+td{border-bottom:1px solid var(--border-light);color:var(--text);font-weight:450}
+tr:last-child td{border-bottom:none}
+tr{transition:background var(--transition)}
+tr:hover td{background:var(--accent-light)}
+/* ===== Tags ===== */
+.tag{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:0.1px}
+.tag-blue{background:var(--accent-light);color:var(--accent)}
+.tag-green{background:var(--green-light);color:#059669}
+.tag-orange{background:var(--orange-light);color:#d97706}
+.tag-red{background:var(--red-light);color:#dc2626}
+.tag-gray{background:var(--surface-alt);color:var(--text-muted)}
+.tag-purple{background:#f5f3ff;color:var(--purple)}
+/* ===== Buttons ===== */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 18px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all var(--transition);letter-spacing:0.1px}
+.btn-sm{padding:5px 14px;font-size:11px}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(79,70,229,0.3)}
+.btn-primary:hover{background:#4338ca;box-shadow:0 4px 14px rgba(79,70,229,0.4);transform:translateY(-1px)}
+.btn-success{background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(16,185,129,0.3)}
+.btn-success:hover{opacity:0.9;transform:translateY(-1px)}
+.btn-danger{background:var(--red);color:#fff;box-shadow:0 2px 8px rgba(239,68,68,0.3)}
+.btn-danger:hover{opacity:0.9;transform:translateY(-1px)}
+.btn-outline{background:var(--surface);color:var(--accent);border:1.5px solid var(--border)}
+.btn-outline:hover{background:var(--accent-light);border-color:var(--accent)}
+.btn+.btn{margin-left:8px}
+/* ===== Form ===== */
+select{padding:8px 14px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);outline:none;transition:border-color var(--transition);cursor:pointer;font-weight:500}
+select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:12px;font-weight:650;color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.2px}
+.field input,.field textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;transition:all var(--transition);background:var(--surface);font-weight:450}
+.field input:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.field textarea{resize:vertical;min-height:80px;line-height:1.6}
+/* ===== Modal ===== */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-xl);padding:32px;width:460px;max-height:82vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:modalIn .25s cubic-bezier(0.4,0,0.2,1)}
+@keyframes modalIn{from{opacity:0;transform:scale(0.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:24px;color:var(--text);letter-spacing:-0.3px}
+.modal .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+/* ===== Toast ===== */
+.toast{position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:12px 28px;border-radius:24px;font-size:13px;z-index:400;opacity:0;transition:all .3s cubic-bezier(0.4,0,0.2,1);pointer-events:none;font-weight:550;box-shadow:var(--shadow-lg)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(4px)}
+.toast.success{background:linear-gradient(135deg,#059669,#10b981)}
+.toast.error{background:linear-gradient(135deg,#dc2626,#ef4444)}
+/* Page sections */
+.page-section{display:none;animation:fadeIn .2s ease}
+.page-section.active{display:block}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.empty{text-align:center;padding:72px 20px;color:var(--text-muted)}
+.empty .icon{font-size:44px;margin-bottom:12px;opacity:0.5}
+/* ===== Export cards ===== */
+.export-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;max-width:1280px}
+.export-card{background:var(--surface);border-radius:var(--radius-lg);padding:28px;box-shadow:var(--shadow-sm);cursor:pointer;transition:all var(--transition);display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border-light)}
+.export-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--accent)}
+.export-card .export-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px}
+.export-card .export-icon.blue{background:var(--accent-light);color:var(--accent)}
+.export-card .export-icon.green{background:var(--green-light);color:var(--green)}
+/* ===== Responsive ===== */
+@media(max-width:1024px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:767px){
+  .sidebar{transform:translateX(-100%);box-shadow:var(--shadow-lg)}.sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}.header{padding:0 16px}
+  .content{padding:14px}
+  .metrics-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .charts-row{grid-template-columns:1fr}
+  .export-grid{grid-template-columns:1fr}
+  .panel-header{flex-direction:column;align-items:flex-start;gap:10px}
+  .modal{width:92vw;padding:24px;border-radius:var(--radius-lg)}
+}
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.2)}
+.sidebar ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1)}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="logo-icon">🚁</span>
+    <span class="brand-text">后台管理</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group-label">总览</div>
+    <a class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard',this)">📊 数据概览</a>
+    <a class="nav-item" data-page="enterprises" onclick="switchPage('enterprises',this)">🏢 企业审核 <span class="badge" id="pendingBadge">0</span></a>
+    <div class="nav-group-label">内容管理</div>
+    <a class="nav-item" data-page="demands" onclick="switchPage('demands',this)">📋 需求管理</a>
+    <a class="nav-item" data-page="reports" onclick="switchPage('reports',this)">🚩 举报管理</a>
+    <a class="nav-item" data-page="articles" onclick="switchPage('articles',this)">📰 行业资讯</a>
+    <a class="nav-item" data-page="reviews-admin" onclick="switchPage('reviews-admin',this)">⭐ 评价审核 <span class="badge" id="reviewBadge">0</span></a>
+    <a class="nav-item" data-page="users-admin" onclick="switchPage('users-admin',this)">👥 用户管理</a>
+    <a class="nav-item" data-page="config-admin" onclick="switchPage('config-admin',this)">⚙️ 服务配置</a>
+    <div class="nav-group-label">工具</div>
+    <a class="nav-item" data-page="exports" onclick="switchPage('exports',this)">📥 数据导出</a>
+    <a class="nav-item" data-page="tokens" onclick="switchPage('tokens',this)">🔑 Token 工具</a>
+  </nav>
+  <div class="sidebar-footer">
+    <a class="nav-item" href="/" style="width:auto;margin:2px 8px">🏠 返回首页</a>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+  <div class="header">
+    <h1 id="pageTitle">数据概览</h1>
+    <span class="user">👤 管理员</span>
+  </div>
+  <div class="content">
+
+    <!-- ===== Dashboard ===== -->
+    <div class="page-section active" id="page-dashboard">
+      <div class="metrics-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="metric-card"><div class="metric-label">总需求</div><div class="metric-value" id="stat-demands">-</div><div class="metric-sub">所有类型</div></div>
+        <div class="metric-card"><div class="metric-label">待审核企业</div><div class="metric-value" id="stat-enterprises" style="color:var(--orange)">-</div><div class="metric-sub">需跟进处理</div></div>
+        <div class="metric-card"><div class="metric-label">帖子数</div><div class="metric-value" id="stat-posts">-</div><div class="metric-sub">社区内容</div></div>
+        <div class="metric-card"><div class="metric-label">待处理举报</div><div class="metric-value" id="stat-reports" style="color:var(--red)">-</div><div class="metric-sub">需审核</div></div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card chart-wide"><div class="chart-title">需求趋势（近14天）</div><div id="trendChart" style="width:100%;height:260px"></div></div>
+        <div class="chart-card chart-narrow"><div class="chart-title">需求类型分布</div><div id="bizTypeChart" style="width:100%;height:260px"></div></div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card chart-wide"><div class="chart-title">需求状态分布</div><div id="statusChart" style="width:100%;height:260px"></div></div>
+        <div class="chart-card chart-narrow"><div class="chart-title">服务状态</div>
+          <div style="padding:20px">
+            <div class="pie-item" style="margin-bottom:12px"><div class="pie-dot" style="background:var(--green)"></div>存储后端: <strong id="info-storage">-</strong></div>
+            <div class="pie-item" style="margin-bottom:12px"><div class="pie-dot" style="background:var(--accent)"></div>API 版本: <strong>v1.0</strong></div>
+            <div class="pie-item" style="margin-bottom:12px"><div class="pie-dot" style="background:var(--purple)"></div>限流: <strong>100次/秒</strong></div>
+            <div class="pie-item"><div class="pie-dot" style="background:var(--teal)"></div>鉴权: <strong>Bearer Token</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Enterprises ===== -->
+    <div class="page-section" id="page-enterprises">
+      <div class="panel">
+        <div class="panel-header">
+          <h3>企业入驻审核</h3>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input id="entSearch" placeholder="搜索企业名称..." style="padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;font-size:12px;width:180px;outline:none" oninput="loadEnterprises()">
+            <select id="entFilter" onchange="loadEnterprises()"><option value="submitted">待审核</option><option value="approved">已通过</option><option value="rejected">已驳回</option><option value="">全部</option></select>
+            <button class="btn btn-success btn-sm" id="batchApproveBtn" style="display:none" onclick="batchReviewEnterprises('approve')">✓ 批量通过</button>
+            <button class="btn btn-danger btn-sm" id="batchRejectBtn" style="display:none" onclick="batchReviewEnterprises('reject')">✗ 批量驳回</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <table><thead><tr><th style="width:40px"><input type="checkbox" id="entSelectAll" onchange="toggleSelectAllEnt(this)"></th><th>企业名称</th><th>开户账号</th><th>状态</th><th>提交时间</th><th>操作</th></tr></thead>
+          <tbody id="enterpriseTable"><tr><td colspan="6" class="empty"><div class="icon">📭</div>暂无数据</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Demands ===== -->
+    <div class="page-section" id="page-demands">
+      <div class="panel">
+        <div class="panel-header"><h3>需求列表</h3></div>
+        <div class="panel-body">
+          <table><thead><tr><th>标题</th><th>类型</th><th>状态</th><th>发布时间</th><th>操作</th></tr></thead>
+          <tbody id="demandTable"><tr><td colspan="5" class="empty"><div class="icon">📭</div>暂无数据</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Reports ===== -->
+    <div class="page-section" id="page-reports">
+      <div class="panel">
+        <div class="panel-header"><h3>举报管理</h3></div>
+        <div class="panel-body">
+          <table><thead><tr><th>类型</th><th>资源ID</th><th>原因</th><th>举报人</th><th>状态</th></tr></thead>
+          <tbody id="reportTable"><tr><td colspan="5" class="empty"><div class="icon">📭</div>暂无数据</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Articles ===== -->
+    <div class="page-section" id="page-articles">
+      <div class="panel">
+        <div class="panel-header"><h3>行业资讯 <button class="btn btn-primary btn-sm" onclick="showArticleModal()">+ 新建</button></h3></div>
+        <div class="panel-body">
+          <table><thead><tr><th>标题</th><th>分类</th><th>状态</th><th>来源</th><th>时间</th><th>操作</th></tr></thead>
+          <tbody id="articleTable"><tr><td colspan="6" class="empty"><div class="icon">📭</div>暂无数据</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Reviews Admin ===== -->
+    <div class="page-section" id="page-reviews-admin">
+      <div class="panel">
+        <div class="panel-header"><h3>评价审核</h3><select id="reviewFilter" onchange="loadReviewAdmin()"><option value="pending">待审核</option><option value="approved">已通过</option><option value="rejected">已驳回</option><option value="">全部</option></select></div>
+        <div class="panel-body">
+          <table><thead><tr><th>评分</th><th>内容</th><th>对象</th><th>用户</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+          <tbody id="reviewAdminTable"><tr><td colspan="7" class="empty"><div class="icon">📭</div>暂无评价</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Users Admin ===== -->
+  <div class="page-section" id="page-users-admin">
+    <div class="panel">
+      <div class="panel-header"><h3>用户管理</h3><div><button class="btn btn-primary btn-sm" onclick="showUserModal()">+ 新建用户</button> <button class="btn btn-outline btn-sm" onclick="loadUsersAdmin()">刷新</button></div></div>
+      <div class="panel-body">
+        <table><thead><tr><th>用户ID</th><th>角色</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="usersAdminTable"><tr><td colspan="4" class="empty"><div class="icon">👥</div>暂无用户</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Config Admin ===== -->
+  <div class="page-section" id="page-config-admin">
+    <div class="panel" onclick="openHomeConfigPopup()" style="cursor:pointer">
+      <div class="panel-header"><h3>首页配置</h3><span style="color:var(--accent)">编辑 ›</span></div>
+      <div class="panel-body padded">
+        <div style="display:flex;gap:24rpx;font-size:14px;color:var(--text2)">
+          <span>Banner: <strong id="cfgBannerCount">0</strong> 张</span>
+          <span>公告: <strong id="cfgNoticeCount">0</strong> 条</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Exports ===== -->
+    <div class="page-section" id="page-exports">
+      <div class="export-grid">
+        <div class="export-card" onclick="exportCSV('demands')"><div><div class="metric-label">需求数据</div><div class="metric-value" style="font-size:18px">导出 CSV</div><div class="metric-sub">UTF-8 BOM，Excel 可打开</div></div><div class="export-icon blue">📋</div></div>
+        <div class="export-card" onclick="exportCSV('enterprises')"><div><div class="metric-label">企业数据</div><div class="metric-value" style="font-size:18px">导出 CSV</div><div class="metric-sub">格式：名称+状态+账号+时间</div></div><div class="export-icon green">🏢</div></div>
+      </div>
+    </div>
+
+    <!-- ===== Token Tool ===== -->
+    <div class="page-section" id="page-tokens">
+      <div class="panel">
+        <div class="panel-header"><h3>Token 生成工具</h3></div>
+        <div class="panel-body padded">
+          <div class="field"><label>用户 ID</label><input id="tokenUserId" value="user-test" placeholder="输入用户ID"></div>
+          <div class="field"><label>角色</label><select id="tokenRole"><option value="individual">个人</option><option value="enterprise">企业</option><option value="association_admin">协会管理员</option><option value="platform_admin">平台管理员</option></select></div>
+          <button class="btn btn-primary" onclick="generateToken()">生成 Token</button>
+          <div class="field" style="margin-top:16px"><label>当前 Token（15分钟有效）</label><textarea id="tokenOutput" readonly style="font-family:monospace;font-size:12px;height:50px" placeholder="点击生成按钮获取Token..."></textarea></div>
+          <p style="font-size:11px;color:var(--text3);margin-top:6px">生产环境需要配置 WECHAT_APPID + WECHAT_APPSECRET</p>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-header"><h3>当前 Token 信息</h3></div>
+        <div class="panel-body padded">
+          <p style="font-size:11px;color:var(--text2);margin-bottom:4px">Authorization Header:</p>
+          <p id="currentToken" style="font-family:monospace;font-size:12px;word-break:break-all;color:var(--accent)">自动注入中...</p>
+          <button class="btn btn-outline" style="margin-top:12px" onclick="clearToken()">清除 Token</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Home Config Popup -->
+<div class="modal-overlay" id="homeConfigOverlay" onclick="if(event.target===this)closeHomeConfigPopup()">
+  <div class="modal" style="width:660px;max-width:95vw">
+    <h3>首页配置</h3>
+    <div class="field"><label>Banner 轮播图 (<span id="popBannerCount">0</span>张)</label></div>
+    <div id="popBannerList"></div>
+    <button class="btn btn-outline btn-sm" onclick="addBanner()" style="margin:8px 0 16px">+ 添加 Banner</button>
+    <div class="field" style="margin-top:16px"><label>公告通知</label></div>
+    <div id="popNoticeList"></div>
+    <button class="btn btn-outline btn-sm" onclick="addNotice()" style="margin:8px 0 16px">+ 添加公告</button>
+    <div class="actions"><button class="btn btn-outline" onclick="closeHomeConfigPopup()">取消</button><button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button></div>
+  </div>
+</div>
+
+<!-- Generic Modal -->
+<div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalContent"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API='';
+let TOKEN='__ADMIN_TOKEN__';
+localStorage.setItem('admin_token',TOKEN);
+function authHeaders(){var h={'Content-Type':'application/json'};if(TOKEN&&TOKEN!=='__ADMIN_TOKEN__')h['Authorization']='Bearer '+TOKEN;return h}
+document.getElementById('currentToken').textContent=TOKEN.substring(0,60)+'...';
+
+function toast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'')+' show';setTimeout(function(){t.className='toast'},2500)}
+
+async function fetchAPI(url,opts){opts=opts||{};opts.headers=Object.assign(authHeaders(),opts.headers||{});try{var r=await fetch(API+url,opts);var d=await r.json();if(r.status>=400)throw new Error((d.error||{}).message||'请求失败');return d.data||d}catch(e){throw e}}
+
+function esc(s){if(!s)return'';var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function fmtDate(d){if(!d)return'-';return new Date(d).toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}
+
+// ===== Navigation =====
+function switchPage(page,el){
+  document.querySelectorAll('.nav-item').forEach(function(i){i.classList.remove('active')});
+  el.classList.add('active');
+  document.querySelectorAll('.page-section').forEach(function(p){p.classList.remove('active')});
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('pageTitle').textContent=el.textContent.replace(/[\d]/,'').trim();
+  if(page==='enterprises')loadEnterprises();
+  if(page==='demands')loadDemands();
+  if(page==='reports')loadReports();
+  if(page==='articles')loadArticles();
+  if(page==='reviews-admin')loadReviewAdmin();
+  if(page==='users-admin')loadUsersAdmin();
+  if(page==='config-admin')loadConfigAdmin();
+  if(page==='dashboard')loadStats();
+}
+// Sidebar mobile toggle
+document.getElementById('sidebar').addEventListener('click',function(e){if(e.target===this)this.classList.toggle('open')});
+
+// ===== Dashboard (ECharts - matching Test project Dashboard.vue) =====
+var trendChart, bizTypeChart, statusChart;
+var COLORS={blue:'#4f46e5',green:'#10b981',orange:'#f59e0b',red:'#ef4444',purple:'#8b5cf6',teal:'#06b6d4',gray:'#9ca3af'};
+
+function initCharts(){
+  trendChart=echarts.init(document.getElementById('trendChart'));
+  bizTypeChart=echarts.init(document.getElementById('bizTypeChart'));
+  statusChart=echarts.init(document.getElementById('statusChart'));
+  window.addEventListener('resize',function(){trendChart.resize();bizTypeChart.resize();statusChart.resize()});
+}
+
+async function loadStats(){
+  try{
+    var h=await fetch('/healthz').then(function(r){return r.json()});
+    document.getElementById('info-storage').textContent=(h.data||h).checks.storage||'-';
+    try{
+      var dash=await fetchAPI('/api/v1/admin/dashboard');
+      document.getElementById('stat-demands').textContent=(dash.total_demands||0).toLocaleString();
+      document.getElementById('stat-enterprises').textContent=(dash.pending_enterprises||0).toLocaleString();
+      var pe=dash.pending_enterprises||0;document.getElementById('pendingBadge').textContent=pe>0?pe:'';document.getElementById('pendingBadge').style.display=pe>0?'inline':'none';
+      document.getElementById('stat-posts').textContent=(dash.total_posts||0).toLocaleString();
+      document.getElementById('stat-reports').textContent=(dash.pending_reports||0).toLocaleString();
+    }catch(e){try{var dems=await fetchAPI('/api/v1/demands?page_size=200');document.getElementById('stat-demands').textContent=(dems||[]).length.toLocaleString()}catch(e){}}
+    // Load all demands for chart data
+    var demands=[];
+    try{demands=await fetchAPI('/api/v1/demands?page_size=500')}catch(e){}
+    demands=demands||[];
+    renderTrendChart(demands);
+    renderBizTypeChart(demands);
+    renderStatusChart(demands);
+    try{var r=await fetchAPI('/api/v1/admin/reviews?status=pending&page_size=1');var rc=(r||[]).length||0;document.getElementById('reviewBadge').textContent=rc>0?rc:'';document.getElementById('reviewBadge').style.display=rc>0?'inline':'none'}catch(e){}
+  }catch(e){}
+}
+
+function renderTrendChart(demands){
+  if(!trendChart)initCharts();
+  var now=new Date();
+  var dates=[];var counts=[];
+  for(var i=13;i>=0;i--){var d=new Date(now);d.setDate(d.getDate()-i);dates.push((d.getMonth()+1)+'/'+d.getDate());counts.push(0)}
+  demands.forEach(function(d){var days=Math.floor((now-new Date(d.created_at))/(86400000));if(days>=0&&days<14)counts[13-days]++});
+  trendChart.setOption({
+    tooltip:{trigger:'axis'},
+    grid:{left:40,right:16,top:16,bottom:24},
+    xAxis:{type:'category',data:dates,axisLine:{lineStyle:{color:'#e5e5e7'}},axisLabel:{color:'#86868b',fontSize:10},axisTick:{show:false}},
+    yAxis:{type:'value',minInterval:1,splitLine:{lineStyle:{color:'#f0f0f2'}},axisLabel:{color:'#86868b',fontSize:10}},
+    series:[{data:counts,type:'line',smooth:true,symbol:'circle',symbolSize:6,lineStyle:{color:COLORS.blue,width:2},itemStyle:{color:COLORS.blue},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(0,113,227,0.15)'},{offset:1,color:'rgba(0,113,227,0.01)'}]}}}]
+  });
+}
+
+function renderBizTypeChart(demands){
+  if(!bizTypeChart)initCharts();
+  var map={};
+  demands.forEach(function(d){var b=d.biz_type||'other';map[b]=(map[b]||0)+1});
+  var labels={cable_inspection:'电缆巡检',plant_transport:'植保运输',spray_pesticide:'喷洒农药',clean_paint:'清洗喷绘',trade_lease:'买卖租赁',other:'其他'};
+  var data=Object.keys(map).map(function(k){return{value:map[k],name:labels[k]||k}});
+  bizTypeChart.setOption({
+    tooltip:{trigger:'item'},
+    legend:{bottom:0,textStyle:{color:'#86868b',fontSize:10}},
+    series:[{type:'pie',radius:['45%','70%'],center:['50%','42%'],avoidLabelOverlap:true,label:{show:false},
+      data:data.length?data:[{value:1,name:'暂无数据'}],
+      color:[COLORS.blue,COLORS.teal,COLORS.purple,COLORS.green,COLORS.orange,COLORS.gray]
+    }]
+  });
+}
+
+function renderStatusChart(demands){
+  if(!statusChart)initCharts();
+  var map={};demands.forEach(function(d){var s=d.status||'pending';map[s]=(map[s]||0)+1});
+  var labels={pending:'待审核',published:'已发布',matched:'已匹配',completed:'已完成',cancelled:'已取消',rejected:'已驳回'};
+  var data=Object.keys(map).map(function(k){return{value:map[k],name:labels[k]||k}});
+  statusChart.setOption({
+    tooltip:{trigger:'item'},
+    legend:{bottom:0,textStyle:{color:'#86868b',fontSize:10}},
+    series:[{type:'pie',radius:['45%','70%'],center:['50%','42%'],label:{show:false},
+      data:data.length?data:[{value:1,name:'暂无数据'}],
+      color:[COLORS.orange,COLORS.blue,COLORS.green,COLORS.purple,COLORS.red,COLORS.gray]
+    }]
+  });
+}
+
+// ===== Enterprises =====
+var selectedEnts=[];
+function toggleSelectAllEnt(cb){
+  var checks=document.querySelectorAll('.ent-check');
+  selectedEnts=[];
+  for(var i=0;i<checks.length;i++){checks[i].checked=cb.checked;if(cb.checked)selectedEnts.push(checks[i].value)}
+  updateBatchBtns()
+}
+function toggleEntCheck(cb){
+  if(cb.checked)selectedEnts.push(cb.value);else selectedEnts=selectedEnts.filter(function(id){return id!==cb.value});
+  updateBatchBtns()
+}
+function updateBatchBtns(){
+  var show=selectedEnts.length>0;
+  document.getElementById('batchApproveBtn').style.display=show?'inline-flex':'none';
+  document.getElementById('batchRejectBtn').style.display=show?'inline-flex':'none'
+}
+async function batchReviewEnterprises(action){
+  if(TOKEN==='__ADMIN_TOKEN__'){toast('请先获取Token','error');return}
+  if(!selectedEnts.length){toast('请勾选企业','error');return}
+  var reason='';if(action==='reject'){reason=prompt('批量驳回原因:');if(!reason)return}
+  try{
+    var r=await fetchAPI('/api/v1/admin/enterprises/batch-review',{method:'POST',body:JSON.stringify({ids:selectedEnts,action:action,reason:reason||''})});
+    toast('处理完成: '+r.total+' 家企业','success');
+    selectedEnts=[];document.getElementById('entSelectAll').checked=false;
+    loadEnterprises();loadStats()
+  }catch(e){toast(e.message,'error')}
+}
+
+async function loadEnterprises(){
+  try{
+    var status=document.getElementById('entFilter').value;
+    var search=document.getElementById('entSearch').value.trim();
+    var items;
+    if(search){
+      items=await fetchAPI('/api/v1/admin/enterprises/search?q='+encodeURIComponent(search));
+    }else{
+      var url='/api/v1/admin/enterprises?page_size=500';
+      if(status)url+='&status='+status;
+      items=await fetchAPI(url);
+    }
+    var tbody=document.getElementById('enterpriseTable');
+    if(!items||!items.length){tbody.innerHTML='<tr><td colspan="6" class="empty"><div class="icon">📭</div>暂无数据</td></tr>';return}
+    var labels={draft:'草稿',submitted:'待审核',approved:'已通过',rejected:'已驳回',supplement_required:'需补件'};
+    var tc={submitted:'orange',approved:'green',rejected:'red',draft:'gray',supplement_required:'orange'};
+    tbody.innerHTML=items.map(function(e){return '<tr><td>'+(e.status==='submitted'?'<input type="checkbox" class="ent-check" value="'+e.id+'" onchange="toggleEntCheck(this)">':'')+'</td><td><strong>'+esc(e.name)+'</strong></td><td>'+esc(e.account_name||'-')+'</td><td><span class="tag tag-'+tc[e.status]+'">'+(labels[e.status]||e.status)+'</span></td><td>'+fmtDate(e.created_at)+'</td><td>'+(e.status==='submitted'?'<button class="btn btn-success btn-sm" onclick="reviewEnt(\''+e.id+'\',\'approve\')">通过</button><button class="btn btn-danger btn-sm" onclick="reviewEnt(\''+e.id+'\',\'reject\')">驳回</button>':'<button class="btn btn-outline btn-sm" onclick="reviewEnt(\''+e.id+'\',\'supplement\')">补件</button>')+'</td></tr>'}).join('');
+    selectedEnts=[];document.getElementById('entSelectAll').checked=false;updateBatchBtns()
+  }catch(e){document.getElementById('enterpriseTable').innerHTML='<tr><td colspan="6" class="empty">加载失败</td></tr>'}
+}
+
+async function reviewEnt(id,action){
+  if(TOKEN==='__ADMIN_TOKEN__'){toast('请先在 Token 工具生成 Token','error');return}
+  var reason='';if(action!=='approve'){reason=prompt('请输入'+(action==='reject'?'驳回':'补件')+'原因:');if(!reason)return}
+  try{await fetchAPI('/api/v1/admin/enterprises/'+id+'/review',{method:'POST',body:JSON.stringify({action:action,reason:reason||''})});toast({approve:'已通过',reject:'已驳回',supplement:'已要求补件'}[action],'success');loadEnterprises();loadStats()}catch(e){toast(e.message,'error')}
+}
+
+// ===== Demands =====
+async function loadDemands(){
+  try{
+    var items=await fetchAPI('/api/v1/admin/demands?page_size=100&_t='+Date.now());
+    var tbody=document.getElementById('demandTable');
+    if(!items||!items.length){tbody.innerHTML='<tr><td colspan="5" class="empty"><div class="icon">📭</div>暂无数据</td></tr>';return}
+    var labels={pending:'待审核',published:'已发布',matched:'已匹配',completed:'已完成',cancelled:'已取消',rejected:'已驳回'};
+    var tc={pending:'orange',published:'blue',matched:'orange',completed:'green',cancelled:'gray',rejected:'red'};
+    var bl={cable_inspection:'电缆巡检',plant_transport:'植保运输',spray_pesticide:'喷洒农药',clean_paint:'清洗喷绘',trade_lease:'买卖租赁',other:'其他'};
+    tbody.innerHTML=items.map(function(d){return '<tr><td><strong>'+esc(d.title)+'</strong></td><td>'+bl[d.biz_type]+'</td><td><span class="tag tag-'+tc[d.status]+'">'+(labels[d.status]||d.status)+'</span></td><td>'+fmtDate(d.created_at)+'</td><td>'+(d.status==='pending'?'<button class="btn btn-success btn-sm" onclick="reviewDemand(\''+d.id+'\',\'approve\')">通过</button><button class="btn btn-danger btn-sm" onclick="reviewDemand(\''+d.id+'\',\'reject\')">驳回</button>':'—')+'</td></tr>'}).join('');
+  }catch(e){document.getElementById('demandTable').innerHTML='<tr><td colspan="5" class="empty">加载失败</td></tr>'}
+}
+
+async function reviewDemand(id,action){
+  if(TOKEN==='__ADMIN_TOKEN__'){toast('请先在 Token 工具生成 Token','error');return}
+  var reason='';if(action==='reject'){reason=prompt('驳回原因:');if(!reason)return}
+  try{await fetchAPI('/api/v1/admin/demands/'+id+'/review',{method:'POST',body:JSON.stringify({action:action,reason:reason||''})});toast({approve:'已通过',reject:'已驳回'}[action],'success');setTimeout(loadDemands,300)}catch(e){toast(e.message,'error');setTimeout(loadDemands,300)}
+}
+
+// ===== Reports =====
+async function loadReports(){
+  try{
+    var items=await fetchAPI('/api/v1/admin/reports?page_size=100');
+    var tbody=document.getElementById('reportTable');
+    if(!items||!items.length){tbody.innerHTML='<tr><td colspan="5" class="empty"><div class="icon">📭</div>暂无数据</td></tr>';return}
+    tbody.innerHTML=items.map(function(r){return '<tr><td>'+esc(r.resource_type)+'</td><td><code>'+esc(r.resource_id)+'</code></td><td>'+esc(r.reason)+'</td><td>'+esc(r.reporter_id)+'</td><td><span class="tag tag-'+(r.status==='pending'?'orange':'green')+'">'+(r.status==='pending'?'待处理':'已处理')+'</span></td></tr>'}).join('');
+  }catch(e){document.getElementById('reportTable').innerHTML='<tr><td colspan="5" class="empty">加载失败</td></tr>'}
+}
+
+// ===== Articles =====
+async function loadArticles(){
+  try{
+    var items=await fetchAPI('/api/v1/articles?page_size=100');
+    var tbody=document.getElementById('articleTable');
+    if(!items||!items.length){tbody.innerHTML='<tr><td colspan="6" class="empty"><div class="icon">📭</div>暂无数据</td></tr>';return}
+    var cats={policy:'政策法规',industry:'行业动态',alert:'合规预警',standard:'标准文件'};
+    tbody.innerHTML=items.map(function(a){return '<tr><td><strong>'+esc(a.title)+'</strong></td><td>'+cats[a.category]+'</td><td><span class="tag tag-'+(a.status==='published'?'green':'orange')+'">'+(a.status==='published'?'已发布':'草稿')+'</span></td><td>'+esc(a.source||'-')+'</td><td>'+fmtDate(a.created_at)+'</td><td>'+(a.status!=='published'?'<button class="btn btn-success btn-sm" onclick="publishArticle(\''+a.id+'\')">发布</button>':'—')+'</td></tr>'}).join('');
+  }catch(e){document.getElementById('articleTable').innerHTML='<tr><td colspan="6" class="empty">加载失败</td></tr>'}
+}
+
+function showArticleModal(){
+  document.getElementById('modalOverlay').style.display='flex';
+  document.getElementById('modalContent').innerHTML='<h3>新建资讯</h3><div class="field"><label>标题</label><input id="artTitle" placeholder="输入标题"></div><div class="field"><label>分类</label><select id="artCat"><option value="policy">政策法规</option><option value="industry">行业动态</option><option value="alert">合规预警</option><option value="standard">标准文件</option></select></div><div class="field"><label>来源</label><input id="artSource" placeholder="来源"></div><div class="field"><label>内容</label><textarea id="artContent" placeholder="输入内容..." style="height:120px"></textarea></div><div class="actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" id="artSubmitBtn" onclick="createArticle()">创建</button></div>';
+}
+function closeModal(){document.getElementById('modalOverlay').style.display='none'}
+async function createArticle(){
+  var btn=document.getElementById('artSubmitBtn');if(btn){btn.disabled=true;btn.textContent='提交中...'}
+  try{
+    await fetchAPI('/api/v1/articles',{method:'POST',body:JSON.stringify({
+      title:document.getElementById('artTitle').value,
+      content:document.getElementById('artContent').value,
+      category:document.getElementById('artCat').value,
+      source:document.getElementById('artSource').value||'官方'
+    })});
+    toast('创建成功','success');closeModal();loadArticles();
+  }catch(e){toast(e.message,'error')}
+  if(btn){btn.disabled=false;btn.textContent='创建'}
+}
+async function publishArticle(id){try{await fetchAPI('/api/v1/articles/'+id+'/publish',{method:'POST'});toast('已发布','success');loadArticles()}catch(e){toast(e.message,'error')}}
+document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this)closeModal()});
+
+// ===== Review Admin =====
+async function loadReviewAdmin(){
+  try{
+    var status=document.getElementById('reviewFilter').value;
+    var url='/api/v1/admin/reviews?page_size=200';
+    if(status)url+='&status='+status;
+    var items=await fetchAPI(url);
+    var tbody=document.getElementById('reviewAdminTable');
+    if(!items||!items.length){tbody.innerHTML='<tr><td colspan="7" class="empty"><div class="icon">📭</div>暂无评价</td></tr>';return}
+    tbody.innerHTML=items.map(function(r){var act='';if(r.status==='pending'){act='<button class="btn btn-success btn-sm" onclick="reviewAct(\''+r.id+'\',\'approve\')">通过</button><button class="btn btn-danger btn-sm" onclick="reviewAct(\''+r.id+'\',\'reject\')">驳回</button>'}else{act='<button class="btn btn-danger btn-sm" onclick="reviewAct(\''+r.id+'\',\'delete\')">删除</button>'}return '<tr><td><span style="color:#ff9f0a">'+'★'.repeat(r.rating)+'</span></td><td>'+esc(r.content)+'</td><td>'+esc(r.target_type)+'/'+esc(r.target_id)+'</td><td>'+esc(r.reviewer_id)+'</td><td><span class="tag tag-'+(r.status==='approved'?'green':r.status==='rejected'?'red':'orange')+'">'+(r.status==='approved'?'已通过':r.status==='rejected'?'已驳回':'待审核')+'</span></td><td>'+fmtDate(r.created_at)+'</td><td>'+act+'</td></tr>'}).join('');
+  }catch(e){document.getElementById('reviewAdminTable').innerHTML='<tr><td colspan="7" class="empty">加载失败</td></tr>'}
+}
+async function reviewAct(id,action){try{await fetchAPI('/api/v1/admin/reviews/'+id+'/'+action,action==='delete'?{method:'DELETE'}:{method:'POST'});toast(action==='approve'?'已通过':action==='reject'?'已驳回':'已删除','success');loadReviewAdmin();loadStats()}catch(e){toast(e.message,'error')}}
+async function loadUsersAdmin(){
+  try{var data=await fetchAPI('/api/v1/admin/users');var items=data||[];var tbody=document.getElementById('usersAdminTable');
+    var labels={platform_admin:'平台管理员',association_admin:'协会管理员',enterprise:'企业',individual:'个人'};
+    tbody.innerHTML=items.length?items.map(function(u){return '<tr><td><strong>'+esc(u.id)+'</strong></td><td><span class=tag tag-blue>'+labels[u.role]+'</span></td><td><span class=tag tag-green>'+esc(u.status||'active')+'</span></td><td><button class="btn btn-outline btn-sm" onclick="changeUserRole(\''+u.id+'\',\''+u.role+'\')">修改角色</button></td></tr>'}).join(''):'<tr><td colspan=4 class=empty><div class=icon>👥</div>暂无用户</td></tr>';
+  }catch(e){}
+}
+function showUserModal(){
+  document.getElementById('modalContent').innerHTML='<h3>新建用户</h3><div class="field"><label>用户ID</label><input id="newUserId" placeholder="输入用户ID（如 user-001）"></div><div class="field"><label>角色</label><select id="newUserRole"><option value="individual">个人</option><option value="enterprise">企业</option><option value="association_admin">协会管理员</option><option value="platform_admin">平台管理员</option></select></div><div class="actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="createUser()">创建</button></div>';
+  document.getElementById('modalOverlay').style.display='flex';
+}
+async function createUser(){
+  var id=document.getElementById('newUserId').value.trim();if(!id){toast('请输入用户ID','error');return}
+  try{await fetchAPI('/api/v1/admin/users',{method:'POST',body:JSON.stringify({id:id,role:document.getElementById('newUserRole').value})});toast('用户创建成功','success');closeModal();loadUsersAdmin()}catch(e){toast(e.message,'error')}
+}
+async function changeUserRole(id,currentRole){
+  var roles=['individual','enterprise','association_admin','platform_admin'];var labels=['个人','企业','协会管理员','平台管理员'];
+  var items=roles.map(function(r,i){return labels[i]+(r===currentRole?' (当前)':'')});
+  // Simple confirm approach
+  var newRole=prompt('选择新角色:\n1.个人 2.企业 3.协会管理员 4.平台管理员','2');
+  var idx=parseInt(newRole)-1;if(idx>=0&&idx<4){try{await fetchAPI('/api/v1/admin/users/'+id+'/role',{method:'POST',body:JSON.stringify({role:roles[idx]})});toast('角色已更新','success');loadUsersAdmin()}catch(e){toast(e.message,'error')}}
+}
+
+// ===== Export =====
+function exportCSV(type){window.open('/api/v1/admin/export/'+type,'_blank');toast('导出已开始','success')}
+
+// ===== Token Tool =====
+async function generateToken(){
+  var uid=document.getElementById('tokenUserId').value||'user-test';
+  var role=document.getElementById('tokenRole').value;
+  try{
+    var r=await fetch(API+'/api/v1/admin/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role})});
+    var d=await r.json();
+    if(d.data&&d.data.access_token){TOKEN=d.data.access_token;localStorage.setItem('admin_token',TOKEN);document.getElementById('tokenOutput').value=TOKEN;document.getElementById('currentToken').textContent=TOKEN;toast('Token 已生成','success')}else{toast('需要 WECHAT_APPID + WECHAT_APPSECRET','error')}
+  }catch(e){toast('生成失败','error')}
+}
+function clearToken(){TOKEN='';localStorage.removeItem('admin_token');document.getElementById('tokenOutput').value='';document.getElementById('currentToken').textContent='未设置';toast('Token 已清除')}
+
+// ===== Config Admin =====
+var _configData={banners:[],notices:[]};
+function openHomeConfigPopup(){document.getElementById('homeConfigOverlay').style.display='flex';renderBanners();renderNotices()}
+function closeHomeConfigPopup(){document.getElementById('homeConfigOverlay').style.display='none'}
+async function loadConfigAdmin(){
+  try{_configData=await fetchAPI('/api/v1/admin/config');var b=(_configData.banners||[]).length;var n=(_configData.notices||[]).length;document.getElementById('cfgBannerCount').textContent=b;document.getElementById('cfgNoticeCount').textContent=n}catch(e){}
+}
+function renderBanners(){
+  var html='';var banners=_configData.banners||[];
+  banners.forEach(function(b,i){var img=b.image_url?'<img src="'+esc(b.image_url)+'" style="width:100%;height:80px;object-fit:cover;border-radius:6px;display:block">':'<div style="width:100%;height:80px;border-radius:6px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#999">无图片</div>';html+='<div style="margin-bottom:12px;padding:12px;background:#fafafa;border-radius:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:12px;color:#999">#'+(i+1)+'</span><button class="btn btn-danger btn-sm" onclick="_configData.banners.splice('+i+',1);renderBanners()">删除</button></div>'+img+'<div style="display:flex;gap:8px;margin-top:8px"><label class="btn btn-outline btn-sm" style="cursor:pointer;padding:4px 10px;font-size:12px">📁 上传<input type="file" accept="image/*" onchange="uploadBanner(event,'+i+')" style="display:none"></label><input value="'+esc(b.link_url)+'" placeholder="跳转链接(如 /pages/demand/list)" style="flex:1;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px" oninput="_configData.banners['+i+'].link_url=this.value"></div></div>'});
+  document.getElementById('popBannerList').innerHTML=html||'<div class="empty"><div class="icon">🖼️</div>暂无 Banner</div>';
+  document.getElementById('popBannerCount').textContent=banners.length;
+}
+function renderNotices(){
+  var html='';var notices=_configData.notices||[];
+  notices.forEach(function(n,i){html+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input value="'+esc(n)+'" placeholder="公告内容" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px" oninput="_configData.notices['+i+']=this.value"><button class="btn btn-danger btn-sm" onclick="_configData.notices.splice('+i+',1);renderNotices()">X</button></div>'});
+  document.getElementById('popNoticeList').innerHTML=html||'<div class="empty"><div class="icon">📢</div>暂无公告</div>';
+}
+function addBanner(){_configData.banners.push({id:'banner-'+Date.now(),image_url:'',link_url:'',sort_order:_configData.banners.length});renderBanners()}
+function addNotice(){_configData.notices.push('');renderNotices()}
+async function saveConfig(){try{await fetchAPI('/api/v1/admin/config',{method:'POST',body:JSON.stringify(_configData)});closeHomeConfigPopup();toast('配置已保存','success')}catch(e){toast(e.message,'error')}}
+async function uploadBanner(e,i){
+  var file=e.target.files[0];if(!file)return;
+  toast('上传中...');
+  var fd=new FormData();fd.append('file',file);
+  var xhr=new XMLHttpRequest();
+  xhr.open('POST','/api/v1/files/upload');
+  xhr.setRequestHeader('Authorization','Bearer '+TOKEN);
+  xhr.onload=function(){
+    if(xhr.status===200||xhr.status===201){
+      try{var d=JSON.parse(xhr.responseText);if(d.data&&d.data.file_id){_configData.banners[i].image_url='/uploads/'+d.data.file_id;renderBanners();toast('上传成功','success');return}}catch(e){}
+    }
+    toast('上传失败','error')
+  };
+  xhr.onerror=function(){toast('网络错误','error')};
+  xhr.send(fd);
+}
+
+// Init
+loadStats();
+</script>
+</body>
+</html>

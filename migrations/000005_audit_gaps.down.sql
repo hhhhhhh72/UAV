@@ -1,0 +1,18 @@
+ALTER TABLE loan_applications DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE insurance_policies DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE certificates DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE drone_products DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE labour_orders DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE listings DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE posts DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE resumes DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE jobs DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE contracts DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE employment_requests DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE demands DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE enterprises DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE users DROP COLUMN IF EXISTS deleted_at;
+DROP TABLE IF EXISTS outbox_events;
+DROP TABLE IF EXISTS files;
+DROP TABLE IF EXISTS roles;

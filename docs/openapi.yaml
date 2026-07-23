@@ -1,0 +1,1372 @@
+openapi: "3.0.3"
+info:
+  title: 无人机产业综合服务平台 API
+  version: "1.0"
+  description: >
+    面向无人机产业链的全栈服务平台，提供企业入驻、需求竞标、合同签约、
+    资金托管、培训认证等 16 个业务模块，共 130 条 API 端点。
+
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ════════════════════════════════════════════════════════
+  # 健康检查
+  # ════════════════════════════════════════════════════════
+  /healthz:
+    get:
+      summary: 健康检查
+      tags: [系统]
+      security: []
+      responses:
+        "200":
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  # ════════════════════════════════════════════════════════
+  # 认证
+  # ════════════════════════════════════════════════════════
+  /api/v1/auth/wechat/login:
+    post:
+      summary: 微信登录
+      description: 使用 wx.login() 获取的 code 换取访问令牌
+      tags: [认证]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  description: wx.login() 返回的临时凭证
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /api/v1/auth/refresh:
+    post:
+      summary: 刷新令牌
+      description: 使用 refresh_token 换新的访问令牌
+      tags: [认证]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /api/v1/auth/logout:
+    post:
+      summary: 登出
+      description: 撤销当前刷新令牌
+      tags: [认证]
+      responses:
+        "200":
+          description: 成功登出
+
+  /api/v1/me:
+    get:
+      summary: 当前用户信息
+      tags: [认证]
+      responses:
+        "200":
+          description: 用户信息
+
+  # ════════════════════════════════════════════════════════
+  # 企业入驻
+  # ════════════════════════════════════════════════════════
+  /api/v1/enterprises:
+    post:
+      summary: 创建企业
+      description: 企业用户注册企业信息（草稿状态）
+      tags: [企业入驻]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: 企业名称
+                account_name:
+                  type: string
+                  description: 开户账号
+                license_url:
+                  type: string
+                  description: 营业执照文件URL
+      responses:
+        "201":
+          description: 创建成功（草稿状态）
+    get:
+      summary: 我的企业列表
+      tags: [企业入驻]
+      responses:
+        "200":
+          description: 企业列表
+
+  /api/v1/enterprises/{id}:
+    patch:
+      summary: 修改企业信息
+      description: 仅限草稿和补件状态可修改
+      tags: [企业入驻]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 修改成功
+
+  /api/v1/enterprises/{id}/submit:
+    post:
+      summary: 提交审核
+      description: 草稿/补件 → 待审核
+      tags: [企业入驻]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 提交成功
+
+  /api/v1/enterprises/{id}/documents:
+    post:
+      summary: 上传企业资质文件
+      tags: [企业入驻]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/admin/enterprises/{id}/review:
+    post:
+      summary: 审核企业
+      description: 协会/平台管理员操作：approve(通过) reject(驳回) supplement(补件)
+      tags: [企业入驻]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [approve, reject, supplement]
+                reason:
+                  type: string
+                  description: 驳回或补件原因
+      responses:
+        "200":
+          description: 审核完成
+
+  /api/v1/admin/enterprises/batch-review:
+    post:
+      summary: 批量审核企业
+      description: 一次最多审核50条
+      tags: [企业入驻]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids, action]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 50
+                action:
+                  type: string
+                  enum: [approve, reject]
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: 批量审核结果（含每条记录的成功/失败）
+
+  # ════════════════════════════════════════════════════════
+  # 需求大厅（核心业务）
+  # ════════════════════════════════════════════════════════
+  /api/v1/demands:
+    post:
+      summary: 创建需求
+      tags: [需求大厅]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [publisher_name, contact, title, biz_type]
+              properties:
+                publisher_name:
+                  type: string
+                contact:
+                  type: string
+                title:
+                  type: string
+                description:
+                  type: string
+                biz_type:
+                  type: string
+                  enum: [cable_inspection, plant_transport, spray_pesticide, clean_paint, trade_lease, other]
+                district:
+                  type: string
+                budget_fen:
+                  type: integer
+                  description: 预算（分）
+                images:
+                  type: array
+                  items:
+                    type: string
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                biz_fields:
+                  type: object
+      responses:
+        "201":
+          description: 创建成功（待审核）
+
+    get:
+      summary: 需求列表
+      description: 公开浏览，支持分页+筛选+排序
+      tags: [需求大厅]
+      security: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: biz_type
+          in: query
+          schema:
+            type: string
+        - name: district
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [latest, budget_desc, nearest]
+      responses:
+        "200":
+          description: 分页需求列表
+
+  /api/v1/demands/{id}:
+    patch:
+      summary: 修改需求
+      tags: [需求大厅]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 修改成功
+
+  /api/v1/demands/{id}/submit:
+    post:
+      summary: 提交需求
+      tags: [需求大厅]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/demands/{id}/applications:
+    post:
+      summary: 竞标报价
+      description: 对发布的需求提交报价（不能投自己的需求）
+      tags: [需求大厅]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_fen, proposal]
+              properties:
+                amount_fen:
+                  type: integer
+                  description: 报价（分）
+                proposal:
+                  type: string
+                  description: 方案说明
+      responses:
+        "201":
+          description: 报价已创建
+
+  /api/v1/demands/{id}/applications/{bidId}/select:
+    post:
+      summary: 选中中标
+      description: 发布者选择中标报价（原子CAS操作，防并发双选）
+      tags: [需求大厅]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: bidId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 中标成功
+
+  /api/v1/demands/{id}/complete:
+    post:
+      summary: 确认完成
+      description: 双确认机制——发布者和中标者都确认后需求完成
+      tags: [需求大厅]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 确认成功
+
+  /api/v1/demands/{id}/dispute:
+    post:
+      summary: 发起争议
+      description: 仅发布者可发起，需求回到已发布状态
+      tags: [需求大厅]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/admin/demands/{id}/review:
+    post:
+      summary: 审核需求
+      description: 管理员审核需求（approve/reject/supplement）
+      tags: [需求大厅]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [approve, reject, supplement]
+                reason:
+                  type: string
+
+  /api/v1/admin/demands/{id}/approve:
+    post:
+      summary: 快速通过审批
+      tags: [需求大厅]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  # ════════════════════════════════════════════════════════
+  # 招聘求职
+  # ════════════════════════════════════════════════════════
+  /api/v1/jobs:
+    post:
+      summary: 发布职位
+      tags: [招聘求职]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                location:
+                  type: string
+                salary_fen:
+                  type: integer
+
+    get:
+      summary: 职位列表
+      tags: [招聘求职]
+      security: []
+
+  /api/v1/jobs/mine:
+    get:
+      summary: 我的职位
+      tags: [招聘求职]
+
+  /api/v1/jobs/{id}/publish:
+    post:
+      summary: 发布职位
+      tags: [招聘求职]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/jobs/{id}/close:
+    post:
+      summary: 关闭职位
+      tags: [招聘求职]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/resumes:
+    post:
+      summary: 创建简历
+      tags: [招聘求职]
+
+  /api/v1/resumes/{id}:
+    patch:
+      summary: 修改简历
+      tags: [招聘求职]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/resumes/mine:
+    get:
+      summary: 我的简历
+      tags: [招聘求职]
+
+  /api/v1/applications:
+    post:
+      summary: 投递申请
+      tags: [招聘求职]
+
+    get:
+      summary: 投递列表
+      tags: [招聘求职]
+
+  /api/v1/applications/{id}/status:
+    patch:
+      summary: 更新投递状态
+      description: 已查看/面试中/已录用/已拒绝/已撤回
+      tags: [招聘求职]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  # ════════════════════════════════════════════════════════
+  # 社区内容
+  # ════════════════════════════════════════════════════════
+  /api/v1/posts:
+    post:
+      summary: 发帖
+      description: 先审后发（pending→管理员publish后公开可见）
+      tags: [社区内容]
+    get:
+      summary: 帖子列表
+      tags: [社区内容]
+      security: []
+
+  /api/v1/posts/{id}/publish:
+    post:
+      summary: 审核通过帖子
+      tags: [社区内容]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/posts/{id}/remove:
+    post:
+      summary: 下架帖子
+      tags: [社区内容]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/posts/{id}/comments:
+    post:
+      summary: 发表评论
+      tags: [社区内容]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/comments:
+    get:
+      summary: 评论列表
+      tags: [社区内容]
+      security: []
+
+  /api/v1/reports:
+    post:
+      summary: 举报内容
+      tags: [社区内容]
+
+  /api/v1/admin/reports:
+    get:
+      summary: 举报列表（管理员）
+      tags: [社区内容]
+
+  # ════════════════════════════════════════════════════════
+  # 二手交易
+  # ════════════════════════════════════════════════════════
+  /api/v1/listings:
+    post:
+      summary: 发布二手商品
+      tags: [二手交易]
+    get:
+      summary: 商品列表
+      tags: [二手交易]
+      security: []
+
+  /api/v1/listings/{id}/close:
+    post:
+      summary: 下架商品
+      tags: [二手交易]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/listings/{id}/favorites:
+    post:
+      summary: 收藏/取消收藏
+      tags: [二手交易]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  # ════════════════════════════════════════════════════════
+  # 用工派遣
+  # ════════════════════════════════════════════════════════
+  /api/v1/labour-orders:
+    post:
+      summary: 发布用工需求
+      tags: [用工派遣]
+    get:
+      summary: 用工订单列表
+      tags: [用工派遣]
+
+  /api/v1/labour-orders/quotes:
+    get:
+      summary: 报价列表
+      tags: [用工派遣]
+
+  /api/v1/labour-orders/{id}/quote:
+    post:
+      summary: 提交报价
+      tags: [用工派遣]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/assignments:
+    post:
+      summary: 分配人员
+      tags: [用工派遣]
+
+  # ════════════════════════════════════════════════════════
+  # 合同签约
+  # ════════════════════════════════════════════════════════
+  /api/v1/contract-templates:
+    get:
+      summary: 合同模板列表
+      tags: [合同签约]
+      security: []
+
+  /api/v1/contracts:
+    post:
+      summary: 创建合同
+      tags: [合同签约]
+    get:
+      summary: 我的合同列表
+      tags: [合同签约]
+
+  /api/v1/contracts/{id}/void:
+    post:
+      summary: 作废合同
+      description: 仅限本企业合同，需状态机允许
+      tags: [合同签约]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/webhooks/signing:
+    post:
+      summary: 签章平台回调
+      description: 外部签章平台签署完成后回调，更新合同状态（HMAC-SHA256验签+事件去重）
+      tags: [合同签约]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, contract_id, status, signature, timestamp]
+              properties:
+                event_id:
+                  type: string
+                contract_id:
+                  type: string
+                status:
+                  type: string
+                signature:
+                  type: string
+                timestamp:
+                  type: integer
+
+  # ════════════════════════════════════════════════════════
+  # 培训认证
+  # ════════════════════════════════════════════════════════
+  /api/v1/training-courses:
+    post:
+      summary: 创建课程
+      tags: [培训认证]
+    get:
+      summary: 课程列表
+      tags: [培训认证]
+      security: []
+
+  /api/v1/training-courses/{id}/enroll:
+    post:
+      summary: 课程报名
+      tags: [培训认证]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/training-courses/{id}/enrollments:
+    get:
+      summary: 课程报名列表
+      tags: [培训认证]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/certificates:
+    post:
+      summary: 提交证书申请
+      description: CAAC/大疆UTC/人社等级证书
+      tags: [培训认证]
+
+  /api/v1/certificates/mine:
+    get:
+      summary: 我的证书
+      tags: [培训认证]
+
+  /api/v1/certificates/expiring:
+    get:
+      summary: 即将到期证书
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      tags: [培训认证]
+
+  /api/v1/admin/certificates/{id}/approve:
+    post:
+      summary: 审核证书
+      tags: [培训认证]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/instructors:
+    post:
+      summary: 教练认证申请
+      tags: [培训认证]
+    get:
+      summary: 教练列表
+      tags: [培训认证]
+      security: []
+
+  /api/v1/admin/instructors/{id}/approve:
+    post:
+      summary: 审核教练
+      tags: [培训认证]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/certified-pilots:
+    post:
+      summary: 飞手认证申请
+      tags: [培训认证]
+    get:
+      summary: 飞手列表
+      tags: [培训认证]
+      security: []
+
+  /api/v1/admin/certified-pilots/{id}/approve:
+    post:
+      summary: 审核飞手
+      tags: [培训认证]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  # ════════════════════════════════════════════════════════
+  # 无人机交易
+  # ════════════════════════════════════════════════════════
+  /api/v1/products:
+    post:
+      summary: 发布商品
+      tags: [无人机交易]
+    get:
+      summary: 商品列表
+      tags: [无人机交易]
+      security: []
+
+  /api/v1/trade-orders:
+    post:
+      summary: 创建交易订单
+      tags: [无人机交易]
+
+  /api/v1/trade-orders/mine:
+    get:
+      summary: 我的订单
+      tags: [无人机交易]
+
+  /api/v1/trade-orders/{id}/status:
+    patch:
+      summary: 更新订单状态
+      tags: [无人机交易]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/repairs:
+    post:
+      summary: 提交维修服务
+      tags: [无人机交易]
+
+  /api/v1/repairs/mine:
+    get:
+      summary: 我的维修单
+      tags: [无人机交易]
+
+  # ════════════════════════════════════════════════════════
+  # 保险服务
+  # ════════════════════════════════════════════════════════
+  /api/v1/policies:
+    post:
+      summary: 添加保单
+      tags: [保险服务]
+
+  /api/v1/policies/mine:
+    get:
+      summary: 我的保单
+      tags: [保险服务]
+
+  /api/v1/inspections:
+    post:
+      summary: 添加年审记录
+      tags: [保险服务]
+
+  /api/v1/inspections/mine:
+    get:
+      summary: 我的年审记录
+      tags: [保险服务]
+
+  /api/v1/inspections/expiring:
+    get:
+      summary: 即将到期年审
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      tags: [保险服务]
+
+  # ════════════════════════════════════════════════════════
+  # 金融服务
+  # ════════════════════════════════════════════════════════
+  /api/v1/loans:
+    post:
+      summary: 申请贷款
+      tags: [金融服务]
+
+  /api/v1/loans/mine:
+    get:
+      summary: 我的贷款
+      tags: [金融服务]
+
+  # ════════════════════════════════════════════════════════
+  # 资金托管
+  # ════════════════════════════════════════════════════════
+  /api/v1/escrow/balance:
+    get:
+      summary: 账户余额
+      description: 返回可用余额和冻结金额（分）
+      tags: [资金托管]
+
+  /api/v1/escrow/deposit:
+    post:
+      summary: 充值
+      tags: [资金托管]
+
+  /api/v1/escrow/freeze:
+    post:
+      summary: 冻结资金
+      description: 交易中锁定资金
+      tags: [资金托管]
+
+  /api/v1/escrow/release:
+    post:
+      summary: 释放冻结
+      description: 交易完成，解冻资金
+      tags: [资金托管]
+
+  /api/v1/escrow/refund:
+    post:
+      summary: 退款
+      tags: [资金托管]
+
+  /api/v1/escrow/transactions:
+    get:
+      summary: 交易流水
+      tags: [资金托管]
+
+  # ════════════════════════════════════════════════════════
+  # 信用评价
+  # ════════════════════════════════════════════════════════
+  /api/v1/reviews:
+    post:
+      summary: 提交评价
+      tags: [信用评价]
+    get:
+      summary: 评价列表
+      tags: [信用评价]
+      security: []
+
+  /api/v1/admin/reviews:
+    get:
+      summary: 评价列表（管理员）
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      tags: [信用评价]
+
+  /api/v1/admin/reviews/{id}/approve:
+    post:
+      summary: 通过评价
+      tags: [信用评价]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/admin/reviews/{id}/reject:
+    post:
+      summary: 驳回评价
+      tags: [信用评价]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/admin/reviews/{id}:
+    delete:
+      summary: 删除评价
+      tags: [信用评价]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  # ════════════════════════════════════════════════════════
+  # 场地预约
+  # ════════════════════════════════════════════════════════
+  /api/v1/venues:
+    post:
+      summary: 发布场地
+      tags: [场地预约]
+    get:
+      summary: 场地列表
+      tags: [场地预约]
+      security: []
+
+  /api/v1/venues/{id}/book:
+    post:
+      summary: 预约场地
+      description: 按时间段预约，自动检测冲突
+      tags: [场地预约]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  # ════════════════════════════════════════════════════════
+  # 行业资讯
+  # ════════════════════════════════════════════════════════
+  /api/v1/articles:
+    post:
+      summary: 创建文章
+      tags: [行业资讯]
+    get:
+      summary: 文章列表
+      tags: [行业资讯]
+      security: []
+
+  /api/v1/articles/{id}/publish:
+    post:
+      summary: 发布文章
+      tags: [行业资讯]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  # ════════════════════════════════════════════════════════
+  # 管理工具
+  # ════════════════════════════════════════════════════════
+  /api/v1/admin/dashboard:
+    get:
+      summary: 数据看板
+      description: 总需求数/待审企业数/帖子数/待处理举报数
+      tags: [管理工具]
+
+  /api/v1/admin/export/demands:
+    get:
+      summary: 导出需求CSV
+      tags: [管理工具]
+
+  /api/v1/admin/export/enterprises:
+    get:
+      summary: 导出企业CSV
+      tags: [管理工具]
+
+  /api/v1/admin/token:
+    post:
+      summary: 生成Token
+      description: 开发环境免微信登录生成角色Token
+      tags: [管理工具]
+      security: []
+
+  /api/v1/admin/config:
+    get:
+      summary: 获取配置
+      tags: [管理工具]
+    post:
+      summary: 更新配置
+      tags: [管理工具]
+
+  /api/v1/admin/users:
+    get:
+      summary: 用户列表
+      tags: [管理工具]
+    post:
+      summary: 新建用户
+      tags: [管理工具]
+
+  /api/v1/admin/users/{id}/role:
+    post:
+      summary: 修改用户角色
+      tags: [管理工具]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/admin/members/import:
+    post:
+      summary: 批量导入会员
+      tags: [管理工具]
+
+  /api/v1/admin/demands:
+    get:
+      summary: 管理端需求列表
+      tags: [管理工具]
+
+  /api/v1/admin/demands/batch-approve:
+    post:
+      summary: 批量审批需求
+      tags: [管理工具]
+
+  # ════════════════════════════════════════════════════════
+  # 公共端点
+  # ════════════════════════════════════════════════════════
+  /api/v1/home:
+    get:
+      summary: 首页数据
+      description: Banner+快捷入口+公告+需求流
+      tags: [公共]
+      security: []
+
+  /api/v1/search:
+    get:
+      summary: 全局搜索
+      description: 搜索需求和企业的关键词
+      tags: [公共]
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+
+  /api/v1/image:
+    get:
+      summary: 图片优化
+      description: 缩放+格式转换+磁盘缓存
+      tags: [公共]
+      security: []
+
+  /api/v1/files/upload:
+    post:
+      summary: 文件上传
+      description: 支持 jpg/png/webp/pdf，最大10MB
+      tags: [公共]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+
+  /api/v1/messages:
+    get:
+      summary: 消息列表
+      tags: [消息]
+
+  /api/v1/messages/{id}/read:
+    post:
+      summary: 标记已读
+      tags: [消息]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+  /api/v1/messages/unread-count:
+    get:
+      summary: 未读计数
+      tags: [消息]
+
+# ══════════════════════════════════════════════════════════
+# 组件模型
+# ══════════════════════════════════════════════════════════
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: HMAC-SHA256 Bearer Token，15分钟过期
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+            checks:
+              type: object
+              properties:
+                server:
+                  type: string
+                storage:
+                  type: string
+        request_id:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: 访问令牌（15分钟有效）
+            refresh_token:
+              type: string
+              description: 刷新令牌（7天有效）
+            user:
+              type: object
+              properties:
+                id:
+                  type: string
+                role:
+                  type: string
+        request_id:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: 错误码（VALIDATION_ERROR/UNAUTHENTICATED/FORBIDDEN/NOT_FOUND/CONFLICT/STATE_INVALID/RATE_LIMITED/INTERNAL）
+            message:
+              type: string
+        request_id:
+          type: string
+
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total:
+          type: integer
+        request_id:
+          type: string
+
+    Enterprise:
+      type: object
+      properties:
+        id:
+          type: string
+        owner_user_id:
+          type: string
+        name:
+          type: string
+        license_url:
+          type: string
+        account_name:
+          type: string
+        status:
+          type: string
+          enum: [draft, submitted, supplement_required, approved, rejected]
+        is_member:
+          type: boolean
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Demand:
+      type: object
+      properties:
+        id:
+          type: string
+        publisher_id:
+          type: string
+        publisher_name:
+          type: string
+        contact:
+          type: string
+          description: 公开接口返回时脱敏
+        biz_type:
+          type: string
+          enum: [cable_inspection, plant_transport, spray_pesticide, clean_paint, trade_lease, other]
+        title:
+          type: string
+        description:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+        budget_fen:
+          type: integer
+        status:
+          type: string
+          enum: [pending, published, matched, completed, cancelled, rejected]
+        district:
+          type: string
+
+    DemandBid:
+      type: object
+      properties:
+        id:
+          type: string
+        demand_id:
+          type: string
+        bidder_id:
+          type: string
+        bidder_name:
+          type: string
+        amount_fen:
+          type: integer
+        proposal:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+
+    Contract:
+      type: object
+      properties:
+        id:
+          type: string
+        enterprise_id:
+          type: string
+        template_id:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, signing, signed, voided, expired]
+        sign_url:
+          type: string

@@ -1,0 +1,1 @@
+{"description": "Drone Service App", "rules": [{"action": "allow", "page": "*"}]}

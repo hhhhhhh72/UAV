@@ -1,0 +1,55 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/category/category",
+    "pages/market/market",
+    "pages/tasks/tasks",
+    "pages/mine/mine"
+  ],
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#4a90d9",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/tab-home.png",
+        "selectedIconPath": "images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/category/category",
+        "text": "分类",
+        "iconPath": "images/tab-category.png",
+        "selectedIconPath": "images/tab-category-active.png"
+      },
+      {
+        "pagePath": "pages/market/market",
+        "text": "卖机",
+        "iconPath": "images/tab-sell.png",
+        "selectedIconPath": "images/tab-sell-active.png"
+      },
+      {
+        "pagePath": "pages/tasks/tasks",
+        "text": "任务",
+        "iconPath": "images/tab-task.png",
+        "selectedIconPath": "images/tab-task-active.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "images/tab-mine.png",
+        "selectedIconPath": "images/tab-mine-active.png"
+      }
+    ]
+  },
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#4a90d9",
+    "navigationBarTitleText": "无人机平台",
+    "navigationBarTextStyle": "white"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

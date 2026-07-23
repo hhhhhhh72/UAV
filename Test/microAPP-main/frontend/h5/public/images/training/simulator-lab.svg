@@ -1,0 +1,25 @@
+<svg width="640" height="360" viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="labGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eef2ff"/>
+      <stop offset="100%" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" rx="32" fill="url(#labGradient)"/>
+  <rect x="110" y="120" width="420" height="160" rx="24" fill="#ffffff" stroke="#93c5fd" stroke-width="4"/>
+  <rect x="150" y="150" width="340" height="60" rx="16" fill="#e0edff"/>
+  <rect x="150" y="220" width="220" height="30" rx="12" fill="#1d4ed8"/>
+  <rect x="380" y="220" width="80" height="30" rx="12" fill="#93c5fd"/>
+  <circle cx="200" cy="180" r="18" fill="#2563eb"/>
+  <circle cx="260" cy="180" r="18" fill="#2563eb" opacity="0.7"/>
+  <circle cx="320" cy="180" r="18" fill="#2563eb" opacity="0.4"/>
+  <rect x="120" y="90" width="80" height="16" rx="8" fill="#60a5fa"/>
+  <rect x="220" y="90" width="120" height="16" rx="8" fill="#93c5fd"/>
+  <rect x="360" y="90" width="80" height="16" rx="8" fill="#bfdbfe"/>
+  <path d="M110 290 H530" stroke="#cbd5f5" stroke-width="6" stroke-linecap="round"/>
+  <rect x="200" y="260" width="80" height="60" rx="12" fill="#1d4ed8"/>
+  <rect x="360" y="260" width="80" height="60" rx="12" fill="#3b82f6" opacity="0.8"/>
+  <circle cx="240" cy="290" r="10" fill="#ffffff"/>
+  <circle cx="400" cy="290" r="10" fill="#ffffff"/>
+</svg>
+

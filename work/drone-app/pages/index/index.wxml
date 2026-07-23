@@ -1,0 +1,247 @@
+<view class="custom-nav" style="padding-top: {{statusBarHeight}}px;">
+  <view class="status-bar">
+    <text class="time">8:36</text>
+    <view class="status-right">
+      <text class="network">5G</text>
+      <view class="battery">
+        <view class="battery-body"><view class="battery-level" style="width: 63%;"></view></view>
+        <view class="battery-cap"></view>
+      </view>
+      <text class="battery-text">63</text>
+    </view>
+  </view>
+
+  <view class="location-bar">
+    <view class="location" bindtap="onLocationTap">
+      <svg class="icon-svg icon-24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+      </svg>
+      <text class="location-text">利通区</text>
+      <svg class="icon-svg icon-16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </view>
+    <view class="header-actions">
+      <view class="action-btn" bindtap="onMoreTap">
+        <svg class="icon-svg icon-24" viewBox="0 0 24 24" fill="white">
+          <circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/>
+        </svg>
+      </view>
+      <view class="action-btn" bindtap="onScanTap">
+        <svg class="icon-svg icon-24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </view>
+    </view>
+  </view>
+
+  <view class="search-box">
+    <view class="search-input-wrapper">
+      <svg class="icon-svg icon-20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input class="search-input" placeholder="航拍机 · 测绘与影像" placeholder-class="search-placeholder" confirm-type="search" bindconfirm="onSearch"/>
+    </view>
+    <button class="search-btn" bindtap="onSearch">搜索</button>
+  </view>
+</view>
+
+<view class="banner-section animate-in">
+  <swiper class="banner-swiper" indicator-dots="{{false}}" autoplay="{{true}}" interval="4000" duration="300" circular="{{true}}" bindchange="onBannerChange" current="{{currentBanner}}">
+    <swiper-item wx:for="{{banners}}" wx:key="index">
+      <view class="banner" style="background: linear-gradient(135deg, {{item.bgFrom}} 0%, {{item.bgTo}} 100%);">
+        <view class="banner-content">
+          <text class="banner-title">{{item.title}}</text>
+          <text class="banner-subtitle">{{item.subtitle}}</text>
+        </view>
+        <view class="drone-illustration">
+          <view class="d-body"></view>
+          <view class="d-arm d-arm-tl"></view><view class="d-arm d-arm-tr"></view>
+          <view class="d-arm d-arm-bl"></view><view class="d-arm d-arm-br"></view>
+          <view class="d-prop d-prop-tl"></view><view class="d-prop d-prop-tr"></view>
+          <view class="d-prop d-prop-bl"></view><view class="d-prop d-prop-br"></view>
+          <view class="d-camera"></view><view class="d-tank"></view>
+        </view>
+      </view>
+    </swiper-item>
+  </swiper>
+  <view class="banner-dots">
+    <view wx:for="{{banners}}" wx:key="index" class="dot {{currentBanner === index ? 'active' : ''}}" bindtap="setBanner" data-index="{{index}}"/>
+  </view>
+</view>
+
+<view class="notice-bar animate-in delay-1" bindtap="onNoticeTap">
+  <view class="notice-left">
+    <text class="notice-tag">公告</text>
+    <text class="notice-text">全国招商正式启动</text>
+    <svg class="icon-svg icon-16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  </view>
+  <text class="notice-date">2026/4/30</text>
+</view>
+
+<view class="features-grid animate-in delay-1">
+  <view class="feature-item" wx:for="{{features}}" wx:key="index" bindtap="onFeatureTap" data-name="{{item.name}}">
+    <view class="feature-icon-wrapper">
+      <block wx:if="{{item.iconType === 'money'}}">
+        <svg class="icon-svg icon-28" viewBox="0 0 24 24" fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="20" rx="4"/><path d="M12 6v12M9 9h6M9 15h6"/>
+        </svg>
+      </block>
+      <block wx:if="{{item.iconType === 'drone'}}">
+        <svg class="icon-svg icon-28" viewBox="0 0 24 24" fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 5v4M15 5v4M9 15v4M15 15v4M5 9h4M5 15h4M15 9h4M15 15h4"/>
+        </svg>
+      </block>
+      <block wx:if="{{item.iconType === 'book'}}">
+        <svg class="icon-svg icon-28" viewBox="0 0 24 24" fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/><circle cx="17" cy="15" r="1.5" fill="#1e293b"/>
+        </svg>
+      </block>
+      <block wx:if="{{item.iconType === 'flag'}}">
+        <svg class="icon-svg icon-28" viewBox="0 0 24 24" fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+      </block>
+      <block wx:if="{{item.iconType === 'share'}}">
+        <svg class="icon-svg icon-28" viewBox="0 0 24 24" fill="none" stroke="#1e293b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </block>
+    </view>
+    <text class="feature-label">{{item.name}}</text>
+  </view>
+</view>
+
+<view class="action-cards animate-in delay-2">
+  <view class="action-card task-card" bindtap="onPublishTask">
+    <text class="task-title">任务发布</text>
+    <view class="task-features">
+      <view class="task-feature" wx:for="{{taskFeatures}}" wx:key="index">
+        <view class="feature-dot"></view><text>{{item}}</text>
+      </view>
+    </view>
+    <button class="task-btn">
+      <text>立即发布</text>
+      <svg class="icon-svg icon-16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
+      </svg>
+    </button>
+  </view>
+
+  <view class="product-entries">
+    <view class="action-card product-card" wx:for="{{productEntries}}" wx:key="index" bindtap="onProductEntryTap" data-name="{{item.name}}">
+      <view class="product-info">
+        <text class="product-entry-title">{{item.name}}</text>
+        <view class="product-link">
+          <text>去选购</text>
+          <view class="link-btn">
+            <svg class="icon-svg icon-14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </view>
+        </view>
+      </view>
+      <view class="mini-drone">
+        <view class="md-body"></view>
+        <view class="md-arm md-tl"></view><view class="md-arm md-tr"></view>
+        <view class="md-arm md-bl"></view><view class="md-arm md-br"></view>
+        <view class="md-prop md-ptl"></view><view class="md-prop md-ptr"></view>
+        <view class="md-prop md-pbl"></view><view class="md-prop md-pbr"></view>
+      </view>
+    </view>
+  </view>
+</view>
+
+<view class="filter-bar animate-in delay-3">
+  <view class="location-filter" bindtap="onFilterLocationTap">
+    <svg class="icon-svg icon-18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+    </svg>
+    <text class="filter-location-text">南岸区文化艺术中心(...</text>
+    <svg class="icon-svg icon-14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </view>
+  <view class="filter-btn {{filterActive === 'distance' ? 'active' : ''}}" bindtap="onFilterTap" data-type="distance">
+    <text>距离优先</text>
+    <svg class="icon-svg icon-14 {{filterActive === 'distance' ? 'stroke-primary' : 'stroke-gray'}}" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  </view>
+  <view class="filter-btn {{filterActive === 'price' ? 'active' : ''}}" bindtap="onFilterTap" data-type="price">
+    <text>价格</text>
+    <svg class="icon-svg icon-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/>
+    </svg>
+  </view>
+  <view class="filter-btn {{filterActive === 'filter' ? 'active' : ''}}" bindtap="onFilterTap" data-type="filter">
+    <text>筛选</text>
+    <svg class="icon-svg icon-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="16" y2="12"/><line x1="4" y1="18" x2="12" y2="18"/>
+    </svg>
+  </view>
+</view>
+
+<view class="product-list animate-in delay-3">
+  <view class="product-item" wx:for="{{products}}" wx:key="id" bindtap="onProductTap" data-id="{{item.id}}">
+    <view class="product-img-wrapper">
+      <view class="product-drone">
+        <view class="pd-body"></view>
+        <view class="pd-arm pda-tl"></view><view class="pd-arm pda-tr"></view>
+        <view class="pd-arm pda-bl"></view><view class="pd-arm pda-br"></view>
+        <view class="pd-prop pdp-tl"></view><view class="pd-prop pdp-tr"></view>
+        <view class="pd-prop pdp-bl"></view><view class="pd-prop pdp-br"></view>
+        <view class="pd-camera"></view>
+      </view>
+      <text class="product-tag" wx:if="{{item.tag}}">{{item.tag}}</text>
+    </view>
+    <view class="product-detail">
+      <text class="product-name">{{item.name}}</text>
+      <view class="product-meta">
+        <text class="product-price">¥{{item.price}}</text>
+        <text class="product-distance">{{item.distance}}</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<view class="safe-bottom"></view>
+
+<view class="custom-tab-bar">
+  <view class="tab-item {{activeTab === 0 ? 'active' : ''}}" bindtap="switchTab" data-index="0">
+    <svg class="icon-svg tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+    <text class="tab-label">首页</text>
+  </view>
+  <view class="tab-item {{activeTab === 1 ? 'active' : ''}}" bindtap="switchTab" data-index="1">
+    <svg class="icon-svg tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+    </svg>
+    <text class="tab-label">分类</text>
+  </view>
+  <view class="tab-item {{activeTab === 2 ? 'active' : ''}}" bindtap="switchTab" data-index="2">
+    <svg class="icon-svg tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+    </svg>
+    <text class="tab-label">卖机</text>
+  </view>
+  <view class="tab-item {{activeTab === 3 ? 'active' : ''}}" bindtap="switchTab" data-index="3">
+    <svg class="icon-svg tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+    </svg>
+    <text class="tab-label">任务</text>
+  </view>
+  <view class="tab-item {{activeTab === 4 ? 'active' : ''}}" bindtap="switchTab" data-index="4">
+    <svg class="icon-svg tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+    <text class="tab-label">我的</text>
+  </view>
+</view>

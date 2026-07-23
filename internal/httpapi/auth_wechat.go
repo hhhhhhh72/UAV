@@ -1,0 +1,196 @@
+package httpapi
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
+
+	"drone-platform/internal/domain"
+	"drone-platform/internal/repository"
+	"drone-platform/internal/service"
+)
+
+type wechatLoginRequest struct {
+	Code string `json:"code"`
+}
+
+type authResponse struct {
+	AccessToken  string   `json:"access_token"`
+	RefreshToken string   `json:"refresh_token"`
+	ExpiresIn    int64    `json:"expires_in"`
+	User         userInfo `json:"user"`
+}
+
+type userInfo struct {
+	ID     string      `json:"id"`
+	Role   domain.Role `json:"role"`
+	Status string      `json:"status"`
+}
+
+// POST /api/v1/auth/wechat/login
+func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
+	appID, appSecret := os.Getenv("WECHAT_APPID"), os.Getenv("WECHAT_APPSECRET")
+	var req wechatLoginRequest
+	if err := decode(r, &req); err != nil || req.Code == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("code is required"))
+		return
+	}
+
+	sess, err := service.WeChatLogin(req.Code, appID, appSecret)
+	if err != nil && adminDevMode() {
+		sess = service.WeChatSession{OpenID: "dev-" + req.Code, SessionKey: "dev"}
+	} else if err != nil {
+		fail(w, r, http.StatusUnauthorized, err)
+		return
+	}
+
+	u, err := s.userRepo.FindByOpenID(sess.OpenID)
+	if err != nil {
+		now := time.Now()
+		u = domain.User{
+			ID:           fmt.Sprintf("user-%d", now.UnixNano()),
+			WechatOpenID: sess.OpenID,
+			Role:         domain.RoleIndividual,
+			Status:       "active",
+			Version:      1,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		u, err = s.userRepo.Create(u)
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", err))
+			return
+		}
+	}
+
+	role := u.Role
+	if role == "" {
+		role = domain.RoleIndividual
+	}
+	actor := domain.Actor{ID: u.ID, Role: role}
+	accessToken, err := s.tokens.Issue(actor, 15*time.Minute)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	refreshToken, err := service.GenerateRefreshToken()
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	refreshHash := service.HashToken(refreshToken)
+	if err := s.refreshRepo.Store(u.ID, refreshHash, time.Now().Add(7*24*time.Hour)); err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("store refresh token: %w", err))
+		return
+	}
+
+	s.audit(r.Context(), u.ID, "login_wechat", "auth", u.ID, "success")
+	respond(w, r, http.StatusOK, authResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    900,
+		User:         userInfo{ID: u.ID, Role: role, Status: u.Status},
+	})
+}
+
+// POST /api/v1/auth/refresh
+func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
+	var req struct{ RefreshToken string `json:"refresh_token"` }
+	if err := decode(r, &req); err != nil || req.RefreshToken == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("refresh_token is required"))
+		return
+	}
+	tokenHash := service.HashToken(req.RefreshToken)
+	userID, expiresAt, revoked, err := s.refreshRepo.Find(tokenHash)
+	if err != nil || revoked || time.Now().After(expiresAt) {
+		fail(w, r, http.StatusUnauthorized, errors.New("invalid or expired refresh token"))
+		return
+	}
+
+	s.refreshRepo.Revoke(tokenHash)
+
+	role := domain.RoleIndividual
+	if u, err := s.userRepo.FindByID(userID); err == nil && u.Role != "" {
+		role = u.Role
+	}
+	accessToken, err := s.tokens.Issue(domain.Actor{ID: userID, Role: role}, 15*time.Minute)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	newRefresh, err := service.GenerateRefreshToken()
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("generate refresh token: %w", err))
+		return
+	}
+	newHash := service.HashToken(newRefresh)
+	s.refreshRepo.Store(userID, newHash, time.Now().Add(7*24*time.Hour))
+
+	respond(w, r, http.StatusOK, authResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefresh,
+		ExpiresIn:    900,
+		User:         userInfo{ID: userID, Role: role, Status: ""},
+	})
+}
+
+// POST /api/v1/auth/logout
+func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
+	var req struct{ RefreshToken string `json:"refresh_token"` }
+	if err := decode(r, &req); err == nil && req.RefreshToken != "" {
+		s.refreshRepo.Revoke(service.HashToken(req.RefreshToken))
+	}
+	a, _ := authenticatedActor(r)
+	if a.ID != "" {
+		s.audit(r.Context(), a.ID, "logout", "auth", a.ID, "success")
+	}
+	respond(w, r, http.StatusOK, map[string]string{"status": "logged_out"})
+}
+
+// PATCH /api/v1/me
+func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct{ Name string `json:"name"` }
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	respond(w, r, http.StatusOK, map[string]any{"id": a.ID, "role": a.Role, "name": in.Name, "status": "active"})
+}
+
+// GET /api/v1/me
+func (s *Server) me(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var demandCount int
+	if ds, err := s.demands.List(repository.DemandFilter{}); err == nil {
+		demandCount = len(ds)
+	}
+	var certCount int
+	if s.trainingSvc != nil {
+		certs, err := s.trainingSvc.ListMyCertificates(a)
+		if err != nil {
+			certCount = 0
+		} else {
+			certCount = len(certs)
+		}
+	}
+	respond(w, r, http.StatusOK, map[string]any{
+		"id":           a.ID,
+		"role":         string(a.Role),
+		"status":       "active",
+		"demand_count": demandCount,
+		"cert_count":   certCount,
+	})
+}

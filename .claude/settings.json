@@ -1,0 +1,110 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(D:/Node/node.exe -e ' *)",
+      "Bash(grep -v \":0$\")",
+      "Bash(git checkout *)",
+      "Bash(\"D:/Node/node.exe\" \"d:/w-yao/gen-pages.js\")",
+      "Bash(\"D:/Node/node.exe\" -e \"require\\('fs'\\).writeFileSync\\('d:/w-yao/gen-pages.js','console.log\\(\\\\\"placeholder\\\\\"\\)'\\); console.log\\('file created'\\)\")",
+      "Bash(\"D:/Node/node.exe\" d:/w-yao/miniprogram/gen-pages.js)",
+      "Bash(\"D:/Node/node.exe\" d:/w-yao/fix-wxml.js)",
+      "Bash(curl -s http://localhost:8080/healthz)",
+      "Bash(curl -s http://localhost:8080/admin)",
+      "Bash(\"D:/Node/node.exe\" d:/w-yao/fix-banner.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/uploads/test.txt)",
+      "Bash(curl -s http://localhost:8080/api/v1/home)",
+      "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\)['data'];print\\('Banners:',len\\(d.get\\('banners',[]\\)\\)\\);[print\\(f' {b[\\\\\"id\\\\\"]}: {b[\\\\\"image_url\\\\\"]}'\\) for b in d.get\\('banners',[]\\)]\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/api/v1/home)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8080/uploads/file-1784012184403789500\")",
+      "Bash(find d:/microAPP-main/microAPP-main/frontend/h5/src/views/admin -name \"*.vue\" | sort && echo \"---\" && ls d:/microAPP-main/microAPP-main/frontend/h5/src/views/admin/config/)",
+      "Read(//d/microAPP-main/microAPP-main/frontend/h5/src/views/admin/**)",
+      "Read(//d/microAPP-main/microAPP-main/frontend/h5/src/views/admin/config/**)",
+      "Bash(sort -t: -k1 -n)",
+      "Bash(xxd)",
+      "Bash(awk 'NR==125 {print; found=1} NR==130 && found==1 {print; found=0}' internal/httpapi/enterprise.go)",
+      "Bash(.claude/skills/subagent-driven-development/scripts/review-package 1351331 34ccfac)",
+      "Bash(.claude/skills/subagent-driven-development/scripts/review-package 82cbda5 f30f7d7)",
+      "Bash(sed -i '362,367d' internal/httpapi/server.go)",
+      "Bash(sed -i '361a\\\\\\\\t\\\\tfor i := range es {\\\\n\\\\t\\\\t\\\\tif es[i].AccountName != \"\" {\\\\n\\\\t\\\\t\\\\t\\\\tes[i].AccountName = crypto.MaskPhone\\(es[i].AccountName\\)\\\\n\\\\t\\\\t\\\\t}\\\\n\\\\t\\\\t}\\\\n\\\\t\\\\trespond\\(w, r, http.StatusOK, map[string]any{\"demands\": public, \"enterprises\": es}\\)' internal/httpapi/server.go)",
+      "Bash(patch -p0)",
+      "Bash(patch -p1)",
+      "Bash(git reset *)",
+      "Bash(git clean *)",
+      "Read(//d/drone-platform-ui/drone-platform-ui/**)",
+      "Bash(AUTH_SECRET=\"test-key-32-bytes-long-for-testing!!\" timeout 5 ./drone-api.exe)",
+      "Bash(pkill -f drone-api)",
+      "Bash(AUTH_SECRET=\"test-key-32-bytes-long-for-testing!!\" timeout 3 ./drone-api.exe)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //PID 5932 //F)",
+      "Bash(AUTH_SECRET=\"drone-platform-secret-key-32-bytes!!\" timeout 3 ./drone-api.exe)",
+      "Bash(awk '{print $5}')",
+      "Bash(taskkill //PID 2776 //F)",
+      "Bash(AUTH_SECRET=\"drone-platform-secret-key-32-bytes!!\" ADMIN_DEV_MODE=true ./drone-api.exe)",
+      "Bash(curl -s -o /dev/null -w \"admin: %{http_code}\" http://localhost:8080/admin)",
+      "Bash(curl -s -o /dev/null -w \"healthz: %{http_code}\" http://localhost:8080/healthz)",
+      "Bash(taskkill //F //IM drone-api.exe)",
+      "Bash(file *.exe)",
+      "Bash(docker --version)",
+      "Bash(cmd.exe /c \"docker --version\")",
+      "Bash(git fetch *)",
+      "Bash(git rm *)",
+      "Bash(git push *)",
+      "Bash(git gui *)",
+      "Bash(ssh -T -o ConnectTimeout=5 git@github.com)",
+      "Bash(ssh-keyscan -H github.com)",
+      "Bash(git remote *)",
+      "Bash(mkdir -p ~/.ssh)",
+      "Read(//c/Users/21125/.ssh/**)",
+      "Bash(ssh-keygen -t ed25519 -C \"w-yao@drone\" -f ~/.ssh/id_ed25519 -N \"\")",
+      "Bash(sed -i '136,141d' internal/service/services.go)",
+      "Bash(sed -i '135a\\\\\\\\t\\\\t}\\\\n\\\\t\\\\tsaved, err := s.bidRepo.Create\\(bid\\)\\\\n\\\\t\\\\tif err != nil {\\\\n\\\\t\\\\t\\\\treturn domain.DemandBid{}, fmt.Errorf\\(\"persist bid: %w\", err\\)\\\\n\\\\t\\\\t}\\\\n\\\\t\\\\treturn saved, nil' internal/service/services.go)",
+      "Bash(bash install.sh --profile core --without baseline:hooks --target claude)",
+      "Bash(go version *)",
+      "Bash(sed -i 's|return s.repo.Create\\(j\\)|slog.Info\\(\"job created\", \"job_id\", j.ID, \"enterprise_id\", j.EnterpriseID\\)\\\\n\\\\treturn s.repo.Create\\(j\\)|' internal/service/jobs.go)",
+      "Bash(sed -i 's|return s.repo.Update\\(id, j\\)|slog.Info\\(\"job updated\", \"job_id\", id\\)\\\\n\\\\treturn s.repo.Update\\(id, j\\)|' internal/service/jobs.go)",
+      "Bash(sed -i 's|return s.post.Create\\(p\\)|slog.Info\\(\"post created\", \"post_id\", p.ID, \"author_id\", p.AuthorID\\)\\\\n\\\\treturn s.post.Create\\(p\\)|' internal/service/community.go)",
+      "Bash(sed -i 's|return s.post.Update\\(id, p\\)|slog.Info\\(\"post updated\", \"post_id\", id\\)\\\\n\\\\treturn s.post.Update\\(id, p\\)|' internal/service/community.go)",
+      "Bash(staticcheck ./...)",
+      "Bash(grep -n \"// ---- Employment\\\\|// ---- Employment Requests\" internal/repository/memory/memory.go)",
+      "Bash(pg_isready)",
+      "Bash(sc query *)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(pkill -f drone-api.exe)",
+      "Bash(DATABASE_URL=\"postgres://drone:drone_secret@localhost:5432/drone_platform?sslmode=disable\" AUTH_SECRET=\"drone-platform-secret-key-32-bytes!!\" ADMIN_DEV_MODE=true ./drone-api.exe)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/healthz)",
+      "Bash(grep -v \"^$\")",
+      "Bash(DATABASE_URL=\"postgres://drone@localhost:5432/drone_platform?sslmode=disable\" AUTH_SECRET=\"drone-platform-secret-key-32-bytes!!\" ADMIN_DEV_MODE=true ./drone-api.exe)",
+      "Bash(DATABASE_URL=\"postgres://drone:123456@localhost:5432/drone_platform?sslmode=disable\" AUTH_SECRET=\"drone-platform-secret-key-32-bytes!!\" ADMIN_DEV_MODE=true ./drone-api.exe)",
+      "Bash(docker port *)",
+      "Bash(DATABASE_URL=\"postgres://drone:123456@172.18.0.2:5432/drone_platform?sslmode=disable\" AUTH_SECRET=\"drone-platform-secret-key-32-bytes!!\" ADMIN_DEV_MODE=true ./drone-api.exe)",
+      "Bash(curl -s http://localhost:8080/api/v1/home?city=重庆)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash d:/w-yao/.claude/hooks/session-start.sh",
+            "shell": "bash",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers"
+      }
+    }
+  }
+}
