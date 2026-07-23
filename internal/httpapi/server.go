@@ -83,6 +83,9 @@ poolSvc       *service.ResourcePoolService
 	transSvc       *service.TransformationService
 	collegeSvc     *service.CollegeService
 	coopSvc        *service.CooperationService
+	rescueCaseSvc   *service.RescueCaseService
+	emergDeptSvc   *service.EmergencyDeptService
+	assocMemberSvc *service.AssociationMemberService
 	userRepo      repository.UserRepository
 	refreshRepo   repository.RefreshTokenRepository
 	tokens        *TokenManager
@@ -224,6 +227,9 @@ func (s *Server) SetExhibitionService(svc *service.ExhibitionService)   { s.exhi
 func (s *Server) SetTransformationService(svc *service.TransformationService) { s.transSvc = svc }
 func (s *Server) SetCollegeService(svc *service.CollegeService)           { s.collegeSvc = svc }
 func (s *Server) SetCooperationService(svc *service.CooperationService)   { s.coopSvc = svc }
+func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)               { s.rescueCaseSvc = svc }
+func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)         { s.emergDeptSvc = svc }
+func (s *Server) SetAssociationMemberService(svc *service.AssociationMemberService) { s.assocMemberSvc = svc }
 
 // audit records a write operation to the audit log if a writer is configured.
 func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resourceID, result string) {
@@ -353,6 +359,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("POST /api/v1/admin/members/import", s.importMembers)
 	mux.HandleFunc("POST /api/v1/assignments", s.createAssignment)
 	s.registerPhase3Routes(mux)
+	s.registerBatch3Routes(mux)
 	s.registerBizRoutes(mux)
 s.registerBatch1Routes(mux)
 	s.registerBatch2Routes(mux)

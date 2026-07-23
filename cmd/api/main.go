@@ -93,6 +93,9 @@ func main() {
 		transRepo        repository.TransformationRepository
 		collegeRepo      repository.CollegeRepository
 		coopRepo         repository.CooperationRepository
+		rescueCaseRepo   repository.RescueCaseRepository
+		emergDeptRepo    repository.EmergencyDeptRepository
+		assocMemberRepo  repository.AssociationMemberRepository
 		expertRepo       repository.ExpertRepository
 		caseRepo         repository.CaseRepository
 		complianceRepo   repository.ComplianceRepository
@@ -162,6 +165,9 @@ func main() {
 		transRepo = memory.NewTransformationRepository()
 		collegeRepo = memory.NewCollegeRepository()
 		coopRepo = memory.NewCooperationRepository()
+		rescueCaseRepo = memory.NewRescueCaseRepository()
+		emergDeptRepo = memory.NewEmergencyDeptRepository()
+		assocMemberRepo = memory.NewAssociationMemberRepository()
 		refreshTokenRepo = pgStore.NewRefreshTokenRepository()
 		expertRepo = pgStore.NewExpertRepository()
 		caseRepo = pgStore.NewCaseRepository()
@@ -215,6 +221,9 @@ func main() {
 		transRepo = memory.NewTransformationRepository()
 		collegeRepo = memory.NewCollegeRepository()
 		coopRepo = memory.NewCooperationRepository()
+		rescueCaseRepo = memory.NewRescueCaseRepository()
+		emergDeptRepo = memory.NewEmergencyDeptRepository()
+		assocMemberRepo = memory.NewAssociationMemberRepository()
 		expertRepo = memory.NewExpertRepository()
 		caseRepo = memory.NewCaseRepository()
 		complianceRepo = memory.NewComplianceRepository()
@@ -274,6 +283,9 @@ func main() {
 		app.SetResearchProjectService(service.NewResearchProjectService(researchRepo))
 		app.SetProjectAppService(service.NewProjectAppService(projAppRepo))
 		app.SetCompetitionService(service.NewCompetitionService(competitionRepo))
+	app.SetRescueCaseService(service.NewRescueCaseService(rescueCaseRepo))
+	app.SetEmergencyDeptService(service.NewEmergencyDeptService(emergDeptRepo))
+	app.SetAssociationMemberService(service.NewAssociationMemberService(assocMemberRepo))
 	app.SetTransformationService(service.NewTransformationService(transRepo))
 	app.SetCollegeService(service.NewCollegeService(collegeRepo))
 	app.SetCooperationService(service.NewCooperationService(coopRepo))

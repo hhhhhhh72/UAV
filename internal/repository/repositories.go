@@ -446,3 +446,25 @@ type CooperationRepository interface {
 	List(enterpriseID string) ([]domain.CooperationProgram, error)
 	UpdateStatus(id, status string) (domain.CooperationProgram, error)
 }
+
+// ── Batch3: 救援案例 + 应急对接 + 协会权限 (per .doc) ──
+
+type RescueCaseRepository interface {
+	Create(domain.RescueCase) (domain.RescueCase, error)
+	FindByID(id string) (domain.RescueCase, error)
+	List(eventType string, offset, limit int) ([]domain.RescueCase, int, error)
+}
+
+type EmergencyDeptRepository interface {
+	CreateDept(domain.EmergencyDept) (domain.EmergencyDept, error)
+	ListDepts() ([]domain.EmergencyDept, error)
+	CreateDrill(domain.EmergencyDrill) (domain.EmergencyDrill, error)
+	ListDrills(deptID string) ([]domain.EmergencyDrill, error)
+}
+
+type AssociationMemberRepository interface {
+	Create(domain.AssociationMember) (domain.AssociationMember, error)
+	FindByUserID(userID string) (domain.AssociationMember, error)
+	List(role string, offset, limit int) ([]domain.AssociationMember, int, error)
+	UpdateRole(id string, role domain.AssociationRole) (domain.AssociationMember, error)
+}
