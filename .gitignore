@@ -7,3 +7,4 @@ logs/
 uploads/
 platform_config.json
 frontend/
+docs/*.doc
