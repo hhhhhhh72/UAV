@@ -253,7 +253,6 @@ func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resou
 func (s *Server) Router() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.index)
-	mux.HandleFunc("GET /admin", s.adminPage)
 	mux.HandleFunc("GET /uploads/", s.serveUploads)
 	mux.HandleFunc("POST /api/v1/admin/token", s.adminDevLogin)
 	mux.HandleFunc("GET /favicon.ico", s.favicon)
