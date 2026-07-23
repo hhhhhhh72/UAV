@@ -1,0 +1,75 @@
+<!-- 首页 · 航空仪表盘风格 -->
+<view class="page">
+
+  <!-- 顶部栏: 城市 + 搜索 -->
+  <view class="top-bar">
+    <view class="city-picker" bindtap="onCityTap">
+      <text class="city-icon">📍</text>
+      <text class="city-name">{{city}}</text>
+      <text class="city-arrow">▾</text>
+    </view>
+    <view class="search-btn" bindtap="onSearchTap">
+      <text class="search-icon">🔍</text>
+      <text class="search-placeholder">搜索需求、企业、专家</text>
+    </view>
+  </view>
+
+  <!-- 仪表盘 -->
+  <view class="instrument-panel">
+    <view class="gauge" wx:for="{{gauges}}" wx:key="key">
+      <text class="gauge-value">{{item.value}}</text>
+      <text class="gauge-label">{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- 轮播 -->
+  <swiper class="banner" autoplay interval="4000" circular>
+    <swiper-item wx:for="{{banners}}" wx:key="id">
+      <image src="{{item.image_url}}" mode="aspectFill" class="banner-img" />
+    </swiper-item>
+  </swiper>
+
+  <!-- 快捷入口 2×5 -->
+  <view class="quick-entries">
+    <view class="entry" wx:for="{{entries}}" wx:key="key" bindtap="onEntryTap" data-key="{{item.key}}">
+      <image src="{{item.icon}}" class="entry-icon" mode="aspectFit" />
+      <text class="entry-name">{{item.name}}</text>
+    </view>
+  </view>
+
+  <!-- 最新需求 -->
+  <view class="section-header">
+    <text class="section-title">最新需求</text>
+    <text class="section-more" bindtap="onMoreDemands">查看更多 →</text>
+  </view>
+  <view class="demand-list">
+    <view class="demand-card" wx:for="{{demands}}" wx:key="id" bindtap="onDemandTap" data-id="{{item.id}}">
+      <view class="flex-between">
+        <text class="demand-title">{{item.title}}</text>
+        <text class="demand-budget">¥{{item.budget_fen / 100}}</text>
+      </view>
+      <view class="flex gap-sm" style="margin-top:12rpx">
+        <text class="tag tag-blue">{{item.biz_type_text}}</text>
+        <text class="tag tag-amber">{{item.district}}</text>
+      </view>
+      <view class="flex-between" style="margin-top:16rpx">
+        <text class="text-muted text-small">{{item.publisher_name}}</text>
+        <text class="text-muted text-small">{{item.created_at}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 公告 -->
+  <view class="section-header">
+    <text class="section-title">公告通知</text>
+  </view>
+  <view class="notice-list">
+    <view class="notice-item" wx:for="{{notices}}" wx:key="id">
+      <view class="notice-dot"></view>
+      <text class="notice-text">{{item.title}}</text>
+    </view>
+  </view>
+
+  <!-- 底部留白 -->
+  <view style="height:32rpx"></view>
+</view>

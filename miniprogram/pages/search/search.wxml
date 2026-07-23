@@ -1,0 +1,5 @@
+<view class="container">
+  <view class="search-bar">
+    <input placeholder="搜索需求、企业、专家" value="{{keyword}}" bindinput="onInput" confirm-type="search" bindconfirm="onSearch" />
+  </view>
+</view>

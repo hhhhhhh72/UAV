@@ -1,0 +1,137 @@
+/* ═══ 设计令牌 · 低空经济生态服务平台 ═══ */
+
+page {
+  --blue-700: #0D3B6E;    /* 深蓝: 导航栏/主按钮按下 */
+  --blue-600: #1A4789;    /* 航空蓝: 主色 */
+  --blue-100: #D6E4F5;    /* 浅蓝: 选中背景 */
+  --blue-50:  #EDF3FA;    /* 极浅蓝: 仪表区底色 */
+
+  --amber-500: #F0A030;   /* 信号琥珀: 强调色 */
+  --amber-50:  #FFF7ED;   /* 浅琥珀: 警告背景 */
+
+  --navy-900: #0B1D2E;    /* 深舱蓝: 主文字 */
+  --gray-600: #6B7A8D;    /* 仪表灰: 副文字 */
+  --gray-400: #B0BAC8;    /* 浅灰: 占位文字 */
+  --gray-200: #E8ECF0;    /* 跑道灰: 页面背景 */
+  --gray-100: #F4F6F9;    /* 浅灰: 卡片内背景 */
+
+  --white: #FFFFFF;
+  --green-600: #2E7D32;
+  --red-600: #C62828;
+
+  --space-xs: 8rpx;
+  --space-sm: 12rpx;
+  --space-md: 16rpx;
+  --space-lg: 24rpx;
+  --space-xl: 32rpx;
+
+  --text-xl: 36rpx;   /* 仪表数字 */
+  --text-lg: 32rpx;   /* 大标题 */
+  --text-md: 28rpx;   /* 标题/正文 */
+  --text-sm: 26rpx;   /* 辅助 */
+  --text-xs: 22rpx;   /* 标签/说明 */
+
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+
+  --shadow-card: 0 2rpx 12rpx rgba(11,29,46,0.08);
+
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  font-size: var(--text-md);
+  color: var(--navy-900);
+  background-color: var(--gray-200);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ 全局布局 ═══ */
+.container { padding: var(--space-md); }
+
+/* ═══ 卡片 ═══ */
+.card {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-card);
+}
+
+/* ═══ 按钮 ═══ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  padding: 0 var(--space-xl);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-md);
+  font-weight: 500;
+  border: none;
+}
+.btn-primary { background: var(--blue-600); color: var(--white); }
+.btn-primary:active { background: var(--blue-700); }
+.btn-outline { background: transparent; color: var(--blue-600); border: 2rpx solid var(--blue-600); }
+.btn-ghost { background: transparent; color: var(--gray-600); }
+.btn-sm { height: 60rpx; font-size: var(--text-sm); padding: 0 var(--space-lg); }
+
+/* ═══ 标签 ═══ */
+.tag {
+  display: inline-block;
+  padding: 4rpx 16rpx;
+  border-radius: 6rpx;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+.tag-blue { background: var(--blue-50); color: var(--blue-600); }
+.tag-amber { background: var(--amber-50); color: var(--amber-500); }
+.tag-green { background: #E8F5E9; color: var(--green-600); }
+.tag-red { background: #FFEBEE; color: var(--red-600); }
+
+/* ═══ 分割线 ═══ */
+.divider {
+  height: 2rpx;
+  background: var(--gray-200);
+  margin: var(--space-md) 0;
+}
+
+/* ═══ 文本 ═══ */
+.text-muted { color: var(--gray-600); font-size: var(--text-sm); }
+.text-small { font-size: var(--text-xs); }
+.text-number { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* ═══ Flex 工具 ═══ */
+.flex { display: flex; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+
+/* ═══ 节标题 ═══ */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-lg) var(--space-md) var(--space-sm);
+}
+.section-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--navy-900);
+}
+.section-more {
+  font-size: var(--text-sm);
+  color: var(--blue-600);
+}
+
+/* ═══ 空状态 ═══ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-xl) 0;
+  color: var(--gray-400);
+}
+.empty-state image { width: 200rpx; height: 200rpx; opacity: 0.6; }
+.empty-state text { margin-top: var(--space-md); font-size: var(--text-sm); }
