@@ -17,7 +17,8 @@ Page({
   },
   loadBids(id) {
     app.request({ url: `/api/v1/demands/${id}/applications`, method: 'GET' }).then(res => {
-      this.setData({ bids: res.data || [] })
+      const bids = (res.data || []).map(b => ({ ...b, bidText: ((b.amount_fen || 0) / 100).toFixed(0) }))
+      this.setData({ bids })
     }).catch(() => {})
   },
   onBidTap() { wx.showToast({ title: '报价功能开发中', icon: 'none' }) },

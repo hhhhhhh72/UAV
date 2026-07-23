@@ -46,7 +46,7 @@
     <view class="demand-card" wx:for="{{demands}}" wx:key="id" bindtap="onDemandTap" data-id="{{item.id}}">
       <view class="flex-between">
         <text class="demand-title">{{item.title}}</text>
-        <text class="demand-budget">¥{{item.budget_fen / 100}}</text>
+        <text class="demand-budget">{{item.budgetText}}</text>
       </view>
       <view class="flex gap-sm" style="margin-top:12rpx">
         <text class="tag tag-blue">{{item.biz_type_text}}</text>

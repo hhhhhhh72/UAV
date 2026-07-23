@@ -40,7 +40,7 @@
     <view class="bid-card" wx:for="{{bids}}" wx:key="id">
       <view class="flex-between">
         <text class="bidder-name">{{item.bidder_name}}</text>
-        <text class="bid-amount">¥{{(item.amount_fen / 100).toFixed(0)}}</text>
+        <text class="bid-amount">¥{{item.bidText}}</text>
       </view>
       <text class="bid-proposal">{{item.proposal}}</text>
       <text class="text-muted text-small">{{item.created_at}}</text>
