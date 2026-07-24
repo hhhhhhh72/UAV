@@ -291,6 +291,57 @@
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
+    },
+    {
+      "path": "pages/resources/list",
+      "style": {
+        "navigationBarTitleText": "产业资源台账",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/resources/detail",
+      "style": {
+        "navigationBarTitleText": "资源详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/compliance/news",
+      "style": {
+        "navigationBarTitleText": "政策资讯",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/compliance/knowledge",
+      "style": {
+        "navigationBarTitleText": "合规知识库",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/compliance/standards",
+      "style": {
+        "navigationBarTitleText": "团体标准库",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/applications/submit",
+      "style": {
+        "navigationBarTitleText": "项目申报",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
     }
   ],
   "globalStyle": {
@@ -321,7 +372,11 @@
       "van-popup": "/wxcomponents/@vant/weapp/popup/index",
       "van-overlay": "/wxcomponents/@vant/weapp/overlay/index",
       "van-action-sheet": "/wxcomponents/@vant/weapp/action-sheet/index",
-      "van-card": "/wxcomponents/@vant/weapp/card/index"
+      "van-card": "/wxcomponents/@vant/weapp/card/index",
+      "van-datetime-picker": "/wxcomponents/@vant/weapp/datetime-picker/index",
+      "van-collapse": "/wxcomponents/@vant/weapp/collapse/index",
+      "van-collapse-item": "/wxcomponents/@vant/weapp/collapse-item/index",
+      "van-picker": "/wxcomponents/@vant/weapp/picker/index"
     }
   },
   "tabBar": {
