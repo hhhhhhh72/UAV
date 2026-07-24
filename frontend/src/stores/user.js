@@ -36,6 +36,33 @@ export const useUserStore = defineStore('user', {
 
   actions: {
     /**
+     * 微信登录（Go JWT）
+     * POST /api/v1/auth/wechat/login
+     * 响应: { accessToken, refreshToken, expiresIn, user: { id, role, status } }
+     */
+    async wechatLogin(code) {
+      try {
+        const res = await axios.post('/api/v1/auth/wechat/login', { code })
+        const data = res.data
+
+        if (data.accessToken && data.user) {
+          this.setUser(data.user, data.accessToken, data.refreshToken || null)
+          return { success: true }
+        }
+
+        return {
+          success: false,
+          message: data?.message || '微信登录失败'
+        }
+      } catch (error) {
+        return {
+          success: false,
+          message: error.response?.data?.message || '网络错误'
+        }
+      }
+    },
+
+    /**
      * 登录
      */
     async login(phone, password) {
