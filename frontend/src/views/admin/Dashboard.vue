@@ -2,12 +2,11 @@
   <div class="dashboard">
     <!-- Metric Cards -->
     <div class="metrics-grid">
-      <MetricCard label="总订单" :value="stats.overview.totalOrders" :sub="roleLabel + '申请'" />
-      <MetricCard label="待处理" :value="stats.overview.pendingOrders" value-color="#ff9f0a" sub="需跟进" />
-      <MetricCard label="处理中" :value="stats.overview.processingOrders" value-color="#0071e3" />
-      <MetricCard label="已完成" :value="stats.overview.completedOrders" value-color="#34c759" />
-      <MetricCard v-if="isPlatformAdmin || isAssociationAdmin" label="赛事报名" :value="stats.overview.totalCompetition" value-color="#5856d6" />
-      <MetricCard v-if="isPlatformAdmin" label="用户数" :value="stats.overview.totalUsers" />
+      <MetricCard label="需求总数" :value="stats.totalDemands" sub="累计发布" />
+      <MetricCard label="待审企业" :value="stats.pendingEnterprises" value-color="#ff9f0a" sub="企业入驻" />
+      <MetricCard label="内容帖子" :value="stats.totalPosts" value-color="#0071e3" sub="社区" />
+      <MetricCard label="平台用户" :value="stats.totalUsers" value-color="#34c759" sub="注册用户" />
+      <MetricCard v-if="isPlatformAdmin || isAssociationAdmin" label="待处举报" :value="stats.pendingReports" value-color="#5856d6" />
     </div>
 
     <!-- Charts -->
@@ -69,17 +68,13 @@ const roleLabel = computed(() => {
 use([CanvasRenderer, LineChart, PieChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
 const stats = ref({
-  overview: {
-    totalOrders: 0,
-    pendingOrders: 0,
-    processingOrders: 0,
-    completedOrders: 0,
-    totalUsers: 0,
-    totalCases: 0,
-    totalCompetition: 0
-  },
+  totalDemands: 0,
+  pendingEnterprises: 0,
+  totalPosts: 0,
+  totalUsers: 0,
+  pendingReports: 0,
   orderTrend: [],
-  competitionByRole: { athlete: 0, coach: 0, referee: 0, club: 0 },
+  competitionByRole: {},
   userGrowth: [],
   statusDist: {}
 })
@@ -202,9 +197,20 @@ const statusOption = computed(() => {
 
 const fetchStats = async () => {
   try {
-    const res = await axios.get('/api/admin/stats')
-    if (res.data?.success) {
-      stats.value = res.data.data
+    const res = await axios.get('/api/v1/admin/dashboard')
+    const d = res.data
+    if (d) {
+      stats.value = {
+        totalDemands: d.total_demands ?? 0,
+        pendingEnterprises: d.pending_enterprises ?? 0,
+        totalPosts: d.total_posts ?? 0,
+        totalUsers: d.total_users ?? 0,
+        pendingReports: d.pending_reports ?? 0,
+        orderTrend: d.trends || [],
+        competitionByRole: d.type_dist || {},
+        userGrowth: [],
+        statusDist: d.status_dist || {}
+      }
     }
   } catch (err) {
     console.error(err)
