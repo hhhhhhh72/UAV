@@ -379,6 +379,8 @@ s.registerBatch1Routes(mux)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
 	mux.HandleFunc("GET /api/v1/me", s.me)
 	mux.HandleFunc("PATCH /api/v1/me", s.updateMe)
+	// 兼容旧前端 /api/* 路径 → /api/v1/*
+	s.registerCompatRoutes(mux)
 	return s.idempotencyCheck(s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(mux)))))))
 }
 
