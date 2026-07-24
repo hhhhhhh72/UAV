@@ -131,7 +131,11 @@ const onPasswordLogin = async (values) => {
     
     // 根据用户角色跳转
     const user = res.data.user
-    router.push('/home')
+    if (user.role === 'platform_admin' || user.role === 'association_admin') {
+      router.push('/admin')
+    } else {
+      router.push('/home')
+    }
   } catch (error) {
     console.error(error)
     showFailToast(error?.response?.data?.message || error?.message || '登录失败')
@@ -212,7 +216,12 @@ const ssoLogin = async (code) => {
     localStorage.setItem('user', JSON.stringify(res.data.user))
     authStorage.setTokens(res.data.accessToken, res.data.refreshToken)
     showSuccessToast('登录成功')
-    router.push('/home')
+    const ssoUser = res.data.user
+    if (ssoUser.role === 'platform_admin' || ssoUser.role === 'association_admin') {
+      router.push('/admin')
+    } else {
+      router.push('/home')
+    }
   } catch (error) {
     console.error(error)
     throw error

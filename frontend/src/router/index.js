@@ -101,6 +101,22 @@ const routes = [
     component: () => import('@/views/demand/Detail.vue'),
     meta: { title: '需求详情' }
   },
+  {
+    path: '/admin',
+    component: () => import('@/views/admin/AdminLayout.vue'),
+    redirect: '/admin/dashboard',
+    children: [
+      { path: 'dashboard', component: () => import('@/views/admin/Dashboard.vue') },
+      { path: 'cases', component: () => import('@/views/admin/cases/CaseList.vue') },
+      { path: 'users', component: () => import('@/views/admin/users/UserList.vue') },
+      { path: 'competition', component: () => import('@/views/admin/competition/CompetitionList.vue') },
+      { path: 'config', component: () => import('@/views/admin/config/ServiceConfigList.vue') },
+      { path: 'reviews', component: () => import('@/views/admin/reviews/ReviewList.vue') },
+      { path: 'orders', component: () => import('@/views/admin/orders/OrderList.vue') },
+      { path: 'enterprises', component: () => import('@/views/admin/enterprises/EnterpriseList.vue') },
+      { path: 'demands', component: () => import('@/views/admin/demands/DemandList.vue') },
+    ]
+  },
 ]
 
 const router = createRouter({

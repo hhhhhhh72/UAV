@@ -1,0 +1,85 @@
+<template>
+  <div class="admin-layout">
+    <AdminSidebar
+      v-model="sidebarOpen"
+      :is-platform-admin="isPlatformAdmin"
+      :is-association-admin="isAssociationAdmin"
+    />
+
+    <div class="admin-main">
+      <AdminHeader
+        :title="pageTitle"
+        :user-role="userRole"
+        @toggle-sidebar="sidebarOpen = !sidebarOpen"
+      />
+      <main class="admin-content">
+        <router-view />
+      </main>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import AdminSidebar from './components/AdminSidebar.vue'
+import AdminHeader from './components/AdminHeader.vue'
+import { useAuth } from './composables/useAuth'
+
+const { userRole, isPlatformAdmin, isAssociationAdmin, refreshCurrentUser } = useAuth()
+const sidebarOpen = ref(false)
+const route = useRoute()
+
+const titleMap = {
+  '/admin/dashboard': '数据看板',
+  '/admin/enterprises': '企业审核',
+  '/admin/demands': '需求管理',
+  '/admin/cases': '案例管理',
+  '/admin/users': '用户管理',
+  '/admin/competition': '赛事管理',
+  '/admin/config': '服务配置',
+  '/admin/reviews': '评价管理',
+  '/admin/orders': '订单管理'
+}
+
+const pageTitle = computed(() => titleMap[route.path] || '后台管理')
+
+onMounted(() => {
+  refreshCurrentUser()
+})
+</script>
+
+<style scoped>
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--background-color, #f5f5f7);
+}
+
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* PC: offset main by sidebar width */
+@media (min-width: 768px) {
+  .admin-main {
+    margin-left: var(--sidebar-width, 220px);
+  }
+}
+
+/* Mobile: full width */
+@media (max-width: 767px) {
+  .admin-content {
+    padding: 12px;
+  }
+}
+</style>
