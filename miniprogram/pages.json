@@ -513,7 +513,6 @@
       "van-sticky": "/wxcomponents/@vant/weapp/sticky/index",
       "van-divider": "/wxcomponents/@vant/weapp/divider/index",
       "van-field": "/wxcomponents/@vant/weapp/field/index",
-      "van-form": "/wxcomponents/@vant/weapp/form/index",
       "van-popup": "/wxcomponents/@vant/weapp/popup/index",
       "van-overlay": "/wxcomponents/@vant/weapp/overlay/index",
       "van-action-sheet": "/wxcomponents/@vant/weapp/action-sheet/index",

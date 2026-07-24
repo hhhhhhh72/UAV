@@ -9,7 +9,7 @@
     />
 
     <van-cell-group inset>
-      <van-form @submit="handleSubmit">
+      <view @submit="handleSubmit">
         <van-field
           v-model="form.title"
           name="title"
@@ -75,7 +75,7 @@
             发布需求
           </van-button>
         </view>
-      </van-form>
+      </view>
     </van-cell-group>
 
     <!-- Biz type picker -->
