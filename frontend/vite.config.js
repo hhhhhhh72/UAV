@@ -34,11 +34,11 @@ export default defineConfig(({ mode }) => {
     allowedHosts: true, // Allow ngrok/localtunnel hosts
     proxy: {
       '/api': {
-        target: env.VITE_API_TARGET || 'http://localhost:3000',
+        target: env.VITE_API_TARGET || 'http://localhost:8080',
         changeOrigin: true
       },
       '/uploads': {
-        target: env.VITE_API_TARGET || 'http://localhost:3000',
+        target: env.VITE_API_TARGET || 'http://localhost:8080',
         changeOrigin: true
       }
     },
