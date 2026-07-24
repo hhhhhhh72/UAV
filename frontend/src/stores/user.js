@@ -19,16 +19,16 @@ export const useUserStore = defineStore('user', {
     isSuperAdmin: (state) => state.user?.phone === 'drone-platform-admin',
 
     // 是否为管理员
-    isAdmin: (state) => state.user?.role === 'admin',
+    isAdmin: (state) => state.user?.role === 'platform_admin',
 
     // 是否为DSL管理员
-    isDslAdmin: (state) => state.user?.role === 'dsl_admin',
+    isDslAdmin: (state) => state.user?.role === 'association_admin',
 
     // 是否为研学管理员
-    isStudyAdmin: (state) => state.user?.role === 'study_admin',
+    isStudyAdmin: (state) => state.user?.role === 'association_admin',
 
     // 是否有管理权限
-    canManage: (state) => ['admin', 'dsl_admin', 'study_admin'].includes(state.user?.role),
+    canManage: (state) => ['platform_admin', 'association_admin'].includes(state.user?.role),
 
     // 用户显示名称
     displayName: (state) => state.user?.name || state.user?.phone || '用户'
