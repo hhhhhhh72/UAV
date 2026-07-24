@@ -138,6 +138,30 @@ const categories = [
     subItems: [
       { id: 'rescue-case', name: '救援案例', icon: 'info-o' },
       { id: 'resource-dispatch', name: '资源调度', icon: 'send-gift-o' },
+    {
+      id: 'innovation',
+      title: '产学研协同',
+      subtitle: '科技成果 创新驱动',
+      icon: 'certificate',
+      gradient: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+      subColor: '#ede9fe',
+      subItems: [
+        { id: 'achievements', name: '成果库', icon: 'star-o' },
+        { id: 'challenges', name: '研发难题', icon: 'fire-o' },
+      ]
+    },
+    {
+      id: 'brand',
+      title: '活动与品牌',
+      subtitle: '协会活动 会员展示',
+      icon: 'star-o',
+      gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+      subColor: '#cffafe',
+      subItems: [
+        { id: 'events', name: '协会活动', icon: 'calendar-o' },
+        { id: 'portfolios', name: '品牌展示', icon: 'shop-o' },
+      ]
+    },
     ]
   },
 ]
@@ -172,6 +196,14 @@ const goToSubService = (cat, sub) => {
     uni.navigateTo({ url: '/pages/services/detail?id=12' })
   } else if (sub.id === 'rescue-case') {
     uni.navigateTo({ url: '/pages/cases/index' })
+  } else if (sub.id === 'achievements') {
+    uni.navigateTo({ url: '/pages/achievements/list' })
+  } else if (sub.id === 'challenges') {
+    uni.navigateTo({ url: '/pages/challenges/list' })
+  } else if (sub.id === 'events') {
+    uni.navigateTo({ url: '/pages/events/list' })
+  } else if (sub.id === 'portfolios') {
+    uni.navigateTo({ url: '/pages/portfolios/list' })
   } else if (sub.id === 'caac' || sub.id === 'utc' || sub.id === 'hr-cert') {
     uni.navigateTo({ url: '/pages/study/index' })
   } else {
