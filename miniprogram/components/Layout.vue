@@ -19,5 +19,5 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.layout { min-height: 100vh; background: #f5f5f5; }
+.layout { min-height: 100vh; background: #f5f5f5; padding-bottom: calc(50px + env(safe-area-inset-bottom)); }
 </style>
