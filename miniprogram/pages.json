@@ -190,6 +190,14 @@
       }
     },
     {
+      "path": "pages/demands/publish",
+      "style": {
+        "navigationBarTitleText": "发布需求",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
       "path": "pages/demands/mine",
       "style": {
         "navigationBarTitleText": "我的需求",
@@ -238,6 +246,14 @@
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff",
         "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/achievements/detail",
+      "style": {
+        "navigationBarTitleText": "成果详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
       }
     },
     {
@@ -404,6 +420,15 @@
       }
     },
     {
+      "path": "pages/emergency/dispatches",
+      "style": {
+        "navigationBarTitleText": "调度记录",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/projects/list",
       "style": {
         "navigationBarTitleText": "课题攻关",
@@ -488,6 +513,7 @@
       "van-sticky": "/wxcomponents/@vant/weapp/sticky/index",
       "van-divider": "/wxcomponents/@vant/weapp/divider/index",
       "van-field": "/wxcomponents/@vant/weapp/field/index",
+      "van-form": "/wxcomponents/@vant/weapp/form/index",
       "van-popup": "/wxcomponents/@vant/weapp/popup/index",
       "van-overlay": "/wxcomponents/@vant/weapp/overlay/index",
       "van-action-sheet": "/wxcomponents/@vant/weapp/action-sheet/index",
