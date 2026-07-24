@@ -342,6 +342,66 @@
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
+    },
+    {
+      "path": "pages/competitions/register",
+      "style": {
+        "navigationBarTitleText": "赛事报名",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#7c3aed"
+      }
+    },
+    {
+      "path": "pages/jobs/list",
+      "style": {
+        "navigationBarTitleText": "招聘求职",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/jobs/resume",
+      "style": {
+        "navigationBarTitleText": "我的简历",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/colleges/list",
+      "style": {
+        "navigationBarTitleText": "院校展示",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/emergency/resources",
+      "style": {
+        "navigationBarTitleText": "应急资源",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/emergency/cases",
+      "style": {
+        "navigationBarTitleText": "救援案例库",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/emergency/depts",
+      "style": {
+        "navigationBarTitleText": "部门对接",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
     }
   ],
   "globalStyle": {
