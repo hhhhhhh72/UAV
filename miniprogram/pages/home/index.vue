@@ -14,12 +14,6 @@
       <view class="video-placeholder" />
 
       <view class="header-section float-header">
-        <view class="location-bar">
-          <view class="location-text">
-            重庆市
-            <image class="arrow-down-icon" src="/static/icons/arrow-down.svg" mode="aspectFit" />
-          </view>
-        </view>
         <view class="search-bar" @tap="handleSearchClick">
           <view class="search-box">
             <image class="search-icon-img" src="/static/icons/search.svg" mode="aspectFit" />
