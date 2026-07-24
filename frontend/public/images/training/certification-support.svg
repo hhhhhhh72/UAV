@@ -1,0 +1,27 @@
+<svg width="640" height="360" viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="certGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ecfdf5"/>
+      <stop offset="100%" stop-color="#d1fae5"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" rx="32" fill="url(#certGradient)"/>
+  <rect x="150" y="90" width="340" height="200" rx="24" fill="#ffffff" stroke="#6ee7b7" stroke-width="4"/>
+  <rect x="190" y="130" width="260" height="80" rx="20" fill="#bbf7d0"/>
+  <path d="M210 170 L260 170" stroke="#059669" stroke-width="8" stroke-linecap="round"/>
+  <path d="M290 170 L350 170" stroke="#059669" stroke-width="8" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="250" cy="210" r="18" fill="#10b981"/>
+  <circle cx="320" cy="210" r="18" fill="#6ee7b7"/>
+  <circle cx="390" cy="210" r="18" fill="#34d399"/>
+  <path d="M180 110 H460" stroke="#6ee7b7" stroke-width="6" stroke-linecap="round" stroke-dasharray="18 12"/>
+  <rect x="210" y="250" width="220" height="40" rx="16" fill="#10b981"/>
+  <path d="M320 70 L340 110 H300 Z" fill="#34d399"/>
+  <path d="M320 70 L310 110 H330 Z" fill="#059669" opacity="0.7"/>
+  <path d="M260 250 L380 250" stroke="#6ee7b7" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 10"/>
+  <circle cx="320" cy="150" r="32" fill="#ffffff" stroke="#34d399" stroke-width="4"/>
+  <path d="M320 135 L328 165 H312 Z" fill="#34d399"/>
+  <path d="M250 320 H390" stroke="#a7f3d0" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="250" cy="320" r="12" fill="#10b981"/>
+  <circle cx="390" cy="320" r="12" fill="#10b981"/>
+</svg>
+

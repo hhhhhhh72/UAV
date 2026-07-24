@@ -1,0 +1,26 @@
+{
+  "name": "drone-platform-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "echarts": "^6.0.0",
+    "leaflet": "^1.9.4",
+    "pinia": "^2.1.7",
+    "vant": "^4.8.11",
+    "vue": "^3.4.21",
+    "vue-cropper": "^1.1.4",
+    "vue-echarts": "^8.0.1",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^1.1.0",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.0"
+  }
+}
