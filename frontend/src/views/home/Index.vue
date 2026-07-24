@@ -499,7 +499,7 @@ const goToDelivery = () => {
 
 /* 特色卡片 */
 .banner-section {
-  margin: 12px 12px 20px;
+  margin: 0 12px 16px;
   background: #fff;
   border-radius: 16px;
   overflow: hidden;
