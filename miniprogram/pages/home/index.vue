@@ -439,7 +439,7 @@ onMounted(async () => {
 .overlay-card {
   position: relative;
   z-index: 5;
-  margin: -100px 12px 10px; /* 从 -60px 调整为 -100px，使其整体往上升 */
+  margin: 0 12px 12px;
   background: rgba(255, 255, 255, 0.22);
   border-radius: 24px;
   padding: 20px 0 10px;

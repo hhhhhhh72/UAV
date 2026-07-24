@@ -412,7 +412,7 @@ const goToDelivery = () => {
 .overlay-card {
   position: relative;
   z-index: 10;
-  margin: calc(-1 * var(--home-overlay-overlap)) 12px 10px; /* 向上重叠，左右留空 */
+  margin: 0 12px 12px;
   background: rgba(255, 255, 255, 0.25); /* 极简透明度 */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
