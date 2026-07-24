@@ -210,7 +210,6 @@ export default {
 <style scoped>
 .services-page {
   background: #f7f8fa;
-  min-height: 100vh;
 }
 
 .content-wrapper {
