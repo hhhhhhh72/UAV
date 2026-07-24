@@ -99,19 +99,6 @@ const categories = [
       { id: 'parts', name: '配件商城', icon: 'more-o', path: '/trade/parts' },
     ]
   },
-  {
-    id: 'contract',
-    title: '合同签约',
-    subtitle: '电子签章 安全合规',
-    icon: 'edit',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    accent: '#047857',
-    subColor: '#d1fae5',
-    path: '/contract',
-    subItems: [
-      { id: 'template', name: '合同模板', icon: 'description', path: '/contract/template' },
-      { id: 'signature', name: '在线签章', icon: 'sign', path: '/contract/sign' },
-      { id: 'void', name: '合同作废', icon: 'delete-o', path: '/contract/void' },
     ]
   },
   {

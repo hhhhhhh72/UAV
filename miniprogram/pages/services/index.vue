@@ -115,19 +115,6 @@ const categories = [
     ]
   },
   {
-    id: 'contract',
-    title: '合同签约',
-    subtitle: '电子签章 安全合规',
-    icon: 'edit',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    subColor: '#d1fae5',
-    subItems: [
-      { id: 'template', name: '合同模板', icon: 'description' },
-      { id: 'signature', name: '在线签章', icon: 'sign' },
-      { id: 'void', name: '合同作废', icon: 'delete-o' },
-    ]
-  },
-  {
     id: 'brand',
     title: '活动与品牌',
     subtitle: '协会活动 会员展示',
@@ -197,9 +184,6 @@ const goToSubService = (cat, sub) => {
     'drone-unit': '/pages/services/detail?id=3',
     'repair': '/pages/services/detail?id=12',
     'parts': '/pages/services/detail?id=4',
-    'template': '/pages/services/detail?id=5',
-    'signature': '/pages/services/detail?id=5',
-    'void': '/pages/services/detail?id=5',
     'events': '/pages/events/list',
     'portfolios': '/pages/portfolios/list',
     'policy': '/pages/services/detail?id=7',
