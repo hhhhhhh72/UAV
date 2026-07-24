@@ -26,10 +26,10 @@
 const props = defineProps(['current'])
 
 const tabList = [
-  { text: '首页', pagePath: '/pages/home/index' },
-  { text: '业务大厅', pagePath: '/pages/services/index' },
-  { text: '消息', pagePath: '/pages/messages/index' },
-  { text: '我的', pagePath: '/pages/mine/index' }
+  { text: '服务大厅', pagePath: '/pages/home/index' },
+  { text: '全部服务', pagePath: '/pages/services/index' },
+  { text: '我的申请', pagePath: '/pages/applications/index' },
+  { text: '个人中心', pagePath: '/pages/mine/index' }
 ]
 
 const handleTabClick = (index) => {
