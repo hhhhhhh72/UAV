@@ -130,6 +130,41 @@
       }
     },
     {
+      "path": "pages/training/courses",
+      "style": {
+        "navigationBarTitleText": "培训认证",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/training/enroll",
+      "style": {
+        "navigationBarTitleText": "课程报名",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/training/certificates",
+      "style": {
+        "navigationBarTitleText": "我的证书",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/competitions/list",
+      "style": {
+        "navigationBarTitleText": "赛事中心",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/demands/list",
       "style": {
         "navigationBarTitleText": "需求大厅",
