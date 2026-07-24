@@ -9,7 +9,13 @@
       <MetricCard v-if="isPlatformAdmin || isAssociationAdmin" label="待处举报" :value="stats.pendingReports" value-color="#5856d6" />
     </div>
 
-    <!-- Charts: data not yet available from Go API — coming in Sprint 2 -->
+    <!-- Overview Chart -->
+    <div class="charts-row">
+      <div class="chart-card chart-full">
+        <h3 class="chart-title">平台数据总览</h3>
+        <v-chart :option="overviewOption" autoresize class="chart" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -166,6 +172,27 @@ const statusOption = computed(() => {
     }]
   }
 })
+
+const overviewOption = computed(() => ({
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+  grid: { left: 60, right: 16, top: 16, bottom: 24 },
+  xAxis: {
+    type: 'category',
+    data: ['需求总数', '待审企业', '内容帖子', '平台用户', '待处举报'],
+    axisLabel: { color: '#86868b', fontSize: 11 }
+  },
+  yAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: '#f0f0f2' } } },
+  series: [{
+    type: 'bar', barWidth: '40%',
+    data: [
+      { value: stats.value.totalDemands, itemStyle: { color: COLORS.blue } },
+      { value: stats.value.pendingEnterprises, itemStyle: { color: COLORS.orange } },
+      { value: stats.value.totalPosts, itemStyle: { color: COLORS.green } },
+      { value: stats.value.totalUsers, itemStyle: { color: COLORS.teal } },
+      { value: stats.value.pendingReports, itemStyle: { color: COLORS.red } }
+    ]
+  }]
+}))
 
 const fetchStats = async () => {
   try {
