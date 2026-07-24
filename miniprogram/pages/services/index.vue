@@ -186,26 +186,30 @@ const goToCategory = (cat) => {
 }
 
 const goToSubService = (cat, sub) => {
-  if (sub.id === 'demand-hall') {
-    uni.navigateTo({ url: '/pages/demands/list' })
-  } else if (sub.id === 'bid-quote') {
-    uni.navigateTo({ url: '/pages/demands/bid' })
-  } else if (sub.id === 'pilot') {
-    uni.navigateTo({ url: '/pages/services/detail?id=6' })
-  } else if (sub.id === 'repair') {
-    uni.navigateTo({ url: '/pages/services/detail?id=12' })
-  } else if (sub.id === 'rescue-case') {
-    uni.navigateTo({ url: '/pages/cases/index' })
-  } else if (sub.id === 'achievements') {
-    uni.navigateTo({ url: '/pages/achievements/list' })
-  } else if (sub.id === 'challenges') {
-    uni.navigateTo({ url: '/pages/challenges/list' })
-  } else if (sub.id === 'events') {
-    uni.navigateTo({ url: '/pages/events/list' })
-  } else if (sub.id === 'portfolios') {
-    uni.navigateTo({ url: '/pages/portfolios/list' })
-  } else if (sub.id === 'caac' || sub.id === 'utc' || sub.id === 'hr-cert') {
-    uni.navigateTo({ url: '/pages/study/index' })
+  const nav = {
+    'demand-hall': '/pages/demands/list',
+    'bid-quote': '/pages/demands/bid',
+    'supply-show': '/pages/services/detail?id=1',
+    'caac': '/pages/study/index', 'utc': '/pages/study/index', 'hr-cert': '/pages/study/index',
+    'pilot': '/pages/training/courses',
+    'achievements': '/pages/achievements/list',
+    'challenges': '/pages/challenges/list',
+    'drone-unit': '/pages/services/detail?id=3',
+    'repair': '/pages/services/detail?id=12',
+    'parts': '/pages/services/detail?id=4',
+    'template': '/pages/services/detail?id=5',
+    'signature': '/pages/services/detail?id=5',
+    'void': '/pages/services/detail?id=5',
+    'events': '/pages/events/list',
+    'portfolios': '/pages/portfolios/list',
+    'policy': '/pages/services/detail?id=7',
+    'annual': '/pages/services/detail?id=8',
+    'loan': '/pages/services/detail?id=9',
+    'rescue-case': '/pages/cases/index',
+    'resource-dispatch': '/pages/emergency/resources',
+  }
+  if (nav[sub.id]) {
+    uni.navigateTo({ url: nav[sub.id] })
   } else {
     uni.showToast({ title: sub.name + ' - 即将上线', icon: 'none', duration: 1500 })
   }
