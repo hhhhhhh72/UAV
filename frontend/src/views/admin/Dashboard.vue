@@ -3,9 +3,9 @@
     <!-- Metric Cards -->
     <div class="metrics-grid">
       <MetricCard label="需求总数" :value="dashboard.totalDemands" sub="累计发布" />
-      <MetricCard label="企业入驻数" :value="dashboard.totalEnterprises" value-color="#0071e3" sub="已认证企业" />
-      <MetricCard label="培训认证数" :value="dashboard.totalCerts" value-color="#5856d6" sub="飞手/教员" />
-      <MetricCard label="成交率" :value="dashboard.completionRate" value-color="#34c759" sub="近30天" />
+      <MetricCard label="待审企业" :value="dashboard.totalEnterprises" value-color="#0071e3" sub="企业入驻" />
+      <MetricCard label="内容帖子" :value="dashboard.totalPosts" value-color="#5856d6" sub="社区帖子" />
+      <MetricCard label="平台用户" :value="dashboard.totalUsers" value-color="#34c759" sub="注册用户" />
     </div>
 
     <!-- Charts -->
@@ -172,10 +172,26 @@ const statusDistOption = computed(() => {
 })
 
 const fetchDashboard = async () => {
-  try {
-    const res = await http.get('/api/v1/admin/dashboard')
     if (res.data) {
-      dashboard.value = res.data
+      const d = res.data
+      dashboard.value = {
+        totalDemands: d.total_demands ?? 0,
+        totalEnterprises: d.pending_enterprises ?? 0,
+        totalCerts: 0,
+        completionRate: '0%',
+        totalPosts: d.total_posts ?? 0,
+        totalReports: d.pending_reports ?? 0,
+        totalUsers: d.total_users ?? 0,
+        trends: [],
+        typeDist: {},
+        statusDist: {}
+      }
+    }
+        completionRate: res.data.completionRate ?? '0%',
+        trends: res.data.trends || [],
+        typeDist: res.data.typeDist || {},
+        statusDist: res.data.statusDist || {}
+      }
     }
   } catch (err) {
     console.error(err)
