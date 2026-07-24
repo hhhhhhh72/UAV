@@ -1,52 +1,53 @@
 export const caseList = [
   {
     id: 1,
-    title: '重庆山区无人机物资配送',
-    description: '利用大载重无人机在重庆山区实现高效物资运输，将传统车程的3小时缩短至40分钟，有效解决了山区物流"最后一公里"难题。',
+    title: '海岛物资无人机配送',
+    description: '成功实现温州海岛之间的高效配送，将传统海运的2小时航程缩短至20分钟，极大提升了急需物资的转运效率。',
     cover: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&w=600&q=80',
     coverType: 'image',
-    date: '2024-06-15',
-    views: 1560,
-    service: '无人机交易',
-    location: '重庆武隆山区',
+    date: '2024-03-20',
+    views: 1250,
+    service: '无人机物流',
+    location: '温州洞头海域',
     media: [
       { type: 'image', url: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&w=1000&q=80' },
       { type: 'image', url: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&w=1000&q=80' }
     ],
-    highlights: ['缩短运输时间78%', '适应复杂山地地形', '最大载重50kg']
+    highlights: ['缩短运输时间80%', '支持复杂海况飞行', '全流程自动驾驶']
   },
   {
     id: 2,
-    title: '重庆两江新区无人机巡检',
-    description: '在两江新区部署无人机自动巡检系统，对园区基础设施、在建工程进行全天候智能监测，实现安全隐患实时预警。',
+    title: '城市河道环保巡查',
+    description: '利用无人机搭载高光谱相机，对城市内河进行全天候自动巡查，实时识别排污口及水质异常区域。',
     cover: 'https://www-cdn.djiits.com/dps/3e196dbfade1b1734dbbb335dde5de12.jpg?w=1184&h=592',
     coverType: 'image',
-    date: '2024-07-20',
-    views: 1120,
-    service: '应急资源协同',
-    location: '重庆两江新区',
+    date: '2024-02-15',
+    views: 890,
+    service: '政务服务',
+    location: '温州温瑞塘河',
     media: [
       { type: 'image', url: 'https://www-cdn.djiits.com/dps/3e196dbfade1b1734dbbb335dde5de12.jpg?w=1184&h=592' }
     ],
-    highlights: ['AI自动识别隐患', '全自动航线规划', '实时数据回传']
+    highlights: ['多源数据融合', 'AI智能识别污迹', '自动生成巡查报告']
   },
   {
     id: 3,
-    title: '重庆无人机驾驶培训认证项目',
-    description: '联合多家培训机构在重庆开展CAAC无人机驾驶员执照培训，已累计培养超过2000名持证飞手，为西南地区无人机产业输送专业人才。',
+    title: '5.18 洞头灯光秀表演',
+    description: '500架无人机在洞头海滨上演了一场精彩的灯光秀，为市民带来了震撼的视觉盛宴，展现了温州低空经济的魅力。',
     cover: 'https://images.unsplash.com/photo-1506947411487-a56738267384?auto=format&fit=crop&w=600&q=80',
     coverType: 'image',
-    date: '2024-08-10',
-    views: 2800,
-    service: '培训认证',
-    location: '重庆渝北区',
+    date: '2024-05-18',
+    views: 3200,
+    service: '无人机表演',
+    location: '温州洞头新城广场',
     media: [
       { type: 'image', url: 'https://images.unsplash.com/photo-1506947411487-a56738267384?auto=format&fit=crop&w=1000&q=80' }
     ],
-    highlights: ['CAAC官方认证考点', '2000+持证飞手', '87%通过率']
+    highlights: ['500架大规模编队', 'RTK高精度定位', '全程地面站监控']
   }
 ]
 
 export function getCaseById(id) {
   return caseList.find(c => String(c.id) === String(id))
 }
+

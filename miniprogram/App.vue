@@ -21,7 +21,7 @@
 					success: (loginRes) => {
 						const { request, authStorage } = require('./utils/request')
 						request({
-							url: '/api/v1/auth/wechat/login',
+							url: '/api/auth/wx-login',
 							method: 'POST',
 							data: { code: loginRes.code }
 						}).then(res => {

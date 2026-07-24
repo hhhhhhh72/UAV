@@ -34,40 +34,40 @@
         </view>
       </view>
 
-      <!-- 企业审核 -->
+      <!-- 赛事报名 -->
       <view v-if="activeTab === 1" class="data-list">
         <!-- 统计卡片 -->
         <view class="stats-row">
-          <view class="stat-card"><text class="stat-num">{{ enterpriseStats.total }}</text><text class="stat-label">总申请</text></view>
-          <view class="stat-card"><text class="stat-num orange">{{ enterpriseStats.pending }}</text><text class="stat-label">待审核</text></view>
-          <view class="stat-card"><text class="stat-num green">{{ enterpriseStats.approved }}</text><text class="stat-label">已通过</text></view>
-          <view class="stat-card"><text class="stat-num red">{{ enterpriseStats.rejected }}</text><text class="stat-label">已驳回</text></view>
+          <view class="stat-card"><text class="stat-num">{{ competitionStats.total }}</text><text class="stat-label">总报名</text></view>
+          <view class="stat-card"><text class="stat-num red">{{ competitionStats.athlete }}</text><text class="stat-label">运动员</text></view>
+          <view class="stat-card"><text class="stat-num orange">{{ competitionStats.coach }}</text><text class="stat-label">教练员</text></view>
+          <view class="stat-card"><text class="stat-num green">{{ competitionStats.referee }}</text><text class="stat-label">裁判员</text></view>
         </view>
 
-        <!-- 状态筛选 -->
+        <!-- 角色筛选 -->
         <view class="filter-bar">
-          <view
-            v-for="opt in statusFilterOptions" :key="opt.value"
-            class="filter-item" :class="{ active: selectedStatus === opt.value }"
-            @tap="selectedStatus = opt.value"
+          <view 
+            v-for="opt in roleFilterOptions" :key="opt.value"
+            class="filter-item" :class="{ active: selectedRole === opt.value }"
+            @tap="selectedRole = opt.value"
           >{{ opt.label }}</view>
         </view>
 
-        <view v-if="filteredEnterprise.length === 0" class="empty">暂无企业入驻申请</view>
-        <view
-          v-for="item in filteredEnterprise"
-          :key="item.id"
+        <view v-if="filteredCompetition.length === 0" class="empty">暂无报名数据</view>
+        <view 
+          v-for="item in filteredCompetition" 
+          :key="item.id || item.orderNo" 
           class="card"
-          @tap="showEnterpriseDetail(item)"
+          @tap="showOrderDetail(item)"
         >
           <view class="card-title">
-            <text class="name">{{ item.companyName || '未知企业' }}</text>
-            <text class="status" :class="getEnterpriseStatusClass(item.status)">{{ item.statusText || item.status || '待审核' }}</text>
+            <text class="name">{{ item.name || item.companyName || '未知' }}</text>
+            <text class="status primary">{{ item.competitionRoleText || '未知角色' }}</text>
           </view>
           <view class="card-info">
-            <view class="info-line">联系人：{{ item.contactName || '-' }}</view>
-            <view class="info-line">电话：{{ item.contactPhone || '-' }}</view>
-            <view class="info-line date">申请时间：{{ item.applyTime || '未知' }}</view>
+            <view class="info-line">单位：{{ item.companyName || '-' }}</view>
+            <view class="info-line">电话：{{ item.phone || item.managerPhone || '-' }}</view>
+            <view class="info-line date">时间：{{ item.applyTime || '未知' }}</view>
           </view>
         </view>
       </view>
@@ -137,75 +137,57 @@
 import { ref, computed, onMounted } from 'vue'
 import { request, getStoredUser } from '../../utils/request'
 
-const tabs = ['订单管理', '企业审核', '用户管理']
+const tabs = ['订单管理', '赛事报名', '用户管理']
 const activeTab = ref(0)
 const orders = ref([])
+const competitionOrders = ref([])
 const users = ref([])
 const showModal = ref(false)
 const currentOrder = ref(null)
 const statusOptions = ['待处理', '处理中', '已联系', '已完成', '已取消']
-// enterprise filter state
+const selectedRole = ref('all')
 
-const statusFilterOptions = [
+const roleFilterOptions = [
   { label: '全部', value: 'all' },
-  { label: '待审核', value: 'pending' },
-  { label: '已通过', value: 'approved' },
-  { label: '已驳回', value: 'rejected' }
+  { label: '运动员', value: 'athlete' },
+  { label: '教练员', value: 'coach' },
+  { label: '裁判员', value: 'referee' },
+  { label: '俱乐部', value: 'club' }
 ]
 
 const getRoleLabel = (role) => {
   if (role === 'admin') return '管理员'
-  if (role === 'dsl_admin') return '平台管理'
+  if (role === 'dsl_admin') return '低空管理'
   return '用户'
 }
 
-const enterpriseList = ref([])
-const selectedStatus = ref('all')
-
-const enterpriseStats = computed(() => {
-  const stats = { total: 0, pending: 0, approved: 0, rejected: 0 }
-  enterpriseList.value.forEach(item => {
+const competitionStats = computed(() => {
+  const stats = { total: 0, athlete: 0, coach: 0, referee: 0, club: 0 }
+  competitionOrders.value.forEach(item => {
     stats.total++
-    if (item.status === 'pending') stats.pending++
-    else if (item.status === 'approved') stats.approved++
-    else if (item.status === 'rejected') stats.rejected++
+    if (item.competitionRole === 'athlete') stats.athlete++
+    else if (item.competitionRole === 'coach') stats.coach++
+    else if (item.competitionRole === 'referee') stats.referee++
+    else if (item.competitionRole === 'club') stats.club++
   })
   return stats
 })
 
-const filteredEnterprise = computed(() => {
-  if (selectedStatus.value === 'all') return enterpriseList.value
-  return enterpriseList.value.filter(i => i.status === selectedStatus.value)
+const filteredCompetition = computed(() => {
+  if (selectedRole.value === 'all') return competitionOrders.value
+  return competitionOrders.value.filter(i => i.competitionRole === selectedRole.value)
 })
-
-const getEnterpriseStatusClass = (status) => {
-  if (status === 'approved') return 'success'
-  if (status === 'pending') return 'warning'
-  if (status === 'rejected') return 'default'
-  return 'default'
-}
-
-const showEnterpriseDetail = (item) => {
-  currentOrder.value = item
-  showModal.value = true
-}
 
 const fetchOrders = async () => {
   try {
     const res = await request({ url: '/api/list', data: { role: 'admin' } })
     const list = Array.isArray(res) ? res : (res?.data || [])
-    orders.value = list
+    orders.value = list.filter(i => String(i.serviceId) !== '13')
+    competitionOrders.value = list.filter(i => String(i.serviceId) === '13')
   } catch (e) {
     const all = uni.getStorageSync('mock_applications') || []
-    orders.value = all
-  }
-
-  // 加载企业入驻申请
-  try {
-    const res = await request({ url: '/api/enterprise/list' })
-    enterpriseList.value = Array.isArray(res) ? res : (res?.data || [])
-  } catch (e) {
-    enterpriseList.value = []
+    orders.value = all.filter(i => String(i.serviceId) !== '13')
+    competitionOrders.value = all.filter(i => String(i.serviceId) === '13')
   }
 }
 

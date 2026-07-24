@@ -16,7 +16,7 @@
       <view class="header-section float-header">
         <view class="location-bar">
           <view class="location-text">
-            重庆市
+            温州市
             <image class="arrow-down-icon" src="/static/icons/arrow-down.svg" mode="aspectFit" />
           </view>
         </view>
@@ -173,7 +173,7 @@ import Layout from '@/components/Layout.vue'
 import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
 import { request } from '../../utils/request'
 
-const searchKeywords = ['搜索服务/案例', '产业供需对接', '培训认证', '无人机交易', '合同签约', '保险金融']
+const searchKeywords = ['搜索服务/案例', '无人机外卖', '行业应用示范', '飞行服务', '低空研学', '无人机吊运']
 const activeSearchIndex = ref(0)
 
 const onSearchSwiperChange = (e) => {
@@ -198,15 +198,23 @@ const getCapsuleInfo = () => {
 const capsuleInfo = ref(getCapsuleInfo())
 const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20)
 
-const notices = ref(['重庆无人机产业平台正式上线', '无人机培训认证夏季班火热招生中', '产业供需对接大厅已开放入驻'])
+const notices = ref(['交享点无人机外卖配送正式上线', '新开通江心屿无人机外卖配送'])
 
 const quickServices = ref([
-  { id: 'supply-demand', name: '产业供需对接', icon: '/static/icons/flight.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
-  { id: 'training-cert', name: '培训认证', icon: '/static/icons/training-v2.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
-  { id: 'drone-trade', name: '无人机交易', icon: '/static/icons/shop.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
-  { id: 'contract-sign', name: '合同签约', icon: '/static/icons/maintenance.svg', color: 'linear-gradient(135deg, #4ade80 0%, #16a34a 100%)' },
-  { id: 'insurance-finance', name: '保险金融', icon: '/static/icons/finance.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
-  { id: 'emergency-resource', name: '应急资源协同', icon: '/static/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' },
+  { id: 'flight', name: '飞行服务', icon: '/static/icons/flight.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 8, name: '无人机外卖', icon: '/static/icons/delivery.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
+  { id: 1, name: '无人机物流', icon: '/static/icons/logistics-drone.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 10, name: '无人机销售', icon: '/static/icons/shop.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
+  { id: 13, name: '无人机赛事', icon: '/static/icons/competition.svg', color: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' },
+  { id: 6, name: '飞手培训', icon: '/static/icons/training-v2.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
+  { id: 9, name: '低空研学', icon: '/static/icons/study.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 2, name: '政务服务', icon: '/static/icons/government.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 3, name: '无人机托管', icon: '/static/icons/maintenance.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 5, name: '无人机表演', icon: '/static/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 7, name: '无人机租赁', icon: '/static/icons/rent.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
+  { id: 4, name: '无人机吊运', icon: '/static/icons/lifting.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
+  { id: 11, name: '金融服务', icon: '/static/icons/finance.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 12, name: '维修服务', icon: '/static/icons/wrench.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
   { id: 'contact', name: '联系客服', icon: '/static/icons/service.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' }
 ])
 
@@ -229,18 +237,18 @@ const servicePages = computed(() => {
 const activeFunctionPage = ref(0)
 
 const displayServices = ref([
-  { id: 'supply-demand', name: '产业供需对接', description: '发布需求、浏览供应、在线竞标', icon: '/static/icons/flight.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
-  { id: 'training-cert', name: '培训认证', description: 'CAAC执照考证、UTC认证培训', icon: '/static/icons/training-v2.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
-  { id: 'drone-trade', name: '无人机交易', description: '整机购买、配件采购、维修服务', icon: '/static/icons/shop.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
-  { id: 'contract-sign', name: '合同签约', description: '标准化合同模板、在线电子签章', icon: '/static/icons/maintenance.svg', color: 'linear-gradient(135deg, #4ade80 0%, #16a34a 100%)' },
-  { id: 'insurance-finance', name: '保险金融', description: '无人机保单、金融贷款服务', icon: '/static/icons/finance.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
-  { id: 'emergency-resource', name: '应急资源协同', description: '应急救援案例、资源统筹调度', icon: '/static/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' }
+  { id: 1, name: '无人机物流', description: '城市极速配送，解决最后一公里难题', icon: '/static/icons/logistics-drone.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 2, name: '政务服务', description: '高效环保监测、交通疏导、安全巡查', icon: '/static/icons/government.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 3, name: '无人机托管', description: '专业机库托管，定期维护保养', icon: '/static/icons/maintenance.svg', color: 'linear-gradient(135deg, #4ade80 0%, #16a34a 100%)' },
+  { id: 4, name: '无人机吊运', description: '建筑材料、基站设备高空精准吊运', icon: '/static/icons/lifting.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
+  { id: 5, name: '无人机表演', description: '大型活动编队，光影艺术盛宴', icon: '/static/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 6, name: '飞手培训', description: 'CAAC执照考证，专业技能培训', icon: '/static/icons/training-v2.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' }
 ])
 
 const banners = ref([
-  { image: 'https://images.unsplash.com/photo-1506947411487-a56738267384?auto=format&fit=crop&w=1000&q=80', link: '' },
+  { image: 'https://wenzhoumall-prod.oss-cn-shanghai.aliyuncs.com/test/shop/20250930/0fa02eb2dc8b4a6382784fedc0b44dc0.jpg', link: 'delivery' },
   { image: 'https://www-cdn.djiits.com/dps/3e196dbfade1b1734dbbb335dde5de12.jpg?w=1184&h=592', link: '/pages/cases/detail?id=1' },
-  { image: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&w=1000&q=80', link: '/pages/cases/detail?id=2' }
+  { image: 'https://images.unsplash.com/photo-1506947411487-a56738267384?auto=format&fit=crop&w=1000&q=80', link: '/pages/cases/detail?id=2' }
 ])
 
 const activeBanner = ref(0)
@@ -254,24 +262,46 @@ onPullDownRefresh(() => {
 
 const handleFunctionTap = (item) => {
   if (item.isEmpty) return
+  if (item.id === 'flight') {
+    openExternal('https://wx.zndkfx.com')
+    return
+  }
+  if (item.id === 8) {
+    goToDelivery()
+    return
+  }
+  if (item.id === 9) {
+    safeNavigateTo('/pages/study/index')
+    return
+  }
   if (item.id === 'contact') {
-    uni.makePhoneCall({ phoneNumber: '02312345678' })
+    uni.makePhoneCall({ phoneNumber: '057712345678' })
     return
   }
   if (item.id === 'more') {
     safeSwitchTab('/pages/services/index')
     return
   }
-  uni.showToast({ title: '功能开发中', icon: 'none' })
+  if (item.id === 'news' || item.id === 'policy') {
+    uni.showToast({ title: '功能开发中', icon: 'none' })
+    return
+  }
+  goToDetail(item.id)
 }
 
 const goToDetail = (id) => {
   safeNavigateTo(`/pages/services/detail?id=${id}`)
 }
 
+const goToDelivery = () => {
+  openExternal('https://app.wzsjy.com:8446/h5/#/pages/diy/diy?pageId=130')
+}
+
 const handleBannerClick = (item) => {
-  if (item.link) {
-    safeNavigateTo(item.link)
+  if (item.link === 'delivery') {
+    goToDelivery()
+  } else if (item.link) {
+    navigateTo(item.link)
   }
 }
 
