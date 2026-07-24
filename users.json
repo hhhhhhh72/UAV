@@ -180,5 +180,12 @@
     "role": "platform_admin",
     "status": "active",
     "username": "a"
+  },
+  {
+    "id": "user-admin",
+    "phone": "admin",
+    "role": "platform_admin",
+    "status": "active",
+    "username": "admin"
   }
 ]

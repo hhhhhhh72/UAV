@@ -131,11 +131,7 @@ const onPasswordLogin = async (values) => {
     
     // 根据用户角色跳转
     const user = res.data.user
-    if (user.role === 'platform_admin' || user.role === 'association_admin') {
-      router.push('/admin')
-    } else {
-      router.push('/home')
-    }
+    router.push('/home')
   } catch (error) {
     console.error(error)
     showFailToast(error?.response?.data?.message || error?.message || '登录失败')

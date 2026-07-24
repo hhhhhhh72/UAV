@@ -101,50 +101,6 @@ const routes = [
     component: () => import('@/views/demand/Detail.vue'),
     meta: { title: '需求详情' }
   },
-  {
-    path: '/admin',
-    component: () => import('@/views/admin/AdminLayout.vue'),
-    meta: { title: '后台管理' },
-    redirect: '/admin/dashboard',
-    children: [
-      {
-        path: 'dashboard',
-        name: 'AdminDashboard',
-        component: () => import('@/views/admin/Dashboard.vue'),
-        meta: { title: '数据概览' }
-      },
-      {
-        path: 'cases',
-        name: 'AdminCases',
-        component: () => import('@/views/admin/cases/CaseList.vue'),
-        meta: { title: '案例管理' }
-      },
-      {
-        path: 'users',
-        name: 'AdminUsers',
-        component: () => import('@/views/admin/users/UserList.vue'),
-        meta: { title: '用户管理' }
-      },
-      {
-        path: 'competition',
-        name: 'AdminCompetition',
-        component: () => import('@/views/admin/competition/CompetitionList.vue'),
-        meta: { title: '赛事管理' }
-      },
-      {
-        path: 'config',
-        name: 'AdminConfig',
-        component: () => import('@/views/admin/config/ServiceConfigList.vue'),
-        meta: { title: '服务配置' }
-      },
-      {
-        path: 'reviews',
-        name: 'AdminReviews',
-        component: () => import('@/views/admin/reviews/ReviewList.vue'),
-        meta: { title: '评价管理' }
-      }
-    ]
-  },
 ]
 
 const router = createRouter({
@@ -167,7 +123,7 @@ router.beforeEach(async (to, from, next) => {
       authStorage.setTokens(tokens.accessToken, tokens.refreshToken)
       // 清除URL中的认证参数，跳转到目标页面
       const { wechat_auth: _w, user: _u, tokens: _t, ...rest } = to.query
-      const targetPath = ['platform_admin', 'association_admin'].includes(user.role) ? '/admin' : to.path
+      const targetPath = to.path
       next({ path: targetPath, query: rest, replace: true })
       return
     } catch (e) {
@@ -210,44 +166,6 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // Admin route protection
-  if (to.path.startsWith('/admin')) {
-    const accessToken = authStorage.getAccessToken()
-    const userStr = localStorage.getItem('user')
-    if (!accessToken && !userStr) {
-      next('/login')
-      return
-    }
-    let user = null
-    if (userStr) {
-      try {
-        user = JSON.parse(userStr)
-      } catch (e) {
-        user = null
-      }
-    }
-    if (!user && accessToken) {
-      try {
-        const res = await axios.get('/api/auth/me')
-        if (res.data?.success) {
-          user = res.data.user
-          localStorage.setItem('user', JSON.stringify(user))
-        }
-      } catch (e) {
-        user = null
-      }
-    }
-    if (!user) {
-      next('/login')
-      return
-    }
-    if (!['platform_admin', 'association_admin'].includes(user.role)) {
-      showFailToast('无管理权限，请使用管理员账号登录')
-      next('/login')
-      return
-    }
-  }
-  
   next()
 })
 
