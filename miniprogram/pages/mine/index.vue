@@ -57,7 +57,7 @@
             title="企业入驻"
             icon="shop-o"
             is-link
-            @tap="goProfile"
+            @tap="goEnterprise"
           />
           <van-cell
             title="我的需求"
@@ -207,6 +207,7 @@ const handleUserClick = () => {
 }
 
 const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' })
+const goEnterprise = () => uni.navigateTo({ url: '/pages/enterprise/status' })
 const goApplications = () => uni.navigateTo({ url: '/pages/applications/index' })
 const goProfile = () => {
   if (!user.value) {

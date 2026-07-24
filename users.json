@@ -26,5 +26,12 @@
     "role": "platform_admin",
     "status": "active",
     "username": "13800138000"
+  },
+  {
+    "id": "user-13800138000",
+    "phone": "13800138000",
+    "role": "platform_admin",
+    "status": "active",
+    "username": "13800138000"
   }
 ]
