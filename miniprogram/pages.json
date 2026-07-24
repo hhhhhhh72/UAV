@@ -11,7 +11,7 @@
     {
       "path": "pages/services/index",
       "style": {
-        "navigationBarTitleText": "全部服务",
+        "navigationBarTitleText": "业务大厅",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
@@ -35,15 +35,21 @@
     {
       "path": "pages/applications/index",
       "style": {
-        "navigationBarTitleText": "我的申请",
+        "navigationBarTitleText": "我的业务",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
     },
     {
+      "path": "pages/messages/index",
+      "style": {
+        "navigationBarTitleText": "消息中心"
+      }
+    },
+    {
       "path": "pages/mine/index",
       "style": {
-        "navigationBarTitleText": "个人中心",
+        "navigationBarTitleText": "我的",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
@@ -147,15 +153,16 @@
       },
       {
         "pagePath": "pages/services/index",
-        "text": "全部服务"
+        "text": "业务大厅"
       },
       {
         "pagePath": "pages/applications/index",
-        "text": "我的申请"
+        "text": "消息"
       },
       {
-        "pagePath": "pages/mine/index",
-        "text": "个人中心"
+        "pagePath": "pages/messages/index",
+      "pages/mine/index",
+        "text": "我的"
       }
     ]
   }
