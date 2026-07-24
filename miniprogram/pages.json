@@ -142,7 +142,30 @@
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "无人机产业综合服务平台",
     "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#f7f8fa"
+    "backgroundColor": "#f7f8fa",
+    "usingComponents": {
+      "van-button": "/wxcomponents/@vant/weapp/button/index",
+      "van-cell": "/wxcomponents/@vant/weapp/cell/index",
+      "van-cell-group": "/wxcomponents/@vant/weapp/cell-group/index",
+      "van-icon": "/wxcomponents/@vant/weapp/icon/index",
+      "van-image": "/wxcomponents/@vant/weapp/image/index",
+      "van-nav-bar": "/wxcomponents/@vant/weapp/nav-bar/index",
+      "van-search": "/wxcomponents/@vant/weapp/search/index",
+      "van-tab": "/wxcomponents/@vant/weapp/tab/index",
+      "van-tabs": "/wxcomponents/@vant/weapp/tabs/index",
+      "van-tag": "/wxcomponents/@vant/weapp/tag/index",
+      "van-tabbar": "/wxcomponents/@vant/weapp/tabbar/index",
+      "van-tabbar-item": "/wxcomponents/@vant/weapp/tabbar-item/index",
+      "van-grid": "/wxcomponents/@vant/weapp/grid/index",
+      "van-grid-item": "/wxcomponents/@vant/weapp/grid-item/index",
+      "van-empty": "/wxcomponents/@vant/weapp/empty/index",
+      "van-loading": "/wxcomponents/@vant/weapp/loading/index",
+      "van-sticky": "/wxcomponents/@vant/weapp/sticky/index",
+      "van-divider": "/wxcomponents/@vant/weapp/divider/index",
+      "van-field": "/wxcomponents/@vant/weapp/field/index",
+      "van-popup": "/wxcomponents/@vant/weapp/popup/index",
+      "van-overlay": "/wxcomponents/@vant/weapp/overlay/index"
+    }
   },
   "tabBar": {
     "color": "#969799",
@@ -170,8 +193,6 @@
   },
   "easycom": {
     "autoscan": true,
-    "custom": {
-      "^van-(.*)": "@vant/weapp/dist/$1/index"
-    }
+    "custom": {}
   }
 }
