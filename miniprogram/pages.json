@@ -43,7 +43,9 @@
     {
       "path": "pages/messages/index",
       "style": {
-        "navigationBarTitleText": "消息中心"
+        "navigationBarTitleText": "消息中心",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
       }
     },
     {
@@ -129,7 +131,7 @@
     {
       "path": "pages/admin/index",
       "style": {
-        "navigationBarTitleText": "后台管理",
+        "navigationBarTitleText": "管理后台",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
@@ -137,7 +139,7 @@
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "低空综合服务平台",
+    "navigationBarTitleText": "无人机产业综合服务平台",
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#f7f8fa"
   },
@@ -156,12 +158,11 @@
         "text": "业务大厅"
       },
       {
-        "pagePath": "pages/applications/index",
+        "pagePath": "pages/messages/index",
         "text": "消息"
       },
       {
-        "pagePath": "pages/messages/index",
-      "pages/mine/index",
+        "pagePath": "pages/mine/index",
         "text": "我的"
       }
     ]
