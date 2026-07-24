@@ -368,7 +368,7 @@ onMounted(async () => {
 }
 
 .video-placeholder {
-  height: 130px;
+  height: 110px;
   width: 100%;
 }
 
