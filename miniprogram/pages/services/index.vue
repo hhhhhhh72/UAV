@@ -215,7 +215,7 @@ const goToSubService = (cat, sub) => {
 <style scoped>
 .services-page {
   background: #f7f8fa;
-  height: 100vh;
+  height: calc(100vh - 50px - env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -225,6 +225,7 @@ const goToSubService = (cat, sub) => {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
+  padding-bottom: 24px;
   -webkit-overflow-scrolling: touch;
 }
 
