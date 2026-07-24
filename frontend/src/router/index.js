@@ -167,7 +167,7 @@ router.beforeEach(async (to, from, next) => {
       authStorage.setTokens(tokens.accessToken, tokens.refreshToken)
       // 清除URL中的认证参数，跳转到目标页面
       const { wechat_auth: _w, user: _u, tokens: _t, ...rest } = to.query
-      const targetPath = ['admin', 'dsl_admin', 'study_admin'].includes(user.role) ? '/admin' : to.path
+      const targetPath = ['platform_admin', 'association_admin'].includes(user.role) ? '/admin' : to.path
       next({ path: targetPath, query: rest, replace: true })
       return
     } catch (e) {
@@ -241,7 +241,7 @@ router.beforeEach(async (to, from, next) => {
       next('/login')
       return
     }
-    if (!['admin', 'dsl_admin', 'study_admin'].includes(user.role)) {
+    if (!['platform_admin', 'association_admin'].includes(user.role)) {
       showFailToast('无管理权限，请使用管理员账号登录')
       next('/login')
       return

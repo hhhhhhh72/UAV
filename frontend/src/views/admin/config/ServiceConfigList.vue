@@ -568,10 +568,10 @@ const serviceConfigEntries = computed(() => {
 
 // 按前端服务分类进行分组
 const serviceGroupsConfig = [
-  { title: '核心服务', ids: ['2', '8', '1'], roles: ['admin'] },
-  { title: '商业应用', ids: ['4', '5', '3', '7', '13'], roles: ['admin', 'dsl_admin'] },
-  { title: '研学教育', ids: ['9'], roles: ['admin', 'study_admin'] },
-  { title: '增值服务', ids: ['10', '11', '12'], roles: ['admin'] }
+  { title: '核心服务', ids: ['2', '8', '1'], roles: ['platform_admin'] },
+  { title: '商业应用', ids: ['4', '5', '3', '7', '13'], roles: ['platform_admin', 'association_admin'] },
+  { title: '研学教育', ids: ['9'], roles: ['platform_admin', 'association_admin'] },
+  { title: '增值服务', ids: ['10', '11', '12'], roles: ['platform_admin'] }
 ]
 
 const groupedServiceEntries = computed(() => {

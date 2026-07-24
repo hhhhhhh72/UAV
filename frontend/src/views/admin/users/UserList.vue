@@ -22,13 +22,13 @@
         <template #value>
           <div style="display:flex; flex-direction: column; align-items: flex-end; gap: 6px;">
             <van-tag
-              :type="u.role === 'admin' ? 'success' : (u.role === 'dsl_admin' ? 'primary' : 'default')"
+              :type="u.role === 'platform_admin' ? 'success' : (u.role === 'association_admin' ? 'primary' : 'default')"
               size="medium"
             >
               {{ roleLabel(u.role) }}
             </van-tag>
             <van-button
-              v-if="isSuperAdmin && u.role !== 'dsl_admin' && u.phone !== SUPER_ADMIN_PHONE"
+              v-if="isSuperAdmin && u.role !== 'association_admin' && u.phone !== SUPER_ADMIN_PHONE"
               size="mini"
               type="primary"
               plain
@@ -55,7 +55,7 @@ const { isSuperAdmin, SUPER_ADMIN_PHONE } = useAuth()
 const users = ref([])
 
 const roleLabel = (role) => {
-  const map = { admin: '管理员', dsl_admin: 'DSL管理', user: '用户' }
+  const map = { platform_admin: '平台管理员', association_admin: '协会管理员', enterprise: '企业', individual: '个人' }
   return map[role] || role || '-'
 }
 
@@ -79,7 +79,7 @@ const toggleUserRole = async (user) => {
     showFailToast('超级管理员权限不可修改')
     return
   }
-  const newRole = user.role === 'admin' ? 'user' : 'admin'
+  const newRole = user.role === 'platform_admin' ? 'individual' : 'platform_admin'
   try {
     await axios.post('/api/user/role', { id: user.id, role: newRole })
     user.role = newRole
