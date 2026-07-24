@@ -90,6 +90,18 @@ const categories = [
     ]
   },
   {
+    id: 'innovation',
+    title: '产学研协同',
+    subtitle: '科技成果 创新驱动',
+    icon: 'certificate',
+    gradient: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+    subColor: '#ede9fe',
+    subItems: [
+      { id: 'achievements', name: '成果库', icon: 'star-o' },
+      { id: 'challenges', name: '研发难题', icon: 'fire-o' },
+    ]
+  },
+  {
     id: 'trade',
     title: '无人机交易',
     subtitle: '整机配件 一站购齐',
@@ -116,6 +128,18 @@ const categories = [
     ]
   },
   {
+    id: 'brand',
+    title: '活动与品牌',
+    subtitle: '协会活动 会员展示',
+    icon: 'star-o',
+    gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+    subColor: '#cffafe',
+    subItems: [
+      { id: 'events', name: '协会活动', icon: 'calendar-o' },
+      { id: 'portfolios', name: '品牌展示', icon: 'shop-o' },
+    ]
+  },
+  {
     id: 'insurance',
     title: '保险金融',
     subtitle: '全面保障 资金支持',
@@ -138,30 +162,6 @@ const categories = [
     subItems: [
       { id: 'rescue-case', name: '救援案例', icon: 'info-o' },
       { id: 'resource-dispatch', name: '资源调度', icon: 'send-gift-o' },
-    {
-      id: 'innovation',
-      title: '产学研协同',
-      subtitle: '科技成果 创新驱动',
-      icon: 'certificate',
-      gradient: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
-      subColor: '#ede9fe',
-      subItems: [
-        { id: 'achievements', name: '成果库', icon: 'star-o' },
-        { id: 'challenges', name: '研发难题', icon: 'fire-o' },
-      ]
-    },
-    {
-      id: 'brand',
-      title: '活动与品牌',
-      subtitle: '协会活动 会员展示',
-      icon: 'star-o',
-      gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-      subColor: '#cffafe',
-      subItems: [
-        { id: 'events', name: '协会活动', icon: 'calendar-o' },
-        { id: 'portfolios', name: '品牌展示', icon: 'shop-o' },
-      ]
-    },
     ]
   },
 ]
