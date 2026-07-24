@@ -1,9 +1,7 @@
 <template>
   <Layout :current="1">
     <view class="services-page">
-    <van-sticky>
-      <van-search v-model="searchText" placeholder="搜索业务分类" shape="round" />
-    </van-sticky>
+    <van-search v-model="searchText" placeholder="搜索业务分类" shape="round" />
 
     <view class="content-wrapper">
       <view v-if="filteredCategories.length === 0" class="empty-state">
