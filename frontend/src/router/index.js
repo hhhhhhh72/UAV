@@ -22,6 +22,12 @@ const routes = [
         meta: { title: '全部服务', showTabbar: true }
       },
       {
+        path: '/messages',
+        name: 'Messages',
+        component: () => import('@/views/messages/Index.vue'),
+        meta: { title: '消息', showTabbar: true }
+      },
+      {
         path: '/applications',
         name: 'Applications',
         component: () => import('@/views/applications/Index.vue'),
