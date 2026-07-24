@@ -33,30 +33,6 @@
         </view>
       </view>
 
-      <!-- 轮播 Banner -->
-      <view class="banner-section">
-        <swiper
-          class="banner-swipe"
-          autoplay
-          interval="5000"
-          circular
-          :current="activeBanner"
-          @change="onBannerChange"
-        >
-          <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
-            <image :src="item.image" class="banner-image" mode="aspectFill" />
-          </swiper-item>
-        </swiper>
-        <view class="banner-dots">
-          <view
-            v-for="(item, index) in banners"
-            :key="`banner-dot-${index}`"
-            class="banner-dot"
-            :class="{ active: index === activeBanner }"
-          />
-        </view>
-      </view>
-
       <!-- 功能金刚区 -->
       <view class="main-functions overlay-card">
         <swiper 
@@ -119,6 +95,29 @@
 
       <!-- 核心内容区 -->
       <view class="content-area">
+        <view class="banner-section">
+          <swiper 
+            class="banner-swipe" 
+            autoplay 
+            interval="5000" 
+            circular
+            :current="activeBanner"
+            @change="onBannerChange"
+          >
+            <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
+              <image :src="item.image" class="banner-image" mode="aspectFill" />
+            </swiper-item>
+          </swiper>
+          <view class="banner-dots">
+            <view 
+              v-for="(item, index) in banners" 
+              :key="`banner-dot-${index}`"
+              class="banner-dot"
+              :class="{ active: index === activeBanner }"
+            />
+          </view>
+        </view>
+
         <!-- 左右推荐卡片 (替换图标为 SVG) -->
         <view class="recommend-grid">
           <view class="recommend-card blue-card" @tap="navigateTo('/pages/cases/index')">
@@ -368,7 +367,7 @@ onMounted(async () => {
 }
 
 .video-placeholder {
-  height: 120px;
+  height: 350px;
   width: 100%;
 }
 
@@ -439,7 +438,7 @@ onMounted(async () => {
 .overlay-card {
   position: relative;
   z-index: 5;
-  margin: 0 12px 12px;
+  margin: -100px 12px 10px; /* 从 -60px 调整为 -100px，使其整体往上升 */
   background: rgba(255, 255, 255, 0.22);
   border-radius: 24px;
   padding: 20px 0 10px;
@@ -550,17 +549,15 @@ onMounted(async () => {
 }
 
 .banner-section {
-  margin: 0 12px 10px;
-  background: transparent;
+  margin-bottom: 12px;
   border-radius: 16px;
   overflow: hidden;
   position: relative;
-  
 }
 
 .banner-image {
   width: 100%;
-  height: 120px;
+  height: 160px;
   display: block;
 }
 
