@@ -182,6 +182,19 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  // Admin route protection: only platform_admin + association_admin
+  if (to.path.startsWith('/admin')) {
+    const userStr = localStorage.getItem('user')
+    if (!userStr) { next('/login'); return }
+    let user
+    try { user = JSON.parse(userStr) } catch (e) { next('/login'); return }
+    if (!['platform_admin', 'association_admin'].includes(user.role)) {
+      showFailToast('无管理权限，请使用管理员账号登录')
+      next('/login')
+      return
+    }
+  }
+
   next()
 })
 
