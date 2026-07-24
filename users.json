@@ -194,5 +194,12 @@
     "role": "platform_admin",
     "status": "active",
     "username": "admin"
+  },
+  {
+    "id": "user-a",
+    "phone": "a",
+    "role": "platform_admin",
+    "status": "active",
+    "username": "a"
   }
 ]

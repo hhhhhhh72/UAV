@@ -9,35 +9,7 @@
       <MetricCard v-if="isPlatformAdmin || isAssociationAdmin" label="待处举报" :value="stats.pendingReports" value-color="#5856d6" />
     </div>
 
-    <!-- Charts -->
-    <div class="charts-row">
-      <div class="chart-card" :class="isPlatformAdmin || isAssociationAdmin ? 'chart-wide' : 'chart-full'">
-        <h3 class="chart-title">订单趋势（近14天）</h3>
-        <v-chart :option="trendOption" autoresize class="chart" />
-      </div>
-      <div v-if="isPlatformAdmin || isAssociationAdmin" class="chart-card chart-narrow">
-        <h3 class="chart-title">赛事报名分布</h3>
-        <v-chart :option="pieOption" autoresize class="chart" />
-      </div>
-    </div>
-
-    <div class="charts-row" v-if="isPlatformAdmin">
-      <div class="chart-card chart-wide">
-        <h3 class="chart-title">用户增长</h3>
-        <v-chart :option="userGrowthOption" autoresize class="chart" />
-      </div>
-      <div class="chart-card chart-narrow">
-        <h3 class="chart-title">订单状态分布</h3>
-        <v-chart :option="statusOption" autoresize class="chart" />
-      </div>
-    </div>
-
-    <div class="charts-row" v-if="!isPlatformAdmin">
-      <div class="chart-card chart-full">
-        <h3 class="chart-title">订单状态分布</h3>
-        <v-chart :option="statusOption" autoresize class="chart" />
-      </div>
-    </div>
+    <!-- Charts: data not yet available from Go API — coming in Sprint 2 -->
   </div>
 </template>
 
