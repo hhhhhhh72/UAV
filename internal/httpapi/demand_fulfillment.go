@@ -7,7 +7,52 @@ import (
 	"strings"
 
 	"drone-platform/internal/crypto"
+	"drone-platform/internal/domain"
 )
+
+// GET /api/v1/demands/{id}
+func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	d, err := s.demands.FindByID(id)
+	if err != nil {
+		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	d = publicDemand(d)
+	respond(w, r, http.StatusOK, d)
+}
+
+// GET /api/v1/demands/{id}/applications
+func (s *Server) listDemandBids(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	bids, err := s.demands.ListBidsByDemand(id)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if bids == nil {
+		bids = []domain.DemandBid{}
+	}
+	respond(w, r, http.StatusOK, bids)
+}
+
+// GET /api/v1/demands/bids/mine
+func (s *Server) listMyBids(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	bids, err := s.demands.ListBidsByBidder(a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if bids == nil {
+		bids = []domain.DemandBid{}
+	}
+	respond(w, r, http.StatusOK, bids)
+}
 
 // PATCH /api/v1/demands/{id}
 func (s *Server) updateDemand(w http.ResponseWriter, r *http.Request) {

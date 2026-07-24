@@ -65,6 +65,13 @@ func (s *DemandService) List(f repository.DemandFilter) ([]domain.Demand, error)
 	return s.repo.List(f)
 }
 func (s *DemandService) Search(q string) ([]domain.Demand, error) { return s.repo.Search(q) }
+func (s *DemandService) FindByID(id string) (domain.Demand, error) { return s.repo.FindByID(id) }
+func (s *DemandService) ListBidsByDemand(demandID string) ([]domain.DemandBid, error) {
+	return s.bidRepo.ListByDemand(demandID)
+}
+func (s *DemandService) ListBidsByBidder(bidderID string) ([]domain.DemandBid, error) {
+	return s.bidRepo.ListByBidder(bidderID)
+}
 func (s *DemandService) UpdateDraft(a domain.Actor, id, title, desc string) (domain.Demand, error) {
 	d, err := s.repo.FindByID(id)
 	if err != nil {

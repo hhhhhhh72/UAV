@@ -335,6 +335,31 @@ func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// Keyword search filter
+	if q := r.URL.Query().Get("q"); q != "" {
+		qs := strings.ToLower(q)
+		filtered := make([]domain.Demand, 0, len(result))
+		for _, d := range result {
+			if strings.Contains(strings.ToLower(d.Title), qs) ||
+				strings.Contains(strings.ToLower(d.Description), qs) ||
+				strings.Contains(strings.ToLower(d.PublisherName), qs) {
+				filtered = append(filtered, d)
+			}
+		}
+		result = filtered
+	}
+	// Mine filter: only demands published by current user
+	if r.URL.Query().Get("mine") == "1" {
+		if a, ok := authenticatedActor(r); ok {
+			filtered := make([]domain.Demand, 0, len(result))
+			for _, d := range result {
+				if d.PublisherID == a.ID {
+					filtered = append(filtered, d)
+				}
+			}
+			result = filtered
+		}
+	}
 	start := (page - 1) * pageSize
 	if start > len(result) {
 		start = len(result)

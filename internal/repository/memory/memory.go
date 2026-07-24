@@ -857,6 +857,18 @@ func (r *bidRepo) ListByDemand(demandID string) ([]domain.DemandBid, error) {
 	return out, nil
 }
 
+func (r *bidRepo) ListByBidder(bidderID string) ([]domain.DemandBid, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.DemandBid, 0)
+	for _, b := range r.items {
+		if b.BidderID == bidderID {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}
+
 func (r *bidRepo) UpdateStatus(id string, status string) (domain.DemandBid, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

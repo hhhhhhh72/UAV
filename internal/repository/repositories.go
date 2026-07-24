@@ -152,6 +152,7 @@ type BidRepository interface {
 	Create(domain.DemandBid) (domain.DemandBid, error)
 	FindByID(id string) (domain.DemandBid, error)
 	ListByDemand(demandID string) ([]domain.DemandBid, error)
+	ListByBidder(bidderID string) ([]domain.DemandBid, error)
 	UpdateStatus(id string, status string) (domain.DemandBid, error)
 }
 

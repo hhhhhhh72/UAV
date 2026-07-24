@@ -996,6 +996,25 @@ func (r *pgBidRepo) ListByDemand(demandID string) ([]domain.DemandBid, error) {
 	return out, rows.Err()
 }
 
+func (r *pgBidRepo) ListByBidder(bidderID string) ([]domain.DemandBid, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id, demand_id, bidder_id, bidder_name, amount_fen, proposal, status, version, created_at, updated_at
+		FROM demand_bids WHERE bidder_id=$1 ORDER BY created_at DESC`, bidderID)
+	if err != nil {
+		return nil, fmt.Errorf("query bids by bidder: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.DemandBid{}
+	for rows.Next() {
+		var b domain.DemandBid
+		if err := rows.Scan(&b.ID, &b.DemandID, &b.BidderID, &b.BidderName, &b.AmountFen, &b.Proposal, &b.Status, &b.Version, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan bid: %w", err)
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
 func (r *pgBidRepo) UpdateStatus(id string, status string) (domain.DemandBid, error) {
 	tag, err := r.pool.Exec(context.Background(),
 		`UPDATE demand_bids SET status=$1, version=version+1, updated_at=$2 WHERE id=$3`,
