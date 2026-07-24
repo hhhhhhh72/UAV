@@ -14,11 +14,15 @@ import (
 	"drone-platform/internal/domain"
 )
 
-// TokenManager issues and verifies HMAC-SHA256 bearer tokens.
+// TokenManager issues and verifies bearer tokens.
 //
-// Each token carries {sub (user ID), role, exp (expiry)} as a base64-encoded
-// JSON payload, signed with the server's AUTH_SECRET. The signature prevents
-// tampering but the token is NOT encrypted — never put secrets in the payload.
+// Two formats are supported:
+//   - Legacy: base64(payload).base64(HMAC-SHA256) — current format
+//   - JWT:    base64(header).base64(payload).base64(HMAC-SHA256) — standard JWT
+//
+// Issue() produces legacy tokens for backward compatibility.
+// IssueJWT() produces standard JWT tokens (alg: HS256).
+// Verify() accepts both formats transparently.
 //
 // Tokens expire after 15 minutes by default. Refresh tokens (stored separately)
 // are used for long-lived sessions.
@@ -31,7 +35,19 @@ func NewTokenManager(secret string) (*TokenManager, error) {
 	}
 	return &TokenManager{secret: []byte(secret)}, nil
 }
-// Issue creates a signed bearer token for the given actor, valid for ttl duration.
+
+// jwtHeader is the standard JWT header for HS256 tokens.
+const jwtHeader = `{"alg":"HS256","typ":"JWT"}`
+
+// sign produces a base64url-encoded HMAC-SHA256 signature over data.
+func (m *TokenManager) sign(data string) string {
+	h := hmac.New(sha256.New, m.secret)
+	h.Write([]byte(data))
+	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+}
+
+// Issue creates a signed bearer token in legacy format (no JWT header).
+// Deprecated: use IssueJWT for new clients.
 func (m *TokenManager) Issue(a domain.Actor, ttl time.Duration) (string, error) {
 	p := struct {
 		ID   string      `json:"sub"`
@@ -43,23 +59,52 @@ func (m *TokenManager) Issue(a domain.Actor, ttl time.Duration) (string, error) 
 		return "", err
 	}
 	body := base64.RawURLEncoding.EncodeToString(b)
-	h := hmac.New(sha256.New, m.secret)
-	h.Write([]byte(body))
-	return body + "." + base64.RawURLEncoding.EncodeToString(h.Sum(nil)), nil
+	return body + "." + m.sign(body), nil
 }
+
+// IssueJWT creates a standard JWT token (HS256).
+func (m *TokenManager) IssueJWT(a domain.Actor, ttl time.Duration) (string, error) {
+	p := struct {
+		ID   string      `json:"sub"`
+		Role domain.Role `json:"role"`
+		Exp  int64       `json:"exp"`
+		Iat  int64       `json:"iat"`
+	}{a.ID, a.Role, time.Now().Add(ttl).Unix(), time.Now().Unix()}
+	b, err := json.Marshal(p)
+	if err != nil {
+		return "", err
+	}
+	headerB64 := base64.RawURLEncoding.EncodeToString([]byte(jwtHeader))
+	payloadB64 := base64.RawURLEncoding.EncodeToString(b)
+	signingInput := headerB64 + "." + payloadB64
+	return signingInput + "." + m.sign(signingInput), nil
+}
+
 // Verify validates a token's signature and expiry, returning the embedded Actor.
+// Accepts both legacy tokens (2-part) and standard JWT tokens (3-part).
 func (m *TokenManager) Verify(token string) (domain.Actor, error) {
 	parts := strings.Split(token, ".")
-	if len(parts) != 2 {
+	var payloadB64 string
+
+	switch len(parts) {
+	case 2:
+		// Legacy format: payload.sig
+		payloadB64 = parts[0]
+		if !hmac.Equal([]byte(m.sign(parts[0])), []byte(parts[1])) {
+			return domain.Actor{}, errors.New("invalid bearer token")
+		}
+	case 3:
+		// Standard JWT: header.payload.sig
+		payloadB64 = parts[1]
+		signingInput := parts[0] + "." + parts[1]
+		if !hmac.Equal([]byte(m.sign(signingInput)), []byte(parts[2])) {
+			return domain.Actor{}, errors.New("invalid bearer token")
+		}
+	default:
 		return domain.Actor{}, errors.New("invalid bearer token")
 	}
-	h := hmac.New(sha256.New, m.secret)
-	h.Write([]byte(parts[0]))
-	sig, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil || !hmac.Equal(sig, h.Sum(nil)) {
-		return domain.Actor{}, errors.New("invalid bearer token")
-	}
-	b, err := base64.RawURLEncoding.DecodeString(parts[0])
+
+	b, err := base64.RawURLEncoding.DecodeString(payloadB64)
 	if err != nil {
 		return domain.Actor{}, errors.New("invalid bearer token")
 	}
@@ -83,6 +128,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			strings.HasPrefix(r.URL.Path, "/uploads/") ||
 			r.URL.Path == "/api/v1/admin/token" ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||
+			strings.HasPrefix(r.URL.Path, "/api/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/webhooks/") {
 			next.ServeHTTP(w, r)
 			return

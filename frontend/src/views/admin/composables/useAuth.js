@@ -9,10 +9,9 @@ export function useAuth() {
   const userRole = ref(user ? user.role : 'user')
   const isSuperAdmin = ref(user ? user.phone === SUPER_ADMIN_PHONE : false)
 
-  const isAdmin = computed(() => userRole.value === 'admin')
-  const isDslAdmin = computed(() => userRole.value === 'dsl_admin')
-  const isStudyAdmin = computed(() => userRole.value === 'study_admin')
-  const canManage = computed(() => isAdmin.value || isDslAdmin.value || isStudyAdmin.value)
+  const isAdmin = computed(() => userRole.value === 'platform_admin')
+  const isAssociationAdmin = computed(() => userRole.value === 'association_admin')
+  const canManage = computed(() => isAdmin.value || isAssociationAdmin.value)
 
   const refreshCurrentUser = async () => {
     const accessToken = authStorage.getAccessToken()
@@ -39,8 +38,7 @@ export function useAuth() {
     userRole,
     isSuperAdmin,
     isAdmin,
-    isDslAdmin,
-    isStudyAdmin,
+    isAssociationAdmin,
     canManage,
     refreshCurrentUser,
     SUPER_ADMIN_PHONE

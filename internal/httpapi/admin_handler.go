@@ -30,7 +30,7 @@ func (s *Server) adminDevLogin(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	uid := fmt.Sprintf("admin-%d", now.UnixMilli())
 	actor := domain.Actor{ID: uid, Role: domain.Role(req.Role)}
-	token, err := s.tokens.Issue(actor, 2*time.Hour)
+	token, err := s.tokens.IssueJWT(actor, 2*time.Hour)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

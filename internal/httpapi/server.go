@@ -252,135 +252,26 @@ func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resou
 
 func (s *Server) Router() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", s.index)
-	mux.HandleFunc("GET /uploads/", s.serveUploads)
-	mux.HandleFunc("POST /api/v1/admin/token", s.adminDevLogin)
-	mux.HandleFunc("GET /favicon.ico", s.favicon)
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		respond(w, r, http.StatusOK, map[string]any{
-			"status": "ok",
-			"checks": map[string]string{
-				"server":  "up",
-				"storage": s.storage,
-			},
-		})
-	})
-	mux.HandleFunc("GET /api/v1/home", s.home)
-	mux.HandleFunc("GET /api/v1/search", s.search)
-	mux.HandleFunc("GET /api/v1/demands", s.listDemands)
-	mux.HandleFunc("POST /api/v1/demands", s.createDemand)
-	mux.HandleFunc("PATCH /api/v1/demands/{id}", s.updateDemand)
-	mux.HandleFunc("POST /api/v1/demands/{id}/submit", s.submitDemand)
-	mux.HandleFunc("GET /api/v1/admin/demands", s.listAdminDemands)
-	mux.HandleFunc("POST /api/v1/admin/demands/{id}/review", s.reviewDemand)
-	mux.HandleFunc("POST /api/v1/admin/demands/{id}/approve", s.approveDemand)
-	mux.HandleFunc("POST /api/v1/demands/{id}/applications", s.createBid)
-	mux.HandleFunc("POST /api/v1/demands/{id}/applications/{applicationId}/select", s.selectBid)
-	mux.HandleFunc("POST /api/v1/demands/{id}/complete", s.completeDemand)
-	mux.HandleFunc("POST /api/v1/demands/{id}/dispute", s.disputeDemand)
-	mux.HandleFunc("GET /api/v1/employment-requests", s.listEmployment)
-	mux.HandleFunc("POST /api/v1/employment-requests", s.createEmployment)
-	mux.HandleFunc("GET /api/v1/contracts", s.listContracts)
-	mux.HandleFunc("POST /api/v1/contracts", s.createContract)
-	mux.HandleFunc("POST /api/v1/contracts/{id}/void", s.voidContract)
-	mux.HandleFunc("POST /api/v1/webhooks/signing", s.signingWebhook)
-	mux.HandleFunc("GET /api/v1/enterprises", s.listMyEnterprises)
-	mux.HandleFunc("POST /api/v1/enterprises", s.createEnterprise)
-	mux.HandleFunc("PATCH /api/v1/enterprises/{id}", s.updateEnterprise)
-	mux.HandleFunc("POST /api/v1/enterprises/{id}/submit", s.submitEnterprise)
-	mux.HandleFunc("GET /api/v1/admin/enterprises", s.listEnterprises)
-	mux.HandleFunc("GET /api/v1/admin/enterprises/pending", s.pendingEnterprises)
-	mux.HandleFunc("POST /api/v1/admin/enterprises/{id}/review", s.reviewEnterprise)
-	mux.HandleFunc("POST /api/v1/admin/enterprises/batch-review", s.batchReviewEnterprises)
-	mux.HandleFunc("GET /api/v1/admin/enterprises/search", s.searchEnterprises)
-	// Jobs / Resumes / Applications
-	mux.HandleFunc("POST /api/v1/jobs", s.createJob)
-	mux.HandleFunc("GET /api/v1/jobs", s.listJobs)
-	mux.HandleFunc("GET /api/v1/jobs/mine", s.listMyJobs)
-	mux.HandleFunc("POST /api/v1/jobs/{id}/publish", s.publishJob)
-	mux.HandleFunc("POST /api/v1/jobs/{id}/close", s.closeJob)
-	mux.HandleFunc("POST /api/v1/resumes", s.createResume)
-	mux.HandleFunc("PATCH /api/v1/resumes/{id}", s.updateResume)
-	mux.HandleFunc("GET /api/v1/resumes/mine", s.listMyResumes)
-	mux.HandleFunc("POST /api/v1/applications", s.createApplication)
-	mux.HandleFunc("PATCH /api/v1/applications/{id}/status", s.updateApplicationStatus)
-	mux.HandleFunc("GET /api/v1/applications", s.listApplications)
-	// Posts / Comments / Reports
-	mux.HandleFunc("POST /api/v1/posts", s.createPost)
-	mux.HandleFunc("GET /api/v1/posts", s.listPosts)
-	mux.HandleFunc("POST /api/v1/posts/{id}/publish", s.publishPost)
-	mux.HandleFunc("POST /api/v1/posts/{id}/remove", s.removePost)
-	mux.HandleFunc("POST /api/v1/posts/{id}/comments", s.createComment)
-	mux.HandleFunc("GET /api/v1/comments", s.listComments)
-	mux.HandleFunc("POST /api/v1/reports", s.createReport)
-	mux.HandleFunc("GET /api/v1/admin/reports", s.listReports)
-	// Listings
-	mux.HandleFunc("POST /api/v1/listings", s.createListing)
-	mux.HandleFunc("GET /api/v1/listings", s.listListings)
-	mux.HandleFunc("POST /api/v1/listings/{id}/close", s.closeListing)
-	mux.HandleFunc("POST /api/v1/listings/{id}/favorites", s.favoriteListing)
-	// Labour Orders
-	mux.HandleFunc("POST /api/v1/labour-orders", s.createLabourOrder)
-	mux.HandleFunc("GET /api/v1/labour-orders", s.listLabourOrders)
-	mux.HandleFunc("POST /api/v1/labour-orders/{id}/quote", s.createLabourQuote)
-	mux.HandleFunc("GET /api/v1/labour-orders/quotes", s.listLabourQuotes)
-	// Training
-	mux.HandleFunc("POST /api/v1/certificates", s.addCertificate)
-	mux.HandleFunc("POST /api/v1/admin/certificates/{id}/approve", s.approveCertificate)
-	mux.HandleFunc("GET /api/v1/certificates/mine", s.listMyCertificates)
-	mux.HandleFunc("POST /api/v1/training-courses", s.createCourse)
-	mux.HandleFunc("GET /api/v1/training-courses", s.listCourses)
-	mux.HandleFunc("POST /api/v1/instructors", s.registerInstructor)
-	mux.HandleFunc("POST /api/v1/admin/instructors/{id}/approve", s.approveInstructor)
-	mux.HandleFunc("GET /api/v1/instructors", s.listInstructors)
-	mux.HandleFunc("POST /api/v1/certified-pilots", s.registerPilot)
-	mux.HandleFunc("POST /api/v1/admin/certified-pilots/{id}/approve", s.approvePilot)
-	mux.HandleFunc("GET /api/v1/certified-pilots", s.listPilots)
-	// Trading
-	mux.HandleFunc("POST /api/v1/products", s.createProduct)
-	mux.HandleFunc("GET /api/v1/products", s.listProducts)
-	mux.HandleFunc("POST /api/v1/repairs", s.createRepair)
-	mux.HandleFunc("GET /api/v1/repairs/mine", s.listMyRepairs)
-	// Insurance
-	mux.HandleFunc("POST /api/v1/policies", s.createPolicy)
-	mux.HandleFunc("GET /api/v1/policies/mine", s.listMyPolicies)
-	mux.HandleFunc("POST /api/v1/inspections", s.createInspection)
-	mux.HandleFunc("GET /api/v1/inspections/mine", s.listMyInspections)
-	// Finance
-	mux.HandleFunc("POST /api/v1/loans", s.applyLoan)
-	mux.HandleFunc("GET /api/v1/loans/mine", s.listMyLoans)
-	// Messages
-	mux.HandleFunc("GET /api/v1/messages", s.listMessages)
-	mux.HandleFunc("POST /api/v1/messages/{id}/read", s.markMessageRead)
-	mux.HandleFunc("GET /api/v1/messages/unread-count", s.unreadCount)
-	// Contract templates + member import + assignments
-	mux.HandleFunc("GET /api/v1/contract-templates", s.listContractTemplates)
-	mux.HandleFunc("POST /api/v1/admin/members/import", s.importMembers)
-	mux.HandleFunc("POST /api/v1/assignments", s.createAssignment)
+
+	// ── Core routes (organized by module) ───────────────────────────
+	s.registerCoreRoutes(mux)
+
+	// ── Extended routes (batch / phase / biz modules) ───────────────
 	s.registerPhase3Routes(mux)
 	s.registerBatch3Routes(mux)
 	s.registerBizRoutes(mux)
-s.registerBatch1Routes(mux)
+	s.registerBatch1Routes(mux)
 	s.registerBatch2Routes(mux)
-	// Files
-	mux.HandleFunc("POST /api/v1/files/upload", s.uploadFile)
-	mux.HandleFunc("POST /api/v1/enterprises/{id}/documents", s.attachEnterpriseDocument)
-	// Admin config
-	mux.HandleFunc("GET /api/v1/admin/config", s.getConfig)
-	mux.HandleFunc("POST /api/v1/admin/config", s.updateConfig)
-	// Admin export + batch + image optimization
-	mux.HandleFunc("GET /api/v1/admin/export/demands", s.exportDemands)
-	mux.HandleFunc("GET /api/v1/admin/export/enterprises", s.exportEnterprises)
-	mux.HandleFunc("POST /api/v1/admin/demands/batch-approve", s.batchApproveDemands)
-	mux.HandleFunc("GET /api/v1/image", s.serveImage)
-	// Auth endpoints (no token required).
-	mux.HandleFunc("POST /api/v1/auth/wechat/login", s.wechatLogin)
-	mux.HandleFunc("POST /api/v1/auth/refresh", s.refreshToken)
-	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
-	mux.HandleFunc("GET /api/v1/me", s.me)
-	mux.HandleFunc("PATCH /api/v1/me", s.updateMe)
-	// 兼容旧前端 /api/* 路径 → /api/v1/*
-	s.registerCompatRoutes(mux)
+
+	// ── Legacy H5 /api/* compat routes — DEV ONLY ───────────────────
+	// JSON file-backed storage. Disabled in production.
+	// Remove after frontend migration to /api/v1/*.
+	if adminDevMode() {
+		slog.Warn("H5 compat routes enabled (ADMIN_DEV_MODE=true) — JSON file storage, NOT FOR PRODUCTION")
+		s.registerCompatRoutes(mux)
+		s.registerH5Compat(mux)
+	}
+
 	return s.idempotencyCheck(s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(mux)))))))
 }
 

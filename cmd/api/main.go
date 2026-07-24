@@ -87,29 +87,32 @@ func main() {
 		enrollRepo       repository.EnrollmentRepository
 		tradeOrderRepo   repository.TradeOrderRepository
 		escrowRepo       repository.EscrowRepository
-		poolRepo         repository.ResourcePoolRepository
-		testSiteRepo     repository.TestSiteRepository
-		exhibitionRepo   repository.ExhibitionRepository
-		transRepo        repository.TransformationRepository
-		collegeRepo      repository.CollegeRepository
-		coopRepo         repository.CooperationRepository
-		rescueCaseRepo   repository.RescueCaseRepository
-		emergDeptRepo    repository.EmergencyDeptRepository
-		assocMemberRepo  repository.AssociationMemberRepository
-		expertRepo       repository.ExpertRepository
-		caseRepo         repository.CaseRepository
-		complianceRepo   repository.ComplianceRepository
-		achieveRepo      repository.AchievementRepository
-		rdChallengeRepo  repository.RDChallengeRepository
-		researchRepo     repository.ResearchProjectRepository
-		projAppRepo      repository.ProjectAppRepository
-		competitionRepo  repository.CompetitionRepository
-		eventRepo        repository.EventRepository
-		portfolioRepo    repository.PortfolioRepository
-		industryRptRepo  repository.IndustryReportRepository
-		resourceRepo     repository.ResourceRepository
-		emergencyRepo    repository.EmergencyRepository
-		pgStore          *postgres.Store
+		// Memory-only repos (PG implementations pending — see audit report).
+		// TODO(P1): Add PG implementations for these 9 repositories.
+		poolRepo        repository.ResourcePoolRepository
+		testSiteRepo    repository.TestSiteRepository
+		exhibitionRepo  repository.ExhibitionRepository
+		transRepo       repository.TransformationRepository
+		collegeRepo     repository.CollegeRepository
+		coopRepo        repository.CooperationRepository
+		rescueCaseRepo  repository.RescueCaseRepository
+		emergDeptRepo   repository.EmergencyDeptRepository
+		assocMemberRepo repository.AssociationMemberRepository
+		// PG-backed repos.
+		expertRepo      repository.ExpertRepository
+		caseRepo        repository.CaseRepository
+		complianceRepo  repository.ComplianceRepository
+		achieveRepo     repository.AchievementRepository
+		rdChallengeRepo repository.RDChallengeRepository
+		researchRepo    repository.ResearchProjectRepository
+		projAppRepo     repository.ProjectAppRepository
+		competitionRepo repository.CompetitionRepository
+		eventRepo       repository.EventRepository
+		portfolioRepo   repository.PortfolioRepository
+		industryRptRepo repository.IndustryReportRepository
+		resourceRepo    repository.ResourceRepository
+		emergencyRepo   repository.EmergencyRepository
+		pgStore         *postgres.Store
 	)
 
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -159,15 +162,6 @@ func main() {
 		enrollRepo = pgStore.NewEnrollmentRepository()
 		tradeOrderRepo = pgStore.NewTradeOrderRepository()
 		escrowRepo = pgStore.NewEscrowRepository()
-		poolRepo = memory.NewResourcePoolRepository()
-		testSiteRepo = memory.NewTestSiteRepository()
-		exhibitionRepo = memory.NewExhibitionRepository()
-		transRepo = memory.NewTransformationRepository()
-		collegeRepo = memory.NewCollegeRepository()
-		coopRepo = memory.NewCooperationRepository()
-		rescueCaseRepo = memory.NewRescueCaseRepository()
-		emergDeptRepo = memory.NewEmergencyDeptRepository()
-		assocMemberRepo = memory.NewAssociationMemberRepository()
 		refreshTokenRepo = pgStore.NewRefreshTokenRepository()
 		expertRepo = pgStore.NewExpertRepository()
 		caseRepo = pgStore.NewCaseRepository()
@@ -182,6 +176,17 @@ func main() {
 		industryRptRepo = pgStore.NewIndustryReportRepository()
 		resourceRepo = pgStore.NewResourceRepository()
 		emergencyRepo = pgStore.NewEmergencyRepository()
+
+		// Memory-only repos: PG implementations pending.
+		poolRepo = memory.NewResourcePoolRepository()
+		testSiteRepo = memory.NewTestSiteRepository()
+		exhibitionRepo = memory.NewExhibitionRepository()
+		transRepo = memory.NewTransformationRepository()
+		collegeRepo = memory.NewCollegeRepository()
+		coopRepo = memory.NewCooperationRepository()
+		rescueCaseRepo = memory.NewRescueCaseRepository()
+		emergDeptRepo = memory.NewEmergencyDeptRepository()
+		assocMemberRepo = memory.NewAssociationMemberRepository()
 	} else {
 		slog.Warn("DATABASE_URL not set, using in-memory storage (NOT FOR PRODUCTION)")
 		demandRepo = memory.NewDemandRepository(cipher)
@@ -267,36 +272,41 @@ func main() {
 		refreshTokenRepo,
 		tokens,
 	)
-	if pgStore != nil {
-		app.SetAuditWriter(postgres.NewAuditAdapter(pgStore))
-		app.SetStorage("postgres")
-	} else {
-		app.SetStorage("memory")
-		// New business module services.
-		app.SetExpertService(service.NewExpertService(expertRepo))
-		app.SetCaseService(service.NewCaseService(caseRepo))
-		app.SetComplianceService(service.NewComplianceService(complianceRepo))
-		app.SetReportService(service.NewReportService(industryRptRepo))
-		app.SetPortfolioService(service.NewPortfolioService(portfolioRepo))
-		app.SetAchievementService(service.NewAchievementService(achieveRepo))
-		app.SetRDChallengeService(service.NewRDChallengeService(rdChallengeRepo))
-		app.SetResearchProjectService(service.NewResearchProjectService(researchRepo))
-		app.SetProjectAppService(service.NewProjectAppService(projAppRepo))
-		app.SetCompetitionService(service.NewCompetitionService(competitionRepo))
+
+	// ── Wire extended services ──────────────────────────────────────
+	// PG-backed services: wired for both storage modes.
+	app.SetExpertService(service.NewExpertService(expertRepo))
+	app.SetCaseService(service.NewCaseService(caseRepo))
+	app.SetComplianceService(service.NewComplianceService(complianceRepo))
+	app.SetReportService(service.NewReportService(industryRptRepo))
+	app.SetPortfolioService(service.NewPortfolioService(portfolioRepo))
+	app.SetAchievementService(service.NewAchievementService(achieveRepo))
+	app.SetRDChallengeService(service.NewRDChallengeService(rdChallengeRepo))
+	app.SetResearchProjectService(service.NewResearchProjectService(researchRepo))
+	app.SetProjectAppService(service.NewProjectAppService(projAppRepo))
+	app.SetCompetitionService(service.NewCompetitionService(competitionRepo))
+	app.SetEventService(service.NewEventService(eventRepo))
+	app.SetResourceService(service.NewResourceService(resourceRepo))
+	app.SetEmergencyService(service.NewEmergencyService(emergencyRepo))
+	app.SetMatchingService(service.NewMatchingService(demandRepo))
+
+	// Memory-only repos: PG implementations pending (see docs/项目管理/项目审计报告).
 	app.SetRescueCaseService(service.NewRescueCaseService(rescueCaseRepo))
 	app.SetEmergencyDeptService(service.NewEmergencyDeptService(emergDeptRepo))
 	app.SetAssociationMemberService(service.NewAssociationMemberService(assocMemberRepo))
 	app.SetTransformationService(service.NewTransformationService(transRepo))
 	app.SetCollegeService(service.NewCollegeService(collegeRepo))
 	app.SetCooperationService(service.NewCooperationService(coopRepo))
-		app.SetEventService(service.NewEventService(eventRepo))
-		app.SetResourceService(service.NewResourceService(resourceRepo))
-		app.SetEmergencyService(service.NewEmergencyService(emergencyRepo))
 	app.SetPoolService(service.NewResourcePoolService(poolRepo))
 	app.SetTestSiteService(service.NewTestSiteService(testSiteRepo))
 	app.SetExhibitionService(service.NewExhibitionService(exhibitionRepo))
-	app.SetMatchingService(service.NewMatchingService(demandRepo))
-	app.SetMatchingService(service.NewMatchingService(demandRepo))
+
+	if pgStore != nil {
+		app.SetAuditWriter(postgres.NewAuditAdapter(pgStore))
+		app.SetStorage("postgres")
+		slog.Warn("PG mode: 9 repos lack PG impl, using in-memory (pool/testSite/exhibition/trans/college/coop/rescueCase/emergDept/assocMember)")
+	} else {
+		app.SetStorage("memory")
 	}
 
 	slog.Info("drone platform API starting", "addr", addr)

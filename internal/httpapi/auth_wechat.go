@@ -70,7 +70,7 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 		role = domain.RoleIndividual
 	}
 	actor := domain.Actor{ID: u.ID, Role: role}
-	accessToken, err := s.tokens.Issue(actor, 15*time.Minute)
+	accessToken, err := s.tokens.IssueJWT(actor, 15*time.Minute)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

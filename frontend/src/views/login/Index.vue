@@ -131,7 +131,7 @@ const onPasswordLogin = async (values) => {
     
     // 根据用户角色跳转
     const user = res.data.user
-    if (user.role === 'admin' || user.role === 'dsl_admin' || user.role === 'study_admin') {
+    if (user.role === 'platform_admin' || user.role === 'association_admin') {
       router.push('/admin')
     } else {
       router.push('/home')
@@ -187,7 +187,7 @@ const handleWechatCallback = () => {
       showSuccessToast('微信授权登录成功')
       
       // 根据用户角色跳转
-      if (user.role === 'admin' || user.role === 'dsl_admin' || user.role === 'study_admin') {
+      if (user.role === 'platform_admin' || user.role === 'association_admin') {
         router.push('/admin')
       } else {
         router.push('/home')

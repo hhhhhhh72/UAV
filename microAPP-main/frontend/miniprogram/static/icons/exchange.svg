@@ -1,0 +1,5 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <path d="M88 92h112l-24-24 16-16 56 56-56 56-16-16 24-24H88z" fill="#ffffff"/>
+  <path d="M168 164H56l24 24-16 16-56-56 56-56 16 16-24 24h112z" fill="#ffffff" opacity="0.75"/>
+</svg>
+
