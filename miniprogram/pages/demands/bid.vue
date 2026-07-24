@@ -9,8 +9,8 @@
     />
 
     <!-- Loading -->
-    <view v-if="loading" class="state-view">
-      <van-loading size="24" vertical>加载中...</van-loading>
+    <view v-if="loading" class="loading-state">
+      <van-loading size="24">加载中...</van-loading>
     </view>
 
     <!-- Error -->
@@ -31,30 +31,26 @@
             {{ bizTypeLabel(demandSummary.biz_type) }}
           </van-tag>
           <text class="summary-budget">{{ formatBudget(demandSummary.budget_fen) }}</text>
-          <text class="summary-district">{{ demandSummary.district || '' }}</text>
+          <text v-if="demandSummary.district" class="summary-district">{{ demandSummary.district }}</text>
         </view>
       </view>
 
       <!-- Bid form -->
-      <view class="form-card">
+      <view class="form-section">
         <van-cell-group inset>
           <van-field
             v-model="amount"
             label="报价金额"
-            type="number"
-            placeholder="请输入报价金额"
+            type="digit"
+            placeholder="请输入报价金额(元)"
             :border="true"
-          >
-            <template #right-icon>
-              <text class="unit-text">元</text>
-            </template>
-          </van-field>
+          />
 
           <van-field
             v-model="proposal"
-            label="方案说明"
+            label="方案描述"
             type="textarea"
-            placeholder="请描述您的服务方案（选填）"
+            placeholder="描述您的方案和优势"
             rows="4"
             autosize
           />
@@ -86,6 +82,8 @@
 </template>
 
 <script>
+import { request, getStoredUser } from '../../utils/request'
+
 export default {
   data() {
     return {
@@ -111,26 +109,19 @@ export default {
     async fetchDemandSummary() {
       this.loading = true
       this.errorMsg = ''
-      const accessToken = uni.getStorageSync('accessToken') || ''
-      const url = 'http://localhost:8080/api/v1/demands/' + encodeURIComponent(this.id)
+
       try {
-        const [err, resp] = await uniRequest(url, {
-          header: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
-        })
-        if (err) {
-          this.errorMsg = err.message || '加载失败'
-          return
-        }
-        this.demandSummary = resp.data || resp
+        const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(this.id) })
+        this.demandSummary = (res && res.data) || res || null
       } catch (e) {
-        this.errorMsg = '网络异常'
+        this.errorMsg = '网络异常，请稍后重试'
       } finally {
         this.loading = false
       }
     },
     async submitBid() {
       // Validate
-      const amountNum = parseFloat(this.amount)
+      var amountNum = parseFloat(this.amount)
       if (!this.amount || isNaN(amountNum) || amountNum <= 0) {
         uni.showToast({ title: '请输入有效的报价金额', icon: 'none' })
         return
@@ -139,36 +130,28 @@ export default {
         uni.showToast({ title: '请输入联系电话', icon: 'none' })
         return
       }
-      if (!/^\d{11}$/.test(this.contactPhone)) {
+      if (!/^1\d{10}$/.test(this.contactPhone)) {
         uni.showToast({ title: '请输入正确的11位手机号', icon: 'none' })
         return
       }
 
       this.submitting = true
-      const accessToken = uni.getStorageSync('accessToken') || ''
-      const url = 'http://localhost:8080/api/v1/demands/' + encodeURIComponent(this.id) + '/applications'
-      const body = {
-        amount_fen: Math.round(amountNum * 100),
-        proposal: this.proposal || '',
-      }
 
       try {
-        const [err] = await uniPost(url, body, {
-          header: {
-            'Content-Type': 'application/json',
-            'Authorization': accessToken ? 'Bearer ' + accessToken : '',
+        await request({
+          url: '/api/v1/demands/' + encodeURIComponent(this.id) + '/applications',
+          method: 'POST',
+          data: {
+            amount_fen: Math.round(amountNum * 100),
+            proposal: this.proposal || '',
           },
         })
-        if (err) {
-          uni.showToast({ title: err.message || '提交失败', icon: 'none' })
-          return
-        }
         uni.showToast({ title: '报价提交成功', icon: 'success', duration: 1500 })
-        setTimeout(() => {
+        setTimeout(function () {
           uni.navigateBack()
         }, 1500)
       } catch (e) {
-        uni.showToast({ title: '网络异常', icon: 'none' })
+        uni.showToast({ title: '提交失败，请稍后重试', icon: 'none' })
       } finally {
         this.submitting = false
       }
@@ -177,7 +160,7 @@ export default {
       uni.navigateBack()
     },
     bizTypeLabel(type) {
-      const map = {
+      var map = {
         cable_inspection: '巡检',
         plant_transport: '植保',
         spray_pesticide: '农药',
@@ -188,7 +171,7 @@ export default {
       return map[type] || type || '其他'
     },
     bizTypeTagType(type) {
-      const map = {
+      var map = {
         cable_inspection: 'primary',
         plant_transport: 'success',
         spray_pesticide: 'warning',
@@ -199,57 +182,10 @@ export default {
     },
     formatBudget(fen) {
       if (fen == null || fen === 0) return '面议'
-      const yuan = (fen / 100).toFixed(2)
-      return yuan.replace(/\.00$/, '') + ' 元'
+      var yuan = (fen / 100).toFixed(2)
+      return '¥' + yuan.replace(/\.00$/, '')
     },
   },
-}
-
-function uniRequest(url, options) {
-  return new Promise((resolve) => {
-    uni.request({
-      url,
-      method: 'GET',
-      header: options.header || {},
-      success: (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve([null, res.data])
-        } else {
-          const msg =
-            (res.data && res.data.error && res.data.error.message) ||
-            '请求失败 (' + res.statusCode + ')'
-          resolve([new Error(msg), null])
-        }
-      },
-      fail: (err) => {
-        resolve([err || new Error('网络异常'), null])
-      },
-    })
-  })
-}
-
-function uniPost(url, data, options) {
-  return new Promise((resolve) => {
-    uni.request({
-      url,
-      method: 'POST',
-      header: options.header || {},
-      data,
-      success: (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve([null, res.data])
-        } else {
-          const msg =
-            (res.data && res.data.error && res.data.error.message) ||
-            '提交失败 (' + res.statusCode + ')'
-          resolve([new Error(msg), null])
-        }
-      },
-      fail: (err) => {
-        resolve([err || new Error('网络异常'), null])
-      },
-    })
-  })
 }
 </script>
 
@@ -260,12 +196,18 @@ function uniPost(url, data, options) {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* State views */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 80px 0;
+}
+
 .state-view {
-  padding-top: 120px;
-  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-top: 120px;
 }
 
 .retry-btn {
@@ -277,16 +219,18 @@ function uniPost(url, data, options) {
   font-size: 14px;
 }
 
+/* Summary card */
 .summary-card {
   background: #fff;
-  padding: 20px 16px;
-  margin: 12px 12px 0;
+  padding: 14px 16px;
+  margin: 12px;
   border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .summary-title {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: #323233;
   display: block;
   margin-bottom: 10px;
@@ -311,13 +255,9 @@ function uniPost(url, data, options) {
   color: #969799;
 }
 
-.form-card {
-  margin: 12px 12px 0;
-}
-
-.unit-text {
-  font-size: 14px;
-  color: #969799;
+/* Form */
+.form-section {
+  margin: 0 12px;
 }
 
 .submit-wrap {

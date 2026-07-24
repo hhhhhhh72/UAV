@@ -17,8 +17,8 @@
       <!-- Tab: 我发布的 -->
       <van-tab title="我发布的">
         <!-- Loading -->
-        <view v-if="published.loading" class="state-view">
-          <van-loading size="24" vertical>加载中...</van-loading>
+        <view v-if="published.loading" class="loading-state">
+          <van-loading size="24">加载中...</van-loading>
         </view>
 
         <!-- Error -->
@@ -31,7 +31,7 @@
 
         <!-- Empty -->
         <view v-else-if="published.list.length === 0" class="state-view">
-          <van-empty description="暂无发布的需求" />
+          <van-empty image="search" description="暂无发布的需求" />
         </view>
 
         <!-- Normal -->
@@ -61,8 +61,8 @@
       <!-- Tab: 我竞标的 -->
       <van-tab title="我竞标的">
         <!-- Loading -->
-        <view v-if="bids.loading" class="state-view">
-          <van-loading size="24" vertical>加载中...</van-loading>
+        <view v-if="bids.loading" class="loading-state">
+          <van-loading size="24">加载中...</van-loading>
         </view>
 
         <!-- Error -->
@@ -75,7 +75,7 @@
 
         <!-- Empty -->
         <view v-else-if="bids.list.length === 0" class="state-view">
-          <van-empty description="暂无竞标记录" />
+          <van-empty image="search" description="暂无竞标记录" />
         </view>
 
         <!-- Normal -->
@@ -85,17 +85,14 @@
               v-for="item in bids.list"
               :key="item.id"
               :title="item.demand_title || '需求 #' + item.demand_id"
+              :label="formatBudget(item.amount_fen)"
               is-link
               @tap="goDetail(item.demand_id)"
             >
-              <template #label>
-                <view class="cell-meta">
-                  <van-tag :type="bidStatusTagType(item.status)" size="small">
-                    {{ bidStatusLabel(item.status) }}
-                  </van-tag>
-                  <text class="meta-text">{{ formatBudget(item.amount_fen) }}</text>
-                  <text class="meta-date">{{ formatDate(item.created_at) }}</text>
-                </view>
+              <template #right-icon>
+                <van-tag :type="bidStatusTagType(item.status)" size="small">
+                  {{ bidStatusLabel(item.status) }}
+                </van-tag>
               </template>
             </van-cell>
           </van-cell-group>
@@ -106,6 +103,8 @@
 </template>
 
 <script>
+import { request, getStoredUser } from '../../utils/request'
+
 export default {
   data() {
     return {
@@ -127,76 +126,69 @@ export default {
     this.fetchBids()
   },
   onPullDownRefresh() {
-    const fn = this.activeTab === 0 ? this.fetchPublished : this.fetchBids
-    fn().then(() => {
+    var fn = this.activeTab === 0 ? this.fetchPublished : this.fetchBids
+    fn.call(this).then(function () {
       uni.stopPullDownRefresh()
     })
   },
   methods: {
     async fetchPublished() {
-      this.published = { ...this.published, loading: true, error: false }
-      const accessToken = uni.getStorageSync('accessToken') || ''
-      const url = 'http://localhost:8080/api/v1/demands?mine=1&page=1&page_size=50'
+      this.published.loading = true
+      this.published.error = false
+
       try {
-        const [err, resp] = await uniRequest(url, {
-          header: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
+        const res = await request({
+          url: '/api/v1/demands',
+          data: { mine: 1, page: 1, page_size: 50 },
         })
-        if (err) {
-          this.published = { ...this.published, error: true, loading: false }
-          return
-        }
-        const data = resp.data
+        const data = (res && res.data) || res || []
         this.published = {
           loading: false,
           error: false,
           list: Array.isArray(data) ? data : (data && data.items) || [],
         }
       } catch (e) {
-        this.published = { ...this.published, error: true, loading: false }
+        this.published = { loading: false, error: true, list: this.published.list }
       }
     },
     async fetchBids() {
-      this.bids = { ...this.bids, loading: true, error: false }
-      const accessToken = uni.getStorageSync('accessToken') || ''
-      const url = 'http://localhost:8080/api/v1/demands/bids/mine'
+      this.bids.loading = true
+      this.bids.error = false
+
       try {
-        const [err, resp] = await uniRequest(url, {
-          header: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
-        })
-        if (err) {
-          this.bids = { ...this.bids, error: true, loading: false }
-          return
-        }
-        const data = Array.isArray(resp.data) ? resp.data : (resp.data && resp.data.items) || []
+        const res = await request({ url: '/api/v1/demands/bids/mine' })
+        const data = Array.isArray(res) ? res : ((res && res.data) || res || [])
+        const rawList = Array.isArray(data) ? data : (data && data.items) || []
 
         // Enrich bid items with demand titles
-        const enriched = []
-        for (const bid of data) {
-          let demandTitle = '需求 #' + bid.demand_id
+        var enriched = []
+        for (var i = 0; i < rawList.length; i++) {
+          var bid = rawList[i]
+          var demandTitle = '需求 #' + bid.demand_id
           try {
-            const [dErr, dResp] = await uniRequest(
-              'http://localhost:8080/api/v1/demands/' + encodeURIComponent(bid.demand_id),
-              {
-                header: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
-              }
-            )
-            if (!dErr && dResp) {
-              const detail = dResp.data || dResp
-              if (detail && detail.title) {
-                demandTitle = detail.title
-              }
+            const detailRes = await request({
+              url: '/api/v1/demands/' + encodeURIComponent(bid.demand_id),
+            })
+            var detail = (detailRes && detailRes.data) || detailRes
+            if (detail && detail.title) {
+              demandTitle = detail.title
             }
           } catch (e) {
             // fallback to demand_id
           }
           enriched.push({
-            ...bid,
+            id: bid.id,
+            demand_id: bid.demand_id,
             demand_title: demandTitle,
+            amount_fen: bid.amount_fen,
+            status: bid.status,
+            created_at: bid.created_at,
+            updated_at: bid.updated_at,
           })
         }
         this.bids = { loading: false, error: false, list: enriched }
       } catch (e) {
-        this.bids = { ...this.bids, error: true, loading: false }
+        this.bids = { loading: false, error: true, list: this.bids.list }
       }
     },
     onTabChange(e) {
@@ -209,7 +201,7 @@ export default {
       uni.navigateBack()
     },
     statusLabel(status) {
-      const map = {
+      var map = {
         pending: '待审核',
         published: '进行中',
         matched: '已匹配',
@@ -220,7 +212,7 @@ export default {
       return map[status] || status || '未知'
     },
     statusTagType(status) {
-      const map = {
+      var map = {
         pending: 'warning',
         published: 'primary',
         matched: 'success',
@@ -231,46 +223,26 @@ export default {
       return map[status] || 'default'
     },
     bidStatusLabel(status) {
-      const map = { pending: '待选', accepted: '已中标', rejected: '未选中' }
+      var map = { pending: '待选', accepted: '已中标', rejected: '未选中' }
       return map[status] || status || '未知'
     },
     bidStatusTagType(status) {
-      const map = { pending: 'warning', accepted: 'success', rejected: 'danger' }
+      var map = { pending: 'warning', accepted: 'success', rejected: 'danger' }
       return map[status] || 'default'
     },
     formatBudget(fen) {
       if (fen == null || fen === 0) return '面议'
-      const yuan = (fen / 100).toFixed(2)
-      return yuan.replace(/\.00$/, '') + ' 元'
+      var yuan = (fen / 100).toFixed(2)
+      return '¥' + yuan.replace(/\.00$/, '')
     },
     formatDate(iso) {
       if (!iso) return ''
-      return iso.slice(0, 10)
+      var d = new Date(iso)
+      var m = d.getMonth() + 1
+      var day = d.getDate()
+      return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day
     },
   },
-}
-
-function uniRequest(url, options) {
-  return new Promise((resolve) => {
-    uni.request({
-      url,
-      method: 'GET',
-      header: options.header || {},
-      success: (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve([null, res.data])
-        } else {
-          const msg =
-            (res.data && res.data.error && res.data.error.message) ||
-            '请求失败 (' + res.statusCode + ')'
-          resolve([new Error(msg), null])
-        }
-      },
-      fail: (err) => {
-        resolve([err || new Error('网络异常'), null])
-      },
-    })
-  })
 }
 </script>
 
@@ -281,12 +253,18 @@ function uniRequest(url, options) {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* State views */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 80px 0;
+}
+
 .state-view {
-  padding-top: 120px;
-  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-top: 80px;
 }
 
 .retry-btn {
@@ -298,6 +276,7 @@ function uniRequest(url, options) {
   font-size: 14px;
 }
 
+/* List */
 .list-body {
   padding: 12px 0 24px;
 }

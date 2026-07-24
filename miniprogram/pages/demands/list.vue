@@ -23,7 +23,7 @@
       </view>
     </view>
 
-    <!-- Sort picker -->
+    <!-- Sort bar -->
     <view class="sort-bar">
       <view class="sort-trigger" @tap="showSortPicker">
         <text class="sort-label">{{ currentSortLabel }}</text>
@@ -33,16 +33,16 @@
 
     <!-- Loading state -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24" vertical>加载中...</van-loading>
+      <van-loading size="24">加载中...</van-loading>
     </view>
 
     <!-- Empty state -->
-    <view v-else-if="!loading && list.length === 0" class="empty-state">
-      <van-empty description="暂无需求" />
+    <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
+      <van-empty image="search" description="暂无需求" />
     </view>
 
     <!-- Error state -->
-    <view v-else-if="errorMsg" class="error-state">
+    <view v-else-if="errorMsg && list.length === 0" class="error-state">
       <van-empty description="加载失败" image="error" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
@@ -56,6 +56,7 @@
           v-for="item in list"
           :key="item.id"
           :title="item.title"
+          :title-width="'100%'"
           is-link
           @tap="goDetail(item)"
         >
@@ -67,8 +68,8 @@
               >
                 {{ bizTypeLabel(item.biz_type) }}
               </van-tag>
-              <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
               <text v-if="item.district" class="meta-text">{{ item.district }}</text>
+              <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
               <text class="meta-date">{{ formatDate(item.created_at) }}</text>
             </view>
           </template>
@@ -95,6 +96,8 @@
 </template>
 
 <script>
+import { request, getStoredUser } from '../../utils/request'
+
 export default {
   data() {
     return {
@@ -127,7 +130,7 @@ export default {
   },
   computed: {
     currentSortLabel() {
-      const found = this.sortActions.find((a) => a.value === this.currentSort)
+      const found = this.sortActions.find(function (a) { return a.value === this.currentSort }.bind(this))
       return found ? found.name : '最新发布'
     },
   },
@@ -135,7 +138,7 @@ export default {
     this.fetchList(true)
   },
   onPullDownRefresh() {
-    this.fetchList(true).then(() => {
+    this.fetchList(true).then(function () {
       uni.stopPullDownRefresh()
     })
   },
@@ -149,34 +152,25 @@ export default {
       if (reset) {
         this.page = 1
         this.hasMore = true
-      }
-      if (reset) {
         this.loading = true
       } else {
         this.loadingMore = true
       }
       this.errorMsg = ''
 
-      const accessToken = uni.getStorageSync('accessToken') || ''
-      const params = []
-      if (this.activeBizType) params.push('biz_type=' + encodeURIComponent(this.activeBizType))
-      if (this.currentSort) params.push('sort=' + encodeURIComponent(this.currentSort))
-      if (this.searchText) params.push('q=' + encodeURIComponent(this.searchText))
-      params.push('page=' + this.page)
-      params.push('page_size=' + this.pageSize)
-
-      const url = 'http://localhost:8080/api/v1/demands?' + params.join('&')
       try {
-        const [respErr, resp] = await uniRequest(url, {
-          header: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
-        })
-        if (respErr) {
-          this.errorMsg = respErr.message || '加载失败'
-          return
-        }
-        const data = resp.data
+        const params = {}
+        if (this.activeBizType) params.biz_type = this.activeBizType
+        if (this.currentSort) params.sort = this.currentSort
+        if (this.searchText) params.q = this.searchText
+        params.page = this.page
+        params.page_size = this.pageSize
+
+        const res = await request({ url: '/api/v1/demands', data: params })
+        const data = Array.isArray(res) ? res : (res && res.data) || res || {}
         const items = Array.isArray(data) ? data : (data && data.items) || []
         const total = (data && data.total) != null ? data.total : items.length
+
         if (reset) {
           this.list = items
         } else {
@@ -213,7 +207,7 @@ export default {
       uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(item.id) })
     },
     bizTypeLabel(type) {
-      const map = {
+      var map = {
         cable_inspection: '巡检',
         plant_transport: '植保',
         spray_pesticide: '农药',
@@ -224,7 +218,7 @@ export default {
       return map[type] || type || '其他'
     },
     bizTypeTagType(type) {
-      const map = {
+      var map = {
         cable_inspection: 'primary',
         plant_transport: 'success',
         spray_pesticide: 'warning',
@@ -236,37 +230,17 @@ export default {
     },
     formatBudget(fen) {
       if (fen == null || fen === 0) return '面议'
-      const yuan = (fen / 100).toFixed(2)
+      var yuan = (fen / 100).toFixed(2)
       return yuan.replace(/\.00$/, '') + ' 元'
     },
     formatDate(iso) {
       if (!iso) return ''
-      return iso.slice(0, 10)
+      var d = new Date(iso)
+      var m = d.getMonth() + 1
+      var day = d.getDate()
+      return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day
     },
   },
-}
-
-function uniRequest(url, options) {
-  return new Promise((resolve) => {
-    uni.request({
-      url,
-      method: 'GET',
-      header: options.header || {},
-      success: (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve([null, res.data])
-        } else {
-          const msg =
-            (res.data && res.data.error && res.data.error.message) ||
-            '请求失败 (' + res.statusCode + ')'
-          resolve([new Error(msg), null])
-        }
-      },
-      fail: (err) => {
-        resolve([err || new Error('网络异常'), null])
-      },
-    })
-  })
 }
 </script>
 
@@ -277,6 +251,7 @@ function uniRequest(url, options) {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Filter tabs */
 .filter-tabs {
   display: flex;
   padding: 10px 12px;
@@ -284,6 +259,11 @@ function uniRequest(url, options) {
   background: #fff;
   overflow-x: auto;
   white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .filter-tab {
@@ -293,6 +273,7 @@ function uniRequest(url, options) {
   font-size: 13px;
   color: #646566;
   background: #f7f8fa;
+  transition: all 0.2s;
 }
 
 .filter-tab.active {
@@ -300,6 +281,7 @@ function uniRequest(url, options) {
   background: #1989fa;
 }
 
+/* Sort bar */
 .sort-bar {
   padding: 8px 16px;
   display: flex;
@@ -312,6 +294,7 @@ function uniRequest(url, options) {
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 4px 0;
 }
 
 .sort-label {
@@ -319,17 +302,22 @@ function uniRequest(url, options) {
   color: #969799;
 }
 
-.loading-state,
-.empty-state,
-.error-state {
-  padding-top: 120px;
-  text-align: center;
+/* State views */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 80px 0;
+}
+
+.empty-state-wrapper {
+  padding-top: 60px;
 }
 
 .error-state {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-top: 120px;
 }
 
 .retry-btn {
@@ -341,6 +329,7 @@ function uniRequest(url, options) {
   font-size: 14px;
 }
 
+/* List */
 .list-body {
   padding: 12px 0 24px;
 }
@@ -363,6 +352,7 @@ function uniRequest(url, options) {
   color: #c8c9cc;
 }
 
+/* Load more */
 .load-more {
   text-align: center;
   padding: 16px 0;

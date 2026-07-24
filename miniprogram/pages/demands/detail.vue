@@ -9,8 +9,8 @@
     />
 
     <!-- Loading -->
-    <view v-if="loading" class="state-view">
-      <van-loading size="24" vertical>加载中...</van-loading>
+    <view v-if="loading" class="loading-state">
+      <van-loading size="24">加载中...</van-loading>
     </view>
 
     <!-- Error -->
@@ -34,6 +34,7 @@
             {{ statusLabel(detail.status) }}
           </van-tag>
         </view>
+
         <view class="info-rows">
           <view class="info-row">
             <text class="info-label">预算</text>
@@ -52,6 +53,7 @@
             <text class="info-value">{{ formatDate(detail.created_at) }}</text>
           </view>
         </view>
+
         <view v-if="detail.description" class="desc-section">
           <text class="desc-label">需求描述</text>
           <text class="desc-text">{{ detail.description }}</text>
@@ -60,34 +62,30 @@
 
       <!-- Bids section -->
       <view class="bids-section">
-        <text class="section-title">竞标列表 ({{ bids.length }})</text>
+        <view class="section-header">
+          <text class="section-title">竞标列表 ({{ bids.length }})</text>
+        </view>
 
         <!-- Loading bids -->
-        <view v-if="bidsLoading" class="bids-loading">
-          <van-loading size="18" vertical>加载竞标...</van-loading>
+        <view v-if="bidsLoading" class="bids-state">
+          <van-loading size="20">加载竞标...</van-loading>
         </view>
 
         <!-- Empty bids -->
-        <view v-else-if="bids.length === 0" class="bids-empty">
-          <van-empty description="暂无竞标" />
+        <view v-else-if="bids.length === 0" class="bids-state">
+          <van-empty description="暂无竞标，来做第一个" image="search" />
         </view>
 
         <!-- Bid list -->
-        <view v-else>
-          <van-cell-group inset>
-            <van-cell
-              v-for="bid in bids"
-              :key="bid.id"
-              :title="bid.bidder_name || '匿名用户'"
-              :label="bid.proposal || '无具体说明'"
-              :value="formatBudget(bid.amount_fen)"
-            >
-              <template #right-icon>
-                <text class="bid-time">{{ formatDate(bid.created_at) }}</text>
-              </template>
-            </van-cell>
-          </van-cell-group>
-        </view>
+        <van-cell-group v-else inset>
+          <van-cell
+            v-for="bid in bids"
+            :key="bid.id"
+            :title="bid.bidder_name || '匿名用户'"
+            :label="bid.proposal || '无具体说明'"
+            :value="formatBudget(bid.amount_fen)"
+          />
+        </van-cell-group>
       </view>
     </template>
 
@@ -104,6 +102,8 @@
 </template>
 
 <script>
+import { request, getStoredUser } from '../../utils/request'
+
 export default {
   data() {
     return {
@@ -129,42 +129,30 @@ export default {
       this.loading = true
       this.errorMsg = ''
 
-      const accessToken = uni.getStorageSync('accessToken') || ''
-      const url = 'http://localhost:8080/api/v1/demands/' + encodeURIComponent(this.id)
-
       try {
-        const [err, resp] = await uniRequest(url, {
-          header: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
-        })
-        if (err) {
-          this.errorMsg = err.message || '加载失败'
-          return
+        const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(this.id) })
+        this.detail = (res && res.data) || res || null
+        if (this.detail) {
+          uni.setNavigationBarTitle({ title: this.detail.title || '需求详情' })
         }
-        this.detail = resp.data || resp
-        uni.setNavigationBarTitle({ title: (this.detail && this.detail.title) || '需求详情' })
         // Load bids
         this.fetchBids()
       } catch (e) {
-        this.errorMsg = '网络异常'
+        this.errorMsg = '网络异常，请稍后重试'
       } finally {
         this.loading = false
       }
     },
     async fetchBids() {
       this.bidsLoading = true
-      const accessToken = uni.getStorageSync('accessToken') || ''
-      const url = 'http://localhost:8080/api/v1/demands/' + encodeURIComponent(this.id) + '/applications'
       try {
-        const [err, resp] = await uniRequest(url, {
-          header: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
+        const res = await request({
+          url: '/api/v1/demands/' + encodeURIComponent(this.id) + '/applications',
         })
-        if (err) {
-          console.error('Failed to load bids:', err.message)
-          return
-        }
-        this.bids = Array.isArray(resp.data) ? resp.data : (resp.data && resp.data.items) || []
+        const data = (res && res.data) || res || []
+        this.bids = Array.isArray(data) ? data : (data && data.items) || []
       } catch (e) {
-        console.error('Failed to load bids:', e)
+        this.bids = []
       } finally {
         this.bidsLoading = false
       }
@@ -176,7 +164,7 @@ export default {
       uni.navigateBack()
     },
     bizTypeLabel(type) {
-      const map = {
+      var map = {
         cable_inspection: '巡检',
         plant_transport: '植保',
         spray_pesticide: '农药',
@@ -187,7 +175,7 @@ export default {
       return map[type] || type || '其他'
     },
     bizTypeTagType(type) {
-      const map = {
+      var map = {
         cable_inspection: 'primary',
         plant_transport: 'success',
         spray_pesticide: 'warning',
@@ -197,7 +185,7 @@ export default {
       return map[type] || 'default'
     },
     statusLabel(status) {
-      const map = {
+      var map = {
         pending: '待审核',
         published: '进行中',
         matched: '已匹配',
@@ -208,7 +196,7 @@ export default {
       return map[status] || status || '未知'
     },
     statusTagType(status) {
-      const map = {
+      var map = {
         pending: 'warning',
         published: 'primary',
         matched: 'success',
@@ -220,37 +208,17 @@ export default {
     },
     formatBudget(fen) {
       if (fen == null || fen === 0) return '面议'
-      const yuan = (fen / 100).toFixed(2)
-      return yuan.replace(/\.00$/, '') + ' 元'
+      var yuan = (fen / 100).toFixed(2)
+      return '¥' + yuan.replace(/\.00$/, '')
     },
     formatDate(iso) {
       if (!iso) return ''
-      return iso.slice(0, 10)
+      var d = new Date(iso)
+      var m = d.getMonth() + 1
+      var day = d.getDate()
+      return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day
     },
   },
-}
-
-function uniRequest(url, options) {
-  return new Promise((resolve) => {
-    uni.request({
-      url,
-      method: 'GET',
-      header: options.header || {},
-      success: (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve([null, res.data])
-        } else {
-          const msg =
-            (res.data && res.data.error && res.data.error.message) ||
-            '请求失败 (' + res.statusCode + ')'
-          resolve([new Error(msg), null])
-        }
-      },
-      fail: (err) => {
-        resolve([err || new Error('网络异常'), null])
-      },
-    })
-  })
 }
 </script>
 
@@ -261,12 +229,18 @@ function uniRequest(url, options) {
   padding-bottom: 80px;
 }
 
+/* State views */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 80px 0;
+}
+
 .state-view {
-  padding-top: 120px;
-  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-top: 120px;
 }
 
 .retry-btn {
@@ -278,11 +252,13 @@ function uniRequest(url, options) {
   font-size: 14px;
 }
 
+/* Info card */
 .info-card {
   background: #fff;
-  padding: 20px 16px;
-  margin: 12px 12px 0;
+  padding: 16px;
+  margin: 12px;
   border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .demand-title {
@@ -344,35 +320,33 @@ function uniRequest(url, options) {
 
 .desc-text {
   font-size: 14px;
-  color: #646566;
+  color: #333;
   line-height: 1.6;
   display: block;
   white-space: pre-wrap;
 }
 
+/* Bids section */
 .bids-section {
-  margin: 12px 12px 0;
+  margin: 0 12px;
+}
+
+.section-header {
+  padding: 8px 4px;
 }
 
 .section-title {
   font-size: 15px;
   font-weight: 600;
   color: #323233;
-  padding: 8px 4px 8px;
-  display: block;
 }
 
-.bids-loading,
-.bids-empty {
-  padding: 24px 0;
+.bids-state {
+  padding: 40px 0;
   text-align: center;
 }
 
-.bid-time {
-  font-size: 12px;
-  color: #c8c9cc;
-}
-
+/* Bottom action bar */
 .action-bar {
   position: fixed;
   bottom: 0;
@@ -380,7 +354,7 @@ function uniRequest(url, options) {
   right: 0;
   padding: 12px 16px;
   background: #fff;
-  border-top: 1px solid #f2f3f5;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 100;
 }
