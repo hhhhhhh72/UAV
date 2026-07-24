@@ -84,6 +84,18 @@ const routes = [
     meta: { title: '服务评价' }
   },
   {
+    path: '/demand/publish',
+    name: 'DemandPublish',
+    component: () => import('@/views/demand/Publish.vue'),
+    meta: { title: '发布需求', requiresAuth: true }
+  },
+  {
+    path: '/demand/:id',
+    name: 'DemandDetail',
+    component: () => import('@/views/demand/Detail.vue'),
+    meta: { title: '需求详情' }
+  },
+  {
     path: '/admin',
     component: () => import('@/views/admin/AdminLayout.vue'),
     meta: { title: '后台管理' },
