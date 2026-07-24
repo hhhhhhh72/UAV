@@ -24,11 +24,10 @@
             @tap="onMessageClick(msg)"
           >
             <template #icon>
-              <van-badge :dot="!(msg.is_read || msg.isRead)">
-                <view class="msg-icon-wrapper">
-                  <van-icon name="chat" size="20" color="#1989fa" />
-                </view>
-              </van-badge>
+              <view class="msg-icon-wrapper">
+                <van-icon name="chat" size="20" color="#1989fa" />
+                <view v-if="!(msg.is_read || msg.isRead)" class="unread-dot" />
+              </view>
             </template>
           </van-cell>
         </van-cell-group>
