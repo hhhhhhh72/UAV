@@ -65,17 +65,17 @@
         </van-notice-bar>
       </div>
 
+      <!-- 轮播 Banner -->
+      <div class="banner-section">
+        <van-swipe class="my-swipe" :autoplay="5000" indicator-color="white">
+          <van-swipe-item v-for="(item, index) in banners" :key="index" @click="handleBannerClick(item)">
+            <img :src="item.image" class="banner-image" alt="banner" />
+          </van-swipe-item>
+        </van-swipe>
+      </div>
+
       <!-- 核心服务卡片区 -->
       <div class="content-area">
-        <!-- 轮播 Banner 区 -->
-              <div class="banner-section">
-          <van-swipe class="my-swipe" :autoplay="5000" indicator-color="white">
-            <van-swipe-item v-for="(item, index) in banners" :key="index" @click="handleBannerClick(item)">
-              <img :src="item.image" class="banner-image" alt="banner" />
-            </van-swipe-item>
-          </van-swipe>
-        </div>
-
         <!-- 左右分栏推荐 -->
         <div class="recommend-grid">
           <div class="recommend-card blue-card" @click="$router.push('/cases')">
