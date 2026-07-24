@@ -83,61 +83,6 @@ const routes = [
     component: () => import('@/views/reviews/Index.vue'),
     meta: { title: '服务评价' }
   },
-  // 医疗配送模块路由
-  {
-    path: '/medical/certification',
-    name: 'MedicalCertification',
-    component: () => import('@/views/medical/Certification.vue'),
-    meta: { title: '寄件人认证' }
-  },
-  {
-    path: '/medical/certification/status',
-    name: 'MedicalCertificationStatus',
-    component: () => import('@/views/medical/CertificationStatus.vue'),
-    meta: { title: '认证状态' }
-  },
-  {
-    path: '/medical/order/create',
-    name: 'MedicalOrderCreate',
-    component: () => import('@/views/medical/OrderCreate.vue'),
-    meta: { title: '医疗配送下单' }
-  },
-  {
-    path: '/medical/order/map-select',
-    name: 'MedicalMapSelect',
-    component: () => import('@/views/medical/MapSelect.vue'),
-    meta: { title: '选择起降场' }
-  },
-  {
-    path: '/medical/contacts',
-    name: 'MedicalContacts',
-    component: () => import('@/views/medical/Contacts.vue'),
-    meta: { title: '常用联系人' }
-  },
-  {
-    path: '/medical/orders',
-    name: 'MedicalOrders',
-    component: () => import('@/views/medical/Orders.vue'),
-    meta: { title: '我的配送订单' }
-  },
-  {
-    path: '/medical/orders/:id',
-    name: 'MedicalOrderDetail',
-    component: () => import('@/views/medical/OrderDetail.vue'),
-    meta: { title: '订单详情' }
-  },
-  {
-    path: '/medical/orders/:id/rate',
-    name: 'MedicalOrderRate',
-    component: () => import('@/views/medical/OrderRate.vue'),
-    meta: { title: '订单评价' }
-  },
-  {
-    path: '/medical/received',
-    name: 'MedicalReceivedOrders',
-    component: () => import('@/views/medical/ReceivedOrders.vue'),
-    meta: { title: '寄给我的' }
-  },
   {
     path: '/admin',
     component: () => import('@/views/admin/AdminLayout.vue'),
@@ -149,12 +94,6 @@ const routes = [
         name: 'AdminDashboard',
         component: () => import('@/views/admin/Dashboard.vue'),
         meta: { title: '数据概览' }
-      },
-      {
-        path: 'orders',
-        name: 'AdminOrders',
-        component: () => import('@/views/admin/orders/OrderList.vue'),
-        meta: { title: '订单管理' }
       },
       {
         path: 'cases',
@@ -185,40 +124,9 @@ const routes = [
         name: 'AdminReviews',
         component: () => import('@/views/admin/reviews/ReviewList.vue'),
         meta: { title: '评价管理' }
-      },
-      // 医疗配送管理端
-      {
-        path: 'medical/orders',
-        name: 'AdminMedicalOrders',
-        component: () => import('@/views/admin/medical/OrderList.vue'),
-        meta: { title: '配送订单管理' }
-      },
-      {
-        path: 'medical/certifications',
-        name: 'AdminMedicalCertifications',
-        component: () => import('@/views/admin/medical/CertificationList.vue'),
-        meta: { title: '认证审核' }
-      },
-      {
-        path: 'medical/pads',
-        name: 'AdminMedicalPads',
-        component: () => import('@/views/admin/medical/PadList.vue'),
-        meta: { title: '起降场管理' }
       }
     ]
   },
-  {
-    path: '/games',
-    name: 'Games',
-    component: () => import('@/views/games/Lobby.vue'),
-    meta: { title: 'Fruit Box', showTabbar: false }
-  },
-  {
-    path: '/games/play',
-    name: 'GamesPlay',
-    component: () => import('@/views/games/Play.vue'),
-    meta: { title: 'Fruit Box', showTabbar: false }
-  }
 ]
 
 const router = createRouter({
@@ -272,16 +180,6 @@ router.beforeEach(async (to, from, next) => {
         next('/login')
         return
       }
-    }
-  }
-
-  // Medical module route protection - require login
-  if (to.path.startsWith('/medical')) {
-    const accessToken = authStorage.getAccessToken()
-    if (!accessToken) {
-      showFailToast('请先登录后再使用医疗配送功能')
-      next('/login')
-      return
     }
   }
 

@@ -255,8 +255,6 @@ const goToService = (id) => {
     goToDelivery()
   } else if (id === 9) {
     router.push('/study')
-  } else if (id === 14) {
-    router.push('/medical/order/create')
   } else if (id === 'reviews') {
     router.push('/reviews')
   } else if (id === 'more') {

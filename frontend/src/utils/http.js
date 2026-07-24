@@ -38,7 +38,7 @@ axios.interceptors.response.use(
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem(REFRESH_TOKEN_KEY)
       localStorage.removeItem('user')
-      if (window.location.pathname.startsWith('/medical') || window.location.pathname.startsWith('/admin')) {
+      if (window.location.pathname.startsWith('/admin')) {
         window.location.href = '/login'
       }
       return Promise.reject(error)
@@ -53,9 +53,6 @@ axios.interceptors.response.use(
     if (!refreshToken) {
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem('user')
-      if (window.location.pathname.startsWith('/medical')) {
-        window.location.href = '/login'
-      }
       return Promise.reject(error)
     }
 
@@ -87,7 +84,7 @@ axios.interceptors.response.use(
       localStorage.removeItem(ACCESS_TOKEN_KEY)
       localStorage.removeItem(REFRESH_TOKEN_KEY)
       localStorage.removeItem('user')
-      if (window.location.pathname.startsWith('/medical') || window.location.pathname.startsWith('/admin')) {
+      if (window.location.pathname.startsWith('/admin')) {
         window.location.href = '/login'
       }
       return Promise.reject(refreshError)

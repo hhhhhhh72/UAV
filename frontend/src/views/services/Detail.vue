@@ -424,17 +424,10 @@ const onProjectClick = (item) => {
     if (role) {
       router.push({ path: `/service-apply/${serviceId}`, query: { role } })
     }
-  } else if (serviceId === '1' && item.name === '医疗运输') {
-    router.push('/medical/certification/status')
   }
 }
 
 onMounted(() => {
-  // 医疗配送服务直接跳转到专属下单页
-  if (serviceId === '14') {
-    router.replace('/medical/order/create')
-    return
-  }
   fetchServiceData()
 })
 </script>

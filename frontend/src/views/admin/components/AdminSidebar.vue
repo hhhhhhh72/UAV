@@ -47,16 +47,11 @@ const route = useRoute()
 
 const allMenus = [
   { path: '/admin/dashboard', label: '数据概览', icon: '◻', roles: ['admin', 'study_admin'] },
-  { path: '/admin/orders', label: '订单管理', icon: '◎', roles: ['admin', 'study_admin'] },
   { path: '/admin/cases', label: '案例管理', icon: '◈', roles: ['admin'] },
   { path: '/admin/users', label: '用户管理', icon: '◉', roles: ['admin'] },
   { path: '/admin/competition', label: '赛事管理', icon: '◆', roles: ['admin', 'dsl_admin'] },
   { path: '/admin/config', label: '服务配置', icon: '◇', roles: ['admin', 'study_admin'] },
-  { path: '/admin/reviews', label: '评价管理', icon: '★', roles: ['admin', 'study_admin'] },
-  // 医疗配送管理
-  { path: '/admin/medical/orders', label: '配送订单管理', icon: '✚', roles: ['admin'], group: '医疗配送' },
-  { path: '/admin/medical/certifications', label: '认证审核', icon: '✔', roles: ['admin'], group: '医疗配送' },
-  { path: '/admin/medical/pads', label: '起降场管理', icon: '▣', roles: ['admin'], group: '医疗配送' }
+  { path: '/admin/reviews', label: '评价管理', icon: '★', roles: ['admin', 'study_admin'] }
 ]
 
 // 服务6(飞手培训)相关配置 - 研学管理员不可见
