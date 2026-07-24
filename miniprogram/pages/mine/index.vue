@@ -34,7 +34,7 @@
         </view>
       </view>
 
-      <!-- 第一组功能菜单 -->
+      <!-- 业务功能菜单 -->
       <view class="menu-section">
         <view class="menu-list">
           <view class="menu-item" v-if="user && (user.role === 'admin' || user.role === 'dsl_admin')" @tap="goAdmin">
@@ -42,44 +42,35 @@
             <text class="menu-title">后台管理</text>
             <text class="menu-arrow">›</text>
           </view>
-          <view class="menu-item" @tap="goApplications">
+          <view class="menu-item" @tap="goEnterpriseSettle">
+            <text class="menu-icon">🏢</text>
+            <text class="menu-title">企业入驻</text>
+            <text class="menu-arrow">›</text>
+          </view>
+          <view class="menu-item" @tap="goMyDemands">
             <text class="menu-icon">📋</text>
-            <text class="menu-title">我的申请</text>
+            <text class="menu-title">我的需求</text>
             <text class="menu-arrow">›</text>
           </view>
-          <view class="menu-item" @tap="goCases">
-            <text class="menu-icon">🎬</text>
-            <text class="menu-title">案例展示</text>
+          <view class="menu-item" @tap="goMyCerts">
+            <text class="menu-icon">📜</text>
+            <text class="menu-title">我的证书</text>
             <text class="menu-arrow">›</text>
           </view>
-          <view class="menu-item" @tap="goProfile">
-            <text class="menu-icon">👤</text>
-            <text class="menu-title">个人信息</text>
+          <view class="menu-item" @tap="goMyContracts">
+            <text class="menu-icon">📄</text>
+            <text class="menu-title">我的合同</text>
             <text class="menu-arrow">›</text>
           </view>
-          <!-- #ifdef MP-WEIXIN -->
-          <view class="menu-item" v-if="user && user.wxOpenid && !user.phone">
-            <text class="menu-icon">📱</text>
-            <view class="menu-title-group">
-              <text class="menu-title">绑定手机号</text>
-              <button class="inline-phone-btn" open-type="getPhoneNumber" @getphonenumber="handleBindPhone">
-                去绑定
-              </button>
-            </view>
-          </view>
-          <!-- #endif -->
-          <view class="menu-item" @tap="goAuth">
-            <text class="menu-icon">🛡️</text>
-            <view class="menu-title-group">
-              <text class="menu-title">实名认证</text>
-              <text class="menu-label">{{ user?.isAuth ? '已认证' : '未认证' }}</text>
-            </view>
+          <view class="menu-item" @tap="goWallet">
+            <text class="menu-icon">💰</text>
+            <text class="menu-title">钱包余额</text>
             <text class="menu-arrow">›</text>
           </view>
         </view>
       </view>
 
-      <!-- 第二组功能菜单 (同步 H5) -->
+      <!-- 第二组功能菜单 -->
       <view class="menu-section">
         <view class="menu-list">
           <view class="menu-item" @tap="showGuide">
@@ -100,6 +91,17 @@
           <view class="menu-item" @tap="showAbout">
             <text class="menu-icon">ℹ️</text>
             <text class="menu-title">关于我们</text>
+            <text class="menu-arrow">›</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 设置与退出 -->
+      <view class="menu-section">
+        <view class="menu-list">
+          <view class="menu-item" @tap="goSettings">
+            <text class="menu-icon">⚙️</text>
+            <text class="menu-title">设置</text>
             <text class="menu-arrow">›</text>
           </view>
         </view>
@@ -178,21 +180,28 @@ const handleUserClick = () => {
   }
 }
 const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' })
-const goApplications = () => uni.switchTab({ url: '/pages/applications/index' })
-const goCases = () => uni.navigateTo({ url: '/pages/cases/index' })
-const goProfile = () => {
-  if (!user.value) {
-    uni.navigateTo({ url: '/pages/login/index' })
-    return
-  }
-  uni.navigateTo({ url: '/pages/mine/profile' })
+const goEnterpriseSettle = () => {
+  if (!user.value) { uni.navigateTo({ url: '/pages/login/index' }); return }
+  uni.showToast({ title: '企业入驻功能即将开放', icon: 'none' })
 }
-const goAuth = () => {
-  if (!user.value) {
-    uni.navigateTo({ url: '/pages/login/index' })
-    return
-  }
-  uni.navigateTo({ url: '/pages/mine/auth' })
+const goMyDemands = () => {
+  if (!user.value) { uni.navigateTo({ url: '/pages/login/index' }); return }
+  uni.showToast({ title: '我的需求功能即将开放', icon: 'none' })
+}
+const goMyCerts = () => {
+  if (!user.value) { uni.navigateTo({ url: '/pages/login/index' }); return }
+  uni.showToast({ title: '我的证书功能即将开放', icon: 'none' })
+}
+const goMyContracts = () => {
+  if (!user.value) { uni.navigateTo({ url: '/pages/login/index' }); return }
+  uni.showToast({ title: '我的合同功能即将开放', icon: 'none' })
+}
+const goWallet = () => {
+  if (!user.value) { uni.navigateTo({ url: '/pages/login/index' }); return }
+  uni.showToast({ title: '钱包功能即将开放', icon: 'none' })
+}
+const goSettings = () => {
+  uni.showToast({ title: '功能开发中', icon: 'none' })
 }
 const showToast = (msg) => uni.showToast({ title: msg, icon: 'none' })
 
@@ -223,7 +232,7 @@ const showContact = () => {
 const showAbout = () => {
   uni.showModal({
     title: '关于我们',
-    content: '低空综合服务平台\n开发主体：温州低空经济发展有限公司\n版本：v1.1.0\n\n专注于提供专业、高效、安全的低空服务',
+    content: '重庆无人机产业平台\n开发主体：重庆无人机产业发展有限公司\n版本：v1.0.0\n\n专注于无人机产业供需对接、培训认证、交易签约等综合服务',
     showCancel: false
   })
 }
