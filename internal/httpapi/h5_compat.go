@@ -545,30 +545,39 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) h5AuthMe(w http.ResponseWriter, r *http.Request) {
-	a, ok := authenticatedActor(r)
-	if !ok {
+	// Parse token manually: /api/auth/* paths skip auth middleware.
+	h := r.Header.Get("Authorization")
+	token := strings.TrimPrefix(h, "Bearer ")
+	if token == "" || token == h {
 		fail(w, r, http.StatusUnauthorized, errBadRequest("not authenticated"))
+		return
+	}
+	actor, err := s.tokens.Verify(token)
+	if err != nil {
+		fail(w, r, http.StatusUnauthorized, errBadRequest("not authenticated"))
+		return
+	}
+	// Try real user repo first, fall back to users.json.
+	u, repoErr := s.userRepo.FindByID(actor.ID)
+	if repoErr == nil {
+		respond(w, r, http.StatusOK, map[string]any{
+			"success": true,
+			"user":    map[string]any{"id": u.ID, "role": string(u.Role), "status": u.Status},
+		})
 		return
 	}
 	var users []map[string]any
 	readJSON(_usersFile, &_usersMu, &users)
 	var user map[string]any
-	for _, u := range users {
-		if u["id"] == a.ID {
-			user = u
-			break
-		}
+	for _, ju := range users {
+		if ju["id"] == actor.ID { user = ju; break }
 	}
 	if user == nil {
-		user = map[string]any{"id": a.ID, "role": string(a.Role)}
-	} else {
-		user["role"] = string(a.Role)
+		user = map[string]any{"id": actor.ID, "role": string(actor.Role)}
 	}
 	safe := map[string]any{}
 	for k, v := range user {
-		if k != "password" && k != "passwordHash" {
-			safe[k] = v
-		}
+		if k != "password" && k != "passwordHash" { safe[k] = v }
 	}
 	respond(w, r, http.StatusOK, map[string]any{"success": true, "user": safe})
 }
