@@ -162,12 +162,18 @@ const goToCategory = (cat) => {
 }
 
 const goToSubService = (cat, sub) => {
-  if (sub.id === 'pilot') {
+  if (sub.id === 'demand-hall') {
+    uni.navigateTo({ url: '/pages/demands/list' })
+  } else if (sub.id === 'bid-quote') {
+    uni.navigateTo({ url: '/pages/demands/bid' })
+  } else if (sub.id === 'pilot') {
     uni.navigateTo({ url: '/pages/services/detail?id=6' })
   } else if (sub.id === 'repair') {
     uni.navigateTo({ url: '/pages/services/detail?id=12' })
   } else if (sub.id === 'rescue-case') {
     uni.navigateTo({ url: '/pages/cases/index' })
+  } else if (sub.id === 'caac' || sub.id === 'utc' || sub.id === 'hr-cert') {
+    uni.navigateTo({ url: '/pages/study/index' })
   } else {
     uni.showToast({ title: sub.name + ' - 即将上线', icon: 'none', duration: 1500 })
   }
