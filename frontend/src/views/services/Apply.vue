@@ -21,7 +21,7 @@
               {{ serviceName }}功能正在建设中，敬请期待！
             </p>
             <p style="color: #969799; font-size: 13px; margin-bottom: 20px;">
-              如有需求，请联系客服：0577-55558188
+              如有需求，请联系客服：023-55558188
             </p>
             <van-button 
               type="primary" 
@@ -1182,7 +1182,7 @@ const onSubmit = async () => {
 
     successMessage += `━━━━━━━━━━━━━━━━
 📞 客服联系方式：
-电话：0577-55558188
+电话：023-55558188
 
 我们将在1个工作日内与您联系！`;
 

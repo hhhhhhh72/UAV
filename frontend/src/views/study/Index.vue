@@ -59,7 +59,7 @@
 
     <div class="bottom-tip">
       <span>如有疑问请联系客服：</span>
-      <a class="phone-link" href="tel:0577-55550500">0577-55550500</a>
+      <a class="phone-link" href="tel:023-55550500">023-55550500</a>
     </div>
   </div>
 </template>

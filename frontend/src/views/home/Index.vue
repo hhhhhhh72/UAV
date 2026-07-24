@@ -18,7 +18,7 @@
       <!-- 悬浮顶部区域：定位+搜索 -->
       <div class="header-section float-header">
         <div class="location-bar">
-          <span class="location-text">温州市 <van-icon name="arrow-down" size="12" /></span>
+          <span class="location-text">重庆市 <van-icon name="arrow-down" size="12" /></span>
           <div class="weather-info">20°C 晴</div>
         </div>
         <div class="search-bar">

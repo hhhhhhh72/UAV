@@ -16,7 +16,7 @@
       <view class="header-section float-header">
         <view class="location-bar">
           <view class="location-text">
-            温州市
+            重庆市
             <image class="arrow-down-icon" src="/static/icons/arrow-down.svg" mode="aspectFit" />
           </view>
         </view>
@@ -275,7 +275,7 @@ const handleFunctionTap = (item) => {
     return
   }
   if (item.id === 'contact') {
-    uni.makePhoneCall({ phoneNumber: '057712345678' })
+    uni.makePhoneCall({ phoneNumber: '02312345678' })
     return
   }
   if (item.id === 'more') {

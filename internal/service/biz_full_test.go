@@ -119,7 +119,7 @@ func TestResearchProjectFullCRUD(t *testing.T) {
 // === ProjectApp full CRUD ===
 func TestProjectAppFullCRUD(t *testing.T) {
 	svc := service.NewProjectAppService(memory.NewProjectAppRepository())
-	a, _ := svc.Create("user-1", "示范项目", "示范", "低空经济", 1000000, []string{"计划书.pdf"})
+	a, _ := svc.Create("user-1", "示范项目", "示范", "无人机产业", 1000000, []string{"计划书.pdf"})
 	got, _ := svc.Get(a.ID)
 	
 	// List my

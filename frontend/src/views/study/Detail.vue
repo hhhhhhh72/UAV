@@ -192,7 +192,7 @@
         <h2 class="section-title">联系客服</h2>
         <div class="contact-info">
           <p class="contact-row">如有疑问，请咨询客服热线：</p>
-          <a class="phone-link" href="tel:0577-55550500">0577-55550500</a>
+          <a class="phone-link" href="tel:023-55550500">023-55550500</a>
           <p class="work-time">工作时间：工作日 9:00-17:30</p>
         </div>
       </div>

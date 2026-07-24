@@ -153,7 +153,7 @@
           <view class="section-title">联系客服</view>
           <view class="contact-info">
             <view class="contact-row">如有疑问，请咨询客服热线：</view>
-            <view class="phone-link" @tap="makeCall('0577-55550500')">0577-55550500</view>
+            <view class="phone-link" @tap="makeCall('023-55550500')">023-55550500</view>
             <view class="work-time">工作时间：工作日 8:30-17:30</view>
           </view>
         </view>

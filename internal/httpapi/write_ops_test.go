@@ -42,7 +42,7 @@ func TestComplianceWriteOps(t *testing.T) {
 func TestReportWriteOps(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodPost, "/api/v1/admin/industry-reports",
-		[]byte(`{"Title":"2026低空经济报告","Period":"2026H1","Category":"行业","Summary":"摘要","Content":"全文","Author":"协会研究部"}`),
+		[]byte(`{"Title":"2026无人机产业报告","Period":"2026H1","Category":"行业","Summary":"摘要","Content":"全文","Author":"协会研究部"}`),
 		domain.RoleAssociationAdmin)
 	if w.Code != http.StatusCreated { t.Fatalf("create report: %d %s", w.Code, w.Body.String()) }
 }
@@ -82,7 +82,7 @@ func TestResearchProjectWriteOps(t *testing.T) {
 func TestProjectAppWriteOps(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodPost, "/api/v1/project-applications",
-		[]byte(`{"ProjectName":"低空经济示范","Category":"示范","Description":"打造示范区","budget_fen":1000000}`),
+		[]byte(`{"ProjectName":"无人机产业示范","Category":"示范","Description":"打造示范区","budget_fen":1000000}`),
 		domain.RoleEnterprise)
 	if w.Code != http.StatusCreated { t.Fatalf("create app: %d %s", w.Code, w.Body.String()) }
 }

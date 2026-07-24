@@ -6,7 +6,7 @@
         <view class="empty-icon">⏳</view>
         <view class="empty-text">该服务申请功能即将开放</view>
         <view class="empty-desc">{{ serviceName }}功能正在建设中，敬请期待！</view>
-        <view class="empty-contact">如有需求，请联系客服：0577-55558188</view>
+        <view class="empty-contact">如有需求，请联系客服：023-55558188</view>
         <button class="back-btn" @tap="goBack">返回服务列表</button>
       </view>
 

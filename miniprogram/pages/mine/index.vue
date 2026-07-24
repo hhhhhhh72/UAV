@@ -239,11 +239,11 @@ const showFAQ = () => {
 const showContact = () => {
   uni.showModal({
     title: '联系客服',
-    content: '客服电话：0577-55558188\n工作时间：工作日 9:00-18:00',
+    content: '客服电话：023-55558188\n工作时间：工作日 9:00-18:00',
     confirmText: '拨打电话',
     success: (res) => {
       if (res.confirm) {
-        uni.makePhoneCall({ phoneNumber: '0577-55558188' })
+        uni.makePhoneCall({ phoneNumber: '023-55558188' })
       }
     }
   })

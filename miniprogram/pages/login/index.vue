@@ -21,7 +21,7 @@
       <view class="login-avatar">
         <text class="avatar-text">👤</text>
       </view>
-      <view class="title">低空综合服务平台</view>
+      <view class="title">无人机产业综合服务平台</view>
     </view>
 
     <view class="form-box">
@@ -53,7 +53,7 @@
       <!-- #endif -->
       <!-- #ifndef MP-WEIXIN -->
       <view class="sso-tip">
-        <text>从畅行温州平台进入将自动登录</text>
+        <text>从产业协会平台进入将自动登录</text>
       </view>
       <!-- #endif -->
     </view>

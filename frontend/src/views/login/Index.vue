@@ -17,7 +17,7 @@
           <div class="login-avatar">
             <van-loading type="spinner" size="40" color="#667eea" />
           </div>
-          <h2 class="app-title">低空综合服务平台</h2>
+          <h2 class="app-title">无人机产业综合服务平台</h2>
         </div>
         <div class="auto-login-tip">
           <span>正在验证登录信息...</span>
@@ -30,7 +30,7 @@
           <div class="login-avatar" aria-label="default avatar">
             <van-icon name="contact" size="40" color="#8e8e93" />
           </div>
-          <h2 class="app-title">低空综合服务平台</h2>
+          <h2 class="app-title">无人机产业综合服务平台</h2>
         </div>
 
         <van-form @submit="onPasswordLogin" class="login-form">

@@ -32,7 +32,7 @@
       </view>
 
       <view class="sso-tip">
-        <text>从畅行温州平台跳转将自动注册登录</text>
+        <text>从产业协会平台跳转将自动注册登录</text>
       </view>
     </view>
   </view>

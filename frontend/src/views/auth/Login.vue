@@ -12,7 +12,7 @@
       <div class="logo-container">
         <van-icon name="guide-o" size="60" color="#667eea" />
       </div>
-      <h1 class="app-title">低空综合服务平台</h1>
+      <h1 class="app-title">无人机产业综合服务平台</h1>
       <p class="app-slogan">专业 · 高效 · 安全</p>
     </div>
 

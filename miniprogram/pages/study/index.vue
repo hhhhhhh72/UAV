@@ -46,7 +46,7 @@
 
     <view class="bottom-tip">
       <text>如有疑问请联系客服：</text>
-      <text class="phone-link" @tap="makeCall">0577-55550500</text>
+      <text class="phone-link" @tap="makeCall">023-55550500</text>
     </view>
 
     <HomeFloatButton />
@@ -89,7 +89,7 @@ const goToDetail = (id) => {
 }
 
 const makeCall = () => {
-  uni.makePhoneCall({ phoneNumber: '0577-55550500' })
+  uni.makePhoneCall({ phoneNumber: '023-55550500' })
 }
 </script>
 

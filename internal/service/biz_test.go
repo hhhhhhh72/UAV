@@ -10,7 +10,7 @@ import (
 
 func TestExpertCRUD(t *testing.T) {
 	svc := service.NewExpertService(memory.NewExpertRepository())
-	e, err := svc.Create("张三", "教授", "重庆大学", "无人机", "研究方向:低空经济", []string{"CAAC"})
+	e, err := svc.Create("张三", "教授", "重庆大学", "无人机", "研究方向:无人机产业", []string{"CAAC"})
 	if err != nil { t.Fatal(err) }
 	if _, err := svc.Get(e.ID); err != nil { t.Fatal(err) }
 	if list, err := svc.List(""); err != nil || len(list) != 1 { t.Fatalf("list: %v, %d", err, len(list)) }
@@ -34,7 +34,7 @@ func TestComplianceCRUD(t *testing.T) {
 
 func TestReportCRUD(t *testing.T) {
 	svc := service.NewReportService(memory.NewIndustryReportRepository())
-	r, err := svc.Create("低空经济报告", "2026H1", "行业", "摘要", "全文", "", "协会")
+	r, err := svc.Create("无人机产业报告", "2026H1", "行业", "摘要", "全文", "", "协会")
 	if err != nil { t.Fatal(err) }
 	if _, total, err := svc.List(1, 20); err != nil || total != 1 { t.Fatalf("list fail") }
 	_ = r
@@ -73,7 +73,7 @@ func TestResearchProjCRUD(t *testing.T) {
 
 func TestProjectAppCRUD(t *testing.T) {
 	svc := service.NewProjectAppService(memory.NewProjectAppRepository())
-	a, err := svc.Create("user-1", "示范项目", "示范", "低空经济示范", 1000000, nil)
+	a, err := svc.Create("user-1", "示范项目", "示范", "无人机产业示范", 1000000, nil)
 	if err != nil { t.Fatal(err) }
 	if _, err := svc.Review(a.ID, "同意立项", "approve"); err != nil { t.Fatal(err) }
 }

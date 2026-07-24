@@ -229,7 +229,7 @@ File: `frontend/src/views/admin/AdminLayout.vue`
 
 ```bash
 git add frontend/index.html frontend/src/styles/global.css frontend/src/views/layout/Index.vue frontend/src/views/admin/AdminLayout.vue
-git commit -m "style: rebrand — 温州低空→重庆无人机产业协会, theme #1565C0"
+git commit -m "style: rebrand — 重庆无人机产业→重庆无人机产业协会, theme #1565C0"
 ```
 
 ---

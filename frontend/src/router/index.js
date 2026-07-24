@@ -109,7 +109,7 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  document.title = to.meta.title || '低空综合服务平台'
+  document.title = to.meta.title || '无人机产业综合服务平台'
 
   // 处理微信OAuth回调（可能落在任意页面）
   const wechatAuth = to.query.wechat_auth
