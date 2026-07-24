@@ -2,41 +2,28 @@
   <div class="dashboard">
     <!-- Metric Cards -->
     <div class="metrics-grid">
-      <MetricCard label="总订单" :value="stats.overview.totalOrders" :sub="roleLabel + '申请'" />
-      <MetricCard label="待处理" :value="stats.overview.pendingOrders" value-color="#ff9f0a" sub="需跟进" />
-      <MetricCard label="处理中" :value="stats.overview.processingOrders" value-color="#0071e3" />
-      <MetricCard label="已完成" :value="stats.overview.completedOrders" value-color="#34c759" />
-      <MetricCard v-if="isAdmin || isDslAdmin" label="赛事报名" :value="stats.overview.totalCompetition" value-color="#5856d6" />
-      <MetricCard v-if="isAdmin" label="用户数" :value="stats.overview.totalUsers" />
+      <MetricCard label="需求总数" :value="dashboard.totalDemands" sub="累计发布" />
+      <MetricCard label="企业入驻数" :value="dashboard.totalEnterprises" value-color="#0071e3" sub="已认证企业" />
+      <MetricCard label="培训认证数" :value="dashboard.totalCerts" value-color="#5856d6" sub="飞手/教员" />
+      <MetricCard label="成交率" :value="dashboard.completionRate" value-color="#34c759" sub="近30天" />
     </div>
 
     <!-- Charts -->
     <div class="charts-row">
-      <div class="chart-card" :class="isAdmin || isDslAdmin ? 'chart-wide' : 'chart-full'">
-        <h3 class="chart-title">订单趋势（近14天）</h3>
+      <div class="chart-card chart-wide">
+        <h3 class="chart-title">需求发布趋势（近30天）</h3>
         <v-chart :option="trendOption" autoresize class="chart" />
       </div>
-      <div v-if="isAdmin || isDslAdmin" class="chart-card chart-narrow">
-        <h3 class="chart-title">赛事报名分布</h3>
-        <v-chart :option="pieOption" autoresize class="chart" />
-      </div>
-    </div>
-
-    <div class="charts-row" v-if="isAdmin">
-      <div class="chart-card chart-wide">
-        <h3 class="chart-title">用户增长</h3>
-        <v-chart :option="userGrowthOption" autoresize class="chart" />
-      </div>
       <div class="chart-card chart-narrow">
-        <h3 class="chart-title">订单状态分布</h3>
-        <v-chart :option="statusOption" autoresize class="chart" />
+        <h3 class="chart-title">需求类型分布</h3>
+        <v-chart :option="typeDistOption" autoresize class="chart" />
       </div>
     </div>
 
-    <div class="charts-row" v-if="!isAdmin">
-      <div class="chart-card chart-full">
-        <h3 class="chart-title">订单状态分布</h3>
-        <v-chart :option="statusOption" autoresize class="chart" />
+    <div class="charts-row">
+      <div class="chart-card chart-wide">
+        <h3 class="chart-title">企业审核状态分布</h3>
+        <v-chart :option="statusDistOption" autoresize class="chart" />
       </div>
     </div>
   </div>
@@ -46,7 +33,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, PieChart, BarChart } from 'echarts/charts'
+import { LineChart, PieChart } from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
@@ -54,34 +41,19 @@ import {
   GridComponent
 } from 'echarts/components'
 import VChart from 'vue-echarts'
-import axios from '@/utils/http'
+import http from '@/utils/http'
 import { showFailToast } from 'vant'
 import MetricCard from './components/MetricCard.vue'
-import { useAuth } from './composables/useAuth'
 
-const { userRole, isAdmin, isDslAdmin, isStudyAdmin } = useAuth()
+use([CanvasRenderer, LineChart, PieChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
-const roleLabel = computed(() => {
-  if (isStudyAdmin.value) return '研学'
-  if (isDslAdmin.value) return '赛事'
-  return '所有服务'
-})
-
-use([CanvasRenderer, LineChart, PieChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
-
-const stats = ref({
-  overview: {
-    totalOrders: 0,
-    pendingOrders: 0,
-    processingOrders: 0,
-    completedOrders: 0,
-    totalUsers: 0,
-    totalCases: 0,
-    totalCompetition: 0
-  },
-  orderTrend: [],
-  competitionByRole: { athlete: 0, coach: 0, referee: 0, club: 0 },
-  userGrowth: [],
+const dashboard = ref({
+  totalDemands: 0,
+  totalEnterprises: 0,
+  totalCerts: 0,
+  completionRate: '0%',
+  trends: [],
+  typeDist: {},
   statusDist: {}
 })
 
@@ -92,7 +64,16 @@ const COLORS = {
   red: '#ff3b30',
   purple: '#5856d6',
   teal: '#5ac8fa',
+  cyan: '#32d6d6',
   gray: '#86868b'
+}
+
+const TYPE_LABELS = {
+  patrol: '巡检',
+  plant: '植保',
+  pesticide: '农药',
+  lease: '租赁',
+  clean: '清洗'
 }
 
 const trendOption = computed(() => ({
@@ -100,7 +81,7 @@ const trendOption = computed(() => ({
   grid: { left: 40, right: 16, top: 16, bottom: 24 },
   xAxis: {
     type: 'category',
-    data: stats.value.orderTrend.map(d => d.date.slice(5)),
+    data: dashboard.value.trends.map(d => d.date ? d.date.slice(5) : ''),
     axisLine: { lineStyle: { color: '#e5e5e7' } },
     axisLabel: { color: '#86868b', fontSize: 11 },
     axisTick: { show: false }
@@ -112,7 +93,7 @@ const trendOption = computed(() => ({
     axisLabel: { color: '#86868b', fontSize: 11 }
   },
   series: [{
-    data: stats.value.orderTrend.map(d => d.count),
+    data: dashboard.value.trends.map(d => d.count || 0),
     type: 'line',
     smooth: true,
     symbol: 'circle',
@@ -131,10 +112,18 @@ const trendOption = computed(() => ({
   }]
 }))
 
-const pieOption = computed(() => {
-  const r = stats.value.competitionByRole
+const TYPE_COLORS = {
+  patrol: COLORS.blue,
+  plant: COLORS.green,
+  pesticide: COLORS.orange,
+  lease: COLORS.purple,
+  clean: COLORS.teal
+}
+
+const typeDistOption = computed(() => {
+  const dist = dashboard.value.typeDist || {}
   return {
-    tooltip: { trigger: 'item' },
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { bottom: 0, textStyle: { color: '#86868b', fontSize: 11 } },
     series: [{
       type: 'pie',
@@ -142,70 +131,51 @@ const pieOption = computed(() => {
       center: ['50%', '42%'],
       avoidLabelOverlap: true,
       label: { show: false },
-      data: [
-        { value: r.athlete, name: '运动员', itemStyle: { color: COLORS.blue } },
-        { value: r.coach, name: '教练员', itemStyle: { color: COLORS.orange } },
-        { value: r.referee, name: '裁判员', itemStyle: { color: COLORS.green } },
-        { value: r.club, name: '俱乐部', itemStyle: { color: COLORS.purple } }
-      ]
+      data: Object.entries(dist).map(([key, value]) => ({
+        value,
+        name: TYPE_LABELS[key] || key,
+        itemStyle: { color: TYPE_COLORS[key] || COLORS.gray }
+      }))
     }]
   }
 })
 
-const userGrowthOption = computed(() => ({
-  tooltip: { trigger: 'axis' },
-  grid: { left: 40, right: 16, top: 16, bottom: 24 },
-  xAxis: {
-    type: 'category',
-    data: stats.value.userGrowth.map(d => d.month.slice(5) + '月'),
-    axisLine: { lineStyle: { color: '#e5e5e7' } },
-    axisLabel: { color: '#86868b', fontSize: 11 },
-    axisTick: { show: false }
-  },
-  yAxis: {
-    type: 'value',
-    minInterval: 1,
-    splitLine: { lineStyle: { color: '#f0f0f2' } },
-    axisLabel: { color: '#86868b', fontSize: 11 }
-  },
-  series: [{
-    data: stats.value.userGrowth.map(d => d.count),
-    type: 'bar',
-    barWidth: '50%',
-    itemStyle: { color: COLORS.teal, borderRadius: [4, 4, 0, 0] }
-  }]
-}))
+const STATUS_LABELS = {
+  pending: '待审核',
+  approved: '已通过',
+  rejected: '已驳回'
+}
 
-const statusOption = computed(() => {
-  const colorMap = {
-    '待处理': COLORS.orange,
-    '处理中': COLORS.blue,
-    '已完成': COLORS.green,
-    '已取消': COLORS.gray
-  }
-  const dist = stats.value.statusDist
+const STATUS_COLORS = {
+  pending: COLORS.orange,
+  approved: COLORS.green,
+  rejected: COLORS.red
+}
+
+const statusDistOption = computed(() => {
+  const dist = dashboard.value.statusDist || {}
   return {
-    tooltip: { trigger: 'item' },
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { bottom: 0, textStyle: { color: '#86868b', fontSize: 11 } },
     series: [{
       type: 'pie',
       radius: ['45%', '70%'],
       center: ['50%', '42%'],
       label: { show: false },
-      data: Object.entries(dist).map(([name, value]) => ({
+      data: Object.entries(dist).map(([key, value]) => ({
         value,
-        name,
-        itemStyle: { color: colorMap[name] || COLORS.gray }
+        name: STATUS_LABELS[key] || key,
+        itemStyle: { color: STATUS_COLORS[key] || COLORS.gray }
       }))
     }]
   }
 })
 
-const fetchStats = async () => {
+const fetchDashboard = async () => {
   try {
-    const res = await axios.get('/api/admin/stats')
-    if (res.data?.success) {
-      stats.value = res.data.data
+    const res = await http.get('/api/v1/admin/dashboard')
+    if (res.data) {
+      dashboard.value = res.data
     }
   } catch (err) {
     console.error(err)
@@ -213,7 +183,7 @@ const fetchStats = async () => {
   }
 }
 
-onMounted(fetchStats)
+onMounted(fetchDashboard)
 </script>
 
 <style scoped>
@@ -224,7 +194,7 @@ onMounted(fetchStats)
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -242,10 +212,6 @@ onMounted(fetchStats)
 
 .chart-narrow {
   grid-column: span 1;
-}
-
-.chart-full {
-  grid-column: span 2;
 }
 
 .chart-card {
@@ -270,7 +236,7 @@ onMounted(fetchStats)
 /* Tablet */
 @media (max-width: 1024px) {
   .metrics-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
 }
@@ -286,9 +252,6 @@ onMounted(fetchStats)
     grid-template-columns: 1fr;
     gap: 12px;
     margin-bottom: 12px;
-  }
-  .chart-full {
-    grid-column: span 1;
   }
   .chart {
     height: 200px;

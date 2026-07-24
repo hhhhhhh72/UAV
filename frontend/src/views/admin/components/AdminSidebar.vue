@@ -46,24 +46,17 @@ defineEmits(['update:modelValue'])
 const route = useRoute()
 
 const allMenus = [
-  { path: '/admin/dashboard', label: '数据概览', icon: '◻', roles: ['admin', 'study_admin'] },
-  { path: '/admin/cases', label: '案例管理', icon: '◈', roles: ['admin'] },
-  { path: '/admin/users', label: '用户管理', icon: '◉', roles: ['admin'] },
-  { path: '/admin/competition', label: '赛事管理', icon: '◆', roles: ['admin', 'dsl_admin'] },
-  { path: '/admin/config', label: '服务配置', icon: '◇', roles: ['admin', 'study_admin'] },
-  { path: '/admin/reviews', label: '评价管理', icon: '★', roles: ['admin', 'study_admin'] }
+  { path: '/admin', label: '数据看板', icon: '◻' },
+  { path: '/admin/enterprises', label: '企业审核', icon: '◈' },
+  { path: '/admin/demands', label: '需求管理', icon: '◎' },
+  { path: '/admin/reviews', label: '评价管理', icon: '★' },
+  { path: '/admin/reports', label: '举报处理', icon: '▲' },
+  { path: '/admin/users', label: '用户管理', icon: '◉' },
+  { path: '/admin/config', label: '平台配置', icon: '◇' }
 ]
 
-// 服务6(飞手培训)相关配置 - 研学管理员不可见
-const trainingServiceIds = ['6']
-
 const visibleMenus = computed(() => {
-  return allMenus.filter(m => {
-    if (props.isAdmin) return true
-    if (props.isDslAdmin) return m.roles.includes('dsl_admin')
-    if (props.isStudyAdmin) return m.roles.includes('study_admin')
-    return false
-  })
+  return allMenus
 })
 
 const isActive = (path) => route.path === path
