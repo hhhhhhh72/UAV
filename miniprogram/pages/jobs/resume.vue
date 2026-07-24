@@ -98,12 +98,14 @@
             </van-tag>
           </view>
           <view class="skill-input-row">
-            <van-field
-              v-model="skillInput"
-              placeholder="输入技能名称"
-              :border="false"
-              custom-style="background: #f7f8fa; border-radius: 8px; padding: 4px 12px;"
-            />
+            <view class="skill-input">
+              <van-field
+                v-model="skillInput"
+                placeholder="输入技能名称"
+                :border="false"
+                custom-style="background: #f7f8fa; border-radius: 8px; padding: 4px 12px;"
+              />
+            </view>
             <van-button
               type="primary"
               size="small"
@@ -413,7 +415,7 @@ export default {
   gap: 8px;
 }
 
-.skill-input-row > :first-child {
+.skill-input-row .skill-input {
   flex: 1;
 }
 
