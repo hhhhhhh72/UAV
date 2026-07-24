@@ -215,11 +215,17 @@ const goToSubService = (cat, sub) => {
 <style scoped>
 .services-page {
   background: #f7f8fa;
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .content-wrapper {
+  flex: 1;
+  overflow-y: auto;
   padding: 12px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .empty-state {
