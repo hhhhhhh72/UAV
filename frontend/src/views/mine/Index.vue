@@ -43,35 +43,42 @@
     <div class="menu-section">
       <van-cell-group inset>
         <van-cell
-          v-if="user && (user.role === 'admin' || user.role === 'dsl_admin' || user.role === 'study_admin')"
-          title="后台管理"
-          icon="setting-o"
+          title="企业入驻"
+          icon="shop-o"
+          :label="enterpriseStatusLabel"
           is-link
-          @click="$router.push('/admin')"
+          @click="handleEnterpriseClick"
         />
         <van-cell
-          title="我的申请"
+          title="我的需求"
           icon="records"
+          label="已发布 / 竞标中 / 已完成"
           is-link
           @click="$router.push('/applications')"
         />
         <van-cell
-          title="案例展示"
-          icon="video-o"
-          is-link
-          @click="$router.push('/cases')"
-        />
-        <van-cell
-          title="个人信息"
-          icon="contact"
+          title="我的证书"
+          icon="award-o"
+          label="CAAC / UTC / 人社"
           is-link
           @click="showToast('功能开发中')"
         />
         <van-cell
-          title="实名认证"
-          icon="shield-o"
+          title="我的合同"
+          icon="description"
           is-link
-          label="未认证"
+          @click="showToast('功能开发中')"
+        />
+        <van-cell
+          title="钱包余额"
+          icon="gold-coin-o"
+          is-link
+          @click="showToast('功能开发中')"
+        />
+        <van-cell
+          title="设置"
+          icon="setting-o"
+          is-link
           @click="showToast('功能开发中')"
         />
       </van-cell-group>
@@ -120,17 +127,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { showDialog, showToast, showFailToast, showConfirmDialog } from 'vant'
+import { ref, computed, onMounted } from 'vue'
+import { showDialog, showToast, showConfirmDialog } from 'vant'
 import axios, { authStorage } from '@/utils/http'
 import { useRouter } from 'vue-router'
+import { useEnterpriseStore } from '@/stores/enterprise'
 
 const router = useRouter()
+const enterpriseStore = useEnterpriseStore()
 const totalCount = ref(0)
 const processingCount = ref(0)
 const completedCount = ref(0)
 const user = ref(null)
 const SERVICE_PHONE = '0577-55558188'
+
+const enterpriseStatusLabel = computed(() => {
+  if (!user.value) return ''
+  const list = enterpriseStore.myEnterprises
+  if (!list || list.length === 0) return '立即入驻'
+  const status = list[0].status
+  if (status === 'approved' || status === 'active') return '已入驻'
+  if (status === 'rejected') return '未通过'
+  return '审核中'
+})
 
 const fetchStats = async (userId) => {
   if (!userId) {
@@ -142,19 +161,34 @@ const fetchStats = async (userId) => {
   try {
     const res = await axios.get('/api/list', { params: { userId } })
     const list = res.data || []
-    
+
     totalCount.value = list.length
     processingCount.value = list.filter(item => item.status === '处理中').length
     completedCount.value = list.filter(item => item.status === '已完成').length
   } catch (error) {
     console.error('Failed to fetch stats:', error)
-    // showFailToast('获取数据失败') // Optional: suppress error toast on mine page to avoid annoyance
   }
 }
 
 const handleUserClick = () => {
   if (!user.value) {
     router.push('/login')
+  }
+}
+
+const handleEnterpriseClick = () => {
+  if (!user.value) {
+    router.push('/login')
+    return
+  }
+  const list = enterpriseStore.myEnterprises
+  if (!list || list.length === 0) {
+    enterpriseStore.apply({}).then(() => {
+      showToast('入驻申请已提交')
+      enterpriseStore.fetchMy()
+    }).catch(() => {
+      showToast('功能开发中')
+    })
   }
 }
 
@@ -168,7 +202,7 @@ const handleLogout = () => {
       localStorage.removeItem('user')
       authStorage.clearTokens()
       user.value = null
-      fetchStats(null) // Reset stats
+      fetchStats(null)
       showToast('已退出登录')
     })
     .catch(() => {
@@ -187,6 +221,7 @@ onMounted(() => {
           user.value = res.data.user
           localStorage.setItem('user', JSON.stringify(res.data.user))
           fetchStats(res.data.user.id)
+          enterpriseStore.fetchMy()
           return
         }
         fetchStats(null)
@@ -203,6 +238,7 @@ onMounted(() => {
     try {
       user.value = JSON.parse(userStr)
       fetchStats(user.value.id)
+      enterpriseStore.fetchMy()
     } catch (e) {
       console.error(e)
       fetchStats(null)
@@ -332,4 +368,3 @@ const showAbout = () => {
   margin: 12px 0;
 }
 </style>
-
