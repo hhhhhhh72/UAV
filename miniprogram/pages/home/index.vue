@@ -11,14 +11,12 @@
         <view class="video-mask" />
       </view>
 
+      <!-- 占位：高度刚好到搜索栏底部 -->
       <view class="video-placeholder" />
 
+      <!-- 头部：搜索栏（固定定位） -->
       <view class="header-section float-header">
         <view class="location-bar">
-          <view class="location-text">
-            温州市
-            <image class="arrow-down-icon" src="/static/icons/arrow-down.svg" mode="aspectFit" />
-          </view>
         </view>
         <view class="search-bar" @tap="handleSearchClick">
           <view class="search-box">
@@ -39,92 +37,93 @@
         </view>
       </view>
 
-      <!-- 功能金刚区 -->
-      <view class="main-functions overlay-card">
+      <!-- 轮播图 - 紧挨搜索栏下方 -->
+      <view class="banner-section">
         <swiper 
-          class="function-swipe" 
-          :current="activeFunctionPage" 
-          @change="onFunctionChange"
-          :indicator-dots="false"
+          class="banner-swipe" 
+          autoplay 
+          interval="5000" 
+          circular
+          :current="activeBanner"
+          @change="onBannerChange"
         >
-          <swiper-item v-for="(page, pageIndex) in servicePages" :key="pageIndex">
-            <view class="function-grid">
-              <view 
-                v-for="item in page" 
-                :key="item.id"
-                class="function-item"
-                :style="{ visibility: item.isEmpty ? 'hidden' : 'visible' }"
-                @tap="handleFunctionTap(item)"
-              >
-                <view class="function-icon-wrapper" :style="{ background: item.color }">
-                  <image 
-                    v-if="item.icon && !item.isEmpty" 
-                    :src="item.icon" 
-                    mode="aspectFit" 
-                    class="function-icon-image" 
-                  />
-                </view>
-                <text class="function-name">{{ item.name }}</text>
-              </view>
-            </view>
+          <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
+            <image :src="item.image" class="banner-image" mode="aspectFill" />
           </swiper-item>
         </swiper>
-        <view class="swiper-dots">
+        <view class="banner-dots">
           <view 
-            v-for="(page, pageIndex) in servicePages" 
-            :key="`dot-${pageIndex}`"
-            class="dot"
-            :class="{ active: pageIndex === activeFunctionPage }"
+            v-for="(item, index) in banners" 
+            :key="`banner-dot-${index}`"
+            class="banner-dot"
+            :class="{ active: index === activeBanner }"
           />
-        </view>
-      </view>
-
-      <!-- 消息通知栏 (修正显示问题) -->
-      <view class="notice-bar-section">
-        <view class="notice-inner">
-          <image class="notice-icon-img" src="/static/icons/volume.svg" mode="aspectFit" />
-          <swiper 
-            class="notice-swipe" 
-            vertical 
-            autoplay 
-            interval="3000" 
-            circular
-            :indicator-dots="false"
-            :touchable="false"
-          >
-            <swiper-item v-for="(msg, index) in notices" :key="index" class="notice-item">
-              <text class="notice-text">{{ msg }}</text>
-            </swiper-item>
-          </swiper>
         </view>
       </view>
 
       <!-- 核心内容区 -->
       <view class="content-area">
-        <view class="banner-section">
+        <!-- 功能金刚区 -->
+        <view class="main-functions overlay-card">
           <swiper 
-            class="banner-swipe" 
-            autoplay 
-            interval="5000" 
-            circular
-            :current="activeBanner"
-            @change="onBannerChange"
+            class="function-swipe" 
+            :current="activeFunctionPage" 
+            @change="onFunctionChange"
+            :indicator-dots="false"
           >
-            <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
-              <image :src="item.image" class="banner-image" mode="aspectFill" />
+            <swiper-item v-for="(page, pageIndex) in servicePages" :key="pageIndex">
+              <view class="function-grid">
+                <view 
+                  v-for="item in page" 
+                  :key="item.id"
+                  class="function-item"
+                  :style="{ visibility: item.isEmpty ? 'hidden' : 'visible' }"
+                  @tap="handleFunctionTap(item)"
+                >
+                  <view class="function-icon-wrapper" :style="{ background: item.color }">
+                    <image 
+                      v-if="item.icon && !item.isEmpty" 
+                      :src="item.icon" 
+                      mode="aspectFit" 
+                      class="function-icon-image" 
+                    />
+                  </view>
+                  <text class="function-name">{{ item.name }}</text>
+                </view>
+              </view>
             </swiper-item>
           </swiper>
-          <view class="banner-dots">
+          <view class="swiper-dots">
             <view 
-              v-for="(item, index) in banners" 
-              :key="`banner-dot-${index}`"
-              class="banner-dot"
-              :class="{ active: index === activeBanner }"
+              v-for="(page, pageIndex) in servicePages" 
+              :key="`dot-${pageIndex}`"
+              class="dot"
+              :class="{ active: pageIndex === activeFunctionPage }"
             />
           </view>
         </view>
 
-        <!-- 左右推荐卡片 (替换图标为 SVG) -->
+        <!-- 消息通知栏 -->
+        <view class="notice-bar-section">
+          <view class="notice-inner">
+            <image class="notice-icon-img" src="/static/icons/volume.svg" mode="aspectFit" />
+            <swiper 
+              class="notice-swipe" 
+              vertical 
+              autoplay 
+              interval="3000" 
+              circular
+              :indicator-dots="false"
+              :touchable="false"
+            >
+              <swiper-item v-for="(msg, index) in notices" :key="index" class="notice-item">
+                <text class="notice-text">{{ msg }}</text>
+              </swiper-item>
+            </swiper>
+          </view>
+        </view>
+
+        <!-- 推荐卡片 -->
         <view class="recommend-grid">
           <view class="recommend-card blue-card" @tap="navigateTo('/pages/cases/index')">
             <view>
@@ -198,7 +197,7 @@ const getCapsuleInfo = () => {
 const capsuleInfo = ref(getCapsuleInfo())
 const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20)
 
-const notices = ref(['交享点无人机外卖配送正式上线', '新开通江心屿无人机外卖配送'])
+const notices = ref(['测试内容1', '测试内容2'])
 
 const quickServices = ref([
   { id: 'flight', name: '飞行服务', icon: '/static/icons/flight.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
@@ -246,7 +245,6 @@ const displayServices = ref([
 ])
 
 const banners = ref([
-  { image: 'https://wenzhoumall-prod.oss-cn-shanghai.aliyuncs.com/test/shop/20250930/0fa02eb2dc8b4a6382784fedc0b44dc0.jpg', link: 'delivery' },
   { image: 'https://www-cdn.djiits.com/dps/3e196dbfade1b1734dbbb335dde5de12.jpg?w=1184&h=592', link: '/pages/cases/detail?id=1' },
   { image: 'https://images.unsplash.com/photo-1506947411487-a56738267384?auto=format&fit=crop&w=1000&q=80', link: '/pages/cases/detail?id=2' }
 ])
@@ -376,8 +374,9 @@ onMounted(async () => {
   pointer-events: none;
 }
 
+/* 占位高度 = 状态栏(~45px) + 搜索栏(~60px) + 轮播图与搜索栏的间距 */
 .video-placeholder {
-  height: 350px;
+  height: 105px;
   width: 100%;
 }
 
@@ -387,7 +386,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   z-index: 10;
-  padding: 65px 16px 10px; /* 增加顶部填充，避开微信胶囊按钮 */
+  padding: 45px 16px 10px;
   color: #fff;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.4) 0%, transparent 100%);
 }
@@ -396,7 +395,7 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   font-size: 14px;
 }
 
@@ -445,10 +444,56 @@ onMounted(async () => {
   line-height: 24px;
 }
 
+/* 轮播图样式 - 紧挨搜索栏 */
+.banner-section {
+  margin: 0 12px 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.banner-swipe {
+  width: 100%;
+  height: 160px;
+}
+
+.banner-image {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+
+.banner-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.banner-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.banner-dot.active {
+  background: rgba(255, 255, 255, 1);
+}
+
+.content-area {
+  padding: 0 12px;
+}
+
 .overlay-card {
   position: relative;
   z-index: 5;
-  margin: -100px 12px 10px; /* 从 -60px 调整为 -100px，使其整体往上升 */
+  margin: 0 0 10px;
   background: rgba(255, 255, 255, 0.22);
   border-radius: 24px;
   padding: 20px 0 10px;
@@ -518,7 +563,7 @@ onMounted(async () => {
 }
 
 .notice-bar-section {
-  margin: 0 12px 20px;
+  margin: 0 0 20px;
 }
 
 .notice-inner {
@@ -552,45 +597,6 @@ onMounted(async () => {
 .notice-text {
   font-size: 14px;
   color: #333;
-}
-
-.content-area {
-  padding: 0 12px;
-}
-
-.banner-section {
-  margin-bottom: 12px;
-  border-radius: 16px;
-  overflow: hidden;
-  position: relative;
-}
-
-.banner-image {
-  width: 100%;
-  height: 160px;
-  display: block;
-}
-
-.banner-dots {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 10px;
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  pointer-events: none;
-}
-
-.banner-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.banner-dot.active {
-  background: rgba(255, 255, 255, 1);
 }
 
 .recommend-grid {

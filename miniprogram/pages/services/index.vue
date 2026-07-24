@@ -67,26 +67,33 @@ const serviceGroups = computed(() => {
   }))
 })
 
-const openExternal = (url) => {
-  uni.navigateTo({ url: `/pages/webview/index?src=${encodeURIComponent(url)}` })
-}
-
 const goToDetail = (id) => {
-  if (String(id) === 'flight') {
-    openExternal('https://wx.zndkfx.com')
-    return
+  const routes = {
+    demands: '/pages/demands/list',
+    enterprise: '/pages/enterprise/status',
+    experts: '/pages/experts/list',
+    resources: '/pages/resources/list',
+    achievements: '/pages/achievements/list',
+    challenges: '/pages/challenges/list',
+    training: '/pages/training/courses',
+    competitions: '/pages/competitions/list',
+    jobs: '/pages/jobs/list',
+    colleges: '/pages/colleges/list',
+    trade: '/pages/services/detail?id=trade',
+    insurance: '/pages/services/detail?id=insurance',
+    events: '/pages/events/list',
+    exhibitions: '/pages/exhibitions/list',
+    portfolios: '/pages/portfolios/list',
+    reports: '/pages/reports/list',
+    emergency: '/pages/emergency/resources',
+    rescue: '/pages/emergency/cases',
   }
-  if (String(id) === '8') {
-    openExternal(
-      'https://app.wzsjy.com:8446/h5/#/pages/diy/diy?pageId=130&title=%E6%97%A0%E4%BA%BA%E6%9C%BA%E5%A4%96%E5%8D%96%E9%85%8D%E9%80%81&jyauthcode='
-    )
-    return
+  const path = routes[String(id)]
+  if (path) {
+    uni.navigateTo({ url: path })
+  } else {
+    uni.navigateTo({ url: `/pages/services/detail?id=${encodeURIComponent(String(id))}` })
   }
-  if (String(id) === '9') {
-    uni.navigateTo({ url: '/pages/study/index' })
-    return
-  }
-  uni.navigateTo({ url: `/pages/services/detail?id=${encodeURIComponent(String(id))}` })
 }
 </script>
 
