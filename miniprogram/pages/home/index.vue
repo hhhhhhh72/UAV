@@ -14,6 +14,12 @@
       <view class="video-placeholder" />
 
       <view class="header-section float-header">
+        <view class="location-bar">
+          <view class="location-text">
+            温州市
+            <image class="arrow-down-icon" src="/static/icons/arrow-down.svg" mode="aspectFit" />
+          </view>
+        </view>
         <view class="search-bar" @tap="handleSearchClick">
           <view class="search-box">
             <image class="search-icon-img" src="/static/icons/search.svg" mode="aspectFit" />
@@ -167,7 +173,7 @@ import Layout from '@/components/Layout.vue'
 import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
 import { request } from '../../utils/request'
 
-const searchKeywords = ['搜索服务/案例', '需求大厅', '企业入驻', '培训认证', '无人机销售', '保险金融']
+const searchKeywords = ['搜索服务/案例', '无人机外卖', '行业应用示范', '飞行服务', '低空研学', '无人机吊运']
 const activeSearchIndex = ref(0)
 
 const onSearchSwiperChange = (e) => {
@@ -192,23 +198,24 @@ const getCapsuleInfo = () => {
 const capsuleInfo = ref(getCapsuleInfo())
 const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20)
 
-const notices = ref(['重庆无人机产业协会会员招募中', '2024低空经济产业峰会即将举办'])
+const notices = ref(['交享点无人机外卖配送正式上线', '新开通江心屿无人机外卖配送'])
 
 const quickServices = ref([
-  { id: 'demands', name: '需求大厅', icon: '/static/icons/exchange.svg', color: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' },
-  { id: 'enterprise', name: '企业入驻', icon: '/static/icons/shop.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' },
-  { id: 'experts', name: '专家智库', icon: '/static/icons/government.svg', color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
-  { id: 13, name: '无人机赛事', icon: '/static/icons/competition.svg', color: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' },
-  { id: 6, name: '飞手培训', icon: '/static/icons/training-v2.svg', color: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)' },
-  { id: 9, name: '低空研学', icon: '/static/icons/study.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 'flight', name: '飞行服务', icon: '/static/icons/flight.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 8, name: '无人机外卖', icon: '/static/icons/delivery.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
+  { id: 1, name: '无人机物流', icon: '/static/icons/logistics-drone.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
   { id: 10, name: '无人机销售', icon: '/static/icons/shop.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
-  { id: 'insurance', name: '保险金融', icon: '/static/icons/finance.svg', color: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' },
-  { id: 'emergency', name: '应急资源', icon: '/static/icons/wrench.svg', color: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' },
-  { id: 3, name: '维修托管', icon: '/static/icons/maintenance.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 13, name: '无人机赛事', icon: '/static/icons/competition.svg', color: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' },
+  { id: 6, name: '飞手培训', icon: '/static/icons/training-v2.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
+  { id: 9, name: '低空研学', icon: '/static/icons/study.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 2, name: '政务服务', icon: '/static/icons/government.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 3, name: '无人机托管', icon: '/static/icons/maintenance.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
   { id: 5, name: '无人机表演', icon: '/static/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
   { id: 7, name: '无人机租赁', icon: '/static/icons/rent.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
   { id: 4, name: '无人机吊运', icon: '/static/icons/lifting.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
-  { id: 'more', name: '更多服务', icon: '/static/icons/apps.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
+  { id: 11, name: '金融服务', icon: '/static/icons/finance.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 12, name: '维修服务', icon: '/static/icons/wrench.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
+  { id: 'contact', name: '联系客服', icon: '/static/icons/service.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' }
 ])
 
 const servicePages = computed(() => {
@@ -254,29 +261,32 @@ onPullDownRefresh(() => {
 })
 
 const handleFunctionTap = (item) => {
-  if (item.id === 'demands') {
-    uni.navigateTo({ url: '/pages/demands/list' })
-  } else if (item.id === 'enterprise') {
-    uni.navigateTo({ url: '/pages/enterprise/status' })
-  } else if (item.id === 'experts') {
-    uni.navigateTo({ url: '/pages/experts/list' })
-  } else if (item.id === 'insurance') {
-    uni.navigateTo({ url: '/pages/services/detail?id=7' })
-  } else if (item.id === 'emergency') {
-    uni.navigateTo({ url: '/pages/emergency/resources' })
-  } else if (item.id === 'more') {
-    uni.switchTab({ url: '/pages/services/index' })
-  } else if (item.id === 6) {
-    uni.navigateTo({ url: '/pages/training/courses' })
-  } else if (item.id === 13) {
-    uni.navigateTo({ url: '/pages/competitions/list' })
-  } else if (item.id === 9) {
-    uni.navigateTo({ url: '/pages/study/index' })
-  } else if (item.id === 10) {
-    uni.navigateTo({ url: '/pages/services/detail?id=3' })
-  } else {
-    uni.showToast({ title: item.name + ' - 即将上线', icon: 'none' })
+  if (item.isEmpty) return
+  if (item.id === 'flight') {
+    openExternal('https://wx.zndkfx.com')
+    return
   }
+  if (item.id === 8) {
+    goToDelivery()
+    return
+  }
+  if (item.id === 9) {
+    safeNavigateTo('/pages/study/index')
+    return
+  }
+  if (item.id === 'contact') {
+    uni.makePhoneCall({ phoneNumber: '057712345678' })
+    return
+  }
+  if (item.id === 'more') {
+    safeSwitchTab('/pages/services/index')
+    return
+  }
+  if (item.id === 'news' || item.id === 'policy') {
+    uni.showToast({ title: '功能开发中', icon: 'none' })
+    return
+  }
+  goToDetail(item.id)
 }
 
 const goToDetail = (id) => {
@@ -549,14 +559,15 @@ onMounted(async () => {
 }
 
 .banner-section {
-  margin: 0 12px 12px;
-  border-radius: 12px;
+  margin-bottom: 12px;
+  border-radius: 16px;
   overflow: hidden;
+  position: relative;
 }
 
 .banner-image {
   width: 100%;
-  height: 120px;
+  height: 160px;
   display: block;
 }
 
