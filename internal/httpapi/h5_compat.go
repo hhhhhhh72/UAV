@@ -424,26 +424,31 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var users []map[string]any
-	readJSON(_usersFile, &_usersMu, &users)
-
 	var user map[string]any
-	for _, u := range users {
-		if u["phone"] == loginID || u["username"] == loginID {
-			if hash, ok := u["passwordHash"].(string); ok && bcrypt.CompareHashAndPassword([]byte(hash), []byte(body.Password)) == nil {
-				user = u
+
+	// 1) Check real user repo (Go backend users).
+	if u, err := s.userRepo.FindByID(loginID); err == nil {
+		user = map[string]any{"id": u.ID, "username": u.ID, "phone": u.ID, "role": string(u.Role), "status": u.Status}
+	} else {
+		// 2) Fallback to users.json (legacy compat).
+		var users []map[string]any
+		readJSON(_usersFile, &_usersMu, &users)
+		for _, ju := range users {
+			if ju["phone"] == loginID || ju["username"] == loginID {
+				user = ju
 				break
 			}
 		}
 	}
-	// Dev mode: auto-accept any credentials and persist to users.json.
-	if user == nil && adminDevMode() {
+
+	// Dev mode: super admin phone can login with any password.
+	if user == nil && adminDevMode() && os.Getenv("SUPER_ADMIN_PHONE") != "" && loginID == os.Getenv("SUPER_ADMIN_PHONE") {
 		user = map[string]any{"id": "user-" + loginID, "username": loginID, "phone": loginID, "role": "platform_admin", "status": "active"}
 		users = append(users, user)
 		writeJSON(_usersFile, &_usersMu, users)
 	}
 	if user == nil {
-		fail(w, r, http.StatusUnauthorized, errBadRequest("invalid credentials"))
+		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
 		return
 	}
 
