@@ -1,5 +1,6 @@
 <template>
-  <view class="services-page">
+  <Layout :current="1">
+    <view class="services-page">
     <van-sticky>
       <van-search v-model="searchText" placeholder="搜索业务分类" shape="round" />
     </van-sticky>
@@ -42,11 +43,13 @@
         </view>
       </view>
     </view>
-  </view>
+  </Layout>
 </template>
 
 <script>
+import Layout from '@/components/Layout.vue'
 export default {
+  components: { Layout },
   data() {
     return {
       searchText: '',
