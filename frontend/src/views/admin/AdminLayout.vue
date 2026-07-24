@@ -9,7 +9,7 @@
 
     <div class="admin-main">
       <AdminHeader
-        :title="pageTitle"
+        :title="'无人机产业协会 · 管理后台'"
         :user-role="userRole"
         @toggle-sidebar="sidebarOpen = !sidebarOpen"
       />
@@ -21,26 +21,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted } from 'vue'
 import AdminSidebar from './components/AdminSidebar.vue'
 import AdminHeader from './components/AdminHeader.vue'
 import { useAuth } from './composables/useAuth'
 
 const { userRole, isAdmin, isDslAdmin, isStudyAdmin, refreshCurrentUser } = useAuth()
 const sidebarOpen = ref(false)
-const route = useRoute()
-
-const titleMap = {
-  '/admin/dashboard': '数据概览',
-  '/admin/cases': '案例管理',
-  '/admin/users': '用户管理',
-  '/admin/competition': '赛事管理',
-  '/admin/config': '服务配置',
-  '/admin/reviews': '评价管理'
-}
-
-const pageTitle = computed(() => titleMap[route.path] || '后台管理')
 
 onMounted(() => {
   refreshCurrentUser()

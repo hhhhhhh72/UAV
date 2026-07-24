@@ -16,8 +16,9 @@ body {
 /* 主题色定义 - Apple / Notion 简洁风 */
 :root {
   /* 主色 */
-  --primary-color: #1d1d1f;
-  --primary-light: #515154;
+  --primary-color: #1565C0;
+  --primary-light: #1E88E5;
+  --primary-dark: #0D47A1;
   --accent-color: #0071e3;
   --accent-light: #e8f2fc;
 

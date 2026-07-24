@@ -8,28 +8,28 @@
       inactive-color="#969799"
     >
       <van-tabbar-item to="/home">
-        <span>服务大厅</span>
+        <span>首页</span>
         <template #icon="props">
-          <van-icon :name="props.active ? 'wap-home' : 'wap-home-o'" />
+          <van-icon :name="props.active ? 'home' : 'home-o'" />
         </template>
       </van-tabbar-item>
 
       <van-tabbar-item to="/services">
-        <span>全部服务</span>
+        <span>业务大厅</span>
         <template #icon="props">
-          <van-icon :name="props.active ? 'shop' : 'shop-o'" />
+          <van-icon :name="props.active ? 'apps' : 'apps-o'" />
         </template>
       </van-tabbar-item>
 
-      <van-tabbar-item to="/applications">
-        <span>我的申请</span>
+      <van-tabbar-item to="/messages">
+        <span>消息</span>
         <template #icon="props">
-          <van-icon :name="props.active ? 'todo-list' : 'todo-list-o'" />
+          <van-icon :name="props.active ? 'chat' : 'chat-o'" />
         </template>
       </van-tabbar-item>
 
       <van-tabbar-item to="/mine">
-        <span>个人中心</span>
+        <span>我的</span>
         <template #icon="props">
           <van-icon :name="props.active ? 'user' : 'user-o'" />
         </template>
