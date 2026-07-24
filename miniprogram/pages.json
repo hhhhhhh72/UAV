@@ -163,6 +163,40 @@
       }
     },
     {
+      "path": "pages/enterprise/register",
+      "style": {
+        "navigationBarTitleText": "企业入驻",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/enterprise/status",
+      "style": {
+        "navigationBarTitleText": "企业审核",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/experts/list",
+      "style": {
+        "navigationBarTitleText": "专家智库",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/experts/detail",
+      "style": {
+        "navigationBarTitleText": "专家详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
       "path": "pages/admin/index",
       "style": {
         "navigationBarTitleText": "后台管理",
