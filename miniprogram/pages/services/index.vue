@@ -1,37 +1,52 @@
 <template>
   <Layout :current="1">
     <view class="services-page">
-      <view class="sticky-search">
-        <view class="search-box">
-          <image class="search-icon" src="/static/icons/search.svg" mode="aspectFit" />
-          <input
-            class="search-input"
-            v-model="searchText"
-            placeholder="搜索服务"
-            placeholder-class="search-placeholder"
-          />
-        </view>
-      </view>
+      <!-- 搜索栏 -->
+      <van-sticky>
+        <van-search
+          v-model="searchText"
+          placeholder="搜索业务分类"
+          shape="round"
+        />
+      </van-sticky>
 
       <view class="content-wrapper">
-        <!-- 遍历服务分组 -->
-        <view v-for="group in serviceGroups" :key="group.title" class="service-group-card">
-          <view class="group-header">
-            <view class="group-title">{{ group.title }}</view>
-            <view class="group-subtitle">{{ group.subtitle }}</view>
+        <!-- 空状态 -->
+        <view v-if="filteredCategories.length === 0" class="empty-state">
+          <text class="empty-text">未找到匹配的业务分类</text>
+        </view>
+
+        <!-- 分类卡片列表 -->
+        <view
+          v-for="cat in filteredCategories"
+          :key="cat.id"
+          class="category-card"
+        >
+          <!-- 分类头部 -->
+          <view class="category-header" @tap="goToCategory(cat)">
+            <view class="category-icon-wrap" :style="{ background: cat.gradient }">
+              <van-icon :name="cat.icon" size="24" color="#ffffff" />
+            </view>
+            <view class="category-info">
+              <text class="category-title">{{ cat.title }}</text>
+              <text class="category-subtitle">{{ cat.subtitle }}</text>
+            </view>
+            <van-icon name="arrow" size="14" color="#c8c9cc" />
           </view>
 
-          <view class="service-grid">
+          <!-- 子服务列表 -->
+          <view class="sub-service-list">
             <view
-              v-for="service in group.items"
-              :key="service.id"
-              class="service-grid-item"
-              @tap="goToDetail(service.id)"
+              v-for="sub in cat.subItems"
+              :key="sub.id"
+              class="sub-service-item"
+              @tap="goToSubService(cat, sub)"
             >
-              <view class="service-icon-large" :style="{ background: service.color }">
-                <image class="service-icon-img" :src="service.icon" mode="aspectFit" />
+              <view class="sub-icon" :style="{ background: cat.subColor }">
+                <van-icon :name="sub.icon" size="16" color="#ffffff" />
               </view>
-              <view class="service-title">{{ service.name }}</view>
+              <text class="sub-name">{{ sub.name }}</text>
+              <van-icon name="arrow" size="12" color="#c8c9cc" />
             </view>
           </view>
         </view>
@@ -41,52 +56,121 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { ref, computed } from 'vue'
 import Layout from '@/components/Layout.vue'
-import { serviceGroupsConfig, serviceList } from '../../utils/services'
 
 const searchText = ref('')
 
-onLoad((options) => {
-  if (options.keyword) {
-    searchText.value = decodeURIComponent(options.keyword)
-  }
+const categories = [
+  {
+    id: 'supply-demand',
+    title: '产业供需对接',
+    subtitle: '资源匹配 高效对接',
+    icon: 'exchange',
+    gradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+    subColor: '#ede9fe',
+    subItems: [
+      { id: 'demand-hall', name: '需求大厅', icon: 'bullhorn-o' },
+      { id: 'supply-show', name: '供应展示', icon: 'shop-o' },
+      { id: 'bid-quote', name: '竞标报价', icon: 'records-o' },
+    ]
+  },
+  {
+    id: 'training',
+    title: '培训认证',
+    subtitle: '专业考证 技能提升',
+    icon: 'medal-o',
+    gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+    subColor: '#cffafe',
+    subItems: [
+      { id: 'caac', name: 'CAAC执照', icon: 'certificate' },
+      { id: 'utc', name: 'UTC认证', icon: 'medal-o' },
+      { id: 'hr-cert', name: '人社认证', icon: 'records-o' },
+      { id: 'pilot', name: '飞手培训', icon: 'user-o' },
+    ]
+  },
+  {
+    id: 'trade',
+    title: '无人机交易',
+    subtitle: '整机配件 一站购齐',
+    icon: 'shopping-cart-o',
+    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    subColor: '#fef3c7',
+    subItems: [
+      { id: 'drone-unit', name: '整机购买', icon: 'gem-o' },
+      { id: 'repair', name: '维修服务', icon: 'setting-o' },
+      { id: 'parts', name: '配件商城', icon: 'more-o' },
+    ]
+  },
+  {
+    id: 'contract',
+    title: '合同签约',
+    subtitle: '电子签章 安全合规',
+    icon: 'edit',
+    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    subColor: '#d1fae5',
+    subItems: [
+      { id: 'template', name: '合同模板', icon: 'description' },
+      { id: 'signature', name: '在线签章', icon: 'sign' },
+      { id: 'void', name: '合同作废', icon: 'delete-o' },
+    ]
+  },
+  {
+    id: 'insurance',
+    title: '保险金融',
+    subtitle: '全面保障 资金支持',
+    icon: 'shield-o',
+    gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+    subColor: '#fee2e2',
+    subItems: [
+      { id: 'policy', name: '无人机保单', icon: 'shield-o' },
+      { id: 'annual', name: '年审服务', icon: 'clock-o' },
+      { id: 'loan', name: '金融贷款', icon: 'gold-coin-o' },
+    ]
+  },
+  {
+    id: 'emergency',
+    title: '应急资源协同',
+    subtitle: '快速响应 资源调度',
+    icon: 'fire-o',
+    gradient: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+    subColor: '#ffedd5',
+    subItems: [
+      { id: 'rescue-case', name: '救援案例', icon: 'info-o' },
+      { id: 'resource-dispatch', name: '资源调度', icon: 'send-gift-o' },
+    ]
+  },
+]
+
+const filteredCategories = computed(() => {
+  if (!searchText.value) return categories
+  const q = searchText.value.toLowerCase()
+  return categories
+    .map(cat => {
+      const matchedSubs = cat.subItems.filter(
+        sub => sub.name.includes(q) || cat.title.includes(q)
+      )
+      if (cat.title.includes(q)) return { ...cat, subItems: cat.subItems }
+      if (matchedSubs.length > 0) return { ...cat, subItems: matchedSubs }
+      return null
+    })
+    .filter(Boolean)
 })
 
-const serviceGroups = computed(() => {
-  const all = serviceList
-  if (searchText.value) {
-    const keyword = searchText.value.trim()
-    const filtered = all.filter((s) => s.name.includes(keyword))
-    return [{ title: '搜索结果', subtitle: 'Search Results', items: filtered }]
-  }
-  return serviceGroupsConfig.map((group) => ({
-    ...group,
-    items: group.ids.map((id) => all.find((s) => String(s.id) === String(id))).filter(Boolean)
-  }))
-})
-
-const openExternal = (url) => {
-  uni.navigateTo({ url: `/pages/webview/index?src=${encodeURIComponent(url)}` })
+const goToCategory = (cat) => {
+  uni.showToast({ title: cat.title + ' - 即将上线', icon: 'none', duration: 1500 })
 }
 
-const goToDetail = (id) => {
-  if (String(id) === 'flight') {
-    openExternal('https://wx.zndkfx.com')
-    return
+const goToSubService = (cat, sub) => {
+  if (sub.id === 'pilot') {
+    uni.navigateTo({ url: '/pages/services/detail?id=6' })
+  } else if (sub.id === 'repair') {
+    uni.navigateTo({ url: '/pages/services/detail?id=12' })
+  } else if (sub.id === 'rescue-case') {
+    uni.navigateTo({ url: '/pages/cases/index' })
+  } else {
+    uni.showToast({ title: sub.name + ' - 即将上线', icon: 'none', duration: 1500 })
   }
-  if (String(id) === '8') {
-    openExternal(
-      'https://app.wzsjy.com:8446/h5/#/pages/diy/diy?pageId=130&title=%E6%97%A0%E4%BA%BA%E6%9C%BA%E5%A4%96%E5%8D%96%E9%85%8D%E9%80%81&jyauthcode='
-    )
-    return
-  }
-  if (String(id) === '9') {
-    uni.navigateTo({ url: '/pages/study/index' })
-    return
-  }
-  uni.navigateTo({ url: `/pages/services/detail?id=${encodeURIComponent(String(id))}` })
 }
 </script>
 
@@ -96,112 +180,112 @@ const goToDetail = (id) => {
   min-height: 100vh;
 }
 
-.sticky-search {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #fff;
-  padding: 12px 16px;
-  border-bottom-left-radius: 24px;
-  border-bottom-right-radius: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f7f8fa;
-  border-radius: 12px;
-  padding: 8px 12px;
-}
-
-.search-icon {
-  width: 16px;
-  height: 16px;
-  opacity: 0.7;
-}
-
-.search-input {
-  flex: 1;
-  font-size: 14px;
-  color: #323233;
-}
-
-.search-placeholder {
-  color: #969799;
-}
-
 .content-wrapper {
   padding: 12px;
 }
 
-.service-group-card {
+.empty-state {
+  text-align: center;
+  padding: 80px 0;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: #969799;
+}
+
+/* 分类卡片 */
+.category-card {
   background: #fff;
   border-radius: 16px;
-  padding: 16px 12px;
+  padding: 16px;
   margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
 }
 
-.group-header {
+.category-header {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
-  padding-left: 4px;
+  gap: 12px;
 }
 
-.group-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
+.category-header:active {
+  opacity: 0.7;
 }
 
-.group-subtitle {
-  display: none;
-}
-
-.service-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px 4px;
-}
-
-.service-grid-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  transition: opacity 0.2s;
-}
-
-.service-grid-item:active {
-  opacity: 0.6;
-}
-
-.service-icon-large {
+.category-icon-wrap {
   width: 44px;
   height: 44px;
   border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
 
-.service-icon-img {
-  width: 26px;
-  height: 26px;
-  filter: brightness(0) invert(1);
+.category-info {
+  flex: 1;
+  min-width: 0;
 }
 
-.service-title {
+.category-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 2px;
+  display: block;
+}
+
+.category-subtitle {
   font-size: 12px;
-  font-weight: 400;
-  color: #333;
-  line-height: 1.3;
+  color: #969799;
+  display: block;
+}
+
+/* 子服务列表 */
+.sub-service-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f5f5f5;
+}
+
+.sub-service-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f7f8fa;
+  border-radius: 10px;
+  width: calc(50% - 4px);
+  box-sizing: border-box;
+}
+
+.sub-service-item:active {
+  background: #f0f0f0;
+}
+
+.sub-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sub-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #323233;
   white-space: nowrap;
-  transform: scale(0.95);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

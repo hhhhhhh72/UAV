@@ -1,163 +1,267 @@
 <template>
-  <Layout :current="2">
-    <view class="applications-page">
-      <view v-if="applications.length === 0" class="empty-wrap">
-        <view class="empty-title">暂无申请记录</view>
-        <view class="empty-desc">去服务大厅提交一个申请吧</view>
-        <button class="primary-btn" type="primary" @tap="goHome">去申请服务</button>
-      </view>
+  <view class="applications-page">
+    <van-nav-bar title="我的业务" fixed placeholder left-arrow @click-left="goBack" />
 
-      <view v-else class="application-list">
-        <view
-          v-for="app in applications"
-          :key="app.id"
-          class="application-card"
-          @tap="viewDetail(app)"
-        >
-          <view class="card-header">
-            <view class="service-info">
-              <view class="service-name">{{ app.serviceName }}</view>
-              <view class="status-tag" :class="statusClass(app.status)">{{ app.status }}</view>
-            </view>
-            <view class="apply-time">{{ app.applyTime }}</view>
+    <!-- Tabs -->
+    <van-tabs v-model:active="activeTab" @change="onTabChange" sticky>
+        <van-tab title="我的需求">
+          <view class="tab-content">
+            <van-empty v-if="!loadingDemands && demands.length === 0" description="暂无需求" image="search" />
+            <van-cell-group v-else inset>
+              <van-cell
+                v-for="item in demands"
+                :key="item.id"
+                :title="item.title || item.serviceName || '需求' + item.id"
+                :label="item.description || item.content || ''"
+                :value="getStatusText(item.status)"
+                is-link
+                @tap="viewDetail('demand', item)"
+              >
+                <template #title>
+                  <view class="cell-title-row">
+                    <text class="cell-title-text">{{ item.title || item.serviceName || '需求' + item.id }}</text>
+                    <van-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</van-tag>
+                  </view>
+                </template>
+              </van-cell>
+            </van-cell-group>
+            <van-loading v-if="loadingDemands" size="24" class="tab-loading">加载中...</van-loading>
           </view>
+        </van-tab>
 
-          <view class="card-content">
-            <view class="info-row">
-              <text class="label">申请编号：</text>
-              <text class="value">{{ app.applyNo }}</text>
-            </view>
-            <view class="info-row">
-              <text class="label">联系人：</text>
-              <text class="value">{{ app.contactName }}</text>
-            </view>
-            <view class="info-row">
-              <text class="label">联系电话：</text>
-              <text class="value">{{ app.contactPhone }}</text>
-            </view>
+        <van-tab title="我的竞标">
+          <view class="tab-content">
+            <van-empty v-if="!loadingBids && bids.length === 0" description="暂无竞标记录" image="search" />
+            <van-cell-group v-else inset>
+              <van-cell
+                v-for="item in bids"
+                :key="item.id"
+                :title="item.demandTitle || item.title || '竞标' + item.id"
+                :label="'报价: ' + (item.price || item.amount || '--')"
+                :value="getStatusText(item.status)"
+                is-link
+                @tap="viewDetail('bid', item)"
+              >
+                <template #title>
+                  <view class="cell-title-row">
+                    <text class="cell-title-text">{{ item.demandTitle || item.title || '竞标' + item.id }}</text>
+                    <van-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</van-tag>
+                  </view>
+                </template>
+              </van-cell>
+            </van-cell-group>
+            <van-loading v-if="loadingBids" size="24" class="tab-loading">加载中...</van-loading>
           </view>
-        </view>
-      </view>
+        </van-tab>
+
+        <van-tab title="我的合同">
+          <view class="tab-content">
+            <van-empty v-if="!loadingContracts && contracts.length === 0" description="暂无合同" image="search" />
+            <van-cell-group v-else inset>
+              <van-cell
+                v-for="item in contracts"
+                :key="item.id"
+                :title="item.title || item.contractNo || '合同' + item.id"
+                :label="item.partyB || item.counterparty || ''"
+                :value="getStatusText(item.status)"
+                is-link
+                @tap="viewDetail('contract', item)"
+              >
+                <template #title>
+                  <view class="cell-title-row">
+                    <text class="cell-title-text">{{ item.title || item.contractNo || '合同' + item.id }}</text>
+                    <van-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</van-tag>
+                  </view>
+                </template>
+              </van-cell>
+            </van-cell-group>
+            <van-loading v-if="loadingContracts" size="24" class="tab-loading">加载中...</van-loading>
+          </view>
+        </van-tab>
+
+        <van-tab title="我的订单">
+          <view class="tab-content">
+            <van-empty v-if="!loadingOrders && orders.length === 0" description="暂无订单" image="search" />
+            <van-cell-group v-else inset>
+              <van-cell
+                v-for="item in orders"
+                :key="item.id"
+                :title="item.productName || item.title || '订单' + item.id"
+                :label="'金额: ' + (item.amount || item.price || '--')"
+                :value="getStatusText(item.status)"
+                is-link
+                @tap="viewDetail('order', item)"
+              >
+                <template #title>
+                  <view class="cell-title-row">
+                    <text class="cell-title-text">{{ item.productName || item.title || '订单' + item.id }}</text>
+                    <van-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</van-tag>
+                  </view>
+                </template>
+              </van-cell>
+            </van-cell-group>
+            <van-loading v-if="loadingOrders" size="24" class="tab-loading">加载中...</van-loading>
+          </view>
+        </van-tab>
+      </van-tabs>
     </view>
-  </Layout>
 </template>
 
 <script setup>
-import { onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
-import Layout from '@/components/Layout.vue'
-import { getStoredUser, request } from '../../utils/request'
+import { onShow } from '@dcloudio/uni-app'
+import { request, getStoredUser } from '../../utils/request'
 
-const applications = ref([])
+const activeTab = ref(0)
 
-const fetchData = async () => {
+const demands = ref([])
+const bids = ref([])
+const contracts = ref([])
+const orders = ref([])
+
+const loadingDemands = ref(false)
+const loadingBids = ref(false)
+const loadingContracts = ref(false)
+const loadingOrders = ref(false)
+
+const fetchDemands = async () => {
   const user = getStoredUser()
-  if (!user) {
-    applications.value = []
-    return
-  }
-
+  if (!user) { demands.value = []; return }
+  loadingDemands.value = true
   try {
-    const res = await request({ url: '/api/list', data: { userId: user.id } })
-    const list = Array.isArray(res) ? res : (res?.data || [])
-    applications.value = list.map((item) => ({
-      id: item.id,
-      applyNo: item.orderNo || item.id,
-      serviceName: item.serviceName || '未知服务',
-      status: item.status || '待处理',
-      contactName: item.contactName || item.traineeName || item.name,
-      contactPhone: item.contactPhone || item.traineePhone || item.phone,
-      applyTime: item.applyTime || new Date(item.createTime).toLocaleString()
-    }))
-  } catch (error) {
-    const mock = uni.getStorageSync('mock_applications') || []
-    applications.value = mock.filter((a) => a.userId === user.id)
+    const res = await request({ url: '/api/v1/demands', data: { mine: 1 } })
+    const list = res?.data || res || []
+    demands.value = Array.isArray(list) ? list : []
+  } catch (e) {
+    console.warn('Failed to load demands:', e)
+    demands.value = []
+  } finally {
+    loadingDemands.value = false
   }
+}
+
+const fetchBids = async () => {
+  const user = getStoredUser()
+  if (!user) { bids.value = []; return }
+  loadingBids.value = true
+  try {
+    const res = await request({ url: '/api/v1/demands/bids/mine' })
+    const list = res?.data || res || []
+    bids.value = Array.isArray(list) ? list : []
+  } catch (e) {
+    console.warn('Failed to load bids:', e)
+    bids.value = []
+  } finally {
+    loadingBids.value = false
+  }
+}
+
+const fetchContracts = async () => {
+  const user = getStoredUser()
+  if (!user) { contracts.value = []; return }
+  loadingContracts.value = true
+  try {
+    const res = await request({ url: '/api/v1/contracts' })
+    const list = res?.data || res || []
+    contracts.value = Array.isArray(list) ? list : []
+  } catch (e) {
+    console.warn('Failed to load contracts:', e)
+    contracts.value = []
+  } finally {
+    loadingContracts.value = false
+  }
+}
+
+const fetchOrders = async () => {
+  const user = getStoredUser()
+  if (!user) { orders.value = []; return }
+  loadingOrders.value = true
+  try {
+    const res = await request({ url: '/api/v1/trade-orders/mine' })
+    const list = res?.data || res || []
+    orders.value = Array.isArray(list) ? list : []
+  } catch (e) {
+    console.warn('Failed to load orders:', e)
+    orders.value = []
+  } finally {
+    loadingOrders.value = false
+  }
+}
+
+const onTabChange = (e) => {
+  const index = e.detail ? e.detail.index : e
+  if (index === 0) fetchDemands()
+  else if (index === 1) fetchBids()
+  else if (index === 2) fetchContracts()
+  else if (index === 3) fetchOrders()
 }
 
 onShow(() => {
-  fetchData()
+  // Load active tab data on show
+  if (activeTab.value === 0) fetchDemands()
+  else if (activeTab.value === 1) fetchBids()
+  else if (activeTab.value === 2) fetchContracts()
+  else if (activeTab.value === 3) fetchOrders()
 })
 
-const goHome = () => {
-  uni.switchTab({ url: '/pages/home/index' })
-}
-
-const statusClass = (status) => {
-  if (status.includes('完成') || status.includes('成功')) return 'success'
-  if (status.includes('处理')) return 'primary'
-  if (status.includes('联系')) return 'warning'
+const getStatusType = (status) => {
+  if (!status) return 'default'
+  if (status === 'pending' || status === '待处理') return 'warning'
+  if (status === 'processing' || status === '处理中') return 'primary'
+  if (status === 'completed' || status === '已完成' || status === 'done') return 'success'
+  if (status === 'cancelled' || status === '已取消' || status === 'rejected' || status === '已拒绝') return 'danger'
   return 'default'
 }
 
-const viewDetail = (app) => {
-  uni.showModal({
-    title: '申请详情',
-    content: `编号：${app.applyNo}\n服务：${app.serviceName}\n联系人：${app.contactName}\n电话：${app.contactPhone}\n状态：${app.status}`,
-    showCancel: false
-  })
+const getStatusText = (status) => {
+  if (!status) return '未知'
+  const map = {
+    pending: '待处理',
+    processing: '处理中',
+    completed: '已完成',
+    done: '已完成',
+    cancelled: '已取消',
+    rejected: '已拒绝',
+    active: '进行中',
+  }
+  return map[status] || status
+}
+
+const viewDetail = (type, item) => {
+  uni.showToast({ title: '详情 - 即将上线', icon: 'none', duration: 1500 })
+}
+
+const goBack = () => {
+  uni.navigateBack()
 }
 </script>
 
 <style scoped>
 .applications-page {
+  background: #f7f8fa;
   min-height: 100vh;
-  background: #f5f5f5;
-  padding: 12px;
 }
-.empty-wrap {
-  padding-top: 100px;
-  text-align: center;
+
+.tab-content {
+  padding: 12px 0;
+  min-height: 200px;
 }
-.empty-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-.empty-desc {
-  font-size: 14px;
-  color: #969799;
-  margin-bottom: 24px;
-}
-.primary-btn {
-  width: 200px;
-  border-radius: 999px;
-  background-color: #2f7ef7;
-}
-.application-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
-}
-.card-header {
+
+.tab-loading {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f2f3f5;
+  justify-content: center;
+  padding: 40px 0;
 }
-.service-info {
+
+.cell-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.service-name {
-  font-size: 16px;
-  font-weight: 600;
+
+.cell-title-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #323233;
 }
-.status-tag {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-.status-tag.success { background: #e8f9f0; color: #07c160; }
-.status-tag.primary { background: #eef5ff; color: #2f7ef7; }
-.status-tag.warning { background: #fff7e8; color: #ff976a; }
-.status-tag.default { background: #f7f8fa; color: #969799; }
-.apply-time { font-size: 12px; color: #969799; }
-.card-content { display: flex; flex-direction: column; gap: 8px; }
-.info-row { display: flex; font-size: 13px; }
-.info-row .label { color: #969799; width: 80px; }
-.info-row .value { color: #646566; flex: 1; }
 </style>

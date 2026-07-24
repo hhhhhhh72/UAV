@@ -1,129 +1,141 @@
 <template>
   <Layout :current="3">
     <view class="mine-page">
-      <view class="nav-bar">个人中心</view>
+      <van-nav-bar title="我的" fixed placeholder />
 
-      <!-- 用户信息卡片 (同步 H5 渐变色) -->
+      <!-- 用户信息卡片 -->
       <view class="user-card">
         <view class="user-header" @tap="handleUserClick">
-          <image v-if="user && user.avatar" class="avatar" :src="user.avatar" mode="aspectFill" />
+          <van-image
+            v-if="user && user.avatar"
+            round
+            width="60"
+            height="60"
+            :src="user.avatar"
+          />
           <view v-else class="default-avatar">
-            <text class="avatar-icon">👤</text>
+            <van-icon name="contact" size="36" color="#bdc3c7" />
           </view>
           <view class="user-info">
-            <view class="user-name">{{ user?.name || '点击登录' }}</view>
-            <view class="user-phone">{{ user?.phone || '登录后享受更多服务' }}</view>
+            <text class="user-name">{{ user ? (user.name || user.nickname || '用户') : '点击登录' }}</text>
+            <view class="user-sub-row">
+              <text class="user-phone">{{ user ? (user.phone || '') : '登录后享受更多服务' }}</text>
+              <van-tag v-if="user && roleLabel" type="primary" size="small">{{ roleLabel }}</van-tag>
+            </view>
           </view>
-          <text v-if="!user" class="arrow">›</text>
+          <van-icon v-if="!user" name="arrow" size="16" color="#8e8e93" />
         </view>
 
         <!-- 统计数据 -->
         <view class="stats-grid">
           <view class="stat-item">
-            <view class="stat-value">{{ totalCount }}</view>
-            <view class="stat-label">总申请</view>
+            <text class="stat-value">{{ totalCount }}</text>
+            <text class="stat-label">总申请</text>
           </view>
           <view class="stat-item">
-            <view class="stat-value">{{ processingCount }}</view>
-            <view class="stat-label">处理中</view>
+            <text class="stat-value">{{ processingCount }}</text>
+            <text class="stat-label">处理中</text>
           </view>
           <view class="stat-item">
-            <view class="stat-value">{{ completedCount }}</view>
-            <view class="stat-label">已完成</view>
+            <text class="stat-value">{{ completedCount }}</text>
+            <text class="stat-label">已完成</text>
           </view>
         </view>
       </view>
 
       <!-- 第一组功能菜单 -->
       <view class="menu-section">
-        <view class="menu-list">
-          <view class="menu-item" v-if="user && (user.role === 'admin' || user.role === 'dsl_admin')" @tap="goAdmin">
-            <text class="menu-icon">⚙️</text>
-            <text class="menu-title">后台管理</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="goApplications">
-            <text class="menu-icon">📋</text>
-            <text class="menu-title">我的申请</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="goCases">
-            <text class="menu-icon">🎬</text>
-            <text class="menu-title">案例展示</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="goProfile">
-            <text class="menu-icon">👤</text>
-            <text class="menu-title">个人信息</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <!-- #ifdef MP-WEIXIN -->
-          <view class="menu-item" v-if="user && user.wxOpenid && !user.phone">
-            <text class="menu-icon">📱</text>
-            <view class="menu-title-group">
-              <text class="menu-title">绑定手机号</text>
-              <button class="inline-phone-btn" open-type="getPhoneNumber" @getphonenumber="handleBindPhone">
-                去绑定
-              </button>
-            </view>
-          </view>
-          <!-- #endif -->
-          <view class="menu-item" @tap="goAuth">
-            <text class="menu-icon">🛡️</text>
-            <view class="menu-title-group">
-              <text class="menu-title">实名认证</text>
-              <text class="menu-label">{{ user?.isAuth ? '已认证' : '未认证' }}</text>
-            </view>
-            <text class="menu-arrow">›</text>
-          </view>
-        </view>
+        <van-cell-group inset>
+          <van-cell
+            v-if="user && isAdmin"
+            title="管理后台"
+            icon="setting-o"
+            is-link
+            @tap="goAdmin"
+          />
+          <van-cell
+            title="企业入驻"
+            icon="shop-o"
+            is-link
+            @tap="goProfile"
+          />
+          <van-cell
+            title="我的需求"
+            icon="records-o"
+            is-link
+            @tap="goApplications"
+          />
+          <van-cell
+            title="我的证书"
+            icon="award-o"
+            is-link
+            @tap="showComingSoon"
+          />
+          <van-cell
+            title="我的合同"
+            icon="description"
+            is-link
+            @tap="showComingSoon"
+          />
+          <van-cell
+            title="钱包余额"
+            icon="gold-coin-o"
+            is-link
+            @tap="showComingSoon"
+          />
+        </van-cell-group>
       </view>
 
-      <!-- 第二组功能菜单 (同步 H5) -->
+      <!-- 第二组功能菜单 -->
       <view class="menu-section">
-        <view class="menu-list">
-          <view class="menu-item" @tap="showGuide">
-            <text class="menu-icon">📖</text>
-            <text class="menu-title">服务指南</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="showFAQ">
-            <text class="menu-icon">❓</text>
-            <text class="menu-title">常见问题</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="showContact">
-            <text class="menu-icon">🎧</text>
-            <text class="menu-title">联系客服</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="showAbout">
-            <text class="menu-icon">ℹ️</text>
-            <text class="menu-title">关于我们</text>
-            <text class="menu-arrow">›</text>
-          </view>
-        </view>
+        <van-cell-group inset>
+          <van-cell
+            title="服务指南"
+            icon="guide-o"
+            is-link
+            @tap="showGuide"
+          />
+          <van-cell
+            title="常见问题"
+            icon="question-o"
+            is-link
+            @tap="showFAQ"
+          />
+          <van-cell
+            title="联系客服"
+            icon="service-o"
+            is-link
+            @tap="showContact"
+          />
+          <van-cell
+            title="关于我们"
+            icon="info-o"
+            is-link
+            @tap="showAbout"
+          />
+        </van-cell-group>
       </view>
 
       <!-- 退出登录 -->
-      <view class="menu-section logout-section" v-if="user">
-        <view class="menu-list">
-          <view class="menu-item logout-item" @tap="handleLogout">
-            <text class="menu-icon">🚪</text>
-            <text class="menu-title">退出登录</text>
-            <text class="menu-arrow">›</text>
-          </view>
-        </view>
+      <view class="menu-section" v-if="user">
+        <van-cell-group inset>
+          <van-cell
+            title="退出登录"
+            icon="close"
+            is-link
+            @tap="handleLogout"
+          />
+        </van-cell-group>
       </view>
-      
+
       <view class="safe-area-bottom"></view>
     </view>
   </Layout>
 </template>
 
 <script setup>
+import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { ref } from 'vue'
 import Layout from '@/components/Layout.vue'
 import { getStoredUser, request, authStorage } from '../../utils/request'
 
@@ -131,6 +143,23 @@ const user = ref(null)
 const totalCount = ref(0)
 const processingCount = ref(0)
 const completedCount = ref(0)
+
+const roleLabels = {
+  platform_admin: '平台管理员',
+  association_admin: '协会管理员',
+  enterprise: '企业用户',
+  individual: '个人用户',
+}
+
+const roleLabel = computed(() => {
+  if (!user.value) return ''
+  return roleLabels[user.value.role] || ''
+})
+
+const isAdmin = computed(() => {
+  if (!user.value) return false
+  return user.value.role === 'platform_admin' || user.value.role === 'association_admin'
+})
 
 const fetchData = async () => {
   const currentUser = getStoredUser()
@@ -145,9 +174,10 @@ const fetchData = async () => {
   // Refresh user info from server
   try {
     const meRes = await request({ url: '/api/auth/me' })
-    if (meRes?.user) {
-      user.value = meRes.user
-      uni.setStorageSync('user', JSON.stringify(meRes.user))
+    if (meRes?.user || meRes?.data?.user) {
+      const u = meRes.user || meRes.data.user
+      user.value = u
+      uni.setStorageSync('user', JSON.stringify(u))
     }
   } catch (e) { /* use cached user */ }
 
@@ -155,14 +185,12 @@ const fetchData = async () => {
     const res = await request({ url: '/api/list', data: { userId: currentUser.id } })
     const list = Array.isArray(res) ? res : (res?.data || [])
     totalCount.value = list.length
-    processingCount.value = list.filter((i) => i.status === '处理中').length
-    completedCount.value = list.filter((i) => i.status === '已完成').length
+    processingCount.value = list.filter(i => i.status === '处理中').length
+    completedCount.value = list.filter(i => i.status === '已完成').length
   } catch (e) {
-    const mock = uni.getStorageSync('mock_applications') || []
-    const list = mock.filter((a) => a.userId === currentUser.id)
-    totalCount.value = list.length
-    processingCount.value = list.filter((i) => i.status === '处理中').length
-    completedCount.value = list.filter((i) => i.status === '已完成').length
+    totalCount.value = 0
+    processingCount.value = 0
+    completedCount.value = 0
   }
 }
 
@@ -177,9 +205,9 @@ const handleUserClick = () => {
     uni.navigateTo({ url: '/pages/mine/profile' })
   }
 }
+
 const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' })
-const goApplications = () => uni.switchTab({ url: '/pages/applications/index' })
-const goCases = () => uni.navigateTo({ url: '/pages/cases/index' })
+const goApplications = () => uni.navigateTo({ url: '/pages/applications/index' })
 const goProfile = () => {
   if (!user.value) {
     uni.navigateTo({ url: '/pages/login/index' })
@@ -187,14 +215,10 @@ const goProfile = () => {
   }
   uni.navigateTo({ url: '/pages/mine/profile' })
 }
-const goAuth = () => {
-  if (!user.value) {
-    uni.navigateTo({ url: '/pages/login/index' })
-    return
-  }
-  uni.navigateTo({ url: '/pages/mine/auth' })
+
+const showComingSoon = () => {
+  uni.showToast({ title: '即将上线', icon: 'none', duration: 1500 })
 }
-const showToast = (msg) => uni.showToast({ title: msg, icon: 'none' })
 
 const showGuide = () => {
   uni.showModal({
@@ -215,46 +239,28 @@ const showFAQ = () => {
 const showContact = () => {
   uni.showModal({
     title: '联系客服',
-    content: '客服电话：400-123-4567\n工作时间：工作日 9:00-18:00',
-    showCancel: false
+    content: '客服电话：0577-55558188\n工作时间：工作日 9:00-18:00',
+    confirmText: '拨打电话',
+    success: (res) => {
+      if (res.confirm) {
+        uni.makePhoneCall({ phoneNumber: '0577-55558188' })
+      }
+    }
   })
 }
 
 const showAbout = () => {
   uni.showModal({
     title: '关于我们',
-    content: '低空综合服务平台\n开发主体：温州低空经济发展有限公司\n版本：v1.1.0\n\n专注于提供专业、高效、安全的低空服务',
+    content: '无人机产业综合服务平台\n版本：v1.1.0\n\n专注于提供专业、高效、安全的低空服务',
     showCancel: false
   })
-}
-
-const handleBindPhone = async (e) => {
-  if (e.detail.errMsg !== 'getPhoneNumber:ok') return
-  uni.showLoading({ title: '绑定中...' })
-  try {
-    const res = await request({
-      url: '/api/auth/wx-phone',
-      method: 'POST',
-      data: { code: e.detail.code }
-    })
-    if (res?.success) {
-      user.value = res.user
-      uni.setStorageSync('user', JSON.stringify(res.user))
-      uni.showToast({ title: '绑定成功' })
-    } else {
-      throw new Error(res?.message || '绑定失败')
-    }
-  } catch (err) {
-    uni.showToast({ title: err?.message || '绑定失败', icon: 'none' })
-  } finally {
-    uni.hideLoading()
-  }
 }
 
 const handleLogout = () => {
   uni.showModal({
     title: '提示',
-    content: '确定退出？',
+    content: '确定要退出登录吗？',
     success: async (res) => {
       if (res.confirm) {
         try {
@@ -263,6 +269,9 @@ const handleLogout = () => {
         authStorage.clearTokens()
         uni.removeStorageSync('user')
         user.value = null
+        totalCount.value = 0
+        processingCount.value = 0
+        completedCount.value = 0
         uni.switchTab({ url: '/pages/home/index' })
       }
     }
@@ -272,55 +281,35 @@ const handleLogout = () => {
 
 <style scoped>
 .mine-page {
-  min-height: 100vh;
   background: #f7f8fa;
-}
-
-.nav-bar {
-  height: 44px;
-  line-height: 44px;
-  text-align: center;
-  font-size: 17px;
-  font-weight: 600;
-  background: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  min-height: 100vh;
 }
 
 .user-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  margin: 12px 16px 20px;
-  padding: 24px 20px;
-  border-radius: 16px;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+  background: #ffffff;
+  margin: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 .user-header {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 24px;
-}
-
-.avatar, .default-avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 30px;
-  background: #f5f6fa;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  margin-bottom: 16px;
 }
 
 .default-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #f2f2f7;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.avatar-icon {
-  font-size: 30px;
-  color: #bdc3c7;
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .user-info {
@@ -329,122 +318,54 @@ const handleLogout = () => {
 
 .user-name {
   font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: #1d1d1f;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.user-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .user-phone {
   font-size: 14px;
-  opacity: 0.8;
-}
-
-.arrow {
-  font-size: 20px;
-  opacity: 0.6;
+  color: #86868b;
 }
 
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .stat-item {
+  flex: 1;
   text-align: center;
 }
 
 .stat-value {
   font-size: 22px;
-  font-weight: bold;
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: #1d1d1f;
+  display: block;
+  margin-bottom: 6px;
 }
 
 .stat-label {
-  font-size: 12px;
-  opacity: 0.8;
+  font-size: 13px;
+  color: #86868b;
+  display: block;
 }
 
 .menu-section {
-  background: #fff;
-  margin: 0 16px 12px;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-}
-
-.menu-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #f2f3f5;
-  transition: background-color 0.2s;
-}
-
-.menu-item:active {
-  background-color: #f2f3f5;
-}
-
-.menu-item:last-child {
-  border-bottom: none;
-}
-
-.menu-icon {
-  font-size: 18px;
-  margin-right: 12px;
-}
-
-.menu-title {
-  flex: 1;
-  font-size: 15px;
-  color: #323233;
-}
-
-.menu-title-group {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.menu-label {
-  font-size: 12px;
-  color: #969799;
-  margin-right: 4px;
-}
-
-.menu-arrow {
-  font-size: 16px;
-  color: #969799;
-}
-
-.logout-item .menu-title {
-  color: #ee0a24;
-}
-
-.inline-phone-btn {
-  display: inline-block;
-  font-size: 13px;
-  color: #667eea;
-  background: transparent;
-  padding: 4px 12px;
-  border: 1px solid #667eea;
-  border-radius: 14px;
-  line-height: 1.4;
-  margin: 0;
-}
-
-.inline-phone-btn::after {
-  border: none;
+  margin: 12px 0;
 }
 
 .safe-area-bottom {
-  height: calc(constant(safe-area-inset-bottom) + 20px);
-  height: calc(env(safe-area-inset-bottom) + 20px);
+  height: 20px;
 }
 </style>
