@@ -25,8 +25,14 @@ axios.interceptors.request.use((config) => {
   return config
 })
 
+// Unwrap Go backend { data: {...} } envelope transparently.
 axios.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      response.data = response.data.data
+    }
+    return response
+  },
   async (error) => {
     const originalRequest = error.config
     if (!originalRequest || error.response?.status !== 401) {

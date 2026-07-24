@@ -436,6 +436,12 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Dev mode: auto-accept any credentials and persist to users.json.
+	if user == nil && adminDevMode() {
+		user = map[string]any{"id": "user-" + loginID, "username": loginID, "phone": loginID, "role": "platform_admin", "status": "active"}
+		users = append(users, user)
+		writeJSON(_usersFile, &_usersMu, users)
+	}
 	if user == nil {
 		fail(w, r, http.StatusUnauthorized, errBadRequest("invalid credentials"))
 		return
@@ -452,7 +458,7 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		role = "individual"
 	}
 
-	accessToken, _ := s.tokens.Issue(actorFromMap(id, role), 15*time.Minute)
+	accessToken, _ := s.tokens.IssueJWT(actorFromMap(id, role), 15*time.Minute)
 	refreshToken, _ := service.GenerateRefreshToken()
 	tokenHash := service.HashToken(refreshToken)
 	s.refreshRepo.Store(id, tokenHash, time.Now().Add(7*24*time.Hour))
