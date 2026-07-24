@@ -499,8 +499,8 @@ const goToDelivery = () => {
 
 /* 特色卡片 */
 .banner-section {
-  margin-bottom: 12px;
-  border-radius: 16px; /* iOS 风格圆角 */
+  margin: 0 12px 16px;
+  border-radius: 16px;
   overflow: hidden;
 }
 
