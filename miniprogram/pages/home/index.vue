@@ -550,11 +550,12 @@ onMounted(async () => {
 }
 
 .banner-section {
-  margin: 0 12px 16px;
-  padding: 0;
+  margin: 12px 12px 20px;
+  background: #fff;
   border-radius: 16px;
   overflow: hidden;
   position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
 .banner-image {

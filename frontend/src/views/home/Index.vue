@@ -499,9 +499,11 @@ const goToDelivery = () => {
 
 /* 特色卡片 */
 .banner-section {
-  margin: 0 12px 16px;
+  margin: 12px 12px 20px;
+  background: #fff;
   border-radius: 16px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
 .my-swipe .van-swipe-item {
