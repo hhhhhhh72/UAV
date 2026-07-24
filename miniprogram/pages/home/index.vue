@@ -368,7 +368,7 @@ onMounted(async () => {
 }
 
 .video-placeholder {
-  height: 110px;
+  height: 120px;
   width: 100%;
 }
 
@@ -550,17 +550,17 @@ onMounted(async () => {
 }
 
 .banner-section {
-  margin: 0 12px 16px;
-  background: #fff;
+  margin: 0 12px 10px;
+  background: transparent;
   border-radius: 16px;
   overflow: hidden;
   position: relative;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  
 }
 
 .banner-image {
   width: 100%;
-  height: 160px;
+  height: 120px;
   display: block;
 }
 
