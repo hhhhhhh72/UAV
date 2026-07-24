@@ -402,6 +402,65 @@
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
+    },
+    {
+      "path": "pages/projects/list",
+      "style": {
+        "navigationBarTitleText": "课题攻关",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/testsites/book",
+      "style": {
+        "navigationBarTitleText": "场地预约",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/transformations/track",
+      "style": {
+        "navigationBarTitleText": "成果转化",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/events/detail",
+      "style": {
+        "navigationBarTitleText": "活动详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/exhibitions/list",
+      "style": {
+        "navigationBarTitleText": "展会排期",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/exhibitions/booth",
+      "style": {
+        "navigationBarTitleText": "展位申请",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/reports/list",
+      "style": {
+        "navigationBarTitleText": "行业报告",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
     }
   ],
   "globalStyle": {
