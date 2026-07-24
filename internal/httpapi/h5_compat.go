@@ -869,22 +869,6 @@ func (s *Server) h5StudyShowcaseSave(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]string{"status": "saved"})
 }
 
-// ─── Games ──────────────────────────────────────────────────────────────────
-
-func (s *Server) h5GamesAssign(w http.ResponseWriter, r *http.Request) {
-	ip := r.RemoteAddr
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		ip = strings.Split(xff, ",")[0]
-	}
-	respond(w, r, http.StatusOK, map[string]any{
-		"success":  true,
-		"ip":       ip,
-		"playerKey": ip,
-		"seed":     hashString(ip) % 10000,
-		"bucket":   hashString(ip) % 4,
-	})
-}
-
 // ─── Image Proxy ────────────────────────────────────────────────────────────
 
 func (s *Server) h5ImageProxy(w http.ResponseWriter, r *http.Request) {
@@ -981,9 +965,6 @@ func (s *Server) registerH5Compat(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/study/showcase", s.h5StudyShowcaseSave)
 	mux.HandleFunc("GET /api/admin/study/showcase", s.h5StudyShowcase)
 	mux.HandleFunc("POST /api/admin/study/showcase", s.h5StudyShowcaseSave)
-
-	// Games
-	mux.HandleFunc("GET /api/games/assign", s.h5GamesAssign)
 
 	// Image proxy
 	mux.HandleFunc("GET /api/image", s.h5ImageProxy)

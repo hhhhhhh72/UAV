@@ -299,7 +299,7 @@ const fetchCases = async () => {
     let data = Array.isArray(res.data) ? res.data : (res.data.data || [])
     // 兼容媒体 URL（避免线上 https 下图片/视频加载失败）
     data = data.map(normalizeCaseItem)
-    console.log('Cases API response:', res.data, 'Parsed data:', data)
+    
 
     if (refreshing.value) {
         // 刷新时
@@ -360,7 +360,7 @@ onMounted(async () => {
 
 // 显示案例详情
 const showCaseDetail = (caseItem) => {
-  console.log('Clicked case item:', caseItem);
+  
   currentCase.value = caseItem
   showDetail.value = true
 }

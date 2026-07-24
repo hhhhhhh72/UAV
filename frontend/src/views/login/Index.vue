@@ -80,7 +80,7 @@
         </div>
 
         <div class="sso-tip">
-          <p>从畅行温州平台进入将自动登录</p>
+          <p>从无人机产业协会平台进入将自动登录</p>
         </div>
       </template>
     </div>
@@ -205,7 +205,7 @@ const handleWechatCallback = () => {
   }
 }
 
-// 授权码自动登录（SSO）- 从畅行温州平台跳转时自动触发
+// 授权码自动登录 - 从无人机产业协会平台跳转时自动触发
 const ssoLogin = async (code) => {
   autoLoginStatus.value = true
   try {
@@ -229,7 +229,7 @@ onMounted(() => {
   // 检查是否是微信授权回调
   handleWechatCallback()
   
-  // 检查 URL 中是否有授权码参数（从畅行温州平台跳转时自动携带）
+  // 检查 URL 中是否有授权码参数（从无人机产业协会平台跳转时自动携带）
   const code = route.query.authcode || route.query.jyauthcode
   if (typeof code === 'string' && code.trim()) {
     // 自动执行授权码登录，用户无需手动操作

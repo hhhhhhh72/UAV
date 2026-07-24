@@ -280,7 +280,7 @@ const showContact = () => {
 const showAbout = () => {
   showDialog({
     title: '关于我们',
-    message: '低空综合服务平台\n开发主体：温州低空经济发展有限公司\n版本：v1.1.0\n\n专注于提供专业、高效、安全的低空服务'
+    message: '低空综合服务平台\n开发主体：重庆无人机产业协会\n版本：v1.1.0\n\n专注于提供专业、高效、安全的低空服务'
   })
 }
 </script>

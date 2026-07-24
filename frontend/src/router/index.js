@@ -201,6 +201,15 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  // RequiresAuth route protection
+  if (to.meta.requiresAuth) {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      next('/login')
+      return
+    }
+  }
+
   // Admin route protection
   if (to.path.startsWith('/admin')) {
     const accessToken = authStorage.getAccessToken()

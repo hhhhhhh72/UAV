@@ -69,7 +69,7 @@
 
       <div class="sso-tip">
         <van-divider>或</van-divider>
-        <p>从畅行温州平台跳转将自动注册登录</p>
+        <p>从无人机产业协会平台跳转将自动注册登录</p>
       </div>
     </div>
   </div>

@@ -1092,7 +1092,7 @@ const onStudySessionConfirm = ({ selectedOptions }) => {
 }
 // 文件上传后处理
 const afterRead = (file) => {
-  console.log('上传文件：', file)
+  
   showToast('上传成功')
 }
 
@@ -1101,7 +1101,7 @@ const manualSubmit = () => {
 }
 
 const onFailed = (errorInfo) => {
-  console.log('failed', errorInfo);
+  
   showFailToast('请填写必填项');
 };
 
@@ -1139,7 +1139,7 @@ const onSubmit = async () => {
     forbidClick: true,
     duration: 0 // 持续展示
   })
-  console.log('onSubmit triggered');
+  
   // 获取当前时间作为申请时间
   const now = new Date()
   const applyTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`

@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import axios, { authStorage } from '@/utils/http'
 
-const SUPER_ADMIN_PHONE = 'wzdkjjfzyxgs'
+const SUPER_ADMIN_PHONE = 'drone-platform-admin'
 
 export function useAuth() {
   const userStr = localStorage.getItem('user')

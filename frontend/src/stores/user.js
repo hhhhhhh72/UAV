@@ -16,7 +16,7 @@ export const useUserStore = defineStore('user', {
     isLoggedIn: (state) => !!state.accessToken,
 
     // 是否为超级管理员
-    isSuperAdmin: (state) => state.user?.phone === 'wzdkjjfzyxgs',
+    isSuperAdmin: (state) => state.user?.phone === 'drone-platform-admin',
 
     // 是否为管理员
     isAdmin: (state) => state.user?.role === 'admin',
