@@ -132,7 +132,7 @@ const normalizeUrl = (url) => {
 
 const homeHeaderImage = ref('https://www-cdn.djiits.com/cms/uploads/4d6128a30991074b6bad20e7e13a0c62.png')
 const homeHeaderImagePosition = ref('center')
-const notices = ref(['交享点无人机外卖配送正式上线', '新开通江心屿无人机外卖配送'])
+const notices = ref(['重庆无人机产业协会会员招募中', '2024低空经济产业峰会即将举办'])
 
 // 下拉刷新
 const loading = ref(false)
@@ -199,22 +199,20 @@ onUnmounted(() => {
 
 // 快捷服务 - 模仿支付宝首页图标
 const quickServices = ref([
-  { id: 'flight', name: '飞行服务', icon: '/icons/flight.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }, // 蓝紫色
-  { id: 8, name: '无人机外卖', icon: '/icons/delivery.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' }, // 淡蓝色
-  { id: 1, name: '无人机物流', icon: '/icons/logistics-drone.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' }, // 海蓝色
-  { id: 10, name: '无人机销售', icon: '/icons/shop.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' }, // 橙色
-  { id: 'reviews', name: '服务评价', icon: 'comment-o', color: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }, // 粉红色
-  { id: 6, name: '飞手培训', icon: '/icons/training-v2.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' }, // 橙色
-  { id: 9, name: '低空研学', icon: '/icons/study.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' }, // 海蓝色
-  { id: 13, name: '无人机赛事', icon: '/icons/competition.svg', color: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' }, // 红色渐变
-  { id: 14, name: '医疗配送', icon: 'shield-o', color: 'linear-gradient(135deg, #34d399 0%, #059669 100%)' }, // 绿色渐变
-  { id: 2, name: '政务服务', icon: 'eye-o', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }, // 蓝紫色
-  { id: 3, name: '无人机托管', icon: '/icons/maintenance.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' }, // 归类为海蓝色
-  { id: 5, name: '无人机表演', icon: '/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }, // 归类为蓝紫色
-  { id: 7, name: '无人机租赁', icon: 'coupon-o', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' }, // 归类为淡蓝色
-  { id: 4, name: '无人机吊运', icon: '/icons/lifting.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' }, // 归类为橙色
-  { id: 11, name: '金融服务', icon: '/icons/finance.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' }, // 归类为蓝紫色
-  { id: 12, name: '维修服务', icon: 'setting-o', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' } // 归类为淡蓝色
+  { id: 'demands', name: '需求大厅', icon: '/icons/exchange.svg', color: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' },
+  { id: 'enterprise', name: '企业入驻', icon: '/icons/shop.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' },
+  { id: 'experts', name: '专家智库', icon: '/icons/government.svg', color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
+  { id: 13, name: '无人机赛事', icon: '/icons/competition.svg', color: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' },
+  { id: 6, name: '飞手培训', icon: '/icons/training-v2.svg', color: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)' },
+  { id: 9, name: '低空研学', icon: '/icons/study.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 10, name: '无人机销售', icon: '/icons/shop.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
+  { id: 'insurance', name: '保险金融', icon: '/icons/finance.svg', color: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' },
+  { id: 'emergency', name: '应急资源', icon: '/icons/wrench.svg', color: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' },
+  { id: 3, name: '维修托管', icon: '/icons/maintenance.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
+  { id: 5, name: '无人机表演', icon: '/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
+  { id: 7, name: '无人机租赁', icon: '/icons/rent.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
+  { id: 4, name: '无人机吊运', icon: '/icons/lifting.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
+  { id: 'more', name: '更多服务', icon: '/icons/apps.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
 ])
 
 // 将服务分组，每页 7 个 + 1 个更多
