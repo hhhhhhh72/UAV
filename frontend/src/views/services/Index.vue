@@ -99,8 +99,6 @@ const categories = [
       { id: 'parts', name: '配件商城', icon: 'more-o', path: '/trade/parts' },
     ]
   },
-    ]
-  },
   {
     id: 'insurance',
     title: '保险金融',
