@@ -356,7 +356,7 @@ export default {
 .resume-page {
   min-height: 100vh;
   background: #f7f8fa;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 40px);
+  padding-bottom: 80px;
 }
 
 .loading-state {
