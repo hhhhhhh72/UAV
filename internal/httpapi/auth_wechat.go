@@ -68,6 +68,10 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 	role := u.Role
 	if role == "" {
 		role = domain.RoleIndividual
+		// Super admin phone always gets platform_admin role.
+		if superPhone := os.Getenv("SUPER_ADMIN_PHONE"); superPhone != "" && u.ID == superPhone {
+			role = domain.RolePlatformAdmin
+		}
 	}
 	actor := domain.Actor{ID: u.ID, Role: role}
 	accessToken, err := s.tokens.IssueJWT(actor, 15*time.Minute)

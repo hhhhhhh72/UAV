@@ -9,6 +9,7 @@ import (
 
 	"drone-platform/internal/config"
 	"drone-platform/internal/crypto"
+	"drone-platform/internal/domain"
 	"drone-platform/internal/httpapi"
 	"drone-platform/internal/logger"
 	"drone-platform/internal/repository"
@@ -307,6 +308,19 @@ func main() {
 		slog.Warn("PG mode: 9 repos lack PG impl, using in-memory (pool/testSite/exhibition/trans/college/coop/rescueCase/emergDept/assocMember)")
 	} else {
 		app.SetStorage("memory")
+	}
+
+	// Seed super admin user from SUPER_ADMIN_PHONE env var.
+	superPhone := os.Getenv("SUPER_ADMIN_PHONE")
+	if superPhone != "" {
+		if _, err := userRepo.FindByID(superPhone); err != nil {
+			now := time.Now()
+			userRepo.Create(domain.User{
+				ID: superPhone, WechatOpenID: superPhone, Role: domain.RolePlatformAdmin,
+				Status: "active", Version: 1, CreatedAt: now, UpdatedAt: now,
+			})
+			slog.Info("seeded super admin", "phone", superPhone)
+		}
 	}
 
 	slog.Info("drone platform API starting", "addr", addr)
