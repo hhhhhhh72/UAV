@@ -33,7 +33,31 @@
         </view>
       </view>
 
-      <!-- 功能金刚区 -->
+            <view class="banner-section">
+          <swiper 
+            class="banner-swipe" 
+            autoplay 
+            interval="5000" 
+            circular
+            :current="activeBanner"
+            @change="onBannerChange"
+          >
+            <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
+              <image :src="item.image" class="banner-image" mode="aspectFill" />
+            </swiper-item>
+          </swiper>
+          <view class="banner-dots">
+            <view 
+              v-for="(item, index) in banners" 
+              :key="`banner-dot-${index}`"
+              class="banner-dot"
+              :class="{ active: index === activeBanner }"
+            />
+          </view>
+        </view>
+
+        
+<!-- 功能金刚区 -->
       <view class="main-functions overlay-card">
         <swiper 
           class="function-swipe" 
@@ -95,29 +119,6 @@
 
       <!-- 核心内容区 -->
       <view class="content-area">
-        <view class="banner-section">
-          <swiper 
-            class="banner-swipe" 
-            autoplay 
-            interval="5000" 
-            circular
-            :current="activeBanner"
-            @change="onBannerChange"
-          >
-            <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
-              <image :src="item.image" class="banner-image" mode="aspectFill" />
-            </swiper-item>
-          </swiper>
-          <view class="banner-dots">
-            <view 
-              v-for="(item, index) in banners" 
-              :key="`banner-dot-${index}`"
-              class="banner-dot"
-              :class="{ active: index === activeBanner }"
-            />
-          </view>
-        </view>
-
         <!-- 左右推荐卡片 (替换图标为 SVG) -->
         <view class="recommend-grid">
           <view class="recommend-card blue-card" @tap="navigateTo('/pages/cases/index')">

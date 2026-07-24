@@ -68,7 +68,7 @@
       <!-- 核心服务卡片区 -->
       <div class="content-area">
         <!-- 轮播 Banner 区 -->
-        <div class="banner-section">
+              <div class="banner-section">
           <van-swipe class="my-swipe" :autoplay="5000" indicator-color="white">
             <van-swipe-item v-for="(item, index) in banners" :key="index" @click="handleBannerClick(item)">
               <img :src="item.image" class="banner-image" alt="banner" />
@@ -267,10 +267,6 @@ const goToDetail = (id) => {
 
 // Banner 数据（从后端 _home.banners 配置加载，以下为默认兜底）
 const banners = ref([
-  {
-    image: 'https://wenzhoumall-prod.oss-cn-shanghai.aliyuncs.com/test/shop/20250930/0fa02eb2dc8b4a6382784fedc0b44dc0.jpg?Expires=3337231191&OSSAccessKeyId=LTAI5tSbLByCMG16D3eoErCU&Signature=Zk8QXbZAJhw08908Er3iuy9dKg0%3D',
-    link: 'delivery'
-  },
   {
     image: 'https://www-cdn.djiits.com/dps/3e196dbfade1b1734dbbb335dde5de12.jpg?w=1184&h=592',
     link: '/cases/1'
@@ -639,3 +635,4 @@ const goToDelivery = () => {
   line-height: 1.4;
 }
 </style>
+
