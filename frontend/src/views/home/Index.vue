@@ -305,7 +305,7 @@ const goToDelivery = () => {
    * - 背景高度固定，不跟“调参”变化（避免背景被压缩裁切）
    * - 只调金刚区覆盖高度，下面整体会跟着动
    */
-  --home-bg-height: 300px;
+  --home-bg-height: 130px;
   --home-overlay-overlap: 40px;
 }
 
