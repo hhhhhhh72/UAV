@@ -76,7 +76,12 @@ export function request(options) {
           resolve(body?.data || body)
         } else if (res.statusCode === 401) {
           const refreshToken = authStorage.getRefreshToken()
-          if (!refreshToken) return reject(res)
+          if (!refreshToken) {
+            authStorage.clearTokens()
+            uni.removeStorageSync('user')
+            uni.navigateTo({ url: '/pages/login/index' })
+            return reject(res)
+          }
 
           if (isRefreshing) {
             return new Promise((r, rj) => {
@@ -119,6 +124,8 @@ export function request(options) {
           } catch (refreshError) {
             rejectQueue(refreshError)
             authStorage.clearTokens()
+            uni.removeStorageSync('user')
+            uni.navigateTo({ url: '/pages/login/index' })
             reject(refreshError)
           } finally {
             isRefreshing = false

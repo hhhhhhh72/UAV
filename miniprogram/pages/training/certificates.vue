@@ -68,6 +68,10 @@ export default {
     }
   },
   onLoad() {
+    if (!uni.getStorageSync('accessToken')) {
+      uni.navigateTo({ url: '/pages/login/index' })
+      return
+    }
     this.fetchList()
   },
   onPullDownRefresh() {
