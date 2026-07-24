@@ -71,7 +71,7 @@ const wxLoading = ref(false)
 const showPhoneAuth = ref(false)
 
 function navigateAfterLogin(user) {
-  if (user.role === 'admin' || user.role === 'dsl_admin') {
+  if (user.role === 'platform_admin' || user.role === 'association_admin') {
     setTimeout(() => uni.navigateTo({ url: '/pages/admin/index' }), 800)
   } else {
     setTimeout(() => uni.switchTab({ url: '/pages/home/index' }), 800)

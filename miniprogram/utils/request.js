@@ -71,7 +71,9 @@ export function request(options) {
       header,
       success: async (res) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(res.data)
+          // Unwrap Go backend { data: {...} } envelope
+          const body = res.data
+          resolve(body?.data || body)
         } else if (res.statusCode === 401) {
           const refreshToken = authStorage.getRefreshToken()
           if (!refreshToken) return reject(res)
@@ -87,7 +89,7 @@ export function request(options) {
                     data: options.data || {},
                     header,
                     success: (retryRes) => {
-                      if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) r(retryRes.data)
+                      if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) { const b = retryRes.data; r(b?.data || b) }
                       else rj(retryRes)
                     },
                     fail: rj
@@ -109,7 +111,7 @@ export function request(options) {
               data: options.data || {},
               header,
               success: (retryRes) => {
-                if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) resolve(retryRes.data)
+                if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) { const b = retryRes.data; resolve(b?.data || b) }
                 else reject(retryRes)
               },
               fail: reject
