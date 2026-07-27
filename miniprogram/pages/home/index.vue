@@ -75,7 +75,7 @@
         <scroll-view scroll-x :show-scrollbar="false" class="demand-tabs">
           <text v-for="t in demandCats" :key="t.id" class="dt" :class="{ on: activeCat === t.id }" @tap="switchCat(t.id)">{{ t.name }}</text>
         </scroll-view>
-        <view v-for="(d, i) in demandList" :key="i" class="d-card">
+        <view v-for="(d, i) in demandList" :key="i" class="d-card" @tap="goDemand(d.id)">
           <view class="d-head">
             <view class="d-ava">{{ d.userName?.[0] || '?' }}</view>
             <view class="d-user"><text class="d-name">{{ d.userName }}</text><text class="d-tag" v-if="d.tag">{{ d.tag }}</text></view>
@@ -132,20 +132,21 @@ const loadDemands = async () => {
     const res = await request({ url: '/api/v1/demands', data: { biz_type: activeCat.value, page: 1, page_size: 10 } })
     const data = Array.isArray(res) ? res : (res.data || [])
     demandList.value = data.slice(0, 10).map(d => ({
-      userName: d.publisher_name || '匿名', tag: d.biz_type || '', title: d.title || '',
+      id: d.id, userName: d.publisher_name || '匿名', tag: d.biz_type || '', title: d.title || '',
       location: d.district || '', desc: (d.description || '').slice(0, 80),
       views: 0, likes: 0, time: d.created_at ? new Date(d.created_at).toLocaleDateString() : '', phone: d.contact || ''
     }))
   } catch { demandList.value = [] }
   if (!demandList.value.length) {
     demandList.value = [
-      { userName: '张飞行', tag: '吊运', title: '需要大疆T50运输化肥200亩', location: '山东省青岛市', desc: 'FC100型号3台，T10型号7台，共10台设备需运输到指定地点', views: 1592, likes: 12, time: '07-09 12:22', phone: '' },
-      { userName: '李航拍', tag: '航拍', title: '婚庆航拍需要飞手', location: '广东省广州市', desc: '下周六婚礼现场航拍，熟练飞手一名，设备自带Mavic3', views: 834, likes: 8, time: '07-08 15:30', phone: '' },
+      { id: '1', userName: '张飞行', tag: '吊运', title: '需要大疆T50运输化肥200亩', location: '山东省青岛市', desc: 'FC100型号3台，T10型号7台，共10台设备需运输到指定地点', views: 1592, likes: 12, time: '07-09 12:22', phone: '' },
+      { id: '2', userName: '李航拍', tag: '航拍', title: '婚庆航拍需要飞手', location: '广东省广州市', desc: '下周六婚礼现场航拍，熟练飞手一名，设备自带Mavic3', views: 834, likes: 8, time: '07-08 15:30', phone: '' },
     ]
   }
 }
 const switchCat = (id) => { activeCat.value = id; loadDemands() }
 const callTo = (p) => p && uni.makePhoneCall({ phoneNumber: p })
+const goDemand = (id) => id && safeNavigateTo('/pages/demands/detail?id=' + id)
 
 onMounted(async () => {
   statusBarH.value = (uni.getSystemInfoSync().statusBarHeight || 24) + 6
