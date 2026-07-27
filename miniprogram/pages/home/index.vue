@@ -174,17 +174,6 @@
           <view v-else class="card-empty">暂无需求</view>
         </view>
 
-        <!-- 推荐卡片 -->
-        <view class="recommend-grid">
-          <view class="recommend-card blue-card" @tap="navigateTo('/pages/cases/index')">
-            <view><view class="recommend-title">精选案例</view><text class="recommend-subtitle">行业应用示范</text></view>
-            <image class="recommend-icon-img" src="/static/icons/drone-show-v2.svg" mode="aspectFit" />
-          </view>
-          <view class="recommend-card orange-card" @tap="navigateTo('/pages/services/index')">
-            <view><view class="recommend-title">服务大厅</view><text class="recommend-subtitle">一站式办理</text></view>
-            <image class="recommend-icon-img" src="/static/icons/service.svg" mode="aspectFit" />
-          </view>
-        </view>
       </view>
     </view>
   </Layout>
@@ -647,54 +636,6 @@ onMounted(async () => {
 .notice-text {
   font-size: 14px;
   color: #333;
-}
-
-.recommend-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.recommend-card {
-  padding: 16px;
-  border-radius: 16px;
-  height: 100px;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-}
-
-.blue-card {
-  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
-    url('https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&w=600&q=80');
-  background-size: cover;
-}
-
-.orange-card {
-  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
-    url('https://www-cdn.djiits.com/dps/71685a7a83e4c70907f3c504f6806561.jpg');
-  background-size: cover;
-}
-
-.recommend-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.recommend-subtitle {
-  font-size: 12px;
-}
-
-.recommend-icon-img {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 32px;
-  height: 32px;
-  opacity: 0.8;
-  filter: brightness(0) invert(1);
 }
 
 .service-feed {
