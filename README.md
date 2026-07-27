@@ -103,6 +103,7 @@ git push origin feat/b-pages
 | 3 | **先 Pull 再 Push** — 每次 git pull --rebase |
 | 4 | **Go 代码红线** — 禁止 `_, _ := json.Marshal`、禁止裸 `return err` |
 | 5 | **禁止直推 master/develop** — 必须 PR + 1 人 Approve |
+| 6 | **🚨 禁止擅自 push GitHub** — 任何人 push 前须经 A 确认，AI 写代码须人工审核 |
 
 > 📋 完整分工、Sprint 计划、AI Prompt 模板 → [PRD](docs/项目管理/PRD-四人并行开发方案.md)
 

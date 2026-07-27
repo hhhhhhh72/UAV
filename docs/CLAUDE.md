@@ -107,6 +107,12 @@ go test ./internal/...  # 全部 PASS
 | `CORS_ORIGINS` | — | CORS 允许来源，逗号分隔 |
 | `HTTP_ADDR` | — | 监听地址，默认 `:8080` |
 
+## 🚨 GitHub Push 规则
+
+**任何人(含 AI) push 代码到 GitHub 前，必须经 A 书面确认。**
+AI 生成的代码必须先人工审核，确认无误后再由 A 决定是否 push。
+本地 commit 随意，但 `git push` 必须有 A 的明确许可。
+
 ## 本地开发
 
 ```bash
