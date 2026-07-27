@@ -2,7 +2,7 @@
   <Layout :current="0">
     <view class="home-page">
       <!-- 1. 蓝顶栏 + 搜索 -->
-      <view class="top-bar">
+      <view class="top-bar" :style="{ paddingTop: statusBarH + 'px' }">
         <view class="top-location" @tap="handleLocation">
           <text class="loc-text">全国</text>
           <text class="loc-arrow">▼</text>
@@ -139,6 +139,8 @@ const shops = ref([
   { id: '4', name: '极飞科技中心', logo: '', desc: '智能农业方案' },
 ])
 
+const statusBarH = ref(0)
+
 const handleLocation = () => uni.showToast({ title: '城市选择开发中', icon: 'none' })
 const handleSearchClick = () => safeSwitchTab('/pages/services/index')
 const handleFunc = (f) => {
@@ -148,7 +150,17 @@ const handleFunc = (f) => {
 const handleShare = () => uni.showShareMenu()
 const navigateTo = (p) => safeNavigateTo(p)
 
-onMounted(() => {})
+onMounted(() => {
+  const sys = uni.getSystemInfoSync()
+  statusBarH.value = (sys.statusBarHeight || 20) + 6
+  // 胶囊按钮宽度，避免搜索栏被遮挡
+  // #ifdef MP-WEIXIN
+  const cap = uni.getMenuButtonBoundingClientRect()
+  if (cap) {
+    // 让搜索栏右边界不超出胶囊左边界
+  }
+  // #endif
+})
 </script>
 
 <style scoped>
@@ -157,7 +169,7 @@ onMounted(() => {})
 /* 1. 蓝顶栏 */
 .top-bar {
   display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; background: #1989fa;
+  padding: 0 14px 10px; background: #1989fa;
 }
 .top-location { display: flex; align-items: center; gap: 2px; min-width: 52px; }
 .loc-text { font-size: 15px; font-weight: 600; color: #fff; }
