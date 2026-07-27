@@ -98,14 +98,9 @@
       <!-- 9. 需求信息流 -->
       <view class="demand-section">
         <view class="demand-tabs">
-          <view
-            v-for="t in demandCats" :key="t.id"
-            class="demand-tab" :class="{ on: activeDemandCat === t.id }"
-            @tap="switchDemandCat(t.id)"
-          >{{ t.name }}</view>
+          <view v-for="t in demandCats" :key="t.id" class="demand-tab" :class="{ on: activeDemandCat === t.id }" @tap="switchDemandCat(t.id)">{{ t.name }}</view>
         </view>
-
-        <view v-if="demandList.length" class="demand-list">
+        <view class="demand-list">
           <view v-for="(d, i) in demandList" :key="i" class="demand-card">
             <view class="d-head">
               <view class="d-avatar">{{ (d.userName || '?')[0] }}</view>
@@ -116,7 +111,7 @@
               <view class="d-call" @tap.stop="callPhone(d.phone)">📞</view>
             </view>
             <text class="d-title">{{ d.title }}</text>
-            <view class="d-loc">📍 {{ d.location }}</text>
+            <view class="d-loc">📍 {{ d.location }}</view>
             <text class="d-desc">{{ d.description }}</text>
             <view class="d-images" v-if="d.images && d.images.length">
               <image v-for="(img, k) in d.images.slice(0, 3)" :key="k" :src="img" mode="aspectFill" class="d-thumb" />
@@ -127,7 +122,7 @@
               <text>♥ {{ d.likes || 0 }}</text>
             </view>
           </view>
-          <view class="demand-empty" v-else>暂无需求</view>
+          <view v-if="!demandList.length" class="demand-empty">暂无需求</view>
         </view>
       </view>
 
@@ -185,11 +180,10 @@ const loadDemands = async () => {
       phone: d.contact || ''
     }))
   } catch (e) { demandList.value = [] }
-  // 兜底演示数据（后端无数据时）
   if (!demandList.value.length) {
     demandList.value = [
-      { userName: '张飞行', tag: '吊运', title: '需要大疆T50运输化肥200亩', location: '山东省青岛市', description: 'FC100型号3台，T10型号7台，共10台设备需要运输到指定地点...', images: [], views: 1592, likes: 12, timeAgo: '07-09 12:22', phone: '' },
-      { userName: '李航拍', tag: '航拍', title: '婚庆航拍需要飞手', location: '广东省广州市', description: '下周六婚礼现场航拍，需要熟练飞手一名，设备自带Mavic3即可...', images: [], views: 834, likes: 8, timeAgo: '07-08 15:30', phone: '' },
+      { userName: '张飞行', tag: '吊运', title: '需要大疆T50运输化肥200亩', location: '山东省青岛市', description: 'FC100型号3台，T10型号7台，共10台设备需要运输到指定地点', images: [], views: 1592, likes: 12, timeAgo: '07-09 12:22', phone: '' },
+      { userName: '李航拍', tag: '航拍', title: '婚庆航拍需要飞手', location: '广东省广州市', description: '下周六婚礼现场航拍，熟练飞手一名，设备自带Mavic3即可', images: [], views: 834, likes: 8, timeAgo: '07-08 15:30', phone: '' },
     ]
   }
 }
