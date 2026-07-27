@@ -263,6 +263,7 @@ func (s *Server) Router() http.Handler {
 	s.registerPhase3Routes(mux)
 	s.registerBatch3Routes(mux)
 	s.registerBizRoutes(mux)
+	s.registerAdminListRoutes(mux) // batch admin GET list routes
 	s.registerBatch1Routes(mux)
 	s.registerBatch2Routes(mux)
 
