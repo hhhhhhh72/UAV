@@ -95,7 +95,7 @@
         </scroll-view>
       </view>
 
-      <!-- 8. 需求信息流 -->
+      <!-- 9. 需求信息流 -->
       <view class="demand-section">
         <view class="demand-tabs">
           <view
@@ -129,12 +129,6 @@
           </view>
           <view class="demand-empty" v-else>暂无需求</view>
         </view>
-      </view>
-
-      <!-- 9. 更多商家 -->
-      <view class="more-shops" @tap="navigateTo('/pages/shops/index')">
-        <text>更多商家</text>
-        <text class="ml-arrow">></text>
       </view>
 
     </view>
@@ -326,13 +320,6 @@ onMounted(async () => {
 .shop-img { width: 80px; height: 80px; border-radius: 12px; display: block; margin: 0 auto 8px; background: #e8f2fc; }
 .shop-name { font-size: 13px; font-weight: 500; color: #333; display: block; }
 .shop-desc { font-size: 11px; color: #999; }
-
-/* 8. 更多商家 */
-.more-shops {
-  text-align: center; padding: 14px; margin: 0 12px; background: #fff; border-radius: 10px;
-  font-size: 14px; color: #666;
-}
-.ml-arrow { color: #ccc; margin-left: 4px; }
 
 /* 8. 需求信息流 */
 .demand-section { margin: 10px 12px 0; background: #fff; border-radius: 12px; padding: 14px; }
