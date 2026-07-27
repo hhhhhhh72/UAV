@@ -14,9 +14,13 @@
         </view>
       </view>
 
-      <!-- 2. 横幅广告 -->
+      <!-- 2. 轮播横幅 -->
       <view class="hero-banner">
-        <image class="hero-img" src="/static/home-bg.jpg" mode="aspectFill" />
+        <swiper class="hero-swipe" autoplay interval="5000" circular :current="activeBanner" @change="onBannerChange">
+          <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
+            <image :src="item.image" class="hero-img" mode="aspectFill" />
+          </swiper-item>
+        </swiper>
         <view class="hero-overlay">
           <view class="hero-center">
             <text class="hero-title">免费发布信息</text>
@@ -24,6 +28,9 @@
               <text class="ht">吊运</text><text class="ht">植保打药</text><text class="ht">租赁</text><text class="ht">航拍表演</text>
             </view>
           </view>
+        </view>
+        <view class="hero-dots">
+          <view v-for="(item, index) in banners" :key="'bd'+index" class="hero-dot" :class="{ on: index === activeBanner }" />
         </view>
       </view>
 
@@ -134,6 +141,13 @@ const shops = ref([
 
 const statusBarH = ref(0)
 
+const banners = ref([
+  { image: '/static/home-bg.jpg', link: '' }
+])
+const activeBanner = ref(0)
+const onBannerChange = (e) => { activeBanner.value = e.detail.current }
+const handleBannerClick = (item) => { if (item.link) safeNavigateTo(item.link) }
+
 const handleLocation = () => uni.showToast({ title: '城市选择开发中', icon: 'none' })
 const handleSearchClick = () => safeSwitchTab('/pages/services/index')
 const handleFunc = (f) => {
@@ -174,18 +188,25 @@ onMounted(() => {
 .search-hint { flex: 1; font-size: 13px; color: rgba(255,255,255,0.6); }
 .search-btn { font-size: 13px; color: #fff; font-weight: 500; padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.3); }
 
-/* 2. 横幅 */
+/* 2. 轮播横幅 */
 .hero-banner { position: relative; height: 160px; overflow: hidden; }
+.hero-swipe { width: 100%; height: 100%; }
 .hero-img { width: 100%; height: 100%; display: block; }
 .hero-overlay {
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 100%);
-  display: flex; align-items: center; justify-content: center;
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 100%);
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
 }
 .hero-center { text-align: center; }
-.hero-title { font-size: 26px; font-weight: 700; color: #fff; display: block; margin-bottom: 10px; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-.hero-tags { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.hero-title { font-size: 24px; font-weight: 700; color: #fff; display: block; margin-bottom: 8px; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.hero-tags { display: flex; gap: 6px; justify-content: center; }
 .ht { padding: 4px 12px; background: rgba(255,255,255,0.2); color: #fff; font-size: 11px; border-radius: 10px; }
+.hero-dots {
+  position: absolute; bottom: 10px; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 6px;
+}
+.hero-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.4); }
+.hero-dot.on { background: #fff; }
 
 /* 3. 数据条 */
 .stats-bar {
