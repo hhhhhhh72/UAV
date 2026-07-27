@@ -1,7 +1,8 @@
 # PRD — 四人并行开发方案（零冲突 · 小程序 + 后台管理）
 
 > 日期: 2026-07-27 (更新) | 团队: 4人 | GitHub 协作 | AI 辅助开发 | 后端 API 100% 就绪  
-> 代码质量基线: P0/P1 已修复 — 零 JSON 错误忽略 + 零裸 error 返回 + 100% 测试通过
+> 代码质量基线: P0/P1 已修复 — 零 JSON 错误忽略 + 零裸 error 返回 + 100% 测试通过  
+> 页面精简: 59 → **45 页**（砍 11 子页，核心功能不减）
 
 ---
 
@@ -38,7 +39,7 @@
 | **Go 后端**  |  ✅ 100%  | 212 API、66 表、7 大业务系统、中间件链完整                        |
 | **代码质量**   |   ✅ 达标   | P0/P1 已清零: 26 处 JSON 错误忽略 → 全修复, 17 处裸 error → 全包装 |
 | **测试覆盖**   | 🟡 45.8% | 100% 测试通过(92 HTTP case), httpapi 24.9% 需 Sprint 加强 |
-| **微信小程序**  |  🟡 60%  | 59 个 .vue 文件，核心框架页可用，需设计升级 + 功能补全                  |
+| **微信小程序**  |  🟡 60%  | **45 页**（从 59 精简，砍 11 子页+合并 3 页），核心框架页可用 |
 | **后台管理系统** |  🟡 35%  | Vue 3 + Element Plus 框架就绪，8/27 模块已完成               |
 | **原型设计**   |  🟡 30%  | 首页(贴吧式)、商家页已完成，其余待设计                               |
 
@@ -66,7 +67,26 @@
   展位管理 / 报告管理 / 应急资源/调度 / 消息通知
 ```
 
-### 2.3 后台共享组件（已就绪）
+### 2.3 页面精简策略
+
+```
+59 页 → 45 页（砍 11 子页 + 合并 3 页，核心功能不减）
+
+砍掉的子页（功能合并到父页或弹窗）:
+  match/recommend      → 合并到首页推荐流
+  cases/detail         → 案例列表弹窗展示
+  achievements/detail  → 成果列表弹窗展示
+  applications/submit  → 合并到企业注册(一步完成)
+  training/certificates → 合并到"我的"(子tab)
+  study/detail         → H5 WebView 内嵌
+  transformations/track → 合并到成果详情
+  emergency/depts      → 合并到应急资源页(sub-tab)
+  exhibitions/booth    → 活动详情内嵌表单
+  portfolios/list      → 合并到企业详情
+  demands/mine         → 合并到"我的"→我的需求
+```
+
+### 2.4 后台共享组件（已就绪）
 
 | 组件                 | 路径                         | 用途                |
 | ------------------ | -------------------------- | ----------------- |
@@ -87,7 +107,7 @@
 ```
               ┌─────────────────────────────────┐
               │          A（组长 · 全栈）         │
-              │  小程序核心页 + 全部后台管理(27模块) │
+              │  小程序 8 核心页 + 全部后台(27模块) │
               │  基础设施 + Git 管理              │
               └─────────────────────────────────┘
                               │
@@ -97,11 +117,11 @@
 │  B            │   │  C              │   │  D            │
 │  纯小程序     │   │  纯小程序       │   │  纯小程序     │
 │  会员+合规    │   │  人才+应急      │   │  产学研+活动  │
-│  14 页        │   │  14 页          │   │  13 页        │
+│  12 页        │   │  12 页          │   │  10 页        │
 └───────────────┘   └─────────────────┘   └───────────────┘
 ```
 
-> **关键规则**: 后台管理 `frontend/src/views/admin/` 下的所有文件，以及 `frontend/src/router/index.js`、`frontend/src/stores/`、`frontend/src/styles/` 全部归 A 一个人。BCD **绝对不要碰** frontend 目录下的任何文件。
+> **小程序总计: 45 页** (8 + 12 + 12 + 10 + 3 公共页). 公共页(login/register/webview)由 A 维护。
 
 ---
 
@@ -176,69 +196,64 @@
 
 ---
 
-### 成员 B — 纯小程序：会员资源 + 合规政策（14 页）
+### 成员 B — 纯小程序：会员资源 + 合规政策（12 页，砍 2 子页）
 
-| 系统 | 页面    | 路径                               | API                            |
-| -- | ----- | -------------------------------- | ------------------------------ |
-| 会员 | 企业注册  | `pages/enterprise/register.vue`  | `POST /enterprises`            |
-| 会员 | 审核状态  | `pages/enterprise/status.vue`    | `GET /enterprises`             |
-| 会员 | 专家列表  | `pages/experts/list.vue`         | `GET /experts`                 |
-| 会员 | 专家详情  | `pages/experts/detail.vue`       | `GET /experts/{id}`            |
-| 会员 | 资源台账  | `pages/resources/list.vue`       | `GET /industry-resources`      |
-| 会员 | 资源详情  | `pages/resources/detail.vue`     | `GET /industry-resources/{id}` |
-| 会员 | 我的业务  | `pages/applications/index.vue`   | `GET /me`                      |
-| 会员 | 项目申报  | `pages/applications/submit.vue`  | `POST /project-applications`   |
-| 合规 | 政策资讯  | `pages/compliance/news.vue`      | `GET /articles`                |
-| 合规 | 合规知识库 | `pages/compliance/knowledge.vue` | `GET /compliance-docs`         |
-| 合规 | 团体标准  | `pages/compliance/standards.vue` | `GET /compliance-standards`    |
-| 合规 | 案例列表  | `pages/cases/index.vue`          | `GET /cases`                   |
-| 合规 | 案例详情  | `pages/cases/detail.vue`         | `GET /cases/{id}`              |
-| 供需 | 供需推荐  | `pages/match/recommend.vue`      | `GET /recommendations`         |
+| 系统 | 页面    | 路径                               | API                            | 说明 |
+| -- | ----- | -------------------------------- | ------------------------------ | -- |
+| 会员 | 企业注册  | `pages/enterprise/register.vue`  | `POST /enterprises`            | 含项目申报(一步完成) |
+| 会员 | 审核状态  | `pages/enterprise/status.vue`    | `GET /enterprises`             | |
+| 会员 | 专家列表  | `pages/experts/list.vue`         | `GET /experts`                 | |
+| 会员 | 专家详情  | `pages/experts/detail.vue`       | `GET /experts/{id}`            | |
+| 会员 | 资源台账  | `pages/resources/list.vue`       | `GET /industry-resources`      | |
+| 会员 | 资源详情  | `pages/resources/detail.vue`     | `GET /industry-resources/{id}` | |
+| 会员 | 我的业务  | `pages/applications/index.vue`   | `GET /me`                      | |
+| 合规 | 政策资讯  | `pages/compliance/news.vue`      | `GET /articles`                | |
+| 合规 | 合规知识库 | `pages/compliance/knowledge.vue` | `GET /compliance-docs`         | |
+| 合规 | 团体标准  | `pages/compliance/standards.vue` | `GET /compliance-standards`    | |
+| 合规 | 案例列表  | `pages/cases/index.vue`          | `GET /cases`                   | 详情弹窗展示 |
+| — | 供需推荐  | ~~`pages/match/recommend.vue`~~ | — | **砍: 合并到首页推荐流(A负责)** |
 
 > ⚠️ B 不碰 `frontend/` 目录。后台管理接口已有 `/api/v1/admin/enterprises` 等，A 来写。
 
 ---
 
-### 成员 C — 纯小程序：人才教育 + 应急协同（14 页）
+### 成员 C — 纯小程序：人才教育 + 应急协同（12 页，砍 2 子页）
 
-| 系统 | 页面   | 路径                                | API                                          |
-| -- | ---- | --------------------------------- | -------------------------------------------- |
-| 人才 | 培训课程 | `pages/training/courses.vue`      | `GET /training-courses`                      |
-| 人才 | 课程报名 | `pages/training/enroll.vue`       | `POST /training-courses/{id}/pay-and-enroll` |
-| 人才 | 我的证书 | `pages/training/certificates.vue` | `GET /certificates/mine`                     |
-| 人才 | 赛事列表 | `pages/competitions/list.vue`     | `GET /competitions`                          |
-| 人才 | 赛事报名 | `pages/competitions/register.vue` | `POST /competitions/{id}/register`           |
-| 人才 | 职位列表 | `pages/jobs/list.vue`             | `GET /jobs`                                  |
-| 人才 | 简历管理 | `pages/jobs/resume.vue`           | `POST /resumes`                              |
-| 人才 | 院校展示 | `pages/colleges/list.vue`         | `GET /colleges`                              |
-| 人才 | 研学列表 | `pages/study/index.vue`           | —                                            |
-| 人才 | 研学详情 | `pages/study/detail.vue`          | —                                            |
-| 应急 | 应急资源 | `pages/emergency/resources.vue`   | `GET /emergency-resources`                   |
-| 应急 | 调度记录 | `pages/emergency/dispatches.vue`  | `GET /emergency-dispatches`                  |
-| 应急 | 救援案例 | `pages/emergency/cases.vue`       | `GET /rescue-cases`                          |
-| 应急 | 部门对接 | `pages/emergency/depts.vue`       | `GET /emergency-depts`                       |
+| 系统 | 页面   | 路径                                | API                                          | 说明 |
+| -- | ---- | --------------------------------- | -------------------------------------------- | -- |
+| 人才 | 培训课程 | `pages/training/courses.vue`      | `GET /training-courses`                      | |
+| 人才 | 课程报名 | `pages/training/enroll.vue`       | `POST /training-courses/{id}/pay-and-enroll` | |
+| 人才 | 赛事列表 | `pages/competitions/list.vue`     | `GET /competitions`                          | |
+| 人才 | 赛事报名 | `pages/competitions/register.vue` | `POST /competitions/{id}/register`           | |
+| 人才 | 职位列表 | `pages/jobs/list.vue`             | `GET /jobs`                                  | |
+| 人才 | 简历管理 | `pages/jobs/resume.vue`           | `POST /resumes`                              | |
+| 人才 | 院校展示 | `pages/colleges/list.vue`         | `GET /colleges`                              | |
+| 人才 | 研学列表 | `pages/study/index.vue`           | —                                            | 详情WebView内嵌 |
+| 应急 | 应急资源 | `pages/emergency/resources.vue`   | `GET /emergency-resources`                   | 部门对接合并为sub-tab |
+| 应急 | 调度记录 | `pages/emergency/dispatches.vue`  | `GET /emergency-dispatches`                  | |
+| 应急 | 救援案例 | `pages/emergency/cases.vue`       | `GET /rescue-cases`                          | |
+| — | 我的证书 | ~~`pages/training/certificates.vue`~~ | — | **砍: 合并到"我的"子tab(A负责)** |
+| — | 部门对接 | ~~`pages/emergency/depts.vue`~~ | — | **砍: 合并到应急资源sub-tab** |
 
 > ⚠️ C 不碰 `frontend/` 目录。后台管理接口已有 `/api/v1/admin/competition` 等，A 来写。
 
 ---
 
-### 成员 D — 纯小程序：产学研 + 活动品牌（13 页）
+### 成员 D — 纯小程序：产学研 + 活动品牌（10 页，砍 3 子页）
 
-| 系统  | 页面   | 路径                                | API                                               |
-| --- | ---- | --------------------------------- | ------------------------------------------------- |
-| 产学研 | 成果列表 | `pages/achievements/list.vue`     | `GET /achievements`                               |
-| 产学研 | 成果详情 | `pages/achievements/detail.vue`   | `GET /achievements/{id}`                          |
-| 产学研 | 研发难题 | `pages/challenges/list.vue`       | `GET /rd-challenges`                              |
-| 产学研 | 课题攻关 | `pages/projects/list.vue`         | `GET /research-projects`                          |
-| 产学研 | 测试预约 | `pages/testsites/book.vue`        | `GET /test-sites` + `POST /test-sites/{id}/book`  |
-| 产学研 | 成果转化 | `pages/transformations/track.vue` | `GET /transformations`                            |
-| 活动  | 活动列表 | `pages/events/list.vue`           | `GET /events`                                     |
-| 活动  | 活动详情 | `pages/events/detail.vue`         | `GET /events/{id}` + `POST /events/{id}/register` |
-| 活动  | 品牌展示 | `pages/portfolios/list.vue`       | `GET /portfolios`                                 |
-| 活动  | 展会列表 | `pages/exhibitions/list.vue`      | `GET /exhibitions`                                |
-| 活动  | 展位申请 | `pages/exhibitions/booth.vue`     | `POST /exhibitions/{id}/booths`                   |
-| 活动  | 行业报告 | `pages/reports/list.vue`          | `GET /industry-reports`                           |
-| 供需  | 需求大厅 | `pages/demands/list.vue`          | `GET /demands`                                    |
+| 系统  | 页面   | 路径                                | API                                               | 说明 |
+| --- | ---- | --------------------------------- | ------------------------------------------------- | -- |
+| 产学研 | 成果列表 | `pages/achievements/list.vue`     | `GET /achievements`                               | 详情弹窗 + 含转化追踪 |
+| 产学研 | 研发难题 | `pages/challenges/list.vue`       | `GET /rd-challenges`                              | |
+| 产学研 | 课题攻关 | `pages/projects/list.vue`         | `GET /research-projects`                          | |
+| 产学研 | 测试预约 | `pages/testsites/book.vue`        | `GET /test-sites` + `POST /test-sites/{id}/book`  | |
+| 活动  | 活动列表 | `pages/events/list.vue`           | `GET /events`                                     | |
+| 活动  | 活动详情 | `pages/events/detail.vue`         | `GET /events/{id}` + `POST /events/{id}/register` | 含展位申请表单 |
+| 活动  | 展会列表 | `pages/exhibitions/list.vue`      | `GET /exhibitions`                                | |
+| 活动  | 行业报告 | `pages/reports/list.vue`          | `GET /industry-reports`                           | |
+| 供需  | 需求大厅 | `pages/demands/list.vue`          | `GET /demands`                                    | |
+| — | 品牌展示 | ~~`pages/portfolios/list.vue`~~ | — | **砍: 合并到企业详情(B负责)** |
+| — | 展位申请 | ~~`pages/exhibitions/booth.vue`~~ | — | **砍: 合并在活动详情表单** |
 
 > ⚠️ D 不碰 `frontend/` 目录。后台管理接口已有 `/api/v1/admin/achievements` 等，A 来写。
 
@@ -698,9 +713,11 @@ Vue 3 (Composition API) + Element Plus 2.14 + ECharts 6
 |   成员  | 小程序      | 后台管理          |   总工作量  |
 | :---: | -------- | ------------- | :-----: |
 | **A** | 8 页（核心页） | **27 模块（全部）** |  🔴 最重  |
-| **B** | 14 页     | —             | 🟢 纯小程序 |
-| **C** | 14 页     | —             | 🟢 纯小程序 |
-| **D** | 13 页     | —             | 🟢 纯小程序 |
+| **B** | 12 页     | —             | 🟢 纯小程序 |
+| **C** | 12 页     | —             | 🟢 纯小程序 |
+| **D** | 10 页     | —             | 🟢 纯小程序 |
+| 公共页 | login/register/webview | — | A 维护 |
+| **合计** | **45 页** | **27 模块** | **72 页总交付** |
 
 ### Sprint 0（本周）— 环境搭建 + 原型设计
 
@@ -788,7 +805,7 @@ Vue 3 (Composition API) + Element Plus 2.14 + ECharts 6
 
 ### 10.4 最终交付
 
-- [ ] 7 大业务系统全部小程序页面可用（59 页）
+- [ ] 7 大业务系统全部小程序页面可用（**45 页**，从 59 精简，核心功能不减）
 - [ ] 后台管理 27 个模块全部可用
 - [ ] GitHub Actions CI 绿灯（build + vet + test + integration）
 - [ ] 微信小程序审核通过

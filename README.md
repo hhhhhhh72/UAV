@@ -142,7 +142,7 @@ git push origin feat/b-pages
 ├── frontend/                    # Vue 3 + Element Plus 管理后台
 │   └── src/views/admin/         # 27 管理模块 (8 已完成)
 ├── miniprogram/                 # 微信小程序 (uni-app + Vant Weapp)
-│   ├── pages/                   # 59 页面
+│   ├── pages/                   # 45 页面 (7大系统)
 │   ├── components/              # 共享组件
 │   └── utils/                   # API 封装 + Token 刷新
 ├── migrations/                  # 66 张表迁移脚本
@@ -191,7 +191,7 @@ git push origin feat/b-pages
 |------|:--:|
 | API 端点 | **212 条** |
 | 数据库表 | **66 张** |
-| 小程序页面 | **59 页** (vue) |
+| 小程序页面 | **45 页** (vue, 从59精简, 功能不减) |
 | 管理后台模块 | **27 模块** (8 已完成) |
 | Go 源文件 | **80+** |
 | 测试通过率 | **100%** (92 HTTP case) |
