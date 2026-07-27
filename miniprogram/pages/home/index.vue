@@ -123,124 +123,65 @@
           </view>
         </view>
 
-        <!-- 贴吧式分类Tab -->
-        <view class="category-tabs overlay-card-sm">
-          <scroll-view scroll-x class="tabs-scroll" :show-scrollbar="false">
-            <view 
-              v-for="cat in categories" 
-              :key="cat.id"
-              class="tab-chip"
-              :class="{ active: activeCategory === cat.id }"
-              @tap="switchCategory(cat.id)"
-            >
-              <image v-if="cat.icon" :src="cat.icon" mode="aspectFit" class="tab-icon-img" />
-              <text>{{ cat.name }}</text>
+        <!-- 贴吧式任务大厅 -->
+        <view class="service-feed">
+          <view class="section-title">任务大厅</view>
+          
+          <!-- 分类Tab -->
+          <scroll-view scroll-x class="cat-scroll" :show-scrollbar="false">
+            <view class="cat-scroll-inner">
+              <view 
+                v-for="cat in categories" :key="cat.id"
+                class="cat-chip" :class="{ on: activeCategory === cat.id }"
+                @tap="switchCategory(cat.id)"
+              >{{ cat.name }}</view>
             </view>
           </scroll-view>
+
+          <!-- 需求卡片 -->
+          <view v-if="feedList.length" class="card-list">
+            <view 
+              v-for="post in feedList" :key="post.id"
+              class="demand-card" @tap="goToDemand(post.id)"
+            >
+              <view class="card-head">
+                <view class="card-avatar" :style="{ background: post.avatarColor || '#e8f2fc' }">
+                  <text class="card-avatar-text">{{ (post.userName || '?')[0] }}</text>
+                </view>
+                <view class="card-user">
+                  <text class="card-username">{{ post.userName }}</text>
+                  <text class="card-time">{{ post.timeAgo }}</text>
+                </view>
+                <text v-if="post.urgency === 'urgent'" class="card-urgent">紧急</text>
+              </view>
+              <view class="card-title">{{ post.title }}</view>
+              <view class="card-row" v-if="post.tags && post.tags.length">
+                <text v-for="t in post.tags" :key="t" class="card-tag">{{ t }}</text>
+              </view>
+              <view class="card-row card-meta">
+                <text v-if="post.budget" class="card-price">￥{{ post.budget }}</text>
+                <text v-if="post.location" class="card-loc">{{ post.location }}</text>
+                <text v-if="post.deadline" class="card-date">{{ post.deadline }}</text>
+              </view>
+              <view class="card-foot">
+                <text class="card-stat">❤️ {{ post.likeCount || 0 }}</text>
+                <text class="card-stat">💬 {{ post.commentCount || 0 }}</text>
+                <view class="card-spacer" />
+                <view class="card-bid-btn" @tap.stop="goToBid(post.id)">竞标</view>
+              </view>
+            </view>
+          </view>
+          <view v-else class="card-empty">暂无需求</view>
         </view>
 
-        <!-- 贴吧式需求流 -->
-        <view class="post-feed overlay-card">
-          <view class="feed-header">
-            <text class="section-title">任务大厅</text>
-            <view class="feed-sort" @tap="handlePublish">
-              <image src="/static/icons/plus.svg" mode="aspectFit" class="sort-icon" />
-              <text class="sort-text">发布</text>
-            </view>
-          </view>
-
-          <view 
-            v-for="post in feedList" 
-            :key="post.id"
-            class="post-card"
-            @tap="goToDemand(post.id)"
-          >
-            <!-- 发布者信息 -->
-            <view class="post-user-row">
-              <view class="post-avatar" :style="{ background: post.avatarColor || '#e8f2fc' }">
-                <image v-if="post.avatar" :src="post.avatar" mode="aspectFill" class="avatar-img" />
-                <text v-else class="avatar-letter">{{ post.userName?.charAt(0) || '?' }}</text>
-              </view>
-              <view class="post-user-info">
-                <text class="post-username">{{ post.userName }}</text>
-                <text class="post-time">{{ post.timeAgo }}</text>
-              </view>
-              <view class="post-badge" :class="'badge-' + (post.urgency || 'normal')">
-                <text>{{ urgencyLabel(post.urgency) }}</text>
-              </view>
-            </view>
-
-            <!-- 需求标题 -->
-            <view class="post-title">{{ post.title }}</view>
-
-            <!-- 需求标签 -->
-            <view class="post-tags" v-if="post.tags && post.tags.length">
-              <text v-for="tag in post.tags" :key="tag" class="post-tag">{{ tag }}</text>
-            </view>
-
-            <!-- 需求简述 + 预算 -->
-            <view class="post-desc" v-if="post.description">{{ post.description }}</view>
-            <view class="post-meta">
-              <view class="post-budget" v-if="post.budget">
-                <image src="/static/icons/wallet.svg" mode="aspectFit" class="meta-icon" />
-                <text>￥{{ post.budget }}</text>
-              </view>
-              <view class="post-location" v-if="post.location">
-                <image src="/static/icons/location.svg" mode="aspectFit" class="meta-icon" />
-                <text>{{ post.location }}</text>
-              </view>
-              <view class="post-deadline" v-if="post.deadline">
-                <image src="/static/icons/clock.svg" mode="aspectFit" class="meta-icon" />
-                <text>{{ post.deadline }}</text>
-              </view>
-            </view>
-
-            <!-- 互动栏 -->
-            <view class="post-actions">
-              <view class="action-item" @tap.stop="likePost(post.id)">
-                <image src="/static/icons/heart.svg" mode="aspectFit" class="action-icon" />
-                <text>{{ post.likeCount || 0 }}</text>
-              </view>
-              <view class="action-item" @tap.stop="goToComments(post.id)">
-                <image src="/static/icons/comment.svg" mode="aspectFit" class="action-icon" />
-                <text>{{ post.commentCount || 0 }}</text>
-              </view>
-              <view class="action-item" @tap.stop="sharePost(post.id)">
-                <image src="/static/icons/share.svg" mode="aspectFit" class="action-icon" />
-                <text>分享</text>
-              </view>
-              <view class="action-item bid-btn" @tap.stop="goToBid(post.id)">
-                <text>我要竞标</text>
-              </view>
-            </view>
-          </view>
-
-          <!-- 空状态 -->
-          <view class="feed-empty" v-if="feedList.length === 0 && !feedLoading">
-            <image src="/static/icons/empty-feed.svg" mode="aspectFit" class="empty-img" />
-            <text class="empty-text">暂无需求，去发布第一个吧</text>
-          </view>
-
-          <!-- 加载更多 -->
-          <view class="feed-more" v-if="hasMore" @tap="loadMore">
-            <text>{{ feedLoading ? '加载中...' : '查看更多' }}</text>
-          </view>
-        </view>
-
-        <!-- 推荐卡片（保留原有两卡） -->
+        <!-- 推荐卡片 -->
         <view class="recommend-grid">
           <view class="recommend-card blue-card" @tap="navigateTo('/pages/cases/index')">
-            <view>
-              <view class="recommend-title">精选案例</view>
-              <text class="recommend-subtitle">行业应用示范</text>
-            </view>
+            <view><view class="recommend-title">精选案例</view><text class="recommend-subtitle">行业应用示范</text></view>
             <image class="recommend-icon-img" src="/static/icons/drone-show-v2.svg" mode="aspectFit" />
           </view>
           <view class="recommend-card orange-card" @tap="navigateTo('/pages/services/index')">
-            <view>
-              <view class="recommend-title">服务大厅</view>
-              <text class="recommend-subtitle">一站式办理</text>
-            </view>
+            <view><view class="recommend-title">服务大厅</view><text class="recommend-subtitle">一站式办理</text></view>
             <image class="recommend-icon-img" src="/static/icons/service.svg" mode="aspectFit" />
           </view>
         </view>
@@ -306,82 +247,29 @@ const servicePages = computed(() => {
 const activeFunctionPage = ref(0)
 
 const displayServices = ref([])
-
-// ---- 贴吧式需求流数据 ----
 const feedList = ref([])
 const categories = ref([
-  { id: 'all', name: '全部', icon: '' },
-  { id: 'inspection', name: '巡检', icon: '/static/icons/drone.svg' },
-  { id: 'plant', name: '植保', icon: '/static/icons/plant.svg' },
-  { id: 'logistics', name: '物流', icon: '/static/icons/package.svg' },
-  { id: 'mapping', name: '测绘', icon: '/static/icons/map.svg' },
-  { id: 'emergency', name: '应急', icon: '/static/icons/shield.svg' },
-  { id: 'other', name: '其他', icon: '' }
+  { id: '', name: '全部' }, { id: 'inspection', name: '巡检' }, { id: 'plant', name: '植保' },
+  { id: 'logistics', name: '物流' }, { id: 'mapping', name: '测绘' }, { id: 'emergency', name: '应急' }
 ])
-const activeCategory = ref('all')
-const feedLoading = ref(false)
-const hasMore = ref(true)
-let feedPage = 1
-
-const urgencyLabel = (u) => ({ urgent: '紧急', normal: '普通', low: '低' }[u] || '普通')
-
-const switchCategory = (catId) => {
-  activeCategory.value = catId
-  feedPage = 1
-  loadFeed()
-}
+const activeCategory = ref('')
 
 const loadFeed = async () => {
-  feedLoading.value = true
   try {
-    const res = await request({
-      url: '/api/v1/demands',
-      data: { category: activeCategory.value === 'all' ? '' : activeCategory.value, page: feedPage, page_size: 10 }
-    })
-    const list = (res.data || []).map(d => ({
-      id: d.id,
-      title: d.title,
-      description: d.description?.substring(0, 80),
-      userName: d.publisher?.name || '匿名用户',
-      avatar: d.publisher?.avatar || '',
-      avatarColor: d.publisher?.avatarColor || '#e8f2fc',
-      timeAgo: formatTimeAgo(d.created_at),
-      tags: d.tags || d.type ? [d.type] : [],
-      budget: d.budget || d.price_range,
-      location: d.location,
-      deadline: d.deadline ? formatDeadline(d.deadline) : '',
-      urgency: d.urgency || 'normal',
-      likeCount: d.like_count || 0,
-      commentCount: d.comment_count || 0
+    const res = await request({ url: '/api/v1/demands', data: { category: activeCategory.value, page: 1, page_size: 10 } })
+    feedList.value = (res.data || []).map(d => ({
+      id: d.id, title: d.title, userName: d.publisher?.name || '匿名', avatarColor: d.publisher?.avatarColor || '#e8f2fc',
+      timeAgo: fmtAgo(d.created_at), tags: d.tags || [], budget: d.budget || d.price_range,
+      location: d.location, deadline: d.deadline ? fmtDead(d.deadline) : '',
+      urgency: d.urgency || 'normal', likeCount: d.like_count || 0, commentCount: d.comment_count || 0
     }))
-    if (feedPage === 1) feedList.value = list
-    else feedList.value = [...feedList.value, ...list]
-    hasMore.value = list.length >= 10
-  } catch { /* keep current */ } finally { feedLoading.value = false }
+  } catch { feedList.value = [] }
 }
-
-const formatTimeAgo = (t) => {
-  if (!t) return ''
-  const diff = (Date.now() - new Date(t).getTime()) / 1000
-  if (diff < 60) return '刚刚'
-  if (diff < 3600) return Math.floor(diff/60) + '分钟前'
-  if (diff < 86400) return Math.floor(diff/3600) + '小时前'
-  return Math.floor(diff/86400) + '天前'
-}
-
-const formatDeadline = (d) => {
-  if (!d) return ''
-  const date = new Date(d)
-  return `${date.getMonth()+1}/${date.getDate()}截止`
-}
-
-const loadMore = () => { feedPage++; loadFeed() }
-const goToDemand = (id) => safeNavigateTo(`/pages/demands/detail?id=${id}`)
-const goToBid = (id) => safeNavigateTo(`/pages/demands/bid?id=${id}`)
-const goToComments = (id) => safeNavigateTo(`/pages/demands/detail?id=${id}#comments`)
-const likePost = (id) => uni.showToast({ title: '已收藏', icon: 'none' })
-const sharePost = (id) => uni.showToast({ title: '已复制链接', icon: 'none' })
-const handlePublish = () => safeNavigateTo('/pages/demands/publish')
+const fmtAgo = (t) => { if(!t)return''; const d=(Date.now()-new Date(t).getTime())/1000; return d<60?'刚刚':d<3600?Math.floor(d/60)+'分钟前':d<86400?Math.floor(d/3600)+'小时前':Math.floor(d/86400)+'天前' }
+const fmtDead = (d) => { if(!d)return''; const dd=new Date(d); return (dd.getMonth()+1)+'/'+dd.getDate()+'截止' }
+const switchCategory = (id) => { activeCategory.value = id; loadFeed() }
+const goToDemand = (id) => safeNavigateTo('/pages/demands/detail?id='+id)
+const goToBid = (id) => safeNavigateTo('/pages/demands/bid?id='+id)
 
 const banners = ref([
   { image: '/static/home-bg.jpg', link: '' }
@@ -822,344 +710,51 @@ onMounted(async () => {
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
-}
-
-/* 贴吧式分类Tab */
-.overlay-card-sm {
-  position: relative;
-  z-index: 5;
-  margin: 0 0 8px;
-  padding: 12px 0;
-}
-
-.category-tabs {
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 16px;
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.tabs-scroll {
-  white-space: nowrap;
-  padding: 0 12px;
-}
-
-.tab-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 16px;
-  margin-right: 8px;
-  border-radius: 20px;
-  font-size: 13px;
-  color: #555;
-  background: transparent;
-  transition: all 0.2s;
-}
-
-.tab-chip.active {
-  background: rgba(25, 137, 250, 0.12);
-  color: #1989fa;
-  font-weight: 600;
-}
-
-.tab-icon-img {
-  width: 16px;
-  height: 16px;
-}
-
-/* 贴吧式需求流 */
-.post-feed {
-  margin-bottom: 12px;
-}
-
-.post-feed.overlay-card {
-  padding: 24px;
-}
-
-.feed-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.feed-sort {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 14px;
-  background: rgba(25, 137, 250, 0.1);
-  border-radius: 16px;
-}
-
-.sort-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.7;
-}
-
-.sort-text {
-  font-size: 13px;
-  color: #1989fa;
-  font-weight: 500;
-}
-
-.post-card {
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.post-card:first-of-type {
-  padding-top: 0;
-}
-
-.post-card:last-of-type {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.post-user-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.post-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-}
-
-.avatar-letter {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1989fa;
-}
-
-.post-user-info {
-  flex: 1;
-}
-
-.post-username {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1a1a1a;
-  display: block;
-}
-
-.post-time {
-  font-size: 11px;
-  color: rgba(0, 0, 0, 0.4);
-}
-
-.post-badge {
-  padding: 3px 10px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.badge-urgent {
-  background: rgba(255, 59, 48, 0.1);
-  color: #ff3b30;
-}
-
-.badge-normal {
-  background: rgba(0, 0, 0, 0.05);
-  color: #666;
-}
-
-.badge-low {
-  background: rgba(52, 199, 89, 0.1);
-  color: #34c759;
-}
-
-.post-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 8px;
-  line-height: 1.4;
-}
-
-.post-tags {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-
-.post-tag {
-  padding: 3px 10px;
-  background: rgba(25, 137, 250, 0.08);
-  color: #1989fa;
-  font-size: 12px;
-  border-radius: 6px;
-}
-
-.post-desc {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.5);
-  margin-bottom: 8px;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.post-meta {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.post-budget, .post-location, .post-deadline {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.5);
-}
-
-.post-budget {
-  color: #ff6b35;
-  font-weight: 500;
-}
-
-.meta-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.6;
-}
-
-.post-actions {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.action-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.4);
-}
-
-.action-icon {
-  width: 16px;
-  height: 16px;
-  opacity: 0.5;
-}
-
-.bid-btn {
-  margin-left: auto;
-  padding: 6px 16px;
-  background: linear-gradient(135deg, #1989fa 0%, #3b82f6 100%);
-  color: #fff;
-  border-radius: 16px;
-  font-size: 13px;
-  font-weight: 500;
-  box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3);
-}
-
-.feed-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px 0;
-  gap: 12px;
-}
-
-.empty-img {
-  width: 80px;
-  height: 80px;
-  opacity: 0.3;
-}
-
-.empty-text {
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.4);
-}
-
-.feed-more {
-  text-align: center;
-  padding: 16px 0 4px;
-  font-size: 13px;
-  color: #1989fa;
-}
-
-/* keep existing recommend grid */
-  font-size: 18px;
-  font-weight: 600;
   margin-bottom: 20px;
   color: #1a1a1a;
-}
-
-.feed-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.feed-card:first-child {
-  padding-top: 0;
-}
-
-.feed-card:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.feed-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.feed-icon-image {
-  width: 24px;
-  height: 24px;
-}
-
-.feed-content {
-  flex: 1;
-}
-
-.feed-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #1a1a1a;
-}
-
-.feed-desc {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.5);
 }
 
 .feed-arrow {
   font-size: 16px;
   color: #c8c9cc;
 }
+
+/* === 贴吧式任务大厅 === */
+.cat-scroll { margin-bottom: 20px; }
+.cat-scroll-inner { display: flex; gap: 8px; }
+.cat-chip { padding: 8px 18px; border-radius: 20px; font-size: 13px; color: #666; background: rgba(0,0,0,0.04); white-space: nowrap; }
+.cat-chip.on { background: rgba(25,137,250,0.12); color: #1989fa; font-weight: 600; }
+
+.card-list { display: flex; flex-direction: column; gap: 0; }
+
+.demand-card {
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.demand-card:last-child { border-bottom: none; padding-bottom: 0; }
+
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.card-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.card-avatar-text { font-size: 13px; font-weight: 600; color: #1989fa; }
+.card-user { flex: 1; }
+.card-username { font-size: 14px; font-weight: 500; color: #1a1a1a; display: block; }
+.card-time { font-size: 11px; color: rgba(0,0,0,0.35); }
+.card-urgent { padding: 2px 10px; border-radius: 10px; background: rgba(255,59,48,0.1); color: #ff3b30; font-size: 11px; font-weight: 500; }
+
+.card-title { font-size: 16px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; line-height: 1.4; }
+
+.card-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+.card-tag { padding: 3px 10px; background: rgba(25,137,250,0.08); color: #1989fa; font-size: 12px; border-radius: 6px; }
+
+.card-meta { gap: 14px; }
+.card-price { font-size: 13px; color: #ff6b35; font-weight: 500; }
+.card-loc { font-size: 12px; color: rgba(0,0,0,0.4); }
+.card-date { font-size: 12px; color: rgba(0,0,0,0.4); }
+
+.card-foot { display: flex; align-items: center; gap: 16px; }
+.card-stat { font-size: 12px; color: rgba(0,0,0,0.35); }
+.card-spacer { flex: 1; }
+.card-bid-btn { padding: 5px 16px; background: linear-gradient(135deg,#1989fa,#3b82f6); color: #fff; border-radius: 14px; font-size: 12px; font-weight: 500; }
+
+.card-empty { text-align: center; padding: 30px 0; font-size: 14px; color: rgba(0,0,0,0.35); }
 </style>
