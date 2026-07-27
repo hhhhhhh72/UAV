@@ -7,5 +7,8 @@
   </div>
 </template>
 <script>import EmergencyResourceList from '../emergency/ResourceList.vue'; import DispatchList from '../emergency/DispatchList.vue'; export default {components:{EmergencyResourceList,DispatchList}}</script>
-<script setup>var tab = $ref('resources')</script>
+<script setup>
+import { ref } from 'vue'
+const tab = ref('resources')
+</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

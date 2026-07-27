@@ -9,5 +9,8 @@
   </div>
 </template>
 <script>import EventList from '../events/EventList.vue'; import PortfolioList from '../portfolios/PortfolioList.vue'; import ExhibitionList from '../exhibitions/ExhibitionList.vue'; import ReportList from '../reports/ReportList.vue'; export default {components:{EventList,PortfolioList,ExhibitionList,ReportList}}</script>
-<script setup>var tab = $ref('events')</script>
+<script setup>
+import { ref } from 'vue'
+const tab = ref('events')
+</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

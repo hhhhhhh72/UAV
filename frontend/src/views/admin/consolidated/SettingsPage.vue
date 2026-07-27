@@ -7,5 +7,8 @@
   </div>
 </template>
 <script>import ServiceConfigList from '../config/ServiceConfigList.vue'; import NotifyList from '../messages/NotifyList.vue'; export default {components:{ServiceConfigList,NotifyList}}</script>
-<script setup>var tab = $ref('config')</script>
+<script setup>
+import { ref } from 'vue'
+const tab = ref('config')
+</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

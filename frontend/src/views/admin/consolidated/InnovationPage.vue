@@ -10,5 +10,8 @@
   </div>
 </template>
 <script>import AchievementList from '../achievements/AchievementList.vue'; import ChallengeList from '../challenges/ChallengeList.vue'; import ProjectList from '../projects/ProjectList.vue'; import TestSiteList from '../testsites/TestSiteList.vue'; import TransList from '../transformations/TransList.vue'; export default {components:{AchievementList,ChallengeList,ProjectList,TestSiteList,TransList}}</script>
-<script setup>var tab = $ref('achievements')</script>
+<script setup>
+import { ref } from 'vue'
+const tab = ref('achievements')
+</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

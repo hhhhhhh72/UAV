@@ -47,25 +47,21 @@
 
 ```
 技术栈: Vue 3 + Vite + Element Plus + Pinia + Vue Router + ECharts + Axios
-路由:   /admin/*  → AdminLayout（侧边栏 + 顶栏 + 内容区）
-认证:   platform_admin / association_admin 角色守卫 + dev auto-login
+路由:   /admin/*  → AdminLayout（侧边栏 9 项 + 顶栏 + 内容区）
+架构:   27 独立模块 → 合并为 9 大模块 (el-tabs 子模块切换)
 
-✅ 已完成（8/27 模块）:
-  admin/Dashboard.vue           ← 仪表盘（统计卡片 + ECharts 图表）
-  admin/users/UserList.vue      ← 用户管理
-  admin/enterprises/EnterpriseList.vue  ← 企业管理
-  admin/demands/DemandList.vue  ← 需求管理
-  admin/orders/OrderList.vue    ← 订单管理
-  admin/cases/CaseList.vue      ← 案例管理
-  admin/competition/CompetitionList.vue ← 赛事管理
-  admin/reviews/ReviewList.vue  ← 评价管理
-
-🆕 待开发（19 个新模块）:
-  商家管理 / 专家管理 / 资源管理 / 合规管理 / 培训管理 /
-  职位管理 / 院校管理 / 研学管理 / 成果管理 / 难题管理 /
-  课题管理 / 测试场地 / 成果转化 / 活动管理 / 品牌管理 /
-  展位管理 / 报告管理 / 应急资源/调度 / 消息通知
+✅ 9 模块全部就绪:
+  📊 数据看板 — Dashboard
+  🏢 会员管理 — 用户 + 企业 + 商家 + 专家 (4 tab)
+  📦 交易管理 — 需求 + 订单 + 评价 (3 tab)
+  📋 内容审核 — 案例 + 合规 (2 tab)
+  🎓 人才教育 — 培训 + 证书 + 赛事 + 职位 + 院校 + 研学 (6 tab)
+  🔬 产学研   — 成果 + 难题 + 课题 + 测试 + 转化 (5 tab)
+  📣 运营推广 — 活动 + 品牌 + 展会 + 报告 (4 tab)
+  🚨 应急协同 — 应急资源 + 调度 (2 tab)
+  ⚙️ 系统设置 — 配置 + 消息 (2 tab)
 ```
+
 
 ### 2.3 页面精简策略
 

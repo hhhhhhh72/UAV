@@ -10,7 +10,8 @@
   </div>
 </template>
 <script setup>
-var tab = $ref('users')
+import { ref } from 'vue'
+const tab = ref('users')
 </script>
 <script>
 import UserList from '../users/UserList.vue'

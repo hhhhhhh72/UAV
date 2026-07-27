@@ -13,5 +13,8 @@ import OrderList from '../orders/OrderList.vue'
 import ReviewList from '../reviews/ReviewList.vue'
 export default { components: { DemandList, OrderList, ReviewList } }
 </script>
-<script setup>var tab = $ref('demands')</script>
+<script setup>
+import { ref } from 'vue'
+const tab = ref('demands')
+</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

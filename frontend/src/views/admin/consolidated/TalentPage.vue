@@ -11,5 +11,8 @@
   </div>
 </template>
 <script>import CourseList from '../training/CourseList.vue'; import CertList from '../training/CertList.vue'; import CompetitionList from '../competition/CompetitionList.vue'; import JobList from '../jobs/JobList.vue'; import CollegeList from '../colleges/CollegeList.vue'; import StudyList from '../study/StudyList.vue'; export default {components:{CourseList,CertList,CompetitionList,JobList,CollegeList,StudyList}}</script>
-<script setup>var tab = $ref('training')</script>
+<script setup>
+import { ref } from 'vue'
+const tab = ref('training')
+</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>
