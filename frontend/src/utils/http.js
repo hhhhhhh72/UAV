@@ -26,10 +26,18 @@ axios.interceptors.request.use((config) => {
 })
 
 // Unwrap Go backend { data: {...} } envelope transparently.
+// Paginated responses ({ data, total, page, page_size }) are kept intact
+// so the frontend can access pagination metadata.
 axios.interceptors.response.use(
   (response) => {
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-      response.data = response.data.data
+    const body = response.data
+    if (body && typeof body === 'object' && 'data' in body) {
+      if ('total' in body) {
+        // Paginated response — keep full structure for { data, total, page, page_size }
+        response.data = body
+      } else {
+        response.data = body.data
+      }
     }
     return response
   },

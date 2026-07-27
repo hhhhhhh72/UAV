@@ -50,8 +50,10 @@ export async function uploadFile(file) {
     const res = await axios.post('/api/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    if (res.data.success) {
-      return normalizeMediaUrl(res.data.url)
+    // Backend returns: { file_id, sha256, size_bytes, content_type }
+    // Construct accessible path as /uploads/{file_id}
+    if (res.data?.file_id) {
+      return normalizeMediaUrl(`/uploads/${res.data.file_id}`)
     } else {
       showFailToast('上传失败')
       return null

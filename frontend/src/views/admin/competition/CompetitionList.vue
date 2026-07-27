@@ -1,318 +1,256 @@
 <template>
   <div class="competition-page">
-    <!-- Toolbar: date + search + filters -->
-    <DataToolbar>
-      <template #filters>
-        <van-cell
-          title="日期"
-          :value="dateRangeText"
-          is-link
-          @click="showCalendar = true"
-          style="flex: 0 0 auto; padding: 4px 0; background: transparent;"
+    <div class="search-bar">
+      <div class="search-row">
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始" end-placeholder="结束"
+          value-format="YYYY-MM-DD"
+          style="width: 240px"
+          @change="handleSearch"
         />
-      </template>
-      <template #actions>
-        <van-button type="primary" size="small" @click="fetchData">查询</van-button>
-        <van-button type="default" size="small" @click="handleExport">导出Excel</van-button>
-      </template>
-    </DataToolbar>
+        <el-input v-model="searchText" placeholder="搜索姓名、单位或手机号" clearable style="width: 220px" @input="onFilterChange">
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <el-select v-model="selectedRole" clearable style="width: 130px" @change="onFilterChange">
+          <el-option label="全部角色" value="all" />
+          <el-option label="运动员" value="athlete" />
+          <el-option label="教练员" value="coach" />
+          <el-option label="裁判员" value="referee" />
+          <el-option label="俱乐部" value="club" />
+        </el-select>
+        <el-select v-model="selectedStatus" clearable style="width: 120px" @change="onFilterChange">
+          <el-option label="全部状态" value="all" />
+          <el-option label="待处理" value="待处理" />
+          <el-option label="处理中" value="处理中" />
+          <el-option label="已完成" value="已完成" />
+        </el-select>
 
-    <van-calendar
-      :show="showCalendar"
-      @update:show="v => showCalendar = v"
-      type="range"
-      @confirm="onConfirmDate"
-      :min-date="new Date(2024, 0, 1)"
-    />
-
-    <!-- Search + filters -->
-    <div class="filter-card">
-      <van-search v-model="searchText" placeholder="搜索姓名、单位或手机号" @search="onFilterChange" @clear="onFilterChange" />
-      <div style="padding: 0 12px 10px;">
-        <van-dropdown-menu>
-          <van-dropdown-item v-model="selectedRole" :options="roleFilterOptions" @change="onFilterChange" />
-          <van-dropdown-item v-model="selectedStatus" :options="statusFilterOptions" @change="onFilterChange" />
-        </van-dropdown-menu>
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+          <el-button type="warning" :icon="Download" :disabled="selectedIds.length === 0" @click="handleSelectiveExport">导出所选</el-button>
+          <el-button type="success" :icon="Download" @click="handleExport">导出全部</el-button>
+        </div>
       </div>
     </div>
 
-    <!-- Stats cards -->
-    <div class="stats-grid">
-      <MetricCard label="总报名" :value="competitionStats.total" value-color="var(--accent-color)" />
+    <!-- 统计卡片 -->
+    <div class="stats-row">
+      <MetricCard label="总报名" :value="competitionStats.total" value-color="var(--accent-color, #0071e3)" />
       <MetricCard label="运动员" :value="competitionStats.athlete" value-color="#ff3b30" />
       <MetricCard label="教练员" :value="competitionStats.coach" value-color="#ff9f0a" />
       <MetricCard label="裁判员" :value="competitionStats.referee" value-color="#34c759" />
       <MetricCard label="俱乐部" :value="competitionStats.club" value-color="#5856d6" />
     </div>
 
-    <!-- Selection bar -->
-    <div v-if="competitionList.length > 0" class="selection-bar">
-      <van-checkbox v-model="allSelected" @click="toggleSelectAll">全选 ({{ selectedIds.length }})</van-checkbox>
-      <van-button type="default" size="mini" :disabled="selectedIds.length === 0" @click="handleSelectiveExport">导出所选</van-button>
+    <div class="table-wrap">
+      <el-table v-loading="loading" :data="filteredList" row-key="id" stripe border @selection-change="onSelectChange">
+        <el-table-column type="selection" width="40" />
+        <el-table-column prop="regNo" label="注册号" width="130" />
+        <el-table-column label="姓名/单位" min-width="140">
+          <template #default="{ row }">
+            <span class="cell-name">{{ row.name || row.companyName || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" width="90">
+          <template #default="{ row }">
+            <el-tag :type="roleTagType(row.competitionRole)" size="small">{{ row.competitionRoleText || row.competitionRole || '-' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="联系电话" width="140">
+          <template #default="{ row }">{{ row.phone || row.managerPhone || row.contactPhone || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="statusTagType(row.status)" size="small">{{ row.status || '待处理' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createTime" label="报名时间" width="160" sortable="custom">
+          <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
+          </template>
+        </el-table-column>
+        <template #empty><el-empty description="暂无报名数据" /></template>
+      </el-table>
     </div>
 
-    <!-- List -->
-    <van-cell-group inset style="border-radius: var(--card-radius);">
-      <van-cell
-        v-for="item in competitionList"
-        :key="item.id"
-        :label="formatDate(item.createTime)"
-        is-link
-        @click="showDetail(item)"
-      >
-        <template #title>
-          <div style="display: flex; align-items: center;">
-            <van-checkbox v-model="item.selected" @click.stop style="margin-right: 8px;" />
-            <span>{{ (item.name || item.companyName || '未知姓名') + ' - ' + (item.competitionRoleText || '未知角色') }}</span>
-          </div>
-        </template>
-        <template #value>
-          <span :class="statusClass(item.status)">{{ item.status || '待处理' }}</span>
-        </template>
-      </van-cell>
-    </van-cell-group>
+    <div class="pagination-wrap" v-if="total > 0">
+      <el-pagination
+        v-model:current-page="filterParams.page"
+        v-model:page-size="filterParams.page_size"
+        :page-sizes="[10, 20, 50]"
+        :total="total" layout="total, sizes, prev, pager, next, jumper"
+        background
+        @size-change="loadData" @current-change="loadData"
+      />
+    </div>
 
-    <!-- Detail Popup -->
-    <van-popup :show="showDetailPopup" @update:show="v => showDetailPopup = v" position="bottom" :style="{ height: '70%' }" round>
-      <div class="detail-content" v-if="currentItem">
-        <van-cell-group title="基本信息">
-          <van-cell title="申请单号" :value="v(currentItem.id)" />
-          <van-cell title="申请时间" :value="formatDate(currentItem.createTime)" />
-          <van-cell title="当前状态" :value="currentItem.status" is-link @click="showStatusPicker = true" />
-          <van-cell v-if="currentItem.name || currentItem.manager" :title="currentItem.competitionRole === 'club' ? '负责人' : '姓名'" :value="v(currentItem.name || currentItem.manager)" />
-          <van-cell v-if="currentItem.companyName" title="单位名称" :value="v(currentItem.companyName)" />
-          <van-cell title="联系电话" :value="v(currentItem.phone || currentItem.managerPhone || currentItem.contactPhone)" />
-        </van-cell-group>
+    <!-- 详情弹窗 -->
+    <el-dialog v-model="detailVisible" title="报名详情" width="600px">
+      <template v-if="currentItem">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="注册号">{{ currentItem.regNo || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="statusTagType(currentItem.status)" size="small">{{ currentItem.status || '待处理' }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="currentItem.competitionRole === 'club' ? '负责人' : '姓名'">
+            {{ currentItem.name || currentItem.manager || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="角色">{{ currentItem.competitionRoleText || currentItem.competitionRole || '-' }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentItem.companyName" label="单位">{{ currentItem.companyName }}</el-descriptions-item>
+          <el-descriptions-item label="电话">{{ currentItem.phone || currentItem.managerPhone || currentItem.contactPhone || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="报名时间">{{ formatDate(currentItem.createTime) }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentItem.email" label="邮箱">{{ currentItem.email }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentItem.level" label="等级">{{ currentItem.level }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentItem.competitionProject" label="参赛项目" :span="2">{{ currentItem.competitionProject }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentItem.remark" label="备注" :span="2">{{ currentItem.remark }}</el-descriptions-item>
+        </el-descriptions>
 
-        <van-cell-group title="赛事详情">
-          <van-cell title="服务类型" :value="v(currentItem.serviceName)" />
-          <van-cell title="注册号" :value="v(currentItem.regNo)" />
-          <van-cell title="报名角色" :value="v(currentItem.competitionRoleText)" />
-          <template v-if="currentItem.competitionRole === 'club'">
-            <van-cell title="单位简称" :value="v(currentItem.companyShortName)" />
-            <van-cell title="所在地" :value="v(currentItem.location)" />
-            <van-cell title="负责人" :value="v(currentItem.manager)" />
-            <van-cell title="负责人电话" :value="v(currentItem.managerPhone)" />
-            <van-cell title="主要对接人" :value="v(currentItem.contactPerson)" />
-            <van-cell title="对接人电话" :value="v(currentItem.contactPhone)" />
-          </template>
-          <template v-else>
-            <van-cell title="性别" :value="currentItem.gender === 'male' ? '男' : '女'" />
-            <van-cell title="证件号" :value="v(currentItem.idCard)" />
-            <van-cell title="组别" :value="v(currentItem.competitionGroup || currentItem.athleteGroup)" />
-            <van-cell v-if="currentItem.competitionProject" title="参赛项目" :value="v(currentItem.competitionProject)" />
-            <van-cell :title="currentItem.competitionRole === 'referee' ? '裁判员等级' : (currentItem.competitionRole === 'coach' ? '教练员等级' : '等级')" :value="v(currentItem.level)" />
-            <van-cell v-if="currentItem.validDate" title="有效期" :value="v(currentItem.validDate)" />
-            <van-cell title="电子邮箱" :value="v(currentItem.email)" />
-          </template>
-          <van-cell title="备注" :label="v(currentItem.remark)" />
-        </van-cell-group>
-      </div>
-    </van-popup>
-
-    <!-- Status Picker -->
-    <van-popup :show="showStatusPicker" @update:show="v => showStatusPicker = v" position="bottom">
-      <van-picker :columns="statusOptions" @confirm="onUpdateStatus" @cancel="showStatusPicker = false" title="修改订单状态" />
-    </van-popup>
+        <div class="review-actions">
+          <el-divider />
+          <span style="margin-right: 12px;">修改状态：</span>
+          <el-select v-model="newStatus" style="width: 140px;">
+            <el-option v-for="s in statusOpts" :key="s.value" :label="s.label" :value="s.value" />
+          </el-select>
+          <el-button type="primary" @click="onUpdateStatus">更新</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import axios from '@/utils/http'
-import { showFailToast, showSuccessToast } from 'vant'
-import DataToolbar from '../components/DataToolbar.vue'
-import MetricCard from '../components/MetricCard.vue'
+import { Search, Download } from '@element-plus/icons-vue'
+import { showToast, showSuccessToast } from 'vant'
+import { useListRequest } from '@/hooks/useListRequest'
+import { getApplicationList, updateApplicationStatus, exportApplications } from '@/api/admin/application'
 import { useAuth } from '../composables/useAuth'
+import MetricCard from '../components/MetricCard.vue'
 
 const { userRole } = useAuth()
 
-const list = ref([])
-const showCalendar = ref(false)
-const startDate = ref('')
-const endDate = ref('')
-const showDetailPopup = ref(false)
-const showStatusPicker = ref(false)
-const currentItem = ref(null)
+const statusOpts = [
+  { label: '待处理', value: '待处理' },
+  { label: '处理中', value: '处理中' },
+  { label: '已完成', value: '已完成' }
+]
+const statusTagType = (s) => ({ '已完成': 'success', '处理中': '', '待处理': 'warning' }[s] || 'info')
+const roleTagType = (r) => ({ athlete: '', coach: 'warning', referee: 'success', club: 'danger' }[r] || 'info')
+
+const formatDate = (d) => {
+  if (!d) return '-'
+  const dt = new Date(d)
+  const p = n => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
+}
+
+const dateRange = ref(null)
 const searchText = ref('')
 const selectedRole = ref('all')
 const selectedStatus = ref('all')
 
-const v = val => val || '-'
-
-const statusOptions = [
-  { text: '待处理', value: '待处理' },
-  { text: '处理中', value: '处理中' },
-  { text: '已完成', value: '已完成' },
-  { text: '已取消', value: '已取消' }
-]
-
-const roleFilterOptions = [
-  { text: '全部角色', value: 'all' },
-  { text: '运动员', value: 'athlete' },
-  { text: '教练员', value: 'coach' },
-  { text: '裁判员', value: 'referee' },
-  { text: '俱乐部', value: 'club' }
-]
-
-const statusFilterOptions = [
-  { text: '全部状态', value: 'all' },
-  { text: '待处理', value: '待处理' },
-  { text: '处理中', value: '处理中' },
-  { text: '已完成', value: '已完成' },
-  { text: '已取消', value: '已取消' }
-]
-
-const dateRangeText = computed(() => {
-  if (startDate.value && endDate.value) {
-    const s = new Date(startDate.value)
-    const e = new Date(endDate.value)
-    return `${s.getMonth() + 1}/${s.getDate()} - ${e.getMonth() + 1}/${e.getDate()}`
-  }
-  return '全部'
+const { listData: allList, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSelectChange } = useListRequest({
+  apiFunction: getApplicationList,
+  idKey: 'id',
+  defaultParams: { role: String(userRole.value || 'admin') }
 })
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+// 自定义日期+搜索
+const origOnSearchSubmit = onSearchSubmit
+const handleSearch = () => {
+  if (dateRange.value && dateRange.value.length === 2) {
+    filterParams.startDate = dateRange.value[0]
+    filterParams.endDate = dateRange.value[1]
+  } else {
+    delete filterParams.startDate
+    delete filterParams.endDate
+  }
+  origOnSearchSubmit()
 }
 
-const statusClass = (status) => status === '已完成' ? 'text-success' : 'text-warning'
+const onFilterChange = () => {} // 前端筛选，不请求
 
-const onFilterChange = () => {}
-
-const competitionList = computed(() => {
-  const listData = Array.isArray(list.value) ? list.value : []
-  return listData.filter(item => {
-    const isCompetition = item.serviceId === '13'
-    const matchesRole = selectedRole.value === 'all' || item.competitionRole === selectedRole.value
-    const matchesStatus = selectedStatus.value === 'all' || item.status === selectedStatus.value
-    const searchLower = searchText.value.toLowerCase().trim()
-    const matchesSearch = !searchLower ||
-      (item.name && item.name.toLowerCase().includes(searchLower)) ||
-      (item.companyName && item.companyName.toLowerCase().includes(searchLower)) ||
-      (item.phone && item.phone.includes(searchLower)) ||
-      (item.managerPhone && item.managerPhone.includes(searchLower)) ||
-      (item.contactPhone && item.contactPhone.includes(searchLower)) ||
-      (item.regNo && item.regNo.toLowerCase().includes(searchLower))
-    return isCompetition && matchesRole && matchesStatus && matchesSearch
-  })
+// 前端筛选
+const filteredList = computed(() => {
+  let list = (allList.value || []).filter(i => i.serviceId === '13' || i.competitionRole)
+  if (selectedRole.value !== 'all') list = list.filter(i => i.competitionRole === selectedRole.value)
+  if (selectedStatus.value !== 'all') list = list.filter(i => i.status === selectedStatus.value)
+  const kw = searchText.value.toLowerCase().trim()
+  if (kw) {
+    list = list.filter(i =>
+      (i.name && i.name.toLowerCase().includes(kw)) ||
+      (i.companyName && i.companyName.toLowerCase().includes(kw)) ||
+      (i.phone && i.phone.includes(kw)) ||
+      (i.managerPhone && i.managerPhone.includes(kw)) ||
+      (i.contactPhone && i.contactPhone.includes(kw)) ||
+      (i.regNo && i.regNo.toLowerCase().includes(kw))
+    )
+  }
+  return list
 })
 
+// 统计
 const competitionStats = computed(() => {
   const stats = { total: 0, athlete: 0, coach: 0, referee: 0, club: 0 }
-  const listData = Array.isArray(list.value) ? list.value : []
-  listData.filter(item => item.serviceId === '13').forEach(item => {
+  ;(allList.value || []).filter(i => i.serviceId === '13' || i.competitionRole).forEach(i => {
     stats.total++
-    if (item.competitionRole === 'athlete') stats.athlete++
-    else if (item.competitionRole === 'coach') stats.coach++
-    else if (item.competitionRole === 'referee') stats.referee++
-    else if (item.competitionRole === 'club') stats.club++
+    if (i.competitionRole === 'athlete') stats.athlete++
+    else if (i.competitionRole === 'coach') stats.coach++
+    else if (i.competitionRole === 'referee') stats.referee++
+    else if (i.competitionRole === 'club') stats.club++
   })
   return stats
 })
 
-// Selection logic
-const allSelected = ref(false)
-const selectedIds = computed(() => competitionList.value.filter(i => i.selected).map(i => i.id))
-const toggleSelectAll = () => { competitionList.value.forEach(i => { i.selected = allSelected.value }) }
-
-const onConfirmDate = (values) => {
-  const [start, end] = values
-  showCalendar.value = false
-  startDate.value = start
-  endDate.value = end
-  fetchData()
-}
-
-const fetchData = async () => {
-  try {
-    const params = { role: userRole.value }
-    if (startDate.value) params.startDate = startDate.value
-    if (endDate.value) params.endDate = endDate.value
-    const res = await axios.get('/api/list', { params })
-    let data = res.data
-    if (typeof data === 'string') { try { data = JSON.parse(data) } catch (e) { data = [] } }
-    if (!Array.isArray(data)) data = []
-    list.value = data.map(item => ({ ...item, selected: false }))
-  } catch (error) {
-    showFailToast('获取数据失败')
-    console.error(error)
-  }
-}
+const detailVisible = ref(false)
+const currentItem = ref(null)
+const newStatus = ref('待处理')
 
 const showDetail = (item) => {
   currentItem.value = { ...item }
-  showDetailPopup.value = true
+  newStatus.value = item.status || '待处理'
+  detailVisible.value = true
 }
 
-const onUpdateStatus = async ({ selectedOptions }) => {
-  const newStatus = selectedOptions[0].value
+const onUpdateStatus = async () => {
   if (!currentItem.value) return
   try {
-    await axios.post('/api/update', { id: currentItem.value.id, status: newStatus })
-    currentItem.value.status = newStatus
-    const index = list.value.findIndex(i => i.id === currentItem.value.id)
-    if (index !== -1) list.value[index].status = newStatus
-    showSuccessToast('状态更新成功')
-    showStatusPicker.value = false
-  } catch (error) {
-    showFailToast('更新状态失败')
-    console.error(error)
-  }
+    await updateApplicationStatus(currentItem.value.id, newStatus.value)
+    currentItem.value.status = newStatus.value
+    showSuccessToast('状态已更新')
+    loadData()
+  } catch (e) { showToast('更新失败') }
 }
 
 const handleExport = () => {
-  let url = `/api/export?role=${userRole.value}&serviceId=13&`
-  if (startDate.value) url += `startDate=${startDate.value.toISOString()}&`
-  if (endDate.value) url += `endDate=${endDate.value.toISOString()}&`
-  if (selectedRole.value !== 'all') url += `competitionRole=${selectedRole.value}&`
-  if (selectedStatus.value !== 'all') url += `status=${selectedStatus.value}`
-  window.open(url, '_blank')
+  const params = { role: userRole.value || 'admin', serviceId: 13 }
+  if (dateRange.value?.[0]) { params.startDate = dateRange.value[0]; params.endDate = dateRange.value[1] }
+  if (selectedRole.value !== 'all') params.competitionRole = selectedRole.value
+  if (selectedStatus.value !== 'all') params.status = selectedStatus.value
+  window.open(exportApplications(params), '_blank')
 }
 
 const handleSelectiveExport = () => {
   if (selectedIds.value.length === 0) return
-  window.open(`/api/export?ids=${selectedIds.value.join(',')}&role=${userRole.value}`, '_blank')
+  window.open(exportApplications({ ids: selectedIds.value.join(','), role: userRole.value || 'admin' }), '_blank')
 }
 
-onMounted(fetchData)
+onMounted(loadData)
 </script>
 
 <style scoped>
-.filter-card {
-  background: var(--bg-primary, #fff);
-  border-radius: var(--card-radius, 12px);
-  margin-bottom: 14px;
-  box-shadow: var(--card-shadow);
-  overflow: hidden;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.selection-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  background: var(--bg-primary, #fff);
-  border-radius: var(--card-radius) var(--card-radius) 0 0;
-  box-shadow: var(--card-shadow);
-}
-
-.detail-content { padding: 16px 0; }
-.text-success { color: var(--success-color, #34c759); }
-.text-warning { color: var(--warning-color, #ff9f0a); }
-
-@media (max-width: 767px) {
-  .stats-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
+.competition-page { max-width: 1400px; margin: 0 auto; }
+.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
+.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+.cell-name { font-weight: 500; }
+.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.review-actions { display: flex; align-items: center; justify-content: center; padding-top: 16px; gap: 8px; }
+@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .stats-row { grid-template-columns: repeat(3, 1fr); } .table-wrap { overflow-x: auto; } }
 </style>

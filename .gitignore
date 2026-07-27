@@ -1,6 +1,7 @@
 .cache/
 .claude/
 .superpowers/
+.workbuddy/
 cover.out
 *.exe
 logs/
@@ -16,3 +17,11 @@ users.json
 services_config.json
 node_modules/
 dist/
+# misc
+nul
+package-lock.json
+# IDE
+.idea/
+.vscode/
+*.swp
+Test/

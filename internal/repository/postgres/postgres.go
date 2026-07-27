@@ -51,8 +51,10 @@ func (s *Store) NewDemandRepository() repository.DemandRepository {
 }
 
 func (r *demandRepo) Create(d domain.Demand) (domain.Demand, error) {
-	images, _ := json.Marshal(d.Images)
-	bizFields, _ := json.Marshal(d.BizFields)
+	images, err := json.Marshal(d.Images)
+	if err != nil { return domain.Demand{}, fmt.Errorf("marshal images: %w", err) }
+	bizFields, err := json.Marshal(d.BizFields)
+	if err != nil { return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err) }
 	if r.cipher != nil && d.Contact != "" {
 		enc, err := r.cipher.Encrypt(d.Contact)
 		if err != nil {
@@ -64,7 +66,7 @@ func (r *demandRepo) Create(d domain.Demand) (domain.Demand, error) {
 	d.Version = 1
 	d.CreatedAt = now
 	d.UpdatedAt = now
-	_, err := r.pool.Exec(context.Background(), `
+	_, err = r.pool.Exec(context.Background(), `
 		INSERT INTO demands (id, publisher_id, publisher_name, contact, district, city_code,
 			biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
 			status, version, created_at, updated_at)
@@ -642,15 +644,19 @@ type pgPostRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewPostRepository() repository.PostRepository { return &pgPostRepo{pool: s.pool} }
 func (r *pgPostRepo) Create(p domain.Post) (domain.Post, error) {
-	img, _ := json.Marshal(p.Images); now := time.Now(); p.Version = 1; p.CreatedAt = now; p.UpdatedAt = now
-	_, err := r.pool.Exec(context.Background(),
+	img, err := json.Marshal(p.Images)
+	if err != nil { return domain.Post{}, fmt.Errorf("marshal post images: %w", err) }
+	now := time.Now(); p.Version = 1; p.CreatedAt = now; p.UpdatedAt = now
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO posts(id,author_id,title,content,images,city_code,status,version,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		p.ID, p.AuthorID, p.Title, p.Content, img, p.CityCode, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
 	return p, err
 }
 func (r *pgPostRepo) Update(id string, p domain.Post) (domain.Post, error) {
-	img, _ := json.Marshal(p.Images); p.Version++; p.UpdatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(), `UPDATE posts SET title=$1,content=$2,images=$3,status=$4,version=$5,updated_at=$6 WHERE id=$7`,
+	img, err := json.Marshal(p.Images)
+	if err != nil { return domain.Post{}, fmt.Errorf("marshal post images: %w", err) }
+	p.Version++; p.UpdatedAt = time.Now()
+	_, err = r.pool.Exec(context.Background(), `UPDATE posts SET title=$1,content=$2,images=$3,status=$4,version=$5,updated_at=$6 WHERE id=$7`,
 		p.Title, p.Content, img, p.Status, p.Version, p.UpdatedAt, id)
 	return p, err
 }
@@ -726,14 +732,18 @@ func (r *pgReportRepo) ListPending(offset, limit int) ([]domain.Report, int, err
 type pgListingRepo struct{ pool *pgxpool.Pool }
 func (s *Store) NewListingRepository() repository.ListingRepository { return &pgListingRepo{pool: s.pool} }
 func (r *pgListingRepo) Create(l domain.Listing) (domain.Listing, error) {
-	img, _ := json.Marshal(l.Images); now := time.Now(); l.Version = 1; l.CreatedAt = now; l.UpdatedAt = now
-	_, err := r.pool.Exec(context.Background(), `INSERT INTO listings(id,seller_id,title,description,category,price_fen,images,district,status,version,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+	img, err := json.Marshal(l.Images)
+	if err != nil { return domain.Listing{}, fmt.Errorf("marshal listing images: %w", err) }
+	now := time.Now(); l.Version = 1; l.CreatedAt = now; l.UpdatedAt = now
+	_, err = r.pool.Exec(context.Background(), `INSERT INTO listings(id,seller_id,title,description,category,price_fen,images,district,status,version,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		l.ID, l.SellerID, l.Title, l.Description, l.Category, l.PriceFen, img, l.District, l.Status, l.Version, l.CreatedAt, l.UpdatedAt)
 	return l, err
 }
 func (r *pgListingRepo) Update(id string, l domain.Listing) (domain.Listing, error) {
-	img, _ := json.Marshal(l.Images); l.Version++; l.UpdatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(), `UPDATE listings SET title=$1,description=$2,price_fen=$3,images=$4,status=$5,version=$6,updated_at=$7 WHERE id=$8`,
+	img, err := json.Marshal(l.Images)
+	if err != nil { return domain.Listing{}, fmt.Errorf("marshal listing images: %w", err) }
+	l.Version++; l.UpdatedAt = time.Now()
+	_, err = r.pool.Exec(context.Background(), `UPDATE listings SET title=$1,description=$2,price_fen=$3,images=$4,status=$5,version=$6,updated_at=$7 WHERE id=$8`,
 		l.Title, l.Description, l.PriceFen, img, l.Status, l.Version, l.UpdatedAt, id)
 	return l, err
 }
@@ -771,11 +781,13 @@ func (r *pgListingRepo) ListBySeller(uid string) ([]domain.Listing, error) {
 }
 func (r *pgListingRepo) AddFavorite(lid, uid string) error {
 	_, err := r.pool.Exec(context.Background(), `INSERT INTO listing_favorites(listing_id,user_id,created_at) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, lid, uid, time.Now())
-	return err
+	if err != nil { return fmt.Errorf("add favorite: %w", err) }
+	return nil
 }
 func (r *pgListingRepo) RemoveFavorite(lid, uid string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM listing_favorites WHERE listing_id=$1 AND user_id=$2`, lid, uid)
-	return err
+	if err != nil { return fmt.Errorf("remove favorite: %w", err) }
+	return nil
 }
 
 // ---- Labour ----
@@ -907,7 +919,8 @@ func (r *userRepo) All() ([]domain.User, error) {
 
 func (r *userRepo) UpdateRole(id string, role domain.Role) error {
 	_, err := r.pool.Exec(context.Background(), `UPDATE users SET role=$1, version=version+1, updated_at=NOW() WHERE id=$2`, string(role), id)
-	return err
+	if err != nil { return fmt.Errorf("update role for %s: %w", id, err) }
+	return nil
 }
 
 // ---- RefreshToken ----
@@ -922,7 +935,8 @@ func (r *refreshTokenRepo) Store(userID, tokenHash string, expiresAt time.Time) 
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at) VALUES ($1,$2,$3,$4,$5)`,
 		fmt.Sprintf("rt-%d", time.Now().UnixNano()), userID, tokenHash, expiresAt, time.Now())
-	return err
+	if err != nil { return fmt.Errorf("store refresh token: %w", err) }
+	return nil
 }
 
 func (r *refreshTokenRepo) Find(tokenHash string) (userID string, expiresAt time.Time, revoked bool, err error) {
@@ -937,7 +951,8 @@ func (r *refreshTokenRepo) Find(tokenHash string) (userID string, expiresAt time
 func (r *refreshTokenRepo) Revoke(tokenHash string) error {
 	_, err := r.pool.Exec(context.Background(),
 		`UPDATE refresh_tokens SET revoked_at=$1 WHERE token_hash=$2`, time.Now(), tokenHash)
-	return err
+	if err != nil { return fmt.Errorf("revoke refresh token: %w", err) }
+	return nil
 }
 
 // scanContracts removed — replaced by scanContractsPaged

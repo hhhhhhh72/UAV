@@ -1,194 +1,230 @@
 <template>
   <div class="case-list-page">
-    <DataToolbar>
-      <template #filters>
-        <span class="toolbar-label">案例列表</span>
-      </template>
-      <template #actions>
-        <van-button type="primary" size="small" icon="plus" @click="createCase">新增案例</van-button>
-        <van-button type="warning" size="small" icon="label-o" @click="openCategoryManager">管理分类</van-button>
-        <van-button type="default" size="small" icon="replay" @click="refreshAll">刷新</van-button>
-      </template>
-    </DataToolbar>
+    <!-- 操作栏 -->
+    <div class="search-bar">
+      <div class="search-row">
+        <el-select v-model="filterParams.categoryId" clearable style="width: 160px" @change="onSearchSubmit">
+          <el-option label="全部分类" :value="null" />
+          <el-option v-for="cat in caseCategories" :key="cat.id" :label="cat.name" :value="Number(cat.id)" />
+        </el-select>
 
-    <van-empty v-if="cases.length === 0" description="暂无案例数据" />
+        <el-input
+          v-model="filterParams.keyword"
+          placeholder="搜索案例标题..."
+          clearable style="width: 200px"
+          @keyup.enter="onSearchSubmit" @clear="onSearchSubmit"
+        >
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
 
-    <van-cell-group v-else inset style="border-radius: var(--card-radius);">
-      <van-cell v-for="caseItem in cases" :key="caseItem.id" is-link @click="editCase(caseItem)">
-        <template #title>
-          <div style="display:flex; align-items:center; gap:10px;">
+        <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
+        <el-button @click="resetParams">重置</el-button>
+
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+          <el-button type="primary" :icon="Plus" @click="createCase">新增案例</el-button>
+          <el-button type="warning" :icon="Operation" @click="openCategoryManager">管理分类</el-button>
+          <el-button :icon="RefreshRight" @click="refreshAll">刷新</el-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="table-wrap">
+      <el-table v-loading="loading" :data="listData" row-key="id" stripe border>
+        <el-table-column label="封面" width="90">
+          <template #default="{ row }">
             <div class="case-thumb">
-              <img v-if="caseItem.coverType !== 'video'" :src="caseItem.cover" :alt="caseItem.title" />
-              <video v-else :src="caseItem.cover" muted playsinline preload="metadata" />
+              <img v-if="row.coverType !== 'video'" :src="row.cover" :alt="row.title" />
+              <video v-else :src="row.cover" muted playsinline preload="metadata" />
             </div>
-            <div style="min-width: 0;">
-              <div class="case-title">
-                {{ caseItem.title || '未命名案例' }}
-                <van-tag v-if="caseItem.subTag" type="warning" size="medium" style="margin-left:6px;">{{ caseItem.subTag }}</van-tag>
-              </div>
-              <div class="case-meta">分类：{{ getCategoryName(caseItem.categoryId) }} · {{ caseItem.location || '-' }} · {{ caseItem.date || '-' }}</div>
-            </div>
-          </div>
-        </template>
-        <template #value>
-          <div style="display:flex; flex-direction: column; align-items: flex-end; gap: 6px;">
-            <van-tag type="primary" size="medium">{{ caseItem.coverType === 'video' ? '视频' : '图片' }}</van-tag>
-            <span style="font-size: 12px; color: var(--text-secondary);">{{ caseItem.views || '-' }}</span>
-          </div>
-        </template>
-      </van-cell>
-    </van-cell-group>
+          </template>
+        </el-table-column>
 
-    <!-- Case Edit Popup -->
-    <van-popup :show="showCaseEditPopup" @update:show="v => showCaseEditPopup = v" position="bottom" :style="{ height: '90%' }" round>
-      <div class="detail-content" v-if="currentCase">
-        <van-form @submit="onSaveCase">
-          <van-cell-group title="基本信息">
-            <van-field name="categoryId" label="所属分类" required>
-              <template #input>
-                <van-radio-group v-model="currentCase.categoryId" direction="horizontal" @change="onCategoryChange">
-                  <van-radio v-for="cat in caseCategories" :key="cat.id" :name="cat.id">{{ cat.name }}</van-radio>
-                </van-radio-group>
-              </template>
-            </van-field>
-            <van-field v-model="currentCase.title" label="标题" placeholder="请输入标题" required />
-            <van-field v-model="currentCase.subTag" label="子标签" placeholder="可选，用于区分同分类下的细分场景" />
-            <van-field v-model="currentCase.service" label="服务类型" placeholder="如：无人机物流服务" />
-            <van-field v-model="currentCase.description" label="简介" type="textarea" rows="2" placeholder="请输入简介" />
-            <van-field v-model="currentCase.location" label="地点" placeholder="请输入地点" />
-            <van-field v-model="currentCase.date" label="时间" placeholder="请输入时间" />
-          </van-cell-group>
+        <el-table-column prop="title" label="标题" min-width="180" sortable="custom">
+          <template #default="{ row }">
+            <span class="cell-title">{{ row.title || '未命名案例' }}</span>
+            <el-tag v-if="row.subTag" type="warning" size="small" style="margin-left: 6px;">{{ row.subTag }}</el-tag>
+          </template>
+        </el-table-column>
 
-          <van-cell-group title="封面设置">
-            <van-field name="coverType" label="封面类型">
-              <template #input>
-                <van-radio-group v-model="currentCase.coverType" direction="horizontal">
-                  <van-radio name="image">图片</van-radio>
-                  <van-radio name="video">视频</van-radio>
-                </van-radio-group>
-              </template>
-            </van-field>
-            <van-field v-model="currentCase.cover" label="封面地址" placeholder="输入URL或上传" />
-            <van-field label="上传封面">
-              <template #input>
-                <van-uploader :after-read="onReadCover" max-count="1" :accept="currentCase.coverType === 'video' ? 'video/*' : 'image/*'">
-                  <van-button icon="plus" type="primary" size="small" plain>上传{{ currentCase.coverType === 'video' ? '视频' : '图片' }}</van-button>
-                </van-uploader>
-              </template>
-            </van-field>
-          </van-cell-group>
+        <el-table-column label="分类" width="110">
+          <template #default="{ row }">{{ getCategoryName(row.categoryId) }}</template>
+        </el-table-column>
 
-          <van-cell-group title="媒体资源">
-            <div v-for="(media, index) in currentCase.media" :key="index" style="padding: 10px; border-bottom: 1px dashed #eee;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span style="font-weight: bold;">资源 #{{ index + 1 }}</span>
-                <van-button size="mini" type="danger" icon="cross" @click="currentCase.media.splice(index, 1)" />
-              </div>
-              <van-radio-group v-model="media.type" direction="horizontal" style="margin-bottom: 8px;">
-                <van-radio name="image">图片</van-radio>
-                <van-radio name="video">视频</van-radio>
-              </van-radio-group>
-              <van-field v-model="media.url" label="地址" placeholder="URL" />
-              <div style="margin-top: 8px;">
-                <van-uploader :after-read="file => onReadMedia(file, index)" :accept="media.type === 'video' ? 'video/*' : 'image/*'">
-                  <van-button icon="plus" size="mini" type="default">上传{{ media.type === 'video' ? '视频' : '图片' }}</van-button>
-                </van-uploader>
-              </div>
-            </div>
-            <div style="padding: 10px;">
-              <van-button size="small" type="primary" block plain icon="plus" @click="currentCase.media.push({ type: 'image', url: '' })">添加资源</van-button>
-            </div>
-          </van-cell-group>
+        <el-table-column prop="location" label="地点" width="120" />
+        <el-table-column prop="date" label="时间" width="110" />
 
-          <van-cell-group title="项目亮点">
-            <div v-for="(tag, index) in currentCase.highlights" :key="index" style="display: flex; align-items: center; padding: 0 16px;">
-              <van-field v-model="currentCase.highlights[index]" :label="'标签 ' + (index + 1)" placeholder="输入标签内容" />
-              <van-button size="mini" type="danger" icon="cross" @click="currentCase.highlights.splice(index, 1)" style="margin-left: 8px;" />
-            </div>
-            <div style="padding: 10px;">
-              <van-button size="small" type="primary" block plain icon="plus" @click="currentCase.highlights.push('')">添加标签</van-button>
-            </div>
-          </van-cell-group>
+        <el-table-column label="类型" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.coverType === 'video' ? 'success' : ''" size="small">
+              {{ row.coverType === 'video' ? '视频' : '图片' }}
+            </el-tag>
+          </template>
+        </el-table-column>
 
-          <van-cell-group title="详细内容">
-            <van-field v-model="currentCase.fullDescription" label="详细描述" type="textarea" rows="4" placeholder="请输入详细描述" autosize />
-          </van-cell-group>
+        <el-table-column prop="views" label="浏览量" width="90" align="right" sortable="custom" />
 
-          <div style="margin: 16px; padding-bottom: 30px;">
-            <van-button round block type="primary" native-type="submit" style="margin-bottom: 12px;">保存修改</van-button>
-            <van-button v-if="currentCase.id" round block type="danger" native-type="button" @click="onDeleteCase">删除案例</van-button>
-          </div>
-        </van-form>
-      </div>
-    </van-popup>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="editCase(row)">编辑</el-button>
+            <el-divider direction="vertical" />
+            <el-button link type="danger" size="small" @click="onDeleteCase(row)">删除</el-button>
+          </template>
+        </el-table-column>
 
-    <!-- Category Manager Popup -->
-    <van-popup :show="showCategoryPopup" @update:show="v => showCategoryPopup = v" position="bottom" :style="{ height: '70%' }" round>
-      <div class="category-manager">
-        <div class="category-header">
-          <span class="category-title">分类管理（共 {{ caseCategories.length }} 项）</span>
-          <van-button type="primary" size="small" icon="plus" @click="openAddCategoryDialog">新增分类</van-button>
-        </div>
+        <template #empty><el-empty description="暂无案例数据" /></template>
+      </el-table>
+    </div>
 
-        <van-empty v-if="caseCategories.length === 0" description="暂无分类，请点击右上角新增" />
+    <!-- 分页 -->
+    <div class="pagination-wrap" v-if="total > 0">
+      <el-pagination
+        v-model:current-page="filterParams.page"
+        v-model:page-size="filterParams.page_size"
+        :page-sizes="[10, 20, 50]"
+        :total="total" layout="total, sizes, prev, pager, next, jumper"
+        background
+        @size-change="loadData" @current-change="loadData"
+      />
+    </div>
 
-        <div v-else class="category-list">
-          <div v-for="(cat, idx) in caseCategories" :key="cat.id" class="category-row">
-            <div class="category-row-head">
-              <span class="category-row-index">#{{ idx + 1 }}</span>
-              <van-tag type="primary" size="medium">ID: {{ cat.id }}</van-tag>
-              <div class="category-row-actions">
-                <van-button size="mini" type="success" icon="edit" @click="startEditCategory(cat)">编辑</van-button>
-                <van-button size="mini" type="danger" icon="delete-o" @click="deleteCategory(cat)">删除</van-button>
-              </div>
-            </div>
-            <van-cell title="分类名称" :value="cat.name || '-'" />
-            <van-cell title="默认服务" :value="cat.service || '-'" />
-          </div>
-        </div>
-      </div>
-    </van-popup>
-
-    <!-- 新增/编辑分类对话框 -->
-    <van-dialog
-      :show="showCategoryDialog"
-      @update:show="v => showCategoryDialog = v"
-      :title="editingCategory && editingCategory.id ? '编辑分类' : '新增分类'"
-      show-cancel-button
-      :before-close="onCategoryDialogClose"
+    <!-- 案例编辑弹窗 (保留原有逻辑) -->
+    <el-dialog
+      v-model="showCaseEditPopup"
+      :title="currentCase?.id ? '编辑案例' : '新增案例'"
+      width="720px"
+      :close-on-click-modal="false"
     >
-      <div style="padding: 16px;" v-if="editingCategory">
-        <van-field v-model="editingCategory.name" label="分类名称" placeholder="如：共享无人机" required />
-        <van-field v-model="editingCategory.service" label="默认服务" placeholder="如：共享无人机服务" />
+      <template v-if="currentCase">
+        <el-form label-width="80px">
+          <el-divider content-position="left">基本信息</el-divider>
+          <el-form-item label="所属分类" required>
+            <el-radio-group v-model="currentCase.categoryId" @change="onCategoryChange">
+              <el-radio v-for="cat in caseCategories" :key="cat.id" :value="Number(cat.id)">{{ cat.name }}</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="标题" required>
+            <el-input v-model="currentCase.title" placeholder="请输入标题" />
+          </el-form-item>
+          <el-form-item label="子标签">
+            <el-input v-model="currentCase.subTag" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="服务类型">
+            <el-input v-model="currentCase.service" placeholder="如：无人机物流服务" />
+          </el-form-item>
+          <el-form-item label="简介">
+            <el-input v-model="currentCase.description" type="textarea" :rows="2" placeholder="请输入简介" />
+          </el-form-item>
+          <el-form-item label="地点">
+            <el-input v-model="currentCase.location" placeholder="请输入地点" />
+          </el-form-item>
+          <el-form-item label="时间">
+            <el-input v-model="currentCase.date" placeholder="请输入时间" />
+          </el-form-item>
+
+          <el-divider content-position="left">封面设置</el-divider>
+          <el-form-item label="封面类型">
+            <el-radio-group v-model="currentCase.coverType">
+              <el-radio value="image">图片</el-radio>
+              <el-radio value="video">视频</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="封面地址">
+            <el-input v-model="currentCase.cover" placeholder="输入URL" />
+          </el-form-item>
+
+          <el-divider content-position="left">详细内容</el-divider>
+          <el-form-item label="详细描述">
+            <el-input v-model="currentCase.fullDescription" type="textarea" :rows="4" placeholder="请输入详细描述" />
+          </el-form-item>
+
+          <!-- 亮点标签 -->
+          <el-divider content-position="left">项目亮点</el-divider>
+          <div v-for="(tag, idx) in currentCase.highlights" :key="idx" style="margin-bottom: 8px; display: flex; gap: 8px;">
+            <el-input v-model="currentCase.highlights[idx]" :placeholder="'标签 ' + (idx + 1)" style="flex: 1;" />
+            <el-button type="danger" :icon="Delete" circle size="small" @click="currentCase.highlights.splice(idx, 1)" />
+          </div>
+          <el-button type="primary" :icon="Plus" plain size="small" @click="currentCase.highlights.push('')">添加标签</el-button>
+
+          <!-- 媒体资源 -->
+          <el-divider content-position="left">媒体资源</el-divider>
+          <div v-for="(media, idx) in currentCase.media" :key="idx" style="margin-bottom: 12px; padding: 10px; border: 1px dashed #e0e0e0; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <b>资源 #{{ idx + 1 }}</b>
+              <el-button type="danger" size="small" :icon="Delete" circle @click="currentCase.media.splice(idx, 1)" />
+            </div>
+            <el-radio-group v-model="media.type" style="margin-bottom: 8px;">
+              <el-radio value="image">图片</el-radio>
+              <el-radio value="video">视频</el-radio>
+            </el-radio-group>
+            <el-input v-model="media.url" placeholder="URL" />
+          </div>
+          <el-button type="primary" :icon="Plus" plain size="small" @click="currentCase.media.push({ type: 'image', url: '' })">添加资源</el-button>
+        </el-form>
+      </template>
+      <template #footer>
+        <el-button @click="showCaseEditPopup = false">取消</el-button>
+        <el-button v-if="currentCase?.id" type="danger" @click="onDeleteCase(currentCase)">删除案例</el-button>
+        <el-button type="primary" @click="onSaveCase">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 分类管理弹窗 (保留原有逻辑) -->
+    <el-dialog v-model="showCategoryPopup" title="分类管理" width="500px">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <span>共 {{ caseCategories.length }} 项</span>
+        <el-button type="primary" size="small" :icon="Plus" @click="openAddCategoryDialog">新增分类</el-button>
       </div>
-    </van-dialog>
+
+      <el-empty v-if="caseCategories.length === 0" description="暂无分类" />
+
+      <div v-else>
+        <div v-for="(cat, idx) in caseCategories" :key="cat.id" style="padding: 10px; border: 1px solid #ebeef5; border-radius: 6px; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: #909399; font-size: 12px;">#{{ idx + 1 }}</span>
+            <el-tag type="primary" size="small">ID: {{ cat.id }}</el-tag>
+            <span style="flex: 1;">{{ cat.name || '-' }}</span>
+            <span style="color: #909399; font-size: 12px;">{{ cat.service || '-' }}</span>
+            <el-button size="small" type="success" @click="startEditCategory(cat)">编辑</el-button>
+            <el-button size="small" type="danger" @click="deleteCategory(cat)">删除</el-button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
+    <!-- 分类编辑子弹窗 -->
+    <el-dialog v-model="showCategoryDialog" :title="editingCategory?.id ? '编辑分类' : '新增分类'" width="400px">
+      <el-form v-if="editingCategory" label-width="80px">
+        <el-form-item label="分类名称" required>
+          <el-input v-model="editingCategory.name" placeholder="如：共享无人机" />
+        </el-form-item>
+        <el-form-item label="默认服务">
+          <el-input v-model="editingCategory.service" placeholder="如：共享无人机服务" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCategoryDialog = false">取消</el-button>
+        <el-button type="primary" @click="onSaveCategory">确认</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from '@/utils/http'
+import { Search, Plus, Operation, RefreshRight, Delete } from '@element-plus/icons-vue'
 import { showFailToast, showSuccessToast, showLoadingToast, closeToast, showConfirmDialog } from 'vant'
-import DataToolbar from '../components/DataToolbar.vue'
-import { normalizeMediaUrl, uploadFile } from '../composables/useMedia'
+import { useListRequest } from '@/hooks/useListRequest'
+import { normalizeMediaUrl } from '../composables/useMedia'
 
-const cases = ref([])
-const showCaseEditPopup = ref(false)
-const currentCase = ref(null)
-
-// 案例分类：从后端 /api/case-categories 动态加载
+// --- 分类数据 ---
 const caseCategories = ref([])
-
-// 分类管理弹窗
-const showCategoryPopup = ref(false)
-const showCategoryDialog = ref(false)
-const editingCategory = ref(null)  // 当前在对话框中编辑的分类（新增时 id=null）
 
 const fetchCaseCategories = async () => {
   try {
     const res = await axios.get('/api/case-categories')
-    const list = Array.isArray(res.data) ? res.data : []
-    caseCategories.value = list
+    caseCategories.value = Array.isArray(res.data) ? res.data : []
   } catch (error) {
     console.error('获取分类失败', error)
     caseCategories.value = []
@@ -203,75 +239,149 @@ const getCategoryName = (id) => {
 const onCategoryChange = (val) => {
   if (!currentCase.value) return
   const cat = caseCategories.value.find(c => Number(c.id) === Number(val))
-  if (cat) {
-    const defaults = caseCategories.value.map(c => c.service).filter(Boolean)
-    if (!currentCase.value.service || defaults.includes(currentCase.value.service)) {
-      currentCase.value.service = cat.service || ''
-    }
+  if (cat && !currentCase.value.service) {
+    currentCase.value.service = cat.service || ''
   }
 }
 
-// ========== 分类管理 ==========
+// --- 案例列表 ---
+const fetchCases = async (params) => {
+  try {
+    const res = await axios.get('/api/cases', { params })
+    const raw = res.data?.data || res.data || []
+    return {
+      data: Array.isArray(raw) ? raw.map(c => ({
+        ...c,
+        cover: normalizeMediaUrl(c.cover),
+        media: Array.isArray(c.media) ? c.media.map(m => ({ ...m, url: normalizeMediaUrl(m?.url) })) : c.media
+      })) : [],
+      total: res.data?.total || (Array.isArray(raw) ? raw.length : 0)
+    }
+  } catch (error) {
+    showFailToast('获取案例数据失败')
+    return { data: [], total: 0 }
+  }
+}
+
+// 前端搜索过滤包装层
+const caseListData = ref([])
+
+const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
+  apiFunction: computed(() => fetchCases),
+  idKey: 'id',
+  defaultParams: {}
+})
+
+const refreshAll = async () => {
+  await fetchCaseCategories()
+  loadData()
+}
+
+// --- 案例编辑 ---
+const showCaseEditPopup = ref(false)
+const currentCase = ref(null)
+
+const createCase = async () => {
+  if (caseCategories.value.length === 0) await fetchCaseCategories()
+  const firstCat = caseCategories.value[0]
+  currentCase.value = {
+    title: '', description: '', location: '', date: '', fullDescription: '',
+    coverType: 'image', cover: '', media: [], highlights: [],
+    categoryId: firstCat ? Number(firstCat.id) : null,
+    service: firstCat ? firstCat.service : '', subTag: ''
+  }
+  showCaseEditPopup.value = true
+}
+
+const editCase = async (caseItem) => {
+  if (caseCategories.value.length === 0) await fetchCaseCategories()
+  currentCase.value = JSON.parse(JSON.stringify(caseItem))
+  if (!currentCase.value.media) currentCase.value.media = []
+  if (!currentCase.value.highlights) currentCase.value.highlights = []
+  if (!currentCase.value.coverType) currentCase.value.coverType = 'image'
+  if (currentCase.value.subTag == null) currentCase.value.subTag = ''
+  showCaseEditPopup.value = true
+}
+
+const onSaveCase = async () => {
+  if (!currentCase.value) return
+  showLoadingToast({ message: '保存中...', forbidClick: true })
+  try {
+    if (currentCase.value.id) {
+      await axios.post('/api/cases/update', currentCase.value)
+    } else {
+      await axios.post('/api/cases/create', currentCase.value)
+    }
+    closeToast()
+    showSuccessToast('保存成功')
+    showCaseEditPopup.value = false
+    loadData()
+  } catch (error) {
+    closeToast()
+    showFailToast(error?.response?.data?.message || '保存失败')
+  }
+}
+
+const onDeleteCase = (caseItem) => {
+  showConfirmDialog({ title: '确认删除', message: '确定要删除这个案例吗？删除后无法恢复。' })
+    .then(async () => {
+      try {
+        await axios.post('/api/cases/delete', { id: caseItem.id })
+        showSuccessToast('删除成功')
+        if (currentCase.value?.id === caseItem.id) showCaseEditPopup.value = false
+        loadData()
+      } catch (error) {
+        showFailToast('删除失败')
+      }
+    })
+    .catch(() => {})
+}
+
+// --- 分类管理 ---
+const showCategoryPopup = ref(false)
+const showCategoryDialog = ref(false)
+const editingCategory = ref(null)
+
 const openCategoryManager = async () => {
   await fetchCaseCategories()
   showCategoryPopup.value = true
 }
 
-// 新增：打开对话框（空白表单）
 const openAddCategoryDialog = () => {
   editingCategory.value = { id: null, name: '', service: '' }
   showCategoryDialog.value = true
 }
 
-// 编辑：打开对话框（带回填）
 const startEditCategory = (cat) => {
   editingCategory.value = { id: cat.id, name: cat.name || '', service: cat.service || '' }
   showCategoryDialog.value = true
 }
 
-// 对话框「确认/取消」统一处理（vant Dialog 的 before-close 钩子）
-const onCategoryDialogClose = async (action) => {
-  if (action !== 'confirm') return true
-
+const onSaveCategory = async () => {
   const form = editingCategory.value
-  if (!form || !form.name || !String(form.name).trim()) {
+  if (!form || !form.name?.trim()) {
     showFailToast('分类名称不能为空')
-    return false // 阻止关闭，让用户继续输入
+    return
   }
-
   showLoadingToast({ message: '保存中...', forbidClick: true })
   try {
     if (form.id == null) {
-      await axios.post('/api/case-categories/create', {
-        name: String(form.name).trim(),
-        service: String(form.service || '').trim()
-      })
+      await axios.post('/api/case-categories/create', { name: form.name.trim(), service: (form.service || '').trim() })
     } else {
-      await axios.post('/api/case-categories/update', {
-        id: form.id,
-        name: String(form.name).trim(),
-        service: String(form.service || '').trim()
-      })
+      await axios.post('/api/case-categories/update', { id: form.id, name: form.name.trim(), service: (form.service || '').trim() })
     }
     closeToast()
     showSuccessToast(form.id == null ? '分类已新增' : '分类已更新')
+    showCategoryDialog.value = false
     await fetchCaseCategories()
-    return true
   } catch (error) {
     closeToast()
-    console.error('保存分类失败', error)
-    const msg = error?.response?.data?.message || '保存失败'
-    showFailToast(msg)
-    return false
+    showFailToast(error?.response?.data?.message || '保存失败')
   }
 }
 
-// 删除分类
 const deleteCategory = (cat) => {
-  showConfirmDialog({
-    title: '确认删除',
-    message: `确定要删除分类「${cat.name}」吗？\n若有案例仍归属该分类将无法删除。`
-  })
+  showConfirmDialog({ title: '确认删除', message: `确定要删除分类「${cat.name}」吗？若有案例仍归属该分类将无法删除。` })
     .then(async () => {
       showLoadingToast({ message: '删除中...', forbidClick: true })
       try {
@@ -281,133 +391,23 @@ const deleteCategory = (cat) => {
         await fetchCaseCategories()
       } catch (error) {
         closeToast()
-        const msg = error?.response?.data?.message || '删除失败'
-        showFailToast(msg)
+        showFailToast(error?.response?.data?.message || '删除失败')
       }
     })
     .catch(() => {})
 }
 
-const refreshAll = async () => {
-  await Promise.all([fetchCaseCategories(), fetchCases()])
-}
-
-const fetchCases = async () => {
-  try {
-    const res = await axios.get('/api/cases')
-    const raw = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.cases || [])
-    cases.value = Array.isArray(raw)
-      ? raw.map(c => ({
-          ...c,
-          cover: normalizeMediaUrl(c.cover),
-          media: Array.isArray(c.media) ? c.media.map(m => ({ ...m, url: normalizeMediaUrl(m?.url) })) : c.media
-        }))
-      : []
-  } catch (error) {
-    showFailToast('获取案例数据失败')
-    console.error(error)
-  }
-}
-
-const createCase = () => {
-  const firstCat = caseCategories.value[0]
-  currentCase.value = {
-    title: '', description: '', location: '', date: '', fullDescription: '',
-    coverType: 'image', cover: '', media: [], highlights: [],
-    categoryId: firstCat ? firstCat.id : null,
-    service: firstCat ? firstCat.service : '',
-    subTag: ''
-  }
-  showCaseEditPopup.value = true
-}
-
-const editCase = (caseItem) => {
-  currentCase.value = JSON.parse(JSON.stringify(caseItem))
-  if (!currentCase.value.media) currentCase.value.media = []
-  if (!currentCase.value.highlights) currentCase.value.highlights = []
-  if (!currentCase.value.coverType) currentCase.value.coverType = 'image'
-  if (currentCase.value.subTag == null) currentCase.value.subTag = ''
-  showCaseEditPopup.value = true
-}
-
-const onReadCover = async (file) => {
-  showLoadingToast({ message: '上传中...', forbidClick: true })
-  const url = await uploadFile(file)
-  closeToast()
-  if (url) {
-    currentCase.value.cover = normalizeMediaUrl(url)
-    showSuccessToast('封面已上传')
-  }
-}
-
-const onReadMedia = async (file, index) => {
-  showLoadingToast({ message: '上传中...', forbidClick: true })
-  const url = await uploadFile(file)
-  closeToast()
-  if (url) {
-    currentCase.value.media[index].url = normalizeMediaUrl(url)
-    showSuccessToast('资源已上传')
-  }
-}
-
-const onSaveCase = async () => {
-  if (!currentCase.value) return
-  try {
-    if (currentCase.value.id) {
-      await axios.post('/api/cases/update', currentCase.value)
-      const index = cases.value.findIndex(c => c.id === currentCase.value.id)
-      if (index !== -1) cases.value[index] = currentCase.value
-    } else {
-      const res = await axios.post('/api/cases/create', currentCase.value)
-      currentCase.value.id = res.data.id
-      cases.value.unshift(currentCase.value)
-    }
-    showSuccessToast('保存成功')
-    showCaseEditPopup.value = false
-  } catch (error) {
-    showFailToast('保存失败')
-    console.error(error)
-  }
-}
-
-const onDeleteCase = () => {
-  showConfirmDialog({ title: '确认删除', message: '确定要删除这个案例吗？删除后无法恢复。' })
-    .then(async () => {
-      try {
-        await axios.post('/api/cases/delete', { id: currentCase.value.id })
-        const index = cases.value.findIndex(c => c.id === currentCase.value.id)
-        if (index !== -1) cases.value.splice(index, 1)
-        showSuccessToast('删除成功')
-        showCaseEditPopup.value = false
-      } catch (error) {
-        showFailToast('删除失败')
-        console.error(error)
-      }
-    })
-    .catch(() => {})
-}
-
-onMounted(async () => {
-  await fetchCaseCategories()
-  await fetchCases()
-})
+onMounted(refreshAll)
 </script>
 
 <style scoped>
-.toolbar-label { font-size: 14px; font-weight: 500; color: var(--text-color); }
-.case-thumb { width: 56px; height: 56px; border-radius: 8px; overflow: hidden; background: #f7f8fa; flex: 0 0 56px; }
+.case-list-page { max-width: 1400px; margin: 0 auto; }
+.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+.case-thumb { width: 56px; height: 56px; border-radius: 6px; overflow: hidden; background: #f7f8fa; }
 .case-thumb img, .case-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.case-title { font-weight: 600; color: var(--text-color); line-height: 1.2; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.case-meta { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.detail-content { padding: 16px 0; }
-
-/* 分类管理弹窗 */
-.category-manager { padding: 16px 0; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
-.category-header { display: flex; align-items: center; justify-content: space-between; padding: 0 16px 12px; flex-shrink: 0; }
-.category-title { font-size: 16px; font-weight: 600; color: var(--text-color); }
-.category-list { flex: 1; overflow-y: auto; padding: 0 16px 16px; }
-.category-row { border: 1px solid var(--border-color, #ebedf0); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
-.category-row-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #f7f8fa; }
-.category-row-index { font-size: 12px; color: var(--text-secondary); margin-right: 4px; }
-.category-row-actions { margin-left: auto; display: flex; gap: 6px; }
+.cell-title { font-weight: 500; }
+.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
 </style>

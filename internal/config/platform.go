@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 
@@ -50,6 +51,7 @@ func SavePlatformConfig(cfg PlatformConfig) error {
 	platformMu.Lock()
 	platformCfg = cfg
 	platformMu.Unlock()
-	data, _ := json.MarshalIndent(cfg, "", "  ")
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil { return fmt.Errorf("marshal platform config: %w", err) }
 	return os.WriteFile("platform_config.json", data, 0644)
 }

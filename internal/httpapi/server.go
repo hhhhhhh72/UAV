@@ -28,10 +28,13 @@ import (
 	"sync"
 	"time"
 
+	_ "drone-platform/docs"
 	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
 	"drone-platform/internal/service"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type requestIDKey struct{}
@@ -270,6 +273,13 @@ func (s *Server) Router() http.Handler {
 		slog.Warn("H5 compat routes enabled (ADMIN_DEV_MODE=true) — JSON file storage, NOT FOR PRODUCTION")
 		s.registerCompatRoutes(mux)
 		s.registerH5Compat(mux)
+	}
+
+	// ── Swagger UI ─────────────────────────────────────────────────
+	if adminDevMode() {
+		mux.HandleFunc("/swagger/", httpSwagger.Handler(
+			httpSwagger.URL("/swagger/doc.json"),
+		))
 	}
 
 	return s.idempotencyCheck(s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(mux)))))))

@@ -153,7 +153,7 @@
           <view class="section-title">联系客服</view>
           <view class="contact-info">
             <view class="contact-row">如有疑问，请咨询客服热线：</view>
-            <view class="phone-link" @tap="makeCall('023-55550500')">023-55550500</view>
+            <view class="phone-link" @tap="makeCall(contactPhone)">{{ contactPhone }}</view>
             <view class="work-time">工作时间：工作日 8:30-17:30</view>
           </view>
         </view>
@@ -184,6 +184,7 @@ const pkg = ref(null)
 const activeSession = ref('am')
 
 const studyShowcase = ref([])
+const contactPhone = ref('023-55550500')
 
 onLoad(async (options) => {
   const id = options.package || 'study-halfday'
@@ -191,6 +192,8 @@ onLoad(async (options) => {
   try {
     const res = await request({ url: '/api/services/config' })
     const allConfigs = res?.data || res || {}
+    const homeCfg = allConfigs._home || {}
+    if (homeCfg.contactPhone) contactPhone.value = homeCfg.contactPhone
     const config = allConfigs['9'] || {}
 
     // 从API获取课程包数据

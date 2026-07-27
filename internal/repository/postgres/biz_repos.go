@@ -20,8 +20,9 @@ func (s *Store) NewExpertRepository() repository.ExpertRepository { return &expe
 
 func (r *expertRepo) Create(e domain.Expert) (domain.Expert, error) {
 	e.CreatedAt = time.Now(); e.UpdatedAt = e.CreatedAt
-	tags, _ := json.Marshal(e.Tags)
-	_, err := r.pool.Exec(context.Background(),
+	tags, err := json.Marshal(e.Tags)
+	if err != nil { return domain.Expert{}, fmt.Errorf("marshal expert tags: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO experts (id,name,title,org,field,tags,bio,avatar_url,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		e.ID, e.Name, e.Title, e.Org, e.Field, tags, e.Bio, e.AvatarURL, e.Status, e.CreatedAt, e.UpdatedAt)
 	return e, err
@@ -53,15 +54,17 @@ func (r *expertRepo) List(field string) ([]domain.Expert, error) {
 }
 func (r *expertRepo) Update(e domain.Expert) (domain.Expert, error) {
 	e.UpdatedAt = time.Now()
-	tags, _ := json.Marshal(e.Tags)
-	_, err := r.pool.Exec(context.Background(),
+	tags, err := json.Marshal(e.Tags)
+	if err != nil { return domain.Expert{}, fmt.Errorf("marshal expert tags: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`UPDATE experts SET name=$1,title=$2,org=$3,field=$4,tags=$5,bio=$6,avatar_url=$7,status=$8,updated_at=$9 WHERE id=$10`,
 		e.Name, e.Title, e.Org, e.Field, tags, e.Bio, e.AvatarURL, e.Status, e.UpdatedAt, e.ID)
 	return e, err
 }
 func (r *expertRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM experts WHERE id=$1`, id)
-	return err
+	if err != nil { return fmt.Errorf("delete expert %s: %w", id, err) }
+	return nil
 }
 
 // ---- Case ----
@@ -72,8 +75,9 @@ func (s *Store) NewCaseRepository() repository.CaseRepository { return &caseRepo
 
 func (r *caseRepo) Create(c domain.CaseEntry) (domain.CaseEntry, error) {
 	c.CreatedAt = time.Now(); c.UpdatedAt = c.CreatedAt
-	imgs, _ := json.Marshal(c.Images)
-	_, err := r.pool.Exec(context.Background(),
+	imgs, err := json.Marshal(c.Images)
+	if err != nil { return domain.CaseEntry{}, fmt.Errorf("marshal case images: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO case_entries (id,title,category,description,images,client_name,result,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		c.ID, c.Title, c.Category, c.Description, imgs, c.ClientName, c.Result, c.Status, c.CreatedAt, c.UpdatedAt)
 	return c, err
@@ -106,15 +110,17 @@ func (r *caseRepo) List(category string, offset, limit int) ([]domain.CaseEntry,
 }
 func (r *caseRepo) Update(c domain.CaseEntry) (domain.CaseEntry, error) {
 	c.UpdatedAt = time.Now()
-	imgs, _ := json.Marshal(c.Images)
-	_, err := r.pool.Exec(context.Background(),
+	imgs, err := json.Marshal(c.Images)
+	if err != nil { return domain.CaseEntry{}, fmt.Errorf("marshal case images: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`UPDATE case_entries SET title=$1,category=$2,description=$3,images=$4,client_name=$5,result=$6,status=$7,updated_at=$8 WHERE id=$9`,
 		c.Title, c.Category, c.Description, imgs, c.ClientName, c.Result, c.Status, c.UpdatedAt, c.ID)
 	return c, err
 }
 func (r *caseRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM case_entries WHERE id=$1`, id)
-	return err
+	if err != nil { return fmt.Errorf("delete case %s: %w", id, err) }
+	return nil
 }
 
 // ---- Compliance ----
@@ -125,8 +131,9 @@ func (s *Store) NewComplianceRepository() repository.ComplianceRepository { retu
 
 func (r *complianceRepo) CreateDoc(d domain.ComplianceDoc) (domain.ComplianceDoc, error) {
 	d.CreatedAt = time.Now(); d.UpdatedAt = d.CreatedAt
-	tags, _ := json.Marshal(d.Tags)
-	_, err := r.pool.Exec(context.Background(),
+	tags, err := json.Marshal(d.Tags)
+	if err != nil { return domain.ComplianceDoc{}, fmt.Errorf("marshal doc tags: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO compliance_docs (id,title,category,content,summary,source,tags,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		d.ID, d.Title, d.Category, d.Content, d.Summary, d.Source, tags, d.Status, d.CreatedAt, d.UpdatedAt)
 	return d, err
@@ -159,15 +166,17 @@ func (r *complianceRepo) ListDocs(category string, offset, limit int) ([]domain.
 }
 func (r *complianceRepo) UpdateDoc(d domain.ComplianceDoc) (domain.ComplianceDoc, error) {
 	d.UpdatedAt = time.Now()
-	tags, _ := json.Marshal(d.Tags)
-	_, err := r.pool.Exec(context.Background(),
+	tags, err := json.Marshal(d.Tags)
+	if err != nil { return domain.ComplianceDoc{}, fmt.Errorf("marshal doc tags: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`UPDATE compliance_docs SET title=$1,category=$2,content=$3,summary=$4,source=$5,tags=$6,status=$7,updated_at=$8 WHERE id=$9`,
 		d.Title, d.Category, d.Content, d.Summary, d.Source, tags, d.Status, d.UpdatedAt, d.ID)
 	return d, err
 }
 func (r *complianceRepo) DeleteDoc(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM compliance_docs WHERE id=$1`, id)
-	return err
+	if err != nil { return fmt.Errorf("delete doc %s: %w", id, err) }
+	return nil
 }
 func (r *complianceRepo) CreateStandard(s domain.StandardDoc) (domain.StandardDoc, error) {
 	s.CreatedAt = time.Now(); s.UpdatedAt = s.CreatedAt
@@ -240,7 +249,8 @@ func (r *indReportRepo) Update(rp domain.IndustryReport) (domain.IndustryReport,
 }
 func (r *indReportRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM industry_reports WHERE id=$1`, id)
-	return err
+	if err != nil { return fmt.Errorf("delete report %s: %w", id, err) }
+	return nil
 }
 
 // ---- Portfolio ----
@@ -251,8 +261,11 @@ func (s *Store) NewPortfolioRepository() repository.PortfolioRepository { return
 
 func (r *portfolioRepo) Create(p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
 	p.CreatedAt = time.Now(); p.UpdatedAt = p.CreatedAt
-	products, _ := json.Marshal(p.Products); honors, _ := json.Marshal(p.Honors)
-	_, err := r.pool.Exec(context.Background(),
+	products, err := json.Marshal(p.Products)
+	if err != nil { return domain.MemberPortfolio{}, fmt.Errorf("marshal products: %w", err) }
+	honors, err := json.Marshal(p.Honors)
+	if err != nil { return domain.MemberPortfolio{}, fmt.Errorf("marshal honors: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO member_portfolios (id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		p.ID, p.EnterpriseID, p.Name, p.LogoURL, p.CoverURL, p.Description, products, honors, p.ContactInfo, p.Status, p.CreatedAt, p.UpdatedAt)
 	return p, err
@@ -297,8 +310,11 @@ func (r *portfolioRepo) ListPublished(offset, limit int) ([]domain.MemberPortfol
 }
 func (r *portfolioRepo) Update(p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
 	p.UpdatedAt = time.Now()
-	prod, _ := json.Marshal(p.Products); hon, _ := json.Marshal(p.Honors)
-	_, err := r.pool.Exec(context.Background(),
+	prod, err := json.Marshal(p.Products)
+	if err != nil { return domain.MemberPortfolio{}, fmt.Errorf("marshal products: %w", err) }
+	hon, err := json.Marshal(p.Honors)
+	if err != nil { return domain.MemberPortfolio{}, fmt.Errorf("marshal honors: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`UPDATE member_portfolios SET name=$1,logo_url=$2,cover_url=$3,description=$4,products=$5,honors=$6,contact_info=$7,status=$8,updated_at=$9 WHERE id=$10`,
 		p.Name, p.LogoURL, p.CoverURL, p.Description, prod, hon, p.ContactInfo, p.Status, p.UpdatedAt, p.ID)
 	return p, err

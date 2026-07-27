@@ -1,343 +1,140 @@
 <template>
-  <div class="review-manage">
-    <!-- 筛选区 -->
-    <div class="filter-bar">
-      <van-tabs v-model:active="statusTab" @change="onStatusChange">
-        <van-tab title="全部" name="all" />
-        <van-tab title="待审核" name="pending" />
-        <van-tab title="已通过" name="approved" />
-        <van-tab title="已拒绝" name="rejected" />
-      </van-tabs>
-      <div class="section-filter">
-        <van-tag
-          v-for="sec in sectionOptions"
-          :key="sec.key"
-          :type="sectionFilter === sec.key ? 'primary' : 'default'"
-          size="medium"
-          round
-          @click="toggleSectionFilter(sec.key)"
+  <div class="review-list-page">
+    <!-- 搜索过滤区 -->
+    <div class="search-bar">
+      <div class="search-row">
+        <el-select v-model="filterParams.status" clearable style="width: 130px" @change="onSearchSubmit">
+          <el-option label="全部状态" value="" />
+          <el-option label="待审核" value="pending" />
+          <el-option label="已通过" value="approved" />
+          <el-option label="已拒绝" value="rejected" />
+        </el-select>
+
+        <el-select v-model="filterParams.section" clearable style="width: 130px" @change="onSearchSubmit">
+          <el-option label="全部板块" value="" />
+          <el-option label="研学" value="yanxue" />
+          <el-option label="无人机销售" value="sale" />
+          <el-option label="乐园" value="park" />
+        </el-select>
+
+        <el-input
+          v-model="filterParams.keyword"
+          placeholder="搜索评价内容..."
+          clearable style="width: 200px"
+          @keyup.enter="onSearchSubmit" @clear="onSearchSubmit"
         >
-          {{ sec.label }}
-        </van-tag>
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+
+        <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
+        <el-button @click="resetParams">重置</el-button>
       </div>
     </div>
 
-    <!-- 评价列表 -->
-    <div class="review-list" v-if="filteredReviews.length > 0">
-      <div class="review-card" v-for="item in filteredReviews" :key="item.id">
-        <div class="review-card-header">
-          <div class="review-user">
-            <van-image
-              v-if="item.userAvatar"
-              round
-              width="28"
-              height="28"
-              :src="item.userAvatar"
-              fit="cover"
-            />
-            <div v-else class="avatar-placeholder">
-              <van-icon name="contact" size="16" color="#bdc3c7" />
-            </div>
-            <span class="user-name">{{ item.userName }}</span>
-          </div>
-          <div class="review-meta">
-            <van-tag :type="sectionTagType(item.section)" size="small">{{ sectionLabel(item.section) }}</van-tag>
-            <van-tag :type="statusTagType(item.status)" size="small" plain>{{ statusLabel(item.status) }}</van-tag>
-          </div>
-        </div>
+    <!-- 数据表格 -->
+    <div class="table-wrap">
+      <el-table v-loading="loading" :data="listData" row-key="id" stripe border>
+        <el-table-column prop="userName" label="用户" width="120" />
+        <el-table-column label="板块" width="100">
+          <template #default="{ row }">
+            <el-tag :type="sectionTagType(row.section)" size="small">{{ sectionLabel(row.section) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="评分" width="100">
+          <template #default="{ row }">
+            <span class="stars">{{ '★'.repeat(row.rating || 0) }}{{ '☆'.repeat(5 - (row.rating || 0)) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="content" label="评价内容" min-width="200" show-overflow-tooltip />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createTime" label="评价时间" width="160" sortable="custom">
+          <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
+        </el-table-column>
 
-        <div class="review-card-body">
-          <van-rate v-model="item.rating" readonly size="14" color="#ffd21e" void-color="#e8e8e8" />
-          <!-- 课程标签 -->
-          <div class="admin-course-tag" v-if="item.courseName">
-            <van-icon name="bookmark-o" size="12" />
-            {{ item.courseName }}
-          </div>
-          <div class="review-text">{{ item.content }}</div>
-          <!-- 评价图片 -->
-          <div class="admin-review-images" v-if="item.images && item.images.length > 0">
-            <van-image
-              v-for="(img, imgIdx) in item.images"
-              :key="imgIdx"
-              width="60"
-              height="60"
-              radius="4"
-              :src="img"
-              fit="cover"
-              @click="previewImage(item.images, imgIdx)"
-            />
-          </div>
-          <div class="review-time">{{ formatTime(item.createTime) }}</div>
-        </div>
+        <el-table-column label="操作" width="180" fixed="right">
+          <template #default="{ row }">
+            <template v-if="row.status === 'pending'">
+              <el-button link type="success" size="small" @click="handleStatus(row, 'approved')">通过</el-button>
+              <el-button link type="warning" size="small" @click="handleStatus(row, 'rejected')">拒绝</el-button>
+            </template>
+            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
 
-        <div class="review-card-actions" v-if="item.status === 'pending'">
-          <van-button size="small" type="success" plain @click="handleApprove(item)">通过</van-button>
-          <van-button size="small" type="warning" plain @click="handleReject(item)">拒绝</van-button>
-          <van-button size="small" type="danger" plain @click="handleDelete(item)">删除</van-button>
-        </div>
-        <div class="review-card-actions" v-else>
-          <van-button size="small" type="danger" plain @click="handleDelete(item)">删除</van-button>
-        </div>
-      </div>
+        <template #empty><el-empty description="暂无评价数据" /></template>
+      </el-table>
     </div>
 
-    <van-empty v-else description="暂无评价数据" />
+    <!-- 分页 -->
+    <div class="pagination-wrap" v-if="total > 0">
+      <el-pagination
+        v-model:current-page="filterParams.page"
+        v-model:page-size="filterParams.page_size"
+        :page-sizes="[10, 20, 50]"
+        :total="total" layout="total, sizes, prev, pager, next, jumper"
+        background
+        @size-change="loadData" @current-change="loadData"
+      />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { showToast, showConfirmDialog, showImagePreview } from 'vant'
-import axios from '@/utils/http'
+import { onMounted } from 'vue'
+import { Search } from '@element-plus/icons-vue'
+import { showToast, showConfirmDialog } from 'vant'
+import { useListRequest } from '@/hooks/useListRequest'
+import { getReviewList, updateReviewStatus, deleteReview } from '@/api/admin/review'
 
-const sectionOptions = [
-  { key: 'all', label: '全部板块' },
-  { key: 'yanxue', label: '研学' },
-  { key: 'sale', label: '无人机销售' },
-  { key: 'park', label: '乐园' }
-]
+const sectionLabel = (k) => ({ yanxue: '研学', sale: '无人机销售', park: '乐园' }[k] || k)
+const statusLabel = (s) => ({ pending: '待审核', approved: '已通过', rejected: '已拒绝' }[s] || s)
+const sectionTagType = (s) => ({ yanxue: '', sale: 'success', park: 'warning' }[s] || 'info')
+const statusTagType = (s) => ({ pending: 'warning', approved: 'success', rejected: 'danger' }[s] || 'info')
 
-const statusTab = ref('all')
-const sectionFilter = ref('all')
-const reviews = ref([])
-const loading = ref(false)
-
-const sectionLabel = (key) => {
-  const map = { yanxue: '研学', sale: '无人机销售', park: '乐园' }
-  return map[key] || key
+const formatDate = (d) => {
+  if (!d) return '-'
+  const dt = new Date(d)
+  const p = n => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const statusLabel = (status) => {
-  const map = { pending: '待审核', approved: '已通过', rejected: '已拒绝' }
-  return map[status] || status
-}
-
-const sectionTagType = (section) => {
-  const map = { yanxue: 'primary', sale: 'success', park: 'warning' }
-  return map[section] || 'default'
-}
-
-const statusTagType = (status) => {
-  const map = { pending: 'warning', approved: 'success', rejected: 'danger' }
-  return map[status] || 'default'
-}
-
-const filteredReviews = computed(() => {
-  let list = reviews.value
-  if (statusTab.value !== 'all') {
-    list = list.filter(r => r.status === statusTab.value)
-  }
-  if (sectionFilter.value !== 'all') {
-    list = list.filter(r => r.section === sectionFilter.value)
-  }
-  return list
+const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
+  apiFunction: getReviewList,
+  idKey: 'id',
+  defaultParams: { status: '', section: '', limit: 20 }
 })
 
-const formatTime = (timeStr) => {
-  if (!timeStr) return ''
-  const d = new Date(timeStr)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-const previewImage = (images, startIdx) => {
-  showImagePreview({ images, startPosition: startIdx })
-}
-
-const fetchReviews = async () => {
-  loading.value = true
+const handleStatus = async (item, status) => {
   try {
-    const params = { limit: 200 }
-    const res = await axios.get('/api/admin/reviews', { params })
-    reviews.value = res.data?.data || []
-  } catch (err) {
-    showToast('获取评价数据失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const onStatusChange = () => {
-  // 前端筛选，无需重新请求
-}
-
-const toggleSectionFilter = (key) => {
-  sectionFilter.value = sectionFilter.value === key ? 'all' : key
-}
-
-const updateReviewStatus = async (item, status) => {
-  try {
-    const res = await axios.post(`/api/admin/reviews/${item.id}`, { status })
-    if (res.data?.success) {
-      item.status = status
-      item.reviewTime = new Date().toISOString()
-      showToast(status === 'approved' ? '已通过' : '已拒绝')
-    }
-  } catch (err) {
-    showToast('操作失败')
-  }
-}
-
-const handleApprove = (item) => {
-  updateReviewStatus(item, 'approved')
-}
-
-const handleReject = (item) => {
-  updateReviewStatus(item, 'rejected')
+    await updateReviewStatus(item.id, status)
+    item.status = status
+    showToast(status === 'approved' ? '已通过' : '已拒绝')
+  } catch (e) { showToast('操作失败') }
 }
 
 const handleDelete = (item) => {
-  showConfirmDialog({
-    title: '确认删除',
-    message: '删除后不可恢复，确定要删除这条评价吗？'
-  }).then(async () => {
+  showConfirmDialog({ title: '确认删除', message: '删除后不可恢复' }).then(async () => {
     try {
-      const res = await axios.delete(`/api/admin/reviews/${item.id}`)
-      if (res.data?.success) {
-        reviews.value = reviews.value.filter(r => r.id !== item.id)
-        showToast('已删除')
-      }
-    } catch (err) {
-      showToast('删除失败')
-    }
+      await deleteReview(item.id)
+      listData.value = listData.value.filter(r => r.id !== item.id)
+      showToast('已删��')
+    } catch (e) { showToast('删除失败') }
   }).catch(() => {})
 }
 
-onMounted(() => {
-  fetchReviews()
-})
+onMounted(loadData)
 </script>
 
 <style scoped>
-.review-manage {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.filter-bar {
-  background: #fff;
-  border-radius: 12px;
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-
-.section-filter {
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  flex-wrap: wrap;
-}
-
-.review-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.review-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.review-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-  gap: 8px;
-}
-
-.review-user {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-}
-
-.avatar-placeholder {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #f2f2f7;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.user-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #1d1d1f;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.review-meta {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.review-card-body {
-  margin-bottom: 8px;
-}
-
-.admin-course-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  background: #e8f2fc;
-  color: #0071e3;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-top: 6px;
-}
-
-.review-text {
-  font-size: 13px;
-  color: #333;
-  line-height: 1.6;
-  margin-top: 6px;
-  word-break: break-all;
-}
-
-.admin-review-images {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.admin-review-images :deep(.van-image) {
-  border-radius: 4px;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.review-time {
-  font-size: 11px;
-  color: #86868b;
-  margin-top: 4px;
-}
-
-.review-card-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  padding-top: 8px;
-  border-top: 1px solid #f5f5f7;
-}
-
-@media (max-width: 400px) {
-  .review-card-header {
-    flex-direction: column;
-  }
-  .review-meta {
-    align-self: flex-start;
-  }
-}
+.review-list-page { max-width: 1200px; margin: 0 auto; }
+.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+.stars { color: #ffd21e; font-size: 14px; letter-spacing: 1px; }
+.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
 </style>

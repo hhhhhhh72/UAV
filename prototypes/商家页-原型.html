@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商家页面原型 - 无人机同城好店</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+:root{
+  --c-primary:#1989fa;--c-primary-dark:#1572cc;--c-primary-light:#e8f2fc;
+  --c-accent:#ff6b35;--c-orange:#f97316;--c-gold:#f59e0b;--c-red:#e64340;
+  --c-green:#22c55e;--c-bg:#f5f6f8;--c-card:#fff;--c-text:#1a1a1a;
+  --c-text-2:#646566;--c-text-3:#969799;--c-divider:#ebedf0;
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:#eef0f4;color:var(--c-text);
+  display:flex;justify-content:center;align-items:flex-start;
+  padding:24px 16px;min-height:100vh
+}
+.phone{width:375px;background:var(--c-bg);border-radius:24px;overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.06);
+  display:flex;flex-direction:column;height:820px;position:relative}
+.sb{height:28px;background:linear-gradient(180deg,#fff,#fafbfc);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;font-size:11px;font-weight:600;color:#1a1a1a;flex-shrink:0}
+
+/* ===== 顶部导航 ===== */
+.top-nav{
+  display:flex;align-items:center;gap:10px;padding:8px 12px;
+  background:#fff;flex-shrink:0
+}
+.home-btn{font-size:18px;padding:8px 10px;color:#1a1a1a;cursor:pointer}
+.nav-title{
+  flex:1;text-align:center;font-size:15px;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.nav-actions{display:flex;gap:8px;font-size:18px;color:#1a1a1a}
+.nav-act{padding:6px 10px;cursor:pointer}
+
+/* ===== 内容区 ===== */
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* 搜索区 */
+.search-row{
+  display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff
+}
+.city-pill{
+  display:flex;align-items:center;gap:4px;font-size:14px;font-weight:600;
+  padding:5px 10px;cursor:pointer;flex-shrink:0
+}
+.city-pill .arrow{font-size:10px;color:#969799}
+.search-bar{
+  flex:1;display:flex;align-items:center;
+  background:#fff;border:1px solid var(--c-divider);border-radius:999px;
+  padding:6px 12px;font-size:12px;color:#646566;gap:8px;cursor:pointer
+}
+.search-bar .shop-select{
+  display:flex;align-items:center;gap:3px;
+  font-size:12px;color:var(--c-text-2);font-weight:600;flex-shrink:0
+}
+.search-bar .shop-select::after{
+  content:"";display:inline-block;width:0;height:0;border:4px solid transparent;
+  border-top-color:#969799;transform:translateY(2px);margin-left:4px
+}
+.search-bar .sep{color:#ebedf0;flex-shrink:0}
+.search-bar .ph{flex:1;color:#b4b6b8}
+.search-bar .ico{font-size:14px;opacity:.5}
+
+/* Hero Banner */
+.hero-banner{
+  margin:10px 12px 0;border-radius:14px;overflow:hidden;
+  height:130px;background:linear-gradient(135deg,#dbeafe 0%,#e0f2fe 100%);
+  position:relative;display:flex;align-items:center;cursor:pointer
+}
+.hero-banner::before{
+  content:"";position:absolute;left:-10px;bottom:-10px;width:160px;height:160px;
+  background:radial-gradient(circle,rgba(25,137,250,.15),transparent 70%)
+}
+.hero-drone{
+  position:absolute;left:20px;top:50%;transform:translateY(-50%);
+  font-size:60px;z-index:2
+}
+.hero-text{
+  position:absolute;right:16px;top:50%;transform:translateY(-50%);text-align:right
+}
+.hero-text h3{font-size:15px;font-weight:700;color:#1da1f2;margin-bottom:2px}
+.hero-text p{font-size:10px;color:#1989fa;opacity:.8}
+.hero-slide2{
+  margin-left:8px;height:130px;background:linear-gradient(135deg,#1da1f2,#3b82f6);
+  border-radius:14px;color:#fff;display:flex;align-items:center;
+  padding:0 14px;cursor:pointer;flex:1;position:relative
+}
+.hero-slide2 h3{font-size:13px;font-weight:700}
+.hero-slide2 p{font-size:9px;opacity:.85;margin-top:2px}
+.hero-banner-row{display:flex;gap:6px;padding:0 12px}
+.hero-banner-row .hero-banner{flex:1.6;margin:10px 0 0}
+.hero-banner-row .hero-slide2{margin:10px 0 0;flex:1}
+
+/* 5图标分类 */
+.cat-row{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:4px;
+  margin:10px 12px 0;padding:14px 8px;background:#fff;border-radius:14px
+}
+.cat-item{display:flex;flex-direction:column;align-items:center;cursor:pointer;padding:6px 0}
+.cat-icon{
+  width:40px;height:40px;border-radius:12px;display:flex;
+  align-items:center;justify-content:center;font-size:22px;margin-bottom:4px
+}
+.cat-label{font-size:11px;color:#1a1a1a;font-weight:500}
+
+/* 商家头条 */
+.news-strip{
+  display:flex;align-items:center;gap:8px;
+  margin:10px 12px 0;padding:10px 14px;background:#fff;border-radius:12px
+}
+.news-label{
+  display:flex;align-items:center;gap:3px;
+  font-size:14px;font-weight:700;color:var(--c-text);flex-shrink:0
+}
+.news-label::before{
+  content:"📰";font-size:14px;
+}
+.news-text{
+  flex:1;font-size:11px;color:var(--c-text-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.news-text b{color:var(--c-primary);font-weight:600}
+.news-cta{
+  background:linear-gradient(135deg,#4a96f0,#1572cc);color:#fff;
+  font-size:11px;font-weight:700;padding:5px 12px;border-radius:999px;flex-shrink:0;
+  box-shadow:0 2px 6px rgba(25,137,250,.25)
+}
+
+/* Tab 筛选 */
+.filter-tabs{
+  display:grid;grid-template-columns:repeat(3,1fr);background:#fff;
+  border-bottom:1px solid var(--c-divider)
+}
+.filter-tab{
+  text-align:center;padding:14px 0;font-size:13px;color:var(--c-text-2);
+  font-weight:500;position:relative;cursor:pointer
+}
+.filter-tab.active{color:var(--c-primary);font-weight:700}
+.filter-tab.active::after{
+  content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:24px;height:3px;border-radius:2px;background:var(--c-primary)
+}
+.filter-tab .sub{
+  display:block;font-size:10px;color:#c8c9cc;font-weight:400;margin-top:1px
+}
+.filter-tab.active .sub{color:var(--c-primary)}
+
+/* 商家卡片 */
+.shop-list{padding:8px 0}
+.shop-card{
+  margin:8px 12px;background:#fff;border-radius:14px;
+  padding:12px 12px 12px;display:flex;gap:12px;
+  box-shadow:0 1px 4px rgba(0,0,0,.04);position:relative;cursor:pointer
+}
+.shop-logo{
+  width:60px;height:60px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;color:#fff;font-size:14px
+}
+.shop-body{flex:1;min-width:0}
+.shop-name-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.shop-name{
+  font-size:14px;font-weight:700;color:var(--c-text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0
+}
+.shop-name .heart{color:#f97316;font-size:13px}
+.shop-tag-vip{
+  background:var(--c-gold);color:#fff;font-size:9px;font-weight:700;
+  padding:2px 6px;border-radius:4px;flex-shrink:0
+}
+.shop-meta-row{
+  display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px
+}
+.shop-hours{
+  display:inline-flex;align-items:center;gap:3px;background:#fff5e6;
+  color:var(--c-orange);font-size:11px;font-weight:600;padding:3px 7px;border-radius:5px
+}
+.shop-hours::before{
+  content:"🕐";font-size:9px;
+}
+.shop-meta-row .views{margin-left:auto;color:var(--c-text-3);font-size:11px}
+.shop-meta-row .views b{color:var(--c-text);font-weight:700}
+.shop-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.shop-tag{
+  font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;background:#f5f6f8;color:#646566
+}
+.shop-loc{
+  font-size:11px;color:var(--c-text-3);display:flex;align-items:center;gap:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px
+}
+.shop-extra{
+  display:flex;align-items:center;gap:3px;font-size:11px;color:var(--c-text-2);
+  background:#fff5e6;padding:4px 8px;border-radius:6px;margin-top:4px
+}
+.shop-extra .ico{color:var(--c-accent);font-size:12px}
+
+.shop-call{
+  width:38px;height:38px;border-radius:50%;
+  background:#fff;border:1.5px solid var(--c-primary);color:var(--c-primary);
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  flex-shrink:0;align-self:flex-start;cursor:pointer;transition:all .2s
+}
+.shop-call:hover,.shop-call:active{background:var(--c-primary);color:#fff}
+
+/* 浮动按钮 */
+.float-fab{
+  position:fixed;bottom:140px;right:50%;margin-right:-340px;
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,#4a96f0,#1572cc);color:#fff;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  box-shadow:0 4px 12px rgba(25,137,250,.4);z-index:10;line-height:1.1;font-size:9px
+}
+.float-fab .l1{font-size:15px}
+.float-share{
+  position:fixed;bottom:160px;right:50%;margin-right:-280px;
+  width:46px;height:46px;border-radius:50%;
+  background:var(--c-orange);color:#fff;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  box-shadow:0 4px 12px rgba(255,107,53,.35);z-index:10;line-height:1
+}
+.float-share .ico{font-size:16px}
+.float-share span{font-size:9px;margin-top:1px;font-weight:700}
+
+/* ===== Tab Bar ===== */
+.tab-bar{
+  display:flex;background:#fff;border-top:1px solid var(--c-divider);
+  padding:6px 0 env(safe-area-inset-bottom,4px);flex-shrink:0
+}
+.tab-bar-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;padding:2px 0;cursor:pointer
+}
+.tab-bar-icon{font-size:20px;margin-bottom:1px}
+.tab-bar-label{font-size:10px;color:var(--c-text-3);font-weight:500}
+.tab-bar-item.active .tab-bar-label{color:var(--c-primary);font-weight:600}
+.tab-bar-item.active .tab-bar-icon{color:var(--c-primary)}
+.tb-fab{position:relative}
+.tb-fab::before{
+  content:"";position:absolute;left:50%;top:-22px;transform:translateX(-50%);
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,#4a96f0,#1572cc);
+  box-shadow:0 4px 12px rgba(74,144,240,.35);z-index:0
+}
+.tb-fab .ico{position:relative;z-index:1;font-size:22px;color:#fff;margin-top:-16px}
+.tb-fab .label{position:relative;z-index:1;margin-top:-2px;font-size:9px;color:var(--c-text-3)}
+.tb-fab.active .label{color:#fff}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="sb"><span>9:43</span><span style="display:flex;gap:4px;align-items:center">📶 5G 🔋<span style="background:#1a1a1a;color:#fff;border-radius:3px;font-size:9px;padding:0 4px">98</span></span></div>
+
+  <!-- 顶部导航 -->
+  <div class="top-nav">
+    <span class="home-btn" @click="goHome">⌂</span>
+    <div class="nav-title">无人机同城好店 - 小飞虾...</div>
+    <div class="nav-actions">
+      <span class="nav-act">⋯</span>
+      <span class="nav-act">⊖</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- 城市 + 搜索 -->
+    <div class="search-row">
+      <div class="city-pill">全国 <span class="arrow">▼</span></div>
+      <div class="search-bar">
+        <span class="shop-select">店铺</span>
+        <span class="sep">|</span>
+        <span class="ph">搜店铺</span>
+        <span class="ico">🔍</span>
+      </div>
+    </div>
+
+    <!-- Hero Banner (双卡片) -->
+    <div class="hero-banner-row">
+      <div class="hero-banner" style="flex:1.4;margin:10px 0 0 12px">
+        <span class="hero-drone">🚁</span>
+        <div class="hero-text">
+          <h3>无人机同城好店</h3>
+          <p>找好店 · 选好货</p>
+        </div>
+      </div>
+      <div class="hero-slide2">
+        <div>
+          <h3>CAAC 培训</h3>
+          <p>考证一站式服务</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5图标 -->
+    <div class="cat-row">
+      <div class="cat-item"><div class="cat-icon" style="background:#dbeafe">🎓</div><div class="cat-label">培训机构</div></div>
+      <div class="cat-item"><div class="cat-icon" style="background:#fef3c7">🚁</div><div class="cat-label">无人机销售</div></div>
+      <div class="cat-item"><div class="cat-icon" style="background:#d1fae5">🌾</div><div class="cat-label">无人机应用</div></div>
+      <div class="cat-item"><div class="cat-icon" style="background:#ede9fe">🔋</div><div class="cat-label">无人机配件</div></div>
+      <div class="cat-item"><div class="cat-icon" style="background:#fee2e2">🔧</div><div class="cat-label">无人机维修</div></div>
+    </div>
+
+    <!-- 商家头条 -->
+    <div class="news-strip">
+      <span class="news-label">商家头条</span>
+      <span class="news-text">📰 四川翱翔智控技术有限责任公司...</span>
+      <span class="news-cta">立即入驻</span>
+    </div>
+
+    <!-- Tab 筛选 -->
+    <div class="filter-tabs">
+      <div class="filter-tab active">推荐<span class="sub">为你推荐</span></div>
+      <div class="filter-tab">新入<span class="sub">最新加入</span></div>
+      <div class="filter-tab">附近<span class="sub">附近店铺</span></div>
+    </div>
+
+    <!-- 商家列表 -->
+    <div class="shop-list">
+
+      <!-- 商家 1：官方自营 -->
+      <div class="shop-card">
+        <div class="shop-logo" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">🦐</div>
+        <div class="shop-body">
+          <div class="shop-name-row">
+            <div class="shop-name">小飞虾无人机厂家（官方自营店） <span class="heart">💛</span></div>
+            <span class="shop-tag-vip">VIP</span>
+          </div>
+          <div class="shop-meta-row">
+            <span class="shop-hours">9:00-20:00</span>
+            <span class="views"><b>6165</b>浏览</span>
+          </div>
+          <div class="shop-tags">
+            <span class="shop-tag">无人机生产</span>
+            <span class="shop-tag">无人机销售</span>
+            <span class="shop-tag">无人机吊运</span>
+          </div>
+          <div class="shop-loc">📍 郑州市中原区亿达科技新城三期</div>
+          <div class="shop-extra"><span class="ico">🔋</span>充电20分，续航40分</div>
+        </div>
+        <div class="shop-call">📞</div>
+      </div>
+
+      <!-- 商家 2：重庆丰都店 -->
+      <div class="shop-card">
+        <div class="shop-logo" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">🦐</div>
+        <div class="shop-body">
+          <div class="shop-name-row">
+            <div class="shop-name">小飞虾无人机（重庆丰都店）</div>
+          </div>
+          <div class="shop-meta-row">
+            <span class="shop-hours">9:00-18:00</span>
+            <span class="views"><b>5155</b>浏览</span>
+          </div>
+          <div class="shop-tags">
+            <span class="shop-tag">无人机生产</span>
+            <span class="shop-tag">无人机销售</span>
+            <span class="shop-tag">无人机吊运</span>
+          </div>
+          <div class="shop-loc">📍 重庆市丰都县连新路42号</div>
+        </div>
+        <div class="shop-call">📞</div>
+      </div>
+
+      <!-- 商家 3：中科未来 -->
+      <div class="shop-card">
+        <div class="shop-logo" style="background:linear-gradient(135deg,#1e40af,#3b82f6);font-size:11px">
+          <div style="text-align:center;line-height:1.1">
+            <div style="font-size:14px">🚀</div>
+            <div style="font-size:8px;margin-top:1px">未来飞行</div>
+          </div>
+        </div>
+        <div class="shop-body">
+          <div class="shop-name-row">
+            <div class="shop-name">中科未来飞行科技(承德)有限公司 <span class="heart">💛</span></div>
+          </div>
+          <div class="shop-meta-row">
+            <span class="shop-hours">9:00</span>
+            <span class="views"><b>849</b>浏览</span>
+          </div>
+          <div class="shop-tags">
+            <span class="shop-tag">培训机构</span>
+            <span class="shop-tag" style="background:#dbeafe;color:#1e40af">CAAC执照</span>
+            <span class="shop-tag">无人机驾照</span>
+            <span class="shop-tag">无人机巡检</span>
+          </div>
+          <div class="shop-loc">📍 承德市双桥区冯营子镇大刘线</div>
+        </div>
+        <div class="shop-call">📞</div>
+      </div>
+
+      <!-- 商家 4：四川翱翔 -->
+      <div class="shop-card">
+        <div class="shop-logo" style="background:linear-gradient(135deg,#1e3a8a,#1e40af);font-size:11px;font-weight:700">
+          🛩️<div style="font-size:8px;margin-top:2px">翱翔智控</div>
+        </div>
+        <div class="shop-body">
+          <div class="shop-name-row">
+            <div class="shop-name">四川翱翔智控技术有限责任公司 <span class="heart">🤍</span></div>
+          </div>
+          <div class="shop-meta-row">
+            <span class="shop-hours">0:00-24:00</span>
+            <span class="views"><b>750</b>浏览</span>
+          </div>
+          <div class="shop-tags">
+            <span class="shop-tag">无人机应用</span>
+            <span class="shop-tag">吊装运输</span>
+          </div>
+          <div class="shop-loc">📍 成都市高新区天府软件园</div>
+        </div>
+        <div class="shop-call">📞</div>
+      </div>
+
+      <!-- 商家 5：占位示例 -->
+      <div class="shop-card">
+        <div class="shop-logo" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">鹰</div>
+        <div class="shop-body">
+          <div class="shop-name-row">
+            <div class="shop-name">鹰眼航空无人机服务 <span class="heart">💛</span></div>
+            <span class="shop-tag-vip">认证</span>
+          </div>
+          <div class="shop-meta-row">
+            <span class="shop-hours">8:00-22:00</span>
+            <span class="views"><b>3210</b>浏览</span>
+          </div>
+          <div class="shop-tags">
+            <span class="shop-tag">航拍服务</span>
+            <span class="shop-tag">测绘建模</span>
+          </div>
+          <div class="shop-loc">📍 重庆市江北区五里店</div>
+        </div>
+        <div class="shop-call">📞</div>
+      </div>
+
+    </div>
+
+    <div style="height:20px;text-align:center;color:#c8c9cc;font-size:11px;padding:14px 0">— 已加载全部 —</div>
+  </div>
+
+  <!-- 浮动按钮 -->
+  <div class="float-fab" onclick="alert('点击入驻')">
+    <span class="l1">📋</span>
+    <span>入驻</span>
+  </div>
+  <div class="float-share" onclick="alert('点击分享')">
+    <div class="ico">↗️</div>
+    <span>分享</span>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <div class="tab-bar-item" onclick="goPage('home')"><span class="tab-bar-icon">⌂</span><span class="tab-bar-label">首页</span></div>
+    <div class="tab-bar-item active" onclick="goPage('shop')"><span class="tab-bar-icon">🏪</span><span class="tab-bar-label">商家</span></div>
+    <div class="tab-bar-item tb-fab"><span class="ico">⊕</span><span class="label">发布</span></div>
+    <div class="tab-bar-item" onclick="goPage('mall')"><span class="tab-bar-icon">🛒</span><span class="tab-bar-label">商城</span></div>
+    <div class="tab-bar-item" onclick="goPage('mine')"><span class="tab-bar-icon">👤</span><span class="tab-bar-label">我的</span></div>
+  </div>
+</div>
+
+<script>
+function goHome(){alert('返回首页')}
+function goPage(p){alert('切换到 '+p)}
+</script>
+
+</body>
+</html>

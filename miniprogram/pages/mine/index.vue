@@ -123,9 +123,20 @@
 
 <script setup>
 import { onShow } from '@dcloudio/uni-app'
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Layout from '@/components/Layout.vue'
 import { getStoredUser, request, authStorage } from '../../utils/request'
+
+const homeConfig = ref({})
+
+const loadConfig = async () => {
+  try {
+    const res = await request({ url: '/api/services/config' })
+    homeConfig.value = (res?.data || res)?._home || {}
+  } catch (e) {}
+}
+
+onMounted(loadConfig)
 
 const user = ref(null)
 const totalCount = ref(0)
@@ -199,15 +210,19 @@ const showToast = (msg) => uni.showToast({ title: msg, icon: 'none' })
 const showGuide = () => {
   uni.showModal({
     title: '服务指南',
-    content: '1. 选择所需服务\n2. 填写申请表单\n3. 提交申请\n4. 等待客服联系\n5. 确认服务详情\n6. 服务执行',
+    content: homeConfig.value.serviceGuide || '1. 选择所需服务\n2. 填写申请表单\n3. 等待客服联系',
     showCancel: false
   })
 }
 
 const showFAQ = () => {
+  const faq = homeConfig.value.faq || []
+  const content = faq.length > 0
+    ? faq.map((item, i) => `Q${i+1}: ${item.q}\nA: ${item.a}`).join('\n\n')
+    : '暂无常见问题'
   uni.showModal({
     title: '常见问题',
-    content: 'Q: 申请后多久联系？\nA: 2小时内会有客服联系您\n\nQ: 如何修改申请？\nA: 请联系客服进行修改',
+    content,
     showCancel: false
   })
 }
@@ -215,7 +230,7 @@ const showFAQ = () => {
 const showContact = () => {
   uni.showModal({
     title: '联系客服',
-    content: '客服电话：400-123-4567\n工作时间：工作日 9:00-18:00',
+    content: `客服电话：${homeConfig.value.contactPhone || '023-55550500'}\n${homeConfig.value.workHours || '工作日 9:00-18:00'}`,
     showCancel: false
   })
 }
@@ -223,7 +238,7 @@ const showContact = () => {
 const showAbout = () => {
   uni.showModal({
     title: '关于我们',
-    content: '低空综合服务平台\n开发主体：温州低空经济发展有限公司\n版本：v1.1.0\n\n专注于提供专业、高效、安全的低空服务',
+    content: `${homeConfig.value.companyName || '低空综合服务平台'}\n${homeConfig.value.version || 'v1.0.0'}`,
     showCancel: false
   })
 }

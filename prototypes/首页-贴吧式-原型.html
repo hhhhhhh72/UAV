@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>首页（贴吧式任务大厅）- 无人机产业综合服务平台</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+:root{
+  --c-primary:#1989fa;--c-primary-dark:#1572cc;--c-primary-light:#e8f2fc;
+  --c-accent:#ff6b35;--c-gold:#ffb83d;--c-red:#e64340;--c-green:#34c759;
+  --c-bg:#f5f6f8;--c-card:#fff;--c-text:#1a1a1a;--c-text-2:#646566;--c-text-3:#969799;
+  --c-divider:#ebedf0;--c-tieba:#1da1f2;
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:#eef0f4;color:var(--c-text);
+  display:flex;justify-content:center;align-items:flex-start;
+  padding:24px 16px;min-height:100vh
+}
+.phone{
+  width:375px;background:#f5f6f8;border-radius:24px;overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.06);
+  display:flex;flex-direction:column;height:780px;position:relative
+}
+.sb{
+  height:28px;background:linear-gradient(180deg,#fff,#f5f6f8);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;font-size:11px;color:#1a1a1a;font-weight:600;flex-shrink:0
+}
+
+/* ===== 顶部导航 ===== */
+.top-nav{
+  display:flex;align-items:center;gap:10px;padding:8px 14px;
+  background:#fff;border-bottom:1px solid #f0f1f3;flex-shrink:0
+}
+.city-btn{
+  display:flex;align-items:center;gap:2px;font-size:14px;font-weight:600;
+  color:#1a1a1a;cursor:pointer;flex-shrink:0
+}
+.city-btn .arrow{font-size:10px;color:#969799}
+.search-box{
+  flex:1;display:flex;align-items:center;background:#f5f6f8;border-radius:999px;
+  padding:6px 12px;gap:6px;cursor:pointer
+}
+.search-box .ph{flex:1;font-size:12px;color:#b4b6b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.search-box .ico{font-size:13px;opacity:.6}
+.msg-btn{
+  width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:#969799;cursor:pointer;position:relative;flex-shrink:0
+}
+.msg-btn::after{content:"3";position:absolute;top:2px;right:0;background:#e64340;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+
+/* ===== 主内容区 ===== */
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* 大Banner */
+.hero-banner{
+  margin:10px 12px 0;border-radius:14px;overflow:hidden;height:140px;
+  background:linear-gradient(135deg,#1e3a8a 0%,#1da1f2 50%,#0ea5e9 100%);
+  position:relative;color:#fff;cursor:pointer
+}
+.hero-banner::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 15% 35%, rgba(255,255,255,.18) 0%, transparent 20%),
+    radial-gradient(circle at 85% 65%, rgba(255,255,255,.12) 0%, transparent 25%)
+}
+.drone-l{position:absolute;left:8px;top:30px;font-size:50px;opacity:.4;transform:rotate(-15deg)}
+.drone-r{position:absolute;right:18px;top:8px;font-size:42px;opacity:.55;transform:rotate(8deg)}
+.drone-l2{position:absolute;left:60px;bottom:14px;font-size:34px;opacity:.45;transform:rotate(5deg)}
+.chart-r{position:absolute;right:80px;top:18px;font-size:22px;opacity:.7}
+.chart-r2{position:absolute;right:18px;bottom:18px;font-size:24px;opacity:.7}
+.hero-title{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:21px;font-weight:800;letter-spacing:1px;text-shadow:0 2px 8px rgba(0,0,0,.3);
+  white-space:nowrap
+}
+.hero-stats{
+  position:absolute;left:14px;bottom:12px;display:flex;gap:10px;font-size:10px;align-items:center
+}
+.hero-stat{display:flex;align-items:center;gap:3px;color:rgba(255,255,255,.9);font-weight:600}
+.hero-stat .num{color:#fff;font-weight:800;font-size:13px}
+.hero-cta{
+  position:absolute;right:14px;bottom:12px;
+  background:#fff;color:#1da1f2;font-size:11px;font-weight:700;
+  padding:5px 14px;border-radius:999px
+}
+
+/* ===== 10宫格 ===== */
+.icon-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
+  margin:10px 12px 0;padding:14px 8px;background:#fff;border-radius:14px
+}
+.ig-item{display:flex;flex-direction:column;align-items:center;padding:6px 4px;cursor:pointer}
+.ig-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:4px}
+.ig-label{font-size:11px;color:#1a1a1a;font-weight:500;text-align:center}
+
+/* ===== 同城公告 ===== */
+.notice-strip{
+  display:flex;align-items:center;gap:8px;
+  margin:10px 12px 0;padding:9px 14px;background:#fff;border-radius:12px;
+  font-size:13px;color:var(--c-text-2);cursor:pointer
+}
+.notice-tag{background:var(--c-accent);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0}
+.notice-text{flex:1;font-weight:500;color:var(--c-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.notice-arrow{color:var(--c-text-3);font-size:14px;flex-shrink:0}
+
+/* ===== 加入会员 + 同城合伙人 ===== */
+.dual-cta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 12px 0}
+.dual-card{
+  padding:14px 16px;border-radius:14px;display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;position:relative;overflow:hidden
+}
+.cta-member{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff}
+.cta-partner{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff}
+.cta-l .t1{font-size:15px;font-weight:700;display:block}
+.cta-l .t2{font-size:11px;opacity:.85;margin-top:3px;display:block}
+.cta-ico{font-size:28px;z-index:1;opacity:.95}
+
+/* ===== 本地商家（暂保留） ===== */
+.local-biz{margin:0 0 0}
+.local-head{display:flex;justify-content:space-between;align-items:center;padding:16px 14px 8px;font-size:14px;font-weight:700}
+.local-head::before{content:"📍";margin-right:4px}
+.local-head .more{font-weight:normal;font-size:11px;color:#969799}
+.local-scroll{display:flex;gap:8px;padding:0 12px 10px;overflow-x:auto}
+.local-scroll::-webkit-scrollbar{display:none}
+.biz-card{
+  flex-shrink:0;width:130px;background:#fff;border-radius:12px;
+  padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer
+}
+.biz-logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#e8f2fc,#d6e9fb);display:flex;align-items:center;justify-content:center;font-weight:700;color:#1989fa}
+.biz-name{flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ===== 贴吧式任务信息流 ===== */
+.tieba-section{
+  background:#fff;margin-top:14px;border-radius:14px;
+  overflow:hidden
+}
+.tieba-header{
+  position:relative;height:90px;
+  background:linear-gradient(135deg,#0ea5e9 0%,#1da1f2 50%,#38bdf8 100%);
+  color:#fff;padding:14px 16px;overflow:hidden
+}
+.tieba-header::before{
+  content:"";position:absolute;left:-40px;top:-20px;width:140px;height:140px;
+  background:radial-gradient(circle, rgba(255,255,255,.18), transparent);border-radius:50%
+}
+.tieba-name{font-size:16px;font-weight:800;display:flex;align-items:center;gap:6px;position:relative}
+.tieba-name::after{content:"🔥";font-size:14px}
+.tieba-sub{font-size:11px;opacity:.85;margin-top:4px;display:block;position:relative}
+.tieba-follow{
+  position:absolute;right:14px;top:14px;
+  background:#fff;color:#1da1f2;font-size:11px;font-weight:700;
+  padding:5px 14px;border-radius:999px;display:flex;align-items:center;gap:3px;cursor:pointer
+}
+
+.qr-banner{
+  margin:10px 12px;background:linear-gradient(135deg,#38bdf8,#1da1f2);border-radius:12px;
+  padding:12px 14px;color:#fff;display:flex;align-items:center;justify-content:space-between
+}
+.qr-l h3{font-size:13px;font-weight:700;line-height:1.4}
+.qr-l p{font-size:10px;opacity:.85;margin-top:2px;line-height:1.4}
+.qr-img{
+  width:54px;height:54px;background:#fff;border-radius:8px;flex-shrink:0;
+  background-image:linear-gradient(45deg,#1a1a1a 25%,transparent 25%);
+  background-size:6px 6px;display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:#666;padding:4px;text-align:center
+}
+
+/* 贴吧Tab栏 */
+.tieba-tabs{
+  display:flex;background:#fff;padding:0 8px;border-bottom:1px solid var(--c-divider);
+  overflow-x:auto;scrollbar-width:none
+}
+.tieba-tabs::-webkit-scrollbar{display:none}
+.tieba-tab{
+  flex-shrink:0;padding:12px 14px;font-size:13px;color:var(--c-text-2);
+  font-weight:500;position:relative;cursor:pointer;white-space:nowrap
+}
+.tieba-tab.active{color:#1da1f2;font-weight:700}
+.tieba-tab.active::after{
+  content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:18px;height:3px;border-radius:2px;background:#1da1f2
+}
+
+/* ===== 贴吧帖子卡片 ===== */
+.post-list{padding:8px 0;background:#fafafa}
+.post-card{
+  margin:8px 10px;background:#fff;border-radius:14px;
+  padding:14px 14px 12px;box-shadow:0 1px 4px rgba(0,0,0,.04);
+  position:relative;cursor:pointer;border:1px solid var(--c-divider)
+}
+.post-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.post-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,#fbbf24,#f59e0b);
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0
+}
+.post-author-info{flex:1;min-width:0}
+.post-author-row{display:flex;align-items:center;gap:5px}
+.post-author{font-size:13px;font-weight:700;color:var(--c-text)}
+.post-badges{display:flex;gap:3px}
+.pb{font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700}
+.pb-top{background:#1da1f2;color:#fff}
+.pb-help{background:#f97316;color:#fff}
+.pb-exclusive{background:linear-gradient(90deg,#dc2626,#f97316);color:#fff}
+.post-phone{font-size:11px;color:var(--c-text-3);font-weight:500}
+.post-action-row{display:flex;align-items:center;gap:6px}
+.btn-tel{
+  background:linear-gradient(135deg,#1da1f2,#0ea5e9);color:#fff;
+  font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;border:none
+}
+.btn-more{color:#969799;font-size:18px;line-height:1}
+
+.post-title{font-size:14px;font-weight:700;color:var(--c-text);margin-bottom:6px;line-height:1.4;display:block}
+.post-loc{font-size:12px;color:var(--c-text-2);margin-bottom:6px;display:block}
+.post-loc .key{font-weight:600;color:var(--c-text)}
+.post-body{font-size:12px;color:var(--c-text-2);line-height:1.6;margin-bottom:8px;display:block}
+.post-expand{color:#1da1f2;font-size:12px;font-weight:600;display:inline-block;margin-top:-2px}
+
+.post-images{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:8px 0}
+.post-img{
+  height:90px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;
+  font-size:30px;color:#fff;font-weight:700
+}
+
+.post-tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.post-tag{font-size:11px;padding:3px 10px;border-radius:999px;font-weight:600;background:#f5f6f8;color:var(--c-text-2)}
+.post-tag .label{color:#969799;font-weight:500;margin-right:3px}
+.post-tag .value{color:var(--c-text);font-weight:700}
+
+.post-bottom{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:10px;padding-top:8px;border-top:1px dashed var(--c-divider)
+}
+.post-stats{font-size:11px;color:var(--c-text-3)}
+.post-stats b{color:var(--c-text);font-weight:700}
+.post-actions{display:flex;gap:14px}
+.post-act{font-size:11px;color:var(--c-text-2);display:flex;align-items:center;gap:4px;cursor:pointer}
+.post-act .ico{font-size:14px}
+
+/* 浮动分享按钮（贴吧风格） */
+.float-share-tieba{
+  position:fixed;bottom:80px;right:50%;margin-right:-175px;
+  width:48px;height:48px;border-radius:50%;
+  background:linear-gradient(135deg,#22c55e,#16a34a);
+  color:#fff;font-size:14px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 12px rgba(34,197,94,.35);
+  cursor:pointer;z-index:5;flex-direction:column;line-height:1
+}
+.float-share-tieba .ico{font-size:16px}
+.float-share-tieba span{font-size:9px;margin-top:1px}
+
+/* ===== Tab Bar ===== */
+.tab-bar{
+  display:flex;background:#fff;border-top:1px solid var(--c-divider);
+  padding:6px 0 env(safe-area-inset-bottom,4px);flex-shrink:0
+}
+.tab-bar-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;padding:2px 0;cursor:pointer
+}
+.tab-bar-icon{font-size:20px;margin-bottom:1px;position:relative}
+.tab-bar-label{font-size:10px;color:var(--c-text-3);font-weight:500}
+.tab-bar-item.active .tab-bar-label{color:var(--c-primary);font-weight:600}
+.tab-bar-item.active .tab-bar-icon{color:var(--c-primary)}
+.tb-fab{position:relative}
+.tb-fab::before{
+  content:"";position:absolute;left:50%;top:-22px;transform:translateX(-50%);
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,#4a96f0,#1572cc);
+  box-shadow:0 4px 12px rgba(74,144,240,.35);
+  z-index:0
+}
+.tb-fab .ico{position:relative;z-index:1;font-size:24px;color:#fff;margin-top:-18px}
+.tb-fab .label{position:relative;z-index:1;margin-top:-2px}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="sb"><span>9:43</span><span style="display:flex;gap:4px;align-items:center">📶 5G 🔋<span style="background:#1a1a1a;color:#fff;border-radius:3px;font-size:9px;padding:0 4px">98</span></span></div>
+
+  <!-- Top nav -->
+  <div class="top-nav">
+    <div class="city-btn">全国 <span class="arrow">▼</span></div>
+    <div class="search-box"><span class="ico">🔍</span><span class="ph">大家都在搜:吊运项目</span></div>
+    <div class="msg-btn">💬</div>
+  </div>
+
+  <div class="content">
+    <!-- Hero banner -->
+    <div class="hero-banner">
+      <div class="drone-l">🚁</div>
+      <div class="drone-r">🚁</div>
+      <div class="drone-l2">🚁</div>
+      <div class="chart-r">📊</div>
+      <div class="chart-r2">💰</div>
+      <div class="hero-title">买无人机免费承接项目</div>
+      <div class="hero-stats">
+        <span class="hero-stat">👁 浏览 <span class="num">669万</span></span>
+        <span class="hero-stat">📝 发帖 <span class="num">848</span></span>
+        <span class="hero-stat">🏢 商家 <span class="num">105</span></span>
+      </div>
+      <div class="hero-cta">进入社区</div>
+    </div>
+
+    <!-- 10宫格 -->
+    <div class="icon-grid">
+      <div class="ig-item"><div class="ig-icon" style="background:#dbeafe">🚛</div><div class="ig-label">吊运独享</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#fee2e2">🔄</div><div class="ig-label">买卖租赁</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#fef3c7">📚</div><div class="ig-label">考证培训</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#d1fae5">🌾</div><div class="ig-label">植保运输</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#dbeafe">🧽</div><div class="ig-label">清洗...</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#fef3c7">🛒</div><div class="ig-label">二手交易</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#fce7f3">🤝</div><div class="ig-label">免费互助</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#fde68a">🏢</div><div class="ig-label">商家入驻</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#ddd6fe">💬</div><div class="ig-label">社区交流</div></div>
+      <div class="ig-item"><div class="ig-icon" style="background:#fee2e2">👥</div><div class="ig-label">求职招聘</div></div>
+    </div>
+
+    <!-- 同城公告 -->
+    <div class="notice-strip">
+      <span class="notice-tag">📢</span>
+      <span class="notice-text"><b style="color:#f97316">同城公告</b>&nbsp;&nbsp;小飞虾独家发布了吊运独家信息</span>
+      <span class="notice-arrow">›</span>
+    </div>
+
+    <!-- 双CTA -->
+    <div class="dual-cta">
+      <div class="dual-card cta-member">
+        <div class="cta-l"><span class="t1">加入会员</span><span class="t2">加入会员更优惠</span></div>
+        <div class="cta-ico">🎖️</div>
+      </div>
+      <div class="dual-card cta-partner">
+        <div class="cta-l"><span class="t1">同城合伙人</span><span class="t2">加入同城合伙人</span></div>
+        <div class="cta-ico">🤝</div>
+      </div>
+    </div>
+
+    <!-- 本地商家 -->
+    <div class="local-biz">
+      <div class="local-head">本地商家 <span class="more">全部 ›</span></div>
+      <div class="local-scroll">
+        <div class="biz-card"><div class="biz-logo" style="background:linear-gradient(135deg,#1e3a8a,#1e40af);color:#fff">A</div><div class="biz-name">重庆无人机协会</div></div>
+        <div class="biz-card"><div class="biz-logo" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff">虾</div><div class="biz-name">小飞虾无人机</div></div>
+        <div class="biz-card"><div class="biz-logo" style="background:linear-gradient(135deg,#1da1f2,#0ea5e9);color:#fff">鹰</div><div class="biz-name">鹰眼航空</div></div>
+        <div class="biz-card"><div class="biz-logo">飞</div><div class="biz-name">飞翔植保</div></div>
+      </div>
+    </div>
+
+    <!-- ========== 贴吧式任务信息流 ========== -->
+    <div class="tieba-section">
+      <div class="tieba-header">
+        <div class="tieba-name">小飞虾无人机圈子社区</div>
+        <div class="tieba-sub">无人机产业链综合社区</div>
+        <div class="tieba-follow">+ 关注</div>
+      </div>
+
+      <div class="qr-banner">
+        <div class="qr-l">
+          <h3>关注"小飞虾"公众号</h3>
+          <p>实时接收【私信】<br>或【评论】消息提醒</p>
+        </div>
+        <div class="qr-img">📱<br>长按识别</div>
+      </div>
+
+      <div class="tieba-tabs">
+        <div class="tieba-tab active">最新信息</div>
+        <div class="tieba-tab">吊运独享</div>
+        <div class="tieba-tab">买卖租赁</div>
+        <div class="tieba-tab">考证培训</div>
+        <div class="tieba-tab">植保运输</div>
+        <div class="tieba-tab">求职招聘</div>
+      </div>
+
+      <div class="post-list">
+
+        <!-- 帖子 1 -->
+        <div class="post-card">
+          <div class="post-top">
+            <div class="post-avatar">王</div>
+            <div class="post-author-info">
+              <div class="post-author-row">
+                <span class="post-badges"><span class="pb pb-top">顶</span></span>
+                <span class="post-badges"><span class="pb pb-help">互帮互助</span></span>
+                <span class="post-author">王新刚</span>
+                <span class="post-phone">***3000</span>
+              </div>
+            </div>
+            <div class="post-action-row">
+              <button class="btn-tel">📞 电话</button>
+              <span class="btn-more">⋯</span>
+            </div>
+          </div>
+          <span class="post-title">山东省青岛市FC100, 3台。T1007台。万 物 可用。开无人机吊运租赁发票。</span>
+          <span class="post-loc"><span class="key">📍 地区:</span>山东省 青岛市</span>
+          <span class="post-body">专业承接各类型吊运业务，FC100/T100机型齐全，长年合作优惠价。山东周边可随时调度...</span>
+          <span class="post-expand">全文 ▾</span>
+          <div class="post-images">
+            <div class="post-img" style="background:linear-gradient(135deg,#1da1f2,#0ea5e9)">吊运1</div>
+            <div class="post-img" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">吊运2</div>
+          </div>
+          <div class="post-bottom">
+            <div class="post-stats">🔥 <b>15689</b> 浏览 · 📅 07-09 12:22</div>
+            <div class="post-actions">
+              <span class="post-act"><span class="ico">👍</span> 1</span>
+              <span class="post-act"><span class="ico">💬</span> 0</span>
+              <span class="post-act"><span class="ico">↗️</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 帖子 2 -->
+        <div class="post-card">
+          <div class="post-top">
+            <div class="post-avatar" style="background:linear-gradient(135deg,#e64340,#dc2626)">独</div>
+            <div class="post-author-info">
+              <div class="post-author-row">
+                <span class="post-badges"><span class="pb pb-exclusive">独家</span></span>
+                <span class="post-author">吊运业务</span>
+                <span class="post-phone">小飞虾独家项目</span>
+              </div>
+            </div>
+            <div class="post-action-row">
+              <button class="btn-tel">📞 电话</button>
+              <span class="btn-more">⋯</span>
+            </div>
+          </div>
+          <span class="post-title">独家吊运业务 小飞虾独家项目</span>
+          <span class="post-loc"><span class="key">📍 地区:</span>全国（按需调度）</span>
+          <div class="post-tags">
+            <span class="post-tag"><span class="label">货物类型</span><span class="value">树/木头</span></span>
+            <span class="post-tag"><span class="label">项目总量</span><span class="value">300吨</span></span>
+            <span class="post-tag"><span class="label">单价</span><span class="value">面议</span></span>
+          </div>
+          <div class="post-images">
+            <div class="post-img" style="background:linear-gradient(135deg,#22c55e,#16a34a)">🌲</div>
+            <div class="post-img" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">🚁</div>
+          </div>
+          <div class="post-bottom">
+            <div class="post-stats">🔥 <b>8924</b> 浏览 · 📅 07-08 10:15</div>
+            <div class="post-actions">
+              <span class="post-act"><span class="ico">👍</span> 23</span>
+              <span class="post-act"><span class="ico">💬</span> 7</span>
+              <span class="post-act"><span class="ico">↗️</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 帖子 3 -->
+        <div class="post-card">
+          <div class="post-top">
+            <div class="post-avatar" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">培</div>
+            <div class="post-author-info">
+              <div class="post-author-row">
+                <span class="post-badges"><span class="pb" style="background:#8b5cf6;color:#fff">荐</span></span>
+                <span class="post-badges"><span class="pb" style="background:#22c55e;color:#fff">考证培训</span></span>
+                <span class="post-author">飞翔学院</span>
+                <span class="post-phone">***8888</span>
+              </div>
+            </div>
+            <div class="post-action-row">
+              <button class="btn-tel">📞 电话</button>
+              <span class="btn-more">⋯</span>
+            </div>
+          </div>
+          <span class="post-title">CAAC 无人机执照培训 · 7月开班</span>
+          <span class="post-loc"><span class="key">📍 地区:</span>重庆市 渝北区</span>
+          <span class="post-body">CAAC 民航局无人机驾驶执照 (视距内/超视距/教员三级)，理论+实操，包过包就业...</span>
+          <span class="post-expand">全文 ▾</span>
+          <div class="post-tags">
+            <span class="post-tag"><span class="label">课程</span><span class="value">CAAC执照</span></span>
+            <span class="post-tag"><span class="label">费用</span><span class="value">6800元</span></span>
+            <span class="post-tag"><span class="label">开班</span><span class="value">7月15日</span></span>
+          </div>
+          <div class="post-bottom">
+            <div class="post-stats">🔥 <b>3412</b> 浏览 · 📅 07-07 14:08</div>
+            <div class="post-actions">
+              <span class="post-act"><span class="ico">👍</span> 12</span>
+              <span class="post-act"><span class="ico">💬</span> 4</span>
+              <span class="post-act"><span class="ico">↗️</span></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="height:30px;text-align:center;color:#969799;font-size:11px;padding:12px 0">— 已加载全部 —</div>
+  </div>
+
+  <!-- 浮动分享按钮 -->
+  <div class="float-share-tieba"><div class="ico">↗️</div><span>分享</span></div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <div class="tab-bar-item active"><span class="tab-bar-icon">🏠</span><span class="tab-bar-label">首页</span></div>
+    <div class="tab-bar-item"><span class="tab-bar-icon">🏪</span><span class="tab-bar-label">商家</span></div>
+    <div class="tab-bar-item tb-fab"><span class="ico">📋</span><span class="label">发布</span></div>
+    <div class="tab-bar-item"><span class="tab-bar-icon">🛒</span><span class="tab-bar-label">商城</span></div>
+    <div class="tab-bar-item"><span class="tab-bar-icon">👤</span><span class="tab-bar-label">我的</span></div>
+  </div>
+</div>
+
+</body>
+</html>

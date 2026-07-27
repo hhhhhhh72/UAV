@@ -1,0 +1,1729 @@
+basePath: /
+host: localhost:8080
+info:
+  contact:
+    name: 重庆市无人机产业协会
+  description: |-
+    面向微信小程序与 Web 管理后台的全栈服务平台，覆盖无人机产业链 7 大业务系统。
+    ## 认证
+    Bearer Token (HMAC-SHA256)，15 分钟过期。
+    在请求头中添加 `Authorization: Bearer <token>`。
+    ## 分页
+    分页接口统一使用 `?page=1&page_size=20`，返回 `{ data, total, page, page_size }`。
+    ## 角色
+    - `platform_admin` 平台管理员
+    - `association_admin` 协会管理员
+    - `enterprise` 企业用户
+    - `individual` 个人用户
+  title: 无人机产业综合服务平台 API
+  version: "1.0"
+paths:
+  /:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: API 首页信息
+      tags:
+      - 系统
+  /api/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 刷新令牌
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            refreshToken:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 刷新 Token
+      tags:
+      - 认证
+  /api/v1/achievements:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 科技成果列表
+      tags:
+      - 产学研
+  /api/v1/achievements/{id}:
+    get:
+      parameters:
+      - description: 成果ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 科技成果详情
+      tags:
+      - 产学研
+  /api/v1/admin/certificates/{id}/approve:
+    post:
+      parameters:
+      - description: 证书ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 审核证书
+      tags:
+      - 培训
+  /api/v1/admin/dashboard:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 数据看板
+      tags:
+      - 管理后台
+  /api/v1/admin/demands:
+    get:
+      parameters:
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 管理员需求列表
+      tags:
+      - 管理后台-需求
+  /api/v1/admin/demands/{id}/approve:
+    post:
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 审核需求-通过
+      tags:
+      - 管理后台-需求
+  /api/v1/admin/demands/{id}/review:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 审核需求-驳回
+      tags:
+      - 管理后台-��求
+  /api/v1/admin/enterprises:
+    get:
+      parameters:
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      - description: 搜索
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 管理员企业列表
+      tags:
+      - 管理后台-企业
+  /api/v1/admin/enterprises/{id}/review:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 企业ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 审核企业
+      tags:
+      - 管理后台-企业
+  /api/v1/admin/enterprises/batch-review:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 批量审核企业
+      tags:
+      - 管理后台-企业
+  /api/v1/admin/export/demands:
+    get:
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      security:
+      - BearerAuth: []
+      summary: 导出需求 CSV
+      tags:
+      - 管理后台
+  /api/v1/admin/export/enterprises:
+    get:
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      security:
+      - BearerAuth: []
+      summary: 导出企业 CSV
+      tags:
+      - 管理后台
+  /api/v1/admin/reports:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 举报管理
+      tags:
+      - 管理后台
+  /api/v1/admin/reviews:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 评价列表(管理)
+      tags:
+      - 管理后台-评价
+  /api/v1/admin/reviews/{id}/approve:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 评价ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 审核评价
+      tags:
+      - 管理后台-评价
+  /api/v1/admin/reviews/{id}/reject:
+    post:
+      parameters:
+      - description: 评价ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 驳回评价
+      tags:
+      - 管理后台-评价
+  /api/v1/admin/users:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 用户列表(管理)
+      tags:
+      - 管理后台
+  /api/v1/admin/users/{id}/role:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 修改用户角色
+      tags:
+      - 管理后台
+  /api/v1/applications:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 投递申请
+      tags:
+      - 招聘
+  /api/v1/applications/{id}/status:
+    patch:
+      parameters:
+      - description: 申请ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新申请状态
+      tags:
+      - 招聘
+  /api/v1/articles:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 资讯列表
+      tags:
+      - 资讯
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发布资讯(管理)
+      tags:
+      - 资讯
+  /api/v1/auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 登出
+      tags:
+      - 认证
+  /api/v1/auth/wechat/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 微信 code
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            code:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 小程序微信登录
+      tags:
+      - 认证
+  /api/v1/certificates:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建证书(管理)
+      tags:
+      - 培训
+  /api/v1/certificates/expiring:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 到期证书提醒
+      tags:
+      - 培训
+  /api/v1/certificates/mine:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的证书
+      tags:
+      - 培训
+  /api/v1/competitions:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 赛事列表
+      tags:
+      - 活动
+  /api/v1/contract-templates:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 合同模板列表
+      tags:
+      - 合同
+  /api/v1/contracts:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 合同列表
+      tags:
+      - 合同
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建合同
+      tags:
+      - 合同
+  /api/v1/contracts/{id}/void:
+    post:
+      parameters:
+      - description: 合同ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 合同作废
+      tags:
+      - 合同
+  /api/v1/demands:
+    get:
+      parameters:
+      - description: 业务类型
+        in: query
+        name: biz_type
+        type: string
+      - description: 地区
+        in: query
+        name: district
+        type: string
+      - description: 排序
+        in: query
+        name: sort
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 需求列表
+      tags:
+      - 需求
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发布需求
+      tags:
+      - 需求
+  /api/v1/demands/{id}:
+    get:
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 需求详情
+      tags:
+      - 需求
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新需求
+      tags:
+      - 需求
+  /api/v1/demands/{id}/applications:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 竞标报价
+      tags:
+      - 需求
+  /api/v1/demands/{id}/applications/{applicationId}/select:
+    post:
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 投标ID
+        in: path
+        name: applicationId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 选择中标
+      tags:
+      - 需求
+  /api/v1/demands/{id}/complete:
+    post:
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 完成需求
+      tags:
+      - 需求
+  /api/v1/demands/{id}/dispute:
+    post:
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发起争议
+      tags:
+      - 需求
+  /api/v1/demands/{id}/submit:
+    post:
+      parameters:
+      - description: 需求ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 提交需求
+      tags:
+      - 需求
+  /api/v1/demands/bids/mine:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的需求
+      tags:
+      - 需求
+  /api/v1/emergency-resources:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 应急资源列表
+      tags:
+      - 应急
+  /api/v1/enrollments/{id}/complete:
+    post:
+      parameters:
+      - description: 报名ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 完成报名
+      tags:
+      - 培训
+  /api/v1/enrollments/mine:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的报名
+      tags:
+      - 培训
+  /api/v1/enterprises:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 企业列表(公开)
+      tags:
+      - 企业
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 企业注册
+      tags:
+      - 企业
+  /api/v1/enterprises/{id}:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 企业ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新企业信息
+      tags:
+      - 企业
+  /api/v1/enterprises/{id}/documents:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 企业ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 上传企业文档
+      tags:
+      - 企业
+  /api/v1/enterprises/{id}/submit:
+    post:
+      parameters:
+      - description: 企业ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 提交企业审核
+      tags:
+      - 企业
+  /api/v1/escrow/balance:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 余额查询
+      tags:
+      - 资金
+  /api/v1/escrow/deposit:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 充值
+      tags:
+      - 资金
+  /api/v1/escrow/freeze:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 冻结资金
+      tags:
+      - 资金
+  /api/v1/escrow/refund:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 退款
+      tags:
+      - 资金
+  /api/v1/escrow/release:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 释放资金
+      tags:
+      - 资金
+  /api/v1/escrow/transactions:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 交易记录
+      tags:
+      - 资金
+  /api/v1/events:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 活动列表
+      tags:
+      - 活动
+  /api/v1/files/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 文件上传
+      tags:
+      - 系统
+  /api/v1/home:
+    get:
+      parameters:
+      - description: 城市
+        in: query
+        name: city
+        type: string
+      - description: 纬度
+        in: query
+        name: lat
+        type: number
+      - description: 经度
+        in: query
+        name: lng
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 首页数据
+      tags:
+      - 首页
+  /api/v1/inspections:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 年审管理
+      tags:
+      - 保险
+  /api/v1/jobs:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 职位列表
+      tags:
+      - 招聘
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发布职位
+      tags:
+      - 招聘
+  /api/v1/jobs/{id}/close:
+    post:
+      parameters:
+      - description: 职位ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 关闭职位
+      tags:
+      - 招聘
+  /api/v1/jobs/{id}/publish:
+    post:
+      parameters:
+      - description: 职位ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发布职位(管理)
+      tags:
+      - 招聘
+  /api/v1/jobs/mine:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的职位
+      tags:
+      - 招聘
+  /api/v1/labour-orders:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 用工需求列表
+      tags:
+      - 用工
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发布用工需求
+      tags:
+      - 用工
+  /api/v1/labour-orders/{id}/quote:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 订单ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 用工报价
+      tags:
+      - 用工
+  /api/v1/listings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 二手商品列表
+      tags:
+      - 交易
+  /api/v1/loans:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 贷款申请
+      tags:
+      - 金融
+  /api/v1/loans/mine:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的贷款
+      tags:
+      - 金融
+  /api/v1/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户信息
+      tags:
+      - 用户
+    patch:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新当前用户信息
+      tags:
+      - 用户
+  /api/v1/messages:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 消息列表
+      tags:
+      - 消息
+  /api/v1/messages/{id}/read:
+    post:
+      parameters:
+      - description: 消息ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 标记已读
+      tags:
+      - 消息
+  /api/v1/messages/unread-count:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 未读消息数
+      tags:
+      - 消息
+  /api/v1/policies:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 保险保单
+      tags:
+      - 保险
+  /api/v1/policies/mine:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的保单
+      tags:
+      - 保险
+  /api/v1/posts:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 帖子列表
+      tags:
+      - 社区
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发帖
+      tags:
+      - 社区
+  /api/v1/posts/{id}/comments:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 帖子ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 评论
+      tags:
+      - 社区
+  /api/v1/products:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 无人机产品列表
+      tags:
+      - 交易
+  /api/v1/repairs:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 维修订单
+      tags:
+      - 交易
+  /api/v1/rescue-cases:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 救援案例库
+      tags:
+      - 应急
+  /api/v1/resumes:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 简历管理
+      tags:
+      - 招聘
+  /api/v1/resumes/{id}:
+    patch:
+      parameters:
+      - description: 简历ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新简历
+      tags:
+      - 招聘
+  /api/v1/resumes/mine:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的简历
+      tags:
+      - 招聘
+  /api/v1/reviews:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 评价列表(公开)
+      tags:
+      - 评价
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建评价
+      tags:
+      - 评价
+  /api/v1/search:
+    get:
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 全局搜索
+      tags:
+      - 搜索
+  /api/v1/training-courses:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 培训课程列表
+      tags:
+      - 培训
+    post:
+      consumes:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建培训课程(管理)
+      tags:
+      - 培训
+  /api/v1/training-courses/{id}/enrollments:
+    get:
+      parameters:
+      - description: 课程ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 课程报名列表
+      tags:
+      - 培训
+  /api/v1/training-courses/{id}/pay-and-enroll:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 课程ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 课程报名+支付
+      tags:
+      - 培训
+  /api/v1/venues:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 场地列表
+      tags:
+      - 场地
+  /api/v1/venues/{id}/book:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 场地ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 场地预约
+      tags:
+      - 场地
+  /healthz:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 健康检查
+      tags:
+      - 系统
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

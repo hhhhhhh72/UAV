@@ -17,9 +17,9 @@ export function useAuth() {
     const accessToken = authStorage.getAccessToken()
     if (!accessToken) return
     try {
-      const res = await axios.get('/api/auth/me')
-      if (res.data?.success) {
-        const current = res.data.user || {}
+      const res = await axios.get('/api/v1/me')
+      if (res.data?.id) {
+        const current = res.data
         localStorage.setItem('user', JSON.stringify(current))
         userRole.value = current.role || 'user'
         isSuperAdmin.value = current.phone === SUPER_ADMIN_PHONE

@@ -46,7 +46,7 @@
 
     <view class="bottom-tip">
       <text>如有疑问请联系客服：</text>
-      <text class="phone-link" @tap="makeCall">023-55550500</text>
+      <text class="phone-link" @tap="makeCall">{{ contactPhone }}</text>
     </view>
 
     <HomeFloatButton />
@@ -60,11 +60,14 @@ import HomeFloatButton from '@/components/HomeFloatButton.vue'
 import { request } from '../../utils/request'
 
 const packages = ref([])
+const contactPhone = ref('023-55550500')
 
 onLoad(async () => {
   try {
     const res = await request({ url: '/api/services/config' })
     const allConfigs = res?.data || res || {}
+    const homeCfg = allConfigs._home || {}
+    if (homeCfg.contactPhone) contactPhone.value = homeCfg.contactPhone
     const config = allConfigs['9'] || {}
     const pkgs = config.packages || {}
     const ids = Object.keys(pkgs).sort()
@@ -89,7 +92,7 @@ const goToDetail = (id) => {
 }
 
 const makeCall = () => {
-  uni.makePhoneCall({ phoneNumber: '023-55550500' })
+  uni.makePhoneCall({ phoneNumber: contactPhone.value })
 }
 </script>
 

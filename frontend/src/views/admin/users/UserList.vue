@@ -1,98 +1,131 @@
 <template>
   <div class="user-list-page">
-    <DataToolbar>
-      <template #filters>
-        <span class="toolbar-label">用户列表</span>
-      </template>
-      <template #actions>
-        <van-button type="default" size="small" icon="replay" @click="fetchUsers">刷新</van-button>
-      </template>
-    </DataToolbar>
+    <!-- 搜索过滤区 -->
+    <div class="search-bar">
+      <div class="search-row">
+        <el-input
+          v-model="filterParams.keyword"
+          placeholder="搜索用户姓名..."
+          clearable style="width: 220px"
+          @keyup.enter="onSearchSubmit" @clear="onSearchSubmit"
+        >
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
 
-    <van-empty v-if="users.length === 0" description="暂无用户数据" />
+        <el-select v-model="filterParams.role" clearable style="width: 150px" @change="onSearchSubmit">
+          <el-option label="全部角色" value="" />
+          <el-option label="平台管理员" value="platform_admin" />
+          <el-option label="协会管理员" value="association_admin" />
+          <el-option label="企业用户" value="enterprise" />
+          <el-option label="个人用户" value="individual" />
+        </el-select>
 
-    <van-cell-group v-else inset style="border-radius: var(--card-radius);">
-      <van-cell v-for="u in users" :key="u.id">
-        <template #title>
-          <div style="display:flex; flex-direction: column; gap: 4px;">
-            <div style="font-weight: 600; color: var(--text-color);">{{ u.name || '-' }}</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">{{ u.phone || '-' }}</div>
-          </div>
-        </template>
-        <template #value>
-          <div style="display:flex; flex-direction: column; align-items: flex-end; gap: 6px;">
-            <van-tag
-              :type="u.role === 'platform_admin' ? 'success' : (u.role === 'association_admin' ? 'primary' : 'default')"
-              size="medium"
+        <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
+        <el-button @click="resetParams">重置</el-button>
+      </div>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="table-wrap">
+      <el-table v-loading="loading" :data="listData" row-key="id" stripe border>
+        <el-table-column prop="name" label="姓名" min-width="140">
+          <template #default="{ row }"><span class="cell-name">{{ row.name || '-' }}</span></template>
+        </el-table-column>
+
+        <el-table-column prop="phone" label="手机号" width="140" />
+
+        <el-table-column prop="role" label="角色" width="120">
+          <template #default="{ row }">
+            <el-tag :type="roleTagType(row.role)" size="small">{{ roleLabel(row.role) }}</el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="created_at" label="注册时间" width="170" sortable="custom">
+          <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="140" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="isSuperAdmin && row.phone !== SUPER_ADMIN_PHONE"
+              link type="primary" size="small"
+              @click="toggleRole(row)"
             >
-              {{ roleLabel(u.role) }}
-            </van-tag>
-            <van-button
-              v-if="isSuperAdmin && u.role !== 'association_admin' && u.phone !== SUPER_ADMIN_PHONE"
-              size="mini"
-              type="primary"
-              plain
-              @click="toggleUserRole(u)"
-            >
-              切换权限
-            </van-button>
-          </div>
-        </template>
-      </van-cell>
-    </van-cell-group>
+              {{ row.role === 'platform_admin' ? '取消管理员' : '设为管理员' }}
+            </el-button>
+            <span v-else-if="row.phone === SUPER_ADMIN_PHONE" style="color: var(--el-text-color-placeholder); font-size: 12px;">超级管理员</span>
+          </template>
+        </el-table-column>
+
+        <template #empty><el-empty description="暂无用户数据" /></template>
+      </el-table>
+    </div>
+
+    <!-- 分页 -->
+    <div class="pagination-wrap" v-if="total > 0">
+      <el-pagination
+        v-model:current-page="filterParams.page"
+        v-model:page-size="filterParams.page_size"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="total" layout="total, sizes, prev, pager, next, jumper"
+        background
+        @size-change="loadData" @current-change="loadData"
+      />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from '@/utils/http'
-import { showFailToast, showSuccessToast } from 'vant'
-import DataToolbar from '../components/DataToolbar.vue'
+import { onMounted } from 'vue'
+import { Search } from '@element-plus/icons-vue'
+import { showSuccessToast, showFailToast } from 'vant'
+import { useListRequest } from '@/hooks/useListRequest'
+import { getUserList, updateUserRole } from '@/api/admin/user'
 import { useAuth } from '../composables/useAuth'
 
 const { isSuperAdmin, SUPER_ADMIN_PHONE } = useAuth()
 
-const users = ref([])
+const roleLabel = (r) => ({
+  platform_admin: '平台管理员', association_admin: '协会管理员',
+  enterprise: '企业用户', individual: '个人用户'
+}[r] || r || '-')
 
-const roleLabel = (role) => {
-  const map = { platform_admin: '平台管理员', association_admin: '协会管理员', user: '用户' }
-  return map[role] || role || '-'
+const roleTagType = (r) => ({
+  platform_admin: 'success', association_admin: 'warning',
+  enterprise: '', individual: 'info'
+}[r] || 'info')
+
+const formatDate = (d) => {
+  if (!d) return '-'
+  const dt = new Date(d)
+  const p = n => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const fetchUsers = async () => {
-  try {
-    const res = await axios.get('/api/users')
-    const raw = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.users || [])
-    users.value = Array.isArray(raw) ? raw : []
-  } catch (error) {
-    showFailToast('获取用户数据失败')
-    console.error(error)
-  }
-}
+const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
+  apiFunction: getUserList,
+  idKey: 'id',
+  defaultParams: { role: '' }
+})
 
-const toggleUserRole = async (user) => {
-  if (!isSuperAdmin.value) {
-    showFailToast('仅超级管理员可调整权限')
-    return
-  }
-  if (user.phone === SUPER_ADMIN_PHONE) {
-    showFailToast('超级管理员权限不可修改')
-    return
-  }
-  const newRole = user.role === 'platform_admin' ? 'user' : 'platform_admin'
+const toggleRole = async (user) => {
+  const newRole = user.role === 'platform_admin' ? 'individual' : 'platform_admin'
   try {
-    await axios.post('/api/user/role', { id: user.id, role: newRole })
+    await updateUserRole(user.id, newRole)
     user.role = newRole
-    showSuccessToast('权限更新成功')
-  } catch (error) {
-    showFailToast('权限更新失败')
-    console.error(error)
-  }
+    showSuccessToast('权限已更新')
+  } catch (e) { showFailToast(e?.response?.data?.message || '权限更新失败') }
 }
 
-onMounted(fetchUsers)
+onMounted(loadData)
 </script>
 
 <style scoped>
-.toolbar-label { font-size: 14px; font-weight: 500; color: var(--text-color); }
+.user-list-page { max-width: 1200px; margin: 0 auto; }
+.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+.cell-name { font-weight: 500; }
+.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
 </style>

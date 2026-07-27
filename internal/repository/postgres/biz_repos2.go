@@ -20,8 +20,9 @@ func (s *Store) NewAchievementRepository() repository.AchievementRepository { re
 
 func (r *achieveRepo) Create(a domain.Achievement) (domain.Achievement, error) {
 	a.CreatedAt = time.Now(); a.UpdatedAt = a.CreatedAt
-	imgs, _ := json.Marshal(a.Images)
-	_, err := r.pool.Exec(context.Background(),
+	imgs, err := json.Marshal(a.Images)
+	if err != nil { return domain.Achievement{}, fmt.Errorf("marshal achievement images: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO achievements (id,owner_id,title,achieve_type,description,field,stage,images,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		a.ID, a.OwnerID, a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, a.ContactInfo, a.Status, a.CreatedAt, a.UpdatedAt)
 	return a, err
@@ -54,15 +55,17 @@ func (r *achieveRepo) List(field string, offset, limit int) ([]domain.Achievemen
 }
 func (r *achieveRepo) Update(a domain.Achievement) (domain.Achievement, error) {
 	a.UpdatedAt = time.Now()
-	imgs, _ := json.Marshal(a.Images)
-	_, err := r.pool.Exec(context.Background(),
+	imgs, err := json.Marshal(a.Images)
+	if err != nil { return domain.Achievement{}, fmt.Errorf("marshal achievement images: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`UPDATE achievements SET title=$1,achieve_type=$2,description=$3,field=$4,stage=$5,images=$6,contact_info=$7,status=$8,updated_at=$9 WHERE id=$10`,
 		a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, a.ContactInfo, a.Status, a.UpdatedAt, a.ID)
 	return a, err
 }
 func (r *achieveRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM achievements WHERE id=$1`, id)
-	return err
+	if err != nil { return fmt.Errorf("delete achievement %s: %w", id, err) }
+	return nil
 }
 
 // ---- RDChallenge ----
@@ -120,8 +123,9 @@ func (s *Store) NewResearchProjectRepository() repository.ResearchProjectReposit
 
 func (r *researchProjRepo) Create(p domain.ResearchProject) (domain.ResearchProject, error) {
 	p.CreatedAt = time.Now(); p.UpdatedAt = p.CreatedAt
-	members, _ := json.Marshal(p.Members)
-	_, err := r.pool.Exec(context.Background(),
+	members, err := json.Marshal(p.Members)
+	if err != nil { return domain.ResearchProject{}, fmt.Errorf("marshal members: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO research_projects (id,title,field,description,lead_org,members,budget_fen,start_date,end_date,milestones,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		p.ID, p.Title, p.Field, p.Description, p.LeadOrg, members, p.BudgetFen, p.StartDate, p.EndDate, p.Milestones, p.Status, p.CreatedAt, p.UpdatedAt)
 	return p, err
@@ -152,8 +156,9 @@ func (r *researchProjRepo) List(offset, limit int) ([]domain.ResearchProject, in
 }
 func (r *researchProjRepo) Update(p domain.ResearchProject) (domain.ResearchProject, error) {
 	p.UpdatedAt = time.Now()
-	members, _ := json.Marshal(p.Members)
-	_, err := r.pool.Exec(context.Background(),
+	members, err := json.Marshal(p.Members)
+	if err != nil { return domain.ResearchProject{}, fmt.Errorf("marshal members: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`UPDATE research_projects SET title=$1,field=$2,description=$3,lead_org=$4,members=$5,budget_fen=$6,start_date=$7,end_date=$8,milestones=$9,status=$10,updated_at=$11 WHERE id=$12`,
 		p.Title, p.Field, p.Description, p.LeadOrg, members, p.BudgetFen, p.StartDate, p.EndDate, p.Milestones, p.Status, p.UpdatedAt, p.ID)
 	return p, err
@@ -167,8 +172,9 @@ func (s *Store) NewProjectAppRepository() repository.ProjectAppRepository { retu
 
 func (r *projAppRepo) Create(a domain.ProjectApplication) (domain.ProjectApplication, error) {
 	a.CreatedAt = time.Now(); a.UpdatedAt = a.CreatedAt
-	att, _ := json.Marshal(a.Attachments)
-	_, err := r.pool.Exec(context.Background(),
+	att, err := json.Marshal(a.Attachments)
+	if err != nil { return domain.ProjectApplication{}, fmt.Errorf("marshal attachments: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO project_applications (id,applicant_id,project_name,category,budget_fen,description,attachments,status,review_note,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		a.ID, a.ApplicantID, a.ProjectName, a.Category, a.BudgetFen, a.Description, att, a.Status, a.ReviewNote, a.CreatedAt, a.UpdatedAt)
 	return a, err
@@ -215,8 +221,9 @@ func (r *projAppRepo) ListAll(status string, offset, limit int) ([]domain.Projec
 }
 func (r *projAppRepo) Update(a domain.ProjectApplication) (domain.ProjectApplication, error) {
 	a.UpdatedAt = time.Now()
-	att, _ := json.Marshal(a.Attachments)
-	_, err := r.pool.Exec(context.Background(),
+	att, err := json.Marshal(a.Attachments)
+	if err != nil { return domain.ProjectApplication{}, fmt.Errorf("marshal attachments: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`UPDATE project_applications SET project_name=$1,category=$2,budget_fen=$3,description=$4,attachments=$5,status=$6,review_note=$7,updated_at=$8 WHERE id=$9`,
 		a.ProjectName, a.Category, a.BudgetFen, a.Description, att, a.Status, a.ReviewNote, a.UpdatedAt, a.ID)
 	return a, err

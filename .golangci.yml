@@ -1,0 +1,34 @@
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - gofmt
+    - gocyclo
+    - nilerr
+    - goimports
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  misspell:
+    locale: US
+  errcheck:
+    check-blank: true
+    check-type-assertions: true
+
+issues:
+  exclude-dirs:
+    - vendor
+    - Test
+    - microAPP-main
+  max-issues-per-linter: 0
+  max-same-issues: 0

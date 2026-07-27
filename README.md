@@ -7,36 +7,42 @@
 ### 环境准备
 - **Go**: 版本 >= 1.22
 - **PostgreSQL**: 版本 >= 15（可选，默认使用内存存储）
-- **Node.js**: 版本 >= 16（仅小程序构建时需要）
+- **Node.js**: 版本 >= 16
 
-### 一键启动
+### 一键启动（前端 + 后端）
 
 ```bash
-# Windows — 交互式菜单
-start
+# Windows — 双击运行，或命令行执行
+start.bat
 
-# Windows — 直接启动后端
-start --api
-
-# Windows — 后端+小程序全部就绪
-start --all
+# Windows — 停止所有服务
+stop.bat
 
 # Linux/macOS/Git Bash
-bash start.sh api
-bash start.sh all
+bash start.sh
 ```
+
+> 首次运行会自动编译 Go 后端、安装 npm 依赖。
+> 启动后访问:
+> - 前端页面: http://localhost:5173
+> - 管理后台: http://localhost:5173/admin
+> - Swagger API 文档: http://localhost:8080/swagger/index.html
 
 ### 分别启动
 
 **后端 API**：
 ```bash
-# Windows
-start --api
-
-# 或手动
+# 构建 + 启动
 go build -o drone-api.exe ./cmd/api
+set ADMIN_DEV_MODE=true
 drone-api.exe
 ```
+
+**前端 H5**：
+```bash
+cd frontend && npm install && npm run dev
+```
+访问 `http://localhost:5173`。
 
 **小程序**：
 ```bash
@@ -47,14 +53,11 @@ cd miniprogram && npm install && cd ..
 ```
 
 **管理后台**：
-访问 `http://localhost:8080/admin`（开发环境自动注 Token）
+访问 `http://localhost:5173/admin`（Element Plus 桌面 UI）
 
 **Docker 部署**：
 ```bash
 docker-compose up -d   # 启动 PG + API
-```
-npm install
-# 微信开发者工具 → 导入项目 → 构建 npm
 ```
 
 ---

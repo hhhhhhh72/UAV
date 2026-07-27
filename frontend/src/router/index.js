@@ -182,9 +182,36 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // Admin route protection: only platform_admin + association_admin
+  // Admin route protection
   if (to.path.startsWith('/admin')) {
-    const userStr = localStorage.getItem('user')
+    let userStr = localStorage.getItem('user')
+    let token = localStorage.getItem('accessToken')
+
+    // Auto dev-login: get token from /api/v1/admin/token if missing
+    if (!token || !userStr) {
+      try {
+        const res = await axios.post('/api/v1/admin/token', { role: 'platform_admin' })
+        const data = res.data
+        const accessToken = data?.access_token || data?.accessToken
+        const refreshToken = data?.refresh_token || data?.refreshToken
+        const userInfo = data?.user || {}
+        if (accessToken) {
+          localStorage.setItem('accessToken', accessToken)
+          if (refreshToken) localStorage.setItem('refreshToken', refreshToken)
+          localStorage.setItem('user', JSON.stringify({
+            id: userInfo.id, role: userInfo.role || 'platform_admin',
+            phone: userInfo.id
+          }))
+          userStr = localStorage.getItem('user')
+          token = accessToken
+        }
+      } catch (e) {
+        console.error('dev auto-login failed', e)
+        next('/login')
+        return
+      }
+    }
+
     if (!userStr) { next('/login'); return }
     let user
     try { user = JSON.parse(userStr) } catch (e) { next('/login'); return }

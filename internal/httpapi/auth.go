@@ -126,6 +126,8 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		if r.URL.Path == "/healthz" || r.URL.Path == "/" ||
 			r.URL.Path == "/admin" || r.URL.Path == "/favicon.ico" ||
 			strings.HasPrefix(r.URL.Path, "/uploads/") ||
+			strings.HasPrefix(r.URL.Path, "/swagger/") ||
+			strings.HasPrefix(r.URL.Path, "/api/services/") ||
 			r.URL.Path == "/api/v1/admin/token" ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/auth/") ||

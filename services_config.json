@@ -1,0 +1,182 @@
+{
+  "_home": {
+    "banners": [
+      {
+        "image": "/uploads/file-1785118274111071100",
+        "link": ""
+      },
+      {
+        "image": "/uploads/file-1785118278980883900",
+        "link": ""
+      }
+    ],
+    "companyName": "重庆市无人机产业协会",
+    "contactPhone": "023-55550500",
+    "displayServices": [
+      {
+        "description": "城市即时配送、跨区域物流运输",
+        "icon": "/static/icons/logistics-drone.svg",
+        "id": "delivery",
+        "name": "无人机物流"
+      },
+      {
+        "description": "重物吊装、工程材料运输",
+        "icon": "/static/icons/lifting.svg",
+        "id": "lifting",
+        "name": "无人机吊运"
+      },
+      {
+        "description": "电力巡检、管道检测、建筑勘查",
+        "icon": "/static/icons/flight.svg",
+        "id": "inspection",
+        "name": "巡检服务"
+      },
+      {
+        "description": "精准喷洒、农业监测",
+        "icon": "/static/icons/drone-show-v2.svg",
+        "id": "agriculture",
+        "name": "植保服务"
+      },
+      {
+        "description": "灯光秀、编队表演、庆典活动",
+        "icon": "/static/icons/drone-show.svg",
+        "id": "drone-show",
+        "name": "无人机表演"
+      },
+      {
+        "description": "第一人称视角竞技体验",
+        "icon": "/static/icons/fpv-racing.svg",
+        "id": "fpv-racing",
+        "name": "FPV竞速"
+      }
+    ],
+    "faq": [
+      {
+        "a": "进入「企业入驻」页面，填写企业信息并上传营业执照，提交后等待协会审核。",
+        "q": "如何注册企业账号？"
+      },
+      {
+        "a": "进入「需求大厅」，点击发布需求按钮，选择业务类型并填写需求详情即可。",
+        "q": "如何发布需求？"
+      },
+      {
+        "a": "进入「培训认证」页面，选择感兴趣的课程，填写报名信息并完成支付。",
+        "q": "如何报名培训课程？"
+      },
+      {
+        "a": "拨打客服电话或在工作时间通过在线客服咨询。",
+        "q": "如何联系客服？"
+      }
+    ],
+    "headerImage": "",
+    "headerImagePosition": "center",
+    "notices": [
+      "无人机外卖配送服务正式上线",
+      "新开通江心屿景区无人机物流航线"
+    ],
+    "quickServices": [
+      {
+        "color": "#2979FF",
+        "icon": "/static/icons/service.svg",
+        "id": "demand",
+        "name": "需求大厅",
+        "path": "/pages/demands/list"
+      },
+      {
+        "color": "#00C853",
+        "icon": "/static/icons/service.svg",
+        "id": "enterprise",
+        "name": "企业入驻",
+        "path": "/pages/enterprise/register"
+      },
+      {
+        "color": "#FF6D00",
+        "icon": "/static/icons/service.svg",
+        "id": "cases",
+        "name": "案例展示",
+        "path": "/pages/cases/index"
+      },
+      {
+        "color": "#6200EA",
+        "icon": "/static/icons/study.svg",
+        "id": "study",
+        "name": "低空研学",
+        "path": "/pages/study/index"
+      },
+      {
+        "color": "#D50000",
+        "icon": "/static/icons/competition.svg",
+        "id": "competition",
+        "name": "赛事中心",
+        "path": "/pages/competitions/list"
+      },
+      {
+        "color": "#FF6D00",
+        "icon": "/static/icons/service.svg",
+        "id": "emergency",
+        "name": "应急资源",
+        "path": "/pages/emergency/resources"
+      },
+      {
+        "color": "#00BFA5",
+        "icon": "/static/icons/training.svg",
+        "id": "training",
+        "name": "培训认证",
+        "path": "/pages/training/courses"
+      },
+      {
+        "color": "#304FFE",
+        "icon": "/static/icons/service.svg",
+        "id": "achievements",
+        "name": "科技成果",
+        "path": "/pages/achievements/list"
+      },
+      {
+        "color": "#AA00FF",
+        "icon": "/static/icons/service.svg",
+        "id": "experts",
+        "name": "专家智库",
+        "path": "/pages/experts/list"
+      },
+      {
+        "color": "#C51162",
+        "icon": "/static/icons/service.svg",
+        "id": "jobs",
+        "name": "招聘求职",
+        "path": "/pages/jobs/list"
+      },
+      {
+        "color": "#1B5E20",
+        "icon": "/static/icons/service.svg",
+        "id": "compliance",
+        "name": "合规政策",
+        "path": "/pages/compliance/news"
+      },
+      {
+        "color": "#E65100",
+        "icon": "/static/icons/service.svg",
+        "id": "events",
+        "name": "协会活动",
+        "path": "/pages/events/list"
+      },
+      {
+        "color": "#78909C",
+        "icon": "/static/icons/service.svg",
+        "id": "more",
+        "name": "更多服务",
+        "path": "/pages/services/index"
+      }
+    ],
+    "searchKeywords": [
+      "搜索服务/案例",
+      "无人机外卖",
+      "行业应用示范",
+      "飞行服务",
+      "低空研学",
+      "无人机吊运"
+    ],
+    "serviceGuide": "1. 选择所需服务\n2. 填写申请表单\n3. 提交申请\n4. 等待客服联系\n5. 确认服务详情\n6. 服务执行",
+    "version": "v1.2.0",
+    "workHours": "工作时间：工作日 8:30-17:30"
+  }
+}

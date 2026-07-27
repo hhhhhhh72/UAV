@@ -105,8 +105,9 @@ func (s *Store) NewInstructorRepository() repository.InstructorRepository { retu
 
 func (r *instructorRepo) Create(i domain.Instructor) (domain.Instructor, error) {
 	i.Version = 1; i.CreatedAt = time.Now(); i.UpdatedAt = i.CreatedAt
-	certTypes, _ := json.Marshal(i.CertTypes)
-	_, err := r.pool.Exec(context.Background(),
+	certTypes, err := json.Marshal(i.CertTypes)
+	if err != nil { return domain.Instructor{}, fmt.Errorf("marshal cert types: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO instructors (id,user_id,name,cert_types,bio,org_id,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		i.ID, i.UserID, i.Name, certTypes, i.Bio, i.OrgID, i.Status, i.Version, i.CreatedAt, i.UpdatedAt)
 	return i, err
@@ -159,8 +160,9 @@ func (r *pilotRepo) dec(v string) string {
 func (r *pilotRepo) Create(p domain.CertifiedPilot) (domain.CertifiedPilot, error) {
 	p.Version = 1; p.CreatedAt = time.Now(); p.UpdatedAt = p.CreatedAt
 	p.IDCard = r.enc(p.IDCard)
-	certIDs, _ := json.Marshal(p.CertIDs)
-	_, err := r.pool.Exec(context.Background(),
+	certIDs, err := json.Marshal(p.CertIDs)
+	if err != nil { return domain.CertifiedPilot{}, fmt.Errorf("marshal cert ids: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO certified_pilots (id,user_id,real_name,id_card,cert_ids,flight_hours,rating,completed_jobs,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		p.ID, p.UserID, p.RealName, p.IDCard, certIDs, p.FlightHours, p.Rating, p.CompletedJobs, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
 	p.IDCard = r.dec(p.IDCard)
@@ -202,8 +204,9 @@ func (s *Store) NewProductRepository() repository.ProductRepository { return &pr
 
 func (r *prodRepo) Create(p domain.DroneProduct) (domain.DroneProduct, error) {
 	p.Version = 1; p.CreatedAt = time.Now(); p.UpdatedAt = p.CreatedAt
-	images, _ := json.Marshal(p.Images)
-	_, err := r.pool.Exec(context.Background(),
+	images, err := json.Marshal(p.Images)
+	if err != nil { return domain.DroneProduct{}, fmt.Errorf("marshal product images: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO drone_products (id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 		p.ID, p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, images, p.Brand, p.Model, p.Condition, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
 	return p, err

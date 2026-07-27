@@ -1,186 +1,306 @@
 <template>
   <div class="enterprise-list-page">
-    <DataToolbar>
-      <template #filters>
-        <span class="toolbar-label">企业审核</span>
-        <van-dropdown-menu active-color="#0071e3">
-          <van-dropdown-item v-model="statusFilter" :options="statusOptions" @change="fetchEnterprises" />
-        </van-dropdown-menu>
-      </template>
-      <template #actions>
-        <van-button type="default" size="small" icon="replay" @click="fetchEnterprises">刷新</van-button>
-      </template>
-    </DataToolbar>
+    <!-- 搜索过滤区 -->
+    <div class="search-bar">
+      <div class="search-row">
+        <el-input
+          v-model="filterParams.keyword"
+          placeholder="搜索企业名称..."
+          clearable
+          style="width: 240px"
+          @keyup.enter="onSearchSubmit"
+          @clear="onSearchSubmit"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
 
-    <van-empty v-if="enterprises.length === 0" description="暂无企业数据" />
+        <el-select
+          v-model="filterParams.status"
+          placeholder="审核状态"
+          clearable
+          style="width: 150px"
+          @change="onSearchSubmit"
+        >
+          <el-option label="待审核" value="submitted" />
+          <el-option label="已通过" value="approved" />
+          <el-option label="已驳回" value="rejected" />
+          <el-option label="草稿" value="draft" />
+          <el-option label="需补充" value="supplement_required" />
+        </el-select>
 
-    <van-cell-group v-else inset style="border-radius: var(--card-radius);">
-      <van-cell v-for="ent in enterprises" :key="ent.id" is-link @click="showDetail(ent)">
-        <template #title>
-          <div style="display:flex; flex-direction: column; gap: 4px;">
-            <div style="font-weight: 600; color: var(--text-color);">{{ ent.name || '-' }}</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">{{ ent.account_name || '-' }}</div>
-          </div>
-        </template>
-        <template #value>
-          <div style="display:flex; flex-direction: column; align-items: flex-end; gap: 6px;">
-            <van-tag :type="statusTagType(ent.status)" size="medium">{{ statusLabel(ent.status) }}</van-tag>
-            <span style="font-size: 12px; color: var(--text-secondary);">{{ formatDate(ent.created_at) }}</span>
-          </div>
-        </template>
-      </van-cell>
-    </van-cell-group>
-
-    <!-- Detail Popup -->
-    <van-popup :show="showDetailPopup" @update:show="v => showDetailPopup = v" position="bottom" :style="{ height: '60%' }" round>
-      <div class="detail-content" v-if="currentEnterprise">
-        <van-cell-group title="企业信息">
-          <van-cell title="企业名称" :value="currentEnterprise.name || '-'" />
-          <van-cell title="对公账户" :value="currentEnterprise.account_name || '-'" />
-          <van-cell title="状态" :value="statusLabel(currentEnterprise.status)" />
-          <van-cell title="协会会员" :value="currentEnterprise.is_member ? '是' : '否'" />
-          <van-cell v-if="currentEnterprise.license_url" title="营业执照">
-            <template #value>
-              <van-button size="small" type="primary" plain @click="viewLicense(currentEnterprise.license_url)">查看</van-button>
-            </template>
-          </van-cell>
-          <van-cell title="提交时间" :value="formatDate(currentEnterprise.created_at)" />
-        </van-cell-group>
-
-        <van-cell-group v-if="currentEnterprise.status === 'submitted'" title="审核操作">
-          <div style="padding: 12px 16px; display: flex; gap: 12px;">
-            <van-button type="success" block @click="reviewEnterprise('approved')">通过</van-button>
-            <van-button type="danger" block @click="reviewEnterprise('rejected')">驳回</van-button>
-          </div>
-        </van-cell-group>
+        <el-button type="primary" @click="onSearchSubmit">
+          <el-icon><Search /></el-icon>
+          搜索
+        </el-button>
+        <el-button @click="resetParams">重置</el-button>
       </div>
-    </van-popup>
+    </div>
 
-    <!-- License Image Preview -->
-    <van-image-preview
-      v-model:show="showLicensePreview"
-      :images="licenseImages"
-      @change="onLicensePreviewChange"
-    />
+    <!-- 批量操作栏 -->
+    <div class="batch-bar" v-if="selectedIds.length > 0">
+      <span class="batch-info">已选择 <b>{{ selectedIds.length }}</b> 项</span>
+      <el-button type="success" :icon="Check" @click="batchReview('approved')">批量通过</el-button>
+      <el-button type="danger" :icon="CloseBold" @click="batchReview('rejected')">批量驳回</el-button>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="table-wrap">
+      <el-table
+        v-loading="loading"
+        :data="listData"
+        row-key="id"
+        stripe
+        border
+        style="width: 100%"
+        @selection-change="onSelectChange"
+        @sort-change="onSortChange"
+      >
+        <el-table-column type="selection" width="40" />
+
+        <el-table-column prop="name" label="企业名称" min-width="180" sortable="custom">
+          <template #default="{ row }">
+            <span class="cell-name">{{ row.name || '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="account_name" label="对公账户" width="160" />
+        <el-table-column prop="contact_person" label="联系人" width="100" />
+        <el-table-column prop="contact_phone" label="联系电话" width="130" />
+
+        <el-table-column prop="status" label="审核状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="created_at" label="提交时间" width="160" sortable="custom">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
+            <template v-if="row.status === 'submitted'">
+              <el-divider direction="vertical" />
+              <el-button link type="success" size="small" @click="handleReview(row, 'approved')">通过</el-button>
+              <el-button link type="danger" size="small" @click="handleReview(row, 'rejected')">驳回</el-button>
+            </template>
+          </template>
+        </el-table-column>
+
+        <template #empty>
+          <el-empty description="暂无企业数据" />
+        </template>
+      </el-table>
+    </div>
+
+    <!-- 分页 -->
+    <div class="pagination-wrap" v-if="total > 0">
+      <el-pagination
+        v-model:current-page="filterParams.page"
+        v-model:page-size="filterParams.page_size"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        @size-change="loadData"
+        @current-change="loadData"
+      />
+    </div>
+
+    <!-- 详情弹窗 -->
+    <el-dialog
+      v-model="detailVisible"
+      title="企业详情"
+      width="640px"
+      :close-on-click-modal="false"
+    >
+      <template v-if="currentEnterprise">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="企业名称" :span="2">{{ currentEnterprise.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="对公账户">{{ currentEnterprise.account_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="联系人">{{ currentEnterprise.contact_person || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ currentEnterprise.contact_phone || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="审核状态">
+            <el-tag :type="statusTagType(currentEnterprise.status)" size="small">{{ statusLabel(currentEnterprise.status) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="协会会员">{{ currentEnterprise.is_member ? '是' : '否' }}</el-descriptions-item>
+          <el-descriptions-item label="提交时间" :span="2">{{ formatDate(currentEnterprise.created_at) }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentEnterprise.license_url" label="营业执照" :span="2">
+            <el-image
+              :src="currentEnterprise.license_url"
+              style="width: 200px; cursor: pointer"
+              :preview-src-list="[currentEnterprise.license_url]"
+              fit="contain"
+            />
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <!-- 审核操作 -->
+        <div v-if="currentEnterprise.status === 'submitted'" class="review-actions">
+          <el-divider />
+          <el-button type="success" @click="handleReview(currentEnterprise, 'approved')">审核通过</el-button>
+          <el-button type="danger" @click="handleReview(currentEnterprise, 'rejected')">驳回</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from '@/utils/http'
-import { showFailToast, showSuccessToast, showImagePreview } from 'vant'
-import DataToolbar from '../components/DataToolbar.vue'
+import { Search, Check, CloseBold } from '@element-plus/icons-vue'
+import { showSuccessToast, showFailToast } from 'vant'
+import { useListRequest } from '@/hooks/useListRequest'
+import { getEnterpriseList, reviewEnterprise, batchReviewEnterprise } from '@/api/admin/enterprise'
 
-const enterprises = ref([])
-const statusFilter = ref('submitted')
-const showDetailPopup = ref(false)
-const currentEnterprise = ref(null)
-const showLicensePreview = ref(false)
-const licenseImages = ref([])
+// --- 状态映射 ---
+const statusLabel = (s) => ({
+  draft: '草稿',
+  submitted: '待审核',
+  supplement_required: '需补充',
+  approved: '已通过',
+  rejected: '已驳回'
+}[s] || s || '-')
 
-const statusOptions = [
-  { text: '待审核', value: 'submitted' },
-  { text: '已通过', value: 'approved' },
-  { text: '已驳回', value: 'rejected' },
-  { text: '草稿', value: 'draft' },
-  { text: '需补充', value: 'supplement_required' }
-]
-
-const statusLabel = (status) => {
-  const map = {
-    draft: '草稿',
-    submitted: '待审核',
-    supplement_required: '需补充',
-    approved: '已通过',
-    rejected: '已驳回'
-  }
-  return map[status] || status || '-'
-}
-
-const statusTagType = (status) => {
-  const map = {
-    approved: 'success',
-    rejected: 'danger',
-    submitted: 'warning',
-    supplement_required: 'warning',
-    draft: 'default'
-  }
-  return map[status] || 'default'
-}
+const statusTagType = (s) => ({
+  approved: 'success',
+  rejected: 'danger',
+  submitted: 'warning',
+  supplement_required: 'warning',
+  draft: 'info'
+}[s] || 'info')
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-const fetchEnterprises = async () => {
-  try {
-    const res = await axios.get('/api/v1/admin/enterprises', {
-      params: { status: statusFilter.value }
-    })
-    let data = res.data
-    if (Array.isArray(data)) {
-      enterprises.value = data
-    } else if (data?.data) {
-      enterprises.value = Array.isArray(data.data) ? data.data : []
-    } else {
-      enterprises.value = []
-    }
-  } catch (error) {
-    showFailToast('获取企业数据失败')
-    console.error(error)
-  }
-}
+// --- 列表数据 ---
+const {
+  listData,
+  loading,
+  total,
+  selectedIds,
+  filterParams,
+  loadData,
+  onSearchSubmit,
+  onSortChange,
+  onSelectChange,
+  onPageChange,
+  onBatchAction,
+  resetParams
+} = useListRequest({
+  apiFunction: getEnterpriseList,
+  idKey: 'id',
+  defaultParams: { status: 'submitted' }
+})
+
+// --- 详情弹窗 ---
+const detailVisible = ref(false)
+const currentEnterprise = ref(null)
 
 const showDetail = (ent) => {
   currentEnterprise.value = { ...ent }
-  showDetailPopup.value = true
+  detailVisible.value = true
 }
 
-const viewLicense = (url) => {
-  if (!url) return
-  licenseImages.value = [url]
-  showLicensePreview.value = true
-}
-
-const onLicensePreviewChange = () => {
-  // Image preview change handler
-}
-
-const reviewEnterprise = async (action) => {
-  if (!currentEnterprise.value) return
+// --- 审核操作 ---
+const handleReview = async (ent, action) => {
   try {
-    const res = await axios.post(`/api/v1/admin/enterprises/${currentEnterprise.value.id}/review`, {
-      action,
-      reason: ''
-    })
-    if (res.data?.success !== false) {
-      showSuccessToast(action === 'approved' ? '已通过' : '已驳回')
+    await reviewEnterprise(ent.id, { action, reason: '' })
+    showSuccessToast(action === 'approved' ? '审核通过' : '已驳回')
+    if (currentEnterprise.value) {
       currentEnterprise.value.status = action === 'approved' ? 'approved' : 'rejected'
-      showDetailPopup.value = false
-      fetchEnterprises()
-    } else {
-      throw new Error(res.data?.message || '操作失败')
     }
+    detailVisible.value = false
+    loadData()
   } catch (error) {
-    showFailToast(error?.response?.data?.message || error?.message || '审核操作失败')
-    console.error(error)
+    showFailToast(error?.response?.data?.message || error?.message || '操作失败')
   }
 }
 
-onMounted(fetchEnterprises)
+const batchReview = (action) => {
+  onBatchAction(action, batchReviewEnterprise)
+}
+
+onMounted(loadData)
 </script>
 
 <style scoped>
-.toolbar-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-color);
-  margin-right: 8px;
+.enterprise-list-page {
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.detail-content {
-  padding: 16px 0;
+.search-bar {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-bar {
+  background: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-5);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.batch-info {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-right: auto;
+}
+
+.table-wrap {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+
+.cell-name {
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.review-actions {
+  text-align: center;
+  padding-top: 16px;
+}
+
+@media (max-width: 767px) {
+  .search-bar { padding: 12px; }
+  .search-row { flex-direction: column; align-items: stretch; }
+  .table-wrap { overflow-x: auto; }
 }
 </style>

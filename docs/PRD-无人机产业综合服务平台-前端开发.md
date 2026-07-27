@@ -1,6 +1,6 @@
 # PRD — 无人机产业综合服务平台 前端开发
 
-> 日期: 2026-07-24 | 团队: 4人 | 后端: 已就绪
+> 日期: 2026-07-26 | 团队: 4人 | 后端: 已就绪 | 管理后台: 已重建
 
 ---
 
@@ -14,8 +14,8 @@
 |------|:--:|------|
 | **Go 后端** | ✅ 100% | 212 条 API、66 张表、7 大业务系统全部完成 |
 | **H5 前端** | 🟡 框架 | 首页/业务大厅/消息/我的/登录 — 6大分类入口可用 |
-| **小程序** | 🟡 框架 | 同 H5，Vant Weapp 组件就绪 |
-| **管理后台** | ❌ 已删除 | 待重建 |
+| **H5 管理后台** | 🟢 已重建 | Element Plus 桌面化 — 7 个列表页(企业/需求/用户/案例/评价/订单/赛事) + 数据看板 |
+| **小程序** | 🟡 框架 | 同 H5，Vant Weapp 组件就绪，CSS 变量系统 + StateView 组件已引入 |
 | **42 业务页面** | ❌ 0/42 | 全部待开发（依小程序开发规格文档） |
 
 ---
@@ -196,37 +196,95 @@
 
 ## 六、技术规范
 
+### 6.0 技术栈
+
+| 端 | 框架 | UI 库 | 状态管理 | 构建工具 |
+|------|------|------|------|------|
+| H5 C端 | Vue 3 + Composition API | Vant 4 | Pinia | Vite 5 |
+| H5 管理后台 | Vue 3 + Composition API | Element Plus 2 | Pinia | Vite 5 |
+| 小程序 | uni-app (Vue 3) | Vant Weapp 1.11 | Storage | uni-app CLI |
+
 ### 6.1 页面模板
 
 每个页面对应一个 Vue SFC（小程序 uni-app .vue，H5 Vue3 .vue），结构统一：
 
 ```
 pages/[module]/[page].vue
-  ├── <template>  — Vant 组件（van-nav-bar + van-cell + van-loading 等）
+  ├── <template>  — 组件渲染（C端 Vant / 管理后台 Element Plus）
   ├── <script>    — API 调用 / 数据状态 / 交互逻辑
-  └── <style>     — 全局设计令牌引用
+  └── <style>     — 全局 CSS 变量引用
 ```
 
-### 6.2 必须处理的 4 种状态
+### 6.2 管理后台组件模式（2026-07-26 更新）
 
-| 状态 | UI |
-|------|------|
-| 加载中 | `van-loading` 或骨架屏 |
-| 空数据 | `van-empty` + 引导文案 |
-| 错误 | `van-toast` 错误信息 |
-| 正常 | 数据渲染 |
+管理后台列表页统一使用 Element Plus 桌面组件，遵循以下模式：
 
-### 6.3 API 调用规范
+```
+src/views/admin/[module]/[Module]List.vue
+  ├── 搜索过滤区  — el-input + el-select + el-date-picker + 搜索/重置按钮
+  ├── 批量操作栏  — 勾选后显示批量通过/驳回（el-table selection）
+  ├── 数据表格    — el-table（stripe/border/sortable） + v-loading 加载态
+  ├── 分页        — el-pagination（total/sizes/pager/jumper）
+  └── 详情弹窗    — el-dialog + el-descriptions（替代 van-popup 底部弹窗）
+```
+
+数据获取统一使用 `useListRequest` Hook：
 
 ```js
-// 统一使用 http.js (H5) 或 utils/request.js (小程序)
-const res = await http.get('/api/v1/demands', { params: { biz_type, page, page_size } })
-// res.data → 已解包，直接使用
-// res.data.items → 列表
-// res.data.total → 总数
+// src/hooks/useListRequest.js — 封装分页/搜索/排序/选中/批量操作/loading
+const { listData, loading, total, selectedIds, filterParams,
+        loadData, onSearchSubmit, onSortChange, onSelectChange,
+        onBatchAction, resetParams } = useListRequest({
+  apiFunction: getEnterpriseList,  // API 函数
+  idKey: 'id',                     // 行唯一标识
+  defaultParams: { status: 'submitted' }  // 默认查询参数
+})
 ```
 
-### 6.4 关键 API 分页参数
+API 调用统一模块化：
+
+```
+src/api/admin/
+  ├── enterprise.js   — 企业审核 CRUD
+  ├── demand.js       — 需求管理
+  ├── user.js         — 用户管理
+  ├── review.js       — 评价管理
+  └── application.js  — 申请单管理
+```
+
+### 6.3 必须处理的 4 种状态
+
+| 状态 | UI（C端） | UI（管理后台） |
+|------|----------|--------------|
+| 加载中 | `van-loading` 或 StateView | `el-table v-loading` |
+| 空数据 | StateView（`:empty="true"`） | `el-empty` |
+| 错误 | StateView（`:error="true"` @retry） | `showFailToast` |
+| 正常 | 数据渲染 | 数据渲染 |
+
+小程序统一 StateView 组件：
+
+```vue
+<!-- components/StateView.vue — loading / error / empty 三态统一 -->
+<StateView :loading :error :empty empty-text="暂无数据" @retry="fetchData">
+  <view v-for="item in list">...</view>
+</StateView>
+```
+
+### 6.4 API 调用规范
+
+```js
+// H5 端：使用 axios 实例（自动携带 Token + 自动刷新 + 分页响应保留元数据）
+import axios from '@/utils/http'
+const res = await axios.get('/api/v1/admin/enterprises', { params: { page: 1, page_size: 20, status: 'submitted' } })
+// res.data = { data: [...], total: 100, page: 1, page_size: 20 }
+// — 含 total 的分页响应不解包，保留全部元数据
+
+// 小程序端：使用 utils/request
+const { request } = require('@/utils/request')
+const res = await request({ url: '/api/v1/demands', data: { biz_type, page: 1, page_size: 20 } })
+```
+
+### 6.5 关键 API 分页参数
 
 ```
 GET /api/v1/demands?biz_type=巡检&district=南岸区&sort=newest&page=1&page_size=20
@@ -234,17 +292,27 @@ GET /api/v1/experts?field=低空管控&page=1&page_size=20
 GET /api/v1/achievements?field=无人机&page=1&page_size=20
 ```
 
-### 6.5 设计令牌
+### 6.6 设计令牌（2026-07-26 更新）
+
+小程序全局 CSS 变量系统（`App.vue`）：
 
 | Token | 值 | 用途 |
 |------|------|------|
-| `--primary-color` | `#1565C0` | 主色 |
-| `--bg-color` | `#FAFAFA` | 页面背景 |
-| `--card-bg` | `#FFFFFF` | 卡片背景 |
-| 标题 | 18px | 页面标题 |
-| 正文 | 15px | 列表项标题 |
-| 辅助 | 13px | 时间/标签 |
-| 间距 | 8/12/16/24/32 | 四级统一 |
+| `--color-primary` | `#1989fa` | 主色 |
+| `--color-success` | `#34c759` | 成功 |
+| `--color-warning` | `#ff9f0a` | 警告 |
+| `--color-danger` | `#ff3b30` | 危险 |
+| `--color-bg` | `#f5f6f8` | 页面背景 |
+| `--color-bg-card` | `#ffffff` | 卡片背景 |
+| `--color-text` | `#1a1a1a` | 主文字 |
+| `--color-text-secondary` | `#969799` | 辅助文字 |
+| `--radius-sm/md/lg` | `8/16/24rpx` | 三级圆角 |
+| `--shadow-sm/md/lg` | — | 三级阴影 |
+| `--font-xs~xxl` | `20~40rpx` | 六级字号 |
+| `--tabbar-height` | `50px` | TabBar 高度 |
+| `--safe-bottom` | `env(safe-area-inset-bottom)` | 底部安全区 |
+
+工具类：`flex-center` / `flex-between` / `text-ellipsis` / `card` / `bg-white` / `shadow-sm` / `px-md` / `gap-sm` 等 40+ 类。
 
 ---
 
@@ -264,21 +332,50 @@ GET /api/v1/achievements?field=无人机&page=1&page_size=20
 
 ---
 
-## 八、当前文件结构
+## 八、当前文件结构（2026-07-26 更新）
 
 ```
 d:/w-yao/
 ├── cmd/api/main.go           ← Go 后端 (212 API) ✅
 ├── internal/                 ← 业务逻辑 ✅
-├── frontend/                 ← H5 前端 (Vue3+Vant4) 🟡 框架
-│   └── src/views/
-│       ├── home/             ✅ 首页
-│       ├── services/         ✅ 6大分类
-│       ├── demand/           ✅ 详情+发布
-│       ├── messages/         ✅ 消息中心
-│       ├── mine/             ✅ 个人中心
-│       └── login/            ✅ 登录
+├── frontend/                 ← H5 前端 (Vue3+Vant4+ElementPlus) 🟡 框架
+│   └── src/
+│       ├── main.js           ← Element Plus + Vant 全局注册
+│       ├── hooks/
+│       │   └── useListRequest.js    🆕 通用列表 Hook
+│       ├── api/admin/
+│       │   ├── enterprise.js        🆕 企业审核 API
+│       │   ├── demand.js            🆕 需求管理 API
+│       │   ├── user.js              🆕 用户管理 API
+│       │   ├── review.js            🆕 评价管理 API
+│       │   └── application.js       🆕 申请单 API
+│       ├── utils/
+│       │   └── http.js         ✅ Token拦截器 + 分页不解包
+│       ├── views/
+│       │   ├── home/           ✅ 首页
+│       │   ├── services/       ✅ 6大分类
+│       │   ├── demand/         ✅ 详情+发布
+│       │   ├── messages/       ✅ 消息中心
+│       │   ├── mine/           ✅ 个人中心
+│       │   ├── login/          ✅ 登录
+│       │   └── admin/          🟢 管理后台 (Element Plus)
+│       │       ├── Dashboard.vue          ✅ 数据看板
+│       │       ├── AdminLayout.vue        ✅ 布局
+│       │       ├── enterprises/           🆕 el-table 企业审核
+│       │       ├── demands/               🆕 el-table 需求管理
+│       │       ├── users/                 🆕 el-table 用户管理
+│       │       ├── cases/                 🆕 el-table 案例管理
+│       │       ├── reviews/               🆕 el-table 评价管理
+│       │       ├── orders/                🆕 el-table 订单管理
+│       │       └── competition/           🆕 el-table 赛事管理
+│       └── stores/            🟡 7个 Pinia store
 ├── miniprogram/              ← 小程序 (uni-app+Vant Weapp) 🟡 框架
+│   ├── App.vue               🆕 CSS 变量 + 40+ 工具类
+│   ├── components/
+│   │   ├── Layout.vue        🆕 布局(使用CSS变量)
+│   │   ├── StateView.vue     🆕 统一状态组件(loading/error/empty)
+│   │   ├── TabBar.vue        ✅ 自定义 TabBar
+│   │   └── HomeFloatButton.vue ✅ 首页浮动按钮
 │   └── pages/
 │       ├── home/             ✅
 │       ├── services/         ✅
@@ -286,6 +383,8 @@ d:/w-yao/
 │       ├── messages/         ✅
 │       └── mine/             ✅
 ├── docs/
+│   ├── PRD-无人机产业综合服务平台-前端开发.md  ← 本文档
+│   ├── PRD-详细分工-页面级.md
 │   ├── 需求文档/小程序开发规格.md   ← 42页规格
 │   ├── 业务系统/ (7份)              ← 子系统详情
 │   └── 接口文档/API契约.md          ← 212端点清单

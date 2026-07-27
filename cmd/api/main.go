@@ -1,5 +1,26 @@
 package main
 
+// @title           无人机产业综合服务平台 API
+// @version         1.0
+// @description     面向微信小程序与 Web 管理后台的全栈服务平台，覆盖无人机产业链 7 大业务系统。
+// @description     ## 认证
+// @description     Bearer Token (HMAC-SHA256)，15 分钟过期。
+// @description     在请求头中添加 `Authorization: Bearer <token>`。
+// @description     ## 分页
+// @description     分页接口统一使用 `?page=1&page_size=20`，返回 `{ data, total, page, page_size }`。
+// @description     ## 角色
+// @description     - `platform_admin` 平台管理员
+// @description     - `association_admin` 协会管理员
+// @description     - `enterprise` 企业用户
+// @description     - `individual` 个人用户
+// @contact.name    重庆市无人机产业协会
+// @host            localhost:8080
+// @BasePath        /
+// @schemes         http
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
 import (
 	"context"
 	"log/slog"

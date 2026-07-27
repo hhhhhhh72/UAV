@@ -3,6 +3,7 @@ package httpapi
 import (
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http"
 	"os"
@@ -55,7 +56,7 @@ func readJSON(path string, mu *sync.RWMutex, target any) error {
 	defer mu.RUnlock()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("read %s: %w", path, err)
 	}
 	return json.Unmarshal(data, target)
 }
@@ -65,7 +66,7 @@ func writeJSON(path string, mu *sync.RWMutex, data any) error {
 	defer mu.Unlock()
 	raw, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal for %s: %w", path, err)
 	}
 	return os.WriteFile(path, raw, 0644)
 }
@@ -87,6 +88,31 @@ func (s *Server) h5GetServicesConfig(w http.ResponseWriter, r *http.Request) {
 	if err := readJSON(_servicesFile, &_servicesMu, &cfg); err != nil {
 		respond(w, r, http.StatusOK, map[string]any{})
 		return
+	}
+	// Inject baseUrl + rewrite relative image paths to full URLs for miniprogram
+	origin := "http://" + r.Host
+	if os.Getenv("BASE_URL") != "" {
+		origin = os.Getenv("BASE_URL")
+	}
+	if home, ok := cfg["_home"].(map[string]any); ok {
+		home["baseUrl"] = origin
+		// Rewrite banner images to full URLs
+		if banners, ok := home["banners"].([]any); ok {
+			for i, b := range banners {
+				if bm, ok := b.(map[string]any); ok {
+					if img, ok := bm["image"].(string); ok && strings.HasPrefix(img, "/uploads/") {
+						bm["image"] = origin + img
+					}
+					banners[i] = bm
+				}
+			}
+			home["banners"] = banners
+		}
+		// Rewrite headerImage
+		if hi, ok := home["headerImage"].(string); ok && strings.HasPrefix(hi, "/uploads/") {
+			home["headerImage"] = origin + hi
+		}
+		cfg["_home"] = home
 	}
 	respond(w, r, http.StatusOK, cfg)
 }
@@ -425,13 +451,13 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user map[string]any
+	var users []map[string]any
 
 	// 1) Check real user repo (Go backend users).
 	if u, err := s.userRepo.FindByID(loginID); err == nil {
 		user = map[string]any{"id": u.ID, "username": u.ID, "phone": u.ID, "role": string(u.Role), "status": u.Status}
 	} else {
 		// 2) Fallback to users.json (legacy compat).
-		var users []map[string]any
 		readJSON(_usersFile, &_usersMu, &users)
 		for _, ju := range users {
 			if ju["phone"] == loginID || ju["username"] == loginID {

@@ -228,7 +228,8 @@ func (r *reviewRepo) UpdateStatus(id, status string) (domain.Review, error) {
 }
 func (r *reviewRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM reviews WHERE id=$1`, id)
-	return err
+	if err != nil { return fmt.Errorf("delete review %s: %w", id, err) }
+	return nil
 }
 
 // ---- Venue ----
@@ -386,7 +387,8 @@ func (r *escrowRepo) UpsertAccount(a domain.EscrowAccount) error {
 		`INSERT INTO escrow_accounts (user_id,balance_fen,frozen_fen,updated_at) VALUES ($1,$2,$3,$4)
 		 ON CONFLICT (user_id) DO UPDATE SET balance_fen=$2,frozen_fen=$3,updated_at=$4`,
 		a.UserID, a.BalanceFen, a.FrozenFen, a.UpdatedAt)
-	return err
+	if err != nil { return fmt.Errorf("upsert escrow account %s: %w", a.UserID, err) }
+	return nil
 }
 func (r *escrowRepo) CreateTransaction(tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	tx.CreatedAt = time.Now()

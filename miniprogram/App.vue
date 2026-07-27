@@ -40,5 +40,132 @@
 </script>
 
 <style>
-	/*每个页面公共css */
+	/* ===== 全局 CSS 变量 & 工具类 ===== */
+
+	/* --- 语义化颜色 --- */
+	page {
+		--color-primary: #1989fa;
+		--color-primary-light: #e8f2fc;
+		--color-success: #34c759;
+		--color-warning: #ff9f0a;
+		--color-danger: #ff3b30;
+		--color-info: #909399;
+
+		--color-bg: #f5f6f8;
+		--color-bg-card: #ffffff;
+		--color-text: #1a1a1a;
+		--color-text-secondary: #969799;
+		--color-text-placeholder: #c8c9cc;
+		--color-border: #f0f1f3;
+		--color-divider: #ebedf0;
+
+		/* --- 圆角 --- */
+		--radius-sm: 8rpx;
+		--radius-md: 16rpx;
+		--radius-lg: 24rpx;
+		--radius-round: 999rpx;
+
+		/* --- 阴影 --- */
+		--shadow-sm: 0 2rpx 8rpx rgba(0,0,0,0.03);
+		--shadow-md: 0 4rpx 16rpx rgba(0,0,0,0.06);
+		--shadow-lg: 0 8rpx 32rpx rgba(0,0,0,0.08);
+
+		/* --- 间距 --- */
+		--space-xs: 8rpx;
+		--space-sm: 16rpx;
+		--space-md: 24rpx;
+		--space-lg: 32rpx;
+		--space-xl: 48rpx;
+
+		/* --- 字体 --- */
+		--font-xs: 20rpx;
+		--font-sm: 24rpx;
+		--font-md: 28rpx;
+		--font-lg: 32rpx;
+		--font-xl: 36rpx;
+		--font-xxl: 40rpx;
+
+		/* --- 布局 --- */
+		--tabbar-height: 50px;
+		--safe-bottom: env(safe-area-inset-bottom);
+		--safe-top: env(safe-area-inset-top);
+
+		font-size: 28rpx;
+		color: var(--color-text);
+		background-color: var(--color-bg);
+	}
+
+	/* ===== 工具类 ===== */
+
+	/* --- Flex 布局 --- */
+	.flex { display: flex; }
+	.flex-col { display: flex; flex-direction: column; }
+	.flex-center { display: flex; align-items: center; justify-content: center; }
+	.flex-between { display: flex; align-items: center; justify-content: space-between; }
+	.flex-start { display: flex; align-items: center; justify-content: flex-start; }
+	.flex-end { display: flex; align-items: center; justify-content: flex-end; }
+	.flex-wrap { flex-wrap: wrap; }
+	.flex-1 { flex: 1; min-width: 0; }
+	.flex-shrink { flex-shrink: 0; }
+
+	/* --- 文本 --- */
+	.text-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.text-ellipsis-2 {
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	.text-center { text-align: center; }
+	.text-left { text-align: left; }
+	.text-right { text-align: right; }
+
+	/* --- 颜色 --- */
+	.text-primary { color: var(--color-primary); }
+	.text-secondary { color: var(--color-text-secondary); }
+	.text-success { color: var(--color-success); }
+	.text-warning { color: var(--color-warning); }
+	.text-danger { color: var(--color-danger); }
+
+	/* --- 背景 --- */
+	.bg-white { background-color: #fff; }
+	.bg-card { background-color: var(--color-bg-card); }
+	.bg-primary { background-color: var(--color-primary); }
+	.bg-primary-light { background-color: var(--color-primary-light); }
+
+	/* --- 圆角 --- */
+	.radius-sm { border-radius: var(--radius-sm); }
+	.radius-md { border-radius: var(--radius-md); }
+	.radius-lg { border-radius: var(--radius-lg); }
+	.radius-round { border-radius: var(--radius-round); }
+	.radius-card { border-radius: var(--radius-md); }
+
+	/* --- 阴影 --- */
+	.shadow-sm { box-shadow: var(--shadow-sm); }
+	.shadow-md { box-shadow: var(--shadow-md); }
+
+	/* --- 间距 --- */
+	.p-xs { padding: var(--space-xs); }
+	.p-sm { padding: var(--space-sm); }
+	.p-md { padding: var(--space-md); }
+	.p-lg { padding: var(--space-lg); }
+	.px-sm { padding-left: var(--space-sm); padding-right: var(--space-sm); }
+	.px-md { padding-left: var(--space-md); padding-right: var(--space-md); }
+	.py-sm { padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
+	.py-md { padding-top: var(--space-md); padding-bottom: var(--space-md); }
+	.mt-sm { margin-top: var(--space-sm); }
+	.mt-md { margin-top: var(--space-md); }
+	.mb-sm { margin-bottom: var(--space-sm); }
+	.mb-md { margin-bottom: var(--space-md); }
+	.gap-xs { gap: var(--space-xs); }
+	.gap-sm { gap: var(--space-sm); }
+	.gap-md { gap: var(--space-md); }
+
+	/* --- 卡片容器 --- */
+	.card {
+		background-color: var(--color-bg-card);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-sm);
+		overflow: hidden;
+	}
 </style>

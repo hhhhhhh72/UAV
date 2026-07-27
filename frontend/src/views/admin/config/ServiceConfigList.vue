@@ -501,7 +501,7 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, nextTick } from 'vue'
 import axios from '@/utils/http'
 import { showFailToast, showSuccessToast, showLoadingToast, closeToast } from 'vant'
 import ImageCropper from './ImageCropper.vue'
@@ -514,6 +514,7 @@ const { userRole, isPlatformAdmin, isAssociationAdmin } = useAuth()
 const DEFAULT_HOME_CONFIG = {
   headerImage: '',
   headerImagePosition: 'center',
+  banners: [],
   notices: ['交享点无人机外卖配送正式上线', '新开通江心屿无人机外卖配送']
 }
 
@@ -607,7 +608,7 @@ const groupedServiceEntries = computed(() => {
 const fetchAllServiceConfigs = async () => {
   try {
     const res = await axios.get('/api/services/config')
-    allServiceConfigs.value = res.data.data || {}
+    allServiceConfigs.value = res.data || {}
     homeConfig.value = JSON.parse(JSON.stringify(allServiceConfigs.value._home || DEFAULT_HOME_CONFIG))
   } catch (error) {
     console.error('[ServiceConfig] 获取配置失败', error)
@@ -660,14 +661,14 @@ const saveHomeConfig = async () => {
     const newConfigs = { ...allServiceConfigs.value }
     newConfigs._home = editingHomeConfig.value
     await axios.post('/api/services/config', { config: newConfigs })
-    allServiceConfigs.value = newConfigs
-    homeConfig.value = JSON.parse(JSON.stringify(editingHomeConfig.value))
     closeToast()
     showSuccessToast('保存成功')
     showHomeConfigPopup.value = false
+    // Re-fetch to ensure label updates from server data
+    await fetchAllServiceConfigs()
   } catch (error) {
     closeToast()
-    showFailToast('保存失败')
+    showFailToast(error?.response?.data?.message || '保存失败')
   }
 }
 
@@ -971,8 +972,8 @@ const onReadStudyImage = async (file) => {
     const formData = new FormData()
     formData.append('file', file.file)
     const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-    if (res.data.success && studyEditingItem.value) {
-      studyEditingItem.value = { ...studyEditingItem.value, image: res.data.url }
+    if (res.data?.file_id && studyEditingItem.value) {
+      studyEditingItem.value = { ...studyEditingItem.value, image: normalizeMediaUrl(`/uploads/${res.data.file_id}`) }
     } else {
       showFailToast('上传失败')
     }

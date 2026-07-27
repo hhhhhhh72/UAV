@@ -34,12 +34,14 @@ func (s *ReviewService) ListAll(status string, offset, limit int) ([]domain.Revi
 
 func (s *ReviewService) Approve(id string) error {
 	_, err := s.repo.UpdateStatus(id, "approved")
-	return err
+	if err != nil { return fmt.Errorf("approve review %s: %w", id, err) }
+	return nil
 }
 
 func (s *ReviewService) Reject(id string) error {
 	_, err := s.repo.UpdateStatus(id, "rejected")
-	return err
+	if err != nil { return fmt.Errorf("reject review %s: %w", id, err) }
+	return nil
 }
 
 func (s *ReviewService) Delete(id string) error {

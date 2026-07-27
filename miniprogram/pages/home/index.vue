@@ -5,7 +5,7 @@
       <view class="video-header">
         <image 
           class="bg-video"
-          src="/static/home-bg.jpg"
+          :src="headerImage || '/static/home-bg.jpg'"
           mode="aspectFill"
         />
         <view class="video-mask" />
@@ -170,9 +170,9 @@ import { ref, computed, onMounted } from 'vue'
 import { onPullDownRefresh } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
 import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
-import { request } from '../../utils/request'
+import { request, BASE_URL } from '../../utils/request'
 
-const searchKeywords = ['搜索服务/案例', '无人机外卖', '行业应用示范', '飞行服务', '低空研学', '无人机吊运']
+const searchKeywords = ref(['搜索服务/案例', '无人机外卖'])
 const activeSearchIndex = ref(0)
 
 const onSearchSwiperChange = (e) => {
@@ -180,7 +180,7 @@ const onSearchSwiperChange = (e) => {
 }
 
 const handleSearchClick = () => {
-  const keyword = searchKeywords[activeSearchIndex.value]
+  const keyword = searchKeywords.value[activeSearchIndex.value]
   const p = keyword === '搜索服务/案例' ? '' : keyword
   safeSwitchTab(`/pages/services/index?keyword=${encodeURIComponent(p)}`)
 }
@@ -197,25 +197,11 @@ const getCapsuleInfo = () => {
 const capsuleInfo = ref(getCapsuleInfo())
 const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20)
 
-const notices = ref(['测试内容1', '测试内容2'])
+const notices = ref([])
+const headerImage = ref('')
+const contactPhone = ref('023-55550500')
 
-const quickServices = ref([
-  { id: 'flight', name: '飞行服务', icon: '/static/icons/flight.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
-  { id: 8, name: '无人机外卖', icon: '/static/icons/delivery.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
-  { id: 1, name: '无人机物流', icon: '/static/icons/logistics-drone.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
-  { id: 10, name: '无人机销售', icon: '/static/icons/shop.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
-  { id: 13, name: '无人机赛事', icon: '/static/icons/competition.svg', color: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' },
-  { id: 6, name: '飞手培训', icon: '/static/icons/training-v2.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
-  { id: 9, name: '低空研学', icon: '/static/icons/study.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
-  { id: 2, name: '政务服务', icon: '/static/icons/government.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
-  { id: 3, name: '无人机托管', icon: '/static/icons/maintenance.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
-  { id: 5, name: '无人机表演', icon: '/static/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
-  { id: 7, name: '无人机租赁', icon: '/static/icons/rent.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
-  { id: 4, name: '无人机吊运', icon: '/static/icons/lifting.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
-  { id: 11, name: '金融服务', icon: '/static/icons/finance.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
-  { id: 12, name: '维修服务', icon: '/static/icons/wrench.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' },
-  { id: 'contact', name: '联系客服', icon: '/static/icons/service.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' }
-])
+const quickServices = ref([])
 
 const servicePages = computed(() => {
   const pages = []
@@ -235,18 +221,10 @@ const servicePages = computed(() => {
 
 const activeFunctionPage = ref(0)
 
-const displayServices = ref([
-  { id: 1, name: '无人机物流', description: '城市极速配送，解决最后一公里难题', icon: '/static/icons/logistics-drone.svg', color: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)' },
-  { id: 2, name: '政务服务', description: '高效环保监测、交通疏导、安全巡查', icon: '/static/icons/government.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
-  { id: 3, name: '无人机托管', description: '专业机库托管，定期维护保养', icon: '/static/icons/maintenance.svg', color: 'linear-gradient(135deg, #4ade80 0%, #16a34a 100%)' },
-  { id: 4, name: '无人机吊运', description: '建筑材料、基站设备高空精准吊运', icon: '/static/icons/lifting.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' },
-  { id: 5, name: '无人机表演', description: '大型活动编队，光影艺术盛宴', icon: '/static/icons/drone-show-v2.svg', color: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' },
-  { id: 6, name: '飞手培训', description: 'CAAC执照考证，专业技能培训', icon: '/static/icons/training-v2.svg', color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)' }
-])
+const displayServices = ref([])
 
 const banners = ref([
-  { image: 'https://www-cdn.djiits.com/dps/3e196dbfade1b1734dbbb335dde5de12.jpg?w=1184&h=592', link: '/pages/cases/detail?id=1' },
-  { image: 'https://images.unsplash.com/photo-1506947411487-a56738267384?auto=format&fit=crop&w=1000&q=80', link: '/pages/cases/detail?id=2' }
+  { image: '/static/home-bg.jpg', link: '' }
 ])
 
 const activeBanner = ref(0)
@@ -273,7 +251,7 @@ const handleFunctionTap = (item) => {
     return
   }
   if (item.id === 'contact') {
-    uni.makePhoneCall({ phoneNumber: '057712345678' })
+    uni.makePhoneCall({ phoneNumber: contactPhone.value })
     return
   }
   if (item.id === 'more') {
@@ -320,21 +298,43 @@ const onBannerChange = (event) => {
 }
 
 onMounted(async () => {
-  // 加载后端配置的轮播消息
   try {
     const res = await request({ url: '/api/services/config' })
-    const cfg = (res?.data || res)?._home || {}
+    const cfg = (res?._home) || {}
+    console.log('[Home] config loaded:', JSON.stringify({ banners: cfg.banners?.length, headerImage: cfg.headerImage?.substring(0,30) }))
+    
+    // 轮播消息
     if (Array.isArray(cfg.notices) && cfg.notices.length > 0) {
       notices.value = cfg.notices.filter(m => m && typeof m === 'string' && m.trim())
     }
+    // Banners: use API data directly (backend already returns full URLs)
+    if (Array.isArray(cfg.banners) && cfg.banners.length > 0) {
+      banners.value = cfg.banners.filter(b => b.image)
+    }
+    // 背景图
+    if (cfg.headerImage) {
+      headerImage.value = cfg.headerImage
+    }
+    // 快捷入口
+    if (Array.isArray(cfg.quickServices) && cfg.quickServices.length > 0) {
+      quickServices.value = cfg.quickServices
+    }
+    // 推荐服务
+    if (Array.isArray(cfg.displayServices) && cfg.displayServices.length > 0) {
+      displayServices.value = cfg.displayServices
+    }
+    // 搜索关键词
+    if (Array.isArray(cfg.searchKeywords) && cfg.searchKeywords.length > 0) {
+      searchKeywords.value = cfg.searchKeywords
+    }
+    // 联系电话
+    if (cfg.contactPhone) contactPhone.value = cfg.contactPhone
   } catch (e) {
-    // ignore，使用默认值
+    // ignore, use defaults
   }
 
   // #ifdef MP-WEIXIN
-  // 预加载详情页，提升秒开感
-  uni.preloadPage({ url: '/pages/services/detail?id=1' })
-  uni.preloadPage({ url: '/pages/services/detail?id=6' })
+  // preloadPage 在微信小程序中不可用，忽略
   // #endif
 })
 
