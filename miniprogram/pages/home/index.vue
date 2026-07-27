@@ -819,6 +819,12 @@ onMounted(async () => {
   backdrop-filter: blur(20px);
 }
 
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
 /* 贴吧式分类Tab */
 .overlay-card-sm {
   position: relative;
@@ -866,6 +872,10 @@ onMounted(async () => {
 /* 贴吧式需求流 */
 .post-feed {
   margin-bottom: 12px;
+}
+
+.post-feed.overlay-card {
+  padding: 24px;
 }
 
 .feed-header {
