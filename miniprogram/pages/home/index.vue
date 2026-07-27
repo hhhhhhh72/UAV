@@ -14,21 +14,13 @@
         </view>
       </view>
 
-      <!-- 2. 轮播横幅 -->
+      <!-- 2. 轮播图 -->
       <view class="hero-banner">
         <swiper class="hero-swipe" autoplay interval="5000" circular :current="activeBanner" @change="onBannerChange">
           <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
             <image :src="item.image" class="hero-img" mode="aspectFill" />
           </swiper-item>
         </swiper>
-        <view class="hero-overlay">
-          <view class="hero-center">
-            <text class="hero-title">免费发布信息</text>
-            <view class="hero-tags">
-              <text class="ht">吊运</text><text class="ht">植保打药</text><text class="ht">租赁</text><text class="ht">航拍表演</text>
-            </view>
-          </view>
-        </view>
         <view class="hero-dots">
           <view v-for="(item, index) in banners" :key="'bd'+index" class="hero-dot" :class="{ on: index === activeBanner }" />
         </view>
@@ -156,16 +148,21 @@ const handleFunc = (f) => {
 }
 const navigateTo = (p) => safeNavigateTo(p)
 
-onMounted(() => {
+onMounted(async () => {
   const sys = uni.getSystemInfoSync()
   statusBarH.value = (sys.statusBarHeight || 20) + 6
-  // 胶囊按钮宽度，避免搜索栏被遮挡
-  // #ifdef MP-WEIXIN
-  const cap = uni.getMenuButtonBoundingClientRect()
-  if (cap) {
-    // 让搜索栏右边界不超出胶囊左边界
-  }
-  // #endif
+
+  // 加载后端配置
+  try {
+    const res = await request({ url: '/api/services/config' })
+    const cfg = res?._home || res || {}
+    if (Array.isArray(cfg.banners) && cfg.banners.length) {
+      banners.value = cfg.banners.filter(b => b.image)
+    }
+    if (Array.isArray(cfg.notices) && cfg.notices.length) {
+      notices.value = cfg.notices.filter(n => n)
+    }
+  } catch { /* keep defaults */ }
 })
 </script>
 
@@ -188,19 +185,10 @@ onMounted(() => {
 .search-hint { flex: 1; font-size: 13px; color: rgba(255,255,255,0.6); }
 .search-btn { font-size: 13px; color: #fff; font-weight: 500; padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.3); }
 
-/* 2. 轮播横幅 */
+/* 2. 轮播图 */
 .hero-banner { position: relative; height: 160px; overflow: hidden; }
 .hero-swipe { width: 100%; height: 100%; }
 .hero-img { width: 100%; height: 100%; display: block; }
-.hero-overlay {
-  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 100%);
-  display: flex; align-items: center; justify-content: center; pointer-events: none;
-}
-.hero-center { text-align: center; }
-.hero-title { font-size: 24px; font-weight: 700; color: #fff; display: block; margin-bottom: 8px; text-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-.hero-tags { display: flex; gap: 6px; justify-content: center; }
-.ht { padding: 4px 12px; background: rgba(255,255,255,0.2); color: #fff; font-size: 11px; border-radius: 10px; }
 .hero-dots {
   position: absolute; bottom: 10px; left: 0; right: 0;
   display: flex; justify-content: center; gap: 6px;
