@@ -5,10 +5,5 @@
       <el-tab-pane label="合规文档" name="compliance"><ComplianceList /></el-tab-pane>
     </el-tabs>
   </div>
-</template>
-<script>import CaseList from '../cases/CaseList.vue'; import ComplianceList from '../compliance/ComplianceList.vue'; export default {components:{CaseList,ComplianceList}}</script>
-<script setup>
-import { ref } from 'vue'
-const tab = ref('cases')
-</script>
+</template><script setup>import { ref } from 'vue'; import CaseList from '../cases/CaseList.vue'; import ComplianceList from '../compliance/ComplianceList.vue'; const tab = ref('cases')</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

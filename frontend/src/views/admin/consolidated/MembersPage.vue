@@ -11,13 +11,10 @@
 </template>
 <script setup>
 import { ref } from 'vue'
-const tab = ref('users')
-</script>
-<script>
 import UserList from '../users/UserList.vue'
 import EnterpriseList from '../enterprises/EnterpriseList.vue'
 import ShopList from '../shops/ShopList.vue'
 import ExpertList from '../experts/ExpertList.vue'
-export default { components: { UserList, EnterpriseList, ShopList, ExpertList } }
+const tab = ref('users')
 </script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}.page-header h2{margin:0;font-size:20px}</style>
