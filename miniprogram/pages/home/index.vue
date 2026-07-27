@@ -95,7 +95,43 @@
         </scroll-view>
       </view>
 
-      <!-- 8. 更多商家 -->
+      <!-- 8. 需求信息流 -->
+      <view class="demand-section">
+        <view class="demand-tabs">
+          <view
+            v-for="t in demandCats" :key="t.id"
+            class="demand-tab" :class="{ on: activeDemandCat === t.id }"
+            @tap="switchDemandCat(t.id)"
+          >{{ t.name }}</view>
+        </view>
+
+        <view v-if="demandList.length" class="demand-list">
+          <view v-for="(d, i) in demandList" :key="i" class="demand-card">
+            <view class="d-head">
+              <view class="d-avatar">{{ (d.userName || '?')[0] }}</view>
+              <view class="d-user">
+                <text class="d-name">{{ d.userName }}</text>
+                <text class="d-tag" v-if="d.tag">{{ d.tag }}</text>
+              </view>
+              <view class="d-call" @tap.stop="callPhone(d.phone)">📞</view>
+            </view>
+            <text class="d-title">{{ d.title }}</text>
+            <view class="d-loc">📍 {{ d.location }}</text>
+            <text class="d-desc">{{ d.description }}</text>
+            <view class="d-images" v-if="d.images && d.images.length">
+              <image v-for="(img, k) in d.images.slice(0, 3)" :key="k" :src="img" mode="aspectFill" class="d-thumb" />
+            </view>
+            <view class="d-meta">
+              <text>{{ d.views || 0 }}浏览</text>
+              <text>{{ d.timeAgo }}</text>
+              <text>♥ {{ d.likes || 0 }}</text>
+            </view>
+          </view>
+          <view class="demand-empty" v-else>暂无需求</view>
+        </view>
+      </view>
+
+      <!-- 9. 更多商家 -->
       <view class="more-shops" @tap="navigateTo('/pages/shops/index')">
         <text>更多商家</text>
         <text class="ml-arrow">></text>
@@ -131,6 +167,33 @@ const shops = ref([
   { id: '4', name: '极飞科技中心', logo: '', desc: '智能农业方案' },
 ])
 
+const demandCats = ref([
+  { id: '', name: '最新信息' }, { id: 'lift', name: '吊运独家' },
+  { id: 'trade', name: '买卖租赁' }, { id: 'training', name: '考证培训' },
+  { id: 'plant', name: '植保运输' },
+])
+const activeDemandCat = ref('')
+const demandList = ref([])
+
+const loadDemands = async () => {
+  try {
+    const res = await request({ url: '/api/v1/demands', data: { category: activeDemandCat.value, page: 1, page_size: 10 } })
+    demandList.value = (res.data || []).map(d => ({
+      userName: d.publisher?.name || d.user_name || '匿名用户',
+      tag: d.type || d.category || '',
+      title: d.title || '',
+      location: d.location || '未填',
+      description: (d.description || '').substring(0, 80),
+      images: d.images || [],
+      views: d.views || 0, likes: d.likes || 0,
+      timeAgo: d.created_at ? new Date(d.created_at).toLocaleDateString() : '近期',
+      phone: d.publisher?.phone || ''
+    }))
+  } catch { demandList.value = [] }
+}
+const switchDemandCat = (id) => { activeDemandCat.value = id; loadDemands() }
+const callPhone = (p) => { if (p) uni.makePhoneCall({ phoneNumber: p }) }
+
 const statusBarH = ref(0)
 
 const banners = ref([
@@ -163,6 +226,7 @@ onMounted(async () => {
       notices.value = cfg.notices.filter(n => n)
     }
   } catch { /* keep defaults */ }
+  loadDemands()
 })
 </script>
 
@@ -261,4 +325,31 @@ onMounted(async () => {
   font-size: 14px; color: #666;
 }
 .ml-arrow { color: #ccc; margin-left: 4px; }
+
+/* 8. 需求信息流 */
+.demand-section { margin: 10px 12px 0; background: #fff; border-radius: 12px; padding: 14px; }
+.demand-tabs { display: flex; gap: 12px; border-bottom: 1px solid #eee; margin-bottom: 12px; padding-bottom: 8px; overflow-x: auto; white-space: nowrap; }
+.demand-tab { padding: 6px 10px; font-size: 14px; color: #666; flex-shrink: 0; }
+.demand-tab.on { color: #1989fa; font-weight: 600; border-bottom: 2px solid #1989fa; padding-bottom: 6px; margin-bottom: -10px; }
+.demand-list { padding: 4px 0; }
+.demand-card { padding: 14px 0; border-bottom: 1px solid #f0f0f0; }
+.demand-card:last-child { border-bottom: none; padding-bottom: 4px; }
+
+.d-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.d-avatar { width: 36px; height: 36px; border-radius: 50%; background: #e8f2fc; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #1989fa; }
+.d-user { flex: 1; }
+.d-name { font-size: 13px; font-weight: 500; color: #333; }
+.d-tag { font-size: 11px; color: #ff6b35; margin-left: 8px; }
+.d-call { width: 48px; height: 28px; border-radius: 14px; background: #ff6b35; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+
+.d-title { font-size: 16px; font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 6px; line-height: 1.4; }
+.d-loc { font-size: 12px; color: #1989fa; display: block; margin-bottom: 6px; }
+.d-desc { font-size: 13px; color: #666; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 10px; }
+
+.d-images { display: flex; gap: 6px; margin-bottom: 10px; }
+.d-thumb { width: 80px; height: 80px; border-radius: 6px; background: #f0f2f5; }
+
+.d-meta { display: flex; gap: 12px; font-size: 11px; color: #999; }
+
+.demand-empty { text-align: center; padding: 30px 0; color: #999; font-size: 14px; }
 </style>
