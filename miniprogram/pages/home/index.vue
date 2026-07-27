@@ -177,19 +177,27 @@ const demandList = ref([])
 
 const loadDemands = async () => {
   try {
-    const res = await request({ url: '/api/v1/demands', data: { category: activeDemandCat.value, page: 1, page_size: 10 } })
-    demandList.value = (res.data || []).map(d => ({
-      userName: d.publisher?.name || d.user_name || '匿名用户',
-      tag: d.type || d.category || '',
+    const res = await request({ url: '/api/v1/demands', data: { biz_type: activeDemandCat.value, page: 1, page_size: 10 } })
+    const list = (res.data || res || [])
+    demandList.value = list.map(d => ({
+      userName: d.publisher_name || '匿名用户',
+      tag: d.biz_type || '',
       title: d.title || '',
-      location: d.location || '未填',
+      location: d.district || '',
       description: (d.description || '').substring(0, 80),
       images: d.images || [],
-      views: d.views || 0, likes: d.likes || 0,
-      timeAgo: d.created_at ? new Date(d.created_at).toLocaleDateString() : '近期',
-      phone: d.publisher?.phone || ''
+      views: 0, likes: 0,
+      timeAgo: d.created_at ? new Date(d.created_at).toLocaleDateString() : '',
+      phone: d.contact || ''
     }))
-  } catch { demandList.value = [] }
+  } catch (e) { demandList.value = [] }
+  // 兜底演示数据（后端无数据时）
+  if (!demandList.value.length) {
+    demandList.value = [
+      { userName: '张飞行', tag: '吊运', title: '需要大疆T50运输化肥200亩', location: '山东省青岛市', description: 'FC100型号3台，T10型号7台，共10台设备需要运输到指定地点...', images: [], views: 1592, likes: 12, timeAgo: '07-09 12:22', phone: '' },
+      { userName: '李航拍', tag: '航拍', title: '婚庆航拍需要飞手', location: '广东省广州市', description: '下周六婚礼现场航拍，需要熟练飞手一名，设备自带Mavic3即可...', images: [], views: 834, likes: 8, timeAgo: '07-08 15:30', phone: '' },
+    ]
+  }
 }
 const switchDemandCat = (id) => { activeDemandCat.value = id; loadDemands() }
 const callPhone = (p) => { if (p) uni.makePhoneCall({ phoneNumber: p }) }
