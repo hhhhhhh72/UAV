@@ -4,7 +4,7 @@ set AUTH_SECRET=drone-platform-dev-secret-32bytes!
 set APP_ENV=development
 set ADMIN_DEV_MODE=true
 echo Building...
-go build -o api.exe .\cmdpi
+go build -o api.exe ./cmd/api
 if errorlevel 1 (echo [FAIL] Build failed & pause & exit /b 1)
 echo Starting on port 8080...
 start "" api.exe
