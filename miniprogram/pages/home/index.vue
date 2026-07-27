@@ -33,17 +33,14 @@
         <text class="stats-help">帮助</text>
       </view>
 
-      <!-- 4. 功能矩阵 (3×4 + 浮动分享键) -->
+      <!-- 4. 功能金刚区 (2行×4列) -->
       <view class="func-grid-wrapper">
         <view class="func-grid">
           <view v-for="(f, i) in functions" :key="i" class="func-item" @tap="handleFunc(f)">
-            <image v-if="f.icon" :src="f.icon" mode="aspectFit" class="func-icon" />
-            <text v-else class="func-emoji">{{ f.emoji }}</text>
+            <view class="func-icon-box" :style="{ background: f.bg }">
+              <image :src="f.icon" mode="aspectFit" class="func-icon" />
+            </view>
             <text class="func-label">{{ f.name }}</text>
-          </view>
-          <view class="func-item func-share" @tap="handleShare">
-            <image src="/static/icons/share.svg" mode="aspectFit" class="func-icon" />
-            <text class="func-label">分享</text>
           </view>
         </view>
       </view>
@@ -118,18 +115,14 @@ import { request } from '../../utils/request'
 const notices = ref(['飞行须知：请保持安全高度', '无人机登记政策已更新', '欢迎加入同城合伙人计划'])
 
 const functions = ref([
-  { name: '吊运独家', emoji: '🚁', path: '/pages/demands/list?type=lift' },
-  { name: '买卖租赁', emoji: '🛒', path: '/pages/demands/list?type=trade' },
-  { name: '考证培训', emoji: '📜', path: '/pages/training/courses' },
-  { name: '植保运输', emoji: '🌾', path: '/pages/demands/list?type=plant' },
-  { name: '清洗无人机', emoji: '💧', path: '/pages/demands/list?type=clean' },
-  { name: '二手交易', emoji: '🔄', path: '/pages/demands/list?type=secondhand' },
-  { name: '免费互助', emoji: '🤝', path: '/pages/demands/list?type=help' },
-  { name: '商家入驻', emoji: '🏪', path: '/pages/enterprise/register' },
-  { name: '社区交流', emoji: '💬', path: '/pages/community/list' },
-  { name: '求职招聘', emoji: '💼', path: '/pages/jobs/list' },
-  { name: '需求大厅', emoji: '📋', path: '/pages/demands/list' },
-  // 第12个位置留给分享按钮
+  { name: '吊运服务', icon: '/static/icons/lifting.svg', bg: 'linear-gradient(135deg, #e3f2fd, #bbdefb)', path: '/pages/demands/list?type=lift' },
+  { name: '设备租赁', icon: '/static/icons/rent.svg', bg: 'linear-gradient(135deg, #fce4ec, #f8bbd0)', path: '/pages/demands/list?type=rent' },
+  { name: '培训考证', icon: '/static/icons/training-v2.svg', bg: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)', path: '/pages/training/courses' },
+  { name: '植保飞防', icon: '/static/icons/flight.svg', bg: 'linear-gradient(135deg, #fff3e0, #ffe0b2)', path: '/pages/demands/list?type=plant' },
+  { name: '赛事活动', icon: '/static/icons/competition.svg', bg: 'linear-gradient(135deg, #ede7f6, #d1c4e9)', path: '/pages/competitions/list' },
+  { name: '维修保养', icon: '/static/icons/wrench.svg', bg: 'linear-gradient(135deg, #e0f2f1, #b2dfdb)', path: '/pages/demands/list?type=repair' },
+  { name: '商家入驻', icon: '/static/icons/shop.svg', bg: 'linear-gradient(135deg, #fff8e1, #fff9c4)', path: '/pages/enterprise/register' },
+  { name: '金融服务', icon: '/static/icons/finance.svg', bg: 'linear-gradient(135deg, #f3e5f5, #e1bee7)', path: '/pages/demands/list?type=finance' },
 ])
 
 const shops = ref([
@@ -147,7 +140,6 @@ const handleFunc = (f) => {
   if (f.path.startsWith('/')) safeNavigateTo(f.path)
   else safeSwitchTab(f.path)
 }
-const handleShare = () => uni.showShareMenu()
 const navigateTo = (p) => safeNavigateTo(p)
 
 onMounted(() => {
@@ -208,17 +200,13 @@ onMounted(() => {
 .func-grid {
   display: grid; grid-template-columns: repeat(4, 1fr); row-gap: 16px; text-align: center;
 }
-.func-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0; }
-.func-icon { width: 36px; height: 36px; }
-.func-emoji { font-size: 28px; }
-.func-label { font-size: 12px; color: #333; }
-.func-share {
-  background: linear-gradient(135deg, #07c160, #06ad56);
-  border-radius: 50%; width: 44px; height: 44px; margin: 0 auto;
+.func-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0; }
+.func-icon-box {
+  width: 44px; height: 44px; border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
 }
-.func-share .func-icon { width: 20px; height: 20px; filter: brightness(0) invert(1); }
-.func-share .func-label { font-size: 10px; color: #07c160; margin-top: 2px; }
+.func-icon { width: 26px; height: 26px; }
+.func-label { font-size: 12px; color: #333; }
 
 /* 5. 同城公告 */
 .notice-bar {
