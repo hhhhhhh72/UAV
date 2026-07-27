@@ -137,6 +137,15 @@ const routes = [
       { path: 'emergency-resources', component: () => import('@/views/admin/emergency/ResourceList.vue') },
       { path: 'emergency-dispatches', component: () => import('@/views/admin/emergency/DispatchList.vue') },
       { path: 'messages', component: () => import('@/views/admin/messages/NotifyList.vue') },
+      // --- Consolidated (9-module) ---
+      { path: 'members', component: () => import('@/views/admin/consolidated/MembersPage.vue') },
+      { path: 'trading', component: () => import('@/views/admin/consolidated/TradingPage.vue') },
+      { path: 'content', component: () => import('@/views/admin/consolidated/ContentPage.vue') },
+      { path: 'talent', component: () => import('@/views/admin/consolidated/TalentPage.vue') },
+      { path: 'innovation', component: () => import('@/views/admin/consolidated/InnovationPage.vue') },
+      { path: 'promotion', component: () => import('@/views/admin/consolidated/PromotionPage.vue') },
+      { path: 'emergency', component: () => import('@/views/admin/consolidated/EmergencyPage.vue') },
+      { path: 'settings', component: () => import('@/views/admin/consolidated/SettingsPage.vue') },
     ]
   },
 ]
