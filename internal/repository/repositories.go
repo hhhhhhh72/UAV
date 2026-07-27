@@ -69,6 +69,7 @@ type EnterpriseRepository interface {
 	ListByStatus(status string, offset, limit int) ([]domain.Enterprise, int, error)
 	Pending() ([]domain.Enterprise, error)
 	Search(string) ([]domain.Enterprise, error)
+	Delete(id string) error
 }
 
 type EmploymentRepository interface {

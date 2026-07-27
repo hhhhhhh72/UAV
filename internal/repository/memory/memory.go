@@ -301,9 +301,19 @@ func (r *enterpriseRepo) ListByStatus(status string, offset, limit int) ([]domai
 	return filtered[offset:end], total, nil
 }
 
+func (r *enterpriseRepo) Delete(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, e := range r.items {
+		if e.ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
 func (r *enterpriseRepo) Search(q string) ([]domain.Enterprise, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
 	q = strings.ToLower(q)
 	out := []domain.Enterprise{}
 	for _, e := range r.items {

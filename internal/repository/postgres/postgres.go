@@ -387,6 +387,12 @@ func scanEnterprises(pool *pgxpool.Pool, cipher *crypto.Cipher, where string, ar
 	return out, rows.Err()
 }
 
+func (r *enterpriseRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM enterprises WHERE id=$1`, id)
+	if err != nil { return fmt.Errorf("delete enterprise %s: %w", id, err) }
+	return nil
+}
+
 func (r *enterpriseRepo) Search(q string) ([]domain.Enterprise, error) {
 	rows, err := r.pool.Query(context.Background(), `
 		SELECT id, owner_user_id, name, license_url, account_name, status, is_member, version, created_at, updated_at

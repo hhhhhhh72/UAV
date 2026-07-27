@@ -255,6 +255,18 @@ type EnterpriseService struct {
 func NewEnterpriseService(r repository.EnterpriseRepository) *EnterpriseService {
 	return &EnterpriseService{r}
 }
+func (s *EnterpriseService) ListByStatus(status string, offset, limit int) ([]domain.Enterprise, int, error) {
+	return s.repo.ListByStatus(status, offset, limit)
+}
+func (s *EnterpriseService) Create(e domain.Enterprise) (domain.Enterprise, error) {
+	return s.repo.Create(e)
+}
+func (s *EnterpriseService) Update(id string, e domain.Enterprise) (domain.Enterprise, error) {
+	return s.repo.Update(id, e)
+}
+func (s *EnterpriseService) Delete(id string) error {
+	return s.repo.Delete(id)
+}
 func (s *EnterpriseService) Pending(a domain.Actor) ([]domain.Enterprise, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return nil, errors.New("association admin permission required")
