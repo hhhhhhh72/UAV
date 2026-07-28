@@ -1,58 +1,154 @@
 <template>
-  <div class="admin-page">
-    <div class="page-header">
-      <h2>{{ title }}</h2>
-      <el-button type="primary" @click="handleAdd">新增</el-button>
+  <div class="list-page">
+    <div class="search-bar">
+      <div class="search-row">
+        <el-input v-model="filterParams.keyword" placeholder="搜索职位标题..." clearable style="width: 220px" @keyup.enter="onSearchSubmit" @clear="onSearchSubmit">
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <el-select v-model="filterParams.status" clearable style="width: 140px" @change="onSearchSubmit">
+          <el-option label="全部" value="" />
+          <el-option label="招聘中" value="active" />
+          <el-option label="已关闭" value="closed" />
+        </el-select>
+        <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
+        <el-button @click="resetParams">重置</el-button>
+        <div style="margin-left:auto">
+          <el-button type="success" @click="handleAdd">新增</el-button>
+        </div>
+      </div>
     </div>
-    <DataToolbar v-model="searchForm" :filters="filterConfig" @search="handleSearch" @reset="handleReset" />
-    <el-table v-loading="loading" :data="tableData" border stripe>
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="名称" />
-      <el-table-column prop="status" label="状态" width="100">
-        <template #default="{ row }"><el-tag :type="statusMap[row.status]">{{ row.status }}</el-tag></template>
-      </el-table-column>
-      <el-table-column label="操作" width="200">
-        <template #default="{ row }">
-          <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.pageSize" :total="pagination.total" layout="total, prev, pager, next, jumper" @change="loadData" />
+
+    <div class="table-wrap">
+      <el-table v-loading="loading" :data="listData" row-key="id" stripe border @selection-change="onSelectChange">
+        <el-table-column type="selection" width="40" />
+        <el-table-column prop="id" label="ID" width="160" sortable="custom" />
+        <el-table-column prop="title" label="职位名称" min-width="200">
+          <template #default="{ row }">
+            <span class="cell-title">{{ row.title || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="company" label="公司" width="160">
+          <template #default="{ row }">{{ row.company || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="location" label="地区" width="120" />
+        <el-table-column prop="salary" label="薪资" width="130">
+          <template #default="{ row }">{{ row.salary || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="job_type" label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag :type="jobTypeTag(row.job_type)" size="small">{{ row.job_type || '-' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
+            <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+        <template #empty><el-empty description="暂无职位数据" /></template>
+      </el-table>
+    </div>
+
+    <div class="pagination-wrap" v-if="total > 0">
+      <el-pagination v-model:current-page="filterParams.page" v-model:page-size="filterParams.page_size" :page-sizes="[10,20,50]" :total="total" layout="total,sizes,prev,pager,next,jumper" background @size-change="loadData" @current-change="loadData" />
+    </div>
+
+    <el-dialog v-model="detailVisible" title="职位详情" width="600px" :close-on-click-modal="false">
+      <template v-if="currentItem">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="职位名称" :span="2">{{ currentItem.title || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="公司">{{ currentItem.company || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="地区">{{ currentItem.location || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="薪资">{{ currentItem.salary || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="类型">
+            <el-tag :type="jobTypeTag(currentItem.job_type)" size="small">{{ currentItem.job_type || '-' }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="statusTag(currentItem.status)" size="small">{{ currentItem.status || '-' }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="发布时间">{{ formatDate(currentItem.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="要求" :span="2">{{ currentItem.requirements || '-' }}</el-descriptions-item>
+        </el-descriptions>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="formVisible" :title="formEdit?'编辑职位':'新增职位'" width="560px" destroy-on-close>
+      <el-form :model="form" label-width="90px">
+        <el-row :gutter="16">
+          <el-col :span="14"><el-form-item label="职位名称" required><el-input v-model="form.title" /></el-form-item></el-col>
+          <el-col :span="10"><el-form-item label="类型"><el-select v-model="form.job_type" style="width:100%"><el-option label="全职" value="全职" /><el-option label="兼职" value="兼职" /><el-option label="实习" value="实习" /><el-option label="外包" value="外包" /></el-select></el-form-item></el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12"><el-form-item label="公司"><el-input v-model="form.company" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="地区"><el-input v-model="form.location" /></el-form-item></el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12"><el-form-item label="薪资"><el-input v-model="form.salary" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="招聘中" value="active" /><el-option label="已关闭" value="closed" /></el-select></el-form-item></el-col>
+        </el-row>
+        <el-form-item label="职位描述"><el-input v-model="form.description" type="textarea" rows="2" /></el-form-item>
+        <el-form-item label="任职要求"><el-input v-model="form.requirements" type="textarea" rows="2" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">提交</el-button></template>
+    </el-dialog>
   </div>
 </template>
+
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import DataToolbar from '../components/DataToolbar.vue'
-import axios from '@/utils/http'
-const loading = ref(false)
-const tableData = ref([])
-const searchForm = ref({})
-const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
-const filterConfig = []
-const statusMap = { active: 'success', pending: 'warning', inactive: 'info' }
-const loadData = async () => {
-  loading.value = true
-  try {
-    const res = await axios.get('/api/v1/admin/jobs', { params: { ...searchForm.value, page: pagination.page, page_size: pagination.pageSize } })
-    tableData.value = res.data.data || []
-    pagination.total = res.data.total || 0
-  } catch (e) { ElMessage.error('load failed') } finally { loading.value = false }
+import { useListRequest } from '@/hooks/useListRequest'
+import { useAdminApi } from '@/api/admin/common'
+
+const api = useAdminApi('jobs')
+
+const formatDate = (d) => {
+  if (!d) return '-'
+  const dt = new Date(d)
+  const p = n => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
-const handleSearch = () => { pagination.page = 1; loadData() }
-const handleReset = () => { searchForm.value = {}; handleSearch() }
-const handleAdd = () => { ElMessage.info('TODO: add dialog') }
-const handleEdit = (row) => { ElMessage.info('TODO: edit ' + row.id) }
-const handleDelete = (row) => {
-  ElMessageBox.confirm('confirm delete?', 'Warning', { confirmButtonText: 'Delete', cancelButtonText: 'Cancel', type: 'warning' })
-    .then(() => ElMessage.success('TODO: call delete API'))
-    .catch(() => {})
-}
+
+const jobTypeTag = (t) => ({ '全职': '', '兼职': 'warning', '实习': 'info', 'contract': 'info' }[t] || 'info')
+
+const statusTag = (s) => ({ 'active': 'success', 'closed': 'info' }[s] || 'info')
+
+const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSelectChange, resetParams } = useListRequest({
+  apiFunction: api.list,
+  idKey: 'id',
+  defaultParams: { status: '' }
+})
+
+const detailVisible = ref(false)
+const currentItem = ref(null)
+
+const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+
+const formVisible=ref(false); const formEdit=ref(false); const formLoading=ref(false)
+const form=reactive({id:'',title:'',company:'',location:'',salary:'',job_type:'全职',status:'active',description:'',requirements:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',company:'',location:'',salary:'',job_type:'全职',status:'active',description:'',requirements:''})
+const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
+const handleEdit=(r)=>{Object.assign(form,r);formEdit.value=true;formVisible.value=true}
+const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入职位名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
+const handleDelete=(r)=>{ElMessageBox.confirm('确定删除该职位?','提示',{type:'warning'}).then(async()=>{try{await api.delete(r.id);ElMessage.success('已删除');loadData()}catch{ElMessage.error('删除失败')}}).catch(()=>{})}
+
 onMounted(loadData)
 </script>
+
 <style scoped>
-.admin-page { padding: 20px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.page-header h2 { margin: 0; font-size: 20px; }
+.list-page { max-width: 1400px; margin: 0 auto; }
+.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cell-title { font-weight: 500; color: var(--el-text-color-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; max-width: 300px; }
+.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
 </style>

@@ -1,719 +1,231 @@
 <template>
   <Layout :current="0">
     <view class="home-page">
-      <!-- 沉浸式背景 (固定定位) -->
-      <view class="video-header">
-        <image 
-          class="bg-video"
-          :src="headerImage || '/static/home-bg.jpg'"
-          mode="aspectFill"
-        />
-        <view class="video-mask" />
-      </view>
-
-      <!-- 占位：高度刚好到搜索栏底部 -->
-      <view class="video-placeholder" />
-
-      <!-- 头部：搜索栏（固定定位） -->
-      <view class="header-section float-header">
-        <view class="location-bar">
-        </view>
-        <view class="search-bar" @tap="handleSearchClick">
-          <view class="search-box">
-            <image class="search-icon-img" src="/static/icons/search.svg" mode="aspectFit" />
-            <swiper 
-              class="search-swiper" 
-              vertical 
-              autoplay 
-              circular 
-              interval="3000" 
-              @change="onSearchSwiperChange"
-            >
-              <swiper-item v-for="(word, index) in searchKeywords" :key="index">
-                <text class="search-placeholder">{{ word }}</text>
-              </swiper-item>
-            </swiper>
-          </view>
+      <!-- 1. 蓝顶栏 + 搜索 -->
+      <view class="top-bar" :style="{ paddingTop: (statusBarH || 24) + 'px' }">
+        <text class="top-loc" @tap="handleLocation">全国 ▼</text>
+        <view class="top-search" @tap="handleSearchClick">
+          <text class="search-hint">大家都在搜：吊运项目</text>
+          <text class="search-btn">搜索</text>
         </view>
       </view>
 
-      <!-- 轮播图 - 紧挨搜索栏下方 -->
-      <view class="banner-section">
-        <swiper 
-          class="banner-swipe" 
-          autoplay 
-          interval="5000" 
-          circular
-          :current="activeBanner"
-          @change="onBannerChange"
-        >
-          <swiper-item v-for="(item, index) in banners" :key="index" @tap="handleBannerClick(item)">
-            <image :src="item.image" class="banner-image" mode="aspectFill" />
-          </swiper-item>
+      <!-- 2. 轮播图 -->
+      <view class="banner-box">
+        <swiper autoplay interval="5000" circular :current="activeBanner" @change="onBannerChange">
+          <swiper-item v-for="(b, i) in banners" :key="i"><image :src="b.image" mode="aspectFill" class="banner-img" /></swiper-item>
         </swiper>
         <view class="banner-dots">
-          <view 
-            v-for="(item, index) in banners" 
-            :key="`banner-dot-${index}`"
-            class="banner-dot"
-            :class="{ active: index === activeBanner }"
-          />
+          <view v-for="(b, i) in banners" :key="i" class="bd" :class="{ on: i === activeBanner }" />
         </view>
       </view>
 
-      <!-- 核心内容区 -->
-      <view class="content-area">
-        <!-- 功能金刚区 -->
-        <view class="main-functions overlay-card">
-          <swiper 
-            class="function-swipe" 
-            :current="activeFunctionPage" 
-            @change="onFunctionChange"
-            :indicator-dots="false"
-          >
-            <swiper-item v-for="(page, pageIndex) in servicePages" :key="pageIndex">
-              <view class="function-grid">
-                <view 
-                  v-for="item in page" 
-                  :key="item.id"
-                  class="function-item"
-                  :style="{ visibility: item.isEmpty ? 'hidden' : 'visible' }"
-                  @tap="handleFunctionTap(item)"
-                >
-                  <view class="function-icon-wrapper" :style="{ background: item.color }">
-                    <image 
-                      v-if="item.icon && !item.isEmpty" 
-                      :src="item.icon" 
-                      mode="aspectFit" 
-                      class="function-icon-image" 
-                    />
-                  </view>
-                  <text class="function-name">{{ item.name }}</text>
-                </view>
-              </view>
-            </swiper-item>
-          </swiper>
-          <view class="swiper-dots">
-            <view 
-              v-for="(page, pageIndex) in servicePages" 
-              :key="`dot-${pageIndex}`"
-              class="dot"
-              :class="{ active: pageIndex === activeFunctionPage }"
-            />
-          </view>
-        </view>
+      <!-- 3. 数据条 -->
+      <view class="stats-bar">
+        <text>📢 浏览：669万 ｜ 发布：848 ｜ 商家：105</text>
+        <text class="stats-help">帮助</text>
+      </view>
 
-        <!-- 消息通知栏 -->
-        <view class="notice-bar-section">
-          <view class="notice-inner">
-            <image class="notice-icon-img" src="/static/icons/volume.svg" mode="aspectFit" />
-            <swiper 
-              class="notice-swipe" 
-              vertical 
-              autoplay 
-              interval="3000" 
-              circular
-              :indicator-dots="false"
-              :touchable="false"
-            >
-              <swiper-item v-for="(msg, index) in notices" :key="index" class="notice-item">
-                <text class="notice-text">{{ msg }}</text>
-              </swiper-item>
-            </swiper>
+      <!-- 4. 金刚区 2×4 -->
+      <view class="func-panel">
+        <view class="func-grid">
+          <view v-for="(f, i) in functions" :key="i" class="func-item" @tap="handleFunc(f)">
+            <view class="func-icon" :style="{ background: f.bg }">
+              <image :src="f.icon" mode="aspectFit" style="width:24px;height:24px" />
+            </view>
+            <text class="func-name">{{ f.name }}</text>
           </view>
         </view>
+      </view>
 
-        <!-- 推荐卡片 -->
-        <view class="recommend-grid">
-          <view class="recommend-card blue-card" @tap="navigateTo('/pages/cases/index')">
-            <view>
-              <view class="recommend-title">精选案例</view>
-              <text class="recommend-subtitle">行业应用示范</text>
-            </view>
-            <image class="recommend-icon-img" src="/static/icons/drone-show-v2.svg" mode="aspectFit" />
-          </view>
-          <view class="recommend-card orange-card" @tap="navigateTo('/pages/services/index')">
-            <view>
-              <view class="recommend-title">服务大厅</view>
-              <text class="recommend-subtitle">一站式办理</text>
-            </view>
-            <image class="recommend-icon-img" src="/static/icons/service.svg" mode="aspectFit" />
-          </view>
-        </view>
+      <!-- 5. 公告 -->
+      <view class="notice-bar" v-if="notices.length">
+        <text class="notice-tag">公告</text>
+        <swiper vertical autoplay circular interval="3000" style="flex:1;height:22px">
+          <swiper-item v-for="(n, i) in notices" :key="i"><text class="notice-text">{{ n }}</text></swiper-item>
+        </swiper>
+      </view>
 
-        <!-- 推荐列表 -->
-        <view class="service-feed">
-          <view class="section-title">为你推荐</view>
-          <view 
-            v-for="service in displayServices" 
-            :key="service.id"
-            class="feed-card"
-            @tap="goToDetail(service.id)"
-          >
-            <view class="feed-icon" :style="{ background: service.color }">
-              <image :src="service.icon" mode="aspectFit" class="feed-icon-image" />
-            </view>
-            <view class="feed-content">
-              <view class="feed-title">{{ service.name }}</view>
-              <view class="feed-desc">{{ service.description }}</view>
-            </view>
-            <text class="feed-arrow">›</text>
-          </view>
+      <!-- 6. 会员/合伙人 -->
+      <view class="vouch-row">
+        <view class="vouch v-green" @tap="navigateTo('/pages/mine/index')">
+          <text class="vt">加入会员</text><text class="vs">更优惠</text>
         </view>
+        <view class="vouch v-orange" @tap="navigateTo('/pages/enterprise/register')">
+          <text class="vt">同城合伙人</text><text class="vs">加入合伙人</text>
+        </view>
+      </view>
+
+      <!-- 7. 本地商家 -->
+      <view class="shop-panel">
+        <view class="shop-head"><text class="shop-title">本地商家</text><text class="shop-more" @tap="navigateTo('/pages/shops/index')">全部 ></text></view>
+        <scroll-view scroll-x :show-scrollbar="false">
+          <view class="shop-list">
+            <view v-for="s in shops" :key="s.id" class="shop-item" @tap="navigateTo('/pages/services/detail?id=' + s.id)">
+              <image :src="s.logo || '/static/home-bg.jpg'" mode="aspectFill" class="shop-img" />
+              <text class="shop-name">{{ s.name }}</text>
+              <text class="shop-desc">{{ s.desc }}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 8. 需求信息流 -->
+      <view class="demand-panel">
+        <scroll-view scroll-x :show-scrollbar="false" class="demand-tabs">
+          <text v-for="t in demandCats" :key="t.id" class="dt" :class="{ on: activeCat === t.id }" @tap="switchCat(t.id)">{{ t.name }}</text>
+        </scroll-view>
+        <view v-for="(d, i) in demandList" :key="i" class="d-card" @tap="goDemand(d.id)">
+          <view class="d-head">
+            <view class="d-ava">{{ d.userName?.[0] || '?' }}</view>
+            <view class="d-user"><text class="d-name">{{ d.userName }}</text><text class="d-tag" v-if="d.tag">{{ d.tag }}</text></view>
+            <view class="d-call" @tap.stop="callTo(d.phone)">📞</view>
+          </view>
+          <text class="d-title">{{ d.title }}</text>
+          <text class="d-loc">📍 {{ d.location }}</text>
+          <text class="d-desc">{{ d.desc }}</text>
+          <view class="d-meta"><text>{{ d.views }}浏览</text><text>{{ d.time }}</text><text>♥ {{ d.likes }}</text></view>
+        </view>
+        <view v-if="!demandList.length" class="d-empty">暂无需求</view>
       </view>
     </view>
   </Layout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { onPullDownRefresh } from '@dcloudio/uni-app'
+import { ref, onMounted, reactive } from 'vue'
 import Layout from '@/components/Layout.vue'
 import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
-import { request, BASE_URL } from '../../utils/request'
+import { request } from '../../utils/request'
 
-const searchKeywords = ref(['搜索服务/案例', '无人机外卖'])
-const activeSearchIndex = ref(0)
+const statusBarH = ref(24)
+const banners = ref([{ image: '/static/home-bg.jpg' }])
+const activeBanner = ref(0)
+const notices = ref(['飞行须知：保持安全高度', '无人机登记政策已更新', '欢迎加入同城合伙人'])
 
-const onSearchSwiperChange = (e) => {
-  activeSearchIndex.value = e.detail.current
-}
-
-const handleSearchClick = () => {
-  const keyword = searchKeywords.value[activeSearchIndex.value]
-  const p = keyword === '搜索服务/案例' ? '' : keyword
-  safeSwitchTab(`/pages/services/index?keyword=${encodeURIComponent(p)}`)
-}
-
-// 获取胶囊按钮位置
-const getCapsuleInfo = () => {
-  let capsule = { top: 44, bottom: 76, height: 32, left: 281, right: 368, width: 87 }
-  // #ifdef MP-WEIXIN
-  capsule = uni.getMenuButtonBoundingClientRect()
-  // #endif
-  return capsule
-}
-
-const capsuleInfo = ref(getCapsuleInfo())
-const statusBarHeight = ref(uni.getSystemInfoSync().statusBarHeight || 20)
-
-const notices = ref([])
-const headerImage = ref('')
-const contactPhone = ref('023-55550500')
-
-const quickServices = ref([])
-
-const servicePages = computed(() => {
-  const pages = []
-  const pageSize = 7
-  const moreItem = { id: 'more', name: '更多服务', icon: '/static/icons/apps.svg', color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)' }
-
-  for (let i = 0; i < quickServices.value.length; i += pageSize) {
-    const page = quickServices.value.slice(i, i + pageSize)
-    while (page.length < 7) {
-      page.push({ id: `empty-${pages.length}-${page.length}`, isEmpty: true, color: 'transparent' })
-    }
-    page.push(moreItem)
-    pages.push(page)
-  }
-  return pages
-})
-
-const activeFunctionPage = ref(0)
-
-const displayServices = ref([])
-
-const banners = ref([
-  { image: '/static/home-bg.jpg', link: '' }
+const functions = ref([
+  { name: '吊运服务', icon: '/static/icons/lifting.svg', bg: 'linear-gradient(135deg,#e3f2fd,#bbdefb)', path: '/pages/demands/list' },
+  { name: '设备租赁', icon: '/static/icons/rent.svg', bg: 'linear-gradient(135deg,#fce4ec,#f8bbd0)', path: '/pages/demands/list' },
+  { name: '培训考证', icon: '/static/icons/training-v2.svg', bg: 'linear-gradient(135deg,#e8f5e9,#c8e6c9)', path: '/pages/training/courses' },
+  { name: '植保飞防', icon: '/static/icons/flight.svg', bg: 'linear-gradient(135deg,#fff3e0,#ffe0b2)', path: '/pages/demands/list' },
+  { name: '赛事活动', icon: '/static/icons/competition.svg', bg: 'linear-gradient(135deg,#ede7f6,#d1c4e9)', path: '/pages/competitions/list' },
+  { name: '维修保养', icon: '/static/icons/wrench.svg', bg: 'linear-gradient(135deg,#e0f2f1,#b2dfdb)', path: '/pages/demands/list' },
+  { name: '商家入驻', icon: '/static/icons/shop.svg', bg: 'linear-gradient(135deg,#fff8e1,#fff9c4)', path: '/pages/enterprise/register' },
+  { name: '金融服务', icon: '/static/icons/finance.svg', bg: 'linear-gradient(135deg,#f3e5f5,#e1bee7)', path: '/pages/demands/list' },
 ])
 
-const activeBanner = ref(0)
+const shops = ref([
+  { id: '1', name: '大疆授权店', logo: '', desc: '无人机销售维修' },
+  { id: '2', name: '飞手之家', logo: '', desc: '航拍培训基地' },
+  { id: '3', name: '天行植保', logo: '', desc: '农业植保服务' },
+  { id: '4', name: '极飞科技', logo: '', desc: '智能农业方案' },
+])
 
-onPullDownRefresh(() => {
-  setTimeout(() => {
-    uni.showToast({ title: '刷新成功', icon: 'none' })
-    uni.stopPullDownRefresh()
-  }, 800)
-})
-
-const handleFunctionTap = (item) => {
-  if (item.isEmpty) return
-  if (item.id === 'flight') {
-    openExternal('https://wx.zndkfx.com')
-    return
-  }
-  if (item.id === 8) {
-    goToDelivery()
-    return
-  }
-  if (item.id === 9) {
-    safeNavigateTo('/pages/study/index')
-    return
-  }
-  if (item.id === 'contact') {
-    uni.makePhoneCall({ phoneNumber: contactPhone.value })
-    return
-  }
-  if (item.id === 'more') {
-    safeSwitchTab('/pages/services/index')
-    return
-  }
-  if (item.id === 'news' || item.id === 'policy') {
-    uni.showToast({ title: '功能开发中', icon: 'none' })
-    return
-  }
-  goToDetail(item.id)
-}
-
-const goToDetail = (id) => {
-  safeNavigateTo(`/pages/services/detail?id=${id}`)
-}
-
-const goToDelivery = () => {
-  openExternal('https://app.wzsjy.com:8446/h5/#/pages/diy/diy?pageId=130')
-}
-
-const handleBannerClick = (item) => {
-  if (item.link === 'delivery') {
-    goToDelivery()
-  } else if (item.link) {
-    navigateTo(item.link)
+const demandCats = ref([
+  { id: '', name: '最新信息' }, { id: 'lift', name: '吊运独家' },
+  { id: 'trade', name: '买卖租赁' }, { id: 'training', name: '考证培训' }, { id: 'plant', name: '植保运输' },
+])
+const activeCat = ref('')
+const demandList = ref([])
+const loadDemands = async () => {
+  try {
+    const res = await request({ url: '/api/v1/demands', data: { biz_type: activeCat.value, page: 1, page_size: 10 } })
+    const data = Array.isArray(res) ? res : (res.data || [])
+    demandList.value = data.slice(0, 10).map(d => ({
+      id: d.id, userName: d.publisher_name || '匿名', tag: d.biz_type || '', title: d.title || '',
+      location: d.district || '', desc: (d.description || '').slice(0, 80),
+      views: 0, likes: 0, time: d.created_at ? new Date(d.created_at).toLocaleDateString() : '', phone: d.contact || ''
+    }))
+  } catch { demandList.value = [] }
+  if (!demandList.value.length) {
+    demandList.value = [
+      { id: '1', userName: '张飞行', tag: '吊运', title: '需要大疆T50运输化肥200亩', location: '山东省青岛市', desc: 'FC100型号3台，T10型号7台，共10台设备需运输到指定地点', views: 1592, likes: 12, time: '07-09 12:22', phone: '' },
+      { id: '2', userName: '李航拍', tag: '航拍', title: '婚庆航拍需要飞手', location: '广东省广州市', desc: '下周六婚礼现场航拍，熟练飞手一名，设备自带Mavic3', views: 834, likes: 8, time: '07-08 15:30', phone: '' },
+    ]
   }
 }
-
-const navigateTo = (path) => {
-  safeNavigateTo(path)
-}
-
-const openExternal = (url) => {
-  safeNavigateTo(`/pages/webview/index?src=${encodeURIComponent(url)}`)
-}
-
-const onFunctionChange = (event) => {
-  activeFunctionPage.value = event.detail.current
-}
-
-const onBannerChange = (event) => {
-  activeBanner.value = event.detail.current
-}
+const switchCat = (id) => { activeCat.value = id; loadDemands() }
+const callTo = (p) => p && uni.makePhoneCall({ phoneNumber: p })
+const goDemand = (id) => id && safeNavigateTo('/pages/demands/detail?id=' + id)
 
 onMounted(async () => {
+  statusBarH.value = (uni.getSystemInfoSync().statusBarHeight || 24) + 6
   try {
-    const res = await request({ url: '/api/services/config' })
-    const cfg = (res?._home) || {}
-    console.log('[Home] config loaded:', JSON.stringify({ banners: cfg.banners?.length, headerImage: cfg.headerImage?.substring(0,30) }))
-    
-    // 轮播消息
-    if (Array.isArray(cfg.notices) && cfg.notices.length > 0) {
-      notices.value = cfg.notices.filter(m => m && typeof m === 'string' && m.trim())
-    }
-    // Banners: use API data directly (backend already returns full URLs)
-    if (Array.isArray(cfg.banners) && cfg.banners.length > 0) {
-      banners.value = cfg.banners.filter(b => b.image)
-    }
-    // 背景图
-    if (cfg.headerImage) {
-      headerImage.value = cfg.headerImage
-    }
-    // 快捷入口
-    if (Array.isArray(cfg.quickServices) && cfg.quickServices.length > 0) {
-      quickServices.value = cfg.quickServices
-    }
-    // 推荐服务
-    if (Array.isArray(cfg.displayServices) && cfg.displayServices.length > 0) {
-      displayServices.value = cfg.displayServices
-    }
-    // 搜索关键词
-    if (Array.isArray(cfg.searchKeywords) && cfg.searchKeywords.length > 0) {
-      searchKeywords.value = cfg.searchKeywords
-    }
-    // 联系电话
-    if (cfg.contactPhone) contactPhone.value = cfg.contactPhone
-  } catch (e) {
-    // ignore, use defaults
-  }
-
-  // #ifdef MP-WEIXIN
-  // preloadPage 在微信小程序中不可用，忽略
-  // #endif
+    const cfg = (await request({ url: '/api/services/config' }))._home || {}
+    if (cfg.banners?.length) banners.value = cfg.banners.filter(b => b.image)
+    if (cfg.notices?.length) notices.value = cfg.notices.filter(Boolean)
+  } catch {}
+  loadDemands()
 })
 
+const onBannerChange = (e) => { activeBanner.value = e.detail.current }
+const handleSearchClick = () => safeSwitchTab('/pages/services/index')
+const handleLocation = () => uni.showToast({ title: '城市选择开发中', icon: 'none' })
+const handleFunc = (f) => safeNavigateTo(f.path)
+const navigateTo = (p) => safeNavigateTo(p)
 </script>
 
 <style scoped>
-.home-page {
-  min-height: 100vh;
-  position: relative;
-  padding-bottom: 20px;
-}
+.home-page { min-height: 100vh; background: #f2f5f7; padding-bottom: 20px; }
 
-.video-header {
-  height: 420px;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  z-index: 0;
-  overflow: hidden;
-  background: #000;
-}
+.top-bar { display: flex; align-items: center; gap: 10px; padding: 0 14px 10px; background: #1989fa; }
+.top-loc { color: #fff; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.top-search { flex: 1; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.2); border-radius: 20px; padding: 8px 14px; }
+.search-hint { font-size: 13px; color: rgba(255,255,255,0.6); }
+.search-btn { font-size: 13px; color: #fff; font-weight: 500; }
 
-.bg-video {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+.banner-box { position: relative; height: 150px; overflow: hidden; }
+.banner-box swiper { width: 100%; height: 100%; }
+.banner-img { width: 100%; height: 100%; display: block; }
+.banner-dots { position: absolute; bottom: 8px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
+.bd { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.4); }
+.bd.on { background: #fff; }
 
-.video-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.1) 100%);
-  pointer-events: none;
-}
+.stats-bar { display: flex; justify-content: space-between; padding: 10px 14px; background: #fff; font-size: 12px; color: #666; border-bottom: 1px solid #eee; }
+.stats-help { color: #1989fa; font-weight: 500; }
 
-/* 占位高度 = 状态栏(~45px) + 搜索栏(~60px) + 轮播图与搜索栏的间距 */
-.video-placeholder {
-  height: 105px;
-  width: 100%;
-}
+.func-panel { background: #fff; padding: 16px 14px; }
+.func-grid { display: grid; grid-template-columns: repeat(4, 1fr); row-gap: 18px; text-align: center; }
+.func-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.func-icon { width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
+.func-name { font-size: 12px; color: #333; }
 
-.float-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  padding: 45px 16px 10px;
-  color: #fff;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.4) 0%, transparent 100%);
-}
+.notice-bar { display: flex; align-items: center; gap: 8px; margin: 8px 12px; background: #fff; border-radius: 10px; padding: 8px 14px; }
+.notice-tag { font-size: 13px; color: #ff6b35; font-weight: 600; }
+.notice-text { font-size: 12px; color: #666; line-height: 22px; }
 
-.location-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  font-size: 14px;
-}
+.vouch-row { display: flex; gap: 10px; margin: 8px 12px; }
+.vouch { flex: 1; padding: 14px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px; }
+.v-green { background: linear-gradient(135deg,#e8f8ee,#d4f2e2); }
+.v-orange { background: linear-gradient(135deg,#fff3e8,#ffe8d4); }
+.vt { font-size: 15px; font-weight: 600; color: #333; }
+.vs { font-size: 11px; color: #999; }
 
-.location-text {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
+.shop-panel { margin: 8px 12px; background: #fff; border-radius: 12px; padding: 16px; }
+.shop-head { display: flex; justify-content: space-between; margin-bottom: 14px; }
+.shop-title { font-size: 16px; font-weight: 600; }
+.shop-more { font-size: 13px; color: #999; }
+.shop-list { display: flex; gap: 12px; white-space: nowrap; }
+.shop-item { width: 100px; text-align: center; }
+.shop-img { width: 80px; height: 80px; border-radius: 12px; margin: 0 auto 8px; background: #e8f2fc; display: block; }
+.shop-name { font-size: 13px; font-weight: 500; color: #333; display: block; }
+.shop-desc { font-size: 11px; color: #999; }
 
-.arrow-down-icon {
-  width: 12px;
-  height: 12px;
-  opacity: 0.9;
-}
-
-.search-bar {
-  width: 100%;
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(10px);
-}
-
-.search-icon-img {
-  width: 14px;
-  height: 14px;
-  opacity: 0.85;
-}
-
-.search-swiper {
-  flex: 1;
-  height: 24px;
-}
-
-.search-placeholder {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
-  line-height: 24px;
-}
-
-/* 轮播图样式 - 紧挨搜索栏 */
-.banner-section {
-  margin: 0 12px 12px;
-  border-radius: 16px;
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-}
-
-.banner-swipe {
-  width: 100%;
-  height: 160px;
-}
-
-.banner-image {
-  width: 100%;
-  height: 160px;
-  display: block;
-}
-
-.banner-dots {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 10px;
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  pointer-events: none;
-}
-
-.banner-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.banner-dot.active {
-  background: rgba(255, 255, 255, 1);
-}
-
-.content-area {
-  padding: 0 12px;
-}
-
-.overlay-card {
-  position: relative;
-  z-index: 5;
-  margin: 0 0 10px;
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 24px;
-  padding: 20px 0 10px;
-  backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
-}
-
-.function-swipe {
-  padding-bottom: 0px;
-  height: 180px;
-}
-
-.function-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  row-gap: 18px;
-  padding: 0 20px;
-}
-
-.function-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.function-icon-wrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.function-icon-image {
-  width: 24px;
-  height: 24px;
-}
-
-.function-name {
-  font-size: 13px;
-  color: #1a1a1a;
-  font-weight: 500;
-}
-
-.swiper-dots {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  padding-bottom: 16px;
-}
-
-.dot {
-  width: 12px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.1);
-  transition: all 0.3s;
-}
-
-.dot.active {
-  width: 20px;
-  background: #1a1a1a;
-}
-
-.notice-bar-section {
-  margin: 0 0 20px;
-}
-
-.notice-inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 16px;
-  padding: 6px 12px;
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-}
-
-.notice-icon-img {
-  width: 18px;
-  height: 18px;
-  opacity: 0.9;
-}
-
-.notice-swipe {
-  height: 40px;
-  flex: 1;
-}
-
-.notice-item {
-  display: flex;
-  align-items: center;
-}
-
-.notice-text {
-  font-size: 14px;
-  color: #333;
-}
-
-.recommend-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.recommend-card {
-  padding: 16px;
-  border-radius: 16px;
-  height: 100px;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-}
-
-.blue-card {
-  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
-    url('https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&w=600&q=80');
-  background-size: cover;
-}
-
-.orange-card {
-  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
-    url('https://www-cdn.djiits.com/dps/71685a7a83e4c70907f3c504f6806561.jpg');
-  background-size: cover;
-}
-
-.recommend-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.recommend-subtitle {
-  font-size: 12px;
-}
-
-.recommend-icon-img {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 32px;
-  height: 32px;
-  opacity: 0.8;
-  filter: brightness(0) invert(1);
-}
-
-.service-feed {
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 20px;
-  padding: 24px;
-  margin-bottom: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(20px);
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  color: #1a1a1a;
-}
-
-.feed-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.feed-card:first-child {
-  padding-top: 0;
-}
-
-.feed-card:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.feed-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.feed-icon-image {
-  width: 24px;
-  height: 24px;
-}
-
-.feed-content {
-  flex: 1;
-}
-
-.feed-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #1a1a1a;
-}
-
-.feed-desc {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.5);
-}
-
-.feed-arrow {
-  font-size: 16px;
-  color: #c8c9cc;
-}
+.demand-panel { margin: 8px 12px; background: #fff; border-radius: 12px; padding: 14px; }
+.demand-tabs { display: flex; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 8px; white-space: nowrap; }
+.dt { font-size: 14px; color: #666; flex-shrink: 0; }
+.dt.on { color: #1989fa; font-weight: 600; }
+.d-card { padding: 14px 0; border-bottom: 1px solid #f0f0f0; }
+.d-card:last-child { border-bottom: none; padding-bottom: 4px; }
+.d-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.d-ava { width: 36px; height: 36px; border-radius: 50%; background: #e8f2fc; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #1989fa; }
+.d-user { flex: 1; }
+.d-name { font-size: 13px; font-weight: 500; }
+.d-tag { font-size: 11px; color: #ff6b35; margin-left: 8px; }
+.d-call { width: 48px; height: 28px; border-radius: 14px; background: #ff6b35; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.d-title { font-size: 16px; font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 6px; }
+.d-loc { font-size: 12px; color: #1989fa; display: block; margin-bottom: 6px; }
+.d-desc { font-size: 13px; color: #666; line-height: 1.5; display: block; margin-bottom: 10px; }
+.d-meta { display: flex; gap: 12px; font-size: 11px; color: #999; }
+.d-empty { text-align: center; padding: 30px 0; color: #999; font-size: 14px; }
 </style>

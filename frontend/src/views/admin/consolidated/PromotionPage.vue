@@ -7,10 +7,5 @@
       <el-tab-pane label="报告管理" name="reports"><ReportList /></el-tab-pane>
     </el-tabs>
   </div>
-</template>
-<script>import EventList from '../events/EventList.vue'; import PortfolioList from '../portfolios/PortfolioList.vue'; import ExhibitionList from '../exhibitions/ExhibitionList.vue'; import ReportList from '../reports/ReportList.vue'; export default {components:{EventList,PortfolioList,ExhibitionList,ReportList}}</script>
-<script setup>
-import { ref } from 'vue'
-const tab = ref('events')
-</script>
+</template><script setup>import { ref } from 'vue'; import EventList from '../events/EventList.vue'; import PortfolioList from '../portfolios/PortfolioList.vue'; import ExhibitionList from '../exhibitions/ExhibitionList.vue'; import ReportList from '../reports/ReportList.vue'; const tab = ref('events')</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

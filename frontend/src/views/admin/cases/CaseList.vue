@@ -269,7 +269,7 @@ const caseListData = ref([])
 const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
   apiFunction: computed(() => fetchCases),
   idKey: 'id',
-  defaultParams: {}
+  defaultParams: { categoryId: '' }
 })
 
 const refreshAll = async () => {

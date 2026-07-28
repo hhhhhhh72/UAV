@@ -1,83 +1,127 @@
 @echo off
-title Drone Platform - Dev
+chcp 65001 >nul 2>&1
+setlocal enabledelayedexpansion
+
+title Drone Platform - Starting...
+
 cd /d "%~dp0"
 
-set ADMIN_DEV_MODE=true
-set AUTH_SECRET=dev-secret-key-must-be-32-bytes-long
-set CORS_ORIGINS=http://localhost:5173
-
 echo.
-echo ============================================
-echo   Drone Industry Platform v1.0
-echo ============================================
+echo   ============================================
+echo     Drone Platform - Dev Environment Start
+echo   ============================================
 echo.
 
-echo [1/4] Checking backend...
-if not exist drone-api.exe (
-    echo   Building...
-    go build -o drone-api.exe .\cmd\api
-    if errorlevel 1 (
-        echo   COMPILE FAILED
-        pause
-        exit /b 1
-    )
-    echo   Build OK
+:: ---- Check Tools ----
+echo  [1/5] Checking tools...
+
+where go >nul 2>&1
+if %errorlevel% neq 0 (
+    echo  [ERROR] Go not found
+    pause && exit /b 1
 )
-echo   drone-api.exe found
 
-echo [2/4] Checking frontend...
-if not exist "frontend\node_modules\vant" (
-    echo   Installing npm packages...
-    cd frontend
-    call npm install
-    cd ..
-    if errorlevel 1 (
-        echo   NPM INSTALL FAILED
-        pause
-        exit /b 1
-    )
-    echo   Install OK
+where node >nul 2>&1
+if %errorlevel% neq 0 (
+    echo  [ERROR] Node.js not found
+    pause && exit /b 1
 )
-echo   node_modules found
 
-echo [3/4] Starting API server...
-taskkill /f /im drone-api.exe 2>nul 1>nul
+echo         Go:       OK
+echo         Node.js:  OK
+echo.
 
-:: Write env to temp script so CMD passes it to the child process
-echo @echo off > "%TEMP%\drone-api-start.bat"
-echo cd /d %~dp0 >> "%TEMP%\drone-api-start.bat"
-echo set ADMIN_DEV_MODE=true >> "%TEMP%\drone-api-start.bat"
-echo set AUTH_SECRET=dev-secret-key-must-be-32-bytes-long >> "%TEMP%\drone-api-start.bat"
-echo set CORS_ORIGINS=http://localhost:5173 >> "%TEMP%\drone-api-start.bat"
-echo drone-api.exe >> "%TEMP%\drone-api-start.bat"
+:: ---- Start PostgreSQL ----
+echo  [2/5] Starting PostgreSQL...
 
-start "API-Server" "%TEMP%\drone-api-start.bat"
+docker info >nul 2>&1
+if %errorlevel% neq 0 (
+    echo  [WARN] Docker not running, skipping DB
+    goto :skip_db
+)
 
-echo   Waiting for API...
+docker compose up -d db >nul 2>&1
+if %errorlevel% neq 0 (
+    docker-compose up -d db >nul 2>&1
+)
+
+echo         Waiting for PostgreSQL...
+set retry=0
+:wait_db
+timeout /t 2 /nobreak >nul
+docker compose exec db pg_isready -U drone -d drone_platform >nul 2>&1
+if !errorlevel! equ 0 (
+    echo         PostgreSQL ready
+    goto :db_ok
+)
+set /a retry+=1
+if !retry! lss 15 goto :wait_db
+echo  [WARN] PostgreSQL startup timeout
+:db_ok
+:skip_db
+echo.
+
+:: ---- Start Go API ----
+echo  [3/5] Starting Go API (port 8080)...
+
+start "Drone-API" cmd /c "cd /d "%~dp0" && title Drone-API-8080 && go run ./cmd/api"
+
+echo         Waiting for Go API...
+set retry=0
 :wait_api
-timeout /t 2 /nobreak >nul
-curl -s -o nul http://localhost:8080/healthz 2>nul
-if errorlevel 1 goto wait_api
-echo   API ready (port 8080)
-
-echo [4/4] Starting frontend dev server...
-start "Frontend" cmd /c "cd /d %~dp0frontend && npm run dev"
-
-echo   Waiting for frontend...
-:wait_fe
-timeout /t 2 /nobreak >nul
-curl -s -o nul http://localhost:5173 2>nul
-if errorlevel 1 goto wait_fe
-echo   Frontend ready (port 5173)
-
+timeout /t 1 /nobreak >nul
+curl -s http://localhost:8080/api/v1/health >nul 2>&1
+if !errorlevel! equ 0 (
+    echo         Go API ready
+    goto :api_ok
+)
+set /a retry+=1
+if !retry! lss 15 goto :wait_api
+echo  [WARN] Go API may still be compiling...
+:api_ok
 echo.
-echo ============================================
-echo   ALL DONE
+
+:: ---- Start Vue Frontend ----
+echo  [4/5] Starting Vue Frontend (port 5173)...
+
+if not exist "%~dp0frontend\node_modules" (
+    echo         Installing frontend deps...
+    cd /d "%~dp0frontend"
+    call npm install
+    cd /d "%~dp0"
+)
+
+start "Drone-Vue" cmd /c "cd /d "%~dp0frontend" && title Drone-Vue-5173 && npm run dev"
+
+echo         Waiting for Vite...
+set retry=0
+:wait_vite
+timeout /t 1 /nobreak >nul
+curl -s http://localhost:5173 >nul 2>&1
+if !errorlevel! equ 0 (
+    echo         Vue Frontend ready
+    goto :vite_ok
+)
+set /a retry+=1
+if !retry! lss 20 goto :wait_vite
+echo  [WARN] Vite may still be compiling...
+:vite_ok
 echo.
-echo   Frontend : http://localhost:5173
-echo   Admin    : http://localhost:5173/admin
-echo   Swagger  : http://localhost:8080/swagger/index.html
-echo ============================================
+
+:: ---- Done ----
+echo  [5/5] All services started!
 echo.
-echo   Close windows or run stop.bat to stop.
-pause
+echo   ============================================
+echo     Service                   URL
+echo   --------------------------------------------
+echo     Admin (recommended)       http://localhost:5173/admin
+echo     Vue Frontend              http://localhost:5173
+echo     Go API                    http://localhost:8080
+echo     PostgreSQL                localhost:5433
+echo   ============================================
+echo.
+echo   Run stop.bat to stop all services.
+echo.
+
+pause >nul
+endlocal
