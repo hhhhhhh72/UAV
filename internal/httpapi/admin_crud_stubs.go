@@ -19,6 +19,26 @@ func parsePagination(r *http.Request) (int, int) {
 // Handlers that already exist in other files are NOT redeclared.
 // ============================================================
 
+// ----- Orders (trade_orders) -----
+func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
+	paginatedRespond(w, r, []any{}, 0)
+}
+
+// ----- Reviews -----
+func (s *Server) listAdminReviews(w http.ResponseWriter, r *http.Request) {
+	paginatedRespond(w, r, []any{}, 0)
+}
+
+// ----- Case entries -----
+func (s *Server) listAdminCaseEntries(w http.ResponseWriter, r *http.Request) {
+	paginatedRespond(w, r, []any{}, 0)
+}
+
+// ----- Experts admin wrapper -----
+func (s *Server) listAdminExperts(w http.ResponseWriter, r *http.Request) {
+	s.listExperts(w, r)
+}
+
 // --- Training Courses (missing update/delete) ---
 func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, map[string]string{"status": "ok", "note": "updateCourse stub"})

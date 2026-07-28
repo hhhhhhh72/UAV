@@ -107,4 +107,13 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	// === 产业资源 === (POST+PUT already in biz_handlers.go — skip duplicates)
 	mux.HandleFunc("GET /api/v1/admin/industry-resources", s.listAdminResources)
 	mux.HandleFunc("DELETE /api/v1/admin/industry-resources/{id}", s.deleteIndustryResource)
+
+	// === 订单管理 === (fill gap)
+	mux.HandleFunc("GET /api/v1/admin/orders", s.listAdminOrders)
+
+	// === 案例管理 === (fill gap)
+	mux.HandleFunc("GET /api/v1/admin/cases", s.listAdminCaseEntries)
+
+	// === 专家管理 admin === (fill gap)
+	mux.HandleFunc("GET /api/v1/admin/experts", s.listAdminExperts)
 }
