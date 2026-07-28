@@ -4,6 +4,8 @@
 .workbuddy/
 cover.out
 *.exe
+*.exe~
+# binary backups
 logs/
 uploads/
 platform_config.json
