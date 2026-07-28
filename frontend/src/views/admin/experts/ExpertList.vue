@@ -75,8 +75,9 @@ const loadData = async () => {
   loading.value = true
   try {
     const res = await axios.get('/api/v1/admin/experts', { params: { ...searchForm.value, page: pagination.page, page_size: pagination.pageSize } })
-    tableData.value = res.data.data || []
-    pagination.total = res.data.total || 0
+    const items = Array.isArray(res.data) ? res.data : (res.data?.data || [])
+    tableData.value = items
+    pagination.total = res.data?.total || items.length
   } catch (e) { ElMessage.error('load failed') } finally { loading.value = false }
 }
 

@@ -222,7 +222,7 @@ router.beforeEach(async (to, from, next) => {
     if (!token || !userStr) {
       try {
         const res = await axios.post('/api/v1/admin/token', { role: 'platform_admin' })
-        const data = res.data
+        const data = res.data?.data || res.data
         const accessToken = data?.access_token || data?.accessToken
         const refreshToken = data?.refresh_token || data?.refreshToken
         const userInfo = data?.user || {}

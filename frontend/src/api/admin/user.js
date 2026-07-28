@@ -1,7 +1,7 @@
 import axios from '@/utils/http'
 
 export function getUserList(params) {
-  return axios.get('/api/users', { params }).then(res => res.data)
+  return axios.get('/api/v1/admin/users', { params }).then(res => res.data)
 }
 
 export function updateUserRole(id, role) {

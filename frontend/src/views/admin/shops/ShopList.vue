@@ -105,8 +105,9 @@ const loadData = async () => {
     const res = await axios.get('/api/v1/admin/shops', {
       params: { page: pagination.page, page_size: pagination.pageSize, ...searchForm.value }
     })
-    tableData.value = res.data.data || []
-    pagination.total = res.data.total || 0
+    const items = Array.isArray(res.data) ? res.data : (res.data?.data || [])
+    tableData.value = items
+    pagination.total = res.data?.total || items.length
   } catch (e) {
     ElMessage.error('加载失败')
   } finally { loading.value = false }
