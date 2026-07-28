@@ -6,6 +6,7 @@ cover.out
 *.exe
 *.exe~
 # binary backups
+.git-rewrite/
 logs/
 uploads/
 platform_config.json

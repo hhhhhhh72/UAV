@@ -274,7 +274,7 @@ const goToDetail = (id) => {
 // Banner 数据（从后端 _home.banners 配置加载，以下为默认兜底）
 const banners = ref([
   {
-    image: 'https://wenzhoumall-prod.oss-cn-shanghai.aliyuncs.com/test/shop/20250930/0fa02eb2dc8b4a6382784fedc0b44dc0.jpg?Expires=3337231191&OSSAccessKeyId=LTAI5tSbLByCMG16D3eoErCU&Signature=Zk8QXbZAJhw08908Er3iuy9dKg0%3D',
+    image: 'https://wenzhoumall-prod.oss-cn-shanghai.aliyuncs.com/test/shop/20250930/0fa02eb2dc8b4a6382784fedc0b44dc0.jpg',
     link: 'delivery'
   },
   {
