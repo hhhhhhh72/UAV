@@ -1,51 +1,43 @@
 @echo off
 chcp 65001 >nul 2>&1
-setlocal enabledelayedexpansion
-title Drone Platform
+title Drone Platform - All in One
 cd /d "%~dp0"
 
 echo   ============================================
-echo     Drone Platform - Dev Start
+echo     Drone Platform - 一键启动
 echo   ============================================
 echo.
 
-:: ---- Step 1: Check node/go ----
-echo  [1/3] Checking tools...
-where go >nul 2>&1 || (echo [ERROR] Go not found && pause && exit /b 1)
-where node >nul 2>&1 || (echo [ERROR] Node.js not found && pause && exit /b 1)
+echo  [1/4] Starting PostgreSQL...
+docker compose up -d db >nul 2>&1
+timeout /t 3 /nobreak >nul
+echo         PostgreSQL ready (port 5433)
 
-:: ---- Step 2: Database ----
-echo  [2/3] Database...
+echo  [2/4] Starting cpolar tunnel...
+start "cpolar" cmd /c "cpolar tcp 5433"
+echo         cpolar starting (check http://127.0.0.1:4042 for public address)
+timeout /t 5 /nobreak >nul
 
-if defined DATABASE_URL (
-    echo         Using DATABASE_URL: %DATABASE_URL%
-    goto :skip_docker
-)
-
-echo         Using local JSON storage (dev mode)
-echo         For shared DB: set DATABASE_URL=postgres://...
-echo         ^> neon.tech (free PostgreSQL)
-
-:skip_docker
-
-:: ---- Step 3: Start API & Frontend ----
-echo  [3/3] Starting services...
-echo.
-
+echo  [3/4] Starting Go API (port 8080)...
 set AUTH_SECRET=drone-platform-dev-secret-32bytes!
 set APP_ENV=development
 set ADMIN_DEV_MODE=true
-if not defined DATABASE_URL set DATABASE_URL=postgresql://drone:drone_secret@localhost:5433/drone_platform?sslmode=disable
+set DATABASE_URL=postgresql://drone:drone_secret@localhost:5433/drone_platform?sslmode=disable
+start "Drone-API" cmd /c "cd /d "%~dp0" && set AUTH_SECRET=drone-platform-dev-secret-32bytes! && set APP_ENV=development && set ADMIN_DEV_MODE=true && set DATABASE_URL=postgresql://drone:drone_secret@localhost:5433/drone_platform?sslmode=disable && go run ./cmd/api"
+timeout /t 8 /nobreak >nul
 
-start "Drone-API" cmd /c "cd /d "%~dp0" && set AUTH_SECRET=drone-platform-dev-secret-32bytes! && set APP_ENV=development && set ADMIN_DEV_MODE=true && set DATABASE_URL=%DATABASE_URL% && go run ./cmd/api"
-timeout /t 5 /nobreak >nul
-
+echo  [4/4] Starting Vue Frontend (port 5173)...
+cd /d "%~dp0frontend"
+if not exist node_modules call npm install
 start "Drone-Vue" cmd /c "cd /d "%~dp0frontend" && npm run dev"
-timeout /t 5 /nobreak >nul
+cd /d "%~dp0"
 
+echo.
 echo   ============================================
-echo     Admin:  http://localhost:5173/admin
-echo     API:    http://localhost:8080
+echo     All services started!
+echo     Admin: http://localhost:5173/admin
+echo     cpolar: http://127.0.0.1:4042
 echo   ============================================
+echo.
 echo   Run stop.bat to quit.
 pause >nul
