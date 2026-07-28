@@ -116,4 +116,7 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 
 	// === 专家管理 admin === (fill gap)
 	mux.HandleFunc("GET /api/v1/admin/experts", s.listAdminExperts)
+
+	// === 赛事管理 === (fill gap)
+	mux.HandleFunc("GET /api/v1/admin/competitions", s.listAdminCompetitions)
 }

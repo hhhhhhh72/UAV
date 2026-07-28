@@ -39,6 +39,11 @@ func (s *Server) listAdminExperts(w http.ResponseWriter, r *http.Request) {
 	s.listExperts(w, r)
 }
 
+// ----- Competitions -----
+func (s *Server) listAdminCompetitions(w http.ResponseWriter, r *http.Request) {
+	paginatedRespond(w, r, []any{}, 0)
+}
+
 // --- Training Courses (missing update/delete) ---
 func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, map[string]string{"status": "ok", "note": "updateCourse stub"})
