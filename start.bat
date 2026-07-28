@@ -35,8 +35,9 @@ echo.
 set AUTH_SECRET=drone-platform-dev-secret-32bytes!
 set APP_ENV=development
 set ADMIN_DEV_MODE=true
+if not defined DATABASE_URL set DATABASE_URL=postgresql://drone:drone_secret@localhost:5433/drone_platform?sslmode=disable
 
-start "Drone-API" cmd /c "cd /d "%~dp0" && set AUTH_SECRET=drone-platform-dev-secret-32bytes! && set APP_ENV=development && set ADMIN_DEV_MODE=true && if defined DATABASE_URL set DATABASE_URL=%DATABASE_URL% && go run ./cmd/api"
+start "Drone-API" cmd /c "cd /d "%~dp0" && set AUTH_SECRET=drone-platform-dev-secret-32bytes! && set APP_ENV=development && set ADMIN_DEV_MODE=true && set DATABASE_URL=%DATABASE_URL% && go run ./cmd/api"
 timeout /t 5 /nobreak >nul
 
 start "Drone-Vue" cmd /c "cd /d "%~dp0frontend" && npm run dev"
