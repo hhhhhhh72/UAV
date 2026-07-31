@@ -8,7 +8,7 @@
     "figma": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "figma-context-mcp", "--figma-api-key", "YOUR_FIGMA_KEY", "--stdio"]
+      "args": ["-y", "figma-context-mcp", "--figma-api-key", "${FIGMA_TOKEN}", "--stdio"]
     }
   }
 }

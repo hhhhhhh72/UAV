@@ -171,7 +171,8 @@ const tagClass = (c) => {
 
 const loadHome = async () => {
   try {
-    const res = await request({ url: '/api/v1/home' })
+    const params = city.value && city.value !== '全重庆' ? '?city=' + encodeURIComponent(city.value) : ''
+    const res = await request({ url: '/api/v1/home' + params })
     const data = res.data || res
     if (data.banners?.length) banners.value = data.banners
     if (data.notices?.length) notices.value = data.notices.map(String)
@@ -204,14 +205,14 @@ onMounted(async () => {
 })
 
 const onBannerChange = (e) => { activeBanner.value = e.detail.current }
-const handleSearchClick = () => safeSwitchTab('/pages/services/index')
+const handleSearchClick = () => safeNavigateTo('/pages/search/index')
 const handleLocation = () => uni.showToast({ title: '城市选择开发中', icon: 'none' })
 
 const showCityPicker = ref(false)
 const city = ref('全重庆')
 
 const allDistricts = ['全重庆','渝中区','江北区','南岸区','沙坪坝区','九龙坡区','大渡口区','北碚区','渝北区','巴南区','两江新区','高新区','涪陵区','长寿区','江津区','合川区','永川区','南川区','綦江区','大足区','璧山区','铜梁区','潼南区','荣昌区','开州区','梁平区','武隆区','万州区','黔江区','城口县','丰都县','垫江县','忠县','云阳县','奉节县','巫山县','巫溪县','石柱县','秀山县','酉阳县','彭水县']
-const pickCity = (d) => { city.value = d; showCityPicker.value = false }
+const pickCity = (d) => { city.value = d; showCityPicker.value = false; loadHome() }
 
 const handleFunc = (f) => safeNavigateTo(f.path)
 const navigateTo = (p) => safeNavigateTo(p)

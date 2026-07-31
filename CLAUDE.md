@@ -146,10 +146,49 @@ go test ./internal/...  # 全部 PASS
 | `CORS_ORIGINS` | — | CORS 允许来源，逗号分隔 |
 | `HTTP_ADDR` | — | 监听地址，默认 `:8080` |
 
+## 前端项目
+
+| 项目 | 位置 | 技术栈 | 规模 |
+|------|------|--------|------|
+| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + Vant Weapp | 56 页，5 Tab |
+| Web 管理后台 | `frontend/` | Vue 3 + Element Plus + ECharts | Admin SPA |
+| 嵌入式后台 | `internal/httpapi/admin.html` | 单文件 SPA | 35KB 内嵌 |
+
+**小程序设计规范**:
+- 品牌色 `#0A66C2`（深空蓝），辅色 `#1DD4A8`（青绿）
+- 全局 CSS 变量定义在 `App.vue` 的 `page` 选择器中
+- 输入框: `bg=#fafafa` `radius=24rpx`，按钮: `radius=50rpx` + `box-shadow`
+- 不使用 emoji 图标，用 CSS 绘制或文字标签
+
+**小程序 API 调用注意**:
+- `request.js` 自动 unwrap Go 后端的 `{ data: {...} }` 响应包
+- 登录用 `POST /api/auth/login`（返回 `{ accessToken, refreshToken, user }`）
+- 注册用 `POST /api/auth/register`（返回 `{ success: true }`）
+- Token 存储: `authStorage.setTokens(accessToken, refreshToken)` + `uni.setStorageSync('user', ...)`
+- 主流程是微信静默登录（`App.vue` → `wx.login()` → `/api/auth/wx-login`），密码登录只是备用
+
+## 关键踩坑记录
+
+| 问题 | 根因 | 修复 |
+|------|------|------|
+| 注册 500: `duplicate key violates unique constraint "users_wechat_openid_key"` | 手机注册时 `wechat_openid` 为空字符串，第二次 `""` 违反 UNIQUE | 设置 `WechatOpenID: "phone:"+body.Phone` 确保唯一 |
+| H5 兼容路由 404 | `/api/auth/*` 只在 `ADMIN_DEV_MODE=true` 时注册 | `run_api.bat` 已设该变量 |
+| 登录 401 | 小程序调 `/api/v1/login` 不存在 | 改为 `/api/auth/login` |
+| 登录后 Token 不匹配 | 旧代码只存 `token`，新 API 返回 `accessToken` | 改用 `authStorage.setTokens()` |
+
 ## 本地开发
 
 ```bash
+# 后端 API（推荐用 run_api.bat，自动设环境变量）
+go build -o api.exe ./cmd/api && run_api.bat
+
+# 或手动
 go run ./cmd/api     # 后端 → :8080
+
+# 前端 Admin
+cd frontend && npm run dev   # → :5173
+
+# 小程序（用 HBuilderX 打开 miniprogram/ 目录编译）
 ```
 
 ## 详细文档
