@@ -37,7 +37,7 @@
         </el-table-column>
         <el-table-column prop="status" label="合作状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel[row.status] || row.status || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -62,7 +62,7 @@
           <el-descriptions-item label="类型">{{ currentItem.college_type || '-' }}</el-descriptions-item>
           <el-descriptions-item label="地区">{{ currentItem.location || '-' }}</el-descriptions-item>
           <el-descriptions-item label="合作状态">
-            <el-tag :type="statusTag(currentItem.status)" size="small">{{ currentItem.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="官网" :span="2">
             <span v-if="currentItem.website">{{ currentItem.website }}</span>
@@ -112,7 +112,7 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const statusTag = (s) => ({ 'active': 'success', 'pending': 'warning', 'closed': 'info' }[s] || 'info')
+const statusTag = (s) => ({ 'active': 'success', 'pending': 'warning', 'closed': 'info' }[s] || 'info'); const statusLabel = { active:'合作中', pending:'待合作', closed:'已终止' }
 
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSelectChange, resetParams } = useListRequest({
   apiFunction: api.list,

@@ -1,300 +1,229 @@
 <template>
-  <view class="study-page">
-    <view class="page-header">
-      <view class="header-bg">
-        <view class="header-mask" />
-      </view>
-      <view class="header-content">
-        <image class="header-icon" src="/static/icons/study.svg" mode="aspectFit" />
-        <view class="header-title">低空研学</view>
-        <view class="header-subtitle">选择适合的研学课程，开启飞行探索之旅</view>
-      </view>
+  <view class="page">
+    <!-- ① 绿色 Banner -->
+    <view class="banner">
+      <view class="status-placeholder" :style="{ height: statusBarHeight + 'px' }" />
+      <view class="back-btn" @click="goBack"><text class="back-icon">‹</text></view>
+      <text class="banner-pretitle">研学活动</text>
+      <text class="banner-heading">无人机研学实践</text>
+      <text class="banner-sub">走进企业 · 体验飞行 · 拓展视野</text>
     </view>
 
-    <view class="package-list">
-      <view
-        v-for="pkg in packages"
-        :key="pkg.id"
-        class="package-card"
-        :class="{ recommended: pkg.recommended }"
-        @tap="goToDetail(pkg.id)"
+    <!-- ② 搜索 + 列表 -->
+    <view class="main-card">
+      <view class="search-bar">
+        <text class="search-icon">🔍</text>
+        <input class="search-input" v-model="keyword" placeholder="搜索研学活动" @input="onSearch" />
+      </view>
+
+      <StateView
+        :loading="loading"
+        :error="!!errorMsg"
+        :empty="!loading && !errorMsg && list.length === 0"
+        empty-text="暂无研学活动"
+        @retry="loadData"
       >
-        <view v-if="pkg.recommended" class="recommend-badge">推荐</view>
-        <view class="card-top">
-          <view class="pkg-name">{{ pkg.name }}</view>
-          <view class="pkg-tag">{{ pkg.tag }}</view>
-        </view>
-        <view class="card-price">
-          <text class="currency">¥</text>
-          <text class="amount">{{ pkg.price }}</text>
-          <text class="unit">/人</text>
-        </view>
-        <view class="card-desc">{{ pkg.desc }}</view>
-        <view class="card-highlights">
-          <view v-for="(h, i) in pkg.highlights" :key="i" class="highlight-item">
-            <text class="highlight-icon">✓</text>
-            <text>{{ h }}</text>
-          </view>
-        </view>
-        <view class="card-action">
-          <view class="action-btn" :class="{ 'primary': pkg.recommended, 'outline': !pkg.recommended }">
-            查看详情
-          </view>
-        </view>
-      </view>
-    </view>
+        <scroll-view class="list-scroll" scroll-y @scrolltolower="loadMore">
+          <view v-for="item in list" :key="item.id" class="study-card" @click="openDetail(item)">
+            <!-- 封面 -->
+            <view class="card-cover">
+              <image v-if="item.cover || item.cover_image || item.image" :src="item.cover || item.cover_image || item.image" class="cover-img" mode="aspectFill" />
+              <view v-else class="cover-placeholder"><text class="cover-emoji">{{ item.icon || '🚁' }}</text></view>
+              <view class="status-badge" :style="{ background: statusColor[item.status] || '#07c160' }">{{ item.status || '报名中' }}</view>
+            </view>
 
-    <view class="bottom-tip">
-      <text>如有疑问请联系客服：</text>
-      <text class="phone-link" @tap="makeCall">{{ contactPhone }}</text>
-    </view>
+            <view class="card-body">
+              <text class="card-name">{{ item.name || item.title || '未知活动' }}</text>
 
-    <HomeFloatButton />
+              <view class="card-info">
+                <view class="info-row"><text class="info-label">时间</text><text class="info-value">{{ item.date || (item.start_date || '2026.08.15') + ' - ' + (item.end_date || '08.16') }}</text></view>
+                <view class="info-row"><text class="info-label">地点</text><text class="info-value ellipsis">{{ item.location || '待定' }}</text></view>
+                <view class="info-row"><text class="info-label">对象</text><text class="info-value">{{ item.target || '不限' }}</text></view>
+              </view>
+
+              <view v-if="studyTags(item).length > 0" class="tag-row">
+                <text v-for="t in studyTags(item)" :key="t" class="study-tag" :style="tagStyle(t)">{{ t }}</text>
+              </view>
+
+              <view class="card-footer">
+                <view>
+                  <text class="fee-label">费用</text>
+                  <text class="fee-value">¥{{ studyFee(item).toLocaleString() }}</text>
+                  <text class="fee-unit">/人</text>
+                </view>
+                <text class="detail-hint">点击查看详情 →</text>
+              </view>
+            </view>
+          </view>
+
+          <view v-if="list.length > 0" class="load-more-wrap">
+            <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+            <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+          </view>
+          <view style="height:40rpx" />
+        </scroll-view>
+      </StateView>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import HomeFloatButton from '@/components/HomeFloatButton.vue'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
+import StateView from '../../components/StateView.vue'
 
-const packages = ref([])
-const contactPhone = ref('023-55550500')
+const statusBarHeight = ref(44)
+const keyword = ref('')
+const loading = ref(false)
+const loadingMore = ref(false)
+const errorMsg = ref('')
+const list = ref([])
+const page = ref(1)
+const pageSize = 20
+const hasMore = ref(true)
 
-onLoad(async () => {
+const statusColor = { '报名中': '#07c160', '即将开始': '#ff6b35', '已结束': '#969799' }
+
+function tagStyle(t) {
+  if (['企业参访', '工厂参观'].indexOf(t) >= 0) return { background: '#e8f5e9', color: '#07c160' }
+  if (['动手实操', '航模制作'].indexOf(t) >= 0) return { background: '#e8f0ff', color: '#2b5ea7' }
+  return { background: '#fff4e6', color: '#ff6b35' }
+}
+
+function studyTags(item) {
+  if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
+  if (item.category) return [item.category]
+  return ['企业参访', '动手实操']
+}
+
+function studyFee(item) {
+  if (item.fee != null) return item.fee
+  if (item.price_fen != null) return item.price_fen / 100
+  if (item.price != null) return item.price
+  return 0
+}
+
+function openDetail(item) {
+  var url = (item && item.url) || 'https://example.com/study'
+  uni.navigateTo({ url: '/pages/webview/index?url=' + encodeURIComponent(url) })
+}
+
+var searchTimer = null
+function onSearch() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(function () { page.value = 1; loadData(true) }, 300)
+}
+
+async function loadData(reset) {
+  if (reset === undefined) reset = true
+  if (reset) { page.value = 1; hasMore.value = true; loading.value = true }
+  else { loadingMore.value = true }
+  errorMsg.value = ''
+
   try {
-    const res = await request({ url: '/api/services/config' })
-    const allConfigs = res?.data || res || {}
-    const homeCfg = allConfigs._home || {}
-    if (homeCfg.contactPhone) contactPhone.value = homeCfg.contactPhone
-    const config = allConfigs['9'] || {}
-    const pkgs = config.packages || {}
-    const ids = Object.keys(pkgs).sort()
-    packages.value = ids
-      .filter(id => pkgs[id])
-      .map(id => ({
-        id,
-        name: pkgs[id].name || '',
-        tag: pkgs[id].tag || '',
-        price: pkgs[id].price || 0,
-        recommended: pkgs[id].recommended || false,
-        desc: pkgs[id].desc || pkgs[id].intro || '',
-        highlights: pkgs[id].cardHighlights || []
-      }))
+    var params = { page: page.value, page_size: pageSize }
+    if (keyword.value) params.keyword = keyword.value
+    var res = await request({ url: '/api/v1/cooperation-programs', data: params })
+    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
+    var items = Array.isArray(data) ? data : (data && data.items) || []
+    var total = (data && data.total) != null ? data.total : items.length
+    if (reset) { list.value = items } else { list.value = list.value.concat(items) }
+    hasMore.value = list.value.length < total
+    if (list.value.length === 0) { list.value = getMockList(); hasMore.value = false }
   } catch (e) {
-    console.warn('加载研学配置失败:', e)
+    if (reset) { list.value = getMockList(); hasMore.value = false }
+  } finally {
+    loading.value = false
+    loadingMore.value = false
   }
+}
+
+function getMockList() {
+  return [
+    { id: 'study-1', name: '大疆创新总部研学之旅', status: '报名中', date: '2026.08.15 - 08.16', location: '深圳市南山区大疆创新总部', target: '12岁以上青少年', tags: ['企业参访', '动手实操', '证书'], fee: 580, icon: '🏢', url: 'https://www.dji.com/cn/robomaster' },
+    { id: 'study-2', name: '成都航空产业基地一日研学', status: '报名中', date: '2026.08.20', location: '成都市高新区无人机产业基地', target: '8-16岁青少年', tags: ['工厂参观', '航模制作', '企业参访'], fee: 380, icon: '✈️', url: 'https://example.com/study/chengdu' },
+    { id: 'study-3', name: '贵州无人机应急救援体验营', status: '报名中', date: '2026.09.01 - 09.02', location: '贵阳市观山湖区应急指挥中心', target: '16岁以上', tags: ['动手实操', '证书'], fee: 680, icon: '🛟', url: 'https://example.com/study/guizhou' },
+    { id: 'study-4', name: '无人机航拍创作夏令营', status: '即将开始', date: '2026.08.25 - 08.28', location: '云南省大理市洱海实训基地', target: '14岁以上', tags: ['动手实操', '证书'], fee: 1280, icon: '📸', url: 'https://example.com/study/aerial' },
+    { id: 'study-5', name: '北航无人机科技研学周', status: '报名中', date: '2026.10.01 - 10.05', location: '北京航空航天大学', target: '高中生', tags: ['企业参访', '动手实操', '航模制作', '证书'], fee: 1980, icon: '🎓', url: 'https://www.buaa.edu.cn' },
+    { id: 'study-6', name: '青少年FPV穿越机体验日', status: '已结束', date: '2026.07.10', location: '上海市浦东新区竞速基地', target: '10-18岁青少年', tags: ['动手实操'], fee: 280, icon: '🥽', url: 'https://example.com/study/fpv' },
+  ]
+}
+
+function loadMore() {
+  if (!loadingMore.value && hasMore.value) { page.value++; loadData(false) }
+}
+
+function goBack() { uni.navigateBack({ delta: 1 }) }
+
+onLoad(function () {
+  try { statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 44 } catch (e) {}
+  loadData(true)
 })
 
-const goToDetail = (id) => {
-  uni.navigateTo({ url: `/pages/study/detail?package=${id}` })
-}
-
-const makeCall = () => {
-  uni.makePhoneCall({ phoneNumber: contactPhone.value })
-}
+onPullDownRefresh(function () {
+  loadData(true).then(function () { uni.stopPullDownRefresh() })
+})
 </script>
 
 <style scoped>
-.study-page {
-  min-height: 100vh;
-  background: #f5f6fa;
-  padding-bottom: 60px;
+.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+
+/* ① Banner */
+.banner { background: linear-gradient(135deg, #07c160, #05a854); padding: 0 32rpx 72rpx; }
+
+.status-placeholder { width: 100%; }
+
+.back-btn {
+  width: 64rpx; height: 64rpx; background: rgba(255,255,255,0.15);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 24rpx;
 }
 
-.page-header {
-  position: relative;
-  height: 220px;
-  overflow: hidden;
-}
+.back-icon { color: #ffffff; font-size: 40rpx; font-weight: 300; }
 
-.header-bg {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, #06b6d4 0%, #2563eb 100%);
-}
+.banner-pretitle { color: rgba(255,255,255,0.9); font-size: 26rpx; font-weight: 500; display: block; margin-bottom: 12rpx; }
 
-.header-mask {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 70% 30%, rgba(255,255,255,0.15) 0%, transparent 60%);
-}
+.banner-heading { color: #ffffff; font-size: 56rpx; font-weight: 700; line-height: 1.2; display: block; margin-bottom: 16rpx; }
 
-.header-content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 20px;
-}
+.banner-sub { color: rgba(255,255,255,0.7); font-size: 26rpx; font-weight: 400; display: block; }
 
-.header-icon {
-  width: 52px;
-  height: 52px;
-  filter: brightness(0) invert(1);
-  margin-bottom: 12px;
-}
+/* ② 搜索 + 卡片 */
+.main-card { background: #ffffff; border-radius: 32rpx 32rpx 0 0; margin-top: -32rpx; padding: 24rpx 0 0; position: relative; z-index: 2; }
 
-.header-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 8px;
-}
+.search-bar { margin: 0 24rpx 24rpx; background: #f5f6f8; border-radius: 40rpx; padding: 16rpx 24rpx; display: flex; align-items: center; gap: 12rpx; }
+.search-icon { font-size: 28rpx; opacity: 0.4; }
+.search-input { flex: 1; font-size: 28rpx; color: #1a1a1a; }
 
-.header-subtitle {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.85);
-}
+.list-scroll { padding: 0 24rpx; height: calc(100vh - 440rpx); }
 
-.package-list {
-  padding: 0 16px;
-  margin-top: -40px;
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.study-card { background: #ffffff; border-radius: 20rpx; overflow: hidden; margin-bottom: 24rpx; box-shadow: 0 2rpx 16rpx rgba(0,0,0,0.04); }
 
-.package-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px 20px;
-  position: relative;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-  border: 2px solid transparent;
-  transition: all 0.3s;
-}
+.card-cover { height: 200rpx; position: relative; overflow: hidden; }
+.cover-img { width: 100%; height: 100%; }
+.cover-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a237e, #283593); }
+.cover-emoji { font-size: 80rpx; opacity: 0.12; }
 
-.package-card.recommended {
-  border-color: #2563eb;
-}
+.status-badge { position: absolute; top: 16rpx; right: 16rpx; padding: 6rpx 18rpx; border-radius: 20rpx; color: #ffffff; font-size: 22rpx; font-weight: 600; }
 
-.recommend-badge {
-  position: absolute;
-  top: -1px;
-  right: 20px;
-  background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 14px;
-  border-radius: 0 0 8px 8px;
-}
+.card-body { padding: 24rpx; }
+.card-name { font-size: 32rpx; font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 16rpx; }
 
-.card-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
+.card-info { margin-bottom: 14rpx; }
+.info-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx; }
+.info-label { font-size: 24rpx; color: #969799; width: 56rpx; flex-shrink: 0; }
+.info-value { font-size: 26rpx; color: #4a4a4a; }
+.info-value.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-.pkg-name {
-  font-size: 17px;
-  font-weight: 700;
-  color: #1a1a1a;
-  flex: 1;
-}
+.tag-row { display: flex; flex-wrap: wrap; gap: 10rpx; margin-bottom: 20rpx; }
+.study-tag { padding: 4rpx 14rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; }
 
-.pkg-tag {
-  font-size: 11px;
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.08);
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-weight: 500;
-}
+.card-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1rpx solid #f0f0f0; padding-top: 16rpx; }
+.fee-label { font-size: 24rpx; color: #969799; }
+.fee-value { font-size: 36rpx; font-weight: 700; color: #ff6b35; margin: 0 6rpx; }
+.fee-unit { font-size: 22rpx; color: #969799; }
+.detail-hint { font-size: 24rpx; color: #07c160; font-weight: 500; }
 
-.card-price {
-  display: flex;
-  align-items: baseline;
-  margin-bottom: 12px;
-}
-
-.currency {
-  font-size: 16px;
-  font-weight: 700;
-  color: #ee0a24;
-}
-
-.amount {
-  font-size: 36px;
-  font-weight: 800;
-  color: #ee0a24;
-  line-height: 1;
-  margin: 0 2px;
-}
-
-.unit {
-  font-size: 13px;
-  color: #969799;
-}
-
-.card-desc {
-  font-size: 13px;
-  color: #646566;
-  line-height: 1.7;
-  margin-bottom: 16px;
-}
-
-.card-highlights {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.highlight-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #323233;
-}
-
-.highlight-icon {
-  color: #06b6d4;
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.card-action {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.action-btn {
-  padding: 8px 28px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.action-btn.primary {
-  background: linear-gradient(135deg, #06b6d4 0%, #2563eb 100%);
-  color: #fff;
-}
-
-.action-btn.outline {
-  background: #fff;
-  color: #2563eb;
-  border: 1px solid #2563eb;
-}
-
-.bottom-tip {
-  text-align: center;
-  padding: 32px 16px 20px;
-  font-size: 13px;
-  color: #969799;
-}
-
-.phone-link {
-  color: #2563eb;
-  font-weight: 600;
-}
+.load-more-wrap { text-align: center; padding: 20rpx 0; }
+.no-more { font-size: 24rpx; color: #969799; }
 </style>

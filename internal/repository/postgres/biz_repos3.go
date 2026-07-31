@@ -53,6 +53,12 @@ func (r *compRepo) Update(c domain.Competition) (domain.Competition, error) {
 		c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.MaxTeams, c.RegCount, c.Sponsor, c.Status, c.UpdatedAt, c.ID)
 	return c, err
 }
+
+func (r *compRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM competitions WHERE id=$1`, id)
+	return err
+}
+
 func (r *compRepo) CreateReg(reg domain.CompetitionReg) (domain.CompetitionReg, error) {
 	reg.CreatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
@@ -116,6 +122,12 @@ func (r *eventRepo) Update(e domain.AssociationEvent) (domain.AssociationEvent, 
 		e.Title, e.EventType, e.Description, e.Location, e.StartTime, e.EndTime, e.MaxAttendees, e.RegCount, e.CoverURL, e.Status, e.UpdatedAt, e.ID)
 	return e, err
 }
+
+func (r *eventRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), "DELETE FROM association_events WHERE id=$1", id)
+	return err
+}
+
 func (r *eventRepo) CreateReg(reg domain.EventRegistration) (domain.EventRegistration, error) {
 	reg.CreatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
@@ -200,4 +212,28 @@ func (r *emergRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatc
 		out = append(out, d)
 	}
 	return out, total, rows.Err()
+}
+
+func (r *emergRepo) DeleteResource(id string) error {
+	_, err := r.pool.Exec(context.Background(), "DELETE FROM emergency_resources WHERE id=$1", id)
+	return err
+}
+
+func (r *emergRepo) FindDispatchByID(id string) (domain.EmergencyDispatch, error) {
+	var d domain.EmergencyDispatch
+	err := r.pool.QueryRow(context.Background(), "SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches WHERE id=$1", id).
+		Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &d.EndTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt)
+	return d, err
+}
+
+func (r *emergRepo) UpdateDispatch(d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
+	_, err := r.pool.Exec(context.Background(),
+		"UPDATE emergency_dispatches SET resource_id=$1,event_desc=$2,location=$3,start_time=$4,end_time=$5,commander=$6,result=$7,status=$8 WHERE id=$9",
+		d.ResourceID, d.EventDesc, d.Location, d.StartTime, d.EndTime, d.Commander, d.Result, d.Status, d.ID)
+	return d, err
+}
+
+func (r *emergRepo) DeleteDispatch(id string) error {
+	_, err := r.pool.Exec(context.Background(), "DELETE FROM emergency_dispatches WHERE id=$1", id)
+	return err
 }

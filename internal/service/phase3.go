@@ -89,3 +89,11 @@ func (s *TradeOrderService) UpdateStatus(id, userID, newStatus string) (domain.T
 func (s *TradeOrderService) ListMine(userID string) ([]domain.TradeOrder, error) {
 	return s.repo.ListByUser(userID)
 }
+
+func (s *TradeOrderService) ListAll(offset, limit int) ([]domain.TradeOrder, int, error) {
+	return s.repo.ListAll(offset, limit)
+}
+
+func (s *TradeOrderService) FindByID(id string) (domain.TradeOrder, error) {
+	return s.repo.FindByID(id)
+}

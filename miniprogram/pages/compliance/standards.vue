@@ -75,7 +75,7 @@
             <van-icon
               name="down"
               size="20"
-              color="#1989fa"
+              color="#0A66C2"
               @tap.stop="downloadStandard(item)"
             />
           </template>
@@ -237,7 +237,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #1989fa;
+  background: #0A66C2;
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -284,7 +284,7 @@ export default {
 
 .meta-tag {
   font-size: 11px;
-  color: #1989fa;
+  color: #0A66C2;
   background: #e8f2ff;
   padding: 1px 8px;
   border-radius: 4px;

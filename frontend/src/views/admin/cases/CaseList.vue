@@ -64,6 +64,12 @@
 
         <el-table-column prop="views" label="浏览量" width="90" align="right" sortable="custom" />
 
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="caseStatusColor[row.status]" size="small">{{ caseStatusLabel[row.status] || row.status }}</el-tag>
+          </template>
+        </el-table-column>
+
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="editCase(row)">编辑</el-button>
@@ -119,7 +125,7 @@
             <el-input v-model="currentCase.location" placeholder="请输入地点" />
           </el-form-item>
           <el-form-item label="时间">
-            <el-input v-model="currentCase.date" placeholder="请输入时间" />
+            <el-date-picker v-model="currentCase.date" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width:100%" />
           </el-form-item>
 
           <el-divider content-position="left">封面设置</el-divider>
@@ -130,7 +136,24 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item label="封面地址">
-            <el-input v-model="currentCase.cover" placeholder="输入URL" />
+            <template v-if="currentCase.coverType === 'image'">
+              <el-upload class="cover-upload" :action="uploadUrl" :headers="uploadHeaders" :show-file-list="false"
+                :on-success="onCoverUploadSuccess" :before-upload="beforeUpload" accept="image/*">
+                <img v-if="currentCase.cover" :src="currentCase.cover" class="cover-preview" />
+                <el-button v-else type="primary" plain>点击上传</el-button>
+              </el-upload>
+              <el-button v-if="currentCase.cover" size="small" style="margin-top:8px" @click="currentCase.cover=''">清除</el-button>
+            </template>
+            <el-input v-else v-model="currentCase.cover" placeholder="输入视频URL" />
+          </el-form-item>
+
+          <el-divider content-position="left">审核状态</el-divider>
+          <el-form-item label="状态">
+            <el-select v-model="currentCase.status" style="width:200px">
+              <el-option label="待审核" value="pending" />
+              <el-option label="已发布" value="published" />
+              <el-option label="已下架" value="archived" />
+            </el-select>
           </el-form-item>
 
           <el-divider content-position="left">详细内容</el-divider>
@@ -280,13 +303,30 @@ const refreshAll = async () => {
 // --- 案例编辑 ---
 const showCaseEditPopup = ref(false)
 const currentCase = ref(null)
+const uploadUrl = '/api/v1/upload'
+const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}` }
+const caseStatusColor = { pending: 'warning', published: 'success', archived: 'info' }
+const caseStatusLabel = { pending: '待审核', published: '已发布', archived: '已下架' }
+
+const beforeUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) { showFailToast('只能上传图片文件'); return false }
+  if (!isLt5M) { showFailToast('图片不能超过 5MB'); return false }
+  return true
+}
+
+const onCoverUploadSuccess = (res) => {
+  if (currentCase.value) currentCase.value.cover = res?.data?.url || res?.url || ''
+  showSuccessToast('上传成功')
+}
 
 const createCase = async () => {
   if (caseCategories.value.length === 0) await fetchCaseCategories()
   const firstCat = caseCategories.value[0]
   currentCase.value = {
     title: '', description: '', location: '', date: '', fullDescription: '',
-    coverType: 'image', cover: '', media: [], highlights: [],
+    coverType: 'image', cover: '', media: [], highlights: [], status: 'pending',
     categoryId: firstCat ? Number(firstCat.id) : null,
     service: firstCat ? firstCat.service : '', subTag: ''
   }
@@ -409,5 +449,7 @@ onMounted(refreshAll)
 .case-thumb img, .case-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cell-title { font-weight: 500; }
 .pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.cover-upload { display: inline-block; }
+.cover-preview { width: 160px; height: 100px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
 @media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
 </style>

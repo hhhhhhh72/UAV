@@ -1,5 +1,5 @@
 <template>
-  <Layout :current="3">
+  <Layout :current="4">
     <view class="mine-page">
       <view class="nav-bar">个人中心</view>
 

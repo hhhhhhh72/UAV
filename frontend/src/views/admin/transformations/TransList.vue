@@ -72,7 +72,7 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -116,21 +116,42 @@
         </el-descriptions>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="formVisible" :title="formEdit?'编辑转化':'新增转化'" width="560px" @close="resetForm">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="标题"><el-input v-model="form.title" /></el-form-item>
+        <el-form-item label="成果名称"><el-input v-model="form.achievement_title" /></el-form-item>
+        <el-form-item label="阶段">
+          <el-select v-model="form.stage" style="width:100%">
+            <el-option label="实验室" value="lab" /><el-option label="中试" value="pilot" />
+            <el-option label="产业化" value="industrialization" /><el-option label="上市" value="launched" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="目标日期"><el-input v-model="form.target_date" /></el-form-item>
+        <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">确定</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
 
 const api = useAdminApi('transformations')
+const formEdit = ref(false)
+const formVisible = ref(false)
+const formLoading = ref(false)
+const form = reactive({ id:'',title:'',achievement_title:'',stage:'lab',target_date:'',description:'' })
 
 const stageLabel = (s) => ({ lab: '实验室', pilot: '中试', industrialization: '产业化', launched: '上市' }[s] || s || '-')
 const stageTag = (s) => ({ lab: 'info', pilot: 'warning', industrialization: 'success', launched: '' }[s] || 'info')
-const statusTag = (s) => ({}[s] || 'info')
+const statusTag = (s) => ({ active: 'success', completed: '', cancelled: 'danger', ongoing: 'warning' }[s] || 'info')
+const statusLabel = (s) => ({ active: '进行中', completed: '已完成', cancelled: '已取消', ongoing: '进行中' }[s] || (s || '-'))
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -146,8 +167,20 @@ const { listData, loading, total, selectedIds, filterParams, loadData, onSearchS
 const detailVisible = ref(false)
 const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
-const handleAdd = () => { ElMessage.info('TODO: 新增转化记录表单') }
-const handleEdit = (row) => { ElMessage.info('TODO: 编辑转化记录 ' + row.id) }
+const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
+const handleEdit = (row) => { Object.assign(form, row); formEdit.value = true; formVisible.value = true }
+const resetForm = () => Object.assign(form, { id:'',title:'',achievement_title:'',stage:'lab',target_date:'',description:'' })
+const submitForm = async () => {
+  if (!form.title) { ElMessage.warning('请输入标题'); return }
+  formLoading.value = true
+  try {
+    const p = { ...form }
+    formEdit.value ? await api.update(form.id, p) : await api.create(p)
+    ElMessage.success(formEdit.value ? '更新成功' : '创建成功')
+    formVisible.value = false; loadData()
+  } catch(e) { ElMessage.error(e?.response?.data?.message||'操作失败') }
+  finally { formLoading.value = false }
+}
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确定删除转化记录 "${row.achievement_title}" 吗？`, '提示', { type: 'warning' }).then(async () => {
     try { await api.delete(row.id); ElMessage.success('已删除'); loadData() } catch { ElMessage.error('删除失败') }

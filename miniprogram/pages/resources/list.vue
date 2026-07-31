@@ -1,71 +1,83 @@
 <template>
-  <view class="resource-list-page">
-    <!-- Sticky header: search + tabs -->
-    <van-sticky>
-      <van-search
-        v-model="searchText"
-        placeholder="搜索产业资源"
-        shape="round"
-        @search="onSearch"
-      />
-      <van-tabs
-        :active="activeType"
-        @change="onTabChange"
-        :ellipsis="false"
-        swipeable
-      >
-        <van-tab
-          v-for="tab in typeTabs"
-          :key="tab.value"
-          :title="tab.label"
-          :name="tab.value"
-        />
-      </van-tabs>
-    </van-sticky>
-
-    <!-- Loading state -->
-    <view v-if="loading && list.length === 0" class="state-view">
-      <van-loading size="24">加载中...</van-loading>
-    </view>
-
-    <!-- Error state -->
-    <view v-else-if="errorMsg && list.length === 0" class="state-view">
-      <van-empty description="加载失败" image="error" />
-      <view class="retry-btn" @tap="fetchList(true)">
-        <text>重新加载</text>
+  <view class="resource-page">
+    <view class="hero-card">
+      <view class="hero-icon"><van-icon name="cluster-o" size="34" color="#ffffff" /></view>
+      <text class="hero-kicker">INDUSTRY ASSETS</text>
+      <text class="hero-title">产业资源台账</text>
+      <text class="hero-desc">集中查看无人机、机场、试飞场地与测试基地</text>
+      <view class="hero-stats">
+        <view>
+          <text class="stat-value">{{ list.length }}</text>
+          <text class="stat-label">已加载资源</text>
+        </view>
+        <view>
+          <text class="stat-value">{{ activeType ? '1' : '4' }}</text>
+          <text class="stat-label">资源类别</text>
+        </view>
       </view>
     </view>
 
-    <!-- Empty state -->
-    <view v-else-if="!loading && list.length === 0" class="state-view">
-      <van-empty image="search" description="暂无产业资源" />
+    <view class="search-card">
+      <van-search
+        v-model="searchText"
+        placeholder="搜索资源名称、型号或位置"
+        shape="round"
+        background="transparent"
+      />
     </view>
 
-    <!-- Normal state: 2-column grid -->
-    <view v-else class="list-body">
-      <van-grid column-num="2" :gutter="12" :border="false">
-        <van-grid-item
-          v-for="item in list"
-          :key="item.id"
-          @tap="goDetail(item)"
+    <scroll-view class="filter-scroll" scroll-x :show-scrollbar="false">
+      <view class="filter-row">
+        <view
+          v-for="item in typeTabs"
+          :key="item.value"
+          class="filter-item"
+          :class="{ active: activeType === item.value }"
+          @tap="switchType(item.value)"
         >
-          <view class="resource-card">
-            <view class="card-emoji">{{ resourceEmoji(item.res_type) }}</view>
-            <text class="card-name">{{ item.name || '未命名资源' }}</text>
-            <text v-if="item.model" class="card-model">{{ item.model }}</text>
-            <text class="card-fee">¥{{ item.daily_fee || 0 }}/天</text>
-            <text v-if="item.location" class="card-location">
-              <van-icon name="location-o" size="10" color="#969799" />
-              {{ item.location }}
+          {{ item.label }}
+        </view>
+      </view>
+    </scroll-view>
+
+    <view v-if="loading && !list.length" class="state-panel">
+      <van-loading size="26" color="#2f6cf6">正在加载产业资源</van-loading>
+    </view>
+
+    <view v-else-if="errorMsg && !list.length" class="state-panel">
+      <van-empty image="error" description="产业资源加载失败" />
+      <button class="retry-btn" @tap="fetchList(true)">重新加载</button>
+    </view>
+
+    <view v-else-if="!displayList.length" class="state-panel compact">
+      <van-empty image="search" description="暂无匹配的产业资源" />
+    </view>
+
+    <view v-else class="resource-list">
+      <view v-for="item in displayList" :key="item.id" class="resource-card" @tap="goDetail(item)">
+        <view class="resource-icon">
+          <van-icon :name="resourceIcon(item.res_type)" size="27" color="#2f6cf6" />
+        </view>
+        <view class="resource-main">
+          <view class="title-row">
+            <text class="resource-name text-ellipsis">{{ item.name || '未命名资源' }}</text>
+            <text class="type-tag">{{ typeLabel(item.res_type) }}</text>
+          </view>
+          <text class="resource-model text-ellipsis">{{ item.model || item.specs || '型号信息暂未填写' }}</text>
+          <view class="meta-row">
+            <text class="price">{{ formatPrice(item.price_fen) }}</text>
+            <text class="location text-ellipsis">
+              <van-icon name="location-o" size="13" color="#8493a9" />
+              {{ item.location || '位置待确认' }}
             </text>
           </view>
-        </van-grid-item>
-      </van-grid>
+        </view>
+        <van-icon name="arrow" size="16" color="#8fa0b8" />
+      </view>
 
-      <!-- Load more -->
-      <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
-        <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+      <view class="load-more">
+        <van-loading v-if="loadingMore" size="20" color="#2f6cf6">加载更多</van-loading>
+        <text v-else-if="!hasMore" class="no-more">已加载全部资源</text>
       </view>
     </view>
   </view>
@@ -79,7 +91,7 @@ export default {
     return {
       searchText: '',
       activeType: '',
-      loading: false,
+      loading: true,
       loadingMore: false,
       errorMsg: '',
       list: [],
@@ -89,186 +101,323 @@ export default {
       typeTabs: [
         { label: '全部', value: '' },
         { label: '无人机', value: 'drone' },
-        { label: '机场', value: 'airport' },
+        { label: '无人机机场', value: 'airport' },
         { label: '试飞场地', value: 'test_site' },
         { label: '测试基地', value: 'test_base' },
       ],
     }
   },
+  computed: {
+    displayList() {
+      var keyword = this.searchText.trim().toLowerCase()
+      if (!keyword) return this.list
+      return this.list.filter(function (item) {
+        return [item.name, item.model, item.specs, item.location]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(keyword)
+      })
+    },
+  },
   onLoad() {
     this.fetchList(true)
   },
   onPullDownRefresh() {
-    this.fetchList(true).then(function () {
+    this.fetchList(true).finally(function () {
       uni.stopPullDownRefresh()
     })
   },
   onReachBottom() {
-    if (!this.loadingMore && this.hasMore) {
-      this.loadMore()
+    if (!this.loading && !this.loadingMore && this.hasMore) {
+      this.page += 1
+      this.fetchList(false)
     }
   },
   methods: {
     async fetchList(reset) {
       if (reset) {
         this.page = 1
-        this.hasMore = true
         this.loading = true
       } else {
         this.loadingMore = true
       }
       this.errorMsg = ''
-
       try {
-        var params = {
-          page: this.page,
-          page_size: this.pageSize,
-        }
-        if (this.activeType) params.res_type = this.activeType
-        if (this.searchText) params.q = this.searchText
-
-        var res = await request({ url: '/api/v1/industry-resources', data: params })
-        var data = Array.isArray(res) ? res : (res && res.items) || []
-        var items = Array.isArray(data) ? data : (data && data.items) || []
-        var total = (data && data.total) != null ? data.total : items.length
-
-        if (reset) {
-          this.list = items
-        } else {
-          this.list = this.list.concat(items)
-        }
-        this.hasMore = this.list.length < total
-      } catch (e) {
+        var data = { page: this.page, page_size: this.pageSize }
+        if (this.activeType) data.res_type = this.activeType
+        var res = await request({ url: '/api/v1/industry-resources', data: data })
+        var items = Array.isArray(res) ? res : (res && res.data) || []
+        if (!Array.isArray(items)) items = []
+        this.list = reset ? items : this.list.concat(items)
+        this.hasMore = items.length === this.pageSize
+      } catch (error) {
+        if (!reset) this.page = Math.max(1, this.page - 1)
+        if (reset) this.list = []
         this.errorMsg = '网络异常，请稍后重试'
+        if (!reset) uni.showToast({ title: '加载更多失败', icon: 'none' })
       } finally {
         this.loading = false
         this.loadingMore = false
       }
     },
-    async loadMore() {
-      this.page++
-      await this.fetchList(false)
-    },
-    onSearch() {
-      this.fetchList(true)
-    },
-    onTabChange(e) {
-      this.activeType = e.detail ? e.detail.name : e
+    switchType(value) {
+      if (this.activeType === value) return
+      this.activeType = value
       this.fetchList(true)
     },
     goDetail(item) {
+      uni.setStorageSync('resource_detail_' + item.id, item)
       uni.navigateTo({ url: '/pages/resources/detail?id=' + encodeURIComponent(item.id) })
     },
-    resourceEmoji(type) {
-      var map = {
-        drone: '🚁',
-        airport: '🏪',
-        test_site: '🏞',
-        test_base: '🏗',
-      }
-      return map[type] || '📁'
+    typeLabel(type) {
+      var item = this.typeTabs.find(function (tab) { return tab.value === type })
+      return item ? item.label : '产业资源'
+    },
+    resourceIcon(type) {
+      var map = { drone: 'guide-o', airport: 'wap-home-o', test_site: 'location-o', test_base: 'setting-o' }
+      return map[type] || 'apps-o'
+    },
+    formatPrice(value) {
+      var amount = Number(value || 0) / 100
+      return amount ? '¥' + amount.toFixed(2) : '免费 / 面议'
     },
   },
 }
 </script>
 
 <style scoped>
-.resource-list-page {
+.resource-page {
   min-height: 100vh;
-  background: #f7f8fa;
-  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: border-box;
+  padding: var(--space-md) var(--space-md) 60rpx;
+  background: var(--color-bg);
 }
 
-/* State views */
-.state-view {
+.hero-card {
+  position: relative;
+  overflow: hidden;
+  padding: 38rpx 36rpx 30rpx;
+  color: #ffffff;
+  background: #071225;
+  border-radius: var(--radius-lg);
+  box-shadow: inset -180rpx -100rpx 140rpx rgba(47, 108, 246, 0.4), var(--shadow-lg);
+}
+
+.hero-icon {
+  position: absolute;
+  top: 34rpx;
+  right: 34rpx;
+  width: 76rpx;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid rgba(255, 255, 255, 0.34);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hero-kicker,
+.hero-title,
+.hero-desc,
+.stat-value,
+.stat-label {
+  display: block;
+}
+
+.hero-kicker {
+  color: #91adff;
+  font-size: var(--font-xs);
+}
+
+.hero-title {
+  margin-top: 8rpx;
+  font-size: var(--font-xxl);
+  font-weight: 700;
+}
+
+.hero-desc {
+  width: 76%;
+  margin-top: 10rpx;
+  color: #b8c4dc;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 90rpx;
+  margin-top: 30rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid rgba(255, 255, 255, 0.12);
+}
+
+.stat-value {
+  font-size: var(--font-xl);
+  font-weight: 700;
+}
+
+.stat-label {
+  margin-top: 4rpx;
+  color: #94a6c3;
+  font-size: var(--font-xs);
+}
+
+.search-card {
+  margin-top: var(--space-md);
+  overflow: hidden;
+  background: #ffffff;
+  border: 2rpx solid #e3e8ef;
+  border-radius: var(--radius-lg);
+}
+
+.filter-scroll {
+  width: 100%;
+  margin: 20rpx 0;
+  white-space: nowrap;
+}
+
+.filter-row {
+  display: inline-flex;
+  gap: 12rpx;
+  padding-right: 20rpx;
+}
+
+.filter-item {
+  flex-shrink: 0;
+  padding: 14rpx 28rpx;
+  color: #667792;
+  font-size: var(--font-sm);
+  background: #e9edf3;
+  border-radius: var(--radius-round);
+}
+
+.filter-item.active {
+  color: #ffffff;
+  font-weight: 600;
+  background: #2f6cf6;
+}
+
+.state-panel {
+  min-height: 50vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 120px;
+  justify-content: center;
+}
+
+.state-panel.compact {
+  min-height: 38vh;
 }
 
 .retry-btn {
-  margin-top: 12px;
-  padding: 8px 24px;
-  background: #1989fa;
-  color: #fff;
-  border-radius: 20px;
-  font-size: 14px;
+  min-width: 220rpx;
+  height: 76rpx;
+  margin: 8rpx 0 0;
+  color: #ffffff;
+  font-size: var(--font-sm);
+  line-height: 76rpx;
+  background: #2f6cf6;
+  border-radius: var(--radius-round);
 }
 
-/* List body */
-.list-body {
-  padding: 12px 8px 24px;
+.retry-btn::after {
+  border: 0;
 }
 
-/* Resource card */
-.resource-card {
+.resource-list {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 16px 10px 12px;
-  text-align: center;
-  width: 100%;
-  box-sizing: border-box;
+  gap: 18rpx;
 }
 
-.card-emoji {
-  font-size: 36px;
-  line-height: 1.2;
-  margin-bottom: 8px;
-}
-
-.card-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #323233;
-  display: block;
-  margin-bottom: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.card-model {
-  font-size: 12px;
-  color: #969799;
-  display: block;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.card-fee {
-  font-size: 14px;
-  font-weight: 600;
-  color: #ee0a24;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.card-location {
-  font-size: 11px;
-  color: #969799;
+.resource-card {
+  min-height: 164rpx;
   display: flex;
   align-items: center;
-  gap: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
+  gap: 22rpx;
+  box-sizing: border-box;
+  padding: 26rpx 24rpx;
+  background: #ffffff;
+  border: 2rpx solid #e3e8ef;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-/* Load more */
+.resource-icon {
+  width: 94rpx;
+  height: 94rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #eaf1ff;
+  border-radius: var(--radius-md);
+}
+
+.resource-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.title-row,
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.resource-name {
+  max-width: 70%;
+  color: #142039;
+  font-size: var(--font-lg);
+  font-weight: 700;
+}
+
+.type-tag {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  color: #335894;
+  font-size: var(--font-xs);
+  background: #eaf1ff;
+  border-radius: var(--radius-sm);
+}
+
+.resource-model {
+  display: block;
+  margin-top: 8rpx;
+  color: #7b8ba4;
+  font-size: var(--font-sm);
+}
+
+.meta-row {
+  margin-top: 12rpx;
+  justify-content: space-between;
+}
+
+.price {
+  flex-shrink: 0;
+  color: #2f6cf6;
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.location {
+  min-width: 0;
+  color: #8493a9;
+  font-size: var(--font-xs);
+}
+
 .load-more {
-  text-align: center;
-  padding: 16px 0;
+  min-height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .no-more {
-  color: #c8c9cc;
-  font-size: 13px;
+  color: #a2adbd;
+  font-size: var(--font-xs);
 }
 </style>

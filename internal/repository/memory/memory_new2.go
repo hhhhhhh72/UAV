@@ -38,6 +38,11 @@ func (r *compRepo) Update(c domain.Competition) (domain.Competition, error) {
 	for i, v := range r.items { if v.ID == c.ID { c.UpdatedAt = time.Now(); r.items[i] = c; return c, nil } }
 	return domain.Competition{}, fmt.Errorf("competition %s not found", c.ID)
 }
+func (r *compRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("competition %s not found", id)
+}
 func (r *compRepo) CreateReg(reg domain.CompetitionReg) (domain.CompetitionReg, error) {
 	r.mu.Lock(); defer r.mu.Unlock()
 	reg.CreatedAt = time.Now()
@@ -130,6 +135,18 @@ func (r *portfolioRepo) Update(p domain.MemberPortfolio) (domain.MemberPortfolio
 	return domain.MemberPortfolio{}, fmt.Errorf("portfolio %s not found", p.ID)
 }
 
+func (r *portfolioRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("portfolio %s not found", id)
+}
+
+func (r *eventRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("event %s not found", id)
+}
+
 // ---- IndustryReport ----
 
 type industryReportRepo struct {
@@ -195,6 +212,12 @@ func (r *resourceRepo) Update(res domain.IndustryResource) (domain.IndustryResou
 	return domain.IndustryResource{}, fmt.Errorf("resource %s not found", res.ID)
 }
 
+func (r *resourceRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("resource %s not found", id)
+}
+
 // ---- Emergency ----
 
 type emergencyRepo struct {
@@ -234,4 +257,28 @@ func (r *emergencyRepo) CreateDispatch(d domain.EmergencyDispatch) (domain.Emerg
 func (r *emergencyRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatch, int, error) {
 	r.mu.RLock(); defer r.mu.RUnlock()
 	return paginateSlice(r.dispatches, offset, limit)
+}
+
+func (r *emergencyRepo) DeleteResource(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.resources { if r.resources[i].ID == id { r.resources = append(r.resources[:i], r.resources[i+1:]...); return nil } }
+	return fmt.Errorf("resource %s not found", id)
+}
+
+func (r *emergencyRepo) FindDispatchByID(id string) (domain.EmergencyDispatch, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	for _, d := range r.dispatches { if d.ID == id { return d, nil } }
+	return domain.EmergencyDispatch{}, fmt.Errorf("dispatch %s not found", id)
+}
+
+func (r *emergencyRepo) UpdateDispatch(d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i, v := range r.dispatches { if v.ID == d.ID { r.dispatches[i] = d; return d, nil } }
+	return domain.EmergencyDispatch{}, fmt.Errorf("dispatch %s not found", d.ID)
+}
+
+func (r *emergencyRepo) DeleteDispatch(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.dispatches { if r.dispatches[i].ID == id { r.dispatches = append(r.dispatches[:i], r.dispatches[i+1:]...); return nil } }
+	return fmt.Errorf("dispatch %s not found", id)
 }

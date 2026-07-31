@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -45,6 +46,7 @@ type requestIDKey struct{}
 type Server struct {
 	demands       *service.DemandService
 	enterprises   *service.EnterpriseService
+	shopSvc       *service.ShopService
 	enterpriseSvc *service.EnterpriseSvc
 	employment    *service.EmploymentService
 	contracts     *service.ContractService
@@ -84,8 +86,9 @@ poolSvc       *service.ResourcePoolService
 	testSiteSvc   *service.TestSiteService
 	exhibitionSvc *service.ExhibitionService
 	transSvc       *service.TransformationService
-	collegeSvc     *service.CollegeService
-	coopSvc        *service.CooperationService
+	collegeSvc      *service.CollegeService
+	studyTourRepo   repository.StudyTourRepository
+	coopSvc         *service.CooperationService
 	rescueCaseSvc   *service.RescueCaseService
 	emergDeptSvc   *service.EmergencyDeptService
 	assocMemberSvc *service.AssociationMemberService
@@ -211,6 +214,7 @@ func (s *Server) SetStorage(name string) { s.storage = name }
 
 // New business module service setters.
 func (s *Server) SetExpertService(svc *service.ExpertService)               { s.expertSvc = svc }
+func (s *Server) SetShopService(svc *service.ShopService)                   { s.shopSvc = svc }
 func (s *Server) SetCaseService(svc *service.CaseService)                   { s.caseSvc = svc }
 func (s *Server) SetComplianceService(svc *service.ComplianceService)       { s.complianceSvc = svc }
 func (s *Server) SetReportService(svc *service.ReportService)               { s.reportSvc = svc }
@@ -229,6 +233,7 @@ func (s *Server) SetTestSiteService(svc *service.TestSiteService)       { s.test
 func (s *Server) SetExhibitionService(svc *service.ExhibitionService)   { s.exhibitionSvc = svc }
 func (s *Server) SetTransformationService(svc *service.TransformationService) { s.transSvc = svc }
 func (s *Server) SetCollegeService(svc *service.CollegeService)           { s.collegeSvc = svc }
+func (s *Server) SetStudyTourRepo(r repository.StudyTourRepository)        { s.studyTourRepo = r }
 func (s *Server) SetCooperationService(svc *service.CooperationService)   { s.coopSvc = svc }
 func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)               { s.rescueCaseSvc = svc }
 func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)         { s.emergDeptSvc = svc }
@@ -266,6 +271,10 @@ func (s *Server) Router() http.Handler {
 	s.registerAdminListRoutes(mux) // batch admin GET list routes
 	s.registerBatch1Routes(mux)
 	s.registerBatch2Routes(mux)
+	s.registerPublicAPIRoutes(mux) // mini-program public routes
+
+	// ── File upload ────────────────────────────────────────────────
+	mux.HandleFunc("POST /api/v1/upload", s.handleUpload)
 
 	// ── Legacy H5 /api/* compat routes — DEV ONLY ───────────────────
 	// JSON file-backed storage. Disabled in production.
@@ -308,12 +317,31 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
 	lng, _ := strconv.ParseFloat(r.URL.Query().Get("lng"), 64)
 	data := s.homeSvc.GetHome(city, lat, lng)
+
+	// Stats: demand count, shop count
+	demands, _ := s.demands.List(repository.DemandFilter{})
+	demandTotal := len(demands)
+	shops, _, _ := s.shopSvc.List(0, 100)
+	shopTotal := len(shops)
+	users, _ := s.userRepo.All()
+	userTotal := len(users)
+
+	products, _ := s.tradingSvc.ListProducts("")
+
 	respond(w, r, http.StatusOK, map[string]any{
 		"city":           data.City,
 		"banners":        data.Banners,
 		"quick_entries":  data.QuickEntries,
 		"latest_demands": data.HotDemands,
-			"notices":        data.Notices,
+		"notices":        data.Notices,
+		"shops":          shops,
+		"products":       products,
+		"stats": map[string]int{
+			"demands": demandTotal,
+			"shops":   shopTotal,
+			"users":   userTotal,
+			"views":   6690000, // platform lifetime views
+		},
 	})
 }
 func (s *Server) search(w http.ResponseWriter, r *http.Request) {
@@ -674,7 +702,6 @@ func (s *Server) allowedCORSOrigins() []string {
 
 func decode(r *http.Request, v any) error {
 	d := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	d.DisallowUnknownFields()
 	return d.Decode(v)
 }
 func paginationFromQuery(r *http.Request) (page, pageSize int) {
@@ -693,14 +720,30 @@ func paginationFromQuery(r *http.Request) (page, pageSize int) {
 
 func paginatedRespond(w http.ResponseWriter, r *http.Request, items any, total int) {
 	page, pageSize := paginationFromQuery(r)
+	// Slice items for the requested page
+	sliced := slicePage(items, page, pageSize)
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"data":       items,
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"data":       sliced,
 		"page":       page,
 		"page_size":  pageSize,
 		"total":      total,
 		"request_id": requestIDFromCtx(r),
-	})
+	}); err != nil {
+		slog.Warn("encode paginated response", "error", err)
+	}
+}
+
+// slicePage returns a page slice from any slice using reflection.
+func slicePage(items any, page, pageSize int) any {
+	v := reflect.ValueOf(items)
+	if v.Kind() != reflect.Slice { return items }
+	total := v.Len()
+	start := (page - 1) * pageSize
+	if start >= total { return reflect.MakeSlice(v.Type(), 0, 0).Interface() }
+	end := start + pageSize
+	if end > total { end = total }
+	return v.Slice(start, end).Interface()
 }
 
 func requestIDFromCtx(r *http.Request) string {
@@ -712,17 +755,21 @@ func requestIDFromCtx(r *http.Request) string {
 
 func respond(w http.ResponseWriter, r *http.Request, status int, v any) {
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"data": v, "request_id": requestIDFromCtx(r)})
+	if err := json.NewEncoder(w).Encode(map[string]any{"data": v, "request_id": requestIDFromCtx(r)}); err != nil {
+		slog.Warn("encode response", "error", err)
+	}
 }
 func fail(w http.ResponseWriter, r *http.Request, status int, err error) {
 	if errors.Is(err, io.EOF) {
 		err = errors.New("request body is required")
 	}
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	if e := json.NewEncoder(w).Encode(map[string]any{
 		"error":      map[string]string{"code": httpStatusToCode(status), "message": strings.TrimSpace(err.Error())},
 		"request_id": requestIDFromCtx(r),
-	})
+	}); e != nil {
+		slog.Warn("encode error response", "error", e)
+	}
 }
 
 func httpStatusToCode(status int) string {

@@ -420,7 +420,7 @@ export default {
 
 .date-value {
   font-size: 14px;
-  color: #1989fa;
+  color: #0A66C2;
   margin-left: auto;
   margin-right: 8px;
 }

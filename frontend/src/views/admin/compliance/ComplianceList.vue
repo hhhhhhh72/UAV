@@ -48,7 +48,7 @@
           </el-table-column>
         </template>
         <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }"><el-tag :type="statusColor[row.status] || 'info'">{{ row.status || '-' }}</el-tag></template>
+          <template #default="{ row }"><el-tag :type="statusColor[row.status] || 'info'">{{ statusLabel[row.status] || row.status || '-' }}</el-tag></template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
@@ -71,7 +71,7 @@
           <el-descriptions-item label="分类"><el-tag :type="categoryColor[currentItem.category] || 'info'" size="small">{{ currentItem.category }}</el-tag></el-descriptions-item>
           <el-descriptions-item label="发布机构">{{ currentItem.publisher || '-' }}</el-descriptions-item>
           <el-descriptions-item label="发布日期">{{ formatDate(currentItem.publish_date) }}</el-descriptions-item>
-          <el-descriptions-item label="状态"><el-tag :type="statusColor[currentItem.status] || 'info'" size="small">{{ currentItem.status || '-' }}</el-tag></el-descriptions-item>
+          <el-descriptions-item label="状态"><el-tag :type="statusColor[currentItem.status] || 'info'" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</el-tag></el-descriptions-item>
           <el-descriptions-item label="摘要" :span="2">{{ currentItem.summary || '-' }}</el-descriptions-item>
           <el-descriptions-item label="附件" :span="2">
             <a v-if="currentItem.file_url" :href="currentItem.file_url" target="_blank" download class="download-link">下载文件</a>
@@ -86,7 +86,7 @@
           <el-descriptions-item label="标准名称">{{ currentItem.title }}</el-descriptions-item>
           <el-descriptions-item label="发布机构">{{ currentItem.publisher || '-' }}</el-descriptions-item>
           <el-descriptions-item label="生效日期">{{ formatDate(currentItem.effective_date) }}</el-descriptions-item>
-          <el-descriptions-item label="状态"><el-tag :type="statusColor[currentItem.status] || 'info'" size="small">{{ currentItem.status || '-' }}</el-tag></el-descriptions-item>
+          <el-descriptions-item label="状态"><el-tag :type="statusColor[currentItem.status] || 'info'" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</el-tag></el-descriptions-item>
           <el-descriptions-item label="适用范围" :span="2">{{ currentItem.scope || '-' }}</el-descriptions-item>
           <el-descriptions-item label="附件" :span="2">
             <a v-if="currentItem.file_url" :href="currentItem.file_url" target="_blank" download class="download-link">下载文件</a>
@@ -106,11 +106,20 @@
           <el-col :span="12"><el-form-item label="发布机构"><el-input v-model="docForm.publisher" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="发布日期"><el-input v-model="docForm.publish_date" placeholder="YYYY-MM-DD" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="状态"><el-select v-model="docForm.status" style="width:100%"><el-option label="已发布" value="published" /><el-option label="草稿" value="draft" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="发布日期"><el-date-picker v-model="docForm.publish_date" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="状态"><el-select v-model="docForm.status" style="width:100%"><el-option label="待审核" value="pending" /><el-option label="已发布" value="published" /><el-option label="草稿" value="draft" /></el-select></el-form-item></el-col>
         </el-row>
         <el-form-item label="摘要"><el-input v-model="docForm.summary" type="textarea" rows="2" /></el-form-item>
-        <el-form-item label="文件URL"><el-input v-model="docForm.file_url" /></el-form-item>
+        <el-form-item label="附件文件">
+          <el-upload class="file-upload" :action="uploadUrl" :headers="uploadHeaders" :show-file-list="false"
+            :on-success="onDocFileSuccess" :before-upload="beforeUpload" accept="*">
+            <el-button type="primary" plain>点击上传文件</el-button>
+          </el-upload>
+          <div v-if="docForm.file_url" style="margin-top:8px;font-size:12px;color:#666">
+            已上传：{{ docForm.file_url.split('/').pop() }}
+            <el-button size="small" @click="docForm.file_url=''">清除</el-button>
+          </div>
+        </el-form-item>
       </el-form>
       <!-- Standard Form -->
       <el-form v-else :model="stdForm" label-width="90px">
@@ -120,11 +129,20 @@
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="发布机构"><el-input v-model="stdForm.publisher" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="生效日期"><el-input v-model="stdForm.effective_date" placeholder="YYYY-MM-DD" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="生效日期"><el-date-picker v-model="stdForm.effective_date" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item></el-col>
         </el-row>
-        <el-form-item label="状态"><el-select v-model="stdForm.status" style="width:200px"><el-option label="已发布" value="published" /><el-option label="草稿" value="draft" /></el-select></el-form-item>
+        <el-form-item label="状态"><el-select v-model="stdForm.status" style="width:200px"><el-option label="待审核" value="pending" /><el-option label="已发布" value="published" /><el-option label="草稿" value="draft" /></el-select></el-form-item>
         <el-form-item label="适用范围"><el-input v-model="stdForm.scope" type="textarea" rows="2" /></el-form-item>
-        <el-form-item label="文件URL"><el-input v-model="stdForm.file_url" /></el-form-item>
+        <el-form-item label="附件文件">
+          <el-upload class="file-upload" :action="uploadUrl" :headers="uploadHeaders" :show-file-list="false"
+            :on-success="onStdFileSuccess" :before-upload="beforeUpload" accept="*">
+            <el-button type="primary" plain>点击上传文件</el-button>
+          </el-upload>
+          <div v-if="stdForm.file_url" style="margin-top:8px;font-size:12px;color:#666">
+            已上传：{{ stdForm.file_url.split('/').pop() }}
+            <el-button size="small" @click="stdForm.file_url=''">清除</el-button>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="formVisible = false">取消</el-button>
@@ -154,7 +172,8 @@ const formatDate = (d) => {
 }
 
 const categoryColor = { '政策': 'warning', '法规': 'danger', '标准': 'success', '指南': 'info' }
-const statusColor = { 'published': 'success', 'draft': 'info', 'archived': 'warning' }
+const statusColor = { 'published': 'success', 'draft': 'info', 'archived': 'warning', 'pending': 'warning' }
+const statusLabel = { 'published': '已发布', 'draft': '草稿', 'archived': '已下架', 'pending': '待审核' }
 
 const currentApiFn = computed(() => activeTab.value === 'docs' ? docsApi.list : standardsApi.list)
 
@@ -178,6 +197,17 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const docForm = reactive({ id:'', title:'', category:'政策', publisher:'', publish_date:'', status:'published', summary:'', file_url:'' })
 const stdForm = reactive({ id:'', standard_no:'', title:'', publisher:'', effective_date:'', status:'published', scope:'', file_url:'' })
+const uploadUrl = '/api/v1/upload'
+const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}` }
+
+const beforeUpload = (file) => {
+  const maxSize = 20 * 1024 * 1024 // 20MB for documents
+  if (file.size > maxSize) { ElMessage.error('文件不能超过 20MB'); return false }
+  return true
+}
+
+const onDocFileSuccess = (res) => { docForm.file_url = res?.data?.url || res?.url || ''; ElMessage.success('上传成功') }
+const onStdFileSuccess = (res) => { stdForm.file_url = res?.data?.url || res?.url || ''; ElMessage.success('上传成功') }
 const resetDocForm = () => Object.assign(docForm, { id:'', title:'', category:'政策', publisher:'', publish_date:'', status:'published', summary:'', file_url:'' })
 const resetStdForm = () => Object.assign(stdForm, { id:'', standard_no:'', title:'', publisher:'', effective_date:'', status:'published', scope:'', file_url:'' })
 const handleAdd = () => {
@@ -198,7 +228,7 @@ const handleFormSubmit = async () => {
     if (formEdit.value) { await api.update(payload.id, payload); ElMessage.success('更新成功') }
     else { await api.create(payload); ElMessage.success('创建成功') }
     formVisible.value = false; loadData()
-  } catch (e) { ElMessage.error(e?.response?.data?.message || '操作失败') } finally { formLoading.value = false }
+  } catch (e) { console.error('[compliance]', e?.response?.status, e?.response?.data || e); ElMessage.error(e?.response?.data?.message || '操作失败') } finally { formLoading.value = false }
 }
 const handleDelete = (row) => {
   ElMessageBox.confirm('确定删除该项吗？', '提示', { type: 'warning' }).then(async () => {
@@ -217,5 +247,6 @@ onMounted(loadData)
 .pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .download-link { color: #409eff; text-decoration: none; }
 .download-link:hover { text-decoration: underline; }
+.file-upload { display: inline-block; }
 @media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
 </style>

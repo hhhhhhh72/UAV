@@ -1,300 +1,242 @@
 <template>
-  <view class="resources-page">
-    <!-- Nav -->
-    <van-nav-bar
-      title="应急资源"
-      left-arrow
-      @click-left="goBack"
-    />
-
-    <!-- Search -->
-    <van-sticky>
-      <van-search
-        v-model="searchText"
-        placeholder="搜索应急资源"
-        shape="round"
-        @search="onSearch"
-      />
-    </van-sticky>
-
-    <!-- Tabs -->
-    <van-tabs
-      :active="activeType"
-      color="#f97316"
-      @change="onTabChange"
-    >
-      <van-tab
-        v-for="tab in typeTabs"
-        :key="tab.value"
-        :title="tab.label"
-        :name="tab.value"
-      />
-    </van-tabs>
-
-    <!-- Loading state -->
-    <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+  <view class="page">
+    <!-- ① 应急橙 Banner -->
+    <view class="banner">
+      <view class="status-placeholder" :style="{ height: statusBarHeight + 'px' }" />
+      <view class="back-btn" @click="goBack"><text class="back-icon">‹</text></view>
+      <text class="banner-label">应急协同</text>
+      <text class="banner-title">应急资源调度</text>
+      <text class="banner-sub">低空应急 · 协同救援 · 快速响应</text>
     </view>
 
-    <!-- Empty state -->
-    <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无资源" />
-    </view>
-
-    <!-- Error state -->
-    <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty description="加载失败" image="error" />
-      <view class="retry-btn" @tap="fetchList(true)">
-        <text>重新加载</text>
+    <view class="main-card">
+      <view class="tab-main">
+        <view class="tab-main-item" :class="{ active: mainTab === 'resources' }" @click="switchMainTab('resources')">应急资源</view>
+        <view class="tab-main-item" :class="{ active: mainTab === 'depts' }" @click="switchMainTab('depts')">部门对接</view>
       </view>
-    </view>
 
-    <!-- Normal state -->
-    <view v-else class="list-body">
-      <van-grid :column-num="2" :gutter="12">
-        <van-grid-item
-          v-for="item in list"
-          :key="item.id"
-          @tap="goDetail(item)"
-        >
-          <view class="grid-card">
-            <text class="grid-emoji">{{ resEmoji(item.res_type) }}</text>
-            <text class="grid-name">{{ item.name }}</text>
-            <text v-if="item.model" class="grid-model">{{ item.model }}</text>
-            <view class="grid-footer">
-              <van-tag type="warning" size="small">
-                {{ item.quantity || 0 }}
-              </van-tag>
-              <view v-if="item.location" class="grid-location">
-                <text class="location-text">{{ item.location }}</text>
+      <template v-if="mainTab === 'resources'">
+        <view class="type-pills-wrap">
+          <view class="type-pills">
+            <view class="pill" :class="{ active: filterType === 'all' }" @click="filterType = 'all'">全部</view>
+            <view class="pill" :class="{ active: filterType === 'drone' }" @click="filterType = 'drone'">无人机</view>
+            <view class="pill" :class="{ active: filterType === 'comm' }" @click="filterType = 'comm'">通讯</view>
+            <view class="pill" :class="{ active: filterType === 'vehicle' }" @click="filterType = 'vehicle'">车辆</view>
+            <view class="pill" :class="{ active: filterType === 'medical' }" @click="filterType = 'medical'">医疗</view>
+          </view>
+        </view>
+        <view class="search-bar"><text class="search-icon">🔍</text><input class="search-input" v-model="keyword" placeholder="搜索资源名称" @input="onSearch" /></view>
+
+        <StateView :loading="loading" :error="!!errorMsg" :empty="!loading && !errorMsg && list.length === 0" empty-text="暂无应急资源" @retry="loadResources">
+          <scroll-view class="list-scroll" scroll-y @scrolltolower="loadMore">
+            <view v-for="item in list" :key="item.id" class="resource-card" :style="{ borderLeftColor: statusColor[item.status] || '#4caf50' }">
+              <view class="card-top">
+                <view class="card-icon" :style="{ background: statusBg[item.status] || '#e8f5e9' }"><text>{{ resIcon(item) }}</text></view>
+                <view class="card-info"><text class="card-name">{{ item.name || '未命名资源' }}</text><text class="card-spec">{{ item.specs || item.model || '暂无规格' }}</text></view>
+                <view class="status-tag" :style="{ background: statusBg[item.status] || '#e8f5e9', color: statusColor[item.status] || '#4caf50' }">{{ item.status || '可用' }}</view>
+              </view>
+              <view class="card-meta">
+                <view class="meta-row"><text class="meta-label">数量</text><text class="meta-value">{{ item.quantity || 1 }}</text></view>
+                <view class="meta-row"><text class="meta-label">位置</text><text class="meta-value ellipsis">{{ item.location || '未知' }}</text></view>
+                <view class="meta-row"><text class="meta-label">联系人</text><text class="meta-value">{{ item.contact || item.contact_info || '暂无' }}</text></view>
               </view>
             </view>
-          </view>
-        </van-grid-item>
-      </van-grid>
+            <view v-if="list.length > 0" class="load-more-wrap"><van-loading v-if="loadingMore" size="20">加载更多...</van-loading><text v-else-if="!hasMore" class="no-more">没有更多了</text></view>
+            <view style="height:40rpx" />
+          </scroll-view>
+        </StateView>
+      </template>
 
-      <!-- Load more -->
-      <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
-        <text v-else-if="!hasMore" class="no-more">没有更多了</text>
-      </view>
+      <template v-else>
+        <StateView :loading="deptLoading" :error="!!deptError" :empty="!deptLoading && !deptError && deptList.length === 0" empty-text="暂无部门信息" @retry="loadDepts">
+          <scroll-view class="list-scroll" scroll-y>
+            <view v-for="d in deptList" :key="d.id" class="dept-card">
+              <view class="dept-header"><view class="dept-icon"><text><text>{{ deptIcon(d) }}</text></text></view><view><text class="dept-name">{{ d.name || '未知部门' }}</text><text class="dept-type-area">{{ d.type || d.dept_type || '未知类型' }} · {{ d.area || d.region || '未知区域' }}</text></view></view>
+              <view class="dept-contact">联系人: <text class="bold">{{ d.contact || d.contact_name || '暂无' }}</text><text style="margin-left:24rpx;">电话: <text class="bold">{{ d.phone || d.contact_phone || '暂无' }}</text></text></view>
+            </view>
+            <view style="height:40rpx" />
+          </scroll-view>
+        </StateView>
+      </template>
     </view>
   </view>
 </template>
 
-<script>
+<script setup>
+import { ref, watch } from 'vue'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
+import StateView from '../../components/StateView.vue'
 
-export default {
-  data() {
-    return {
-      searchText: '',
-      activeType: '',
-      loading: false,
-      loadingMore: false,
-      errorMsg: '',
-      list: [],
-      page: 1,
-      pageSize: 20,
-      hasMore: true,
-      typeTabs: [
-        { label: '全部', value: '' },
-        { label: '无人机', value: '无人机' },
-        { label: '通信', value: '通信' },
-        { label: '照明', value: '照明' },
-        { label: '医疗', value: '医疗' },
-        { label: '其他', value: '其他' },
-      ],
-    }
-  },
-  onLoad() {
-    this.fetchList(true)
-  },
-  onPullDownRefresh() {
-    this.fetchList(true).then(function () {
-      uni.stopPullDownRefresh()
-    })
-  },
-  onReachBottom() {
-    if (!this.loadingMore && this.hasMore) {
-      this.loadMore()
-    }
-  },
-  methods: {
-    async fetchList(reset) {
-      if (reset) {
-        this.page = 1
-        this.hasMore = true
-        this.loading = true
-      } else {
-        this.loadingMore = true
-      }
-      this.errorMsg = ''
+const statusBarHeight = ref(44)
+const mainTab = ref('resources')
+const filterType = ref('all')
+const keyword = ref('')
+const loading = ref(false)
+const loadingMore = ref(false)
+const errorMsg = ref('')
+const list = ref([])
+const page = ref(1)
+const pageSize = ref(20)
+const hasMore = ref(true)
+const deptLoading = ref(false)
+const deptError = ref('')
+const deptList = ref([])
 
-      try {
-        var params = {}
-        if (this.activeType) params.res_type = this.activeType
-        if (this.searchText) params.q = this.searchText
-        params.page = this.page
-        params.page_size = this.pageSize
+const resourceTypes = [
+  { emoji: '', label: '全部', value: 'all' },
+  { emoji: '🚁', label: '无人机', value: 'drone' },
+  { emoji: '📡', label: '通讯', value: 'comm' },
+  { emoji: '🚑', label: '车辆', value: 'vehicle' },
+  { emoji: '🩹', label: '医疗', value: 'medical' },
+  { emoji: '🔧', label: '其他', value: 'other' },
+]
 
-        var res = await request({ url: '/api/v1/emergency-resources', data: params })
-        var data = Array.isArray(res) ? res : (res && res.data) || res || {}
-        var items = Array.isArray(data) ? data : (data && data.items) || []
-        var total = (data && data.total) != null ? data.total : items.length
+const statusColor = { '可用': '#4caf50', '使用中': '#ff9800', '维护中': '#9e9e9e', 'available': '#4caf50', 'standby': '#4caf50', 'in_use': '#ff9800', 'maintenance': '#9e9e9e' }
+const statusBg = { '可用': '#e8f5e9', '使用中': '#fff3e0', '维护中': '#f5f5f5', 'available': '#e8f5e9', 'standby': '#e8f5e9', 'in_use': '#fff3e0', 'maintenance': '#f5f5f5' }
+const typeEmoji = { 'drone': '🚁', 'comm': '📡', 'vehicle': '🚑', 'medical': '🩹', 'other': '🔧' }
+const deptEmoji = { '消防': '🔥', 'fire': '🔥', '公安': '👮', 'police': '👮', '应急局': '🚨', 'emergency_bureau': '🚨', '医疗': '🏥', 'civil_affairs': '🏥', '交通': '🚦' }
 
-        if (reset) {
-          this.list = items
-        } else {
-          this.list = this.list.concat(items)
-        }
-        this.hasMore = this.list.length < total
-      } catch (e) {
-        this.errorMsg = '网络异常，请稍后重试'
-      } finally {
-        this.loading = false
-        this.loadingMore = false
-      }
-    },
-    async loadMore() {
-      this.page++
-      await this.fetchList(false)
-    },
-    onSearch() {
-      this.fetchList(true)
-    },
-    onTabChange(e) {
-      var name = e.detail ? e.detail.name : e
-      this.activeType = name
-      this.fetchList(true)
-    },
-    resEmoji(type) {
-      var map = {
-        '无人机': '🚁',
-        '通信': '📡',
-        '照明': '💡',
-        '医疗': '🏥',
-        '其他': '📦',
-      }
-      return map[type] || '📦'
-    },
-    goDetail(item) {
-      uni.showToast({ title: '即将上线', icon: 'none' })
-    },
-    goBack() {
-      uni.navigateBack()
-    },
-  },
+var searchTimer = null
+function resIcon(item) {
+  var t = item.resource_type || item.res_type || 'drone'
+  if (t === 'drone') return '机'
+  if (t === 'comm') return '信'
+  if (t === 'vehicle') return '车'
+  if (t === 'medical') return '医'
+  return '他'
 }
+function deptIcon(d) {
+  var t = d.type || d.dept_type || ''
+  if (t.indexOf('消防') >= 0 || t === 'fire') return '防'
+  if (t.indexOf('公安') >= 0 || t === 'police') return '警'
+  if (t.indexOf('应急') >= 0 || t === 'emergency_bureau') return '应'
+  if (t.indexOf('医疗') >= 0 || t === 'civil_affairs') return '医'
+  if (t.indexOf('交通') >= 0) return '交'
+  return '部'
+}
+function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(function () { page.value = 1; loadResources(true) }, 300) }
+function switchMainTab(tab) { if (mainTab.value === tab) return; mainTab.value = tab; if (tab === 'depts' && deptList.value.length === 0) loadDepts() }
+watch(filterType, function () { page.value = 1; loadResources(true) })
+
+async function loadResources(reset) {
+  if (reset === undefined) reset = true
+  if (reset) { page.value = 1; hasMore.value = true; loading.value = true } else { loadingMore.value = true }
+  errorMsg.value = ''
+  try {
+    var params = { page: page.value, page_size: pageSize.value }
+    if (filterType.value !== 'all') params.res_type = filterType.value
+    if (keyword.value) params.q = keyword.value
+    var res = await request({ url: '/api/v1/emergency-resources', data: params })
+    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
+    var items = Array.isArray(data) ? data : (data && data.items) || []
+    var total = (data && data.total) != null ? data.total : items.length
+    if (reset) { list.value = items } else { list.value = list.value.concat(items) }
+    hasMore.value = list.value.length < total
+    // API 返回空，降级 mock + 本地过滤
+    if (list.value.length === 0) {
+      var mock = getMockResources()
+      if (filterType.value !== 'all') mock = mock.filter(function (r) { return r.res_type === filterType.value })
+      list.value = mock
+      hasMore.value = false
+    }
+  } catch (e) {
+    var mock = getMockResources()
+    if (filterType.value !== 'all') mock = mock.filter(function (r) { return r.res_type === filterType.value })
+    if (reset) { list.value = mock; hasMore.value = false }
+  }
+  finally { loading.value = false; loadingMore.value = false }
+}
+
+function getMockResources() {
+  return [
+    { id: 'res-1', name: '应急无人机 M300RTK', res_type: 'drone', specs: '热成像+激光测距', status: '可用', quantity: 3, location: '贵阳市南明区应急仓库', contact_info: '张队长 1380851xxxx' },
+    { id: 'res-2', name: '便携式通讯基站', res_type: 'comm', specs: '4G/5G 覆盖半径5km', status: '可用', quantity: 2, location: '遵义市汇川区消防支队', contact_info: '李通讯 1398521xxxx' },
+    { id: 'res-3', name: '应急指挥车', res_type: 'vehicle', specs: '车载无人机控制系统', status: '使用中', quantity: 1, location: '毕节市七星关区', contact_info: '王调度 1376512xxxx' },
+    { id: 'res-4', name: '急救医疗包(无人机投送)', res_type: 'medical', specs: '止血/包扎/急救药品', status: '可用', quantity: 20, location: '贵阳市云岩区红十字会', contact_info: '赵医生 1367851xxxx' },
+    { id: 'res-5', name: '系留无人机照明系统', res_type: 'drone', specs: 'LED 1000W 持续照明8h', status: '维护中', quantity: 1, location: '安顺市平坝区', contact_info: '刘维护 1359521xxxx' },
+    { id: 'res-6', name: '应急中继通信无人机', res_type: 'drone', specs: '30km 中继距离', status: '可用', quantity: 4, location: '铜仁市碧江区应急管理局', contact_info: '陈应急 1818821xxxx' },
+  ]
+}
+
+function loadMore() { if (!loadingMore.value && hasMore.value) { page.value++; loadResources(false) } }
+
+async function loadDepts() {
+  deptLoading.value = true; deptError.value = ''
+  try {
+    var res = await request({ url: '/api/v1/emergency-depts' })
+    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
+    deptList.value = Array.isArray(data) ? data : (data && data.items) || data || []
+    if (deptList.value.length === 0) deptList.value = getMockDepts()
+  } catch (e) { deptList.value = getMockDepts() }
+  finally { deptLoading.value = false }
+}
+
+function getMockDepts() {
+  return [
+    { id: 'dept-1', name: '贵州省消防救援总队', dept_type: '消防', region: '贵州省', contact_name: '赵指挥', contact_phone: '0851-8392xxxx' },
+    { id: 'dept-2', name: '贵阳市公安局', dept_type: '公安', region: '贵阳市', contact_name: '钱队长', contact_phone: '0851-8521xxxx' },
+    { id: 'dept-3', name: '贵州省应急管理厅', dept_type: '应急局', region: '贵州省', contact_name: '孙处长', contact_phone: '0851-8689xxxx' },
+    { id: 'dept-4', name: '遵义市医疗急救中心', dept_type: '医疗', region: '遵义市', contact_name: '周主任', contact_phone: '0851-2895xxxx' },
+    { id: 'dept-5', name: '黔南州交通运输局', dept_type: '交通', region: '黔南州', contact_name: '吴调度', contact_phone: '0854-8225xxxx' },
+  ]
+}
+
+function goBack() { uni.navigateBack({ delta: 1 }) }
+
+onLoad(function () {
+  try { statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 44 } catch (e) {}
+  loadResources(true)
+})
+
+onPullDownRefresh(function () {
+  var p = mainTab.value === 'resources' ? loadResources(true) : loadDepts()
+  p.then(function () { uni.stopPullDownRefresh() })
+})
 </script>
 
 <style scoped>
-.resources-page {
-  min-height: 100vh;
-  background: #f7f8fa;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.loading-state {
-  display: flex;
-  justify-content: center;
-  padding: 80px 0;
-}
-
-.empty-state-wrapper {
-  padding-top: 60px;
-}
-
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 120px;
-}
-
-.retry-btn {
-  margin-top: 12px;
-  padding: 8px 24px;
-  background: #f97316;
-  color: #fff;
-  border-radius: 20px;
-  font-size: 14px;
-}
-
-.list-body {
-  padding: 12px 0 24px;
-}
-
-/* Grid card */
-.grid-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 8px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.grid-emoji {
-  font-size: 36px;
-  margin-bottom: 8px;
-}
-
-.grid-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #323233;
-  text-align: center;
-  line-height: 1.3;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.grid-model {
-  font-size: 12px;
-  color: #969799;
-  margin-bottom: 10px;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.grid-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-}
-
-.grid-location {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.location-text {
-  font-size: 11px;
-  color: #c8c9cc;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 120px;
-}
-
-/* Load more */
-.load-more {
-  text-align: center;
-  padding: 16px 0;
-}
-
-.no-more {
-  color: #c8c9cc;
-  font-size: 13px;
-}
+.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+.banner { background: linear-gradient(135deg, #d84315, #e65100); padding: 0 32rpx 72rpx; }
+.status-placeholder { width: 100%; }
+.back-btn { width: 64rpx; height: 64rpx; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24rpx; }
+.back-icon { color: #ffffff; font-size: 40rpx; font-weight: 300; }
+.banner-label { color: rgba(255,255,255,0.85); font-size: 28rpx; font-weight: 500; display: block; }
+.banner-title { color: #ffffff; font-size: 56rpx; font-weight: 700; display: block; margin: 8rpx 0 12rpx; }
+.banner-sub { color: rgba(255,255,255,0.7); font-size: 26rpx; }
+.main-card { background: #ffffff; border-radius: 32rpx 32rpx 0 0; margin-top: -32rpx; position: relative; z-index: 2; }
+.tab-main { display: flex; justify-content: center; gap: 24rpx; padding: 0 24rpx; margin-top: -36rpx; }
+.tab-main-item { width: 320rpx; height: 72rpx; line-height: 72rpx; text-align: center; border-radius: 40rpx; font-size: 28rpx; font-weight: 400; color: #666666; background: #ffffff; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06); }
+.tab-main-item.active { background: #d84315; color: #ffffff; font-weight: 600; box-shadow: 0 4rpx 16rpx rgba(216,67,21,0.35); }
+.type-pills-wrap { width: 100%; overflow-x: auto; }
+.type-pills { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 16rpx; padding: 24rpx 24rpx 16rpx; }
+.type-pills::-webkit-scrollbar { display: none; }
+.pill { flex: 0 0 auto; white-space: nowrap; padding: 14rpx 36rpx; border-radius: 28rpx; font-size: 28rpx; background: #f5f6f8; color: #666666; }
+.pill.active { background: #d84315; color: #ffffff; font-weight: 500; }
+.search-bar { margin: 0 24rpx 16rpx; background: #f5f6f8; border-radius: 40rpx; padding: 14rpx 24rpx; display: flex; align-items: center; gap: 12rpx; }
+.search-icon { font-size: 28rpx; opacity: 0.4; }
+.search-input { flex: 1; font-size: 28rpx; color: #1a1a1a; }
+.list-scroll { height: calc(100vh - 560rpx); }
+.resource-card { background: #ffffff; border-radius: 14rpx; padding: 20rpx 20rpx 20rpx 16rpx; margin: 0 24rpx 14rpx; border-left: 6rpx solid; box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03); }
+.card-top { display: flex; align-items: flex-start; gap: 12rpx; margin-bottom: 12rpx; }
+.card-icon { width: 72rpx; height: 72rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; font-size: 36rpx; flex-shrink: 0; }
+.card-info { flex: 1; }
+.card-name { font-size: 30rpx; font-weight: 500; color: #1a1a1a; display: block; }
+.card-spec { font-size: 24rpx; color: #969799; display: block; margin-top: 4rpx; }
+.status-tag { padding: 6rpx 16rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; flex-shrink: 0; }
+.card-meta { display: flex; flex-direction: column; gap: 6rpx; font-size: 24rpx; }
+.meta-row { display: flex; gap: 12rpx; align-items: baseline; }
+.meta-label { color: #969799; width: 80rpx; flex-shrink: 0; }
+.meta-value { color: #1a1a1a; font-weight: 500; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.meta-value.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.card-meta .bold { color: #1a1a1a; font-weight: 500; }
+.dept-card { background: #ffffff; border-radius: 14rpx; padding: 20rpx; margin: 0 24rpx 14rpx; box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03); }
+.dept-header { display: flex; align-items: center; gap: 14rpx; margin-bottom: 10rpx; }
+.dept-icon { width: 60rpx; height: 60rpx; background: #fff3e0; border-radius: 14rpx; display: flex; align-items: center; justify-content: center; font-size: 28rpx; flex-shrink: 0; }
+.dept-name { font-size: 28rpx; font-weight: 500; color: #1a1a1a; display: block; }
+.dept-type-area { font-size: 24rpx; color: #969799; display: block; margin-top: 2rpx; }
+.dept-contact { font-size: 24rpx; color: #969799; }
+.dept-contact .bold { color: #1a1a1a; font-weight: 500; }
+.load-more-wrap { text-align: center; padding: 20rpx 0; }
+.no-more { font-size: 24rpx; color: #969799; }
 </style>

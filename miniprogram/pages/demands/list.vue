@@ -278,7 +278,7 @@ export default {
 
 .filter-tab.active {
   color: #fff;
-  background: #1989fa;
+  background: #0A66C2;
 }
 
 /* Sort bar */
@@ -323,7 +323,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #1989fa;
+  background: #0A66C2;
   color: #fff;
   border-radius: 20px;
   font-size: 14px;

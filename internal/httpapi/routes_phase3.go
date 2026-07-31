@@ -34,6 +34,7 @@ func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/admin/reviews/{id}", s.deleteReview)
 	mux.HandleFunc("POST /api/v1/admin/users", s.createUser)
 	mux.HandleFunc("GET /api/v1/admin/users", s.listUsers)
+	mux.HandleFunc("DELETE /api/v1/admin/users/{id}", s.deleteUser)
 	mux.HandleFunc("POST /api/v1/admin/users/{id}/role", s.updateUserRole)
 	mux.HandleFunc("POST /api/v1/venues", s.createVenue)
 	mux.HandleFunc("GET /api/v1/venues", s.listVenues)

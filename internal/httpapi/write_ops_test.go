@@ -22,7 +22,7 @@ func TestExpertWriteOps(t *testing.T) {
 func TestCaseWriteOps(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodPost, "/api/v1/admin/cases",
-		[]byte(`{"Title":"案例","Category":"logistics","Description":"描述","ClientName":"客户A","Result":"成果"}`),
+		[]byte(`{"title":"案例","category":"logistics","description":"描述","client_name":"客户A","result":"成果"}`),
 		domain.RoleAssociationAdmin)
 	if w.Code != http.StatusCreated { t.Fatalf("create case: %d %s", w.Code, w.Body.String()) }
 }
@@ -30,11 +30,11 @@ func TestCaseWriteOps(t *testing.T) {
 func TestComplianceWriteOps(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodPost, "/api/v1/admin/compliance-docs",
-		[]byte(`{"Title":"条例","Category":"policy","Content":"内容","Summary":"摘要","Source":"民航局"}`),
+		[]byte(`{"title":"条例","category":"policy","publisher":"民航局","publish_date":"2026-01-01","status":"draft","summary":"内容摘要"}`),
 		domain.RoleAssociationAdmin)
 	if w.Code != http.StatusCreated { t.Fatalf("create doc: %d %s", w.Code, w.Body.String()) }
 	w = request(t, app, http.MethodPost, "/api/v1/admin/compliance-standards",
-		[]byte(`{"Title":"标准","StdNumber":"T/CDA-001","Category":"巡检","Version":"1.0","Publisher":"协会","Content":"标准内容","issue_date":"2026-07-01"}`),
+		[]byte(`{"title":"标准","standard_no":"T/CDA-001","publisher":"协会","effective_date":"2026-07-01","status":"draft","scope":"巡检"}`),
 		domain.RoleAssociationAdmin)
 	if w.Code != http.StatusCreated { t.Fatalf("create std: %d %s", w.Code, w.Body.String()) }
 }
@@ -98,7 +98,7 @@ func TestResourceWriteOps(t *testing.T) {
 func TestEmergencyWriteOps(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodPost, "/api/v1/admin/emergency-resources",
-		[]byte(`{"Name":"应急机01","ResType":"drone","Specs":"M300RTK+热成像","Quantity":2,"Location":"南岸","ContactInfo":"138"}`),
+		[]byte(`{"name":"应急机01","res_type":"drone","specs":"M300RTK+热成像","quantity":2,"location":"南岸","contact_info":"138"}`),
 		domain.RoleAssociationAdmin)
 	if w.Code != http.StatusCreated { t.Fatalf("create emerg: %d %s", w.Code, w.Body.String()) }
 }
@@ -106,11 +106,11 @@ func TestEmergencyWriteOps(t *testing.T) {
 func TestCompetitionEventRegOps(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodPost, "/api/v1/admin/competitions",
-		[]byte(`{"Title":"竞速赛","Category":"racing","Description":"FPV","Location":"巴南","Sponsor":"协会","StartDate":"2026-09-01","EndDate":"2026-09-03","max_teams":50}`),
+		[]byte(`{"title":"竞速赛","category":"racing","description":"FPV","location":"巴南","sponsor":"协会","start_date":"2026-09-01","end_date":"2026-09-03","max_teams":50}`),
 		domain.RoleAssociationAdmin)
 	if w.Code != http.StatusCreated { t.Fatalf("create comp: %d %s", w.Code, w.Body.String()) }
 	w = request(t, app, http.MethodPost, "/api/v1/admin/events",
-		[]byte(`{"Title":"产业论坛","EventType":"forum","Description":"年度论坛","Location":"博览中心","StartTime":"2026-10-01T10:00:00Z","EndTime":"2026-10-02T18:00:00Z","max_attendees":500}`),
+		[]byte(`{"title":"产业论坛","event_type":"forum","description":"年度论坛","location":"博览中心","start_time":"2026-10-01T10:00:00Z","end_time":"2026-10-02T18:00:00Z","max_attendees":500}`),
 		domain.RoleAssociationAdmin)
 	if w.Code != http.StatusCreated { t.Fatalf("create event: %d %s", w.Code, w.Body.String()) }
 }

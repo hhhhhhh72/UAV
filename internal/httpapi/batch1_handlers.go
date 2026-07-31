@@ -36,7 +36,7 @@ func (s *Server) listResourcePools(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createResourcePool(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("auth required")); return }
-	var in struct{ Name, PoolType, Description string }
+	var in struct { Name string `json:"name"`; PoolType string `json:"pool_type"`; Description string `json:"description"` }
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
 	p, err := s.poolSvc.Create(in.Name, in.PoolType, in.Description, a.ID)
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
@@ -46,7 +46,7 @@ func (s *Server) createResourcePool(w http.ResponseWriter, r *http.Request) {
 func (s *Server) addPoolMember(w http.ResponseWriter, r *http.Request) {
 	_, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("auth required")); return }
-	var in struct{ ResID, ResType string; Quantity int }
+	var in struct { ResID string `json:"res_id"`; ResType string `json:"res_type"`; Quantity int `json:"quantity"` }
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
 	m, err := s.poolSvc.AddMember(r.PathValue("id"), in.ResID, in.ResType, in.Quantity)
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
@@ -64,7 +64,7 @@ func (s *Server) listPoolMembers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createTestSite(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("auth required")); return }
-	var in struct{ Name, SiteType, Location, BookingRule string; PriceFen int64; Facilities []string }
+	var in struct { Name string `json:"name"`; SiteType string `json:"site_type"`; Location string `json:"location"`; BookingRule string `json:"booking_rule"`; PriceFen int64 `json:"price_fen"`; Facilities []string `json:"facilities"` }
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
 	ts, err := s.testSiteSvc.Create(in.Name, in.SiteType, in.Location, in.BookingRule, a.ID, in.PriceFen, in.Facilities)
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
@@ -80,7 +80,7 @@ func (s *Server) listTestSites(w http.ResponseWriter, r *http.Request) {
 func (s *Server) bookTestSite(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("auth required")); return }
-	var in struct{ Purpose, StartTime, EndTime string }
+	var in struct { Purpose string `json:"purpose"`; StartTime string `json:"start_time"`; EndTime string `json:"end_time"` }
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
 	st := domain.ParseTime(in.StartTime); et := domain.ParseTime(in.EndTime)
 	bk, err := s.testSiteSvc.Book(r.PathValue("id"), a.ID, in.Purpose, st, et)
@@ -91,7 +91,7 @@ func (s *Server) bookTestSite(w http.ResponseWriter, r *http.Request) {
 func (s *Server) reviewTestSiteBooking(w http.ResponseWriter, r *http.Request) {
 	_, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("auth required")); return }
-	var in struct{ Status, Note string }
+	var in struct { Status string `json:"status"`; Note string `json:"note"` }
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
 	bk, err := s.testSiteSvc.ReviewBooking(r.PathValue("id"), in.Status, in.Note)
 	if err != nil { fail(w, r, http.StatusNotFound, err); return }
@@ -103,7 +103,18 @@ func (s *Server) reviewTestSiteBooking(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createExhibition(w http.ResponseWriter, r *http.Request) {
 	_, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("auth required")); return }
-	var in struct{ Title, Category, Description, Location, Organizer, CoverURL, StartDate, EndDate string; BoothCount int; BoothPrice int64 }
+	var in struct {
+		Title       string `json:"title"`
+		Category    string `json:"category"`
+		Description string `json:"description"`
+		Location    string `json:"location"`
+		Organizer   string `json:"organizer"`
+		CoverURL    string `json:"cover_url"`
+		StartDate   string `json:"start_date"`
+		EndDate     string `json:"end_date"`
+		BoothCount  int    `json:"booth_count"`
+		BoothPrice  int64  `json:"booth_price_fen"`
+	}
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
 	sd := domain.ParseTime(in.StartDate); ed := domain.ParseTime(in.EndDate)
 	e, err := s.exhibitionSvc.Create(in.Title, in.Category, in.Description, in.Location, in.Organizer, in.CoverURL, sd, ed, in.BoothCount, in.BoothPrice)

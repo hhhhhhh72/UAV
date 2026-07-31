@@ -41,7 +41,7 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel[row.status] || row.status || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -71,7 +71,7 @@
           <el-descriptions-item label="结束日期">{{ formatDate(currentItem.end_date) }}</el-descriptions-item>
           <el-descriptions-item label="地点">{{ currentItem.location || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="statusTag(currentItem.status)" size="small">{{ currentItem.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
         </el-descriptions>
@@ -120,7 +120,7 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const statusTag = (s) => ({ 'published': 'success', 'draft': 'warning', 'closed': 'info' }[s] || 'info')
+const statusTag = (s) => ({ 'published': 'success', 'draft': 'warning', 'closed': 'info' }[s] || 'info'); const statusLabel = { published:'已发布', draft:'草稿', closed:'已关闭' }
 
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSelectChange, resetParams } = useListRequest({
   apiFunction: api.list,

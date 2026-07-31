@@ -36,3 +36,11 @@ func (s *MessageService) MarkRead(msgID string) (domain.Message, error) {
 func (s *MessageService) UnreadCount(userID string) (int, error) {
 	return s.repo.UnreadCount(userID)
 }
+
+func (s *MessageService) ListAll(offset, limit int) ([]domain.Message, int, error) {
+	return s.repo.ListAll(offset, limit)
+}
+
+func (s *MessageService) Delete(id string) error {
+	return s.repo.Delete(id)
+}

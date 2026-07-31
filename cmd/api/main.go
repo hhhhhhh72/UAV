@@ -26,6 +26,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"drone-platform/internal/config"
@@ -109,19 +111,19 @@ func main() {
 		enrollRepo       repository.EnrollmentRepository
 		tradeOrderRepo   repository.TradeOrderRepository
 		escrowRepo       repository.EscrowRepository
-		// Memory-only repos (PG implementations pending — see audit report).
-		// TODO(P1): Add PG implementations for these 9 repositories.
-		poolRepo        repository.ResourcePoolRepository
+		// Memory-only (coop/rescue/emergDept/assocMember — complex sub-methods).
+		poolRepo        = memory.NewResourcePoolRepository()
+		coopRepo        = memory.NewCooperationRepository()
+		rescueCaseRepo  = memory.NewRescueCaseRepository()
+		emergDeptRepo   = memory.NewEmergencyDeptRepository()
 		testSiteRepo    repository.TestSiteRepository
-		exhibitionRepo  repository.ExhibitionRepository
 		transRepo       repository.TransformationRepository
+		exhibitionRepo  repository.ExhibitionRepository
 		collegeRepo     repository.CollegeRepository
-		coopRepo        repository.CooperationRepository
-		rescueCaseRepo  repository.RescueCaseRepository
-		emergDeptRepo   repository.EmergencyDeptRepository
-		assocMemberRepo repository.AssociationMemberRepository
-		// PG-backed repos.
+		studyTourRepo   repository.StudyTourRepository
+		assocMemberRepo = memory.NewAssociationMemberRepository()
 		expertRepo      repository.ExpertRepository
+		shopRepo        repository.ShopRepository
 		caseRepo        repository.CaseRepository
 		complianceRepo  repository.ComplianceRepository
 		achieveRepo     repository.AchievementRepository
@@ -162,6 +164,8 @@ func main() {
 		resumeRepo = pgStore.NewResumeRepository()
 		appRepo = pgStore.NewJobApplicationRepository()
 		postRepo = pgStore.NewPostRepository()
+		testSiteRepo = pgStore.NewTestSiteRepository()
+		transRepo = pgStore.NewTransformationRepository()
 		commentRepo = pgStore.NewCommentRepository()
 		reportRepo = pgStore.NewReportRepository()
 		listingRepo = pgStore.NewListingRepository()
@@ -186,6 +190,7 @@ func main() {
 		escrowRepo = pgStore.NewEscrowRepository()
 		refreshTokenRepo = pgStore.NewRefreshTokenRepository()
 		expertRepo = pgStore.NewExpertRepository()
+		shopRepo = pgStore.NewShopRepository()
 		caseRepo = pgStore.NewCaseRepository()
 		complianceRepo = pgStore.NewComplianceRepository()
 		achieveRepo = pgStore.NewAchievementRepository()
@@ -200,11 +205,9 @@ func main() {
 		emergencyRepo = pgStore.NewEmergencyRepository()
 
 		// Memory-only repos: PG implementations pending.
-		poolRepo = memory.NewResourcePoolRepository()
-		testSiteRepo = memory.NewTestSiteRepository()
-		exhibitionRepo = memory.NewExhibitionRepository()
-		transRepo = memory.NewTransformationRepository()
-		collegeRepo = memory.NewCollegeRepository()
+		exhibitionRepo = pgStore.NewExhibitionRepository()
+		collegeRepo = pgStore.NewCollegeRepository()
+		studyTourRepo = pgStore.NewStudyTourRepository()
 		coopRepo = memory.NewCooperationRepository()
 		rescueCaseRepo = memory.NewRescueCaseRepository()
 		emergDeptRepo = memory.NewEmergencyDeptRepository()
@@ -242,16 +245,12 @@ func main() {
 		enrollRepo = memory.NewEnrollmentRepository()
 		tradeOrderRepo = memory.NewTradeOrderRepository()
 		escrowRepo = memory.NewEscrowRepository()
-		poolRepo = memory.NewResourcePoolRepository()
-		testSiteRepo = memory.NewTestSiteRepository()
-		exhibitionRepo = memory.NewExhibitionRepository()
-		transRepo = memory.NewTransformationRepository()
-		collegeRepo = memory.NewCollegeRepository()
 		coopRepo = memory.NewCooperationRepository()
 		rescueCaseRepo = memory.NewRescueCaseRepository()
 		emergDeptRepo = memory.NewEmergencyDeptRepository()
 		assocMemberRepo = memory.NewAssociationMemberRepository()
 		expertRepo = memory.NewExpertRepository()
+		shopRepo = memory.NewShopRepository()
 		caseRepo = memory.NewCaseRepository()
 		complianceRepo = memory.NewComplianceRepository()
 		achieveRepo = memory.NewAchievementRepository()
@@ -298,6 +297,7 @@ func main() {
 	// ── Wire extended services ──────────────────────────────────────
 	// PG-backed services: wired for both storage modes.
 	app.SetExpertService(service.NewExpertService(expertRepo))
+	app.SetShopService(service.NewShopService(shopRepo))
 	app.SetCaseService(service.NewCaseService(caseRepo))
 	app.SetComplianceService(service.NewComplianceService(complianceRepo))
 	app.SetReportService(service.NewReportService(industryRptRepo))
@@ -318,6 +318,7 @@ func main() {
 	app.SetAssociationMemberService(service.NewAssociationMemberService(assocMemberRepo))
 	app.SetTransformationService(service.NewTransformationService(transRepo))
 	app.SetCollegeService(service.NewCollegeService(collegeRepo))
+	app.SetStudyTourRepo(studyTourRepo)
 	app.SetCooperationService(service.NewCooperationService(coopRepo))
 	app.SetPoolService(service.NewResourcePoolService(poolRepo))
 	app.SetTestSiteService(service.NewTestSiteService(testSiteRepo))
@@ -326,7 +327,7 @@ func main() {
 	if pgStore != nil {
 		app.SetAuditWriter(postgres.NewAuditAdapter(pgStore))
 		app.SetStorage("postgres")
-		slog.Warn("PG mode: 9 repos lack PG impl, using in-memory (pool/testSite/exhibition/trans/college/coop/rescueCase/emergDept/assocMember)")
+		slog.Warn("PG mode: 4 repos lack PG impl, using in-memory (coop/rescueCase/emergDept/assocMember)")
 	} else {
 		app.SetStorage("memory")
 	}
@@ -344,9 +345,23 @@ func main() {
 		}
 	}
 
-	slog.Info("drone platform API starting", "addr", addr)
-	if err := http.ListenAndServe(addr, app.Router()); err != nil {
-		slog.Error("server stopped", "error", err)
-		os.Exit(1)
+	server := &http.Server{Addr: addr, Handler: app.Router(), ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server error", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	slog.Info("shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		slog.Error("server forced shutdown", "error", err)
 	}
+	slog.Info("server exited")
 }

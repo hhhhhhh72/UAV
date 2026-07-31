@@ -39,7 +39,7 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel[row.status] || row.status || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -65,7 +65,7 @@
           <el-descriptions-item label="时长">{{ currentItem.duration || '-' }}</el-descriptions-item>
           <el-descriptions-item label="名额">{{ currentItem.capacity ?? '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="statusTag(currentItem.status)" size="small">{{ currentItem.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="行程安排" :span="2">{{ currentItem.schedule || '-' }}</el-descriptions-item>
           <el-descriptions-item label="价格">
@@ -115,7 +115,7 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const statusTag = (s) => ({ 'active': 'success', 'closed': 'info', 'draft': 'warning' }[s] || 'info')
+const statusTag = (s) => ({ 'active': 'success', 'closed': 'info', 'draft': 'warning' }[s] || 'info'); const statusLabel = { active:'进行中', closed:'已结束', draft:'草稿' }
 
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSelectChange, resetParams } = useListRequest({
   apiFunction: api.list,

@@ -1,0 +1,5 @@
+-- 成果转化表补全缺失列
+ALTER TABLE transformations ADD COLUMN IF NOT EXISTS owner_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE transformations ADD COLUMN IF NOT EXISTS progress TEXT DEFAULT '';
+ALTER TABLE transformations ADD COLUMN IF NOT EXISTS partner_id TEXT DEFAULT '';
+ALTER TABLE transformations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';

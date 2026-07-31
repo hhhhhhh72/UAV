@@ -44,8 +44,8 @@
 
 	/* --- 语义化颜色 --- */
 	page {
-		--color-primary: #1989fa;
-		--color-primary-light: #e8f2fc;
+		--color-primary: #0A66C2;
+		--color-primary-light: #E8F2FC;
 		--color-success: #34c759;
 		--color-warning: #ff9f0a;
 		--color-danger: #ff3b30;

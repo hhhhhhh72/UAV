@@ -35,32 +35,32 @@ type CaseEntry struct {
 
 // ComplianceDoc is a regulatory guidance document.
 type ComplianceDoc struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Category  string    `json:"category"`
-	Content   string    `json:"content"`
-	Summary   string    `json:"summary"`
-	Source    string    `json:"source"`
-	Tags      []string  `json:"tags"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Category    string    `json:"category"`
+	Publisher   string    `json:"publisher"`
+	PublishDate time.Time `json:"publish_date"`
+	Summary     string    `json:"summary"`
+	FileURL     string    `json:"file_url"`
+	Tags        []string  `json:"tags"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // StandardDoc is an industry group standard document.
 type StandardDoc struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	StdNumber string    `json:"std_number"`
-	Category  string    `json:"category"`
-	Version   string    `json:"version"`
-	IssueDate time.Time `json:"issue_date"`
-	Publisher string    `json:"publisher"`
-	Content   string    `json:"content"`
-	FileURL   string    `json:"file_url"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	Title         string    `json:"title"`
+	StandardNo    string    `json:"standard_no"`
+	Publisher     string    `json:"publisher"`
+	EffectiveDate time.Time `json:"effective_date"`
+	Status        string    `json:"status"`
+	Scope         string    `json:"scope"`
+	Summary       string    `json:"summary"`
+	FileURL       string    `json:"file_url"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // ProjectApplication is a government/association project subsidy application.

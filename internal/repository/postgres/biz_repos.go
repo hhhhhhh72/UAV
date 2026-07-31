@@ -134,15 +134,15 @@ func (r *complianceRepo) CreateDoc(d domain.ComplianceDoc) (domain.ComplianceDoc
 	tags, err := json.Marshal(d.Tags)
 	if err != nil { return domain.ComplianceDoc{}, fmt.Errorf("marshal doc tags: %w", err) }
 	_, err = r.pool.Exec(context.Background(),
-		`INSERT INTO compliance_docs (id,title,category,content,summary,source,tags,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		d.ID, d.Title, d.Category, d.Content, d.Summary, d.Source, tags, d.Status, d.CreatedAt, d.UpdatedAt)
+		`INSERT INTO compliance_docs (id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		d.ID, d.Title, d.Category, d.Publisher, d.PublishDate, d.Status, d.Summary, d.FileURL, tags, d.CreatedAt, d.UpdatedAt)
 	return d, err
 }
 func (r *complianceRepo) FindDocByID(id string) (domain.ComplianceDoc, error) {
 	var d domain.ComplianceDoc; var tags []byte
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id,title,category,content,summary,source,tags,status,created_at,updated_at FROM compliance_docs WHERE id=$1`, id).
-		Scan(&d.ID, &d.Title, &d.Category, &d.Content, &d.Summary, &d.Source, &tags, &d.Status, &d.CreatedAt, &d.UpdatedAt)
+		`SELECT id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at FROM compliance_docs WHERE id=$1`, id).
+		Scan(&d.ID, &d.Title, &d.Category, &d.Publisher, &d.PublishDate, &d.Status, &d.Summary, &d.FileURL, &tags, &d.CreatedAt, &d.UpdatedAt)
 	json.Unmarshal(tags, &d.Tags)
 	return d, err
 }
@@ -151,14 +151,14 @@ func (r *complianceRepo) ListDocs(category string, offset, limit int) ([]domain.
 	if category != "" { where = `WHERE category=$1`; args = append(args, category) }
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM compliance_docs `+where, args...).Scan(&total)
-	q := fmt.Sprintf(`SELECT id,title,category,content,summary,source,tags,status,created_at,updated_at FROM compliance_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at FROM compliance_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil { return nil, 0, fmt.Errorf("list docs: %w", err) }
 	defer rows.Close()
 	var out []domain.ComplianceDoc
 	for rows.Next() {
 		var d domain.ComplianceDoc; var tags []byte
-		rows.Scan(&d.ID, &d.Title, &d.Category, &d.Content, &d.Summary, &d.Source, &tags, &d.Status, &d.CreatedAt, &d.UpdatedAt)
+		rows.Scan(&d.ID, &d.Title, &d.Category, &d.Publisher, &d.PublishDate, &d.Status, &d.Summary, &d.FileURL, &tags, &d.CreatedAt, &d.UpdatedAt)
 		json.Unmarshal(tags, &d.Tags)
 		out = append(out, d)
 	}
@@ -169,8 +169,8 @@ func (r *complianceRepo) UpdateDoc(d domain.ComplianceDoc) (domain.ComplianceDoc
 	tags, err := json.Marshal(d.Tags)
 	if err != nil { return domain.ComplianceDoc{}, fmt.Errorf("marshal doc tags: %w", err) }
 	_, err = r.pool.Exec(context.Background(),
-		`UPDATE compliance_docs SET title=$1,category=$2,content=$3,summary=$4,source=$5,tags=$6,status=$7,updated_at=$8 WHERE id=$9`,
-		d.Title, d.Category, d.Content, d.Summary, d.Source, tags, d.Status, d.UpdatedAt, d.ID)
+		`UPDATE compliance_docs SET title=$1,category=$2,publisher=$3,publish_date=$4,status=$5,summary=$6,file_url=$7,tags=$8,updated_at=$9 WHERE id=$10`,
+		d.Title, d.Category, d.Publisher, d.PublishDate, d.Status, d.Summary, d.FileURL, tags, d.UpdatedAt, d.ID)
 	return d, err
 }
 func (r *complianceRepo) DeleteDoc(id string) error {
@@ -178,11 +178,35 @@ func (r *complianceRepo) DeleteDoc(id string) error {
 	if err != nil { return fmt.Errorf("delete doc %s: %w", id, err) }
 	return nil
 }
+
+func (r *complianceRepo) DeleteStandard(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM standard_docs WHERE id=$1`, id)
+	if err != nil { return fmt.Errorf("delete standard %s: %w", id, err) }
+	return nil
+}
+
+func (r *complianceRepo) FindStandardByID(id string) (domain.StandardDoc, error) {
+	var s domain.StandardDoc
+	var fileURL string
+	err := r.pool.QueryRow(context.Background(), "SELECT id,title,standard_no,publisher,effective_date,status,scope,summary FROM standard_docs WHERE id=$1", id).
+		Scan(&s.ID, &s.Title, &s.StandardNo, &s.Publisher, &s.EffectiveDate, &s.Status, &s.Scope, &s.Summary, &s.FileURL)
+	_ = fileURL
+	return s, err
+}
+
+func (r *complianceRepo) UpdateStandard(s domain.StandardDoc) (domain.StandardDoc, error) {
+	s.UpdatedAt = time.Now()
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE standard_docs SET title=$1,std_number=$2,publisher=$3,effective_date=$4,status=$5,scope=$6,file_url=$7,updated_at=$8 WHERE id=$9`,
+		s.Title, s.StandardNo, s.Publisher, s.EffectiveDate, s.Status, s.Scope, s.FileURL, s.UpdatedAt, s.ID)
+	return s, err
+}
+
 func (r *complianceRepo) CreateStandard(s domain.StandardDoc) (domain.StandardDoc, error) {
 	s.CreatedAt = time.Now(); s.UpdatedAt = s.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO standard_docs (id,title,std_number,category,version,issue_date,publisher,content,file_url,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		s.ID, s.Title, s.StdNumber, s.Category, s.Version, s.IssueDate, s.Publisher, s.Content, s.FileURL, s.Status, s.CreatedAt, s.UpdatedAt)
+		`INSERT INTO standard_docs (id,title,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		s.ID, s.Title, s.StandardNo, s.Publisher, s.EffectiveDate, s.Status, s.Scope, s.FileURL, s.CreatedAt, s.UpdatedAt)
 	return s, err
 }
 func (r *complianceRepo) ListStandards(category string, offset, limit int) ([]domain.StandardDoc, int, error) {
@@ -190,14 +214,14 @@ func (r *complianceRepo) ListStandards(category string, offset, limit int) ([]do
 	if category != "" { where = `WHERE category=$1`; args = append(args, category) }
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM standard_docs `+where, args...).Scan(&total)
-	q := fmt.Sprintf(`SELECT id,title,std_number,category,version,issue_date,publisher,content,file_url,status,created_at,updated_at FROM standard_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,title,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at FROM standard_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil { return nil, 0, fmt.Errorf("list standards: %w", err) }
 	defer rows.Close()
 	var out []domain.StandardDoc
 	for rows.Next() {
 		var s domain.StandardDoc
-		rows.Scan(&s.ID, &s.Title, &s.StdNumber, &s.Category, &s.Version, &s.IssueDate, &s.Publisher, &s.Content, &s.FileURL, &s.Status, &s.CreatedAt, &s.UpdatedAt)
+		rows.Scan(&s.ID, &s.Title, &s.StandardNo, &s.Publisher, &s.EffectiveDate, &s.Status, &s.Scope, &s.FileURL, &s.CreatedAt, &s.UpdatedAt)
 		out = append(out, s)
 	}
 	return out, total, rows.Err()
@@ -320,11 +344,17 @@ func (r *portfolioRepo) Update(p domain.MemberPortfolio) (domain.MemberPortfolio
 	return p, err
 }
 
+func (r *portfolioRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), "DELETE FROM member_portfolios WHERE id=$1", id)
+	return err
+}
+
 // ---- Resource ----
 
 type resourceRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewResourceRepository() repository.ResourceRepository { return &resourceRepo{pool: s.Pool()} }
+func (s *Store) NewShopRepository() repository.ShopRepository       { return &shopRepo{pool: s.Pool()} }
 
 func (r *resourceRepo) Create(res domain.IndustryResource) (domain.IndustryResource, error) {
 	res.CreatedAt = time.Now(); res.UpdatedAt = res.CreatedAt
@@ -363,4 +393,9 @@ func (r *resourceRepo) Update(res domain.IndustryResource) (domain.IndustryResou
 		`UPDATE industry_resources SET name=$1,res_type=$2,model=$3,specs=$4,location=$5,price_fen=$6,booking_info=$7,status=$8,updated_at=$9 WHERE id=$10`,
 		res.Name, res.ResType, res.Model, res.Specs, res.Location, res.PriceFen, res.BookingInfo, res.Status, res.UpdatedAt, res.ID)
 	return res, err
+}
+
+func (r *resourceRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM industry_resources WHERE id=$1`, id)
+	return err
 }

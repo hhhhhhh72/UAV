@@ -179,7 +179,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #1989fa;
+  background: #0A66C2;
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -279,8 +279,8 @@ export default {
 }
 
 .timeline-dot.active {
-  background: #1989fa;
-  box-shadow: 0 0 0 2px #1989fa;
+  background: #0A66C2;
+  box-shadow: 0 0 0 2px #0A66C2;
 }
 
 .timeline-bar {

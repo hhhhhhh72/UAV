@@ -123,6 +123,22 @@ func (r *msgRepo) UnreadCount(userID string) (int, error) {
 	return n, err
 }
 
+func (r *msgRepo) ListAll(offset, limit int) ([]domain.Message, int, error) {
+	var total int
+	r.pool.QueryRow(context.Background(), "SELECT count(*) FROM messages").Scan(&total)
+	rows, _ := r.pool.Query(context.Background(), "SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	if rows == nil { return nil, total, nil }
+	defer rows.Close()
+	var out []domain.Message
+	for rows.Next() { var m domain.Message; rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt); out = append(out, m) }
+	return out, total, rows.Err()
+}
+
+func (r *msgRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), "DELETE FROM messages WHERE id=$1", id)
+	return err
+}
+
 // ---- Article ----
 
 type articleRepo struct{ pool *pgxpool.Pool }
@@ -362,6 +378,21 @@ func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) 
 		out = append(out, o)
 	}
 	return out, rows.Err()
+}
+
+func (r *tradeOrderRepo) ListAll(offset, limit int) ([]domain.TradeOrder, int, error) {
+	var total int
+	r.pool.QueryRow(context.Background(), "SELECT count(*) FROM trade_orders").Scan(&total)
+	rows, _ := r.pool.Query(context.Background(), "SELECT id,product_id,buyer_id,seller_id,amount_fen,status,version,created_at,updated_at FROM trade_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	if rows == nil { return nil, total, fmt.Errorf("order query failed") }
+	defer rows.Close()
+	var out []domain.TradeOrder
+	for rows.Next() {
+		var o domain.TradeOrder
+		rows.Scan(&o.ID, &o.ProductID, &o.BuyerID, &o.SellerID, &o.AmountFen, &o.Status, &o.Version, &o.CreatedAt, &o.UpdatedAt)
+		out = append(out, o)
+	}
+	return out, total, rows.Err()
 }
 
 // ---- Escrow ----

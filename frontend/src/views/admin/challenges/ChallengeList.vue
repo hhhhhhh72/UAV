@@ -116,6 +116,20 @@
         </el-descriptions>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="formVisible" :title="formEdit?'编辑难题':'新增难题'" width="560px" @close="resetForm">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="难题名称"><el-input v-model="form.title" /></el-form-item>
+        <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
+        <el-form-item label="金额(分)"><el-input v-model.number="form.reward_fen" type="number" /></el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="form.status" style="width:100%">
+            <el-option label="征集中" value="open" /><el-option label="已关闭" value="closed" /><el-option label="已解决" value="resolved" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">确定</el-button></template>
+    </el-dialog>
   </div>
 </template>
 

@@ -39,6 +39,7 @@ type UserRepository interface {
 	FindByID(id string) (domain.User, error)
 	All() ([]domain.User, error)
 	UpdateRole(id string, role domain.Role) error
+	Delete(id string) error
 }
 
 // RefreshTokenRepository manages JWT refresh tokens for the rotating-token auth scheme.
@@ -72,6 +73,14 @@ type EnterpriseRepository interface {
 	Delete(id string) error
 }
 
+type ShopRepository interface {
+	Create(domain.Shop) (domain.Shop, error)
+	Update(domain.Shop) (domain.Shop, error)
+	FindByID(id string) (domain.Shop, error)
+	List(offset, limit int) ([]domain.Shop, int, error)
+	Delete(id string) error
+}
+
 type EmploymentRepository interface {
 	Create(domain.EmploymentRequest) (domain.EmploymentRequest, error)
 	ListByEnterprise(enterpriseID string, offset, limit int) ([]domain.EmploymentRequest, int, error)
@@ -93,6 +102,7 @@ type JobRepository interface {
 	FindByID(id string) (domain.Job, error)
 	ListByEnterprise(eid string) ([]domain.Job, error)
 	ListPublished(offset, limit int) ([]domain.Job, int, error)
+	Delete(id string) error
 }
 
 type ResumeRepository interface {
@@ -166,12 +176,17 @@ type CertificateRepository interface {
 	ListByUser(userID string) ([]domain.Certificate, error)
 	UpdateStatus(id string, status string) (domain.Certificate, error)
 	ListAll() ([]domain.Certificate, error)
+	Update(domain.Certificate) (domain.Certificate, error)
+	Delete(id string) error
 }
 
 // CourseRepository manages training courses.
 type CourseRepository interface {
 	Create(domain.TrainingCourse) (domain.TrainingCourse, error)
 	List() ([]domain.TrainingCourse, error)
+	FindByID(id string) (domain.TrainingCourse, error)
+	Update(domain.TrainingCourse) (domain.TrainingCourse, error)
+	Delete(id string) error
 }
 
 // InstructorRepository manages certified instructors.
@@ -227,6 +242,8 @@ type MessageRepository interface {
 	ListByUser(userID string, unreadOnly bool) ([]domain.Message, error)
 	MarkRead(id string) (domain.Message, error)
 	UnreadCount(userID string) (int, error)
+	ListAll(offset, limit int) ([]domain.Message, int, error)
+	Delete(id string) error
 }
 
 // ArticleRepository manages news articles.
@@ -268,6 +285,7 @@ type TradeOrderRepository interface {
 	FindByID(id string) (domain.TradeOrder, error)
 	UpdateStatus(id string, status string) (domain.TradeOrder, error)
 	ListByUser(userID string) ([]domain.TradeOrder, error)
+	ListAll(offset, limit int) ([]domain.TradeOrder, int, error)
 }
 
 // EscrowRepository manages escrow accounts and transactions.
@@ -305,6 +323,9 @@ type ComplianceRepository interface {
 	ListDocs(category string, offset, limit int) ([]domain.ComplianceDoc, int, error)
 	UpdateDoc(domain.ComplianceDoc) (domain.ComplianceDoc, error)
 	DeleteDoc(id string) error
+	DeleteStandard(id string) error
+	FindStandardByID(id string) (domain.StandardDoc, error)
+	UpdateStandard(domain.StandardDoc) (domain.StandardDoc, error)
 	CreateStandard(domain.StandardDoc) (domain.StandardDoc, error)
 	ListStandards(category string, offset, limit int) ([]domain.StandardDoc, int, error)
 }
@@ -324,6 +345,7 @@ type RDChallengeRepository interface {
 	FindByID(id string) (domain.RDChallenge, error)
 	List(field string, offset, limit int) ([]domain.RDChallenge, int, error)
 	Update(domain.RDChallenge) (domain.RDChallenge, error)
+	Delete(id string) error
 }
 
 // ResearchProjectRepository manages joint research projects.
@@ -332,6 +354,7 @@ type ResearchProjectRepository interface {
 	FindByID(id string) (domain.ResearchProject, error)
 	List(offset, limit int) ([]domain.ResearchProject, int, error)
 	Update(domain.ResearchProject) (domain.ResearchProject, error)
+	Delete(id string) error
 }
 
 // ProjectAppRepository manages project subsidy applications.
@@ -349,6 +372,7 @@ type CompetitionRepository interface {
 	FindByID(id string) (domain.Competition, error)
 	List(offset, limit int) ([]domain.Competition, int, error)
 	Update(domain.Competition) (domain.Competition, error)
+	Delete(id string) error
 	CreateReg(domain.CompetitionReg) (domain.CompetitionReg, error)
 	ListRegs(competitionID string) ([]domain.CompetitionReg, error)
 }
@@ -359,6 +383,7 @@ type EventRepository interface {
 	FindByID(id string) (domain.AssociationEvent, error)
 	List(offset, limit int) ([]domain.AssociationEvent, int, error)
 	Update(domain.AssociationEvent) (domain.AssociationEvent, error)
+	Delete(id string) error
 	CreateReg(domain.EventRegistration) (domain.EventRegistration, error)
 	ListRegs(eventID string) ([]domain.EventRegistration, error)
 }
@@ -370,6 +395,7 @@ type PortfolioRepository interface {
 	ListByEnterprise(eid string) ([]domain.MemberPortfolio, error)
 	ListPublished(offset, limit int) ([]domain.MemberPortfolio, int, error)
 	Update(domain.MemberPortfolio) (domain.MemberPortfolio, error)
+	Delete(id string) error
 }
 
 // IndustryReportRepository manages industry reports.
@@ -387,6 +413,7 @@ type ResourceRepository interface {
 	FindByID(id string) (domain.IndustryResource, error)
 	List(resType string, offset, limit int) ([]domain.IndustryResource, int, error)
 	Update(domain.IndustryResource) (domain.IndustryResource, error)
+	Delete(id string) error
 }
 
 // EmergencyRepository manages emergency resources and dispatches.
@@ -395,6 +422,10 @@ type EmergencyRepository interface {
 	FindResourceByID(id string) (domain.EmergencyResource, error)
 	ListResources(offset, limit int) ([]domain.EmergencyResource, int, error)
 	UpdateResource(domain.EmergencyResource) (domain.EmergencyResource, error)
+	DeleteResource(id string) error
+	FindDispatchByID(id string) (domain.EmergencyDispatch, error)
+	UpdateDispatch(domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
+	DeleteDispatch(id string) error
 	CreateDispatch(domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
 	ListDispatches(offset, limit int) ([]domain.EmergencyDispatch, int, error)
 }
@@ -415,6 +446,8 @@ type TestSiteRepository interface {
 	List(siteType string) ([]domain.TestSite, error)
 	CreateBooking(domain.TestSiteBooking) (domain.TestSiteBooking, error)
 	UpdateBookingStatus(id, status, note string) (domain.TestSiteBooking, error)
+	UpdateSite(domain.TestSite) (domain.TestSite, error)
+	DeleteSite(id string) error
 	ListBookings(siteID string) ([]domain.TestSiteBooking, error)
 }
 
@@ -422,6 +455,8 @@ type ExhibitionRepository interface {
 	Create(domain.Exhibition) (domain.Exhibition, error)
 	FindByID(id string) (domain.Exhibition, error)
 	List(offset, limit int) ([]domain.Exhibition, int, error)
+	Update(domain.Exhibition) (domain.Exhibition, error)
+	Delete(id string) error
 	CreateBooth(domain.ExhibitionBooth) (domain.ExhibitionBooth, error)
 	ListBooths(exhibitionID string) ([]domain.ExhibitionBooth, error)
 	UpdateBoothStatus(id, status string) (domain.ExhibitionBooth, error)
@@ -434,12 +469,24 @@ type TransformationRepository interface {
 	FindByID(id string) (domain.Transformation, error)
 	List(ownerID string) ([]domain.Transformation, error)
 	Update(domain.Transformation) (domain.Transformation, error)
+	Delete(id string) error
 }
 
 type CollegeRepository interface {
 	Create(domain.College) (domain.College, error)
 	FindByID(id string) (domain.College, error)
 	List(region string) ([]domain.College, error)
+	Update(domain.College) (domain.College, error)
+	Delete(id string) error
+}
+
+// StudyTourRepository manages research-study tours.
+type StudyTourRepository interface {
+	Create(domain.StudyTour) (domain.StudyTour, error)
+	FindByID(id string) (domain.StudyTour, error)
+	List() ([]domain.StudyTour, error)
+	Update(domain.StudyTour) (domain.StudyTour, error)
+	Delete(id string) error
 }
 
 type CooperationRepository interface {

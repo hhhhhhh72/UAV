@@ -328,7 +328,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #1989fa;
+  background: #0A66C2;
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -434,7 +434,7 @@ export default {
 .booth-selected {
   background: #34c759;
   color: #fff;
-  border-color: #1989fa;
+  border-color: #0A66C2;
   box-shadow: 0 0 0 2px rgba(25, 137, 250, 0.3);
 }
 
@@ -470,7 +470,7 @@ export default {
 }
 
 .selected-dot {
-  background: #1989fa;
+  background: #0A66C2;
 }
 
 /* Submit */
@@ -494,12 +494,12 @@ export default {
 }
 
 .picker-option.active {
-  color: #1989fa;
+  color: #0A66C2;
   font-weight: 600;
 }
 
 .check-icon {
-  color: #1989fa;
+  color: #0A66C2;
   font-weight: 700;
 }
 

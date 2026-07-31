@@ -11,12 +11,12 @@ import (
 // === Expert full CRUD ===
 func TestExpertFullCRUD(t *testing.T) {
 	svc := service.NewExpertService(memory.NewExpertRepository())
-	e, _ := svc.Create("张三", "教授", "重大", "无人机", "bio", []string{"CAAC"})
+	e, _ := svc.Create("张三", "教授", "重大", "无人机", "bio", "", "active", []string{"CAAC"})
 	// Get
 	got, err := svc.Get(e.ID)
 	if err != nil || got.Name != "张三" { t.Fatal("Get failed") }
 	// Update
-	upd, err := svc.Update(e.ID, "李四", "副教授", "北大", "低空", "bio2", []string{"UTC"})
+	upd, err := svc.Update(e.ID, "李四", "副教授", "北大", "低空", "bio2", "", "active", []string{"UTC"})
 	if err != nil || upd.Name != "李四" { t.Fatal("Update failed") }
 	// List by field
 	list, _ := svc.List("低空")
@@ -32,7 +32,7 @@ func TestCaseFullCRUD(t *testing.T) {
 	c, _ := svc.Create("案例1", "logistics", "desc", []string{"a.jpg"}, "客户A", "成果")
 	got, _ := svc.Get(c.ID)
 	if got.ClientName != "客户A" { t.Fatal("Get failed") }
-	_, err := svc.Update(c.ID, "案例1v2", "agriculture", "desc2", []string{"b.jpg"}, "客户B", "成果2")
+	_, err := svc.Update(c.ID, "案例1v2", "agriculture", "desc2", "published", []string{"b.jpg"}, "客户B", "成果2")
 	if err != nil { t.Fatal(err) }
 	// List all
 	_, total, _ := svc.List("", 1, 20)
@@ -46,12 +46,12 @@ func TestCaseFullCRUD(t *testing.T) {
 // === Compliance full CRUD ===
 func TestComplianceFullCRUD(t *testing.T) {
 	svc := service.NewComplianceService(memory.NewComplianceRepository())
-	d, _ := svc.CreateDoc("条例", "policy", "内容", "摘要", "民航局", []string{"适航"})
-	_, err := svc.UpdateDoc(d.ID, "条例v2", "regulation", "内容2", "摘要2", "民航局v2", []string{"通用"})
+	d, _ := svc.CreateDoc("条例", "policy", "民航局", "2026-01-01", "draft", "内容摘要", "", []string{"适航"})
+	_, err := svc.UpdateDoc(d.ID, "条例v2", "regulation", "民航局v2", "2026-06-01", "draft", "摘要2", "", []string{"通用"})
 	if err != nil { t.Fatal(err) }
 	svc.DeleteDoc(d.ID)
 	// Standard
-	s, _ := svc.CreateStandard("标准1", "T/CDA-001", "巡检", "1.0", "协会", "标准内容", "file.pdf", time.Now())
+	s, _ := svc.CreateStandard("标准1", "T/CDA-001", "协会", "2026-07-01", "draft", "标准内容", "file.pdf")
 	_, total, _ := svc.ListStandards("", 1, 20)
 	if total != 1 { t.Fatal("list standards") }
 	_ = s
@@ -63,7 +63,7 @@ func TestReportFullCRUD(t *testing.T) {
 	r, _ := svc.Create("报告", "2026H1", "行业", "摘要", "全文", "f.pdf", "作者")
 	got, _ := svc.Get(r.ID)
 	if got.Author != "作者" { t.Fatal("Get failed") }
-	svc.Update(r.ID, "报告v2", "2026H2", "政策", "摘要2", "全文2", "f2.pdf", "作者2")
+	svc.Update(r.ID, "报告v2", "2026H2", "政策", "摘要2", "全文2", "f2.pdf", "作者2", "published")
 	svc.Delete(r.ID)
 	_, total, _ := svc.List(1, 20)
 	if total != 0 { t.Fatal("should be empty") }
@@ -75,7 +75,7 @@ func TestPortfolioFullCRUD(t *testing.T) {
 	p, _ := svc.Create("ent-1", "品牌A", "logo.png", "cover.png", "无人机方案", "138", []string{"巡检"}, []string{"优秀"})
 	got, _ := svc.Get(p.ID)
 	if got.Name != "品牌A" { t.Fatal("Get failed") }
-	svc.Update(p.ID, "品牌A2", "logo2.png", "cover2.png", "方案2", "139", []string{"物流"}, []string{"十佳"})
+	svc.Update(p.ID, "品牌A2", "logo2.png", "cover2.png", "方案2", "139", "active", []string{"物流"}, []string{"十佳"})
 	// ListByEnterprise
 	mine, _ := svc.ListByEnterprise("ent-1")
 	if len(mine) != 1 { t.Fatal("list by enterprise") }
@@ -104,7 +104,7 @@ func TestRDChallengeFullCRUD(t *testing.T) {
 	c, _ := svc.Create("ent-1", "电池技术", "电池", ">2h续航", 500000, time.Now().AddDate(0, 3, 0))
 	got, _ := svc.Get(c.ID)
 	if got.BudgetFen != 500000 { t.Fatal("Get failed") }
-	svc.Update(c.ID, "电池v2", "电池", ">3h", 800000, time.Now().AddDate(0, 6, 0))
+	svc.Update(c.ID, "电池v2", "电池", ">3h", "open", 800000, time.Now().AddDate(0, 6, 0))
 }
 
 // === ResearchProject full CRUD ===
@@ -113,7 +113,7 @@ func TestResearchProjectFullCRUD(t *testing.T) {
 	p, _ := svc.Create("航路规划", "空域", "城市航路", "重大", "Q1调研", []string{"巡航科技"}, 200000, time.Now(), time.Now().AddDate(1, 0, 0))
 	got, _ := svc.Get(p.ID)
 	if got.LeadOrg != "重大" { t.Fatal("Get failed") }
-	svc.Update(p.ID, "航路规划v2", "空域", "v2", "重大", "Q2", []string{"新增企业"}, 300000, time.Now(), time.Now().AddDate(1, 0, 0))
+	svc.Update(p.ID, "航路规划v2", "空域", "v2", "重大", "Q2", "active", []string{"新增企业"}, 300000, time.Now(), time.Now().AddDate(1, 0, 0))
 }
 
 // === ProjectApp full CRUD ===
@@ -143,7 +143,7 @@ func TestCompetitionFullCRUD(t *testing.T) {
 	c, _ := svc.Create("竞速赛", "racing", "FPV", "巴南", "协会", time.Now().AddDate(0, 1, 0), time.Now().AddDate(0, 1, 3), 50)
 	got, _ := svc.Get(c.ID)
 	if got.Sponsor != "协会" { t.Fatal("Get failed") }
-	svc.Update(c.ID, "竞速赛v2", "fpv", "FPVv2", "渝北", "协会2", time.Now(), time.Now().AddDate(0, 2, 0), 100)
+	svc.Update(c.ID, "竞速赛v2", "fpv", "FPVv2", "渝北", "协会2", "published", time.Now(), time.Now().AddDate(0, 2, 0), 100)
 	// Register + ListRegs
 	svc.Register(c.ID, "user-1", "闪电队", 3, "138")
 	regs, _ := svc.ListRegs(c.ID)
@@ -156,7 +156,7 @@ func TestEventFullCRUD(t *testing.T) {
 	e, _ := svc.Create("论坛", "forum", "年度", "博览中心", "cover.jpg", time.Now().AddDate(0, 2, 0), time.Now().AddDate(0, 2, 1), 500)
 	got, _ := svc.Get(e.ID)
 	if got.EventType != "forum" { t.Fatal("Get failed") }
-	svc.Update(e.ID, "论坛v2", "exhibition", "年度v2", "国际中心", "cover2.jpg", time.Now(), time.Now().AddDate(0, 3, 0), 1000)
+	svc.Update(e.ID, "论坛v2", "exhibition", "年度v2", "国际中心", "published", "cover2.jpg", time.Now(), time.Now().AddDate(0, 3, 0), 1000)
 	// Register + ListRegs
 	svc.Register(e.ID, "user-1", "张三", "138", "巡航科技")
 	regs, _ := svc.ListRegs(e.ID)

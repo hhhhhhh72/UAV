@@ -172,6 +172,19 @@ func (r *complianceRepo) DeleteDoc(id string) error {
 	for i, v := range r.docs { if v.ID == id { r.docs = append(r.docs[:i], r.docs[i+1:]...); return nil } }
 	return fmt.Errorf("compliance doc %s not found", id)
 }
+
+func (r *complianceRepo) DeleteStandard(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i, v := range r.stds { if v.ID == id { r.stds = append(r.stds[:i], r.stds[i+1:]...); return nil } }
+	return fmt.Errorf("standard %s not found", id)
+}
+
+func (r *complianceRepo) FindStandardByID(id string) (domain.StandardDoc, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	for _, s := range r.stds { if s.ID == id { return s, nil } }
+	return domain.StandardDoc{}, fmt.Errorf("standard %s not found", id)
+}
+
 func (r *complianceRepo) CreateStandard(s domain.StandardDoc) (domain.StandardDoc, error) {
 	r.mu.Lock(); defer r.mu.Unlock()
 	s.CreatedAt = time.Now(); s.UpdatedAt = s.CreatedAt
@@ -181,9 +194,15 @@ func (r *complianceRepo) CreateStandard(s domain.StandardDoc) (domain.StandardDo
 func (r *complianceRepo) ListStandards(category string, offset, limit int) ([]domain.StandardDoc, int, error) {
 	r.mu.RLock(); defer r.mu.RUnlock()
 	filtered := make([]domain.StandardDoc, 0)
-	for _, s := range r.stds { if category == "" || s.Category == category { filtered = append(filtered, s) } }
+	for _, s := range r.stds { filtered = append(filtered, s) }
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
+}
+
+func (r *complianceRepo) UpdateStandard(s domain.StandardDoc) (domain.StandardDoc, error) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i, v := range r.stds { if v.ID == s.ID { r.stds[i] = s; return s, nil } }
+	return domain.StandardDoc{}, fmt.Errorf("standard %s not found", s.ID)
 }
 
 // ---- Achievement ----
@@ -255,6 +274,12 @@ func (r *rdRepo) Update(c domain.RDChallenge) (domain.RDChallenge, error) {
 	return domain.RDChallenge{}, fmt.Errorf("challenge %s not found", c.ID)
 }
 
+func (r *rdRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("challenge %s not found", id)
+}
+
 // ---- ResearchProject ----
 
 type projRepo struct {
@@ -282,6 +307,12 @@ func (r *projRepo) Update(p domain.ResearchProject) (domain.ResearchProject, err
 	r.mu.Lock(); defer r.mu.Unlock()
 	for i, v := range r.items { if v.ID == p.ID { p.UpdatedAt = time.Now(); r.items[i] = p; return p, nil } }
 	return domain.ResearchProject{}, fmt.Errorf("project %s not found", p.ID)
+}
+
+func (r *projRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("project %s not found", id)
 }
 
 // ---- ProjectApp ----

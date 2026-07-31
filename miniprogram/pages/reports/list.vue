@@ -70,7 +70,7 @@
           </template>
           <template #default>
             <view class="cell-action" @tap.stop="downloadReport(item)">
-              <van-icon name="down" size="18" color="#1989fa" />
+              <van-icon name="down" size="18" color="#0A66C2" />
             </view>
           </template>
         </van-cell>
@@ -255,7 +255,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #1989fa;
+  background: #0A66C2;
   color: #fff;
   border-radius: 20px;
   font-size: 14px;

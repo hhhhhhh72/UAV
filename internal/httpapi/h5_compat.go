@@ -526,42 +526,62 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var users []map[string]any
-	readJSON(_usersFile, &_usersMu, &users)
-	for _, u := range users {
-		if u["phone"] == body.Phone {
-			fail(w, r, http.StatusConflict, errBadRequest("user already exists"))
-			return
-		}
+	uid := "user-" + body.Phone
+
+	// Check if user already exists in PG
+	if _, err := s.userRepo.FindByID(uid); err == nil {
+		fail(w, r, http.StatusConflict, errBadRequest("user already exists"))
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
 	}
 
 	name := body.Name
 	if name == "" {
 		name = "User" + body.Phone[len(body.Phone)-4:]
 	}
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+
+	// Save to PG users table
+	now := time.Now()
+	user := domain.User{
+		ID:           uid,
+		WechatOpenID: "phone:" + body.Phone, // non-WeChat users get unique openid to avoid UNIQUE violation
+		Role:         domain.RoleIndividual,
+		Status:       "active",
+		Version:      1,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	if _, err := s.userRepo.Create(user); err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", err))
 		return
 	}
-	newUser := map[string]any{
-		"id":           "user-" + body.Phone,
+
+	// Also keep in users.json for compatibility
+	var users []map[string]any
+	readJSON(_usersFile, &_usersMu, &users)
+	jsonUser := map[string]any{
+		"id":           uid,
 		"phone":        body.Phone,
 		"passwordHash": string(hashedPassword),
 		"name":         name,
-		"role":         "user",
+		"role":         "individual",
 		"avatar":       "",
-		"createTime":   time.Now().Format(time.RFC3339),
+		"createTime":   now.Format(time.RFC3339),
 	}
-	users = append(users, newUser)
+	users = append(users, jsonUser)
 	writeJSON(_usersFile, &_usersMu, users)
 
-	accessToken, _ := s.tokens.Issue(actorFromMap(newUser["id"].(string), "individual"), 15*time.Minute)
+	accessToken, _ := s.tokens.Issue(domain.Actor{ID: uid, Role: domain.RoleIndividual}, 15*time.Minute)
 	refreshToken, _ := service.GenerateRefreshToken()
-	s.refreshRepo.Store(newUser["id"].(string), service.HashToken(refreshToken), time.Now().Add(7*24*time.Hour))
+	s.refreshRepo.Store(uid, service.HashToken(refreshToken), time.Now().Add(7*24*time.Hour))
 
 	safeUser := map[string]any{}
-	for k, v := range newUser {
+	for k, v := range jsonUser {
 		if k != "password" && k != "passwordHash" {
 			safeUser[k] = v
 		}

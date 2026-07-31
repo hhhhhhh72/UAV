@@ -56,7 +56,7 @@ func (r *certRepo) UpdateStatus(id, status string) (domain.Certificate, error) {
 	return r.FindByID(id)
 }
 func (r *certRepo) ListAll() ([]domain.Certificate, error) {
-	rows, err := r.pool.Query(context.Background(), `SELECT id,user_id,cert_type,cert_number,level,issue_date,expire_date,issuer_org,image_url,status,version,created_at,updated_at FROM certificates ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(context.Background(), `SELECT id,user_id,cert_type,cert_number,level,COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),issuer_org,COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates ORDER BY created_at DESC`)
 	if err != nil { return nil, fmt.Errorf("list all certificates: %w", err) }
 	defer rows.Close()
 	var out []domain.Certificate
@@ -67,6 +67,19 @@ func (r *certRepo) ListAll() ([]domain.Certificate, error) {
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+func (r *certRepo) Update(c domain.Certificate) (domain.Certificate, error) {
+	c.Version++; c.UpdatedAt = time.Now()
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE certificates SET cert_type=$1,cert_number=$2,level=$3,issue_date=$4,expire_date=$5,issuer_org=$6,image_url=$7,status=$8,version=$9,updated_at=$10 WHERE id=$11`,
+		string(c.CertType), c.CertNumber, c.Level, c.IssueDate, c.ExpireDate, c.IssuerOrg, c.ImageURL, c.Status, c.Version, c.UpdatedAt, c.ID)
+	return c, err
+}
+
+func (r *certRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM certificates WHERE id=$1`, id)
+	return err
 }
 
 // ---- Course ----
@@ -95,6 +108,28 @@ func (r *courseRepo) List() ([]domain.TrainingCourse, error) {
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+func (r *courseRepo) FindByID(id string) (domain.TrainingCourse, error) {
+	var c domain.TrainingCourse; var ct string
+	err := r.pool.QueryRow(context.Background(),
+		`SELECT id,org_id,title,cert_type,description,start_date,end_date,max_students,enrolled_count,location,price_fen,status,version,created_at,updated_at FROM training_courses WHERE id=$1`, id).
+		Scan(&c.ID, &c.OrgID, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate, &c.MaxStudents, &c.EnrolledCount, &c.Location, &c.PriceFen, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+	c.CertType = domain.CertType(ct)
+	return c, err
+}
+
+func (r *courseRepo) Update(c domain.TrainingCourse) (domain.TrainingCourse, error) {
+	c.Version++; c.UpdatedAt = time.Now()
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE training_courses SET title=$1,cert_type=$2,description=$3,start_date=$4,end_date=$5,max_students=$6,location=$7,price_fen=$8,status=$9,version=$10,updated_at=$11 WHERE id=$12`,
+		c.Title, string(c.CertType), c.Description, c.StartDate, c.EndDate, c.MaxStudents, c.Location, c.PriceFen, c.Status, c.Version, c.UpdatedAt, c.ID)
+	return c, err
+}
+
+func (r *courseRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM training_courses WHERE id=$1`, id)
+	return err
 }
 
 // ---- Instructor ----

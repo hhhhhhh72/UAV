@@ -86,6 +86,18 @@ func (r *testSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, er
 	return out, nil
 }
 
+func (r *testSiteRepo) UpdateSite(s domain.TestSite) (domain.TestSite, error) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i, v := range r.sites { if v.ID == s.ID { r.sites[i] = s; return s, nil } }
+	return domain.TestSite{}, fmt.Errorf("site %s not found", s.ID)
+}
+
+func (r *testSiteRepo) DeleteSite(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.sites { if r.sites[i].ID == id { r.sites = append(r.sites[:i], r.sites[i+1:]...); return nil } }
+	return fmt.Errorf("site %s not found", id)
+}
+
 // ── Exhibition ──
 type exhibitionRepo struct {
 	mu      sync.RWMutex
@@ -108,6 +120,16 @@ func (r *exhibitionRepo) FindByID(id string) (domain.Exhibition, error) {
 func (r *exhibitionRepo) List(offset, limit int) ([]domain.Exhibition, int, error) {
 	r.mu.RLock(); defer r.mu.RUnlock()
 	return paginateSlice(r.expos, offset, limit)
+}
+func (r *exhibitionRepo) Update(e domain.Exhibition) (domain.Exhibition, error) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i, v := range r.expos { if v.ID == e.ID { e.UpdatedAt = time.Now(); r.expos[i] = e; return e, nil } }
+	return domain.Exhibition{}, fmt.Errorf("exhibition %s not found", e.ID)
+}
+func (r *exhibitionRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.expos { if r.expos[i].ID == id { r.expos = append(r.expos[:i], r.expos[i+1:]...); return nil } }
+	return fmt.Errorf("exhibition %s not found", id)
 }
 func (r *exhibitionRepo) CreateBooth(b domain.ExhibitionBooth) (domain.ExhibitionBooth, error) {
 	r.mu.Lock(); defer r.mu.Unlock()

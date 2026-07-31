@@ -102,7 +102,7 @@ func (s *RDChallengeService) Get(id string) (domain.RDChallenge, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *RDChallengeService) Update(id, title, field, description string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
+func (s *RDChallengeService) Update(id, title, field, description, status string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
 	c, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.RDChallenge{}, err
@@ -110,11 +110,14 @@ func (s *RDChallengeService) Update(id, title, field, description string, budget
 	c.Title = title
 	c.Field = field
 	c.Description = description
+	c.Status = status
 	c.BudgetFen = budgetFen
 	c.Deadline = deadline
 	c.UpdatedAt = time.Now()
 	return s.repo.Update(c)
 }
+
+func (s *RDChallengeService) Delete(id string) error { return s.repo.Delete(id) }
 
 // ---- ResearchProjectService (联合研发项目) ----
 
@@ -155,7 +158,7 @@ func (s *ResearchProjectService) Get(id string) (domain.ResearchProject, error) 
 	return s.repo.FindByID(id)
 }
 
-func (s *ResearchProjectService) Update(id, title, field, description, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
+func (s *ResearchProjectService) Update(id, title, field, description, status, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
 	p, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.ResearchProject{}, err
@@ -163,6 +166,7 @@ func (s *ResearchProjectService) Update(id, title, field, description, leadOrg, 
 	p.Title = title
 	p.Field = field
 	p.Description = description
+	p.Status = status
 	p.LeadOrg = leadOrg
 	p.Members = members
 	p.BudgetFen = budgetFen
@@ -172,6 +176,8 @@ func (s *ResearchProjectService) Update(id, title, field, description, leadOrg, 
 	p.UpdatedAt = time.Now()
 	return s.repo.Update(p)
 }
+
+func (s *ResearchProjectService) Delete(id string) error { return s.repo.Delete(id) }
 
 // ---- ProjectAppService (项目申报) ----
 

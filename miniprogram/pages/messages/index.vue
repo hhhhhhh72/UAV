@@ -25,7 +25,7 @@
           >
             <template #icon>
               <view class="msg-icon-wrapper">
-                <van-icon name="chat" size="20" color="#1989fa" />
+                <van-icon name="chat" size="20" color="#0A66C2" />
                 <view v-if="!(msg.is_read || msg.isRead)" class="unread-dot" />
               </view>
             </template>

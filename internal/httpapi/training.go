@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"drone-platform/internal/crypto"
@@ -55,26 +56,37 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
 	var in struct {
-		Title       string    `json:"title"`
-		CertType    string    `json:"cert_type"`
-		Description string    `json:"description"`
-		Location    string    `json:"location"`
-		StartDate   time.Time `json:"start_date"`
-		EndDate     time.Time `json:"end_date"`
-		MaxStudents int       `json:"max_students"`
-		PriceFen    int64     `json:"price_fen"`
+		Title       string `json:"title"`
+		CertType    string `json:"cert_type"`
+		Description string `json:"description"`
+		Location    string `json:"location"`
+		StartDate   string `json:"start_date"`
+		EndDate     string `json:"end_date"`
+		MaxStudents int    `json:"max_students"`
+		PriceFen    int64  `json:"price_fen"`
 	}
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
-	c, err := s.trainingSvc.CreateCourse(a, in.Title, domain.CertType(in.CertType), in.Description, in.Location, in.StartDate, in.EndDate, in.MaxStudents, in.PriceFen)
+	startDate := domain.ParseTime(in.StartDate)
+	endDate := domain.ParseTime(in.EndDate)
+	c, err := s.trainingSvc.CreateCourse(a, in.Title, domain.CertType(in.CertType), in.Description, in.Location, startDate, endDate, in.MaxStudents, in.PriceFen)
 	if err != nil { fail(w, r, http.StatusForbidden, err); return }
 	respond(w, r, http.StatusCreated, c)
 }
 
 // GET /api/v1/training-courses
 func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
+	keyword := r.URL.Query().Get("keyword")
+	status := r.URL.Query().Get("status")
 	courses, err := s.trainingSvc.ListCourses()
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
-	respond(w, r, http.StatusOK, courses)
+	// filter
+	var out []domain.TrainingCourse
+	for _, c := range courses {
+		if keyword != "" && !strings.Contains(c.Title, keyword) { continue }
+		if status != "" && c.Status != status { continue }
+		out = append(out, c)
+	}
+	paginatedRespond(w, r, out, len(out))
 }
 
 // ---- Instructors ----

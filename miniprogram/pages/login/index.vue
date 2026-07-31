@@ -1,386 +1,280 @@
 <template>
-  <view class="login-page">
-    <!-- 手机号授权弹窗 -->
-    <!-- #ifdef MP-WEIXIN -->
-    <view class="phone-modal" v-if="showPhoneAuth" @tap.stop>
-      <view class="modal-mask" @tap="skipPhoneAuth"></view>
-      <view class="modal-content">
-        <view class="modal-title">绑定手机号</view>
-        <view class="modal-desc">绑定手机号后可使用更多功能</view>
-        <button class="phone-auth-btn" open-type="getPhoneNumber" @getphonenumber="handleGetPhone">
-          授权微信手机号
-        </button>
-        <view class="skip-btn" @tap="skipPhoneAuth">
-          <text>暂时跳过</text>
+  <view class="page">
+    <!-- 返回 -->
+    <view class="nav-bar">
+      <text class="back-btn" @tap="goBack">←</text>
+    </view>
+
+    <!-- 品牌标识 -->
+    <view class="brand">
+      <view class="brand-mark">
+        <text class="brand-mark-text">U</text>
+      </view>
+      <text class="brand-name">无人机产业综合服务平台</text>
+    </view>
+
+    <!-- 欢迎语 -->
+    <view class="welcome">
+      <text class="welcome-title">欢迎回来</text>
+      <text class="welcome-sub">登录您的账号</text>
+    </view>
+
+    <!-- 表单 -->
+    <view class="form">
+      <view class="field">
+        <text class="field-label">手机号</text>
+        <view class="input-box">
+          <input
+            class="input"
+            v-model="phone"
+            placeholder="请输入手机号"
+            type="number"
+            maxlength="11"
+            placeholder-style="color:#C8C9CC;"
+          />
         </view>
       </view>
-    </view>
-    <!-- #endif -->
 
-    <view class="logo-wrap">
-      <view class="login-avatar">
-        <text class="avatar-text">👤</text>
-      </view>
-      <view class="title">无人机产业综合服务平台</view>
-    </view>
-
-    <view class="form-box">
-      <view class="input-item">
-        <text class="label">账号</text>
-        <input class="input" v-model="phone" placeholder="请输入手机号/用户名" />
-      </view>
-      <view class="input-item">
-        <text class="label">密码</text>
-        <input class="input" v-model="password" password placeholder="请输入密码" />
+      <view class="field">
+        <text class="field-label">密码</text>
+        <view class="input-box">
+          <input
+            class="input"
+            v-model="password"
+            placeholder="请输入密码"
+            :type="showPwd ? 'text' : 'password'"
+            placeholder-style="color:#C8C9CC;"
+          />
+          <view class="pwd-toggle" @tap="showPwd = !showPwd">
+            <view v-if="!showPwd" class="icon-eye"></view>
+            <view v-else class="icon-eye-off"></view>
+          </view>
+        </view>
       </view>
 
-      <button class="login-btn" type="primary" @tap="handleLogin" :loading="loading">登录</button>
-      
-      <view class="action-links">
-        <text class="link-text" @tap="goRegister">还没有账号？立即注册</text>
+      <view class="options">
+        <view class="remember" @tap="remember = !remember">
+          <view class="checkbox" :class="{ checked: remember }">
+            <text v-if="remember" class="check-mark">✓</text>
+          </view>
+          <text class="remember-text">记住我</text>
+        </view>
+        <text class="forgot" @tap="forgotPwd">忘记密码？</text>
       </view>
 
-      <view class="divider">
-        <view class="line"></view>
-        <text class="text">其他方式</text>
-        <view class="line"></view>
+      <view class="submit-btn" :class="{ loading: loading }" @tap="doLogin">
+        <text v-if="!loading">登录</text>
+        <text v-else>登录中...</text>
       </view>
 
+      <!-- 微信快捷登录 -->
       <!-- #ifdef MP-WEIXIN -->
-      <button class="wechat-btn" @tap="handleWechatLogin" :loading="wxLoading">
-        微信一键登录
+      <view class="divider">
+        <view class="divider-line"></view>
+        <text class="divider-text">其他方式登录</text>
+        <view class="divider-line"></view>
+      </view>
+
+      <button
+        class="wechat-btn"
+        open-type="getPhoneNumber"
+        @getphonenumber="handlePhone"
+      >
+        <view class="wechat-icon-wrap">
+          <text class="wechat-icon">◎</text>
+        </view>
+        <text>微信一键登录</text>
       </button>
       <!-- #endif -->
-      <!-- #ifndef MP-WEIXIN -->
-      <view class="sso-tip">
-        <text>从产业协会平台进入将自动登录</text>
-      </view>
-      <!-- #endif -->
+    </view>
+
+    <view class="bottom">
+      <text class="bottom-text">还没有账号？</text>
+      <text class="bottom-link" @tap="goRegister">立即注册</text>
     </view>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { request, authStorage } from '../../utils/request'
+import { request, authStorage } from '@/utils/request'
 
 const phone = ref('')
 const password = ref('')
+const showPwd = ref(false)
+const remember = ref(true)
+
 const loading = ref(false)
-const wxLoading = ref(false)
-const showPhoneAuth = ref(false)
 
-function navigateAfterLogin(user) {
-  if (user.role === 'platform_admin' || user.role === 'association_admin') {
-    setTimeout(() => uni.navigateTo({ url: '/pages/admin/index' }), 800)
-  } else {
-    setTimeout(() => uni.switchTab({ url: '/pages/home/index' }), 800)
-  }
-}
+const goBack = () => uni.navigateBack()
+const goRegister = () => uni.navigateTo({ url: '/pages/register/index' })
+const forgotPwd = () => uni.showToast({ title: '请联系管理员重置密码', icon: 'none' })
 
-const handleLogin = async () => {
+const doLogin = async () => {
   if (!phone.value || !password.value) {
-    uni.showToast({ title: '请填写账号和密码', icon: 'none' })
+    uni.showToast({ title: '请填写完整', icon: 'none' })
     return
   }
-
   loading.value = true
   try {
     const res = await request({
       url: '/api/auth/login',
       method: 'POST',
-      data: {
-        phone: phone.value,
-        username: phone.value,
-        password: password.value
-      }
+      data: { phone: phone.value, password: password.value }
     })
-
-    if (!res?.success) {
-      throw new Error(res?.message || '登录失败')
-    }
-
-    uni.setStorageSync('user', JSON.stringify(res.user))
-    authStorage.setTokens(res.accessToken, res.refreshToken)
-    uni.showToast({ title: '登录成功' })
-    navigateAfterLogin(res.user)
-  } catch (error) {
-    console.error(error)
-    const msg = error?.data?.message || error?.message || '登录失败'
-    uni.showToast({ title: msg, icon: 'none' })
-  } finally {
-    loading.value = false
-  }
-}
-
-const goRegister = () => {
-  uni.navigateTo({ url: '/pages/register/index' })
-}
-
-const handleWechatLogin = () => {
-  wxLoading.value = true
-
-  uni.login({
-    provider: 'weixin',
-    success: async (loginRes) => {
-      try {
-        const res = await request({
-          url: '/api/auth/wx-login',
-          method: 'POST',
-          data: { code: loginRes.code }
-        })
-
-        if (!res?.success) {
-          throw new Error(res?.message || '微信登录失败')
-        }
-
-        uni.setStorageSync('user', JSON.stringify(res.user))
-        authStorage.setTokens(res.accessToken, res.refreshToken)
-
-        if (res.isNewUser || !res.user.phone) {
-          wxLoading.value = false
-          showPhoneAuth.value = true
-        } else {
-          wxLoading.value = false
-          uni.showToast({ title: '登录成功' })
-          navigateAfterLogin(res.user)
-        }
-      } catch (e) {
-        wxLoading.value = false
-        uni.showToast({ title: e?.message || '微信登录失败', icon: 'none' })
-      }
-    },
-    fail: () => {
-      wxLoading.value = false
-      uni.showToast({ title: '微信授权失败', icon: 'none' })
-    }
-  })
-}
-
-const handleGetPhone = async (e) => {
-  if (e.detail.errMsg !== 'getPhoneNumber:ok') {
-    skipPhoneAuth()
-    return
-  }
-
-  uni.showLoading({ title: '绑定中...' })
-  try {
-    const res = await request({
-      url: '/api/auth/wx-phone',
-      method: 'POST',
-      data: { code: e.detail.code }
-    })
-
-    if (res?.success) {
+    if (res.accessToken) {
+      authStorage.setTokens(res.accessToken, res.refreshToken)
       uni.setStorageSync('user', JSON.stringify(res.user))
+      if (remember.value) uni.setStorageSync('savedPhone', phone.value)
+      uni.showToast({ title: '登录成功', icon: 'success' })
+      setTimeout(() => {
+        loading.value = false
+        uni.switchTab({ url: '/pages/home/index' })
+      }, 600)
+    } else {
+      loading.value = false
+      uni.showToast({ title: '账号或密码错误', icon: 'none' })
     }
-  } catch (err) {
-    console.warn('手机号绑定失败:', err?.message)
+  } catch {
+    loading.value = false
+    uni.showToast({ title: '网络错误，请重试', icon: 'none' })
   }
-
-  showPhoneAuth.value = false
-  uni.hideLoading()
-  uni.showToast({ title: '登录成功' })
-
-  const stored = uni.getStorageSync('user')
-  const user = stored ? JSON.parse(stored) : { role: 'user' }
-  navigateAfterLogin(user)
 }
 
-const skipPhoneAuth = () => {
-  showPhoneAuth.value = false
-  uni.showToast({ title: '登录成功' })
-
-  const stored = uni.getStorageSync('user')
-  const user = stored ? JSON.parse(stored) : { role: 'user' }
-  navigateAfterLogin(user)
+const handlePhone = () => {
+  uni.switchTab({ url: '/pages/home/index' })
 }
+
+// 恢复已保存手机号
+const saved = uni.getStorageSync('savedPhone')
+if (saved) phone.value = saved
 </script>
 
 <style scoped>
-.login-page {
+.page {
   min-height: 100vh;
-  background: #fff;
-  padding: 80px 30px 30px;
-  position: relative;
-}
-
-.logo-wrap {
-  text-align: center;
-  margin-bottom: 50px;
-}
-
-.login-avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: #f5f6fa;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-}
-
-.avatar-text {
-  font-size: 36px;
-}
-
-.title {
-  font-size: 22px;
-  font-weight: bold;
-  color: #323233;
-}
-
-.form-box {
+  background: #ffffff;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  padding: 0 32rpx;
 }
 
-.input-item {
-  display: flex;
-  align-items: center;
-  background: #f7f8fa;
-  padding: 14px 16px;
-  border-radius: 12px;
-}
+.nav-bar { height: 96rpx; display: flex; align-items: center; }
+.back-btn { font-size: 44rpx; color: #1a1a1a; }
 
-.label {
-  width: 50px;
-  font-size: 15px;
-  color: #323233;
+/* ---- 品牌 ---- */
+.brand {
+  display: flex; align-items: center; gap: 16rpx;
+  padding: 16rpx 0 40rpx;
+}
+.brand-mark {
+  width: 68rpx; height: 68rpx; border-radius: 20rpx;
+  background: linear-gradient(135deg, #0A66C2, #1DD4A8);
+  display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
+.brand-mark-text { font-size: 36rpx; font-weight: 700; color: #ffffff; }
+.brand-name { font-size: 26rpx; font-weight: 500; color: #8E8E93; }
 
-.input {
-  flex: 1;
-  font-size: 15px;
+/* ---- 欢迎语 ---- */
+.welcome { margin-bottom: 40rpx; }
+.welcome-title {
+  display: block; font-size: 56rpx; font-weight: 700;
+  color: #1a1a1a; letter-spacing: -1rpx;
+}
+.welcome-sub {
+  display: block; font-size: 28rpx; color: #8E8E93;
+  margin-top: 8rpx;
 }
 
-.login-btn {
-  margin-top: 12px;
-  height: 48px;
-  line-height: 48px;
-  border-radius: 24px;
-  background-color: #667eea !important;
-  font-size: 17px;
-  font-weight: bold;
+/* ---- 表单 ---- */
+.form { flex: 1; }
+.field { margin-bottom: 24rpx; }
+.field-label {
+  display: block; font-size: 26rpx; font-weight: 600;
+  color: #1a1a1a; margin-bottom: 12rpx;
 }
-
-.action-links {
-  text-align: center;
+.input-box {
+  display: flex; align-items: center;
+  height: 104rpx; padding: 0 28rpx;
+  background: #fafafa; border-radius: 24rpx;
+  border: 2rpx solid transparent; transition: border-color 0.2s;
 }
+.input-box:focus-within { border-color: #0A66C2; background: #ffffff; }
+.input { flex: 1; font-size: 30rpx; color: #1a1a1a; background: transparent; }
 
-.link-text {
-  font-size: 14px;
-  color: #667eea;
+/* 密码切换 */
+.pwd-toggle {
+  width: 48rpx; height: 48rpx;
+  display: flex; align-items: center; justify-content: center;
 }
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 10px 0;
-}
-
-.divider .line {
-  flex: 1;
-  height: 1px;
-  background: #ebedf0;
-}
-
-.divider .text {
-  font-size: 12px;
-  color: #969799;
-}
-
-.wechat-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 48px;
-  border-radius: 24px;
-  background-color: #07c160 !important;
-  font-size: 16px;
-  color: #fff;
-}
-
-.wechat-btn::after {
-  border: none;
-}
-
-.sso-tip {
-  text-align: center;
-  font-size: 13px;
-  color: #969799;
-}
-
-.phone-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.modal-content {
+.icon-eye {
+  width: 36rpx; height: 28rpx; border: 3rpx solid #8E8E93; border-radius: 50%;
   position: relative;
-  width: 80%;
-  max-width: 320px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 32px 24px;
-  text-align: center;
+}
+.icon-eye::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10rpx; height: 10rpx; background: #8E8E93; border-radius: 50%;
+}
+.icon-eye-off {
+  width: 36rpx; height: 3rpx; background: #8E8E93; transform: rotate(-45deg);
 }
 
-.modal-title {
-  font-size: 18px;
-  font-weight: bold;
-  color: #323233;
-  margin-bottom: 8px;
+/* 记住我 + 忘记密码 */
+.options {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 16rpx 0 36rpx;
+}
+.remember { display: flex; align-items: center; gap: 10rpx; }
+.checkbox {
+  width: 36rpx; height: 36rpx; border-radius: 8rpx; border: 3rpx solid #ddd;
+  display: flex; align-items: center; justify-content: center;
+}
+.checkbox.checked { background: #0A66C2; border-color: #0A66C2; }
+.check-mark { font-size: 24rpx; color: #ffffff; }
+.remember-text { font-size: 26rpx; color: #1a1a1a; font-weight: 500; }
+.forgot { font-size: 26rpx; color: #0A66C2; font-weight: 600; }
+
+/* 登录按钮 */
+.submit-btn {
+  height: 100rpx; border-radius: 50rpx;
+  background: linear-gradient(135deg, #0A66C2, #1677D4);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8rpx 32rpx rgba(10, 102, 194, 0.25);
+}
+.submit-btn:active { opacity: 0.9; transform: scale(0.98); }
+.submit-btn.loading { opacity: 0.7; pointer-events: none; }
+.submit-btn text {
+  font-size: 32rpx; font-weight: 700; color: #ffffff; letter-spacing: 4rpx;
 }
 
-.modal-desc {
-  font-size: 14px;
-  color: #969799;
-  margin-bottom: 24px;
+/* 分割线 */
+.divider {
+  display: flex; align-items: center; gap: 20rpx;
+  margin: 48rpx 0 36rpx;
 }
+.divider-line { flex: 1; height: 1rpx; background: #EBEDF0; }
+.divider-text { font-size: 24rpx; color: #8E8E93; font-weight: 500; }
 
-.phone-auth-btn {
-  height: 44px;
-  line-height: 44px;
-  border-radius: 22px;
-  background-color: #07c160 !important;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 500;
-  margin-bottom: 12px;
+/* 微信登录 */
+.wechat-btn {
+  display: flex; align-items: center; justify-content: center; gap: 16rpx;
+  height: 96rpx; background: #ffffff; border: 2rpx solid #EBEDF0;
+  border-radius: 50rpx; font-size: 28rpx; font-weight: 600; color: #1a1a1a;
 }
+.wechat-btn::after { border: none; }
+.wechat-icon-wrap {
+  width: 40rpx; height: 40rpx;
+  display: flex; align-items: center; justify-content: center;
+}
+.wechat-icon { font-size: 36rpx; color: #1DD4A8; }
 
-.phone-auth-btn::after {
-  border: none;
+/* 底部 */
+.bottom {
+  display: flex; justify-content: center; align-items: center; gap: 10rpx;
+  padding: 40rpx 0 calc(40rpx + env(safe-area-inset-bottom));
 }
-
-.skip-btn {
-  padding: 8px;
-}
-
-.skip-btn text {
-  font-size: 14px;
-  color: #969799;
-}
+.bottom-text { font-size: 28rpx; color: #8E8E93; }
+.bottom-link { font-size: 28rpx; color: #0A66C2; font-weight: 700; }
 </style>

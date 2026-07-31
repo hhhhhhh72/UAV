@@ -46,7 +46,7 @@ func (s *CompetitionService) Get(id string) (domain.Competition, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *CompetitionService) Update(id, title, category, description, location, sponsor string, startDate, endDate time.Time, maxTeams int) (domain.Competition, error) {
+func (s *CompetitionService) Update(id, title, category, description, location, sponsor, status string, startDate, endDate time.Time, maxTeams int) (domain.Competition, error) {
 	c, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.Competition{}, err
@@ -56,11 +56,16 @@ func (s *CompetitionService) Update(id, title, category, description, location, 
 	c.Description = description
 	c.Location = location
 	c.Sponsor = sponsor
+	c.Status = status
 	c.StartDate = startDate
 	c.EndDate = endDate
 	c.MaxTeams = maxTeams
 	c.UpdatedAt = time.Now()
 	return s.repo.Update(c)
+}
+
+func (s *CompetitionService) Delete(id string) error {
+	return s.repo.Delete(id)
 }
 
 func (s *CompetitionService) Register(competitionID, userID, teamName string, memberCount int, contactInfo string) (domain.CompetitionReg, error) {
@@ -124,7 +129,7 @@ func (s *EventService) Get(id string) (domain.AssociationEvent, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *EventService) Update(id, title, eventType, description, location, coverURL string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
+func (s *EventService) Update(id, title, eventType, description, location, coverURL, status string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
 	ev, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.AssociationEvent{}, err
@@ -134,12 +139,15 @@ func (s *EventService) Update(id, title, eventType, description, location, cover
 	ev.Description = description
 	ev.Location = location
 	ev.CoverURL = coverURL
+	ev.Status = status
 	ev.StartTime = startTime
 	ev.EndTime = endTime
 	ev.MaxAttendees = maxAttendees
 	ev.UpdatedAt = time.Now()
 	return s.repo.Update(ev)
 }
+
+func (s *EventService) Delete(id string) error { return s.repo.Delete(id) }
 
 func (s *EventService) Register(eventID, userID, name, phone, org string) (domain.EventRegistration, error) {
 	now := time.Now()
@@ -217,6 +225,8 @@ func (s *ResourceService) Update(id, name, resType, model, specs, location, book
 	return s.repo.Update(r)
 }
 
+func (s *ResourceService) Delete(id string) error { return s.repo.Delete(id) }
+
 // ---- EmergencyService (应急管理) ----
 
 type EmergencyService struct {
@@ -256,6 +266,10 @@ func (s *EmergencyService) GetResource(id string) (domain.EmergencyResource, err
 	return s.repo.FindResourceByID(id)
 }
 
+func (s *EmergencyService) FindDispatchByID(id string) (domain.EmergencyDispatch, error) {
+	return s.repo.FindDispatchByID(id)
+}
+
 // Emergency Dispatches
 
 func (s *EmergencyService) CreateDispatch(resourceID, eventDesc, location, commander, result string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
@@ -281,4 +295,20 @@ func (s *EmergencyService) CreateDispatch(resourceID, eventDesc, location, comma
 func (s *EmergencyService) ListDispatches(page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
 	offset := (page - 1) * pageSize
 	return s.repo.ListDispatches(offset, pageSize)
+}
+
+func (s *EmergencyService) UpdateResource(id, name, resType, specs, location, contactInfo, status string, quantity int) (domain.EmergencyResource, error) {
+	r, err := s.repo.FindResourceByID(id); if err != nil { return domain.EmergencyResource{}, err }
+	r.Name = name; r.ResType = resType; r.Specs = specs; r.Location = location; r.ContactInfo = contactInfo; r.Status = status; r.Quantity = quantity; r.UpdatedAt = time.Now()
+	return s.repo.UpdateResource(r)
+}
+
+func (s *EmergencyService) DeleteResource(id string) error { return s.repo.DeleteResource(id) }
+func (s *EmergencyService) DeleteDispatch(id string) error { return s.repo.DeleteDispatch(id) }
+
+func (s *EmergencyService) UpdateDispatch(id, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
+	d, err := s.repo.FindDispatchByID(id); if err != nil { return domain.EmergencyDispatch{}, err }
+	d.ResourceID = resourceID; d.EventDesc = eventDesc; d.Location = location; d.Commander = commander; d.Result = result; d.Status = status
+	d.StartTime = startTime; d.EndTime = endTime
+	return s.repo.UpdateDispatch(d)
 }

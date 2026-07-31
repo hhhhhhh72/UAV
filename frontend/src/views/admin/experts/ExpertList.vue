@@ -18,7 +18,7 @@
       </el-table-column>
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="statusMap[row.status]">{{ row.status }}</el-tag>
+          <el-tag :type="statusMap[row.status]">{{ statusLabel[row.status] || row.status }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
@@ -37,7 +37,13 @@
         <el-form-item label="单位"><el-input v-model="form.org" /></el-form-item>
         <el-form-item label="领域"><el-input v-model="form.field" /></el-form-item>
         <el-form-item label="简介"><el-input v-model="form.bio" type="textarea" rows="3" /></el-form-item>
-        <el-form-item label="头像URL"><el-input v-model="form.avatar_url" /></el-form-item>
+        <el-form-item label="头像">
+          <el-upload class="avatar-upload" :action="uploadUrl" :headers="uploadHeaders" :show-file-list="false" :on-success="onUploadSuccess" :before-upload="beforeUpload" accept="image/*">
+            <el-avatar v-if="form.avatar_url" :src="form.avatar_url" :size="80" shape="square" />
+            <el-button v-else type="primary" plain>点击上传</el-button>
+          </el-upload>
+          <el-button v-if="form.avatar_url" size="small" style="margin-top:8px" @click="form.avatar_url=''">清除</el-button>
+        </el-form-item>
         <el-form-item label="标签"><el-input v-model="tagsInput" placeholder="逗号分隔" /></el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status">
@@ -67,9 +73,25 @@ const searchForm = ref({})
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 const filterConfig = []
 const statusMap = { pending: 'warning', published: 'success', archived: 'info' }
+const statusLabel = { pending: '待审核', published: '已发布', archived: '已下架' }
 const tagsInput = ref('')
 const dialog = reactive({ visible: false, isEdit: false, loading: false })
 const form = reactive({ id: '', name: '', title: '', org: '', field: '', bio: '', avatar_url: '', status: 'pending', tags: [] })
+const uploadUrl = '/api/v1/upload'
+const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}` }
+
+const beforeUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) { ElMessage.error('只能上传图片文件'); return false }
+  if (!isLt5M) { ElMessage.error('图片不能超过 5MB'); return false }
+  return true
+}
+
+const onUploadSuccess = (res) => {
+  form.avatar_url = res?.data?.url || res?.url || ''
+  ElMessage.success('上传成功')
+}
 
 const loadData = async () => {
   loading.value = true
@@ -116,4 +138,5 @@ onMounted(loadData)
 .admin-page { padding: 20px; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .page-header h2 { margin: 0; font-size: 20px; }
+.avatar-upload { display: inline-block; cursor: pointer; }
 </style>

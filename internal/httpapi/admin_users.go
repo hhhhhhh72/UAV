@@ -24,13 +24,17 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 		default: return "个人"
 		}
 	}
-	out := []map[string]string{{"id": "admin", "role": "platform_admin", "status": "active", "roleLabel": "平台管理员"}}
+	out := []map[string]any{{"id": "admin", "role": "platform_admin", "status": "active", "roleLabel": "平台管理员", "created_at": "—"}}
 	users, err := s.userRepo.All()
 	if err == nil {
 		for _, u := range users {
-			out = append(out, map[string]string{
-				"id": u.ID, "role": "individual", "status": u.Status,
-				"roleLabel": roleLabel("individual"),
+			rl := roleLabel(u.Status)
+			out = append(out, map[string]any{
+				"id":         u.ID,
+				"role":       string(u.Role),
+				"status":     u.Status,
+				"roleLabel":  rl,
+				"created_at": u.CreatedAt.Format("2006-01-02 15:04"),
 			})
 		}
 	}
@@ -93,4 +97,23 @@ func (s *Server) updateUserRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"status": "updated", "role": req.Role})
+}
+
+// DELETE /api/v1/admin/users/{id} — delete a user (admin only).
+func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok || a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("only platform admin can delete users"))
+		return
+	}
+	id := r.PathValue("id")
+	if id == "admin" {
+		fail(w, r, http.StatusForbidden, errors.New("cannot delete super admin"))
+		return
+	}
+	if err := s.userRepo.Delete(id); err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, map[string]string{"id": id, "deleted": "ok"})
 }

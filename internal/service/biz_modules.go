@@ -18,7 +18,7 @@ func NewExpertService(repo repository.ExpertRepository) *ExpertService {
 	return &ExpertService{repo: repo}
 }
 
-func (s *ExpertService) Create(name, title, org, field, bio string, tags []string) (domain.Expert, error) {
+func (s *ExpertService) Create(name, title, org, field, bio, avatarURL, status string, tags []string) (domain.Expert, error) {
 	now := time.Now()
 	e := domain.Expert{
 		ID:        fmt.Sprintf("expert-%d", now.UnixNano()),
@@ -27,15 +27,19 @@ func (s *ExpertService) Create(name, title, org, field, bio string, tags []strin
 		Org:       org,
 		Field:     field,
 		Bio:       bio,
+		AvatarURL: avatarURL,
 		Tags:      tags,
-		Status:    "published",
+		Status:    status,
 		CreatedAt: now,
 		UpdatedAt: now,
+	}
+	if e.Status == "" {
+		e.Status = "published"
 	}
 	return s.repo.Create(e)
 }
 
-func (s *ExpertService) Update(id, name, title, org, field, bio string, tags []string) (domain.Expert, error) {
+func (s *ExpertService) Update(id, name, title, org, field, bio, avatarURL, status string, tags []string) (domain.Expert, error) {
 	e, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.Expert{}, err
@@ -45,6 +49,10 @@ func (s *ExpertService) Update(id, name, title, org, field, bio string, tags []s
 	e.Org = org
 	e.Field = field
 	e.Bio = bio
+	e.AvatarURL = avatarURL
+	if status != "" {
+		e.Status = status
+	}
 	e.Tags = tags
 	e.UpdatedAt = time.Now()
 	return s.repo.Update(e)
@@ -98,7 +106,7 @@ func (s *CaseService) Get(id string) (domain.CaseEntry, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *CaseService) Update(id, title, category, description string, images []string, clientName, result string) (domain.CaseEntry, error) {
+func (s *CaseService) Update(id, title, category, description, status string, images []string, clientName, result string) (domain.CaseEntry, error) {
 	c, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.CaseEntry{}, err
@@ -106,6 +114,7 @@ func (s *CaseService) Update(id, title, category, description string, images []s
 	c.Title = title
 	c.Category = category
 	c.Description = description
+	c.Status = status
 	c.Images = images
 	c.ClientName = clientName
 	c.Result = result
@@ -128,19 +137,22 @@ func NewComplianceService(repo repository.ComplianceRepository) *ComplianceServi
 }
 
 // Docs
-func (s *ComplianceService) CreateDoc(title, category, content, summary, source string, tags []string) (domain.ComplianceDoc, error) {
+func (s *ComplianceService) CreateDoc(title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
 	now := time.Now()
+	if status == "" { status = "published" }
+	pd, _ := time.Parse("2006-01-02", publishDate)
 	d := domain.ComplianceDoc{
-		ID:        fmt.Sprintf("compdoc-%d", now.UnixNano()),
-		Title:     title,
-		Category:  category,
-		Content:   content,
-		Summary:   summary,
-		Source:    source,
-		Tags:      tags,
-		Status:    "published",
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:          fmt.Sprintf("compdoc-%d", now.UnixNano()),
+		Title:       title,
+		Category:    category,
+		Publisher:   publisher,
+		PublishDate: pd,
+		Status:      status,
+		Summary:     summary,
+		FileURL:     fileURL,
+		Tags:        tags,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	return s.repo.CreateDoc(d)
 }
@@ -150,16 +162,19 @@ func (s *ComplianceService) ListDocs(category string, page, pageSize int) ([]dom
 	return s.repo.ListDocs(category, offset, pageSize)
 }
 
-func (s *ComplianceService) UpdateDoc(id, title, category, content, summary, source string, tags []string) (domain.ComplianceDoc, error) {
+func (s *ComplianceService) UpdateDoc(id, title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
 	d, err := s.repo.FindDocByID(id)
 	if err != nil {
 		return domain.ComplianceDoc{}, err
 	}
 	d.Title = title
 	d.Category = category
-	d.Content = content
+	d.Publisher = publisher
+	pd, _ := time.Parse("2006-01-02", publishDate)
+	d.PublishDate = pd
+	d.Status = status
 	d.Summary = summary
-	d.Source = source
+	d.FileURL = fileURL
 	d.Tags = tags
 	d.UpdatedAt = time.Now()
 	return s.repo.UpdateDoc(d)
@@ -170,21 +185,21 @@ func (s *ComplianceService) DeleteDoc(id string) error {
 }
 
 // Standards
-func (s *ComplianceService) CreateStandard(title, stdNumber, category, version, publisher, content, fileURL string, issueDate time.Time) (domain.StandardDoc, error) {
+func (s *ComplianceService) CreateStandard(title, stdNumber, publisher, effectiveDate, status, scope, fileURL string) (domain.StandardDoc, error) {
 	now := time.Now()
+	if status == "" { status = "published" }
+	pd, _ := time.Parse("2006-01-02", effectiveDate)
 	sd := domain.StandardDoc{
-		ID:        fmt.Sprintf("std-%d", now.UnixNano()),
-		Title:     title,
-		StdNumber: stdNumber,
-		Category:  category,
-		Version:   version,
-		IssueDate: issueDate,
-		Publisher: publisher,
-		Content:   content,
-		FileURL:   fileURL,
-		Status:    "published",
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:            fmt.Sprintf("std-%d", now.UnixNano()),
+		Title:         title,
+		StandardNo:    stdNumber,
+		Publisher:     publisher,
+		EffectiveDate: pd,
+		Status:        status,
+		Scope:         scope,
+		Summary:       "",
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 	return s.repo.CreateStandard(sd)
 }
@@ -192,6 +207,18 @@ func (s *ComplianceService) CreateStandard(title, stdNumber, category, version, 
 func (s *ComplianceService) ListStandards(category string, page, pageSize int) ([]domain.StandardDoc, int, error) {
 	offset := (page - 1) * pageSize
 	return s.repo.ListStandards(category, offset, pageSize)
+}
+
+func (s *ComplianceService) DeleteStandard(id string) error { return s.repo.DeleteStandard(id) }
+
+func (s *ComplianceService) FindDocByID(id string) (domain.ComplianceDoc, error) { return s.repo.FindDocByID(id) }
+func (s *ComplianceService) FindStandardByID(id string) (domain.StandardDoc, error) { return s.repo.FindStandardByID(id) }
+
+func (s *ComplianceService) UpdateStandard(id, title, status, fileURL string) (domain.StandardDoc, error) {
+	sd, err := s.repo.FindStandardByID(id); if err != nil { return domain.StandardDoc{}, err }
+	sd.Title = title; sd.Status = status; sd.UpdatedAt = time.Now()
+	_ = fileURL
+	return s.repo.UpdateStandard(sd)
 }
 
 // ---- ReportService (行业报告) ----
@@ -231,7 +258,7 @@ func (s *ReportService) Get(id string) (domain.IndustryReport, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *ReportService) Update(id, title, period, category, summary, content, fileURL, author string) (domain.IndustryReport, error) {
+func (s *ReportService) Update(id, title, period, category, summary, content, fileURL, author, status string) (domain.IndustryReport, error) {
 	r, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.IndustryReport{}, err
@@ -243,6 +270,7 @@ func (s *ReportService) Update(id, title, period, category, summary, content, fi
 	r.Content = content
 	r.FileURL = fileURL
 	r.Author = author
+	r.Status = status
 	r.UpdatedAt = time.Now()
 	return s.repo.Update(r)
 }
@@ -289,7 +317,7 @@ func (s *PortfolioService) Get(id string) (domain.MemberPortfolio, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *PortfolioService) Update(id, name, logoURL, coverURL, description, contactInfo string, products, honors []string) (domain.MemberPortfolio, error) {
+func (s *PortfolioService) Update(id, name, logoURL, coverURL, description, contactInfo, status string, products, honors []string) (domain.MemberPortfolio, error) {
 	p, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.MemberPortfolio{}, err
@@ -301,10 +329,70 @@ func (s *PortfolioService) Update(id, name, logoURL, coverURL, description, cont
 	p.Products = products
 	p.Honors = honors
 	p.ContactInfo = contactInfo
+	p.Status = status
 	p.UpdatedAt = time.Now()
 	return s.repo.Update(p)
 }
 
+func (s *PortfolioService) Delete(id string) error { return s.repo.Delete(id) }
+
 func (s *PortfolioService) ListByEnterprise(enterpriseID string) ([]domain.MemberPortfolio, error) {
 	return s.repo.ListByEnterprise(enterpriseID)
+}
+
+// ── ShopService ──────────────────────────────────────────
+
+type ShopService struct {
+	repo repository.ShopRepository
+}
+
+func NewShopService(repo repository.ShopRepository) *ShopService {
+	return &ShopService{repo: repo}
+}
+
+func (s *ShopService) Create(name, licenseURL, accountName, contactPhone, address, status string, isMember bool) (domain.Shop, error) {
+	now := time.Now()
+	shop := domain.Shop{
+		ID:           fmt.Sprintf("shop-%d", now.UnixNano()),
+		Name:         name,
+		LicenseURL:   licenseURL,
+		AccountName:  accountName,
+		ContactPhone: contactPhone,
+		Address:      address,
+		Status:       status,
+		IsMember:     isMember,
+		Version:      1,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	if shop.Status == "" {
+		shop.Status = "pending"
+	}
+	return s.repo.Create(shop)
+}
+
+func (s *ShopService) Update(id, name, licenseURL, accountName, contactPhone, address, status string, isMember bool) (domain.Shop, error) {
+	shop, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.Shop{}, err
+	}
+	shop.Name = name
+	shop.LicenseURL = licenseURL
+	shop.AccountName = accountName
+	shop.ContactPhone = contactPhone
+	shop.Address = address
+	if status != "" {
+		shop.Status = status
+	}
+	shop.IsMember = isMember
+	shop.UpdatedAt = time.Now()
+	return s.repo.Update(shop)
+}
+
+func (s *ShopService) List(offset, limit int) ([]domain.Shop, int, error) {
+	return s.repo.List(offset, limit)
+}
+
+func (s *ShopService) Delete(id string) error {
+	return s.repo.Delete(id)
 }

@@ -116,6 +116,28 @@
         </el-descriptions>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="formVisible" :title="formEdit?'编辑成果':'新增成果'" width="560px" @close="resetForm">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="成果名称"><el-input v-model="form.title" /></el-form-item>
+        <el-form-item label="机构"><el-input v-model="form.org" /></el-form-item>
+        <el-form-item label="领域"><el-input v-model="form.field" /></el-form-item>
+        <el-form-item label="阶段">
+          <el-select v-model="form.stage" style="width:100%">
+            <el-option label="实验室" value="lab" /><el-option label="中试" value="pilot" />
+            <el-option label="产业化" value="industrialization" /><el-option label="上市" value="launched" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="专利号"><el-input v-model="form.patent_no" /></el-form-item>
+        <el-form-item label="作者"><el-input v-model="form.authors" /></el-form-item>
+        <el-form-item label="日期"><el-input v-model="form.publish_date" /></el-form-item>
+        <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="formVisible=false">取消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="formLoading">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

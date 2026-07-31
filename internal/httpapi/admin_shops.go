@@ -1,15 +1,12 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
-
-	"drone-platform/internal/domain"
 )
 
-// ---- Admin Shops (重用 Enterprise 数据) ----
+// ---- Admin Shops ----
 
 // listAdminShops GET /api/v1/admin/shops
 func (s *Server) listAdminShops(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +16,7 @@ func (s *Server) listAdminShops(w http.ResponseWriter, r *http.Request) {
 	if pageSize < 1 || pageSize > 100 { pageSize = 20 }
 	offset := (page - 1) * pageSize
 
-	all, total, err := s.enterprises.ListByStatus("", offset, pageSize)
+	all, total, err := s.shopSvc.List(offset, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("list shops: %w", err))
 		return
@@ -29,40 +26,60 @@ func (s *Server) listAdminShops(w http.ResponseWriter, r *http.Request) {
 
 // createAdminShop POST /api/v1/admin/shops
 func (s *Server) createAdminShop(w http.ResponseWriter, r *http.Request) {
-	var ent domain.Enterprise
-	if err := json.NewDecoder(r.Body).Decode(&ent); err != nil {
+	var in struct {
+		Name         string `json:"name"`
+		LicenseURL   string `json:"license_url"`
+		AccountName  string `json:"account_name"`
+		ContactPhone string `json:"contact_phone"`
+		Address      string `json:"address"`
+		Status       string `json:"status"`
+		IsMember     bool   `json:"is_member"`
+		CreatedAt    string `json:"created_at"`
+		UpdatedAt    string `json:"updated_at"`
+	}
+	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	created, err := s.enterprises.Create(ent)
+	shop, err := s.shopSvc.Create(in.Name, in.LicenseURL, in.AccountName, in.ContactPhone, in.Address, in.Status, in.IsMember)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("create shop: %w", err))
 		return
 	}
-	respond(w, r, http.StatusCreated, created)
+	respond(w, r, http.StatusCreated, shop)
 }
 
 // updateAdminShop PUT /api/v1/admin/shops/{id}
 func (s *Server) updateAdminShop(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	var ent domain.Enterprise
-	if err := json.NewDecoder(r.Body).Decode(&ent); err != nil {
+	var in struct {
+		ID           string `json:"id"`
+		Name         string `json:"name"`
+		LicenseURL   string `json:"license_url"`
+		AccountName  string `json:"account_name"`
+		ContactPhone string `json:"contact_phone"`
+		Address      string `json:"address"`
+		Status       string `json:"status"`
+		IsMember     bool   `json:"is_member"`
+		CreatedAt    string `json:"created_at"`
+		UpdatedAt    string `json:"updated_at"`
+	}
+	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ent.ID = id
-	updated, err := s.enterprises.Update(id, ent)
+	shop, err := s.shopSvc.Update(id, in.Name, in.LicenseURL, in.AccountName, in.ContactPhone, in.Address, in.Status, in.IsMember)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("update shop: %w", err))
 		return
 	}
-	respond(w, r, http.StatusOK, updated)
+	respond(w, r, http.StatusOK, shop)
 }
 
 // deleteAdminShop DELETE /api/v1/admin/shops/{id}
 func (s *Server) deleteAdminShop(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if err := s.enterprises.Delete(id); err != nil {
+	if err := s.shopSvc.Delete(id); err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("delete shop: %w", err))
 		return
 	}

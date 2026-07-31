@@ -113,6 +113,11 @@ func (r *rdChallengeRepo) Update(c domain.RDChallenge) (domain.RDChallenge, erro
 	return c, err
 }
 
+func (r *rdChallengeRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), "DELETE FROM rd_challenges WHERE id=$1", id)
+	return err
+}
+
 // ---- ResearchProject ----
 
 type researchProjRepo struct{ pool *pgxpool.Pool }
@@ -162,6 +167,11 @@ func (r *researchProjRepo) Update(p domain.ResearchProject) (domain.ResearchProj
 		`UPDATE research_projects SET title=$1,field=$2,description=$3,lead_org=$4,members=$5,budget_fen=$6,start_date=$7,end_date=$8,milestones=$9,status=$10,updated_at=$11 WHERE id=$12`,
 		p.Title, p.Field, p.Description, p.LeadOrg, members, p.BudgetFen, p.StartDate, p.EndDate, p.Milestones, p.Status, p.UpdatedAt, p.ID)
 	return p, err
+}
+
+func (r *researchProjRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), "DELETE FROM research_projects WHERE id=$1", id)
+	return err
 }
 
 // ---- ProjectApp ----

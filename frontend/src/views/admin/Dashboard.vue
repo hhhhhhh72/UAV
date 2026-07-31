@@ -1,19 +1,44 @@
 <template>
   <div class="dashboard">
-    <!-- Metric Cards -->
-    <div class="metrics-grid">
-      <MetricCard label="需求总数" :value="stats.totalDemands" sub="累计发布" />
-      <MetricCard label="待审企业" :value="stats.pendingEnterprises" value-color="#ff9f0a" sub="企业入驻" />
-      <MetricCard label="内容帖子" :value="stats.totalPosts" value-color="#0071e3" sub="社区" />
-      <MetricCard label="平台用户" :value="stats.totalUsers" value-color="#34c759" sub="注册用户" />
-      <MetricCard v-if="isPlatformAdmin || isAssociationAdmin" label="待处举报" :value="stats.pendingReports" value-color="#5856d6" />
+    <!-- 顶部 -->
+    <div class="top-bar">
+      <div>
+        <h1 class="top-title">数据看板</h1>
+        <span class="top-date">{{ today }}</span>
+      </div>
+      <span class="top-badge"><i class="dot"></i>实时更新</span>
     </div>
 
-    <!-- Overview Chart -->
+    <!-- 指标卡片 -->
+    <div class="metrics-grid">
+      <MetricCard label="需求总数" :value="stats.totalDemands" sub="累计发布" value-color="#0A66C2" />
+      <MetricCard label="待审企业" :value="stats.pendingEnterprises" sub="企业入驻" value-color="#f59e0b" />
+      <MetricCard label="内容帖子" :value="stats.totalPosts" sub="社区" value-color="#10b981" />
+      <MetricCard label="平台用户" :value="stats.totalUsers" sub="注册用户" value-color="#6366f1" />
+      <MetricCard v-if="isPlatformAdmin || isAssociationAdmin" label="待处举报" :value="stats.pendingReports" sub="待处理" value-color="#ef4444" />
+    </div>
+
+    <!-- 总览图表 -->
     <div class="charts-row">
-      <div class="chart-card chart-full">
-        <h3 class="chart-title">平台数据总览</h3>
+      <div class="chart-card chart-wide">
+        <div class="chart-head"><span>平台数据总览</span><span class="chart-hint">{{ roleLabel }}</span></div>
         <v-chart :option="overviewOption" autoresize class="chart" />
+      </div>
+      <div class="chart-card chart-wide">
+        <div class="chart-head"><span>需求分布</span></div>
+        <v-chart :option="pieOption" autoresize class="chart" />
+      </div>
+    </div>
+
+    <!-- 第二行图表 -->
+    <div class="charts-row">
+      <div class="chart-card chart-wide">
+        <div class="chart-head"><span>需求状态分布</span></div>
+        <v-chart :option="statusOption" autoresize class="chart" />
+      </div>
+      <div class="chart-card chart-wide">
+        <div class="chart-head"><span>用户增长</span></div>
+        <v-chart :option="userGrowthOption" autoresize class="chart" />
       </div>
     </div>
   </div>
@@ -24,12 +49,7 @@ import { ref, computed, onMounted } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart, PieChart, BarChart } from 'echarts/charts'
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent
-} from 'echarts/components'
+import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import axios from '@/utils/http'
 import { showFailToast } from 'vant'
@@ -37,35 +57,46 @@ import MetricCard from './components/MetricCard.vue'
 import { useAuth } from './composables/useAuth'
 
 const { userRole, isPlatformAdmin, isAssociationAdmin } = useAuth()
-
-const roleLabel = computed(() => {
-  if (isAssociationAdmin.value) return '协会'
-  return '所有服务'
-})
+const roleLabel = computed(() => isAssociationAdmin.value ? '协会' : '所有服务')
 
 use([CanvasRenderer, LineChart, PieChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
+const today = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' })
+
 const stats = ref({
-  totalDemands: 0,
-  pendingEnterprises: 0,
-  totalPosts: 0,
-  totalUsers: 0,
-  pendingReports: 0,
-  orderTrend: [],
-  competitionByRole: {},
-  userGrowth: [],
-  statusDist: {}
+  totalDemands: 0, pendingEnterprises: 0, totalPosts: 0,
+  totalUsers: 0, pendingReports: 0,
+  orderTrend: [], competitionByRole: {}, userGrowth: [], statusDist: {}
 })
 
 const COLORS = {
-  blue: '#0071e3',
-  green: '#34c759',
-  orange: '#ff9f0a',
-  red: '#ff3b30',
-  purple: '#5856d6',
-  teal: '#5ac8fa',
-  gray: '#86868b'
+  blue: '#0A66C2', green: '#10b981', orange: '#f59e0b',
+  red: '#ef4444', purple: '#6366f1', teal: '#14b8a6', gray: '#868e96'
 }
+
+const growthOption = computed(() => ({
+  tooltip: { trigger: 'axis' },
+  grid: { left: 48, right: 16, top: 16, bottom: 24 },
+  xAxis: {
+    type: 'category',
+    data: stats.value.userGrowth.map(d => d.date.slice(2)),
+    axisLabel: { color: '#868e96', fontSize: 10 },
+    axisTick: { show: false }
+  },
+  yAxis: {
+    type: 'value', minInterval: 1,
+    splitLine: { lineStyle: { color: '#f0f0f2' } },
+    axisLabel: { color: '#868e96', fontSize: 10 }
+  },
+  series: [{
+    name: '新增用户', data: stats.value.userGrowth.map(d => d.count),
+    type: 'line', smooth: true, symbol: 'circle', symbolSize: 5,
+    lineStyle: { color: COLORS.purple, width: 2 },
+    itemStyle: { color: COLORS.purple },
+    areaStyle: { color: { type:'linear',x:0,y:0,x2:0,y2:1,
+      colorStops: [{offset:0,color:'rgba(99,102,241,.12)'},{offset:1,color:'rgba(99,102,241,.01)'}] }}
+  }]
+}))
 
 const trendOption = computed(() => ({
   tooltip: { trigger: 'axis' },
@@ -104,70 +135,34 @@ const trendOption = computed(() => ({
 }))
 
 const pieOption = computed(() => {
-  const r = stats.value.competitionByRole
+  const cats = stats.value.competitionByRole
+  const colorList = [COLORS.blue, COLORS.orange, COLORS.green, COLORS.purple, COLORS.teal]
+  const data = Object.entries(cats).map(([name, value], i) => ({
+    value, name, itemStyle: { color: colorList[i % colorList.length] }
+  }))
   return {
     tooltip: { trigger: 'item' },
-    legend: { bottom: 0, textStyle: { color: '#86868b', fontSize: 11 } },
-    series: [{
-      type: 'pie',
-      radius: ['45%', '70%'],
-      center: ['50%', '42%'],
-      avoidLabelOverlap: true,
-      label: { show: false },
-      data: [
-        { value: r.athlete, name: '运动员', itemStyle: { color: COLORS.blue } },
-        { value: r.coach, name: '教练员', itemStyle: { color: COLORS.orange } },
-        { value: r.referee, name: '裁判员', itemStyle: { color: COLORS.green } },
-        { value: r.club, name: '俱乐部', itemStyle: { color: COLORS.purple } }
-      ]
-    }]
+    legend: { bottom: 0, textStyle: { color: '#868e96', fontSize: 11 } },
+    series: [{ type: 'pie', radius: ['45%','70%'], center: ['50%','42%'],
+      label: { show: false }, data }]
   }
 })
 
 const userGrowthOption = computed(() => ({
-  tooltip: { trigger: 'axis' },
-  grid: { left: 40, right: 16, top: 16, bottom: 24 },
-  xAxis: {
-    type: 'category',
-    data: stats.value.userGrowth.map(d => d.month.slice(5) + '月'),
-    axisLine: { lineStyle: { color: '#e5e5e7' } },
-    axisLabel: { color: '#86868b', fontSize: 11 },
-    axisTick: { show: false }
-  },
-  yAxis: {
-    type: 'value',
-    minInterval: 1,
-    splitLine: { lineStyle: { color: '#f0f0f2' } },
-    axisLabel: { color: '#86868b', fontSize: 11 }
-  },
-  series: [{
-    data: stats.value.userGrowth.map(d => d.count),
-    type: 'bar',
-    barWidth: '50%',
-    itemStyle: { color: COLORS.teal, borderRadius: [4, 4, 0, 0] }
-  }]
+  ...growthOption.value,
+  ...{ series: [{ ...growthOption.value.series[0], name: '新增用户' }] }
 }))
 
 const statusOption = computed(() => {
-  const colorMap = {
-    '待处理': COLORS.orange,
-    '处理中': COLORS.blue,
-    '已完成': COLORS.green,
-    '已取消': COLORS.gray
-  }
   const dist = stats.value.statusDist
   return {
     tooltip: { trigger: 'item' },
-    legend: { bottom: 0, textStyle: { color: '#86868b', fontSize: 11 } },
+    legend: { bottom: 0, textStyle: { color: '#868e96', fontSize: 11 } },
     series: [{
-      type: 'pie',
-      radius: ['45%', '70%'],
-      center: ['50%', '42%'],
-      label: { show: false },
+      type: 'pie', radius: ['45%','70%'], center: ['50%','42%'], label: { show: false },
       data: Object.entries(dist).map(([name, value]) => ({
-        value,
-        name,
-        itemStyle: { color: colorMap[name] || COLORS.gray }
+        value, name,
+        itemStyle: { color: name.includes('已发布') ? COLORS.blue : COLORS.gray }
       }))
     }]
   }
@@ -206,8 +201,8 @@ const fetchStats = async () => {
         totalUsers: d.total_users ?? 0,
         pendingReports: d.pending_reports ?? 0,
         orderTrend: d.trends || [],
-        competitionByRole: d.type_dist || {},
-        userGrowth: [],
+        competitionByRole: d.category_dist || {},
+        userGrowth: d.trends || [],
         statusDist: d.status_dist || {}
       }
     }
@@ -221,84 +216,37 @@ onMounted(fetchStats)
 </script>
 
 <style scoped>
-.dashboard {
-  max-width: 1200px;
-  margin: 0 auto;
-}
+.dashboard { max-width: 1200px; margin: 0 auto; }
 
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
+.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.top-title { font-size: 22px; font-weight: 700; margin: 0; color: #1a1a1a; }
+.top-date { font-size: 13px; color: #868e96; margin-top: 2px; display: block; }
+.top-badge { font-size: 12px; color: #10b981; display: flex; align-items: center; gap: 6px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; }
 
-.charts-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
-}
+.metrics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
+.metric-value { font-size: 24px; }
 
-.chart-wide {
-  grid-column: span 1;
-}
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.chart-wide { grid-column: span 1; }
+.chart-narrow { grid-column: span 1; }
+.chart-full { grid-column: span 2; }
 
-.chart-narrow {
-  grid-column: span 1;
-}
+.chart-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.chart-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; color: #1d1d1f; margin-bottom: 12px; }
+.chart-hint { font-size: 11px; color: #868e96; font-weight: 400; }
+.chart { width: 100%; height: 260px; }
 
-.chart-full {
-  grid-column: span 2;
-}
+.chart-title { font-size: 14px; font-weight: 600; color: #1d1d1f; margin: 0 0 12px 0; }
 
-.chart-card {
-  background: var(--bg-primary, #fff);
-  border-radius: var(--card-radius, 12px);
-  padding: 20px;
-  box-shadow: var(--card-shadow, 0 1px 3px rgba(0, 0, 0, 0.08));
-}
-
-.chart-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-color, #1d1d1f);
-  margin: 0 0 12px 0;
-}
-
-.chart {
-  width: 100%;
-  height: 240px;
-}
-
-/* Tablet */
 @media (max-width: 1024px) {
-  .metrics-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
+  .metrics-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
 }
-
-/* Mobile */
 @media (max-width: 767px) {
-  .metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-  .charts-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-  .chart-full {
-    grid-column: span 1;
-  }
-  .chart {
-    height: 200px;
-  }
-  .chart-card {
-    padding: 14px;
-  }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .charts-row { grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+  .chart-full { grid-column: span 1; }
+  .chart { height: 200px; }
+  .chart-card { padding: 14px; }
 }
 </style>

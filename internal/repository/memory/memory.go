@@ -425,6 +425,12 @@ func (r *jobRepo) ListPublished(offset, limit int) ([]domain.Job, int, error) {
 	return filtered[offset:end], total, nil
 }
 
+func (r *jobRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("job %s not found", id)
+}
+
 type resumeRepo struct {
 	mu    sync.RWMutex
 	items []domain.Resume
@@ -723,6 +729,18 @@ func (r *memUserRepo) UpdateRole(id string, role domain.Role) error {
 	return fmt.Errorf("user not found")
 }
 
+func (r *memUserRepo) Delete(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("user not found")
+}
+
 type memRefreshRepo struct {
 	mu    sync.RWMutex
 	items []memRefreshEntry
@@ -947,6 +965,18 @@ func (r *certRepo) ListAll() ([]domain.Certificate, error) {
 	return append([]domain.Certificate(nil), r.items...), nil
 }
 
+func (r *certRepo) Update(c domain.Certificate) (domain.Certificate, error) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == c.ID { r.items[i] = c; return c, nil } }
+	return domain.Certificate{}, fmt.Errorf("cert %s not found", c.ID)
+}
+
+func (r *certRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("cert %s not found", id)
+}
+
 // ---- Course ----
 
 type courseRepo struct {
@@ -966,6 +996,21 @@ func (r *courseRepo) List() ([]domain.TrainingCourse, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return append([]domain.TrainingCourse(nil), r.items...), nil
+}
+func (r *courseRepo) FindByID(id string) (domain.TrainingCourse, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	for _, c := range r.items { if c.ID == id { return c, nil } }
+	return domain.TrainingCourse{}, fmt.Errorf("course %s not found", id)
+}
+func (r *courseRepo) Update(c domain.TrainingCourse) (domain.TrainingCourse, error) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == c.ID { r.items[i] = c; return c, nil } }
+	return domain.TrainingCourse{}, fmt.Errorf("course %s not found", c.ID)
+}
+func (r *courseRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("course %s not found", id)
 }
 
 // ---- Instructor ----
@@ -1277,6 +1322,19 @@ func (r *msgRepo) UnreadCount(userID string) (int, error) {
 	return n, nil
 }
 
+func (r *msgRepo) ListAll(offset, limit int) ([]domain.Message, int, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	total := len(r.items); if offset > total { return nil, total, nil }
+	end := offset + limit; if end > total { end = total }
+	return append([]domain.Message(nil), r.items[offset:end]...), total, nil
+}
+
+func (r *msgRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("message %s not found", id)
+}
+
 // ---- Article ----
 
 type articleRepo struct {
@@ -1528,6 +1586,12 @@ func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) 
 		}
 	}
 	return out, nil
+}
+func (r *tradeOrderRepo) ListAll(offset, limit int) ([]domain.TradeOrder, int, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	total := len(r.items); if offset > total { return nil, total, nil }
+	end := offset + limit; if end > total { end = total }
+	return append([]domain.TradeOrder(nil), r.items[offset:end]...), total, nil
 }
 
 // ---- Escrow ----

@@ -25,6 +25,14 @@ func (s *TransformationService) Create(title, achievementID, ownerID, partnerID 
 
 func (s *TransformationService) Get(id string) (domain.Transformation, error) { return s.repo.FindByID(id) }
 
+func (s *TransformationService) DeleteTrans(id string) error { return s.repo.Delete(id) }
+
+func (s *TransformationService) UpdateTrans(id, title, stage, progress, partnerID, status string) (domain.Transformation, error) {
+	t, err := s.repo.FindByID(id); if err != nil { return domain.Transformation{}, err }
+	t.Title = title; t.Progress = progress; t.Status = status; t.PartnerID = partnerID; t.UpdatedAt = time.Now()
+	return s.repo.Update(t)
+}
+
 func (s *TransformationService) List(ownerID string) ([]domain.Transformation, error) {
 	return s.repo.List(ownerID)
 }
@@ -65,6 +73,16 @@ func (s *CollegeService) Create(name, region, description, logoURL string, major
 }
 func (s *CollegeService) List(region string) ([]domain.College, error) { return s.repo.List(region) }
 func (s *CollegeService) Get(id string) (domain.College, error)          { return s.repo.FindByID(id) }
+
+func (s *CollegeService) Update(id, name, region, description, logoURL, status string, majors, facilities []string) (domain.College, error) {
+	c, err := s.repo.FindByID(id)
+	if err != nil { return domain.College{}, err }
+	c.Name = name; c.Region = region; c.Description = description; c.LogoURL = logoURL; c.Status = status
+	c.Majors = majors; c.Facilities = facilities; c.UpdatedAt = time.Now()
+	return s.repo.Update(c)
+}
+
+func (s *CollegeService) Delete(id string) error { return s.repo.Delete(id) }
 
 // ── Cooperation Service ──
 

@@ -10,7 +10,7 @@ import (
 
 func TestExpertCRUD(t *testing.T) {
 	svc := service.NewExpertService(memory.NewExpertRepository())
-	e, err := svc.Create("张三", "教授", "重庆大学", "无人机", "研究方向:无人机产业", []string{"CAAC"})
+	e, err := svc.Create("张三", "教授", "重庆大学", "无人机", "研究方向:无人机产业", "", "active", []string{"CAAC"})
 	if err != nil { t.Fatal(err) }
 	if _, err := svc.Get(e.ID); err != nil { t.Fatal(err) }
 	if list, err := svc.List(""); err != nil || len(list) != 1 { t.Fatalf("list: %v, %d", err, len(list)) }
@@ -27,8 +27,8 @@ func TestCaseCRUD(t *testing.T) {
 
 func TestComplianceCRUD(t *testing.T) {
 	svc := service.NewComplianceService(memory.NewComplianceRepository())
-	svc.CreateDoc("适航条例", "policy", "内容", "摘要", "民航局", []string{"适航"})
-	svc.CreateStandard("团体标准", "T/CDA-001", "巡检", "1.0", "协会", "标准内容", "", time.Now())
+	svc.CreateDoc("适航条例", "policy", "民航局", "2026-01-01", "draft", "内容", "", []string{"适航"})
+	svc.CreateStandard("团体标准", "T/CDA-001", "协会", "2026-07-01", "draft", "标准内容", "")
 	if _, total, err := svc.ListDocs("", 1, 20); err != nil || total != 1 { t.Fatalf("list docs fail") }
 }
 

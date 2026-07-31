@@ -40,7 +40,7 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel[row.status] || row.status || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -65,7 +65,7 @@
           <el-descriptions-item label="证书类型">{{ currentItem.cert_type || '-' }}</el-descriptions-item>
           <el-descriptions-item label="持有人">{{ currentItem.holder_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="statusTag(currentItem.status)" size="small">{{ currentItem.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="签发日期">{{ formatDate(currentItem.issue_date) }}</el-descriptions-item>
           <el-descriptions-item label="有效期至">{{ formatDate(currentItem.expire_date) }}</el-descriptions-item>
@@ -114,6 +114,7 @@ const formatDate = (d) => {
 }
 
 const statusTag = (s) => ({ 'valid': 'success', 'expired': 'warning', 'revoked': 'danger' }[s] || 'info')
+const statusLabel = { 'valid': '有效', 'expired': '已过期', 'revoked': '已吊销' }
 
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSelectChange, resetParams } = useListRequest({
   apiFunction: api.list,

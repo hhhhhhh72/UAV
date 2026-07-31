@@ -199,11 +199,11 @@ onMounted(() => {
 .user-ava { width: 48px; height: 48px; border-radius: 50%; background: #e8f2fc; }
 .user-meta { flex: 1; }
 .user-line1 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.user-tag { background: #1989fa; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.user-tag { background: #0A66C2; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
 .user-name { font-size: 15px; font-weight: 600; color: #5a3ed1; }
 .user-line2 { font-size: 11px; color: #999; }
 .user-time { color: #666; }
-.user-from { color: #1989fa; }
+.user-from { color: #0A66C2; }
 
 /* Stats */
 .stat-row { padding: 8px 14px 14px; font-size: 13px; color: #666; background: #fff; }
@@ -218,7 +218,7 @@ onMounted(() => {
 .desc-block { padding: 14px; background: #fff; font-size: 14px; line-height: 1.7; color: #333; }
 .desc-text { display: inline; }
 .desc-text.collapse { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.desc-toggle { color: #1989fa; font-size: 13px; margin-left: 6px; }
+.desc-toggle { color: #0A66C2; font-size: 13px; margin-left: 6px; }
 
 /* Photo */
 .photo-block { position: relative; padding: 0 14px 14px; background: #fff; }
@@ -240,18 +240,18 @@ onMounted(() => {
 
 /* Like */
 .like-row { padding: 20px 14px 12px; background: #fff; }
-.like-btn { font-size: 24px; color: #1989fa; }
+.like-btn { font-size: 24px; color: #0A66C2; }
 
 /* Contact */
 .contact-row { padding: 4px 14px; background: #fff; font-size: 14px; }
 .cl-label { color: #999; min-width: 60px; display: inline-block; }
-.cl-name { color: #1989fa; font-weight: 500; }
+.cl-name { color: #0A66C2; font-weight: 500; }
 .cl-tip { font-size: 12px; color: #999; line-height: 1.6; padding: 4px 0; }
 
 /* Warn */
 .warn-row { margin: 14px; padding: 14px; background: #fff5f5; border-radius: 8px; }
 .warn-text { font-size: 13px; color: #333; font-weight: 500; display: block; margin-bottom: 6px; }
-.warn-link { color: #1989fa; text-decoration: underline; }
+.warn-link { color: #0A66C2; text-decoration: underline; }
 .warn-sub { font-size: 11px; color: #999; }
 
 /* Comment */
@@ -272,7 +272,7 @@ onMounted(() => {
 .ob-ava { width: 40px; height: 40px; border-radius: 50%; background: #e8f2fc; }
 .ob-name { font-size: 14px; font-weight: 500; }
 .ob-stat { font-size: 12px; color: #666; }
-.ob-num { color: #1989fa; font-weight: 600; }
+.ob-num { color: #0A66C2; font-weight: 600; }
 
 /* FAB */
 .fab { position: fixed; right: 14px; bottom: 80px; display: flex; flex-direction: column; gap: 10px; }
@@ -283,6 +283,6 @@ onMounted(() => {
 
 /* Sticky Call */
 .sticky-call { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px; background: #fff; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
-.sc-btn { background: #1989fa; color: #fff; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 17px; font-weight: 600; }
+.sc-btn { background: #0A66C2; color: #fff; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 17px; font-weight: 600; }
 .sc-ico { font-size: 20px; }
 </style>

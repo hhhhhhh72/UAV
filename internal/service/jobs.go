@@ -23,7 +23,7 @@ func NewJobService(j repository.JobRepository, r repository.ResumeRepository, a 
 // ---- Jobs ----
 
 func (s *JobService) CreateJob(a domain.Actor, title, desc, location string, salaryFen int64) (domain.Job, error) {
-	if a.Role != domain.RoleEnterprise {
+	if a.Role != domain.RoleEnterprise && a.Role != domain.RolePlatformAdmin {
 		return domain.Job{}, errors.New("only enterprise can post jobs")
 	}
 	now := time.Now()
@@ -53,6 +53,20 @@ func (s *JobService) ListPublishedJobs(offset, limit int) ([]domain.Job, int, er
 }
 func (s *JobService) ListMyJobs(a domain.Actor) ([]domain.Job, error) {
 	return s.repo.ListByEnterprise(a.ID)
+}
+
+func (s *JobService) GetJob(id string) (domain.Job, error) { return s.repo.FindByID(id) }
+
+func (s *JobService) UpdateJob(id, title, desc, location, jobType string, salaryFen int64, status string) (domain.Job, error) {
+	j, err := s.repo.FindByID(id)
+	if err != nil { return domain.Job{}, err }
+	j.Title = title; j.Description = desc; j.Location = location; j.SalaryFen = salaryFen
+	j.Status = domain.JobStatus(status); j.JobType = jobType
+	return s.repo.Update(id, j)
+}
+
+func (s *JobService) DeleteJob(id string) error {
+	return s.repo.Delete(id)
 }
 
 // ---- Resumes ----

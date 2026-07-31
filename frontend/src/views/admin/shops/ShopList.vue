@@ -47,13 +47,25 @@
     />
 
     <!-- Add/Edit Dialog -->
-    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑商家' : '新增商家'" width="500px" destroy-on-close>
+    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑商家' : '新增商家'" width="500px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="商家名称" required>
           <el-input v-model="form.name" placeholder="输入商家名称" />
         </el-form-item>
         <el-form-item label="营业执照">
-          <el-input v-model="form.license_url" placeholder="营业执照图片 URL" />
+          <el-upload
+            class="license-upload"
+            :action="uploadUrl"
+            :headers="uploadHeaders"
+            :show-file-list="false"
+            :on-success="onUploadSuccess"
+            :before-upload="beforeUpload"
+            accept="image/*"
+          >
+            <img v-if="form.license_url" :src="form.license_url" class="license-preview" />
+            <el-button v-else type="primary" plain>点击上传</el-button>
+          </el-upload>
+          <el-button v-if="form.license_url" size="small" style="margin-top:8px" @click="form.license_url=''">清除</el-button>
         </el-form-item>
         <el-form-item label="对公账户">
           <el-input v-model="form.account_name" placeholder="对公账户名称" />
@@ -93,6 +105,21 @@ const statusText = { pending: '待审核', approved: '已批准', rejected: '已
 
 const dialog = reactive({ visible: false, isEdit: false, loading: false })
 const form = reactive({ id: '', name: '', license_url: '', account_name: '', status: 'pending', is_member: false })
+const uploadUrl = '/api/v1/upload'
+const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}` }
+
+const beforeUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) { ElMessage.error('只能上传图片文件'); return false }
+  if (!isLt5M) { ElMessage.error('图片不能超过 5MB'); return false }
+  return true
+}
+
+const onUploadSuccess = (res) => {
+  form.license_url = res?.data?.url || res?.url || ''
+  ElMessage.success('上传成功')
+}
 
 const formatDate = (d) => {
   if (!d) return '—'
@@ -119,16 +146,24 @@ const handleReset = () => { searchForm.value = {}; handleSearch() }
 const handleAdd = () => {
   dialog.isEdit = false
   dialog.visible = true
-  Object.assign(form, { id: '', name: '', license_url: '', account_name: '', status: 'pending', is_member: false })
+  form.id = ''
+  form.name = ''
+  form.license_url = ''
+  form.account_name = ''
+  form.status = 'pending'
+  form.is_member = false
 }
 
 const handleEdit = (row) => {
+  if (!row.id) { ElMessage.warning('此商家无有效 ID，无法编辑。请使用新增功能创建新商家。'); return }
   dialog.isEdit = true
   dialog.visible = true
-  Object.assign(form, {
-    id: row.id, name: row.name || '', license_url: row.license_url || '',
-    account_name: row.account_name || '', status: row.status || 'pending', is_member: !!row.is_member
-  })
+  form.id = row.id || ''
+  form.name = row.name || ''
+  form.license_url = row.license_url || ''
+  form.account_name = row.account_name || ''
+  form.status = row.status || 'pending'
+  form.is_member = !!row.is_member
 }
 
 const handleSubmit = async () => {
@@ -136,6 +171,7 @@ const handleSubmit = async () => {
   dialog.loading = true
   try {
     if (dialog.isEdit) {
+      console.log('[shop put]', form.id, '→', `/api/v1/admin/shops/${form.id}`)
       await axios.put(`/api/v1/admin/shops/${form.id}`, {
         name: form.name, license_url: form.license_url, account_name: form.account_name,
         status: form.status, is_member: form.is_member
@@ -151,7 +187,9 @@ const handleSubmit = async () => {
     dialog.visible = false
     loadData()
   } catch (e) {
-    ElMessage.error(e?.response?.data?.message || '操作失败')
+    const msg = e?.response?.data?.message || e?.message || '操作失败'
+    console.error('[shop update]', e?.response?.status, msg)
+    ElMessage.error(msg)
   } finally { dialog.loading = false }
 }
 
@@ -173,4 +211,6 @@ onMounted(loadData)
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .page-header h2 { margin: 0; font-size: 20px; }
 .text-muted { color: #999; }
+.license-upload { display: inline-block; }
+.license-preview { width: 120px; height: 80px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
 </style>

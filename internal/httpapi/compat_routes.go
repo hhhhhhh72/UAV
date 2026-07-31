@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,6 +14,7 @@ func (s *Server) registerCompatRoutes(mux *http.ServeMux) {
 	// Only non-overlapping routes not covered by registerH5Compat.
 	mux.HandleFunc("POST /api/auth/wechat/login", s.wechatLogin)
 	mux.HandleFunc("POST /api/auth/wx-login", s.wechatLogin)
+	mux.HandleFunc("POST /api/auth/wx-phone", s.wxPhone)
 }
 
 // passwordLogin handles old /api/auth/login with phone+password.
@@ -162,4 +164,33 @@ func (s *Server) submitAdapter(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) updateAdapter(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// POST /api/auth/wx-phone — 绑定微信手机号 (dev mode: 直接接收 phone)
+func (s *Server) wxPhone(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if in.Phone != "" {
+		// Dev mode: directly accept phone number
+		respond(w, r, http.StatusOK, map[string]any{
+			"phone": in.Phone,
+			"msg":   "phone bound (dev mode)",
+		})
+		return
+	}
+	if in.Code != "" {
+		// WeChat phone code — in production, exchange via WeChat API
+		respond(w, r, http.StatusOK, map[string]any{
+			"phone": "138****" + in.Code[len(in.Code)-4:],
+			"msg":   "phone bound (wx code)",
+		})
+		return
+	}
+	fail(w, r, http.StatusBadRequest, errors.New("phone or code required"))
 }

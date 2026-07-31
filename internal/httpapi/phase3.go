@@ -27,15 +27,8 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
 
-	// Get course price.
-	courses, err := s.trainingSvc.ListCourses()
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
-	var course domain.TrainingCourse
-	found := false
-	for _, c := range courses {
-		if c.ID == r.PathValue("id") { course = c; found = true; break }
-	}
-	if !found { fail(w, r, http.StatusNotFound, errors.New("course not found")); return }
+	course, err := s.trainingSvc.GetCourse(r.PathValue("id"))
+	if err != nil { fail(w, r, http.StatusNotFound, errors.New("course not found")); return }
 
 	if course.PriceFen > 0 {
 		_, err := s.escrowSvc.Freeze(a.ID, course.PriceFen, "training_course", course.ID)
@@ -68,11 +61,8 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 	if !found { fail(w, r, http.StatusNotFound, errors.New("enrollment not found")); return }
 
 	// Find course to get price and org.
-	courses, _ := s.trainingSvc.ListCourses()
-	var course domain.TrainingCourse
-	for _, c := range courses {
-		if c.ID == enrollment.CourseID { course = c; break }
-	}
+	course, err := s.trainingSvc.GetCourse(enrollment.CourseID)
+	if err != nil { fail(w, r, http.StatusNotFound, fmt.Errorf("course not found: %w", err)); return }
 
 	// Release funds if course was paid.
 	if course.PriceFen > 0 {
@@ -205,30 +195,150 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	// Aggregate real stats from all services.
-	var (
-		entPending  int
-		totalDemands int
-		totalPosts   int
-		totalReports  int
-		totalUsers   int
-	)
-	if ent, err := s.enterprises.Pending(a); err == nil {
-		entPending = len(ent)
-	}
-	if dem, err := s.demands.List(repository.DemandFilter{}); err == nil {
-		totalDemands = len(dem)
-	}
-	// Use community service for post/report counts
-	if posts, _, err := s.communitySvc.ListPublishedPosts(0, 10000); err == nil {
-		totalPosts = len(posts)
-	}
+
+	ent, err := s.enterprises.Pending(a)
+	if err != nil { ent = nil }
+	entPending := len(ent)
+
+	dem, err := s.demands.List(repository.DemandFilter{})
+	if err != nil { dem = nil }
+	totalDemands := len(dem)
+
+	posts, _, err := s.communitySvc.ListPublishedPosts(0, 10000)
+	if err != nil { posts = nil }
+	totalPosts := len(posts)
+
+	pendingList, _, _ := s.reviewSvc.ListAll("", 0, 10000)
+	totalReports := len(pendingList)
+
+	users, _ := s.userRepo.All()
+	totalUsers := len(users)
+
+	msgs, _, _ := s.msgSvc.ListAll(0, 10000)
+	totalMessages := len(msgs)
+
+	// Trends: monthly demand counts (last 12 months)
+	trends := buildDemandTrends(dem)
+
+	// Category distribution
+	categoryDist := buildCategoryDist(dem)
+
+	// Module stats
+	modules := map[string]map[string]int{"talent": {}, "events": {}, "industry": {}}
+	// Talent
+	certs, _ := s.trainingSvc.ListAllCertificates()
+	modules["talent"]["certificates"] = len(certs)
+	cols, _ := s.collegeSvc.List("")
+	modules["talent"]["colleges"] = len(cols)
+	jobs, _, _ := s.jobSvc.ListPublishedJobs(0, 10000)
+	modules["talent"]["jobs"] = len(jobs)
+	tours, _ := s.studyTourRepo.List()
+	modules["talent"]["study_tours"] = len(tours)
+	courses, _ := s.trainingSvc.ListCourses()
+	modules["talent"]["training_courses"] = len(courses)
+
+	// Events
+	competitions, _, _ := s.competitionSvc.List(1, 10000)
+	modules["events"]["competitions"] = competitionsIfNil(competitions)
+	evs, _, _ := s.eventSvc.List(1, 10000)
+	modules["events"]["events"] = evsIfNil(evs)
+	exhs, _, _ := s.exhibitionSvc.List(1, 10000)
+	modules["events"]["exhibitions"] = exhsIfNil(exhs)
+	emergRes, _, _ := s.emergencySvc.ListResources(1, 10000)
+	modules["events"]["emergency_resources"] = emgResIfNil(emergRes)
+	disps, _, _ := s.emergencySvc.ListDispatches(1, 10000)
+	modules["events"]["emergency_dispatches"] = dispIfNil(disps)
+
+	// Industry
+	achs, _, _ := s.achievementSvc.List("", 1, 10000)
+	modules["industry"]["achievements"] = achsIfNil(achs)
+	cases, _, _ := s.caseSvc.List("", 1, 10000)
+	modules["industry"]["cases"] = casesIfNil(cases)
+	exps, _ := s.expertSvc.List("")
+	modules["industry"]["experts"] = len(exps)
+	rpts, _, _ := s.reportSvc.List(1, 10000)
+	modules["industry"]["industry_reports"] = rptsIfNil(rpts)
+	res, _, _ := s.resourceSvc.List("", 1, 10000)
+	modules["industry"]["industry_resources"] = resIfNil(res)
+	ports, _, _ := s.portfolioSvc.ListPublished(1, 10000)
+	modules["industry"]["portfolios"] = len(ports)
+	rds, _, _ := s.rdService.List("", 1, 10000)
+	modules["industry"]["rd_challenges"] = rdsIfNil(rds)
+	projs, _, _ := s.researchSvc.List(1, 10000)
+	modules["industry"]["research_projects"] = projsIfNil(projs)
+	sites, _ := s.testSiteSvc.List("")
+	modules["industry"]["test_sites"] = len(sites)
+
+	// Status distribution
+	statusDist := buildStatusDist(dem)
+
 	respond(w, r, http.StatusOK, map[string]any{
 		"pending_enterprises": entPending,
 		"total_demands":       totalDemands,
 		"total_posts":         totalPosts,
 		"pending_reports":     totalReports,
 		"total_users":         totalUsers,
+		"total_messages":      totalMessages,
+		"trends":              trends,
+		"category_dist":       categoryDist,
+		"status_dist":         statusDist,
+		"modules":             modules,
 		"server_time":         time.Now().UTC().Format(time.RFC3339),
 	})
 }
+
+func buildDemandTrends(dem []domain.Demand) []map[string]any {
+	now := time.Now()
+	counts := map[string]int{}
+	for i := 0; i < 12; i++ {
+		m := now.AddDate(0, -i, 0).Format("2006-01")
+		counts[m] = 0
+	}
+	for _, d := range dem {
+		m := d.CreatedAt.Format("2006-01")
+		if _, ok := counts[m]; ok { counts[m]++ }
+	}
+	out := make([]map[string]any, 12)
+	for i := 0; i < 12; i++ {
+		m := now.AddDate(0, -11+i, 0).Format("2006-01")
+		out[i] = map[string]any{"date": m, "count": counts[m]}
+	}
+	return out
+}
+
+func buildCategoryDist(dem []domain.Demand) map[string]int {
+	dist := map[string]int{}
+	for _, d := range dem {
+		bt := string(d.BizType)
+		if bt != "" { dist[bt]++ }
+	}
+	return dist
+}
+
+func buildStatusDist(dem []domain.Demand) map[string]int {
+	statusLabel := map[string]string{
+		"published": "已发布", "draft": "草稿", "completed": "已完成",
+		"cancelled": "已取消", "processing": "进行中",
+	}
+	dist := map[string]int{}
+	for _, d := range dem {
+		st := string(d.Status)
+		label := statusLabel[st]
+		if label == "" { label = st }
+		dist[label] = dist[label] + 1
+	}
+	return dist
+}
+
+// Nil-safe helpers for service List results
+func competitionsIfNil(v []domain.Competition) int { return len(v) }
+func evsIfNil(v []domain.AssociationEvent) int     { return len(v) }
+func exhsIfNil(v []domain.Exhibition) int           { return len(v) }
+func emgResIfNil(v []domain.EmergencyResource) int  { return len(v) }
+func dispIfNil(v []domain.EmergencyDispatch) int    { return len(v) }
+func achsIfNil(v []domain.Achievement) int          { return len(v) }
+func casesIfNil(v []domain.CaseEntry) int            { return len(v) }
+func rptsIfNil(v []domain.IndustryReport) int         { return len(v) }
+func resIfNil(v []domain.IndustryResource) int        { return len(v) }
+func rdsIfNil(v []domain.RDChallenge) int             { return len(v) }
+func projsIfNil(v []domain.ResearchProject) int       { return len(v) }

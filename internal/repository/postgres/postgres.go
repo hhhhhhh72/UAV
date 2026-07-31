@@ -25,7 +25,7 @@ func NewStore(ctx context.Context, databaseURL string, cipher *crypto.Cipher) (*
 	if err != nil {
 		return nil, fmt.Errorf("parse db url: %w", err)
 	}
-	cfg.MaxConns = 20
+	cfg.MaxConns = 50
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect db: %w", err)
@@ -499,16 +499,16 @@ func (s *Store) NewJobRepository() repository.JobRepository { return &jobRepo{po
 func (r *jobRepo) Create(j domain.Job) (domain.Job, error) {
 	now := time.Now(); j.Version = 1; j.CreatedAt = now; j.UpdatedAt = now
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO jobs (id, enterprise_id, title, description, location, salary_fen, status, version, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		j.ID, j.EnterpriseID, j.Title, j.Description, j.Location, j.SalaryFen, string(j.Status), j.Version, j.CreatedAt, j.UpdatedAt)
+		`INSERT INTO jobs (id, enterprise_id, title, description, location, salary_fen, job_type, status, version, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		j.ID, j.EnterpriseID, j.Title, j.Description, j.Location, j.SalaryFen, j.JobType, string(j.Status), j.Version, j.CreatedAt, j.UpdatedAt)
 	return j, err
 }
 func (r *jobRepo) Update(id string, j domain.Job) (domain.Job, error) {
 	j.Version++; j.UpdatedAt = time.Now()
 	tag, err := r.pool.Exec(context.Background(),
-		`UPDATE jobs SET title=$1,description=$2,location=$3,salary_fen=$4,status=$5,version=$6,updated_at=$7 WHERE id=$8`,
-		j.Title, j.Description, j.Location, j.SalaryFen, string(j.Status), j.Version, j.UpdatedAt, id)
+		`UPDATE jobs SET title=$1,description=$2,location=$3,salary_fen=$4,job_type=$5,status=$6,version=$7,updated_at=$8 WHERE id=$9`,
+		j.Title, j.Description, j.Location, j.SalaryFen, j.JobType, string(j.Status), j.Version, j.UpdatedAt, id)
 	if err != nil { return domain.Job{}, err }
 	if tag.RowsAffected() == 0 { return domain.Job{}, fmt.Errorf("job %s not found", id) }
 	return j, nil
@@ -516,8 +516,8 @@ func (r *jobRepo) Update(id string, j domain.Job) (domain.Job, error) {
 func (r *jobRepo) FindByID(id string) (domain.Job, error) {
 	var j domain.Job; var status string
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id, enterprise_id, title, description, location, salary_fen, status, version, created_at, updated_at FROM jobs WHERE id=$1`, id).
-		Scan(&j.ID, &j.EnterpriseID, &j.Title, &j.Description, &j.Location, &j.SalaryFen, &status, &j.Version, &j.CreatedAt, &j.UpdatedAt)
+		`SELECT id, enterprise_id, title, description, location, salary_fen, job_type, status, version, created_at, updated_at FROM jobs WHERE id=$1`, id).
+		Scan(&j.ID, &j.EnterpriseID, &j.Title, &j.Description, &j.Location, &j.SalaryFen, &j.JobType, &status, &j.Version, &j.CreatedAt, &j.UpdatedAt)
 	j.Status = domain.JobStatus(status)
 	return j, err
 }
@@ -531,20 +531,25 @@ func (r *jobRepo) ListPublished(offset, limit int) ([]domain.Job, int, error) {
 	return items, total, err
 }
 func scanJobs(pool *pgxpool.Pool, where string, args ...any) ([]domain.Job, error) {
-	q := `SELECT id, enterprise_id, title, description, location, salary_fen, status, version, created_at, updated_at FROM jobs ` + where
+	q := `SELECT id, enterprise_id, title, description, location, salary_fen, job_type, status, version, created_at, updated_at FROM jobs ` + where
 	rows, err := pool.Query(context.Background(), q, args...)
 	if err != nil { return nil, err }
 	defer rows.Close()
 	out := []domain.Job{}
 	for rows.Next() {
 		var j domain.Job; var status string
-		if err := rows.Scan(&j.ID, &j.EnterpriseID, &j.Title, &j.Description, &j.Location, &j.SalaryFen, &status, &j.Version, &j.CreatedAt, &j.UpdatedAt); err != nil {
+		if err := rows.Scan(&j.ID, &j.EnterpriseID, &j.Title, &j.Description, &j.Location, &j.SalaryFen, &j.JobType, &status, &j.Version, &j.CreatedAt, &j.UpdatedAt); err != nil {
 			return nil, err
 		}
 		j.Status = domain.JobStatus(status)
 		out = append(out, j)
 	}
 	return out, rows.Err()
+}
+
+func (r *jobRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM jobs WHERE id=$1`, id)
+	return err
 }
 
 // ---- Resume Repository ----
@@ -929,6 +934,11 @@ func (r *userRepo) UpdateRole(id string, role domain.Role) error {
 	return nil
 }
 
+func (r *userRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM users WHERE id=$1`, id)
+	return err
+}
+
 // ---- RefreshToken ----
 
 type refreshTokenRepo struct{ pool *pgxpool.Pool }
@@ -1155,4 +1165,269 @@ func (r *demandRepo) CompareAndSetStatus(id string, oldStatus, newStatus domain.
 	}
 	d, err := r.FindByID(id)
 	return true, d, err
+}
+
+// ---- College Repository ----
+
+type pgCollegeRepo struct{ pool *pgxpool.Pool }
+
+func (s *Store) NewCollegeRepository() repository.CollegeRepository { return &pgCollegeRepo{pool: s.Pool()} }
+
+func (r *pgCollegeRepo) Create(c domain.College) (domain.College, error) {
+	c.CreatedAt = time.Now(); c.UpdatedAt = c.CreatedAt
+	_, err := r.pool.Exec(context.Background(),
+		`INSERT INTO colleges (id,name,region,description,logo_url,status,majors,facilities,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		c.ID, c.Name, c.Region, c.Description, c.LogoURL, c.Status, c.Majors, c.Facilities, c.CreatedAt, c.UpdatedAt)
+	return c, err
+}
+
+func (r *pgCollegeRepo) FindByID(id string) (domain.College, error) {
+	var c domain.College
+	err := r.pool.QueryRow(context.Background(), `SELECT id,name,region,description,logo_url,status,majors,facilities,created_at,updated_at FROM colleges WHERE id=$1`, id).
+		Scan(&c.ID, &c.Name, &c.Region, &c.Description, &c.LogoURL, &c.Status, &c.Majors, &c.Facilities, &c.CreatedAt, &c.UpdatedAt)
+	return c, err
+}
+
+func (r *pgCollegeRepo) List(region string) ([]domain.College, error) {
+	q := `SELECT id,name,region,description,logo_url,status,majors,facilities,created_at,updated_at FROM colleges`
+	args := []any{}
+	if region != "" { q += ` WHERE region=$1`; args = append(args, region) }
+	q += ` ORDER BY created_at DESC`
+	rows, err := r.pool.Query(context.Background(), q, args...)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var out []domain.College
+	for rows.Next() {
+		var c domain.College
+		if err := rows.Scan(&c.ID, &c.Name, &c.Region, &c.Description, &c.LogoURL, &c.Status, &c.Majors, &c.Facilities, &c.CreatedAt, &c.UpdatedAt); err != nil { return nil, err }
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgCollegeRepo) Update(c domain.College) (domain.College, error) {
+	c.UpdatedAt = time.Now()
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE colleges SET name=$1,region=$2,description=$3,logo_url=$4,status=$5,majors=$6,facilities=$7,updated_at=$8 WHERE id=$9`,
+		c.Name, c.Region, c.Description, c.LogoURL, c.Status, c.Majors, c.Facilities, c.UpdatedAt, c.ID)
+	return c, err
+}
+
+func (r *pgCollegeRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM colleges WHERE id=$1`, id)
+	return err
+}
+
+// ---- StudyTour Repository ----
+
+type pgStudyTourRepo struct{ pool *pgxpool.Pool }
+
+func (s *Store) NewStudyTourRepository() repository.StudyTourRepository { return &pgStudyTourRepo{pool: s.Pool()} }
+
+func (r *pgStudyTourRepo) Create(st domain.StudyTour) (domain.StudyTour, error) {
+	st.CreatedAt = time.Now(); st.UpdatedAt = st.CreatedAt
+	_, err := r.pool.Exec(context.Background(),
+		`INSERT INTO study_tours (id,title,destination,duration,capacity,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		st.ID, st.Title, st.Destination, st.Duration, st.Capacity, st.Status, st.CreatedAt, st.UpdatedAt)
+	return st, err
+}
+
+func (r *pgStudyTourRepo) FindByID(id string) (domain.StudyTour, error) {
+	var s domain.StudyTour
+	err := r.pool.QueryRow(context.Background(), `SELECT id,title,destination,duration,capacity,status,created_at,updated_at FROM study_tours WHERE id=$1`, id).
+		Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status, &s.CreatedAt, &s.UpdatedAt)
+	return s, err
+}
+
+func (r *pgStudyTourRepo) List() ([]domain.StudyTour, error) {
+	rows, err := r.pool.Query(context.Background(), `SELECT id,title,destination,duration,capacity,status,created_at,updated_at FROM study_tours ORDER BY created_at DESC`)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var out []domain.StudyTour
+	for rows.Next() {
+		var s domain.StudyTour
+		if err := rows.Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status, &s.CreatedAt, &s.UpdatedAt); err != nil { return nil, err }
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgStudyTourRepo) Update(s domain.StudyTour) (domain.StudyTour, error) {
+	s.UpdatedAt = time.Now()
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE study_tours SET title=$1,destination=$2,duration=$3,capacity=$4,status=$5,updated_at=$6 WHERE id=$7`,
+		s.Title, s.Destination, s.Duration, s.Capacity, s.Status, s.UpdatedAt, s.ID)
+	return s, err
+}
+
+func (r *pgStudyTourRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM study_tours WHERE id=$1`, id)
+	return err
+}
+
+// ---- Exhibition Repository ----
+
+type pgExhibitionRepo struct{ pool *pgxpool.Pool }
+
+func (s *Store) NewExhibitionRepository() repository.ExhibitionRepository { return &pgExhibitionRepo{pool: s.Pool()} }
+
+func (r *pgExhibitionRepo) Create(e domain.Exhibition) (domain.Exhibition, error) {
+	e.CreatedAt = time.Now(); e.UpdatedAt = e.CreatedAt
+	_, err := r.pool.Exec(context.Background(),
+		"INSERT INTO exhibitions (id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
+		e.ID, e.Title, e.Category, e.Description, e.Location, e.StartDate, e.EndDate, e.BoothCount, e.BoothPrice, e.Organizer, e.Status, e.CreatedAt, e.UpdatedAt)
+	return e, err
+}
+func (r *pgExhibitionRepo) FindByID(id string) (domain.Exhibition, error) {
+	var e domain.Exhibition
+	err := r.pool.QueryRow(context.Background(), "SELECT id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,status,created_at,updated_at FROM exhibitions WHERE id=$1", id).
+		Scan(&e.ID, &e.Title, &e.Category, &e.Description, &e.Location, &e.StartDate, &e.EndDate, &e.BoothCount, &e.BoothPrice, &e.Organizer, &e.Status, &e.CreatedAt, &e.UpdatedAt)
+	return e, err
+}
+func (r *pgExhibitionRepo) List(offset, limit int) ([]domain.Exhibition, int, error) {
+	var total int
+	r.pool.QueryRow(context.Background(), "SELECT count(*) FROM exhibitions").Scan(&total)
+	rows, _ := r.pool.Query(context.Background(), "SELECT id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,status,created_at,updated_at FROM exhibitions ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	if rows == nil { return nil, total, fmt.Errorf("exhibitions query failed") }
+	defer rows.Close()
+	var out []domain.Exhibition
+	for rows.Next() {
+		var e domain.Exhibition
+		rows.Scan(&e.ID, &e.Title, &e.Category, &e.Description, &e.Location, &e.StartDate, &e.EndDate, &e.BoothCount, &e.BoothPrice, &e.Organizer, &e.Status, &e.CreatedAt, &e.UpdatedAt)
+		out = append(out, e)
+	}
+	return out, total, rows.Err()
+}
+func (r *pgExhibitionRepo) Update(e domain.Exhibition) (domain.Exhibition, error) {
+	e.UpdatedAt = time.Now()
+	_, err := r.pool.Exec(context.Background(),
+		"UPDATE exhibitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,booth_count=$7,booth_price_fen=$8,organizer=$9,status=$10,updated_at=$11 WHERE id=$12",
+		e.Title, e.Category, e.Description, e.Location, e.StartDate, e.EndDate, e.BoothCount, e.BoothPrice, e.Organizer, e.Status, e.UpdatedAt, e.ID)
+	return e, err
+}
+func (r *pgExhibitionRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), "DELETE FROM exhibitions WHERE id=$1", id)
+	return err
+}
+func (r *pgExhibitionRepo) CreateBooth(b domain.ExhibitionBooth) (domain.ExhibitionBooth, error) { return b, nil }
+func (r *pgExhibitionRepo) ListBooths(id string) ([]domain.ExhibitionBooth, error) { return nil, nil }
+func (r *pgExhibitionRepo) UpdateBoothStatus(id, status string) (domain.ExhibitionBooth, error) { return domain.ExhibitionBooth{}, nil }
+
+
+// ── TestSite PG ──
+
+type pgTestSiteRepo struct{ pool *pgxpool.Pool }
+
+func (s *Store) NewTestSiteRepository() repository.TestSiteRepository { return &pgTestSiteRepo{pool: s.Pool()} }
+
+func (r *pgTestSiteRepo) Create(t domain.TestSite) (domain.TestSite, error) {
+	t.CreatedAt = time.Now(); t.UpdatedAt = t.CreatedAt
+	facJSON, _ := json.Marshal(t.Facilities)
+	_, err := r.pool.Exec(context.Background(),
+		`INSERT INTO test_sites (id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		t.ID, t.Name, t.SiteType, t.OwnerID, t.Location, t.BookingRule, t.Status, t.PriceFen, facJSON, t.CreatedAt, t.UpdatedAt)
+	return t, err
+}
+
+func (r *pgTestSiteRepo) FindByID(id string) (domain.TestSite, error) {
+	var t domain.TestSite; var fj []byte
+	err := r.pool.QueryRow(context.Background(),
+		`SELECT id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,created_at,updated_at FROM test_sites WHERE id=$1`, id).
+		Scan(&t.ID, &t.Name, &t.SiteType, &t.OwnerID, &t.Location, &t.BookingRule, &t.Status, &t.PriceFen, &fj, &t.CreatedAt, &t.UpdatedAt)
+	if err == nil { json.Unmarshal(fj, &t.Facilities) }
+	return t, err
+}
+
+func (r *pgTestSiteRepo) List(siteType string) ([]domain.TestSite, error) {
+	q := `SELECT id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,created_at,updated_at FROM test_sites`
+	args := []any{}
+	if siteType != "" { q += ` WHERE site_type=$1`; args = append(args, siteType) }
+	q += ` ORDER BY created_at DESC`
+	rows, err := r.pool.Query(context.Background(), q, args...)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var out []domain.TestSite
+	for rows.Next() {
+		var t domain.TestSite; var fj []byte
+		if err := rows.Scan(&t.ID, &t.Name, &t.SiteType, &t.OwnerID, &t.Location, &t.BookingRule, &t.Status, &t.PriceFen, &fj, &t.CreatedAt, &t.UpdatedAt); err != nil { return nil, err }
+		json.Unmarshal(fj, &t.Facilities)
+		out = append(out, t)
+	}
+	return out, nil
+}
+
+func (r *pgTestSiteRepo) UpdateSite(t domain.TestSite) (domain.TestSite, error) {
+	t.UpdatedAt = time.Now()
+	facJSON, _ := json.Marshal(t.Facilities)
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE test_sites SET name=$1,site_type=$2,location=$3,booking_rule=$4,status=$5,price_fen=$6,facilities=$7,updated_at=$8 WHERE id=$9`,
+		t.Name, t.SiteType, t.Location, t.BookingRule, t.Status, t.PriceFen, facJSON, t.UpdatedAt, t.ID)
+	return t, err
+}
+
+func (r *pgTestSiteRepo) DeleteSite(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM test_sites WHERE id=$1`, id)
+	return err
+}
+
+func (r *pgTestSiteRepo) CreateBooking(b domain.TestSiteBooking) (domain.TestSiteBooking, error) {
+    return b, fmt.Errorf("booking not implemented in PG")
+}
+func (r *pgTestSiteRepo) UpdateBookingStatus(id, status, note string) (domain.TestSiteBooking, error) {
+    return domain.TestSiteBooking{}, fmt.Errorf("update booking not implemented in PG")
+}
+func (r *pgTestSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, error) {
+    return nil, fmt.Errorf("list bookings not implemented in PG")
+}
+
+// ── Transformation PG ──
+
+type pgTransRepo struct{ pool *pgxpool.Pool }
+
+func (s *Store) NewTransformationRepository() repository.TransformationRepository { return &pgTransRepo{pool: s.Pool()} }
+
+func (r *pgTransRepo) Create(t domain.Transformation) (domain.Transformation, error) {
+    t.CreatedAt = time.Now(); t.UpdatedAt = t.CreatedAt
+    _, err := r.pool.Exec(context.Background(),
+        `INSERT INTO transformations (id,title,achievement_id,owner_id,progress,partner_id,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        t.ID, t.Title, t.AchievementID, t.OwnerID, t.Progress, t.PartnerID, t.Status, t.CreatedAt, t.UpdatedAt)
+    return t, err
+}
+
+func (r *pgTransRepo) FindByID(id string) (domain.Transformation, error) {
+    var t domain.Transformation
+    err := r.pool.QueryRow(context.Background(),
+        `SELECT id,title,achievement_id,owner_id,progress,partner_id,status,created_at,updated_at FROM transformations WHERE id=$1`, id).
+        Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.CreatedAt, &t.UpdatedAt)
+    return t, err
+}
+
+func (r *pgTransRepo) List(ownerID string) ([]domain.Transformation, error) {
+    q := `SELECT id,title,achievement_id,owner_id,progress,partner_id,status,created_at,updated_at FROM transformations`
+    args := []any{}
+    if ownerID != "" { q += ` WHERE owner_id=$1`; args = append(args, ownerID) }
+    q += ` ORDER BY created_at DESC`
+    rows, err := r.pool.Query(context.Background(), q, args...)
+    if err != nil { return nil, err }
+    defer rows.Close()
+    var out []domain.Transformation
+    for rows.Next() {
+        var t domain.Transformation
+        if err := rows.Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.CreatedAt, &t.UpdatedAt); err != nil { return nil, err }
+        out = append(out, t)
+    }
+    return out, nil
+}
+
+func (r *pgTransRepo) Update(t domain.Transformation) (domain.Transformation, error) {
+    t.UpdatedAt = time.Now()
+    _, err := r.pool.Exec(context.Background(),
+        `UPDATE transformations SET title=$1,achievement_id=$2,progress=$3,partner_id=$4,status=$5,updated_at=$6 WHERE id=$7`,
+        t.Title, t.AchievementID, t.Progress, t.PartnerID, t.Status, t.UpdatedAt, t.ID)
+    return t, err
+}
+
+func (r *pgTransRepo) Delete(id string) error {
+    _, err := r.pool.Exec(context.Background(), `DELETE FROM transformations WHERE id=$1`, id)
+    return err
 }

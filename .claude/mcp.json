@@ -4,6 +4,11 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@obra/superpowers"]
+    },
+    "figma": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "figma-context-mcp", "--figma-api-key", "YOUR_FIGMA_KEY", "--stdio"]
     }
   }
 }

@@ -280,6 +280,7 @@ type Job struct {
 	Title        string    `json:"title"`
 	Description  string    `json:"description"`
 	Location     string    `json:"location"`
+	JobType      string    `json:"job_type"`
 	SalaryFen    int64     `json:"salary_fen"`
 	Status       JobStatus `json:"status"`
 	Version      int       `json:"version"`

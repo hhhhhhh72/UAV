@@ -121,14 +121,22 @@ func (s *Server) createExpert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name, Title, Org, Field, Bio string
-		Tags                          []string `json:"tags"`
+		Name      string   `json:"name"`
+		Title     string   `json:"title"`
+		Org       string   `json:"org"`
+		Field     string   `json:"field"`
+		Bio       string   `json:"bio"`
+		AvatarURL string   `json:"avatar_url"`
+		Tags      []string `json:"tags"`
+		Status    string   `json:"status"`
+		CreatedAt string   `json:"created_at"`
+		UpdatedAt string   `json:"updated_at"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	e, err := s.expertSvc.Create(in.Name, in.Title, in.Org, in.Field, in.Bio, in.Tags)
+	e, err := s.expertSvc.Create(in.Name, in.Title, in.Org, in.Field, in.Bio, in.AvatarURL, in.Status, in.Tags)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -149,14 +157,23 @@ func (s *Server) updateExpert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name, Title, Org, Field, Bio string
-		Tags                          []string `json:"tags"`
+		ID        string   `json:"id"`
+		Name      string   `json:"name"`
+		Title     string   `json:"title"`
+		Org       string   `json:"org"`
+		Field     string   `json:"field"`
+		Bio       string   `json:"bio"`
+		AvatarURL string   `json:"avatar_url"`
+		Tags      []string `json:"tags"`
+		Status    string   `json:"status"`
+		CreatedAt string   `json:"created_at"`
+		UpdatedAt string   `json:"updated_at"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	e, err := s.expertSvc.Update(r.PathValue("id"), in.Name, in.Title, in.Org, in.Field, in.Bio, in.Tags)
+	e, err := s.expertSvc.Update(r.PathValue("id"), in.Name, in.Title, in.Org, in.Field, in.Bio, in.AvatarURL, in.Status, in.Tags)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -208,8 +225,12 @@ func (s *Server) createCase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Category, Description, ClientName, Result string
-		Images                                            []string `json:"images"`
+		Title       string   `json:"title"`
+		Category    string   `json:"category"`
+		Description string   `json:"description"`
+		ClientName  string   `json:"client_name"`
+		Result      string   `json:"result"`
+		Images      []string `json:"images"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -255,14 +276,19 @@ func (s *Server) updateCase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Category, Description, ClientName, Result string
-		Images                                            []string `json:"images"`
+		Title       string   `json:"title"`
+		Category    string   `json:"category"`
+		Description string   `json:"description"`
+		ClientName  string   `json:"client_name"`
+		Result      string   `json:"result"`
+		Status      string   `json:"status"`
+		Images      []string `json:"images"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.caseSvc.Update(r.PathValue("id"), in.Title, in.Category, in.Description, in.Images, in.ClientName, in.Result)
+	c, err := s.caseSvc.Update(r.PathValue("id"), in.Title, in.Category, in.Description, in.Status, in.Images, in.ClientName, in.Result)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -314,14 +340,21 @@ func (s *Server) createComplianceDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Category, Content, Summary, Source string
-		Tags                                       []string `json:"tags"`
+		ID          string   `json:"id"`
+		Title       string   `json:"title"`
+		Category    string   `json:"category"`
+		Publisher   string   `json:"publisher"`
+		PublishDate string   `json:"publish_date"`
+		Status      string   `json:"status"`
+		Summary     string   `json:"summary"`
+		FileURL     string   `json:"file_url"`
+		Tags        []string `json:"tags"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.complianceSvc.CreateDoc(in.Title, in.Category, in.Content, in.Summary, in.Source, in.Tags)
+	d, err := s.complianceSvc.CreateDoc(in.Title, in.Category, in.Publisher, in.PublishDate, in.Status, in.Summary, in.FileURL, in.Tags)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -353,15 +386,20 @@ func (s *Server) createComplianceStandard(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var in struct {
-		Title, StdNumber, Category, Version, Publisher, Content, FileURL string
-		IssueDate                                                         string `json:"issue_date"`
+		ID            string `json:"id"`
+		Title         string `json:"title"`
+		StandardNo    string `json:"standard_no"`
+		Publisher     string `json:"publisher"`
+		EffectiveDate string `json:"effective_date"`
+		Status        string `json:"status"`
+		Scope         string `json:"scope"`
+		FileURL       string `json:"file_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	issueDate, _ := time.Parse("2006-01-02", in.IssueDate)
-	sd, err := s.complianceSvc.CreateStandard(in.Title, in.StdNumber, in.Category, in.Version, in.Publisher, in.Content, in.FileURL, issueDate)
+	sd, err := s.complianceSvc.CreateStandard(in.Title, in.StandardNo, in.Publisher, in.EffectiveDate, in.Status, in.Scope, in.FileURL)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -490,7 +528,7 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name, LogoURL, CoverURL, Description, ContactInfo string
+		Name, LogoURL, CoverURL, Description, ContactInfo, Status string
 		Products []string `json:"products"`
 		Honors   []string `json:"honors"`
 	}
@@ -498,7 +536,7 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.portfolioSvc.Update(r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Products, in.Honors)
+	p, err := s.portfolioSvc.Update(r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Status, in.Products, in.Honors)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -602,7 +640,7 @@ func (s *Server) createRDChallenge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Field, Description, Deadline string
+		Title, Field, Description, Status, Deadline string
 		BudgetFen                           int64 `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
@@ -627,7 +665,7 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Field, Description, Deadline string
+		Title, Field, Description, Status, Deadline string
 		BudgetFen                           int64 `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
@@ -635,7 +673,7 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	deadline, _ := time.Parse("2006-01-02", in.Deadline)
-	ch, err := s.rdService.Update(r.PathValue("id"), in.Title, in.Field, in.Description, in.BudgetFen, deadline)
+	ch, err := s.rdService.Update(r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.BudgetFen, deadline)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -668,7 +706,7 @@ func (s *Server) createResearchProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Field, Description, LeadOrg, Milestones, StartDate, EndDate string
+		Title, Field, Description, Status, LeadOrg, Milestones, StartDate, EndDate string
 		Members                                                              []string `json:"members"`
 		BudgetFen                                                            int64    `json:"budget_fen"`
 	}
@@ -699,7 +737,7 @@ func (s *Server) updateResearchProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Field, Description, LeadOrg, Milestones, StartDate, EndDate string
+		Title, Field, Description, Status, LeadOrg, Milestones, StartDate, EndDate string
 		Members                                                              []string `json:"members"`
 		BudgetFen                                                            int64    `json:"budget_fen"`
 	}
@@ -709,7 +747,7 @@ func (s *Server) updateResearchProject(w http.ResponseWriter, r *http.Request) {
 	}
 	startDate, _ := time.Parse("2006-01-02", in.StartDate)
 	endDate, _ := time.Parse("2006-01-02", in.EndDate)
-	p, err := s.researchSvc.Update(r.PathValue("id"), in.Title, in.Field, in.Description, in.LeadOrg, in.Milestones, in.Members, in.BudgetFen, startDate, endDate)
+	p, err := s.researchSvc.Update(r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.LeadOrg, in.Milestones, in.Members, in.BudgetFen, startDate, endDate)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -832,8 +870,14 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Category, Description, Location, Sponsor, StartDate, EndDate string
-		MaxTeams                                                             int `json:"max_teams"`
+		Title       string `json:"title"`
+		Category    string `json:"category"`
+		Description string `json:"description"`
+		Location    string `json:"location"`
+		Sponsor     string `json:"sponsor"`
+		StartDate   string `json:"start_date"`
+		EndDate     string `json:"end_date"`
+		MaxTeams    int    `json:"max_teams"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -918,8 +962,14 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, EventType, Description, Location, CoverURL, StartTime, EndTime string
-		MaxAttendees                                                           int `json:"max_attendees"`
+		Title        string `json:"title"`
+		EventType    string `json:"event_type"`
+		Description  string `json:"description"`
+		Location     string `json:"location"`
+		CoverURL     string `json:"cover_url"`
+		StartTime    string `json:"start_time"`
+		EndTime      string `json:"end_time"`
+		MaxAttendees int    `json:"max_attendees"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -1070,8 +1120,12 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var in struct {
-		Name, ResType, Specs, Location, ContactInfo string
-		Quantity                                     int `json:"quantity"`
+		Name        string `json:"name"`
+		ResType     string `json:"res_type"`
+		Specs       string `json:"specs"`
+		Location    string `json:"location"`
+		ContactInfo string `json:"contact_info"`
+		Quantity    int    `json:"quantity"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)

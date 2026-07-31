@@ -98,3 +98,40 @@ func ParseTime(s string) time.Time {
 	}
 	return t
 }
+
+
+
+// Shop represents a marketplace shop/store.
+type Shop struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	OwnerID      string    `json:"owner_id"`
+	Description  string    `json:"description"`
+	LogoURL      string    `json:"logo_url"`
+	LicenseURL   string    `json:"license_url"`
+	AccountName  string    `json:"account_name"`
+	ContactPhone string    `json:"contact_phone"`
+	Address      string    `json:"address"`
+	IsMember     bool      `json:"is_member"`
+	Version      int       `json:"version"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// StudyTour is a study tour / research trip event.
+type StudyTour struct {
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Location    string    `json:"location"`
+	Destination string    `json:"destination"`
+	OrganizerID string    `json:"organizer_id"`
+	StartDate   time.Time `json:"start_date"`
+	EndDate     time.Time `json:"end_date"`
+	Duration    string    `json:"duration"`
+	Capacity    int       `json:"capacity"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}

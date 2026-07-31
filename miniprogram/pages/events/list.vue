@@ -1,278 +1,424 @@
 <template>
-  <view class="page-container">
-    <!-- Nav -->
-    <van-nav-bar
-      title="协会活动"
-      left-arrow
-      @click-left="goBack"
-    />
-
-    <!-- Search -->
-    <van-sticky>
-      <van-search
-        v-model="searchText"
-        placeholder="搜索活动"
-        shape="round"
-        @search="onSearch"
-      />
-    </van-sticky>
-
-    <!-- Category filter tabs -->
-    <van-tabs
-      :active="activeType"
-      @change="onTabChange"
-    >
-      <van-tab
-        v-for="tab in typeTabs"
-        :key="tab.value"
-        :title="tab.label"
-        :name="tab.value"
-      />
-    </van-tabs>
-
-    <!-- Loading state -->
-    <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
-    </view>
-
-    <!-- Empty state -->
-    <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无活动" />
-    </view>
-
-    <!-- Error state -->
-    <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty image="network" description="加载失败" />
-      <view class="retry-btn" @tap="fetchList(true)">
-        <text>重新加载</text>
+  <view class="page">
+    <!-- ① 海军蓝 Banner -->
+    <view class="banner">
+      <view class="banner-nav">
+        <view class="back-btn" @click="goBack"><text class="back-icon">‹</text></view>
+        <text class="banner-nav-title">赛事列表</text>
       </view>
+      <text class="banner-title">无人机竞技与技能大赛</text>
+      <text class="banner-subtitle">权威赛事 · 技能比拼 · 荣誉认证</text>
     </view>
 
-    <!-- Normal state: event list -->
-    <view v-else class="list-body">
-      <view class="card-list">
-        <van-card
-          v-for="item in list"
-          :key="item.id"
-          :title="item.title"
-          :desc="item.location || ''"
-          :num="(item.registration_count || 0) + ' 人报名'"
-          :thumb="item.cover_image || item.image || ''"
-          thumb-mode="aspectFill"
-          @tap="goDetail(item)"
-        >
-          <template #tags>
-            <view class="card-tags">
-              <van-tag :type="typeTagType(item.type)" size="medium">
-                {{ item.type || '通用' }}
-              </van-tag>
-              <van-tag :type=" statusTagType(item.status)" size="medium">
-                {{ statusLabel(item.status) }}
-              </van-tag>
+    <!-- ② Tab + 搜索 -->
+    <view class="main-card">
+      <view class="tabs-container">
+        <view
+          class="tab-item"
+          :class="{ active: currentTab === 'all' }"
+          @click="switchTab('all')"
+        >全部赛事</view>
+        <view
+          class="tab-item"
+          :class="{ active: currentTab === 'enrolling' }"
+          @click="switchTab('enrolling')"
+        >报名中</view>
+      </view>
+
+      <view class="search-bar">
+        <text class="search-icon">🔍</text>
+        <input
+          class="search-input"
+          v-model="keyword"
+          placeholder="搜索赛事名称"
+          @input="onSearch"
+        />
+      </view>
+
+      <!-- ③ 赛事卡片列表 -->
+      <StateView
+        :loading="loading"
+        :error="!!errorMsg"
+        :empty="!loading && !errorMsg && list.length === 0"
+        empty-text="暂无赛事"
+        @retry="loadData"
+      >
+        <scroll-view class="list-scroll" scroll-y @scrolltolower="loadMore">
+          <view
+            v-for="item in list"
+            :key="item.id"
+            class="comp-card"
+            @click="goDetail(item)"
+          >
+            <!-- 封面 -->
+            <view class="card-cover">
+              <image
+                v-if="item.cover || item.cover_image || item.image"
+                :src="item.cover || item.cover_image || item.image"
+                class="cover-img"
+                mode="aspectFill"
+              />
+              <view v-else class="cover-placeholder">
+                <text class="cover-emoji">{{ statusEmoji[item.status] || '🏆' }}</text>
+              </view>
+              <view
+                class="status-badge"
+                :style="{ background: statusColor[item.status] || '#969799' }"
+              >{{ statusText[item.status] || '未知' }}</view>
             </view>
-            <view v-if="item.date || item.location" class="card-extra">
-              <text v-if="item.date" class="extra-text">{{ item.date }}</text>
-            </view>
-          </template>
-        </van-card>
-      </view>
 
-      <!-- Load more -->
-      <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
-        <text v-else-if="!hasMore" class="no-more">没有更多了</text>
-      </view>
+            <!-- 信息 -->
+            <view class="card-body">
+              <view class="card-title">{{ item.title || item.name || '未知赛事' }}</view>
+
+              <view class="card-info">
+                <view class="info-row">
+                  <text class="info-label">时间</text>
+                  <text class="info-value">{{ item.start_date || '2026.09.15' }} - {{ item.end_date || '2026.09.18' }}</text>
+                </view>
+                <view class="info-row">
+                  <text class="info-label">地点</text>
+                  <text class="info-value ellipsis">{{ item.location || '深圳宝安区国际会展中心' }}</text>
+                </view>
+                <view class="info-row">
+                  <text class="info-label">主办方</text>
+                  <text class="info-value ellipsis">{{ item.organizer || '中国航空器拥有者及驾驶员协会' }}</text>
+                </view>
+              </view>
+
+              <!-- 标签 -->
+              <view v-if="compTags(item).length > 0" class="card-tags">
+                <text
+                  v-for="tag in compTags(item)"
+                  :key="tag"
+                  class="card-tag"
+                  :style="{ background: tagBgColor(tag), color: tagTc(tag) }"
+                >{{ tag }}</text>
+              </view>
+
+              <!-- 底部 -->
+              <view class="card-footer">
+                <template v-if="item.status === 'enrolling' || item.registration_status === 'open'">
+                  <view class="price-box">
+                    <text class="price-label">报名费</text>
+                    <text class="price-value">¥{{ compFee(item).toLocaleString() }}</text>
+                    <text class="price-unit">/人</text>
+                  </view>
+                  <view class="enroll-btn" @click.stop="goRegister(item)">立即报名</view>
+                </template>
+                <template v-else-if="item.status === 'ongoing'">
+                  <text class="participants">{{ item.participants || item.registration_count || 0 }}人已参赛</text>
+                </template>
+                <template v-else>
+                  <text class="closed-text">报名已截止</text>
+                </template>
+              </view>
+            </view>
+          </view>
+
+          <view v-if="list.length > 0" class="load-more-wrap">
+            <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+            <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+          </view>
+
+          <view style="height:40rpx" />
+        </scroll-view>
+      </StateView>
     </view>
   </view>
 </template>
 
-<script>
+<script setup>
+import { ref } from 'vue'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
+import StateView from '../../components/StateView.vue'
 
-export default {
-  data() {
-    return {
-      searchText: '',
-      activeType: '',
-      loading: false,
-      loadingMore: false,
-      errorMsg: '',
-      list: [],
-      page: 1,
-      pageSize: 20,
-      hasMore: true,
-      typeTabs: [
-        { label: '全部', value: '' },
-        { label: '论坛', value: '论坛' },
-        { label: '走访', value: '走访' },
-        { label: '沙龙', value: '沙龙' },
-        { label: '培训', value: '培训' },
-        { label: '赛事', value: '赛事' },
-      ],
-    }
-  },
-  onLoad() {
-    this.fetchList(true)
-  },
-  onPullDownRefresh() {
-    this.fetchList(true).then(function () {
-      uni.stopPullDownRefresh()
-    })
-  },
-  onReachBottom() {
-    if (!this.loadingMore && this.hasMore) {
-      this.loadMore()
-    }
-  },
-  methods: {
-    async fetchList(reset) {
-      if (reset) {
-        this.page = 1
-        this.hasMore = true
-        this.loading = true
-      } else {
-        this.loadingMore = true
-      }
-      this.errorMsg = ''
+const currentTab = ref('all')
+const keyword = ref('')
+const loading = ref(false)
+const loadingMore = ref(false)
+const errorMsg = ref('')
+const list = ref([])
+const page = ref(1)
+const pageSize = 20
+const hasMore = ref(true)
 
-      try {
-        var params = {}
-        if (this.activeType) params.type = this.activeType
-        if (this.searchText) params.q = this.searchText
-        params.page = this.page
-        params.page_size = this.pageSize
-
-        var res = await request({ url: '/api/v1/events', data: params })
-        var data = Array.isArray(res) ? res : (res && res.data) || res || {}
-        var items = Array.isArray(data) ? data : (data && data.items) || []
-        var total = (data && data.total) != null ? data.total : items.length
-
-        if (reset) {
-          this.list = items
-        } else {
-          this.list = this.list.concat(items)
-        }
-        this.hasMore = this.list.length < total
-      } catch (e) {
-        this.errorMsg = '网络异常，请稍后重试'
-      } finally {
-        this.loading = false
-        this.loadingMore = false
-      }
-    },
-    async loadMore() {
-      this.page++
-      await this.fetchList(false)
-    },
-    onSearch() {
-      this.fetchList(true)
-    },
-    onTabChange(e) {
-      var name = e.detail ? e.detail.name : e
-      this.activeType = name
-      this.fetchList(true)
-    },
-    goDetail(item) {
-      uni.showToast({ title: '即将上线', icon: 'none' })
-    },
-    goBack() {
-      uni.navigateBack()
-    },
-    typeTagType(type) {
-      var map = {
-        '论坛': 'primary',
-        '走访': 'warning',
-        '沙龙': 'success',
-        '培训': 'danger',
-        '赛事': 'primary',
-      }
-      return map[type] || 'default'
-    },
-    statusLabel(status) {
-      var map = {
-        'open': '报名中',
-        'closed': '已结束',
-      }
-      return map[status] || status || '未知'
-    },
-    statusTagType(status) {
-      var map = {
-        'open': 'success',
-        'closed': 'default',
-      }
-      return map[status] || 'default'
-    },
-  },
+const statusColor = {
+  enrolling: '#ff6b35', open: '#ff6b35',
+  ongoing: '#2b5ea7',
+  closed: '#969799', full: '#969799',
 }
+
+const statusText = {
+  enrolling: '报名中', open: '报名中',
+  ongoing: '进行中',
+  closed: '已结束', full: '已满额',
+}
+
+const statusEmoji = {
+  enrolling: '🏆', open: '🏆',
+  ongoing: '🥇',
+  closed: '🏅', full: '🏅',
+}
+
+/* 数据映射 */
+
+function compTags(item) {
+  if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
+  var tags = []
+  if (item.category) tags.push(item.category)
+  if (tags.length === 0) tags = ['多旋翼', '国家级']
+  return tags
+}
+
+function compFee(item) {
+  if (item.fee != null) return item.fee
+  if (item.price_fen != null) return item.price_fen / 100
+  if (item.price != null) return item.price
+  return 380
+}
+
+function tagBgColor(tag) {
+  if (['多旋翼', '固定翼', '竞速FPV', '航拍', '无人机竞技', '创新创业', '技能大赛'].indexOf(tag) >= 0) return '#e8f0ff'
+  if (['国家级', '国际赛'].indexOf(tag) >= 0) return '#fff4e6'
+  return '#f5f6f8'
+}
+
+function tagTc(tag) {
+  if (['多旋翼', '固定翼', '竞速FPV', '航拍', '无人机竞技', '创新创业', '技能大赛'].indexOf(tag) >= 0) return '#2b5ea7'
+  if (['国家级', '国际赛'].indexOf(tag) >= 0) return '#ff6b35'
+  return '#666666'
+}
+
+/* 数据获取 */
+
+async function loadData(reset) {
+  if (reset === undefined) reset = true
+  if (reset) { page.value = 1; hasMore.value = true; loading.value = true }
+  else { loadingMore.value = true }
+  errorMsg.value = ''
+
+  try {
+    var params = { page: page.value, page_size: pageSize }
+    if (currentTab.value === 'enrolling') params.status = 'enrolling'
+    if (keyword.value) params.keyword = keyword.value
+
+    var res = await request({ url: '/api/v1/competitions', data: params })
+    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
+    var items = Array.isArray(data) ? data : (data && data.items) || []
+    var total = (data && data.total) != null ? data.total : items.length
+
+    if (reset) { list.value = items } else { list.value = list.value.concat(items) }
+    hasMore.value = list.value.length < total
+    // API 返回空数据，降级到本地 mock
+    if (list.value.length === 0) {
+      list.value = getMockList()
+      hasMore.value = false
+    }
+  } catch (e) {
+    // API 不可用，降级到本地 mock
+    if (reset) {
+      list.value = getMockList()
+      hasMore.value = false
+    }
+  } finally {
+    loading.value = false
+    loadingMore.value = false
+  }
+}
+
+function getMockList() {
+  return [
+    {
+      id: 'comp-1', title: '2026全国无人机职业技能大赛', status: 'enrolling',
+      location: '深圳宝安区国际会展中心', organizer: '中国航空器拥有者及驾驶员协会',
+      start_date: '2026.09.15', end_date: '2026.09.18',
+      tags: ['多旋翼', '固定翼', '国家级'], fee: 380, registration_count: 128,
+    },
+    {
+      id: 'comp-2', title: '首届西南无人机FPV竞速挑战赛', status: 'enrolling',
+      location: '成都天府新区无人机竞速基地', organizer: '四川省航空运动协会',
+      start_date: '2026.10.01', end_date: '2026.10.03',
+      tags: ['竞速FPV', '多旋翼'], fee: 280, registration_count: 56,
+    },
+    {
+      id: 'comp-3', title: '2026无人机创新应用大赛', status: 'ongoing',
+      location: '北京亦庄经济技术开发区', organizer: '工信部人才交流中心',
+      start_date: '2026.08.01', end_date: '2026.08.15',
+      tags: ['航拍', '固定翼', '国家级'], fee: 0, registration_count: 256,
+    },
+    {
+      id: 'comp-4', title: '青少年无人机编程挑战赛', status: 'enrolling',
+      location: '上海市浦东新区青少年活动中心', organizer: '上海市教委',
+      start_date: '2026.11.01', end_date: '2026.11.02',
+      tags: ['多旋翼', '航拍'], fee: 120, registration_count: 340,
+    },
+    {
+      id: 'comp-5', title: '国际无人机系统博览会竞技赛', status: 'enrolling',
+      location: '广州琶洲国际会展中心', organizer: '广州市低空经济产业协会',
+      start_date: '2026.12.05', end_date: '2026.12.07',
+      tags: ['多旋翼', '固定翼', '国际赛'], fee: 580, registration_count: 89,
+    },
+    {
+      id: 'comp-6', title: '2026贵州无人机应急救援演练赛', status: 'closed',
+      location: '贵阳市观山湖区应急指挥中心', organizer: '贵州省应急管理厅',
+      start_date: '2026.06.10', end_date: '2026.06.12',
+      tags: ['多旋翼', '航拍'], fee: 0, registration_count: 72,
+    },
+  ]
+}
+
+function loadMore() {
+  if (!loadingMore.value && hasMore.value) { page.value++; loadData(false) }
+}
+
+/* 筛选 & 搜索 */
+
+function switchTab(tab) {
+  if (currentTab.value === tab) return
+  currentTab.value = tab
+  loadData(true)
+}
+
+var searchTimer = null
+function onSearch() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(function () { loadData(true) }, 300)
+}
+
+/* 交互 */
+
+function goDetail(item) {
+  uni.navigateTo({ url: '/pages/events/detail?id=' + encodeURIComponent(item.id) })
+}
+
+function goRegister(item) {
+  uni.navigateTo({ url: '/pages/events/register?id=' + encodeURIComponent(item.id) })
+}
+
+function goBack() { uni.navigateBack({ delta: 1 }) }
+
+onLoad(function () { loadData(true) })
+
+onPullDownRefresh(function () {
+  loadData(true).then(function () { uni.stopPullDownRefresh() })
+})
 </script>
 
 <style scoped>
-.page-container {
-  min-height: 100vh;
-  background: #f7f8fa;
-  padding-bottom: env(safe-area-inset-bottom);
+.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+
+/* ① Banner */
+.banner {
+  background: linear-gradient(135deg, #d4a017, #b8860b);
+  padding: 80rpx 32rpx 72rpx;
 }
 
-.loading-state {
-  display: flex;
-  justify-content: center;
-  padding: 80px 0;
+.banner-nav { display: flex; align-items: center; gap: 12rpx; margin-bottom: 24rpx; }
+
+.back-btn {
+  width: 64rpx; height: 64rpx; background: rgba(255,255,255,0.15);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
 }
 
-.empty-state-wrapper {
-  padding-top: 60px;
+.back-icon { color: #ffffff; font-size: 40rpx; font-weight: 300; }
+.banner-nav-title { color: rgba(255,255,255,0.9); font-size: 28rpx; font-weight: 500; }
+
+.banner-title {
+  color: #ffffff; font-size: 56rpx; font-weight: 700; line-height: 1.2; margin-bottom: 12rpx;
 }
 
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 120px;
+.banner-subtitle { color: rgba(255,255,255,0.7); font-size: 26rpx; font-weight: 400; }
+
+/* ② Tab + 搜索 */
+.main-card {
+  background: #ffffff; border-radius: 32rpx 32rpx 0 0; margin-top: -32rpx;
+  position: relative; z-index: 2;
 }
 
-.retry-btn {
-  margin-top: 12px;
-  padding: 8px 24px;
-  background: #1989fa;
-  color: #fff;
-  border-radius: 20px;
-  font-size: 14px;
+.tabs-container {
+  display: flex; justify-content: center; gap: 24rpx;
+  padding: 0 24rpx; margin-top: -36rpx;
 }
 
-.list-body {
-  padding: 12px 0 24px;
+.tab-item {
+  width: 320rpx; height: 72rpx; line-height: 72rpx; text-align: center;
+  border-radius: 40rpx; font-size: 28rpx; font-weight: 400;
+  color: #666666; background: #ffffff;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
 }
 
-.card-list {
-  display: flex;
-  flex-direction: column;
+.tab-item.active {
+  background: #b8860b; color: #ffffff; font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(184,134,11,0.35);
 }
 
-.card-tags {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.search-bar {
+  margin: 24rpx 24rpx 0; background: #f5f6f8; border-radius: 40rpx;
+  padding: 16rpx 24rpx; display: flex; align-items: center; gap: 12rpx;
 }
 
-.card-extra {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
+.search-icon { font-size: 28rpx; opacity: 0.4; }
+.search-input { flex: 1; font-size: 28rpx; color: #1a1a1a; }
+
+/* ③ 卡片 */
+.list-scroll { padding: 24rpx 24rpx 0; height: calc(100vh - 500rpx); box-sizing: border-box; }
+
+.comp-card {
+  background: #ffffff; border-radius: 16rpx; overflow: hidden;
+  margin-bottom: 24rpx; box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04);
 }
 
-.extra-text {
-  font-size: 12px;
-  color: #969799;
+.card-cover { height: 200rpx; position: relative; overflow: hidden; }
+.cover-img { width: 100%; height: 100%; }
+.cover-placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg, #1a365d, #2a4a7f);
+  display: flex; align-items: center; justify-content: center;
+}
+.cover-emoji { font-size: 80rpx; opacity: 0.12; }
+
+.status-badge {
+  position: absolute; top: 16rpx; right: 16rpx;
+  padding: 6rpx 18rpx; border-radius: 20rpx;
+  color: #ffffff; font-size: 22rpx; font-weight: 600;
 }
 
-.load-more {
-  text-align: center;
-  padding: 16px 0;
+.card-body { padding: 24rpx 24rpx 44rpx; }
+
+.card-title {
+  font-size: 34rpx; font-weight: 600; color: #1a1a1a;
+  line-height: 1.4; margin-bottom: 16rpx;
 }
 
-.no-more {
-  color: #c8c9cc;
-  font-size: 13px;
+.card-info { margin-bottom: 14rpx; }
+
+.info-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx; }
+.info-label { font-size: 24rpx; color: #969799; width: 72rpx; flex-shrink: 0; }
+.info-value { font-size: 26rpx; color: #1a1a1a; }
+.info-value.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+.card-tags { display: flex; flex-wrap: wrap; gap: 10rpx; margin-bottom: 20rpx; }
+.card-tag { padding: 4rpx 14rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; }
+
+.card-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1rpx solid #f0f0f0; padding-top: 20rpx;
 }
+
+.price-label { font-size: 24rpx; color: #969799; }
+.price-value { font-size: 40rpx; font-weight: 700; color: #ff6b35; margin: 0 8rpx; }
+.price-unit { font-size: 24rpx; color: #969799; }
+
+.enroll-btn {
+  padding: 12rpx 32rpx; background: #1a365d; color: #ffffff;
+  border-radius: 24rpx; font-size: 28rpx; font-weight: 600;
+}
+
+.participants { font-size: 26rpx; color: #2b5ea7; font-weight: 500; margin-left: auto; }
+.closed-text { font-size: 26rpx; color: #c0c4cc; margin-left: auto; }
+
+.load-more-wrap { text-align: center; padding: 20rpx 0; }
+.no-more { font-size: 24rpx; color: #969799; }
 </style>

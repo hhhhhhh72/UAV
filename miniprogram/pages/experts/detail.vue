@@ -179,7 +179,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #1989fa;
+  background: #0A66C2;
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -227,7 +227,7 @@ export default {
 
 .expert-title {
   font-size: 13px;
-  color: #1989fa;
+  color: #0A66C2;
   display: block;
 }
 
@@ -263,7 +263,7 @@ export default {
   color: #323233;
   margin-bottom: 10px;
   padding-left: 10px;
-  border-left: 3px solid #1989fa;
+  border-left: 3px solid #0A66C2;
 }
 
 .section-text {

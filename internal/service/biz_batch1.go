@@ -59,6 +59,14 @@ func (s *TestSiteService) List(siteType string) ([]domain.TestSite, error) {
 func (s *TestSiteService) Get(id string) (domain.TestSite, error) {
 	return s.repo.FindByID(id)
 }
+
+func (s *TestSiteService) UpdateSite(id, name, siteType, location, bookingRule, status string, priceFen int64, facilities []string) (domain.TestSite, error) {
+	site, err := s.repo.FindByID(id); if err != nil { return domain.TestSite{}, err }
+	site.Name = name; site.SiteType = siteType; site.Location = location; site.BookingRule = bookingRule; site.Status = status
+	site.PriceFen = priceFen; site.Facilities = facilities; site.UpdatedAt = time.Now()
+	return s.repo.UpdateSite(site)
+}
+
 func (s *TestSiteService) Book(siteID, userID, purpose string, startTime, endTime time.Time) (domain.TestSiteBooking, error) {
 	// Check conflicts
 	bookings, err := s.repo.ListBookings(siteID)
@@ -79,6 +87,8 @@ func (s *TestSiteService) ReviewBooking(bookingID, status, note string) (domain.
 func (s *TestSiteService) ListBookings(siteID string) ([]domain.TestSiteBooking, error) {
 	return s.repo.ListBookings(siteID)
 }
+
+func (s *TestSiteService) DeleteSite(id string) error { return s.repo.DeleteSite(id) }
 
 // ── Exhibition Service ──
 
@@ -102,6 +112,17 @@ func (s *ExhibitionService) List(page, pageSize int) ([]domain.Exhibition, int, 
 func (s *ExhibitionService) Get(id string) (domain.Exhibition, error) {
 	return s.repo.FindByID(id)
 }
+
+func (s *ExhibitionService) Update(id, title, category, description, location, organizer string, startDate, endDate time.Time, boothCount int, boothPrice int64, status string) (domain.Exhibition, error) {
+	e, err := s.repo.FindByID(id); if err != nil { return domain.Exhibition{}, err }
+	e.Title = title; e.Category = category; e.Description = description; e.Location = location; e.Organizer = organizer
+	e.StartDate = startDate; e.EndDate = endDate; e.BoothCount = boothCount; e.BoothPrice = boothPrice; e.Status = status
+	e.UpdatedAt = time.Now()
+	return s.repo.Update(e)
+}
+
+func (s *ExhibitionService) Delete(id string) error { return s.repo.Delete(id) }
+
 func (s *ExhibitionService) ApplyBooth(exhibitionID, exhibitorID, boothNumber, exhibitName, exhibitDesc string) (domain.ExhibitionBooth, error) {
 	b := domain.ExhibitionBooth{ID: fmt.Sprintf("exbk-%d", time.Now().UnixNano()),
 		ExhibitionID: exhibitionID, ExhibitorID: exhibitorID, BoothNumber: boothNumber,

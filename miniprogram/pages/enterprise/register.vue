@@ -344,7 +344,7 @@ export default {
 }
 
 .step-item.active .step-circle {
-  background: #1989fa;
+  background: #0A66C2;
   color: #fff;
 }
 
@@ -365,7 +365,7 @@ export default {
 }
 
 .step-item.active .step-label {
-  color: #1989fa;
+  color: #0A66C2;
   font-weight: 600;
 }
 

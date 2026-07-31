@@ -55,7 +55,7 @@
         </el-table-column>
         <el-table-column label="角色" width="90">
           <template #default="{ row }">
-            <el-tag :type="roleTagType(row.competitionRole)" size="small">{{ row.competitionRoleText || row.competitionRole || '-' }}</el-tag>
+            <el-tag :type="roleTagType(row.competitionRole)" size="small">{{ row.competitionRoleText || roleLabel[row.competitionRole] || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="联系电话" width="140">
@@ -100,7 +100,7 @@
           <el-descriptions-item :label="currentItem.competitionRole === 'club' ? '负责人' : '姓名'">
             {{ currentItem.name || currentItem.manager || '-' }}
           </el-descriptions-item>
-          <el-descriptions-item label="角色">{{ currentItem.competitionRoleText || currentItem.competitionRole || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="角色">{{ currentItem.competitionRoleText || roleLabel[currentItem.competitionRole] || '-' }}</el-descriptions-item>
           <el-descriptions-item v-if="currentItem.companyName" label="单位">{{ currentItem.companyName }}</el-descriptions-item>
           <el-descriptions-item label="电话">{{ currentItem.phone || currentItem.managerPhone || currentItem.contactPhone || '-' }}</el-descriptions-item>
           <el-descriptions-item label="报名时间">{{ formatDate(currentItem.createTime) }}</el-descriptions-item>
@@ -141,6 +141,7 @@ const statusOpts = [
 ]
 const statusTagType = (s) => ({ '已完成': 'success', '处理中': '', '待处理': 'warning' }[s] || 'info')
 const roleTagType = (r) => ({ athlete: '', coach: 'warning', referee: 'success', club: 'danger' }[r] || 'info')
+const roleLabel = { athlete: '运动员', coach: '教练员', referee: '裁判员', club: '俱乐部' }
 
 const formatDate = (d) => {
   if (!d) return '-'

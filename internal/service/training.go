@@ -50,6 +50,26 @@ func (s *TrainingService) ListAllCertificates() ([]domain.Certificate, error) {
 	return s.certRepo.ListAll()
 }
 
+func (s *TrainingService) GetCourse(id string) (domain.TrainingCourse, error) {
+	return s.courseRepo.FindByID(id)
+}
+
+func (s *TrainingService) GetCert(id string) (domain.Certificate, error) {
+	return s.certRepo.FindByID(id)
+}
+
+func (s *TrainingService) UpdateCertificate(id, certType, certNumber, level, issuer, status string, issueDate, expireDate time.Time) (domain.Certificate, error) {
+	c, err := s.certRepo.FindByID(id)
+	if err != nil { return domain.Certificate{}, err }
+	c.CertType = domain.CertType(certType); c.CertNumber = certNumber; c.Level = level; c.IssuerOrg = issuer
+	c.Status = status; c.IssueDate = issueDate; c.ExpireDate = expireDate
+	return s.certRepo.Update(c)
+}
+
+func (s *TrainingService) DeleteCertificate(id string) error {
+	return s.certRepo.Delete(id)
+}
+
 // ---- Courses ----
 
 func (s *TrainingService) CreateCourse(a domain.Actor, title string, certType domain.CertType, desc, location string, start, end time.Time, maxStudents int, priceFen int64) (domain.TrainingCourse, error) {
@@ -63,6 +83,18 @@ func (s *TrainingService) CreateCourse(a domain.Actor, title string, certType do
 
 func (s *TrainingService) ListCourses() ([]domain.TrainingCourse, error) {
 	return s.courseRepo.List()
+}
+
+func (s *TrainingService) UpdateCourse(id string, title, certType, desc, location string, start, end time.Time, maxStudents int, priceFen int64, status string) (domain.TrainingCourse, error) {
+	c, err := s.courseRepo.FindByID(id)
+	if err != nil { return domain.TrainingCourse{}, err }
+	c.Title = title; c.CertType = domain.CertType(certType); c.Description = desc; c.Location = location
+	c.StartDate = start; c.EndDate = end; c.MaxStudents = maxStudents; c.PriceFen = priceFen; c.Status = status
+	return s.courseRepo.Update(c)
+}
+
+func (s *TrainingService) DeleteCourse(id string) error {
+	return s.courseRepo.Delete(id)
 }
 
 // ---- Instructors ----

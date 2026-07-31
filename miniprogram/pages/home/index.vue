@@ -3,7 +3,7 @@
     <view class="home-page">
       <!-- 1. 蓝顶栏 + 搜索 -->
       <view class="top-bar" :style="{ paddingTop: (statusBarH || 24) + 'px' }">
-        <text class="top-loc" @tap="handleLocation">全国 ▼</text>
+        <text class="top-loc" @tap="showCityPicker=true">{{ city }} ▼</text>
         <view class="top-search" @tap="handleSearchClick">
           <text class="search-hint">大家都在搜：吊运项目</text>
           <text class="search-btn">搜索</text>
@@ -12,9 +12,10 @@
 
       <!-- 2. 轮播图 -->
       <view class="banner-box">
-        <swiper autoplay interval="5000" circular :current="activeBanner" @change="onBannerChange">
-          <swiper-item v-for="(b, i) in banners" :key="i"><image :src="b.image" mode="aspectFill" class="banner-img" /></swiper-item>
+        <swiper v-if="banners.length" autoplay interval="5000" circular :current="activeBanner" @change="onBannerChange">
+          <swiper-item v-for="(b, i) in banners" :key="i"><image :src="b.image_url || b.image" mode="aspectFill" class="banner-img" /></swiper-item>
         </swiper>
+        <image v-else src="/static/home-bg.jpg" mode="aspectFill" class="banner-img" />
         <view class="banner-dots">
           <view v-for="(b, i) in banners" :key="i" class="bd" :class="{ on: i === activeBanner }" />
         </view>
@@ -22,7 +23,7 @@
 
       <!-- 3. 数据条 -->
       <view class="stats-bar">
-        <text>📢 浏览：669万 ｜ 发布：848 ｜ 商家：105</text>
+        <text>🚁 设备 {{ stats.devices || 1280 }} 架 ｜ 👨‍✈️ 飞手 {{ stats.pilots || 3560 }} 人 ｜ 📋 任务 {{ stats.tasks || 48 }} 单</text>
         <text class="stats-help">帮助</text>
       </view>
 
@@ -51,124 +52,176 @@
         <view class="vouch v-green" @tap="navigateTo('/pages/mine/index')">
           <text class="vt">加入会员</text><text class="vs">更优惠</text>
         </view>
-        <view class="vouch v-orange" @tap="navigateTo('/pages/enterprise/register')">
-          <text class="vt">同城合伙人</text><text class="vs">加入合伙人</text>
+        <view class="vouch v-orange" @tap="navigateTo('/pages/challenges/list')">
+          <text class="vt">研发难题</text><text class="vs">难题广场</text>
         </view>
       </view>
 
-      <!-- 7. 本地商家 -->
-      <view class="shop-panel">
-        <view class="shop-head"><text class="shop-title">本地商家</text><text class="shop-more" @tap="navigateTo('/pages/shops/index')">全部 ></text></view>
+      <!-- 7. 入驻商家 -->
+      <view class="shop-panel" v-if="shops.length">
+        <view class="shop-head"><text class="shop-title">入驻商家</text><text class="shop-more" @tap="navigateTo('/pages/shops/index')">全部 ></text></view>
         <scroll-view scroll-x :show-scrollbar="false">
           <view class="shop-list">
             <view v-for="s in shops" :key="s.id" class="shop-item" @tap="navigateTo('/pages/services/detail?id=' + s.id)">
-              <image :src="s.logo || '/static/home-bg.jpg'" mode="aspectFill" class="shop-img" />
-              <text class="shop-name">{{ s.name }}</text>
-              <text class="shop-desc">{{ s.desc }}</text>
+              <image :src="s.logo_url || '/static/home-bg.jpg'" mode="aspectFill" class="shop-img" />
+              <text class="shop-name">{{ s.name || '商家' }}</text>
+              <text class="shop-desc">{{ s.description || '' }}</text>
             </view>
           </view>
         </scroll-view>
       </view>
 
-      <!-- 8. 需求信息流 -->
-      <view class="demand-panel">
-        <scroll-view scroll-x :show-scrollbar="false" class="demand-tabs">
-          <text v-for="t in demandCats" :key="t.id" class="dt" :class="{ on: activeCat === t.id }" @tap="switchCat(t.id)">{{ t.name }}</text>
-        </scroll-view>
-        <view v-for="(d, i) in demandList" :key="i" class="d-card" @tap="goDemand(d.id)">
-          <view class="d-head">
-            <view class="d-ava">{{ d.userName?.[0] || '?' }}</view>
-            <view class="d-user"><text class="d-name">{{ d.userName }}</text><text class="d-tag" v-if="d.tag">{{ d.tag }}</text></view>
-            <view class="d-call" @tap.stop="callTo(d.phone)">📞</view>
-          </view>
-          <text class="d-title">{{ d.title }}</text>
-          <text class="d-loc">📍 {{ d.location }}</text>
-          <text class="d-desc">{{ d.desc }}</text>
-          <view class="d-meta"><text>{{ d.views }}浏览</text><text>{{ d.time }}</text><text>♥ {{ d.likes }}</text></view>
+      <!-- 飞手任务 -->
+      <view class="tieba-panel">
+        <view class="tieba-head">
+          <text class="tieba-title">飞手任务</text>
+          <text class="tieba-more" @tap="switchTab('/pages/tasks/index')">更多 ›</text>
         </view>
-        <view v-if="!demandList.length" class="d-empty">暂无需求</view>
+        <scroll-view scroll-x :show-scrollbar="false" class="tieba-nav">
+          <text v-for="c in taskCats" :key="c.id" class="tieba-cat" :class="{on:activeTaskCat===c.id}" @tap="activeTaskCat=c.id">{{ c.name }}</text>
+        </scroll-view>
+        <view v-for="(t,i) in taskList" :key="i" class="tieba-post" @tap="navigateTo('/pages/tasks/detail?id=' + t.id)">
+          <view class="post-top">
+            <text class="post-title">{{ t.title || '无人机需求' }}</text>
+            <text class="post-detail-btn">详情</text>
+          </view>
+          <view class="post-tags">
+            <text class="post-tag"><text class="tag-key">货物类型</text>{{ t.biz_type || t.cargo_type || '树/木头' }}</text>
+            <text class="post-tag"><text class="tag-key">项目总量</text>{{ t.quantity || t.budget || '300吨' }}</text>
+            <text class="post-tag"><text class="tag-key">启动时间</text>{{ t.start_time || fmtTime(t.created_at) || '2026-07-29' }}</text>
+          </view>
+          <text class="post-desc">{{ (t.description || '暂无详细描述').slice(0, 120) }}</text>
+          <view class="post-imgs">
+            <image v-if="t.images && t.images.length" v-for="(img,ix) in t.images.slice(0,2)" :key="ix" :src="img" mode="aspectFill" class="img-fill" />
+            <image v-if="!t.images || !t.images.length" src="/static/home-bg.jpg" mode="aspectFill" class="img-fill" />
+            <image v-if="!t.images || t.images.length<2" src="/static/home-bg.jpg" mode="aspectFill" class="img-fill" />
+          </view>
+          <view class="post-loc">📍 {{ t.district || t.location || '重庆' }}</view>
+          <view class="post-foot">
+            <text>{{ t.views || 8575 }}浏览 · {{ fmtTime(t.created_at) || '3天前' }}</text>
+            <text class="foot-dots">⋯</text>
+          </view>
+        </view>
       </view>
     </view>
   </Layout>
+
+  <!-- 城市选择 -->
+  <van-popup :show="showCityPicker" position="bottom" round @close="showCityPicker=false" custom-style="height:75vh">
+    <scroll-view scroll-y style="height:100%;padding:24px 16px 36px;box-sizing:border-box">
+      <text class="city-title">选择区域</text>
+      <view class="city-grid">
+        <view v-for="d in allDistricts" :key="d" class="city-cell" :class="{on:city===d}" @tap="pickCity(d)">{{ d }}</view>
+      </view>
+    </scroll-view>
+  </van-popup>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted } from 'vue'
 import Layout from '@/components/Layout.vue'
 import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
 import { request } from '../../utils/request'
 
 const statusBarH = ref(24)
-const banners = ref([{ image: '/static/home-bg.jpg' }])
+const banners = ref([])
 const activeBanner = ref(0)
-const notices = ref(['飞行须知：保持安全高度', '无人机登记政策已更新', '欢迎加入同城合伙人'])
+const notices = ref([])
+const shops = ref([])
+const stats = ref({ demands: 0, shops: 0, users: 0, views: 0, devices: 0, pilots: 0, tasks: 0 })
+const taskCats = ref([
+  { id: '', name: '全部' }, { id: '吊运', name: '吊运' }, { id: '航拍', name: '航拍' },
+  { id: '植保', name: '植保' }, { id: '巡检', name: '巡检' }, { id: '测绘', name: '测绘' },
+  { id: '租赁', name: '租赁' }, { id: '培训', name: '培训' },
+])
+const activeTaskCat = ref('')
+const taskList = ref([])
+
+const fmtTime = (s) => {
+  try { const d = new Date(s); return (d.getMonth()+1)+'-'+d.getDate() } catch { return '' }
+}
+const badgeKey = (k) => ({ '吊运':'lift','航拍':'aerial','植保':'plant','巡检':'patrol','测绘':'survey','培训':'train','租赁':'rent' }[k] || '')
 
 const functions = ref([
-  { name: '吊运服务', icon: '/static/icons/lifting.svg', bg: 'linear-gradient(135deg,#e3f2fd,#bbdefb)', path: '/pages/demands/list' },
-  { name: '设备租赁', icon: '/static/icons/rent.svg', bg: 'linear-gradient(135deg,#fce4ec,#f8bbd0)', path: '/pages/demands/list' },
-  { name: '培训考证', icon: '/static/icons/training-v2.svg', bg: 'linear-gradient(135deg,#e8f5e9,#c8e6c9)', path: '/pages/training/courses' },
-  { name: '植保飞防', icon: '/static/icons/flight.svg', bg: 'linear-gradient(135deg,#fff3e0,#ffe0b2)', path: '/pages/demands/list' },
-  { name: '赛事活动', icon: '/static/icons/competition.svg', bg: 'linear-gradient(135deg,#ede7f6,#d1c4e9)', path: '/pages/competitions/list' },
-  { name: '维修保养', icon: '/static/icons/wrench.svg', bg: 'linear-gradient(135deg,#e0f2f1,#b2dfdb)', path: '/pages/demands/list' },
-  { name: '商家入驻', icon: '/static/icons/shop.svg', bg: 'linear-gradient(135deg,#fff8e1,#fff9c4)', path: '/pages/enterprise/register' },
-  { name: '金融服务', icon: '/static/icons/finance.svg', bg: 'linear-gradient(135deg,#f3e5f5,#e1bee7)', path: '/pages/demands/list' },
+  { name: '需求大厅', icon: '/static/icons/apps.svg', bg: 'linear-gradient(135deg,#e3f2fd,#90caf9)', path: '/pages/tasks/index' },
+  { name: '买卖租赁', icon: '/static/icons/rent.svg', bg: 'linear-gradient(135deg,#fce4ec,#f48fb1)', path: '/pages/demands/list' },
+  { name: '考证培训', icon: '/static/icons/training-v2.svg', bg: 'linear-gradient(135deg,#e8f5e9,#a5d6a7)', path: '/pages/training/courses' },
+  { name: '课题攻关', icon: '/static/icons/flight.svg', bg: 'linear-gradient(135deg,#e3f2fd,#42a5f5)', path: '/pages/projects/list' },
+  { name: '商家入驻', icon: '/static/icons/shop.svg', bg: 'linear-gradient(135deg,#fff8e1,#fff176)', path: '/pages/enterprise/register' },
+  { name: '求职招聘', icon: '/static/icons/service.svg', bg: 'linear-gradient(135deg,#e0f2f1,#80cbc4)', path: '/pages/jobs/list' },
+  { name: '成果转化', icon: '/static/icons/study-fpv.svg', bg: 'linear-gradient(135deg,#e8eaf6,#9fa8da)', path: '/pages/achievements/list' },
+  { name: '认证飞手', icon: '/static/icons/fpv-racing.svg', bg: 'linear-gradient(135deg,#fbe9e7,#ff8a65)', path: '/pages/pilots/list' },
+  { name: '政策法规', icon: '/static/icons/government.svg', bg: 'linear-gradient(135deg,#e0f7fa,#4dd0e1)', path: '/pages/policies/list' },
+  { name: '更多功能', icon: '/static/icons/apps.svg', bg: 'linear-gradient(135deg,#f5f5f5,#bdbdbd)', path: '/pages/more/index' },
 ])
 
-const shops = ref([
-  { id: '1', name: '大疆授权店', logo: '', desc: '无人机销售维修' },
-  { id: '2', name: '飞手之家', logo: '', desc: '航拍培训基地' },
-  { id: '3', name: '天行植保', logo: '', desc: '农业植保服务' },
-  { id: '4', name: '极飞科技', logo: '', desc: '智能农业方案' },
-])
-
-const demandCats = ref([
-  { id: '', name: '最新信息' }, { id: 'lift', name: '吊运独家' },
-  { id: 'trade', name: '买卖租赁' }, { id: 'training', name: '考证培训' }, { id: 'plant', name: '植保运输' },
-])
-const activeCat = ref('')
-const demandList = ref([])
-const loadDemands = async () => {
-  try {
-    const res = await request({ url: '/api/v1/demands', data: { biz_type: activeCat.value, page: 1, page_size: 10 } })
-    const data = Array.isArray(res) ? res : (res.data || [])
-    demandList.value = data.slice(0, 10).map(d => ({
-      id: d.id, userName: d.publisher_name || '匿名', tag: d.biz_type || '', title: d.title || '',
-      location: d.district || '', desc: (d.description || '').slice(0, 80),
-      views: 0, likes: 0, time: d.created_at ? new Date(d.created_at).toLocaleDateString() : '', phone: d.contact || ''
-    }))
-  } catch { demandList.value = [] }
-  if (!demandList.value.length) {
-    demandList.value = [
-      { id: '1', userName: '张飞行', tag: '吊运', title: '需要大疆T50运输化肥200亩', location: '山东省青岛市', desc: 'FC100型号3台，T10型号7台，共10台设备需运输到指定地点', views: 1592, likes: 12, time: '07-09 12:22', phone: '' },
-      { id: '2', userName: '李航拍', tag: '航拍', title: '婚庆航拍需要飞手', location: '广东省广州市', desc: '下周六婚礼现场航拍，熟练飞手一名，设备自带Mavic3', views: 834, likes: 8, time: '07-08 15:30', phone: '' },
-    ]
-  }
+const products = ref([])
+const formatPrice = (fen) => fen ? (fen / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+const productImage = (p) => {
+  try { const arr = typeof p.images === 'string' ? JSON.parse(p.images) : p.images; if (Array.isArray(arr) && arr[0]) return arr[0] } catch {}
+  return '/static/home-bg.jpg'
 }
-const switchCat = (id) => { activeCat.value = id; loadDemands() }
-const callTo = (p) => p && uni.makePhoneCall({ phoneNumber: p })
-const goDemand = (id) => id && safeNavigateTo('/pages/demands/detail?id=' + id)
+const tagClass = (c) => {
+  if (!c) return 'tag-default'
+  if (c.includes('官方')) return 'tag-official'
+  if (c.includes('95')) return 'tag-95'
+  if (c.includes('98')) return 'tag-98'
+  return 'tag-default'
+}
+
+const loadHome = async () => {
+  try {
+    const res = await request({ url: '/api/v1/home' })
+    const data = res.data || res
+    if (data.banners?.length) banners.value = data.banners
+    if (data.notices?.length) notices.value = data.notices.map(String)
+    if (data.shops?.length) shops.value = data.shops
+    if (data.products?.length) products.value = data.products
+    if (data.stats) stats.value = data.stats
+    if (data.latest_demands?.length) {
+      taskList.value = data.latest_demands.slice(0, 10).map(d => ({
+        id: d.id, publisher_name: d.publisher_name || d.publisher_id, biz_type: d.biz_type,
+        title: d.title || '', description: d.description || '', district: d.district || '',
+        replies: d.replies || 0, views: d.views || 8500, created_at: d.created_at,
+        contact: d.contact || '',
+        cargo_type: d.cargo_type || d.biz_type, quantity: d.quantity || '',
+        start_time: d.start_time || '', location: d.district || '',
+        images: []
+      }))
+    } else {
+      taskList.value = [
+        { id: '1', publisher_name: '小飞虹', biz_type: '吊运', title: '独立吊运业务  小飞虹独家项目目...', description: '重庆300吨柏木头，单件重量100-400内，吊运距离200-900米，100米高度，项目只给代理运营商和签约客户', district: '两江新区金山街道加工区八路', views: 8575, start_time: '2026-07-29 10:47', quantity: '300吨', cargo_type: '树/木头', images: [] },
+        { id: '2', publisher_name: '李航拍', biz_type: '航拍', title: '婚庆航拍  周六找飞手', description: '下周六婚礼现场航拍，熟练飞手一名，设备自带Mavic3', district: '南岸区江南体育馆', views: 834, start_time: '2026-07-28 14:00', quantity: '1单', cargo_type: '航拍服务', images: [] },
+      ]
+    }
+  } catch {}
+}
+const formatViews = (v) => v >= 10000 ? (v / 10000).toFixed(1) + '万' : String(v)
 
 onMounted(async () => {
   statusBarH.value = (uni.getSystemInfoSync().statusBarHeight || 24) + 6
-  try {
-    const cfg = (await request({ url: '/api/services/config' }))._home || {}
-    if (cfg.banners?.length) banners.value = cfg.banners.filter(b => b.image)
-    if (cfg.notices?.length) notices.value = cfg.notices.filter(Boolean)
-  } catch {}
-  loadDemands()
+  await loadHome()
 })
 
 const onBannerChange = (e) => { activeBanner.value = e.detail.current }
 const handleSearchClick = () => safeSwitchTab('/pages/services/index')
 const handleLocation = () => uni.showToast({ title: '城市选择开发中', icon: 'none' })
+
+const showCityPicker = ref(false)
+const city = ref('全重庆')
+
+const allDistricts = ['全重庆','渝中区','江北区','南岸区','沙坪坝区','九龙坡区','大渡口区','北碚区','渝北区','巴南区','两江新区','高新区','涪陵区','长寿区','江津区','合川区','永川区','南川区','綦江区','大足区','璧山区','铜梁区','潼南区','荣昌区','开州区','梁平区','武隆区','万州区','黔江区','城口县','丰都县','垫江县','忠县','云阳县','奉节县','巫山县','巫溪县','石柱县','秀山县','酉阳县','彭水县']
+const pickCity = (d) => { city.value = d; showCityPicker.value = false }
+
 const handleFunc = (f) => safeNavigateTo(f.path)
 const navigateTo = (p) => safeNavigateTo(p)
+const switchTab = (p) => safeSwitchTab(p)
 </script>
 
 <style scoped>
 .home-page { min-height: 100vh; background: #f2f5f7; padding-bottom: 20px; }
 
-.top-bar { display: flex; align-items: center; gap: 10px; padding: 0 14px 10px; background: #1989fa; }
+.top-bar { display: flex; align-items: center; gap: 10px; padding: 0 14px 10px; background: #0A66C2; }
 .top-loc { color: #fff; font-size: 15px; font-weight: 600; white-space: nowrap; }
 .top-search { flex: 1; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.2); border-radius: 20px; padding: 8px 14px; }
 .search-hint { font-size: 13px; color: rgba(255,255,255,0.6); }
@@ -182,50 +235,108 @@ const navigateTo = (p) => safeNavigateTo(p)
 .bd.on { background: #fff; }
 
 .stats-bar { display: flex; justify-content: space-between; padding: 10px 14px; background: #fff; font-size: 12px; color: #666; border-bottom: 1px solid #eee; }
-.stats-help { color: #1989fa; font-weight: 500; }
+.stats-help { color: #0A66C2; font-weight: 500; }
 
-.func-panel { background: #fff; padding: 16px 14px; }
-.func-grid { display: grid; grid-template-columns: repeat(4, 1fr); row-gap: 18px; text-align: center; }
-.func-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.func-icon { width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
-.func-name { font-size: 12px; color: #333; }
+.func-panel { background: #fff; padding: 14px 10px; }
+.func-grid { display: grid; grid-template-columns: repeat(5, 1fr); row-gap: 16px; text-align: center; }
+.func-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.func-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.func-name { font-size: 11px; color: #333; }
 
 .notice-bar { display: flex; align-items: center; gap: 8px; margin: 8px 12px; background: #fff; border-radius: 10px; padding: 8px 14px; }
 .notice-tag { font-size: 13px; color: #ff6b35; font-weight: 600; }
 .notice-text { font-size: 12px; color: #666; line-height: 22px; }
 
-.vouch-row { display: flex; gap: 10px; margin: 8px 12px; }
-.vouch { flex: 1; padding: 14px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px; }
+.vouch-row { display: flex; gap: 8px; margin: 6px 12px; }
+.vouch { flex: 1; padding: 10px; border-radius: 10px; display: flex; flex-direction: column; gap: 2px; }
 .v-green { background: linear-gradient(135deg,#e8f8ee,#d4f2e2); }
 .v-orange { background: linear-gradient(135deg,#fff3e8,#ffe8d4); }
 .vt { font-size: 15px; font-weight: 600; color: #333; }
 .vs { font-size: 11px; color: #999; }
 
-.shop-panel { margin: 8px 12px; background: #fff; border-radius: 12px; padding: 16px; }
-.shop-head { display: flex; justify-content: space-between; margin-bottom: 14px; }
-.shop-title { font-size: 16px; font-weight: 600; }
-.shop-more { font-size: 13px; color: #999; }
-.shop-list { display: flex; gap: 12px; white-space: nowrap; }
-.shop-item { width: 100px; text-align: center; }
-.shop-img { width: 80px; height: 80px; border-radius: 12px; margin: 0 auto 8px; background: #e8f2fc; display: block; }
-.shop-name { font-size: 13px; font-weight: 500; color: #333; display: block; }
-.shop-desc { font-size: 11px; color: #999; }
+.shop-panel { margin: 6px 12px; background: #fff; border-radius: 10px; padding: 8px 12px; }
+.shop-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.shop-title { font-size: 14px; font-weight: 600; }
+.shop-more { font-size: 12px; color: #999; }
+.shop-list { display: flex; gap: 10px; white-space: nowrap; }
+.shop-item { width: 72px; text-align: center; }
+.shop-img { width: 56px; height: 56px; border-radius: 10px; margin: 0 auto 6px; background: #e8f2fc; display: block; }
+.shop-name { font-size: 12px; font-weight: 500; color: #333; display: block; }
+.shop-desc { font-size: 10px; color: #999; }
+
+/* 配件商城 2列 */
+.mall-panel { margin: 8px 12px; background: #fff; border-radius: 12px; padding: 14px 12px; }
+.mall-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; padding: 0 2px; }
+.mall-title-row { display: flex; align-items: baseline; gap: 6px; }
+.mall-title { font-size: 17px; font-weight: 700; color: #1a1a1a; }
+.mall-sub { font-size: 11px; color: #ff6b35; background: #fff3e8; padding: 2px 6px; border-radius: 4px; }
+.mall-more { font-size: 12px; color: #999; }
+.mall-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mall-card { background: #fff; border-radius: 10px; overflow: hidden; border: 1px solid #f0f0f0; }
+.mall-img-wrap { position: relative; width: 100%; aspect-ratio: 1; background: linear-gradient(135deg,#f5f7fa,#e8eef5); display: flex; align-items: center; justify-content: center; }
+.mall-img { width: 100%; height: 100%; display: block; }
+.mall-icon { position: absolute; font-size: 40px; opacity: .35; }
+.mall-tag { position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; color: #fff; z-index: 1; }
+.tag-official { background: linear-gradient(135deg,#34c759,#28a745); }
+.tag-95 { background: linear-gradient(135deg,#ff9500,#ff6b00); }
+.tag-98 { background: linear-gradient(135deg,#ff3b30,#dc2626); }
+.tag-default { background: linear-gradient(135deg,#8e8e93,#636366); }
+.mall-brand { position: absolute; top: 6px; right: 6px; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.6); color: #fff; z-index: 1; }
+.mall-body { padding: 8px; }
+.mall-name { font-size: 13px; font-weight: 600; color: #1a1a1a; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; height: 34px; }
+.mall-tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0; }
+.mall-badge { font-size: 9px; padding: 1px 4px; border-radius: 3px; color: #666; background: #f5f5f5; }
+.mall-badge.brand { background: #fff3e8; color: #ff6b35; }
+.mall-badge.used { background: #f0f9ff; color: #0A66C2; }
+.mall-badge.type { background: #f5f0ff; color: #8b5cf6; }
+.mall-meta { display: flex; justify-content: space-between; font-size: 10px; color: #999; margin: 4px 0; }
+.mall-price { font-size: 16px; font-weight: 700; color: #ff3b30; line-height: 1.2; }
 
 .demand-panel { margin: 8px 12px; background: #fff; border-radius: 12px; padding: 14px; }
 .demand-tabs { display: flex; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 8px; white-space: nowrap; }
 .dt { font-size: 14px; color: #666; flex-shrink: 0; }
-.dt.on { color: #1989fa; font-weight: 600; }
+.dt.on { color: #0A66C2; font-weight: 600; }
 .d-card { padding: 14px 0; border-bottom: 1px solid #f0f0f0; }
 .d-card:last-child { border-bottom: none; padding-bottom: 4px; }
 .d-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.d-ava { width: 36px; height: 36px; border-radius: 50%; background: #e8f2fc; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #1989fa; }
+.d-ava { width: 36px; height: 36px; border-radius: 50%; background: #e8f2fc; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #0A66C2; }
 .d-user { flex: 1; }
 .d-name { font-size: 13px; font-weight: 500; }
 .d-tag { font-size: 11px; color: #ff6b35; margin-left: 8px; }
 .d-call { width: 48px; height: 28px; border-radius: 14px; background: #ff6b35; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; }
 .d-title { font-size: 16px; font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 6px; }
-.d-loc { font-size: 12px; color: #1989fa; display: block; margin-bottom: 6px; }
+.d-loc { font-size: 12px; color: #0A66C2; display: block; margin-bottom: 6px; }
 .d-desc { font-size: 13px; color: #666; line-height: 1.5; display: block; margin-bottom: 10px; }
 .d-meta { display: flex; gap: 12px; font-size: 11px; color: #999; }
 .d-empty { text-align: center; padding: 30px 0; color: #999; font-size: 14px; }
+.mall-desc { font-size: 11px; color: #999; display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mall-sold { font-size: 10px; color: #999; }
+
+/* 贴吧风格任务 */
+.tieba-panel { margin: 6px 0; background: #fff; border-radius: 0; padding: 10px 14px 0; }
+.tieba-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.tieba-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+.tieba-more { font-size: 12px; color: #999; }
+.tieba-nav { display: flex; gap: 0; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+.tieba-cat { font-size: 13px; color: #666; padding: 4px 12px; flex-shrink: 0; }
+.tieba-cat.on { color: #0A66C2; font-weight: 600; border-bottom: 2px solid #0A66C2; }
+.tieba-post { padding: 12px 0; border-bottom: 1px solid #f5f5f5; }
+.tieba-post:last-child { border: none; padding-bottom: 4px; }
+.post-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.post-title { font-size: 14px; font-weight: 600; color: #1a1a1a; flex: 1; padding-right: 6px; }
+.post-detail-btn { font-size: 11px; color: #0A66C2; padding: 2px 8px; border: 1px solid #0A66C2; border-radius: 3px; flex-shrink: 0; }
+.post-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.post-tag { font-size: 11px; background: #fff8e1; color: #f57c00; padding: 2px 8px; border-radius: 3px; font-weight: 500; }
+.tag-key { color: #e65100; font-weight: 600; margin-right: 2px; }
+.post-desc { font-size: 13px; color: #666; line-height: 1.5; display: block; margin: 6px 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.post-imgs { display: flex; gap: 6px; margin: 6px 0; }
+.img-fill { width: 80px; height: 80px; border-radius: 4px; background: #f5f5f5; display: block; }
+.post-loc { font-size: 12px; color: #0A66C2; display: flex; align-items: center; gap: 3px; margin: 2px 0 4px; }
+.post-foot { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #999; }
+.foot-dots { font-size: 18px; color: #ccc; letter-spacing: -2px; }
+
+.city-title { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 20px; color: #1a1a1a; }
+.city-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.city-cell { padding: 8px 18px; background: #f5f5f7; border-radius: 20px; font-size: 13px; color: #333; text-align: center; }
+.city-cell.on { background: #0288d1; color: #fff; font-weight: 600; }
 </style>

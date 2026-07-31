@@ -247,7 +247,7 @@ const previewMedia = (url) => {
 .play-icon-text { font-size: 32px; color: #fff; }
 
 .type-tag { position: absolute; top: 12px; right: 12px; padding: 2px 8px; background: rgba(255, 255, 255, 0.9); border-radius: 4px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-.type-tag.video { color: #1989fa; }
+.type-tag.video { color: #0A66C2; }
 .type-tag.image { color: #07c160; }
 
 .case-info { padding: 16px; }

@@ -67,7 +67,7 @@ func TestPG_ComplianceRepo(t *testing.T) {
 	r.UpdateDoc(domain.ComplianceDoc{ID: id, Title: "updated", Category: "regulation", Status: "published"})
 	r.DeleteDoc(id)
 	stdID := uid("std")
-	r.CreateStandard(domain.StandardDoc{ID: stdID, Title: "标准", StdNumber: "T/CDA-001", Version: "1.0", Status: "draft"})
+	r.CreateStandard(domain.StandardDoc{ID: stdID, Title: "标准", StandardNo: "T/CDA-001", Status: "draft"})
 	r.ListStandards("", 0, 20)
 }
 

@@ -114,6 +114,25 @@
         </el-descriptions>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="formVisible" :title="formEdit?'编辑场地':'新增场地'" width="560px" @close="resetForm">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="场地名称"><el-input v-model="form.name" /></el-form-item>
+        <el-form-item label="地点"><el-input v-model="form.location" /></el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="form.site_type" style="width:100%">
+            <el-option label="飞行场地" value="flying_field" /><el-option label="实验室" value="lab" /><el-option label="室内场地" value="indoor" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="form.status" style="width:100%">
+            <el-option label="可用" value="available" /><el-option label="维护中" value="maintenance" /><el-option label="已关闭" value="closed" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">确定</el-button></template>
+    </el-dialog>
   </div>
 </template>
 

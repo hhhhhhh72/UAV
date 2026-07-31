@@ -29,6 +29,12 @@ func (r *transRepo) Update(t domain.Transformation) (domain.Transformation, erro
 	return domain.Transformation{}, fmt.Errorf("not found")
 }
 
+func (r *transRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("not found")
+}
+
 type collegeRepo struct{ mu sync.RWMutex; items []domain.College }
 func NewCollegeRepository() repository.CollegeRepository { return &collegeRepo{} }
 func (r *collegeRepo) Create(c domain.College) (domain.College, error) { r.mu.Lock(); defer r.mu.Unlock(); r.items = append(r.items, c); return c, nil }
@@ -42,6 +48,44 @@ func (r *collegeRepo) List(region string) ([]domain.College, error) {
 	out := make([]domain.College, 0)
 	for _, c := range r.items { if region == "" || c.Region == region { out = append(out, c) } }
 	return out, nil
+}
+
+func (r *collegeRepo) Update(c domain.College) (domain.College, error) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i, v := range r.items { if v.ID == c.ID { r.items[i] = c; return c, nil } }
+	return domain.College{}, fmt.Errorf("college %s not found", c.ID)
+}
+
+func (r *collegeRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("college %s not found", id)
+}
+
+// ---- StudyTour ----
+
+type studyTourRepo struct{ mu sync.RWMutex; items []domain.StudyTour }
+
+func NewStudyTourRepository() repository.StudyTourRepository { return &studyTourRepo{} }
+func (r *studyTourRepo) Create(s domain.StudyTour) (domain.StudyTour, error) { r.mu.Lock(); defer r.mu.Unlock(); r.items = append(r.items, s); return s, nil }
+func (r *studyTourRepo) FindByID(id string) (domain.StudyTour, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	for _, s := range r.items { if s.ID == id { return s, nil } }
+	return domain.StudyTour{}, fmt.Errorf("study %s not found", id)
+}
+func (r *studyTourRepo) List() ([]domain.StudyTour, error) {
+	r.mu.RLock(); defer r.mu.RUnlock()
+	return append([]domain.StudyTour(nil), r.items...), nil
+}
+func (r *studyTourRepo) Update(s domain.StudyTour) (domain.StudyTour, error) {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i, v := range r.items { if v.ID == s.ID { r.items[i] = s; return s, nil } }
+	return domain.StudyTour{}, fmt.Errorf("study %s not found", s.ID)
+}
+func (r *studyTourRepo) Delete(id string) error {
+	r.mu.Lock(); defer r.mu.Unlock()
+	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	return fmt.Errorf("study %s not found", id)
 }
 
 type coopRepo struct{ mu sync.RWMutex; items []domain.CooperationProgram }

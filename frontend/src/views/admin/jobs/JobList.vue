@@ -41,7 +41,7 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel[row.status] || row.status || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -70,7 +70,7 @@
             <el-tag :type="jobTypeTag(currentItem.job_type)" size="small">{{ currentItem.job_type || '-' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="statusTag(currentItem.status)" size="small">{{ currentItem.status || '-' }}</el-tag>
+            <el-tag :type="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="发布时间">{{ formatDate(currentItem.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
@@ -119,7 +119,7 @@ const formatDate = (d) => {
 
 const jobTypeTag = (t) => ({ '全职': '', '兼职': 'warning', '实习': 'info', 'contract': 'info' }[t] || 'info')
 
-const statusTag = (s) => ({ 'active': 'success', 'closed': 'info' }[s] || 'info')
+const statusTag = (s) => ({ 'active': 'success', 'closed': 'info' }[s] || 'info'); const statusLabel = { active:'招聘中', closed:'已关闭' }
 
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSelectChange, resetParams } = useListRequest({
   apiFunction: api.list,
