@@ -58,7 +58,7 @@ const fetchMessages = async () => {
     const list = res?.data || res || []
     messages.value = Array.isArray(list) ? list : []
   } catch (e) {
-    console.warn('Failed to load messages:', e)
+    // silent fail
     messages.value = []
   } finally {
     loading.value = false

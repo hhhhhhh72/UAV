@@ -189,7 +189,7 @@ const handleUserClick = () => {
   }
 }
 const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' })
-const goApplications = () => uni.switchTab({ url: '/pages/applications/index' })
+const goApplications = () => uni.navigateTo({ url: '/pages/applications/index' })
 const goCases = () => uni.navigateTo({ url: '/pages/cases/index' })
 const goProfile = () => {
   if (!user.value) {
@@ -273,7 +273,7 @@ const handleLogout = () => {
     success: async (res) => {
       if (res.confirm) {
         try {
-          await request({ url: '/api/auth/logout', method: 'POST' })
+          await request({ url: '/api/v1/auth/logout', method: 'POST' })
         } catch (e) { /* ignore */ }
         authStorage.clearTokens()
         uni.removeStorageSync('user')

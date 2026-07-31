@@ -629,7 +629,7 @@ const handleSubmit = async () => {
       showCancel: false,
       confirmText: '查看我的申请',
       success: () => {
-        uni.switchTab({ url: '/pages/applications/index' })
+        uni.navigateTo({ url: '/pages/applications/index' })
       }
     })
   } catch (error) {
@@ -644,7 +644,7 @@ const handleSubmit = async () => {
       showCancel: false,
       confirmText: '查看我的申请',
       success: () => {
-        uni.switchTab({ url: '/pages/applications/index' })
+        uni.navigateTo({ url: '/pages/applications/index' })
       }
     })
   }

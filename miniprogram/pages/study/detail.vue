@@ -223,7 +223,7 @@ onLoad(async (options) => {
       studyShowcase.value = config.studyShowcase
     }
   } catch (e) {
-    console.warn('加载配置失败:', e)
+    // silent fail
   }
 
   if (pkg.value) {

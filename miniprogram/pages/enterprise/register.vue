@@ -266,7 +266,7 @@ export default {
           uni.showLoading({ title: '上传中...' })
           var uploadRes = await new Promise(function (resolve, reject) {
             uni.uploadFile({
-              url: 'http://localhost:8080/api/v1/upload',
+              url: 'http://localhost:8080/api/v1/files/upload',
               filePath: self.licenseUrl,
               name: 'file',
               success: function (r) {

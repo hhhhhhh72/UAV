@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -647,7 +648,11 @@ func (s *Server) createRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	deadline, _ := time.Parse("2006-01-02", in.Deadline)
+	deadline, err := time.Parse("2006-01-02", in.Deadline)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
+		return
+	}
 	ch, err := s.rdService.Create(a.ID, in.Title, in.Field, in.Description, in.BudgetFen, deadline)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -672,7 +677,11 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	deadline, _ := time.Parse("2006-01-02", in.Deadline)
+	deadline, err := time.Parse("2006-01-02", in.Deadline)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
+		return
+	}
 	ch, err := s.rdService.Update(r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.BudgetFen, deadline)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
@@ -714,8 +723,16 @@ func (s *Server) createResearchProject(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startDate, _ := time.Parse("2006-01-02", in.StartDate)
-	endDate, _ := time.Parse("2006-01-02", in.EndDate)
+	startDate, err := time.Parse("2006-01-02", in.StartDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始日期格式: %w", err))
+		return
+	}
+	endDate, err := time.Parse("2006-01-02", in.EndDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
+		return
+	}
 	p, err := s.researchSvc.Create(in.Title, in.Field, in.Description, in.LeadOrg, in.Milestones, in.Members, in.BudgetFen, startDate, endDate)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -745,8 +762,16 @@ func (s *Server) updateResearchProject(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startDate, _ := time.Parse("2006-01-02", in.StartDate)
-	endDate, _ := time.Parse("2006-01-02", in.EndDate)
+	startDate, err := time.Parse("2006-01-02", in.StartDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始日期格式: %w", err))
+		return
+	}
+	endDate, err := time.Parse("2006-01-02", in.EndDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
+		return
+	}
 	p, err := s.researchSvc.Update(r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.LeadOrg, in.Milestones, in.Members, in.BudgetFen, startDate, endDate)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
@@ -883,8 +908,16 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startDate, _ := time.Parse("2006-01-02", in.StartDate)
-	endDate, _ := time.Parse("2006-01-02", in.EndDate)
+	startDate, err := time.Parse("2006-01-02", in.StartDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始日期格式: %w", err))
+		return
+	}
+	endDate, err := time.Parse("2006-01-02", in.EndDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
+		return
+	}
 	c, err := s.competitionSvc.Create(in.Title, in.Category, in.Description, in.Location, in.Sponsor, startDate, endDate, in.MaxTeams)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -975,8 +1008,16 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startTime, _ := time.Parse("2006-01-02T15:04", in.StartTime)
-	endTime, _ := time.Parse("2006-01-02T15:04", in.EndTime)
+	startTime, err := time.Parse("2006-01-02T15:04", in.StartTime)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始时间格式: %w", err))
+		return
+	}
+	endTime, err := time.Parse("2006-01-02T15:04", in.EndTime)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
+		return
+	}
 	ev, err := s.eventSvc.Create(in.Title, in.EventType, in.Description, in.Location, in.CoverURL, startTime, endTime, in.MaxAttendees)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -1178,8 +1219,16 @@ func (s *Server) createEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startTime, _ := time.Parse("2006-01-02T15:04", in.StartTime)
-	endTime, _ := time.Parse("2006-01-02T15:04", in.EndTime)
+	startTime, err := time.Parse("2006-01-02T15:04", in.StartTime)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始时间格式: %w", err))
+		return
+	}
+	endTime, err := time.Parse("2006-01-02T15:04", in.EndTime)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
+		return
+	}
 	d, err := s.emergencySvc.CreateDispatch(in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, startTime, endTime)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)

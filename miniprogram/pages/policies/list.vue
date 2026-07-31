@@ -25,7 +25,7 @@ const searchText = ref('')
 const list = ref([])
 const goBack = () => uni.navigateBack()
 const onSearch = () => fetchData()
-const goDetail = (item) => uni.navigateTo({ url: `/pages/compliance/knowledge` })
+const goDetail = (item) => uni.navigateTo({ url: '/pages/compliance/knowledge?id=' + item.id })
 
 const fetchData = async () => {
   try {

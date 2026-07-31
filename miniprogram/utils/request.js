@@ -39,7 +39,7 @@ async function refreshAccessToken() {
 
   const res = await new Promise((resolve, reject) => {
     uni.request({
-      url: BASE_URL + '/api/auth/refresh',
+      url: BASE_URL + '/api/v1/auth/refresh',
       method: 'POST',
       data: { refreshToken },
       success: (r) => {
@@ -135,7 +135,6 @@ export function request(options) {
         }
       },
       fail: (err) => {
-        console.warn('API Request Fail:', options.url, err)
         reject(err)
       }
     })

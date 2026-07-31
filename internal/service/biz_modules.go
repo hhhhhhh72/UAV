@@ -140,7 +140,10 @@ func NewComplianceService(repo repository.ComplianceRepository) *ComplianceServi
 func (s *ComplianceService) CreateDoc(title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
 	now := time.Now()
 	if status == "" { status = "published" }
-	pd, _ := time.Parse("2006-01-02", publishDate)
+	pd, err := time.Parse("2006-01-02", publishDate)
+	if err != nil {
+		return domain.ComplianceDoc{}, fmt.Errorf("invalid publish date: %w", err)
+	}
 	d := domain.ComplianceDoc{
 		ID:          fmt.Sprintf("compdoc-%d", now.UnixNano()),
 		Title:       title,
@@ -188,7 +191,10 @@ func (s *ComplianceService) DeleteDoc(id string) error {
 func (s *ComplianceService) CreateStandard(title, stdNumber, publisher, effectiveDate, status, scope, fileURL string) (domain.StandardDoc, error) {
 	now := time.Now()
 	if status == "" { status = "published" }
-	pd, _ := time.Parse("2006-01-02", effectiveDate)
+	pd, err := time.Parse("2006-01-02", effectiveDate)
+	if err != nil {
+		return domain.StandardDoc{}, fmt.Errorf("invalid effective date: %w", err)
+	}
 	sd := domain.StandardDoc{
 		ID:            fmt.Sprintf("std-%d", now.UnixNano()),
 		Title:         title,

@@ -133,7 +133,7 @@ const fetchDemands = async () => {
     const list = res?.data || res || []
     demands.value = Array.isArray(list) ? list : []
   } catch (e) {
-    console.warn('Failed to load demands:', e)
+    // silent fail
     demands.value = []
   } finally {
     loadingDemands.value = false
@@ -149,7 +149,7 @@ const fetchBids = async () => {
     const list = res?.data || res || []
     bids.value = Array.isArray(list) ? list : []
   } catch (e) {
-    console.warn('Failed to load bids:', e)
+    // silent fail
     bids.value = []
   } finally {
     loadingBids.value = false
@@ -165,7 +165,7 @@ const fetchContracts = async () => {
     const list = res?.data || res || []
     contracts.value = Array.isArray(list) ? list : []
   } catch (e) {
-    console.warn('Failed to load contracts:', e)
+    // silent fail
     contracts.value = []
   } finally {
     loadingContracts.value = false
@@ -181,7 +181,7 @@ const fetchOrders = async () => {
     const list = res?.data || res || []
     orders.value = Array.isArray(list) ? list : []
   } catch (e) {
-    console.warn('Failed to load orders:', e)
+    // silent fail
     orders.value = []
   } finally {
     loadingOrders.value = false

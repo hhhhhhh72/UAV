@@ -97,7 +97,7 @@ const cats = ref([
 
 const onActivity = (a) => uni.showToast({ title: a.name + ' 活动', icon: 'none' })
 const goMoreShops = () => uni.navigateTo({ url: '/pages/shops/index' })
-const goShop = (id) => uni.navigateTo({ url: '/pages/shops/index' })
+const goShop = (id) => uni.navigateTo({ url: '/pages/shops/index?id=' + id })
 
 const loadProducts = async () => {
   try {
