@@ -11,7 +11,7 @@
     <view class="img-dots">
       <view v-for="(_,i) in (images.length||1)" :key="i" class="dot" :class="{on:i===curImg}" />
     </view>
-    <view class="img-back" @tap="goBack">←</view>
+    <view class="img-back" hover-class="back-press" @tap="goBack">←</view>
   </view>
 
   <!-- 价格区 -->
@@ -22,7 +22,7 @@
         <text class="price-num">{{ priceInt }}</text>
         <text class="price-decimal">.{{ priceDec }}</text>
       </view>
-      <text class="price-tag" :class="tagClass">{{ product.condition || '商家发布' }}</text>
+      <text class="price-tag" :class="tagClass">{{ product.condition === 'used' ? '二手' : (product.condition === 'new' ? '全新' : '商家发布') }}</text>
     </view>
     <text class="price-title">{{ product.title }}</text>
     <text class="price-desc" v-if="product.description">{{ product.description }}</text>
@@ -60,7 +60,7 @@
       <text class="shop-name">{{ product.seller_name }}</text>
       <text class="shop-status">平台商家</text>
     </view>
-    <text class="shop-btn">联系卖家</text>
+    <text class="shop-btn" hover-class="btn-press">联系卖家</text>
   </view>
 
   <!-- 图文详情 -->
@@ -78,8 +78,8 @@
       <view class="bottom-fav" @tap="fav">♥ 收藏</view>
       <view class="bottom-share" @tap="share">↗ 分享</view>
     </view>
-    <view class="bottom-cart" @tap="addCart">加入购物袋</view>
-    <view class="bottom-buy" @tap="buy">立即购买</view>
+    <view class="bottom-cart" hover-class="btn-press" @tap="addCart">加入购物袋</view>
+    <view class="bottom-buy" hover-class="btn-press" @tap="buy">立即购买</view>
   </view>
 </view>
 </template>
@@ -134,23 +134,41 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 <style scoped>
 .page { min-height: 100vh; background: var(--color-bg); padding-bottom: 60px; }
 
-/* ===== 入场动效（克制：仅 transform/opacity，220ms 内，卡片依次错开） ===== */
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(12px); }
+/* ===== 详情页动画系统（仅 transform/opacity，260ms 内，层次化） ===== */
+
+/* 图区：淡入 + 轻微缩放（1.03→1） */
+@keyframes hero-zoom {
+  from { opacity: 0; transform: scale(1.03); }
+  to { opacity: 1; transform: scale(1); }
+}
+/* 卡片：淡入上移（位移 16px，比基础更明显） */
+@keyframes card-up {
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* 价格标签：弹入（放大回位） */
+@keyframes tag-pop {
+  0% { opacity: 0; transform: scale(.7); }
+  70% { transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
 }
-.img-box { animation: fade-in .25s ease-out both; }
-.price-card { animation: fade-up .22s ease-out both; }
-.spec-card { animation: fade-up .22s ease-out .06s both; }
-.shop-card { animation: fade-up .22s ease-out .12s both; }
-.detail-card { animation: fade-up .22s ease-out .18s both; }
+/* 底部栏：从下方滑入 */
+@keyframes bar-up {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.img-box { animation: hero-zoom .3s ease-out both; }
+.price-card { animation: card-up .26s ease-out both; }
+.price-tag { animation: tag-pop .3s ease-out .1s both; }
+.spec-card { animation: card-up .26s ease-out .07s both; }
+.shop-card { animation: card-up .26s ease-out .14s both; }
+.detail-card { animation: card-up .26s ease-out .21s both; }
+.bottom { animation: bar-up .28s ease-out .18s both; }
+
 /* 尊重“减少动态效果”设置 */
 @media (prefers-reduced-motion: reduce) {
-  .img-box, .price-card, .spec-card, .shop-card, .detail-card { animation: none; }
+  .img-box, .price-card, .price-tag, .spec-card, .shop-card, .detail-card, .bottom { animation: none; }
 }
 
 .img-box { position: relative; height: 320px; background: var(--color-text); }
@@ -198,9 +216,8 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 .bottom-cart { flex: 1; height: 38px; border-radius: 19px; background: #fff; border: 1px solid var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; transition: transform .18s; }
 .bottom-buy { flex: 1; height: 38px; border-radius: 19px; background: linear-gradient(135deg,var(--color-warning),var(--color-warning)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; transition: transform .18s; }
 
-/* ===== 按压反馈（160-220ms 缩放） ===== */
-.shop-btn { transition: transform .18s; }
-.img-back { transition: transform .18s; }
-.shop-btn:active, .bottom-cart:active, .bottom-buy:active { transform: scale(.97); }
-.img-back:active { transform: scale(.92); }
+/* ===== 按压反馈（hover-class，小程序标准方案） ===== */
+.btn-press { transform: scale(.97); }
+.back-press { transform: scale(.92); }
+.shop-btn, .img-back { transition: transform .18s; }
 </style>
