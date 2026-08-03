@@ -120,14 +120,6 @@
       }
     },
     {
-      "path": "pages/demands/bid",
-      "style": {
-        "navigationBarTitleText": "竞标报价",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
-      }
-    },
-    {
       "path": "pages/demands/publish",
       "style": {
         "navigationBarTitleText": "发布需求",

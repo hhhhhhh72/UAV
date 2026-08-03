@@ -91,7 +91,7 @@ const filteredCategories = computed(() => {
 })
 
 const navMap = {
-  'demand-hall': '/pages/demands/list', 'bid-quote': '/pages/demands/bid',
+  'demand-hall': '/pages/demands/list', 'bid-quote': '/pages/demands/list',
   courses: '/pages/training/courses', certificates: '/pages/training/certificates',
   competitions: '/pages/events/list',
   achievements: '/pages/achievements/list', challenges: '/pages/challenges/list',

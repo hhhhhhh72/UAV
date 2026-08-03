@@ -6,124 +6,84 @@
       @back="goBack"
     />
 
-    <u-sticky>
-      <u-tabs
-        v-model:active="activeTab"
-        :titles="['我发布的', '我竞标的']"
-        @change="onTabChange"
-      />
-    </u-sticky>
-
-    <!-- Tab: 我发布的 -->
-    <template v-if="activeTab === 0">
-      <!-- Loading -->
-      <view v-if="published.loading" class="loading-state">
-        <view class="loading-inline">
-          <u-loading size="24rpx" />
-          <text>加载中...</text>
-        </view>
+    <!-- Loading -->
+    <view v-if="published.loading" class="loading-state">
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
       </view>
+    </view>
 
-      <!-- Error -->
-      <view v-else-if="published.error" class="state-view">
-        <u-empty description="加载失败" />
-        <view class="retry-btn" @tap="fetchPublished">
-          <text>重新加载</text>
-        </view>
+    <!-- Error -->
+    <view v-else-if="published.error" class="state-view">
+      <u-empty description="加载失败" />
+      <view class="retry-btn" @tap="fetchPublished">
+        <text>重新加载</text>
       </view>
+    </view>
 
-      <!-- Empty -->
-      <view v-else-if="published.list.length === 0" class="state-view">
-        <u-empty description="暂无发布的需求" />
-      </view>
+    <!-- Empty -->
+    <view v-else-if="published.list.length === 0" class="state-view">
+      <u-empty description="暂无发布的需求" />
+    </view>
 
-      <!-- Normal -->
-      <view v-else class="list-body">
-        <u-cell-group inset>
-          <u-cell
-            v-for="item in published.list"
-            :key="item.id"
-            is-link
-            @click="goDetail(item.id)"
-          >
-            <template #title>
-              <view class="cell-content">
-                <text class="cell-title">{{ item.title }}</text>
-                <view class="cell-meta">
-                  <u-tag :type="statusTagType(item.status)" size="mini">
-                    {{ statusLabel(item.status) }}
-                  </u-tag>
-                  <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
-                  <text class="meta-date">{{ formatDate(item.created_at) }}</text>
+    <!-- Normal -->
+    <view v-else class="list-body">
+      <u-cell-group inset>
+        <u-cell
+          v-for="item in published.list"
+          :key="item.id"
+          is-link
+          @click="goDetail(item.id)"
+        >
+          <template #title>
+            <view class="cell-content">
+              <text class="cell-title">{{ item.title }}</text>
+              <view class="cell-meta">
+                <u-tag :type="statusTagType(item.status)" size="mini">
+                  {{ statusLabel(item.status) }}
+                </u-tag>
+                <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
+                <text class="meta-date">{{ formatDate(item.created_at) }}</text>
+              </view>
+              <view v-if="canOperate(item.status)" class="cell-actions">
+                <view
+                  v-if="item.status === 'rejected'"
+                  class="action-btn action-submit"
+                  @tap.stop="submitDemand(item)"
+                >
+                  重新提交
+                </view>
+                <view
+                  v-if="item.status === 'published'"
+                  class="action-btn action-complete"
+                  @tap.stop="completeDemand(item)"
+                >
+                  标记完成
+                </view>
+                <view
+                  v-if="item.status === 'pending' || item.status === 'rejected' || item.status === 'published'"
+                  class="action-btn action-cancel"
+                  @tap.stop="cancelDemand(item)"
+                >
+                  取消
                 </view>
               </view>
-            </template>
-          </u-cell>
-        </u-cell-group>
-      </view>
-    </template>
-
-    <!-- Tab: 我竞标的 -->
-    <template v-else>
-      <!-- Loading -->
-      <view v-if="bids.loading" class="loading-state">
-        <view class="loading-inline">
-          <u-loading size="24rpx" />
-          <text>加载中...</text>
-        </view>
-      </view>
-
-      <!-- Error -->
-      <view v-else-if="bids.error" class="state-view">
-        <u-empty description="加载失败" />
-        <view class="retry-btn" @tap="fetchBids">
-          <text>重新加载</text>
-        </view>
-      </view>
-
-      <!-- Empty -->
-      <view v-else-if="bids.list.length === 0" class="state-view">
-        <u-empty description="暂无竞标记录" />
-      </view>
-
-      <!-- Normal -->
-      <view v-else class="list-body">
-        <u-cell-group inset>
-          <u-cell
-            v-for="item in bids.list"
-            :key="item.id"
-            :label="formatBudget(item.amount_fen)"
-            is-link
-            @click="goDetail(item.demand_id)"
-          >
-            <template #title>
-              <text class="cell-title">{{ item.demand_title || '需求 #' + item.demand_id }}</text>
-            </template>
-            <template #value>
-              <u-tag :type="bidStatusTagType(item.status)" size="mini">
-                {{ bidStatusLabel(item.status) }}
-              </u-tag>
-            </template>
-          </u-cell>
-        </u-cell-group>
-      </view>
-    </template>
+            </view>
+          </template>
+        </u-cell>
+      </u-cell-group>
+    </view>
   </view>
 </template>
 
 <script>
-import { request, getStoredUser } from '../../utils/request'
+import { request } from '../../utils/request'
 
 export default {
   data() {
     return {
-      activeTab: 0,
       published: {
-        loading: false,
-        error: false,
-        list: [],
-      },
-      bids: {
         loading: false,
         error: false,
         list: [],
@@ -132,11 +92,9 @@ export default {
   },
   onLoad() {
     this.fetchPublished()
-    this.fetchBids()
   },
   onPullDownRefresh() {
-    var fn = this.activeTab === 0 ? this.fetchPublished : this.fetchBids
-    fn.call(this).then(function () {
+    this.fetchPublished().then(function () {
       uni.stopPullDownRefresh()
     })
   },
@@ -160,48 +118,53 @@ export default {
         this.published = { loading: false, error: true, list: this.published.list }
       }
     },
-    async fetchBids() {
-      this.bids.loading = true
-      this.bids.error = false
-
+    canOperate(status) {
+      return status === 'pending' || status === 'rejected' || status === 'published'
+    },
+    async cancelDemand(item) {
       try {
-        const res = await request({ url: '/api/v1/demands/bids/mine' })
-        const data = Array.isArray(res) ? res : ((res && res.data) || res || [])
-        const rawList = Array.isArray(data) ? data : (data && data.items) || []
-
-        // Enrich bid items with demand titles
-        var enriched = []
-        for (var i = 0; i < rawList.length; i++) {
-          var bid = rawList[i]
-          var demandTitle = '需求 #' + bid.demand_id
-          try {
-            const detailRes = await request({
-              url: '/api/v1/demands/' + encodeURIComponent(bid.demand_id),
-            })
-            var detail = (detailRes && detailRes.data) || detailRes
-            if (detail && detail.title) {
-              demandTitle = detail.title
-            }
-          } catch (e) {
-            // fallback to demand_id
-          }
-          enriched.push({
-            id: bid.id,
-            demand_id: bid.demand_id,
-            demand_title: demandTitle,
-            amount_fen: bid.amount_fen,
-            status: bid.status,
-            created_at: bid.created_at,
-            updated_at: bid.updated_at,
-          })
-        }
-        this.bids = { loading: false, error: false, list: enriched }
+        await request({
+          url: '/api/v1/demands/' + encodeURIComponent(item.id) + '/cancel',
+          method: 'POST',
+        })
+        uni.showToast({ title: '已取消', icon: 'success' })
+        this.fetchPublished()
       } catch (e) {
-        this.bids = { loading: false, error: true, list: this.bids.list }
+        uni.showToast({
+          title: (e && e.data && e.data.error && e.data.error.message) || '操作失败',
+          icon: 'none',
+        })
       }
     },
-    onTabChange(index) {
-      this.activeTab = index
+    async submitDemand(item) {
+      try {
+        await request({
+          url: '/api/v1/demands/' + encodeURIComponent(item.id) + '/submit',
+          method: 'POST',
+        })
+        uni.showToast({ title: '已重新提交，请等待审核', icon: 'success' })
+        this.fetchPublished()
+      } catch (e) {
+        uni.showToast({
+          title: (e && e.data && e.data.error && e.data.error.message) || '操作失败',
+          icon: 'none',
+        })
+      }
+    },
+    async completeDemand(item) {
+      try {
+        await request({
+          url: '/api/v1/demands/' + encodeURIComponent(item.id) + '/complete',
+          method: 'POST',
+        })
+        uni.showToast({ title: '已标记完成', icon: 'success' })
+        this.fetchPublished()
+      } catch (e) {
+        uni.showToast({
+          title: (e && e.data && e.data.error && e.data.error.message) || '操作失败',
+          icon: 'none',
+        })
+      }
     },
     goDetail(id) {
       uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(id) })
@@ -212,8 +175,7 @@ export default {
     statusLabel(status) {
       var map = {
         pending: '待审核',
-        published: '进行中',
-        matched: '已匹配',
+        published: '已发布',
         completed: '已完成',
         cancelled: '已取消',
         rejected: '已驳回',
@@ -224,19 +186,10 @@ export default {
       var map = {
         pending: 'warning',
         published: 'primary',
-        matched: 'success',
         completed: 'success',
         cancelled: 'default',
         rejected: 'danger',
       }
-      return map[status] || 'default'
-    },
-    bidStatusLabel(status) {
-      var map = { pending: '待选', accepted: '已中标', rejected: '未选中' }
-      return map[status] || status || '未知'
-    },
-    bidStatusTagType(status) {
-      var map = { pending: 'warning', accepted: 'success', rejected: 'danger' }
       return map[status] || 'default'
     },
     formatBudget(fen) {
@@ -326,5 +279,36 @@ export default {
 .meta-date {
   font-size: 12px;
   color: var(--color-text-placeholder);
+}
+
+/* Actions */
+.cell-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.action-btn {
+  padding: 4px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.action-submit {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.action-complete {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.action-cancel {
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 </style>

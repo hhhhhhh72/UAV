@@ -191,7 +191,7 @@ export default {
           },
         })
         uni.hideLoading()
-        uni.showToast({ title: '发布成功', icon: 'success' })
+        uni.showToast({ title: '已提交审核，请等待管理员审核', icon: 'none' })
         setTimeout(function () {
           uni.navigateBack()
         }, 500)

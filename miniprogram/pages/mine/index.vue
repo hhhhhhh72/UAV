@@ -115,11 +115,11 @@
         </view>
 
         <view class="grid-row">
-          <view class="grid-cell" @tap="goMyBids">
+          <view class="grid-cell" @tap="goMyDemands">
             <view class="grid-icon-wrap grid-icon-coupon">
-              <text class="grid-icon-text">¥</text>
+              <text class="grid-icon-text">需</text>
             </view>
-            <text class="grid-label">我的竞标</text>
+            <text class="grid-label">我的需求</text>
           </view>
           <view class="grid-cell" @tap="goMyContracts">
             <view class="grid-icon-wrap grid-icon-delivery">
@@ -341,9 +341,9 @@ const goPilotPromotion = () => {
   uni.showToast({ title: '飞手推广功能即将上线', icon: 'none' })
 }
 
-const goMyBids = () => {
+const goMyDemands = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/demands/bid?mine=1' })
+  uni.navigateTo({ url: '/pages/demands/mine' })
 }
 
 const goMyContracts = () => {
