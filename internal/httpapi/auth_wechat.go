@@ -40,7 +40,9 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 
 	sess, err := service.WeChatLogin(req.Code, appID, appSecret)
 	if err != nil && adminDevMode() {
-		sess = service.WeChatSession{OpenID: "dev-" + req.Code, SessionKey: "dev"}
+		// Dev mode: every code maps to one fixed openid so silent login reuses
+		// a single dev user instead of creating a new row per login attempt.
+		sess = service.WeChatSession{OpenID: "dev-fixed", SessionKey: "dev"}
 	} else if err != nil {
 		fail(w, r, http.StatusUnauthorized, err)
 		return
