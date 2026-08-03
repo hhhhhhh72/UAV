@@ -40,7 +40,14 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, http.StatusOK, products)
+	// 公开列表只显示在售商品（下架/已售不展示）
+	listed := make([]domain.DroneProduct, 0, len(products))
+	for _, p := range products {
+		if p.Status == "" || p.Status == "listed" {
+			listed = append(listed, p)
+		}
+	}
+	respond(w, r, http.StatusOK, listed)
 }
 
 // GET /api/v1/products/{id} — 商品详情（公开）
@@ -56,15 +63,17 @@ func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/admin/products — 管理后台创建商品
 func (s *Server) adminCreateProduct(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		ID          string `json:"id"`
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		ProdType    string `json:"prod_type"`
-		Brand       string `json:"brand"`
-		Model       string `json:"model"`
-		Condition   string `json:"condition"`
-		PriceFen    int64  `json:"price_fen"`
-		Status      string `json:"status"`
+		ID          string   `json:"id"`
+		Title       string   `json:"title"`
+		Description string   `json:"description"`
+		ProdType    string   `json:"prod_type"`
+		Brand       string   `json:"brand"`
+		Model       string   `json:"model"`
+		Condition   string   `json:"condition"`
+		PriceFen    int64    `json:"price_fen"`
+		Status      string   `json:"status"`
+		Images      []string `json:"images"`
+		SellerName  string   `json:"seller_name"`
 	}
 	if err := decode(r, &in); err != nil || in.Title == "" {
 		fail(w, r, http.StatusBadRequest, errors.New("title required"))
@@ -81,6 +90,8 @@ func (s *Server) adminCreateProduct(w http.ResponseWriter, r *http.Request) {
 		Condition:   in.Condition,
 		PriceFen:    in.PriceFen,
 		Status:      in.Status,
+		Images:      in.Images,
+		SellerName:  in.SellerName,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -96,8 +107,19 @@ func (s *Server) adminCreateProduct(w http.ResponseWriter, r *http.Request) {
 	if p.Condition == "" {
 		p.Condition = "new"
 	}
+	if p.SellerName == "" {
+		p.SellerName = "平台自营"
+	}
 	created, err := s.tradingSvc.CreateProduct(domain.Actor{Role: domain.RolePlatformAdmin}, p.ProdType, p.Title, p.Description, p.Brand, p.Model, p.Condition, p.PriceFen)
 	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	// CreateProduct 内部固定 status=listed，这里回写真实状态与展示字段
+	created.Status = p.Status
+	created.Images = in.Images
+	created.SellerName = p.SellerName
+	if _, err := s.tradingSvc.UpdateProduct(created); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -107,14 +129,16 @@ func (s *Server) adminCreateProduct(w http.ResponseWriter, r *http.Request) {
 // PUT /api/v1/admin/products/{id} — 管理后台更新商品
 func (s *Server) adminUpdateProduct(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		ProdType    string `json:"prod_type"`
-		Brand       string `json:"brand"`
-		Model       string `json:"model"`
-		Condition   string `json:"condition"`
-		PriceFen    int64  `json:"price_fen"`
-		Status      string `json:"status"`
+		Title       string   `json:"title"`
+		Description string   `json:"description"`
+		ProdType    string   `json:"prod_type"`
+		Brand       string   `json:"brand"`
+		Model       string   `json:"model"`
+		Condition   string   `json:"condition"`
+		PriceFen    int64    `json:"price_fen"`
+		Status      string   `json:"status"`
+		Images      []string `json:"images"`
+		SellerName  string   `json:"seller_name"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -148,6 +172,12 @@ func (s *Server) adminUpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Status != "" {
 		existing.Status = in.Status
+	}
+	if in.Images != nil {
+		existing.Images = in.Images
+	}
+	if in.SellerName != "" {
+		existing.SellerName = in.SellerName
 	}
 	updated, err := s.tradingSvc.UpdateProduct(existing)
 	if err != nil {

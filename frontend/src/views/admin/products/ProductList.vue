@@ -69,6 +69,18 @@
             <el-option label="下架" value="removed" />
           </el-select>
         </el-form-item>
+        <el-form-item label="商品图片">
+          <el-upload
+            list-type="picture-card"
+            :file-list="imageList"
+            :http-request="uploadImage"
+            :on-remove="removeImage"
+            :limit="6"
+          >
+            <el-icon><Plus /></el-icon>
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="卖家"><el-input v-model="form.seller_name" placeholder="默认平台自营" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" placeholder="商品说明" /></el-form-item>
       </el-form>
       <template #footer>
@@ -81,7 +93,7 @@
 
 <script setup>
 import { reactive, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
@@ -98,11 +110,14 @@ const { listData, loading, filterParams, loadData, onSearchSubmit } = useListReq
 })
 
 const dialog = reactive({ visible: false, loading: false, isEdit: false, id: '' })
-const form = reactive({ title: '', prod_type: 'drone', brand: '', model: '', condition: 'new', priceYuan: '', status: 'listed', description: '' })
+const form = reactive({ title: '', prod_type: 'drone', brand: '', model: '', condition: 'new', priceYuan: '', status: 'listed', description: '', seller_name: '', images: [] })
+const imageList = reactive([])
 
 const resetForm = () => {
   form.title = ''; form.prod_type = 'drone'; form.brand = ''; form.model = ''
   form.condition = 'new'; form.priceYuan = ''; form.status = 'listed'; form.description = ''
+  form.seller_name = ''; form.images = []
+  imageList.length = 0
 }
 const showCreate = () => { resetForm(); dialog.isEdit = false; dialog.visible = true }
 const showEdit = (row) => {
@@ -113,7 +128,32 @@ const showEdit = (row) => {
   form.condition = row.condition || 'new'
   form.priceYuan = ((row.price_fen || 0) / 100).toString()
   form.status = row.status || 'listed'; form.description = row.description || ''
+  form.seller_name = row.seller_name || ''; form.images = row.images || []
+  form.images.forEach(u => imageList.push({ name: u.split('/').pop(), url: u }))
   dialog.visible = true
+}
+
+// 图片上传（/api/v1/upload 返回相对 URL）
+const uploadImage = async (options) => {
+  const fd = new FormData()
+  fd.append('file', options.file)
+  try {
+    const res = await axios.post('/api/v1/upload', fd)
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    form.images.push(url)
+    imageList.push({ name: options.file.name, url })
+    options.onSuccess(res)
+  } catch (e) {
+    options.onError(e)
+    ElMessage.error('图片上传失败')
+  }
+}
+const removeImage = (file) => {
+  const url = file.url || file.response?.data?.url
+  if (url) {
+    form.images = form.images.filter(u => u !== url)
+  }
 }
 
 const handleSubmit = async () => {
@@ -127,7 +167,9 @@ const handleSubmit = async () => {
     condition: form.condition,
     price_fen: Math.round(parseFloat(form.priceYuan || 0) * 100),
     status: form.status,
-    description: form.description
+    description: form.description,
+    seller_name: form.seller_name,
+    images: form.images
   }
   try {
     if (dialog.isEdit) await api.update(dialog.id, payload)
