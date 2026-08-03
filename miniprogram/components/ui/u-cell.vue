@@ -3,7 +3,8 @@
     <view v-if="$slots.icon || icon" class="u-cell-icon"><slot name="icon"><u-icon v-if="icon" :name="icon" :size="iconSize" /></slot></view>
     <view class="u-cell-body">
       <view class="u-cell-title-row">
-        <text class="u-cell-title" :style="{ color: titleColor }"><slot name="title">{{ title }}</slot></text>
+        <!-- 微信 WXML 中 <text> 内不能含 <view>，标题插槽改为 view 以支持富内容插槽 -->
+        <view class="u-cell-title" :style="{ color: titleColor }"><slot name="title">{{ title }}</slot></view>
         <u-tag v-if="tag" size="mini" :type="tagType" plain>{{ tag }}</u-tag>
       </view>
       <text v-if="label" class="u-cell-label">{{ label }}</text>
