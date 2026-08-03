@@ -116,7 +116,7 @@
           <view v-if="certImageUrl" class="cert-preview" @tap="previewCert">
             <image :src="certImageUrl" mode="aspectFill" class="cert-img" />
             <view class="cert-remove" @tap.stop="removeCert">
-              <u-icon name="close" size="18" color="#ee0a24" />
+              <u-icon name="close" size="18" color="var(--color-danger)" />
             </view>
           </view>
           <view v-else class="cert-btn" @tap="chooseCert">
