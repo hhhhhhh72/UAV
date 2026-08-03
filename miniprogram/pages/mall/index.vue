@@ -93,7 +93,7 @@
 import { ref, onMounted } from 'vue'
 import { onReachBottom } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
-import { request } from '@/utils/request'
+import { request, BASE_URL } from '@/utils/request'
 
 const statusBarH = ref(24)
 const products = ref([])
@@ -172,10 +172,12 @@ const loadMore = async () => {
 const goDetail = (id) => {
   uni.navigateTo({ url: '/pages/mall/detail?id=' + encodeURIComponent(id) })
 }
+// 图片 URL：相对路径（/uploads/...）拼后端地址，完整 URL 原样
+const fullUrl = (u) => (u && u.startsWith('http') ? u : BASE_URL + (u || ''))
 const imgSrc = (p) => {
   try {
     const arr = typeof p.images === 'string' ? JSON.parse(p.images) : p.images
-    if (arr && arr[0]) return arr[0]
+    if (arr && arr[0]) return fullUrl(arr[0])
   } catch (e) {}
   return ''
 }

@@ -87,7 +87,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request } from '../../utils/request'
+import { request, BASE_URL } from '../../utils/request'
 
 const product = ref({})
 const images = ref([])
@@ -110,7 +110,11 @@ onLoad((opts) => {
       const p = await request({ url: '/api/v1/products/' + encodeURIComponent(opts.id) })
       if (p && p.id) {
         product.value = p
-        try { images.value = typeof p.images === 'string' ? JSON.parse(p.images) : (p.images || []) } catch { images.value = [] }
+        // 图片相对路径（/uploads/...）拼后端地址供小程序加载
+        try {
+          const arr = typeof p.images === 'string' ? JSON.parse(p.images) : (p.images || [])
+          images.value = arr.map(u => (u && u.startsWith('http') ? u : BASE_URL + u))
+        } catch { images.value = [] }
       }
     } catch {}
   })()
