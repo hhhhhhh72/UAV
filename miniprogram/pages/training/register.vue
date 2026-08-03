@@ -150,7 +150,7 @@
                 mode="aspectFill"
               />
               <view v-else class="upload-placeholder">
-                <text class="upload-icon">📷</text>
+                <text class="upload-icon">照</text>
                 <text class="upload-title">白底免冠证件照</text>
                 <text class="upload-hint">点击上传</text>
               </view>
@@ -163,7 +163,7 @@
                 mode="aspectFill"
               />
               <view v-else class="upload-placeholder">
-                <text class="upload-icon">🪪</text>
+                <text class="upload-icon">证</text>
                 <text class="upload-title">身份证正面</text>
                 <text class="upload-hint">点击上传</text>
               </view>
@@ -201,15 +201,14 @@
     </StateView>
 
     <!-- Picker 弹窗 -->
-    <van-popup :show="showPicker" position="bottom" round @click-overlay="showPicker = false">
-      <van-picker
-        :columns="courseTypes"
-        value-key="label"
-        :default-index="courseTypeIdx"
-        @confirm="onCourseChange"
-        @cancel="showPicker = false"
-      />
-    </van-popup>
+    <u-picker
+      :show="showPicker"
+      :columns="courseTypeNames"
+      :model-value="selectedCourse"
+      title="选择课程与机型"
+      @confirm="onCourseChange"
+      @update:show="showPicker = $event"
+    />
   </view>
 </template>
 
@@ -235,6 +234,11 @@ const courseTypeIdx = ref(0)
 const showPicker = ref(false)
 const selectedCourse = ref(courseTypes[0].label)
 const currentPrice = ref(courseTypes[0].price)
+
+/* u-picker 只接受字符串数组，派生课程名称列 */
+const courseTypeNames = computed(function () {
+  return courseTypes.map(function (c) { return c.label })
+})
 
 const courseTypesDisplay = computed(function () {
   if (course.value && course.value.course_types) return course.value.course_types
@@ -269,9 +273,9 @@ watch(function () { return form.idCard }, function (val) {
   }
 })
 
-function onCourseChange(e) {
-  var idx = typeof e.detail === 'number' ? e.detail : (e.detail && e.detail.index)
-  if (idx === undefined || idx === null) { showPicker.value = false; return }
+function onCourseChange(val) {
+  var idx = courseTypes.findIndex(function (c) { return c.label === val })
+  if (idx < 0) { showPicker.value = false; return }
   courseTypeIdx.value = idx
   selectedCourse.value = courseTypes[idx].label
   currentPrice.value = courseTypes[idx].price
@@ -358,11 +362,11 @@ onLoad(function (options) {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
 
 /* ① Banner */
 .banner {
-  background: linear-gradient(135deg, #07c160, #05a854);
+  background: linear-gradient(135deg, var(--color-success), #05a854);
   padding: 80rpx 32rpx 64rpx;
 }
 
@@ -405,20 +409,20 @@ onLoad(function (options) {
 /* ③ 表单 */
 .section-header {
   display: flex; align-items: center; padding-left: 16rpx;
-  border-left: 6rpx solid #5b8cff; margin-bottom: 24rpx;
+  border-left: 6rpx solid var(--color-primary); margin-bottom: 24rpx;
 }
-.section-title { font-size: 30rpx; font-weight: 700; color: #1a1a1a; }
-.section-badge { font-size: 22rpx; color: #ff6b35; margin-left: 8rpx; }
+.section-title { font-size: 30rpx; font-weight: 700; color: var(--color-text); }
+.section-badge { font-size: 22rpx; color: var(--color-warning); margin-left: 8rpx; }
 
 .form-group { margin-bottom: 8rpx; }
 .form-item { display: flex; align-items: center; padding: 22rpx 0; border-bottom: 1rpx solid #ebedf0; }
-.form-label { font-size: 28rpx; color: #1a1a1a; width: 130rpx; flex-shrink: 0; }
-.form-input { flex: 1; font-size: 28rpx; color: #1a1a1a; }
-.form-required { font-size: 22rpx; color: #ff6b35; }
+.form-label { font-size: 28rpx; color: var(--color-text); width: 130rpx; flex-shrink: 0; }
+.form-input { flex: 1; font-size: 28rpx; color: var(--color-text); }
+.form-required { font-size: 22rpx; color: var(--color-warning); }
 
 .expand-btn {
   display: flex; align-items: center; justify-content: center; gap: 8rpx;
-  padding: 20rpx 0; color: #5b8cff; font-size: 26rpx; font-weight: 500;
+  padding: 20rpx 0; color: var(--color-primary); font-size: 26rpx; font-weight: 500;
 }
 .expand-arrow { font-size: 20rpx; }
 
@@ -435,7 +439,7 @@ onLoad(function (options) {
 .radio-group { display: flex; gap: 32rpx; }
 .radio-item { font-size: 26rpx; color: #c0c4cc; }
 .radio-sm { font-size: 24rpx; }
-.radio-item.active { color: #07c160; font-weight: 500; }
+.radio-item.active { color: var(--color-success); font-weight: 500; }
 .picker-text { font-size: 28rpx; color: #c0c4cc; }
 
 /* ④ 证件上传 */
@@ -460,7 +464,7 @@ onLoad(function (options) {
   width: 36rpx; height: 36rpx; border: 2rpx solid #d0d5dd; border-radius: 8rpx;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.checkbox-box.checked { background: #07c160; border-color: #07c160; }
+.checkbox-box.checked { background: var(--color-success); border-color: var(--color-success); }
 .check-mark { color: #ffffff; font-size: 24rpx; font-weight: 700; }
 .checkbox-text { font-size: 26rpx; color: #4a4a4a; }
 
@@ -468,7 +472,7 @@ onLoad(function (options) {
 .price-section { border-top: 1rpx solid #ebedf0; padding-top: 24rpx; margin-bottom: 32rpx; }
 .price-row { display: flex; justify-content: space-between; align-items: center; padding: 8rpx 0; }
 .price-label { font-size: 26rpx; color: #969799; }
-.price-value { font-size: 44rpx; font-weight: 700; color: #ff6b35; }
+.price-value { font-size: 44rpx; font-weight: 700; color: var(--color-warning); }
 .price-unit { font-size: 26rpx; color: #1a1a1a; }
 
 /* ⑥ 底部按钮 */
@@ -478,7 +482,7 @@ onLoad(function (options) {
   display: flex; align-items: center; justify-content: center;
   font-size: 32rpx; font-weight: 600;
 }
-.bottom-btn.primary { background: linear-gradient(135deg, #07c160, #05a854); color: #ffffff; }
-.bottom-btn.outline { border: 2rpx solid #07c160; background: #ffffff; color: #07c160; }
+.bottom-btn.primary { background: linear-gradient(135deg, var(--color-success), #05a854); color: #ffffff; }
+.bottom-btn.outline { border: 2rpx solid var(--color-success); background: #ffffff; color: var(--color-success); }
 .privacy-text { display: block; text-align: center; font-size: 22rpx; color: #c0c4cc; margin-top: 16rpx; }
 </style>

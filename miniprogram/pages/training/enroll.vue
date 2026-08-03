@@ -80,14 +80,7 @@
             <text class="rating-score">5.0</text>
             <text class="rating-unit">分</text>
             <view class="rating-stars">
-              <van-rate
-                :value="5"
-                readonly
-                size="20"
-                color="#ffaa00"
-                void-color="#dddddd"
-                :count="5"
-              />
+              <text class="rating-star-text">★★★★★</text>
             </view>
           </view>
 
@@ -97,7 +90,7 @@
 
             <view class="contact-item" @click="openMap">
               <view class="contact-icon-wrapper location">
-                <text class="contact-icon">📍</text>
+                <text class="contact-icon location">址</text>
               </view>
               <view class="contact-content">
                 <view class="contact-label">地址</view>
@@ -108,7 +101,7 @@
 
             <view class="contact-item" @click="callPhone">
               <view class="contact-icon-wrapper phone">
-                <text class="contact-icon">📞</text>
+                <text class="contact-icon phone">话</text>
               </view>
               <view class="contact-content">
                 <view class="contact-label">电话</view>
@@ -120,7 +113,7 @@
             <!-- 营业时间：无箭头 -->
             <view class="contact-item">
               <view class="contact-icon-wrapper time">
-                <text class="contact-icon">🕐</text>
+                <text class="contact-icon time">时</text>
               </view>
               <view class="contact-content">
                 <view class="contact-label">营业时间</view>
@@ -165,15 +158,15 @@
             </view>
             <view v-else class="env-placeholder-list">
               <view class="env-placeholder-item">
-                <text class="env-placeholder-icon">📸</text>
+                <text class="env-placeholder-icon">景</text>
                 <text class="env-placeholder-text">培训场地实景</text>
               </view>
               <view class="env-placeholder-item">
-                <text class="env-placeholder-icon">🏫</text>
+                <text class="env-placeholder-icon">室</text>
                 <text class="env-placeholder-text">理论教室环境</text>
               </view>
               <view class="env-placeholder-item">
-                <text class="env-placeholder-icon">🚁</text>
+                <text class="env-placeholder-icon">飞</text>
                 <text class="env-placeholder-text">户外飞行训练</text>
               </view>
             </view>
@@ -329,7 +322,7 @@ onPullDownRefresh(function () {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6f8; }
+.page { min-height: 100vh; background: var(--color-bg); }
 
 /* ====== 区域 1：Banner + 返回按钮 ====== */
 .banner-wrap { position: relative; }
@@ -363,14 +356,14 @@ onPullDownRefresh(function () {
 }
 
 .org-name {
-  font-size: 36rpx; font-weight: 700; color: #1a1a1a; line-height: 1.4; margin-bottom: 16rpx;
+  font-size: 36rpx; font-weight: 700; color: var(--color-text); line-height: 1.4; margin-bottom: 16rpx;
 }
 
 /* 课程类型标签 */
 .course-type-tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 16rpx; }
 .course-type-tag {
-  padding: 6rpx 18rpx; border: 2rpx solid #5b8cff; border-radius: 8rpx;
-  color: #5b8cff; font-size: 24rpx; font-weight: 500; background: #ffffff;
+  padding: 6rpx 18rpx; border: 2rpx solid var(--color-primary); border-radius: 8rpx;
+  color: var(--color-primary); font-size: 24rpx; font-weight: 500; background: #ffffff;
 }
 
 .org-slogan { font-size: 26rpx; color: #666666; line-height: 1.5; margin-bottom: 20rpx; font-weight: 400; }
@@ -378,15 +371,15 @@ onPullDownRefresh(function () {
 /* 特色标签 */
 .feature-tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 32rpx; }
 .feature-tag {
-  padding: 6rpx 18rpx; background: #e8f5e9; color: #07c160;
+  padding: 6rpx 18rpx; background: var(--ui-color-accent-light); color: var(--color-success);
   font-size: 24rpx; border-radius: 8rpx; font-weight: 500;
 }
 
 /* Section 区块 */
 .section-block { margin-top: 36rpx; padding-top: 28rpx; border-top: 1rpx solid #f0f0f0; }
 .section-title {
-  font-size: 30rpx; font-weight: 700; color: #1a1a1a; padding-left: 16rpx;
-  border-left: 6rpx solid #5b8cff; line-height: 1.3; margin-bottom: 20rpx;
+  font-size: 30rpx; font-weight: 700; color: var(--color-text); padding-left: 16rpx;
+  border-left: 6rpx solid var(--color-primary); line-height: 1.3; margin-bottom: 20rpx;
 }
 .price-title { margin-bottom: 8rpx; }
 .price-subtitle { font-size: 22rpx; color: #999999; margin-bottom: 20rpx; padding-left: 16rpx; }
@@ -400,18 +393,19 @@ onPullDownRefresh(function () {
 .price-item:last-child { border-bottom: none; }
 .price-name { font-size: 28rpx; color: #1a1a1a; font-weight: 500; }
 .price-right { display: flex; align-items: baseline; }
-.price-symbol { font-size: 24rpx; color: #ff6b35; font-weight: 600; }
-.price-value { font-size: 36rpx; color: #ff6b35; font-weight: 700; margin: 0 4rpx; }
-.price-unit { font-size: 22rpx; color: #999999; }
+.price-symbol { font-size: 24rpx; color: var(--color-warning); font-weight: 600; }
+.price-value { font-size: 36rpx; color: var(--color-warning); font-weight: 700; margin: 0 4rpx; }
+.price-unit { font-size: 22rpx; color: var(--color-text-secondary); }
 
 /* 评分 */
 .rating-block {
   display: flex; align-items: center; gap: 12rpx; margin-top: 36rpx;
   padding-top: 28rpx; border-top: 1rpx solid #f0f0f0;
 }
-.rating-score { font-size: 40rpx; font-weight: 700; color: #07c160; }
-.rating-unit { font-size: 24rpx; color: #07c160; font-weight: 500; margin-right: 12rpx; }
+.rating-score { font-size: 40rpx; font-weight: 700; color: var(--color-success); }
+.rating-unit { font-size: 24rpx; color: var(--color-success); font-weight: 500; margin-right: 12rpx; }
 .rating-stars { display: flex; align-items: center; }
+.rating-star-text { font-size: 24rpx; color: var(--color-warning); letter-spacing: 2rpx; }
 
 /* 联系信息 */
 .contact-item {
@@ -426,10 +420,13 @@ onPullDownRefresh(function () {
 .contact-icon-wrapper.phone { background: #fff4e6; }
 .contact-icon-wrapper.time { background: #f0e8ff; }
 .contact-icon { font-size: 32rpx; }
+.contact-icon.location { color: var(--color-primary); }
+.contact-icon.phone { color: var(--color-warning); }
+.contact-icon.time { color: var(--color-primary); }
 .contact-content { flex: 1; }
-.contact-label { font-size: 24rpx; color: #999999; margin-bottom: 4rpx; }
-.contact-value { font-size: 28rpx; color: #1a1a1a; }
-.contact-value.link { color: #5b8cff; font-weight: 600; }
+.contact-label { font-size: 24rpx; color: var(--color-text-secondary); margin-bottom: 4rpx; }
+.contact-value { font-size: 28rpx; color: var(--color-text); }
+.contact-value.link { color: var(--color-primary); font-weight: 600; }
 .contact-arrow { color: #c0c4cc; font-size: 32rpx; }
 
 /* 机构简介 */
@@ -442,7 +439,7 @@ onPullDownRefresh(function () {
   background: linear-gradient(135deg, #faf9e8, #f0edd4);
   display: flex; align-items: center; justify-content: center;
 }
-.cert-placeholder-text { font-size: 28rpx; color: #999999; }
+.cert-placeholder-text { font-size: 28rpx; color: var(--color-text-secondary); }
 
 /* 培训环境 */
 .env-list { display: flex; flex-direction: column; gap: 20rpx; }
@@ -473,12 +470,12 @@ onPullDownRefresh(function () {
 }
 
 .enroll-btn {
-  background: linear-gradient(135deg, #07c160 0%, #05a854 100%);
+  background: linear-gradient(135deg, var(--color-success) 0%, #05a854 100%);
   box-shadow: 0 8rpx 20rpx rgba(7, 193, 96, 0.3);
 }
 
 .consult-btn {
-  background: linear-gradient(135deg, #7c8cff 0%, #5b6dff 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, #5b6dff 100%);
   box-shadow: 0 8rpx 20rpx rgba(91, 109, 255, 0.3);
 }
 

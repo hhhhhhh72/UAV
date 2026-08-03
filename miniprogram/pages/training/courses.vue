@@ -29,11 +29,9 @@
     <!-- 三、搜索栏                                                     -->
     <!-- ============================================================ -->
     <view v-if="activeTab === 'institutions'" class="search-container">
-      <van-search
+      <u-search
         v-model="keyword"
         placeholder="搜索机构名称"
-        background="transparent"
-        shape="round"
         @search="onSearch"
       />
     </view>
@@ -43,7 +41,7 @@
     <!-- ============================================================ -->
     <template v-if="activeTab === 'exam'">
       <view class="exam-placeholder">
-        <van-empty image="search" description="题库练习即将上线" />
+        <u-empty description="题库练习即将上线" />
       </view>
     </template>
 
@@ -97,20 +95,13 @@
                 class="org-image"
               />
               <view v-else class="org-image org-image-placeholder">
-                <text class="org-image-placeholder-icon">🏛️</text>
+                <text class="org-image-placeholder-icon">培</text>
               </view>
 
               <!-- 2. 评分 + 证书标签 -->
               <view class="card-meta">
                 <view class="rating">
-                  <van-rate
-                    :value="5"
-                    readonly
-                    size="22"
-                    color="#ffaa00"
-                    void-color="#dddddd"
-                    :count="5"
-                  />
+                  <text class="rating-stars">★★★★★</text>
                   <text class="rating-num">5.0</text>
                 </view>
                 <view class="cert-tag">证书 {{ item.cert_count || certCount(item) }}项</view>
@@ -153,25 +144,25 @@
 
               <!-- 8. 操作按钮 -->
               <view class="card-actions">
-                <van-button
-                  plain
-                  type="primary"
+                <u-button
+                  type="default"
                   size="small"
-                  round
                   @click.stop="callPhone(item)"
-                >电话</van-button>
-                <van-button
+                >电话</u-button>
+                <u-button
                   type="primary"
                   size="small"
-                  round
                   @click.stop="consult(item)"
-                >咨询</van-button>
+                >咨询</u-button>
               </view>
             </view>
 
             <!-- 加载更多 -->
             <view v-if="list.length > 0" class="load-more-wrap">
-              <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+              <view v-if="loadingMore" class="loading-inline">
+                <u-loading size="24rpx" />
+                <text>加载更多...</text>
+              </view>
               <text v-else-if="!hasMore" class="no-more">没有更多了</text>
             </view>
 
@@ -185,7 +176,7 @@
       <!-- 六、底部浮动按钮                                               -->
       <!-- ============================================================ -->
       <view class="floating-btn" @click="findNearby">
-        <text class="location-icon">📍</text>
+        <u-icon name="location" size="28rpx" color="#ffffff" />
         <text class="floating-text">查看附近机构</text>
       </view>
     </template>
@@ -388,7 +379,7 @@ onReachBottom(() => {
 /* ================================================================= */
 .page {
   min-height: 100vh;
-  background: #f5f6f8;
+  background: var(--color-bg);
   position: relative;
 }
 
@@ -396,7 +387,7 @@ onReachBottom(() => {
 /* 一、Banner                                                         */
 /* ================================================================= */
 .banner {
-  background: linear-gradient(135deg, #07c160 0%, #05a854 100%);
+  background: linear-gradient(135deg, var(--color-success) 0%, #05a854 100%);
   padding: 100rpx 32rpx 100rpx;
   position: relative;
   overflow: hidden;
@@ -471,7 +462,7 @@ onReachBottom(() => {
 }
 
 .tab-item.active {
-  background: #07c160;
+  background: var(--color-success);
   color: #ffffff;
   font-weight: 600;
 }
@@ -481,7 +472,7 @@ onReachBottom(() => {
 /* ================================================================= */
 .search-container {
   padding: 32rpx 24rpx 16rpx;
-  background: #f5f6f8;
+  background: var(--color-bg);
 }
 
 /* ================================================================= */
@@ -490,7 +481,7 @@ onReachBottom(() => {
 .main-layout {
   display: flex;
   flex-direction: row;
-  background: #f5f6f8;
+  background: var(--color-bg);
   padding: 16rpx 0 100rpx;
 }
 
@@ -513,7 +504,7 @@ onReachBottom(() => {
 }
 
 .region-item.active {
-  color: #07c160;
+  color: var(--color-success);
   font-weight: 600;
   background: #ffffff;
 }
@@ -525,7 +516,7 @@ onReachBottom(() => {
   transform: translateY(-50%);
   width: 6rpx;
   height: 32rpx;
-  background: #07c160;
+  background: var(--color-success);
   border-radius: 3rpx;
 }
 
@@ -556,7 +547,7 @@ onReachBottom(() => {
 }
 
 .org-image-placeholder {
-  background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+  background: var(--color-primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -581,15 +572,21 @@ onReachBottom(() => {
   gap: 8rpx;
 }
 
+.rating-stars {
+  font-size: 24rpx;
+  color: var(--color-warning);
+  letter-spacing: 2rpx;
+}
+
 .rating-num {
   font-size: 24rpx;
-  color: #ffaa00;
+  color: var(--color-warning);
   font-weight: 600;
   margin-left: 4rpx;
 }
 
 .cert-tag {
-  background: #07c160;
+  background: var(--color-success);
   color: #ffffff;
   font-size: 22rpx;
   padding: 4rpx 14rpx;
@@ -609,7 +606,7 @@ onReachBottom(() => {
 /* 4. 地区 */
 .org-region {
   font-size: 26rpx;
-  color: #07c160;
+  color: var(--color-success);
   font-weight: 500;
   margin-top: 8rpx;
 }
@@ -623,8 +620,8 @@ onReachBottom(() => {
 }
 
 .tag-item {
-  background: #f5f6f8;
-  color: #666666;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
   font-size: 22rpx;
   padding: 6rpx 16rpx;
   border-radius: 24rpx;
@@ -644,29 +641,29 @@ onReachBottom(() => {
 }
 
 .price-dot {
-  color: #ee0a24;
+  color: var(--color-danger);
   font-weight: bold;
 }
 
 .price-name {
-  color: #1a1a1a;
+  color: var(--color-text);
 }
 
 .price-value {
-  color: #ee0a24;
+  color: var(--color-danger);
   font-weight: 700;
   font-size: 28rpx;
 }
 
 .price-unit {
-  color: #ee0a24;
+  color: var(--color-danger);
   font-size: 24rpx;
 }
 
 /* 7. 地址 */
 .org-address {
   font-size: 24rpx;
-  color: #969799;
+  color: var(--color-text-secondary);
   line-height: 1.4;
   margin-top: 12rpx;
   overflow: hidden;
@@ -689,7 +686,7 @@ onReachBottom(() => {
   position: fixed;
   right: 32rpx;
   bottom: 40rpx;
-  background: #2b7de9;
+  background: var(--color-primary);
   color: #ffffff;
   padding: 18rpx 28rpx;
   border-radius: 40rpx;
@@ -697,12 +694,8 @@ onReachBottom(() => {
   align-items: center;
   gap: 8rpx;
   font-size: 26rpx;
-  box-shadow: 0 8rpx 24rpx rgba(43, 125, 233, 0.4);
+  box-shadow: 0 8rpx 24rpx rgba(10, 102, 194, 0.4);
   z-index: 999;
-}
-
-.location-icon {
-  font-size: 28rpx;
 }
 
 .floating-text {
@@ -720,7 +713,16 @@ onReachBottom(() => {
 
 .no-more {
   font-size: 24rpx;
-  color: #969799;
+  color: var(--color-text-secondary);
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
 }
 
 .exam-placeholder {

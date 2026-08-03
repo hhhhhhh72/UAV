@@ -1,25 +1,28 @@
 <template>
   <view class="certificates-page">
     <!-- Nav -->
-    <van-nav-bar
+    <u-nav-bar
       title="我的证书"
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading state -->
     <view v-if="loading" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="28rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无证书" />
+      <u-empty description="暂无证书" />
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList">
         <text>重新加载</text>
       </view>
@@ -27,22 +30,21 @@
 
     <!-- Normal state: certificate list -->
     <view v-else class="list-body">
-      <van-cell-group inset>
-        <van-cell
+      <u-cell-group inset>
+        <u-cell
           v-for="item in list"
           :key="item.id"
-          :title="item.title || item.cert_name || '证书'"
           is-link
-          @tap="viewCert(item)"
+          @click="viewCert(item)"
         >
-          <template #label>
+          <template #title>
             <view class="cert-meta">
-              <van-tag :type="certTypeTag(item.cert_type)" size="small">
+              <u-tag :type="certTypeTag(item.cert_type)" size="mini">
                 {{ item.cert_type || '通用' }}
-              </van-tag>
-              <van-tag :type="statusTagType(item.status)" size="small">
+              </u-tag>
+              <u-tag :type="statusTagType(item.status)" size="mini">
                 {{ statusLabel(item.status) }}
-              </van-tag>
+              </u-tag>
             </view>
             <view class="cert-detail">
               <text v-if="item.cert_number" class="cert-text">编号：{{ item.cert_number }}</text>
@@ -50,8 +52,8 @@
               <text v-if="item.expiry_date" class="cert-text">有效期至：{{ item.expiry_date }}</text>
             </view>
           </template>
-        </van-cell>
-      </van-cell-group>
+        </u-cell>
+      </u-cell-group>
     </view>
   </view>
 </template>
@@ -137,7 +139,7 @@ export default {
 <style scoped>
 .certificates-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -145,6 +147,15 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
 }
 
 .empty-state-wrapper {
@@ -161,7 +172,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -186,6 +197,6 @@ export default {
 
 .cert-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 </style>
