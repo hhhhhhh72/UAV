@@ -230,7 +230,6 @@ const courseTypes = [
   { label: '超视距驾驶员 · 固定翼', price: 9800 },
 ]
 
-const courseTypeIdx = ref(0)
 const showPicker = ref(false)
 const selectedCourse = ref(courseTypes[0].label)
 const currentPrice = ref(courseTypes[0].price)
@@ -276,7 +275,6 @@ watch(function () { return form.idCard }, function (val) {
 function onCourseChange(val) {
   var idx = courseTypes.findIndex(function (c) { return c.label === val })
   if (idx < 0) { showPicker.value = false; return }
-  courseTypeIdx.value = idx
   selectedCourse.value = courseTypes[idx].label
   currentPrice.value = courseTypes[idx].price
   showPicker.value = false

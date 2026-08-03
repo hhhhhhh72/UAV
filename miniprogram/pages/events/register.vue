@@ -216,7 +216,6 @@ const showEventPicker = ref(false)
 const expList = ['零基础', '业余爱好者', '有参赛经验']
 
 const eventOptions = ref([])
-const eventIdx = ref(0)
 const selectedEvent = ref('')
 const currentPrice = ref(0)
 const currentEventType = ref('')
@@ -259,7 +258,6 @@ function onBirthdayChange(e) { form.birthday = e.detail.value }
 function onEventChange(val) {
   var idx = eventOptions.value.findIndex(function (e) { return e.label === val })
   if (idx < 0) { showEventPicker.value = false; return }
-  eventIdx.value = idx
   selectedEvent.value = eventOptions.value[idx].label
   currentPrice.value = eventOptions.value[idx].fee
   currentEventType.value = eventOptions.value[idx].type || ''

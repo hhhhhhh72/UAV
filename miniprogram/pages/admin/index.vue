@@ -81,7 +81,7 @@
           class="card user-card"
         >
           <view class="user-main">
-            <view class="user-avatar">👤</view>
+            <view class="user-avatar">我</view>
             <view class="user-detail">
               <view class="user-name">
                 {{ u.name || '未命名' }}

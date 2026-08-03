@@ -9,10 +9,10 @@
     </view>
 
     <!-- Error -->
-    <view v-else-if="err" class="st"><text class="sti">⚠</text><text class="stt">加载失败，请检查网络</text><text class="sth">请确认网络后重试</text><view class="stb" @tap="fetchData">重新加载</view></view>
+    <view v-else-if="err" class="st"><text class="sti">!</text><text class="stt">加载失败，请检查网络</text><text class="sth">请确认网络后重试</text><view class="stb" @tap="fetchData">重新加载</view></view>
 
     <!-- Empty -->
-    <view v-else-if="!d" class="st"><text class="sti">🔍</text><text class="stt">该成果已下架或不存在</text><text class="sth">请返回列表浏览其他成果</text><view class="stb" @tap="goBack">返回列表</view></view>
+    <view v-else-if="!d" class="st"><u-icon class="sti" name="search" size="96rpx" color="#d5d7db" /><text class="stt">该成果已下架或不存在</text><text class="sth">请返回列表浏览其他成果</text><view class="stb" @tap="goBack">返回列表</view></view>
 
     <!-- Content -->
     <template v-else>
@@ -79,7 +79,7 @@ import { request } from '@/utils/request'
 
 const goBack = () => uni.navigateBack()
 
-const ICONS = { '飞控系统':'✈','遥感测绘':'🌍','动力系统':'⚙','AI算法':'🧠','载荷设备':'📷','集群协同':'📡','通信链路':'📦','标准规范':'📋','地面站':'💻' }
+const ICONS = { '飞控系统':'飞','遥感测绘':'遥','动力系统':'动','AI算法':'算','载荷设备':'载','集群协同':'群','通信链路':'通','标准规范':'标','地面站':'地' }
 const BGS = {
   '飞控系统':'linear-gradient(160deg,#0d47a1,#1565c0 30%,#1976d2 60%,#0d47a1)',
   '遥感测绘':'linear-gradient(160deg,#1b5e20,#2e7d32 30%,#388e3c 60%,#1b5e20)',
@@ -100,7 +100,7 @@ const id = ref(''), d = ref(null), loading = ref(true), err = ref(false), vis = 
 const isFav = ref(false), favPop = ref(false), favHide = ref(false)
 const titleStuck = ref(false), barHidden = ref(false), lastScroll = ref(0)
 
-const heroIcon = computed(() => d.value ? (ICONS[d.value.field] || '🚀') : '🚀')
+const heroIcon = computed(() => d.value ? (ICONS[d.value.field] || '果') : '果')
 const heroBg = computed(() => d.value ? (BGS[d.value.field] || BGS['飞控系统']) : BGS['飞控系统'])
 const isTransformed = computed(() => {
   const s = (d.value?.stage || d.value?.status || '')

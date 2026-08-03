@@ -78,7 +78,7 @@
               <view class="schedule-content">
                 <view class="schedule-name">{{ item.name }}</view>
                 <view class="schedule-location" v-if="item.location">
-                  <text class="location-icon">📍</text>
+                  <u-icon name="location" size="24rpx" color="#2563eb" />
                   <text>{{ item.location }}</text>
                 </view>
                 <view class="schedule-desc">{{ item.desc }}</view>
@@ -106,7 +106,7 @@
           <view class="section-title">适合人群</view>
           <view class="audience-list">
             <view v-for="(a, i) in pkg.audience" :key="i" class="audience-item">
-              <text class="audience-icon">👤</text>
+              <text class="audience-icon">人</text>
               <text>{{ a }}</text>
             </view>
           </view>
@@ -127,7 +127,7 @@
           <view class="section-title">安全宣讲</view>
           <view class="safety-list">
             <view v-for="(item, i) in pkg.safetyBriefing" :key="i" class="safety-item">
-              <text class="safety-icon">🛡️</text>
+              <text class="safety-icon">安</text>
               <text>{{ item }}</text>
             </view>
           </view>
@@ -476,10 +476,6 @@ const makeCall = (phone) => {
   font-size: 12px;
   color: #2563eb;
   margin-bottom: 4px;
-}
-
-.location-icon {
-  font-size: 12px;
 }
 
 .schedule-purpose {

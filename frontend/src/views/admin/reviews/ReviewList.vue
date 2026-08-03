@@ -121,7 +121,7 @@ const handleDelete = (item) => {
     try {
       await deleteReview(item.id)
       listData.value = listData.value.filter(r => r.id !== item.id)
-      showToast('已删��')
+      showToast('已删除')
     } catch (e) { showToast('删除失败') }
   }).catch(() => {})
 }

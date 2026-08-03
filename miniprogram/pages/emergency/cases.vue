@@ -218,10 +218,6 @@ export default {
       var map = { '成功': 'success', '部分': 'warning', '失败': 'danger' }
       return map[result] || 'default'
     },
-    resultColor(result) {
-      var map = { '成功': 'var(--color-success)', '部分': 'var(--color-warning)', '失败': 'var(--color-danger)' }
-      return map[result] || ''
-    },
     goDetail(item) {
       uni.showToast({ title: '即将上线', icon: 'none' })
     },

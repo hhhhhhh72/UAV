@@ -140,7 +140,6 @@ const taskList = ref([])
 const fmtTime = (s) => {
   try { const d = new Date(s); return (d.getMonth()+1)+'-'+d.getDate() } catch { return '' }
 }
-const badgeKey = (k) => ({ '吊运':'lift','航拍':'aerial','植保':'plant','巡检':'patrol','测绘':'survey','培训':'train','租赁':'rent' }[k] || '')
 
 const functions = ref([
   { name: '需求大厅', icon: '/static/icons/apps.svg', bg: 'linear-gradient(135deg,#e3f2fd,#90caf9)', path: '/pages/tasks/index' },
@@ -161,14 +160,6 @@ const productImage = (p) => {
   try { const arr = typeof p.images === 'string' ? JSON.parse(p.images) : p.images; if (Array.isArray(arr) && arr[0]) return arr[0] } catch {}
   return '/static/home-bg.jpg'
 }
-const tagClass = (c) => {
-  if (!c) return 'tag-default'
-  if (c.includes('官方')) return 'tag-official'
-  if (c.includes('95')) return 'tag-95'
-  if (c.includes('98')) return 'tag-98'
-  return 'tag-default'
-}
-
 const loadHome = async () => {
   try {
     const params = city.value && city.value !== '全重庆' ? '?city=' + encodeURIComponent(city.value) : ''

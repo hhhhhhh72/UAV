@@ -17,7 +17,7 @@
       <u-icon name="search" size="28rpx" color="#999999" />
     </view>
 
-    <!-- 分类��标 -->
+    <!-- 分类图标 -->
     <view class="cat-row">
       <view v-for="c in cats" :key="c.id" class="cat-item" @tap="pickCat(c.id)">
         <view class="cat-icon">{{ c.icon }}</view>
@@ -129,7 +129,6 @@ const callShop = () => uni.showToast({ title:'拨号开发中', icon:'none' })
 .search-row { display:flex; align-items:center; margin:12px 12px; padding:10px 14px; background:#fff; border-radius:8px; border:1px solid #e8e8e8; }
 .search-cat { font-size:13px; color:#666; padding-right:8px; border-right:1px solid #eee; }
 .search-input { flex:1; padding:0 8px; font-size:14px; }
-.search-icon { font-size:14px; color:#999; }
 
 /* Cats */
 .cat-row { display:grid; grid-template-columns:repeat(5,1fr); margin:14px 0; background:#fff; padding:14px 12px; }

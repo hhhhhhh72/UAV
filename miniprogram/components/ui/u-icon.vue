@@ -30,7 +30,7 @@ defineProps({
 .u-icon-plus::after { content: ''; position: absolute; width: 28rpx; height: 4rpx; border-radius: 4rpx; background: inherit; transform: rotate(90deg); }
 .u-icon-check { width: 24rpx; height: 14rpx; border-left: 4rpx solid; border-bottom: 4rpx solid; transform: rotate(-45deg); border-radius: 2rpx; }
 .u-icon-search { width: 20rpx; height: 20rpx; border: 4rpx solid; border-radius: 50%; }
-.u-icon-search::after { content: ''; position: absolute; right: -10rpx; bottom: -6rpx; width: 14rpx; height: 4rpx; border-radius: 4rpx; background: inherit; transform: rotate(45deg); }
+.u-icon-search::after { content: ''; position: absolute; right: -10rpx; bottom: -6rpx; width: 14rpx; height: 4rpx; border-radius: 4rpx; border-bottom: 4rpx solid; border-bottom-color: inherit; transform: rotate(45deg); }
 .u-icon-location { width: 20rpx; height: 20rpx; border: 4rpx solid; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); }
 .u-icon-success { width: 28rpx; height: 28rpx; border: 4rpx solid; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .u-icon-success-mark { font-size: 18rpx; line-height: 1; }

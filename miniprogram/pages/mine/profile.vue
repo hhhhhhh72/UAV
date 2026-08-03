@@ -5,7 +5,7 @@
         <text class="label">头像</text>
         <view class="right">
           <image v-if="form.avatar" :src="form.avatar" mode="aspectFill" class="avatar" />
-          <view v-else class="default-avatar">👤</view>
+          <view v-else class="default-avatar">我</view>
           <text class="arrow">›</text>
         </view>
       </view>
