@@ -4,10 +4,10 @@
   <view class="img-box">
     <swiper v-if="images.length" :current="curImg" @change="e=>curImg=e.detail.current" circular>
       <swiper-item v-for="(img,i) in images" :key="i">
-        <image :src="img" mode="aspectFill" class="img-swiper" @click="preview(i)" />
+        <image :src="img" mode="aspectFill" class="img-swiper" :class="{ 'img-loaded': loadedImgs[i] }" @load="onImgLoad(i)" @click="preview(i)" />
       </swiper-item>
     </swiper>
-    <image v-else src="/static/home-bg.jpg" mode="aspectFill" class="img-swiper" />
+    <image v-else src="/static/home-bg.jpg" mode="aspectFill" class="img-swiper" :class="{ 'img-loaded': true }" />
     <view class="img-dots">
       <view v-for="(_,i) in (images.length||1)" :key="i" class="dot" :class="{on:i===curImg}" />
     </view>
@@ -19,7 +19,7 @@
     <view class="price-row">
       <view class="price-left">
         <text class="price-symbol">¥</text>
-        <text class="price-num">{{ priceInt }}</text>
+        <text class="price-num">{{ priceDisplay }}</text>
         <text class="price-decimal">.{{ priceDec }}</text>
       </view>
       <text class="price-tag" :class="tagClass">{{ product.condition === 'used' ? '二手' : (product.condition === 'new' ? '全新' : '商家发布') }}</text>
@@ -98,9 +98,32 @@ import { request, BASE_URL } from '../../utils/request'
 const product = ref({})
 const images = ref([])
 const curImg = ref(0)
+const loadedImgs = ref([])
 
 const priceInt = computed(() => Math.floor((product.value.price_fen||0) / 100))
 const priceDec = computed(() => String((product.value.price_fen||0) % 100).padStart(2,'0'))
+// 价格数字滚动：0 → 实际值（700ms 缓出）
+const priceDisplay = ref(0)
+let priceTimer = null
+const animatePrice = (target) => {
+  if (priceTimer) clearInterval(priceTimer)
+  const steps = 18
+  const perStep = Math.max(1, Math.round(target / steps))
+  let current = 0
+  priceTimer = setInterval(() => {
+    current += perStep
+    if (current >= target) {
+      priceDisplay.value = target
+      clearInterval(priceTimer)
+      priceTimer = null
+    } else {
+      priceDisplay.value = current
+    }
+  }, 700 / steps)
+}
+const onImgLoad = (i) => {
+  loadedImgs.value[i] = true
+}
 const tagClass = computed(() => {
   const c = product.value.condition || ''
   if (c === 'new') return 'tag-green'
@@ -121,6 +144,8 @@ onLoad((opts) => {
           const arr = typeof p.images === 'string' ? JSON.parse(p.images) : (p.images || [])
           images.value = arr.map(u => (u && u.startsWith('http') ? u : BASE_URL + u))
         } catch { images.value = [] }
+        loadedImgs.value = images.value.map(() => false)
+        animatePrice(priceInt.value)
       }
     } catch {}
   })()
@@ -181,6 +206,16 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 }
 
 .img-box { animation: hero-zoom .3s ease-out both; }
+
+/* 图片加载完成淡入（避免白屏闪烁） */
+.img-swiper { opacity: 0; transition: opacity .35s ease, transform .35s ease; }
+.img-swiper.img-loaded { opacity: 1; }
+/* 返回按钮：图区入场后从左侧滑入 */
+@keyframes back-in {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.img-back { animation: back-in .3s ease-out .28s both; }
 .price-card { animation: card-up .26s ease-out both; }
 .price-tag { animation: tag-pop .3s ease-out .1s both; }
 .spec-card { animation: card-up .26s ease-out .07s both; }
@@ -190,7 +225,9 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 
 /* 尊重“减少动态效果”设置 */
 @media (prefers-reduced-motion: reduce) {
-  .img-box, .price-card, .price-tag, .spec-card, .shop-card, .detail-card, .bottom { animation: none; }
+  .img-box, .price-card, .price-tag, .spec-card, .shop-card, .detail-card, .bottom, .img-back { animation: none; }
+  .img-swiper { opacity: 1; transition: none; }
+  .heart-pop, .share-pop { animation: none; }
 }
 
 .img-box { position: relative; height: 320px; background: var(--color-text); }
@@ -204,7 +241,7 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 .price-row { display: flex; justify-content: space-between; align-items: flex-end; }
 .price-left { display: flex; align-items: baseline; }
 .price-symbol { font-size: 18px; font-weight: 700; color: var(--color-warning); }
-.price-num { font-size: 30px; font-weight: 700; color: var(--color-warning); line-height: 1; }
+.price-num { font-size: 30px; font-weight: 700; color: var(--color-warning); line-height: 1; transition: opacity .12s; }
 .price-decimal { font-size: 16px; font-weight: 600; color: var(--color-warning); }
 .price-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
 .tag-green { background: var(--color-success); color: #fff; }
