@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,13 +19,22 @@ func databaseURL() string {
 }
 func ug(prefix string) string { return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano()) }
 
+// Tests share one database and run in parallel; running the full migration
+// set from every test interleaves non-transactional multi-statement files.
+// migrateOnce serializes migration to a single execution.
+var migrateOnce sync.Once
+var migrateErr error
+
 func setupStore(t *testing.T) *postgres.Store {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	store, err := postgres.NewStore(ctx, databaseURL(), nil)
 	if err != nil { t.Skipf("no PG: %v", err); return nil }
-	if err := store.RunMigrationsFromDir(ctx, postgres.MigrationsDir()); err != nil { t.Fatalf("migration: %v", err) }
+	migrateOnce.Do(func() {
+		migrateErr = store.RunMigrationsFromDir(ctx, postgres.MigrationsDir())
+	})
+	if migrateErr != nil { t.Fatalf("migration: %v", migrateErr) }
 	t.Cleanup(func() { store.Close() })
 	return store
 }

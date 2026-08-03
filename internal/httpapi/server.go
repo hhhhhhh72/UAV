@@ -276,6 +276,9 @@ func (s *Server) Router() http.Handler {
 	// ── File upload ────────────────────────────────────────────────
 	mux.HandleFunc("POST /api/v1/upload", s.handleUpload)
 
+	// ── H5 auth + services config — production (PG/memory backed) ──
+	s.registerH5AuthRoutes(mux)
+
 	// ── Legacy H5 /api/* compat routes — DEV ONLY ───────────────────
 	// JSON file-backed storage. Disabled in production.
 	// Remove after frontend migration to /api/v1/*.
@@ -292,7 +295,7 @@ func (s *Server) Router() http.Handler {
 		))
 	}
 
-	return s.idempotencyCheck(s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(mux)))))))
+	return s.idempotencyCheck(s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.adminGate(mux))))))))
 }
 
 func (s *Server) favicon(w http.ResponseWriter, r *http.Request) {
@@ -684,7 +687,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		}
 		w.Header().Set("Vary", "Origin")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -703,6 +706,18 @@ func (s *Server) allowedCORSOrigins() []string {
 func decode(r *http.Request, v any) error {
 	d := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
 	return d.Decode(v)
+}
+
+// parseDateInput accepts both RFC3339 timestamps and plain "2006-01-02" dates.
+// Returns a zero time (no error) for empty input.
+func parseDateInput(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, nil
+	}
+	return time.Parse("2006-01-02", s)
 }
 func paginationFromQuery(r *http.Request) (page, pageSize int) {
 	page, pageSize = 1, 20

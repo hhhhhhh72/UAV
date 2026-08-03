@@ -40,6 +40,7 @@ func newBizServer(t *testing.T) http.Handler {
 		service.NewVenueService(memory.NewVenueRepository()),
 		memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens,
 	)
+	srv.SetShopService(service.NewShopService(memory.NewShopRepository()))
 	srv.SetExpertService(service.NewExpertService(memory.NewExpertRepository()))
 	srv.SetCaseService(service.NewCaseService(memory.NewCaseRepository()))
 	srv.SetComplianceService(service.NewComplianceService(memory.NewComplianceRepository()))

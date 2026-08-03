@@ -28,7 +28,7 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := s.userRepo.All()
 	if err == nil {
 		for _, u := range users {
-			rl := roleLabel(u.Status)
+			rl := roleLabel(string(u.Role))
 			out = append(out, map[string]any{
 				"id":         u.ID,
 				"role":       string(u.Role),
@@ -62,7 +62,8 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	u := domain.User{
 		ID:        req.ID,
-		Status:    req.Role,
+		Role:      domain.Role(req.Role),
+		Status:    "active",
 		Version:   1,
 		CreatedAt: now,
 		UpdatedAt: now,

@@ -96,6 +96,10 @@ func (r *demandRepo) FindByID(id string) (domain.Demand, error) {
 }
 
 func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
+	images, err := json.Marshal(d.Images)
+	if err != nil { return domain.Demand{}, fmt.Errorf("marshal images: %w", err) }
+	bizFields, err := json.Marshal(d.BizFields)
+	if err != nil { return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err) }
 	encContact := d.Contact
 	if r.cipher != nil && d.Contact != "" {
 		enc, err := r.cipher.Encrypt(d.Contact)
@@ -106,13 +110,13 @@ func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
 	}
 	d.UpdatedAt = time.Now()
 	d.Version++
-	_, err := r.pool.Exec(context.Background(),
+	_, err = r.pool.Exec(context.Background(),
 		`UPDATE demands SET publisher_name=$1, contact=$2, district=$3, city_code=$4,
 		biz_type=$5, title=$6, description=$7, images=$8, latitude=$9, longitude=$10,
 		budget_fen=$11, biz_fields=$12, status=$13, version=$14, updated_at=$15 WHERE id=$16`,
 		d.PublisherName, encContact, d.District, d.CityCode,
-		string(d.BizType), d.Title, d.Description, d.Images, d.Latitude, d.Longitude,
-		d.BudgetFen, d.BizFields, string(d.Status), d.Version, d.UpdatedAt, d.ID)
+		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
+		d.BudgetFen, bizFields, string(d.Status), d.Version, d.UpdatedAt, d.ID)
 	return d, err
 }
 
@@ -229,7 +233,7 @@ func (s *Store) NewEnterpriseRepository() repository.EnterpriseRepository {
 func (r *enterpriseRepo) Pending() ([]domain.Enterprise, error) {
 	rows, err := r.pool.Query(context.Background(), `
 		SELECT id, owner_user_id, name, license_url, account_name, status, is_member, version, created_at, updated_at
-		FROM enterprises WHERE status = 'pending' ORDER BY created_at DESC`)
+		FROM enterprises WHERE status = 'submitted' ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("pending enterprises: %w", err)
 	}

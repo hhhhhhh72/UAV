@@ -42,6 +42,7 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 
 	// === 成果 === (POST: POST /api/v1/achievements in biz_handlers.go — public path, so admin POST is new)
 	mux.HandleFunc("GET /api/v1/admin/achievements", s.listAchievements)
+	mux.HandleFunc("GET /api/v1/admin/achievements/{id}", s.getAchievement)
 	mux.HandleFunc("POST /api/v1/admin/achievements", s.createAchievement)
 	mux.HandleFunc("PUT /api/v1/admin/achievements/{id}", s.updateAchievement)
 	mux.HandleFunc("DELETE /api/v1/admin/achievements/{id}", s.deleteAchievement)

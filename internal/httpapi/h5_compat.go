@@ -450,30 +450,24 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Password credentials live in users.json (h5AuthRegister stores a bcrypt
+	// hash there). Go backend users are WeChat/phone-registered and have no
+	// password — password login for them is rejected.
 	var user map[string]any
 	var users []map[string]any
-
-	// 1) Check real user repo (Go backend users).
-	if u, err := s.userRepo.FindByID(loginID); err == nil {
-		user = map[string]any{"id": u.ID, "username": u.ID, "phone": u.ID, "role": string(u.Role), "status": u.Status}
-	} else {
-		// 2) Fallback to users.json (legacy compat).
-		readJSON(_usersFile, &_usersMu, &users)
-		for _, ju := range users {
-			if ju["phone"] == loginID || ju["username"] == loginID {
-				user = ju
-				break
-			}
+	readJSON(_usersFile, &_usersMu, &users)
+	for _, ju := range users {
+		if ju["phone"] == loginID || ju["username"] == loginID {
+			user = ju
+			break
 		}
 	}
-
-	// Dev mode: super admin phone can login with any password.
-	if user == nil && adminDevMode() && os.Getenv("SUPER_ADMIN_PHONE") != "" && loginID == os.Getenv("SUPER_ADMIN_PHONE") {
-		user = map[string]any{"id": "user-" + loginID, "username": loginID, "phone": loginID, "role": "platform_admin", "status": "active"}
-		users = append(users, user)
-		writeJSON(_usersFile, &_usersMu, users)
-	}
 	if user == nil {
+		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
+		return
+	}
+	hash, _ := user["passwordHash"].(string)
+	if hash == "" || bcrypt.CompareHashAndPassword([]byte(hash), []byte(body.Password)) != nil {
 		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
 		return
 	}
@@ -965,9 +959,23 @@ func (s *Server) h5ImageProxy(w http.ResponseWriter, r *http.Request) {
 
 // ─── Route Registration ─────────────────────────────────────────────────────
 
-func (s *Server) registerH5Compat(mux *http.ServeMux) {
-	// Services Config
+// registerH5AuthRoutes registers the H5 auth + services-config routes
+// unconditionally (production needs them: the H5/Admin SPA logs in through
+// /api/auth/* and the home page reads /api/services/config). The handlers are
+// backed by the real PG/memory repositories (bcrypt password check included).
+// The remaining JSON-file-backed legacy routes stay dev-only in registerH5Compat.
+func (s *Server) registerH5AuthRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/auth/login", s.h5AuthLogin)
+	mux.HandleFunc("POST /api/auth/register", s.h5AuthRegister)
+	mux.HandleFunc("GET /api/auth/me", s.h5AuthMe)
+	mux.HandleFunc("POST /api/auth/refresh", s.h5AuthRefresh)
+	mux.HandleFunc("POST /api/auth/logout", s.h5AuthLogout)
 	mux.HandleFunc("GET /api/services/config", s.h5GetServicesConfig)
+}
+
+func (s *Server) registerH5Compat(mux *http.ServeMux) {
+	// POST /api/services/config (admin write) stays dev-only: it writes config
+	// without auth. GET is registered unconditionally in registerH5AuthRoutes.
 	mux.HandleFunc("POST /api/services/config", s.h5SaveServicesConfig)
 
 	// Admin Services Config (same handlers)
@@ -996,12 +1004,9 @@ func (s *Server) registerH5Compat(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/user/role", s.h5UpdateUserRole)
 	mux.HandleFunc("POST /api/user/update", s.h5UpdateUserProfile)
 
-	// Auth compatibility
-	mux.HandleFunc("POST /api/auth/login", s.h5AuthLogin)
-	mux.HandleFunc("POST /api/auth/register", s.h5AuthRegister)
-	mux.HandleFunc("GET /api/auth/me", s.h5AuthMe)
-	mux.HandleFunc("POST /api/auth/refresh", s.h5AuthRefresh)
-	mux.HandleFunc("POST /api/auth/logout", s.h5AuthLogout)
+	// Auth compatibility — login/register/me/refresh/logout are registered
+	// unconditionally in registerH5AuthRoutes (production login depends on them).
+	// WeChat OAuth + SSO remain dev-only.
 	mux.HandleFunc("GET /api/auth/wechat-oauth-url", s.h5AuthWechatOAuthURL)
 	mux.HandleFunc("POST /api/sso/login", s.h5SSOLogin)
 	mux.HandleFunc("POST /api/sso/verify", s.h5SSOVerify)

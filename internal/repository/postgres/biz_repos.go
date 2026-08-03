@@ -187,17 +187,15 @@ func (r *complianceRepo) DeleteStandard(id string) error {
 
 func (r *complianceRepo) FindStandardByID(id string) (domain.StandardDoc, error) {
 	var s domain.StandardDoc
-	var fileURL string
-	err := r.pool.QueryRow(context.Background(), "SELECT id,title,standard_no,publisher,effective_date,status,scope,summary FROM standard_docs WHERE id=$1", id).
+	err := r.pool.QueryRow(context.Background(), "SELECT id,title,standard_no,publisher,effective_date,status,scope,summary,file_url FROM standard_docs WHERE id=$1", id).
 		Scan(&s.ID, &s.Title, &s.StandardNo, &s.Publisher, &s.EffectiveDate, &s.Status, &s.Scope, &s.Summary, &s.FileURL)
-	_ = fileURL
 	return s, err
 }
 
 func (r *complianceRepo) UpdateStandard(s domain.StandardDoc) (domain.StandardDoc, error) {
 	s.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE standard_docs SET title=$1,std_number=$2,publisher=$3,effective_date=$4,status=$5,scope=$6,file_url=$7,updated_at=$8 WHERE id=$9`,
+		`UPDATE standard_docs SET title=$1,standard_no=$2,publisher=$3,effective_date=$4,status=$5,scope=$6,file_url=$7,updated_at=$8 WHERE id=$9`,
 		s.Title, s.StandardNo, s.Publisher, s.EffectiveDate, s.Status, s.Scope, s.FileURL, s.UpdatedAt, s.ID)
 	return s, err
 }

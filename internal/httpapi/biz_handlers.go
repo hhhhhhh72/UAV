@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"drone-platform/internal/domain"
 )
@@ -54,6 +53,15 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/achievements", s.createAchievement)
 	mux.HandleFunc("PUT /api/v1/achievements/{id}", s.updateAchievement)
 	mux.HandleFunc("DELETE /api/v1/achievements/{id}", s.deleteAchievement)
+
+	// ---- RD Challenges (研发难题) ----
+	mux.HandleFunc("GET /api/v1/challenges", s.listRDChallenges)
+	mux.HandleFunc("GET /api/v1/challenges/{id}", s.getRDChallenge)
+
+	// ---- Research Projects (课题攻关) ----
+	mux.HandleFunc("GET /api/v1/projects", s.listResearchProjects)
+	mux.HandleFunc("GET /api/v1/projects/search", s.listResearchProjects)
+	mux.HandleFunc("GET /api/v1/projects/{id}", s.getResearchProject)
 
 	// ---- R&D Challenges ----
 	mux.HandleFunc("GET /api/v1/rd-challenges", s.listRDChallenges)
@@ -506,8 +514,8 @@ func (s *Server) createPortfolio(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Name, LogoURL, CoverURL, Description, ContactInfo string
-		Products []string `json:"products"`
-		Honors   []string `json:"honors"`
+		Products                                          []string `json:"products"`
+		Honors                                            []string `json:"honors"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -531,8 +539,8 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Name, LogoURL, CoverURL, Description, ContactInfo, Status string
-		Products []string `json:"products"`
-		Honors   []string `json:"honors"`
+		Products                                                  []string `json:"products"`
+		Honors                                                    []string `json:"honors"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -568,7 +576,7 @@ func (s *Server) createAchievement(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, AchieveType, Description, Field, Stage, ContactInfo string
-		Images                                                      []string `json:"images"`
+		Images                                                     []string `json:"images"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -592,7 +600,7 @@ func (s *Server) updateAchievement(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, AchieveType, Description, Field, Stage, ContactInfo string
-		Images                                                      []string `json:"images"`
+		Images                                                     []string `json:"images"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -643,13 +651,13 @@ func (s *Server) createRDChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, Field, Description, Status, Deadline string
-		BudgetFen                           int64 `json:"budget_fen"`
+		BudgetFen                                   int64 `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	deadline, err := time.Parse("2006-01-02", in.Deadline)
+	deadline, err := parseDateInput(in.Deadline)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
 		return
@@ -672,13 +680,13 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, Field, Description, Status, Deadline string
-		BudgetFen                           int64 `json:"budget_fen"`
+		BudgetFen                                   int64 `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	deadline, err := time.Parse("2006-01-02", in.Deadline)
+	deadline, err := parseDateInput(in.Deadline)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
 		return
@@ -717,19 +725,19 @@ func (s *Server) createResearchProject(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, Field, Description, Status, LeadOrg, Milestones, StartDate, EndDate string
-		Members                                                              []string `json:"members"`
-		BudgetFen                                                            int64    `json:"budget_fen"`
+		Members                                                                    []string `json:"members"`
+		BudgetFen                                                                  int64    `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startDate, err := time.Parse("2006-01-02", in.StartDate)
+	startDate, err := parseDateInput(in.StartDate)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始日期格式: %w", err))
 		return
 	}
-	endDate, err := time.Parse("2006-01-02", in.EndDate)
+	endDate, err := parseDateInput(in.EndDate)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
 		return
@@ -756,19 +764,19 @@ func (s *Server) updateResearchProject(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, Field, Description, Status, LeadOrg, Milestones, StartDate, EndDate string
-		Members                                                              []string `json:"members"`
-		BudgetFen                                                            int64    `json:"budget_fen"`
+		Members                                                                    []string `json:"members"`
+		BudgetFen                                                                  int64    `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startDate, err := time.Parse("2006-01-02", in.StartDate)
+	startDate, err := parseDateInput(in.StartDate)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始日期格式: %w", err))
 		return
 	}
-	endDate, err := time.Parse("2006-01-02", in.EndDate)
+	endDate, err := parseDateInput(in.EndDate)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
 		return
@@ -827,8 +835,8 @@ func (s *Server) createProjectApp(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		ProjectName, Category, Description string
-		BudgetFen                           int64    `json:"budget_fen"`
-		Attachments                         []string `json:"attachments"`
+		BudgetFen                          int64    `json:"budget_fen"`
+		Attachments                        []string `json:"attachments"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -909,12 +917,12 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startDate, err := time.Parse("2006-01-02", in.StartDate)
+	startDate, err := parseDateInput(in.StartDate)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始日期格式: %w", err))
 		return
 	}
-	endDate, err := time.Parse("2006-01-02", in.EndDate)
+	endDate, err := parseDateInput(in.EndDate)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
 		return
@@ -1009,12 +1017,12 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startTime, err := time.Parse("2006-01-02T15:04", in.StartTime)
+	startTime, err := parseDateInput(in.StartTime)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始时间格式: %w", err))
 		return
 	}
-	endTime, err := time.Parse("2006-01-02T15:04", in.EndTime)
+	endTime, err := parseDateInput(in.EndTime)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
 		return
@@ -1095,7 +1103,7 @@ func (s *Server) createIndustryResource(w http.ResponseWriter, r *http.Request) 
 	}
 	var in struct {
 		Name, ResType, Model, Specs, Location, BookingInfo string
-		PriceFen                                            int64 `json:"price_fen"`
+		PriceFen                                           int64 `json:"price_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -1123,7 +1131,7 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 	}
 	var in struct {
 		Name, ResType, Model, Specs, Location, BookingInfo string
-		PriceFen                                            int64 `json:"price_fen"`
+		PriceFen                                           int64 `json:"price_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -1220,12 +1228,12 @@ func (s *Server) createEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startTime, err := time.Parse("2006-01-02T15:04", in.StartTime)
+	startTime, err := parseDateInput(in.StartTime)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始时间格式: %w", err))
 		return
 	}
-	endTime, err := time.Parse("2006-01-02T15:04", in.EndTime)
+	endTime, err := parseDateInput(in.EndTime)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
 		return
@@ -1248,24 +1256,39 @@ func (s *Server) recommendDemands(w http.ResponseWriter, r *http.Request) {
 	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
 	lng, _ := strconv.ParseFloat(r.URL.Query().Get("lng"), 64)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 { limit = 20 }
+	if limit <= 0 {
+		limit = 20
+	}
 	userID := ""
-	if a, ok := authenticatedActor(r); ok { userID = a.ID }
+	if a, ok := authenticatedActor(r); ok {
+		userID = a.ID
+	}
 	results, err := s.matchingSvc.Recommend(userID, lat, lng, bizType, district, limit)
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, http.StatusOK, results)
 }
 
 // GET /api/v1/match?q=巡检&biz_type=cable_inspection&lat=29.5&lng=106.5
 func (s *Server) searchAndMatch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	if q == "" { fail(w, r, http.StatusBadRequest, errors.New("q parameter required")); return }
+	if q == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("q parameter required"))
+		return
+	}
 	bizType := r.URL.Query().Get("biz_type")
 	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
 	lng, _ := strconv.ParseFloat(r.URL.Query().Get("lng"), 64)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 { limit = 20 }
+	if limit <= 0 {
+		limit = 20
+	}
 	results, err := s.matchingSvc.SearchAndMatch(q, lat, lng, bizType, limit)
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, http.StatusOK, results)
 }

@@ -164,8 +164,28 @@ func authenticatedActor(r *http.Request) (domain.Actor, bool) {
 	return a, true
 }
 
+// adminGate enforces admin-only access on all /api/v1/admin/* routes.
+// Must be wrapped inside authenticate so the actor is available.
+// /api/v1/admin/token is the dev-mode token issuance endpoint and is exempt.
+func (s *Server) adminGate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/admin/") && r.URL.Path != "/api/v1/admin/token" {
+			a, ok := authenticatedActor(r)
+			if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
+				fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // isPublicPath returns true for GET endpoints whose handler does NOT check auth.
 // Only add paths where the handler itself allows anonymous access.
+//
+// Matching is exact for list endpoints and allows a single-level detail path
+// (e.g. /api/v1/jobs/{id}). Nested sub-resources (e.g. /api/v1/demands/{id}/applications)
+// are NOT public — the prefix bug previously exposed bidder info without auth.
 func isPublicPath(path string) bool {
 	publicPrefixes := []string{
 		"/api/v1/home",
@@ -219,7 +239,10 @@ func isPublicPath(path string) bool {
 		"/api/v1/association-members",
 	}
 	for _, p := range publicPrefixes {
-		if strings.HasPrefix(path, p) {
+		if path == p {
+			return true
+		}
+		if rest, ok := strings.CutPrefix(path, p+"/"); ok && !strings.Contains(rest, "/") {
 			return true
 		}
 	}

@@ -46,38 +46,13 @@ func (s *Server) passwordLogin(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-
-	// Dev mode: accept any user, any password. Create user if not exists.
-	inDev := adminDevMode()
-	if inDev {
-		if found == nil {
-			now := time.Now()
-			newUser := domain.User{
-				ID:           loginID,
-				WechatOpenID: loginID,
-				Role:         domain.RolePlatformAdmin,
-				Status:       "active",
-				Version:      1,
-				CreatedAt:    now,
-				UpdatedAt:    now,
-			}
-			if _, err := s.userRepo.Create(newUser); err == nil {
-				found = &newUser
-			}
-		}
-		// In dev mode, skip password check
-	} else {
-		if found == nil {
-			fail(w, r, http.StatusUnauthorized, fmt.Errorf("账号或密码错误"))
-			return
-		}
-		// Production would check bcrypt(password, user.passwordHash)
-	}
-
 	if found == nil {
 		fail(w, r, http.StatusUnauthorized, fmt.Errorf("账号或密码错误"))
 		return
 	}
+	// NOTE: this handler is not currently registered (registerCompatRoutes only
+	// mounts wechatLogin/wx-phone). Password validation is enforced in
+	// h5AuthLogin; do not re-enable without a real credential check.
 
 	actor := domain.Actor{ID: found.ID, Role: found.Role}
 	access, _ := s.tokens.Issue(actor, 15*time.Minute)
