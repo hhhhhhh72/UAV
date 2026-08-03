@@ -17,73 +17,82 @@
         </view>
       </view>
 
-      <!-- 分类轨道 -->
-      <view class="cat-bar">
-        <scroll-view scroll-x :show-scrollbar="false" class="cat-scroll">
-          <view class="cat-inner">
-            <view
-              v-for="c in cats"
-              :key="c.key"
-              class="cat-tab"
-              :class="{ on: activeCat === c.key }"
-              @tap="selectCat(c.key)"
-            >{{ c.name }}</view>
+      <!-- 左右布局：左分类轨 + 右商品区 -->
+      <view class="cate-layout">
+        <!-- 左分类栏 -->
+        <scroll-view scroll-y class="cate-side">
+          <view
+            v-for="c in cats"
+            :key="c.key"
+            class="cate-item"
+            :class="{ on: activeCat === c.key }"
+            @tap="selectCat(c.key)"
+          >
+            <view class="cate-icon" :class="{ on: activeCat === c.key }">{{ c.icon }}</view>
+            <text class="cate-name">{{ c.name }}</text>
           </view>
         </scroll-view>
-      </view>
 
-      <!-- 加载态 -->
-      <view v-if="loading" class="grid">
-        <view v-for="i in 6" :key="i" class="card skeleton">
-          <view class="s-img" />
-          <view class="s-line" />
-          <view class="s-line short" />
-        </view>
-      </view>
-
-      <!-- 空态 -->
-      <view v-else-if="!errorMsg && products.length === 0" class="state-box">
-        <u-empty description="暂无在售商品" />
-        <text class="state-note">商品即将上架，或切换分类查看</text>
-      </view>
-
-      <!-- 失败态 -->
-      <view v-else-if="errorMsg" class="state-box">
-        <u-empty description="商品列表加载失败" />
-        <u-button type="primary" size="small" round @click="loadProducts(activeCat)">重新加载</u-button>
-      </view>
-
-      <!-- 商品双列 -->
-      <view v-else class="grid">
-        <view
-          v-for="p in products"
-          :key="p.id"
-          class="card"
-          @tap="goDetail(p.id)"
-        >
-          <view class="img-wrap">
-            <image v-if="imgSrc(p)" :src="imgSrc(p)" mode="aspectFill" class="card-img" />
-            <view v-else class="img-ph">
-              <u-icon name="plus" size="36rpx" color="#0A66C2" />
-            </view>
-            <text v-if="p.condition" class="tag" :class="p.condition === 'used' ? 'tag-used' : 'tag-new'">
-              {{ p.condition === 'used' ? '二手' : '全新' }}
-            </text>
-          </view>
-          <view class="card-body">
-            <text class="card-title">{{ p.title }}</text>
-            <text v-if="p.brand || p.model" class="card-desc">{{ p.brand || '' }}{{ p.brand && p.model ? ' · ' : '' }}{{ p.model || '' }}</text>
-            <view class="card-foot">
-              <text class="price">¥{{ fmt(p.price_fen) }}</text>
-              <text class="seller">{{ p.seller_name || '' }}</text>
+        <!-- 右商品区 -->
+        <scroll-view scroll-y class="goods-area" :show-scrollbar="false">
+          <!-- 加载态 -->
+          <view v-if="loading" class="grid">
+            <view v-for="i in 4" :key="i" class="card skeleton">
+              <view class="s-img" />
+              <view class="s-line" />
+              <view class="s-line short" />
             </view>
           </view>
-        </view>
-        <view v-if="loadingMore" class="more-tip">
-          <u-loading size="24rpx" />
-          <text>加载中...</text>
-        </view>
-        <view v-else-if="!hasMore && products.length > 0" class="more-tip">没有更多了</view>
+
+          <!-- 空态 -->
+          <view v-else-if="!errorMsg && products.length === 0" class="state-box">
+            <u-empty description="暂无在售商品" />
+            <text class="state-note">商品即将上架，或切换分类查看</text>
+          </view>
+
+          <!-- 失败态 -->
+          <view v-else-if="errorMsg" class="state-box">
+            <u-empty description="商品列表加载失败" />
+            <u-button type="primary" size="small" round @click="loadProducts(activeCat)">重新加载</u-button>
+          </view>
+
+          <!-- 商品列表 -->
+          <view v-else class="goods-list">
+            <view
+              v-for="p in products"
+              :key="p.id"
+              class="card"
+              @tap="goDetail(p.id)"
+            >
+              <view class="img-wrap">
+                <image v-if="imgSrc(p)" :src="imgSrc(p)" mode="aspectFill" class="card-img" />
+                <view v-else class="img-ph">
+                  <u-icon name="plus" size="36rpx" color="#0A66C2" />
+                </view>
+                <text v-if="p.condition" class="tag" :class="p.condition === 'used' ? 'tag-used' : 'tag-new'">
+                  {{ p.condition === 'used' ? '二手' : '全新' }}
+                </text>
+                <view class="card-contact" hover-class="btn-press" @tap.stop="goDetail(p.id)">
+                  <text class="contact-ico">电</text>
+                  <text class="contact-txt">联系</text>
+                </view>
+              </view>
+              <view class="card-body">
+                <text class="card-title">{{ p.title }}</text>
+                <text v-if="p.brand || p.model" class="card-desc">{{ p.brand || '' }}{{ p.brand && p.model ? ' · ' : '' }}{{ p.model || '' }}</text>
+                <view class="card-foot">
+                  <text class="price">¥{{ fmt(p.price_fen) }}</text>
+                  <text class="seller">{{ p.seller_name || '' }}</text>
+                </view>
+              </view>
+            </view>
+            <view v-if="loadingMore" class="more-tip">
+              <u-loading size="24rpx" />
+              <text>加载中...</text>
+            </view>
+            <view v-else-if="!hasMore && products.length > 0" class="more-tip">没有更多了</view>
+          </view>
+        </scroll-view>
       </view>
     </view>
   </Layout>
@@ -105,10 +114,10 @@ const activeCat = ref('')
 const page = ref(1)
 
 const cats = [
-  { key: '', name: '全部' },
-  { key: 'drone', name: '整机' },
-  { key: 'part', name: '配件' },
-  { key: 'repair', name: '维修服务' },
+  { key: '', name: '全部', icon: '全' },
+  { key: 'drone', name: '整机', icon: '机' },
+  { key: 'part', name: '配件', icon: '配' },
+  { key: 'repair', name: '维修', icon: '修' },
 ]
 
 const keyword = ref('')
@@ -169,9 +178,7 @@ const loadMore = async () => {
     loadingMore.value = false
   }
 }
-const goDetail = (id) => {
-  uni.navigateTo({ url: '/pages/mall/detail?id=' + encodeURIComponent(id) })
-}
+
 // 图片 URL：相对路径（/uploads/...）拼后端地址，完整 URL 原样
 const fullUrl = (u) => (u && u.startsWith('http') ? u : BASE_URL + (u || ''))
 const imgSrc = (p) => {
@@ -183,6 +190,10 @@ const imgSrc = (p) => {
 }
 const fmt = (f) => (f ? (f / 100).toLocaleString('en-US') : '0')
 
+const goDetail = (id) => {
+  uni.navigateTo({ url: '/pages/mall/detail?id=' + encodeURIComponent(id) })
+}
+
 onMounted(() => {
   try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 24 } catch (e) {}
   loadProducts('')
@@ -192,10 +203,10 @@ onReachBottom(loadMore)
 </script>
 
 <style scoped>
-.mall-page { min-height: 100vh; background: var(--color-bg); padding-bottom: 20px; }
+.mall-page { height: 100vh; display: flex; flex-direction: column; background: var(--color-bg); }
 
 /* 顶部搜索 */
-.top-bar { background: var(--color-primary); padding: 8px 12px 12px; }
+.top-bar { background: var(--color-primary); padding: 8px 12px 12px; flex-shrink: 0; }
 .search-box {
   display: flex; align-items: center; gap: 8px;
   height: 40px; background: #fff; border-radius: 8px; padding: 0 12px;
@@ -204,32 +215,55 @@ onReachBottom(loadMore)
 .search-ph { color: #98A2B3; }
 .search-clear { width: 32rpx; height: 32rpx; display: flex; align-items: center; justify-content: center; color: #c8c9cc; font-size: 28rpx; }
 
-/* 分类轨道 */
-.cat-bar { background: #fff; padding: 10px 0; border-bottom: 1rpx solid var(--color-divider); }
-.cat-scroll { white-space: nowrap; }
-.cat-inner { display: inline-flex; padding: 0 12px; gap: 8px; }
-.cat-tab {
-  height: 30px; padding: 0 14px; border-radius: 6px;
-  border: 1rpx solid var(--color-border);
-  display: flex; align-items: center;
-  font-size: 24rpx; color: var(--color-text-secondary);
-  background: #fff;
-}
-.cat-tab.on { background: var(--color-primary); border-color: var(--color-primary); color: #fff; font-weight: 600; }
+/* 左右布局 */
+.cate-layout { flex: 1; display: flex; min-height: 0; }
 
-/* 商品双列 */
+/* 左分类栏（Tigshop 分类页风格） */
+.cate-side { width: 88px; background: var(--color-bg); flex-shrink: 0; height: 100%; }
+.cate-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 18rpx 0; gap: 6rpx;
+}
+.cate-icon {
+  width: 48rpx; height: 48rpx; border-radius: 12rpx;
+  background: var(--color-primary-light); color: var(--color-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22rpx; font-weight: 600;
+}
+.cate-item.on { background: #fff; position: relative; }
+.cate-item.on::before { content: ''; position: absolute; left: 0; top: 30%; bottom: 30%; width: 6rpx; border-radius: 3rpx; background: var(--color-primary); }
+.cate-item.on .cate-icon { background: var(--color-primary); color: #fff; }
+.cate-name { font-size: 22rpx; color: var(--color-text-secondary); }
+.cate-item.on .cate-name { color: var(--color-primary); font-weight: 600; }
+
+/* 右商品区 */
+.goods-area { flex: 1; height: 100%; min-width: 0; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+.goods-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+
+/* 商品卡（Tigshop 风格：图内边距 + 联系快捷按钮） */
 .card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 3px 12px rgba(16,24,40,0.05); }
-.img-wrap { position: relative; aspect-ratio: 4/3; background: var(--color-primary-light); }
-.card-img { width: 100%; height: 100%; }
-.img-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.img-wrap { position: relative; background: #fff; padding: 10rpx; }
+.card-img { width: 100%; aspect-ratio: 1/1; border-radius: 6rpx; display: block; }
+.img-ph { width: 100%; aspect-ratio: 1/1; border-radius: 6rpx; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; }
 .tag {
-  position: absolute; left: 8px; top: 8px;
+  position: absolute; left: 18rpx; top: 18rpx;
   font-size: 20rpx; padding: 2px 8px; border-radius: 4px;
 }
 .tag-new { background: var(--color-primary-light); color: var(--color-primary); }
 .tag-used { background: var(--color-primary-light); color: var(--color-text-secondary); }
-.card-body { padding: 8px 10px 10px; }
+/* 卡上联系按钮（悬浮图右下角） */
+.card-contact {
+  position: absolute; right: 18rpx; bottom: 18rpx;
+  display: flex; align-items: center; gap: 4rpx;
+  background: var(--color-primary); color: #fff;
+  padding: 8rpx 14rpx; border-radius: 6rpx;
+}
+.contact-ico { font-size: 20rpx; line-height: 1; }
+.contact-txt { font-size: 20rpx; line-height: 1; }
+.btn-press { transform: scale(.95); }
+
+.card-body { padding: 0 12rpx 12rpx; }
 .card-title {
   font-size: 26rpx; font-weight: 700; color: var(--color-text); line-height: 1.4;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -240,7 +274,7 @@ onReachBottom(loadMore)
 .seller { font-size: 20rpx; color: var(--color-text-placeholder); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
 
 /* 骨架 */
-.skeleton .s-img { aspect-ratio: 4/3; background: var(--color-divider); }
+.skeleton .s-img { aspect-ratio: 1/1; background: var(--color-divider); margin: 10rpx; border-radius: 6rpx; }
 .skeleton .s-line { height: 24rpx; background: var(--color-divider); border-radius: 4px; margin: 10px 10px 0; }
 .skeleton .s-line.short { width: 60%; margin-bottom: 12px; }
 
@@ -248,7 +282,7 @@ onReachBottom(loadMore)
 .state-box { padding: 100rpx 40rpx; display: flex; flex-direction: column; align-items: center; gap: 16rpx; }
 .state-note { font-size: 22rpx; color: var(--color-text-placeholder); }
 
-/* 加载更多提示（跨双列） */
+/* 加载更多提示 */
 .more-tip {
   grid-column: 1 / -1;
   display: flex; align-items: center; justify-content: center; gap: 8px;

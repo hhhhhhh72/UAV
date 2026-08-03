@@ -14,8 +14,19 @@
     <view class="img-back" hover-class="back-press" @tap="goBack">←</view>
   </view>
 
+  <!-- 锚点导航（Tigshop 风格：商品/参数/图文 滚动定位） -->
+  <view class="anchor-nav" :class="{ 'anchor-nav--sticky': anchorSticky }">
+    <view
+      v-for="a in anchors"
+      :key="a.id"
+      class="anchor-item"
+      :class="{ on: activeAnchor === a.id }"
+      @tap="scrollToAnchor(a.id)"
+    >{{ a.name }}</view>
+  </view>
+
   <!-- 价格区 -->
-  <view class="price-card">
+  <view id="anchor-product" class="price-card">
     <view class="price-row">
       <view class="price-left">
         <text class="price-symbol">¥</text>
@@ -28,26 +39,26 @@
     <text class="price-desc" v-if="product.description">{{ product.description }}</text>
   </view>
 
-  <!-- 规格区 -->
-  <view class="spec-card">
+  <!-- 参数区（Tigshop 逐行信息风格） -->
+  <view id="anchor-params" class="spec-card">
     <view class="spec-head">商品参数</view>
-    <view class="spec-grid">
-      <view class="spec-item" v-if="product.brand">
+    <view class="spec-list">
+      <view class="spec-row" v-if="product.brand">
         <text class="spec-label">品牌</text><text class="spec-val">{{ product.brand }}</text>
       </view>
-      <view class="spec-item" v-if="product.model">
+      <view class="spec-row" v-if="product.model">
         <text class="spec-label">型号</text><text class="spec-val">{{ product.model }}</text>
       </view>
-      <view class="spec-item">
+      <view class="spec-row">
         <text class="spec-label">成色</text><text class="spec-val">{{ product.condition === 'used' ? '二手' : (product.condition === 'new' ? '全新' : '商家发布') }}</text>
       </view>
-      <view class="spec-item">
+      <view class="spec-row">
         <text class="spec-label">类型</text><text class="spec-val">{{ typeLabel(product.prod_type) }}</text>
       </view>
-      <view class="spec-item">
-        <text class="spec-label">浏览</text><text class="spec-val">{{ product.views || 0 }}次</text>
+      <view class="spec-row">
+        <text class="spec-label">浏览量</text><text class="spec-val">{{ product.views || 0 }}次</text>
       </view>
-      <view class="spec-item" v-if="product.seller_name">
+      <view class="spec-row" v-if="product.seller_name">
         <text class="spec-label">卖家</text><text class="spec-val">{{ product.seller_name }}</text>
       </view>
     </view>
@@ -64,7 +75,7 @@
   </view>
 
   <!-- 图文详情 -->
-  <view class="detail-card">
+  <view id="anchor-detail" class="detail-card">
     <view class="detail-head">商品详情</view>
     <view class="detail-body">
       <text class="detail-text">该商品由{{ product.seller_name || '认证商家' }}发布，支持{{ product.condition || '平台检测' }}。</text>
@@ -72,7 +83,7 @@
     </view>
   </view>
 
-  <!-- 底部栏 -->
+  <!-- 底部栏（Tigshop 风格：收藏/分享 + 联系卖家 + 主行动） -->
   <view class="bottom">
     <view class="bottom-left">
       <view class="bottom-fav" :class="{ 'fav-active': isFav }" hover-class="btn-press" @tap="toggleFav">
@@ -84,15 +95,18 @@
         <text>分享</text>
       </view>
     </view>
-    <view class="bottom-cart" hover-class="btn-press" @tap="addCart">加入购物袋</view>
-    <view class="bottom-buy" hover-class="btn-press" @tap="buy">立即购买</view>
+    <view class="bottom-contact" hover-class="btn-press" @tap="contactShop">
+      <text class="contact-ico">电</text>
+      <text class="contact-txt">联系卖家</text>
+    </view>
+    <view class="bottom-buy" hover-class="btn-press" @tap="buy">咨询报价</view>
   </view>
 </view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onPageScroll } from '@dcloudio/uni-app'
 import { request, BASE_URL } from '../../utils/request'
 
 const product = ref({})
@@ -132,6 +146,43 @@ const tagClass = computed(() => {
 })
 const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务' }[t] || '商品')
 
+// 锚点导航（商品/参数/图文）
+const anchors = [
+  { id: 'anchor-product', name: '商品' },
+  { id: 'anchor-params', name: '参数' },
+  { id: 'anchor-detail', name: '图文' },
+]
+const activeAnchor = ref('anchor-product')
+const anchorSticky = ref(false)
+const anchorOffsets = {}
+const scrollToAnchor = (id) => {
+  uni.pageScrollTo({ selector: '#' + id, duration: 260 })
+  activeAnchor.value = id
+}
+// 数据加载后测量各区块位置
+const measureAnchors = () => {
+  setTimeout(() => {
+    const q = uni.createSelectorQuery()
+    anchors.forEach(a => {
+      q.select('#' + a.id).boundingClientRect(rect => {
+        if (rect) anchorOffsets[a.id] = rect.top
+      })
+    })
+    q.exec()
+  }, 300)
+}
+onPageScroll((e) => {
+  const top = e.scrollTop
+  anchorSticky.value = top > 320
+  // 高亮当前区块（最后一个 offset <= scrollTop + 导航高度 的锚点）
+  let current = 'anchor-product'
+  anchors.forEach(a => {
+    const off = anchorOffsets[a.id]
+    if (off !== undefined && off <= top + 100) current = a.id
+  })
+  activeAnchor.value = current
+})
+
 onLoad((opts) => {
   if (!opts.id) return;
   (async () => {
@@ -146,6 +197,7 @@ onLoad((opts) => {
         } catch { images.value = [] }
         loadedImgs.value = images.value.map(() => false)
         animatePrice(priceInt.value)
+        measureAnchors()
       }
     } catch {}
   })()
@@ -155,7 +207,7 @@ const preview = (i) => {
   uni.previewImage({ current: i, urls: images.value })
 }
 const goBack = () => uni.navigateBack()
-const contactShop = () => uni.showToast({ title: '联系卖家', icon: 'none' })
+const contactShop = () => uni.showToast({ title: '已复制卖家联系方式', icon: 'none' })
 
 // 收藏：状态切换（灰心 → 红心）+ 心跳动画
 const isFav = ref(false)
@@ -174,8 +226,7 @@ const onShare = () => {
   setTimeout(() => { shareAnim.value = false }, 450)
   uni.showToast({ title: '分享', icon: 'none' })
 }
-const addCart = () => uni.showToast({ title: '已加入购物袋', icon: 'success' })
-const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' })
+const buy = () => uni.showToast({ title: '咨询报价功能开发中', icon: 'none' })
 </script>
 
 <style scoped>
@@ -231,6 +282,21 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 }
 
 .img-box { position: relative; height: 320px; background: var(--color-text); }
+
+/* 锚点导航（Tigshop 风格：吸顶定位） */
+.anchor-nav {
+  display: flex; background: #fff; border-bottom: 1px solid var(--color-divider);
+  padding: 0 12px; z-index: 20;
+}
+.anchor-nav--sticky { position: sticky; top: 0; box-shadow: 0 2px 8px rgba(16,24,40,.06); }
+.anchor-item {
+  position: relative; padding: 22rpx 20rpx; font-size: 26rpx; color: var(--color-text-secondary);
+}
+.anchor-item.on { color: var(--color-primary); font-weight: 600; }
+.anchor-item.on::after {
+  content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: 0; width: 40rpx; height: 6rpx; border-radius: 3rpx; background: var(--color-primary);
+}
 .img-swiper { width: 100%; height: 100%; display: block; }
 .img-dots { position: absolute; bottom: 12px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.35); }
@@ -253,8 +319,13 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 
 .spec-card { margin: 0 10px 8px; background: #fff; border-radius: 12px; padding: 14px; }
 .spec-head { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 10px; }
-.spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
-.spec-item { display: flex; justify-content: space-between; }
+/* 参数逐行信息（Tigshop cart-item 风格） */
+.spec-list { display: flex; flex-direction: column; }
+.spec-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 22rpx 0; border-bottom: 1px solid var(--color-divider);
+}
+.spec-row:last-child { border-bottom: none; }
 .spec-label { font-size: 13px; color: var(--color-text-secondary); }
 .spec-val { font-size: 13px; color: var(--color-text); font-weight: 500; }
 
@@ -272,8 +343,20 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 .bottom { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--color-divider); box-shadow: 0 -2px 8px rgba(0,0,0,.03); }
 .bottom-left { display: flex; gap: 2px; }
 .bottom-fav, .bottom-share { width: 44px; display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--color-text-secondary); line-height: 1.3; }
-.bottom-cart { flex: 1; height: 38px; border-radius: 19px; background: #fff; border: 1px solid var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; transition: transform .18s; }
-.bottom-buy { flex: 1; height: 38px; border-radius: 19px; background: linear-gradient(135deg,var(--color-warning),var(--color-warning)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; transition: transform .18s; }
+.bottom-contact {
+  flex: 1.1; height: 38px; border-radius: 19px;
+  background: #fff; border: 1px solid var(--color-primary); color: var(--color-primary);
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: 14px; font-weight: 500; transition: transform .18s;
+}
+.contact-ico { font-size: 15px; line-height: 1; }
+.contact-txt { line-height: 1; }
+.bottom-buy {
+  flex: 1.1; height: 38px; border-radius: 19px;
+  background: linear-gradient(135deg,var(--color-primary),var(--color-primary));
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600; transition: transform .18s;
+}
 
 /* ===== 按压反馈（hover-class，小程序标准方案） ===== */
 .btn-press { transform: scale(.97); }
