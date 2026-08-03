@@ -36,6 +36,12 @@
             <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">{{ row.status === 'active' ? '正常' : row.status }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="密码" width="110">
+          <template #default="{ row }">
+            <el-tag v-if="row.has_password" type="success" size="small">已设置</el-tag>
+            <el-tag v-else type="info" size="small">未设置</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="注册时间" width="160" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">

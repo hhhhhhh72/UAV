@@ -24,17 +24,20 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 		default: return "个人"
 		}
 	}
-	out := []map[string]any{{"id": "admin", "role": "platform_admin", "status": "active", "roleLabel": "平台管理员", "created_at": "—"}}
+	out := []map[string]any{{"id": "admin", "role": "platform_admin", "status": "active", "roleLabel": "平台管理员", "created_at": "—", "has_password": true}}
 	users, err := s.userRepo.All()
 	if err == nil {
 		for _, u := range users {
 			rl := roleLabel(string(u.Role))
+			// 密码状态：仅暴露"是否设置过密码"，绝不返回 hash 本身
+			hasPassword := u.PasswordHash != ""
 			out = append(out, map[string]any{
-				"id":         u.ID,
-				"role":       string(u.Role),
-				"status":     u.Status,
-				"roleLabel":  rl,
-				"created_at": u.CreatedAt.Format("2006-01-02 15:04"),
+				"id":           u.ID,
+				"role":         string(u.Role),
+				"status":       u.Status,
+				"roleLabel":    rl,
+				"created_at":   u.CreatedAt.Format("2006-01-02 15:04"),
+				"has_password": hasPassword,
 			})
 		}
 	}
