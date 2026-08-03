@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"drone-platform/internal/crypto"
+	"drone-platform/internal/domain"
 	"drone-platform/internal/service"
 )
 
@@ -65,6 +66,26 @@ func (s *Server) submitEnterprise(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r.Context(), a.ID, "submit_enterprise", "enterprise", ent.ID, "submitted")
 	respond(w, r, http.StatusOK, ent)
+}
+
+// GET /api/v1/enterprises/public — 公开已认证企业列表（第一版企业入驻价值展示）
+func (s *Server) listPublicEnterprises(w http.ResponseWriter, r *http.Request) {
+	items, _, err := s.enterpriseSvc.ListByStatus(domain.Actor{Role: domain.RolePlatformAdmin}, "approved", 0, 100)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	// 仅暴露展示字段，脱敏敏感信息
+	out := make([]map[string]any, 0, len(items))
+	for _, e := range items {
+		out = append(out, map[string]any{
+			"id":        e.ID,
+			"name":      e.Name,
+			"status":    e.Status,
+			"is_member": e.IsMember,
+		})
+	}
+	respond(w, r, http.StatusOK, out)
 }
 
 // GET /api/v1/admin/enterprises

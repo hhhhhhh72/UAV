@@ -65,6 +65,7 @@ func (s *Server) registerDemandRoutes(mux *http.ServeMux) {
 // ── Enterprises ──────────────────────────────────────────────────────────
 
 func (s *Server) registerEnterpriseRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/v1/enterprises/public", s.listPublicEnterprises)
 	mux.HandleFunc("GET /api/v1/enterprises", s.listMyEnterprises)
 	mux.HandleFunc("POST /api/v1/enterprises", s.createEnterprise)
 	mux.HandleFunc("PATCH /api/v1/enterprises/{id}", s.updateEnterprise)

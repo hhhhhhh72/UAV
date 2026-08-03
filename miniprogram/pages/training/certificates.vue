@@ -18,6 +18,7 @@
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
       <u-empty description="暂无证书" />
+      <text class="cert-offline-note">证书为线下考核后由协会颁发，完成培训课程后请联系管理员</text>
     </view>
 
     <!-- Error state -->
@@ -141,6 +142,14 @@ export default {
   min-height: 100vh;
   background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
+}
+.cert-offline-note {
+  display: block;
+  margin-top: 16rpx;
+  padding: 0 48rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+  text-align: center;
 }
 
 .loading-state {

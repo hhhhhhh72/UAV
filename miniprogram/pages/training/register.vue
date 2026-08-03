@@ -315,7 +315,7 @@ async function handleSubmit() {
   }
   try {
     await request({
-      url: '/api/v1/training-courses/' + encodeURIComponent(id.value) + '/pay-and-enroll',
+      url: '/api/v1/training-courses/' + encodeURIComponent(id.value) + '/enroll',
       method: 'POST',
       data: form,
     })
