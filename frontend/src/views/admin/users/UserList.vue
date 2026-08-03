@@ -73,6 +73,9 @@
             <el-option label="平台管理员" value="platform_admin" />
           </el-select>
         </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="form.password" type="password" show-password placeholder="可选：设置后可用于密码登录" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialog.visible=false">取消</el-button>
@@ -102,15 +105,15 @@ const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetP
 })
 
 const dialog = reactive({ visible: false, loading: false })
-const form = reactive({ id: '', role: 'individual' })
+const form = reactive({ id: '', role: 'individual', password: '' })
 
-const handleAdd = () => { form.id = ''; form.role = 'individual'; dialog.visible = true }
+const handleAdd = () => { form.id = ''; form.role = 'individual'; form.password = ''; dialog.visible = true }
 
 const handleSubmit = async () => {
   if (!form.id) { ElMessage.warning('请输入用户ID'); return }
   dialog.loading = true
   try {
-    await axios.post('/api/v1/admin/users', { id: form.id, role: form.role })
+    await axios.post('/api/v1/admin/users', { id: form.id, role: form.role, password: form.password || undefined })
     ElMessage.success('创建成功')
     dialog.visible = false
     loadData()

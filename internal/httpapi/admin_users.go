@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"drone-platform/internal/domain"
 )
 
@@ -52,8 +54,9 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ID   string `json:"id"`
-		Role string `json:"role"`
+		ID       string `json:"id"`
+		Role     string `json:"role"`
+		Password string `json:"password"` // optional: sets a login password (bcrypt)
 	}
 	if err := decode(r, &req); err != nil || req.ID == "" {
 		fail(w, r, http.StatusBadRequest, errors.New("user id required"))
@@ -70,6 +73,14 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		Version:   1,
 		CreatedAt: now,
 		UpdatedAt: now,
+	}
+	if req.Password != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, fmt.Errorf("hash password: %w", err))
+			return
+		}
+		u.PasswordHash = string(hash)
 	}
 	_, err := s.userRepo.Create(u)
 	if err != nil {
