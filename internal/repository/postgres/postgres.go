@@ -944,9 +944,25 @@ func (r *userRepo) UpdateRole(id string, role domain.Role) error {
 	return nil
 }
 
+// Delete removes a user together with its session and role rows in one
+// transaction — the refresh_tokens/user_roles foreign keys otherwise block
+// deletion of any user that has logged in.
 func (r *userRepo) Delete(id string) error {
-	_, err := r.pool.Exec(context.Background(), `DELETE FROM users WHERE id=$1`, id)
-	return err
+	tx, err := r.pool.Begin(context.Background())
+	if err != nil {
+		return fmt.Errorf("begin delete user: %w", err)
+	}
+	defer tx.Rollback(context.Background())
+	if _, err := tx.Exec(context.Background(), `DELETE FROM refresh_tokens WHERE user_id=$1`, id); err != nil {
+		return fmt.Errorf("delete refresh tokens for %s: %w", id, err)
+	}
+	if _, err := tx.Exec(context.Background(), `DELETE FROM user_roles WHERE user_id=$1`, id); err != nil {
+		return fmt.Errorf("delete user roles for %s: %w", id, err)
+	}
+	if _, err := tx.Exec(context.Background(), `DELETE FROM users WHERE id=$1`, id); err != nil {
+		return fmt.Errorf("delete user %s: %w", id, err)
+	}
+	return tx.Commit(context.Background())
 }
 
 // ---- RefreshToken ----
