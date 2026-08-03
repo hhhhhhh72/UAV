@@ -1,44 +1,47 @@
 <template>
-  <van-popup :show="show" @update:show="v => $emit('update:show', v)" position="bottom" :style="{ height: '80%' }" round>
-    <div class="cropper-popup">
-      <van-nav-bar
-        :title="title"
-        left-text="取消"
-        right-text="确认"
-        @click-left="close"
-        @click-right="confirm"
+  <el-dialog
+    :model-value="show"
+    :title="title"
+    width="720px"
+    top="6vh"
+    append-to-body
+    destroy-on-close
+    @update:model-value="v => emit('update:show', v)"
+  >
+    <div class="cropper-container">
+      <vue-cropper
+        ref="cropperRef"
+        :img="imageUrl"
+        :output-size="1"
+        :output-type="'png'"
+        :info="false"
+        :can-scale="true"
+        :auto-crop="true"
+        :auto-crop-width="cropWidth"
+        :auto-crop-height="cropHeight"
+        :fixed="fixed"
+        :fixed-number="fixedNumber"
+        :center-box="true"
+        :full="false"
+        :mode="'contain'"
+        :can-move="true"
+        :can-move-box="false"
+        :fixed-box="true"
       />
-      <div class="cropper-container">
-        <vue-cropper
-          ref="cropperRef"
-          :img="imageUrl"
-          :output-size="1"
-          :output-type="'png'"
-          :info="false"
-          :can-scale="true"
-          :auto-crop="true"
-          :auto-crop-width="cropWidth"
-          :auto-crop-height="cropHeight"
-          :fixed="fixed"
-          :fixed-number="fixedNumber"
-          :center-box="true"
-          :full="false"
-          :mode="'contain'"
-          :can-move="true"
-          :can-move-box="false"
-          :fixed-box="true"
-        />
-      </div>
-      <div class="cropper-tools">
-        <van-button size="small" icon="enlarge-o" @click="zoomIn">放大</van-button>
-        <van-button size="small" icon="shrink-o" @click="zoomOut">缩小</van-button>
-        <van-button size="small" icon="aim" @click="reset">重置</van-button>
-      </div>
-      <div class="cropper-tips">
-        提示：拖动图片调整位置，双指缩放调整大小
-      </div>
     </div>
-  </van-popup>
+    <div class="cropper-tools">
+      <el-button size="small" @click="zoomIn">放大</el-button>
+      <el-button size="small" @click="zoomOut">缩小</el-button>
+      <el-button size="small" @click="reset">重置</el-button>
+    </div>
+    <div class="cropper-tips">
+      提示：拖动图片调整位置，双指缩放调整大小
+    </div>
+    <template #footer>
+      <el-button @click="close">取消</el-button>
+      <el-button type="primary" @click="confirm">确认</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -90,8 +93,6 @@ watch(() => props.aspectRatio, (ratio) => {
   }
 }, { immediate: true })
 
-const rotateLeft = () => cropperRef.value?.rotateLeft()
-const rotateRight = () => cropperRef.value?.rotateRight()
 const zoomIn = () => cropperRef.value?.changeScale(1)
 const zoomOut = () => cropperRef.value?.changeScale(-1)
 const reset = () => cropperRef.value?.refresh()
@@ -117,17 +118,11 @@ const confirm = () => {
 </script>
 
 <style scoped>
-.cropper-popup {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: #000;
-}
-
 .cropper-container {
-  flex: 1;
+  height: 420px;
   overflow: hidden;
   background: #1a1a1a;
+  border-radius: 6px;
 }
 
 /* 自定义裁剪框样式 - 类似微信头像选择 */
@@ -167,16 +162,13 @@ const confirm = () => {
   display: flex;
   justify-content: center;
   gap: 12px;
-  padding: 12px 16px;
-  background: #fff;
-  border-top: 1px solid #f5f5f7;
+  padding: 12px 16px 0;
 }
 
 .cropper-tips {
   text-align: center;
-  padding: 8px 16px 16px;
+  padding: 8px 16px 0;
   font-size: 12px;
   color: #86868b;
-  background: #fff;
 }
 </style>

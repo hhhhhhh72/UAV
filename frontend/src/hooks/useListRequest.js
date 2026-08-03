@@ -1,5 +1,5 @@
 import { ref, reactive, computed, unref } from 'vue'
-import { showFailToast } from 'vant'
+import { showFailToast } from '@/utils/feedback'
 
 /**
  * 通用的列表数据请求 Hook
