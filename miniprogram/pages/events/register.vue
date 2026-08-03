@@ -34,7 +34,8 @@
 
           <!-- 报名条件提示 -->
           <view class="req-hint">
-            <text class="req-hint-text">⚠️ 请确认已满足</text>
+            <text class="req-hint-icon">!</text>
+            <text class="req-hint-text">请确认已满足</text>
             <text class="req-hint-link" @click="goBack">报名条件</text>
             <text class="req-hint-text">，再填写表单</text>
           </view>
@@ -134,7 +135,7 @@
             <view class="upload-box" @click="uploadImage('photo')">
               <image v-if="form.photo" :src="form.photo" class="upload-preview" mode="aspectFill" />
               <view v-else class="upload-placeholder">
-                <text class="upload-icon">📷</text>
+                <text class="upload-icon">照</text>
                 <text class="upload-title">白底免冠证件照</text>
                 <text class="upload-hint">点击上传</text>
               </view>
@@ -142,7 +143,7 @@
             <view class="upload-box" @click="uploadImage('idCard')">
               <image v-if="form.idCardImage" :src="form.idCardImage" class="upload-preview" mode="aspectFill" />
               <view v-else class="upload-placeholder">
-                <text class="upload-icon">🪪</text>
+                <text class="upload-icon">证</text>
                 <text class="upload-title">身份证正面</text>
                 <text class="upload-hint">点击上传</text>
               </view>
@@ -188,17 +189,14 @@
     </StateView>
 
     <!-- Event picker -->
-    <van-popup :show="showEventPicker" position="bottom" round @click-overlay="showEventPicker = false">
-      <van-picker
-        :columns="eventOptions"
-        value-key="label"
-        :default-index="eventIdx"
-        show-toolbar
-        title="选择参赛项目"
-        @confirm="onEventChange"
-        @cancel="showEventPicker = false"
-      />
-    </van-popup>
+    <u-picker
+      :show="showEventPicker"
+      :columns="eventNames"
+      :model-value="selectedEvent"
+      title="选择参赛项目"
+      @confirm="onEventChange"
+      @update:show="showEventPicker = $event"
+    />
   </view>
 </template>
 
@@ -227,6 +225,11 @@ const isTeamEvent = computed(function () {
   return currentEventType.value === '团体赛'
 })
 
+/* u-picker 只接受字符串数组，派生参赛项目名称列 */
+const eventNames = computed(function () {
+  return eventOptions.value.map(function (e) { return e.label })
+})
+
 const form = reactive({
   name: '', phone: '', idCard: '',
   gender: '', birthday: '', email: '',
@@ -253,9 +256,9 @@ watch(function () { return form.idCard }, function (val) {
 
 function onBirthdayChange(e) { form.birthday = e.detail.value }
 
-function onEventChange(e) {
-  var idx = typeof e.detail === 'number' ? e.detail : (e.detail && e.detail.index)
-  if (idx === undefined || idx === null) { showEventPicker.value = false; return }
+function onEventChange(val) {
+  var idx = eventOptions.value.findIndex(function (e) { return e.label === val })
+  if (idx < 0) { showEventPicker.value = false; return }
   eventIdx.value = idx
   selectedEvent.value = eventOptions.value[idx].label
   currentPrice.value = eventOptions.value[idx].fee
@@ -437,7 +440,7 @@ onLoad(function (options) {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6f8; }
+.page { min-height: 100vh; background: var(--color-bg); }
 
 /* ① Banner */
 .banner {
@@ -480,27 +483,35 @@ onLoad(function (options) {
   margin-bottom: 20rpx;
 }
 
-.picker-label { font-size: 24rpx; color: #1a365d; display: block; margin-bottom: 6rpx; }
-.picker-value { font-size: 30rpx; font-weight: 600; color: #1a365d; }
-.picker-arrow { font-size: 36rpx; color: #1a365d; }
+.picker-label { font-size: 24rpx; color: var(--color-primary); display: block; margin-bottom: 6rpx; }
+.picker-value { font-size: 30rpx; font-weight: 600; color: var(--color-primary); }
+.picker-arrow { font-size: 36rpx; color: var(--color-primary); }
 
 .req-hint {
-  display: flex; align-items: center; gap: 4rpx;
+  display: flex; align-items: center; gap: 8rpx;
   margin-bottom: 32rpx; padding: 0 4rpx;
 }
 
-.req-hint-text { font-size: 24rpx; color: #969799; }
-.req-hint-link { font-size: 24rpx; color: #1a365d; text-decoration: underline; font-weight: 500; }
+.req-hint-icon {
+  width: 28rpx; height: 28rpx; border-radius: 50%;
+  background: var(--color-warning); color: #ffffff;
+  font-size: 22rpx; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.req-hint-text { font-size: 24rpx; color: var(--color-text-secondary); }
+.req-hint-link { font-size: 24rpx; color: var(--color-primary); text-decoration: underline; font-weight: 500; }
 
 /* ③ 表单 */
 .section-header { display: flex; align-items: center; margin-bottom: 24rpx; }
 
 .section-bar {
-  width: 6rpx; height: 32rpx; background: #1a365d; border-radius: 3rpx; margin-right: 12rpx;
+  width: 6rpx; height: 32rpx; background: var(--color-primary); border-radius: 3rpx; margin-right: 12rpx;
 }
 
-.section-title { font-size: 30rpx; font-weight: 700; color: #1a1a1a; }
-.section-badge { font-size: 22rpx; color: #ff6b35; margin-left: 8rpx; }
+.section-title { font-size: 30rpx; font-weight: 700; color: var(--color-text); }
+.section-badge { font-size: 22rpx; color: var(--color-warning); margin-left: 8rpx; }
 
 .form-group { margin-bottom: 8rpx; }
 
@@ -508,9 +519,9 @@ onLoad(function (options) {
   display: flex; align-items: center; padding: 22rpx 0; border-bottom: 1rpx solid #ebedf0;
 }
 
-.form-label { font-size: 28rpx; color: #1a1a1a; width: 130rpx; flex-shrink: 0; }
-.form-input { flex: 1; font-size: 28rpx; color: #1a1a1a; }
-.form-required { font-size: 22rpx; color: #ff6b35; }
+.form-label { font-size: 28rpx; color: var(--color-text); width: 130rpx; flex-shrink: 0; }
+.form-input { flex: 1; font-size: 28rpx; color: var(--color-text); }
+.form-required { font-size: 22rpx; color: var(--color-warning); }
 
 .stepper-wrap { display: flex; align-items: center; gap: 20rpx; }
 
@@ -525,7 +536,7 @@ onLoad(function (options) {
 
 .expand-btn {
   display: flex; align-items: center; justify-content: center; gap: 8rpx;
-  padding: 20rpx 0; color: #1a365d; font-size: 26rpx; font-weight: 500;
+  padding: 20rpx 0; color: var(--color-primary); font-size: 26rpx; font-weight: 500;
 }
 
 .expand-arrow { font-size: 20rpx; }
@@ -545,7 +556,7 @@ onLoad(function (options) {
 .radio-group { display: flex; gap: 32rpx; }
 .radio-item { font-size: 26rpx; color: #c0c4cc; }
 .radio-sm { font-size: 24rpx; }
-.radio-item.active { color: #1a365d; font-weight: 500; }
+.radio-item.active { color: var(--color-primary); font-weight: 500; }
 .picker-text { font-size: 28rpx; color: #c0c4cc; }
 
 /* ④ 证件上传 */
@@ -576,32 +587,32 @@ onLoad(function (options) {
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 
-.checkbox-box.checked { background: #1a365d; border-color: #1a365d; }
+.checkbox-box.checked { background: var(--color-primary); border-color: var(--color-primary); }
 .check-mark { color: #ffffff; font-size: 24rpx; font-weight: 700; }
-.checkbox-text { font-size: 26rpx; color: #4a4a4a; }
-.link { color: #1a365d; text-decoration: underline; }
+.checkbox-text { font-size: 26rpx; color: var(--color-text); }
+.link { color: var(--color-primary); text-decoration: underline; }
 
 /* ⑤ 费用 */
 .price-section { border-top: 1rpx solid #ebedf0; padding-top: 24rpx; margin-bottom: 32rpx; }
 
 .price-row { display: flex; justify-content: space-between; align-items: center; padding: 8rpx 0; }
 .price-label { font-size: 26rpx; color: #969799; }
-.price-value { font-size: 44rpx; font-weight: 700; color: #ff6b35; }
-.price-unit { font-size: 26rpx; color: #1a1a1a; }
+.price-value { font-size: 44rpx; font-weight: 700; color: var(--color-warning); }
+.price-unit { font-size: 26rpx; color: var(--color-text); }
 
 /* ⑥ 底部按钮 */
 .bottom-bar { display: flex; gap: 20rpx; }
 
 .btn-outline {
   flex: 1; height: 96rpx; border-radius: 48rpx;
-  border: 2rpx solid #1a365d; background: #ffffff; color: #1a365d;
+  border: 2rpx solid var(--color-primary); background: #ffffff; color: var(--color-primary);
   display: flex; align-items: center; justify-content: center;
   font-size: 32rpx; font-weight: 600;
 }
 
 .btn-primary {
   flex: 1; height: 96rpx; border-radius: 48rpx;
-  background: #1a365d; color: #ffffff;
+  background: var(--color-primary); color: #ffffff;
   display: flex; align-items: center; justify-content: center;
   font-size: 32rpx; font-weight: 600;
 }
