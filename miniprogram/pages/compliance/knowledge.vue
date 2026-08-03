@@ -1,21 +1,22 @@
 <template>
   <view class="knowledge-page">
-    <van-nav-bar
+    <u-nav-bar
       title="合规知识库"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading state -->
     <view v-if="loading" class="state-view">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg" class="state-view">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchAll">
         <text>重新加载</text>
       </view>
@@ -23,24 +24,27 @@
 
     <!-- Empty state -->
     <view v-else-if="!loading && allEmpty" class="state-view">
-      <van-empty image="search" description="暂无合规知识文档" />
+      <u-empty description="暂无合规知识文档" />
     </view>
 
-    <!-- Normal: collapse accordion -->
-    <view v-else class="collapse-body">
-      <van-collapse
-        accordion
-        :value="activeCollapse"
-        @change="onCollapseChange"
+    <!-- Normal: collapse accordion (CSS 实现) -->
+    <view v-else class="collapse-list">
+      <view
+        v-for="section in sections"
+        :key="section.key"
+        class="collapse-item"
       >
-        <van-collapse-item
-          v-for="section in sections"
-          :key="section.key"
-          :title="section.title"
-          :name="section.key"
-        >
+        <view class="collapse-header" @tap="onCollapseChange(section.key)">
+          <text class="collapse-title">{{ section.title }}</text>
+          <text class="collapse-arrow" :class="{ expanded: activeCollapse === section.key }">›</text>
+        </view>
+
+        <view v-if="activeCollapse === section.key" class="collapse-panel">
           <view v-if="section.loading" class="section-loading">
-            <van-loading size="20">加载中...</van-loading>
+            <view class="loading-inline">
+              <u-loading size="20rpx" />
+              <text>加载中...</text>
+            </view>
           </view>
 
           <view v-else-if="section.error" class="section-error">
@@ -49,28 +53,27 @@
           </view>
 
           <view v-else-if="section.list.length === 0" class="section-empty">
-            <van-empty description="暂无文档" image="search" />
+            <u-empty description="暂无文档" />
           </view>
 
-          <van-cell-group v-else inset>
-            <van-cell
+          <u-cell-group v-else inset>
+            <u-cell
               v-for="doc in section.list"
               :key="doc.id"
-              :title="doc.title || '--'"
               :label="doc.description || ''"
               is-link
-              @tap="openDoc(doc)"
+              @click="openDoc(doc)"
             >
               <template #title>
                 <view class="doc-title-row">
-                  <text class="doc-icon">📄</text>
+                  <text class="doc-icon">文</text>
                   <text class="doc-title-text">{{ doc.title || '--' }}</text>
                 </view>
               </template>
-            </van-cell>
-          </van-cell-group>
-        </van-collapse-item>
-      </van-collapse>
+            </u-cell>
+          </u-cell-group>
+        </view>
+      </view>
     </view>
   </view>
 </template>
@@ -153,8 +156,7 @@ export default {
         section.loading = false
       }
     },
-    onCollapseChange(e) {
-      var name = e.detail
+    onCollapseChange(name) {
       this.activeCollapse = name
       // Fetch data when section is expanded
       if (name && name.length > 0) {
@@ -188,7 +190,7 @@ export default {
 <style scoped>
 .knowledge-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -200,18 +202,64 @@ export default {
   padding-top: 120px;
 }
 
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
 }
 
-/* Collapse body */
-.collapse-body {
-  padding: 12px 0 24px;
+/* Collapse accordion (CSS 实现) */
+.collapse-list {
+  padding: 12px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.collapse-item {
+  background: var(--color-bg-card);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.collapse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 16px;
+}
+
+.collapse-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.collapse-arrow {
+  font-size: 20px;
+  color: var(--color-text-placeholder);
+  transition: transform 0.2s;
+}
+
+.collapse-arrow.expanded {
+  transform: rotate(90deg);
+  color: var(--color-primary);
+}
+
+.collapse-panel {
+  border-top: 1rpx solid var(--color-divider);
+  padding: 16px 16px 8px;
 }
 
 /* Section states */
@@ -230,13 +278,13 @@ export default {
 
 .section-error-text {
   font-size: 13px;
-  color: #969799;
+  color: var(--color-text-secondary);
   margin-bottom: 4px;
 }
 
 .section-retry {
   font-size: 13px;
-  color: #0A66C2;
+  color: var(--color-primary);
 }
 
 /* Doc list */
@@ -247,14 +295,21 @@ export default {
 }
 
 .doc-icon {
-  font-size: 16px;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-radius: 8rpx;
   flex-shrink: 0;
 }
 
 .doc-title-text {
   font-size: 14px;
   font-weight: 500;
-  color: #323233;
+  color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

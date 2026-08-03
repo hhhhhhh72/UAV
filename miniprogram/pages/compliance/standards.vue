@@ -1,44 +1,36 @@
 <template>
   <view class="standards-page">
-    <van-nav-bar
+    <u-nav-bar
       title="团体标准库"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Sticky search + tabs -->
-    <van-sticky>
-      <van-search
+    <u-sticky>
+      <u-search
         v-model="searchText"
         placeholder="搜索团体标准"
-        shape="round"
         @search="onSearch"
       />
-      <van-tabs
-        :active="activeCategory"
+      <u-tabs
+        :active="tabIndex"
+        :titles="tabTitles"
         @change="onTabChange"
-        :ellipsis="false"
-        swipeable
-      >
-        <van-tab
-          v-for="tab in categoryTabs"
-          :key="tab.value"
-          :title="tab.label"
-          :name="tab.value"
-        />
-      </van-tabs>
-    </van-sticky>
+      />
+    </u-sticky>
 
     <!-- Loading state -->
     <view v-if="loading && list.length === 0" class="state-view">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && list.length === 0" class="state-view">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
@@ -46,22 +38,21 @@
 
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0" class="state-view">
-      <van-empty image="search" description="暂无团体标准" />
+      <u-empty description="暂无团体标准" />
     </view>
 
     <!-- Normal: standards list -->
     <view v-else class="list-body">
-      <van-cell-group inset>
-        <van-cell
+      <u-cell-group inset>
+        <u-cell
           v-for="item in list"
           :key="item.id"
-          :title="item.title || '--'"
-          :title-width="'100%'"
-          @tap="openStandard(item)"
+          is-clickable
+          @click="openStandard(item)"
         >
           <template #title>
             <view class="standard-title-row">
-              <text class="standard-icon">📄</text>
+              <text class="standard-icon">文</text>
               <view class="standard-info">
                 <text class="standard-title">{{ item.title || '--' }}</text>
                 <view class="standard-meta">
@@ -71,16 +62,11 @@
               </view>
             </view>
           </template>
-          <template #right-icon>
-            <van-icon
-              name="down"
-              size="20"
-              color="#0A66C2"
-              @tap.stop="downloadStandard(item)"
-            />
+          <template #value>
+            <text class="download-icon" @click.stop="downloadStandard(item)">↓</text>
           </template>
-        </van-cell>
-      </van-cell-group>
+        </u-cell>
+      </u-cell-group>
 
       <!-- Load more (if API supports pagination) -->
       <view v-if="list.length > 0" class="load-more">
@@ -111,6 +97,15 @@ export default {
         { label: '通用', value: 'general' },
       ],
     }
+  },
+  computed: {
+    tabTitles() {
+      return this.categoryTabs.map(function (t) { return t.label })
+    },
+    tabIndex() {
+      var idx = this.categoryTabs.findIndex(function (t) { return t.value === this.activeCategory }.bind(this))
+      return idx >= 0 ? idx : 0
+    },
   },
   onLoad() {
     this.fetchList(true)
@@ -162,8 +157,9 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
-    onTabChange(e) {
-      this.activeCategory = e.detail ? e.detail.name : e
+    onTabChange(index) {
+      var tab = this.categoryTabs[index]
+      this.activeCategory = tab ? tab.value : ''
       this.fetchList(true)
     },
     openStandard(item) {
@@ -222,7 +218,7 @@ export default {
 <style scoped>
 .standards-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -234,10 +230,18 @@ export default {
   padding-top: 120px;
 }
 
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -256,7 +260,14 @@ export default {
 }
 
 .standard-icon {
-  font-size: 20px;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-radius: 8rpx;
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -272,7 +283,7 @@ export default {
 .standard-title {
   font-size: 14px;
   font-weight: 500;
-  color: #323233;
+  color: var(--color-text);
   line-height: 1.4;
 }
 
@@ -284,15 +295,27 @@ export default {
 
 .meta-tag {
   font-size: 11px;
-  color: #0A66C2;
-  background: #e8f2ff;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
   padding: 1px 8px;
   border-radius: 4px;
 }
 
 .meta-date {
   font-size: 11px;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
+}
+
+.download-icon {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* Load more */
@@ -302,7 +325,7 @@ export default {
 }
 
 .no-more {
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
   font-size: 13px;
 }
 </style>
