@@ -8,6 +8,7 @@
         :placeholder="placeholder"
         :placeholder-class="'u-search-ph'"
         confirm-type="search"
+        :disabled="disabled"
         @input="onInput"
         @confirm="onConfirm"
       />

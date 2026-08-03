@@ -11,7 +11,7 @@
 <script setup>
 import { defineEmits } from 'vue'
 
-defineProps({
+const props = defineProps({
   show: { type: Boolean, default: false },
   position: { type: String, default: 'bottom' },
   round: { type: Boolean, default: false },
@@ -29,10 +29,10 @@ function onOverlayClick() {
 </script>
 
 <style scoped>
-.u-popup { position: fixed; inset: 0; z-index: 1000; }
-.u-popup-mask { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+.u-popup { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1000; }
+.u-popup-mask { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.5); }
 .u-popup-panel { position: absolute; background: #fff; }
-.u-popup--bottom { left: 0; right: 0; bottom: 0; }
+.u-popup--bottom { left: 0; right: 0; bottom: 0; padding-bottom: env(safe-area-inset-bottom); }
 .u-popup--top { left: 0; right: 0; top: 0; }
 .u-popup--center { left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 24rpx; min-width: 600rpx; }
 .u-popup--round { border-radius: 24rpx 24rpx 0 0; }

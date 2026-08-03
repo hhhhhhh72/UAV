@@ -29,8 +29,10 @@ const emit = defineEmits(['back', 'right'])
 const statusBarHeight = ref(20)
 onMounted(() => {
   // #ifdef MP-WEIXIN
-  const sys = uni.getSystemInfoSync()
-  statusBarHeight.value = sys.statusBarHeight || 20
+  try {
+    const sys = uni.getSystemInfoSync()
+    statusBarHeight.value = sys.statusBarHeight || 20
+  } catch (e) { /* 取不到时保持默认 20 */ }
   // #endif
 })
 function onBack() {
