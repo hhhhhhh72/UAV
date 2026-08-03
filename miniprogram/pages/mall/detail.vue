@@ -75,8 +75,14 @@
   <!-- 底部栏 -->
   <view class="bottom">
     <view class="bottom-left">
-      <view class="bottom-fav" @tap="fav">♥ 收藏</view>
-      <view class="bottom-share" @tap="share">↗ 分享</view>
+      <view class="bottom-fav" :class="{ 'fav-active': isFav }" hover-class="btn-press" @tap="toggleFav">
+        <text class="fav-ico" :class="{ 'heart-pop': favAnim }">♥</text>
+        <text>收藏</text>
+      </view>
+      <view class="bottom-share" hover-class="btn-press" @tap="onShare">
+        <text class="share-ico" :class="{ 'share-pop': shareAnim }">↗</text>
+        <text>分享</text>
+      </view>
     </view>
     <view class="bottom-cart" hover-class="btn-press" @tap="addCart">加入购物袋</view>
     <view class="bottom-buy" hover-class="btn-press" @tap="buy">立即购买</view>
@@ -125,8 +131,24 @@ const preview = (i) => {
 }
 const goBack = () => uni.navigateBack()
 const contactShop = () => uni.showToast({ title: '联系卖家', icon: 'none' })
-const fav = () => uni.showToast({ title: '已收藏', icon: 'success' })
-const share = () => uni.showToast({ title: '分享', icon: 'none' })
+
+// 收藏：状态切换（灰心 → 红心）+ 心跳动画
+const isFav = ref(false)
+const favAnim = ref(false)
+const toggleFav = () => {
+  isFav.value = !isFav.value
+  favAnim.value = true
+  setTimeout(() => { favAnim.value = false }, 450)
+  uni.showToast({ title: isFav.value ? '已收藏' : '已取消收藏', icon: 'none' })
+}
+
+// 分享：弹跳反馈
+const shareAnim = ref(false)
+const onShare = () => {
+  shareAnim.value = true
+  setTimeout(() => { shareAnim.value = false }, 450)
+  uni.showToast({ title: '分享', icon: 'none' })
+}
 const addCart = () => uni.showToast({ title: '已加入购物袋', icon: 'success' })
 const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' })
 </script>
@@ -220,4 +242,26 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 .btn-press { transform: scale(.97); }
 .back-press { transform: scale(.92); }
 .shop-btn, .img-back { transition: transform .18s; }
+
+/* ===== 收藏 / 分享交互动画 ===== */
+.bottom-fav, .bottom-share { transition: transform .18s; }
+.fav-ico { display: inline-block; font-size: 18px; line-height: 1.2; color: var(--color-text-secondary); transition: color .2s; }
+.fav-active .fav-ico { color: var(--color-danger); }
+.share-ico { display: inline-block; font-size: 16px; line-height: 1.2; }
+@keyframes heart-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+  70% { transform: scale(.88); }
+  100% { transform: scale(1); }
+}
+.heart-pop { animation: heart-pop .42s ease; }
+@keyframes share-pop {
+  0% { transform: scale(1) translateY(0); }
+  40% { transform: scale(1.3) translateY(-4px); }
+  100% { transform: scale(1) translateY(0); }
+}
+.share-pop { animation: share-pop .42s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .heart-pop, .share-pop { animation: none; }
+}
 </style>
