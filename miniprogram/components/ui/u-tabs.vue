@@ -26,7 +26,7 @@ const props = defineProps({
   // （<u-tab>）的 props，故标题一律由调用方通过 titles 传入；u-tab 仅作
   // 占位/内容分发容器，其 title 属性不再被 u-tabs 读取。
   titles: { type: Array, default: () => [] },
-  // 预留的 van-tabs 兼容属性（当前未使用）
+  // 预留的 tabs 兼容属性（当前未使用）
   type: { type: String, default: 'line' },
   swipeThreshold: { type: Number, default: 5 }
 })
