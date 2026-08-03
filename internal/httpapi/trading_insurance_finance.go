@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -46,6 +47,16 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 		if p.Status == "" || p.Status == "listed" {
 			listed = append(listed, p)
 		}
+	}
+	// 关键词过滤（标题/品牌/型号，内存过滤——商品量级小）
+	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
+		filtered := make([]domain.DroneProduct, 0, len(listed))
+		for _, p := range listed {
+			if strings.Contains(p.Title, kw) || strings.Contains(p.Brand, kw) || strings.Contains(p.Model, kw) {
+				filtered = append(filtered, p)
+			}
+		}
+		listed = filtered
 	}
 	respond(w, r, http.StatusOK, listed)
 }

@@ -1,11 +1,19 @@
 <template>
   <Layout :current="1">
     <view class="mall-page">
-      <!-- 顶部：搜索 + 标题 -->
+      <!-- 顶部：搜索 -->
       <view class="top-bar" :style="{ paddingTop: (statusBarH || 24) + 'px' }">
-        <view class="search-box" @tap="focusSearch">
+        <view class="search-box">
           <u-icon name="search" size="30rpx" color="#98A2B3" />
-          <text class="search-hint">搜索无人机型号 / 配件</text>
+          <input
+            class="search-input"
+            v-model="keyword"
+            placeholder="搜索型号 / 品牌 / 配件"
+            placeholder-class="search-ph"
+            confirm-type="search"
+            @confirm="onSearch"
+          />
+          <text v-if="keyword" class="search-clear" @tap="clearSearch">×</text>
         </view>
       </view>
 
@@ -94,29 +102,36 @@ const cats = [
   { key: 'repair', name: '维修服务' },
 ]
 
+const keyword = ref('')
+
 const selectCat = (key) => {
   activeCat.value = key
-  loadProducts(key)
+  loadProducts(key, keyword.value)
 }
 
-const loadProducts = async (cat) => {
+const onSearch = () => {
+  loadProducts(activeCat.value, keyword.value.trim())
+}
+
+const clearSearch = () => {
+  keyword.value = ''
+  loadProducts(activeCat.value, '')
+}
+
+const loadProducts = async (cat, kw) => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await request({
-      url: '/api/v1/products',
-      data: cat ? { prod_type: cat } : {},
-    })
+    const data = {}
+    if (cat) data.prod_type = cat
+    if (kw) data.keyword = kw
+    const res = await request({ url: '/api/v1/products', data })
     products.value = Array.isArray(res) ? res : []
   } catch (e) {
     errorMsg.value = '加载失败'
   } finally {
     loading.value = false
   }
-}
-
-const focusSearch = () => {
-  uni.navigateTo({ url: '/pages/search/index' })
 }
 const goDetail = (id) => {
   uni.navigateTo({ url: '/pages/mall/detail?id=' + encodeURIComponent(id) })
@@ -145,7 +160,9 @@ onMounted(() => {
   display: flex; align-items: center; gap: 8px;
   height: 40px; background: #fff; border-radius: 8px; padding: 0 12px;
 }
-.search-hint { font-size: 26rpx; color: #98A2B3; }
+.search-input { flex: 1; font-size: 26rpx; color: var(--color-text); }
+.search-ph { color: #98A2B3; }
+.search-clear { width: 32rpx; height: 32rpx; display: flex; align-items: center; justify-content: center; color: #c8c9cc; font-size: 28rpx; }
 
 /* 分类轨道 */
 .cat-bar { background: #fff; padding: 10px 0; border-bottom: 1rpx solid var(--color-divider); }
