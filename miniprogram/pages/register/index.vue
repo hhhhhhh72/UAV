@@ -54,7 +54,7 @@
             class="input"
             v-model="password"
             placeholder="请设置6-20位密码"
-            :type="showPwd ? 'text' : 'password'"
+            :password="!showPwd"
             placeholder-style="color:#C8C9CC;"
           />
           <view class="pwd-toggle" @tap="showPwd = !showPwd">
@@ -71,7 +71,7 @@
             class="input"
             v-model="confirm"
             placeholder="请再次输入密码"
-            :type="showConfirm ? 'text' : 'password'"
+            :password="!showConfirm"
             placeholder-style="color:#C8C9CC;"
           />
           <view class="pwd-toggle" @tap="showConfirm = !showConfirm">

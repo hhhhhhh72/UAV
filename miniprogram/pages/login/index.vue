@@ -42,7 +42,7 @@
             class="input"
             v-model="password"
             placeholder="请输入密码"
-            :type="showPwd ? 'text' : 'password'"
+            :password="!showPwd"
             placeholder-style="color:#C8C9CC;"
           />
           <view class="pwd-toggle" @tap="showPwd = !showPwd">
