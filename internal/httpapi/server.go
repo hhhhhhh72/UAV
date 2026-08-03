@@ -573,6 +573,11 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Validate the client-supplied key length.
+		if len(key) < 8 || len(key) > 128 {
+			fail(w, r, http.StatusBadRequest, errors.New("Idempotency-Key must be 8-128 characters"))
+			return
+		}
 		// Namespace the key by the authenticated actor so one user's key
 		// cannot replay another user's response.
 		if a, ok := authenticatedActor(r); ok {
@@ -585,8 +590,7 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 			w.Write([]byte(body))
 			return
 		}
-		// lenKey := len(key); if lenKey < 8 || lenKey > 128 { fail(w, r, http.StatusBadRequest, errors.New("Idempotency-Key must be 8-128 characters")); return }
-			// Capture the response via a response recorder.
+		// Capture the response via a response recorder.
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(rec, r)
 		// Store the result for future idempotent requests.
