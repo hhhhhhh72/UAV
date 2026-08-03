@@ -3,7 +3,7 @@
 // Architecture:
 //   - Handlers parse requests, call services, and format responses (respond/fail/paginatedRespond).
 //   - Handlers must NOT contain business logic, SQL queries, or JSON encoding.
-//   - Middleware chain: idempotency → rate limit → request ID → panic recovery → security headers → CORS → auth.
+//   - Middleware chain: rate limit → request ID → panic recovery → security headers → CORS → auth → idempotency.
 //
 // Key types:
 //   - Server — holds all service dependencies and handles route registration.
@@ -295,7 +295,7 @@ func (s *Server) Router() http.Handler {
 		))
 	}
 
-	return s.idempotencyCheck(s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.adminGate(mux))))))))
+	return s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.idempotencyCheck(s.adminGate(mux))))))))
 }
 
 func (s *Server) favicon(w http.ResponseWriter, r *http.Request) {
@@ -573,6 +573,11 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Namespace the key by the authenticated actor so one user's key
+		// cannot replay another user's response.
+		if a, ok := authenticatedActor(r); ok {
+			key = a.ID + ":" + key
+		}
 		// Check for previously completed request.
 		if status, body, ok := s.idempotency.get(key); ok {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -608,11 +613,10 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 
 func (s *Server) rateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Use X-Forwarded-For or RemoteAddr as the rate-limit key.
-		key := r.Header.Get("X-Forwarded-For")
-		if key == "" {
-			key = r.RemoteAddr
-		}
+		// Rate-limit by the direct peer address. X-Forwarded-For is client
+		// controlled and would let attackers rotate it to bypass the limit.
+		// (If a trusted proxy is added, parse the last hop it appends instead.)
+		key := r.RemoteAddr
 		if !s.rateLimiter.allow(key) {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.Header().Set("Retry-After", "1")

@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -64,7 +63,7 @@ func (s *DemandService) Create(a domain.Actor, in CreateDemandInput) (domain.Dem
 func (s *DemandService) List(f repository.DemandFilter) ([]domain.Demand, error) {
 	return s.repo.List(f)
 }
-func (s *DemandService) Search(q string) ([]domain.Demand, error) { return s.repo.Search(q) }
+func (s *DemandService) Search(q string) ([]domain.Demand, error)  { return s.repo.Search(q) }
 func (s *DemandService) FindByID(id string) (domain.Demand, error) { return s.repo.FindByID(id) }
 func (s *DemandService) ListBidsByDemand(demandID string) ([]domain.DemandBid, error) {
 	return s.bidRepo.ListByDemand(demandID)
@@ -91,7 +90,7 @@ func (s *DemandService) UpdateDraft(a domain.Actor, id, title, desc string) (dom
 }
 
 func (s *DemandService) Submit(a domain.Actor, id string) (domain.Demand, error) {
-	d, err := s.repo.SetStatus(id, domain.DemandPending)
+	d, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.Demand{}, err
 	}
@@ -203,12 +202,9 @@ func (s *DemandService) SelectBid(a domain.Actor, demandID, bidID string) (domai
 	return d, nil
 }
 
-// ConfirmComplete tracks partial confirmations for dual-confirm flow.
-var demandConfirms = struct {
-	m map[string]map[string]bool // demandID -> userID -> true
-	mu sync.Mutex
-}{m: make(map[string]map[string]bool)}
-
+// ConfirmComplete implements the dual-confirm flow. Confirmations are
+// persisted on the demand (Confirmations field) so they survive restarts and
+// work across multiple instances, unlike the previous in-process map.
 func (s *DemandService) ConfirmComplete(a domain.Actor, id string) (domain.Demand, bool, error) {
 	d, err := s.repo.FindByID(id)
 	if err != nil {
@@ -217,16 +213,17 @@ func (s *DemandService) ConfirmComplete(a domain.Actor, id string) (domain.Deman
 	if d.Status != domain.DemandMatched {
 		return domain.Demand{}, false, fmt.Errorf("demand must be in matched status, got %s", d.Status)
 	}
-	// Only publisher or matched bidder can confirm.
-	demandConfirms.mu.Lock()
-	if demandConfirms.m[id] == nil {
-		demandConfirms.m[id] = make(map[string]bool)
+	for _, uid := range d.Confirmations {
+		if uid == a.ID {
+			return d, false, nil // already confirmed — no double counting
+		}
 	}
-	demandConfirms.m[id][a.ID] = true
-	count := len(demandConfirms.m[id])
-	demandConfirms.mu.Unlock()
+	d.Confirmations = append(d.Confirmations, a.ID)
+	if _, err := s.repo.Update(d); err != nil {
+		return domain.Demand{}, false, fmt.Errorf("persist confirmation: %w", err)
+	}
 
-	if count >= 2 {
+	if len(d.Confirmations) >= 2 {
 		d, err = s.repo.SetStatus(id, domain.DemandCompleted)
 		return d, true, err
 	}

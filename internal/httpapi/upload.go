@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +11,14 @@ import (
 )
 
 // POST /api/v1/upload — 上传文件，返回文件 URL
+// Requires authentication and restricts content types (jpeg/png/webp/pdf),
+// mirroring the rules of /api/v1/files/upload.
 func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
+	if _, ok := authenticatedActor(r); !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("parse multipart: %w", err))
 		return
@@ -21,6 +29,13 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	// 校验文件类型：仅允许图片与 PDF
+	ct := header.Header.Get("Content-Type")
+	if ct != "image/jpeg" && ct != "image/png" && ct != "image/webp" && ct != "application/pdf" {
+		fail(w, r, http.StatusBadRequest, errors.New("unsupported file type: only jpeg/png/webp/pdf allowed"))
+		return
+	}
 
 	// 确保上传目录存在
 	dir := "uploads"

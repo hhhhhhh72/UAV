@@ -55,6 +55,8 @@ func (r *demandRepo) Create(d domain.Demand) (domain.Demand, error) {
 	if err != nil { return domain.Demand{}, fmt.Errorf("marshal images: %w", err) }
 	bizFields, err := json.Marshal(d.BizFields)
 	if err != nil { return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err) }
+	confirmations, err := json.Marshal(d.Confirmations)
+	if err != nil { return domain.Demand{}, fmt.Errorf("marshal confirmations: %w", err) }
 	if r.cipher != nil && d.Contact != "" {
 		enc, err := r.cipher.Encrypt(d.Contact)
 		if err != nil {
@@ -68,12 +70,12 @@ func (r *demandRepo) Create(d domain.Demand) (domain.Demand, error) {
 	d.UpdatedAt = now
 	_, err = r.pool.Exec(context.Background(), `
 		INSERT INTO demands (id, publisher_id, publisher_name, contact, district, city_code,
-			biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
+			biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
 			status, version, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
 		d.ID, d.PublisherID, d.PublisherName, d.Contact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, bizFields, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt)
+		d.BudgetFen, bizFields, confirmations, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("create demand: %w", err)
 	}
@@ -82,7 +84,7 @@ func (r *demandRepo) Create(d domain.Demand) (domain.Demand, error) {
 
 func (r *demandRepo) FindByID(id string) (domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
 		status, version, created_at, updated_at
 		FROM demands WHERE id = $1`
 	demands, err := scanDemands(r.pool, r.cipher, q, []any{id})
@@ -100,6 +102,8 @@ func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
 	if err != nil { return domain.Demand{}, fmt.Errorf("marshal images: %w", err) }
 	bizFields, err := json.Marshal(d.BizFields)
 	if err != nil { return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err) }
+	confirmations, err := json.Marshal(d.Confirmations)
+	if err != nil { return domain.Demand{}, fmt.Errorf("marshal confirmations: %w", err) }
 	encContact := d.Contact
 	if r.cipher != nil && d.Contact != "" {
 		enc, err := r.cipher.Encrypt(d.Contact)
@@ -113,16 +117,16 @@ func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
 	_, err = r.pool.Exec(context.Background(),
 		`UPDATE demands SET publisher_name=$1, contact=$2, district=$3, city_code=$4,
 		biz_type=$5, title=$6, description=$7, images=$8, latitude=$9, longitude=$10,
-		budget_fen=$11, biz_fields=$12, status=$13, version=$14, updated_at=$15 WHERE id=$16`,
+		budget_fen=$11, biz_fields=$12, confirmations=$13, status=$14, version=$15, updated_at=$16 WHERE id=$17`,
 		d.PublisherName, encContact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, bizFields, string(d.Status), d.Version, d.UpdatedAt, d.ID)
+		d.BudgetFen, bizFields, confirmations, string(d.Status), d.Version, d.UpdatedAt, d.ID)
 	return d, err
 }
 
 func (r *demandRepo) List(f repository.DemandFilter) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
 		status, version, created_at, updated_at
 		FROM demands WHERE status = 'published'`
 	args := []any{}
@@ -144,7 +148,7 @@ func (r *demandRepo) List(f repository.DemandFilter) ([]domain.Demand, error) {
 
 func (r *demandRepo) Search(q string) ([]domain.Demand, error) {
 	sql := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
 		status, version, created_at, updated_at
 		FROM demands WHERE status = 'published'
 		AND (title ILIKE $1 OR publisher_name ILIKE $1 OR description ILIKE $1)
@@ -164,21 +168,22 @@ func (r *demandRepo) SetStatus(id string, status domain.DemandStatus) (domain.De
 	}
 	// Fetch the updated row.
 	var d domain.Demand
-	var images, bizFields []byte
+	var images, bizFields, confirmations []byte
 	var bizType string
 	err = r.pool.QueryRow(context.Background(),
 		`SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
 		status, version, created_at, updated_at
 		FROM demands WHERE id = $1`, id).Scan(
 		&d.ID, &d.PublisherID, &d.PublisherName, &d.Contact, &d.District, &d.CityCode,
 		&bizType, &d.Title, &d.Description, &images, &d.Latitude, &d.Longitude,
-		&d.BudgetFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt)
+		&d.BudgetFen, &bizFields, &confirmations, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("fetch demand after update: %w", err)
 	}
 	json.Unmarshal(images, &d.Images)
 	json.Unmarshal(bizFields, &d.BizFields)
+	json.Unmarshal(confirmations, &d.Confirmations)
 	d.BizType = domain.BizType(bizType)
 	d.Status = domain.DemandStatus(status)
 	if r.cipher != nil && d.Contact != "" {
@@ -198,15 +203,16 @@ func scanDemands(pool *pgxpool.Pool, cipher *crypto.Cipher, q string, args []any
 	out := []domain.Demand{}
 	for rows.Next() {
 		var d domain.Demand
-		var images, bizFields []byte
+		var images, bizFields, confirmations []byte
 		var status, bizType string
 		if err := rows.Scan(&d.ID, &d.PublisherID, &d.PublisherName, &d.Contact, &d.District,
 			&d.CityCode, &bizType, &d.Title, &d.Description, &images, &d.Latitude, &d.Longitude,
-			&d.BudgetFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt); err != nil {
+			&d.BudgetFen, &bizFields, &confirmations, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan demand: %w", err)
 		}
 		json.Unmarshal(images, &d.Images)
 		json.Unmarshal(bizFields, &d.BizFields)
+		json.Unmarshal(confirmations, &d.Confirmations)
 		d.BizType = domain.BizType(bizType)
 		d.Status = domain.DemandStatus(status)
 		if cipher != nil && d.Contact != "" {
@@ -1313,9 +1319,34 @@ func (r *pgExhibitionRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), "DELETE FROM exhibitions WHERE id=$1", id)
 	return err
 }
-func (r *pgExhibitionRepo) CreateBooth(b domain.ExhibitionBooth) (domain.ExhibitionBooth, error) { return b, nil }
-func (r *pgExhibitionRepo) ListBooths(id string) ([]domain.ExhibitionBooth, error) { return nil, nil }
-func (r *pgExhibitionRepo) UpdateBoothStatus(id, status string) (domain.ExhibitionBooth, error) { return domain.ExhibitionBooth{}, nil }
+func (r *pgExhibitionRepo) CreateBooth(b domain.ExhibitionBooth) (domain.ExhibitionBooth, error) {
+	b.CreatedAt = time.Now()
+	_, err := r.pool.Exec(context.Background(),
+		`INSERT INTO exhibition_booths (id,exhibition_id,exhibitor_id,booth_number,exhibit_name,exhibit_desc,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		b.ID, b.ExhibitionID, b.ExhibitorID, b.BoothNumber, b.ExhibitName, b.ExhibitDesc, b.Status, b.CreatedAt)
+	return b, err
+}
+func (r *pgExhibitionRepo) ListBooths(exhibitionID string) ([]domain.ExhibitionBooth, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,exhibition_id,exhibitor_id,booth_number,exhibit_name,exhibit_desc,status,created_at FROM exhibition_booths WHERE exhibition_id=$1 ORDER BY created_at DESC`, exhibitionID)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var out []domain.ExhibitionBooth
+	for rows.Next() {
+		var b domain.ExhibitionBooth
+		if err := rows.Scan(&b.ID, &b.ExhibitionID, &b.ExhibitorID, &b.BoothNumber, &b.ExhibitName, &b.ExhibitDesc, &b.Status, &b.CreatedAt); err != nil { return nil, err }
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+func (r *pgExhibitionRepo) UpdateBoothStatus(id, status string) (domain.ExhibitionBooth, error) {
+	var b domain.ExhibitionBooth
+	err := r.pool.QueryRow(context.Background(),
+		`UPDATE exhibition_booths SET status=$1 WHERE id=$2 RETURNING id,exhibition_id,exhibitor_id,booth_number,exhibit_name,exhibit_desc,status,created_at`,
+		status, id).
+		Scan(&b.ID, &b.ExhibitionID, &b.ExhibitorID, &b.BoothNumber, &b.ExhibitName, &b.ExhibitDesc, &b.Status, &b.CreatedAt)
+	return b, err
+}
 
 
 // ── TestSite PG ──
@@ -1375,13 +1406,32 @@ func (r *pgTestSiteRepo) DeleteSite(id string) error {
 }
 
 func (r *pgTestSiteRepo) CreateBooking(b domain.TestSiteBooking) (domain.TestSiteBooking, error) {
-    return b, fmt.Errorf("booking not implemented in PG")
+	b.CreatedAt = time.Now()
+	_, err := r.pool.Exec(context.Background(),
+		`INSERT INTO test_site_bookings (id,site_id,user_id,purpose,start_time,end_time,status,review_note,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		b.ID, b.SiteID, b.UserID, b.Purpose, b.StartTime, b.EndTime, b.Status, b.ReviewNote, b.CreatedAt)
+	return b, err
 }
 func (r *pgTestSiteRepo) UpdateBookingStatus(id, status, note string) (domain.TestSiteBooking, error) {
-    return domain.TestSiteBooking{}, fmt.Errorf("update booking not implemented in PG")
+	var b domain.TestSiteBooking
+	err := r.pool.QueryRow(context.Background(),
+		`UPDATE test_site_bookings SET status=$1,review_note=$2 WHERE id=$3 RETURNING id,site_id,user_id,purpose,start_time,end_time,status,review_note,created_at`,
+		status, note, id).
+		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.Status, &b.ReviewNote, &b.CreatedAt)
+	return b, err
 }
 func (r *pgTestSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, error) {
-    return nil, fmt.Errorf("list bookings not implemented in PG")
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,site_id,user_id,purpose,start_time,end_time,status,review_note,created_at FROM test_site_bookings WHERE site_id=$1 ORDER BY created_at DESC`, siteID)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var out []domain.TestSiteBooking
+	for rows.Next() {
+		var b domain.TestSiteBooking
+		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.Status, &b.ReviewNote, &b.CreatedAt); err != nil { return nil, err }
+		out = append(out, b)
+	}
+	return out, rows.Err()
 }
 
 // ── Transformation PG ──

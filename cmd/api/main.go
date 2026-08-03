@@ -204,14 +204,14 @@ func main() {
 		resourceRepo = pgStore.NewResourceRepository()
 		emergencyRepo = pgStore.NewEmergencyRepository()
 
-		// Memory-only repos: PG implementations pending.
 		exhibitionRepo = pgStore.NewExhibitionRepository()
 		collegeRepo = pgStore.NewCollegeRepository()
 		studyTourRepo = pgStore.NewStudyTourRepository()
-		coopRepo = memory.NewCooperationRepository()
-		rescueCaseRepo = memory.NewRescueCaseRepository()
-		emergDeptRepo = memory.NewEmergencyDeptRepository()
-		assocMemberRepo = memory.NewAssociationMemberRepository()
+		poolRepo = pgStore.NewResourcePoolRepository()
+		coopRepo = pgStore.NewCooperationRepository()
+		rescueCaseRepo = pgStore.NewRescueCaseRepository()
+		emergDeptRepo = pgStore.NewEmergencyDeptRepository()
+		assocMemberRepo = pgStore.NewAssociationMemberRepository()
 	} else {
 		slog.Warn("DATABASE_URL not set, using in-memory storage (NOT FOR PRODUCTION)")
 		demandRepo = memory.NewDemandRepository(cipher)

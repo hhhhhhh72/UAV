@@ -179,10 +179,13 @@ type Demand struct {
 	Longitude     float64        `json:"longitude"`
 	BudgetFen     int64          `json:"budget_fen"` // amount in fen (1/100 yuan)
 	BizFields     map[string]any `json:"biz_fields"`
-	Status        DemandStatus   `json:"status"`
-	Version       int            `json:"version"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	// Confirmations tracks user IDs who confirmed demand completion
+	// (dual-confirm flow). Persisted so it survives restarts and multi-instance.
+	Confirmations []string     `json:"confirmations"`
+	Status        DemandStatus `json:"status"`
+	Version       int          `json:"version"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
 }
 
 // DemandBid is a quotation or proposal submitted by a bidder in response
