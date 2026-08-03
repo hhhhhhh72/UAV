@@ -93,7 +93,7 @@ const filteredCategories = computed(() => {
 const navMap = {
   'demand-hall': '/pages/demands/list', 'bid-quote': '/pages/demands/bid',
   courses: '/pages/training/courses', certificates: '/pages/training/certificates',
-  competitions: '/pages/competitions/list',
+  competitions: '/pages/events/list',
   achievements: '/pages/achievements/list', challenges: '/pages/challenges/list',
   reports: '/pages/reports/list',
   products: '/pages/services/detail?id=trade', repair: '/pages/services/detail?id=repair',

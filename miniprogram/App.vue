@@ -1,14 +1,7 @@
 <script>
 	export default {
 		onLaunch: function() {
-			console.log('App Launch')
 			this.tryWxSilentLogin()
-		},
-		onShow: function() {
-			console.log('App Show')
-		},
-		onHide: function() {
-			console.log('App Hide')
 		},
 		methods: {
 			tryWxSilentLogin() {
@@ -21,14 +14,14 @@
 					success: (loginRes) => {
 						const { request, authStorage } = require('./utils/request')
 						request({
-							url: '/api/auth/wx-login',
+							url: '/api/v1/auth/wechat/login',
 							method: 'POST',
 							data: { code: loginRes.code }
 						}).then(res => {
-							if (res?.success && !res.isNewUser) {
+							// Backend returns snake_case: { access_token, refresh_token, expires_in, user }
+							if (res?.access_token && res?.user) {
 								uni.setStorageSync('user', JSON.stringify(res.user))
-								authStorage.setTokens(res.accessToken, res.refreshToken)
-								console.log('微信静默登录成功')
+								authStorage.setTokens(res.access_token, res.refresh_token)
 							}
 						}).catch(() => {})
 					}

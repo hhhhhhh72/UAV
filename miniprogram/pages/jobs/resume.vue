@@ -163,7 +163,7 @@
 </template>
 
 <script>
-import { request, getStoredUser } from '../../utils/request'
+import { request, getStoredUser, authStorage, BASE_URL } from '../../utils/request'
 
 export default {
   data() {
@@ -306,9 +306,10 @@ export default {
           try {
             var uploadRes = await new Promise(function (resolve, reject) {
               uni.uploadFile({
-                url: 'http://localhost:8080/api/v1/files/upload',
+                url: BASE_URL + '/api/v1/files/upload',
                 filePath: this.certImageUrl,
                 name: 'file',
+                header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
                 success: function (r) {
                   try {
                     var data = JSON.parse(r.data)

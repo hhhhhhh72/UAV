@@ -75,7 +75,7 @@
       <view class="tieba-panel">
         <view class="tieba-head">
           <text class="tieba-title">飞手任务</text>
-          <text class="tieba-more" @tap="switchTab('/pages/tasks/index')">更多 ›</text>
+          <text class="tieba-more" @tap="navigateTo('/pages/tasks/index')">更多 ›</text>
         </view>
         <scroll-view scroll-x :show-scrollbar="false" class="tieba-nav">
           <text v-for="c in taskCats" :key="c.id" class="tieba-cat" :class="{on:activeTaskCat===c.id}" @tap="activeTaskCat=c.id">{{ c.name }}</text>
@@ -120,7 +120,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Layout from '@/components/Layout.vue'
-import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
+import { safeNavigateTo } from '../../utils/nav'
 import { request } from '../../utils/request'
 
 const statusBarH = ref(24)
@@ -216,7 +216,6 @@ const pickCity = (d) => { city.value = d; showCityPicker.value = false; loadHome
 
 const handleFunc = (f) => safeNavigateTo(f.path)
 const navigateTo = (p) => safeNavigateTo(p)
-const switchTab = (p) => safeSwitchTab(p)
 </script>
 
 <style scoped>

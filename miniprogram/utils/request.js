@@ -3,6 +3,16 @@ export const BASE_URL = 'http://localhost:8080'
 const ACCESS_TOKEN_KEY = 'accessToken'
 const REFRESH_TOKEN_KEY = 'refreshToken'
 
+// Unwrap the Go backend envelope. Paginated responses ({ data: [...], total, ... })
+// keep their total attached to the array so list pages can read res.total.
+function unwrap(body) {
+  if (body && typeof body === 'object' && Array.isArray(body.data) && typeof body.total === 'number') {
+    body.data.total = body.total
+    return body.data
+  }
+  return body?.data || body
+}
+
 let isRefreshing = false
 let pendingQueue = []
 
@@ -41,7 +51,7 @@ async function refreshAccessToken() {
     uni.request({
       url: BASE_URL + '/api/v1/auth/refresh',
       method: 'POST',
-      data: { refreshToken },
+      data: { refresh_token: refreshToken },
       success: (r) => {
         if (r.statusCode >= 200 && r.statusCode < 300) resolve(r.data)
         else reject(r)
@@ -50,9 +60,13 @@ async function refreshAccessToken() {
     })
   })
 
-  const newAccessToken = res?.accessToken
+  const body = res?.data ?? res
+  const newAccessToken = body?.access_token || body?.accessToken
   if (!newAccessToken) throw new Error('No access token returned')
-  uni.setStorageSync(ACCESS_TOKEN_KEY, newAccessToken)
+  // Refresh tokens rotate on the server: the old one is revoked immediately,
+  // so the new refresh token must be persisted, or the next refresh 401s.
+  const newRefreshToken = body?.refresh_token || body?.refreshToken
+  authStorage.setTokens(newAccessToken, newRefreshToken)
   return newAccessToken
 }
 
@@ -71,9 +85,7 @@ export function request(options) {
       header,
       success: async (res) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          // Unwrap Go backend { data: {...} } envelope
-          const body = res.data
-          resolve(body?.data || body)
+          resolve(unwrap(res.data))
         } else if (res.statusCode === 401) {
           const refreshToken = authStorage.getRefreshToken()
           if (!refreshToken) {
@@ -94,7 +106,7 @@ export function request(options) {
                     data: options.data || {},
                     header,
                     success: (retryRes) => {
-                      if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) { const b = retryRes.data; r(b?.data || b) }
+                      if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) r(unwrap(retryRes.data))
                       else rj(retryRes)
                     },
                     fail: rj
@@ -116,7 +128,7 @@ export function request(options) {
               data: options.data || {},
               header,
               success: (retryRes) => {
-                if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) { const b = retryRes.data; resolve(b?.data || b) }
+                if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) resolve(unwrap(retryRes.data))
                 else reject(retryRes)
               },
               fail: reject

@@ -158,7 +158,7 @@
 </template>
 
 <script>
-import { request } from '../../utils/request'
+import { request, authStorage, BASE_URL } from '../../utils/request'
 
 export default {
   data() {
@@ -266,9 +266,10 @@ export default {
           uni.showLoading({ title: '上传中...' })
           var uploadRes = await new Promise(function (resolve, reject) {
             uni.uploadFile({
-              url: 'http://localhost:8080/api/v1/files/upload',
+              url: BASE_URL + '/api/v1/files/upload',
               filePath: self.licenseUrl,
               name: 'file',
+              header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
               success: function (r) {
                 try {
                   var data = JSON.parse(r.data)

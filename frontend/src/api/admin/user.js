@@ -5,5 +5,5 @@ export function getUserList(params) {
 }
 
 export function updateUserRole(id, role) {
-  return axios.post('/api/user/role', { id, role }).then(res => res.data)
+  return axios.post(`/api/v1/admin/users/${id}/role`, { role }).then(res => res.data)
 }
