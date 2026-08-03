@@ -450,7 +450,7 @@ export default {
   color: var(--color-text-placeholder);
 }
 
-/* Slot grid (van-grid → CSS 三列) */
+/* Slot grid CSS 三列 */
 .slot-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
