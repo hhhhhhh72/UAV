@@ -134,6 +134,25 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 <style scoped>
 .page { min-height: 100vh; background: var(--color-bg); padding-bottom: 60px; }
 
+/* ===== 入场动效（克制：仅 transform/opacity，220ms 内，卡片依次错开） ===== */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.img-box { animation: fade-in .25s ease-out both; }
+.price-card { animation: fade-up .22s ease-out both; }
+.spec-card { animation: fade-up .22s ease-out .06s both; }
+.shop-card { animation: fade-up .22s ease-out .12s both; }
+.detail-card { animation: fade-up .22s ease-out .18s both; }
+/* 尊重“减少动态效果”设置 */
+@media (prefers-reduced-motion: reduce) {
+  .img-box, .price-card, .spec-card, .shop-card, .detail-card { animation: none; }
+}
+
 .img-box { position: relative; height: 320px; background: var(--color-text); }
 .img-swiper { width: 100%; height: 100%; display: block; }
 .img-dots { position: absolute; bottom: 12px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
@@ -176,6 +195,12 @@ const buy = () => uni.showToast({ title: '下单功能开发中', icon: 'none' }
 .bottom { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--color-divider); box-shadow: 0 -2px 8px rgba(0,0,0,.03); }
 .bottom-left { display: flex; gap: 2px; }
 .bottom-fav, .bottom-share { width: 44px; display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--color-text-secondary); line-height: 1.3; }
-.bottom-cart { flex: 1; height: 38px; border-radius: 19px; background: #fff; border: 1px solid var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; }
-.bottom-buy { flex: 1; height: 38px; border-radius: 19px; background: linear-gradient(135deg,var(--color-warning),var(--color-warning)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+.bottom-cart { flex: 1; height: 38px; border-radius: 19px; background: #fff; border: 1px solid var(--color-warning); color: var(--color-warning); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; transition: transform .18s; }
+.bottom-buy { flex: 1; height: 38px; border-radius: 19px; background: linear-gradient(135deg,var(--color-warning),var(--color-warning)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; transition: transform .18s; }
+
+/* ===== 按压反馈（160-220ms 缩放） ===== */
+.shop-btn { transition: transform .18s; }
+.img-back { transition: transform .18s; }
+.shop-btn:active, .bottom-cart:active, .bottom-buy:active { transform: scale(.97); }
+.img-back:active { transform: scale(.92); }
 </style>
