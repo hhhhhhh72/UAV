@@ -241,40 +241,41 @@ onReachBottom(loadMore)
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
 .goods-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
 
-/* 商品卡（Tigshop 风格：图内边距 + 联系快捷按钮） */
+/* 商品卡（Tigshop 紧凑风格：图 4:3 + 联系快捷按钮） */
 .card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 3px 12px rgba(16,24,40,0.05); }
-.img-wrap { position: relative; background: #fff; padding: 10rpx; }
-.card-img { width: 100%; aspect-ratio: 1/1; border-radius: 6rpx; display: block; }
-.img-ph { width: 100%; aspect-ratio: 1/1; border-radius: 6rpx; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; }
+.img-wrap { position: relative; background: #fff; padding: 8rpx; }
+.card-img { width: 100%; aspect-ratio: 4/3; border-radius: 6rpx; display: block; }
+.img-ph { width: 100%; aspect-ratio: 4/3; border-radius: 6rpx; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; }
 .tag {
-  position: absolute; left: 18rpx; top: 18rpx;
-  font-size: 20rpx; padding: 2px 8px; border-radius: 4px;
+  position: absolute; left: 16rpx; top: 16rpx;
+  font-size: 18rpx; padding: 2px 6px; border-radius: 4px;
 }
 .tag-new { background: var(--color-primary-light); color: var(--color-primary); }
 .tag-used { background: var(--color-primary-light); color: var(--color-text-secondary); }
 /* 卡上联系按钮（悬浮图右下角） */
 .card-contact {
-  position: absolute; right: 18rpx; bottom: 18rpx;
+  position: absolute; right: 16rpx; bottom: 16rpx;
   display: flex; align-items: center; gap: 4rpx;
   background: var(--color-primary); color: #fff;
-  padding: 8rpx 14rpx; border-radius: 6rpx;
+  padding: 6rpx 12rpx; border-radius: 6rpx;
 }
-.contact-ico { font-size: 20rpx; line-height: 1; }
-.contact-txt { font-size: 20rpx; line-height: 1; }
+.contact-ico { font-size: 18rpx; line-height: 1; }
+.contact-txt { font-size: 18rpx; line-height: 1; }
 .btn-press { transform: scale(.95); }
 
-.card-body { padding: 0 12rpx 12rpx; }
+.card-body { padding: 0 10rpx 10rpx; }
 .card-title {
-  font-size: 26rpx; font-weight: 700; color: var(--color-text); line-height: 1.4;
+  font-size: 24rpx; font-weight: 700; color: var(--color-text); line-height: 1.35;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  min-height: 65rpx;
 }
-.card-desc { display: block; font-size: 22rpx; color: var(--color-text-secondary); margin: 6px 0 4px; }
-.card-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
-.price { font-size: 28rpx; font-weight: 700; color: var(--color-warning); white-space: nowrap; }
-.seller { font-size: 20rpx; color: var(--color-text-placeholder); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
+.card-desc { display: block; font-size: 20rpx; color: var(--color-text-secondary); margin: 4rpx 0 2rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; margin-top: 2rpx; }
+.price { font-size: 26rpx; font-weight: 700; color: var(--color-warning); white-space: nowrap; }
+.seller { font-size: 18rpx; color: var(--color-text-placeholder); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
 
 /* 骨架 */
-.skeleton .s-img { aspect-ratio: 1/1; background: var(--color-divider); margin: 10rpx; border-radius: 6rpx; }
+.skeleton .s-img { aspect-ratio: 4/3; background: var(--color-divider); margin: 8rpx; border-radius: 6rpx; }
 .skeleton .s-line { height: 24rpx; background: var(--color-divider); border-radius: 4px; margin: 10px 10px 0; }
 .skeleton .s-line.short { width: 60%; margin-bottom: 12px; }
 
