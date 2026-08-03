@@ -7,12 +7,24 @@
 			tryWxSilentLogin() {
 				// #ifdef MP-WEIXIN
 				const token = uni.getStorageSync('accessToken')
-				if (token) return
-
+				if (token) {
+					// 有 token 但 user 缺失（历史遗留/被清）：用 me 恢复用户信息
+					const { request } = require('./utils/request')
+					request({ url: '/api/auth/me' }).then(meRes => {
+						if (meRes?.user) {
+							uni.setStorageSync('user', JSON.stringify(meRes.user))
+						}
+					}).catch(() => { /* token 失效时由请求层处理 */ })
+					return
+				}
+				this.silentLogin()
+				// #endif
+			},
+			silentLogin() {
+				const { request, authStorage } = require('./utils/request')
 				uni.login({
 					provider: 'weixin',
 					success: (loginRes) => {
-						const { request, authStorage } = require('./utils/request')
 						request({
 							url: '/api/v1/auth/wechat/login',
 							method: 'POST',
@@ -26,7 +38,6 @@
 						}).catch(() => {})
 					}
 				})
-				// #endif
 			}
 		}
 	}
