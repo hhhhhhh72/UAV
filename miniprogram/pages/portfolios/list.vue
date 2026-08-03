@@ -223,7 +223,7 @@ export default {
   padding: 12px 0 24px;
 }
 
-/* Brand grid (van-grid → CSS 两列) */
+/* Brand grid CSS 两列 */
 .brand-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
