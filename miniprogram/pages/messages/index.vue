@@ -3,34 +3,39 @@
     <view class="messages-page">
       <!-- 加载状态 -->
       <view v-if="loading" class="loading-state">
-        <van-loading size="24">加载中...</van-loading>
+        <view class="loading-inline">
+          <u-loading size="24rpx" />
+          <text>加载中...</text>
+        </view>
       </view>
 
       <!-- 空状态 -->
       <view v-else-if="messages.length === 0" class="empty-state-wrapper">
-        <van-empty description="暂无消息" image="search" />
+        <u-empty description="暂无消息" />
       </view>
 
       <!-- 消息列表 -->
       <view v-else class="message-list">
-        <van-cell-group inset>
-          <van-cell
+        <u-cell-group inset>
+          <u-cell
             v-for="msg in messages"
             :key="msg.id"
-            :title="msg.title"
             :label="msg.content"
             :value="formatTime(msg.created_at || msg.createdAt)"
             is-link
-            @tap="onMessageClick(msg)"
+            @click="onMessageClick(msg)"
           >
             <template #icon>
               <view class="msg-icon-wrapper">
-                <van-icon name="chat" size="20" color="#0A66C2" />
+                <text class="msg-icon-text">信</text>
                 <view v-if="!(msg.is_read || msg.isRead)" class="unread-dot" />
               </view>
             </template>
-          </van-cell>
-        </van-cell-group>
+            <template #title>
+              <text class="cell-title-text">{{ msg.title }}</text>
+            </template>
+          </u-cell>
+        </u-cell-group>
       </view>
     </view>
   </Layout>
@@ -123,7 +128,7 @@ onPullDownRefresh(() => {
 
 <style scoped>
 .messages-page {
-  background: #f7f8fa;
+  background: var(--color-bg);
   min-height: 100vh;
   padding-bottom: 24px;
 }
@@ -132,6 +137,14 @@ onPullDownRefresh(() => {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .empty-state-wrapper {
@@ -143,18 +156,41 @@ onPullDownRefresh(() => {
 }
 
 .msg-icon-wrapper {
+  position: relative;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #e8f4fd;
+  background: var(--color-primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 12px;
 }
 
+.msg-icon-text {
+  font-size: 16px;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  border: 2px solid #fff;
+}
+
+.cell-title-text {
+  font-size: 15px;
+  color: var(--color-text);
+}
+
 .is-unread .cell-title-text {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text);
 }
 </style>
