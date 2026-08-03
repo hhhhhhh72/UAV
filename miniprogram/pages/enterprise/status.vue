@@ -29,6 +29,9 @@
         <u-button type="primary" round @click="goRegister">
           立即入驻
         </u-button>
+        <u-button type="default" round class="view-list-btn" @click="goList">
+          查看已认证企业
+        </u-button>
       </view>
     </view>
 
@@ -114,6 +117,9 @@ export default {
     goRegister() {
       uni.navigateTo({ url: '/pages/enterprise/register' })
     },
+    goList() {
+      uni.navigateTo({ url: '/pages/enterprise/list' })
+    },
     goBack() {
       uni.navigateBack()
     },
@@ -196,6 +202,9 @@ export default {
 
 .action-wrap {
   margin-top: 16px;
+}
+.view-list-btn {
+  margin-top: 16rpx;
 }
 
 /* Status card */

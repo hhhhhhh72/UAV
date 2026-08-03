@@ -144,6 +144,14 @@
       }
     },
     {
+      "path": "pages/enterprise/list",
+      "style": {
+        "navigationBarTitleText": "入驻企业",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
       "path": "pages/enterprise/status",
       "style": {
         "navigationBarTitleText": "企业审核",

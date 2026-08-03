@@ -79,10 +79,11 @@ func (s *Server) listPublicEnterprises(w http.ResponseWriter, r *http.Request) {
 	out := make([]map[string]any, 0, len(items))
 	for _, e := range items {
 		out = append(out, map[string]any{
-			"id":        e.ID,
-			"name":      e.Name,
-			"status":    e.Status,
-			"is_member": e.IsMember,
+			"id":         e.ID,
+			"name":       e.Name,
+			"status":     e.Status,
+			"is_member":  e.IsMember,
+			"created_at": e.CreatedAt,
 		})
 	}
 	respond(w, r, http.StatusOK, out)
