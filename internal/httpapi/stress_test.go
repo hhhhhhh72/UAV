@@ -2,7 +2,6 @@ package httpapi_test
 
 import (
 	"fmt"
-	"math"
 	"runtime"
 	"sort"
 	"sync"
@@ -26,34 +25,30 @@ func TestStress_2000MixedOperations(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping stress test in short mode")
 	}
-	bidRepo := memory.NewBidRepository()
 	demandRepo := memory.NewDemandRepository(nil)
 	entRepo := memory.NewEnterpriseRepository(nil)
-	demandSvc := service.NewDemandService(demandRepo, bidRepo)
+	demandSvc := service.NewDemandService(demandRepo)
 	entSvc := service.NewEnterpriseSvc(entRepo)
 
 	// Setup: create 20 published demands and 20 enterprises
-	demandIDs := make([]string, 20)
 	for i := 0; i < 20; i++ {
 		pub := domain.Actor{ID: fmt.Sprintf("pub-%d", i), Role: domain.RoleEnterprise}
 		d, _ := demandSvc.Create(pub, service.CreateDemandInput{
 			PublisherName: "pub", Contact: "13800001111", Title: fmt.Sprintf("压测需求-%d", i), BizType: "other",
 		})
 		time.Sleep(time.Microsecond)
-		demandSvc.Submit(pub, d.ID)
 		demandSvc.Approve(domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}, d.ID)
-		demandIDs[i] = d.ID
 	}
 
 	var (
-		wg           sync.WaitGroup
-		totalOps     int64
-		totalErrors  int64
-		latencies    = make([]int64, 0, 2000)
-		latMu        sync.Mutex
-		stopped      int32
-		start        = time.Now()
-		duration     = 3 * time.Second // sustained load for 3 seconds
+		wg          sync.WaitGroup
+		totalOps    int64
+		totalErrors int64
+		latencies   = make([]int64, 0, 2000)
+		latMu       sync.Mutex
+		stopped     int32
+		start       = time.Now()
+		duration    = 3 * time.Second // sustained load for 3 seconds
 	)
 
 	// 10 worker goroutines doing mixed operations
@@ -70,10 +65,11 @@ func TestStress_2000MixedOperations(t *testing.T) {
 					_, _ = demandSvc.List(repository.DemandFilter{})
 				case 4, 5: // 20% reads — search enterprises
 					_, _ = entSvc.Search(domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, fmt.Sprintf("企业-%d", workerID))
-				case 6, 7: // 20% writes — create bids
-					actor := domain.Actor{ID: fmt.Sprintf("bidder-%d-%d", workerID, opCount), Role: domain.RoleIndividual}
-					did := demandIDs[opCount%len(demandIDs)]
-					_, err := demandSvc.CreateBid(actor, did, int64(10000+opCount), fmt.Sprintf("报价-%d", opCount))
+				case 6, 7: // 20% writes — create demands
+					actor := domain.Actor{ID: fmt.Sprintf("new-pub-%d-%d", workerID, opCount), Role: domain.RoleEnterprise}
+					_, err := demandSvc.Create(actor, service.CreateDemandInput{
+						PublisherName: "pub", Contact: "13800001111", Title: fmt.Sprintf("压测新需求-%d-%d", workerID, opCount), BizType: "other",
+					})
 					if err != nil {
 						atomic.AddInt64(&totalErrors, 1)
 					}
@@ -144,12 +140,11 @@ func TestStress_MemoryLeakDetection(t *testing.T) {
 	var m1 runtime.MemStats
 	runtime.ReadMemStats(&m1)
 
-	bidRepo := memory.NewBidRepository()
 	demandRepo := memory.NewDemandRepository(nil)
-	svc := service.NewDemandService(demandRepo, bidRepo)
+	svc := service.NewDemandService(demandRepo)
 	admin := domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}
 
-	// 10,000 operations — create, submit, approve, bid
+	// 10,000 operations — create, approve
 	for i := 0; i < 10000; i++ {
 		pub := domain.Actor{ID: fmt.Sprintf("mem-pub-%d", i%100), Role: domain.RoleEnterprise}
 		d, err := svc.Create(pub, service.CreateDemandInput{
@@ -158,11 +153,7 @@ func TestStress_MemoryLeakDetection(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		svc.Submit(pub, d.ID)
 		svc.Approve(admin, d.ID)
-
-		bidder := domain.Actor{ID: fmt.Sprintf("mem-bidder-%d", i%200), Role: domain.RoleIndividual}
-		svc.CreateBid(bidder, d.ID, 50000, "mem bid")
 	}
 
 	runtime.GC()
@@ -182,82 +173,14 @@ func TestStress_MemoryLeakDetection(t *testing.T) {
 	}
 }
 
-// ---- Test 3: Goroutine stress — 500 concurrent bid + select flow ----
-
-func TestStress_GoroutineBurst(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
-	}
-	bidRepo := memory.NewBidRepository()
-	demandRepo := memory.NewDemandRepository(nil)
-	svc := service.NewDemandService(demandRepo, bidRepo)
-
-	admin := domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}
-	publisher := domain.Actor{ID: "burst-pub", Role: domain.RoleEnterprise}
-
-	// Create 10 demands
-	demandIDs := make([]string, 10)
-	for i := 0; i < 10; i++ {
-		d, _ := svc.Create(publisher, service.CreateDemandInput{
-			PublisherName: "burst", Contact: "13800001111", Title: fmt.Sprintf("爆发测试-%d", i), BizType: "other",
-		})
-		time.Sleep(time.Microsecond)
-		svc.Submit(publisher, d.ID)
-		svc.Approve(admin, d.ID)
-		demandIDs[i] = d.ID
-	}
-
-	startGoroutines := runtime.NumGoroutine()
-
-	var wg sync.WaitGroup
-	var bidSuccess, selectSuccess int64
-
-	// 500 goroutines: create bid, then try to select
-	for i := 0; i < 500; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			did := demandIDs[idx%len(demandIDs)]
-			actor := domain.Actor{ID: fmt.Sprintf("burst-bidder-%d", idx), Role: domain.RoleIndividual}
-			bid, err := svc.CreateBid(actor, did, int64(10000+idx*100), fmt.Sprintf("爆发报价-%d", idx))
-			if err == nil {
-				atomic.AddInt64(&bidSuccess, 1)
-				// Try to select (only publisher can, most will fail — expected)
-				_, err := svc.SelectBid(publisher, did, bid.ID)
-				if err == nil {
-					atomic.AddInt64(&selectSuccess, 1)
-				}
-			}
-		}(i)
-	}
-	wg.Wait()
-
-	endGoroutines := runtime.NumGoroutine()
-
-	t.Logf("=== Goroutine Burst ===")
-	t.Logf("500 goroutines: %d bids created, %d selects succeeded (max 10)", bidSuccess, selectSuccess)
-	t.Logf("Goroutines: %d → %d (leaked: %d)", startGoroutines, endGoroutines, endGoroutines-startGoroutines)
-
-	if bidSuccess < 400 {
-		t.Errorf("only %d/500 bids succeeded", bidSuccess)
-	}
-	if selectSuccess > 10 {
-		t.Errorf("%d selects succeeded (max 10) — CAS may have failed", selectSuccess)
-	}
-	if endGoroutines > startGoroutines+5 {
-		t.Errorf("goroutine leak: %d goroutines remain (started with %d)", endGoroutines, startGoroutines)
-	}
-}
-
-// ---- Test 4: Concurrent search while data mutates ----
+// ---- Test 3: Concurrent search while data mutates ----
 
 func TestStress_SearchDuringMutation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping stress test in short mode")
 	}
-	bidRepo := memory.NewBidRepository()
 	demandRepo := memory.NewDemandRepository(nil)
-	svc := service.NewDemandService(demandRepo, bidRepo)
+	svc := service.NewDemandService(demandRepo)
 	admin := domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}
 	publisher := domain.Actor{ID: "search-pub", Role: domain.RoleEnterprise}
 
@@ -327,9 +250,8 @@ func TestStress_AdminDashboardLoad(t *testing.T) {
 	}
 	entRepo := memory.NewEnterpriseRepository(nil)
 	demandRepo := memory.NewDemandRepository(nil)
-	bidRepo := memory.NewBidRepository()
 	entSvc := service.NewEnterpriseSvc(entRepo)
-	demandSvc := service.NewDemandService(demandRepo, bidRepo)
+	demandSvc := service.NewDemandService(demandRepo)
 	admin := domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}
 
 	// Pre-populate: 200 enterprises, 200 demands
@@ -468,6 +390,3 @@ func TestStress_DeadlockDetection(t *testing.T) {
 		t.Error("DEADLOCK DETECTED — operations timed out after 3s")
 	}
 }
-
-// Prevent unused import
-var _ = math.Abs

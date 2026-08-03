@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"drone-platform/internal/domain"
-	"drone-platform/internal/repository/memory"
 	"drone-platform/internal/repository"
+	"drone-platform/internal/repository/memory"
 )
 
 // === Demand Repository ===
@@ -15,30 +15,46 @@ func TestDemandRepoFull(t *testing.T) {
 	// Create
 	d := domain.Demand{ID: "d-1", Title: "测试需求", Status: domain.DemandPublished, BizType: domain.BizCableInspection, PublisherID: "u-1"}
 	c, err := r.Create(d)
-	if err != nil || c.ID != "d-1" { t.Fatal("create failed") }
+	if err != nil || c.ID != "d-1" {
+		t.Fatal("create failed")
+	}
 	// FindByID
 	f, err := r.FindByID("d-1")
-	if err != nil || f.Title != "测试需求" { t.Fatal("find failed") }
+	if err != nil || f.Title != "测试需求" {
+		t.Fatal("find failed")
+	}
 	// List
 	list, err := r.List(repository.DemandFilter{})
 	_ = list
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Search
 	results, err := r.Search("测试")
-	if err != nil || len(results) == 0 { t.Fatal("search failed") }
+	if err != nil || len(results) == 0 {
+		t.Fatal("search failed")
+	}
 	// SetStatus
-	d2, err := r.SetStatus("d-1", domain.DemandMatched)
-	if err != nil || d2.Status != domain.DemandMatched { t.Fatal("set status failed") }
+	d2, err := r.SetStatus("d-1", domain.DemandPublished)
+	if err != nil || d2.Status != domain.DemandPublished {
+		t.Fatal("set status failed")
+	}
 	// CompareAndSetStatus
-	ok, d3, err := r.CompareAndSetStatus("d-1", domain.DemandMatched, domain.DemandCompleted)
-	if err != nil || !ok || d3.Status != domain.DemandCompleted { t.Fatal("CAS failed") }
+	ok, d3, err := r.CompareAndSetStatus("d-1", domain.DemandPublished, domain.DemandCompleted)
+	if err != nil || !ok || d3.Status != domain.DemandCompleted {
+		t.Fatal("CAS failed")
+	}
 	// CAS with wrong old status
 	ok2, _, _ := r.CompareAndSetStatus("d-1", domain.DemandPublished, domain.DemandCompleted)
-	if ok2 { t.Fatal("CAS should fail with wrong old status") }
+	if ok2 {
+		t.Fatal("CAS should fail with wrong old status")
+	}
 	// Update
 	d.Title = "updated"
 	u, err := r.Update(d)
-	if err != nil { t.Fatal("update failed:", err) }
+	if err != nil {
+		t.Fatal("update failed:", err)
+	}
 	_ = u
 }
 
@@ -182,10 +198,14 @@ func TestRefreshTokenRepoFull(t *testing.T) {
 	r := memory.NewRefreshTokenRepository()
 	r.Store("usr-1", "hash-abc", time.Now().Add(time.Hour))
 	uid, _, revoked, err := r.Find("hash-abc")
-	if err != nil || uid != "usr-1" || revoked { t.Fatal("find failed") }
+	if err != nil || uid != "usr-1" || revoked {
+		t.Fatal("find failed")
+	}
 	r.Revoke("hash-abc")
 	_, _, revoked2, _ := r.Find("hash-abc")
-	if !revoked2 { t.Fatal("should be revoked") }
+	if !revoked2 {
+		t.Fatal("should be revoked")
+	}
 }
 
 // === Training Repos ===
@@ -250,7 +270,9 @@ func TestContentReposFull(t *testing.T) {
 	msgR.ListByUser("u-1", true)
 	msgR.MarkRead("msg-1")
 	cnt, _ := msgR.UnreadCount("u-1")
-	if cnt != 0 { t.Fatalf("unread: %d", cnt) }
+	if cnt != 0 {
+		t.Fatalf("unread: %d", cnt)
+	}
 
 	artR := memory.NewArticleRepository()
 	artR.Create(domain.Article{ID: "art-1", Title: "新闻", Category: "policy", Status: "draft"})

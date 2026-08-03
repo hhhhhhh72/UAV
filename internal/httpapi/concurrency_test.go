@@ -23,7 +23,6 @@ func newFullServer(t *testing.T) *httpapi.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bidRepo := memory.NewBidRepository()
 	demandRepo := memory.NewDemandRepository(nil)
 	enterpriseRepo := memory.NewEnterpriseRepository(nil)
 	employmentRepo := memory.NewEmploymentRepository()
@@ -32,7 +31,7 @@ func newFullServer(t *testing.T) *httpapi.Server {
 	refreshRepo := memory.NewRefreshTokenRepository()
 
 	srv := httpapi.NewServer(
-		service.NewDemandService(demandRepo, bidRepo),
+		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(enterpriseRepo),
 		service.NewEnterpriseSvc(enterpriseRepo),
 		service.NewEmploymentService(employmentRepo),
@@ -105,105 +104,7 @@ func TestConcurrent_200EnterpriseRegistrations(t *testing.T) {
 	}
 }
 
-// ---- Test 2: 100 concurrent bids on one demand (race detection) ----
-
-func TestConcurrent_100BidsOnOneDemand(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping concurrency test in short mode")
-	}
-	bidRepo := memory.NewBidRepository()
-	demandRepo := memory.NewDemandRepository(nil)
-	svc := service.NewDemandService(demandRepo, bidRepo)
-
-	publisher := domain.Actor{ID: "pub-001", Role: domain.RoleEnterprise}
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布方", Contact: "13800001111", Title: "并发竞标测试",
-	})
-	svc.Submit(publisher, d.ID)
-	svc.Approve(domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}, d.ID)
-
-	var wg sync.WaitGroup
-	successCount := make(chan string, 100)
-	start := time.Now()
-
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			actor := domain.Actor{ID: fmt.Sprintf("bidder-%d", idx), Role: domain.RoleIndividual}
-			bid, err := svc.CreateBid(actor, d.ID, int64(10000+idx*1000), fmt.Sprintf("报价%d", idx))
-			if err == nil {
-				successCount <- bid.ID
-			}
-		}(i)
-	}
-	wg.Wait()
-	close(successCount)
-
-	elapsed := time.Since(start)
-	count := len(successCount)
-	t.Logf("100 concurrent bids: %d succeeded, elapsed %v", count, elapsed)
-
-	if count < 90 {
-		t.Errorf("only %d/100 bids succeeded (expect >=90)", count)
-	}
-}
-
-// ---- Test 3: SelectBid race — only ONE should win ----
-
-func TestConcurrent_SelectBidRace(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping concurrency test in short mode")
-	}
-	bidRepo := memory.NewBidRepository()
-	demandRepo := memory.NewDemandRepository(nil)
-	svc := service.NewDemandService(demandRepo, bidRepo)
-
-	publisher := domain.Actor{ID: "pub-race", Role: domain.RoleEnterprise}
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布方", Contact: "13800001111", Title: "选标竞态测试",
-	})
-	svc.Submit(publisher, d.ID)
-	svc.Approve(domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}, d.ID)
-
-	// Create 5 bids
-	bids := make([]string, 5)
-	for i := 0; i < 5; i++ {
-		actor := domain.Actor{ID: fmt.Sprintf("bidder-%d", i), Role: domain.RoleIndividual}
-		bid, _ := svc.CreateBid(actor, d.ID, int64(10000+i*1000), fmt.Sprintf("报价%d", i))
-		bids[i] = bid.ID
-	}
-
-	// 10 concurrent SelectBid calls — only one should succeed
-	var wg sync.WaitGroup
-	results := make(chan bool, 50)
-
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			bidID := bids[idx%len(bids)]
-			_, err := svc.SelectBid(publisher, d.ID, bidID)
-			results <- (err == nil)
-		}(i)
-	}
-	wg.Wait()
-	close(results)
-
-	successCount := 0
-	for r := range results {
-		if r {
-			successCount++
-		}
-	}
-
-	t.Logf("SelectBid race: %d/50 succeeded (expect exactly 1)", successCount)
-	if successCount != 1 {
-		t.Errorf("CAS TOCTOU bug: %d SelectBid calls succeeded (must be exactly 1)", successCount)
-	}
-}
-
-// ---- Test 4: 200 enterprises → approve all via batch ----
+// ---- Test 3: 200 enterprises → approve all via batch ----
 
 func TestConcurrent_BatchApprove(t *testing.T) {
 	if testing.Short() {
@@ -268,16 +169,15 @@ func TestConcurrent_BatchApprove(t *testing.T) {
 	}
 }
 
-// ---- Test 5: Mixed workload — enterprises + demands + bids simultaneously ----
+// ---- Test 4: Mixed workload — enterprises + demands simultaneously ----
 
 func TestConcurrent_MixedWorkload(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping concurrency test in short mode")
 	}
-	bidRepo := memory.NewBidRepository()
 	demandRepo := memory.NewDemandRepository(nil)
 	entRepo := memory.NewEnterpriseRepository(nil)
-	demandSvc := service.NewDemandService(demandRepo, bidRepo)
+	demandSvc := service.NewDemandService(demandRepo)
 	entSvc := service.NewEnterpriseSvc(entRepo)
 
 	start := time.Now()
@@ -317,18 +217,6 @@ func TestConcurrent_MixedWorkload(t *testing.T) {
 		}(i)
 	}
 
-	// 100 bids on first 10 demands
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			did := fmt.Sprintf("demand-%d", idx%10) // depend on pre-existing demands — this test is approximate
-			actor := domain.Actor{ID: fmt.Sprintf("mix-bidder-%d", idx), Role: domain.RoleIndividual}
-			// Skip error — bids may fail if demand doesn't exist or isn't published
-			_, _ = demandSvc.CreateBid(actor, did, int64(10000+idx*500), fmt.Sprintf("混合报价%d", idx))
-		}(i)
-	}
-
 	wg.Wait()
 	close(errs)
 
@@ -337,74 +225,13 @@ func TestConcurrent_MixedWorkload(t *testing.T) {
 	for range errs {
 		failCount++
 	}
-	t.Logf("Mixed workload 300 ops: %d errors (some expected), elapsed %v", failCount, elapsed)
+	t.Logf("Mixed workload 200 ops: %d errors (some expected), elapsed %v", failCount, elapsed)
 	if elapsed > 10*time.Second {
 		t.Errorf("mixed workload took %v (target <10s)", elapsed)
 	}
 }
 
-// ---- Test 6: Data race check for confirmComplete ----
-
-func TestConcurrent_DualConfirmRace(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping concurrency test in short mode")
-	}
-	bidRepo := memory.NewBidRepository()
-	demandRepo := memory.NewDemandRepository(nil)
-	svc := service.NewDemandService(demandRepo, bidRepo)
-
-	publisher := domain.Actor{ID: "pub-conf", Role: domain.RoleEnterprise}
-	bidder := domain.Actor{ID: "bidder-conf", Role: domain.RoleIndividual}
-
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "确认方", Contact: "13800001111", Title: "双确认并发测试",
-	})
-	svc.Submit(publisher, d.ID)
-	svc.Approve(domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}, d.ID)
-	bid, _ := svc.CreateBid(bidder, d.ID, 50000, "报价")
-	svc.SelectBid(publisher, d.ID, bid.ID)
-
-	// 10 concurrent confirm calls from publisher and bidder
-	var wg sync.WaitGroup
-	completed := make(chan bool, 20)
-
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, c, _ := svc.ConfirmComplete(publisher, d.ID)
-			completed <- c
-		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, c, _ := svc.ConfirmComplete(bidder, d.ID)
-			completed <- c
-		}()
-	}
-	wg.Wait()
-	close(completed)
-
-	completeCount := 0
-	for c := range completed {
-		if c {
-			completeCount++
-		}
-	}
-	// Only the FIRST pair of confirmations should trigger completion
-	t.Logf("Dual confirm race: %d completion signals (expect >=1)", completeCount)
-	if completeCount == 0 {
-		t.Error("demand was never completed — race condition may have dropped confirms")
-	}
-
-	// Verify demand IS completed
-	final, _ := demandRepo.FindByID(d.ID)
-	if final.Status != domain.DemandCompleted {
-		t.Errorf("expected DemandCompleted, got %s — dual confirm race failed", final.Status)
-	}
-}
-
-// ---- Test 7: Rate limiter throughput ----
+// ---- Test 5: Rate limiter throughput ----
 
 func TestConcurrent_RateLimiterThroughput(t *testing.T) {
 	if testing.Short() {

@@ -177,7 +177,7 @@ func TestEnterpriseServiceLegacy(t *testing.T) {
 
 // === Demand Search ===
 func TestDemandServiceSearch(t *testing.T) {
-	svc := service.NewDemandService(memory.NewDemandRepository(nil), memory.NewBidRepository())
+	svc := service.NewDemandService(memory.NewDemandRepository(nil))
 	results, _ := svc.Search("巡检")
 	_ = results
 }

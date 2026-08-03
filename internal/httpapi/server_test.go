@@ -22,7 +22,7 @@ func newServer(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil), memory.NewBidRepository()), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil)), service.NewFileService("test_uploads/"), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository()), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
+	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil)), service.NewFileService("test_uploads/"), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository()), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
 	// Extended services used by public handlers (home endpoint etc.).
 	srv.SetShopService(service.NewShopService(memory.NewShopRepository()))
 	return srv.Router()
@@ -40,15 +40,6 @@ func request(t *testing.T, app http.Handler, method, path string, body []byte, r
 	t.Helper()
 	r := httptest.NewRequest(method, path, bytes.NewReader(body))
 	r.Header.Set("Authorization", auth(t, role))
-	w := httptest.NewRecorder()
-	app.ServeHTTP(w, r)
-	return w
-}
-
-func bidRequest(t *testing.T, app http.Handler, method, path string, body []byte, token string) *httptest.ResponseRecorder {
-	t.Helper()
-	r := httptest.NewRequest(method, path, bytes.NewReader(body))
-	r.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	app.ServeHTTP(w, r)
 	return w
@@ -206,44 +197,6 @@ func TestPendingEnterpriseNeedsAssociationRole(t *testing.T) {
 	if w := request(t, app, http.MethodGet, "/api/v1/admin/enterprises/pending", nil, domain.RoleIndividual); w.Code != http.StatusForbidden {
 		t.Fatalf("got %d", w.Code)
 	}
-}
-
-func TestBidCreateAndSelectFlow(t *testing.T) {
-	app := newServer(t)
-	// Create demand as enterprise user-1
-	demandBody := []byte(`{"publisher_name":"测试","contact":"13800001111","title":"Bid测试需求","description":"test","biz_type":"other"}`)
-	w := request(t, app, http.MethodPost, "/api/v1/demands", demandBody, domain.RoleEnterprise)
-	if w.Code != http.StatusCreated {
-		t.Fatalf("create demand: expected 201, got %d: %s", w.Code, w.Body.String())
-	}
-	var m map[string]interface{}
-	if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil {
-		t.Fatalf("parse demand response: %v", err)
-	}
-	did := m["data"].(map[string]interface{})["id"].(string)
-	w = request(t, app, http.MethodPost, "/api/v1/demands/"+did+"/submit", nil, domain.RoleEnterprise)
-	w = request(t, app, http.MethodPost, "/api/v1/admin/demands/"+did+"/approve", nil, domain.RoleAssociationAdmin)
-
-	// Create bid as individual user-2 (different from publisher user-1)
-	bidBody := []byte(`{"amount_fen":50000,"proposal":"可以做"}`)
-	bidderToken, _ := httpapi.NewTokenManager(testSecret)
-	bidToken, _ := bidderToken.Issue(domain.Actor{ID: "user-2", Role: domain.RoleIndividual}, time.Hour)
-	w = bidRequest(t, app, http.MethodPost, "/api/v1/demands/"+did+"/applications", bidBody, bidToken)
-	if w.Code != http.StatusCreated {
-		t.Fatalf("create bid: expected 201, got %d: %s", w.Code, w.Body.String())
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil {
-		t.Fatalf("parse bid response: %v", err)
-	}
-	bidID := m["data"].(map[string]interface{})["id"].(string)
-
-	// Select bid as publisher
-	w = request(t, app, http.MethodPost, "/api/v1/demands/"+did+"/applications/"+bidID+"/select", nil, domain.RoleEnterprise)
-	if w.Code != http.StatusOK {
-		t.Fatalf("select bid: expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-
-	t.Log("bid flow OK: create→approve→bid→select")
 }
 
 func TestContractWebhookFlow(t *testing.T) {

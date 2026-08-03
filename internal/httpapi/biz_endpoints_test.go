@@ -15,7 +15,7 @@ func newBizServer(t *testing.T) http.Handler {
 	tokens, err := httpapi.NewTokenManager(testSecret)
 	if err != nil { t.Fatal(err) }
 	srv := httpapi.NewServer(
-		service.NewDemandService(memory.NewDemandRepository(nil), memory.NewBidRepository()),
+		service.NewDemandService(memory.NewDemandRepository(nil)),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),
 		service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil)),
 		service.NewEmploymentService(memory.NewEmploymentRepository()),

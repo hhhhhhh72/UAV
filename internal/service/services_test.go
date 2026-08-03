@@ -12,7 +12,7 @@ import (
 
 func setupDemandService(t *testing.T) *service.DemandService {
 	t.Helper()
-	return service.NewDemandService(memory.NewDemandRepository(nil), memory.NewBidRepository())
+	return service.NewDemandService(memory.NewDemandRepository(nil))
 }
 
 func enterpriseActor() domain.Actor {
@@ -78,126 +78,124 @@ func TestDemandService_List(t *testing.T) {
 	}
 }
 
-// ---- Bid Tests ----
+// ---- Demand Complete ----
 
-func TestDemandService_CreateBid(t *testing.T) {
-	svc := setupDemandService(t)
-	d, _ := svc.Create(enterpriseActor(), service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "需求标题",
-	})
-	// Submit and approve to make it published
-	svc.Submit(enterpriseActor(), d.ID)
-	svc.Approve(platformAdminActor(), d.ID)
-
-	bid, err := svc.CreateBid(individualActor(), d.ID, 50000, "我可以做")
-	if err != nil {
-		t.Fatalf("failed to create bid: %v", err)
-	}
-	if bid.Status != "pending" {
-		t.Errorf("expected pending bid, got %s", bid.Status)
-	}
-	if bid.AmountFen != 50000 {
-		t.Errorf("expected 50000 fen, got %d", bid.AmountFen)
-	}
-}
-
-func TestDemandService_CreateBid_CannotBidOnOwnDemand(t *testing.T) {
-	svc := setupDemandService(t)
-	ent := enterpriseActor()
-	d, _ := svc.Create(ent, service.CreateDemandInput{
-		PublisherName: "自己", Contact: "13800001111", Title: "自己的需求",
-	})
-	svc.Submit(ent, d.ID)
-	svc.Approve(platformAdminActor(), d.ID)
-
-	_, err := svc.CreateBid(ent, d.ID, 50000, "自己投自己")
-	if err == nil {
-		t.Fatal("expected error when bidding on own demand")
-	}
-}
-
-func TestDemandService_SelectBid(t *testing.T) {
+func TestDemandService_Complete(t *testing.T) {
 	svc := setupDemandService(t)
 	publisher := enterpriseActor()
+
+	// Publisher completes a published demand → completed
 	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "选标测试",
+		PublisherName: "发布者", Contact: "13800001111", Title: "完成测试",
 	})
-	svc.Submit(publisher, d.ID)
 	svc.Approve(platformAdminActor(), d.ID)
-
-	bid, _ := svc.CreateBid(individualActor(), d.ID, 30000, "报价300")
-
-	matched, err := svc.SelectBid(publisher, d.ID, bid.ID)
+	done, err := svc.Complete(publisher, d.ID)
 	if err != nil {
-		t.Fatalf("failed to select bid: %v", err)
+		t.Fatalf("failed to complete: %v", err)
 	}
-	if matched.Status != domain.DemandMatched {
-		t.Errorf("expected matched status, got %s", matched.Status)
+	if done.Status != domain.DemandCompleted {
+		t.Errorf("expected completed, got %s", done.Status)
 	}
-}
 
-func TestDemandService_SelectBid_WrongOwner(t *testing.T) {
-	svc := setupDemandService(t)
-	publisher := enterpriseActor()
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "归属测试",
-	})
-	svc.Submit(publisher, d.ID)
-	svc.Approve(platformAdminActor(), d.ID)
-
-	bid, _ := svc.CreateBid(individualActor(), d.ID, 30000, "报价")
-
-	otherEnterprise := domain.Actor{ID: "ent-other", Role: domain.RoleEnterprise}
-	_, err := svc.SelectBid(otherEnterprise, d.ID, bid.ID)
-	if err == nil {
-		t.Fatal("expected error when non-owner selects bid")
-	}
-}
-
-func TestDemandService_SelectBid_BidMustBelongToDemand(t *testing.T) {
-	svc := setupDemandService(t)
-	publisher := enterpriseActor()
-
-	// Create two demands (sleep to ensure unique IDs — UnixNano collision in tests)
-	d1, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "需求1",
-	})
-	time.Sleep(time.Microsecond)
+	// Non-publisher cannot complete
+	time.Sleep(time.Microsecond) // ensure unique demand IDs (UnixNano collision)
 	d2, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "需求2",
+		PublisherName: "发布者", Contact: "13800001111", Title: "完成归属测试",
 	})
-	svc.Submit(publisher, d1.ID)
-	svc.Submit(publisher, d2.ID)
-	svc.Approve(platformAdminActor(), d1.ID)
 	svc.Approve(platformAdminActor(), d2.ID)
+	if _, err := svc.Complete(individualActor(), d2.ID); err == nil {
+		t.Fatal("expected error when non-publisher completes")
+	}
 
-	bid, _ := svc.CreateBid(individualActor(), d1.ID, 30000, "报价给d1")
-
-	// Try to select bid for wrong demand
-	_, err := svc.SelectBid(publisher, d2.ID, bid.ID)
-	if err == nil {
-		t.Fatal("expected error when selecting bid for wrong demand")
+	// Non-published demand cannot be completed
+	time.Sleep(time.Microsecond)
+	d3, _ := svc.Create(publisher, service.CreateDemandInput{
+		PublisherName: "发布者", Contact: "13800001111", Title: "未发布完成测试",
+	})
+	if _, err := svc.Complete(publisher, d3.ID); err == nil {
+		t.Fatal("expected error when completing a pending demand")
 	}
 }
 
-func TestDemandService_SelectBid_AlreadyMatched(t *testing.T) {
+func TestDemandService_Cancel(t *testing.T) {
+	svc := setupDemandService(t)
+	publisher := enterpriseActor()
+
+	// Pending demand can be cancelled by publisher
+	d, _ := svc.Create(publisher, service.CreateDemandInput{
+		PublisherName: "发布者", Contact: "13800001111", Title: "取消测试",
+	})
+	cancelled, err := svc.Cancel(publisher, d.ID)
+	if err != nil {
+		t.Fatalf("failed to cancel pending demand: %v", err)
+	}
+	if cancelled.Status != domain.DemandCancelled {
+		t.Errorf("expected cancelled, got %s", cancelled.Status)
+	}
+
+	// Published demand can be cancelled by publisher
+	time.Sleep(time.Microsecond) // ensure unique demand IDs (UnixNano collision)
+	d2, _ := svc.Create(publisher, service.CreateDemandInput{
+		PublisherName: "发布者", Contact: "13800001111", Title: "已发布取消测试",
+	})
+	svc.Approve(platformAdminActor(), d2.ID)
+	c2, err := svc.Cancel(publisher, d2.ID)
+	if err != nil {
+		t.Fatalf("failed to cancel published demand: %v", err)
+	}
+	if c2.Status != domain.DemandCancelled {
+		t.Errorf("expected cancelled, got %s", c2.Status)
+	}
+
+	// Non-publisher cannot cancel
+	time.Sleep(time.Microsecond)
+	d3, _ := svc.Create(publisher, service.CreateDemandInput{
+		PublisherName: "发布者", Contact: "13800001111", Title: "取消归属测试",
+	})
+	if _, err := svc.Cancel(individualActor(), d3.ID); err == nil {
+		t.Fatal("expected error when non-publisher cancels")
+	}
+
+	// Completed demand cannot be cancelled
+	time.Sleep(time.Microsecond)
+	d4, _ := svc.Create(publisher, service.CreateDemandInput{
+		PublisherName: "发布者", Contact: "13800001111", Title: "完成不可取消测试",
+	})
+	svc.Approve(platformAdminActor(), d4.ID)
+	svc.Complete(publisher, d4.ID)
+	if _, err := svc.Cancel(publisher, d4.ID); err == nil {
+		t.Fatal("expected error when cancelling a completed demand")
+	}
+}
+
+func TestDemandService_Submit_ResubmitRejected(t *testing.T) {
 	svc := setupDemandService(t)
 	publisher := enterpriseActor()
 	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "匹配测试",
+		PublisherName: "发布者", Contact: "13800001111", Title: "重新提交测试",
 	})
-	svc.Submit(publisher, d.ID)
-	svc.Approve(platformAdminActor(), d.ID)
+	// Admin rejects
+	svc.Review(platformAdminActor(), d.ID, "reject", "资料不全")
+	if rejected, _ := svc.FindByID(d.ID); rejected.Status != domain.DemandRejected {
+		t.Fatalf("expected rejected, got %s", rejected.Status)
+	}
 
-	bid1, _ := svc.CreateBid(individualActor(), d.ID, 20000, "第一个报价")
-	svc.SelectBid(publisher, d.ID, bid1.ID)
+	// Publisher resubmits a rejected demand → pending
+	submitted, err := svc.Submit(publisher, d.ID)
+	if err != nil {
+		t.Fatalf("failed to resubmit: %v", err)
+	}
+	if submitted.Status != domain.DemandPending {
+		t.Errorf("expected pending after resubmit, got %s", submitted.Status)
+	}
 
-	// Second bid should fail because demand is already matched (add sleep for unique bid ID)
-	time.Sleep(time.Microsecond)
-	bid2, _ := svc.CreateBid(domain.Actor{ID: "user-002", Role: domain.RoleIndividual}, d.ID, 30000, "第二个报价")
-	_, err := svc.SelectBid(publisher, d.ID, bid2.ID)
-	if err == nil {
-		t.Fatal("expected error when selecting bid for already-matched demand")
+	// Non-rejected demand cannot be submitted
+	time.Sleep(time.Microsecond) // ensure unique demand IDs (UnixNano collision)
+	d2, _ := svc.Create(publisher, service.CreateDemandInput{
+		PublisherName: "发布者", Contact: "13800001111", Title: "非法提交测试",
+	})
+	if _, err := svc.Submit(publisher, d2.ID); err == nil {
+		t.Fatal("expected error when submitting a pending demand")
 	}
 }
 
@@ -311,74 +309,6 @@ func TestContractService_Create(t *testing.T) {
 	}
 	if c.EnterpriseID != "ent-001" {
 		t.Errorf("expected ent-001, got %s", c.EnterpriseID)
-	}
-}
-
-// ---- Confirm Complete ----
-
-func TestDemandService_ConfirmComplete_DualConfirm(t *testing.T) {
-	svc := setupDemandService(t)
-	publisher := enterpriseActor()
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "双确认测试",
-	})
-	svc.Submit(publisher, d.ID)
-	svc.Approve(platformAdminActor(), d.ID)
-
-	bidder := individualActor()
-	bid, _ := svc.CreateBid(bidder, d.ID, 10000, "报价")
-	svc.SelectBid(publisher, d.ID, bid.ID)
-
-	// First confirm (publisher)
-	d, completed, err := svc.ConfirmComplete(publisher, d.ID)
-	if err != nil {
-		t.Fatalf("first confirm failed: %v", err)
-	}
-	if completed {
-		t.Error("should not be completed after first confirm")
-	}
-
-	// Second confirm (bidder)
-	d, completed, err = svc.ConfirmComplete(bidder, d.ID)
-	if err != nil {
-		t.Fatalf("second confirm failed: %v", err)
-	}
-	if !completed {
-		t.Error("should be completed after second confirm")
-	}
-	if d.Status != domain.DemandCompleted {
-		t.Errorf("expected completed, got %s", d.Status)
-	}
-}
-
-// ---- Dispute ----
-
-func TestDemandService_Dispute(t *testing.T) {
-	svc := setupDemandService(t)
-	publisher := enterpriseActor()
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "争议测试",
-	})
-	// Submit and approve so demand is published (required for dispute).
-	svc.Submit(publisher, d.ID)
-	svc.Approve(platformAdminActor(), d.ID)
-	_, err := svc.Dispute(publisher, d.ID, "不满意")
-	if err != nil {
-		t.Fatalf("failed to dispute: %v", err)
-	}
-}
-
-func TestDemandService_Dispute_WrongOwner(t *testing.T) {
-	svc := setupDemandService(t)
-	publisher := enterpriseActor()
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
-		PublisherName: "发布者", Contact: "13800001111", Title: "争议归属测试",
-	})
-	svc.Submit(publisher, d.ID)
-	svc.Approve(platformAdminActor(), d.ID)
-	_, err := svc.Dispute(individualActor(), d.ID, "不满意")
-	if err == nil {
-		t.Fatal("expected error when non-owner disputes")
 	}
 }
 
