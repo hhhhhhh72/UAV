@@ -203,6 +203,11 @@
         </view>
       </view>
 
+      <!-- ===== 退出登录 ===== -->
+      <view class="card logout-card" v-if="user" @tap="doLogout">
+        <text class="logout-text">退出登录</text>
+      </view>
+
       <!-- 底部留白 -->
       <view class="bottom-spacer"></view>
     </view>
@@ -274,6 +279,24 @@ onShow(() => {
 
 // ── 导航 ──
 const goLogin = () => uni.navigateTo({ url: '/pages/login/index' })
+
+// 退出登录：清 token 与用户信息，回到未登录态（此时点登录可进登录页）
+const doLogout = () => {
+  uni.showModal({
+    title: '提示',
+    content: '确定退出登录吗？',
+    success: (res) => {
+      if (res.confirm) {
+        authStorage.clearTokens()
+        uni.removeStorageSync('user')
+        user.value = null
+        userInitial.value = '?'
+        userRoleLabel.value = ''
+        uni.showToast({ title: '已退出登录', icon: 'none' })
+      }
+    }
+  })
+}
 
 const handleUserClick = () => {
   if (!user.value) {
@@ -798,5 +821,17 @@ const goAbout = () => {
 
 .bottom-spacer {
   height: 40rpx;
+}
+
+.logout-card {
+  margin: 0 24rpx;
+  padding: 28rpx 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.logout-text {
+  font-size: 28rpx;
+  color: var(--color-danger);
 }
 </style>
