@@ -39,6 +39,7 @@ type UserRepository interface {
 	FindByID(id string) (domain.User, error)
 	All() ([]domain.User, error)
 	UpdateRole(id string, role domain.Role) error
+	UpdateAvatar(userID, avatarURL string) error
 	Delete(id string) error
 }
 

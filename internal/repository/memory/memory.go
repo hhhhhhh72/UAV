@@ -729,6 +729,18 @@ func (r *memUserRepo) UpdateRole(id string, role domain.Role) error {
 	return fmt.Errorf("user not found")
 }
 
+func (r *memUserRepo) UpdateAvatar(userID, avatarURL string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == userID {
+			r.items[i].AvatarURL = avatarURL
+			return nil
+		}
+	}
+	return fmt.Errorf("user not found")
+}
+
 func (r *memUserRepo) Delete(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

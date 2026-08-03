@@ -646,11 +646,12 @@ func (s *Server) h5AuthMe(w http.ResponseWriter, r *http.Request) {
 		respond(w, r, http.StatusOK, map[string]any{
 			"success": true,
 			"user": map[string]any{
-				"id":     u.ID,
-				"role":   string(u.Role),
-				"status": u.Status,
-				"name":   name,
-				"phone":  phone,
+				"id":         u.ID,
+				"role":       string(u.Role),
+				"status":     u.Status,
+				"name":       name,
+				"phone":      phone,
+				"avatar_url": u.AvatarURL,
 			},
 		})
 		return

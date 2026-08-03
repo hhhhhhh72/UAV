@@ -155,19 +155,28 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
-// PATCH /api/v1/me
+// PATCH /api/v1/me — update profile fields (currently: avatar_url).
 func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	var in struct{ Name string `json:"name"` }
+	var in struct {
+		Name      string `json:"name"`
+		AvatarURL string `json:"avatar_url"`
+	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	respond(w, r, http.StatusOK, map[string]any{"id": a.ID, "role": a.Role, "name": in.Name, "status": "active"})
+	if in.AvatarURL != "" {
+		if err := s.userRepo.UpdateAvatar(a.ID, in.AvatarURL); err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+	}
+	respond(w, r, http.StatusOK, map[string]any{"id": a.ID, "role": a.Role, "avatar_url": in.AvatarURL, "status": "active"})
 }
 
 // GET /api/v1/me
@@ -190,10 +199,15 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 			certCount = len(certs)
 		}
 	}
+	avatarURL := ""
+	if u, err := s.userRepo.FindByID(a.ID); err == nil {
+		avatarURL = u.AvatarURL
+	}
 	respond(w, r, http.StatusOK, map[string]any{
 		"id":           a.ID,
 		"role":         string(a.Role),
 		"status":       "active",
+		"avatar_url":   avatarURL,
 		"demand_count": demandCount,
 		"cert_count":   certCount,
 	})

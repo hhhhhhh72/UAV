@@ -44,6 +44,7 @@ type User struct {
 	PhoneCipher   string     `json:"-"` // AES-256-GCM encrypted, never serialized
 	// PasswordHash is the bcrypt hash for password login. Never serialized.
 	PasswordHash  string     `json:"-"`
+	AvatarURL     string     `json:"avatar_url"`
 	Role          Role       `json:"role"`
 	Status        string     `json:"status"`
 	Version       int        `json:"version"`

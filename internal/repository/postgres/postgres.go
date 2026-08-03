@@ -882,8 +882,8 @@ func (s *Store) NewUserRepository() repository.UserRepository { return &userRepo
 func (r *userRepo) FindByOpenID(openid string) (domain.User, error) {
 	var u domain.User
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id, wechat_openid, phone_ciphertext, password_hash, role, status, version, created_at, updated_at FROM users WHERE wechat_openid=$1 AND deleted_at IS NULL`, openid).
-		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, wechat_openid, phone_ciphertext, password_hash, avatar_url, role, status, version, created_at, updated_at FROM users WHERE wechat_openid=$1 AND deleted_at IS NULL`, openid).
+		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.AvatarURL, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
 			u.PhoneCipher = dec
@@ -898,16 +898,16 @@ func (r *userRepo) Create(u domain.User) (domain.User, error) {
 		u.Role = domain.RoleIndividual
 	}
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO users (id, wechat_openid, phone_ciphertext, password_hash, role, status, version, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		u.ID, u.WechatOpenID, u.PhoneCipher, u.PasswordHash, string(u.Role), u.Status, u.Version, u.CreatedAt, u.UpdatedAt)
+		`INSERT INTO users (id, wechat_openid, phone_ciphertext, password_hash, avatar_url, role, status, version, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		u.ID, u.WechatOpenID, u.PhoneCipher, u.PasswordHash, u.AvatarURL, string(u.Role), u.Status, u.Version, u.CreatedAt, u.UpdatedAt)
 	return u, err
 }
 
 func (r *userRepo) FindByID(id string) (domain.User, error) {
 	var u domain.User
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id, wechat_openid, phone_ciphertext, password_hash, role, status, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
-		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, wechat_openid, phone_ciphertext, password_hash, avatar_url, role, status, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
+		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.AvatarURL, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
 			u.PhoneCipher = dec
@@ -917,7 +917,7 @@ func (r *userRepo) FindByID(id string) (domain.User, error) {
 }
 
 func (r *userRepo) All() ([]domain.User, error) {
-	rows, err := r.pool.Query(context.Background(), `SELECT id, wechat_openid, phone_ciphertext, password_hash, role, status, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
+	rows, err := r.pool.Query(context.Background(), `SELECT id, wechat_openid, phone_ciphertext, password_hash, avatar_url, role, status, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}
@@ -925,7 +925,7 @@ func (r *userRepo) All() ([]domain.User, error) {
 	var out []domain.User
 	for rows.Next() {
 		var u domain.User
-		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.AvatarURL, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			continue
 		}
 		if r.cipher != nil && u.PhoneCipher != "" {
@@ -941,6 +941,12 @@ func (r *userRepo) All() ([]domain.User, error) {
 func (r *userRepo) UpdateRole(id string, role domain.Role) error {
 	_, err := r.pool.Exec(context.Background(), `UPDATE users SET role=$1, version=version+1, updated_at=NOW() WHERE id=$2`, string(role), id)
 	if err != nil { return fmt.Errorf("update role for %s: %w", id, err) }
+	return nil
+}
+
+func (r *userRepo) UpdateAvatar(userID, avatarURL string) error {
+	_, err := r.pool.Exec(context.Background(), `UPDATE users SET avatar_url=$1, updated_at=NOW() WHERE id=$2`, avatarURL, userID)
+	if err != nil { return fmt.Errorf("update avatar for %s: %w", userID, err) }
 	return nil
 }
 
