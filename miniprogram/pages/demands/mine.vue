@@ -1,104 +1,113 @@
 <template>
   <view class="mine-page">
-    <van-nav-bar
+    <u-nav-bar
       title="我的需求"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
-    <van-tabs
-      :active="activeTab"
-      @change="onTabChange"
-      sticky
-      :offset-top="0"
-    >
-      <!-- Tab: 我发布的 -->
-      <van-tab title="我发布的">
-        <!-- Loading -->
-        <view v-if="published.loading" class="loading-state">
-          <van-loading size="24">加载中...</van-loading>
-        </view>
+    <u-sticky>
+      <u-tabs
+        v-model:active="activeTab"
+        :titles="['我发布的', '我竞标的']"
+        @change="onTabChange"
+      />
+    </u-sticky>
 
-        <!-- Error -->
-        <view v-else-if="published.error" class="state-view">
-          <van-empty description="加载失败" image="error" />
-          <view class="retry-btn" @tap="fetchPublished">
-            <text>重新加载</text>
-          </view>
+    <!-- Tab: 我发布的 -->
+    <template v-if="activeTab === 0">
+      <!-- Loading -->
+      <view v-if="published.loading" class="loading-state">
+        <view class="loading-inline">
+          <u-loading size="24rpx" />
+          <text>加载中...</text>
         </view>
+      </view>
 
-        <!-- Empty -->
-        <view v-else-if="published.list.length === 0" class="state-view">
-          <van-empty image="search" description="暂无发布的需求" />
+      <!-- Error -->
+      <view v-else-if="published.error" class="state-view">
+        <u-empty description="加载失败" />
+        <view class="retry-btn" @tap="fetchPublished">
+          <text>重新加载</text>
         </view>
+      </view>
 
-        <!-- Normal -->
-        <view v-else class="list-body">
-          <van-cell-group inset>
-            <van-cell
-              v-for="item in published.list"
-              :key="item.id"
-              :title="item.title"
-              is-link
-              @tap="goDetail(item.id)"
-            >
-              <template #label>
+      <!-- Empty -->
+      <view v-else-if="published.list.length === 0" class="state-view">
+        <u-empty description="暂无发布的需求" />
+      </view>
+
+      <!-- Normal -->
+      <view v-else class="list-body">
+        <u-cell-group inset>
+          <u-cell
+            v-for="item in published.list"
+            :key="item.id"
+            is-link
+            @click="goDetail(item.id)"
+          >
+            <template #title>
+              <view class="cell-content">
+                <text class="cell-title">{{ item.title }}</text>
                 <view class="cell-meta">
-                  <van-tag :type="statusTagType(item.status)" size="small">
+                  <u-tag :type="statusTagType(item.status)" size="mini">
                     {{ statusLabel(item.status) }}
-                  </van-tag>
+                  </u-tag>
                   <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
                   <text class="meta-date">{{ formatDate(item.created_at) }}</text>
                 </view>
-              </template>
-            </van-cell>
-          </van-cell-group>
-        </view>
-      </van-tab>
+              </view>
+            </template>
+          </u-cell>
+        </u-cell-group>
+      </view>
+    </template>
 
-      <!-- Tab: 我竞标的 -->
-      <van-tab title="我竞标的">
-        <!-- Loading -->
-        <view v-if="bids.loading" class="loading-state">
-          <van-loading size="24">加载中...</van-loading>
+    <!-- Tab: 我竞标的 -->
+    <template v-else>
+      <!-- Loading -->
+      <view v-if="bids.loading" class="loading-state">
+        <view class="loading-inline">
+          <u-loading size="24rpx" />
+          <text>加载中...</text>
         </view>
+      </view>
 
-        <!-- Error -->
-        <view v-else-if="bids.error" class="state-view">
-          <van-empty description="加载失败" image="error" />
-          <view class="retry-btn" @tap="fetchBids">
-            <text>重新加载</text>
-          </view>
+      <!-- Error -->
+      <view v-else-if="bids.error" class="state-view">
+        <u-empty description="加载失败" />
+        <view class="retry-btn" @tap="fetchBids">
+          <text>重新加载</text>
         </view>
+      </view>
 
-        <!-- Empty -->
-        <view v-else-if="bids.list.length === 0" class="state-view">
-          <van-empty image="search" description="暂无竞标记录" />
-        </view>
+      <!-- Empty -->
+      <view v-else-if="bids.list.length === 0" class="state-view">
+        <u-empty description="暂无竞标记录" />
+      </view>
 
-        <!-- Normal -->
-        <view v-else class="list-body">
-          <van-cell-group inset>
-            <van-cell
-              v-for="item in bids.list"
-              :key="item.id"
-              :title="item.demand_title || '需求 #' + item.demand_id"
-              :label="formatBudget(item.amount_fen)"
-              is-link
-              @tap="goDetail(item.demand_id)"
-            >
-              <template #right-icon>
-                <van-tag :type="bidStatusTagType(item.status)" size="small">
-                  {{ bidStatusLabel(item.status) }}
-                </van-tag>
-              </template>
-            </van-cell>
-          </van-cell-group>
-        </view>
-      </van-tab>
-    </van-tabs>
+      <!-- Normal -->
+      <view v-else class="list-body">
+        <u-cell-group inset>
+          <u-cell
+            v-for="item in bids.list"
+            :key="item.id"
+            :label="formatBudget(item.amount_fen)"
+            is-link
+            @click="goDetail(item.demand_id)"
+          >
+            <template #title>
+              <text class="cell-title">{{ item.demand_title || '需求 #' + item.demand_id }}</text>
+            </template>
+            <template #value>
+              <u-tag :type="bidStatusTagType(item.status)" size="mini">
+                {{ bidStatusLabel(item.status) }}
+              </u-tag>
+            </template>
+          </u-cell>
+        </u-cell-group>
+      </view>
+    </template>
   </view>
 </template>
 
@@ -191,8 +200,8 @@ export default {
         this.bids = { loading: false, error: true, list: this.bids.list }
       }
     },
-    onTabChange(e) {
-      this.activeTab = e.detail.index
+    onTabChange(index) {
+      this.activeTab = index
     },
     goDetail(id) {
       uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(id) })
@@ -249,7 +258,7 @@ export default {
 <style scoped>
 .mine-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -258,6 +267,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .state-view {
@@ -270,7 +287,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -281,21 +298,33 @@ export default {
   padding: 12px 0 24px;
 }
 
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.cell-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 .cell-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .meta-date {
   font-size: 12px;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
 }
 </style>

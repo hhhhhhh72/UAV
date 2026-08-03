@@ -1,21 +1,22 @@
 <template>
   <view class="bid-page">
-    <van-nav-bar
+    <u-nav-bar
       title="竞标报价"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading -->
     <view v-if="loading" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error -->
     <view v-else-if="errorMsg" class="state-view">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchDemandSummary">
         <text>重新加载</text>
       </view>
@@ -27,9 +28,9 @@
       <view class="summary-card">
         <text class="summary-title">{{ demandSummary.title }}</text>
         <view class="summary-meta">
-          <van-tag :type="bizTypeTagType(demandSummary.biz_type)" size="small">
+          <u-tag :type="bizTypeTagType(demandSummary.biz_type)" size="mini">
             {{ bizTypeLabel(demandSummary.biz_type) }}
-          </van-tag>
+          </u-tag>
           <text class="summary-budget">{{ formatBudget(demandSummary.budget_fen) }}</text>
           <text v-if="demandSummary.district" class="summary-district">{{ demandSummary.district }}</text>
         </view>
@@ -37,44 +38,40 @@
 
       <!-- Bid form -->
       <view class="form-section">
-        <van-cell-group inset>
-          <van-field
+        <u-cell-group inset>
+          <u-field
             v-model="amount"
             label="报价金额"
             type="digit"
             placeholder="请输入报价金额(元)"
-            :border="true"
           />
 
-          <van-field
+          <u-field
             v-model="proposal"
             label="方案描述"
             type="textarea"
+            auto-height
             placeholder="描述您的方案和优势"
-            rows="4"
-            autosize
           />
 
-          <van-field
+          <u-field
             v-model="contactPhone"
             label="联系电话"
             type="number"
             placeholder="请输入联系电话"
-            maxlength="11"
           />
-        </van-cell-group>
+        </u-cell-group>
 
         <view class="submit-wrap">
-          <van-button
+          <u-button
             type="primary"
             block
             round
             :loading="submitting"
-            loading-text="提交中..."
-            @tap="submitBid"
+            @click="submitBid"
           >
             提交报价
-          </van-button>
+          </u-button>
         </view>
       </view>
     </template>
@@ -192,7 +189,7 @@ export default {
 <style scoped>
 .bid-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -201,6 +198,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .state-view {
@@ -213,7 +218,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -221,7 +226,7 @@ export default {
 
 /* Summary card */
 .summary-card {
-  background: #fff;
+  background: var(--color-bg-card);
   padding: 14px 16px;
   margin: 12px;
   border-radius: 12px;
@@ -231,7 +236,7 @@ export default {
 .summary-title {
   font-size: 16px;
   font-weight: 600;
-  color: #323233;
+  color: var(--color-text);
   display: block;
   margin-bottom: 10px;
   line-height: 1.4;
@@ -247,12 +252,12 @@ export default {
 .summary-budget {
   font-size: 15px;
   font-weight: 600;
-  color: #ee0a24;
+  color: var(--color-danger);
 }
 
 .summary-district {
   font-size: 13px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 /* Form */

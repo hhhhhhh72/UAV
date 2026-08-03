@@ -1,21 +1,22 @@
 <template>
   <view class="status-page">
-    <van-nav-bar
+    <u-nav-bar
       title="企业审核"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading -->
     <view v-if="loading" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error -->
     <view v-else-if="errorMsg" class="state-view">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchEnterprise">
         <text>重新加载</text>
       </view>
@@ -23,11 +24,11 @@
 
     <!-- No enterprise -->
     <view v-else-if="!enterprise" class="empty-state">
-      <van-empty image="search" description="暂无企业信息" />
+      <u-empty description="暂无企业信息" />
       <view class="action-wrap">
-        <van-button type="primary" round @tap="goRegister">
+        <u-button type="primary" round @click="goRegister">
           立即入驻
-        </van-button>
+        </u-button>
       </view>
     </view>
 
@@ -35,32 +36,32 @@
     <view v-else class="info-body">
       <!-- Status card -->
       <view class="status-card">
-        <van-tag :type="statusTagType(enterprise.status)" size="large">
+        <u-tag :type="statusTagType(enterprise.status)">
           {{ statusLabel(enterprise.status) }}
-        </van-tag>
+        </u-tag>
         <text v-if="enterprise.review_comment" class="review-comment">
           {{ enterprise.review_comment }}
         </text>
       </view>
 
-      <van-cell-group inset>
-        <van-cell title="企业名称" :value="enterprise.name" />
-        <van-cell title="信用代码" :value="enterprise.credit_code" />
-        <van-cell title="法人代表" :value="enterprise.legal_person || '未填写'" />
-        <van-cell title="联系电话" :value="enterprise.contact_phone || '未填写'" />
-        <van-cell title="行业类别" :value="enterprise.industry_category || '未填写'" />
-        <van-cell title="企业规模" :value="enterprise.scale || '未填写'" />
-        <van-cell title="企业地址" :value="enterprise.address || '未填写'" />
-        <van-cell title="申请时间" :value="formatDate(enterprise.created_at)" />
-      </van-cell-group>
+      <u-cell-group inset>
+        <u-cell title="企业名称" :value="enterprise.name" />
+        <u-cell title="信用代码" :value="enterprise.credit_code" />
+        <u-cell title="法人代表" :value="enterprise.legal_person || '未填写'" />
+        <u-cell title="联系电话" :value="enterprise.contact_phone || '未填写'" />
+        <u-cell title="行业类别" :value="enterprise.industry_category || '未填写'" />
+        <u-cell title="企业规模" :value="enterprise.scale || '未填写'" />
+        <u-cell title="企业地址" :value="enterprise.address || '未填写'" />
+        <u-cell title="申请时间" :value="formatDate(enterprise.created_at)" />
+      </u-cell-group>
 
       <view v-if="enterprise.description" class="desc-section">
-        <van-cell-group inset>
+        <u-cell-group inset>
           <view class="desc-cell">
             <text class="desc-label">企业描述</text>
             <text class="desc-text">{{ enterprise.description }}</text>
           </view>
-        </van-cell-group>
+        </u-cell-group>
       </view>
     </view>
   </view>
@@ -152,7 +153,7 @@ export default {
 <style scoped>
 .status-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -160,6 +161,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .state-view {
@@ -172,7 +181,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -191,7 +200,7 @@ export default {
 
 /* Status card */
 .status-card {
-  background: #fff;
+  background: var(--color-bg-card);
   margin: 12px 16px;
   padding: 16px;
   border-radius: 12px;
@@ -203,7 +212,7 @@ export default {
 
 .review-comment {
   font-size: 13px;
-  color: #969799;
+  color: var(--color-text-secondary);
   line-height: 1.5;
   flex: 1;
 }
@@ -225,14 +234,15 @@ export default {
 .desc-label {
   font-size: 14px;
   font-weight: 600;
-  color: #323233;
+  color: var(--color-text);
   display: block;
   margin-bottom: 8px;
 }
 
 .desc-text {
   font-size: 14px;
-  color: #646566;
+  color: var(--color-text);
+  opacity: 0.85;
   line-height: 1.6;
   display: block;
   white-space: pre-wrap;
