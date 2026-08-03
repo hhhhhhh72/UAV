@@ -197,7 +197,7 @@ cd frontend && npm run dev   # → :5173
 | 架构 + 分层 + 中间件 | [docs/系统架构/架构总览.md](docs/系统架构/架构总览.md) |
 | 7大业务系统详情 | [docs/业务系统/](docs/业务系统/) |
 | 全部 API 契约 | [docs/接口文档/API契约.md](docs/接口文档/API契约.md) |
-| 66 张表结构 | [docs/数据设计/数据模型.md](docs/数据设计/数据模型.md) |
+| 80 张表结构 | [docs/数据设计/数据模型.md](docs/数据设计/数据模型.md) |
 | 编码规范 | [docs/开发规范/编码规范.md](docs/开发规范/编码规范.md) |
 | Docker + CI | [docs/运维部署/Docker部署.md](docs/运维部署/Docker部署.md) |
 | 开发计划 | [docs/项目管理/开发计划.md](docs/项目管理/开发计划.md) |
