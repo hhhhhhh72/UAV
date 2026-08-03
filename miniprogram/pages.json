@@ -611,6 +611,8 @@
   },
   "easycom": {
     "autoscan": true,
-    "custom": {}
+    "custom": {
+      "^u-(.*)": "@/components/ui/u-$1.vue"
+    }
   }
 }

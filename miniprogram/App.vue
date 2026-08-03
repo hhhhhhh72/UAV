@@ -83,6 +83,18 @@
 		--safe-bottom: env(safe-area-inset-bottom);
 		--safe-top: env(safe-area-inset-top);
 
+		/* 组件库扩展令牌 */
+		--ui-radius-card: 24rpx;      /* 卡片大圆角 */
+		--ui-radius-btn: 50rpx;       /* 按钮圆角 */
+		--ui-shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.06);  /* 卡片轻阴影 */
+		--ui-color-accent-light: #E6FAF5;  /* 青绿浅底 */
+		--ui-color-disabled: #c8c9cc;
+		--ui-color-text-secondary: #969799;
+		--ui-font-size-lg: 34rpx;
+		--ui-font-size-md: 30rpx;
+		--ui-font-size-sm: 26rpx;
+		--ui-space-card: 24rpx;      /* 卡片内边距 */
+
 		font-size: 28rpx;
 		color: var(--color-text);
 		background-color: var(--color-bg);
