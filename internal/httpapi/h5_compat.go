@@ -619,9 +619,32 @@ func (s *Server) h5AuthMe(w http.ResponseWriter, r *http.Request) {
 	// Try real user repo first, fall back to users.json.
 	u, repoErr := s.userRepo.FindByID(actor.ID)
 	if repoErr == nil {
+		// name/phone live in the legacy users.json for password accounts;
+		// phone is derivable from the "phone:" openid prefix.
+		name := ""
+		var users []map[string]any
+		readJSON(_usersFile, &_usersMu, &users)
+		for _, ju := range users {
+			if ju["id"] == u.ID {
+				if n, ok := ju["name"].(string); ok {
+					name = n
+				}
+				break
+			}
+		}
+		phone := ""
+		if strings.HasPrefix(u.WechatOpenID, "phone:") {
+			phone = strings.TrimPrefix(u.WechatOpenID, "phone:")
+		}
 		respond(w, r, http.StatusOK, map[string]any{
 			"success": true,
-			"user":    map[string]any{"id": u.ID, "role": string(u.Role), "status": u.Status},
+			"user": map[string]any{
+				"id":     u.ID,
+				"role":   string(u.Role),
+				"status": u.Status,
+				"name":   name,
+				"phone":  phone,
+			},
 		})
 		return
 	}

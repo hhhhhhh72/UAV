@@ -250,14 +250,15 @@ const fetchData = async () => {
     userInitial.value = (currentUser.name || currentUser.phone || '?').charAt(0).toUpperCase()
     userRoleLabel.value = roleLabels[currentUser.role] || ''
 
-    // 刷新服务端用户信息
+    // 刷新服务端用户信息（合并而非覆盖：me 响应缺 name/phone 时保留本地值）
     try {
       const meRes = await request({ url: '/api/auth/me' })
       if (meRes?.user) {
-        user.value = meRes.user
-        uni.setStorageSync('user', JSON.stringify(meRes.user))
-        userInitial.value = (meRes.user.name || meRes.user.phone || '?').charAt(0).toUpperCase()
-        userRoleLabel.value = roleLabels[meRes.user.role] || ''
+        const merged = { ...currentUser, ...meRes.user }
+        user.value = merged
+        uni.setStorageSync('user', JSON.stringify(merged))
+        userInitial.value = (merged.name || merged.phone || '?').charAt(0).toUpperCase()
+        userRoleLabel.value = roleLabels[merged.role] || ''
       }
     } catch (e) { /* fallback to cache */ }
 
