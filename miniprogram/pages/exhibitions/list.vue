@@ -279,7 +279,7 @@ export default {
   gap: 12px;
 }
 
-/* Expo card (van-card → 自定义) */
+/* Expo card 自定义样式 */
 .expo-card {
   display: flex;
   gap: 12px;
