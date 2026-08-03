@@ -450,32 +450,44 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Password credentials live in users.json (h5AuthRegister stores a bcrypt
-	// hash there). Go backend users are WeChat/phone-registered and have no
-	// password — password login for them is rejected.
+	// Resolve the credential record. The bcrypt hash lives in the database
+	// (users.password_hash); users.json is a legacy fallback for accounts that
+	// predate that column. Accounts without a stored hash cannot use password
+	// login (WeChat-only users) — the login is rejected, never accepted.
+	uid := "user-" + loginID
+	passwordHash := ""
 	var user map[string]any
-	var users []map[string]any
-	readJSON(_usersFile, &_usersMu, &users)
-	for _, ju := range users {
-		if ju["phone"] == loginID || ju["username"] == loginID {
-			user = ju
-			break
+	if u, err := s.userRepo.FindByID(uid); err == nil {
+		passwordHash = u.PasswordHash
+		if u.Role != "" {
+			role := u.Role
+			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(role), "status": u.Status}
 		}
 	}
-	if user == nil {
-		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
-		return
+	if passwordHash == "" {
+		// Legacy fallback: look up users.json (accounts registered before
+		// password_hash was persisted to the database).
+		var users []map[string]any
+		readJSON(_usersFile, &_usersMu, &users)
+		for _, ju := range users {
+			if ju["phone"] == loginID || ju["username"] == loginID {
+				if h, _ := ju["passwordHash"].(string); h != "" {
+					passwordHash = h
+				}
+				user = ju
+				break
+			}
+		}
 	}
-	hash, _ := user["passwordHash"].(string)
-	if hash == "" || bcrypt.CompareHashAndPassword([]byte(hash), []byte(body.Password)) != nil {
+	if passwordHash == "" || bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(body.Password)) != nil {
 		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
 		return
 	}
 
-	// Issue Go backend tokens via dev-mode WeChat login
+	// Issue Go backend tokens
 	id, _ := user["id"].(string)
 	if id == "" {
-		id = "user-" + loginID
+		id = uid
 		user["id"] = id
 	}
 	role, _ := user["role"].(string)
@@ -539,11 +551,13 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 		name = "User" + body.Phone[len(body.Phone)-4:]
 	}
 
-	// Save to PG users table
+	// Save to PG users table — the bcrypt hash is persisted here so password
+	// login works from the database (no reliance on the JSON compat file).
 	now := time.Now()
 	user := domain.User{
 		ID:           uid,
 		WechatOpenID: "phone:" + body.Phone, // non-WeChat users get unique openid to avoid UNIQUE violation
+		PasswordHash: string(hashedPassword),
 		Role:         domain.RoleIndividual,
 		Status:       "active",
 		Version:      1,
@@ -555,7 +569,7 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Also keep in users.json for compatibility
+	// Also keep in users.json for legacy compatibility
 	var users []map[string]any
 	readJSON(_usersFile, &_usersMu, &users)
 	jsonUser := map[string]any{

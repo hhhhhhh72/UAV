@@ -42,6 +42,8 @@ type User struct {
 	ID            string     `json:"id"`
 	WechatOpenID  string     `json:"wechat_openid"`
 	PhoneCipher   string     `json:"-"` // AES-256-GCM encrypted, never serialized
+	// PasswordHash is the bcrypt hash for password login. Never serialized.
+	PasswordHash  string     `json:"-"`
 	Role          Role       `json:"role"`
 	Status        string     `json:"status"`
 	Version       int        `json:"version"`
