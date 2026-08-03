@@ -6,8 +6,8 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 API | Go 1.25+，标准库 net/http，212 条端点，116 源文件 |
-| 数据库 | PostgreSQL 15+（生产） / 内存存储（开发），66 张表 |
+| 后端 API | Go 1.25+，标准库 net/http，约 380 条路由注册（生产约 335），115 源文件 |
+| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），80 张表（17 组迁移） |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
 
@@ -23,8 +23,7 @@
 │   │   ├── auth_wechat.go         # 微信 code2Session + Token 刷新
 │   │   ├── admin_handler.go       # 管理后台 Token（ADMIN_DEV_MODE）
 │   │   ├── compat_routes.go       # 旧版 API 兼容 (/api/auth/*)
-│   │   ├── h5_compat.go           # H5/Vue 前端兼容层 (JSON 文件存储)
-│   │   ├── admin.html             # 嵌入式管理后台 SPA（35KB，含 ECharts）
+│   │   ├── h5_compat.go           # H5/Vue 前端兼容层（auth 路由生产注册，JSON 文件路由仅 dev）
 │   │   └── *.go                   # 各业务 Handler（batch1-3 + biz + phase3）
 │   ├── service/                   # 业务规则、权限校验、状态机流转
 │   ├── repository/                # 数据持久化
@@ -37,7 +36,7 @@
 │   ├── cache/cache.go             # 内存 TTL 缓存（60s 默认，5min 自动清理）
 │   ├── middleware/middleware.go    # 输入消毒 + 统一错误格式
 │   └── crypto/                    # AES-256-GCM 加密 + 脱敏函数
-├── migrations/                    # 16 组迁移（31 个 SQL 文件，15 组 up/down + shops）
+├── migrations/                    # 17 组迁移（34 个 SQL 文件，含 batch 表与 shops）
 ├── docs/                          # 项目文档（22 份，中文）
 ├── icons/                         # 15 个 SVG 图标
 └── docker-compose.yml
@@ -151,8 +150,7 @@ go test ./internal/...  # 全部 PASS
 | 项目 | 位置 | 技术栈 | 规模 |
 |------|------|--------|------|
 | 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + Vant Weapp | 68 页，5 Tab |
-| Web 管理后台 | `frontend/` | Vue 3 + Element Plus + ECharts | Admin SPA |
-| 嵌入式后台 | `internal/httpapi/admin.html` | 单文件 SPA | 35KB 内嵌 |
+| Web 管理后台 | `frontend/` | Vue 3 + Element Plus + ECharts | Admin SPA（35 后台路由 + 8 聚合页） |
 
 **小程序设计规范**:
 - 品牌色 `#0A66C2`（深空蓝），辅色 `#1DD4A8`（青绿）
@@ -161,18 +159,18 @@ go test ./internal/...  # 全部 PASS
 - 不使用 emoji 图标，用 CSS 绘制或文字标签
 
 **小程序 API 调用注意**:
-- `request.js` 自动 unwrap Go 后端的 `{ data: {...} }` 响应包
-- 登录用 `POST /api/auth/login`（返回 `{ accessToken, refreshToken, user }`）
-- 注册用 `POST /api/auth/register`（返回 `{ success: true }`）
-- Token 存储: `authStorage.setTokens(accessToken, refreshToken)` + `uni.setStorageSync('user', ...)`
-- 主流程是微信静默登录（`App.vue` → `wx.login()` → `/api/auth/wx-login`），密码登录只是备用
+- `request.js` 自动 unwrap Go 后端的 `{ data: {...} }` 响应包（分页响应保留 `total`）
+- 微信静默登录用 `POST /api/v1/auth/wechat/login`（生产路由，返回蛇形 `{ access_token, refresh_token, user }`）
+- 密码登录用 `POST /api/auth/login`（H5 兼容层，生产注册，bcrypt 校验）
+- Token 存储: `authStorage.setTokens(accessToken, refreshToken)` + `uni.setStorageSync('user', ...)`；刷新轮转，须保存新 refreshToken
+- 主流程是微信静默登录（`App.vue` → `wx.login()` → `/api/v1/auth/wechat/login`），密码登录只是备用
 
 ## 关键踩坑记录
 
 | 问题 | 根因 | 修复 |
 |------|------|------|
 | 注册 500: `duplicate key violates unique constraint "users_wechat_openid_key"` | 手机注册时 `wechat_openid` 为空字符串，第二次 `""` 违反 UNIQUE | 设置 `WechatOpenID: "phone:"+body.Phone` 确保唯一 |
-| H5 兼容路由 404 | `/api/auth/*` 只在 `ADMIN_DEV_MODE=true` 时注册 | `run_api.bat` 已设该变量 |
+| H5 兼容路由 404 | `/api/auth/*` 曾只在 `ADMIN_DEV_MODE=true` 时注册，生产 404 | **已修复**：auth 路由（login/register/me/refresh/logout + GET services/config）已无条件生产注册，JSON 文件路由仍 dev-only |
 | 登录 401 | 小程序调 `/api/v1/login` 不存在 | 改为 `/api/auth/login` |
 | 登录后 Token 不匹配 | 旧代码只存 `token`，新 API 返回 `accessToken` | 改用 `authStorage.setTokens()` |
 

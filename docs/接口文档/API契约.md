@@ -19,7 +19,11 @@
 {"error": {"code": "FORBIDDEN", "message": "..."}, "request_id": "req_xxx"}
 ```
 
-## 端点清单 (212条)
+## 端点清单（模块概览，非完整定义）
+
+> ⚠️ 本表是模块级概览。实际注册约 380 条路由（生产约 335，dev 兼容层约 47 条）。
+> 完整契约以代码为准：`internal/httpapi/` 下 `register*Routes` 文件，或启动后访问 `/swagger/`（dev 模式）。
+> 管理端接口统一前缀 `/api/v1/admin/*`，由 `adminGate` 中间件强制要求管理员角色。
 
 | 模块 | 端点 | 说明 |
 |------|------|------|

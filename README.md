@@ -10,8 +10,8 @@
 ## 🚀 快速启动
 
 ### 环境准备
-- **Go** >= 1.22
-- **PostgreSQL** >= 15（可选，默认使用内存存储）
+- **Go** >= 1.25
+- **PostgreSQL** >= 16（可选，默认使用内存存储）
 - **Node.js** >= 16
 
 ### 一键启动（前端 + 后端）
@@ -129,10 +129,10 @@ git push origin feat/b-pages
 .
 ├── cmd/api/main.go              # 启动入口
 ├── internal/
-│   ├── httpapi/                 # 路由 + 中间件 + Handler (212 API)
+│   ├── httpapi/                 # 路由 + 中间件 + Handler (约 380 注册)
 │   ├── service/                 # 业务规则 + 权限校验 + 状态流转
 │   ├── repository/
-│   │   ├── postgres/            # PostgreSQL 持久化 (66 表)
+│   │   ├── postgres/            # PostgreSQL 持久化 (80 表)
 │   │   └── memory/              # 内存存储 (开发用)
 │   ├── domain/                  # 业务实体 + 常量
 │   ├── config/                  # 集中配置
@@ -147,7 +147,7 @@ git push origin feat/b-pages
 │   ├── pages/                   # 68 个页面文件 (7大系统)
 │   ├── components/              # 4 个共享组件
 │   └── utils/                   # API 封装 + Token 刷新
-├── migrations/                  # 16 组迁移 (31 SQL 文件)
+├── migrations/                  # 17 组迁移 (34 SQL 文件)
 ├── docs/                        # 项目文档 + Swagger + PRD
 └── prototypes/                  # HTML 原型 (首页+商家页)
 ```
@@ -166,7 +166,7 @@ git push origin feat/b-pages
 | 管理后台 | Vue 3 + Element Plus 2.14 + ECharts 6 + Pinia |
 | API 层 | Go 标准库 net/http + gorilla/mux |
 | 业务层 | Go service (接口依赖注入) |
-| 数据层 | PostgreSQL 15+ / 内存 (双模式) |
+| 数据层 | PostgreSQL 16 / 内存 (双模式) |
 | 基础设施 | config + slog + cache + crypto |
 
 ---
@@ -191,11 +191,11 @@ git push origin feat/b-pages
 
 | 指标 | 数值 |
 |------|:--:|
-| API 端点 | **212 条** |
-| 数据库表 | **66 张** |
+| API 端点 | **约 380 条注册**（生产约 335） |
+| 数据库表 | **80 张**（17 组迁移） |
 | 小程序页面文件 | **68 页** (7大系统) |
 | 管理后台模块 | **29 独立模块 + 8 聚合页** |
-| Go 源文件 | **116** |
+| Go 源文件 | **115** |
 | 测试通过率 | **100%** (92 HTTP case) |
 | 测试覆盖率 | **45.8%** |
 | 静态分析 | `go vet` ✅ 零告警 |
