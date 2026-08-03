@@ -1,48 +1,44 @@
 <template>
   <view class="cases-page">
     <!-- Nav -->
-    <van-nav-bar
+    <u-nav-bar
       title="救援案例库"
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Search -->
-    <van-sticky>
-      <van-search
+    <u-sticky>
+      <u-search
         v-model="searchText"
         placeholder="搜索救援案例"
-        shape="round"
         @search="onSearch"
       />
-    </van-sticky>
+    </u-sticky>
 
     <!-- Tabs -->
-    <van-tabs
-      :active="activeType"
+    <u-tabs
+      :active="tabIndex"
+      :titles="tabTitles"
       @change="onTabChange"
-    >
-      <van-tab
-        v-for="tab in typeTabs"
-        :key="tab.value"
-        :title="tab.label"
-        :name="tab.value"
-      />
-    </van-tabs>
+    />
 
     <!-- Loading state -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无案例" />
+      <u-empty description="暂无案例" />
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
@@ -50,46 +46,45 @@
 
     <!-- Normal state -->
     <view v-else class="list-body">
-      <van-cell-group inset>
-        <van-cell
+      <u-cell-group inset>
+        <u-cell
           v-for="item in list"
           :key="item.id"
           is-link
-          @tap="goDetail(item)"
+          @click="goDetail(item)"
         >
           <template #title>
-            <view class="case-title-row">
-              <text class="case-emoji">{{ eventEmoji(item.event_type) }}</text>
-              <text class="case-title">{{ item.title }}</text>
-            </view>
-          </template>
-          <template #label>
-            <view class="case-meta">
-              <van-tag :type="eventTagType(item.event_type)" size="small">
-                {{ item.event_type || '未知' }}
-              </van-tag>
-              <text v-if="item.date" class="meta-text">{{ item.date }}</text>
-            </view>
-            <view class="case-extra">
-              <text v-if="item.location" class="extra-text">{{ item.location }}</text>
-              <text v-if="item.drone_model" class="extra-text">{{ item.drone_model }}</text>
+            <view class="case-content">
+              <view class="case-title-row">
+                <text class="case-emoji">{{ eventEmoji(item.event_type) }}</text>
+                <text class="case-title">{{ item.title }}</text>
+              </view>
+              <view class="case-meta">
+                <u-tag :type="eventTagType(item.event_type)" size="mini">
+                  {{ item.event_type || '未知' }}
+                </u-tag>
+                <text v-if="item.date" class="meta-text">{{ item.date }}</text>
+              </view>
+              <view class="case-extra">
+                <text v-if="item.location" class="extra-text">{{ item.location }}</text>
+                <text v-if="item.drone_model" class="extra-text">{{ item.drone_model }}</text>
+              </view>
             </view>
           </template>
           <template #value>
-            <van-tag
-              :type="resultTagType(item.result)"
-              :color="resultColor(item.result)"
-              size="small"
-            >
+            <u-tag :type="resultTagType(item.result)" size="mini">
               {{ resultLabel(item.result) }}
-            </van-tag>
+            </u-tag>
           </template>
-        </van-cell>
-      </van-cell-group>
+        </u-cell>
+      </u-cell-group>
 
       <!-- Load more -->
       <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="20rpx" />
+          <text>加载更多...</text>
+        </view>
         <text v-else-if="!hasMore" class="no-more">没有更多了</text>
       </view>
     </view>
@@ -120,6 +115,15 @@ export default {
         { label: '其他', value: '其他' },
       ],
     }
+  },
+  computed: {
+    tabTitles() {
+      return this.typeTabs.map(function (t) { return t.label })
+    },
+    tabIndex() {
+      var idx = this.typeTabs.findIndex(function (t) { return t.value === this.activeType }.bind(this))
+      return idx >= 0 ? idx : 0
+    },
   },
   onLoad() {
     this.fetchList(true)
@@ -177,20 +181,20 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
-    onTabChange(e) {
-      var name = e.detail ? e.detail.name : e
-      this.activeType = name
+    onTabChange(index) {
+      var tab = this.typeTabs[index]
+      this.activeType = tab ? tab.value : ''
       this.fetchList(true)
     },
     eventEmoji(type) {
       var map = {
-        '山火': '🔥',
-        '洪水': '🌊',
-        '地震': '🏔',
-        '搜救': '🔍',
-        '其他': '🛡',
+        '山火': '火',
+        '洪水': '水',
+        '地震': '地',
+        '搜救': '救',
+        '其他': '卫',
       }
-      return map[type] || '🛡'
+      return map[type] || '卫'
     },
     eventTagType(type) {
       var map = {
@@ -215,7 +219,7 @@ export default {
       return map[result] || 'default'
     },
     resultColor(result) {
-      var map = { '成功': '#34c759', '部分': '#ff9f0a', '失败': '#ef4444' }
+      var map = { '成功': 'var(--color-success)', '部分': 'var(--color-warning)', '失败': 'var(--color-danger)' }
       return map[result] || ''
     },
     goDetail(item) {
@@ -231,7 +235,7 @@ export default {
 <style scoped>
 .cases-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -239,6 +243,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .empty-state-wrapper {
@@ -255,7 +267,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -265,6 +277,13 @@ export default {
   padding: 12px 0 24px;
 }
 
+.case-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
 .case-title-row {
   display: flex;
   align-items: center;
@@ -272,14 +291,21 @@ export default {
 }
 
 .case-emoji {
-  font-size: 18px;
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-radius: 8rpx;
   flex-shrink: 0;
 }
 
 .case-title {
   font-size: 15px;
   font-weight: 600;
-  color: #323233;
+  color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -289,24 +315,22 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
 }
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .case-extra {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
 }
 
 .extra-text {
   font-size: 12px;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
 }
 
 .load-more {
@@ -315,7 +339,7 @@ export default {
 }
 
 .no-more {
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
   font-size: 13px;
 }
 </style>

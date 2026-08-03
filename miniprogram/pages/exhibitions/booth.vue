@@ -1,20 +1,23 @@
 <template>
   <view class="page-container">
     <!-- Nav -->
-    <van-nav-bar
+    <u-nav-bar
       title="展位申请"
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading state -->
     <view v-if="loading" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg" class="error-state">
-      <van-empty image="network" description="加载失败" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchDetail">
         <text>重新加载</text>
       </view>
@@ -41,10 +44,9 @@
       <view v-if="detail.floor_plan_image" class="section">
         <view class="section-title">展位平面图</view>
         <view class="floor-plan-wrap">
-          <van-image
+          <image
             :src="detail.floor_plan_image"
-            width="100%"
-            fit="widthFix"
+            mode="widthFix"
             class="floor-plan-img"
             @tap="previewFloorPlan"
           />
@@ -77,62 +79,58 @@
       <!-- Application form -->
       <view class="section">
         <view class="section-title">申请信息</view>
-        <van-cell-group inset>
-          <van-field
+        <u-cell-group inset>
+          <u-field
             v-model="form.company_name"
             label="企业名称"
             placeholder="请输入企业名称"
-            :border="true"
           />
-          <van-field
+          <u-field
             v-model="form.contact"
             label="联系人"
             placeholder="请输入联系人"
-            :border="true"
           />
-          <van-field
+          <u-field
             v-model="form.contact_phone"
             label="联系电话"
             type="number"
             placeholder="请输入联系电话"
-            :border="true"
           />
-          <van-field
-            v-model="form.booth_type"
-            label="展位类型"
-            placeholder="请选择展位类型"
-            :border="true"
-            readonly
-            right-icon="arrow"
-            @tap="showBoothTypePicker"
-          />
-          <van-field
+          <view class="field-row" @tap="showBoothTypePicker">
+            <u-field
+              :model-value="form.booth_type"
+              label="展位类型"
+              placeholder="请选择展位类型"
+              disabled
+            />
+            <text class="field-arrow">›</text>
+          </view>
+          <u-field
             v-model="form.requirements"
             label="特殊需求"
             type="textarea"
+            auto-height
             placeholder="请输入特殊需求（选填）"
-            :border="false"
-            autosize
           />
-        </van-cell-group>
+        </u-cell-group>
       </view>
 
       <!-- Submit -->
       <view class="submit-section">
-        <van-button
+        <u-button
           type="primary"
           block
           round
           :loading="submitting"
-          @tap="handleSubmit"
+          @click="handleSubmit"
         >
           提交申请
-        </van-button>
+        </u-button>
       </view>
     </template>
 
     <!-- Booth type picker popup -->
-    <van-popup
+    <u-popup
       :show="boothTypePickerVisible"
       position="bottom"
       round
@@ -147,13 +145,13 @@
           @tap="selectBoothType(type)"
         >
           <text>{{ type }}</text>
-          <text v-if="form.booth_type === type" class="check-icon">&#10003;</text>
+          <text v-if="form.booth_type === type" class="check-icon">✓</text>
         </view>
         <view class="picker-cancel" @tap="boothTypePickerVisible = false">
           <text>取消</text>
         </view>
       </view>
-    </van-popup>
+    </u-popup>
   </view>
 </template>
 
@@ -308,7 +306,7 @@ export default {
 <style scoped>
 .page-container {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 40px;
 }
 
@@ -316,6 +314,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .error-state {
@@ -328,7 +334,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -336,7 +342,7 @@ export default {
 
 /* Summary card */
 .summary-card {
-  background: #fff;
+  background: var(--color-bg-card);
   margin: 12px;
   border-radius: 12px;
   padding: 16px;
@@ -346,7 +352,7 @@ export default {
 .expo-title {
   font-size: 18px;
   font-weight: 700;
-  color: #323233;
+  color: var(--color-text);
   display: block;
   margin-bottom: 12px;
   line-height: 1.4;
@@ -366,13 +372,13 @@ export default {
 .info-label {
   width: 48px;
   font-size: 13px;
-  color: #969799;
+  color: var(--color-text-secondary);
   flex-shrink: 0;
 }
 
 .info-value {
   font-size: 13px;
-  color: #323233;
+  color: var(--color-text);
 }
 
 /* Section */
@@ -384,10 +390,24 @@ export default {
   padding: 12px 16px 4px;
   font-size: 14px;
   font-weight: 600;
-  color: #323233;
+  color: var(--color-text);
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* Field row with arrow */
+.field-row {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  padding-right: 16px;
+}
+
+.field-arrow {
+  color: var(--color-text-placeholder);
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 /* Floor plan */
@@ -399,6 +419,7 @@ export default {
 
 .floor-plan-img {
   display: block;
+  width: 100%;
 }
 
 /* Booth grid */
@@ -422,20 +443,20 @@ export default {
 }
 
 .booth-available {
-  background: #34c759;
+  background: var(--color-success);
   color: #fff;
 }
 
 .booth-booked {
-  background: #c8c9cc;
+  background: var(--color-text-placeholder);
   color: #fff;
 }
 
 .booth-selected {
-  background: #34c759;
+  background: var(--color-success);
   color: #fff;
-  border-color: #0A66C2;
-  box-shadow: 0 0 0 2px rgba(25, 137, 250, 0.3);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.3);
 }
 
 .booth-num {
@@ -450,7 +471,7 @@ export default {
   gap: 4px;
   font-size: 11px;
   font-weight: 400;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .legend-dot {
@@ -462,15 +483,15 @@ export default {
 }
 
 .available-dot {
-  background: #34c759;
+  background: var(--color-success);
 }
 
 .booked-dot {
-  background: #c8c9cc;
+  background: var(--color-text-placeholder);
 }
 
 .selected-dot {
-  background: #0A66C2;
+  background: var(--color-primary);
 }
 
 /* Submit */
@@ -489,17 +510,17 @@ export default {
   justify-content: space-between;
   padding: 16px 20px;
   font-size: 16px;
-  color: #323233;
-  border-bottom: 1px solid #f2f3f5;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .picker-option.active {
-  color: #0A66C2;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 .check-icon {
-  color: #0A66C2;
+  color: var(--color-primary);
   font-weight: 700;
 }
 
@@ -507,7 +528,7 @@ export default {
   text-align: center;
   padding: 16px 20px;
   font-size: 16px;
-  color: #969799;
+  color: var(--color-text-secondary);
   margin-top: 8px;
 }
 </style>
