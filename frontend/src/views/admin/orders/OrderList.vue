@@ -89,7 +89,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
-import { showToast, showSuccessToast } from 'vant'
+import { showToast, showSuccessToast } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getOrderList, updateOrderStatus } from '@/api/admin/order'
 

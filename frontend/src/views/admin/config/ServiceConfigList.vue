@@ -503,7 +503,7 @@
 <script setup>
 import { ref, computed, reactive, onMounted, nextTick } from 'vue'
 import axios from '@/utils/http'
-import { showFailToast, showSuccessToast, showLoadingToast, closeToast } from 'vant'
+import { showFailToast, showSuccessToast, showLoadingToast, closeToast } from '@/utils/feedback'
 import ImageCropper from './ImageCropper.vue'
 import DataToolbar from '../components/DataToolbar.vue'
 import { normalizeMediaUrl, uploadFile } from '../composables/useMedia'

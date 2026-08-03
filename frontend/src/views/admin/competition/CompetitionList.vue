@@ -82,7 +82,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
-import { showToast, showSuccessToast, showConfirmDialog } from 'vant'
+import { showToast, showSuccessToast, showConfirmDialog } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getCompetitionList, updateCompetition, deleteCompetition } from '@/api/admin/competition'
 

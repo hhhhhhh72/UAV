@@ -154,7 +154,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Search, Check, CloseBold } from '@element-plus/icons-vue'
-import { showSuccessToast, showFailToast } from 'vant'
+import { showSuccessToast, showFailToast } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getEnterpriseList, reviewEnterprise, batchReviewEnterprise } from '@/api/admin/enterprise'
 

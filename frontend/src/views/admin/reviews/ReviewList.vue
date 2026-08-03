@@ -86,7 +86,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
-import { showToast, showConfirmDialog } from 'vant'
+import { showToast, showConfirmDialog } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getReviewList, updateReviewStatus, deleteReview } from '@/api/admin/review'
 
