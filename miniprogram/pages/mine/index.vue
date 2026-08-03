@@ -24,7 +24,7 @@
             </view>
 
             <view class="user-info-col">
-              <text class="user-name">{{ user?.name || '点击登录' }}</text>
+              <text class="user-name">{{ user ? (user.name || user.phone || '微信用户') : '点击登录' }}</text>
               <view v-if="user" class="user-meta">
                 <view class="cert-pill">
                   <text class="cert-pill-icon">飞</text>
@@ -247,7 +247,7 @@ const fetchData = async () => {
   user.value = currentUser
 
   if (currentUser) {
-    userInitial.value = (currentUser.name || currentUser.phone || '?').charAt(0).toUpperCase()
+    userInitial.value = (currentUser.name || currentUser.phone || '微').charAt(0).toUpperCase()
     userRoleLabel.value = roleLabels[currentUser.role] || ''
 
     // 刷新服务端用户信息（合并而非覆盖：me 响应缺 name/phone 时保留本地值）
@@ -257,7 +257,7 @@ const fetchData = async () => {
         const merged = { ...currentUser, ...meRes.user }
         user.value = merged
         uni.setStorageSync('user', JSON.stringify(merged))
-        userInitial.value = (merged.name || merged.phone || '?').charAt(0).toUpperCase()
+        userInitial.value = (merged.name || merged.phone || '微').charAt(0).toUpperCase()
         userRoleLabel.value = roleLabels[merged.role] || ''
       }
     } catch (e) { /* fallback to cache */ }
