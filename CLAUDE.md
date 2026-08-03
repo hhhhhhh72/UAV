@@ -6,7 +6,7 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 API | Go 1.22+，标准库 net/http，212 条端点 |
+| 后端 API | Go 1.25+，标准库 net/http，212 条端点，116 源文件 |
 | 数据库 | PostgreSQL 15+（生产） / 内存存储（开发），66 张表 |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
@@ -37,8 +37,8 @@
 │   ├── cache/cache.go             # 内存 TTL 缓存（60s 默认，5min 自动清理）
 │   ├── middleware/middleware.go    # 输入消毒 + 统一错误格式
 │   └── crypto/                    # AES-256-GCM 加密 + 脱敏函数
-├── migrations/                    # 14 个迁移文件（14 组 up/down）
-├── docs/                          # 项目文档（19 份，中文）
+├── migrations/                    # 16 组迁移（31 个 SQL 文件，15 组 up/down + shops）
+├── docs/                          # 项目文档（22 份，中文）
 ├── icons/                         # 15 个 SVG 图标
 └── docker-compose.yml
 ```
@@ -150,7 +150,7 @@ go test ./internal/...  # 全部 PASS
 
 | 项目 | 位置 | 技术栈 | 规模 |
 |------|------|--------|------|
-| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + Vant Weapp | 56 页，5 Tab |
+| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + Vant Weapp | 68 页，5 Tab |
 | Web 管理后台 | `frontend/` | Vue 3 + Element Plus + ECharts | Admin SPA |
 | 嵌入式后台 | `internal/httpapi/admin.html` | 单文件 SPA | 35KB 内嵌 |
 

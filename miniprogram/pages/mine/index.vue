@@ -1,179 +1,270 @@
 <template>
   <Layout :current="4">
     <view class="mine-page">
-      <view class="nav-bar">个人中心</view>
 
-      <!-- 用户信息卡片 (同步 H5 渐变色) -->
-      <view class="user-card">
-        <view class="user-header" @tap="handleUserClick">
-          <image v-if="user && user.avatar" class="avatar" :src="user.avatar" mode="aspectFill" />
-          <view v-else class="default-avatar">
-            <text class="avatar-icon">👤</text>
-          </view>
-          <view class="user-info">
-            <view class="user-name">{{ user?.name || '点击登录' }}</view>
-            <view class="user-phone">{{ user?.phone || '登录后享受更多服务' }}</view>
-          </view>
-          <text v-if="!user" class="arrow">›</text>
-        </view>
+      <!-- ===== 头部区域（仿参考图：浅灰蓝渐变 + 头像 + 三个小图标） ===== -->
+      <view class="header-section">
+        <!-- 装饰背景：右上方光斑 -->
+        <view class="header-light header-light-1"></view>
+        <view class="header-light header-light-2"></view>
 
-        <!-- 统计数据 -->
-        <view class="stats-grid">
-          <view class="stat-item">
-            <view class="stat-value">{{ totalCount }}</view>
-            <view class="stat-label">总申请</view>
-          </view>
-          <view class="stat-item">
-            <view class="stat-value">{{ processingCount }}</view>
-            <view class="stat-label">处理中</view>
-          </view>
-          <view class="stat-item">
-            <view class="stat-value">{{ completedCount }}</view>
-            <view class="stat-label">已完成</view>
-          </view>
-        </view>
-      </view>
+        <view class="header-main">
+          <!-- 左侧头像 + 姓名 + 认证徽章 -->
+          <view class="user-block" @tap="handleUserClick">
+            <view class="avatar-wrap">
+              <image
+                v-if="user && user.avatar"
+                class="avatar"
+                :src="user.avatar"
+                mode="aspectFill"
+              />
+              <view v-else class="avatar avatar-placeholder">
+                <text class="avatar-text">{{ userInitial }}</text>
+              </view>
+            </view>
 
-      <!-- 第一组功能菜单 -->
-      <view class="menu-section">
-        <view class="menu-list">
-          <view class="menu-item" v-if="user && (user.role === 'admin' || user.role === 'dsl_admin')" @tap="goAdmin">
-            <text class="menu-icon">⚙️</text>
-            <text class="menu-title">后台管理</text>
-            <text class="menu-arrow">›</text>
+            <view class="user-info-col">
+              <text class="user-name">{{ user?.name || '点击登录' }}</text>
+              <view v-if="user" class="user-meta">
+                <view class="cert-pill">
+                  <text class="cert-pill-icon">✈</text>
+                  <text class="cert-pill-text">飞手</text>
+                </view>
+                <text v-if="userRoleLabel" class="role-text">· {{ userRoleLabel }}</text>
+              </view>
+              <text v-else class="login-hint">登录后享受更多服务</text>
+            </view>
+
+            <text v-if="!user" class="login-arrow">›</text>
           </view>
-          <view class="menu-item" @tap="goApplications">
-            <text class="menu-icon">📋</text>
-            <text class="menu-title">我的申请</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="goCases">
-            <text class="menu-icon">🎬</text>
-            <text class="menu-title">案例展示</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="goProfile">
-            <text class="menu-icon">👤</text>
-            <text class="menu-title">个人信息</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <!-- #ifdef MP-WEIXIN -->
-          <view class="menu-item" v-if="user && user.wxOpenid && !user.phone">
-            <text class="menu-icon">📱</text>
-            <view class="menu-title-group">
-              <text class="menu-title">绑定手机号</text>
-              <button class="inline-phone-btn" open-type="getPhoneNumber" @getphonenumber="handleBindPhone">
-                去绑定
-              </button>
+
+          <!-- 右侧三个图标按钮（参考图：APP / 通知 / 设置） -->
+          <view class="header-icon-row">
+            <view class="hdr-icon-btn" @tap="openApp" v-if="user">
+              <view class="hdr-icon-circle">
+                <text class="hdr-icon-glyph">APP</text>
+              </view>
+            </view>
+            <view class="hdr-icon-btn" @tap="goMessages">
+              <view class="hdr-icon-circle">
+                <text class="hdr-icon-glyph">🔔</text>
+                <view v-if="unreadCount > 0" class="hdr-dot"></view>
+              </view>
+            </view>
+            <view class="hdr-icon-btn" @tap="goSettings">
+              <view class="hdr-icon-circle">
+                <text class="hdr-icon-glyph">⚙</text>
+              </view>
             </view>
           </view>
-          <!-- #endif -->
-          <view class="menu-item" @tap="goAuth">
-            <text class="menu-icon">🛡️</text>
-            <view class="menu-title-group">
-              <text class="menu-title">实名认证</text>
-              <text class="menu-label">{{ user?.isAuth ? '已认证' : '未认证' }}</text>
+        </view>
+      </view>
+
+      <!-- ===== 我的订单 - 5 状态栏 ===== -->
+      <view class="card section-card">
+        <view class="card-header" @tap="goOrderList">
+          <text class="card-title">我的订单</text>
+          <view class="card-more">
+            <text class="more-text">查看全部</text>
+            <text class="more-arrow">›</text>
+          </view>
+        </view>
+
+        <view class="order-row">
+          <view
+            v-for="tab in orderTabs"
+            :key="tab.key"
+            class="order-cell"
+            @tap="goOrderListWithStatus(tab.key)"
+          >
+            <view class="order-icon-wrap">
+              <text :class="['order-icon', tab.iconClass]">{{ tab.icon }}</text>
             </view>
-            <text class="menu-arrow">›</text>
+            <text class="order-label">{{ tab.label }}</text>
           </view>
         </view>
       </view>
 
-      <!-- 第二组功能菜单 (同步 H5) -->
-      <view class="menu-section">
-        <view class="menu-list">
-          <view class="menu-item" @tap="showGuide">
-            <text class="menu-icon">📖</text>
-            <text class="menu-title">服务指南</text>
-            <text class="menu-arrow">›</text>
+      <!-- ===== 飞手推广卡片（参考图风格：暖橙渐变） ===== -->
+      <view class="card promo-card" @tap="goPilotPromotion">
+        <view class="promo-inner">
+          <view class="promo-icon">
+            <text class="promo-icon-text">🛩</text>
           </view>
-          <view class="menu-item" @tap="showFAQ">
-            <text class="menu-icon">❓</text>
-            <text class="menu-title">常见问题</text>
-            <text class="menu-arrow">›</text>
+          <view class="promo-content">
+            <text class="promo-title">飞手推广</text>
+            <text class="promo-desc">
+              <text class="promo-segment">邀请飞手认证</text>
+              <text class="promo-dot">·</text>
+              <text class="promo-segment promo-highlight">认证得积分</text>
+              <text class="promo-dot">·</text>
+              <text class="promo-segment promo-highlight">积分可提现</text>
+            </text>
           </view>
-          <view class="menu-item" @tap="showContact">
-            <text class="menu-icon">🎧</text>
-            <text class="menu-title">联系客服</text>
-            <text class="menu-arrow">›</text>
-          </view>
-          <view class="menu-item" @tap="showAbout">
-            <text class="menu-icon">ℹ️</text>
-            <text class="menu-title">关于我们</text>
-            <text class="menu-arrow">›</text>
+          <view class="promo-cta">
+            <text>去推广</text>
+            <text class="promo-cta-arrow">›</text>
           </view>
         </view>
       </view>
 
-      <!-- 退出登录 -->
-      <view class="menu-section logout-section" v-if="user">
-        <view class="menu-list">
-          <view class="menu-item logout-item" @tap="handleLogout">
-            <text class="menu-icon">🚪</text>
-            <text class="menu-title">退出登录</text>
-            <text class="menu-arrow">›</text>
+      <!-- ===== 我的服务 - 4 宫格 ===== -->
+      <view class="card section-card">
+        <view class="card-header">
+          <text class="card-title">我的服务</text>
+        </view>
+
+        <view class="grid-row">
+          <view class="grid-cell" @tap="goMyBids">
+            <view class="grid-icon-wrap grid-icon-coupon">
+              <text class="grid-icon-text">¥</text>
+            </view>
+            <text class="grid-label">我的竞标</text>
+          </view>
+          <view class="grid-cell" @tap="goMyContracts">
+            <view class="grid-icon-wrap grid-icon-delivery">
+              <text class="grid-icon-text">📦</text>
+            </view>
+            <text class="grid-label">我的合同</text>
+          </view>
+          <view class="grid-cell" @tap="goMyPublish">
+            <view class="grid-icon-wrap grid-icon-bind">
+              <text class="grid-icon-text">👥</text>
+            </view>
+            <text class="grid-label">我的发布</text>
+          </view>
+          <view class="grid-cell" @tap="goAddress">
+            <view class="grid-icon-wrap grid-icon-address">
+              <text class="grid-icon-text">📍</text>
+            </view>
+            <text class="grid-label">地址管理</text>
           </view>
         </view>
       </view>
-      
-      <view class="safe-area-bottom"></view>
+
+      <!-- ===== 认证与工具 - 8 项 2 行 ===== -->
+      <view class="card section-card">
+        <view class="card-header">
+          <text class="card-title">认证与工具</text>
+        </view>
+
+        <view class="grid-row">
+          <view class="grid-cell" @tap="goAuth">
+            <view class="grid-icon-wrap grid-icon-auth">
+              <text class="grid-icon-text">👤</text>
+            </view>
+            <text class="grid-label">实名认证</text>
+          </view>
+          <view class="grid-cell" @tap="goPilotCert">
+            <view class="grid-icon-wrap grid-icon-pilot">
+              <text class="grid-icon-text">🪪</text>
+            </view>
+            <text class="grid-label">飞手认证</text>
+          </view>
+          <view class="grid-cell" @tap="goEnterpriseCert">
+            <view class="grid-icon-wrap grid-icon-enterprise">
+              <text class="grid-icon-text">商</text>
+            </view>
+            <text class="grid-label">商家认证</text>
+          </view>
+          <view class="grid-cell" @tap="goMyResume">
+            <view class="grid-icon-wrap grid-icon-send">
+              <text class="grid-icon-text">📤</text>
+            </view>
+            <text class="grid-label">我的发布</text>
+          </view>
+        </view>
+
+        <view class="grid-row grid-row-secondary">
+          <view class="grid-cell" @tap="goMyPoints">
+            <view class="grid-icon-wrap grid-icon-points">
+              <text class="grid-icon-text">★</text>
+            </view>
+            <text class="grid-label">我的积分</text>
+          </view>
+          <view class="grid-cell" @tap="goDeviceBinding">
+            <view class="grid-icon-wrap grid-icon-device">
+              <text class="grid-icon-text">📡</text>
+            </view>
+            <text class="grid-label">设备绑定</text>
+          </view>
+          <view class="grid-cell" @tap="goOfficialService">
+            <view class="grid-icon-wrap grid-icon-service">
+              <text class="grid-icon-text">🎧</text>
+            </view>
+            <text class="grid-label">官方客服</text>
+          </view>
+          <view class="grid-cell" @tap="goAbout">
+            <view class="grid-icon-wrap grid-icon-about">
+              <text class="grid-icon-text">ℹ</text>
+            </view>
+            <text class="grid-label">公司简介</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 底部留白 -->
+      <view class="bottom-spacer"></view>
     </view>
   </Layout>
 </template>
 
 <script setup>
 import { onShow } from '@dcloudio/uni-app'
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import Layout from '@/components/Layout.vue'
 import { getStoredUser, request, authStorage } from '../../utils/request'
 
-const homeConfig = ref({})
+const user = ref(null)
+const unreadCount = ref(0)
+const userInitial = ref('?')
+const userRoleLabel = ref('')
 
-const loadConfig = async () => {
-  try {
-    const res = await request({ url: '/api/services/config' })
-    homeConfig.value = (res?.data || res)?._home || {}
-  } catch (e) {}
+const roleLabels = {
+  individual: '个人用户',
+  enterprise: '企业用户',
+  association_admin: '协会管理',
+  platform_admin: '平台管理'
 }
 
-onMounted(loadConfig)
-
-const user = ref(null)
-const totalCount = ref(0)
-const processingCount = ref(0)
-const completedCount = ref(0)
+// 我的订单 6 状态：参考图 5 项 + 待评价
+const orderTabs = [
+  { key: 'pending_payment', icon: '💳', iconClass: 'icon-pay',    label: '待付款' },
+  { key: 'pending_ship',    icon: '📦', iconClass: 'icon-send',   label: '待发货' },
+  { key: 'pending_receipt', icon: '🚚', iconClass: 'icon-truck',  label: '待收货' },
+  { key: 'pending_review',  icon: '★',  iconClass: 'icon-review', label: '待评价' },
+  { key: 'completed',       icon: '✓',  iconClass: 'icon-done',   label: '已完成' },
+  { key: 'refund',          icon: '¥',  iconClass: 'icon-refund', label: '退款/售后' }
+]
 
 const fetchData = async () => {
   const currentUser = getStoredUser()
   user.value = currentUser
-  if (!currentUser) {
-    totalCount.value = 0
-    processingCount.value = 0
-    completedCount.value = 0
-    return
-  }
 
-  // Refresh user info from server
-  try {
-    const meRes = await request({ url: '/api/auth/me' })
-    if (meRes?.user) {
-      user.value = meRes.user
-      uni.setStorageSync('user', JSON.stringify(meRes.user))
-    }
-  } catch (e) { /* use cached user */ }
+  if (currentUser) {
+    userInitial.value = (currentUser.name || currentUser.phone || '?').charAt(0).toUpperCase()
+    userRoleLabel.value = roleLabels[currentUser.role] || ''
 
-  try {
-    const res = await request({ url: '/api/list', data: { userId: currentUser.id } })
-    const list = Array.isArray(res) ? res : (res?.data || [])
-    totalCount.value = list.length
-    processingCount.value = list.filter((i) => i.status === '处理中').length
-    completedCount.value = list.filter((i) => i.status === '已完成').length
-  } catch (e) {
-    const mock = uni.getStorageSync('mock_applications') || []
-    const list = mock.filter((a) => a.userId === currentUser.id)
-    totalCount.value = list.length
-    processingCount.value = list.filter((i) => i.status === '处理中').length
-    completedCount.value = list.filter((i) => i.status === '已完成').length
+    // 刷新服务端用户信息
+    try {
+      const meRes = await request({ url: '/api/auth/me' })
+      if (meRes?.user) {
+        user.value = meRes.user
+        uni.setStorageSync('user', JSON.stringify(meRes.user))
+        userInitial.value = (meRes.user.name || meRes.user.phone || '?').charAt(0).toUpperCase()
+        userRoleLabel.value = roleLabels[meRes.user.role] || ''
+      }
+    } catch (e) { /* fallback to cache */ }
+
+    // 未读消息数
+    try {
+      const msgRes = await request({ url: '/api/v1/messages/unread-count' })
+      unreadCount.value = msgRes?.data?.count || msgRes?.count || 0
+    } catch (e) { unreadCount.value = 0 }
+  } else {
+    userInitial.value = '?'
+    userRoleLabel.value = ''
+    unreadCount.value = 0
   }
 }
 
@@ -181,106 +272,108 @@ onShow(() => {
   fetchData()
 })
 
+// ── 导航 ──
+const goLogin = () => uni.navigateTo({ url: '/pages/login/index' })
+
 const handleUserClick = () => {
   if (!user.value) {
-    uni.navigateTo({ url: '/pages/login/index' })
+    goLogin()
   } else {
     uni.navigateTo({ url: '/pages/mine/profile' })
   }
 }
-const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' })
-const goApplications = () => uni.navigateTo({ url: '/pages/applications/index' })
-const goCases = () => uni.navigateTo({ url: '/pages/cases/index' })
-const goProfile = () => {
-  if (!user.value) {
-    uni.navigateTo({ url: '/pages/login/index' })
-    return
-  }
+
+const openApp = () => {
+  uni.showToast({ title: '请在微信中打开', icon: 'none' })
+}
+
+const goMessages = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/messages/index' })
+}
+
+const goSettings = () => {
+  if (!user.value) return goLogin()
   uni.navigateTo({ url: '/pages/mine/profile' })
 }
+
+const goOrderList = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/demands/mine' })
+}
+
+const goOrderListWithStatus = (status) => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: `/pages/demands/mine?status=${status}` })
+}
+
+const goPilotPromotion = () => {
+  uni.showToast({ title: '飞手推广功能即将上线', icon: 'none' })
+}
+
+const goMyBids = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/demands/bid?mine=1' })
+}
+
+const goMyContracts = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/applications/index' })
+}
+
+const goMyPublish = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/publish/index' })
+}
+
+const goAddress = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/mine/profile' })
+}
+
 const goAuth = () => {
-  if (!user.value) {
-    uni.navigateTo({ url: '/pages/login/index' })
-    return
-  }
+  if (!user.value) return goLogin()
   uni.navigateTo({ url: '/pages/mine/auth' })
 }
-const showToast = (msg) => uni.showToast({ title: msg, icon: 'none' })
 
-const showGuide = () => {
+const goPilotCert = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/training/certificates' })
+}
+
+const goEnterpriseCert = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/enterprise/register' })
+}
+
+const goMyResume = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/jobs/resume' })
+}
+
+const goMyPoints = () => {
+  if (!user.value) return goLogin()
+  uni.showToast({ title: '我的积分即将上线', icon: 'none' })
+}
+
+const goDeviceBinding = () => {
+  if (!user.value) return goLogin()
+  uni.showToast({ title: '设备绑定即将上线', icon: 'none' })
+}
+
+const goOfficialService = () => {
   uni.showModal({
-    title: '服务指南',
-    content: homeConfig.value.serviceGuide || '1. 选择所需服务\n2. 填写申请表单\n3. 等待客服联系',
+    title: '官方客服',
+    content: '客服电话：023-55550500\n工作日 9:00 - 18:00',
     showCancel: false
   })
 }
 
-const showFAQ = () => {
-  const faq = homeConfig.value.faq || []
-  const content = faq.length > 0
-    ? faq.map((item, i) => `Q${i+1}: ${item.q}\nA: ${item.a}`).join('\n\n')
-    : '暂无常见问题'
+const goAbout = () => {
   uni.showModal({
-    title: '常见问题',
-    content,
+    title: '公司简介',
+    content: '重庆市无人机产业协会\n低空综合服务平台 v1.0.0',
     showCancel: false
-  })
-}
-
-const showContact = () => {
-  uni.showModal({
-    title: '联系客服',
-    content: `客服电话：${homeConfig.value.contactPhone || '023-55550500'}\n${homeConfig.value.workHours || '工作日 9:00-18:00'}`,
-    showCancel: false
-  })
-}
-
-const showAbout = () => {
-  uni.showModal({
-    title: '关于我们',
-    content: `${homeConfig.value.companyName || '低空综合服务平台'}\n${homeConfig.value.version || 'v1.0.0'}`,
-    showCancel: false
-  })
-}
-
-const handleBindPhone = async (e) => {
-  if (e.detail.errMsg !== 'getPhoneNumber:ok') return
-  uni.showLoading({ title: '绑定中...' })
-  try {
-    const res = await request({
-      url: '/api/auth/wx-phone',
-      method: 'POST',
-      data: { code: e.detail.code }
-    })
-    if (res?.success) {
-      user.value = res.user
-      uni.setStorageSync('user', JSON.stringify(res.user))
-      uni.showToast({ title: '绑定成功' })
-    } else {
-      throw new Error(res?.message || '绑定失败')
-    }
-  } catch (err) {
-    uni.showToast({ title: err?.message || '绑定失败', icon: 'none' })
-  } finally {
-    uni.hideLoading()
-  }
-}
-
-const handleLogout = () => {
-  uni.showModal({
-    title: '提示',
-    content: '确定退出？',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          await request({ url: '/api/v1/auth/logout', method: 'POST' })
-        } catch (e) { /* ignore */ }
-        authStorage.clearTokens()
-        uni.removeStorageSync('user')
-        user.value = null
-        uni.switchTab({ url: '/pages/home/index' })
-      }
-    }
   })
 }
 </script>
@@ -288,178 +381,422 @@ const handleLogout = () => {
 <style scoped>
 .mine-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: #f3f4f6;
+  padding-bottom: 20rpx;
 }
 
-.nav-bar {
-  height: 44px;
-  line-height: 44px;
-  text-align: center;
-  font-size: 17px;
-  font-weight: 600;
-  background: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+/* ===== 头部区域 ===== */
+.header-section {
+  position: relative;
+  height: 320rpx;
+  background: linear-gradient(180deg, #aab2c3 0%, #c2c9d6 45%, #d8dce5 100%);
+  overflow: hidden;
 }
 
-.user-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  margin: 12px 16px 20px;
-  padding: 24px 20px;
-  border-radius: 16px;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+.header-light {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
 }
 
-.user-header {
+.header-light-1 {
+  top: -80rpx;
+  right: -60rpx;
+  width: 280rpx;
+  height: 280rpx;
+  background: radial-gradient(circle, rgba(255,255,255,0.32) 0%, transparent 70%);
+}
+
+.header-light-2 {
+  top: 80rpx;
+  right: 220rpx;
+  width: 200rpx;
+  height: 200rpx;
+  background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+}
+
+.header-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 100rpx 32rpx 40rpx;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* 用户块 */
+.user-block {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 24rpx;
+  flex: 1;
+  min-width: 0;
 }
 
-.avatar, .default-avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 30px;
-  background: #f5f6fa;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+.avatar-wrap {
+  flex-shrink: 0;
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  background: #2ed47a;
+  border: 4rpx solid #fff;
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.12);
+  overflow: hidden;
 }
 
-.default-avatar {
+.avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.avatar-icon {
-  font-size: 30px;
-  color: #bdc3c7;
+.avatar-text {
+  font-size: 56rpx;
+  font-weight: 600;
+  color: #fff;
 }
 
-.user-info {
+.user-info-col {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
 }
 
 .user-name {
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 4px;
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.08);
 }
 
-.user-phone {
-  font-size: 14px;
-  opacity: 0.8;
-}
-
-.arrow {
-  font-size: 20px;
-  opacity: 0.6;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 22px;
-  font-weight: bold;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.menu-section {
-  background: #fff;
-  margin: 0 16px 12px;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-}
-
-.menu-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.menu-item {
+.user-meta {
   display: flex;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #f2f3f5;
-  transition: background-color 0.2s;
+  gap: 10rpx;
 }
 
-.menu-item:active {
-  background-color: #f2f3f5;
+.cert-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 4rpx 14rpx;
+  background: rgba(46, 212, 122, 0.18);
+  border: 1rpx solid rgba(46, 212, 122, 0.4);
+  border-radius: 20rpx;
 }
 
-.menu-item:last-child {
-  border-bottom: none;
+.cert-pill-icon {
+  font-size: 18rpx;
+  color: #2ed47a;
+  font-weight: 700;
 }
 
-.menu-icon {
-  font-size: 18px;
-  margin-right: 12px;
+.cert-pill-text {
+  font-size: 20rpx;
+  color: #fff;
+  font-weight: 500;
 }
 
-.menu-title {
-  flex: 1;
-  font-size: 15px;
-  color: #323233;
+.role-text {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.85);
 }
 
-.menu-title-group {
-  flex: 1;
+.login-hint {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.login-arrow {
+  font-size: 48rpx;
+  color: #fff;
+  font-weight: 300;
+  margin-left: 4rpx;
+}
+
+/* 头部图标行 */
+.header-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.hdr-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  padding: 4rpx;
+}
+
+.hdr-icon-circle {
+  position: relative;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hdr-icon-glyph {
+  font-size: 28rpx;
+  color: #4a5568;
+  font-weight: 700;
+}
+
+.hdr-dot {
+  position: absolute;
+  top: 14rpx;
+  right: 14rpx;
+  width: 16rpx;
+  height: 16rpx;
+  background: #ff3b30;
+  border-radius: 8rpx;
+  border: 2rpx solid #fff;
+}
+
+/* ===== 通用卡片 ===== */
+.card {
+  background: #fff;
+  border-radius: 20rpx;
+  margin: 0 24rpx 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.section-card {
+  padding: 0;
+}
+
+.card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 28rpx 28rpx 8rpx;
 }
 
-.menu-label {
-  font-size: 12px;
+.card-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1a1f36;
+  letter-spacing: 0.5rpx;
+}
+
+.card-more {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.more-text {
+  font-size: 24rpx;
   color: #969799;
-  margin-right: 4px;
 }
 
-.menu-arrow {
-  font-size: 16px;
-  color: #969799;
+.more-arrow {
+  font-size: 26rpx;
+  color: #c8c9cc;
 }
 
-.logout-item .menu-title {
-  color: #ee0a24;
+/* ===== 我的订单 5 状态栏 ===== */
+.order-row {
+  display: flex;
+  justify-content: space-around;
+  padding: 16rpx 16rpx 36rpx;
 }
 
-.inline-phone-btn {
-  display: inline-block;
-  font-size: 13px;
-  color: #667eea;
-  background: transparent;
-  padding: 4px 12px;
-  border: 1px solid #667eea;
-  border-radius: 14px;
-  line-height: 1.4;
-  margin: 0;
+.order-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  padding: 4rpx 0;
+  min-width: 90rpx;
+  flex: 1;
 }
 
-.inline-phone-btn::after {
-  border: none;
+.order-icon-wrap {
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.safe-area-bottom {
-  height: calc(constant(safe-area-inset-bottom) + 20px);
-  height: calc(env(safe-area-inset-bottom) + 20px);
+.order-icon {
+  font-size: 48rpx;
+  line-height: 1;
+}
+
+.icon-pay    { color: #4a90e2; }
+.icon-send   { color: #5a6b85; }
+.icon-truck  { color: #6b7a99; }
+.icon-review { color: #ff9500; }
+.icon-done   { color: #2ed47a; }
+.icon-refund { color: #5a6b85; }
+
+.order-label {
+  font-size: 24rpx;
+  color: #4a5568;
+}
+
+/* ===== 飞手推广卡片 ===== */
+.promo-card {
+  background: linear-gradient(135deg, #fff5ec 0%, #fff0e2 50%, #ffeadd 100%);
+  border: 1rpx solid rgba(255, 122, 51, 0.12);
+}
+
+.promo-inner {
+  display: flex;
+  align-items: center;
+  padding: 32rpx 28rpx;
+  gap: 20rpx;
+}
+
+.promo-icon {
+  flex-shrink: 0;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 44rpx;
+  background: rgba(255, 122, 51, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.promo-icon-text {
+  font-size: 44rpx;
+}
+
+.promo-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.promo-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1a1f36;
+}
+
+.promo-desc {
+  font-size: 22rpx;
+  color: #6b7280;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4rpx;
+}
+
+.promo-segment {
+  color: #6b7280;
+}
+
+.promo-highlight {
+  color: #ff7a33;
+  font-weight: 500;
+}
+
+.promo-dot {
+  color: #c8c9cc;
+  margin: 0 4rpx;
+}
+
+.promo-cta {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2rpx;
+  padding: 12rpx 24rpx;
+  background: linear-gradient(135deg, #ff7a33, #ff5a1f);
+  border-radius: 40rpx;
+  box-shadow: 0 6rpx 16rpx rgba(255, 90, 31, 0.28);
+}
+
+.promo-cta text {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: 600;
+}
+
+.promo-cta-arrow {
+  font-size: 22rpx;
+  margin-left: 2rpx;
+}
+
+/* ===== 我的服务 / 认证工具 4 宫格 ===== */
+.grid-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 16rpx 16rpx 16rpx;
+}
+
+.grid-row-secondary {
+  padding-top: 0;
+  padding-bottom: 36rpx;
+}
+
+.grid-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14rpx;
+  padding: 12rpx 0;
+}
+
+.grid-icon-wrap {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.grid-icon-coupon    { background: linear-gradient(135deg, #ffb84d, #ff8a1f); }
+.grid-icon-delivery  { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
+.grid-icon-bind      { background: linear-gradient(135deg, #ff5a1f, #e63e00); }
+.grid-icon-address   { background: linear-gradient(135deg, #ff7a33, #ff5a1f); }
+.grid-icon-auth      { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
+.grid-icon-pilot     { background: linear-gradient(135deg, #ff5a1f, #e63e00); }
+.grid-icon-enterprise{ background: linear-gradient(135deg, #ff7a33, #ff5a1f); }
+.grid-icon-send      { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
+.grid-icon-points    { background: linear-gradient(135deg, #ff5a1f, #e63e00); }
+.grid-icon-device    { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
+.grid-icon-service   { background: linear-gradient(135deg, #ff7a33, #ff5a1f); }
+.grid-icon-about     { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
+
+.grid-icon-text {
+  font-size: 36rpx;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.grid-label {
+  font-size: 24rpx;
+  color: #4a5568;
+  text-align: center;
+}
+
+.bottom-spacer {
+  height: 40rpx;
 }
 </style>
