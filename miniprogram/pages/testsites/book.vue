@@ -1,27 +1,25 @@
 <template>
   <view class="page-container">
     <!-- Nav -->
-    <van-nav-bar
+    <u-nav-bar
       title="场地预约"
-      left-arrow
-      @click-left="goBack"
-      custom-style="background: #06b6d4;"
-    >
-      <template #title>
-        <text style="color: #fff;">场地预约</text>
-      </template>
-    </van-nav-bar>
+      show-back
+      @back="goBack"
+    />
 
     <!-- Site list (step 1: choose site) -->
     <template v-if="!selectedSite">
       <!-- Loading -->
       <view v-if="loadingSites" class="loading-state">
-        <van-loading size="24">加载场地列表...</van-loading>
+        <view class="loading-inline">
+          <u-loading size="24rpx" />
+          <text>加载场地列表...</text>
+        </view>
       </view>
 
       <!-- Error -->
       <view v-else-if="sitesError" class="error-state">
-        <van-empty image="network" description="加载失败" />
+        <u-empty description="加载失败" />
         <view class="retry-btn" @tap="fetchSites">
           <text>重新加载</text>
         </view>
@@ -29,30 +27,32 @@
 
       <!-- Empty -->
       <view v-else-if="sites.length === 0" class="empty-state-wrapper">
-        <van-empty image="search" description="暂无可用场地" />
+        <u-empty description="暂无可用场地" />
       </view>
 
       <!-- Site list -->
       <view v-else class="list-body">
-        <van-cell-group inset>
-          <van-cell
+        <u-cell-group inset>
+          <u-cell
             v-for="site in sites"
             :key="site.id"
-            :title="site.name"
             is-link
-            @tap="selectSite(site)"
+            @click="selectSite(site)"
           >
-            <template #label>
-              <view class="cell-meta">
-                <text v-if="site.location" class="meta-text">{{ site.location }}</text>
-                <text v-if="site.facilities" class="meta-text">{{ site.facilities }}</text>
-              </view>
-              <view v-if="site.fee_desc" class="cell-extra">
-                <text class="fee-text">{{ site.fee_desc }}</text>
+            <template #title>
+              <view class="cell-content">
+                <text class="cell-title">{{ site.name }}</text>
+                <view class="cell-meta">
+                  <text v-if="site.location" class="meta-text">{{ site.location }}</text>
+                  <text v-if="site.facilities" class="meta-text">{{ site.facilities }}</text>
+                </view>
+                <view v-if="site.fee_desc" class="cell-extra">
+                  <text class="fee-text">{{ site.fee_desc }}</text>
+                </view>
               </view>
             </template>
-          </van-cell>
-        </van-cell-group>
+          </u-cell>
+        </u-cell-group>
       </view>
     </template>
 
@@ -60,12 +60,15 @@
     <template v-else>
       <!-- Loading detail -->
       <view v-if="loadingDetail" class="loading-state">
-        <van-loading size="24">加载场地详情...</van-loading>
+        <view class="loading-inline">
+          <u-loading size="24rpx" />
+          <text>加载场地详情...</text>
+        </view>
       </view>
 
       <!-- Error -->
       <view v-else-if="detailError" class="error-state">
-        <van-empty image="network" description="加载失败" />
+        <u-empty description="加载失败" />
         <view class="retry-btn" @tap="fetchSiteDetail">
           <text>重新加载</text>
         </view>
@@ -74,12 +77,12 @@
       <!-- Detail + form -->
       <view v-else class="booking-body">
         <!-- Site info card -->
-        <van-cell-group inset>
-          <van-cell title="场地名称" :value="selectedSite.name" />
-          <van-cell v-if="selectedSite.location" title="位置" :label="selectedSite.location" />
-          <van-cell v-if="detail.facilities" title="设施" :value="detail.facilities" />
-          <van-cell v-if="detail.fee_desc" title="费用" :value="detail.fee_desc" />
-        </van-cell-group>
+        <u-cell-group inset>
+          <u-cell title="场地名称" :value="selectedSite.name" />
+          <u-cell v-if="selectedSite.location" title="位置" :label="selectedSite.location" />
+          <u-cell v-if="detail.facilities" title="设施" :value="detail.facilities" />
+          <u-cell v-if="detail.fee_desc" title="费用" :value="detail.fee_desc" />
+        </u-cell-group>
 
         <!-- Date picker -->
         <view class="section-title">选择日期</view>
@@ -93,7 +96,7 @@
             <view class="date-display">
               <text class="date-label">预约日期</text>
               <text class="date-value">{{ bookingDate || '请选择日期' }}</text>
-              <van-icon name="arrow" size="14" color="#969799" />
+              <text class="arrow">›</text>
             </view>
           </picker>
         </view>
@@ -101,56 +104,53 @@
         <!-- Time slots -->
         <view v-if="timeSlots.length > 0" class="section">
           <view class="section-title">选择时段</view>
-          <van-grid :column-num="3" gutter="8" clickable>
-            <van-grid-item
+          <view class="slot-grid">
+            <view
               v-for="slot in timeSlots"
               :key="slot.value || slot"
-              :text="slot.label || slot"
-              custom-class="slot-item"
-              :custom-style="getSlotStyle(slot)"
+              class="slot-item"
+              :style="getSlotStyle(slot)"
               @tap="selectSlot(slot)"
-            />
-          </van-grid>
+            >
+              {{ slot.label || slot }}
+            </view>
+          </view>
         </view>
 
         <!-- Booking form -->
         <view class="section">
           <view class="section-title">预约信息</view>
-          <van-cell-group inset>
-            <van-field
+          <u-cell-group inset>
+            <u-field
               v-model="form.purpose"
               label="用途"
               placeholder="请输入预约用途"
-              :border="true"
             />
-            <van-field
+            <u-field
               v-model="form.contact_name"
               label="联系人"
               placeholder="请输入联系人姓名"
-              :border="true"
             />
-            <van-field
+            <u-field
               v-model="form.contact_phone"
               label="联系电话"
               type="number"
               placeholder="请输入联系电话"
-              :border="false"
             />
-          </van-cell-group>
+          </u-cell-group>
         </view>
 
         <!-- Submit -->
         <view class="submit-section">
-          <van-button
+          <u-button
             type="primary"
             block
             round
             :loading="submitting"
-            custom-style="background: #06b6d4; border-color: #06b6d4;"
-            @tap="handleSubmit"
+            @click="handleSubmit"
           >
             提交预约
-          </van-button>
+          </u-button>
         </view>
       </view>
     </template>
@@ -243,12 +243,12 @@ export default {
     getSlotStyle(slot) {
       var status = slot.status || 'available'
       if (status === 'booked') {
-        return 'background: #c8c9cc; color: #fff;'
+        return 'background: var(--color-text-placeholder); color: #fff;'
       }
       if (this.selectedSlot && (this.selectedSlot.value || this.selectedSlot) === (slot.value || slot)) {
-        return 'background: #06b6d4; color: #fff; border: 2px solid #06b6d4;'
+        return 'background: var(--color-primary); color: #fff; border: 4rpx solid var(--color-primary);'
       }
-      return 'background: #34c759; color: #fff;'
+      return 'background: var(--color-success); color: #fff;'
     },
 
     selectSlot(slot) {
@@ -325,7 +325,7 @@ export default {
 <style scoped>
 .page-container {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 40px;
 }
 
@@ -333,6 +333,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .empty-state-wrapper {
@@ -349,7 +357,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #06b6d4;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -359,26 +367,38 @@ export default {
   padding: 12px 0 24px;
 }
 
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.cell-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 .cell-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 4px;
 }
 
 .cell-extra {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .fee-text {
   font-size: 13px;
-  color: #ee0a24;
+  color: var(--color-danger);
   font-weight: 500;
 }
 
@@ -395,13 +415,13 @@ export default {
   padding: 16px 16px 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #323233;
+  color: var(--color-text);
 }
 
 /* Date picker */
 .date-picker-wrap {
   margin: 0 12px;
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -415,20 +435,34 @@ export default {
 
 .date-label {
   font-size: 14px;
-  color: #323233;
+  color: var(--color-text);
 }
 
 .date-value {
   font-size: 14px;
-  color: #0A66C2;
+  color: var(--color-primary);
   margin-left: auto;
   margin-right: 8px;
 }
 
-/* Slot grid */
+.arrow {
+  font-size: 18px;
+  color: var(--color-text-placeholder);
+}
+
+/* Slot grid (van-grid → CSS 三列) */
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12rpx;
+  padding: 0 12px;
+}
+
 .slot-item {
-  border-radius: 8px;
+  border-radius: 12rpx;
   font-size: 13px;
+  text-align: center;
+  padding: 20rpx 0;
 }
 
 /* Submit */
