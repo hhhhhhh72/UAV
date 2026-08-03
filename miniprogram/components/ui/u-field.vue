@@ -2,7 +2,7 @@
   <view class="u-field" :class="{ 'u-field--textarea': type === 'textarea' }">
     <text v-if="label" class="u-field-label">{{ label }}</text>
     <input
-      v-else-if="type !== 'textarea'"
+      v-if="type !== 'textarea'"
       class="u-field-input"
       :type="type"
       :value="modelValue"
@@ -46,6 +46,6 @@ function onInput(e) {
 .u-field-label { font-size: var(--ui-font-size-md, 30rpx); color: var(--color-text, #1a1a1a); flex-shrink: 0; }
 .u-field-input { flex: 1; font-size: var(--ui-font-size-md, 30rpx); color: var(--color-text, #1a1a1a); }
 .u-field-textarea { min-height: 120rpx; }
-.u-field-ph { color: var(--ui-color-text-placeholder, #c8c9cc); }
+.u-field-ph { color: var(--color-text-placeholder, #c8c9cc); }
 .u-field--textarea { align-items: flex-start; }
 </style>

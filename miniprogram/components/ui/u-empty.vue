@@ -12,8 +12,7 @@
 
 <script setup>
 defineProps({
-  description: { type: String, default: '暂无数据' },
-  image: { type: String, default: '' }
+  description: { type: String, default: '暂无数据' }
 })
 </script>
 

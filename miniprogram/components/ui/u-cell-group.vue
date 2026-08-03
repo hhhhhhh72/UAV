@@ -6,8 +6,7 @@
 
 <script setup>
 defineProps({
-  inset: { type: Boolean, default: false },
-  border: { type: Boolean, default: true }
+  inset: { type: Boolean, default: false }
 })
 </script>
 
