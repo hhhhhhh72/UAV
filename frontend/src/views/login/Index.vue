@@ -1,334 +1,300 @@
 <template>
   <div class="login-page">
-    <van-nav-bar
-      title="登录"
-      left-arrow
-      @click-left="$router.back()"
-    >
-      <template #right>
-        <van-icon name="wap-home-o" size="18" class="nav-home" @click="goHome" />
-      </template>
-    </van-nav-bar>
+    <!-- 背景装饰 -->
+    <div class="bg-decoration">
+      <div class="circle circle-1"></div>
+      <div class="circle circle-2"></div>
+      <div class="circle circle-3"></div>
+    </div>
 
-    <div class="login-container">
-      <!-- SSO 自动登录状态 -->
-      <div v-if="autoLoginStatus" class="auto-login-area">
-        <div class="logo-area">
-          <div class="login-avatar">
-            <van-loading type="spinner" size="40" color="#667eea" />
-          </div>
-          <h2 class="app-title">无人机产业综合服务平台</h2>
+    <!-- 居中卡片 -->
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo-badge">
+          <el-icon :size="28" color="#fff"><Promotion /></el-icon>
         </div>
-        <div class="auto-login-tip">
-          <span>正在验证登录信息...</span>
-        </div>
+        <h1 class="login-title">无人机产业综合服务平台</h1>
+        <p class="login-subtitle">管理后台 · 账号登录</p>
       </div>
 
-      <!-- 正常登录表单 -->
-      <template v-else>
-        <div class="logo-area">
-          <div class="login-avatar" aria-label="default avatar">
-            <van-icon name="contact" size="40" color="#8e8e93" />
-          </div>
-          <h2 class="app-title">无人机产业综合服务平台</h2>
-        </div>
+      <!-- 账号密码登录 -->
+      <el-form
+        ref="formRef"
+        :model="loginForm"
+        :rules="loginRules"
+        size="large"
+        @submit.prevent="onSubmit"
+      >
+        <el-form-item prop="phone">
+          <el-input
+            v-model="loginForm.phone"
+            placeholder="请输入手机号"
+            :prefix-icon="Iphone"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item prop="password">
+          <el-input
+            v-model="loginForm.password"
+            type="password"
+            placeholder="请输入密码"
+            :prefix-icon="Lock"
+            show-password
+          />
+        </el-form-item>
+        <el-button
+          class="submit-btn"
+          type="primary"
+          native-type="submit"
+          :loading="loading"
+        >
+          登 录
+        </el-button>
+      </el-form>
 
-        <van-form @submit="onPasswordLogin" class="login-form">
-          <van-cell-group inset>
-            <van-field
-              v-model="loginForm.username"
-              name="username"
-              label="账号"
-              placeholder="请输入手机号/用户名"
-              :rules="[{ required: true, message: '请填写账号' }]"
-            />
-            <van-field
-              v-model="loginForm.password"
-              type="password"
-              name="password"
-              label="密码"
-              placeholder="请输入密码"
-              :rules="[{ required: true, message: '请填写密码' }]"
-            />
-          </van-cell-group>
-          <div style="margin: 24px 16px;">
-            <van-button round block type="primary" native-type="submit" :loading="loading">
-              登录
-            </van-button>
-          </div>
-        </van-form>
+      <div class="divider">
+        <span class="divider-line"></span>
+        <span class="divider-text">快捷入口</span>
+        <span class="divider-line"></span>
+      </div>
 
-        <div class="action-links">
-          <span @click="goRegister">还没有账号？立即注册</span>
-        </div>
+      <!-- 开发环境快捷登录（生产 403 时提示禁用） -->
+      <el-button
+        class="dev-btn"
+        :loading="devLoading"
+        @click="onDevLogin"
+      >
+        开发环境快速登录
+      </el-button>
 
-        <div class="wechat-login">
-          <van-divider>其他登录方式</van-divider>
-          <div class="wechat-btn-wrapper">
-            <van-button
-              round
-              block
-              type="primary"
-              color="#07c160"
-              icon="wechat"
-              @click="onWechatLogin"
-              :loading="wechatLoading"
-            >
-              微信授权登录
-            </van-button>
-          </div>
-        </div>
-
-        <div class="sso-tip">
-          <p>从无人机产业协会平台进入将自动登录</p>
-        </div>
-      </template>
+      <p class="footer-tip">登录即表示同意用户协议和隐私政策</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { showSuccessToast, showFailToast } from 'vant'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { Iphone, Lock, Promotion } from '@element-plus/icons-vue'
 import axios, { authStorage } from '@/utils/http'
+import { showFailToast, showSuccessToast } from '@/utils/feedback'
 
 const router = useRouter()
-const route = useRoute()
-
+const formRef = ref(null)
 const loading = ref(false)
-const autoLoginStatus = ref(false)
-const wechatLoading = ref(false)
+const devLoading = ref(false)
 
 const loginForm = ref({
-  username: '',
+  phone: '',
   password: ''
 })
 
-const goHome = () => {
-  router.replace('/home')
+const loginRules = {
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1\d{10}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' }
+  ]
 }
 
-const goRegister = () => {
-  router.push('/register')
+// 保存登录态：token 走 authStorage，用户信息仅存 { id, role }
+const saveSession = (user, accessToken, refreshToken) => {
+  authStorage.setTokens(accessToken, refreshToken)
+  if (user && typeof user === 'object' && user.id) {
+    localStorage.setItem('user', JSON.stringify({ id: user.id, role: user.role }))
+  }
 }
 
-// 账号密码登录
-const onPasswordLogin = async (values) => {
+const afterLogin = (user, accessToken, refreshToken) => {
+  saveSession(user, accessToken, refreshToken)
+  showSuccessToast('登录成功')
+  router.push('/admin')
+}
+
+// 账号密码登录：POST /api/auth/login
+const onSubmit = async () => {
+  if (!formRef.value) return
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
   loading.value = true
   try {
     const res = await axios.post('/api/auth/login', {
-      phone: values.username,
-      username: values.username,
-      password: values.password
+      phone: loginForm.value.phone,
+      password: loginForm.value.password
     })
-    if (!res.data?.success) {
-      throw new Error(res.data?.message || '登录失败')
+    const data = res.data || {}
+    if (!data.success) {
+      showFailToast('账号或密码错误')
+      return
     }
-    localStorage.setItem('user', JSON.stringify(res.data.user))
-    authStorage.setTokens(res.data.accessToken, res.data.refreshToken)
-    showSuccessToast('登录成功')
-    
-    // 根据用户角色跳转
-    const user = res.data.user
-    if (user.role === 'platform_admin' || user.role === 'association_admin') {
-      router.push('/admin')
-    } else {
-      router.push('/home')
-    }
+    afterLogin(data.user, data.accessToken, data.refreshToken)
   } catch (error) {
-    console.error(error)
-    showFailToast(error?.response?.data?.message || error?.message || '登录失败')
+    const message = error?.response?.data?.error?.message
+    showFailToast(message || '账号或密码错误')
   } finally {
     loading.value = false
   }
 }
 
-// 微信授权登录
-const onWechatLogin = async () => {
-  wechatLoading.value = true
+// 开发环境快捷登录：POST /api/v1/admin/token（仅 ADMIN_DEV_MODE 可用）
+const onDevLogin = async () => {
+  devLoading.value = true
   try {
-    const res = await axios.get('/api/auth/wechat-oauth-url', {
-      params: {
-        redirectUrl: window.location.origin + '/home'
-      }
-    })
-    
-    if (!res.data?.success || !res.data?.authUrl) {
-      throw new Error(res.data?.message || '获取微信授权URL失败')
-    }
-    
-    // 重定向到微信授权页面
-    window.location.href = res.data.authUrl
+    const res = await axios.post('/api/v1/admin/token', { role: 'platform_admin' })
+    const data = res.data || {}
+    afterLogin(data.user, data.access_token || data.accessToken)
   } catch (error) {
-    console.error(error)
-    showFailToast(error?.response?.data?.message || error?.message || '微信授权登录失败')
-  } finally {
-    wechatLoading.value = false
-  }
-}
-
-// 处理微信授权回调
-const handleWechatCallback = () => {
-  const wechatAuth = route.query.wechat_auth
-  const userData = route.query.user
-  const tokensData = route.query.tokens
-  
-  if (wechatAuth === '1' && userData && tokensData) {
-    try {
-      // 解析用户信息
-      const user = JSON.parse(atob(userData))
-      const tokens = JSON.parse(atob(tokensData))
-      
-      // 保存到本地存储
-      localStorage.setItem('user', JSON.stringify(user))
-      authStorage.setTokens(tokens.accessToken, tokens.refreshToken)
-      
-      showSuccessToast('微信授权登录成功')
-      
-      // 根据用户角色跳转
-      if (user.role === 'platform_admin' || user.role === 'association_admin') {
-        router.push('/admin')
-      } else {
-        router.push('/home')
-      }
-    } catch (error) {
-      console.error('解析微信登录数据失败:', error)
-      showFailToast('微信授权登录失败，请重试')
-    }
-  }
-  
-  // 处理错误
-  const error = route.query.error
-  if (error) {
-    showFailToast('微信授权登录失败，请重试')
-  }
-}
-
-// 授权码自动登录 - 从无人机产业协会平台跳转时自动触发
-const ssoLogin = async (code) => {
-  autoLoginStatus.value = true
-  try {
-    const res = await axios.post('/api/sso/login', { authcode: code })
-    if (!res.data?.success) {
-      throw new Error(res.data?.message || '授权登录失败')
-    }
-    localStorage.setItem('user', JSON.stringify(res.data.user))
-    authStorage.setTokens(res.data.accessToken, res.data.refreshToken)
-    showSuccessToast('登录成功')
-    const ssoUser = res.data.user
-    if (ssoUser.role === 'platform_admin' || ssoUser.role === 'association_admin') {
-      router.push('/admin')
+    if (error?.response?.status === 403) {
+      showFailToast('开发登录已禁用')
     } else {
-      router.push('/home')
+      showFailToast('开发登录失败，请使用账号密码登录')
     }
-  } catch (error) {
-    console.error(error)
-    throw error
   } finally {
-    autoLoginStatus.value = false
+    devLoading.value = false
   }
 }
-
-onMounted(() => {
-  // 检查是否是微信授权回调
-  handleWechatCallback()
-  
-  // 检查 URL 中是否有授权码参数（从无人机产业协会平台跳转时自动携带）
-  const code = route.query.authcode || route.query.jyauthcode
-  if (typeof code === 'string' && code.trim()) {
-    // 自动执行授权码登录，用户无需手动操作
-    ssoLogin(code.trim()).catch((error) => {
-      console.error('Auto SSO login failed:', error)
-      showFailToast(error?.response?.data?.message || error?.message || '自动登录失败，请使用账号密码登录')
-    })
-  }
-})
 </script>
 
 <style scoped>
 .login-page {
   min-height: 100vh;
-  background: #f7f8fa;
-}
-
-.nav-home {
-  color: #1d1d1f;
-}
-
-.login-container {
-  padding-top: 40px;
-}
-
-.logo-area {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  margin-bottom: 32px;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a66c2 0%, #053a6e 100%);
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
 }
 
-.login-avatar {
-  width: 80px;
-  height: 80px;
+.bg-decoration {
+  position: absolute;
+  inset: 0;
+}
+
+.circle {
+  position: absolute;
   border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.circle-1 {
+  width: 340px;
+  height: 340px;
+  top: -120px;
+  right: -80px;
+}
+
+.circle-2 {
+  width: 240px;
+  height: 240px;
+  bottom: -80px;
+  left: -60px;
+}
+
+.circle-3 {
+  width: 120px;
+  height: 120px;
+  top: 18%;
+  left: 14%;
+  background: rgba(29, 212, 168, 0.12);
+}
+
+/* Element Plus 主题覆盖为品牌蓝 #0A66C2 */
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
   background: #fff;
+  border-radius: 16px;
+  padding: 40px 36px 28px;
+  box-shadow: 0 16px 48px rgba(2, 32, 71, 0.35);
+  --el-color-primary: #0a66c2;
+  --el-color-primary-dark-2: #08549d;
+  --el-color-primary-light-3: #4587d1;
+  --el-color-primary-light-5: #74a6dd;
+  --el-color-primary-light-7: #a5c5ea;
+  --el-color-primary-light-8: #c2d8f0;
+  --el-color-primary-light-9: #e9f1fb;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.logo-badge {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0a66c2 0%, #1dd4a8 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 20px rgba(10, 102, 194, 0.35);
 }
 
-.app-title {
-  margin-top: 16px;
+.login-title {
   font-size: 20px;
-  color: #333;
   font-weight: 600;
+  color: #1d2129;
+  margin-bottom: 6px;
 }
 
-.login-form {
-  margin-top: 16px;
+.login-subtitle {
+  font-size: 13px;
+  color: #86909c;
 }
 
-.action-links {
-  text-align: center;
-  margin-top: 16px;
-  color: #667eea;
-  font-size: 14px;
-  cursor: pointer;
+.submit-btn {
+  width: 100%;
+  height: 44px;
+  font-size: 16px;
+  border-radius: 8px;
 }
 
-.wechat-login {
-  margin-top: 24px;
-}
-
-.wechat-btn-wrapper {
-  padding: 0 16px;
-}
-
-.auto-login-area {
-  padding-top: 60px;
-}
-
-.auto-login-tip {
+.divider {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: #e5e6eb;
+}
+
+.divider-text {
+  font-size: 12px;
+  color: #86909c;
+  white-space: nowrap;
+}
+
+.dev-btn {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.footer-tip {
   margin-top: 24px;
-  color: #666;
-  font-size: 14px;
-}
-
-.sso-tip {
-  margin-top: 32px;
-  padding: 0 16px;
   text-align: center;
+  font-size: 12px;
+  color: #c0c4cc;
 }
 
-.sso-tip p {
-  color: #969799;
-  font-size: 13px;
-  margin-top: 8px;
+@media (max-width: 480px) {
+  .login-card {
+    padding: 32px 24px 24px;
+  }
 }
 </style>

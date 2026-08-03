@@ -1,19 +1,24 @@
 <template>
   <view class="recommend-page">
-    <van-nav-bar title="智能推荐" left-arrow @click-left="goBack" />
+    <u-nav-bar title="智能推荐" show-back @back="goBack" />
 
-    <van-notice-bar left-icon="info-o" scrollable>
-      💡 基于您的浏览和位置推荐需求
-    </van-notice-bar>
+    <!-- Notice bar (CSS 实现) -->
+    <view class="notice-bar">
+      <view class="notice-icon">荐</view>
+      <text class="notice-text">基于您的浏览和位置推荐需求</text>
+    </view>
 
     <!-- Loading -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">推荐加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>推荐加载中...</text>
+      </view>
     </view>
 
     <!-- Error -->
     <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchRecommendations(true)">
         <text>重新加载</text>
       </view>
@@ -21,51 +26,51 @@
 
     <!-- Empty -->
     <view v-else-if="!loading && list.length === 0" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无推荐需求" />
+      <u-empty description="暂无推荐需求" />
     </view>
 
     <!-- Normal -->
     <view v-else class="list-body">
-      <van-cell-group inset>
-        <van-cell
+      <u-cell-group inset>
+        <u-cell
           v-for="item in list"
           :key="item.id"
           is-link
-          @tap="goDetail(item)"
+          @click="goDetail(item)"
         >
           <template #title>
-            <view class="card-row">
-              <view class="card-left">
-                <text class="card-title">{{ item.title }}</text>
-              </view>
-              <view class="card-right">
-                <view
-                  class="match-ring"
-                  :class="matchRingClass(item.match_score)"
-                >
-                  <text>{{ matchScoreText(item.match_score) }}</text>
+            <view class="card-content">
+              <view class="card-row">
+                <view class="card-left">
+                  <text class="card-title">{{ item.title }}</text>
+                </view>
+                <view class="card-right">
+                  <view
+                    class="match-ring"
+                    :class="matchRingClass(item.match_score)"
+                  >
+                    <text>{{ matchScoreText(item.match_score) }}</text>
+                  </view>
                 </view>
               </view>
+              <view class="cell-meta">
+                <u-tag
+                  :type="bizTypeTagType(item.biz_type)"
+                  size="mini"
+                >
+                  {{ bizTypeLabel(item.biz_type) }}
+                </u-tag>
+                <text v-if="item.district" class="meta-text">{{ item.district }}</text>
+                <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
+              </view>
+              <view class="card-footer">
+                <text class="footer-text">{{ item.publisher_name || '匿名用户' }}</text>
+                <text class="footer-text">{{ formatDate(item.created_at) }}</text>
+              </view>
             </view>
           </template>
-          <template #label>
-            <view class="cell-meta">
-              <van-tag
-                :type="bizTypeTagType(item.biz_type)"
-                size="small"
-              >
-                {{ bizTypeLabel(item.biz_type) }}
-              </van-tag>
-              <text v-if="item.district" class="meta-text">{{ item.district }}</text>
-              <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
-            </view>
-            <view class="card-footer">
-              <text class="footer-text">{{ item.publisher_name || '匿名用户' }}</text>
-              <text class="footer-text">{{ formatDate(item.created_at) }}</text>
-            </view>
-          </template>
-        </van-cell>
-      </van-cell-group>
+        </u-cell>
+      </u-cell-group>
     </view>
   </view>
 </template>
@@ -170,8 +175,36 @@ export default {
 <style scoped>
 .recommend-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Notice bar */
+.notice-bar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin: 16rpx 24rpx 0;
+  padding: 14rpx 24rpx;
+  background: var(--color-primary-light);
+  border-radius: 12rpx;
+}
+
+.notice-icon {
+  width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: #fff;
+  background: var(--color-primary);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.notice-text {
+  font-size: 13px;
+  color: var(--color-primary);
 }
 
 /* States */
@@ -179,6 +212,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .error-state {
@@ -191,7 +232,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -207,6 +248,13 @@ export default {
 }
 
 /* Card row with title and match ring */
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
 .card-row {
   display: flex;
   align-items: flex-start;
@@ -222,7 +270,7 @@ export default {
 .card-title {
   font-size: 15px;
   font-weight: bold;
-  color: #1a1a1a;
+  color: var(--color-text);
   line-height: 1.4;
 }
 
@@ -245,15 +293,15 @@ export default {
 }
 
 .match-high {
-  background: #34c759;
+  background: var(--color-success);
 }
 
 .match-mid {
-  background: #ff9f0a;
+  background: var(--color-warning);
 }
 
 .match-low {
-  background: #86868b;
+  background: var(--color-text-secondary);
 }
 
 /* Cell meta */
@@ -262,12 +310,11 @@ export default {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 /* Footer */
@@ -275,11 +322,10 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 4px;
 }
 
 .footer-text {
   font-size: 12px;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
 }
 </style>

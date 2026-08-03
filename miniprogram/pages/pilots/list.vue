@@ -1,7 +1,7 @@
 <template>
   <view class="page-container">
-    <van-nav-bar title="认证飞手" left-arrow @click-left="goBack" />
-    <van-search v-model="searchText" placeholder="搜索认证飞手" shape="round" @search="onSearch" />
+    <u-nav-bar title="认证飞手" show-back @back="goBack" />
+    <u-search v-model="searchText" placeholder="搜索认证飞手" @search="onSearch" />
     <view v-for="(item, i) in list" :key="i" class="card" @tap="goDetail(item)">
       <image :src="item.avatar || '/static/home-bg.jpg'" mode="aspectFill" class="avatar" />
       <view class="info">
@@ -11,7 +11,7 @@
       </view>
       <text class="arrow">›</text>
     </view>
-    <van-empty v-if="!list.length" description="暂无认证飞手" />
+    <u-empty v-if="!list.length" description="暂无认证飞手" />
   </view>
 </template>
 
@@ -36,12 +36,12 @@ onLoad(() => fetchData())
 </script>
 
 <style scoped>
-.page-container { min-height: 100vh; background: #f5f6f7; padding-bottom: 20px; }
-.card { display: flex; align-items: center; gap: 12px; margin: 8px 12px; background: #fff; border-radius: 10px; padding: 12px; }
-.avatar { width: 48px; height: 48px; border-radius: 50%; background: #e8f2fc; flex-shrink: 0; }
+.page-container { min-height: 100vh; background: var(--color-bg); padding-bottom: 20px; }
+.card { display: flex; align-items: center; gap: 12px; margin: 8px 12px; background: var(--color-bg-card); border-radius: 10px; padding: 12px; }
+.avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--color-primary-light); flex-shrink: 0; }
 .info { flex: 1; }
-.name { font-size: 15px; font-weight: 600; color: #1a1a1a; display: block; }
-.desc { font-size: 13px; color: #1989fa; margin-top: 2px; display: block; }
-.meta { font-size: 12px; color: #999; margin-top: 2px; display: block; }
-.arrow { font-size: 18px; color: #ccc; }
+.name { font-size: 15px; font-weight: 600; color: var(--color-text); display: block; }
+.desc { font-size: 13px; color: var(--color-primary); margin-top: 2px; display: block; }
+.meta { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; display: block; }
+.arrow { font-size: 18px; color: var(--color-text-placeholder); }
 </style>

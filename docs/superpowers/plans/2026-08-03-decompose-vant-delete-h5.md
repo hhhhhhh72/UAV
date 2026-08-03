@@ -564,7 +564,7 @@ git commit -m "feat(miniprogram): u-cell/u-cell-group 列表组件"
   <view class="u-field" :class="{ 'u-field--textarea': type === 'textarea' }">
     <text v-if="label" class="u-field-label">{{ label }}</text>
     <input
-      v-else-if="type !== 'textarea'"
+      v-if="type !== 'textarea'"
       class="u-field-input"
       :type="type"
       :value="modelValue"
@@ -608,7 +608,7 @@ function onInput(e) {
 .u-field-label { font-size: var(--ui-font-size-md, 30rpx); color: var(--color-text, #1a1a1a); flex-shrink: 0; }
 .u-field-input { flex: 1; font-size: var(--ui-font-size-md, 30rpx); color: var(--color-text, #1a1a1a); }
 .u-field-textarea { min-height: 120rpx; }
-.u-field-ph { color: var(--ui-color-text-placeholder, #c8c9cc); }
+.u-field-ph { color: var(--color-text-placeholder, #c8c9cc); }
 .u-field--textarea { align-items: flex-start; }
 </style>
 ```
@@ -1131,7 +1131,8 @@ git commit -m "feat(miniprogram): u-picker 简易选择器"
 - Modify: `miniprogram/pages/home/index.vue`（示例页，完整迁移）
 
 **迁移模式（本批所有页面统一应用）：**
-1. 模板中 `van-button` → `u-button`、`van-cell` → `u-cell`、`van-empty` → `u-empty`、`van-loading` → `u-loading`、`van-tag` → `u-tag`、`van-nav-bar` → `u-nav-bar`、`van-search` → `u-search`、`van-popup` → `u-popup`、`van-tabs/van-tab` → `u-tabs/u-tab`、`van-sticky` → `u-sticky`、`van-icon` → `u-icon`、`van-field` → `u-field`、`van-picker` → `u-picker`
+1. 模板中 `van-button` → `u-button`、`van-cell` → `u-cell`、`van-empty` → `u-empty`、`van-loading` → `u-loading`、`van-tag` → `u-tag`、`van-nav-bar` → `u-nav-bar`、`van-search` → `u-search`、`van-popup` → `u-popup`、`van-sticky` → `u-sticky`、`van-icon` → `u-icon`、`van-field` → `u-field`、`van-picker` → `u-picker`
+2. **tabs 特殊处理**：`<van-tabs v-model:active="i"><van-tab title="A" /><van-tab title="B" /></van-tabs>` → `<u-tabs v-model:active="i" :titles="['A', 'B']" />`（u-tabs 用 titles 数组 prop，**删除 van-tab 子元素**，无 u-tab 组件）
 2. 属性保持同名（type/size/label/value/placeholder/disabled/is-link）；`van-cell-group` → `u-cell-group`；`van-cell-group` 的 `:border` 属性删除
 3. `van-tabs` 的 `v-model:active` 保持；`van-popup` 的 `:show` 保持
 4. 事件名保持（@click/@confirm/@change/@close/@back）
@@ -1185,7 +1186,7 @@ git commit -m "refactor(miniprogram): home 首页迁移至 u- 组件（品牌化
 ```bash
 cd miniprogram/pages
 for f in mine/index.vue tasks/index.vue tasks/detail.vue demands/list.vue demands/detail.vue demands/publish.vue shops/index.vue mall/index.vue publish/index.vue login/index.vue; do
-  sed -i 's/van-button/u-button/g; s/van-cell-group/u-cell-group/g; s/van-cell/u-cell/g; s/van-field/u-field/g; s/van-empty/u-empty/g; s/van-loading/u-loading/g; s/van-tag/u-tag/g; s/van-nav-bar/u-nav-bar/g; s/van-search/u-search/g; s/van-popup/u-popup/g; s/van-tabs/u-tabs/g; s/van-tab/u-tab/g; s/van-sticky/u-sticky/g; s/van-icon/u-icon/g; s/van-picker/u-picker/g; s/van-image/u-image/g' "$f"
+  sed -i 's/van-button/u-button/g; s/van-cell-group/u-cell-group/g; s/van-cell/u-cell/g; s/van-field/u-field/g; s/van-empty/u-empty/g; s/van-loading/u-loading/g; s/van-tag/u-tag/g; s/van-nav-bar/u-nav-bar/g; s/van-search/u-search/g; s/van-popup/u-popup/g; s/van-tabs/u-tabs/g; s/van-sticky/u-sticky/g; s/van-icon/u-icon/g; s/van-picker/u-picker/g' "$f"
 done
 ```
 

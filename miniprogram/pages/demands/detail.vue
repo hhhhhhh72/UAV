@@ -54,24 +54,24 @@
       <!-- 悬浮右侧操作按钮 -->
       <view class="float-actions">
         <view class="fa-item" @tap="generatePoster">
-          <text class="fa-icon">⊞</text>
+          <text class="fa-icon">图</text>
           <text class="fa-label">生成海报</text>
         </view>
         <view class="fa-item fa-share" @tap="share">
-          <text class="fa-icon">➤</text>
+          <text class="fa-icon">享</text>
           <text class="fa-label">分享</text>
         </view>
       </view>
 
       <!-- 底部广告条 -->
       <view v-if="showAd" class="ad-bar">
-        <text class="ad-text">📞 点击拨号，已被人浏览过 26 人</text>
-        <text class="ad-close" @tap="showAd = false">✕</text>
+        <text class="ad-text">电话 点击拨号，已被人浏览过 26 人</text>
+        <view class="ad-close" @tap="showAd = false"><u-icon name="close" size="28rpx" color="#999999" /></view>
       </view>
 
       <!-- 点赞区 -->
       <view class="like-row">
-        <text class="like-btn">👍 {{ post.likes || 0 }}</text>
+        <text class="like-btn">赞 {{ post.likes || 0 }}</text>
       </view>
 
       <!-- 联系人 -->
@@ -117,15 +117,15 @@
 
     <!-- 右下浮动按钮 -->
     <view class="fab">
-      <view class="fab-item" @tap="report"><text class="fab-ico">⚐</text><text class="lab">举报</text></view>
-      <view class="fab-item fab-on" @tap="share"><text class="fab-ico">➤</text><text class="lab">分享</text></view>
-      <view class="fab-item" @tap="goComment"><text class="fab-ico">💬</text><text class="lab">评论</text></view>
+      <view class="fab-item" @tap="report"><text class="fab-ico">报</text><text class="lab">举报</text></view>
+      <view class="fab-item fab-on" @tap="share"><text class="fab-ico">享</text><text class="lab">分享</text></view>
+      <view class="fab-item" @tap="goComment"><text class="fab-ico">评</text><text class="lab">评论</text></view>
     </view>
 
     <!-- 底部拨打电话按钮 -->
     <view class="sticky-call">
       <view class="sc-btn" @tap="callPhone">
-        <text class="sc-ico">📞</text>
+        <text class="sc-ico">电</text>
         <text>拨打电话</text>
       </view>
     </view>
@@ -196,18 +196,18 @@ onMounted(() => {
 
 /* User */
 .user-row { display: flex; align-items: center; gap: 12px; padding: 14px; background: #fff; }
-.user-ava { width: 48px; height: 48px; border-radius: 50%; background: #e8f2fc; }
+.user-ava { width: 48px; height: 48px; border-radius: 50%; background: var(--color-primary-light); }
 .user-meta { flex: 1; }
 .user-line1 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.user-tag { background: #0A66C2; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
-.user-name { font-size: 15px; font-weight: 600; color: #5a3ed1; }
+.user-tag { background: var(--color-primary); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.user-name { font-size: 15px; font-weight: 600; color: var(--color-primary); }
 .user-line2 { font-size: 11px; color: #999; }
 .user-time { color: #666; }
-.user-from { color: #0A66C2; }
+.user-from { color: var(--color-primary); }
 
 /* Stats */
 .stat-row { padding: 8px 14px 14px; font-size: 13px; color: #666; background: #fff; }
-.stat-num { font-weight: 600; color: #ff6b35; }
+.stat-num { font-weight: 600; color: var(--color-warning); }
 
 /* Location */
 .loc-row { display: flex; padding: 12px 14px; background: #fff; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
@@ -218,7 +218,7 @@ onMounted(() => {
 .desc-block { padding: 14px; background: #fff; font-size: 14px; line-height: 1.7; color: #333; }
 .desc-text { display: inline; }
 .desc-text.collapse { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.desc-toggle { color: #0A66C2; font-size: 13px; margin-left: 6px; }
+.desc-toggle { color: var(--color-primary); font-size: 13px; margin-left: 6px; }
 
 /* Photo */
 .photo-block { position: relative; padding: 0 14px 14px; background: #fff; }
@@ -229,29 +229,29 @@ onMounted(() => {
 /* Float actions right side */
 .float-actions { position: absolute; right: 14px; top: 60px; }
 .fa-item { background: rgba(0,0,0,0.55); color: #fff; width: 56px; padding: 8px 0; border-radius: 12px; text-align: center; margin-bottom: 10px; }
-.fa-share { background: #07c160; }
+.fa-share { background: var(--color-success); }
 .fa-icon { display: block; font-size: 18px; line-height: 1; margin-bottom: 2px; }
 .fa-label { font-size: 10px; }
 
 /* Ad bar */
 .ad-bar { display: flex; justify-content: space-between; align-items: center; background: #fff8f0; padding: 10px 14px; margin: 0 14px; border-radius: 8px; font-size: 12px; }
-.ad-text { color: #ff6b35; flex: 1; }
-.ad-close { color: #999; font-size: 14px; padding: 0 6px; }
+.ad-text { color: var(--color-warning); flex: 1; }
+.ad-close { display: flex; align-items: center; padding: 0 6px; }
 
 /* Like */
 .like-row { padding: 20px 14px 12px; background: #fff; }
-.like-btn { font-size: 24px; color: #0A66C2; }
+.like-btn { font-size: 24px; color: var(--color-primary); }
 
 /* Contact */
 .contact-row { padding: 4px 14px; background: #fff; font-size: 14px; }
 .cl-label { color: #999; min-width: 60px; display: inline-block; }
-.cl-name { color: #0A66C2; font-weight: 500; }
+.cl-name { color: var(--color-primary); font-weight: 500; }
 .cl-tip { font-size: 12px; color: #999; line-height: 1.6; padding: 4px 0; }
 
 /* Warn */
 .warn-row { margin: 14px; padding: 14px; background: #fff5f5; border-radius: 8px; }
 .warn-text { font-size: 13px; color: #333; font-weight: 500; display: block; margin-bottom: 6px; }
-.warn-link { color: #0A66C2; text-decoration: underline; }
+.warn-link { color: var(--color-primary); text-decoration: underline; }
 .warn-sub { font-size: 11px; color: #999; }
 
 /* Comment */
@@ -260,7 +260,7 @@ onMounted(() => {
 .ch-title { font-size: 15px; font-weight: 600; }
 .comment-list { }
 .comment-item { display: flex; gap: 10px; padding: 10px 0; }
-.ci-ava { width: 36px; height: 36px; border-radius: 50%; background: #e8f2fc; }
+.ci-ava { width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary-light); }
 .ci-meta { flex: 1; }
 .ci-name { font-size: 13px; color: #666; }
 .ci-text { display: block; font-size: 13px; color: #333; margin-top: 2px; }
@@ -269,20 +269,20 @@ onMounted(() => {
 /* Other */
 .other-block { margin: 14px; padding: 14px; background: #fff; border-radius: 12px; }
 .ob-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.ob-ava { width: 40px; height: 40px; border-radius: 50%; background: #e8f2fc; }
+.ob-ava { width: 40px; height: 40px; border-radius: 50%; background: var(--color-primary-light); }
 .ob-name { font-size: 14px; font-weight: 500; }
 .ob-stat { font-size: 12px; color: #666; }
-.ob-num { color: #0A66C2; font-weight: 600; }
+.ob-num { color: var(--color-primary); font-weight: 600; }
 
 /* FAB */
 .fab { position: fixed; right: 14px; bottom: 80px; display: flex; flex-direction: column; gap: 10px; }
 .fab-item { background: rgba(0,0,0,0.55); color: #fff; padding: 8px 6px; border-radius: 16px; text-align: center; min-width: 50px; }
-.fab-on { background: #07c160; }
+.fab-on { background: var(--color-success); }
 .fab-ico { font-size: 16px; display: block; }
 .lab { font-size: 10px; }
 
 /* Sticky Call */
 .sticky-call { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px; background: #fff; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
-.sc-btn { background: #0A66C2; color: #fff; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 17px; font-weight: 600; }
+.sc-btn { background: var(--color-primary); color: #fff; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 17px; font-weight: 600; }
 .sc-ico { font-size: 20px; }
 </style>

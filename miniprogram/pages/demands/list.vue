@@ -1,14 +1,13 @@
 <template>
   <view class="demand-list-page">
     <!-- Search -->
-    <van-sticky>
-      <van-search
+    <u-sticky>
+      <u-search
         v-model="searchText"
         placeholder="搜索需求"
-        shape="round"
         @search="onSearch"
       />
-    </van-sticky>
+    </u-sticky>
 
     <!-- Biz type filter tabs -->
     <view class="filter-tabs">
@@ -27,23 +26,26 @@
     <view class="sort-bar">
       <view class="sort-trigger" @tap="showSortPicker">
         <text class="sort-label">{{ currentSortLabel }}</text>
-        <van-icon name="arrow-down" size="12" color="#969799" />
+        <text class="sort-arrow">▼</text>
       </view>
     </view>
 
     <!-- Loading state -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="28rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无需求" />
+      <u-empty description="暂无需求" />
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
@@ -51,47 +53,64 @@
 
     <!-- Normal state -->
     <view v-else class="list-body">
-      <van-cell-group inset>
-        <van-cell
+      <u-cell-group inset>
+        <u-cell
           v-for="item in list"
           :key="item.id"
-          :title="item.title"
-          :title-width="'100%'"
           is-link
-          @tap="goDetail(item)"
+          @click="goDetail(item)"
         >
-          <template #label>
-            <view class="cell-meta">
-              <van-tag
-                :type="bizTypeTagType(item.biz_type)"
-                size="small"
-              >
-                {{ bizTypeLabel(item.biz_type) }}
-              </van-tag>
-              <text v-if="item.district" class="meta-text">{{ item.district }}</text>
-              <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
-              <text class="meta-date">{{ formatDate(item.created_at) }}</text>
+          <template #title>
+            <view class="cell-content">
+              <text class="cell-title">{{ item.title }}</text>
+              <view class="cell-meta">
+                <u-tag
+                  :type="bizTypeTagType(item.biz_type)"
+                  size="mini"
+                >
+                  {{ bizTypeLabel(item.biz_type) }}
+                </u-tag>
+                <text v-if="item.district" class="meta-text">{{ item.district }}</text>
+                <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
+                <text class="meta-date">{{ formatDate(item.created_at) }}</text>
+              </view>
             </view>
           </template>
-        </van-cell>
-      </van-cell-group>
+        </u-cell>
+      </u-cell-group>
 
       <!-- Load more -->
       <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="24rpx" />
+          <text>加载更多...</text>
+        </view>
         <text v-else-if="!hasMore" class="no-more">没有更多了</text>
       </view>
     </view>
 
     <!-- Sort action sheet -->
-    <van-action-sheet
+    <u-popup
       :show="sortPickerVisible"
-      :actions="sortActions"
-      cancel-text="取消"
-      @select="onSortSelect"
+      position="bottom"
+      round
       @close="sortPickerVisible = false"
-      @cancel="sortPickerVisible = false"
-    />
+    >
+      <view class="sheet">
+        <view class="sheet-title">排序方式</view>
+        <view
+          v-for="a in sortActions"
+          :key="a.value"
+          class="sheet-item"
+          :class="{ on: a.value === currentSort }"
+          @tap="onSortSelect(a)"
+        >
+          <text class="sheet-name">{{ a.name }}</text>
+          <text v-if="a.value === currentSort" class="sheet-check">✓</text>
+        </view>
+        <view class="sheet-cancel" @tap="sortPickerVisible = false">取消</view>
+      </view>
+    </u-popup>
   </view>
 </template>
 
@@ -198,8 +217,8 @@ export default {
     showSortPicker() {
       this.sortPickerVisible = true
     },
-    onSortSelect(e) {
-      this.currentSort = e.detail.value
+    onSortSelect(action) {
+      this.currentSort = action.value
       this.sortPickerVisible = false
       this.fetchList(true)
     },
@@ -247,7 +266,7 @@ export default {
 <style scoped>
 .demand-list-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -271,14 +290,14 @@ export default {
   padding: 6px 16px;
   border-radius: 20px;
   font-size: 13px;
-  color: #646566;
-  background: #f7f8fa;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
   transition: all 0.2s;
 }
 
 .filter-tab.active {
   color: #fff;
-  background: #0A66C2;
+  background: var(--color-primary);
 }
 
 /* Sort bar */
@@ -287,7 +306,7 @@ export default {
   display: flex;
   justify-content: flex-end;
   background: #fff;
-  border-bottom: 1px solid #f2f3f5;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .sort-trigger {
@@ -299,7 +318,12 @@ export default {
 
 .sort-label {
   font-size: 13px;
-  color: #969799;
+  color: var(--color-text-secondary);
+}
+
+.sort-arrow {
+  font-size: 10px;
+  color: var(--color-text-placeholder);
 }
 
 /* State views */
@@ -307,6 +331,18 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.loading-inline text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
 }
 
 .empty-state-wrapper {
@@ -323,7 +359,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -334,22 +370,34 @@ export default {
   padding: 12px 0 24px;
 }
 
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.cell-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
 .cell-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .meta-date {
   font-size: 12px;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
 }
 
 /* Load more */
@@ -359,7 +407,53 @@ export default {
 }
 
 .no-more {
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
   font-size: 13px;
+}
+
+/* Sort sheet */
+.sheet {
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sheet-title {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 16px 0 8px;
+}
+
+.sheet-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 24px;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.sheet-item.on {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.sheet-name {
+  color: inherit;
+}
+
+.sheet-check {
+  font-size: 14px;
+}
+
+.sheet-cancel {
+  text-align: center;
+  padding: 14px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  border-top: 1px solid var(--color-divider);
 }
 </style>

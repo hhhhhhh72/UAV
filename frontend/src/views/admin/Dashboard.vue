@@ -52,7 +52,7 @@ import { LineChart, PieChart, BarChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, LegendComponent, GridComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import axios from '@/utils/http'
-import { showFailToast } from 'vant'
+import { showFailToast } from '@/utils/feedback'
 import MetricCard from './components/MetricCard.vue'
 import { useAuth } from './composables/useAuth'
 

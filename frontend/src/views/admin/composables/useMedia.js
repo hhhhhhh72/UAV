@@ -1,5 +1,5 @@
 import axios from '@/utils/http'
-import { showFailToast } from 'vant'
+import { showFailToast } from '@/utils/feedback'
 
 /**
  * Normalize media URLs to avoid mixed-content / relative-path issues.

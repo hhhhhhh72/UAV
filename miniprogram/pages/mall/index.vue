@@ -80,11 +80,11 @@ const shopRecs = ref([
 const banners = ref([])
 
 const activities = ref([
-  { id:'rush',  name:'抢购',   emoji:'⚡', bg:'linear-gradient(135deg,#ff5252,#d32f2f)' },
-  { id:'group', name:'拼团',   emoji:'👥', bg:'linear-gradient(135deg,#ec407a,#c2185b)' },
-  { id:'coupon',name:'领券',   emoji:'🎟', bg:'linear-gradient(135deg,#ffb74d,#f57c00)' },
-  { id:'bargain',name:'砍价',  emoji:'✂', bg:'linear-gradient(135deg,#66bb6a,#388e3c)' },
-  { id:'super', name:'超级品牌',emoji:'👑', bg:'linear-gradient(135deg,#ab47bc,#7b1fa2)' },
+  { id:'rush',  name:'抢购',   emoji:'抢', bg:'linear-gradient(135deg,#ff5252,#d32f2f)' },
+  { id:'group', name:'拼团',   emoji:'团', bg:'linear-gradient(135deg,#ec407a,#c2185b)' },
+  { id:'coupon',name:'领券',   emoji:'券', bg:'linear-gradient(135deg,#ffb74d,#f57c00)' },
+  { id:'bargain',name:'砍价',  emoji:'价', bg:'linear-gradient(135deg,#66bb6a,#388e3c)' },
+  { id:'super', name:'超级品牌',emoji:'品', bg:'linear-gradient(135deg,#ab47bc,#7b1fa2)' },
 ])
 
 const cats = ref([
@@ -120,7 +120,7 @@ onMounted(loadProducts)
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f2f5f7; padding-bottom: 60px; }
+.page { min-height: 100vh; background: var(--color-bg); padding-bottom: 60px; }
 
 /* 轮播 */
 .banner { width: 100%; height: 160px; }
@@ -129,7 +129,7 @@ onMounted(loadProducts)
 /* 优惠活动 */
 .activity-row { display: flex; background: #fff; padding: 16px 0; margin-bottom: 8px; }
 .act-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.act-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.act-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
 .act-name { font-size: 12px; color: #333; }
 
 /* 通用 section */
@@ -145,15 +145,15 @@ onMounted(loadProducts)
 .shop-card { display: inline-block; width: 88px; margin-right: 10px; text-align: center; }
 .shop-logo { width: 72px; height: 72px; border-radius: 8px; background: #f0f0f0; }
 .shop-name { font-size: 11px; color: #333; display: block; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.shop-promo { display: inline-block; margin-top: 4px; padding: 1px 8px; border: 1px solid #ff3b30; border-radius: 10px; }
-.promo-txt { font-size: 10px; color: #ff3b30; }
+.shop-promo { display: inline-block; margin-top: 4px; padding: 1px 8px; border: 1px solid var(--color-danger); border-radius: 10px; }
+.promo-txt { font-size: 10px; color: var(--color-danger); }
 
 /* 分类栏 */
 .cat-tabs { display: flex; background: #fff; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0; margin-bottom: 8px; padding: 10px 0; }
 .cat-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; border-right: 1px solid #f0f0f0; }
 .cat-tab:last-child { border-right: none; }
-.cat-tab.on .ct-name { color: #ff3b30; position: relative; }
-.cat-tab.on .ct-name::before { content: ''; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); width: 22px; height: 3px; background: #ff3b30; border-radius: 2px; }
+.cat-tab.on .ct-name { color: var(--color-danger); position: relative; }
+.cat-tab.on .ct-name::before { content: ''; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); width: 22px; height: 3px; background: var(--color-danger); border-radius: 2px; }
 .ct-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
 .ct-sub { font-size: 10px; color: #999; }
 
@@ -163,9 +163,9 @@ onMounted(loadProducts)
 .img-wrap { position: relative; aspect-ratio: 1; background: #f7f8fa; }
 .card-img { width: 100%; height: 100%; display: block; }
 .tag { position: absolute; top: 6px; left: 6px; font-size: 10px; padding: 2px 6px; border-radius: 3px; color: #fff; font-weight: 600; }
-.tag-official { background: #34c759; } .tag-n95 { background: #ff9500; } .tag-n98 { background: #ff3b30; } .tag-default { background: #8e8e93; }
+.tag-official { background: var(--color-success); } .tag-n95 { background: var(--color-warning); } .tag-n98 { background: var(--color-danger); } .tag-default { background: #8e8e93; }
 .card-body { padding: 8px; }
 .card-title { font-size: 13px; font-weight: 600; color: #1a1a1a; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 34px; }
 .card-desc { font-size: 11px; color: #999; display: block; margin: 2px 0; }
-.card-price { font-size: 16px; font-weight: 700; color: #ff3b30; }
+.card-price { font-size: 16px; font-weight: 700; color: var(--color-danger); }
 </style>

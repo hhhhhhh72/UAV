@@ -19,7 +19,7 @@
       </view>
 
       <view class="search-bar">
-        <text class="search-icon">🔍</text>
+        <u-icon name="search" size="28rpx" color="#969799" />
         <input class="search-input" v-model="keyword" placeholder="搜索院校名称" @input="onSearch" />
       </view>
 
@@ -36,7 +36,7 @@
             <!-- 封面 -->
             <view class="card-cover">
               <image v-if="item.cover || item.cover_image || item.image" :src="item.cover || item.cover_image || item.image" class="cover-img" mode="aspectFill" />
-              <view v-else class="cover-placeholder"><text class="cover-emoji">🎓</text></view>
+              <view v-else class="cover-placeholder"><text class="cover-emoji">校</text></view>
             </view>
 
             <view class="card-body">
@@ -79,7 +79,10 @@
           </view>
 
           <view v-if="list.length > 0" class="load-more-wrap">
-            <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+            <view v-if="loadingMore" class="loading-inline">
+              <u-loading size="24rpx" />
+              <text>加载更多...</text>
+            </view>
             <text v-else-if="!hasMore" class="no-more">没有更多了</text>
           </view>
           <view style="height:40rpx" />
@@ -107,12 +110,12 @@ const hasMore = ref(true)
 
 function tagBgColor(tag) {
   if (['博士点', '硕士点', '双一流'].indexOf(tag) >= 0) return '#fff4e6'
-  return '#e8f0ff'
+  return 'var(--color-primary-light)'
 }
 
 function tagTc(tag) {
-  if (['博士点', '硕士点', '双一流'].indexOf(tag) >= 0) return '#ff6b35'
-  return '#0d47a1'
+  if (['博士点', '硕士点', '双一流'].indexOf(tag) >= 0) return 'var(--color-warning)'
+  return 'var(--color-primary)'
 }
 
 function initShort(item) {
@@ -196,10 +199,10 @@ onPullDownRefresh(function () {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
 
 /* ① Banner */
-.banner { background: linear-gradient(135deg, #0d47a1, #1565c0); padding: 80rpx 32rpx 72rpx; }
+.banner { background: linear-gradient(135deg, var(--color-primary), #1565c0); padding: 80rpx 32rpx 72rpx; }
 .banner-nav { display: flex; align-items: center; gap: 12rpx; margin-bottom: 24rpx; }
 
 .back-btn {
@@ -225,17 +228,16 @@ onPullDownRefresh(function () {
 }
 
 .tab-item.active {
-  background: #0d47a1; color: #ffffff; font-weight: 600;
-  box-shadow: 0 4rpx 16rpx rgba(13,71,161,0.35);
+  background: var(--color-primary); color: #ffffff; font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(10,102,194,0.35);
 }
 
 .search-bar {
-  margin: 24rpx 24rpx 0; background: #f5f6f8; border-radius: 40rpx;
+  margin: 24rpx 24rpx 0; background: var(--color-bg); border-radius: 40rpx;
   padding: 16rpx 24rpx; display: flex; align-items: center; gap: 12rpx;
 }
 
-.search-icon { font-size: 28rpx; opacity: 0.4; }
-.search-input { flex: 1; font-size: 28rpx; color: #1a1a1a; }
+.search-input { flex: 1; font-size: 28rpx; color: var(--color-text); }
 
 /* ③ 卡片 */
 .list-scroll { padding: 24rpx 24rpx 0; height: calc(100vh - 480rpx); }
@@ -249,7 +251,7 @@ onPullDownRefresh(function () {
 .cover-img { width: 100%; height: 100%; }
 
 .cover-placeholder {
-  width: 100%; height: 100%; background: linear-gradient(135deg, #0d47a1, #1976d2);
+  width: 100%; height: 100%; background: linear-gradient(135deg, var(--color-primary), #1976d2);
   display: flex; align-items: center; justify-content: center;
 }
 
@@ -259,15 +261,15 @@ onPullDownRefresh(function () {
 .card-header { display: flex; align-items: center; gap: 16rpx; margin-bottom: 20rpx; }
 
 .college-avatar {
-  width: 88rpx; height: 88rpx; background: #0d47a1; border-radius: 20rpx;
+  width: 88rpx; height: 88rpx; background: var(--color-primary); border-radius: 20rpx;
   display: flex; align-items: center; justify-content: center;
   color: #ffffff; font-size: 40rpx; font-weight: 600; flex-shrink: 0;
 }
 
 .header-info { flex: 1; min-width: 0; }
 
-.college-name { font-size: 32rpx; font-weight: 600; color: #1a1a1a; display: block; line-height: 1.3; }
-.college-location { font-size: 24rpx; color: #0d47a1; font-weight: 500; margin-top: 4rpx; display: block; }
+.college-name { font-size: 32rpx; font-weight: 600; color: var(--color-text); display: block; line-height: 1.3; }
+.college-location { font-size: 24rpx; color: var(--color-primary); font-weight: 500; margin-top: 4rpx; display: block; }
 
 /* 数据条 */
 .stats-bar {
@@ -276,8 +278,8 @@ onPullDownRefresh(function () {
 }
 
 .stat-item { flex: 1; text-align: center; }
-.stat-value { font-size: 36rpx; font-weight: 700; color: #0d47a1; display: block; }
-.stat-label { font-size: 22rpx; color: #969799; display: block; margin-top: 4rpx; }
+.stat-value { font-size: 36rpx; font-weight: 700; color: var(--color-primary); display: block; }
+.stat-label { font-size: 22rpx; color: var(--color-text-secondary); display: block; margin-top: 4rpx; }
 .stat-divider { width: 2rpx; height: 40rpx; background: #e0e4e8; }
 
 .college-intro {
@@ -290,5 +292,6 @@ onPullDownRefresh(function () {
 .spec-tag { padding: 6rpx 18rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; }
 
 .load-more-wrap { text-align: center; padding: 20rpx 0; }
-.no-more { font-size: 24rpx; color: #969799; }
+.loading-inline { display: flex; align-items: center; justify-content: center; gap: 8rpx; font-size: 24rpx; color: var(--color-text-secondary); }
+.no-more { font-size: 24rpx; color: var(--color-text-secondary); }
 </style>

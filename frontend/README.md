@@ -8,7 +8,7 @@
 
 - **Vue 3** - 渐进式JavaScript框架  
 - **Vite 5** - 下一代前端构建工具  
-- **Vant 4** - 轻量、可靠的移动端组件库  
+- **Element Plus** - 桌面端组件库  
 - **Vue Router 4** - 官方路由  
 - **Pinia 2** - 状态管理  
 - **Axios** - HTTP客户端

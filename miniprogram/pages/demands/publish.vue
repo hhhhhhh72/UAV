@@ -1,110 +1,84 @@
 <template>
   <view class="publish-page">
-    <van-nav-bar
-      title="发布需求"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
-    />
+    <u-nav-bar title="发布需求" show-back @back="goBack" />
 
-    <van-cell-group inset>
-      <view @submit="handleSubmit">
-        <van-field
+    <u-cell-group inset>
+      <view class="form-wrap">
+        <u-field
           v-model="form.title"
-          name="title"
           label="标题"
           placeholder="请输入需求标题"
-          :rules="[{ required: true, message: '请填写需求标题' }]"
         />
 
-        <van-field
-          v-model="bizTypeText"
-          is-link
-          readonly
-          name="biz_type"
-          label="业务类型"
-          placeholder="请选择业务类型"
-          :rules="[{ required: true, message: '请选择业务类型' }]"
-          @tap="showBizTypePicker = true"
-        />
+        <view class="field-row" @tap="showBizTypePicker = true">
+          <u-field
+            v-model="bizTypeText"
+            label="业务类型"
+            placeholder="请选择业务类型"
+            disabled
+          />
+          <text class="field-arrow">›</text>
+        </view>
 
-        <van-field
-          v-model="form.budget"
-          name="budget"
-          label="预算"
-          placeholder="请输入预算金额"
-          type="digit"
-          suffix-icon="label"
-        >
-          <template #extra>
-            <text class="unit">元</text>
-          </template>
-        </van-field>
+        <view class="field-row">
+          <u-field
+            v-model="form.budget"
+            label="预算"
+            placeholder="请输入预算金额"
+            type="digit"
+          />
+          <text class="unit">元</text>
+        </view>
 
-        <van-field
-          v-model="districtText"
-          is-link
-          readonly
-          name="district"
-          label="地区"
-          placeholder="请选择重庆区县"
-          :rules="[{ required: true, message: '请选择地区' }]"
-          @tap="showDistrictPicker = true"
-        />
+        <view class="field-row" @tap="showDistrictPicker = true">
+          <u-field
+            v-model="districtText"
+            label="地区"
+            placeholder="请选择重庆区县"
+            disabled
+          />
+          <text class="field-arrow">›</text>
+        </view>
 
-        <van-field
+        <u-field
           v-model="form.description"
-          name="description"
           label="描述"
           type="textarea"
           placeholder="请详细描述需求内容"
-          autosize
-          maxlength="500"
-          show-word-limit
+          auto-height
         />
 
         <view class="submit-wrap">
-          <van-button
+          <u-button
             round
             block
             type="primary"
-            native-type="submit"
             :loading="submitting"
+            @click="handleSubmit"
           >
             发布需求
-          </van-button>
+          </u-button>
         </view>
       </view>
-    </van-cell-group>
+    </u-cell-group>
 
     <!-- Biz type picker -->
-    <van-popup
+    <u-picker
       :show="showBizTypePicker"
-      position="bottom"
-      round
-      @close="showBizTypePicker = false"
-    >
-      <van-picker
-        :columns="bizTypeOptions"
-        @confirm="onBizTypeConfirm"
-        @cancel="showBizTypePicker = false"
-      />
-    </van-popup>
+      title="请选择业务类型"
+      :columns="bizTypeNames"
+      @confirm="onBizTypeConfirm"
+      @update:show="showBizTypePicker = $event"
+    />
 
     <!-- District picker -->
-    <van-popup
+    <u-picker
       :show="showDistrictPicker"
-      position="bottom"
-      round
-      @close="showDistrictPicker = false"
-    >
-      <van-picker
-        :columns="districtOptions"
-        @confirm="onDistrictConfirm"
-        @cancel="showDistrictPicker = false"
-      />
-    </van-popup>
+      title="请选择重庆区县"
+      :columns="districtOptions"
+      @confirm="onDistrictConfirm"
+      @update:show="showDistrictPicker = $event"
+    />
   </view>
 </template>
 
@@ -147,6 +121,8 @@ export default {
       },
       bizTypeText: '',
       districtText: '',
+      // u-picker 的 columns 只接受字符串数组，业务类型选项先映射为名称列表
+      bizTypeNames: BIZ_TYPE_OPTIONS.map(function (o) { return o.text }),
       showBizTypePicker: false,
       showDistrictPicker: false,
       submitting: false,
@@ -162,9 +138,8 @@ export default {
     }
   },
   methods: {
-    onBizTypeConfirm(e) {
-      var selected = e.detail.value
-      // map single-column picker value back to key
+    onBizTypeConfirm(selected) {
+      // u-picker confirm 直接回传选中的字符串（单列）
       for (var i = 0; i < BIZ_TYPE_OPTIONS.length; i++) {
         if (BIZ_TYPE_OPTIONS[i].text === selected) {
           this.form.biz_type = BIZ_TYPE_OPTIONS[i].value
@@ -174,9 +149,9 @@ export default {
       }
       this.showBizTypePicker = false
     },
-    onDistrictConfirm(e) {
-      this.form.district = e.detail.value
-      this.districtText = e.detail.value
+    onDistrictConfirm(selected) {
+      this.form.district = selected
+      this.districtText = selected
       this.showDistrictPicker = false
     },
     async handleSubmit() {
@@ -237,16 +212,38 @@ export default {
 <style scoped>
 .publish-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 40px;
+}
+
+.form-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.field-row .u-field {
+  flex: 1;
+}
+
+.field-arrow {
+  font-size: 20px;
+  color: var(--color-text-placeholder);
 }
 
 .unit {
   font-size: 14px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .submit-wrap {
-  padding: 24px 16px 16px;
+  padding: 8px 0 0;
 }
 </style>

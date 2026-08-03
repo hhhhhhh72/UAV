@@ -1,56 +1,50 @@
 <template>
   <view class="search-page">
     <!-- Nav bar: back arrow only, no title -->
-    <van-nav-bar left-arrow @click-left="goBack" />
+    <u-nav-bar show-back @back="goBack" />
 
     <!-- Search bar -->
     <view class="search-bar-wrap">
-      <van-search
-        :value="searchText"
+      <u-search
+        v-model="searchText"
         placeholder="搜索需求、企业..."
-        shape="round"
-        focus
         @search="onSearch"
-        @input="onSearchInput"
+        @change="onSearchInput"
       />
     </view>
 
     <!-- Tabs -->
-    <van-tabs
-      :active="activeTab"
-      @change="onTabChange"
-      :color="tabColor"
-      :title-active-color="tabColor"
-      sticky
-    >
-      <van-tab title="搜需求" name="demand" />
-      <van-tab title="搜企业" name="enterprise" />
-    </van-tabs>
+    <u-sticky>
+      <u-tabs
+        :active="tabIndex"
+        :titles="tabTitles"
+        @change="onTabChange"
+      />
+    </u-sticky>
 
     <!-- ====== No search query: show history ====== -->
     <view v-if="!searchText" class="history-section">
       <view v-if="historyList.length > 0" class="history-header">
         <text class="history-title">搜索历史</text>
         <view class="history-clear" @tap="clearHistory">
-          <text class="clear-text">🗑 清除</text>
+          <text class="clear-text">清除</text>
         </view>
       </view>
 
       <view v-if="historyList.length > 0" class="history-tags">
-        <van-tag
+        <u-tag
           v-for="(tag, index) in historyList"
           :key="index"
-          size="medium"
           type="default"
           class="history-tag"
           @tap="fillSearch(tag)"
         >
           {{ tag }}
-        </van-tag>
+        </u-tag>
       </view>
 
       <view v-else class="empty-state-wrapper">
-        <van-empty description="暂无搜索历史" />
+        <u-empty description="暂无搜索历史" />
       </view>
     </view>
 
@@ -58,12 +52,15 @@
     <view v-else class="results-section">
       <!-- Loading -->
       <view v-if="searchLoading" class="loading-state">
-        <van-loading size="24">搜索中...</van-loading>
+        <view class="loading-inline">
+          <u-loading size="28rpx" />
+          <text>搜索中...</text>
+        </view>
       </view>
 
       <!-- Error -->
       <view v-else-if="searchError && results.length === 0" class="error-state">
-        <van-empty description="搜索失败" image="error" />
+        <u-empty description="搜索失败" />
         <view class="retry-btn" @tap="doSearch">
           <text>重新加载</text>
         </view>
@@ -71,53 +68,59 @@
 
       <!-- Empty results -->
       <view v-else-if="!searchLoading && results.length === 0 && searched" class="empty-state-wrapper">
-        <van-empty description="未找到相关内容" image="search" />
+        <u-empty description="未找到相关内容" />
       </view>
 
       <!-- Result list -->
       <view v-else-if="results.length > 0" class="result-list">
         <!-- Demand results -->
-        <van-cell-group v-if="activeTab === 'demand'" inset>
-          <van-cell
+        <u-cell-group v-if="activeTab === 'demand'" inset>
+          <u-cell
             v-for="item in results"
             :key="item.id"
-            :title="item.title"
             is-link
-            @tap="goDemandDetail(item)"
+            @click="goDemandDetail(item)"
           >
-            <template #label>
-              <view class="cell-meta">
-                <van-tag
-                  :type="bizTypeTagType(item.biz_type)"
-                  size="small"
-                >
-                  {{ bizTypeLabel(item.biz_type) }}
-                </van-tag>
-                <text v-if="item.district" class="meta-text">{{ item.district }}</text>
-                <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
-                <text class="meta-date">{{ formatDate(item.created_at) }}</text>
+            <template #title>
+              <view class="cell-content">
+                <text class="cell-title">{{ item.title }}</text>
+                <view class="cell-meta">
+                  <u-tag
+                    :type="bizTypeTagType(item.biz_type)"
+                    size="mini"
+                  >
+                    {{ bizTypeLabel(item.biz_type) }}
+                  </u-tag>
+                  <text v-if="item.district" class="meta-text">{{ item.district }}</text>
+                  <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
+                  <text class="meta-date">{{ formatDate(item.created_at) }}</text>
+                </view>
               </view>
             </template>
-          </van-cell>
-        </van-cell-group>
+          </u-cell>
+        </u-cell-group>
 
         <!-- Enterprise results -->
-        <van-cell-group v-else inset>
-          <van-cell
+        <u-cell-group v-else inset>
+          <u-cell
             v-for="item in results"
             :key="item.id"
-            :title="item.name || item.enterprise_name"
-            :label="item.description || item.business_scope || ''"
             is-link
-            @tap="goEnterpriseDetail(item)"
+            @click="goEnterpriseDetail(item)"
           >
             <template #icon>
               <view class="ent-icon-wrapper">
-                <van-icon name="shop" size="20" color="#0A66C2" />
+                <text class="ent-icon-text">企</text>
               </view>
             </template>
-          </van-cell>
-        </van-cell-group>
+            <template #title>
+              <view class="ent-title-row">
+                <text class="ent-name">{{ item.name || item.enterprise_name }}</text>
+                <text v-if="item.description || item.business_scope" class="ent-desc">{{ item.description || item.business_scope || '' }}</text>
+              </view>
+            </template>
+          </u-cell>
+        </u-cell-group>
       </view>
     </view>
   </view>
@@ -142,8 +145,12 @@ export default {
     }
   },
   computed: {
-    tabColor() {
-      return this.activeTab === 'demand' ? '#1565C0' : '#34c759'
+    // u-tabs 只接受字符串标题数组 + 数字 active 索引
+    tabTitles() {
+      return ['搜需求', '搜企业']
+    },
+    tabIndex() {
+      return this.activeTab === 'enterprise' ? 1 : 0
     },
   },
   onLoad() {
@@ -196,8 +203,8 @@ export default {
     },
 
     // --- Search ---
-    onSearchInput(e) {
-      this.searchText = e.detail
+    onSearchInput(val) {
+      this.searchText = val
       if (!this.searchText) {
         this.results = []
         this.searched = false
@@ -242,8 +249,8 @@ export default {
     },
 
     // --- Tabs ---
-    onTabChange(e) {
-      this.activeTab = e.detail.name
+    onTabChange(index) {
+      this.activeTab = index === 1 ? 'enterprise' : 'demand'
       this.results = []
       this.searched = false
       this.searchError = ''
@@ -305,7 +312,7 @@ export default {
 <style scoped>
 .search-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -321,6 +328,15 @@ export default {
   padding: 80px 0;
 }
 
+.loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
 .error-state {
   display: flex;
   flex-direction: column;
@@ -331,7 +347,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -356,12 +372,12 @@ export default {
 .history-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--color-text);
 }
 
 .clear-text {
   font-size: 13px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .history-tags {
@@ -370,13 +386,13 @@ export default {
   gap: 10px;
 }
 
-.history-tag {
+.history-tags .history-tag {
   padding: 4px 12px;
   border-radius: 4px;
   font-size: 13px;
   background: #fff;
-  color: #323233;
-  border: 1px solid #ebedf0;
+  color: var(--color-text);
+  border: 1px solid var(--color-divider);
 }
 
 /* Results section */
@@ -388,7 +404,20 @@ export default {
   padding: 12px 0 24px;
 }
 
-/* Cell meta */
+/* Cell content */
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.cell-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 .cell-meta {
   display: flex;
   align-items: center;
@@ -399,12 +428,12 @@ export default {
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .meta-date {
   font-size: 12px;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
 }
 
 /* Enterprise icon */
@@ -412,10 +441,37 @@ export default {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #e8f4fd;
+  background: var(--color-primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 12px;
+}
+
+.ent-icon-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.ent-title-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.ent-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.ent-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 </style>

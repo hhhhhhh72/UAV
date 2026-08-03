@@ -61,7 +61,10 @@
 
     <!-- ========== Loading state ========== -->
     <view v-if="loading && list.length === 0" class="state-view">
-      <van-loading size="24" color="#2F6CF6">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" color="#0A66C2" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- ========== Error state ========== -->
@@ -119,7 +122,10 @@
 
       <!-- Load more -->
       <view v-if="showLoadMore" class="load-more">
-        <van-loading v-if="loadingMore" size="20" color="#2F6CF6">加载更多...</van-loading>
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="20rpx" color="#0A66C2" />
+          <text>加载更多...</text>
+        </view>
         <text v-else-if="!hasMore" class="no-more">- 没有更多了 -</text>
         <view v-else class="load-more-btn" @tap="loadMore">点击加载更多</view>
       </view>
@@ -132,13 +138,11 @@
     </view>
 
     <!-- ========== Detail bottom sheet ========== -->
-    <van-popup
+    <u-popup
       :show="sheetVisible"
       position="bottom"
       round
-      :custom-style="sheetStyle"
       @close="closeSheet"
-      :z-index="1000"
     >
       <view v-if="selectedItem" class="sheet-body">
         <view class="sheet-handle"></view>
@@ -160,7 +164,7 @@
           <text class="detail-content">{{ selectedItem.content || selectedItem.summary || '暂无详细内容' }}</text>
         </scroll-view>
       </view>
-    </van-popup>
+    </u-popup>
   </view>
 </template>
 
@@ -214,11 +218,11 @@ const TAB_ICONS_INACTIVE = {
 }
 
 const TAB_ICONS_ACTIVE = {
-  news: svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', '2F6CF6'),
-  knowledge: svgUri('M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z', '2F6CF6'),
-  standards: svgUri('M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', '2F6CF6'),
-  applications: svgUri('M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16 M2 21h20 M8 10h8', '2F6CF6'),
-  sentiment: svgUri('M22 12h-4l-3 9L9 3l-3 9H2', '2F6CF6'),
+  news: svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', '0A66C2'),
+  knowledge: svgUri('M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z', '0A66C2'),
+  standards: svgUri('M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', '0A66C2'),
+  applications: svgUri('M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16 M2 21h20 M8 10h8', '0A66C2'),
+  sentiment: svgUri('M22 12h-4l-3 9L9 3l-3 9H2', '0A66C2'),
 }
 
 const ICON_HERO_NEWS = svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', 'ffffff')
@@ -250,7 +254,6 @@ export default {
       emptyIconSrc: ICON_EMPTY,
       folderIconSrc: ICON_EMPTY,
       xIconSrc: ICON_X,
-      sheetStyle: 'max-height:78vh;border-radius:36rpx 36rpx 0 0;',
     }
   },
   computed: {
@@ -533,7 +536,7 @@ export default {
 }
 
 .module-tab.active {
-  color: #2F6CF6;
+  color: var(--color-primary);
   background: #FFFFFF;
   box-shadow: 0 6rpx 20rpx rgba(16, 24, 40, 0.08);
 }
@@ -577,9 +580,9 @@ export default {
 
 .chip.active {
   color: #FFFFFF;
-  background: #2F6CF6;
-  border-color: #2F6CF6;
-  box-shadow: 0 10rpx 28rpx rgba(47, 108, 246, 0.25);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 10rpx 28rpx rgba(10, 102, 194, 0.25);
 }
 
 /* ========== Section head ========== */
@@ -603,7 +606,7 @@ export default {
   content: '';
   width: 8rpx;
   height: 36rpx;
-  background: #2F6CF6;
+  background: var(--color-primary);
   border-radius: 4rpx;
   flex-shrink: 0;
 }
@@ -654,7 +657,7 @@ export default {
   margin-top: 32rpx;
   padding: 18rpx 48rpx;
   color: #FFFFFF;
-  background: #2F6CF6;
+  background: var(--color-primary);
   border-radius: 16rpx;
   font-size: 28rpx;
   font-weight: 650;
@@ -675,7 +678,7 @@ export default {
 }
 
 .error-retry {
-  color: #2F6CF6;
+  color: var(--color-primary);
   font-weight: 650;
 }
 
@@ -721,7 +724,7 @@ export default {
 }
 
 .badge-blue {
-  color: #2F6CF6;
+  color: var(--color-primary);
   background: #EAF1FF;
 }
 
@@ -737,7 +740,7 @@ export default {
 
 .badge-pin {
   color: #FFFFFF;
-  background: #2F6CF6;
+  background: var(--color-primary);
 }
 
 .card-title {
@@ -792,7 +795,7 @@ export default {
 .meta-arrow {
   margin-left: auto;
   font-size: 36rpx;
-  color: #2F6CF6;
+  color: var(--color-primary);
   font-weight: 300;
 }
 
@@ -810,7 +813,7 @@ export default {
 
 .load-more-btn {
   font-size: 26rpx;
-  color: #2F6CF6;
+  color: var(--color-primary);
   font-weight: 650;
 }
 

@@ -86,7 +86,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
-import { showToast, showConfirmDialog } from 'vant'
+import { showToast, showConfirmDialog } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getReviewList, updateReviewStatus, deleteReview } from '@/api/admin/review'
 
@@ -121,7 +121,7 @@ const handleDelete = (item) => {
     try {
       await deleteReview(item.id)
       listData.value = listData.value.filter(r => r.id !== item.id)
-      showToast('已删��')
+      showToast('已删除')
     } catch (e) { showToast('删除失败') }
   }).catch(() => {})
 }

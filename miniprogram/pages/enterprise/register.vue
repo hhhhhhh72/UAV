@@ -1,11 +1,9 @@
 <template>
   <view class="register-page">
-    <van-nav-bar
+    <u-nav-bar
       title="企业入驻"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Step indicator -->
@@ -24,136 +22,136 @@
 
     <!-- Step 1: 基本信息 -->
     <view v-if="currentStep === 0" class="step-body">
-      <van-cell-group inset>
-        <van-field
+      <u-cell-group inset>
+        <u-field
           v-model="form.name"
           label="企业名称"
           placeholder="请输入企业名称"
-          required
-          :border="true"
         />
-        <van-field
+        <u-field
           v-model="form.credit_code"
           label="信用代码"
           placeholder="统一社会信用代码"
-          required
-          :border="true"
         />
-        <van-field
+        <u-field
           v-model="form.legal_person"
           label="法人代表"
           placeholder="请输入法人代表姓名"
-          :border="true"
         />
-        <van-field
+        <u-field
           v-model="form.contact_phone"
           label="联系电话"
           type="number"
           placeholder="请输入联系电话"
-          required
-          :border="true"
         />
-      </van-cell-group>
+      </u-cell-group>
     </view>
 
     <!-- Step 2: 经营信息 -->
     <view v-if="currentStep === 1" class="step-body">
-      <van-cell-group inset>
-        <van-field
-          :model-value="form.industry_category ? categoryLabel(form.industry_category) : ''"
-          label="行业类别"
-          placeholder="请选择行业类别"
-          readonly
-          is-link
-          :border="true"
-          @click="showCategoryPicker"
-        />
-        <van-field
+      <u-cell-group inset>
+        <view class="field-row" @tap="showCategoryPicker">
+          <u-field
+            :model-value="form.industry_category ? categoryLabel(form.industry_category) : ''"
+            label="行业类别"
+            placeholder="请选择行业类别"
+            disabled
+          />
+          <text class="field-arrow">›</text>
+        </view>
+        <u-field
           v-model="form.scale"
           label="企业规模"
           placeholder="如：50-100人"
-          :border="true"
         />
-        <van-field
+        <u-field
           v-model="form.address"
           label="企业地址"
           placeholder="请输入详细地址"
-          :border="true"
         />
-      </van-cell-group>
+      </u-cell-group>
     </view>
 
     <!-- Step 3: 附件与描述 -->
     <view v-if="currentStep === 2" class="step-body">
-      <van-cell-group inset>
+      <u-cell-group inset>
         <view class="upload-cell">
           <text class="upload-label">营业执照</text>
           <view class="upload-area">
             <view v-if="licenseUrl" class="upload-preview" @tap="previewLicense">
               <image :src="licenseUrl" mode="aspectFill" class="upload-img" />
               <view class="upload-remove" @tap.stop="removeLicense">
-                <van-icon name="clear" size="18" color="#ee0a24" />
+                <u-icon name="close" size="24rpx" color="var(--color-danger)" />
               </view>
             </view>
             <view v-else class="upload-btn" @tap="chooseLicense">
-              <van-icon name="photograph" size="28" color="#969799" />
+              <u-icon name="plus" size="28rpx" color="var(--color-text-secondary)" />
               <text class="upload-hint">点击上传</text>
             </view>
           </view>
         </view>
-        <van-field
+        <u-field
           v-model="form.description"
           label="企业描述"
           type="textarea"
+          auto-height
           placeholder="请简要介绍企业经营范围与能力"
-          rows="4"
-          autosize
-          :border="true"
         />
-      </van-cell-group>
+      </u-cell-group>
     </view>
 
     <!-- Bottom action buttons -->
     <view class="action-bar">
-      <van-button
+      <u-button
         v-if="currentStep > 0"
-        plain
+        type="default"
         round
         class="prev-btn"
-        @tap="prevStep"
+        @click="prevStep"
       >
         上一步
-      </van-button>
-      <van-button
+      </u-button>
+      <u-button
         v-if="currentStep < 2"
         type="primary"
         round
         class="next-btn"
-        @tap="nextStep"
+        @click="nextStep"
       >
         下一步
-      </van-button>
-      <van-button
+      </u-button>
+      <u-button
         v-else
         type="primary"
         round
         class="submit-btn"
         :loading="submitting"
-        @tap="handleSubmit"
+        @click="handleSubmit"
       >
         提交
-      </van-button>
+      </u-button>
     </view>
 
-    <!-- Category picker -->
-    <van-action-sheet
+    <!-- Category action sheet -->
+    <u-popup
       :show="categoryPickerShow"
-      :actions="categoryOptions"
-      cancel-text="取消"
-      @select="onCategorySelect"
-      @close="categoryPickerShow = false"
-      @cancel="categoryPickerShow = false"
-    />
+      position="bottom"
+      round
+      @close="closeCategoryPicker"
+    >
+      <view class="action-sheet">
+        <view class="action-sheet-title">选择行业类别</view>
+        <view
+          v-for="opt in categoryOptions"
+          :key="opt.value"
+          class="action-sheet-item"
+          @tap="onCategorySelect(opt.value)"
+        >
+          {{ opt.name }}
+        </view>
+        <view class="action-sheet-cancel" @tap="closeCategoryPicker">取消</view>
+      </view>
+    </u-popup>
   </view>
 </template>
 
@@ -214,8 +212,11 @@ export default {
     showCategoryPicker() {
       this.categoryPickerShow = true
     },
-    onCategorySelect(e) {
-      this.form.industry_category = e.detail.value
+    onCategorySelect(value) {
+      this.form.industry_category = value
+      this.categoryPickerShow = false
+    },
+    closeCategoryPicker() {
       this.categoryPickerShow = false
     },
     categoryLabel(value) {
@@ -309,7 +310,7 @@ export default {
 <style scoped>
 .register-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 100px;
 }
 
@@ -319,7 +320,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 24px 32px 16px;
-  background: #fff;
+  background: var(--color-bg-card);
   margin-bottom: 12px;
 }
 
@@ -333,8 +334,8 @@ export default {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #ebedf0;
-  color: #969799;
+  background: var(--color-divider);
+  color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 600;
   display: flex;
@@ -345,12 +346,12 @@ export default {
 }
 
 .step-item.active .step-circle {
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
 }
 
 .step-item.done .step-circle {
-  background: #07c160;
+  background: var(--color-success);
   color: #fff;
 }
 
@@ -361,34 +362,48 @@ export default {
 .step-label {
   margin-left: 6px;
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
 .step-item.active .step-label {
-  color: #0A66C2;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 .step-item.done .step-label {
-  color: #07c160;
+  color: var(--color-success);
 }
 
 .step-line {
   width: 40px;
   height: 2px;
-  background: #ebedf0;
+  background: var(--color-divider);
   margin: 0 10px;
   transition: all 0.3s;
 }
 
 .step-line.filled {
-  background: #07c160;
+  background: var(--color-success);
 }
 
 /* Step body */
 .step-body {
   padding: 12px 0;
+}
+
+/* Field row with arrow */
+.field-row {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  padding-right: 16px;
+}
+
+.field-arrow {
+  color: var(--color-text-placeholder);
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 /* Upload area */
@@ -401,7 +416,7 @@ export default {
 .upload-label {
   width: 68px;
   font-size: 14px;
-  color: #323233;
+  color: var(--color-text);
   flex-shrink: 0;
   line-height: 24px;
   padding-top: 8px;
@@ -414,7 +429,7 @@ export default {
 .upload-btn {
   width: 80px;
   height: 80px;
-  border: 1px dashed #c8c9cc;
+  border: 1px dashed var(--color-text-placeholder);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -425,7 +440,7 @@ export default {
 
 .upload-hint {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .upload-preview {
@@ -457,7 +472,7 @@ export default {
   left: 0;
   right: 0;
   padding: 12px 16px;
-  background: #fff;
+  background: var(--color-bg-card);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   display: flex;
@@ -472,5 +487,40 @@ export default {
 .next-btn,
 .submit-btn {
   flex: 1;
+}
+
+/* Action sheet */
+.action-sheet {
+  padding: 24rpx 0 env(safe-area-inset-bottom);
+}
+
+.action-sheet-title {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 8px 0 16px;
+}
+
+.action-sheet-item {
+  text-align: center;
+  padding: 16px;
+  font-size: 15px;
+  color: var(--color-text);
+  border-top: 1rpx solid var(--color-divider);
+}
+
+.action-sheet-item:active {
+  background: var(--color-bg);
+  color: var(--color-primary);
+}
+
+.action-sheet-cancel {
+  text-align: center;
+  padding: 16px;
+  margin-top: 8px;
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  border-top: 1rpx solid var(--color-divider);
 }
 </style>

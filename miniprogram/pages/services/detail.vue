@@ -1,18 +1,16 @@
 <template>
   <view class="service-detail-page" v-if="service">
-    <van-nav-bar
+    <u-nav-bar
       :title="service.title || '服务详情'"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <view class="detail-content">
       <!-- 服务头部信息 -->
       <view class="service-header">
-        <view class="service-icon-big" :style="{ background: service.color || service.gradient || '#1677ff' }">
-          <van-icon :name="service.icon || 'shop-o'" size="28" color="#ffffff" />
+        <view class="service-icon-big" :style="{ background: service.color || service.gradient || 'var(--color-primary)' }">
+          <text class="service-icon-text">{{ service.icon || '服' }}</text>
         </view>
         <text class="service-title">{{ service.title || service.name }}</text>
         <text class="service-desc">{{ service.description || service.subtitle || service.slogan || '' }}</text>
@@ -47,7 +45,7 @@
             :key="index"
             class="advantage-item"
           >
-            <van-icon name="checked" size="14" color="#07c160" />
+            <u-icon name="check" size="26rpx" color="var(--color-success)" />
             <text class="adv-text">{{ adv }}</text>
           </view>
         </view>
@@ -56,21 +54,21 @@
 
     <!-- 底部操作栏 -->
     <view class="action-bar">
-      <van-button
+      <u-button
         type="primary"
         block
         round
-        @tap="onApply"
+        @click="onApply"
       >
         {{ actionButtonText }}
-      </van-button>
+      </u-button>
     </view>
   </view>
 
   <!-- 空/错误状态 -->
   <view v-else class="empty-page">
-    <van-nav-bar title="服务详情" fixed placeholder left-arrow @click-left="goBack" />
-    <van-empty description="服务信息加载失败" image="error" />
+    <u-nav-bar title="服务详情" show-back @back="goBack" />
+    <u-empty description="服务信息加载失败" />
   </view>
 </template>
 
@@ -88,7 +86,7 @@ const serviceDataMap = {
     name: '飞手培训服务',
     subtitle: '专业培训 证书认证',
     color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)',
-    icon: 'medal-o',
+    icon: '训',
     intro: '提供CAAC执照培训、UTC认证、人社认证等无人机操控员资格培训服务，浙南闽北地区最早具备民航局认定资质的培训机构。',
     projects: [
       { name: 'CAAC执照培训' },
@@ -110,7 +108,7 @@ const serviceDataMap = {
     name: '维修服务',
     subtitle: '专业维修 原厂配件',
     color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)',
-    icon: 'setting-o',
+    icon: '修',
     intro: '提供专业的无人机维修、定期保养、故障诊断等服务，使用正品配件，确保设备安全可靠。',
     projects: [
       { name: '故障诊断' },
@@ -153,13 +151,13 @@ const goBack = () => {
 <style scoped>
 .service-detail-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 80px;
 }
 
 .empty-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
 }
 
 .detail-content {
@@ -167,7 +165,7 @@ const goBack = () => {
 }
 
 .service-header {
-  background: #fff;
+  background: var(--color-bg-card);
   padding: 32px 20px;
   text-align: center;
   display: flex;
@@ -186,22 +184,28 @@ const goBack = () => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
+.service-icon-text {
+  font-size: 32px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
 .service-title {
   font-size: 20px;
   font-weight: 700;
-  color: #323233;
+  color: var(--color-text);
   display: block;
   margin-bottom: 8px;
 }
 
 .service-desc {
   font-size: 14px;
-  color: #969799;
+  color: var(--color-text-secondary);
   display: block;
 }
 
 .section-card {
-  background: #fff;
+  background: var(--color-bg-card);
   margin: 12px 16px;
   padding: 16px;
   border-radius: 12px;
@@ -210,14 +214,15 @@ const goBack = () => {
 .section-label {
   font-size: 16px;
   font-weight: 700;
-  color: #323233;
+  color: var(--color-text);
   display: block;
   margin-bottom: 12px;
 }
 
 .section-text {
   font-size: 14px;
-  color: #646566;
+  color: var(--color-text);
+  opacity: 0.85;
   line-height: 1.8;
   display: block;
 }
@@ -229,14 +234,14 @@ const goBack = () => {
 }
 
 .project-item {
-  background: #f7f8fa;
+  background: var(--color-bg);
   border-radius: 8px;
   padding: 10px 16px;
 }
 
 .project-name {
   font-size: 13px;
-  color: #323233;
+  color: var(--color-text);
 }
 
 .advantage-list {
@@ -253,7 +258,8 @@ const goBack = () => {
 
 .adv-text {
   font-size: 14px;
-  color: #646566;
+  color: var(--color-text);
+  opacity: 0.85;
 }
 
 .action-bar {
@@ -262,8 +268,8 @@ const goBack = () => {
   left: 0;
   right: 0;
   padding: 12px 16px;
-  background: #fff;
-  border-top: 1px solid #f2f3f5;
+  background: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 100;
 }

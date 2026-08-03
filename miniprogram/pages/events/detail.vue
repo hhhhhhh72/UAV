@@ -23,7 +23,7 @@
             mode="aspectFill"
           />
           <view v-else class="cover-placeholder">
-            <text class="cover-emoji">🏆</text>
+            <text class="cover-emoji">赛</text>
           </view>
           <view
             class="status-badge"
@@ -47,21 +47,21 @@
           <!-- ④ 基本信息 -->
           <view class="info-card">
             <view class="info-row">
-              <view class="info-icon" style="background:#e8f0ff;"><text style="font-size:28rpx;">📅</text></view>
+              <view class="info-icon" style="background:var(--color-primary-light);"><text class="info-icon-text">期</text></view>
               <view class="info-text">
                 <text class="info-label">比赛时间</text>
                 <text class="info-value">{{ detail.start_date || '2026年9月15日' }} - {{ detail.end_date || '9月18日' }}</text>
               </view>
             </view>
             <view class="info-row">
-              <view class="info-icon" style="background:#fff4e6;"><text style="font-size:28rpx;">📍</text></view>
+              <view class="info-icon" style="background:#fff4e6;"><text class="info-icon-text loc">址</text></view>
               <view class="info-text">
                 <text class="info-label">比赛地点</text>
                 <text class="info-value">{{ detail.location || '深圳宝安区国际会展中心' }}</text>
               </view>
             </view>
             <view class="info-row info-row-last">
-              <view class="info-icon" style="background:#f0f4ff;"><text style="font-size:28rpx;">⏰</text></view>
+              <view class="info-icon" style="background:var(--color-primary-light);"><text class="info-icon-text">止</text></view>
               <view class="info-text">
                 <text class="info-label">报名截止</text>
                 <text class="info-value deadline">{{ detail.deadline || '2026年9月1日' }}</text>
@@ -162,7 +162,7 @@ const loading = ref(false)
 const errorMsg = ref('')
 const detail = ref(null)
 
-const statusColor = { enrolling: '#ff6b35', open: '#ff6b35', ongoing: '#2b5ea7', closed: '#969799', full: '#969799' }
+const statusColor = { enrolling: 'var(--color-warning)', open: 'var(--color-warning)', ongoing: 'var(--color-primary)', closed: 'var(--color-text-secondary)', full: 'var(--color-text-secondary)' }
 const statusText = { enrolling: '报名中', open: '报名中', ongoing: '进行中', closed: '已结束', full: '已满额' }
 
 function compTags(item) {
@@ -172,25 +172,25 @@ function compTags(item) {
 }
 
 function tagBgColor(tag) {
-  if (['固定翼', '竞速FPV', '航拍', '多旋翼'].indexOf(tag) >= 0) return '#e8f0ff'
+  if (['固定翼', '竞速FPV', '航拍', '多旋翼'].indexOf(tag) >= 0) return 'var(--color-primary-light)'
   if (['国家级', '国际赛'].indexOf(tag) >= 0) return '#fff4e6'
-  return '#e8f0ff'
+  return 'var(--color-primary-light)'
 }
 
 function tagTc(tag) {
-  if (['固定翼', '竞速FPV', '航拍', '多旋翼'].indexOf(tag) >= 0) return '#2b5ea7'
-  if (['国家级', '国际赛'].indexOf(tag) >= 0) return '#ff6b35'
-  return '#2b5ea7'
+  if (['固定翼', '竞速FPV', '航拍', '多旋翼'].indexOf(tag) >= 0) return 'var(--color-primary)'
+  if (['国家级', '国际赛'].indexOf(tag) >= 0) return 'var(--color-warning)'
+  return 'var(--color-primary)'
 }
 
 function requirements(item) {
   if (Array.isArray(item.requirements) && item.requirements.length > 0) return item.requirements
   return [
-    { icon: '📜', name: '持证要求', desc: '须持有CAAC/AOPA/UTC任一类无人机执照', level: '必满足' },
-    { icon: '🎂', name: '年龄限制', desc: '年满16周岁，未满18周岁需监护人签字同意', level: '必满足' },
-    { icon: '⏱️', name: '飞行时长', desc: '累计飞行时长不低于20小时', level: '建议满足' },
-    { icon: '🩺', name: '健康要求', desc: '身体健康，无色盲色弱', level: '必满足' },
-    { icon: '🛡️', name: '保险要求', desc: '须自行购买比赛期间的第三方责任险', level: '建议满足' },
+    { icon: '证', name: '持证要求', desc: '须持有CAAC/AOPA/UTC任一类无人机执照', level: '必满足' },
+    { icon: '龄', name: '年龄限制', desc: '年满16周岁，未满18周岁需监护人签字同意', level: '必满足' },
+    { icon: '时', name: '飞行时长', desc: '累计飞行时长不低于20小时', level: '建议满足' },
+    { icon: '康', name: '健康要求', desc: '身体健康，无色盲色弱', level: '必满足' },
+    { icon: '险', name: '保险要求', desc: '须自行购买比赛期间的第三方责任险', level: '建议满足' },
   ]
 }
 
@@ -206,9 +206,9 @@ function eventList(item) {
 function prizes(item) {
   if (Array.isArray(item.prizes) && item.prizes.length > 0) return item.prizes
   return [
-    { level: '一等奖', amount: 10000, emoji: '🥇', bg: 'linear-gradient(135deg, #fff8e1, #fff3c4)' },
-    { level: '二等奖', amount: 5000, emoji: '🥈', bg: 'linear-gradient(135deg, #f5f5f5, #eeeeee)' },
-    { level: '三等奖', amount: 2000, emoji: '🥉', bg: 'linear-gradient(135deg, #fdf5e6, #fae5c3)' },
+    { level: '一等奖', amount: 10000, emoji: '冠', bg: 'linear-gradient(135deg, #fff8e1, #fff3c4)' },
+    { level: '二等奖', amount: 5000, emoji: '亚', bg: 'linear-gradient(135deg, #f5f5f5, #eeeeee)' },
+    { level: '三等奖', amount: 2000, emoji: '季', bg: 'linear-gradient(135deg, #fdf5e6, #fae5c3)' },
   ]
 }
 
@@ -226,14 +226,14 @@ function orgInitial(item) {
 
 function reqBgColor(level) {
   if (level === '必满足') return '#fff4e6'
-  if (level === '建议满足') return '#e8f0ff'
+  if (level === '建议满足') return 'var(--color-primary-light)'
   return '#f5f5f5'
 }
 
 function reqBadgeStyle(level) {
   return {
-    color: level === '必满足' ? '#ff6b35' : '#1a365d',
-    background: level === '必满足' ? '#fff4e6' : '#e8f0ff',
+    color: level === '必满足' ? 'var(--color-warning)' : 'var(--color-primary)',
+    background: level === '必满足' ? '#fff4e6' : 'var(--color-primary-light)',
   }
 }
 
@@ -371,7 +371,7 @@ onLoad(function (options) {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
 
 /* ① Banner */
 .banner {
@@ -417,7 +417,7 @@ onLoad(function (options) {
   padding: 48rpx 32rpx 32rpx; position: relative; z-index: 1;
 }
 
-.comp-name { font-size: 44rpx; font-weight: 700; color: #1a1a1a; line-height: 1.3; margin-bottom: 16rpx; }
+.comp-name { font-size: 44rpx; font-weight: 700; color: var(--color-text); line-height: 1.3; margin-bottom: 16rpx; }
 
 .tag-row { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 28rpx; }
 .comp-tag { padding: 6rpx 18rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; }
@@ -437,17 +437,20 @@ onLoad(function (options) {
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 
+.info-icon-text { font-size: 28rpx; color: var(--color-primary); font-weight: 600; }
+.info-icon-text.loc { color: var(--color-warning); }
+
 .info-text { flex: 1; }
-.info-label { font-size: 24rpx; color: #969799; display: block; margin-bottom: 6rpx; }
-.info-value { font-size: 28rpx; color: #4a4a4a; font-weight: 500; }
-.info-value.deadline { color: #ff6b35; font-weight: 500; }
+.info-label { font-size: 24rpx; color: var(--color-text-secondary); display: block; margin-bottom: 6rpx; }
+.info-value { font-size: 28rpx; color: var(--color-text); font-weight: 500; }
+.info-value.deadline { color: var(--color-warning); font-weight: 500; }
 
 /* Section */
 .section-block { margin-top: 36rpx; }
 
 .section-title {
-  font-size: 30rpx; font-weight: 700; color: #1a1a1a; padding-left: 20rpx;
-  border-left: 6rpx solid #1a365d; line-height: 1.3; margin-bottom: 20rpx;
+  font-size: 30rpx; font-weight: 700; color: var(--color-text); padding-left: 20rpx;
+  border-left: 6rpx solid var(--color-primary); line-height: 1.3; margin-bottom: 20rpx;
 }
 
 /* ⑤ 简介 */
@@ -487,7 +490,7 @@ onLoad(function (options) {
 
 .event-name { font-size: 28rpx; font-weight: 500; color: #1a1a1a; display: block; }
 .event-meta { font-size: 24rpx; color: #969799; margin-top: 6rpx; display: block; }
-.event-price { font-size: 32rpx; font-weight: 600; color: #ff6b35; }
+.event-price { font-size: 32rpx; font-weight: 600; color: var(--color-warning); }
 
 /* ⑧ 奖项 */
 .prize-row { display: flex; gap: 16rpx; margin-bottom: 36rpx; }
@@ -500,13 +503,13 @@ onLoad(function (options) {
 .organizer-row { display: flex; align-items: flex-start; gap: 20rpx; margin-bottom: 40rpx; }
 
 .org-avatar {
-  width: 80rpx; height: 80rpx; background: #1a365d; border-radius: 20rpx;
+  width: 80rpx; height: 80rpx; background: var(--color-primary); border-radius: 20rpx;
   display: flex; align-items: center; justify-content: center;
   color: #ffffff; font-size: 36rpx; font-weight: 600; flex-shrink: 0;
 }
 
-.org-name { font-size: 28rpx; font-weight: 500; color: #1a1a1a; display: block; margin-bottom: 4rpx; }
-.org-sub { font-size: 24rpx; color: #969799; }
+.org-name { font-size: 28rpx; font-weight: 500; color: var(--color-text); display: block; margin-bottom: 4rpx; }
+.org-sub { font-size: 24rpx; color: var(--color-text-secondary); }
 
 /* ⑨ 底部按钮 */
 .bottom-bar {
@@ -514,24 +517,24 @@ onLoad(function (options) {
   border-top: 1rpx solid #ebedf0; padding-top: 24rpx;
 }
 
-.fee-label { font-size: 24rpx; color: #969799; }
-.fee-value { font-size: 44rpx; font-weight: 700; color: #ff6b35; margin: 0 8rpx; }
-.fee-unit { font-size: 24rpx; color: #969799; }
+.fee-label { font-size: 24rpx; color: var(--color-text-secondary); }
+.fee-value { font-size: 44rpx; font-weight: 700; color: var(--color-warning); margin: 0 8rpx; }
+.fee-unit { font-size: 24rpx; color: var(--color-text-secondary); }
 
 .bottom-actions { display: flex; gap: 20rpx; }
 
 .btn-outline {
   padding: 18rpx 36rpx; border-radius: 30rpx;
-  border: 2rpx solid #1a365d; color: #1a365d;
+  border: 2rpx solid var(--color-primary); color: var(--color-primary);
   font-size: 28rpx; font-weight: 500;
 }
 
 .btn-primary {
   padding: 18rpx 40rpx; border-radius: 30rpx;
-  background: #1a365d; color: #ffffff;
+  background: var(--color-primary); color: #ffffff;
   font-size: 28rpx; font-weight: 600;
 }
 
-.btn-primary.disabled { background: #c0c4cc; }
+.btn-primary.disabled { background: var(--color-text-placeholder); }
 .bottom-spacer { height: calc(40rpx + env(safe-area-inset-bottom)); }
 </style>

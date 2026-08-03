@@ -10,7 +10,7 @@
     <!-- Search Bar -->
     <view class="sbar">
       <view class="sbox">
-        <text class="sic">🔍</text>
+        <u-icon name="search" size="28rpx" color="#969799" />
         <input class="sinp" v-model="q" placeholder="搜索成果名称、关键词" placeholder-style="color:#bbb" @input="onSearch" />
         <text v-if="q" class="sclr" @tap="clearSearch">✕</text>
       </view>
@@ -57,13 +57,13 @@
 
     <!-- Error -->
     <view v-else-if="err" class="st">
-      <text class="sti">⚠</text><text class="stt">加载失败，请检查网络</text>
+      <text class="sti">!</text><text class="stt">加载失败，请检查网络</text>
       <text class="sth">请确认网络连接后重试</text><view class="stb" @tap="fetchData">重新加载</view>
     </view>
 
     <!-- Empty -->
     <view v-else-if="!list.length" class="st">
-      <text class="sti">🔍</text><text class="stt">暂无相关成果</text>
+      <u-icon class="sti" name="search" size="96rpx" color="#d5d7db" /><text class="stt">暂无相关成果</text>
       <text class="sth">试试调整筛选条件或搜索关键词</text><view class="stb" @tap="resetAll">清除筛选</view>
     </view>
 
@@ -78,7 +78,7 @@
         <view class="cbd">
           <text class="ct">{{ x.t }}</text>
           <text class="co">{{ x.o }}</text>
-          <view class="cft"><text>{{ x.d }}</text><text>👁 {{ fmt(x.v) }}</text></view>
+          <view class="cft"><text>{{ x.d }}</text><text>看 {{ fmt(x.v) }}</text></view>
         </view>
       </view>
     </view>
@@ -94,10 +94,10 @@ import { request } from '@/utils/request'
 const goBack = () => uni.navigateBack()
 const goDetail = (x) => uni.navigateTo({ url: '/pages/achievements/detail?id=' + encodeURIComponent(x.id) })
 
-const ICONS = { '飞控系统':'✈','遥感测绘':'🌍','动力系统':'⚙','AI算法':'🧠','载荷设备':'📷','集群协同':'📡','通信链路':'📦','标准规范':'📋','地面站':'💻' }
+const ICONS = { '飞控系统':'飞','遥感测绘':'遥','动力系统':'动','AI算法':'算','载荷设备':'载','集群协同':'群','通信链路':'通','标准规范':'标','地面站':'地' }
 const BGS = { '飞控系统':'#e3f2fd','遥感测绘':'#e8f5e9','动力系统':'#fff3e0','AI算法':'#f3e5f5','载荷设备':'#fce4ec','集群协同':'#e0f2f1','通信链路':'#e8eaf6','标准规范':'#f5f5f5','地面站':'#fff8e1' }
 const STL = { hot:'热门', transformed:'已转化', 'new':'新成果' }
-const icOf = (f) => ICONS[f] || '🚀'
+const icOf = (f) => ICONS[f] || '果'
 const bgOf = (f) => BGS[f] || '#f0f1f3'
 const stOf = (s) => STL[s] || ''
 const fmt = (n) => n ? (n >= 1e4 ? (n/1e4).toFixed(1)+'w' : n >= 1e3 ? (n/1e3).toFixed(1)+'k' : String(n)) : '0'
@@ -106,15 +106,15 @@ const q = ref(''), sort = ref('latest'), sV = ref(false), loading = ref(true), e
 const list = ref([]), total = ref(0)
 const sorts = [{ k:'latest', l:'最新发布' },{ k:'views', l:'最多浏览' },{ k:'favs', l:'最多收藏' }]
 const navs = [
-  { k:'patent', icon:'📄', label:'发明专利', bg:'#e3f2fd' },{ k:'utility', icon:'⚙', label:'实用新型', bg:'#fff3e0' },
-  { k:'copyright', icon:'💻', label:'软件著作', bg:'#e8f5e9' },{ k:'paper', icon:'📚', label:'论文成果', bg:'#f3e5f5' },
-  { k:'standard', icon:'📶', label:'技术标准', bg:'#fce4ec' },{ k:'design', icon:'🎨', label:'外观设计', bg:'#e0f2f1' },
-  { k:'transformed', icon:'🚀', label:'已转化', bg:'#fff8e1' },{ k:'all', icon:'🔍', label:'全部成果', bg:'#e8eaf6' }
+  { k:'patent', icon:'发', label:'发明专利', bg:'#e3f2fd' },{ k:'utility', icon:'实', label:'实用新型', bg:'#fff3e0' },
+  { k:'copyright', icon:'软', label:'软件著作', bg:'#e8f5e9' },{ k:'paper', icon:'论', label:'论文成果', bg:'#f3e5f5' },
+  { k:'standard', icon:'标', label:'技术标准', bg:'#fce4ec' },{ k:'design', icon:'设', label:'外观设计', bg:'#e0f2f1' },
+  { k:'transformed', icon:'成', label:'已转化', bg:'#fff8e1' },{ k:'all', icon:'全', label:'全部成果', bg:'#e8eaf6' }
 ]
 const banners = [
-  { icon:'✈', title:'AI 赋能飞控新突破', sub:'本月新增 42 项前沿成果', bg:'linear-gradient(135deg,#0d47a1,#1976d2)' },
-  { icon:'📋', title:'产学研对接加速', sub:'326 项成果已实现转化', bg:'linear-gradient(135deg,#1b5e20,#2e7d32)' },
-  { icon:'🚀', title:'标准引领行业', sub:'最新无人机适航标准发布', bg:'linear-gradient(135deg,#4a148c,#7b1fa2)' }
+  { icon:'飞', title:'AI 赋能飞控新突破', sub:'本月新增 42 项前沿成果', bg:'linear-gradient(135deg,#0d47a1,#1976d2)' },
+  { icon:'产', title:'产学研对接加速', sub:'326 项成果已实现转化', bg:'linear-gradient(135deg,#1b5e20,#2e7d32)' },
+  { icon:'标', title:'标准引领行业', sub:'最新无人机适航标准发布', bg:'linear-gradient(135deg,#4a148c,#7b1fa2)' }
 ]
 
 const DEMO = [

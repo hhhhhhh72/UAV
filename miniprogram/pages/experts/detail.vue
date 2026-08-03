@@ -1,21 +1,22 @@
 <template>
   <view class="expert-detail-page">
-    <van-nav-bar
+    <u-nav-bar
       title="专家详情"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading -->
     <view v-if="loading" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="28rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error -->
     <view v-else-if="errorMsg" class="state-view">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchExpert">
         <text>重新加载</text>
       </view>
@@ -26,16 +27,14 @@
       <!-- Header card -->
       <view class="header-card">
         <view class="avatar-wrap">
-          <van-image
+          <image
             v-if="expert.avatar"
             :src="expert.avatar"
-            width="80"
-            height="80"
-            radius="50%"
-            fit="cover"
+            mode="aspectFill"
+            class="avatar-img"
           />
           <view v-else class="avatar-placeholder">
-            <van-icon name="manager" size="36" color="#c8c9cc" />
+            <text class="avatar-placeholder-text">专</text>
           </view>
         </view>
         <view class="header-info">
@@ -43,14 +42,14 @@
           <text v-if="expert.title" class="expert-title">{{ expert.title }}</text>
           <text v-if="expert.organization" class="expert-org">{{ expert.organization }}</text>
           <view class="field-tags">
-            <van-tag
+            <u-tag
               v-for="(f, fi) in parseFields(expert.field)"
               :key="fi"
               type="primary"
-              size="small"
+              size="mini"
             >
               {{ f }}
-            </van-tag>
+            </u-tag>
           </view>
         </view>
       </view>
@@ -67,28 +66,28 @@
           <text class="section-text">{{ expert.achievements }}</text>
         </view>
 
-        <van-cell-group inset>
-          <van-cell
+        <u-cell-group inset>
+          <u-cell
             v-if="expert.organization"
             title="所属机构"
             :value="expert.organization"
           />
-          <van-cell
+          <u-cell
             v-if="expert.email"
             title="邮箱"
             :value="expert.email"
           />
-          <van-cell
+          <u-cell
             v-if="expert.phone"
             title="联系电话"
             :value="expert.phone"
           />
-          <van-cell
+          <u-cell
             v-if="expert.created_at"
             title="入驻时间"
             :value="formatDate(expert.created_at)"
           />
-        </van-cell-group>
+        </u-cell-group>
       </view>
     </template>
   </view>
@@ -158,7 +157,7 @@ export default {
 <style scoped>
 .expert-detail-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 40px;
 }
 
@@ -167,6 +166,15 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
 }
 
 .state-view {
@@ -179,7 +187,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -201,14 +209,27 @@ export default {
   flex-shrink: 0;
 }
 
+.avatar-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: block;
+}
+
 .avatar-placeholder {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: #f7f8fa;
+  background: var(--color-bg);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.avatar-placeholder-text {
+  font-size: 32px;
+  color: var(--color-text-placeholder);
+  font-weight: 500;
 }
 
 .header-info {
@@ -221,19 +242,19 @@ export default {
 .expert-name {
   font-size: 18px;
   font-weight: 700;
-  color: #323233;
+  color: var(--color-text);
   display: block;
 }
 
 .expert-title {
   font-size: 13px;
-  color: #0A66C2;
+  color: var(--color-primary);
   display: block;
 }
 
 .expert-org {
   font-size: 13px;
-  color: #646566;
+  color: var(--color-text-secondary);
   display: block;
 }
 
@@ -260,15 +281,15 @@ export default {
 .section-title {
   font-size: 15px;
   font-weight: 700;
-  color: #323233;
+  color: var(--color-text);
   margin-bottom: 10px;
   padding-left: 10px;
-  border-left: 3px solid #0A66C2;
+  border-left: 3px solid var(--color-primary);
 }
 
 .section-text {
   font-size: 14px;
-  color: #646566;
+  color: var(--color-text-secondary);
   line-height: 1.7;
   display: block;
   white-space: pre-wrap;

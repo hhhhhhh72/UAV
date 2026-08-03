@@ -11,7 +11,7 @@
     <view class="sw" :class="{ stk: stuck }">
       <view class="sbar">
         <view class="sbox">
-          <text class="sic">🔍</text>
+          <u-icon name="search" size="28rpx" color="#969799" />
           <input class="sinp" v-model="q" placeholder="搜索难题、关键词" placeholder-style="color:#bbb" @input="onSearch" />
           <text v-if="q" class="sclr" @tap="clearSearch">✕</text>
         </view>
@@ -30,7 +30,7 @@
 
     <!-- Banner -->
     <view class="banner">
-      <text class="banner-icon">🏆</text>
+      <text class="banner-icon">战</text>
       <view class="banner-info">
         <text class="banner-title">揭榜挂帅 · 技术攻关等你来战</text>
         <text class="banner-sub">累计悬赏 ¥128万 · 已攻克 47 项 · 正在揭榜 12 项</text>
@@ -46,10 +46,10 @@
     </view>
 
     <!-- Error -->
-    <view v-else-if="err" class="st"><text class="sti">⚠</text><text class="stt">加载失败</text><view class="stb" @tap="fetchData">重新加载</view></view>
+    <view v-else-if="err" class="st"><text class="sti">!</text><text class="stt">加载失败</text><view class="stb" @tap="fetchData">重新加载</view></view>
 
     <!-- Empty -->
-    <view v-else-if="!list.length" class="st"><text class="sti">🔍</text><text class="stt">暂无相关难题</text><view class="stb" @tap="resetAll">清除筛选</view></view>
+    <view v-else-if="!list.length" class="st"><u-icon class="sti" name="search" size="96rpx" color="#d5d7db" /><text class="stt">暂无相关难题</text><view class="stb" @tap="resetAll">清除筛选</view></view>
 
     <!-- Card List -->
     <view v-else class="cl">
@@ -60,8 +60,8 @@
         <text class="ctit">{{ x.title }}</text>
         <text class="cd">{{ x.desc }}</text>
         <view class="cft">
-          <view class="cm"><text class="co">{{ x.org }}</text><text class="cbids">✏️ {{ x.bids }} 家已揭榜</text></view>
-          <view class="cr"><text class="crw">{{ fmtMoney(x.reward) }}</text><text class="cdl">⏰ {{ dlText(x.deadline) }}</text></view>
+          <view class="cm"><text class="co">{{ x.org }}</text><text class="cbids">记 {{ x.bids }} 家已揭榜</text></view>
+          <view class="cr"><text class="crw">{{ fmtMoney(x.reward) }}</text><text class="cdl">限 {{ dlText(x.deadline) }}</text></view>
         </view>
       </view>
     </view>
@@ -81,7 +81,7 @@ const onPublish = () => uni.showToast({ title:'发布难题 (仅会员)', icon:'
 
 const FC = { '飞控':'#0d47a1','电池':'#e65100','AI':'#4a148c','通信':'#1a237e','材料':'#004d40','载荷':'#b71c1c' }
 const fc = (f) => FC[f]||'#666'
-const stLabel = (s) => s === 'urgent' ? '⚠ 紧急' : s === 'closed' ? '已截止' : '进行中'
+const stLabel = (s) => s === 'urgent' ? '紧急' : s === 'closed' ? '已截止' : '进行中'
 const fmtMoney = (n) => n ? (n >= 10000 ? '¥'+(n/10000).toFixed(0)+'万' : '¥'+n.toLocaleString()) : '面议'
 const daysLeft = (d) => Math.max(0, Math.ceil((new Date(d) - new Date()) / 86400000))
 const dlText = (d) => { const dl = daysLeft(d); return dl <= 7 ? dl+'天后截止' : dl+'天后截止' }

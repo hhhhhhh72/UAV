@@ -237,7 +237,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from '@/utils/http'
 import { Search, Plus, Operation, RefreshRight, Delete } from '@element-plus/icons-vue'
-import { showFailToast, showSuccessToast, showLoadingToast, closeToast, showConfirmDialog } from 'vant'
+import { showFailToast, showSuccessToast, showLoadingToast, closeToast, showConfirmDialog } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
 import { normalizeMediaUrl } from '../composables/useMedia'
 

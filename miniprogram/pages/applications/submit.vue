@@ -1,21 +1,22 @@
 <template>
   <view class="submit-page">
-    <van-nav-bar
+    <u-nav-bar
       title="项目申报"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading state (initial auth check) -->
     <view v-if="checkingAuth" class="state-view">
-      <van-loading size="24">验证登录信息...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>验证登录信息...</text>
+      </view>
     </view>
 
     <!-- Not logged in -->
     <view v-else-if="!isLoggedIn" class="state-view">
-      <van-empty description="请先登录后申报项目" image="error" />
+      <u-empty description="请先登录后申报项目" />
       <view class="retry-btn" @tap="goLogin">
         <text>去登录</text>
       </view>
@@ -23,96 +24,77 @@
 
     <!-- Normal: form -->
     <view v-else class="form-body">
-      <van-cell-group inset>
+      <u-cell-group inset>
         <!-- Project name -->
-        <van-field
+        <u-field
           v-model="form.project_name"
           label="项目名称"
           placeholder="请输入项目名称"
-          required
-          :border="true"
         />
 
         <!-- Category picker -->
-        <view class="picker-field" @tap="showCategoryPicker = true">
-          <view class="picker-field-inner">
-            <text class="picker-label">
-              <text class="required">*</text>
-              申报类别
-            </text>
-            <view class="picker-value-wrapper">
-              <text :class="{ placeholder: !form.category }">
-                {{ form.category || '请选择申报类别' }}
-              </text>
-              <van-icon name="arrow" size="12" color="#969799" />
-            </view>
-          </view>
+        <view class="field-row" @tap="showCategoryPicker = true">
+          <u-field
+            :model-value="form.category"
+            label="申报类别"
+            placeholder="请选择申报类别"
+            disabled
+          />
+          <text class="field-arrow">›</text>
         </view>
 
         <!-- Budget -->
-        <van-field
+        <u-field
           v-model="form.budget"
           label="预算金额(元)"
           type="digit"
           placeholder="请输入预算金额"
-          :border="true"
         />
 
         <!-- Description -->
-        <van-field
+        <u-field
           v-model="form.description"
           label="项目描述"
           type="textarea"
-          autosize
+          auto-height
           placeholder="请详细描述项目内容和预期成果"
-          :border="true"
-          rows="4"
         />
 
         <!-- Attachment (optional upload indication) -->
-        <van-field
-          label="附件"
-          placeholder="选填（暂不支持上传）"
-          readonly
-          :border="true"
-          right-icon="plus"
-          @click-right-icon="uploadAttachment"
-        >
-          <template #right-icon>
-            <van-button size="small" hairline type="primary" @tap="uploadAttachment">
-              上传
-            </van-button>
-          </template>
-        </van-field>
-      </van-cell-group>
+        <view class="field-row">
+          <u-field
+            label="附件"
+            placeholder="选填（暂不支持上传）"
+            disabled
+          />
+          <u-button size="small" type="primary" @click="uploadAttachment">
+            上传
+          </u-button>
+        </view>
+      </u-cell-group>
 
       <!-- Submit button -->
       <view class="submit-section">
-        <van-button
+        <u-button
           type="primary"
           block
           round
           :loading="submitting"
-          @tap="handleSubmit"
+          @click="handleSubmit"
         >
           提交申报
-        </van-button>
+        </u-button>
       </view>
     </view>
 
     <!-- Category picker popup -->
-    <van-popup
+    <u-picker
       :show="showCategoryPicker"
-      position="bottom"
-      round
-      @close="showCategoryPicker = false"
-    >
-      <van-picker
-        :columns="categoryOptions"
-        @confirm="onCategoryConfirm"
-        @cancel="showCategoryPicker = false"
-      />
-    </van-popup>
+      title="请选择申报类别"
+      :columns="categoryOptions"
+      @confirm="onCategoryConfirm"
+      @update:show="showCategoryPicker = $event"
+    />
   </view>
 </template>
 
@@ -169,8 +151,8 @@ export default {
     goLogin() {
       uni.navigateTo({ url: '/pages/login/index' })
     },
-    onCategoryConfirm(e) {
-      this.form.category = e.detail.value
+    onCategoryConfirm(v) {
+      this.form.category = v
       this.showCategoryPicker = false
     },
     uploadAttachment() {
@@ -227,7 +209,7 @@ export default {
 <style scoped>
 .submit-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 60px;
 }
 
@@ -239,10 +221,18 @@ export default {
   padding-top: 120px;
 }
 
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -253,42 +243,19 @@ export default {
   padding: 12px 0;
 }
 
-/* Picker field */
-.picker-field {
+/* Picker / button row */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: #fff;
-  padding: 0 16px;
+  padding-right: 16px;
 }
 
-.picker-field-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid #f7f8fa;
-}
-
-.picker-label {
-  font-size: 14px;
-  color: #323233;
-  flex-shrink: 0;
-  margin-right: 12px;
-}
-
-.required {
-  color: #ee0a24;
-  margin-right: 4px;
-}
-
-.picker-value-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  color: #323233;
-}
-
-.picker-value-wrapper .placeholder {
+.field-arrow {
   color: #c8c9cc;
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 /* Submit section */

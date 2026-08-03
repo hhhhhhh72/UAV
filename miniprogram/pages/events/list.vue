@@ -26,7 +26,7 @@
       </view>
 
       <view class="search-bar">
-        <text class="search-icon">🔍</text>
+        <u-icon name="search" size="28rpx" color="#969799" />
         <input
           class="search-input"
           v-model="keyword"
@@ -59,7 +59,7 @@
                 mode="aspectFill"
               />
               <view v-else class="cover-placeholder">
-                <text class="cover-emoji">{{ statusEmoji[item.status] || '🏆' }}</text>
+                <text class="cover-emoji">{{ statusEmoji[item.status] || '赛' }}</text>
               </view>
               <view
                 class="status-badge"
@@ -117,7 +117,10 @@
           </view>
 
           <view v-if="list.length > 0" class="load-more-wrap">
-            <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+            <view v-if="loadingMore" class="loading-inline">
+              <u-loading size="24rpx" />
+              <text>加载更多...</text>
+            </view>
             <text v-else-if="!hasMore" class="no-more">没有更多了</text>
           </view>
 
@@ -145,9 +148,9 @@ const pageSize = 20
 const hasMore = ref(true)
 
 const statusColor = {
-  enrolling: '#ff6b35', open: '#ff6b35',
-  ongoing: '#2b5ea7',
-  closed: '#969799', full: '#969799',
+  enrolling: 'var(--color-warning)', open: 'var(--color-warning)',
+  ongoing: 'var(--color-primary)',
+  closed: 'var(--color-text-secondary)', full: 'var(--color-text-secondary)',
 }
 
 const statusText = {
@@ -157,9 +160,9 @@ const statusText = {
 }
 
 const statusEmoji = {
-  enrolling: '🏆', open: '🏆',
-  ongoing: '🥇',
-  closed: '🏅', full: '🏅',
+  enrolling: '赛', open: '赛',
+  ongoing: '竞',
+  closed: '奖', full: '奖',
 }
 
 /* 数据映射 */
@@ -180,14 +183,14 @@ function compFee(item) {
 }
 
 function tagBgColor(tag) {
-  if (['多旋翼', '固定翼', '竞速FPV', '航拍', '无人机竞技', '创新创业', '技能大赛'].indexOf(tag) >= 0) return '#e8f0ff'
+  if (['多旋翼', '固定翼', '竞速FPV', '航拍', '无人机竞技', '创新创业', '技能大赛'].indexOf(tag) >= 0) return 'var(--color-primary-light)'
   if (['国家级', '国际赛'].indexOf(tag) >= 0) return '#fff4e6'
   return '#f5f6f8'
 }
 
 function tagTc(tag) {
-  if (['多旋翼', '固定翼', '竞速FPV', '航拍', '无人机竞技', '创新创业', '技能大赛'].indexOf(tag) >= 0) return '#2b5ea7'
-  if (['国家级', '国际赛'].indexOf(tag) >= 0) return '#ff6b35'
+  if (['多旋翼', '固定翼', '竞速FPV', '航拍', '无人机竞技', '创新创业', '技能大赛'].indexOf(tag) >= 0) return 'var(--color-primary)'
+  if (['国家级', '国际赛'].indexOf(tag) >= 0) return 'var(--color-warning)'
   return '#666666'
 }
 
@@ -307,7 +310,7 @@ onPullDownRefresh(function () {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
 
 /* ① Banner */
 .banner {
@@ -350,17 +353,16 @@ onPullDownRefresh(function () {
 }
 
 .tab-item.active {
-  background: #b8860b; color: #ffffff; font-weight: 600;
-  box-shadow: 0 4rpx 16rpx rgba(184,134,11,0.35);
+  background: var(--color-warning); color: #ffffff; font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(255, 159, 10, 0.35);
 }
 
 .search-bar {
-  margin: 24rpx 24rpx 0; background: #f5f6f8; border-radius: 40rpx;
+  margin: 24rpx 24rpx 0; background: var(--color-bg); border-radius: 40rpx;
   padding: 16rpx 24rpx; display: flex; align-items: center; gap: 12rpx;
 }
 
-.search-icon { font-size: 28rpx; opacity: 0.4; }
-.search-input { flex: 1; font-size: 28rpx; color: #1a1a1a; }
+.search-input { flex: 1; font-size: 28rpx; color: var(--color-text); }
 
 /* ③ 卡片 */
 .list-scroll { padding: 24rpx 24rpx 0; height: calc(100vh - 500rpx); box-sizing: border-box; }
@@ -388,15 +390,15 @@ onPullDownRefresh(function () {
 .card-body { padding: 24rpx 24rpx 44rpx; }
 
 .card-title {
-  font-size: 34rpx; font-weight: 600; color: #1a1a1a;
+  font-size: 34rpx; font-weight: 600; color: var(--color-text);
   line-height: 1.4; margin-bottom: 16rpx;
 }
 
 .card-info { margin-bottom: 14rpx; }
 
 .info-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx; }
-.info-label { font-size: 24rpx; color: #969799; width: 72rpx; flex-shrink: 0; }
-.info-value { font-size: 26rpx; color: #1a1a1a; }
+.info-label { font-size: 24rpx; color: var(--color-text-secondary); width: 72rpx; flex-shrink: 0; }
+.info-value { font-size: 26rpx; color: var(--color-text); }
 .info-value.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 .card-tags { display: flex; flex-wrap: wrap; gap: 10rpx; margin-bottom: 20rpx; }
@@ -407,18 +409,19 @@ onPullDownRefresh(function () {
   border-top: 1rpx solid #f0f0f0; padding-top: 20rpx;
 }
 
-.price-label { font-size: 24rpx; color: #969799; }
-.price-value { font-size: 40rpx; font-weight: 700; color: #ff6b35; margin: 0 8rpx; }
-.price-unit { font-size: 24rpx; color: #969799; }
+.price-label { font-size: 24rpx; color: var(--color-text-secondary); }
+.price-value { font-size: 40rpx; font-weight: 700; color: var(--color-warning); margin: 0 8rpx; }
+.price-unit { font-size: 24rpx; color: var(--color-text-secondary); }
 
 .enroll-btn {
-  padding: 12rpx 32rpx; background: #1a365d; color: #ffffff;
+  padding: 12rpx 32rpx; background: var(--color-primary); color: #ffffff;
   border-radius: 24rpx; font-size: 28rpx; font-weight: 600;
 }
 
-.participants { font-size: 26rpx; color: #2b5ea7; font-weight: 500; margin-left: auto; }
-.closed-text { font-size: 26rpx; color: #c0c4cc; margin-left: auto; }
+.participants { font-size: 26rpx; color: var(--color-primary); font-weight: 500; margin-left: auto; }
+.closed-text { font-size: 26rpx; color: var(--color-text-placeholder); margin-left: auto; }
 
 .load-more-wrap { text-align: center; padding: 20rpx 0; }
-.no-more { font-size: 24rpx; color: #969799; }
+.loading-inline { display: flex; align-items: center; justify-content: center; gap: 8rpx; font-size: 24rpx; color: var(--color-text-secondary); }
+.no-more { font-size: 24rpx; color: var(--color-text-secondary); }
 </style>

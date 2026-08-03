@@ -11,7 +11,7 @@
     <view class="sw" :class="{ stk: stuck }">
       <view class="sbar">
         <view class="sbox">
-          <text class="sic">🔍</text>
+          <u-icon name="search" size="28rpx" color="#969799" />
           <input class="sinp" v-model="q" placeholder="搜索课题、关键词" placeholder-style="color:#bbb" @input="onSearch" />
           <text v-if="q" class="sclr" @tap="clearSearch">✕</text>
         </view>
@@ -33,7 +33,7 @@
 
     <!-- Banner -->
     <view class="banner">
-      <text class="banner-icon">🤝</text>
+      <text class="banner-icon">攻</text>
       <view class="banner-info">
         <text class="banner-title">联合攻关 · 攻克核心技术难题</text>
         <text class="banner-sub">在研课题 8 项 · 累计经费 ¥650万 · 参与单位 36 家</text>
@@ -49,10 +49,10 @@
     </view>
 
     <!-- Error -->
-    <view v-else-if="err" class="st"><text class="sti">⚠</text><text class="stt">加载失败</text><view class="stb" @tap="fetchData">重新加载</view></view>
+    <view v-else-if="err" class="st"><text class="sti">!</text><text class="stt">加载失败</text><view class="stb" @tap="fetchData">重新加载</view></view>
 
     <!-- Empty -->
-    <view v-else-if="!list.length" class="st"><text class="sti">🔍</text><text class="stt">暂无相关课题</text><view class="stb" @tap="resetAll">清除筛选</view></view>
+    <view v-else-if="!list.length" class="st"><u-icon class="sti" name="search" size="96rpx" color="#d5d7db" /><text class="stt">暂无相关课题</text><view class="stb" @tap="resetAll">清除筛选</view></view>
 
     <!-- Card List -->
     <view v-else class="cl">
@@ -64,8 +64,8 @@
         <view class="corg"><text class="lead">牵头</text> {{ x.lead }}<text v-if="x.orgs"> · {{ x.orgs.slice(0,3).join(' · ') }}</text></view>
         <text class="cd">{{ x.desc }}</text>
         <view class="cft">
-          <view class="cs2"><text class="cpn">👥 {{ x.participants }} 家参与</text><text class="cbg">💰 经费预算</text></view>
-          <view class="cr"><text class="cbu">{{ fmtMoney(x.budget) }}</text><text class="cdl">⏰ {{ dlText(x.deadline) }}</text></view>
+          <view class="cs2"><text class="cpn">企 {{ x.participants }} 家参与</text><text class="cbg">经费预算</text></view>
+          <view class="cr"><text class="cbu">{{ fmtMoney(x.budget) }}</text><text class="cdl">限 {{ dlText(x.deadline) }}</text></view>
         </view>
       </view>
     </view>

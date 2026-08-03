@@ -20,8 +20,8 @@
       </view>
       <text class="card-title">{{ dm.title }}</text>
       <view class="card-info">
-        <text>💰 ¥{{ ((dm.budget_fen||0)/100).toFixed(2) }}</text>
-        <text>👤 {{ dm.publisher_name||'匿名' }}</text>
+        <text>¥{{ ((dm.budget_fen||0)/100).toFixed(2) }}</text>
+        <text>发布人 {{ dm.publisher_name||'匿名' }}</text>
       </view>
       <view class="card-foot">
         <text class="price">¥{{ ((dm.budget_fen||0)/100).toFixed(2) }}</text>
@@ -34,7 +34,7 @@
     <view v-if="!demands.length" class="empty">暂无需求</view>
   </scroll-view>
 
-  <view class="float-btn" @click="goMap">🔍 附近飞手</view>
+  <view class="float-btn" @click="goMap"><u-icon name="search" size="26rpx" color="#ffffff" />附近飞手</view>
 </view>
 </template>
 
@@ -71,28 +71,28 @@ const tagClass = (t) => { const m={吊运:'dy',航拍:'hp',植保:'zb',巡检:'x
 </script>
 
 <style scoped>
-.page { min-height:100vh; background:#f5f6f7; }
+.page { min-height:100vh; background:var(--color-bg); }
 .header { display:flex; justify-content:space-between; padding:14px 16px; background:#fff; }
-.title { font-size:18px; font-weight:700; color:#1a1a1a; }
-.city { font-size:14px; color:#0A66C2; }
+.title { font-size:18px; font-weight:700; color:var(--color-text); }
+.city { font-size:14px; color:var(--color-primary); }
 .cat-row { background:#fff; padding:0 12px 8px; }
 .cat-row scroll-view { display:flex; gap:6px; white-space:nowrap; }
 .cat { font-size:13px; padding:6px 14px; border-radius:16px; background:#f5f5f5; color:#666; margin-right:8px; display:inline-block; }
-.cat.on { background:#0A66C2; color:#fff; }
+.cat.on { background:var(--color-primary); color:#fff; }
 .list { padding:6px 12px 100px; height: calc(100vh - 90px); }
 .card { background:#fff; border-radius:10px; padding:14px; margin-bottom:8px; }
 .card-hd { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .tag { font-size:11px; padding:2px 8px; border-radius:3px; color:#fff; }
-.tag-dy { background:#ff6b35; } .tag-hp { background:#4caf50; } .tag-zb { background:#2196f3; } .tag-xj { background:#9c27b0; } .tag-ch { background:#607d8b; } .tag-other { background:#999; }
-.status { font-size:12px; color:#07c160; flex:1; }
+.tag-dy { background:var(--color-warning); } .tag-hp { background:var(--color-success); } .tag-zb { background:var(--color-primary); } .tag-xj { background:#9c27b0; } .tag-ch { background:#607d8b; } .tag-other { background:#999; }
+.status { font-size:12px; color:var(--color-success); flex:1; }
 .district { font-size:12px; color:#999; }
-.card-title { font-size:16px; font-weight:600; color:#111; display:block; margin-bottom:8px; }
+.card-title { font-size:16px; font-weight:600; color:var(--color-text); display:block; margin-bottom:8px; }
 .card-info { display:flex; gap:12px; font-size:13px; color:#666; margin-bottom:8px; }
 .card-foot { display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f0f0f0; padding-top:10px; }
-.price { font-size:20px; font-weight:700; color:#ff4d4f; }
+.price { font-size:20px; font-weight:700; color:var(--color-danger); }
 .foot-right { display:flex; align-items:center; gap:10px; }
 .bids { font-size:12px; color:#999; }
-.btn { background:#07c160; color:#fff; font-size:13px; padding:6px 14px; border-radius:16px; }
-.float-btn { position:fixed; right:16px; bottom:80px; background:#07c160; color:#fff; font-size:13px; padding:10px 14px; border-radius:20px; box-shadow:0 2px 8px rgba(7,193,96,.3); z-index:10; }
+.btn { background:var(--color-success); color:#fff; font-size:13px; padding:6px 14px; border-radius:16px; }
+.float-btn { position:fixed; right:16px; bottom:80px; background:var(--color-success); color:#fff; font-size:13px; padding:10px 14px; border-radius:20px; box-shadow:0 2px 8px rgba(7,193,96,.3); z-index:10; display:flex; align-items:center; gap:6rpx; }
 .empty { text-align:center; padding:60px 0; color:#999; font-size:14px; }
 </style>

@@ -1,18 +1,15 @@
 <template>
   <view class="expert-list-page">
-    <van-nav-bar
+    <u-nav-bar
       title="专家智库"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Search bar -->
-    <van-search
+    <u-search
       v-model="searchText"
       placeholder="搜索专家姓名或领域"
-      shape="round"
       @search="onSearch"
     />
 
@@ -31,17 +28,20 @@
 
     <!-- Loading state -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="28rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无专家信息" />
+      <u-empty description="暂无专家信息" />
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
@@ -49,36 +49,41 @@
 
     <!-- Normal state -->
     <view v-else class="list-body">
-      <van-cell-group inset>
-        <van-cell
+      <u-cell-group inset>
+        <u-cell
           v-for="item in list"
           :key="item.id"
-          :title="item.name"
           is-link
-          @tap="goDetail(item)"
+          @click="goDetail(item)"
         >
-          <template #label>
-            <view class="cell-meta">
-              <van-tag
-                v-for="(f, fi) in parseFields(item.field)"
-                :key="fi"
-                type="primary"
-                size="small"
-              >
-                {{ f }}
-              </van-tag>
-              <text v-if="item.organization" class="meta-text">{{ item.organization }}</text>
+          <template #title>
+            <view class="cell-content">
+              <text class="cell-name">{{ item.name }}</text>
+              <view class="cell-meta">
+                <u-tag
+                  v-for="(f, fi) in parseFields(item.field)"
+                  :key="fi"
+                  type="primary"
+                  size="mini"
+                >
+                  {{ f }}
+                </u-tag>
+                <text v-if="item.organization" class="meta-text">{{ item.organization }}</text>
+              </view>
             </view>
           </template>
           <template #value>
             <text class="cell-value-text">{{ item.title || '' }}</text>
           </template>
-        </van-cell>
-      </van-cell-group>
+        </u-cell>
+      </u-cell-group>
 
       <!-- Load more -->
       <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="24rpx" />
+          <text>加载更多...</text>
+        </view>
         <text v-else-if="!hasMore" class="no-more">没有更多了</text>
       </view>
     </view>
@@ -192,7 +197,7 @@ export default {
 <style scoped>
 .expert-list-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -216,14 +221,14 @@ export default {
   padding: 6px 16px;
   border-radius: 20px;
   font-size: 13px;
-  color: #646566;
-  background: #f7f8fa;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
   transition: all 0.2s;
 }
 
 .filter-tab.active {
   color: #fff;
-  background: #0A66C2;
+  background: var(--color-primary);
 }
 
 /* State views */
@@ -231,6 +236,28 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.cell-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .empty-state-wrapper {
@@ -247,7 +274,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -268,12 +295,12 @@ export default {
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .cell-value-text {
   font-size: 12px;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
 }
 
 /* Load more */
@@ -283,7 +310,7 @@ export default {
 }
 
 .no-more {
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
   font-size: 13px;
 }
 </style>

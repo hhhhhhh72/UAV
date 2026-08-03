@@ -1,53 +1,44 @@
 <template>
   <view class="page-container">
     <!-- Nav -->
-    <van-nav-bar
+    <u-nav-bar
       title="展会排期"
-      left-arrow
-      @click-left="goBack"
-      custom-style="background: #f59e0b;"
-    >
-      <template #title>
-        <text style="color: #fff;">展会排期</text>
-      </template>
-    </van-nav-bar>
+      show-back
+      @back="goBack"
+    />
 
     <!-- Search -->
-    <van-sticky>
-      <van-search
+    <u-sticky>
+      <u-search
         v-model="searchText"
         placeholder="搜索展会"
-        shape="round"
         @search="onSearch"
       />
-    </van-sticky>
+    </u-sticky>
 
     <!-- Category tabs -->
-    <van-tabs
-      :active="activeCategory"
+    <u-tabs
+      :active="tabIndex"
+      :titles="tabTitles"
       @change="onTabChange"
-    >
-      <van-tab
-        v-for="tab in categoryTabs"
-        :key="tab.value"
-        :title="tab.label"
-        :name="tab.value"
-      />
-    </van-tabs>
+    />
 
     <!-- Loading state -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无展会" />
+      <u-empty description="暂无展会" />
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty image="network" description="加载失败" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
@@ -56,35 +47,44 @@
     <!-- Normal state -->
     <view v-else class="list-body">
       <view class="card-list">
-        <van-card
+        <view
           v-for="item in list"
           :key="item.id"
-          :title="item.title"
-          :desc="item.location || ''"
-          :num="'共 ' + (item.booth_count || 0) + ' 个展位'"
-          :thumb="item.poster_image || item.cover_image || item.image || ''"
-          thumb-mode="aspectFill"
+          class="expo-card"
           @tap="goDetail(item)"
         >
-          <template #tags>
+          <image
+            v-if="item.poster_image || item.cover_image || item.image"
+            :src="item.poster_image || item.cover_image || item.image"
+            mode="aspectFill"
+            class="card-thumb"
+          />
+          <view v-else class="card-thumb card-thumb--placeholder"><text>展</text></view>
+          <view class="card-body">
+            <text class="card-title">{{ item.title }}</text>
+            <text v-if="item.location" class="card-desc">{{ item.location }}</text>
             <view class="card-tags">
-              <van-tag :type="categoryTag(item.category)" size="medium">
+              <u-tag :type="categoryTag(item.category)">
                 {{ item.category || '通用' }}
-              </van-tag>
-              <van-tag :type="statusTagType(item.status)" size="medium">
+              </u-tag>
+              <u-tag :type="statusTagType(item.status)">
                 {{ statusLabel(item.status) }}
-              </van-tag>
+              </u-tag>
             </view>
             <view v-if="item.dates || item.start_date" class="card-extra">
               <text class="extra-text">{{ formatDateRange(item) }}</text>
             </view>
-          </template>
-        </van-card>
+            <text class="card-num">共 {{ item.booth_count || 0 }} 个展位</text>
+          </view>
+        </view>
       </view>
 
       <!-- Load more -->
       <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="20rpx" />
+          <text>加载更多...</text>
+        </view>
         <text v-else-if="!hasMore" class="no-more">没有更多了</text>
       </view>
     </view>
@@ -114,6 +114,15 @@ export default {
         { label: '其他', value: '其他' },
       ],
     }
+  },
+  computed: {
+    tabTitles() {
+      return this.categoryTabs.map(function (t) { return t.label })
+    },
+    tabIndex() {
+      var idx = this.categoryTabs.findIndex(function (t) { return t.value === this.activeCategory }.bind(this))
+      return idx >= 0 ? idx : 0
+    },
   },
   onLoad() {
     this.fetchList(true)
@@ -171,9 +180,9 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
-    onTabChange(e) {
-      var name = e.detail ? e.detail.name : e
-      this.activeCategory = name
+    onTabChange(index) {
+      var tab = this.categoryTabs[index]
+      this.activeCategory = tab ? tab.value : ''
       this.fetchList(true)
     },
     goDetail(item) {
@@ -221,7 +230,7 @@ export default {
 <style scoped>
 .page-container {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 40px;
 }
 
@@ -229,6 +238,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .empty-state-wrapper {
@@ -245,7 +262,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #f59e0b;
+  background: var(--color-warning);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -258,6 +275,64 @@ export default {
 .card-list {
   display: flex;
   flex-direction: column;
+  padding: 0 12px;
+  gap: 12px;
+}
+
+/* Expo card 自定义样式 */
+.expo-card {
+  display: flex;
+  gap: 12px;
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.expo-card:active {
+  transform: translateY(2rpx);
+}
+
+.card-thumb {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: var(--color-primary-light);
+}
+
+.card-thumb--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: var(--color-primary);
+}
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-tags {
@@ -270,12 +345,17 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 4px;
 }
 
 .extra-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
+}
+
+.card-num {
+  font-size: 12px;
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .load-more {
@@ -284,7 +364,7 @@ export default {
 }
 
 .no-more {
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
   font-size: 13px;
 }
 </style>

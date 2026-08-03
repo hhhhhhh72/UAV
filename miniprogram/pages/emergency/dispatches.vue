@@ -1,33 +1,30 @@
 <template>
   <view class="dispatches-page">
-    <van-nav-bar
+    <u-nav-bar
       title="调度记录"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
-    <van-tabs
-      :active="activeTab"
-      @change="onTabChange"
-      sticky
-      :offset-top="0"
-    >
-      <van-tab title="全部" name="all" />
-      <van-tab title="待响应" name="pending" />
-      <van-tab title="已调度" name="dispatched" />
-      <van-tab title="已完成" name="completed" />
-    </van-tabs>
+    <u-sticky>
+      <u-tabs
+        v-model:active="activeTabIndex"
+        :titles="['全部', '待响应', '已调度', '已完成']"
+        @change="onTabChange"
+      />
+    </u-sticky>
 
     <!-- Loading -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error -->
     <view v-else-if="errorMsg && list.length === 0" class="state-view">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
@@ -35,33 +32,35 @@
 
     <!-- Empty -->
     <view v-else-if="!loading && list.length === 0" class="state-view">
-      <van-empty image="search" description="暂无调度记录" />
+      <u-empty description="暂无调度记录" />
     </view>
 
     <!-- Normal -->
     <view v-else class="list-body">
-      <van-cell-group inset>
-        <van-cell
+      <u-cell-group inset>
+        <u-cell
           v-for="item in list"
           :key="item.id"
-          :title="item.title || item.event_title"
         >
-          <template #label>
-            <view class="cell-meta">
-              <text class="meta-text">{{ item.resource_name || item.resource }}</text>
-              <text class="meta-date">{{ formatDateTime(item.dispatch_time || item.created_at) }}</text>
+          <template #title>
+            <view class="cell-content">
+              <text class="cell-title">{{ item.title || item.event_title }}</text>
+              <view class="cell-meta">
+                <text class="meta-text">{{ item.resource_name || item.resource }}</text>
+                <text class="meta-date">{{ formatDateTime(item.dispatch_time || item.created_at) }}</text>
+              </view>
             </view>
           </template>
           <template #value>
-            <van-tag
+            <u-tag
               :type="statusTagType(item.status)"
-              size="small"
+              size="mini"
             >
               {{ statusLabel(item.status) }}
-            </van-tag>
+            </u-tag>
           </template>
-        </van-cell>
-      </van-cell-group>
+        </u-cell>
+      </u-cell-group>
     </view>
   </view>
 </template>
@@ -72,16 +71,11 @@ import { request } from '../../utils/request'
 export default {
   data() {
     return {
-      activeTab: 'all',
+      activeTabIndex: 0,
       loading: false,
       errorMsg: '',
       list: [],
-      statusMap: {
-        all: '',
-        pending: 'pending',
-        dispatched: 'dispatched',
-        completed: 'completed',
-      },
+      statusMap: ['', 'pending', 'dispatched', 'completed'],
     }
   },
   onLoad() {
@@ -101,7 +95,7 @@ export default {
 
       try {
         var params = {}
-        var statusVal = this.statusMap[this.activeTab]
+        var statusVal = this.statusMap[this.activeTabIndex]
         if (statusVal) params.status = statusVal
 
         var res = await request({
@@ -118,8 +112,8 @@ export default {
         this.loading = false
       }
     },
-    onTabChange(e) {
-      this.activeTab = e.detail.name
+    onTabChange(index) {
+      this.activeTabIndex = index
       this.fetchList(true)
     },
     goBack() {
@@ -171,7 +165,7 @@ export default {
 <style scoped>
 .dispatches-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -180,6 +174,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .state-view {
@@ -192,7 +194,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -203,21 +205,33 @@ export default {
   padding: 12px 0 24px;
 }
 
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.cell-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 .cell-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .meta-date {
   font-size: 12px;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
 }
 </style>

@@ -1,48 +1,44 @@
 <template>
   <view class="page-container">
     <!-- Nav -->
-    <van-nav-bar
+    <u-nav-bar
       title="行业报告"
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Search -->
-    <van-sticky>
-      <van-search
+    <u-sticky>
+      <u-search
         v-model="searchText"
         placeholder="搜索报告"
-        shape="round"
         @search="onSearch"
       />
-    </van-sticky>
+    </u-sticky>
 
     <!-- Type tabs -->
-    <van-tabs
-      :active="activeType"
+    <u-tabs
+      :active="tabIndex"
+      :titles="tabTitles"
       @change="onTabChange"
-    >
-      <van-tab
-        v-for="tab in typeTabs"
-        :key="tab.value"
-        :title="tab.label"
-        :name="tab.value"
-      />
-    </van-tabs>
+    />
 
     <!-- Loading state -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无报告" />
+      <u-empty description="暂无报告" />
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty image="network" description="加载失败" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
@@ -50,35 +46,39 @@
 
     <!-- Normal state -->
     <view v-else class="list-body">
-      <van-cell-group inset>
-        <van-cell
+      <u-cell-group inset>
+        <u-cell
           v-for="item in list"
           :key="item.id"
-          :title="item.title"
-          :title-width="'100%'"
         >
-          <template #icon>
-            <text class="report-icon">📄</text>
-          </template>
-          <template #label>
-            <view class="cell-meta">
-              <van-tag :type="typeTagType(item.report_type || item.type)" size="small">
-                {{ typeLabel(item.report_type || item.type) }}
-              </van-tag>
-              <text v-if="item.publish_date" class="meta-text">{{ item.publish_date }}</text>
+          <template #title>
+            <view class="cell-content">
+              <view class="cell-title-row">
+                <text class="report-icon">文</text>
+                <text class="cell-title">{{ item.title }}</text>
+              </view>
+              <view class="cell-meta">
+                <u-tag :type="typeTagType(item.report_type || item.type)" size="mini">
+                  {{ typeLabel(item.report_type || item.type) }}
+                </u-tag>
+                <text v-if="item.publish_date" class="meta-text">{{ item.publish_date }}</text>
+              </view>
             </view>
           </template>
-          <template #default>
-            <view class="cell-action" @tap.stop="downloadReport(item)">
-              <van-icon name="down" size="18" color="#0A66C2" />
+          <template #value>
+            <view class="cell-action" @click.stop="downloadReport(item)">
+              <text class="download-icon">↓</text>
             </view>
           </template>
-        </van-cell>
-      </van-cell-group>
+        </u-cell>
+      </u-cell-group>
 
       <!-- Load more -->
       <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="20rpx" />
+          <text>加载更多...</text>
+        </view>
         <text v-else-if="!hasMore" class="no-more">没有更多了</text>
       </view>
     </view>
@@ -107,6 +107,15 @@ export default {
         { label: '年度报告', value: '年度报告' },
       ],
     }
+  },
+  computed: {
+    tabTitles() {
+      return this.typeTabs.map(function (t) { return t.label })
+    },
+    tabIndex() {
+      var idx = this.typeTabs.findIndex(function (t) { return t.value === this.activeType }.bind(this))
+      return idx >= 0 ? idx : 0
+    },
   },
   onLoad() {
     this.fetchList(true)
@@ -164,9 +173,9 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
-    onTabChange(e) {
-      var name = e.detail ? e.detail.name : e
-      this.activeType = name
+    onTabChange(index) {
+      var tab = this.typeTabs[index]
+      this.activeType = tab ? tab.value : ''
       this.fetchList(true)
     },
 
@@ -231,7 +240,7 @@ export default {
 <style scoped>
 .page-container {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 40px;
 }
 
@@ -239,6 +248,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .empty-state-wrapper {
@@ -255,7 +272,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -265,11 +282,38 @@ export default {
   padding: 12px 0 24px;
 }
 
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.cell-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .report-icon {
-  font-size: 24px;
-  margin-right: 8px;
-  align-self: flex-start;
-  margin-top: 12px;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+.cell-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cell-meta {
@@ -277,12 +321,11 @@ export default {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
 
 .meta-text {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .cell-action {
@@ -291,13 +334,25 @@ export default {
   padding: 4px;
 }
 
+.download-icon {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .load-more {
   text-align: center;
   padding: 16px 0;
 }
 
 .no-more {
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
   font-size: 13px;
 }
 </style>

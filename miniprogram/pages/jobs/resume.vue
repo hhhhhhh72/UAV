@@ -1,22 +1,23 @@
 <template>
   <view class="resume-page">
     <!-- Nav -->
-    <van-nav-bar
+    <u-nav-bar
       title="我的简历"
-      left-arrow
-      fixed
-      placeholder
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading state -->
     <view v-if="loading" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="28rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && !resumeLoaded" class="error-state">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchResume">
         <text>重新加载</text>
       </view>
@@ -24,7 +25,7 @@
 
     <!-- Empty / Not logged in -->
     <view v-else-if="!isAuth" class="empty-state-wrapper">
-      <van-empty image="user-o" description="请先登录" />
+      <u-empty description="请先登录" />
     </view>
 
     <!-- Normal state -->
@@ -32,133 +33,134 @@
       <view class="section-title-wrapper">
         <text class="section-title">基本信息</text>
       </view>
-      <van-cell-group inset>
-        <van-field
+      <u-cell-group inset>
+        <u-field
           v-model="form.name"
           label="姓名"
           placeholder="请输入姓名"
-          required
-          :border="true"
         />
-        <van-field
+        <u-field
           v-model="form.phone"
           label="手机号"
           type="number"
           placeholder="请输入手机号"
-          required
-          :border="true"
         />
-        <van-field
+        <u-field
           v-model="form.email"
           label="邮箱"
           placeholder="请输入邮箱"
-          :border="true"
         />
-        <van-field
-          :model-value="educationLabel(form.education)"
-          label="学历"
-          placeholder="请选择学历"
-          readonly
-          is-link
-          :border="true"
-          @click="showEducationPicker"
-        />
-      </van-cell-group>
+        <view class="field-row" @tap="showEducationPicker">
+          <u-field
+            :model-value="educationLabel(form.education)"
+            label="学历"
+            placeholder="请选择学历"
+            disabled
+          />
+          <text class="field-arrow">›</text>
+        </view>
+      </u-cell-group>
 
       <view class="section-title-wrapper">
         <text class="section-title">工作经历</text>
       </view>
-      <van-cell-group inset>
-        <van-field
+      <u-cell-group inset>
+        <u-field
           v-model="form.work_experience"
           label="工作经历"
           type="textarea"
           placeholder="请描述您的工作经历"
-          rows="4"
-          autosize
-          :border="true"
+          auto-height
         />
-      </van-cell-group>
+      </u-cell-group>
 
       <view class="section-title-wrapper">
         <text class="section-title">技能标签</text>
       </view>
-      <van-cell-group inset>
+      <u-cell-group inset>
         <view class="skills-cell">
           <view class="skills-tags">
-            <van-tag
+            <view
               v-for="(skill, idx) in form.skills"
               :key="idx"
-              type="primary"
-              size="medium"
-              closeable
-              @close="removeSkill(idx)"
+              class="skill-tag-wrap"
+              @tap="removeSkill(idx)"
             >
-              {{ skill }}
-            </van-tag>
+              <u-tag type="primary">{{ skill }}</u-tag>
+              <text class="skill-tag-close">×</text>
+            </view>
           </view>
           <view class="skill-input-row">
             <view class="skill-input">
-              <van-field
+              <u-field
                 v-model="skillInput"
                 placeholder="输入技能名称"
-                :border="false"
-                custom-style="background: #f7f8fa; border-radius: 8px; padding: 4px 12px;"
               />
             </view>
-            <van-button
+            <u-button
               type="primary"
               size="small"
-              round
-              @tap="addSkill"
+              @click="addSkill"
             >
               添加
-            </van-button>
+            </u-button>
           </view>
         </view>
-      </van-cell-group>
+      </u-cell-group>
 
       <view class="section-title-wrapper">
         <text class="section-title">证书上传</text>
       </view>
-      <van-cell-group inset>
+      <u-cell-group inset>
         <view class="cert-cell">
           <view v-if="certImageUrl" class="cert-preview" @tap="previewCert">
             <image :src="certImageUrl" mode="aspectFill" class="cert-img" />
             <view class="cert-remove" @tap.stop="removeCert">
-              <van-icon name="clear" size="18" color="#ee0a24" />
+              <u-icon name="close" size="18" color="var(--color-danger)" />
             </view>
           </view>
           <view v-else class="cert-btn" @tap="chooseCert">
-            <van-icon name="photograph" size="28" color="#969799" />
+            <u-icon name="plus" size="28" color="#969799" />
             <text class="cert-hint">上传证书</text>
           </view>
         </view>
-      </van-cell-group>
+      </u-cell-group>
 
       <!-- Submit -->
       <view class="submit-area">
-        <van-button
+        <u-button
           type="primary"
           block
-          round
           :loading="saving"
-          @tap="handleSave"
+          @click="handleSave"
         >
           保存简历
-        </van-button>
+        </u-button>
       </view>
     </template>
 
     <!-- Education picker -->
-    <van-action-sheet
+    <u-popup
       :show="educationPickerShow"
-      :actions="educationOptions"
-      cancel-text="取消"
-      @select="onEducationSelect"
+      position="bottom"
+      round
       @close="educationPickerShow = false"
-      @cancel="educationPickerShow = false"
-    />
+    >
+      <view class="sheet">
+        <view class="sheet-title">选择学历</view>
+        <view
+          v-for="opt in educationOptions"
+          :key="opt.value"
+          class="sheet-item"
+          :class="{ on: form.education === opt.value }"
+          @tap="onEducationSelect(opt)"
+        >
+          <text class="sheet-name">{{ opt.name }}</text>
+          <text v-if="form.education === opt.value" class="sheet-check">✓</text>
+        </view>
+        <view class="sheet-cancel" @tap="educationPickerShow = false">取消</view>
+      </view>
+    </u-popup>
   </view>
 </template>
 
@@ -229,8 +231,8 @@ export default {
     showEducationPicker() {
       this.educationPickerShow = true
     },
-    onEducationSelect(e) {
-      this.form.education = e.detail.value
+    onEducationSelect(opt) {
+      this.form.education = opt.value
       this.educationPickerShow = false
     },
     educationLabel(value) {
@@ -358,7 +360,7 @@ export default {
 <style scoped>
 .resume-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 80px;
 }
 
@@ -366,6 +368,35 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* 只读选择字段 */
+.field-row {
+  position: relative;
+  padding: 8px 0;
+}
+
+.field-row .u-field {
+  padding-right: 56rpx;
+}
+
+.field-arrow {
+  position: absolute;
+  right: 24rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 34rpx;
+  color: var(--color-text-placeholder);
+  line-height: 1;
 }
 
 .error-state {
@@ -378,7 +409,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -395,7 +426,7 @@ export default {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #323233;
+  color: var(--color-text);
 }
 
 /* Skills */
@@ -408,6 +439,19 @@ export default {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.skill-tag-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.skill-tag-close {
+  font-size: 24rpx;
+  color: var(--color-text-placeholder);
+  padding: 4rpx;
+  margin-right: 4rpx;
 }
 
 .skill-input-row {
@@ -428,7 +472,7 @@ export default {
 .cert-btn {
   width: 80px;
   height: 80px;
-  border: 1px dashed #c8c9cc;
+  border: 1px dashed var(--color-text-placeholder);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -439,7 +483,7 @@ export default {
 
 .cert-hint {
   font-size: 12px;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .cert-preview {
@@ -467,5 +511,51 @@ export default {
 /* Submit */
 .submit-area {
   padding: 24px 16px;
+}
+
+/* 学历选择弹层 */
+.sheet {
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sheet-title {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 16px 0 8px;
+}
+
+.sheet-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 24px;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.sheet-item.on {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.sheet-name {
+  color: inherit;
+}
+
+.sheet-check {
+  font-size: 14px;
+}
+
+.sheet-cancel {
+  text-align: center;
+  padding: 14px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  border-top: 1px solid var(--color-divider);
 }
 </style>

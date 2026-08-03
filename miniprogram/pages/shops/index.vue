@@ -14,10 +14,10 @@
     <view class="search-row">
       <text class="search-cat">店铺 ▼</text>
       <input class="search-input" placeholder="搜店铺" />
-      <text class="search-icon">🔍</text>
+      <u-icon name="search" size="28rpx" color="#999999" />
     </view>
 
-    <!-- 分类��标 -->
+    <!-- 分类图标 -->
     <view class="cat-row">
       <view v-for="c in cats" :key="c.id" class="cat-item" @tap="pickCat(c.id)">
         <view class="cat-icon">{{ c.icon }}</view>
@@ -60,20 +60,20 @@
             <text class="shop-badge">官方</text>
           </view>
           <view class="shop-row2">
-            <text class="shop-hours">🕒 9:00-20:00</text>
+            <text class="shop-hours">营业 9:00-20:00</text>
           </view>
           <view class="shop-tags">
             <text class="tag">无人机生产</text>
             <text class="tag">无人机销售</text>
             <text class="tag">无人机吊运</text>
           </view>
-          <text class="shop-addr">📍 {{ s.district || s.description || '郑州市中原区亿达科技城三期' }}</text>
+          <view class="shop-addr"><u-icon name="location" size="24rpx" color="#969799" /><text>{{ s.district || s.description || '郑州市中原区亿达科技城三期' }}</text></view>
           <view class="shop-row3">
-            <text class="shop-bat">🔋 充电20分,续航40分</text>
+            <text class="shop-bat">充电20分,续航40分</text>
           </view>
         </view>
         <view class="shop-right">
-          <view class="shop-call" @tap.stop="callShop">📞</view>
+          <view class="shop-call" @tap.stop="callShop">电</view>
           <text class="shop-views">{{ s.views || 6274 }}浏览</text>
         </view>
       </view>
@@ -95,11 +95,11 @@ const banners = ref([
 ])
 
 const cats = ref([
-  { id:'train', name:'培训机构', icon:'🚁' },
-  { id:'sale', name:'无人机销售', icon:'🛒' },
-  { id:'app', name:'无人机应用', icon:'⚙️' },
-  { id:'parts', name:'无人机配件', icon:'🔧' },
-  { id:'repair', name:'无人机维修', icon:'🛠' },
+  { id:'train', name:'培训机构', icon:'培' },
+  { id:'sale', name:'无人机销售', icon:'销' },
+  { id:'app', name:'无人机应用', icon:'用' },
+  { id:'parts', name:'无人机配件', icon:'配' },
+  { id:'repair', name:'无人机维修', icon:'修' },
 ])
 const activeTab = ref('rec')
 const shops = ref([])
@@ -118,7 +118,7 @@ const callShop = () => uni.showToast({ title:'拨号开发中', icon:'none' })
 </script>
 
 <style scoped>
-.page { min-height:100vh; background:#f2f5f7; padding-bottom:80px; }
+.page { min-height:100vh; background:var(--color-bg); padding-bottom:80px; }
 
 /* Banner */
 .banner { height:180px; }
@@ -129,17 +129,16 @@ const callShop = () => uni.showToast({ title:'拨号开发中', icon:'none' })
 .search-row { display:flex; align-items:center; margin:12px 12px; padding:10px 14px; background:#fff; border-radius:8px; border:1px solid #e8e8e8; }
 .search-cat { font-size:13px; color:#666; padding-right:8px; border-right:1px solid #eee; }
 .search-input { flex:1; padding:0 8px; font-size:14px; }
-.search-icon { font-size:14px; color:#999; }
 
 /* Cats */
 .cat-row { display:grid; grid-template-columns:repeat(5,1fr); margin:14px 0; background:#fff; padding:14px 12px; }
 .cat-item { display:flex; flex-direction:column; align-items:center; gap:4px; }
-.cat-icon { width:40px; height:40px; border-radius:50%; background:#e8f2fc; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.cat-icon { width:40px; height:40px; border-radius:50%; background:var(--color-primary-light); display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--color-primary); font-weight:600; }
 .cat-name { font-size:11px; color:#333; }
 
 /* News */
 .news-bar { display:flex; align-items:center; gap:8px; background:#fff; padding:8px 12px; margin-bottom:4px; }
-.news-tag { font-size:11px; padding:2px 6px; background:#fff3e0; color:#ff6b35; border-radius:3px; font-weight:600; }
+.news-tag { font-size:11px; padding:2px 6px; background:#fff3e0; color:var(--color-warning); border-radius:3px; font-weight:600; }
 .news-text { font-size:13px; color:#1a1a1a; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* Tabs */
@@ -147,8 +146,8 @@ const callShop = () => uni.showToast({ title:'拨号开发中', icon:'none' })
 .tab-item { text-align:center; padding:6px; }
 .t1 { font-size:14px; font-weight:600; color:#666; display:block; }
 .t2 { font-size:10px; color:#999; display:block; margin-top:2px; }
-.tab-item.on .t1 { color:#0A66C2; }
-.tab-item.on .t2 { color:#0A66C2; }
+.tab-item.on .t1 { color:var(--color-primary); }
+.tab-item.on .t2 { color:var(--color-primary); }
 
 /* Shop cards */
 .shop-list { padding:8px 12px; }
@@ -157,17 +156,17 @@ const callShop = () => uni.showToast({ title:'拨号开发中', icon:'none' })
 .shop-body { flex:1; min-width:0; }
 .shop-row1 { display:flex; align-items:center; gap:6px; margin-bottom:3px; }
 .shop-name { font-size:14px; font-weight:600; color:#1a1a1a; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.shop-badge { font-size:10px; padding:1px 5px; background:#fff8e1; color:#f57c00; border-radius:3px; }
-.shop-row2 { font-size:11px; color:#ff9500; margin:2px 0; }
+.shop-badge { font-size:10px; padding:1px 5px; background:#fff8e1; color:var(--color-warning); border-radius:3px; }
+.shop-row2 { font-size:11px; color:var(--color-warning); margin:2px 0; }
 .shop-tags { display:flex; flex-wrap:wrap; gap:3px; margin:3px 0; }
-.tag { font-size:10px; padding:1px 5px; background:#fff3e0; color:#ff6b35; border-radius:3px; }
-.shop-addr { font-size:11px; color:#666; display:block; margin:3px 0; line-height:1.3; }
-.shop-row3 { font-size:11px; color:#0A66C2; }
+.tag { font-size:10px; padding:1px 5px; background:#fff3e0; color:var(--color-warning); border-radius:3px; }
+.shop-addr { font-size:11px; color:#666; display:flex; align-items:center; gap:4rpx; margin:3px 0; line-height:1.3; }
+.shop-row3 { font-size:11px; color:var(--color-primary); }
 .shop-right { display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:6px; }
-.shop-call { width:36px; height:36px; border-radius:50%; background:#ff6b35; color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; }
+.shop-call { width:36px; height:36px; border-radius:50%; background:var(--color-warning); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; }
 .shop-views { font-size:10px; color:#999; }
 .empty { text-align:center; padding:40px; color:#999; font-size:13px; }
 
 /* Join CTA */
-.join-cta { position:fixed; right:12px; bottom:80px; width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,#ff6b35,#ff3b30); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; box-shadow:0 4px 12px rgba(255,107,53,.4); z-index:50; }
+.join-cta { position:fixed; right:12px; bottom:80px; width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,var(--color-warning),var(--color-danger)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; box-shadow:0 4px 12px rgba(255,107,53,.4); z-index:50; }
 </style>

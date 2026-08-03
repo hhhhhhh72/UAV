@@ -149,7 +149,7 @@ go test ./internal/...  # 全部 PASS
 
 | 项目 | 位置 | 技术栈 | 规模 |
 |------|------|--------|------|
-| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + Vant Weapp | 68 页，5 Tab |
+| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + 自研 u- 组件库 | 68 页，5 Tab |
 | Web 管理后台 | `frontend/` | Vue 3 + Element Plus + ECharts | Admin SPA（35 后台路由 + 8 聚合页） |
 
 **小程序设计规范**:
@@ -197,7 +197,7 @@ cd frontend && npm run dev   # → :5173
 | 架构 + 分层 + 中间件 | [docs/系统架构/架构总览.md](docs/系统架构/架构总览.md) |
 | 7大业务系统详情 | [docs/业务系统/](docs/业务系统/) |
 | 全部 API 契约 | [docs/接口文档/API契约.md](docs/接口文档/API契约.md) |
-| 66 张表结构 | [docs/数据设计/数据模型.md](docs/数据设计/数据模型.md) |
+| 80 张表结构 | [docs/数据设计/数据模型.md](docs/数据设计/数据模型.md) |
 | 编码规范 | [docs/开发规范/编码规范.md](docs/开发规范/编码规范.md) |
 | Docker + CI | [docs/运维部署/Docker部署.md](docs/运维部署/Docker部署.md) |
 | 开发计划 | [docs/项目管理/开发计划.md](docs/项目管理/开发计划.md) |

@@ -1,7 +1,7 @@
 <template>
   <view class="resource-page">
     <view class="hero-card">
-      <view class="hero-icon"><van-icon name="cluster-o" size="34" color="#ffffff" /></view>
+      <view class="hero-icon"><text class="hero-icon-text">资</text></view>
       <text class="hero-kicker">INDUSTRY ASSETS</text>
       <text class="hero-title">产业资源台账</text>
       <text class="hero-desc">集中查看无人机、机场、试飞场地与测试基地</text>
@@ -18,11 +18,9 @@
     </view>
 
     <view class="search-card">
-      <van-search
+      <u-search
         v-model="searchText"
         placeholder="搜索资源名称、型号或位置"
-        shape="round"
-        background="transparent"
       />
     </view>
 
@@ -41,22 +39,25 @@
     </scroll-view>
 
     <view v-if="loading && !list.length" class="state-panel">
-      <van-loading size="26" color="#2f6cf6">正在加载产业资源</van-loading>
+      <view class="loading-inline">
+        <u-loading size="26rpx" color="#0A66C2" />
+        <text>正在加载产业资源</text>
+      </view>
     </view>
 
     <view v-else-if="errorMsg && !list.length" class="state-panel">
-      <van-empty image="error" description="产业资源加载失败" />
+      <u-empty description="产业资源加载失败" />
       <button class="retry-btn" @tap="fetchList(true)">重新加载</button>
     </view>
 
     <view v-else-if="!displayList.length" class="state-panel compact">
-      <van-empty image="search" description="暂无匹配的产业资源" />
+      <u-empty description="暂无匹配的产业资源" />
     </view>
 
     <view v-else class="resource-list">
       <view v-for="item in displayList" :key="item.id" class="resource-card" @tap="goDetail(item)">
         <view class="resource-icon">
-          <van-icon :name="resourceIcon(item.res_type)" size="27" color="#2f6cf6" />
+          <text class="resource-icon-text">{{ resourceIcon(item.res_type) }}</text>
         </view>
         <view class="resource-main">
           <view class="title-row">
@@ -67,16 +68,19 @@
           <view class="meta-row">
             <text class="price">{{ formatPrice(item.price_fen) }}</text>
             <text class="location text-ellipsis">
-              <van-icon name="location-o" size="13" color="#8493a9" />
+              <u-icon name="location" size="26rpx" color="var(--color-text-secondary)" />
               {{ item.location || '位置待确认' }}
             </text>
           </view>
         </view>
-        <van-icon name="arrow" size="16" color="#8fa0b8" />
+        <text class="card-arrow">›</text>
       </view>
 
       <view class="load-more">
-        <van-loading v-if="loadingMore" size="20" color="#2f6cf6">加载更多</van-loading>
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="20rpx" color="#0A66C2" />
+          <text>加载更多</text>
+        </view>
         <text v-else-if="!hasMore" class="no-more">已加载全部资源</text>
       </view>
     </view>
@@ -175,8 +179,8 @@ export default {
       return item ? item.label : '产业资源'
     },
     resourceIcon(type) {
-      var map = { drone: 'guide-o', airport: 'wap-home-o', test_site: 'location-o', test_base: 'setting-o' }
-      return map[type] || 'apps-o'
+      var map = { drone: '机', airport: '场', test_site: '地', test_base: '基' }
+      return map[type] || '源'
     },
     formatPrice(value) {
       var amount = Number(value || 0) / 100
@@ -201,7 +205,7 @@ export default {
   color: #ffffff;
   background: #071225;
   border-radius: var(--radius-lg);
-  box-shadow: inset -180rpx -100rpx 140rpx rgba(47, 108, 246, 0.4), var(--shadow-lg);
+  box-shadow: inset -180rpx -100rpx 140rpx rgba(10, 102, 194, 0.4), var(--shadow-lg);
 }
 
 .hero-icon {
@@ -216,6 +220,12 @@ export default {
   border: 2rpx solid rgba(255, 255, 255, 0.34);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
+}
+
+.hero-icon-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #ffffff;
 }
 
 .hero-kicker,
@@ -287,7 +297,7 @@ export default {
 .filter-item {
   flex-shrink: 0;
   padding: 14rpx 28rpx;
-  color: #667792;
+  color: var(--color-text-secondary);
   font-size: var(--font-sm);
   background: #e9edf3;
   border-radius: var(--radius-round);
@@ -296,7 +306,7 @@ export default {
 .filter-item.active {
   color: #ffffff;
   font-weight: 600;
-  background: #2f6cf6;
+  background: var(--color-primary);
 }
 
 .state-panel {
@@ -318,7 +328,7 @@ export default {
   color: #ffffff;
   font-size: var(--font-sm);
   line-height: 76rpx;
-  background: #2f6cf6;
+  background: var(--color-primary);
   border-radius: var(--radius-round);
 }
 
@@ -352,8 +362,14 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #eaf1ff;
+  background: var(--color-primary-light);
   border-radius: var(--radius-md);
+}
+
+.resource-icon-text {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--color-primary);
 }
 
 .resource-main {
@@ -370,7 +386,7 @@ export default {
 
 .resource-name {
   max-width: 70%;
-  color: #142039;
+  color: var(--color-text);
   font-size: var(--font-lg);
   font-weight: 700;
 }
@@ -378,16 +394,16 @@ export default {
 .type-tag {
   flex-shrink: 0;
   padding: 4rpx 10rpx;
-  color: #335894;
+  color: var(--color-primary);
   font-size: var(--font-xs);
-  background: #eaf1ff;
+  background: var(--color-primary-light);
   border-radius: var(--radius-sm);
 }
 
 .resource-model {
   display: block;
   margin-top: 8rpx;
-  color: #7b8ba4;
+  color: var(--color-text-secondary);
   font-size: var(--font-sm);
 }
 
@@ -398,15 +414,28 @@ export default {
 
 .price {
   flex-shrink: 0;
-  color: #2f6cf6;
+  color: var(--color-primary);
   font-size: var(--font-sm);
   font-weight: 700;
 }
 
 .location {
   min-width: 0;
-  color: #8493a9;
+  color: var(--color-text-secondary);
   font-size: var(--font-xs);
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+}
+
+.card-arrow {
+  font-size: 18px;
+  color: var(--color-text-placeholder);
 }
 
 .load-more {
@@ -417,7 +446,7 @@ export default {
 }
 
 .no-more {
-  color: #a2adbd;
+  color: var(--color-text-placeholder);
   font-size: var(--font-xs);
 }
 </style>

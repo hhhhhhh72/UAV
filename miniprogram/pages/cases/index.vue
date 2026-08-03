@@ -52,11 +52,11 @@
           <view class="case-desc">{{ caseItem.description }}</view>
           <view class="case-meta">
             <view class="meta-item">
-              <text class="meta-icon">🕒</text>
+              <text class="meta-icon">时间</text>
               <text>{{ caseItem.date }}</text>
             </view>
             <view class="meta-item">
-              <text class="meta-icon">👁️</text>
+              <text class="meta-icon">看</text>
               <text>{{ caseItem.views }}</text>
             </view>
           </view>
@@ -72,7 +72,7 @@
       </view>
 
       <view v-if="!loadingMore && cases.length === 0" class="empty-state">
-        <view class="empty-icon">🔍</view>
+        <view class="empty-icon"><u-icon name="search" size="96rpx" color="#d5d7db" /></view>
         <view class="empty-text">暂无相关案例</view>
       </view>
     </view>

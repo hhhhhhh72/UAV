@@ -160,7 +160,7 @@ if (saved) phone.value = saved
 }
 
 .nav-bar { height: 96rpx; display: flex; align-items: center; }
-.back-btn { font-size: 44rpx; color: #1a1a1a; }
+.back-btn { font-size: 44rpx; color: var(--color-text); }
 
 /* ---- 品牌 ---- */
 .brand {
@@ -174,16 +174,16 @@ if (saved) phone.value = saved
   flex-shrink: 0;
 }
 .brand-mark-text { font-size: 36rpx; font-weight: 700; color: #ffffff; }
-.brand-name { font-size: 26rpx; font-weight: 500; color: #8E8E93; }
+.brand-name { font-size: 26rpx; font-weight: 500; color: var(--color-text-secondary); }
 
 /* ---- 欢迎语 ---- */
 .welcome { margin-bottom: 40rpx; }
 .welcome-title {
   display: block; font-size: 56rpx; font-weight: 700;
-  color: #1a1a1a; letter-spacing: -1rpx;
+  color: var(--color-text); letter-spacing: -1rpx;
 }
 .welcome-sub {
-  display: block; font-size: 28rpx; color: #8E8E93;
+  display: block; font-size: 28rpx; color: var(--color-text-secondary);
   margin-top: 8rpx;
 }
 
@@ -192,7 +192,7 @@ if (saved) phone.value = saved
 .field { margin-bottom: 24rpx; }
 .field-label {
   display: block; font-size: 26rpx; font-weight: 600;
-  color: #1a1a1a; margin-bottom: 12rpx;
+  color: var(--color-text); margin-bottom: 12rpx;
 }
 .input-box {
   display: flex; align-items: center;
@@ -200,8 +200,8 @@ if (saved) phone.value = saved
   background: #fafafa; border-radius: 24rpx;
   border: 2rpx solid transparent; transition: border-color 0.2s;
 }
-.input-box:focus-within { border-color: #0A66C2; background: #ffffff; }
-.input { flex: 1; font-size: 30rpx; color: #1a1a1a; background: transparent; }
+.input-box:focus-within { border-color: var(--color-primary); background: #ffffff; }
+.input { flex: 1; font-size: 30rpx; color: var(--color-text); background: transparent; }
 
 /* 密码切换 */
 .pwd-toggle {
@@ -209,16 +209,16 @@ if (saved) phone.value = saved
   display: flex; align-items: center; justify-content: center;
 }
 .icon-eye {
-  width: 36rpx; height: 28rpx; border: 3rpx solid #8E8E93; border-radius: 50%;
+  width: 36rpx; height: 28rpx; border: 3rpx solid var(--color-text-secondary); border-radius: 50%;
   position: relative;
 }
 .icon-eye::after {
   content: ''; position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: 10rpx; height: 10rpx; background: #8E8E93; border-radius: 50%;
+  width: 10rpx; height: 10rpx; background: var(--color-text-secondary); border-radius: 50%;
 }
 .icon-eye-off {
-  width: 36rpx; height: 3rpx; background: #8E8E93; transform: rotate(-45deg);
+  width: 36rpx; height: 3rpx; background: var(--color-text-secondary); transform: rotate(-45deg);
 }
 
 /* 记住我 + 忘记密码 */
@@ -231,15 +231,15 @@ if (saved) phone.value = saved
   width: 36rpx; height: 36rpx; border-radius: 8rpx; border: 3rpx solid #ddd;
   display: flex; align-items: center; justify-content: center;
 }
-.checkbox.checked { background: #0A66C2; border-color: #0A66C2; }
+.checkbox.checked { background: var(--color-primary); border-color: var(--color-primary); }
 .check-mark { font-size: 24rpx; color: #ffffff; }
-.remember-text { font-size: 26rpx; color: #1a1a1a; font-weight: 500; }
-.forgot { font-size: 26rpx; color: #0A66C2; font-weight: 600; }
+.remember-text { font-size: 26rpx; color: var(--color-text); font-weight: 500; }
+.forgot { font-size: 26rpx; color: var(--color-primary); font-weight: 600; }
 
 /* 登录按钮 */
 .submit-btn {
   height: 100rpx; border-radius: 50rpx;
-  background: linear-gradient(135deg, #0A66C2, #1677D4);
+  background: linear-gradient(135deg, var(--color-primary), #1677D4);
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 8rpx 32rpx rgba(10, 102, 194, 0.25);
 }
@@ -254,14 +254,14 @@ if (saved) phone.value = saved
   display: flex; align-items: center; gap: 20rpx;
   margin: 48rpx 0 36rpx;
 }
-.divider-line { flex: 1; height: 1rpx; background: #EBEDF0; }
-.divider-text { font-size: 24rpx; color: #8E8E93; font-weight: 500; }
+.divider-line { flex: 1; height: 1rpx; background: var(--color-divider); }
+.divider-text { font-size: 24rpx; color: var(--color-text-secondary); font-weight: 500; }
 
 /* 微信登录 */
 .wechat-btn {
   display: flex; align-items: center; justify-content: center; gap: 16rpx;
-  height: 96rpx; background: #ffffff; border: 2rpx solid #EBEDF0;
-  border-radius: 50rpx; font-size: 28rpx; font-weight: 600; color: #1a1a1a;
+  height: 96rpx; background: #ffffff; border: 2rpx solid var(--color-divider);
+  border-radius: 50rpx; font-size: 28rpx; font-weight: 600; color: var(--color-text);
 }
 .wechat-btn::after { border: none; }
 .wechat-icon-wrap {
@@ -275,6 +275,6 @@ if (saved) phone.value = saved
   display: flex; justify-content: center; align-items: center; gap: 10rpx;
   padding: 40rpx 0 calc(40rpx + env(safe-area-inset-bottom));
 }
-.bottom-text { font-size: 28rpx; color: #8E8E93; }
-.bottom-link { font-size: 28rpx; color: #0A66C2; font-weight: 700; }
+.bottom-text { font-size: 28rpx; color: var(--color-text-secondary); }
+.bottom-link { font-size: 28rpx; color: var(--color-primary); font-weight: 700; }
 </style>
