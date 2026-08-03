@@ -98,7 +98,7 @@
 
         <view class="popup-field">
           <text class="popup-label">预约日期 <text class="required">*</text></text>
-          <picker mode="date" :value="bookingForm.date" @change="onDateConfirm">
+          <picker mode="date" :value="bookingForm.date" :start="todayStr" @change="onDateConfirm">
             <view class="date-picker-wrapper">
               <text :class="{ placeholder: !bookingForm.date }">
                 {{ bookingForm.date || '请选择日期' }}
@@ -156,6 +156,11 @@ export default {
       detail: null,
       bookingPopupVisible: false,
       bookingSubmitting: false,
+      // 预约日期可选择的最小日期（今天），限制不可预约过去日期
+      todayStr: (function () {
+        var d = new Date()
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+      })(),
       bookingForm: {
         date: '',
         purpose: '',
