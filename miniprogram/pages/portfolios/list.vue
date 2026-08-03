@@ -1,35 +1,37 @@
 <template>
   <view class="page-container">
     <!-- Nav -->
-    <van-nav-bar
+    <u-nav-bar
       title="品牌展示"
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Search -->
-    <van-sticky>
-      <van-search
+    <u-sticky>
+      <u-search
         v-model="searchText"
         placeholder="搜索品牌"
-        shape="round"
         @search="onSearch"
       />
-    </van-sticky>
+    </u-sticky>
 
     <!-- Loading state -->
     <view v-if="loading && list.length === 0" class="loading-state">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Empty state -->
     <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <van-empty image="search" description="暂无品牌展示" />
+      <u-empty description="暂无品牌展示" />
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <van-empty image="network" description="加载失败" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
@@ -37,47 +39,46 @@
 
     <!-- Normal state: brand grid -->
     <view v-else class="list-body">
-      <van-grid :column-num="2" gutter="12">
-        <van-grid-item
+      <view class="brand-grid">
+        <view
           v-for="item in list"
           :key="item.id"
-          :text="item.name || item.company_name || ''"
+          class="brand-item"
           @tap="goDetail(item)"
         >
-          <view class="grid-item-inner">
-            <van-image
-              :src="item.logo || item.image || ''"
-              width="60"
-              height="60"
-              fit="cover"
-              round
-              class="grid-logo"
-            />
-            <text class="grid-name">{{ item.name || item.company_name || '' }}</text>
-            <van-tag
-              v-if="item.industry"
-              :type="industryTagType(item.industry)"
-              size="small"
-              class="grid-tag"
-            >
-              {{ item.industry }}
-            </van-tag>
-          </view>
-        </van-grid-item>
-      </van-grid>
+          <image
+            v-if="item.logo || item.image"
+            :src="item.logo || item.image"
+            mode="aspectFill"
+            class="grid-logo"
+          />
+          <view v-else class="grid-logo grid-logo--placeholder"><text>牌</text></view>
+          <text class="grid-name">{{ item.name || item.company_name || '' }}</text>
+          <u-tag
+            v-if="item.industry"
+            :type="industryTagType(item.industry)"
+            size="mini"
+            class="grid-tag"
+          >
+            {{ item.industry }}
+          </u-tag>
+        </view>
+      </view>
 
       <!-- Load more -->
       <view v-if="list.length > 0" class="load-more">
-        <van-loading v-if="loadingMore" size="20">加载更多...</van-loading>
-        <van-button
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="20rpx" />
+          <text>加载更多...</text>
+        </view>
+        <u-button
           v-else-if="hasMore"
           type="default"
           size="small"
-          plain
-          @tap="loadMore"
+          @click="loadMore"
         >
           加载更多
-        </van-button>
+        </u-button>
         <text v-else class="no-more">没有更多了</text>
       </view>
     </view>
@@ -180,7 +181,7 @@ export default {
 <style scoped>
 .page-container {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -188,6 +189,14 @@ export default {
   display: flex;
   justify-content: center;
   padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
 }
 
 .empty-state-wrapper {
@@ -204,7 +213,7 @@ export default {
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -214,23 +223,49 @@ export default {
   padding: 12px 0 24px;
 }
 
-.grid-item-inner {
+/* Brand grid (van-grid → CSS 两列) */
+.brand-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 0 12px;
+}
+
+.brand-item {
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  padding: 20px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.brand-item:active {
+  transform: translateY(2rpx);
 }
 
 .grid-logo {
+  width: 120rpx;
+  height: 120rpx;
   border-radius: 50%;
-  background: #f7f8fa;
+  background: var(--color-bg);
+  flex-shrink: 0;
+}
+
+.grid-logo--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: var(--color-primary);
 }
 
 .grid-name {
   font-size: 14px;
   font-weight: 500;
-  color: #323233;
+  color: var(--color-text);
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -248,7 +283,7 @@ export default {
 }
 
 .no-more {
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
   font-size: 13px;
 }
 </style>
