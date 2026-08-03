@@ -889,19 +889,19 @@ const goAbout = () => {
 
 .avatar-edit {
   position: absolute;
-  right: -6rpx;
-  bottom: -6rpx;
+  right: 0;
+  bottom: 0;
   width: 44rpx;
   height: 44rpx;
-  border-radius: 22rpx;
-  background: var(--color-primary);
-  border: 3rpx solid #fff;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2rpx solid #fff;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .avatar-edit-icon {
-  font-size: 22rpx;
+  font-size: 20rpx;
   color: #fff;
   line-height: 1;
 }
