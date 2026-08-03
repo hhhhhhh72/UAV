@@ -25,6 +25,7 @@ const routes = [
       { path: 'config', component: () => import('@/views/admin/config/ServiceConfigList.vue') },
       { path: 'reviews', component: () => import('@/views/admin/reviews/ReviewList.vue') },
       { path: 'orders', component: () => import('@/views/admin/orders/OrderList.vue') },
+      { path: 'products', component: () => import('@/views/admin/products/ProductList.vue') },
       { path: 'enterprises', component: () => import('@/views/admin/enterprises/EnterpriseList.vue') },
       { path: 'demands', component: () => import('@/views/admin/demands/DemandList.vue') },
       // --- Sprint 0: 20 new modules ---

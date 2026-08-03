@@ -1164,6 +1164,30 @@ func (r *prodRepo) FindByID(id string) (domain.DroneProduct, error) {
 	return domain.DroneProduct{}, fmt.Errorf("product %s not found", id)
 }
 
+func (r *prodRepo) Update(p domain.DroneProduct) (domain.DroneProduct, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == p.ID {
+			r.items[i] = p
+			return p, nil
+		}
+	}
+	return domain.DroneProduct{}, fmt.Errorf("product %s not found", p.ID)
+}
+
+func (r *prodRepo) Delete(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("product %s not found", id)
+}
+
 func (r *prodRepo) List(prodType string) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

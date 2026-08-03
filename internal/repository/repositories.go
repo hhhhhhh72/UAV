@@ -211,6 +211,8 @@ type ProductRepository interface {
 	Create(domain.DroneProduct) (domain.DroneProduct, error)
 	FindByID(id string) (domain.DroneProduct, error)
 	List(prodType string) ([]domain.DroneProduct, error)
+	Update(p domain.DroneProduct) (domain.DroneProduct, error)
+	Delete(id string) error
 }
 
 // RepairRepository manages repair orders.

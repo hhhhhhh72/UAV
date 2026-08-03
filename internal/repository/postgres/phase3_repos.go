@@ -259,6 +259,22 @@ func (r *prodRepo) FindByID(id string) (domain.DroneProduct, error) {
 	return p, nil
 }
 
+func (r *prodRepo) Update(p domain.DroneProduct) (domain.DroneProduct, error) {
+	p.UpdatedAt = time.Now()
+	images, err := json.Marshal(p.Images)
+	if err != nil { return domain.DroneProduct{}, fmt.Errorf("marshal product images: %w", err) }
+	_, err = r.pool.Exec(context.Background(),
+		`UPDATE drone_products SET seller_id=$1,seller_name=$2,prod_type=$3,title=$4,description=$5,price_fen=$6,images=$7,brand=$8,model=$9,condition=$10,status=$11,version=version+1,updated_at=$12 WHERE id=$13`,
+		p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, images, p.Brand, p.Model, p.Condition, p.Status, p.UpdatedAt, p.ID)
+	return p, err
+}
+
+func (r *prodRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM drone_products WHERE id=$1`, id)
+	if err != nil { return fmt.Errorf("delete product %s: %w", id, err) }
+	return nil
+}
+
 func (r *prodRepo) List(prodType string) ([]domain.DroneProduct, error) {
 	var rows pgx.Rows; var err error
 	if prodType == "" {

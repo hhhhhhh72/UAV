@@ -138,6 +138,13 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/admin/orders/{id}", s.updateOrder)
 	mux.HandleFunc("DELETE /api/v1/admin/orders/{id}", s.deleteOrder)
 
+	// === 商品管理 === (商城上架)
+	mux.HandleFunc("GET /api/v1/admin/products", s.listAdminProducts)
+	mux.HandleFunc("GET /api/v1/admin/products/{id}", s.getProductDetail)
+	mux.HandleFunc("POST /api/v1/admin/products", s.adminCreateProduct)
+	mux.HandleFunc("PUT /api/v1/admin/products/{id}", s.adminUpdateProduct)
+	mux.HandleFunc("DELETE /api/v1/admin/products/{id}", s.adminDeleteProduct)
+
 	// === 案例管理 === (fill gap)
 	mux.HandleFunc("GET /api/v1/admin/cases", s.listAdminCaseEntries)
 

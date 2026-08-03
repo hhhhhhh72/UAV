@@ -33,6 +33,16 @@ func (s *TradingService) GetProduct(id string) (domain.DroneProduct, error) {
 	return s.prodRepo.FindByID(id)
 }
 
+// UpdateProduct 更新商品（管理后台用）
+func (s *TradingService) UpdateProduct(p domain.DroneProduct) (domain.DroneProduct, error) {
+	return s.prodRepo.Update(p)
+}
+
+// DeleteProduct 删除商品（管理后台用）
+func (s *TradingService) DeleteProduct(id string) error {
+	return s.prodRepo.Delete(id)
+}
+
 func (s *TradingService) CreateRepair(a domain.Actor, productDesc, faultDesc string) (domain.RepairOrder, error) {
 	now := time.Now()
 	r := domain.RepairOrder{ID: fmt.Sprintf("repair-%d", now.UnixNano()), CustomerID: a.ID,
