@@ -39,13 +39,10 @@
         <text class="spec-label">型号</text><text class="spec-val">{{ product.model }}</text>
       </view>
       <view class="spec-item">
-        <text class="spec-label">成色</text><text class="spec-val">{{ product.condition || '商家发布' }}</text>
+        <text class="spec-label">成色</text><text class="spec-val">{{ product.condition === 'used' ? '二手' : (product.condition === 'new' ? '全新' : '商家发布') }}</text>
       </view>
       <view class="spec-item">
-        <text class="spec-label">库存</text><text class="spec-val">{{ product.stock || 1 }}件</text>
-      </view>
-      <view class="spec-item">
-        <text class="spec-label">浏览</text><text class="spec-val">{{ product.views || 23 }}次</text>
+        <text class="spec-label">类型</text><text class="spec-val">{{ typeLabel(product.prod_type) }}</text>
       </view>
       <view class="spec-item" v-if="product.seller_name">
         <text class="spec-label">卖家</text><text class="spec-val">{{ product.seller_name }}</text>
@@ -58,7 +55,7 @@
     <view class="shop-ava">{{ product.seller_name[0] }}</view>
     <view class="shop-info">
       <text class="shop-name">{{ product.seller_name }}</text>
-      <text class="shop-status">已认证 · 在线</text>
+      <text class="shop-status">平台商家</text>
     </view>
     <text class="shop-btn">联系卖家</text>
   </view>
@@ -97,20 +94,18 @@ const priceInt = computed(() => Math.floor((product.value.price_fen||0) / 100))
 const priceDec = computed(() => String((product.value.price_fen||0) % 100).padStart(2,'0'))
 const tagClass = computed(() => {
   const c = product.value.condition || ''
-  if (c.includes('官方')) return 'tag-green'
-  if (c.includes('95')) return 'tag-orange'
-  if (c.includes('98')) return 'tag-red'
+  if (c === 'new') return 'tag-green'
+  if (c === 'used') return 'tag-orange'
   return 'tag-gray'
 })
+const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务' }[t] || '商品')
 
 onLoad((opts) => {
   if (!opts.id) return;
   (async () => {
     try {
-      const res = await request({ url: '/api/v1/home' })
-      const list = (res.data || res).products || []
-      const p = list.find(x => x.id === opts.id)
-      if (p) {
+      const p = await request({ url: '/api/v1/products/' + encodeURIComponent(opts.id) })
+      if (p && p.id) {
         product.value = p
         try { images.value = typeof p.images === 'string' ? JSON.parse(p.images) : (p.images || []) } catch { images.value = [] }
       }

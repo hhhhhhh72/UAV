@@ -246,6 +246,19 @@ func (r *prodRepo) Create(p domain.DroneProduct) (domain.DroneProduct, error) {
 		p.ID, p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, images, p.Brand, p.Model, p.Condition, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
 	return p, err
 }
+func (r *prodRepo) FindByID(id string) (domain.DroneProduct, error) {
+	var p domain.DroneProduct; var pt string; var imgs []byte
+	err := r.pool.QueryRow(context.Background(),
+		`SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,status,version,created_at,updated_at FROM drone_products WHERE id=$1`, id).
+		Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+	if err != nil {
+		return domain.DroneProduct{}, fmt.Errorf("product %s not found: %w", id, err)
+	}
+	p.ProdType = domain.ProductType(pt)
+	json.Unmarshal(imgs, &p.Images)
+	return p, nil
+}
+
 func (r *prodRepo) List(prodType string) ([]domain.DroneProduct, error) {
 	var rows pgx.Rows; var err error
 	if prodType == "" {

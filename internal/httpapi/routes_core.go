@@ -156,6 +156,7 @@ func (s *Server) registerTrainingRoutes(mux *http.ServeMux) {
 func (s *Server) registerTradingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/products", s.createProduct)
 	mux.HandleFunc("GET /api/v1/products", s.listProducts)
+	mux.HandleFunc("GET /api/v1/products/{id}", s.getProductDetail)
 	mux.HandleFunc("POST /api/v1/repairs", s.createRepair)
 	mux.HandleFunc("GET /api/v1/repairs/mine", s.listMyRepairs)
 }

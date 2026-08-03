@@ -30,6 +30,16 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, products)
 }
 
+// GET /api/v1/products/{id} — 商品详情（公开）
+func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
+	p, err := s.tradingSvc.GetProduct(r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	respond(w, r, http.StatusOK, p)
+}
+
 func (s *Server) createRepair(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }

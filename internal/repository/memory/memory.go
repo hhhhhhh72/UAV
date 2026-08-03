@@ -1153,6 +1153,17 @@ func (r *prodRepo) Create(p domain.DroneProduct) (domain.DroneProduct, error) {
 	r.items = append(r.items, p)
 	return p, nil
 }
+func (r *prodRepo) FindByID(id string) (domain.DroneProduct, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, p := range r.items {
+		if p.ID == id {
+			return p, nil
+		}
+	}
+	return domain.DroneProduct{}, fmt.Errorf("product %s not found", id)
+}
+
 func (r *prodRepo) List(prodType string) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

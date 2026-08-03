@@ -29,6 +29,10 @@ func (s *TradingService) ListProducts(prodType string) ([]domain.DroneProduct, e
 	return s.prodRepo.List(prodType)
 }
 
+func (s *TradingService) GetProduct(id string) (domain.DroneProduct, error) {
+	return s.prodRepo.FindByID(id)
+}
+
 func (s *TradingService) CreateRepair(a domain.Actor, productDesc, faultDesc string) (domain.RepairOrder, error) {
 	now := time.Now()
 	r := domain.RepairOrder{ID: fmt.Sprintf("repair-%d", now.UnixNano()), CustomerID: a.ID,

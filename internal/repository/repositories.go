@@ -209,6 +209,7 @@ type PilotRepository interface {
 // ProductRepository manages drone product listings.
 type ProductRepository interface {
 	Create(domain.DroneProduct) (domain.DroneProduct, error)
+	FindByID(id string) (domain.DroneProduct, error)
 	List(prodType string) ([]domain.DroneProduct, error)
 }
 
