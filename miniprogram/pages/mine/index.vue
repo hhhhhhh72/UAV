@@ -15,7 +15,7 @@
               <image
                 v-if="user && user.avatar"
                 class="avatar"
-                :src="user.avatar"
+                :src="avatarSrc(user.avatar)"
                 mode="aspectFill"
               />
               <view v-else class="avatar avatar-placeholder">
@@ -283,6 +283,12 @@ onShow(() => {
 
 // ── 导航 ──
 const goLogin = () => uni.navigateTo({ url: '/pages/login/index' })
+
+// 头像 URL：相对路径（/uploads/...）拼上后端地址，完整 URL 原样使用
+const avatarSrc = (u) => {
+  if (!u) return ''
+  return u.startsWith('http') ? u : BASE_URL + u
+}
 
 // 更换头像：选图 → 上传 → 保存 avatar_url → 更新本地
 const changeAvatar = () => {
