@@ -26,8 +26,8 @@
 
   <!-- 位置 + 点赞 -->
   <view class="loc-bar">
-    <text>📍 两江新区金山街道加工区八路</text>
-    <view class="like-btn" @tap="toggleLike">👍 {{ likes }}</view>
+    <view class="loc-text"><u-icon name="location" size="28rpx" color="var(--color-primary)" /><text>两江新区金山街道加工区八路</text></view>
+    <view class="like-btn" @tap="toggleLike">赞 {{ likes }}</view>
   </view>
 
   <!-- 安全提示 -->
@@ -60,10 +60,10 @@
 
   <!-- 悬浮按钮 -->
   <view class="float-bar">
-    <view class="float-kefu">💬 客服</view>
+    <view class="float-kefu">客服</view>
     <view class="float-row">
-      <view class="float-btn1" @tap="callPhone">📞 电话</view>
-      <view class="float-btn2" @tap="goHelp">💬 互帮互助</view>
+      <view class="float-btn1" @tap="callPhone">电话</view>
+      <view class="float-btn2" @tap="goHelp">互帮互助</view>
     </view>
   </view>
 </view>
@@ -100,54 +100,55 @@ const goHelp = () => uni.showToast({ title:'互帮互助开发中', icon:'none' 
 </script>
 
 <style scoped>
-.page { min-height:100vh; background:#f5f6f7; padding-bottom: 100px; }
+.page { min-height:100vh; background:var(--color-bg); padding-bottom: 100px; }
 
 /* 帖子卡片 */
 .post-card { background:#fff; padding:14px 16px 10px; }
 .post-head { display:flex; justify-content:space-between; align-items:flex-start; }
-.post-title { font-size:16px; font-weight:700; color:#1a1a1a; flex:1; line-height:1.4; padding-right:8px; }
-.post-poster { font-size:12px; color:#0A66C2; padding:4px 8px; border:1px solid #0A66C2; border-radius:4px; flex-shrink:0; }
+.post-title { font-size:16px; font-weight:700; color:var(--color-text); flex:1; line-height:1.4; padding-right:8px; }
+.post-poster { font-size:12px; color:var(--color-primary); padding:4px 8px; border:1px solid var(--color-primary); border-radius:4px; flex-shrink:0; }
 .post-meta { font-size:12px; color:#999; margin:6px 0 4px; }
 .post-stats { font-size:12px; color:#999; margin-bottom:8px; }
 .post-fields { background:#fff8e1; border-radius:6px; padding:8px 10px; margin:8px 0 10px; }
 .field-row { font-size:13px; color:#333; display:block; line-height:1.7; }
-.field-key { color:#f57c00; font-weight:600; }
+.field-key { color:var(--color-warning); font-weight:600; }
 .post-body { font-size:14px; color:#333; line-height:1.7; display:block; margin:10px 0 12px; }
 .post-imgs { display:flex; flex-direction:column; gap:8px; }
 .post-img-big { width:100%; height:200px; border-radius:6px; background:#f5f5f5; }
 
 /* 位置 */
-.loc-bar { background:#fff; padding:10px 16px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#0A66C2; }
+.loc-bar { background:#fff; padding:10px 16px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--color-primary); }
+.loc-text { display:flex; align-items:center; gap:6rpx; }
 .like-btn { font-size:13px; color:#666; padding:2px 8px; background:#f5f5f5; border-radius:4px; }
 
 /* 安全提示 */
 .safe-tip { background:#fff8e1; padding:10px 16px; border-top:1px solid #ffe082; border-bottom:1px solid #ffe082; }
-.safe-title { font-size:13px; color:#f57c00; font-weight:600; display:block; }
+.safe-title { font-size:13px; color:var(--color-warning); font-weight:600; display:block; }
 .safe-sub { font-size:11px; color:#999; display:block; margin-top:3px; }
 
 /* 评论区 */
 .comment-bar { background:#fff; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
-.comment-title { font-size:15px; font-weight:600; color:#1a1a1a; }
-.comment-btn { font-size:13px; color:#0A66C2; padding:3px 10px; border:1px solid #0A66C2; border-radius:12px; }
+.comment-title { font-size:15px; font-weight:600; color:var(--color-text); }
+.comment-btn { font-size:13px; color:var(--color-primary); padding:3px 10px; border:1px solid var(--color-primary); border-radius:12px; }
 .comment-empty { background:#fff; padding:30px 0; text-align:center; color:#999; font-size:13px; }
 
 /* 相关帖子 */
 .related-item { display:flex; align-items:center; gap:10px; background:#fff; padding:12px 16px; margin-top:8px; }
-.related-logo { width:32px; height:32px; border-radius:6px; background:linear-gradient(135deg,#0A66C2,#0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0; }
+.related-logo { width:32px; height:32px; border-radius:6px; background:linear-gradient(135deg,var(--color-primary),#0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0; }
 .related-body { flex:1; }
-.related-title { font-size:13px; font-weight:500; color:#1a1a1a; display:block; }
+.related-title { font-size:13px; font-weight:500; color:var(--color-text); display:block; }
 .related-sub { font-size:11px; color:#999; margin-top:2px; }
 .related-arrow { font-size:18px; color:#ccc; }
 
 /* 分类导航 */
 .cat-bar { display:flex; background:#fff; padding:10px 16px; border-top:1px solid #f0f0f0; margin-top:8px; gap:14px; white-space:nowrap; overflow-x:auto; }
 .cat-tag { font-size:13px; color:#666; padding:2px 0; }
-.cat-tag.on { color:#0A66C2; font-weight:600; border-bottom:2px solid #0A66C2; }
+.cat-tag.on { color:var(--color-primary); font-weight:600; border-bottom:2px solid var(--color-primary); }
 
 /* 悬浮 */
 .float-bar { position:fixed; bottom:0; left:0; right:0; display:flex; align-items:center; gap:8px; padding:8px 12px; background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7)); backdrop-filter:blur(8px); }
-.float-kefu { position:fixed; right:8px; bottom:80px; width:46px; height:46px; border-radius:50%; background:#0A66C2; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; box-shadow:0 2px 8px rgba(10,102,194,.25); }
+.float-kefu { position:fixed; right:8px; bottom:80px; width:46px; height:46px; border-radius:50%; background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; box-shadow:0 2px 8px rgba(10,102,194,.25); }
 .float-row { display:flex; gap:8px; flex:1; }
-.float-btn1 { flex:1; height:40px; border-radius:20px; background:linear-gradient(135deg,#4fc3f7,#0A66C2); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
-.float-btn2 { flex:1; height:40px; border-radius:20px; background:linear-gradient(135deg,#4fc3f7,#0A66C2); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
+.float-btn1 { flex:1; height:40px; border-radius:20px; background:linear-gradient(135deg,#4fc3f7,var(--color-primary)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
+.float-btn2 { flex:1; height:40px; border-radius:20px; background:linear-gradient(135deg,#4fc3f7,var(--color-primary)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
 </style>

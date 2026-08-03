@@ -27,7 +27,7 @@
               <text class="user-name">{{ user?.name || '点击登录' }}</text>
               <view v-if="user" class="user-meta">
                 <view class="cert-pill">
-                  <text class="cert-pill-icon">✈</text>
+                  <text class="cert-pill-icon">飞</text>
                   <text class="cert-pill-text">飞手</text>
                 </view>
                 <text v-if="userRoleLabel" class="role-text">· {{ userRoleLabel }}</text>
@@ -47,13 +47,13 @@
             </view>
             <view class="hdr-icon-btn" @tap="goMessages">
               <view class="hdr-icon-circle">
-                <text class="hdr-icon-glyph">🔔</text>
+                <text class="hdr-icon-glyph">信</text>
                 <view v-if="unreadCount > 0" class="hdr-dot"></view>
               </view>
             </view>
             <view class="hdr-icon-btn" @tap="goSettings">
               <view class="hdr-icon-circle">
-                <text class="hdr-icon-glyph">⚙</text>
+                <text class="hdr-icon-glyph">设</text>
               </view>
             </view>
           </view>
@@ -89,7 +89,7 @@
       <view class="card promo-card" @tap="goPilotPromotion">
         <view class="promo-inner">
           <view class="promo-icon">
-            <text class="promo-icon-text">🛩</text>
+            <text class="promo-icon-text">推</text>
           </view>
           <view class="promo-content">
             <text class="promo-title">飞手推广</text>
@@ -123,19 +123,19 @@
           </view>
           <view class="grid-cell" @tap="goMyContracts">
             <view class="grid-icon-wrap grid-icon-delivery">
-              <text class="grid-icon-text">📦</text>
+              <text class="grid-icon-text">同</text>
             </view>
             <text class="grid-label">我的合同</text>
           </view>
           <view class="grid-cell" @tap="goMyPublish">
             <view class="grid-icon-wrap grid-icon-bind">
-              <text class="grid-icon-text">👥</text>
+              <text class="grid-icon-text">发</text>
             </view>
             <text class="grid-label">我的发布</text>
           </view>
           <view class="grid-cell" @tap="goAddress">
             <view class="grid-icon-wrap grid-icon-address">
-              <text class="grid-icon-text">📍</text>
+              <text class="grid-icon-text">址</text>
             </view>
             <text class="grid-label">地址管理</text>
           </view>
@@ -151,13 +151,13 @@
         <view class="grid-row">
           <view class="grid-cell" @tap="goAuth">
             <view class="grid-icon-wrap grid-icon-auth">
-              <text class="grid-icon-text">👤</text>
+              <text class="grid-icon-text">证</text>
             </view>
             <text class="grid-label">实名认证</text>
           </view>
           <view class="grid-cell" @tap="goPilotCert">
             <view class="grid-icon-wrap grid-icon-pilot">
-              <text class="grid-icon-text">🪪</text>
+              <text class="grid-icon-text">飞</text>
             </view>
             <text class="grid-label">飞手认证</text>
           </view>
@@ -169,7 +169,7 @@
           </view>
           <view class="grid-cell" @tap="goMyResume">
             <view class="grid-icon-wrap grid-icon-send">
-              <text class="grid-icon-text">📤</text>
+              <text class="grid-icon-text">简</text>
             </view>
             <text class="grid-label">我的发布</text>
           </view>
@@ -178,25 +178,25 @@
         <view class="grid-row grid-row-secondary">
           <view class="grid-cell" @tap="goMyPoints">
             <view class="grid-icon-wrap grid-icon-points">
-              <text class="grid-icon-text">★</text>
+              <text class="grid-icon-text">分</text>
             </view>
             <text class="grid-label">我的积分</text>
           </view>
           <view class="grid-cell" @tap="goDeviceBinding">
             <view class="grid-icon-wrap grid-icon-device">
-              <text class="grid-icon-text">📡</text>
+              <text class="grid-icon-text">绑</text>
             </view>
             <text class="grid-label">设备绑定</text>
           </view>
           <view class="grid-cell" @tap="goOfficialService">
             <view class="grid-icon-wrap grid-icon-service">
-              <text class="grid-icon-text">🎧</text>
+              <text class="grid-icon-text">服</text>
             </view>
             <text class="grid-label">官方客服</text>
           </view>
           <view class="grid-cell" @tap="goAbout">
             <view class="grid-icon-wrap grid-icon-about">
-              <text class="grid-icon-text">ℹ</text>
+              <text class="grid-icon-text">介</text>
             </view>
             <text class="grid-label">公司简介</text>
           </view>
@@ -229,12 +229,12 @@ const roleLabels = {
 
 // 我的订单 6 状态：参考图 5 项 + 待评价
 const orderTabs = [
-  { key: 'pending_payment', icon: '💳', iconClass: 'icon-pay',    label: '待付款' },
-  { key: 'pending_ship',    icon: '📦', iconClass: 'icon-send',   label: '待发货' },
-  { key: 'pending_receipt', icon: '🚚', iconClass: 'icon-truck',  label: '待收货' },
-  { key: 'pending_review',  icon: '★',  iconClass: 'icon-review', label: '待评价' },
-  { key: 'completed',       icon: '✓',  iconClass: 'icon-done',   label: '已完成' },
-  { key: 'refund',          icon: '¥',  iconClass: 'icon-refund', label: '退款/售后' }
+  { key: 'pending_payment', icon: '付', iconClass: 'icon-pay',    label: '待付款' },
+  { key: 'pending_ship',    icon: '发', iconClass: 'icon-send',   label: '待发货' },
+  { key: 'pending_receipt', icon: '收', iconClass: 'icon-truck',  label: '待收货' },
+  { key: 'pending_review',  icon: '评', iconClass: 'icon-review', label: '待评价' },
+  { key: 'completed',       icon: '完', iconClass: 'icon-done',   label: '已完成' },
+  { key: 'refund',          icon: '退', iconClass: 'icon-refund', label: '退款/售后' }
 ]
 
 const fetchData = async () => {
@@ -440,7 +440,7 @@ const goAbout = () => {
   width: 120rpx;
   height: 120rpx;
   border-radius: 60rpx;
-  background: #2ed47a;
+  background: var(--color-success);
   border: 4rpx solid #fff;
   box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.12);
   overflow: hidden;
@@ -489,14 +489,14 @@ const goAbout = () => {
   align-items: center;
   gap: 6rpx;
   padding: 4rpx 14rpx;
-  background: rgba(46, 212, 122, 0.18);
-  border: 1rpx solid rgba(46, 212, 122, 0.4);
+  background: rgba(52, 199, 89, 0.18);
+  border: 1rpx solid rgba(52, 199, 89, 0.4);
   border-radius: 20rpx;
 }
 
 .cert-pill-icon {
   font-size: 18rpx;
-  color: #2ed47a;
+  color: var(--color-success);
   font-weight: 700;
 }
 
@@ -562,7 +562,7 @@ const goAbout = () => {
   right: 14rpx;
   width: 16rpx;
   height: 16rpx;
-  background: #ff3b30;
+  background: var(--color-danger);
   border-radius: 8rpx;
   border: 2rpx solid #fff;
 }
@@ -590,7 +590,7 @@ const goAbout = () => {
 .card-title {
   font-size: 30rpx;
   font-weight: 700;
-  color: #1a1f36;
+  color: var(--color-text);
   letter-spacing: 0.5rpx;
 }
 
@@ -602,12 +602,12 @@ const goAbout = () => {
 
 .more-text {
   font-size: 24rpx;
-  color: #969799;
+  color: var(--color-text-secondary);
 }
 
 .more-arrow {
   font-size: 26rpx;
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
 }
 
 /* ===== 我的订单 5 状态栏 ===== */
@@ -640,11 +640,11 @@ const goAbout = () => {
   line-height: 1;
 }
 
-.icon-pay    { color: #4a90e2; }
+.icon-pay    { color: var(--color-primary); }
 .icon-send   { color: #5a6b85; }
 .icon-truck  { color: #6b7a99; }
-.icon-review { color: #ff9500; }
-.icon-done   { color: #2ed47a; }
+.icon-review { color: var(--color-warning); }
+.icon-done   { color: var(--color-success); }
 .icon-refund { color: #5a6b85; }
 
 .order-label {
@@ -691,7 +691,7 @@ const goAbout = () => {
 .promo-title {
   font-size: 30rpx;
   font-weight: 700;
-  color: #1a1f36;
+  color: var(--color-text);
 }
 
 .promo-desc {
@@ -709,7 +709,7 @@ const goAbout = () => {
 }
 
 .promo-highlight {
-  color: #ff7a33;
+  color: var(--color-warning);
   font-weight: 500;
 }
 
@@ -724,7 +724,7 @@ const goAbout = () => {
   align-items: center;
   gap: 2rpx;
   padding: 12rpx 24rpx;
-  background: linear-gradient(135deg, #ff7a33, #ff5a1f);
+  background: linear-gradient(135deg, var(--color-warning), var(--color-danger));
   border-radius: 40rpx;
   box-shadow: 0 6rpx 16rpx rgba(255, 90, 31, 0.28);
 }
@@ -770,18 +770,18 @@ const goAbout = () => {
   position: relative;
 }
 
-.grid-icon-coupon    { background: linear-gradient(135deg, #ffb84d, #ff8a1f); }
-.grid-icon-delivery  { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
-.grid-icon-bind      { background: linear-gradient(135deg, #ff5a1f, #e63e00); }
-.grid-icon-address   { background: linear-gradient(135deg, #ff7a33, #ff5a1f); }
-.grid-icon-auth      { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
-.grid-icon-pilot     { background: linear-gradient(135deg, #ff5a1f, #e63e00); }
-.grid-icon-enterprise{ background: linear-gradient(135deg, #ff7a33, #ff5a1f); }
-.grid-icon-send      { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
-.grid-icon-points    { background: linear-gradient(135deg, #ff5a1f, #e63e00); }
-.grid-icon-device    { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
-.grid-icon-service   { background: linear-gradient(135deg, #ff7a33, #ff5a1f); }
-.grid-icon-about     { background: linear-gradient(135deg, #ff8a3d, #ff5a1f); }
+.grid-icon-coupon,
+.grid-icon-delivery,
+.grid-icon-bind,
+.grid-icon-address,
+.grid-icon-auth,
+.grid-icon-pilot,
+.grid-icon-enterprise,
+.grid-icon-send,
+.grid-icon-points,
+.grid-icon-device,
+.grid-icon-service,
+.grid-icon-about { background: linear-gradient(135deg, var(--color-warning), var(--color-danger)); }
 
 .grid-icon-text {
   font-size: 36rpx;
