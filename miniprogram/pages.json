@@ -396,7 +396,7 @@
     {
       "path": "pages/mall/index",
       "style": {
-        "navigationBarTitleText": "配件商城"
+        "navigationBarTitleText": "商城"
       }
     },
     {
