@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { showFailToast } from '@/utils/feedback'
-import axios, { authStorage } from '@/utils/http'
+import axios from '@/utils/http'
 
 const routes = [
   {
