@@ -1,21 +1,22 @@
 <template>
   <view class="resource-detail-page">
-    <van-nav-bar
+    <u-nav-bar
       title="资源详情"
-      fixed
-      placeholder
-      left-arrow
-      @click-left="goBack"
+      show-back
+      @back="goBack"
     />
 
     <!-- Loading state -->
     <view v-if="loading" class="state-view">
-      <van-loading size="24">加载中...</van-loading>
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
+      </view>
     </view>
 
     <!-- Error state -->
     <view v-else-if="errorMsg" class="state-view">
-      <van-empty description="加载失败" image="error" />
+      <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchDetail">
         <text>重新加载</text>
       </view>
@@ -23,20 +24,18 @@
 
     <!-- Empty state -->
     <view v-else-if="!detail" class="state-view">
-      <van-empty description="资源不存在" image="search" />
+      <u-empty description="资源不存在" />
     </view>
 
     <!-- Normal state -->
     <template v-else>
       <!-- Hero image -->
       <view class="hero-section">
-        <van-image
+        <image
           v-if="detail.photo_url"
           :src="detail.photo_url"
-          width="100%"
-          height="220"
-          fit="cover"
-          round="0"
+          mode="aspectFill"
+          class="hero-img"
         />
         <view v-else class="hero-placeholder">
           <text class="placeholder-emoji">{{ resourceEmoji(detail.res_type) }}</text>
@@ -44,25 +43,25 @@
       </view>
 
       <!-- Info cards -->
-      <van-cell-group inset>
-        <van-cell title="资源名称" :value="detail.name || '--'" />
-        <van-cell v-if="detail.model" title="型号" :value="detail.model" />
-        <van-cell v-if="detail.location" title="所在地">
+      <u-cell-group inset>
+        <u-cell title="资源名称" :value="detail.name || '--'" />
+        <u-cell v-if="detail.model" title="型号" :value="detail.model" />
+        <u-cell v-if="detail.location" title="所在地">
           <template #value>
             <view class="cell-with-icon">
-              <van-icon name="location-o" size="14" color="#0A66C2" />
+              <u-icon name="location" size="26rpx" color="var(--color-primary)" />
               <text>{{ detail.location }}</text>
             </view>
           </template>
-        </van-cell>
-        <van-cell title="日租费用">
+        </u-cell>
+        <u-cell title="日租费用">
           <template #value>
             <text class="fee-text">¥{{ detail.daily_fee || 0 }}/天</text>
           </template>
-        </van-cell>
-        <van-cell v-if="detail.contact" title="联系方式" :value="detail.contact" />
-        <van-cell v-if="detail.booking_method" title="预约方式" :value="detail.booking_method" />
-      </van-cell-group>
+        </u-cell>
+        <u-cell v-if="detail.contact" title="联系方式" :value="detail.contact" />
+        <u-cell v-if="detail.booking_method" title="预约方式" :value="detail.booking_method" />
+      </u-cell-group>
 
       <!-- Description -->
       <view v-if="detail.description" class="desc-card">
@@ -76,87 +75,72 @@
 
     <!-- Fixed bottom button -->
     <view v-if="detail" class="action-bar">
-      <van-button
+      <u-button
         type="primary"
         block
         round
-        @tap="showBookingPopup"
+        @click="showBookingPopup"
       >
         立即预约
-      </van-button>
+      </u-button>
     </view>
 
     <!-- Booking popup -->
-    <van-popup
+    <u-popup
       :show="bookingPopupVisible"
       position="bottom"
       round
-      closeable
+      show-close
       @close="bookingPopupVisible = false"
-      custom-style="padding: 24px 16px 32px; max-height: 80vh; overflow-y: auto;"
     >
-      <view class="popup-title">预约资源</view>
+      <view class="popup-body">
+        <view class="popup-title">预约资源</view>
 
-      <view class="popup-field">
-        <text class="popup-label">预约日期 <text class="required">*</text></text>
-        <view class="date-picker-wrapper" @tap="showDatePicker = true">
-          <text :class="{ placeholder: !bookingForm.date }">
-            {{ bookingForm.date || '请选择日期' }}
-          </text>
-          <van-icon name="arrow" size="12" color="#969799" />
+        <view class="popup-field">
+          <text class="popup-label">预约日期 <text class="required">*</text></text>
+          <picker mode="date" :value="bookingForm.date" @change="onDateConfirm">
+            <view class="date-picker-wrapper">
+              <text :class="{ placeholder: !bookingForm.date }">
+                {{ bookingForm.date || '请选择日期' }}
+              </text>
+              <text class="field-arrow">›</text>
+            </view>
+          </picker>
+        </view>
+
+        <u-field
+          v-model="bookingForm.purpose"
+          label="用途说明"
+          placeholder="请填写用途说明"
+        />
+
+        <u-field
+          v-model="bookingForm.contact_name"
+          label="联系人"
+          placeholder="请填写联系人姓名"
+        />
+
+        <u-field
+          v-model="bookingForm.contact_phone"
+          label="联系电话"
+          type="number"
+          placeholder="请填写11位手机号"
+        />
+
+        <view class="popup-actions">
+          <u-button type="default" round class="action-btn" @click="bookingPopupVisible = false">取消</u-button>
+          <u-button
+            type="primary"
+            round
+            class="action-btn"
+            :loading="bookingSubmitting"
+            @click="submitBooking"
+          >
+            确认预约
+          </u-button>
         </view>
       </view>
-
-      <van-field
-        v-model="bookingForm.purpose"
-        label="用途说明"
-        placeholder="请填写用途说明"
-        :border="true"
-      />
-
-      <van-field
-        v-model="bookingForm.contact_name"
-        label="联系人"
-        placeholder="请填写联系人姓名"
-        :border="true"
-      />
-
-      <van-field
-        v-model="bookingForm.contact_phone"
-        label="联系电话"
-        type="number"
-        placeholder="请填写11位手机号"
-        :border="true"
-        maxlength="11"
-      />
-
-      <view class="popup-actions">
-        <van-button type="default" round @tap="bookingPopupVisible = false">取消</van-button>
-        <van-button
-          type="primary"
-          round
-          :loading="bookingSubmitting"
-          @tap="submitBooking"
-        >
-          确认预约
-        </van-button>
-      </view>
-    </van-popup>
-
-    <!-- Date picker popup (van-datetime-picker cannot be used directly in uni-app, use native picker) -->
-    <van-popup
-      :show="showDatePicker"
-      position="bottom"
-      round
-      @close="showDatePicker = false"
-    >
-      <van-datetime-picker
-        type="date"
-        :min-date="minDate"
-        @confirm="onDateConfirm"
-        @cancel="showDatePicker = false"
-      />
-    </van-popup>
+    </u-popup>
   </view>
 </template>
 
@@ -172,8 +156,6 @@ export default {
       detail: null,
       bookingPopupVisible: false,
       bookingSubmitting: false,
-      showDatePicker: false,
-      minDate: Date.now(),
       bookingForm: {
         date: '',
         purpose: '',
@@ -224,12 +206,8 @@ export default {
       this.bookingPopupVisible = true
     },
     onDateConfirm(e) {
-      var timestamp = e.detail
-      var d = new Date(timestamp)
-      var m = d.getMonth() + 1
-      var day = d.getDate()
-      this.bookingForm.date = d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day
-      this.showDatePicker = false
+      // 原生 picker mode=date 直接返回 YYYY-MM-DD 字符串
+      this.bookingForm.date = e.detail.value
     },
     async submitBooking() {
       // Validation
@@ -276,12 +254,12 @@ export default {
     },
     resourceEmoji(type) {
       var map = {
-        drone: '🚁',
-        airport: '🏪',
-        test_site: '🏞',
-        test_base: '🏗',
+        drone: '机',
+        airport: '场',
+        test_site: '地',
+        test_base: '基',
       }
-      return map[type] || '📋'
+      return map[type] || '源'
     },
   },
 }
@@ -290,7 +268,7 @@ export default {
 <style scoped>
 .resource-detail-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-bg);
   padding-bottom: 80px;
 }
 
@@ -302,10 +280,18 @@ export default {
   padding-top: 120px;
 }
 
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: #0A66C2;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 20px;
   font-size: 14px;
@@ -316,16 +302,24 @@ export default {
   margin-bottom: 12px;
 }
 
+.hero-img {
+  width: 100%;
+  height: 440rpx;
+  display: block;
+}
+
 .hero-placeholder {
-  height: 220px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  height: 440rpx;
+  background: linear-gradient(135deg, var(--color-primary), #1565c0);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .placeholder-emoji {
-  font-size: 64px;
+  font-size: 80rpx;
+  font-weight: 600;
+  color: #ffffff;
 }
 
 /* Info */
@@ -336,7 +330,7 @@ export default {
 }
 
 .fee-text {
-  color: #ee0a24;
+  color: var(--color-danger);
   font-weight: 600;
 }
 
@@ -344,7 +338,7 @@ export default {
 .desc-card {
   margin: 12px;
   padding: 16px;
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
@@ -352,14 +346,14 @@ export default {
 .desc-label {
   font-size: 14px;
   font-weight: 600;
-  color: #323233;
+  color: var(--color-text);
   display: block;
   margin-bottom: 8px;
 }
 
 .desc-text {
   font-size: 14px;
-  color: #333;
+  color: var(--color-text);
   line-height: 1.6;
   display: block;
   white-space: pre-wrap;
@@ -377,17 +371,23 @@ export default {
   left: 0;
   right: 0;
   padding: 12px 16px;
-  background: #fff;
+  background: var(--color-bg-card);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 100;
 }
 
 /* Popup */
+.popup-body {
+  padding: 24px 16px 32px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
 .popup-title {
   font-size: 18px;
   font-weight: 700;
-  color: #323233;
+  color: var(--color-text);
   text-align: center;
   margin-bottom: 20px;
 }
@@ -397,31 +397,36 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: #f7f8fa;
+  background: var(--color-bg);
   border-radius: 8px;
   margin-bottom: 12px;
   font-size: 14px;
 }
 
 .popup-label {
-  color: #323233;
+  color: var(--color-text);
   flex-shrink: 0;
   margin-right: 12px;
 }
 
 .required {
-  color: #ee0a24;
+  color: var(--color-danger);
 }
 
 .date-picker-wrapper {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #323233;
+  color: var(--color-text);
 }
 
 .date-picker-wrapper .placeholder {
-  color: #c8c9cc;
+  color: var(--color-text-placeholder);
+}
+
+.field-arrow {
+  color: var(--color-text-placeholder);
+  font-size: 20px;
 }
 
 .popup-actions {
@@ -430,7 +435,7 @@ export default {
   margin-top: 20px;
 }
 
-.popup-actions .van-button {
+.popup-actions .action-btn {
   flex: 1;
 }
 </style>
