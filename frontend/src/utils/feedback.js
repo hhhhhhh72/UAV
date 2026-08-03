@@ -15,7 +15,8 @@ export function showSuccessToast(message) {
 }
 
 export function showLoadingToast(message = '加载中...') {
-  loadingInstance = ElMessage({ message, type: 'info', duration: 0 })
+  const text = (typeof message === 'object' && message !== null && message.message) ? message.message : message
+  loadingInstance = ElMessage({ message: text, type: 'info', duration: 0 })
 }
 
 export function closeToast() {
