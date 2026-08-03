@@ -416,7 +416,7 @@ onPullDownRefresh(function () {
   width: 60rpx; height: 60rpx; border-radius: 12rpx; display: flex;
   align-items: center; justify-content: center; flex-shrink: 0;
 }
-.contact-icon-wrapper.location { background: #e8f0ff; }
+.contact-icon-wrapper.location { background: var(--color-primary-light); }
 .contact-icon-wrapper.phone { background: #fff4e6; }
 .contact-icon-wrapper.time { background: #f0e8ff; }
 .contact-icon { font-size: 32rpx; }
