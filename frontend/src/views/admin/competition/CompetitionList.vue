@@ -2,79 +2,39 @@
   <div class="competition-page">
     <div class="search-bar">
       <div class="search-row">
-        <el-date-picker
-          v-model="dateRange"
-          type="daterange"
-          range-separator="至"
-          start-placeholder="开始" end-placeholder="结束"
-          value-format="YYYY-MM-DD"
-          style="width: 240px"
-          @change="handleSearch"
-        />
-        <el-input v-model="searchText" placeholder="搜索姓名、单位或手机号" clearable style="width: 220px" @input="onFilterChange">
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
-        <el-select v-model="selectedRole" clearable style="width: 130px" @change="onFilterChange">
-          <el-option label="全部角色" value="all" />
-          <el-option label="运动员" value="athlete" />
-          <el-option label="教练员" value="coach" />
-          <el-option label="裁判员" value="referee" />
-          <el-option label="俱乐部" value="club" />
+        <el-select v-model="filterParams.status" clearable style="width: 130px" @change="onSearchSubmit">
+          <el-option label="全部状态" value="" />
+          <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
         </el-select>
-        <el-select v-model="selectedStatus" clearable style="width: 120px" @change="onFilterChange">
-          <el-option label="全部状态" value="all" />
-          <el-option label="待处理" value="待处理" />
-          <el-option label="处理中" value="处理中" />
-          <el-option label="已完成" value="已完成" />
-        </el-select>
-
-        <div style="margin-left: auto; display: flex; gap: 8px;">
-          <el-button type="warning" :icon="Download" :disabled="selectedIds.length === 0" @click="handleSelectiveExport">导出所选</el-button>
-          <el-button type="success" :icon="Download" @click="handleExport">导出全部</el-button>
-        </div>
+        <el-button type="primary" :icon="Search" @click="onSearchSubmit">查询</el-button>
+        <el-button type="success" @click="showCreate">新建赛事</el-button>
       </div>
     </div>
 
-    <!-- 统计卡片 -->
-    <div class="stats-row">
-      <MetricCard label="总报名" :value="competitionStats.total" value-color="var(--accent-color, #0071e3)" />
-      <MetricCard label="运动员" :value="competitionStats.athlete" value-color="#ff3b30" />
-      <MetricCard label="教练员" :value="competitionStats.coach" value-color="#ff9f0a" />
-      <MetricCard label="裁判员" :value="competitionStats.referee" value-color="#34c759" />
-      <MetricCard label="俱乐部" :value="competitionStats.club" value-color="#5856d6" />
-    </div>
-
     <div class="table-wrap">
-      <el-table v-loading="loading" :data="filteredList" row-key="id" stripe border @selection-change="onSelectChange">
-        <el-table-column type="selection" width="40" />
-        <el-table-column prop="regNo" label="注册号" width="130" />
-        <el-table-column label="姓名/单位" min-width="140">
+      <el-table v-loading="loading" :data="listData" row-key="id" stripe border>
+        <el-table-column prop="id" label="ID" width="180" />
+        <el-table-column prop="title" label="赛事名称" min-width="160" />
+        <el-table-column prop="category" label="类别" width="100" />
+        <el-table-column prop="location" label="地点" width="120" />
+        <el-table-column label="开始时间" width="170">
+          <template #default="{ row }">{{ formatDate(row.start_date) }}</template>
+        </el-table-column>
+        <el-table-column label="报名/名额" width="110">
+          <template #default="{ row }">{{ row.reg_count || 0 }} / {{ row.max_teams || 0 }}</template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <span class="cell-name">{{ row.name || row.companyName || '-' }}</span>
+            <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="角色" width="90">
-          <template #default="{ row }">
-            <el-tag :type="roleTagType(row.competitionRole)" size="small">{{ row.competitionRoleText || roleLabel[row.competitionRole] || '-' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="联系电话" width="140">
-          <template #default="{ row }">{{ row.phone || row.managerPhone || row.contactPhone || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">{{ row.status || '待处理' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="报名时间" width="160" sortable="custom">
-          <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
+            <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
-        <template #empty><el-empty description="暂无报名数据" /></template>
+        <template #empty><el-empty description="暂无赛事" /></template>
       </el-table>
     </div>
 
@@ -90,31 +50,27 @@
     </div>
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="报名详情" width="600px">
+    <el-dialog v-model="detailVisible" title="赛事详情" width="600px">
       <template v-if="currentItem">
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="注册号">{{ currentItem.regNo || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="赛事名称" :span="2">{{ currentItem.title || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="类别">{{ currentItem.category || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="地点">{{ currentItem.location || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="开始">{{ formatDate(currentItem.start_date) }}</el-descriptions-item>
+          <el-descriptions-item label="结束">{{ formatDate(currentItem.end_date) }}</el-descriptions-item>
+          <el-descriptions-item label="报名/名额">{{ currentItem.reg_count || 0 }} / {{ currentItem.max_teams || 0 }}</el-descriptions-item>
+          <el-descriptions-item label="主办方">{{ currentItem.sponsor || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="statusTagType(currentItem.status)" size="small">{{ currentItem.status || '待处理' }}</el-tag>
+            <el-tag :type="statusTagType(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item :label="currentItem.competitionRole === 'club' ? '负责人' : '姓名'">
-            {{ currentItem.name || currentItem.manager || '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="角色">{{ currentItem.competitionRoleText || roleLabel[currentItem.competitionRole] || '-' }}</el-descriptions-item>
-          <el-descriptions-item v-if="currentItem.companyName" label="单位">{{ currentItem.companyName }}</el-descriptions-item>
-          <el-descriptions-item label="电话">{{ currentItem.phone || currentItem.managerPhone || currentItem.contactPhone || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="报名时间">{{ formatDate(currentItem.createTime) }}</el-descriptions-item>
-          <el-descriptions-item v-if="currentItem.email" label="邮箱">{{ currentItem.email }}</el-descriptions-item>
-          <el-descriptions-item v-if="currentItem.level" label="等级">{{ currentItem.level }}</el-descriptions-item>
-          <el-descriptions-item v-if="currentItem.competitionProject" label="参赛项目" :span="2">{{ currentItem.competitionProject }}</el-descriptions-item>
-          <el-descriptions-item v-if="currentItem.remark" label="备注" :span="2">{{ currentItem.remark }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentItem.description" label="简介" :span="2">{{ currentItem.description }}</el-descriptions-item>
         </el-descriptions>
 
         <div class="review-actions">
           <el-divider />
           <span style="margin-right: 12px;">修改状态：</span>
           <el-select v-model="newStatus" style="width: 140px;">
-            <el-option v-for="s in statusOpts" :key="s.value" :label="s.label" :value="s.value" />
+            <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
           </el-select>
           <el-button type="primary" @click="onUpdateStatus">更新</el-button>
         </div>
@@ -124,24 +80,19 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Search, Download } from '@element-plus/icons-vue'
-import { showToast, showSuccessToast } from 'vant'
+import { ref, onMounted } from 'vue'
+import { Search } from '@element-plus/icons-vue'
+import { showToast, showSuccessToast, showConfirmDialog } from 'vant'
 import { useListRequest } from '@/hooks/useListRequest'
-import { getApplicationList, updateApplicationStatus, exportApplications } from '@/api/admin/application'
-import { useAuth } from '../composables/useAuth'
-import MetricCard from '../components/MetricCard.vue'
+import { getCompetitionList, updateCompetition, deleteCompetition } from '@/api/admin/competition'
 
-const { userRole } = useAuth()
-
-const statusOpts = [
-  { label: '待处理', value: '待处理' },
-  { label: '处理中', value: '处理中' },
-  { label: '已完成', value: '已完成' }
+const statusOptions = [
+  { label: '草稿', value: 'draft' },
+  { label: '报名中', value: 'open' },
+  { label: '已结束', value: 'closed' }
 ]
-const statusTagType = (s) => ({ '已完成': 'success', '处理中': '', '待处理': 'warning' }[s] || 'info')
-const roleTagType = (r) => ({ athlete: '', coach: 'warning', referee: 'success', club: 'danger' }[r] || 'info')
-const roleLabel = { athlete: '运动员', coach: '教练员', referee: '裁判员', club: '俱乐部' }
+const statusLabel = (s) => statusOptions.find(o => o.value === s)?.label || s || '-'
+const statusTagType = (s) => ({ open: 'success', closed: 'info', draft: 'warning' }[s] || 'info')
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -150,95 +101,45 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const dateRange = ref(null)
-const searchText = ref('')
-const selectedRole = ref('all')
-const selectedStatus = ref('all')
-
-const { listData: allList, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSelectChange } = useListRequest({
-  apiFunction: getApplicationList,
+const { listData, loading, total, filterParams, loadData, onSearchSubmit } = useListRequest({
+  apiFunction: getCompetitionList,
   idKey: 'id',
-  defaultParams: { role: String(userRole.value || 'admin') }
-})
-
-// 自定义日期+搜索
-const origOnSearchSubmit = onSearchSubmit
-const handleSearch = () => {
-  if (dateRange.value && dateRange.value.length === 2) {
-    filterParams.startDate = dateRange.value[0]
-    filterParams.endDate = dateRange.value[1]
-  } else {
-    delete filterParams.startDate
-    delete filterParams.endDate
-  }
-  origOnSearchSubmit()
-}
-
-const onFilterChange = () => {} // 前端筛选，不请求
-
-// 前端筛选
-const filteredList = computed(() => {
-  let list = (allList.value || []).filter(i => i.serviceId === '13' || i.competitionRole)
-  if (selectedRole.value !== 'all') list = list.filter(i => i.competitionRole === selectedRole.value)
-  if (selectedStatus.value !== 'all') list = list.filter(i => i.status === selectedStatus.value)
-  const kw = searchText.value.toLowerCase().trim()
-  if (kw) {
-    list = list.filter(i =>
-      (i.name && i.name.toLowerCase().includes(kw)) ||
-      (i.companyName && i.companyName.toLowerCase().includes(kw)) ||
-      (i.phone && i.phone.includes(kw)) ||
-      (i.managerPhone && i.managerPhone.includes(kw)) ||
-      (i.contactPhone && i.contactPhone.includes(kw)) ||
-      (i.regNo && i.regNo.toLowerCase().includes(kw))
-    )
-  }
-  return list
-})
-
-// 统计
-const competitionStats = computed(() => {
-  const stats = { total: 0, athlete: 0, coach: 0, referee: 0, club: 0 }
-  ;(allList.value || []).filter(i => i.serviceId === '13' || i.competitionRole).forEach(i => {
-    stats.total++
-    if (i.competitionRole === 'athlete') stats.athlete++
-    else if (i.competitionRole === 'coach') stats.coach++
-    else if (i.competitionRole === 'referee') stats.referee++
-    else if (i.competitionRole === 'club') stats.club++
-  })
-  return stats
+  defaultParams: { status: '' }
 })
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
-const newStatus = ref('待处理')
+const newStatus = ref('draft')
 
 const showDetail = (item) => {
   currentItem.value = { ...item }
-  newStatus.value = item.status || '待处理'
+  newStatus.value = item.status || 'draft'
   detailVisible.value = true
+}
+
+const showCreate = () => {
+  showToast('请使用小程序/直接调用 POST /api/v1/admin/competitions 创建赛事')
 }
 
 const onUpdateStatus = async () => {
   if (!currentItem.value) return
   try {
-    await updateApplicationStatus(currentItem.value.id, newStatus.value)
+    await updateCompetition(currentItem.value.id, { status: newStatus.value })
     currentItem.value.status = newStatus.value
     showSuccessToast('状态已更新')
     loadData()
   } catch (e) { showToast('更新失败') }
 }
 
-const handleExport = () => {
-  const params = { role: userRole.value || 'admin', serviceId: 13 }
-  if (dateRange.value?.[0]) { params.startDate = dateRange.value[0]; params.endDate = dateRange.value[1] }
-  if (selectedRole.value !== 'all') params.competitionRole = selectedRole.value
-  if (selectedStatus.value !== 'all') params.status = selectedStatus.value
-  window.open(exportApplications(params), '_blank')
-}
-
-const handleSelectiveExport = () => {
-  if (selectedIds.value.length === 0) return
-  window.open(exportApplications({ ids: selectedIds.value.join(','), role: userRole.value || 'admin' }), '_blank')
+const onDelete = async (row) => {
+  try {
+    await showConfirmDialog({ title: '删除赛事', message: `确定删除「${row.title}」吗？` })
+  } catch (e) { return }
+  try {
+    await deleteCompetition(row.id)
+    showSuccessToast('已删除')
+    loadData()
+  } catch (e) { showToast('删除失败') }
 }
 
 onMounted(loadData)
@@ -248,10 +149,8 @@ onMounted(loadData)
 .competition-page { max-width: 1400px; margin: 0 auto; }
 .search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
 .table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
-.cell-name { font-weight: 500; }
 .pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .review-actions { display: flex; align-items: center; justify-content: center; padding-top: 16px; gap: 8px; }
-@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .stats-row { grid-template-columns: repeat(3, 1fr); } .table-wrap { overflow-x: auto; } }
+@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
 </style>
