@@ -18,7 +18,7 @@
         <!-- ② 封面 + 悬浮头像 -->
         <view class="cover-wrap">
           <image v-if="detail.cover || detail.cover_image || detail.image" :src="detail.cover || detail.cover_image || detail.image" class="cover-img" mode="aspectFill" />
-          <view v-else class="cover-placeholder"><text class="cover-emoji">🎓</text></view>
+          <view v-else class="cover-placeholder"><text class="cover-emoji">校</text></view>
         </view>
 
         <view class="main-card">
@@ -65,7 +65,7 @@
             <view class="section-title">合作企业</view>
             <scroll-view class="partner-scroll" scroll-x :show-scrollbar="false">
               <view v-for="p in partnerList(detail)" :key="p.name" class="partner-card">
-                <text class="partner-emoji">{{ p.icon || '🏢' }}</text>
+                <text class="partner-emoji">{{ p.icon || '企' }}</text>
                 <text class="partner-name">{{ p.name }}</text>
                 <text class="partner-type">{{ p.type || '合作单位' }}</text>
               </view>
@@ -79,8 +79,8 @@
               <view v-if="detail.photos && detail.photos.length > 0">
                 <image v-for="(img, i) in detail.photos" :key="i" :src="img" class="gallery-img" mode="aspectFill" @click="previewPhotos(i)" />
               </view>
-              <view v-else class="gallery-placeholder"><text class="placeholder-icon">🏛️</text></view>
-              <view v-if="!detail.photos || detail.photos.length === 0" class="gallery-placeholder"><text class="placeholder-icon">📚</text></view>
+              <view v-else class="gallery-placeholder"><text class="placeholder-icon">景</text></view>
+              <view v-if="!detail.photos || detail.photos.length === 0" class="gallery-placeholder"><text class="placeholder-icon">学</text></view>
             </view>
           </view>
 
@@ -109,8 +109,8 @@ const errorMsg = ref('')
 const detail = ref(null)
 
 function tagStyle(tag) {
-  if (['博士点', '硕士点', '双一流', '985', '211'].indexOf(tag) >= 0) return { background: '#fff4e6', color: '#ff6b35' }
-  return { background: '#e8f0ff', color: '#0d47a1' }
+  if (['博士点', '硕士点', '双一流', '985', '211'].indexOf(tag) >= 0) return { background: '#fff4e6', color: 'var(--color-warning)' }
+  return { background: 'var(--color-primary-light)', color: 'var(--color-primary)' }
 }
 
 function compTags(item) {
@@ -146,10 +146,10 @@ function majorsList(item) {
 function partnerList(item) {
   if (Array.isArray(item.partners) && item.partners.length > 0) return item.partners
   return [
-    { icon: '🚁', name: '大疆创新', type: '联合实验室' },
-    { icon: '✈️', name: '中航工业', type: '实习基地' },
-    { icon: '🏗️', name: '航天科技', type: '合作研究' },
-    { icon: '🔧', name: '亿航智能', type: '人才输送' },
+    { icon: '机', name: '大疆创新', type: '联合实验室' },
+    { icon: '航', name: '中航工业', type: '实习基地' },
+    { icon: '天', name: '航天科技', type: '合作研究' },
+    { icon: '装', name: '亿航智能', type: '人才输送' },
   ]
 }
 
@@ -211,7 +211,7 @@ onLoad(function (options) {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
+.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
 
 /* ① 顶栏 */
 .top-bar { background: #ffffff; padding: 0 32rpx 160rpx; }
@@ -219,24 +219,24 @@ onLoad(function (options) {
 .status-placeholder { width: 100%; }
 
 .back-btn {
-  width: 64rpx; height: 64rpx; background: rgba(13,71,161,0.08);
+  width: 64rpx; height: 64rpx; background: rgba(10,102,194,0.08);
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
   margin-bottom: 24rpx;
 }
 
-.back-icon { color: #0d47a1; font-size: 40rpx; font-weight: 300; }
-.top-title { color: #0d47a1; font-size: 28rpx; font-weight: 500; }
+.back-icon { color: var(--color-primary); font-size: 40rpx; font-weight: 300; }
+.top-title { color: var(--color-primary); font-size: 28rpx; font-weight: 500; }
 
 /* ② 封面 */
 .cover-wrap {
   margin: -112rpx 24rpx 0; height: 440rpx; border-radius: 32rpx;
   overflow: hidden; position: relative; z-index: 1;
-  box-shadow: 0 16rpx 48rpx rgba(13,71,161,0.3);
+  box-shadow: 0 16rpx 48rpx rgba(10,102,194,0.3);
 }
 
 .cover-img { width: 100%; height: 100%; }
 .cover-placeholder {
-  width: 100%; height: 100%; background: linear-gradient(135deg, #0d47a1, #1976d2);
+  width: 100%; height: 100%; background: linear-gradient(135deg, var(--color-primary), #1976d2);
   display: flex; align-items: center; justify-content: center;
 }
 .cover-emoji { font-size: 160rpx; opacity: 0.1; }
@@ -252,16 +252,16 @@ onLoad(function (options) {
 }
 
 .avatar {
-  width: 120rpx; height: 120rpx; background: #0d47a1; border-radius: 24rpx;
+  width: 120rpx; height: 120rpx; background: var(--color-primary); border-radius: 24rpx;
   display: flex; align-items: center; justify-content: center;
   color: #ffffff; font-size: 48rpx; font-weight: 600; flex-shrink: 0;
-  box-shadow: 0 8rpx 32rpx rgba(13,71,161,0.3); margin-top: -80rpx;
+  box-shadow: 0 8rpx 32rpx rgba(10,102,194,0.3); margin-top: -80rpx;
   position: relative; z-index: 3;
 }
 
 .header-info { flex: 1; }
-.college-name { font-size: 44rpx; font-weight: 700; color: #1a1a1a; display: block; line-height: 1.3; }
-.college-location { font-size: 26rpx; color: #0d47a1; font-weight: 500; display: block; margin-top: 6rpx; }
+.college-name { font-size: 44rpx; font-weight: 700; color: var(--color-text); display: block; line-height: 1.3; }
+.college-location { font-size: 26rpx; color: var(--color-primary); font-weight: 500; display: block; margin-top: 6rpx; }
 
 /* ③ 标签 + 数据 */
 .tag-row { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 28rpx; }
@@ -269,14 +269,14 @@ onLoad(function (options) {
 
 .stats-row { display: flex; gap: 12rpx; margin-bottom: 36rpx; }
 .stat { flex: 1; padding: 24rpx 8rpx; background: #f8fafc; border-radius: 18rpx; text-align: center; }
-.stat-num { font-size: 44rpx; font-weight: 700; color: #0d47a1; display: block; }
-.stat-label { font-size: 22rpx; color: #969799; display: block; margin-top: 6rpx; }
+.stat-num { font-size: 44rpx; font-weight: 700; color: var(--color-primary); display: block; }
+.stat-label { font-size: 22rpx; color: var(--color-text-secondary); display: block; margin-top: 6rpx; }
 
 /* Section */
 .section-block { margin-top: 36rpx; }
 .section-title {
-  font-size: 30rpx; font-weight: 700; color: #1a1a1a;
-  padding-left: 20rpx; border-left: 6rpx solid #0d47a1;
+  font-size: 30rpx; font-weight: 700; color: var(--color-text);
+  padding-left: 20rpx; border-left: 6rpx solid var(--color-primary);
   line-height: 1.3; margin-bottom: 20rpx;
 }
 
@@ -289,10 +289,10 @@ onLoad(function (options) {
   padding: 24rpx; background: #f8fafc; border-radius: 18rpx;
   display: flex; justify-content: space-between; align-items: center;
 }
-.major-name { font-size: 28rpx; font-weight: 500; color: #1a1a1a; display: block; }
-.major-meta { font-size: 24rpx; color: #969799; display: block; margin-top: 6rpx; }
+.major-name { font-size: 28rpx; font-weight: 500; color: var(--color-text); display: block; }
+.major-meta { font-size: 24rpx; color: var(--color-text-secondary); display: block; margin-top: 6rpx; }
 .flagship-tag {
-  font-size: 22rpx; color: #0d47a1; background: #e8f0ff;
+  font-size: 22rpx; color: var(--color-primary); background: var(--color-primary-light);
   padding: 6rpx 16rpx; border-radius: 10rpx; font-weight: 500; flex-shrink: 0;
 }
 
@@ -303,18 +303,18 @@ onLoad(function (options) {
   text-align: center; flex-shrink: 0; min-width: 160rpx; display: inline-block;
 }
 .partner-emoji { font-size: 48rpx; display: block; margin-bottom: 8rpx; }
-.partner-name { font-size: 26rpx; font-weight: 500; color: #1a1a1a; display: block; }
-.partner-type { font-size: 22rpx; color: #969799; display: block; margin-top: 4rpx; }
+.partner-name { font-size: 26rpx; font-weight: 500; color: var(--color-text); display: block; }
+.partner-type { font-size: 22rpx; color: var(--color-text-secondary); display: block; margin-top: 4rpx; }
 
 /* ⑦ 校园环境 */
 .gallery-row { display: flex; gap: 16rpx; margin-bottom: 40rpx; }
-.gallery-img { flex: 1; height: 280rpx; border-radius: 18rpx; background: #f5f6f8; }
-.gallery-placeholder { flex: 1; height: 280rpx; border-radius: 18rpx; background: linear-gradient(135deg, #0d47a1, #1976d2); display: flex; align-items: center; justify-content: center; }
+.gallery-img { flex: 1; height: 280rpx; border-radius: 18rpx; background: var(--color-bg); }
+.gallery-placeholder { flex: 1; height: 280rpx; border-radius: 18rpx; background: linear-gradient(135deg, var(--color-primary), #1976d2); display: flex; align-items: center; justify-content: center; }
 .placeholder-icon { font-size: 80rpx; opacity: 0.12; }
 
 /* ⑧ 底部 */
-.bottom-bar { display: flex; gap: 24rpx; border-top: 1rpx solid #ebedf0; padding-top: 24rpx; }
-.btn-outline { flex: 1; height: 88rpx; border-radius: 48rpx; border: 2rpx solid #0d47a1; color: #0d47a1; display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 500; }
-.btn-primary { flex: 1; height: 88rpx; border-radius: 48rpx; background: #0d47a1; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 600; }
+.bottom-bar { display: flex; gap: 24rpx; border-top: 1rpx solid var(--color-divider); padding-top: 24rpx; }
+.btn-outline { flex: 1; height: 88rpx; border-radius: 48rpx; border: 2rpx solid var(--color-primary); color: var(--color-primary); display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 500; }
+.btn-primary { flex: 1; height: 88rpx; border-radius: 48rpx; background: var(--color-primary); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 600; }
 .bottom-spacer { height: calc(40rpx + env(safe-area-inset-bottom)); }
 </style>

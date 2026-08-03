@@ -25,15 +25,15 @@
             <view class="pill" :class="{ active: filterType === 'medical' }" @click="filterType = 'medical'">医疗</view>
           </view>
         </view>
-        <view class="search-bar"><text class="search-icon">🔍</text><input class="search-input" v-model="keyword" placeholder="搜索资源名称" @input="onSearch" /></view>
+        <view class="search-bar"><u-icon name="search" size="28rpx" color="#969799" /><input class="search-input" v-model="keyword" placeholder="搜索资源名称" @input="onSearch" /></view>
 
         <StateView :loading="loading" :error="!!errorMsg" :empty="!loading && !errorMsg && list.length === 0" empty-text="暂无应急资源" @retry="loadResources">
           <scroll-view class="list-scroll" scroll-y @scrolltolower="loadMore">
-            <view v-for="item in list" :key="item.id" class="resource-card" :style="{ borderLeftColor: statusColor[item.status] || '#4caf50' }">
+            <view v-for="item in list" :key="item.id" class="resource-card" :style="{ borderLeftColor: statusColor[item.status] || 'var(--color-success)' }">
               <view class="card-top">
-                <view class="card-icon" :style="{ background: statusBg[item.status] || '#e8f5e9' }"><text>{{ resIcon(item) }}</text></view>
+                <view class="card-icon" :style="{ background: statusBg[item.status] || 'var(--ui-color-accent-light)' }"><text>{{ resIcon(item) }}</text></view>
                 <view class="card-info"><text class="card-name">{{ item.name || '未命名资源' }}</text><text class="card-spec">{{ item.specs || item.model || '暂无规格' }}</text></view>
-                <view class="status-tag" :style="{ background: statusBg[item.status] || '#e8f5e9', color: statusColor[item.status] || '#4caf50' }">{{ item.status || '可用' }}</view>
+                <view class="status-tag" :style="{ background: statusBg[item.status] || 'var(--ui-color-accent-light)', color: statusColor[item.status] || 'var(--color-success)' }">{{ item.status || '可用' }}</view>
               </view>
               <view class="card-meta">
                 <view class="meta-row"><text class="meta-label">数量</text><text class="meta-value">{{ item.quantity || 1 }}</text></view>
@@ -41,7 +41,7 @@
                 <view class="meta-row"><text class="meta-label">联系人</text><text class="meta-value">{{ item.contact || item.contact_info || '暂无' }}</text></view>
               </view>
             </view>
-            <view v-if="list.length > 0" class="load-more-wrap"><van-loading v-if="loadingMore" size="20">加载更多...</van-loading><text v-else-if="!hasMore" class="no-more">没有更多了</text></view>
+            <view v-if="list.length > 0" class="load-more-wrap"><view v-if="loadingMore" class="loading-inline"><u-loading size="24rpx" /><text>加载更多...</text></view><text v-else-if="!hasMore" class="no-more">没有更多了</text></view>
             <view style="height:40rpx" />
           </scroll-view>
         </StateView>
@@ -85,17 +85,17 @@ const deptList = ref([])
 
 const resourceTypes = [
   { emoji: '', label: '全部', value: 'all' },
-  { emoji: '🚁', label: '无人机', value: 'drone' },
-  { emoji: '📡', label: '通讯', value: 'comm' },
-  { emoji: '🚑', label: '车辆', value: 'vehicle' },
-  { emoji: '🩹', label: '医疗', value: 'medical' },
-  { emoji: '🔧', label: '其他', value: 'other' },
+  { emoji: '机', label: '无人机', value: 'drone' },
+  { emoji: '信', label: '通讯', value: 'comm' },
+  { emoji: '车', label: '车辆', value: 'vehicle' },
+  { emoji: '医', label: '医疗', value: 'medical' },
+  { emoji: '他', label: '其他', value: 'other' },
 ]
 
-const statusColor = { '可用': '#4caf50', '使用中': '#ff9800', '维护中': '#9e9e9e', 'available': '#4caf50', 'standby': '#4caf50', 'in_use': '#ff9800', 'maintenance': '#9e9e9e' }
+const statusColor = { '可用': 'var(--color-success)', '使用中': 'var(--color-warning)', '维护中': 'var(--color-text-secondary)', 'available': 'var(--color-success)', 'standby': 'var(--color-success)', 'in_use': 'var(--color-warning)', 'maintenance': 'var(--color-text-secondary)' }
 const statusBg = { '可用': '#e8f5e9', '使用中': '#fff3e0', '维护中': '#f5f5f5', 'available': '#e8f5e9', 'standby': '#e8f5e9', 'in_use': '#fff3e0', 'maintenance': '#f5f5f5' }
-const typeEmoji = { 'drone': '🚁', 'comm': '📡', 'vehicle': '🚑', 'medical': '🩹', 'other': '🔧' }
-const deptEmoji = { '消防': '🔥', 'fire': '🔥', '公安': '👮', 'police': '👮', '应急局': '🚨', 'emergency_bureau': '🚨', '医疗': '🏥', 'civil_affairs': '🏥', '交通': '🚦' }
+const typeEmoji = { 'drone': '机', 'comm': '信', 'vehicle': '车', 'medical': '医', 'other': '他' }
+const deptEmoji = { '消防': '防', 'fire': '防', '公安': '警', 'police': '警', '应急局': '应', 'emergency_bureau': '应', '医疗': '医', 'civil_affairs': '医', '交通': '交' }
 
 var searchTimer = null
 function resIcon(item) {
@@ -196,8 +196,8 @@ onPullDownRefresh(function () {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
-.banner { background: linear-gradient(135deg, #d84315, #e65100); padding: 0 32rpx 72rpx; }
+.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
+.banner { background: linear-gradient(135deg, var(--color-warning), #d84315); padding: 0 32rpx 72rpx; }
 .status-placeholder { width: 100%; }
 .back-btn { width: 64rpx; height: 64rpx; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24rpx; }
 .back-icon { color: #ffffff; font-size: 40rpx; font-weight: 300; }
@@ -207,36 +207,36 @@ onPullDownRefresh(function () {
 .main-card { background: #ffffff; border-radius: 32rpx 32rpx 0 0; margin-top: -32rpx; position: relative; z-index: 2; }
 .tab-main { display: flex; justify-content: center; gap: 24rpx; padding: 0 24rpx; margin-top: -36rpx; }
 .tab-main-item { width: 320rpx; height: 72rpx; line-height: 72rpx; text-align: center; border-radius: 40rpx; font-size: 28rpx; font-weight: 400; color: #666666; background: #ffffff; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06); }
-.tab-main-item.active { background: #d84315; color: #ffffff; font-weight: 600; box-shadow: 0 4rpx 16rpx rgba(216,67,21,0.35); }
+.tab-main-item.active { background: var(--color-warning); color: #ffffff; font-weight: 600; box-shadow: 0 4rpx 16rpx rgba(255,159,10,0.35); }
 .type-pills-wrap { width: 100%; overflow-x: auto; }
 .type-pills { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 16rpx; padding: 24rpx 24rpx 16rpx; }
 .type-pills::-webkit-scrollbar { display: none; }
-.pill { flex: 0 0 auto; white-space: nowrap; padding: 14rpx 36rpx; border-radius: 28rpx; font-size: 28rpx; background: #f5f6f8; color: #666666; }
-.pill.active { background: #d84315; color: #ffffff; font-weight: 500; }
-.search-bar { margin: 0 24rpx 16rpx; background: #f5f6f8; border-radius: 40rpx; padding: 14rpx 24rpx; display: flex; align-items: center; gap: 12rpx; }
-.search-icon { font-size: 28rpx; opacity: 0.4; }
-.search-input { flex: 1; font-size: 28rpx; color: #1a1a1a; }
+.pill { flex: 0 0 auto; white-space: nowrap; padding: 14rpx 36rpx; border-radius: 28rpx; font-size: 28rpx; background: var(--color-bg); color: var(--color-text-secondary); }
+.pill.active { background: var(--color-warning); color: #ffffff; font-weight: 500; }
+.search-bar { margin: 0 24rpx 16rpx; background: var(--color-bg); border-radius: 40rpx; padding: 14rpx 24rpx; display: flex; align-items: center; gap: 12rpx; }
+.search-input { flex: 1; font-size: 28rpx; color: var(--color-text); }
 .list-scroll { height: calc(100vh - 560rpx); }
 .resource-card { background: #ffffff; border-radius: 14rpx; padding: 20rpx 20rpx 20rpx 16rpx; margin: 0 24rpx 14rpx; border-left: 6rpx solid; box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03); }
 .card-top { display: flex; align-items: flex-start; gap: 12rpx; margin-bottom: 12rpx; }
 .card-icon { width: 72rpx; height: 72rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; font-size: 36rpx; flex-shrink: 0; }
 .card-info { flex: 1; }
-.card-name { font-size: 30rpx; font-weight: 500; color: #1a1a1a; display: block; }
-.card-spec { font-size: 24rpx; color: #969799; display: block; margin-top: 4rpx; }
+.card-name { font-size: 30rpx; font-weight: 500; color: var(--color-text); display: block; }
+.card-spec { font-size: 24rpx; color: var(--color-text-secondary); display: block; margin-top: 4rpx; }
 .status-tag { padding: 6rpx 16rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; flex-shrink: 0; }
 .card-meta { display: flex; flex-direction: column; gap: 6rpx; font-size: 24rpx; }
 .meta-row { display: flex; gap: 12rpx; align-items: baseline; }
-.meta-label { color: #969799; width: 80rpx; flex-shrink: 0; }
-.meta-value { color: #1a1a1a; font-weight: 500; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.meta-label { color: var(--color-text-secondary); width: 80rpx; flex-shrink: 0; }
+.meta-value { color: var(--color-text); font-weight: 500; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .meta-value.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.card-meta .bold { color: #1a1a1a; font-weight: 500; }
+.card-meta .bold { color: var(--color-text); font-weight: 500; }
 .dept-card { background: #ffffff; border-radius: 14rpx; padding: 20rpx; margin: 0 24rpx 14rpx; box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03); }
 .dept-header { display: flex; align-items: center; gap: 14rpx; margin-bottom: 10rpx; }
 .dept-icon { width: 60rpx; height: 60rpx; background: #fff3e0; border-radius: 14rpx; display: flex; align-items: center; justify-content: center; font-size: 28rpx; flex-shrink: 0; }
-.dept-name { font-size: 28rpx; font-weight: 500; color: #1a1a1a; display: block; }
-.dept-type-area { font-size: 24rpx; color: #969799; display: block; margin-top: 2rpx; }
-.dept-contact { font-size: 24rpx; color: #969799; }
-.dept-contact .bold { color: #1a1a1a; font-weight: 500; }
+.dept-name { font-size: 28rpx; font-weight: 500; color: var(--color-text); display: block; }
+.dept-type-area { font-size: 24rpx; color: var(--color-text-secondary); display: block; margin-top: 2rpx; }
+.dept-contact { font-size: 24rpx; color: var(--color-text-secondary); }
+.dept-contact .bold { color: var(--color-text); font-weight: 500; }
 .load-more-wrap { text-align: center; padding: 20rpx 0; }
-.no-more { font-size: 24rpx; color: #969799; }
+.loading-inline { display: flex; align-items: center; justify-content: center; gap: 8rpx; font-size: 24rpx; color: var(--color-text-secondary); }
+.no-more { font-size: 24rpx; color: var(--color-text-secondary); }
 </style>
