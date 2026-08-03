@@ -21,9 +21,6 @@
               <view v-else class="avatar avatar-placeholder">
                 <text class="avatar-text">{{ userInitial }}</text>
               </view>
-              <view v-if="user" class="avatar-edit" @tap.stop="changeAvatar">
-                <text class="avatar-edit-icon">换</text>
-              </view>
             </view>
 
             <view class="user-info-col">
@@ -288,47 +285,6 @@ const goLogin = () => uni.navigateTo({ url: '/pages/login/index' })
 const avatarSrc = (u) => {
   if (!u) return ''
   return u.startsWith('http') ? u : BASE_URL + u
-}
-
-// 更换头像：选图 → 上传 → 保存 avatar_url → 更新本地
-const changeAvatar = () => {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
-    success: (res) => {
-      const filePath = res.tempFilePaths[0]
-      uni.showLoading({ title: '上传中...' })
-      uni.uploadFile({
-        url: BASE_URL + '/api/v1/upload',
-        filePath,
-        name: 'file',
-        header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
-        success: async (up) => {
-          try {
-            const body = JSON.parse(up.data)
-            const url = body?.data?.url || body?.url
-            if (!url) throw new Error('上传失败')
-            await request({ url: '/api/v1/me', method: 'PATCH', data: { avatar_url: url } })
-            const current = getStoredUser() || {}
-            const updated = { ...current, avatar: url, avatar_url: url }
-            uni.setStorageSync('user', JSON.stringify(updated))
-            user.value = updated
-            userInitial.value = (updated.name || updated.phone || '微').charAt(0).toUpperCase()
-            uni.showToast({ title: '头像已更新', icon: 'success' })
-          } catch (e) {
-            uni.showToast({ title: '上传失败，请重试', icon: 'none' })
-          } finally {
-            uni.hideLoading()
-          }
-        },
-        fail: () => {
-          uni.hideLoading()
-          uni.showToast({ title: '上传失败，请重试', icon: 'none' })
-        }
-      })
-    }
-  })
 }
 
 // 退出登录：清 token 与用户信息，回到未登录态（此时点登录可进登录页）
@@ -887,22 +843,4 @@ const goAbout = () => {
   color: var(--color-danger);
 }
 
-.avatar-edit {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 44rpx;
-  height: 44rpx;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
-  border: 2rpx solid #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.avatar-edit-icon {
-  font-size: 20rpx;
-  color: #fff;
-  line-height: 1;
-}
 </style>
