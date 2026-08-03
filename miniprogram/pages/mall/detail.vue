@@ -44,6 +44,9 @@
       <view class="spec-item">
         <text class="spec-label">类型</text><text class="spec-val">{{ typeLabel(product.prod_type) }}</text>
       </view>
+      <view class="spec-item">
+        <text class="spec-label">浏览</text><text class="spec-val">{{ product.views || 0 }}次</text>
+      </view>
       <view class="spec-item" v-if="product.seller_name">
         <text class="spec-label">卖家</text><text class="spec-val">{{ product.seller_name }}</text>
       </view>

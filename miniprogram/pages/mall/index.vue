@@ -79,6 +79,11 @@
             </view>
           </view>
         </view>
+        <view v-if="loadingMore" class="more-tip">
+          <u-loading size="24rpx" />
+          <text>加载中...</text>
+        </view>
+        <view v-else-if="!hasMore && products.length > 0" class="more-tip">没有更多了</view>
       </view>
     </view>
   </Layout>
@@ -86,14 +91,18 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { onReachBottom } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
 import { request } from '@/utils/request'
 
 const statusBarH = ref(24)
 const products = ref([])
 const loading = ref(false)
+const loadingMore = ref(false)
+const hasMore = ref(true)
 const errorMsg = ref('')
 const activeCat = ref('')
+const page = ref(1)
 
 const cats = [
   { key: '', name: '全部' },
@@ -106,15 +115,21 @@ const keyword = ref('')
 
 const selectCat = (key) => {
   activeCat.value = key
+  page.value = 1
+  hasMore.value = true
   loadProducts(key, keyword.value)
 }
 
 const onSearch = () => {
+  page.value = 1
+  hasMore.value = true
   loadProducts(activeCat.value, keyword.value.trim())
 }
 
 const clearSearch = () => {
   keyword.value = ''
+  page.value = 1
+  hasMore.value = true
   loadProducts(activeCat.value, '')
 }
 
@@ -122,15 +137,36 @@ const loadProducts = async (cat, kw) => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const data = {}
+    const data = { page: 1, page_size: 10 }
     if (cat) data.prod_type = cat
     if (kw) data.keyword = kw
     const res = await request({ url: '/api/v1/products', data })
     products.value = Array.isArray(res) ? res : []
+    hasMore.value = products.value.length >= (res?.total || products.value.length)
   } catch (e) {
     errorMsg.value = '加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+// 触底加载更多
+const loadMore = async () => {
+  if (loading.value || loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  try {
+    const data = { page: page.value + 1, page_size: 10 }
+    if (activeCat.value) data.prod_type = activeCat.value
+    if (keyword.value.trim()) data.keyword = keyword.value.trim()
+    const res = await request({ url: '/api/v1/products', data })
+    const list = Array.isArray(res) ? res : []
+    products.value = products.value.concat(list)
+    page.value += 1
+    hasMore.value = list.length >= 10
+  } catch (e) {
+    /* 静默：下次触底重试 */
+  } finally {
+    loadingMore.value = false
   }
 }
 const goDetail = (id) => {
@@ -149,6 +185,8 @@ onMounted(() => {
   try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 24 } catch (e) {}
   loadProducts('')
 })
+
+onReachBottom(loadMore)
 </script>
 
 <style scoped>
@@ -207,4 +245,12 @@ onMounted(() => {
 /* 状态 */
 .state-box { padding: 100rpx 40rpx; display: flex; flex-direction: column; align-items: center; gap: 16rpx; }
 .state-note { font-size: 22rpx; color: var(--color-text-placeholder); }
+
+/* 加载更多提示（跨双列） */
+.more-tip {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 20rpx 0;
+  font-size: 22rpx; color: var(--color-text-placeholder);
+}
 </style>

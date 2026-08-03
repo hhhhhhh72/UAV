@@ -213,6 +213,7 @@ type ProductRepository interface {
 	List(prodType string) ([]domain.DroneProduct, error)
 	Update(p domain.DroneProduct) (domain.DroneProduct, error)
 	Delete(id string) error
+	IncrementViews(id string) error
 }
 
 // RepairRepository manages repair orders.

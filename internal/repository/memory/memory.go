@@ -1188,6 +1188,18 @@ func (r *prodRepo) Delete(id string) error {
 	return fmt.Errorf("product %s not found", id)
 }
 
+func (r *prodRepo) IncrementViews(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items[i].Views++
+			return nil
+		}
+	}
+	return fmt.Errorf("product %s not found", id)
+}
+
 func (r *prodRepo) List(prodType string) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

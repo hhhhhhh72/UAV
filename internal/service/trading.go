@@ -33,6 +33,17 @@ func (s *TradingService) GetProduct(id string) (domain.DroneProduct, error) {
 	return s.prodRepo.FindByID(id)
 }
 
+// GetProductAndCountView 详情访问：浏览量 +1 后返回（先读旧值再递增）
+func (s *TradingService) GetProductAndCountView(id string) (domain.DroneProduct, error) {
+	p, err := s.prodRepo.FindByID(id)
+	if err != nil {
+		return domain.DroneProduct{}, err
+	}
+	p.Views++
+	_ = s.prodRepo.IncrementViews(id)
+	return p, nil
+}
+
 // UpdateProduct 更新商品（管理后台用）
 func (s *TradingService) UpdateProduct(p domain.DroneProduct) (domain.DroneProduct, error) {
 	return s.prodRepo.Update(p)

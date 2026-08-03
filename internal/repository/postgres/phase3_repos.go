@@ -242,21 +242,27 @@ func (r *prodRepo) Create(p domain.DroneProduct) (domain.DroneProduct, error) {
 	images, err := json.Marshal(p.Images)
 	if err != nil { return domain.DroneProduct{}, fmt.Errorf("marshal product images: %w", err) }
 	_, err = r.pool.Exec(context.Background(),
-		`INSERT INTO drone_products (id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-		p.ID, p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, images, p.Brand, p.Model, p.Condition, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
+		`INSERT INTO drone_products (id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+		p.ID, p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, images, p.Brand, p.Model, p.Condition, p.Views, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
 	return p, err
 }
 func (r *prodRepo) FindByID(id string) (domain.DroneProduct, error) {
 	var p domain.DroneProduct; var pt string; var imgs []byte
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,status,version,created_at,updated_at FROM drone_products WHERE id=$1`, id).
-		Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+		`SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE id=$1`, id).
+		Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return domain.DroneProduct{}, fmt.Errorf("product %s not found: %w", id, err)
 	}
 	p.ProdType = domain.ProductType(pt)
 	json.Unmarshal(imgs, &p.Images)
 	return p, nil
+}
+
+func (r *prodRepo) IncrementViews(id string) error {
+	_, err := r.pool.Exec(context.Background(), `UPDATE drone_products SET views = views + 1 WHERE id=$1`, id)
+	if err != nil { return fmt.Errorf("increment views for %s: %w", id, err) }
+	return nil
 }
 
 func (r *prodRepo) Update(p domain.DroneProduct) (domain.DroneProduct, error) {
@@ -278,16 +284,16 @@ func (r *prodRepo) Delete(id string) error {
 func (r *prodRepo) List(prodType string) ([]domain.DroneProduct, error) {
 	var rows pgx.Rows; var err error
 	if prodType == "" {
-		rows, err = r.pool.Query(context.Background(), `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,status,version,created_at,updated_at FROM drone_products ORDER BY created_at DESC`)
+		rows, err = r.pool.Query(context.Background(), `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products ORDER BY created_at DESC`)
 	} else {
-		rows, err = r.pool.Query(context.Background(), `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 ORDER BY created_at DESC`, prodType)
+		rows, err = r.pool.Query(context.Background(), `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 ORDER BY created_at DESC`, prodType)
 	}
 	if err != nil { return nil, fmt.Errorf("list products: %w", err) }
 	defer rows.Close()
 	var out []domain.DroneProduct
 	for rows.Next() {
 		var p domain.DroneProduct; var pt string; var imgs []byte
-		rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+		rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 		p.ProdType = domain.ProductType(pt)
 		json.Unmarshal(imgs, &p.Images)
 		out = append(out, p)

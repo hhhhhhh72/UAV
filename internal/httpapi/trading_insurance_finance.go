@@ -58,12 +58,12 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 		}
 		listed = filtered
 	}
-	respond(w, r, http.StatusOK, listed)
+	paginatedRespond(w, r, listed, len(listed))
 }
 
-// GET /api/v1/products/{id} — 商品详情（公开）
+// GET /api/v1/products/{id} — 商品详情（公开，浏览量+1）
 func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
-	p, err := s.tradingSvc.GetProduct(r.PathValue("id"))
+	p, err := s.tradingSvc.GetProductAndCountView(r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return

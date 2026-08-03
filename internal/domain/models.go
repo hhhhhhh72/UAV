@@ -527,6 +527,7 @@ type DroneProduct struct {
 	Brand       string      `json:"brand"`
 	Model       string      `json:"model"`
 	Condition   string      `json:"condition"` // new / used
+	Views       int         `json:"views"`     // detail view counter
 	Status      string      `json:"status"`    // listed / sold / removed
 	Version     int         `json:"version"`
 	CreatedAt   time.Time   `json:"created_at"`
