@@ -11,6 +11,8 @@ import (
 )
 
 // GET /api/v1/demands/{id}
+// 信息公告模式：公开详情含完整联系方式（供直接联系）；未公开状态（pending/rejected）
+// 仅发布者与管理员可见。
 func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	d, err := s.demands.FindByID(id)
@@ -18,40 +20,18 @@ func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
-	d = publicDemand(d)
+	if d.Status != domain.DemandPublished && d.Status != domain.DemandCompleted && d.Status != domain.DemandCancelled {
+		a, ok := authenticatedActor(r)
+		if !ok || a.ID != d.PublisherID {
+			fail(w, r, http.StatusNotFound, errors.New("demand not found"))
+			return
+		}
+	}
+	// 公开完整联系方式（公告目的），隐藏发布者 ID 与坐标
+	d.PublisherID = ""
+	d.Latitude = 0
+	d.Longitude = 0
 	respond(w, r, http.StatusOK, d)
-}
-
-// GET /api/v1/demands/{id}/applications
-func (s *Server) listDemandBids(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	bids, err := s.demands.ListBidsByDemand(id)
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	if bids == nil {
-		bids = []domain.DemandBid{}
-	}
-	respond(w, r, http.StatusOK, bids)
-}
-
-// GET /api/v1/demands/bids/mine
-func (s *Server) listMyBids(w http.ResponseWriter, r *http.Request) {
-	a, ok := authenticatedActor(r)
-	if !ok {
-		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
-		return
-	}
-	bids, err := s.demands.ListBidsByBidder(a.ID)
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	if bids == nil {
-		bids = []domain.DemandBid{}
-	}
-	respond(w, r, http.StatusOK, bids)
 }
 
 // PATCH /api/v1/demands/{id}
@@ -110,67 +90,36 @@ func mapAction(a string) string {
 	}
 }
 
-// POST /api/v1/demands/{id}/applications
-func (s *Server) createBid(w http.ResponseWriter, r *http.Request) {
-	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
-	var in struct {
-		AmountFen int64  `json:"amount_fen"`
-		Proposal  string `json:"proposal"`
-	}
-	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
-	bid, err := s.demands.CreateBid(a, r.PathValue("id"), in.AmountFen, in.Proposal)
-	if err != nil { fail(w, r, http.StatusForbidden, err); return }
-	respond(w, r, http.StatusCreated, bid)
-}
-
-// POST /api/v1/demands/{id}/applications/{applicationId}/select
-func (s *Server) selectBid(w http.ResponseWriter, r *http.Request) {
-	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
-	d, err := s.demands.SelectBid(a, r.PathValue("id"), r.PathValue("applicationId"))
-	if err != nil { fail(w, r, http.StatusForbidden, err); return }
-	s.audit(r.Context(), a.ID, "select_bid", "demand", d.ID, "matched")
-	// Notify the selected bidder.
-	// Notify the selected bidder (bidderID is the bid's BidderID field).
-	s.msgSvc.Send("system", a.ID, "已选择承接方",
-		fmt.Sprintf("您的需求「%s」已选择承接方", d.Title), "demand", d.ID)
-	respond(w, r, http.StatusOK, d)
-}
-
-// POST /api/v1/demands/{id}/complete
-// Dual-confirm: both publisher and selected bidder must call this endpoint.
+// POST /api/v1/demands/{id}/complete — publisher marks a published demand done.
 func (s *Server) completeDemand(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
 
-	var req struct{ Confirm bool `json:"confirm"` }
-	_ = decode(r, &req) // optional body
-
-	d, completed, err := s.demands.ConfirmComplete(a, r.PathValue("id"))
-	if err != nil { fail(w, r, http.StatusForbidden, err); return }
-
-	if completed {
-		s.audit(r.Context(), a.ID, "complete_demand", "demand", d.ID, "completed")
-		s.msgSvc.Send("system", d.PublisherID, "需求已完成",
-			fmt.Sprintf("需求「%s」双方确认完成", d.Title), "demand", d.ID)
-		respond(w, r, http.StatusOK, map[string]any{"status": "completed", "demand": d})
-	} else {
-		respond(w, r, http.StatusOK, map[string]any{"status": "confirmed", "message": "等待对方确认"})
+	d, err := s.demands.Complete(a, r.PathValue("id"))
+	if err != nil {
+		code := http.StatusForbidden
+		if strings.Contains(err.Error(), "not found") { code = http.StatusNotFound }
+		fail(w, r, code, err)
+		return
 	}
+	s.audit(r.Context(), a.ID, "complete_demand", "demand", d.ID, "completed")
+	s.msgSvc.Send("system", d.PublisherID, "需求已完成",
+		fmt.Sprintf("需求「%s」已标记完成", d.Title), "demand", d.ID)
+	respond(w, r, http.StatusOK, map[string]any{"status": "completed", "demand": d})
 }
 
-// POST /api/v1/demands/{id}/dispute
-// Either party can raise a dispute; admin handles.
-func (s *Server) disputeDemand(w http.ResponseWriter, r *http.Request) {
+// POST /api/v1/demands/{id}/cancel — publisher withdraws a pending/published demand.
+func (s *Server) cancelDemand(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
-	var in struct{ Reason string `json:"reason"` }
-	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
-	d, err := s.demands.Dispute(a, r.PathValue("id"), in.Reason)
-	if err != nil { fail(w, r, http.StatusForbidden, err); return }
-	s.audit(r.Context(), a.ID, "dispute_demand", "demand", d.ID, in.Reason)
-	s.msgSvc.Send("system", d.PublisherID, "需求争议",
-		fmt.Sprintf("需求「%s」出现争议，原因: %s", d.Title, in.Reason), "demand", d.ID)
-	respond(w, r, http.StatusOK, map[string]any{"status": "disputed", "demand": d})
+
+	d, err := s.demands.Cancel(a, r.PathValue("id"))
+	if err != nil {
+		code := http.StatusForbidden
+		if strings.Contains(err.Error(), "not found") { code = http.StatusNotFound }
+		fail(w, r, code, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "cancel_demand", "demand", d.ID, "cancelled")
+	respond(w, r, http.StatusOK, map[string]any{"status": "cancelled", "demand": d})
 }

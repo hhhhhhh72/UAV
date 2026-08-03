@@ -37,12 +37,11 @@ type CreateDemandInput struct {
 }
 
 type DemandService struct {
-	repo    repository.DemandRepository
-	bidRepo repository.BidRepository
+	repo repository.DemandRepository
 }
 
-func NewDemandService(r repository.DemandRepository, br repository.BidRepository) *DemandService {
-	return &DemandService{repo: r, bidRepo: br}
+func NewDemandService(r repository.DemandRepository) *DemandService {
+	return &DemandService{repo: r}
 }
 func (s *DemandService) Create(a domain.Actor, in CreateDemandInput) (domain.Demand, error) {
 	if a.Role != domain.RoleEnterprise && a.Role != domain.RoleIndividual {
@@ -65,12 +64,6 @@ func (s *DemandService) List(f repository.DemandFilter) ([]domain.Demand, error)
 }
 func (s *DemandService) Search(q string) ([]domain.Demand, error)  { return s.repo.Search(q) }
 func (s *DemandService) FindByID(id string) (domain.Demand, error) { return s.repo.FindByID(id) }
-func (s *DemandService) ListBidsByDemand(demandID string) ([]domain.DemandBid, error) {
-	return s.bidRepo.ListByDemand(demandID)
-}
-func (s *DemandService) ListBidsByBidder(bidderID string) ([]domain.DemandBid, error) {
-	return s.bidRepo.ListByBidder(bidderID)
-}
 func (s *DemandService) UpdateDraft(a domain.Actor, id, title, desc string) (domain.Demand, error) {
 	d, err := s.repo.FindByID(id)
 	if err != nil {
@@ -89,6 +82,7 @@ func (s *DemandService) UpdateDraft(a domain.Actor, id, title, desc string) (dom
 	return s.repo.Update(d)
 }
 
+// Submit resubmits a rejected demand for admin review.
 func (s *DemandService) Submit(a domain.Actor, id string) (domain.Demand, error) {
 	d, err := s.repo.FindByID(id)
 	if err != nil {
@@ -97,7 +91,40 @@ func (s *DemandService) Submit(a domain.Actor, id string) (domain.Demand, error)
 	if d.PublisherID != a.ID {
 		return domain.Demand{}, errors.New("only the publisher can submit")
 	}
-	return s.repo.SetStatus(id, domain.DemandPublished) // auto-publish for mini program flow
+	if d.Status != domain.DemandRejected {
+		return domain.Demand{}, fmt.Errorf("only rejected demands can be resubmitted, got %s", d.Status)
+	}
+	return s.repo.SetStatus(id, domain.DemandPending)
+}
+
+// Complete marks a published demand as done (publisher only, no bidding).
+func (s *DemandService) Complete(a domain.Actor, id string) (domain.Demand, error) {
+	d, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if d.PublisherID != a.ID {
+		return domain.Demand{}, errors.New("only the publisher can complete the demand")
+	}
+	if d.Status != domain.DemandPublished {
+		return domain.Demand{}, fmt.Errorf("only published demands can be completed, got %s", d.Status)
+	}
+	return s.repo.SetStatus(id, domain.DemandCompleted)
+}
+
+// Cancel withdraws a demand (pending or published) by the publisher.
+func (s *DemandService) Cancel(a domain.Actor, id string) (domain.Demand, error) {
+	d, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if d.PublisherID != a.ID {
+		return domain.Demand{}, errors.New("only the publisher can cancel the demand")
+	}
+	if d.Status != domain.DemandPending && d.Status != domain.DemandPublished {
+		return domain.Demand{}, fmt.Errorf("demand in status %s cannot be cancelled", d.Status)
+	}
+	return s.repo.SetStatus(id, domain.DemandCancelled)
 }
 
 func (s *DemandService) Review(a domain.Actor, id, action, reason string) (domain.Demand, error) {
@@ -130,120 +157,6 @@ func (s *DemandService) Approve(a domain.Actor, id string) (domain.Demand, error
 	return d, nil
 }
 
-func (s *DemandService) CreateBid(a domain.Actor, demandID string, amountFen int64, proposal string) (domain.DemandBid, error) {
-	if a.Role != domain.RoleEnterprise && a.Role != domain.RoleIndividual {
-		return domain.DemandBid{}, errors.New("only enterprise/individual can bid")
-	}
-	d, err := s.repo.FindByID(demandID)
-	if err != nil {
-		return domain.DemandBid{}, fmt.Errorf("demand not found: %w", err)
-	}
-	if d.Status != domain.DemandPublished {
-		return domain.DemandBid{}, fmt.Errorf("cannot bid on demand in status %q", d.Status)
-	}
-	if d.PublisherID == a.ID {
-		return domain.DemandBid{}, errors.New("cannot bid on your own demand")
-	}
-	now := time.Now()
-	bid := domain.DemandBid{
-		ID:         fmt.Sprintf("bid-%d", now.UnixNano()),
-		DemandID:   demandID,
-		BidderID:   a.ID,
-		BidderName: a.ID,
-		AmountFen:  amountFen,
-		Proposal:   proposal,
-		Status:     "pending",
-		Version:    1,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-	}
-	saved, err := s.bidRepo.Create(bid)
-	if err != nil {
-		slog.Error("failed to persist bid", "error", err, "demand_id", demandID)
-		return domain.DemandBid{}, fmt.Errorf("persist bid: %w", err)
-	}
-	slog.Info("bid created", "bid_id", saved.ID, "demand_id", demandID, "bidder_id", a.ID)
-	return saved, nil
-}
-
-func (s *DemandService) SelectBid(a domain.Actor, demandID, bidID string) (domain.Demand, error) {
-	d, err := s.repo.FindByID(demandID)
-	if err != nil {
-		return domain.Demand{}, fmt.Errorf("demand not found: %w", err)
-	}
-	if d.PublisherID != a.ID {
-		return domain.Demand{}, errors.New("only the publisher can select a bid")
-	}
-	if d.Status != domain.DemandPublished {
-		return domain.Demand{}, fmt.Errorf("cannot select bid for demand in status %q", d.Status)
-	}
-	bid, err := s.bidRepo.FindByID(bidID)
-	if err != nil {
-		return domain.Demand{}, fmt.Errorf("bid not found: %w", err)
-	}
-	if bid.DemandID != demandID {
-		return domain.Demand{}, fmt.Errorf("bid %s does not belong to demand %s", bidID, demandID)
-	}
-	if _, err := s.bidRepo.UpdateStatus(bidID, "accepted"); err != nil {
-		slog.Error("failed to accept bid", "error", err, "bid_id", bidID)
-		return domain.Demand{}, fmt.Errorf("accept bid: %w", err)
-	}
-	swapped, _, err := s.repo.CompareAndSetStatus(demandID, domain.DemandPublished, domain.DemandMatched)
-	if err != nil {
-		return domain.Demand{}, fmt.Errorf("match demand: %w", err)
-	}
-	if !swapped {
-		// Another concurrent request already matched this demand — rollback bid acceptance
-		s.bidRepo.UpdateStatus(bidID, "pending")
-		return domain.Demand{}, fmt.Errorf("demand %s is no longer published, bid selection lost race", demandID)
-	}
-	slog.Info("bid accepted, demand matched", "demand_id", demandID, "bid_id", bidID)
-	d, _ = s.repo.FindByID(demandID)
-	return d, nil
-}
-
-// ConfirmComplete implements the dual-confirm flow. Confirmations are
-// persisted on the demand (Confirmations field) so they survive restarts and
-// work across multiple instances, unlike the previous in-process map.
-func (s *DemandService) ConfirmComplete(a domain.Actor, id string) (domain.Demand, bool, error) {
-	d, err := s.repo.FindByID(id)
-	if err != nil {
-		return domain.Demand{}, false, err
-	}
-	if d.Status != domain.DemandMatched {
-		return domain.Demand{}, false, fmt.Errorf("demand must be in matched status, got %s", d.Status)
-	}
-	for _, uid := range d.Confirmations {
-		if uid == a.ID {
-			return d, false, nil // already confirmed — no double counting
-		}
-	}
-	d.Confirmations = append(d.Confirmations, a.ID)
-	if _, err := s.repo.Update(d); err != nil {
-		return domain.Demand{}, false, fmt.Errorf("persist confirmation: %w", err)
-	}
-
-	if len(d.Confirmations) >= 2 {
-		d, err = s.repo.SetStatus(id, domain.DemandCompleted)
-		return d, true, err
-	}
-	return d, false, nil
-}
-
-func (s *DemandService) Dispute(a domain.Actor, id, reason string) (domain.Demand, error) {
-	d, err := s.repo.FindByID(id)
-	if err != nil {
-		return domain.Demand{}, err
-	}
-	if d.PublisherID != a.ID {
-		return domain.Demand{}, errors.New("only the publisher can raise a dispute")
-	}
-	if d.Status != domain.DemandPublished && d.Status != domain.DemandMatched && d.Status != domain.DemandCompleted {
-		return domain.Demand{}, fmt.Errorf("cannot dispute demand in status %s", d.Status)
-	}
-	_ = reason
-	return s.repo.SetStatus(id, domain.DemandPending)
-}
 
 type EnterpriseService struct {
 	repo repository.EnterpriseRepository

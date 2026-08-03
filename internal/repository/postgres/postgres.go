@@ -55,8 +55,6 @@ func (r *demandRepo) Create(d domain.Demand) (domain.Demand, error) {
 	if err != nil { return domain.Demand{}, fmt.Errorf("marshal images: %w", err) }
 	bizFields, err := json.Marshal(d.BizFields)
 	if err != nil { return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err) }
-	confirmations, err := json.Marshal(d.Confirmations)
-	if err != nil { return domain.Demand{}, fmt.Errorf("marshal confirmations: %w", err) }
 	if r.cipher != nil && d.Contact != "" {
 		enc, err := r.cipher.Encrypt(d.Contact)
 		if err != nil {
@@ -70,12 +68,12 @@ func (r *demandRepo) Create(d domain.Demand) (domain.Demand, error) {
 	d.UpdatedAt = now
 	_, err = r.pool.Exec(context.Background(), `
 		INSERT INTO demands (id, publisher_id, publisher_name, contact, district, city_code,
-			biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
+			biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
 			status, version, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
 		d.ID, d.PublisherID, d.PublisherName, d.Contact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, bizFields, confirmations, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt)
+		d.BudgetFen, bizFields, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("create demand: %w", err)
 	}
@@ -84,7 +82,7 @@ func (r *demandRepo) Create(d domain.Demand) (domain.Demand, error) {
 
 func (r *demandRepo) FindByID(id string) (domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
+		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
 		status, version, created_at, updated_at
 		FROM demands WHERE id = $1`
 	demands, err := scanDemands(r.pool, r.cipher, q, []any{id})
@@ -102,8 +100,6 @@ func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
 	if err != nil { return domain.Demand{}, fmt.Errorf("marshal images: %w", err) }
 	bizFields, err := json.Marshal(d.BizFields)
 	if err != nil { return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err) }
-	confirmations, err := json.Marshal(d.Confirmations)
-	if err != nil { return domain.Demand{}, fmt.Errorf("marshal confirmations: %w", err) }
 	encContact := d.Contact
 	if r.cipher != nil && d.Contact != "" {
 		enc, err := r.cipher.Encrypt(d.Contact)
@@ -117,16 +113,16 @@ func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
 	_, err = r.pool.Exec(context.Background(),
 		`UPDATE demands SET publisher_name=$1, contact=$2, district=$3, city_code=$4,
 		biz_type=$5, title=$6, description=$7, images=$8, latitude=$9, longitude=$10,
-		budget_fen=$11, biz_fields=$12, confirmations=$13, status=$14, version=$15, updated_at=$16 WHERE id=$17`,
+		budget_fen=$11, biz_fields=$12, status=$13, version=$14, updated_at=$15 WHERE id=$16`,
 		d.PublisherName, encContact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, bizFields, confirmations, string(d.Status), d.Version, d.UpdatedAt, d.ID)
+		d.BudgetFen, bizFields, string(d.Status), d.Version, d.UpdatedAt, d.ID)
 	return d, err
 }
 
 func (r *demandRepo) List(f repository.DemandFilter) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
+		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
 		status, version, created_at, updated_at
 		FROM demands WHERE status = 'published'`
 	args := []any{}
@@ -148,7 +144,7 @@ func (r *demandRepo) List(f repository.DemandFilter) ([]domain.Demand, error) {
 
 func (r *demandRepo) Search(q string) ([]domain.Demand, error) {
 	sql := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
+		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
 		status, version, created_at, updated_at
 		FROM demands WHERE status = 'published'
 		AND (title ILIKE $1 OR publisher_name ILIKE $1 OR description ILIKE $1)
@@ -168,22 +164,21 @@ func (r *demandRepo) SetStatus(id string, status domain.DemandStatus) (domain.De
 	}
 	// Fetch the updated row.
 	var d domain.Demand
-	var images, bizFields, confirmations []byte
+	var images, bizFields []byte
 	var bizType string
 	err = r.pool.QueryRow(context.Background(),
 		`SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields, confirmations,
+		biz_type, title, description, images, latitude, longitude, budget_fen, biz_fields,
 		status, version, created_at, updated_at
 		FROM demands WHERE id = $1`, id).Scan(
 		&d.ID, &d.PublisherID, &d.PublisherName, &d.Contact, &d.District, &d.CityCode,
 		&bizType, &d.Title, &d.Description, &images, &d.Latitude, &d.Longitude,
-		&d.BudgetFen, &bizFields, &confirmations, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt)
+		&d.BudgetFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("fetch demand after update: %w", err)
 	}
 	json.Unmarshal(images, &d.Images)
 	json.Unmarshal(bizFields, &d.BizFields)
-	json.Unmarshal(confirmations, &d.Confirmations)
 	d.BizType = domain.BizType(bizType)
 	d.Status = domain.DemandStatus(status)
 	if r.cipher != nil && d.Contact != "" {
@@ -203,16 +198,15 @@ func scanDemands(pool *pgxpool.Pool, cipher *crypto.Cipher, q string, args []any
 	out := []domain.Demand{}
 	for rows.Next() {
 		var d domain.Demand
-		var images, bizFields, confirmations []byte
+		var images, bizFields []byte
 		var status, bizType string
 		if err := rows.Scan(&d.ID, &d.PublisherID, &d.PublisherName, &d.Contact, &d.District,
 			&d.CityCode, &bizType, &d.Title, &d.Description, &images, &d.Latitude, &d.Longitude,
-			&d.BudgetFen, &bizFields, &confirmations, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt); err != nil {
+			&d.BudgetFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan demand: %w", err)
 		}
 		json.Unmarshal(images, &d.Images)
 		json.Unmarshal(bizFields, &d.BizFields)
-		json.Unmarshal(confirmations, &d.Confirmations)
 		d.BizType = domain.BizType(bizType)
 		d.Status = domain.DemandStatus(status)
 		if cipher != nil && d.Contact != "" {

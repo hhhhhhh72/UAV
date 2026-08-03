@@ -158,9 +158,8 @@ type DemandStatus string
 
 const (
 	DemandPending   DemandStatus = "pending"   // awaiting admin review
-	DemandPublished DemandStatus = "published" // publicly visible, accepting bids
-	DemandMatched   DemandStatus = "matched"   // a bid has been selected
-	DemandCompleted DemandStatus = "completed" // dual-confirm satisfied
+	DemandPublished DemandStatus = "published" // publicly visible with contact info
+	DemandCompleted DemandStatus = "completed" // marked done by publisher
 	DemandCancelled DemandStatus = "cancelled" // withdrawn by publisher
 	DemandRejected  DemandStatus = "rejected"  // declined by admin
 )
@@ -182,10 +181,7 @@ type Demand struct {
 	Longitude     float64        `json:"longitude"`
 	BudgetFen     int64          `json:"budget_fen"` // amount in fen (1/100 yuan)
 	BizFields     map[string]any `json:"biz_fields"`
-	// Confirmations tracks user IDs who confirmed demand completion
-	// (dual-confirm flow). Persisted so it survives restarts and multi-instance.
-	Confirmations []string     `json:"confirmations"`
-	Status        DemandStatus `json:"status"`
+	Status        DemandStatus   `json:"status"`
 	Version       int          `json:"version"`
 	CreatedAt     time.Time    `json:"created_at"`
 	UpdatedAt     time.Time    `json:"updated_at"`

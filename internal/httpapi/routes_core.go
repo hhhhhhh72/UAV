@@ -52,18 +52,14 @@ func (s *Server) registerMetaRoutes(mux *http.ServeMux) {
 func (s *Server) registerDemandRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/demands", s.listDemands)
 	mux.HandleFunc("GET /api/v1/demands/{id}", s.demandDetail)
-	mux.HandleFunc("GET /api/v1/demands/{id}/applications", s.listDemandBids)
-	mux.HandleFunc("GET /api/v1/demands/bids/mine", s.listMyBids)
 	mux.HandleFunc("POST /api/v1/demands", s.createDemand)
 	mux.HandleFunc("PATCH /api/v1/demands/{id}", s.updateDemand)
 	mux.HandleFunc("POST /api/v1/demands/{id}/submit", s.submitDemand)
+	mux.HandleFunc("POST /api/v1/demands/{id}/complete", s.completeDemand)
+	mux.HandleFunc("POST /api/v1/demands/{id}/cancel", s.cancelDemand)
 	mux.HandleFunc("GET /api/v1/admin/demands", s.listAdminDemands)
 	mux.HandleFunc("POST /api/v1/admin/demands/{id}/review", s.reviewDemand)
 	mux.HandleFunc("POST /api/v1/admin/demands/{id}/approve", s.approveDemand)
-	mux.HandleFunc("POST /api/v1/demands/{id}/applications", s.createBid)
-	mux.HandleFunc("POST /api/v1/demands/{id}/applications/{applicationId}/select", s.selectBid)
-	mux.HandleFunc("POST /api/v1/demands/{id}/complete", s.completeDemand)
-	mux.HandleFunc("POST /api/v1/demands/{id}/dispute", s.disputeDemand)
 }
 
 // ── Enterprises ──────────────────────────────────────────────────────────

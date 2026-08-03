@@ -92,7 +92,6 @@ func main() {
 		reportRepo       repository.ReportRepository
 		listingRepo      repository.ListingRepository
 		labourRepo       repository.LabourOrderRepository
-		bidRepo          repository.BidRepository
 		userRepo         repository.UserRepository
 		refreshTokenRepo repository.RefreshTokenRepository
 		certRepo         repository.CertificateRepository
@@ -170,7 +169,6 @@ func main() {
 		reportRepo = pgStore.NewReportRepository()
 		listingRepo = pgStore.NewListingRepository()
 		labourRepo = pgStore.NewLabourOrderRepository()
-		bidRepo = pgStore.NewBidRepository()
 		userRepo = pgStore.NewUserRepository()
 		certRepo = pgStore.NewCertificateRepository()
 		courseRepo = pgStore.NewCourseRepository()
@@ -226,7 +224,6 @@ func main() {
 		reportRepo = memory.NewReportRepository()
 		listingRepo = memory.NewListingRepository()
 		labourRepo = memory.NewLabourOrderRepository()
-		bidRepo = memory.NewBidRepository()
 		userRepo = memory.NewUserRepository(cipher)
 		refreshTokenRepo = memory.NewRefreshTokenRepository()
 		certRepo = memory.NewCertificateRepository()
@@ -271,7 +268,7 @@ func main() {
 	}
 
 	app := httpapi.NewServer(
-		service.NewDemandService(demandRepo, bidRepo),
+		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(enterpriseRepo),
 		service.NewEnterpriseSvc(enterpriseRepo),
 		service.NewEmploymentService(employmentRepo),
