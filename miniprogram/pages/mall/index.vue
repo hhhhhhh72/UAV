@@ -17,8 +17,8 @@
         </view>
       </view>
 
-      <!-- 左右布局：左分类轨 + 右商品区 -->
-      <view class="cate-layout">
+      <!-- 左右布局：左分类轨 + 右商品区（每次进入 tab 浮现动画） -->
+      <view class="cate-layout" :class="{ 'page-enter': enterAnim }">
         <!-- 左分类栏 -->
         <scroll-view scroll-y class="cate-side">
           <view
@@ -100,7 +100,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { onReachBottom } from '@dcloudio/uni-app'
+import { onShow, onReachBottom } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
 import { request, BASE_URL } from '@/utils/request'
 
@@ -194,6 +194,13 @@ const goDetail = (id) => {
   uni.navigateTo({ url: '/pages/mall/detail?id=' + encodeURIComponent(id) })
 }
 
+// 每次进入商城 tab：页面内容浮现动画（先移除再添加类重新播放）
+const enterAnim = ref(false)
+onShow(() => {
+  enterAnim.value = false
+  setTimeout(() => { enterAnim.value = true }, 60)
+})
+
 onMounted(() => {
   try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 24 } catch (e) {}
   loadProducts('')
@@ -217,6 +224,16 @@ onReachBottom(loadMore)
 
 /* 左右布局 */
 .cate-layout { flex: 1; display: flex; min-height: 0; }
+
+/* 进入商城 tab 浮现动画（淡入 + 上移 24px） */
+@keyframes page-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-fade-up .4s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .page-enter { animation: none; }
+}
 
 /* 左分类栏（Tigshop 分类页风格） */
 .cate-side { width: 88px; background: var(--color-bg); flex-shrink: 0; height: 100%; }
