@@ -143,7 +143,7 @@ git push origin feat/b-pages
 ├── frontend/                    # Vue 3 + Element Plus 管理后台
 │   ├── src/views/admin/         # 29 独立模块 + 8 聚合页
 │   └── src/views/               # 17 H5 页面 (首页/登录/服务等)
-├── miniprogram/                 # 微信小程序 (uni-app + Vant Weapp)
+├── miniprogram/                 # 微信小程序 (uni-app + 自研 u- 组件库)
 │   ├── pages/                   # 68 个页面文件 (7大系统)
 │   ├── components/              # 4 个共享组件
 │   └── utils/                   # API 封装 + Token 刷新
@@ -162,7 +162,7 @@ git push origin feat/b-pages
 
 | 层 | 技术 |
 |------|------|
-| 微信小程序 | uni-app + Vant Weapp 1.11 |
+| 微信小程序 | uni-app + 自研 u- 组件库 |
 | 管理后台 | Vue 3 + Element Plus 2.14 + ECharts 6 + Pinia |
 | API 层 | Go 标准库 net/http + gorilla/mux |
 | 业务层 | Go service (接口依赖注入) |
