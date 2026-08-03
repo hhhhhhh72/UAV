@@ -454,15 +454,22 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	// (users.password_hash); users.json is a legacy fallback for accounts that
 	// predate that column. Accounts without a stored hash cannot use password
 	// login (WeChat-only users) — the login is rejected, never accepted.
+	//
+	// Two ID conventions are accepted: "user-"+loginID (app-registered
+	// accounts) and the raw loginID (accounts created via the admin panel).
 	uid := "user-" + loginID
 	passwordHash := ""
 	var user map[string]any
-	if u, err := s.userRepo.FindByID(uid); err == nil {
+	for _, candidate := range []string{uid, loginID} {
+		u, err := s.userRepo.FindByID(candidate)
+		if err != nil {
+			continue
+		}
 		passwordHash = u.PasswordHash
 		if u.Role != "" {
-			role := u.Role
-			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(role), "status": u.Status}
+			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(u.Role), "status": u.Status}
 		}
+		break
 	}
 	if passwordHash == "" {
 		// Legacy fallback: look up users.json (accounts registered before
