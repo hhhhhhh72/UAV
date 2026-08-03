@@ -141,8 +141,36 @@ const doLogin = async () => {
   }
 }
 
+// 微信一键登录：wx.login code 换后端 token（与 App.vue 静默登录同一链路）
 const handlePhone = () => {
-  uni.switchTab({ url: '/pages/home/index' })
+  uni.login({
+    provider: 'weixin',
+    success: async (loginRes) => {
+      try {
+        const res = await request({
+          url: '/api/v1/auth/wechat/login',
+          method: 'POST',
+          data: { code: loginRes.code }
+        })
+        if (res?.access_token && res?.user) {
+          authStorage.setTokens(res.access_token, res.refresh_token)
+          uni.setStorageSync('user', JSON.stringify(res.user))
+          uni.showToast({ title: '登录成功', icon: 'success' })
+          setTimeout(() => {
+            loading.value = false
+            uni.switchTab({ url: '/pages/home/index' })
+          }, 600)
+        } else {
+          loading.value = false
+          uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+        }
+      } catch {
+        loading.value = false
+        uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+      }
+    },
+    fail: () => uni.showToast({ title: '微信登录失败', icon: 'none' })
+  })
 }
 
 // 恢复已保存手机号
