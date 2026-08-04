@@ -25,36 +25,53 @@
   .search{flex:1;height:40px;background:var(--surface);border-radius:6px;display:flex;align-items:center;gap:6px;padding:0 12px;color:var(--t4);font-size:12px}
   .search svg{flex-shrink:0}
 
-  /* 供给分类（7 类：需求②-2 供给能力展示） */
+  /* 供给分类（7 类：需求②-2 供给能力展示）— 选中滑动指示条 */
   .cats{background:var(--surface);padding:10px 12px;display:flex;gap:8px;overflow-x:auto;border-bottom:1px solid var(--divider)}
-  .cat{flex-shrink:0;height:30px;padding:0 14px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;font-size:12px;color:var(--t2);background:var(--surface);cursor:pointer}
+  .cat{flex-shrink:0;height:30px;padding:0 14px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;font-size:12px;color:var(--t2);background:var(--surface);cursor:pointer;position:relative;transition:all .18s}
+  .cat:active{transform:scale(.96)}
   .cat.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
 
-  /* 列表（V4：首条重点 + 后续紧凑） */
+  /* 列表（V4：首条重点 + 后续紧凑）— 卡片精致工艺 */
   .list{padding:12px;overflow-y:auto;height:calc(100% - 44px - 58px - 51px - 64px)}
-  .feat{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 3px 12px rgba(16,24,40,.05);margin-bottom:10px;cursor:pointer}
-  .feat-img{width:138px;height:104px;background:var(--brand-subtle);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .feat{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 4px 16px rgba(16,24,40,.08);margin-bottom:10px;cursor:pointer;transition:transform .18s, box-shadow .18s}
+  .feat:active{transform:scale(.985);box-shadow:0 2px 8px rgba(16,24,40,.06)}
+  .feat-img{width:138px;height:104px;background:linear-gradient(160deg,#0A66C2 0%,#074D92 100%);flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative}
+  .feat-img::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.14),transparent 60%)}
+  .feat-img svg{position:relative;z-index:1}
   .feat-info{flex:1;padding:10px 12px;min-width:0}
   .feat-title{font-size:14px;font-weight:700;color:var(--t1);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .feat-meta{display:flex;gap:8px;margin-top:6px}
   .feat-type{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--brand-soft);color:var(--brand)}
-  .feat-price{font-size:13px;font-weight:760;color:var(--accent-deep);margin-top:6px}
-  .feat-price small{font-size:10px;font-weight:400;color:var(--t3)}
+  .feat-price{font-size:14px;font-weight:780;color:var(--accent-deep);margin-top:6px;letter-spacing:-.2px}
+  .feat-price small{font-size:10px;font-weight:400;color:var(--t3);margin-left:4px}
 
-  /* 服务卡（航拍/试飞/检测/空域：服务型供给） */
-  .serv{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 3px 12px rgba(16,24,40,.05);margin-bottom:10px;cursor:pointer}
-  .serv-img{width:126px;height:84px;background:var(--accent-soft);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  /* 服务卡（航拍/试飞/检测/空域：服务型供给）— 图标深底 + 渐变 */
+  .serv{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 3px 12px rgba(16,24,40,.05);margin-bottom:10px;cursor:pointer;transition:transform .18s, box-shadow .18s}
+  .serv:active{transform:scale(.985)}
+  .serv-img{width:126px;height:84px;background:linear-gradient(160deg,#FFF0E6 0%,#FFE3D1 100%);flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative}
+  .serv-img::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 70% 30%,rgba(255,255,255,.5),transparent 55%)}
+  .serv-img svg{position:relative;z-index:1}
   .serv-info{flex:1;padding:10px 12px;min-width:0}
   .serv-title{font-size:13px;font-weight:700;color:var(--t1);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .serv-meta{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
-  .serv-type{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent-deep)}
+  .serv-type{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent-deep);font-weight:600}
   .serv-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
   .serv-price{font-size:12px;color:var(--t3)}
-  .serv-price b{color:var(--accent-deep)}
-  .serv-cta{font-size:11px;color:var(--brand);font-weight:600}
+  .serv-price b{color:var(--accent-deep);font-weight:760}
+  .serv-cta{font-size:11px;color:var(--brand);font-weight:600;padding:4px 10px;border:1px solid var(--brand);border-radius:6px;transition:all .18s}
+  .serv-cta:active{background:var(--brand);color:#fff}
 
-  .s-divider{display:flex;align-items:center;gap:8px;margin:16px 0 10px;font-size:12px;color:var(--t3)}
+  .s-divider{display:flex;align-items:center;gap:8px;margin:16px 0 10px;font-size:12px;color:var(--t3);font-weight:600}
   .s-divider::before,.s-divider::after{content:'';flex:1;height:1px;background:var(--divider)}
+
+  /* 骨架屏（加载态） */
+  .skel{display:none;padding:12px;flex-direction:column;gap:10px}
+  .skel .sk{background:var(--surface);border-radius:8px;padding:12px;display:flex;gap:12px}
+  .skel .sk-img{width:138px;height:104px;border-radius:6px;background:linear-gradient(90deg,#EEF1F4 25%,#F7F9FB 50%,#EEF1F4 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;flex-shrink:0}
+  .skel .sk-l{height:12px;border-radius:4px;background:linear-gradient(90deg,#EEF1F4 25%,#F7F9FB 50%,#EEF1F4 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:8px}
+  .skel .sk-l.w60{width:60%}
+  .skel .sk-l.w40{width:40%}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
   /* 状态 */
   .state{display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 0;color:var(--t3);font-size:12px}
@@ -156,6 +173,12 @@
     </div>
   </div>
 
+  <!-- 骨架屏 -->
+  <div class="skel" id="skel">
+    <div class="sk"><div class="sk-img"></div><div style="flex:1;padding-top:4px"><div class="sk-l w60"></div><div class="sk-l w40"></div><div class="sk-l w40"></div></div></div>
+    <div class="sk"><div class="sk-img"></div><div style="flex:1;padding-top:4px"><div class="sk-l w60"></div><div class="sk-l w40"></div><div class="sk-l w40"></div></div></div>
+  </div>
+
   <!-- 空态 -->
   <div class="state" id="stateEmpty">
     <div class="s-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.8" stroke-linecap="round"><path d="M4 8h16v10H4z"/><path d="M8 8V6h8v2"/></svg></div>
@@ -173,30 +196,26 @@
 </div>
 
 <div class="controls">
-  <h3>设计评审 · 服务页（V4 母版继承）</h3>
+  <h3>设计评审 · 服务页（V4 母版 + 美化）</h3>
   <button class="c-btn" onclick="setState('normal')">正常态</button>
+  <button class="c-btn" onclick="setState('loading')">加载态（骨架）</button>
   <button class="c-btn" onclick="setState('empty')">空数据态</button>
-  <div class="c-note">分类 7 类（需求②-2 供给能力展示）；首条重点卡 + 服务横卡；实物显示价格，服务显示面议/预约/联系对接。</div>
+  <div class="c-note">7 类供给分类；首条重点卡（深蓝渐变）+ 服务横卡（橙渐变图标底）；按压反馈；骨架屏；实物价格/服务对接语义。</div>
 </div>
 
 <script>
 function selectCat(el,key){
   document.querySelectorAll('.cat').forEach(c=>c.classList.remove('on'));
   el.classList.add('on');
-  document.getElementById('stateEmpty').style.display='none';
-  document.getElementById('list').style.display='block';
-  if(key==='airspace'||key==='training'){
-    document.getElementById('list').style.display='none';
-    document.getElementById('stateEmpty').style.display='flex';
-  }
+  setState('normal');
+  if(key==='airspace'||key==='training'){ setState('empty'); }
 }
 function setState(s){
-  document.getElementById('stateEmpty').style.display='none';
-  document.getElementById('list').style.display='block';
-  if(s==='empty'){
-    document.getElementById('list').style.display='none';
-    document.getElementById('stateEmpty').style.display='flex';
-  }
+  const list=document.getElementById('list'), skel=document.getElementById('skel'), empty=document.getElementById('stateEmpty');
+  list.style.display='none'; skel.style.display='none'; empty.style.display='none';
+  if(s==='loading'){ skel.style.display='flex'; }
+  else if(s==='empty'){ empty.style.display='flex'; }
+  else{ list.style.display='block'; }
 }
 function openDetail(t){toast(t+'：详情页（联系对接）')}
 function toast(msg){
