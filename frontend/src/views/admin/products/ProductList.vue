@@ -109,7 +109,7 @@ import axios from '@/utils/http'
 
 const api = useAdminApi('products')
 
-const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务' }[t] || t || '-')
+const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务', aerial: '航拍服务', test_fly: '试飞测试', calibration: '检测标定', airspace: '空域协调' }[t] || t || '-')
 
 const { listData, loading, filterParams, loadData, onSearchSubmit } = useListRequest({
   apiFunction: api.list,

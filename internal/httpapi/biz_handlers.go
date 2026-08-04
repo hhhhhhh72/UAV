@@ -428,14 +428,18 @@ func (s *Server) createComplianceStandard(w http.ResponseWriter, r *http.Request
 // ---- Industry Reports ----
 
 // GET /api/v1/industry-reports?page=1&page_size=10
+// 支持 keyword/status 过滤（管理端搜索/筛选；无参时与公开列表行为一致）
 func (s *Server) listIndustryReports(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.reportSvc.List(page, pageSize)
+	items, _, err := s.reportSvc.List(1, 10000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(rep domain.IndustryReport) string { return rep.Title },
+		func(rep domain.IndustryReport) string { return rep.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 
 // POST /api/v1/admin/industry-reports
@@ -747,14 +751,18 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 // ---- Research Projects ----
 
 // GET /api/v1/research-projects?page=1&page_size=10
+// GET /api/v1/research-projects — 支持 keyword/status 过滤（管理端搜索/筛选；无参时与公开列表行为一致）
 func (s *Server) listResearchProjects(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.researchSvc.List(page, pageSize)
+	items, _, err := s.researchSvc.List(1, 10000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(p domain.ResearchProject) string { return p.Title },
+		func(p domain.ResearchProject) string { return p.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 
 // POST /api/v1/admin/research-projects

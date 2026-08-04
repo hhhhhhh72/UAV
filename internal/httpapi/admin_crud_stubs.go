@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -25,6 +26,36 @@ func parsePagination(r *http.Request) (int, int) {
 // Admin CRUD stub handlers — fill gaps for frontend useAdminApi()
 // Handlers that already exist in other files are NOT redeclared.
 // ============================================================
+
+// adminListFilter 管理端列表通用过滤：keyword 匹配 kwField，status 精确匹配。
+// 管理端数据量小，列表先全量拉取再做内存过滤，保证搜索/筛选真正生效。
+func adminListFilter[T any](items []T, kw, status string, kwField func(T) string, statusField func(T) string) ([]T, int) {
+	kw = strings.ToLower(strings.TrimSpace(kw))
+	out := make([]T, 0, len(items))
+	for _, it := range items {
+		if status != "" && statusField(it) != status {
+			continue
+		}
+		if kw != "" && !strings.Contains(strings.ToLower(kwField(it)), kw) {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out, len(out)
+}
+
+// adminSlicePage 对过滤后的全量列表按页码切片。
+func adminSlicePage[T any](items []T, page, pageSize int) []T {
+	offset := (page - 1) * pageSize
+	if offset >= len(items) {
+		return []T{}
+	}
+	end := offset + pageSize
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[offset:end]
+}
 
 // ----- Orders (trade_orders) -----
 func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
@@ -209,12 +240,16 @@ func (s *Server) deleteCourse(w http.ResponseWriter, r *http.Request) {
 
 // --- Certificates (missing admin list/update/delete) ---
 func (s *Server) listAdminCerts(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := parsePagination(r)
 	certs, err := s.trainingSvc.ListAllCertificates()
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list certs: %w", err))
 		return
 	}
-	paginatedRespond(w, r, certs, len(certs))
+	filtered, total := adminListFilter(certs, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(c domain.Certificate) string { return c.CertNumber },
+		func(c domain.Certificate) string { return c.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 func (s *Server) updateCertificate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -276,13 +311,15 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 // --- Jobs (missing admin list/update/delete) ---
 func (s *Server) listAdminJobs(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := parsePagination(r)
-	offset := (page - 1) * pageSize
-	all, total, err := s.jobSvc.ListAllJobs(offset, pageSize)
+	all, _, err := s.jobSvc.ListAllJobs(0, 10000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list jobs: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, total)
+	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(j domain.Job) string { return j.Title },
+		func(j domain.Job) string { return string(j.Status) })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 func (s *Server) updateJob(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -406,12 +443,16 @@ func (s *Server) adminCreateCollege(w http.ResponseWriter, r *http.Request) {
 
 // --- Study Tours (missing list/create/update/delete) ---
 func (s *Server) listAdminStudy(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := parsePagination(r)
 	items, err := s.studyTourRepo.List()
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, convStudy(items), len(items))
+	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(t domain.StudyTour) string { return t.Title },
+		func(t domain.StudyTour) string { return t.Status })
+	paginatedRespond(w, r, convStudy(adminSlicePage(filtered, page, pageSize)), total)
 }
 
 func convStudy(items []domain.StudyTour) []map[string]any {
@@ -485,12 +526,16 @@ func (s *Server) deleteStudyTour(w http.ResponseWriter, r *http.Request) {
 
 // --- Test Sites (missing admin list/update/delete) ---
 func (s *Server) listAdminTestSites(w http.ResponseWriter, r *http.Request) {
-	all, err := s.testSiteSvc.List("")
+	page, pageSize := parsePagination(r)
+	all, err := s.testSiteSvc.List(r.URL.Query().Get("site_type"))
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list test sites: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, len(all))
+	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(t domain.TestSite) string { return t.Name },
+		func(t domain.TestSite) string { return t.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 func (s *Server) updateTestSite(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -524,12 +569,16 @@ func (s *Server) deleteTestSite(w http.ResponseWriter, r *http.Request) {
 
 // --- Transformations (missing admin list/update/delete) ---
 func (s *Server) listAdminTransformations(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := parsePagination(r)
 	all, err := s.transSvc.List("")
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list transformations: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, len(all))
+	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(t domain.Transformation) string { return t.Title },
+		func(t domain.Transformation) string { return t.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 
 func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
