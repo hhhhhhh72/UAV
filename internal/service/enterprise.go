@@ -108,12 +108,13 @@ func (s *EnterpriseSvc) Review(a domain.Actor, id, action, reason string) (domai
 		return domain.Enterprise{}, err
 	}
 	var newStatus domain.EnterpriseStatus
+	// 兼容两种写法：动词 approve/reject/supplement 与过去式 approved/rejected
 	switch action {
-	case "approve":
+	case "approve", "approved":
 		newStatus = domain.EnterpriseApproved
-	case "reject":
+	case "reject", "rejected":
 		newStatus = domain.EnterpriseRejected
-	case "supplement":
+	case "supplement", "supplement_required":
 		newStatus = domain.EnterpriseSupplementRequired
 	default:
 		return domain.Enterprise{}, fmt.Errorf("unknown review action: %s", action)
