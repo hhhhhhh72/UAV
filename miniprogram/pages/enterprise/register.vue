@@ -272,12 +272,17 @@ export default {
               name: 'file',
               header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
               success: function (r) {
-                try {
-                  var data = JSON.parse(r.data)
-                  resolve(data)
-                } catch (e) {
-                  resolve({ url: self.licenseUrl })
+                var data = null
+                try { data = JSON.parse(r.data) } catch (e) {}
+                // 非 2xx 或缺少 file_id：透出后端具体错误（401/400/413 等）
+                if (r.statusCode >= 400 || !data || !data.file_id) {
+                  var msg = ''
+                  if (data && data.error) msg = data.error.message || data.error.code || ''
+                  if (data && data.message) msg = data.message
+                  resolve({ _error: msg || ('HTTP ' + r.statusCode) })
+                  return
                 }
+                resolve(data)
               },
               fail: reject,
             })
@@ -286,7 +291,11 @@ export default {
           // /api/v1/files/upload 返回 {file_id,...}，访问地址为 /uploads/{file_id}
           var fid = uploadRes && uploadRes.file_id
           if (!fid) {
-            uni.showToast({ title: '营业执照上传失败，请重试', icon: 'none' })
+            var reason = (uploadRes && uploadRes._error) || ''
+            var tip = reason.indexOf('401') >= 0 || reason.indexOf('登录') >= 0 || reason.indexOf('token') >= 0
+              ? '登录已过期，请重新登录后重试'
+              : ('营业执照上传失败：' + (reason || '请重试'))
+            uni.showToast({ title: tip, icon: 'none', duration: 2500 })
             return
           }
           payload.license_url = '/uploads/' + fid
