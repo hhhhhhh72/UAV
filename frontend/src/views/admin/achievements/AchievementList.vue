@@ -58,7 +58,7 @@
             <span class="cell-name">{{ row.title || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="org" label="所属机构" min-width="160" />
+        <el-table-column prop="field" label="领域" min-width="120" />
         <el-table-column prop="field" label="领域" width="120">
           <template #default="{ row }">
             <el-tag size="small">{{ row.field || '-' }}</el-tag>
@@ -69,7 +69,7 @@
             <el-tag :type="stageTag(row.stage)" size="small">{{ stageLabel(row.stage) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="patent_no" label="专利号" width="150" />
+        <el-table-column prop="achieve_type" label="成果类型" width="120" />
         <el-table-column prop="created_at" label="提交时间" width="170" sortable="custom">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
@@ -104,15 +104,13 @@
       <template v-if="currentItem">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="成果名称" :span="2">{{ currentItem.title || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="所属机构">{{ currentItem.org || '-' }}</el-descriptions-item>
           <el-descriptions-item label="领域">{{ currentItem.field || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="成果类型">{{ currentItem.achieve_type || '-' }}</el-descriptions-item>
           <el-descriptions-item label="所处阶段">
             <el-tag :type="stageTag(currentItem.stage)" size="small">{{ stageLabel(currentItem.stage) }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="专利号">{{ currentItem.patent_no || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="作者" :span="2">{{ currentItem.authors || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="发表时间" :span="2">{{ formatDate(currentItem.publish_date) }}</el-descriptions-item>
           <el-descriptions-item label="成果描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="附件" :span="2">{{ (currentItem.attachments || []).length }} 份</el-descriptions-item>
         </el-descriptions>
       </template>
     </el-dialog>
@@ -120,17 +118,14 @@
     <el-dialog v-model="formVisible" :title="formEdit?'编辑成果':'新增成果'" width="560px" @close="resetForm">
       <el-form :model="form" label-width="80px">
         <el-form-item label="成果名称"><el-input v-model="form.title" /></el-form-item>
-        <el-form-item label="机构"><el-input v-model="form.org" /></el-form-item>
         <el-form-item label="领域"><el-input v-model="form.field" /></el-form-item>
+        <el-form-item label="成果类型"><el-input v-model="form.achieve_type" placeholder="如：专利 / 样机 / 技术方案" /></el-form-item>
         <el-form-item label="阶段">
           <el-select v-model="form.stage" style="width:100%">
             <el-option label="实验室" value="lab" /><el-option label="中试" value="pilot" />
             <el-option label="产业化" value="industrialization" /><el-option label="上市" value="launched" />
           </el-select>
         </el-form-item>
-        <el-form-item label="专利号"><el-input v-model="form.patent_no" /></el-form-item>
-        <el-form-item label="作者"><el-input v-model="form.authors" /></el-form-item>
-        <el-form-item label="日期"><el-input v-model="form.publish_date" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
         <el-form-item label="附件资料">
           <div style="width:100%">
@@ -180,8 +175,8 @@ const currentItem = ref(null)
 
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',title:'',org:'',field:'',stage:'lab',patent_no:'',authors:'',publish_date:'',description:''})
-const resetForm=()=>Object.assign(form,{id:'',title:'',org:'',field:'',stage:'lab',patent_no:'',authors:'',publish_date:'',description:'',attachments:[]})
+const form=reactive({id:'',title:'',field:'',stage:'lab',achieve_type:'',description:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',field:'',stage:'lab',achieve_type:'',description:'',attachments:[]})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,r);formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入成果名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}

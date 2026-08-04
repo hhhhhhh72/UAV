@@ -7,8 +7,9 @@
         </el-input>
         <el-select v-model="filterParams.status" clearable style="width:140px" @change="onSearchSubmit">
           <el-option label="全部状态" value="" />
-          <el-option label="即将开始" value="upcoming" />
-          <el-option label="进行中" value="ongoing" />
+          <el-option label="草稿" value="draft" />
+          <el-option label="招募中" value="recruiting" />
+          <el-option label="进行中" value="underway" />
           <el-option label="已结束" value="ended" />
         </el-select>
         <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
@@ -52,7 +53,7 @@
           <el-descriptions-item label="状态"><el-tag :type="statusTag(currentItem.status)" size="small">{{ currentItem.status || '-' }}</el-tag></el-descriptions-item>
           <el-descriptions-item label="组织方" :span="2">{{ currentItem.organizer || '-' }}</el-descriptions-item>
           <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="场地信息" :span="2">{{ currentItem.venue_info || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="展位费" :span="2">{{ currentItem.booth_price_fen ? '¥' + (currentItem.booth_price_fen / 100).toLocaleString() : '-' }}</el-descriptions-item>
         </el-descriptions>
       </template>
     </el-dialog>
@@ -61,9 +62,8 @@
         <el-row :gutter="16"><el-col :span="16"><el-form-item label="展会名称" required><el-input v-model="form.title"/></el-form-item></el-col><el-col :span="8"><el-form-item label="展位数"><el-input-number v-model="form.booth_count" :min="0" style="width:100%"/></el-form-item></el-col></el-row>
         <el-row :gutter="16"><el-col :span="12"><el-form-item label="地点"><el-input v-model="form.location"/></el-form-item></el-col><el-col :span="12"><el-form-item label="组织方"><el-input v-model="form.organizer"/></el-form-item></el-col></el-row>
         <el-row :gutter="16"><el-col :span="12"><el-form-item label="开始日期"><el-input v-model="form.start_date" placeholder="YYYY-MM-DD"/></el-form-item></el-col><el-col :span="12"><el-form-item label="结束日期"><el-input v-model="form.end_date" placeholder="YYYY-MM-DD"/></el-form-item></el-col></el-row>
-        <el-form-item label="状态"><el-select v-model="form.status"><el-option label="即将开始" value="upcoming"/><el-option label="进行中" value="ongoing"/><el-option label="已结束" value="ended"/></el-select></el-form-item>
+        <el-form-item label="状态"><el-select v-model="form.status"><el-option label="草稿" value="draft"/><el-option label="招募中" value="recruiting"/><el-option label="进行中" value="underway"/><el-option label="已结束" value="ended"/></el-select></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" rows="2"/></el-form-item>
-        <el-form-item label="场地信息"><el-input v-model="form.venue_info" type="textarea" rows="2"/></el-form-item>
       </el-form>
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">提交</el-button></template>
     </el-dialog>
@@ -78,13 +78,13 @@ import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
 const api = useAdminApi('exhibitions')
 const formatDate = (d) => { if(!d) return '-'; const dt=new Date(d); const p=n=>String(n).padStart(2,'0'); return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}` }
-const statusTag = (s) => ({ upcoming:'warning', ongoing:'success', ended:'info' }[s] || 'info')
+const statusTag = (s) => ({ draft:'info', recruiting:'warning', underway:'success', ended:'default' }[s] || 'info')
 const { listData, loading, total, filterParams, loadData, onSearchSubmit, onSelectChange, resetParams } = useListRequest({ apiFunction: api.list, idKey: 'id', defaultParams: { status: '' } })
 const detailVisible = ref(false); const currentItem = ref(null)
 const showDetail = (r) => { currentItem.value = r; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',title:'',location:'',start_date:'',end_date:'',booth_count:0,organizer:'',status:'upcoming',description:'',venue_info:''})
-const resetForm=()=>Object.assign(form,{id:'',title:'',location:'',start_date:'',end_date:'',booth_count:0,organizer:'',status:'upcoming',description:'',venue_info:''})
+const form=reactive({id:'',title:'',location:'',start_date:'',end_date:'',booth_count:0,organizer:'',status:'draft',description:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',location:'',start_date:'',end_date:'',booth_count:0,organizer:'',status:'draft',description:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,{...r,booth_count:r.booth_count||0});formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入展会名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}

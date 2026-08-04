@@ -25,7 +25,7 @@
         <el-table-column prop="event_type" label="类型" width="100"><template #default="{row}"><el-tag size="small" :type="typeTag(row.event_type)">{{ row.event_type || '-' }}</el-tag></template></el-table-column>
         <el-table-column prop="location" label="地点" width="120" />
         <el-table-column prop="start_time" label="开始时间" width="160" sortable="custom"><template #default="{row}">{{ formatDate(row.start_time) }}</template></el-table-column>
-        <el-table-column prop="capacity" label="名额" width="70" align="center" />
+        <el-table-column prop="max_attendees" label="名额" width="70" align="center" />
         <el-table-column prop="reg_count" label="已报名" width="80" align="center" />
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{row}"><el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag></template>
@@ -51,9 +51,9 @@
           <el-descriptions-item label="地点">{{ currentItem.location || '-' }}</el-descriptions-item>
           <el-descriptions-item label="开始时间">{{ formatDate(currentItem.start_time) }}</el-descriptions-item>
           <el-descriptions-item label="结束时间">{{ formatDate(currentItem.end_time) }}</el-descriptions-item>
-          <el-descriptions-item label="名额">{{ currentItem.capacity || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="名额">{{ currentItem.max_attendees || '-' }}</el-descriptions-item>
           <el-descriptions-item label="已报名">{{ currentItem.reg_count || 0 }}</el-descriptions-item>
-          <el-descriptions-item label="组织方" :span="2">{{ currentItem.organizer || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="已报名" :span="2">{{ currentItem.reg_count || 0 }} 人</el-descriptions-item>
           <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
         </el-descriptions>
       </template>
@@ -61,9 +61,9 @@
     <el-dialog v-model="formVisible" :title="formEdit?'编辑活动':'新增活动'" width="560px" destroy-on-close>
       <el-form :model="form" label-width="90px">
         <el-row :gutter="16"><el-col :span="16"><el-form-item label="活动名称" required><el-input v-model="form.title"/></el-form-item></el-col><el-col :span="8"><el-form-item label="类型"><el-select v-model="form.event_type" style="width:100%"><el-option label="论坛" value="论坛"/><el-option label="走访" value="走访"/><el-option label="沙龙" value="沙龙"/><el-option label="培训" value="培训"/><el-option label="其他" value="其他"/></el-select></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="地点"><el-input v-model="form.location"/></el-form-item></el-col><el-col :span="12"><el-form-item label="组织方"><el-input v-model="form.organizer"/></el-form-item></el-col></el-row>
+        <el-form-item label="地点"><el-input v-model="form.location"/></el-form-item>
         <el-row :gutter="16"><el-col :span="12"><el-form-item label="开始时间"><el-input v-model="form.start_time" placeholder="YYYY-MM-DD HH:mm"/></el-form-item></el-col><el-col :span="12"><el-form-item label="结束时间"><el-input v-model="form.end_time" placeholder="YYYY-MM-DD HH:mm"/></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="8"><el-form-item label="名额"><el-input-number v-model="form.capacity" :min="0" style="width:100%"/></el-form-item></el-col><el-col :span="8"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="即将开始" value="upcoming"/><el-option label="进行中" value="ongoing"/><el-option label="已结束" value="ended"/><el-option label="已取消" value="cancelled"/></el-select></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="8"><el-form-item label="名额"><el-input-number v-model="form.max_attendees" :min="0" style="width:100%"/></el-form-item></el-col><el-col :span="8"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="已发布" value="published"/><el-option label="进行中" value="ongoing"/><el-option label="已结束" value="ended"/><el-option label="已取消" value="cancelled"/></el-select></el-form-item></el-col></el-row>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" rows="3"/></el-form-item>
       </el-form>
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">提交</el-button></template>
@@ -80,13 +80,13 @@ import { useAdminApi } from '@/api/admin/common'
 const api = useAdminApi('events')
 const formatDate = (d) => { if(!d) return '-'; const dt=new Date(d); const p=n=>String(n).padStart(2,'0'); return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}` }
 const typeTag = (t) => ({ '论坛':'success', '走访':'', '沙龙':'warning', '培训':'info', '其他':'' }[t] || 'info')
-const statusTag = (s) => ({ upcoming:'warning', ongoing:'success', ended:'info', cancelled:'danger' }[s] || 'info')
+const statusTag = (s) => ({ published:'warning', ongoing:'success', ended:'info', cancelled:'danger' }[s] || 'info')
 const { listData, loading, total, filterParams, loadData, onSearchSubmit, onSelectChange, resetParams } = useListRequest({ apiFunction: api.list, idKey: 'id', defaultParams: { status: '' } })
 const detailVisible = ref(false); const currentItem = ref(null)
 const showDetail = (r) => { currentItem.value = r; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',title:'',event_type:'论坛',location:'',start_time:'',end_time:'',capacity:0,organizer:'',status:'upcoming',description:''})
-const resetForm=()=>Object.assign(form,{id:'',title:'',event_type:'论坛',location:'',start_time:'',end_time:'',capacity:0,organizer:'',status:'upcoming',description:''})
+const form=reactive({id:'',title:'',event_type:'论坛',location:'',start_time:'',end_time:'',max_attendees:0,status:'published',description:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',event_type:'论坛',location:'',start_time:'',end_time:'',max_attendees:0,status:'published',description:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,{...r,capacity:r.capacity||0});formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入活动名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}

@@ -36,8 +36,8 @@
             {{ row.price_fen ? '¥' + (row.price_fen / 100).toLocaleString() : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="capacity" label="名额" width="80" align="right">
-          <template #default="{ row }">{{ row.capacity ?? '-' }}</template>
+        <el-table-column prop="max_students" label="名额" width="80" align="right">
+          <template #default="{ row }">{{ row.max_students ?? '-' }}</template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
@@ -65,8 +65,8 @@
           <el-descriptions-item label="课程名称" :span="2">{{ currentItem.title || '-' }}</el-descriptions-item>
           <el-descriptions-item label="分类">{{ currentItem.category || '-' }}</el-descriptions-item>
           <el-descriptions-item label="价格">{{ currentItem.price_fen ? '¥' + (currentItem.price_fen / 100).toLocaleString() : '-' }}</el-descriptions-item>
-          <el-descriptions-item label="名额">{{ currentItem.capacity ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="讲师">{{ currentItem.instructor || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="名额">{{ currentItem.max_students ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="已报名">{{ currentItem.enrolled_count ?? 0 }} 人</el-descriptions-item>
           <el-descriptions-item label="开始日期">{{ formatDate(currentItem.start_date) }}</el-descriptions-item>
           <el-descriptions-item label="结束日期">{{ formatDate(currentItem.end_date) }}</el-descriptions-item>
           <el-descriptions-item label="地点">{{ currentItem.location || '-' }}</el-descriptions-item>
@@ -82,15 +82,14 @@
       <el-form :model="form" label-width="90px">
         <el-row :gutter="16">
           <el-col :span="16"><el-form-item label="课程名称" required><el-input v-model="form.title" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="分类"><el-input v-model="form.category" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="证书类型"><el-select v-model="form.cert_type" style="width:100%"><el-option label="CAAC 执照" value="caac" /><el-option label="大疆 UTC" value="utc_dji" /><el-option label="人社等级" value="gov_level" /></el-select></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="讲师"><el-input v-model="form.instructor" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="上课地点"><el-input v-model="form.location" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
           <el-col :span="8"><el-form-item label="价格(分)"><el-input-number v-model="form.price_fen" :min="0" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="名额"><el-input-number v-model="form.capacity" :min="0" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="名额"><el-input-number v-model="form.max_students" :min="0" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="草稿" value="draft" /><el-option label="已发布" value="published" /><el-option label="已关闭" value="closed" /></el-select></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
@@ -134,8 +133,8 @@ const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 
 const formVisible=ref(false); const formEdit=ref(false); const formLoading=ref(false)
-const form=reactive({id:'',title:'',category:'',instructor:'',price_fen:0,capacity:0,location:'',start_date:'',end_date:'',status:'draft',description:''})
-const resetForm=()=>Object.assign(form,{id:'',title:'',category:'',instructor:'',price_fen:0,capacity:0,location:'',start_date:'',end_date:'',status:'draft',description:''})
+const form=reactive({id:'',title:'',cert_type:'caac',price_fen:0,max_students:0,location:'',start_date:'',end_date:'',status:'draft',description:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',cert_type:'caac',price_fen:0,max_students:0,location:'',start_date:'',end_date:'',status:'draft',description:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,{...r,price_fen:r.price_fen||0,capacity:r.capacity||0});formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入课程名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}

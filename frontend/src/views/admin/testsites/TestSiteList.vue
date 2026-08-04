@@ -107,10 +107,9 @@
           <el-descriptions-item label="状态">
             <el-tag :type="statusTag(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="容量">{{ currentItem.capacity || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="设施">{{ (currentItem.facilities || []).join('、') || '-' }}</el-descriptions-item>
           <el-descriptions-item label="配套设施" :span="2">{{ currentItem.facilities || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="开放时间" :span="2">{{ currentItem.open_time || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="使用规则" :span="2">{{ currentItem.rules || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="使用规则" :span="2">{{ currentItem.booking_rule || '-' }}</el-descriptions-item>
         </el-descriptions>
       </template>
     </el-dialog>
@@ -121,12 +120,12 @@
         <el-form-item label="地点"><el-input v-model="form.location" /></el-form-item>
         <el-form-item label="类型">
           <el-select v-model="form.site_type" style="width:100%">
-            <el-option label="飞行场地" value="flying_field" /><el-option label="实验室" value="lab" /><el-option label="室内场地" value="indoor" />
+            <el-option label="飞行场地" value="flying_field" /><el-option label="实验室" value="lab" /><el-option label="消声室" value="anechoic_chamber" /><el-option label="风洞" value="wind_tunnel" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status" style="width:100%">
-            <el-option label="可用" value="available" /><el-option label="维护中" value="maintenance" /><el-option label="已关闭" value="closed" />
+            <el-option label="可用" value="available" /><el-option label="维护中" value="maintenance" /><el-option label="已预约" value="reserved" />
           </el-select>
         </el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
@@ -165,8 +164,8 @@ const detailVisible = ref(false)
 const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',name:'',site_type:'flying_field',location:'',price_fen:0,capacity:'',facilities:'',open_time:'',rules:'',status:'available'})
-const resetForm=()=>Object.assign(form,{id:'',name:'',site_type:'flying_field',location:'',price_fen:0,capacity:'',facilities:'',open_time:'',rules:'',status:'available'})
+const form=reactive({id:'',name:'',site_type:'flying_field',location:'',price_fen:0,facilities:'',booking_rule:'',status:'available'})
+const resetForm=()=>Object.assign(form,{id:'',name:'',site_type:'flying_field',location:'',price_fen:0,facilities:'',booking_rule:'',status:'available'})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,{...r,price_fen:r.price_fen||0});formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.name){ElMessage.warning('请输入场地名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}

@@ -69,15 +69,14 @@
           </el-descriptions-item>
           <el-descriptions-item label="型号/规格">{{ currentItem.model || '-' }}</el-descriptions-item>
           <el-descriptions-item label="地区">{{ currentItem.location || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="数量">{{ currentItem.quantity ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="可见级别">{{ currentItem.visibility_level || '-' }}</el-descriptions-item>
           <el-descriptions-item label="费用">&yen;{{ formatPriceFen(currentItem.price_fen) }}</el-descriptions-item>
-          <el-descriptions-item label="联系人">{{ currentItem.contact_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="联系电话">{{ currentItem.contact_phone || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="预约信息">{{ currentItem.booking_info || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="statusColor[currentItem.status] || 'info'" size="small">{{ statusLabel[currentItem.status] || currentItem.status }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="预约方式" :span="2">{{ currentItem.booking_method || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="预约方式" :span="2">{{ currentItem.booking_info || '-' }}</el-descriptions-item>
         </el-descriptions>
       </template>
     </el-dialog>
@@ -96,10 +95,7 @@
           </el-form-item></el-col>
           <el-col :span="12"><el-form-item label="型号规格"><el-input v-model="form.model" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="地区"><el-input v-model="form.location" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="数量"><el-input-number v-model="form.quantity" :min="0" style="width:100%" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="费用(分)"><el-input-number v-model="form.price_fen" :min="0" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="联系人"><el-input v-model="form.contact_name" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="联系电话"><el-input v-model="form.contact_phone" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="可见级别">
             <el-select v-model="form.visibility_level" style="width:100%">
               <el-option label="公开（政府访客可见）" value="public" />
@@ -113,8 +109,7 @@
               <el-option label="可用" value="available" /><el-option label="使用中" value="in_use" /><el-option label="维护中" value="maintenance" />
             </el-select>
           </el-form-item></el-col>
-          <el-col :span="24"><el-form-item label="描述"><el-input v-model="form.description" type="textarea" rows="2" /></el-form-item></el-col>
-          <el-col :span="24"><el-form-item label="预约方式"><el-input v-model="form.booking_method" /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="预约方式"><el-input v-model="form.booking_info" placeholder="如：工作日 9-18 点，需提前 3 天" /></el-form-item></el-col>
         </el-row>
       </el-form>
       <template #footer>
@@ -161,8 +156,8 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id:'', name:'', res_type:'', model:'', location:'', quantity:0, price_fen:0, contact_name:'', contact_phone:'', status:'available', description:'', booking_method:'', visibility_level:'public' })
-const resetForm = () => Object.assign(form, { id:'', name:'', res_type:'', model:'', location:'', quantity:0, price_fen:0, contact_name:'', contact_phone:'', status:'available', description:'', booking_method:'' })
+const form = reactive({ id:'', name:'', res_type:'', model:'', location:'', price_fen:0, status:'available', booking_info:'', visibility_level:'public' })
+const resetForm = () => Object.assign(form, { id:'', name:'', res_type:'', model:'', location:'', price_fen:0, status:'available', booking_info:'', visibility_level:'public' })
 const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
 const handleEdit = (row) => {
   Object.assign(form, { ...row, price_fen: row.price_fen || 0, quantity: row.quantity || 0 })

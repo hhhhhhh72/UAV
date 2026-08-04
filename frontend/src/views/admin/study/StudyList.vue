@@ -67,12 +67,8 @@
           <el-descriptions-item label="状态">
             <el-tag :type="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="行程安排" :span="2">{{ currentItem.schedule || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="价格">
-            {{ currentItem.price_fen ? '¥' + (currentItem.price_fen / 100).toLocaleString() : (currentItem.price || '-') }}
-          </el-descriptions-item>
+          <el-descriptions-item label="项目介绍" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ formatDate(currentItem.created_at) }}</el-descriptions-item>
-          <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
         </el-descriptions>
       </template>
     </el-dialog>
@@ -89,10 +85,8 @@
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="名额"><el-input-number v-model="form.capacity" :min="0" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="费用(分)"><el-input-number v-model="form.price_fen" :min="0" style="width:100%" /></el-form-item></el-col>
         </el-row>
-        <el-form-item label="日程安排"><el-input v-model="form.schedule" type="textarea" rows="2" /></el-form-item>
-        <el-form-item label="项目描述"><el-input v-model="form.description" type="textarea" rows="2" /></el-form-item>
+        <el-form-item label="项目介绍"><el-input v-model="form.description" type="textarea" rows="2" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">提交</el-button></template>
     </el-dialog>
@@ -129,8 +123,8 @@ const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 
 const formVisible=ref(false); const formEdit=ref(false); const formLoading=ref(false)
-const form=reactive({id:'',title:'',destination:'',duration:'',capacity:0,price_fen:0,schedule:'',status:'draft',description:''})
-const resetForm=()=>Object.assign(form,{id:'',title:'',destination:'',duration:'',capacity:0,price_fen:0,schedule:'',status:'draft',description:''})
+const form=reactive({id:'',title:'',destination:'',duration:'',capacity:0,status:'draft',description:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',destination:'',duration:'',capacity:0,status:'draft',description:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,{...r,price_fen:r.price_fen||0,capacity:r.capacity||0});formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入项目名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
