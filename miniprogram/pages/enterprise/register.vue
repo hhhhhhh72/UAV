@@ -274,8 +274,8 @@ export default {
               success: function (r) {
                 var data = null
                 try { data = JSON.parse(r.data) } catch (e) {}
-                // 非 2xx 或缺少 file_id：透出后端具体错误（401/400/413 等）
-                if (r.statusCode >= 400 || !data || !data.file_id) {
+                // 非 2xx 或缺少 file_id（含 data 信封内层）：透出后端具体错误（401/400/413 等）
+                if (r.statusCode >= 400 || !data || (!data.file_id && !(data.data && data.data.file_id))) {
                   var msg = ''
                   if (data && data.error) msg = data.error.message || data.error.code || ''
                   if (data && data.message) msg = data.message
