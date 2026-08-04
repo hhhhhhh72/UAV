@@ -301,17 +301,19 @@ export default {
 
 .filter-item {
   flex-shrink: 0;
-  padding: 14rpx 28rpx;
+  padding: 12rpx 26rpx;
   color: var(--color-text-secondary);
   font-size: var(--font-sm);
-  background: #e9edf3;
-  border-radius: var(--radius-round);
+  background: #ffffff;
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
 .filter-item.active {
   color: #ffffff;
   font-weight: 600;
   background: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .state-panel {
