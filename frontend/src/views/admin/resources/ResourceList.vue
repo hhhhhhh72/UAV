@@ -9,7 +9,7 @@
           <el-option label="全部" value="" />
           <el-option label="无人机" value="drone" />
           <el-option label="机场" value="airport" />
-          <el-option label="试飞场地" value="flying_field" />
+          <el-option label="试飞场地" value="test_site" />
           <el-option label="测试基地" value="test_base" />
           <el-option label="其他" value="other" />
         </el-select>
@@ -90,7 +90,7 @@
           <el-col :span="12"><el-form-item label="资源类型" required>
             <el-select v-model="form.res_type" style="width:100%">
               <el-option label="无人机" value="drone" /><el-option label="机场" value="airport" />
-              <el-option label="试飞场地" value="flying_field" /><el-option label="测试基地" value="test_base" />
+              <el-option label="试飞场地" value="test_site" /><el-option label="测试基地" value="test_base" />
               <el-option label="其他" value="other" />
             </el-select>
           </el-form-item></el-col>
@@ -134,8 +134,8 @@ import { useAdminApi } from '@/api/admin/common'
 
 const api = useAdminApi('industry-resources')
 
-const resTypeLabel = { drone: '无人机', airport: '机场', flying_field: '试飞场地', test_base: '测试基地', other: '其他' }
-const resTypeColor = { drone: 'success', airport: 'warning', flying_field: 'info', test_base: '', other: '' }
+const resTypeLabel = { drone: '无人机', airport: '机场', test_site: '试飞场地', flying_field: '试飞场地', test_base: '测试基地', other: '其他' }
+const resTypeColor = { drone: 'success', airport: 'warning', test_site: 'warning', flying_field: 'info', test_base: '', other: '' }
 const statusLabel = { available: '可用', in_use: '使用中', maintenance: '维护中' }
 const visLabel = { public: '公开', member: '会员', partner: '副会长单位', admin: '仅管理员' }
 const visColor = { public: 'info', member: 'primary', partner: 'warning', admin: 'danger' }
