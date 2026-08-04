@@ -139,7 +139,9 @@ func NewComplianceService(repo repository.ComplianceRepository) *ComplianceServi
 // Docs
 func (s *ComplianceService) CreateDoc(title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
 	now := time.Now()
-	if status == "" { status = "published" }
+	if status == "" {
+		status = "published"
+	}
 	pd, err := time.Parse("2006-01-02", publishDate)
 	if err != nil {
 		return domain.ComplianceDoc{}, fmt.Errorf("invalid publish date: %w", err)
@@ -190,7 +192,9 @@ func (s *ComplianceService) DeleteDoc(id string) error {
 // Standards
 func (s *ComplianceService) CreateStandard(title, stdNumber, publisher, effectiveDate, status, scope, fileURL string) (domain.StandardDoc, error) {
 	now := time.Now()
-	if status == "" { status = "published" }
+	if status == "" {
+		status = "published"
+	}
 	pd, err := time.Parse("2006-01-02", effectiveDate)
 	if err != nil {
 		return domain.StandardDoc{}, fmt.Errorf("invalid effective date: %w", err)
@@ -217,12 +221,21 @@ func (s *ComplianceService) ListStandards(category string, page, pageSize int) (
 
 func (s *ComplianceService) DeleteStandard(id string) error { return s.repo.DeleteStandard(id) }
 
-func (s *ComplianceService) FindDocByID(id string) (domain.ComplianceDoc, error) { return s.repo.FindDocByID(id) }
-func (s *ComplianceService) FindStandardByID(id string) (domain.StandardDoc, error) { return s.repo.FindStandardByID(id) }
+func (s *ComplianceService) FindDocByID(id string) (domain.ComplianceDoc, error) {
+	return s.repo.FindDocByID(id)
+}
+func (s *ComplianceService) FindStandardByID(id string) (domain.StandardDoc, error) {
+	return s.repo.FindStandardByID(id)
+}
 
 func (s *ComplianceService) UpdateStandard(id, title, status, fileURL string) (domain.StandardDoc, error) {
-	sd, err := s.repo.FindStandardByID(id); if err != nil { return domain.StandardDoc{}, err }
-	sd.Title = title; sd.Status = status; sd.UpdatedAt = time.Now()
+	sd, err := s.repo.FindStandardByID(id)
+	if err != nil {
+		return domain.StandardDoc{}, err
+	}
+	sd.Title = title
+	sd.Status = status
+	sd.UpdatedAt = time.Now()
 	_ = fileURL
 	return s.repo.UpdateStandard(sd)
 }
@@ -317,6 +330,12 @@ func (s *PortfolioService) Create(enterpriseID, name, logoURL, coverURL, descrip
 func (s *PortfolioService) ListPublished(page, pageSize int) ([]domain.MemberPortfolio, int, error) {
 	offset := (page - 1) * pageSize
 	return s.repo.ListPublished(offset, pageSize)
+}
+
+// List 管理端全量列表（含草稿/待审），供 admin 列表页使用。
+func (s *PortfolioService) List(page, pageSize int) ([]domain.MemberPortfolio, int, error) {
+	offset := (page - 1) * pageSize
+	return s.repo.List(offset, pageSize)
 }
 
 func (s *PortfolioService) Get(id string) (domain.MemberPortfolio, error) {

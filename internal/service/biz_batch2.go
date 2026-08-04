@@ -37,6 +37,7 @@ func (s *TransformationService) UpdateTrans(id, title, stage, progress, partnerI
 		return domain.Transformation{}, err
 	}
 	t.Title = title
+	t.Stage = domain.TransformationStage(stage)
 	t.Progress = progress
 	t.Status = status
 	t.PartnerID = partnerID

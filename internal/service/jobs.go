@@ -34,20 +34,36 @@ func (s *JobService) CreateJob(a domain.Actor, title, desc, location string, sal
 }
 func (s *JobService) PublishJob(a domain.Actor, id string) (domain.Job, error) {
 	j, err := s.repo.FindByID(id)
-	if err != nil { return domain.Job{}, err }
-	if j.EnterpriseID != a.ID { return domain.Job{}, errors.New("only the owner can publish") }
-	j.Status = domain.JobPublished; j.UpdatedAt = time.Now()
+	if err != nil {
+		return domain.Job{}, err
+	}
+	if j.EnterpriseID != a.ID {
+		return domain.Job{}, errors.New("only the owner can publish")
+	}
+	j.Status = domain.JobPublished
+	j.UpdatedAt = time.Now()
 	slog.Info("job updated", "job_id", id)
 	return s.repo.Update(id, j)
 }
 func (s *JobService) CloseJob(a domain.Actor, id string) (domain.Job, error) {
 	j, err := s.repo.FindByID(id)
-	if err != nil { return domain.Job{}, err }
-	if j.EnterpriseID != a.ID { return domain.Job{}, errors.New("only the owner can close") }
-	j.Status = domain.JobClosed; j.UpdatedAt = time.Now()
+	if err != nil {
+		return domain.Job{}, err
+	}
+	if j.EnterpriseID != a.ID {
+		return domain.Job{}, errors.New("only the owner can close")
+	}
+	j.Status = domain.JobClosed
+	j.UpdatedAt = time.Now()
 	slog.Info("job updated", "job_id", id)
 	return s.repo.Update(id, j)
 }
+
+// ListAllJobs 管理端全量列表（含草稿），供 admin 列表页使用。
+func (s *JobService) ListAllJobs(offset, limit int) ([]domain.Job, int, error) {
+	return s.repo.ListAll(offset, limit)
+}
+
 func (s *JobService) ListPublishedJobs(offset, limit int) ([]domain.Job, int, error) {
 	return s.repo.ListPublished(offset, limit)
 }
@@ -59,9 +75,15 @@ func (s *JobService) GetJob(id string) (domain.Job, error) { return s.repo.FindB
 
 func (s *JobService) UpdateJob(id, title, desc, location, jobType string, salaryFen int64, status string) (domain.Job, error) {
 	j, err := s.repo.FindByID(id)
-	if err != nil { return domain.Job{}, err }
-	j.Title = title; j.Description = desc; j.Location = location; j.SalaryFen = salaryFen
-	j.Status = domain.JobStatus(status); j.JobType = jobType
+	if err != nil {
+		return domain.Job{}, err
+	}
+	j.Title = title
+	j.Description = desc
+	j.Location = location
+	j.SalaryFen = salaryFen
+	j.Status = domain.JobStatus(status)
+	j.JobType = jobType
 	return s.repo.Update(id, j)
 }
 
@@ -79,9 +101,16 @@ func (s *JobService) CreateResume(a domain.Actor, title, content, visibility str
 }
 func (s *JobService) UpdateResume(a domain.Actor, id, title, content, visibility string) (domain.Resume, error) {
 	r, err := s.resume.FindByID(id)
-	if err != nil { return domain.Resume{}, err }
-	if r.UserID != a.ID { return domain.Resume{}, errors.New("only the owner can edit") }
-	r.Title = title; r.Content = content; r.Visibility = visibility; r.UpdatedAt = time.Now()
+	if err != nil {
+		return domain.Resume{}, err
+	}
+	if r.UserID != a.ID {
+		return domain.Resume{}, errors.New("only the owner can edit")
+	}
+	r.Title = title
+	r.Content = content
+	r.Visibility = visibility
+	r.UpdatedAt = time.Now()
 	return s.resume.Update(id, r)
 }
 func (s *JobService) ListMyResumes(a domain.Actor) ([]domain.Resume, error) {
@@ -92,8 +121,12 @@ func (s *JobService) ListMyResumes(a domain.Actor) ([]domain.Resume, error) {
 
 func (s *JobService) Apply(a domain.Actor, jobID, resumeID string) (domain.JobApplication, error) {
 	j, err := s.repo.FindByID(jobID)
-	if err != nil { return domain.JobApplication{}, err }
-	if j.EnterpriseID == a.ID { return domain.JobApplication{}, errors.New("cannot apply to your own job") }
+	if err != nil {
+		return domain.JobApplication{}, err
+	}
+	if j.EnterpriseID == a.ID {
+		return domain.JobApplication{}, errors.New("cannot apply to your own job")
+	}
 	now := time.Now()
 	app := domain.JobApplication{ID: fmt.Sprintf("app-%d", now.UnixNano()), JobID: jobID, ResumeID: resumeID,
 		ApplicantID: a.ID, Status: domain.AppSubmitted, Version: 1, CreatedAt: now, UpdatedAt: now}
@@ -101,9 +134,13 @@ func (s *JobService) Apply(a domain.Actor, jobID, resumeID string) (domain.JobAp
 }
 func (s *JobService) UpdateApplicationStatus(a domain.Actor, appID string, status domain.AppStatus) (domain.JobApplication, error) {
 	ap, err := s.app.UpdateStatus(appID, status)
-	if err != nil { return domain.JobApplication{}, err }
+	if err != nil {
+		return domain.JobApplication{}, err
+	}
 	j, err := s.repo.FindByID(ap.JobID)
-	if err != nil { return domain.JobApplication{}, err }
+	if err != nil {
+		return domain.JobApplication{}, err
+	}
 	if j.EnterpriseID != a.ID && ap.ApplicantID != a.ID {
 		return domain.JobApplication{}, errors.New("only the job owner or applicant can update")
 	}
@@ -111,8 +148,12 @@ func (s *JobService) UpdateApplicationStatus(a domain.Actor, appID string, statu
 }
 func (s *JobService) ListApplicationsForJob(a domain.Actor, jobID string) ([]domain.JobApplication, error) {
 	j, err := s.repo.FindByID(jobID)
-	if err != nil { return nil, err }
-	if j.EnterpriseID != a.ID { return nil, errors.New("only the job owner can view applications") }
+	if err != nil {
+		return nil, err
+	}
+	if j.EnterpriseID != a.ID {
+		return nil, errors.New("only the job owner can view applications")
+	}
 	return s.app.ListByJob(jobID)
 }
 func (s *JobService) ListMyApplications(a domain.Actor) ([]domain.JobApplication, error) {

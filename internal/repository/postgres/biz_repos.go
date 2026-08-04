@@ -19,16 +19,20 @@ type expertRepo struct{ pool *pgxpool.Pool }
 func (s *Store) NewExpertRepository() repository.ExpertRepository { return &expertRepo{pool: s.Pool()} }
 
 func (r *expertRepo) Create(e domain.Expert) (domain.Expert, error) {
-	e.CreatedAt = time.Now(); e.UpdatedAt = e.CreatedAt
+	e.CreatedAt = time.Now()
+	e.UpdatedAt = e.CreatedAt
 	tags, err := json.Marshal(e.Tags)
-	if err != nil { return domain.Expert{}, fmt.Errorf("marshal expert tags: %w", err) }
+	if err != nil {
+		return domain.Expert{}, fmt.Errorf("marshal expert tags: %w", err)
+	}
 	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO experts (id,name,title,org,field,tags,bio,avatar_url,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		e.ID, e.Name, e.Title, e.Org, e.Field, tags, e.Bio, e.AvatarURL, e.Status, e.CreatedAt, e.UpdatedAt)
 	return e, err
 }
 func (r *expertRepo) FindByID(id string) (domain.Expert, error) {
-	var e domain.Expert; var tags []byte
+	var e domain.Expert
+	var tags []byte
 	err := r.pool.QueryRow(context.Background(),
 		`SELECT id,name,title,org,field,tags,bio,avatar_url,status,created_at,updated_at FROM experts WHERE id=$1`, id).
 		Scan(&e.ID, &e.Name, &e.Title, &e.Org, &e.Field, &tags, &e.Bio, &e.AvatarURL, &e.Status, &e.CreatedAt, &e.UpdatedAt)
@@ -38,14 +42,20 @@ func (r *expertRepo) FindByID(id string) (domain.Expert, error) {
 func (r *expertRepo) List(field string) ([]domain.Expert, error) {
 	q := `SELECT id,name,title,org,field,tags,bio,avatar_url,status,created_at,updated_at FROM experts`
 	args := []any{}
-	if field != "" { q += ` WHERE field=$1`; args = append(args, field) }
+	if field != "" {
+		q += ` WHERE field=$1`
+		args = append(args, field)
+	}
 	q += ` ORDER BY created_at DESC`
 	rows, err := r.pool.Query(context.Background(), q, args...)
-	if err != nil { return nil, fmt.Errorf("list experts: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("list experts: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.Expert
 	for rows.Next() {
-		var e domain.Expert; var tags []byte
+		var e domain.Expert
+		var tags []byte
 		rows.Scan(&e.ID, &e.Name, &e.Title, &e.Org, &e.Field, &tags, &e.Bio, &e.AvatarURL, &e.Status, &e.CreatedAt, &e.UpdatedAt)
 		json.Unmarshal(tags, &e.Tags)
 		out = append(out, e)
@@ -55,7 +65,9 @@ func (r *expertRepo) List(field string) ([]domain.Expert, error) {
 func (r *expertRepo) Update(e domain.Expert) (domain.Expert, error) {
 	e.UpdatedAt = time.Now()
 	tags, err := json.Marshal(e.Tags)
-	if err != nil { return domain.Expert{}, fmt.Errorf("marshal expert tags: %w", err) }
+	if err != nil {
+		return domain.Expert{}, fmt.Errorf("marshal expert tags: %w", err)
+	}
 	_, err = r.pool.Exec(context.Background(),
 		`UPDATE experts SET name=$1,title=$2,org=$3,field=$4,tags=$5,bio=$6,avatar_url=$7,status=$8,updated_at=$9 WHERE id=$10`,
 		e.Name, e.Title, e.Org, e.Field, tags, e.Bio, e.AvatarURL, e.Status, e.UpdatedAt, e.ID)
@@ -63,7 +75,9 @@ func (r *expertRepo) Update(e domain.Expert) (domain.Expert, error) {
 }
 func (r *expertRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM experts WHERE id=$1`, id)
-	if err != nil { return fmt.Errorf("delete expert %s: %w", id, err) }
+	if err != nil {
+		return fmt.Errorf("delete expert %s: %w", id, err)
+	}
 	return nil
 }
 
@@ -74,16 +88,20 @@ type caseRepo struct{ pool *pgxpool.Pool }
 func (s *Store) NewCaseRepository() repository.CaseRepository { return &caseRepo{pool: s.Pool()} }
 
 func (r *caseRepo) Create(c domain.CaseEntry) (domain.CaseEntry, error) {
-	c.CreatedAt = time.Now(); c.UpdatedAt = c.CreatedAt
+	c.CreatedAt = time.Now()
+	c.UpdatedAt = c.CreatedAt
 	imgs, err := json.Marshal(c.Images)
-	if err != nil { return domain.CaseEntry{}, fmt.Errorf("marshal case images: %w", err) }
+	if err != nil {
+		return domain.CaseEntry{}, fmt.Errorf("marshal case images: %w", err)
+	}
 	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO case_entries (id,title,category,description,images,client_name,result,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		c.ID, c.Title, c.Category, c.Description, imgs, c.ClientName, c.Result, c.Status, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
 func (r *caseRepo) FindByID(id string) (domain.CaseEntry, error) {
-	var c domain.CaseEntry; var imgs []byte
+	var c domain.CaseEntry
+	var imgs []byte
 	err := r.pool.QueryRow(context.Background(),
 		`SELECT id,title,category,description,images,client_name,result,status,created_at,updated_at FROM case_entries WHERE id=$1`, id).
 		Scan(&c.ID, &c.Title, &c.Category, &c.Description, &imgs, &c.ClientName, &c.Result, &c.Status, &c.CreatedAt, &c.UpdatedAt)
@@ -91,17 +109,24 @@ func (r *caseRepo) FindByID(id string) (domain.CaseEntry, error) {
 	return c, err
 }
 func (r *caseRepo) List(category string, offset, limit int) ([]domain.CaseEntry, int, error) {
-	where := ""; args := []any{}
-	if category != "" { where = `WHERE category=$1`; args = append(args, category) }
+	where := ""
+	args := []any{}
+	if category != "" {
+		where = `WHERE category=$1`
+		args = append(args, category)
+	}
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM case_entries `+where, args...).Scan(&total)
 	q := fmt.Sprintf(`SELECT id,title,category,description,images,client_name,result,status,created_at,updated_at FROM case_entries %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
-	if err != nil { return nil, 0, fmt.Errorf("list cases: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list cases: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.CaseEntry
 	for rows.Next() {
-		var c domain.CaseEntry; var imgs []byte
+		var c domain.CaseEntry
+		var imgs []byte
 		rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &imgs, &c.ClientName, &c.Result, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 		json.Unmarshal(imgs, &c.Images)
 		out = append(out, c)
@@ -111,7 +136,9 @@ func (r *caseRepo) List(category string, offset, limit int) ([]domain.CaseEntry,
 func (r *caseRepo) Update(c domain.CaseEntry) (domain.CaseEntry, error) {
 	c.UpdatedAt = time.Now()
 	imgs, err := json.Marshal(c.Images)
-	if err != nil { return domain.CaseEntry{}, fmt.Errorf("marshal case images: %w", err) }
+	if err != nil {
+		return domain.CaseEntry{}, fmt.Errorf("marshal case images: %w", err)
+	}
 	_, err = r.pool.Exec(context.Background(),
 		`UPDATE case_entries SET title=$1,category=$2,description=$3,images=$4,client_name=$5,result=$6,status=$7,updated_at=$8 WHERE id=$9`,
 		c.Title, c.Category, c.Description, imgs, c.ClientName, c.Result, c.Status, c.UpdatedAt, c.ID)
@@ -119,7 +146,9 @@ func (r *caseRepo) Update(c domain.CaseEntry) (domain.CaseEntry, error) {
 }
 func (r *caseRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM case_entries WHERE id=$1`, id)
-	if err != nil { return fmt.Errorf("delete case %s: %w", id, err) }
+	if err != nil {
+		return fmt.Errorf("delete case %s: %w", id, err)
+	}
 	return nil
 }
 
@@ -127,19 +156,25 @@ func (r *caseRepo) Delete(id string) error {
 
 type complianceRepo struct{ pool *pgxpool.Pool }
 
-func (s *Store) NewComplianceRepository() repository.ComplianceRepository { return &complianceRepo{pool: s.Pool()} }
+func (s *Store) NewComplianceRepository() repository.ComplianceRepository {
+	return &complianceRepo{pool: s.Pool()}
+}
 
 func (r *complianceRepo) CreateDoc(d domain.ComplianceDoc) (domain.ComplianceDoc, error) {
-	d.CreatedAt = time.Now(); d.UpdatedAt = d.CreatedAt
+	d.CreatedAt = time.Now()
+	d.UpdatedAt = d.CreatedAt
 	tags, err := json.Marshal(d.Tags)
-	if err != nil { return domain.ComplianceDoc{}, fmt.Errorf("marshal doc tags: %w", err) }
+	if err != nil {
+		return domain.ComplianceDoc{}, fmt.Errorf("marshal doc tags: %w", err)
+	}
 	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO compliance_docs (id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		d.ID, d.Title, d.Category, d.Publisher, d.PublishDate, d.Status, d.Summary, d.FileURL, tags, d.CreatedAt, d.UpdatedAt)
 	return d, err
 }
 func (r *complianceRepo) FindDocByID(id string) (domain.ComplianceDoc, error) {
-	var d domain.ComplianceDoc; var tags []byte
+	var d domain.ComplianceDoc
+	var tags []byte
 	err := r.pool.QueryRow(context.Background(),
 		`SELECT id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at FROM compliance_docs WHERE id=$1`, id).
 		Scan(&d.ID, &d.Title, &d.Category, &d.Publisher, &d.PublishDate, &d.Status, &d.Summary, &d.FileURL, &tags, &d.CreatedAt, &d.UpdatedAt)
@@ -147,17 +182,24 @@ func (r *complianceRepo) FindDocByID(id string) (domain.ComplianceDoc, error) {
 	return d, err
 }
 func (r *complianceRepo) ListDocs(category string, offset, limit int) ([]domain.ComplianceDoc, int, error) {
-	where := ""; args := []any{}
-	if category != "" { where = `WHERE category=$1`; args = append(args, category) }
+	where := ""
+	args := []any{}
+	if category != "" {
+		where = `WHERE category=$1`
+		args = append(args, category)
+	}
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM compliance_docs `+where, args...).Scan(&total)
 	q := fmt.Sprintf(`SELECT id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at FROM compliance_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
-	if err != nil { return nil, 0, fmt.Errorf("list docs: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list docs: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.ComplianceDoc
 	for rows.Next() {
-		var d domain.ComplianceDoc; var tags []byte
+		var d domain.ComplianceDoc
+		var tags []byte
 		rows.Scan(&d.ID, &d.Title, &d.Category, &d.Publisher, &d.PublishDate, &d.Status, &d.Summary, &d.FileURL, &tags, &d.CreatedAt, &d.UpdatedAt)
 		json.Unmarshal(tags, &d.Tags)
 		out = append(out, d)
@@ -167,7 +209,9 @@ func (r *complianceRepo) ListDocs(category string, offset, limit int) ([]domain.
 func (r *complianceRepo) UpdateDoc(d domain.ComplianceDoc) (domain.ComplianceDoc, error) {
 	d.UpdatedAt = time.Now()
 	tags, err := json.Marshal(d.Tags)
-	if err != nil { return domain.ComplianceDoc{}, fmt.Errorf("marshal doc tags: %w", err) }
+	if err != nil {
+		return domain.ComplianceDoc{}, fmt.Errorf("marshal doc tags: %w", err)
+	}
 	_, err = r.pool.Exec(context.Background(),
 		`UPDATE compliance_docs SET title=$1,category=$2,publisher=$3,publish_date=$4,status=$5,summary=$6,file_url=$7,tags=$8,updated_at=$9 WHERE id=$10`,
 		d.Title, d.Category, d.Publisher, d.PublishDate, d.Status, d.Summary, d.FileURL, tags, d.UpdatedAt, d.ID)
@@ -175,13 +219,17 @@ func (r *complianceRepo) UpdateDoc(d domain.ComplianceDoc) (domain.ComplianceDoc
 }
 func (r *complianceRepo) DeleteDoc(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM compliance_docs WHERE id=$1`, id)
-	if err != nil { return fmt.Errorf("delete doc %s: %w", id, err) }
+	if err != nil {
+		return fmt.Errorf("delete doc %s: %w", id, err)
+	}
 	return nil
 }
 
 func (r *complianceRepo) DeleteStandard(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM standard_docs WHERE id=$1`, id)
-	if err != nil { return fmt.Errorf("delete standard %s: %w", id, err) }
+	if err != nil {
+		return fmt.Errorf("delete standard %s: %w", id, err)
+	}
 	return nil
 }
 
@@ -201,20 +249,27 @@ func (r *complianceRepo) UpdateStandard(s domain.StandardDoc) (domain.StandardDo
 }
 
 func (r *complianceRepo) CreateStandard(s domain.StandardDoc) (domain.StandardDoc, error) {
-	s.CreatedAt = time.Now(); s.UpdatedAt = s.CreatedAt
+	s.CreatedAt = time.Now()
+	s.UpdatedAt = s.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO standard_docs (id,title,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		s.ID, s.Title, s.StandardNo, s.Publisher, s.EffectiveDate, s.Status, s.Scope, s.FileURL, s.CreatedAt, s.UpdatedAt)
 	return s, err
 }
 func (r *complianceRepo) ListStandards(category string, offset, limit int) ([]domain.StandardDoc, int, error) {
-	where := ""; args := []any{}
-	if category != "" { where = `WHERE category=$1`; args = append(args, category) }
+	where := ""
+	args := []any{}
+	if category != "" {
+		where = `WHERE category=$1`
+		args = append(args, category)
+	}
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM standard_docs `+where, args...).Scan(&total)
 	q := fmt.Sprintf(`SELECT id,title,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at FROM standard_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
-	if err != nil { return nil, 0, fmt.Errorf("list standards: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list standards: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.StandardDoc
 	for rows.Next() {
@@ -234,7 +289,8 @@ func (s *Store) NewIndustryReportRepository() repository.IndustryReportRepositor
 }
 
 func (r *indReportRepo) Create(rp domain.IndustryReport) (domain.IndustryReport, error) {
-	rp.CreatedAt = time.Now(); rp.UpdatedAt = rp.CreatedAt
+	rp.CreatedAt = time.Now()
+	rp.UpdatedAt = rp.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO industry_reports (id,title,period,category,summary,content,file_url,author,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		rp.ID, rp.Title, rp.Period, rp.Category, rp.Summary, rp.Content, rp.FileURL, rp.Author, rp.Status, rp.CreatedAt, rp.UpdatedAt)
@@ -252,7 +308,9 @@ func (r *indReportRepo) List(offset, limit int) ([]domain.IndustryReport, int, e
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM industry_reports`).Scan(&total)
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,title,period,category,summary,content,file_url,author,status,created_at,updated_at FROM industry_reports ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
-	if err != nil { return nil, 0, fmt.Errorf("list reports: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list reports: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.IndustryReport
 	for rows.Next() {
@@ -271,7 +329,9 @@ func (r *indReportRepo) Update(rp domain.IndustryReport) (domain.IndustryReport,
 }
 func (r *indReportRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM industry_reports WHERE id=$1`, id)
-	if err != nil { return fmt.Errorf("delete report %s: %w", id, err) }
+	if err != nil {
+		return fmt.Errorf("delete report %s: %w", id, err)
+	}
 	return nil
 }
 
@@ -279,37 +339,50 @@ func (r *indReportRepo) Delete(id string) error {
 
 type portfolioRepo struct{ pool *pgxpool.Pool }
 
-func (s *Store) NewPortfolioRepository() repository.PortfolioRepository { return &portfolioRepo{pool: s.Pool()} }
+func (s *Store) NewPortfolioRepository() repository.PortfolioRepository {
+	return &portfolioRepo{pool: s.Pool()}
+}
 
 func (r *portfolioRepo) Create(p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
-	p.CreatedAt = time.Now(); p.UpdatedAt = p.CreatedAt
+	p.CreatedAt = time.Now()
+	p.UpdatedAt = p.CreatedAt
 	products, err := json.Marshal(p.Products)
-	if err != nil { return domain.MemberPortfolio{}, fmt.Errorf("marshal products: %w", err) }
+	if err != nil {
+		return domain.MemberPortfolio{}, fmt.Errorf("marshal products: %w", err)
+	}
 	honors, err := json.Marshal(p.Honors)
-	if err != nil { return domain.MemberPortfolio{}, fmt.Errorf("marshal honors: %w", err) }
+	if err != nil {
+		return domain.MemberPortfolio{}, fmt.Errorf("marshal honors: %w", err)
+	}
 	_, err = r.pool.Exec(context.Background(),
 		`INSERT INTO member_portfolios (id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		p.ID, p.EnterpriseID, p.Name, p.LogoURL, p.CoverURL, p.Description, products, honors, p.ContactInfo, p.Status, p.CreatedAt, p.UpdatedAt)
 	return p, err
 }
 func (r *portfolioRepo) FindByID(id string) (domain.MemberPortfolio, error) {
-	var p domain.MemberPortfolio; var prod, hon []byte
+	var p domain.MemberPortfolio
+	var prod, hon []byte
 	err := r.pool.QueryRow(context.Background(),
 		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios WHERE id=$1`, id).
 		Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt)
-	json.Unmarshal(prod, &p.Products); json.Unmarshal(hon, &p.Honors)
+	json.Unmarshal(prod, &p.Products)
+	json.Unmarshal(hon, &p.Honors)
 	return p, err
 }
 func (r *portfolioRepo) ListByEnterprise(eid string) ([]domain.MemberPortfolio, error) {
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios WHERE enterprise_id=$1 ORDER BY created_at DESC`, eid)
-	if err != nil { return nil, fmt.Errorf("list portfolios: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("list portfolios: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.MemberPortfolio
 	for rows.Next() {
-		var p domain.MemberPortfolio; var prod, hon []byte
+		var p domain.MemberPortfolio
+		var prod, hon []byte
 		rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt)
-		json.Unmarshal(prod, &p.Products); json.Unmarshal(hon, &p.Honors)
+		json.Unmarshal(prod, &p.Products)
+		json.Unmarshal(hon, &p.Honors)
 		out = append(out, p)
 	}
 	return out, rows.Err()
@@ -319,13 +392,37 @@ func (r *portfolioRepo) ListPublished(offset, limit int) ([]domain.MemberPortfol
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM member_portfolios WHERE status='published'`).Scan(&total)
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
-	if err != nil { return nil, 0, fmt.Errorf("list published portfolios: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list published portfolios: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.MemberPortfolio
 	for rows.Next() {
-		var p domain.MemberPortfolio; var prod, hon []byte
+		var p domain.MemberPortfolio
+		var prod, hon []byte
 		rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt)
-		json.Unmarshal(prod, &p.Products); json.Unmarshal(hon, &p.Honors)
+		json.Unmarshal(prod, &p.Products)
+		json.Unmarshal(hon, &p.Honors)
+		out = append(out, p)
+	}
+	return out, total, rows.Err()
+}
+func (r *portfolioRepo) List(offset, limit int) ([]domain.MemberPortfolio, int, error) {
+	var total int
+	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM member_portfolios`).Scan(&total)
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list portfolios: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.MemberPortfolio
+	for rows.Next() {
+		var p domain.MemberPortfolio
+		var prod, hon []byte
+		rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt)
+		json.Unmarshal(prod, &p.Products)
+		json.Unmarshal(hon, &p.Honors)
 		out = append(out, p)
 	}
 	return out, total, rows.Err()
@@ -333,9 +430,13 @@ func (r *portfolioRepo) ListPublished(offset, limit int) ([]domain.MemberPortfol
 func (r *portfolioRepo) Update(p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
 	p.UpdatedAt = time.Now()
 	prod, err := json.Marshal(p.Products)
-	if err != nil { return domain.MemberPortfolio{}, fmt.Errorf("marshal products: %w", err) }
+	if err != nil {
+		return domain.MemberPortfolio{}, fmt.Errorf("marshal products: %w", err)
+	}
 	hon, err := json.Marshal(p.Honors)
-	if err != nil { return domain.MemberPortfolio{}, fmt.Errorf("marshal honors: %w", err) }
+	if err != nil {
+		return domain.MemberPortfolio{}, fmt.Errorf("marshal honors: %w", err)
+	}
 	_, err = r.pool.Exec(context.Background(),
 		`UPDATE member_portfolios SET name=$1,logo_url=$2,cover_url=$3,description=$4,products=$5,honors=$6,contact_info=$7,status=$8,updated_at=$9 WHERE id=$10`,
 		p.Name, p.LogoURL, p.CoverURL, p.Description, prod, hon, p.ContactInfo, p.Status, p.UpdatedAt, p.ID)
@@ -351,11 +452,14 @@ func (r *portfolioRepo) Delete(id string) error {
 
 type resourceRepo struct{ pool *pgxpool.Pool }
 
-func (s *Store) NewResourceRepository() repository.ResourceRepository { return &resourceRepo{pool: s.Pool()} }
-func (s *Store) NewShopRepository() repository.ShopRepository       { return &shopRepo{pool: s.Pool()} }
+func (s *Store) NewResourceRepository() repository.ResourceRepository {
+	return &resourceRepo{pool: s.Pool()}
+}
+func (s *Store) NewShopRepository() repository.ShopRepository { return &shopRepo{pool: s.Pool()} }
 
 func (r *resourceRepo) Create(res domain.IndustryResource) (domain.IndustryResource, error) {
-	res.CreatedAt = time.Now(); res.UpdatedAt = res.CreatedAt
+	res.CreatedAt = time.Now()
+	res.UpdatedAt = res.CreatedAt
 	if res.VisibilityLevel == "" {
 		res.VisibilityLevel = "public"
 	}
@@ -372,13 +476,19 @@ func (r *resourceRepo) FindByID(id string) (domain.IndustryResource, error) {
 	return res, err
 }
 func (r *resourceRepo) List(resType string, offset, limit int) ([]domain.IndustryResource, int, error) {
-	where := ""; args := []any{}
-	if resType != "" { where = `WHERE res_type=$1`; args = append(args, resType) }
+	where := ""
+	args := []any{}
+	if resType != "" {
+		where = `WHERE res_type=$1`
+		args = append(args, resType)
+	}
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM industry_resources `+where, args...).Scan(&total)
 	q := fmt.Sprintf(`SELECT id,owner_id,name,res_type,model,specs,location,price_fen,booking_info,visibility_level,status,created_at,updated_at FROM industry_resources %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
-	if err != nil { return nil, 0, fmt.Errorf("list resources: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list resources: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.IndustryResource
 	for rows.Next() {

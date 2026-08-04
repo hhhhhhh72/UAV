@@ -277,7 +277,7 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 func (s *Server) listAdminJobs(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := parsePagination(r)
 	offset := (page - 1) * pageSize
-	all, total, err := s.jobSvc.ListPublishedJobs(offset, pageSize)
+	all, total, err := s.jobSvc.ListAllJobs(offset, pageSize)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list jobs: %w", err))
 		return
@@ -533,6 +533,7 @@ func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
 		Title     string `json:"title"`
+		Stage     string `json:"stage"` // lab/pilot/industrialized/listed
 		Progress  string `json:"progress"`
 		PartnerID string `json:"partner_id"`
 		Status    string `json:"status"`
@@ -541,7 +542,7 @@ func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	t, err := s.transSvc.UpdateTrans(id, in.Title, "", in.Progress, in.PartnerID, in.Status)
+	t, err := s.transSvc.UpdateTrans(id, in.Title, in.Stage, in.Progress, in.PartnerID, in.Status)
 	if err != nil {
 		fail(w, r, 500, err)
 		return
@@ -758,7 +759,14 @@ func (s *Server) deleteEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 
 // --- Messages (missing admin list/create/update/delete) ---
 func (s *Server) listAdminMessages(w http.ResponseWriter, r *http.Request) {
-	paginatedRespond(w, r, []struct{}{}, 0)
+	page, pageSize := parsePagination(r)
+	offset := (page - 1) * pageSize
+	all, total, err := s.msgSvc.ListAll(offset, pageSize)
+	if err != nil {
+		fail(w, r, 500, fmt.Errorf("list messages: %w", err))
+		return
+	}
+	paginatedRespond(w, r, all, total)
 }
 func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 	var in struct {

@@ -450,7 +450,13 @@ func (s *Server) createIndustryReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Period, Category, Summary, Content, FileURL, Author string
+		Title    string `json:"title"`
+		Period   string `json:"period"`
+		Category string `json:"category"`
+		Summary  string `json:"summary"`
+		Content  string `json:"content"`
+		FileURL  string `json:"file_url"`
+		Author   string `json:"author"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -497,6 +503,17 @@ func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, items, total)
 }
 
+// GET /api/v1/admin/portfolios — 管理端全量（含草稿/待审），公开端仅 published
+func (s *Server) listAdminPortfolios(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.portfolioSvc.List(page, pageSize)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	paginatedRespond(w, r, items, total)
+}
+
 // GET /api/v1/portfolios/mine
 func (s *Server) listMyPortfolios(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
@@ -520,9 +537,13 @@ func (s *Server) createPortfolio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name, LogoURL, CoverURL, Description, ContactInfo string
-		Products                                          []string `json:"products"`
-		Honors                                            []string `json:"honors"`
+		Name        string   `json:"name"`
+		LogoURL     string   `json:"logo_url"`
+		CoverURL    string   `json:"cover_url"`
+		Description string   `json:"description"`
+		ContactInfo string   `json:"contact_info"`
+		Products    []string `json:"products"`
+		Honors      []string `json:"honors"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -545,9 +566,14 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name, LogoURL, CoverURL, Description, ContactInfo, Status string
-		Products                                                  []string `json:"products"`
-		Honors                                                    []string `json:"honors"`
+		Name        string   `json:"name"`
+		LogoURL     string   `json:"logo_url"`
+		CoverURL    string   `json:"cover_url"`
+		Description string   `json:"description"`
+		ContactInfo string   `json:"contact_info"`
+		Status      string   `json:"status"`
+		Products    []string `json:"products"`
+		Honors      []string `json:"honors"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -743,9 +769,16 @@ func (s *Server) createResearchProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Field, Description, Status, LeadOrg, Milestones, StartDate, EndDate string
-		Members                                                                    []string `json:"members"`
-		BudgetFen                                                                  int64    `json:"budget_fen"`
+		Title       string   `json:"title"`
+		Field       string   `json:"field"`
+		Description string   `json:"description"`
+		Status      string   `json:"status"`
+		LeadOrg     string   `json:"lead_org"`
+		Milestones  string   `json:"milestones"`
+		StartDate   string   `json:"start_date"`
+		EndDate     string   `json:"end_date"`
+		Members     []string `json:"members"`
+		BudgetFen   int64    `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -782,9 +815,16 @@ func (s *Server) updateResearchProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Field, Description, Status, LeadOrg, Milestones, StartDate, EndDate string
-		Members                                                                    []string `json:"members"`
-		BudgetFen                                                                  int64    `json:"budget_fen"`
+		Title       string   `json:"title"`
+		Field       string   `json:"field"`
+		Description string   `json:"description"`
+		Status      string   `json:"status"`
+		LeadOrg     string   `json:"lead_org"`
+		Milestones  string   `json:"milestones"`
+		StartDate   string   `json:"start_date"`
+		EndDate     string   `json:"end_date"`
+		Members     []string `json:"members"`
+		BudgetFen   int64    `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -1319,7 +1359,13 @@ func (s *Server) createEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var in struct {
-		ResourceID, EventDesc, Location, Commander, Result, StartTime, EndTime string
+		ResourceID string `json:"resource_id"`
+		EventDesc  string `json:"event_desc"`
+		Location   string `json:"location"`
+		Commander  string `json:"commander"`
+		Result     string `json:"result"`
+		StartTime  string `json:"start_time"`
+		EndTime    string `json:"end_time"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)

@@ -49,8 +49,10 @@ type RefreshTokenRepository interface {
 	Find(tokenHash string) (userID string, expiresAt time.Time, revoked bool, err error)
 	Revoke(tokenHash string) error
 }
+
 // DemandFilter carries optional query parameters for listing demands.
 type DemandFilter struct{ District, BizType, Sort, Status string }
+
 // DemandRepository manages demand lifecycle: create, list, search, and status transitions.
 // The CompareAndSetStatus method provides atomic CAS for concurrent bid selection safety.
 type DemandRepository interface {
@@ -62,6 +64,7 @@ type DemandRepository interface {
 	SetStatus(id string, status domain.DemandStatus) (domain.Demand, error)
 	CompareAndSetStatus(id string, oldStatus, newStatus domain.DemandStatus) (bool, domain.Demand, error)
 }
+
 // EnterpriseRepository manages enterprise registrations and the admin review workflow.
 type EnterpriseRepository interface {
 	Create(domain.Enterprise) (domain.Enterprise, error)
@@ -102,6 +105,7 @@ type JobRepository interface {
 	Update(id string, j domain.Job) (domain.Job, error)
 	FindByID(id string) (domain.Job, error)
 	ListByEnterprise(eid string) ([]domain.Job, error)
+	ListAll(offset, limit int) ([]domain.Job, int, error) // 管理端全量（含草稿）
 	ListPublished(offset, limit int) ([]domain.Job, int, error)
 	Delete(id string) error
 }
@@ -398,6 +402,7 @@ type PortfolioRepository interface {
 	Create(domain.MemberPortfolio) (domain.MemberPortfolio, error)
 	FindByID(id string) (domain.MemberPortfolio, error)
 	ListByEnterprise(eid string) ([]domain.MemberPortfolio, error)
+	List(offset, limit int) ([]domain.MemberPortfolio, int, error) // 管理端全量（含草稿/待审）
 	ListPublished(offset, limit int) ([]domain.MemberPortfolio, int, error)
 	Update(domain.MemberPortfolio) (domain.MemberPortfolio, error)
 	Delete(id string) error

@@ -106,7 +106,9 @@ func (r *demandRepo) List(f repository.DemandFilter) ([]domain.Demand, error) {
 		if f.Status == "all" {
 			// 管理员查看全部，不过滤
 		} else if f.Status != "" {
-			if string(d.Status) != f.Status { continue }
+			if string(d.Status) != f.Status {
+				continue
+			}
 		} else if d.Status != domain.DemandPublished {
 			continue
 		}
@@ -387,47 +389,86 @@ type jobRepo struct {
 func NewJobRepository() repository.JobRepository { return &jobRepo{} }
 
 func (r *jobRepo) Create(j domain.Job) (domain.Job, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.items = append(r.items, j)
 	return j, nil
 }
 func (r *jobRepo) Update(id string, j domain.Job) (domain.Job, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for i := range r.items {
-		if r.items[i].ID == id { r.items[i] = j; return j, nil }
+		if r.items[i].ID == id {
+			r.items[i] = j
+			return j, nil
+		}
 	}
 	return domain.Job{}, fmt.Errorf("job %s not found", id)
 }
 func (r *jobRepo) FindByID(id string) (domain.Job, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	for _, j := range r.items {
-		if j.ID == id { return j, nil }
+		if j.ID == id {
+			return j, nil
+		}
 	}
 	return domain.Job{}, fmt.Errorf("job %s not found", id)
 }
 func (r *jobRepo) ListByEnterprise(eid string) ([]domain.Job, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.Job{}
 	for _, j := range r.items {
-		if j.EnterpriseID == eid { out = append(out, j) }
+		if j.EnterpriseID == eid {
+			out = append(out, j)
+		}
 	}
 	return out, nil
 }
 func (r *jobRepo) ListPublished(offset, limit int) ([]domain.Job, int, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	filtered := []domain.Job{}
 	for _, j := range r.items {
-		if j.Status == domain.JobPublished { filtered = append(filtered, j) }
+		if j.Status == domain.JobPublished {
+			filtered = append(filtered, j)
+		}
 	}
 	total := len(filtered)
-	if offset > total { return nil, total, nil }
-	end := offset + limit; if end > total { end = total }
+	if offset > total {
+		return nil, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
 	return filtered[offset:end], total, nil
+}
+func (r *jobRepo) ListAll(offset, limit int) ([]domain.Job, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	items := append([]domain.Job(nil), r.items...)
+	total := len(items)
+	if offset > total {
+		return nil, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return items[offset:end], total, nil
 }
 
 func (r *jobRepo) Delete(id string) error {
-	r.mu.Lock(); defer r.mu.Unlock()
-	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
 	return fmt.Errorf("job %s not found", id)
 }
 
@@ -439,26 +480,41 @@ type resumeRepo struct {
 func NewResumeRepository() repository.ResumeRepository { return &resumeRepo{} }
 
 func (r *resumeRepo) Create(v domain.Resume) (domain.Resume, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.items = append(r.items, v)
 	return v, nil
 }
 func (r *resumeRepo) Update(id string, v domain.Resume) (domain.Resume, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for i := range r.items {
-		if r.items[i].ID == id { r.items[i] = v; return v, nil }
+		if r.items[i].ID == id {
+			r.items[i] = v
+			return v, nil
+		}
 	}
 	return domain.Resume{}, fmt.Errorf("resume %s not found", id)
 }
 func (r *resumeRepo) FindByID(id string) (domain.Resume, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
-	for _, v := range r.items { if v.ID == id { return v, nil } }
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, v := range r.items {
+		if v.ID == id {
+			return v, nil
+		}
+	}
 	return domain.Resume{}, fmt.Errorf("resume %s not found", id)
 }
 func (r *resumeRepo) ListByUser(userID string) ([]domain.Resume, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.Resume{}
-	for _, v := range r.items { if v.UserID == userID { out = append(out, v) } }
+	for _, v := range r.items {
+		if v.UserID == userID {
+			out = append(out, v)
+		}
+	}
 	return out, nil
 }
 
@@ -470,27 +526,42 @@ type applicationRepo struct {
 func NewJobApplicationRepository() repository.JobApplicationRepository { return &applicationRepo{} }
 
 func (r *applicationRepo) Create(a domain.JobApplication) (domain.JobApplication, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.items = append(r.items, a)
 	return a, nil
 }
 func (r *applicationRepo) UpdateStatus(id string, status domain.AppStatus) (domain.JobApplication, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for i := range r.items {
-		if r.items[i].ID == id { r.items[i].Status = status; return r.items[i], nil }
+		if r.items[i].ID == id {
+			r.items[i].Status = status
+			return r.items[i], nil
+		}
 	}
 	return domain.JobApplication{}, fmt.Errorf("application %s not found", id)
 }
 func (r *applicationRepo) ListByJob(jobID string) ([]domain.JobApplication, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.JobApplication{}
-	for _, a := range r.items { if a.JobID == jobID { out = append(out, a) } }
+	for _, a := range r.items {
+		if a.JobID == jobID {
+			out = append(out, a)
+		}
+	}
 	return out, nil
 }
 func (r *applicationRepo) ListByApplicant(userID string) ([]domain.JobApplication, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.JobApplication{}
-	for _, a := range r.items { if a.ApplicantID == userID { out = append(out, a) } }
+	for _, a := range r.items {
+		if a.ApplicantID == userID {
+			out = append(out, a)
+		}
+	}
 	return out, nil
 }
 
@@ -504,29 +575,60 @@ type postRepo struct {
 func NewPostRepository() repository.PostRepository { return &postRepo{} }
 
 func (r *postRepo) Create(p domain.Post) (domain.Post, error) {
-	r.mu.Lock(); defer r.mu.Unlock(); r.items = append(r.items, p); return p, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = append(r.items, p)
+	return p, nil
 }
 func (r *postRepo) Update(id string, p domain.Post) (domain.Post, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
-	for i := range r.items { if r.items[i].ID == id { r.items[i] = p; return p, nil } }
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items[i] = p
+			return p, nil
+		}
+	}
 	return domain.Post{}, fmt.Errorf("post %s not found", id)
 }
 func (r *postRepo) FindByID(id string) (domain.Post, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
-	for _, p := range r.items { if p.ID == id { return p, nil } }
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, p := range r.items {
+		if p.ID == id {
+			return p, nil
+		}
+	}
 	return domain.Post{}, fmt.Errorf("post %s not found", id)
 }
 func (r *postRepo) ListPublished(offset, limit int) ([]domain.Post, int, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	f := []domain.Post{}
-	for _, p := range r.items { if p.Status == "published" { f = append(f, p) } }
-	t := len(f); if offset > t { return nil, t, nil }; e := offset + limit; if e > t { e = t }
+	for _, p := range r.items {
+		if p.Status == "published" {
+			f = append(f, p)
+		}
+	}
+	t := len(f)
+	if offset > t {
+		return nil, t, nil
+	}
+	e := offset + limit
+	if e > t {
+		e = t
+	}
 	return f[offset:e], t, nil
 }
 func (r *postRepo) ListByAuthor(uid string) ([]domain.Post, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.Post{}
-	for _, p := range r.items { if p.AuthorID == uid { out = append(out, p) } }
+	for _, p := range r.items {
+		if p.AuthorID == uid {
+			out = append(out, p)
+		}
+	}
 	return out, nil
 }
 
@@ -538,12 +640,20 @@ type commentRepo struct {
 func NewCommentRepository() repository.CommentRepository { return &commentRepo{} }
 
 func (r *commentRepo) Create(c domain.Comment) (domain.Comment, error) {
-	r.mu.Lock(); defer r.mu.Unlock(); r.items = append(r.items, c); return c, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = append(r.items, c)
+	return c, nil
 }
 func (r *commentRepo) ListByPost(postID string) ([]domain.Comment, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.Comment{}
-	for _, c := range r.items { if c.PostID == postID { out = append(out, c) } }
+	for _, c := range r.items {
+		if c.PostID == postID {
+			out = append(out, c)
+		}
+	}
 	return out, nil
 }
 
@@ -555,13 +665,28 @@ type reportRepo struct {
 func NewReportRepository() repository.ReportRepository { return &reportRepo{} }
 
 func (r *reportRepo) Create(rp domain.Report) (domain.Report, error) {
-	r.mu.Lock(); defer r.mu.Unlock(); r.items = append(r.items, rp); return rp, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = append(r.items, rp)
+	return rp, nil
 }
 func (r *reportRepo) ListPending(offset, limit int) ([]domain.Report, int, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	f := []domain.Report{}
-	for _, rp := range r.items { if rp.Status == "pending" { f = append(f, rp) } }
-	t := len(f); if offset > t { return nil, t, nil }; e := offset + limit; if e > t { e = t }
+	for _, rp := range r.items {
+		if rp.Status == "pending" {
+			f = append(f, rp)
+		}
+	}
+	t := len(f)
+	if offset > t {
+		return nil, t, nil
+	}
+	e := offset + limit
+	if e > t {
+		e = t
+	}
 	return f[offset:e], t, nil
 }
 
@@ -578,40 +703,78 @@ func NewListingRepository() repository.ListingRepository {
 }
 
 func (r *listingRepo) Create(l domain.Listing) (domain.Listing, error) {
-	r.mu.Lock(); defer r.mu.Unlock(); r.items = append(r.items, l); return l, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = append(r.items, l)
+	return l, nil
 }
 func (r *listingRepo) Update(id string, l domain.Listing) (domain.Listing, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
-	for i := range r.items { if r.items[i].ID == id { r.items[i] = l; return l, nil } }
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items[i] = l
+			return l, nil
+		}
+	}
 	return domain.Listing{}, fmt.Errorf("listing %s not found", id)
 }
 func (r *listingRepo) FindByID(id string) (domain.Listing, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
-	for _, l := range r.items { if l.ID == id { return l, nil } }
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, l := range r.items {
+		if l.ID == id {
+			return l, nil
+		}
+	}
 	return domain.Listing{}, fmt.Errorf("listing %s not found", id)
 }
 func (r *listingRepo) ListByStatus(status string, offset, limit int) ([]domain.Listing, int, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	f := []domain.Listing{}
-	for _, l := range r.items { if l.Status == status || status == "" { f = append(f, l) } }
-	t := len(f); if offset > t { return nil, t, nil }; e := offset + limit; if e > t { e = t }
+	for _, l := range r.items {
+		if l.Status == status || status == "" {
+			f = append(f, l)
+		}
+	}
+	t := len(f)
+	if offset > t {
+		return nil, t, nil
+	}
+	e := offset + limit
+	if e > t {
+		e = t
+	}
 	return f[offset:e], t, nil
 }
 func (r *listingRepo) ListBySeller(uid string) ([]domain.Listing, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.Listing{}
-	for _, l := range r.items { if l.SellerID == uid { out = append(out, l) } }
+	for _, l := range r.items {
+		if l.SellerID == uid {
+			out = append(out, l)
+		}
+	}
 	return out, nil
 }
 func (r *listingRepo) AddFavorite(listingID, userID string) error {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.favorites[listingID] = append(r.favorites[listingID], userID)
 	return nil
 }
 func (r *listingRepo) RemoveFavorite(listingID, userID string) error {
-	r.mu.Lock(); defer r.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	list := r.favorites[listingID]
-	for i, u := range list { if u == userID { r.favorites[listingID] = append(list[:i], list[i+1:]...); break } }
+	for i, u := range list {
+		if u == userID {
+			r.favorites[listingID] = append(list[:i], list[i+1:]...)
+			break
+		}
+	}
 	return nil
 }
 
@@ -627,36 +790,67 @@ type labourOrderRepo struct {
 func NewLabourOrderRepository() repository.LabourOrderRepository { return &labourOrderRepo{} }
 
 func (r *labourOrderRepo) Create(o domain.LabourOrder) (domain.LabourOrder, error) {
-	r.mu.Lock(); defer r.mu.Unlock(); r.orders = append(r.orders, o); return o, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.orders = append(r.orders, o)
+	return o, nil
 }
 func (r *labourOrderRepo) FindByID(id string) (domain.LabourOrder, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
-	for _, o := range r.orders { if o.ID == id { return o, nil } }
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, o := range r.orders {
+		if o.ID == id {
+			return o, nil
+		}
+	}
 	return domain.LabourOrder{}, fmt.Errorf("order %s not found", id)
 }
 func (r *labourOrderRepo) ListByEmployer(uid string) ([]domain.LabourOrder, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.LabourOrder{}
-	for _, o := range r.orders { if o.EmployerID == uid { out = append(out, o) } }
+	for _, o := range r.orders {
+		if o.EmployerID == uid {
+			out = append(out, o)
+		}
+	}
 	return out, nil
 }
 func (r *labourOrderRepo) ListAll(offset, limit int) ([]domain.LabourOrder, int, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	t := len(r.orders)
-	if offset > t { return nil, t, nil }; e := offset + limit; if e > t { e = t }
+	if offset > t {
+		return nil, t, nil
+	}
+	e := offset + limit
+	if e > t {
+		e = t
+	}
 	return r.orders[offset:e], t, nil
 }
 func (r *labourOrderRepo) CreateQuote(q domain.LabourQuote) (domain.LabourQuote, error) {
-	r.mu.Lock(); defer r.mu.Unlock(); r.quotes = append(r.quotes, q); return q, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.quotes = append(r.quotes, q)
+	return q, nil
 }
 func (r *labourOrderRepo) ListQuotes(orderID string) ([]domain.LabourQuote, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	out := []domain.LabourQuote{}
-	for _, q := range r.quotes { if q.OrderID == orderID { out = append(out, q) } }
+	for _, q := range r.quotes {
+		if q.OrderID == orderID {
+			out = append(out, q)
+		}
+	}
 	return out, nil
 }
 func (r *labourOrderRepo) CreateAssignment(a domain.Assignment) (domain.Assignment, error) {
-	r.mu.Lock(); defer r.mu.Unlock(); r.assigns = append(r.assigns, a); return a, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.assigns = append(r.assigns, a)
+	return a, nil
 }
 
 // ---- User ----
@@ -978,14 +1172,26 @@ func (r *certRepo) ListAll() ([]domain.Certificate, error) {
 }
 
 func (r *certRepo) Update(c domain.Certificate) (domain.Certificate, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
-	for i := range r.items { if r.items[i].ID == c.ID { r.items[i] = c; return c, nil } }
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == c.ID {
+			r.items[i] = c
+			return c, nil
+		}
+	}
 	return domain.Certificate{}, fmt.Errorf("cert %s not found", c.ID)
 }
 
 func (r *certRepo) Delete(id string) error {
-	r.mu.Lock(); defer r.mu.Unlock()
-	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
 	return fmt.Errorf("cert %s not found", id)
 }
 
@@ -1010,18 +1216,35 @@ func (r *courseRepo) List() ([]domain.TrainingCourse, error) {
 	return append([]domain.TrainingCourse(nil), r.items...), nil
 }
 func (r *courseRepo) FindByID(id string) (domain.TrainingCourse, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
-	for _, c := range r.items { if c.ID == id { return c, nil } }
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, c := range r.items {
+		if c.ID == id {
+			return c, nil
+		}
+	}
 	return domain.TrainingCourse{}, fmt.Errorf("course %s not found", id)
 }
 func (r *courseRepo) Update(c domain.TrainingCourse) (domain.TrainingCourse, error) {
-	r.mu.Lock(); defer r.mu.Unlock()
-	for i := range r.items { if r.items[i].ID == c.ID { r.items[i] = c; return c, nil } }
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == c.ID {
+			r.items[i] = c
+			return c, nil
+		}
+	}
 	return domain.TrainingCourse{}, fmt.Errorf("course %s not found", c.ID)
 }
 func (r *courseRepo) Delete(id string) error {
-	r.mu.Lock(); defer r.mu.Unlock()
-	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
 	return fmt.Errorf("course %s not found", id)
 }
 
@@ -1076,7 +1299,9 @@ type pilotRepo struct {
 	cipher *crypto.Cipher
 }
 
-func NewPilotRepository(cipher *crypto.Cipher) repository.PilotRepository { return &pilotRepo{cipher: cipher} }
+func NewPilotRepository(cipher *crypto.Cipher) repository.PilotRepository {
+	return &pilotRepo{cipher: cipher}
+}
 
 func (r *pilotRepo) encryptInPlace(p *domain.CertifiedPilot) {
 	if r.cipher != nil && p.IDCard != "" {
@@ -1382,15 +1607,28 @@ func (r *msgRepo) UnreadCount(userID string) (int, error) {
 }
 
 func (r *msgRepo) ListAll(offset, limit int) ([]domain.Message, int, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
-	total := len(r.items); if offset > total { return nil, total, nil }
-	end := offset + limit; if end > total { end = total }
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	total := len(r.items)
+	if offset > total {
+		return nil, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
 	return append([]domain.Message(nil), r.items[offset:end]...), total, nil
 }
 
 func (r *msgRepo) Delete(id string) error {
-	r.mu.Lock(); defer r.mu.Unlock()
-	for i := range r.items { if r.items[i].ID == id { r.items = append(r.items[:i], r.items[i+1:]...); return nil } }
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
 	return fmt.Errorf("message %s not found", id)
 }
 
@@ -1647,9 +1885,16 @@ func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) 
 	return out, nil
 }
 func (r *tradeOrderRepo) ListAll(offset, limit int) ([]domain.TradeOrder, int, error) {
-	r.mu.RLock(); defer r.mu.RUnlock()
-	total := len(r.items); if offset > total { return nil, total, nil }
-	end := offset + limit; if end > total { end = total }
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	total := len(r.items)
+	if offset > total {
+		return nil, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
 	return append([]domain.TradeOrder(nil), r.items[offset:end]...), total, nil
 }
 

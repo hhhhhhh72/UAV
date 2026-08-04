@@ -78,7 +78,7 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/admin/events/{id}", s.deleteEvent)
 
 	// === 品牌 === (POST: POST /api/v1/portfolios in biz_handlers.go — public path)
-	mux.HandleFunc("GET /api/v1/admin/portfolios", s.listPortfolios)
+	mux.HandleFunc("GET /api/v1/admin/portfolios", s.listAdminPortfolios)
 	mux.HandleFunc("GET /api/v1/admin/portfolios/{id}", s.getPortfolio)
 	mux.HandleFunc("POST /api/v1/admin/portfolios", s.createPortfolio)
 	mux.HandleFunc("PUT /api/v1/admin/portfolios/{id}", s.updatePortfolio)
