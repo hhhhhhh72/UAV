@@ -1154,9 +1154,14 @@ func (s *Server) createIndustryResource(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var in struct {
-		Name, ResType, Model, Specs, Location, BookingInfo string
-		VisibilityLevel                                    string `json:"visibility_level"`
-		PriceFen                                           int64  `json:"price_fen"`
+		Name            string `json:"name"`
+		ResType         string `json:"res_type"`
+		Model           string `json:"model"`
+		Specs           string `json:"specs"`
+		Location        string `json:"location"`
+		BookingInfo     string `json:"booking_info"`
+		VisibilityLevel string `json:"visibility_level"`
+		PriceFen        int64  `json:"price_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -1183,10 +1188,15 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var in struct {
-		Name, ResType, Model, Specs, Location, BookingInfo string
-		VisibilityLevel                                    string `json:"visibility_level"`
-		Status                                             string `json:"status"`
-		PriceFen                                           int64  `json:"price_fen"`
+		Name            string `json:"name"`
+		ResType         string `json:"res_type"`
+		Model           string `json:"model"`
+		Specs           string `json:"specs"`
+		Location        string `json:"location"`
+		BookingInfo     string `json:"booking_info"`
+		VisibilityLevel string `json:"visibility_level"`
+		Status          string `json:"status"`
+		PriceFen        int64  `json:"price_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
