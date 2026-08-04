@@ -22,6 +22,23 @@
       </div>
     </el-card>
 
+    <!-- 商业化费率（功能方案修订版 v2 第八章，仅管理员可见） -->
+    <el-card v-if="isPlatformAdmin" shadow="never" class="config-card">
+      <template #header><span class="card-title">商业化费率</span></template>
+      <div class="fee-row">
+        <div class="fee-field">
+          <span class="fee-label">撮合服务费率（%）</span>
+          <el-input-number v-model="platformConfig.match_fee_rate" :min="0" :max="100" :precision="1" :step="0.5" size="small" />
+        </div>
+        <div class="fee-field">
+          <span class="fee-label">费率说明（对会员展示）</span>
+          <el-input v-model="platformConfig.match_fee_note" size="small" placeholder="如：供需对接成功后按 2% 收取撮合服务费" />
+        </div>
+        <el-button size="small" type="primary" @click="savePlatformConfig">保存费率</el-button>
+      </div>
+      <div class="fee-hint">0 表示未启用收费；保存后写入平台配置（/api/v1/admin/config）。</div>
+    </el-card>
+
     <!-- 服务列表（按分区） -->
     <el-card
       v-for="group in groupedServiceEntries"
@@ -1147,7 +1164,44 @@ const onReadStudyImage = async (file) => {
   }
 }
 
-onMounted(fetchAllServiceConfigs)
+// --- 商业化费率（/api/v1/admin/config，与 H5 services config 独立） ---
+const platformConfig = ref({ match_fee_rate: 0, match_fee_note: '' })
+
+const fetchPlatformConfig = async () => {
+  try {
+    const res = await axios.get('/api/v1/admin/config')
+    platformConfig.value = {
+      match_fee_rate: Number(res.data?.match_fee_rate || 0),
+      match_fee_note: res.data?.match_fee_note || '',
+    }
+  } catch (error) {
+    console.error('[ServiceConfig] 获取平台配置失败', error)
+  }
+}
+
+const savePlatformConfig = async () => {
+  try {
+    showLoadingToast({ message: '保存中...', forbidClick: true })
+    // /api/v1/admin/config 为整包替换语义：先取全量，再改费率字段后整体写回
+    const res = await axios.get('/api/v1/admin/config')
+    const full = {
+      ...res.data,
+      match_fee_rate: platformConfig.value.match_fee_rate,
+      match_fee_note: platformConfig.value.match_fee_note,
+    }
+    await axios.post('/api/v1/admin/config', full)
+    closeToast()
+    showSuccessToast('费率已保存')
+  } catch (error) {
+    closeToast()
+    showFailToast(error?.response?.data?.message || '保存失败')
+  }
+}
+
+onMounted(() => {
+  fetchAllServiceConfigs()
+  fetchPlatformConfig()
+})
 </script>
 
 <style scoped>
@@ -1165,6 +1219,31 @@ onMounted(fetchAllServiceConfigs)
   font-size: 14px;
   font-weight: 600;
   color: var(--text-color);
+}
+
+/* 商业化费率 */
+.fee-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 4px;
+}
+.fee-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+.fee-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.fee-hint {
+  margin-top: 8px;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
 }
 
 /* 可点击行 */

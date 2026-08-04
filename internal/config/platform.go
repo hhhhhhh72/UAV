@@ -10,10 +10,17 @@ import (
 )
 
 type PlatformConfig struct {
-	Banners      []domain.Banner          `json:"banners"`
-	Notices      []string                 `json:"notices"`
-	QuickEntries []domain.HomeQuickEntry  `json:"quick_entries"`
+	Banners      []domain.Banner         `json:"banners"`
+	Notices      []string                `json:"notices"`
+	QuickEntries []domain.HomeQuickEntry `json:"quick_entries"`
+	// MatchFeeRate 撮合服务费率（百分比，2 = 2%）；0 表示未启用收费（功能方案修订版 v2 第八章）
+	MatchFeeRate float64 `json:"match_fee_rate"`
+	// MatchFeeNote 撮合服务费说明文案（面向会员展示）
+	MatchFeeNote string `json:"match_fee_note"`
 }
+
+// defaultMatchFeeNote 撮合服务费默认说明（未启用时的展示文案）。
+const defaultMatchFeeNote = "撮合服务费：供需对接成功后按费率收取，会员享折扣（费率待协会确认后启用）"
 
 var (
 	platformMu  sync.RWMutex
@@ -29,6 +36,9 @@ var (
 			{Key: "community", Name: "同城社区"},
 			{Key: "jobs", Name: "求职招聘"},
 		},
+		// 商业化费率默认关闭（0 = 未启用），待协会确认费率后由管理端开启
+		MatchFeeRate: 0,
+		MatchFeeNote: defaultMatchFeeNote,
 	}
 )
 
@@ -36,6 +46,10 @@ func init() {
 	if data, err := os.ReadFile("platform_config.json"); err == nil {
 		var cfg PlatformConfig
 		if json.Unmarshal(data, &cfg) == nil {
+			// 旧配置文件可能缺少新版费率字段：回填默认说明，避免空文案
+			if cfg.MatchFeeNote == "" {
+				cfg.MatchFeeNote = defaultMatchFeeNote
+			}
 			platformCfg = cfg
 		}
 	}
@@ -52,6 +66,8 @@ func SavePlatformConfig(cfg PlatformConfig) error {
 	platformCfg = cfg
 	platformMu.Unlock()
 	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil { return fmt.Errorf("marshal platform config: %w", err) }
+	if err != nil {
+		return fmt.Errorf("marshal platform config: %w", err)
+	}
 	return os.WriteFile("platform_config.json", data, 0644)
 }

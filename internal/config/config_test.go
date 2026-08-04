@@ -64,3 +64,14 @@ func TestPlatformConfig(t *testing.T) {
 		t.Fatalf("save platform config: %v", err)
 	}
 }
+
+// 商业化费率（功能方案修订版 v2 第八章）：费率恒为非负，默认未启用且有说明文案。
+func TestPlatformConfigMatchFee(t *testing.T) {
+	pc := config.GetPlatformConfig()
+	if pc.MatchFeeRate < 0 {
+		t.Fatalf("MatchFeeRate should never be negative, got %v", pc.MatchFeeRate)
+	}
+	if pc.MatchFeeRate == 0 && pc.MatchFeeNote == "" {
+		t.Fatalf("MatchFeeNote should explain the disabled state")
+	}
+}
