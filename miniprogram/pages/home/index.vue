@@ -151,7 +151,7 @@ const functions = ref([
   { name: '求职招聘', icon: '/static/icons/service.svg', bg: 'linear-gradient(135deg,#e0f2f1,#80cbc4)', path: '/pages/jobs/list' },
   { name: '成果转化', icon: '/static/icons/study-fpv.svg', bg: 'linear-gradient(135deg,#e8eaf6,#9fa8da)', path: '/pages/achievements/list' },
   { name: '认证飞手', icon: '/static/icons/fpv-racing.svg', bg: 'linear-gradient(135deg,#fbe9e7,#ff8a65)', path: '/pages/pilots/list' },
-  { name: '政策法规', icon: '/static/icons/government.svg', bg: 'linear-gradient(135deg,#e0f7fa,#4dd0e1)', path: '/pages/policies/list' },
+  { name: '合规政策', icon: '/static/icons/government.svg', bg: 'linear-gradient(135deg,#e0f7fa,#4dd0e1)', path: '/pages/compliance/news' },
   { name: '更多功能', icon: '/static/icons/apps.svg', bg: 'linear-gradient(135deg,#f5f5f5,#bdbdbd)', path: '/pages/more/index' },
 ])
 

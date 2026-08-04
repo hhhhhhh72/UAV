@@ -464,14 +464,6 @@
       }
     },
     {
-      "path": "pages/policies/list",
-      "style": {
-        "navigationBarTitleText": "政策法规",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
-      }
-    },
-    {
       "path": "pages/pilots/list",
       "style": {
         "navigationBarTitleText": "认证飞手",
