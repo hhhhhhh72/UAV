@@ -63,6 +63,7 @@
           <view class="title-row">
             <text class="resource-name text-ellipsis">{{ item.name || '未命名资源' }}</text>
             <text class="type-tag">{{ typeLabel(item.res_type) }}</text>
+            <text v-if="item.status && item.status !== 'available'" class="status-tag" :class="'status-' + item.status">{{ statusLabel(item.status) }}</text>
           </view>
           <text class="resource-model text-ellipsis">{{ item.model || item.specs || '型号信息暂未填写' }}</text>
           <view class="meta-row">
@@ -177,6 +178,10 @@ export default {
     typeLabel(type) {
       var item = this.typeTabs.find(function (tab) { return tab.value === type })
       return item ? item.label : '产业资源'
+    },
+    statusLabel(status) {
+      var map = { available: '可用', in_use: '使用中', maintenance: '维护中' }
+      return map[status] || status || ''
     },
     resourceIcon(type) {
       var map = { drone: '机', airport: '场', test_site: '地', test_base: '基' }
@@ -399,6 +404,14 @@ export default {
   background: var(--color-primary-light);
   border-radius: var(--radius-sm);
 }
+.status-tag {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  font-size: var(--font-xs);
+  border-radius: var(--radius-sm);
+}
+.status-tag.status-in_use { color: var(--color-warning); background: var(--color-warning-light, #FFF4E6); }
+.status-tag.status-maintenance { color: var(--color-text-secondary); background: var(--color-divider); }
 
 .resource-model {
   display: block;

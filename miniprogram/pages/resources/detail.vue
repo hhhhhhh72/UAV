@@ -59,6 +59,11 @@
             <text class="fee-text">¥{{ detail.daily_fee || 0 }}/天</text>
           </template>
         </u-cell>
+        <u-cell title="状态">
+          <template #value>
+            <text class="status-text" :class="'status-' + (detail.status || 'available')">{{ statusLabel(detail.status) }}</text>
+          </template>
+        </u-cell>
         <u-cell v-if="detail.contact" title="联系方式" :value="detail.contact" />
         <u-cell v-if="detail.booking_method" title="预约方式" :value="detail.booking_method" />
       </u-cell-group>
@@ -174,6 +179,10 @@ export default {
     this.fetchDetail()
   },
   methods: {
+    statusLabel(status) {
+      var map = { available: '可用', in_use: '使用中', maintenance: '维护中' }
+      return map[status] || '可用'
+    },
     async fetchDetail() {
       this.loading = true
       this.errorMsg = ''
@@ -338,6 +347,10 @@ export default {
   color: var(--color-danger);
   font-weight: 600;
 }
+.status-text { font-size: 26rpx; font-weight: 500; }
+.status-text.status-available { color: var(--color-success); }
+.status-text.status-in_use { color: var(--color-warning); }
+.status-text.status-maintenance { color: var(--color-text-secondary); }
 
 /* Description */
 .desc-card {
