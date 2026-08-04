@@ -116,6 +116,7 @@
 
 <script>
 import { request, getStoredUser } from '../../utils/request'
+import { BIZ_TYPE_TABS, bizTypeLabel as bizTypeLabelOf } from '../../utils/enums'
 
 export default {
   data() {
@@ -131,15 +132,7 @@ export default {
       page: 1,
       pageSize: 20,
       hasMore: true,
-      bizTypeTabs: [
-        { label: '全部', value: '' },
-        { label: '巡检', value: 'cable_inspection' },
-        { label: '植保', value: 'plant_transport' },
-        { label: '农药', value: 'spray_pesticide' },
-        { label: '租赁', value: 'trade_lease' },
-        { label: '清洗', value: 'clean_paint' },
-        { label: '其他', value: 'other' },
-      ],
+      bizTypeTabs: BIZ_TYPE_TABS,
       sortActions: [
         { name: '最新发布', value: 'newest' },
         { name: '预算最高', value: 'budget_desc' },
@@ -226,15 +219,7 @@ export default {
       uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(item.id) })
     },
     bizTypeLabel(type) {
-      var map = {
-        cable_inspection: '巡检',
-        plant_transport: '植保',
-        spray_pesticide: '农药',
-        trade_lease: '租赁',
-        clean_paint: '清洗',
-        other: '其他',
-      }
-      return map[type] || type || '其他'
+      return bizTypeLabelOf(type)
     },
     bizTypeTagType(type) {
       var map = {

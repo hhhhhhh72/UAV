@@ -191,8 +191,15 @@ export default {
       submitting: false,
     }
   },
-  onLoad() {
-    this.fetchSites()
+  onLoad(options) {
+    this.fetchSites().then(() => {
+      // 支持从供给详情/卡片带 site_id 直达预选场地（②展示 → ③预约 打通）
+      var sid = options && options.site_id
+      if (sid) {
+        var target = (this.sites || []).find(function (s) { return s.id === sid })
+        if (target) this.selectSite(target)
+      }
+    })
   },
   methods: {
     async fetchSites() {

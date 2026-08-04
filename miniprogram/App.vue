@@ -49,7 +49,11 @@
 	/* --- 语义化颜色 --- */
 	page {
 		--color-primary: #0A66C2;
+		--color-primary-deep: #074D92;   /* 深空蓝：顶部导航等重色场景 */
 		--color-primary-light: #E8F2FC;
+		--color-accent: #F97316;         /* 强调橙：类型徽章/价格 */
+		--color-accent-deep: #E96012;
+		--color-accent-light: #FFF0E6;
 		--color-success: #34c759;
 		--color-warning: #ff9f0a;
 		--color-danger: #ff3b30;

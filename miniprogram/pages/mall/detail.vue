@@ -99,7 +99,7 @@
       <text class="contact-ico">电</text>
       <text class="contact-txt">联系卖家</text>
     </view>
-    <view class="bottom-buy" hover-class="btn-press" @tap="buy">咨询报价</view>
+    <view class="bottom-buy" hover-class="btn-press" @tap="buy">{{ product.prod_type === 'test_fly' ? '预约试飞' : '咨询报价' }}</view>
   </view>
 </view>
 </template>
@@ -107,6 +107,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onPageScroll } from '@dcloudio/uni-app'
+import { productTypeLabel } from '@/utils/enums'
 import { request, BASE_URL } from '../../utils/request'
 
 const product = ref({})
@@ -144,7 +145,7 @@ const tagClass = computed(() => {
   if (c === 'used') return 'tag-orange'
   return 'tag-gray'
 })
-const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务', aerial: '航拍服务', test_fly: '试飞测试', calibration: '检测标定', airspace: '空域协调' }[t] || '商品')
+const typeLabel = (t) => productTypeLabel(t) || '商品'
 
 // 锚点导航（商品/参数/图文）
 const anchors = [
@@ -226,7 +227,14 @@ const onShare = () => {
   setTimeout(() => { shareAnim.value = false }, 450)
   uni.showToast({ title: '分享', icon: 'none' })
 }
-const buy = () => uni.showToast({ title: '咨询报价功能开发中', icon: 'none' })
+// 主行动按钮：试飞测试供给 → 场地预约（②展示卡 → ③预约入口打通）；其余为咨询报价
+const buy = () => {
+  if (product.value.prod_type === 'test_fly') {
+    uni.navigateTo({ url: '/pages/testsites/book' })
+    return
+  }
+  uni.showToast({ title: '咨询报价功能开发中', icon: 'none' })
+}
 </script>
 
 <style scoped>
