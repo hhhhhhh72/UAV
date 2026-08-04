@@ -39,6 +39,11 @@
             <el-tag :type="statusColor[row.status] || 'info'">{{ statusLabel[row.status] || row.status }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="可见级别" width="130">
+          <template #default="{ row }">
+            <el-tag :type="visColor[row.visibility_level] || 'info'" size="small">{{ visLabel[row.visibility_level] || '公开' }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
@@ -95,6 +100,14 @@
           <el-col :span="12"><el-form-item label="费用(分)"><el-input-number v-model="form.price_fen" :min="0" style="width:100%" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="联系人"><el-input v-model="form.contact_name" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="联系电话"><el-input v-model="form.contact_phone" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="可见级别">
+            <el-select v-model="form.visibility_level" style="width:100%">
+              <el-option label="公开（政府访客可见）" value="public" />
+              <el-option label="会员可见" value="member" />
+              <el-option label="副会长单位可见" value="partner" />
+              <el-option label="仅协会管理员" value="admin" />
+            </el-select>
+          </el-form-item></el-col>
           <el-col :span="12"><el-form-item label="状态">
             <el-select v-model="form.status" style="width:100%">
               <el-option label="可用" value="available" /><el-option label="使用中" value="in_use" /><el-option label="维护中" value="maintenance" />
@@ -124,6 +137,8 @@ const api = useAdminApi('industry-resources')
 const resTypeLabel = { drone: '无人机', airport: '机场', flying_field: '试飞场地', test_base: '测试基地', other: '其他' }
 const resTypeColor = { drone: 'success', airport: 'warning', flying_field: 'info', test_base: '', other: '' }
 const statusLabel = { available: '可用', in_use: '使用中', maintenance: '维护中' }
+const visLabel = { public: '公开', member: '会员', partner: '副会长单位', admin: '仅管理员' }
+const visColor = { public: 'info', member: 'primary', partner: 'warning', admin: 'danger' }
 const statusColor = { available: 'success', in_use: 'warning', maintenance: 'danger' }
 
 const formatPriceFen = (fen) => {
@@ -146,7 +161,7 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id:'', name:'', res_type:'', model:'', location:'', quantity:0, price_fen:0, contact_name:'', contact_phone:'', status:'available', description:'', booking_method:'' })
+const form = reactive({ id:'', name:'', res_type:'', model:'', location:'', quantity:0, price_fen:0, contact_name:'', contact_phone:'', status:'available', description:'', booking_method:'', visibility_level:'public' })
 const resetForm = () => Object.assign(form, { id:'', name:'', res_type:'', model:'', location:'', quantity:0, price_fen:0, contact_name:'', contact_phone:'', status:'available', description:'', booking_method:'' })
 const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
 const handleEdit = (row) => {
