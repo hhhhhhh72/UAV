@@ -288,8 +288,8 @@ export default {
             })
           })
           uni.hideLoading()
-          // /api/v1/files/upload 返回 {file_id,...}，访问地址为 /uploads/{file_id}
-          var fid = uploadRes && uploadRes.file_id
+          // /api/v1/files/upload 返回 {data:{file_id,...},request_id}（信封格式）
+          var fid = uploadRes && (uploadRes.file_id || (uploadRes.data && uploadRes.data.file_id))
           if (!fid) {
             var reason = (uploadRes && uploadRes._error) || ''
             var tip = reason.indexOf('401') >= 0 || reason.indexOf('登录') >= 0 || reason.indexOf('token') >= 0
