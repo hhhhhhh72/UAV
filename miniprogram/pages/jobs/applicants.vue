@@ -58,7 +58,8 @@
 </template>
 
 <script setup>
-import { ref, onLoad } from '@dcloudio/uni-app'
+import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { request, BASE_URL } from '../../utils/request'
 
 const goBack = () => uni.navigateBack()
