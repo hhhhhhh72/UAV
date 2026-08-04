@@ -35,7 +35,7 @@
         <view class="main-card">
           <text class="comp-name">{{ detail.title || detail.name || '未知赛事' }}</text>
 
-          <view class="tag-row">
+          <view v-if="compTags(detail).length > 0" class="tag-row">
             <text
               v-for="tag in compTags(detail)"
               :key="tag"
@@ -50,21 +50,21 @@
               <view class="info-icon" style="background:var(--color-primary-light);"><text class="info-icon-text">期</text></view>
               <view class="info-text">
                 <text class="info-label">比赛时间</text>
-                <text class="info-value">{{ detail.start_date || '2026年9月15日' }} - {{ detail.end_date || '9月18日' }}</text>
+                <text class="info-value">{{ detail.start_date || '' }} - {{ detail.end_date || '' }}</text>
               </view>
             </view>
             <view class="info-row">
               <view class="info-icon" style="background:#fff4e6;"><text class="info-icon-text loc">址</text></view>
               <view class="info-text">
                 <text class="info-label">比赛地点</text>
-                <text class="info-value">{{ detail.location || '深圳宝安区国际会展中心' }}</text>
+                <text class="info-value">{{ detail.location || '' }}</text>
               </view>
             </view>
             <view class="info-row info-row-last">
               <view class="info-icon" style="background:var(--color-primary-light);"><text class="info-icon-text">止</text></view>
               <view class="info-text">
                 <text class="info-label">报名截止</text>
-                <text class="info-value deadline">{{ detail.deadline || '2026年9月1日' }}</text>
+                <text class="info-value deadline">{{ detail.deadline || '' }}</text>
               </view>
             </view>
           </view>
@@ -76,7 +76,7 @@
           </view>
 
           <!-- ⑥ 报名条件 -->
-          <view class="section-block">
+          <view v-if="requirements(detail).length > 0" class="section-block">
             <view class="section-title">报名条件</view>
             <view class="requirements-card">
               <view v-for="req in requirements(detail)" :key="req.name" class="req-item">
@@ -93,7 +93,7 @@
           </view>
 
           <!-- ⑦ 参赛项目 -->
-          <view class="section-block">
+          <view v-if="eventList(detail).length > 0" class="section-block">
             <view class="section-title">参赛项目</view>
             <view class="event-list">
               <view v-for="ev in eventList(detail)" :key="ev.name" class="event-item">
@@ -120,13 +120,13 @@
           </view>
 
           <!-- 主办单位 -->
-          <view class="section-block">
+          <view v-if="detail.organizer" class="section-block">
             <view class="section-title">主办单位</view>
             <view class="organizer-row">
               <view class="org-avatar">{{ orgInitial(detail) }}</view>
               <view class="org-info">
-                <text class="org-name">{{ detail.organizer || '中国航空器拥有者及驾驶员协会' }}</text>
-                <text class="org-sub">{{ detail.organizer_sub || '国家级行业协会' }}</text>
+                <text class="org-name">{{ detail.organizer }}</text>
+                <text class="org-sub">{{ detail.organizer_sub || '' }}</text>
               </view>
             </view>
           </view>
@@ -168,7 +168,7 @@ const statusText = { enrolling: '报名中', open: '报名中', ongoing: '进行
 function compTags(item) {
   if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
   if (item.category) return [item.category]
-  return ['多旋翼', '国家级']
+  return []
 }
 
 function tagBgColor(tag) {
@@ -185,38 +185,24 @@ function tagTc(tag) {
 
 function requirements(item) {
   if (Array.isArray(item.requirements) && item.requirements.length > 0) return item.requirements
-  return [
-    { icon: '证', name: '持证要求', desc: '须持有CAAC/AOPA/UTC任一类无人机执照', level: '必满足' },
-    { icon: '龄', name: '年龄限制', desc: '年满16周岁，未满18周岁需监护人签字同意', level: '必满足' },
-    { icon: '时', name: '飞行时长', desc: '累计飞行时长不低于20小时', level: '建议满足' },
-    { icon: '康', name: '健康要求', desc: '身体健康，无色盲色弱', level: '必满足' },
-    { icon: '险', name: '保险要求', desc: '须自行购买比赛期间的第三方责任险', level: '建议满足' },
-  ]
+  return []
 }
 
 function eventList(item) {
   if (Array.isArray(item.events) && item.events.length > 0) return item.events
-  return [
-    { name: '多旋翼竞速赛', type: '个人赛', format: '计时排名', fee: 380 },
-    { name: '固定翼编队赛', type: '团体赛', format: '3人一队', fee: 680 },
-    { name: '航拍创作赛', type: '个人赛', format: '主题创作', fee: 280 },
-  ]
+  return []
 }
 
 function prizes(item) {
   if (Array.isArray(item.prizes) && item.prizes.length > 0) return item.prizes
-  return [
-    { level: '一等奖', amount: 10000, emoji: '冠', bg: 'linear-gradient(135deg, #fff8e1, #fff3c4)' },
-    { level: '二等奖', amount: 5000, emoji: '亚', bg: 'linear-gradient(135deg, #f5f5f5, #eeeeee)' },
-    { level: '三等奖', amount: 2000, emoji: '季', bg: 'linear-gradient(135deg, #fdf5e6, #fae5c3)' },
-  ]
+  return []
 }
 
 function compMinFee(item) {
   if (item.minFee != null) return item.minFee
   var evts = eventList(item)
   if (evts.length > 0) return Math.min.apply(null, evts.map(function (e) { return e.fee }))
-  return 280
+  return 0
 }
 
 function orgInitial(item) {
@@ -244,113 +230,15 @@ async function loadDetail() {
     var res = await request({ url: '/api/v1/competitions' })
     var data = Array.isArray(res) ? res : (res && res.data) || res || {}
     var items = Array.isArray(data) ? data : (data && data.items) || data || []
-    var found = null
+    detail.value = null
     for (var i = 0; i < items.length; i++) {
-      if (String(items[i].id) === String(id.value)) { found = items[i]; break }
+      if (String(items[i].id) === String(id.value)) { detail.value = items[i]; break }
     }
-    detail.value = found
-    if (!found) detail.value = getMockDetail()
   } catch (e) {
-    detail.value = getMockDetail()
+    errorMsg.value = '网络异常，请稍后重试'
   } finally {
     loading.value = false
   }
-}
-
-function getMockDetail() {
-  var mockMap = {
-    'comp-1': {
-      id: 'comp-1',
-      name: '2026全国无人机职业技能大赛',
-      title: '2026全国无人机职业技能大赛',
-      status: 'enrolling',
-      tags: ['多旋翼', '固定翼', '国家级'],
-      start_date: '2026年9月15日',
-      end_date: '9月18日',
-      location: '深圳宝安区国际会展中心',
-      deadline: '2026年9月1日',
-      intro: '2026全国无人机职业技能大赛是由中国航空器拥有者及驾驶员协会主办的国家级专业赛事，旨在推动无人机技术的应用与发展。\n\n本赛事设有多个竞赛项目，涵盖多旋翼、固定翼等多种机型，欢迎广大飞手踊跃报名参加。',
-      organizer: '中国航空器拥有者及驾驶员协会',
-      organizer_sub: '简称中国AOPA · 国家级行业协会',
-      minFee: 280,
-    },
-    'comp-2': {
-      id: 'comp-2',
-      name: '首届西南无人机FPV竞速挑战赛',
-      title: '首届西南无人机FPV竞速挑战赛',
-      status: 'enrolling',
-      tags: ['竞速FPV', '多旋翼'],
-      start_date: '2026年10月1日',
-      end_date: '10月3日',
-      location: '成都天府新区无人机竞速基地',
-      deadline: '2026年9月20日',
-      intro: '首届西南无人机FPV竞速挑战赛汇聚全国顶尖FPV飞手，在成都天府新区专业竞速赛道上展开速度与技巧的终极对决。\n\n赛道全长1.2公里，设有12个障碍门，最高时速可达120km/h。',
-      organizer: '四川省航空运动协会',
-      organizer_sub: '省级行业协会 · 专业竞速赛事',
-      minFee: 280,
-    },
-    'comp-3': {
-      id: 'comp-3',
-      name: '2026无人机创新应用大赛',
-      title: '2026无人机创新应用大赛',
-      status: 'ongoing',
-      tags: ['航拍', '固定翼', '国家级'],
-      start_date: '2026年8月1日',
-      end_date: '8月15日',
-      location: '北京亦庄经济技术开发区',
-      deadline: '2026年7月20日',
-      intro: '聚焦无人机在航拍、应急救援、农业植保、物流配送等领域的创新应用方案评选。\n\n参赛者需提交完整的项目方案和飞行演示视频，由行业专家组成的评审团进行综合评分。',
-      organizer: '工信部人才交流中心',
-      organizer_sub: '国家级人才评测机构',
-      minFee: 0,
-    },
-    'comp-4': {
-      id: 'comp-4',
-      name: '青少年无人机编程挑战赛',
-      title: '青少年无人机编程挑战赛',
-      status: 'enrolling',
-      tags: ['多旋翼', '航拍'],
-      start_date: '2026年11月1日',
-      end_date: '11月2日',
-      location: '上海市浦东新区青少年活动中心',
-      deadline: '2026年10月25日',
-      intro: '面向8-16岁青少年的无人机编程挑战赛，通过Python/Scratch编程控制无人机完成闯关任务。\n\n比赛分为初级组（8-12岁）和高级组（13-16岁），每组设置不同的难度关卡。',
-      organizer: '上海市教育委员会',
-      organizer_sub: '市级教育主管部门',
-      minFee: 120,
-    },
-    'comp-5': {
-      id: 'comp-5',
-      name: '国际无人机系统博览会竞技赛',
-      title: '国际无人机系统博览会竞技赛',
-      status: 'enrolling',
-      tags: ['多旋翼', '固定翼', '国际赛'],
-      start_date: '2026年12月5日',
-      end_date: '12月7日',
-      location: '广州琶洲国际会展中心',
-      deadline: '2026年11月20日',
-      intro: '全球无人机竞速爱好者的年度盛会，设有专业组和公开组两个级别。\n\n同期举办无人机系统博览会，参展企业超过500家，涵盖整机厂商、零部件供应商、行业解决方案提供商等。',
-      organizer: '广州市低空经济产业协会',
-      organizer_sub: '市级低空经济行业组织',
-      minFee: 580,
-    },
-    'comp-6': {
-      id: 'comp-6',
-      name: '2026贵州无人机应急救援演练赛',
-      title: '2026贵州无人机应急救援演练赛',
-      status: 'closed',
-      tags: ['多旋翼', '航拍'],
-      start_date: '2026年6月10日',
-      end_date: '6月12日',
-      location: '贵阳市观山湖区应急指挥中心',
-      deadline: '2026年5月30日',
-      intro: '模拟山地救援、森林火灾监测、灾害应急物资投送等场景，考察无人机在应急救援中的协同作战能力。\n\n参赛队伍需在指定时间内完成搜索定位、物资投送和灾情评估三项任务。',
-      organizer: '贵州省应急管理厅',
-      organizer_sub: '省级应急管理部门',
-      minFee: 0,
-    },
-  }
-  return mockMap[id.value] || mockMap['comp-1']
 }
 
 function goBack() { uni.navigateBack({ delta: 1 }) }

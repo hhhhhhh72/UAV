@@ -15,7 +15,7 @@
             <text class="banner-nav-title">赛事报名</text>
           </view>
           <text class="banner-comp-name">{{ competition.name || competition.title }}</text>
-          <text class="banner-comp-sub">{{ competition.organizer || '中国航空器拥有者及驾驶员协会' }}</text>
+          <text class="banner-comp-sub">{{ competition.organizer || '' }}</text>
           <view class="banner-tags">
             <text v-for="t in (competition.tags || compTags(competition))" :key="t" class="banner-tag">{{ t }}</text>
           </view>
@@ -241,7 +241,7 @@ const form = reactive({
 function compTags(item) {
   if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
   if (item.category) return [item.category]
-  return ['多旋翼', '国家级']
+  return []
 }
 
 /* 身份证自动推导 */
@@ -332,99 +332,31 @@ async function loadCompetition() {
     var res = await request({ url: '/api/v1/competitions' })
     var data = Array.isArray(res) ? res : (res && res.data) || res || {}
     var items = Array.isArray(data) ? data : (data && data.items) || data || []
-    var found = null
+    competition.value = null
     for (var i = 0; i < items.length; i++) {
-      if (String(items[i].id) === String(id.value)) { found = items[i]; break }
+      if (String(items[i].id) === String(id.value)) { competition.value = items[i]; break }
     }
-    competition.value = found
-    if (!found) useMock()
-    loadEvents(found)
+    if (competition.value) loadEvents(competition.value)
   } catch (e) {
-    useMock()
+    errorMsg.value = '网络异常，请稍后重试'
   } finally {
     loading.value = false
   }
 }
 
-function useMock() {
-  var mockMap = {
-    'comp-1': {
-      id: 'comp-1', name: '2026全国无人机职业技能大赛', title: '2026全国无人机职业技能大赛',
-      organizer: '中国航空器拥有者及驾驶员协会',
-      tags: ['多旋翼', '固定翼', '国家级'],
-      events: [
-        { name: '多旋翼竞速赛', type: '个人赛', fee: 380 },
-        { name: '固定翼编队赛', type: '团体赛', fee: 680 },
-        { name: '航拍创作赛', type: '个人赛', fee: 280 },
-      ],
-    },
-    'comp-2': {
-      id: 'comp-2', name: '首届西南无人机FPV竞速挑战赛', title: '首届西南无人机FPV竞速挑战赛',
-      organizer: '四川省航空运动协会',
-      tags: ['竞速FPV', '多旋翼'],
-      events: [
-        { name: 'FPV竞速赛', type: '个人赛', fee: 280 },
-        { name: 'FPV花飞表演赛', type: '个人赛', fee: 0 },
-      ],
-    },
-    'comp-3': {
-      id: 'comp-3', name: '2026无人机创新应用大赛', title: '2026无人机创新应用大赛',
-      organizer: '工信部人才交流中心',
-      tags: ['航拍', '固定翼', '国家级'],
-      events: [
-        { name: '航拍创作赛', type: '个人赛', fee: 0 },
-        { name: '应急救援方案赛', type: '团体赛', fee: 0 },
-        { name: '农业植保方案赛', type: '个人赛', fee: 0 },
-      ],
-    },
-    'comp-4': {
-      id: 'comp-4', name: '青少年无人机编程挑战赛', title: '青少年无人机编程挑战赛',
-      organizer: '上海市教育委员会',
-      tags: ['多旋翼', '航拍'],
-      events: [
-        { name: '初级编程挑战', type: '个人赛', fee: 120 },
-        { name: '高级编程挑战', type: '个人赛', fee: 120 },
-      ],
-    },
-    'comp-5': {
-      id: 'comp-5', name: '国际无人机系统博览会竞技赛', title: '国际无人机系统博览会竞技赛',
-      organizer: '广州市低空经济产业协会',
-      tags: ['多旋翼', '固定翼', '国际赛'],
-      events: [
-        { name: '专业组竞速赛', type: '个人赛', fee: 580 },
-        { name: '公开组竞速赛', type: '个人赛', fee: 380 },
-        { name: '编队飞行赛', type: '团体赛', fee: 1200 },
-      ],
-    },
-    'comp-6': {
-      id: 'comp-6', name: '2026贵州无人机应急救援演练赛', title: '2026贵州无人机应急救援演练赛',
-      organizer: '贵州省应急管理厅',
-      tags: ['多旋翼', '航拍'],
-      events: [
-        { name: '搜索定位赛', type: '团体赛', fee: 0 },
-        { name: '物资投送赛', type: '团体赛', fee: 0 },
-      ],
-    },
-  }
-  competition.value = mockMap[id.value] || mockMap['comp-1']
-  loadEvents(competition.value)
-}
-
 function loadEvents(item) {
   if (item && Array.isArray(item.events) && item.events.length > 0) {
     eventOptions.value = item.events.map(function (e) {
-      return { label: e.name + ' · ' + (e.type || '个人赛'), fee: e.fee || 380, type: e.type || '个人赛' }
+      return { label: e.name + ' · ' + (e.type || '个人赛'), fee: e.fee || 0, type: e.type || '个人赛' }
     })
   } else {
-    eventOptions.value = [
-      { label: '多旋翼竞速赛 · 个人赛', fee: 380, type: '个人赛' },
-      { label: '固定翼编队赛 · 团体赛', fee: 680, type: '团体赛' },
-      { label: '航拍创作赛 · 个人赛', fee: 280, type: '个人赛' },
-    ]
+    eventOptions.value = []
   }
-  selectedEvent.value = eventOptions.value[0].label
-  currentPrice.value = eventOptions.value[0].fee
-  currentEventType.value = eventOptions.value[0].type || ''
+  if (eventOptions.value.length > 0) {
+    selectedEvent.value = eventOptions.value[0].label
+    currentPrice.value = eventOptions.value[0].fee
+    currentEventType.value = eventOptions.value[0].type || ''
+  }
   // 默认个人赛时重置队伍人数
   if (currentEventType.value !== '团体赛') {
     form.member_count = 1

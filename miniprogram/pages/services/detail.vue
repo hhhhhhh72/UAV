@@ -66,71 +66,41 @@
   </view>
 
   <!-- 空/错误状态 -->
-  <view v-else class="empty-page">
+  <view v-else-if="!loading" class="empty-page">
     <u-nav-bar title="服务详情" show-back @back="goBack" />
-    <u-empty description="服务信息加载失败" />
+    <u-empty description="服务内容待发布" />
   </view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { request } from '../../utils/request'
 
 const service = ref(null)
+const loading = ref(true)
 
-// 服务数据映射
-const serviceDataMap = {
-  '6': {
-    id: '6',
-    title: '飞手培训服务',
-    name: '飞手培训服务',
-    subtitle: '专业培训 证书认证',
-    color: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)',
-    icon: '训',
-    intro: '提供CAAC执照培训、UTC认证、人社认证等无人机操控员资格培训服务，浙南闽北地区最早具备民航局认定资质的培训机构。',
-    projects: [
-      { name: 'CAAC执照培训' },
-      { name: 'UTC认证培训' },
-      { name: '人社认证' },
-      { name: '实操教学' },
-    ],
-    advantages: [
-      '民航局官方授权考点',
-      '3000平米标准训练场地',
-      '高精度模拟飞行系统',
-      '资深教员团队精准施教',
-      '通过率行业领先',
-    ],
-  },
-  '12': {
-    id: '12',
-    title: '维修服务',
-    name: '维修服务',
-    subtitle: '专业维修 原厂配件',
-    color: 'linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%)',
-    icon: '修',
-    intro: '提供专业的无人机维修、定期保养、故障诊断等服务，使用正品配件，确保设备安全可靠。',
-    projects: [
-      { name: '故障诊断' },
-      { name: '硬件维修' },
-      { name: '定期保养' },
-      { name: '配件更换' },
-    ],
-    advantages: [
-      '官方授权维修中心',
-      '正品原厂配件',
-      '专业技术团队',
-      '维修质保承诺',
-      '快速响应服务',
-    ],
-  },
-}
-
-onLoad((options) => {
-  const id = String(options.id || '1')
-  service.value = serviceDataMap[id]
+onLoad(async (options) => {
+  const id = String(options.id || '')
+  try {
+    const res = await request({ url: '/api/services/config' })
+    const config = (res && res.data) || res || {}
+    const entry = config[id]
+    if (entry && typeof entry === 'object' && Object.keys(entry).length > 0) {
+      service.value = entry
+    } else if (config._home && Array.isArray(config._home.displayServices)) {
+      const s = config._home.displayServices.find((x) => String(x.id) === id)
+      if (s) {
+        service.value = { id: s.id, title: s.name, name: s.name, description: s.description || '' }
+      }
+    }
+  } catch (e) {
+    service.value = null
+  } finally {
+    loading.value = false
+  }
   if (service.value) {
-    uni.setNavigationBarTitle({ title: service.value.title })
+    uni.setNavigationBarTitle({ title: service.value.title || service.value.name || '服务详情' })
   }
 })
 

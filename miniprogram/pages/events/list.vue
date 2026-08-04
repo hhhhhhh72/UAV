@@ -74,15 +74,15 @@
               <view class="card-info">
                 <view class="info-row">
                   <text class="info-label">时间</text>
-                  <text class="info-value">{{ item.start_date || '2026.09.15' }} - {{ item.end_date || '2026.09.18' }}</text>
+                  <text class="info-value">{{ item.start_date || '' }} - {{ item.end_date || '' }}</text>
                 </view>
                 <view class="info-row">
                   <text class="info-label">地点</text>
-                  <text class="info-value ellipsis">{{ item.location || '深圳宝安区国际会展中心' }}</text>
+                  <text class="info-value ellipsis">{{ item.location || '' }}</text>
                 </view>
                 <view class="info-row">
                   <text class="info-label">主办方</text>
-                  <text class="info-value ellipsis">{{ item.organizer || '中国航空器拥有者及驾驶员协会' }}</text>
+                  <text class="info-value ellipsis">{{ item.organizer || '' }}</text>
                 </view>
               </view>
 
@@ -169,17 +169,15 @@ const statusEmoji = {
 
 function compTags(item) {
   if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
-  var tags = []
-  if (item.category) tags.push(item.category)
-  if (tags.length === 0) tags = ['多旋翼', '国家级']
-  return tags
+  if (item.category) return [item.category]
+  return []
 }
 
 function compFee(item) {
   if (item.fee != null) return item.fee
   if (item.price_fen != null) return item.price_fen / 100
   if (item.price != null) return item.price
-  return 380
+  return 0
 }
 
 function tagBgColor(tag) {
@@ -214,62 +212,12 @@ async function loadData(reset) {
 
     if (reset) { list.value = items } else { list.value = list.value.concat(items) }
     hasMore.value = list.value.length < total
-    // API 返回空数据，降级到本地 mock
-    if (list.value.length === 0) {
-      list.value = getMockList()
-      hasMore.value = false
-    }
   } catch (e) {
-    // API 不可用，降级到本地 mock
-    if (reset) {
-      list.value = getMockList()
-      hasMore.value = false
-    }
+    if (reset) errorMsg.value = '网络异常，请稍后重试'
   } finally {
     loading.value = false
     loadingMore.value = false
   }
-}
-
-function getMockList() {
-  return [
-    {
-      id: 'comp-1', title: '2026全国无人机职业技能大赛', status: 'enrolling',
-      location: '深圳宝安区国际会展中心', organizer: '中国航空器拥有者及驾驶员协会',
-      start_date: '2026.09.15', end_date: '2026.09.18',
-      tags: ['多旋翼', '固定翼', '国家级'], fee: 380, registration_count: 128,
-    },
-    {
-      id: 'comp-2', title: '首届西南无人机FPV竞速挑战赛', status: 'enrolling',
-      location: '成都天府新区无人机竞速基地', organizer: '四川省航空运动协会',
-      start_date: '2026.10.01', end_date: '2026.10.03',
-      tags: ['竞速FPV', '多旋翼'], fee: 280, registration_count: 56,
-    },
-    {
-      id: 'comp-3', title: '2026无人机创新应用大赛', status: 'ongoing',
-      location: '北京亦庄经济技术开发区', organizer: '工信部人才交流中心',
-      start_date: '2026.08.01', end_date: '2026.08.15',
-      tags: ['航拍', '固定翼', '国家级'], fee: 0, registration_count: 256,
-    },
-    {
-      id: 'comp-4', title: '青少年无人机编程挑战赛', status: 'enrolling',
-      location: '上海市浦东新区青少年活动中心', organizer: '上海市教委',
-      start_date: '2026.11.01', end_date: '2026.11.02',
-      tags: ['多旋翼', '航拍'], fee: 120, registration_count: 340,
-    },
-    {
-      id: 'comp-5', title: '国际无人机系统博览会竞技赛', status: 'enrolling',
-      location: '广州琶洲国际会展中心', organizer: '广州市低空经济产业协会',
-      start_date: '2026.12.05', end_date: '2026.12.07',
-      tags: ['多旋翼', '固定翼', '国际赛'], fee: 580, registration_count: 89,
-    },
-    {
-      id: 'comp-6', title: '2026贵州无人机应急救援演练赛', status: 'closed',
-      location: '贵阳市观山湖区应急指挥中心', organizer: '贵州省应急管理厅',
-      start_date: '2026.06.10', end_date: '2026.06.12',
-      tags: ['多旋翼', '航拍'], fee: 0, registration_count: 72,
-    },
-  ]
 }
 
 function loadMore() {

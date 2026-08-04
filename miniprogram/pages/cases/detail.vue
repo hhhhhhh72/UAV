@@ -54,28 +54,26 @@
     </view>
 
   </view>
+  <view v-else class="case-empty">
+    <u-empty description="案例不存在" />
+  </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getCaseById } from '../../utils/cases'
 import { request } from '../../utils/request'
 
 const caseItem = ref(null)
 
 onLoad(async (options) => {
-  const id = options.id || '1'
+  const id = String(options.id || '')
   try {
     const res = await request({ url: '/api/cases', data: { id } })
-    const item = res?.data?.[0] || (Array.isArray(res) ? res[0] : res)
-    if (item && item.title) {
-      caseItem.value = item
-    } else {
-      caseItem.value = getCaseById(id)
-    }
+    const list = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : [])
+    caseItem.value = list.find((x) => String(x.id) === id) || null
   } catch (e) {
-    caseItem.value = getCaseById(id)
+    caseItem.value = null
   }
   if (caseItem.value) {
     uni.setNavigationBarTitle({ title: '案例详情' })
@@ -85,6 +83,14 @@ onLoad(async (options) => {
 
 <style scoped>
 .case-detail-page {
+  min-height: 100vh;
+  background: #fff;
+}
+
+.case-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
   background: #fff;
 }

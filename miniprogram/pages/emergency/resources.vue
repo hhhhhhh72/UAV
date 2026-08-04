@@ -33,10 +33,10 @@
               <view class="card-top">
                 <view class="card-icon" :style="{ background: statusBg[item.status] || 'var(--ui-color-accent-light)' }"><text>{{ resIcon(item) }}</text></view>
                 <view class="card-info"><text class="card-name">{{ item.name || '未命名资源' }}</text><text class="card-spec">{{ item.specs || item.model || '暂无规格' }}</text></view>
-                <view class="status-tag" :style="{ background: statusBg[item.status] || 'var(--ui-color-accent-light)', color: statusColor[item.status] || 'var(--color-success)' }">{{ item.status || '可用' }}</view>
+                <view class="status-tag" :style="{ background: statusBg[item.status] || 'var(--ui-color-accent-light)', color: statusColor[item.status] || 'var(--color-text-secondary)' }">{{ item.status || '未知' }}</view>
               </view>
               <view class="card-meta">
-                <view class="meta-row"><text class="meta-label">数量</text><text class="meta-value">{{ item.quantity || 1 }}</text></view>
+                <view class="meta-row"><text class="meta-label">数量</text><text class="meta-value">{{ item.quantity || 0 }}</text></view>
                 <view class="meta-row"><text class="meta-label">位置</text><text class="meta-value ellipsis">{{ item.location || '未知' }}</text></view>
                 <view class="meta-row"><text class="meta-label">联系人</text><text class="meta-value">{{ item.contact || item.contact_info || '暂无' }}</text></view>
               </view>
@@ -133,30 +133,10 @@ async function loadResources(reset) {
     var total = (data && data.total) != null ? data.total : items.length
     if (reset) { list.value = items } else { list.value = list.value.concat(items) }
     hasMore.value = list.value.length < total
-    // API 返回空，降级 mock + 本地过滤
-    if (list.value.length === 0) {
-      var mock = getMockResources()
-      if (filterType.value !== 'all') mock = mock.filter(function (r) { return r.res_type === filterType.value })
-      list.value = mock
-      hasMore.value = false
-    }
   } catch (e) {
-    var mock = getMockResources()
-    if (filterType.value !== 'all') mock = mock.filter(function (r) { return r.res_type === filterType.value })
-    if (reset) { list.value = mock; hasMore.value = false }
+    if (reset) errorMsg.value = '网络异常，请稍后重试'
   }
   finally { loading.value = false; loadingMore.value = false }
-}
-
-function getMockResources() {
-  return [
-    { id: 'res-1', name: '应急无人机 M300RTK', res_type: 'drone', specs: '热成像+激光测距', status: '可用', quantity: 3, location: '贵阳市南明区应急仓库', contact_info: '张队长 1380851xxxx' },
-    { id: 'res-2', name: '便携式通讯基站', res_type: 'comm', specs: '4G/5G 覆盖半径5km', status: '可用', quantity: 2, location: '遵义市汇川区消防支队', contact_info: '李通讯 1398521xxxx' },
-    { id: 'res-3', name: '应急指挥车', res_type: 'vehicle', specs: '车载无人机控制系统', status: '使用中', quantity: 1, location: '毕节市七星关区', contact_info: '王调度 1376512xxxx' },
-    { id: 'res-4', name: '急救医疗包(无人机投送)', res_type: 'medical', specs: '止血/包扎/急救药品', status: '可用', quantity: 20, location: '贵阳市云岩区红十字会', contact_info: '赵医生 1367851xxxx' },
-    { id: 'res-5', name: '系留无人机照明系统', res_type: 'drone', specs: 'LED 1000W 持续照明8h', status: '维护中', quantity: 1, location: '安顺市平坝区', contact_info: '刘维护 1359521xxxx' },
-    { id: 'res-6', name: '应急中继通信无人机', res_type: 'drone', specs: '30km 中继距离', status: '可用', quantity: 4, location: '铜仁市碧江区应急管理局', contact_info: '陈应急 1818821xxxx' },
-  ]
 }
 
 function loadMore() { if (!loadingMore.value && hasMore.value) { page.value++; loadResources(false) } }
@@ -167,19 +147,8 @@ async function loadDepts() {
     var res = await request({ url: '/api/v1/emergency-depts' })
     var data = Array.isArray(res) ? res : (res && res.data) || res || {}
     deptList.value = Array.isArray(data) ? data : (data && data.items) || data || []
-    if (deptList.value.length === 0) deptList.value = getMockDepts()
-  } catch (e) { deptList.value = getMockDepts() }
+  } catch (e) { deptError.value = '网络异常，请稍后重试' }
   finally { deptLoading.value = false }
-}
-
-function getMockDepts() {
-  return [
-    { id: 'dept-1', name: '贵州省消防救援总队', dept_type: '消防', region: '贵州省', contact_name: '赵指挥', contact_phone: '0851-8392xxxx' },
-    { id: 'dept-2', name: '贵阳市公安局', dept_type: '公安', region: '贵阳市', contact_name: '钱队长', contact_phone: '0851-8521xxxx' },
-    { id: 'dept-3', name: '贵州省应急管理厅', dept_type: '应急局', region: '贵州省', contact_name: '孙处长', contact_phone: '0851-8689xxxx' },
-    { id: 'dept-4', name: '遵义市医疗急救中心', dept_type: '医疗', region: '遵义市', contact_name: '周主任', contact_phone: '0851-2895xxxx' },
-    { id: 'dept-5', name: '黔南州交通运输局', dept_type: '交通', region: '黔南州', contact_name: '吴调度', contact_phone: '0854-8225xxxx' },
-  ]
 }
 
 function goBack() { uni.navigateBack({ delta: 1 }) }

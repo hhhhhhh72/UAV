@@ -36,7 +36,7 @@
               <text class="card-name">{{ item.name || item.title || '未知活动' }}</text>
 
               <view class="card-info">
-                <view class="info-row"><text class="info-label">时间</text><text class="info-value">{{ item.date || (item.start_date || '2026.08.15') + ' - ' + (item.end_date || '08.16') }}</text></view>
+                <view class="info-row"><text class="info-label">时间</text><text class="info-value">{{ item.date || [item.start_date, item.end_date].filter(Boolean).join(' - ') }}</text></view>
                 <view class="info-row"><text class="info-label">地点</text><text class="info-value ellipsis">{{ item.location || '待定' }}</text></view>
                 <view class="info-row"><text class="info-label">对象</text><text class="info-value">{{ item.target || '不限' }}</text></view>
               </view>
@@ -97,7 +97,7 @@ function tagStyle(t) {
 function studyTags(item) {
   if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
   if (item.category) return [item.category]
-  return ['企业参访', '动手实操']
+  return []
 }
 
 function studyFee(item) {
@@ -108,8 +108,8 @@ function studyFee(item) {
 }
 
 function openDetail(item) {
-  var url = (item && item.url) || 'https://example.com/study'
-  uni.navigateTo({ url: '/pages/webview/index?url=' + encodeURIComponent(url) })
+  if (!item || !item.url) { uni.showToast({ title: '详情待发布', icon: 'none' }); return }
+  uni.navigateTo({ url: '/pages/webview/index?url=' + encodeURIComponent(item.url) })
 }
 
 var searchTimer = null
@@ -133,24 +133,12 @@ async function loadData(reset) {
     var total = (data && data.total) != null ? data.total : items.length
     if (reset) { list.value = items } else { list.value = list.value.concat(items) }
     hasMore.value = list.value.length < total
-    if (list.value.length === 0) { list.value = getMockList(); hasMore.value = false }
   } catch (e) {
-    if (reset) { list.value = getMockList(); hasMore.value = false }
+    if (reset) errorMsg.value = '网络异常，请稍后重试'
   } finally {
     loading.value = false
     loadingMore.value = false
   }
-}
-
-function getMockList() {
-  return [
-    { id: 'study-1', name: '大疆创新总部研学之旅', status: '报名中', date: '2026.08.15 - 08.16', location: '深圳市南山区大疆创新总部', target: '12岁以上青少年', tags: ['企业参访', '动手实操', '证书'], fee: 580, icon: '企', url: 'https://www.dji.com/cn/robomaster' },
-    { id: 'study-2', name: '成都航空产业基地一日研学', status: '报名中', date: '2026.08.20', location: '成都市高新区无人机产业基地', target: '8-16岁青少年', tags: ['工厂参观', '航模制作', '企业参访'], fee: 380, icon: '航', url: 'https://example.com/study/chengdu' },
-    { id: 'study-3', name: '贵州无人机应急救援体验营', status: '报名中', date: '2026.09.01 - 09.02', location: '贵阳市观山湖区应急指挥中心', target: '16岁以上', tags: ['动手实操', '证书'], fee: 680, icon: '救', url: 'https://example.com/study/guizhou' },
-    { id: 'study-4', name: '无人机航拍创作夏令营', status: '即将开始', date: '2026.08.25 - 08.28', location: '云南省大理市洱海实训基地', target: '14岁以上', tags: ['动手实操', '证书'], fee: 1280, icon: '拍', url: 'https://example.com/study/aerial' },
-    { id: 'study-5', name: '北航无人机科技研学周', status: '报名中', date: '2026.10.01 - 10.05', location: '北京航空航天大学', target: '高中生', tags: ['企业参访', '动手实操', '航模制作', '证书'], fee: 1980, icon: '校', url: 'https://www.buaa.edu.cn' },
-    { id: 'study-6', name: '青少年FPV穿越机体验日', status: '已结束', date: '2026.07.10', location: '上海市浦东新区竞速基地', target: '10-18岁青少年', tags: ['动手实操'], fee: 280, icon: '镜', url: 'https://example.com/study/fpv' },
-  ]
 }
 
 function loadMore() {

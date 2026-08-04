@@ -26,7 +26,7 @@
             <view class="avatar">{{ initShort(detail) }}</view>
             <view class="header-info">
               <text class="college-name">{{ detail.name || detail.title || '未知院校' }}</text>
-              <text class="college-location">{{ detail.city || '' }} · {{ detail.levelTags || (detail.tags || ['无人机专业']).join(' · ') }}</text>
+              <text class="college-location">{{ [detail.city || '', detail.levelTags || (detail.tags || []).join(' · ')].filter(Boolean).join(' · ') }}</text>
             </view>
           </view>
 
@@ -116,7 +116,7 @@ function tagStyle(tag) {
 function compTags(item) {
   if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
   if (Array.isArray(item.specialties)) return item.specialties
-  return ['飞行器设计', '无人机工程']
+  return []
 }
 
 function initShort(item) {
@@ -127,30 +127,21 @@ function initShort(item) {
 
 function statsData(item) {
   return [
-    { label: '无人机专业', value: item.majorCount || item.major_count || 6 },
-    { label: '合作企业', value: item.partnerCount || item.partner_count || 28 },
-    { label: '在读学生', value: (item.studentCount || item.student_count || '320') + '+' },
-    { label: '硕博导师', value: item.teacherCount || item.teacher_count || 12 },
+    { label: '无人机专业', value: item.majorCount || item.major_count || 0 },
+    { label: '合作企业', value: item.partnerCount || item.partner_count || 0 },
+    { label: '在读学生', value: (item.studentCount || item.student_count || 0) + '+' },
+    { label: '硕博导师', value: item.teacherCount || item.teacher_count || 0 },
   ]
 }
 
 function majorsList(item) {
   if (Array.isArray(item.majors) && item.majors.length > 0) return item.majors
-  return [
-    { name: '飞行器设计与工程', degree: '本科', duration: 4, key: '国家级特色专业', flagship: true },
-    { name: '无人机系统工程', degree: '本科', duration: 4, key: '', flagship: false },
-    { name: '飞行器控制与信息工程', degree: '硕士', duration: 3, key: '', flagship: false },
-  ]
+  return []
 }
 
 function partnerList(item) {
   if (Array.isArray(item.partners) && item.partners.length > 0) return item.partners
-  return [
-    { icon: '机', name: '大疆创新', type: '联合实验室' },
-    { icon: '航', name: '中航工业', type: '实习基地' },
-    { icon: '天', name: '航天科技', type: '合作研究' },
-    { icon: '装', name: '亿航智能', type: '人才输送' },
-  ]
+  return []
 }
 
 function previewPhotos(idx) {
@@ -160,7 +151,8 @@ function previewPhotos(idx) {
 }
 
 function callPhone() {
-  var phone = (detail.value && detail.value.phone) || '010-82310000'
+  var phone = detail.value && detail.value.phone
+  if (!phone) { uni.showToast({ title: '电话未录入', icon: 'none' }); return }
   uni.makePhoneCall({ phoneNumber: phone })
 }
 
@@ -181,26 +173,15 @@ async function loadDetail() {
     var res = await request({ url: '/api/v1/colleges' })
     var data = Array.isArray(res) ? res : (res && res.data) || res || {}
     var items = Array.isArray(data) ? data : (data && data.items) || data || []
-    var found = null
+    detail.value = null
     for (var i = 0; i < items.length; i++) {
-      if (String(items[i].id) === String(id.value)) { found = items[i]; break }
+      if (String(items[i].id) === String(id.value)) { detail.value = items[i]; break }
     }
-    detail.value = found
-    if (!found) detail.value = getMockDetail()
   } catch (e) {
-    detail.value = getMockDetail()
+    errorMsg.value = '网络异常，请稍后重试'
   } finally {
     loading.value = false
   }
-}
-
-function getMockDetail() {
-  var mockMap = {
-    'college-1': { id: 'college-1', name: '北京航空航天大学', shortName: '北', city: '北京市', levelTags: '双一流 · 985 · 211', cover: '', tags: ['飞行器设计', '无人机工程', '博士点'], majorCount: 6, partnerCount: 28, studentCount: '320', teacherCount: 12, phone: '010-82310000', website: 'https://www.buaa.edu.cn', intro: '北京航空航天大学成立于1952年，是新中国第一所航空航天高等学府。航空科学与工程学院是国内顶尖的航空航天教育基地，拥有无人机系统设计与控制工程等6个本科专业方向。\n\n学校在无人机领域拥有国家级重点实验室，与中航工业、航天科技等龙头企业深度合作，培养了大批无人机行业领军人才。' },
-    'college-2': { id: 'college-2', name: '南京航空航天大学', shortName: '南', city: '南京市', levelTags: '双一流 · 211', cover: '', tags: ['无人机应用', '适航技术', '硕士点'], majorCount: 5, partnerCount: 22, studentCount: '280', teacherCount: 10, phone: '025-84890000', website: 'https://www.nuaa.edu.cn', intro: '南京航空航天大学创建于1952年，民航学院是首批设立无人机应用技术专业的高校之一。\n\n拥有民航总局认证的无人机培训资质，与多家无人机企业共建产学研基地，毕业生在民航系统及无人机行业有极高的认可度。' },
-    'college-3': { id: 'college-3', name: '西北工业大学', shortName: '西', city: '西安市', levelTags: '双一流 · 985', cover: '', tags: ['飞行控制', '无人机系统', '博士点'], majorCount: 7, partnerCount: 35, studentCount: '450', teacherCount: 15, phone: '029-88490000', website: 'https://www.nwpu.edu.cn', intro: '西北工业大学是无人机特种技术重点实验室依托单位，在军用和民用无人机领域均有深厚的研究积累。\n\n学校承担了多项国家级无人机重大科研项目，被誉为"无人机领域的黄埔军校"。' },
-  }
-  return mockMap[id.value] || mockMap['college-1']
 }
 
 onLoad(function (options) {
