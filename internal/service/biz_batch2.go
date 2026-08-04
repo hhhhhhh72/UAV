@@ -37,6 +37,21 @@ func (s *TransformationService) List(ownerID string) ([]domain.Transformation, e
 	return s.repo.List(ownerID)
 }
 
+// ListByAchievement 按成果查询转化记录（数据量小，内存过滤）
+func (s *TransformationService) ListByAchievement(achievementID string) ([]domain.Transformation, error) {
+	all, err := s.repo.List("")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Transformation, 0, len(all))
+	for _, t := range all {
+		if t.AchievementID == achievementID {
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}
+
 func (s *TransformationService) AdvanceStage(id string, nextStage domain.TransformationStage, progress string) (domain.Transformation, error) {
 	t, err := s.repo.FindByID(id)
 	if err != nil { return domain.Transformation{}, err }

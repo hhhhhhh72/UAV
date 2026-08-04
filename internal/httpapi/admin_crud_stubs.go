@@ -362,6 +362,7 @@ func (s *Server) listAdminTransformations(w http.ResponseWriter, r *http.Request
 	if err != nil { fail(w, r, 500, fmt.Errorf("list transformations: %w", err)); return }
 	paginatedRespond(w, r, all, len(all))
 }
+
 func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct { Title string `json:"title"`; Progress string `json:"progress"`; PartnerID string `json:"partner_id"`; Status string `json:"status"` }

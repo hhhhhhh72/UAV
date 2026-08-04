@@ -26,15 +26,31 @@ func (s *Server) registerBatch2Routes(mux *http.ServeMux) {
 func (s *Server) createTransformation(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("auth required")); return }
-	var in struct{ Title, AchievementID, PartnerID string }
+	var in struct {
+		Title         string `json:"title"`
+		AchievementID string `json:"achievement_id"`
+		PartnerID     string `json:"partner_id"`
+	}
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
 	t, err := s.transSvc.Create(in.Title, in.AchievementID, a.ID, in.PartnerID)
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
 	respond(w, r, http.StatusCreated, t)
 }
 func (s *Server) listTransformations(w http.ResponseWriter, r *http.Request) {
-	list, err := s.transSvc.List(r.URL.Query().Get("owner_id"))
+	// 公开查询：按成果(achievement_id)或归属(owner_id)过滤，无参返回全部
+	var (
+		list []domain.Transformation
+		err  error
+	)
+	if aid := r.URL.Query().Get("achievement_id"); aid != "" {
+		list, err = s.transSvc.ListByAchievement(aid)
+	} else {
+		list, err = s.transSvc.List(r.URL.Query().Get("owner_id"))
+	}
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if list == nil {
+		list = []domain.Transformation{}
+	}
 	respond(w, r, http.StatusOK, list)
 }
 func (s *Server) advanceStage(w http.ResponseWriter, r *http.Request) {

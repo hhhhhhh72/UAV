@@ -69,6 +69,29 @@
         </view>
       </view>
 
+      <!-- 转化进展（管理后台录入 → 小程序展示） -->
+      <view v-if="transforms.length" class="sec" :class="{ vis: vis }">
+        <view class="sh"><view class="sd"></view><text class="sht">转化进展</text></view>
+        <view v-for="(t, i) in transforms" :key="i" class="tr-card">
+          <text class="tr-title">{{ t.title }}</text>
+          <!-- 4 阶段时间线：实验室→中试→产业化→上市 -->
+          <view class="tr-stages">
+            <view
+              v-for="(st, si) in stages"
+              :key="si"
+              class="tr-stage"
+              :class="{ done: stageRank(t.stage) >= si + 1, cur: stageRank(t.stage) === si + 1 }"
+            >
+              <view class="tr-dot"></view>
+              <text class="tr-stage-name">{{ st }}</text>
+            </view>
+          </view>
+          <view class="tr-line"></view>
+          <view v-if="t.progress" class="tr-progress"><text class="tr-k">当前进度</text><text class="tr-v">{{ t.progress }}</text></view>
+          <view v-if="t.partner_id" class="tr-progress"><text class="tr-k">合作单位</text><text class="tr-v">{{ t.partner_id }}</text></view>
+        </view>
+      </view>
+
       <!-- 附件资料（detail_pd.html 原型区块） -->
       <view v-if="d.attachments && d.attachments.length" class="sec" :class="{ vis: vis }">
         <view class="sh"><view class="sd"></view><text class="sht">附件资料</text></view>
@@ -161,6 +184,20 @@ const stageCls = computed(() => {
   const s = (d.value?.stage || '').toLowerCase()
   return STAGE_CLS[s] || ''
 })
+// 转化进展（管理后台录入，按成果查询）
+const transforms = ref([])
+const stages = ['实验室', '中试', '产业化', '上市']
+const stageRank = (s) => {
+  const map = { lab: 1, pilot: 2, industrialization: 3, industrialized: 3, listed: 4, launched: 4 }
+  return map[(s || '').toLowerCase()] || 0
+}
+const fetchTransformations = async (aid) => {
+  try {
+    const res = await request({ url: '/api/v1/transformations', data: { achievement_id: aid } })
+    transforms.value = Array.isArray(res) ? res : (res?.data || [])
+  } catch (e) { transforms.value = [] }
+}
+
 const typeLabel = computed(() => {
   const t = (d.value?.achieve_type || '').toLowerCase()
   return TYPE_MAP[t] || d.value?.achieve_type || '未分类'
@@ -203,6 +240,7 @@ const fetchData = async () => {
         date: (item.created_at || '').slice(0, 10)
       }
       if (d.value.title) uni.setNavigationBarTitle({ title: d.value.title })
+      fetchTransformations(item.id)
     } else {
       err.value = true
     }
@@ -314,6 +352,21 @@ page { background: var(--color-bg); }
 .at-name { display: block; font-size: 26rpx; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .at-size { display: block; font-size: 20rpx; color: var(--color-text-placeholder); margin-top: 4rpx; }
 .at-btn { flex-shrink: 0; padding: 8rpx 20rpx; border-radius: 8rpx; background: var(--color-primary); color: #fff; font-size: 22rpx; }
+
+/* ===== 转化进展（阶段时间线） ===== */
+.tr-card { padding: 8rpx 0 4rpx; }
+.tr-title { display: block; font-size: 28rpx; font-weight: 600; color: var(--color-text); margin-bottom: 24rpx; }
+.tr-stages { display: flex; justify-content: space-between; position: relative; z-index: 1; }
+.tr-stage { display: flex; flex-direction: column; align-items: center; gap: 8rpx; width: 25%; }
+.tr-dot { width: 20rpx; height: 20rpx; border-radius: 50%; background: var(--color-divider); border: 4rpx solid #fff; box-shadow: 0 0 0 2rpx var(--color-divider); transition: all .3s; }
+.tr-stage.done .tr-dot { background: var(--color-primary); box-shadow: 0 0 0 2rpx var(--color-primary); }
+.tr-stage.cur .tr-dot { background: var(--color-primary); box-shadow: 0 0 0 4rpx var(--color-primary-light); }
+.tr-stage-name { font-size: 20rpx; color: var(--color-text-placeholder); }
+.tr-stage.done .tr-stage-name, .tr-stage.cur .tr-stage-name { color: var(--color-primary); font-weight: 600; }
+.tr-line { position: relative; height: 4rpx; background: var(--color-divider); margin: -58rpx 12.5% 28rpx; border-radius: 2rpx; z-index: 0; }
+.tr-progress { display: flex; gap: 12rpx; padding: 10rpx 0; border-top: .5px solid #f5f5f5; }
+.tr-k { width: 130rpx; flex-shrink: 0; font-size: 24rpx; color: var(--color-text-placeholder); }
+.tr-v { flex: 1; font-size: 24rpx; color: var(--color-text); }
 .iv { flex: 1; font-size: 28rpx; color: var(--color-text); word-break: break-all; }
 .iv.cl-la { color: #1967d2; font-weight: 600; }
 .iv.cl-pi { color: var(--color-warning); font-weight: 600; }
