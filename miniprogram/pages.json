@@ -522,18 +522,6 @@
       "style": {
         "navigationBarTitleText": "提交申请"
       }
-    },
-    {
-      "path": "pages/admin/index",
-      "style": {
-        "navigationBarTitleText": "管理后台"
-      }
-    },
-    {
-      "path": "pages/index/index",
-      "style": {
-        "navigationBarTitleText": "首页"
-      }
     }
   ],
   "globalStyle": {

@@ -633,19 +633,13 @@ const handleSubmit = async () => {
       }
     })
   } catch (error) {
-    const mock = uni.getStorageSync('mock_applications') || []
-    mock.unshift(submitData)
-    uni.setStorageSync('mock_applications', mock)
-
+    // 线上提交暂未开放：不伪造成功，引导线下联系
     uni.hideLoading()
     uni.showModal({
-      title: '✅ 提交成功',
-      content: `申请单号：${orderNo}\n我们将尽快与您联系并确认服务方案！`,
+      title: '提交失败',
+      content: '线上申请暂未开放，请直接电话联系客服完成服务申请。',
       showCancel: false,
-      confirmText: '查看我的申请',
-      success: () => {
-        uni.navigateTo({ url: '/pages/applications/index' })
-      }
+      confirmText: '知道了'
     })
   }
 }

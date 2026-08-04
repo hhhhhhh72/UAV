@@ -94,8 +94,14 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 	// ---- Industry Resources ----
 	mux.HandleFunc("GET /api/v1/industry-resources", s.listIndustryResources)
+	mux.HandleFunc("GET /api/v1/industry-resources/{id}", s.getIndustryResourcePublic)
 	mux.HandleFunc("POST /api/v1/admin/industry-resources", s.createIndustryResource)
 	mux.HandleFunc("PUT /api/v1/admin/industry-resources/{id}", s.updateIndustryResource)
+
+	// ---- 公开详情（补齐小程序页面接口） ----
+	mux.HandleFunc("GET /api/v1/experts/{id}", s.getExpert)
+	mux.HandleFunc("GET /api/v1/test-sites/{id}", s.getTestSite)
+	mux.HandleFunc("GET /api/v1/exhibitions/{id}", s.getExhibition)
 
 	// ---- Emergency ----
 	mux.HandleFunc("GET /api/v1/emergency-resources", s.listEmergencyResources)
@@ -1134,6 +1140,20 @@ func (s *Server) visitorResourceLevel(r *http.Request) int {
 		}
 	}
 	return 1 // 普通会员
+}
+
+// GET /api/v1/industry-resources/{id} — 公开详情（分级校验：资源级别 ≤ 访问者级别）
+func (s *Server) getIndustryResourcePublic(w http.ResponseWriter, r *http.Request) {
+	res, err := s.resourceSvc.Get(r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	if resourceLevelRank(res.VisibilityLevel) > s.visitorResourceLevel(r) {
+		fail(w, r, http.StatusNotFound, errors.New("resource not found"))
+		return
+	}
+	respond(w, r, http.StatusOK, res)
 }
 
 func (s *Server) listIndustryResources(w http.ResponseWriter, r *http.Request) {
