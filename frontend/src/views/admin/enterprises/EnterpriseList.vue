@@ -123,7 +123,7 @@
         <el-descriptions :column="2" border>
           <el-descriptions-item label="企业名称" :span="2">{{ currentEnterprise.name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="对公账户">{{ currentEnterprise.account_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="联系人">{{ currentEnterprise.contact_person || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="法定代表人">{{ currentEnterprise.legal_person || '-' }}</el-descriptions-item>
           <el-descriptions-item label="联系电话">{{ currentEnterprise.contact_phone || '-' }}</el-descriptions-item>
           <el-descriptions-item label="审核状态">
             <el-tag :type="statusTagType(currentEnterprise.status)" size="small">{{ statusLabel(currentEnterprise.status) }}</el-tag>

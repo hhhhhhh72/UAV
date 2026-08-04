@@ -44,6 +44,11 @@
           type="number"
           placeholder="请输入联系电话"
         />
+        <u-field
+          v-model="form.account_name"
+          label="对公账户"
+          placeholder="请输入对公账户名称（选填）"
+        />
       </u-cell-group>
     </view>
 
@@ -170,6 +175,7 @@ export default {
         credit_code: '',
         legal_person: '',
         contact_phone: '',
+        account_name: '',
         industry_category: '',
         scale: '',
         address: '',
@@ -256,6 +262,7 @@ export default {
           credit_code: self.form.credit_code,
           legal_person: self.form.legal_person,
           contact_phone: self.form.contact_phone,
+          account_name: self.form.account_name,
           industry_category: self.form.industry_category,
           scale: self.form.scale,
           address: self.form.address,
