@@ -20,9 +20,12 @@
   .capsule{width:80px;height:26px;border:1px solid rgba(255,255,255,.35);border-radius:14px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:10px;color:rgba(255,255,255,.85)}
 
   /* 导航：蓝底 + 搜索（V4 母版继承） */
-  .nav{background:var(--brand-deep);padding:8px 12px 12px;display:flex;align-items:center;gap:8px}
-  .nav-title{color:#fff;font-size:17px;font-weight:760;white-space:nowrap}
-  .search{flex:1;height:40px;background:var(--surface);border-radius:6px;display:flex;align-items:center;gap:6px;padding:0 12px;color:var(--t4);font-size:12px}
+  .nav{background:var(--brand-deep);padding:8px 12px 12px;display:flex;align-items:center;gap:8px;position:relative;overflow:hidden}
+  .nav::after{content:'';position:absolute;top:-60%;right:-10%;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(29,212,168,.12),transparent 65%);pointer-events:none}
+  .nav-title{color:#fff;font-size:17px;font-weight:760;white-space:nowrap;position:relative;z-index:1}
+  .nav-sub{position:relative;z-index:1;font-size:10px;color:rgba(255,255,255,.65);margin-top:2px;display:block}
+  .search{flex:1;height:40px;background:var(--surface);border-radius:6px;display:flex;align-items:center;gap:6px;padding:0 12px;color:var(--t4);font-size:12px;position:relative;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+  .search:focus-within{box-shadow:0 0 0 3px rgba(255,255,255,.25)}
   .search svg{flex-shrink:0}
 
   /* 供给分类（7 类：需求②-2 供给能力展示）— 选中滑动指示条 */
@@ -35,8 +38,9 @@
   .list{padding:12px;overflow-y:auto;height:calc(100% - 44px - 58px - 51px - 64px)}
   .feat{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 4px 16px rgba(16,24,40,.08);margin-bottom:10px;cursor:pointer;transition:transform .18s, box-shadow .18s}
   .feat:active{transform:scale(.985);box-shadow:0 2px 8px rgba(16,24,40,.06)}
-  .feat-img{width:138px;height:104px;background:linear-gradient(160deg,#0A66C2 0%,#074D92 100%);flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative}
-  .feat-img::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.14),transparent 60%)}
+  .feat-img{width:138px;height:104px;background:#0A66C2;flex-shrink:0;position:relative;overflow:hidden}
+  .feat-img img{width:100%;height:100%;object-fit:cover;display:block}
+  .feat-img::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,77,146,0) 40%,rgba(7,77,146,.55) 100%)}
   .feat-img svg{position:relative;z-index:1}
   .feat-info{flex:1;padding:10px 12px;min-width:0}
   .feat-title{font-size:14px;font-weight:700;color:var(--t1);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -48,9 +52,10 @@
   /* 服务卡（航拍/试飞/检测/空域：服务型供给）— 图标深底 + 渐变 */
   .serv{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 3px 12px rgba(16,24,40,.05);margin-bottom:10px;cursor:pointer;transition:transform .18s, box-shadow .18s}
   .serv:active{transform:scale(.985)}
-  .serv-img{width:126px;height:84px;background:linear-gradient(160deg,#FFF0E6 0%,#FFE3D1 100%);flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative}
-  .serv-img::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 70% 30%,rgba(255,255,255,.5),transparent 55%)}
-  .serv-img svg{position:relative;z-index:1}
+  .serv-img{width:126px;height:84px;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .serv-img img{width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0}
+  .serv-img::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,77,146,.05) 0%,rgba(7,77,146,.35) 100%)}
+  .serv-img svg{position:relative;z-index:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))}
   .serv-info{flex:1;padding:10px 12px;min-width:0}
   .serv-title{font-size:13px;font-weight:700;color:var(--t1);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .serv-meta{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
@@ -101,7 +106,10 @@
   <div class="status-bar"><span>9:41</span><div class="capsule"><span>●</span><span>▮</span></div></div>
 
   <div class="nav">
-    <span class="nav-title">服务</span>
+    <div style="flex-shrink:0">
+      <span class="nav-title">服务</span>
+      <span class="nav-sub">供给能力展示</span>
+    </div>
     <div class="search" onclick="toast('搜索设备 / 服务')">
       <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#98A2B3" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/></svg>
       <span>搜索整机 / 航拍 / 试飞测试</span>
@@ -124,7 +132,7 @@
   <div class="list" id="list">
     <!-- 首条重点卡（V4 母版：首条大图重点） -->
     <div class="feat" onclick="openDetail('工业级六旋翼巡检无人机 X6-28L')">
-      <div class="feat-img"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5h8v2"/></svg></div>
+      <div class="feat-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="无人机光伏屋面巡检"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" style="position:absolute;left:8px;bottom:8px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5h8v2"/></svg></div>
       <div class="feat-info">
         <div class="feat-title">工业级六旋翼巡检无人机 X6-28L</div>
         <div class="feat-meta"><span class="feat-type">整机</span><span class="feat-type" style="background:var(--success-soft);color:var(--success)">认证商家</span></div>
@@ -135,7 +143,7 @@
     <div class="s-divider">服务供给</div>
 
     <div class="serv" onclick="openDetail('光伏电站巡检航拍服务')">
-      <div class="serv-img"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E96012" stroke-width="1.6" stroke-linecap="round"><path d="M12 4l6 14H6L12 4z"/></svg></div>
+      <div class="serv-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/demand-solar.jpg" alt="光伏巡检"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" style="position:relative"><path d="M12 4l6 14H6L12 4z"/></svg></div>
       <div class="serv-info">
         <div class="serv-title">光伏电站巡检航拍服务（50MW 阵列 / 含热成像）</div>
         <div class="serv-meta"><span class="serv-type">航拍服务</span><span class="serv-type" style="background:var(--success-soft);color:var(--success)">认证商家</span></div>
@@ -144,7 +152,7 @@
     </div>
 
     <div class="serv" onclick="openDetail('试飞场地预约（大安机场）')">
-      <div class="serv-img"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E96012" stroke-width="1.6" stroke-linecap="round"><path d="M4 20V8l8-5 8 5v12"/></svg></div>
+      <div class="serv-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/demand-lift.jpg" alt="无人机吊装"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" style="position:relative"><path d="M4 20V8l8-5 8 5v12"/></svg></div>
       <div class="serv-info">
         <div class="serv-title">试飞测试场地预约（大安机场 · 空域条件齐全）</div>
         <div class="serv-meta"><span class="serv-type">试飞测试</span></div>
@@ -153,7 +161,7 @@
     </div>
 
     <div class="serv" onclick="openDetail('无人机适航检测标定服务')">
-      <div class="serv-img"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E96012" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg></div>
+      <div class="serv-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="检测作业"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" style="position:relative"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg></div>
       <div class="serv-info">
         <div class="serv-title">无人机适航检测标定（含出具报告）</div>
         <div class="serv-meta"><span class="serv-type">检测标定</span></div>
@@ -183,6 +191,8 @@
   <div class="state" id="stateEmpty">
     <div class="s-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.8" stroke-linecap="round"><path d="M4 8h16v10H4z"/><path d="M8 8V6h8v2"/></svg></div>
     <div>该分类暂无供给</div>
+    <div style="font-size:11px;color:var(--t4)">会员供给上架中，或切换其他分类</div>
+    <div class="s-btn" onclick="toast('已跳转需求大厅')">去需求大厅发需求</div>
   </div>
 
   <!-- 底部导航 -->
