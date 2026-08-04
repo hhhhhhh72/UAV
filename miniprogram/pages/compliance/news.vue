@@ -175,8 +175,6 @@ const MODULE_TABS = [
   { key: 'news', label: '政策' },
   { key: 'knowledge', label: '知识' },
   { key: 'standards', label: '标准' },
-  { key: 'applications', label: '申报' },
-  { key: 'sentiment', label: '舆情' },
 ]
 
 const CATEGORY_CHIPS = [
@@ -213,16 +211,12 @@ const TAB_ICONS_INACTIVE = {
   news: svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', '718096'),
   knowledge: svgUri('M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z', '718096'),
   standards: svgUri('M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', '718096'),
-  applications: svgUri('M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16 M2 21h20 M8 10h8', '718096'),
-  sentiment: svgUri('M22 12h-4l-3 9L9 3l-3 9H2', '718096'),
 }
 
 const TAB_ICONS_ACTIVE = {
   news: svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', '0A66C2'),
   knowledge: svgUri('M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z', '0A66C2'),
   standards: svgUri('M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', '0A66C2'),
-  applications: svgUri('M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16 M2 21h20 M8 10h8', '0A66C2'),
-  sentiment: svgUri('M22 12h-4l-3 9L9 3l-3 9H2', '0A66C2'),
 }
 
 const ICON_HERO_NEWS = svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', 'ffffff')
@@ -361,8 +355,6 @@ export default {
         uni.navigateTo({ url: '/pages/compliance/knowledge' })
       } else if (key === 'standards') {
         uni.navigateTo({ url: '/pages/compliance/standards' })
-      } else {
-        uni.showToast({ title: '功能开发中，敬请期待', icon: 'none', duration: 2000 })
       }
     },
 
@@ -511,7 +503,7 @@ export default {
 /* ========== Module tabs ========== */
 .module-tabs {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8rpx;
   margin: 24rpx 28rpx 8rpx;
   padding: 10rpx;

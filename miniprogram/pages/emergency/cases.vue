@@ -50,8 +50,6 @@
         <u-cell
           v-for="item in list"
           :key="item.id"
-          is-link
-          @click="goDetail(item)"
         >
           <template #title>
             <view class="case-content">
@@ -217,9 +215,6 @@ export default {
     resultTagType(result) {
       var map = { '成功': 'success', '部分': 'warning', '失败': 'danger' }
       return map[result] || 'default'
-    },
-    goDetail(item) {
-      uni.showToast({ title: '即将上线', icon: 'none' })
     },
     goBack() {
       uni.navigateBack()

@@ -44,7 +44,6 @@
           v-for="item in list"
           :key="item.id"
           class="brand-item"
-          @tap="goDetail(item)"
         >
           <image
             v-if="item.logo || item.image"
@@ -155,9 +154,6 @@ export default {
     },
     onSearch() {
       this.fetchList(true)
-    },
-    goDetail(item) {
-      uni.showToast({ title: '即将上线', icon: 'none' })
     },
     goBack() {
       uni.navigateBack()

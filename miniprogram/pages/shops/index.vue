@@ -73,7 +73,7 @@
           </view>
         </view>
         <view class="shop-right">
-          <view class="shop-call" @tap.stop="callShop">电</view>
+          <view class="shop-call" @tap.stop="callShop(s)">电</view>
           <text class="shop-views">{{ s.views || 6274 }}浏览</text>
         </view>
       </view>
@@ -114,7 +114,14 @@ loadShops()
 
 const pickCat = (id) => uni.showToast({ title: id, icon: 'none' })
 const goJoin = () => uni.navigateTo({ url:'/pages/enterprise/register' })
-const callShop = () => uni.showToast({ title:'拨号开发中', icon:'none' })
+const callShop = (s) => {
+  const phone = s && (s.contact_phone || s.phone)
+  if (!phone) {
+    uni.showToast({ title: '该商家暂未提供联系电话', icon: 'none' })
+    return
+  }
+  uni.makePhoneCall({ phoneNumber: String(phone) })
+}
 </script>
 
 <style scoped>

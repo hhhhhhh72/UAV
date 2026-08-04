@@ -10,25 +10,9 @@
     </view>
 
     <!-- ============================================================ -->
-    <!-- 二、Tab 切换区                                                 -->
+    <!-- 二、搜索栏                                                     -->
     <!-- ============================================================ -->
-    <view class="tabs-container">
-      <view
-        class="tab-item"
-        :class="{ active: activeTab === 'institutions' }"
-        @click="activeTab = 'institutions'"
-      >机构列表</view>
-      <view
-        class="tab-item"
-        :class="{ active: activeTab === 'exam' }"
-        @click="activeTab = 'exam'"
-      >题库练习</view>
-    </view>
-
-    <!-- ============================================================ -->
-    <!-- 三、搜索栏                                                     -->
-    <!-- ============================================================ -->
-    <view v-if="activeTab === 'institutions'" class="search-container">
+    <view class="search-container">
       <u-search
         v-model="keyword"
         placeholder="搜索机构名称"
@@ -37,15 +21,8 @@
     </view>
 
     <!-- ============================================================ -->
-    <!-- 四、状态切换 + 主体内容                                        -->
+    <!-- 三、状态切换 + 主体内容                                        -->
     <!-- ============================================================ -->
-    <template v-if="activeTab === 'exam'">
-      <view class="exam-placeholder">
-        <u-empty description="题库练习即将上线" />
-      </view>
-    </template>
-
-    <template v-else>
       <StateView
         :loading="loading"
         :error="!!errorMsg"
@@ -171,15 +148,6 @@
           </scroll-view>
         </view>
       </StateView>
-
-      <!-- ============================================================ -->
-      <!-- 六、底部浮动按钮                                               -->
-      <!-- ============================================================ -->
-      <view class="floating-btn" @click="findNearby">
-        <u-icon name="location" size="28rpx" color="#ffffff" />
-        <text class="floating-text">查看附近机构</text>
-      </view>
-    </template>
   </view>
 </template>
 
@@ -190,7 +158,6 @@ import { request } from '../../utils/request'
 import StateView from '../../components/StateView.vue'
 
 /* ===== 状态 ===== */
-const activeTab = ref('institutions')
 const keyword = ref('')
 const activeRegion = ref('全部')
 const loading = ref(false)
@@ -339,18 +306,6 @@ function consult(item) {
   uni.navigateTo({ url: '/pages/training/enroll?id=' + encodeURIComponent(item.id) })
 }
 
-function findNearby() {
-  uni.getLocation({
-    type: 'gcj02',
-    success: function () {
-      uni.showToast({ title: '已获取位置，附近机构功能开发中', icon: 'none' })
-    },
-    fail: function () {
-      uni.showToast({ title: '获取位置失败，请检查定位权限', icon: 'none' })
-    },
-  })
-}
-
 function goBack() {
   uni.navigateBack({ delta: 1 })
 }
@@ -367,9 +322,7 @@ onPullDownRefresh(() => {
 })
 
 onReachBottom(() => {
-  if (activeTab.value === 'institutions') {
-    loadMore()
-  }
+  loadMore()
 })
 </script>
 
@@ -436,39 +389,7 @@ onReachBottom(() => {
 }
 
 /* ================================================================= */
-/* 二、Tab 切换区                                                     */
-/* ================================================================= */
-.tabs-container {
-  display: flex;
-  justify-content: center;
-  gap: 24rpx;
-  margin-top: -60rpx;
-  padding: 0 32rpx;
-  position: relative;
-  z-index: 10;
-}
-
-.tab-item {
-  width: 280rpx;
-  height: 72rpx;
-  line-height: 72rpx;
-  text-align: center;
-  border-radius: 40rpx;
-  background: #ffffff;
-  color: #666666;
-  font-size: 28rpx;
-  font-weight: 500;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
-}
-
-.tab-item.active {
-  background: var(--color-success);
-  color: #ffffff;
-  font-weight: 600;
-}
-
-/* ================================================================= */
-/* 三、搜索栏                                                         */
+/* 二、搜索栏                                                         */
 /* ================================================================= */
 .search-container {
   padding: 32rpx 24rpx 16rpx;
@@ -680,30 +601,6 @@ onReachBottom(() => {
 }
 
 /* ================================================================= */
-/* 六、底部浮动按钮                                                   */
-/* ================================================================= */
-.floating-btn {
-  position: fixed;
-  right: 32rpx;
-  bottom: 40rpx;
-  background: var(--color-primary);
-  color: #ffffff;
-  padding: 18rpx 28rpx;
-  border-radius: 40rpx;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  font-size: 26rpx;
-  box-shadow: 0 8rpx 24rpx rgba(10, 102, 194, 0.4);
-  z-index: 999;
-}
-
-.floating-text {
-  color: #ffffff;
-  font-size: 26rpx;
-}
-
-/* ================================================================= */
 /* 通用                                                               */
 /* ================================================================= */
 .load-more-wrap {
@@ -723,9 +620,5 @@ onReachBottom(() => {
   gap: 8rpx;
   font-size: 24rpx;
   color: var(--color-text-secondary);
-}
-
-.exam-placeholder {
-  padding-top: 120rpx;
 }
 </style>

@@ -163,16 +163,13 @@ export default {
       this.fetchList(true)
     },
     openStandard(item) {
-      if (item.content || item.url) {
-        uni.showModal({
-          title: item.title || '标准详情',
-          content: item.content || '查看详情链接',
-          showCancel: false,
-          confirmText: '知道了',
-        })
-      } else {
-        uni.showToast({ title: '即将上线', icon: 'none' })
-      }
+      var content = item.content || item.description || item.standard_no || ''
+      uni.showModal({
+        title: item.title || '标准详情',
+        content: content || '暂无详细内容',
+        showCancel: false,
+        confirmText: '知道了',
+      })
     },
     downloadStandard(item) {
       if (item.file_url) {

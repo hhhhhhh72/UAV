@@ -60,16 +60,22 @@
           placeholder="请详细描述项目内容和预期成果"
         />
 
-        <!-- Attachment (optional upload indication) -->
+        <!-- Attachment (optional upload) -->
         <view class="field-row">
           <u-field
             label="附件"
-            placeholder="选填（暂不支持上传）"
+            placeholder="选填（图片，最多3张）"
             disabled
           />
-          <u-button size="small" type="primary" @click="uploadAttachment">
+          <u-button size="small" type="primary" :loading="uploading" @click="chooseAttachment">
             上传
           </u-button>
+        </view>
+        <view v-if="attachments.length > 0" class="attach-list">
+          <view v-for="(url, i) in attachments" :key="url" class="attach-item">
+            <text class="attach-name">附件{{ i + 1 }}</text>
+            <text class="attach-del" @tap="removeAttachment(i)">删除</text>
+          </view>
         </view>
       </u-cell-group>
 
@@ -99,13 +105,14 @@
 </template>
 
 <script>
-import { request, getStoredUser, authStorage } from '../../utils/request'
+import { request, getStoredUser, authStorage, BASE_URL } from '../../utils/request'
 
 export default {
   data() {
     return {
       checkingAuth: true,
       submitting: false,
+      uploading: false,
       showCategoryPicker: false,
       form: {
         project_name: '',
@@ -113,6 +120,7 @@ export default {
         budget: '',
         description: '',
       },
+      attachments: [],
       categoryOptions: ['资质申请', '政府补贴', '专项资金'],
     }
   },
@@ -155,8 +163,62 @@ export default {
       this.form.category = v
       this.showCategoryPicker = false
     },
-    uploadAttachment() {
-      uni.showToast({ title: '附件上传功能即将上线', icon: 'none' })
+    chooseAttachment() {
+      var self = this
+      uni.chooseImage({
+        count: 3,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: function (res) {
+          var paths = res.tempFilePaths || []
+          for (var i = 0; i < paths.length; i++) {
+            self.uploadAttachment(paths[i])
+          }
+        },
+        fail: function () {
+          uni.showToast({ title: '选择图片失败', icon: 'none' })
+        },
+      })
+    },
+    uploadAttachment(filePath) {
+      var self = this
+      if (this.uploading) return
+      this.uploading = true
+      uni.uploadFile({
+        url: BASE_URL + '/api/v1/upload',
+        filePath: filePath,
+        name: 'file',
+        header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
+        success: function (res) {
+          self.uploading = false
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            var url = ''
+            try {
+              var data = JSON.parse(res.data)
+              url = data && (data.url || (data.data && data.data.url)) || ''
+            } catch (e) {
+              url = ''
+            }
+            if (url) {
+              self.attachments.push(url)
+              uni.showToast({ title: '上传成功', icon: 'success' })
+            } else {
+              uni.showToast({ title: '上传失败', icon: 'none' })
+            }
+          } else {
+            uni.showToast({ title: '上传失败', icon: 'none' })
+          }
+        },
+        fail: function () {
+          self.uploading = false
+          uni.showToast({ title: '上传失败，请检查网络', icon: 'none' })
+        },
+      })
+    },
+    removeAttachment(index) {
+      var arr = this.attachments.slice()
+      arr.splice(index, 1)
+      this.attachments = arr
     },
     async handleSubmit() {
       // Validation
@@ -178,8 +240,9 @@ export default {
         var payload = {
           project_name: this.form.project_name.trim(),
           category: this.form.category,
-          budget: parseFloat(this.form.budget) || 0,
+          budget_fen: Math.round((parseFloat(this.form.budget) || 0) * 100),
           description: this.form.description.trim(),
+          attachments: this.attachments.slice(),
         }
 
         await request({
@@ -256,6 +319,28 @@ export default {
   color: #c8c9cc;
   font-size: 20px;
   flex-shrink: 0;
+}
+
+/* Attachment list */
+.attach-list {
+  background: #fff;
+  padding: 0 16px 12px;
+}
+
+.attach-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.attach-name {
+  color: var(--color-text);
+}
+
+.attach-del {
+  color: var(--color-danger);
 }
 
 /* Submit section */

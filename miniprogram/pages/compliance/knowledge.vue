@@ -169,16 +169,12 @@ export default {
       }
     },
     openDoc(doc) {
-      if (doc.content) {
-        uni.showModal({
-          title: doc.title || '文档内容',
-          content: doc.content,
-          showCancel: false,
-          confirmText: '知道了',
-        })
-      } else {
-        uni.showToast({ title: '即将上线', icon: 'none' })
-      }
+      uni.showModal({
+        title: doc.title || '文档内容',
+        content: doc.content || doc.description || '暂无详细内容',
+        showCancel: false,
+        confirmText: '知道了',
+      })
     },
     goBack() {
       uni.navigateBack()

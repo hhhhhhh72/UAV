@@ -50,8 +50,6 @@
         <u-cell
           v-for="item in list"
           :key="item.id"
-          is-link
-          @click="goDetail(item)"
         >
           <template #title>
             <view class="cell-content">
@@ -177,9 +175,6 @@ export default {
     onTabChange(index) {
       this.activeType = this.typeTabs[index].value
       this.fetchList(true)
-    },
-    goDetail(item) {
-      uni.showToast({ title: '即将上线', icon: 'none' })
     },
     goBack() {
       uni.navigateBack()

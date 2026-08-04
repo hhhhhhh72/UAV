@@ -33,8 +33,6 @@
     </view>
     <view v-if="!demands.length" class="empty">暂无需求</view>
   </scroll-view>
-
-  <view class="float-btn" @click="goMap"><u-icon name="search" size="26rpx" color="#ffffff" />附近飞手</view>
 </view>
 </template>
 
@@ -66,7 +64,6 @@ const switchCat = (id) => { activeCat.value = id; fetchDemands(true) }
 const loadMore = () => { p++; fetchDemands(false) }
 const openDetail = (dm) => uni.navigateTo({ url:'/pages/tasks/detail?id='+dm.id })
 const grab = (dm) => uni.navigateTo({ url:'/pages/tasks/detail?id='+dm.id })
-const goMap = () => uni.showToast({ title:'附近飞手开发中', icon:'none' })
 const tagClass = (t) => { const m={吊运:'dy',航拍:'hp',植保:'zb',巡检:'xj',测绘:'ch'}; return 'tag-'+ (m[t]||'other') }
 </script>
 
@@ -93,6 +90,5 @@ const tagClass = (t) => { const m={吊运:'dy',航拍:'hp',植保:'zb',巡检:'x
 .foot-right { display:flex; align-items:center; gap:10px; }
 .bids { font-size:12px; color:#999; }
 .btn { background:var(--color-success); color:#fff; font-size:13px; padding:6px 14px; border-radius:16px; }
-.float-btn { position:fixed; right:16px; bottom:80px; background:var(--color-success); color:#fff; font-size:13px; padding:10px 14px; border-radius:20px; box-shadow:0 2px 8px rgba(7,193,96,.3); z-index:10; display:flex; align-items:center; gap:6rpx; }
 .empty { text-align:center; padding:60px 0; color:#999; font-size:14px; }
 </style>
