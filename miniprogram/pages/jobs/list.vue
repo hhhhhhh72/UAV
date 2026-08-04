@@ -56,6 +56,8 @@
         <u-cell
           v-for="item in list"
           :key="item.id"
+          is-link
+          @click="goDetail(item)"
         >
           <template #title>
             <view class="cell-content">
@@ -193,6 +195,9 @@ export default {
     // ---- 投递闭环 ----
     goMyJobs() {
       uni.navigateTo({ url: '/pages/jobs/mine' })
+    },
+    goDetail(item) {
+      uni.navigateTo({ url: '/pages/jobs/detail?id=' + encodeURIComponent(item.id) })
     },
     goApplications() {
       uni.navigateTo({ url: '/pages/jobs/applications' })

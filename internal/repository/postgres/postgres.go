@@ -603,16 +603,16 @@ func (r *pgResumeRepo) Create(v domain.Resume) (domain.Resume, error) {
 	v.CreatedAt = now
 	v.UpdatedAt = now
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO resumes (id, user_id, title, content, visibility, version, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		v.ID, v.UserID, v.Title, v.Content, v.Visibility, v.Version, v.CreatedAt, v.UpdatedAt)
+		`INSERT INTO resumes (id, user_id, title, name, phone, email, education, work_experience, skills, certificate_url, content, visibility, version, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		v.ID, v.UserID, v.Title, v.Name, v.Phone, v.Email, v.Education, v.WorkExperience, v.Skills, v.CertificateURL, v.Content, v.Visibility, v.Version, v.CreatedAt, v.UpdatedAt)
 	return v, err
 }
 func (r *pgResumeRepo) Update(id string, v domain.Resume) (domain.Resume, error) {
 	v.Version++
 	v.UpdatedAt = time.Now()
 	tag, err := r.pool.Exec(context.Background(),
-		`UPDATE resumes SET title=$1,content=$2,visibility=$3,version=$4,updated_at=$5 WHERE id=$6`,
-		v.Title, v.Content, v.Visibility, v.Version, v.UpdatedAt, id)
+		`UPDATE resumes SET title=$1,name=$2,phone=$3,email=$4,education=$5,work_experience=$6,skills=$7,certificate_url=$8,content=$9,visibility=$10,version=$11,updated_at=$12 WHERE id=$13`,
+		v.Title, v.Name, v.Phone, v.Email, v.Education, v.WorkExperience, v.Skills, v.CertificateURL, v.Content, v.Visibility, v.Version, v.UpdatedAt, id)
 	if err != nil {
 		return domain.Resume{}, err
 	}
@@ -624,15 +624,15 @@ func (r *pgResumeRepo) Update(id string, v domain.Resume) (domain.Resume, error)
 func (r *pgResumeRepo) FindByID(id string) (domain.Resume, error) {
 	var v domain.Resume
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id, user_id, title, content, visibility, version, created_at, updated_at FROM resumes WHERE id=$1`, id).
-		Scan(&v.ID, &v.UserID, &v.Title, &v.Content, &v.Visibility, &v.Version, &v.CreatedAt, &v.UpdatedAt)
+		`SELECT id, user_id, title, name, phone, email, education, work_experience, skills, certificate_url, content, visibility, version, created_at, updated_at FROM resumes WHERE id=$1`, id).
+		Scan(&v.ID, &v.UserID, &v.Title, &v.Name, &v.Phone, &v.Email, &v.Education, &v.WorkExperience, &v.Skills, &v.CertificateURL, &v.Content, &v.Visibility, &v.Version, &v.CreatedAt, &v.UpdatedAt)
 	return v, err
 }
 func (r *pgResumeRepo) ListByUser(userID string) ([]domain.Resume, error) {
 	return scanResumes(r.pool, "WHERE user_id=$1 ORDER BY created_at DESC", userID)
 }
 func scanResumes(pool *pgxpool.Pool, where string, args ...any) ([]domain.Resume, error) {
-	q := `SELECT id, user_id, title, content, visibility, version, created_at, updated_at FROM resumes ` + where
+	q := `SELECT id, user_id, title, name, phone, email, education, work_experience, skills, certificate_url, content, visibility, version, created_at, updated_at FROM resumes ` + where
 	rows, err := pool.Query(context.Background(), q, args...)
 	if err != nil {
 		return nil, err
@@ -641,9 +641,11 @@ func scanResumes(pool *pgxpool.Pool, where string, args ...any) ([]domain.Resume
 	out := []domain.Resume{}
 	for rows.Next() {
 		var v domain.Resume
-		if err := rows.Scan(&v.ID, &v.UserID, &v.Title, &v.Content, &v.Visibility, &v.Version, &v.CreatedAt, &v.UpdatedAt); err != nil {
+		var skills string
+		if err := rows.Scan(&v.ID, &v.UserID, &v.Title, &v.Name, &v.Phone, &v.Email, &v.Education, &v.WorkExperience, &skills, &v.CertificateURL, &v.Content, &v.Visibility, &v.Version, &v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, err
 		}
+		json.Unmarshal([]byte(skills), &v.Skills)
 		out = append(out, v)
 	}
 	return out, rows.Err()

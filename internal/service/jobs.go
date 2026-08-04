@@ -93,13 +93,15 @@ func (s *JobService) DeleteJob(id string) error {
 
 // ---- Resumes ----
 
-func (s *JobService) CreateResume(a domain.Actor, title, content, visibility string) (domain.Resume, error) {
+func (s *JobService) CreateResume(a domain.Actor, title, name, phone, email, education, workExperience string, skills []string, certificateURL, content, visibility string) (domain.Resume, error) {
 	now := time.Now()
 	r := domain.Resume{ID: fmt.Sprintf("resume-%d", now.UnixNano()), UserID: a.ID, Title: title,
-		Content: content, Visibility: visibility, Version: 1, CreatedAt: now, UpdatedAt: now}
+		Name: name, Phone: phone, Email: email, Education: education, WorkExperience: workExperience,
+		Skills: skills, CertificateURL: certificateURL, Content: content, Visibility: visibility,
+		Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.resume.Create(r)
 }
-func (s *JobService) UpdateResume(a domain.Actor, id, title, content, visibility string) (domain.Resume, error) {
+func (s *JobService) UpdateResume(a domain.Actor, id, title, name, phone, email, education, workExperience string, skills []string, certificateURL, content, visibility string) (domain.Resume, error) {
 	r, err := s.resume.FindByID(id)
 	if err != nil {
 		return domain.Resume{}, err
@@ -108,6 +110,13 @@ func (s *JobService) UpdateResume(a domain.Actor, id, title, content, visibility
 		return domain.Resume{}, errors.New("only the owner can edit")
 	}
 	r.Title = title
+	r.Name = name
+	r.Phone = phone
+	r.Email = email
+	r.Education = education
+	r.WorkExperience = workExperience
+	r.Skills = skills
+	r.CertificateURL = certificateURL
 	r.Content = content
 	r.Visibility = visibility
 	r.UpdatedAt = time.Now()
@@ -155,6 +164,29 @@ func (s *JobService) ListApplicationsForJob(a domain.Actor, jobID string) ([]dom
 		return nil, errors.New("only the job owner can view applications")
 	}
 	return s.app.ListByJob(jobID)
+}
+
+// ApplicantView 企业视角的投递 + 简历快照。
+type ApplicantView struct {
+	Application domain.JobApplication `json:"application"`
+	Resume      domain.Resume         `json:"resume"`
+}
+
+// ListApplicantsForJob 企业查看某职位的投递者（含简历快照）。
+func (s *JobService) ListApplicantsForJob(a domain.Actor, jobID string) ([]ApplicantView, error) {
+	apps, err := s.ListApplicationsForJob(a, jobID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ApplicantView, 0, len(apps))
+	for _, ap := range apps {
+		rs, err := s.resume.FindByID(ap.ResumeID)
+		if err != nil {
+			continue // 简历已删：跳过该投递
+		}
+		out = append(out, ApplicantView{Application: ap, Resume: rs})
+	}
+	return out, nil
 }
 func (s *JobService) ListMyApplications(a domain.Actor) ([]domain.JobApplication, error) {
 	return s.app.ListByApplicant(a.ID)

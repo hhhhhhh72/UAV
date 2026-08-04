@@ -94,6 +94,7 @@ func (s *Server) registerJobRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/jobs", s.createJob)
 	mux.HandleFunc("GET /api/v1/jobs", s.listJobs)
 	mux.HandleFunc("GET /api/v1/jobs/mine", s.listMyJobs)
+	mux.HandleFunc("GET /api/v1/jobs/{id}", s.getJob)
 	mux.HandleFunc("POST /api/v1/jobs/{id}/publish", s.publishJob)
 	mux.HandleFunc("POST /api/v1/jobs/{id}/close", s.closeJob)
 	mux.HandleFunc("POST /api/v1/resumes", s.createResume)

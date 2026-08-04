@@ -46,9 +46,9 @@ func TestJobServiceAll(t *testing.T) {
 	// ListMyJobs
 	svc.ListMyJobs(entActor())
 	// CreateResume
-	r, _ := svc.CreateResume(indActor(), "我的简历", "经验...", "public")
+	r, _ := svc.CreateResume(indActor(), "我的简历", "张三", "13800000000", "a@b.com", "本科", "经验...", []string{"巡检"}, "", "经验...", "public")
 	// UpdateResume
-	svc.UpdateResume(indActor(), r.ID, "更新简历", "新经验...", "public")
+	svc.UpdateResume(indActor(), r.ID, "更新简历", "张三", "13800000000", "a@b.com", "本科", "新经验...", []string{"巡检"}, "", "新经验...", "public")
 	// ListMyResumes
 	svc.ListMyResumes(indActor())
 	// Apply

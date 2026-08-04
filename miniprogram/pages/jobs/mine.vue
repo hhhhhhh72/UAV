@@ -40,6 +40,7 @@
             <text v-if="item.salary_fen">¥{{ (item.salary_fen / 100).toLocaleString() }}/月</text>
           </view>
           <view class="job-actions">
+            <u-button v-if="item.status === 'published'" type="primary" size="mini" round @tap="goApplicants(item)">查看投递</u-button>
             <u-button v-if="item.status === 'draft'" type="primary" size="mini" round @tap="publishJob(item)">发布上线</u-button>
             <u-button v-if="item.status === 'published'" type="warning" size="mini" round @tap="closeJob(item)">关闭</u-button>
           </view>
@@ -56,6 +57,7 @@ import { request, getStoredUser } from '../../utils/request'
 const goBack = () => uni.navigateBack()
 const goRegister = () => uni.navigateTo({ url: '/pages/enterprise/register' })
 const goPublish = () => uni.navigateTo({ url: '/pages/publish/job' })
+const goApplicants = (item) => uni.navigateTo({ url: '/pages/jobs/applicants?job_id=' + encodeURIComponent(item.id) })
 
 const user = getStoredUser()
 const isEnterprise = !!(user && (user.role === 'enterprise' || user.role === 'platform_admin' || user.role === 'association_admin'))

@@ -311,14 +311,21 @@ const (
 
 // Resume is a job applicant's profile and work history.
 type Resume struct {
-	ID         string    `json:"id"`
-	UserID     string    `json:"user_id"`
-	Title      string    `json:"title"`
-	Content    string    `json:"content"`
-	Visibility string    `json:"visibility"` // private / public
-	Version    int       `json:"version"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	UserID         string    `json:"user_id"`
+	Title          string    `json:"title"`
+	Name           string    `json:"name"`            // 姓名
+	Phone          string    `json:"phone"`           // 联系电话
+	Email          string    `json:"email"`           // 邮箱
+	Education      string    `json:"education"`       // 学历
+	WorkExperience string    `json:"work_experience"` // 工作经历
+	Skills         []string  `json:"skills"`          // 技能标签
+	CertificateURL string    `json:"certificate_url"` // 证书图
+	Content        string    `json:"content"`
+	Visibility     string    `json:"visibility"` // private / public
+	Version        int       `json:"version"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // JobApplication records a user's application to a specific job.

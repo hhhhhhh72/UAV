@@ -436,6 +436,22 @@
       }
     },
     {
+      "path": "pages/jobs/applicants",
+      "style": {
+        "navigationBarTitleText": "投递管理",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/jobs/detail",
+      "style": {
+        "navigationBarTitleText": "职位详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
       "path": "pages/publish/job",
       "style": {
         "navigationBarTitleText": "发布招聘",
