@@ -22,9 +22,9 @@ type ResourcePoolMember struct {
 	ID       string    `json:"id"`
 	PoolID   string    `json:"pool_id"`
 	ResID    string    `json:"res_id"`
-	ResType  string    `json:"res_type"`  // drone / equipment / team / vehicle
+	ResType  string    `json:"res_type"` // drone / equipment / team / vehicle
 	Quantity int       `json:"quantity"`
-	Status   string    `json:"status"`    // standby / engaged
+	Status   string    `json:"status"` // standby / engaged
 	JoinedAt time.Time `json:"joined_at"`
 }
 
@@ -47,15 +47,17 @@ type TestSite struct {
 
 // TestSiteBooking is a reservation for a test site time slot.
 type TestSiteBooking struct {
-	ID         string    `json:"id"`
-	SiteID     string    `json:"site_id"`
-	UserID     string    `json:"user_id"`
-	Purpose    string    `json:"purpose"` // R&D / certification / demonstration
-	StartTime  time.Time `json:"start_time"`
-	EndTime    time.Time `json:"end_time"`
-	Status     string    `json:"status"` // pending / approved / rejected / completed
-	ReviewNote string    `json:"review_note"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	SiteID       string    `json:"site_id"`
+	UserID       string    `json:"user_id"`
+	Purpose      string    `json:"purpose"` // R&D / certification / demonstration
+	StartTime    time.Time `json:"start_time"`
+	EndTime      time.Time `json:"end_time"`
+	ContactName  string    `json:"contact_name"`  // 预约联系人
+	ContactPhone string    `json:"contact_phone"` // 联系电话
+	Status       string    `json:"status"`        // pending / approved / rejected / completed
+	ReviewNote   string    `json:"review_note"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // ── 产业展会管理 (per .doc ⑥-3) ──
@@ -98,8 +100,6 @@ func ParseTime(s string) time.Time {
 	}
 	return t
 }
-
-
 
 // Shop represents a marketplace shop/store.
 type Shop struct {

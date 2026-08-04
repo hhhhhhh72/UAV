@@ -14,7 +14,9 @@ func TestCommunityAll(t *testing.T) {
 	svc := service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository())
 	// CreatePost
 	p, _ := svc.CreatePost(entActor(), "帖子标题", "内容", nil)
-	if p.Status != "published" { t.Fatal("post should be published") }
+	if p.Status != "published" {
+		t.Fatal("post should be published")
+	}
 	// PublishPost
 	svc.PublishPost(admActor(), p.ID)
 	// RemovePost
@@ -120,7 +122,7 @@ func TestTradingAll(t *testing.T) {
 // === Phase3 (Enrollment + Expiry + TradeOrder) ===
 func TestPhase3All(t *testing.T) {
 	enr := service.NewEnrollmentService(memory.NewEnrollmentRepository())
-	enr.Enroll("u-1", "crs-1")
+	enr.Enroll("u-1", "crs-1", service.EnrollmentForm{Name: "张三", Phone: "13800000000"})
 	enr.ListByCourse("crs-1")
 
 	exp := service.NewExpiryService()
@@ -155,8 +157,12 @@ func TestReviewsVenuesAll(t *testing.T) {
 func TestHomeService(t *testing.T) {
 	svc := service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil))
 	data := svc.GetHome("重庆", 29.5, 106.5)
-	if data.City != "重庆" { t.Fatal("city mismatch") }
-	if len(data.Banners) == 0 { t.Log("no banners configured") }
+	if data.City != "重庆" {
+		t.Fatal("city mismatch")
+	}
+	if len(data.Banners) == 0 {
+		t.Log("no banners configured")
+	}
 }
 
 // === Files ===

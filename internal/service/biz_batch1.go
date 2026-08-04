@@ -81,7 +81,7 @@ func (s *TestSiteService) UpdateSite(id, name, siteType, location, bookingRule, 
 	return s.repo.UpdateSite(site)
 }
 
-func (s *TestSiteService) Book(siteID, userID, purpose string, startTime, endTime time.Time) (domain.TestSiteBooking, error) {
+func (s *TestSiteService) Book(siteID, userID, purpose, contactName, contactPhone string, startTime, endTime time.Time) (domain.TestSiteBooking, error) {
 	// Check conflicts
 	bookings, err := s.repo.ListBookings(siteID)
 	if err != nil {
@@ -94,6 +94,7 @@ func (s *TestSiteService) Book(siteID, userID, purpose string, startTime, endTim
 	}
 	bk := domain.TestSiteBooking{ID: fmt.Sprintf("tsbk-%d", time.Now().UnixNano()),
 		SiteID: siteID, UserID: userID, Purpose: purpose,
+		ContactName: contactName, ContactPhone: contactPhone,
 		StartTime: startTime, EndTime: endTime, Status: "pending", CreatedAt: time.Now()}
 	return s.repo.CreateBooking(bk)
 }

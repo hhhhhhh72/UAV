@@ -314,10 +314,13 @@ async function handleSubmit() {
     return
   }
   try {
+    // noCrime 是布尔勾选，后端按字符串存储：提交前转换
+    var payload = Object.assign({}, form)
+    payload.noCrime = form.noCrime ? '无犯罪记录' : ''
     await request({
       url: '/api/v1/training-courses/' + encodeURIComponent(id.value) + '/enroll',
       method: 'POST',
-      data: form,
+      data: payload,
     })
     uni.showToast({ title: '报名成功' })
     setTimeout(function () { uni.navigateBack() }, 1500)

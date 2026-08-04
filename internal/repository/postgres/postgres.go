@@ -1597,21 +1597,21 @@ func (r *pgTestSiteRepo) DeleteSite(id string) error {
 func (r *pgTestSiteRepo) CreateBooking(b domain.TestSiteBooking) (domain.TestSiteBooking, error) {
 	b.CreatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO test_site_bookings (id,site_id,user_id,purpose,start_time,end_time,status,review_note,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		b.ID, b.SiteID, b.UserID, b.Purpose, b.StartTime, b.EndTime, b.Status, b.ReviewNote, b.CreatedAt)
+		`INSERT INTO test_site_bookings (id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		b.ID, b.SiteID, b.UserID, b.Purpose, b.StartTime, b.EndTime, b.ContactName, b.ContactPhone, b.Status, b.ReviewNote, b.CreatedAt)
 	return b, err
 }
 func (r *pgTestSiteRepo) UpdateBookingStatus(id, status, note string) (domain.TestSiteBooking, error) {
 	var b domain.TestSiteBooking
 	err := r.pool.QueryRow(context.Background(),
-		`UPDATE test_site_bookings SET status=$1,review_note=$2 WHERE id=$3 RETURNING id,site_id,user_id,purpose,start_time,end_time,status,review_note,created_at`,
+		`UPDATE test_site_bookings SET status=$1,review_note=$2 WHERE id=$3 RETURNING id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at`,
 		status, note, id).
-		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.Status, &b.ReviewNote, &b.CreatedAt)
+		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt)
 	return b, err
 }
 func (r *pgTestSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, error) {
 	rows, err := r.pool.Query(context.Background(),
-		`SELECT id,site_id,user_id,purpose,start_time,end_time,status,review_note,created_at FROM test_site_bookings WHERE site_id=$1 ORDER BY created_at DESC`, siteID)
+		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE site_id=$1 ORDER BY created_at DESC`, siteID)
 	if err != nil {
 		return nil, err
 	}
@@ -1619,7 +1619,7 @@ func (r *pgTestSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, 
 	var out []domain.TestSiteBooking
 	for rows.Next() {
 		var b domain.TestSiteBooking
-		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.Status, &b.ReviewNote, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, b)

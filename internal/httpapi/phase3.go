@@ -8,6 +8,7 @@ import (
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
+	"drone-platform/internal/service"
 )
 
 // ---- Enrollments ----
@@ -15,9 +16,20 @@ import (
 // POST /api/v1/training-courses/{id}/enroll
 func (s *Server) enrollCourse(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
-	e, err := s.enrollSvc.Enroll(a.ID, r.PathValue("id"))
-	if err != nil { fail(w, r, http.StatusConflict, err); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var form service.EnrollmentForm
+	if err := decode(r, &form); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	e, err := s.enrollSvc.Enroll(a.ID, r.PathValue("id"), form)
+	if err != nil {
+		fail(w, r, http.StatusConflict, err)
+		return
+	}
 	respond(w, r, http.StatusCreated, e)
 }
 
@@ -25,18 +37,36 @@ func (s *Server) enrollCourse(w http.ResponseWriter, r *http.Request) {
 // Freezes course fee from escrow balance, then enrolls student.
 func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 
 	course, err := s.trainingSvc.GetCourse(r.PathValue("id"))
-	if err != nil { fail(w, r, http.StatusNotFound, errors.New("course not found")); return }
+	if err != nil {
+		fail(w, r, http.StatusNotFound, errors.New("course not found"))
+		return
+	}
+
+	var form service.EnrollmentForm
+	if err := decode(r, &form); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
 
 	if course.PriceFen > 0 {
 		_, err := s.escrowSvc.Freeze(a.ID, course.PriceFen, "training_course", course.ID)
-		if err != nil { fail(w, r, http.StatusPaymentRequired, fmt.Errorf("insufficient balance: %w", err)); return }
+		if err != nil {
+			fail(w, r, http.StatusPaymentRequired, fmt.Errorf("insufficient balance: %w", err))
+			return
+		}
 	}
 
-	e, err := s.enrollSvc.Enroll(a.ID, course.ID)
-	if err != nil { fail(w, r, http.StatusConflict, err); return }
+	e, err := s.enrollSvc.Enroll(a.ID, course.ID, form)
+	if err != nil {
+		fail(w, r, http.StatusConflict, err)
+		return
+	}
 	s.audit(r.Context(), a.ID, "pay_and_enroll", "enrollment", e.ID, "enrolled")
 	respond(w, r, http.StatusCreated, e)
 }
@@ -45,29 +75,49 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 // Admin marks enrollment complete: releases escrow to course org + issues certificate.
 func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required")); return
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
 	}
 
 	enrolls, err := s.enrollSvc.ListByCourse(r.PathValue("id"))
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 
 	var enrollment domain.Enrollment
 	found := false
 	for _, e := range enrolls {
-		if e.ID == r.PathValue("id") { enrollment = e; found = true; break }
+		if e.ID == r.PathValue("id") {
+			enrollment = e
+			found = true
+			break
+		}
 	}
-	if !found { fail(w, r, http.StatusNotFound, errors.New("enrollment not found")); return }
+	if !found {
+		fail(w, r, http.StatusNotFound, errors.New("enrollment not found"))
+		return
+	}
 
 	// Find course to get price and org.
 	course, err := s.trainingSvc.GetCourse(enrollment.CourseID)
-	if err != nil { fail(w, r, http.StatusNotFound, fmt.Errorf("course not found: %w", err)); return }
+	if err != nil {
+		fail(w, r, http.StatusNotFound, fmt.Errorf("course not found: %w", err))
+		return
+	}
 
 	// Release funds if course was paid.
 	if course.PriceFen > 0 {
 		_, err := s.escrowSvc.Release(enrollment.UserID, course.OrgID, course.PriceFen, "training_course", course.ID)
-		if err != nil { fail(w, r, http.StatusInternalServerError, fmt.Errorf("release escrow: %w", err)); return }
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, fmt.Errorf("release escrow: %w", err))
+			return
+		}
 	}
 
 	// Auto-issue certificate.
@@ -92,11 +142,17 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/enrollments/mine
 func (s *Server) listMyEnrollments(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 
 	// Collect all enrollments for this user across all courses.
 	courses, err := s.trainingSvc.ListCourses()
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 
 	type enrollmentWithCourse struct {
 		domain.Enrollment
@@ -117,9 +173,15 @@ func (s *Server) listMyEnrollments(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/training-courses/{id}/enrollments
 func (s *Server) listEnrollments(w http.ResponseWriter, r *http.Request) {
 	_, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	enrolls, err := s.enrollSvc.ListByCourse(r.PathValue("id"))
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, http.StatusOK, enrolls)
 }
 
@@ -128,22 +190,38 @@ func (s *Server) listEnrollments(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/certificates/expiring?days=30
 func (s *Server) listExpiringCerts(w http.ResponseWriter, r *http.Request) {
 	_, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	days := 30
-	if d, err := fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days); d != 1 || err != nil { days = 30 }
+	if d, err := fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days); d != 1 || err != nil {
+		days = 30
+	}
 	certs, err := s.trainingSvc.ListAllCertificates()
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, http.StatusOK, s.expirySvc.GetExpiringCerts(certs, days))
 }
 
 // GET /api/v1/inspections/expiring?days=30
 func (s *Server) listExpiringInspections(w http.ResponseWriter, r *http.Request) {
 	_, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	days := 30
-	if d, err := fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days); d != 1 || err != nil { days = 30 }
+	if d, err := fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days); d != 1 || err != nil {
+		days = 30
+	}
 	inspections, err := s.insuranceSvc.ListAllInspections()
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, http.StatusOK, s.expirySvc.GetExpiringInspections(inspections, days))
 }
 
@@ -152,15 +230,24 @@ func (s *Server) listExpiringInspections(w http.ResponseWriter, r *http.Request)
 // POST /api/v1/trade-orders
 func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var in struct {
 		ProductID string `json:"product_id"`
 		SellerID  string `json:"seller_id"`
 		AmountFen int64  `json:"amount_fen"`
 	}
-	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
 	o, err := s.tradeSvc.Create(a.ID, in.ProductID, in.SellerID, in.AmountFen)
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	s.audit(r.Context(), a.ID, "create_trade_order", "trade_order", o.ID, "created")
 	respond(w, r, http.StatusCreated, o)
 }
@@ -168,20 +255,37 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/trade-orders/{id}/status
 func (s *Server) updateTradeOrderStatus(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
-	var in struct{ Status string `json:"status"` }
-	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		Status string `json:"status"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
 	o, err := s.tradeSvc.UpdateStatus(r.PathValue("id"), a.ID, in.Status)
-	if err != nil { fail(w, r, http.StatusForbidden, err); return }
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
 	respond(w, r, http.StatusOK, o)
 }
 
 // GET /api/v1/trade-orders/mine
 func (s *Server) listMyTradeOrders(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	orders, err := s.tradeSvc.ListMine(a.ID)
-	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, http.StatusOK, orders)
 }
 
@@ -190,22 +294,31 @@ func (s *Server) listMyTradeOrders(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/admin/dashboard
 func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	if a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
 
 	ent, err := s.enterprises.Pending(a)
-	if err != nil { ent = nil }
+	if err != nil {
+		ent = nil
+	}
 	entPending := len(ent)
 
 	dem, err := s.demands.List(repository.DemandFilter{})
-	if err != nil { dem = nil }
+	if err != nil {
+		dem = nil
+	}
 	totalDemands := len(dem)
 
 	posts, _, err := s.communitySvc.ListPublishedPosts(0, 10000)
-	if err != nil { posts = nil }
+	if err != nil {
+		posts = nil
+	}
 	totalPosts := len(posts)
 
 	pendingList, _, _ := s.reviewSvc.ListAll("", 0, 10000)
@@ -296,7 +409,9 @@ func buildDemandTrends(dem []domain.Demand) []map[string]any {
 	}
 	for _, d := range dem {
 		m := d.CreatedAt.Format("2006-01")
-		if _, ok := counts[m]; ok { counts[m]++ }
+		if _, ok := counts[m]; ok {
+			counts[m]++
+		}
 	}
 	out := make([]map[string]any, 12)
 	for i := 0; i < 12; i++ {
@@ -310,7 +425,9 @@ func buildCategoryDist(dem []domain.Demand) map[string]int {
 	dist := map[string]int{}
 	for _, d := range dem {
 		bt := string(d.BizType)
-		if bt != "" { dist[bt]++ }
+		if bt != "" {
+			dist[bt]++
+		}
 	}
 	return dist
 }
@@ -324,7 +441,9 @@ func buildStatusDist(dem []domain.Demand) map[string]int {
 	for _, d := range dem {
 		st := string(d.Status)
 		label := statusLabel[st]
-		if label == "" { label = st }
+		if label == "" {
+			label = st
+		}
 		dist[label] = dist[label] + 1
 	}
 	return dist
@@ -333,12 +452,12 @@ func buildStatusDist(dem []domain.Demand) map[string]int {
 // Nil-safe helpers for service List results
 func competitionsIfNil(v []domain.Competition) int { return len(v) }
 func evsIfNil(v []domain.AssociationEvent) int     { return len(v) }
-func exhsIfNil(v []domain.Exhibition) int           { return len(v) }
-func emgResIfNil(v []domain.EmergencyResource) int  { return len(v) }
-func dispIfNil(v []domain.EmergencyDispatch) int    { return len(v) }
-func achsIfNil(v []domain.Achievement) int          { return len(v) }
-func casesIfNil(v []domain.CaseEntry) int            { return len(v) }
-func rptsIfNil(v []domain.IndustryReport) int         { return len(v) }
-func resIfNil(v []domain.IndustryResource) int        { return len(v) }
-func rdsIfNil(v []domain.RDChallenge) int             { return len(v) }
-func projsIfNil(v []domain.ResearchProject) int       { return len(v) }
+func exhsIfNil(v []domain.Exhibition) int          { return len(v) }
+func emgResIfNil(v []domain.EmergencyResource) int { return len(v) }
+func dispIfNil(v []domain.EmergencyDispatch) int   { return len(v) }
+func achsIfNil(v []domain.Achievement) int         { return len(v) }
+func casesIfNil(v []domain.CaseEntry) int          { return len(v) }
+func rptsIfNil(v []domain.IndustryReport) int      { return len(v) }
+func resIfNil(v []domain.IndustryResource) int     { return len(v) }
+func rdsIfNil(v []domain.RDChallenge) int          { return len(v) }
+func projsIfNil(v []domain.ResearchProject) int    { return len(v) }

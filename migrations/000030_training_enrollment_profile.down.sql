@@ -1,0 +1,11 @@
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS no_crime;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS id_card_image;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS photo_url;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS experience;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS education;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS email;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS birthday;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS gender;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS id_card;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS phone;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS name;

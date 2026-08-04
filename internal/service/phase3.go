@@ -18,12 +18,31 @@ func NewEnrollmentService(repo repository.EnrollmentRepository) *EnrollmentServi
 	return &EnrollmentService{repo: repo}
 }
 
-func (s *EnrollmentService) Enroll(userID, courseID string) (domain.Enrollment, error) {
+// EnrollmentForm 培训报名表单数据（小程序 register.vue 12 字段）。
+type EnrollmentForm struct {
+	Name        string `json:"name"`
+	Phone       string `json:"phone"`
+	IDCard      string `json:"idCard"`
+	Gender      string `json:"gender"`
+	Birthday    string `json:"birthday"`
+	Email       string `json:"email"`
+	Education   string `json:"education"`
+	Experience  string `json:"experience"`
+	Photo       string `json:"photo"`
+	IDCardImage string `json:"idCardImage"`
+	NoCrime     string `json:"noCrime"`
+}
+
+func (s *EnrollmentService) Enroll(userID, courseID string, form EnrollmentForm) (domain.Enrollment, error) {
 	if _, ok, _ := s.repo.FindByUserAndCourse(userID, courseID); ok {
 		return domain.Enrollment{}, fmt.Errorf("already enrolled")
 	}
 	now := time.Now()
-	e := domain.Enrollment{ID: fmt.Sprintf("enroll-%d", now.UnixNano()), CourseID: courseID, UserID: userID, Status: "enrolled", CreatedAt: now}
+	e := domain.Enrollment{ID: fmt.Sprintf("enroll-%d", now.UnixNano()), CourseID: courseID, UserID: userID,
+		Name: form.Name, Phone: form.Phone, IDCard: form.IDCard, Gender: form.Gender, Birthday: form.Birthday,
+		Email: form.Email, Education: form.Education, Experience: form.Experience,
+		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,
+		Status: "enrolled", CreatedAt: now}
 	return s.repo.Create(e)
 }
 

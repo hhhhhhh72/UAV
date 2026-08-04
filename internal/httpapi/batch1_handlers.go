@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"drone-platform/internal/domain"
 )
@@ -136,17 +138,42 @@ func (s *Server) bookTestSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Purpose   string `json:"purpose"`
-		StartTime string `json:"start_time"`
-		EndTime   string `json:"end_time"`
+		Purpose      string `json:"purpose"`
+		StartTime    string `json:"start_time"`
+		EndTime      string `json:"end_time"`
+		Date         string `json:"date"`      // 兼容小程序：预约日期 YYYY-MM-DD
+		TimeSlot     string `json:"time_slot"` // 兼容小程序：时段 HH:MM-HH:MM
+		ContactName  string `json:"contact_name"`
+		ContactPhone string `json:"contact_phone"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	st := domain.ParseTime(in.StartTime)
-	et := domain.ParseTime(in.EndTime)
-	bk, err := s.testSiteSvc.Book(r.PathValue("id"), a.ID, in.Purpose, st, et)
+	// 小程序端提交 date+time_slot：组装为 RFC3339 起止时间
+	// （原逻辑用 domain.ParseTime 解析失败返回 time.Now()，预约时间被静默写成提交时刻）
+	if in.StartTime == "" && in.Date != "" && in.TimeSlot != "" {
+		parts := strings.Split(in.TimeSlot, "-")
+		if len(parts) == 2 {
+			in.StartTime = in.Date + "T" + strings.TrimSpace(parts[0]) + ":00+08:00"
+			in.EndTime = in.Date + "T" + strings.TrimSpace(parts[1]) + ":00+08:00"
+		}
+	}
+	st, err := parseDateInput(in.StartTime)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始时间格式: %w", err))
+		return
+	}
+	et, err := parseDateInput(in.EndTime)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
+		return
+	}
+	if st.IsZero() || et.IsZero() {
+		fail(w, r, http.StatusBadRequest, errors.New("start_time/end_time (或 date+time_slot) 必填"))
+		return
+	}
+	bk, err := s.testSiteSvc.Book(r.PathValue("id"), a.ID, in.Purpose, in.ContactName, in.ContactPhone, st, et)
 	if err != nil {
 		fail(w, r, http.StatusConflict, err)
 		return

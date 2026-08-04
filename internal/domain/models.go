@@ -367,11 +367,22 @@ type Message struct {
 
 // Enrollment records a user's registration for a training course.
 type Enrollment struct {
-	ID        string    `json:"id"`
-	CourseID  string    `json:"course_id"`
-	UserID    string    `json:"user_id"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          string    `json:"id"`
+	CourseID    string    `json:"course_id"`
+	UserID      string    `json:"user_id"`
+	Name        string    `json:"name"`          // 报名人姓名
+	Phone       string    `json:"phone"`         // 联系电话
+	IDCard      string    `json:"id_card"`       // 身份证号
+	Gender      string    `json:"gender"`        // 性别
+	Birthday    string    `json:"birthday"`      // 生日 YYYY-MM-DD
+	Email       string    `json:"email"`         // 邮箱
+	Education   string    `json:"education"`     // 学历
+	Experience  string    `json:"experience"`    // 从业经验
+	PhotoURL    string    `json:"photo_url"`     // 证件照
+	IDCardImage string    `json:"id_card_image"` // 身份证照片
+	NoCrime     string    `json:"no_crime"`      // 无犯罪证明
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // TradeOrder is a purchase order in the drone marketplace.
