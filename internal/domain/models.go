@@ -39,18 +39,18 @@ type Actor struct {
 // Phone numbers are stored as AES-256-GCM ciphertext and excluded from JSON
 // serialization (json:"-"). Use crypto.Decrypt or MaskPhone for display.
 type User struct {
-	ID            string     `json:"id"`
-	WechatOpenID  string     `json:"wechat_openid"`
-	PhoneCipher   string     `json:"-"` // AES-256-GCM encrypted, never serialized
+	ID           string `json:"id"`
+	WechatOpenID string `json:"wechat_openid"`
+	PhoneCipher  string `json:"-"` // AES-256-GCM encrypted, never serialized
 	// PasswordHash is the bcrypt hash for password login. Never serialized.
-	PasswordHash  string     `json:"-"`
-	AvatarURL     string     `json:"avatar_url"`
-	Role          Role       `json:"role"`
-	Status        string     `json:"status"`
-	Version       int        `json:"version"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
-	DeletedAt     *time.Time `json:"deleted_at,omitempty"`
+	PasswordHash string     `json:"-"`
+	AvatarURL    string     `json:"avatar_url"`
+	Role         Role       `json:"role"`
+	Status       string     `json:"status"`
+	Version      int        `json:"version"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
 }
 
 // EnterpriseStatus represents the approval lifecycle of a business registration.
@@ -72,16 +72,23 @@ const (
 // Enterprise represents a registered business entity on the platform.
 // Sensitive fields (LicenseURL, AccountName) are encrypted at rest.
 type Enterprise struct {
-	ID          string           `json:"id"`
-	OwnerUserID string           `json:"owner_user_id"`
-	Name        string           `json:"name"`
-	LicenseURL  string           `json:"license_url"`
-	AccountName string           `json:"account_name"`
-	Status      EnterpriseStatus `json:"status"`
-	IsMember    bool             `json:"is_member"`
-	Version     int              `json:"version"`
-	CreatedAt   time.Time        `json:"created_at"`
-	UpdatedAt   time.Time        `json:"updated_at"`
+	ID               string           `json:"id"`
+	OwnerUserID      string           `json:"owner_user_id"`
+	Name             string           `json:"name"`
+	CreditCode       string           `json:"credit_code"`       // 统一社会信用代码
+	LegalPerson      string           `json:"legal_person"`      // 法定代表人
+	ContactPhone     string           `json:"contact_phone"`     // 联系电话
+	IndustryCategory string           `json:"industry_category"` // 产业分类（整机/零部件/飞控/载荷/运营服务/实训院校…）
+	Scale            string           `json:"scale"`             // 企业规模
+	Address          string           `json:"address"`           // 地址
+	Description      string           `json:"description"`       // 简介
+	LicenseURL       string           `json:"license_url"`
+	AccountName      string           `json:"account_name"`
+	Status           EnterpriseStatus `json:"status"`
+	IsMember         bool             `json:"is_member"`
+	Version          int              `json:"version"`
+	CreatedAt        time.Time        `json:"created_at"`
+	UpdatedAt        time.Time        `json:"updated_at"`
 }
 
 // EmploymentStatus represents the lifecycle of a labour dispatch request.
@@ -182,9 +189,9 @@ type Demand struct {
 	BudgetFen     int64          `json:"budget_fen"` // amount in fen (1/100 yuan)
 	BizFields     map[string]any `json:"biz_fields"`
 	Status        DemandStatus   `json:"status"`
-	Version       int          `json:"version"`
-	CreatedAt     time.Time    `json:"created_at"`
-	UpdatedAt     time.Time    `json:"updated_at"`
+	Version       int            `json:"version"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 }
 
 // DemandBid is a quotation or proposal submitted by a bidder in response
@@ -509,13 +516,13 @@ type EnterpriseDocument struct {
 type ProductType string
 
 const (
-	ProductDrone        ProductType = "drone"        // complete drone unit
-	ProductPart         ProductType = "part"         // spare part or accessory
-	ProductRepair       ProductType = "repair"       // repair service
-	ProductAerial       ProductType = "aerial"       // 航拍服务（需求②-2 供给能力展示）
-	ProductTestFly      ProductType = "test_fly"     // 试飞测试（场地预约）
-	ProductCalibration  ProductType = "calibration"  // 检测标定
-	ProductAirspace     ProductType = "airspace"     // 空域协调
+	ProductDrone       ProductType = "drone"       // complete drone unit
+	ProductPart        ProductType = "part"        // spare part or accessory
+	ProductRepair      ProductType = "repair"      // repair service
+	ProductAerial      ProductType = "aerial"      // 航拍服务（需求②-2 供给能力展示）
+	ProductTestFly     ProductType = "test_fly"    // 试飞测试（场地预约）
+	ProductCalibration ProductType = "calibration" // 检测标定
+	ProductAirspace    ProductType = "airspace"    // 空域协调
 )
 
 // DroneProduct is a marketplace listing for a drone, part, or repair service.

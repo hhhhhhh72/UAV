@@ -286,13 +286,22 @@ export default {
           payload.license_url = (uploadRes && (uploadRes.url || uploadRes.data && uploadRes.data.url)) || self.licenseUrl
         }
 
-        await request({
+        const ent = await request({
           url: '/api/v1/enterprises',
           method: 'POST',
           data: payload,
         })
 
-        uni.showToast({ title: '提交成功' })
+        // 创建为草稿 → 立即提交审核（submit 后进入管理员审核队列）
+        const entId = ent && (ent.data && ent.data.id ? ent.data.id : ent.id)
+        if (entId) {
+          await request({
+            url: '/api/v1/enterprises/' + encodeURIComponent(entId) + '/submit',
+            method: 'POST',
+          })
+        }
+
+        uni.showToast({ title: '已提交审核' })
         setTimeout(function () {
           uni.navigateBack()
         }, 1200)

@@ -240,7 +240,7 @@ func (s *Store) NewEnterpriseRepository() repository.EnterpriseRepository {
 
 func (r *enterpriseRepo) Pending() ([]domain.Enterprise, error) {
 	rows, err := r.pool.Query(context.Background(), `
-		SELECT id, owner_user_id, name, license_url, account_name, status, is_member, version, created_at, updated_at
+		SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, license_url, account_name, status, is_member, version, created_at, updated_at
 		FROM enterprises WHERE status = 'submitted' ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("pending enterprises: %w", err)
@@ -250,8 +250,8 @@ func (r *enterpriseRepo) Pending() ([]domain.Enterprise, error) {
 	for rows.Next() {
 		var e domain.Enterprise
 		var status string
-		if err := rows.Scan(&e.ID, &e.OwnerUserID, &e.Name, &e.LicenseURL, &e.AccountName,
-			&status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description,
+			&e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan enterprise: %w", err)
 		}
 		e.Status = domain.EnterpriseStatus(status)
@@ -290,9 +290,9 @@ func (r *enterpriseRepo) Create(e domain.Enterprise) (domain.Enterprise, error) 
 		}
 	}
 	_, err := r.pool.Exec(context.Background(), `
-		INSERT INTO enterprises (id, owner_user_id, name, license_url, account_name, status, is_member, version, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		e.ID, e.OwnerUserID, e.Name, e.LicenseURL, e.AccountName, string(e.Status), e.IsMember, e.Version, e.CreatedAt, e.UpdatedAt)
+		INSERT INTO enterprises (id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, license_url, account_name, status, is_member, version, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+		e.ID, e.OwnerUserID, e.Name, e.CreditCode, e.LegalPerson, e.ContactPhone, e.IndustryCategory, e.Scale, e.Address, e.Description, e.LicenseURL, e.AccountName, string(e.Status), e.IsMember, e.Version, e.CreatedAt, e.UpdatedAt)
 	if err != nil {
 		return domain.Enterprise{}, fmt.Errorf("create enterprise: %w", err)
 	}
@@ -319,8 +319,8 @@ func (r *enterpriseRepo) Update(id string, e domain.Enterprise) (domain.Enterpri
 	e.Version++
 	e.UpdatedAt = time.Now()
 	tag, err := r.pool.Exec(context.Background(), `
-		UPDATE enterprises SET name=$1, license_url=$2, account_name=$3, status=$4, version=$5, updated_at=$6 WHERE id=$7`,
-		e.Name, e.LicenseURL, e.AccountName, string(e.Status), e.Version, e.UpdatedAt, id)
+		UPDATE enterprises SET name=$1, credit_code=$2, legal_person=$3, contact_phone=$4, industry_category=$5, scale=$6, address=$7, description=$8, license_url=$9, account_name=$10, status=$11, version=$12, updated_at=$13 WHERE id=$14`,
+		e.Name, e.CreditCode, e.LegalPerson, e.ContactPhone, e.IndustryCategory, e.Scale, e.Address, e.Description, e.LicenseURL, e.AccountName, string(e.Status), e.Version, e.UpdatedAt, id)
 	if err != nil {
 		return domain.Enterprise{}, fmt.Errorf("update enterprise: %w", err)
 	}
@@ -334,9 +334,9 @@ func (r *enterpriseRepo) FindByID(id string) (domain.Enterprise, error) {
 	var e domain.Enterprise
 	var status string
 	err := r.pool.QueryRow(context.Background(), `
-		SELECT id, owner_user_id, name, license_url, account_name, status, is_member, version, created_at, updated_at
+		SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, license_url, account_name, status, is_member, version, created_at, updated_at
 		FROM enterprises WHERE id=$1`, id).Scan(
-		&e.ID, &e.OwnerUserID, &e.Name, &e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt)
+		&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description, &e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
 		return domain.Enterprise{}, fmt.Errorf("enterprise %s not found", id)
 	}
@@ -368,7 +368,7 @@ func (r *enterpriseRepo) ListByStatus(status string, offset, limit int) ([]domai
 }
 
 func scanEnterprises(pool *pgxpool.Pool, cipher *crypto.Cipher, where string, args ...any) ([]domain.Enterprise, error) {
-	q := `SELECT id, owner_user_id, name, license_url, account_name, status, is_member, version, created_at, updated_at FROM enterprises ` + where
+	q := `SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, license_url, account_name, status, is_member, version, created_at, updated_at FROM enterprises ` + where
 	rows, err := pool.Query(context.Background(), q, args...)
 	if err != nil {
 		return nil, err
@@ -378,7 +378,7 @@ func scanEnterprises(pool *pgxpool.Pool, cipher *crypto.Cipher, where string, ar
 	for rows.Next() {
 		var e domain.Enterprise
 		var status string
-		if err := rows.Scan(&e.ID, &e.OwnerUserID, &e.Name, &e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description, &e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, err
 		}
 		e.Status = domain.EnterpriseStatus(status)

@@ -19,23 +19,37 @@ func NewEnterpriseSvc(r repository.EnterpriseRepository) *EnterpriseSvc {
 }
 
 type CreateEnterpriseInput struct {
-	Name        string `json:"name"`
-	AccountName string `json:"account_name"`
-	LicenseURL  string `json:"license_url"`
+	Name             string `json:"name"`
+	CreditCode       string `json:"credit_code"`
+	LegalPerson      string `json:"legal_person"`
+	ContactPhone     string `json:"contact_phone"`
+	IndustryCategory string `json:"industry_category"`
+	Scale            string `json:"scale"`
+	Address          string `json:"address"`
+	Description      string `json:"description"`
+	AccountName      string `json:"account_name"`
+	LicenseURL       string `json:"license_url"`
 }
 
 func (s *EnterpriseSvc) Create(a domain.Actor, in CreateEnterpriseInput) (domain.Enterprise, error) {
 	now := time.Now()
 	e := domain.Enterprise{
-		ID:          fmt.Sprintf("ent-%d", now.UnixNano()),
-		OwnerUserID: a.ID,
-		Name:        in.Name,
-		LicenseURL:  in.LicenseURL,
-		AccountName: in.AccountName,
-		Status:      domain.EnterpriseDraft,
-		Version:     1,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:               fmt.Sprintf("ent-%d", now.UnixNano()),
+		OwnerUserID:      a.ID,
+		Name:             in.Name,
+		CreditCode:       in.CreditCode,
+		LegalPerson:      in.LegalPerson,
+		ContactPhone:     in.ContactPhone,
+		IndustryCategory: in.IndustryCategory,
+		Scale:            in.Scale,
+		Address:          in.Address,
+		Description:      in.Description,
+		LicenseURL:       in.LicenseURL,
+		AccountName:      in.AccountName,
+		Status:           domain.EnterpriseDraft,
+		Version:          1,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 	slog.Info("enterprise created", "enterprise_id", e.ID, "name", e.Name)
 	return s.repo.Create(e)
@@ -53,6 +67,13 @@ func (s *EnterpriseSvc) Update(a domain.Actor, id string, in CreateEnterpriseInp
 		return domain.Enterprise{}, fmt.Errorf("cannot edit enterprise in %s status", existing.Status)
 	}
 	existing.Name = in.Name
+	existing.CreditCode = in.CreditCode
+	existing.LegalPerson = in.LegalPerson
+	existing.ContactPhone = in.ContactPhone
+	existing.IndustryCategory = in.IndustryCategory
+	existing.Scale = in.Scale
+	existing.Address = in.Address
+	existing.Description = in.Description
 	existing.LicenseURL = in.LicenseURL
 	existing.AccountName = in.AccountName
 	existing.UpdatedAt = time.Now()

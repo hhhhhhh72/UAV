@@ -66,7 +66,7 @@
         </el-table-column>
 
         <el-table-column prop="account_name" label="对公账户" width="160" />
-        <el-table-column prop="contact_person" label="联系人" width="100" />
+        <el-table-column prop="legal_person" label="法人" width="100" />
         <el-table-column prop="contact_phone" label="联系电话" width="130" />
 
         <el-table-column prop="status" label="审核状态" width="100">
