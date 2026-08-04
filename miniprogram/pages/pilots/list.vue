@@ -5,9 +5,9 @@
     <view v-for="(item, i) in list" :key="i" class="card" @tap="goDetail(item)">
       <image :src="item.avatar || '/static/home-bg.jpg'" mode="aspectFill" class="avatar" />
       <view class="info">
-        <text class="name">{{ item.name || item.title }}</text>
-        <text class="desc">{{ item.cert_type || item.specialty || '认证飞手' }}</text>
-        <text class="meta">{{ item.experience || '经验丰富' }} · {{ item.district || '' }}</text>
+        <text class="name">{{ item.real_name || '认证飞手' }}</text>
+        <text class="desc">{{ (item.cert_ids || []).length > 0 ? item.cert_ids.length + ' 项证书认证' : '认证飞手' }}</text>
+        <text class="meta">{{ item.flight_hours || 0 }} 小时飞行 · 评分 {{ item.rating || '-' }}</text>
       </view>
       <text class="arrow">›</text>
     </view>
@@ -23,12 +23,20 @@ import { request } from '../../utils/request'
 const searchText = ref('')
 const list = ref([])
 const goBack = () => uni.navigateBack()
-const goDetail = (item) => uni.navigateTo({ url: '/pages/experts/detail?id=' + item.id })
+// 飞手无独立详情页：点击展示信息弹层
+const goDetail = (item) => {
+  uni.showModal({
+    title: item.real_name || '认证飞手',
+    content: `证书认证 ${(item.cert_ids || []).length} 项\n飞行时长 ${item.flight_hours || 0} 小时\n完成作业 ${item.completed_jobs || 0} 单\n评分 ${item.rating || '-'}`,
+    showCancel: false,
+    confirmText: '知道了'
+  })
+}
 const onSearch = () => fetchData()
 
 const fetchData = async () => {
   try {
-    const res = await request({ url: '/api/v1/experts', data: { page: 1, page_size: 50 } })
+    const res = await request({ url: '/api/v1/certified-pilots', data: { page: 1, page_size: 50 } })
     list.value = (Array.isArray(res) ? res : (res.data || []))
   } catch { list.value = [] }
 }
