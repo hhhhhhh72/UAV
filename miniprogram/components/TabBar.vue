@@ -54,7 +54,7 @@ const iconRoot = '/static/tabbar/'
 
 const tabs = ref([
   { label: '首页',  iconSrc: iconRoot + 'home.svg',         activeSrc: iconRoot + 'home-active.svg',   path: '/pages/home/index',    badge: 0 },
-  { label: '供给',  iconSrc: iconRoot + 'mall.svg',         activeSrc: iconRoot + 'mall-active.svg',   path: '/pages/mall/index',    badge: 0 },
+  { label: '服务',  iconSrc: iconRoot + 'mall.svg',         activeSrc: iconRoot + 'mall-active.svg',   path: '/pages/mall/index',    badge: 0 },
   { label: '发布',  iconSrc: iconRoot + 'publish.svg',      activeSrc: iconRoot + 'publish.svg',        path: '/pages/publish/index', badge: 0 },
   { label: '商家',  iconSrc: iconRoot + 'shop.svg',         activeSrc: iconRoot + 'shop-active.svg',   path: '/pages/shops/index',   badge: 0 },
   { label: '我的',  iconSrc: iconRoot + 'mine.svg',         activeSrc: iconRoot + 'mine-active.svg',   path: '/pages/mine/index',    badge: 0 },

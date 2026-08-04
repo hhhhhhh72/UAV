@@ -396,7 +396,7 @@
     {
       "path": "pages/mall/index",
       "style": {
-        "navigationBarTitleText": "供给"
+        "navigationBarTitleText": "服务"
       }
     },
     {
@@ -536,7 +536,7 @@
       },
       {
         "pagePath": "pages/mall/index",
-        "text": "供给",
+        "text": "服务",
         "iconPath": "/static/tabbar/mall.png",
         "selectedIconPath": "/static/tabbar/mall-active.png"
       },
