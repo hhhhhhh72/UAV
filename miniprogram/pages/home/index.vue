@@ -89,7 +89,7 @@
           <view class="post-tags">
             <text class="post-tag"><text class="tag-key">货物类型</text>{{ t.biz_type || t.cargo_type || '树/木头' }}</text>
             <text class="post-tag"><text class="tag-key">项目总量</text>{{ t.quantity || t.budget || '300吨' }}</text>
-            <text class="post-tag"><text class="tag-key">启动时间</text>{{ t.start_time || fmtTime(t.created_at) || '2026-07-29' }}</text>
+            <text class="post-tag"><text class="tag-key">启动时间</text>{{ t.start_time || fmtTime(t.created_at) || '—' }}</text>
           </view>
           <text class="post-desc">{{ (t.description || '暂无详细描述').slice(0, 120) }}</text>
           <view class="post-imgs">
