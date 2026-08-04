@@ -144,7 +144,7 @@ const tagClass = computed(() => {
   if (c === 'used') return 'tag-orange'
   return 'tag-gray'
 })
-const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务' }[t] || '商品')
+const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务', aerial: '航拍服务', test_fly: '试飞测试', calibration: '检测标定', airspace: '空域协调' }[t] || '商品')
 
 // 锚点导航（商品/参数/图文）
 const anchors = [

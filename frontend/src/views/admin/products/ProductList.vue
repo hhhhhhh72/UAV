@@ -7,6 +7,10 @@
           <el-option label="整机" value="drone" />
           <el-option label="配件" value="part" />
           <el-option label="维修服务" value="repair" />
+          <el-option label="航拍服务" value="aerial" />
+          <el-option label="试飞测试" value="test_fly" />
+          <el-option label="检测标定" value="calibration" />
+          <el-option label="空域协调" value="airspace" />
         </el-select>
         <el-button type="primary" :icon="Search" @click="onSearchSubmit">查询</el-button>
         <el-button type="success" @click="showCreate">新增商品</el-button>
@@ -52,6 +56,10 @@
             <el-option label="整机" value="drone" />
             <el-option label="配件" value="part" />
             <el-option label="维修服务" value="repair" />
+          <el-option label="航拍服务" value="aerial" />
+          <el-option label="试飞测试" value="test_fly" />
+          <el-option label="检测标定" value="calibration" />
+          <el-option label="空域协调" value="airspace" />
           </el-select>
         </el-form-item>
         <el-form-item label="品牌"><el-input v-model="form.brand" placeholder="可选" /></el-form-item>

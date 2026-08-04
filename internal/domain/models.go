@@ -509,9 +509,13 @@ type EnterpriseDocument struct {
 type ProductType string
 
 const (
-	ProductDrone  ProductType = "drone"  // complete drone unit
-	ProductPart   ProductType = "part"   // spare part or accessory
-	ProductRepair ProductType = "repair" // repair service
+	ProductDrone        ProductType = "drone"        // complete drone unit
+	ProductPart         ProductType = "part"         // spare part or accessory
+	ProductRepair       ProductType = "repair"       // repair service
+	ProductAerial       ProductType = "aerial"       // 航拍服务（需求②-2 供给能力展示）
+	ProductTestFly      ProductType = "test_fly"     // 试飞测试（场地预约）
+	ProductCalibration  ProductType = "calibration"  // 检测标定
+	ProductAirspace     ProductType = "airspace"     // 空域协调
 )
 
 // DroneProduct is a marketplace listing for a drone, part, or repair service.

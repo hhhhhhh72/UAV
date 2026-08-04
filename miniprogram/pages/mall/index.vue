@@ -8,7 +8,7 @@
           <input
             class="search-input"
             v-model="keyword"
-            placeholder="搜索型号 / 品牌 / 配件"
+            placeholder="搜索整机 / 航拍 / 试飞场地"
             placeholder-class="search-ph"
             confirm-type="search"
             @confirm="onSearch"
@@ -17,141 +17,152 @@
         </view>
       </view>
 
-      <!-- 左右布局：左分类轨 + 右商品区（每次进入 tab 浮现动画） -->
-      <view class="cate-layout" :class="{ 'page-enter': enterAnim }">
-        <!-- 左分类栏 -->
-        <scroll-view scroll-y class="cate-side">
-          <view
-            v-for="c in cats"
-            :key="c.key"
-            class="cate-item"
-            :class="{ on: activeCat === c.key }"
-            @tap="selectCat(c.key)"
-          >
-            <view class="cate-icon" :class="{ on: activeCat === c.key }">{{ c.icon }}</view>
-            <text class="cate-name">{{ c.name }}</text>
-          </view>
-        </scroll-view>
-
-        <!-- 右商品区 -->
-        <scroll-view scroll-y class="goods-area" :show-scrollbar="false">
-          <!-- 加载态 -->
-          <view v-if="loading" class="grid">
-            <view v-for="i in 4" :key="i" class="card skeleton">
-              <view class="s-img" />
-              <view class="s-line" />
-              <view class="s-line short" />
-            </view>
-          </view>
-
-          <!-- 空态 -->
-          <view v-else-if="!errorMsg && products.length === 0" class="state-box">
-            <u-empty description="暂无在售商品" />
-            <text class="state-note">商品即将上架，或切换分类查看</text>
-          </view>
-
-          <!-- 失败态 -->
-          <view v-else-if="errorMsg" class="state-box">
-            <u-empty description="商品列表加载失败" />
-            <u-button type="primary" size="small" round @click="loadProducts(activeCat)">重新加载</u-button>
-          </view>
-
-          <!-- 商品列表 -->
-          <view v-else class="goods-list">
-            <view
-              v-for="p in products"
-              :key="p.id"
-              class="card"
-              @tap="goDetail(p.id)"
-            >
-              <view class="img-wrap">
-                <image v-if="imgSrc(p)" :src="imgSrc(p)" mode="aspectFill" class="card-img" />
-                <view v-else class="img-ph">
-                  <u-icon name="plus" size="36rpx" color="#0A66C2" />
-                </view>
-                <text v-if="p.condition" class="tag" :class="p.condition === 'used' ? 'tag-used' : 'tag-new'">
-                  {{ p.condition === 'used' ? '二手' : '全新' }}
-                </text>
-                <view class="card-contact" hover-class="btn-press" @tap.stop="goDetail(p.id)">
-                  <text class="contact-ico">电</text>
-                  <text class="contact-txt">联系</text>
-                </view>
-              </view>
-              <view class="card-body">
-                <text class="card-title">{{ p.title }}</text>
-                <text v-if="p.brand || p.model" class="card-desc">{{ p.brand || '' }}{{ p.brand && p.model ? ' · ' : '' }}{{ p.model || '' }}</text>
-                <view class="card-foot">
-                  <text class="price">¥{{ fmt(p.price_fen) }}</text>
-                  <text class="seller">{{ p.seller_name || '' }}</text>
-                </view>
-              </view>
-            </view>
-            <view v-if="loadingMore" class="more-tip">
-              <u-loading size="24rpx" />
-              <text>加载中...</text>
-            </view>
-            <view v-else-if="!hasMore && products.length > 0" class="more-tip">没有更多了</view>
-          </view>
-        </scroll-view>
+      <!-- 三大分区（设备/服务/场地 — 供给能力展示） -->
+      <view class="zones">
+        <view
+          v-for="z in zones"
+          :key="z.key"
+          class="zone"
+          :class="{ on: activeZone === z.key }"
+          @tap="switchZone(z.key)"
+        >{{ z.name }}</view>
       </view>
+
+      <scroll-view scroll-y class="content-area" :show-scrollbar="false">
+        <!-- 加载态 -->
+        <view v-if="loading" class="skel-list">
+          <view v-for="i in 4" :key="i" class="skel-row">
+            <view class="skel-img" />
+            <view class="skel-body">
+              <view class="skel-line w60" />
+              <view class="skel-line" />
+            </view>
+          </view>
+        </view>
+
+        <!-- 空态 -->
+        <view v-else-if="!errorMsg && zoneItems.length === 0" class="state-box">
+          <u-empty description="该分区暂无供给" />
+          <text class="state-note">会员供给上架中，或切换其他分区</text>
+          <u-button type="primary" size="small" round @tap="goDemand">去需求大厅发需求</u-button>
+        </view>
+
+        <!-- 失败态 -->
+        <view v-else-if="errorMsg" class="state-box">
+          <u-empty description="供给列表加载失败" />
+          <u-button type="primary" size="small" round @click="loadAll">重新加载</u-button>
+        </view>
+
+        <!-- 设备分区：双列商品卡 -->
+        <view v-else-if="activeZone === 'device'" class="grid">
+          <view v-for="p in zoneItems" :key="p.id" class="prod" @tap="goDetail(p.id)">
+            <view class="prod-img">
+              <image v-if="imgSrc(p)" :src="imgSrc(p)" mode="aspectFill" class="prod-img-inner" />
+              <view v-else class="prod-img-ph"><u-icon name="plus" size="36rpx" color="#0A66C2" /></view>
+              <text class="prod-tag">{{ typeShort(p.prod_type) }}</text>
+            </view>
+            <view class="prod-body">
+              <text class="prod-title">{{ p.title }}</text>
+              <view class="prod-foot">
+                <text class="prod-price">¥{{ fmt(p.price_fen) }}</text>
+                <text v-if="p.seller_name" class="prod-cert">{{ p.seller_name }}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 服务分区：横卡（对接） -->
+        <view v-else-if="activeZone === 'service'" class="hlist">
+          <view v-for="p in zoneItems" :key="p.id" class="hcard" @tap="goDetail(p.id)">
+            <view class="hcard-img">
+              <image v-if="imgSrc(p)" :src="imgSrc(p)" mode="aspectFill" class="hcard-img-inner" />
+              <view v-else class="hcard-img-ph"><u-icon name="plus" size="30rpx" color="#E96012" /></view>
+            </view>
+            <view class="hcard-info">
+              <text class="hcard-title">{{ p.title }}</text>
+              <text class="hcard-type">{{ typeLabel(p.prod_type) }}</text>
+              <view class="hcard-foot">
+                <text class="hcard-price">{{ p.price_fen ? '¥' + fmt(p.price_fen) : '面议' }}</text>
+                <text class="hcard-cta">联系对接 ›</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 场地分区：横卡（预约） -->
+        <view v-else class="hlist">
+          <view v-for="p in zoneItems" :key="p.id" class="hcard" @tap="goDetail(p.id)">
+            <view class="hcard-img">
+              <image v-if="imgSrc(p)" :src="imgSrc(p)" mode="aspectFill" class="hcard-img-inner" />
+              <view v-else class="hcard-img-ph"><u-icon name="location" size="30rpx" color="#0A66C2" /></view>
+            </view>
+            <view class="hcard-info">
+              <text class="hcard-title">{{ p.title }}</text>
+              <text class="hcard-type">{{ typeLabel(p.prod_type) }}</text>
+              <view class="hcard-foot">
+                <text class="hcard-price">{{ p.price_fen ? '¥' + fmt(p.price_fen) + ' /小时' : '面议' }}</text>
+                <text class="hcard-btn">预约 ›</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view v-if="!loading && !errorMsg && zoneItems.length" class="more-tip">— 已加载全部 —</view>
+      </scroll-view>
     </view>
   </Layout>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { onShow, onReachBottom } from '@dcloudio/uni-app'
+import { ref, computed, onMounted } from 'vue'
+import { onReachBottom } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
 import { request, BASE_URL } from '@/utils/request'
 
 const statusBarH = ref(24)
 const products = ref([])
 const loading = ref(false)
-const loadingMore = ref(false)
-const hasMore = ref(true)
 const errorMsg = ref('')
-const activeCat = ref('')
-const page = ref(1)
-
-const cats = [
-  { key: '', name: '全部', icon: '全' },
-  { key: 'drone', name: '整机', icon: '机' },
-  { key: 'part', name: '配件', icon: '配' },
-  { key: 'repair', name: '维修', icon: '修' },
-]
-
 const keyword = ref('')
+const activeZone = ref('device')
 
-const selectCat = (key) => {
-  activeCat.value = key
-  page.value = 1
-  hasMore.value = true
-  loadProducts(key, keyword.value)
+const zones = [
+  { key: 'device', name: '设备' },
+  { key: 'service', name: '服务' },
+  { key: 'site', name: '场地' },
+]
+// 分区 → prod_type 映射（需求②-2 供给能力展示 7 类）
+const zoneTypes = {
+  device: ['drone', 'part'],
+  service: ['aerial', 'calibration', 'airspace', 'repair'],
+  site: ['test_fly'],
 }
 
-const onSearch = () => {
-  page.value = 1
-  hasMore.value = true
-  loadProducts(activeCat.value, keyword.value.trim())
-}
+const typeLabel = (t) => ({ drone: '整机', part: '零部件', repair: '维修服务', aerial: '航拍服务', test_fly: '试飞测试', calibration: '检测标定', airspace: '空域协调' }[t] || t || '')
+const typeShort = (t) => ({ drone: '整机', part: '配件', test_fly: '试飞' }[t] || typeLabel(t))
 
-const clearSearch = () => {
-  keyword.value = ''
-  page.value = 1
-  hasMore.value = true
-  loadProducts(activeCat.value, '')
-}
+// 当前分区可见供给（按分区类型 + 关键词过滤）
+const zoneItems = computed(() => {
+  const types = zoneTypes[activeZone.value] || []
+  const kw = keyword.value.trim().toLowerCase()
+  return products.value.filter(p => {
+    if (!types.includes(p.prod_type)) return false
+    if (kw && !((p.title || '').toLowerCase().includes(kw) || (p.brand || '').toLowerCase().includes(kw))) return false
+    return true
+  })
+})
 
-const loadProducts = async (cat, kw) => {
+const switchZone = (key) => { activeZone.value = key }
+
+const onSearch = () => { /* 前端过滤 zoneItems 即时生效 */ }
+const clearSearch = () => { keyword.value = '' }
+
+const loadAll = async () => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const data = { page: 1, page_size: 10 }
-    if (cat) data.prod_type = cat
-    if (kw) data.keyword = kw
-    const res = await request({ url: '/api/v1/products', data })
+    const res = await request({ url: '/api/v1/products', data: { page: 1, page_size: 50 } })
     products.value = Array.isArray(res) ? res : []
-    hasMore.value = products.value.length >= (res?.total || products.value.length)
   } catch (e) {
     errorMsg.value = '加载失败'
   } finally {
@@ -159,27 +170,6 @@ const loadProducts = async (cat, kw) => {
   }
 }
 
-// 触底加载更多
-const loadMore = async () => {
-  if (loading.value || loadingMore.value || !hasMore.value) return
-  loadingMore.value = true
-  try {
-    const data = { page: page.value + 1, page_size: 10 }
-    if (activeCat.value) data.prod_type = activeCat.value
-    if (keyword.value.trim()) data.keyword = keyword.value.trim()
-    const res = await request({ url: '/api/v1/products', data })
-    const list = Array.isArray(res) ? res : []
-    products.value = products.value.concat(list)
-    page.value += 1
-    hasMore.value = list.length >= 10
-  } catch (e) {
-    /* 静默：下次触底重试 */
-  } finally {
-    loadingMore.value = false
-  }
-}
-
-// 图片 URL：相对路径（/uploads/...）拼后端地址，完整 URL 原样
 const fullUrl = (u) => (u && u.startsWith('http') ? u : BASE_URL + (u || ''))
 const imgSrc = (p) => {
   try {
@@ -193,20 +183,16 @@ const fmt = (f) => (f ? (f / 100).toLocaleString('en-US') : '0')
 const goDetail = (id) => {
   uni.navigateTo({ url: '/pages/mall/detail?id=' + encodeURIComponent(id) })
 }
-
-// 每次进入商城 tab：页面内容浮现动画（先移除再添加类重新播放）
-const enterAnim = ref(false)
-onShow(() => {
-  enterAnim.value = false
-  setTimeout(() => { enterAnim.value = true }, 60)
-})
+const goDemand = () => {
+  uni.navigateTo({ url: '/pages/demands/list' })
+}
 
 onMounted(() => {
   try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 24 } catch (e) {}
-  loadProducts('')
+  loadAll()
 })
 
-onReachBottom(loadMore)
+onReachBottom(() => { /* 全量加载，无需翻页 */ })
 </script>
 
 <style scoped>
@@ -217,94 +203,69 @@ onReachBottom(loadMore)
 .search-box {
   display: flex; align-items: center; gap: 8px;
   height: 40px; background: #fff; border-radius: 8px; padding: 0 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
 }
 .search-input { flex: 1; font-size: 26rpx; color: var(--color-text); }
 .search-ph { color: #98A2B3; }
 .search-clear { width: 32rpx; height: 32rpx; display: flex; align-items: center; justify-content: center; color: #c8c9cc; font-size: 28rpx; }
 
-/* 左右布局 */
-.cate-layout { flex: 1; display: flex; min-height: 0; }
+/* 三大分区 tab */
+.zones { display: flex; background: #fff; border-bottom: 1rpx solid var(--color-divider); flex-shrink: 0; }
+.zone {
+  flex: 1; text-align: center; padding: 28rpx 0 24rpx;
+  font-size: 28rpx; color: var(--color-text-secondary); position: relative; font-weight: 500;
+}
+.zone.on { color: var(--color-primary); font-weight: 700; }
+.zone.on::after {
+  content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: 0; width: 64rpx; height: 6rpx; border-radius: 3rpx; background: var(--color-primary);
+}
 
-/* 进入商城 tab 浮现动画（淡入 + 上移 24px） */
-@keyframes page-fade-up {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.page-enter { animation: page-fade-up .4s ease-out both; }
-@media (prefers-reduced-motion: reduce) {
-  .page-enter { animation: none; }
-}
-
-/* 左分类栏（Tigshop 分类页风格） */
-.cate-side { width: 88px; background: var(--color-bg); flex-shrink: 0; height: 100%; }
-.cate-item {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 18rpx 0; gap: 6rpx;
-}
-.cate-icon {
-  width: 48rpx; height: 48rpx; border-radius: 12rpx;
-  background: var(--color-primary-light); color: var(--color-primary);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22rpx; font-weight: 600;
-}
-.cate-item.on { background: #fff; position: relative; }
-.cate-item.on::before { content: ''; position: absolute; left: 0; top: 30%; bottom: 30%; width: 6rpx; border-radius: 3rpx; background: var(--color-primary); }
-.cate-item.on .cate-icon { background: var(--color-primary); color: #fff; }
-.cate-name { font-size: 22rpx; color: var(--color-text-secondary); }
-.cate-item.on .cate-name { color: var(--color-primary); font-weight: 600; }
-
-/* 右商品区 */
-.goods-area { flex: 1; height: 100%; min-width: 0; }
+/* 内容区 */
+.content-area { flex: 1; min-height: 0; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
-.goods-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+.hlist { padding: 12px; }
 
-/* 商品卡（Tigshop 紧凑风格：图 4:3 + 联系快捷按钮） */
-.card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 3px 12px rgba(16,24,40,0.05); }
-.img-wrap { position: relative; background: #fff; padding: 8rpx; }
-.card-img { width: 100%; aspect-ratio: 4/3; border-radius: 6rpx; display: block; }
-.img-ph { width: 100%; aspect-ratio: 4/3; border-radius: 6rpx; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; }
-.tag {
-  position: absolute; left: 16rpx; top: 16rpx;
-  font-size: 18rpx; padding: 2px 6px; border-radius: 4px;
+/* 设备卡（双列） */
+.prod { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 3px 12px rgba(16,24,40,0.05); }
+.prod-img { aspect-ratio: 4/3; position: relative; background: #fff; }
+.prod-img-inner { width: 100%; height: 100%; }
+.prod-img-ph { width: 100%; height: 100%; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; }
+.prod-tag {
+  position: absolute; left: 8px; top: 8px; z-index: 1;
+  font-size: 18rpx; padding: 2px 8px; border-radius: 4px;
+  background: rgba(255,255,255,.9); color: var(--color-primary); font-weight: 600;
 }
-.tag-new { background: var(--color-primary-light); color: var(--color-primary); }
-.tag-used { background: var(--color-primary-light); color: var(--color-text-secondary); }
-/* 卡上联系按钮（悬浮图右下角） */
-.card-contact {
-  position: absolute; right: 16rpx; bottom: 16rpx;
-  display: flex; align-items: center; gap: 4rpx;
-  background: var(--color-primary); color: #fff;
-  padding: 6rpx 12rpx; border-radius: 6rpx;
-}
-.contact-ico { font-size: 18rpx; line-height: 1; }
-.contact-txt { font-size: 18rpx; line-height: 1; }
-.btn-press { transform: scale(.95); }
+.prod-body { padding: 8px 10px 10px; }
+.prod-title { font-size: 24rpx; font-weight: 700; color: var(--color-text); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 66rpx; }
+.prod-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6rpx; }
+.prod-price { font-size: 26rpx; font-weight: 700; color: var(--color-warning); }
+.prod-cert { font-size: 18rpx; color: var(--color-success); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
 
-.card-body { padding: 0 10rpx 10rpx; }
-.card-title {
-  font-size: 24rpx; font-weight: 700; color: var(--color-text); line-height: 1.35;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  min-height: 65rpx;
-}
-.card-desc { display: block; font-size: 20rpx; color: var(--color-text-secondary); margin: 4rpx 0 2rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; margin-top: 2rpx; }
-.price { font-size: 26rpx; font-weight: 700; color: var(--color-warning); white-space: nowrap; }
-.seller { font-size: 18rpx; color: var(--color-text-placeholder); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
+/* 服务/场地横卡 */
+.hcard { display: flex; gap: 12px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 3px 12px rgba(16,24,40,0.05); margin-bottom: 10px; }
+.hcard-img { width: 252rpx; height: 168rpx; position: relative; flex-shrink: 0; }
+.hcard-img-inner { width: 100%; height: 100%; }
+.hcard-img-ph { width: 100%; height: 100%; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; }
+.hcard-info { flex: 1; padding: 16rpx 20rpx; min-width: 0; display: flex; flex-direction: column; }
+.hcard-title { font-size: 26rpx; font-weight: 700; color: var(--color-text); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hcard-type { display: inline-block; font-size: 20rpx; padding: 2px 8px; border-radius: 4px; background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; margin-top: 8rpx; align-self: flex-start; }
+.hcard-foot { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 8rpx; }
+.hcard-price { font-size: 22rpx; color: var(--color-text-secondary); }
+.hcard-price { color: var(--color-warning); font-weight: 700; }
+.hcard-cta { font-size: 22rpx; color: var(--color-primary); font-weight: 600; }
+.hcard-btn { font-size: 22rpx; color: #fff; background: var(--color-primary); padding: 6rpx 20rpx; border-radius: 6px; font-weight: 600; }
 
 /* 骨架 */
-.skeleton .s-img { aspect-ratio: 4/3; background: var(--color-divider); margin: 8rpx; border-radius: 6rpx; }
-.skeleton .s-line { height: 24rpx; background: var(--color-divider); border-radius: 4px; margin: 10px 10px 0; }
-.skeleton .s-line.short { width: 60%; margin-bottom: 12px; }
+.skel-list { padding: 12px; }
+.skel-row { display: flex; gap: 12px; background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.skel-img { width: 252rpx; height: 168rpx; border-radius: 6px; background: var(--color-divider); flex-shrink: 0; }
+.skel-body { flex: 1; padding-top: 4px; }
+.skel-line { height: 24rpx; border-radius: 4px; background: var(--color-divider); margin-bottom: 12rpx; }
+.skel-line.w60 { width: 60%; }
 
 /* 状态 */
 .state-box { padding: 100rpx 40rpx; display: flex; flex-direction: column; align-items: center; gap: 16rpx; }
 .state-note { font-size: 22rpx; color: var(--color-text-placeholder); }
-
-/* 加载更多提示 */
-.more-tip {
-  grid-column: 1 / -1;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 20rpx 0;
-  font-size: 22rpx; color: var(--color-text-placeholder);
-}
+.more-tip { text-align: center; font-size: 22rpx; color: var(--color-text-placeholder); padding: 16rpx 0; }
 </style>
