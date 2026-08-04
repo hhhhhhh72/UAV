@@ -69,9 +69,8 @@ const caseItem = ref(null)
 onLoad(async (options) => {
   const id = String(options.id || '')
   try {
-    const res = await request({ url: '/api/cases', data: { id } })
-    const list = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : [])
-    caseItem.value = list.find((x) => String(x.id) === id) || null
+    const res = await request({ url: '/api/v1/cases/' + encodeURIComponent(id) })
+    caseItem.value = (res && res.data) || res || null
   } catch (e) {
     caseItem.value = null
   }

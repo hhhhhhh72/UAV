@@ -1,4 +1,5 @@
-export const BASE_URL = 'http://localhost:8080'
+import { BASE_URL } from './config'
+export { BASE_URL }
 
 const ACCESS_TOKEN_KEY = 'accessToken'
 const REFRESH_TOKEN_KEY = 'refreshToken'

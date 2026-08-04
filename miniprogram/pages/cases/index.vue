@@ -138,7 +138,6 @@
 import { ref, onMounted } from 'vue'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
-import { caseList as localCaseList } from '../../utils/cases'
 
 const categories = [
   { id: 'all', name: '全部案例' },
@@ -173,7 +172,7 @@ const fetchCases = async (reset = false) => {
     if (activeCategory.value !== 'all') {
       params.category = activeCategory.value
     }
-    const res = await request({ url: '/api/cases', data: params })
+    const res = await request({ url: '/api/v1/cases', data: params })
     const list = res?.data || res?.list || (Array.isArray(res) ? res : [])
 
     if (list.length < pageSize) {
@@ -182,11 +181,8 @@ const fetchCases = async (reset = false) => {
     cases.value = reset ? list : [...cases.value, ...list]
     page.value++
   } catch (e) {
-    let filtered = localCaseList
-    if (activeCategory.value !== 'all') {
-      filtered = localCaseList.filter(c => c.service === activeCategory.value)
-    }
-    cases.value = filtered
+    // 加载失败：不注入假数据，展示空态（页面已有"暂无相关案例"）
+    cases.value = []
     finished.value = true
   } finally {
     loadingMore.value = false

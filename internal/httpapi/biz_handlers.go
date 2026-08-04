@@ -26,6 +26,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 	// ---- Cases ----
 	mux.HandleFunc("GET /api/v1/cases", s.listCases)
+	mux.HandleFunc("GET /api/v1/cases/{id}", s.getCase)
 	mux.HandleFunc("POST /api/v1/admin/cases", s.createCase)
 	mux.HandleFunc("GET /api/v1/admin/cases/{id}", s.getCase)
 	mux.HandleFunc("PUT /api/v1/admin/cases/{id}", s.updateCase)
