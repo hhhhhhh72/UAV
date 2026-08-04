@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商城 — 低空综合服务平台小程序原型</title>
+<style>
+  :root {
+    --brand-deep:#074D92; --brand:#0A66C2; --brand-soft:#EAF3FB; --brand-subtle:#F4F8FC;
+    --accent:#F97316; --accent-deep:#E96012; --accent-soft:#FFF0E6;
+    --t1:#17212B; --t2:#344054; --t3:#667085; --t4:#98A2B3;
+    --canvas:#F4F6F8; --surface:#FFF; --border:#E4E7EC; --divider:#EEF1F4;
+    --success:#168A55; --success-soft:#E9F7F0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Noto Sans SC',sans-serif; background:#dfe3e8; display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:24px 12px; }
+  /* 手机框 */
+  .phone { width:390px; height:844px; background:var(--canvas); border-radius:32px; overflow:hidden; position:relative; box-shadow:0 12px 48px rgba(16,24,40,.18); }
+  @media (max-width:430px) { body{padding:0} .phone{width:100vw;height:100vh;border-radius:0} }
+  /* 状态栏 */
+  .status-bar { height:44px; background:var(--brand-deep); color:#fff; display:flex; align-items:flex-end; justify-content:space-between; padding:0 20px 6px; font-size:11px; }
+  .capsule { width:80px; height:26px; border:1px solid rgba(255,255,255,.35); border-radius:14px; display:flex; align-items:center; justify-content:space-between; padding:0 8px; font-size:10px; color:rgba(255,255,255,.85); }
+  /* 导航 */
+  .nav { background:var(--brand-deep); padding:8px 12px 12px; display:flex; align-items:center; gap:8px; }
+  .nav-title { color:#fff; font-size:17px; font-weight:760; white-space:nowrap; }
+  .search { flex:1; height:40px; background:var(--surface); border-radius:6px; display:flex; align-items:center; gap:6px; padding:0 12px; color:var(--t4); font-size:12px; }
+  .search svg { flex-shrink:0; }
+  .nav-msg { width:40px; height:40px; display:flex; align-items:center; justify-content:center; color:#fff; position:relative; }
+  .nav-msg .dot { position:absolute; top:8px; right:8px; width:8px; height:8px; background:var(--accent); border-radius:50%; }
+  /* 分类轨道 */
+  .cats { background:var(--surface); padding:10px 12px; display:flex; gap:8px; overflow-x:auto; border-bottom:1px solid var(--divider); }
+  .cat { flex-shrink:0; height:30px; padding:0 14px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; font-size:12px; color:var(--t2); background:var(--surface); cursor:pointer; }
+  .cat.on { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600; }
+  /* 商品双列 */
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px; overflow-y:auto; height:calc(100% - 44px - 58px - 51px - 64px); }
+  .card { background:var(--surface); border-radius:8px; overflow:hidden; box-shadow:0 3px 12px rgba(16,24,40,.05); cursor:pointer; }
+  .card-img { aspect-ratio:4/3; background:var(--brand-soft); display:flex; align-items:center; justify-content:center; color:var(--brand); }
+  .card-img.rent { background:var(--accent-soft); color:var(--accent-deep); }
+  .card-img.second { background:var(--divider); color:var(--t3); }
+  .card-body { padding:8px 10px 10px; }
+  .card-title { font-size:13px; font-weight:700; color:var(--t1); line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:36px; }
+  .card-tags { display:flex; gap:4px; margin:6px 0 4px; }
+  .tag { font-size:10px; padding:2px 6px; border-radius:4px; line-height:1.4; }
+  .tag.rent { background:var(--accent-soft); color:var(--accent-deep); }
+  .tag.sale { background:var(--brand-soft); color:var(--brand); }
+  .tag.cert { background:var(--success-soft); color:var(--success); }
+  .card-foot { display:flex; align-items:baseline; justify-content:space-between; gap:4px; }
+  .price { font-size:13px; font-weight:760; color:var(--accent-deep); white-space:nowrap; }
+  .price small { font-size:10px; font-weight:400; color:var(--t3); }
+  .loc { font-size:10px; color:var(--t3); display:flex; align-items:center; gap:2px; }
+  /* 骨架 */
+  .skeleton .card-img { background:var(--divider); }
+  .skeleton .line { height:12px; background:var(--divider); border-radius:4px; margin-top:8px; }
+  .skeleton .line.short { width:60%; }
+  /* 空态 / 失败态 */
+  .state { height:calc(100% - 44px - 58px - 51px - 64px); display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--t3); font-size:12px; }
+  .state .s-ico { width:64px; height:64px; border-radius:50%; background:var(--brand-soft); display:flex; align-items:center; justify-content:center; }
+  .state .s-btn { height:36px; padding:0 20px; border-radius:6px; background:var(--brand); color:#fff; font-size:12px; display:flex; align-items:center; cursor:pointer; }
+  .state .s-note { font-size:11px; color:var(--t4); }
+  /* 底部弹层（商品详情） */
+  .sheet { position:absolute; left:0; right:0; bottom:0; background:var(--surface); border-radius:8px 8px 0 0; transform:translateY(100%); transition:transform .26s cubic-bezier(.2,.8,.2,1); z-index:30; max-height:76%; overflow-y:auto; }
+  .sheet.open { transform:translateY(0); }
+  .sheet-mask { position:absolute; inset:0; background:rgba(16,24,40,.4); opacity:0; pointer-events:none; transition:opacity .2s; z-index:20; }
+  .sheet-mask.show { opacity:1; pointer-events:auto; }
+  .sheet-bar { height:4px; width:36px; background:var(--divider); border-radius:2px; margin:8px auto 0; }
+  .sheet-head { display:flex; align-items:center; justify-content:space-between; padding:10px 16px 6px; }
+  .sheet-title { font-size:15px; font-weight:700; color:var(--t1); }
+  .sheet-close { width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:var(--t3); cursor:pointer; }
+  .sheet-hero { aspect-ratio:4/3; margin:0 16px; border-radius:8px; background:var(--brand-soft); display:flex; align-items:center; justify-content:center; }
+  .sheet-info { padding:14px 16px 20px; }
+  .sheet-row { display:flex; justify-content:space-between; font-size:12px; color:var(--t2); padding:8px 0; border-bottom:1px solid var(--divider); }
+  .sheet-row b { color:var(--t1); font-weight:600; }
+  .sheet-cta { position:sticky; bottom:0; background:var(--surface); padding:12px 16px calc(12px + env(safe-area-inset-bottom)); display:flex; gap:10px; }
+  .btn { flex:1; height:42px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; cursor:pointer; }
+  .btn.ghost { border:1px solid var(--border); color:var(--t2); background:var(--surface); }
+  .btn.primary { background:var(--brand); color:#fff; }
+  .btn.primary.accent-bg { background:var(--accent-soft); color:var(--accent-deep); }
+  /* 底部导航 */
+  .tabbar { position:absolute; left:0; right:0; bottom:0; height:64px; background:var(--surface); border-top:1px solid var(--divider); display:flex; z-index:10; }
+  .tab { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:10px; color:var(--t4); cursor:pointer; }
+  .tab.on { color:var(--brand); font-weight:600; }
+  .tab .ico { width:22px; height:22px; }
+  .tab.publish .ico { color:var(--accent); }
+  /* 设计评审控制器（桌面仅显示） */
+  .controls { position:fixed; left:24px; top:24px; width:220px; background:#fff; border-radius:10px; box-shadow:0 8px 32px rgba(16,24,40,.12); padding:14px; z-index:100; }
+  .controls h3 { font-size:12px; color:var(--t2); margin-bottom:10px; }
+  .controls .c-btn { display:block; width:100%; text-align:left; padding:8px 10px; border:none; background:var(--canvas); border-radius:6px; font-size:12px; color:var(--t2); cursor:pointer; margin-bottom:6px; }
+  .controls .c-btn:hover { background:var(--brand-soft); }
+  .controls .c-note { font-size:10px; color:var(--t4); margin-top:8px; line-height:1.5; }
+  @media (max-width:430px) { .controls { display:none; } }
+  svg { display:block; }
+</style>
+</head>
+<body>
+
+<div class="phone" id="phone">
+  <!-- 状态栏 -->
+  <div class="status-bar"><span>9:41</span><div class="capsule"><span>●</span><span>▮</span></div></div>
+
+  <!-- 导航 -->
+  <div class="nav">
+    <span class="nav-title">商城</span>
+    <div class="search" onclick="focusSearch()">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#98A2B3" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/></svg>
+      <span>搜索无人机型号 / 配件</span>
+    </div>
+    <div class="nav-msg"><span class="dot"></span>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 5h12v9H8l-4 3V5z"/></svg>
+    </div>
+  </div>
+
+  <!-- 分类轨道 -->
+  <div class="cats" id="cats">
+    <div class="cat on" data-cat="all" onclick="selectCat(this)">全部</div>
+    <div class="cat" data-cat="drone" onclick="selectCat(this)">整机</div>
+    <div class="cat" data-cat="accessory" onclick="selectCat(this)">配件</div>
+    <div class="cat" data-cat="battery" onclick="selectCat(this)">电池</div>
+    <div class="cat" data-cat="rent" onclick="selectCat(this)">租赁</div>
+    <div class="cat" data-cat="second" onclick="selectCat(this)">二手</div>
+  </div>
+
+  <!-- 商品双列 -->
+  <div class="grid" id="grid"></div>
+
+  <!-- 空态 -->
+  <div class="state" id="stateEmpty">
+    <div class="s-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5h8v2"/></svg></div>
+    <div>该分类暂无在售商品</div>
+    <div class="s-note">切换其他分类，或联系商家询价</div>
+  </div>
+
+  <!-- 失败态 -->
+  <div class="state" id="stateError">
+    <div class="s-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#D92D20" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg></div>
+    <div>商品列表加载失败</div>
+    <div class="s-btn" onclick="retryLoad()">重新加载</div>
+  </div>
+
+  <!-- 商品详情弹层 -->
+  <div class="sheet-mask" id="mask" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet">
+    <div class="sheet-bar"></div>
+    <div class="sheet-head">
+      <span class="sheet-title" id="sTitle">商品详情</span>
+      <span class="sheet-close" onclick="closeSheet()"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#667085" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg></span>
+    </div>
+    <div class="sheet-hero" id="sHero"></div>
+    <div class="sheet-info">
+      <div class="sheet-row"><span>租售类型</span><b id="sType">出售</b></div>
+      <div class="sheet-row"><span>价格</span><b id="sPrice">—</b></div>
+      <div class="sheet-row"><span>所在地</span><b id="sLoc">—</b></div>
+      <div class="sheet-row"><span>库存 / 状态</span><b id="sStock">—</b></div>
+      <div class="sheet-row"><span>商家</span><b id="sShop">—</b></div>
+      <div class="sheet-row"><span>认证</span><b id="sCert">—</b></div>
+    </div>
+    <div class="sheet-cta">
+      <div class="btn ghost" onclick="toast('已复制商家电话')">联系商家</div>
+      <div class="btn primary accent-bg" id="sCta" onclick="toast('已提交咨询')">咨询报价</div>
+    </div>
+  </div>
+
+  <!-- 底部导航 -->
+  <div class="tabbar">
+    <div class="tab" onclick="toast('首页')"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L11 3l8 7.5"/><path d="M5 9.5V19h12V9.5"/></svg></span>首页</div>
+    <div class="tab on"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h14v10H4z"/><path d="M8 7V5h6v2"/></svg></span>商城</div>
+    <div class="tab publish"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 4v14M4 11h14"/></svg></span>发布</div>
+    <div class="tab" onclick="toast('商家')"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l2-5h12l2 5"/><path d="M3 9v10h16V9"/><circle cx="11" cy="13" r="2.5"/></svg></span>商家</div>
+    <div class="tab" onclick="toast('我的')"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="7" r="3.5"/><path d="M4.5 19c1.2-3.5 3.8-5 6.5-5s5.3 1.5 6.5 5"/></svg></span>我的</div>
+  </div>
+</div>
+
+<!-- 设计评审控制器（桌面） -->
+<div class="controls">
+  <h3>设计评审 · 商城页</h3>
+  <button class="c-btn" onclick="setState('normal')">正常态</button>
+  <button class="c-btn" onclick="setState('loading')">加载态（骨架）</button>
+  <button class="c-btn" onclick="setState('empty')">空数据态</button>
+  <button class="c-btn" onclick="setState('error')">失败态</button>
+  <div class="c-note">点击商品卡打开详情弹层；分类可切换；375/390 宽度自适应。</div>
+</div>
+
+<script>
+const DATA = {
+  all: [
+    { n:'工业级六旋翼无人机 X6-28L', t:'sale', type:'出售', p:'¥128,000', pl:'整机', loc:'重庆·渝北', stock:'现货 3 台', shop:'重庆腾云航空科技', cert:'认证商家' },
+    { n:'植保无人机 20L 药箱版 T20', t:'rent', type:'租赁', p:'¥600 /天', pl:'租赁', loc:'重庆·涪陵', stock:'可租', shop:'渝农植保服务', cert:'认证商家' },
+    { n:'航拍云台相机 Z30 变焦版', t:'sale', type:'出售', p:'¥18,500', pl:'配件', loc:'重庆·江北', stock:'现货', shop:'峰谷影像设备', cert:'认证商家' },
+    { n:'智能飞行电池 TB65', t:'sale', type:'出售', p:'¥4,200', pl:'电池', loc:'重庆·渝北', stock:'现货 20 组', shop:'重庆腾云航空科技', cert:'认证商家' },
+    { n:'测绘激光雷达模块 L1', t:'rent', type:'租赁', p:'¥800 /天', pl:'租赁', loc:'重庆·南岸', stock:'可租', shop:'山城测绘服务', cert:'认证商家' },
+    { n:'无人机通用充电站 60A', t:'sale', type:'出售', p:'¥3,800', pl:'配件', loc:'重庆·九龙坡', stock:'现货', shop:'渝州动力设备', cert:'认证商家' },
+    { n:'二手大载重无人机 25L 已检修', t:'second', type:'二手', p:'¥56,000', pl:'二手', loc:'重庆·巴南', stock:'1 台', shop:'个人卖家·已实名', cert:'已实名' },
+    { n:'螺旋桨配件套装 6 支装', t:'sale', type:'出售', p:'¥680', pl:'配件', loc:'重庆·渝北', stock:'现货', shop:'重庆腾云航空科技', cert:'认证商家' },
+  ],
+  drone:[0,1,6], accessory:[2,5,7], battery:[3], rent:[1,4], second:[6]
+};
+
+function iconFor(item){
+  if(item.t==='rent') return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E96012" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5h8v2"/></svg>';
+  if(item.t==='second') return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="1.8" stroke-linecap="round"><path d="M4 8l8-4 8 4v8l-8 4-8-4V8z"/><path d="M4 8l8 4m0 0l8-4m-8 4v8"/></svg>';
+  return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5h8v2"/></svg>';
+}
+
+function renderList(items){
+  const grid=document.getElementById('grid');
+  grid.innerHTML=items.map(it=>`
+    <div class="card" onclick="openDetail('${it.n}')">
+      <div class="card-img ${it.t}">${iconFor(it)}</div>
+      <div class="card-body">
+        <div class="card-title">${it.n}</div>
+        <div class="card-tags">
+          <span class="tag ${it.t==='rent'?'rent':it.t==='second'?'sale':'sale'}">${it.pl}</span>
+          <span class="tag cert">${it.cert}</span>
+        </div>
+        <div class="card-foot"><span class="price">${it.p}</span><span class="loc">${it.loc}</span></div>
+      </div>
+    </div>`).join('');
+}
+
+function loadList(cat){
+  const items=(DATA[cat]||[]).map(i=>DATA.all[i]);
+  document.getElementById('grid').style.display='grid';
+  ['stateEmpty','stateError'].forEach(id=>document.getElementById(id).style.display='none');
+  if(items.length===0){ document.getElementById('grid').style.display='none'; document.getElementById('stateEmpty').style.display='flex'; return; }
+  renderList(items);
+}
+
+function selectCat(el){
+  document.querySelectorAll('.cat').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  setState('normal');
+}
+
+function retryLoad(){
+  const cats=document.querySelector('#cats').querySelector('.cat.on');
+  setState('normal');
+  if(cats) selectCat(cats);
+}
+function setState(s){
+  const grid=document.getElementById('grid');
+  const cats=document.querySelector('#cats').querySelector('.cat.on');
+  const cat=cats?cats.dataset.cat:'all';
+  document.getElementById('stateEmpty').style.display='none';
+  document.getElementById('stateError').style.display='none';
+  if(s==='loading'){
+    grid.style.display='grid';
+    grid.innerHTML='<div class="skeleton card"><div class="card-img"></div><div class="card-body"><div class="line"></div><div class="line short"></div><div class="line short" style="width:40%"></div></div></div>'.repeat(6);
+  } else if(s==='empty'){
+    grid.style.display='none'; document.getElementById('stateEmpty').style.display='flex';
+  } else if(s==='error'){
+    grid.style.display='none'; document.getElementById('stateError').style.display='flex';
+  } else {
+    loadList(cat);
+  }
+}
+
+function openDetail(n){
+  const item=DATA.all.find(i=>i.n===n); if(!item) return;
+  document.getElementById('sTitle').textContent=item.n;
+  document.getElementById('sHero').innerHTML=`<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center">${iconFor(item)}</div>`;
+  document.getElementById('sType').textContent=item.type;
+  document.getElementById('sPrice').textContent=item.p;
+  document.getElementById('sLoc').textContent=item.loc;
+  document.getElementById('sStock').textContent=item.stock;
+  document.getElementById('sShop').textContent=item.shop;
+  document.getElementById('sCert').textContent=item.cert;
+  document.getElementById('sCta').textContent=item.t==='rent'?'提交租赁咨询':'咨询报价';
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('mask').classList.add('show');
+}
+function closeSheet(){
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('mask').classList.remove('show');
+}
+function focusSearch(){ toast('搜索功能：输入型号或配件关键词'); }
+function toast(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(23,33,43,.85);color:#fff;font-size:12px;padding:8px 16px;border-radius:6px;z-index:99;transition:opacity .2s';
+  t.textContent=msg;
+  document.getElementById('phone').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0'; setTimeout(()=>t.remove(),200)},1600);
+}
+document.getElementById('sheet').addEventListener('click',e=>e.stopPropagation());
+loadList('all');
+</script>
+</body>
+</html>
