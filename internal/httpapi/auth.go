@@ -187,6 +187,10 @@ func (s *Server) adminGate(next http.Handler) http.Handler {
 // (e.g. /api/v1/jobs/{id}). Nested sub-resources (e.g. /api/v1/demands/{id}/applications)
 // are NOT public — the prefix bug previously exposed bidder info without auth.
 func isPublicPath(path string) bool {
+	// 名录公开，但「我的飞手状态」需要认证（前缀匹配会误放行 /mine）
+	if path == "/api/v1/certified-pilots/mine" {
+		return false
+	}
 	publicPrefixes := []string{
 		"/api/v1/home",
 		"/api/v1/search",

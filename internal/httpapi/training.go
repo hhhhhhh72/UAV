@@ -278,7 +278,11 @@ func (s *Server) listAdminPilots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page, pageSize := paginationFromQuery(r)
-	filtered, total := adminListFilter(pilots, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+	status := r.URL.Query().Get("status")
+	if status == "all" {
+		status = ""
+	}
+	filtered, total := adminListFilter(pilots, r.URL.Query().Get("keyword"), status,
 		func(p domain.CertifiedPilot) string { return p.RealName },
 		func(p domain.CertifiedPilot) string { return p.Status })
 	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
