@@ -31,9 +31,8 @@
   .zone{flex:1;text-align:center;padding:14px 0 12px;font-size:14px;color:var(--t3);cursor:pointer;position:relative;font-weight:500;transition:color .18s}
   .zone.on{color:var(--brand);font-weight:700}
   .zone.on::after{content:'';position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:32px;height:4px;border-radius:2px;background:var(--brand)}
-  .zone-count{font-size:10px;color:var(--t4);margin-left:4px;font-weight:400}
 
-  .list{padding:12px;overflow-y:auto;height:calc(100% - 44px - 58px - 47px - 64px)}
+  .list{padding:12px;overflow-y:auto;height:calc(100% - 44px - 60px - 47px - 64px)}
 
   /* 分区标题 */
   .zone-head{display:flex;align-items:center;gap:6px;margin:4px 0 10px}
@@ -54,6 +53,14 @@
   .prod-foot{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
   .prod-price{font-size:13px;font-weight:780;color:var(--accent-deep)}
   .prod-cert{font-size:9px;color:var(--success);background:var(--success-soft);padding:1px 5px;border-radius:3px}
+  .prod-meta{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:10px;color:var(--t3);margin-top:4px}
+  .prod-meta span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+  /* 整机/零件 二级切换 */
+  .sub-tabs{display:flex;gap:8px;margin:10px 0 12px}
+  .st{flex:1;height:30px;display:flex;align-items:center;justify-content:center;gap:4px;border-radius:6px;background:var(--canvas);color:var(--t3);font-size:12px;font-weight:600;cursor:pointer;transition:all .18s}
+  .st.on{background:var(--brand);color:#fff}
+  .st-count{font-size:10px;opacity:.75}
 
   /* 服务卡（航拍/检测/空域/培训：对接） */
   .serv{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 3px 12px rgba(16,24,40,.05);margin-bottom:10px;cursor:pointer;transition:transform .18s}
@@ -138,38 +145,44 @@
     <div class="zone" data-z="site" onclick="switchZone('site')">场地</div>
   </div>
 
-  <!-- 设备分区：整机/零部件（商品卡） -->
+  <!-- 设备分区：整机/零件（二级切换 + 商品卡） -->
   <div class="list" id="list-device">
-    <div class="zone-head"><span class="zone-dot"></span><span class="zone-title">整机</span><span class="zone-more">查看全部 ›</span></div>
-    <div class="grid">
+    <div class="sub-tabs">
+      <div class="st on" data-st="drone" onclick="switchDeviceTab('drone')">整机 <span class="st-count">2</span></div>
+      <div class="st" data-st="part" onclick="switchDeviceTab('part')">零件 <span class="st-count">2</span></div>
+    </div>
+    <div class="grid" id="grid-drone">
       <div class="prod" onclick="openDetail('工业级六旋翼巡检无人机 X6-28L')">
-        <div class="prod-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="巡检无人机"><span class="prod-tag">整机</span></div>
+        <div class="prod-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="巡检无人机"><span class="prod-tag">整机</span></div>
         <div class="prod-body">
           <div class="prod-title">工业级六旋翼巡检无人机 X6-28L</div>
+          <div class="prod-meta"><span>渝航智能 · X6-28L</span><span>1.2k 次浏览</span></div>
           <div class="prod-foot"><span class="prod-price">¥128,000</span><span class="prod-cert">认证</span></div>
         </div>
       </div>
       <div class="prod" onclick="openDetail('二手大载重吊运无人机 25L')">
-        <div class="prod-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/demand-lift.jpg" alt="吊运无人机"><span class="prod-tag">整机</span></div>
+        <div class="prod-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/demand-lift.jpg" alt="吊运无人机"><span class="prod-tag">整机</span></div>
         <div class="prod-body">
           <div class="prod-title">二手大载重吊运无人机 25L 已检修</div>
+          <div class="prod-meta"><span>渝航智能 · 25L</span><span>865 次浏览</span></div>
           <div class="prod-foot"><span class="prod-price">¥56,000</span><span class="prod-cert">已检修</span></div>
         </div>
       </div>
     </div>
-    <div class="zone-head"><span class="zone-dot"></span><span class="zone-title">零部件</span><span class="zone-more">查看全部 ›</span></div>
-    <div class="grid">
+    <div class="grid" id="grid-part" style="display:none">
       <div class="prod" onclick="openDetail('热成像巡检载荷 Z30')">
-        <div class="prod-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/demand-solar.jpg" alt="热成像载荷"><span class="prod-tag">载荷</span></div>
+        <div class="prod-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/demand-solar.jpg" alt="热成像载荷"><span class="prod-tag">载荷</span></div>
         <div class="prod-body">
           <div class="prod-title">热成像巡检载荷 Z30（双光）</div>
+          <div class="prod-meta"><span>恒宇光电 · Z30</span><span>1.5k 次浏览</span></div>
           <div class="prod-foot"><span class="prod-price">¥18,500</span><span class="prod-cert">认证</span></div>
         </div>
       </div>
       <div class="prod" onclick="openDetail('智能飞行电池 TB65')">
-        <div class="prod-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="电池"><span class="prod-tag">电池</span></div>
+        <div class="prod-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="电池"><span class="prod-tag">电池</span></div>
         <div class="prod-body">
           <div class="prod-title">智能飞行电池 TB65</div>
+          <div class="prod-meta"><span>渝航智能 · TB65</span><span>3.2k 次浏览</span></div>
           <div class="prod-foot"><span class="prod-price">¥4,200</span></div>
         </div>
       </div>
@@ -180,7 +193,7 @@
   <div class="list" id="list-service" style="display:none">
     <div class="zone-head"><span class="zone-dot"></span><span class="zone-title">航拍服务</span><span class="zone-more">查看全部 ›</span></div>
     <div class="serv" onclick="openDetail('光伏电站巡检航拍服务')">
-      <div class="serv-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/demand-solar.jpg" alt="光伏巡检"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M12 4l6 14H6L12 4z"/></svg></div>
+      <div class="serv-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/demand-solar.jpg" alt="光伏巡检"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M12 4l6 14H6L12 4z"/></svg></div>
       <div class="serv-info">
         <div class="serv-title">光伏电站巡检航拍服务（50MW 阵列 / 含热成像）</div>
         <span class="serv-type">航拍服务</span>
@@ -189,16 +202,16 @@
     </div>
     <div class="zone-head"><span class="zone-dot"></span><span class="zone-title">检测标定</span><span class="zone-more">查看全部 ›</span></div>
     <div class="serv" onclick="openDetail('无人机适航检测标定')">
-      <div class="serv-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="检测"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg></div>
+      <div class="serv-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="检测"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg></div>
       <div class="serv-info">
         <div class="serv-title">无人机适航检测标定（含出具报告）</div>
         <span class="serv-type">检测标定</span>
         <div class="serv-foot"><span class="serv-price"><b>面议</b> · 按机型</span><span class="serv-cta">联系对接 ›</span></div>
       </div>
     </div>
-    <div class="zone-head"><span class="zone-dot"></span><span class="zone-title">空域协调 / 培训</span><span class="zone-more">查看全部 ›</span></div>
+    <div class="zone-head"><span class="zone-dot"></span><span class="zone-title">空域协调</span><span class="zone-more">查看全部 ›</span></div>
     <div class="serv" onclick="openDetail('空域协调服务')">
-      <div class="serv-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/demand-lift.jpg" alt="空域"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V8l8-5 8 5v12"/></svg></div>
+      <div class="serv-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/demand-lift.jpg" alt="空域"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V8l8-5 8 5v12"/></svg></div>
       <div class="serv-info">
         <div class="serv-title">空域协调服务（飞行报备 / 空域申请代办）</div>
         <span class="serv-type">空域协调</span>
@@ -211,7 +224,7 @@
   <div class="list" id="list-site" style="display:none">
     <div class="zone-head"><span class="zone-dot"></span><span class="zone-title">试飞测试场地</span><span class="zone-more">查看全部 ›</span></div>
     <div class="site" onclick="openDetail('大安机场试飞场地')">
-      <div class="site-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/demand-lift.jpg" alt="试飞场地"></div>
+      <div class="site-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/demand-lift.jpg" alt="试飞场地"></div>
       <div class="site-info">
         <div class="site-title">大安机场试飞场地（空域条件齐全）</div>
         <div class="site-meta"><span>重庆·渝北</span><span>工作日 9-18 点</span></div>
@@ -219,7 +232,7 @@
       </div>
     </div>
     <div class="site" onclick="openDetail('龙兴试飞基地')">
-      <div class="site-img"><img src=".claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="试飞基地"></div>
+      <div class="site-img"><img src="../.claude/skills/design-uav-miniprogram-prototypes/assets/hero-inspection.jpg" alt="试飞基地"></div>
       <div class="site-info">
         <div class="site-title">龙兴试飞基地（含测试跑道）</div>
         <div class="site-meta"><span>重庆·两江新区</span><span>需提前 3 天预约</span></div>
@@ -242,6 +255,14 @@
     <div class="s-btn" onclick="toast('已跳转需求大厅')">去需求大厅发需求</div>
   </div>
 
+  <!-- 失败态 -->
+  <div class="state" id="stateFail">
+    <div class="s-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5"/><circle cx="12" cy="16.5" r=".9" fill="#0A66C2"/><path d="M4 20V8l8-5 8 5v12H4z"/></svg></div>
+    <div>供给列表加载失败</div>
+    <div style="font-size:11px;color:var(--t4)">网络开小差了，请检查后重试</div>
+    <div class="s-btn" onclick="setState('normal')">重新加载</div>
+  </div>
+
   <!-- 底部导航 -->
   <div class="tabbar">
     <div class="tab" onclick="toast('首页')"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L11 3l8 7.5"/><path d="M5 9.5V19h12V9.5"/></svg></span>首页</div>
@@ -259,6 +280,7 @@
   <button class="c-btn" onclick="switchZone('site')">场地分区</button>
   <button class="c-btn" onclick="setState('loading')">加载态（骨架）</button>
   <button class="c-btn" onclick="setState('empty')">空数据态</button>
+  <button class="c-btn" onclick="setState('fail')">失败态（重试）</button>
   <div class="c-note">按供给类型分区：设备（整机/零部件·商品卡）、服务（航拍/检测/空域·对接）、场地（试飞测试·预约）。</div>
 </div>
 
@@ -270,13 +292,20 @@ function switchZone(z){
   });
   document.getElementById('stateEmpty').style.display='none';
 }
+function switchDeviceTab(k){
+  document.querySelectorAll('.st').forEach(x=>x.classList.toggle('on',x.dataset.st===k));
+  document.getElementById('grid-drone').style.display = k==='drone' ? 'grid' : 'none';
+  document.getElementById('grid-part').style.display = k==='part' ? 'grid' : 'none';
+}
 function setState(s){
   const lists=['device','service','site'];
   lists.forEach(k=>document.getElementById('list-'+k).style.display='none');
   document.getElementById('skel').style.display='none';
   document.getElementById('stateEmpty').style.display='none';
+  document.getElementById('stateFail').style.display='none';
   if(s==='loading'){ document.getElementById('skel').style.display='flex'; }
   else if(s==='empty'){ document.getElementById('stateEmpty').style.display='flex'; }
+  else if(s==='fail'){ document.getElementById('stateFail').style.display='flex'; }
   else{ switchZone(document.querySelector('.zone.on').dataset.z); }
 }
 function openDetail(t){toast(t+'：详情页')}
