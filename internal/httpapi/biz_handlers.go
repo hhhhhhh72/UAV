@@ -1111,12 +1111,14 @@ func (s *Server) visitorResourceLevel(r *http.Request) int {
 		return 3 // 协会管理员
 	}
 	// 查单位身份（association_members.role: partner 副会长单位 / college 合作院校）
-	if m, err := s.assocMemberSvc.GetByUserID(a.ID); err == nil {
-		if m.Role == domain.AssocPartner {
-			return 2
-		}
-		if m.Role == domain.AssocCollege {
-			return 1
+	if s.assocMemberSvc != nil {
+		if m, err := s.assocMemberSvc.GetByUserID(a.ID); err == nil {
+			if m.Role == domain.AssocPartner {
+				return 2
+			}
+			if m.Role == domain.AssocCollege {
+				return 1
+			}
 		}
 	}
 	return 1 // 普通会员
