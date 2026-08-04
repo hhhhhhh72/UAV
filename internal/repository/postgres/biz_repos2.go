@@ -22,17 +22,20 @@ func (r *achieveRepo) Create(a domain.Achievement) (domain.Achievement, error) {
 	a.CreatedAt = time.Now(); a.UpdatedAt = a.CreatedAt
 	imgs, err := json.Marshal(a.Images)
 	if err != nil { return domain.Achievement{}, fmt.Errorf("marshal achievement images: %w", err) }
+	atts, err := json.Marshal(a.Attachments)
+	if err != nil { return domain.Achievement{}, fmt.Errorf("marshal attachments: %w", err) }
 	_, err = r.pool.Exec(context.Background(),
-		`INSERT INTO achievements (id,owner_id,title,achieve_type,description,field,stage,images,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		a.ID, a.OwnerID, a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, a.ContactInfo, a.Status, a.CreatedAt, a.UpdatedAt)
+		`INSERT INTO achievements (id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		a.ID, a.OwnerID, a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, atts, a.ContactInfo, a.Status, a.CreatedAt, a.UpdatedAt)
 	return a, err
 }
 func (r *achieveRepo) FindByID(id string) (domain.Achievement, error) {
-	var a domain.Achievement; var imgs []byte
+	var a domain.Achievement; var imgs, atts []byte
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id,owner_id,title,achieve_type,description,field,stage,images,contact_info,status,created_at,updated_at FROM achievements WHERE id=$1`, id).
-		Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &a.ContactInfo, &a.Status, &a.CreatedAt, &a.UpdatedAt)
+		`SELECT id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,created_at,updated_at FROM achievements WHERE id=$1`, id).
+		Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.CreatedAt, &a.UpdatedAt)
 	json.Unmarshal(imgs, &a.Images)
+	json.Unmarshal(atts, &a.Attachments)
 	return a, err
 }
 func (r *achieveRepo) List(field string, offset, limit int) ([]domain.Achievement, int, error) {
@@ -40,15 +43,16 @@ func (r *achieveRepo) List(field string, offset, limit int) ([]domain.Achievemen
 	if field != "" { where = `WHERE field=$1`; args = append(args, field) }
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM achievements `+where, args...).Scan(&total)
-	q := fmt.Sprintf(`SELECT id,owner_id,title,achieve_type,description,field,stage,images,contact_info,status,created_at,updated_at FROM achievements %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,created_at,updated_at FROM achievements %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil { return nil, 0, fmt.Errorf("list achievements: %w", err) }
 	defer rows.Close()
 	var out []domain.Achievement
 	for rows.Next() {
-		var a domain.Achievement; var imgs []byte
-		rows.Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &a.ContactInfo, &a.Status, &a.CreatedAt, &a.UpdatedAt)
+		var a domain.Achievement; var imgs, atts []byte
+		rows.Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.CreatedAt, &a.UpdatedAt)
 		json.Unmarshal(imgs, &a.Images)
+		json.Unmarshal(atts, &a.Attachments)
 		out = append(out, a)
 	}
 	return out, total, rows.Err()

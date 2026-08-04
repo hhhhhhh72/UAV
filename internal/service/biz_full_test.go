@@ -88,10 +88,10 @@ func TestPortfolioFullCRUD(t *testing.T) {
 // === Achievement full CRUD ===
 func TestAchievementFullCRUD(t *testing.T) {
 	svc := service.NewAchievementService(memory.NewAchievementRepository())
-	a, _ := svc.Create("user-1", "AI算法", "patent", "自动避障", "无人机", "lab", "138", []string{"d.jpg"})
+	a, _ := svc.Create("user-1", "AI算法", "patent", "自动避障", "无人机", "lab", "138", []string{"d.jpg"}, nil)
 	got, _ := svc.Get(a.ID)
 	if got.AchieveType != "patent" { t.Fatal("Get failed") }
-	svc.Update(a.ID, "AI算法v2", "software", "避障v2", "低空", "pilot", "139", []string{"d2.jpg"})
+	svc.Update(a.ID, "AI算法v2", "software", "避障v2", "低空", "pilot", "139", []string{"d2.jpg"}, nil)
 	// List by field
 	_, total, _ := svc.List("低空", 1, 20)
 	if total != 1 { t.Fatal("list by field") }

@@ -80,18 +80,26 @@ type ProjectApplication struct {
 
 // Achievement is a technology achievement / patent / innovation.
 type Achievement struct {
-	ID          string    `json:"id"`
-	OwnerID     string    `json:"owner_id"`
-	Title       string    `json:"title"`
-	AchieveType string    `json:"achieve_type"`
-	Description string    `json:"description"`
-	Field       string    `json:"field"`
-	Stage       string    `json:"stage"`
-	Images      []string  `json:"images"`
-	ContactInfo string    `json:"contact_info"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string       `json:"id"`
+	OwnerID     string       `json:"owner_id"`
+	Title       string       `json:"title"`
+	AchieveType string       `json:"achieve_type"`
+	Description string       `json:"description"`
+	Field       string       `json:"field"`
+	Stage       string       `json:"stage"`
+	Images      []string     `json:"images"`
+	Attachments []Attachment `json:"attachments"`
+	ContactInfo string       `json:"contact_info"`
+	Status      string       `json:"status"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
+}
+
+// Attachment 成果附件（detail_pd.html 原型：名称/大小/URL）
+type Attachment struct {
+	Name string `json:"name"`
+	Size string `json:"size"`
+	URL  string `json:"url"`
 }
 
 // RDChallenge is an enterprise R&D challenge posted for collaboration.

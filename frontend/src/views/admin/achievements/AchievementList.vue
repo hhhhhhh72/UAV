@@ -132,6 +132,17 @@
         <el-form-item label="作者"><el-input v-model="form.authors" /></el-form-item>
         <el-form-item label="日期"><el-input v-model="form.publish_date" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
+        <el-form-item label="附件资料">
+          <div style="width:100%">
+            <div v-for="(at, i) in form.attachments" :key="i" style="display:flex;gap:6px;margin-bottom:6px">
+              <el-input v-model="at.name" placeholder="附件名" style="width:40%" />
+              <el-input v-model="at.size" placeholder="大小" style="width:20%" />
+              <el-input v-model="at.url" placeholder="/uploads/xxx.pdf" style="flex:1" />
+              <el-button type="danger" :icon="Delete" circle size="small" @click="form.attachments.splice(i,1)" />
+            </div>
+            <el-button type="primary" plain size="small" @click="form.attachments.push({name:'',size:'',url:''})">+ 添加附件</el-button>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="formVisible=false">取消</el-button>
@@ -143,7 +154,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
@@ -170,7 +181,7 @@ const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
 const form=reactive({id:'',title:'',org:'',field:'',stage:'lab',patent_no:'',authors:'',publish_date:'',description:''})
-const resetForm=()=>Object.assign(form,{id:'',title:'',org:'',field:'',stage:'lab',patent_no:'',authors:'',publish_date:'',description:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',org:'',field:'',stage:'lab',patent_no:'',authors:'',publish_date:'',description:'',attachments:[]})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,r);formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入成果名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}

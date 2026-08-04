@@ -576,14 +576,20 @@ func (s *Server) createAchievement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, AchieveType, Description, Field, Stage, ContactInfo string
-		Images                                                     []string `json:"images"`
+		Title       string              `json:"title"`
+		AchieveType string              `json:"achieve_type"`
+		Description string              `json:"description"`
+		Field       string              `json:"field"`
+		Stage       string              `json:"stage"`
+		ContactInfo string              `json:"contact_info"`
+		Images      []string            `json:"images"`
+		Attachments []domain.Attachment `json:"attachments"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ach, err := s.achievementSvc.Create(a.ID, in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images)
+	ach, err := s.achievementSvc.Create(a.ID, in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -600,14 +606,20 @@ func (s *Server) updateAchievement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, AchieveType, Description, Field, Stage, ContactInfo string
-		Images                                                     []string `json:"images"`
+		Title       string              `json:"title"`
+		AchieveType string              `json:"achieve_type"`
+		Description string              `json:"description"`
+		Field       string              `json:"field"`
+		Stage       string              `json:"stage"`
+		ContactInfo string              `json:"contact_info"`
+		Images      []string            `json:"images"`
+		Attachments []domain.Attachment `json:"attachments"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ach, err := s.achievementSvc.Update(r.PathValue("id"), in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images)
+	ach, err := s.achievementSvc.Update(r.PathValue("id"), in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return

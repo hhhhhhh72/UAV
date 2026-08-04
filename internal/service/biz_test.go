@@ -49,7 +49,7 @@ func TestPortfolioCRUD(t *testing.T) {
 
 func TestAchievementCRUD(t *testing.T) {
 	svc := service.NewAchievementService(memory.NewAchievementRepository())
-	a, err := svc.Create("user-1", "AI避障算法", "patent", "自动避障", "无人机", "lab", "138", []string{"diagram.jpg"})
+	a, err := svc.Create("user-1", "AI避障算法", "patent", "自动避障", "无人机", "lab", "138", []string{"diagram.jpg"}, nil)
 	if err != nil { t.Fatal(err) }
 	if _, total, err := svc.List("无人机", 1, 20); err != nil || total != 1 { t.Fatalf("list fail") }
 	_ = a

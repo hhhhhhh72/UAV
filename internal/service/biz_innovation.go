@@ -18,7 +18,7 @@ func NewAchievementService(repo repository.AchievementRepository) *AchievementSe
 	return &AchievementService{repo: repo}
 }
 
-func (s *AchievementService) Create(ownerID, title, achieveType, description, field, stage, contactInfo string, images []string) (domain.Achievement, error) {
+func (s *AchievementService) Create(ownerID, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
 	now := time.Now()
 	a := domain.Achievement{
 		ID:          fmt.Sprintf("achieve-%d", now.UnixNano()),
@@ -29,6 +29,7 @@ func (s *AchievementService) Create(ownerID, title, achieveType, description, fi
 		Field:       field,
 		Stage:       stage,
 		Images:      images,
+		Attachments: attachments,
 		ContactInfo: contactInfo,
 		Status:      "published",
 		CreatedAt:   now,
@@ -46,7 +47,7 @@ func (s *AchievementService) Get(id string) (domain.Achievement, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *AchievementService) Update(id, title, achieveType, description, field, stage, contactInfo string, images []string) (domain.Achievement, error) {
+func (s *AchievementService) Update(id, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
 	a, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.Achievement{}, err
@@ -57,6 +58,7 @@ func (s *AchievementService) Update(id, title, achieveType, description, field, 
 	a.Field = field
 	a.Stage = stage
 	a.Images = images
+	a.Attachments = attachments
 	a.ContactInfo = contactInfo
 	a.UpdatedAt = time.Now()
 	return s.repo.Update(a)

@@ -69,6 +69,19 @@
         </view>
       </view>
 
+      <!-- 附件资料（detail_pd.html 原型区块） -->
+      <view v-if="d.attachments && d.attachments.length" class="sec" :class="{ vis: vis }">
+        <view class="sh"><view class="sd"></view><text class="sht">附件资料</text></view>
+        <view v-for="(at, i) in d.attachments" :key="i" class="at-row" @tap="downloadAt(at)">
+          <view class="at-ic"><text>附</text></view>
+          <view class="at-info">
+            <text class="at-name">{{ at.name || '附件' }}</text>
+            <text class="at-size">{{ at.size || '' }}</text>
+          </view>
+          <text class="at-btn">下载</text>
+        </view>
+      </view>
+
       <view style="height: 160rpx"></view>
     </template>
 
@@ -182,6 +195,7 @@ const fetchData = async () => {
         stage: item.stage || '',
         images: item.images || [],
         img: imgSrc(item.images),
+        attachments: item.attachments || [],
         contact_info: item.contact_info || '',
         status: item.status || '',
         created_at: item.created_at || '',
@@ -219,6 +233,22 @@ const toggleFav = () => {
   }
 }
 const onContact = () => uni.showToast({ title: '联系对接功能待开放', icon: 'none', duration: 1500 })
+
+// 下载附件（相对 URL 拼后端地址）
+const downloadAt = (at) => {
+  if (!at?.url) { uni.showToast({ title: '附件地址缺失', icon: 'none' }); return }
+  uni.downloadFile({
+    url: at.url.startsWith('http') ? at.url : BASE_URL + at.url,
+    success: (res) => {
+      if (res.statusCode === 200) {
+        uni.openDocument({ filePath: res.tempFilePath, showMenu: true, fail: () => uni.showToast({ title: '无法预览，请用浏览器打开', icon: 'none' }) })
+      } else {
+        uni.showToast({ title: '下载失败', icon: 'none' })
+      }
+    },
+    fail: () => uni.showToast({ title: '下载失败', icon: 'none' })
+  })
+}
 
 onLoad((options) => {
   if (options?.id) id.value = decodeURIComponent(options.id)
@@ -274,6 +304,16 @@ page { background: var(--color-bg); }
 .ir2 { display: flex; padding: 24rpx 0; border-bottom: .5px solid #f5f5f5; }
 .ir2:last-child { border-bottom: none; }
 .ik { width: 140rpx; flex-shrink: 0; font-size: 26rpx; color: var(--color-text-placeholder); }
+
+/* ===== 附件资料（detail_pd.html 原型） ===== */
+.at-row { display: flex; align-items: center; gap: 16rpx; padding: 20rpx 0; border-bottom: .5px solid #f5f5f5; }
+.at-row:last-child { border-bottom: none; }
+.at-ic { width: 56rpx; height: 56rpx; border-radius: 12rpx; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.at-ic text { font-size: 24rpx; color: var(--color-primary); font-weight: 600; }
+.at-info { flex: 1; min-width: 0; }
+.at-name { display: block; font-size: 26rpx; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.at-size { display: block; font-size: 20rpx; color: var(--color-text-placeholder); margin-top: 4rpx; }
+.at-btn { flex-shrink: 0; padding: 8rpx 20rpx; border-radius: 8rpx; background: var(--color-primary); color: #fff; font-size: 22rpx; }
 .iv { flex: 1; font-size: 28rpx; color: var(--color-text); word-break: break-all; }
 .iv.cl-la { color: #1967d2; font-weight: 600; }
 .iv.cl-pi { color: var(--color-warning); font-weight: 600; }
