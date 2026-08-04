@@ -51,7 +51,8 @@ type College struct {
 	Partners     []string `json:"partners"`      // 合作企业
 	LogoURL      string   `json:"logo_url"`
 	Description  string   `json:"description"`
-	Status       string   `json:"status"` // active / inactive
+	Status       string   `json:"status"`    // active / inactive
+	CoopType     string   `json:"coop_type"` // research(科研合作) / talent(人才培养) / both(综合) — 功能方案修订版 三·五 分域
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

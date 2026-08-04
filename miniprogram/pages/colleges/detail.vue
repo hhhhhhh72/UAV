@@ -32,6 +32,7 @@
 
           <!-- ③ 标签 + 数据条 -->
           <view class="tag-row">
+            <text v-if="coopTypeLabel(detail.coop_type)" class="tag-item coop-tag">{{ coopTypeLabel(detail.coop_type) }}</text>
             <text v-for="t in compTags(detail)" :key="t" class="tag-item" :style="tagStyle(t)">{{ t }}</text>
           </view>
 
@@ -113,6 +114,10 @@ function tagStyle(tag) {
   return { background: 'var(--color-primary-light)', color: 'var(--color-primary)' }
 }
 
+// 院校分域（功能方案修订版 三·五 分域：科研合作/人才培养/综合）
+function coopTypeLabel(t) {
+  return { research: '科研合作', talent: '人才培养', both: '综合' }[t] || ''
+}
 function compTags(item) {
   if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
   if (Array.isArray(item.specialties)) return item.specialties
@@ -247,6 +252,7 @@ onLoad(function (options) {
 /* ③ 标签 + 数据 */
 .tag-row { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 28rpx; }
 .tag-item { padding: 6rpx 18rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; }
+.coop-tag { background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; }
 
 .stats-row { display: flex; gap: 12rpx; margin-bottom: 36rpx; }
 .stat { flex: 1; padding: 24rpx 8rpx; background: #f8fafc; border-radius: 18rpx; text-align: center; }

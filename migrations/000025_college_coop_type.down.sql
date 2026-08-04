@@ -1,0 +1,1 @@
+ALTER TABLE colleges DROP COLUMN IF EXISTS coop_type;

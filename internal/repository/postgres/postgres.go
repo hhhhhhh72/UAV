@@ -1202,20 +1202,20 @@ func (s *Store) NewCollegeRepository() repository.CollegeRepository { return &pg
 func (r *pgCollegeRepo) Create(c domain.College) (domain.College, error) {
 	c.CreatedAt = time.Now(); c.UpdatedAt = c.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO colleges (id,name,region,description,logo_url,status,majors,facilities,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		c.ID, c.Name, c.Region, c.Description, c.LogoURL, c.Status, c.Majors, c.Facilities, c.CreatedAt, c.UpdatedAt)
+		`INSERT INTO colleges (id,name,region,description,logo_url,status,coop_type,majors,facilities,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		c.ID, c.Name, c.Region, c.Description, c.LogoURL, c.Status, c.CoopType, c.Majors, c.Facilities, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
 
 func (r *pgCollegeRepo) FindByID(id string) (domain.College, error) {
 	var c domain.College
-	err := r.pool.QueryRow(context.Background(), `SELECT id,name,region,description,logo_url,status,majors,facilities,created_at,updated_at FROM colleges WHERE id=$1`, id).
-		Scan(&c.ID, &c.Name, &c.Region, &c.Description, &c.LogoURL, &c.Status, &c.Majors, &c.Facilities, &c.CreatedAt, &c.UpdatedAt)
+	err := r.pool.QueryRow(context.Background(), `SELECT id,name,region,description,logo_url,status,coop_type,majors,facilities,created_at,updated_at FROM colleges WHERE id=$1`, id).
+		Scan(&c.ID, &c.Name, &c.Region, &c.Description, &c.LogoURL, &c.Status, &c.CoopType, &c.Majors, &c.Facilities, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
 
 func (r *pgCollegeRepo) List(region string) ([]domain.College, error) {
-	q := `SELECT id,name,region,description,logo_url,status,majors,facilities,created_at,updated_at FROM colleges`
+	q := `SELECT id,name,region,description,logo_url,status,coop_type,majors,facilities,created_at,updated_at FROM colleges`
 	args := []any{}
 	if region != "" { q += ` WHERE region=$1`; args = append(args, region) }
 	q += ` ORDER BY created_at DESC`
@@ -1225,7 +1225,7 @@ func (r *pgCollegeRepo) List(region string) ([]domain.College, error) {
 	var out []domain.College
 	for rows.Next() {
 		var c domain.College
-		if err := rows.Scan(&c.ID, &c.Name, &c.Region, &c.Description, &c.LogoURL, &c.Status, &c.Majors, &c.Facilities, &c.CreatedAt, &c.UpdatedAt); err != nil { return nil, err }
+		if err := rows.Scan(&c.ID, &c.Name, &c.Region, &c.Description, &c.LogoURL, &c.Status, &c.CoopType, &c.Majors, &c.Facilities, &c.CreatedAt, &c.UpdatedAt); err != nil { return nil, err }
 		out = append(out, c)
 	}
 	return out, rows.Err()
@@ -1234,8 +1234,8 @@ func (r *pgCollegeRepo) List(region string) ([]domain.College, error) {
 func (r *pgCollegeRepo) Update(c domain.College) (domain.College, error) {
 	c.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE colleges SET name=$1,region=$2,description=$3,logo_url=$4,status=$5,majors=$6,facilities=$7,updated_at=$8 WHERE id=$9`,
-		c.Name, c.Region, c.Description, c.LogoURL, c.Status, c.Majors, c.Facilities, c.UpdatedAt, c.ID)
+		`UPDATE colleges SET name=$1,region=$2,description=$3,logo_url=$4,status=$5,coop_type=$6,majors=$7,facilities=$8,updated_at=$9 WHERE id=$10`,
+		c.Name, c.Region, c.Description, c.LogoURL, c.Status, c.CoopType, c.Majors, c.Facilities, c.UpdatedAt, c.ID)
 	return c, err
 }
 
