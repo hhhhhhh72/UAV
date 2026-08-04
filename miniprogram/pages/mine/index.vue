@@ -182,11 +182,11 @@
             </view>
             <text class="grid-label">我的积分</text>
           </view>
-          <view class="grid-cell" @tap="goDeviceBinding">
+          <view class="grid-cell" @tap="goMyCertificates">
             <view class="grid-icon-wrap grid-icon-device">
-              <text class="grid-icon-text">绑</text>
+              <text class="grid-icon-text">证</text>
             </view>
-            <text class="grid-label">设备绑定</text>
+            <text class="grid-label">我的证书</text>
           </view>
           <view class="grid-cell" @tap="goOfficialService">
             <view class="grid-icon-wrap grid-icon-service">
@@ -389,6 +389,12 @@ const goMyPoints = () => {
 const goDeviceBinding = () => {
   if (!user.value) return goLogin()
   uni.showToast({ title: '设备绑定即将上线', icon: 'none' })
+}
+
+// 我的证书：认证证书列表（认证飞手申请自动关联的证书在此可见）
+const goMyCertificates = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/training/certificates' })
 }
 
 const goOfficialService = () => {
