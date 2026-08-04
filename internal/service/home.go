@@ -9,10 +9,13 @@ import (
 )
 
 type HomeService struct {
-	demandRepo repository.DemandRepository
+	demandRepo     repository.DemandRepository
+	enterpriseRepo repository.EnterpriseRepository
 }
 
-func NewHomeService(d repository.DemandRepository) *HomeService { return &HomeService{demandRepo: d} }
+func NewHomeService(d repository.DemandRepository, e repository.EnterpriseRepository) *HomeService {
+	return &HomeService{demandRepo: d, enterpriseRepo: e}
+}
 
 // HomeData aggregates all data needed by the mini-program home page.
 type HomeData struct {
@@ -21,11 +24,14 @@ type HomeData struct {
 	QuickEntries []domain.HomeQuickEntry `json:"quick_entries"`
 	HotDemands   []domain.Demand         `json:"hot_demands"`
 	Notices      []string                `json:"notices"`
+	Shops        []domain.Shop           `json:"shops"` // 商家列表：已审核企业（商家/企业合一）
 }
 
 // GetHome assembles the home page data with optional city and location.
 func (s *HomeService) GetHome(city string, lat, lng float64) HomeData {
-	if city == "" { city = "重庆" }
+	if city == "" {
+		city = "重庆"
+	}
 
 	// Banners and quick entries from dynamic config.
 	cfg := config.GetPlatformConfig()
@@ -54,7 +60,26 @@ func (s *HomeService) GetHome(city string, lat, lng float64) HomeData {
 		public[i] = sanitizeDemand(d)
 	}
 
-	return HomeData{City: city, Banners: banners, QuickEntries: entries, HotDemands: public, Notices: notices}
+	// 商家列表 = 已审核企业（商家/企业合一：入驻审核通过即成为商家，供商家 Tab 展示）
+	shops := []domain.Shop{}
+	if s.enterpriseRepo != nil {
+		ents, _, err := s.enterpriseRepo.ListByStatus(string(domain.EnterpriseApproved), 0, 100)
+		if err == nil {
+			for _, e := range ents {
+				shops = append(shops, domain.Shop{
+					ID:        e.ID,
+					Name:      e.Name,
+					OwnerID:   e.OwnerUserID,
+					IsMember:  e.IsMember,
+					Status:    string(e.Status),
+					CreatedAt: e.CreatedAt,
+					UpdatedAt: e.UpdatedAt,
+				})
+			}
+		}
+	}
+
+	return HomeData{City: city, Banners: banners, QuickEntries: entries, HotDemands: public, Notices: notices, Shops: shops}
 }
 
 func sortByDistance(demands []domain.Demand, lat, lng float64) {
@@ -62,7 +87,7 @@ func sortByDistance(demands []domain.Demand, lat, lng float64) {
 	dist := func(d domain.Demand) float64 {
 		dlat := d.Latitude - lat
 		dlng := d.Longitude - lng
-		return math.Sqrt(dlat*dlat + dlng*dlng) * 111000 // approx meters
+		return math.Sqrt(dlat*dlat+dlng*dlng) * 111000 // approx meters
 	}
 	for i := 1; i < len(demands); i++ {
 		for j := i; j > 0 && dist(demands[j]) < dist(demands[j-1]); j-- {
@@ -72,6 +97,9 @@ func sortByDistance(demands []domain.Demand, lat, lng float64) {
 }
 
 func sanitizeDemand(d domain.Demand) domain.Demand {
-	d.PublisherID = ""; d.Contact = ""; d.Latitude = 0; d.Longitude = 0
+	d.PublisherID = ""
+	d.Contact = ""
+	d.Latitude = 0
+	d.Longitude = 0
 	return d
 }

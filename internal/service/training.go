@@ -60,9 +60,16 @@ func (s *TrainingService) GetCert(id string) (domain.Certificate, error) {
 
 func (s *TrainingService) UpdateCertificate(id, certType, certNumber, level, issuer, status string, issueDate, expireDate time.Time) (domain.Certificate, error) {
 	c, err := s.certRepo.FindByID(id)
-	if err != nil { return domain.Certificate{}, err }
-	c.CertType = domain.CertType(certType); c.CertNumber = certNumber; c.Level = level; c.IssuerOrg = issuer
-	c.Status = status; c.IssueDate = issueDate; c.ExpireDate = expireDate
+	if err != nil {
+		return domain.Certificate{}, err
+	}
+	c.CertType = domain.CertType(certType)
+	c.CertNumber = certNumber
+	c.Level = level
+	c.IssuerOrg = issuer
+	c.Status = status
+	c.IssueDate = issueDate
+	c.ExpireDate = expireDate
 	return s.certRepo.Update(c)
 }
 
@@ -87,9 +94,18 @@ func (s *TrainingService) ListCourses() ([]domain.TrainingCourse, error) {
 
 func (s *TrainingService) UpdateCourse(id string, title, certType, desc, location string, start, end time.Time, maxStudents int, priceFen int64, status string) (domain.TrainingCourse, error) {
 	c, err := s.courseRepo.FindByID(id)
-	if err != nil { return domain.TrainingCourse{}, err }
-	c.Title = title; c.CertType = domain.CertType(certType); c.Description = desc; c.Location = location
-	c.StartDate = start; c.EndDate = end; c.MaxStudents = maxStudents; c.PriceFen = priceFen; c.Status = status
+	if err != nil {
+		return domain.TrainingCourse{}, err
+	}
+	c.Title = title
+	c.CertType = domain.CertType(certType)
+	c.Description = desc
+	c.Location = location
+	c.StartDate = start
+	c.EndDate = end
+	c.MaxStudents = maxStudents
+	c.PriceFen = priceFen
+	c.Status = status
 	return s.courseRepo.Update(c)
 }
 
@@ -135,4 +151,18 @@ func (s *TrainingService) ApprovePilot(a domain.Actor, id string) (domain.Certif
 
 func (s *TrainingService) ListPilots() ([]domain.CertifiedPilot, error) {
 	return s.pilotRepo.List()
+}
+
+// GetPilotByOwner 查询我的飞手认证记录（未申请返回零值）。
+func (s *TrainingService) GetPilotByOwner(userID string) (domain.CertifiedPilot, error) {
+	pilots, err := s.pilotRepo.List()
+	if err != nil {
+		return domain.CertifiedPilot{}, err
+	}
+	for _, p := range pilots {
+		if p.UserID == userID {
+			return p, nil
+		}
+	}
+	return domain.CertifiedPilot{}, nil
 }

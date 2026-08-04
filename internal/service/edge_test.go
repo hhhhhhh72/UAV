@@ -153,7 +153,7 @@ func TestReviewsVenuesAll(t *testing.T) {
 
 // === Home ===
 func TestHomeService(t *testing.T) {
-	svc := service.NewHomeService(memory.NewDemandRepository(nil))
+	svc := service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil))
 	data := svc.GetHome("重庆", 29.5, 106.5)
 	if data.City != "重庆" { t.Fatal("city mismatch") }
 	if len(data.Banners) == 0 { t.Log("no banners configured") }

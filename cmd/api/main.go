@@ -281,7 +281,7 @@ func main() {
 		service.NewTradingService(productRepo, repairRepo),
 		service.NewInsuranceService(policyRepo, inspectRepo),
 		service.NewFinanceService(loanRepo),
-		service.NewHomeService(demandRepo),
+		service.NewHomeService(demandRepo, enterpriseRepo),
 		service.NewFileService("uploads/"),
 		service.NewMessageService(msgRepo),
 		service.NewEnrollmentService(enrollRepo),
