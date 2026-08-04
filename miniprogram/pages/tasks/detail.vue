@@ -1,32 +1,34 @@
 <template>
 <view class="page">
-  <!-- 顶部帖子 -->
-  <view class="post-card">
+  <!-- 顶部帖子（真实数据） -->
+  <view v-if="post" class="post-card">
     <view class="post-head">
-      <view class="post-title">独立吊运业务  小飞虹独家项目目...</view>
+      <view class="post-title">{{ post.title || '未命名需求' }}</view>
       <view class="post-poster">生成海报</view>
     </view>
     <view class="post-meta">
-      <text>3天前 来自小飞虹无人机圈子社区平台</text>
+      <text>{{ (post.created_at || '').slice(0, 16).replace('T', ' ') }} · 需求大厅</text>
     </view>
     <view class="post-stats">
       <text>{{ views }}浏览、0人点赞</text>
     </view>
     <view class="post-fields">
-      <text class="field-row"><text class="field-key">货物类型</text>：树/木头</text>
-      <text class="field-row"><text class="field-key">项目总量</text>：300吨</text>
-      <text class="field-row"><text class="field-key">启动时间</text>：2026-07-29 10:47</text>
-      <text class="field-row"><text class="field-key">地区</text>：重庆市万州区</text>
+      <text class="field-row"><text class="field-key">业务类型</text>：{{ bizTypeLabel(post.biz_type) }}</text>
+      <text class="field-row"><text class="field-key">预算</text>：¥{{ fmtFen(post.budget_fen) }}</text>
+      <text class="field-row"><text class="field-key">地区</text>：{{ post.district || '未填写' }}</text>
     </view>
-    <text class="post-body">重庆300吨柏木头，单件重量100-400内，吊运距离200-900米，100米高度，项目只给代理运营商和签约飞手及从平台采购无人机者独家承接，欢迎加入。</text>
+    <text class="post-body">{{ post.description || '暂无详细描述，请联系发布者' }}</text>
     <view class="post-imgs">
-      <image v-for="i in 2" :key="i" src="/static/home-bg.jpg" mode="aspectFill" class="post-img-big" />
+      <image v-for="(img, i) in postImgs" :key="i" :src="img" mode="aspectFill" class="post-img-big" />
     </view>
+  </view>
+  <view v-else class="post-card" style="padding: 40rpx 0; text-align: center">
+    <u-empty description="需求不存在或已下线" />
   </view>
 
   <!-- 位置 + 点赞 -->
   <view class="loc-bar">
-    <view class="loc-text"><u-icon name="location" size="28rpx" color="var(--color-primary)" /><text>两江新区金山街道加工区八路</text></view>
+    <view class="loc-text"><u-icon name="location" size="28rpx" color="var(--color-primary)" /><text>{{ post?.district || '位置未填写' }}</text></view>
     <view class="like-btn" @tap="toggleLike">赞 {{ likes }}</view>
   </view>
 
@@ -70,25 +72,36 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request } from '@/utils/request'
+import { request, BASE_URL } from '@/utils/request'
 
-const views = ref(8586)
+const views = ref(0)
 const likes = ref(0)
+const post = ref(null)
 const activeCat = ref('news')
 const cats = ref([
   { id:'news', name:'最新信息' }, { id:'lift', name:'吊运独家' }, { id:'trade', name:'买卖租赁' },
   { id:'train', name:'考证培训' }, { id:'plant', name:'植保运输' },
 ])
+const postImgs = computed(() => {
+  try {
+    const arr = typeof post.value?.images === 'string' ? JSON.parse(post.value.images) : (post.value?.images || [])
+    return arr.map(u => (u && u.startsWith('http') ? u : BASE_URL + u)).slice(0, 2)
+  } catch (e) { return [] }
+})
+const bizTypeLabel = (t) => ({ lift: '吊运', aerial: '航拍', plant: '植保', patrol: '巡检', survey: '测绘', logistics: '物流', purchase: '采购' }[t] || t || '其他')
+const fmtFen = (f) => f ? (f / 100).toLocaleString('en-US') : '面议'
+
 onLoad((opts) => {
   if (!opts.id) return;
   (async () => {
     try {
-      const res = await request({ url:'/api/v1/demands', data:{page:1,page_size:1} })
-      const list = (Array.isArray(res) ? res : (res.data||[]))
-      if (list[0]) {
-        views.value = list[0].views || 8586
+      const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(opts.id) })
+      const d = (res && res.data) || res
+      if (d && d.id) {
+        post.value = d
+        views.value = d.views || 0
       }
     } catch {}
   })()

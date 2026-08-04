@@ -135,6 +135,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { safeNavigateTo } from '../../utils/nav'
+import { request, BASE_URL } from '../../utils/request'
 
 const statusBarH = ref(24)
 const post = ref(null)
@@ -160,26 +161,39 @@ const generatePoster = () => uni.showToast({ title: '海报生成中', icon: 'no
 
 onMounted(() => {
   statusBarH.value = (uni.getSystemInfoSync().statusBarHeight || 24) + 6
-  // 加载数据（实际应从接口拉）
-  post.value = {
-    tag: '互助',
-    userName: '王新刚***3000',
-    time: '07-09 12:22',
-    from: '小飞虾无人机圈子社区平台',
-    title: '山东省青岛市吊运项目',
-    views: 15999,
-    likes: 1,
-    location: '山东省青岛市',
-    desc: '山东省青岛市FC100，3台，T1007台。万物可吊。能开无人机吊运租赁发票。客户地址在哪里，我们就去哪里作业。我们所有的设备技术人员都配备了专业操作平台，万物可吊。',
-    photos: ['/static/home-bg.jpg', '/static/home-bg.jpg'],
-    phone: '4001234567',
-    avatar: '/static/home-bg.jpg'
-  }
-  // 兜底评论
-  if (!comments.value.length) {
-    comments.value = []
-  }
+  loadDetail()
 })
+
+// 真实数据：按 id 拉需求详情（公开路由 /api/v1/demands/{id}）
+const loadDetail = async () => {
+  if (!postId.value) return
+  try {
+    const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(postId.value) })
+    const d = (res && res.data) || res
+    if (d && d.id) {
+      post.value = {
+        tag: d.biz_type || '需求',
+        userName: d.publisher_name || '平台用户',
+        time: (d.created_at || '').slice(0, 16).replace('T', ' '),
+        from: '无人机产业综合服务平台',
+        title: d.title || '',
+        views: d.views || 0,
+        likes: 0,
+        location: d.district || '',
+        desc: d.description || '暂无详细描述',
+        photos: parseImgs(d.images),
+        phone: d.contact || '',
+        avatar: ''
+      }
+    }
+  } catch (e) { /* 保持空态 */ }
+}
+const parseImgs = (imgs) => {
+  try {
+    const arr = typeof imgs === 'string' ? JSON.parse(imgs) : (imgs || [])
+    return arr.map(u => (u && u.startsWith('http') ? u : BASE_URL + u))
+  } catch (e) { return [] }
+}
 </script>
 
 <style scoped>

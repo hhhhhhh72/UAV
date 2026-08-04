@@ -22,8 +22,8 @@
       </view>
 
       <!-- 3. 数据条 -->
-      <view class="stats-bar">
-        <text><text class="stats-k">设备</text> {{ stats.devices || 1280 }} 架 ｜ <text class="stats-k">飞手</text> {{ stats.pilots || 3560 }} 人 ｜ <text class="stats-k">任务</text> {{ stats.tasks || 48 }} 单</text>
+      <view class="stats-bar" v-if="stats.demands > 0 || stats.users > 0">
+        <text><text class="stats-k">需求</text> {{ stats.demands || 0 }} 单 ｜ <text class="stats-k">商家</text> {{ stats.shops || 0 }} 家 ｜ <text class="stats-k">用户</text> {{ stats.users || 0 }} 人</text>
         <text class="stats-help">帮助</text>
       </view>
 
@@ -80,6 +80,7 @@
         <scroll-view scroll-x :show-scrollbar="false" class="tieba-nav">
           <text v-for="c in taskCats" :key="c.id" class="tieba-cat" :class="{on:activeTaskCat===c.id}" @tap="activeTaskCat=c.id">{{ c.name }}</text>
         </scroll-view>
+        <view v-if="!taskList.length" class="tieba-empty">暂无需求，去发布大厅看看</view>
         <view v-for="(t,i) in taskList" :key="i" class="tieba-post" @tap="navigateTo('/pages/tasks/detail?id=' + t.id)">
           <view class="post-top">
             <text class="post-title">{{ t.title || '无人机需求' }}</text>
@@ -181,12 +182,11 @@ const loadHome = async () => {
         images: []
       }))
     } else {
-      taskList.value = [
-        { id: '1', publisher_name: '小飞虹', biz_type: '吊运', title: '独立吊运业务  小飞虹独家项目目...', description: '重庆300吨柏木头，单件重量100-400内，吊运距离200-900米，100米高度，项目只给代理运营商和签约客户', district: '两江新区金山街道加工区八路', views: 8575, start_time: '2026-07-29 10:47', quantity: '300吨', cargo_type: '树/木头', images: [] },
-        { id: '2', publisher_name: '李航拍', biz_type: '航拍', title: '婚庆航拍  周六找飞手', description: '下周六婚礼现场航拍，熟练飞手一名，设备自带Mavic3', district: '南岸区江南体育馆', views: 834, start_time: '2026-07-28 14:00', quantity: '1单', cargo_type: '航拍服务', images: [] },
-      ]
+      taskList.value = [] // 无真实需求数据不展示假数据
     }
-  } catch {}
+  } catch {
+    taskList.value = []
+  }
 }
 const formatViews = (v) => v >= 10000 ? (v / 10000).toFixed(1) + '万' : String(v)
 
