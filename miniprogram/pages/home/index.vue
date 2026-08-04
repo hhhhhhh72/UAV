@@ -144,7 +144,7 @@ const fmtTime = (s) => {
 
 const functions = ref([
   { name: '需求大厅', icon: '/static/icons/apps.svg', bg: 'linear-gradient(135deg,#e3f2fd,#90caf9)', path: '/pages/demands/list' },
-  { name: '买卖租赁', icon: '/static/icons/rent.svg', bg: 'linear-gradient(135deg,#fce4ec,#f48fb1)', path: '/pages/mall/index' },
+  { name: '低空研学', icon: '/static/icons/study-fpv.svg', bg: 'linear-gradient(135deg,#e3f2fd,#64b5f6)', path: '/pages/study/index' },
   { name: '考证培训', icon: '/static/icons/training-v2.svg', bg: 'linear-gradient(135deg,#e8f5e9,#a5d6a7)', path: '/pages/training/courses' },
   { name: '课题攻关', icon: '/static/icons/flight.svg', bg: 'linear-gradient(135deg,#e3f2fd,#42a5f5)', path: '/pages/projects/list' },
   { name: '商家入驻', icon: '/static/icons/shop.svg', bg: 'linear-gradient(135deg,#fff8e1,#fff176)', path: '/pages/enterprise/register' },
