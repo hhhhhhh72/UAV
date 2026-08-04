@@ -283,7 +283,13 @@ export default {
             })
           })
           uni.hideLoading()
-          payload.license_url = (uploadRes && (uploadRes.url || uploadRes.data && uploadRes.data.url)) || self.licenseUrl
+          // /api/v1/files/upload 返回 {file_id,...}，访问地址为 /uploads/{file_id}
+          var fid = uploadRes && uploadRes.file_id
+          if (!fid) {
+            uni.showToast({ title: '营业执照上传失败，请重试', icon: 'none' })
+            return
+          }
+          payload.license_url = '/uploads/' + fid
         }
 
         const ent = await request({

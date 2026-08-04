@@ -324,10 +324,17 @@ export default {
               })
             }.bind(this))
             uni.hideLoading()
-            payload.certificate_url = (uploadRes && (uploadRes.url || uploadRes.data && uploadRes.data.url)) || this.certImageUrl
+            // /api/v1/files/upload 返回 {file_id,...}，访问地址为 /uploads/{file_id}
+            var fid = uploadRes && uploadRes.file_id
+            if (!fid) {
+              uni.showToast({ title: '证书上传失败，请重试', icon: 'none' })
+              return
+            }
+            payload.certificate_url = '/uploads/' + fid
           } catch (uploadErr) {
             uni.hideLoading()
-            payload.certificate_url = this.certImageUrl
+            uni.showToast({ title: '证书上传失败，请重试', icon: 'none' })
+            return
           }
         } else if (this.certImageUrl) {
           payload.certificate_url = this.certImageUrl
