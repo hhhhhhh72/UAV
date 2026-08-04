@@ -136,6 +136,15 @@ func (s *JobService) Apply(a domain.Actor, jobID, resumeID string) (domain.JobAp
 	if j.EnterpriseID == a.ID {
 		return domain.JobApplication{}, errors.New("cannot apply to your own job")
 	}
+	// 防重复投递：同一职位已有有效投递（未撤回）则拒绝
+	existing, err := s.app.ListByJob(jobID)
+	if err == nil {
+		for _, e := range existing {
+			if e.ApplicantID == a.ID && e.Status != domain.AppWithdrawn {
+				return domain.JobApplication{}, errors.New("you have already applied to this job")
+			}
+		}
+	}
 	now := time.Now()
 	app := domain.JobApplication{ID: fmt.Sprintf("app-%d", now.UnixNano()), JobID: jobID, ResumeID: resumeID,
 		ApplicantID: a.ID, Status: domain.AppSubmitted, Version: 1, CreatedAt: now, UpdatedAt: now}

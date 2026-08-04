@@ -17,7 +17,7 @@
           <u-tag v-if="job.status === 'published'" type="success" size="mini">招聘中</u-tag>
         </view>
         <view class="job-sub">
-          <text v-if="job.location">📍 {{ job.location }}</text>
+          <view v-if="job.location" class="job-loc"><u-icon name="location" size="26rpx" color="#969799" /><text>{{ job.location }}</text></view>
           <text>{{ formatDate(job.created_at) }} 发布</text>
         </view>
       </view>
@@ -30,7 +30,7 @@
 
       <!-- 底部操作 -->
       <view class="bottom-bar">
-        <view class="bottom-btn" @tap="applyJob">投递简历</view>
+        <view class="bottom-btn" :class="{ applied: applied }" @tap="applyJob">{{ applied ? '已投递' : '投递简历' }}</view>
       </view>
     </template>
   </view>
@@ -42,6 +42,7 @@ import { request, getStoredUser } from '../../utils/request'
 
 const goBack = () => uni.navigateBack()
 const job = ref(null)
+const applied = ref(false)
 
 const formatDate = (d) => {
   if (!d) return ''
@@ -57,11 +58,19 @@ const load = async (id) => {
   } catch (e) {
     uni.showToast({ title: '加载失败', icon: 'none' })
   }
+  // 已投递状态：拉取我的投递检查
+  if (getStoredUser()) {
+    try {
+      const apps = await request({ url: '/api/v1/applications' })
+      const alist = Array.isArray(apps) ? apps : ((apps && apps.data) || [])
+      applied.value = alist.some((a) => a.job_id === id)
+    } catch (e) {}
+  }
 }
 
 // 投递：登录 → 简历检查 → 提交
 const applyJob = async () => {
-  if (!job.value) return
+  if (!job.value || applied.value) return
   const user = getStoredUser()
   if (!user) {
     uni.showToast({ title: '请先登录', icon: 'none' })
@@ -83,6 +92,7 @@ const applyJob = async () => {
       method: 'POST',
       data: { job_id: job.value.id, resume_id: rlist[0].id },
     })
+    applied.value = true
     uni.showModal({ title: '投递成功', content: '简历已投递，可在「我的投递」查看进展', showCancel: false })
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '投递失败', icon: 'none' })
@@ -100,10 +110,12 @@ onLoad((opts) => { if (opts.id) load(opts.id) })
 .job-title { font-size: 36rpx; font-weight: 700; color: var(--color-text); display: block; }
 .job-meta { display: flex; align-items: center; gap: 16rpx; margin-top: 16rpx; flex-wrap: wrap; }
 .salary { font-size: 32rpx; font-weight: 700; color: var(--color-accent-deep); }
-.job-sub { display: flex; gap: 24rpx; font-size: 24rpx; color: var(--color-text-secondary); margin-top: 16rpx; }
+.job-sub { display: flex; align-items: center; gap: 24rpx; font-size: 24rpx; color: var(--color-text-secondary); margin-top: 16rpx; }
+.job-loc { display: flex; align-items: center; gap: 6rpx; }
 .section-card { background: var(--color-bg-card); margin: 0 20rpx 20rpx; border-radius: 12rpx; padding: 32rpx; }
 .section-title { font-size: 28rpx; font-weight: 700; color: var(--color-text); display: block; margin-bottom: 16rpx; }
 .job-desc { font-size: 26rpx; color: var(--color-text); line-height: 1.7; white-space: pre-wrap; }
 .bottom-bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 16rpx 32rpx calc(16rpx + env(safe-area-inset-bottom)); background: var(--color-bg-card); box-shadow: 0 -2rpx 12rpx rgba(0,0,0,.04); }
 .bottom-btn { height: 88rpx; border-radius: 44rpx; background: var(--color-primary); color: #fff; font-size: 30rpx; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.bottom-btn.applied { background: var(--color-divider); color: var(--color-text-secondary); }
 </style>
