@@ -285,6 +285,7 @@ type VenueRepository interface {
 type EnrollmentRepository interface {
 	Create(domain.Enrollment) (domain.Enrollment, error)
 	ListByCourse(courseID string) ([]domain.Enrollment, error)
+	ListAll(offset, limit int) ([]domain.Enrollment, int, error) // 管理端全量
 	FindByUserAndCourse(userID, courseID string) (domain.Enrollment, bool, error)
 }
 
@@ -459,6 +460,7 @@ type TestSiteRepository interface {
 	UpdateSite(domain.TestSite) (domain.TestSite, error)
 	DeleteSite(id string) error
 	ListBookings(siteID string) ([]domain.TestSiteBooking, error)
+	ListAllBookings(offset, limit int) ([]domain.TestSiteBooking, int, error) // 管理端全量
 }
 
 type ExhibitionRepository interface {

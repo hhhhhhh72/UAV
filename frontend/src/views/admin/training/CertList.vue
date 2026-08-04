@@ -38,6 +38,24 @@
         <el-table-column prop="expire_date" label="有效期至" width="120">
           <template #default="{ row }">{{ formatDate(row.expire_date) }}</template>
         </el-table-column>
+        <el-table-column prop="level" label="等级" width="80">
+          <template #default="{ row }">{{ row.level || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="issuer_org" label="发证机构" min-width="140">
+          <template #default="{ row }">{{ row.issuer_org || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="证书图片" width="80">
+          <template #default="{ row }">
+            <el-image
+              v-if="row.image_url"
+              :src="fullUrl(row.image_url)"
+              :preview-src-list="[fullUrl(row.image_url)]"
+              fit="cover"
+              style="width: 44px; height: 44px; border-radius: 4px; cursor: pointer;"
+            />
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel[row.status] || row.status || '-' }}</el-tag>
@@ -103,6 +121,9 @@ import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
 
 const api = useAdminApi('certificates')
+
+// 相对路径图片补全后端地址（vite/nginx 已代理 /uploads）
+const fullUrl = (u) => (u && u.startsWith('http') ? u : (import.meta.env.VITE_API_TARGET || 'http://localhost:8080') + (u || ''))
 
 const formatDate = (d) => {
   if (!d) return '-'

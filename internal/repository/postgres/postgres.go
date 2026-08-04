@@ -1626,6 +1626,25 @@ func (r *pgTestSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, 
 	}
 	return out, rows.Err()
 }
+func (r *pgTestSiteRepo) ListAllBookings(offset, limit int) ([]domain.TestSiteBooking, int, error) {
+	var total int
+	r.pool.QueryRow(context.Background(), `SELECT count(*) FROM test_site_bookings`).Scan(&total)
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list all bookings: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.TestSiteBooking
+	for rows.Next() {
+		var b domain.TestSiteBooking
+		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, b)
+	}
+	return out, total, rows.Err()
+}
 
 // ── Transformation PG ──
 

@@ -33,13 +33,25 @@ type EnrollmentForm struct {
 	NoCrime     string `json:"noCrime"`
 }
 
+// All 管理端全量报名记录（分页）。
+func (s *EnrollmentService) All(offset, limit int) ([]domain.Enrollment, int, error) {
+	return s.repo.ListAll(offset, limit)
+}
+
 func (s *EnrollmentService) Enroll(userID, courseID string, form EnrollmentForm) (domain.Enrollment, error) {
 	if _, ok, _ := s.repo.FindByUserAndCourse(userID, courseID); ok {
 		return domain.Enrollment{}, fmt.Errorf("already enrolled")
 	}
+	// 生日：前端提交 "YYYY-MM-DD"，解析为 DATE 语义
+	var birthday time.Time
+	if form.Birthday != "" {
+		if bd, err := time.Parse("2006-01-02", form.Birthday); err == nil {
+			birthday = bd
+		}
+	}
 	now := time.Now()
 	e := domain.Enrollment{ID: fmt.Sprintf("enroll-%d", now.UnixNano()), CourseID: courseID, UserID: userID,
-		Name: form.Name, Phone: form.Phone, IDCard: form.IDCard, Gender: form.Gender, Birthday: form.Birthday,
+		Name: form.Name, Phone: form.Phone, IDCard: form.IDCard, Gender: form.Gender, Birthday: birthday,
 		Email: form.Email, Education: form.Education, Experience: form.Experience,
 		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,
 		Status: "enrolled", CreatedAt: now}

@@ -5,8 +5,9 @@
       <el-tab-pane label="研发难题" name="challenges"><ChallengeList /></el-tab-pane>
       <el-tab-pane label="课题攻关" name="projects"><ProjectList /></el-tab-pane>
       <el-tab-pane label="测试场地" name="testsites"><TestSiteList /></el-tab-pane>
+      <el-tab-pane label="场地预约" name="bookings"><BookingList /></el-tab-pane>
       <el-tab-pane label="成果转化" name="transformations"><TransList /></el-tab-pane>
     </el-tabs>
   </div>
-</template><script setup>import { ref } from 'vue'; import AchievementList from '../achievements/AchievementList.vue'; import ChallengeList from '../challenges/ChallengeList.vue'; import ProjectList from '../projects/ProjectList.vue'; import TestSiteList from '../testsites/TestSiteList.vue'; import TransList from '../transformations/TransList.vue'; const tab = ref('achievements')</script>
+</template><script setup>import { ref } from 'vue'; import AchievementList from '../achievements/AchievementList.vue'; import ChallengeList from '../challenges/ChallengeList.vue'; import ProjectList from '../projects/ProjectList.vue'; import TestSiteList from '../testsites/TestSiteList.vue'; import TransList from '../transformations/TransList.vue'; import BookingList from '../bookings/BookingList.vue'; const tab = ref('achievements')</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

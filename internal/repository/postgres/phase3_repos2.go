@@ -373,6 +373,23 @@ func (r *enrollRepo) Create(e domain.Enrollment) (domain.Enrollment, error) {
 		e.ID, e.CourseID, e.UserID, e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.CreatedAt)
 	return e, err
 }
+func (r *enrollRepo) ListAll(offset, limit int) ([]domain.Enrollment, int, error) {
+	var total int
+	r.pool.QueryRow(context.Background(), `SELECT count(*) FROM training_enrollments`).Scan(&total)
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list all enrollments: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Enrollment
+	for rows.Next() {
+		var e domain.Enrollment
+		rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt)
+		out = append(out, e)
+	}
+	return out, total, rows.Err()
+}
 func (r *enrollRepo) ListByCourse(courseID string) ([]domain.Enrollment, error) {
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments WHERE course_id=$1 ORDER BY created_at DESC`, courseID)

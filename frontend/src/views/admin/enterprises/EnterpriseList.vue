@@ -126,6 +126,11 @@
           <el-descriptions-item label="对公账户">{{ currentEnterprise.account_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="法定代表人">{{ currentEnterprise.legal_person || '-' }}</el-descriptions-item>
           <el-descriptions-item label="联系电话">{{ currentEnterprise.contact_phone || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="信用代码" :span="2">{{ currentEnterprise.credit_code || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="产业分类">{{ currentEnterprise.industry_category || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="企业规模">{{ currentEnterprise.scale || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="地址" :span="2">{{ currentEnterprise.address || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="企业简介" :span="2">{{ currentEnterprise.description || '-' }}</el-descriptions-item>
           <el-descriptions-item label="审核状态">
             <el-tag :type="statusTagType(currentEnterprise.status)" size="small">{{ statusLabel(currentEnterprise.status) }}</el-tag>
           </el-descriptions-item>

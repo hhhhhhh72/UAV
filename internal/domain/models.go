@@ -374,7 +374,7 @@ type Enrollment struct {
 	Phone       string    `json:"phone"`         // 联系电话
 	IDCard      string    `json:"id_card"`       // 身份证号
 	Gender      string    `json:"gender"`        // 性别
-	Birthday    string    `json:"birthday"`      // 生日 YYYY-MM-DD
+	Birthday    time.Time `json:"birthday"`      // 生日（DATE）
 	Email       string    `json:"email"`         // 邮箱
 	Education   string    `json:"education"`     // 学历
 	Experience  string    `json:"experience"`    // 从业经验

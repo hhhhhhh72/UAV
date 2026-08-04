@@ -101,6 +101,11 @@ func (s *TestSiteService) Book(siteID, userID, purpose, contactName, contactPhon
 func (s *TestSiteService) ReviewBooking(bookingID, status, note string) (domain.TestSiteBooking, error) {
 	return s.repo.UpdateBookingStatus(bookingID, status, note)
 }
+
+// ListAllBookings 管理端全量预约记录（分页）。
+func (s *TestSiteService) ListAllBookings(offset, limit int) ([]domain.TestSiteBooking, int, error) {
+	return s.repo.ListAllBookings(offset, limit)
+}
 func (s *TestSiteService) ListBookings(siteID string) ([]domain.TestSiteBooking, error) {
 	return s.repo.ListBookings(siteID)
 }

@@ -57,6 +57,34 @@ func adminSlicePage[T any](items []T, page, pageSize int) []T {
 	return items[offset:end]
 }
 
+// ----- Enrollments (报名记录) -----
+func (s *Server) listAdminEnrollments(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := parsePagination(r)
+	all, _, err := s.enrollSvc.All(0, 10000)
+	if err != nil {
+		fail(w, r, 500, fmt.Errorf("list enrollments: %w", err))
+		return
+	}
+	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(e domain.Enrollment) string { return e.Name + e.Phone },
+		func(e domain.Enrollment) string { return e.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+}
+
+// ----- Test site bookings (场地预约记录) -----
+func (s *Server) listAdminBookings(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := parsePagination(r)
+	all, _, err := s.testSiteSvc.ListAllBookings(0, 10000)
+	if err != nil {
+		fail(w, r, 500, fmt.Errorf("list bookings: %w", err))
+		return
+	}
+	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(b domain.TestSiteBooking) string { return b.ContactName + b.Purpose },
+		func(b domain.TestSiteBooking) string { return b.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+}
+
 // ----- Orders (trade_orders) -----
 func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := parsePagination(r)

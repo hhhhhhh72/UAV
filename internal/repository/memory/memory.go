@@ -1824,6 +1824,20 @@ func (r *enrollRepo) ListByCourse(courseID string) ([]domain.Enrollment, error) 
 	}
 	return out, nil
 }
+func (r *enrollRepo) ListAll(offset, limit int) ([]domain.Enrollment, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	items := append([]domain.Enrollment(nil), r.items...)
+	total := len(items)
+	if offset > total {
+		return []domain.Enrollment{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return items[offset:end], total, nil
+}
 func (r *enrollRepo) FindByUserAndCourse(userID, courseID string) (domain.Enrollment, bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

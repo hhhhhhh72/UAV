@@ -15,6 +15,8 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 
 	// === 证书 === (POST: POST /api/v1/certificates in training.go)
 	mux.HandleFunc("GET /api/v1/admin/certificates", s.listAdminCerts)
+	// === 报名记录 ===
+	mux.HandleFunc("GET /api/v1/admin/enrollments", s.listAdminEnrollments)
 	mux.HandleFunc("GET /api/v1/admin/certificates/{id}", s.getCert)
 	mux.HandleFunc("POST /api/v1/admin/certificates", s.adminCreateCertificate)
 	mux.HandleFunc("PUT /api/v1/admin/certificates/{id}", s.updateCertificate)
@@ -61,6 +63,7 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 
 	// === 测试场地 === (POST: POST /api/v1/admin/test-sites in batch1_handlers.go — DUPLICATE, SKIP)
 	mux.HandleFunc("GET /api/v1/admin/test-sites", s.listAdminTestSites)
+	mux.HandleFunc("GET /api/v1/admin/test-sites/bookings", s.listAdminBookings)
 	mux.HandleFunc("GET /api/v1/admin/test-sites/{id}", s.getTestSite)
 	mux.HandleFunc("PUT /api/v1/admin/test-sites/{id}", s.updateTestSite)
 	mux.HandleFunc("DELETE /api/v1/admin/test-sites/{id}", s.deleteTestSite)
