@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>服务 — 低空综合服务平台小程序原型</title>
+<style>
+  :root{
+    --brand-deep:#074D92; --brand:#0A66C2; --brand-soft:#EAF3FB; --brand-subtle:#F4F8FC;
+    --accent:#F97316; --accent-deep:#E96012; --accent-soft:#FFF0E6;
+    --t1:#17212B; --t2:#344054; --t3:#667085; --t4:#98A2B3;
+    --canvas:#F4F6F8; --surface:#FFF; --border:#E4E7EC; --divider:#EEF1F4;
+    --success:#168A55; --success-soft:#E9F7F0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Noto Sans SC',sans-serif;background:#dfe3e8;display:flex;justify-content:center;min-height:100vh;padding:24px 12px}
+  .phone{width:390px;height:844px;background:var(--canvas);border-radius:32px;overflow:hidden;position:relative;box-shadow:0 12px 48px rgba(16,24,40,.18)}
+  @media(max-width:430px){body{padding:0}.phone{width:100vw;height:100vh;border-radius:0}}
+  .status-bar{height:44px;background:var(--brand-deep);color:#fff;display:flex;align-items:flex-end;justify-content:space-between;padding:0 20px 6px;font-size:11px}
+  .capsule{width:80px;height:26px;border:1px solid rgba(255,255,255,.35);border-radius:14px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:10px;color:rgba(255,255,255,.85)}
+
+  /* 导航：蓝底 + 搜索（V4 母版继承） */
+  .nav{background:var(--brand-deep);padding:8px 12px 12px;display:flex;align-items:center;gap:8px}
+  .nav-title{color:#fff;font-size:17px;font-weight:760;white-space:nowrap}
+  .search{flex:1;height:40px;background:var(--surface);border-radius:6px;display:flex;align-items:center;gap:6px;padding:0 12px;color:var(--t4);font-size:12px}
+  .search svg{flex-shrink:0}
+
+  /* 供给分类（7 类：需求②-2 供给能力展示） */
+  .cats{background:var(--surface);padding:10px 12px;display:flex;gap:8px;overflow-x:auto;border-bottom:1px solid var(--divider)}
+  .cat{flex-shrink:0;height:30px;padding:0 14px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;font-size:12px;color:var(--t2);background:var(--surface);cursor:pointer}
+  .cat.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+
+  /* 列表（V4：首条重点 + 后续紧凑） */
+  .list{padding:12px;overflow-y:auto;height:calc(100% - 44px - 58px - 51px - 64px)}
+  .feat{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 3px 12px rgba(16,24,40,.05);margin-bottom:10px;cursor:pointer}
+  .feat-img{width:138px;height:104px;background:var(--brand-subtle);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .feat-info{flex:1;padding:10px 12px;min-width:0}
+  .feat-title{font-size:14px;font-weight:700;color:var(--t1);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .feat-meta{display:flex;gap:8px;margin-top:6px}
+  .feat-type{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--brand-soft);color:var(--brand)}
+  .feat-price{font-size:13px;font-weight:760;color:var(--accent-deep);margin-top:6px}
+  .feat-price small{font-size:10px;font-weight:400;color:var(--t3)}
+
+  /* 服务卡（航拍/试飞/检测/空域：服务型供给） */
+  .serv{display:flex;gap:12px;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 3px 12px rgba(16,24,40,.05);margin-bottom:10px;cursor:pointer}
+  .serv-img{width:126px;height:84px;background:var(--accent-soft);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .serv-info{flex:1;padding:10px 12px;min-width:0}
+  .serv-title{font-size:13px;font-weight:700;color:var(--t1);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .serv-meta{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .serv-type{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent-deep)}
+  .serv-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+  .serv-price{font-size:12px;color:var(--t3)}
+  .serv-price b{color:var(--accent-deep)}
+  .serv-cta{font-size:11px;color:var(--brand);font-weight:600}
+
+  .s-divider{display:flex;align-items:center;gap:8px;margin:16px 0 10px;font-size:12px;color:var(--t3)}
+  .s-divider::before,.s-divider::after{content:'';flex:1;height:1px;background:var(--divider)}
+
+  /* 状态 */
+  .state{display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 0;color:var(--t3);font-size:12px}
+  .state .s-ico{width:64px;height:64px;border-radius:50%;background:var(--brand-soft);display:flex;align-items:center;justify-content:center}
+  .state .s-btn{height:36px;padding:0 20px;border-radius:6px;background:var(--brand);color:#fff;font-size:12px;display:flex;align-items:center;cursor:pointer}
+
+  /* 底部导航 */
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:64px;background:var(--surface);border-top:1px solid var(--divider);display:flex;z-index:10}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--t4);cursor:pointer}
+  .tab.on{color:var(--brand);font-weight:600}
+  .tab .ico{width:22px;height:22px}
+  .tab.publish .ico{color:var(--accent)}
+
+  /* 控制器 */
+  .controls{position:fixed;left:24px;top:24px;width:220px;background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(16,24,40,.12);padding:14px;z-index:100}
+  .controls h3{font-size:12px;color:var(--t2);margin-bottom:10px}
+  .controls .c-btn{display:block;width:100%;text-align:left;padding:8px 10px;border:none;background:var(--canvas);border-radius:6px;font-size:12px;color:var(--t2);cursor:pointer;margin-bottom:6px}
+  .controls .c-btn:hover{background:var(--brand-soft)}
+  .controls .c-note{font-size:10px;color:var(--t4);margin-top:8px;line-height:1.5}
+  @media(max-width:430px){.controls{display:none}}
+  svg{display:block}
+</style>
+</head>
+<body>
+
+<div class="phone" id="phone">
+  <div class="status-bar"><span>9:41</span><div class="capsule"><span>●</span><span>▮</span></div></div>
+
+  <div class="nav">
+    <span class="nav-title">服务</span>
+    <div class="search" onclick="toast('搜索设备 / 服务')">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#98A2B3" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/></svg>
+      <span>搜索整机 / 航拍 / 试飞测试</span>
+    </div>
+  </div>
+
+  <!-- 供给分类（7 类） -->
+  <div class="cats" id="cats">
+    <div class="cat on" data-k="all" onclick="selectCat(this,'all')">全部</div>
+    <div class="cat" data-k="drone" onclick="selectCat(this,'drone')">整机</div>
+    <div class="cat" data-k="part" onclick="selectCat(this,'part')">零部件</div>
+    <div class="cat" data-k="aerial" onclick="selectCat(this,'aerial')">航拍服务</div>
+    <div class="cat" data-k="test_fly" onclick="selectCat(this,'test_fly')">试飞测试</div>
+    <div class="cat" data-k="calib" onclick="selectCat(this,'calib')">检测标定</div>
+    <div class="cat" data-k="airspace" onclick="selectCat(this,'airspace')">空域协调</div>
+    <div class="cat" data-k="training" onclick="selectCat(this,'training')">培训</div>
+  </div>
+
+  <!-- 列表 -->
+  <div class="list" id="list">
+    <!-- 首条重点卡（V4 母版：首条大图重点） -->
+    <div class="feat" onclick="openDetail('工业级六旋翼巡检无人机 X6-28L')">
+      <div class="feat-img"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5h8v2"/></svg></div>
+      <div class="feat-info">
+        <div class="feat-title">工业级六旋翼巡检无人机 X6-28L</div>
+        <div class="feat-meta"><span class="feat-type">整机</span><span class="feat-type" style="background:var(--success-soft);color:var(--success)">认证商家</span></div>
+        <div class="feat-price">¥128,000 <small>· 重庆腾云航空科技</small></div>
+      </div>
+    </div>
+
+    <div class="s-divider">服务供给</div>
+
+    <div class="serv" onclick="openDetail('光伏电站巡检航拍服务')">
+      <div class="serv-img"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E96012" stroke-width="1.6" stroke-linecap="round"><path d="M12 4l6 14H6L12 4z"/></svg></div>
+      <div class="serv-info">
+        <div class="serv-title">光伏电站巡检航拍服务（50MW 阵列 / 含热成像）</div>
+        <div class="serv-meta"><span class="serv-type">航拍服务</span><span class="serv-type" style="background:var(--success-soft);color:var(--success)">认证商家</span></div>
+        <div class="serv-foot"><span class="serv-price"><b>面议</b> · 按项目</span><span class="serv-cta">联系对接 ›</span></div>
+      </div>
+    </div>
+
+    <div class="serv" onclick="openDetail('试飞场地预约（大安机场）')">
+      <div class="serv-img"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E96012" stroke-width="1.6" stroke-linecap="round"><path d="M4 20V8l8-5 8 5v12"/></svg></div>
+      <div class="serv-info">
+        <div class="serv-title">试飞测试场地预约（大安机场 · 空域条件齐全）</div>
+        <div class="serv-meta"><span class="serv-type">试飞测试</span></div>
+        <div class="serv-foot"><span class="serv-price"><b>¥600</b> /小时</span><span class="serv-cta">预约 ›</span></div>
+      </div>
+    </div>
+
+    <div class="serv" onclick="openDetail('无人机适航检测标定服务')">
+      <div class="serv-img"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E96012" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg></div>
+      <div class="serv-info">
+        <div class="serv-title">无人机适航检测标定（含出具报告）</div>
+        <div class="serv-meta"><span class="serv-type">检测标定</span></div>
+        <div class="serv-foot"><span class="serv-price"><b>面议</b> · 按机型</span><span class="serv-cta">联系对接 ›</span></div>
+      </div>
+    </div>
+
+    <div class="s-divider">设备</div>
+
+    <div class="feat" style="margin-bottom:0" onclick="openDetail('热成像巡检载荷 Z30')">
+      <div class="feat-img"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5h8v2"/></svg></div>
+      <div class="feat-info">
+        <div class="feat-title">热成像巡检载荷 Z30（双光）</div>
+        <div class="feat-meta"><span class="feat-type">零部件</span></div>
+        <div class="feat-price">¥18,500 <small>· 峰谷影像设备</small></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 空态 -->
+  <div class="state" id="stateEmpty">
+    <div class="s-ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="1.8" stroke-linecap="round"><path d="M4 8h16v10H4z"/><path d="M8 8V6h8v2"/></svg></div>
+    <div>该分类暂无供给</div>
+  </div>
+
+  <!-- 底部导航 -->
+  <div class="tabbar">
+    <div class="tab" onclick="toast('首页')"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L11 3l8 7.5"/><path d="M5 9.5V19h12V9.5"/></svg></span>首页</div>
+    <div class="tab on"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h14v10H4z"/><path d="M8 7V5h6v2"/></svg></span>服务</div>
+    <div class="tab publish" onclick="toast('发布')"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 4v14M4 11h14"/></svg></span>发布</div>
+    <div class="tab" onclick="toast('商家')"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l2-5h12l2 5"/><path d="M3 9v10h16V9"/><circle cx="11" cy="13" r="2.5"/></svg></span>商家</div>
+    <div class="tab" onclick="toast('我的')"><span class="ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="7" r="3.5"/><path d="M4.5 19c1.2-3.5 3.8-5 6.5-5s5.3 1.5 6.5 5"/></svg></span>我的</div>
+  </div>
+</div>
+
+<div class="controls">
+  <h3>设计评审 · 服务页（V4 母版继承）</h3>
+  <button class="c-btn" onclick="setState('normal')">正常态</button>
+  <button class="c-btn" onclick="setState('empty')">空数据态</button>
+  <div class="c-note">分类 7 类（需求②-2 供给能力展示）；首条重点卡 + 服务横卡；实物显示价格，服务显示面议/预约/联系对接。</div>
+</div>
+
+<script>
+function selectCat(el,key){
+  document.querySelectorAll('.cat').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('stateEmpty').style.display='none';
+  document.getElementById('list').style.display='block';
+  if(key==='airspace'||key==='training'){
+    document.getElementById('list').style.display='none';
+    document.getElementById('stateEmpty').style.display='flex';
+  }
+}
+function setState(s){
+  document.getElementById('stateEmpty').style.display='none';
+  document.getElementById('list').style.display='block';
+  if(s==='empty'){
+    document.getElementById('list').style.display='none';
+    document.getElementById('stateEmpty').style.display='flex';
+  }
+}
+function openDetail(t){toast(t+'：详情页（联系对接）')}
+function toast(msg){
+  const t=document.createElement('div');
+  t.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(23,33,43,.85);color:#fff;font-size:12px;padding:8px 16px;border-radius:6px;z-index:99;transition:opacity .2s';
+  t.textContent=msg;
+  document.getElementById('phone').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),200)},1600);
+}
+</script>
+</body>
+</html>
