@@ -47,15 +47,15 @@ defineEmits(['update:modelValue'])
 const route = useRoute()
 
 const allMenus = [
-  { path: '/admin/dashboard', label: '📊 数据看板', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/members', label: '🏢 会员管理', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/trading', label: '📦 交易管理', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/content', label: '📋 内容审核', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/talent', label: '🎓 人才教育', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/innovation', label: '🔬 产学研', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/promotion', label: '📣 运营推广', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/emergency', label: '🚨 应急协同', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/settings', label: '⚙️ 系统设置', roles: ['platform_admin', 'association_admin'] }
+  { path: '/admin/dashboard', label: '数据看板', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/members', label: '会员管理', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/trading', label: '交易管理', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/content', label: '内容管理', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/talent', label: '人才教育', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/innovation', label: '产学研', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/promotion', label: '运营推广', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/emergency', label: '应急协同', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/settings', label: '系统设置', roles: ['platform_admin', 'association_admin'] }
 ]
 
 const visibleMenus = computed(() => {
