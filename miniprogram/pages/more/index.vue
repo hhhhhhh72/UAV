@@ -15,13 +15,12 @@
 const goBack = () => uni.navigateBack()
 const go = (path) => uni.navigateTo({ url: path })
 
+// 更多页 = 金刚区外的补充入口（金刚区已含的入口不重复展示）
 const funcs = [
   { name: '赛事活动', desc: '竞赛报名与详情', emoji: '赛', bg: 'linear-gradient(135deg,#fff3e0,#ffb74d)', path: '/pages/events/list' },
   { name: '院校列表', desc: '合作院校信息', emoji: '校', bg: 'linear-gradient(135deg,#e8f5e9,#81c784)', path: '/pages/colleges/list' },
   { name: '应急资源', desc: '应急物资调度', emoji: '急', bg: 'linear-gradient(135deg,#fce4ec,#e57373)', path: '/pages/emergency/resources' },
-  { name: '低空研学', desc: '研学课程报名', emoji: '研', bg: 'linear-gradient(135deg,#e3f2fd,#64b5f6)', path: '/pages/study/index' },
   { name: '会员资源', desc: '产业资源台账', emoji: '资', bg: 'linear-gradient(135deg,#f3e5f5,#ba68c8)', path: '/pages/resources/list' },
-  { name: '合规政策', desc: '政策法规文库', emoji: '策', bg: 'linear-gradient(135deg,#e0f2f1,#4db6ac)', path: '/pages/compliance/news' },
 ]
 </script>
 
