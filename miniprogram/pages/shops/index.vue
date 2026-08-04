@@ -12,8 +12,8 @@
 
     <!-- 搜索栏 -->
     <view class="search-row">
-      <text class="search-cat">店铺 ▼</text>
-      <input class="search-input" placeholder="搜店铺" />
+      <text class="search-cat">店铺</text>
+      <input class="search-input" v-model="keyword" placeholder="搜店铺" confirm-type="search" />
       <u-icon name="search" size="28rpx" color="#999999" />
     </view>
 
@@ -25,10 +25,10 @@
       </view>
     </view>
 
-    <!-- 头条 -->
+    <!-- 公告（真实数据：首页配置公告） -->
     <view class="news-bar">
-      <text class="news-tag">南国头条</text>
-      <text class="news-text" @tap="goJoin">昭通驰通机械城租赁入驻成功，立即入驻 ›</text>
+      <text class="news-tag">协会公告</text>
+      <text class="news-text" @tap="goJoin">{{ notices[0] || '欢迎入驻重庆市无人机产业协会 · 会员商家展示' }}</text>
     </view>
 
     <!-- 分类 Tab -->
@@ -50,41 +50,35 @@
     <!-- 入驻 CTA -->
     <view class="join-cta" @tap="goJoin">入驻</view>
 
-    <!-- 店铺卡片 -->
+    <!-- 店铺卡片（真实数据：home.shops） -->
     <view class="shop-list">
-      <view v-for="s in shops" :key="s.id" class="shop-card">
+      <view v-for="s in filteredShops" :key="s.id" class="shop-card">
         <image :src="s.logo_url || '/static/home-bg.jpg'" mode="aspectFill" class="shop-logo" />
         <view class="shop-body">
           <view class="shop-row1">
             <text class="shop-name">{{ s.name }}</text>
-            <text class="shop-badge">官方</text>
+            <text v-if="s.is_member" class="shop-badge">会员</text>
           </view>
-          <view class="shop-row2">
-            <text class="shop-hours">营业 9:00-20:00</text>
+          <view v-if="s.description" class="shop-tags">
+            <text class="tag">{{ s.description }}</text>
           </view>
-          <view class="shop-tags">
-            <text class="tag">无人机生产</text>
-            <text class="tag">无人机销售</text>
-            <text class="tag">无人机吊运</text>
-          </view>
-          <view class="shop-addr"><u-icon name="location" size="24rpx" color="#969799" /><text>{{ s.district || s.description || '郑州市中原区亿达科技城三期' }}</text></view>
+          <view class="shop-addr"><u-icon name="location" size="24rpx" color="#969799" /><text>{{ s.address || '暂无地址' }}</text></view>
           <view class="shop-row3">
-            <text class="shop-bat">充电20分,续航40分</text>
+            <text>{{ (s.views || 0) + ' 次浏览' }}</text>
           </view>
         </view>
         <view class="shop-right">
           <view class="shop-call" @tap.stop="callShop(s)">电</view>
-          <text class="shop-views">{{ s.views || 6274 }}浏览</text>
         </view>
       </view>
-      <view v-if="!shops.length" class="empty">暂无商家</view>
+      <view v-if="!filteredShops.length" class="empty">暂无商家</view>
     </view>
   </view>
 </Layout>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Layout from '@/components/Layout.vue'
 import { request } from '@/utils/request'
 
@@ -103,16 +97,36 @@ const cats = ref([
 ])
 const activeTab = ref('rec')
 const shops = ref([])
+const notices = ref([])
+const keyword = ref('')
+
+// 搜索 + Tab 过滤：推荐=全部 / 新人=最新加入 / 附近=全部（无定位时展示全部）
+const filteredShops = computed(() => {
+  let list = shops.value
+  const kw = keyword.value.trim().toLowerCase()
+  if (kw) list = list.filter((s) => (s.name || '').toLowerCase().includes(kw))
+  if (activeTab.value === 'new') {
+    list = [...list].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+  }
+  return list
+})
 
 const loadShops = async () => {
   try {
     const res = await request({ url:'/api/v1/home' })
-    shops.value = (res.data||res).shops || []
+    const data = res.data || res
+    shops.value = data.shops || []
+    notices.value = data.notices || []
   } catch {}
 }
 loadShops()
 
-const pickCat = (id) => uni.showToast({ title: id, icon: 'none' })
+// 分类入口：可跳转的真实页面；暂无可跳页面时引导联系协会
+const pickCat = (id) => {
+  if (id === 'train') return uni.navigateTo({ url: '/pages/training/courses' })
+  if (id === 'sale' || id === 'parts') return uni.switchTab({ url: '/pages/mall/index' })
+  uni.showToast({ title: '该分类商家请联系协会推荐', icon: 'none' })
+}
 const goJoin = () => uni.navigateTo({ url:'/pages/enterprise/register' })
 const callShop = (s) => {
   const phone = s && (s.contact_phone || s.phone)

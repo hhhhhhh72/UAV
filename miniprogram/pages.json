@@ -412,6 +412,22 @@
       }
     },
     {
+      "path": "pages/publish/product",
+      "style": {
+        "navigationBarTitleText": "发布商品",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/publish/job",
+      "style": {
+        "navigationBarTitleText": "发布招聘",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
       "path": "pages/shops/index",
       "style": {
         "navigationBarTitleText": "商家列表"

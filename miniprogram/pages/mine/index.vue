@@ -60,10 +60,10 @@
         </view>
       </view>
 
-      <!-- ===== 我的订单 - 5 状态栏 ===== -->
+      <!-- ===== 我的需求 - 状态栏（demands/mine 按状态过滤） ===== -->
       <view class="card section-card">
         <view class="card-header" @tap="goOrderList">
-          <text class="card-title">我的订单</text>
+          <text class="card-title">我的需求</text>
           <view class="card-more">
             <text class="more-text">查看全部</text>
             <text class="more-arrow">›</text>
@@ -123,9 +123,9 @@
           </view>
           <view class="grid-cell" @tap="goMyContracts">
             <view class="grid-icon-wrap grid-icon-delivery">
-              <text class="grid-icon-text">同</text>
+              <text class="grid-icon-text">申</text>
             </view>
-            <text class="grid-label">我的合同</text>
+            <text class="grid-label">我的申请</text>
           </view>
           <view class="grid-cell" @tap="goMyPublish">
             <view class="grid-icon-wrap grid-icon-bind">
@@ -135,9 +135,9 @@
           </view>
           <view class="grid-cell" @tap="goAddress">
             <view class="grid-icon-wrap grid-icon-address">
-              <text class="grid-icon-text">址</text>
+              <text class="grid-icon-text">人</text>
             </view>
-            <text class="grid-label">地址管理</text>
+            <text class="grid-label">个人信息</text>
           </view>
         </view>
       </view>
@@ -232,14 +232,13 @@ const roleLabels = {
   platform_admin: '平台管理'
 }
 
-// 我的订单 6 状态：参考图 5 项 + 待评价
+// 我的需求状态栏：对应 DemandStatus，demands/mine 按 ?status= 过滤
 const orderTabs = [
-  { key: 'pending_payment', icon: '付', iconClass: 'icon-pay',    label: '待付款' },
-  { key: 'pending_ship',    icon: '发', iconClass: 'icon-send',   label: '待发货' },
-  { key: 'pending_receipt', icon: '收', iconClass: 'icon-truck',  label: '待收货' },
-  { key: 'pending_review',  icon: '评', iconClass: 'icon-review', label: '待评价' },
-  { key: 'completed',       icon: '完', iconClass: 'icon-done',   label: '已完成' },
-  { key: 'refund',          icon: '退', iconClass: 'icon-refund', label: '退款/售后' }
+  { key: 'pending',   icon: '审', iconClass: 'icon-pay',    label: '待审核' },
+  { key: 'published', icon: '公', iconClass: 'icon-send',   label: '已公开' },
+  { key: 'completed', icon: '完', iconClass: 'icon-done',   label: '已完成' },
+  { key: 'cancelled', icon: '取', iconClass: 'icon-refund', label: '已取消' },
+  { key: 'rejected',  icon: '驳', iconClass: 'icon-review', label: '被驳回' }
 ]
 
 const fetchData = async () => {
