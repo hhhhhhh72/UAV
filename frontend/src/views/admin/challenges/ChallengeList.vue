@@ -23,7 +23,7 @@
           @change="onSearchSubmit"
         >
           <el-option label="全部" value="" />
-          <el-option label="征集中" value="open" />
+          <el-option label="征集中" value="published" />
           <el-option label="已关闭" value="closed" />
           <el-option label="已解决" value="resolved" />
         </el-select>
@@ -53,13 +53,13 @@
             <span class="cell-name">{{ row.title || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="company" label="发布企业" min-width="160" />
+        <el-table-column prop="poster_id" label="发布企业ID" min-width="140" />
         <el-table-column prop="field" label="领域" width="120">
           <template #default="{ row }">
             <el-tag size="small">{{ row.field || '-' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="reward_fen" label="悬赏金额" width="130" sortable="custom">
+        <el-table-column prop="budget_fen" label="悬赏金额" width="130" sortable="custom">
           <template #default="{ row }">
             <span class="cell-amount">{{ formatMoney(row.reward_fen) }}</span>
           </template>
@@ -121,10 +121,11 @@
       <el-form :model="form" label-width="80px">
         <el-form-item label="难题名称"><el-input v-model="form.title" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
-        <el-form-item label="金额(分)"><el-input v-model.number="form.reward_fen" type="number" /></el-form-item>
+        <el-form-item label="预算(分)"><el-input v-model.number="form.budget_fen" type="number" /></el-form-item>
+        <el-form-item label="截止日期"><el-input v-model="form.deadline" placeholder="YYYY-MM-DD" /></el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status" style="width:100%">
-            <el-option label="征集中" value="open" /><el-option label="已关闭" value="closed" /><el-option label="已解决" value="resolved" />
+            <el-option label="征集中" value="published" /><el-option label="已关闭" value="closed" /><el-option label="已解决" value="resolved" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -148,7 +149,7 @@ const statusTag = (s) => ({ open: 'warning', closed: 'info', resolved: 'success'
 const formatMoney = (fen) => {
   if (fen == null) return '-'
   const yuan = Number(fen) / 100
-  return '�' + yuan.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+  return '¥' + yuan.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
 const formatDate = (d) => {
@@ -167,10 +168,10 @@ const currentItem = ref(null)
 
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',title:'',company:'',field:'',reward_fen:0,deadline:'',status:'open',description:'',requirements:''})
+const form=reactive({id:'',title:'',field:'',budget_fen:0,deadline:'',status:'published',description:''})
 const resetForm=()=>Object.assign(form,{id:'',title:'',company:'',field:'',reward_fen:0,deadline:'',status:'open',description:'',requirements:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
-const handleEdit=(r)=>{Object.assign(form,{...r,reward_fen:r.reward_fen||0});formEdit.value=true;formVisible.value=true}
+const handleEdit=(r)=>{Object.assign(form,{id:r.id,title:r.title||'',field:r.field||'',budget_fen:r.budget_fen||0,deadline:r.deadline||'',status:r.status||'published',description:r.description||''});formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入难题标题');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
 const handleDelete=(r)=>{ElMessageBox.confirm(`确定删除难题"${r.title}"吗？`,'提示',{type:'warning'}).then(async()=>{try{await api.delete(r.id);ElMessage.success('已删除');loadData()}catch{ElMessage.error('删除失败')}}).catch(()=>{})}
 

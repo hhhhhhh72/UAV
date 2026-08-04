@@ -22,9 +22,9 @@
         <el-table-column type="selection" width="40" />
         <el-table-column prop="id" label="ID" width="160" sortable="custom" />
         <el-table-column prop="title" label="报告标题" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="report_type" label="类型" width="110"><template #default="{row}"><el-tag :type="typeTag(row.report_type)" size="small">{{ typeLabel(row.report_type) }}</el-tag></template></el-table-column>
-        <el-table-column prop="publisher" label="发布机构" width="150" />
-        <el-table-column prop="publish_date" label="发布日期" width="120" sortable="custom"><template #default="{row}">{{ formatDate(row.publish_date) }}</template></el-table-column>
+        <el-table-column prop="category" label="类型" width="110"><template #default="{row}"><el-tag :type="typeTag(row.category)" size="small">{{ typeLabel(row.category) }}</el-tag></template></el-table-column>
+        <el-table-column prop="period" label="报告期" width="130" />
+        <el-table-column prop="author" label="作者" width="140" />
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{row}"><el-tag :type="statusTag(row.status)" size="small">{{ row.status || '-' }}</el-tag></template>
         </el-table-column>
@@ -59,10 +59,9 @@
     </el-dialog>
     <el-dialog v-model="formVisible" :title="formEdit?'编辑报告':'新增报告'" width="560px" destroy-on-close>
       <el-form :model="form" label-width="90px">
-        <el-row :gutter="16"><el-col :span="16"><el-form-item label="报告标题" required><el-input v-model="form.title"/></el-form-item></el-col><el-col :span="8"><el-form-item label="类型"><el-select v-model="form.report_type" style="width:100%"><el-option label="白皮书" value="whitepaper"/><el-option label="调研报告" value="research"/><el-option label="行业分析" value="analysis"/><el-option label="其他" value="other"/></el-select></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="发布机构"><el-input v-model="form.publisher"/></el-form-item></el-col><el-col :span="12"><el-form-item label="发布日期"><el-input v-model="form.publish_date" placeholder="YYYY-MM-DD"/></el-form-item></el-col></el-row>
-        <el-form-item label="作者"><el-input v-model="form.authors"/></el-form-item>
-        <el-form-item label="摘要"><el-input v-model="form.abstract" type="textarea" rows="3"/></el-form-item>
+        <el-row :gutter="16"><el-col :span="16"><el-form-item label="报告标题" required><el-input v-model="form.title"/></el-form-item></el-col><el-col :span="8"><el-form-item label="类型"><el-select v-model="form.category" style="width:100%"><el-option label="白皮书" value="whitepaper"/><el-option label="调研报告" value="research"/><el-option label="行业分析" value="analysis"/><el-option label="其他" value="other"/></el-select></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="12"><el-form-item label="报告期"><el-input v-model="form.period" placeholder="如 2026-Q2"/></el-form-item></el-col><el-col :span="12"><el-form-item label="作者"><el-input v-model="form.author"/></el-form-item></el-col></el-row>
+        <el-form-item label="摘要"><el-input v-model="form.summary" type="textarea" rows="3"/></el-form-item>
         <el-form-item label="文件URL"><el-input v-model="form.file_url"/></el-form-item>
         <el-form-item label="状态"><el-select v-model="form.status"><el-option label="草稿" value="draft"/><el-option label="已发布" value="published"/></el-select></el-form-item>
       </el-form>
@@ -86,7 +85,7 @@ const { listData, loading, total, filterParams, loadData, onSearchSubmit, onSele
 const detailVisible = ref(false); const currentItem = ref(null)
 const showDetail = (r) => { currentItem.value = r; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',title:'',report_type:'whitepaper',publisher:'',publish_date:'',authors:'',abstract:'',file_url:'',status:'draft'})
+const form=reactive({id:'',title:'',category:'whitepaper',period:'',author:'',summary:'',file_url:'',status:'draft'})
 const resetForm=()=>Object.assign(form,{id:'',title:'',report_type:'whitepaper',publisher:'',publish_date:'',authors:'',abstract:'',file_url:'',status:'draft'})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,r);formEdit.value=true;formVisible.value=true}

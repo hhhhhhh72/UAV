@@ -21,10 +21,9 @@
       <el-table v-loading="loading" :data="listData" row-key="id" stripe border @selection-change="onSelectChange">
         <el-table-column type="selection" width="40" />
         <el-table-column prop="id" label="ID" width="160" sortable="custom" />
-        <el-table-column prop="mission_name" label="任务名称" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="event_type" label="事件类型" width="100"><template #default="{row}"><el-tag size="small" :type="eventTag(row.event_type)">{{ row.event_type || '-' }}</el-tag></template></el-table-column>
-        <el-table-column prop="resource_name" label="调度资源" width="140" />
-        <el-table-column prop="dispatch_time" label="调度时间" width="160" sortable="custom"><template #default="{row}">{{ formatDate(row.dispatch_time) }}</template></el-table-column>
+        <el-table-column prop="event_desc" label="任务名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="resource_id" label="调度资源" width="140" />
+        <el-table-column prop="start_time" label="调度时间" width="160" sortable="custom"><template #default="{row}">{{ formatDate(row.start_time) }}</template></el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{row}"><el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag></template>
         </el-table-column>
@@ -44,10 +43,10 @@
     <el-dialog v-model="detailVisible" title="调度详情" width="600px">
       <template v-if="currentItem">
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="任务名称" :span="2">{{ currentItem.mission_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="任务名称" :span="2">{{ currentItem.event_desc || '-' }}</el-descriptions-item>
           <el-descriptions-item label="事件类型">{{ currentItem.event_type || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="调度资源">{{ currentItem.resource_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="调度时间">{{ formatDate(currentItem.dispatch_time) }}</el-descriptions-item>
+          <el-descriptions-item label="调度资源">{{ currentItem.resource_id || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="调度时间">{{ formatDate(currentItem.start_time) }}</el-descriptions-item>
           <el-descriptions-item label="结束时间">{{ formatDate(currentItem.end_time) }}</el-descriptions-item>
           <el-descriptions-item label="位置">{{ currentItem.location || '-' }}</el-descriptions-item>
           <el-descriptions-item label="指挥员">{{ currentItem.commander || '-' }}</el-descriptions-item>
@@ -59,12 +58,11 @@
     </el-dialog>
     <el-dialog v-model="formVisible" :title="formEdit?'编辑调度':'新建调度'" width="560px" destroy-on-close>
       <el-form :model="form" label-width="90px">
-        <el-row :gutter="16"><el-col :span="14"><el-form-item label="任务名称" required><el-input v-model="form.mission_name"/></el-form-item></el-col><el-col :span="10"><el-form-item label="事件类型"><el-select v-model="form.event_type" style="width:100%"><el-option label="山火" value="山火"/><el-option label="洪水" value="洪水"/><el-option label="地震" value="地震"/><el-option label="搜救" value="搜救"/><el-option label="其他" value="其他"/></el-select></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="调度资源"><el-input v-model="form.resource_name"/></el-form-item></el-col><el-col :span="12"><el-form-item label="位置"><el-input v-model="form.location"/></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="调度时间"><el-input v-model="form.dispatch_time" placeholder="YYYY-MM-DD HH:mm"/></el-form-item></el-col><el-col :span="12"><el-form-item label="结束时间"><el-input v-model="form.end_time" placeholder="YYYY-MM-DD HH:mm"/></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="指挥员"><el-input v-model="form.commander"/></el-form-item></el-col><el-col :span="12"><el-form-item label="队伍规模"><el-input v-model="form.team_size"/></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="14"><el-form-item label="任务名称" required><el-input v-model="form.event_desc"/></el-form-item></el-col><el-col :span="10"><el-form-item label="处理结果"><el-input v-model="form.result"/></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="12"><el-form-item label="调度资源"><el-input v-model="form.resource_id" placeholder="资源 ID"/></el-form-item></el-col><el-col :span="12"><el-form-item label="位置"><el-input v-model="form.location"/></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="12"><el-form-item label="调度时间"><el-input v-model="form.start_time" placeholder="YYYY-MM-DD HH:mm"/></el-form-item></el-col><el-col :span="12"><el-form-item label="结束时间"><el-input v-model="form.end_time" placeholder="YYYY-MM-DD HH:mm"/></el-form-item></el-col></el-row>
+        <el-form-item label="指挥员"><el-input v-model="form.commander"/></el-form-item>
         <el-form-item label="状态"><el-select v-model="form.status"><el-option label="已调度" value="dispatched"/><el-option label="执行中" value="in_progress"/><el-option label="已完成" value="completed"/><el-option label="已取消" value="cancelled"/></el-select></el-form-item>
-        <el-form-item label="备注"><el-input v-model="form.notes" type="textarea" rows="2"/></el-form-item>
       </el-form>
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">提交</el-button></template>
     </el-dialog>
@@ -86,11 +84,11 @@ const { listData, loading, total, filterParams, loadData, onSearchSubmit, onSele
 const detailVisible = ref(false); const currentItem = ref(null)
 const showDetail = (r) => { currentItem.value = r; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',mission_name:'',event_type:'山火',resource_name:'',dispatch_time:'',end_time:'',location:'',commander:'',team_size:'',status:'dispatched',notes:''})
-const resetForm=()=>Object.assign(form,{id:'',mission_name:'',event_type:'山火',resource_name:'',dispatch_time:'',end_time:'',location:'',commander:'',team_size:'',status:'dispatched',notes:''})
+const form=reactive({id:'',event_desc:'',result:'',resource_id:'',start_time:'',end_time:'',location:'',commander:'',status:'dispatched'})
+const resetForm=()=>Object.assign(form,{id:'',event_desc:'',result:'',resource_id:'',start_time:'',end_time:'',location:'',commander:'',status:'dispatched'})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,r);formEdit.value=true;formVisible.value=true}
-const submitForm=async()=>{if(!form.mission_name){ElMessage.warning('请输入任务名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
+const submitForm=async()=>{if(!form.event_desc){ElMessage.warning('请输入任务名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
 const handleDelete=(r)=>{ElMessageBox.confirm('确定删除?','提示',{type:'warning'}).then(async()=>{try{await api.delete(r.id);ElMessage.success('已删除');loadData()}catch{ElMessage.error('删除失败')}}).catch(()=>{})}
 onMounted(loadData)
 </script>

@@ -7,8 +7,8 @@
         </el-input>
         <el-select v-model="filterParams.status" clearable style="width:140px" @change="onSearchSubmit">
           <el-option label="全部状态" value="" />
-          <el-option label="待审核" value="pending" />
-          <el-option label="已通过" value="approved" />
+          <el-option label="草稿" value="draft" />
+          <el-option label="已发布" value="published" />
           <el-option label="已驳回" value="rejected" />
         </el-select>
         <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
@@ -20,10 +20,7 @@
       <el-table v-loading="loading" :data="listData" row-key="id" stripe border @selection-change="onSelectChange">
         <el-table-column type="selection" width="40" />
         <el-table-column prop="id" label="ID" width="160" sortable="custom" />
-        <el-table-column prop="company" label="企业名称" width="160" />
-        <el-table-column prop="brand_name" label="品牌名称" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="industry" label="行业" width="120" />
-        <el-table-column prop="portfolio_type" label="展示类型" width="110" />
+        <el-table-column prop="name" label="品牌名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="status" label="审核状态" width="100">
           <template #default="{row}"><el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag></template>
         </el-table-column>
@@ -58,13 +55,12 @@
     </el-dialog>
     <el-dialog v-model="formVisible" :title="formEdit?'编辑品牌':'新增品牌'" width="560px" destroy-on-close>
       <el-form :model="form" label-width="90px">
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="企业名称"><el-input v-model="form.company"/></el-form-item></el-col><el-col :span="12"><el-form-item label="品牌名称" required><el-input v-model="form.brand_name"/></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="行业"><el-input v-model="form.industry"/></el-form-item></el-col><el-col :span="12"><el-form-item label="展示类型"><el-input v-model="form.portfolio_type"/></el-form-item></el-col></el-row>
-        <el-form-item label="Logo URL"><el-input v-model="form.logo"/></el-form-item>
-        <el-form-item label="封面图 URL"><el-input v-model="form.cover_image"/></el-form-item>
+        <el-form-item label="品牌名称" required><el-input v-model="form.name"/></el-form-item>
+        <el-form-item label="Logo URL"><el-input v-model="form.logo_url"/></el-form-item>
+        <el-form-item label="封面图 URL"><el-input v-model="form.cover_url"/></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" rows="2"/></el-form-item>
-        <el-form-item label="荣誉"><el-input v-model="form.honors" type="textarea" rows="2"/></el-form-item>
-        <el-form-item label="审核状态"><el-select v-model="form.status"><el-option label="待审核" value="pending"/><el-option label="已通过" value="approved"/><el-option label="已驳回" value="rejected"/></el-select></el-form-item>
+        <el-form-item label="荣誉"><el-input v-model="form.honorsText" type="textarea" rows="2" placeholder="多个荣誉用逗号分隔"/></el-form-item>
+        <el-form-item label="审核状态"><el-select v-model="form.status"><el-option label="草稿" value="draft"/><el-option label="已发布" value="published"/><el-option label="已驳回" value="rejected"/></el-select></el-form-item>
       </el-form>
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">提交</el-button></template>
     </el-dialog>
@@ -84,12 +80,12 @@ const { listData, loading, total, filterParams, loadData, onSearchSubmit, onSele
 const detailVisible = ref(false); const currentItem = ref(null)
 const showDetail = (r) => { currentItem.value = r; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',company:'',brand_name:'',industry:'',portfolio_type:'',logo:'',cover_image:'',description:'',honors:'',status:'pending'})
-const resetForm=()=>Object.assign(form,{id:'',company:'',brand_name:'',industry:'',portfolio_type:'',logo:'',cover_image:'',description:'',honors:'',status:'pending'})
+const form=reactive({id:'',name:'',logo_url:'',cover_url:'',description:'',honorsText:'',status:'draft'})
+const resetForm=()=>Object.assign(form,{id:'',name:'',logo_url:'',cover_url:'',description:'',honorsText:'',status:'draft'})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
-const handleEdit=(r)=>{Object.assign(form,r);formEdit.value=true;formVisible.value=true}
-const submitForm=async()=>{if(!form.brand_name){ElMessage.warning('请输入品牌名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
-const handleApprove = async (r) => { try { await api.update(r.id, { status: 'approved' }); ElMessage.success('已通过'); loadData() } catch { ElMessage.error('操作失败') } }
+const handleEdit=(r)=>{Object.assign(form,{id:r.id,name:r.name||'',logo_url:r.logo_url||'',cover_url:r.cover_url||'',description:r.description||'',honorsText:Array.isArray(r.honors)?r.honors.join('、'):(r.honors||''),status:r.status||'draft'});formEdit.value=true;formVisible.value=true}
+const submitForm=async()=>{if(!form.name){ElMessage.warning('请输入品牌名称');return};formLoading.value=true;try{const p={id:form.id,name:form.name,logo_url:form.logo_url,cover_url:form.cover_url,description:form.description,status:form.status,honors:String(form.honorsText||'').split(/[,，、]/).map(x=>x.trim()).filter(Boolean)};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
+const handleApprove = async (r) => { try { await api.update(r.id, { status: 'published' }); ElMessage.success('已发布'); loadData() } catch { ElMessage.error('操作失败') } }
 const handleReject = async (r) => { try { await api.update(r.id, { status: 'rejected' }); ElMessage.success('已驳回'); loadData() } catch { ElMessage.error('操作失败') } }
 const handleDelete = (r) => { ElMessageBox.confirm('确定删除?','提示',{type:'warning'}).then(async()=>{try{await api.delete(r.id);ElMessage.success('已删除');loadData()}catch{ElMessage.error('删除失败')}}).catch(()=>{}) }
 onMounted(loadData)

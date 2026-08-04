@@ -26,18 +26,13 @@
         <el-table-column type="selection" width="40" />
         <el-table-column prop="id" label="ID" width="160" sortable="custom" />
         <el-table-column prop="title" label="标题" min-width="200" />
-        <el-table-column prop="msg_type" label="类型" width="120">
-          <template #default="{ row }">
-            <el-tag :type="typeColor[row.msg_type] || 'info'">{{ row.msg_type || '-' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="to_user" label="接收者" width="140" />
+        <el-table-column prop="receiver_id" label="接收者" width="140" />
         <el-table-column prop="created_at" label="发送时间" width="170">
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="is_read" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="statusColor[row.status] || 'info'">{{ statusLabel[row.status] || row.status || '-' }}</el-tag>
+            <el-tag :type="row.is_read ? 'info' : 'warning'" size="small">{{ row.is_read ? '已读' : '未读' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
@@ -77,8 +72,8 @@
     </el-dialog>
     <el-dialog v-model="formVisible" :title="formEdit?'编辑通知':'发送通知'" width="560px" destroy-on-close>
       <el-form :model="form" label-width="90px">
-        <el-row :gutter="16"><el-col :span="16"><el-form-item label="消息标题" required><el-input v-model="form.title"/></el-form-item></el-col><el-col :span="8"><el-form-item label="类型"><el-select v-model="form.msg_type" style="width:100%"><el-option label="系统通知" value="系统通知"/><el-option label="活动提醒" value="活动提醒"/><el-option label="审核结果" value="审核结果"/><el-option label="其他" value="其他"/></el-select></el-form-item></el-col></el-row>
-        <el-form-item label="接收者"><el-input v-model="form.to_user" placeholder="留空表示全部用户"/></el-form-item>
+        <el-form-item label="消息标题" required><el-input v-model="form.title"/></el-form-item>
+        <el-form-item label="接收者"><el-input v-model="form.receiver_id" placeholder="用户 ID（必填）"/></el-form-item>
         <el-form-item label="消息内容" required><el-input v-model="form.content" type="textarea" rows="5"/></el-form-item>
       </el-form>
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">发送</el-button></template>
@@ -117,12 +112,12 @@ const detailVisible = ref(false)
 const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',title:'',msg_type:'系统通知',to_user:'',content:'',status:'unread'})
+const form=reactive({id:'',title:'',receiver_id:'',content:''})
 const resetForm=()=>Object.assign(form,{id:'',title:'',msg_type:'系统通知',to_user:'',content:'',status:'unread'})
 const handleSend=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,r);formEdit.value=true;formVisible.value=true}
-const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入消息标题');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
+const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入消息标题');return};if(!form.receiver_id){ElMessage.warning('请输入接收者用户 ID');return};formLoading.value=true;try{const p={sender_id:'system',receiver_id:form.receiver_id,title:form.title,content:form.content};await api.create(p);ElMessage.success('发送成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'发送失败')}finally{formLoading.value=false}}
 const handleDelete = (row) => {
   ElMessageBox.confirm('确定删除该通知吗？', '提示', { type: 'warning' }).then(async () => {
     try { await api.delete(row.id); ElMessage.success('已删除'); loadData() } catch { ElMessage.error('删除失败') }

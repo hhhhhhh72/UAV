@@ -23,8 +23,7 @@
           @change="onSearchSubmit"
         >
           <el-option label="全部" value="" />
-          <el-option label="招募中" value="recruiting" />
-          <el-option label="进行中" value="ongoing" />
+          <el-option label="进行中" value="active" />
           <el-option label="已完成" value="completed" />
         </el-select>
 
@@ -64,7 +63,9 @@
             <span class="cell-amount">{{ formatMoney(row.budget_fen) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="member_count" label="参与人数" width="100" sortable="custom" />
+        <el-table-column prop="members" label="参与单位" min-width="140">
+          <template #default="{ row }">{{ Array.isArray(row.members) ? row.members.join('、') : (row.members || '-') }}</template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
@@ -117,10 +118,14 @@
     <el-dialog v-model="formVisible" :title="formEdit?'编辑课题':'新增课题'" width="560px" @close="resetForm">
       <el-form :model="form" label-width="80px">
         <el-form-item label="课题名称"><el-input v-model="form.title" /></el-form-item>
+        <el-form-item label="牵头单位"><el-input v-model="form.lead_org" /></el-form-item>
+        <el-form-item label="领域"><el-input v-model="form.field" /></el-form-item>
+        <el-form-item label="预算(分)"><el-input v-model.number="form.budget_fen" type="number" /></el-form-item>
+        <el-form-item label="里程碑"><el-input v-model="form.milestones" placeholder="阶段目标，如：方案设计→样机测试" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status" style="width:100%">
-            <el-option label="招募中" value="recruiting" /><el-option label="进行中" value="ongoing" /><el-option label="已完成" value="completed" />
+            <el-option label="进行中" value="active" /><el-option label="已完成" value="completed" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -155,10 +160,10 @@ const detailVisible = ref(false)
 const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',title:'',lead_org:'',field:'',budget_fen:0,member_count:0,status:'recruiting',objectives:'',timeline:'',requirements:''})
+const form=reactive({id:'',title:'',lead_org:'',field:'',budget_fen:0,milestones:'',status:'active',description:''})
 const resetForm=()=>Object.assign(form,{id:'',title:'',lead_org:'',field:'',budget_fen:0,member_count:0,status:'recruiting',objectives:'',timeline:'',requirements:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
-const handleEdit=(r)=>{Object.assign(form,{...r,budget_fen:r.budget_fen||0,member_count:r.member_count||0});formEdit.value=true;formVisible.value=true}
+const handleEdit=(r)=>{Object.assign(form,{id:r.id,title:r.title||'',lead_org:r.lead_org||'',field:r.field||'',budget_fen:r.budget_fen||0,milestones:r.milestones||'',status:r.status||'active',description:r.description||''});formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入项目名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
 const handleDelete=(r)=>{ElMessageBox.confirm(`确定删除项目"${r.title}"吗？`,'提示',{type:'warning'}).then(async()=>{try{await api.delete(r.id);ElMessage.success('已删除');loadData()}catch{ElMessage.error('删除失败')}}).catch(()=>{})}
 

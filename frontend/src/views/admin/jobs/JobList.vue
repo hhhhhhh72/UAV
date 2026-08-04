@@ -7,7 +7,7 @@
         </el-input>
         <el-select v-model="filterParams.status" clearable style="width: 140px" @change="onSearchSubmit">
           <el-option label="全部" value="" />
-          <el-option label="招聘中" value="active" />
+          <el-option label="招聘中" value="published" />
           <el-option label="已关闭" value="closed" />
         </el-select>
         <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
@@ -27,12 +27,12 @@
             <span class="cell-title">{{ row.title || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="company" label="公司" width="160">
+        <el-table-column prop="enterprise_id" label="公司ID" width="160">
           <template #default="{ row }">{{ row.company || '-' }}</template>
         </el-table-column>
         <el-table-column prop="location" label="地区" width="120" />
-        <el-table-column prop="salary" label="薪资" width="130">
-          <template #default="{ row }">{{ row.salary || '-' }}</template>
+        <el-table-column prop="salary_fen" label="薪资" width="130">
+          <template #default="{ row }">{{ row.salary_fen ? '¥' + (row.salary_fen / 100).toLocaleString('zh-CN') : '-' }}</template>
         </el-table-column>
         <el-table-column prop="job_type" label="类型" width="100">
           <template #default="{ row }">
@@ -86,15 +86,13 @@
           <el-col :span="10"><el-form-item label="类型"><el-select v-model="form.job_type" style="width:100%"><el-option label="全职" value="全职" /><el-option label="兼职" value="兼职" /><el-option label="实习" value="实习" /><el-option label="外包" value="外包" /></el-select></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="公司"><el-input v-model="form.company" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="地区"><el-input v-model="form.location" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="招聘中" value="published" /><el-option label="已关闭" value="closed" /></el-select></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="薪资"><el-input v-model="form.salary" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="招聘中" value="active" /><el-option label="已关闭" value="closed" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="薪资(元)"><el-input v-model.number="form.salary" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="职位描述"><el-input v-model="form.description" type="textarea" rows="2" /></el-form-item>
-        <el-form-item label="任职要求"><el-input v-model="form.requirements" type="textarea" rows="2" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">提交</el-button></template>
     </el-dialog>
@@ -133,11 +131,11 @@ const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 
 const formVisible=ref(false); const formEdit=ref(false); const formLoading=ref(false)
-const form=reactive({id:'',title:'',company:'',location:'',salary:'',job_type:'全职',status:'active',description:'',requirements:''})
-const resetForm=()=>Object.assign(form,{id:'',title:'',company:'',location:'',salary:'',job_type:'全职',status:'active',description:'',requirements:''})
+const form=reactive({id:'',title:'',location:'',salary:0,job_type:'全职',status:'published',description:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',location:'',salary:0,job_type:'全职',status:'published',description:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
 const handleEdit=(r)=>{Object.assign(form,r);formEdit.value=true;formVisible.value=true}
-const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入职位名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
+const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入职位名称');return};formLoading.value=true;try{const p={id:form.id,title:form.title,location:form.location,job_type:form.job_type,status:form.status,description:form.description,salary_fen:Math.round((Number(form.salary)||0)*100)};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
 const handleDelete=(r)=>{ElMessageBox.confirm('确定删除该职位?','提示',{type:'warning'}).then(async()=>{try{await api.delete(r.id);ElMessage.success('已删除');loadData()}catch{ElMessage.error('删除失败')}}).catch(()=>{})}
 
 onMounted(loadData)

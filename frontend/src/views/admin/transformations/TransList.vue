@@ -25,8 +25,8 @@
           <el-option label="全部" value="" />
           <el-option label="实验室" value="lab" />
           <el-option label="中试" value="pilot" />
-          <el-option label="产业化" value="industrialization" />
-          <el-option label="上市" value="launched" />
+          <el-option label="产业化" value="industrialized" />
+          <el-option label="上市" value="listed" />
         </el-select>
 
         <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
@@ -49,9 +49,9 @@
       >
         <el-table-column type="selection" width="40" />
         <el-table-column prop="id" label="ID" width="160" sortable="custom" />
-        <el-table-column prop="achievement_title" label="成果名称" min-width="200">
+        <el-table-column prop="title" label="转化标题" min-width="200">
           <template #default="{ row }">
-            <span class="cell-name">{{ row.achievement_title || '-' }}</span>
+            <span class="cell-name">{{ row.title || row.achievement_id || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="stage" label="当前阶段" width="100">
@@ -59,15 +59,10 @@
             <el-tag :type="stageTag(row.stage)" size="small">{{ stageLabel(row.stage) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="owner" label="负责人" width="100" />
-        <el-table-column prop="start_date" label="开始日期" width="130" sortable="custom">
+        <el-table-column prop="owner_id" label="负责人ID" width="110" />
+        <el-table-column prop="progress" label="进度说明" min-width="160">
           <template #default="{ row }">
-            {{ formatDate(row.start_date) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="target_date" label="目标完成" width="130" sortable="custom">
-          <template #default="{ row }">
-            {{ formatDate(row.target_date) }}
+            <span class="cell-name">{{ row.progress || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
@@ -120,15 +115,14 @@
     <el-dialog v-model="formVisible" :title="formEdit?'编辑转化':'新增转化'" width="560px" @close="resetForm">
       <el-form :model="form" label-width="80px">
         <el-form-item label="标题"><el-input v-model="form.title" /></el-form-item>
-        <el-form-item label="成果名称"><el-input v-model="form.achievement_title" /></el-form-item>
+        <el-form-item label="成果ID"><el-input v-model="form.achievement_id" placeholder="关联成果 ID"/></el-form-item>
         <el-form-item label="阶段">
           <el-select v-model="form.stage" style="width:100%">
             <el-option label="实验室" value="lab" /><el-option label="中试" value="pilot" />
-            <el-option label="产业化" value="industrialization" /><el-option label="上市" value="launched" />
+            <el-option label="产业化" value="industrialized" /><el-option label="上市" value="listed" />
           </el-select>
         </el-form-item>
-        <el-form-item label="目标日期"><el-input v-model="form.target_date" /></el-form-item>
-        <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
+        <el-form-item label="进度说明"><el-input v-model="form.progress" type="textarea" :rows="3" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">确定</el-button></template>
     </el-dialog>
@@ -146,10 +140,10 @@ const api = useAdminApi('transformations')
 const formEdit = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id:'',title:'',achievement_title:'',stage:'lab',target_date:'',description:'' })
+const form = reactive({ id:'',title:'',achievement_id:'',stage:'lab',progress:'' })
 
-const stageLabel = (s) => ({ lab: '实验室', pilot: '中试', industrialization: '产业化', launched: '上市' }[s] || s || '-')
-const stageTag = (s) => ({ lab: 'info', pilot: 'warning', industrialization: 'success', launched: '' }[s] || 'info')
+const stageLabel = (s) => ({ lab: '实验室', pilot: '中试', industrialized: '产业化', listed: '上市' }[s] || s || '-')
+const stageTag = (s) => ({ lab: 'info', pilot: 'warning', industrialized: 'success', listed: '' }[s] || 'info')
 const statusTag = (s) => ({ active: 'success', completed: '', cancelled: 'danger', ongoing: 'warning' }[s] || 'info')
 const statusLabel = (s) => ({ active: '进行中', completed: '已完成', cancelled: '已取消', ongoing: '进行中' }[s] || (s || '-'))
 
