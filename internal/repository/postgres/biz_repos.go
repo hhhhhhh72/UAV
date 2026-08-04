@@ -356,16 +356,19 @@ func (s *Store) NewShopRepository() repository.ShopRepository       { return &sh
 
 func (r *resourceRepo) Create(res domain.IndustryResource) (domain.IndustryResource, error) {
 	res.CreatedAt = time.Now(); res.UpdatedAt = res.CreatedAt
+	if res.VisibilityLevel == "" {
+		res.VisibilityLevel = "public"
+	}
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO industry_resources (id,owner_id,name,res_type,model,specs,location,price_fen,booking_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		res.ID, res.OwnerID, res.Name, res.ResType, res.Model, res.Specs, res.Location, res.PriceFen, res.BookingInfo, res.Status, res.CreatedAt, res.UpdatedAt)
+		`INSERT INTO industry_resources (id,owner_id,name,res_type,model,specs,location,price_fen,booking_info,visibility_level,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		res.ID, res.OwnerID, res.Name, res.ResType, res.Model, res.Specs, res.Location, res.PriceFen, res.BookingInfo, res.VisibilityLevel, res.Status, res.CreatedAt, res.UpdatedAt)
 	return res, err
 }
 func (r *resourceRepo) FindByID(id string) (domain.IndustryResource, error) {
 	var res domain.IndustryResource
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id,owner_id,name,res_type,model,specs,location,price_fen,booking_info,status,created_at,updated_at FROM industry_resources WHERE id=$1`, id).
-		Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Model, &res.Specs, &res.Location, &res.PriceFen, &res.BookingInfo, &res.Status, &res.CreatedAt, &res.UpdatedAt)
+		`SELECT id,owner_id,name,res_type,model,specs,location,price_fen,booking_info,visibility_level,status,created_at,updated_at FROM industry_resources WHERE id=$1`, id).
+		Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Model, &res.Specs, &res.Location, &res.PriceFen, &res.BookingInfo, &res.VisibilityLevel, &res.Status, &res.CreatedAt, &res.UpdatedAt)
 	return res, err
 }
 func (r *resourceRepo) List(resType string, offset, limit int) ([]domain.IndustryResource, int, error) {
@@ -373,14 +376,14 @@ func (r *resourceRepo) List(resType string, offset, limit int) ([]domain.Industr
 	if resType != "" { where = `WHERE res_type=$1`; args = append(args, resType) }
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM industry_resources `+where, args...).Scan(&total)
-	q := fmt.Sprintf(`SELECT id,owner_id,name,res_type,model,specs,location,price_fen,booking_info,status,created_at,updated_at FROM industry_resources %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,owner_id,name,res_type,model,specs,location,price_fen,booking_info,visibility_level,status,created_at,updated_at FROM industry_resources %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil { return nil, 0, fmt.Errorf("list resources: %w", err) }
 	defer rows.Close()
 	var out []domain.IndustryResource
 	for rows.Next() {
 		var res domain.IndustryResource
-		rows.Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Model, &res.Specs, &res.Location, &res.PriceFen, &res.BookingInfo, &res.Status, &res.CreatedAt, &res.UpdatedAt)
+		rows.Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Model, &res.Specs, &res.Location, &res.PriceFen, &res.BookingInfo, &res.VisibilityLevel, &res.Status, &res.CreatedAt, &res.UpdatedAt)
 		out = append(out, res)
 	}
 	return out, total, rows.Err()
@@ -388,8 +391,8 @@ func (r *resourceRepo) List(resType string, offset, limit int) ([]domain.Industr
 func (r *resourceRepo) Update(res domain.IndustryResource) (domain.IndustryResource, error) {
 	res.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE industry_resources SET name=$1,res_type=$2,model=$3,specs=$4,location=$5,price_fen=$6,booking_info=$7,status=$8,updated_at=$9 WHERE id=$10`,
-		res.Name, res.ResType, res.Model, res.Specs, res.Location, res.PriceFen, res.BookingInfo, res.Status, res.UpdatedAt, res.ID)
+		`UPDATE industry_resources SET name=$1,res_type=$2,model=$3,specs=$4,location=$5,price_fen=$6,booking_info=$7,visibility_level=$8,status=$9,updated_at=$10 WHERE id=$11`,
+		res.Name, res.ResType, res.Model, res.Specs, res.Location, res.PriceFen, res.BookingInfo, res.VisibilityLevel, res.Status, res.UpdatedAt, res.ID)
 	return res, err
 }
 

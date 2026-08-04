@@ -181,21 +181,25 @@ func NewResourceService(repo repository.ResourceRepository) *ResourceService {
 	return &ResourceService{repo: repo}
 }
 
-func (s *ResourceService) Create(ownerID, name, resType, model, specs, location, bookingInfo string, priceFen int64) (domain.IndustryResource, error) {
+func (s *ResourceService) Create(ownerID, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel string) (domain.IndustryResource, error) {
 	now := time.Now()
+	if visibilityLevel == "" {
+		visibilityLevel = "public"
+	}
 	r := domain.IndustryResource{
-		ID:          fmt.Sprintf("res-%d", now.UnixNano()),
-		OwnerID:     ownerID,
-		Name:        name,
-		ResType:     resType,
-		Model:       model,
-		Specs:       specs,
-		Location:    location,
-		PriceFen:    priceFen,
-		BookingInfo: bookingInfo,
-		Status:      "available",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:              fmt.Sprintf("res-%d", now.UnixNano()),
+		OwnerID:         ownerID,
+		Name:            name,
+		ResType:         resType,
+		Model:           model,
+		Specs:           specs,
+		Location:        location,
+		PriceFen:        priceFen,
+		BookingInfo:     bookingInfo,
+		VisibilityLevel: visibilityLevel,
+		Status:          "available",
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 	return s.repo.Create(r)
 }
@@ -209,7 +213,7 @@ func (s *ResourceService) Get(id string) (domain.IndustryResource, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *ResourceService) Update(id, name, resType, model, specs, location, bookingInfo string, priceFen int64) (domain.IndustryResource, error) {
+func (s *ResourceService) Update(id, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel string) (domain.IndustryResource, error) {
 	r, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.IndustryResource{}, err
@@ -221,6 +225,9 @@ func (s *ResourceService) Update(id, name, resType, model, specs, location, book
 	r.Location = location
 	r.PriceFen = priceFen
 	r.BookingInfo = bookingInfo
+	if visibilityLevel != "" {
+		r.VisibilityLevel = visibilityLevel
+	}
 	r.UpdatedAt = time.Now()
 	return s.repo.Update(r)
 }

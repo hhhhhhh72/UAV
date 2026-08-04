@@ -63,7 +63,8 @@ const (
 	AssocSecretary     AssociationRole = "secretary"       // 秘书长
 	AssocDeptHead      AssociationRole = "dept_head"       // 部门负责人
 	AssocMember        AssociationRole = "member"          // 普通会员
-	AssocPartner       AssociationRole = "partner"         // 合作院校
+	AssocPartner       AssociationRole = "partner"         // 副会长单位（.doc 原始需求 5 级单位身份）
+	AssocCollege       AssociationRole = "college"         // 合作院校（.doc 原始需求 5 级单位身份）
 	AssocGuest         AssociationRole = "guest"           // 访客
 )
 

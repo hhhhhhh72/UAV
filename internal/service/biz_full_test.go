@@ -166,10 +166,10 @@ func TestEventFullCRUD(t *testing.T) {
 // === Resource full CRUD ===
 func TestResourceFullCRUD(t *testing.T) {
 	svc := service.NewResourceService(memory.NewResourceRepository())
-	r, _ := svc.Create("user-1", "无人机01", "drone", "M300", "RTK+热成像", "南岸", "9-18点", 100000)
+	r, _ := svc.Create("user-1", "无人机01", "drone", "M300", "RTK+热成像", "南岸", "9-18点", 100000, "public")
 	got, _ := svc.Get(r.ID)
 	if got.Model != "M300" { t.Fatal("Get failed") }
-	svc.Update(r.ID, "无人机02", "drone", "M350", "RTK+LiDAR", "江北", "全天", 150000)
+	svc.Update(r.ID, "无人机02", "drone", "M350", "RTK+LiDAR", "江北", "全天", 150000, "member")
 	// List by type
 	_, total, _ := svc.List("drone", 1, 20)
 	if total != 1 { t.Fatal("list drone") }

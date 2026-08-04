@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"drone-platform/internal/domain"
 )
@@ -1080,14 +1081,63 @@ func (s *Server) registerEvent(w http.ResponseWriter, r *http.Request) {
 // ---- Industry Resources ----
 
 // GET /api/v1/industry-resources?res_type=drone&page=1&page_size=10
+// resourceLevelRank 可见级别排序：public(0) < member(1) < partner(2) < admin(3)
+func resourceLevelRank(lv string) int {
+	switch lv {
+	case "admin":
+		return 3
+	case "partner":
+		return 2
+	case "member":
+		return 1
+	default:
+		return 0
+	}
+}
+
+// visitorResourceLevel 判定访问者的资源可见级别
+// 协会管理员 > 副会长单位(partner) > 合作院校/普通会员(member) > 政府访客(public)
+// 注意：公开 GET 路径上 authenticate 不注入 actor，需手动解析 token
+func (s *Server) visitorResourceLevel(r *http.Request) int {
+	h := r.Header.Get("Authorization")
+	if !strings.HasPrefix(h, "Bearer ") {
+		return 0 // 政府访客（未登录）
+	}
+	a, err := s.tokens.Verify(strings.TrimPrefix(h, "Bearer "))
+	if err != nil {
+		return 0
+	}
+	if a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin {
+		return 3 // 协会管理员
+	}
+	// 查单位身份（association_members.role: partner 副会长单位 / college 合作院校）
+	if m, err := s.assocMemberSvc.GetByUserID(a.ID); err == nil {
+		if m.Role == domain.AssocPartner {
+			return 2
+		}
+		if m.Role == domain.AssocCollege {
+			return 1
+		}
+	}
+	return 1 // 普通会员
+}
+
 func (s *Server) listIndustryResources(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.resourceSvc.List(r.URL.Query().Get("res_type"), page, pageSize)
+	items, _, err := s.resourceSvc.List(r.URL.Query().Get("res_type"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	// 分级浏览过滤（.doc 原始需求：协会管理员/副会长单位/普通会员/合作院校/政府访客分级浏览）
+	visitor := s.visitorResourceLevel(r)
+	visible := make([]domain.IndustryResource, 0, len(items))
+	for _, it := range items {
+		if resourceLevelRank(it.VisibilityLevel) <= visitor {
+			visible = append(visible, it)
+		}
+	}
+	paginatedRespond(w, r, visible, len(visible))
 }
 
 // POST /api/v1/admin/industry-resources
@@ -1103,13 +1153,14 @@ func (s *Server) createIndustryResource(w http.ResponseWriter, r *http.Request) 
 	}
 	var in struct {
 		Name, ResType, Model, Specs, Location, BookingInfo string
-		PriceFen                                           int64 `json:"price_fen"`
+		VisibilityLevel                                    string `json:"visibility_level"`
+		PriceFen                                           int64  `json:"price_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.resourceSvc.Create(a.ID, in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen)
+	res, err := s.resourceSvc.Create(a.ID, in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1131,13 +1182,14 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 	}
 	var in struct {
 		Name, ResType, Model, Specs, Location, BookingInfo string
-		PriceFen                                           int64 `json:"price_fen"`
+		VisibilityLevel                                    string `json:"visibility_level"`
+		PriceFen                                           int64  `json:"price_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.resourceSvc.Update(r.PathValue("id"), in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen)
+	res, err := s.resourceSvc.Update(r.PathValue("id"), in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return

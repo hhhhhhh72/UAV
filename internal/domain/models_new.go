@@ -225,9 +225,11 @@ type IndustryResource struct {
 	Location    string    `json:"location"`
 	PriceFen    int64     `json:"price_fen"`
 	BookingInfo string    `json:"booking_info"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	// VisibilityLevel: public(政府访客) < member(会员+) < partner(副会长单位+) < admin(仅协会管理员)
+	VisibilityLevel string    `json:"visibility_level"`
+	Status          string    `json:"status"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // EmergencyResource is a drone-related emergency response resource.
