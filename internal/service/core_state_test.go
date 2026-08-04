@@ -315,7 +315,7 @@ func TestTrainingCertCourseFlow(t *testing.T) {
 	inst2, _ := svc.ApproveInstructor(admActor(), inst.ID)
 	_ = inst2
 	// Pilot
-	pilot, _ := svc.RegisterPilot(indActor(), "飞行员")
+	pilot, _ := svc.RegisterPilot(indActor(), "飞行员", "500101199001011234", 120, "电力巡检")
 	pilot2, _ := svc.ApprovePilot(admActor(), pilot.ID)
 	_ = pilot2
 	// Lists

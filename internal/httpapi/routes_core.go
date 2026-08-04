@@ -148,7 +148,9 @@ func (s *Server) registerTrainingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/instructors/{id}/approve", s.approveInstructor)
 	mux.HandleFunc("GET /api/v1/instructors", s.listInstructors)
 	mux.HandleFunc("POST /api/v1/certified-pilots", s.registerPilot)
+	mux.HandleFunc("GET /api/v1/admin/certified-pilots", s.listAdminPilots)
 	mux.HandleFunc("POST /api/v1/admin/certified-pilots/{id}/approve", s.approvePilot)
+	mux.HandleFunc("POST /api/v1/admin/certified-pilots/{id}/reject", s.rejectPilot)
 	mux.HandleFunc("GET /api/v1/certified-pilots", s.listPilots)
 	mux.HandleFunc("GET /api/v1/certified-pilots/mine", s.getMyPilot)
 }

@@ -8,6 +8,7 @@
         <text class="name">{{ item.real_name || '认证飞手' }}</text>
         <text class="desc">{{ (item.cert_ids || []).length > 0 ? item.cert_ids.length + ' 项证书认证' : '认证飞手' }}</text>
         <text class="meta">{{ item.flight_hours || 0 }} 小时飞行 · 评分 {{ item.rating || '-' }}</text>
+        <text v-if="item.bio" class="bio">{{ item.bio }}</text>
       </view>
       <text class="arrow">›</text>
     </view>
@@ -25,9 +26,16 @@ const list = ref([])
 const goBack = () => uni.navigateBack()
 // 飞手无独立详情页：点击展示信息弹层
 const goDetail = (item) => {
+  const lines = [
+    `证书认证 ${(item.cert_ids || []).length} 项`,
+    `飞行时长 ${item.flight_hours || 0} 小时`,
+    `完成作业 ${item.completed_jobs || 0} 单`,
+    `评分 ${item.rating || '-'}`,
+  ]
+  if (item.bio) lines.push(`擅长领域：${item.bio}`)
   uni.showModal({
     title: item.real_name || '认证飞手',
-    content: `证书认证 ${(item.cert_ids || []).length} 项\n飞行时长 ${item.flight_hours || 0} 小时\n完成作业 ${item.completed_jobs || 0} 单\n评分 ${item.rating || '-'}`,
+    content: lines.join('\n'),
     showCancel: false,
     confirmText: '知道了'
   })
@@ -58,21 +66,8 @@ const applyPilot = async () => {
     uni.showModal({ title: '我的飞手认证', content: `当前状态：${label}\n${mine.real_name || ''}`, showCancel: false, confirmText: '知道了' })
     return
   }
-  uni.showModal({
-    title: '申请认证飞手',
-    editable: true,
-    placeholderText: '请输入真实姓名',
-    success: async (r) => {
-      const name = (r.content || '').trim()
-      if (!name) return uni.showToast({ title: '请填写真实姓名', icon: 'none' })
-      try {
-        await request({ url: '/api/v1/certified-pilots', method: 'POST', data: { real_name: name } })
-        uni.showModal({ title: '申请已提交', content: '协会审核通过后即可在名录中展示', showCancel: false, confirmText: '知道了' })
-      } catch (e) {
-        uni.showToast({ title: (e && e.message) || '申请失败', icon: 'none' })
-      }
-    },
-  })
+  // 未申请：进入完整申请表单页（姓名/身份证/时长/简介）
+  uni.navigateTo({ url: '/pages/pilots/apply' })
 }
 
 onLoad(() => fetchData())
@@ -86,5 +81,6 @@ onLoad(() => fetchData())
 .name { font-size: 15px; font-weight: 600; color: var(--color-text); display: block; }
 .desc { font-size: 13px; color: var(--color-primary); margin-top: 2px; display: block; }
 .meta { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; display: block; }
+.bio { font-size: 12px; color: var(--color-primary); margin-top: 4rpx; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 420rpx; }
 .arrow { font-size: 18px; color: var(--color-text-placeholder); }
 </style>

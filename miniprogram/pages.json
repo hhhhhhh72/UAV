@@ -520,6 +520,14 @@
       }
     },
     {
+      "path": "pages/pilots/apply",
+      "style": {
+        "navigationBarTitleText": "申请认证飞手",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
       "path": "pages/more/index",
       "style": {
         "navigationBarTitleText": "更多功能",

@@ -488,9 +488,10 @@ type CertifiedPilot struct {
 	IDCard        string    `json:"id_card"` // encrypted at rest
 	CertIDs       []string  `json:"cert_ids"`
 	FlightHours   int       `json:"flight_hours"`
+	Bio           string    `json:"bio"` // 擅长领域/简介
 	Rating        float64   `json:"rating"`
 	CompletedJobs int       `json:"completed_jobs"`
-	Status        string    `json:"status"` // pending / approved
+	Status        string    `json:"status"` // pending / approved / rejected
 	Version       int       `json:"version"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`

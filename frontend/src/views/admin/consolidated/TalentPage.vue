@@ -7,7 +7,8 @@
       <el-tab-pane label="职位管理" name="jobs"><JobList /></el-tab-pane>
       <el-tab-pane label="院校管理" name="colleges"><CollegeList /></el-tab-pane>
       <el-tab-pane label="研学管理" name="study"><StudyList /></el-tab-pane>
+      <el-tab-pane label="飞手认证" name="pilots"><PilotList /></el-tab-pane>
     </el-tabs>
   </div>
-</template><script setup>import { ref } from 'vue'; import CourseList from '../training/CourseList.vue'; import CertList from '../training/CertList.vue'; import CompetitionList from '../competition/CompetitionList.vue'; import JobList from '../jobs/JobList.vue'; import CollegeList from '../colleges/CollegeList.vue'; import StudyList from '../study/StudyList.vue'; const tab = ref('training')</script>
+</template><script setup>import { ref } from 'vue'; import CourseList from '../training/CourseList.vue'; import CertList from '../training/CertList.vue'; import CompetitionList from '../competition/CompetitionList.vue'; import JobList from '../jobs/JobList.vue'; import CollegeList from '../colleges/CollegeList.vue'; import StudyList from '../study/StudyList.vue'; import PilotList from '../pilots/PilotList.vue'; const tab = ref('training')</script>
 <style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>

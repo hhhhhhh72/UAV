@@ -188,13 +188,20 @@ func (s *Server) registerPilot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		RealName string `json:"real_name"`
+		RealName    string `json:"real_name"`
+		IDCard      string `json:"id_card"`
+		FlightHours int    `json:"flight_hours"`
+		Bio         string `json:"bio"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.trainingSvc.RegisterPilot(a, in.RealName)
+	if in.RealName == "" || in.IDCard == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("real_name and id_card are required"))
+		return
+	}
+	p, err := s.trainingSvc.RegisterPilot(a, in.RealName, in.IDCard, in.FlightHours, in.Bio)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -220,13 +227,21 @@ func (s *Server) approvePilot(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, p)
 }
 
-// GET /api/v1/certified-pilots
+// GET /api/v1/certified-pilots — 公开名录：仅已认证（approved）飞手，身份证脱敏
 func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
 	pilots, err := s.trainingSvc.ListPilots()
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 公开名录只显示已认证（待审/驳回不入名录）
+	approved := make([]domain.CertifiedPilot, 0, len(pilots))
+	for _, p := range pilots {
+		if p.Status == "approved" {
+			approved = append(approved, p)
+		}
+	}
+	pilots = approved
 	// 关键词过滤（姓名）
 	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
 		filtered := make([]domain.CertifiedPilot, 0, len(pilots))
@@ -244,6 +259,44 @@ func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	respond(w, r, http.StatusOK, pilots)
+}
+
+// GET /api/v1/admin/certified-pilots — 管理端全量（含待审，身份证完整可见供审核核对）
+func (s *Server) listAdminPilots(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
+	pilots, err := s.trainingSvc.ListPilots()
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	page, pageSize := paginationFromQuery(r)
+	filtered, total := adminListFilter(pilots, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(p domain.CertifiedPilot) string { return p.RealName },
+		func(p domain.CertifiedPilot) string { return p.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+}
+
+// POST /api/v1/admin/certified-pilots/{id}/reject — 驳回飞手认证
+func (s *Server) rejectPilot(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	p, err := s.trainingSvc.RejectPilot(a, r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	respond(w, r, http.StatusOK, p)
 }
 
 // GET /api/v1/certified-pilots/mine — 我的飞手认证状态

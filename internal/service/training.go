@@ -135,9 +135,19 @@ func (s *TrainingService) ListInstructors() ([]domain.Instructor, error) {
 
 // ---- Certified Pilots ----
 
-func (s *TrainingService) RegisterPilot(a domain.Actor, realName string) (domain.CertifiedPilot, error) {
+func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string, flightHours int, bio string) (domain.CertifiedPilot, error) {
+	// 自动关联已认证证书（审核管线 approved 状态，无手动勾选/造假空间）
+	certIDs := []string{}
+	if certs, err := s.certRepo.ListByUser(a.ID); err == nil {
+		for _, c := range certs {
+			if c.Status == "approved" {
+				certIDs = append(certIDs, c.ID)
+			}
+		}
+	}
 	now := time.Now()
 	p := domain.CertifiedPilot{ID: fmt.Sprintf("pilot-%d", now.UnixNano()), UserID: a.ID, RealName: realName,
+		IDCard: idCard, CertIDs: certIDs, FlightHours: flightHours, Bio: bio,
 		Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.pilotRepo.Create(p)
 }
@@ -147,6 +157,14 @@ func (s *TrainingService) ApprovePilot(a domain.Actor, id string) (domain.Certif
 		return domain.CertifiedPilot{}, errors.New("admin permission required")
 	}
 	return s.pilotRepo.UpdateStatus(id, "approved")
+}
+
+// RejectPilot 驳回飞手认证申请（管理员）。
+func (s *TrainingService) RejectPilot(a domain.Actor, id string) (domain.CertifiedPilot, error) {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return domain.CertifiedPilot{}, errors.New("admin permission required")
+	}
+	return s.pilotRepo.UpdateStatus(id, "rejected")
 }
 
 func (s *TrainingService) ListPilots() ([]domain.CertifiedPilot, error) {
