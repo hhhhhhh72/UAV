@@ -16,10 +16,24 @@
       />
     </u-sticky>
 
-    <!-- 我的招聘 / 我的投递 入口 -->
-    <view class="my-links">
-      <text class="my-link" @tap="goMyJobs">我的招聘</text>
-      <text class="my-link" @tap="goApplications">我的投递</text>
+    <!-- 双入口条：我的招聘 / 我的投递 -->
+    <view class="entry-bar">
+      <view class="entry-item" @tap="goMyJobs">
+        <view class="entry-ico entry-ico-jobs">聘</view>
+        <view class="entry-text">
+          <text class="entry-title">我的招聘</text>
+          <text class="entry-sub">企业发布与管理职位</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
+      <view class="entry-item" @tap="goApplications">
+        <view class="entry-ico entry-ico-apps">投</view>
+        <view class="entry-text">
+          <text class="entry-title">我的投递</text>
+          <text class="entry-sub">跟踪投递进展</text>
+        </view>
+        <text class="entry-arrow">›</text>
+      </view>
     </view>
 
     <!-- Tabs -->
@@ -50,36 +64,26 @@
       </view>
     </view>
 
-    <!-- Normal state -->
-    <view v-else class="list-body">
-      <u-cell-group inset>
-        <u-cell
-          v-for="item in list"
-          :key="item.id"
-          is-link
-          @click="goDetail(item)"
-        >
-          <template #title>
-            <view class="cell-content">
-              <text class="job-title">{{ item.title }}</text>
-              <view class="cell-meta">
-                <text class="company-text">{{ item.company }}</text>
-                <text v-if="item.salary" class="salary-text">{{ item.salary }}</text>
-              </view>
-              <view class="cell-extra">
-                <u-tag v-if="item.type" type="primary" size="mini">{{ item.type }}</u-tag>
-                <text v-if="item.location" class="extra-text">{{ item.location }}</text>
-                <text class="date-text">{{ formatDate(item.created_at || item.date) }}</text>
-                <view
-                  class="apply-btn"
-                  :class="{ applied: appliedIds.includes(item.id) }"
-                  @tap.stop="applyJob(item)"
-                >{{ appliedIds.includes(item.id) ? '已投递' : '投递' }}</view>
-              </view>
-            </view>
-          </template>
-        </u-cell>
-      </u-cell-group>
+    <!-- 职位卡片列表 -->
+    <view v-else class="job-list">
+      <view v-for="item in list" :key="item.id" class="job-card" @tap="goDetail(item)">
+        <view class="job-top">
+          <text class="job-title">{{ item.title }}</text>
+          <text class="job-salary">{{ salaryText(item) }}</text>
+        </view>
+        <view class="job-tags">
+          <text v-if="item.job_type" class="job-type">{{ item.job_type }}</text>
+          <text v-if="item.location" class="job-loc">{{ item.location }}</text>
+        </view>
+        <view class="job-foot">
+          <text class="job-date">{{ formatDate(item.created_at) }} 发布</text>
+          <view
+            class="apply-btn"
+            :class="{ applied: appliedIds.includes(item.id) }"
+            @tap.stop="applyJob(item)"
+          >{{ appliedIds.includes(item.id) ? '已投递' : '投递' }}</view>
+        </view>
+      </view>
 
       <!-- Load more -->
       <view v-if="list.length > 0" class="load-more">
@@ -180,9 +184,9 @@ export default {
         this.loadingMore = false
       }
     },
-    async loadMore() {
+    loadMore() {
       this.page++
-      await this.fetchList(false)
+      this.fetchList(false)
     },
     onSearch() {
       this.fetchList(true)
@@ -201,6 +205,14 @@ export default {
     },
     goApplications() {
       uni.navigateTo({ url: '/pages/jobs/applications' })
+    },
+
+    // 薪资展示：分 → 元（橙色高亮；未填显示面议）
+    salaryText(item) {
+      if (item && item.salary_fen) {
+        return '¥' + (item.salary_fen / 100).toLocaleString('zh-CN') + '/月'
+      }
+      return '面议'
     },
 
     // 已投递标记：进入页面时拉取我的投递 ID 集合
@@ -264,12 +276,87 @@ export default {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* 双入口条 */
+.entry-bar {
+  display: flex;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+}
+.entry-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background: var(--color-bg-card);
+  border-radius: 8px;
+  padding: 20rpx;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.entry-ico {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.entry-ico-jobs { background: var(--color-primary-light); color: var(--color-primary); }
+.entry-ico-apps { background: #FFF0E6; color: #E96012; }
+.entry-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.entry-title { font-size: 26rpx; font-weight: 700; color: var(--color-text); }
+.entry-sub { font-size: 20rpx; color: var(--color-text-placeholder); margin-top: 2rpx; }
+.entry-arrow { font-size: 28rpx; color: var(--color-text-placeholder); }
+
+/* 职位卡片 */
+.job-list { padding: 8px 12px; }
+.job-card {
+  background: var(--color-bg-card);
+  border-radius: 8px;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 3px 12px rgba(16,24,40,.05);
+}
+.job-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16rpx; }
+.job-title { font-size: 30rpx; font-weight: 700; color: var(--color-text); line-height: 1.4; flex: 1; min-width: 0; }
+.job-salary { font-size: 28rpx; font-weight: 700; color: var(--color-accent-deep); flex-shrink: 0; }
+.job-tags { display: flex; align-items: center; gap: 16rpx; margin-top: 14rpx; }
+.job-type {
+  font-size: 20rpx;
+  padding: 2rpx 14rpx;
+  border-radius: 4px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.job-loc { font-size: 22rpx; color: var(--color-text-secondary); }
+.job-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18rpx;
+  padding-top: 18rpx;
+  border-top: 1rpx solid var(--color-divider);
+}
+.job-date { font-size: 20rpx; color: var(--color-text-placeholder); }
+.apply-btn {
+  padding: 8rpx 28rpx;
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+.apply-btn.applied { background: var(--color-divider); color: var(--color-text-secondary); }
+
+/* 状态 */
 .loading-state {
   display: flex;
   justify-content: center;
   padding: 80px 0;
 }
-
 .loading-inline {
   display: flex;
   align-items: center;
@@ -278,25 +365,13 @@ export default {
   font-size: 13px;
   color: var(--color-text-secondary);
 }
-
-.cell-content {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-}
-
-.empty-state-wrapper {
-  padding-top: 60px;
-}
-
+.empty-state-wrapper { padding-top: 60px; }
 .error-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-top: 120px;
 }
-
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
@@ -305,64 +380,6 @@ export default {
   border-radius: 20px;
   font-size: 14px;
 }
-
-.list-body {
-  padding: 12px 0 24px;
-}
-
-.job-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.cell-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
-}
-
-.company-text {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.salary-text {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-success);
-}
-
-.my-links { display: flex; gap: 24px; padding: 12rpx 32rpx 0; background: var(--color-bg); }
-.my-link { font-size: 24rpx; color: var(--color-primary); font-weight: 600; }
-.apply-btn { padding: 4rpx 20rpx; border-radius: 6px; background: var(--color-primary); color: #fff; font-size: 22rpx; font-weight: 600; }
-.apply-btn.applied { background: var(--color-divider); color: var(--color-text-secondary); }
-.cell-extra {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.extra-text {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.date-text {
-  font-size: 12px;
-  color: var(--color-text-placeholder);
-}
-
-.load-more {
-  text-align: center;
-  padding: 16px 0;
-}
-
-.no-more {
-  color: var(--color-text-placeholder);
-  font-size: 13px;
-}
+.load-more { text-align: center; padding: 16px 0; }
+.no-more { color: var(--color-text-placeholder); font-size: 13px; }
 </style>
