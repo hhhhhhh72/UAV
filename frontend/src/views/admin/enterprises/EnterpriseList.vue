@@ -23,6 +23,7 @@
           style="width: 150px"
           @change="onSearchSubmit"
         >
+          <el-option label="全部状态" value="all" />
           <el-option label="待审核" value="submitted" />
           <el-option label="已通过" value="approved" />
           <el-option label="已驳回" value="rejected" />
@@ -199,7 +200,7 @@ const {
 } = useListRequest({
   apiFunction: getEnterpriseList,
   idKey: 'id',
-  defaultParams: { status: 'submitted' }
+  defaultParams: { status: 'all' }
 })
 
 // --- 详情弹窗 ---

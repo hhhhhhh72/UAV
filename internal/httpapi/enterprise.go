@@ -97,8 +97,12 @@ func (s *Server) listEnterprises(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status := r.URL.Query().Get("status")
+	// 默认待审核队列；'all' 或空串返回全部状态（空串由 repo 层处理为全部）
 	if status == "" {
 		status = "submitted"
+	}
+	if status == "all" {
+		status = ""
 	}
 	page, pageSize := paginationFromQuery(r)
 	offset := (page - 1) * pageSize

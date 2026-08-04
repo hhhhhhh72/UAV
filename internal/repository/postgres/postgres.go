@@ -361,6 +361,13 @@ func (r *enterpriseRepo) FindByOwner(userID string) ([]domain.Enterprise, error)
 }
 
 func (r *enterpriseRepo) ListByStatus(status string, offset, limit int) ([]domain.Enterprise, int, error) {
+	// 空 status = 全部状态（与 memory 实现语义一致）
+	if status == "" {
+		var total int
+		r.pool.QueryRow(context.Background(), `SELECT count(*) FROM enterprises`).Scan(&total)
+		items, err := scanEnterprises(r.pool, r.cipher, "ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+		return items, total, err
+	}
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT count(*) FROM enterprises WHERE status=$1`, status).Scan(&total)
 	items, err := scanEnterprises(r.pool, r.cipher, "WHERE status=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3", status, limit, offset)
