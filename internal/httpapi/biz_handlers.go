@@ -1185,13 +1185,14 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 	var in struct {
 		Name, ResType, Model, Specs, Location, BookingInfo string
 		VisibilityLevel                                    string `json:"visibility_level"`
+		Status                                             string `json:"status"`
 		PriceFen                                           int64  `json:"price_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.resourceSvc.Update(r.PathValue("id"), in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel)
+	res, err := s.resourceSvc.Update(r.PathValue("id"), in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel, in.Status)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return

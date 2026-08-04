@@ -213,7 +213,7 @@ func (s *ResourceService) Get(id string) (domain.IndustryResource, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *ResourceService) Update(id, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel string) (domain.IndustryResource, error) {
+func (s *ResourceService) Update(id, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel, status string) (domain.IndustryResource, error) {
 	r, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.IndustryResource{}, err
@@ -227,6 +227,9 @@ func (s *ResourceService) Update(id, name, resType, model, specs, location, book
 	r.BookingInfo = bookingInfo
 	if visibilityLevel != "" {
 		r.VisibilityLevel = visibilityLevel
+	}
+	if status != "" {
+		r.Status = status
 	}
 	r.UpdatedAt = time.Now()
 	return s.repo.Update(r)
