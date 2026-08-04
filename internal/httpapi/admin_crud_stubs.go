@@ -429,12 +429,13 @@ func (s *Server) createStudyTour(w http.ResponseWriter, r *http.Request) {
 		Duration    string `json:"duration"`
 		Capacity    int    `json:"capacity"`
 		Status      string `json:"status"`
+		Description string `json:"description"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	st := domain.StudyTour{ID: fmt.Sprintf("study-%d", time.Now().UnixNano()), Title: in.Title, Destination: in.Destination, Duration: in.Duration, Capacity: in.Capacity, Status: in.Status}
+	st := domain.StudyTour{ID: fmt.Sprintf("study-%d", time.Now().UnixNano()), Title: in.Title, Destination: in.Destination, Duration: in.Duration, Capacity: in.Capacity, Status: in.Status, Description: in.Description}
 	sr, err := s.studyTourRepo.Create(st)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -450,6 +451,7 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 		Duration    string `json:"duration"`
 		Capacity    int    `json:"capacity"`
 		Status      string `json:"status"`
+		Description string `json:"description"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -465,6 +467,7 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 	st.Duration = in.Duration
 	st.Capacity = in.Capacity
 	st.Status = in.Status
+	st.Description = in.Description
 	sr, err := s.studyTourRepo.Update(st)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -841,15 +844,19 @@ func (s *Server) deleteComplianceDoc(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateComplianceStandard(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
-		Title   string `json:"title"`
-		Status  string `json:"status"`
-		FileURL string `json:"file_url"`
+		Title         string `json:"title"`
+		StandardNo    string `json:"standard_no"`
+		Publisher     string `json:"publisher"`
+		EffectiveDate string `json:"effective_date"`
+		Scope         string `json:"scope"`
+		Status        string `json:"status"`
+		FileURL       string `json:"file_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, 400, err)
 		return
 	}
-	sd, err := s.complianceSvc.UpdateStandard(id, in.Title, in.Status, in.FileURL)
+	sd, err := s.complianceSvc.UpdateStandard(id, in.Title, in.StandardNo, in.Publisher, in.EffectiveDate, in.Scope, in.Status, in.FileURL)
 	if err != nil {
 		fail(w, r, 500, err)
 		return

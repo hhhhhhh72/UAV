@@ -10,7 +10,9 @@ import (
 
 // ── ResourcePool Service ──
 
-type ResourcePoolService struct{ repo repository.ResourcePoolRepository }
+type ResourcePoolService struct {
+	repo repository.ResourcePoolRepository
+}
 
 func NewResourcePoolService(r repository.ResourcePoolRepository) *ResourcePoolService {
 	return &ResourcePoolService{repo: r}
@@ -46,11 +48,14 @@ func NewTestSiteService(r repository.TestSiteRepository) *TestSiteService {
 	return &TestSiteService{repo: r}
 }
 
-func (s *TestSiteService) Create(name, siteType, location, bookingRule, ownerID string, priceFen int64, facilities []string) (domain.TestSite, error) {
+func (s *TestSiteService) Create(name, siteType, location, bookingRule, ownerID string, priceFen int64, facilities []string, status string) (domain.TestSite, error) {
+	if status == "" {
+		status = "available"
+	}
 	ts := domain.TestSite{ID: fmt.Sprintf("tst-%d", time.Now().UnixNano()),
 		Name: name, SiteType: siteType, OwnerID: ownerID, Location: location,
 		Facilities: facilities, PriceFen: priceFen, BookingRule: bookingRule,
-		Status: "available", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Status: status, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	return s.repo.Create(ts)
 }
 func (s *TestSiteService) List(siteType string) ([]domain.TestSite, error) {
@@ -61,16 +66,27 @@ func (s *TestSiteService) Get(id string) (domain.TestSite, error) {
 }
 
 func (s *TestSiteService) UpdateSite(id, name, siteType, location, bookingRule, status string, priceFen int64, facilities []string) (domain.TestSite, error) {
-	site, err := s.repo.FindByID(id); if err != nil { return domain.TestSite{}, err }
-	site.Name = name; site.SiteType = siteType; site.Location = location; site.BookingRule = bookingRule; site.Status = status
-	site.PriceFen = priceFen; site.Facilities = facilities; site.UpdatedAt = time.Now()
+	site, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.TestSite{}, err
+	}
+	site.Name = name
+	site.SiteType = siteType
+	site.Location = location
+	site.BookingRule = bookingRule
+	site.Status = status
+	site.PriceFen = priceFen
+	site.Facilities = facilities
+	site.UpdatedAt = time.Now()
 	return s.repo.UpdateSite(site)
 }
 
 func (s *TestSiteService) Book(siteID, userID, purpose string, startTime, endTime time.Time) (domain.TestSiteBooking, error) {
 	// Check conflicts
 	bookings, err := s.repo.ListBookings(siteID)
-	if err != nil { return domain.TestSiteBooking{}, err }
+	if err != nil {
+		return domain.TestSiteBooking{}, err
+	}
 	for _, b := range bookings {
 		if b.Status == "approved" && !(endTime.Before(b.StartTime) || startTime.After(b.EndTime)) {
 			return domain.TestSiteBooking{}, fmt.Errorf("time slot conflicted")
@@ -92,17 +108,22 @@ func (s *TestSiteService) DeleteSite(id string) error { return s.repo.DeleteSite
 
 // ── Exhibition Service ──
 
-type ExhibitionService struct{ repo repository.ExhibitionRepository }
+type ExhibitionService struct {
+	repo repository.ExhibitionRepository
+}
 
 func NewExhibitionService(r repository.ExhibitionRepository) *ExhibitionService {
 	return &ExhibitionService{repo: r}
 }
 
-func (s *ExhibitionService) Create(title, category, description, location, organizer, coverURL string, startDate, endDate time.Time, boothCount int, boothPrice int64) (domain.Exhibition, error) {
+func (s *ExhibitionService) Create(title, category, description, location, organizer, coverURL string, startDate, endDate time.Time, boothCount int, boothPrice int64, status string) (domain.Exhibition, error) {
+	if status == "" {
+		status = "draft"
+	}
 	e := domain.Exhibition{ID: fmt.Sprintf("expo-%d", time.Now().UnixNano()),
 		Title: title, Category: category, Description: description, Location: location,
 		Organizer: organizer, CoverURL: coverURL, StartDate: startDate, EndDate: endDate,
-		BoothCount: boothCount, BoothPrice: boothPrice, Status: "draft",
+		BoothCount: boothCount, BoothPrice: boothPrice, Status: status,
 		CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	return s.repo.Create(e)
 }
@@ -114,9 +135,20 @@ func (s *ExhibitionService) Get(id string) (domain.Exhibition, error) {
 }
 
 func (s *ExhibitionService) Update(id, title, category, description, location, organizer string, startDate, endDate time.Time, boothCount int, boothPrice int64, status string) (domain.Exhibition, error) {
-	e, err := s.repo.FindByID(id); if err != nil { return domain.Exhibition{}, err }
-	e.Title = title; e.Category = category; e.Description = description; e.Location = location; e.Organizer = organizer
-	e.StartDate = startDate; e.EndDate = endDate; e.BoothCount = boothCount; e.BoothPrice = boothPrice; e.Status = status
+	e, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.Exhibition{}, err
+	}
+	e.Title = title
+	e.Category = category
+	e.Description = description
+	e.Location = location
+	e.Organizer = organizer
+	e.StartDate = startDate
+	e.EndDate = endDate
+	e.BoothCount = boothCount
+	e.BoothPrice = boothPrice
+	e.Status = status
 	e.UpdatedAt = time.Now()
 	return s.repo.Update(e)
 }

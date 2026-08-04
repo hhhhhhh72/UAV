@@ -228,15 +228,25 @@ func (s *ComplianceService) FindStandardByID(id string) (domain.StandardDoc, err
 	return s.repo.FindStandardByID(id)
 }
 
-func (s *ComplianceService) UpdateStandard(id, title, status, fileURL string) (domain.StandardDoc, error) {
+func (s *ComplianceService) UpdateStandard(id, title, stdNumber, publisher, effectiveDate, scope, status, fileURL string) (domain.StandardDoc, error) {
 	sd, err := s.repo.FindStandardByID(id)
 	if err != nil {
 		return domain.StandardDoc{}, err
 	}
 	sd.Title = title
+	sd.StandardNo = stdNumber
+	sd.Publisher = publisher
+	sd.Scope = scope
 	sd.Status = status
 	sd.UpdatedAt = time.Now()
-	_ = fileURL
+	if effectiveDate != "" {
+		if pd, perr := time.Parse("2006-01-02", effectiveDate); perr == nil {
+			sd.EffectiveDate = pd
+		}
+	}
+	if fileURL != "" {
+		sd.FileURL = fileURL
+	}
 	return s.repo.UpdateStandard(sd)
 }
 
