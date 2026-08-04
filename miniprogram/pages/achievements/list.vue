@@ -26,17 +26,6 @@
     </view>
     <view v-if="sV" class="mask" @tap="sV=false"></view>
 
-    <!-- Banner Carousel -->
-    <swiper class="cs" :indicator-dots="true" :autoplay="true" :interval="3500" :duration="400" :circular="true"
-      indicator-color="rgba(255,255,255,.35)" indicator-active-color="#fff">
-      <swiper-item v-for="(s,i) in banners" :key="i">
-        <view class="cslide" :style="{background:s.bg}">
-          <text class="csi">{{ s.icon }}</text>
-          <view class="csinfo"><text class="cst">{{ s.title }}</text><text class="css">{{ s.sub }}</text></view>
-        </view>
-      </swiper-item>
-    </swiper>
-
     <!-- Func Nav -->
     <view class="fn">
       <view v-for="n in navs" :key="n.k" class="fi" @tap="onNav(n.k)">
@@ -111,25 +100,18 @@ const navs = [
   { k:'standard', icon:'标', label:'技术标准', bg:'#fce4ec' },{ k:'design', icon:'设', label:'外观设计', bg:'#e0f2f1' },
   { k:'transformed', icon:'成', label:'已转化', bg:'#fff8e1' },{ k:'all', icon:'全', label:'全部成果', bg:'#e8eaf6' }
 ]
-const banners = [
-  { icon:'飞', title:'AI 赋能飞控新突破', sub:'本月新增 42 项前沿成果', bg:'linear-gradient(135deg,#0d47a1,#1976d2)' },
-  { icon:'产', title:'产学研对接加速', sub:'326 项成果已实现转化', bg:'linear-gradient(135deg,#1b5e20,#2e7d32)' },
-  { icon:'标', title:'标准引领行业', sub:'最新无人机适航标准发布', bg:'linear-gradient(135deg,#4a148c,#7b1fa2)' }
-]
+// 无横幅/演示数据：成果列表仅展示后端真实数据，为空时显示空态
 
-const DEMO = [
-  { id:1, f:'飞控系统', t:'无人机智能自适应飞控系统 V3.0', o:'北航无人机研究所', d:'2026-07-15', v:2380, s:186, st:'hot' }
-]
-
+// 对真实数据应用搜索/排序（空数据返回空，由模板空态展示）
 const applyFilter = () => {
-  let items = DEMO.slice()
+  let items = list.value.slice()
   if (q.value) {
     const kw = q.value.toLowerCase()
-    items = items.filter(x => x.t.toLowerCase().includes(kw) || x.o.toLowerCase().includes(kw) || x.f.toLowerCase().includes(kw))
+    items = items.filter(x => (x.t || '').toLowerCase().includes(kw) || (x.o || '').toLowerCase().includes(kw) || (x.f || '').toLowerCase().includes(kw))
   }
-  if (sort.value === 'views') items.sort((a,b) => b.v - a.v)
-  else if (sort.value === 'favs') items.sort((a,b) => b.s - a.s)
-  else items.sort((a,b) => new Date(b.d) - new Date(a.d))
+  if (sort.value === 'views') items.sort((a,b) => (b.v||0) - (a.v||0))
+  else if (sort.value === 'favs') items.sort((a,b) => (b.s||0) - (a.s||0))
+  else items.sort((a,b) => new Date(b.d||0) - new Date(a.d||0))
   total.value = items.length
   return items
 }
