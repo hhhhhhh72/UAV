@@ -367,7 +367,8 @@ const goAuth = () => {
 
 const goPilotCert = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/training/certificates' })
+  // 飞手认证：名录 + 申请认证 + 我的认证状态
+  uni.navigateTo({ url: '/pages/pilots/list' })
 }
 
 const goEnterpriseCert = () => {

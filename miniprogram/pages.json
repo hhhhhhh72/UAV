@@ -420,6 +420,22 @@
       }
     },
     {
+      "path": "pages/jobs/mine",
+      "style": {
+        "navigationBarTitleText": "我的招聘",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/jobs/applications",
+      "style": {
+        "navigationBarTitleText": "我的投递",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
       "path": "pages/publish/job",
       "style": {
         "navigationBarTitleText": "发布招聘",

@@ -16,6 +16,12 @@
       />
     </u-sticky>
 
+    <!-- 我的招聘 / 我的投递 入口 -->
+    <view class="my-links">
+      <text class="my-link" @tap="goMyJobs">我的招聘</text>
+      <text class="my-link" @tap="goApplications">我的投递</text>
+    </view>
+
     <!-- Tabs -->
     <u-tabs
       :active="activeTabIndex"
@@ -62,6 +68,11 @@
                 <u-tag v-if="item.type" type="primary" size="mini">{{ item.type }}</u-tag>
                 <text v-if="item.location" class="extra-text">{{ item.location }}</text>
                 <text class="date-text">{{ formatDate(item.created_at || item.date) }}</text>
+                <view
+                  class="apply-btn"
+                  :class="{ applied: appliedIds.includes(item.id) }"
+                  @tap.stop="applyJob(item)"
+                >{{ appliedIds.includes(item.id) ? '已投递' : '投递' }}</view>
               </view>
             </view>
           </template>
@@ -81,7 +92,7 @@
 </template>
 
 <script>
-import { request } from '../../utils/request'
+import { request, getStoredUser } from '../../utils/request'
 
 export default {
   data() {
@@ -95,6 +106,7 @@ export default {
       page: 1,
       pageSize: 20,
       hasMore: true,
+      appliedIds: [],
       typeTabs: [
         { label: '全部', value: '' },
         { label: '全职', value: '全职' },
@@ -118,6 +130,7 @@ export default {
   },
   onLoad() {
     this.fetchList(true)
+    this.loadApplied()
   },
   onPullDownRefresh() {
     this.fetchList(true).then(function () {
@@ -175,6 +188,55 @@ export default {
     onTabChange(index) {
       this.activeType = this.typeTabs[index].value
       this.fetchList(true)
+    },
+
+    // ---- 投递闭环 ----
+    goMyJobs() {
+      uni.navigateTo({ url: '/pages/jobs/mine' })
+    },
+    goApplications() {
+      uni.navigateTo({ url: '/pages/jobs/applications' })
+    },
+
+    // 已投递标记：进入页面时拉取我的投递 ID 集合
+    async loadApplied() {
+      const user = getStoredUser()
+      if (!user) return
+      try {
+        const res = await request({ url: '/api/v1/applications' })
+        const list = Array.isArray(res) ? res : ((res && res.data) || [])
+        this.appliedIds = list.map((a) => a.job_id).filter(Boolean)
+      } catch (e) {}
+    },
+
+    async applyJob(item) {
+      if (this.appliedIds.includes(item.id)) return
+      const user = getStoredUser()
+      if (!user) {
+        uni.showToast({ title: '请先登录', icon: 'none' })
+        return
+      }
+      try {
+        const resumes = await request({ url: '/api/v1/resumes/mine' })
+        const rlist = Array.isArray(resumes) ? resumes : ((resumes && resumes.data) || [])
+        if (!rlist.length) {
+          uni.showModal({
+            title: '需要简历',
+            content: '投递职位需要一份简历，是否现在去创建？',
+            success: (r) => { if (r.confirm) uni.navigateTo({ url: '/pages/jobs/resume' }) },
+          })
+          return
+        }
+        await request({
+          url: '/api/v1/applications',
+          method: 'POST',
+          data: { job_id: item.id, resume_id: rlist[0].id },
+        })
+        this.appliedIds.push(item.id)
+        uni.showToast({ title: '投递成功', icon: 'success' })
+      } catch (e) {
+        uni.showToast({ title: (e && e.message) || '投递失败', icon: 'none' })
+      }
     },
     goBack() {
       uni.navigateBack()
@@ -267,6 +329,10 @@ export default {
   color: var(--color-success);
 }
 
+.my-links { display: flex; gap: 24px; padding: 12rpx 32rpx 0; background: var(--color-bg); }
+.my-link { font-size: 24rpx; color: var(--color-primary); font-weight: 600; }
+.apply-btn { padding: 4rpx 20rpx; border-radius: 6px; background: var(--color-primary); color: #fff; font-size: 22rpx; font-weight: 600; }
+.apply-btn.applied { background: var(--color-divider); color: var(--color-text-secondary); }
 .cell-extra {
   display: flex;
   align-items: center;
