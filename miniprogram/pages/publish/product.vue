@@ -102,12 +102,13 @@ const submitting = ref(false)
 const typeText = computed(() => (form.value.type ? productTypeLabel(form.value.type) : ''))
 const condText = computed(() => (form.value.condition === 'used' ? '二手' : form.value.condition === 'new' ? '全新' : ''))
 
-const onTypeConfirm = ({ value }) => {
-  const hit = TYPES.find((t) => t.label === value[0])
+// u-picker confirm 回调直接回传选中的字符串（单列）
+const onTypeConfirm = (v) => {
+  const hit = TYPES.find((t) => t.label === v)
   if (hit) form.value.type = hit.value
 }
-const onCondConfirm = ({ value }) => {
-  form.value.condition = value[0] === '全新' ? 'new' : 'used'
+const onCondConfirm = (v) => {
+  form.value.condition = v === '全新' ? 'new' : 'used'
 }
 
 const submit = async () => {
