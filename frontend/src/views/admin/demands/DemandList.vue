@@ -209,8 +209,11 @@ const handleApprove = async (item) => {
     item.status = 'published'
     detailVisible.value = false
     loadData()
-  } catch (e) { showFailToast(e?.response?.data?.message || '操作失败') }
+  } catch (e) { showFailToast(errMsg(e)) }
 }
+
+// 统一错误提示：后端 fail 格式为 {error:{code,message}}，逐层取
+const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '操作失败'
 
 const handleReject = async (item) => {
   try {
@@ -228,7 +231,7 @@ const handleReject = async (item) => {
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') {
       // 带真实错误原因，便于定位（如：HTTP 状态码 + 后端 message）
-      const msg = e?.response?.data?.message || e?.message || '操作失败'
+      const msg = errMsg(e)
       showFailToast(msg)
       console.error('[驳回需求失败]', e)
     }
@@ -251,7 +254,7 @@ const handleAmount = async (item) => {
     item.offline_amount_fen = fen
     loadData()
   } catch (e) {
-    if (e !== 'cancel' && e !== 'close') showFailToast(e?.response?.data?.message || '操作失败')
+    if (e !== 'cancel' && e !== 'close') showFailToast(errMsg(e))
   }
 }
 
@@ -269,7 +272,7 @@ const handleClose = async (item) => {
     item.status = 'cancelled'
     loadData()
   } catch (e) {
-    if (e !== 'cancel' && e !== 'close') showFailToast(e?.response?.data?.message || '操作失败')
+    if (e !== 'cancel' && e !== 'close') showFailToast(errMsg(e))
   }
 }
 
