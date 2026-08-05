@@ -106,6 +106,25 @@ func (s *TradeOrderService) Create(buyerID, productID, sellerID string, amountFe
 	return s.repo.Create(o)
 }
 
+// orderFlow 订单合法状态流转（交易管理一期：pending → paid → shipped → completed / cancelled）
+var orderFlow = map[string][]string{
+	"pending":   {"paid", "cancelled"},
+	"paid":      {"shipped", "cancelled"},
+	"shipped":   {"completed", "cancelled"},
+	"completed": {},
+	"cancelled": {},
+}
+
+// checkOrderTransition 校验状态流转是否合法。
+func checkOrderTransition(current, next string) error {
+	for _, ok := range orderFlow[current] {
+		if ok == next {
+			return nil
+		}
+	}
+	return fmt.Errorf("非法订单状态流转: %s → %s", current, next)
+}
+
 func (s *TradeOrderService) UpdateStatus(id, userID, newStatus string) (domain.TradeOrder, error) {
 	o, err := s.repo.FindByID(id)
 	if err != nil {
@@ -114,8 +133,26 @@ func (s *TradeOrderService) UpdateStatus(id, userID, newStatus string) (domain.T
 	if o.BuyerID != userID && o.SellerID != userID {
 		return domain.TradeOrder{}, fmt.Errorf("permission denied")
 	}
+	if err := checkOrderTransition(o.Status, newStatus); err != nil {
+		return domain.TradeOrder{}, err
+	}
 	return s.repo.UpdateStatus(id, newStatus)
 }
+
+// UpdateStatusAdmin 管理端改单：跳过买卖双方校验，仍受状态机约束。
+func (s *TradeOrderService) UpdateStatusAdmin(id, newStatus string) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if err := checkOrderTransition(o.Status, newStatus); err != nil {
+		return domain.TradeOrder{}, err
+	}
+	return s.repo.UpdateStatus(id, newStatus)
+}
+
+// Delete 管理端删除订单（真删除，替代原假删除 stub）。
+func (s *TradeOrderService) Delete(id string) error { return s.repo.Delete(id) }
 
 func (s *TradeOrderService) ListMine(userID string) ([]domain.TradeOrder, error) {
 	return s.repo.ListByUser(userID)

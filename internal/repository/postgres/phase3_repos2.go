@@ -447,6 +447,13 @@ func (r *tradeOrderRepo) UpdateStatus(id, status string) (domain.TradeOrder, err
 	}
 	return r.FindByID(id)
 }
+func (r *tradeOrderRepo) Delete(id string) error {
+	_, err := r.pool.Exec(context.Background(), `DELETE FROM trade_orders WHERE id=$1`, id)
+	if err != nil {
+		return fmt.Errorf("delete trade order: %w", err)
+	}
+	return nil
+}
 func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) {
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,product_id,buyer_id,seller_id,amount_fen,status,version,created_at,updated_at FROM trade_orders WHERE buyer_id=$1 OR seller_id=$1 ORDER BY created_at DESC`, userID)

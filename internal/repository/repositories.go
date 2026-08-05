@@ -297,6 +297,7 @@ type TradeOrderRepository interface {
 	UpdateStatus(id string, status string) (domain.TradeOrder, error)
 	ListByUser(userID string) ([]domain.TradeOrder, error)
 	ListAll(offset, limit int) ([]domain.TradeOrder, int, error)
+	Delete(id string) error
 }
 
 // EscrowRepository manages escrow accounts and transactions.

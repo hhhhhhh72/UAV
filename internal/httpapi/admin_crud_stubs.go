@@ -1201,7 +1201,7 @@ func (s *Server) updateOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	o, err := s.tradeSvc.UpdateStatus(r.PathValue("id"), "admin", in.Status)
+	o, err := s.tradeSvc.UpdateStatusAdmin(r.PathValue("id"), in.Status)
 	if err != nil {
 		fail(w, r, 500, err)
 		return
@@ -1209,5 +1209,9 @@ func (s *Server) updateOrder(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, o)
 }
 func (s *Server) deleteOrder(w http.ResponseWriter, r *http.Request) {
+	if err := s.tradeSvc.Delete(r.PathValue("id")); err != nil {
+		fail(w, r, 500, fmt.Errorf("delete order: %w", err))
+		return
+	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
 }

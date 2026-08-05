@@ -1926,6 +1926,17 @@ func (r *tradeOrderRepo) ListAll(offset, limit int) ([]domain.TradeOrder, int, e
 	}
 	return append([]domain.TradeOrder(nil), r.items[offset:end]...), total, nil
 }
+func (r *tradeOrderRepo) Delete(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("order %s not found", id)
+}
 
 // ---- Escrow ----
 

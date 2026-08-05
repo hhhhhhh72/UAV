@@ -34,10 +34,11 @@
     <!-- 数据表格 -->
     <div class="table-wrap">
       <el-table v-loading="loading" :data="listData" row-key="id" stripe border>
-        <el-table-column prop="userName" label="用户" width="120" />
-        <el-table-column label="板块" width="100">
+        <el-table-column prop="reviewer_id" label="评价人ID" width="140" show-overflow-tooltip />
+        <el-table-column label="评价对象" min-width="160">
           <template #default="{ row }">
-            <el-tag :type="sectionTagType(row.section)" size="small">{{ sectionLabel(row.section) }}</el-tag>
+            <el-tag :type="sectionTagType(row.target_type)" size="small">{{ targetTypeLabel(row.target_type) }}</el-tag>
+            <span class="target-id">{{ row.target_id || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="评分" width="100">
@@ -51,8 +52,8 @@
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="评价时间" width="160" sortable="custom">
-          <template #default="{ row }">{{ formatDate(row.createTime) }}</template>
+        <el-table-column prop="created_at" label="评价时间" width="160" sortable="custom">
+          <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
 
         <el-table-column label="操作" width="180" fixed="right">
@@ -90,9 +91,9 @@ import { showToast, showConfirmDialog } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getReviewList, updateReviewStatus, deleteReview } from '@/api/admin/review'
 
-const sectionLabel = (k) => ({ yanxue: '研学', sale: '无人机销售', park: '乐园' }[k] || k)
+const targetTypeLabel = (t) => ({ demand: '需求', product: '商品', shop: '商家', job: '职位', course: '课程', venue: '场地' }[t] || t || '通用')
 const statusLabel = (s) => ({ pending: '待审核', approved: '已通过', rejected: '已拒绝' }[s] || s)
-const sectionTagType = (s) => ({ yanxue: '', sale: 'success', park: 'warning' }[s] || 'info')
+const sectionTagType = (t) => ({ demand: '', product: 'success', shop: 'warning', job: 'primary', course: '', venue: 'info' }[t] || 'info')
 const statusTagType = (s) => ({ pending: 'warning', approved: 'success', rejected: 'danger' }[s] || 'info')
 
 const formatDate = (d) => {
