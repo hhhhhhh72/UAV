@@ -144,8 +144,6 @@
         <div v-if="currentItem.status === 'pending'" class="review-actions">
           <el-divider />
           <el-button type="primary" @click="handleEdit(currentItem)">编辑</el-button>
-          <el-button type="success" @click="handleApprove(currentItem)">审核通过</el-button>
-          <el-button type="danger" @click="handleReject(currentItem)">驳回</el-button>
         </div>
       </template>
     </el-dialog>
