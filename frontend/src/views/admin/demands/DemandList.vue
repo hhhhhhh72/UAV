@@ -141,12 +141,6 @@
           <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
         </el-descriptions>
 
-        <div v-if="currentItem.status === 'pending'" class="review-actions">
-          <el-divider />
-          <el-button type="primary" @click="handleEdit(currentItem)">编辑</el-button>
-          <el-button type="success" @click="handleApprove(currentItem)">审核通过</el-button>
-          <el-button type="danger" @click="handleReject(currentItem)">驳回</el-button>
-        </div>
       </template>
     </el-dialog>
 
@@ -216,7 +210,8 @@ const stats = computed(() => {
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, onSelectChange, resetParams } = useListRequest({
   apiFunction: getDemandList,
   idKey: 'id',
-  defaultParams: { status: 'pending' }
+  // 默认全量视角：通过/驳回后数据不因筛选变化而"消失"
+  defaultParams: { status: 'all' }
 })
 
 const detailVisible = ref(false)
