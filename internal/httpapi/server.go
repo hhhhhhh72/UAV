@@ -561,39 +561,6 @@ func (s *Server) setDemandOfflineAmount(w http.ResponseWriter, r *http.Request) 
 	respond(w, r, http.StatusOK, d)
 }
 
-// PATCH /api/v1/admin/demands/{id} — 管理端编辑待审核需求（修正后审核）
-func (s *Server) adminUpdateDemand(w http.ResponseWriter, r *http.Request) {
-	a, ok := authenticatedActor(r)
-	if !ok {
-		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
-		return
-	}
-	var in struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		District    string `json:"district"`
-		BudgetFen   int64  `json:"budget_fen"`
-	}
-	if err := decode(r, &in); err != nil {
-		fail(w, r, http.StatusBadRequest, err)
-		return
-	}
-	d, err := s.demands.UpdateByAdmin(a, r.PathValue("id"), in.Title, in.Description, in.District, in.BudgetFen)
-	if err != nil {
-		code := http.StatusForbidden
-		if strings.Contains(err.Error(), "not found") {
-			code = http.StatusNotFound
-		}
-		fail(w, r, code, err)
-		return
-	}
-	if d.Contact != "" {
-		d.Contact = crypto.MaskPhone(d.Contact)
-	}
-	s.audit(r.Context(), a.ID, "update_demand", "demand", d.ID, "edited")
-	respond(w, r, http.StatusOK, d)
-}
-
 func (s *Server) listEmployment(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
