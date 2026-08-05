@@ -138,12 +138,42 @@ func (s *DemandService) Review(a domain.Actor, id, action, reason string) (domai
 	case "approve":
 		return s.repo.SetStatus(id, domain.DemandPublished)
 	case "reject":
-		return s.repo.SetStatus(id, domain.DemandRejected)
+		// 驳回理由落库（BizFields），供发布者查看
+		d, err := s.repo.FindByID(id)
+		if err != nil {
+			return domain.Demand{}, err
+		}
+		d.Status = domain.DemandRejected
+		if d.BizFields == nil {
+			d.BizFields = map[string]any{}
+		}
+		d.BizFields["reject_reason"] = reason
+		return s.repo.Update(d)
 	case "supplement":
 		return s.repo.SetStatus(id, domain.DemandPending)
 	default:
 		return domain.Demand{}, fmt.Errorf("unknown review action: %s", action)
 	}
+}
+
+// CloseByAdmin 管理端关闭已公开需求（发布者失联/虚假信息/线下已成交等场景）。
+func (s *DemandService) CloseByAdmin(a domain.Actor, id, reason string) (domain.Demand, error) {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return domain.Demand{}, errors.New("admin permission required")
+	}
+	d, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if d.Status != domain.DemandPublished {
+		return domain.Demand{}, errors.New("只有已公开的需求可以关闭")
+	}
+	d.Status = domain.DemandCancelled
+	if d.BizFields == nil {
+		d.BizFields = map[string]any{}
+	}
+	d.BizFields["reject_reason"] = reason
+	return s.repo.Update(d)
 }
 
 func (s *DemandService) Approve(a domain.Actor, id string) (domain.Demand, error) {
@@ -156,7 +186,6 @@ func (s *DemandService) Approve(a domain.Actor, id string) (domain.Demand, error
 	}
 	return d, nil
 }
-
 
 type EnterpriseService struct {
 	repo repository.EnterpriseRepository

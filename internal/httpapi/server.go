@@ -44,61 +44,61 @@ type requestIDKey struct{}
 // middleware state. Create one with NewServer and call Router() to get
 // an http.Handler ready for ListenAndServe.
 type Server struct {
-	demands       *service.DemandService
-	enterprises   *service.EnterpriseService
-	shopSvc       *service.ShopService
-	enterpriseSvc *service.EnterpriseSvc
-	employment    *service.EmploymentService
-	contracts     *service.ContractService
-	jobSvc        *service.JobService
-	communitySvc  *service.CommunityService
-	listingSvc    *service.ListingService
-	labourSvc     *service.LabourService
-	trainingSvc   *service.TrainingService
-	tradingSvc    *service.TradingService
-	insuranceSvc  *service.InsuranceService
-	financeSvc    *service.FinanceService
-	homeSvc       *service.HomeService
-	fileSvc       *service.FileService
-	msgSvc        *service.MessageService
-	enrollSvc     *service.EnrollmentService
-	expirySvc     *service.ExpiryService
-	tradeSvc      *service.TradeOrderService
-	escrowSvc     *service.EscrowService
-	newsSvc       *service.NewsService
-	reviewSvc     *service.ReviewService
-	venueSvc      *service.VenueService
-	expertSvc     *service.ExpertService
-	caseSvc       *service.CaseService
-	complianceSvc *service.ComplianceService
-	reportSvc     *service.ReportService
-	portfolioSvc  *service.PortfolioService
+	demands        *service.DemandService
+	enterprises    *service.EnterpriseService
+	shopSvc        *service.ShopService
+	enterpriseSvc  *service.EnterpriseSvc
+	employment     *service.EmploymentService
+	contracts      *service.ContractService
+	jobSvc         *service.JobService
+	communitySvc   *service.CommunityService
+	listingSvc     *service.ListingService
+	labourSvc      *service.LabourService
+	trainingSvc    *service.TrainingService
+	tradingSvc     *service.TradingService
+	insuranceSvc   *service.InsuranceService
+	financeSvc     *service.FinanceService
+	homeSvc        *service.HomeService
+	fileSvc        *service.FileService
+	msgSvc         *service.MessageService
+	enrollSvc      *service.EnrollmentService
+	expirySvc      *service.ExpiryService
+	tradeSvc       *service.TradeOrderService
+	escrowSvc      *service.EscrowService
+	newsSvc        *service.NewsService
+	reviewSvc      *service.ReviewService
+	venueSvc       *service.VenueService
+	expertSvc      *service.ExpertService
+	caseSvc        *service.CaseService
+	complianceSvc  *service.ComplianceService
+	reportSvc      *service.ReportService
+	portfolioSvc   *service.PortfolioService
 	achievementSvc *service.AchievementService
-	rdService     *service.RDChallengeService
-	researchSvc   *service.ResearchProjectService
-	projectAppSvc *service.ProjectAppService
+	rdService      *service.RDChallengeService
+	researchSvc    *service.ResearchProjectService
+	projectAppSvc  *service.ProjectAppService
 	competitionSvc *service.CompetitionService
-	eventSvc      *service.EventService
-	resourceSvc   *service.ResourceService
-	emergencySvc  *service.EmergencyService
-	matchingSvc   *service.MatchingService
-poolSvc       *service.ResourcePoolService
-	testSiteSvc   *service.TestSiteService
-	exhibitionSvc *service.ExhibitionService
+	eventSvc       *service.EventService
+	resourceSvc    *service.ResourceService
+	emergencySvc   *service.EmergencyService
+	matchingSvc    *service.MatchingService
+	poolSvc        *service.ResourcePoolService
+	testSiteSvc    *service.TestSiteService
+	exhibitionSvc  *service.ExhibitionService
 	transSvc       *service.TransformationService
-	collegeSvc      *service.CollegeService
-	studyTourRepo   repository.StudyTourRepository
-	coopSvc         *service.CooperationService
-	rescueCaseSvc   *service.RescueCaseService
+	collegeSvc     *service.CollegeService
+	studyTourRepo  repository.StudyTourRepository
+	coopSvc        *service.CooperationService
+	rescueCaseSvc  *service.RescueCaseService
 	emergDeptSvc   *service.EmergencyDeptService
 	assocMemberSvc *service.AssociationMemberService
-	userRepo      repository.UserRepository
-	refreshRepo   repository.RefreshTokenRepository
-	tokens        *TokenManager
-	rateLimiter   *rateLimiter
-	idempotency   *idempotencyStore
-	auditWriter   repository.AuditWriter
-	storage       string
+	userRepo       repository.UserRepository
+	refreshRepo    repository.RefreshTokenRepository
+	tokens         *TokenManager
+	rateLimiter    *rateLimiter
+	idempotency    *idempotencyStore
+	auditWriter    repository.AuditWriter
+	storage        string
 }
 
 type idempotencyStore struct {
@@ -107,8 +107,8 @@ type idempotencyStore struct {
 }
 
 type idempotencyEntry struct {
-	status   int
-	body     string
+	status    int
+	body      string
 	expiresAt time.Time
 }
 
@@ -148,10 +148,10 @@ func (s *idempotencyStore) set(key string, status int, body string) {
 }
 
 type rateLimiter struct {
-	mu       sync.Mutex
-	buckets  map[string]*tokenBucket
-	rate     int
-	burst    int
+	mu        sync.Mutex
+	buckets   map[string]*tokenBucket
+	rate      int
+	burst     int
 	cleanupAt time.Time
 }
 
@@ -213,31 +213,33 @@ func (s *Server) SetAuditWriter(w repository.AuditWriter) { s.auditWriter = w }
 func (s *Server) SetStorage(name string) { s.storage = name }
 
 // New business module service setters.
-func (s *Server) SetExpertService(svc *service.ExpertService)               { s.expertSvc = svc }
-func (s *Server) SetShopService(svc *service.ShopService)                   { s.shopSvc = svc }
-func (s *Server) SetCaseService(svc *service.CaseService)                   { s.caseSvc = svc }
-func (s *Server) SetComplianceService(svc *service.ComplianceService)       { s.complianceSvc = svc }
-func (s *Server) SetReportService(svc *service.ReportService)               { s.reportSvc = svc }
-func (s *Server) SetPortfolioService(svc *service.PortfolioService)         { s.portfolioSvc = svc }
-func (s *Server) SetAchievementService(svc *service.AchievementService)     { s.achievementSvc = svc }
-func (s *Server) SetRDChallengeService(svc *service.RDChallengeService)     { s.rdService = svc }
+func (s *Server) SetExpertService(svc *service.ExpertService)                   { s.expertSvc = svc }
+func (s *Server) SetShopService(svc *service.ShopService)                       { s.shopSvc = svc }
+func (s *Server) SetCaseService(svc *service.CaseService)                       { s.caseSvc = svc }
+func (s *Server) SetComplianceService(svc *service.ComplianceService)           { s.complianceSvc = svc }
+func (s *Server) SetReportService(svc *service.ReportService)                   { s.reportSvc = svc }
+func (s *Server) SetPortfolioService(svc *service.PortfolioService)             { s.portfolioSvc = svc }
+func (s *Server) SetAchievementService(svc *service.AchievementService)         { s.achievementSvc = svc }
+func (s *Server) SetRDChallengeService(svc *service.RDChallengeService)         { s.rdService = svc }
 func (s *Server) SetResearchProjectService(svc *service.ResearchProjectService) { s.researchSvc = svc }
-func (s *Server) SetProjectAppService(svc *service.ProjectAppService)       { s.projectAppSvc = svc }
-func (s *Server) SetCompetitionService(svc *service.CompetitionService)     { s.competitionSvc = svc }
-func (s *Server) SetEventService(svc *service.EventService)                 { s.eventSvc = svc }
-func (s *Server) SetResourceService(svc *service.ResourceService)           { s.resourceSvc = svc }
-func (s *Server) SetEmergencyService(svc *service.EmergencyService)         { s.emergencySvc = svc }
-func (s *Server) SetMatchingService(svc *service.MatchingService)           { s.matchingSvc = svc }
-func (s *Server) SetPoolService(svc *service.ResourcePoolService)         { s.poolSvc = svc }
-func (s *Server) SetTestSiteService(svc *service.TestSiteService)       { s.testSiteSvc = svc }
-func (s *Server) SetExhibitionService(svc *service.ExhibitionService)   { s.exhibitionSvc = svc }
-func (s *Server) SetTransformationService(svc *service.TransformationService) { s.transSvc = svc }
-func (s *Server) SetCollegeService(svc *service.CollegeService)           { s.collegeSvc = svc }
-func (s *Server) SetStudyTourRepo(r repository.StudyTourRepository)        { s.studyTourRepo = r }
-func (s *Server) SetCooperationService(svc *service.CooperationService)   { s.coopSvc = svc }
-func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)               { s.rescueCaseSvc = svc }
-func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)         { s.emergDeptSvc = svc }
-func (s *Server) SetAssociationMemberService(svc *service.AssociationMemberService) { s.assocMemberSvc = svc }
+func (s *Server) SetProjectAppService(svc *service.ProjectAppService)           { s.projectAppSvc = svc }
+func (s *Server) SetCompetitionService(svc *service.CompetitionService)         { s.competitionSvc = svc }
+func (s *Server) SetEventService(svc *service.EventService)                     { s.eventSvc = svc }
+func (s *Server) SetResourceService(svc *service.ResourceService)               { s.resourceSvc = svc }
+func (s *Server) SetEmergencyService(svc *service.EmergencyService)             { s.emergencySvc = svc }
+func (s *Server) SetMatchingService(svc *service.MatchingService)               { s.matchingSvc = svc }
+func (s *Server) SetPoolService(svc *service.ResourcePoolService)               { s.poolSvc = svc }
+func (s *Server) SetTestSiteService(svc *service.TestSiteService)               { s.testSiteSvc = svc }
+func (s *Server) SetExhibitionService(svc *service.ExhibitionService)           { s.exhibitionSvc = svc }
+func (s *Server) SetTransformationService(svc *service.TransformationService)   { s.transSvc = svc }
+func (s *Server) SetCollegeService(svc *service.CollegeService)                 { s.collegeSvc = svc }
+func (s *Server) SetStudyTourRepo(r repository.StudyTourRepository)             { s.studyTourRepo = r }
+func (s *Server) SetCooperationService(svc *service.CooperationService)         { s.coopSvc = svc }
+func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)           { s.rescueCaseSvc = svc }
+func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)     { s.emergDeptSvc = svc }
+func (s *Server) SetAssociationMemberService(svc *service.AssociationMemberService) {
+	s.assocMemberSvc = svc
+}
 
 // audit records a write operation to the audit log if a writer is configured.
 func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resourceID, result string) {
@@ -417,6 +419,7 @@ func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
 	}
 	paginatedRespond(w, r, public, len(result))
 }
+
 // GET /api/v1/admin/demands — 管理员查看所有状态需求
 func (s *Server) listAdminDemands(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
@@ -425,7 +428,9 @@ func (s *Server) listAdminDemands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	st := r.URL.Query().Get("status")
-	if st == "" { st = "all" }
+	if st == "" {
+		st = "all"
+	}
 	result, err := s.demands.List(repository.DemandFilter{Status: st})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -433,9 +438,13 @@ func (s *Server) listAdminDemands(w http.ResponseWriter, r *http.Request) {
 	}
 	page, pageSize := paginationFromQuery(r)
 	start := (page - 1) * pageSize
-	if start > len(result) { start = len(result) }
+	if start > len(result) {
+		start = len(result)
+	}
 	end := start + pageSize
-	if end > len(result) { end = len(result) }
+	if end > len(result) {
+		end = len(result)
+	}
 	paginatedRespond(w, r, result[start:end], len(result))
 }
 
@@ -486,6 +495,37 @@ func (s *Server) approveDemand(w http.ResponseWriter, r *http.Request) {
 	s.audit(r.Context(), a.ID, "approve_demand", "demand", d.ID, "approved")
 	respond(w, r, http.StatusOK, d)
 }
+
+// POST /api/v1/admin/demands/{id}/close — 管理端关闭已公开需求
+func (s *Server) closeDemand(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		Reason string `json:"reason"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	d, err := s.demands.CloseByAdmin(a, r.PathValue("id"), in.Reason)
+	if err != nil {
+		code := http.StatusForbidden
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		}
+		fail(w, r, code, err)
+		return
+	}
+	if d.Contact != "" {
+		d.Contact = crypto.MaskPhone(d.Contact)
+	}
+	s.audit(r.Context(), a.ID, "close_demand", "demand", d.ID, "closed")
+	respond(w, r, http.StatusOK, d)
+}
+
 func (s *Server) listEmployment(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
@@ -760,12 +800,18 @@ func paginatedRespond(w http.ResponseWriter, r *http.Request, items any, total i
 // slicePage returns a page slice from any slice using reflection.
 func slicePage(items any, page, pageSize int) any {
 	v := reflect.ValueOf(items)
-	if v.Kind() != reflect.Slice { return items }
+	if v.Kind() != reflect.Slice {
+		return items
+	}
 	total := v.Len()
 	start := (page - 1) * pageSize
-	if start >= total { return reflect.MakeSlice(v.Type(), 0, 0).Interface() }
+	if start >= total {
+		return reflect.MakeSlice(v.Type(), 0, 0).Interface()
+	}
 	end := start + pageSize
-	if end > total { end = total }
+	if end > total {
+		end = total
+	}
 	return v.Slice(start, end).Interface()
 }
 

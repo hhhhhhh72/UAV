@@ -12,6 +12,10 @@ export function approveDemand(id) {
   return axios.post(`/api/v1/admin/demands/${id}/approve`).then(res => res.data)
 }
 
+export function closeDemand(id, reason) {
+  return axios.post(`/api/v1/admin/demands/${id}/close`, { reason }).then(res => res.data)
+}
+
 export function rejectDemand(id, reason) {
   return axios.post(`/api/v1/admin/demands/${id}/review`, { action: 'reject', reason }).then(res => res.data)
 }

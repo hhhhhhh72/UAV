@@ -18,7 +18,6 @@
           <el-option label="全部" value="all" />
           <el-option label="待审核" value="pending" />
           <el-option label="已发布" value="published" />
-          <el-option label="已匹配" value="matched" />
           <el-option label="已完成" value="completed" />
           <el-option label="已取消" value="cancelled" />
           <el-option label="已驳回" value="rejected" />
@@ -27,6 +26,15 @@
         <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
         <el-button @click="resetParams">重置</el-button>
       </div>
+    </div>
+
+    <!-- 撮合统计条 -->
+    <div class="stats-bar">
+      <div class="stat"><span class="stat-num">{{ stats.total }}</span><span class="stat-label">需求总数</span></div>
+      <div class="stat warn"><span class="stat-num">{{ stats.pending }}</span><span class="stat-label">待审核</span></div>
+      <div class="stat ok"><span class="stat-num">{{ stats.published }}</span><span class="stat-label">已公开</span></div>
+      <div class="stat done"><span class="stat-num">{{ stats.completed }}</span><span class="stat-label">已完成</span></div>
+      <div class="stat rate"><span class="stat-num">{{ stats.rate }}%</span><span class="stat-label">完成率</span></div>
     </div>
 
     <!-- 批量操作栏 -->
@@ -77,13 +85,17 @@
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
             <template v-if="row.status === 'pending'">
               <el-divider direction="vertical" />
               <el-button link type="success" size="small" @click="handleApprove(row)">通过</el-button>
               <el-button link type="danger" size="small" @click="handleReject(row)">驳回</el-button>
+            </template>
+            <template v-else-if="row.status === 'published'">
+              <el-divider direction="vertical" />
+              <el-button link type="warning" size="small" @click="handleClose(row)">关闭</el-button>
             </template>
           </template>
         </el-table-column>
@@ -119,6 +131,9 @@
           </el-descriptions-item>
           <el-descriptions-item label="预算">{{ currentItem.budget_fen ? '¥' + (currentItem.budget_fen / 100).toLocaleString() : '-' }}</el-descriptions-item>
           <el-descriptions-item label="提交时间" :span="2">{{ formatDate(currentItem.created_at) }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentItem.biz_fields && currentItem.biz_fields.reject_reason" label="驳回/关闭原因" :span="2">
+            {{ currentItem.biz_fields.reject_reason }}
+          </el-descriptions-item>
           <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
         </el-descriptions>
 
@@ -133,11 +148,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Search, Check, CloseBold } from '@element-plus/icons-vue'
 import { showSuccessToast, showFailToast } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
-import { getDemandList, approveDemand, rejectDemand } from '@/api/admin/demand'
+import { getDemandList, approveDemand, rejectDemand, closeDemand } from '@/api/admin/demand'
 
 const bizTypeLabel = (t) => ({
   aerial_photo: '航拍摄影', mapping: '测绘', inspection: '巡检',
@@ -162,6 +177,16 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
+// 撮合统计（分类计数基于当前页数据；需求总数取接口 total）
+const stats = computed(() => {
+  const rows = listData.value || []
+  const pending = rows.filter((x) => x.status === 'pending').length
+  const published = rows.filter((x) => x.status === 'published').length
+  const completed = rows.filter((x) => x.status === 'completed').length
+  const rate = rows.length ? Math.round((completed / rows.length) * 100) : 0
+  return { total: total.value || 0, pending, published, completed, rate }
+})
+
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, onSelectChange, resetParams } = useListRequest({
   apiFunction: getDemandList,
   idKey: 'id',
@@ -185,12 +210,38 @@ const handleApprove = async (item) => {
 
 const handleReject = async (item) => {
   try {
-    await rejectDemand(item.id, '')
+    const { value } = await ElMessageBox.prompt('请填写驳回理由（发布者可见，可据此修改后重提）', '驳回需求', {
+      confirmButtonText: '确认驳回',
+      cancelButtonText: '取消',
+      inputPlaceholder: '如：信息不完整 / 违规内容 / 重复发布',
+      inputValidator: (v) => (v && v.trim() ? true : '驳回理由必填'),
+    })
+    await rejectDemand(item.id, value.trim())
     showSuccessToast('已驳回')
     item.status = 'rejected'
     detailVisible.value = false
     loadData()
-  } catch (e) { showFailToast(e?.response?.data?.message || '操作失败') }
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') showFailToast(e?.response?.data?.message || '操作失败')
+  }
+}
+
+// 关闭已公开需求（发布者失联/虚假信息/线下已成交）
+const handleClose = async (item) => {
+  try {
+    const { value } = await ElMessageBox.prompt('关闭后需求从大厅下架，请填写关闭原因', '关闭需求', {
+      confirmButtonText: '确认关闭',
+      cancelButtonText: '取消',
+      inputPlaceholder: '如：线下已成交 / 信息失实',
+      inputValidator: (v) => (v && v.trim() ? true : '关闭原因必填'),
+    })
+    await closeDemand(item.id, value.trim())
+    showSuccessToast('已关闭')
+    item.status = 'cancelled'
+    loadData()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') showFailToast(e?.response?.data?.message || '操作失败')
+  }
 }
 
 const batchApprove = () => {
@@ -212,6 +263,16 @@ onMounted(loadData)
 .demand-list-page { max-width: 1400px; margin: 0 auto; }
 .search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* 撮合统计条 */
+.stats-bar { display: flex; gap: 32px; background: #fff; border-radius: 8px; padding: 14px 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.stat { display: flex; align-items: baseline; gap: 8px; }
+.stat-num { font-size: 22px; font-weight: 700; color: var(--el-text-color-primary); }
+.stat.warn .stat-num { color: var(--el-color-warning); }
+.stat.ok .stat-num { color: var(--el-color-success); }
+.stat.done .stat-num { color: var(--el-color-primary); }
+.stat.rate .stat-num { color: var(--el-color-info); }
+.stat-label { font-size: 13px; color: var(--el-text-color-secondary); }
 .batch-bar { background: var(--el-color-primary-light-9); border: 1px solid var(--el-color-primary-light-5); border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
 .batch-info { font-size: 13px; color: var(--el-text-color-secondary); margin-right: auto; }
 .table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
