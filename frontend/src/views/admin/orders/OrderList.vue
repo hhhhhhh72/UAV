@@ -20,10 +20,18 @@
       </div>
     </div>
 
+    <!-- 交易统计条 -->
+    <div class="stats-bar">
+      <div class="stat"><span class="stat-num">{{ stats.total }}</span><span class="stat-label">订单总数</span></div>
+      <div class="stat money"><span class="stat-num">¥{{ stats.amount }}</span><span class="stat-label">交易额(本页)</span></div>
+      <div class="stat done"><span class="stat-num">{{ stats.completed }}</span><span class="stat-label">已完成</span></div>
+      <div class="stat rate"><span class="stat-num">{{ stats.rate }}%</span><span class="stat-label">完成率</span></div>
+    </div>
+
     <div class="table-wrap">
       <el-table v-loading="loading" :data="listData" row-key="id" stripe border @selection-change="onSelectChange">
         <el-table-column type="selection" width="40" />
-        <el-table-column prop="id" label="订单号" width="180" sortable="custom" />
+        <el-table-column prop="id" label="订单号" width="180" />
         <el-table-column prop="product_id" label="商品 ID" min-width="120" />
         <el-table-column prop="buyer_id" label="买家" width="130" />
         <el-table-column prop="seller_id" label="卖家" width="130" />
@@ -35,7 +43,7 @@
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="下单时间" width="170" sortable="custom">
+        <el-table-column prop="created_at" label="下单时间" width="170">
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
@@ -87,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { showToast, showSuccessToast } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
@@ -111,6 +119,15 @@ const formatDate = (d) => {
 }
 
 const dateRange = ref(null)
+
+// 交易统计（分类/金额基于当前页；订单总数取接口 total）
+const stats = computed(() => {
+  const rows = listData.value || []
+  const amount = rows.reduce((s, x) => s + (x.amount_fen || 0), 0) / 100
+  const completed = rows.filter((x) => x.status === 'completed').length
+  const rate = rows.length ? Math.round((completed / rows.length) * 100) : 0
+  return { total: total.value || 0, amount: amount.toLocaleString('zh-CN', { minimumFractionDigits: 2 }), completed, rate }
+})
 
 const { listData, loading, total, filterParams, loadData, onSearchSubmit } = useListRequest({
   apiFunction: getOrderList,
@@ -158,6 +175,16 @@ onMounted(loadData)
 .order-list-page { max-width: 1400px; margin: 0 auto; }
 .search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* 交易统计条 */
+.stats-bar { display: flex; gap: 32px; background: #fff; border-radius: 8px; padding: 14px 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.stat { display: flex; align-items: baseline; gap: 8px; }
+.stat-num { font-size: 22px; font-weight: 700; color: var(--el-text-color-primary); }
+.stat.money .stat-num { color: var(--el-color-warning); }
+.stat.done .stat-num { color: var(--el-color-success); }
+.stat.rate .stat-num { color: var(--el-color-info); }
+.stat-label { font-size: 13px; color: var(--el-text-color-secondary); }
+
 .table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
 .pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .review-actions { display: flex; align-items: center; justify-content: center; padding-top: 16px; gap: 8px; }

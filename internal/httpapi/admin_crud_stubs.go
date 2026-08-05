@@ -88,12 +88,41 @@ func (s *Server) listAdminBookings(w http.ResponseWriter, r *http.Request) {
 // ----- Orders (trade_orders) -----
 func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := parsePagination(r)
-	items, total, err := s.tradeSvc.ListAll((page-1)*pageSize, pageSize)
+	all, _, err := s.tradeSvc.ListAll(0, 10000)
 	if err != nil {
 		fail(w, r, 500, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	// 状态 + 关键词过滤（复用管理端通用过滤）
+	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(o domain.TradeOrder) string { return o.ID },
+		func(o domain.TradeOrder) string { return o.Status })
+	// 日期范围过滤（created_at）
+	if sd := r.URL.Query().Get("start_date"); sd != "" {
+		if t, err := time.Parse("2006-01-02", sd); err == nil {
+			out := filtered[:0]
+			for _, o := range filtered {
+				if !o.CreatedAt.Before(t) {
+					out = append(out, o)
+				}
+			}
+			filtered = out
+		}
+	}
+	if ed := r.URL.Query().Get("end_date"); ed != "" {
+		if t, err := time.Parse("2006-01-02", ed); err == nil {
+			end := t.Add(24 * time.Hour) // 含当日
+			out := filtered[:0]
+			for _, o := range filtered {
+				if o.CreatedAt.Before(end) {
+					out = append(out, o)
+				}
+			}
+			filtered = out
+		}
+	}
+	total = len(filtered)
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 
 // ----- Reviews -----
