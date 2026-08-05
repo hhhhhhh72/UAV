@@ -1,0 +1,58 @@
+package httpapi
+
+import (
+	"errors"
+	"net/http"
+
+	"drone-platform/internal/service"
+)
+
+// POST /api/v1/demands/{id}/intents — 意向方登记对接意向（联系对接模式）
+func (s *Server) createIntent(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in service.CreateIntentInput
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	it, err := s.intentSvc.Create(a, r.PathValue("id"), in)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	respond(w, r, http.StatusCreated, it)
+}
+
+// GET /api/v1/demands/{id}/intents — 发布方查看该需求的意向列表
+func (s *Server) listDemandIntents(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	intents, err := s.intentSvc.ListByDemand(a, r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	respond(w, r, http.StatusOK, intents)
+}
+
+// GET /api/v1/intents/mine — 我的意向登记记录
+func (s *Server) listMyIntents(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	intents, err := s.intentSvc.ListMine(a)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, intents)
+}

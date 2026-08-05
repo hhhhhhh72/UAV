@@ -1337,16 +1337,8 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 }
 
 // GET /api/v1/emergency-dispatches?page=1&page_size=10
+// 公开展示（与救援案例一致）：调度记录作为应急协同成果对会员公开展示
 func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	a, ok := authenticatedActor(r)
-	if !ok {
-		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
-		return
-	}
-	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
-		return
-	}
 	page, pageSize := paginationFromQuery(r)
 	items, total, err := s.emergencySvc.ListDispatches(page, pageSize)
 	if err != nil {

@@ -62,6 +62,9 @@ func (s *Server) registerDemandRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/demands/{id}/approve", s.approveDemand)
 	mux.HandleFunc("POST /api/v1/admin/demands/{id}/close", s.closeDemand)
 	mux.HandleFunc("POST /api/v1/admin/demands/{id}/amount", s.setDemandOfflineAmount)
+	mux.HandleFunc("POST /api/v1/demands/{id}/intents", s.createIntent)
+	mux.HandleFunc("GET /api/v1/demands/{id}/intents", s.listDemandIntents)
+	mux.HandleFunc("GET /api/v1/intents/mine", s.listMyIntents)
 }
 
 // ── Enterprises ──────────────────────────────────────────────────────────

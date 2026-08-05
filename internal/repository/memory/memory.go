@@ -1134,6 +1134,62 @@ func (r *bidRepo) UpdateStatus(id string, status string) (domain.DemandBid, erro
 	return domain.DemandBid{}, fmt.Errorf("bid %s not found", id)
 }
 
+// ---- DemandIntent ----
+
+type intentRepo struct {
+	mu    sync.RWMutex
+	items []domain.DemandIntent
+}
+
+func NewIntentRepository() repository.IntentRepository {
+	return &intentRepo{}
+}
+
+func (r *intentRepo) Create(it domain.DemandIntent) (domain.DemandIntent, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = append(r.items, it)
+	return it, nil
+}
+
+func (r *intentRepo) ListByDemand(demandID string) ([]domain.DemandIntent, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.DemandIntent, 0)
+	for _, it := range r.items {
+		if it.DemandID == demandID {
+			out = append(out, it)
+		}
+	}
+	return out, nil
+}
+
+func (r *intentRepo) ListByIntentor(intentorID string) ([]domain.DemandIntent, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.DemandIntent, 0)
+	for _, it := range r.items {
+		if it.IntentorID == intentorID {
+			out = append(out, it)
+		}
+	}
+	return out, nil
+}
+
+func (r *intentRepo) UpdateStatus(id string, status string) (domain.DemandIntent, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, it := range r.items {
+		if it.ID == id {
+			r.items[i].Status = status
+			r.items[i].UpdatedAt = time.Now()
+			r.items[i].Version++
+			return r.items[i], nil
+		}
+	}
+	return domain.DemandIntent{}, fmt.Errorf("intent %s not found", id)
+}
+
 // ---- Certificate ----
 
 type certRepo struct {

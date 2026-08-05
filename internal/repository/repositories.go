@@ -173,6 +173,14 @@ type BidRepository interface {
 	UpdateStatus(id string, status string) (domain.DemandBid, error)
 }
 
+// IntentRepository manages demand contact intents (联系对接模式).
+type IntentRepository interface {
+	Create(domain.DemandIntent) (domain.DemandIntent, error)
+	ListByDemand(demandID string) ([]domain.DemandIntent, error)
+	ListByIntentor(intentorID string) ([]domain.DemandIntent, error)
+	UpdateStatus(id string, status string) (domain.DemandIntent, error)
+}
+
 // ---- Phase 3+ Repositories (migrated from in-memory services) ----
 
 // CertificateRepository manages drone operation certificates.

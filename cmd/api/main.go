@@ -81,6 +81,7 @@ func main() {
 
 	var (
 		demandRepo       repository.DemandRepository
+		intentRepo       repository.IntentRepository
 		enterpriseRepo   repository.EnterpriseRepository
 		employmentRepo   repository.EmploymentRepository
 		contractRepo     repository.ContractRepository
@@ -210,9 +211,11 @@ func main() {
 		rescueCaseRepo = pgStore.NewRescueCaseRepository()
 		emergDeptRepo = pgStore.NewEmergencyDeptRepository()
 		assocMemberRepo = pgStore.NewAssociationMemberRepository()
+		intentRepo = pgStore.NewIntentRepository()
 	} else {
 		slog.Warn("DATABASE_URL not set, using in-memory storage (NOT FOR PRODUCTION)")
 		demandRepo = memory.NewDemandRepository(cipher)
+		intentRepo = memory.NewIntentRepository()
 		enterpriseRepo = memory.NewEnterpriseRepository(cipher)
 		employmentRepo = memory.NewEmploymentRepository()
 		contractRepo = memory.NewContractRepository()
@@ -313,6 +316,7 @@ func main() {
 	app.SetResourceService(service.NewResourceService(resourceRepo))
 	app.SetEmergencyService(service.NewEmergencyService(emergencyRepo))
 	app.SetMatchingService(service.NewMatchingService(demandRepo))
+	app.SetIntentService(service.NewIntentService(intentRepo, demandRepo))
 
 	// Memory-only repos: PG implementations pending (see docs/项目管理/项目审计报告).
 	app.SetRescueCaseService(service.NewRescueCaseService(rescueCaseRepo))

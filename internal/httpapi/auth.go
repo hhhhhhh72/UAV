@@ -239,6 +239,7 @@ func isPublicPath(path string) bool {
 		"/api/v1/cooperation-programs",
 		"/api/v1/rescue-cases",
 		"/api/v1/emergency-depts",
+		"/api/v1/emergency-dispatches",
 		"/api/v1/emergency-drills",
 		"/api/v1/association-members",
 		"/api/v1/enterprises/public",

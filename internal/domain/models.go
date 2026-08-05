@@ -210,6 +210,23 @@ type DemandBid struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
+// DemandIntent records an intent to contact a demand publisher.
+// It is the data basis of the "联系对接" (contact-deal) model: an interested
+// party registers intent with contact info, the publisher sees the list,
+// and deal outcome is tracked via status (pending → contacted / done / closed).
+type DemandIntent struct {
+	ID           string    `json:"id"`
+	DemandID     string    `json:"demand_id"`
+	IntentorID   string    `json:"intentor_id"`
+	IntentorName string    `json:"intentor_name"`
+	Contact      string    `json:"contact"`
+	Remark       string    `json:"remark"`
+	Status       string    `json:"status"` // pending / contacted / done / closed
+	Version      int       `json:"version"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // ---- Training & Certification ----
 
 // CertType represents the issuing authority for a drone operation certificate.

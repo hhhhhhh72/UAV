@@ -1165,6 +1165,81 @@ func (r *refreshTokenRepo) Revoke(tokenHash string) error {
 
 // scanContracts removed — replaced by scanContractsPaged
 
+// ---- DemandIntent Repository ----
+
+type pgIntentRepo struct{ pool *pgxpool.Pool }
+
+func (s *Store) NewIntentRepository() repository.IntentRepository {
+	return &pgIntentRepo{pool: s.pool}
+}
+
+func (r *pgIntentRepo) Create(it domain.DemandIntent) (domain.DemandIntent, error) {
+	now := time.Now()
+	it.Version = 1
+	it.CreatedAt = now
+	it.UpdatedAt = now
+	_, err := r.pool.Exec(context.Background(),
+		`INSERT INTO demand_intents (id, demand_id, intentor_id, intentor_name, contact, remark, status, version, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		it.ID, it.DemandID, it.IntentorID, it.IntentorName, it.Contact, it.Remark, it.Status, it.Version, it.CreatedAt, it.UpdatedAt)
+	if err != nil {
+		return domain.DemandIntent{}, fmt.Errorf("create intent: %w", err)
+	}
+	return it, nil
+}
+
+func (r *pgIntentRepo) ListByDemand(demandID string) ([]domain.DemandIntent, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id, demand_id, intentor_id, intentor_name, contact, remark, status, version, created_at, updated_at
+		FROM demand_intents WHERE demand_id=$1 ORDER BY created_at DESC`, demandID)
+	if err != nil {
+		return nil, fmt.Errorf("query intents: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.DemandIntent{}
+	for rows.Next() {
+		var it domain.DemandIntent
+		if err := rows.Scan(&it.ID, &it.DemandID, &it.IntentorID, &it.IntentorName, &it.Contact, &it.Remark, &it.Status, &it.Version, &it.CreatedAt, &it.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan intent: %w", err)
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgIntentRepo) ListByIntentor(intentorID string) ([]domain.DemandIntent, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id, demand_id, intentor_id, intentor_name, contact, remark, status, version, created_at, updated_at
+		FROM demand_intents WHERE intentor_id=$1 ORDER BY created_at DESC`, intentorID)
+	if err != nil {
+		return nil, fmt.Errorf("query intents by intentor: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.DemandIntent{}
+	for rows.Next() {
+		var it domain.DemandIntent
+		if err := rows.Scan(&it.ID, &it.DemandID, &it.IntentorID, &it.IntentorName, &it.Contact, &it.Remark, &it.Status, &it.Version, &it.CreatedAt, &it.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan intent: %w", err)
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgIntentRepo) UpdateStatus(id string, status string) (domain.DemandIntent, error) {
+	var it domain.DemandIntent
+	err := r.pool.QueryRow(context.Background(),
+		`UPDATE demand_intents SET status=$2, version=version+1, updated_at=now()
+		WHERE id=$1
+		RETURNING id, demand_id, intentor_id, intentor_name, contact, remark, status, version, created_at, updated_at`,
+		id, status).
+		Scan(&it.ID, &it.DemandID, &it.IntentorID, &it.IntentorName, &it.Contact, &it.Remark, &it.Status, &it.Version, &it.CreatedAt, &it.UpdatedAt)
+	if err != nil {
+		return domain.DemandIntent{}, fmt.Errorf("update intent %s: %w", id, err)
+	}
+	return it, nil
+}
+
 // ---- DemandBid Repository ----
 
 type pgBidRepo struct{ pool *pgxpool.Pool }

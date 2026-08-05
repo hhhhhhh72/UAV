@@ -29,7 +29,12 @@ var (
 			{ID: "banner-1", ImageURL: "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=800&q=80", LinkURL: "/pages/demand/list", SortOrder: 1},
 			{ID: "banner-2", ImageURL: "https://images.unsplash.com/photo-1506947411487-a56738267384?w=800&q=80", LinkURL: "/pages/training/courses", SortOrder: 2},
 		},
-		Notices: []string{"无人机外卖配送服务正式上线", "新开通江心屿景区无人机物流航线"},
+		Notices: []string{
+			"供需对接请通过「联系对接」登记意向，平台不参与资金流转",
+			"需求发布后经协会审核即可公开，审核通过前仅发布者可见",
+			"培训考证课程陆续上线，CAAC/AOPA/UTC 执照培训欢迎报名",
+			"低空应急资源协同调度系统已上线，会员企业可登记应急装备",
+		},
 		QuickEntries: []domain.HomeQuickEntry{
 			{Key: "demand", Name: "需求大厅"},
 			{Key: "enterprise", Name: "企业入驻"},
