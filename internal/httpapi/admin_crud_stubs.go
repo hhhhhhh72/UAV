@@ -439,12 +439,16 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 
 // --- Colleges (missing admin list/update/delete) ---
 func (s *Server) listAdminColleges(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := parsePagination(r)
 	all, err := s.collegeSvc.List("")
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list colleges: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, len(all))
+	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(c domain.College) string { return c.Name },
+		func(c domain.College) string { return c.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 func (s *Server) updateCollege(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

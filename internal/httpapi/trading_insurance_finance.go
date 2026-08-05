@@ -209,12 +209,16 @@ func (s *Server) adminDeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/products — 管理后台商品列表
 func (s *Server) listAdminProducts(w http.ResponseWriter, r *http.Request) {
+	page, pageSize := parsePagination(r)
 	products, err := s.tradingSvc.ListProducts(r.URL.Query().Get("prod_type"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, products, len(products))
+	filtered, total := adminListFilter(products, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(p domain.DroneProduct) string { return p.Title },
+		func(p domain.DroneProduct) string { return p.Status })
+	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
 }
 
 func (s *Server) createRepair(w http.ResponseWriter, r *http.Request) {
