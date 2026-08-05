@@ -526,6 +526,36 @@ func (s *Server) closeDemand(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, d)
 }
 
+// POST /api/v1/admin/demands/{id}/amount — 登记线下成交金额（联系对接模式撮合价值）
+func (s *Server) setDemandOfflineAmount(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		OfflineAmountFen int64 `json:"offline_amount_fen"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	d, err := s.demands.SetOfflineAmount(a, r.PathValue("id"), in.OfflineAmountFen)
+	if err != nil {
+		code := http.StatusForbidden
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		}
+		fail(w, r, code, err)
+		return
+	}
+	if d.Contact != "" {
+		d.Contact = crypto.MaskPhone(d.Contact)
+	}
+	s.audit(r.Context(), a.ID, "set_offline_amount", "demand", d.ID, "amount")
+	respond(w, r, http.StatusOK, d)
+}
+
 func (s *Server) listEmployment(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {

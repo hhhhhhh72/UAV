@@ -174,24 +174,25 @@ const (
 // Demand is a job request posted by a publisher (enterprise or individual)
 // that other users can bid on. It is the core entity of the platform.
 type Demand struct {
-	ID            string         `json:"id"`
-	PublisherID   string         `json:"publisher_id"`
-	PublisherName string         `json:"publisher_name"`
-	Contact       string         `json:"contact"` // encrypted at rest, masked in public responses
-	BizType       BizType        `json:"biz_type"`
-	District      string         `json:"district"`
-	CityCode      string         `json:"city_code"`
-	Title         string         `json:"title"`
-	Description   string         `json:"description"`
-	Images        []string       `json:"images"`
-	Latitude      float64        `json:"latitude"`
-	Longitude     float64        `json:"longitude"`
-	BudgetFen     int64          `json:"budget_fen"` // amount in fen (1/100 yuan)
-	BizFields     map[string]any `json:"biz_fields"`
-	Status        DemandStatus   `json:"status"`
-	Version       int            `json:"version"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	ID               string         `json:"id"`
+	PublisherID      string         `json:"publisher_id"`
+	PublisherName    string         `json:"publisher_name"`
+	Contact          string         `json:"contact"` // encrypted at rest, masked in public responses
+	BizType          BizType        `json:"biz_type"`
+	District         string         `json:"district"`
+	CityCode         string         `json:"city_code"`
+	Title            string         `json:"title"`
+	Description      string         `json:"description"`
+	Images           []string       `json:"images"`
+	Latitude         float64        `json:"latitude"`
+	Longitude        float64        `json:"longitude"`
+	BudgetFen        int64          `json:"budget_fen"`         // amount in fen (1/100 yuan)
+	OfflineAmountFen int64          `json:"offline_amount_fen"` // 线下成交金额（联系对接模式撮合价值度量）
+	BizFields        map[string]any `json:"biz_fields"`
+	Status           DemandStatus   `json:"status"`
+	Version          int            `json:"version"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
 // DemandBid is a quotation or proposal submitted by a bidder in response

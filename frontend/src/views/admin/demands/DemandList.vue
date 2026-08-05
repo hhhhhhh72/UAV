@@ -35,6 +35,7 @@
       <div class="stat ok"><span class="stat-num">{{ stats.published }}</span><span class="stat-label">已公开</span></div>
       <div class="stat done"><span class="stat-num">{{ stats.completed }}</span><span class="stat-label">已完成</span></div>
       <div class="stat rate"><span class="stat-num">{{ stats.rate }}%</span><span class="stat-label">完成率</span></div>
+      <div class="stat amount"><span class="stat-num">¥{{ stats.offlineAmount }}</span><span class="stat-label">撮合成交额(本页)</span></div>
     </div>
 
     <!-- 批量操作栏 -->
@@ -93,9 +94,10 @@
               <el-button link type="success" size="small" @click="handleApprove(row)">通过</el-button>
               <el-button link type="danger" size="small" @click="handleReject(row)">驳回</el-button>
             </template>
-            <template v-else-if="row.status === 'published'">
+            <template v-else-if="row.status === 'published' || row.status === 'completed'">
               <el-divider direction="vertical" />
               <el-button link type="warning" size="small" @click="handleClose(row)">关闭</el-button>
+              <el-button link type="success" size="small" @click="handleAmount(row)">登记金额</el-button>
             </template>
           </template>
         </el-table-column>
@@ -130,6 +132,7 @@
             <el-tag :type="statusTagType(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="预算">{{ currentItem.budget_fen ? '¥' + (currentItem.budget_fen / 100).toLocaleString() : '-' }}</el-descriptions-item>
+          <el-descriptions-item label="线下成交金额">{{ currentItem.offline_amount_fen ? '¥' + (currentItem.offline_amount_fen / 100).toLocaleString() : '-' }}</el-descriptions-item>
           <el-descriptions-item label="提交时间" :span="2">{{ formatDate(currentItem.created_at) }}</el-descriptions-item>
           <el-descriptions-item v-if="currentItem.biz_fields && currentItem.biz_fields.reject_reason" label="驳回/关闭原因" :span="2">
             {{ currentItem.biz_fields.reject_reason }}
@@ -152,7 +155,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Search, Check, CloseBold } from '@element-plus/icons-vue'
 import { showSuccessToast, showFailToast } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
-import { getDemandList, approveDemand, rejectDemand, closeDemand } from '@/api/admin/demand'
+import { getDemandList, approveDemand, rejectDemand, closeDemand, setOfflineAmount } from '@/api/admin/demand'
 
 const bizTypeLabel = (t) => ({
   aerial_photo: '航拍摄影', mapping: '测绘', inspection: '巡检',
@@ -184,7 +187,12 @@ const stats = computed(() => {
   const published = rows.filter((x) => x.status === 'published').length
   const completed = rows.filter((x) => x.status === 'completed').length
   const rate = rows.length ? Math.round((completed / rows.length) * 100) : 0
-  return { total: total.value || 0, pending, published, completed, rate }
+  const offlineAmount = rows.reduce((s, x) => s + (x.offline_amount_fen || 0), 0) / 100
+  return {
+    total: total.value || 0,
+    pending, published, completed, rate,
+    offlineAmount: offlineAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 }),
+  }
 })
 
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, onSelectChange, resetParams } = useListRequest({
@@ -220,6 +228,26 @@ const handleReject = async (item) => {
     showSuccessToast('已驳回')
     item.status = 'rejected'
     detailVisible.value = false
+    loadData()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') showFailToast(e?.response?.data?.message || '操作失败')
+  }
+}
+
+// 登记线下成交金额（联系对接模式：平台撮合价值度量）
+const handleAmount = async (item) => {
+  try {
+    const { value } = await ElMessageBox.prompt('登记该需求线下成交金额（元）', '登记成交金额', {
+      confirmButtonText: '确认登记',
+      cancelButtonText: '取消',
+      inputPlaceholder: '如：12000',
+      inputPattern: /^\d+(\.\d{1,2})?$/,
+      inputErrorMessage: '请输入有效金额',
+    })
+    const fen = Math.round(Number(value) * 100)
+    await setOfflineAmount(item.id, fen)
+    showSuccessToast('已登记 ¥' + value)
+    item.offline_amount_fen = fen
     loadData()
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') showFailToast(e?.response?.data?.message || '操作失败')
@@ -272,6 +300,7 @@ onMounted(loadData)
 .stat.ok .stat-num { color: var(--el-color-success); }
 .stat.done .stat-num { color: var(--el-color-primary); }
 .stat.rate .stat-num { color: var(--el-color-info); }
+.stat.amount .stat-num { color: var(--el-color-success); }
 .stat-label { font-size: 13px; color: var(--el-text-color-secondary); }
 .batch-bar { background: var(--el-color-primary-light-9); border: 1px solid var(--el-color-primary-light-5); border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
 .batch-info { font-size: 13px; color: var(--el-text-color-secondary); margin-right: auto; }

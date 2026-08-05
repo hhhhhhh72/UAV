@@ -333,6 +333,12 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	// Trends: monthly demand counts (last 12 months)
 	trends := buildDemandTrends(dem)
 
+	// 线下成交金额汇总（联系对接模式撮合价值）
+	var offlineAmountTotal int64
+	for _, dd := range dem {
+		offlineAmountTotal += dd.OfflineAmountFen
+	}
+
 	// Category distribution
 	categoryDist := buildCategoryDist(dem)
 
@@ -386,17 +392,18 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	statusDist := buildStatusDist(dem)
 
 	respond(w, r, http.StatusOK, map[string]any{
-		"pending_enterprises": entPending,
-		"total_demands":       totalDemands,
-		"total_posts":         totalPosts,
-		"pending_reports":     totalReports,
-		"total_users":         totalUsers,
-		"total_messages":      totalMessages,
-		"trends":              trends,
-		"category_dist":       categoryDist,
-		"status_dist":         statusDist,
-		"modules":             modules,
-		"server_time":         time.Now().UTC().Format(time.RFC3339),
+		"pending_enterprises":  entPending,
+		"total_demands":        totalDemands,
+		"total_posts":          totalPosts,
+		"pending_reports":      totalReports,
+		"total_users":          totalUsers,
+		"total_messages":       totalMessages,
+		"offline_amount_total": offlineAmountTotal,
+		"trends":               trends,
+		"category_dist":        categoryDist,
+		"status_dist":          statusDist,
+		"modules":              modules,
+		"server_time":          time.Now().UTC().Format(time.RFC3339),
 	})
 }
 

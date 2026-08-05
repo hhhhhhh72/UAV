@@ -176,6 +176,27 @@ func (s *DemandService) CloseByAdmin(a domain.Actor, id, reason string) (domain.
 	return s.repo.Update(d)
 }
 
+// SetOfflineAmount 登记线下成交金额（联系对接模式：平台撮合价值度量）。
+// 仅已公开/已完成需求可登记；管理端补登或发布者完成时登记。
+func (s *DemandService) SetOfflineAmount(a domain.Actor, id string, amountFen int64) (domain.Demand, error) {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return domain.Demand{}, errors.New("admin permission required")
+	}
+	if amountFen < 0 {
+		return domain.Demand{}, errors.New("成交金额不能为负数")
+	}
+	d, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if d.Status != domain.DemandPublished && d.Status != domain.DemandCompleted {
+		return domain.Demand{}, errors.New("只有已公开或已完成的需求可以登记成交金额")
+	}
+	d.OfflineAmountFen = amountFen
+	d.UpdatedAt = time.Now()
+	return s.repo.Update(d)
+}
+
 func (s *DemandService) Approve(a domain.Actor, id string) (domain.Demand, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Demand{}, errors.New("admin permission required")
