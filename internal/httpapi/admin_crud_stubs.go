@@ -398,7 +398,8 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Status == "published" {
 		var err error
-		j, err = s.jobSvc.PublishJob(domain.Actor{Role: domain.RolePlatformAdmin}, j.ID)
+		// 与 CreateJob 使用同一 actor（ID:"admin"），否则 owner 校验失败
+		j, err = s.jobSvc.PublishJob(domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, j.ID)
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("publish job: %w", err))
 			return

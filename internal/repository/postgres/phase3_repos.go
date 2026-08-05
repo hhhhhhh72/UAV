@@ -248,6 +248,22 @@ func (r *pilotRepo) Create(p domain.CertifiedPilot) (domain.CertifiedPilot, erro
 	p.IDCard = r.dec(p.IDCard)
 	return p, err
 }
+func (r *pilotRepo) Update(p domain.CertifiedPilot) (domain.CertifiedPilot, error) {
+	p.UpdatedAt = time.Now()
+	p.IDCard = r.enc(p.IDCard)
+	certIDs, err := json.Marshal(p.CertIDs)
+	if err != nil {
+		return domain.CertifiedPilot{}, fmt.Errorf("marshal cert ids: %w", err)
+	}
+	_, err = r.pool.Exec(context.Background(),
+		`UPDATE certified_pilots SET real_name=$1,id_card=$2,cert_ids=$3,flight_hours=$4,bio=$5,status=$6,updated_at=$7 WHERE id=$8`,
+		p.RealName, p.IDCard, certIDs, p.FlightHours, p.Bio, p.Status, p.UpdatedAt, p.ID)
+	if err != nil {
+		return domain.CertifiedPilot{}, fmt.Errorf("update pilot: %w", err)
+	}
+	return r.FindByID(p.ID)
+}
+
 func (r *pilotRepo) FindByID(id string) (domain.CertifiedPilot, error) {
 	var p domain.CertifiedPilot
 	var certIDs []byte

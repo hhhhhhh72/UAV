@@ -207,6 +207,7 @@ type PilotRepository interface {
 	Create(domain.CertifiedPilot) (domain.CertifiedPilot, error)
 	FindByID(id string) (domain.CertifiedPilot, error)
 	List() ([]domain.CertifiedPilot, error)
+	Update(domain.CertifiedPilot) (domain.CertifiedPilot, error) // 被驳回后重新申请（覆盖重提）
 	UpdateStatus(id string, status string) (domain.CertifiedPilot, error)
 }
 

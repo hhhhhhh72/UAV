@@ -146,6 +146,28 @@ func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string,
 		}
 	}
 	now := time.Now()
+	// 已有记录：approved/pending 拒绝重复申请；rejected 覆盖重提（重置为 pending）
+	if existing, err := s.pilotRepo.List(); err == nil {
+		for _, e := range existing {
+			if e.UserID != a.ID {
+				continue
+			}
+			switch e.Status {
+			case "approved":
+				return domain.CertifiedPilot{}, errors.New("你已经通过飞手认证，无需重复申请")
+			case "pending":
+				return domain.CertifiedPilot{}, errors.New("飞手认证审核中，请耐心等待")
+			default: // rejected：覆盖重提
+				e.RealName = realName
+				e.IDCard = idCard
+				e.CertIDs = certIDs
+				e.FlightHours = flightHours
+				e.Bio = bio
+				e.Status = "pending"
+				return s.pilotRepo.Update(e)
+			}
+		}
+	}
 	p := domain.CertifiedPilot{ID: fmt.Sprintf("pilot-%d", now.UnixNano()), UserID: a.ID, RealName: realName,
 		IDCard: idCard, CertIDs: certIDs, FlightHours: flightHours, Bio: bio,
 		Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}

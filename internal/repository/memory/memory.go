@@ -1348,6 +1348,21 @@ func (r *pilotRepo) List() ([]domain.CertifiedPilot, error) {
 	}
 	return out, nil
 }
+func (r *pilotRepo) Update(p domain.CertifiedPilot) (domain.CertifiedPilot, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, v := range r.items {
+		if v.ID == p.ID {
+			p.UpdatedAt = time.Now()
+			r.items[i] = p
+			result := p
+			r.decryptInPlace(&result)
+			return result, nil
+		}
+	}
+	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s not found", p.ID)
+}
+
 func (r *pilotRepo) UpdateStatus(id string, status string) (domain.CertifiedPilot, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
