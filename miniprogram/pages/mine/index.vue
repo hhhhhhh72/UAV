@@ -1,66 +1,44 @@
 <template>
   <Layout :current="4">
     <view class="mine-page">
-
-      <!-- ===== 头部区域（仿参考图：浅灰蓝渐变 + 头像 + 三个小图标） ===== -->
-      <view class="header-section">
-        <!-- 装饰背景：右上方光斑 -->
-        <view class="header-light header-light-1"></view>
-        <view class="header-light header-light-2"></view>
-
-        <view class="header-main">
-          <!-- 左侧头像 + 姓名 + 认证徽章 -->
-          <view class="user-block" @tap="handleUserClick">
-            <view class="avatar-wrap">
-              <image
-                v-if="user && user.avatar"
-                class="avatar"
-                :src="avatarSrc(user.avatar)"
-                mode="aspectFill"
-              />
-              <view v-else class="avatar avatar-placeholder">
-                <text class="avatar-text">{{ userInitial }}</text>
-              </view>
+      <!-- ═══════ 身份卡 ═══════ -->
+      <view class="identity-card">
+        <view class="user-block" @tap="handleUserClick">
+          <view class="avatar-wrap">
+            <image
+              v-if="user && user.avatar"
+              class="avatar"
+              :src="avatarSrc(user.avatar)"
+              mode="aspectFill"
+            />
+            <view v-else class="avatar avatar-placeholder">
+              <text class="avatar-text">{{ userInitial }}</text>
             </view>
-
-            <view class="user-info-col">
-              <text class="user-name">{{ user ? (user.name || user.phone || '微信用户') : '点击登录' }}</text>
-              <view v-if="user" class="user-meta">
-                <view class="cert-pill">
-                  <text class="cert-pill-icon">飞</text>
-                  <text class="cert-pill-text">飞手</text>
-                </view>
-                <text v-if="userRoleLabel" class="role-text">· {{ userRoleLabel }}</text>
-              </view>
-              <text v-else class="login-hint">登录后享受更多服务</text>
-            </view>
-
-            <text v-if="!user" class="login-arrow">›</text>
           </view>
+          <view class="user-info-col">
+            <text class="user-name">{{ user ? (user.name || user.phone || '微信用户') : '点击登录' }}</text>
+            <view v-if="user" class="user-meta">
+              <text v-if="userRoleLabel" class="role-text">{{ userRoleLabel }}</text>
+              <text v-if="user.role === 'individual'" class="cert-pill">飞手</text>
+            </view>
+            <text v-else class="login-hint">登录后查看需求与对接意向</text>
+          </view>
+          <text v-if="!user" class="login-arrow">›</text>
+        </view>
 
-          <!-- 右侧三个图标按钮（参考图：APP / 通知 / 设置） -->
-          <view class="header-icon-row">
-            <view class="hdr-icon-btn" @tap="openApp" v-if="user">
-              <view class="hdr-icon-circle">
-                <text class="hdr-icon-glyph">APP</text>
-              </view>
-            </view>
-            <view class="hdr-icon-btn" @tap="goMessages">
-              <view class="hdr-icon-circle">
-                <text class="hdr-icon-glyph">信</text>
-                <view v-if="unreadCount > 0" class="hdr-dot"></view>
-              </view>
-            </view>
-            <view class="hdr-icon-btn" @tap="goSettings">
-              <view class="hdr-icon-circle">
-                <text class="hdr-icon-glyph">设</text>
-              </view>
-            </view>
+        <!-- 右侧：消息（红点）+ 设置 -->
+        <view class="header-icon-row">
+          <view class="hdr-icon-btn" @tap="goMessages">
+            <image class="hdr-icon" :src="'/static/home/icons/message.svg'" mode="aspectFit" />
+            <view v-if="unreadCount > 0" class="hdr-dot"></view>
+          </view>
+          <view class="hdr-icon-btn" @tap="goSettings">
+            <text class="hdr-icon-text">设</text>
           </view>
         </view>
       </view>
 
-      <!-- ===== 我的需求 - 状态栏（demands/mine 按状态过滤） ===== -->
+      <!-- ═══════ 我的需求 - 状态栏 ═══════ -->
       <view class="card section-card">
         <view class="card-header" @tap="goOrderList">
           <text class="card-title">我的需求</text>
@@ -69,7 +47,6 @@
             <text class="more-arrow">›</text>
           </view>
         </view>
-
         <view class="order-row">
           <view
             v-for="tab in orderTabs"
@@ -77,138 +54,93 @@
             class="order-cell"
             @tap="goOrderListWithStatus(tab.key)"
           >
-            <view class="order-icon-wrap">
-              <text :class="['order-icon', tab.iconClass]">{{ tab.icon }}</text>
-            </view>
+            <text :class="['order-icon', tab.iconClass]">{{ tab.icon }}</text>
             <text class="order-label">{{ tab.label }}</text>
           </view>
         </view>
       </view>
 
-      <!-- ===== 飞手推广卡片（参考图风格：暖橙渐变） ===== -->
-      <view class="card promo-card" @tap="goPilotPromotion">
-        <view class="promo-inner">
-          <view class="promo-icon">
-            <text class="promo-icon-text">推</text>
-          </view>
-          <view class="promo-content">
-            <text class="promo-title">飞手推广</text>
-            <text class="promo-desc">
-              <text class="promo-segment">邀请飞手认证</text>
-              <text class="promo-dot">·</text>
-              <text class="promo-segment promo-highlight">认证得积分</text>
-              <text class="promo-dot">·</text>
-              <text class="promo-segment promo-highlight">积分可提现</text>
-            </text>
-          </view>
-          <view class="promo-cta">
-            <text>去推广</text>
-            <text class="promo-cta-arrow">›</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- ===== 我的服务 - 4 宫格 ===== -->
+      <!-- ═══════ 业务 ═══════ -->
       <view class="card section-card">
         <view class="card-header">
-          <text class="card-title">我的服务</text>
+          <text class="card-title">业务</text>
         </view>
-
-        <view class="grid-row">
-          <view class="grid-cell" @tap="goMyDemands">
-            <view class="grid-icon-wrap grid-icon-coupon">
-              <text class="grid-icon-text">需</text>
-            </view>
-            <text class="grid-label">我的需求</text>
+        <view class="menu-list">
+          <view class="menu-item" hover-class="tap-fade" @tap="goMyDemands">
+            <text class="menu-label">我的需求</text>
+            <text class="menu-arrow">›</text>
           </view>
-          <view class="grid-cell" @tap="goMyContracts">
-            <view class="grid-icon-wrap grid-icon-delivery">
-              <text class="grid-icon-text">申</text>
-            </view>
-            <text class="grid-label">我的申请</text>
+          <view class="menu-item" hover-class="tap-fade" @tap="goMyPublish">
+            <text class="menu-label">我的发布</text>
+            <text class="menu-arrow">›</text>
           </view>
-          <view class="grid-cell" @tap="goMyPublish">
-            <view class="grid-icon-wrap grid-icon-bind">
-              <text class="grid-icon-text">发</text>
-            </view>
-            <text class="grid-label">我的发布</text>
+          <view class="menu-item" hover-class="tap-fade" @tap="goMyIntents">
+            <text class="menu-label">对接意向</text>
+            <text class="menu-desc">我登记过的对接记录</text>
+            <text class="menu-arrow">›</text>
           </view>
-          <view class="grid-cell" @tap="goAddress">
-            <view class="grid-icon-wrap grid-icon-address">
-              <text class="grid-icon-text">人</text>
-            </view>
-            <text class="grid-label">个人信息</text>
+          <view class="menu-item" hover-class="tap-fade" @tap="goMyContracts">
+            <text class="menu-label">我的申请</text>
+            <text class="menu-arrow">›</text>
           </view>
         </view>
       </view>
 
-      <!-- ===== 认证与工具 - 8 项 2 行 ===== -->
+      <!-- ═══════ 认证与资料 ═══════ -->
       <view class="card section-card">
         <view class="card-header">
-          <text class="card-title">认证与工具</text>
+          <text class="card-title">认证与资料</text>
         </view>
-
-        <view class="grid-row">
-          <view class="grid-cell" @tap="goAuth">
-            <view class="grid-icon-wrap grid-icon-auth">
-              <text class="grid-icon-text">证</text>
-            </view>
-            <text class="grid-label">实名认证</text>
+        <view class="menu-list">
+          <view class="menu-item" hover-class="tap-fade" @tap="goAuth">
+            <text class="menu-label">实名认证</text>
+            <text class="menu-arrow">›</text>
           </view>
-          <view class="grid-cell" @tap="goPilotCert">
-            <view class="grid-icon-wrap grid-icon-pilot">
-              <text class="grid-icon-text">飞</text>
-            </view>
-            <text class="grid-label">飞手认证</text>
+          <view class="menu-item" hover-class="tap-fade" @tap="goPilotCert">
+            <text class="menu-label">飞手认证</text>
+            <text class="menu-arrow">›</text>
           </view>
-          <view class="grid-cell" @tap="goEnterpriseCert">
-            <view class="grid-icon-wrap grid-icon-enterprise">
-              <text class="grid-icon-text">商</text>
-            </view>
-            <text class="grid-label">商家认证</text>
+          <view class="menu-item" hover-class="tap-fade" @tap="goEnterpriseCert">
+            <text class="menu-label">商家认证</text>
+            <text class="menu-arrow">›</text>
           </view>
-          <view class="grid-cell" @tap="goMyResume">
-            <view class="grid-icon-wrap grid-icon-send">
-              <text class="grid-icon-text">简</text>
-            </view>
-            <text class="grid-label">我的发布</text>
+          <view class="menu-item" hover-class="tap-fade" @tap="goMyResume">
+            <text class="menu-label">我的简历</text>
+            <text class="menu-arrow">›</text>
           </view>
-        </view>
-
-        <view class="grid-row grid-row-secondary">
-          <view class="grid-cell" @tap="goMyPoints">
-            <view class="grid-icon-wrap grid-icon-points">
-              <text class="grid-icon-text">分</text>
-            </view>
-            <text class="grid-label">我的积分</text>
-          </view>
-          <view class="grid-cell" @tap="goMyCertificates">
-            <view class="grid-icon-wrap grid-icon-device">
-              <text class="grid-icon-text">证</text>
-            </view>
-            <text class="grid-label">我的证书</text>
-          </view>
-          <view class="grid-cell" @tap="goOfficialService">
-            <view class="grid-icon-wrap grid-icon-service">
-              <text class="grid-icon-text">服</text>
-            </view>
-            <text class="grid-label">官方客服</text>
-          </view>
-          <view class="grid-cell" @tap="goAbout">
-            <view class="grid-icon-wrap grid-icon-about">
-              <text class="grid-icon-text">介</text>
-            </view>
-            <text class="grid-label">公司简介</text>
+          <view class="menu-item" hover-class="tap-fade" @tap="goMyCertificates">
+            <text class="menu-label">我的证书</text>
+            <text class="menu-arrow">›</text>
           </view>
         </view>
       </view>
 
-      <!-- ===== 退出登录 ===== -->
-      <view class="card logout-card" v-if="user" @tap="doLogout">
+      <!-- ═══════ 服务与支持 ═══════ -->
+      <view class="card section-card">
+        <view class="card-header">
+          <text class="card-title">服务与支持</text>
+        </view>
+        <view class="menu-list">
+          <view class="menu-item" hover-class="tap-fade" @tap="goMyPoints">
+            <text class="menu-label">我的积分</text>
+            <text class="menu-arrow">›</text>
+          </view>
+          <view class="menu-item" hover-class="tap-fade" @tap="goOfficialService">
+            <text class="menu-label">官方客服</text>
+            <text class="menu-arrow">›</text>
+          </view>
+          <view class="menu-item" hover-class="tap-fade" @tap="goAbout">
+            <text class="menu-label">公司简介</text>
+            <text class="menu-arrow">›</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ═══════ 退出登录 ═══════ -->
+      <view class="logout-card" v-if="user" @tap="doLogout">
         <text class="logout-text">退出登录</text>
       </view>
 
-      <!-- 底部留白 -->
       <view class="bottom-spacer"></view>
     </view>
   </Layout>
@@ -312,10 +244,6 @@ const handleUserClick = () => {
   }
 }
 
-const openApp = () => {
-  uni.showToast({ title: '请在微信中打开', icon: 'none' })
-}
-
 const goMessages = () => {
   if (!user.value) return goLogin()
   uni.navigateTo({ url: '/pages/messages/index' })
@@ -333,11 +261,7 @@ const goOrderList = () => {
 
 const goOrderListWithStatus = (status) => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: `/pages/demands/mine?status=${status}` })
-}
-
-const goPilotPromotion = () => {
-  uni.showToast({ title: '飞手推广功能即将上线', icon: 'none' })
+  uni.navigateTo({ url: '/pages/demands/mine?status=' + encodeURIComponent(status) })
 }
 
 const goMyDemands = () => {
@@ -360,6 +284,11 @@ const goAddress = () => {
   uni.navigateTo({ url: '/pages/mine/profile' })
 }
 
+const goMyIntents = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/intents/mine' })
+}
+
 const goAuth = () => {
   if (!user.value) return goLogin()
   uni.navigateTo({ url: '/pages/mine/auth' })
@@ -367,8 +296,7 @@ const goAuth = () => {
 
 const goPilotCert = () => {
   if (!user.value) return goLogin()
-  // 飞手认证：名录 + 申请认证 + 我的认证状态
-  uni.navigateTo({ url: '/pages/pilots/list' })
+  uni.navigateTo({ url: '/pages/mine/auth' })
 }
 
 const goEnterpriseCert = () => {
@@ -382,122 +310,73 @@ const goMyResume = () => {
 }
 
 const goMyPoints = () => {
-  if (!user.value) return goLogin()
-  uni.showToast({ title: '我的积分即将上线', icon: 'none' })
+  uni.showToast({ title: '积分功能即将上线', icon: 'none' })
 }
 
-const goDeviceBinding = () => {
-  if (!user.value) return goLogin()
-  uni.showToast({ title: '设备绑定即将上线', icon: 'none' })
-}
-
-// 我的证书：认证证书列表（认证飞手申请自动关联的证书在此可见）
 const goMyCertificates = () => {
   if (!user.value) return goLogin()
   uni.navigateTo({ url: '/pages/training/certificates' })
 }
 
 const goOfficialService = () => {
-  uni.showModal({
-    title: '官方客服',
-    content: '客服电话：023-55550500\n工作日 9:00 - 18:00',
-    showCancel: false
-  })
+  if (!user.value) return goLogin()
+  uni.showToast({ title: '请联系协会秘书处', icon: 'none' })
 }
 
 const goAbout = () => {
-  uni.showModal({
-    title: '公司简介',
-    content: '重庆市无人机产业协会\n低空综合服务平台 v1.0.0',
-    showCancel: false
-  })
+  uni.showToast({ title: '重庆无人机产业协会', icon: 'none' })
 }
 </script>
 
 <style scoped>
 .mine-page {
   min-height: 100vh;
-  background: #f3f4f6;
-  padding-bottom: 20rpx;
+  background: #F4F6F8;
+  padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
 }
 
-/* ===== 头部区域 ===== */
-.header-section {
-  position: relative;
-  height: 320rpx;
-  background: linear-gradient(180deg, #aab2c3 0%, #c2c9d6 45%, #d8dce5 100%);
-  overflow: hidden;
-}
-
-.header-light {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.header-light-1 {
-  top: -80rpx;
-  right: -60rpx;
-  width: 280rpx;
-  height: 280rpx;
-  background: radial-gradient(circle, rgba(255,255,255,0.32) 0%, transparent 70%);
-}
-
-.header-light-2 {
-  top: 80rpx;
-  right: 220rpx;
-  width: 200rpx;
-  height: 200rpx;
-  background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
-}
-
-.header-main {
-  position: relative;
-  z-index: 1;
+/* 身份卡 */
+.identity-card {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  padding: 100rpx 32rpx 40rpx;
-  height: 100%;
-  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 8px;
 }
 
-/* 用户块 */
 .user-block {
   display: flex;
   align-items: center;
-  gap: 24rpx;
+  gap: 12px;
   flex: 1;
   min-width: 0;
 }
 
 .avatar-wrap {
-  position: relative;
   flex-shrink: 0;
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 60rpx;
-  background: var(--color-success);
-  border: 4rpx solid #fff;
-  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.12);
-  overflow: hidden;
 }
 
 .avatar {
-  width: 100%;
-  height: 100%;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  display: block;
 }
 
 .avatar-placeholder {
+  background: #EAF3FB;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .avatar-text {
-  font-size: 56rpx;
-  font-weight: 600;
-  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0A66C2;
 }
 
 .user-info-col {
@@ -505,348 +384,223 @@ const goAbout = () => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
+  gap: 4px;
 }
 
 .user-name {
-  font-size: 38rpx;
+  font-size: 17px;
   font-weight: 700;
-  color: #fff;
-  text-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.08);
+  color: #17212B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-meta {
   display: flex;
   align-items: center;
-  gap: 10rpx;
-}
-
-.cert-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6rpx;
-  padding: 4rpx 14rpx;
-  background: rgba(52, 199, 89, 0.18);
-  border: 1rpx solid rgba(52, 199, 89, 0.4);
-  border-radius: 20rpx;
-}
-
-.cert-pill-icon {
-  font-size: 18rpx;
-  color: var(--color-success);
-  font-weight: 700;
-}
-
-.cert-pill-text {
-  font-size: 20rpx;
-  color: #fff;
-  font-weight: 500;
+  gap: 8px;
 }
 
 .role-text {
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  color: #667085;
+}
+
+.cert-pill {
+  font-size: 11px;
+  color: #168A55;
+  background: #E9F7F0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .login-hint {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  color: #98A2B3;
 }
 
 .login-arrow {
-  font-size: 48rpx;
-  color: #fff;
-  font-weight: 300;
-  margin-left: 4rpx;
+  font-size: 22px;
+  color: #98A2B3;
 }
 
-/* 头部图标行 */
+/* 右侧图标 */
 .header-icon-row {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .hdr-icon-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4rpx;
-  padding: 4rpx;
-}
-
-.hdr-icon-circle {
   position: relative;
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 36rpx;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #F4F6F8;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.hdr-icon-glyph {
-  font-size: 28rpx;
-  color: #4a5568;
-  font-weight: 700;
+.hdr-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.hdr-icon-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #344054;
 }
 
 .hdr-dot {
   position: absolute;
-  top: 14rpx;
-  right: 14rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background: var(--color-danger);
-  border-radius: 8rpx;
+  top: 6px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background: #F97316;
   border: 2rpx solid #fff;
 }
 
-/* ===== 通用卡片 ===== */
+/* 卡片 */
 .card {
   background: #fff;
-  border-radius: 20rpx;
-  margin: 0 24rpx 24rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-  overflow: hidden;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  margin-bottom: 8px;
 }
 
 .section-card {
-  padding: 0;
+  padding: 14px 16px;
 }
 
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28rpx 28rpx 8rpx;
+  margin-bottom: 12px;
 }
 
 .card-title {
-  font-size: 30rpx;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--color-text);
-  letter-spacing: 0.5rpx;
+  color: #17212B;
 }
 
 .card-more {
   display: flex;
   align-items: center;
-  gap: 4rpx;
+  gap: 4px;
 }
 
 .more-text {
-  font-size: 24rpx;
-  color: var(--color-text-secondary);
+  font-size: 12px;
+  color: #667085;
 }
 
 .more-arrow {
-  font-size: 26rpx;
-  color: var(--color-text-placeholder);
+  font-size: 14px;
+  color: #98A2B3;
 }
 
-/* ===== 我的订单 5 状态栏 ===== */
+/* 需求状态栏 */
 .order-row {
   display: flex;
-  justify-content: space-around;
-  padding: 16rpx 16rpx 36rpx;
 }
 
 .order-cell {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10rpx;
-  padding: 4rpx 0;
-  min-width: 90rpx;
-  flex: 1;
-}
-
-.order-icon-wrap {
-  width: 72rpx;
-  height: 72rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 6px;
 }
 
 .order-icon {
-  font-size: 48rpx;
-  line-height: 1;
-}
-
-.icon-pay    { color: var(--color-primary); }
-.icon-send   { color: #5a6b85; }
-.icon-truck  { color: #6b7a99; }
-.icon-review { color: var(--color-warning); }
-.icon-done   { color: var(--color-success); }
-.icon-refund { color: #5a6b85; }
-
-.order-label {
-  font-size: 24rpx;
-  color: #4a5568;
-}
-
-/* ===== 飞手推广卡片 ===== */
-.promo-card {
-  background: linear-gradient(135deg, #fff5ec 0%, #fff0e2 50%, #ffeadd 100%);
-  border: 1rpx solid rgba(255, 122, 51, 0.12);
-}
-
-.promo-inner {
-  display: flex;
-  align-items: center;
-  padding: 32rpx 28rpx;
-  gap: 20rpx;
-}
-
-.promo-icon {
-  flex-shrink: 0;
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 44rpx;
-  background: rgba(255, 122, 51, 0.12);
+  font-size: 16px;
+  font-weight: 700;
+  color: #0A66C2;
+  background: #EAF3FB;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.promo-icon-text {
-  font-size: 44rpx;
+.order-icon.icon-send { color: #168A55; background: #E9F7F0; }
+.order-icon.icon-done { color: #168A55; background: #E9F7F0; }
+.order-icon.icon-refund { color: #98A2B3; background: #F4F6F8; }
+.order-icon.icon-review { color: #D92D20; background: #FEF3F2; }
+
+.order-label {
+  font-size: 11px;
+  color: #344054;
 }
 
-.promo-content {
-  flex: 1;
-  min-width: 0;
+/* 菜单列表 */
+.menu-list {
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
 }
 
-.promo-title {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.promo-desc {
-  font-size: 22rpx;
-  color: #6b7280;
-  line-height: 1.5;
+.menu-item {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4rpx;
+  gap: 10px;
+  padding: 13px 0;
+  border-top: 1px solid #EEF1F4;
 }
 
-.promo-segment {
-  color: #6b7280;
+.menu-item:first-child {
+  border-top: none;
 }
 
-.promo-highlight {
-  color: var(--color-warning);
+.menu-label {
+  font-size: 14px;
+  color: #17212B;
+}
+
+.menu-desc {
+  flex: 1;
+  font-size: 11px;
+  color: #98A2B3;
+  text-align: right;
+}
+
+.menu-arrow {
+  margin-left: auto;
+  font-size: 16px;
+  color: #98A2B3;
+}
+
+/* 退出登录 */
+.logout-card {
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  padding: 14px 0;
+  text-align: center;
+  margin-top: 16px;
+}
+
+.logout-text {
+  font-size: 14px;
+  color: #D92D20;
   font-weight: 500;
 }
 
-.promo-dot {
-  color: #c8c9cc;
-  margin: 0 4rpx;
-}
-
-.promo-cta {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 2rpx;
-  padding: 12rpx 24rpx;
-  background: linear-gradient(135deg, var(--color-warning), var(--color-danger));
-  border-radius: 40rpx;
-  box-shadow: 0 6rpx 16rpx rgba(255, 90, 31, 0.28);
-}
-
-.promo-cta text {
-  font-size: 24rpx;
-  color: #fff;
-  font-weight: 600;
-}
-
-.promo-cta-arrow {
-  font-size: 22rpx;
-  margin-left: 2rpx;
-}
-
-/* ===== 我的服务 / 认证工具 4 宫格 ===== */
-.grid-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  padding: 16rpx 16rpx 16rpx;
-}
-
-.grid-row-secondary {
-  padding-top: 0;
-  padding-bottom: 36rpx;
-}
-
-.grid-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14rpx;
-  padding: 12rpx 0;
-}
-
-.grid-icon-wrap {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 40rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.grid-icon-coupon,
-.grid-icon-delivery,
-.grid-icon-bind,
-.grid-icon-address,
-.grid-icon-auth,
-.grid-icon-pilot,
-.grid-icon-enterprise,
-.grid-icon-send,
-.grid-icon-points,
-.grid-icon-device,
-.grid-icon-service,
-.grid-icon-about { background: linear-gradient(135deg, var(--color-warning), var(--color-danger)); }
-
-.grid-icon-text {
-  font-size: 36rpx;
-  color: #fff;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.grid-label {
-  font-size: 24rpx;
-  color: #4a5568;
-  text-align: center;
-}
-
 .bottom-spacer {
-  height: 40rpx;
+  height: 8px;
 }
 
-.logout-card {
-  margin: 0 24rpx;
-  padding: 28rpx 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.tap-fade {
+  opacity: 0.7;
 }
-.logout-text {
-  font-size: 28rpx;
-  color: var(--color-danger);
-}
-
 </style>

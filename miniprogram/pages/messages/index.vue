@@ -1,5 +1,5 @@
 <template>
-  <Layout :current="2">
+  <Layout :current="0">
     <view class="messages-page">
       <!-- 加载状态 -->
       <view v-if="loading" class="loading-state">

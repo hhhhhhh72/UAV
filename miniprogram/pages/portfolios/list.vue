@@ -211,7 +211,7 @@ export default {
   padding: 8px 24px;
   background: var(--color-primary);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -229,7 +229,7 @@ export default {
 
 .brand-item {
   background: var(--color-bg-card);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 20px 12px;
   display: flex;
   flex-direction: column;

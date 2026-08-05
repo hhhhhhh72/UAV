@@ -653,14 +653,14 @@ const handleSubmit = async () => {
 .empty-text { font-size: 18px; font-weight: bold; color: #323233; margin-bottom: 12px; }
 .empty-desc { font-size: 14px; color: #969799; line-height: 1.6; }
 .empty-contact { font-size: 13px; color: #667eea; margin-top: 12px; }
-.back-btn { margin-top: 30px; border-radius: 99px; font-size: 15px; color: #fff; background: #667eea; }
+.back-btn { margin-top: 30px; border-radius: 8px; font-size: 15px; color: #fff; background: #667eea; }
 
 .notice-bar { display: flex; align-items: center; padding: 10px 16px; background: #f0f2ff; color: #667eea; }
 .notice-icon { margin-right: 8px; font-size: 14px; }
 .notice-text { font-size: 13px; }
 
 .form-body { padding: 16px; }
-.form-section { background: #fff; border-radius: 12px; padding: 0 16px; margin-bottom: 16px; overflow: hidden; }
+.form-section { background: #fff; border-radius: 8px; padding: 0 16px; margin-bottom: 16px; overflow: hidden; }
 .section-title { font-size: 15px; font-weight: 600; padding: 16px 0 8px; color: #323233; border-bottom: 1px solid #f2f3f5; margin-bottom: 8px; }
 
 .form-item { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid #f2f3f5; }
@@ -688,5 +688,5 @@ const handleSubmit = async () => {
 .plus { font-size: 30px; color: #ccc; }
 
 .submit-section { padding: 20px 16px 40px; }
-.submit-btn { border-radius: 99px; height: 48px; line-height: 48px; font-weight: bold; background: #667eea !important; }
+.submit-btn { border-radius: 8px; height: 48px; line-height: 48px; font-weight: bold; background: #667eea !important; }
 </style>

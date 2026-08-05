@@ -1,211 +1,521 @@
 <template>
-  <view class="page">
-    <!-- ① 应急橙 Banner -->
-    <view class="banner">
-      <view class="status-placeholder" :style="{ height: statusBarHeight + 'px' }" />
-      <view class="back-btn" @click="goBack"><text class="back-icon">‹</text></view>
-      <text class="banner-label">应急协同</text>
-      <text class="banner-title">应急资源调度</text>
-      <text class="banner-sub">低空应急 · 协同救援 · 快速响应</text>
-    </view>
+  <view class="res-page">
+    <u-nav-bar
+      title="应急资源"
+      show-back
+      @back="goBack"
+    />
 
-    <view class="main-card">
-      <view class="tab-main">
-        <view class="tab-main-item" :class="{ active: mainTab === 'resources' }" @click="switchMainTab('resources')">应急资源</view>
-        <view class="tab-main-item" :class="{ active: mainTab === 'depts' }" @click="switchMainTab('depts')">部门对接</view>
+    <!-- 主双 Tab：应急资源 / 部门对接 -->
+    <u-sticky>
+      <u-tabs
+        v-model:active="mainTabIndex"
+        :titles="mainTitles"
+        @change="onMainTabChange"
+      />
+    </u-sticky>
+
+    <!-- Tab 1：应急资源 -->
+    <template v-if="mainTabIndex === 0">
+      <view class="filter-area">
+        <u-tabs
+          v-model:active="typeIndex"
+          :titles="typeTitles"
+          @change="onTypeChange"
+        />
+        <u-search
+          v-model="keyword"
+          placeholder="搜索资源名称"
+          @search="onSearch"
+        />
       </view>
 
-      <template v-if="mainTab === 'resources'">
-        <view class="type-pills-wrap">
-          <view class="type-pills">
-            <view class="pill" :class="{ active: filterType === 'all' }" @click="filterType = 'all'">全部</view>
-            <view class="pill" :class="{ active: filterType === 'drone' }" @click="filterType = 'drone'">无人机</view>
-            <view class="pill" :class="{ active: filterType === 'comm' }" @click="filterType = 'comm'">通讯</view>
-            <view class="pill" :class="{ active: filterType === 'vehicle' }" @click="filterType = 'vehicle'">车辆</view>
-            <view class="pill" :class="{ active: filterType === 'medical' }" @click="filterType = 'medical'">医疗</view>
+      <!-- Loading -->
+      <view v-if="loading && list.length === 0" class="loading-state">
+        <view class="loading-inline">
+          <u-loading size="24rpx" color="#667085" />
+          <text>加载中...</text>
+        </view>
+      </view>
+
+      <!-- Error -->
+      <view v-else-if="errorMsg && list.length === 0" class="state-view">
+        <u-empty description="加载失败" />
+        <view class="retry-btn" @tap="fetchList(true)">
+          <text>重新加载</text>
+        </view>
+      </view>
+
+      <!-- Empty -->
+      <view v-else-if="!loading && list.length === 0" class="state-view">
+        <u-empty description="暂无应急资源" />
+      </view>
+
+      <!-- List -->
+      <view v-else class="list-body">
+        <view class="res-list">
+          <view v-for="item in list" :key="item.id" class="res-card">
+            <view class="res-top">
+              <view class="res-icon" :style="resIconStyle(item)"><text>{{ resIcon(item) }}</text></view>
+              <view class="res-info">
+                <text class="res-name">{{ item.name || '未命名资源' }}</text>
+                <text class="res-spec">{{ item.specs || item.model || '暂无规格' }}</text>
+              </view>
+              <u-tag :type="statusTagType(item.status)" size="mini" :round="false" plain>{{ statusLabel(item.status) }}</u-tag>
+            </view>
+            <view class="res-meta">
+              <view class="meta-row"><text class="meta-label">数量</text><text class="meta-value">{{ item.quantity || 0 }}</text></view>
+              <view class="meta-row"><text class="meta-label">位置</text><text class="meta-value meta-ellipsis">{{ item.location || '未知' }}</text></view>
+              <view class="meta-row"><text class="meta-label">联系人</text><text class="meta-value">{{ item.contact || item.contact_info || '暂无' }}</text></view>
+            </view>
+          </view>
+
+          <!-- Load more -->
+          <view v-if="list.length > 0" class="load-more">
+            <view v-if="loadingMore" class="loading-inline">
+              <u-loading size="24rpx" color="#667085" />
+              <text>加载更多...</text>
+            </view>
+            <text v-else-if="!hasMore" class="no-more">没有更多了</text>
           </view>
         </view>
-        <view class="search-bar"><u-icon name="search" size="28rpx" color="#969799" /><input class="search-input" v-model="keyword" placeholder="搜索资源名称" @input="onSearch" /></view>
+        <view class="bottom-space" />
+      </view>
+    </template>
 
-        <StateView :loading="loading" :error="!!errorMsg" :empty="!loading && !errorMsg && list.length === 0" empty-text="暂无应急资源" @retry="loadResources">
-          <scroll-view class="list-scroll" scroll-y @scrolltolower="loadMore">
-            <view v-for="item in list" :key="item.id" class="resource-card" :style="{ borderLeftColor: statusColor[item.status] || 'var(--color-success)' }">
-              <view class="card-top">
-                <view class="card-icon" :style="{ background: statusBg[item.status] || 'var(--ui-color-accent-light)' }"><text>{{ resIcon(item) }}</text></view>
-                <view class="card-info"><text class="card-name">{{ item.name || '未命名资源' }}</text><text class="card-spec">{{ item.specs || item.model || '暂无规格' }}</text></view>
-                <view class="status-tag" :style="{ background: statusBg[item.status] || 'var(--ui-color-accent-light)', color: statusColor[item.status] || 'var(--color-text-secondary)' }">{{ item.status || '未知' }}</view>
-              </view>
-              <view class="card-meta">
-                <view class="meta-row"><text class="meta-label">数量</text><text class="meta-value">{{ item.quantity || 0 }}</text></view>
-                <view class="meta-row"><text class="meta-label">位置</text><text class="meta-value ellipsis">{{ item.location || '未知' }}</text></view>
-                <view class="meta-row"><text class="meta-label">联系人</text><text class="meta-value">{{ item.contact || item.contact_info || '暂无' }}</text></view>
+    <!-- Tab 2：部门对接 -->
+    <template v-else>
+      <!-- Loading -->
+      <view v-if="deptLoading && deptList.length === 0" class="loading-state">
+        <view class="loading-inline">
+          <u-loading size="24rpx" color="#667085" />
+          <text>加载中...</text>
+        </view>
+      </view>
+
+      <!-- Error -->
+      <view v-else-if="deptError && deptList.length === 0" class="state-view">
+        <u-empty description="加载失败" />
+        <view class="retry-btn" @tap="loadDepts">
+          <text>重新加载</text>
+        </view>
+      </view>
+
+      <!-- Empty -->
+      <view v-else-if="!deptLoading && deptList.length === 0" class="state-view">
+        <u-empty description="暂无部门信息" />
+      </view>
+
+      <!-- List -->
+      <view v-else class="list-body">
+        <view class="res-list">
+          <view v-for="d in deptList" :key="d.id" class="dept-card">
+            <view class="dept-header">
+              <view class="dept-icon" :style="deptIconStyle(d)"><text>{{ deptIcon(d) }}</text></view>
+              <view class="dept-info">
+                <text class="dept-name">{{ d.name || '未知部门' }}</text>
+                <text class="dept-sub">{{ d.type || d.dept_type || '未知类型' }} · {{ d.area || d.region || '未知区域' }}</text>
               </view>
             </view>
-            <view v-if="list.length > 0" class="load-more-wrap"><view v-if="loadingMore" class="loading-inline"><u-loading size="24rpx" /><text>加载更多...</text></view><text v-else-if="!hasMore" class="no-more">没有更多了</text></view>
-            <view style="height:40rpx" />
-          </scroll-view>
-        </StateView>
-      </template>
-
-      <template v-else>
-        <StateView :loading="deptLoading" :error="!!deptError" :empty="!deptLoading && !deptError && deptList.length === 0" empty-text="暂无部门信息" @retry="loadDepts">
-          <scroll-view class="list-scroll" scroll-y>
-            <view v-for="d in deptList" :key="d.id" class="dept-card">
-              <view class="dept-header"><view class="dept-icon"><text><text>{{ deptIcon(d) }}</text></text></view><view><text class="dept-name">{{ d.name || '未知部门' }}</text><text class="dept-type-area">{{ d.type || d.dept_type || '未知类型' }} · {{ d.area || d.region || '未知区域' }}</text></view></view>
-              <view class="dept-contact">联系人: <text class="bold">{{ d.contact || d.contact_name || '暂无' }}</text><text style="margin-left:24rpx;">电话: <text class="bold">{{ d.phone || d.contact_phone || '暂无' }}</text></text></view>
+            <view class="dept-contact">
+              <text class="dept-c-label">联系人</text>
+              <text class="dept-c-value">{{ d.contact || d.contact_name || '暂无' }}</text>
+              <text class="dept-c-label">电话</text>
+              <text class="dept-c-value">{{ d.phone || d.contact_phone || '暂无' }}</text>
             </view>
-            <view style="height:40rpx" />
-          </scroll-view>
-        </StateView>
-      </template>
-    </view>
+          </view>
+        </view>
+        <view class="bottom-space" />
+      </view>
+    </template>
   </view>
 </template>
 
-<script setup>
-import { ref, watch } from 'vue'
-import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
+<script>
 import { request } from '../../utils/request'
-import StateView from '../../components/StateView.vue'
 
-const statusBarHeight = ref(44)
-const mainTab = ref('resources')
-const filterType = ref('all')
-const keyword = ref('')
-const loading = ref(false)
-const loadingMore = ref(false)
-const errorMsg = ref('')
-const list = ref([])
-const page = ref(1)
-const pageSize = ref(20)
-const hasMore = ref(true)
-const deptLoading = ref(false)
-const deptError = ref('')
-const deptList = ref([])
+export default {
+  data() {
+    return {
+      mainTabIndex: 0,
+      mainTitles: ['应急资源', '部门对接'],
+      typeIndex: 0,
+      typeTitles: ['全部', '无人机', '通讯', '车辆', '医疗'],
+      typeMap: ['', 'drone', 'comm', 'vehicle', 'medical'],
+      keyword: '',
+      loading: false,
+      loadingMore: false,
+      errorMsg: '',
+      list: [],
+      page: 1,
+      pageSize: 20,
+      hasMore: true,
+      deptLoading: false,
+      deptError: '',
+      deptList: [],
+      searchTimer: null,
+    }
+  },
+  watch: {
+    keyword() {
+      clearTimeout(this.searchTimer)
+      this.searchTimer = setTimeout(function () { this.fetchList(true) }.bind(this), 300)
+    },
+  },
+  onLoad() {
+    this.fetchList(true)
+  },
+  onPullDownRefresh() {
+    var p = this.mainTabIndex === 0 ? this.fetchList(true) : this.loadDepts()
+    p.then(function () {
+      uni.stopPullDownRefresh()
+    })
+  },
+  onReachBottom() {
+    if (this.mainTabIndex !== 0) return
+    if (!this.loadingMore && this.hasMore) {
+      this.loadMore()
+    }
+  },
+  methods: {
+    async fetchList(reset) {
+      if (reset === undefined) reset = true
+      if (reset) {
+        this.page = 1
+        this.hasMore = true
+        this.loading = true
+      } else {
+        this.loadingMore = true
+      }
+      this.errorMsg = ''
 
-const resourceTypes = [
-  { emoji: '', label: '全部', value: 'all' },
-  { emoji: '机', label: '无人机', value: 'drone' },
-  { emoji: '信', label: '通讯', value: 'comm' },
-  { emoji: '车', label: '车辆', value: 'vehicle' },
-  { emoji: '医', label: '医疗', value: 'medical' },
-  { emoji: '他', label: '其他', value: 'other' },
-]
+      try {
+        var params = { page: this.page, page_size: this.pageSize }
+        var typeVal = this.typeMap[this.typeIndex]
+        if (typeVal) params.res_type = typeVal
+        if (this.keyword) params.q = this.keyword
 
-const statusColor = { '可用': 'var(--color-success)', '使用中': 'var(--color-warning)', '维护中': 'var(--color-text-secondary)', 'available': 'var(--color-success)', 'standby': 'var(--color-success)', 'in_use': 'var(--color-warning)', 'maintenance': 'var(--color-text-secondary)' }
-const statusBg = { '可用': '#e8f5e9', '使用中': '#fff3e0', '维护中': '#f5f5f5', 'available': '#e8f5e9', 'standby': '#e8f5e9', 'in_use': '#fff3e0', 'maintenance': '#f5f5f5' }
-const typeEmoji = { 'drone': '机', 'comm': '信', 'vehicle': '车', 'medical': '医', 'other': '他' }
-const deptEmoji = { '消防': '防', 'fire': '防', '公安': '警', 'police': '警', '应急局': '应', 'emergency_bureau': '应', '医疗': '医', 'civil_affairs': '医', '交通': '交' }
+        var res = await request({ url: '/api/v1/emergency-resources', data: params })
+        var data = Array.isArray(res) ? res : (res && res.data) || res || {}
+        var items = Array.isArray(data) ? data : (data && data.items) || []
+        var total = (data && data.total) != null ? data.total : items.length
 
-var searchTimer = null
-function resIcon(item) {
-  var t = item.resource_type || item.res_type || 'drone'
-  if (t === 'drone') return '机'
-  if (t === 'comm') return '信'
-  if (t === 'vehicle') return '车'
-  if (t === 'medical') return '医'
-  return '他'
+        if (reset) {
+          this.list = items
+        } else {
+          this.list = this.list.concat(items)
+        }
+        this.hasMore = this.list.length < total
+      } catch (e) {
+        if (reset) this.errorMsg = '网络异常，请稍后重试'
+      } finally {
+        this.loading = false
+        this.loadingMore = false
+      }
+    },
+    loadMore() {
+      this.page++
+      this.fetchList(false)
+    },
+    async loadDepts() {
+      this.deptLoading = true
+      this.deptError = ''
+      try {
+        var res = await request({ url: '/api/v1/emergency-depts' })
+        var data = Array.isArray(res) ? res : (res && res.data) || res || {}
+        this.deptList = Array.isArray(data) ? data : (data && data.items) || data || []
+      } catch (e) {
+        this.deptError = '网络异常，请稍后重试'
+      } finally {
+        this.deptLoading = false
+      }
+    },
+    onMainTabChange(index) {
+      this.mainTabIndex = index
+      if (index === 1 && this.deptList.length === 0) {
+        this.loadDepts()
+      }
+    },
+    onTypeChange(index) {
+      this.typeIndex = index
+      this.fetchList(true)
+    },
+    onSearch() {
+      clearTimeout(this.searchTimer)
+      this.fetchList(true)
+    },
+    /* 状态归一：可用/使用中/维护中（兼容英文 key） */
+    statusLabel(status) {
+      var map = {
+        '可用': '可用',
+        'available': '可用',
+        'standby': '可用',
+        '使用中': '使用中',
+        'in_use': '使用中',
+        '维护中': '维护中',
+        'maintenance': '维护中',
+      }
+      return map[status] || status || '未知'
+    },
+    statusTagType(status) {
+      var map = {
+        '可用': 'success',
+        'available': 'success',
+        'standby': 'success',
+        '使用中': 'warning',
+        'in_use': 'warning',
+        '维护中': 'default',
+        'maintenance': 'default',
+      }
+      return map[status] || 'default'
+    },
+    /* 资源类型字符图标（低饱和色块） */
+    resIcon(item) {
+      var t = item.resource_type || item.res_type || 'drone'
+      var map = { drone: '机', comm: '信', vehicle: '车', medical: '医' }
+      return map[t] || '他'
+    },
+    resIconStyle(item) {
+      var t = item.resource_type || item.res_type || 'drone'
+      var map = {
+        drone: { background: '#EAF3FB', color: '#0A66C2' },
+        comm: { background: '#F6F4FF', color: '#667085' },
+        vehicle: { background: '#FFF0E6', color: '#E96012' },
+        medical: { background: '#E9F7F0', color: '#168A55' },
+      }
+      return map[t] || { background: '#F4F6F8', color: '#667085' }
+    },
+    /* 部门类型字符图标（低饱和色块） */
+    deptIcon(d) {
+      var t = d.type || d.dept_type || ''
+      if (t.indexOf('消防') >= 0 || t === 'fire') return '防'
+      if (t.indexOf('公安') >= 0 || t === 'police') return '警'
+      if (t.indexOf('应急') >= 0 || t === 'emergency_bureau') return '应'
+      if (t.indexOf('医疗') >= 0 || t === 'civil_affairs') return '医'
+      return '部'
+    },
+    deptIconStyle(d) {
+      var t = d.type || d.dept_type || ''
+      if (t.indexOf('消防') >= 0 || t === 'fire') return { background: '#FFF0E6', color: '#E96012' }
+      if (t.indexOf('公安') >= 0 || t === 'police') return { background: '#EAF3FB', color: '#0A66C2' }
+      if (t.indexOf('医疗') >= 0 || t === 'civil_affairs') return { background: '#E9F7F0', color: '#168A55' }
+      if (t.indexOf('应急') >= 0 || t === 'emergency_bureau') return { background: '#EAF3FB', color: '#0A66C2' }
+      return { background: '#F4F6F8', color: '#667085' }
+    },
+    goBack() {
+      uni.navigateBack()
+    },
+  },
 }
-function deptIcon(d) {
-  var t = d.type || d.dept_type || ''
-  if (t.indexOf('消防') >= 0 || t === 'fire') return '防'
-  if (t.indexOf('公安') >= 0 || t === 'police') return '警'
-  if (t.indexOf('应急') >= 0 || t === 'emergency_bureau') return '应'
-  if (t.indexOf('医疗') >= 0 || t === 'civil_affairs') return '医'
-  if (t.indexOf('交通') >= 0) return '交'
-  return '部'
-}
-function onSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(function () { page.value = 1; loadResources(true) }, 300) }
-function switchMainTab(tab) { if (mainTab.value === tab) return; mainTab.value = tab; if (tab === 'depts' && deptList.value.length === 0) loadDepts() }
-watch(filterType, function () { page.value = 1; loadResources(true) })
-
-async function loadResources(reset) {
-  if (reset === undefined) reset = true
-  if (reset) { page.value = 1; hasMore.value = true; loading.value = true } else { loadingMore.value = true }
-  errorMsg.value = ''
-  try {
-    var params = { page: page.value, page_size: pageSize.value }
-    if (filterType.value !== 'all') params.res_type = filterType.value
-    if (keyword.value) params.q = keyword.value
-    var res = await request({ url: '/api/v1/emergency-resources', data: params })
-    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
-    var items = Array.isArray(data) ? data : (data && data.items) || []
-    var total = (data && data.total) != null ? data.total : items.length
-    if (reset) { list.value = items } else { list.value = list.value.concat(items) }
-    hasMore.value = list.value.length < total
-  } catch (e) {
-    if (reset) errorMsg.value = '网络异常，请稍后重试'
-  }
-  finally { loading.value = false; loadingMore.value = false }
-}
-
-function loadMore() { if (!loadingMore.value && hasMore.value) { page.value++; loadResources(false) } }
-
-async function loadDepts() {
-  deptLoading.value = true; deptError.value = ''
-  try {
-    var res = await request({ url: '/api/v1/emergency-depts' })
-    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
-    deptList.value = Array.isArray(data) ? data : (data && data.items) || data || []
-  } catch (e) { deptError.value = '网络异常，请稍后重试' }
-  finally { deptLoading.value = false }
-}
-
-function goBack() { uni.navigateBack({ delta: 1 }) }
-
-onLoad(function () {
-  try { statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 44 } catch (e) {}
-  loadResources(true)
-})
-
-onPullDownRefresh(function () {
-  var p = mainTab.value === 'resources' ? loadResources(true) : loadDepts()
-  p.then(function () { uni.stopPullDownRefresh() })
-})
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
-.banner { background: linear-gradient(135deg, var(--color-warning), #d84315); padding: 0 32rpx 72rpx; }
-.status-placeholder { width: 100%; }
-.back-btn { width: 64rpx; height: 64rpx; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24rpx; }
-.back-icon { color: #ffffff; font-size: 40rpx; font-weight: 300; }
-.banner-label { color: rgba(255,255,255,0.85); font-size: 28rpx; font-weight: 500; display: block; }
-.banner-title { color: #ffffff; font-size: 56rpx; font-weight: 700; display: block; margin: 8rpx 0 12rpx; }
-.banner-sub { color: rgba(255,255,255,0.7); font-size: 26rpx; }
-.main-card { background: #ffffff; border-radius: 32rpx 32rpx 0 0; margin-top: -32rpx; position: relative; z-index: 2; }
-.tab-main { display: flex; justify-content: center; gap: 24rpx; padding: 0 24rpx; margin-top: -36rpx; }
-.tab-main-item { width: 320rpx; height: 72rpx; line-height: 72rpx; text-align: center; border-radius: 40rpx; font-size: 28rpx; font-weight: 400; color: #666666; background: #ffffff; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06); }
-.tab-main-item.active { background: var(--color-warning); color: #ffffff; font-weight: 600; box-shadow: 0 4rpx 16rpx rgba(255,159,10,0.35); }
-.type-pills-wrap { width: 100%; overflow-x: auto; }
-.type-pills { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 16rpx; padding: 24rpx 24rpx 16rpx; }
-.type-pills::-webkit-scrollbar { display: none; }
-.pill { flex: 0 0 auto; white-space: nowrap; padding: 14rpx 36rpx; border-radius: 28rpx; font-size: 28rpx; background: var(--color-bg); color: var(--color-text-secondary); }
-.pill.active { background: var(--color-warning); color: #ffffff; font-weight: 500; }
-.search-bar { margin: 0 24rpx 16rpx; background: var(--color-bg); border-radius: 40rpx; padding: 14rpx 24rpx; display: flex; align-items: center; gap: 12rpx; }
-.search-input { flex: 1; font-size: 28rpx; color: var(--color-text); }
-.list-scroll { height: calc(100vh - 560rpx); }
-.resource-card { background: #ffffff; border-radius: 14rpx; padding: 20rpx 20rpx 20rpx 16rpx; margin: 0 24rpx 14rpx; border-left: 6rpx solid; box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03); }
-.card-top { display: flex; align-items: flex-start; gap: 12rpx; margin-bottom: 12rpx; }
-.card-icon { width: 72rpx; height: 72rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; font-size: 36rpx; flex-shrink: 0; }
-.card-info { flex: 1; }
-.card-name { font-size: 30rpx; font-weight: 500; color: var(--color-text); display: block; }
-.card-spec { font-size: 24rpx; color: var(--color-text-secondary); display: block; margin-top: 4rpx; }
-.status-tag { padding: 6rpx 16rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; flex-shrink: 0; }
-.card-meta { display: flex; flex-direction: column; gap: 6rpx; font-size: 24rpx; }
-.meta-row { display: flex; gap: 12rpx; align-items: baseline; }
-.meta-label { color: var(--color-text-secondary); width: 80rpx; flex-shrink: 0; }
-.meta-value { color: var(--color-text); font-weight: 500; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.meta-value.ellipsis { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.card-meta .bold { color: var(--color-text); font-weight: 500; }
-.dept-card { background: #ffffff; border-radius: 14rpx; padding: 20rpx; margin: 0 24rpx 14rpx; box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.03); }
-.dept-header { display: flex; align-items: center; gap: 14rpx; margin-bottom: 10rpx; }
-.dept-icon { width: 60rpx; height: 60rpx; background: #fff3e0; border-radius: 14rpx; display: flex; align-items: center; justify-content: center; font-size: 28rpx; flex-shrink: 0; }
-.dept-name { font-size: 28rpx; font-weight: 500; color: var(--color-text); display: block; }
-.dept-type-area { font-size: 24rpx; color: var(--color-text-secondary); display: block; margin-top: 2rpx; }
-.dept-contact { font-size: 24rpx; color: var(--color-text-secondary); }
-.dept-contact .bold { color: var(--color-text); font-weight: 500; }
-.load-more-wrap { text-align: center; padding: 20rpx 0; }
-.loading-inline { display: flex; align-items: center; justify-content: center; gap: 8rpx; font-size: 24rpx; color: var(--color-text-secondary); }
-.no-more { font-size: 24rpx; color: var(--color-text-secondary); }
+.res-page {
+  min-height: 100vh;
+  background: #F4F6F8;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 筛选区 */
+.filter-area {
+  background: #ffffff;
+  padding-bottom: 8rpx;
+}
+
+/* State views */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 80px 0;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #667085;
+}
+
+.state-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 80px;
+}
+
+.retry-btn {
+  margin-top: 12px;
+  padding: 8px 24px;
+  background: #0A66C2;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+/* List */
+.list-body {
+  padding-top: 12px;
+}
+
+.res-list { padding: 0 24rpx; }
+
+/* 资源卡片 */
+.res-card {
+  background: #ffffff;
+  border: 1px solid #EEF1F4;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.res-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.res-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.res-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.res-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #17212B;
+  display: block;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.res-spec {
+  font-size: 24rpx;
+  color: #667085;
+  display: block;
+  margin-top: 6rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.res-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  font-size: 24rpx;
+}
+
+.meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.meta-label {
+  color: #98A2B3;
+  width: 72rpx;
+  flex-shrink: 0;
+}
+
+.meta-value {
+  color: #344054;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 部门卡片 */
+.dept-card {
+  background: #ffffff;
+  border: 1px solid #EEF1F4;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.dept-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 14rpx;
+}
+
+.dept-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.dept-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dept-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #17212B;
+  display: block;
+}
+
+.dept-sub {
+  font-size: 23rpx;
+  color: #667085;
+  display: block;
+  margin-top: 4rpx;
+}
+
+.dept-contact {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  font-size: 24rpx;
+  flex-wrap: wrap;
+}
+
+.dept-c-label {
+  color: #98A2B3;
+}
+
+.dept-c-value {
+  color: #344054;
+  font-weight: 500;
+}
+
+/* Load more */
+.load-more {
+  text-align: center;
+  padding: 20rpx 0;
+}
+
+.no-more {
+  font-size: 24rpx;
+  color: #98A2B3;
+}
+
+.bottom-space { height: 24rpx; }
 </style>

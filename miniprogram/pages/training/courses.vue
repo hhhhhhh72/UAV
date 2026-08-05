@@ -1,153 +1,104 @@
 <template>
-  <view class="page">
-    <!-- ============================================================ -->
-    <!-- 一、Banner 区域                                                 -->
-    <!-- ============================================================ -->
-    <view class="banner">
-      <view class="banner-tagline">专业赋能 · 持证上岗</view>
-      <view class="banner-title">培训与考试</view>
-      <view class="banner-subtitle">权威机构认证·理论题库·模拟考试一站式服务</view>
-    </view>
-
-    <!-- ============================================================ -->
-    <!-- 二、搜索栏                                                     -->
-    <!-- ============================================================ -->
-    <view class="search-container">
+  <view class="courses-page">
+    <!-- 搜索 -->
+    <u-sticky>
       <u-search
         v-model="keyword"
-        placeholder="搜索机构名称"
+        placeholder="搜索培训机构"
         @search="onSearch"
       />
+    </u-sticky>
+
+    <!-- 区县筛选 + 证书类型筛选 -->
+    <view class="filter-bar">
+      <picker
+        mode="selector"
+        :range="chongqingDistricts"
+        :value="districtIndex"
+        @change="onDistrictChange"
+      >
+        <view class="district-row">
+          <text class="district-city">重庆市</text>
+          <text class="district-divider"></text>
+          <text class="district-value" :class="{ placeholder: !selectedDistrict }">{{ selectedDistrict || '全部区县' }}</text>
+          <text class="district-arrow">▾</text>
+        </view>
+      </picker>
+      <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
+        <view class="filter-tabs">
+          <view
+            v-for="p in certPills"
+            :key="p.value"
+            class="filter-tab"
+            :class="{ active: activeCertType === p.value }"
+            @tap="selectCertType(p.value)"
+          >{{ p.label }}</view>
+        </view>
+      </scroll-view>
     </view>
 
-    <!-- ============================================================ -->
-    <!-- 三、状态切换 + 主体内容                                        -->
-    <!-- ============================================================ -->
-      <StateView
-        :loading="loading"
-        :error="!!errorMsg"
-        :empty="!loading && !errorMsg && list.length === 0"
-        empty-text="暂无机构"
-        @retry="fetchList"
-      >
-        <!-- 左右分栏 -->
-        <view class="main-layout">
-          <!-- ===== 左侧：地区筛选 ===== -->
-          <scroll-view
-            class="sidebar"
-            scroll-y
-            :show-scrollbar="false"
-            :scroll-with-animation="true"
-          >
-            <view
-              v-for="r in regions"
-              :key="r"
-              class="region-item"
-              :class="{ active: activeRegion === r }"
-              @click="selectRegion(r)"
-            >
-              <view v-if="activeRegion === r" class="active-bar" />
-              <text>{{ r }}</text>
-            </view>
-          </scroll-view>
+    <!-- 状态区 -->
+    <StateView
+      :loading="loading"
+      :error="!!errorMsg"
+      :empty="!loading && !errorMsg && list.length === 0"
+      empty-text="暂无培训机构"
+      @retry="fetchList"
+    >
+      <!-- 机构横卡列表 -->
+      <view class="list-body">
+        <view
+          v-for="item in list"
+          :key="item.id"
+          class="org-card"
+          hover-class="tap-fade"
+          @click="goEnroll(item)"
+        >
+          <image
+            v-if="item.cover_image || item.image"
+            :src="item.cover_image || item.image"
+            mode="aspectFill"
+            class="org-image"
+          />
+          <view v-else class="org-image org-image-placeholder">
+            <text class="org-image-text">培</text>
+          </view>
 
-          <!-- ===== 右侧：机构卡片列表 ===== -->
-          <scroll-view
-            class="content-list"
-            scroll-y
-            :show-scrollbar="false"
-            @scrolltolower="loadMore"
-          >
-            <view
-              v-for="item in list"
-              :key="item.id"
-              class="org-card"
-              @click="goEnroll(item)"
-            >
-              <!-- 1. 顶部横幅图 -->
-              <image
-                v-if="item.cover_image || item.image"
-                :src="item.cover_image || item.image"
-                mode="aspectFill"
-                class="org-image"
-              />
-              <view v-else class="org-image org-image-placeholder">
-                <text class="org-image-placeholder-icon">培</text>
-              </view>
+          <view class="org-body">
+            <text class="org-name">{{ item.title || item.name || '未知机构' }}</text>
+            <text class="org-region">{{ shortRegion(item) }}</text>
 
-              <!-- 2. 评分 + 证书标签 -->
-              <view class="card-meta">
-                <view class="rating">
-                  <text class="rating-stars">★★★★★</text>
-                  <text class="rating-num">5.0</text>
-                </view>
-                <view class="cert-tag">证书 {{ item.cert_count || certCount(item) }}项</view>
-              </view>
-
-              <!-- 3. 机构名称 -->
-              <view class="org-name">{{ item.title || item.name || '未知机构' }}</view>
-
-              <!-- 4. 地区 -->
-              <view class="org-region">{{ shortRegion(item) }}</view>
-
-              <!-- 5. 特色标签行 -->
-              <view v-if="itemTags(item).length > 0" class="tags-row">
-                <text
-                  v-for="(t, i) in itemTags(item)"
-                  :key="i"
-                  class="tag-item"
-                >{{ t }}</text>
-              </view>
-
-              <!-- 6. 价格列表 -->
-              <view v-if="itemPrices(item).length > 0" class="price-list">
-                <view
-                  v-for="(p, i) in itemPrices(item)"
-                  :key="i"
-                  class="price-row"
-                >
-                  <text class="price-dot">·</text>
-                  <text class="price-name">{{ p.name }}</text>
-                  <text class="price-value">¥{{ p.price }}</text>
-                  <text class="price-unit">/人</text>
-                </view>
-              </view>
-
-              <!-- 7. 地址 -->
-              <view
-                v-if="item.address || item.location"
-                class="org-address"
-              >{{ item.address || '' }}</view>
-
-              <!-- 8. 操作按钮 -->
-              <view class="card-actions">
-                <u-button
-                  type="default"
-                  size="small"
-                  @click.stop="callPhone(item)"
-                >电话</u-button>
-                <u-button
-                  type="primary"
-                  size="small"
-                  @click.stop="consult(item)"
-                >咨询</u-button>
-              </view>
+            <view v-if="itemTags(item).length > 0" class="tags-row">
+              <text
+                v-for="(t, i) in itemTags(item)"
+                :key="i"
+                class="tag-item"
+              >{{ t }}</text>
             </view>
 
-            <!-- 加载更多 -->
-            <view v-if="list.length > 0" class="load-more-wrap">
-              <view v-if="loadingMore" class="loading-inline">
-                <u-loading size="24rpx" />
-                <text>加载更多...</text>
-              </view>
-              <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+            <view v-if="itemPrices(item).length > 0" class="price-line">
+              <text class="price-name">{{ itemPrices(item)[0].name }}</text>
+              <text class="price-value">¥{{ itemPrices(item)[0].price }}</text>
+              <text v-if="itemPrices(item).length > 1" class="price-more">+{{ itemPrices(item).length - 1 }} 项</text>
             </view>
 
-            <!-- 底部留白 -->
-            <view style="height:60rpx" />
-          </scroll-view>
+            <view class="card-actions">
+              <view class="act-btn act-phone" @click.stop="callPhone(item)">电话</view>
+              <view class="act-btn act-primary" @click.stop="consult(item)">咨询报名</view>
+            </view>
+          </view>
         </view>
-      </StateView>
+
+        <!-- 加载更多 -->
+        <view v-if="list.length > 0" class="load-more">
+          <view v-if="loadingMore" class="loading-inline">
+            <u-loading size="24rpx" />
+            <text>加载更多...</text>
+          </view>
+          <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+        </view>
+      </view>
+    </StateView>
   </view>
 </template>
 
@@ -159,7 +110,9 @@ import StateView from '../../components/StateView.vue'
 
 /* ===== 状态 ===== */
 const keyword = ref('')
-const activeRegion = ref('全部')
+const selectedDistrict = ref('') // 空 = 全部区县
+const districtIndex = ref(0)
+const activeCertType = ref('all')
 const loading = ref(false)
 const loadingMore = ref(false)
 const errorMsg = ref('')
@@ -168,14 +121,25 @@ const page = ref(1)
 const pageSize = 20
 const hasMore = ref(true)
 
-/* ===== 地区列表 ===== */
-const regions = [
-  '全部', '北京', '贵州', '天津', '河北', '山西',
-  '内蒙古', '辽宁', '吉林', '黑龙江', '上海', '江苏',
-  '浙江', '安徽', '福建', '江西', '山东', '河南',
-  '湖北', '湖南', '广东', '广西', '海南', '重庆',
-  '四川', '云南', '西藏', '陕西', '甘肃', '青海',
-  '宁夏', '新疆',
+/* ===== 证书类型筛选 ===== */
+const certPills = [
+  { label: '全部', value: 'all' },
+  { label: 'CAAC', value: 'caac' },
+  { label: 'UTC', value: 'utc_dji' },
+  { label: '人社等级', value: 'gov_level' },
+]
+
+/* ===== 重庆 38 区县 ===== */
+const chongqingDistricts = [
+  '渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区',
+  '南岸区', '北碚区', '渝北区', '巴南区', '万州区',
+  '涪陵区', '黔江区', '长寿区', '江津区', '合川区',
+  '永川区', '南川区', '綦江区', '大足区', '璧山区',
+  '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区',
+  '武隆区', '城口县', '丰都县', '垫江县', '忠县',
+  '云阳县', '奉节县', '巫山县', '巫溪县',
+  '石柱土家族自治县', '秀山土家族苗族自治县',
+  '酉阳土家族苗族自治县', '彭水苗族土家族自治县',
 ]
 
 /* ===== 数据获取 ===== */
@@ -192,7 +156,8 @@ async function fetchList(reset) {
 
   try {
     const params = { page: page.value, page_size: pageSize }
-    if (activeRegion.value !== '全部') params.region = activeRegion.value
+    if (activeCertType.value !== 'all') params.cert_type = activeCertType.value
+    if (selectedDistrict.value) params.region = selectedDistrict.value
     if (keyword.value) params.keyword = keyword.value
 
     const res = await request({ url: '/api/v1/training-courses', data: params })
@@ -215,46 +180,42 @@ async function fetchList(reset) {
 }
 
 function loadMore() {
-  if (!loadingMore.value && hasMore.value) {
-    page.value++
-    fetchList(false)
-  }
+  if (loadingMore.value || !hasMore.value) return
+  page.value++
+  fetchList(false)
 }
 
-/* ===== 搜索 & 筛选 ===== */
 function onSearch() {
   fetchList(true)
 }
 
-function selectRegion(region) {
-  if (activeRegion.value === region) return
-  activeRegion.value = region
+function onDistrictChange(e) {
+  const idx = Number(e.detail.value)
+  districtIndex.value = idx
+  selectedDistrict.value = chongqingDistricts[idx]
   fetchList(true)
 }
 
-/* ===== 数据映射 ===== */
+function selectCertType(value) {
+  if (activeCertType.value === value) return
+  activeCertType.value = value
+  fetchList(true)
+}
 
-/** 机构标签：始终返回至少5个 */
 function itemTags(item) {
   if (Array.isArray(item.tags) && item.tags.length >= 3) return item.tags.slice(0, 6)
   const tags = []
   if (item.district) tags.push(item.district)
   else {
-    // 从 location 提取区名
     const loc = item.location || ''
-    const distMatch = loc.match(/([一-龥]+区)/)
-    if (distMatch) tags.push(distMatch[1])
-    else tags.push('花溪区')
+    const match = loc.match(/^([一-龥]+省)?([一-龥]+市)?([一-龥]+区|县)?/)
+    if (match && match[0]) tags.push(match[0])
   }
   if (item.cert_type) tags.push(item.cert_type)
-  tags.push('规模大')
-  tags.push('包住')
-  tags.push('拿证快')
-  tags.push('专业教培')
-  return tags.slice(0, 6)
+  if (item.category) tags.push(item.category)
+  return tags.slice(0, 4)
 }
 
-/** 课程价格：始终返回2-3行 */
 function itemPrices(item) {
   if (Array.isArray(item.courses) && item.courses.length > 0) {
     return item.courses.map(function (c) {
@@ -264,28 +225,24 @@ function itemPrices(item) {
       }
     })
   }
-  // 降级：从单个课程生成2-3行价格
-  const price = item.price != null ? item.price : (item.price_fen ? (item.price_fen / 100) : 5800)
-  const ct = item.cert_type || 'CAAC'
-  const yuan = price >= 1000 ? price : price * 100 // price_fen 转元
-  return [
-    { name: ct + '视距内', price: yuan },
-    { name: ct + '超视距', price: Math.round(yuan * 1.5) },
-  ]
+  if (item.price != null) {
+    return [{ name: item.course_name || '课程', price: item.price }]
+  }
+  if (item.price_fen) {
+    return [{ name: item.course_name || '课程', price: item.price_fen / 100 }]
+  }
+  return []
 }
 
-/** 地区简称：提取省+市/区名 */
 function shortRegion(item) {
   if (item.province && item.city) return item.province + ' ' + item.city
   if (item.province || item.city) return item.province || item.city
   const loc = item.location || ''
-  // 尝试提取 "XX省XX市XX区" 的前两段
   const match = loc.match(/^([一-龥]+省)?([一-龥]+市)?/)
   if (match && match[0]) return match[0]
-  return loc.length > 8 ? loc.substring(0, 8) + '...' : loc
+  return item.district || '重庆'
 }
 
-/** 证书数量 */
 function certCount(item) {
   if (item.cert_count != null) return item.cert_count
   if (Array.isArray(item.courses)) return item.courses.length
@@ -306,319 +263,231 @@ function consult(item) {
   uni.navigateTo({ url: '/pages/training/enroll?id=' + encodeURIComponent(item.id) })
 }
 
-function goBack() {
-  uni.navigateBack({ delta: 1 })
-}
-
-/* ===== 生命周期 ===== */
-onLoad(() => {
-  fetchList(true)
-})
-
+onLoad(() => fetchList(true))
 onPullDownRefresh(() => {
-  fetchList(true).then(function () {
-    uni.stopPullDownRefresh()
-  })
+  fetchList(true).finally(() => uni.stopPullDownRefresh())
 })
-
-onReachBottom(() => {
-  loadMore()
-})
+onReachBottom(loadMore)
 </script>
 
 <style scoped>
-/* ================================================================= */
-/* 页面容器                                                          */
-/* ================================================================= */
-.page {
+.courses-page {
   min-height: 100vh;
-  background: var(--color-bg);
-  position: relative;
+  background: #F4F6F8;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* ================================================================= */
-/* 一、Banner                                                         */
-/* ================================================================= */
-.banner {
-  background: linear-gradient(135deg, var(--color-success) 0%, #05a854 100%);
-  padding: 100rpx 32rpx 100rpx;
-  position: relative;
-  overflow: hidden;
+/* 筛选 */
+.filter-bar {
+  background: #fff;
+  padding: 8px 12px;
 }
 
-/* 右上角装饰圆 */
-.banner::before {
-  content: '';
-  position: absolute;
-  top: -80rpx;
-  right: -80rpx;
-  width: 240rpx;
-  height: 240rpx;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-}
-
-.banner-tagline {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 400;
-  line-height: 1.4;
-  margin-bottom: 12rpx;
-  position: relative;
-  z-index: 1;
-}
-
-.banner-title {
-  font-size: 56rpx;
-  color: #ffffff;
-  font-weight: 700;
-  line-height: 1.2;
-  margin-bottom: 16rpx;
-  letter-spacing: 2rpx;
-  position: relative;
-  z-index: 1;
-}
-
-.banner-subtitle {
-  font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 400;
-  line-height: 1.5;
-  position: relative;
-  z-index: 1;
-}
-
-/* ================================================================= */
-/* 二、搜索栏                                                         */
-/* ================================================================= */
-.search-container {
-  padding: 32rpx 24rpx 16rpx;
-  background: var(--color-bg);
-}
-
-/* ================================================================= */
-/* 四、左右分栏主体                                                   */
-/* ================================================================= */
-.main-layout {
+/* 区县筛选行 */
+.district-row {
   display: flex;
-  flex-direction: row;
-  background: var(--color-bg);
-  padding: 16rpx 0 100rpx;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 10px;
 }
 
-/* ---- 左侧地区栏 ---- */
-.sidebar {
-  width: 160rpx;
-  flex-shrink: 0;
-  height: calc(100vh - 480rpx);
-  background: #ffffff;
-}
-
-.region-item {
-  position: relative;
-  height: 88rpx;
-  line-height: 88rpx;
-  text-align: center;
-  font-size: 26rpx;
-  color: #666666;
-  background: transparent;
-}
-
-.region-item.active {
-  color: var(--color-success);
+.district-city {
+  font-size: 13px;
   font-weight: 600;
-  background: #ffffff;
+  color: #17212B;
 }
 
-.active-bar {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6rpx;
-  height: 32rpx;
-  background: var(--color-success);
-  border-radius: 3rpx;
+.district-divider {
+  width: 1px;
+  height: 12px;
+  background: #E4E7EC;
 }
 
-/* ---- 右侧卡片列表 ---- */
-.content-list {
-  flex: 1;
-  height: calc(100vh - 480rpx);
-  padding: 0 24rpx 160rpx;
+.district-value {
+  font-size: 13px;
+  color: #0A66C2;
+  font-weight: 500;
 }
 
-/* ================================================================= */
-/* 五、机构卡片                                                       */
-/* ================================================================= */
+.district-value.placeholder {
+  color: #98A2B3;
+  font-weight: 400;
+}
+
+.district-arrow {
+  font-size: 10px;
+  color: #98A2B3;
+}
+
+.filter-scroll {
+  white-space: nowrap;
+}
+
+.filter-tabs {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.filter-tab {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #344054;
+  background: #F4F6F8;
+  border: 1px solid #EEF1F4;
+  transition: all 0.2s;
+}
+
+.filter-tab.active {
+  color: #fff;
+  background: #0A66C2;
+  border-color: #0A66C2;
+}
+
+/* 列表 */
+.list-body {
+  padding: 12px;
+}
+
 .org-card {
-  background: #ffffff;
-  border-radius: 16rpx;
-  padding: 20rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  display: flex;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
 }
 
-/* 1. 顶部横幅图 */
 .org-image {
-  width: 100%;
-  height: 200rpx;
-  border-radius: 8rpx;
-  display: block;
+  width: 112px;
+  height: 112px;
+  border-radius: 8px;
+  background: #F4F6F8;
+  flex-shrink: 0;
 }
 
 .org-image-placeholder {
-  background: var(--color-primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.org-image-placeholder-icon {
-  font-size: 80rpx;
-  opacity: 0.6;
-}
-
-/* 2. 评分 + 证书标签 */
-.card-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 16rpx;
-}
-
-.rating {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.rating-stars {
-  font-size: 24rpx;
-  color: var(--color-warning);
-  letter-spacing: 2rpx;
-}
-
-.rating-num {
-  font-size: 24rpx;
-  color: var(--color-warning);
-  font-weight: 600;
-  margin-left: 4rpx;
-}
-
-.cert-tag {
-  background: var(--color-success);
-  color: #ffffff;
-  font-size: 22rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 8rpx;
-  font-weight: 500;
-}
-
-/* 3. 机构名称 */
-.org-name {
-  font-size: 30rpx;
-  color: #1a1a1a;
+.org-image-text {
+  font-size: 22px;
   font-weight: 700;
+  color: #98A2B3;
+}
+
+.org-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.org-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #17212B;
   line-height: 1.4;
-  margin-top: 16rpx;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* 4. 地区 */
 .org-region {
-  font-size: 26rpx;
-  color: var(--color-success);
-  font-weight: 500;
-  margin-top: 8rpx;
+  font-size: 11px;
+  color: #98A2B3;
 }
 
-/* 5. 标签行 */
 .tags-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12rpx;
-  margin-top: 12rpx;
+  gap: 4px;
 }
 
 .tag-item {
-  background: var(--color-bg);
-  color: var(--color-text-secondary);
-  font-size: 22rpx;
-  padding: 6rpx 16rpx;
-  border-radius: 24rpx;
+  font-size: 10px;
+  color: #0A66C2;
+  background: #EAF3FB;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
-/* 6. 价格列表 */
-.price-list {
-  margin-top: 12rpx;
-}
-
-.price-row {
+.price-line {
   display: flex;
   align-items: baseline;
-  gap: 8rpx;
-  font-size: 26rpx;
-  line-height: 1.8;
-}
-
-.price-dot {
-  color: var(--color-danger);
-  font-weight: bold;
+  gap: 6px;
 }
 
 .price-name {
-  color: var(--color-text);
+  font-size: 12px;
+  color: #667085;
 }
 
 .price-value {
-  color: var(--color-danger);
+  font-size: 16px;
   font-weight: 700;
-  font-size: 28rpx;
+  color: #E96012;
 }
 
-.price-unit {
-  color: var(--color-danger);
-  font-size: 24rpx;
+.price-more {
+  font-size: 11px;
+  color: #98A2B3;
 }
 
-/* 7. 地址 */
-.org-address {
-  font-size: 24rpx;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-  margin-top: 12rpx;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* 8. 按钮 */
 .card-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 16rpx;
-  margin-top: 20rpx;
+  gap: 8px;
+  margin-top: 4px;
 }
 
-/* ================================================================= */
-/* 通用                                                               */
-/* ================================================================= */
-.load-more-wrap {
-  text-align: center;
-  padding: 20rpx 0;
-}
-
-.no-more {
-  font-size: 24rpx;
-  color: var(--color-text-secondary);
-}
-
-.loading-inline {
+.act-btn {
+  flex: 1;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
-  font-size: 24rpx;
-  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.act-phone {
+  background: #fff;
+  color: #0A66C2;
+  border: 1px solid #0A66C2;
+}
+
+.act-primary {
+  background: #0A66C2;
+  color: #fff;
+}
+
+/* 加载更多 */
+.load-more {
+  text-align: center;
+  padding: 16px 0;
+}
+
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #667085;
+}
+
+.no-more {
+  color: #98A2B3;
+  font-size: 12px;
+}
+
+.tap-fade {
+  opacity: 0.7;
 }
 </style>

@@ -204,7 +204,7 @@ onLoad(async (options) => {
         name: remotePkg.name || '',
         tag: remotePkg.tag || '',
         price: remotePkg.price || 0,
-        headerBg: remotePkg.headerBg || 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)',
+        headerBg: remotePkg.headerBg || '#06b6d4',
         intro: remotePkg.intro || '',
         studyGoals: remotePkg.studyGoals || [],
         schedule: remotePkg.schedule || [],
@@ -281,7 +281,7 @@ const makeCall = (phone) => {
   color: rgba(255,255,255,0.9);
   background: rgba(255,255,255,0.2);
   padding: 3px 12px;
-  border-radius: 20px;
+  border-radius: 8px;
   margin-bottom: 12px;
 }
 
@@ -320,7 +320,7 @@ const makeCall = (phone) => {
   background: #fff;
   margin: 12px 16px;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .section-card:first-child {
@@ -385,7 +385,7 @@ const makeCall = (phone) => {
 .session-toggle {
   display: flex;
   background: #f5f5f7;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 3px;
   margin-bottom: 16px;
 }
@@ -509,7 +509,7 @@ const makeCall = (phone) => {
 .goal-item {
   padding: 14px;
   background: #f7f8fa;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .goal-label {
@@ -556,7 +556,7 @@ const makeCall = (phone) => {
 
 .highlight-card {
   background: #f7f8fa;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 14px 12px;
   text-align: center;
 }
@@ -702,7 +702,7 @@ const makeCall = (phone) => {
   font-weight: 700;
   font-size: 16px;
   color: #fff;
-  background: linear-gradient(135deg, #06b6d4 0%, #2563eb 100%) !important;
+  background: #06b6d4 !important;
   border: none;
 }
 
@@ -714,7 +714,7 @@ const makeCall = (phone) => {
 .skeleton-block {
   height: 120px;
   background: #eee;
-  border-radius: 12px;
+  border-radius: 8px;
   margin-bottom: 16px;
   animation: blink 1.5s infinite;
 }

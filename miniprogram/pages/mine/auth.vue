@@ -141,7 +141,7 @@ const maskIdCard = (id) => {
 
 .status-card {
   background: #fff;
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 30px 20px;
   text-align: center;
   margin-bottom: 20px;
@@ -152,7 +152,7 @@ const maskIdCard = (id) => {
   width: 60px;
   height: 60px;
   line-height: 60px;
-  border-radius: 30px;
+  border-radius: 8px;
   background: #ff9900;
   color: #fff;
   font-size: 32px;
@@ -184,7 +184,7 @@ const maskIdCard = (id) => {
 
 .input-group {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   margin-bottom: 20px;
 }
@@ -237,14 +237,14 @@ const maskIdCard = (id) => {
 .submit-btn {
   height: 48px;
   line-height: 48px;
-  border-radius: 24px;
+  border-radius: 8px;
   background-color: #2f7ef7 !important;
   font-weight: bold;
 }
 
 .info-box {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 8px 16px;
 }
 

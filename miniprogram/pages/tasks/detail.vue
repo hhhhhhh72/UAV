@@ -147,7 +147,7 @@ const goHelp = () => uni.showToast({ title:'互帮互助开发中', icon:'none' 
 
 /* 相关帖子 */
 .related-item { display:flex; align-items:center; gap:10px; background:#fff; padding:12px 16px; margin-top:8px; }
-.related-logo { width:32px; height:32px; border-radius:6px; background:linear-gradient(135deg,var(--color-primary),#0ea5e9); color:#fff; display:flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0; }
+.related-logo { width:32px; height:32px; border-radius:6px; background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:9px; flex-shrink:0; }
 .related-body { flex:1; }
 .related-title { font-size:13px; font-weight:500; color:var(--color-text); display:block; }
 .related-sub { font-size:11px; color:#999; margin-top:2px; }
@@ -159,9 +159,9 @@ const goHelp = () => uni.showToast({ title:'互帮互助开发中', icon:'none' 
 .cat-tag.on { color:var(--color-primary); font-weight:600; border-bottom:2px solid var(--color-primary); }
 
 /* 悬浮 */
-.float-bar { position:fixed; bottom:0; left:0; right:0; display:flex; align-items:center; gap:8px; padding:8px 12px; background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7)); backdrop-filter:blur(8px); }
+.float-bar { position:fixed; bottom:0; left:0; right:0; display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(255,255,255,0.95); backdrop-filter:blur(8px); }
 .float-kefu { position:fixed; right:8px; bottom:80px; width:46px; height:46px; border-radius:50%; background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; box-shadow:0 2px 8px rgba(10,102,194,.25); }
 .float-row { display:flex; gap:8px; flex:1; }
-.float-btn1 { flex:1; height:40px; border-radius:20px; background:linear-gradient(135deg,#4fc3f7,var(--color-primary)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
-.float-btn2 { flex:1; height:40px; border-radius:20px; background:linear-gradient(135deg,#4fc3f7,var(--color-primary)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
+.float-btn1 { flex:1; height:40px; border-radius:20px; background:#4fc3f7); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
+.float-btn2 { flex:1; height:40px; border-radius:20px; background:#4fc3f7); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500; }
 </style>

@@ -427,7 +427,7 @@ export default {
   padding: 8px 24px;
   background: var(--color-primary);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -532,7 +532,7 @@ export default {
 /* 学历选择弹层 */
 .sheet {
   background: #fff;
-  border-radius: 24rpx 24rpx 0 0;
+  border-radius: 16rpx 24rpx 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 

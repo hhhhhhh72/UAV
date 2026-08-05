@@ -264,7 +264,7 @@ export default {
   padding: 8px 24px;
   background: var(--color-warning);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -284,7 +284,7 @@ export default {
   display: flex;
   gap: 12px;
   background: var(--color-bg-card);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }

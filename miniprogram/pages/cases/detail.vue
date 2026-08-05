@@ -147,7 +147,7 @@ onLoad(async (options) => {
 
 .info-card {
   background: #f8f9fa;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
   margin-bottom: 24px;
 }

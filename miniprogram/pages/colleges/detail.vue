@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="cd-page">
     <StateView
       :loading="loading"
       :error="!!errorMsg"
@@ -8,89 +8,79 @@
       @retry="loadDetail"
     >
       <template v-if="detail">
-        <!-- ① 白色顶栏 -->
-        <view class="top-bar">
-          <view class="status-placeholder" :style="{ height: statusBarHeight + 'px' }" />
-          <view class="back-btn" @click="goBack"><text class="back-icon">‹</text></view>
-          <text class="top-title">院校详情</text>
-        </view>
-
-        <!-- ② 封面 + 悬浮头像 -->
-        <view class="cover-wrap">
-          <image v-if="detail.cover || detail.cover_image || detail.image" :src="detail.cover || detail.cover_image || detail.image" class="cover-img" mode="aspectFill" />
-          <view v-else class="cover-placeholder"><text class="cover-emoji">校</text></view>
-        </view>
-
-        <view class="main-card">
-          <view class="header-row">
-            <view class="avatar">{{ initShort(detail) }}</view>
-            <view class="header-info">
-              <text class="college-name">{{ detail.name || detail.title || '未知院校' }}</text>
-              <text class="college-location">{{ [detail.city || '', detail.levelTags || (detail.tags || []).join(' · ')].filter(Boolean).join(' · ') }}</text>
+        <view class="cd-content">
+          <!-- 决策摘要：名称 / 类型 / 关键数据 -->
+          <view class="summary-card">
+            <view class="summary-tags">
+              <text class="tag-level" :class="'tag-level--' + collegeLevel(detail)">{{ levelLabel(detail) }}</text>
+              <text v-if="coopTypeLabel(detail.coop_type)" class="tag-chip tag-chip--blue">{{ coopTypeLabel(detail.coop_type) }}</text>
+              <text v-for="t in compTags(detail)" :key="t" class="tag-chip tag-chip--blue">{{ t }}</text>
             </view>
-          </view>
-
-          <!-- ③ 标签 + 数据条 -->
-          <view class="tag-row">
-            <text v-if="coopTypeLabel(detail.coop_type)" class="tag-item coop-tag">{{ coopTypeLabel(detail.coop_type) }}</text>
-            <text v-for="t in compTags(detail)" :key="t" class="tag-item" :style="tagStyle(t)">{{ t }}</text>
-          </view>
-
-          <view class="stats-row">
-            <view class="stat" v-for="s in statsData(detail)" :key="s.label">
-              <text class="stat-num">{{ s.value }}</text>
-              <text class="stat-label">{{ s.label }}</text>
-            </view>
-          </view>
-
-          <!-- ④ 院校简介 -->
-          <view class="section-title">院校简介</view>
-          <view class="intro-text">{{ detail.intro || detail.description || '暂无简介' }}</view>
-
-          <!-- ⑤ 无人机相关专业 -->
-          <view v-if="majorsList(detail).length > 0" class="section-block">
-            <view class="section-title">无人机相关专业</view>
-            <view class="major-list">
-              <view v-for="m in majorsList(detail)" :key="m.name" class="major-item">
-                <view>
-                  <text class="major-name">{{ m.name }}</text>
-                  <text class="major-meta">{{ m.degree || '本科' }} · {{ m.duration || 4 }}年制{{ m.key ? ' · ' + m.key : '' }}</text>
-                </view>
-                <text v-if="m.flagship" class="flagship-tag">王牌专业</text>
+            <text class="summary-name">{{ detail.name || detail.title || '未知院校' }}</text>
+            <text class="summary-location">{{ locationText(detail) }}</text>
+            <view class="summary-stats">
+              <view v-for="s in statsData(detail)" :key="s.label" class="stat-block">
+                <text class="stat-num">{{ s.value }}</text>
+                <text class="stat-label">{{ s.label }}</text>
               </view>
             </view>
           </view>
 
-          <!-- ⑥ 合作企业 -->
+          <!-- 院校简介 -->
+          <view class="section-block">
+            <text class="section-title">院校简介</text>
+            <text class="intro-text">{{ detail.intro || detail.description || '暂无简介' }}</text>
+          </view>
+
+          <!-- 无人机相关专业 -->
+          <view v-if="majorsList(detail).length > 0" class="section-block">
+            <text class="section-title">无人机相关专业</text>
+            <view class="major-list">
+              <view v-for="m in majorsList(detail)" :key="m.name" class="major-item">
+                <view class="major-info">
+                  <text class="major-name">{{ m.name }}</text>
+                  <text class="major-meta">{{ m.degree || '本科' }} · {{ m.duration || 4 }}年制{{ m.key ? ' · ' + m.key : '' }}</text>
+                </view>
+                <text v-if="m.flagship" class="flagship-tag">王牌</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- 合作企业 -->
           <view v-if="partnerList(detail).length > 0" class="section-block">
-            <view class="section-title">合作企业</view>
-            <scroll-view class="partner-scroll" scroll-x :show-scrollbar="false">
+            <text class="section-title">合作企业</text>
+            <scroll-view scroll-x :show-scrollbar="false" class="partner-scroll">
               <view v-for="p in partnerList(detail)" :key="p.name" class="partner-card">
-                <text class="partner-emoji">{{ p.icon || '企' }}</text>
+                <view class="partner-icon"><text class="partner-icon-text">{{ p.icon || '企' }}</text></view>
                 <text class="partner-name">{{ p.name }}</text>
                 <text class="partner-type">{{ p.type || '合作单位' }}</text>
               </view>
             </scroll-view>
           </view>
 
-          <!-- ⑦ 校园环境 -->
+          <!-- 校园环境（图片 4:3） -->
           <view class="section-block">
-            <view class="section-title">校园环境</view>
-            <view class="gallery-row">
-              <view v-if="detail.photos && detail.photos.length > 0">
-                <image v-for="(img, i) in detail.photos" :key="i" :src="img" class="gallery-img" mode="aspectFill" @click="previewPhotos(i)" />
-              </view>
-              <view v-else class="gallery-placeholder"><text class="placeholder-icon">景</text></view>
-              <view v-if="!detail.photos || detail.photos.length === 0" class="gallery-placeholder"><text class="placeholder-icon">学</text></view>
+            <text class="section-title">校园环境</text>
+            <view v-if="photosList(detail).length > 0" class="photo-grid">
+              <image
+                v-for="(img, i) in photosList(detail)"
+                :key="i"
+                :src="img"
+                mode="aspectFill"
+                class="photo"
+                @tap="previewPhotos(i)"
+              />
+            </view>
+            <view v-else class="photo-empty">
+              <text class="photo-empty-text">暂无校园环境图片</text>
             </view>
           </view>
+        </view>
 
-          <!-- ⑧ 底部按钮 -->
-          <view class="bottom-bar">
-            <view class="btn-outline" @click="callPhone">联系电话</view>
-            <view class="btn-primary" @click="openWebsite">访问官网</view>
-          </view>
-          <view class="bottom-spacer" />
+        <!-- 底部操作栏 -->
+        <view class="sticky-bar">
+          <view class="sb-btn sb-outline" hover-class="tap-fade" @tap="callPhone">拨打电话</view>
+          <view class="sb-btn sb-primary" hover-class="tap-fade" @tap="openWebsite">访问官网</view>
         </view>
       </template>
     </StateView>
@@ -103,36 +93,41 @@ import { onLoad } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
 import StateView from '../../components/StateView.vue'
 
-const statusBarHeight = ref(44)
 const id = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 const detail = ref(null)
 
-function tagStyle(tag) {
-  if (['博士点', '硕士点', '双一流', '985', '211'].indexOf(tag) >= 0) return { background: '#fff4e6', color: 'var(--color-warning)' }
-  return { background: 'var(--color-primary-light)', color: 'var(--color-primary)' }
+/* 院校层级：985/211=顶尖、本科、专科 */
+function collegeLevel(item) {
+  var tags = item.tags || []
+  if (tags.indexOf('985') >= 0 || tags.indexOf('211') >= 0) return 'top'
+  if (tags.indexOf('专科') >= 0 || tags.indexOf('高职') >= 0) return 'vocational'
+  return 'undergraduate'
 }
 
-// 院校分域（功能方案修订版 三·五 分域：科研合作/人才培养/综合）
+function levelLabel(item) {
+  return { top: '985/211', undergraduate: '本科', vocational: '专科' }[collegeLevel(item)] || '本科'
+}
+
+/* 院校分域（科研合作/人才培养/综合） */
 function coopTypeLabel(t) {
   return { research: '科研合作', talent: '人才培养', both: '综合' }[t] || ''
 }
+
 function compTags(item) {
-  if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
-  if (Array.isArray(item.specialties)) return item.specialties
+  if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags.slice(0, 3)
+  if (Array.isArray(item.specialties)) return item.specialties.slice(0, 3)
   return []
 }
 
-function initShort(item) {
-  if (item.shortName) return item.shortName
-  var name = item.name || ''
-  return name.charAt(0) || '院'
+function locationText(item) {
+  return [item.city || '', item.levelTags || ''].filter(Boolean).join(' · ') || '暂无位置信息'
 }
 
 function statsData(item) {
   return [
-    { label: '无人机专业', value: item.majorCount || item.major_count || 0 },
+    { label: '无人机专业', value: (item.majors && item.majors.length) || item.majorCount || item.major_count || 0 },
     { label: '合作企业', value: item.partnerCount || item.partner_count || 0 },
     { label: '在读学生', value: (item.studentCount || item.student_count || 0) + '+' },
     { label: '硕博导师', value: item.teacherCount || item.teacher_count || 0 },
@@ -146,6 +141,11 @@ function majorsList(item) {
 
 function partnerList(item) {
   if (Array.isArray(item.partners) && item.partners.length > 0) return item.partners
+  return []
+}
+
+function photosList(item) {
+  if (Array.isArray(item.photos) && item.photos.length > 0) return item.photos
   return []
 }
 
@@ -169,8 +169,6 @@ function openWebsite() {
   }
 }
 
-function goBack() { uni.navigateBack({ delta: 1 }) }
-
 async function loadDetail() {
   loading.value = true
   errorMsg.value = ''
@@ -191,117 +189,278 @@ async function loadDetail() {
 
 onLoad(function (options) {
   id.value = options.id || ''
-  try { statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 44 } catch (e) {}
   loadDetail()
 })
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
-
-/* ① 顶栏 */
-.top-bar { background: #ffffff; padding: 0 32rpx 160rpx; }
-
-.status-placeholder { width: 100%; }
-
-.back-btn {
-  width: 64rpx; height: 64rpx; background: rgba(10,102,194,0.08);
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  margin-bottom: 24rpx;
+.cd-page {
+  min-height: 100vh;
+  background: #F4F6F8;
+  padding-bottom: calc(74px + env(safe-area-inset-bottom));
 }
 
-.back-icon { color: var(--color-primary); font-size: 40rpx; font-weight: 300; }
-.top-title { color: var(--color-primary); font-size: 28rpx; font-weight: 500; }
-
-/* ② 封面 */
-.cover-wrap {
-  margin: -112rpx 24rpx 0; height: 440rpx; border-radius: 32rpx;
-  overflow: hidden; position: relative; z-index: 1;
-  box-shadow: 0 16rpx 48rpx rgba(10,102,194,0.3);
+.cd-content {
+  padding: 12px;
 }
 
-.cover-img { width: 100%; height: 100%; }
-.cover-placeholder {
-  width: 100%; height: 100%; background: linear-gradient(135deg, var(--color-primary), #1976d2);
-  display: flex; align-items: center; justify-content: center;
-}
-.cover-emoji { font-size: 160rpx; opacity: 0.1; }
-
-.main-card {
-  background: #ffffff; border-radius: 48rpx 48rpx 0 0;
-  margin-top: -48rpx; padding: 48rpx 32rpx 32rpx; position: relative; z-index: 1;
+/* 决策摘要 */
+.summary-card {
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 8px;
 }
 
-.header-row {
-  display: flex; align-items: center; gap: 20rpx; margin-bottom: 16rpx;
-  position: relative; z-index: 3;
+.summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
-.avatar {
-  width: 120rpx; height: 120rpx; background: var(--color-primary); border-radius: 24rpx;
-  display: flex; align-items: center; justify-content: center;
-  color: #ffffff; font-size: 48rpx; font-weight: 600; flex-shrink: 0;
-  box-shadow: 0 8rpx 32rpx rgba(10,102,194,0.3); margin-top: -80rpx;
-  position: relative; z-index: 3;
+.tag-level,
+.tag-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
-.header-info { flex: 1; }
-.college-name { font-size: 44rpx; font-weight: 700; color: var(--color-text); display: block; line-height: 1.3; }
-.college-location { font-size: 26rpx; color: var(--color-primary); font-weight: 500; display: block; margin-top: 6rpx; }
+.tag-level--top { background: #FFF0E6; color: #E96012; }
+.tag-level--undergraduate { background: #EAF3FB; color: #0A66C2; }
+.tag-level--vocational { background: #E9F7F0; color: #168A55; }
 
-/* ③ 标签 + 数据 */
-.tag-row { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 28rpx; }
-.tag-item { padding: 6rpx 18rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; }
-.coop-tag { background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; }
+.tag-chip--blue {
+  background: #EAF3FB;
+  color: #0A66C2;
+}
 
-.stats-row { display: flex; gap: 12rpx; margin-bottom: 36rpx; }
-.stat { flex: 1; padding: 24rpx 8rpx; background: #f8fafc; border-radius: 18rpx; text-align: center; }
-.stat-num { font-size: 44rpx; font-weight: 700; color: var(--color-primary); display: block; }
-.stat-label { font-size: 22rpx; color: var(--color-text-secondary); display: block; margin-top: 6rpx; }
+.summary-name {
+  font-size: 19px;
+  font-weight: 700;
+  color: #17212B;
+  line-height: 1.35;
+  display: block;
+}
 
-/* Section */
-.section-block { margin-top: 36rpx; }
+.summary-location {
+  font-size: 12px;
+  color: #667085;
+  display: block;
+  margin-top: 4px;
+}
+
+.summary-stats {
+  display: flex;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #EEF1F4;
+}
+
+.stat-block {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 17px;
+  font-weight: 700;
+  color: #17212B;
+  display: block;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: #98A2B3;
+  display: block;
+  margin-top: 2px;
+}
+
+/* 分组区块 */
+.section-block {
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+
 .section-title {
-  font-size: 30rpx; font-weight: 700; color: var(--color-text);
-  padding-left: 20rpx; border-left: 6rpx solid var(--color-primary);
-  line-height: 1.3; margin-bottom: 20rpx;
+  font-size: 15px;
+  font-weight: 700;
+  color: #17212B;
+  display: block;
+  margin-bottom: 10px;
 }
 
-/* ④ 简介 */
-.intro-text { font-size: 28rpx; color: #4a4a4a; line-height: 1.8; white-space: pre-line; margin-bottom: 36rpx; }
+.intro-text {
+  font-size: 13px;
+  color: #344054;
+  line-height: 1.7;
+  white-space: pre-line;
+}
 
-/* ⑤ 专业 */
-.major-list { display: flex; flex-direction: column; gap: 16rpx; margin-bottom: 36rpx; }
+/* 专业 */
+.major-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .major-item {
-  padding: 24rpx; background: #f8fafc; border-radius: 18rpx;
-  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px;
+  background: #F4F6F8;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
-.major-name { font-size: 28rpx; font-weight: 500; color: var(--color-text); display: block; }
-.major-meta { font-size: 24rpx; color: var(--color-text-secondary); display: block; margin-top: 6rpx; }
+
+.major-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.major-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #17212B;
+  display: block;
+}
+
+.major-meta {
+  font-size: 11px;
+  color: #667085;
+  display: block;
+  margin-top: 3px;
+}
+
 .flagship-tag {
-  font-size: 22rpx; color: var(--color-primary); background: var(--color-primary-light);
-  padding: 6rpx 16rpx; border-radius: 10rpx; font-weight: 500; flex-shrink: 0;
+  font-size: 10px;
+  color: #E96012;
+  background: #FFF0E6;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  flex-shrink: 0;
 }
 
-/* ⑥ 合作企业 */
-.partner-scroll { display: flex; gap: 16rpx; margin-bottom: 36rpx; white-space: nowrap; padding-bottom: 4rpx; }
+/* 合作企业 */
+.partner-scroll {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+  padding-bottom: 4px;
+}
+
 .partner-card {
-  padding: 24rpx 28rpx; background: #f8fafc; border-radius: 18rpx;
-  text-align: center; flex-shrink: 0; min-width: 160rpx; display: inline-block;
+  padding: 12px 14px;
+  background: #F4F6F8;
+  border-radius: 8px;
+  text-align: center;
+  flex-shrink: 0;
+  min-width: 96px;
+  display: inline-block;
 }
-.partner-emoji { font-size: 48rpx; display: block; margin-bottom: 8rpx; }
-.partner-name { font-size: 26rpx; font-weight: 500; color: var(--color-text); display: block; }
-.partner-type { font-size: 22rpx; color: var(--color-text-secondary); display: block; margin-top: 4rpx; }
 
-/* ⑦ 校园环境 */
-.gallery-row { display: flex; gap: 16rpx; margin-bottom: 40rpx; }
-.gallery-img { flex: 1; height: 280rpx; border-radius: 18rpx; background: var(--color-bg); }
-.gallery-placeholder { flex: 1; height: 280rpx; border-radius: 18rpx; background: linear-gradient(135deg, var(--color-primary), #1976d2); display: flex; align-items: center; justify-content: center; }
-.placeholder-icon { font-size: 80rpx; opacity: 0.12; }
+.partner-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 6px;
+  background: #EAF3FB;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-/* ⑧ 底部 */
-.bottom-bar { display: flex; gap: 24rpx; border-top: 1rpx solid var(--color-divider); padding-top: 24rpx; }
-.btn-outline { flex: 1; height: 88rpx; border-radius: 48rpx; border: 2rpx solid var(--color-primary); color: var(--color-primary); display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 500; }
-.btn-primary { flex: 1; height: 88rpx; border-radius: 48rpx; background: var(--color-primary); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 28rpx; font-weight: 600; }
-.bottom-spacer { height: calc(40rpx + env(safe-area-inset-bottom)); }
+.partner-icon-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0A66C2;
+}
+
+.partner-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #17212B;
+  display: block;
+}
+
+.partner-type {
+  font-size: 10px;
+  color: #98A2B3;
+  display: block;
+  margin-top: 2px;
+}
+
+/* 校园环境（4:3） */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  background: #F4F6F8;
+}
+
+.photo-empty {
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  background: #F4F6F8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-empty-text {
+  font-size: 12px;
+  color: #98A2B3;
+}
+
+/* 底部操作栏 */
+.sticky-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1px solid #EEF1F4;
+  display: flex;
+  gap: 10px;
+}
+
+.sb-btn {
+  flex: 1;
+  height: 46px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sb-primary {
+  background: #0A66C2;
+  color: #fff;
+}
+
+.sb-outline {
+  background: #fff;
+  color: #0A66C2;
+  border: 1px solid #0A66C2;
+}
+
+.tap-fade {
+  opacity: 0.7;
+}
 </style>

@@ -219,7 +219,7 @@ export default {
 .filter-tab {
   flex-shrink: 0;
   padding: 6px 16px;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 13px;
   color: var(--color-text-secondary);
   background: var(--color-bg);
@@ -276,7 +276,7 @@ export default {
   padding: 8px 24px;
   background: var(--color-primary);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 

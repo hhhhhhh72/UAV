@@ -152,9 +152,9 @@ const FIELD_BG = { '飞控系统': '#e3f2fd', '遥感测绘': '#e8f5e9', '动力
 
 // 轮播内容为通用宣传文案，不虚构统计数字
 const slides = [
-  { ic: '智', title: 'AI 赋能飞控新突破', sub: '汇聚前沿科技成果，加速产学研对接', bg: 'linear-gradient(135deg,#0d47a1,#1976d2)' },
-  { ic: '创', title: '产学研协同创新', sub: '高校院所与企业共建创新生态', bg: 'linear-gradient(135deg,#1b5e20,#2e7d32)' },
-  { ic: '标', title: '标准引领行业发展', sub: '技术标准与规范助力产业升级', bg: 'linear-gradient(135deg,#4a148c,#7b1fa2)' }
+  { ic: '智', title: 'AI 赋能飞控新突破', sub: '汇聚前沿科技成果，加速产学研对接', bg: '#0d47a1' },
+  { ic: '创', title: '产学研协同创新', sub: '高校院所与企业共建创新生态', bg: '#1b5e20' },
+  { ic: '标', title: '标准引领行业发展', sub: '技术标准与规范助力产业升级', bg: '#4a148c' }
 ]
 
 const navs = [
@@ -290,7 +290,7 @@ onReachBottom(fetchMore)
 
 /* ===== Search Bar ===== */
 .sbar { display: flex; align-items: center; gap: 20rpx; padding: 24rpx 28rpx; background: #fff; }
-.sbox { flex: 1; display: flex; align-items: center; background: #f0f1f3; border-radius: 44rpx; padding: 20rpx 28rpx; gap: 16rpx; }
+.sbox { flex: 1; display: flex; align-items: center; background: #f0f1f3; border-radius: 16rpx; padding: 20rpx 28rpx; gap: 16rpx; }
 .sinp { flex: 1; border: none; outline: none; background: transparent; font-size: 28rpx; color: var(--color-text); min-width: 0; height: 40rpx; line-height: 40rpx; }
 .ph { color: #bbb; }
 .sclr { color: #bbb; font-size: 32rpx; padding: 4rpx; flex-shrink: 0; }
@@ -300,7 +300,7 @@ onReachBottom(fetchMore)
 .sbtn:active { transform: scale(.93); }
 .sort-ic { display: flex; flex-direction: column; gap: 6rpx; }
 .sort-line { width: 26rpx; height: 3rpx; border-radius: 2rpx; background: #666; }
-.spop { position: absolute; top: 88rpx; right: -8rpx; z-index: 50; background: #fff; border-radius: 24rpx; box-shadow: 0 4px 24px rgba(0,0,0,.12); padding: 12rpx 0; min-width: 264rpx; animation: popIn .18s ease; }
+.spop { position: absolute; top: 88rpx; right: -8rpx; z-index: 50; background: #fff; border-radius: 16rpx; box-shadow: 0 4px 24px rgba(0,0,0,.12); padding: 12rpx 0; min-width: 264rpx; animation: popIn .18s ease; }
 @keyframes popIn { from { opacity: 0; transform: translateY(-8rpx); } to { opacity: 1; transform: translateY(0); } }
 .sp-opt { padding: 20rpx 32rpx; font-size: 26rpx; color: var(--color-text); display: flex; align-items: center; gap: 16rpx; white-space: nowrap; }
 .sp-opt.active { color: var(--color-primary); font-weight: 600; }
@@ -310,7 +310,7 @@ onReachBottom(fetchMore)
 
 /* ===== Banner Carousel ===== */
 .carousel-wrap { position: relative; margin: 24rpx 28rpx; }
-.carousel { height: 328rpx; border-radius: 28rpx; overflow: hidden; }
+.carousel { height: 328rpx; border-radius: 16rpx; overflow: hidden; }
 .cslide { width: 100%; height: 100%; display: flex; align-items: center; padding: 0 40rpx; gap: 28rpx; }
 .cs-ic { width: 88rpx; height: 88rpx; border-radius: 50%; background: rgba(255,255,255,.18); color: #fff; font-size: 44rpx; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .cs-info { flex: 1; min-width: 0; }
@@ -324,7 +324,7 @@ onReachBottom(fetchMore)
 .fn { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8rpx; padding: 0 28rpx 24rpx; }
 .fi { text-align: center; padding: 16rpx 8rpx; }
 .fi:active { transform: scale(.93); }
-.fii { width: 88rpx; height: 88rpx; border-radius: 24rpx; display: flex; align-items: center; justify-content: center; margin: 0 auto 12rpx; }
+.fii { width: 88rpx; height: 88rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; margin: 0 auto 12rpx; }
 .fie { font-size: 40rpx; font-weight: 600; color: var(--color-text); }
 .fl { font-size: 22rpx; color: var(--color-text-secondary); }
 
@@ -335,7 +335,7 @@ onReachBottom(fetchMore)
 
 /* ===== Card Grid ===== */
 .cg { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; padding: 0 28rpx 40rpx; }
-.card { background: #fff; border-radius: 20rpx; overflow: hidden; border: .5px solid var(--color-divider); }
+.card { background: #fff; border-radius: 16rpx; overflow: hidden; border: .5px solid var(--color-divider); }
 .card:active { transform: scale(.97); }
 .cc { position: relative; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; }
 .cc-img { width: 100%; height: 100%; display: block; }
@@ -362,7 +362,7 @@ onReachBottom(fetchMore)
 /* ===== State ===== */
 .st { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 120rpx 40rpx; }
 .sth { font-size: 24rpx; color: #ccc; margin: 24rpx 0; display: block; }
-.stb { display: inline-block; padding: 16rpx 48rpx; border-radius: 44rpx; background: var(--color-primary); color: #fff; font-size: 26rpx; font-weight: 500; }
+.stb { display: inline-block; padding: 16rpx 48rpx; border-radius: 16rpx; background: var(--color-primary); color: #fff; font-size: 26rpx; font-weight: 500; }
 .stb:active { opacity: .8; }
 
 /* ===== Load More ===== */

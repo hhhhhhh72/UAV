@@ -53,11 +53,11 @@ const props = defineProps(['current'])
 const iconRoot = '/static/tabbar/'
 
 const tabs = ref([
-  { label: '首页',  iconSrc: iconRoot + 'home.svg',         activeSrc: iconRoot + 'home-active.svg',   path: '/pages/home/index',    badge: 0 },
-  { label: '服务',  iconSrc: iconRoot + 'mall.svg',         activeSrc: iconRoot + 'mall-active.svg',   path: '/pages/mall/index',    badge: 0 },
-  { label: '发布',  iconSrc: iconRoot + 'publish.svg',      activeSrc: iconRoot + 'publish.svg',        path: '/pages/publish/index', badge: 0 },
-  { label: '商家',  iconSrc: iconRoot + 'shop.svg',         activeSrc: iconRoot + 'shop-active.svg',   path: '/pages/shops/index',   badge: 0 },
-  { label: '我的',  iconSrc: iconRoot + 'mine.svg',         activeSrc: iconRoot + 'mine-active.svg',   path: '/pages/mine/index',    badge: 0 },
+  { label: '首页',    iconSrc: iconRoot + 'home.svg',         activeSrc: iconRoot + 'home-active.svg',         path: '/pages/home/index',     badge: 0 },
+  { label: '供需大厅', iconSrc: iconRoot + 'demands.svg',      activeSrc: iconRoot + 'demands-active.svg',      path: '/pages/demands/index',  badge: 0 },
+  { label: '发布',    iconSrc: iconRoot + 'publish.svg',      activeSrc: iconRoot + 'publish.svg',              path: '/pages/publish/index',  badge: 0 },
+  { label: '生态服务', iconSrc: iconRoot + 'services.svg',     activeSrc: iconRoot + 'services-active.svg',     path: '/pages/services/index', badge: 0 },
+  { label: '我的',    iconSrc: iconRoot + 'mine.svg',         activeSrc: iconRoot + 'mine-active.svg',         path: '/pages/mine/index',     badge: 0 },
 ])
 
 const switchTab = (path, idx) => {
@@ -119,7 +119,7 @@ const switchTab = (path, idx) => {
   width: 48rpx;
   height: 6rpx;
   border-radius: 3rpx;
-  background: linear-gradient(135deg, #ff6b35, #ff5a1f);
+  background: #0A66C2;
   animation: indicatorSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -183,7 +183,7 @@ const switchTab = (path, idx) => {
 }
 
 .tab-label--active {
-  color: #1a1a1a;
+  color: #0A66C2;
   font-weight: 600;
 }
 

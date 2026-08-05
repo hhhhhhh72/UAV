@@ -117,6 +117,6 @@ onLoad((opts) => { if (opts.id) load(opts.id) })
 .section-title { font-size: 28rpx; font-weight: 700; color: var(--color-text); display: block; margin-bottom: 16rpx; }
 .job-desc { font-size: 26rpx; color: var(--color-text); line-height: 1.7; white-space: pre-wrap; }
 .bottom-bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 16rpx 32rpx calc(16rpx + env(safe-area-inset-bottom)); background: var(--color-bg-card); box-shadow: 0 -2rpx 12rpx rgba(0,0,0,.04); }
-.bottom-btn { height: 88rpx; border-radius: 44rpx; background: var(--color-primary); color: #fff; font-size: 30rpx; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.bottom-btn { height: 88rpx; border-radius: 16rpx; background: var(--color-primary); color: #fff; font-size: 30rpx; font-weight: 600; display: flex; align-items: center; justify-content: center; }
 .bottom-btn.applied { background: var(--color-divider); color: var(--color-text-secondary); }
 </style>

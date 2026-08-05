@@ -271,9 +271,9 @@ const goDetail = (id) => {
 const goDemand = () => {
   uni.navigateTo({ url: '/pages/demands/list' })
 }
-// 场地卡「预约」→ 场地预约页（①台账 + ③预约 同一页面承载，跳过商品详情缩短路径）
+// 场地卡「预约」→ 测试场地列表（①台账 + ③预约 同一页面承载，跳过商品详情缩短路径）
 const goBooking = () => {
-  uni.navigateTo({ url: '/pages/testsites/book' })
+  uni.navigateTo({ url: '/pages/testsites/list' })
 }
 
 onMounted(() => {

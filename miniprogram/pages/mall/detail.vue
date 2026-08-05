@@ -227,10 +227,10 @@ const onShare = () => {
   setTimeout(() => { shareAnim.value = false }, 450)
   uni.showToast({ title: '分享', icon: 'none' })
 }
-// 主行动按钮：试飞测试供给 → 场地预约（②展示卡 → ③预约入口打通）；其余为咨询报价
+// 主行动按钮：试飞测试供给 → 测试场地列表（②展示卡 → ③预约入口打通）；其余为咨询报价
 const buy = () => {
   if (product.value.prod_type === 'test_fly') {
-    uni.navigateTo({ url: '/pages/testsites/book' })
+    uni.navigateTo({ url: '/pages/testsites/list' })
     return
   }
   uni.showToast({ title: '咨询报价功能开发中', icon: 'none' })
@@ -311,7 +311,7 @@ const buy = () => {
 .dot.on { background: #fff; width: 16px; border-radius: 3px; }
 .img-back { position: absolute; top: 12px; left: 12px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,.35); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; }
 
-.price-card { margin: -8px 10px 8px; background: #fff; border-radius: 12px; padding: 14px; position: relative; z-index: 1; }
+.price-card { margin: -8px 10px 8px; background: #fff; border-radius: 8px; padding: 14px; position: relative; z-index: 1; }
 .price-row { display: flex; justify-content: space-between; align-items: flex-end; }
 .price-left { display: flex; align-items: baseline; }
 .price-symbol { font-size: 18px; font-weight: 700; color: var(--color-warning); }
@@ -325,7 +325,7 @@ const buy = () => {
 .price-title { font-size: 16px; font-weight: 600; color: var(--color-text); display: block; margin-top: 8px; line-height: 1.4; }
 .price-desc { font-size: 13px; color: var(--color-text-secondary); display: block; margin-top: 4px; line-height: 1.4; }
 
-.spec-card { margin: 0 10px 8px; background: #fff; border-radius: 12px; padding: 14px; }
+.spec-card { margin: 0 10px 8px; background: #fff; border-radius: 8px; padding: 14px; }
 .spec-head { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 10px; }
 /* 参数逐行信息（Tigshop cart-item 风格） */
 .spec-list { display: flex; flex-direction: column; }
@@ -337,14 +337,14 @@ const buy = () => {
 .spec-label { font-size: 13px; color: var(--color-text-secondary); }
 .spec-val { font-size: 13px; color: var(--color-text); font-weight: 500; }
 
-.shop-card { margin: 0 10px 8px; background: #fff; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
-.shop-ava { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,var(--color-primary-light),var(--color-primary-light)); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; color: var(--color-primary); flex-shrink: 0; }
+.shop-card { margin: 0 10px 8px; background: #fff; border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
+.shop-ava { width: 40px; height: 40px; border-radius: 50%; background: var(--color-primary-light)); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; color: var(--color-primary); flex-shrink: 0; }
 .shop-info { flex: 1; }
 .shop-name { font-size: 14px; font-weight: 500; display: block; }
 .shop-status { font-size: 11px; color: var(--color-success); }
-.shop-btn { padding: 6px 14px; border-radius: 14px; background: linear-gradient(135deg,var(--color-primary),var(--color-primary)); color: #fff; font-size: 13px; flex-shrink: 0; }
+.shop-btn { padding: 6px 14px; border-radius: 8px; background: var(--color-primary)); color: #fff; font-size: 13px; flex-shrink: 0; }
 
-.detail-card { margin: 0 10px 8px; background: #fff; border-radius: 12px; padding: 14px; }
+.detail-card { margin: 0 10px 8px; background: #fff; border-radius: 8px; padding: 14px; }
 .detail-head { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 8px; }
 .detail-text { font-size: 13px; color: var(--color-text-secondary); line-height: 1.8; display: block; }
 
@@ -352,7 +352,7 @@ const buy = () => {
 .bottom-left { display: flex; gap: 2px; }
 .bottom-fav, .bottom-share { width: 44px; display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--color-text-secondary); line-height: 1.3; }
 .bottom-contact {
-  flex: 1.1; height: 38px; border-radius: 19px;
+  flex: 1.1; height: 38px; border-radius: 8px;
   background: #fff; border: 1px solid var(--color-primary); color: var(--color-primary);
   display: flex; align-items: center; justify-content: center; gap: 4px;
   font-size: 14px; font-weight: 500; transition: transform .18s;
@@ -360,8 +360,8 @@ const buy = () => {
 .contact-ico { font-size: 15px; line-height: 1; }
 .contact-txt { line-height: 1; }
 .bottom-buy {
-  flex: 1.1; height: 38px; border-radius: 19px;
-  background: linear-gradient(135deg,var(--color-primary),var(--color-primary));
+  flex: 1.1; height: 38px; border-radius: 8px;
+  background: var(--color-primary));
   color: #fff; display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 600; transition: transform .18s;
 }

@@ -564,7 +564,7 @@ export default {
   color: #66758E;
   background: var(--color-bg-card);
   border: 1px solid #E5EAF1;
-  border-radius: 36rpx;
+  border-radius: 16rpx;
   font-size: 26rpx;
   font-weight: 650;
   transition: all 0.2s;

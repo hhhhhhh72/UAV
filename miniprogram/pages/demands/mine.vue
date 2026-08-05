@@ -56,6 +56,13 @@
                 </view>
                 <view
                   v-if="item.status === 'published'"
+                  class="action-btn action-intent"
+                  @tap.stop="fetchIntents(item)"
+                >
+                  查看意向
+                </view>
+                <view
+                  v-if="item.status === 'published'"
                   class="action-btn action-complete"
                   @tap.stop="completeDemand(item)"
                 >
@@ -74,6 +81,33 @@
         </u-cell>
       </u-cell-group>
     </view>
+
+    <!-- 对接意向列表弹层 -->
+    <u-popup :show="intentSheet.show" position="bottom" round @close="intentSheet.show = false">
+      <view class="intent-sheet">
+        <view class="intent-head">
+          <text class="intent-title">对接意向</text>
+          <text class="intent-demand">{{ intentSheet.demandTitle }}</text>
+        </view>
+        <view v-if="intentSheet.loading" class="intent-state">
+          <u-loading size="28rpx" />
+          <text class="intent-state-text">加载中...</text>
+        </view>
+        <view v-else-if="intentSheet.list.length === 0" class="intent-state">
+          <text class="intent-state-text">暂无对接意向</text>
+        </view>
+        <view v-else class="intent-list">
+          <view v-for="it in intentSheet.list" :key="it.id" class="intent-item">
+            <view class="intent-line1">
+              <text class="intent-name">{{ it.intentor_name }}</text>
+              <text class="intent-phone" @tap="callIt(it.contact)">{{ it.contact }}</text>
+            </view>
+            <text v-if="it.remark" class="intent-remark">{{ it.remark }}</text>
+            <text class="intent-time">{{ formatDate(it.created_at) }}</text>
+          </view>
+        </view>
+      </view>
+    </u-popup>
   </view>
 </template>
 
@@ -87,6 +121,12 @@ export default {
         loading: false,
         error: false,
         list: [],
+      },
+      intentSheet: {
+        show: false,
+        loading: false,
+        list: [],
+        demandTitle: '',
       },
     }
   },
@@ -169,6 +209,22 @@ export default {
     goDetail(id) {
       uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(id) })
     },
+    async fetchIntents(item) {
+      this.intentSheet = { show: true, loading: true, list: [], demandTitle: item.title }
+      try {
+        const res = await request({
+          url: '/api/v1/demands/' + encodeURIComponent(item.id) + '/intents',
+        })
+        const list = Array.isArray(res) ? res : (res && res.data) || []
+        this.intentSheet = { show: true, loading: false, list: list, demandTitle: item.title }
+      } catch (e) {
+        this.intentSheet = { show: true, loading: false, list: [], demandTitle: item.title }
+        uni.showToast({ title: '意向列表加载失败', icon: 'none' })
+      }
+    },
+    callIt(phone) {
+      if (phone) uni.makePhoneCall({ phoneNumber: String(phone) })
+    },
     goBack() {
       uni.navigateBack()
     },
@@ -242,7 +298,7 @@ export default {
   padding: 8px 24px;
   background: var(--color-primary);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -291,7 +347,7 @@ export default {
 
 .action-btn {
   padding: 4px 16px;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 12px;
   line-height: 1.7;
 }
@@ -306,9 +362,92 @@ export default {
   color: #fff;
 }
 
+.action-intent {
+  background: #EAF3FB;
+  color: #0A66C2;
+}
+
 .action-cancel {
   background: var(--color-bg);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
+}
+
+/* 对接意向弹层 */
+.intent-sheet {
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.intent-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.intent-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #17212B;
+}
+
+.intent-demand {
+  font-size: 12px;
+  color: #667085;
+}
+
+.intent-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 0;
+}
+
+.intent-state-text {
+  font-size: 13px;
+  color: #667085;
+}
+
+.intent-item {
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #fff;
+}
+
+.intent-line1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.intent-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #17212B;
+}
+
+.intent-phone {
+  font-size: 14px;
+  color: #0A66C2;
+  font-weight: 600;
+}
+
+.intent-remark {
+  display: block;
+  font-size: 12px;
+  color: #344054;
+  margin-top: 6px;
+}
+
+.intent-time {
+  display: block;
+  font-size: 11px;
+  color: #98A2B3;
+  margin-top: 6px;
 }
 </style>

@@ -21,6 +21,15 @@
       }
     },
     {
+      "path": "pages/intents/mine",
+      "style": {
+        "navigationBarTitleText": "我的对接意向",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/mine/index",
       "style": {
         "navigationBarTitleText": "我的",
@@ -97,6 +106,15 @@
       "path": "pages/training/certificates",
       "style": {
         "navigationBarTitleText": "我的证书",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/demands/index",
+      "style": {
+        "navigationBarTitleText": "供需大厅",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff",
         "enablePullDownRefresh": true
@@ -204,12 +222,28 @@
       }
     },
     {
-      "path": "pages/events/list",
+      "path": "pages/competitions/list",
       "style": {
-        "navigationBarTitleText": "协会活动",
+        "navigationBarTitleText": "赛事列表",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff",
         "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/competitions/detail",
+      "style": {
+        "navigationBarTitleText": "赛事详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/competitions/register",
+      "style": {
+        "navigationBarTitleText": "赛事报名",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
       }
     },
     {
@@ -352,17 +386,42 @@
       }
     },
     {
-      "path": "pages/testsites/book",
+      "path": "pages/testsites/list",
       "style": {
-        "navigationBarTitleText": "场地预约",
+        "navigationBarTitleText": "测试场地",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/testsites/detail",
+      "style": {
+        "navigationBarTitleText": "场地详情",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
     },
     {
-      "path": "pages/events/detail",
+      "path": "pages/testsites/booking",
       "style": {
-        "navigationBarTitleText": "活动详情",
+        "navigationBarTitleText": "预约测试",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/testsites/pay",
+      "style": {
+        "navigationBarTitleText": "确认预约",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/testsites/result",
+      "style": {
+        "navigationBarTitleText": "预约结果",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
@@ -488,14 +547,6 @@
       }
     },
     {
-      "path": "pages/events/register",
-      "style": {
-        "navigationBarTitleText": "活动报名",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
-      }
-    },
-    {
       "path": "pages/study/index",
       "style": {
         "navigationBarTitleText": "低空研学",
@@ -580,7 +631,7 @@
   },
   "tabBar": {
     "color": "#969799",
-    "selectedColor": "#1a1a1a",
+    "selectedColor": "#0A66C2",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [
@@ -591,10 +642,8 @@
         "selectedIconPath": "/static/tabbar/home-active.png"
       },
       {
-        "pagePath": "pages/mall/index",
-        "text": "服务",
-        "iconPath": "/static/tabbar/mall.png",
-        "selectedIconPath": "/static/tabbar/mall-active.png"
+        "pagePath": "pages/demands/index",
+        "text": "供需大厅"
       },
       {
         "pagePath": "pages/publish/index",
@@ -603,10 +652,8 @@
         "selectedIconPath": "/static/tabbar/publish.png"
       },
       {
-        "pagePath": "pages/shops/index",
-        "text": "商家",
-        "iconPath": "/static/tabbar/shop.png",
-        "selectedIconPath": "/static/tabbar/shop-active.png"
+        "pagePath": "pages/services/index",
+        "text": "生态服务"
       },
       {
         "pagePath": "pages/mine/index",

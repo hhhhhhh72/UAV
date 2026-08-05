@@ -189,7 +189,7 @@ export default {
   padding: 8px 24px;
   background: var(--color-primary);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -212,7 +212,7 @@ export default {
   background: var(--color-bg-card);
   margin: 12px 16px;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   gap: 12px;

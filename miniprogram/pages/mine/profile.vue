@@ -89,13 +89,13 @@ const handleSave = () => {
 .label { font-size: 15px; color: #323233; width: 80px; }
 .input { flex: 1; text-align: right; font-size: 15px; color: #646566; }
 .right { display: flex; align-items: center; gap: 8px; }
-.avatar { width: 44px; height: 44px; border-radius: 22px; }
-.default-avatar { width: 44px; height: 44px; border-radius: 22px; background: #f0f2f5; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.avatar { width: 44px; height: 44px; border-radius: 8px; }
+.default-avatar { width: 44px; height: 44px; border-radius: 8px; background: #f0f2f5; display: flex; align-items: center; justify-content: center; font-size: 24px; }
 .arrow { font-size: 18px; color: #ccc; }
 .status-text { font-size: 14px; color: #969799; }
 .status-text.verified { color: #07c160; }
 
 .save-btn-wrap { padding: 30px 16px; }
-.save-btn { border-radius: 99px; font-weight: bold; background-color: #2f7ef7 !important; }
+.save-btn { border-radius: 8px; font-weight: bold; background-color: #2f7ef7 !important; }
 </style>
 

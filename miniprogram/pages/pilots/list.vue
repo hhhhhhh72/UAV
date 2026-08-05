@@ -143,7 +143,7 @@ onLoad(() => fetchData())
   position: relative;
   overflow: hidden;
   padding: 36rpx 32rpx 40rpx;
-  background: linear-gradient(135deg, var(--color-primary-deep) 0%, var(--color-primary) 100%);
+  background: var(--color-primary-deep) 100%);
 }
 .hero-glow {
   position: absolute;

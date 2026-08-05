@@ -1,86 +1,92 @@
 <template>
   <view class="demand-list-page">
-    <!-- Search -->
+    <!-- 搜索 -->
     <u-sticky>
       <u-search
         v-model="searchText"
-        placeholder="搜索需求"
+        placeholder="搜索需求、项目"
         @search="onSearch"
       />
     </u-sticky>
 
-    <!-- Biz type filter tabs -->
-    <view class="filter-tabs">
-      <view
-        v-for="(tab, index) in bizTypeTabs"
-        :key="index"
-        class="filter-tab"
-        :class="{ active: activeBizType === tab.value }"
-        @tap="switchBizType(tab.value)"
-      >
-        {{ tab.label }}
-      </view>
-    </view>
-
-    <!-- Sort bar -->
-    <view class="sort-bar">
+    <!-- 筛选 + 排序 -->
+    <view class="filter-bar">
+      <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
+        <view class="filter-tabs">
+          <view
+            v-for="(tab, index) in bizTypeTabs"
+            :key="index"
+            class="filter-tab"
+            :class="{ active: activeBizType === tab.value }"
+            @tap="switchBizType(tab.value)"
+          >
+            {{ tab.label }}
+          </view>
+        </view>
+      </scroll-view>
       <view class="sort-trigger" @tap="showSortPicker">
         <text class="sort-label">{{ currentSortLabel }}</text>
-        <text class="sort-arrow">▼</text>
+        <text class="sort-arrow">▾</text>
       </view>
     </view>
 
-    <!-- Loading state -->
-    <view v-if="loading && list.length === 0" class="loading-state">
-      <view class="loading-inline">
-        <u-loading size="28rpx" />
-        <text>加载中...</text>
-      </view>
+    <!-- 加载状态 -->
+    <view v-if="loading && list.length === 0" class="state-wrap">
+      <u-loading size="28rpx" />
+      <text class="state-text">加载中...</text>
     </view>
 
-    <!-- Empty state -->
-    <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
+    <!-- 筛选无结果 -->
+    <view v-else-if="!loading && list.length === 0 && !errorMsg && (activeBizType || searchText)" class="state-wrap">
+      <u-empty description="没有符合条件的需求" />
+      <view class="state-reset" @tap="resetFilter">清除筛选</view>
+    </view>
+
+    <!-- 空数据 -->
+    <view v-else-if="!loading && list.length === 0 && !errorMsg" class="state-wrap">
       <u-empty description="暂无需求" />
     </view>
 
-    <!-- Error state -->
-    <view v-else-if="errorMsg && list.length === 0" class="error-state">
+    <!-- 错误状态 -->
+    <view v-else-if="errorMsg && list.length === 0" class="state-wrap">
       <u-empty description="加载失败" />
-      <view class="retry-btn" @tap="fetchList(true)">
-        <text>重新加载</text>
-      </view>
+      <view class="retry-btn" @tap="fetchList(true)"><text>重新加载</text></view>
     </view>
 
-    <!-- Normal state -->
+    <!-- 列表 -->
     <view v-else class="list-body">
-      <u-cell-group inset>
-        <u-cell
-          v-for="item in list"
-          :key="item.id"
-          is-link
-          @click="goDetail(item)"
-        >
-          <template #title>
-            <view class="cell-content">
-              <text class="cell-title">{{ item.title }}</text>
-              <view class="cell-meta">
-                <u-tag
-                  :type="bizTypeTagType(item.biz_type)"
-                  size="mini"
-                >
-                  {{ bizTypeLabel(item.biz_type) }}
-                </u-tag>
-                <text v-if="item.district" class="meta-text">{{ item.district }}</text>
-                <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
-                <text class="meta-date">{{ formatDate(item.created_at) }}</text>
-              </view>
-            </view>
-          </template>
-        </u-cell>
-      </u-cell-group>
+      <!-- 首条重点卡 -->
+      <view class="featured-card" @tap="goDetail(list[0])">
+        <image :src="featuredImage(list[0])" mode="aspectFill" class="featured-img" />
+        <view class="featured-mask"></view>
+        <view class="featured-copy">
+          <view class="featured-tags">
+            <text class="tag-blue">{{ bizTypeLabel(list[0].biz_type) }}</text>
+            <text v-if="list[0].district" class="tag-white">{{ list[0].district }}</text>
+          </view>
+          <text class="featured-title">{{ list[0].title }}</text>
+          <text class="featured-meta">{{ formatBudget(list[0].budget_fen) }} · {{ formatDate(list[0].created_at) }}</text>
+        </view>
+      </view>
 
-      <!-- Load more -->
-      <view v-if="list.length > 0" class="load-more">
+      <!-- 紧凑卡 -->
+      <view
+        v-for="item in list.slice(1)"
+        :key="item.id"
+        class="compact-card"
+        @tap="goDetail(item)"
+      >
+        <text class="compact-title">{{ item.title }}</text>
+        <view class="compact-meta">
+          <text class="tag-blue tag-mini">{{ bizTypeLabel(item.biz_type) }}</text>
+          <text v-if="item.district" class="meta-text">{{ item.district }}</text>
+          <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
+          <text class="meta-date">{{ formatDate(item.created_at) }}</text>
+        </view>
+      </view>
+
+      <!-- 加载更多 -->
+      <view class="load-more">
         <view v-if="loadingMore" class="loading-inline">
           <u-loading size="24rpx" />
           <text>加载更多...</text>
@@ -89,7 +95,7 @@
       </view>
     </view>
 
-    <!-- Sort action sheet -->
+    <!-- 排序弹层 -->
     <u-popup
       :show="sortPickerVisible"
       position="bottom"
@@ -207,6 +213,11 @@ export default {
       this.activeBizType = value
       this.fetchList(true)
     },
+    resetFilter() {
+      this.activeBizType = ''
+      this.searchText = ''
+      this.fetchList(true)
+    },
     showSortPicker() {
       this.sortPickerVisible = true
     },
@@ -221,16 +232,12 @@ export default {
     bizTypeLabel(type) {
       return bizTypeLabelOf(type)
     },
-    bizTypeTagType(type) {
-      var map = {
-        cable_inspection: 'primary',
-        plant_transport: 'success',
-        spray_pesticide: 'warning',
-        trade_lease: 'danger',
-        clean_paint: 'primary',
-        other: 'default',
-      }
-      return map[type] || 'default'
+    featuredImage(item) {
+      try {
+        const arr = typeof item.images === 'string' ? JSON.parse(item.images) : item.images
+        if (Array.isArray(arr) && arr[0]) return arr[0]
+      } catch {}
+      return '/static/home/hero-inspection.jpg'
     },
     formatBudget(fen) {
       if (fen == null || fen === 0) return '面议'
@@ -251,47 +258,44 @@ export default {
 <style scoped>
 .demand-list-page {
   min-height: 100vh;
-  background: var(--color-bg);
+  background: #F4F6F8;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Filter tabs */
-.filter-tabs {
+/* 筛选 + 排序 */
+.filter-bar {
   display: flex;
-  padding: 10px 12px;
-  gap: 8px;
+  align-items: center;
   background: #fff;
-  overflow-x: auto;
-  white-space: nowrap;
-  -webkit-overflow-scrolling: touch;
+  padding: 8px 12px;
+  gap: 8px;
 }
 
-.filter-tabs::-webkit-scrollbar {
-  display: none;
+.filter-scroll {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.filter-tabs {
+  display: inline-flex;
+  gap: 8px;
 }
 
 .filter-tab {
   flex-shrink: 0;
   padding: 6px 16px;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 13px;
-  color: var(--color-text-secondary);
-  background: var(--color-bg);
+  color: #344054;
+  background: #F4F6F8;
+  border: 1px solid #EEF1F4;
   transition: all 0.2s;
 }
 
 .filter-tab.active {
   color: #fff;
-  background: var(--color-primary);
-}
-
-/* Sort bar */
-.sort-bar {
-  padding: 8px 16px;
-  display: flex;
-  justify-content: flex-end;
-  background: #fff;
-  border-bottom: 1px solid var(--color-border);
+  background: #0A66C2;
+  border-color: #0A66C2;
 }
 
 .sort-trigger {
@@ -299,115 +303,187 @@ export default {
   align-items: center;
   gap: 4px;
   padding: 4px 0;
+  flex-shrink: 0;
 }
 
 .sort-label {
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: #344054;
 }
 
 .sort-arrow {
   font-size: 10px;
-  color: var(--color-text-placeholder);
+  color: #98A2B3;
 }
 
-/* State views */
-.loading-state {
-  display: flex;
-  justify-content: center;
-  padding: 80px 0;
-}
-
-.loading-inline {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.loading-inline text {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.empty-state-wrapper {
-  padding-top: 60px;
-}
-
-.error-state {
+/* 状态 */
+.state-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 120px;
+  gap: 10px;
+  padding: 64px 0;
+}
+
+.state-text {
+  font-size: 13px;
+  color: #667085;
+}
+
+.state-reset {
+  padding: 8px 24px;
+  border-radius: 8px;
+  border: 1px solid #0A66C2;
+  color: #0A66C2;
+  font-size: 13px;
 }
 
 .retry-btn {
-  margin-top: 12px;
   padding: 8px 24px;
-  background: var(--color-primary);
+  border-radius: 8px;
+  background: #0A66C2;
   color: #fff;
-  border-radius: 20px;
-  font-size: 14px;
+  font-size: 13px;
 }
 
-/* List */
+/* 列表 */
 .list-body {
-  padding: 12px 0 24px;
+  padding: 12px;
 }
 
-.cell-content {
+/* 首条重点卡 */
+.featured-card {
+  position: relative;
+  height: 276rpx;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.featured-img {
+  width: 100%;
+  height: 100%;
+}
+
+.featured-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.45);
+}
+
+.featured-copy {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
   display: flex;
   flex-direction: column;
+  gap: 5px;
+}
+
+.featured-tags {
+  display: flex;
   gap: 6px;
-  width: 100%;
 }
 
-.cell-title {
+.tag-blue {
+  font-size: 11px;
+  color: #0A66C2;
+  background: #EAF3FB;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.tag-white {
+  font-size: 11px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.22);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.featured-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.35;
+}
+
+.featured-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 紧凑卡 */
+.compact-card {
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.compact-title {
   font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text);
+  font-weight: 600;
+  color: #17212B;
+  line-height: 1.4;
+  display: block;
 }
 
-.cell-meta {
+.compact-meta {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.tag-mini {
+  font-size: 10px;
 }
 
 .meta-text {
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: #667085;
 }
 
 .meta-date {
-  font-size: 12px;
-  color: var(--color-text-placeholder);
+  font-size: 11px;
+  color: #98A2B3;
+  margin-left: auto;
 }
 
-/* Load more */
+/* 加载更多 */
 .load-more {
   text-align: center;
   padding: 16px 0;
 }
 
-.no-more {
-  color: var(--color-text-placeholder);
-  font-size: 13px;
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #667085;
 }
 
-/* Sort sheet */
+.no-more {
+  color: #98A2B3;
+  font-size: 12px;
+}
+
+/* 排序弹层 */
 .sheet {
   background: #fff;
-  border-radius: 24rpx 24rpx 0 0;
+  border-radius: 16rpx 16rpx 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 .sheet-title {
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--color-text);
+  color: #17212B;
   padding: 16px 0 8px;
 }
 
@@ -418,16 +494,12 @@ export default {
   gap: 8px;
   padding: 14px 24px;
   font-size: 14px;
-  color: var(--color-text);
+  color: #17212B;
 }
 
 .sheet-item.on {
-  color: var(--color-primary);
+  color: #0A66C2;
   font-weight: 600;
-}
-
-.sheet-name {
-  color: inherit;
 }
 
 .sheet-check {
@@ -438,7 +510,7 @@ export default {
   text-align: center;
   padding: 14px;
   font-size: 14px;
-  color: var(--color-text-secondary);
-  border-top: 1px solid var(--color-divider);
+  color: #667085;
+  border-top: 1px solid #EEF1F4;
 }
 </style>

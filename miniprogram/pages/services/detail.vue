@@ -146,7 +146,7 @@ const goBack = () => {
 .service-icon-big {
   width: 72px;
   height: 72px;
-  border-radius: 18px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,7 +178,7 @@ const goBack = () => {
   background: var(--color-bg-card);
   margin: 12px 16px;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .section-label {

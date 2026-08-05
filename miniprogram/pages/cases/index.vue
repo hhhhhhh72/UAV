@@ -235,7 +235,7 @@ const previewMedia = (url) => {
 
 .cases-container { padding: 16px; }
 
-.case-card { background: #fff; border-radius: 16px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
+.case-card { background: #fff; border-radius: 8px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
 .case-cover { position: relative; width: 100%; height: 180px; }
 .cover-img { width: 100%; height: 100%; }
 .video-cover { width: 100%; height: 100%; position: relative; }
@@ -260,13 +260,13 @@ const previewMedia = (url) => {
 
 /* 详情弹窗 */
 .detail-popup { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: flex-end; }
-.detail-content { background: #fff; width: 100%; height: 85vh; border-radius: 16px 16px 0 0; overflow: hidden; display: flex; flex-direction: column; }
+.detail-content { background: #fff; width: 100%; height: 85vh; border-radius: 8px 16px 0 0; overflow: hidden; display: flex; flex-direction: column; }
 .detail-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #f2f3f5; }
 .detail-title { font-size: 17px; font-weight: bold; color: #323233; flex: 1; }
 .close-btn { font-size: 18px; color: #969799; padding: 4px 8px; }
 .detail-scroll { flex: 1; overflow-y: auto; padding: 16px 20px 40px; }
 
-.media-swipe { height: 220px; border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+.media-swipe { height: 220px; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
 .media-img { width: 100%; height: 100%; }
 .media-video { width: 100%; height: 100%; }
 

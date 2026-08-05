@@ -17,18 +17,18 @@ const go = (path) => uni.navigateTo({ url: path })
 
 // 更多页 = 金刚区外的补充入口（金刚区已含的入口不重复展示）
 const funcs = [
-  { name: '赛事活动', desc: '竞赛报名与详情', emoji: '赛', bg: 'linear-gradient(135deg,#fff3e0,#ffb74d)', path: '/pages/events/list' },
-  { name: '院校列表', desc: '合作院校信息', emoji: '校', bg: 'linear-gradient(135deg,#e8f5e9,#81c784)', path: '/pages/colleges/list' },
-  { name: '应急资源', desc: '应急物资调度', emoji: '急', bg: 'linear-gradient(135deg,#fce4ec,#e57373)', path: '/pages/emergency/resources' },
-  { name: '会员资源', desc: '产业资源台账', emoji: '资', bg: 'linear-gradient(135deg,#f3e5f5,#ba68c8)', path: '/pages/resources/list' },
+  { name: '赛事活动', desc: '竞赛报名与详情', emoji: '赛', bg: '#fff3e0', path: '/pages/competitions/list' },
+  { name: '院校列表', desc: '合作院校信息', emoji: '校', bg: '#e8f5e9', path: '/pages/colleges/list' },
+  { name: '应急资源', desc: '应急物资调度', emoji: '急', bg: '#fce4ec', path: '/pages/emergency/resources' },
+  { name: '会员资源', desc: '产业资源台账', emoji: '资', bg: '#f3e5f5', path: '/pages/resources/list' },
 ]
 </script>
 
 <style scoped>
 .page { min-height: 100vh; background: var(--color-bg); }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 16px; }
-.item { background: var(--color-bg-card); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 600; color: #fff; }
+.item { background: var(--color-bg-card); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.icon { width: 52px; height: 52px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 600; color: #fff; }
 .name { font-size: 15px; font-weight: 600; color: var(--color-text); }
 .desc { font-size: 12px; color: var(--color-text-secondary); }
 </style>

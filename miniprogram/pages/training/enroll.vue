@@ -1,70 +1,62 @@
 <template>
-  <view class="page">
-    <!-- 状态栏占位 -->
-    <view class="status-bar" :style="{ height: statusBarHeight + 'px' }" />
+  <view class="en-page">
+    <u-nav-bar title="课程报名" show-back @back="goBack" />
 
     <StateView
       :loading="loading"
       :error="!!errorMsg"
       :empty="!loading && !errorMsg && !detail"
-      empty-text="机构不存在"
+      empty-text="课程不存在"
       @retry="fetchDetail"
     >
       <template v-if="detail">
-        <!-- ====== Banner 大图 + 返回按钮（作为一个整体） ====== -->
-        <view class="banner-wrap">
-          <image
-            v-if="detail.banner || detail.cover_image || detail.image"
-            :src="detail.banner || detail.cover_image || detail.image"
-            mode="aspectFill"
-            class="banner-image"
-          />
-          <view v-else class="banner-image banner-placeholder">
-            <text class="banner-watermark">机构实景图</text>
+        <view class="en-content">
+          <!-- 实景图（4:3） -->
+          <view class="hero-wrap" @tap="previewHero">
+            <image v-if="heroImage" :src="heroImage" mode="aspectFill" class="hero-img" />
+            <view v-else class="hero-img hero-placeholder">
+              <text class="hero-placeholder-text">暂无实景图</text>
+            </view>
           </view>
 
-          <!-- 返回按钮（浮在 Banner 上） -->
-          <view class="back-btn" @click="goBack">
-            <text class="back-icon">‹</text>
-          </view>
-        </view>
-
-        <!-- ====== 主卡片 ====== -->
-        <view class="main-card">
-          <!-- 3.1 机构名称 -->
-          <view class="org-name">{{ detail.title || detail.name || '未知机构' }}</view>
-
-          <!-- 课程类型标签：蓝边白底 -->
-          <view class="course-type-tags">
-            <view
-              v-for="ct in courseTypes(detail)"
-              :key="ct"
-              class="course-type-tag"
-            >{{ ct }}</view>
-          </view>
-
-          <!-- 标语 -->
-          <view class="org-slogan">{{ detail.description ? detail.description.split('\n')[0] : '专业无人机培训，持证上岗更安心' }}</view>
-
-          <!-- 特色标签：绿底绿字 -->
-          <view class="feature-tags">
-            <view
-              v-for="ft in featureTags(detail)"
-              :key="ft"
-              class="feature-tag"
-            >{{ ft }}</view>
+          <!-- 决策摘要：机构名 / 类型标签 / 价格 -->
+          <view class="summary-card">
+            <view v-if="tags.length > 0" class="summary-tags">
+              <text v-for="(t, i) in tags" :key="i" class="tag-blue">{{ t }}</text>
+              <text v-if="statusText" class="tag-status">{{ statusText }}</text>
+            </view>
+            <text class="summary-title">{{ titleText }}</text>
+            <view class="summary-meta">
+              <view class="meta-block">
+                <text class="meta-label">课程费用</text>
+                <text class="meta-value price">{{ priceText }}</text>
+              </view>
+              <view v-if="locationText" class="meta-block">
+                <text class="meta-label">培训地点</text>
+                <text class="meta-value">{{ locationText }}</text>
+              </view>
+              <view v-if="startDateText" class="meta-block">
+                <text class="meta-label">开课时间</text>
+                <text class="meta-value">{{ startDateText }}</text>
+              </view>
+            </view>
+            <view v-if="quotaText" class="quota-row">
+              <text class="quota-text">{{ quotaText }}</text>
+            </view>
           </view>
 
-          <!-- 3.3 培训参考价 -->
-          <view class="section-block">
-            <view class="section-title price-title">培训参考价</view>
-            <view class="price-subtitle">元 / 人 · 仅供参考，签约以机构确认为准</view>
+          <!-- 课程内容 -->
+          <view v-if="descriptionText" class="section-block">
+            <text class="section-title">课程内容</text>
+            <text class="desc-text">{{ descriptionText }}</text>
+          </view>
+
+          <!-- 费用明细（真实价格，price_fen → 元） -->
+          <view v-if="priceRows.length > 0" class="section-block">
+            <text class="section-title">费用明细</text>
+            <text class="section-sub">元 / 人 · 仅供参考，以机构确认为准</text>
             <view class="price-list">
-              <view
-                v-for="(p, i) in priceList(detail)"
-                :key="i"
-                class="price-item"
-              >
+              <view v-for="(p, i) in priceRows" :key="i" class="price-item">
                 <text class="price-name">{{ p.name }}</text>
                 <view class="price-right">
                   <text class="price-symbol">¥</text>
@@ -75,191 +67,188 @@
             </view>
           </view>
 
-          <!-- 3.4 评分 -->
-          <view class="rating-block">
-            <text class="rating-score">5.0</text>
-            <text class="rating-unit">分</text>
-            <view class="rating-stars">
-              <text class="rating-star-text">★★★★★</text>
-            </view>
-          </view>
-
-          <!-- 3.5 联系信息 -->
-          <view class="section-block">
-            <view class="section-title">联系信息</view>
-
-            <view class="contact-item" @click="openMap">
-              <view class="contact-icon-wrapper location">
-                <text class="contact-icon location">址</text>
-              </view>
-              <view class="contact-content">
-                <view class="contact-label">地址</view>
-                <view class="contact-value">{{ detail.location || '暂无' }}</view>
-              </view>
-              <text class="contact-arrow">›</text>
-            </view>
-
-            <view class="contact-item" @click="callPhone">
-              <view class="contact-icon-wrapper phone">
-                <text class="contact-icon phone">话</text>
-              </view>
-              <view class="contact-content">
-                <view class="contact-label">电话</view>
-                <view class="contact-value link">{{ detail.phone || detail.contact_phone || '400-116-0851' }}</view>
-              </view>
-              <text class="contact-arrow">›</text>
-            </view>
-
-            <!-- 营业时间：无箭头 -->
-            <view class="contact-item">
-              <view class="contact-icon-wrapper time">
-                <text class="contact-icon time">时</text>
-              </view>
-              <view class="contact-content">
-                <view class="contact-label">营业时间</view>
-                <view class="contact-value">{{ detail.business_hours || '周一至周日 09:00-18:00' }}</view>
-              </view>
-            </view>
-          </view>
-
-          <!-- 3.6 机构简介 -->
-          <view class="section-block">
-            <view class="section-title">机构简介</view>
-            <view class="org-intro">{{ orgIntro(detail) }}</view>
-          </view>
-
-          <!-- 3.7 培训资格证（始终显示） -->
-          <view class="section-block">
-            <view class="section-title">培训资格证</view>
-            <image
-              v-if="detail.certificate || detail.certificate_url"
-              :src="detail.certificate || detail.certificate_url"
-              mode="widthFix"
-              class="certificate-image"
-              @click="previewSingle(detail.certificate || detail.certificate_url)"
-            />
-            <view v-else class="certificate-placeholder">
-              <text class="cert-placeholder-text">民用无人机驾驶员训练机构合格证</text>
-            </view>
-          </view>
-
-          <!-- 3.8 培训环境（始终显示） -->
-          <view class="section-block">
-            <view class="section-title">培训环境</view>
-            <view v-if="envImages(detail).length > 0" class="env-list">
+          <!-- 培训环境 -->
+          <view v-if="envImgs.length > 0" class="section-block">
+            <text class="section-title">培训环境</text>
+            <view class="photo-grid">
               <image
-                v-for="(img, idx) in envImages(detail)"
+                v-for="(img, idx) in envImgs"
                 :key="idx"
-                class="env-image"
                 :src="img"
-                mode="widthFix"
-                @click="previewEnv(idx)"
+                mode="aspectFill"
+                class="photo"
+                @tap="previewEnv(idx)"
               />
             </view>
-            <view v-else class="env-placeholder-list">
-              <view class="env-placeholder-item">
-                <text class="env-placeholder-icon">景</text>
-                <text class="env-placeholder-text">培训场地实景</text>
+          </view>
+
+          <!-- 联系信息 -->
+          <view class="section-block">
+            <text class="section-title">联系信息</text>
+            <view class="contact-item" @tap="openMap">
+              <view class="contact-icon ic-blue"><text class="contact-icon-text">址</text></view>
+              <view class="contact-content">
+                <text class="contact-label">培训地点</text>
+                <text class="contact-value">{{ locationText || '暂无' }}</text>
               </view>
-              <view class="env-placeholder-item">
-                <text class="env-placeholder-icon">室</text>
-                <text class="env-placeholder-text">理论教室环境</text>
+              <text class="contact-arrow">›</text>
+            </view>
+            <view class="contact-item" @tap="callPhone">
+              <view class="contact-icon ic-orange"><text class="contact-icon-text">话</text></view>
+              <view class="contact-content">
+                <text class="contact-label">联系电话</text>
+                <text class="contact-value link">{{ phoneText }}</text>
               </view>
-              <view class="env-placeholder-item">
-                <text class="env-placeholder-icon">飞</text>
-                <text class="env-placeholder-text">户外飞行训练</text>
+              <text class="contact-arrow">›</text>
+            </view>
+            <view v-if="businessHours" class="contact-item">
+              <view class="contact-icon ic-green"><text class="contact-icon-text">时</text></view>
+              <view class="contact-content">
+                <text class="contact-label">营业时间</text>
+                <text class="contact-value">{{ businessHours }}</text>
               </view>
             </view>
           </view>
 
-          <!-- 底部留白 -->
-          <view class="bottom-placeholder" />
+          <!-- 报名须知 -->
+          <view class="notice-block">
+            <text class="notice-title">报名须知</text>
+            <text class="notice-line">· 报名需提交姓名、手机号、身份证号及证件照片</text>
+            <text class="notice-line">· 课程费用与开班安排以机构确认为准，线下签约缴费</text>
+            <text class="notice-line warn">· 请通过本平台官方入口报名，切勿向个人账户转账</text>
+          </view>
         </view>
+
+        <view class="bottom-placeholder" />
       </template>
     </StateView>
 
-    <!-- 底部双按钮 -->
-    <view v-if="detail" class="bottom-action-bar">
-      <view class="action-btn enroll-btn" @click="handleEnroll">
-        <text class="action-text">立即报名</text>
-      </view>
-      <view class="action-btn consult-btn" @click="handleConsult">
-        <text class="action-text">联系咨询</text>
-      </view>
+    <!-- 底部操作栏 -->
+    <view v-if="detail" class="bottom-bar">
+      <view class="bb-btn bb-secondary" @tap="handleConsult">联系咨询</view>
+      <view class="bb-btn bb-primary" @tap="handleEnroll">立即报名</view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { request } from '../../utils/request'
+import { request, BASE_URL } from '../../utils/request'
 import StateView from '../../components/StateView.vue'
 
-const statusBarHeight = ref(44)
+const HOTLINE = '400-116-0851'
+
 const id = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 const detail = ref(null)
 
-/* === 数据映射（始终有值）=== */
+/* 真实字段映射（只展示后端存在的字段，不做编造兜底） */
+const CERT_LABELS = { caac: 'CAAC执照', utc_dji: '大疆UTC认证', gov_level: '人社等级证书' }
+const STATUS_LABELS = { draft: '待上架', recruiting: '招生中', full: '已满', upcoming: '即将开课' }
 
-function courseTypes(item) {
-  if (Array.isArray(item.course_types) && item.course_types.length > 0) return item.course_types
-  // 降级：cert_type 拆成两个标签
-  const ct = item.cert_type || 'CAAC'
-  return [ct + '视距内', ct + '超视距']
-}
+const titleText = computed(function () {
+  const item = detail.value
+  return item ? (item.title || item.name || '未知机构') : ''
+})
 
-function featureTags(item) {
-  if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
-  // 降级：从各字段拼凑，保证至少有数据
-  const tags = []
-  if (item.district) tags.push(item.district)
-  else tags.push('花溪区')
-  if (item.scale) tags.push(item.scale)
-  else tags.push('规模大')
-  tags.push('包住')
-  tags.push('拿证快')
-  tags.push('专业教培')
-  return tags
-}
+const heroImage = computed(function () {
+  const item = detail.value
+  const raw = item && (item.banner || item.cover_image || item.image || '')
+  if (!raw) return ''
+  return raw.startsWith('http') ? raw : BASE_URL + raw
+})
 
-function priceList(item) {
-  if (Array.isArray(item.prices) && item.prices.length > 0) return item.prices
-  if (Array.isArray(item.courses) && item.courses.length > 0) {
-    return item.courses.map(function (c) {
-      return {
-        name: c.name || c.title || c.cert_type || '课程',
-        price: c.price != null ? c.price : (c.price_fen ? (c.price_fen / 100) : 0),
-        unit: c.unit || '人',
-      }
-    })
+/* 课程类型标签：course_types 数组优先，否则真实 cert_type 单标签 */
+const tags = computed(function () {
+  const item = detail.value
+  if (!item) return []
+  if (Array.isArray(item.course_types) && item.course_types.length > 0) {
+    return item.course_types.slice(0, 4)
   }
-  // 降级：单个课程拆两行
-  const price = item.price != null ? item.price : (item.price_fen ? (item.price_fen / 100) : 5800)
-  const ct = item.cert_type || 'CAAC'
-  return [
-    { name: ct + '视距内', price: price, unit: '人' },
-    { name: ct + '超视距', price: Math.round(price * 1.5), unit: '人' },
-  ]
-}
-
-function orgIntro(item) {
-  const intro = item.intro || item.description || ''
-  if (intro && intro.length > 40) return intro
-  // 降级：生成模拟简介
-  return '1、构建"能力培养-场景应用-生态共建"全链条服务。即搭建"考证培训—实景应用—企业赋能"闭环\n\n2、差异化课程设计-垂直场景深度绑定。慧飞行6大行业课程设计-植保、吊运、航测、航拍、巡检、应急消防\n\n3、从培训到销售、维修、维护、保养、保险、飞行服务、二手交易、覆盖用户全生命周期价值。'
-}
-
-function envImages(item) {
-  if (Array.isArray(item.environment) && item.environment.length > 0) return item.environment
-  if (Array.isArray(item.env_images)) return item.env_images
-  if (Array.isArray(item.images)) return item.images
+  if (item.cert_type && CERT_LABELS[item.cert_type]) return [CERT_LABELS[item.cert_type]]
   return []
+})
+
+const statusText = computed(function () {
+  const s = detail.value && detail.value.status
+  return (s && STATUS_LABELS[s]) || ''
+})
+
+const priceText = computed(function () {
+  const rows = priceRows.value
+  if (rows.length > 0) return '¥' + rows[0].price
+  return '面议'
+})
+
+/* 费用明细：courses 数组（若后端下发）逐条展示，否则单条 price_fen → 元 */
+const priceRows = computed(function () {
+  const item = detail.value
+  if (!item) return []
+  const rows = []
+  if (Array.isArray(item.courses) && item.courses.length > 0) {
+    item.courses.forEach(function (c) {
+      const price = c.price != null ? c.price : (c.price_fen ? c.price_fen / 100 : 0)
+      if (price <= 0) return
+      rows.push({ name: c.name || c.title || '课程', price: formatPrice(price), unit: c.unit || '人' })
+    })
+  } else {
+    const price = item.price != null ? item.price : (item.price_fen ? item.price_fen / 100 : 0)
+    if (price > 0) rows.push({ name: '课程费用', price: formatPrice(price), unit: '人' })
+  }
+  return rows
+})
+
+const locationText = computed(function () {
+  const item = detail.value
+  return item ? (item.location || item.district || '') : ''
+})
+
+const startDateText = computed(function () {
+  const s = detail.value && detail.value.start_date
+  return s ? String(s).slice(0, 10) : ''
+})
+
+const descriptionText = computed(function () {
+  const item = detail.value
+  return item ? (item.description || '') : ''
+})
+
+const quotaText = computed(function () {
+  const item = detail.value
+  if (!item || !item.max_students) return ''
+  const enrolled = item.enrolled_count || 0
+  return '本班已报 ' + enrolled + ' 人 / 共 ' + item.max_students + ' 人'
+})
+
+const phoneText = computed(function () {
+  const item = detail.value
+  return (item && (item.phone || item.contact_phone)) || HOTLINE
+})
+
+const businessHours = computed(function () {
+  const item = detail.value
+  return item ? (item.business_hours || '') : ''
+})
+
+const envImgs = computed(function () {
+  const item = detail.value
+  if (!item) return []
+  let arr = []
+  if (Array.isArray(item.environment) && item.environment.length > 0) arr = item.environment
+  else if (Array.isArray(item.env_images) && item.env_images.length > 0) arr = item.env_images
+  else if (Array.isArray(item.images) && item.images.length > 0) arr = item.images
+  return arr.map(function (u) {
+    return u && u.startsWith('http') ? u : BASE_URL + u
+  })
+})
+
+function formatPrice(n) {
+  return Number(n).toLocaleString()
 }
 
-/* === 数据获取 === */
+/* === 数据获取：列表接口按 id 匹配（公开接口无单条详情） === */
 async function fetchDetail() {
   loading.value = true
   errorMsg.value = ''
@@ -275,7 +264,7 @@ async function fetchDetail() {
       if (String(items[i].id) === targetId) { found = items[i]; break }
     }
     detail.value = found
-    if (!found) errorMsg.value = '机构不存在'
+    if (!found) errorMsg.value = '课程不存在'
   } catch (e) {
     errorMsg.value = '网络异常，请稍后重试'
   } finally {
@@ -286,33 +275,34 @@ async function fetchDetail() {
 /* === 交互 === */
 function goBack() { uni.navigateBack({ delta: 1 }) }
 
+function previewHero() {
+  if (heroImage.value) uni.previewImage({ urls: [heroImage.value] })
+}
+
 function openMap() {
-  const addr = (detail.value && detail.value.location) || ''
+  const addr = locationText.value
   uni.showToast({ title: addr ? '导航到：' + addr : '暂无地址信息', icon: 'none' })
 }
 
 function callPhone() {
-  uni.makePhoneCall({ phoneNumber: '400-116-0851' })
+  uni.makePhoneCall({ phoneNumber: phoneText.value })
 }
 
 function handleConsult() {
-  uni.showToast({ title: '已提交咨询，客服稍后联系', icon: 'none' })
+  uni.showToast({ title: '请联系客服 ' + HOTLINE, icon: 'none' })
 }
 
 function handleEnroll() {
   uni.navigateTo({ url: '/pages/training/register?id=' + encodeURIComponent(id.value) })
 }
 
-function previewSingle(url) { uni.previewImage({ urls: [url], current: url }) }
-
 function previewEnv(idx) {
-  const imgs = envImages(detail.value)
+  const imgs = envImgs.value
   if (imgs.length > 0) uni.previewImage({ urls: imgs, current: imgs[idx] || imgs[0] })
 }
 
 onLoad(function (options) {
   id.value = options.id || ''
-  try { statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 44 } catch (e) {}
   fetchDetail()
 })
 
@@ -322,162 +312,316 @@ onPullDownRefresh(function () {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: var(--color-bg); }
-
-/* ====== 区域 1：Banner + 返回按钮 ====== */
-.banner-wrap { position: relative; }
-
-.banner-image {
-  width: 100%; height: 480rpx; display: block;
+.en-page {
+  min-height: 100vh;
+  background: #F4F6F8;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 }
 
-.banner-placeholder {
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  display: flex; align-items: center; justify-content: center;
+.en-content {
+  padding: 20rpx 24rpx 0;
 }
 
-.banner-watermark { font-size: 36rpx; color: rgba(255,255,255,0.25); font-weight: 600; letter-spacing: 4rpx; }
-
-/* 返回按钮 */
-.back-btn {
-  position: absolute; top: 16rpx; left: 24rpx; z-index: 20;
-  width: 64rpx; height: 64rpx; background: rgba(0,0,0,0.4); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
+/* ===== 实景图 4:3 ===== */
+.hero-wrap {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 75%;
+  border-radius: 16rpx;
+  overflow: hidden;
+  background: #F4F6F8;
+  margin-bottom: 20rpx;
 }
 
-.back-icon {
-  color: #ffffff; font-size: 44rpx; font-weight: 300; line-height: 1; margin-top: -6rpx;
+.hero-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
-/* ====== 区域 2：主卡片 ====== */
-.main-card {
-  background: #ffffff; border-radius: 32rpx 32rpx 0 0; margin-top: -40rpx;
-  padding: 40rpx 32rpx 0; position: relative; z-index: 2;
+.hero-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.org-name {
-  font-size: 36rpx; font-weight: 700; color: var(--color-text); line-height: 1.4; margin-bottom: 16rpx;
+.hero-placeholder-text {
+  font-size: 26rpx;
+  color: #98A2B3;
 }
 
-/* 课程类型标签 */
-.course-type-tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 16rpx; }
-.course-type-tag {
-  padding: 6rpx 18rpx; border: 2rpx solid var(--color-primary); border-radius: 8rpx;
-  color: var(--color-primary); font-size: 24rpx; font-weight: 500; background: #ffffff;
+/* ===== 白卡 ===== */
+.summary-card,
+.section-block {
+  background: #FFFFFF;
+  border: 1rpx solid #EEF1F4;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
 }
 
-.org-slogan { font-size: 26rpx; color: #666666; line-height: 1.5; margin-bottom: 20rpx; font-weight: 400; }
-
-/* 特色标签 */
-.feature-tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 32rpx; }
-.feature-tag {
-  padding: 6rpx 18rpx; background: var(--ui-color-accent-light); color: var(--color-success);
-  font-size: 24rpx; border-radius: 8rpx; font-weight: 500;
+/* 决策摘要 */
+.summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 14rpx;
 }
 
-/* Section 区块 */
-.section-block { margin-top: 36rpx; padding-top: 28rpx; border-top: 1rpx solid #f0f0f0; }
+.tag-blue {
+  font-size: 22rpx;
+  color: #0A66C2;
+  background: #EAF3FB;
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+.tag-status {
+  font-size: 22rpx;
+  color: #168A55;
+  background: #E9F7F0;
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+.summary-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #17212B;
+  line-height: 1.4;
+  display: block;
+}
+
+.summary-meta {
+  display: flex;
+  gap: 48rpx;
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #EEF1F4;
+}
+
+.meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  flex: 1;
+}
+
+.meta-label {
+  font-size: 22rpx;
+  color: #98A2B3;
+}
+
+.meta-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #17212B;
+  word-break: break-all;
+}
+
+.meta-value.price {
+  color: #E96012;
+  font-size: 34rpx;
+}
+
+.quota-row {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #EEF1F4;
+}
+
+.quota-text {
+  font-size: 24rpx;
+  color: #E96012;
+}
+
+/* 分组区块 */
 .section-title {
-  font-size: 30rpx; font-weight: 700; color: var(--color-text); padding-left: 16rpx;
-  border-left: 6rpx solid var(--color-primary); line-height: 1.3; margin-bottom: 20rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #17212B;
+  display: block;
+  margin-bottom: 16rpx;
 }
-.price-title { margin-bottom: 8rpx; }
-.price-subtitle { font-size: 22rpx; color: #999999; margin-bottom: 20rpx; padding-left: 16rpx; }
 
-/* 价格列表 */
-.price-list { background: #f8f9fc; border-radius: 16rpx; padding: 0 24rpx; }
+.section-sub {
+  font-size: 22rpx;
+  color: #98A2B3;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.desc-text {
+  font-size: 28rpx;
+  color: #344054;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* 费用明细 */
+.price-list {
+  border-top: 1rpx solid #EEF1F4;
+}
+
 .price-item {
-  display: flex; justify-content: space-between; align-items: baseline;
-  padding: 24rpx 0; border-bottom: 1rpx solid #ebeef5;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #EEF1F4;
 }
-.price-item:last-child { border-bottom: none; }
-.price-name { font-size: 28rpx; color: #1a1a1a; font-weight: 500; }
-.price-right { display: flex; align-items: baseline; }
-.price-symbol { font-size: 24rpx; color: var(--color-warning); font-weight: 600; }
-.price-value { font-size: 36rpx; color: var(--color-warning); font-weight: 700; margin: 0 4rpx; }
-.price-unit { font-size: 22rpx; color: var(--color-text-secondary); }
 
-/* 评分 */
-.rating-block {
-  display: flex; align-items: center; gap: 12rpx; margin-top: 36rpx;
-  padding-top: 28rpx; border-top: 1rpx solid #f0f0f0;
+.price-item:last-child { border-bottom: none; }
+
+.price-name {
+  font-size: 28rpx;
+  color: #344054;
+  font-weight: 500;
 }
-.rating-score { font-size: 40rpx; font-weight: 700; color: var(--color-success); }
-.rating-unit { font-size: 24rpx; color: var(--color-success); font-weight: 500; margin-right: 12rpx; }
-.rating-stars { display: flex; align-items: center; }
-.rating-star-text { font-size: 24rpx; color: var(--color-warning); letter-spacing: 2rpx; }
+
+.price-right { display: flex; align-items: baseline; }
+.price-symbol { font-size: 24rpx; color: #E96012; font-weight: 600; }
+.price-value { font-size: 34rpx; color: #E96012; font-weight: 700; margin: 0 4rpx; }
+.price-unit { font-size: 22rpx; color: #98A2B3; }
+
+/* 培训环境 */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12rpx;
+}
+
+.photo {
+  width: 100%;
+  height: 210rpx;
+  border-radius: 12rpx;
+  background: #F4F6F8;
+}
 
 /* 联系信息 */
 .contact-item {
-  display: flex; align-items: center; gap: 20rpx; padding: 24rpx 20rpx;
-  background: #f8f9fc; border-radius: 16rpx; margin-bottom: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #EEF1F4;
 }
-.contact-icon-wrapper {
-  width: 60rpx; height: 60rpx; border-radius: 12rpx; display: flex;
-  align-items: center; justify-content: center; flex-shrink: 0;
+
+.contact-item:last-child { border-bottom: none; }
+
+.contact-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-.contact-icon-wrapper.location { background: var(--color-primary-light); }
-.contact-icon-wrapper.phone { background: #fff4e6; }
-.contact-icon-wrapper.time { background: #f0e8ff; }
-.contact-icon { font-size: 32rpx; }
-.contact-icon.location { color: var(--color-primary); }
-.contact-icon.phone { color: var(--color-warning); }
-.contact-icon.time { color: var(--color-primary); }
+
+.ic-blue { background: #EAF3FB; }
+.ic-orange { background: #FFF0E6; }
+.ic-green { background: #E9F7F0; }
+
+.contact-icon-text {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.ic-blue .contact-icon-text { color: #0A66C2; }
+.ic-orange .contact-icon-text { color: #E96012; }
+.ic-green .contact-icon-text { color: #168A55; }
+
 .contact-content { flex: 1; }
-.contact-label { font-size: 24rpx; color: var(--color-text-secondary); margin-bottom: 4rpx; }
-.contact-value { font-size: 28rpx; color: var(--color-text); }
-.contact-value.link { color: var(--color-primary); font-weight: 600; }
-.contact-arrow { color: #c0c4cc; font-size: 32rpx; }
 
-/* 机构简介 */
-.org-intro { font-size: 28rpx; color: #4a4a4a; line-height: 1.8; white-space: pre-line; }
-
-/* 证书 */
-.certificate-image { width: 100%; border-radius: 12rpx; background: #f5f6f8; }
-.certificate-placeholder {
-  width: 100%; min-height: 400rpx; border-radius: 12rpx;
-  background: linear-gradient(135deg, #faf9e8, #f0edd4);
-  display: flex; align-items: center; justify-content: center;
-}
-.cert-placeholder-text { font-size: 28rpx; color: var(--color-text-secondary); }
-
-/* 培训环境 */
-.env-list { display: flex; flex-direction: column; gap: 20rpx; }
-.env-image { width: 100%; border-radius: 12rpx; background: #34495e; }
-.env-placeholder-list { display: flex; flex-direction: column; gap: 16rpx; }
-.env-placeholder-item {
-  width: 100%; min-height: 200rpx; border-radius: 12rpx;
-  background: linear-gradient(135deg, #34495e, #2c3e50);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12rpx;
-}
-.env-placeholder-icon { font-size: 48rpx; }
-.env-placeholder-text { font-size: 26rpx; color: rgba(255,255,255,0.5); }
-
-.bottom-placeholder { height: 160rpx; }
-
-/* 底部双按钮 */
-.bottom-action-bar {
-  position: fixed; left: 0; right: 0; bottom: 0; padding: 20rpx 32rpx;
-  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
-  background: rgba(255,255,255,0.95); backdrop-filter: blur(20rpx); z-index: 100;
-  box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.06);
-  display: flex; gap: 20rpx;
+.contact-label {
+  font-size: 22rpx;
+  color: #98A2B3;
+  display: block;
+  margin-bottom: 4rpx;
 }
 
-.action-btn {
-  flex: 1; height: 96rpx; border-radius: 48rpx;
-  display: flex; align-items: center; justify-content: center;
+.contact-value {
+  font-size: 28rpx;
+  color: #344054;
 }
 
-.enroll-btn {
-  background: linear-gradient(135deg, var(--color-success) 0%, #05a854 100%);
-  box-shadow: 0 8rpx 20rpx rgba(7, 193, 96, 0.3);
+.contact-value.link {
+  color: #0A66C2;
+  font-weight: 600;
 }
 
-.consult-btn {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #5b6dff 100%);
-  box-shadow: 0 8rpx 20rpx rgba(91, 109, 255, 0.3);
+.contact-arrow {
+  color: #98A2B3;
+  font-size: 32rpx;
 }
 
-.action-text { color: #ffffff; font-size: 32rpx; font-weight: 600; letter-spacing: 2rpx; }
+/* 报名须知 */
+.notice-block {
+  background: #EAF3FB;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.notice-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #0A66C2;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.notice-line {
+  display: block;
+  font-size: 24rpx;
+  color: #344054;
+  line-height: 1.7;
+}
+
+.notice-line.warn {
+  color: #E96012;
+}
+
+.bottom-placeholder { height: 20rpx; }
+
+/* ===== 底部操作栏 ===== */
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16rpx 24rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  border-top: 1rpx solid #EEF1F4;
+  display: flex;
+  gap: 20rpx;
+  z-index: 100;
+}
+
+.bb-btn {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.bb-primary {
+  background: #0A66C2;
+  color: #FFFFFF;
+}
+
+.bb-secondary {
+  background: #FFFFFF;
+  color: #0A66C2;
+  border: 2rpx solid #0A66C2;
+}
 </style>

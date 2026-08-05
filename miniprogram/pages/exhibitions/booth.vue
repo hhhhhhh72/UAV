@@ -336,7 +336,7 @@ export default {
   padding: 8px 24px;
   background: var(--color-primary);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -344,7 +344,7 @@ export default {
 .summary-card {
   background: var(--color-bg-card);
   margin: 12px;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }

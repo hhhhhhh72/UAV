@@ -189,7 +189,7 @@ export default {
   padding: 8px 24px;
   background: var(--color-primary);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -198,7 +198,7 @@ export default {
   background: #fff;
   margin: 12px 16px;
   padding: 24px 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: flex-start;
   gap: 16px;
@@ -274,7 +274,7 @@ export default {
   background: #fff;
   margin: 12px 16px;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 

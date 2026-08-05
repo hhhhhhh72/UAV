@@ -1,5 +1,5 @@
 <template>
-<Layout :current="3">
+<Layout :current="1">
   <view class="page">
     <!-- 轮播图 -->
     <swiper class="banner" autoplay circular interval="3000" indicator-dots indicator-color="rgba(255,255,255,.4)" indicator-active-color="#fff">
@@ -83,9 +83,9 @@ import Layout from '@/components/Layout.vue'
 import { request } from '@/utils/request'
 
 const banners = ref([
-  { bg: 'linear-gradient(135deg,#4fc3f7,#0288d1)', title: '无人机商家入驻' },
-  { bg: 'linear-gradient(135deg,#81c784,#388e3c)', title: '优质商家推荐' },
-  { bg: 'linear-gradient(135deg,#ff8a65,#e64a19)', title: '限时入驻优惠' },
+  { bg: '#4fc3f7', title: '无人机商家入驻' },
+  { bg: '#81c784', title: '优质商家推荐' },
+  { bg: '#ff8a65', title: '限时入驻优惠' },
 ])
 
 const cats = ref([
@@ -124,7 +124,7 @@ loadShops()
 // 分类入口：可跳转的真实页面；暂无可跳页面时引导联系协会
 const pickCat = (id) => {
   if (id === 'train') return uni.navigateTo({ url: '/pages/training/courses' })
-  if (id === 'sale' || id === 'parts') return uni.switchTab({ url: '/pages/mall/index' })
+  if (id === 'sale' || id === 'parts') return uni.navigateTo({ url: '/pages/mall/index' })
   uni.showToast({ title: '该分类商家请联系协会推荐', icon: 'none' })
 }
 const goJoin = () => uni.navigateTo({ url:'/pages/enterprise/register' })
@@ -189,5 +189,5 @@ const callShop = (s) => {
 .empty { text-align:center; padding:40px; color:#999; font-size:13px; }
 
 /* Join CTA */
-.join-cta { position:fixed; right:12px; bottom:80px; width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,var(--color-warning),var(--color-danger)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; box-shadow:0 4px 12px rgba(255,107,53,.4); z-index:50; }
+.join-cta { position:fixed; right:12px; bottom:80px; width:54px; height:54px; border-radius:50%; background:var(--color-warning)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; box-shadow:0 4px 12px rgba(255,107,53,.4); z-index:50; }
 </style>

@@ -182,8 +182,8 @@ const doRegister = async () => {
   padding: 16rpx 0 40rpx;
 }
 .brand-mark {
-  width: 68rpx; height: 68rpx; border-radius: 20rpx;
-  background: linear-gradient(135deg, #0A66C2, #1DD4A8);
+  width: 68rpx; height: 68rpx; border-radius: 16rpx;
+  background: #0A66C2;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -210,7 +210,7 @@ const doRegister = async () => {
 .input-box {
   display: flex; align-items: center;
   height: 104rpx; padding: 0 28rpx;
-  background: #fafafa; border-radius: 24rpx;
+  background: #fafafa; border-radius: 16rpx;
   border: 2rpx solid transparent; transition: border-color 0.2s;
 }
 .input-box:focus-within { border-color: #0A66C2; background: #ffffff; }
@@ -251,8 +251,8 @@ const doRegister = async () => {
 
 /* 注册按钮 */
 .submit-btn {
-  height: 100rpx; border-radius: 50rpx;
-  background: linear-gradient(135deg, #0A66C2, #1677D4);
+  height: 100rpx; border-radius: 16rpx;
+  background: #0A66C2;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 8rpx 32rpx rgba(10, 102, 194, 0.25);
 }

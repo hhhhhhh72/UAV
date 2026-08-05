@@ -161,7 +161,7 @@ onPullDownRefresh(function () {
 .page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
 
 /* ① Banner */
-.banner { background: linear-gradient(135deg, var(--color-success), #05a854); padding: 0 32rpx 72rpx; }
+.banner { background: var(--color-success); padding: 0 32rpx 72rpx; }
 
 .status-placeholder { width: 100%; }
 
@@ -180,21 +180,21 @@ onPullDownRefresh(function () {
 .banner-sub { color: rgba(255,255,255,0.7); font-size: 26rpx; font-weight: 400; display: block; }
 
 /* ② 搜索 + 卡片 */
-.main-card { background: #ffffff; border-radius: 32rpx 32rpx 0 0; margin-top: -32rpx; padding: 24rpx 0 0; position: relative; z-index: 2; }
+.main-card { background: #ffffff; border-radius: 16rpx 32rpx 0 0; margin-top: -32rpx; padding: 24rpx 0 0; position: relative; z-index: 2; }
 
-.search-bar { margin: 0 24rpx 24rpx; background: var(--color-bg); border-radius: 40rpx; padding: 16rpx 24rpx; display: flex; align-items: center; gap: 12rpx; }
+.search-bar { margin: 0 24rpx 24rpx; background: var(--color-bg); border-radius: 16rpx; padding: 16rpx 24rpx; display: flex; align-items: center; gap: 12rpx; }
 .search-input { flex: 1; font-size: 28rpx; color: var(--color-text); }
 
 .list-scroll { padding: 0 24rpx; height: calc(100vh - 440rpx); }
 
-.study-card { background: #ffffff; border-radius: 20rpx; overflow: hidden; margin-bottom: 24rpx; box-shadow: 0 2rpx 16rpx rgba(0,0,0,0.04); }
+.study-card { background: #ffffff; border-radius: 16rpx; overflow: hidden; margin-bottom: 24rpx; box-shadow: 0 2rpx 16rpx rgba(0,0,0,0.04); }
 
 .card-cover { height: 200rpx; position: relative; overflow: hidden; }
 .cover-img { width: 100%; height: 100%; }
-.cover-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--color-primary), #1565c0); }
+.cover-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary); }
 .cover-emoji { font-size: 80rpx; opacity: 0.12; }
 
-.status-badge { position: absolute; top: 16rpx; right: 16rpx; padding: 6rpx 18rpx; border-radius: 20rpx; color: #ffffff; font-size: 22rpx; font-weight: 600; }
+.status-badge { position: absolute; top: 16rpx; right: 16rpx; padding: 6rpx 18rpx; border-radius: 16rpx; color: #ffffff; font-size: 22rpx; font-weight: 600; }
 
 .card-body { padding: 24rpx; }
 .card-name { font-size: 32rpx; font-weight: 600; color: var(--color-text); display: block; margin-bottom: 16rpx; }

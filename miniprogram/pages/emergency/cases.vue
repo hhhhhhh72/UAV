@@ -1,90 +1,80 @@
 <template>
   <view class="cases-page">
-    <!-- Nav -->
     <u-nav-bar
       title="救援案例库"
       show-back
       @back="goBack"
     />
 
-    <!-- Search -->
     <u-sticky>
       <u-search
         v-model="searchText"
         placeholder="搜索救援案例"
         @search="onSearch"
       />
+      <u-tabs
+        v-model:active="typeIndex"
+        :titles="typeTitles"
+        @change="onTypeChange"
+      />
     </u-sticky>
 
-    <!-- Tabs -->
-    <u-tabs
-      :active="tabIndex"
-      :titles="tabTitles"
-      @change="onTabChange"
-    />
-
-    <!-- Loading state -->
+    <!-- Loading -->
     <view v-if="loading && list.length === 0" class="loading-state">
       <view class="loading-inline">
-        <u-loading size="24rpx" />
+        <u-loading size="24rpx" color="#667085" />
         <text>加载中...</text>
       </view>
     </view>
 
-    <!-- Empty state -->
-    <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <u-empty description="暂无案例" />
-    </view>
-
-    <!-- Error state -->
-    <view v-else-if="errorMsg && list.length === 0" class="error-state">
+    <!-- Error -->
+    <view v-else-if="errorMsg && list.length === 0" class="state-view">
       <u-empty description="加载失败" />
       <view class="retry-btn" @tap="fetchList(true)">
         <text>重新加载</text>
       </view>
     </view>
 
-    <!-- Normal state -->
-    <view v-else class="list-body">
-      <u-cell-group inset>
-        <u-cell
-          v-for="item in list"
-          :key="item.id"
-        >
-          <template #title>
-            <view class="case-content">
-              <view class="case-title-row">
-                <text class="case-emoji">{{ eventEmoji(item.event_type) }}</text>
-                <text class="case-title">{{ item.title }}</text>
-              </view>
-              <view class="case-meta">
-                <u-tag :type="eventTagType(item.event_type)" size="mini">
-                  {{ item.event_type || '未知' }}
-                </u-tag>
-                <text v-if="item.date" class="meta-text">{{ item.date }}</text>
-              </view>
-              <view class="case-extra">
-                <text v-if="item.location" class="extra-text">{{ item.location }}</text>
-                <text v-if="item.drone_model" class="extra-text">{{ item.drone_model }}</text>
-              </view>
-            </view>
-          </template>
-          <template #value>
-            <u-tag :type="resultTagType(item.result)" size="mini">
-              {{ resultLabel(item.result) }}
-            </u-tag>
-          </template>
-        </u-cell>
-      </u-cell-group>
+    <!-- Empty -->
+    <view v-else-if="!loading && list.length === 0" class="state-view">
+      <u-empty description="暂无案例" />
+    </view>
 
-      <!-- Load more -->
-      <view v-if="list.length > 0" class="load-more">
-        <view v-if="loadingMore" class="loading-inline">
-          <u-loading size="20rpx" />
-          <text>加载更多...</text>
+    <!-- List -->
+    <view v-else class="list-body">
+      <view class="c-list">
+        <view v-for="item in list" :key="item.id" class="c-card">
+          <view class="c-top">
+            <view class="c-icon" :style="eventIconStyle(item.event_type)"><text>{{ eventIcon(item.event_type) }}</text></view>
+            <text class="c-title">{{ item.title || '未命名案例' }}</text>
+          </view>
+
+          <view class="c-meta">
+            <u-tag :type="eventTagType(item.event_type)" size="mini" :round="false" plain>{{ item.event_type || '未知' }}</u-tag>
+            <text v-if="item.date" class="c-text">{{ item.date }}</text>
+          </view>
+
+          <view v-if="item.location || item.drone_model" class="c-extra">
+            <text v-if="item.location" class="c-text">{{ item.location }}</text>
+            <text v-if="item.drone_model" class="c-text">{{ item.drone_model }}</text>
+          </view>
+
+          <view v-if="item.result" class="c-result">
+            <text class="c-result-label">处置结果</text>
+            <u-tag :type="resultTagType(item.result)" size="mini" :round="false" plain>{{ resultLabel(item.result) }}</u-tag>
+          </view>
         </view>
-        <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+
+        <!-- Load more -->
+        <view v-if="list.length > 0" class="load-more">
+          <view v-if="loadingMore" class="loading-inline">
+            <u-loading size="24rpx" color="#667085" />
+            <text>加载更多...</text>
+          </view>
+          <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+        </view>
       </view>
+      <view class="bottom-space" />
     </view>
   </view>
 </template>
@@ -97,6 +87,9 @@ export default {
     return {
       searchText: '',
       activeType: '',
+      typeIndex: 0,
+      typeTitles: ['全部', '山火', '洪水', '地震', '搜救', '其他'],
+      typeMap: ['', '山火', '洪水', '地震', '搜救', '其他'],
       loading: false,
       loadingMore: false,
       errorMsg: '',
@@ -104,24 +97,7 @@ export default {
       page: 1,
       pageSize: 20,
       hasMore: true,
-      typeTabs: [
-        { label: '全部', value: '' },
-        { label: '山火', value: '山火' },
-        { label: '洪水', value: '洪水' },
-        { label: '地震', value: '地震' },
-        { label: '搜救', value: '搜救' },
-        { label: '其他', value: '其他' },
-      ],
     }
-  },
-  computed: {
-    tabTitles() {
-      return this.typeTabs.map(function (t) { return t.label })
-    },
-    tabIndex() {
-      var idx = this.typeTabs.findIndex(function (t) { return t.value === this.activeType }.bind(this))
-      return idx >= 0 ? idx : 0
-    },
   },
   onLoad() {
     this.fetchList(true)
@@ -172,19 +148,20 @@ export default {
         this.loadingMore = false
       }
     },
-    async loadMore() {
+    loadMore() {
       this.page++
-      await this.fetchList(false)
+      this.fetchList(false)
     },
     onSearch() {
       this.fetchList(true)
     },
-    onTabChange(index) {
-      var tab = this.typeTabs[index]
-      this.activeType = tab ? tab.value : ''
+    onTypeChange(index) {
+      this.typeIndex = index
+      this.activeType = this.typeMap[index]
       this.fetchList(true)
     },
-    eventEmoji(type) {
+    /* 事件类型字符图标（低饱和色块，非 emoji） */
+    eventIcon(type) {
       var map = {
         '山火': '火',
         '洪水': '水',
@@ -193,6 +170,15 @@ export default {
         '其他': '卫',
       }
       return map[type] || '卫'
+    },
+    eventIconStyle(type) {
+      var map = {
+        '山火': { background: '#FFF0E6', color: '#E96012' },
+        '洪水': { background: '#EAF3FB', color: '#0A66C2' },
+        '地震': { background: '#F6F4FF', color: '#667085' },
+        '搜救': { background: '#E9F7F0', color: '#168A55' },
+      }
+      return map[type] || { background: '#F4F6F8', color: '#667085' }
     },
     eventTagType(type) {
       var map = {
@@ -226,10 +212,11 @@ export default {
 <style scoped>
 .cases-page {
   min-height: 100vh;
-  background: var(--color-bg);
+  background: #F4F6F8;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* State views */
 .loading-state {
   display: flex;
   justify-content: center;
@@ -241,96 +228,115 @@ export default {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: var(--color-text-secondary);
+  color: #667085;
 }
 
-.empty-state-wrapper {
-  padding-top: 60px;
-}
-
-.error-state {
+.state-view {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 120px;
+  padding-top: 80px;
 }
 
 .retry-btn {
   margin-top: 12px;
   padding: 8px 24px;
-  background: var(--color-primary);
+  background: #0A66C2;
   color: #fff;
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
+/* List */
 .list-body {
-  padding: 12px 0 24px;
+  padding-top: 12px;
 }
 
-.case-content {
+.c-list { padding: 0 24rpx; }
+
+.c-card {
+  background: #ffffff;
+  border: 1px solid #EEF1F4;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.c-top {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
+  align-items: flex-start;
+  gap: 16rpx;
+  margin-bottom: 14rpx;
 }
 
-.case-title-row {
+.c-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 16rpx;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.case-emoji {
-  width: 44rpx;
-  height: 44rpx;
-  line-height: 44rpx;
-  text-align: center;
-  font-size: 24rpx;
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-  border-radius: 8rpx;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
-.case-title {
-  font-size: 15px;
+.c-title {
+  font-size: 30rpx;
   font-weight: 600;
-  color: var(--color-text);
+  color: #17212B;
+  flex: 1;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-.case-meta {
+.c-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16rpx;
+  margin-bottom: 10rpx;
 }
 
-.meta-text {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.case-extra {
+.c-extra {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 24rpx;
+  margin-bottom: 12rpx;
 }
 
-.extra-text {
-  font-size: 12px;
-  color: var(--color-text-placeholder);
+.c-text {
+  font-size: 23rpx;
+  color: #667085;
 }
 
+.c-result {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background: #F4F6F8;
+  border-radius: 8rpx;
+  padding: 14rpx 16rpx;
+}
+
+.c-result-label {
+  font-size: 24rpx;
+  color: #98A2B3;
+}
+
+/* Load more */
 .load-more {
   text-align: center;
-  padding: 16px 0;
+  padding: 20rpx 0;
 }
 
 .no-more {
-  color: var(--color-text-placeholder);
-  font-size: 13px;
+  font-size: 24rpx;
+  color: #98A2B3;
 }
+
+.bottom-space { height: 24rpx; }
 </style>

@@ -1,102 +1,117 @@
 <template>
-  <view class="page">
-    <!-- ① 学术蓝 Banner -->
-    <view class="banner">
-      <view class="banner-nav">
-        <view class="back-btn" @click="goBack"><text class="back-icon">‹</text></view>
-        <text class="banner-nav-title">院校展示</text>
-      </view>
-      <text class="banner-title">无人机专业院校</text>
-      <text class="banner-subtitle">产学研融合 · 人才培养摇篮</text>
+  <view class="colleges-page">
+    <!-- 搜索（原生导航栏为白色，标题「院校展示」） -->
+    <u-sticky>
+      <u-search
+        v-model="keyword"
+        placeholder="搜索院校名称"
+        @change="onKeywordInput"
+        @search="onSearch"
+      />
+    </u-sticky>
+
+    <!-- 院校层次筛选 -->
+    <view class="filter-bar">
+      <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
+        <view class="filter-tabs">
+          <view
+            v-for="t in tabs"
+            :key="t.value"
+            class="filter-tab"
+            :class="{ active: currentTab === t.value }"
+            @tap="switchTab(t.value)"
+          >{{ t.label }}</view>
+        </view>
+      </scroll-view>
     </view>
 
-    <!-- ② Tab + 搜索 -->
-    <view class="main-card">
-      <view class="tabs-container">
-        <view class="tab-item" :class="{ active: currentTab === 'all' }" @click="switchTab('all')">全部院校</view>
-        <view class="tab-item" :class="{ active: currentTab === 'undergraduate' }" @click="switchTab('undergraduate')">本科院校</view>
-        <view class="tab-item" :class="{ active: currentTab === 'vocational' }" @click="switchTab('vocational')">专科院校</view>
-      </view>
-
-      <view class="search-bar">
-        <u-icon name="search" size="28rpx" color="#969799" />
-        <input class="search-input" v-model="keyword" placeholder="搜索院校名称" @input="onSearch" />
-      </view>
-
-      <!-- ③ 院校卡片 -->
-      <StateView
-        :loading="loading"
-        :error="!!errorMsg"
-        :empty="!loading && !errorMsg && list.length === 0"
-        empty-text="暂无院校"
-        @retry="loadData"
-      >
-        <scroll-view class="list-scroll" scroll-y @scrolltolower="loadMore">
-          <view v-for="item in list" :key="item.id" class="college-card" @click="goDetail(item)">
-            <!-- 封面 -->
-            <view class="card-cover">
-              <image v-if="item.cover || item.cover_image || item.image" :src="item.cover || item.cover_image || item.image" class="cover-img" mode="aspectFill" />
-              <view v-else class="cover-placeholder"><text class="cover-emoji">校</text></view>
+    <!-- 院校列表 -->
+    <StateView
+      :loading="loading"
+      :error="!!errorMsg"
+      :empty="!loading && !errorMsg && list.length === 0"
+      empty-text="暂无院校"
+      @retry="loadData"
+    >
+      <view class="list-body">
+        <view
+          v-for="item in list"
+          :key="item.id"
+          class="college-card"
+          hover-class="tap-fade"
+          @tap="goDetail(item)"
+        >
+          <view class="card-cover">
+            <image
+              v-if="coverOf(item)"
+              :src="coverOf(item)"
+              mode="aspectFill"
+              class="cover-img"
+            />
+            <view v-else class="cover-placeholder">
+              <text class="cover-initial">{{ initShort(item) }}</text>
             </view>
-
-            <view class="card-body">
-              <!-- 头像 + 名称 -->
-              <view class="card-header">
-                <view class="college-avatar">{{ initShort(item) }}</view>
-                <view class="header-info">
-                  <text class="college-name">{{ item.name || item.title || '未知院校' }}</text>
-                  <text class="college-location">{{ [item.city || '', (item.tags || []).join(' · ')].filter(Boolean).join(' · ') }}</text>
-                </view>
-              </view>
-
-              <!-- 数据统计条 -->
-              <view class="stats-bar">
-                <view class="stat-item">
-                  <text class="stat-value">{{ item.majorCount || item.major_count || 0 }}</text>
-                  <text class="stat-label">无人机专业</text>
-                </view>
-                <view class="stat-divider" />
-                <view class="stat-item">
-                  <text class="stat-value">{{ item.partnerCount || item.partner_count || 0 }}</text>
-                  <text class="stat-label">合作企业</text>
-                </view>
-                <view class="stat-divider" />
-                <view class="stat-item">
-                  <text class="stat-value">{{ item.studentCount || item.student_count || 0 }}+</text>
-                  <text class="stat-label">在读学生</text>
-                </view>
-              </view>
-
-              <!-- 简介 -->
-              <text class="college-intro">{{ item.intro || item.description || '暂无简介' }}</text>
-
-              <!-- 专业标签 -->
-              <view v-if="specTags(item).length > 0" class="tag-row">
-                <text v-for="tag in specTags(item)" :key="tag" class="spec-tag"
-                  :style="{ background: tagBgColor(tag), color: tagTc(tag) }">{{ tag }}</text>
-              </view>
-            </view>
+            <text class="cover-tag" :class="'cover-tag--' + collegeLevel(item)">{{ levelLabel(item) }}</text>
           </view>
 
-          <view v-if="list.length > 0" class="load-more-wrap">
-            <view v-if="loadingMore" class="loading-inline">
-              <u-loading size="24rpx" />
-              <text>加载更多...</text>
+          <view class="card-body">
+            <text class="college-name">{{ item.name || item.title || '未知院校' }}</text>
+            <text class="college-location">{{ locationText(item) }}</text>
+
+            <!-- 关键数据 -->
+            <view class="stats-bar">
+              <view class="stat-item">
+                <text class="stat-value">{{ (item.majors && item.majors.length) || item.majorCount || 0 }}</text>
+                <text class="stat-label">无人机专业</text>
+              </view>
+              <view class="stat-divider" />
+              <view class="stat-item">
+                <text class="stat-value">{{ item.partnerCount || item.partner_count || 0 }}</text>
+                <text class="stat-label">合作企业</text>
+              </view>
+              <view class="stat-divider" />
+              <view class="stat-item">
+                <text class="stat-value">{{ item.studentCount || item.student_count || 0 }}+</text>
+                <text class="stat-label">在读学生</text>
+              </view>
             </view>
-            <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+
+            <text class="college-intro">{{ item.intro || item.description || '暂无简介' }}</text>
+
+            <view v-if="specTags(item).length > 0" class="tag-row">
+              <text
+                v-for="tag in specTags(item)"
+                :key="tag"
+                class="spec-tag"
+                :class="levelTagClass(tag)"
+              >{{ tag }}</text>
+            </view>
           </view>
-          <view style="height:40rpx" />
-        </scroll-view>
-      </StateView>
-    </view>
+        </view>
+
+        <view v-if="list.length > 0" class="load-more">
+          <view v-if="loadingMore" class="loading-inline">
+            <u-loading size="24rpx" />
+            <text>加载更多...</text>
+          </view>
+          <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+        </view>
+      </view>
+    </StateView>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
 import StateView from '../../components/StateView.vue'
+
+const tabs = [
+  { label: '全部院校', value: 'all' },
+  { label: '本科院校', value: 'undergraduate' },
+  { label: '专科院校', value: 'vocational' },
+]
 
 const currentTab = ref('all')
 const keyword = ref('')
@@ -108,14 +123,20 @@ const page = ref(1)
 const pageSize = 20
 const hasMore = ref(true)
 
-function tagBgColor(tag) {
-  if (['博士点', '硕士点', '双一流'].indexOf(tag) >= 0) return '#fff4e6'
-  return 'var(--color-primary-light)'
+/* 院校层级：985/211=顶尖、本科、专科 */
+function collegeLevel(item) {
+  var tags = item.tags || []
+  if (tags.indexOf('985') >= 0 || tags.indexOf('211') >= 0) return 'top'
+  if (tags.indexOf('专科') >= 0 || tags.indexOf('高职') >= 0) return 'vocational'
+  return 'undergraduate'
 }
 
-function tagTc(tag) {
-  if (['博士点', '硕士点', '双一流'].indexOf(tag) >= 0) return 'var(--color-warning)'
-  return 'var(--color-primary)'
+function levelLabel(item) {
+  return { top: '985/211', undergraduate: '本科', vocational: '专科' }[collegeLevel(item)] || '本科'
+}
+
+function coverOf(item) {
+  return item.cover || item.cover_image || item.image || ''
 }
 
 function initShort(item) {
@@ -124,11 +145,21 @@ function initShort(item) {
   return name.charAt(0) || '院'
 }
 
+function locationText(item) {
+  return [item.city || '', (item.tags || []).join(' · ')].filter(Boolean).join(' · ') || '暂无位置信息'
+}
+
 function specTags(item) {
   if (Array.isArray(item.specialties) && item.specialties.length > 0) return item.specialties
   if (Array.isArray(item.majors)) return item.majors
-  if (item.tags) return item.tags
+  if (Array.isArray(item.tags)) return item.tags
   return []
+}
+
+/* 标签配色：重点资质用橙，特色专业用蓝 */
+function levelTagClass(tag) {
+  if (['博士点', '博士', '硕士点', '硕士', '双一流', '985', '211'].indexOf(tag) >= 0) return 'tag--hot'
+  return 'tag--feature'
 }
 
 function switchTab(tab) {
@@ -139,9 +170,15 @@ function switchTab(tab) {
 }
 
 var searchTimer = null
-function onSearch() {
+function onKeywordInput() {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(function () { page.value = 1; loadData(true) }, 300)
+}
+
+function onSearch() {
+  clearTimeout(searchTimer)
+  page.value = 1
+  loadData(true)
 }
 
 async function loadData(reset) {
@@ -171,115 +208,221 @@ async function loadData(reset) {
 }
 
 function loadMore() {
-  if (!loadingMore.value && hasMore.value) { page.value++; loadData(false) }
+  if (loadingMore.value || !hasMore.value) return
+  page.value++
+  loadData(false)
 }
 
 function goDetail(item) {
   uni.navigateTo({ url: '/pages/colleges/detail?id=' + encodeURIComponent(item.id) })
 }
-function goBack() { uni.navigateBack({ delta: 1 }) }
 
 onLoad(function () { loadData(true) })
 
 onPullDownRefresh(function () {
-  loadData(true).then(function () { uni.stopPullDownRefresh() })
+  loadData(true).finally(function () { uni.stopPullDownRefresh() })
 })
+
+onReachBottom(loadMore)
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
-
-/* ① Banner */
-.banner { background: linear-gradient(135deg, var(--color-primary), #1565c0); padding: 80rpx 32rpx 72rpx; }
-.banner-nav { display: flex; align-items: center; gap: 12rpx; margin-bottom: 24rpx; }
-
-.back-btn {
-  width: 64rpx; height: 64rpx; background: rgba(255,255,255,0.15);
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+.colleges-page {
+  min-height: 100vh;
+  background: #F4F6F8;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.back-icon { color: #ffffff; font-size: 40rpx; font-weight: 300; }
-.banner-nav-title { color: rgba(255,255,255,0.9); font-size: 28rpx; font-weight: 500; }
-
-.banner-title { color: #ffffff; font-size: 56rpx; font-weight: 700; line-height: 1.2; margin-bottom: 12rpx; }
-.banner-subtitle { color: rgba(255,255,255,0.7); font-size: 26rpx; font-weight: 400; }
-
-/* ② Tab + 搜索 */
-.main-card { background: #ffffff; border-radius: 32rpx 32rpx 0 0; margin-top: -32rpx; position: relative; z-index: 2; }
-
-.tabs-container { display: flex; justify-content: center; gap: 16rpx; padding: 0 24rpx; margin-top: -36rpx; }
-
-.tab-item {
-  width: 200rpx; height: 72rpx; line-height: 72rpx; text-align: center;
-  border-radius: 40rpx; font-size: 26rpx; font-weight: 400;
-  color: #666666; background: #ffffff; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+/* 筛选 */
+.filter-bar {
+  background: #fff;
+  border-bottom: 1px solid #EEF1F4;
+  padding: 8px 12px;
 }
 
-.tab-item.active {
-  background: var(--color-primary); color: #ffffff; font-weight: 600;
-  box-shadow: 0 4rpx 16rpx rgba(10,102,194,0.35);
+.filter-scroll {
+  white-space: nowrap;
 }
 
-.search-bar {
-  margin: 24rpx 24rpx 0; background: var(--color-bg); border-radius: 40rpx;
-  padding: 16rpx 24rpx; display: flex; align-items: center; gap: 12rpx;
+.filter-tabs {
+  display: inline-flex;
+  gap: 8px;
 }
 
-.search-input { flex: 1; font-size: 28rpx; color: var(--color-text); }
+.filter-tab {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #344054;
+  background: #F4F6F8;
+  border: 1px solid #EEF1F4;
+}
 
-/* ③ 卡片 */
-.list-scroll { padding: 24rpx 24rpx 0; height: calc(100vh - 480rpx); }
+.filter-tab.active {
+  color: #fff;
+  background: #0A66C2;
+  border-color: #0A66C2;
+  font-weight: 500;
+}
+
+/* 列表 */
+.list-body {
+  padding: 12px;
+}
 
 .college-card {
-  background: #ffffff; border-radius: 20rpx; overflow: hidden;
-  margin-bottom: 24rpx; box-shadow: 0 2rpx 16rpx rgba(0,0,0,0.04);
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
 }
 
-.card-cover { height: 200rpx; position: relative; overflow: hidden; }
-.cover-img { width: 100%; height: 100%; }
+.card-cover {
+  width: 100%;
+  height: 110px;
+  position: relative;
+  background: #F4F6F8;
+}
+
+.cover-img {
+  width: 100%;
+  height: 100%;
+}
 
 .cover-placeholder {
-  width: 100%; height: 100%; background: linear-gradient(135deg, var(--color-primary), #1976d2);
-  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #EAF3FB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.cover-emoji { font-size: 80rpx; opacity: 0.12; }
-.card-body { padding: 24rpx; }
-
-.card-header { display: flex; align-items: center; gap: 16rpx; margin-bottom: 20rpx; }
-
-.college-avatar {
-  width: 88rpx; height: 88rpx; background: var(--color-primary); border-radius: 20rpx;
-  display: flex; align-items: center; justify-content: center;
-  color: #ffffff; font-size: 40rpx; font-weight: 600; flex-shrink: 0;
+.cover-initial {
+  font-size: 40px;
+  font-weight: 700;
+  color: #0A66C2;
 }
 
-.header-info { flex: 1; min-width: 0; }
+.cover-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  background: #fff;
+  border: 1px solid #EEF1F4;
+}
 
-.college-name { font-size: 32rpx; font-weight: 600; color: var(--color-text); display: block; line-height: 1.3; }
-.college-location { font-size: 24rpx; color: var(--color-primary); font-weight: 500; margin-top: 4rpx; display: block; }
+.cover-tag--top { color: #E96012; }
+.cover-tag--undergraduate { color: #0A66C2; }
+.cover-tag--vocational { color: #168A55; }
 
-/* 数据条 */
+.card-body {
+  padding: 12px;
+}
+
+.college-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #17212B;
+  line-height: 1.4;
+  display: block;
+}
+
+.college-location {
+  font-size: 11px;
+  color: #667085;
+  display: block;
+  margin-top: 4px;
+}
+
+/* 关键数据 */
 .stats-bar {
-  display: flex; align-items: center; padding: 20rpx 16rpx;
-  background: #f8fafc; border-radius: 16rpx; margin-bottom: 18rpx;
+  display: flex;
+  align-items: center;
+  background: #F4F6F8;
+  border-radius: 8px;
+  padding: 10px 0;
+  margin: 10px 0;
 }
 
-.stat-item { flex: 1; text-align: center; }
-.stat-value { font-size: 36rpx; font-weight: 700; color: var(--color-primary); display: block; }
-.stat-label { font-size: 22rpx; color: var(--color-text-secondary); display: block; margin-top: 4rpx; }
-.stat-divider { width: 2rpx; height: 40rpx; background: #e0e4e8; }
+.stat-item {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #17212B;
+  display: block;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: #667085;
+  display: block;
+  margin-top: 2px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 24px;
+  background: #EEF1F4;
+}
 
 .college-intro {
-  font-size: 26rpx; color: #4a4a4a; line-height: 1.6;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; margin-bottom: 16rpx;
+  font-size: 12px;
+  color: #344054;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
 }
 
-.tag-row { display: flex; flex-wrap: wrap; gap: 10rpx; }
-.spec-tag { padding: 6rpx 18rpx; border-radius: 12rpx; font-size: 22rpx; font-weight: 500; }
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
 
-.load-more-wrap { text-align: center; padding: 20rpx 0; }
-.loading-inline { display: flex; align-items: center; justify-content: center; gap: 8rpx; font-size: 24rpx; color: var(--color-text-secondary); }
-.no-more { font-size: 24rpx; color: var(--color-text-secondary); }
+.spec-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.tag--feature { background: #EAF3FB; color: #0A66C2; }
+.tag--hot { background: #FFF0E6; color: #E96012; }
+
+/* 加载更多 */
+.load-more {
+  text-align: center;
+  padding: 16px 0;
+}
+
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #667085;
+}
+
+.no-more {
+  color: #98A2B3;
+  font-size: 12px;
+}
+
+.tap-fade {
+  opacity: 0.7;
+}
 </style>
