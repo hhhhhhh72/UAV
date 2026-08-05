@@ -431,7 +431,7 @@ func (s *Server) listAdminDemands(w http.ResponseWriter, r *http.Request) {
 	if st == "" {
 		st = "all"
 	}
-	result, err := s.demands.List(repository.DemandFilter{Status: st})
+	result, err := s.demands.ListAll(repository.DemandFilter{Status: st})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

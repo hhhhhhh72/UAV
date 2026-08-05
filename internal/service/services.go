@@ -62,6 +62,11 @@ func (s *DemandService) Create(a domain.Actor, in CreateDemandInput) (domain.Dem
 func (s *DemandService) List(f repository.DemandFilter) ([]domain.Demand, error) {
 	return s.repo.List(f)
 }
+
+// ListAll 管理端全量（含待审核等全部状态）。
+func (s *DemandService) ListAll(f repository.DemandFilter) ([]domain.Demand, error) {
+	return s.repo.ListAll(f)
+}
 func (s *DemandService) Search(q string) ([]domain.Demand, error)  { return s.repo.Search(q) }
 func (s *DemandService) FindByID(id string) (domain.Demand, error) { return s.repo.FindByID(id) }
 func (s *DemandService) UpdateDraft(a domain.Actor, id, title, desc string) (domain.Demand, error) {

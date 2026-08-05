@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -145,6 +146,37 @@ func (r *demandRepo) List(f repository.DemandFilter) ([]domain.Demand, error) {
 		q += fmt.Sprintf(" AND biz_type = $%d", argIdx)
 		args = append(args, f.BizType)
 		argIdx++
+	}
+	q += " ORDER BY created_at DESC"
+	return scanDemands(r.pool, r.cipher, q, args)
+}
+
+// ListAll 管理端全量（含待审核等全部状态），status 过滤由 f.Status 控制。
+func (r *demandRepo) ListAll(f repository.DemandFilter) ([]domain.Demand, error) {
+	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		status, version, created_at, updated_at
+		FROM demands`
+	args := []any{}
+	argIdx := 1
+	conds := []string{}
+	if f.Status != "" && f.Status != "all" {
+		conds = append(conds, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, f.Status)
+		argIdx++
+	}
+	if f.District != "" {
+		conds = append(conds, fmt.Sprintf("district = $%d", argIdx))
+		args = append(args, f.District)
+		argIdx++
+	}
+	if f.BizType != "" {
+		conds = append(conds, fmt.Sprintf("biz_type = $%d", argIdx))
+		args = append(args, f.BizType)
+		argIdx++
+	}
+	if len(conds) > 0 {
+		q += " WHERE " + strings.Join(conds, " AND ")
 	}
 	q += " ORDER BY created_at DESC"
 	return scanDemands(r.pool, r.cipher, q, args)

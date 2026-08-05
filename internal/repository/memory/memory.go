@@ -103,13 +103,30 @@ func (r *demandRepo) List(f repository.DemandFilter) ([]domain.Demand, error) {
 	defer r.mu.RUnlock()
 	out := make([]domain.Demand, 0)
 	for _, d := range r.items {
-		if f.Status == "all" {
-			// 管理员查看全部，不过滤
-		} else if f.Status != "" {
-			if string(d.Status) != f.Status {
-				continue
-			}
-		} else if d.Status != domain.DemandPublished {
+		// 公开语义：仅已发布
+		if d.Status != domain.DemandPublished {
+			continue
+		}
+		if f.District != "" && d.District != f.District {
+			continue
+		}
+		if f.BizType != "" && string(d.BizType) != f.BizType {
+			continue
+		}
+		r.decrypt(&d)
+		out = append(out, d)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+
+// ListAll 管理端全量（含待审核/已驳回等），按 filter 过滤状态/地区/类型。
+func (r *demandRepo) ListAll(f repository.DemandFilter) ([]domain.Demand, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.Demand, 0)
+	for _, d := range r.items {
+		if f.Status != "" && f.Status != "all" && string(d.Status) != f.Status {
 			continue
 		}
 		if f.District != "" && d.District != f.District {

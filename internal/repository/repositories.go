@@ -59,7 +59,8 @@ type DemandRepository interface {
 	Create(domain.Demand) (domain.Demand, error)
 	Update(d domain.Demand) (domain.Demand, error)
 	FindByID(id string) (domain.Demand, error)
-	List(DemandFilter) ([]domain.Demand, error)
+	List(DemandFilter) ([]domain.Demand, error)    // 公开语义：仅已发布
+	ListAll(DemandFilter) ([]domain.Demand, error) // 管理端全量（含待审核等）
 	Search(string) ([]domain.Demand, error)
 	SetStatus(id string, status domain.DemandStatus) (domain.Demand, error)
 	CompareAndSetStatus(id string, oldStatus, newStatus domain.DemandStatus) (bool, domain.Demand, error)
