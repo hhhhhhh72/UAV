@@ -7,6 +7,16 @@
     </view>
 
     <view v-if="post" class="dd-content">
+      <!-- 驳回/关闭原因（发布者可见） -->
+      <view v-if="post.status === 'rejected' && post.reject_reason" class="reject-banner">
+        <text class="reject-tag">已驳回</text>
+        <text class="reject-text">{{ post.reject_reason }}</text>
+      </view>
+      <view v-else-if="post.status === 'cancelled' && post.reject_reason" class="reject-banner cancelled">
+        <text class="reject-tag">已关闭</text>
+        <text class="reject-text">{{ post.reject_reason }}</text>
+      </view>
+
       <!-- 用户信息 -->
       <view class="user-row">
         <image :src="post.avatar || '/static/home-bg.jpg'" mode="aspectFill" class="user-ava" />
@@ -183,7 +193,9 @@ const loadDetail = async () => {
         desc: d.description || '暂无详细描述',
         photos: parseImgs(d.images),
         phone: d.contact || '',
-        avatar: ''
+        avatar: '',
+        status: d.status || '',
+        reject_reason: (d.biz_fields && d.biz_fields.reject_reason) || ''
       }
     }
   } catch (e) { /* 保持空态 */ }
@@ -210,6 +222,29 @@ const parseImgs = (imgs) => {
 
 /* User */
 .user-row { display: flex; align-items: center; gap: 12px; padding: 14px; background: #fff; }
+
+/* 驳回/关闭原因 banner */
+.reject-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin: 16rpx;
+  padding: 20rpx;
+  border-radius: 8px;
+  background: #FDECEA;
+}
+.reject-banner.cancelled { background: #FFF3E0; }
+.reject-tag {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--color-danger);
+  padding: 2rpx 12rpx;
+  border-radius: 4px;
+  background: rgba(255,59,48,.1);
+  flex-shrink: 0;
+}
+.reject-banner.cancelled .reject-tag { color: var(--color-accent-deep); background: rgba(233,96,18,.1); }
+.reject-text { font-size: 24rpx; color: var(--color-text); line-height: 1.6; }
 .user-ava { width: 48px; height: 48px; border-radius: 50%; background: var(--color-primary-light); }
 .user-meta { flex: 1; }
 .user-line1 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }

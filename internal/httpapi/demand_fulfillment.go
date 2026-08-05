@@ -37,14 +37,23 @@ func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/demands/{id}
 func (s *Server) updateDemand(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var in struct{ Title, Description string }
-	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
 	d, err := s.demands.UpdateDraft(a, r.PathValue("id"), in.Title, in.Description)
 	if err != nil {
 		code := http.StatusForbidden
-		if strings.Contains(err.Error(), "not found") { code = http.StatusNotFound }
-		fail(w, r, code, err); return
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		}
+		fail(w, r, code, err)
+		return
 	}
 	respond(w, r, http.StatusOK, d)
 }
@@ -52,9 +61,15 @@ func (s *Server) updateDemand(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/demands/{id}/submit
 func (s *Server) submitDemand(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	d, err := s.demands.Submit(a, r.PathValue("id"))
-	if err != nil { fail(w, r, http.StatusForbidden, err); return }
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
 	s.audit(r.Context(), a.ID, "submit_demand", "demand", d.ID, "submitted")
 	respond(w, r, http.StatusOK, d)
 }
@@ -62,43 +77,65 @@ func (s *Server) submitDemand(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/admin/demands/{id}/review
 func (s *Server) reviewDemand(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var req struct{ Action, Reason string }
-	if err := decode(r, &req); err != nil { fail(w, r, http.StatusBadRequest, err); return }
+	if err := decode(r, &req); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
 	d, err := s.demands.Review(a, r.PathValue("id"), req.Action, req.Reason)
 	if err != nil {
 		code := http.StatusForbidden
-		if strings.Contains(err.Error(), "not found") { code = http.StatusNotFound }
-		fail(w, r, code, err); return
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		}
+		fail(w, r, code, err)
+		return
 	}
 	if d.Contact != "" {
 		d.Contact = crypto.MaskPhone(d.Contact)
 	}
 	s.audit(r.Context(), a.ID, "review_demand", "demand", d.ID, req.Action)
 	respond(w, r, http.StatusOK, d)
-	// 审核通知（异步，不影响主流程）
+	// 审核通知（异步，不影响主流程）；驳回/补充材料附理由
+	reason := ""
+	if (req.Action == "reject" || req.Action == "supplement") && req.Reason != "" {
+		reason = "：" + req.Reason
+	}
 	go s.msgSvc.Send("system", d.PublisherID, "需求审核结果",
-		fmt.Sprintf("您的需求「%s」已被%s", d.Title, mapAction(req.Action)), "demand", d.ID)
+		fmt.Sprintf("您的需求「%s」已被%s%s", d.Title, mapAction(req.Action), reason), "demand", d.ID)
 }
 
 func mapAction(a string) string {
 	switch a {
-	case "approve": return "通过"
-	case "reject": return "驳回"
-	case "supplement": return "要求补充材料"
-	default: return a
+	case "approve":
+		return "通过"
+	case "reject":
+		return "驳回"
+	case "supplement":
+		return "要求补充材料"
+	default:
+		return a
 	}
 }
 
 // POST /api/v1/demands/{id}/complete — publisher marks a published demand done.
 func (s *Server) completeDemand(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 
 	d, err := s.demands.Complete(a, r.PathValue("id"))
 	if err != nil {
 		code := http.StatusForbidden
-		if strings.Contains(err.Error(), "not found") { code = http.StatusNotFound }
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		}
 		fail(w, r, code, err)
 		return
 	}
@@ -111,12 +148,17 @@ func (s *Server) completeDemand(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/demands/{id}/cancel — publisher withdraws a pending/published demand.
 func (s *Server) cancelDemand(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 
 	d, err := s.demands.Cancel(a, r.PathValue("id"))
 	if err != nil {
 		code := http.StatusForbidden
-		if strings.Contains(err.Error(), "not found") { code = http.StatusNotFound }
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		}
 		fail(w, r, code, err)
 		return
 	}
