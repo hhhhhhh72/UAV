@@ -91,6 +91,7 @@
             <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
             <template v-if="row.status === 'pending'">
               <el-divider direction="vertical" />
+              <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
               <el-button link type="success" size="small" @click="handleApprove(row)">通过</el-button>
               <el-button link type="danger" size="small" @click="handleReject(row)">驳回</el-button>
             </template>
@@ -142,9 +143,26 @@
 
         <div v-if="currentItem.status === 'pending'" class="review-actions">
           <el-divider />
+          <el-button type="primary" @click="handleEdit(currentItem)">编辑</el-button>
           <el-button type="success" @click="handleApprove(currentItem)">审核通过</el-button>
           <el-button type="danger" @click="handleReject(currentItem)">驳回</el-button>
         </div>
+      </template>
+    </el-dialog>
+
+    <!-- 编辑需求弹窗 -->
+    <el-dialog v-model="editVisible" title="编辑需求" width="560px" destroy-on-close>
+      <el-form :model="editForm" label-width="80px">
+        <el-form-item label="标题" required><el-input v-model="editForm.title" /></el-form-item>
+        <el-form-item label="描述"><el-input v-model="editForm.description" type="textarea" :rows="3" /></el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12"><el-form-item label="地区"><el-input v-model="editForm.district" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="预算(元)"><el-input-number v-model="editForm.budgetYuan" :min="0" style="width:100%" /></el-form-item></el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="editVisible=false">取消</el-button>
+        <el-button type="primary" @click="submitEdit" :loading="editLoading">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -155,7 +173,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Search, Check, CloseBold } from '@element-plus/icons-vue'
 import { showSuccessToast, showFailToast } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
-import { getDemandList, approveDemand, rejectDemand, closeDemand, setOfflineAmount } from '@/api/admin/demand'
+import { getDemandList, approveDemand, rejectDemand, closeDemand, setOfflineAmount, updateDemandAdmin } from '@/api/admin/demand'
 
 const bizTypeLabel = (t) => ({
   aerial_photo: '航拍摄影', mapping: '测绘', inspection: '巡检',
@@ -231,6 +249,40 @@ const handleReject = async (item) => {
     loadData()
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') showFailToast(e?.response?.data?.message || '操作失败')
+  }
+}
+
+// 编辑待审核需求（修正发布者填写错误）
+const editVisible = ref(false)
+const editLoading = ref(false)
+const editForm = ref({ id: '', title: '', description: '', district: '', budgetYuan: 0 })
+
+const handleEdit = (item) => {
+  editForm.value = {
+    id: item.id,
+    title: item.title || '',
+    description: item.description || '',
+    district: item.district || '',
+    budgetYuan: (item.budget_fen || 0) / 100,
+  }
+  editVisible.value = true
+}
+
+const submitEdit = async () => {
+  if (!editForm.value.title.trim()) return showFailToast('标题必填')
+  editLoading.value = true
+  try {
+    await updateDemandAdmin(editForm.value.id, {
+      title: editForm.value.title.trim(),
+      description: editForm.value.description,
+      district: editForm.value.district,
+      budget_fen: Math.round((editForm.value.budgetYuan || 0) * 100),
+    })
+    showSuccessToast('已保存')
+    editVisible.value = false
+    loadData()
+  } catch (e) { showFailToast(e?.response?.data?.message || '保存失败') } finally {
+    editLoading.value = false
   }
 }
 
