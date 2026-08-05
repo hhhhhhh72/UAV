@@ -40,6 +40,16 @@
           <text class="field-arrow">›</text>
         </view>
 
+        <view class="field-row">
+          <u-field
+            v-model="form.contact"
+            label="联系电话"
+            placeholder="对接人电话（公告展示）"
+            type="number"
+          />
+          <text class="required">*</text>
+        </view>
+
         <u-field
           v-model="form.description"
           label="描述"
@@ -117,6 +127,7 @@ export default {
         biz_type: '',
         budget: '',
         district: '',
+        contact: '',
         description: '',
       },
       bizTypeText: '',
@@ -143,6 +154,12 @@ export default {
       setTimeout(function () {
         uni.navigateTo({ url: '/pages/login/index' })
       }, 500)
+      return
+    }
+    // 预填联系电话（微信登录用户可能无手机号，留空需手动填写）
+    var u = getStoredUser()
+    if (u && u.phone) {
+      this.form.contact = u.phone
     }
   },
   methods: {
@@ -182,12 +199,16 @@ export default {
         uni.showToast({ title: '请选择地区', icon: 'none' })
         return
       }
+      if (!this.form.contact) {
+        uni.showToast({ title: '请填写联系电话', icon: 'none' })
+        return
+      }
 
       this.submitting = true
       uni.showLoading({ title: '发布中...', mask: true })
 
       try {
-        // 公告模式必填联系方式：从本地用户信息带出（此前缺失导致 403）
+        // 公告模式联系方式必填：表单字段（预填手机号，可编辑）
         var currentUser = getStoredUser()
         await request({
           url: '/api/v1/demands',
@@ -198,7 +219,7 @@ export default {
             budget: this.form.budget ? parseFloat(this.form.budget) : 0,
             district: this.form.district,
             description: this.form.description,
-            contact: (currentUser && (currentUser.phone || currentUser.name)) || '',
+            contact: this.form.contact,
             publisher_name: (currentUser && currentUser.name) || '',
           },
         })
@@ -245,6 +266,15 @@ export default {
   flex: 1;
 }
 
+.required {
+  position: absolute;
+  right: 28rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-danger);
+  font-size: 28rpx;
+  z-index: 2;
+}
 .field-arrow {
   font-size: 20px;
   color: var(--color-text-placeholder);
