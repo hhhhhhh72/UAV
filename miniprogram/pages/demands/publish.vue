@@ -83,7 +83,7 @@
 </template>
 
 <script>
-import { request, authStorage } from '../../utils/request'
+import { request, authStorage, getStoredUser } from '../../utils/request'
 
 var BIZ_TYPE_MAP = {
   cable_inspection: '巡检',
@@ -187,6 +187,8 @@ export default {
       uni.showLoading({ title: '发布中...', mask: true })
 
       try {
+        // 公告模式必填联系方式：从本地用户信息带出（此前缺失导致 403）
+        var currentUser = getStoredUser()
         await request({
           url: '/api/v1/demands',
           method: 'POST',
@@ -196,6 +198,8 @@ export default {
             budget: this.form.budget ? parseFloat(this.form.budget) : 0,
             district: this.form.district,
             description: this.form.description,
+            contact: (currentUser && (currentUser.phone || currentUser.name)) || '',
+            publisher_name: (currentUser && currentUser.name) || '',
           },
         })
         uni.hideLoading()

@@ -468,7 +468,12 @@ func (s *Server) createDemand(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.demands.Create(a, in)
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		// 参数/校验错误 → 400；角色/权限错误 → 403（区分错误码，避免掩盖真实原因）
+		code := http.StatusForbidden
+		if strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "cannot") {
+			code = http.StatusBadRequest
+		}
+		fail(w, r, code, err)
 		return
 	}
 	s.audit(r.Context(), a.ID, "create_demand", "demand", d.ID, "created")
