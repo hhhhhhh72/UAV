@@ -122,7 +122,7 @@
         <el-form-item label="难题名称"><el-input v-model="form.title" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
         <el-form-item label="预算(分)"><el-input v-model.number="form.budget_fen" type="number" /></el-form-item>
-        <el-form-item label="截止日期"><el-input v-model="form.deadline" placeholder="YYYY-MM-DD" /></el-form-item>
+        <el-form-item label="截止日期"><el-date-picker v-model="form.deadline" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status" style="width:100%">
             <el-option label="征集中" value="published" /><el-option label="已关闭" value="closed" /><el-option label="已解决" value="resolved" />

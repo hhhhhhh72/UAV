@@ -20,6 +20,18 @@
     <div class="table-wrap">
       <el-table v-loading="loading" :data="listData" row-key="id" stripe border>
         <el-table-column prop="id" label="ID" width="200" />
+        <el-table-column label="图片" width="90">
+          <template #default="{ row }">
+            <el-image
+              v-if="Array.isArray(row.images) && row.images[0]"
+              :src="row.images[0]"
+              fit="cover"
+              style="width: 56px; height: 56px; border-radius: 6px; display: block"
+              :preview-src-list="row.images"
+            />
+            <span v-else style="color: #c0c4cc; font-size: 12px">无图</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="title" label="商品名称" min-width="160" />
         <el-table-column label="类型" width="90">
           <template #default="{ row }">{{ typeLabel(row.prod_type) }}</template>

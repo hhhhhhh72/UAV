@@ -277,7 +277,6 @@ func (s *Server) listAdminPilots(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	page, pageSize := paginationFromQuery(r)
 	status := r.URL.Query().Get("status")
 	if status == "all" {
 		status = ""
@@ -285,7 +284,7 @@ func (s *Server) listAdminPilots(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(pilots, r.URL.Query().Get("keyword"), status,
 		func(p domain.CertifiedPilot) string { return p.RealName },
 		func(p domain.CertifiedPilot) string { return p.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 
 // POST /api/v1/admin/certified-pilots/{id}/reject — 驳回飞手认证

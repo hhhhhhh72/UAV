@@ -28,7 +28,7 @@
       <div class="fee-row">
         <div class="fee-field">
           <span class="fee-label">撮合服务费率（%）</span>
-          <el-input-number v-model="platformConfig.match_fee_rate" :min="0" :max="100" :precision="1" :step="0.5" size="small" />
+          <el-input-number v-model="platformConfig.match_fee_rate" :min="0" :max="100" :precision="1" :step="0.5" size="small":controls="false" />
         </div>
         <div class="fee-field">
           <span class="fee-label">费率说明（对会员展示）</span>

@@ -59,9 +59,9 @@
     </el-dialog>
     <el-dialog v-model="formVisible" :title="formEdit?'编辑展会':'新增展会'" width="560px" destroy-on-close>
       <el-form :model="form" label-width="90px">
-        <el-row :gutter="16"><el-col :span="16"><el-form-item label="展会名称" required><el-input v-model="form.title"/></el-form-item></el-col><el-col :span="8"><el-form-item label="展位数"><el-input-number v-model="form.booth_count" :min="0" style="width:100%"/></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="16"><el-form-item label="展会名称" required><el-input v-model="form.title"/></el-form-item></el-col><el-col :span="8"><el-form-item label="展位数"><el-input-number v-model="form.booth_count" :min="0" style="width:100%"/:controls="false"></el-form-item></el-col></el-row>
         <el-row :gutter="16"><el-col :span="12"><el-form-item label="地点"><el-input v-model="form.location"/></el-form-item></el-col><el-col :span="12"><el-form-item label="组织方"><el-input v-model="form.organizer"/></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="开始日期"><el-input v-model="form.start_date" placeholder="YYYY-MM-DD"/></el-form-item></el-col><el-col :span="12"><el-form-item label="结束日期"><el-input v-model="form.end_date" placeholder="YYYY-MM-DD"/></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="12"><el-form-item label="开始日期"><el-date-picker v-model="form.start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></el-form-item></el-col><el-col :span="12"><el-form-item label="结束日期"><el-date-picker v-model="form.end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width:100%" /></el-form-item></el-col></el-row>
         <el-form-item label="状态"><el-select v-model="form.status"><el-option label="草稿" value="draft"/><el-option label="招募中" value="recruiting"/><el-option label="进行中" value="underway"/><el-option label="已结束" value="ended"/></el-select></el-form-item>
         <el-form-item label="描述"><el-input v-model="form.description" type="textarea" rows="2"/></el-form-item>
       </el-form>

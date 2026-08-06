@@ -59,7 +59,6 @@ func adminSlicePage[T any](items []T, page, pageSize int) []T {
 
 // ----- Enrollments (报名记录) -----
 func (s *Server) listAdminEnrollments(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	all, _, err := s.enrollSvc.All(0, 10000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list enrollments: %w", err))
@@ -68,12 +67,11 @@ func (s *Server) listAdminEnrollments(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(e domain.Enrollment) string { return e.Name + e.Phone },
 		func(e domain.Enrollment) string { return e.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 
 // ----- Test site bookings (场地预约记录) -----
 func (s *Server) listAdminBookings(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	all, _, err := s.testSiteSvc.ListAllBookings(0, 10000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list bookings: %w", err))
@@ -82,12 +80,11 @@ func (s *Server) listAdminBookings(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(b domain.TestSiteBooking) string { return b.ContactName + b.Purpose },
 		func(b domain.TestSiteBooking) string { return b.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 
 // ----- Orders (trade_orders) -----
 func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	all, _, err := s.tradeSvc.ListAll(0, 10000)
 	if err != nil {
 		fail(w, r, 500, err)
@@ -122,13 +119,12 @@ func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	total = len(filtered)
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 
 // ----- Reviews -----
 func (s *Server) listAdminReviews(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
-	items, total, err := s.reviewSvc.ListAll("", (page-1)*pageSize, pageSize)
+	items, total, err := s.reviewSvc.ListAll("", 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -138,9 +134,8 @@ func (s *Server) listAdminReviews(w http.ResponseWriter, r *http.Request) {
 
 // ----- Case entries -----
 func (s *Server) listAdminCaseEntries(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	category := r.URL.Query().Get("category")
-	items, total, err := s.caseSvc.List(category, page, pageSize)
+	items, total, err := s.caseSvc.List(category, 1, 100000)
 	if err != nil {
 		fail(w, r, 500, err)
 		return
@@ -155,8 +150,7 @@ func (s *Server) listAdminExperts(w http.ResponseWriter, r *http.Request) {
 
 // ----- Competitions -----
 func (s *Server) listAdminCompetitions(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
-	items, total, err := s.competitionSvc.List(page, pageSize)
+	items, total, err := s.competitionSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -297,7 +291,6 @@ func (s *Server) deleteCourse(w http.ResponseWriter, r *http.Request) {
 
 // --- Certificates (missing admin list/update/delete) ---
 func (s *Server) listAdminCerts(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	certs, err := s.trainingSvc.ListAllCertificates()
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list certs: %w", err))
@@ -306,7 +299,7 @@ func (s *Server) listAdminCerts(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(certs, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(c domain.Certificate) string { return c.CertNumber },
 		func(c domain.Certificate) string { return c.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 func (s *Server) updateCertificate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -367,7 +360,6 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 
 // --- Jobs (missing admin list/update/delete) ---
 func (s *Server) listAdminJobs(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	all, _, err := s.jobSvc.ListAllJobs(0, 10000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list jobs: %w", err))
@@ -376,7 +368,7 @@ func (s *Server) listAdminJobs(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(j domain.Job) string { return j.Title },
 		func(j domain.Job) string { return string(j.Status) })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 func (s *Server) updateJob(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -439,7 +431,6 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 
 // --- Colleges (missing admin list/update/delete) ---
 func (s *Server) listAdminColleges(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	all, err := s.collegeSvc.List("")
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list colleges: %w", err))
@@ -448,7 +439,7 @@ func (s *Server) listAdminColleges(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(c domain.College) string { return c.Name },
 		func(c domain.College) string { return c.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 func (s *Server) updateCollege(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -505,7 +496,6 @@ func (s *Server) adminCreateCollege(w http.ResponseWriter, r *http.Request) {
 
 // --- Study Tours (missing list/create/update/delete) ---
 func (s *Server) listAdminStudy(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	items, err := s.studyTourRepo.List()
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -514,7 +504,7 @@ func (s *Server) listAdminStudy(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(t domain.StudyTour) string { return t.Title },
 		func(t domain.StudyTour) string { return t.Status })
-	paginatedRespond(w, r, convStudy(adminSlicePage(filtered, page, pageSize)), total)
+	paginatedRespond(w, r, convStudy(filtered), total)
 }
 
 func convStudy(items []domain.StudyTour) []map[string]any {
@@ -588,7 +578,6 @@ func (s *Server) deleteStudyTour(w http.ResponseWriter, r *http.Request) {
 
 // --- Test Sites (missing admin list/update/delete) ---
 func (s *Server) listAdminTestSites(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	all, err := s.testSiteSvc.List(r.URL.Query().Get("site_type"))
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list test sites: %w", err))
@@ -597,7 +586,7 @@ func (s *Server) listAdminTestSites(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(t domain.TestSite) string { return t.Name },
 		func(t domain.TestSite) string { return t.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 func (s *Server) updateTestSite(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -631,7 +620,6 @@ func (s *Server) deleteTestSite(w http.ResponseWriter, r *http.Request) {
 
 // --- Transformations (missing admin list/update/delete) ---
 func (s *Server) listAdminTransformations(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
 	all, err := s.transSvc.List("")
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list transformations: %w", err))
@@ -640,7 +628,7 @@ func (s *Server) listAdminTransformations(w http.ResponseWriter, r *http.Request
 	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(t domain.Transformation) string { return t.Title },
 		func(t domain.Transformation) string { return t.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 
 func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
@@ -673,8 +661,7 @@ func (s *Server) deleteTransformation(w http.ResponseWriter, r *http.Request) {
 
 // --- Events (missing admin list/update/delete) ---
 func (s *Server) listAdminEvents(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
-	all, total, err := s.eventSvc.List(page, pageSize)
+	all, total, err := s.eventSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list events: %w", err))
 		return
@@ -724,8 +711,7 @@ func (s *Server) deletePortfolio(w http.ResponseWriter, r *http.Request) {
 
 // --- Exhibitions (missing admin list/update/delete) ---
 func (s *Server) listAdminExhibitions(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
-	all, total, err := s.exhibitionSvc.List(page, pageSize)
+	all, total, err := s.exhibitionSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list exhibitions: %w", err))
 		return
@@ -792,8 +778,7 @@ func (s *Server) updateIndustryReport(w http.ResponseWriter, r *http.Request) {
 
 // --- Emergency Resources (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyResources(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
-	all, total, err := s.emergencySvc.ListResources(page, pageSize)
+	all, total, err := s.emergencySvc.ListResources(1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list emergency resources: %w", err))
 		return
@@ -832,8 +817,7 @@ func (s *Server) deleteEmergencyResource(w http.ResponseWriter, r *http.Request)
 
 // --- Emergency Dispatches (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
-	all, total, err := s.emergencySvc.ListDispatches(page, pageSize)
+	all, total, err := s.emergencySvc.ListDispatches(1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list dispatches: %w", err))
 		return
@@ -873,9 +857,7 @@ func (s *Server) deleteEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 
 // --- Messages (missing admin list/create/update/delete) ---
 func (s *Server) listAdminMessages(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
-	offset := (page - 1) * pageSize
-	all, total, err := s.msgSvc.ListAll(offset, pageSize)
+all, total, err := s.msgSvc.ListAll(0, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list messages: %w", err))
 		return
@@ -984,8 +966,7 @@ func (s *Server) deleteComplianceStandard(w http.ResponseWriter, r *http.Request
 
 // --- Industry Resources (missing admin list/delete) ---
 func (s *Server) listAdminResources(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := parsePagination(r)
-	all, total, err := s.resourceSvc.List("", page, pageSize)
+	all, total, err := s.resourceSvc.List("", 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list resources: %w", err))
 		return

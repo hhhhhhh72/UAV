@@ -239,8 +239,7 @@ func (s *Server) createExhibition(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listExhibitions(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	list, total, err := s.exhibitionSvc.List(page, pageSize)
+	list, total, err := s.exhibitionSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

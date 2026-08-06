@@ -20,6 +20,10 @@ export function setOfflineAmount(id, offlineAmountFen) {
   return axios.post(`/api/v1/admin/demands/${id}/amount`, { offline_amount_fen: offlineAmountFen }).then(res => res.data)
 }
 
+export function deleteDemand(id) {
+  return axios.delete(`/api/v1/admin/demands/${id}`).then(res => res.data)
+}
+
 export function rejectDemand(id, reason) {
   return axios.post(`/api/v1/admin/demands/${id}/review`, { action: 'reject', reason }).then(res => res.data)
 }

@@ -89,9 +89,7 @@ func (s *Server) listAllReviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status := r.URL.Query().Get("status")
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	reviews, total, err := s.reviewSvc.ListAll(status, offset, pageSize)
+	reviews, total, err := s.reviewSvc.ListAll(status, 0, 100000)
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
 	paginatedRespond(w, r, reviews, total)
 }

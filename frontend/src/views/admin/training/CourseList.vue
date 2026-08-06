@@ -86,15 +86,15 @@
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="上课地点"><el-input v-model="form.location" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="草稿" value="draft" /><el-option label="已发布" value="published" /><el-option label="已关闭" value="closed" /></el-select></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="8"><el-form-item label="价格(分)"><el-input-number v-model="form.price_fen" :min="0" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="名额"><el-input-number v-model="form.max_students" :min="0" style="width:100%" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="状态"><el-select v-model="form.status" style="width:100%"><el-option label="草稿" value="draft" /><el-option label="已发布" value="published" /><el-option label="已关闭" value="closed" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="价格(元)"><el-input-number v-model="form.priceYuan" :min="0" :controls="false" style="width:100%" placeholder="单位：元" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="名额"><el-input-number v-model="form.max_students" :min="0" :controls="false" style="width:100%" placeholder="招生人数" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="开始日期"><el-input v-model="form.start_date" placeholder="YYYY-MM-DD" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="结束日期"><el-input v-model="form.end_date" placeholder="YYYY-MM-DD" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="开始日期"><el-date-picker v-model="form.start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择开班日期" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="结束日期"><el-date-picker v-model="form.end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择结课日期" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="课程描述"><el-input v-model="form.description" type="textarea" rows="3" /></el-form-item>
       </el-form>
@@ -133,11 +133,11 @@ const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 
 const formVisible=ref(false); const formEdit=ref(false); const formLoading=ref(false)
-const form=reactive({id:'',title:'',cert_type:'caac',price_fen:0,max_students:0,location:'',start_date:'',end_date:'',status:'draft',description:''})
-const resetForm=()=>Object.assign(form,{id:'',title:'',cert_type:'caac',price_fen:0,max_students:0,location:'',start_date:'',end_date:'',status:'draft',description:''})
+const form=reactive({id:'',title:'',cert_type:'caac',priceYuan:null,max_students:null,location:'',start_date:'',end_date:'',status:'draft',description:''})
+const resetForm=()=>Object.assign(form,{id:'',title:'',cert_type:'caac',priceYuan:null,max_students:null,location:'',start_date:'',end_date:'',status:'draft',description:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
-const handleEdit=(r)=>{Object.assign(form,{...r,price_fen:r.price_fen||0,capacity:r.capacity||0});formEdit.value=true;formVisible.value=true}
-const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入课程名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
+const handleEdit=(r)=>{Object.assign(form,{...r,priceYuan:r.price_fen?Math.round(r.price_fen/100*100)/100:null,max_students:r.max_students??null});formEdit.value=true;formVisible.value=true}
+const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入课程名称');return};formLoading.value=true;try{const p={...form};p.price_fen=Math.round((form.priceYuan||0)*100);p.max_students=p.max_students??0;delete p.priceYuan;formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
 const handleDelete=(r)=>{ElMessageBox.confirm('确定删除该课程?','提示',{type:'warning'}).then(async()=>{try{await api.delete(r.id);ElMessage.success('已删除');loadData()}catch{ElMessage.error('删除失败')}}).catch(()=>{})}
 
 onMounted(loadData)

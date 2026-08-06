@@ -59,7 +59,7 @@
     <el-dialog v-model="formVisible" :title="formEdit?'编辑应急资源':'新增应急资源'" width="560px" destroy-on-close>
       <el-form :model="form" label-width="90px">
         <el-row :gutter="16"><el-col :span="14"><el-form-item label="资源名称" required><el-input v-model="form.name"/></el-form-item></el-col><el-col :span="10"><el-form-item label="类型"><el-select v-model="form.res_type" style="width:100%"><el-option label="无人机" value="drone"/><el-option label="通信" value="comm"/><el-option label="照明" value="light"/><el-option label="运输" value="transport"/><el-option label="其他" value="other"/></el-select></el-form-item></el-col></el-row>
-        <el-row :gutter="16"><el-col :span="12"><el-form-item label="规格"><el-input v-model="form.specs"/></el-form-item></el-col><el-col :span="12"><el-form-item label="数量"><el-input-number v-model="form.quantity" :min="0" style="width:100%"/></el-form-item></el-col></el-row>
+        <el-row :gutter="16"><el-col :span="12"><el-form-item label="规格"><el-input v-model="form.specs"/></el-form-item></el-col><el-col :span="12"><el-form-item label="数量"><el-input-number v-model="form.quantity" :min="0" style="width:100%"/:controls="false"></el-form-item></el-col></el-row>
         <el-form-item label="位置"><el-input v-model="form.location"/></el-form-item>
         <el-form-item label="联系人信息"><el-input v-model="form.contact_info" placeholder="姓名 / 电话，如：张工 13800138000"/></el-form-item>
         <el-form-item label="状态"><el-select v-model="form.status"><el-option label="可用" value="available"/><el-option label="使用中" value="in_use"/><el-option label="维护中" value="maintenance"/></el-select></el-form-item>

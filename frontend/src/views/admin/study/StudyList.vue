@@ -84,7 +84,7 @@
           <el-col :span="12"><el-form-item label="时长"><el-input v-model="form.duration" placeholder="如: 3天2晚" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="名额"><el-input-number v-model="form.capacity" :min="0" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="名额"><el-input-number v-model="form.capacity" :min="0" style="width:100%":controls="false" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="项目介绍"><el-input v-model="form.description" type="textarea" rows="2" /></el-form-item>
       </el-form>
@@ -126,7 +126,7 @@ const formVisible=ref(false); const formEdit=ref(false); const formLoading=ref(f
 const form=reactive({id:'',title:'',destination:'',duration:'',capacity:0,status:'draft',description:''})
 const resetForm=()=>Object.assign(form,{id:'',title:'',destination:'',duration:'',capacity:0,status:'draft',description:''})
 const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
-const handleEdit=(r)=>{Object.assign(form,{...r,price_fen:r.price_fen||0,capacity:r.capacity||0});formEdit.value=true;formVisible.value=true}
+const handleEdit=(r)=>{Object.assign(form,{...r,capacity:r.capacity??null});formEdit.value=true;formVisible.value=true}
 const submitForm=async()=>{if(!form.title){ElMessage.warning('请输入项目名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
 const handleDelete=(r)=>{ElMessageBox.confirm('确定删除该研学项目?','提示',{type:'warning'}).then(async()=>{try{await api.delete(r.id);ElMessage.success('已删除');loadData()}catch{ElMessage.error('删除失败')}}).catch(()=>{})}
 

@@ -64,6 +64,7 @@ type DemandRepository interface {
 	Search(string) ([]domain.Demand, error)
 	SetStatus(id string, status domain.DemandStatus) (domain.Demand, error)
 	CompareAndSetStatus(id string, oldStatus, newStatus domain.DemandStatus) (bool, domain.Demand, error)
+	Delete(id string) error
 }
 
 // EnterpriseRepository manages enterprise registrations and the admin review workflow.

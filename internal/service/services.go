@@ -181,6 +181,21 @@ func (s *DemandService) CloseByAdmin(a domain.Actor, id, reason string) (domain.
 	return s.repo.Update(d)
 }
 
+// Delete 管理端删除需求（仅已取消/已关闭需求可删，防止误删在审/在售数据）。
+func (s *DemandService) Delete(a domain.Actor, id string) error {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return errors.New("admin permission required")
+	}
+	d, err := s.repo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if d.Status != domain.DemandCancelled && d.Status != domain.DemandRejected {
+		return errors.New("只有已取消或已驳回的需求可以删除")
+	}
+	return s.repo.Delete(id)
+}
+
 // SetOfflineAmount 登记线下成交金额（联系对接模式：平台撮合价值度量）。
 // 仅已公开/已完成需求可登记；管理端补登或发布者完成时登记。
 func (s *DemandService) SetOfflineAmount(a domain.Actor, id string, amountFen int64) (domain.Demand, error) {

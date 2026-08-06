@@ -95,7 +95,7 @@
           </el-form-item></el-col>
           <el-col :span="12"><el-form-item label="型号规格"><el-input v-model="form.model" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="地区"><el-input v-model="form.location" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="费用(分)"><el-input-number v-model="form.price_fen" :min="0" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="费用(元)"><el-input-number v-model="form.priceYuan" :min="0" style="width:100%" :controls="false" placeholder="单位：元" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="可见级别">
             <el-select v-model="form.visibility_level" style="width:100%">
               <el-option label="公开（政府访客可见）" value="public" />
@@ -156,11 +156,11 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id:'', name:'', res_type:'', model:'', location:'', price_fen:0, status:'available', booking_info:'', visibility_level:'public' })
-const resetForm = () => Object.assign(form, { id:'', name:'', res_type:'', model:'', location:'', price_fen:0, status:'available', booking_info:'', visibility_level:'public' })
+const form = reactive({ id:'', name:'', res_type:'', model:'', location:'', priceYuan:null, status:'available', booking_info:'', visibility_level:'public' })
+const resetForm = () => Object.assign(form, { id:'', name:'', res_type:'', model:'', location:'', priceYuan:null, status:'available', booking_info:'', visibility_level:'public' })
 const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
 const handleEdit = (row) => {
-  Object.assign(form, { ...row, price_fen: row.price_fen || 0, quantity: row.quantity || 0 })
+  Object.assign(form, { ...row, priceYuan: row.price_fen ? Math.round(row.price_fen / 100 * 100) / 100 : null, quantity: row.quantity || 0 })
   formEdit.value = true; formVisible.value = true
 }
 const handleFormSubmit = async () => {
@@ -168,6 +168,8 @@ const handleFormSubmit = async () => {
   formLoading.value = true
   try {
     const payload = { ...form }
+    payload.price_fen = Math.round((form.priceYuan || 0) * 100)
+    delete payload.priceYuan
     if (formEdit.value) {
       await api.update(form.id, payload); ElMessage.success('更新成功')
     } else {

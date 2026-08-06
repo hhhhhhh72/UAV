@@ -135,8 +135,17 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// Public read-only endpoints (GET, no auth required)
+		// Public read-only endpoints (GET, no auth required).
+		// 公开前缀按路径匹配（如 /api/v1/jobs 会命中 /api/v1/jobs/mine），
+		// 因此若请求携带有效 token 仍解析 actor 进 context，
+		// 供 handler 区分登录态（jobs/mine、certificates/mine 等子路径依赖此行为）。
 		if r.Method == http.MethodGet && isPublicPath(r.URL.Path) {
+			if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+				if a, err := s.tokens.Verify(strings.TrimPrefix(h, "Bearer ")); err == nil {
+					next.ServeHTTP(w, r.WithContext(contextWithActor(r, a)))
+					return
+				}
+			}
 			next.ServeHTTP(w, r)
 			return
 		}

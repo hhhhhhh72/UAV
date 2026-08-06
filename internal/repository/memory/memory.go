@@ -187,6 +187,18 @@ func (r *demandRepo) CompareAndSetStatus(id string, oldStatus, newStatus domain.
 	return false, domain.Demand{}, fmt.Errorf("demand %s not found", id)
 }
 
+func (r *demandRepo) Delete(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("demand %s not found", id)
+}
+
 // ---- Enterprise ----
 
 type enterpriseRepo struct {

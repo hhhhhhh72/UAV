@@ -1434,6 +1434,17 @@ func (r *demandRepo) CompareAndSetStatus(id string, oldStatus, newStatus domain.
 	return true, d, err
 }
 
+func (r *demandRepo) Delete(id string) error {
+	tag, err := r.pool.Exec(context.Background(), `DELETE FROM demands WHERE id=$1`, id)
+	if err != nil {
+		return fmt.Errorf("delete demand %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("demand %s not found", id)
+	}
+	return nil
+}
+
 // ---- College Repository ----
 
 type pgCollegeRepo struct{ pool *pgxpool.Pool }

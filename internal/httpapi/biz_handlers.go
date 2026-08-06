@@ -222,8 +222,7 @@ func (s *Server) deleteExpert(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/cases?category=农业&page=1&page_size=10
 func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.caseSvc.List(r.URL.Query().Get("category"), page, pageSize)
+	items, total, err := s.caseSvc.List(r.URL.Query().Get("category"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -431,7 +430,6 @@ func (s *Server) createComplianceStandard(w http.ResponseWriter, r *http.Request
 // GET /api/v1/industry-reports?page=1&page_size=10
 // 支持 keyword/status 过滤（管理端搜索/筛选；无参时与公开列表行为一致）
 func (s *Server) listIndustryReports(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
 	items, _, err := s.reportSvc.List(1, 10000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -440,7 +438,7 @@ func (s *Server) listIndustryReports(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(rep domain.IndustryReport) string { return rep.Title },
 		func(rep domain.IndustryReport) string { return rep.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 
 // POST /api/v1/admin/industry-reports
@@ -510,8 +508,7 @@ func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/portfolios — 管理端全量（含草稿/待审），公开端仅 published
 func (s *Server) listAdminPortfolios(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.portfolioSvc.List(page, pageSize)
+	items, total, err := s.portfolioSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -596,8 +593,7 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/achievements?field=智能巡检&page=1&page_size=10
 func (s *Server) listAchievements(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.achievementSvc.List(r.URL.Query().Get("field"), page, pageSize)
+	items, total, err := s.achievementSvc.List(r.URL.Query().Get("field"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -683,8 +679,7 @@ func (s *Server) deleteAchievement(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/rd-challenges?field=飞控&page=1&page_size=10
 func (s *Server) listRDChallenges(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.rdService.List(r.URL.Query().Get("field"), page, pageSize)
+	items, total, err := s.rdService.List(r.URL.Query().Get("field"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -754,7 +749,6 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/research-projects?page=1&page_size=10
 // GET /api/v1/research-projects — 支持 keyword/status 过滤（管理端搜索/筛选；无参时与公开列表行为一致）
 func (s *Server) listResearchProjects(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
 	items, _, err := s.researchSvc.List(1, 10000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -763,7 +757,7 @@ func (s *Server) listResearchProjects(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(p domain.ResearchProject) string { return p.Title },
 		func(p domain.ResearchProject) string { return p.Status })
-	paginatedRespond(w, r, adminSlicePage(filtered, page, pageSize), total)
+	paginatedRespond(w, r, filtered, total)
 }
 
 // POST /api/v1/admin/research-projects
@@ -885,8 +879,7 @@ func (s *Server) listAllProjectApps(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.projectAppSvc.ListAll(r.URL.Query().Get("status"), page, pageSize)
+	items, total, err := s.projectAppSvc.ListAll(r.URL.Query().Get("status"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -951,8 +944,7 @@ func (s *Server) reviewProjectApp(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/competitions?page=1&page_size=10
 func (s *Server) listCompetitions(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.competitionSvc.List(page, pageSize)
+	items, total, err := s.competitionSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1051,8 +1043,7 @@ func (s *Server) registerCompetition(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/events?page=1&page_size=10
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.eventSvc.List(page, pageSize)
+	items, total, err := s.eventSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1206,8 +1197,7 @@ func (s *Server) getIndustryResourcePublic(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) listIndustryResources(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, _, err := s.resourceSvc.List(r.URL.Query().Get("res_type"), page, pageSize)
+	items, _, err := s.resourceSvc.List(r.URL.Query().Get("res_type"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

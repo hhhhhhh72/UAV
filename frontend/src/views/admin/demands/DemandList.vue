@@ -35,7 +35,7 @@
       <div class="stat ok"><span class="stat-num">{{ stats.published }}</span><span class="stat-label">已公开</span></div>
       <div class="stat done"><span class="stat-num">{{ stats.completed }}</span><span class="stat-label">已完成</span></div>
       <div class="stat rate"><span class="stat-num">{{ stats.rate }}%</span><span class="stat-label">完成率</span></div>
-      <div class="stat amount"><span class="stat-num">¥{{ stats.offlineAmount }}</span><span class="stat-label">撮合成交额(本页)</span></div>
+      <div class="stat amount"><span class="stat-num">¥{{ Number(stats.offline_amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}</span><span class="stat-label">撮合成交额</span></div>
     </div>
 
     <!-- 批量操作栏 -->
@@ -99,6 +99,10 @@
               <el-button link type="warning" size="small" @click="handleClose(row)">关闭</el-button>
               <el-button link type="success" size="small" @click="handleAmount(row)">登记金额</el-button>
             </template>
+            <template v-else-if="row.status === 'cancelled' || row.status === 'rejected'">
+              <el-divider direction="vertical" />
+              <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+            </template>
           </template>
         </el-table-column>
 
@@ -150,8 +154,9 @@ import { ref, computed, onMounted } from 'vue'
 import { Search, Check, CloseBold } from '@element-plus/icons-vue'
 import { showSuccessToast, showFailToast } from '@/utils/feedback'
 import { ElMessageBox } from 'element-plus'
+import axios from '@/utils/http'
 import { useListRequest } from '@/hooks/useListRequest'
-import { getDemandList, approveDemand, rejectDemand, closeDemand, setOfflineAmount } from '@/api/admin/demand'
+import { getDemandList, approveDemand, rejectDemand, closeDemand, setOfflineAmount, deleteDemand } from '@/api/admin/demand'
 
 const bizTypeLabel = (t) => ({
   aerial_photo: '航拍摄影', mapping: '测绘', inspection: '巡检',
@@ -176,20 +181,26 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-// 撮合统计（分类计数基于当前页数据；需求总数取接口 total）
-const stats = computed(() => {
-  const rows = listData.value || []
-  const pending = rows.filter((x) => x.status === 'pending').length
-  const published = rows.filter((x) => x.status === 'published').length
-  const completed = rows.filter((x) => x.status === 'completed').length
-  const rate = rows.length ? Math.round((completed / rows.length) * 100) : 0
-  const offlineAmount = rows.reduce((s, x) => s + (x.offline_amount_fen || 0), 0) / 100
-  return {
-    total: total.value || 0,
-    pending, published, completed, rate,
-    offlineAmount: offlineAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 }),
-  }
-})
+// 撮合统计：独立全量统计接口（GET /api/v1/admin/demands/stats），
+// 不随列表分页/筛选变化，保证翻页时统计条稳定
+const stats = ref({ total: 0, pending: 0, published: 0, completed: 0, cancelled: 0, rejected: 0, rate: 0, offline_amount: 0 })
+
+const loadStats = async () => {
+  try {
+    const res = await axios.get('/api/v1/admin/demands/stats')
+    const d = res?.data?.data || res?.data || {}
+    stats.value = {
+      total: d.total || 0,
+      pending: d.pending || 0,
+      published: d.published || 0,
+      completed: d.completed || 0,
+      cancelled: d.cancelled || 0,
+      rejected: d.rejected || 0,
+      rate: d.rate || 0,
+      offline_amount: d.offline_amount || 0,
+    }
+  } catch (e) { /* 统计失败不阻塞列表 */ }
+}
 
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, onSelectChange, resetParams } = useListRequest({
   apiFunction: getDemandList,
@@ -209,8 +220,23 @@ const handleApprove = async (item) => {
     showSuccessToast('审核通过')
     item.status = 'published'
     detailVisible.value = false
-    loadData()
+    loadData(); loadStats()
   } catch (e) { showFailToast(errMsg(e)) }
+}
+
+// 删除已取消/已驳回需求（关闭后的数据清理）
+const handleDelete = (item) => {
+  ElMessageBox.confirm(`确定删除该需求吗？删除后不可恢复（${item.title || item.id}）`, '删除需求', {
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await deleteDemand(item.id)
+      showSuccessToast('已删除')
+      loadData(); loadStats()
+    } catch (e) { showFailToast(errMsg(e)) }
+  }).catch(() => {})
 }
 
 // 统一错误提示：后端 fail 格式为 {error:{code,message}}，逐层取
@@ -228,7 +254,7 @@ const handleReject = async (item) => {
     showSuccessToast('已驳回')
     item.status = 'rejected'
     detailVisible.value = false
-    loadData()
+    loadData(); loadStats()
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') {
       // 带真实错误原因，便于定位（如：HTTP 状态码 + 后端 message）
@@ -253,7 +279,7 @@ const handleAmount = async (item) => {
     await setOfflineAmount(item.id, fen)
     showSuccessToast('已登记 ¥' + value)
     item.offline_amount_fen = fen
-    loadData()
+    loadData(); loadStats()
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') showFailToast(errMsg(e))
   }
@@ -271,7 +297,7 @@ const handleClose = async (item) => {
     await closeDemand(item.id, value.trim())
     showSuccessToast('已关闭')
     item.status = 'cancelled'
-    loadData()
+    loadData(); loadStats()
   } catch (e) {
     if (e !== 'cancel' && e !== 'close') showFailToast(errMsg(e))
   }
@@ -280,16 +306,16 @@ const handleClose = async (item) => {
 const batchApprove = () => {
   selectedIds.value.forEach(id => approveDemand(id).catch(() => {}))
   showSuccessToast('批量通过已提交')
-  loadData()
+  loadData(); loadStats()
 }
 
 const batchReject = () => {
   selectedIds.value.forEach(id => rejectDemand(id, '').catch(() => {}))
   showSuccessToast('批量驳回已提交')
-  loadData()
+  loadData(); loadStats()
 }
 
-onMounted(loadData)
+onMounted(() => { loadData(); loadStats() })
 </script>
 
 <style scoped>

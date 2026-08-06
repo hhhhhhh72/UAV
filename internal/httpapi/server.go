@@ -438,16 +438,71 @@ func (s *Server) listAdminDemands(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	page, pageSize := paginationFromQuery(r)
-	start := (page - 1) * pageSize
-	if start > len(result) {
-		start = len(result)
+	paginatedRespond(w, r, result, len(result))
+}
+
+// DELETE /api/v1/admin/demands/{id} — 管理端删除需求（仅已取消/已驳回）
+func (s *Server) deleteDemand(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok || (a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
 	}
-	end := start + pageSize
-	if end > len(result) {
-		end = len(result)
+	if err := s.demands.Delete(a, r.PathValue("id")); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
 	}
-	paginatedRespond(w, r, result[start:end], len(result))
+	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
+}
+
+// GET /api/v1/admin/demands/stats — 需求全量统计（独立于列表分页，
+// 管理端统计条不随翻页变化：状态分布基于全量数据）
+func (s *Server) adminDemandStats(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok || (a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
+	result, err := s.demands.ListAll(repository.DemandFilter{Status: "all"})
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	stats := map[string]int64{
+		"total":     int64(len(result)),
+		"pending":   0, "published": 0, "completed": 0,
+		"cancelled": 0, "rejected": 0,
+	}
+	var offlineFen int64
+	for _, d := range result {
+		switch d.Status {
+		case domain.DemandPending:
+			stats["pending"]++
+		case domain.DemandPublished:
+			stats["published"]++
+		case domain.DemandCompleted:
+			stats["completed"]++
+		case domain.DemandCancelled:
+			stats["cancelled"]++
+		case domain.DemandRejected:
+			stats["rejected"]++
+		}
+		offlineFen += d.OfflineAmountFen
+	}
+	rate := 0
+	if stats["completed"]+stats["published"] > 0 {
+		rate = int(stats["completed"] * 100 / (stats["completed"] + stats["published"]))
+	}
+	respond(w, r, http.StatusOK, map[string]any{
+		"total":          stats["total"],
+		"pending":        stats["pending"],
+		"published":      stats["published"],
+		"completed":      stats["completed"],
+		"cancelled":      stats["cancelled"],
+		"rejected":       stats["rejected"],
+		"rate":           rate,
+		"offline_amount": float64(offlineFen) / 100,
+	})
 }
 
 func publicDemand(d domain.Demand) domain.Demand {
