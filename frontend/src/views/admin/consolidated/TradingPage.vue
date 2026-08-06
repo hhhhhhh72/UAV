@@ -1,13 +1,12 @@
 <template>
   <div class="admin-page">
     <div class="page-header"><h2>交易管理</h2></div>
-
-    <el-tabs v-model="tab">
-      <el-tab-pane label="需求管理" name="demands"><DemandList /></el-tab-pane>
-      <el-tab-pane label="订单管理" name="orders"><OrderList /></el-tab-pane>
-      <el-tab-pane label="评价管理" name="reviews"><ReviewList /></el-tab-pane>
-      <el-tab-pane label="商品管理" name="products"><ProductList /></el-tab-pane>
-    </el-tabs>
+    <a-tabs v-model:active-key="tab">
+      <a-tab-pane title="需求管理" key="demands"><DemandList /></a-tab-pane>
+      <a-tab-pane title="订单管理" key="orders"><OrderList /></a-tab-pane>
+      <a-tab-pane title="评价管理" key="reviews"><ReviewList /></a-tab-pane>
+      <a-tab-pane title="商品管理" key="products"><ProductList /></a-tab-pane>
+    </a-tabs>
   </div>
 </template>
 
@@ -23,7 +22,6 @@ const tab = ref('demands')
 
 <style scoped>
 .admin-page { padding: 20px; }
-.page-header { margin-bottom: 20px; }
-h2 { margin: 0; font-size: 20px; }
-
+.page-header { margin-bottom: 16px; }
+.page-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--color-text-1); }
 </style>

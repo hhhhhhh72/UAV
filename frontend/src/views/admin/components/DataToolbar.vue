@@ -11,11 +11,11 @@
 
 <style scoped>
 .data-toolbar {
-  background: var(--bg-primary, #fff);
-  border-radius: var(--card-radius, 12px);
+  background: var(--color-bg-2);
+  border-radius: 4px;
   padding: 14px 16px;
   margin-bottom: 14px;
-  box-shadow: var(--card-shadow, 0 1px 3px rgba(0, 0, 0, 0.08));
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: space-between;

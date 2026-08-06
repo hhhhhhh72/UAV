@@ -1,12 +1,12 @@
 <template>
-  <el-dialog
-    :model-value="show"
+  <a-modal
+    :visible="visible"
     :title="title"
-    width="720px"
-    top="6vh"
-    append-to-body
-    destroy-on-close
-    @update:model-value="v => emit('update:show', v)"
+    :width="720"
+    :top="'6vh'"
+    :unmount-on-close="true"
+    :mask-closable="false"
+    @update:visible="v => emit('update:show', v)"
   >
     <div class="cropper-container">
       <vue-cropper
@@ -30,22 +30,22 @@
       />
     </div>
     <div class="cropper-tools">
-      <el-button size="small" @click="zoomIn">放大</el-button>
-      <el-button size="small" @click="zoomOut">缩小</el-button>
-      <el-button size="small" @click="reset">重置</el-button>
+      <a-button size="small" @click="zoomIn">放大</a-button>
+      <a-button size="small" @click="zoomOut">缩小</a-button>
+      <a-button size="small" @click="reset">重置</a-button>
     </div>
     <div class="cropper-tips">
       提示：拖动图片调整位置，双指缩放调整大小
     </div>
     <template #footer>
-      <el-button @click="close">取消</el-button>
-      <el-button type="primary" @click="confirm">确认</el-button>
+      <a-button @click="close">取消</a-button>
+      <a-button type="primary" @click="confirm">确认</a-button>
     </template>
-  </el-dialog>
+  </a-modal>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { VueCropper } from 'vue-cropper'
 import 'vue-cropper/dist/index.css'
 import { showLoadingToast, closeToast, showFailToast } from '@/utils/feedback'
@@ -61,6 +61,12 @@ const props = defineProps({
 const emit = defineEmits(['update:show', 'confirm'])
 
 const cropperRef = ref(null)
+
+// 兼容 el-dialog v-model → a-modal v-model:visible
+const visible = computed({
+  get: () => props.show,
+  set: (v) => emit('update:show', v)
+})
 
 // 根据比例设置裁剪框尺寸
 const fixed = ref(true)

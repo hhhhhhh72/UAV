@@ -1,12 +1,12 @@
 <template>
   <div class="admin-page">
     <div class="page-header"><h2>会员管理</h2></div>
-    <el-tabs v-model="tab">
-      <el-tab-pane label="用户管理" name="users"><UserList /></el-tab-pane>
-      <el-tab-pane label="企业管理" name="enterprises"><EnterpriseList /></el-tab-pane>
-      <el-tab-pane label="商家管理" name="shops"><ShopList /></el-tab-pane>
-      <el-tab-pane label="专家管理" name="experts"><ExpertList /></el-tab-pane>
-    </el-tabs>
+    <a-tabs v-model:active-key="tab">
+      <a-tab-pane title="用户管理" key="users"><UserList /></a-tab-pane>
+      <a-tab-pane title="企业管理" key="enterprises"><EnterpriseList /></a-tab-pane>
+      <a-tab-pane title="商家管理" key="shops"><ShopList /></a-tab-pane>
+      <a-tab-pane title="专家管理" key="experts"><ExpertList /></a-tab-pane>
+    </a-tabs>
   </div>
 </template>
 <script setup>
@@ -17,4 +17,8 @@ import ShopList from '../shops/ShopList.vue'
 import ExpertList from '../experts/ExpertList.vue'
 const tab = ref('users')
 </script>
-<style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}.page-header h2{margin:0;font-size:20px}</style>
+<style scoped>
+.admin-page { padding: 20px; }
+.page-header { margin-bottom: 16px; }
+.page-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--color-text-1); }
+</style>

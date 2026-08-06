@@ -11,46 +11,51 @@
     <div class="login-card">
       <div class="login-header">
         <div class="logo-badge">
-          <el-icon :size="28" color="#fff"><Promotion /></el-icon>
+          <icon-send :size="28" :style="{ color: '#fff' }" />
         </div>
         <h1 class="login-title">无人机产业综合服务平台</h1>
         <p class="login-subtitle">管理后台 · 账号登录</p>
       </div>
 
       <!-- 账号密码登录 -->
-      <el-form
+      <a-form
         ref="formRef"
         :model="loginForm"
         :rules="loginRules"
         size="large"
+        layout="vertical"
         @submit.prevent="onSubmit"
       >
-        <el-form-item prop="phone">
-          <el-input
+        <a-form-item field="phone" hide-label>
+          <a-input
             v-model="loginForm.phone"
             placeholder="请输入手机号"
-            :prefix-icon="Iphone"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input
+            allow-clear
+            @press-enter="onSubmit"
+          >
+            <template #prefix><icon-phone /></template>
+          </a-input>
+        </a-form-item>
+        <a-form-item field="password" hide-label>
+          <a-input-password
             v-model="loginForm.password"
-            type="password"
             placeholder="请输入密码"
-            :prefix-icon="Lock"
-            show-password
-          />
-        </el-form-item>
-        <el-button
+            allow-clear
+            @press-enter="onSubmit"
+          >
+            <template #prefix><icon-lock /></template>
+          </a-input-password>
+        </a-form-item>
+        <a-button
           class="submit-btn"
           type="primary"
-          native-type="submit"
+          long
           :loading="loading"
+          @click="onSubmit"
         >
           登 录
-        </el-button>
-      </el-form>
+        </a-button>
+      </a-form>
 
       <div class="divider">
         <span class="divider-line"></span>
@@ -59,13 +64,14 @@
       </div>
 
       <!-- 开发环境快捷登录（生产 403 时提示禁用） -->
-      <el-button
+      <a-button
         class="dev-btn"
+        long
         :loading="devLoading"
         @click="onDevLogin"
       >
         开发环境快速登录
-      </el-button>
+      </a-button>
 
       <p class="footer-tip">登录即表示同意用户协议和隐私政策</p>
     </div>
@@ -75,7 +81,6 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Iphone, Lock, Promotion } from '@element-plus/icons-vue'
 import axios, { authStorage } from '@/utils/http'
 import { showFailToast, showSuccessToast } from '@/utils/feedback'
 
@@ -205,7 +210,7 @@ const onDevLogin = async () => {
   background: rgba(29, 212, 168, 0.12);
 }
 
-/* Element Plus 主题覆盖为品牌蓝 #0A66C2 */
+/* Arco 主题覆盖为品牌蓝 #0A66C2 */
 .login-card {
   position: relative;
   z-index: 1;
@@ -215,13 +220,14 @@ const onDevLogin = async () => {
   border-radius: 16px;
   padding: 40px 36px 28px;
   box-shadow: 0 16px 48px rgba(2, 32, 71, 0.35);
-  --el-color-primary: #0a66c2;
-  --el-color-primary-dark-2: #08549d;
-  --el-color-primary-light-3: #4587d1;
-  --el-color-primary-light-5: #74a6dd;
-  --el-color-primary-light-7: #a5c5ea;
-  --el-color-primary-light-8: #c2d8f0;
-  --el-color-primary-light-9: #e9f1fb;
+  --primary-1: #e9f1fb;
+  --primary-2: #c2d8f0;
+  --primary-3: #9cbfe6;
+  --primary-4: #74a6dd;
+  --primary-5: #4587d1;
+  --primary-6: #0a66c2;
+  --primary-7: #08549d;
+  --primary-8: #063f74;
 }
 
 .login-header {
@@ -253,8 +259,12 @@ const onDevLogin = async () => {
   color: #86909c;
 }
 
+/* 表单与按钮间距（Arco 默认 20px 过大，收紧保持紧凑形态） */
+.login-card :deep(.arco-form-item) {
+  margin-bottom: 18px;
+}
+
 .submit-btn {
-  width: 100%;
   height: 44px;
   font-size: 16px;
   border-radius: 8px;
@@ -280,7 +290,6 @@ const onDevLogin = async () => {
 }
 
 .dev-btn {
-  width: 100%;
   height: 40px;
   border-radius: 8px;
 }

@@ -1,9 +1,20 @@
 <template>
-  <div class="admin-page"><div class="page-header"><h2>系统设置</h2></div>
-    <el-tabs v-model="tab">
-      <el-tab-pane label="服务配置" name="config"><ServiceConfigList /></el-tab-pane>
-      <el-tab-pane label="消息通知" name="messages"><NotifyList /></el-tab-pane>
-    </el-tabs>
+  <div class="admin-page">
+    <div class="page-header"><h2>系统设置</h2></div>
+    <a-tabs v-model:active-key="tab">
+      <a-tab-pane title="服务配置" key="config"><ServiceConfigList /></a-tab-pane>
+      <a-tab-pane title="消息通知" key="messages"><NotifyList /></a-tab-pane>
+    </a-tabs>
   </div>
-</template><script setup>import { ref } from 'vue'; import ServiceConfigList from '../config/ServiceConfigList.vue'; import NotifyList from '../messages/NotifyList.vue'; const tab = ref('config')</script>
-<style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>
+</template>
+<script setup>
+import { ref } from 'vue'
+import ServiceConfigList from '../config/ServiceConfigList.vue'
+import NotifyList from '../messages/NotifyList.vue'
+const tab = ref('config')
+</script>
+<style scoped>
+.admin-page { padding: 20px; }
+.page-header { margin-bottom: 16px; }
+.page-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--color-text-1); }
+</style>

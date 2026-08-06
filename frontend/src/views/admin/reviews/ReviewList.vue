@@ -1,100 +1,103 @@
 <template>
-  <div class="review-list-page">
+  <div class="page">
     <!-- 搜索过滤区 -->
-    <div class="search-bar">
-      <div class="search-row">
-        <el-select v-model="filterParams.status" clearable style="width: 130px" @change="onSearchSubmit">
-          <el-option label="全部状态" value="" />
-          <el-option label="待审核" value="pending" />
-          <el-option label="已通过" value="approved" />
-          <el-option label="已拒绝" value="rejected" />
-        </el-select>
-
-        <el-select v-model="filterParams.section" clearable style="width: 130px" @change="onSearchSubmit">
-          <el-option label="全部板块" value="" />
-          <el-option label="研学" value="yanxue" />
-          <el-option label="无人机销售" value="sale" />
-          <el-option label="乐园" value="park" />
-        </el-select>
-
-        <el-input
-          v-model="filterParams.keyword"
-          placeholder="搜索评价内容..."
-          clearable style="width: 200px"
-          @keyup.enter="onSearchSubmit" @clear="onSearchSubmit"
-        >
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
-
-        <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
-        <el-button @click="resetParams">重置</el-button>
-      </div>
-    </div>
+    <a-card :bordered="false" class="search-card">
+      <a-form layout="horizontal" :model="filterParams" class="search-form">
+        <a-space wrap>
+          <a-form-item label="状态" class="form-item">
+            <a-select v-model="filterParams.status" style="width: 130px" allow-clear @change="onSearchSubmit">
+              <a-option label="全部状态" value="" />
+              <a-option label="待审核" value="pending" />
+              <a-option label="已通过" value="approved" />
+              <a-option label="已拒绝" value="rejected" />
+            </a-select>
+          </a-form-item>
+          <a-form-item label="板块" class="form-item">
+            <a-select v-model="filterParams.section" style="width: 130px" allow-clear @change="onSearchSubmit">
+              <a-option label="全部板块" value="" />
+              <a-option label="研学" value="yanxue" />
+              <a-option label="无人机销售" value="sale" />
+              <a-option label="乐园" value="park" />
+            </a-select>
+          </a-form-item>
+          <a-form-item label="关键词" class="form-item">
+            <a-input
+              v-model="filterParams.keyword"
+              placeholder="搜索评价内容..."
+              allow-clear
+              style="width: 200px"
+              @press-enter="onSearchSubmit"
+              @clear="onSearchSubmit"
+            />
+          </a-form-item>
+          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>搜索</a-button>
+          <a-button @click="resetParams">重置</a-button>
+        </a-space>
+      </a-form>
+    </a-card>
 
     <!-- 数据表格 -->
-    <div class="table-wrap">
-      <el-table v-loading="loading" :data="listData" row-key="id" stripe border>
-        <el-table-column prop="reviewer_id" label="评价人ID" width="140" show-overflow-tooltip />
-        <el-table-column label="评价对象" min-width="160">
-          <template #default="{ row }">
-            <el-tag :type="sectionTagType(row.target_type)" size="small">{{ targetTypeLabel(row.target_type) }}</el-tag>
-            <span class="target-id">{{ row.target_id || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="评分" width="100">
-          <template #default="{ row }">
-            <span class="stars">{{ '★'.repeat(row.rating || 0) }}{{ '☆'.repeat(5 - (row.rating || 0)) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="content" label="评价内容" min-width="200" show-overflow-tooltip />
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="评价时间" width="160" sortable="custom">
-          <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <template v-if="row.status === 'pending'">
-              <el-button link type="success" size="small" @click="handleStatus(row, 'approved')">通过</el-button>
-              <el-button link type="warning" size="small" @click="handleStatus(row, 'rejected')">拒绝</el-button>
+    <a-card :bordered="false">
+      <a-table
+        :columns="columns"
+        :data="listData"
+        :loading="loading"
+        row-key="id"
+        :pagination="false"
+        @sorter-change="handleSorterChange"
+      >
+        <template #target="{ record }">
+          <a-tag :color="sectionTagColor(record.target_type)" size="small">{{ targetTypeLabel(record.target_type) }}</a-tag>
+          <span class="target-id">{{ record.target_id || '-' }}</span>
+        </template>
+        <template #rating="{ record }">
+          <span class="stars">{{ '★'.repeat(record.rating || 0) }}{{ '☆'.repeat(5 - (record.rating || 0)) }}</span>
+        </template>
+        <template #status="{ record }">
+          <a-tag :color="statusTagColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+        </template>
+        <template #createdAt="{ record }">
+          <span class="time-text">{{ formatDate(record.created_at) }}</span>
+        </template>
+        <template #actions="{ record }">
+          <a-space :size="4">
+            <template v-if="record.status === 'pending'">
+              <a-button type="text" status="success" size="small" @click="handleStatus(record, 'approved')">通过</a-button>
+              <a-button type="text" status="warning" size="small" @click="handleStatus(record, 'rejected')">拒绝</a-button>
             </template>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
+            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
+          </a-space>
+        </template>
+        <template #empty>
+          <a-empty description="暂无评价数据" />
+        </template>
+      </a-table>
 
-        <template #empty><el-empty description="暂无评价数据" /></template>
-      </el-table>
-    </div>
-
-    <!-- 分页 -->
-    <div class="pagination-wrap" v-if="total > 0">
-      <el-pagination
-        v-model:current-page="filterParams.page"
-        v-model:page-size="filterParams.page_size"
-        :page-sizes="[10, 20, 50]"
-        :total="total" layout="total, sizes, prev, pager, next, jumper"
-        background
-        @size-change="loadData" @current-change="loadData"
-      />
-    </div>
+      <div class="pagination-wrap" v-if="total > 0">
+        <a-pagination
+          v-model:current="filterParams.page"
+          v-model:page-size="filterParams.page_size"
+          :total="total"
+          :page-size-options="[10, 20, 50]"
+          show-total
+          show-page-size
+          @change="loadData"
+        />
+      </div>
+    </a-card>
   </div>
 </template>
 
 <script setup>
 import { onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
-import { showToast, showConfirmDialog } from '@/utils/feedback'
+import { Message, Modal } from '@arco-design/web-vue'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getReviewList, updateReviewStatus, deleteReview } from '@/api/admin/review'
 
 const targetTypeLabel = (t) => ({ demand: '需求', product: '商品', shop: '商家', job: '职位', course: '课程', venue: '场地' }[t] || t || '通用')
 const statusLabel = (s) => ({ pending: '待审核', approved: '已通过', rejected: '已拒绝' }[s] || s)
-const sectionTagType = (t) => ({ demand: '', product: 'success', shop: 'warning', job: 'primary', course: '', venue: 'info' }[t] || 'info')
-const statusTagType = (s) => ({ pending: 'warning', approved: 'success', rejected: 'danger' }[s] || 'info')
+const sectionTagColor = (t) => ({ demand: 'arcoblue', product: 'green', shop: 'orange', job: 'arcoblue', course: 'arcoblue', venue: 'gray' }[t] || 'gray')
+const statusTagColor = (s) => ({ pending: 'orange', approved: 'green', rejected: 'red' }[s] || 'gray')
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -103,39 +106,70 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
+const { listData, loading, total, filterParams, loadData, onSearchSubmit, onSortChange, resetParams } = useListRequest({
   apiFunction: getReviewList,
   idKey: 'id',
   defaultParams: { status: '', section: '', limit: 20 }
 })
 
+// a-table 排序（Arco direction → useListRequest 的 order 语义）
+const handleSorterChange = (dataIndex, direction) => {
+  const order = direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
+  onSortChange({ prop: dataIndex, order })
+}
+
+const columns = [
+  { title: '评价人ID', dataIndex: 'reviewer_id', width: 140, tooltip: true },
+  { title: '评价对象', dataIndex: 'target_id', slotName: 'target', minWidth: 160 },
+  { title: '评分', dataIndex: 'rating', slotName: 'rating', width: 100 },
+  { title: '评价内容', dataIndex: 'content', minWidth: 200, tooltip: true },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
+  { title: '评价时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160, sortable: true },
+  { title: '操作', slotName: 'actions', width: 180, fixed: 'right' },
+]
+
 const handleStatus = async (item, status) => {
   try {
     await updateReviewStatus(item.id, status)
     item.status = status
-    showToast(status === 'approved' ? '已通过' : '已拒绝')
-  } catch (e) { showToast('操作失败') }
+    Message.success(status === 'approved' ? '已通过' : '已拒绝')
+  } catch (e) { Message.error('操作失败') }
 }
 
 const handleDelete = (item) => {
-  showConfirmDialog({ title: '确认删除', message: '删除后不可恢复' }).then(async () => {
-    try {
-      await deleteReview(item.id)
-      listData.value = listData.value.filter(r => r.id !== item.id)
-      showToast('已删除')
-    } catch (e) { showToast('删除失败') }
-  }).catch(() => {})
+  Modal.confirm({
+    title: '确认删除',
+    content: '删除后不可恢复',
+    okText: '删除',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await deleteReview(item.id)
+        listData.value = listData.value.filter(r => r.id !== item.id)
+        Message.success('已删除')
+      } catch (e) { Message.error('删除失败') }
+    }
+  })
 }
 
 onMounted(loadData)
 </script>
 
 <style scoped>
-.review-list-page { max-width: 1200px; margin: 0 auto; }
-.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+.page { max-width: 1200px; margin: 0 auto; }
+
+.search-card { margin-bottom: 16px; }
+
+.search-form :deep(.arco-form-item) { margin-bottom: 0; }
+
+.target-id { margin-left: 6px; color: #86909C; }
+
 .stars { color: #ffd21e; font-size: 14px; letter-spacing: 1px; }
-.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
+.time-text { color: #86909C; font-size: 12px; }
+
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
 </style>

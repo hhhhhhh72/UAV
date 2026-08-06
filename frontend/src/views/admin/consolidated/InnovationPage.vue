@@ -1,13 +1,28 @@
 <template>
-  <div class="admin-page"><div class="page-header"><h2>产学研</h2></div>
-    <el-tabs v-model="tab">
-      <el-tab-pane label="成果管理" name="achievements"><AchievementList /></el-tab-pane>
-      <el-tab-pane label="研发难题" name="challenges"><ChallengeList /></el-tab-pane>
-      <el-tab-pane label="课题攻关" name="projects"><ProjectList /></el-tab-pane>
-      <el-tab-pane label="测试场地" name="testsites"><TestSiteList /></el-tab-pane>
-      <el-tab-pane label="场地预约" name="bookings"><BookingList /></el-tab-pane>
-      <el-tab-pane label="成果转化" name="transformations"><TransList /></el-tab-pane>
-    </el-tabs>
+  <div class="admin-page">
+    <div class="page-header"><h2>产学研</h2></div>
+    <a-tabs v-model:active-key="tab">
+      <a-tab-pane title="成果管理" key="achievements"><AchievementList /></a-tab-pane>
+      <a-tab-pane title="研发难题" key="challenges"><ChallengeList /></a-tab-pane>
+      <a-tab-pane title="课题攻关" key="projects"><ProjectList /></a-tab-pane>
+      <a-tab-pane title="测试场地" key="testsites"><TestSiteList /></a-tab-pane>
+      <a-tab-pane title="场地预约" key="bookings"><BookingList /></a-tab-pane>
+      <a-tab-pane title="成果转化" key="transformations"><TransList /></a-tab-pane>
+    </a-tabs>
   </div>
-</template><script setup>import { ref } from 'vue'; import AchievementList from '../achievements/AchievementList.vue'; import ChallengeList from '../challenges/ChallengeList.vue'; import ProjectList from '../projects/ProjectList.vue'; import TestSiteList from '../testsites/TestSiteList.vue'; import TransList from '../transformations/TransList.vue'; import BookingList from '../bookings/BookingList.vue'; const tab = ref('achievements')</script>
-<style scoped>.admin-page{padding:20px}.page-header{margin-bottom:20px}h2{margin:0;font-size:20px}</style>
+</template>
+<script setup>
+import { ref } from 'vue'
+import AchievementList from '../achievements/AchievementList.vue'
+import ChallengeList from '../challenges/ChallengeList.vue'
+import ProjectList from '../projects/ProjectList.vue'
+import TestSiteList from '../testsites/TestSiteList.vue'
+import TransList from '../transformations/TransList.vue'
+import BookingList from '../bookings/BookingList.vue'
+const tab = ref('achievements')
+</script>
+<style scoped>
+.admin-page { padding: 20px; }
+.page-header { margin-bottom: 16px; }
+.page-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--color-text-1); }
+</style>

@@ -6,6 +6,7 @@
 }
 
 body {
+  background-color: var(--color-bg-page);
   font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
     'Noto Color Emoji';
@@ -13,64 +14,78 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 主题色定义 - Apple / Notion 简洁风 */
+/* 品牌主题色（对齐小程序 V4：深空蓝 #165DFF / 低饱和语义色 / ≤8px 圆角） */
 :root {
   /* 主色 */
-  --primary-color: #1565C0;
-  --primary-light: #1E88E5;
-  --primary-dark: #0D47A1;
-  --accent-color: #0071e3;
-  --accent-light: #e8f2fc;
+  --primary-color: #165DFF;
+  --primary-light: #2E7FD4;
+  --primary-dark: #074D92;
+  --accent-color: #165DFF;
+  --accent-light: #EAF3FB;
 
   /* 功能色 */
-  --success-color: #34c759;
-  --warning-color: #ff9f0a;
-  --danger-color: #ff3b30;
-  --info-color: #5ac8fa;
+  --success-color: #168A55;
+  --warning-color: #E96012;
+  --danger-color: #D92D20;
+  --info-color: #667085;
 
   /* 文本 */
-  --text-color: #1d1d1f;
-  --text-secondary: #86868b;
-  --text-tertiary: #aeaeb2;
+  --text-color: #17212B;
+  --text-secondary: #344054;
+  --text-tertiary: #667085;
 
   /* 边框 & 背景 */
-  --border-color: #e5e5e7;
-  --background-color: #f5f5f7;
-  --bg-primary: #ffffff;
-  --bg-sidebar: #fbfbfd;
+  --border-color: #E4E7EC;
+  --background-color: #F4F6F8;
+  --bg-primary: var(--color-bg-2);
+  --bg-sidebar: #074D92;
 
   /* 卡片 */
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --card-radius: 12px;
+  --card-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
+  --card-radius: 8px;
 
   /* 布局 */
   --page-max-width: 520px;
   --tabbar-height: calc(74px + env(safe-area-inset-bottom));
   --sidebar-width: 220px;
-  --admin-header-height: 56px;
 }
 
-/* 通用容器 */
-.page-container {
-  min-height: 100vh;
-  background-color: var(--background-color);
-  padding-bottom: var(--tabbar-height);
-  width: 100%;
-  max-width: var(--page-max-width);
-  margin: 0 auto;
+/* ── Arco Design 主题（照抄 Arco Design Pro 默认视觉：主色用品牌蓝） ── */
+:root {
+  --primary-1: #e8f3ff;
+  --primary-2: #bedaff;
+  --primary-3: #87b8ff;
+  --primary-4: #3d8fff;
+  --primary-5: #2b7fff;
+  --primary-6: #165dff;
+  --primary-7: #0e42d2;
+  --primary-8: #072ca6;
+  --primary-9: #041a79;
+}
+
+/* 注意：不覆盖 Arco 的中性色变量（--color-bg-* / --color-fill-* / --color-border /
+   --border-radius-*）——暗色模式由 Arco 的 [arco-theme='dark'] 变量驱动，
+   覆盖它们会导致暗色下组件保持浅色。
+
+/* Arco Pro 表格表头样式：浅灰底 + 主文字色 + 500 字重 */
+.arco-table-th {
+  background-color: var(--color-fill-2) !important;
+  color: var(--color-text-1);
+  font-weight: 500;
 }
 
 .content-wrapper {
   padding: 16px;
 }
 
-/* 卡片样式 */
+/* 卡片样式（Arco Pro：无边框白卡 + 4px 圆角 + 极淡投影） */
 .card {
   background: #fff;
-  border-radius: 12px;
+  border: none;
+  border-radius: 4px;
   padding: 16px;
   margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 /* 渐变背景 (保留兼容，新页面不再使用) */
@@ -93,4 +108,3 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-

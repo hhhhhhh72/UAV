@@ -1,178 +1,169 @@
 <template>
-  <div class="demand-list-page">
-    <!-- 搜索过滤区 -->
-    <div class="search-bar">
-      <div class="search-row">
-        <el-input
-          v-model="filterParams.keyword"
-          placeholder="搜索需求标题..."
-          clearable
-          style="width: 240px"
-          @keyup.enter="onSearchSubmit"
-          @clear="onSearchSubmit"
-        >
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
-
-        <el-select v-model="filterParams.status" clearable style="width: 140px" @change="onSearchSubmit">
-          <el-option label="全部" value="all" />
-          <el-option label="待审核" value="pending" />
-          <el-option label="已发布" value="published" />
-          <el-option label="已完成" value="completed" />
-          <el-option label="已取消" value="cancelled" />
-          <el-option label="已驳回" value="rejected" />
-        </el-select>
-
-        <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
-        <el-button @click="resetParams">重置</el-button>
+  <div class="page">
+    <!-- 撮合统计（独立全量统计接口，不随翻页变化） -->
+    <a-card :bordered="false" class="stat-card">
+      <div class="stats-bar">
+        <div class="stat"><span class="stat-num">{{ stats.total }}</span><span class="stat-label">需求总数</span></div>
+        <div class="stat warn"><span class="stat-num">{{ stats.pending }}</span><span class="stat-label">待审核</span></div>
+        <div class="stat ok"><span class="stat-num">{{ stats.published }}</span><span class="stat-label">已公开</span></div>
+        <div class="stat done"><span class="stat-num">{{ stats.completed }}</span><span class="stat-label">已完成</span></div>
+        <div class="stat rate"><span class="stat-num">{{ stats.rate }}%</span><span class="stat-label">完成率</span></div>
+        <div class="stat amount"><span class="stat-num">¥{{ Number(stats.offline_amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}</span><span class="stat-label">撮合成交额</span></div>
       </div>
-    </div>
+    </a-card>
 
-    <!-- 撮合统计条 -->
-    <div class="stats-bar">
-      <div class="stat"><span class="stat-num">{{ stats.total }}</span><span class="stat-label">需求总数</span></div>
-      <div class="stat warn"><span class="stat-num">{{ stats.pending }}</span><span class="stat-label">待审核</span></div>
-      <div class="stat ok"><span class="stat-num">{{ stats.published }}</span><span class="stat-label">已公开</span></div>
-      <div class="stat done"><span class="stat-num">{{ stats.completed }}</span><span class="stat-label">已完成</span></div>
-      <div class="stat rate"><span class="stat-num">{{ stats.rate }}%</span><span class="stat-label">完成率</span></div>
-      <div class="stat amount"><span class="stat-num">¥{{ Number(stats.offline_amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) }}</span><span class="stat-label">撮合成交额</span></div>
-    </div>
+    <!-- 搜索 + 批量操作 -->
+    <a-card :bordered="false" class="search-card">
+      <a-form layout="horizontal" :model="filterParams" class="search-form">
+        <a-space wrap>
+          <a-form-item label="关键词" class="form-item">
+            <a-input v-model="filterParams.keyword" placeholder="搜索需求标题" allow-clear style="width: 220px" @press-enter="onSearchSubmit" />
+          </a-form-item>
+          <a-form-item label="状态" class="form-item">
+            <a-select v-model="filterParams.status" style="width: 140px" @change="onSearchSubmit">
+              <a-option value="all">全部</a-option>
+              <a-option value="pending">待审核</a-option>
+              <a-option value="published">已公开</a-option>
+              <a-option value="completed">已完成</a-option>
+              <a-option value="cancelled">已取消</a-option>
+              <a-option value="rejected">已驳回</a-option>
+            </a-select>
+          </a-form-item>
+          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
+          <a-button @click="resetParams">重置</a-button>
+        </a-space>
+      </a-form>
 
-    <!-- 批量操作栏 -->
-    <div class="batch-bar" v-if="selectedIds.length > 0">
-      <span class="batch-info">已选择 <b>{{ selectedIds.length }}</b> 项</span>
-      <el-button type="success" :icon="Check" @click="batchApprove">批量通过</el-button>
-      <el-button type="danger" :icon="CloseBold" @click="batchReject">批量驳回</el-button>
-    </div>
+      <div class="batch-bar" v-if="selectedIds.length > 0">
+        <span class="batch-info">已选择 <b>{{ selectedIds.length }}</b> 项</span>
+        <a-button type="success" size="small" @click="batchApprove">批量通过</a-button>
+        <a-button type="danger" size="small" @click="batchReject">批量驳回</a-button>
+      </div>
+    </a-card>
 
     <!-- 数据表格 -->
-    <div class="table-wrap">
-      <el-table
-        v-loading="loading"
+    <a-card :bordered="false">
+      <a-table
+        :columns="columns"
         :data="listData"
+        :loading="loading"
         row-key="id"
-        stripe border
-        @selection-change="onSelectChange"
-        @sort-change="onSortChange"
+        :pagination="false"
+        :row-selection="rowSelection"
+        @page-change="loadData"
       >
-        <el-table-column type="selection" width="40" />
-
-        <el-table-column prop="title" label="需求标题" min-width="200" sortable="custom">
-          <template #default="{ row }">
-            <span class="cell-title">{{ row.title || '无标题' }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="publisher_name" label="发布者" width="130" />
-        <el-table-column prop="biz_type" label="业务类型" width="120">
-          <template #default="{ row }">{{ bizTypeLabel(row.biz_type) }}</template>
-        </el-table-column>
-
-        <el-table-column prop="district" label="地区" width="110" />
-
-        <el-table-column prop="budget_fen" label="预算" width="110" sortable="custom" align="right">
-          <template #default="{ row }">
-            {{ row.budget_fen ? '¥' + Number(row.budget_fen / 100).toLocaleString() : '-' }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="status" label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="created_at" label="提交时间" width="160" sortable="custom">
-          <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
-            <template v-if="row.status === 'pending'">
-              <el-divider direction="vertical" />
-              <el-button link type="success" size="small" @click="handleApprove(row)">通过</el-button>
-              <el-button link type="danger" size="small" @click="handleReject(row)">驳回</el-button>
+        <template #title="{ record }">
+          <span class="cell-title">{{ record.title || '-' }}</span>
+        </template>
+        <template #bizType="{ record }">
+          <a-tag color="arcoblue" size="small">{{ bizTypeLabel(record.biz_type) }}</a-tag>
+        </template>
+        <template #price="{ record }">
+          <span>{{ record.budget_fen ? '¥' + (record.budget_fen / 100).toLocaleString() : '面议' }}</span>
+        </template>
+        <template #status="{ record }">
+          <a-tag :color="statusTagColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+        </template>
+        <template #offlineAmount="{ record }">
+          <span v-if="record.offline_amount_fen" class="amount-text">¥{{ (record.offline_amount_fen / 100).toLocaleString() }}</span>
+          <span v-else class="amount-empty">-</span>
+        </template>
+        <template #createdAt="{ record }">
+          <span class="time-text">{{ formatDate(record.created_at) }}</span>
+        </template>
+        <template #actions="{ record }">
+          <a-space :size="4">
+            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+            <template v-if="record.status === 'pending'">
+              <a-button type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
+              <a-button type="text" status="danger" size="small" @click="openInputModal('reject', record)">驳回</a-button>
             </template>
-            <template v-else-if="row.status === 'published' || row.status === 'completed'">
-              <el-divider direction="vertical" />
-              <el-button link type="warning" size="small" @click="handleClose(row)">关闭</el-button>
-              <el-button link type="success" size="small" @click="handleAmount(row)">登记金额</el-button>
+            <template v-else-if="record.status === 'published' || record.status === 'completed'">
+              <a-button type="text" status="warning" size="small" @click="openInputModal('close', record)">关闭</a-button>
+              <a-button type="text" size="small" @click="openInputModal('amount', record)">登记金额</a-button>
             </template>
-            <template v-else-if="row.status === 'cancelled' || row.status === 'rejected'">
-              <el-divider direction="vertical" />
-              <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+            <template v-else-if="record.status === 'cancelled' || record.status === 'rejected'">
+              <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
             </template>
-          </template>
-        </el-table-column>
+          </a-space>
+        </template>
+        <template #empty>
+          <a-empty description="暂无需求数据" />
+        </template>
+      </a-table>
 
-        <template #empty><el-empty description="暂无需求数据" /></template>
-      </el-table>
-    </div>
-
-    <!-- 分页 -->
-    <div class="pagination-wrap" v-if="total > 0">
-      <el-pagination
-        v-model:current-page="filterParams.page"
-        v-model:page-size="filterParams.page_size"
-        :page-sizes="[10, 20, 50, 100]"
-        :total="total"
-        layout="total, sizes, prev, pager, next, jumper"
-        background
-        @size-change="loadData"
-        @current-change="loadData"
-      />
-    </div>
+      <div class="pagination-wrap" v-if="total > 0">
+        <a-pagination
+          v-model:current="filterParams.page"
+          v-model:page-size="filterParams.page_size"
+          :total="total"
+          :page-size-options="[10, 20, 50]"
+          show-total
+          show-page-size
+          @change="loadData"
+        />
+      </div>
+    </a-card>
 
     <!-- 详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="需求详情" width="600px" :close-on-click-modal="false">
+    <a-modal v-model:visible="detailVisible" title="需求详情" :width="640" :footer="false">
       <template v-if="currentItem">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="标题" :span="2">{{ currentItem.title || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="发布者">{{ currentItem.publisher_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="业务类型">{{ bizTypeLabel(currentItem.biz_type) }}</el-descriptions-item>
-          <el-descriptions-item label="地区">{{ currentItem.district || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="statusTagType(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="预算">{{ currentItem.budget_fen ? '¥' + (currentItem.budget_fen / 100).toLocaleString() : '-' }}</el-descriptions-item>
-          <el-descriptions-item label="线下成交金额">{{ currentItem.offline_amount_fen ? '¥' + (currentItem.offline_amount_fen / 100).toLocaleString() : '-' }}</el-descriptions-item>
-          <el-descriptions-item label="提交时间" :span="2">{{ formatDate(currentItem.created_at) }}</el-descriptions-item>
-          <el-descriptions-item v-if="currentItem.biz_fields && currentItem.biz_fields.reject_reason" label="驳回/关闭原因" :span="2">
-            {{ currentItem.biz_fields.reject_reason }}
-          </el-descriptions-item>
-          <el-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</el-descriptions-item>
-        </el-descriptions>
-
+        <a-descriptions :column="2" bordered size="medium">
+          <a-descriptions-item label="需求标题" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="类型">{{ bizTypeLabel(currentItem.biz_type) }}</a-descriptions-item>
+          <a-descriptions-item label="状态">
+            <a-tag :color="statusTagColor(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="预算">{{ currentItem.budget_fen ? '¥' + (currentItem.budget_fen / 100).toLocaleString() : '面议' }}</a-descriptions-item>
+          <a-descriptions-item label="成交金额">{{ currentItem.offline_amount_fen ? '¥' + (currentItem.offline_amount_fen / 100).toLocaleString() : '-' }}</a-descriptions-item>
+          <a-descriptions-item label="地区" :span="2">{{ currentItem.district || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="联系人">{{ currentItem.contact || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="提交时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
+          <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.reject_reason" label="驳回/关闭原因" :span="2">
+            <span class="reason-text">{{ currentItem.reject_reason }}</span>
+          </a-descriptions-item>
+        </a-descriptions>
       </template>
-    </el-dialog>
+    </a-modal>
+
+    <!-- 输入弹窗（驳回理由 / 关闭原因 / 登记金额） -->
+    <a-modal v-model:visible="inputModal.visible" :title="inputModal.title" :width="440" @ok="confirmInputModal" @cancel="inputModal.visible = false">
+      <a-input
+        v-model="inputModal.value"
+        :placeholder="inputModal.placeholder"
+        :type="inputModal.type === 'amount' ? 'number' : 'text'"
+        allow-clear
+      />
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Search, Check, CloseBold } from '@element-plus/icons-vue'
-import { showSuccessToast, showFailToast } from '@/utils/feedback'
-import { ElMessageBox } from 'element-plus'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import axios from '@/utils/http'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getDemandList, approveDemand, rejectDemand, closeDemand, setOfflineAmount, deleteDemand } from '@/api/admin/demand'
 
 const bizTypeLabel = (t) => ({
-  aerial_photo: '航拍摄影', mapping: '测绘', inspection: '巡检',
-  agriculture: '植保', logistics: '物流配送', training: '培训',
-  competition: '赛事', other: '其他'
+  cable_inspection: '工业巡检',
+  plant_transport: '植保运输',
+  spray_pesticide: '农药喷洒',
+  trade_lease: '租赁服务',
+  clean_paint: '清洗保洁',
+  other: '其他'
 }[t] || t || '-')
 
 const statusLabel = (s) => ({
-  pending: '待审核', published: '已发布', matched: '已匹配',
-  completed: '已完成', cancelled: '已取消', rejected: '已驳回'
+  pending: '待审核', published: '已公开', completed: '已完成',
+  cancelled: '已取消', rejected: '已驳回'
 }[s] || s || '-')
 
-const statusTagType = (s) => ({
-  published: 'success', matched: '', completed: 'success',
-  pending: 'warning', cancelled: 'info', rejected: 'danger'
-}[s] || 'info')
+const statusTagColor = (s) => ({
+  pending: 'orangered', published: 'arcoblue', completed: 'green',
+  cancelled: 'gray', rejected: 'red'
+}[s] || 'gray')
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -181,8 +172,7 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-// 撮合统计：独立全量统计接口（GET /api/v1/admin/demands/stats），
-// 不随列表分页/筛选变化，保证翻页时统计条稳定
+// 撮合统计：独立全量统计接口，不随列表分页/筛选变化
 const stats = ref({ total: 0, pending: 0, published: 0, completed: 0, cancelled: 0, rejected: 0, rate: 0, offline_amount: 0 })
 
 const loadStats = async () => {
@@ -190,14 +180,9 @@ const loadStats = async () => {
     const res = await axios.get('/api/v1/admin/demands/stats')
     const d = res?.data?.data || res?.data || {}
     stats.value = {
-      total: d.total || 0,
-      pending: d.pending || 0,
-      published: d.published || 0,
-      completed: d.completed || 0,
-      cancelled: d.cancelled || 0,
-      rejected: d.rejected || 0,
-      rate: d.rate || 0,
-      offline_amount: d.offline_amount || 0,
+      total: d.total || 0, pending: d.pending || 0, published: d.published || 0,
+      completed: d.completed || 0, cancelled: d.cancelled || 0, rejected: d.rejected || 0,
+      rate: d.rate || 0, offline_amount: d.offline_amount || 0,
     }
   } catch (e) { /* 统计失败不阻塞列表 */ }
 }
@@ -205,113 +190,105 @@ const loadStats = async () => {
 const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, onSelectChange, resetParams } = useListRequest({
   apiFunction: getDemandList,
   idKey: 'id',
-  // 默认全量视角：通过/驳回后数据不因筛选变化而"消失"
   defaultParams: { status: 'all' }
 })
 
+// a-table 行选择（兼容 useListRequest 的 selectedIds）
+const rowSelection = computed(() => ({
+  type: 'checkbox',
+  showCheckedAll: true,
+  selectedRowKeys: selectedIds.value,
+  onChange: (keys) => { selectedIds.value = [...keys] }
+}))
+
+const columns = [
+  { title: 'ID', dataIndex: 'id', width: 160 },
+  { title: '需求标题', dataIndex: 'title', slotName: 'title', minWidth: 200 },
+  { title: '类型', dataIndex: 'biz_type', slotName: 'bizType', width: 100 },
+  { title: '预算', dataIndex: 'budget_fen', slotName: 'price', width: 110, align: 'right' },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
+  { title: '成交金额', dataIndex: 'offline_amount_fen', slotName: 'offlineAmount', width: 110, align: 'right' },
+  { title: '提交时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160 },
+  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' },
+]
+
 const detailVisible = ref(false)
 const currentItem = ref(null)
-
 const showDetail = (d) => { currentItem.value = d; detailVisible.value = true }
+
+// 输入弹窗（驳回/关闭/金额共用）
+const inputModal = reactive({ visible: false, type: '', title: '', placeholder: '', value: '', record: null })
+
+const openInputModal = (type, record) => {
+  const cfg = {
+    reject: { title: '驳回需求', placeholder: '请填写驳回理由（发布者可见，可据此修改后重提）' },
+    close: { title: '关闭需求', placeholder: '关闭后需求从大厅下架，请填写关闭原因' },
+    amount: { title: '登记成交金额', placeholder: '登记该需求线下成交金额（元），如：12000' },
+  }[type]
+  Object.assign(inputModal, { visible: true, type, record, value: '', ...cfg })
+}
+
+const confirmInputModal = async () => {
+  const { type, value, record } = inputModal
+  if (!value || !value.trim()) { Message.warning('请填写内容'); return }
+  try {
+    if (type === 'reject') {
+      await rejectDemand(record.id, value.trim())
+      Message.success('已驳回')
+      record.status = 'rejected'
+    } else if (type === 'close') {
+      await closeDemand(record.id, value.trim())
+      Message.success('已关闭')
+      record.status = 'cancelled'
+    } else if (type === 'amount') {
+      const fen = Math.round(Number(value) * 100)
+      await setOfflineAmount(record.id, fen)
+      Message.success('已登记 ¥' + value)
+      record.offline_amount_fen = fen
+    }
+    inputModal.visible = false
+    loadData(); loadStats()
+  } catch (e) { Message.error(errMsg(e)) }
+}
+
+const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '操作失败'
 
 const handleApprove = async (item) => {
   try {
     await approveDemand(item.id)
-    showSuccessToast('审核通过')
+    Message.success('审核通过')
     item.status = 'published'
     detailVisible.value = false
     loadData(); loadStats()
-  } catch (e) { showFailToast(errMsg(e)) }
+  } catch (e) { Message.error(errMsg(e)) }
 }
 
-// 删除已取消/已驳回需求（关闭后的数据清理）
+// 删除已取消/已驳回需求
 const handleDelete = (item) => {
-  ElMessageBox.confirm(`确定删除该需求吗？删除后不可恢复（${item.title || item.id}）`, '删除需求', {
-    confirmButtonText: '删除',
-    cancelButtonText: '取消',
-    type: 'warning',
-  }).then(async () => {
-    try {
-      await deleteDemand(item.id)
-      showSuccessToast('已删除')
-      loadData(); loadStats()
-    } catch (e) { showFailToast(errMsg(e)) }
-  }).catch(() => {})
-}
-
-// 统一错误提示：后端 fail 格式为 {error:{code,message}}，逐层取
-const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '操作失败'
-
-const handleReject = async (item) => {
-  try {
-    const { value } = await ElMessageBox.prompt('请填写驳回理由（发布者可见，可据此修改后重提）', '驳回需求', {
-      confirmButtonText: '确认驳回',
-      cancelButtonText: '取消',
-      inputPlaceholder: '如：信息不完整 / 违规内容 / 重复发布',
-      inputValidator: (v) => (v && v.trim() ? true : '驳回理由必填'),
-    })
-    await rejectDemand(item.id, value.trim())
-    showSuccessToast('已驳回')
-    item.status = 'rejected'
-    detailVisible.value = false
-    loadData(); loadStats()
-  } catch (e) {
-    if (e !== 'cancel' && e !== 'close') {
-      // 带真实错误原因，便于定位（如：HTTP 状态码 + 后端 message）
-      const msg = errMsg(e)
-      showFailToast(msg)
-      console.error('[驳回需求失败]', e)
+  Modal.confirm({
+    title: '删除需求',
+    content: `确定删除该需求吗？删除后不可恢复（${item.title || item.id}）`,
+    okText: '删除',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await deleteDemand(item.id)
+        Message.success('已删除')
+        loadData(); loadStats()
+      } catch (e) { Message.error(errMsg(e)) }
     }
-  }
-}
-
-// 登记线下成交金额（联系对接模式：平台撮合价值度量）
-const handleAmount = async (item) => {
-  try {
-    const { value } = await ElMessageBox.prompt('登记该需求线下成交金额（元）', '登记成交金额', {
-      confirmButtonText: '确认登记',
-      cancelButtonText: '取消',
-      inputPlaceholder: '如：12000',
-      inputPattern: /^\d+(\.\d{1,2})?$/,
-      inputErrorMessage: '请输入有效金额',
-    })
-    const fen = Math.round(Number(value) * 100)
-    await setOfflineAmount(item.id, fen)
-    showSuccessToast('已登记 ¥' + value)
-    item.offline_amount_fen = fen
-    loadData(); loadStats()
-  } catch (e) {
-    if (e !== 'cancel' && e !== 'close') showFailToast(errMsg(e))
-  }
-}
-
-// 关闭已公开需求（发布者失联/虚假信息/线下已成交）
-const handleClose = async (item) => {
-  try {
-    const { value } = await ElMessageBox.prompt('关闭后需求从大厅下架，请填写关闭原因', '关闭需求', {
-      confirmButtonText: '确认关闭',
-      cancelButtonText: '取消',
-      inputPlaceholder: '如：线下已成交 / 信息失实',
-      inputValidator: (v) => (v && v.trim() ? true : '关闭原因必填'),
-    })
-    await closeDemand(item.id, value.trim())
-    showSuccessToast('已关闭')
-    item.status = 'cancelled'
-    loadData(); loadStats()
-  } catch (e) {
-    if (e !== 'cancel' && e !== 'close') showFailToast(errMsg(e))
-  }
+  })
 }
 
 const batchApprove = () => {
   selectedIds.value.forEach(id => approveDemand(id).catch(() => {}))
-  showSuccessToast('批量通过已提交')
+  Message.success('批量通过已提交')
   loadData(); loadStats()
 }
 
 const batchReject = () => {
   selectedIds.value.forEach(id => rejectDemand(id, '').catch(() => {}))
-  showSuccessToast('批量驳回已提交')
+  Message.success('批量驳回已提交')
   loadData(); loadStats()
 }
 
@@ -319,25 +296,77 @@ onMounted(() => { loadData(); loadStats() })
 </script>
 
 <style scoped>
-.demand-list-page { max-width: 1400px; margin: 0 auto; }
-.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.page { max-width: 1400px; margin: 0 auto; }
 
-/* 撮合统计条 */
-.stats-bar { display: flex; gap: 32px; background: #fff; border-radius: 8px; padding: 14px 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-.stat { display: flex; align-items: baseline; gap: 8px; }
-.stat-num { font-size: 22px; font-weight: 700; color: var(--el-text-color-primary); }
-.stat.warn .stat-num { color: var(--el-color-warning); }
-.stat.ok .stat-num { color: var(--el-color-success); }
-.stat.done .stat-num { color: var(--el-color-primary); }
-.stat.rate .stat-num { color: var(--el-color-info); }
-.stat.amount .stat-num { color: var(--el-color-success); }
-.stat-label { font-size: 13px; color: var(--el-text-color-secondary); }
-.batch-bar { background: var(--el-color-primary-light-9); border: 1px solid var(--el-color-primary-light-5); border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
-.batch-info { font-size: 13px; color: var(--el-text-color-secondary); margin-right: auto; }
-.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
-.cell-title { font-weight: 500; color: var(--el-text-color-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; max-width: 300px; }
-.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.review-actions { text-align: center; padding-top: 16px; }
-@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
+.stat-card { margin-bottom: 16px; }
+
+.stats-bar {
+  display: flex;
+  gap: 0;
+}
+
+.stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 16px;
+  border-right: 1px solid #EEF1F4;
+}
+
+.stat:last-child { border-right: none; }
+
+.stat-num {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #86909C;
+}
+
+.stat.warn .stat-num { color: #E96012; }
+.stat.ok .stat-num { color: #168A55; }
+.stat.done .stat-num { color: #168A55; }
+.stat.rate .stat-num { color: #165DFF; }
+.stat.amount .stat-num { color: #E96012; font-size: 20px; }
+
+.search-card { margin-bottom: 16px; }
+
+.search-form :deep(.arco-form-item) { margin-bottom: 0; }
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #EEF1F4;
+}
+
+.batch-info { font-size: 13px; color: var(--color-text-2); }
+
+.cell-title {
+  font-weight: 500;
+  color: var(--color-text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  max-width: 300px;
+}
+
+.amount-text { color: #E96012; font-weight: 500; }
+.amount-empty { color: #C9CDD4; }
+.time-text { color: #86909C; font-size: 12px; }
+.reason-text { color: #D92D20; }
+
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
 </style>

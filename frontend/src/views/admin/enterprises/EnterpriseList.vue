@@ -1,165 +1,127 @@
 <template>
-  <div class="enterprise-list-page">
+  <div class="page">
     <!-- 搜索过滤区 -->
-    <div class="search-bar">
-      <div class="search-row">
-        <el-input
-          v-model="filterParams.keyword"
-          placeholder="搜索企业名称..."
-          clearable
-          style="width: 240px"
-          @keyup.enter="onSearchSubmit"
-          @clear="onSearchSubmit"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+    <a-card :bordered="false" class="search-card">
+      <a-form layout="horizontal" :model="filterParams" class="search-form">
+        <a-space wrap>
+          <a-form-item label="关键词" class="form-item">
+            <a-input v-model="filterParams.keyword" placeholder="搜索企业名称..." allow-clear style="width: 240px" @press-enter="onSearchSubmit">
+              <template #prefix><icon-search /></template>
+            </a-input>
+          </a-form-item>
+          <a-form-item label="审核状态" class="form-item">
+            <a-select v-model="filterParams.status" placeholder="审核状态" style="width: 150px" @change="onSearchSubmit">
+              <a-option value="all">全部状态</a-option>
+              <a-option value="submitted">待审核</a-option>
+              <a-option value="approved">已通过</a-option>
+              <a-option value="rejected">已驳回</a-option>
+              <a-option value="draft">草稿</a-option>
+              <a-option value="supplement_required">需补充</a-option>
+            </a-select>
+          </a-form-item>
+          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
+          <a-button @click="resetParams">重置</a-button>
+        </a-space>
+      </a-form>
 
-        <el-select
-          v-model="filterParams.status"
-          placeholder="审核状态"
-          clearable
-          style="width: 150px"
-          @change="onSearchSubmit"
-        >
-          <el-option label="全部状态" value="all" />
-          <el-option label="待审核" value="submitted" />
-          <el-option label="已通过" value="approved" />
-          <el-option label="已驳回" value="rejected" />
-          <el-option label="草稿" value="draft" />
-          <el-option label="需补充" value="supplement_required" />
-        </el-select>
-
-        <el-button type="primary" @click="onSearchSubmit">
-          <el-icon><Search /></el-icon>
-          搜索
-        </el-button>
-        <el-button @click="resetParams">重置</el-button>
+      <!-- 批量操作栏 -->
+      <div class="batch-bar" v-if="selectedIds.length > 0">
+        <span class="batch-info">已选择 <b>{{ selectedIds.length }}</b> 项</span>
+        <a-button type="primary" status="success" size="small" @click="batchReview('approved')"><template #icon><icon-check /></template>批量通过</a-button>
+        <a-button type="primary" status="danger" size="small" @click="batchReview('rejected')"><template #icon><icon-close /></template>批量驳回</a-button>
       </div>
-    </div>
-
-    <!-- 批量操作栏 -->
-    <div class="batch-bar" v-if="selectedIds.length > 0">
-      <span class="batch-info">已选择 <b>{{ selectedIds.length }}</b> 项</span>
-      <el-button type="success" :icon="Check" @click="batchReview('approved')">批量通过</el-button>
-      <el-button type="danger" :icon="CloseBold" @click="batchReview('rejected')">批量驳回</el-button>
-    </div>
+    </a-card>
 
     <!-- 数据表格 -->
-    <div class="table-wrap">
-      <el-table
-        v-loading="loading"
+    <a-card :bordered="false">
+      <a-table
+        :columns="columns"
         :data="listData"
+        :loading="loading"
         row-key="id"
-        stripe
-        border
-        style="width: 100%"
-        @selection-change="onSelectChange"
-        @sort-change="onSortChange"
+        :pagination="false"
+        :row-selection="rowSelection"
+        @sorter-change="handleSortChange"
       >
-        <el-table-column type="selection" width="40" />
-
-        <el-table-column prop="name" label="企业名称" min-width="180" sortable="custom">
-          <template #default="{ row }">
-            <span class="cell-name">{{ row.name || '-' }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="account_name" label="对公账户" width="160" />
-        <el-table-column prop="legal_person" label="法人" width="100" />
-        <el-table-column prop="contact_phone" label="联系电话" width="130" />
-
-        <el-table-column prop="status" label="审核状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="created_at" label="提交时间" width="160" sortable="custom">
-          <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
-            <template v-if="row.status === 'submitted'">
-              <el-divider direction="vertical" />
-              <el-button link type="success" size="small" @click="handleReview(row, 'approved')">通过</el-button>
-              <el-button link type="danger" size="small" @click="handleReview(row, 'rejected')">驳回</el-button>
-            </template>
-          </template>
-        </el-table-column>
-
-        <template #empty>
-          <el-empty description="暂无企业数据" />
+        <template #name="{ record }">
+          <span class="cell-name">{{ record.name || '-' }}</span>
         </template>
-      </el-table>
-    </div>
+        <template #status="{ record }">
+          <a-tag :color="statusTagType(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+        </template>
+        <template #createdAt="{ record }">
+          <span class="time-text">{{ formatDate(record.created_at) }}</span>
+        </template>
+        <template #actions="{ record }">
+          <a-space :size="4">
+            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+            <template v-if="record.status === 'submitted'">
+              <a-divider direction="vertical" />
+              <a-button type="text" status="success" size="small" @click="handleReview(record, 'approved')">通过</a-button>
+              <a-button type="text" status="danger" size="small" @click="handleReview(record, 'rejected')">驳回</a-button>
+            </template>
+          </a-space>
+        </template>
+        <template #empty>
+          <a-empty description="暂无企业数据" />
+        </template>
+      </a-table>
 
-    <!-- 分页 -->
-    <div class="pagination-wrap" v-if="total > 0">
-      <el-pagination
-        v-model:current-page="filterParams.page"
-        v-model:page-size="filterParams.page_size"
-        :page-sizes="[10, 20, 50, 100]"
-        :total="total"
-        layout="total, sizes, prev, pager, next, jumper"
-        background
-        @size-change="loadData"
-        @current-change="loadData"
-      />
-    </div>
+      <div class="pagination-wrap" v-if="total > 0">
+        <a-pagination
+          v-model:current="filterParams.page"
+          v-model:page-size="filterParams.page_size"
+          :total="total"
+          :page-size-options="[10, 20, 50, 100]"
+          show-total
+          show-page-size
+          @change="loadData"
+        />
+      </div>
+    </a-card>
 
     <!-- 详情弹窗 -->
-    <el-dialog
-      v-model="detailVisible"
-      title="企业详情"
-      width="640px"
-      :close-on-click-modal="false"
-    >
+    <a-modal v-model:visible="detailVisible" title="企业详情" :width="640" :footer="false" :mask-closable="false">
       <template v-if="currentEnterprise">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="企业名称" :span="2">{{ currentEnterprise.name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="对公账户">{{ currentEnterprise.account_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="法定代表人">{{ currentEnterprise.legal_person || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="联系电话">{{ currentEnterprise.contact_phone || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="信用代码" :span="2">{{ currentEnterprise.credit_code || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="产业分类">{{ currentEnterprise.industry_category || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="企业规模">{{ currentEnterprise.scale || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="地址" :span="2">{{ currentEnterprise.address || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="企业简介" :span="2">{{ currentEnterprise.description || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="审核状态">
-            <el-tag :type="statusTagType(currentEnterprise.status)" size="small">{{ statusLabel(currentEnterprise.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="协会会员">{{ currentEnterprise.is_member ? '是' : '否' }}</el-descriptions-item>
-          <el-descriptions-item label="提交时间" :span="2">{{ formatDate(currentEnterprise.created_at) }}</el-descriptions-item>
-          <el-descriptions-item v-if="currentEnterprise.license_url" label="营业执照" :span="2">
-            <el-image
+        <a-descriptions :column="2" bordered size="medium">
+          <a-descriptions-item label="企业名称" :span="2">{{ currentEnterprise.name || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="对公账户">{{ currentEnterprise.account_name || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="法定代表人">{{ currentEnterprise.legal_person || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="联系电话">{{ currentEnterprise.contact_phone || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="信用代码" :span="2">{{ currentEnterprise.credit_code || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="产业分类">{{ currentEnterprise.industry_category || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="企业规模">{{ currentEnterprise.scale || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="地址" :span="2">{{ currentEnterprise.address || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="企业简介" :span="2">{{ currentEnterprise.description || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="审核状态">
+            <a-tag :color="statusTagType(currentEnterprise.status)" size="small">{{ statusLabel(currentEnterprise.status) }}</a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="协会会员">{{ currentEnterprise.is_member ? '是' : '否' }}</a-descriptions-item>
+          <a-descriptions-item label="提交时间" :span="2">{{ formatDate(currentEnterprise.created_at) }}</a-descriptions-item>
+          <a-descriptions-item v-if="currentEnterprise.license_url" label="营业执照" :span="2">
+            <a-image
               :src="currentEnterprise.license_url"
-              style="width: 200px; cursor: pointer"
-              :preview-src-list="[currentEnterprise.license_url]"
+              :width="200"
+              :preview-props="{ srcList: [currentEnterprise.license_url] }"
               fit="contain"
+              class="license-img"
             />
-          </el-descriptions-item>
-        </el-descriptions>
+          </a-descriptions-item>
+        </a-descriptions>
 
         <!-- 审核操作 -->
         <div v-if="currentEnterprise.status === 'submitted'" class="review-actions">
-          <el-divider />
-          <el-button type="success" @click="handleReview(currentEnterprise, 'approved')">审核通过</el-button>
-          <el-button type="danger" @click="handleReview(currentEnterprise, 'rejected')">驳回</el-button>
+          <a-divider />
+          <a-button type="primary" status="success" @click="handleReview(currentEnterprise, 'approved')">审核通过</a-button>
+          <a-button type="primary" status="danger" @click="handleReview(currentEnterprise, 'rejected')">驳回</a-button>
         </div>
       </template>
-    </el-dialog>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { Search, Check, CloseBold } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
 import { showSuccessToast, showFailToast } from '@/utils/feedback'
 import { useListRequest } from '@/hooks/useListRequest'
 import { getEnterpriseList, reviewEnterprise, batchReviewEnterprise } from '@/api/admin/enterprise'
@@ -174,12 +136,12 @@ const statusLabel = (s) => ({
 }[s] || s || '-')
 
 const statusTagType = (s) => ({
-  approved: 'success',
-  rejected: 'danger',
-  submitted: 'warning',
-  supplement_required: 'warning',
-  draft: 'info'
-}[s] || 'info')
+  approved: 'green',
+  rejected: 'red',
+  submitted: 'orange',
+  supplement_required: 'orange',
+  draft: 'gray'
+}[s] || 'gray')
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
@@ -198,8 +160,6 @@ const {
   loadData,
   onSearchSubmit,
   onSortChange,
-  onSelectChange,
-  onPageChange,
   onBatchAction,
   resetParams
 } = useListRequest({
@@ -207,6 +167,32 @@ const {
   idKey: 'id',
   defaultParams: { status: 'all' }
 })
+
+// a-table 行选择（兼容 useListRequest 的 selectedIds）
+const rowSelection = computed(() => ({
+  type: 'checkbox',
+  showCheckedAll: true,
+  selectedRowKeys: selectedIds.value,
+  onChange: (keys) => { selectedIds.value = [...keys] }
+}))
+
+// Arco sorter-change → useListRequest.onSortChange（el-table 的 { prop, order } 形态）
+const handleSortChange = (dataIndex, direction) => {
+  onSortChange({
+    prop: dataIndex,
+    order: direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
+  })
+}
+
+const columns = [
+  { title: '企业名称', dataIndex: 'name', slotName: 'name', minWidth: 180, sortable: { sortDirections: ['ascend', 'descend'] } },
+  { title: '对公账户', dataIndex: 'account_name', width: 160 },
+  { title: '法人', dataIndex: 'legal_person', width: 100 },
+  { title: '联系电话', dataIndex: 'contact_phone', width: 130 },
+  { title: '审核状态', dataIndex: 'status', slotName: 'status', width: 100 },
+  { title: '提交时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160, sortable: { sortDirections: ['ascend', 'descend'] } },
+  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' },
+]
 
 // --- 详情弹窗 ---
 const detailVisible = ref(false)
@@ -240,73 +226,41 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.enterprise-list-page {
-  max-width: 1400px;
-  margin: 0 auto;
-}
+.page { max-width: 1400px; margin: 0 auto; }
 
-.search-bar {
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
+.search-card { margin-bottom: 16px; }
 
-.search-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
+.search-form :deep(.arco-form-item) { margin-bottom: 0; }
 
 .batch-bar {
-  background: var(--el-color-primary-light-9);
-  border: 1px solid var(--el-color-primary-light-5);
-  border-radius: 8px;
-  padding: 10px 16px;
-  margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #EEF1F4;
 }
 
 .batch-info {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: var(--color-text-2);
   margin-right: auto;
 }
 
-.table-wrap {
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  overflow: hidden;
-}
+.cell-name { font-weight: 500; color: var(--color-text-1); }
 
-.cell-name {
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-}
+.time-text { color: #86909C; font-size: 12px; }
 
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
+.license-img { cursor: pointer; }
 
 .review-actions {
   text-align: center;
   padding-top: 16px;
 }
 
-@media (max-width: 767px) {
-  .search-bar { padding: 12px; }
-  .search-row { flex-direction: column; align-items: stretch; }
-  .table-wrap { overflow-x: auto; }
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
 }
 </style>

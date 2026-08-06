@@ -1,35 +1,38 @@
-import { ElMessage, ElMessageBox } from 'element-plus'
-
-let loadingInstance = null
+// 统一提示工具（Arco Design 实现，函数签名与旧 Element 版保持一致，
+// useListRequest / 各页面 / 路由守卫均依赖这些导出）
+import { Message, Modal } from '@arco-design/web-vue'
 
 export function showToast(message) {
-  ElMessage({ message, type: 'info' })
+  Message.info(message)
 }
 
 export function showFailToast(message) {
-  ElMessage({ message, type: 'error' })
+  Message.error(message)
 }
 
 export function showSuccessToast(message) {
-  ElMessage({ message, type: 'success' })
+  Message.success(message)
 }
 
 export function showLoadingToast(message = '加载中...') {
   const text = (typeof message === 'object' && message !== null && message.message) ? message.message : message
-  loadingInstance = ElMessage({ message: text, type: 'info', duration: 0 })
+  return Message.loading({ content: text, duration: 0 })
 }
 
 export function closeToast() {
-  if (loadingInstance) {
-    loadingInstance.close()
-    loadingInstance = null
-  }
+  Message.clear()
 }
 
+// 确认弹窗：返回 Promise（确认 resolve / 取消 reject），兼容 ElMessageBox.confirm 调用方
 export function showConfirmDialog({ title = '提示', message = '', confirmButtonText = '确定', cancelButtonText = '取消' } = {}) {
-  return ElMessageBox.confirm(message, title, {
-    confirmButtonText,
-    cancelButtonText,
-    type: 'warning'
+  return new Promise((resolve, reject) => {
+    Modal.confirm({
+      title,
+      content: message,
+      okText: confirmButtonText,
+      cancelText: cancelButtonText,
+      onOk: () => resolve('confirm'),
+      onCancel: () => reject('cancel')
+    })
   })
 }

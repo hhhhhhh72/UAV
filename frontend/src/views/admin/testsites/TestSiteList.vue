@@ -1,154 +1,140 @@
 <template>
-  <div class="list-page">
-    <div class="search-bar">
-      <div class="search-row">
-        <el-input
-          v-model="filterParams.keyword"
-          placeholder="搜索场地名称..."
-          clearable
-          style="width: 220px"
-          @keyup.enter="onSearchSubmit"
-          @clear="onSearchSubmit"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+  <div class="page">
+    <!-- 搜索 + 新增 -->
+    <a-card :bordered="false" class="search-card">
+      <a-form layout="horizontal" :model="filterParams" class="search-form">
+        <a-space wrap>
+          <a-form-item label="关键词" class="form-item">
+            <a-input v-model="filterParams.keyword" placeholder="搜索场地名称..." allow-clear style="width: 220px" @press-enter="onSearchSubmit">
+              <template #prefix><icon-search /></template>
+            </a-input>
+          </a-form-item>
+          <a-form-item label="场地类型" class="form-item">
+            <a-select v-model="filterParams.site_type" placeholder="场地类型" style="width: 150px" @change="onSearchSubmit">
+              <a-option value="">全部</a-option>
+              <a-option value="flying_field">飞行场地</a-option>
+              <a-option value="lab">实验室</a-option>
+              <a-option value="indoor">室内场地</a-option>
+            </a-select>
+          </a-form-item>
+          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
+          <a-button @click="resetParams">重置</a-button>
+          <a-button type="primary" status="success" style="margin-left: auto" @click="handleAdd">新增</a-button>
+        </a-space>
+      </a-form>
+    </a-card>
 
-        <el-select
-          v-model="filterParams.site_type"
-          placeholder="场地类型"
-          clearable
-          style="width: 150px"
-          @change="onSearchSubmit"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="飞行场地" value="flying_field" />
-          <el-option label="实验室" value="lab" />
-          <el-option label="室内场地" value="indoor" />
-        </el-select>
-
-        <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
-        <el-button @click="resetParams">重置</el-button>
-        <div style="margin-left: auto">
-          <el-button type="success" @click="handleAdd">新增</el-button>
-        </div>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <el-table
-        v-loading="loading"
+    <!-- 数据表格 -->
+    <a-card :bordered="false">
+      <a-table
+        :columns="columns"
         :data="listData"
+        :loading="loading"
         row-key="id"
-        stripe
-        border
-        @selection-change="onSelectChange"
-        @sort-change="onSortChange"
+        :pagination="false"
+        :row-selection="rowSelection"
+        @sorter-change="handleSortChange"
       >
-        <el-table-column type="selection" width="40" />
-        <el-table-column prop="id" label="ID" width="160" sortable="custom" />
-        <el-table-column prop="name" label="场地名称" min-width="180">
-          <template #default="{ row }">
-            <span class="cell-name">{{ row.name || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="site_type" label="类型" width="120">
-          <template #default="{ row }">
-            <el-tag :type="typeTag(row.site_type)" size="small">{{ typeLabel(row.site_type) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="location" label="地区" min-width="140" />
-        <el-table-column prop="price_fen" label="费用" width="120" sortable="custom">
-          <template #default="{ row }">
-            <span class="cell-amount">{{ formatMoney(row.price_fen) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="showDetail(row)">详情</el-button>
-            <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty description="暂无场地数据" />
+        <template #name="{ record }">
+          <span class="cell-name">{{ record.name || '-' }}</span>
         </template>
-      </el-table>
-    </div>
+        <template #type="{ record }">
+          <a-tag :color="typeTag(record.site_type)" size="small">{{ typeLabel(record.site_type) }}</a-tag>
+        </template>
+        <template #price="{ record }">
+          <span class="cell-amount">{{ formatMoney(record.price_fen) }}</span>
+        </template>
+        <template #status="{ record }">
+          <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+        </template>
+        <template #actions="{ record }">
+          <a-space :size="4">
+            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+            <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
+            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
+          </a-space>
+        </template>
+        <template #empty>
+          <a-empty description="暂无场地数据" />
+        </template>
+      </a-table>
 
-    <div class="pagination-wrap" v-if="total > 0">
-      <el-pagination
-        v-model:current-page="filterParams.page"
-        v-model:page-size="filterParams.page_size"
-        :page-sizes="[10, 20, 50]"
-        :total="total"
-        layout="total, sizes, prev, pager, next, jumper"
-        background
-        @size-change="loadData"
-        @current-change="loadData"
-      />
-    </div>
+      <div class="pagination-wrap" v-if="total > 0">
+        <a-pagination
+          v-model:current="filterParams.page"
+          v-model:page-size="filterParams.page_size"
+          :total="total"
+          :page-size-options="[10, 20, 50]"
+          show-total
+          show-page-size
+          @change="loadData"
+        />
+      </div>
+    </a-card>
 
-    <el-dialog v-model="detailVisible" title="场地详情" width="640px" :close-on-click-modal="false">
+    <!-- 详情弹窗 -->
+    <a-modal v-model:visible="detailVisible" title="场地详情" :width="640" :footer="false" :mask-closable="false">
       <template v-if="currentItem">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="场地名称" :span="2">{{ currentItem.name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="场地类型">
-            <el-tag :type="typeTag(currentItem.site_type)" size="small">{{ typeLabel(currentItem.site_type) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="地区">{{ currentItem.location || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="费用">{{ formatMoney(currentItem.price_fen) }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="statusTag(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="设施">{{ (currentItem.facilities || []).join('、') || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="配套设施" :span="2">{{ currentItem.facilities || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="使用规则" :span="2">{{ currentItem.booking_rule || '-' }}</el-descriptions-item>
-        </el-descriptions>
+        <a-descriptions :column="2" bordered size="medium">
+          <a-descriptions-item label="场地名称" :span="2">{{ currentItem.name || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="场地类型">
+            <a-tag :color="typeTag(currentItem.site_type)" size="small">{{ typeLabel(currentItem.site_type) }}</a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="地区">{{ currentItem.location || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="费用">{{ formatMoney(currentItem.price_fen) }}</a-descriptions-item>
+          <a-descriptions-item label="状态">
+            <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="设施">{{ (currentItem.facilities || []).join('、') || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="配套设施" :span="2">{{ currentItem.facilities || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="使用规则" :span="2">{{ currentItem.booking_rule || '-' }}</a-descriptions-item>
+        </a-descriptions>
       </template>
-    </el-dialog>
+    </a-modal>
 
-    <el-dialog v-model="formVisible" :title="formEdit?'编辑场地':'新增场地'" width="560px" @close="resetForm">
-      <el-form :model="form" label-width="80px">
-        <el-form-item label="场地名称"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item label="地点"><el-input v-model="form.location" /></el-form-item>
-        <el-form-item label="类型">
-          <el-select v-model="form.site_type" style="width:100%">
-            <el-option label="飞行场地" value="flying_field" /><el-option label="实验室" value="lab" /><el-option label="消声室" value="anechoic_chamber" /><el-option label="风洞" value="wind_tunnel" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="form.status" style="width:100%">
-            <el-option label="可用" value="available" /><el-option label="维护中" value="maintenance" /><el-option label="已预约" value="reserved" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="描述"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
-      </el-form>
-      <template #footer><el-button @click="formVisible=false">取消</el-button><el-button type="primary" @click="submitForm" :loading="formLoading">确定</el-button></template>
-    </el-dialog>
+    <!-- 表单弹窗（新增/编辑） -->
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑场地' : '新增场地'" :width="560" :mask-closable="false" :unmount-on-close="true" @close="resetForm">
+      <a-form :model="form" layout="horizontal">
+        <a-form-item label="场地名称"><a-input v-model="form.name" /></a-form-item>
+        <a-form-item label="地点"><a-input v-model="form.location" /></a-form-item>
+        <a-form-item label="类型">
+          <a-select v-model="form.site_type" style="width: 100%">
+            <a-option value="flying_field">飞行场地</a-option>
+            <a-option value="lab">实验室</a-option>
+            <a-option value="anechoic_chamber">消声室</a-option>
+            <a-option value="wind_tunnel">风洞</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="available">可用</a-option>
+            <a-option value="maintenance">维护中</a-option>
+            <a-option value="reserved">已预约</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="3" /></a-form-item>
+      </a-form>
+      <template #footer>
+        <a-button @click="formVisible = false">取消</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
+      </template>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
 
 const api = useAdminApi('test-sites')
 
 const typeLabel = (t) => ({ flying_field: '飞行场地', lab: '实验室', indoor: '室内场地' }[t] || t || '-')
-const typeTag = (t) => ({ flying_field: 'success', lab: 'warning', indoor: 'info' }[t] || 'info')
+const typeTag = (t) => ({ flying_field: 'green', lab: 'orange', indoor: 'gray' }[t] || 'gray')
 
 const statusLabel = (s) => ({ available: '可用', maintenance: '维护中', closed: '已关闭' }[s] || s || '-')
-const statusTag = (s) => ({ available: 'success', maintenance: 'warning', closed: 'danger' }[s] || 'info')
+const statusTag = (s) => ({ available: 'green', maintenance: 'orange', closed: 'red' }[s] || 'gray')
 
 const formatMoney = (fen) => {
   if (fen == null) return '-'
@@ -156,35 +142,92 @@ const formatMoney = (fen) => {
   return '¥' + yuan.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, onSelectChange, resetParams } = useListRequest({
+const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, resetParams } = useListRequest({
   apiFunction: api.list, idKey: 'id', defaultParams: { site_type: '' }
 })
+
+// a-table 行选择（兼容 useListRequest 的 selectedIds）
+const rowSelection = computed(() => ({
+  type: 'checkbox',
+  showCheckedAll: true,
+  selectedRowKeys: selectedIds.value,
+  onChange: (keys) => { selectedIds.value = [...keys] }
+}))
+
+// Arco sorter-change → useListRequest.onSortChange（el-table 的 { prop, order } 形态）
+const handleSortChange = (dataIndex, direction) => {
+  onSortChange({
+    prop: dataIndex,
+    order: direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
+  })
+}
+
+const columns = [
+  { title: 'ID', dataIndex: 'id', width: 160, sortable: { sortDirections: ['ascend', 'descend'] } },
+  { title: '场地名称', dataIndex: 'name', slotName: 'name', minWidth: 180 },
+  { title: '类型', dataIndex: 'site_type', slotName: 'type', width: 120 },
+  { title: '地区', dataIndex: 'location', minWidth: 140 },
+  { title: '费用', dataIndex: 'price_fen', slotName: 'price', width: 120, sortable: { sortDirections: ['ascend', 'descend'] } },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
+  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' },
+]
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
-const formVisible=ref(false);const formEdit=ref(false);const formLoading=ref(false)
-const form=reactive({id:'',name:'',site_type:'flying_field',location:'',price_fen:0,facilities:'',booking_rule:'',status:'available'})
-const resetForm=()=>Object.assign(form,{id:'',name:'',site_type:'flying_field',location:'',price_fen:0,facilities:'',booking_rule:'',status:'available'})
-const handleAdd=()=>{resetForm();formEdit.value=false;formVisible.value=true}
-const handleEdit=(r)=>{Object.assign(form,{...r,price_fen:r.price_fen||0});formEdit.value=true;formVisible.value=true}
-const submitForm=async()=>{if(!form.name){ElMessage.warning('请输入场地名称');return};formLoading.value=true;try{const p={...form};formEdit.value?await api.update(form.id,p):await api.create(p);ElMessage.success(formEdit.value?'更新成功':'创建成功');formVisible.value=false;loadData()}catch(e){ElMessage.error(e?.response?.data?.message||'操作失败')}finally{formLoading.value=false}}
+
+const formVisible = ref(false)
+const formEdit = ref(false)
+const formLoading = ref(false)
+const form = reactive({ id: '', name: '', site_type: 'flying_field', location: '', price_fen: 0, facilities: '', booking_rule: '', status: 'available' })
+const resetForm = () => Object.assign(form, { id: '', name: '', site_type: 'flying_field', location: '', price_fen: 0, facilities: '', booking_rule: '', status: 'available' })
+const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
+const handleEdit = (r) => { Object.assign(form, { ...r, price_fen: r.price_fen || 0 }); formEdit.value = true; formVisible.value = true }
+
+const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '操作失败'
+
+const submitForm = async () => {
+  if (!form.name) { Message.warning('请输入场地名称'); return }
+  formLoading.value = true
+  try {
+    const p = { ...form }
+    formEdit.value ? await api.update(form.id, p) : await api.create(p)
+    Message.success(formEdit.value ? '更新成功' : '创建成功')
+    formVisible.value = false
+    loadData()
+  } catch (e) { Message.error(errMsg(e)) }
+  finally { formLoading.value = false }
+}
+
 const handleDelete = (row) => {
-  ElMessageBox.confirm(`确定删除场地 "${row.name}" 吗？`, '提示', { type: 'warning' }).then(async () => {
-    try { await api.delete(row.id); ElMessage.success('已删除'); loadData() } catch { ElMessage.error('删除失败') }
-  }).catch(() => {})
+  Modal.confirm({
+    title: '提示',
+    content: `确定删除场地 "${row.name}" 吗？`,
+    okText: '删除',
+    cancelText: '取消',
+    onOk: async () => {
+      try { await api.delete(row.id); Message.success('已删除'); loadData() } catch { Message.error('删除失败') }
+    }
+  })
 }
 
 onMounted(loadData)
 </script>
 
 <style scoped>
-.list-page { max-width: 1400px; margin: 0 auto; }
-.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
-.cell-name { font-weight: 500; color: var(--el-text-color-primary); }
-.cell-amount { font-weight: 600; color: var(--el-color-danger); }
-.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-@media (max-width: 767px) { .search-bar { padding: 12px; } .search-row { flex-direction: column; align-items: stretch; } .table-wrap { overflow-x: auto; } }
+.page { max-width: 1400px; margin: 0 auto; }
+
+.search-card { margin-bottom: 16px; }
+
+.search-form :deep(.arco-form-item) { margin-bottom: 0; }
+
+.cell-name { font-weight: 500; color: var(--color-text-1); }
+
+.cell-amount { font-weight: 600; color: #E96012; }
+
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
 </style>

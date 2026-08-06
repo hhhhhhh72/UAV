@@ -1,65 +1,81 @@
 <template>
-  <div class="list-page">
-    <div class="search-bar">
-      <div class="search-row">
-        <el-input v-model="filterParams.keyword" placeholder="搜索姓名..." clearable style="width: 200px" @keyup.enter="onSearchSubmit" @clear="onSearchSubmit">
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
-        <el-select v-model="filterParams.status" clearable placeholder="审核状态" style="width: 140px" @change="onSearchSubmit">
-          <el-option label="待审核" value="pending" />
-          <el-option label="已认证" value="approved" />
-          <el-option label="已驳回" value="rejected" />
-        </el-select>
-        <el-button type="primary" :icon="Search" @click="onSearchSubmit">搜索</el-button>
-        <el-button @click="resetParams">重置</el-button>
-      </div>
-    </div>
+  <div class="page">
+    <!-- 搜索 -->
+    <a-card :bordered="false" class="search-card">
+      <a-form layout="horizontal" :model="filterParams" class="search-form">
+        <a-space wrap>
+          <a-form-item label="关键词" class="form-item">
+            <a-input v-model="filterParams.keyword" placeholder="搜索姓名..." allow-clear style="width: 200px" @press-enter="onSearchSubmit" @clear="onSearchSubmit" />
+          </a-form-item>
+          <a-form-item label="状态" class="form-item">
+            <a-select v-model="filterParams.status" style="width: 140px" placeholder="审核状态" allow-clear @change="onSearchSubmit">
+              <a-option value="pending">待审核</a-option>
+              <a-option value="approved">已认证</a-option>
+              <a-option value="rejected">已驳回</a-option>
+            </a-select>
+          </a-form-item>
+          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>搜索</a-button>
+          <a-button @click="resetParams">重置</a-button>
+        </a-space>
+      </a-form>
+    </a-card>
 
-    <div class="table-wrap">
-      <el-table v-loading="loading" :data="listData" row-key="id" stripe border>
-        <el-table-column prop="real_name" label="姓名" min-width="100" />
-        <el-table-column prop="id_card" label="身份证号" width="200" />
-        <el-table-column label="证书" width="80" align="center">
-          <template #default="{ row }">{{ (row.cert_ids || []).length }} 项</template>
-        </el-table-column>
-        <el-table-column prop="flight_hours" label="时长(h)" width="80" align="center" />
-        <el-table-column prop="bio" label="擅长领域" min-width="140">
-          <template #default="{ row }">{{ row.bio || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel[row.status] || row.status || '-' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="申请时间" width="160">
-          <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
-          <template #default="{ row }">
-            <template v-if="row.status === 'pending'">
-              <el-button link type="success" size="small" @click="handleApprove(row)">通过</el-button>
-              <el-button link type="danger" size="small" @click="handleReject(row)">驳回</el-button>
+    <!-- 数据表格 -->
+    <a-card :bordered="false">
+      <a-table
+        :columns="columns"
+        :data="listData"
+        :loading="loading"
+        row-key="id"
+        :pagination="false"
+      >
+        <template #certCount="{ record }">
+          <span>{{ (record.cert_ids || []).length }} 项</span>
+        </template>
+        <template #bio="{ record }">
+          <span>{{ record.bio || '-' }}</span>
+        </template>
+        <template #status="{ record }">
+          <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
+        </template>
+        <template #createdAt="{ record }">
+          <span class="time-text">{{ formatDate(record.created_at) }}</span>
+        </template>
+        <template #actions="{ record }">
+          <a-space :size="4">
+            <template v-if="record.status === 'pending'">
+              <a-button type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
+              <a-button type="text" status="danger" size="small" @click="handleReject(record)">驳回</a-button>
             </template>
             <template v-else>
-              <el-button v-if="row.status === 'approved'" link type="danger" size="small" @click="handleReject(row)">撤销</el-button>
-              <el-button v-if="row.status === 'rejected'" link type="success" size="small" @click="handleApprove(row)">恢复通过</el-button>
+              <a-button v-if="record.status === 'approved'" type="text" status="danger" size="small" @click="handleReject(record)">撤销</a-button>
+              <a-button v-if="record.status === 'rejected'" type="text" status="success" size="small" @click="handleApprove(record)">恢复通过</a-button>
             </template>
-          </template>
-        </el-table-column>
-        <template #empty><el-empty description="暂无飞手申请" /></template>
-      </el-table>
-    </div>
+          </a-space>
+        </template>
+        <template #empty>
+          <a-empty description="暂无飞手申请" />
+        </template>
+      </a-table>
 
-    <div class="pagination-wrap" v-if="total > 0">
-      <el-pagination v-model:current-page="filterParams.page" v-model:page-size="filterParams.page_size" :page-sizes="[10,20,50]" :total="total" layout="total,sizes,prev,pager,next,jumper" background @size-change="loadData" @current-change="loadData" />
-    </div>
+      <div class="pagination-wrap" v-if="total > 0">
+        <a-pagination
+          v-model:current="filterParams.page"
+          v-model:page-size="filterParams.page_size"
+          :total="total"
+          :page-size-options="[10, 20, 50]"
+          show-total
+          show-page-size
+          @change="loadData"
+        />
+      </div>
+    </a-card>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { Search } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted } from 'vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import axios from '@/utils/http'
 import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
@@ -74,7 +90,7 @@ const formatDate = (d) => {
 }
 
 const statusLabel = { pending: '待审核', approved: '已认证', rejected: '已驳回' }
-const statusTag = (s) => ({ pending: 'warning', approved: 'success', rejected: 'danger' }[s] || 'info')
+const statusTag = (s) => ({ pending: 'orangered', approved: 'green', rejected: 'red' }[s] || 'gray')
 
 const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
   apiFunction: api.list,
@@ -82,28 +98,53 @@ const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetP
   defaultParams: { status: '' },
 })
 
+const columns = [
+  { title: '姓名', dataIndex: 'real_name', minWidth: 100 },
+  { title: '身份证号', dataIndex: 'id_card', width: 200 },
+  { title: '证书', dataIndex: 'cert_ids', slotName: 'certCount', width: 80, align: 'center' },
+  { title: '时长(h)', dataIndex: 'flight_hours', width: 80, align: 'center' },
+  { title: '擅长领域', dataIndex: 'bio', slotName: 'bio', minWidth: 140 },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
+  { title: '申请时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160 },
+  { title: '操作', slotName: 'actions', width: 140, fixed: 'right' },
+]
+
 // 审核：通过 / 驳回（专用端点）
 const setStatus = async (row, action, tip) => {
   try {
     await axios.post(`/api/v1/admin/certified-pilots/${row.id}/${action}`)
-    ElMessage.success(tip)
+    Message.success(tip)
     loadData()
   } catch (e) {
-    ElMessage.error(e?.response?.data?.message || '操作失败')
+    Message.error(e?.response?.data?.message || '操作失败')
   }
 }
 const handleApprove = (row) => setStatus(row, 'approve', '已通过，飞手进入公开名录')
 const handleReject = (row) => {
-  ElMessageBox.confirm(`确定驳回 ${row.real_name} 的飞手认证申请？`, '提示', { type: 'warning' })
-    .then(() => setStatus(row, 'reject', '已驳回'))
-    .catch(() => {})
+  Modal.confirm({
+    title: '驳回申请',
+    content: `确定驳回 ${row.real_name} 的飞手认证申请？`,
+    okText: '驳回',
+    cancelText: '取消',
+    onOk: () => setStatus(row, 'reject', '已驳回')
+  })
 }
+
+onMounted(loadData)
 </script>
 
 <style scoped>
-.list-page { max-width: 1400px; margin: 0 auto; }
-.search-bar { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-.search-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.table-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
-.pagination-wrap { display: flex; justify-content: flex-end; margin-top: 16px; background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.page { max-width: 1400px; margin: 0 auto; }
+
+.search-card { margin-bottom: 16px; }
+
+.search-form :deep(.arco-form-item) { margin-bottom: 0; }
+
+.time-text { color: #86909C; font-size: 12px; }
+
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
 </style>

@@ -1,52 +1,54 @@
 <template>
-  <!-- v20250324-1: 课程包独立字段管理（Element Plus 版，脱离 Vant） -->
+  <!-- v20250324-1: 课程包独立字段管理（Arco Design Vue 版，脱离 Vant） -->
   <div class="config-page">
     <DataToolbar>
       <template #filters>
         <span class="toolbar-label">服务配置</span>
       </template>
       <template #actions>
-        <el-button size="small" :icon="Refresh" @click="fetchAllServiceConfigs">刷新</el-button>
+        <a-button size="small" @click="fetchAllServiceConfigs">
+          <template #icon><icon-refresh /></template>刷新
+        </a-button>
       </template>
     </DataToolbar>
 
     <!-- 首页配置（仅管理员可见） -->
-    <el-card v-if="isPlatformAdmin" shadow="never" class="config-card">
-      <template #header><span class="card-title">首页配置</span></template>
+    <a-card v-if="isPlatformAdmin" :bordered="false" class="config-card">
+      <template #title><span class="card-title">首页配置</span></template>
       <div class="link-row" @click="editHomeConfig">
         <div class="link-row-main">
           <div class="link-row-title">首页背景图 &amp; 轮播配置</div>
           <div class="link-row-label">{{ (homeConfig?.headerImage ? '背景图已配置' : '背景图未配置') + '  ·  ' + (homeConfig?.banners?.length || 0) + ' 张Banner  ·  ' + (homeConfig?.notices?.length || 0) + ' 条轮播消息' }}</div>
         </div>
-        <el-icon class="link-row-arrow"><ArrowRight /></el-icon>
+        <icon-arrow-right class="link-row-arrow" />
       </div>
-    </el-card>
+    </a-card>
 
     <!-- 商业化费率（功能方案修订版 v2 第八章，仅管理员可见） -->
-    <el-card v-if="isPlatformAdmin" shadow="never" class="config-card">
-      <template #header><span class="card-title">商业化费率</span></template>
+    <a-card v-if="isPlatformAdmin" :bordered="false" class="config-card">
+      <template #title><span class="card-title">商业化费率</span></template>
       <div class="fee-row">
         <div class="fee-field">
           <span class="fee-label">撮合服务费率（%）</span>
-          <el-input-number v-model="platformConfig.match_fee_rate" :min="0" :max="100" :precision="1" :step="0.5" size="small":controls="false" />
+          <a-input-number v-model="platformConfig.match_fee_rate" :min="0" :max="100" :precision="1" :step="0.5" size="small" hide-button />
         </div>
         <div class="fee-field">
           <span class="fee-label">费率说明（对会员展示）</span>
-          <el-input v-model="platformConfig.match_fee_note" size="small" placeholder="如：供需对接成功后按 2% 收取撮合服务费" />
+          <a-input v-model="platformConfig.match_fee_note" size="small" placeholder="如：供需对接成功后按 2% 收取撮合服务费" />
         </div>
-        <el-button size="small" type="primary" @click="savePlatformConfig">保存费率</el-button>
+        <a-button size="small" type="primary" @click="savePlatformConfig">保存费率</a-button>
       </div>
       <div class="fee-hint">0 表示未启用收费；保存后写入平台配置（/api/v1/admin/config）。</div>
-    </el-card>
+    </a-card>
 
     <!-- 服务列表（按分区） -->
-    <el-card
+    <a-card
       v-for="group in groupedServiceEntries"
       :key="group.title"
-      shadow="never"
+      :bordered="false"
       class="config-card"
     >
-      <template #header><span class="card-title">{{ group.title }}</span></template>
+      <template #title><span class="card-title">{{ group.title }}</span></template>
       <div
         v-for="[id, cfg] in group.items"
         :key="id"
@@ -56,31 +58,29 @@
         <div class="link-row-main">
           <div class="link-row-title">{{ cfg.name }}</div>
         </div>
-        <el-icon class="link-row-arrow"><ArrowRight /></el-icon>
+        <icon-arrow-right class="link-row-arrow" />
       </div>
-    </el-card>
+    </a-card>
 
     <!-- ========== 服务编辑弹窗 ========== -->
-    <el-dialog
-      v-model="showServiceEditPopup"
+    <a-modal
+      v-model:visible="showServiceEditPopup"
       :title="editingService?.name || '服务配置'"
-      width="860px"
-      top="4vh"
-      append-to-body
-      destroy-on-close
-      :close-on-click-modal="false"
+      :width="860"
+      :top="'4vh'"
+      :unmount-on-close="true"
+      :mask-closable="false"
     >
       <div class="dialog-body" v-if="editingService">
         <div class="config-section">
           <div class="section-title">服务介绍</div>
-          <el-input
+          <a-input
             v-model="editingService.intro"
             type="textarea"
-            :rows="3"
+            :auto-size="{ minRows: 3 }"
             placeholder="请输入服务介绍，建议50-100字"
-            maxlength="200"
+            :max-length="200"
             show-word-limit
-            :autosize="{ minRows: 3 }"
           />
         </div>
 
@@ -88,15 +88,15 @@
           <div class="section-title">联系方式</div>
           <div class="field-row">
             <span class="field-label">电话</span>
-            <el-input v-model="editingService.contactPhone" placeholder="联系电话" type="tel" />
+            <a-input v-model="editingService.contactPhone" placeholder="联系电话" />
           </div>
           <div class="field-row">
             <span class="field-label">热线</span>
-            <el-input v-model="editingService.contactPhone2" placeholder="选填，第二个电话" type="tel" />
+            <a-input v-model="editingService.contactPhone2" placeholder="选填，第二个电话" />
           </div>
           <div class="field-row">
             <span class="field-label">地址</span>
-            <el-input v-model="editingService.address" placeholder="选填" type="textarea" :rows="1" />
+            <a-input v-model="editingService.address" placeholder="选填" type="textarea" :auto-size="{ minRows: 1 }" />
           </div>
         </div>
 
@@ -104,11 +104,11 @@
         <div class="config-section" v-if="editingServiceId !== '9'">
           <div class="section-title">服务项目（{{ editingService.projects?.length || 0 }}）</div>
           <div v-for="(p, idx) in editingService.projects" :key="idx" class="list-item">
-            <el-input v-model="p.name" placeholder="项目名称" />
-            <el-button size="small" type="danger" plain :icon="Close" @click="editingService.projects.splice(idx, 1)" />
+            <a-input v-model="p.name" placeholder="项目名称" />
+            <a-button type="text" status="danger" size="small" @click="editingService.projects.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
           </div>
           <div class="list-add">
-            <el-button size="small" type="primary" plain :icon="Plus" @click="editingService.projects.push({ name: '', icon: 'star-o' })">添加项目</el-button>
+            <a-button type="outline" size="small" @click="editingService.projects.push({ name: '', icon: 'star-o' })"><template #icon><icon-plus /></template>添加项目</a-button>
           </div>
         </div>
 
@@ -116,11 +116,11 @@
         <div class="config-section" v-if="editingServiceId !== '9'">
           <div class="section-title">服务优势（{{ editingService.advantages?.length || 0 }}）</div>
           <div v-for="(adv, idx) in editingService.advantages" :key="idx" class="list-item">
-            <el-input v-model="editingService.advantages[idx]" placeholder="优势描述" />
-            <el-button size="small" type="danger" plain :icon="Close" @click="editingService.advantages.splice(idx, 1)" />
+            <a-input v-model="editingService.advantages[idx]" placeholder="优势描述" />
+            <a-button type="text" status="danger" size="small" @click="editingService.advantages.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
           </div>
           <div class="list-add">
-            <el-button size="small" type="primary" plain :icon="Plus" @click="editingService.advantages.push('')">添加优势</el-button>
+            <a-button type="outline" size="small" @click="editingService.advantages.push('')"><template #icon><icon-plus /></template>添加优势</a-button>
           </div>
         </div>
 
@@ -129,9 +129,9 @@
           <div class="section-title">页面背景图</div>
           <div class="field-row">
             <span class="field-label">上传图片</span>
-            <el-upload :auto-upload="false" :show-file-list="false" :on-change="uf => onReadServiceFile(uf.raw, 'headerImage')">
-              <el-button size="small" type="primary" plain :icon="Plus">选择图片</el-button>
-            </el-upload>
+            <a-upload :show-file-list="false" :custom-request="wrapUpload(file => onReadServiceFile(file, 'headerImage'))">
+              <a-button size="small"><template #icon><icon-plus /></template>选择图片</a-button>
+            </a-upload>
           </div>
           <div v-if="editingService.headerImage" class="img-preview">
             <img :src="normalizeMediaUrl(editingService.headerImage)" />
@@ -144,19 +144,19 @@
           <div v-for="(hl, idx) in editingService.highlights" :key="idx" class="list-item-block">
             <div class="list-item-head">
               <span class="item-num">{{ idx + 1 }}</span>
-              <el-button size="small" type="danger" plain :icon="Close" @click="editingService.highlights.splice(idx, 1)" />
+              <a-button type="text" status="danger" size="small" @click="editingService.highlights.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
             </div>
             <div class="field-row">
               <span class="field-label">标题</span>
-              <el-input v-model="hl.title" placeholder="如：官方认证" />
+              <a-input v-model="hl.title" placeholder="如：官方认证" />
             </div>
             <div class="field-row">
               <span class="field-label">描述</span>
-              <el-input v-model="hl.desc" placeholder="如：CAAC民航局授权" />
+              <a-input v-model="hl.desc" placeholder="如：CAAC民航局授权" />
             </div>
           </div>
           <div class="list-add">
-            <el-button size="small" type="primary" plain :icon="Plus" @click="editingService.highlights.push({ title: '', desc: '', icon: 'star-o' })">添加亮点</el-button>
+            <a-button type="outline" size="small" @click="editingService.highlights.push({ title: '', desc: '', icon: 'star-o' })"><template #icon><icon-plus /></template>添加亮点</a-button>
           </div>
         </div>
 
@@ -166,14 +166,14 @@
           <div v-for="(item, idx) in editingService.studyShowcase" :key="idx" class="showcase-item">
             <div class="showcase-left">
               <img v-if="item.image" :src="normalizeMediaUrl(item.image)" class="showcase-img" />
-              <el-icon v-else :size="24" color="#ddd"><Picture /></el-icon>
+              <icon-image v-else :size="24" :style="{ color: 'var(--color-text-3)' }" />
             </div>
             <div class="showcase-mid">{{ item.title || '未命名' }}</div>
-            <el-button size="small" type="primary" plain @click="innerEditStudyItem(idx)">编辑</el-button>
-            <el-button size="small" type="danger" plain :icon="Close" @click="editingService.studyShowcase.splice(idx, 1)" />
+            <a-button size="small" type="outline" @click="innerEditStudyItem(idx)">编辑</a-button>
+            <a-button type="text" status="danger" size="small" @click="editingService.studyShowcase.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
           </div>
           <div class="list-add">
-            <el-button size="small" type="primary" plain :icon="Plus" @click="innerAddStudyItem">添加展示</el-button>
+            <a-button type="outline" size="small" @click="innerAddStudyItem"><template #icon><icon-plus /></template>添加展示</a-button>
           </div>
         </div>
 
@@ -190,10 +190,10 @@
                 @click="activeStudyPkgId = pkgId"
               >
                 {{ studyPackages[pkgId]?.tag || pkgId }} (¥{{ studyPackages[pkgId]?.price || '' }})
-                <el-icon class="pkg-tab-close" @click.stop="removeStudyPackage(pkgId)"><Close /></el-icon>
+                <icon-close class="pkg-tab-close" @click.stop="removeStudyPackage(pkgId)" />
               </div>
               <div class="pkg-tab pkg-tab-add" @click="showAddPackageDialog">
-                <el-icon><Plus /></el-icon>
+                <icon-plus />
               </div>
             </div>
           </div>
@@ -204,37 +204,37 @@
               <div class="section-title">{{ activeStudyPkg.tag }} - 基本信息</div>
               <div class="field-row">
                 <span class="field-label">课程名称</span>
-                <el-input v-model="activeStudyPkg.name" placeholder="如：无人机研学实践中心半日营" />
+                <a-input v-model="activeStudyPkg.name" placeholder="如：无人机研学实践中心半日营" />
               </div>
               <div class="field-row">
                 <span class="field-label">标签</span>
-                <el-input v-model="activeStudyPkg.tag" placeholder="如：半日营" />
+                <a-input v-model="activeStudyPkg.tag" placeholder="如：半日营" />
               </div>
               <div class="field-row">
                 <span class="field-label">票价</span>
-                <el-input v-model="activeStudyPkg.price" placeholder="198" type="number" />
+                <a-input v-model="activeStudyPkg.price" placeholder="198" />
               </div>
 
               <!-- 头部背景 - 支持渐变或图片 -->
               <div class="field-row">
                 <span class="field-label">头部背景</span>
                 <div class="bg-input-wrap">
-                  <el-input v-model="activeStudyPkg.headerBg" placeholder="渐变色或图片URL" />
-                  <el-upload :auto-upload="false" :show-file-list="false" :on-change="f => onReadPackageImage(f.raw, 'headerBg')" accept="image/*">
-                    <el-button size="small" type="primary" plain :icon="Picture">上传</el-button>
-                  </el-upload>
+                  <a-input v-model="activeStudyPkg.headerBg" placeholder="渐变色或图片URL" />
+                  <a-upload :show-file-list="false" :custom-request="wrapUpload(file => onReadPackageImage(file, 'headerBg'))" accept="image/*">
+                    <a-button size="small"><template #icon><icon-image /></template>上传</a-button>
+                  </a-upload>
                 </div>
               </div>
               <div v-if="activeStudyPkg.headerBg" class="img-preview">
                 <img :src="normalizeMediaUrl(activeStudyPkg.headerBg)" @click="previewCrop(normalizeMediaUrl(activeStudyPkg.headerBg), 'headerBg')" />
                 <div class="img-actions">
-                  <el-button size="small" type="primary" plain @click="previewCrop(normalizeMediaUrl(activeStudyPkg.headerBg), 'headerBg')">裁剪</el-button>
+                  <a-button size="small" type="outline" @click="previewCrop(normalizeMediaUrl(activeStudyPkg.headerBg), 'headerBg')">裁剪</a-button>
                 </div>
               </div>
 
               <div class="field-row">
                 <span class="field-label">介绍</span>
-                <el-input v-model="activeStudyPkg.intro" type="textarea" :rows="3" placeholder="课程介绍" />
+                <a-input v-model="activeStudyPkg.intro" type="textarea" :auto-size="{ minRows: 3 }" placeholder="课程介绍" />
               </div>
             </div>
 
@@ -244,22 +244,22 @@
               <div v-for="(p, idx) in activeStudyPkg.projects" :key="idx" class="list-item-block">
                 <div class="list-item-head">
                   <span class="item-num">{{ idx + 1 }}</span>
-                  <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.projects.splice(idx, 1)" />
+                  <a-button type="text" status="danger" size="small" @click="activeStudyPkg.projects.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
                 </div>
                 <div class="field-row">
                   <span class="field-label">名称</span>
-                  <el-input v-model="p.name" placeholder="如：展厅参观" />
+                  <a-input v-model="p.name" placeholder="如：展厅参观" />
                 </div>
                 <div class="field-row">
                   <span class="field-label">图标</span>
-                  <el-input v-model="p.icon" placeholder="Vant图标名或图片URL" />
+                  <a-input v-model="p.icon" placeholder="Vant图标名或图片URL" />
                 </div>
                 <div v-if="p.icon && p.icon.startsWith('http')" class="icon-preview">
                   <img :src="p.icon" style="width:40px;height:40px;border-radius:8px;object-fit:cover;" />
                 </div>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="activeStudyPkg.projects.push({ name: '', icon: 'star-o' })">添加项目</el-button>
+                <a-button type="outline" size="small" @click="activeStudyPkg.projects.push({ name: '', icon: 'star-o' })"><template #icon><icon-plus /></template>添加项目</a-button>
               </div>
             </div>
 
@@ -267,11 +267,11 @@
             <div class="config-section">
               <div class="section-title">{{ activeStudyPkg.tag }} - 服务优势（{{ activeStudyPkg.advantages?.length || 0 }}）</div>
               <div v-for="(adv, idx) in activeStudyPkg.advantages" :key="idx" class="list-item">
-                <el-input v-model="activeStudyPkg.advantages[idx]" placeholder="优势描述，如：专业导师全程指导" />
-                <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.advantages.splice(idx, 1)" />
+                <a-input v-model="activeStudyPkg.advantages[idx]" placeholder="优势描述，如：专业导师全程指导" />
+                <a-button type="text" status="danger" size="small" @click="activeStudyPkg.advantages.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="activeStudyPkg.advantages.push('')">添加优势</el-button>
+                <a-button type="outline" size="small" @click="activeStudyPkg.advantages.push('')"><template #icon><icon-plus /></template>添加优势</a-button>
               </div>
             </div>
 
@@ -281,14 +281,14 @@
               <div v-for="(item, idx) in activeStudyPkg.showcase" :key="idx" class="showcase-item">
                 <div class="showcase-left">
                   <img v-if="item.image" :src="item.image" class="showcase-img" @click="previewCrop(item.image, 'showcase', idx)" />
-                  <el-icon v-else :size="24" color="#ddd"><Picture /></el-icon>
+                  <icon-image v-else :size="24" :style="{ color: 'var(--color-text-3)' }" />
                 </div>
                 <div class="showcase-mid">{{ item.title || '未命名' }}</div>
-                <el-button size="small" type="primary" plain @click="editShowcaseItem(idx)">编辑</el-button>
-                <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.showcase.splice(idx, 1)" />
+                <a-button size="small" type="outline" @click="editShowcaseItem(idx)">编辑</a-button>
+                <a-button type="text" status="danger" size="small" @click="activeStudyPkg.showcase.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="addShowcaseItem">添加展示</el-button>
+                <a-button type="outline" size="small" @click="addShowcaseItem"><template #icon><icon-plus /></template>添加展示</a-button>
               </div>
             </div>
 
@@ -298,35 +298,35 @@
               <div v-for="(step, idx) in activeStudyPkg.schedule" :key="idx" class="list-item-block">
                 <div class="list-item-head">
                   <span class="item-num">{{ idx + 1 }}</span>
-                  <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.schedule.splice(idx, 1)" />
+                  <a-button type="text" status="danger" size="small" @click="activeStudyPkg.schedule.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
                 </div>
                 <div class="field-row">
                   <span class="field-label">上午</span>
-                  <el-input v-model="step.amTime" placeholder="08:50" />
+                  <a-input v-model="step.amTime" placeholder="08:50" />
                 </div>
                 <div class="field-row">
                   <span class="field-label">下午</span>
-                  <el-input v-model="step.pmTime" placeholder="13:50" />
+                  <a-input v-model="step.pmTime" placeholder="13:50" />
                 </div>
                 <div class="field-row">
                   <span class="field-label">环节</span>
-                  <el-input v-model="step.name" placeholder="集合签到" />
+                  <a-input v-model="step.name" placeholder="集合签到" />
                 </div>
                 <div class="field-row">
                   <span class="field-label">说明</span>
-                  <el-input v-model="step.desc" placeholder="研学中心集合，签到报到" />
+                  <a-input v-model="step.desc" placeholder="研学中心集合，签到报到" />
                 </div>
                 <div class="field-row">
                   <span class="field-label">地点</span>
-                  <el-input v-model="step.location" placeholder="研学中心A教室" />
+                  <a-input v-model="step.location" placeholder="研学中心A教室" />
                 </div>
                 <div class="field-row">
                   <span class="field-label">课程目的</span>
-                  <el-input v-model="step.purpose" type="textarea" :rows="2" placeholder="了解无人机基本原理" />
+                  <a-input v-model="step.purpose" type="textarea" :auto-size="{ minRows: 2 }" placeholder="了解无人机基本原理" />
                 </div>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="activeStudyPkg.schedule.push({ amTime: '', pmTime: '', name: '', desc: '', location: '', purpose: '' })">添加步骤</el-button>
+                <a-button type="outline" size="small" @click="activeStudyPkg.schedule.push({ amTime: '', pmTime: '', name: '', desc: '', location: '', purpose: '' })"><template #icon><icon-plus /></template>添加步骤</a-button>
               </div>
             </div>
 
@@ -336,19 +336,19 @@
               <div v-for="(goal, idx) in activeStudyPkg.studyGoals" :key="idx" class="list-item-block">
                 <div class="list-item-head">
                   <span class="item-num">{{ idx + 1 }}</span>
-                  <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.studyGoals.splice(idx, 1)" />
+                  <a-button type="text" status="danger" size="small" @click="activeStudyPkg.studyGoals.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
                 </div>
                 <div class="field-row">
                   <span class="field-label">目标类型</span>
-                  <el-input v-model="goal.label" placeholder="如：知识目标、能力目标" />
+                  <a-input v-model="goal.label" placeholder="如：知识目标、能力目标" />
                 </div>
                 <div class="field-row">
                   <span class="field-label">具体内容</span>
-                  <el-input v-model="goal.content" type="textarea" :rows="3" placeholder="掌握无人机基本原理" />
+                  <a-input v-model="goal.content" type="textarea" :auto-size="{ minRows: 3 }" placeholder="掌握无人机基本原理" />
                 </div>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="activeStudyPkg.studyGoals.push({ label: '', content: '' })">添加目标</el-button>
+                <a-button type="outline" size="small" @click="activeStudyPkg.studyGoals.push({ label: '', content: '' })"><template #icon><icon-plus /></template>添加目标</a-button>
               </div>
             </div>
 
@@ -356,25 +356,24 @@
             <div class="config-section">
               <div class="section-title">{{ activeStudyPkg.tag }} - 安全宣讲（{{ activeStudyPkg.safetyBriefing?.length || 0 }}）</div>
               <div v-for="(item, idx) in activeStudyPkg.safetyBriefing" :key="idx" class="list-item">
-                <el-input v-model="activeStudyPkg.safetyBriefing[idx]" placeholder="如：操作前检查设备电量" />
-                <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.safetyBriefing.splice(idx, 1)" />
+                <a-input v-model="activeStudyPkg.safetyBriefing[idx]" placeholder="如：操作前检查设备电量" />
+                <a-button type="text" status="danger" size="small" @click="activeStudyPkg.safetyBriefing.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="activeStudyPkg.safetyBriefing.push('')">添加安全提示</el-button>
+                <a-button type="outline" size="small" @click="activeStudyPkg.safetyBriefing.push('')"><template #icon><icon-plus /></template>添加安全提示</a-button>
               </div>
             </div>
 
             <!-- 研学总结 -->
             <div class="config-section">
               <div class="section-title">{{ activeStudyPkg.tag }} - 研学总结</div>
-              <el-input
+              <a-input
                 v-model="activeStudyPkg.studySummary"
                 type="textarea"
-                :rows="4"
+                :auto-size="{ minRows: 4 }"
                 placeholder="课程总结内容..."
-                maxlength="500"
+                :max-length="500"
                 show-word-limit
-                :autosize="{ minRows: 4 }"
               />
             </div>
 
@@ -382,11 +381,11 @@
             <div class="config-section">
               <div class="section-title">{{ activeStudyPkg.tag }} - 适合人群（{{ activeStudyPkg.audience?.length || 0 }}）</div>
               <div v-for="(a, idx) in activeStudyPkg.audience" :key="idx" class="list-item">
-                <el-input v-model="activeStudyPkg.audience[idx]" placeholder="如：6-16岁青少年" />
-                <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.audience.splice(idx, 1)" />
+                <a-input v-model="activeStudyPkg.audience[idx]" placeholder="如：6-16岁青少年" />
+                <a-button type="text" status="danger" size="small" @click="activeStudyPkg.audience.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="activeStudyPkg.audience.push('')">添加</el-button>
+                <a-button type="outline" size="small" @click="activeStudyPkg.audience.push('')"><template #icon><icon-plus /></template>添加</a-button>
               </div>
             </div>
 
@@ -396,19 +395,19 @@
               <div v-for="(f, idx) in activeStudyPkg.feeInfo" :key="idx" class="list-item-block">
                 <div class="list-item-head">
                   <span class="item-num">{{ idx + 1 }}</span>
-                  <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.feeInfo.splice(idx, 1)" />
+                  <a-button type="text" status="danger" size="small" @click="activeStudyPkg.feeInfo.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
                 </div>
                 <div class="field-row">
                   <span class="field-label">项目</span>
-                  <el-input v-model="f.label" placeholder="课程价格" />
+                  <a-input v-model="f.label" placeholder="课程价格" />
                 </div>
                 <div class="field-row">
                   <span class="field-label">内容</span>
-                  <el-input v-model="f.value" placeholder="¥198/人" />
+                  <a-input v-model="f.value" placeholder="¥198/人" />
                 </div>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="activeStudyPkg.feeInfo.push({ label: '', value: '' })">添加</el-button>
+                <a-button type="outline" size="small" @click="activeStudyPkg.feeInfo.push({ label: '', value: '' })"><template #icon><icon-plus /></template>添加</a-button>
               </div>
             </div>
 
@@ -416,11 +415,11 @@
             <div class="config-section">
               <div class="section-title">{{ activeStudyPkg.tag }} - 温馨提示（{{ activeStudyPkg.tips?.length || 0 }}）</div>
               <div v-for="(t, idx) in activeStudyPkg.tips" :key="idx" class="list-item">
-                <el-input v-model="activeStudyPkg.tips[idx]" placeholder="提示内容" />
-                <el-button size="small" type="danger" plain :icon="Close" @click="activeStudyPkg.tips.splice(idx, 1)" />
+                <a-input v-model="activeStudyPkg.tips[idx]" placeholder="提示内容" />
+                <a-button type="text" status="danger" size="small" @click="activeStudyPkg.tips.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
               </div>
               <div class="list-add">
-                <el-button size="small" type="primary" plain :icon="Plus" @click="activeStudyPkg.tips.push('')">添加</el-button>
+                <a-button type="outline" size="small" @click="activeStudyPkg.tips.push('')"><template #icon><icon-plus /></template>添加</a-button>
               </div>
             </div>
           </template>
@@ -431,11 +430,11 @@
           <div class="config-section">
             <div class="section-title">报名条件</div>
             <div v-for="(cond, idx) in trainingConditions" :key="idx" class="list-item">
-              <el-input v-model="trainingConditions[idx]" placeholder="如：年满16周岁" />
-              <el-button size="small" type="danger" plain :icon="Close" @click="trainingConditions.splice(idx, 1)" />
+              <a-input v-model="trainingConditions[idx]" placeholder="如：年满16周岁" />
+              <a-button type="text" status="danger" size="small" @click="trainingConditions.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
             </div>
             <div class="list-add">
-              <el-button size="small" type="primary" plain :icon="Plus" @click="trainingConditions.push('')">添加条件</el-button>
+              <a-button type="outline" size="small" @click="trainingConditions.push('')"><template #icon><icon-plus /></template>添加条件</a-button>
             </div>
           </div>
 
@@ -444,19 +443,19 @@
             <div v-for="(p, idx) in trainingPrices" :key="idx" class="list-item-block">
               <div class="list-item-head">
                 <span class="item-num">{{ idx + 1 }}</span>
-                <el-button size="small" type="danger" plain :icon="Close" @click="trainingPrices.splice(idx, 1)" />
+                <a-button type="text" status="danger" size="small" @click="trainingPrices.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
               </div>
               <div class="field-row">
                 <span class="field-label">项目</span>
-                <el-input v-model="p.label" placeholder="视距内驾驶员" />
+                <a-input v-model="p.label" placeholder="视距内驾驶员" />
               </div>
               <div class="field-row">
                 <span class="field-label">价格</span>
-                <el-input v-model="p.price" placeholder="¥4,800起" />
+                <a-input v-model="p.price" placeholder="¥4,800起" />
               </div>
             </div>
             <div class="list-add">
-              <el-button size="small" type="primary" plain :icon="Plus" @click="trainingPrices.push({ label: '', price: '' })">添加</el-button>
+              <a-button type="outline" size="small" @click="trainingPrices.push({ label: '', price: '' })"><template #icon><icon-plus /></template>添加</a-button>
             </div>
           </div>
 
@@ -465,19 +464,19 @@
             <div v-for="(f, idx) in trainingFeatures" :key="idx" class="list-item-block">
               <div class="list-item-head">
                 <span class="item-num">{{ idx + 1 }}</span>
-                <el-button size="small" type="danger" plain :icon="Close" @click="trainingFeatures.splice(idx, 1)" />
+                <a-button type="text" status="danger" size="small" @click="trainingFeatures.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
               </div>
               <div class="field-row">
                 <span class="field-label">标题</span>
-                <el-input v-model="f.title" placeholder="小班制教学" />
+                <a-input v-model="f.title" placeholder="小班制教学" />
               </div>
               <div class="field-row">
                 <span class="field-label">描述</span>
-                <el-input v-model="f.desc" type="textarea" :rows="2" placeholder="详细说明" />
+                <a-input v-model="f.desc" type="textarea" :auto-size="{ minRows: 2 }" placeholder="详细说明" />
               </div>
             </div>
             <div class="list-add">
-              <el-button size="small" type="primary" plain :icon="Plus" @click="trainingFeatures.push({ title: '', desc: '' })">添加</el-button>
+              <a-button type="outline" size="small" @click="trainingFeatures.push({ title: '', desc: '' })"><template #icon><icon-plus /></template>添加</a-button>
             </div>
           </div>
 
@@ -485,11 +484,11 @@
             <div class="section-title">公司简介</div>
             <div class="field-row">
               <span class="field-label">公司名</span>
-              <el-input v-model="trainingCompanyTitle" placeholder="温州低空科技集团" />
+              <a-input v-model="trainingCompanyTitle" placeholder="温州低空科技集团" />
             </div>
             <div class="field-row">
               <span class="field-label">简介</span>
-              <el-input v-model="trainingCompanyContent" type="textarea" :rows="3" placeholder="公司介绍" />
+              <a-input v-model="trainingCompanyContent" type="textarea" :auto-size="{ minRows: 3 }" placeholder="公司介绍" />
             </div>
           </div>
 
@@ -497,53 +496,52 @@
             <div class="section-title">执照说明</div>
             <div class="field-row">
               <span class="field-label">说明</span>
-              <el-input v-model="trainingLicenseContent" type="textarea" :rows="2" placeholder="执照功能介绍" />
+              <a-input v-model="trainingLicenseContent" type="textarea" :auto-size="{ minRows: 2 }" placeholder="执照功能介绍" />
             </div>
             <div class="field-row">
               <span class="field-label">法规</span>
-              <el-input v-model="trainingLicenseQuote" type="textarea" :rows="2" placeholder="法规条文引用" />
+              <a-input v-model="trainingLicenseQuote" type="textarea" :auto-size="{ minRows: 2 }" placeholder="法规条文引用" />
             </div>
           </div>
         </template>
       </div>
       <template #footer>
-        <el-button @click="showServiceEditPopup = false">取消</el-button>
-        <el-button type="primary" @click="saveServiceConfig">保存</el-button>
+        <a-button @click="showServiceEditPopup = false">取消</a-button>
+        <a-button type="primary" @click="saveServiceConfig">保存</a-button>
       </template>
-    </el-dialog>
+    </a-modal>
 
     <!-- 图文展示编辑子弹窗 -->
-    <el-dialog
-      v-model="showStudyItemEditPopup"
+    <a-modal
+      v-model:visible="showStudyItemEditPopup"
       title="编辑图文"
-      width="560px"
-      append-to-body
-      destroy-on-close
+      :width="560"
+      :unmount-on-close="true"
     >
       <div class="dialog-body" v-if="studyEditingItem">
         <div class="field-row">
           <span class="field-label">标题</span>
-          <el-input v-model="studyEditingItem.title" placeholder="请输入标题" />
+          <a-input v-model="studyEditingItem.title" placeholder="请输入标题" />
         </div>
         <div class="field-row">
           <span class="field-label">描述</span>
-          <el-input v-model="studyEditingItem.desc" type="textarea" :rows="2" placeholder="请输入描述" />
+          <a-input v-model="studyEditingItem.desc" type="textarea" :auto-size="{ minRows: 2 }" placeholder="请输入描述" />
         </div>
         <div class="field-row">
           <span class="field-label">图片</span>
-          <el-upload :auto-upload="false" :show-file-list="false" :on-change="uf => onReadStudyImage(uf.raw)" accept="image/*">
-            <el-button size="small" type="primary" plain :icon="Plus">上传图片</el-button>
-          </el-upload>
+          <a-upload :show-file-list="false" :custom-request="wrapUpload(file => onReadStudyImage(file))" accept="image/*">
+            <a-button size="small"><template #icon><icon-plus /></template>上传图片</a-button>
+          </a-upload>
         </div>
         <div v-if="studyEditingItem.image" style="margin-top: 8px;">
           <img :src="normalizeMediaUrl(studyEditingItem.image)" style="width:100%; border-radius: 8px; display:block;" />
         </div>
       </div>
       <template #footer>
-        <el-button @click="showStudyItemEditPopup = false">取消</el-button>
-        <el-button type="primary" @click="confirmStudyItemEdit">确定</el-button>
+        <a-button @click="showStudyItemEditPopup = false">取消</a-button>
+        <a-button type="primary" @click="confirmStudyItemEdit">确定</a-button>
       </template>
-    </el-dialog>
+    </a-modal>
 
     <!-- 图片裁剪弹窗 -->
     <ImageCropper
@@ -555,57 +553,55 @@
     />
 
     <!-- 精彩回顾编辑弹窗 -->
-    <el-dialog
-      v-model="showShowcaseEditPopup"
+    <a-modal
+      v-model:visible="showShowcaseEditPopup"
       title="编辑精彩回顾"
-      width="560px"
-      append-to-body
-      destroy-on-close
+      :width="560"
+      :unmount-on-close="true"
     >
       <div class="dialog-body" v-if="showcaseEditingItem">
         <div class="field-row">
           <span class="field-label">标题</span>
-          <el-input v-model="showcaseEditingItem.title" placeholder="请输入标题" />
+          <a-input v-model="showcaseEditingItem.title" placeholder="请输入标题" />
         </div>
         <div class="field-row">
           <span class="field-label">描述</span>
-          <el-input v-model="showcaseEditingItem.desc" type="textarea" :rows="2" placeholder="请输入描述" />
+          <a-input v-model="showcaseEditingItem.desc" type="textarea" :auto-size="{ minRows: 2 }" placeholder="请输入描述" />
         </div>
         <div class="field-row">
           <span class="field-label">图片</span>
-          <el-upload :auto-upload="false" :show-file-list="false" :on-change="uf => onReadShowcaseImage(uf.raw)" accept="image/*">
-            <el-button size="small" type="primary" plain :icon="Plus">上传图片</el-button>
-          </el-upload>
+          <a-upload :show-file-list="false" :custom-request="wrapUpload(file => onReadShowcaseImage(file))" accept="image/*">
+            <a-button size="small"><template #icon><icon-plus /></template>上传图片</a-button>
+          </a-upload>
         </div>
         <div v-if="showcaseEditingItem.image" style="margin-top: 8px;">
           <img :src="showcaseEditingItem.image" style="width:100%; border-radius: 8px; display:block;" @click="previewCrop(showcaseEditingItem.image, 'showcaseEditing')" />
           <div style="margin-top:8px; text-align:center;">
-            <el-button size="small" type="primary" plain @click="previewCrop(showcaseEditingItem.image, 'showcaseEditing')">裁剪图片</el-button>
+            <a-button size="small" type="outline" @click="previewCrop(showcaseEditingItem.image, 'showcaseEditing')">裁剪图片</a-button>
           </div>
         </div>
       </div>
       <template #footer>
-        <el-button @click="showShowcaseEditPopup = false">取消</el-button>
-        <el-button type="primary" @click="confirmShowcaseEdit">确定</el-button>
+        <a-button @click="showShowcaseEditPopup = false">取消</a-button>
+        <a-button type="primary" @click="confirmShowcaseEdit">确定</a-button>
       </template>
-    </el-dialog>
+    </a-modal>
 
     <!-- 首页配置弹窗 -->
-    <el-dialog
-      v-model="showHomeConfigPopup"
+    <a-modal
+      v-model:visible="showHomeConfigPopup"
       title="首页配置"
-      width="640px"
-      append-to-body
-      destroy-on-close
+      :width="640"
+      :unmount-on-close="true"
     >
       <div class="dialog-body" v-if="editingHomeConfig">
         <div class="config-section">
           <div class="section-title">背景图</div>
           <div class="field-row">
             <span class="field-label">上传</span>
-            <el-upload :auto-upload="false" :show-file-list="false" :on-change="uf => onReadHomeHeaderImage(uf.raw)" accept="image/*">
-              <el-button size="small" type="primary" plain :icon="Plus">选择图片</el-button>
-            </el-upload>
+            <a-upload :show-file-list="false" :custom-request="wrapUpload(file => onReadHomeHeaderImage(file))" accept="image/*">
+              <a-button size="small"><template #icon><icon-plus /></template>选择图片</a-button>
+            </a-upload>
           </div>
           <div v-if="editingHomeConfig.headerImage" style="margin-top: 8px;">
             <img :src="normalizeMediaUrl(editingHomeConfig.headerImage)" style="width:100%; border-radius: 8px; display:block;" />
@@ -614,15 +610,15 @@
         <div class="config-section">
           <div class="section-title">轮播消息</div>
           <div v-for="(msg, idx) in editingHomeConfig.notices" :key="idx" class="list-item" style="padding: 4px 0;">
-            <el-input
+            <a-input
               :model-value="msg"
               @update:model-value="v => editingHomeConfig.notices[idx] = v"
               placeholder="请输入通知消息"
             />
-            <el-button size="small" type="danger" plain :icon="Close" @click="editingHomeConfig.notices.splice(idx, 1)" />
+            <a-button type="text" status="danger" size="small" @click="editingHomeConfig.notices.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
           </div>
           <div class="list-add">
-            <el-button size="small" type="primary" plain :icon="Plus" @click="editingHomeConfig.notices.push('')">添加消息</el-button>
+            <a-button type="outline" size="small" @click="editingHomeConfig.notices.push('')"><template #icon><icon-plus /></template>添加消息</a-button>
           </div>
         </div>
         <div class="config-section">
@@ -630,65 +626,63 @@
           <div v-for="(banner, idx) in editingHomeConfig.banners" :key="idx" class="banner-item">
             <div class="list-item-head">
               <span class="item-num">#{{ idx + 1 }}</span>
-              <el-button size="small" type="danger" plain :icon="Close" @click="editingHomeConfig.banners.splice(idx, 1)" />
+              <a-button type="text" status="danger" size="small" @click="editingHomeConfig.banners.splice(idx, 1)"><template #icon><icon-delete /></template></a-button>
             </div>
             <div v-if="banner.image" style="margin-bottom: 8px;">
               <img :src="normalizeMediaUrl(banner.image)" style="width:100%; height: 80px; object-fit: cover; border-radius: 6px; display:block;" />
             </div>
-            <el-upload :auto-upload="false" :show-file-list="false" :on-change="uf => onReadBannerImage(uf.raw, idx)" accept="image/*">
-              <el-button size="small" type="primary" plain :icon="Picture">{{ banner.image ? '更换图片' : '上传图片' }}</el-button>
-            </el-upload>
-            <el-input
+            <a-upload :show-file-list="false" :custom-request="wrapUpload(file => onReadBannerImage(file, idx))" accept="image/*">
+              <a-button size="small"><template #icon><icon-image /></template>{{ banner.image ? '更换图片' : '上传图片' }}</a-button>
+            </a-upload>
+            <a-input
               v-model="banner.link"
               placeholder="如 delivery 或 /cases/1"
               style="margin-top: 4px;"
             />
           </div>
           <div class="list-add">
-            <el-button size="small" type="primary" plain :icon="Plus" @click="addBanner">添加 Banner</el-button>
+            <a-button type="outline" size="small" @click="addBanner"><template #icon><icon-plus /></template>添加 Banner</a-button>
           </div>
         </div>
       </div>
       <template #footer>
-        <el-button @click="showHomeConfigPopup = false">取消</el-button>
-        <el-button type="primary" @click="saveHomeConfig">保存</el-button>
+        <a-button @click="showHomeConfigPopup = false">取消</a-button>
+        <a-button type="primary" @click="saveHomeConfig">保存</a-button>
       </template>
-    </el-dialog>
+    </a-modal>
 
     <!-- 新增课程包弹窗 -->
-    <el-dialog
-      v-model="showAddPackagePopup"
+    <a-modal
+      v-model:visible="showAddPackagePopup"
       title="新增课程包"
-      width="480px"
-      append-to-body
-      destroy-on-close
+      :width="480"
+      :unmount-on-close="true"
     >
       <div class="field-row">
         <span class="field-label">标识</span>
-        <el-input v-model="newPackage.id" placeholder="如：study-fullday（英文，唯一）" />
+        <a-input v-model="newPackage.id" placeholder="如：study-fullday（英文，唯一）" />
       </div>
       <div class="field-row">
         <span class="field-label">标签</span>
-        <el-input v-model="newPackage.tag" placeholder="如：全日营" />
+        <a-input v-model="newPackage.tag" placeholder="如：全日营" />
       </div>
       <div class="field-row">
         <span class="field-label">价格</span>
-        <el-input v-model="newPackage.price" placeholder="298" type="number" />
+        <a-input v-model="newPackage.price" placeholder="298" />
       </div>
       <div class="add-pkg-tip">
         <p>提示：标识建议使用 study- 前缀，如 study-fullday、study-summer 等</p>
       </div>
       <template #footer>
-        <el-button @click="showAddPackagePopup = false">取消</el-button>
-        <el-button type="primary" @click="confirmAddPackage">确定</el-button>
+        <a-button @click="showAddPackagePopup = false">取消</a-button>
+        <a-button type="primary" @click="confirmAddPackage">确定</a-button>
       </template>
-    </el-dialog>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, reactive, onMounted, nextTick } from 'vue'
-import { Refresh, Plus, Close, Picture, ArrowRight } from '@element-plus/icons-vue'
 import axios from '@/utils/http'
 import { showFailToast, showSuccessToast, showLoadingToast, closeToast } from '@/utils/feedback'
 import ImageCropper from './ImageCropper.vue'
@@ -697,6 +691,16 @@ import { normalizeMediaUrl, uploadFile } from '../composables/useMedia'
 import { useAuth } from '../composables/useAuth'
 
 const { userRole, isPlatformAdmin, isAssociationAdmin } = useAuth()
+
+// el-upload on-change → a-upload custom-request 适配：保持原有上传业务逻辑不变
+const wrapUpload = (handler) => async ({ file, onSuccess, onError }) => {
+  try {
+    await handler(file)
+    onSuccess && onSuccess()
+  } catch (err) {
+    onError && onError(err)
+  }
+}
 
 const DEFAULT_HOME_CONFIG = {
   headerImage: '',
@@ -969,7 +973,7 @@ const createEmptyPackage = (pkgId) => {
     recommended: false,
     desc: '',
     cardHighlights: [],
-    headerBg: 'linear-gradient(135deg, #06b6d4 0%, #2563eb 100%)',
+    headerBg: 'linear-gradient(135deg, #06b6d4 0%, #165DFF 100%)',
     intro: '',
     schedule: [],
     studyGoals: [],
@@ -1205,20 +1209,20 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.toolbar-label { font-size: 14px; font-weight: 500; color: var(--text-color); }
+.toolbar-label { font-size: 14px; font-weight: 500; color: var(--color-text-1); }
 
 /* 配置卡片 */
 .config-card {
   margin-bottom: 12px;
   border-radius: var(--card-radius, 10px);
 }
-.config-card :deep(.el-card__header) {
+.config-card :deep(.arco-card-header) {
   padding: 10px 16px;
 }
 .card-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-color);
+  color: var(--color-text-1);
 }
 
 /* 商业化费率 */
@@ -1237,13 +1241,13 @@ onMounted(() => {
 }
 .fee-label {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: var(--color-text-2);
 }
 .fee-hint {
   margin-top: 8px;
   padding: 0 4px;
   font-size: 12px;
-  color: var(--el-text-color-placeholder);
+  color: var(--color-text-3);
 }
 
 /* 可点击行 */
@@ -1257,23 +1261,23 @@ onMounted(() => {
   transition: background 0.2s;
 }
 .link-row:hover {
-  background: #f5f7fa;
+  background: var(--color-fill-2);
 }
 .link-row-main { min-width: 0; }
 .link-row-title {
   font-size: 14px;
-  color: var(--text-color);
+  color: var(--color-text-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .link-row-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-3);
   margin-top: 2px;
 }
 .link-row-arrow {
-  color: #c0c4cc;
+  color: var(--color-text-3);
   flex-shrink: 0;
 }
 
@@ -1284,8 +1288,8 @@ onMounted(() => {
   padding-right: 4px;
 }
 .config-section {
-  background: #fafbfc;
-  border: 1px solid #ebeef5;
+  background: var(--color-fill-2);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 12px;
@@ -1293,7 +1297,7 @@ onMounted(() => {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-color);
+  color: var(--color-text-1);
   margin-bottom: 10px;
 }
 
@@ -1311,11 +1315,11 @@ onMounted(() => {
   width: 76px;
   flex-shrink: 0;
   font-size: 13px;
-  color: #606266;
+  color: var(--color-text-2);
   line-height: 32px;
   text-align: right;
 }
-.field-row .el-input {
+.field-row .arco-input {
   flex: 1;
 }
 
@@ -1326,14 +1330,14 @@ onMounted(() => {
   gap: 8px;
   padding: 4px 0;
 }
-.list-item .el-input {
+.list-item .arco-input {
   flex: 1;
 }
 
 /* 列表项：多行 */
 .list-item-block {
   padding: 8px 0;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--color-fill-2);
 }
 .list-item-block:last-of-type {
   border-bottom: none;
@@ -1347,7 +1351,7 @@ onMounted(() => {
 .item-num {
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent-color, #0071e3);
+  color: var(--accent-color, #165DFF);
   background: var(--accent-light, #e8f2fc);
   width: 20px;
   height: 20px;
@@ -1361,7 +1365,7 @@ onMounted(() => {
 .list-add {
   padding: 8px 0 0;
 }
-.list-add :deep(.el-button) {
+.list-add :deep(.arco-btn) {
   border-style: dashed;
 }
 
@@ -1371,7 +1375,7 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--color-fill-2);
 }
 .showcase-item:last-of-type {
   border-bottom: none;
@@ -1381,7 +1385,7 @@ onMounted(() => {
   height: 36px;
   border-radius: 6px;
   overflow: hidden;
-  background: #f5f5f7;
+  background: var(--color-fill-2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1395,7 +1399,7 @@ onMounted(() => {
 .showcase-mid {
   flex: 1;
   font-size: 14px;
-  color: var(--text-color);
+  color: var(--color-text-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1416,13 +1420,13 @@ onMounted(() => {
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #86868b;
-  background: #f5f5f7;
+  color: var(--color-text-3);
+  background: var(--color-fill-2);
   cursor: pointer;
   transition: all 0.25s;
 }
 .pkg-tab.active {
-  background: var(--accent-color, #0071e3);
+  background: var(--accent-color, #165DFF);
   color: #fff;
   font-weight: 600;
 }
@@ -1441,7 +1445,7 @@ onMounted(() => {
   flex: 0 0 auto;
   min-width: 40px;
   background: #e8f2fc;
-  color: var(--accent-color, #0071e3);
+  color: var(--accent-color, #165DFF);
 }
 
 /* 背景输入 */
@@ -1476,7 +1480,7 @@ onMounted(() => {
 /* Banner 项 */
 .banner-item {
   padding: 8px 0;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--color-fill-2);
 }
 .banner-item:last-of-type {
   border-bottom: none;
@@ -1486,10 +1490,10 @@ onMounted(() => {
 .add-pkg-tip {
   margin-top: 12px;
   padding: 12px;
-  background: #f5f5f7;
+  background: var(--color-fill-2);
   border-radius: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-2);
 }
 .add-pkg-tip p {
   margin: 0;

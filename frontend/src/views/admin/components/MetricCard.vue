@@ -28,10 +28,10 @@ const displayValue = computed(() => {
 
 <style scoped>
 .metric-card {
-  background: var(--bg-primary, #fff);
-  border-radius: var(--card-radius, 12px);
+  background: var(--color-bg-2);
+  border-radius: 4px;
   padding: 20px;
-  box-shadow: var(--card-shadow, 0 1px 3px rgba(0, 0, 0, 0.08));
+  box-shadow: none;
   transition: box-shadow 0.2s ease;
 }
 
@@ -41,7 +41,7 @@ const displayValue = computed(() => {
 
 .metric-label {
   font-size: 13px;
-  color: var(--text-secondary, #86868b);
+  color: var(--color-text-3);
   margin-bottom: 8px;
   font-weight: 500;
 }
@@ -49,7 +49,7 @@ const displayValue = computed(() => {
 .metric-value {
   font-size: 28px;
   font-weight: 600;
-  color: var(--text-color, #1d1d1f);
+  color: var(--color-text-1);
   line-height: 1.2;
   letter-spacing: -0.5px;
 }
