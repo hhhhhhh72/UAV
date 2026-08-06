@@ -40,10 +40,10 @@
           </a-form-item>
           <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
           <a-button @click="resetParams">重置</a-button>
-          <a-button v-if="creatable" type="primary" status="success" style="margin-left: auto" @click="$emit('add')">
+          <slot name="search-extra" />
+          <a-button v-if="creatable" class="crud-add-btn" type="primary" status="success" @click="$emit('add')">
             <template #icon><icon-plus /></template>{{ addLabel }}
           </a-button>
-          <slot name="search-extra" />
         </a-space>
       </a-form>
       <!-- 批量操作（选中时显示） -->
@@ -258,9 +258,17 @@ onMounted(loadData)
 
 .search-form :deep(.arco-form-item) { margin-bottom: 0; }
 
-.search-form :deep(.arco-form-item-label) {
-  white-space: nowrap;
-  flex-shrink: 0;
+/* 搜索字段不收缩：a-space 的 flex 子项是 .arco-space-item 包裹层，须在其上禁止收缩，
+   否则 form-item 被压缩导致 label 文字溢出压到右侧控件上（如"资源类型"56px 文字挤进 32px 容器） */
+.search-form :deep(.arco-space-item) { flex: 0 0 auto; }
+/* 覆盖 Arco 默认 .arco-col-5（20.8333% 固定宽度）：label 列按内容宽度，
+   避免"资源类型"等长 label 文字溢出压到控件上 */
+.search-form :deep(.arco-form-item-label-col) { flex: 0 0 auto; width: auto; }
+.search-form :deep(.arco-form-item-label) { white-space: nowrap; }
+
+/* 新增按钮靠右：a-space 会把子元素包一层 .arco-space-item，auto margin 须作用于包裹层 */
+.search-form :deep(.arco-space-item:has(.crud-add-btn)) {
+  margin-left: auto;
 }
 
 .batch-bar {

@@ -133,6 +133,7 @@ const searchFields = [
   { key: 'keyword', label: '关键词', placeholder: '搜索活动名称...', width: 220 },
   { key: 'status', label: '状态', type: 'select', options: [
     { value: '', label: '全部状态' },
+    { value: 'published', label: '已发布' },
     { value: 'upcoming', label: '即将开始' },
     { value: 'ongoing', label: '进行中' },
     { value: 'ended', label: '已结束' },

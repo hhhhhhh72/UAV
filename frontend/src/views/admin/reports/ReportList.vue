@@ -115,7 +115,7 @@ const batchActions = [
 // 搜索用 report_type（列表字段为 category，表单字段为 category，详情字段为 report_type——三处字段差异保持原样）
 const searchFields = [
   { key: 'keyword', label: '关键词', type: 'input', width: 220, placeholder: '搜索报告标题' },
-  { key: 'report_type', label: '类型', type: 'select', width: 140, options: [
+  { key: 'category', label: '类型', type: 'select', width: 140, options: [
     { value: '', label: '全部类型' },
     { value: 'whitepaper', label: '白皮书' },
     { value: 'research', label: '调研报告' },

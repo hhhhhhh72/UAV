@@ -1518,20 +1518,23 @@ func (r *pgStudyTourRepo) Create(st domain.StudyTour) (domain.StudyTour, error) 
 	st.CreatedAt = time.Now()
 	st.UpdatedAt = st.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO study_tours (id,title,destination,duration,capacity,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		st.ID, st.Title, st.Destination, st.Duration, st.Capacity, st.Status, st.CreatedAt, st.UpdatedAt)
+		`INSERT INTO study_tours (id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,created_at,updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		st.ID, st.Title, st.Destination, st.Duration, st.Capacity, st.Status,
+		st.Description, st.Location, st.OrganizerID, st.StartDate, st.EndDate, st.CreatedAt, st.UpdatedAt)
 	return st, err
 }
 
 func (r *pgStudyTourRepo) FindByID(id string) (domain.StudyTour, error) {
 	var s domain.StudyTour
-	err := r.pool.QueryRow(context.Background(), `SELECT id,title,destination,duration,capacity,status,created_at,updated_at FROM study_tours WHERE id=$1`, id).
-		Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status, &s.CreatedAt, &s.UpdatedAt)
+	err := r.pool.QueryRow(context.Background(), `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,created_at,updated_at FROM study_tours WHERE id=$1`, id).
+		Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status,
+			&s.Description, &s.Location, &s.OrganizerID, &s.StartDate, &s.EndDate, &s.CreatedAt, &s.UpdatedAt)
 	return s, err
 }
 
 func (r *pgStudyTourRepo) List() ([]domain.StudyTour, error) {
-	rows, err := r.pool.Query(context.Background(), `SELECT id,title,destination,duration,capacity,status,created_at,updated_at FROM study_tours ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(context.Background(), `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,created_at,updated_at FROM study_tours ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -1539,7 +1542,8 @@ func (r *pgStudyTourRepo) List() ([]domain.StudyTour, error) {
 	var out []domain.StudyTour
 	for rows.Next() {
 		var s domain.StudyTour
-		if err := rows.Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status,
+			&s.Description, &s.Location, &s.OrganizerID, &s.StartDate, &s.EndDate, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -1550,8 +1554,9 @@ func (r *pgStudyTourRepo) List() ([]domain.StudyTour, error) {
 func (r *pgStudyTourRepo) Update(s domain.StudyTour) (domain.StudyTour, error) {
 	s.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE study_tours SET title=$1,destination=$2,duration=$3,capacity=$4,status=$5,updated_at=$6 WHERE id=$7`,
-		s.Title, s.Destination, s.Duration, s.Capacity, s.Status, s.UpdatedAt, s.ID)
+		`UPDATE study_tours SET title=$1,destination=$2,duration=$3,capacity=$4,status=$5,description=$6,location=$7,organizer_id=$8,start_date=$9,end_date=$10,updated_at=$11 WHERE id=$12`,
+		s.Title, s.Destination, s.Duration, s.Capacity, s.Status,
+		s.Description, s.Location, s.OrganizerID, s.StartDate, s.EndDate, s.UpdatedAt, s.ID)
 	return s, err
 }
 
@@ -1776,21 +1781,21 @@ func (r *pgTransRepo) Create(t domain.Transformation) (domain.Transformation, er
 	t.CreatedAt = time.Now()
 	t.UpdatedAt = t.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO transformations (id,title,achievement_id,owner_id,progress,partner_id,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		t.ID, t.Title, t.AchievementID, t.OwnerID, t.Progress, t.PartnerID, t.Status, t.CreatedAt, t.UpdatedAt)
+		`INSERT INTO transformations (id,title,achievement_id,owner_id,progress,partner_id,status,stage,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		t.ID, t.Title, t.AchievementID, t.OwnerID, t.Progress, t.PartnerID, t.Status, t.Stage, t.CreatedAt, t.UpdatedAt)
 	return t, err
 }
 
 func (r *pgTransRepo) FindByID(id string) (domain.Transformation, error) {
 	var t domain.Transformation
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id,title,achievement_id,owner_id,progress,partner_id,status,created_at,updated_at FROM transformations WHERE id=$1`, id).
-		Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.CreatedAt, &t.UpdatedAt)
+		`SELECT id,title,achievement_id,owner_id,progress,partner_id,status,stage,created_at,updated_at FROM transformations WHERE id=$1`, id).
+		Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.Stage, &t.CreatedAt, &t.UpdatedAt)
 	return t, err
 }
 
 func (r *pgTransRepo) List(ownerID string) ([]domain.Transformation, error) {
-	q := `SELECT id,title,achievement_id,owner_id,progress,partner_id,status,created_at,updated_at FROM transformations`
+	q := `SELECT id,title,achievement_id,owner_id,progress,partner_id,status,stage,created_at,updated_at FROM transformations`
 	args := []any{}
 	if ownerID != "" {
 		q += ` WHERE owner_id=$1`
@@ -1805,7 +1810,7 @@ func (r *pgTransRepo) List(ownerID string) ([]domain.Transformation, error) {
 	var out []domain.Transformation
 	for rows.Next() {
 		var t domain.Transformation
-		if err := rows.Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.Stage, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -1816,8 +1821,8 @@ func (r *pgTransRepo) List(ownerID string) ([]domain.Transformation, error) {
 func (r *pgTransRepo) Update(t domain.Transformation) (domain.Transformation, error) {
 	t.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE transformations SET title=$1,achievement_id=$2,progress=$3,partner_id=$4,status=$5,updated_at=$6 WHERE id=$7`,
-		t.Title, t.AchievementID, t.Progress, t.PartnerID, t.Status, t.UpdatedAt, t.ID)
+		`UPDATE transformations SET title=$1,achievement_id=$2,progress=$3,partner_id=$4,status=$5,stage=$6,updated_at=$7 WHERE id=$8`,
+		t.Title, t.AchievementID, t.Progress, t.PartnerID, t.Status, t.Stage, t.UpdatedAt, t.ID)
 	return t, err
 }
 

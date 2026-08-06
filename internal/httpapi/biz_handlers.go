@@ -435,10 +435,20 @@ func (s *Server) listIndustryReports(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+	filtered, _ := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(rep domain.IndustryReport) string { return rep.Title },
 		func(rep domain.IndustryReport) string { return rep.Status })
-	paginatedRespond(w, r, filtered, total)
+	// 类型筛选（category：whitepaper/research/analysis/other）
+	if cat := r.URL.Query().Get("category"); cat != "" {
+		tmp := make([]domain.IndustryReport, 0, len(filtered))
+		for _, rep := range filtered {
+			if rep.Category == cat {
+				tmp = append(tmp, rep)
+			}
+		}
+		filtered = tmp
+	}
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 
 // POST /api/v1/admin/industry-reports
@@ -508,12 +518,15 @@ func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/portfolios — 管理端全量（含草稿/待审），公开端仅 published
 func (s *Server) listAdminPortfolios(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.portfolioSvc.List(1, 100000)
+	items, _, err := s.portfolioSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	filtered, _ := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(p domain.MemberPortfolio) string { return p.Name },
+		func(p domain.MemberPortfolio) string { return p.Status })
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 
 // GET /api/v1/portfolios/mine
@@ -593,12 +606,22 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/achievements?field=智能巡检&page=1&page_size=10
 func (s *Server) listAchievements(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.achievementSvc.List(r.URL.Query().Get("field"), 1, 100000)
+	items, _, err := s.achievementSvc.List(r.URL.Query().Get("field"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	// 关键词筛选（成果名称/领域）
+	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
+		tmp := make([]domain.Achievement, 0, len(items))
+		for _, a := range items {
+			if strings.Contains(a.Title, kw) || strings.Contains(a.Field, kw) {
+				tmp = append(tmp, a)
+			}
+		}
+		items = tmp
+	}
+	paginatedRespond(w, r, items, len(items))
 }
 
 // POST /api/v1/achievements
@@ -679,12 +702,33 @@ func (s *Server) deleteAchievement(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/rd-challenges?field=飞控&page=1&page_size=10
 func (s *Server) listRDChallenges(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.rdService.List(r.URL.Query().Get("field"), 1, 100000)
+	items, _, err := s.rdService.List(r.URL.Query().Get("field"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	filtered := items
+	// 关键词筛选（难题标题/领域）
+	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
+		tmp := make([]domain.RDChallenge, 0, len(filtered))
+		for _, c := range filtered {
+			if strings.Contains(c.Title, kw) || strings.Contains(c.Field, kw) {
+				tmp = append(tmp, c)
+			}
+		}
+		filtered = tmp
+	}
+	// 状态筛选
+	if st := r.URL.Query().Get("status"); st != "" {
+		tmp := make([]domain.RDChallenge, 0, len(filtered))
+		for _, c := range filtered {
+			if c.Status == st {
+				tmp = append(tmp, c)
+			}
+		}
+		filtered = tmp
+	}
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 
 // POST /api/v1/rd-challenges

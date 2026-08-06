@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -713,6 +714,28 @@ func (s *Server) h5Cases(w http.ResponseWriter, r *http.Request) {
 		dj, _ := cases[j]["id"].(float64)
 		return di > dj
 	})
+	// 分类筛选（前端传 categoryId；"全部分类"为 null，axios 会省略该参数）
+	if q := r.URL.Query().Get("categoryId"); q != "" && q != "null" {
+		if want, err := strconv.ParseFloat(q, 64); err == nil {
+			filtered := make([]map[string]any, 0, len(cases))
+			for _, c := range cases {
+				if cid, _ := c["categoryId"].(float64); cid == want {
+					filtered = append(filtered, c)
+				}
+			}
+			cases = filtered
+		}
+	}
+	// 关键词筛选（标题）
+	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
+		filtered := make([]map[string]any, 0, len(cases))
+		for _, c := range cases {
+			if title, _ := c["title"].(string); strings.Contains(title, kw) {
+				filtered = append(filtered, c)
+			}
+		}
+		cases = filtered
+	}
 	respond(w, r, http.StatusOK, cases)
 }
 

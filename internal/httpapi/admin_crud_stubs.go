@@ -150,12 +150,15 @@ func (s *Server) listAdminExperts(w http.ResponseWriter, r *http.Request) {
 
 // ----- Competitions -----
 func (s *Server) listAdminCompetitions(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.competitionSvc.List(1, 100000)
+	items, _, err := s.competitionSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	filtered, ftotal := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(c domain.Competition) string { return c.Title },
+		func(c domain.Competition) string { return c.Status })
+	paginatedRespond(w, r, filtered, ftotal)
 }
 func (s *Server) adminCreateCompetition(w http.ResponseWriter, r *http.Request) {
 	var in struct {
@@ -510,7 +513,13 @@ func (s *Server) listAdminStudy(w http.ResponseWriter, r *http.Request) {
 func convStudy(items []domain.StudyTour) []map[string]any {
 	out := make([]map[string]any, len(items))
 	for i, it := range items {
-		out[i] = map[string]any{"id": it.ID, "title": it.Title, "destination": it.Destination, "duration": it.Duration, "capacity": it.Capacity, "status": it.Status, "created_at": it.CreatedAt, "updated_at": it.UpdatedAt}
+		out[i] = map[string]any{
+			"id": it.ID, "title": it.Title, "destination": it.Destination,
+			"duration": it.Duration, "capacity": it.Capacity, "status": it.Status,
+			"description": it.Description, "location": it.Location, "organizer_id": it.OrganizerID,
+			"start_date": it.StartDate, "end_date": it.EndDate,
+			"created_at": it.CreatedAt, "updated_at": it.UpdatedAt,
+		}
 	}
 	return out
 }
@@ -625,10 +634,20 @@ func (s *Server) listAdminTransformations(w http.ResponseWriter, r *http.Request
 		fail(w, r, 500, fmt.Errorf("list transformations: %w", err))
 		return
 	}
-	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+	filtered, _ := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(t domain.Transformation) string { return t.Title },
 		func(t domain.Transformation) string { return t.Status })
-	paginatedRespond(w, r, filtered, total)
+	// 阶段筛选（stage）
+	if st := r.URL.Query().Get("stage"); st != "" {
+		tmp := make([]domain.Transformation, 0, len(filtered))
+		for _, t := range filtered {
+			if string(t.Stage) == st {
+				tmp = append(tmp, t)
+			}
+		}
+		filtered = tmp
+	}
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 
 func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
@@ -661,12 +680,15 @@ func (s *Server) deleteTransformation(w http.ResponseWriter, r *http.Request) {
 
 // --- Events (missing admin list/update/delete) ---
 func (s *Server) listAdminEvents(w http.ResponseWriter, r *http.Request) {
-	all, total, err := s.eventSvc.List(1, 100000)
+	all, _, err := s.eventSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list events: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, total)
+	filtered, _ := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(e domain.AssociationEvent) string { return e.Title },
+		func(e domain.AssociationEvent) string { return e.Status })
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 func (s *Server) updateEvent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -711,12 +733,15 @@ func (s *Server) deletePortfolio(w http.ResponseWriter, r *http.Request) {
 
 // --- Exhibitions (missing admin list/update/delete) ---
 func (s *Server) listAdminExhibitions(w http.ResponseWriter, r *http.Request) {
-	all, total, err := s.exhibitionSvc.List(1, 100000)
+	all, _, err := s.exhibitionSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list exhibitions: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, total)
+	filtered, _ := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(e domain.Exhibition) string { return e.Title },
+		func(e domain.Exhibition) string { return e.Status })
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 func (s *Server) updateExhibition(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -778,12 +803,33 @@ func (s *Server) updateIndustryReport(w http.ResponseWriter, r *http.Request) {
 
 // --- Emergency Resources (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyResources(w http.ResponseWriter, r *http.Request) {
-	all, total, err := s.emergencySvc.ListResources(1, 100000)
+	all, _, err := s.emergencySvc.ListResources(1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list emergency resources: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, total)
+	filtered := all
+	// 关键词筛选（资源名称）
+	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
+		tmp := make([]domain.EmergencyResource, 0, len(filtered))
+		for _, res := range filtered {
+			if strings.Contains(res.Name, kw) {
+				tmp = append(tmp, res)
+			}
+		}
+		filtered = tmp
+	}
+	// 资源类型筛选（res_type）
+	if t := r.URL.Query().Get("res_type"); t != "" {
+		tmp := make([]domain.EmergencyResource, 0, len(filtered))
+		for _, res := range filtered {
+			if res.ResType == t {
+				tmp = append(tmp, res)
+			}
+		}
+		filtered = tmp
+	}
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 func (s *Server) updateEmergencyResource(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -817,12 +863,15 @@ func (s *Server) deleteEmergencyResource(w http.ResponseWriter, r *http.Request)
 
 // --- Emergency Dispatches (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	all, total, err := s.emergencySvc.ListDispatches(1, 100000)
+	all, _, err := s.emergencySvc.ListDispatches(1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list dispatches: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, total)
+	filtered, _ := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(d domain.EmergencyDispatch) string { return d.EventDesc },
+		func(d domain.EmergencyDispatch) string { return d.Status })
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 func (s *Server) updateEmergencyDispatch(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -966,12 +1015,33 @@ func (s *Server) deleteComplianceStandard(w http.ResponseWriter, r *http.Request
 
 // --- Industry Resources (missing admin list/delete) ---
 func (s *Server) listAdminResources(w http.ResponseWriter, r *http.Request) {
-	all, total, err := s.resourceSvc.List("", 1, 100000)
+	all, _, err := s.resourceSvc.List("", 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list resources: %w", err))
 		return
 	}
-	paginatedRespond(w, r, all, total)
+	filtered := all
+	// 关键词筛选（资源名称）
+	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
+		tmp := make([]domain.IndustryResource, 0, len(filtered))
+		for _, res := range filtered {
+			if strings.Contains(res.Name, kw) {
+				tmp = append(tmp, res)
+			}
+		}
+		filtered = tmp
+	}
+	// 资源类型筛选（res_type）
+	if t := r.URL.Query().Get("res_type"); t != "" {
+		tmp := make([]domain.IndustryResource, 0, len(filtered))
+		for _, res := range filtered {
+			if res.ResType == t {
+				tmp = append(tmp, res)
+			}
+		}
+		filtered = tmp
+	}
+	paginatedRespond(w, r, filtered, len(filtered))
 }
 func (s *Server) deleteIndustryResource(w http.ResponseWriter, r *http.Request) {
 	if err := s.resourceSvc.Delete(r.PathValue("id")); err != nil {

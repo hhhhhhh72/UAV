@@ -57,8 +57,8 @@
         <a-form-item label="标题"><a-input v-model="form.title" /></a-form-item>
         <a-form-item label="成果ID"><a-input v-model="form.achievement_id" placeholder="关联成果 ID" /></a-form-item>
         <a-form-item label="合作方ID"><a-input v-model="form.partner_id" placeholder="关联合作企业 ID" /></a-form-item>
-        <a-form-item label="阶段">
-          <a-select v-model="form.stage" style="width: 100%">
+        <a-form-item label="阶段" :extra="formEdit ? '' : '新转化默认从「实验室」阶段开始，创建后可编辑推进'">
+          <a-select v-model="form.stage" :disabled="!formEdit" style="width: 100%">
             <a-option value="lab">实验室</a-option>
             <a-option value="pilot">中试</a-option>
             <a-option value="industrialized">产业化</a-option>

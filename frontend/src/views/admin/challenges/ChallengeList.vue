@@ -87,8 +87,8 @@ import CrudList from '../components/CrudList.vue'
 const crudRef = ref()
 const api = useAdminApi('rd-challenges')
 
-const statusLabel = (s) => ({ open: '征集中', closed: '已关闭', resolved: '已解决' }[s] || s || '-')
-const statusTag = (s) => ({ open: 'orangered', closed: 'gray', resolved: 'green' }[s] || 'gray')
+const statusLabel = (s) => ({ in_progress: '进行中', closed: '已关闭', resolved: '已解决', published: '已发布' }[s] || s || '-')
+const statusTag = (s) => ({ in_progress: 'arcoblue', closed: 'gray', resolved: 'green', published: 'orangered' }[s] || 'gray')
 
 const formatMoney = (fen) => {
   if (fen == null) return '-'
@@ -113,7 +113,7 @@ const searchFields = [
   { key: 'keyword', label: '关键词', placeholder: '搜索难题标题', width: 220 },
   { key: 'status', label: '状态', type: 'select', options: [
     { value: '', label: '全部' },
-    { value: 'open', label: '征集中' },
+    { value: 'in_progress', label: '进行中' },
     { value: 'closed', label: '已关闭' },
     { value: 'resolved', label: '已解决' }
   ]}
