@@ -1,0 +1,49 @@
+Codemap Analysis Report
+=======================
+Date: 2026-08-06
+Type: FIRST SCAN (no previous codemaps existed; no diff to compute)
+
+Files scanned
+-------------
+- Go backend:      122 files (95 source + 27 test, ~30k lines)
+- Frontend (admin): 64 files (src/ vue+js)
+- Miniprogram:      96 files (78 pages + 18 components)
+- Migrations:       74 SQL files (37 groups, 80 unique tables)
+- Docs:             22 markdown + swagger artifacts + PRD docx
+
+Codemaps generated
+------------------
+- docs/CODEMAPS/architecture.md  (~600 tokens)
+- docs/CODEMAPS/backend.md       (~900 tokens)
+- docs/CODEMAPS/frontend.md      (~900 tokens)
+- docs/CODEMAPS/data.md          (~700 tokens)
+- docs/CODEMAPS/dependencies.md  (~400 tokens)
+
+Architecture changes detected (vs. repo docs, first scan)
+---------------------------------------------------------
+- Frontend UI library: Element Plus -> @arco-design/web-vue (commit 405d965) — README/CLAUDE.md stale
+- Migrations: docs say 17 groups/34 files, actual 37 groups/74 files (000018-000037 undocumented)
+- Miniprogram: docs say 68 pages / 4 tabs, actual 78 pages / 5 tabs (native tabBar hidden, custom TabBar)
+- New module landed: demand_intents (migration 000033)
+- CrudList config-driven refactor: 30 admin list pages (commit ed1f6fd)
+
+Staleness warnings (>90d docs not matching code)
+------------------------------------------------
+- CLAUDE.md links docs/项目概述/ and docs/项目管理/开发计划.md — both missing (dead links)
+- docs/需求文档/小程序开发规格.md — old 4-tab structure, all pages marked "待开发"
+- docs/数据设计/数据模型.md — 17-group migration count stale
+- Bidding (竞标): 产业供需对接.md says "code removed" but demand_bids table rebuilt in 000012,
+  PRD docx says implemented — 3-way contradiction
+- frontend README.md describes old H5 mobile app + Element Plus
+
+New dependencies detected
+-------------------------
+- @arco-design/web-vue ^2.58.0 (replacing element-plus)
+- No new backend deps
+
+Working-tree notes (uncommitted at scan time)
+---------------------------------------------
+- 9 Go files modified (phase3/admin_crud_stubs/memory/postgres/repositories/service)
+- migrations/000037_study_tours_seed.{up,down}.sql untracked
+- scripts/fix_prd.py, fix_prd_tree.py untracked
+- docs/需求文档/V1-PRD-低空经济生态服务平台.docx (+.bak) untracked

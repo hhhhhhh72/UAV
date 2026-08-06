@@ -6,8 +6,8 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 API | Go 1.25+，标准库 net/http，约 380 条路由注册（生产约 335），115 源文件 |
-| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），80 张表（17 组迁移） |
+| 后端 API | Go 1.25+，标准库 net/http，约 380 条路由注册（生产约 335），122 个 Go 文件（95 源码 + 27 测试） |
+| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），80 张表（37 组迁移） |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
 
@@ -30,13 +30,13 @@
 │   │   ├── repositories.go        # Repository 接口定义（50+ interface）
 │   │   ├── postgres/              # PostgreSQL 实现（pgxpool）
 │   │   └── memory/                # 内存实现（开发用，sync.RWMutex）
-│   ├── domain/models.go           # 业务实体与常量（66 个 struct）
+│   ├── domain/models.go           # 业务实体与常量（75 个 struct，含 models_batch*/models_new）
 │   ├── config/config.go           # 集中配置 + 验证 + 脱敏打印
 │   ├── logger/logger.go           # 结构化日志（slog + 每日文件轮转）
 │   ├── cache/cache.go             # 内存 TTL 缓存（60s 默认，5min 自动清理）
 │   ├── middleware/middleware.go    # 输入消毒 + 统一错误格式
 │   └── crypto/                    # AES-256-GCM 加密 + 脱敏函数
-├── migrations/                    # 17 组迁移（34 个 SQL 文件，含 batch 表与 shops）
+├── migrations/                    # 37 组迁移（74 个 SQL 文件，含 batch 表与 shops）
 ├── docs/                          # 项目文档（22 份，中文）
 ├── icons/                         # 15 个 SVG 图标
 └── docker-compose.yml
@@ -149,8 +149,8 @@ go test ./internal/...  # 全部 PASS
 
 | 项目 | 位置 | 技术栈 | 规模 |
 |------|------|--------|------|
-| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + 自研 u- 组件库 | 68 页，5 Tab |
-| Web 管理后台 | `frontend/` | Vue 3 + Element Plus + ECharts | Admin SPA（35 后台路由 + 8 聚合页） |
+| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + 自研 u- 组件库 | 78 页，5 Tab |
+| Web 管理后台 | `frontend/` | Vue 3 + Arco Design Vue + ECharts | Admin SPA（39 后台路由 + 8 聚合页） |
 
 **小程序设计规范**:
 - 品牌色 `#0A66C2`（深空蓝），辅色 `#1DD4A8`（青绿）
@@ -193,11 +193,11 @@ cd frontend && npm run dev   # → :5173
 
 | 想看... | 文档 |
 |------|------|
-| 项目简介 + 快速开始 | [docs/项目概述/](docs/项目概述/) |
+| 项目简介 + 快速开始 | [README.md](README.md) |
 | 架构 + 分层 + 中间件 | [docs/系统架构/架构总览.md](docs/系统架构/架构总览.md) |
 | 7大业务系统详情 | [docs/业务系统/](docs/业务系统/) |
 | 全部 API 契约 | [docs/接口文档/API契约.md](docs/接口文档/API契约.md) |
 | 80 张表结构 | [docs/数据设计/数据模型.md](docs/数据设计/数据模型.md) |
 | 编码规范 | [docs/开发规范/编码规范.md](docs/开发规范/编码规范.md) |
 | Docker + CI | [docs/运维部署/Docker部署.md](docs/运维部署/Docker部署.md) |
-| 开发计划 | [docs/项目管理/开发计划.md](docs/项目管理/开发计划.md) |
+| 开发计划 | [PRD-四人并行开发方案.md](docs/项目管理/PRD-四人并行开发方案.md) |

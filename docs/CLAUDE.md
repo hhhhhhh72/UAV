@@ -2,7 +2,7 @@
 
 面向微信小程序与 Web 管理后台的全栈服务平台，覆盖无人机产业链 **7 大业务系统**。
 
-> 📋 **团队协作**: 4人并行开发 | [PRD](项目管理/PRD-四人并行开发方案.md) | 小程序 68 页 + 后台 35 路由  
+> 📋 **团队协作**: 4人并行开发 | [PRD](项目管理/PRD-四人并行开发方案.md) | 小程序 78 页 + 后台 39 路由  
 > 🟢 **代码质量**: P0/P1清零(0 JSON忽略 + 0裸error) | 覆盖率 45.8% | go vet ✅
 
 ## 技术栈
@@ -10,7 +10,7 @@
 | 层 | 技术 |
 |------|------|
 | 后端 API | Go 1.25+，标准库 net/http，约 380 条路由注册（生产约 335） |
-| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），80 张表（17 组迁移） |
+| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），80 张表（37 组迁移） |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
 
@@ -29,13 +29,13 @@
 │   │   ├── repositories.go        # Repository 接口定义（50+ interface）
 │   │   ├── postgres/              # PostgreSQL 实现
 │   │   └── memory/                # 内存实现（开发用）
-│   ├── domain/models.go           # 业务实体与常量（70+ struct）
+│   ├── domain/models.go           # 业务实体与常量（75 个 struct，含 models_batch*/models_new）
 │   ├── config/config.go           # 集中配置 + 验证 + 脱敏打印
 │   ├── logger/logger.go           # 结构化日志（slog + 每日文件轮转）
 │   ├── cache/cache.go             # 内存 TTL 缓存
 │   ├── middleware/middleware.go    # 输入消毒 + 统一错误格式
 │   └── crypto/                    # AES-256-GCM 加密 + 脱敏函数
-├── migrations/                    # 数据库迁移脚本 (80 表, 17 组)
+├── migrations/                    # 数据库迁移脚本 (80 表, 37 组)
 ├── docs/                           # 项目文档
 ├── prototypes/                     # HTML 原型 (首页+商家页)
 └── docker-compose.yml

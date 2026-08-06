@@ -2,7 +2,7 @@
 
 面向微信小程序与 Web 管理后台的全栈服务平台，覆盖无人机产业链 7 大业务系统。
 
-> 🟢 **当前状态**: Go 后端 100% | 代码质量 A- (P0/P1清零) | 小程序 68页 | 后台 35%  
+> 🟢 **当前状态**: Go 后端 100% | 代码质量 A- (P0/P1清零) | 小程序 78页 | 后台全面可用（Arco + 30 页 CrudList 重构）  
 > 📋 **团队协作**: [四人并行开发方案 PRD](docs/项目管理/PRD-四人并行开发方案.md)
 
 ---
@@ -140,13 +140,13 @@ git push origin feat/b-pages
 │   ├── cache/                   # TTL 内存缓存
 │   ├── middleware/              # 输入消毒 + 统一错误
 │   └── crypto/                  # AES-256-GCM 加密
-├── frontend/                    # Vue 3 + Element Plus 管理后台
-│   └── src/views/admin/         # 29 独立模块 + 8 聚合页
+├── frontend/                    # Vue 3 + Arco Design Vue 管理后台
+│   └── src/views/admin/         # 31 独立模块 + 8 聚合页
 ├── miniprogram/                 # 微信小程序 (uni-app + 自研 u- 组件库)
-│   ├── pages/                   # 68 个页面文件 (7大系统)
-│   ├── components/              # 4 个共享组件
+│   ├── pages/                   # 78 个页面文件 (7大系统)
+│   ├── components/              # 14 个 u- 组件 + 4 个业务组件
 │   └── utils/                   # API 封装 + Token 刷新
-├── migrations/                  # 17 组迁移 (34 SQL 文件)
+├── migrations/                  # 37 组迁移 (74 SQL 文件)
 ├── docs/                        # 项目文档 + Swagger + PRD
 └── prototypes/                  # HTML 原型 (首页+商家页)
 ```
@@ -162,7 +162,7 @@ git push origin feat/b-pages
 | 层 | 技术 |
 |------|------|
 | 微信小程序 | uni-app + 自研 u- 组件库 |
-| 管理后台 | Vue 3 + Element Plus 2.14 + ECharts 6 + Pinia |
+| 管理后台 | Vue 3 + Arco Design Vue 2.58 + ECharts 6 |
 | API 层 | Go 标准库 net/http + gorilla/mux |
 | 业务层 | Go service (接口依赖注入) |
 | 数据层 | PostgreSQL 16 / 内存 (双模式) |
@@ -191,15 +191,15 @@ git push origin feat/b-pages
 | 指标 | 数值 |
 |------|:--:|
 | API 端点 | **约 380 条注册**（生产约 335） |
-| 数据库表 | **80 张**（17 组迁移） |
-| 小程序页面文件 | **68 页** (7大系统) |
-| 管理后台模块 | **29 独立模块 + 8 聚合页** |
+| 数据库表 | **80 张**（37 组迁移） |
+| 小程序页面文件 | **78 页** (7大系统) |
+| 管理后台模块 | **31 独立模块 + 8 聚合页** |
 | Go 源文件 | **115** |
 | 测试通过率 | **100%** (92 HTTP case) |
 | 测试覆盖率 | **45.8%** |
 | 静态分析 | `go vet` ✅ 零告警 |
 | Lint 工具 | `.golangci.yml` (11 linter) |
-| 前端构建 | Vue 3 + Element Plus ✅ |
+| 前端构建 | Vue 3 + Arco Design Vue ✅ |
 | 代码质量 | P0/P1 已清零 (0 JSON忽略 + 0裸error) |
 
 ---

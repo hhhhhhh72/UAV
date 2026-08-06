@@ -29,7 +29,7 @@
 |------|------|------|
 | **认证** | `POST /auth/wechat/login` `POST /auth/refresh` `POST /auth/logout` `GET /me` | 微信登录/令牌刷新/登出 |
 | **企业** | `GET/POST/PATCH /enterprises` `POST /enterprises/{id}/submit` `POST /admin/enterprises/{id}/review` `POST /admin/enterprises/batch-review` | 入驻/审核/批量 |
-| **需求** | `GET/POST /demands` `POST /demands/{id}/applications` `POST /demands/{id}/applications/{aid}/select` `POST /demands/{id}/complete` `POST /demands/{id}/dispute` | 发布/竞标/选中/完成/争议 |
+| **需求** | `GET/POST /demands` `POST /demands/{id}/intents` `GET /intents/mine` `POST /demands/{id}/complete` `POST /demands/{id}/cancel` | 发布/意向登记/完成/取消 |
 | **招聘** | `GET/POST /jobs` `GET/POST /resumes` `POST /applications` `PATCH /applications/{id}/status` | 职位/简历/投递 |
 | **社区** | `GET/POST /posts` `POST /posts/{id}/comments` `POST /reports` | 帖子/评论/举报 |
 | **二手** | `GET/POST /listings` `POST /listings/{id}/favorites` | 商品/收藏 |
