@@ -1,75 +1,35 @@
 <template>
   <div class="page">
-    <!-- 搜索 + 发送 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索标题..." allow-clear style="width: 220px" @press-enter="onSearchSubmit">
-              <template #prefix><icon-search /></template>
-            </a-input>
-          </a-form-item>
-          <a-form-item label="类型" class="form-item">
-            <a-select v-model="filterParams.msg_type" placeholder="消息类型" style="width: 160px" @change="onSearchSubmit">
-              <a-option value="">全部</a-option>
-              <a-option value="系统通知">系统通知</a-option>
-              <a-option value="活动提醒">活动提醒</a-option>
-              <a-option value="审核结果">审核结果</a-option>
-              <a-option value="其他">其他</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <a-button type="primary" status="warning" style="margin-left: auto" @click="handleSend">发送通知</a-button>
-          <a-button type="primary" status="success" @click="handleAdd">新增</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="messages"
+      :columns="columns"
+      :search-fields="searchFields"
+      :default-params="defaultParams"
+      creatable
+      add-label="发送通知"
+      @add="openForm()"
+    >
+      <template #title="{ record }">
+        <span class="cell-title">{{ record.title || '-' }}</span>
+      </template>
+      <template #createdAt="{ record }">
+        <span class="time-text">{{ formatDate(record.created_at) }}</span>
+      </template>
+      <template #isRead="{ record }">
+        <a-tag :color="record.is_read ? 'gray' : 'orange'" size="small">{{ record.is_read ? '已读' : '未读' }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @sorter-change="handleSortChange"
-      >
-        <template #title="{ record }">
-          <span class="cell-title">{{ record.title || '-' }}</span>
-        </template>
-        <template #createdAt="{ record }">
-          <span class="time-text">{{ formatDate(record.created_at) }}</span>
-        </template>
-        <template #isRead="{ record }">
-          <a-tag :color="record.is_read ? 'gray' : 'orange'" size="small">{{ record.is_read ? '已读' : '未读' }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
-            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" title="通知详情" :width="640" :footer="false" :unmount-on-close="true">
@@ -93,7 +53,7 @@
       </template>
     </a-modal>
 
-    <!-- 表单弹窗（发送/新增/编辑） -->
+    <!-- 表单弹窗（发送/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑通知' : '发送通知'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
       <a-form :model="form" layout="horizontal">
         <a-form-item label="消息标题" required><a-input v-model="form.title" /></a-form-item>
@@ -109,12 +69,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
 
+const crudRef = ref()
 const api = useAdminApi('messages')
+const defaultParams = { msg_type: '' }
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -128,30 +90,19 @@ const typeColor = { '系统通知': 'orange', '活动提醒': 'green', '审核�
 const statusLabel = { 'unread': '未读', 'read': '已读' }
 const statusColor = { 'unread': 'orange', 'read': 'gray' }
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, resetParams } = useListRequest({
-  apiFunction: api.list,
-  idKey: 'id',
-  defaultParams: { msg_type: '' }
-})
-
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
-
-// Arco sorter-change → useListRequest.onSortChange（el-table 的 { prop, order } 形态）
-const handleSortChange = (dataIndex, direction) => {
-  onSortChange({
-    prop: dataIndex,
-    order: direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
-  })
-}
+const searchFields = [
+  { key: 'keyword', label: '关键词', placeholder: '搜索标题...', width: 220 },
+  { key: 'msg_type', label: '类型', type: 'select', options: [
+    { value: '', label: '全部' },
+    { value: '系统通知', label: '系统通知' },
+    { value: '活动提醒', label: '活动提醒' },
+    { value: '审核结果', label: '审核结果' },
+    { value: '其他', label: '其他' }
+  ]}
+]
 
 const columns = [
-  { title: 'ID', dataIndex: 'id', width: 160, sortable: { sortDirections: ['ascend', 'descend'] } },
+  { title: 'ID', dataIndex: 'id', width: 160 },
   { title: '标题', dataIndex: 'title', slotName: 'title', minWidth: 200 },
   { title: '接收者', dataIndex: 'receiver_id', width: 140 },
   { title: '发送时间', dataIndex: 'created_at', slotName: 'createdAt', width: 170 },
@@ -167,10 +118,18 @@ const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', title: '', receiver_id: '', content: '' })
-const resetForm = () => Object.assign(form, { id: '', title: '', msg_type: '系统通知', to_user: '', content: '', status: 'unread' })
-const handleSend = () => { resetForm(); formEdit.value = false; formVisible.value = true }
-const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
-const handleEdit = (r) => { Object.assign(form, r); formEdit.value = true; formVisible.value = true }
+const resetForm = () => Object.assign(form, { id: '', title: '', receiver_id: '', content: '' })
+
+const openForm = (row) => {
+  resetForm()
+  if (row) {
+    formEdit.value = true
+    Object.assign(form, { title: row.title || '', receiver_id: row.receiver_id || '', content: row.content || '' })
+  } else {
+    formEdit.value = false
+  }
+  formVisible.value = true
+}
 
 const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '发送失败'
 
@@ -183,7 +142,7 @@ const submitForm = async () => {
     await api.create(p)
     Message.success('发送成功')
     formVisible.value = false
-    loadData()
+    crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }
   finally { formLoading.value = false }
 }
@@ -195,20 +154,14 @@ const handleDelete = (row) => {
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
-      try { await api.delete(row.id); Message.success('已删除'); loadData() } catch { Message.error('删除失败') }
+      try { await api.delete(row.id); Message.success('已删除'); crudRef.value?.reload() } catch { Message.error('删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
 
 .cell-title {
   font-weight: 500;
@@ -221,10 +174,4 @@ onMounted(loadData)
 }
 
 .time-text { color: #86909C; font-size: 12px; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 </style>

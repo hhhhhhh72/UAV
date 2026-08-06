@@ -1,84 +1,37 @@
 <template>
   <div class="page">
-    <!-- 搜索过滤区 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索企业名称..." allow-clear style="width: 240px" @press-enter="onSearchSubmit">
-              <template #prefix><icon-search /></template>
-            </a-input>
-          </a-form-item>
-          <a-form-item label="审核状态" class="form-item">
-            <a-select v-model="filterParams.status" placeholder="审核状态" style="width: 150px" @change="onSearchSubmit">
-              <a-option value="all">全部状态</a-option>
-              <a-option value="submitted">待审核</a-option>
-              <a-option value="approved">已通过</a-option>
-              <a-option value="rejected">已驳回</a-option>
-              <a-option value="draft">草稿</a-option>
-              <a-option value="supplement_required">需补充</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="enterprises"
+      :columns="columns"
+      :search-fields="searchFields"
+      :default-params="defaultParams"
+      :batch-actions="batchActions"
+      :batch-delete="false"
+    >
+      <template #name="{ record }">
+        <span class="cell-name">{{ record.name || '-' }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusTagType(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+      </template>
+      <template #createdAt="{ record }">
+        <span class="time-text">{{ formatDate(record.created_at) }}</span>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <template v-if="record.status === 'submitted'">
+            <a-divider direction="vertical" />
+            <a-button type="text" status="success" size="small" @click="handleReview(record, 'approved')">通过</a-button>
+            <a-button type="text" status="danger" size="small" @click="handleReview(record, 'rejected')">驳回</a-button>
+          </template>
         </a-space>
-      </a-form>
-
-      <!-- 批量操作栏 -->
-      <div class="batch-bar" v-if="selectedIds.length > 0">
-        <span class="batch-info">已选择 <b>{{ selectedIds.length }}</b> 项</span>
-        <a-button type="primary" status="success" size="small" @click="batchReview('approved')"><template #icon><icon-check /></template>批量通过</a-button>
-        <a-button type="primary" status="danger" size="small" @click="batchReview('rejected')"><template #icon><icon-close /></template>批量驳回</a-button>
-      </div>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @sorter-change="handleSortChange"
-      >
-        <template #name="{ record }">
-          <span class="cell-name">{{ record.name || '-' }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusTagType(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
-        </template>
-        <template #createdAt="{ record }">
-          <span class="time-text">{{ formatDate(record.created_at) }}</span>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <template v-if="record.status === 'submitted'">
-              <a-divider direction="vertical" />
-              <a-button type="text" status="success" size="small" @click="handleReview(record, 'approved')">通过</a-button>
-              <a-button type="text" status="danger" size="small" @click="handleReview(record, 'rejected')">驳回</a-button>
-            </template>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无企业数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50, 100]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无企业数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" title="企业详情" :width="640" :footer="false" :mask-closable="false">
@@ -121,10 +74,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref } from 'vue'
 import { showSuccessToast, showFailToast } from '@/utils/feedback'
-import { useListRequest } from '@/hooks/useListRequest'
-import { getEnterpriseList, reviewEnterprise, batchReviewEnterprise } from '@/api/admin/enterprise'
+import { reviewEnterprise } from '@/api/admin/enterprise'
+import CrudList from '../components/CrudList.vue'
+
+const crudRef = ref()
+const defaultParams = { status: 'all' }
 
 // --- 状态映射 ---
 const statusLabel = (s) => ({
@@ -150,47 +106,31 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// --- 列表数据 ---
-const {
-  listData,
-  loading,
-  total,
-  selectedIds,
-  filterParams,
-  loadData,
-  onSearchSubmit,
-  onSortChange,
-  onBatchAction,
-  resetParams
-} = useListRequest({
-  apiFunction: getEnterpriseList,
-  idKey: 'id',
-  defaultParams: { status: 'all' }
-})
+// 批量动作：批量通过/批量驳回（传完整行数据，逐个调用审核接口）
+const batchActions = [
+  { key: 'approve', label: '批量通过', status: 'success', api: (row) => reviewEnterprise(row.id, { action: 'approved', reason: '' }) },
+  { key: 'reject', label: '批量驳回', status: 'danger', api: (row) => reviewEnterprise(row.id, { action: 'rejected', reason: '' }) }
+]
 
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
-
-// Arco sorter-change → useListRequest.onSortChange（el-table 的 { prop, order } 形态）
-const handleSortChange = (dataIndex, direction) => {
-  onSortChange({
-    prop: dataIndex,
-    order: direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
-  })
-}
+const searchFields = [
+  { key: 'keyword', label: '关键词', placeholder: '搜索企业名称...', width: 240 },
+  { key: 'status', label: '审核状态', type: 'select', options: [
+    { value: 'all', label: '全部状态' },
+    { value: 'submitted', label: '待审核' },
+    { value: 'approved', label: '已通过' },
+    { value: 'rejected', label: '已驳回' },
+    { value: 'draft', label: '草稿' },
+    { value: 'supplement_required', label: '需补充' }
+  ]}
+]
 
 const columns = [
-  { title: '企业名称', dataIndex: 'name', slotName: 'name', minWidth: 180, sortable: { sortDirections: ['ascend', 'descend'] } },
+  { title: '企业名称', dataIndex: 'name', slotName: 'name', minWidth: 180 },
   { title: '对公账户', dataIndex: 'account_name', width: 160 },
   { title: '法人', dataIndex: 'legal_person', width: 100 },
   { title: '联系电话', dataIndex: 'contact_phone', width: 130 },
   { title: '审核状态', dataIndex: 'status', slotName: 'status', width: 100 },
-  { title: '提交时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160, sortable: { sortDirections: ['ascend', 'descend'] } },
+  { title: '提交时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160 },
   { title: '操作', slotName: 'actions', width: 200, fixed: 'right' },
 ]
 
@@ -212,40 +152,15 @@ const handleReview = async (ent, action) => {
       currentEnterprise.value.status = action === 'approved' ? 'approved' : 'rejected'
     }
     detailVisible.value = false
-    loadData()
+    crudRef.value?.reload()
   } catch (error) {
     showFailToast(error?.response?.data?.message || error?.message || '操作失败')
   }
 }
-
-const batchReview = (action) => {
-  onBatchAction(action, batchReviewEnterprise)
-}
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
-
-.batch-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #EEF1F4;
-}
-
-.batch-info {
-  font-size: 13px;
-  color: var(--color-text-2);
-  margin-right: auto;
-}
 
 .cell-name { font-weight: 500; color: var(--color-text-1); }
 
@@ -255,12 +170,6 @@ onMounted(loadData)
 
 .review-actions {
   text-align: center;
-  padding-top: 16px;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
   padding-top: 16px;
 }
 </style>

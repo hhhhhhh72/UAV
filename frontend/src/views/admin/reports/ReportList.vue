@@ -1,72 +1,35 @@
 <template>
   <div class="page">
-    <!-- 搜索 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索报告标题" allow-clear style="width: 220px" @press-enter="onSearchSubmit" />
-          </a-form-item>
-          <a-form-item label="类型" class="form-item">
-            <a-select v-model="filterParams.report_type" style="width: 140px" allow-clear @change="onSearchSubmit">
-              <a-option value="">全部类型</a-option>
-              <a-option value="whitepaper">白皮书</a-option>
-              <a-option value="research">调研报告</a-option>
-              <a-option value="analysis">行业分析</a-option>
-              <a-option value="other">其他</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <a-button type="primary" status="success" style="margin-left: auto" @click="handleAdd">新增报告</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="industry-reports"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      creatable
+      add-label="新增报告"
+      @add="openForm()"
+    >
+      <template #title="{ record }">
+        <span class="cell-title">{{ record.title || '-' }}</span>
+      </template>
+      <template #category="{ record }">
+        <a-tag :color="typeTag(record.category)" size="small">{{ typeLabel(record.category) }}</a-tag>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusTag(record.status)" size="small">{{ record.status || '-' }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @page-change="loadData"
-      >
-        <template #title="{ record }">
-          <span class="cell-title">{{ record.title || '-' }}</span>
-        </template>
-        <template #category="{ record }">
-          <a-tag :color="typeTag(record.category)" size="small">{{ typeLabel(record.category) }}</a-tag>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusTag(record.status)" size="small">{{ record.status || '-' }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
-            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无报告数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无报告数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" title="报告详情" :width="600" :footer="false">
@@ -126,11 +89,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
 
+const crudRef = ref()
 const api = useAdminApi('industry-reports')
 
 const formatDate = (d) => {
@@ -143,17 +107,22 @@ const typeLabel = (t) => ({ whitepaper: '白皮书', research: '调研报告', a
 const typeTag = (t) => ({ whitepaper: 'orangered', research: 'green', analysis: 'arcoblue', other: 'gray' }[t] || 'gray')
 const statusTag = (s) => ({ published: 'green', draft: 'orangered' }[s] || 'gray')
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
-  apiFunction: api.list, idKey: 'id', defaultParams: { report_type: '' }
-})
+// 批量动作：批量发布——传完整行数据避免清空其他字段
+const batchActions = [
+  { key: 'publish', label: '批量发布', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'published' }) }
+]
 
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
+// 搜索用 report_type（列表字段为 category，表单字段为 category，详情字段为 report_type——三处字段差异保持原样）
+const searchFields = [
+  { key: 'keyword', label: '关键词', type: 'input', width: 220, placeholder: '搜索报告标题' },
+  { key: 'report_type', label: '类型', type: 'select', width: 140, options: [
+    { value: '', label: '全部类型' },
+    { value: 'whitepaper', label: '白皮书' },
+    { value: 'research', label: '调研报告' },
+    { value: 'analysis', label: '行业分析' },
+    { value: 'other', label: '其他' }
+  ]}
+]
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
@@ -173,9 +142,17 @@ const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', title: '', category: 'whitepaper', period: '', author: '', summary: '', file_url: '', status: 'draft' })
-const resetForm = () => Object.assign(form, { id: '', title: '', report_type: 'whitepaper', publisher: '', publish_date: '', authors: '', abstract: '', file_url: '', status: 'draft' })
-const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
-const handleEdit = (r) => { Object.assign(form, r); formEdit.value = true; formVisible.value = true }
+const resetForm = () => Object.assign(form, { id: '', title: '', category: 'whitepaper', period: '', author: '', summary: '', file_url: '', status: 'draft' })
+const openForm = (r) => {
+  resetForm()
+  if (r) {
+    formEdit.value = true
+    Object.assign(form, { id: r.id, title: r.title || '', category: r.category || 'whitepaper', period: r.period || '', author: r.author || '', summary: r.summary || '', file_url: r.file_url || '', status: r.status || 'draft' })
+  } else {
+    formEdit.value = false
+  }
+  formVisible.value = true
+}
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入报告标题'); return }
   formLoading.value = true
@@ -183,7 +160,8 @@ const submitForm = async () => {
     const p = { ...form }
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
-    formVisible.value = false; loadData()
+    formVisible.value = false
+    crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
   finally { formLoading.value = false }
 }
@@ -194,21 +172,15 @@ const handleDelete = (r) => {
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
-      try { await api.delete(r.id); Message.success('已删除'); loadData() }
+      try { await api.delete(r.id); Message.success('已删除'); crudRef.value?.reload() }
       catch (e) { Message.error(e?.response?.data?.message || '删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
 
 .cell-title {
   font-weight: 500;
@@ -218,11 +190,5 @@ onMounted(loadData)
   white-space: nowrap;
   display: block;
   max-width: 300px;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
 }
 </style>

@@ -1,27 +1,29 @@
 <template>
   <div class="page">
-    <!-- 搜索 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="日期范围" class="form-item">
-            <a-range-picker
-              v-model="dateRange"
-              value-format="YYYY-MM-DD"
-              style="width: 260px"
-              @change="onSearchSubmit"
-            />
-          </a-form-item>
-          <a-form-item label="状态" class="form-item">
-            <a-select v-model="filterParams.status" style="width: 130px" allow-clear @change="onSearchSubmit">
-              <a-option label="全部状态" value="" />
-              <a-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="handleSearch"><template #icon><icon-search /></template>查询</a-button>
-        </a-space>
-      </a-form>
-    </a-card>
+    <CrudList
+      ref="crudRef"
+      resource="orders"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      @loaded="onLoaded"
+    >
+      <template #amount="{ record }">
+        <span>{{ ((record.amount_fen || 0) / 100).toFixed(2) }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusTagColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+      </template>
+      <template #createdAt="{ record }">
+        <span class="time-text">{{ formatDate(record.created_at) }}</span>
+      </template>
+      <template #actions="{ record }">
+        <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+      </template>
+      <template #empty>
+        <a-empty description="暂无数据" />
+      </template>
+    </CrudList>
 
     <!-- 交易统计条（基于当前页 + 接口 total） -->
     <a-card :bordered="false" class="stat-card">
@@ -30,46 +32,6 @@
         <div class="stat money"><span class="stat-num">¥{{ stats.amount }}</span><span class="stat-label">交易额(本页)</span></div>
         <div class="stat done"><span class="stat-num">{{ stats.completed }}</span><span class="stat-label">已完成</span></div>
         <div class="stat rate"><span class="stat-num">{{ stats.rate }}%</span><span class="stat-label">完成率</span></div>
-      </div>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-      >
-        <template #amount="{ record }">
-          <span>{{ ((record.amount_fen || 0) / 100).toFixed(2) }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusTagColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
-        </template>
-        <template #createdAt="{ record }">
-          <span class="time-text">{{ formatDate(record.created_at) }}</span>
-        </template>
-        <template #actions="{ record }">
-          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-        </template>
-        <template #empty>
-          <a-empty description="暂无数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
       </div>
     </a-card>
 
@@ -102,10 +64,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
-import { getOrderList, updateOrderStatus } from '@/api/admin/order'
+import { updateOrderStatus } from '@/api/admin/order'
+import CrudList from '../components/CrudList.vue'
+
+const crudRef = ref()
 
 const statusOptions = [
   { label: '待付款', value: 'pending' },
@@ -124,30 +88,17 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const dateRange = ref(null)
+// 订单无合适的批量业务动作（状态机按行流转，金融记录不做批量变更）
+const batchActions = []
 
-// 交易统计（分类/金额基于当前页；订单总数取接口 total）
-const stats = computed(() => {
-  const rows = listData.value || []
-  const amount = rows.reduce((s, x) => s + (x.amount_fen || 0), 0) / 100
-  const completed = rows.filter((x) => x.status === 'completed').length
-  const rate = rows.length ? Math.round((completed / rows.length) * 100) : 0
-  return { total: total.value || 0, amount: amount.toLocaleString('zh-CN', { minimumFractionDigits: 2 }), completed, rate }
-})
-
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit } = useListRequest({
-  apiFunction: getOrderList,
-  idKey: 'id',
-  defaultParams: { status: '' }
-})
-
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
+const searchFields = [
+  { key: 'status', label: '状态', type: 'select', width: 130, options: [
+    { value: '', label: '全部状态' },
+    ...statusOptions
+  ]},
+  // 日期范围：提交时合并为 start_date/end_date（后端 listAdminOrders 按 created_at 过滤）
+  { key: 'dateRange', label: '日期范围', type: 'range', width: 260 }
+]
 
 const columns = [
   { title: '订单号', dataIndex: 'id', width: 180 },
@@ -160,17 +111,18 @@ const columns = [
   { title: '操作', slotName: 'actions', width: 120, fixed: 'right' },
 ]
 
-// 自定义日期范围逻辑
-const origOnSearchSubmit = onSearchSubmit
-const handleSearch = () => {
-  if (dateRange.value && dateRange.value.length === 2) {
-    filterParams.startDate = dateRange.value[0]
-    filterParams.endDate = dateRange.value[1]
-  } else {
-    delete filterParams.startDate
-    delete filterParams.endDate
+// 交易统计（分类/金额基于当前页；订单总数取接口 total）
+const stats = ref({ total: 0, amount: '0.00', completed: 0, rate: 0 })
+const onLoaded = (rows, totalCount) => {
+  const amount = (rows || []).reduce((s, x) => s + (x.amount_fen || 0), 0) / 100
+  const completed = (rows || []).filter((x) => x.status === 'completed').length
+  const rate = (rows || []).length ? Math.round((completed / (rows || []).length) * 100) : 0
+  stats.value = {
+    total: totalCount || 0,
+    amount: amount.toLocaleString('zh-CN', { minimumFractionDigits: 2 }),
+    completed,
+    rate
   }
-  origOnSearchSubmit()
 }
 
 const detailVisible = ref(false)
@@ -189,19 +141,13 @@ const onUpdateStatus = async () => {
     await updateOrderStatus(currentItem.value.id, newStatus.value)
     currentItem.value.status = newStatus.value
     Message.success('状态已更新')
-    loadData()
+    crudRef.value?.reload()
   } catch (e) { Message.error('更新失败') }
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
 
 .stat-card { margin-bottom: 16px; }
 
@@ -232,12 +178,6 @@ onMounted(loadData)
 .stat.rate .stat-num { color: #165DFF; }
 
 .time-text { color: #86909C; font-size: 12px; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 
 .review-actions { display: flex; align-items: center; justify-content: center; padding-top: 16px; gap: 8px; }
 .review-label { color: #4E5969; }

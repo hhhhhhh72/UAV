@@ -1,56 +1,30 @@
 <template>
   <div class="page">
-    <!-- 搜索 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索姓名/电话..." allow-clear style="width: 200px" @press-enter="onSearchSubmit" @clear="onSearchSubmit" />
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>搜索</a-button>
-          <a-button @click="resetParams">重置</a-button>
-        </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-      >
-        <template #courseId="{ record }">
-          <span>{{ record.course_id || '-' }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="record.status === 'enrolled' ? 'green' : 'gray'" size="small">{{ record.status || '-' }}</a-tag>
-        </template>
-        <template #createdAt="{ record }">
-          <span class="time-text">{{ formatDate(record.created_at) }}</span>
-        </template>
-        <template #actions="{ record }">
-          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-        </template>
-        <template #empty>
-          <a-empty description="暂无报名记录" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+    <CrudList
+      ref="crudRef"
+      resource="enrollments"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      :selectable="false"
+      :batch-delete="false"
+    >
+      <template #courseId="{ record }">
+        <span>{{ record.course_id || '-' }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="record.status === 'enrolled' ? 'green' : 'gray'" size="small">{{ record.status || '-' }}</a-tag>
+      </template>
+      <template #createdAt="{ record }">
+        <span class="time-text">{{ formatDate(record.created_at) }}</span>
+      </template>
+      <template #actions="{ record }">
+        <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+      </template>
+      <template #empty>
+        <a-empty description="暂无报名记录" />
+      </template>
+    </CrudList>
 
     <!-- 报名详情（含证件资料） -->
     <a-modal v-model:visible="detailVisible" title="报名详情" :width="640" :footer="false">
@@ -81,11 +55,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useListRequest } from '@/hooks/useListRequest'
-import { useAdminApi } from '@/api/admin/common'
+import { ref } from 'vue'
+import CrudList from '../components/CrudList.vue'
 
-const api = useAdminApi('enrollments')
+const crudRef = ref()
+
+const fullUrl = (u) => (u && u.startsWith('http') ? u : (import.meta.env.VITE_API_TARGET || 'http://localhost:8080') + (u || ''))
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -93,13 +68,13 @@ const formatDate = (d) => {
   const p = (n) => String(n).padStart(2, '0')
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
-const fullUrl = (u) => (u && u.startsWith('http') ? u : (import.meta.env.VITE_API_TARGET || 'http://localhost:8080') + (u || ''))
 
-const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
-  apiFunction: api.list,
-  idKey: 'id',
-  defaultParams: {},
-})
+// 报名记录为纯查看型数据，无批量动作（selectable/batch-delete 已关闭）
+const batchActions = []
+
+const searchFields = [
+  { key: 'keyword', label: '关键词', placeholder: '搜索姓名/电话...', width: 200 }
+]
 
 const columns = [
   { title: '姓名', dataIndex: 'name', minWidth: 100 },
@@ -110,28 +85,14 @@ const columns = [
   { title: '学历', dataIndex: 'education', width: 80 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
   { title: '报名时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160 },
-  { title: '操作', slotName: 'actions', width: 80, fixed: 'right' },
+  { title: '操作', slotName: 'actions', width: 80, fixed: 'right' }
 ]
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
-.page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
-
 .time-text { color: #86909C; font-size: 12px; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 </style>

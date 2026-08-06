@@ -1,86 +1,50 @@
 <template>
   <div class="page">
-    <!-- 搜索 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索姓名..." allow-clear style="width: 200px" @press-enter="onSearchSubmit" @clear="onSearchSubmit" />
-          </a-form-item>
-          <a-form-item label="状态" class="form-item">
-            <a-select v-model="filterParams.status" style="width: 140px" placeholder="审核状态" allow-clear @change="onSearchSubmit">
-              <a-option value="pending">待审核</a-option>
-              <a-option value="approved">已认证</a-option>
-              <a-option value="rejected">已驳回</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>搜索</a-button>
-          <a-button @click="resetParams">重置</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="certified-pilots"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+    >
+      <template #certCount="{ record }">
+        <span>{{ (record.cert_ids || []).length }} 项</span>
+      </template>
+      <template #bio="{ record }">
+        <span>{{ record.bio || '-' }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
+      </template>
+      <template #createdAt="{ record }">
+        <span class="time-text">{{ formatDate(record.created_at) }}</span>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <template v-if="record.status === 'pending'">
+            <a-button type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
+            <a-button type="text" status="danger" size="small" @click="handleReject(record)">驳回</a-button>
+          </template>
+          <template v-else>
+            <a-button v-if="record.status === 'approved'" type="text" status="danger" size="small" @click="handleReject(record)">撤销</a-button>
+            <a-button v-if="record.status === 'rejected'" type="text" status="success" size="small" @click="handleApprove(record)">恢复通过</a-button>
+          </template>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-      >
-        <template #certCount="{ record }">
-          <span>{{ (record.cert_ids || []).length }} 项</span>
-        </template>
-        <template #bio="{ record }">
-          <span>{{ record.bio || '-' }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
-        </template>
-        <template #createdAt="{ record }">
-          <span class="time-text">{{ formatDate(record.created_at) }}</span>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <template v-if="record.status === 'pending'">
-              <a-button type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
-              <a-button type="text" status="danger" size="small" @click="handleReject(record)">驳回</a-button>
-            </template>
-            <template v-else>
-              <a-button v-if="record.status === 'approved'" type="text" status="danger" size="small" @click="handleReject(record)">撤销</a-button>
-              <a-button v-if="record.status === 'rejected'" type="text" status="success" size="small" @click="handleApprove(record)">恢复通过</a-button>
-            </template>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无飞手申请" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无飞手申请" />
+      </template>
+    </CrudList>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import axios from '@/utils/http'
-import { useListRequest } from '@/hooks/useListRequest'
-import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
 
-const api = useAdminApi('certified-pilots')
+const crudRef = ref()
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -92,11 +56,21 @@ const formatDate = (d) => {
 const statusLabel = { pending: '待审核', approved: '已认证', rejected: '已驳回' }
 const statusTag = (s) => ({ pending: 'orangered', approved: 'green', rejected: 'red' }[s] || 'gray')
 
-const { listData, loading, total, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
-  apiFunction: api.list,
-  idKey: 'id',
-  defaultParams: { status: '' },
-})
+// 批量动作：批量通过 / 批量驳回——走专用审核端点
+const batchActions = [
+  { key: 'approve', label: '批量通过', status: 'success', api: (row) => axios.post(`/api/v1/admin/certified-pilots/${row.id}/approve`) },
+  { key: 'reject', label: '批量驳回', status: 'danger', api: (row) => axios.post(`/api/v1/admin/certified-pilots/${row.id}/reject`) }
+]
+
+const searchFields = [
+  { key: 'keyword', label: '关键词', placeholder: '搜索姓名...', width: 200 },
+  { key: 'status', label: '状态', type: 'select', options: [
+    { value: '', label: '全部' },
+    { value: 'pending', label: '待审核' },
+    { value: 'approved', label: '已认证' },
+    { value: 'rejected', label: '已驳回' }
+  ]}
+]
 
 const columns = [
   { title: '姓名', dataIndex: 'real_name', minWidth: 100 },
@@ -106,7 +80,7 @@ const columns = [
   { title: '擅长领域', dataIndex: 'bio', slotName: 'bio', minWidth: 140 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
   { title: '申请时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160 },
-  { title: '操作', slotName: 'actions', width: 140, fixed: 'right' },
+  { title: '操作', slotName: 'actions', width: 140, fixed: 'right' }
 ]
 
 // 审核：通过 / 驳回（专用端点）
@@ -114,7 +88,7 @@ const setStatus = async (row, action, tip) => {
   try {
     await axios.post(`/api/v1/admin/certified-pilots/${row.id}/${action}`)
     Message.success(tip)
-    loadData()
+    crudRef.value?.reload()
   } catch (e) {
     Message.error(e?.response?.data?.message || '操作失败')
   }
@@ -129,22 +103,8 @@ const handleReject = (row) => {
     onOk: () => setStatus(row, 'reject', '已驳回')
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
-.page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
-
 .time-text { color: #86909C; font-size: 12px; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 </style>

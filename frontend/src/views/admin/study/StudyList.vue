@@ -1,73 +1,32 @@
 <template>
   <div class="page">
-    <!-- 搜索 + 新增 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索研学项目..." allow-clear style="width: 220px" @press-enter="onSearchSubmit">
-              <template #prefix><icon-search /></template>
-            </a-input>
-          </a-form-item>
-          <a-form-item label="状态" class="form-item">
-            <a-select v-model="filterParams.status" style="width: 140px" @change="onSearchSubmit">
-              <a-option value="">全部</a-option>
-              <a-option value="active">进行中</a-option>
-              <a-option value="closed">已结束</a-option>
-              <a-option value="draft">草稿</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <a-button type="primary" status="success" style="margin-left: auto" @click="handleAdd">新增</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="study-tours"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      creatable
+      add-label="新增研学"
+      @add="openForm()"
+    >
+      <template #title="{ record }">
+        <span class="cell-title">{{ record.title || '-' }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @sorter-change="handleSortChange"
-      >
-        <template #title="{ record }">
-          <span class="cell-title">{{ record.title || '-' }}</span>
-        </template>
-        <template #destination="{ record }">{{ record.destination || '-' }}</template>
-        <template #duration="{ record }">{{ record.duration || '-' }}</template>
-        <template #capacity="{ record }">{{ record.capacity ?? '-' }}</template>
-        <template #status="{ record }">
-          <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
-            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无研学项目数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无研学项目数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" title="研学项目详情" :width="600" :footer="false" :mask-closable="false">
@@ -86,8 +45,8 @@
       </template>
     </a-modal>
 
-    <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑研学项目' : '新增研学项目'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
+    <!-- 新增/编辑弹窗 -->
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑研学项目' : '新增研学项目'" :width="560" :mask-closable="false" @cancel="formVisible = false">
       <a-form :model="form" layout="horizontal">
         <a-row :gutter="16">
           <a-col :span="16">
@@ -96,7 +55,7 @@
           <a-col :span="8">
             <a-form-item label="状态">
               <a-select v-model="form.status" style="width: 100%">
-                <a-option value="draft">招募中</a-option>
+                <a-option value="draft">草稿</a-option>
                 <a-option value="active">进行中</a-option>
                 <a-option value="closed">已结束</a-option>
               </a-select>
@@ -127,11 +86,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
 
+const crudRef = ref()
 const api = useAdminApi('study-tours')
 
 const formatDate = (d) => {
@@ -141,90 +101,95 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const statusTag = (s) => ({ 'active': 'green', 'closed': 'gray', 'draft': 'orange' }[s] || 'gray')
+const statusTag = (s) => ({ active: 'green', closed: 'gray', draft: 'orangered' }[s] || 'gray')
 const statusLabel = { active: '进行中', closed: '已结束', draft: '草稿' }
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, resetParams } = useListRequest({
-  apiFunction: api.list,
-  idKey: 'id',
-  defaultParams: { status: '' }
-})
+// 批量动作：批量上架（active）/ 批量结束（closed）——传完整行数据避免清空其他字段
+const batchActions = [
+  { key: 'publish', label: '开始招募', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'active' }) },
+  { key: 'close', label: '结束招募', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'closed' }) }
+]
 
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
-
-// Arco sorter-change → useListRequest.onSortChange（el-table 的 { prop, order } 形态）
-const handleSortChange = (dataIndex, direction) => {
-  onSortChange({
-    prop: dataIndex,
-    order: direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
-  })
-}
+const searchFields = [
+  { key: 'keyword', label: '关键词', placeholder: '搜索研学项目...', width: 220 },
+  { key: 'status', label: '状态', type: 'select', options: [
+    { value: '', label: '全部' },
+    { value: 'active', label: '进行中' },
+    { value: 'closed', label: '已结束' },
+    { value: 'draft', label: '草稿' }
+  ]}
+]
 
 const columns = [
-  { title: 'ID', dataIndex: 'id', width: 160, sortable: { sortDirections: ['ascend', 'descend'] } },
+  { title: 'ID', dataIndex: 'id', width: 160 },
   { title: '研学项目', dataIndex: 'title', slotName: 'title', minWidth: 220 },
-  { title: '目的地', dataIndex: 'destination', slotName: 'destination', width: 140 },
-  { title: '时长', dataIndex: 'duration', slotName: 'duration', width: 100 },
-  { title: '名额', dataIndex: 'capacity', slotName: 'capacity', width: 80, align: 'right' },
+  { title: '目的地', dataIndex: 'destination', width: 140 },
+  { title: '时长', dataIndex: 'duration', width: 100 },
+  { title: '名额', dataIndex: 'capacity', width: 80 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
-  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' },
+  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' }
 ]
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
-const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+const showDetail = (d) => { currentItem.value = d; detailVisible.value = true }
 
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', title: '', destination: '', duration: '', capacity: 0, status: 'draft', description: '' })
-const resetForm = () => Object.assign(form, { id: '', title: '', destination: '', duration: '', capacity: 0, status: 'draft', description: '' })
-const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
-const handleEdit = (r) => { Object.assign(form, { ...r, capacity: r.capacity ?? null }); formEdit.value = true; formVisible.value = true }
 
-const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '操作失败'
+const resetForm = () => Object.assign(form, { id: '', title: '', destination: '', duration: '', capacity: 0, status: 'draft', description: '' })
+
+const openForm = (row) => {
+  resetForm()
+  if (row) {
+    formEdit.value = true
+    Object.assign(form, { ...row, capacity: row.capacity ?? 0 })
+  } else {
+    formEdit.value = false
+  }
+  formVisible.value = true
+}
 
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入项目名称'); return }
   formLoading.value = true
   try {
-    const p = { ...form }
-    formEdit.value ? await api.update(form.id, p) : await api.create(p)
-    Message.success(formEdit.value ? '更新成功' : '创建成功')
+    if (formEdit.value) {
+      await api.update(form.id, { ...form })
+      Message.success('更新成功')
+    } else {
+      await api.create({ ...form })
+      Message.success('创建成功')
+    }
     formVisible.value = false
-    loadData()
-  } catch (e) { Message.error(errMsg(e)) }
-  finally { formLoading.value = false }
+    crudRef.value?.reload()
+  } catch (e) {
+    Message.error(e?.response?.data?.message || '操作失败')
+  } finally {
+    formLoading.value = false
+  }
 }
 
-const handleDelete = (r) => {
+const handleDelete = (row) => {
   Modal.confirm({
-    title: '提示',
-    content: '确定删除该研学项目?',
+    title: '删除研学项目',
+    content: `确定删除该研学项目吗？（${row.title || row.id}）`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
-      try { await api.delete(r.id); Message.success('已删除'); loadData() } catch { Message.error('删除失败') }
+      try {
+        await api.delete(row.id)
+        Message.success('已删除')
+        crudRef.value?.reload()
+      } catch (e) { Message.error(e?.response?.data?.message || '删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
-.page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
-
 .cell-title {
   font-weight: 500;
   color: var(--color-text-1);
@@ -233,11 +198,5 @@ onMounted(loadData)
   white-space: nowrap;
   display: block;
   max-width: 300px;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
 }
 </style>

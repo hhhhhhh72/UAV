@@ -1,69 +1,33 @@
 <template>
   <div class="page">
-    <!-- 搜索 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索企业或品牌名称" allow-clear style="width: 240px" @press-enter="onSearchSubmit" />
-          </a-form-item>
-          <a-form-item label="状态" class="form-item">
-            <a-select v-model="filterParams.status" style="width: 140px" allow-clear @change="onSearchSubmit">
-              <a-option value="">全部状态</a-option>
-              <a-option value="draft">草稿</a-option>
-              <a-option value="published">已发布</a-option>
-              <a-option value="rejected">已驳回</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <a-button type="primary" status="success" style="margin-left: auto" @click="handleAdd">新增品牌</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="portfolios"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      creatable
+      add-label="新增品牌"
+      @add="openForm()"
+    >
+      <template #name="{ record }">
+        <span class="cell-title">{{ record.name || '-' }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button v-if="record.status === 'pending'" type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
+          <a-button v-if="record.status === 'pending'" type="text" status="danger" size="small" @click="handleReject(record)">驳回</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @page-change="loadData"
-      >
-        <template #name="{ record }">
-          <span class="cell-title">{{ record.name || '-' }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <a-button v-if="record.status === 'pending'" type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
-            <a-button v-if="record.status === 'pending'" type="text" status="danger" size="small" @click="handleReject(record)">驳回</a-button>
-            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无品牌数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无品牌数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" title="品牌详情" :width="600" :footer="false">
@@ -109,27 +73,32 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
 
+const crudRef = ref()
 const api = useAdminApi('portfolios')
 
 const statusLabel = (s) => ({ pending: '待审核', approved: '已通过', rejected: '已驳回' }[s] || s || '-')
 const statusTag = (s) => ({ pending: 'orangered', approved: 'green', rejected: 'red' }[s] || 'gray')
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
-  apiFunction: api.list, idKey: 'id', defaultParams: { status: '' }
-})
+// 批量动作：批量通过 / 批量驳回——传完整行数据避免清空其他字段
+const batchActions = [
+  { key: 'approve', label: '批量通过', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'published' }) },
+  { key: 'reject', label: '批量驳回', status: 'danger', api: (row) => api.update(row.id, { ...row, status: 'rejected' }) }
+]
 
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
+const searchFields = [
+  { key: 'keyword', label: '关键词', type: 'input', width: 240, placeholder: '搜索企业或品牌名称' },
+  { key: 'status', label: '状态', type: 'select', width: 140, options: [
+    { value: '', label: '全部状态' },
+    { value: 'draft', label: '草稿' },
+    { value: 'published', label: '已发布' },
+    { value: 'rejected', label: '已驳回' }
+  ]}
+]
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
@@ -147,8 +116,16 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', name: '', logo_url: '', cover_url: '', description: '', honorsText: '', status: 'draft' })
 const resetForm = () => Object.assign(form, { id: '', name: '', logo_url: '', cover_url: '', description: '', honorsText: '', status: 'draft' })
-const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
-const handleEdit = (r) => { Object.assign(form, { id: r.id, name: r.name || '', logo_url: r.logo_url || '', cover_url: r.cover_url || '', description: r.description || '', honorsText: Array.isArray(r.honors) ? r.honors.join('、') : (r.honors || ''), status: r.status || 'draft' }); formEdit.value = true; formVisible.value = true }
+const openForm = (r) => {
+  resetForm()
+  if (r) {
+    formEdit.value = true
+    Object.assign(form, { id: r.id, name: r.name || '', logo_url: r.logo_url || '', cover_url: r.cover_url || '', description: r.description || '', honorsText: Array.isArray(r.honors) ? r.honors.join('、') : (r.honors || ''), status: r.status || 'draft' })
+  } else {
+    formEdit.value = false
+  }
+  formVisible.value = true
+}
 const submitForm = async () => {
   if (!form.name) { Message.warning('请输入品牌名称'); return }
   formLoading.value = true
@@ -156,16 +133,17 @@ const submitForm = async () => {
     const p = { id: form.id, name: form.name, logo_url: form.logo_url, cover_url: form.cover_url, description: form.description, status: form.status, honors: String(form.honorsText || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean) }
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
-    formVisible.value = false; loadData()
+    formVisible.value = false
+    crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
   finally { formLoading.value = false }
 }
 const handleApprove = async (r) => {
-  try { await api.update(r.id, { status: 'published' }); Message.success('已发布'); loadData() }
+  try { await api.update(r.id, { status: 'published' }); Message.success('已发布'); crudRef.value?.reload() }
   catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
 }
 const handleReject = async (r) => {
-  try { await api.update(r.id, { status: 'rejected' }); Message.success('已驳回'); loadData() }
+  try { await api.update(r.id, { status: 'rejected' }); Message.success('已驳回'); crudRef.value?.reload() }
   catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
 }
 const handleDelete = (r) => {
@@ -175,21 +153,15 @@ const handleDelete = (r) => {
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
-      try { await api.delete(r.id); Message.success('已删除'); loadData() }
+      try { await api.delete(r.id); Message.success('已删除'); crudRef.value?.reload() }
       catch (e) { Message.error(e?.response?.data?.message || '删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
 
 .cell-title {
   font-weight: 500;
@@ -199,11 +171,5 @@ onMounted(loadData)
   white-space: nowrap;
   display: block;
   max-width: 300px;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
 }
 </style>

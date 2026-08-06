@@ -1,74 +1,39 @@
 <template>
   <div class="page">
-    <!-- 搜索 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索项目名称" allow-clear style="width: 220px" @press-enter="onSearchSubmit" />
-          </a-form-item>
-          <a-form-item label="状态" class="form-item">
-            <a-select v-model="filterParams.status" style="width: 140px" allow-clear @change="onSearchSubmit">
-              <a-option value="">全部</a-option>
-              <a-option value="active">进行中</a-option>
-              <a-option value="completed">已完成</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <a-button type="primary" status="success" style="margin-left: auto" @click="handleAdd">新增</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="research-projects"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      creatable
+      add-label="新增项目"
+      @add="openForm()"
+    >
+      <template #title="{ record }">
+        <span class="cell-title">{{ record.title || '-' }}</span>
+      </template>
+      <template #field="{ record }">
+        <a-tag size="small">{{ record.field || '-' }}</a-tag>
+      </template>
+      <template #budget="{ record }">
+        <span class="cell-amount">{{ formatMoney(record.budget_fen) }}</span>
+      </template>
+      <template #members="{ record }">{{ Array.isArray(record.members) ? record.members.join('、') : (record.members || '-') }}</template>
+      <template #status="{ record }">
+        <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @page-change="loadData"
-      >
-        <template #title="{ record }">
-          <span class="cell-title">{{ record.title || '-' }}</span>
-        </template>
-        <template #field="{ record }">
-          <a-tag size="small">{{ record.field || '-' }}</a-tag>
-        </template>
-        <template #budget="{ record }">
-          <span class="cell-amount">{{ formatMoney(record.budget_fen) }}</span>
-        </template>
-        <template #members="{ record }">{{ Array.isArray(record.members) ? record.members.join('、') : (record.members || '-') }}</template>
-        <template #status="{ record }">
-          <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
-            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无项目数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无项目数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" title="项目详情" :width="640" :footer="false">
@@ -95,7 +60,16 @@
         <a-form-item label="课题名称"><a-input v-model="form.title" /></a-form-item>
         <a-form-item label="牵头单位"><a-input v-model="form.lead_org" /></a-form-item>
         <a-form-item label="领域"><a-input v-model="form.field" /></a-form-item>
+        <a-form-item label="参与单位"><a-input v-model="form.membersInput" placeholder="多个单位用逗号分隔" /></a-form-item>
         <a-form-item label="预算(分)"><a-input-number v-model="form.budget_fen" :min="0" style="width: 100%" /></a-form-item>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="开始日期"><a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="结束日期"><a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
+          </a-col>
+        </a-row>
         <a-form-item label="里程碑"><a-input v-model="form.milestones" placeholder="阶段目标，如：方案设计→样机测试" /></a-form-item>
         <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" /></a-form-item>
         <a-form-item label="状态">
@@ -114,11 +88,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
 
+const crudRef = ref()
 const api = useAdminApi('research-projects')
 
 const statusLabel = (s) => ({ recruiting: '招募中', ongoing: '进行中', completed: '已完成' }[s] || s || '-')
@@ -130,17 +105,20 @@ const formatMoney = (fen) => {
   return '¥' + yuan.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
-  apiFunction: api.list, idKey: 'id', defaultParams: { status: '' }
-})
+// 批量动作：设为进行中 / 标记完成——传完整行数据避免清空其他字段
+const batchActions = [
+  { key: 'start', label: '设为进行中', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'ongoing' }) },
+  { key: 'complete', label: '标记完成', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'completed' }) }
+]
 
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
+const searchFields = [
+  { key: 'keyword', label: '关键词', placeholder: '搜索项目名称', width: 220 },
+  { key: 'status', label: '状态', type: 'select', options: [
+    { value: '', label: '全部' },
+    { value: 'active', label: '进行中' },
+    { value: 'completed', label: '已完成' }
+  ]}
+]
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
@@ -160,18 +138,35 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', title: '', lead_org: '', field: '', budget_fen: 0, milestones: '', status: 'active', description: '' })
-const resetForm = () => Object.assign(form, { id: '', title: '', lead_org: '', field: '', budget_fen: 0, member_count: 0, status: 'recruiting', objectives: '', timeline: '', requirements: '' })
-const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
-const handleEdit = (r) => { Object.assign(form, { id: r.id, title: r.title || '', lead_org: r.lead_org || '', field: r.field || '', budget_fen: r.budget_fen || 0, milestones: r.milestones || '', status: r.status || 'active', description: r.description || '' }); formEdit.value = true; formVisible.value = true }
+const form = reactive({ id: '', title: '', lead_org: '', field: '', budget_fen: 0, milestones: '', start_date: '', end_date: '', membersInput: '', status: 'active', description: '' })
+const resetForm = () => Object.assign(form, { id: '', title: '', lead_org: '', field: '', budget_fen: 0, member_count: 0, start_date: '', end_date: '', membersInput: '', status: 'recruiting', objectives: '', timeline: '', requirements: '' })
+const openForm = (row) => {
+  resetForm()
+  if (row) {
+    formEdit.value = true
+    Object.assign(form, {
+      id: row.id, title: row.title || '', lead_org: row.lead_org || '', field: row.field || '',
+      budget_fen: row.budget_fen || 0, milestones: row.milestones || '', status: row.status || 'active', description: row.description || '',
+      start_date: (row.start_date || '').slice(0, 10), end_date: (row.end_date || '').slice(0, 10),
+      membersInput: Array.isArray(row.members) ? row.members.join('、') : (row.members || '')
+    })
+  } else {
+    formEdit.value = false
+  }
+  formVisible.value = true
+}
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入项目名称'); return }
   formLoading.value = true
   try {
     const p = { ...form }
+    // members: 逗号/顿号分隔 → 数组（后端 []string）
+    p.members = (form.membersInput || '').split(/[,、]/).map(s => s.trim()).filter(Boolean)
+    delete p.membersInput
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
-    formVisible.value = false; loadData()
+    formVisible.value = false
+    crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
   finally { formLoading.value = false }
 }
@@ -182,21 +177,15 @@ const handleDelete = (r) => {
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
-      try { await api.delete(r.id); Message.success('已删除'); loadData() }
+      try { await api.delete(r.id); Message.success('已删除'); crudRef.value?.reload() }
       catch (e) { Message.error(e?.response?.data?.message || '删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
 
 .cell-title {
   font-weight: 500;
@@ -209,10 +198,4 @@ onMounted(loadData)
 }
 
 .cell-amount { color: #E96012; font-weight: 500; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 </style>

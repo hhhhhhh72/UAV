@@ -1,76 +1,38 @@
 <template>
   <div class="page">
-    <!-- 搜索 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索资源名称" allow-clear style="width: 220px" @press-enter="onSearchSubmit" />
-          </a-form-item>
-          <a-form-item label="资源类型" class="form-item">
-            <a-select v-model="filterParams.res_type" style="width: 160px" allow-clear @change="onSearchSubmit">
-              <a-option value="">全部</a-option>
-              <a-option value="drone">无人机</a-option>
-              <a-option value="airport">机场</a-option>
-              <a-option value="test_site">试飞场地</a-option>
-              <a-option value="test_base">测试基地</a-option>
-              <a-option value="other">其他</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <a-button type="primary" status="success" style="margin-left: auto" @click="handleAdd">新增资源</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="industry-resources"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      creatable
+      add-label="新增资源"
+      @add="openForm()"
+    >
+      <template #resType="{ record }">
+        <a-tag :color="resTypeColor[record.res_type] || 'gray'" size="small">{{ resTypeLabel[record.res_type] || record.res_type }}</a-tag>
+      </template>
+      <template #price="{ record }">
+        <span class="cell-amount">¥{{ formatPriceFen(record.price_fen) }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusColor[record.status] || 'gray'" size="small">{{ statusLabel[record.status] || record.status }}</a-tag>
+      </template>
+      <template #vis="{ record }">
+        <a-tag :color="visColor[record.visibility_level] || 'gray'" size="small">{{ visLabel[record.visibility_level] || '公开' }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @page-change="loadData"
-      >
-        <template #resType="{ record }">
-          <a-tag :color="resTypeColor[record.res_type] || 'gray'" size="small">{{ resTypeLabel[record.res_type] || record.res_type }}</a-tag>
-        </template>
-        <template #price="{ record }">
-          <span class="cell-amount">¥{{ formatPriceFen(record.price_fen) }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusColor[record.status] || 'gray'" size="small">{{ statusLabel[record.status] || record.status }}</a-tag>
-        </template>
-        <template #vis="{ record }">
-          <a-tag :color="visColor[record.visibility_level] || 'gray'" size="small">{{ visLabel[record.visibility_level] || '公开' }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
-            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" title="资源详情" :width="640" :footer="false">
@@ -112,6 +74,7 @@
             </a-form-item>
           </a-col>
           <a-col :span="12"><a-form-item label="型号规格"><a-input v-model="form.model" /></a-form-item></a-col>
+          <a-col :span="12"><a-form-item label="规格参数"><a-input v-model="form.specs" /></a-form-item></a-col>
           <a-col :span="12"><a-form-item label="地区"><a-input v-model="form.location" /></a-form-item></a-col>
           <a-col :span="12">
             <a-form-item label="费用(元)">
@@ -142,18 +105,19 @@
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="handleFormSubmit">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
 
+const crudRef = ref()
 const api = useAdminApi('industry-resources')
 
 const resTypeLabel = { drone: '无人机', airport: '机场', test_site: '试飞场地', flying_field: '试飞场地', test_base: '测试基地', other: '其他' }
@@ -169,19 +133,23 @@ const formatPriceFen = (fen) => {
   return yuan.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, resetParams } = useListRequest({
-  apiFunction: api.list,
-  idKey: 'id',
-  defaultParams: { res_type: '' }
-})
+// 批量动作：设为可用 / 设为维护中——传完整行数据避免清空其他字段
+const batchActions = [
+  { key: 'available', label: '设为可用', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'available' }) },
+  { key: 'maintenance', label: '设为维护中', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'maintenance' }) }
+]
 
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
+const searchFields = [
+  { key: 'keyword', label: '关键词', placeholder: '搜索资源名称', width: 220 },
+  { key: 'res_type', label: '资源类型', type: 'select', width: 160, options: [
+    { value: '', label: '全部' },
+    { value: 'drone', label: '无人机' },
+    { value: 'airport', label: '机场' },
+    { value: 'test_site', label: '试飞场地' },
+    { value: 'test_base', label: '测试基地' },
+    { value: 'other', label: '其他' }
+  ]}
+]
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
@@ -203,17 +171,24 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', name: '', res_type: '', model: '', location: '', priceYuan: null, status: 'available', booking_info: '', visibility_level: 'public' })
-const resetForm = () => Object.assign(form, { id: '', name: '', res_type: '', model: '', location: '', priceYuan: null, status: 'available', booking_info: '', visibility_level: 'public' })
-const handleAdd = () => { resetForm(); formEdit.value = false; formVisible.value = true }
-const handleEdit = (row) => {
-  Object.assign(form, { ...row, priceYuan: row.price_fen ? Math.round(row.price_fen / 100 * 100) / 100 : null, quantity: row.quantity || 0 })
-  formEdit.value = true; formVisible.value = true
+const form = reactive({ id: '', name: '', res_type: '', model: '', specs: '', location: '', priceYuan: null, status: 'available', booking_info: '', visibility_level: 'public' })
+const resetForm = () => Object.assign(form, { id: '', name: '', res_type: '', model: '', specs: '', location: '', priceYuan: null, status: 'available', booking_info: '', visibility_level: 'public' })
+const openForm = (row) => {
+  resetForm()
+  if (row) {
+    formEdit.value = true
+    // price_fen(分) → priceYuan(元) 回显
+    Object.assign(form, { ...row, priceYuan: row.price_fen ? Math.round(row.price_fen / 100 * 100) / 100 : null, quantity: row.quantity || 0 })
+  } else {
+    formEdit.value = false
+  }
+  formVisible.value = true
 }
-const handleFormSubmit = async () => {
+const submitForm = async () => {
   if (!form.name) { Message.warning('请输入资源名称'); return }
   formLoading.value = true
   try {
+    // priceYuan(元) → price_fen(分) 提交
     const payload = { ...form }
     payload.price_fen = Math.round((form.priceYuan || 0) * 100)
     delete payload.priceYuan
@@ -222,7 +197,8 @@ const handleFormSubmit = async () => {
     } else {
       await api.create(payload); Message.success('创建成功')
     }
-    formVisible.value = false; loadData()
+    formVisible.value = false
+    crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
   finally { formLoading.value = false }
 }
@@ -233,27 +209,15 @@ const handleDelete = (row) => {
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
-      try { await api.delete(row.id); Message.success('已删除'); loadData() }
+      try { await api.delete(row.id); Message.success('已删除'); crudRef.value?.reload() }
       catch (e) { Message.error(e?.response?.data?.message || '删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
 
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
-
 .cell-amount { color: #E96012; font-weight: 500; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 </style>

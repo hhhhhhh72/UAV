@@ -1,90 +1,77 @@
 <template>
   <div class="page">
-    <!-- Tab 切换 + 搜索 -->
-    <a-card :bordered="false" class="search-card">
-      <a-tabs v-model:active-key="activeTab" @change="onTabChange" class="list-tabs">
+    <!-- Tab 切换（合规文档 / 团体标准） -->
+    <a-card :bordered="false" class="tab-card">
+      <a-tabs v-model:active-key="activeTab">
         <a-tab-pane title="合规文档" key="docs" />
         <a-tab-pane title="团体标准" key="standards" />
       </a-tabs>
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input
-              v-model="filterParams.keyword"
-              placeholder="搜索关键词..."
-              allow-clear
-              style="width: 220px"
-              @press-enter="onSearchSubmit"
-              @clear="onSearchSubmit"
-            />
-          </a-form-item>
-          <a-form-item label="分类" class="form-item">
-            <a-select v-model="filterParams.category" style="width: 160px" allow-clear placeholder="分类筛选" @change="onSearchSubmit">
-              <a-option label="全部" value="" />
-              <a-option v-if="activeTab === 'docs'" label="政策" value="政策" />
-              <a-option v-if="activeTab === 'docs'" label="法规" value="法规" />
-              <a-option v-if="activeTab === 'docs'" label="标准" value="标准" />
-              <a-option v-if="activeTab === 'docs'" label="指南" value="指南" />
-              <a-option v-if="activeTab === 'standards'" label="国家标准" value="国家标准" />
-              <a-option v-if="activeTab === 'standards'" label="行业标准" value="行业标准" />
-              <a-option v-if="activeTab === 'standards'" label="团体标准" value="团体标准" />
-              <a-option v-if="activeTab === 'standards'" label="企业标准" value="企业标准" />
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>搜索</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <div style="margin-left: auto"><a-button type="primary" @click="handleAdd">新增</a-button></div>
+    </a-card>
+
+    <!-- 文档列表 -->
+    <CrudList
+      v-if="activeTab === 'docs'"
+      ref="crudRef"
+      resource="compliance-docs"
+      :columns="docsColumns"
+      :search-fields="docsSearchFields"
+      :batch-actions="docsBatchActions"
+      creatable
+      add-label="新增文档"
+      @add="handleAdd()"
+      @sorter-change="handleSorterChange"
+    >
+      <template #category="{ record }">
+        <a-tag :color="categoryColor[record.category] || 'gray'" size="small">{{ record.category }}</a-tag>
+      </template>
+      <template #publishDate="{ record }">
+        <span class="time-text">{{ formatDate(record.publish_date) }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusColor[record.status] || 'gray'" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无数据" />
+      </template>
+    </CrudList>
 
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="tableColumns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @sorter-change="handleSorterChange"
-      >
-        <template #category="{ record }">
-          <a-tag :color="categoryColor[record.category] || 'gray'" size="small">{{ record.category }}</a-tag>
-        </template>
-        <template #publishDate="{ record }">
-          <span class="time-text">{{ formatDate(record.publish_date) }}</span>
-        </template>
-        <template #effectiveDate="{ record }">
-          <span class="time-text">{{ formatDate(record.effective_date) }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusColor[record.status] || 'gray'" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
-            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+    <!-- 标准列表 -->
+    <CrudList
+      v-else
+      ref="crudRef"
+      resource="compliance-standards"
+      :columns="stdColumns"
+      :search-fields="stdSearchFields"
+      :batch-actions="stdBatchActions"
+      creatable
+      add-label="新增标准"
+      @add="handleAdd()"
+      @sorter-change="handleSorterChange"
+    >
+      <template #effectiveDate="{ record }">
+        <span class="time-text">{{ formatDate(record.effective_date) }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusColor[record.status] || 'gray'" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
+        </a-space>
+      </template>
+      <template #empty>
+        <a-empty description="暂无数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" :title="activeTab === 'docs' ? '文档详情' : '标准详情'" :width="640" :footer="false">
@@ -127,7 +114,7 @@
     </a-modal>
 
     <!-- 新增 / 编辑表单弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑' : '新增'" :width="560">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑' : '新增'" :width="560" @cancel="formVisible = false">
       <!-- 文档表单 -->
       <a-form v-if="activeTab === 'docs'" :model="docForm" layout="horizontal" class="dialog-form">
         <a-form-item label="文档标题" required>
@@ -241,12 +228,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import axios from '@/utils/http'
-import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
 
+const crudRef = ref()
 const activeTab = ref('docs')
 const docsApi = useAdminApi('compliance-docs')
 const standardsApi = useAdminApi('compliance-standards')
@@ -263,56 +251,66 @@ const categoryColor = { '政策': 'orange', '法规': 'red', '标准': 'green', 
 const statusColor = { 'published': 'green', 'draft': 'gray', 'archived': 'orange', 'pending': 'orange' }
 const statusLabel = { 'published': '已发布', 'draft': '草稿', 'archived': '已下架', 'pending': '待审核' }
 
-const currentApiFn = computed(() => activeTab.value === 'docs' ? docsApi.list : standardsApi.list)
+// 文档列表配置
+const docsSearchFields = [
+  { key: 'keyword', label: '关键词', type: 'input', width: 220, placeholder: '搜索关键词...' },
+  { key: 'category', label: '分类', type: 'select', width: 160, placeholder: '分类筛选', options: [
+    { value: '', label: '全部' },
+    { value: '政策', label: '政策' },
+    { value: '法规', label: '法规' },
+    { value: '标准', label: '标准' },
+    { value: '指南', label: '指南' }
+  ]}
+]
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, resetParams } = useListRequest({
-  apiFunction: currentApiFn,
-  idKey: 'id',
-  defaultParams: { category: '' }
-})
+const docsColumns = [
+  { title: 'ID', dataIndex: 'id', width: 160, sortable: true },
+  { title: '文档标题', dataIndex: 'title', minWidth: 200 },
+  { title: '分类', dataIndex: 'category', slotName: 'category', width: 100 },
+  { title: '发布机构', dataIndex: 'publisher', width: 160 },
+  { title: '发布日期', dataIndex: 'publish_date', slotName: 'publishDate', width: 120 },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
+  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' }
+]
 
-const onTabChange = () => {
-  resetParams()
-}
+// 批量动作：批量发布 / 批量下架——传完整行数据避免清空其他字段
+const docsBatchActions = [
+  { key: 'publish', label: '批量发布', status: 'success', api: (row) => docsApi.update(row.id, { ...row, status: 'published' }) },
+  { key: 'archive', label: '批量下架', status: 'warning', api: (row) => docsApi.update(row.id, { ...row, status: 'archived' }) }
+]
 
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
+// 标准列表配置
+const stdSearchFields = [
+  { key: 'keyword', label: '关键词', type: 'input', width: 220, placeholder: '搜索关键词...' },
+  { key: 'category', label: '分类', type: 'select', width: 160, placeholder: '分类筛选', options: [
+    { value: '', label: '全部' },
+    { value: '国家标准', label: '国家标准' },
+    { value: '行业标准', label: '行业标准' },
+    { value: '团体标准', label: '团体标准' },
+    { value: '企业标准', label: '企业标准' }
+  ]}
+]
+
+const stdColumns = [
+  { title: 'ID', dataIndex: 'id', width: 160, sortable: true },
+  { title: '标准编号', dataIndex: 'standard_no', width: 180 },
+  { title: '标准名称', dataIndex: 'title', minWidth: 200 },
+  { title: '发布机构', dataIndex: 'publisher', width: 160 },
+  { title: '生效日期', dataIndex: 'effective_date', slotName: 'effectiveDate', width: 120 },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
+  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' }
+]
+
+const stdBatchActions = [
+  { key: 'publish', label: '批量发布', status: 'success', api: (row) => standardsApi.update(row.id, { ...row, status: 'published' }) },
+  { key: 'archive', label: '批量下架', status: 'warning', api: (row) => standardsApi.update(row.id, { ...row, status: 'archived' }) }
+]
 
 // a-table 排序（Arco direction → useListRequest 的 order 语义）
 const handleSorterChange = (dataIndex, direction) => {
   const order = direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
-  onSortChange({ prop: dataIndex, order })
+  crudRef.value?.onSortChange({ prop: dataIndex, order })
 }
-
-// 按当前 Tab 生成列定义
-const tableColumns = computed(() => {
-  const idCol = { title: 'ID', dataIndex: 'id', width: 160, sortable: true }
-  const statusCol = { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 }
-  const actionsCol = { title: '操作', slotName: 'actions', width: 200, fixed: 'right' }
-  if (activeTab.value === 'docs') {
-    return [
-      idCol,
-      { title: '文档标题', dataIndex: 'title', minWidth: 200 },
-      { title: '分类', dataIndex: 'category', slotName: 'category', width: 100 },
-      { title: '发布机构', dataIndex: 'publisher', width: 160 },
-      { title: '发布日期', dataIndex: 'publish_date', slotName: 'publishDate', width: 120 },
-      statusCol, actionsCol
-    ]
-  }
-  return [
-    idCol,
-    { title: '标准编号', dataIndex: 'standard_no', width: 180 },
-    { title: '标准名称', dataIndex: 'title', minWidth: 200 },
-    { title: '发布机构', dataIndex: 'publisher', width: 160 },
-    { title: '生效日期', dataIndex: 'effective_date', slotName: 'effectiveDate', width: 120 },
-    statusCol, actionsCol
-  ]
-})
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
@@ -368,7 +366,8 @@ const handleFormSubmit = async () => {
   try {
     if (formEdit.value) { await api.update(payload.id, payload); Message.success('更新成功') }
     else { await api.create(payload); Message.success('创建成功') }
-    formVisible.value = false; loadData()
+    formVisible.value = false
+    crudRef.value?.reload()
   } catch (e) { console.error('[compliance]', e?.response?.status, e?.response?.data || e); Message.error(e?.response?.data?.message || '操作失败') } finally { formLoading.value = false }
 }
 const handleDelete = (row) => {
@@ -382,31 +381,19 @@ const handleDelete = (row) => {
         const api = activeTab.value === 'docs' ? docsApi : standardsApi
         await api.delete(row.id)
         Message.success('已删除')
-        loadData()
+        crudRef.value?.reload()
       } catch { Message.error('删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
 
-.search-card { margin-bottom: 16px; }
-
-.list-tabs { margin-bottom: 8px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
+.tab-card { margin-bottom: 16px; }
 
 .time-text { color: #86909C; font-size: 12px; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 
 .dialog-form :deep(.arco-form-item-label-col) { min-width: 88px; }
 

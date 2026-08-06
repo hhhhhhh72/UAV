@@ -1,74 +1,52 @@
 <template>
   <div class="page">
-    <!-- 搜索 + 新增 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="类型" class="form-item">
-            <a-select v-model="filterParams.prod_type" style="width: 140px" allow-clear @change="onSearchSubmit">
-              <a-option label="全部类型" value="" />
-              <a-option label="整机" value="drone" />
-              <a-option label="配件" value="part" />
-              <a-option label="维修服务" value="repair" />
-              <a-option label="航拍服务" value="aerial" />
-              <a-option label="试飞测试" value="test_fly" />
-              <a-option label="检测标定" value="calibration" />
-              <a-option label="空域协调" value="airspace" />
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button type="primary" @click="showCreate"><template #icon><icon-plus /></template>新增商品</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="products"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      creatable
+      add-label="新增商品"
+      @add="openForm()"
+    >
+      <template #cover="{ record }">
+        <a-image
+          v-if="Array.isArray(record.images) && record.images[0]"
+          :src="record.images[0]"
+          :preview-props="{ srcList: record.images }"
+          width="56"
+          height="56"
+          fit="cover"
+          class="cover-img"
+        />
+        <span v-else class="no-image">无图</span>
+      </template>
+      <template #prodType="{ record }">
+        <span>{{ typeLabel(record.prod_type) }}</span>
+      </template>
+      <template #condition="{ record }">
+        <span>{{ record.condition === 'used' ? '二手' : '全新' }}</span>
+      </template>
+      <template #price="{ record }">
+        <span>{{ ((record.price_fen || 0) / 100).toFixed(2) }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="record.status === 'listed' ? 'green' : 'gray'" size="small">{{ record.status === 'listed' ? '在售' : record.status }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-      >
-        <template #cover="{ record }">
-          <a-image
-            v-if="Array.isArray(record.images) && record.images[0]"
-            :src="record.images[0]"
-            :preview-props="{ srcList: record.images }"
-            width="56"
-            height="56"
-            fit="cover"
-            class="cover-img"
-          />
-          <span v-else class="no-image">无图</span>
-        </template>
-        <template #prodType="{ record }">
-          <span>{{ typeLabel(record.prod_type) }}</span>
-        </template>
-        <template #condition="{ record }">
-          <span>{{ record.condition === 'used' ? '二手' : '全新' }}</span>
-        </template>
-        <template #price="{ record }">
-          <span>{{ ((record.price_fen || 0) / 100).toFixed(2) }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="record.status === 'listed' ? 'green' : 'gray'" size="small">{{ record.status === 'listed' ? '在售' : record.status }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showEdit(record)">编辑</a-button>
-            <a-button type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无商品" />
-        </template>
-      </a-table>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无商品" />
+      </template>
+    </CrudList>
 
     <!-- 新增 / 编辑弹窗 -->
-    <a-modal v-model:visible="dialog.visible" :title="dialog.isEdit ? '编辑商品' : '新增商品'" :width="520">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑商品' : '新增商品'" :width="520" @cancel="formVisible = false">
       <a-form :model="form" layout="horizontal" class="dialog-form">
         <a-form-item label="商品名称" required>
           <a-input v-model="form.title" placeholder="如：工业级六旋翼无人机 X6-28L" allow-clear />
@@ -122,29 +100,43 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="dialog.visible = false">取消</a-button>
-        <a-button type="primary" :loading="dialog.loading" @click="handleSubmit">保存</a-button>
+        <a-button @click="formVisible = false">取消</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
 </template>
 
 <script setup>
-import { reactive, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
 import axios from '@/utils/http'
+import CrudList from '../components/CrudList.vue'
 
+const crudRef = ref()
 const api = useAdminApi('products')
 
 const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务', aerial: '航拍服务', test_fly: '试飞测试', calibration: '检测标定', airspace: '空域协调' }[t] || t || '-')
 
-const { listData, loading, filterParams, loadData, onSearchSubmit } = useListRequest({
-  apiFunction: api.list,
-  idKey: 'id',
-  defaultParams: { prod_type: '' }
-})
+// 批量动作：批量上架 / 批量下架——传完整行数据避免清空其他字段
+const batchActions = [
+  { key: 'list', label: '批量上架', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'listed' }) },
+  { key: 'remove', label: '批量下架', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'removed' }) }
+]
+
+const searchFields = [
+  { key: 'prod_type', label: '类型', type: 'select', width: 140, options: [
+    { value: '', label: '全部类型' },
+    { value: 'drone', label: '整机' },
+    { value: 'part', label: '配件' },
+    { value: 'repair', label: '维修服务' },
+    { value: 'aerial', label: '航拍服务' },
+    { value: 'test_fly', label: '试飞测试' },
+    { value: 'calibration', label: '检测标定' },
+    { value: 'airspace', label: '空域协调' }
+  ]}
+]
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 200 },
@@ -160,28 +152,35 @@ const columns = [
   { title: '操作', slotName: 'actions', width: 140, fixed: 'right' },
 ]
 
-const dialog = reactive({ visible: false, loading: false, isEdit: false, id: '' })
-const form = reactive({ title: '', prod_type: 'drone', brand: '', model: '', condition: 'new', priceYuan: '', status: 'listed', description: '', seller_name: '', images: [] })
+const formVisible = ref(false)
+const formEdit = ref(false)
+const formLoading = ref(false)
+const form = reactive({ id: '', title: '', prod_type: 'drone', brand: '', model: '', condition: 'new', priceYuan: '', status: 'listed', description: '', seller_name: '', images: [] })
 const imageList = reactive([])
 
 const resetForm = () => {
-  form.title = ''; form.prod_type = 'drone'; form.brand = ''; form.model = ''
+  form.id = ''; form.title = ''; form.prod_type = 'drone'; form.brand = ''; form.model = ''
   form.condition = 'new'; form.priceYuan = ''; form.status = 'listed'; form.description = ''
   form.seller_name = ''; form.images = []
   imageList.length = 0
 }
-const showCreate = () => { resetForm(); dialog.isEdit = false; dialog.visible = true }
-const showEdit = (row) => {
+
+const openForm = (row) => {
   resetForm()
-  dialog.isEdit = true; dialog.id = row.id
-  form.title = row.title || ''; form.prod_type = row.prod_type || 'drone'
-  form.brand = row.brand || ''; form.model = row.model || ''
-  form.condition = row.condition || 'new'
-  form.priceYuan = ((row.price_fen || 0) / 100).toString()
-  form.status = row.status || 'listed'; form.description = row.description || ''
-  form.seller_name = row.seller_name || ''; form.images = row.images || []
-  form.images.forEach(u => imageList.push({ name: u.split('/').pop(), url: u }))
-  dialog.visible = true
+  if (row) {
+    formEdit.value = true
+    form.id = row.id
+    form.title = row.title || ''; form.prod_type = row.prod_type || 'drone'
+    form.brand = row.brand || ''; form.model = row.model || ''
+    form.condition = row.condition || 'new'
+    form.priceYuan = ((row.price_fen || 0) / 100).toString()
+    form.status = row.status || 'listed'; form.description = row.description || ''
+    form.seller_name = row.seller_name || ''; form.images = row.images || []
+    form.images.forEach(u => imageList.push({ name: u.split('/').pop(), url: u }))
+  } else {
+    formEdit.value = false
+  }
+  formVisible.value = true
 }
 
 // 图片上传（/api/v1/upload 返回相对 URL）
@@ -206,9 +205,9 @@ const onImageChange = (fileList) => {
   form.images = fileList.map(f => f.url || f.response?.data?.url || f.response?.url).filter(Boolean)
 }
 
-const handleSubmit = async () => {
+const submitForm = async () => {
   if (!form.title) { Message.warning('请输入商品名称'); return }
-  dialog.loading = true
+  formLoading.value = true
   const payload = {
     title: form.title,
     prod_type: form.prod_type,
@@ -222,16 +221,16 @@ const handleSubmit = async () => {
     images: form.images
   }
   try {
-    if (dialog.isEdit) await api.update(dialog.id, payload)
+    if (formEdit.value) await api.update(form.id, payload)
     else await api.create(payload)
     Message.success('保存成功')
-    dialog.visible = false
-    loadData()
+    formVisible.value = false
+    crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '保存失败') }
-  finally { dialog.loading = false }
+  finally { formLoading.value = false }
 }
 
-const onDelete = (row) => {
+const handleDelete = (row) => {
   Modal.confirm({
     title: '删除商品',
     content: `确定删除商品「${row.title}」吗？`,
@@ -241,21 +240,15 @@ const onDelete = (row) => {
       try {
         await api.delete(row.id)
         Message.success('已删除')
-        loadData()
+        crudRef.value?.reload()
       } catch (e) { Message.error('删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
 
 .cover-img { border-radius: 6px; overflow: hidden; }
 .no-image { color: #C9CDD4; font-size: 12px; }

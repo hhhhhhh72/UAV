@@ -1,64 +1,36 @@
 <template>
   <div class="page">
-    <!-- 搜索 + 新建 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="状态" class="form-item">
-            <a-select v-model="filterParams.status" style="width: 130px" allow-clear @change="onSearchSubmit">
-              <a-option value="">全部状态</a-option>
-              <a-option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button type="success" @click="showCreate">新建赛事</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="competitions"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      creatable
+      add-label="新建赛事"
+      @add="showCreate()"
+    >
+      <template #startDate="{ record }">
+        <span class="time-text">{{ formatDate(record.start_date) }}</span>
+      </template>
+      <template #regCount="{ record }">
+        <span>{{ record.reg_count || 0 }} / {{ record.max_teams || 0 }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusTagType(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无赛事" />
+      </template>
+    </CrudList>
 
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-      >
-        <template #startDate="{ record }">
-          <span class="time-text">{{ formatDate(record.start_date) }}</span>
-        </template>
-        <template #regCount="{ record }">
-          <span>{{ record.reg_count || 0 }} / {{ record.max_teams || 0 }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusTagType(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <a-button type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无赛事" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
-
-    <!-- 详情弹窗 -->
+    <!-- 详情弹窗（含修改状态区） -->
     <a-modal v-model:visible="detailVisible" title="赛事详情" :width="600" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
@@ -89,10 +61,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { useListRequest } from '@/hooks/useListRequest'
-import { getCompetitionList, updateCompetition, deleteCompetition } from '@/api/admin/competition'
+import { useAdminApi } from '@/api/admin/common'
+import CrudList from '../components/CrudList.vue'
+
+const crudRef = ref()
+const api = useAdminApi('competitions')
 
 const statusOptions = [
   { label: '草稿', value: 'draft' },
@@ -106,14 +81,21 @@ const formatDate = (d) => {
   if (!d) return '-'
   const dt = new Date(d)
   const p = n => String(n).padStart(2, '0')
-  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const { listData, loading, total, filterParams, loadData, onSearchSubmit } = useListRequest({
-  apiFunction: getCompetitionList,
-  idKey: 'id',
-  defaultParams: { status: '' }
-})
+// 批量动作：开始报名 / 结束报名——传完整行数据避免清空其他字段
+const batchActions = [
+  { key: 'open', label: '开始报名', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'open' }) },
+  { key: 'close', label: '结束报名', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'closed' }) }
+]
+
+const searchFields = [
+  { key: 'status', label: '状态', type: 'select', options: [
+    { value: '', label: '全部状态' },
+    ...statusOptions
+  ]}
+]
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 180 },
@@ -123,7 +105,7 @@ const columns = [
   { title: '开始时间', dataIndex: 'start_date', slotName: 'startDate', width: 170 },
   { title: '报名/名额', dataIndex: 'reg_count', slotName: 'regCount', width: 110 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
-  { title: '操作', slotName: 'actions', width: 140, fixed: 'right' },
+  { title: '操作', slotName: 'actions', width: 140, fixed: 'right' }
 ]
 
 const detailVisible = ref(false)
@@ -143,14 +125,14 @@ const showCreate = () => {
 const onUpdateStatus = async () => {
   if (!currentItem.value) return
   try {
-    await updateCompetition(currentItem.value.id, { status: newStatus.value })
+    await api.update(currentItem.value.id, { status: newStatus.value })
     currentItem.value.status = newStatus.value
     Message.success('状态已更新')
-    loadData()
-  } catch (e) { Message.error('更新失败') }
+    crudRef.value?.reload()
+  } catch (e) { Message.error(e?.response?.data?.message || '更新失败') }
 }
 
-const onDelete = (row) => {
+const handleDelete = (row) => {
   Modal.confirm({
     title: '删除赛事',
     content: `确定删除「${row.title}」吗？`,
@@ -158,24 +140,16 @@ const onDelete = (row) => {
     cancelText: '取消',
     onOk: async () => {
       try {
-        await deleteCompetition(row.id)
+        await api.delete(row.id)
         Message.success('已删除')
-        loadData()
-      } catch (e) { Message.error('删除失败') }
+        crudRef.value?.reload()
+      } catch (e) { Message.error(e?.response?.data?.message || '删除失败') }
     }
   })
 }
-
-onMounted(loadData)
 </script>
 
 <style scoped>
-.page { max-width: 1400px; margin: 0 auto; }
-
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
-
 .time-text { color: #86909C; font-size: 12px; }
 
 .review-actions {
@@ -184,11 +158,5 @@ onMounted(loadData)
   justify-content: center;
   padding-top: 16px;
   gap: 8px;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
 }
 </style>

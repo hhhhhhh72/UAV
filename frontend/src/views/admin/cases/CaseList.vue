@@ -1,89 +1,54 @@
 <template>
   <div class="page">
-    <!-- 搜索 + 操作栏 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="分类" class="form-item">
-            <a-select v-model="filterParams.categoryId" style="width: 160px" allow-clear @change="onSearchSubmit">
-              <a-option label="全部分类" :value="null" />
-              <a-option v-for="cat in caseCategories" :key="cat.id" :label="cat.name" :value="Number(cat.id)" />
-            </a-select>
-          </a-form-item>
-          <a-form-item label="关键词" class="form-item">
-            <a-input
-              v-model="filterParams.keyword"
-              placeholder="搜索案例标题..."
-              allow-clear
-              style="width: 200px"
-              @press-enter="onSearchSubmit"
-              @clear="onSearchSubmit"
-            />
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>搜索</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <a-button type="primary" @click="createCase"><template #icon><icon-plus /></template>新增案例</a-button>
-          <a-button @click="openCategoryManager"><template #icon><icon-settings /></template>管理分类</a-button>
-          <a-button @click="refreshAll"><template #icon><icon-refresh /></template>刷新</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="cases"
+      :api-function="fetchCases"
+      :columns="columns"
+      :search-fields="searchFields"
+      :batch-actions="batchActions"
+      :batch-delete="false"
+      creatable
+      add-label="新增案例"
+      @add="createCase()"
+      @sorter-change="handleSorterChange"
+    >
+      <template #search-extra>
+        <a-button @click="openCategoryManager"><template #icon><icon-settings /></template>管理分类</a-button>
+        <a-button @click="refreshAll"><template #icon><icon-refresh /></template>刷新</a-button>
+      </template>
+      <template #cover="{ record }">
+        <div class="case-thumb">
+          <img v-if="record.coverType !== 'video'" :src="normalizeMediaUrl(record.cover)" :alt="record.title" />
+          <video v-else :src="normalizeMediaUrl(record.cover)" muted playsinline preload="metadata" />
+        </div>
+      </template>
+      <template #title="{ record }">
+        <span class="cell-title">{{ record.title || '未命名案例' }}</span>
+        <a-tag v-if="record.subTag" color="orange" size="small" style="margin-left: 6px;">{{ record.subTag }}</a-tag>
+      </template>
+      <template #category="{ record }">
+        <span>{{ getCategoryName(record.categoryId) }}</span>
+      </template>
+      <template #coverType="{ record }">
+        <a-tag :color="record.coverType === 'video' ? 'green' : 'arcoblue'" size="small">
+          {{ record.coverType === 'video' ? '视频' : '图片' }}
+        </a-tag>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="caseStatusColor[record.status]" size="small">{{ caseStatusLabel[record.status] || record.status }}</a-tag>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="editCase(record)">编辑</a-button>
+          <a-divider direction="vertical" />
+          <a-button type="text" status="danger" size="small" @click="onDeleteCase(record)">删除</a-button>
         </a-space>
-      </a-form>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        @sorter-change="handleSorterChange"
-      >
-        <template #cover="{ record }">
-          <div class="case-thumb">
-            <img v-if="record.coverType !== 'video'" :src="record.cover" :alt="record.title" />
-            <video v-else :src="record.cover" muted playsinline preload="metadata" />
-          </div>
-        </template>
-        <template #title="{ record }">
-          <span class="cell-title">{{ record.title || '未命名案例' }}</span>
-          <a-tag v-if="record.subTag" color="orange" size="small" style="margin-left: 6px;">{{ record.subTag }}</a-tag>
-        </template>
-        <template #category="{ record }">
-          <span>{{ getCategoryName(record.categoryId) }}</span>
-        </template>
-        <template #coverType="{ record }">
-          <a-tag :color="record.coverType === 'video' ? 'green' : 'arcoblue'" size="small">
-            {{ record.coverType === 'video' ? '视频' : '图片' }}
-          </a-tag>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="caseStatusColor[record.status]" size="small">{{ caseStatusLabel[record.status] || record.status }}</a-tag>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="editCase(record)">编辑</a-button>
-            <a-divider direction="vertical" />
-            <a-button type="text" status="danger" size="small" @click="onDeleteCase(record)">删除</a-button>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无案例数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无案例数据" />
+      </template>
+    </CrudList>
 
     <!-- 案例编辑弹窗 (保留原有逻辑) -->
     <a-modal
@@ -135,7 +100,7 @@
                 :before-upload="beforeUpload"
                 accept="image/*"
               >
-                <img v-if="currentCase.cover" :src="currentCase.cover" class="cover-preview" />
+                <img v-if="currentCase.cover" :src="normalizeMediaUrl(currentCase.cover)" class="cover-preview" />
                 <a-button v-else type="primary">点击上传</a-button>
               </a-upload>
               <a-button v-if="currentCase.cover" size="small" style="margin-top: 8px" @click="currentCase.cover = ''">清除</a-button>
@@ -235,11 +200,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import axios from '@/utils/http'
-import { useListRequest } from '@/hooks/useListRequest'
+import CrudList from '../components/CrudList.vue'
 import { normalizeMediaUrl } from '../composables/useMedia'
+
+const crudRef = ref()
 
 // --- 分类数据 ---
 const caseCategories = ref([])
@@ -267,7 +234,7 @@ const onCategoryChange = (val) => {
   }
 }
 
-// --- 案例列表 ---
+// --- 案例列表（JSON 文件后端 /api/cases，保留字段归一化） ---
 const fetchCases = async (params) => {
   try {
     const res = await axios.get('/api/cases', { params })
@@ -286,17 +253,20 @@ const fetchCases = async (params) => {
   }
 }
 
-const { listData, loading, total, filterParams, loadData, onSearchSubmit, onSortChange, resetParams } = useListRequest({
-  apiFunction: computed(() => fetchCases),
-  idKey: 'id',
-  defaultParams: { categoryId: '' }
-})
+// 批量动作（JSON 文件后端无标准 CRUD delete，禁用内置批量删除，改用 /api/cases/update|delete）
+const batchActions = [
+  { key: 'publish', label: '批量发布', status: 'success', api: (row) => axios.post('/api/cases/update', { ...row, status: 'published' }) },
+  { key: 'archive', label: '批量下架', status: 'warning', api: (row) => axios.post('/api/cases/update', { ...row, status: 'archived' }) },
+  { key: 'delete', label: '批量删除', status: 'danger', api: (row) => axios.post('/api/cases/delete', { id: row.id }) }
+]
 
-// a-table 排序（Arco direction → useListRequest 的 order 语义）
-const handleSorterChange = (dataIndex, direction) => {
-  const order = direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
-  onSortChange({ prop: dataIndex, order })
-}
+const searchFields = computed(() => [
+  { key: 'categoryId', label: '分类', type: 'select', width: 160, options: [
+    { value: null, label: '全部分类' },
+    ...caseCategories.value.map(cat => ({ value: Number(cat.id), label: cat.name }))
+  ]},
+  { key: 'keyword', label: '关键词', type: 'input', width: 200, placeholder: '搜索案例标题...' }
+])
 
 const columns = [
   { title: '封面', dataIndex: 'cover', slotName: 'cover', width: 90 },
@@ -312,7 +282,13 @@ const columns = [
 
 const refreshAll = async () => {
   await fetchCaseCategories()
-  loadData()
+  crudRef.value?.reload()
+}
+
+// a-table 排序（Arco direction → useListRequest 的 order 语义）
+const handleSorterChange = (dataIndex, direction) => {
+  const order = direction === 'ascend' ? 'ascending' : direction === 'descend' ? 'descending' : ''
+  crudRef.value?.onSortChange({ prop: dataIndex, order })
 }
 
 // --- 案例编辑 ---
@@ -380,7 +356,7 @@ const onSaveCase = async () => {
     Message.clear()
     Message.success('保存成功')
     showCaseEditPopup.value = false
-    loadData()
+    crudRef.value?.reload()
   } catch (error) {
     Message.clear()
     Message.error(error?.response?.data?.message || '保存失败')
@@ -398,7 +374,7 @@ const onDeleteCase = (caseItem) => {
         await axios.post('/api/cases/delete', { id: caseItem.id })
         Message.success('删除成功')
         if (currentCase.value?.id === caseItem.id) showCaseEditPopup.value = false
-        loadData()
+        crudRef.value?.reload()
       } catch (error) {
         Message.error('删除失败')
       }
@@ -470,25 +446,16 @@ const deleteCategory = (cat) => {
   })
 }
 
-onMounted(refreshAll)
+// 首屏加载分类（CrudList 自行加载列表数据）
+fetchCaseCategories()
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
 
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
-
 .case-thumb { width: 56px; height: 56px; border-radius: 6px; overflow: hidden; background: #F7F8FA; }
 .case-thumb img, .case-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cell-title { font-weight: 500; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 
 .dialog-form :deep(.arco-form-item-label-col) { min-width: 88px; }
 

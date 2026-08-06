@@ -12,98 +12,54 @@
       </div>
     </a-card>
 
-    <!-- 搜索 + 批量操作 -->
-    <a-card :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
-          <a-form-item label="关键词" class="form-item">
-            <a-input v-model="filterParams.keyword" placeholder="搜索需求标题" allow-clear style="width: 220px" @press-enter="onSearchSubmit" />
-          </a-form-item>
-          <a-form-item label="状态" class="form-item">
-            <a-select v-model="filterParams.status" style="width: 140px" @change="onSearchSubmit">
-              <a-option value="all">全部</a-option>
-              <a-option value="pending">待审核</a-option>
-              <a-option value="published">已公开</a-option>
-              <a-option value="completed">已完成</a-option>
-              <a-option value="cancelled">已取消</a-option>
-              <a-option value="rejected">已驳回</a-option>
-            </a-select>
-          </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
+    <CrudList
+      ref="crudRef"
+      resource="demands"
+      :columns="columns"
+      :search-fields="searchFields"
+      :default-params="defaultParams"
+      :batch-actions="batchActions"
+      :batch-delete="false"
+    >
+      <template #title="{ record }">
+        <span class="cell-title">{{ record.title || '-' }}</span>
+      </template>
+      <template #bizType="{ record }">
+        <a-tag color="arcoblue" size="small">{{ bizTypeLabel(record.biz_type) }}</a-tag>
+      </template>
+      <template #price="{ record }">
+        <span>{{ record.budget_fen ? '¥' + (record.budget_fen / 100).toLocaleString() : '面议' }}</span>
+      </template>
+      <template #status="{ record }">
+        <a-tag :color="statusTagColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
+      </template>
+      <template #offlineAmount="{ record }">
+        <span v-if="record.offline_amount_fen" class="amount-text">¥{{ (record.offline_amount_fen / 100).toLocaleString() }}</span>
+        <span v-else class="amount-empty">-</span>
+      </template>
+      <template #createdAt="{ record }">
+        <span class="time-text">{{ formatDate(record.created_at) }}</span>
+      </template>
+      <template #actions="{ record }">
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <template v-if="record.status === 'pending'">
+            <a-button type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
+            <a-button type="text" status="danger" size="small" @click="openInputModal('reject', record)">驳回</a-button>
+          </template>
+          <template v-else-if="record.status === 'published' || record.status === 'completed'">
+            <a-button type="text" status="warning" size="small" @click="openInputModal('close', record)">关闭</a-button>
+            <a-button type="text" size="small" @click="openInputModal('amount', record)">登记金额</a-button>
+          </template>
+          <template v-else-if="record.status === 'cancelled' || record.status === 'rejected'">
+            <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
+          </template>
         </a-space>
-      </a-form>
-
-      <div class="batch-bar" v-if="selectedIds.length > 0">
-        <span class="batch-info">已选择 <b>{{ selectedIds.length }}</b> 项</span>
-        <a-button type="success" size="small" @click="batchApprove">批量通过</a-button>
-        <a-button type="danger" size="small" @click="batchReject">批量驳回</a-button>
-      </div>
-    </a-card>
-
-    <!-- 数据表格 -->
-    <a-card :bordered="false">
-      <a-table
-        :columns="columns"
-        :data="listData"
-        :loading="loading"
-        row-key="id"
-        :pagination="false"
-        :row-selection="rowSelection"
-        @page-change="loadData"
-      >
-        <template #title="{ record }">
-          <span class="cell-title">{{ record.title || '-' }}</span>
-        </template>
-        <template #bizType="{ record }">
-          <a-tag color="arcoblue" size="small">{{ bizTypeLabel(record.biz_type) }}</a-tag>
-        </template>
-        <template #price="{ record }">
-          <span>{{ record.budget_fen ? '¥' + (record.budget_fen / 100).toLocaleString() : '面议' }}</span>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="statusTagColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
-        </template>
-        <template #offlineAmount="{ record }">
-          <span v-if="record.offline_amount_fen" class="amount-text">¥{{ (record.offline_amount_fen / 100).toLocaleString() }}</span>
-          <span v-else class="amount-empty">-</span>
-        </template>
-        <template #createdAt="{ record }">
-          <span class="time-text">{{ formatDate(record.created_at) }}</span>
-        </template>
-        <template #actions="{ record }">
-          <a-space :size="4">
-            <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-            <template v-if="record.status === 'pending'">
-              <a-button type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
-              <a-button type="text" status="danger" size="small" @click="openInputModal('reject', record)">驳回</a-button>
-            </template>
-            <template v-else-if="record.status === 'published' || record.status === 'completed'">
-              <a-button type="text" status="warning" size="small" @click="openInputModal('close', record)">关闭</a-button>
-              <a-button type="text" size="small" @click="openInputModal('amount', record)">登记金额</a-button>
-            </template>
-            <template v-else-if="record.status === 'cancelled' || record.status === 'rejected'">
-              <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-            </template>
-          </a-space>
-        </template>
-        <template #empty>
-          <a-empty description="暂无需求数据" />
-        </template>
-      </a-table>
-
-      <div class="pagination-wrap" v-if="total > 0">
-        <a-pagination
-          v-model:current="filterParams.page"
-          v-model:page-size="filterParams.page_size"
-          :total="total"
-          :page-size-options="[10, 20, 50]"
-          show-total
-          show-page-size
-          @change="loadData"
-        />
-      </div>
-    </a-card>
+      </template>
+      <template #empty>
+        <a-empty description="暂无需求数据" />
+      </template>
+    </CrudList>
 
     <!-- 详情弹窗 -->
     <a-modal v-model:visible="detailVisible" title="需求详情" :width="640" :footer="false">
@@ -140,11 +96,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import axios from '@/utils/http'
-import { useListRequest } from '@/hooks/useListRequest'
-import { getDemandList, approveDemand, rejectDemand, closeDemand, setOfflineAmount, deleteDemand } from '@/api/admin/demand'
+import { approveDemand, rejectDemand, closeDemand, setOfflineAmount, deleteDemand } from '@/api/admin/demand'
+import CrudList from '../components/CrudList.vue'
+
+const crudRef = ref()
+const defaultParams = { status: 'all' }
 
 const bizTypeLabel = (t) => ({
   cable_inspection: '工业巡检',
@@ -187,19 +146,23 @@ const loadStats = async () => {
   } catch (e) { /* 统计失败不阻塞列表 */ }
 }
 
-const { listData, loading, total, selectedIds, filterParams, loadData, onSearchSubmit, onSortChange, onSelectChange, resetParams } = useListRequest({
-  apiFunction: getDemandList,
-  idKey: 'id',
-  defaultParams: { status: 'all' }
-})
+const searchFields = [
+  { key: 'keyword', label: '关键词', placeholder: '搜索需求标题', width: 220 },
+  { key: 'status', label: '状态', type: 'select', options: [
+    { value: 'all', label: '全部' },
+    { value: 'pending', label: '待审核' },
+    { value: 'published', label: '已公开' },
+    { value: 'completed', label: '已完成' },
+    { value: 'cancelled', label: '已取消' },
+    { value: 'rejected', label: '已驳回' }
+  ]}
+]
 
-// a-table 行选择（兼容 useListRequest 的 selectedIds）
-const rowSelection = computed(() => ({
-  type: 'checkbox',
-  showCheckedAll: true,
-  selectedRowKeys: selectedIds.value,
-  onChange: (keys) => { selectedIds.value = [...keys] }
-}))
+// 批量动作：批量通过/批量驳回（传完整行数据，逐行调用审核接口；完成后同步刷新统计条）
+const batchActions = [
+  { key: 'approve', label: '批量通过', status: 'success', api: async (row) => { await approveDemand(row.id); loadStats() } },
+  { key: 'reject', label: '批量驳回', status: 'danger', api: async (row) => { await rejectDemand(row.id, ''); loadStats() } }
+]
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
@@ -247,7 +210,7 @@ const confirmInputModal = async () => {
       record.offline_amount_fen = fen
     }
     inputModal.visible = false
-    loadData(); loadStats()
+    crudRef.value?.reload(); loadStats()
   } catch (e) { Message.error(errMsg(e)) }
 }
 
@@ -259,7 +222,7 @@ const handleApprove = async (item) => {
     Message.success('审核通过')
     item.status = 'published'
     detailVisible.value = false
-    loadData(); loadStats()
+    crudRef.value?.reload(); loadStats()
   } catch (e) { Message.error(errMsg(e)) }
 }
 
@@ -274,25 +237,13 @@ const handleDelete = (item) => {
       try {
         await deleteDemand(item.id)
         Message.success('已删除')
-        loadData(); loadStats()
+        crudRef.value?.reload(); loadStats()
       } catch (e) { Message.error(errMsg(e)) }
     }
   })
 }
 
-const batchApprove = () => {
-  selectedIds.value.forEach(id => approveDemand(id).catch(() => {}))
-  Message.success('批量通过已提交')
-  loadData(); loadStats()
-}
-
-const batchReject = () => {
-  selectedIds.value.forEach(id => rejectDemand(id, '').catch(() => {}))
-  Message.success('批量驳回已提交')
-  loadData(); loadStats()
-}
-
-onMounted(() => { loadData(); loadStats() })
+onMounted(loadStats)
 </script>
 
 <style scoped>
@@ -334,21 +285,6 @@ onMounted(() => { loadData(); loadStats() })
 .stat.rate .stat-num { color: #165DFF; }
 .stat.amount .stat-num { color: #E96012; font-size: 20px; }
 
-.search-card { margin-bottom: 16px; }
-
-.search-form :deep(.arco-form-item) { margin-bottom: 0; }
-
-.batch-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #EEF1F4;
-}
-
-.batch-info { font-size: 13px; color: var(--color-text-2); }
-
 .cell-title {
   font-weight: 500;
   color: var(--color-text-1);
@@ -363,10 +299,4 @@ onMounted(() => { loadData(); loadStats() })
 .amount-empty { color: #C9CDD4; }
 .time-text { color: #86909C; font-size: 12px; }
 .reason-text { color: #D92D20; }
-
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
 </style>
