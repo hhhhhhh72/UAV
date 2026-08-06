@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -56,6 +57,37 @@ func (s *EnrollmentService) Enroll(userID, courseID string, form EnrollmentForm)
 		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,
 		Status: "enrolled", CreatedAt: now}
 	return s.repo.Create(e)
+}
+
+// validEnrollmentStatus 报名状态白名单（与前端 statusLabel 对齐）。
+func validEnrollmentStatus(status string) bool {
+	switch status {
+	case "pending", "approved", "paid", "enrolled", "rejected":
+		return true
+	}
+	return false
+}
+
+// Update 管理端编辑报名记录（基础信息 + 状态；全字段覆盖）。
+// 状态校验：白名单 + 防回退（已缴费/已入学为定局状态，不允许改回待审核/驳回）。
+func (s *EnrollmentService) Update(a domain.Actor, e domain.Enrollment) (domain.Enrollment, error) {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return domain.Enrollment{}, errors.New("admin permission required")
+	}
+	if e.ID == "" {
+		return domain.Enrollment{}, errors.New("enrollment id is required")
+	}
+	old, err := s.repo.FindByID(e.ID)
+	if err != nil {
+		return domain.Enrollment{}, err
+	}
+	if !validEnrollmentStatus(e.Status) {
+		return domain.Enrollment{}, fmt.Errorf("invalid enrollment status %q", e.Status)
+	}
+	if (old.Status == "paid" || old.Status == "enrolled") && (e.Status == "pending" || e.Status == "rejected") {
+		return domain.Enrollment{}, fmt.Errorf("cannot change enrollment status from %q to %q", old.Status, e.Status)
+	}
+	return s.repo.Update(e)
 }
 
 func (s *EnrollmentService) ListByCourse(courseID string) ([]domain.Enrollment, error) {

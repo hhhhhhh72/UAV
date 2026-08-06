@@ -13,13 +13,16 @@
         <span>{{ record.course_id || '-' }}</span>
       </template>
       <template #status="{ record }">
-        <a-tag :color="record.status === 'enrolled' ? 'green' : 'gray'" size="small">{{ record.status || '-' }}</a-tag>
+        <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
       </template>
       <template #createdAt="{ record }">
         <span class="time-text">{{ formatDate(record.created_at) }}</span>
       </template>
       <template #actions="{ record }">
-        <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+        <a-space :size="4">
+          <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
+        </a-space>
       </template>
       <template #empty>
         <a-empty description="暂无报名记录" />
@@ -51,14 +54,44 @@
         </a-descriptions>
       </template>
     </a-modal>
+
+    <!-- 编辑弹窗（基础信息 + 状态） -->
+    <a-modal v-model:visible="formVisible" title="编辑报名记录" :width="560" @cancel="formVisible = false">
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="姓名"><a-input v-model="form.name" /></a-form-item>
+        <a-form-item label="电话"><a-input v-model="form.phone" /></a-form-item>
+        <a-form-item label="身份证号"><a-input v-model="form.id_card" /></a-form-item>
+        <a-form-item label="性别"><a-input v-model="form.gender" placeholder="如：男" /></a-form-item>
+        <a-form-item label="生日"><a-date-picker v-model="form.birthday" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
+        <a-form-item label="邮箱"><a-input v-model="form.email" /></a-form-item>
+        <a-form-item label="学历"><a-input v-model="form.education" placeholder="如：本科" /></a-form-item>
+        <a-form-item label="从业经验"><a-input v-model="form.experience" /></a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="pending">待审核</a-option>
+            <a-option value="approved">已通过</a-option>
+            <a-option value="paid">已缴费</a-option>
+            <a-option value="enrolled">已入学</a-option>
+            <a-option value="rejected">已拒绝</a-option>
+          </a-select>
+        </a-form-item>
+      </a-form>
+      <template #footer>
+        <a-button @click="formVisible = false">取消</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
+      </template>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
+import { Message } from '@arco-design/web-vue'
+import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
 
 const crudRef = ref()
+const api = useAdminApi('enrollments')
 
 const fullUrl = (u) => (u && u.startsWith('http') ? u : (import.meta.env.VITE_API_TARGET || 'http://localhost:8080') + (u || ''))
 
@@ -72,8 +105,22 @@ const formatDate = (d) => {
 // 报名记录为纯查看型数据，无批量动作（selectable/batch-delete 已关闭）
 const batchActions = []
 
+const statusLabel = {
+  enrolled: '已入学', approved: '已通过', rejected: '已拒绝',
+  pending: '待审核', paid: '已缴费'
+}
+const statusTag = (s) => ({ enrolled: 'green', approved: 'green', paid: 'arcoblue', pending: 'orangered', rejected: 'red' }[s] || 'gray')
+
 const searchFields = [
-  { key: 'keyword', label: '关键词', placeholder: '搜索姓名/电话...', width: 200 }
+  { key: 'keyword', label: '关键词', placeholder: '搜索姓名/电话...', width: 200 },
+  { key: 'status', label: '状态', type: 'select', options: [
+    { value: '', label: '全部' },
+    { value: 'pending', label: '待审核' },
+    { value: 'approved', label: '已通过' },
+    { value: 'paid', label: '已缴费' },
+    { value: 'enrolled', label: '已入学' },
+    { value: 'rejected', label: '已拒绝' }
+  ]}
 ]
 
 const columns = [
@@ -91,6 +138,48 @@ const columns = [
 const detailVisible = ref(false)
 const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+
+// 编辑：可编辑字段 + 图片/证明字段（photo_url/id_card_image/no_crime）从原记录带入
+// —— 后端 PUT 为全字段覆盖，不提交会清空原值（课程ID不可改，后端忽略）
+const formVisible = ref(false)
+const formLoading = ref(false)
+const form = reactive({ id: '', name: '', phone: '', id_card: '', gender: '', birthday: '', email: '', education: '', experience: '', photo_url: '', id_card_image: '', no_crime: '', status: 'pending' })
+const resetForm = () => Object.assign(form, { id: '', name: '', phone: '', id_card: '', gender: '', birthday: '', email: '', education: '', experience: '', photo_url: '', id_card_image: '', no_crime: '', status: 'pending' })
+
+// 记录中 birthday 为 ISO 时间串或空，归一化为 YYYY-MM-DD 供 a-date-picker 显示
+const toDateInput = (d) => (d ? String(d).slice(0, 10) : '')
+
+const openForm = (row) => {
+  resetForm()
+  Object.assign(form, {
+    id: row.id, name: row.name || '', phone: row.phone || '', id_card: row.id_card || '',
+    gender: row.gender || '', birthday: toDateInput(row.birthday), email: row.email || '',
+    education: row.education || '', experience: row.experience || '',
+    photo_url: row.photo_url || '', id_card_image: row.id_card_image || '',
+    no_crime: row.no_crime || '', status: row.status || 'pending'
+  })
+  formVisible.value = true
+}
+
+const submitForm = async () => {
+  if (!form.name) { Message.warning('请输入姓名'); return }
+  formLoading.value = true
+  try {
+    await api.update(form.id, {
+      name: form.name, phone: form.phone, id_card: form.id_card, gender: form.gender,
+      birthday: form.birthday, email: form.email, education: form.education,
+      experience: form.experience, photo_url: form.photo_url, id_card_image: form.id_card_image,
+      no_crime: form.no_crime, status: form.status
+    })
+    Message.success('更新成功')
+    formVisible.value = false
+    crudRef.value?.reload()
+  } catch (e) {
+    Message.error(e?.response?.data?.message || '操作失败')
+  } finally {
+    formLoading.value = false
+  }
+}
 </script>
 
 <style scoped>

@@ -295,6 +295,8 @@ type VenueRepository interface {
 // EnrollmentRepository manages training course enrollments.
 type EnrollmentRepository interface {
 	Create(domain.Enrollment) (domain.Enrollment, error)
+	Update(e domain.Enrollment) (domain.Enrollment, error)
+	FindByID(id string) (domain.Enrollment, error) // 管理端编辑时取旧状态做防回退校验
 	ListByCourse(courseID string) ([]domain.Enrollment, error)
 	ListAll(offset, limit int) ([]domain.Enrollment, int, error) // 管理端全量
 	FindByUserAndCourse(userID, courseID string) (domain.Enrollment, bool, error)

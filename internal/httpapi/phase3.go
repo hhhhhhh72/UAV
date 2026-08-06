@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -137,6 +138,79 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		"certificate": cert,
 		"status":      "completed",
 	})
+}
+
+// PUT /api/v1/admin/enrollments/{id} — 管理端编辑报名记录
+func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok || (a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
+	var in struct {
+		Name        string `json:"name"`
+		Phone       string `json:"phone"`
+		IDCard      string `json:"id_card"`
+		Gender      string `json:"gender"`
+		Birthday    string `json:"birthday"`
+		Email       string `json:"email"`
+		Education   string `json:"education"`
+		Experience  string `json:"experience"`
+		PhotoURL    string `json:"photo_url"`
+		IDCardImage string `json:"id_card_image"`
+		NoCrime     string `json:"no_crime"`
+		Status      string `json:"status"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	// 查原记录保留 course_id/user_id/created_at
+	all, _, err := s.enrollSvc.All(0, 10000)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	var found *domain.Enrollment
+	for i := range all {
+		if all[i].ID == r.PathValue("id") {
+			found = &all[i]
+			break
+		}
+	}
+	if found == nil {
+		fail(w, r, http.StatusNotFound, errors.New("enrollment not found"))
+		return
+	}
+	found.Name = in.Name
+	found.Phone = in.Phone
+	found.IDCard = in.IDCard
+	found.Gender = in.Gender
+	if in.Birthday == "" {
+		found.Birthday = time.Time{} // 清空生日
+	} else if t, err := time.Parse("2006-01-02", in.Birthday); err == nil {
+		found.Birthday = t
+	}
+	found.Email = in.Email
+	found.Education = in.Education
+	found.Experience = in.Experience
+	found.PhotoURL = in.PhotoURL
+	found.IDCardImage = in.IDCardImage
+	found.NoCrime = in.NoCrime
+	found.Status = in.Status
+	updated, err := s.enrollSvc.Update(a, *found)
+	if err != nil {
+		switch {
+		case strings.Contains(err.Error(), "not found"):
+			fail(w, r, http.StatusNotFound, err)
+		case strings.Contains(err.Error(), "permission"):
+			fail(w, r, http.StatusForbidden, err)
+		default:
+			fail(w, r, http.StatusBadRequest, err) // 非法状态 / 防回退
+		}
+		return
+	}
+	respond(w, r, http.StatusOK, updated)
 }
 
 // GET /api/v1/enrollments/mine
@@ -309,7 +383,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	entPending := len(ent)
 
-	dem, err := s.demands.List(repository.DemandFilter{})
+	dem, err := s.demands.ListAll(repository.DemandFilter{})
 	if err != nil {
 		dem = nil
 	}
@@ -330,8 +404,14 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	msgs, _, _ := s.msgSvc.ListAll(0, 10000)
 	totalMessages := len(msgs)
 
-	// Trends: monthly demand counts (last 12 months)
+	// Trends: monthly counts (last 12 months) — 4 维趋势（需求/帖子/用户/消息）
 	trends := buildDemandTrends(dem)
+	trendsDetail := map[string][]map[string]any{
+		"demand":  trends,
+		"post":    buildMonthlyTrends(posts, func(p domain.Post) time.Time { return p.CreatedAt }),
+		"user":    buildMonthlyTrends(users, func(u domain.User) time.Time { return u.CreatedAt }),
+		"message": buildMonthlyTrends(msgs, func(m domain.Message) time.Time { return m.CreatedAt }),
+	}
 
 	// 线下成交金额汇总（联系对接模式撮合价值）
 	var offlineAmountTotal int64
@@ -400,6 +480,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		"total_messages":       totalMessages,
 		"offline_amount_total": offlineAmountTotal,
 		"trends":               trends,
+		"trends_detail":        trendsDetail,
 		"category_dist":        categoryDist,
 		"status_dist":          statusDist,
 		"modules":              modules,
@@ -408,14 +489,19 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func buildDemandTrends(dem []domain.Demand) []map[string]any {
+	return buildMonthlyTrends(dem, func(d domain.Demand) time.Time { return d.CreatedAt })
+}
+
+// buildMonthlyTrends 近 12 个月月度计数（泛型：需求/帖子/用户/消息等任意带 CreatedAt 的实体）
+func buildMonthlyTrends[T any](items []T, getTime func(T) time.Time) []map[string]any {
 	now := time.Now()
 	counts := map[string]int{}
 	for i := 0; i < 12; i++ {
 		m := now.AddDate(0, -i, 0).Format("2006-01")
 		counts[m] = 0
 	}
-	for _, d := range dem {
-		m := d.CreatedAt.Format("2006-01")
+	for _, it := range items {
+		m := getTime(it).Format("2006-01")
 		if _, ok := counts[m]; ok {
 			counts[m]++
 		}
@@ -441,8 +527,8 @@ func buildCategoryDist(dem []domain.Demand) map[string]int {
 
 func buildStatusDist(dem []domain.Demand) map[string]int {
 	statusLabel := map[string]string{
-		"published": "已发布", "draft": "草稿", "completed": "已完成",
-		"cancelled": "已取消", "processing": "进行中",
+		"published": "已发布", "pending": "待审核", "completed": "已完成",
+		"cancelled": "已取消", "rejected": "已驳回", "draft": "草稿", "processing": "进行中",
 	}
 	dist := map[string]int{}
 	for _, d := range dem {

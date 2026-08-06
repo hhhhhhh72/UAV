@@ -373,6 +373,16 @@ func (r *enrollRepo) Create(e domain.Enrollment) (domain.Enrollment, error) {
 		e.ID, e.CourseID, e.UserID, e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.CreatedAt)
 	return e, err
 }
+
+func (r *enrollRepo) Update(e domain.Enrollment) (domain.Enrollment, error) {
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE training_enrollments SET name=$1,phone=$2,id_card=$3,gender=$4,birthday=$5,email=$6,education=$7,experience=$8,photo_url=$9,id_card_image=$10,no_crime=$11,status=$12 WHERE id=$13`,
+		e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.ID)
+	if err != nil {
+		return domain.Enrollment{}, fmt.Errorf("update enrollment %s: %w", e.ID, err)
+	}
+	return e, nil
+}
 func (r *enrollRepo) ListAll(offset, limit int) ([]domain.Enrollment, int, error) {
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT count(*) FROM training_enrollments`).Scan(&total)
@@ -414,6 +424,16 @@ func (r *enrollRepo) FindByUserAndCourse(userID, courseID string) (domain.Enroll
 		return domain.Enrollment{}, false, nil
 	}
 	return e, true, nil
+}
+func (r *enrollRepo) FindByID(id string) (domain.Enrollment, error) {
+	var e domain.Enrollment
+	err := r.pool.QueryRow(context.Background(),
+		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments WHERE id=$1`, id).
+		Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt)
+	if err != nil {
+		return domain.Enrollment{}, fmt.Errorf("enrollment %s not found: %w", id, err)
+	}
+	return e, nil
 }
 
 // ---- TradeOrder ----

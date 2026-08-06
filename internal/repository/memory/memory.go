@@ -1913,6 +1913,18 @@ func (r *enrollRepo) Create(e domain.Enrollment) (domain.Enrollment, error) {
 	r.items = append(r.items, e)
 	return e, nil
 }
+
+func (r *enrollRepo) Update(e domain.Enrollment) (domain.Enrollment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == e.ID {
+			r.items[i] = e
+			return e, nil
+		}
+	}
+	return domain.Enrollment{}, fmt.Errorf("enrollment %s not found", e.ID)
+}
 func (r *enrollRepo) ListByCourse(courseID string) ([]domain.Enrollment, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -1947,6 +1959,16 @@ func (r *enrollRepo) FindByUserAndCourse(userID, courseID string) (domain.Enroll
 		}
 	}
 	return domain.Enrollment{}, false, nil
+}
+func (r *enrollRepo) FindByID(id string) (domain.Enrollment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, e := range r.items {
+		if e.ID == id {
+			return e, nil
+		}
+	}
+	return domain.Enrollment{}, fmt.Errorf("enrollment %s not found", id)
 }
 
 // ---- TradeOrder ----
