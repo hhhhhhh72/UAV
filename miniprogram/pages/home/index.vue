@@ -229,7 +229,7 @@ const ALLOWED_ROUTES = new Set([
   '/pages/demands/list', '/pages/demands/detail', '/pages/demands/publish',
   '/pages/demands/mine', '/pages/intents/mine',
   '/pages/search/index', '/pages/messages/index',
-  '/pages/pilots/list', '/pages/training/courses', '/pages/policies/list',
+  '/pages/pilots/list', '/pages/training/courses',
   '/pages/experts/list', '/pages/emergency/resources', '/pages/compliance/news',
   '/pages/mall/index', '/pages/shops/index', '/pages/more/index',
 ])
