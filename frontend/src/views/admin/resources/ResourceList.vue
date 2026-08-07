@@ -51,7 +51,6 @@
           <a-descriptions-item label="状态">
             <a-tag :color="statusColor[currentItem.status] || 'gray'" size="small">{{ statusLabel[currentItem.status] || currentItem.status }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
           <a-descriptions-item label="预约方式" :span="2">{{ currentItem.booking_info || '-' }}</a-descriptions-item>
         </a-descriptions>
       </template>
@@ -68,6 +67,7 @@
                 <a-option value="drone">无人机</a-option>
                 <a-option value="airport">机场</a-option>
                 <a-option value="test_site">试飞场地</a-option>
+                <a-option value="flying_field">试飞场地</a-option>
                 <a-option value="test_base">测试基地</a-option>
                 <a-option value="other">其他</a-option>
               </a-select>
@@ -178,7 +178,7 @@ const openForm = (row) => {
   if (row) {
     formEdit.value = true
     // price_fen(分) → priceYuan(元) 回显
-    Object.assign(form, { ...row, priceYuan: row.price_fen ? Math.round(row.price_fen / 100 * 100) / 100 : null, quantity: row.quantity || 0 })
+    Object.assign(form, { ...row, priceYuan: row.price_fen ? Math.round(row.price_fen / 100 * 100) / 100 : null })
   } else {
     formEdit.value = false
   }
