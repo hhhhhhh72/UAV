@@ -129,7 +129,8 @@
 import { ref, computed } from 'vue'
 import { onLoad, onPageScroll } from '@dcloudio/uni-app'
 import { productTypeLabel } from '@/utils/enums'
-import { request, BASE_URL } from '../../utils/request'
+import { request } from '../../utils/request'
+import { fullImgUrl } from '../../utils/hallData'
 
 const product = ref({})
 const images = ref([])
@@ -244,10 +245,10 @@ onLoad((opts) => {
       const p = await request({ url: '/api/v1/products/' + encodeURIComponent(opts.id) })
       if (p && p.id) {
         product.value = p
-        // 图片相对路径（/uploads/...）拼后端地址供小程序加载
+        // 图片处理与列表页一致（fullImgUrl）：/static/ 原样使用，/uploads/ 拼后端地址
         try {
           const arr = typeof p.images === 'string' ? JSON.parse(p.images) : (p.images || [])
-          images.value = arr.map(u => (u && u.startsWith('http') ? u : BASE_URL + u))
+          images.value = arr.map(fullImgUrl).filter(Boolean)
         } catch { images.value = [] }
         loadedImgs.value = images.value.map(() => false)
         animatePrice(priceInt.value)
