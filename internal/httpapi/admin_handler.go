@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -27,8 +26,9 @@ func (s *Server) adminDevLogin(w http.ResponseWriter, r *http.Request) {
 	if req.Role != "platform_admin" && req.Role != "association_admin" && req.Role != "enterprise" && req.Role != "individual" {
 		req.Role = "platform_admin"
 	}
-	now := time.Now()
-	uid := fmt.Sprintf("admin-%d", now.UnixMilli())
+	// 固定 ID：dev 影子管理员不落 users 表，若每次登录换 ID，
+	// 站内消息按 receiver 隔离，历史消息将永远不可见（消息互通靠固定 ID）
+	uid := "admin-dev"
 	actor := domain.Actor{ID: uid, Role: domain.Role(req.Role)}
 	token, err := s.tokens.IssueJWT(actor, 2*time.Hour)
 	if err != nil {

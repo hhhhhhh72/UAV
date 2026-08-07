@@ -57,7 +57,7 @@
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑通知' : '发送通知'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
       <a-form :model="form" layout="horizontal">
         <a-form-item label="消息标题" required><a-input v-model="form.title" /></a-form-item>
-        <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="用户 ID（必填）" /></a-form-item>
+        <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="留空 = 广播给所有管理员" /></a-form-item>
         <a-form-item label="消息内容" required><a-input v-model="form.content" type="textarea" :rows="5" /></a-form-item>
       </a-form>
       <template #footer>
@@ -135,12 +135,11 @@ const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.me
 
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入消息标题'); return }
-  if (!form.receiver_id) { Message.warning('请输入接收者用户 ID'); return }
   formLoading.value = true
   try {
-    const p = { sender_id: 'system', receiver_id: form.receiver_id, title: form.title, content: form.content }
+    const p = { sender_id: 'system', receiver_id: form.receiver_id || '', title: form.title, content: form.content }
     await api.create(p)
-    Message.success('发送成功')
+    Message.success(form.receiver_id ? '发送成功' : '已广播给所有管理员')
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }

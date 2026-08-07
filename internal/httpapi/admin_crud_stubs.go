@@ -926,12 +926,50 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
+	// 广播：receiver_id 留空 → 发给所有管理员 + 当前请求者
+	// （dev 影子管理员不在 users 表，须显式补发，否则演示收不到）
+	if strings.TrimSpace(in.ReceiverID) == "" {
+		sent, err := s.broadcastMessageToAdmins(r, in.SenderID, in.Title, in.Content, in.ResourceType, in.ResourceID)
+		if err != nil {
+			fail(w, r, 500, fmt.Errorf("broadcast messages: %w", err))
+			return
+		}
+		respond(w, r, 201, map[string]any{"broadcast": len(sent), "messages": sent})
+		return
+	}
 	msg, err := s.msgSvc.Send(in.SenderID, in.ReceiverID, in.Title, in.Content, in.ResourceType, in.ResourceID)
 	if err != nil {
 		fail(w, r, 500, err)
 		return
 	}
 	respond(w, r, 201, msg)
+}
+
+// broadcastMessageToAdmins sends one message to every platform/association admin
+// (users table) plus the current requester, and returns the messages created.
+func (s *Server) broadcastMessageToAdmins(r *http.Request, senderID, title, content, resType, resID string) ([]domain.Message, error) {
+	receivers := map[string]bool{}
+	users, err := s.userRepo.All()
+	if err != nil {
+		return nil, err
+	}
+	for _, u := range users {
+		if u.Role == domain.RolePlatformAdmin || u.Role == domain.RoleAssociationAdmin {
+			receivers[u.ID] = true
+		}
+	}
+	if a, ok := authenticatedActor(r); ok {
+		receivers[a.ID] = true
+	}
+	sent := make([]domain.Message, 0, len(receivers))
+	for rid := range receivers {
+		m, err := s.msgSvc.Send(senderID, rid, title, content, resType, resID)
+		if err != nil {
+			return nil, err
+		}
+		sent = append(sent, m)
+	}
+	return sent, nil
 }
 func (s *Server) updateMessage(w http.ResponseWriter, r *http.Request) {
 	msg, err := s.msgSvc.MarkRead(r.PathValue("id"))

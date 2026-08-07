@@ -12,10 +12,10 @@
           <a-button type="text" shape="circle" class="nav-btn" @click="searchVisible = true"><template #icon><icon-search size="18"/></template></a-button>
         </a-tooltip>
         <a-tooltip content="通知">
-          <a-popover trigger="click" position="br" :content-style="{ padding: 0, minWidth: '320px' }">
+          <a-popover trigger="click" position="br" :content-style="{ padding: 0, minWidth: '320px' }" @popup-visible-change="(v) => v && loadMessages()">
             <a-button type="text" shape="circle" class="nav-btn">
               <template #icon>
-                <a-badge :count="notifyCount" :dot-style="{ width: '6px', height: '6px' }">
+                <a-badge :count="notifyCount" :max-count="99">
                   <icon-notification size="18"/>
                 </a-badge>
               </template>
@@ -26,15 +26,16 @@
                   <a-tab-pane key="1">
                     <template #title>消息 ({{ messages.length }})</template>
                     <a-list :bordered="false" size="small">
-                      <a-list-item v-for="(msg, i) in messages" :key="i" @click="readMessage(i)">
-                        <a-list-item-meta :title="msg.title" :description="msg.time">
+                      <a-list-item v-for="(msg, i) in messages" :key="msg.id" @click="readMessage(i)">
+                        <a-list-item-meta :title="msg.title" :description="formatTime(msg.created_at)">
                           <template #avatar>
-                            <a-avatar :style="{ backgroundColor: msg.read ? '#C9CDD4' : '#165DFF' }" :size="32">
+                            <a-avatar :style="{ backgroundColor: msg.is_read ? '#C9CDD4' : '#165DFF' }" :size="32">
                               <icon-message />
                             </a-avatar>
                           </template>
                         </a-list-item-meta>
                       </a-list-item>
+                      <a-empty v-if="!messages.length" description="暂无消息" style="padding: 40px 0;" />
                     </a-list>
                   </a-tab-pane>
                   <a-tab-pane key="2">
@@ -57,7 +58,7 @@
                   </a-tab-pane>
                 </a-tabs>
                 <div class="notify-footer">
-                  <a-button type="text" long @click="clearAllMessages">清空消息</a-button>
+                  <a-button type="text" long @click="markAllRead">全部已读</a-button>
                 </div>
               </div>
             </template>
@@ -123,6 +124,19 @@
     </a-layout>
   </a-layout>
 
+  <!-- 消息详情弹窗 -->
+  <a-modal v-model:visible="detailVisible" :footer="false" :title="currentMsg?.title || '消息详情'" :width="520" :unmount-on-close="true">
+    <template v-if="currentMsg">
+      <div class="msg-detail-meta">
+        <a-space :size="12">
+          <a-tag :color="currentMsg.is_read ? 'gray' : 'blue'" size="small">{{ currentMsg.is_read ? '已读' : '未读' }}</a-tag>
+          <span class="msg-detail-time">{{ formatTime(currentMsg.created_at) }}</span>
+        </a-space>
+      </div>
+      <div class="msg-detail-content">{{ currentMsg.content || '暂无内容' }}</div>
+    </template>
+  </a-modal>
+
   <!-- 搜索菜单弹窗 -->
   <a-modal v-model:visible="searchVisible" :footer="false" :closable="false" simple unmount-on-close>
     <a-input-search v-model="searchKeyword" placeholder="搜索菜单..." size="large" allow-clear @search="onSearch" @press-enter="onSearch" />
@@ -152,8 +166,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import axios from '@/utils/http'
 import { useAuth } from './composables/useAuth'
 
 const { isPlatformAdmin, isAssociationAdmin, refreshCurrentUser } = useAuth()
@@ -195,18 +210,58 @@ const user = userStr ? JSON.parse(userStr) : null
 const userName = user?.name || user?.phone || '管理员'
 const userInitial = (userName || '管').charAt(0)
 
-/* 通知（示例数据，后续接真实消息 API） */
-const messages = ref([
-  { title: '收到新的需求审核申请', time: '10 分钟前', read: false },
-  { title: '企业入驻申请待处理', time: '1 小时前', read: false },
-  { title: '系统完成每日数据备份', time: '3 小时前', read: true }
-])
+/* 消息通知（真实 API：/api/v1/messages*，按当前登录用户） */
+const messages = ref([])
 const notices = ref([])
 const todos = ref([])
-const notifyCount = computed(() => messages.value.filter(m => !m.read).length)
+const notifyCount = ref(0)
+let pollTimer = null
 
-const readMessage = (i) => { messages.value[i].read = true }
-const clearAllMessages = () => { messages.value = [] }
+const formatTime = (d) => {
+  if (!d) return ''
+  const t = new Date(d).getTime()
+  if (isNaN(t)) return ''
+  const diff = (Date.now() - t) / 1000
+  if (diff < 60) return '刚刚'
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`
+  const dt = new Date(t)
+  return `${dt.getMonth() + 1}月${dt.getDate()}日`
+}
+
+const loadMessages = async () => {
+  try {
+    const list = await axios.get('/api/v1/messages').then(r => r.data)
+    messages.value = Array.isArray(list) ? list : []
+    const res = await axios.get('/api/v1/messages/unread-count').then(r => r.data)
+    notifyCount.value = res?.count || 0
+  } catch (e) {
+    // 网络异常时保留当前数据，不打断页面
+  }
+}
+
+const readMessage = async (i) => {
+  const msg = messages.value[i]
+  if (!msg) return
+  currentMsg.value = msg
+  detailVisible.value = true
+  if (msg.is_read) return
+  try {
+    await axios.post(`/api/v1/messages/${msg.id}/read`)
+    messages.value[i].is_read = true
+    if (notifyCount.value > 0) notifyCount.value--
+  } catch (e) { /* 忽略，角标以 unread-count 为准 */ }
+}
+
+const markAllRead = async () => {
+  const unread = messages.value.filter(m => !m.is_read)
+  await Promise.all(unread.map(m => axios.post(`/api/v1/messages/${m.id}/read`).catch(() => {})))
+  await loadMessages()
+}
+
+/* 消息详情弹窗 */
+const detailVisible = ref(false)
+const currentMsg = ref(null)
 
 /* 折叠 */
 const menuWidth = ref(220)
@@ -329,6 +384,12 @@ const handleLogout = () => {
 onMounted(() => {
   refreshCurrentUser()
   restoreTheme()
+  loadMessages()
+  pollTimer = setInterval(loadMessages, 60000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
 })
 </script>
 
@@ -456,6 +517,31 @@ onMounted(() => {
 .notify-footer {
   border-top: 1px solid var(--color-border);
   padding: 8px;
+}
+
+.notify-panel :deep(.arco-list-item) {
+  cursor: pointer;
+}
+
+.notify-panel :deep(.arco-list-item:hover) {
+  background-color: var(--color-fill-2);
+}
+
+/* 消息详情弹窗 */
+.msg-detail-meta {
+  margin-bottom: 16px;
+}
+
+.msg-detail-time {
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+
+.msg-detail-content {
+  color: var(--color-text-1);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* 搜索弹窗 */
