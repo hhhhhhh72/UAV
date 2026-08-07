@@ -15,7 +15,10 @@ import (
 func databaseURL() string {
 	u := os.Getenv("DATABASE_URL")
 	if u == "" {
-		u = "postgres://drone:drone_secret@127.0.0.1:5433/drone_platform?sslmode=disable"
+		// 独立测试库，避免污染开发库 drone_platform（此前集成测试直接连开发库，
+		// 每次运行向 demands 等表插入"PG测试"残留数据，导致小程序列表被空记录占满）。
+		// CI 通过 GitHub Actions postgres service 显式设置 DATABASE_URL，不受影响。
+		u = "postgres://drone:drone_secret@127.0.0.1:5433/drone_platform_test?sslmode=disable"
 	}
 	return u
 }
