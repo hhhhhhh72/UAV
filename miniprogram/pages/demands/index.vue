@@ -166,11 +166,6 @@
         </view>
       </view>
 
-      <!-- 发布浮钮 -->
-      <view class="floating-publish" hover-class="tap-fade" @tap="openPublishSheet">
-        <view class="publish-plus"><text class="publish-plus-sym">＋</text></view>
-        <text class="publish-label">发布</text>
-      </view>
     </view>
 
     <!-- ═══════ 筛选弹层 ═══════ -->
@@ -243,43 +238,6 @@
       </view>
     </u-popup>
 
-    <!-- ═══════ 发布选择弹层 ═══════ -->
-    <u-popup :show="showPublish" position="bottom" round @close="showPublish = false">
-      <view class="sheet">
-        <view class="sheet-head">
-          <text class="sheet-title">选择发布类型</text>
-          <view class="sheet-close" @tap="showPublish = false"><text class="sheet-x">×</text></view>
-        </view>
-        <view class="sheet-body">
-          <view class="choice-list">
-            <view class="choice" hover-class="tap-fade" @tap="choosePublish('demand')">
-              <view class="choice-icon demand"><text class="choice-sym">需</text></view>
-              <view class="choice-copy">
-                <text class="choice-name">发布需求</text>
-                <text class="choice-desc">发布作业、采购、技术或场景需求</text>
-              </view>
-              <text class="choice-arrow">›</text>
-            </view>
-            <view class="choice" hover-class="tap-fade" @tap="choosePublish('service')">
-              <view class="choice-icon service"><text class="choice-sym">服</text></view>
-              <view class="choice-copy">
-                <text class="choice-name">发布服务能力</text>
-                <text class="choice-desc">展示巡检、测绘、航拍等可承接能力</text>
-              </view>
-              <text class="choice-arrow">›</text>
-            </view>
-            <view class="choice" hover-class="tap-fade" @tap="choosePublish('product')">
-              <view class="choice-icon product"><text class="choice-sym">商</text></view>
-              <view class="choice-copy">
-                <text class="choice-name">发布商品设备</text>
-                <text class="choice-desc">展示设备租赁、整机、零部件或载荷</text>
-              </view>
-              <text class="choice-arrow">›</text>
-            </view>
-          </view>
-        </view>
-      </view>
-    </u-popup>
   </Layout>
 </template>
 
@@ -436,12 +394,6 @@ const onProductImgError = (item) => {
   if (item.image !== IMG_HERO) item.image = IMG_HERO
 }
 
-const showPublish = ref(false)
-const openPublishSheet = () => { showPublish.value = true }
-const choosePublish = (type) => {
-  showPublish.value = false
-  safeNavigateTo('/pages/demands/publish?type=' + type)
-}
 
 /* ================= 展示辅助 ================= */
 function statusTagClass(item) {
@@ -780,35 +732,6 @@ onPullDownRefresh(() => {
 }
 .card-action-arrow { font-size: 30rpx; line-height: 1; }
 
-/* ═══════ 发布浮钮 ═══════ */
-.floating-publish {
-  position: fixed;
-  right: 32rpx;
-  bottom: 176rpx;
-  height: 92rpx;
-  border-radius: 46rpx;
-  padding: 0 34rpx 0 26rpx;
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  color: #fff;
-  background: #F97316;
-  box-shadow: 0 8px 22px rgba(233, 96, 18, 0.32);
-  font-weight: 700;
-  font-size: 26rpx;
-  z-index: 20;
-}
-.publish-plus {
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.19);
-}
-.publish-plus-sym { font-size: 40rpx; line-height: 1; }
-
 /* ═══════ 骨架屏 ═══════ */
 .skeleton-list {
   display: flex;
@@ -944,40 +867,6 @@ onPullDownRefresh(() => {
   font-weight: 700;
 }
 .city-check { margin-left: 6rpx; }
-
-/* 发布选择 */
-.choice-list { display: flex; flex-direction: column; gap: 20rpx; }
-.choice {
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  width: 100%;
-  text-align: left;
-  padding: 26rpx;
-  border: 1px solid #E4E7EC;
-  border-radius: 16rpx;
-  background: #fff;
-  box-sizing: border-box;
-}
-.choice-icon {
-  width: 86rpx;
-  height: 86rpx;
-  flex-shrink: 0;
-  border-radius: 14rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0A66C2;
-  background: #EAF3FB;
-  font-size: 40rpx;
-  font-weight: 700;
-}
-.choice-icon.service { color: #D15A10; background: #FFF0E6; }
-.choice-icon.product { color: #168A55; background: #E9F7F0; }
-.choice-copy { flex: 1; min-width: 0; }
-.choice-name { display: block; color: #17212B; font-size: 28rpx; font-weight: 700; }
-.choice-desc { display: block; color: #667085; font-size: 22rpx; margin-top: 8rpx; line-height: 1.4; }
-.choice-arrow { margin-left: auto; color: #98A2B3; font-size: 40rpx; }
 
 /* 响应式：375px 微调 */
 @media (max-width: 380px) {
