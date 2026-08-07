@@ -33,17 +33,14 @@
     <a-modal v-model:visible="detailVisible" title="品牌详情" :width="600" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
-          <a-descriptions-item label="企业名称">{{ currentItem.company || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="品牌名称">{{ currentItem.brand_name || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="行业">{{ currentItem.industry || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="展示类型">{{ currentItem.portfolio_type || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="品牌名称">{{ currentItem.name || '-' }}</a-descriptions-item>
           <a-descriptions-item label="审核状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="Logo" :span="2">{{ currentItem.logo || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="封面图" :span="2">{{ currentItem.cover_image || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="Logo URL" :span="2">{{ currentItem.logo_url || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="封面图 URL" :span="2">{{ currentItem.cover_url || '-' }}</a-descriptions-item>
           <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="荣誉" :span="2">{{ currentItem.honors || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="荣誉" :span="2">{{ (Array.isArray(currentItem.honors) ? currentItem.honors.join('、') : (currentItem.honors || '-')) }}</a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>
@@ -81,8 +78,8 @@ import CrudList from '../components/CrudList.vue'
 const crudRef = ref()
 const api = useAdminApi('portfolios')
 
-const statusLabel = (s) => ({ pending: '待审核', approved: '已通过', rejected: '已驳回' }[s] || s || '-')
-const statusTag = (s) => ({ pending: 'orangered', approved: 'green', rejected: 'red' }[s] || 'gray')
+const statusLabel = (s) => ({ pending: '待审核', published: '已发布', rejected: '已驳回' }[s] || s || '-')
+const statusTag = (s) => ({ pending: 'orangered', published: 'green', rejected: 'red' }[s] || 'gray')
 
 // 批量动作：批量通过 / 批量驳回——传完整行数据避免清空其他字段
 const batchActions = [
@@ -139,11 +136,12 @@ const submitForm = async () => {
   finally { formLoading.value = false }
 }
 const handleApprove = async (r) => {
-  try { await api.update(r.id, { status: 'published' }); Message.success('已发布'); crudRef.value?.reload() }
+  // 传完整行：后端 update 是全字段覆盖，只传 status 会清空 name/logo/描述等
+  try { await api.update(r.id, { ...r, status: 'published' }); Message.success('已发布'); crudRef.value?.reload() }
   catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
 }
 const handleReject = async (r) => {
-  try { await api.update(r.id, { status: 'rejected' }); Message.success('已驳回'); crudRef.value?.reload() }
+  try { await api.update(r.id, { ...r, status: 'rejected' }); Message.success('已驳回'); crudRef.value?.reload() }
   catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
 }
 const handleDelete = (r) => {

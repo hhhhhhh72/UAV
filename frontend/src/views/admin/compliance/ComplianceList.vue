@@ -253,7 +253,7 @@ const statusLabel = { 'published': '已发布', 'draft': '草稿', 'archived': '
 
 // 文档列表配置
 const docsSearchFields = [
-  { key: 'keyword', label: '关键词', type: 'input', width: 220, placeholder: '搜索关键词...' },
+  // 后端 ListDocs 仅支持 category 过滤，keyword 无效已移除
   { key: 'category', label: '分类', type: 'select', width: 160, placeholder: '分类筛选', options: [
     { value: '', label: '全部' },
     { value: '政策', label: '政策' },
@@ -281,7 +281,7 @@ const docsBatchActions = [
 
 // 标准列表配置
 const stdSearchFields = [
-  { key: 'keyword', label: '关键词', type: 'input', width: 220, placeholder: '搜索关键词...' },
+  // 后端 ListStandards 仅支持 category 过滤，keyword 无效已移除
   { key: 'category', label: '分类', type: 'select', width: 160, placeholder: '分类筛选', options: [
     { value: '', label: '全部' },
     { value: '国家标准', label: '国家标准' },

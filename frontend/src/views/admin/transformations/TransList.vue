@@ -38,15 +38,23 @@
     <a-modal v-model:visible="detailVisible" title="转化详情" :width="640" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
-          <a-descriptions-item label="成果名称" :span="2">{{ currentItem.achievement_title || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="转化标题" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
           <a-descriptions-item label="当前阶段">
             <a-tag :color="stageTag(currentItem.stage)" size="small">{{ stageLabel(currentItem.stage) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="负责人">{{ currentItem.owner || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="开始日期">{{ formatDate(currentItem.start_date) }}</a-descriptions-item>
-          <a-descriptions-item label="目标完成">{{ formatDate(currentItem.target_date) }}</a-descriptions-item>
-          <a-descriptions-item label="进展记录" :span="2">{{ currentItem.progress_notes || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="里程碑" :span="2">{{ currentItem.milestones || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="负责人ID">{{ currentItem.owner_id || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="创建时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
+          <a-descriptions-item label="完成进度">{{ currentItem.progress ?? '-' }}%</a-descriptions-item>
+          <a-descriptions-item label="关联成果ID">{{ currentItem.achievement_id || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="里程碑" :span="2">
+            <a-space v-if="Array.isArray(currentItem.milestones) && currentItem.milestones.length" direction="vertical" :size="4" style="width: 100%;">
+              <div v-for="(ms, idx) in currentItem.milestones" :key="idx" class="ms-item">
+                <a-tag :color="ms.completed ? 'green' : 'gray'" size="small">{{ ms.completed ? '已完成' : '未完成' }}</a-tag>
+                <span>{{ ms.name || ms.date || '里程碑' }}</span>
+              </div>
+            </a-space>
+            <span v-else>-</span>
+          </a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>

@@ -37,12 +37,12 @@
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="报告标题" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
           <a-descriptions-item label="类型">
-            <a-tag :color="typeTag(currentItem.report_type)" size="small">{{ typeLabel(currentItem.report_type) }}</a-tag>
+            <a-tag :color="typeTag(currentItem.category)" size="small">{{ typeLabel(currentItem.category) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="发布机构">{{ currentItem.publisher || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="发布日期">{{ formatDate(currentItem.publish_date) }}</a-descriptions-item>
-          <a-descriptions-item label="作者">{{ currentItem.authors || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="摘要" :span="2">{{ currentItem.abstract || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="报告期">{{ currentItem.period || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="作者">{{ currentItem.author || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="发布时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
+          <a-descriptions-item label="摘要" :span="2">{{ currentItem.summary || '-' }}</a-descriptions-item>
           <a-descriptions-item label="文件" :span="2">
             <a v-if="currentItem.file_url" :href="currentItem.file_url" target="_blank">下载报告</a>
             <span v-else>-</span>

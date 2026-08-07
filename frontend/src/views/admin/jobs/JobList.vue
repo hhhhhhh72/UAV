@@ -50,7 +50,6 @@
           </a-descriptions-item>
           <a-descriptions-item label="发布时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
           <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="要求" :span="2">{{ currentItem.requirements || '-' }}</a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>

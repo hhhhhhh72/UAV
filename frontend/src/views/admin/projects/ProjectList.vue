@@ -43,13 +43,14 @@
           <a-descriptions-item label="牵头单位">{{ currentItem.lead_org || '-' }}</a-descriptions-item>
           <a-descriptions-item label="领域">{{ currentItem.field || '-' }}</a-descriptions-item>
           <a-descriptions-item label="预算">{{ formatMoney(currentItem.budget_fen) }}</a-descriptions-item>
-          <a-descriptions-item label="参与人数">{{ currentItem.member_count ?? '-' }}</a-descriptions-item>
           <a-descriptions-item label="状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="项目目标" :span="2">{{ currentItem.objectives || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="时间计划" :span="2">{{ currentItem.timeline || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="参与要求" :span="2">{{ currentItem.requirements || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="开始日期">{{ formatDate(currentItem.start_date) }}</a-descriptions-item>
+          <a-descriptions-item label="结束日期">{{ formatDate(currentItem.end_date) }}</a-descriptions-item>
+          <a-descriptions-item label="参与单位" :span="2">{{ Array.isArray(currentItem.members) ? currentItem.members.join('、') : (currentItem.members || '-') }}</a-descriptions-item>
+          <a-descriptions-item label="里程碑" :span="2">{{ currentItem.milestones || '-' }}</a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.description" label="描述" :span="2">{{ currentItem.description }}</a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>
@@ -96,8 +97,15 @@ import CrudList from '../components/CrudList.vue'
 const crudRef = ref()
 const api = useAdminApi('research-projects')
 
-const statusLabel = (s) => ({ recruiting: '招募中', ongoing: '进行中', completed: '已完成' }[s] || s || '-')
-const statusTag = (s) => ({ recruiting: 'orangered', ongoing: 'arcoblue', completed: 'green' }[s] || 'gray')
+// 统一状态为 active(进行中)/completed(已完成)，兼容历史数据 planning/recruiting/ongoing
+const statusLabel = (s) => ({ active: '进行中', planning: '规划中', recruiting: '进行中', ongoing: '进行中', completed: '已完成' }[s] || s || '-')
+const statusTag = (s) => ({ active: 'arcoblue', planning: 'gray', recruiting: 'orangered', ongoing: 'arcoblue', completed: 'green' }[s] || 'gray')
+const formatDate = (d) => {
+  if (!d) return '-'
+  const dt = new Date(d)
+  const p = n => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`
+}
 
 const formatMoney = (fen) => {
   if (fen == null) return '-'
@@ -107,7 +115,7 @@ const formatMoney = (fen) => {
 
 // 批量动作：设为进行中 / 标记完成——传完整行数据避免清空其他字段
 const batchActions = [
-  { key: 'start', label: '设为进行中', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'ongoing' }) },
+  { key: 'start', label: '设为进行中', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'active' }) },
   { key: 'complete', label: '标记完成', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'completed' }) }
 ]
 
@@ -139,7 +147,7 @@ const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', title: '', lead_org: '', field: '', budget_fen: 0, milestones: '', start_date: '', end_date: '', membersInput: '', status: 'active', description: '' })
-const resetForm = () => Object.assign(form, { id: '', title: '', lead_org: '', field: '', budget_fen: 0, member_count: 0, start_date: '', end_date: '', membersInput: '', status: 'recruiting', objectives: '', timeline: '', requirements: '' })
+const resetForm = () => Object.assign(form, { id: '', title: '', lead_org: '', field: '', budget_fen: 0, start_date: '', end_date: '', membersInput: '', status: 'active', description: '' })
 const openForm = (row) => {
   resetForm()
   if (row) {

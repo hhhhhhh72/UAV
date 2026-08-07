@@ -74,11 +74,10 @@
             <a-form-item label="地区"><a-input v-model="form.region" /></a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="合作状态">
+            <a-form-item v-if="formEdit" label="合作状态" :extra="formEdit ? '' : '新建默认合作中，创建后可在编辑中调整'">
               <a-select v-model="form.status" style="width: 100%">
                 <a-option value="active">合作中</a-option>
-                <a-option value="pending">洽谈中</a-option>
-                <a-option value="closed">已结束</a-option>
+                <a-option value="inactive">已终止合作</a-option>
               </a-select>
             </a-form-item>
           </a-col>
@@ -112,13 +111,13 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const statusTag = (s) => ({ active: 'green', pending: 'orangered', closed: 'gray' }[s] || 'gray')
-const statusLabel = { active: '合作中', pending: '待合作', closed: '已终止' }
+const statusTag = (s) => ({ active: 'green', inactive: 'gray' }[s] || 'gray')
+const statusLabel = { active: '合作中', inactive: '已终止合作' }
 
 // 批量动作：批量合作中 / 批量终止合作——传完整行数据避免清空其他字段
 const batchActions = [
   { key: 'activate', label: '批量合作中', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'active' }) },
-  { key: 'close', label: '批量终止合作', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'closed' }) }
+  { key: 'close', label: '批量终止合作', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'inactive' }) }
 ]
 
 const searchFields = [
@@ -126,8 +125,7 @@ const searchFields = [
   { key: 'status', label: '状态', type: 'select', options: [
     { value: '', label: '全部' },
     { value: 'active', label: '合作中' },
-    { value: 'pending', label: '待合作' },
-    { value: 'closed', label: '已终止' }
+    { value: 'inactive', label: '已终止合作' }
   ]}
 ]
 
@@ -151,8 +149,8 @@ const formLoading = ref(false)
 const coopTypeLabel = { research: '科研合作', talent: '人才培养', both: '综合' }
 const arrText = (v) => (Array.isArray(v) ? v.join('、') : (v || ''))
 const splitArr = (s) => String(s || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean)
-const form = reactive({ id: '', name: '', coop_type: 'both', region: '', logo_url: '', majorsText: '', facilitiesText: '', status: 'pending', description: '' })
-const resetForm = () => Object.assign(form, { id: '', name: '', coop_type: 'both', region: '', logo_url: '', majorsText: '', facilitiesText: '', status: 'pending', description: '' })
+const form = reactive({ id: '', name: '', coop_type: 'both', region: '', logo_url: '', majorsText: '', facilitiesText: '', status: 'active', description: '' })
+const resetForm = () => Object.assign(form, { id: '', name: '', coop_type: 'both', region: '', logo_url: '', majorsText: '', facilitiesText: '', status: 'active', description: '' })
 
 const openForm = (row) => {
   resetForm()
@@ -161,7 +159,7 @@ const openForm = (row) => {
     Object.assign(form, {
       id: row.id, name: row.name || '', coop_type: row.coop_type || 'both', region: row.region || '',
       logo_url: row.logo_url || '', majorsText: arrText(row.majors), facilitiesText: arrText(row.facilities),
-      status: row.status || 'pending', description: row.description || ''
+      status: row.status || 'active', description: row.description || ''
     })
   } else {
     formEdit.value = false

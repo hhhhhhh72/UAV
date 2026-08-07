@@ -36,17 +36,15 @@
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="任务名称" :span="2">{{ currentItem.event_desc || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="事件类型">{{ currentItem.event_type || '-' }}</a-descriptions-item>
           <a-descriptions-item label="调度资源">{{ currentItem.resource_id || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="位置">{{ currentItem.location || '-' }}</a-descriptions-item>
           <a-descriptions-item label="调度时间">{{ formatDate(currentItem.start_time) }}</a-descriptions-item>
           <a-descriptions-item label="结束时间">{{ formatDate(currentItem.end_time) }}</a-descriptions-item>
-          <a-descriptions-item label="位置">{{ currentItem.location || '-' }}</a-descriptions-item>
           <a-descriptions-item label="指挥员">{{ currentItem.commander || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="队伍规模">{{ currentItem.team_size || '-' }}</a-descriptions-item>
           <a-descriptions-item label="状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="备注" :span="2">{{ currentItem.notes || '-' }}</a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.result" label="处理结果" :span="2">{{ currentItem.result }}</a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>

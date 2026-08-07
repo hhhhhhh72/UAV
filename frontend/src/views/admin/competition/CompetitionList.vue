@@ -125,7 +125,8 @@ const showCreate = () => {
 const onUpdateStatus = async () => {
   if (!currentItem.value) return
   try {
-    await api.update(currentItem.value.id, { status: newStatus.value })
+    // 传完整行：后端 update 是全字段覆盖，只传 status 会清空标题/类别/地点等
+    await api.update(currentItem.value.id, { ...currentItem.value, status: newStatus.value })
     currentItem.value.status = newStatus.value
     Message.success('状态已更新')
     crudRef.value?.reload()

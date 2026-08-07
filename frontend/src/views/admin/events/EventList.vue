@@ -134,7 +134,6 @@ const searchFields = [
   { key: 'status', label: '状态', type: 'select', options: [
     { value: '', label: '全部状态' },
     { value: 'published', label: '已发布' },
-    { value: 'upcoming', label: '即将开始' },
     { value: 'ongoing', label: '进行中' },
     { value: 'ended', label: '已结束' },
     { value: 'cancelled', label: '已取消' }
@@ -166,8 +165,7 @@ const openForm = (r) => {
   resetForm()
   if (r) {
     formEdit.value = true
-    // capacity 兼容：旧数据用 capacity 字段兜底
-    Object.assign(form, { ...r, capacity: r.capacity || 0 })
+    Object.assign(form, r)
   } else {
     formEdit.value = false
   }

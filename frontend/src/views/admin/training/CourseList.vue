@@ -39,7 +39,7 @@
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="课程名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="分类">{{ currentItem.category || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="证书类型">{{ certTypeLabel(currentItem.cert_type) }}</a-descriptions-item>
           <a-descriptions-item label="价格">{{ currentItem.price_fen ? '¥' + (currentItem.price_fen / 100).toLocaleString() : '-' }}</a-descriptions-item>
           <a-descriptions-item label="名额">{{ currentItem.max_students ?? '-' }}</a-descriptions-item>
           <a-descriptions-item label="已报名">{{ currentItem.enrolled_count ?? 0 }} 人</a-descriptions-item>
@@ -137,6 +137,7 @@ const formatDate = (d) => {
 
 const statusTag = (s) => ({ published: 'green', draft: 'orangered', closed: 'gray' }[s] || 'gray')
 const statusLabel = { published: '已发布', draft: '草稿', closed: '已关闭' }
+const certTypeLabel = (t) => ({ caac: 'CAAC 执照', utc_dji: '大疆 UTC', gov_level: '人社等级' }[t] || t || '-')
 
 // 批量动作：批量发布 / 批量关闭——传完整行数据避免清空其他字段
 const batchActions = [

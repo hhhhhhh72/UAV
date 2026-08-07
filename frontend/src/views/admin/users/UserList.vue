@@ -74,16 +74,8 @@ const { isSuperAdmin } = useAuth()
 
 const roleTagType = (r) => ({ platform_admin: 'green', association_admin: 'orange', enterprise: 'arcoblue', individual: 'gray' }[r] || 'gray')
 
-const searchFields = [
-  { key: 'keyword', label: '关键词', placeholder: '搜索用户ID...', width: 220 },
-  { key: 'role', label: '角色', type: 'select', options: [
-    { value: '', label: '全部角色' },
-    { value: 'platform_admin', label: '平台管理员' },
-    { value: 'association_admin', label: '协会管理员' },
-    { value: 'enterprise', label: '企业用户' },
-    { value: 'individual', label: '个人用户' }
-  ]}
-]
+// 后端 listUsers 不读任何过滤参数，筛选全部移除（列表展示全部用户）
+const searchFields = []
 
 const columns = [
   { title: '用户ID', dataIndex: 'id', minWidth: 220 },

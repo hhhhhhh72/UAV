@@ -46,7 +46,6 @@
           <a-descriptions-item label="状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="备注" :span="2">{{ currentItem.notes || '-' }}</a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>

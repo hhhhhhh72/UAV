@@ -37,14 +37,13 @@
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="ID" :span="2">{{ currentItem.id }}</a-descriptions-item>
           <a-descriptions-item label="标题" :span="2">{{ currentItem.title }}</a-descriptions-item>
-          <a-descriptions-item label="消息类型">
-            <a-tag :color="typeColor[currentItem.msg_type] || 'gray'" size="small">{{ currentItem.msg_type || '-' }}</a-tag>
-          </a-descriptions-item>
-          <a-descriptions-item label="接收者">{{ currentItem.to_user || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="发送者">{{ currentItem.sender_id || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="接收者">{{ currentItem.receiver_id || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="资源类型">{{ currentItem.resource_type || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="资源ID">{{ currentItem.resource_id || '-' }}</a-descriptions-item>
           <a-descriptions-item label="发送时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
-          <a-descriptions-item label="阅读时间">{{ formatDate(currentItem.read_at) }}</a-descriptions-item>
           <a-descriptions-item label="状态">
-            <a-tag :color="statusColor[currentItem.status] || 'gray'" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</a-tag>
+            <a-tag :color="currentItem.is_read ? 'gray' : 'orange'" size="small">{{ currentItem.is_read ? '已读' : '未读' }}</a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="内容" :span="2">
             <div style="white-space: pre-wrap; line-height: 1.6;">{{ currentItem.content || '-' }}</div>
@@ -76,7 +75,7 @@ import CrudList from '../components/CrudList.vue'
 
 const crudRef = ref()
 const api = useAdminApi('messages')
-const defaultParams = { msg_type: '' }
+const defaultParams = {}
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -86,19 +85,8 @@ const formatDate = (d) => {
   return dt.getFullYear() + '-' + p(dt.getMonth() + 1) + '-' + p(dt.getDate()) + ' ' + p(dt.getHours()) + ':' + p(dt.getMinutes())
 }
 
-const typeColor = { '系统通知': 'orange', '活动提醒': 'green', '审核结果': 'red', '其他': 'gray' }
-const statusLabel = { 'unread': '未读', 'read': '已读' }
-const statusColor = { 'unread': 'orange', 'read': 'gray' }
-
 const searchFields = [
-  { key: 'keyword', label: '关键词', placeholder: '搜索标题...', width: 220 },
-  { key: 'msg_type', label: '类型', type: 'select', options: [
-    { value: '', label: '全部' },
-    { value: '系统通知', label: '系统通知' },
-    { value: '活动提醒', label: '活动提醒' },
-    { value: '审核结果', label: '审核结果' },
-    { value: '其他', label: '其他' }
-  ]}
+  { key: 'keyword', label: '关键词', placeholder: '搜索标题/内容...', width: 220 }
 ]
 
 const columns = [

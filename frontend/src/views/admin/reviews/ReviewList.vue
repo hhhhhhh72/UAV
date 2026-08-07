@@ -71,14 +71,7 @@ const searchFields = [
     { value: 'pending', label: '待审核' },
     { value: 'approved', label: '已通过' },
     { value: 'rejected', label: '已拒绝' }
-  ]},
-  { key: 'section', label: '板块', type: 'select', width: 130, options: [
-    { value: '', label: '全部板块' },
-    { value: 'yanxue', label: '研学' },
-    { value: 'sale', label: '无人机销售' },
-    { value: 'park', label: '乐园' }
-  ]},
-  { key: 'keyword', label: '关键词', type: 'input', width: 200, placeholder: '搜索评价内容...' }
+  ]}
 ]
 
 const columns = [

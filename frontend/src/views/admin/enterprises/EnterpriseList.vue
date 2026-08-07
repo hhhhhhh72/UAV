@@ -112,8 +112,8 @@ const batchActions = [
   { key: 'reject', label: '批量驳回', status: 'danger', api: (row) => reviewEnterprise(row.id, { action: 'rejected', reason: '' }) }
 ]
 
+// 后端 listEnterprises 仅支持 status 过滤，keyword 无效已移除
 const searchFields = [
-  { key: 'keyword', label: '关键词', placeholder: '搜索企业名称...', width: 240 },
   { key: 'status', label: '审核状态', type: 'select', options: [
     { value: 'all', label: '全部状态' },
     { value: 'submitted', label: '待审核' },

@@ -62,7 +62,7 @@
         <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" /></a-form-item>
         <a-form-item label="悬赏金额(分)"><a-input-number v-model="form.budget_fen" :min="0" style="width: 100%" placeholder="单位：分" /></a-form-item>
         <a-form-item label="截止日期"><a-date-picker v-model="form.deadline" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
-        <a-form-item label="状态">
+        <a-form-item v-if="formEdit" label="状态" :extra="formEdit ? '' : '新建默认征集中，创建后可在编辑中调整'">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="open">征集中</a-option>
             <a-option value="closed">已关闭</a-option>
@@ -87,8 +87,8 @@ import CrudList from '../components/CrudList.vue'
 const crudRef = ref()
 const api = useAdminApi('rd-challenges')
 
-const statusLabel = (s) => ({ in_progress: '进行中', closed: '已关闭', resolved: '已解决', published: '已发布' }[s] || s || '-')
-const statusTag = (s) => ({ in_progress: 'arcoblue', closed: 'gray', resolved: 'green', published: 'orangered' }[s] || 'gray')
+const statusLabel = (s) => ({ open: '征集中', in_progress: '进行中', closed: '已关闭', resolved: '已解决', published: '已发布' }[s] || s || '-')
+const statusTag = (s) => ({ open: 'orangered', in_progress: 'arcoblue', closed: 'gray', resolved: 'green', published: 'orangered' }[s] || 'gray')
 
 const formatMoney = (fen) => {
   if (fen == null) return '-'

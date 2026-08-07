@@ -76,9 +76,6 @@
           <a-descriptions-item label="联系人">{{ currentItem.contact || '-' }}</a-descriptions-item>
           <a-descriptions-item label="提交时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
           <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
-          <a-descriptions-item v-if="currentItem.reject_reason" label="驳回/关闭原因" :span="2">
-            <span class="reason-text">{{ currentItem.reject_reason }}</span>
-          </a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>
@@ -146,8 +143,8 @@ const loadStats = async () => {
   } catch (e) { /* 统计失败不阻塞列表 */ }
 }
 
+// 后端 listAdminDemands 仅支持 status 过滤，keyword 无效已移除
 const searchFields = [
-  { key: 'keyword', label: '关键词', placeholder: '搜索需求标题', width: 220 },
   { key: 'status', label: '状态', type: 'select', options: [
     { value: 'all', label: '全部' },
     { value: 'pending', label: '待审核' },
@@ -298,5 +295,4 @@ onMounted(loadStats)
 .amount-text { color: #E96012; font-weight: 500; }
 .amount-empty { color: #C9CDD4; }
 .time-text { color: #86909C; font-size: 12px; }
-.reason-text { color: #D92D20; }
 </style>
