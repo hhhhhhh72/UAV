@@ -183,9 +183,36 @@ const anchors = [
 const activeAnchor = ref('anchor-product')
 const anchorSticky = ref(false)
 const anchorOffsets = {}
+let lastScrollTop = 0
+// 手动点击后的锁定锚点：滚动动画期间 onPageScroll 不覆盖高亮（修复点击需两次才生效）
+let pendingAnchor = null
+const NAV_OFFSET_PX = uni.upx2px(84) // 吸顶导航高度 + 间距补偿（84rpx）
+
 const scrollToAnchor = (id) => {
-  uni.pageScrollTo({ selector: '#' + id, duration: 260 })
+  pendingAnchor = id
   activeAnchor.value = id
+  const q = uni.createSelectorQuery()
+  q.select('#' + id).boundingClientRect((rect) => {
+    if (!rect) { pendingAnchor = null; return }
+    // 目标相对页面顶部的距离 = 当前 scrollTop + 相对视口 top，再减去吸顶导航高度
+    const target = Math.max(0, lastScrollTop + rect.top - NAV_OFFSET_PX)
+    uni.pageScrollTo({
+      scrollTop: target,
+      duration: 260,
+      // 滚动完成：解除锁定，保持点击的目标高亮；用户继续滚动时自然校正
+      complete: () => { if (pendingAnchor === id) pendingAnchor = null },
+    })
+  })
+  q.exec()
+}
+// 高亮当前区块（最后一个 offset <= scrollTop + 阈值 的锚点）
+const recomputeHighlight = () => {
+  let current = anchors[0].id
+  anchors.forEach(a => {
+    const off = anchorOffsets[a.id]
+    if (off !== undefined && off <= lastScrollTop + 100) current = a.id
+  })
+  activeAnchor.value = current
 }
 // 数据加载后测量各区块位置
 const measureAnchors = () => {
@@ -200,15 +227,10 @@ const measureAnchors = () => {
   }, 300)
 }
 onPageScroll((e) => {
-  const top = e.scrollTop
-  anchorSticky.value = top > 320
-  // 高亮当前区块（最后一个 offset <= scrollTop + 导航高度 的锚点）
-  let current = 'anchor-product'
-  anchors.forEach(a => {
-    const off = anchorOffsets[a.id]
-    if (off !== undefined && off <= top + 100) current = a.id
-  })
-  activeAnchor.value = current
+  lastScrollTop = e.scrollTop
+  anchorSticky.value = e.scrollTop > 320
+  if (pendingAnchor) return // 滚动动画期间保持点击的高亮
+  recomputeHighlight()
 })
 
 onLoad((opts) => {
