@@ -227,12 +227,12 @@ function filterMockByTab(all) {
 
 function getMockList() {
   return [
-    { id: 'college-1', name: '北京航空航天大学', city: '北京市', tags: ['双一流', '985'], cover: '/static/home/hero-inspection.jpg', majorCount: 6, partnerCount: 28, studentCount: '320', intro: '航空科学与工程学院是国内顶尖的航空航天教育基地，拥有无人机系统设计与控制工程等6个本科专业方向。', specialties: ['飞行器设计', '无人机工程', '博士点'] },
-    { id: 'college-2', name: '南京航空航天大学', city: '南京市', tags: ['双一流', '211'], cover: '/static/home/demand-lift.jpg', majorCount: 5, partnerCount: 22, studentCount: '280', intro: '民航学院是首批设立无人机应用技术专业的高校之一，与多家无人机企业共建产学研基地。', specialties: ['无人机应用', '适航技术', '硕士点'] },
-    { id: 'college-3', name: '西北工业大学', city: '西安市', tags: ['双一流', '985'], cover: '/static/home/demand-solar.jpg', majorCount: 7, partnerCount: 35, studentCount: '450', intro: '无人机特种技术重点实验室依托单位，在军用和民用无人机领域均有深厚的研究积累。', specialties: ['飞行控制', '无人机系统', '博士点'] },
-    { id: 'college-4', name: '成都航空职业技术学院', city: '成都市', tags: ['专科', '示范校'], cover: '', majorCount: 3, partnerCount: 15, studentCount: '180', intro: '西南地区最早开设无人机应用技术专业的高职院校，与成飞、成发等企业深度合作。', specialties: ['无人机装调', '航拍测绘'] },
-    { id: 'college-5', name: '长沙航空职业技术学院', city: '长沙市', tags: ['专科', '示范校'], cover: '', majorCount: 4, partnerCount: 18, studentCount: '210', intro: '与中航工业、中国航发等企业共建实训基地，注重实操能力培养。', specialties: ['无人机装调', '农业植保', '巡检'] },
-    { id: 'college-6', name: '中国民航大学', city: '天津市', tags: ['双一流'], cover: '/static/home/home-bg.jpg', majorCount: 5, partnerCount: 25, studentCount: '350', intro: '民航系统唯一博士学位授予单位，设有无人机适航与运行管理专业方向。', specialties: ['适航管理', '无人机运行', '硕士点'] },
+    { id: 'college-1', name: '北京航空航天大学', city: '北京市', tags: ['双一流', '985'], cover: '/static/colleges/buaa-library.jpg', majorCount: 6, partnerCount: 28, studentCount: '320', intro: '航空科学与工程学院是国内顶尖的航空航天教育基地，拥有无人机系统设计与控制工程等6个本科专业方向。', specialties: ['飞行器设计', '无人机工程', '博士点'] },
+    { id: 'college-2', name: '南京航空航天大学', city: '南京市', tags: ['双一流', '211'], cover: '/static/colleges/nuaa-yufeng.jpg', majorCount: 5, partnerCount: 22, studentCount: '280', intro: '民航学院是首批设立无人机应用技术专业的高校之一，与多家无人机企业共建产学研基地。', specialties: ['无人机应用', '适航技术', '硕士点'] },
+    { id: 'college-3', name: '西北工业大学', city: '西安市', tags: ['双一流', '985'], cover: '/static/colleges/npu-building.jpg', majorCount: 7, partnerCount: 35, studentCount: '450', intro: '无人机特种技术重点实验室依托单位，在军用和民用无人机领域均有深厚的研究积累。', specialties: ['飞行控制', '无人机系统', '博士点'] },
+    { id: 'college-4', name: '成都航空职业技术学院', city: '成都市', tags: ['专科', '示范校'], cover: '/static/colleges/chengdu-building.jpg', majorCount: 3, partnerCount: 15, studentCount: '180', intro: '西南地区最早开设无人机应用技术专业的高职院校，与成飞、成发等企业深度合作。', specialties: ['无人机装调', '航拍测绘'] },
+    { id: 'college-5', name: '长沙航空职业技术学院', city: '长沙市', tags: ['专科', '示范校'], cover: '/static/colleges/changsha-tiaoma.jpg', majorCount: 4, partnerCount: 18, studentCount: '210', intro: '与中航工业、中国航发等企业共建实训基地，注重实操能力培养。', specialties: ['无人机装调', '农业植保', '巡检'] },
+    { id: 'college-6', name: '中国民航大学', city: '天津市', tags: ['双一流'], cover: '/static/colleges/cauc-scenery.jpg', majorCount: 5, partnerCount: 25, studentCount: '350', intro: '民航系统唯一博士学位授予单位，设有无人机适航与运行管理专业方向。', specialties: ['适航管理', '无人机运行', '硕士点'] },
   ]
 }
 
