@@ -1038,15 +1038,13 @@ func (s *Server) registerH5AuthRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/auth/me", s.h5AuthMe)
 	mux.HandleFunc("POST /api/auth/refresh", s.h5AuthRefresh)
 	mux.HandleFunc("POST /api/auth/logout", s.h5AuthLogout)
+	// 系统配置读写均无条件注册（管理后台 ServiceConfigList 在生产环境需要保存配置）
 	mux.HandleFunc("GET /api/services/config", s.h5GetServicesConfig)
+	mux.HandleFunc("POST /api/services/config", s.h5SaveServicesConfig)
 }
 
 func (s *Server) registerH5Compat(mux *http.ServeMux) {
-	// POST /api/services/config (admin write) stays dev-only: it writes config
-	// without auth. GET is registered unconditionally in registerH5AuthRoutes.
-	mux.HandleFunc("POST /api/services/config", s.h5SaveServicesConfig)
-
-	// Admin Services Config (same handlers)
+	// Admin Services Config (same handlers; dev-only — 管理后台用 /api/services/config)
 	mux.HandleFunc("GET /api/admin/services/config", s.h5GetServicesConfig)
 	mux.HandleFunc("POST /api/admin/services/config", s.h5SaveServicesConfig)
 
