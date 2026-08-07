@@ -19,35 +19,24 @@
           <text class="pub-arrow">›</text>
         </view>
 
-        <view class="pub-item" hover-class="tap-fade" @tap="publish('product')">
+        <view class="pub-item" hover-class="tap-fade" @tap="publish('service')">
           <view class="pub-icon" :style="{ background: '#FFF0E6' }">
+            <image class="pub-icon-img" :src="'/static/icons/service.svg'" mode="aspectFit" />
+          </view>
+          <view class="pub-copy">
+            <text class="pub-name">发布服务能力</text>
+            <text class="pub-desc">展示巡检、测绘、航拍等可承接能力</text>
+          </view>
+          <text class="pub-arrow">›</text>
+        </view>
+
+        <view class="pub-item" hover-class="tap-fade" @tap="publish('product')">
+          <view class="pub-icon" :style="{ background: '#E9F7F0' }">
             <image class="pub-icon-img" :src="'/static/home/icons/shop.svg'" mode="aspectFit" />
           </view>
           <view class="pub-copy">
-            <text class="pub-name">发布商品</text>
-            <text class="pub-desc">整机/零部件/配件上架</text>
-          </view>
-          <text class="pub-arrow">›</text>
-        </view>
-
-        <view class="pub-item" hover-class="tap-fade" @tap="publish('job')">
-          <view class="pub-icon" :style="{ background: '#E9F7F0' }">
-            <image class="pub-icon-img" :src="'/static/home/icons/pilot.svg'" mode="aspectFit" />
-          </view>
-          <view class="pub-copy">
-            <text class="pub-name">发布招聘</text>
-            <text class="pub-desc">飞手/运维/技术岗位</text>
-          </view>
-          <text class="pub-arrow">›</text>
-        </view>
-
-        <view class="pub-item pub-muted" hover-class="tap-fade" @tap="publish('case')">
-          <view class="pub-icon" :style="{ background: '#F4F6F8' }">
-            <image class="pub-icon-img" :src="'/static/home/icons/policy.svg'" mode="aspectFit" />
-          </view>
-          <view class="pub-copy">
-            <text class="pub-name">发布案例</text>
-            <text class="pub-desc">企业案例由协会统一发布</text>
+            <text class="pub-name">发布商品设备</text>
+            <text class="pub-desc">设备租赁、整机、零部件或载荷</text>
           </view>
           <text class="pub-arrow">›</text>
         </view>
@@ -81,9 +70,9 @@ import Layout from '../../components/Layout.vue'
 
 const publish = (type) => {
   if (type === 'demand') return uni.navigateTo({ url: '/pages/demands/publish' })
+  if (type === 'service') return uni.navigateTo({ url: '/pages/publish/service' })
   if (type === 'product') return uni.navigateTo({ url: '/pages/publish/product' })
-  if (type === 'job') return uni.navigateTo({ url: '/pages/publish/job' })
-  uni.showToast({ title: '案例由协会统一发布，可联系协会投稿', icon: 'none', duration: 2000 })
+  uni.showToast({ title: '暂未开放', icon: 'none', duration: 2000 })
 }
 const go = (url) => uni.navigateTo({ url })
 </script>

@@ -548,6 +548,15 @@
       }
     },
     {
+      "path": "pages/publish/service",
+      "style": {
+        "navigationBarTitleText": "发布服务能力",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/jobs/mine",
       "style": {
         "navigationBarTitleText": "我的招聘",
