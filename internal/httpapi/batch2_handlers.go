@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"drone-platform/internal/domain"
 )
@@ -98,25 +99,84 @@ func (s *Server) createCollege(w http.ResponseWriter, r *http.Request) {
 		Name, Region, Description, LogoURL string
 		CoopType                           string `json:"coop_type"` // research/talent/both
 		Majors, Facilities                 []string
+		// 小程序院校页扩展字段（colleges/list + detail）
+		City         string                  `json:"city"`
+		Tags         []string                `json:"tags"`
+		ShortName    string                  `json:"short_name"`
+		LevelTags    string                  `json:"level_tags"`
+		Specialties  []string                `json:"specialties"`
+		MajorCount   int                     `json:"major_count"`
+		PartnerCount int                     `json:"partner_count"`
+		TeacherCount int                     `json:"teacher_count"`
+		StudentCount int                     `json:"student_count"`
+		GraduateRate string                  `json:"graduate_rate"`
+		Partners     []domain.CollegePartner `json:"partners"`
+		Cover        string                  `json:"cover"`
+		Photos       []string                `json:"photos"`
+		Phone        string                  `json:"phone"`
+		Website      string                  `json:"website"`
+		Intro        string                  `json:"intro"`
+		MajorsDetail []domain.CollegeMajor   `json:"majors_detail"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.collegeSvc.Create(in.Name, in.Region, in.Description, in.LogoURL, in.CoopType, in.Majors, in.Facilities)
+	c, err := s.collegeSvc.Create(domain.College{
+		Name: in.Name, Region: in.Region, City: in.City, Description: in.Description,
+		LogoURL: in.LogoURL, CoopType: in.CoopType, Majors: in.Majors, Facilities: in.Facilities,
+		Tags: in.Tags, ShortName: in.ShortName, LevelTags: in.LevelTags, Specialties: in.Specialties,
+		MajorCount: in.MajorCount, PartnerCount: in.PartnerCount, TeacherCount: in.TeacherCount,
+		StudentCount: in.StudentCount, GraduateRate: in.GraduateRate, Partners: in.Partners,
+		CoverURL: in.Cover, Photos: in.Photos, Phone: in.Phone, Website: in.Website,
+		Intro: in.Intro, MajorsDetail: in.MajorsDetail,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	respond(w, r, http.StatusCreated, c)
 }
+
+// listColleges 支持小程序 colleges/list.vue 的分页 + type/keyword 筛选。
+// type: undergraduate(非专科，默认) / vocational(专科/高职)；基于 tags 判定（与页面 collegeLevel 一致）。
 func (s *Server) listColleges(w http.ResponseWriter, r *http.Request) {
-	list, err := s.collegeSvc.List(r.URL.Query().Get("region"))
+	region := r.URL.Query().Get("region")
+	keyword := r.URL.Query().Get("keyword")
+	collegeType := r.URL.Query().Get("type")
+	list, err := s.collegeSvc.List(region)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, http.StatusOK, list)
+	var out []domain.College
+	for _, c := range list {
+		if collegeType != "" && !matchCollegeType(collegeType, c) {
+			continue
+		}
+		if keyword != "" && !strings.Contains(c.Name, keyword) && !strings.Contains(c.City, keyword) && !strings.Contains(c.Region, keyword) {
+			continue
+		}
+		out = append(out, c)
+	}
+	paginatedRespond(w, r, out, len(out))
+}
+
+// matchCollegeType 按 tags 判定院校类型，与页面 collegeLevel() 语义一致。
+func matchCollegeType(tp string, c domain.College) bool {
+	isVocational := false
+	for _, t := range c.Tags {
+		if t == "专科" || t == "高职" {
+			isVocational = true
+			break
+		}
+	}
+	switch tp {
+	case "vocational":
+		return isVocational
+	default: // undergraduate / top 等非专科类型
+		return !isVocational
+	}
 }
 
 // ── Cooperation ──

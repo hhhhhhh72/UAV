@@ -17,31 +17,40 @@ type compRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewCompetitionRepository() repository.CompetitionRepository { return &compRepo{pool: s.Pool()} }
 
+// compCols 与 competitions 表列一一对应（迁移 000044 补齐小程序页面字段）
+const compCols = `id,title,category,description,location,start_date,end_date,deadline,max_teams,reg_count,sponsor,organizer_sub,fee,min_fee,tags,poster,requirements,events,prizes,registration_status,status,created_at,updated_at`
+
 func (r *compRepo) Create(c domain.Competition) (domain.Competition, error) {
 	c.CreatedAt = time.Now(); c.UpdatedAt = c.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO competitions (id,title,category,description,location,start_date,end_date,max_teams,reg_count,sponsor,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-		c.ID, c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.MaxTeams, c.RegCount, c.Sponsor, c.Status, c.CreatedAt, c.UpdatedAt)
+		`INSERT INTO competitions (`+compCols+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+		c.ID, c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
+		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
+		c.RegistrationStatus, c.Status, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
 func (r *compRepo) FindByID(id string) (domain.Competition, error) {
 	var c domain.Competition
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id,title,category,description,location,start_date,end_date,max_teams,reg_count,sponsor,status,created_at,updated_at FROM competitions WHERE id=$1`, id).
-		Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.MaxTeams, &c.RegCount, &c.Sponsor, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+		`SELECT `+compCols+` FROM competitions WHERE id=$1`, id).
+		Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.Deadline, &c.MaxTeams, &c.RegCount,
+			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
+			&c.RegistrationStatus, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
 func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
 	var total int
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM competitions`).Scan(&total)
 	rows, err := r.pool.Query(context.Background(),
-		`SELECT id,title,category,description,location,start_date,end_date,max_teams,reg_count,sponsor,status,created_at,updated_at FROM competitions ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT `+compCols+` FROM competitions ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil { return nil, 0, fmt.Errorf("list competitions: %w", err) }
 	defer rows.Close()
 	var out []domain.Competition
 	for rows.Next() {
 		var c domain.Competition
-		rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.MaxTeams, &c.RegCount, &c.Sponsor, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+		rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.Deadline, &c.MaxTeams, &c.RegCount,
+			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
+			&c.RegistrationStatus, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 		out = append(out, c)
 	}
 	return out, total, rows.Err()
@@ -49,8 +58,10 @@ func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
 func (r *compRepo) Update(c domain.Competition) (domain.Competition, error) {
 	c.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE competitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,max_teams=$7,reg_count=$8,sponsor=$9,status=$10,updated_at=$11 WHERE id=$12`,
-		c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.MaxTeams, c.RegCount, c.Sponsor, c.Status, c.UpdatedAt, c.ID)
+		`UPDATE competitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,deadline=$7,max_teams=$8,reg_count=$9,sponsor=$10,organizer_sub=$11,fee=$12,min_fee=$13,tags=$14,poster=$15,requirements=$16,events=$17,prizes=$18,registration_status=$19,status=$20,updated_at=$21 WHERE id=$22`,
+		c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
+		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
+		c.RegistrationStatus, c.Status, c.UpdatedAt, c.ID)
 	return c, err
 }
 

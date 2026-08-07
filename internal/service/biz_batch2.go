@@ -116,29 +116,28 @@ func CoopTypeLabel(t string) string {
 	}
 }
 
-func (s *CollegeService) Create(name, region, description, logoURL, coopType string, majors, facilities []string) (domain.College, error) {
-	c := domain.College{ID: fmt.Sprintf("col-%d", time.Now().UnixNano()),
-		Name: name, Region: region, Description: description, LogoURL: logoURL,
-		CoopType: coopType, Majors: majors, Facilities: facilities, Status: "active",
-		CreatedAt: time.Now(), UpdatedAt: time.Now()}
+// Create 接收完整领域对象（含小程序页面字段 city/tags/major_count/cover 等）。
+func (s *CollegeService) Create(c domain.College) (domain.College, error) {
+	now := time.Now()
+	if c.ID == "" {
+		c.ID = fmt.Sprintf("col-%d", now.UnixNano())
+	}
+	if c.Status == "" {
+		c.Status = "active"
+	}
+	c.CreatedAt = now
+	c.UpdatedAt = now
 	return s.repo.Create(c)
 }
 func (s *CollegeService) List(region string) ([]domain.College, error) { return s.repo.List(region) }
 func (s *CollegeService) Get(id string) (domain.College, error)        { return s.repo.FindByID(id) }
 
-func (s *CollegeService) Update(id, name, region, description, logoURL, status, coopType string, majors, facilities []string) (domain.College, error) {
-	c, err := s.repo.FindByID(id)
+func (s *CollegeService) Update(c domain.College) (domain.College, error) {
+	old, err := s.repo.FindByID(c.ID)
 	if err != nil {
 		return domain.College{}, err
 	}
-	c.Name = name
-	c.Region = region
-	c.Description = description
-	c.LogoURL = logoURL
-	c.Status = status
-	c.CoopType = coopType
-	c.Majors = majors
-	c.Facilities = facilities
+	c.CreatedAt = old.CreatedAt // 保留原创建时间
 	c.UpdatedAt = time.Now()
 	return s.repo.Update(c)
 }

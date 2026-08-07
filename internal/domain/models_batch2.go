@@ -39,17 +39,48 @@ type TransMilestone struct {
 
 // ── 院校展示 (per .doc ⑤-2) ──
 
+// CollegeMajor is a drone-related major shown on the miniapp college detail page.
+type CollegeMajor struct {
+	Name     string `json:"name"`
+	Degree   string `json:"degree"`   // 本科/专科/硕士
+	Duration int    `json:"duration"` // 学制（年）
+	Key      string `json:"key"`      // 特色标签（国家级特色专业 等）
+	Flagship bool   `json:"flagship"` // 王牌专业
+}
+
+// CollegePartner is a partner enterprise shown on the college detail page.
+type CollegePartner struct {
+	Icon string `json:"icon"`
+	Name string `json:"name"`
+	Type string `json:"type"` // 联合实验室/实习基地 等
+}
+
 // College showcases a school's drone-related programs and resources.
+// 字段与小程序 pages/colleges/list.vue + detail.vue 读取的 snake_case 名称对齐。
 type College struct {
 	ID           string   `json:"id"`
 	Name         string   `json:"name"`
 	Region       string   `json:"region"`
-	Majors       []string `json:"majors"`       // 无人机相关专业
-	Facilities   []string `json:"facilities"`   // 实训基地/实验室
-	StudentCount int      `json:"student_count"`
+	City         string   `json:"city"`          // 所在城市（页面 city || region）
+	Tags         []string `json:"tags"`          // 985/211/专科/高职 等（页面 collegeLevel/类型筛选依据）
+	ShortName    string   `json:"short_name"`    // 简称
+	LevelTags    string   `json:"level_tags"`    // 层次标签（页面展示）
+	Majors       []string `json:"majors"`        // 无人机相关专业（字符串列表，管理端兼容）
+	Specialties  []string `json:"specialties"`   // 特色专业（页面 specialties || majors || tags）
+	Facilities   []string `json:"facilities"`    // 实训基地/实验室
+	MajorCount   int      `json:"major_count"`   // 无人机专业数
+	PartnerCount int      `json:"partner_count"` // 合作企业数
+	TeacherCount int      `json:"teacher_count"` // 硕博导师数
+	StudentCount int      `json:"student_count"` // 在读学生
 	GraduateRate string   `json:"graduate_rate"` // 就业率
-	Partners     []string `json:"partners"`      // 合作企业
+	Partners     []CollegePartner `json:"partners"` // 合作企业 [{icon,name,type}]
 	LogoURL      string   `json:"logo_url"`
+	CoverURL     string   `json:"cover"`         // 封面图（页面 cover||image||campus_image||cover_image）
+	Photos       []string `json:"photos"`        // 校园环境图
+	Phone        string   `json:"phone"`
+	Website      string   `json:"website"`
+	Intro        string   `json:"intro"`         // 院校介绍（页面 intro || description）
+	MajorsDetail []CollegeMajor `json:"majors_detail"` // 专业对象数组（detail 页 major-item 渲染）
 	Description  string   `json:"description"`
 	Status       string   `json:"status"`    // active / inactive
 	CoopType     string   `json:"coop_type"` // research(科研合作) / talent(人才培养) / both(综合) — 功能方案修订版 三·五 分域

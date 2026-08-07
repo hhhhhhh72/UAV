@@ -1,0 +1,44 @@
+-- 小程序 123 包 9 页对齐（回滚：删除补充列）
+ALTER TABLE colleges DROP COLUMN IF EXISTS city;
+ALTER TABLE colleges DROP COLUMN IF EXISTS tags;
+ALTER TABLE colleges DROP COLUMN IF EXISTS short_name;
+ALTER TABLE colleges DROP COLUMN IF EXISTS level_tags;
+ALTER TABLE colleges DROP COLUMN IF EXISTS specialties;
+ALTER TABLE colleges DROP COLUMN IF EXISTS major_count;
+ALTER TABLE colleges DROP COLUMN IF EXISTS partner_count;
+ALTER TABLE colleges DROP COLUMN IF EXISTS teacher_count;
+ALTER TABLE colleges DROP COLUMN IF EXISTS student_count;
+ALTER TABLE colleges DROP COLUMN IF EXISTS graduate_rate;
+ALTER TABLE colleges DROP COLUMN IF EXISTS partners;
+ALTER TABLE colleges DROP COLUMN IF EXISTS cover;
+ALTER TABLE colleges DROP COLUMN IF EXISTS photos;
+ALTER TABLE colleges DROP COLUMN IF EXISTS phone;
+ALTER TABLE colleges DROP COLUMN IF EXISTS website;
+ALTER TABLE colleges DROP COLUMN IF EXISTS intro;
+ALTER TABLE colleges DROP COLUMN IF EXISTS majors_detail;
+
+ALTER TABLE competitions DROP COLUMN IF EXISTS fee;
+ALTER TABLE competitions DROP COLUMN IF EXISTS tags;
+ALTER TABLE competitions DROP COLUMN IF EXISTS poster;
+ALTER TABLE competitions DROP COLUMN IF EXISTS deadline;
+ALTER TABLE competitions DROP COLUMN IF EXISTS organizer_sub;
+ALTER TABLE competitions DROP COLUMN IF EXISTS min_fee;
+ALTER TABLE competitions DROP COLUMN IF EXISTS registration_status;
+ALTER TABLE competitions DROP COLUMN IF EXISTS requirements;
+ALTER TABLE competitions DROP COLUMN IF EXISTS events;
+ALTER TABLE competitions DROP COLUMN IF EXISTS prizes;
+
+ALTER TABLE training_courses DROP COLUMN IF EXISTS org_name;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS rating;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS review_count;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS image;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS cover_image;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS tags;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS district;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS duration_days;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS certificate;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS certificate_url;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS courses;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS prices;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS business_hours;
+ALTER TABLE training_courses DROP COLUMN IF EXISTS phone;

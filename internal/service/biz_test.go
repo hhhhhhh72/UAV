@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"drone-platform/internal/domain"
 	"drone-platform/internal/repository/memory"
 	"drone-platform/internal/service"
 )
@@ -80,7 +81,10 @@ func TestProjectAppCRUD(t *testing.T) {
 
 func TestCompetitionCRUD(t *testing.T) {
 	svc := service.NewCompetitionService(memory.NewCompetitionRepository())
-	c, err := svc.Create("竞速赛", "racing", "FPV竞速", "巴南", "协会", time.Now().AddDate(0, 1, 0), time.Now().AddDate(0, 1, 3), 50)
+	c, err := svc.Create(domain.Competition{
+		Title: "竞速赛", Category: "racing", Description: "FPV竞速", Location: "巴南", Sponsor: "协会",
+		StartDate: time.Now().AddDate(0, 1, 0), EndDate: time.Now().AddDate(0, 1, 3), MaxTeams: 50,
+	})
 	if err != nil { t.Fatal(err) }
 	if _, total, err := svc.List(1, 20); err != nil || total != 1 { t.Fatalf("list fail") }
 	svc.Register(c.ID, "user-1", "闪电队", 3, "138")

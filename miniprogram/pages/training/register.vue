@@ -11,17 +11,20 @@
     >
       <template v-if="course">
         <view class="rg-content">
-          <!-- 课程摘要（真实课程数据） -->
+          <!-- 课程摘要（真实课程数据）⭐ 左侧渐变色条 + 类型胶囊 + 价格 -->
           <view class="summary-card">
-            <text class="summary-title">{{ courseTitle }}</text>
-            <view class="summary-meta">
-              <view class="meta-block">
-                <text class="meta-label">证书类型</text>
-                <text class="meta-value">{{ certLabel }}</text>
+            <view class="summary-bar" :class="'summary-bar--' + certTypeKey" />
+            <view class="summary-main">
+              <view class="summary-top">
+                <text class="summary-title">{{ courseTitle }}</text>
+                <view v-if="certLabel" class="cert-pill">{{ certLabel }}</view>
               </view>
-              <view class="meta-block">
-                <text class="meta-label">课程费用</text>
-                <text class="meta-value price">{{ feeText }}</text>
+              <view class="summary-bottom">
+                <view class="summary-price">
+                  <text v-if="currentPrice > 0" class="summary-price-symbol">¥</text>
+                  <text class="summary-price-value">{{ feeText }}</text>
+                  <text v-if="currentPrice > 0" class="summary-price-unit">/人</text>
+                </view>
               </view>
             </view>
             <view v-if="courseOptions.length > 1" class="picker-row" @tap="showPicker = true">
@@ -35,7 +38,7 @@
           <view class="section-block">
             <view class="section-head">
               <text class="section-title">个人信息</text>
-              <text class="section-badge">必填项带 * 号</text>
+              <text class="required-pill">必填</text>
             </view>
 
             <view class="field">
@@ -50,65 +53,13 @@
               <text class="field-label">身份证号<text class="field-star">*</text></text>
               <input class="field-input" v-model="form.idCard" maxlength="18" placeholder="请输入身份证号码" />
             </view>
-
-            <view class="expand-btn" @tap="showMore = !showMore">
-              <text>{{ showMore ? '收起更多信息' : '展开更多信息' }}</text>
-              <text class="expand-arrow" :class="{ expanded: showMore }">›</text>
-            </view>
-
-            <view v-if="showMore" class="extra-form">
-              <view class="extra-item">
-                <text class="field-label">性别</text>
-                <view class="radio-group">
-                  <view
-                    v-for="g in genderList"
-                    :key="g"
-                    class="radio-item"
-                    :class="{ active: form.gender === g }"
-                    @tap="form.gender = g"
-                  >
-                    <text>{{ g }}</text>
-                  </view>
-                </view>
-              </view>
-              <view class="extra-item">
-                <text class="field-label">出生日期</text>
-                <picker mode="date" :value="form.birthday" @change="onBirthdayChange">
-                  <text class="picker-text">{{ form.birthday || '选择出生日期' }}</text>
-                </picker>
-              </view>
-              <view class="extra-item">
-                <text class="field-label">电子邮箱</text>
-                <input class="field-input" v-model="form.email" placeholder="请输入邮箱（选填）" />
-              </view>
-              <view class="extra-item">
-                <text class="field-label">学历</text>
-                <picker :range="educationList" :value="educationIdx" @change="onEducationChange">
-                  <text class="picker-text">{{ form.education || '请选择学历' }}</text>
-                </picker>
-              </view>
-              <view class="extra-item">
-                <text class="field-label">驾驶基础</text>
-                <view class="radio-group">
-                  <view
-                    v-for="ex in experienceList"
-                    :key="ex"
-                    class="radio-item"
-                    :class="{ active: form.experience === ex }"
-                    @tap="form.experience = ex"
-                  >
-                    <text>{{ ex }}</text>
-                  </view>
-                </view>
-              </view>
-            </view>
           </view>
 
           <!-- 证件上传（上传至 /api/v1/files/upload，提交服务端路径） -->
           <view class="section-block">
             <view class="section-head">
               <text class="section-title">证件上传</text>
-              <text class="section-badge">* 必传</text>
+              <text class="required-pill">必传</text>
             </view>
 
             <view class="upload-row">
@@ -148,15 +99,22 @@
             </view>
           </view>
 
-          <!-- 提交 -->
-          <view class="submit-btn" :class="{ submitting: submitting }" @tap="handleSubmit">
-            <text>{{ submitting ? '提交中...' : '确认报名' }}</text>
-          </view>
+          <!-- 隐私提示 -->
           <text class="privacy-text">报名信息仅用于课程注册，受隐私政策保护</text>
           <text class="consult-text" @tap="handleConsult">报名前想咨询？联系客服 {{ HOTLINE }}</text>
         </view>
       </template>
     </StateView>
+
+    <!-- 底部固定 CTA 栏（联系咨询 + 确认报名） -->
+    <view v-if="course" class="bottom-cta-bar">
+      <view class="cta-consult" hover-class="press-feedback" :hover-stay-time="120" @tap="handleConsult">
+        <text>联系咨询</text>
+      </view>
+      <view class="cta-submit" :class="{ submitting: submitting }" hover-class="press-feedback" :hover-stay-time="120" @tap="handleSubmit">
+        <text>{{ submitting ? '提交中...' : '确认报名' }}</text>
+      </view>
+    </view>
 
     <!-- 课程选择弹窗（仅当有多个真实课程选项时展示） -->
     <template v-if="courseOptions.length > 1">
@@ -187,15 +145,9 @@ const course = ref(null)
 
 const showPicker = ref(false)
 const selectedIndex = ref(0)
-const showMore = ref(false)
 const submitting = ref(false)
 const photoPreview = ref('')
 const idCardPreview = ref('')
-
-const genderList = ['男', '女']
-const educationList = ['高中', '大专', '本科', '硕士及以上']
-const educationIdx = ref(-1)
-const experienceList = ['零基础', '业余爱好者', '有飞行经验']
 
 /* 与后端 EnrollmentForm 契约一致：name/phone/idCard/gender/birthday/email/education/experience/photo/idCardImage/noCrime */
 const form = reactive({
@@ -224,6 +176,12 @@ const certLabel = computed(function () {
   if (!c) return ''
   if (c.cert_type && CERT_LABELS[c.cert_type]) return CERT_LABELS[c.cert_type]
   return c.cert_type || ''
+})
+
+/* 课程卡色条类型：caac=蓝 / utc_dji=紫 / gov_level=金 */
+const certTypeKey = computed(function () {
+  const t = course.value && course.value.cert_type
+  return t || 'caac'
 })
 
 /* 真实课程选项：course.courses 数组（若后端下发）逐条展示，否则仅本课程一条 */
@@ -275,13 +233,6 @@ function onCourseChange(val) {
   if (idx < 0) { showPicker.value = false; return }
   selectedIndex.value = idx
   showPicker.value = false
-}
-
-function onBirthdayChange(e) { form.birthday = e.detail.value }
-
-function onEducationChange(e) {
-  educationIdx.value = e.detail.value
-  form.education = educationList[e.detail.value]
 }
 
 /* === 证件上传：uni.uploadFile → /api/v1/files/upload，提交服务端路径 === */
@@ -400,13 +351,51 @@ async function fetchCourse() {
     for (let i = 0; i < items.length; i++) {
       if (String(items[i].id) === String(id.value)) { found = items[i]; break }
     }
+    // 接口空/未命中时降级到本地 mock（与 courses/enroll 页同源数据）
+    if (!found) found = findMockCourse(String(id.value))
     course.value = found
     if (!found) errorMsg.value = '课程不存在'
   } catch (e) {
-    errorMsg.value = '网络异常，请稍后重试'
+    // 接口不可用时降级到本地 mock
+    course.value = findMockCourse(String(id.value))
+    if (!course.value) errorMsg.value = '课程不存在'
   } finally {
     loading.value = false
   }
+}
+
+/* === 本地 mock（接口空/失败时降级展示，与 courses/enroll 页同源）=== */
+function mockCourses() {
+  return [
+    {
+      id: 'course-mock-1', title: 'CAAC民航局多旋翼无人机驾驶员执照班', cert_type: 'caac', status: 'recruiting',
+      org_name: '重庆无人机飞行学院', price_fen: 980000,
+    },
+    {
+      id: 'course-mock-2', title: '大疆UTC航拍工程师认证班', cert_type: 'utc_dji', status: 'urgent',
+      org_name: '大疆慧飞重庆分校', price_fen: 39900,
+    },
+    {
+      id: 'course-mock-3', title: '人社职业技能等级证书·无人机装调检修', cert_type: 'gov_level', status: 'full',
+      org_name: '重庆职业技能培训中心', price_fen: 268000,
+    },
+    {
+      id: 'course-mock-4', title: 'AOPA多旋翼机长执照班', cert_type: 'caac', status: 'upcoming',
+      org_name: '成都空域无人机培训基地', price_fen: 1280000,
+    },
+    {
+      id: 'course-mock-5', title: '无人机应急应用与植保作业实战班', cert_type: 'utc_dji', status: 'recruiting',
+      org_name: '重庆农用无人机服务中心', price_fen: 45800,
+    },
+  ]
+}
+
+function findMockCourse(cid) {
+  const all = mockCourses()
+  for (let i = 0; i < all.length; i++) {
+    if (String(all[i].id) === String(cid)) return all[i]
+  }
+  return null
 }
 
 onLoad(function (options) {
@@ -419,58 +408,101 @@ onLoad(function (options) {
 .rg-page {
   min-height: 100vh;
   background: #F4F6F8;
-  padding-bottom: calc(60rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
 }
 
 .rg-content {
   padding: 20rpx 24rpx 0;
 }
 
-/* ===== 课程摘要 ===== */
+/* ===== 课程摘要 ⭐ 左侧渐变色条 + 类型胶囊 + 价格 ===== */
 .summary-card {
   background: #FFFFFF;
   border: 1rpx solid #EEF1F4;
   border-radius: 16rpx;
   padding: 24rpx;
   margin-bottom: 20rpx;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.06);
 }
 
-.summary-title {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #17212B;
-  line-height: 1.4;
-  display: block;
+/* 左侧渐变色条（按类型配色） */
+.summary-bar {
+  width: 6rpx;
+  border-radius: 3rpx;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+  align-self: stretch;
+}
+.summary-bar--caac { background: linear-gradient(180deg, #074D92, #0A66C2); }
+.summary-bar--utc_dji { background: linear-gradient(180deg, #6D28D9, #DB2777); }
+.summary-bar--gov_level { background: linear-gradient(180deg, #D97706, #FB923C); }
+
+.summary-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.summary-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12rpx;
   margin-bottom: 16rpx;
 }
 
-.summary-meta {
-  display: flex;
-  gap: 48rpx;
-  padding-top: 16rpx;
-  border-top: 1rpx solid #EEF1F4;
-}
-
-.meta-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
+.summary-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #17212B;
+  line-height: 1.4;
   flex: 1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-.meta-label {
+/* 右侧类型胶囊 */
+.cert-pill {
+  flex-shrink: 0;
+  padding: 4rpx 14rpx;
+  border: 1rpx solid rgba(10, 102, 194, 0.3);
+  border-radius: 999rpx;
+  color: #0A66C2;
+  font-size: 20rpx;
+  font-weight: 500;
+  background: rgba(10, 102, 194, 0.06);
+}
+
+.summary-bottom {
+  display: flex;
+  align-items: baseline;
+}
+
+.summary-price {
+  display: flex;
+  align-items: baseline;
+}
+
+.summary-price-symbol {
+  font-size: 26rpx;
+  color: #E96012;
+  font-weight: 700;
+}
+
+.summary-price-value {
+  font-size: 40rpx;
+  color: #E96012;
+  font-weight: 800;
+  margin: 0 4rpx;
+}
+
+.summary-price-unit {
   font-size: 22rpx;
   color: #98A2B3;
-}
-
-.meta-value {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #17212B;
-}
-
-.meta-value.price {
-  color: #E96012;
 }
 
 /* 多课程选择行 */
@@ -525,10 +557,16 @@ onLoad(function (options) {
   color: #17212B;
 }
 
-.section-badge {
-  font-size: 22rpx;
-  color: #98A2B3;
+/* 必填红色 pill */
+.required-pill {
   margin-left: 12rpx;
+  padding: 2rpx 12rpx;
+  background: #FEE2E2;
+  color: #EF4444;
+  font-size: 20rpx;
+  font-weight: 600;
+  border-radius: 999rpx;
+  line-height: 1.6;
 }
 
 /* 输入控件：高 44px，圆角 8px */
@@ -562,70 +600,6 @@ onLoad(function (options) {
   color: #17212B;
 }
 
-/* 展开更多信息 */
-.expand-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  padding: 16rpx 0 4rpx;
-  color: #0A66C2;
-  font-size: 26rpx;
-  font-weight: 500;
-}
-
-.expand-arrow {
-  font-size: 30rpx;
-  color: #0A66C2;
-  transform: rotate(90deg);
-  transition: transform 0.2s;
-}
-
-.expand-arrow.expanded {
-  transform: rotate(-90deg);
-}
-
-.extra-form {
-  background: #F4F6F8;
-  border-radius: 12rpx;
-  padding: 8rpx 24rpx;
-  margin-top: 8rpx;
-}
-
-.extra-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20rpx;
-  padding: 22rpx 0;
-  border-bottom: 1rpx solid #EEF1F4;
-}
-
-.extra-item:last-child { border-bottom: none; }
-
-.extra-item .field-label { margin-bottom: 0; flex-shrink: 0; }
-
-.radio-group {
-  display: flex;
-  gap: 32rpx;
-}
-
-.radio-item {
-  font-size: 26rpx;
-  color: #98A2B3;
-  padding: 4rpx 8rpx;
-}
-
-.radio-item.active {
-  color: #0A66C2;
-  font-weight: 600;
-}
-
-.picker-text {
-  font-size: 28rpx;
-  color: #667085;
-}
-
 /* ===== 证件上传 ===== */
 .upload-row {
   display: flex;
@@ -636,8 +610,8 @@ onLoad(function (options) {
 .upload-box {
   flex: 1;
   height: 240rpx;
-  background: #F4F6F8;
-  border: 2rpx dashed #D0D5DD;
+  background: linear-gradient(180deg, #FAFBFC, #F5F8FC);
+  border: 2rpx dashed #CBD5E1;
   border-radius: 12rpx;
   overflow: hidden;
   position: relative;
@@ -657,18 +631,20 @@ onLoad(function (options) {
   gap: 8rpx;
 }
 
+/* 圆底相机图标（浅蓝底 + 蓝色图标） */
 .upload-cam {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 12rpx;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
   background: #EAF3FB;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 4rpx;
 }
 
 .upload-cam-icon {
-  font-size: 36rpx;
+  font-size: 40rpx;
   color: #0A66C2;
   font-weight: 400;
 }
@@ -720,21 +696,21 @@ onLoad(function (options) {
   color: #344054;
 }
 
-/* ===== 费用 ===== */
+/* ===== 费用（浅灰底圆角 + 价格集中强化） ===== */
 .fee-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #FFFFFF;
+  background: #F5F8FC;
   border: 1rpx solid #EEF1F4;
-  border-radius: 16rpx;
-  padding: 24rpx;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
   margin-bottom: 24rpx;
 }
 
 .fee-label {
-  font-size: 26rpx;
-  color: #344054;
+  font-size: 24rpx;
+  color: #667085;
 }
 
 .fee-right {
@@ -743,14 +719,14 @@ onLoad(function (options) {
 }
 
 .fee-symbol {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: #E96012;
   font-weight: 700;
 }
 
 .fee-value {
-  font-size: 40rpx;
-  font-weight: 700;
+  font-size: 48rpx;
+  font-weight: 800;
   color: #E96012;
   margin: 0 4rpx;
 }
@@ -760,22 +736,64 @@ onLoad(function (options) {
   color: #98A2B3;
 }
 
-/* ===== 提交按钮（单一主按钮） ===== */
-.submit-btn {
+/* ===== 底部固定 CTA 栏（联系咨询 + 确认报名） ===== */
+.bottom-cta-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 20rpx;
+  padding: 16rpx 32rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  z-index: 100;
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+
+.cta-consult {
+  flex: 1;
   height: 92rpx;
-  border-radius: 16rpx;
-  background: #0A66C2;
+  border: 2rpx solid #0A66C2;
+  border-radius: 999rpx;
+  color: #0A66C2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  background: #FFFFFF;
+}
+
+.cta-submit {
+  flex: 2;
+  height: 92rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #074D92, #0A66C2);
   color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32rpx;
+  font-size: 30rpx;
   font-weight: 600;
   letter-spacing: 2rpx;
+  box-shadow: 0 4rpx 16rpx rgba(10, 102, 194, 0.25);
+  animation: ctaPulse 2s ease-in-out infinite;
 }
 
-.submit-btn.submitting {
+.cta-submit.submitting {
   opacity: 0.6;
+  animation: none;
+}
+
+@keyframes ctaPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(10, 102, 194, 0.3); }
+  50% { box-shadow: 0 0 0 8rpx rgba(10, 102, 194, 0); }
+}
+
+.press-feedback {
+  transform: scale(0.98);
+  opacity: 0.85;
 }
 
 .privacy-text {

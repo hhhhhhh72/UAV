@@ -88,6 +88,19 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		EndDate     string `json:"end_date"`
 		MaxStudents int    `json:"max_students"`
 		PriceFen    int64  `json:"price_fen"`
+		// 小程序培训页扩展字段（training/courses + enroll + register）
+		OrgName       string               `json:"org_name"`
+		Rating        string               `json:"rating"`
+		ReviewCount   int                  `json:"review_count"`
+		District      string               `json:"district"`
+		DurationDays  int                  `json:"duration_days"`
+		Image         string               `json:"image"`
+		Tags          []string             `json:"tags"`
+		Certificate   string               `json:"certificate"`
+		Courses       []domain.CoursePrice `json:"courses"`
+		Prices        []domain.CoursePrice `json:"prices"`
+		BusinessHours string               `json:"business_hours"`
+		Phone         string               `json:"phone"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -95,7 +108,15 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 	}
 	startDate := domain.ParseTime(in.StartDate)
 	endDate := domain.ParseTime(in.EndDate)
-	c, err := s.trainingSvc.CreateCourse(a, in.Title, domain.CertType(in.CertType), in.Description, in.Location, startDate, endDate, in.MaxStudents, in.PriceFen)
+	c, err := s.trainingSvc.CreateCourse(a, domain.TrainingCourse{
+		Title: in.Title, CertType: domain.CertType(in.CertType), Description: in.Description,
+		Location: in.Location, StartDate: startDate, EndDate: endDate,
+		MaxStudents: in.MaxStudents, PriceFen: in.PriceFen,
+		OrgName: in.OrgName, Rating: in.Rating, ReviewCount: in.ReviewCount,
+		District: in.District, DurationDays: in.DurationDays, Image: in.Image,
+		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
+		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
+	})
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -104,9 +125,12 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/v1/training-courses
+// 支持小程序 training/courses.vue 筛选：cert_type / region(district) / keyword / status / page / page_size
 func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 	keyword := r.URL.Query().Get("keyword")
 	status := r.URL.Query().Get("status")
+	certType := r.URL.Query().Get("cert_type")
+	region := r.URL.Query().Get("region")
 	courses, err := s.trainingSvc.ListCourses()
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -115,10 +139,16 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 	// filter
 	var out []domain.TrainingCourse
 	for _, c := range courses {
-		if keyword != "" && !strings.Contains(c.Title, keyword) {
+		if keyword != "" && !strings.Contains(c.Title, keyword) && !strings.Contains(c.OrgName, keyword) {
 			continue
 		}
 		if status != "" && c.Status != status {
+			continue
+		}
+		if certType != "" && string(c.CertType) != certType {
+			continue
+		}
+		if region != "" && c.District != region && c.Location != region {
 			continue
 		}
 		out = append(out, c)

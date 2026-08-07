@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"drone-platform/internal/domain"
 )
@@ -986,14 +987,41 @@ func (s *Server) reviewProjectApp(w http.ResponseWriter, r *http.Request) {
 
 // ---- Competitions ----
 
-// GET /api/v1/competitions?page=1&page_size=10
+// GET /api/v1/competitions?page=1&page_size=10&status=enrolling&keyword=无人机
+// status 筛选兼容页面值域（enrolling/open/ongoing/closed/full）与后端状态（published/...）。
 func (s *Server) listCompetitions(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.competitionSvc.List(1, 100000)
+	items, _, err := s.competitionSvc.List(1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	status := r.URL.Query().Get("status")
+	keyword := r.URL.Query().Get("keyword")
+	var out []domain.Competition
+	for _, c := range items {
+		if status != "" && !matchCompetitionStatus(status, c.Status) {
+			continue
+		}
+		if keyword != "" && !strings.Contains(c.Title, keyword) && !strings.Contains(c.Category, keyword) {
+			continue
+		}
+		out = append(out, c)
+	}
+	paginatedRespond(w, r, out, len(out))
+}
+
+// matchCompetitionStatus 页面 tab（enrolling/ongoing/closed/full）映射到后端状态值。
+func matchCompetitionStatus(query, s string) bool {
+	switch query {
+	case "enrolling", "open":
+		return s == "published" || s == "enrolling" || s == "open" || s == "upcoming"
+	case "ongoing":
+		return s == "ongoing" || s == "active" || s == "in_progress"
+	case "closed", "full":
+		return s == "closed" || s == "full" || s == "ended" || s == "finished"
+	default:
+		return s == query
+	}
 }
 
 // POST /api/v1/admin/competitions
@@ -1016,6 +1044,17 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		StartDate   string `json:"start_date"`
 		EndDate     string `json:"end_date"`
 		MaxTeams    int    `json:"max_teams"`
+		// 小程序赛事页扩展字段（competitions/detail + register）
+		Deadline           string                     `json:"deadline"`
+		OrganizerSub       string                     `json:"organizer_sub"`
+		Fee                int                        `json:"fee"`
+		MinFee             int                        `json:"min_fee"`
+		Tags               []string                   `json:"tags"`
+		Poster             string                     `json:"poster"`
+		Requirements       []domain.CompetitionRequirement `json:"requirements"`
+		Events             []domain.CompetitionEvent  `json:"events"`
+		Prizes             []domain.CompetitionPrize  `json:"prizes"`
+		RegistrationStatus string                     `json:"registration_status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -1031,7 +1070,18 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
 		return
 	}
-	c, err := s.competitionSvc.Create(in.Title, in.Category, in.Description, in.Location, in.Sponsor, startDate, endDate, in.MaxTeams)
+	var deadline *time.Time
+	if d, err := parseDateInput(in.Deadline); err == nil && !d.IsZero() {
+		deadline = &d
+	}
+	c, err := s.competitionSvc.Create(domain.Competition{
+		Title: in.Title, Category: in.Category, Description: in.Description,
+		Location: in.Location, Sponsor: in.Sponsor, StartDate: startDate, EndDate: endDate,
+		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
+		Fee: in.Fee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
+		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
+		RegistrationStatus: in.RegistrationStatus,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1370,13 +1420,24 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 	respond(w, r, http.StatusCreated, res)
 }
 
-// GET /api/v1/emergency-dispatches?page=1&page_size=10
+// GET /api/v1/emergency-dispatches?page=1&page_size=10&status=pending
 // 公开展示（与救援案例一致）：调度记录作为应急协同成果对会员公开展示
+// status 筛选支持页面 dispatches.vue 值域：pending / dispatched / completed / ongoing / done / cancelled
 func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
 	items, total, err := s.emergencySvc.ListDispatches(page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if status := r.URL.Query().Get("status"); status != "" {
+		var out []domain.EmergencyDispatch
+		for _, d := range items {
+			if d.Status == status {
+				out = append(out, d)
+			}
+		}
+		paginatedRespond(w, r, out, len(out))
 		return
 	}
 	paginatedRespond(w, r, items, total)

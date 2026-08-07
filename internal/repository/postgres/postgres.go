@@ -1461,24 +1461,31 @@ func (s *Store) NewCollegeRepository() repository.CollegeRepository {
 	return &pgCollegeRepo{pool: s.Pool()}
 }
 
+// collegeCols 与 colleges 表列一一对应（迁移 000044 补齐小程序页面字段）
+const collegeCols = `id,name,region,city,description,logo_url,status,coop_type,majors,facilities,tags,short_name,level_tags,specialties,major_count,partner_count,teacher_count,student_count,graduate_rate,partners,cover,photos,phone,website,intro,majors_detail,created_at,updated_at`
+
 func (r *pgCollegeRepo) Create(c domain.College) (domain.College, error) {
 	c.CreatedAt = time.Now()
 	c.UpdatedAt = c.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO colleges (id,name,region,description,logo_url,status,coop_type,majors,facilities,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-		c.ID, c.Name, c.Region, c.Description, c.LogoURL, c.Status, c.CoopType, c.Majors, c.Facilities, c.CreatedAt, c.UpdatedAt)
+		`INSERT INTO colleges (`+collegeCols+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
+		c.ID, c.Name, c.Region, c.City, c.Description, c.LogoURL, c.Status, c.CoopType, c.Majors, c.Facilities,
+		c.Tags, c.ShortName, c.LevelTags, c.Specialties, c.MajorCount, c.PartnerCount, c.TeacherCount, c.StudentCount,
+		c.GraduateRate, c.Partners, c.CoverURL, c.Photos, c.Phone, c.Website, c.Intro, c.MajorsDetail, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
 
 func (r *pgCollegeRepo) FindByID(id string) (domain.College, error) {
 	var c domain.College
-	err := r.pool.QueryRow(context.Background(), `SELECT id,name,region,description,logo_url,status,coop_type,majors,facilities,created_at,updated_at FROM colleges WHERE id=$1`, id).
-		Scan(&c.ID, &c.Name, &c.Region, &c.Description, &c.LogoURL, &c.Status, &c.CoopType, &c.Majors, &c.Facilities, &c.CreatedAt, &c.UpdatedAt)
+	err := r.pool.QueryRow(context.Background(), `SELECT `+collegeCols+` FROM colleges WHERE id=$1`, id).
+		Scan(&c.ID, &c.Name, &c.Region, &c.City, &c.Description, &c.LogoURL, &c.Status, &c.CoopType, &c.Majors, &c.Facilities,
+			&c.Tags, &c.ShortName, &c.LevelTags, &c.Specialties, &c.MajorCount, &c.PartnerCount, &c.TeacherCount, &c.StudentCount,
+			&c.GraduateRate, &c.Partners, &c.CoverURL, &c.Photos, &c.Phone, &c.Website, &c.Intro, &c.MajorsDetail, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
 
 func (r *pgCollegeRepo) List(region string) ([]domain.College, error) {
-	q := `SELECT id,name,region,description,logo_url,status,coop_type,majors,facilities,created_at,updated_at FROM colleges`
+	q := `SELECT ` + collegeCols + ` FROM colleges`
 	args := []any{}
 	if region != "" {
 		q += ` WHERE region=$1`
@@ -1493,7 +1500,9 @@ func (r *pgCollegeRepo) List(region string) ([]domain.College, error) {
 	var out []domain.College
 	for rows.Next() {
 		var c domain.College
-		if err := rows.Scan(&c.ID, &c.Name, &c.Region, &c.Description, &c.LogoURL, &c.Status, &c.CoopType, &c.Majors, &c.Facilities, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Region, &c.City, &c.Description, &c.LogoURL, &c.Status, &c.CoopType, &c.Majors, &c.Facilities,
+			&c.Tags, &c.ShortName, &c.LevelTags, &c.Specialties, &c.MajorCount, &c.PartnerCount, &c.TeacherCount, &c.StudentCount,
+			&c.GraduateRate, &c.Partners, &c.CoverURL, &c.Photos, &c.Phone, &c.Website, &c.Intro, &c.MajorsDetail, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -1504,8 +1513,10 @@ func (r *pgCollegeRepo) List(region string) ([]domain.College, error) {
 func (r *pgCollegeRepo) Update(c domain.College) (domain.College, error) {
 	c.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE colleges SET name=$1,region=$2,description=$3,logo_url=$4,status=$5,coop_type=$6,majors=$7,facilities=$8,updated_at=$9 WHERE id=$10`,
-		c.Name, c.Region, c.Description, c.LogoURL, c.Status, c.CoopType, c.Majors, c.Facilities, c.UpdatedAt, c.ID)
+		`UPDATE colleges SET name=$1,region=$2,city=$3,description=$4,logo_url=$5,status=$6,coop_type=$7,majors=$8,facilities=$9,tags=$10,short_name=$11,level_tags=$12,specialties=$13,major_count=$14,partner_count=$15,teacher_count=$16,student_count=$17,graduate_rate=$18,partners=$19,cover=$20,photos=$21,phone=$22,website=$23,intro=$24,majors_detail=$25,updated_at=$26 WHERE id=$27`,
+		c.Name, c.Region, c.City, c.Description, c.LogoURL, c.Status, c.CoopType, c.Majors, c.Facilities,
+		c.Tags, c.ShortName, c.LevelTags, c.Specialties, c.MajorCount, c.PartnerCount, c.TeacherCount, c.StudentCount,
+		c.GraduateRate, c.Partners, c.CoverURL, c.Photos, c.Phone, c.Website, c.Intro, c.MajorsDetail, c.UpdatedAt, c.ID)
 	return c, err
 }
 

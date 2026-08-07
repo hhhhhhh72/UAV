@@ -306,7 +306,10 @@ func TestTrainingCertCourseFlow(t *testing.T) {
 		t.Fatal("individual should not approve cert")
 	}
 	// Course
-	course, _ := svc.CreateCourse(entActor(), "课程", domain.CertCAAC, "描述", "重庆", time.Now(), time.Now().AddDate(0, 1, 0), 30, 50000)
+	course, _ := svc.CreateCourse(entActor(), domain.TrainingCourse{
+		Title: "课程", CertType: domain.CertCAAC, Description: "描述", Location: "重庆",
+		StartDate: time.Now(), EndDate: time.Now().AddDate(0, 1, 0), MaxStudents: 30, PriceFen: 50000,
+	})
 	if course.Status != "draft" {
 		t.Fatal("course should be draft")
 	}

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"drone-platform/internal/domain"
 	"drone-platform/internal/repository/memory"
 	"drone-platform/internal/service"
 )
@@ -140,10 +141,16 @@ func TestProjectAppFullCRUD(t *testing.T) {
 // === Competition full CRUD ===
 func TestCompetitionFullCRUD(t *testing.T) {
 	svc := service.NewCompetitionService(memory.NewCompetitionRepository())
-	c, _ := svc.Create("竞速赛", "racing", "FPV", "巴南", "协会", time.Now().AddDate(0, 1, 0), time.Now().AddDate(0, 1, 3), 50)
+	c, _ := svc.Create(domain.Competition{
+		Title: "竞速赛", Category: "racing", Description: "FPV", Location: "巴南", Sponsor: "协会",
+		StartDate: time.Now().AddDate(0, 1, 0), EndDate: time.Now().AddDate(0, 1, 3), MaxTeams: 50,
+	})
 	got, _ := svc.Get(c.ID)
 	if got.Sponsor != "协会" { t.Fatal("Get failed") }
-	svc.Update(c.ID, "竞速赛v2", "fpv", "FPVv2", "渝北", "协会2", "published", time.Now(), time.Now().AddDate(0, 2, 0), 100)
+	svc.Update(domain.Competition{
+		ID: c.ID, Title: "竞速赛v2", Category: "fpv", Description: "FPVv2", Location: "渝北", Sponsor: "协会2",
+		Status: "published", StartDate: time.Now(), EndDate: time.Now().AddDate(0, 2, 0), MaxTeams: 100,
+	})
 	// Register + ListRegs
 	svc.Register(c.ID, "user-1", "闪电队", 3, "138")
 	regs, _ := svc.ListRegs(c.ID)

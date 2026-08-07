@@ -79,12 +79,19 @@ func (s *TrainingService) DeleteCertificate(id string) error {
 
 // ---- Courses ----
 
-func (s *TrainingService) CreateCourse(a domain.Actor, title string, certType domain.CertType, desc, location string, start, end time.Time, maxStudents int, priceFen int64) (domain.TrainingCourse, error) {
+// CreateCourse 接收完整领域对象（含小程序页面字段 org_name/rating/district/courses 等）。
+func (s *TrainingService) CreateCourse(a domain.Actor, c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	now := time.Now()
-	c := domain.TrainingCourse{ID: fmt.Sprintf("course-%d", now.UnixNano()), OrgID: a.ID, Title: title,
-		CertType: certType, Description: desc, StartDate: start, EndDate: end,
-		MaxStudents: maxStudents, Location: location, PriceFen: priceFen, Status: "draft",
-		Version: 1, CreatedAt: now, UpdatedAt: now}
+	if c.ID == "" {
+		c.ID = fmt.Sprintf("course-%d", now.UnixNano())
+	}
+	c.OrgID = a.ID
+	if c.Status == "" {
+		c.Status = "draft"
+	}
+	c.Version = 1
+	c.CreatedAt = now
+	c.UpdatedAt = now
 	return s.courseRepo.Create(c)
 }
 
@@ -92,20 +99,14 @@ func (s *TrainingService) ListCourses() ([]domain.TrainingCourse, error) {
 	return s.courseRepo.List()
 }
 
-func (s *TrainingService) UpdateCourse(id string, title, certType, desc, location string, start, end time.Time, maxStudents int, priceFen int64, status string) (domain.TrainingCourse, error) {
-	c, err := s.courseRepo.FindByID(id)
+func (s *TrainingService) UpdateCourse(c domain.TrainingCourse) (domain.TrainingCourse, error) {
+	old, err := s.courseRepo.FindByID(c.ID)
 	if err != nil {
 		return domain.TrainingCourse{}, err
 	}
-	c.Title = title
-	c.CertType = domain.CertType(certType)
-	c.Description = desc
-	c.Location = location
-	c.StartDate = start
-	c.EndDate = end
-	c.MaxStudents = maxStudents
-	c.PriceFen = priceFen
-	c.Status = status
+	c.Version = old.Version
+	c.CreatedAt = old.CreatedAt // 保留原创建时间
+	c.UpdatedAt = time.Now()
 	return s.courseRepo.Update(c)
 }
 

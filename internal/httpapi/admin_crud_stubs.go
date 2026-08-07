@@ -170,12 +170,35 @@ func (s *Server) adminCreateCompetition(w http.ResponseWriter, r *http.Request) 
 		StartDate   string `json:"start_date"`
 		EndDate     string `json:"end_date"`
 		MaxTeams    int    `json:"max_teams"`
+		// 小程序赛事页扩展字段
+		Deadline           string                     `json:"deadline"`
+		OrganizerSub       string                     `json:"organizer_sub"`
+		Fee                int                        `json:"fee"`
+		MinFee             int                        `json:"min_fee"`
+		Tags               []string                   `json:"tags"`
+		Poster             string                     `json:"poster"`
+		Requirements       []domain.CompetitionRequirement `json:"requirements"`
+		Events             []domain.CompetitionEvent  `json:"events"`
+		Prizes             []domain.CompetitionPrize  `json:"prizes"`
+		RegistrationStatus string                     `json:"registration_status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.competitionSvc.Create(in.Title, in.Category, in.Description, in.Location, in.Sponsor, domain.ParseTime(in.StartDate), domain.ParseTime(in.EndDate), in.MaxTeams)
+	var deadline *time.Time
+	if d, err := parseDateInput(in.Deadline); err == nil && !d.IsZero() {
+		deadline = &d
+	}
+	c, err := s.competitionSvc.Create(domain.Competition{
+		Title: in.Title, Category: in.Category, Description: in.Description,
+		Location: in.Location, Sponsor: in.Sponsor,
+		StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
+		Fee: in.Fee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
+		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
+		RegistrationStatus: in.RegistrationStatus,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -194,12 +217,35 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 		EndDate     string `json:"end_date"`
 		MaxTeams    int    `json:"max_teams"`
 		Status      string `json:"status"`
+		// 小程序赛事页扩展字段
+		Deadline           string                     `json:"deadline"`
+		OrganizerSub       string                     `json:"organizer_sub"`
+		Fee                int                        `json:"fee"`
+		MinFee             int                        `json:"min_fee"`
+		Tags               []string                   `json:"tags"`
+		Poster             string                     `json:"poster"`
+		Requirements       []domain.CompetitionRequirement `json:"requirements"`
+		Events             []domain.CompetitionEvent  `json:"events"`
+		Prizes             []domain.CompetitionPrize  `json:"prizes"`
+		RegistrationStatus string                     `json:"registration_status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.competitionSvc.Update(id, in.Title, in.Category, in.Description, in.Location, in.Sponsor, in.Status, domain.ParseTime(in.StartDate), domain.ParseTime(in.EndDate), in.MaxTeams)
+	var deadline *time.Time
+	if d, err := parseDateInput(in.Deadline); err == nil && !d.IsZero() {
+		deadline = &d
+	}
+	c, err := s.competitionSvc.Update(domain.Competition{
+		ID: id, Title: in.Title, Category: in.Category, Description: in.Description,
+		Location: in.Location, Sponsor: in.Sponsor, Status: in.Status,
+		StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
+		Fee: in.Fee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
+		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
+		RegistrationStatus: in.RegistrationStatus,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -228,6 +274,19 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 		Capacity    int    `json:"capacity"`
 		PriceFen    int64  `json:"price_fen"`
 		Status      string `json:"status"`
+		// 小程序培训页扩展字段
+		OrgName       string               `json:"org_name"`
+		Rating        string               `json:"rating"`
+		ReviewCount   int                  `json:"review_count"`
+		District      string               `json:"district"`
+		DurationDays  int                  `json:"duration_days"`
+		Image         string               `json:"image"`
+		Tags          []string             `json:"tags"`
+		Certificate   string               `json:"certificate"`
+		Courses       []domain.CoursePrice `json:"courses"`
+		Prices        []domain.CoursePrice `json:"prices"`
+		BusinessHours string               `json:"business_hours"`
+		Phone         string               `json:"phone"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -241,9 +300,15 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 	if ms == 0 {
 		ms = in.Capacity
 	}
-	sd := domain.ParseTime(in.StartDate)
-	ed := domain.ParseTime(in.EndDate)
-	c, err := s.trainingSvc.CreateCourse(domain.Actor{Role: domain.RolePlatformAdmin}, in.Title, domain.CertType(ct), in.Description, in.Location, sd, ed, ms, in.PriceFen)
+	c, err := s.trainingSvc.CreateCourse(domain.Actor{Role: domain.RolePlatformAdmin}, domain.TrainingCourse{
+		Title: in.Title, CertType: domain.CertType(ct), Description: in.Description,
+		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		MaxStudents: ms, PriceFen: in.PriceFen, Status: in.Status,
+		OrgName: in.OrgName, Rating: in.Rating, ReviewCount: in.ReviewCount,
+		District: in.District, DurationDays: in.DurationDays, Image: in.Image,
+		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
+		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -264,6 +329,19 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 		Capacity    int    `json:"capacity"`
 		PriceFen    int64  `json:"price_fen"`
 		Status      string `json:"status"`
+		// 小程序培训页扩展字段
+		OrgName       string               `json:"org_name"`
+		Rating        string               `json:"rating"`
+		ReviewCount   int                  `json:"review_count"`
+		District      string               `json:"district"`
+		DurationDays  int                  `json:"duration_days"`
+		Image         string               `json:"image"`
+		Tags          []string             `json:"tags"`
+		Certificate   string               `json:"certificate"`
+		Courses       []domain.CoursePrice `json:"courses"`
+		Prices        []domain.CoursePrice `json:"prices"`
+		BusinessHours string               `json:"business_hours"`
+		Phone         string               `json:"phone"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -277,7 +355,15 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 	if ms == 0 {
 		ms = in.Capacity
 	}
-	c, err := s.trainingSvc.UpdateCourse(id, in.Title, ct, in.Description, in.Location, domain.ParseTime(in.StartDate), domain.ParseTime(in.EndDate), ms, in.PriceFen, in.Status)
+	c, err := s.trainingSvc.UpdateCourse(domain.TrainingCourse{
+		ID: id, Title: in.Title, CertType: domain.CertType(ct), Description: in.Description,
+		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		MaxStudents: ms, PriceFen: in.PriceFen, Status: in.Status,
+		OrgName: in.OrgName, Rating: in.Rating, ReviewCount: in.ReviewCount,
+		District: in.District, DurationDays: in.DurationDays, Image: in.Image,
+		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
+		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -455,12 +541,39 @@ func (s *Server) updateCollege(w http.ResponseWriter, r *http.Request) {
 		CoopType    string   `json:"coop_type"`
 		Majors      []string `json:"majors"`
 		Facilities  []string `json:"facilities"`
+		// 小程序院校页扩展字段
+		City         string                  `json:"city"`
+		Tags         []string                `json:"tags"`
+		ShortName    string                  `json:"short_name"`
+		LevelTags    string                  `json:"level_tags"`
+		Specialties  []string                `json:"specialties"`
+		MajorCount   int                     `json:"major_count"`
+		PartnerCount int                     `json:"partner_count"`
+		TeacherCount int                     `json:"teacher_count"`
+		StudentCount int                     `json:"student_count"`
+		GraduateRate string                  `json:"graduate_rate"`
+		Partners     []domain.CollegePartner `json:"partners"`
+		Cover        string                  `json:"cover"`
+		Photos       []string                `json:"photos"`
+		Phone        string                  `json:"phone"`
+		Website      string                  `json:"website"`
+		Intro        string                  `json:"intro"`
+		MajorsDetail []domain.CollegeMajor   `json:"majors_detail"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.collegeSvc.Update(id, in.Name, in.Region, in.Description, in.LogoURL, in.Status, in.CoopType, in.Majors, in.Facilities)
+	c, err := s.collegeSvc.Update(domain.College{
+		ID: id, Name: in.Name, Region: in.Region, City: in.City, Description: in.Description,
+		LogoURL: in.LogoURL, Status: in.Status, CoopType: in.CoopType,
+		Majors: in.Majors, Facilities: in.Facilities,
+		Tags: in.Tags, ShortName: in.ShortName, LevelTags: in.LevelTags, Specialties: in.Specialties,
+		MajorCount: in.MajorCount, PartnerCount: in.PartnerCount, TeacherCount: in.TeacherCount,
+		StudentCount: in.StudentCount, GraduateRate: in.GraduateRate, Partners: in.Partners,
+		CoverURL: in.Cover, Photos: in.Photos, Phone: in.Phone, Website: in.Website,
+		Intro: in.Intro, MajorsDetail: in.MajorsDetail,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -484,12 +597,38 @@ func (s *Server) adminCreateCollege(w http.ResponseWriter, r *http.Request) {
 		CoopType    string   `json:"coop_type"`
 		Majors      []string `json:"majors"`
 		Facilities  []string `json:"facilities"`
+		// 小程序院校页扩展字段
+		City         string                  `json:"city"`
+		Tags         []string                `json:"tags"`
+		ShortName    string                  `json:"short_name"`
+		LevelTags    string                  `json:"level_tags"`
+		Specialties  []string                `json:"specialties"`
+		MajorCount   int                     `json:"major_count"`
+		PartnerCount int                     `json:"partner_count"`
+		TeacherCount int                     `json:"teacher_count"`
+		StudentCount int                     `json:"student_count"`
+		GraduateRate string                  `json:"graduate_rate"`
+		Partners     []domain.CollegePartner `json:"partners"`
+		Cover        string                  `json:"cover"`
+		Photos       []string                `json:"photos"`
+		Phone        string                  `json:"phone"`
+		Website      string                  `json:"website"`
+		Intro        string                  `json:"intro"`
+		MajorsDetail []domain.CollegeMajor   `json:"majors_detail"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.collegeSvc.Create(in.Name, in.Region, in.Description, in.LogoURL, in.CoopType, in.Majors, in.Facilities)
+	c, err := s.collegeSvc.Create(domain.College{
+		Name: in.Name, Region: in.Region, City: in.City, Description: in.Description,
+		LogoURL: in.LogoURL, CoopType: in.CoopType, Majors: in.Majors, Facilities: in.Facilities,
+		Tags: in.Tags, ShortName: in.ShortName, LevelTags: in.LevelTags, Specialties: in.Specialties,
+		MajorCount: in.MajorCount, PartnerCount: in.PartnerCount, TeacherCount: in.TeacherCount,
+		StudentCount: in.StudentCount, GraduateRate: in.GraduateRate, Partners: in.Partners,
+		CoverURL: in.Cover, Photos: in.Photos, Phone: in.Phone, Website: in.Website,
+		Intro: in.Intro, MajorsDetail: in.MajorsDetail,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

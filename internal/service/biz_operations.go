@@ -18,22 +18,17 @@ func NewCompetitionService(repo repository.CompetitionRepository) *CompetitionSe
 	return &CompetitionService{repo: repo}
 }
 
-func (s *CompetitionService) Create(title, category, description, location, sponsor string, startDate, endDate time.Time, maxTeams int) (domain.Competition, error) {
+// Create 接收完整领域对象（含小程序页面字段 fee/tags/poster/deadline/events 等）。
+func (s *CompetitionService) Create(c domain.Competition) (domain.Competition, error) {
 	now := time.Now()
-	c := domain.Competition{
-		ID:          fmt.Sprintf("comp-%d", now.UnixNano()),
-		Title:       title,
-		Category:    category,
-		Description: description,
-		Location:    location,
-		Sponsor:     sponsor,
-		StartDate:   startDate,
-		EndDate:     endDate,
-		MaxTeams:    maxTeams,
-		Status:      "published",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+	if c.ID == "" {
+		c.ID = fmt.Sprintf("comp-%d", now.UnixNano())
 	}
+	if c.Status == "" {
+		c.Status = "published"
+	}
+	c.CreatedAt = now
+	c.UpdatedAt = now
 	return s.repo.Create(c)
 }
 
@@ -46,20 +41,12 @@ func (s *CompetitionService) Get(id string) (domain.Competition, error) {
 	return s.repo.FindByID(id)
 }
 
-func (s *CompetitionService) Update(id, title, category, description, location, sponsor, status string, startDate, endDate time.Time, maxTeams int) (domain.Competition, error) {
-	c, err := s.repo.FindByID(id)
+func (s *CompetitionService) Update(c domain.Competition) (domain.Competition, error) {
+	old, err := s.repo.FindByID(c.ID)
 	if err != nil {
 		return domain.Competition{}, err
 	}
-	c.Title = title
-	c.Category = category
-	c.Description = description
-	c.Location = location
-	c.Sponsor = sponsor
-	c.Status = status
-	c.StartDate = startDate
-	c.EndDate = endDate
-	c.MaxTeams = maxTeams
+	c.CreatedAt = old.CreatedAt // 保留原创建时间
 	c.UpdatedAt = time.Now()
 	return s.repo.Update(c)
 }

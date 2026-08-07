@@ -147,7 +147,32 @@ type ResearchProject struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// CompetitionEvent is an event category inside a competition (register page selection).
+type CompetitionEvent struct {
+	Name   string `json:"name"`
+	Type   string `json:"type"`   // 个人赛/团体赛
+	Format string `json:"format"` // 计时排名/3人一队 等
+	Fee    int    `json:"fee"`    // 元
+}
+
+// CompetitionRequirement is an entry requirement on the detail page.
+type CompetitionRequirement struct {
+	Icon  string `json:"icon"`
+	Name  string `json:"name"`
+	Desc  string `json:"desc"`
+	Level string `json:"level"` // 初级/中级/高级
+}
+
+// CompetitionPrize is a prize tier on the detail page.
+type CompetitionPrize struct {
+	Level  string `json:"level"` // 冠军/亚军/季军
+	Amount int    `json:"amount"`
+	Metal  string `json:"metal"` // gold/silver/bronze
+	Medal  string `json:"medal"`
+}
+
 // Competition is a drone competition / contest.
+// 字段与小程序 pages/competitions/{list,detail,register}.vue 读取的名称对齐。
 type Competition struct {
 	ID          string    `json:"id"`
 	Title       string    `json:"title"`
@@ -156,10 +181,20 @@ type Competition struct {
 	Location    string    `json:"location"`
 	StartDate   time.Time `json:"start_date"`
 	EndDate     time.Time `json:"end_date"`
+	Deadline    *time.Time `json:"deadline"` // 报名截止（页面 deadline || enroll_deadline）
 	MaxTeams    int       `json:"max_teams"`
 	RegCount    int       `json:"reg_count"`
-	Sponsor     string    `json:"sponsor"`
-	Status      string    `json:"status"`
+	Sponsor     string    `json:"sponsor"`       // 主办方（页面 organizer || sponsor）
+	OrganizerSub string   `json:"organizer_sub"` // 承办方
+	Fee         int       `json:"fee"`           // 报名费（分）
+	MinFee      int       `json:"min_fee"`       // 页面「报名费 ¥xx 起/人」
+	Tags        []string  `json:"tags"`
+	Poster      string    `json:"poster"`              // 海报图（页面 poster||cover||image||banner）
+	Requirements []CompetitionRequirement `json:"requirements"`
+	Events      []CompetitionEvent `json:"events"`
+	Prizes      []CompetitionPrize `json:"prizes"`
+	RegistrationStatus string `json:"registration_status"` // 页面报名状态（open/enrolling 等）
+	Status      string    `json:"status"` // published / enrolling / ongoing / closed / full
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

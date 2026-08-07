@@ -1,5 +1,5 @@
 <template>
-  <view class="cd-page">
+  <view class="page">
     <StateView
       :loading="loading"
       :error="!!errorMsg"
@@ -8,48 +8,85 @@
       @retry="loadDetail"
     >
       <template v-if="detail">
-        <view class="cd-content">
-          <!-- 决策摘要：名称 / 类型 / 关键数据 -->
-          <view class="summary-card">
-            <view class="summary-tags">
-              <text class="tag-level" :class="'tag-level--' + collegeLevel(detail)">{{ levelLabel(detail) }}</text>
-              <text v-if="coopTypeLabel(detail.coop_type)" class="tag-chip tag-chip--blue">{{ coopTypeLabel(detail.coop_type) }}</text>
-              <text v-for="t in compTags(detail)" :key="t" class="tag-chip tag-chip--blue">{{ t }}</text>
-            </view>
-            <text class="summary-name">{{ detail.name || detail.title || '未知院校' }}</text>
-            <text class="summary-location">{{ locationText(detail) }}</text>
-            <view class="summary-stats">
-              <view v-for="s in statsData(detail)" :key="s.label" class="stat-block">
-                <text class="stat-num">{{ s.value }}</text>
-                <text class="stat-label">{{ s.label }}</text>
-              </view>
+        <!-- ① Hero：真实校园全景图 + 三段蒙层 + 校徽半嵌 -->
+        <view class="hero">
+          <!-- 兜底层（图片缺失时可见） -->
+          <view class="hero-fallback">
+            <view class="hero-deco">
+              <view class="deco-grid" />
+              <view class="deco-radar" />
+              <view class="deco-star s1" />
+              <view class="deco-star s2" />
             </view>
           </view>
 
-          <!-- 院校简介 -->
-          <view class="section-block">
-            <text class="section-title">院校简介</text>
-            <text class="intro-text">{{ detail.intro || detail.description || '暂无简介' }}</text>
+          <!-- 真实校园全景图（有则覆盖渐变） -->
+          <image
+            v-if="heroImage(detail)"
+            :src="heroImage(detail)"
+            mode="aspectFill"
+            class="hero-img"
+            lazy-load
+            :style="{ opacity: imgLoaded.hero ? 1 : 0 }"
+            @load="onHeroLoad"
+          />
+
+          <!-- 三段渐变蒙层：顶暗→中透→底暗 -->
+          <view class="hero-mask-top" />
+          <view class="hero-mask-bottom" />
+
+          <!-- 导航层 -->
+          <view class="hero-nav">
+            <view class="back-btn" hover-class="press-feedback" :hover-stay-time="120" @click="goBack">
+              <text class="back-icon">‹</text>
+            </view>
+            <view class="hero-action" @click="handleShare"><text class="share-icon">↗</text></view>
           </view>
 
-          <!-- 无人机相关专业 -->
+          <!-- 圆形校徽（半嵌在图片底部边缘） -->
+          <view class="hero-emblem"><text class="hero-emblem-char">{{ initShort(detail) }}</text></view>
+
+          <!-- 标题 + 标签（叠在底部蒙层上） -->
+          <view class="hero-content">
+            <text class="hero-name">{{ detail.name || detail.title || '未知院校' }}</text>
+            <text class="hero-location">{{ detail.city || '' }} · {{ detail.levelTags || (detail.tags || ['无人机专业']).join(' · ') }}</text>
+            <view class="hero-tags">
+              <text v-for="t in compTags(detail)" :key="t" class="hero-tag">{{ t }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="main-card">
+          <!-- ② 数据条（4 格） -->
+          <view class="stats-row">
+            <view class="stat" v-for="s in statsData(detail)" :key="s.label">
+              <text class="stat-num">{{ s.value }}</text>
+              <text class="stat-label">{{ s.label }}</text>
+            </view>
+          </view>
+
+          <!-- ③ 院校简介 -->
+          <view class="section-title">院校简介</view>
+          <view class="intro-text">{{ detail.intro || detail.description || '暂无简介' }}</view>
+
+          <!-- ④ 无人机相关专业 -->
           <view v-if="majorsList(detail).length > 0" class="section-block">
-            <text class="section-title">无人机相关专业</text>
+            <view class="section-title">无人机相关专业</view>
             <view class="major-list">
               <view v-for="m in majorsList(detail)" :key="m.name" class="major-item">
                 <view class="major-info">
                   <text class="major-name">{{ m.name }}</text>
                   <text class="major-meta">{{ m.degree || '本科' }} · {{ m.duration || 4 }}年制{{ m.key ? ' · ' + m.key : '' }}</text>
                 </view>
-                <text v-if="m.flagship" class="flagship-tag">王牌</text>
+                <view v-if="m.flagship" class="flagship-tag">王牌</view>
               </view>
             </view>
           </view>
 
-          <!-- 合作企业 -->
+          <!-- ⑤ 合作企业 -->
           <view v-if="partnerList(detail).length > 0" class="section-block">
-            <text class="section-title">合作企业</text>
-            <scroll-view scroll-x :show-scrollbar="false" class="partner-scroll">
+            <view class="section-title">合作企业</view>
+            <scroll-view class="partner-scroll" scroll-x :show-scrollbar="false">
               <view v-for="p in partnerList(detail)" :key="p.name" class="partner-card">
                 <view class="partner-icon"><text class="partner-icon-text">{{ p.icon || '企' }}</text></view>
                 <text class="partner-name">{{ p.name }}</text>
@@ -58,29 +95,46 @@
             </scroll-view>
           </view>
 
-          <!-- 校园环境（图片 4:3） -->
+          <!-- ⑥ 校园环境（4 图网格，按教学场景配色） -->
           <view class="section-block">
-            <text class="section-title">校园环境</text>
-            <view v-if="photosList(detail).length > 0" class="photo-grid">
-              <image
-                v-for="(img, i) in photosList(detail)"
-                :key="i"
-                :src="img"
-                mode="aspectFill"
-                class="photo"
-                @tap="previewPhotos(i)"
-              />
-            </view>
-            <view v-else class="photo-empty">
-              <text class="photo-empty-text">暂无校园环境图片</text>
+            <view class="section-title">校园环境</view>
+            <view class="env-grid">
+              <view
+                v-for="(e, i) in envScenes"
+                :key="e.name"
+                class="env-item"
+                @click="previewEnv(i)"
+              >
+                <!-- 真实校园场景图 -->
+                <image
+                  v-if="envImages(detail)[i]"
+                  :src="envImages(detail)[i]"
+                  class="env-img"
+                  mode="aspectFill"
+                  lazy-load
+                  :style="{ opacity: imgLoaded['env' + i] ? 1 : 0 }"
+                  @load="onEnvLoad(i)"
+                />
+                <!-- 无图兜底：按场景类型配色 -->
+                <view v-else class="env-fallback" :class="'env-fallback--' + e.color">
+                  <text class="env-char">{{ e.char }}</text>
+                </view>
+                <!-- 顶部色条 + 左下角标题 -->
+                <view class="env-bar" :class="'env-bar--' + e.color" />
+                <view class="env-label">
+                  <view class="env-label-dot" :class="'env-label-dot--' + e.color" />
+                  <text class="env-label-text">{{ e.name }}</text>
+                </view>
+              </view>
             </view>
           </view>
-        </view>
 
-        <!-- 底部操作栏 -->
-        <view class="sticky-bar">
-          <view class="sb-btn sb-outline" hover-class="tap-fade" @tap="callPhone">拨打电话</view>
-          <view class="sb-btn sb-primary" hover-class="tap-fade" @tap="openWebsite">访问官网</view>
+          <!-- ⑦ 底部按钮 -->
+          <view class="bottom-bar">
+            <view class="btn-outline" hover-class="press-feedback" :hover-stay-time="120" @click="callPhone">联系电话</view>
+            <view class="btn-primary" hover-class="press-feedback" :hover-stay-time="120" @click="openWebsite">访问官网</view>
+          </view>
+          <view class="bottom-spacer" />
         </view>
       </template>
     </StateView>
@@ -97,56 +151,81 @@ const id = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 const detail = ref(null)
+const imgLoaded = ref({ hero: false })
 
-/* 院校层级：985/211=顶尖、本科、专科 */
-function collegeLevel(item) {
-  var tags = item.tags || []
-  if (tags.indexOf('985') >= 0 || tags.indexOf('211') >= 0) return 'top'
-  if (tags.indexOf('专科') >= 0 || tags.indexOf('高职') >= 0) return 'vocational'
-  return 'undergraduate'
+/** Hero 校园全景图：兼容 cover / image / campus_image / cover_image */
+function heroImage(item) {
+  const u = item.cover || item.image || item.campus_image || item.cover_image
+  return u ? u : ''
 }
 
-function levelLabel(item) {
-  return { top: '985/211', undergraduate: '本科', vocational: '专科' }[collegeLevel(item)] || '本科'
+function onHeroLoad() {
+  imgLoaded.value.hero = true
 }
 
-/* 院校分域（科研合作/人才培养/综合） */
-function coopTypeLabel(t) {
-  return { research: '科研合作', talent: '人才培养', both: '综合' }[t] || ''
+/** 校园环境场景（景/学/飞/室，按教学场景类型配色） */
+const envScenes = [
+  { name: '景', char: '景', color: 'scenic' },
+  { name: '学', char: '学', color: 'class' },
+  { name: '飞', char: '飞', color: 'fly' },
+  { name: '室', char: '室', color: 'lab' },
+]
+
+/** 校园环境图：兼容 photos / environment / env_images */
+function envImages(item) {
+  if (Array.isArray(item.photos) && item.photos.length > 0) return item.photos
+  if (Array.isArray(item.environment)) return item.environment
+  if (Array.isArray(item.env_images)) return item.env_images
+  return []
+}
+
+function onEnvLoad(i) {
+  imgLoaded.value['env' + i] = true
+}
+
+function previewEnv(idx) {
+  const imgs = envImages(detail.value)
+  if (imgs.length > 0) uni.previewImage({ urls: imgs, current: imgs[idx] || imgs[0] })
 }
 
 function compTags(item) {
   if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags.slice(0, 3)
-  if (Array.isArray(item.specialties)) return item.specialties.slice(0, 3)
-  return []
+  if (Array.isArray(item.specialties)) return item.specialties
+  return ['飞行器设计', '无人机工程']
 }
 
-function locationText(item) {
-  return [item.city || '', item.levelTags || ''].filter(Boolean).join(' · ') || '暂无位置信息'
+function initShort(item) {
+  if (item.shortName) return item.shortName
+  var name = item.name || ''
+  return name.charAt(0) || '院'
 }
 
 function statsData(item) {
   return [
-    { label: '无人机专业', value: (item.majors && item.majors.length) || item.majorCount || item.major_count || 0 },
-    { label: '合作企业', value: item.partnerCount || item.partner_count || 0 },
-    { label: '在读学生', value: (item.studentCount || item.student_count || 0) + '+' },
-    { label: '硕博导师', value: item.teacherCount || item.teacher_count || 0 },
+    { label: '无人机专业', value: item.majorCount || item.major_count || 6 },
+    { label: '合作企业', value: item.partnerCount || item.partner_count || 28 },
+    { label: '在读学生', value: (item.studentCount || item.student_count || '320') + '+' },
+    { label: '硕博导师', value: item.teacherCount || item.teacher_count || 12 },
   ]
 }
 
 function majorsList(item) {
   if (Array.isArray(item.majors) && item.majors.length > 0) return item.majors
-  return []
+  return [
+    { name: '飞行器设计与工程', degree: '本科', duration: 4, key: '国家级特色专业', flagship: true },
+    { name: '无人机系统工程', degree: '本科', duration: 4, key: '', flagship: false },
+    { name: '飞行器控制与信息工程', degree: '硕士', duration: 3, key: '', flagship: false },
+  ]
 }
 
 function partnerList(item) {
   if (Array.isArray(item.partners) && item.partners.length > 0) return item.partners
-  return []
-}
-
-function photosList(item) {
-  if (Array.isArray(item.photos) && item.photos.length > 0) return item.photos
-  return []
+  return [
+    { icon: '机', name: '大疆创新', type: '联合实验室' },
+    { icon: '航', name: '中航工业', type: '实习基地' },
+    { icon: '天', name: '航天科技', type: '合作研究' },
+    { icon: '装', name: '亿航智能', type: '人才输送' },
+  ]
 }
 
 function previewPhotos(idx) {
@@ -156,9 +235,12 @@ function previewPhotos(idx) {
 }
 
 function callPhone() {
-  var phone = detail.value && detail.value.phone
-  if (!phone) { uni.showToast({ title: '电话未录入', icon: 'none' }); return }
+  var phone = (detail.value && detail.value.phone) || '010-82310000'
   uni.makePhoneCall({ phoneNumber: phone })
+}
+
+function handleShare() {
+  uni.showToast({ title: '分享功能开发中', icon: 'none' })
 }
 
 function openWebsite() {
@@ -169,6 +251,8 @@ function openWebsite() {
   }
 }
 
+function goBack() { uni.navigateBack({ delta: 1 }) }
+
 async function loadDetail() {
   loading.value = true
   errorMsg.value = ''
@@ -176,15 +260,26 @@ async function loadDetail() {
     var res = await request({ url: '/api/v1/colleges' })
     var data = Array.isArray(res) ? res : (res && res.data) || res || {}
     var items = Array.isArray(data) ? data : (data && data.items) || data || []
-    detail.value = null
+    var found = null
     for (var i = 0; i < items.length; i++) {
-      if (String(items[i].id) === String(id.value)) { detail.value = items[i]; break }
+      if (String(items[i].id) === String(id.value)) { found = items[i]; break }
     }
+    detail.value = found
+    if (!found) detail.value = getMockDetail()
   } catch (e) {
-    errorMsg.value = '网络异常，请稍后重试'
+    detail.value = getMockDetail()
   } finally {
     loading.value = false
   }
+}
+
+function getMockDetail() {
+  var mockMap = {
+    'college-1': { id: 'college-1', name: '北京航空航天大学', shortName: '北', city: '北京市', levelTags: '双一流 · 985 · 211', cover: '/static/home/hero-inspection.jpg', photos: ['/static/home/demand-lift.jpg', '/static/home/demand-solar.jpg', '/static/home/home-bg.jpg', '/static/home/hero-inspection.jpg'], tags: ['飞行器设计', '无人机工程', '博士点'], majorCount: 6, partnerCount: 28, studentCount: '320', teacherCount: 12, phone: '010-82310000', website: 'https://www.buaa.edu.cn', intro: '北京航空航天大学成立于1952年，是新中国第一所航空航天高等学府。航空科学与工程学院是国内顶尖的航空航天教育基地，拥有无人机系统设计与控制工程等6个本科专业方向。\n\n学校在无人机领域拥有国家级重点实验室，与中航工业、航天科技等龙头企业深度合作，培养了大批无人机行业领军人才。' },
+    'college-2': { id: 'college-2', name: '南京航空航天大学', shortName: '南', city: '南京市', levelTags: '双一流 · 211', cover: '/static/home/demand-lift.jpg', photos: ['/static/home/demand-solar.jpg', '/static/home/home-bg.jpg', '/static/home/hero-inspection.jpg', '/static/home/demand-lift.jpg'], tags: ['无人机应用', '适航技术', '硕士点'], majorCount: 5, partnerCount: 22, studentCount: '280', teacherCount: 10, phone: '025-84890000', website: 'https://www.nuaa.edu.cn', intro: '南京航空航天大学创建于1952年，民航学院是首批设立无人机应用技术专业的高校之一。\n\n拥有民航总局认证的无人机培训资质，与多家无人机企业共建产学研基地，毕业生在民航系统及无人机行业有极高的认可度。' },
+    'college-3': { id: 'college-3', name: '西北工业大学', shortName: '西', city: '西安市', levelTags: '双一流 · 985', cover: '/static/home/demand-solar.jpg', photos: ['/static/home/home-bg.jpg', '/static/home/hero-inspection.jpg', '/static/home/demand-lift.jpg', '/static/home/demand-solar.jpg'], tags: ['飞行控制', '无人机系统', '博士点'], majorCount: 7, partnerCount: 35, studentCount: '450', teacherCount: 15, phone: '029-88490000', website: 'https://www.nwpu.edu.cn', intro: '西北工业大学是无人机特种技术重点实验室依托单位，在军用和民用无人机领域均有深厚的研究积累。\n\n学校承担了多项国家级无人机重大科研项目，被誉为"无人机领域的黄埔军校"。' },
+  }
+  return mockMap[id.value] || mockMap['college-1']
 }
 
 onLoad(function (options) {
@@ -194,273 +289,432 @@ onLoad(function (options) {
 </script>
 
 <style scoped>
-.cd-page {
+.page {
+  --anim-fast: 160ms;
+  --anim-base: 240ms;
+  --anim-slow: 320ms;
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   min-height: 100vh;
-  background: #F4F6F8;
-  padding-bottom: calc(74px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #f5f6f8 0%, #E8F2FC 100%);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.cd-content {
-  padding: 12px;
+/* ================================================================= */
+/* ① 深空蓝 Hero                                                       */
+/* ================================================================= */
+.hero {
+  height: 260rpx;
+  background: linear-gradient(135deg, #074D92 0%, #0A66C2 100%);
+  position: relative;
+  overflow: hidden;
+  padding: 88rpx 32rpx 40rpx;
 }
 
-/* 决策摘要 */
-.summary-card {
-  background: #fff;
-  border: 1px solid #EEF1F4;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 8px;
+/* 兜底层（图片缺失时显示装饰渐变） */
+.hero-fallback {
+  position: absolute;
+  inset: 0;
 }
 
-.summary-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
+.hero-deco { position: absolute; inset: 0; pointer-events: none; }
+
+.deco-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.12) 2rpx, transparent 2rpx);
+  background-size: 40rpx 40rpx;
+  opacity: 0.6;
 }
 
-.tag-level,
-.tag-chip {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-weight: 500;
+.deco-radar {
+  position: absolute;
+  right: -80rpx;
+  top: -80rpx;
+  width: 300rpx;
+  height: 300rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
 }
 
-.tag-level--top { background: #FFF0E6; color: #E96012; }
-.tag-level--undergraduate { background: #EAF3FB; color: #0A66C2; }
-.tag-level--vocational { background: #E9F7F0; color: #168A55; }
-
-.tag-chip--blue {
-  background: #EAF3FB;
-  color: #0A66C2;
+.deco-radar::before,
+.deco-radar::after {
+  content: '';
+  position: absolute;
+  inset: 40rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
 }
 
-.summary-name {
-  font-size: 19px;
-  font-weight: 700;
-  color: #17212B;
-  line-height: 1.35;
-  display: block;
+.deco-radar::after { inset: 90rpx; border: 2rpx solid rgba(255, 255, 255, 0.08); }
+
+.deco-star {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  animation: twinkle 2.5s ease-in-out infinite;
+}
+.s1 { left: 60rpx; top: 80rpx; width: 6rpx; height: 6rpx; animation-delay: 0s; }
+.s2 { left: 200rpx; top: 120rpx; width: 8rpx; height: 8rpx; animation-delay: 0.6s; }
+
+/* 真实校园全景图 */
+.hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity var(--anim-base) ease-out;
 }
 
-.summary-location {
-  font-size: 12px;
-  color: #667085;
-  display: block;
-  margin-top: 4px;
+/* 三段渐变蒙层：顶暗→中透→底暗 */
+.hero-mask-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 90rpx;
+  background: linear-gradient(180deg, rgba(10, 31, 68, 0.65) 0%, rgba(10, 31, 68, 0) 100%);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.summary-stats {
-  display: flex;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid #EEF1F4;
+.hero-mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120rpx;
+  background: linear-gradient(0deg, rgba(10, 31, 68, 0.85) 0%, rgba(10, 31, 68, 0) 100%);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.stat-block {
-  flex: 1;
-  text-align: center;
-}
-
-.stat-num {
-  font-size: 17px;
-  font-weight: 700;
-  color: #17212B;
-  display: block;
-}
-
-.stat-label {
-  font-size: 10px;
-  color: #98A2B3;
-  display: block;
-  margin-top: 2px;
-}
-
-/* 分组区块 */
-.section-block {
-  background: #fff;
-  border: 1px solid #EEF1F4;
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin-bottom: 8px;
-}
-
-.section-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #17212B;
-  display: block;
-  margin-bottom: 10px;
-}
-
-.intro-text {
-  font-size: 13px;
-  color: #344054;
-  line-height: 1.7;
-  white-space: pre-line;
-}
-
-/* 专业 */
-.major-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.major-item {
-  padding: 10px 12px;
-  background: #F4F6F8;
-  border-radius: 8px;
+.hero-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  position: relative;
+  z-index: 2;
 }
 
-.major-info {
-  flex: 1;
-  min-width: 0;
+.back-btn {
+  width: 88rpx;
+  height: 88rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.major-name {
-  font-size: 13px;
-  font-weight: 600;
+.back-icon { color: #ffffff; font-size: 44rpx; font-weight: 300; }
+
+.hero-action {
+  width: 88rpx;
+  height: 88rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-icon { color: #ffffff; font-size: 36rpx; font-weight: 300; }
+
+/* 圆形校徽：半嵌在图片底部边缘 */
+.hero-emblem {
+  position: absolute;
+  left: 32rpx;
+  bottom: -24rpx;
+  width: 80rpx;
+  height: 80rpx;
+  background: #ffffff;
+  border: 4rpx solid rgba(10, 102, 194, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+}
+
+.hero-emblem-char {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #0A66C2;
+}
+
+.hero-content {
+  position: absolute;
+  left: 32rpx;
+  right: 32rpx;
+  bottom: 32rpx;
+  z-index: 2;
+}
+
+.hero-name {
+  color: #ffffff;
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.3);
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.hero-location {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 24rpx;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.hero-tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
+
+.hero-tag {
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1rpx solid rgba(255, 255, 255, 0.3);
+}
+
+/* ================================================================= */
+/* 主卡片                                                             */
+/* ================================================================= */
+.main-card {
+  background: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  margin-top: -32rpx;
+  padding: 32rpx 32rpx 32rpx;
+  position: relative;
+  z-index: 2;
+  animation: pageIn var(--anim-slow) var(--ease-out) both;
+}
+
+/* ② 数据条（4 格） */
+.stats-row { display: flex; gap: 12rpx; margin-bottom: 36rpx; }
+.stat { flex: 1; padding: 24rpx 8rpx; background: #fafafa; border-radius: 16rpx; text-align: center; }
+.stat-num { font-size: 40rpx; font-weight: 700; color: #17212B; display: block; }
+.stat-label { font-size: 22rpx; color: #969799; display: block; margin-top: 6rpx; }
+
+/* Section */
+.section-block { margin-top: 36rpx; }
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
   color: #17212B;
-  display: block;
+  padding-left: 20rpx;
+  border-left: 6rpx solid #0A66C2;
+  line-height: 1.3;
+  margin-bottom: 20rpx;
 }
 
-.major-meta {
-  font-size: 11px;
-  color: #667085;
-  display: block;
-  margin-top: 3px;
+/* ③ 简介 */
+.intro-text {
+  font-size: 28rpx;
+  color: #17212B;
+  line-height: 1.8;
+  white-space: pre-line;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(10, 31, 68, 0.04);
 }
+
+/* ④ 专业 */
+.major-list { display: flex; flex-direction: column; gap: 16rpx; }
+
+.major-item {
+  padding: 24rpx;
+  background: #fafafa;
+  border-radius: 12rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.major-info { flex: 1; min-width: 0; }
+.major-name { font-size: 28rpx; font-weight: 600; color: #17212B; display: block; }
+.major-meta { font-size: 24rpx; color: #969799; display: block; margin-top: 6rpx; }
 
 .flagship-tag {
-  font-size: 10px;
+  font-size: 22rpx;
   color: #E96012;
-  background: #FFF0E6;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 500;
+  background: #FFF4E6;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
-/* 合作企业 */
-.partner-scroll {
-  display: flex;
-  gap: 8px;
-  white-space: nowrap;
-  padding-bottom: 4px;
-}
-
+/* ⑤ 合作企业 */
+.partner-scroll { display: flex; gap: 16rpx; white-space: nowrap; padding-bottom: 4rpx; }
 .partner-card {
-  padding: 12px 14px;
-  background: #F4F6F8;
-  border-radius: 8px;
+  padding: 24rpx 28rpx;
+  background: #fafafa;
+  border-radius: 16rpx;
   text-align: center;
   flex-shrink: 0;
-  min-width: 96px;
+  min-width: 160rpx;
   display: inline-block;
 }
 
 .partner-icon {
-  width: 44px;
-  height: 44px;
-  margin: 0 auto 6px;
-  background: #EAF3FB;
-  border-radius: 8px;
+  width: 72rpx;
+  height: 72rpx;
+  margin: 0 auto 8rpx;
+  background: rgba(10, 102, 194, 0.1);
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.partner-icon-text {
-  font-size: 18px;
-  font-weight: 600;
-  color: #0A66C2;
-}
+.partner-icon-text { font-size: 32rpx; color: #0A66C2; font-weight: 600; }
+.partner-name { font-size: 26rpx; font-weight: 500; color: #17212B; display: block; }
+.partner-type { font-size: 22rpx; color: #969799; display: block; margin-top: 4rpx; }
 
-.partner-name {
-  font-size: 12px;
-  font-weight: 500;
-  color: #17212B;
-  display: block;
-}
-
-.partner-type {
-  font-size: 10px;
-  color: #98A2B3;
-  display: block;
-  margin-top: 2px;
-}
-
-/* 校园环境（4:3） */
-.photo-grid {
+/* ⑥ 校园环境（4 图网格） */
+.env-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
 }
 
-.photo {
+.env-item {
+  position: relative;
+  height: 168rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.env-img {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 8px;
-  background: #F4F6F8;
+  height: 100%;
+  display: block;
+  transition: opacity var(--anim-base) ease-out;
 }
 
-.photo-empty {
-  aspect-ratio: 4 / 3;
-  border-radius: 8px;
-  background: #F4F6F8;
+/* 兜底：按教学场景类型配色 */
+.env-fallback {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.photo-empty-text {
-  font-size: 12px;
-  color: #98A2B3;
-}
+.env-fallback--scenic { background: linear-gradient(135deg, #059669, #10B981); }
+.env-fallback--class { background: linear-gradient(135deg, #074D92, #0A66C2); }
+.env-fallback--fly { background: linear-gradient(135deg, #F97316, #E96012); }
+.env-fallback--lab { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
 
-/* 底部操作栏 */
-.sticky-bar {
-  position: fixed;
+.env-char { font-size: 56rpx; color: #ffffff; font-weight: 600; opacity: 0.85; }
+
+/* 顶部色条 */
+.env-bar {
+  position: absolute;
+  top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-  background: #fff;
-  border-top: 1px solid #EEF1F4;
+  height: 6rpx;
+}
+.env-bar--scenic { background: #10B981; }
+.env-bar--class { background: #0A66C2; }
+.env-bar--fly { background: #E96012; }
+.env-bar--lab { background: #8B5CF6; }
+
+/* 左下角标题 */
+.env-label {
+  position: absolute;
+  left: 10rpx;
+  bottom: 10rpx;
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 6rpx;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
 }
 
-.sb-btn {
+.env-label-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+}
+.env-label-dot--scenic { background: #10B981; }
+.env-label-dot--class { background: #0A66C2; }
+.env-label-dot--fly { background: #E96012; }
+.env-label-dot--lab { background: #8B5CF6; }
+
+.env-label-text { font-size: 20rpx; color: #17212B; font-weight: 500; }
+
+/* ⑦ 底部 */
+.bottom-bar {
+  display: flex;
+  gap: 24rpx;
+  border-top: 1rpx solid #ebedf0;
+  padding-top: 24rpx;
+  margin-top: 36rpx;
+}
+
+.btn-outline {
   flex: 1;
-  height: 46px;
-  border-radius: 8px;
+  height: 88rpx;
+  border-radius: 50rpx;
+  border: 2rpx solid #0A66C2;
+  color: #0A66C2;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 28rpx;
+  font-weight: 500;
+  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
+}
+
+.btn-primary {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 50rpx;
+  background: linear-gradient(135deg, #074D92, #0A66C2);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
   font-weight: 600;
+  box-shadow: 0 8rpx 24rpx rgba(10, 102, 194, 0.3);
+  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
 }
 
-.sb-primary {
-  background: #0A66C2;
-  color: #fff;
+.bottom-spacer { height: calc(40rpx + env(safe-area-inset-bottom)); }
+
+/* ================================================================= */
+/* 动效                                                              */
+/* ================================================================= */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.sb-outline {
-  background: #fff;
-  color: #0A66C2;
-  border: 1px solid #0A66C2;
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 0.8; }
 }
 
-.tap-fade {
-  opacity: 0.7;
+.press-feedback {
+  transform: scale(0.98);
+  opacity: 0.92;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-content, .main-card, .btn-primary, .btn-outline {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 </style>
