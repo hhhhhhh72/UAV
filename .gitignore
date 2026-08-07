@@ -29,3 +29,6 @@ package-lock.json
 *.swp
 Test/
 ~$*
+
+# 本地 AI 工具库（Qoder 工作区，201MB，不入库）
+microAPP-main/
