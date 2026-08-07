@@ -2,7 +2,7 @@
 <view class="page" v-if="product.id">
   <!-- ═══════ 图区 ═══════ -->
   <view class="img-box">
-    <swiper v-if="images.length" :current="curImg" @change="e=>curImg=e.detail.current" circular>
+    <swiper v-if="images.length" class="img-swiper-box" :current="curImg" @change="e=>curImg=e.detail.current" circular autoplay :interval="3500" :duration="400">
       <swiper-item v-for="(img,i) in images" :key="i">
         <image :src="img" mode="aspectFill" class="img-swiper" :class="{ 'img-loaded': loadedImgs[i] }" @load="onImgLoad(i)" @click="preview(i)" />
       </swiper-item>
@@ -304,6 +304,10 @@ const buy = () => {
   height: 660rpx;
   background: linear-gradient(160deg, #074D92 0%, #0A66C2 55%, #1DD4A8 130%);
   overflow: hidden;
+}
+.img-swiper-box {
+  width: 100%;
+  height: 100%;
 }
 .img-swiper {
   width: 100%;
