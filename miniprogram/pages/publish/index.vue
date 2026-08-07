@@ -40,6 +40,17 @@
           </view>
           <text class="pub-arrow">›</text>
         </view>
+
+        <view class="pub-item" hover-class="tap-fade" @tap="publish('course')">
+          <view class="pub-icon" :style="{ background: '#F0EDFF' }">
+            <image class="pub-icon-img" :src="'/static/home/icons/training.svg'" mode="aspectFit" />
+          </view>
+          <view class="pub-copy">
+            <text class="pub-name">发布培训课程</text>
+            <text class="pub-desc">CAAC/UTC/职业技能等课程招生</text>
+          </view>
+          <text class="pub-arrow">›</text>
+        </view>
       </view>
 
       <!-- 我的发布管理 -->
@@ -72,6 +83,7 @@ const publish = (type) => {
   if (type === 'demand') return uni.navigateTo({ url: '/pages/demands/publish' })
   if (type === 'service') return uni.navigateTo({ url: '/pages/publish/service' })
   if (type === 'product') return uni.navigateTo({ url: '/pages/publish/product' })
+  if (type === 'course') return uni.navigateTo({ url: '/pages/publish/course' })
   uni.showToast({ title: '暂未开放', icon: 'none', duration: 2000 })
 }
 const go = (url) => uni.navigateTo({ url })

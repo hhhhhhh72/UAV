@@ -557,6 +557,15 @@
       }
     },
     {
+      "path": "pages/publish/course",
+      "style": {
+        "navigationBarTitleText": "发布培训课程",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/jobs/mine",
       "style": {
         "navigationBarTitleText": "我的招聘",
