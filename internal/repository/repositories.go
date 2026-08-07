@@ -40,6 +40,7 @@ type UserRepository interface {
 	All() ([]domain.User, error)
 	UpdateRole(id string, role domain.Role) error
 	UpdateAvatar(userID, avatarURL string) error
+	UpdateName(userID, name string) error
 	Delete(id string) error
 }
 
@@ -259,11 +260,20 @@ type LoanRepository interface {
 // MessageRepository manages in-app messages.
 type MessageRepository interface {
 	Create(domain.Message) (domain.Message, error)
+	FindByID(id string) (domain.Message, error)
 	ListByUser(userID string, unreadOnly bool) ([]domain.Message, error)
 	MarkRead(id string) (domain.Message, error)
 	UnreadCount(userID string) (int, error)
 	ListAll(offset, limit int) ([]domain.Message, int, error)
 	Delete(id string) error
+}
+
+// ApplicationRepository manages service applications (miniprogram /api/submit).
+type ApplicationRepository interface {
+	Create(domain.Application) (domain.Application, error)
+	FindByID(id string) (domain.Application, error)
+	ListByUser(userID string, offset, limit int) ([]domain.Application, int, error)
+	ListAll(offset, limit int) ([]domain.Application, int, error)
 }
 
 // ArticleRepository manages news articles.

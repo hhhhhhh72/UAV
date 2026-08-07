@@ -964,6 +964,18 @@ func (r *memUserRepo) UpdateAvatar(userID, avatarURL string) error {
 	return fmt.Errorf("user not found")
 }
 
+func (r *memUserRepo) UpdateName(userID, name string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == userID {
+			r.items[i].Name = name
+			return nil
+		}
+	}
+	return fmt.Errorf("user not found")
+}
+
 func (r *memUserRepo) Delete(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -1667,6 +1679,16 @@ func (r *msgRepo) Create(m domain.Message) (domain.Message, error) {
 	defer r.mu.Unlock()
 	r.items = append(r.items, m)
 	return m, nil
+}
+func (r *msgRepo) FindByID(id string) (domain.Message, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, m := range r.items {
+		if m.ID == id {
+			return m, nil
+		}
+	}
+	return domain.Message{}, fmt.Errorf("message %s not found", id)
 }
 func (r *msgRepo) ListByUser(userID string, unreadOnly bool) ([]domain.Message, error) {
 	r.mu.RLock()

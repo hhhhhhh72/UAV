@@ -178,7 +178,13 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	respond(w, r, http.StatusOK, map[string]any{"id": a.ID, "role": a.Role, "avatar_url": in.AvatarURL, "status": "active"})
+	if in.Name != "" {
+		if err := s.userRepo.UpdateName(a.ID, in.Name); err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+	}
+	respond(w, r, http.StatusOK, map[string]any{"id": a.ID, "role": a.Role, "name": in.Name, "avatar_url": in.AvatarURL, "status": "active"})
 }
 
 // GET /api/v1/me
@@ -201,14 +207,17 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 			certCount = len(certs)
 		}
 	}
+	name := ""
 	avatarURL := ""
 	if u, err := s.userRepo.FindByID(a.ID); err == nil {
+		name = u.Name
 		avatarURL = u.AvatarURL
 	}
 	respond(w, r, http.StatusOK, map[string]any{
 		"id":           a.ID,
 		"role":         string(a.Role),
 		"status":       "active",
+		"name":         name,
 		"avatar_url":   avatarURL,
 		"demand_count": demandCount,
 		"cert_count":   certCount,

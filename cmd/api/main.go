@@ -125,6 +125,7 @@ func main() {
 		expertRepo      repository.ExpertRepository
 		shopRepo        repository.ShopRepository
 		caseRepo        repository.CaseRepository
+		svcAppRepo      repository.ApplicationRepository
 		complianceRepo  repository.ComplianceRepository
 		achieveRepo     repository.AchievementRepository
 		rdChallengeRepo repository.RDChallengeRepository
@@ -191,6 +192,7 @@ func main() {
 		expertRepo = pgStore.NewExpertRepository()
 		shopRepo = pgStore.NewShopRepository()
 		caseRepo = pgStore.NewCaseRepository()
+		svcAppRepo = pgStore.NewApplicationRepository()
 		complianceRepo = pgStore.NewComplianceRepository()
 		achieveRepo = pgStore.NewAchievementRepository()
 		rdChallengeRepo = pgStore.NewRDChallengeRepository()
@@ -257,6 +259,7 @@ func main() {
 		expertRepo = memory.NewExpertRepository()
 		shopRepo = memory.NewShopRepository()
 		caseRepo = memory.NewCaseRepository()
+		svcAppRepo = memory.NewApplicationRepository()
 		complianceRepo = memory.NewComplianceRepository()
 		achieveRepo = memory.NewAchievementRepository()
 		rdChallengeRepo = memory.NewRDChallengeRepository()
@@ -329,6 +332,7 @@ func main() {
 	app.SetPoolService(service.NewResourcePoolService(poolRepo))
 	app.SetTestSiteService(service.NewTestSiteService(testSiteRepo))
 	app.SetExhibitionService(service.NewExhibitionService(exhibitionRepo))
+	app.SetApplicationService(service.NewApplicationService(svcAppRepo))
 
 	if pgStore != nil {
 		app.SetAuditWriter(postgres.NewAuditAdapter(pgStore))

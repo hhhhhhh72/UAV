@@ -3,6 +3,7 @@ package httpapi
 import (
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -211,28 +212,46 @@ func (s *Server) h5ListApplications(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) h5SubmitApplication(w http.ResponseWriter, r *http.Request) {
-	var app h5Application
-	if err := decode(r, &app); err != nil {
+	if s.appSvc == nil {
+		fail(w, r, http.StatusInternalServerError, errors.New("application service unavailable"))
+		return
+	}
+	// 全量表单入库（form_data JSONB），关键字段抽列便于管理端查询
+	var raw map[string]any
+	if err := decode(r, &raw); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	app.ID = time.Now().Format("20060102150405") + randomSuffix(4)
-	app.CreateTime = time.Now().Format(time.RFC3339)
-	if app.ApplyTime == "" {
-		app.ApplyTime = time.Now().Format("2006-01-02 15:04:05")
+	now := time.Now()
+	app := domain.Application{
+		ID:          now.Format("20060102150405") + randomSuffix(4),
+		UserID:      strFromMap(raw, "userId"),
+		ServiceID:   strFromMap(raw, "serviceId"),
+		ServiceName: strFromMap(raw, "serviceName"),
+		OrderNo:     strFromMap(raw, "orderNo"),
+		Status:      "待处理",
+		ApplyTime:   now.Format("2006-01-02 15:04:05"),
+		FormData:    raw,
 	}
-	if app.Status == "" {
-		app.Status = "待处理"
+	if v := strFromMap(raw, "status"); v != "" {
+		app.Status = v
 	}
-
-	var apps []h5Application
-	readJSON(_appsFile, &_appsMu, &apps)
-	apps = append(apps, app)
-	if err := writeJSON(_appsFile, &_appsMu, apps); err != nil {
+	if v := strFromMap(raw, "applyTime"); v != "" {
+		app.ApplyTime = v
+	}
+	if _, err := s.appSvc.Create(app); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]any{"success": true, "id": app.ID})
+}
+
+// strFromMap returns the string value at key, or "" if missing / not a string.
+func strFromMap(m map[string]any, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
 }
 
 func (s *Server) h5UpdateApplication(w http.ResponseWriter, r *http.Request) {
@@ -1041,6 +1060,8 @@ func (s *Server) registerH5AuthRoutes(mux *http.ServeMux) {
 	// 系统配置读写均无条件注册（管理后台 ServiceConfigList 在生产环境需要保存配置）
 	mux.HandleFunc("GET /api/services/config", s.h5GetServicesConfig)
 	mux.HandleFunc("POST /api/services/config", s.h5SaveServicesConfig)
+	// 服务申请提交生产注册（写入 service_applications 表；列表/更新等仍 dev-only）
+	mux.HandleFunc("POST /api/submit", s.h5SubmitApplication)
 }
 
 func (s *Server) registerH5Compat(mux *http.ServeMux) {
@@ -1051,9 +1072,8 @@ func (s *Server) registerH5Compat(mux *http.ServeMux) {
 	// Upload
 	mux.HandleFunc("POST /api/upload", s.h5Upload)
 
-	// Applications
+	// Applications（提交已生产注册，其余 JSON 文件路由 dev-only）
 	mux.HandleFunc("GET /api/list", s.h5ListApplications)
-	mux.HandleFunc("POST /api/submit", s.h5SubmitApplication)
 	mux.HandleFunc("POST /api/update", s.h5UpdateApplication)
 	mux.HandleFunc("GET /api/export", s.h5ExportApplications)
 

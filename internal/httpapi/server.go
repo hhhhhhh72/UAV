@@ -93,6 +93,7 @@ type Server struct {
 	rescueCaseSvc  *service.RescueCaseService
 	emergDeptSvc   *service.EmergencyDeptService
 	assocMemberSvc *service.AssociationMemberService
+	appSvc         *service.ApplicationService
 	userRepo       repository.UserRepository
 	refreshRepo    repository.RefreshTokenRepository
 	tokens         *TokenManager
@@ -242,6 +243,7 @@ func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)     
 func (s *Server) SetAssociationMemberService(svc *service.AssociationMemberService) {
 	s.assocMemberSvc = svc
 }
+func (s *Server) SetApplicationService(svc *service.ApplicationService) { s.appSvc = svc }
 
 // audit records a write operation to the audit log if a writer is configured.
 func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resourceID, result string) {

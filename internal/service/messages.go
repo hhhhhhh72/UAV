@@ -29,6 +29,10 @@ func (s *MessageService) ListForUser(userID string, unreadOnly bool) ([]domain.M
 	return s.repo.ListByUser(userID, unreadOnly)
 }
 
+func (s *MessageService) Get(msgID string) (domain.Message, error) {
+	return s.repo.FindByID(msgID)
+}
+
 func (s *MessageService) MarkRead(msgID string) (domain.Message, error) {
 	return s.repo.MarkRead(msgID)
 }

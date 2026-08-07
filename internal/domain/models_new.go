@@ -19,6 +19,20 @@ type Expert struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// Application is a service application submitted from the miniprogram
+// (formerly JSON-file backed h5Application; now persisted in service_applications).
+type Application struct {
+	ID          string         `json:"id"`
+	UserID      string         `json:"user_id"`
+	ServiceID   string         `json:"service_id"`
+	ServiceName string         `json:"service_name"`
+	OrderNo     string         `json:"order_no"`
+	Status      string         `json:"status"`
+	ApplyTime   string         `json:"apply_time"`
+	FormData    map[string]any `json:"form_data"`
+	CreatedAt   time.Time      `json:"created_at"`
+}
+
 // CaseEntry is a successful project case or industry best-practice.
 type CaseEntry struct {
 	ID          string    `json:"id"`

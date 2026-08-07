@@ -1277,8 +1277,12 @@ func (s *Server) getComplianceStandard(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, cs)
 }
 func (s *Server) getMessage(w http.ResponseWriter, r *http.Request) {
-	// messages don't have a direct Get, just mark as read
-	respond(w, r, 200, map[string]string{"note": "detail not supported"})
+	m, err := s.msgSvc.Get(r.PathValue("id"))
+	if err != nil {
+		fail(w, r, 404, err)
+		return
+	}
+	respond(w, r, 200, m)
 }
 func (s *Server) getEmergencyDispatch(w http.ResponseWriter, r *http.Request) {
 	d, err := s.emergencySvc.FindDispatchByID(r.PathValue("id"))

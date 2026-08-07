@@ -510,3 +510,76 @@ func (r *resourceRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM industry_resources WHERE id=$1`, id)
 	return err
 }
+
+// ---- Application (service_applications) ----
+
+type appRepo struct{ pool *pgxpool.Pool }
+
+func (s *Store) NewApplicationRepository() repository.ApplicationRepository { return &appRepo{pool: s.Pool()} }
+
+func (r *appRepo) Create(a domain.Application) (domain.Application, error) {
+	a.CreatedAt = time.Now()
+	data, err := json.Marshal(a.FormData)
+	if err != nil {
+		return domain.Application{}, fmt.Errorf("marshal application form: %w", err)
+	}
+	_, err = r.pool.Exec(context.Background(),
+		`INSERT INTO service_applications (id,user_id,service_id,service_name,order_no,status,apply_time,form_data,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		a.ID, a.UserID, a.ServiceID, a.ServiceName, a.OrderNo, a.Status, a.ApplyTime, data, a.CreatedAt)
+	if err != nil {
+		return domain.Application{}, fmt.Errorf("insert application: %w", err)
+	}
+	return a, nil
+}
+func (r *appRepo) FindByID(id string) (domain.Application, error) {
+	var a domain.Application
+	var data []byte
+	err := r.pool.QueryRow(context.Background(),
+		`SELECT id,user_id,service_id,service_name,order_no,status,apply_time,form_data,created_at FROM service_applications WHERE id=$1`, id).
+		Scan(&a.ID, &a.UserID, &a.ServiceID, &a.ServiceName, &a.OrderNo, &a.Status, &a.ApplyTime, &data, &a.CreatedAt)
+	if err != nil {
+		return domain.Application{}, fmt.Errorf("find application %s: %w", id, err)
+	}
+	json.Unmarshal(data, &a.FormData)
+	return a, nil
+}
+func (r *appRepo) ListByUser(userID string, offset, limit int) ([]domain.Application, int, error) {
+	var total int
+	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM service_applications WHERE user_id=$1`, userID).Scan(&total)
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,user_id,service_id,service_name,order_no,status,apply_time,form_data,created_at FROM service_applications WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		userID, limit, offset)
+	if err != nil {
+		return nil, total, fmt.Errorf("list applications: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Application
+	for rows.Next() {
+		var a domain.Application
+		var data []byte
+		rows.Scan(&a.ID, &a.UserID, &a.ServiceID, &a.ServiceName, &a.OrderNo, &a.Status, &a.ApplyTime, &data, &a.CreatedAt)
+		json.Unmarshal(data, &a.FormData)
+		out = append(out, a)
+	}
+	return out, total, rows.Err()
+}
+func (r *appRepo) ListAll(offset, limit int) ([]domain.Application, int, error) {
+	var total int
+	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM service_applications`).Scan(&total)
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,user_id,service_id,service_name,order_no,status,apply_time,form_data,created_at FROM service_applications ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+		limit, offset)
+	if err != nil {
+		return nil, total, fmt.Errorf("list all applications: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Application
+	for rows.Next() {
+		var a domain.Application
+		var data []byte
+		rows.Scan(&a.ID, &a.UserID, &a.ServiceID, &a.ServiceName, &a.OrderNo, &a.Status, &a.ApplyTime, &data, &a.CreatedAt)
+		json.Unmarshal(data, &a.FormData)
+		out = append(out, a)
+	}
+	return out, total, rows.Err()
+}

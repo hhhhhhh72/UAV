@@ -104,6 +104,16 @@ func (r *msgRepo) Create(m domain.Message) (domain.Message, error) {
 		m.ID, m.SenderID, m.ReceiverID, m.Title, m.Content, m.ResourceType, m.ResourceID, m.IsRead, m.CreatedAt)
 	return m, err
 }
+func (r *msgRepo) FindByID(id string) (domain.Message, error) {
+	var m domain.Message
+	err := r.pool.QueryRow(context.Background(),
+		`SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages WHERE id=$1`, id).
+		Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt)
+	if err != nil {
+		return domain.Message{}, fmt.Errorf("find message %s: %w", id, err)
+	}
+	return m, nil
+}
 func (r *msgRepo) ListByUser(userID string, unreadOnly bool) ([]domain.Message, error) {
 	q := `SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages WHERE receiver_id=$1`
 	if unreadOnly {

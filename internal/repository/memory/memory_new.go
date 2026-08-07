@@ -351,3 +351,59 @@ func (r *projAppRepo) Update(a domain.ProjectApplication) (domain.ProjectApplica
 	for i, v := range r.items { if v.ID == a.ID { a.UpdatedAt = time.Now(); r.items[i] = a; return a, nil } }
 	return domain.ProjectApplication{}, fmt.Errorf("application %s not found", a.ID)
 }
+
+// ---- Application (service_applications) ----
+
+type appRepo struct {
+	mu    sync.RWMutex
+	items []domain.Application
+}
+
+func NewApplicationRepository() repository.ApplicationRepository { return &appRepo{} }
+
+func (r *appRepo) Create(a domain.Application) (domain.Application, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	a.CreatedAt = time.Now()
+	r.items = append(r.items, a)
+	return a, nil
+}
+func (r *appRepo) FindByID(id string) (domain.Application, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, a := range r.items {
+		if a.ID == id {
+			return a, nil
+		}
+	}
+	return domain.Application{}, fmt.Errorf("application %s not found", id)
+}
+func (r *appRepo) ListByUser(userID string, offset, limit int) ([]domain.Application, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	all := make([]domain.Application, 0)
+	for _, a := range r.items {
+		if a.UserID == userID {
+			all = append(all, a)
+		}
+	}
+	return slicePage(all, offset, limit)
+}
+func (r *appRepo) ListAll(offset, limit int) ([]domain.Application, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return slicePage(r.items, offset, limit)
+}
+
+// slicePage returns the offset/limit page of a sorted slice plus its total count.
+func slicePage[T any](items []T, offset, limit int) ([]T, int, error) {
+	total := len(items)
+	if offset >= total {
+		return []T{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return items[offset:end], total, nil
+}
