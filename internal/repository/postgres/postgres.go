@@ -14,6 +14,15 @@ import (
 	"drone-platform/internal/repository"
 )
 
+// jsonbSlice 保证 JSONB 数组列写入非 NULL：pgx v5 将 nil slice 编码为 SQL NULL，
+// 会违反 NOT NULL DEFAULT '[]' 约束（此前 training_courses.tags 等列踩过 23502）。
+func jsonbSlice[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
+}
+
 // ---- Connection ----
 
 type Store struct {
@@ -272,7 +281,7 @@ func (s *Store) NewEnterpriseRepository() repository.EnterpriseRepository {
 
 func (r *enterpriseRepo) Pending() ([]domain.Enterprise, error) {
 	rows, err := r.pool.Query(context.Background(), `
-		SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, license_url, account_name, status, is_member, version, created_at, updated_at
+		SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, business_hours, logo, cover_image, license_url, account_name, status, is_member, version, created_at, updated_at
 		FROM enterprises WHERE status = 'submitted' ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("pending enterprises: %w", err)
@@ -282,7 +291,7 @@ func (r *enterpriseRepo) Pending() ([]domain.Enterprise, error) {
 	for rows.Next() {
 		var e domain.Enterprise
 		var status string
-		if err := rows.Scan(&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description,
+		if err := rows.Scan(&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description, &e.BusinessHours, &e.Logo, &e.CoverImage,
 			&e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan enterprise: %w", err)
 		}
@@ -322,9 +331,9 @@ func (r *enterpriseRepo) Create(e domain.Enterprise) (domain.Enterprise, error) 
 		}
 	}
 	_, err := r.pool.Exec(context.Background(), `
-		INSERT INTO enterprises (id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, license_url, account_name, status, is_member, version, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-		e.ID, e.OwnerUserID, e.Name, e.CreditCode, e.LegalPerson, e.ContactPhone, e.IndustryCategory, e.Scale, e.Address, e.Description, e.LicenseURL, e.AccountName, string(e.Status), e.IsMember, e.Version, e.CreatedAt, e.UpdatedAt)
+		INSERT INTO enterprises (id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, business_hours, logo, cover_image, license_url, account_name, status, is_member, version, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+		e.ID, e.OwnerUserID, e.Name, e.CreditCode, e.LegalPerson, e.ContactPhone, e.IndustryCategory, e.Scale, e.Address, e.Description, e.BusinessHours, e.Logo, e.CoverImage, e.LicenseURL, e.AccountName, string(e.Status), e.IsMember, e.Version, e.CreatedAt, e.UpdatedAt)
 	if err != nil {
 		return domain.Enterprise{}, fmt.Errorf("create enterprise: %w", err)
 	}
@@ -351,8 +360,8 @@ func (r *enterpriseRepo) Update(id string, e domain.Enterprise) (domain.Enterpri
 	e.Version++
 	e.UpdatedAt = time.Now()
 	tag, err := r.pool.Exec(context.Background(), `
-		UPDATE enterprises SET name=$1, credit_code=$2, legal_person=$3, contact_phone=$4, industry_category=$5, scale=$6, address=$7, description=$8, license_url=$9, account_name=$10, status=$11, version=$12, updated_at=$13 WHERE id=$14`,
-		e.Name, e.CreditCode, e.LegalPerson, e.ContactPhone, e.IndustryCategory, e.Scale, e.Address, e.Description, e.LicenseURL, e.AccountName, string(e.Status), e.Version, e.UpdatedAt, id)
+		UPDATE enterprises SET name=$1, credit_code=$2, legal_person=$3, contact_phone=$4, industry_category=$5, scale=$6, address=$7, description=$8, business_hours=$9, logo=$10, cover_image=$11, license_url=$12, account_name=$13, status=$14, version=$15, updated_at=$16 WHERE id=$17`,
+		e.Name, e.CreditCode, e.LegalPerson, e.ContactPhone, e.IndustryCategory, e.Scale, e.Address, e.Description, e.BusinessHours, e.Logo, e.CoverImage, e.LicenseURL, e.AccountName, string(e.Status), e.Version, e.UpdatedAt, id)
 	if err != nil {
 		return domain.Enterprise{}, fmt.Errorf("update enterprise: %w", err)
 	}
@@ -366,9 +375,9 @@ func (r *enterpriseRepo) FindByID(id string) (domain.Enterprise, error) {
 	var e domain.Enterprise
 	var status string
 	err := r.pool.QueryRow(context.Background(), `
-		SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, license_url, account_name, status, is_member, version, created_at, updated_at
+		SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, business_hours, logo, cover_image, license_url, account_name, status, is_member, version, created_at, updated_at
 		FROM enterprises WHERE id=$1`, id).Scan(
-		&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description, &e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt)
+		&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description, &e.BusinessHours, &e.Logo, &e.CoverImage, &e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
 		return domain.Enterprise{}, fmt.Errorf("enterprise %s not found", id)
 	}
@@ -407,7 +416,7 @@ func (r *enterpriseRepo) ListByStatus(status string, offset, limit int) ([]domai
 }
 
 func scanEnterprises(pool *pgxpool.Pool, cipher *crypto.Cipher, where string, args ...any) ([]domain.Enterprise, error) {
-	q := `SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, license_url, account_name, status, is_member, version, created_at, updated_at FROM enterprises ` + where
+	q := `SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, business_hours, logo, cover_image, license_url, account_name, status, is_member, version, created_at, updated_at FROM enterprises ` + where
 	rows, err := pool.Query(context.Background(), q, args...)
 	if err != nil {
 		return nil, err
@@ -417,7 +426,7 @@ func scanEnterprises(pool *pgxpool.Pool, cipher *crypto.Cipher, where string, ar
 	for rows.Next() {
 		var e domain.Enterprise
 		var status string
-		if err := rows.Scan(&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description, &e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.OwnerUserID, &e.Name, &e.CreditCode, &e.LegalPerson, &e.ContactPhone, &e.IndustryCategory, &e.Scale, &e.Address, &e.Description, &e.BusinessHours, &e.Logo, &e.CoverImage, &e.LicenseURL, &e.AccountName, &status, &e.IsMember, &e.Version, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, err
 		}
 		e.Status = domain.EnterpriseStatus(status)
@@ -1467,6 +1476,13 @@ const collegeCols = `id,name,region,city,description,logo_url,status,coop_type,m
 func (r *pgCollegeRepo) Create(c domain.College) (domain.College, error) {
 	c.CreatedAt = time.Now()
 	c.UpdatedAt = c.CreatedAt
+	c.Majors = jsonbSlice(c.Majors)
+	c.Facilities = jsonbSlice(c.Facilities)
+	c.Tags = jsonbSlice(c.Tags)
+	c.Specialties = jsonbSlice(c.Specialties)
+	c.Partners = jsonbSlice(c.Partners)
+	c.Photos = jsonbSlice(c.Photos)
+	c.MajorsDetail = jsonbSlice(c.MajorsDetail)
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO colleges (`+collegeCols+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)`,
 		c.ID, c.Name, c.Region, c.City, c.Description, c.LogoURL, c.Status, c.CoopType, c.Majors, c.Facilities,
@@ -1512,6 +1528,13 @@ func (r *pgCollegeRepo) List(region string) ([]domain.College, error) {
 
 func (r *pgCollegeRepo) Update(c domain.College) (domain.College, error) {
 	c.UpdatedAt = time.Now()
+	c.Majors = jsonbSlice(c.Majors)
+	c.Facilities = jsonbSlice(c.Facilities)
+	c.Tags = jsonbSlice(c.Tags)
+	c.Specialties = jsonbSlice(c.Specialties)
+	c.Partners = jsonbSlice(c.Partners)
+	c.Photos = jsonbSlice(c.Photos)
+	c.MajorsDetail = jsonbSlice(c.MajorsDetail)
 	_, err := r.pool.Exec(context.Background(),
 		`UPDATE colleges SET name=$1,region=$2,city=$3,description=$4,logo_url=$5,status=$6,coop_type=$7,majors=$8,facilities=$9,tags=$10,short_name=$11,level_tags=$12,specialties=$13,major_count=$14,partner_count=$15,teacher_count=$16,student_count=$17,graduate_rate=$18,partners=$19,cover=$20,photos=$21,phone=$22,website=$23,intro=$24,majors_detail=$25,updated_at=$26 WHERE id=$27`,
 		c.Name, c.Region, c.City, c.Description, c.LogoURL, c.Status, c.CoopType, c.Majors, c.Facilities,

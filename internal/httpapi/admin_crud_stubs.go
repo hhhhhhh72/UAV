@@ -171,16 +171,16 @@ func (s *Server) adminCreateCompetition(w http.ResponseWriter, r *http.Request) 
 		EndDate     string `json:"end_date"`
 		MaxTeams    int    `json:"max_teams"`
 		// 小程序赛事页扩展字段
-		Deadline           string                     `json:"deadline"`
-		OrganizerSub       string                     `json:"organizer_sub"`
-		Fee                int                        `json:"fee"`
-		MinFee             int                        `json:"min_fee"`
-		Tags               []string                   `json:"tags"`
-		Poster             string                     `json:"poster"`
+		Deadline           string                          `json:"deadline"`
+		OrganizerSub       string                          `json:"organizer_sub"`
+		Fee                int                             `json:"fee"`
+		MinFee             int                             `json:"min_fee"`
+		Tags               []string                        `json:"tags"`
+		Poster             string                          `json:"poster"`
 		Requirements       []domain.CompetitionRequirement `json:"requirements"`
-		Events             []domain.CompetitionEvent  `json:"events"`
-		Prizes             []domain.CompetitionPrize  `json:"prizes"`
-		RegistrationStatus string                     `json:"registration_status"`
+		Events             []domain.CompetitionEvent       `json:"events"`
+		Prizes             []domain.CompetitionPrize       `json:"prizes"`
+		RegistrationStatus string                          `json:"registration_status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -218,16 +218,16 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 		MaxTeams    int    `json:"max_teams"`
 		Status      string `json:"status"`
 		// 小程序赛事页扩展字段
-		Deadline           string                     `json:"deadline"`
-		OrganizerSub       string                     `json:"organizer_sub"`
-		Fee                int                        `json:"fee"`
-		MinFee             int                        `json:"min_fee"`
-		Tags               []string                   `json:"tags"`
-		Poster             string                     `json:"poster"`
+		Deadline           string                          `json:"deadline"`
+		OrganizerSub       string                          `json:"organizer_sub"`
+		Fee                int                             `json:"fee"`
+		MinFee             int                             `json:"min_fee"`
+		Tags               []string                        `json:"tags"`
+		Poster             string                          `json:"poster"`
 		Requirements       []domain.CompetitionRequirement `json:"requirements"`
-		Events             []domain.CompetitionEvent  `json:"events"`
-		Prizes             []domain.CompetitionPrize  `json:"prizes"`
-		RegistrationStatus string                     `json:"registration_status"`
+		Events             []domain.CompetitionEvent       `json:"events"`
+		Prizes             []domain.CompetitionPrize       `json:"prizes"`
+		RegistrationStatus string                          `json:"registration_status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -287,6 +287,9 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 		Prices        []domain.CoursePrice `json:"prices"`
 		BusinessHours string               `json:"business_hours"`
 		Phone         string               `json:"phone"`
+		Remain        int                  `json:"remain"`
+		Environment   []string             `json:"environment"`
+		CourseTypes   []string             `json:"course_types"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -308,6 +311,7 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 		District: in.District, DurationDays: in.DurationDays, Image: in.Image,
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
+		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
 	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -342,6 +346,9 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 		Prices        []domain.CoursePrice `json:"prices"`
 		BusinessHours string               `json:"business_hours"`
 		Phone         string               `json:"phone"`
+		Remain        int                  `json:"remain"`
+		Environment   []string             `json:"environment"`
+		CourseTypes   []string             `json:"course_types"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -363,6 +370,7 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 		District: in.District, DurationDays: in.DurationDays, Image: in.Image,
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
+		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
 	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -1045,7 +1053,7 @@ func (s *Server) deleteEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 
 // --- Messages (missing admin list/create/update/delete) ---
 func (s *Server) listAdminMessages(w http.ResponseWriter, r *http.Request) {
-all, total, err := s.msgSvc.ListAll(0, 100000)
+	all, total, err := s.msgSvc.ListAll(0, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list messages: %w", err))
 		return

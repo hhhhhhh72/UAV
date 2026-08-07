@@ -15,13 +15,20 @@ import (
 
 type compRepo struct{ pool *pgxpool.Pool }
 
-func (s *Store) NewCompetitionRepository() repository.CompetitionRepository { return &compRepo{pool: s.Pool()} }
+func (s *Store) NewCompetitionRepository() repository.CompetitionRepository {
+	return &compRepo{pool: s.Pool()}
+}
 
 // compCols 与 competitions 表列一一对应（迁移 000044 补齐小程序页面字段）
 const compCols = `id,title,category,description,location,start_date,end_date,deadline,max_teams,reg_count,sponsor,organizer_sub,fee,min_fee,tags,poster,requirements,events,prizes,registration_status,status,created_at,updated_at`
 
 func (r *compRepo) Create(c domain.Competition) (domain.Competition, error) {
-	c.CreatedAt = time.Now(); c.UpdatedAt = c.CreatedAt
+	c.CreatedAt = time.Now()
+	c.UpdatedAt = c.CreatedAt
+	c.Tags = jsonbSlice(c.Tags)
+	c.Requirements = jsonbSlice(c.Requirements)
+	c.Events = jsonbSlice(c.Events)
+	c.Prizes = jsonbSlice(c.Prizes)
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO competitions (`+compCols+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
 		c.ID, c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
@@ -43,7 +50,9 @@ func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM competitions`).Scan(&total)
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT `+compCols+` FROM competitions ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
-	if err != nil { return nil, 0, fmt.Errorf("list competitions: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list competitions: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.Competition
 	for rows.Next() {
@@ -57,6 +66,10 @@ func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
 }
 func (r *compRepo) Update(c domain.Competition) (domain.Competition, error) {
 	c.UpdatedAt = time.Now()
+	c.Tags = jsonbSlice(c.Tags)
+	c.Requirements = jsonbSlice(c.Requirements)
+	c.Events = jsonbSlice(c.Events)
+	c.Prizes = jsonbSlice(c.Prizes)
 	_, err := r.pool.Exec(context.Background(),
 		`UPDATE competitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,deadline=$7,max_teams=$8,reg_count=$9,sponsor=$10,organizer_sub=$11,fee=$12,min_fee=$13,tags=$14,poster=$15,requirements=$16,events=$17,prizes=$18,registration_status=$19,status=$20,updated_at=$21 WHERE id=$22`,
 		c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
@@ -80,7 +93,9 @@ func (r *compRepo) CreateReg(reg domain.CompetitionReg) (domain.CompetitionReg, 
 func (r *compRepo) ListRegs(competitionID string) ([]domain.CompetitionReg, error) {
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,competition_id,user_id,team_name,member_count,contact_info,status,created_at FROM competition_registrations WHERE competition_id=$1 ORDER BY created_at DESC`, competitionID)
-	if err != nil { return nil, fmt.Errorf("list regs: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("list regs: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.CompetitionReg
 	for rows.Next() {
@@ -98,7 +113,8 @@ type eventRepo struct{ pool *pgxpool.Pool }
 func (s *Store) NewEventRepository() repository.EventRepository { return &eventRepo{pool: s.Pool()} }
 
 func (r *eventRepo) Create(e domain.AssociationEvent) (domain.AssociationEvent, error) {
-	e.CreatedAt = time.Now(); e.UpdatedAt = e.CreatedAt
+	e.CreatedAt = time.Now()
+	e.UpdatedAt = e.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO association_events (id,title,event_type,description,location,start_time,end_time,max_attendees,reg_count,cover_url,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		e.ID, e.Title, e.EventType, e.Description, e.Location, e.StartTime, e.EndTime, e.MaxAttendees, e.RegCount, e.CoverURL, e.Status, e.CreatedAt, e.UpdatedAt)
@@ -116,7 +132,9 @@ func (r *eventRepo) List(offset, limit int) ([]domain.AssociationEvent, int, err
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM association_events`).Scan(&total)
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,title,event_type,description,location,start_time,end_time,max_attendees,reg_count,cover_url,status,created_at,updated_at FROM association_events ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
-	if err != nil { return nil, 0, fmt.Errorf("list events: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list events: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.AssociationEvent
 	for rows.Next() {
@@ -149,7 +167,9 @@ func (r *eventRepo) CreateReg(reg domain.EventRegistration) (domain.EventRegistr
 func (r *eventRepo) ListRegs(eventID string) ([]domain.EventRegistration, error) {
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,event_id,user_id,name,phone,org,status,created_at FROM event_registrations WHERE event_id=$1 ORDER BY created_at DESC`, eventID)
-	if err != nil { return nil, fmt.Errorf("list event regs: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("list event regs: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.EventRegistration
 	for rows.Next() {
@@ -164,10 +184,13 @@ func (r *eventRepo) ListRegs(eventID string) ([]domain.EventRegistration, error)
 
 type emergRepo struct{ pool *pgxpool.Pool }
 
-func (s *Store) NewEmergencyRepository() repository.EmergencyRepository { return &emergRepo{pool: s.Pool()} }
+func (s *Store) NewEmergencyRepository() repository.EmergencyRepository {
+	return &emergRepo{pool: s.Pool()}
+}
 
 func (r *emergRepo) CreateResource(res domain.EmergencyResource) (domain.EmergencyResource, error) {
-	res.CreatedAt = time.Now(); res.UpdatedAt = res.CreatedAt
+	res.CreatedAt = time.Now()
+	res.UpdatedAt = res.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO emergency_resources (id,owner_id,name,res_type,specs,quantity,location,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		res.ID, res.OwnerID, res.Name, res.ResType, res.Specs, res.Quantity, res.Location, res.ContactInfo, res.Status, res.CreatedAt, res.UpdatedAt)
@@ -185,7 +208,9 @@ func (r *emergRepo) ListResources(offset, limit int) ([]domain.EmergencyResource
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM emergency_resources`).Scan(&total)
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,owner_id,name,res_type,specs,quantity,location,contact_info,status,created_at,updated_at FROM emergency_resources ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
-	if err != nil { return nil, 0, fmt.Errorf("list emergency resources: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list emergency resources: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.EmergencyResource
 	for rows.Next() {
@@ -214,7 +239,9 @@ func (r *emergRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatc
 	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM emergency_dispatches`).Scan(&total)
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
-	if err != nil { return nil, 0, fmt.Errorf("list dispatches: %w", err) }
+	if err != nil {
+		return nil, 0, fmt.Errorf("list dispatches: %w", err)
+	}
 	defer rows.Close()
 	var out []domain.EmergencyDispatch
 	for rows.Next() {

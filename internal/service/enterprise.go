@@ -27,6 +27,9 @@ type CreateEnterpriseInput struct {
 	Scale            string `json:"scale"`
 	Address          string `json:"address"`
 	Description      string `json:"description"`
+	BusinessHours    string `json:"business_hours"`
+	Logo             string `json:"logo"`
+	CoverImage       string `json:"cover_image"`
 	AccountName      string `json:"account_name"`
 	LicenseURL       string `json:"license_url"`
 }
@@ -44,6 +47,9 @@ func (s *EnterpriseSvc) Create(a domain.Actor, in CreateEnterpriseInput) (domain
 		Scale:            in.Scale,
 		Address:          in.Address,
 		Description:      in.Description,
+		BusinessHours:    in.BusinessHours,
+		Logo:             in.Logo,
+		CoverImage:       in.CoverImage,
 		LicenseURL:       in.LicenseURL,
 		AccountName:      in.AccountName,
 		Status:           domain.EnterpriseDraft,
@@ -74,6 +80,9 @@ func (s *EnterpriseSvc) Update(a domain.Actor, id string, in CreateEnterpriseInp
 	existing.Scale = in.Scale
 	existing.Address = in.Address
 	existing.Description = in.Description
+	existing.BusinessHours = in.BusinessHours
+	existing.Logo = in.Logo
+	existing.CoverImage = in.CoverImage
 	existing.LicenseURL = in.LicenseURL
 	existing.AccountName = in.AccountName
 	existing.UpdatedAt = time.Now()

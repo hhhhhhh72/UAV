@@ -102,19 +102,25 @@ type courseRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewCourseRepository() repository.CourseRepository { return &courseRepo{pool: s.Pool()} }
 
-// courseCols 与 training_courses 表列一一对应（迁移 000044 补齐小程序页面字段）
-const courseCols = `id,org_id,org_name,title,cert_type,description,start_date,end_date,max_students,enrolled_count,location,district,price_fen,rating,review_count,duration_days,image,tags,certificate,courses,prices,business_hours,phone,status,version,created_at,updated_at`
+// courseCols 与 training_courses 表列一一对应（迁移 000044/000045 补齐小程序页面字段）
+const courseCols = `id,org_id,org_name,title,cert_type,description,start_date,end_date,max_students,enrolled_count,location,district,price_fen,rating,review_count,duration_days,image,tags,certificate,courses,prices,business_hours,phone,remain,environment,course_types,status,version,created_at,updated_at`
 
 func (r *courseRepo) Create(c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	c.Version = 1
 	c.CreatedAt = time.Now()
 	c.UpdatedAt = c.CreatedAt
+	c.Tags = jsonbSlice(c.Tags)
+	c.Courses = jsonbSlice(c.Courses)
+	c.Prices = jsonbSlice(c.Prices)
+	c.Environment = jsonbSlice(c.Environment)
+	c.CourseTypes = jsonbSlice(c.CourseTypes)
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO training_courses (`+courseCols+`)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)`,
 		c.ID, c.OrgID, c.OrgName, c.Title, string(c.CertType), c.Description, c.StartDate, c.EndDate,
 		c.MaxStudents, c.EnrolledCount, c.Location, c.District, c.PriceFen, c.Rating, c.ReviewCount,
 		c.DurationDays, c.Image, c.Tags, c.Certificate, c.Courses, c.Prices, c.BusinessHours, c.Phone,
+		c.Remain, c.Environment, c.CourseTypes,
 		c.Status, c.Version, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
@@ -131,6 +137,7 @@ func (r *courseRepo) List() ([]domain.TrainingCourse, error) {
 		rows.Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
 			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
 			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
+			&c.Remain, &c.Environment, &c.CourseTypes,
 			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 		c.CertType = domain.CertType(ct)
 		out = append(out, c)
@@ -146,6 +153,7 @@ func (r *courseRepo) FindByID(id string) (domain.TrainingCourse, error) {
 		Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
 			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
 			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
+			&c.Remain, &c.Environment, &c.CourseTypes,
 			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	c.CertType = domain.CertType(ct)
 	return c, err
@@ -154,11 +162,17 @@ func (r *courseRepo) FindByID(id string) (domain.TrainingCourse, error) {
 func (r *courseRepo) Update(c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	c.Version++
 	c.UpdatedAt = time.Now()
+	c.Tags = jsonbSlice(c.Tags)
+	c.Courses = jsonbSlice(c.Courses)
+	c.Prices = jsonbSlice(c.Prices)
+	c.Environment = jsonbSlice(c.Environment)
+	c.CourseTypes = jsonbSlice(c.CourseTypes)
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE training_courses SET title=$1,cert_type=$2,description=$3,start_date=$4,end_date=$5,max_students=$6,location=$7,district=$8,price_fen=$9,rating=$10,review_count=$11,duration_days=$12,image=$13,tags=$14,certificate=$15,courses=$16,prices=$17,business_hours=$18,phone=$19,org_name=$20,status=$21,version=$22,updated_at=$23 WHERE id=$24`,
+		`UPDATE training_courses SET title=$1,cert_type=$2,description=$3,start_date=$4,end_date=$5,max_students=$6,location=$7,district=$8,price_fen=$9,rating=$10,review_count=$11,duration_days=$12,image=$13,tags=$14,certificate=$15,courses=$16,prices=$17,business_hours=$18,phone=$19,org_name=$20,remain=$21,environment=$22,course_types=$23,status=$24,version=$25,updated_at=$26 WHERE id=$27`,
 		c.Title, string(c.CertType), c.Description, c.StartDate, c.EndDate, c.MaxStudents, c.Location,
 		c.District, c.PriceFen, c.Rating, c.ReviewCount, c.DurationDays, c.Image, c.Tags, c.Certificate,
-		c.Courses, c.Prices, c.BusinessHours, c.Phone, c.OrgName, c.Status, c.Version, c.UpdatedAt, c.ID)
+		c.Courses, c.Prices, c.BusinessHours, c.Phone, c.OrgName, c.Remain, c.Environment, c.CourseTypes,
+		c.Status, c.Version, c.UpdatedAt, c.ID)
 	return c, err
 }
 
@@ -184,20 +198,20 @@ func (r *instructorRepo) Create(i domain.Instructor) (domain.Instructor, error) 
 		return domain.Instructor{}, fmt.Errorf("marshal cert types: %w", err)
 	}
 	_, err = r.pool.Exec(context.Background(),
-		`INSERT INTO instructors (id,user_id,name,cert_types,bio,org_id,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		i.ID, i.UserID, i.Name, certTypes, i.Bio, i.OrgID, i.Status, i.Version, i.CreatedAt, i.UpdatedAt)
+		`INSERT INTO instructors (id,user_id,name,photo,cert_types,bio,org_id,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		i.ID, i.UserID, i.Name, i.Photo, certTypes, i.Bio, i.OrgID, i.Status, i.Version, i.CreatedAt, i.UpdatedAt)
 	return i, err
 }
 func (r *instructorRepo) FindByID(id string) (domain.Instructor, error) {
 	var i domain.Instructor
 	var ct []byte
-	err := r.pool.QueryRow(context.Background(), `SELECT id,user_id,name,cert_types,bio,org_id,status,version,created_at,updated_at FROM instructors WHERE id=$1`, id).
-		Scan(&i.ID, &i.UserID, &i.Name, &ct, &i.Bio, &i.OrgID, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt)
+	err := r.pool.QueryRow(context.Background(), `SELECT id,user_id,name,photo,cert_types,bio,org_id,status,version,created_at,updated_at FROM instructors WHERE id=$1`, id).
+		Scan(&i.ID, &i.UserID, &i.Name, &i.Photo, &ct, &i.Bio, &i.OrgID, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt)
 	json.Unmarshal(ct, &i.CertTypes)
 	return i, err
 }
 func (r *instructorRepo) List() ([]domain.Instructor, error) {
-	rows, err := r.pool.Query(context.Background(), `SELECT id,user_id,name,cert_types,bio,org_id,status,version,created_at,updated_at FROM instructors ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(context.Background(), `SELECT id,user_id,name,photo,cert_types,bio,org_id,status,version,created_at,updated_at FROM instructors ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list instructors: %w", err)
 	}
@@ -206,7 +220,7 @@ func (r *instructorRepo) List() ([]domain.Instructor, error) {
 	for rows.Next() {
 		var i domain.Instructor
 		var ct []byte
-		rows.Scan(&i.ID, &i.UserID, &i.Name, &ct, &i.Bio, &i.OrgID, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt)
+		rows.Scan(&i.ID, &i.UserID, &i.Name, &i.Photo, &ct, &i.Bio, &i.OrgID, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt)
 		json.Unmarshal(ct, &i.CertTypes)
 		out = append(out, i)
 	}

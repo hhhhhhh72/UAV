@@ -116,10 +116,10 @@ func (s *TrainingService) DeleteCourse(id string) error {
 
 // ---- Instructors ----
 
-func (s *TrainingService) RegisterInstructor(a domain.Actor, name, bio, orgID string, certTypes []string) (domain.Instructor, error) {
+func (s *TrainingService) RegisterInstructor(a domain.Actor, name, photo, bio, orgID string, certTypes []string) (domain.Instructor, error) {
 	now := time.Now()
 	i := domain.Instructor{ID: fmt.Sprintf("instructor-%d", now.UnixNano()), UserID: a.ID, Name: name,
-		CertTypes: certTypes, Bio: bio, OrgID: orgID, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
+		Photo: photo, CertTypes: certTypes, Bio: bio, OrgID: orgID, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.instructorRepo.Create(i)
 }
 

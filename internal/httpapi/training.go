@@ -101,6 +101,9 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		Prices        []domain.CoursePrice `json:"prices"`
 		BusinessHours string               `json:"business_hours"`
 		Phone         string               `json:"phone"`
+		Remain        int                  `json:"remain"`
+		Environment   []string             `json:"environment"`
+		CourseTypes   []string             `json:"course_types"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -116,6 +119,7 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		District: in.District, DurationDays: in.DurationDays, Image: in.Image,
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
+		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
 	})
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
@@ -167,6 +171,7 @@ func (s *Server) registerInstructor(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Name      string   `json:"name"`
+		Photo     string   `json:"photo"`
 		Bio       string   `json:"bio"`
 		OrgID     string   `json:"org_id"`
 		CertTypes []string `json:"cert_types"`
@@ -175,7 +180,7 @@ func (s *Server) registerInstructor(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	i, err := s.trainingSvc.RegisterInstructor(a, in.Name, in.Bio, in.OrgID, in.CertTypes)
+	i, err := s.trainingSvc.RegisterInstructor(a, in.Name, in.Photo, in.Bio, in.OrgID, in.CertTypes)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return

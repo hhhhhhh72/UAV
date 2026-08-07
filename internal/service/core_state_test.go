@@ -314,7 +314,7 @@ func TestTrainingCertCourseFlow(t *testing.T) {
 		t.Fatal("course should be draft")
 	}
 	// Instructor
-	inst, _ := svc.RegisterInstructor(indActor(), "教练", "bio", "org-1", []string{"CAAC"})
+	inst, _ := svc.RegisterInstructor(indActor(), "教练", "", "bio", "org-1", []string{"CAAC"})
 	inst2, _ := svc.ApproveInstructor(admActor(), inst.ID)
 	_ = inst2
 	// Pilot

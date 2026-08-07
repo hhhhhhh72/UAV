@@ -83,6 +83,9 @@ type Enterprise struct {
 	Scale            string           `json:"scale"`             // 企业规模
 	Address          string           `json:"address"`           // 地址
 	Description      string           `json:"description"`       // 简介
+	BusinessHours    string           `json:"business_hours"`    // 营业时间
+	Logo             string           `json:"logo"`              // 机构 logo
+	CoverImage       string           `json:"cover_image"`       // 机构封面图
 	LicenseURL       string           `json:"license_url"`
 	AccountName      string           `json:"account_name"`
 	Status           EnterpriseStatus `json:"status"`
@@ -265,33 +268,36 @@ type CoursePrice struct {
 // TrainingCourse is a training class offered by an organisation.
 // 字段与小程序 pages/training/{courses,enroll,register}.vue 读取的名称对齐。
 type TrainingCourse struct {
-	ID            string    `json:"id"`
-	OrgID         string    `json:"org_id"`
-	OrgName       string    `json:"org_name"`       // 机构名（页面 org_name || enterprise_name || name）
-	Title         string    `json:"title"`
-	CertType      CertType  `json:"cert_type"`
-	Description   string    `json:"description"`
-	StartDate     time.Time `json:"start_date"`
-	EndDate       time.Time `json:"end_date"`
-	MaxStudents   int       `json:"max_students"`
-	EnrolledCount int       `json:"enrolled_count"`
-	Location      string    `json:"location"`
-	District      string    `json:"district"`       // 区县（页面筛选 district || region）
-	PriceFen      int64     `json:"price_fen"`
-	Rating        string    `json:"rating"`
-	ReviewCount   int       `json:"review_count"`
-	DurationDays  int       `json:"duration_days"`
-	Image         string    `json:"image"`          // 封面（页面 image||cover_image||image_url）
-	Tags          []string  `json:"tags"`
-	Certificate   string    `json:"certificate"`    // 证书/结业证书图（页面 certificate || certificate_url）
-	Courses       []CoursePrice `json:"courses"`    // 课程方案 [{name,price}]
-	Prices        []CoursePrice `json:"prices"`     // 价格方案 [{name,price}]
-	BusinessHours string    `json:"business_hours"`
-	Phone         string    `json:"phone"`          // 报名电话（页面 phone || contact_phone）
-	Status        string    `json:"status"` // draft / published / recruiting / full / upcoming / urgent
-	Version       int       `json:"version"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            string        `json:"id"`
+	OrgID         string        `json:"org_id"`
+	OrgName       string        `json:"org_name"` // 机构名（页面 org_name || enterprise_name || name）
+	Title         string        `json:"title"`
+	CertType      CertType      `json:"cert_type"`
+	Description   string        `json:"description"`
+	StartDate     time.Time     `json:"start_date"`
+	EndDate       time.Time     `json:"end_date"`
+	MaxStudents   int           `json:"max_students"`
+	EnrolledCount int           `json:"enrolled_count"`
+	Location      string        `json:"location"`
+	District      string        `json:"district"` // 区县（页面筛选 district || region）
+	PriceFen      int64         `json:"price_fen"`
+	Rating        string        `json:"rating"`
+	ReviewCount   int           `json:"review_count"`
+	DurationDays  int           `json:"duration_days"`
+	Image         string        `json:"image"` // 封面（页面 image||cover_image||image_url）
+	Tags          []string      `json:"tags"`
+	Certificate   string        `json:"certificate"` // 证书/结业证书图（页面 certificate || certificate_url）
+	Courses       []CoursePrice `json:"courses"`     // 课程方案 [{name,price}]
+	Prices        []CoursePrice `json:"prices"`      // 价格方案 [{name,price}]
+	BusinessHours string        `json:"business_hours"`
+	Phone         string        `json:"phone"`        // 报名电话（页面 phone || contact_phone）
+	Remain        int           `json:"remain"`       // 剩余名额（页面"仅剩N个"徽章）
+	Environment   []string      `json:"environment"`  // 培训环境图集（页面 environment || env_images）
+	CourseTypes   []string      `json:"course_types"` // 课程类型列表（页面 course_types）
+	Status        string        `json:"status"`       // draft / published / recruiting / full / upcoming / urgent
+	Version       int           `json:"version"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
 }
 
 // Instructor is a certified training instructor registered on the platform.
@@ -299,6 +305,7 @@ type Instructor struct {
 	ID        string    `json:"id"`
 	UserID    string    `json:"user_id"`
 	Name      string    `json:"name"`
+	Photo     string    `json:"photo"` // 教练照片
 	CertTypes []string  `json:"cert_types"`
 	Bio       string    `json:"bio"`
 	OrgID     string    `json:"org_id"`
