@@ -78,7 +78,6 @@ const categories = [
     items: [
       { name: '培训课程', icon: iconRoot + 'training.svg', path: '/pages/training/courses' },
       { name: '考证管理', icon: iconRoot + 'training.svg', path: '/pages/training/certificates' },
-      { name: '赛事中心', icon: iconRoot + 'pilot.svg', path: '/pages/competitions/list' },
       { name: '招聘求职', icon: iconRoot + 'pilot.svg', path: '/pages/jobs/list' },
       { name: '院校展示', icon: iconRoot + 'training.svg', path: '/pages/colleges/list' },
     ],
