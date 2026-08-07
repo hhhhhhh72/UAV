@@ -57,18 +57,12 @@ const tabs = ref([
   { label: '供需大厅', iconSrc: iconRoot + 'demands.svg',      activeSrc: iconRoot + 'demands-active.svg', path: '/pages/demands/index',  badge: 0, kind: 'tab' },
   { label: '发布',    iconSrc: iconRoot + 'publish.svg',      activeSrc: iconRoot + 'publish.svg',       path: '/pages/publish/index',  badge: 0, kind: 'tab' },
   { label: '生态服务', iconSrc: iconRoot + 'services.svg',     activeSrc: iconRoot + 'services-active.svg', path: '/pages/services/index', badge: 0, kind: 'tab' },
-  { label: '我的',    iconSrc: iconRoot + 'mine.svg',         activeSrc: iconRoot + 'mine-active.svg',   path: '/pages/mine/index',     badge: 0, kind: 'none' },
+  { label: '我的',    iconSrc: iconRoot + 'mine.svg',         activeSrc: iconRoot + 'mine-active.svg',   path: '/pages/mine/index',     badge: 0, kind: 'tab' },
 ])
 
 const handleTap = (tab, idx) => {
   // 已选中 tab 直接忽略
   if (idx === props.current) return
-
-  if (tab.kind === 'none') {
-    // 我的：保留图标与文字，移除点击路径与跳转
-    uni.showToast({ title: '「我的」功能将陆续开放', icon: 'none' })
-    return
-  }
   uni.switchTab({ url: tab.path })
 }
 </script>
