@@ -56,6 +56,9 @@
         <text class="spec-label">类型</text><text class="spec-val">{{ typeLabel(product.prod_type) }}</text>
       </view>
       <view class="spec-row">
+        <text class="spec-label">状态</text><text class="spec-val" :class="product.status === 'listed' ? 'spec-val-on' : 'spec-val-off'">{{ statusLabel }}</text>
+      </view>
+      <view class="spec-row">
         <text class="spec-label">浏览量</text><text class="spec-val">{{ product.views || 0 }}次</text>
       </view>
       <view class="spec-row" v-if="product.seller_name">
@@ -146,6 +149,12 @@ const tagClass = computed(() => {
   return 'tag-gray'
 })
 const typeLabel = (t) => productTypeLabel(t) || '商品'
+const statusLabel = computed(() => {
+  const s = product.value.status || 'listed'
+  if (s === 'sold') return '已售'
+  if (s === 'removed') return '已下架'
+  return '在售'
+})
 
 // 锚点导航（商品/参数/图文）
 const anchors = [
@@ -336,6 +345,8 @@ const buy = () => {
 .spec-row:last-child { border-bottom: none; }
 .spec-label { font-size: 13px; color: var(--color-text-secondary); }
 .spec-val { font-size: 13px; color: var(--color-text); font-weight: 500; }
+.spec-val-on { color: #0A66C2; font-weight: 600; }
+.spec-val-off { color: #E84C3D; font-weight: 600; }
 
 .shop-card { margin: 0 10px 8px; background: #fff; border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
 .shop-ava { width: 40px; height: 40px; border-radius: 50%; background: var(--color-primary-light)); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; color: var(--color-primary); flex-shrink: 0; }

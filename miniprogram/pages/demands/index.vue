@@ -60,14 +60,14 @@
             >{{ c }}</view>
           </view>
         </scroll-view>
-        <view class="filter-chip filter" :class="{ on: hasActiveFilter }" @tap="openFilters">
+        <view v-if="!isProductMode" class="filter-chip filter" :class="{ on: hasActiveFilter }" @tap="openFilters">
           <text>筛选</text>
           <text class="filter-caret">▾</text>
         </view>
       </view>
 
-      <!-- ═══════ 匹配条 ═══════ -->
-      <view v-if="listState === 'ready' && visibleList.length > 0" class="match-strip">
+      <!-- ═══════ 匹配条（商品模式为电商页，不展示匹配引导） ═══════ -->
+      <view v-if="listState === 'ready' && visibleList.length > 0 && !isProductMode" class="match-strip">
         <view class="match-mark"><text class="match-mark-icon">⇄</text></view>
         <view class="match-copy">
           <text class="match-title">{{ primary === 'demand' ? '为需求方推荐承接能力' : '发现与你匹配的需求' }}</text>
@@ -107,6 +107,30 @@
       </view>
 
       <!-- 正常列表 -->
+      <!-- 商品模式：电商两列宫格（大图 + 价格 + 品牌型号 + 成色/浏览） -->
+      <view v-if="isProductMode && visibleList.length > 0" class="ecom-grid">
+        <view
+          v-for="item in visibleList"
+          :key="item.id"
+          class="ecom-card"
+          hover-class="tap-fade"
+          @tap="goProductDetail(item)"
+        >
+          <view class="ecom-img-wrap">
+            <image :src="item.image" mode="aspectFill" class="ecom-img" @error="onProductImgError(item)" />
+            <text v-if="item.isUsed" class="ecom-used-tag">二手</text>
+          </view>
+          <view class="ecom-body">
+            <text class="ecom-price">¥<text class="ecom-price-num">{{ item.price }}</text></text>
+            <text class="ecom-title">{{ item.title }}</text>
+            <text class="ecom-spec">{{ item.spec }}</text>
+            <view class="ecom-foot">
+              <text class="ecom-cat">{{ item.cat }}</text>
+              <text class="ecom-views">{{ item.views ? '已浏览 ' + item.views + ' 次' : '平台商品' }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
       <view v-else class="card-list">
         <view
           v-for="item in visibleList"
@@ -267,7 +291,8 @@ import { request } from '../../utils/request'
 import { safeNavigateTo } from '../../utils/nav'
 import {
   HALL_CATEGORIES, getKindItems, kindTypeLabel, isEnded, normalizeDemand,
-  IMG_SOLAR, IMG_LIFT,
+  IMG_SOLAR, IMG_LIFT, IMG_HERO,
+  PRODUCT_CATEGORIES, normalizeProduct, mockProducts,
 } from '../../utils/hallData'
 
 const primary = ref('demand') // demand | supply
@@ -299,6 +324,7 @@ const sortBy = ref('newest')
 const hasActiveFilter = computed(() => filterRegion.value !== '不限' || filterPrice.value !== '不限' || sortBy.value !== 'newest' || typeFilter.value !== '全部')
 
 const categories = computed(() => {
+  if (isProductMode.value) return PRODUCT_CATEGORIES
   const kind = primary.value === 'demand' ? 'demand' : supplyKind.value
   return HALL_CATEGORIES[kind]
 })
@@ -308,6 +334,9 @@ const sectionTitle = computed(() => {
   if (primary.value === 'demand') return '最新需求'
   return supplyKind.value === 'service' ? '可对接服务' : '优选商品设备'
 })
+
+// 商品设备模式：电商两列宫格展示（独立于需求/服务列表）
+const isProductMode = computed(() => primary.value === 'supply' && supplyKind.value === 'product')
 
 /* ================= 列表状态 ================= */
 const listState = ref('loading') // loading | ready | empty | error
@@ -330,6 +359,22 @@ async function fetchList(showLoading = true) {
     } catch (e) {
       // 后端不可用：降级到模拟数据，保证页面可交互
       list.value = getKindItems('demand').slice()
+      listState.value = list.value.length ? 'ready' : 'empty'
+    }
+  } else if (supplyKind.value === 'product') {
+    // 商品设备：电商模式走真实商品接口
+    try {
+      const res = await request({
+        url: '/api/v1/products',
+        data: { page: 1, page_size: 50 },
+      })
+      const data = Array.isArray(res) ? res : (res && res.data) || res || {}
+      const items = Array.isArray(data) ? data : (data && data.items) || []
+      const normalized = items.map(normalizeProduct).filter(Boolean)
+      list.value = normalized
+      listState.value = normalized.length ? 'ready' : 'empty'
+    } catch (e) {
+      list.value = mockProducts()
       listState.value = list.value.length ? 'ready' : 'empty'
     }
   } else {
@@ -385,6 +430,11 @@ const goSearch = () => safeNavigateTo('/pages/demands/search')
 const goMessages = () => safeNavigateTo('/pages/messages/index')
 const goMatches = () => safeNavigateTo('/pages/demands/matches')
 const goDetail = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
+// 商品模式：跳电商商品详情页
+const goProductDetail = (item) => safeNavigateTo('/pages/mall/detail?id=' + encodeURIComponent(item.id))
+const onProductImgError = (item) => {
+  if (item.image !== IMG_HERO) item.image = IMG_HERO
+}
 
 const showPublish = ref(false)
 const openPublishSheet = () => { showPublish.value = true }
@@ -410,7 +460,7 @@ function onImageError(item) {
 const visibleList = computed(() => {
   let out = list.value
   if (typeFilter.value !== '全部') out = out.filter((i) => i.cat === typeFilter.value)
-  if (filterRegion.value !== '不限') out = out.filter((i) => i.region.includes(filterRegion.value))
+  if (filterRegion.value !== '不限' && !isProductMode.value) out = out.filter((i) => i.region.includes(filterRegion.value))
   return out
 })
 
@@ -935,5 +985,92 @@ onPullDownRefresh(() => {
     width: 150rpx;
     height: 150rpx;
   }
+}
+
+/* ═══════ 商品设备：电商两列宫格 ═══════ */
+.ecom-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 0 24rpx 20rpx;
+}
+.ecom-card {
+  width: calc(50% - 10rpx);
+  background: #fff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(7, 77, 146, 0.06);
+}
+.ecom-img-wrap {
+  position: relative;
+  width: 100%;
+  height: 320rpx;
+  background: #F0F3F6;
+}
+.ecom-img {
+  width: 100%;
+  height: 100%;
+}
+.ecom-used-tag {
+  position: absolute;
+  left: 0;
+  top: 16rpx;
+  padding: 6rpx 14rpx;
+  background: rgba(228, 100, 38, 0.92);
+  color: #fff;
+  font-size: 20rpx;
+  border-radius: 0 16rpx 16rpx 0;
+}
+.ecom-body {
+  padding: 18rpx 20rpx 20rpx;
+}
+.ecom-price {
+  display: block;
+  color: #E84C3D;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+.ecom-price-num {
+  font-size: 38rpx;
+  font-weight: 800;
+}
+.ecom-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 8rpx;
+  color: #17212B;
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1.4;
+  min-height: 73rpx;
+}
+.ecom-spec {
+  display: block;
+  margin-top: 6rpx;
+  color: #98A2B3;
+  font-size: 22rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ecom-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14rpx;
+}
+.ecom-cat {
+  padding: 4rpx 12rpx;
+  background: #EAF3FD;
+  color: #0A66C2;
+  font-size: 20rpx;
+  border-radius: 8rpx;
+}
+.ecom-views {
+  color: #98A2B3;
+  font-size: 20rpx;
 }
 </style>

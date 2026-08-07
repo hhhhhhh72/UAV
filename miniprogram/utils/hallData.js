@@ -1,7 +1,7 @@
 // 供需大厅本地数据与辅助函数
 // 本期为前端交互态：需求走真实 API（失败降级到模拟数据），供给/洽谈用模拟数据。
 // 请求统一仍走 utils/request.js，这里仅提供本地兜底数据与展示层归一化。
-import { authStorage, getStoredUser } from './request'
+import { authStorage, getStoredUser, BASE_URL } from './request'
 
 /* ================= 图片资源（复用首页静态图，保持稳定降级） ================= */
 export const IMG_SOLAR = '/static/home/demand-solar.jpg'
@@ -274,3 +274,71 @@ export const SEED_CHAT = [
   { id: 'c2', mine: true, avatar: '绿', text: '请问最快何时能安排团队进场？是否可以提供相近项目案例？', attach: '项目技术要求.pdf' },
   { id: 'c3', mine: false, avatar: '翼', text: '明天下午可现场踏勘，案例方案已附上。', attach: '江津光伏巡检方案.pdf' },
 ]
+
+/* ================= 商品设备（电商化展示层） ================= */
+// 图片相对路径处理：/static 为小程序本地资源原样使用，/uploads 等拼后端地址
+export function fullImgUrl(u) {
+  if (!u) return ''
+  if (u.startsWith('http') || u.startsWith('/static/')) return u
+  return BASE_URL + u
+}
+
+export const PRODUCT_CATEGORIES = ['全部', '整机', '配件', '载荷']
+
+const PRODUCT_CONDITION_MAP = { new: '全新', used: '二手' }
+
+// 电商分类：整机 / 配件 / 载荷（标题关键词兜底）
+export function classifyProduct(p) {
+  const text = `${p.title || ''} ${p.brand || ''}`
+  if (p.prod_type === 'drone' || /无人机|植保机|行业机|套机/.test(text)) return '整机'
+  if (/云台|载荷|热成像|喊话|探照/.test(text)) return '载荷'
+  return '配件'
+}
+
+export function fmtPriceFen(fen) {
+  if (fen == null || fen <= 0) return '面议'
+  const yuan = fen / 100
+  const whole = Math.floor(yuan)
+  const cents = Math.round((yuan - whole) * 100)
+  const w = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return cents > 0 ? `${w}.${cents < 10 ? '0' : ''}${cents}` : `${w}`
+}
+
+// 后端 DroneProduct → 电商卡片
+export function normalizeProduct(p) {
+  if (!p || !p.id) return null
+  const title = String(p.title || '').trim()
+  if (!title) return null
+  const imgs = Array.isArray(p.images) ? p.images.filter((u) => typeof u === 'string' && u.trim()) : []
+  const brand = p.brand || ''
+  const model = p.model || ''
+  return {
+    id: String(p.id),
+    title,
+    brand,
+    model,
+    spec: brand && model ? `${brand} · ${model}` : brand || model || '平台商品',
+    condition: PRODUCT_CONDITION_MAP[p.condition] || '商家发布',
+    isUsed: p.condition === 'used',
+    price: fmtPriceFen(p.price_fen),
+    image: fullImgUrl(imgs[0] || ''),
+    images: imgs.map(fullImgUrl),
+    seller: p.seller_name || '平台商家',
+    desc: p.description || '',
+    cat: classifyProduct(p),
+    views: p.views || 0,
+    status: p.status || 'listed',
+  }
+}
+
+// 电商卡片本地兜底（后端不可用时），由 MOCK_PRODUCTS 转换
+export function mockProducts() {
+  return MOCK_PRODUCTS.map((m) => ({
+    id: m.id, title: m.title, brand: m.company, model: '', spec: m.company,
+    condition: m.status === '可对接' ? '全新' : '商家发布', isUsed: false,
+    price: String(m.price).replace(/[^\d,.]/g, ''),
+    image: m.image, images: [m.image],
+    seller: m.company, desc: m.desc, cat: classifyProduct({ title: m.title, brand: m.company }),
+    views: 0, status: 'listed',
+  }))
+}
