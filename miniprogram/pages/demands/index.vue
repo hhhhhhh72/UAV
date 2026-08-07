@@ -33,18 +33,18 @@
         >供给大厅</view>
       </view>
 
-      <!-- 供给分段：服务能力 / 商品设备 -->
+      <!-- 供给分段：商品设备 / 服务能力 -->
       <view v-if="primary === 'supply'" class="subtabs">
-        <view
-          class="subtab"
-          :class="{ active: supplyKind === 'service' }"
-          @tap="switchSupplyKind('service')"
-        >服务能力</view>
         <view
           class="subtab"
           :class="{ active: supplyKind === 'product' }"
           @tap="switchSupplyKind('product')"
         >商品设备</view>
+        <view
+          class="subtab"
+          :class="{ active: supplyKind === 'service' }"
+          @tap="switchSupplyKind('service')"
+        >服务能力</view>
       </view>
 
       <!-- ═══════ 分类横滑 + 筛选 ═══════ -->
@@ -296,7 +296,7 @@ import {
 } from '../../utils/hallData'
 
 const primary = ref('demand') // demand | supply
-const supplyKind = ref('service') // service | product
+const supplyKind = ref('product') // product | service
 const typeFilter = ref('全部')
 const city = ref('全重庆')
 const showCity = ref(false)
