@@ -1,6 +1,7 @@
 <template>
   <div class="admin-page">
     <div class="page-header"><h2>运营推广</h2></div>
+    <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
       <a-tab-pane title="活动管理" key="events"><EventList /></a-tab-pane>
       <a-tab-pane title="品牌管理" key="portfolios"><PortfolioList /></a-tab-pane>
@@ -15,7 +16,21 @@ import EventList from '../events/EventList.vue'
 import PortfolioList from '../portfolios/PortfolioList.vue'
 import ExhibitionList from '../exhibitions/ExhibitionList.vue'
 import ReportList from '../reports/ReportList.vue'
+import BizOverview from '../components/BizOverview.vue'
+
 const tab = ref('events')
+
+/* 业务概览：数据来自 GET /api/v1/admin/dashboard */
+const overview = {
+  metrics: [
+    { label: '活动总数', path: 'modules.events.events' },
+    { label: '赛事总数', path: 'modules.events.competitions' },
+    { label: '展会排期', path: 'modules.events.exhibitions' },
+    { label: '行业报告', path: 'modules.industry.industry_reports' }
+  ],
+  trend: { title: '近 12 月社区内容', key: 'post' },
+  pie: null
+}
 </script>
 <style scoped>
 .admin-page { padding: 20px; }

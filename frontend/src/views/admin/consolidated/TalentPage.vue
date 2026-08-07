@@ -1,6 +1,7 @@
 <template>
   <div class="admin-page">
     <div class="page-header"><h2>人才教育</h2></div>
+    <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
       <a-tab-pane title="培训课程" key="training"><CourseList /></a-tab-pane>
       <a-tab-pane title="证书管理" key="certs"><CertList /></a-tab-pane>
@@ -23,7 +24,22 @@ import CollegeList from '../colleges/CollegeList.vue'
 import StudyList from '../study/StudyList.vue'
 import PilotList from '../pilots/PilotList.vue'
 import EnrollmentList from '../enrollments/EnrollmentList.vue'
+import BizOverview from '../components/BizOverview.vue'
+
 const tab = ref('training')
+
+/* 业务概览：数据来自 GET /api/v1/admin/dashboard */
+const overview = {
+  metrics: [
+    { label: '培训课程', path: 'modules.talent.training_courses' },
+    { label: '培训证书', path: 'modules.talent.certificates' },
+    { label: '合作院校', path: 'modules.talent.colleges' },
+    { label: '招聘岗位', path: 'modules.talent.jobs' },
+    { label: '研学线路', path: 'modules.talent.study_tours' }
+  ],
+  trend: { title: '近 12 月用户增长', key: 'user' },
+  pie: null
+}
 </script>
 <style scoped>
 .admin-page { padding: 20px; }
