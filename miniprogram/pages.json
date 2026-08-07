@@ -272,8 +272,7 @@
         "navigationBarTitleText": "赛事列表",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
+        "enablePullDownRefresh": true
       }
     },
     {
@@ -621,7 +620,8 @@
       "style": {
         "navigationBarTitleText": "院校详情",
         "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
       }
     },
     {
