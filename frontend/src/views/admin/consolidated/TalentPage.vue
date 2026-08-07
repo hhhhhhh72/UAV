@@ -3,14 +3,14 @@
     <div class="page-header"><h2>人才教育</h2></div>
     <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
-      <a-tab-pane title="培训课程" key="training"><CourseList /></a-tab-pane>
-      <a-tab-pane title="证书管理" key="certs"><CertList /></a-tab-pane>
-      <a-tab-pane title="赛事管理" key="competition"><CompetitionList /></a-tab-pane>
-      <a-tab-pane title="职位管理" key="jobs"><JobList /></a-tab-pane>
-      <a-tab-pane title="院校管理" key="colleges"><CollegeList /></a-tab-pane>
-      <a-tab-pane title="研学管理" key="study"><StudyList /></a-tab-pane>
-      <a-tab-pane title="飞手认证" key="pilots"><PilotList /></a-tab-pane>
-      <a-tab-pane title="报名记录" key="enrollments"><EnrollmentList /></a-tab-pane>
+      <a-tab-pane title="培训课程" key="training"><CourseList v-if="tab === 'training'" /></a-tab-pane>
+      <a-tab-pane title="证书管理" key="certs"><CertList v-if="tab === 'certs'" /></a-tab-pane>
+      <a-tab-pane title="赛事管理" key="competition"><CompetitionList v-if="tab === 'competition'" /></a-tab-pane>
+      <a-tab-pane title="职位管理" key="jobs"><JobList v-if="tab === 'jobs'" /></a-tab-pane>
+      <a-tab-pane title="院校管理" key="colleges"><CollegeList v-if="tab === 'colleges'" /></a-tab-pane>
+      <a-tab-pane title="研学管理" key="study"><StudyList v-if="tab === 'study'" /></a-tab-pane>
+      <a-tab-pane title="飞手认证" key="pilots"><PilotList v-if="tab === 'pilots'" /></a-tab-pane>
+      <a-tab-pane title="报名记录" key="enrollments"><EnrollmentList v-if="tab === 'enrollments'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>

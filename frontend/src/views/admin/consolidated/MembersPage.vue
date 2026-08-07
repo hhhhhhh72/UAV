@@ -3,10 +3,10 @@
     <div class="page-header"><h2>会员管理</h2></div>
     <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
-      <a-tab-pane title="用户管理" key="users"><UserList /></a-tab-pane>
-      <a-tab-pane title="企业管理" key="enterprises"><EnterpriseList /></a-tab-pane>
-      <a-tab-pane title="商家管理" key="shops"><ShopList /></a-tab-pane>
-      <a-tab-pane title="专家管理" key="experts"><ExpertList /></a-tab-pane>
+      <a-tab-pane title="用户管理" key="users"><UserList v-if="tab === 'users'" /></a-tab-pane>
+      <a-tab-pane title="企业管理" key="enterprises"><EnterpriseList v-if="tab === 'enterprises'" /></a-tab-pane>
+      <a-tab-pane title="商家管理" key="shops"><ShopList v-if="tab === 'shops'" /></a-tab-pane>
+      <a-tab-pane title="专家管理" key="experts"><ExpertList v-if="tab === 'experts'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>

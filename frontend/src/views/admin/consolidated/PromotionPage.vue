@@ -3,10 +3,10 @@
     <div class="page-header"><h2>运营推广</h2></div>
     <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
-      <a-tab-pane title="活动管理" key="events"><EventList /></a-tab-pane>
-      <a-tab-pane title="品牌管理" key="portfolios"><PortfolioList /></a-tab-pane>
-      <a-tab-pane title="展会管理" key="exhibitions"><ExhibitionList /></a-tab-pane>
-      <a-tab-pane title="报告管理" key="reports"><ReportList /></a-tab-pane>
+      <a-tab-pane title="活动管理" key="events"><EventList v-if="tab === 'events'" /></a-tab-pane>
+      <a-tab-pane title="品牌管理" key="portfolios"><PortfolioList v-if="tab === 'portfolios'" /></a-tab-pane>
+      <a-tab-pane title="展会管理" key="exhibitions"><ExhibitionList v-if="tab === 'exhibitions'" /></a-tab-pane>
+      <a-tab-pane title="报告管理" key="reports"><ReportList v-if="tab === 'reports'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>

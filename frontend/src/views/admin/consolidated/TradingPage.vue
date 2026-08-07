@@ -3,10 +3,10 @@
     <div class="page-header"><h2>交易管理</h2></div>
     <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
-      <a-tab-pane title="需求管理" key="demands"><DemandList /></a-tab-pane>
-      <a-tab-pane title="订单管理" key="orders"><OrderList /></a-tab-pane>
-      <a-tab-pane title="评价管理" key="reviews"><ReviewList /></a-tab-pane>
-      <a-tab-pane title="商品管理" key="products"><ProductList /></a-tab-pane>
+      <a-tab-pane title="需求管理" key="demands"><DemandList v-if="tab === 'demands'" /></a-tab-pane>
+      <a-tab-pane title="订单管理" key="orders"><OrderList v-if="tab === 'orders'" /></a-tab-pane>
+      <a-tab-pane title="评价管理" key="reviews"><ReviewList v-if="tab === 'reviews'" /></a-tab-pane>
+      <a-tab-pane title="商品管理" key="products"><ProductList v-if="tab === 'products'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>

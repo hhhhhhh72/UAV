@@ -3,9 +3,9 @@
     <div class="page-header"><h2>内容审核</h2></div>
     <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
-      <a-tab-pane title="案例管理" key="cases"><CaseList /></a-tab-pane>
-      <a-tab-pane title="合规文档" key="compliance"><ComplianceList /></a-tab-pane>
-      <a-tab-pane title="资源台账" key="resources"><ResourceList /></a-tab-pane>
+      <a-tab-pane title="案例管理" key="cases"><CaseList v-if="tab === 'cases'" /></a-tab-pane>
+      <a-tab-pane title="合规文档" key="compliance"><ComplianceList v-if="tab === 'compliance'" /></a-tab-pane>
+      <a-tab-pane title="资源台账" key="resources"><ResourceList v-if="tab === 'resources'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>

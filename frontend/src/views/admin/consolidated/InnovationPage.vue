@@ -3,12 +3,12 @@
     <div class="page-header"><h2>产学研</h2></div>
     <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
-      <a-tab-pane title="成果管理" key="achievements"><AchievementList /></a-tab-pane>
-      <a-tab-pane title="研发难题" key="challenges"><ChallengeList /></a-tab-pane>
-      <a-tab-pane title="课题攻关" key="projects"><ProjectList /></a-tab-pane>
-      <a-tab-pane title="测试场地" key="testsites"><TestSiteList /></a-tab-pane>
-      <a-tab-pane title="场地预约" key="bookings"><BookingList /></a-tab-pane>
-      <a-tab-pane title="成果转化" key="transformations"><TransList /></a-tab-pane>
+      <a-tab-pane title="成果管理" key="achievements"><AchievementList v-if="tab === 'achievements'" /></a-tab-pane>
+      <a-tab-pane title="研发难题" key="challenges"><ChallengeList v-if="tab === 'challenges'" /></a-tab-pane>
+      <a-tab-pane title="课题攻关" key="projects"><ProjectList v-if="tab === 'projects'" /></a-tab-pane>
+      <a-tab-pane title="测试场地" key="testsites"><TestSiteList v-if="tab === 'testsites'" /></a-tab-pane>
+      <a-tab-pane title="场地预约" key="bookings"><BookingList v-if="tab === 'bookings'" /></a-tab-pane>
+      <a-tab-pane title="成果转化" key="transformations"><TransList v-if="tab === 'transformations'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>

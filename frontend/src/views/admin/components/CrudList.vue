@@ -40,6 +40,7 @@
           </a-form-item>
           <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
           <a-button @click="resetParams">重置</a-button>
+          <a-button @click="loadData"><template #icon><icon-refresh /></template>刷新</a-button>
           <slot name="search-extra" />
           <a-button v-if="creatable" class="crud-add-btn" type="primary" status="success" @click="$emit('add')">
             <template #icon><icon-plus /></template>{{ addLabel }}

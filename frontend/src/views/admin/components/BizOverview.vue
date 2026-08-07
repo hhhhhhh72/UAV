@@ -1,10 +1,13 @@
 <template>
   <div class="biz-overview">
+    <a-alert v-if="error" class="load-error" type="warning" closable @close="error = ''">
+      统计数据加载失败，请稍后刷新重试
+    </a-alert>
     <a-row :gutter="16" class="metric-row">
       <a-col v-for="m in metrics" :key="m.label" :span="Math.floor(24 / metrics.length)" :xs="12" :sm="12" :md="24 / metrics.length">
         <a-card class="metric-card" :bordered="false">
-          <a-statistic :title="m.label" :value="getValue(m)" :precision="m.precision || 0" :value-style="{ fontWeight: 600 }">
-            <template #suffix v-if="m.unit"><span class="metric-unit">{{ m.unit }}</span></template>
+          <a-statistic :title="m.label" :value="getValue(m)" :precision="loading ? 0 : (m.precision || 0)" :value-style="{ fontWeight: 600 }">
+            <template #suffix v-if="m.unit && !loading"><span class="metric-unit">{{ m.unit }}</span></template>
           </a-statistic>
         </a-card>
       </a-col>
@@ -13,13 +16,15 @@
       <a-col :span="trend && pie ? 16 : 24" :xs="24" v-if="trend">
         <a-card class="chart-card" :bordered="false">
           <template #title>{{ trend.title }}</template>
-          <div ref="trendRef" class="chart-box"></div>
+          <div ref="trendRef" class="chart-box" v-show="!loading"></div>
+          <a-skeleton v-if="loading" class="chart-skeleton" :animation="true" />
         </a-card>
       </a-col>
       <a-col :span="trend && pie ? 8 : 24" :xs="24" v-if="pie">
         <a-card class="chart-card" :bordered="false">
           <template #title>{{ pie.title }}</template>
-          <div ref="pieRef" class="chart-box"></div>
+          <div ref="pieRef" class="chart-box" v-show="!loading"></div>
+          <a-skeleton v-if="loading" class="chart-skeleton" :animation="true" />
         </a-card>
       </a-col>
     </a-row>
@@ -27,7 +32,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, shallowRef, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, shallowRef, watch, nextTick } from 'vue'
 import * as echarts from 'echarts/core'
 import { LineChart, PieChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
@@ -51,19 +56,28 @@ const trendChart = shallowRef(null)
 const pieChart = shallowRef(null)
 const dashboard = ref(null)
 
+const loading = ref(true)
+const error = ref('')
+
 const getValue = (m) => {
-  if (!dashboard.value) return 0
+  if (loading.value) return '-'
+  if (!dashboard.value) return '--'
   const v = m.path.split('.').reduce((o, k) => (o == null ? 0 : o[k]), dashboard.value) ?? 0
   return m.divide ? v / m.divide : v
 }
 
 const loadData = async () => {
+  loading.value = true
+  error.value = ''
   try {
     const d = await axios.get('/api/v1/admin/dashboard').then(r => r.data)
     dashboard.value = d
-    renderCharts()
   } catch (e) {
-    // 统计加载失败不阻塞页面，仅图表区留空
+    error.value = e?.message || '加载失败'
+  } finally {
+    loading.value = false
+    // 等 v-show 容器可见后再初始化图表（隐藏时 init 会得到 0 尺寸）
+    nextTick(renderCharts)
   }
 }
 
@@ -120,6 +134,14 @@ watch(() => [props.trend, props.pie], renderCharts)
 <style scoped>
 .biz-overview {
   margin-bottom: 16px;
+}
+
+.load-error {
+  margin-bottom: 12px;
+}
+
+.chart-skeleton {
+  height: 260px;
 }
 
 .metric-row {

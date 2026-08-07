@@ -3,8 +3,8 @@
     <div class="page-header"><h2>应急协同</h2></div>
     <BizOverview :metrics="overview.metrics" :trend="overview.trend" :pie="overview.pie" />
     <a-tabs v-model:active-key="tab">
-      <a-tab-pane title="应急资源" key="resources"><EmergencyResourceList /></a-tab-pane>
-      <a-tab-pane title="应急调度" key="dispatches"><DispatchList /></a-tab-pane>
+      <a-tab-pane title="应急资源" key="resources"><EmergencyResourceList v-if="tab === 'resources'" /></a-tab-pane>
+      <a-tab-pane title="应急调度" key="dispatches"><DispatchList v-if="tab === 'dispatches'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>
