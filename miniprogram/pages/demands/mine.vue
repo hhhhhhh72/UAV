@@ -1,453 +1,283 @@
 <template>
   <view class="mine-page">
-    <u-nav-bar
-      title="我的需求"
-      show-back
-      @back="goBack"
-    />
-
-    <!-- Loading -->
-    <view v-if="published.loading" class="loading-state">
-      <view class="loading-inline">
-        <u-loading size="24rpx" />
-        <text>加载中...</text>
+    <!-- 头部 -->
+    <view class="page-header">
+      <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
+      <text class="page-title">我的发布</text>
+      <view class="head-action" @tap="goIntents">
+        <text class="head-action-text">收到的意向</text>
       </view>
     </view>
 
-    <!-- Error -->
-    <view v-else-if="published.error" class="state-view">
-      <u-empty description="加载失败" />
-      <view class="retry-btn" @tap="fetchPublished">
-        <text>重新加载</text>
-      </view>
+    <!-- 类型筛选 -->
+    <view class="mine-filters">
+      <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
+        <view class="filter-inner">
+          <view
+            v-for="t in typeOptions"
+            :key="t"
+            class="filter-chip"
+            :class="{ active: mineType === t }"
+            @tap="mineType = t"
+          >{{ t }}</view>
+        </view>
+      </scroll-view>
     </view>
 
-    <!-- Empty -->
-    <view v-else-if="published.list.length === 0" class="state-view">
-      <u-empty description="暂无发布的需求" />
+    <!-- 状态筛选 -->
+    <view class="mine-filters status">
+      <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
+        <view class="filter-inner">
+          <view
+            v-for="s in statusOptions"
+            :key="s"
+            class="filter-chip"
+            :class="{ active: mineStatus === s }"
+            @tap="mineStatus = s"
+          >{{ s }}</view>
+        </view>
+      </scroll-view>
     </view>
 
-    <!-- Normal -->
-    <view v-else class="list-body">
-      <u-cell-group inset>
-        <u-cell
-          v-for="item in published.list"
-          :key="item.id"
-          is-link
-          @click="goDetail(item.id)"
-        >
-          <template #title>
-            <view class="cell-content">
-              <text class="cell-title">{{ item.title }}</text>
-              <view class="cell-meta">
-                <u-tag :type="statusTagType(item.status)" size="mini">
-                  {{ statusLabel(item.status) }}
-                </u-tag>
-                <text class="meta-text">{{ formatBudget(item.budget_fen) }}</text>
-                <text class="meta-date">{{ formatDate(item.created_at) }}</text>
-              </view>
-              <view v-if="canOperate(item.status)" class="cell-actions">
-                <view
-                  v-if="item.status === 'rejected'"
-                  class="action-btn action-submit"
-                  @tap.stop="submitDemand(item)"
-                >
-                  重新提交
-                </view>
-                <view
-                  v-if="item.status === 'published'"
-                  class="action-btn action-intent"
-                  @tap.stop="fetchIntents(item)"
-                >
-                  查看意向
-                </view>
-                <view
-                  v-if="item.status === 'published'"
-                  class="action-btn action-complete"
-                  @tap.stop="completeDemand(item)"
-                >
-                  标记完成
-                </view>
-                <view
-                  v-if="item.status === 'pending' || item.status === 'rejected' || item.status === 'published'"
-                  class="action-btn action-cancel"
-                  @tap.stop="cancelDemand(item)"
-                >
-                  取消
-                </view>
-              </view>
-            </view>
+    <!-- 列表标题 -->
+    <view class="list-head">
+      <text class="list-title">发布记录</text>
+      <text class="list-count">共 {{ filteredPosts.length }} 条</text>
+    </view>
+
+    <!-- 空状态 -->
+    <view v-if="filteredPosts.length === 0" class="state-panel">
+      <view class="state-mark">⌁</view>
+      <text class="state-title">暂无符合条件的发布</text>
+      <text class="state-desc">换个筛选条件试试，或先发布一条信息</text>
+      <view class="state-btn" @tap="resetMineFilter">清除筛选</view>
+    </view>
+
+    <!-- 发布记录 -->
+    <view v-else class="post-list">
+      <view v-for="post in filteredPosts" :key="post.id" class="mine-card">
+        <view class="tag-row">
+          <text class="tag" :class="typeTagClass(post.type)">{{ post.type }}</text>
+          <text class="tag" :class="statusTagClass(post.status)">{{ post.status }}</text>
+        </view>
+        <text class="post-title">{{ post.title }}</text>
+        <text class="post-meta">{{ post.date }}{{ post.reason ? ' · ' + post.reason : '' }}</text>
+        <view class="mine-action-row">
+          <template v-if="post.status === '已驳回'">
+            <view class="action-link" @tap="republish(post)">编辑重提</view>
           </template>
-        </u-cell>
-      </u-cell-group>
-    </view>
-
-    <!-- 对接意向列表弹层 -->
-    <u-popup :show="intentSheet.show" position="bottom" round @close="intentSheet.show = false">
-      <view class="intent-sheet">
-        <view class="intent-head">
-          <text class="intent-title">对接意向</text>
-          <text class="intent-demand">{{ intentSheet.demandTitle }}</text>
-        </view>
-        <view v-if="intentSheet.loading" class="intent-state">
-          <u-loading size="28rpx" />
-          <text class="intent-state-text">加载中...</text>
-        </view>
-        <view v-else-if="intentSheet.list.length === 0" class="intent-state">
-          <text class="intent-state-text">暂无对接意向</text>
-        </view>
-        <view v-else class="intent-list">
-          <view v-for="it in intentSheet.list" :key="it.id" class="intent-item">
-            <view class="intent-line1">
-              <text class="intent-name">{{ it.intentor_name }}</text>
-              <text class="intent-phone" @tap="callIt(it.contact)">{{ it.contact }}</text>
-            </view>
-            <text v-if="it.remark" class="intent-remark">{{ it.remark }}</text>
-            <text class="intent-time">{{ formatDate(it.created_at) }}</text>
-          </view>
+          <template v-else-if="post.status === '已上架'">
+            <view class="action-link" @tap="goIntents">查看意向</view>
+            <view class="action-link" @tap="completePost(post)">标记完成</view>
+            <view class="action-link danger" @tap="closePost(post)">下架</view>
+          </template>
+          <template v-else>
+            <view class="action-link" @tap="toastPending">查看审核进度</view>
+          </template>
         </view>
       </view>
-    </u-popup>
+    </view>
   </view>
 </template>
 
-<script>
-import { request } from '../../utils/request'
+<script setup>
+import { ref, computed } from 'vue'
+import { safeNavigateTo } from '../../utils/nav'
+import { getPosts, savePosts } from '../../utils/hallData'
 
-export default {
-  data() {
-    return {
-      published: {
-        loading: false,
-        error: false,
-        list: [],
-      },
-      intentSheet: {
-        show: false,
-        loading: false,
-        list: [],
-        demandTitle: '',
-      },
-    }
-  },
-  onLoad() {
-    this.fetchPublished()
-  },
-  onPullDownRefresh() {
-    this.fetchPublished().then(function () {
-      uni.stopPullDownRefresh()
-    })
-  },
-  methods: {
-    async fetchPublished() {
-      this.published.loading = true
-      this.published.error = false
+const mineType = ref('全部')
+const mineStatus = ref('全部')
 
-      try {
-        const res = await request({
-          url: '/api/v1/demands',
-          data: { mine: 1, page: 1, page_size: 50 },
-        })
-        const data = (res && res.data) || res || []
-        this.published = {
-          loading: false,
-          error: false,
-          list: Array.isArray(data) ? data : (data && data.items) || [],
-        }
-      } catch (e) {
-        this.published = { loading: false, error: true, list: this.published.list }
-      }
-    },
-    canOperate(status) {
-      return status === 'pending' || status === 'rejected' || status === 'published'
-    },
-    async cancelDemand(item) {
-      try {
-        await request({
-          url: '/api/v1/demands/' + encodeURIComponent(item.id) + '/cancel',
-          method: 'POST',
-        })
-        uni.showToast({ title: '已取消', icon: 'success' })
-        this.fetchPublished()
-      } catch (e) {
-        uni.showToast({
-          title: (e && e.data && e.data.error && e.data.error.message) || '操作失败',
-          icon: 'none',
-        })
-      }
-    },
-    async submitDemand(item) {
-      try {
-        await request({
-          url: '/api/v1/demands/' + encodeURIComponent(item.id) + '/submit',
-          method: 'POST',
-        })
-        uni.showToast({ title: '已重新提交，请等待审核', icon: 'success' })
-        this.fetchPublished()
-      } catch (e) {
-        uni.showToast({
-          title: (e && e.data && e.data.error && e.data.error.message) || '操作失败',
-          icon: 'none',
-        })
-      }
-    },
-    async completeDemand(item) {
-      try {
-        await request({
-          url: '/api/v1/demands/' + encodeURIComponent(item.id) + '/complete',
-          method: 'POST',
-        })
-        uni.showToast({ title: '已标记完成', icon: 'success' })
-        this.fetchPublished()
-      } catch (e) {
-        uni.showToast({
-          title: (e && e.data && e.data.error && e.data.error.message) || '操作失败',
-          icon: 'none',
-        })
-      }
-    },
-    goDetail(id) {
-      uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(id) })
-    },
-    async fetchIntents(item) {
-      this.intentSheet = { show: true, loading: true, list: [], demandTitle: item.title }
-      try {
-        const res = await request({
-          url: '/api/v1/demands/' + encodeURIComponent(item.id) + '/intents',
-        })
-        const list = Array.isArray(res) ? res : (res && res.data) || []
-        this.intentSheet = { show: true, loading: false, list: list, demandTitle: item.title }
-      } catch (e) {
-        this.intentSheet = { show: true, loading: false, list: [], demandTitle: item.title }
-        uni.showToast({ title: '意向列表加载失败', icon: 'none' })
-      }
-    },
-    callIt(phone) {
-      if (phone) uni.makePhoneCall({ phoneNumber: String(phone) })
-    },
-    goBack() {
-      uni.navigateBack()
-    },
-    statusLabel(status) {
-      var map = {
-        pending: '待审核',
-        published: '已发布',
-        completed: '已完成',
-        cancelled: '已取消',
-        rejected: '已驳回',
-      }
-      return map[status] || status || '未知'
-    },
-    statusTagType(status) {
-      var map = {
-        pending: 'warning',
-        published: 'primary',
-        completed: 'success',
-        cancelled: 'default',
-        rejected: 'danger',
-      }
-      return map[status] || 'default'
-    },
-    formatBudget(fen) {
-      if (fen == null || fen === 0) return '面议'
-      var yuan = (fen / 100).toFixed(2)
-      return '¥' + yuan.replace(/\.00$/, '')
-    },
-    formatDate(iso) {
-      if (!iso) return ''
-      var d = new Date(iso)
-      var m = d.getMonth() + 1
-      var day = d.getDate()
-      return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day
-    },
-  },
+const typeOptions = ['全部', '需求', '服务', '商品']
+const statusOptions = ['全部', '待审核', '已上架', '已驳回', '已结束']
+
+const posts = ref(getPosts())
+
+const filteredPosts = computed(() => {
+  return posts.value.filter(
+    (p) =>
+      (mineType.value === '全部' || p.type === mineType.value) &&
+      (mineStatus.value === '全部' || p.status === mineStatus.value)
+  )
+})
+
+function typeTagClass(t) {
+  return t === '需求' ? 'blue' : t === '服务' ? 'green' : 'orange'
+}
+function statusTagClass(s) {
+  return s === '已驳回' ? 'red' : s === '待审核' ? 'orange' : s === '已结束' ? 'gray' : 'green'
+}
+
+const resetMineFilter = () => {
+  mineType.value = '全部'
+  mineStatus.value = '全部'
+}
+
+const goIntents = () => safeNavigateTo('/pages/demands/intents')
+const goBack = () => uni.navigateBack()
+
+function republish(post) {
+  safeNavigateTo('/pages/demands/publish?type=' + postTypeValue(post.type))
+}
+function postTypeValue(t) {
+  return t === '需求' ? 'demand' : t === '服务' ? 'service' : 'product'
+}
+
+function completePost(post) {
+  post.status = '已结束'
+  savePosts(posts.value)
+  uni.showToast({ title: '已标记完成', icon: 'success' })
+}
+
+function closePost(post) {
+  post.status = '已结束'
+  savePosts(posts.value)
+  uni.showToast({ title: '已下架', icon: 'none' })
+}
+
+const toastPending = () => {
+  uni.showToast({ title: '审核进度：等待协会审核', icon: 'none' })
 }
 </script>
 
 <style scoped>
 .mine-page {
   min-height: 100vh;
-  background: var(--color-bg);
-  padding-bottom: env(safe-area-inset-bottom);
+  background: #F4F6F8;
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
 }
 
-/* State views */
-.loading-state {
+/* 头部 */
+.page-header {
+  height: 56px;
+  padding: 0 28rpx;
   display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background: #fff;
+  border-bottom: 1px solid #EEF1F4;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.back-btn { width: 72rpx; height: 72rpx; display: flex; align-items: center; justify-content: center; }
+.back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
+.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; }
+.head-action { padding: 14rpx; }
+.head-action-text { color: #0A66C2; font-size: 26rpx; font-weight: 600; }
+
+/* 筛选 */
+.mine-filters {
+  background: #fff;
+  border-bottom: 1px solid #EEF1F4;
+  padding: 20rpx 24rpx;
+}
+.mine-filters.status { border-bottom: 0; padding-top: 4rpx; }
+.filter-scroll { white-space: nowrap; }
+.filter-inner { display: inline-flex; gap: 12rpx; }
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 56rpx;
+  padding: 0 20rpx;
+  border: 1px solid #E4E7EC;
+  border-radius: 12rpx;
+  background: #fff;
+  color: #344054;
+  font-size: 24rpx;
+  box-sizing: border-box;
+}
+.filter-chip.active {
+  color: #0A66C2;
+  border-color: #B9D6EF;
+  background: #EAF3FB;
+  font-weight: 650;
+}
+
+/* 列表 */
+.list-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 28rpx 32rpx 16rpx;
+}
+.list-title { font-size: 36rpx; font-weight: 750; color: #17212B; }
+.list-count { font-size: 24rpx; color: #667085; }
+
+.post-list { padding: 0 32rpx 32rpx; }
+.mine-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 26rpx;
+  border: 1px solid #EEF1F4;
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
+}
+.mine-card + .mine-card { margin-top: 20rpx; }
+
+.tag-row { display: flex; gap: 10rpx; }
+.tag {
+  border-radius: 8rpx;
+  padding: 6rpx 12rpx;
+  font-size: 20rpx;
+  line-height: 1;
+}
+.tag.blue { color: #0A66C2; background: #EAF3FB; }
+.tag.green { color: #168A55; background: #E9F7F0; }
+.tag.orange { color: #DB5F0D; background: #FFF0E6; }
+.tag.red { color: #D92D20; background: #FEF3F2; }
+.tag.gray { color: #667085; background: #F1F3F5; }
+
+.post-title {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.45;
+  color: #17212B;
+  font-weight: 700;
+  margin: 16rpx 0 8rpx;
+}
+.post-meta { display: block; font-size: 22rpx; color: #667085; }
+
+.mine-action-row {
+  display: flex;
+  gap: 32rpx;
+  border-top: 1px solid #EEF1F4;
+  margin-top: 22rpx;
+  padding-top: 20rpx;
+}
+.action-link { color: #0A66C2; font-size: 24rpx; font-weight: 600; }
+.action-link.danger { color: #D92D20; }
+
+/* 空状态 */
+.state-panel {
+  min-height: 560rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 80px 0;
+  padding: 56rpx;
+  text-align: center;
 }
-
-.loading-inline {
+.state-mark {
+  width: 124rpx;
+  height: 124rpx;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-
-.state-view {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 80px;
-}
-
-.retry-btn {
-  margin-top: 12px;
-  padding: 8px 24px;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: 8px;
-  font-size: 14px;
-}
-
-/* List */
-.list-body {
-  padding: 12px 0 24px;
-}
-
-.cell-content {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-}
-
-.cell-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.cell-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.meta-text {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.meta-date {
-  font-size: 12px;
-  color: var(--color-text-placeholder);
-}
-
-/* Actions */
-.cell-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.action-btn {
-  padding: 4px 16px;
-  border-radius: 8px;
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.action-submit {
-  background: var(--color-primary);
-  color: #fff;
-}
-
-.action-complete {
-  background: var(--color-success);
-  color: #fff;
-}
-
-.action-intent {
+  justify-content: center;
+  margin-bottom: 24rpx;
+  border-radius: 50%;
   background: #EAF3FB;
   color: #0A66C2;
+  font-size: 54rpx;
 }
-
-.action-cancel {
-  background: var(--color-bg);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-}
-
-/* 对接意向弹层 */
-.intent-sheet {
-  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
-  max-height: 65vh;
-  overflow-y: auto;
-}
-
-.intent-head {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 14px;
-}
-
-.intent-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #17212B;
-}
-
-.intent-demand {
-  font-size: 12px;
-  color: #667085;
-}
-
-.intent-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 32px 0;
-}
-
-.intent-state-text {
-  font-size: 13px;
-  color: #667085;
-}
-
-.intent-item {
-  border: 1px solid #EEF1F4;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 10px;
-  background: #fff;
-}
-
-.intent-line1 {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.intent-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #17212B;
-}
-
-.intent-phone {
-  font-size: 14px;
-  color: #0A66C2;
-  font-weight: 600;
-}
-
-.intent-remark {
-  display: block;
-  font-size: 12px;
-  color: #344054;
-  margin-top: 6px;
-}
-
-.intent-time {
-  display: block;
-  font-size: 11px;
-  color: #98A2B3;
-  margin-top: 6px;
+.state-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
+.state-desc { margin: 12rpx 0 32rpx; font-size: 22rpx; color: #98A2B3; }
+.state-btn {
+  height: 72rpx;
+  padding: 0 30rpx;
+  border-radius: 12rpx;
+  background: #0A66C2;
+  color: #fff;
+  font-size: 24rpx;
+  line-height: 72rpx;
 }
 </style>

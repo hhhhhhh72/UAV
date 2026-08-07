@@ -1,113 +1,206 @@
 <template>
-  <view class="dd-page">
-    <view class="dd-header">
-      <text class="back-btn" @tap="goBack">‹</text>
-      <text class="title">需求详情</text>
-      <view class="more-btn" @tap="showMoreActions">⋯</view>
-    </view>
-
-    <view v-if="post" class="dd-content">
-      <!-- 驳回/关闭原因（发布者可见） -->
-      <view v-if="post.status === 'rejected' && post.reject_reason" class="reject-banner">
-        <text class="reject-tag">已驳回</text>
-        <text class="reject-text">{{ post.reject_reason }}</text>
-      </view>
-      <view v-else-if="post.status === 'cancelled' && post.reject_reason" class="reject-banner cancelled">
-        <text class="reject-tag">已关闭</text>
-        <text class="reject-text">{{ post.reject_reason }}</text>
-      </view>
-
-      <!-- 决策摘要 -->
-      <view class="summary-card">
-        <view class="summary-tags">
-          <text class="tag-blue">{{ bizTypeLabel(post.tag) }}</text>
-          <text v-if="post.status" class="tag-status">{{ statusLabel(post.status) }}</text>
-        </view>
-        <text class="summary-title">{{ post.title }}</text>
-        <view class="summary-meta">
-          <view class="meta-block">
-            <text class="meta-label">预算</text>
-            <text class="meta-value budget">{{ formatBudget(post.budget_fen) }}</text>
-          </view>
-          <view class="meta-block">
-            <text class="meta-label">地区</text>
-            <text class="meta-value">{{ post.location || '重庆' }}</text>
-          </view>
-          <view class="meta-block">
-            <text class="meta-label">发布时间</text>
-            <text class="meta-value">{{ post.time }}</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 需求描述 -->
-      <view class="section-block">
-        <text class="section-title">需求描述</text>
-        <text class="desc-text">{{ post.desc }}</text>
-      </view>
-
-      <!-- 图片证据 -->
-      <view v-if="post.photos && post.photos.length" class="section-block">
-        <text class="section-title">相关图片</text>
-        <view class="photo-grid">
-          <image
-            v-for="(p, i) in post.photos"
-            :key="i"
-            :src="p"
-            mode="aspectFill"
-            class="photo"
-            @tap="preview(i)"
-          />
-        </view>
-      </view>
-
-      <!-- 发布方 -->
-      <view class="publisher-row">
-        <view class="pub-avatar">{{ avatarText }}</view>
-        <view class="pub-info">
-          <text class="pub-name">{{ post.userName }}</text>
-          <text class="pub-time">发布于 {{ post.time }}</text>
-        </view>
-      </view>
-
-      <!-- 对接说明 + 风险提示 -->
-      <view class="notice-block">
-        <text class="notice-title">对接说明</text>
-        <text class="notice-line">· 点击「联系对接」登记意向，发布方将看到您的联系方式</text>
-        <text class="notice-line">· 双方在线下联系洽谈，平台不参与资金流转</text>
-        <text class="notice-line warn">· 为保障安全，请见面交易，切勿提前支付任何费用</text>
+  <view class="detail-page">
+    <!-- 头部 -->
+    <view class="page-header">
+      <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
+      <text class="page-title">{{ detailTitle }}</text>
+      <view class="head-action" @tap="onShare">
+        <text class="head-action-text">分享</text>
       </view>
     </view>
 
-    <!-- 底部操作栏：联系对接（主）+ 拨打电话（次） -->
-    <view class="sticky-call" v-if="post">
-      <view class="sc-btn sc-secondary" @tap="callPhone">
-        <text>拨打电话</text>
+    <!-- 加载状态 -->
+    <view v-if="state === 'loading'" class="skeleton-wrap">
+      <view class="skeleton skeleton-title"></view>
+      <view class="skeleton skeleton-line"></view>
+      <view class="skeleton skeleton-block"></view>
+    </view>
+
+    <!-- 错误状态 -->
+    <view v-else-if="state === 'error'" class="state-panel">
+      <view class="state-mark err">!</view>
+      <text class="state-title">内容加载失败</text>
+      <text class="state-desc">请检查网络后重新加载</text>
+      <view class="state-btn" @tap="loadDetail">重新加载</view>
+    </view>
+
+    <view v-else-if="item" class="detail-body">
+      <!-- 状态 / 分类 / 标题 -->
+      <view class="detail-hero">
+        <view class="tag-row">
+          <text class="tag blue">{{ item.cat }}</text>
+          <text class="tag" :class="statusTagClass">{{ item.status }}</text>
+          <text v-if="isEndedItem" class="tag red">已停止对接</text>
+        </view>
+        <text class="detail-title">{{ item.title }}</text>
+        <view class="detail-sub">
+          <text>{{ item.region }}</text>
+          <text>{{ item.time }}</text>
+        </view>
+        <view class="detail-grid">
+          <view class="grid-cell">
+            <text class="grid-value price">{{ item.price }}</text>
+            <text class="grid-label">{{ item.unit }}</text>
+          </view>
+          <view class="grid-cell">
+            <text class="grid-value">{{ deadlineText }}</text>
+            <text class="grid-label">{{ deadlineLabel }}</text>
+          </view>
+          <view class="grid-cell">
+            <text class="grid-value">{{ shortCompany }}</text>
+            <text class="grid-label">发布企业</text>
+          </view>
+        </view>
       </view>
-      <view class="sc-btn sc-primary" @tap="showIntentSheet = true">
-        <text>联系对接</text>
+
+      <!-- 描述 -->
+      <view class="detail-section">
+        <text class="section-title">{{ descTitle }}</text>
+        <text class="desc-text">{{ item.desc }}</text>
+      </view>
+
+      <!-- 字段化信息 -->
+      <view class="detail-section">
+        <text class="section-title">{{ fieldsTitle }}</text>
+        <view class="detail-fields">
+          <view v-for="(f, i) in item.fields" :key="i" class="field-cell">
+            <text class="field-label">{{ f[0] }}</text>
+            <text class="field-value">{{ f[1] }}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 附件 / 案例 -->
+      <view class="detail-section">
+        <text class="section-title">{{ mediaTitle }}</text>
+        <scroll-view scroll-x class="media-row" :show-scrollbar="false">
+          <view class="media-inner">
+            <image
+              v-for="(img, i) in mediaImages"
+              :key="i"
+              :src="img"
+              mode="aspectFill"
+              class="media-img"
+              @tap="previewImage(i)"
+            />
+          </view>
+        </scroll-view>
+        <view v-if="attachmentNames.length" class="attach-list">
+          <view v-for="(a, i) in attachmentNames" :key="i" class="attach-item">
+            <view class="attach-icon">▣</view>
+            <text class="attach-name">{{ a }}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 发布企业 -->
+      <view class="detail-section">
+        <text class="section-title">发布企业</text>
+        <view class="company-row">
+          <view class="company-avatar">
+            <text>{{ companyInitial }}</text>
+          </view>
+          <view class="company-copy">
+            <text class="company-name">{{ item.company }}</text>
+            <text class="company-tag">已完成企业认证 · 信息经平台审核</text>
+          </view>
+          <view class="company-link" @tap="toastCompany">
+            <text>企业主页 ›</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 推荐 -->
+      <view class="detail-section">
+        <view class="recommend-head">
+          <text class="section-title">为你推荐</text>
+          <view class="recommend-more" @tap="goMatches">
+            <text>查看全部</text>
+            <text class="more-arrow">›</text>
+          </view>
+        </view>
+        <scroll-view scroll-x class="recommend-row" :show-scrollbar="false">
+          <view class="recommend-inner">
+            <view
+              v-for="r in recommendItems"
+              :key="r.id"
+              class="recommend-card"
+              hover-class="tap-fade"
+              @tap="goDetail(r)"
+            >
+              <text class="recommend-title">{{ r.title }}</text>
+              <text class="recommend-meta">{{ r.region }} · {{ r.price }}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 底部操作栏（贴合屏幕底部，含安全区） -->
+      <view class="fixed-actions">
+        <view class="action-secondary" @tap="onFavorite">
+          <text class="fav-icon" :class="{ on: favorited }">{{ favorited ? '♥' : '♡' }}</text>
+          <text>{{ favorited ? '已收藏' : '收藏' }}</text>
+        </view>
+        <view v-if="isEndedItem" class="action-primary disabled">
+          <text>该信息已结束</text>
+        </view>
+        <view v-else class="action-primary" @tap="onIntent">
+          <text>登记对接</text>
+        </view>
       </view>
     </view>
 
-    <!-- 联系对接意向登记弹层 -->
-    <u-popup :show="showIntentSheet" position="bottom" round @close="showIntentSheet = false">
-      <view class="intent-sheet">
-        <text class="intent-title">登记对接意向</text>
-        <text class="intent-desc">发布方将看到您的联系方式和备注，线下沟通成交</text>
-        <view class="intent-field">
-          <text class="intent-label">姓名</text>
-          <input v-model="intentForm.name" class="intent-input" placeholder="您的称呼" />
+    <!-- ═══════ 登录 / 认证 / 登记意向 弹层 ═══════ -->
+    <u-popup :show="sheet.show" position="bottom" round @close="closeSheet">
+      <view class="sheet">
+        <view class="sheet-head">
+          <text class="sheet-title">{{ sheet.title }}</text>
+          <view class="sheet-close" @tap="closeSheet"><text class="sheet-x">×</text></view>
         </view>
-        <view class="intent-field">
-          <text class="intent-label">联系电话</text>
-          <input v-model="intentForm.contact" class="intent-input" type="number" placeholder="必填，方便发布方联系您" />
-        </view>
-        <view class="intent-field">
-          <text class="intent-label">备注</text>
-          <textarea v-model="intentForm.remark" class="intent-textarea" placeholder="可简要说明您的作业能力/意向（选填）" />
-        </view>
-        <view class="intent-submit" @tap="submitIntent">
-          <text>提交对接意向</text>
+
+        <view class="sheet-body">
+          <!-- 登录引导 -->
+          <template v-if="sheet.kind === 'login'">
+            <text class="sheet-desc">发布、收藏和登记对接需要登录。模拟登录后，仍需完成企业认证才能建立正式对接。</text>
+            <view class="sheet-actions">
+              <view class="ghost-btn" @tap="closeSheet">暂不登录</view>
+              <view class="primary-btn" @tap="handleSimulateLogin">模拟登录</view>
+            </view>
+          </template>
+
+          <!-- 认证引导 -->
+          <template v-else-if="sheet.kind === 'cert'">
+            <text class="sheet-desc">为保障供需双方信息真实，登记对接前需完成企业认证。原型将直接模拟认证通过。</text>
+            <view class="sheet-actions">
+              <view class="ghost-btn" @tap="closeSheet">稍后认证</view>
+              <view class="primary-btn" @tap="simulateCert">模拟认证通过</view>
+            </view>
+          </template>
+
+          <!-- 登记意向 -->
+          <template v-else-if="sheet.kind === 'intent'">
+            <text class="sheet-desc">发布方将看到企业名称、联系人和对接说明，联系方式不会在公开页面展示。</text>
+            <text class="field-label">企业名称</text>
+            <view class="field-static">{{ enterpriseName }}</view>
+            <text class="field-label">联系人 <text class="req">*</text></text>
+            <input v-model="intentForm.name" class="field" placeholder="请输入联系人" />
+            <text class="field-label">联系电话 <text class="req">*</text></text>
+            <input v-model="intentForm.phone" class="field" type="number" placeholder="请输入联系电话" />
+            <text class="field-label">能力说明 / 备注 <text class="req">*</text></text>
+            <textarea v-model="intentForm.note" class="textarea" placeholder="简要说明可提供的能力、档期或合作意向"></textarea>
+            <view class="agree-row" @tap="intentForm.agree = !intentForm.agree">
+              <view class="agree-box" :class="{ on: intentForm.agree }">
+                <text v-if="intentForm.agree" class="agree-check">✓</text>
+              </view>
+              <text class="agree-text">我已阅读并同意向发布方提供以上对接信息。</text>
+            </view>
+            <view class="sheet-actions">
+              <view class="ghost-btn" @tap="closeSheet">取消</view>
+              <view class="primary-btn" :class="{ disabled: submitting }" @tap="submitIntent">
+                <text>{{ submitting ? '提交中...' : '提交意向' }}</text>
+              </view>
+            </view>
+          </template>
         </view>
       </view>
     </u-popup>
@@ -117,102 +210,253 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request, BASE_URL } from '../../utils/request'
-import { bizTypeLabel } from '../../utils/enums'
+import { request } from '../../utils/request'
+import { safeNavigateTo } from '../../utils/nav'
+import {
+  IMG_SOLAR, IMG_LIFT, IMG_HERO, isEnded, normalizeDemand,
+  getKindItems, isLoggedIn, isCertified, setCertified,
+  simulateLogin, currentUserName, saveSentIntents, getSentIntents,
+} from '../../utils/hallData'
 
-const post = ref(null)
-const showIntentSheet = ref(false)
-const intentForm = ref({ name: '', contact: '', remark: '' })
-const submittingIntent = ref(false)
-
-// 页面 id 从 onLoad 的 options 取（setup 顶层执行时页面尚未注册进
-// getCurrentPages() 栈，直接读取会拿到空值导致数据不加载）
+const item = ref(null)
+const state = ref('loading') // loading | ready | error
+const favorited = ref(false)
+const submitting = ref(false)
 let postId = ''
 
-const avatarText = computed(() => {
-  const name = post.value?.userName || '用'
-  return name.slice(0, 1)
+const isEndedItem = computed(() => (item.value ? isEnded(item.value) : false))
+
+const detailTitle = computed(() => {
+  if (!item.value) return '详情'
+  return item.value.type === '需求' ? '需求详情' : item.value.type === '服务' ? '服务能力详情' : '商品设备详情'
 })
 
-const goBack = () => uni.navigateBack()
-const preview = (i) => uni.previewImage({ urls: post.value.photos, current: i })
-const callPhone = () => post.value?.phone && uni.makePhoneCall({ phoneNumber: post.value.phone })
+const statusTagClass = computed(() => {
+  if (!item.value) return 'green'
+  return isEnded(item.value) ? 'gray' : item.value.type === '商品' ? 'orange' : 'green'
+})
 
-const showMoreActions = () => {
-  uni.showActionSheet({
-    itemList: ['分享', '举报'],
-    success: (res) => {
-      if (res.tapIndex === 0) uni.showShareMenu()
-      if (res.tapIndex === 1) uni.showToast({ title: '举报已提交', icon: 'none' })
-    },
-  })
-}
+const deadlineText = computed(() => {
+  if (!item.value) return ''
+  if (item.value.type === '需求') return item.value.deadline
+  return item.value.type === '服务' ? '可预约' : '可对接'
+})
+const deadlineLabel = computed(() => {
+  if (!item.value) return ''
+  return item.value.type === '需求' ? '截止时间' : item.value.type === '服务' ? '服务档期' : '供货状态'
+})
 
-const statusLabel = (s) => ({ pending: '待审核', published: '已发布', completed: '已完成', cancelled: '已取消', rejected: '已驳回' }[s] || '')
-const formatBudget = (fen) => {
-  if (fen == null || fen === 0) return '面议'
-  var yuan = (fen / 100).toFixed(2)
-  return '¥' + yuan.replace(/\.00$/, '')
-}
+const shortCompany = computed(() => {
+  if (!item.value) return ''
+  return item.value.company.replace('有限公司', '')
+})
+const companyInitial = computed(() => (item.value ? item.value.company.slice(0, 1) : '企'))
 
-// ---- 数据加载 ----
-const loadDetail = async () => {
-  if (!postId) return
+const descTitle = computed(() => {
+  if (!item.value) return ''
+  return item.value.type === '需求' ? '需求描述' : item.value.type === '服务' ? '服务能力' : '商品说明'
+})
+const fieldsTitle = computed(() => {
+  if (!item.value) return ''
+  return item.value.type === '需求' ? '作业与交付信息' : item.value.type === '服务' ? '能力与资质信息' : '设备与保障信息'
+})
+const mediaTitle = computed(() => {
+  if (!item.value) return ''
+  return item.value.type === '需求' ? '相关附件' : item.value.type === '服务' ? '作业案例' : '实拍与资料'
+})
+
+const mediaImages = computed(() => {
+  if (!item.value) return []
+  const first = item.value.image || IMG_SOLAR
+  const second = first === IMG_SOLAR ? IMG_HERO : IMG_SOLAR
+  return [first, second]
+})
+const attachmentNames = computed(() => {
+  if (!item.value) return []
+  if (item.value.type === '需求') return ['作业技术要求.pdf']
+  if (item.value.type === '服务') return ['江津光伏巡检方案.pdf']
+  return ['设备实拍图.zip']
+})
+
+const recommendItems = computed(() => {
+  if (!item.value) return []
+  const pool = item.value.type === '需求' ? getKindItems('supply', 'service') : getKindItems('demand')
+  return pool.slice(0, 2)
+})
+
+/* ================= 数据加载 ================= */
+async function loadDetail() {
+  state.value = 'loading'
+  const fallback = findMock(postId)
+  if (!postId && fallback) {
+    item.value = fallback
+    state.value = 'ready'
+    return
+  }
   try {
     const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(postId) })
     const d = (res && res.data) || res
-    if (d && d.id) {
-      post.value = {
-        tag: d.biz_type || '需求',
-        userName: d.publisher_name || '平台用户',
-        time: (d.created_at || '').slice(0, 16).replace('T', ' '),
-        title: d.title || '',
-        location: d.district || '',
-        desc: d.description || '暂无详细描述',
-        photos: parseImgs(d.images),
-        phone: d.contact || '',
-        status: d.status || '',
-        budget_fen: d.budget_fen,
-        reject_reason: (d.biz_fields && d.biz_fields.reject_reason) || ''
-      }
+    const normalized = normalizeDemand(d)
+    if (normalized) {
+      item.value = normalized
+      state.value = 'ready'
+      return
     }
-  } catch (e) { /* 保持空态 */ }
-}
-const parseImgs = (imgs) => {
-  try {
-    const arr = typeof imgs === 'string' ? JSON.parse(imgs) : (imgs || [])
-    return arr.map(u => (u && u.startsWith('http') ? u : BASE_URL + u))
-  } catch (e) { return [] }
+    // 后端拿不到但本地有 mock 则降级
+    if (fallback) {
+      item.value = fallback
+      state.value = 'ready'
+      return
+    }
+    state.value = 'error'
+  } catch (e) {
+    if (fallback) {
+      item.value = fallback
+      state.value = 'ready'
+    } else {
+      state.value = 'error'
+    }
+  }
 }
 
-// ---- 联系对接意向登记 ----
+function findMock(id) {
+  const all = [...getKindItems('demand'), ...getKindItems('supply', 'service'), ...getKindItems('supply', 'product')]
+  return all.find((i) => i.id === id) || null
+}
+
+/* ================= 导航 ================= */
+const goBack = () => uni.navigateBack()
+const goDetail = (r) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(r.id))
+const goMatches = () => safeNavigateTo('/pages/demands/matches')
+const previewImage = (i) => uni.previewImage({ urls: mediaImages.value, current: i })
+
+const onShare = () => {
+  uni.showToast({ title: '已生成分享卡片', icon: 'none' })
+}
+const toastCompany = () => {
+  uni.showToast({ title: '企业主页将在正式版本接入', icon: 'none' })
+}
+
+/* ================= 收藏 / 登记对接 ================= */
+const onFavorite = () => {
+  if (!isLoggedIn()) {
+    openSheet('login')
+    return
+  }
+  if (favorited.value) {
+    uni.showToast({ title: '已取消收藏', icon: 'none' })
+    favorited.value = false
+    return
+  }
+  favorited.value = true
+  uni.showToast({ title: '已收藏', icon: 'success' })
+}
+
+const onIntent = () => {
+  if (!isLoggedIn()) {
+    openSheet('login')
+    return
+  }
+  if (!isCertified()) {
+    openSheet('cert')
+    return
+  }
+  openSheet('intent')
+}
+
+/* ================= 会话模拟 ================= */
+const sheet = ref({ show: false, kind: '', title: '' })
+const intentForm = ref({ name: '', phone: '', note: '', agree: false })
+
+const enterpriseName = computed(() => currentUserName())
+
+function openSheet(kind) {
+  const titles = {
+    login: '登录后继续',
+    cert: '完成企业认证',
+    intent: '登记对接意向',
+  }
+  if (kind === 'intent') {
+    const u = currentUserName()
+    intentForm.value.name = u === '微信用户' ? '' : u
+    intentForm.value.phone = '138****2468'
+    intentForm.value.note = ''
+    intentForm.value.agree = false
+  }
+  sheet.value = { show: true, kind, title: titles[kind] || '' }
+}
+
+const closeSheet = () => { sheet.value = { show: false, kind: '', title: '' } }
+
+const handleSimulateLogin = () => {
+  simulateLogin()
+  closeSheet()
+  if (item.value) {
+    // 已登录后继续认证引导
+    openSheet('cert')
+  }
+}
+
+const simulateCert = () => {
+  setCertified(true)
+  closeSheet()
+  uni.showToast({ title: '企业认证已通过，请继续登记对接', icon: 'none' })
+  openSheet('intent')
+}
+
 const submitIntent = async () => {
-  if (submittingIntent.value) return
-  if (!intentForm.value.contact) {
+  if (submitting.value) return
+  if (!intentForm.value.name.trim()) {
+    uni.showToast({ title: '请填写联系人', icon: 'none' })
+    return
+  }
+  if (!intentForm.value.phone.trim()) {
     uni.showToast({ title: '请填写联系电话', icon: 'none' })
     return
   }
-  submittingIntent.value = true
+  if (!intentForm.value.note.trim()) {
+    uni.showToast({ title: '请填写能力说明', icon: 'none' })
+    return
+  }
+  if (!intentForm.value.agree) {
+    uni.showToast({ title: '请确认信息授权', icon: 'none' })
+    return
+  }
+  submitting.value = true
   try {
-    await request({
-      url: '/api/v1/demands/' + encodeURIComponent(postId) + '/intents',
-      method: 'POST',
-      data: {
-        intentor_name: intentForm.value.name,
-        contact: intentForm.value.contact,
-        remark: intentForm.value.remark,
-      },
+    // 尝试走后端登记意向；失败降级到本地存储
+    if (postId && /^[a-zA-Z0-9]+$/.test(postId)) {
+      try {
+        await request({
+          url: '/api/v1/demands/' + encodeURIComponent(postId) + '/intents',
+          method: 'POST',
+          data: {
+            intentor_name: intentForm.value.name,
+            contact: intentForm.value.phone,
+            remark: intentForm.value.note,
+          },
+        })
+      } catch (e) { /* 忽略，走本地兜底 */ }
+    }
+    const sent = getSentIntents()
+    sent.unshift({
+      id: 'sent' + Date.now(),
+      name: currentUserName(),
+      initial: (currentUserName() || '云').slice(0, 1),
+      target: item.value ? item.value.title : '',
+      note: intentForm.value.note.trim(),
+      status: '待处理',
+      createdAt: '刚刚',
     })
-    uni.showToast({ title: '对接意向已登记', icon: 'success' })
-    showIntentSheet.value = false
-    intentForm.value = { name: '', contact: '', remark: '' }
-  } catch (e) {
-    uni.showToast({ title: '提交失败，请稍后重试', icon: 'none' })
+    saveSentIntents(sent)
+    uni.showToast({ title: '对接意向已提交', icon: 'success' })
+    closeSheet()
   } finally {
-    submittingIntent.value = false
+    submitting.value = false
   }
 }
 
+/* ================= 生命周期 ================= */
 onLoad((options) => {
   postId = (options && options.id) || ''
   loadDetail()
@@ -220,332 +464,406 @@ onLoad((options) => {
 </script>
 
 <style scoped>
-.dd-page {
+.detail-page {
   min-height: 100vh;
   background: #F4F6F8;
-  padding-bottom: 96px;
+  padding-bottom: calc(150rpx + env(safe-area-inset-bottom));
 }
 
-/* Header */
-.dd-header {
+.tap-fade { opacity: 0.85; }
+
+/* ═══════ 头部 ═══════ */
+.page-header {
+  height: 56px;
+  padding: 0 28rpx;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px;
+  gap: 8rpx;
   background: #fff;
   border-bottom: 1px solid #EEF1F4;
   position: sticky;
   top: 0;
   z-index: 10;
 }
-
-.back-btn { font-size: 26px; color: #17212B; line-height: 1; width: 40px; }
-.title { flex: 1; font-size: 17px; font-weight: 600; color: #17212B; }
-.more-btn { font-size: 20px; color: #667085; padding: 0 6px; }
-
-.dd-content {
-  padding: 12px;
-}
-
-/* 驳回 banner */
-.reject-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #FEF3F2;
-  margin-bottom: 8px;
-}
-
-.reject-banner.cancelled { background: #FFF7F1; }
-
-.reject-tag {
-  font-size: 12px;
-  font-weight: 700;
-  color: #D92D20;
-  flex-shrink: 0;
-}
-
-.reject-banner.cancelled .reject-tag { color: #B54708; }
-
-.reject-text {
-  font-size: 13px;
-  color: #344054;
-  line-height: 1.5;
-}
-
-/* 决策摘要 */
-.summary-card {
-  background: #fff;
-  border: 1px solid #EEF1F4;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 8px;
-}
-
-.summary-tags {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.tag-blue {
-  font-size: 11px;
-  color: #0A66C2;
-  background: #EAF3FB;
-  padding: 3px 8px;
-  border-radius: 4px;
-}
-
-.tag-status {
-  font-size: 11px;
-  color: #168A55;
-  background: #E9F7F0;
-  padding: 3px 8px;
-  border-radius: 4px;
-}
-
-.summary-title {
-  font-size: 19px;
-  font-weight: 700;
-  color: #17212B;
-  line-height: 1.35;
-  display: block;
-}
-
-.summary-meta {
-  display: flex;
-  gap: 24px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid #EEF1F4;
-}
-
-.meta-block {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.meta-label {
-  font-size: 11px;
-  color: #98A2B3;
-}
-
-.meta-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #17212B;
-}
-
-.meta-value.budget {
-  color: #E96012;
-  font-size: 17px;
-}
-
-/* 分组区块 */
-.section-block {
-  background: #fff;
-  border: 1px solid #EEF1F4;
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin-bottom: 8px;
-}
-
-.section-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #17212B;
-  display: block;
-  margin-bottom: 10px;
-}
-
-.desc-text {
-  font-size: 14px;
-  color: #344054;
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
-
-/* 图片 */
-.photo-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-
-.photo {
-  width: 100%;
-  height: 104px;
-  border-radius: 8px;
-  background: #F4F6F8;
-}
-
-/* 发布方 */
-.publisher-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #fff;
-  border: 1px solid #EEF1F4;
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 8px;
-}
-
-.pub-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: #EAF3FB;
-  color: #0A66C2;
-  font-size: 16px;
-  font-weight: 600;
+.back-btn {
+  width: 72rpx;
+  height: 72rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+.back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
+.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; }
+.head-action { padding: 14rpx; }
+.head-action-text { color: #0A66C2; font-size: 26rpx; font-weight: 600; }
 
-.pub-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+/* ═══════ 内容区块 ═══════ */
+.detail-body { padding-bottom: 8rpx; }
+
+.detail-hero {
+  padding: 36rpx 32rpx 28rpx;
+  background: #fff;
+  border-bottom: 16rpx solid #F4F6F8;
 }
+.tag-row { display: flex; gap: 10rpx; align-items: center; }
+.tag {
+  max-width: 260rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 8rpx;
+  padding: 6rpx 12rpx;
+  font-size: 20rpx;
+  line-height: 1;
+}
+.tag.blue { color: #0A66C2; background: #EAF3FB; }
+.tag.green { color: #168A55; background: #E9F7F0; }
+.tag.orange { color: #DB5F0D; background: #FFF0E6; }
+.tag.gray { color: #667085; background: #F1F3F5; }
+.tag.red { color: #D92D20; background: #FEF3F2; }
 
-.pub-name {
-  font-size: 14px;
-  font-weight: 600;
+.detail-title {
+  display: block;
+  font-size: 42rpx;
+  line-height: 1.35;
+  margin: 18rpx 0 22rpx;
+  font-weight: 760;
   color: #17212B;
 }
-
-.pub-time {
-  font-size: 11px;
-  color: #98A2B3;
+.detail-sub {
+  display: flex;
+  gap: 20rpx;
+  color: #667085;
+  font-size: 24rpx;
 }
-
-/* 对接说明 */
-.notice-block {
-  background: #F4F8FC;
-  border-radius: 8px;
-  padding: 12px 16px;
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 30rpx;
+  padding-top: 24rpx;
+  border-top: 1px solid #EEF1F4;
+  gap: 16rpx;
 }
-
-.notice-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #0A66C2;
+.grid-cell { min-width: 0; }
+.grid-value {
   display: block;
-  margin-bottom: 6px;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #17212B;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.grid-value.price { color: #E96012; }
+.grid-label {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: #667085;
 }
 
-.notice-line {
-  display: block;
-  font-size: 12px;
+/* ═══════ 分段区块 ═══════ */
+.detail-section {
+  padding: 32rpx;
+  background: #fff;
+  border-bottom: 16rpx solid #F4F6F8;
+}
+.section-title { display: block; font-size: 30rpx; font-weight: 700; color: #17212B; margin-bottom: 20rpx; }
+.desc-text {
   color: #344054;
-  line-height: 1.7;
+  font-size: 26rpx;
+  line-height: 1.8;
+  white-space: pre-line;
 }
 
-.notice-line.warn {
-  color: #B54708;
+/* 字段表 */
+.detail-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: #EEF1F4;
+  border: 1px solid #EEF1F4;
+  border-radius: 14rpx;
+  overflow: hidden;
+}
+.field-cell {
+  padding: 20rpx;
+  background: #fff;
+  min-height: 114rpx;
+  box-sizing: border-box;
+}
+.field-label { display: block; color: #667085; font-size: 20rpx; margin-bottom: 8rpx; }
+.field-value { font-size: 24rpx; line-height: 1.35; color: #17212B; font-weight: 600; }
+
+/* 媒体 */
+.media-row { white-space: nowrap; }
+.media-inner { display: inline-flex; gap: 16rpx; }
+.media-img {
+  width: 236rpx;
+  height: 160rpx;
+  border-radius: 14rpx;
+  flex-shrink: 0;
+  background: #E8F2FC;
+}
+.attach-list { margin-top: 16rpx; display: flex; flex-direction: column; gap: 12rpx; }
+.attach-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx;
+  border: 1px solid #EEF1F4;
+  border-radius: 12rpx;
+  background: #FAFBFC;
+}
+.attach-icon { color: #0A66C2; font-size: 26rpx; }
+.attach-name { color: #344054; font-size: 24rpx; }
+
+/* 发布企业 */
+.company-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 22rpx;
+  border: 1px solid #E4E7EC;
+  border-radius: 14rpx;
+}
+.company-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+  color: #0A66C2;
+  background: #EAF3FB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 32rpx;
+}
+.company-copy { flex: 1; min-width: 0; }
+.company-name { display: block; font-size: 26rpx; font-weight: 700; color: #17212B; }
+.company-tag { display: block; font-size: 22rpx; color: #667085; margin-top: 6rpx; }
+.company-link { color: #0A66C2; font-size: 24rpx; white-space: nowrap; }
+
+/* 推荐 */
+.recommend-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
+.recommend-head .section-title { margin-bottom: 0; }
+.recommend-more { display: flex; align-items: center; gap: 4rpx; color: #0A66C2; font-size: 24rpx; font-weight: 600; }
+.more-arrow { font-size: 28rpx; }
+.recommend-row { white-space: nowrap; }
+.recommend-inner { display: inline-flex; gap: 16rpx; }
+.recommend-card {
+  min-width: 364rpx;
+  padding: 22rpx;
+  background: #F8FBFE;
+  border: 1px solid #DCEBF8;
+  border-radius: 14rpx;
+}
+.recommend-title {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #17212B;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recommend-meta {
+  display: block;
+  color: #667085;
+  font-size: 22rpx;
+  margin-top: 12rpx;
 }
 
-/* 底部操作栏 */
-.sticky-call {
+/* ═══════ 底部操作栏 ═══════ */
+.fixed-actions {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 12px;
-  background: #fff;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
   display: flex;
-  gap: 10px;
+  gap: 20rpx;
+  background: #fff;
+  border-top: 1px solid #EEF1F4;
+  z-index: 19;
+  box-shadow: 0 -2px 10px rgba(16, 24, 40, 0.05);
 }
-
-.sc-btn {
-  flex: 1;
-  height: 46px;
-  border-radius: 8px;
+.action-secondary,
+.action-primary {
+  height: 86rpx;
+  border-radius: 12rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 26rpx;
+}
+.action-secondary {
+  width: 168rpx;
+  flex-shrink: 0;
+  color: #344054;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  gap: 8rpx;
+}
+.fav-icon { font-size: 30rpx; line-height: 1; }
+.fav-icon.on { color: #E96012; }
+.action-primary {
+  flex: 1;
+  color: #fff;
+  background: #0A66C2;
+}
+.action-primary.disabled {
+  color: #667085;
+  background: #E9EDF1;
 }
 
-.sc-primary {
+/* ═══════ 骨架屏 ═══════ */
+.skeleton-wrap { padding: 32rpx; display: flex; flex-direction: column; gap: 24rpx; }
+.skeleton {
+  background: linear-gradient(90deg, #E9EDF1 25%, #F5F7F9 37%, #E9EDF1 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.3s infinite;
+  border-radius: 12rpx;
+}
+.skeleton-title { height: 44rpx; width: 70%; }
+.skeleton-line { height: 24rpx; width: 90%; }
+.skeleton-block { height: 240rpx; }
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* ═══════ 状态面板 ═══════ */
+.state-panel {
+  min-height: 620rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56rpx;
+  text-align: center;
+}
+.state-mark {
+  width: 124rpx;
+  height: 124rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+  border-radius: 50%;
+  background: #EAF3FB;
+  color: #0A66C2;
+  font-size: 54rpx;
+}
+.state-mark.err { color: #D92D20; background: #FEF3F2; }
+.state-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
+.state-desc { margin: 12rpx 0 32rpx; font-size: 22rpx; color: #98A2B3; }
+.state-btn {
+  height: 72rpx;
+  padding: 0 30rpx;
+  border-radius: 12rpx;
   background: #0A66C2;
   color: #fff;
+  font-size: 24rpx;
+  line-height: 72rpx;
 }
 
-.sc-secondary {
-  background: #fff;
-  color: #0A66C2;
-  border: 1px solid #0A66C2;
+/* ═══════ 弹层 ═══════ */
+.sheet { padding-bottom: 20rpx; }
+.sheet-head {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 32rpx 20rpx;
 }
-
-/* 意向弹层 */
-.intent-sheet {
-  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
-}
-
-.intent-title {
+.sheet-title { flex: 1; font-size: 32rpx; font-weight: 700; color: #17212B; }
+.sheet-close { width: 56rpx; height: 56rpx; display: flex; align-items: center; justify-content: center; }
+.sheet-x { font-size: 40rpx; color: #98A2B3; line-height: 1; }
+.sheet-body { padding: 0 32rpx 24rpx; }
+.sheet-desc {
   display: block;
-  font-size: 18px;
+  font-size: 26rpx;
+  color: #667085;
+  line-height: 1.7;
+  margin-bottom: 8rpx;
+}
+.sheet-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+.sheet-actions > view {
+  flex: 1;
+  height: 84rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
   font-weight: 700;
+}
+.ghost-btn { border: 1px solid #E4E7EC; background: #fff; color: #344054; }
+.primary-btn { background: #0A66C2; color: #fff; }
+.primary-btn.disabled { opacity: 0.6; }
+
+.field-label {
+  display: block;
+  color: #344054;
+  font-size: 24rpx;
+  font-weight: 650;
+  margin: 24rpx 0 14rpx;
+}
+.req { color: #D92D20; font-style: normal; }
+.field-static {
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 20rpx;
+  background: #F4F6F8;
+  border-radius: 12rpx;
+  font-size: 26rpx;
   color: #17212B;
 }
-
-.intent-desc {
-  display: block;
-  font-size: 12px;
-  color: #667085;
-  margin: 4px 0 16px;
-}
-
-.intent-field {
-  margin-bottom: 14px;
-}
-
-.intent-label {
-  display: block;
-  font-size: 13px;
-  color: #344054;
-  margin-bottom: 6px;
-  font-weight: 500;
-}
-
-.intent-input {
-  height: 44px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  padding: 0 12px;
-  font-size: 14px;
-  background: #fff;
-}
-
-.intent-textarea {
+.field,
+.textarea {
   width: 100%;
-  box-sizing: border-box;
-  height: 88px;
   border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 14px;
+  border-radius: 12rpx;
   background: #fff;
+  color: #17212B;
+  font-size: 26rpx;
+  padding: 0 20rpx;
+  box-sizing: border-box;
 }
-
-.intent-submit {
-  margin-top: 8px;
-  height: 46px;
-  border-radius: 8px;
-  background: #0A66C2;
-  color: #fff;
+.field { height: 84rpx; }
+.textarea {
+  height: 168rpx;
+  padding-top: 20rpx;
+  line-height: 1.6;
+}
+.agree-row {
+  display: flex;
+  gap: 14rpx;
+  align-items: flex-start;
+  margin: 24rpx 0 8rpx;
+}
+.agree-box {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  border: 2rpx solid #D0D5DD;
+  border-radius: 6rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
-  font-weight: 600;
+  margin-top: 2rpx;
+}
+.agree-box.on { background: #0A66C2; border-color: #0A66C2; }
+.agree-check { color: #fff; font-size: 24rpx; line-height: 1; }
+.agree-text {
+  font-size: 22rpx;
+  color: #667085;
+  line-height: 1.5;
 }
 </style>

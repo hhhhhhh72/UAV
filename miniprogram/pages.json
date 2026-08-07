@@ -158,6 +158,42 @@
       }
     },
     {
+      "path": "pages/demands/search",
+      "style": {
+        "navigationBarTitleText": "供需搜索",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/demands/matches",
+      "style": {
+        "navigationBarTitleText": "智能匹配",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/demands/intents",
+      "style": {
+        "navigationBarTitleText": "收到的对接意向",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/demands/chat",
+      "style": {
+        "navigationBarTitleText": "一对一洽谈",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/enterprise/register",
       "style": {
         "navigationBarTitleText": "企业入驻",
@@ -236,7 +272,8 @@
         "navigationBarTitleText": "赛事列表",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
+        "enablePullDownRefresh": true,
+        "navigationStyle": "custom"
       }
     },
     {
@@ -566,8 +603,7 @@
       "style": {
         "navigationBarTitleText": "院校详情",
         "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
+        "navigationBarBackgroundColor": "#ffffff"
       }
     },
     {

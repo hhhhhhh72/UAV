@@ -33,6 +33,7 @@ type CreateDemandInput struct {
 	Latitude      float64        `json:"latitude"`
 	Longitude     float64        `json:"longitude"`
 	BudgetFen     int64          `json:"budget_fen"`
+	Budget        int64          `json:"budget"` // 元（小程序发布表单），Create 时换算为分
 	BizFields     map[string]any `json:"biz_fields"`
 }
 
@@ -55,7 +56,12 @@ func (s *DemandService) Create(a domain.Actor, in CreateDemandInput) (domain.Dem
 	if bizType == "" {
 		bizType = domain.BizOther
 	}
-	d := domain.Demand{ID: fmt.Sprintf("demand-%d", now.UnixNano()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: in.BudgetFen, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
+	// 兼容小程序发布表单：提交 budget（元）时换算为分；显式 budget_fen 优先
+	budgetFen := in.BudgetFen
+	if budgetFen == 0 && in.Budget > 0 {
+		budgetFen = in.Budget * 100
+	}
+	d := domain.Demand{ID: fmt.Sprintf("demand-%d", now.UnixNano()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: budgetFen, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
 	slog.Info("demand created", "demand_id", d.ID, "publisher_id", a.ID, "biz_type", string(bizType))
 	return s.repo.Create(d)
 }
