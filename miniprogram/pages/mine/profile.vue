@@ -13,10 +13,6 @@
         <text class="label">昵称</text>
         <input class="input" v-model="form.name" placeholder="请输入昵称" />
       </view>
-      <view class="list-item">
-        <text class="label">手机号</text>
-        <input class="input" v-model="form.phone" type="number" placeholder="请输入手机号" />
-      </view>
     </view>
 
     <view class="section">
@@ -38,10 +34,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { request, BASE_URL, authStorage } from '../../utils/request'
 
 const form = ref({
   name: '',
-  phone: '',
   avatar: '',
   isAuth: false
 })
@@ -50,17 +46,44 @@ onMounted(() => {
   const user = JSON.parse(uni.getStorageSync('user') || '{}')
   form.value = {
     name: user.name || '',
-    phone: user.phone || '',
-    avatar: user.avatar || '',
+    avatar: user.avatar || user.avatar_url || '',
     isAuth: !!user.isAuth
   }
 })
 
+// 选择头像后立即上传 /api/v1/upload，成功后保存服务器 URL
 const chooseAvatar = () => {
   uni.chooseImage({
     count: 1,
     success: (res) => {
-      form.value.avatar = res.tempFilePaths[0]
+      const tempPath = res.tempFilePaths[0]
+      uni.showLoading({ title: '上传中...', mask: true })
+      const token = authStorage.getAccessToken()
+      uni.uploadFile({
+        url: BASE_URL + '/api/v1/upload',
+        filePath: tempPath,
+        name: 'file',
+        header: token ? { Authorization: `Bearer ${token}` } : {},
+        success: (upRes) => {
+          uni.hideLoading()
+          if (upRes.statusCode >= 200 && upRes.statusCode < 300) {
+            const body = JSON.parse(upRes.data || '{}')
+            const url = body.data?.url || body.url
+            if (url) {
+              form.value.avatar = url
+              uni.showToast({ title: '头像已上传' })
+            } else {
+              uni.showToast({ title: '上传失败', icon: 'none' })
+            }
+          } else {
+            uni.showToast({ title: '上传失败', icon: 'none' })
+          }
+        },
+        fail: () => {
+          uni.hideLoading()
+          uni.showToast({ title: '上传失败', icon: 'none' })
+        }
+      })
     }
   })
 }
@@ -69,15 +92,28 @@ const goAuth = () => {
   uni.navigateTo({ url: '/pages/mine/auth' })
 }
 
-const handleSave = () => {
+const handleSave = async () => {
   if (!form.value.name) return uni.showToast({ title: '请输入昵称', icon: 'none' })
-  
-  const user = JSON.parse(uni.getStorageSync('user') || '{}')
-  const updatedUser = { ...user, ...form.value }
-  uni.setStorageSync('user', JSON.stringify(updatedUser))
-  
-  uni.showToast({ title: '保存成功' })
-  setTimeout(() => uni.navigateBack(), 1500)
+
+  uni.showLoading({ title: '保存中...', mask: true })
+  try {
+    // 昵称/头像保存到服务端（users.name / users.avatar_url）
+    await request({
+      url: '/api/v1/me',
+      method: 'PATCH',
+      data: { name: form.value.name, avatar_url: form.value.avatar }
+    })
+    // 同步本地缓存
+    const user = JSON.parse(uni.getStorageSync('user') || '{}')
+    const updatedUser = { ...user, name: form.value.name, avatar: form.value.avatar }
+    uni.setStorageSync('user', JSON.stringify(updatedUser))
+    uni.hideLoading()
+    uni.showToast({ title: '保存成功' })
+    setTimeout(() => uni.navigateBack(), 1500)
+  } catch (err) {
+    uni.hideLoading()
+    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  }
 }
 </script>
 

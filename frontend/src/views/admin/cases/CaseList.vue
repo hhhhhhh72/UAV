@@ -13,27 +13,13 @@
       @add="createCase()"
       @sorter-change="handleSorterChange"
     >
-      <template #search-extra>
-        <a-button @click="openCategoryManager"><template #icon><icon-settings /></template>管理分类</a-button>
-        <a-button @click="refreshAll"><template #icon><icon-refresh /></template>刷新</a-button>
-      </template>
       <template #cover="{ record }">
         <div class="case-thumb">
-          <img v-if="record.coverType !== 'video'" :src="normalizeMediaUrl(record.cover)" :alt="record.title" />
-          <video v-else :src="normalizeMediaUrl(record.cover)" muted playsinline preload="metadata" />
+          <img v-if="(record.images || [])[0]" :src="normalizeMediaUrl(record.images[0])" :alt="record.title" />
         </div>
       </template>
       <template #title="{ record }">
         <span class="cell-title">{{ record.title || '未命名案例' }}</span>
-        <a-tag v-if="record.subTag" color="orange" size="small" style="margin-left: 6px;">{{ record.subTag }}</a-tag>
-      </template>
-      <template #category="{ record }">
-        <span>{{ getCategoryName(record.categoryId) }}</span>
-      </template>
-      <template #coverType="{ record }">
-        <a-tag :color="record.coverType === 'video' ? 'green' : 'arcoblue'" size="small">
-          {{ record.coverType === 'video' ? '视频' : '图片' }}
-        </a-tag>
       </template>
       <template #status="{ record }">
         <a-tag :color="caseStatusColor[record.status]" size="small">{{ caseStatusLabel[record.status] || record.status }}</a-tag>
@@ -50,7 +36,7 @@
       </template>
     </CrudList>
 
-    <!-- 案例编辑弹窗 (保留原有逻辑) -->
+    <!-- 案例编辑弹窗（对齐 CaseEntry v1 模型） -->
     <a-modal
       v-model:visible="showCaseEditPopup"
       :title="currentCase?.id ? '编辑案例' : '新增案例'"
@@ -60,52 +46,35 @@
       <template v-if="currentCase">
         <a-form :model="currentCase" layout="horizontal" class="dialog-form">
           <a-divider orientation="left">基本信息</a-divider>
-          <a-form-item label="所属分类" required>
-            <a-radio-group v-model="currentCase.categoryId" @change="onCategoryChange">
-              <a-radio v-for="cat in caseCategories" :key="cat.id" :value="Number(cat.id)">{{ cat.name }}</a-radio>
-            </a-radio-group>
+          <a-form-item label="分类" required>
+            <a-input v-model="currentCase.category" placeholder="如：物流配送 / 测绘巡检 / 应急救援" allow-clear />
           </a-form-item>
           <a-form-item label="标题" required>
             <a-input v-model="currentCase.title" placeholder="请输入标题" allow-clear />
           </a-form-item>
-          <a-form-item label="子标签">
-            <a-input v-model="currentCase.subTag" placeholder="可选" allow-clear />
-          </a-form-item>
-          <a-form-item label="服务类型">
-            <a-input v-model="currentCase.service" placeholder="如：无人机物流服务" allow-clear />
-          </a-form-item>
           <a-form-item label="简介">
             <a-input v-model="currentCase.description" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" placeholder="请输入简介" />
           </a-form-item>
-          <a-form-item label="地点">
-            <a-input v-model="currentCase.location" placeholder="请输入地点" allow-clear />
+          <a-form-item label="客户名称">
+            <a-input v-model="currentCase.clientName" placeholder="如：重庆市某区应急管理局" allow-clear />
           </a-form-item>
-          <a-form-item label="时间">
-            <a-date-picker v-model="currentCase.date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
+          <a-form-item label="成果">
+            <a-input v-model="currentCase.result" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="项目成果/数据（可选）" />
           </a-form-item>
 
-          <a-divider orientation="left">封面设置</a-divider>
-          <a-form-item label="封面类型">
-            <a-radio-group v-model="currentCase.coverType">
-              <a-radio value="image">图片</a-radio>
-              <a-radio value="video">视频</a-radio>
-            </a-radio-group>
-          </a-form-item>
-          <a-form-item label="封面地址">
-            <template v-if="currentCase.coverType === 'image'">
-              <a-upload
-                class="cover-upload"
-                :show-file-list="false"
-                :custom-request="uploadCover"
-                :before-upload="beforeUpload"
-                accept="image/*"
-              >
-                <img v-if="currentCase.cover" :src="normalizeMediaUrl(currentCase.cover)" class="cover-preview" />
-                <a-button v-else type="primary">点击上传</a-button>
-              </a-upload>
-              <a-button v-if="currentCase.cover" size="small" style="margin-top: 8px" @click="currentCase.cover = ''">清除</a-button>
-            </template>
-            <a-input v-else v-model="currentCase.cover" placeholder="输入视频URL" allow-clear />
+          <a-divider orientation="left">封面图片</a-divider>
+          <a-form-item label="封面">
+            <a-upload
+              class="cover-upload"
+              :show-file-list="false"
+              :custom-request="uploadCover"
+              :before-upload="beforeUpload"
+              accept="image/*"
+            >
+              <img v-if="(currentCase.images || [])[0]" :src="normalizeMediaUrl(currentCase.images[0])" class="cover-preview" />
+              <a-button v-else type="primary">点击上传</a-button>
+            </a-upload>
+            <a-button v-if="(currentCase.images || [])[0]" size="small" style="margin-top: 8px" @click="currentCase.images = []">清除</a-button>
           </a-form-item>
 
           <a-divider orientation="left">审核状态</a-divider>
@@ -116,38 +85,6 @@
               <a-option label="已下架" value="archived" />
             </a-select>
           </a-form-item>
-
-          <a-divider orientation="left">详细内容</a-divider>
-          <a-form-item label="详细描述">
-            <a-input v-model="currentCase.fullDescription" type="textarea" :auto-size="{ minRows: 4, maxRows: 10 }" placeholder="请输入详细描述" />
-          </a-form-item>
-
-          <!-- 亮点标签 -->
-          <a-divider orientation="left">项目亮点</a-divider>
-          <div v-for="(tag, idx) in currentCase.highlights" :key="idx" class="highlight-row">
-            <a-input v-model="currentCase.highlights[idx]" :placeholder="'标签 ' + (idx + 1)" />
-            <a-button type="text" status="danger" shape="circle" size="small" @click="currentCase.highlights.splice(idx, 1)">
-              <template #icon><icon-delete /></template>
-            </a-button>
-          </div>
-          <a-button type="outline" size="small" @click="currentCase.highlights.push('')"><template #icon><icon-plus /></template>添加标签</a-button>
-
-          <!-- 媒体资源 -->
-          <a-divider orientation="left">媒体资源</a-divider>
-          <div v-for="(media, idx) in currentCase.media" :key="idx" class="media-card">
-            <div class="media-card-head">
-              <b>资源 #{{ idx + 1 }}</b>
-              <a-button type="text" status="danger" size="small" @click="currentCase.media.splice(idx, 1)">
-                <template #icon><icon-delete /></template>
-              </a-button>
-            </div>
-            <a-radio-group v-model="media.type" style="margin-bottom: 8px;">
-              <a-radio value="image">图片</a-radio>
-              <a-radio value="video">视频</a-radio>
-            </a-radio-group>
-            <a-input v-model="media.url" placeholder="URL" />
-          </div>
-          <a-button type="outline" size="small" @click="currentCase.media.push({ type: 'image', url: '' })"><template #icon><icon-plus /></template>添加资源</a-button>
         </a-form>
 
         <div class="modal-footer">
@@ -157,43 +94,6 @@
             <a-button type="primary" @click="onSaveCase">保存</a-button>
           </a-space>
         </div>
-      </template>
-    </a-modal>
-
-    <!-- 分类管理弹窗 (保留原有逻辑) -->
-    <a-modal v-model:visible="showCategoryPopup" title="分类管理" :width="500" :footer="false">
-      <div class="cat-head">
-        <span>共 {{ caseCategories.length }} 项</span>
-        <a-button type="primary" size="small" @click="openAddCategoryDialog"><template #icon><icon-plus /></template>新增分类</a-button>
-      </div>
-
-      <a-empty v-if="caseCategories.length === 0" description="暂无分类" />
-
-      <div v-else>
-        <div v-for="(cat, idx) in caseCategories" :key="cat.id" class="cat-item">
-          <span class="cat-index">#{{ idx + 1 }}</span>
-          <a-tag color="arcoblue" size="small">ID: {{ cat.id }}</a-tag>
-          <span class="cat-name">{{ cat.name || '-' }}</span>
-          <span class="cat-service">{{ cat.service || '-' }}</span>
-          <a-button type="text" status="success" size="small" @click="startEditCategory(cat)">编辑</a-button>
-          <a-button type="text" status="danger" size="small" @click="deleteCategory(cat)">删除</a-button>
-        </div>
-      </div>
-    </a-modal>
-
-    <!-- 分类编辑子弹窗 -->
-    <a-modal v-model:visible="showCategoryDialog" :title="editingCategory?.id ? '编辑分类' : '新增分类'" :width="400">
-      <a-form v-if="editingCategory" :model="editingCategory" layout="horizontal" class="dialog-form">
-        <a-form-item label="分类名称" required>
-          <a-input v-model="editingCategory.name" placeholder="如：共享无人机" allow-clear />
-        </a-form-item>
-        <a-form-item label="默认服务">
-          <a-input v-model="editingCategory.service" placeholder="如：共享无人机服务" allow-clear />
-        </a-form-item>
-      </a-form>
-      <template #footer>
-        <a-button @click="showCategoryDialog = false">取消</a-button>
-        <a-button type="primary" @click="onSaveCategory">确认</a-button>
       </template>
     </a-modal>
   </div>
@@ -208,44 +108,13 @@ import { normalizeMediaUrl } from '../composables/useMedia'
 
 const crudRef = ref()
 
-// --- 分类数据 ---
-const caseCategories = ref([])
-
-const fetchCaseCategories = async () => {
-  try {
-    const res = await axios.get('/api/case-categories')
-    caseCategories.value = Array.isArray(res.data) ? res.data : []
-  } catch (error) {
-    console.error('获取分类失败', error)
-    caseCategories.value = []
-  }
-}
-
-const getCategoryName = (id) => {
-  const cat = caseCategories.value.find(c => Number(c.id) === Number(id))
-  return cat ? cat.name : (id ?? '-')
-}
-
-const onCategoryChange = (val) => {
-  if (!currentCase.value) return
-  const cat = caseCategories.value.find(c => Number(c.id) === Number(val))
-  if (cat && !currentCase.value.service) {
-    currentCase.value.service = cat.service || ''
-  }
-}
-
-// --- 案例列表（JSON 文件后端 /api/cases，保留字段归一化） ---
+// --- 案例列表（CaseEntry v1 模型：/api/v1/admin/cases） ---
 const fetchCases = async (params) => {
   try {
-    const res = await axios.get('/api/cases', { params })
-    const raw = res.data?.data || res.data || []
+    const res = await axios.get('/api/v1/admin/cases', { params })
     return {
-      data: Array.isArray(raw) ? raw.map(c => ({
-        ...c,
-        cover: normalizeMediaUrl(c.cover),
-        media: Array.isArray(c.media) ? c.media.map(m => ({ ...m, url: normalizeMediaUrl(m?.url) })) : c.media
-      })) : [],
-      total: res.data?.total || (Array.isArray(raw) ? raw.length : 0)
+      data: Array.isArray(res.data?.data) ? res.data.data : [],
+      total: res.data?.total || 0
     }
   } catch (error) {
     Message.error('获取案例数据失败')
@@ -253,37 +122,25 @@ const fetchCases = async (params) => {
   }
 }
 
-// 批量动作（JSON 文件后端无标准 CRUD delete，禁用内置批量删除，改用 /api/cases/update|delete）
+// 批量动作（PUT 全字段覆盖 / DELETE）
 const batchActions = [
-  { key: 'publish', label: '批量发布', status: 'success', api: (row) => axios.post('/api/cases/update', { ...row, status: 'published' }) },
-  { key: 'archive', label: '批量下架', status: 'warning', api: (row) => axios.post('/api/cases/update', { ...row, status: 'archived' }) },
-  { key: 'delete', label: '批量删除', status: 'danger', api: (row) => axios.post('/api/cases/delete', { id: row.id }) }
+  { key: 'publish', label: '批量发布', status: 'success', api: (row) => axios.put(`/api/v1/admin/cases/${row.id}`, { ...row, status: 'published' }) },
+  { key: 'archive', label: '批量下架', status: 'warning', api: (row) => axios.put(`/api/v1/admin/cases/${row.id}`, { ...row, status: 'archived' }) },
+  { key: 'delete', label: '批量删除', status: 'danger', api: (row) => axios.delete(`/api/v1/admin/cases/${row.id}`) }
 ]
 
 const searchFields = computed(() => [
-  { key: 'categoryId', label: '分类', type: 'select', width: 160, options: [
-    { value: null, label: '全部分类' },
-    ...caseCategories.value.map(cat => ({ value: Number(cat.id), label: cat.name }))
-  ]},
-  { key: 'keyword', label: '关键词', type: 'input', width: 200, placeholder: '搜索案例标题...' }
+  { key: 'category', label: '分类', type: 'input', width: 200, placeholder: '输入分类名称（精确匹配）' }
 ])
 
 const columns = [
-  { title: '封面', dataIndex: 'cover', slotName: 'cover', width: 90 },
+  { title: '封面', dataIndex: 'images', slotName: 'cover', width: 90 },
   { title: '标题', dataIndex: 'title', slotName: 'title', minWidth: 180, sortable: true },
-  { title: '分类', dataIndex: 'categoryId', slotName: 'category', width: 110 },
-  { title: '地点', dataIndex: 'location', width: 120 },
-  { title: '时间', dataIndex: 'date', width: 110 },
-  { title: '类型', dataIndex: 'coverType', slotName: 'coverType', width: 80 },
-  { title: '浏览量', dataIndex: 'views', width: 90, align: 'right', sortable: true },
+  { title: '分类', dataIndex: 'category', width: 110 },
+  { title: '客户', dataIndex: 'clientName', width: 140 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
   { title: '操作', slotName: 'actions', width: 140, fixed: 'right' },
 ]
-
-const refreshAll = async () => {
-  await fetchCaseCategories()
-  crudRef.value?.reload()
-}
 
 // a-table 排序（Arco direction → useListRequest 的 order 语义）
 const handleSorterChange = (dataIndex, direction) => {
@@ -305,7 +162,7 @@ const beforeUpload = (file) => {
   return true
 }
 
-// 封面图片上传（/api/v1/upload 返回相对 URL）
+// 封面图片上传（/api/v1/upload 返回 { url }）
 const uploadCover = async ({ file, onSuccess, onError }) => {
   const fd = new FormData()
   fd.append('file', file)
@@ -313,7 +170,7 @@ const uploadCover = async ({ file, onSuccess, onError }) => {
     const res = await axios.post('/api/v1/upload', fd)
     const url = res?.data?.url || res?.url
     if (!url) throw new Error('上传失败')
-    if (currentCase.value) currentCase.value.cover = url
+    if (currentCase.value) currentCase.value.images = [url]
     Message.success('上传成功')
     onSuccess && onSuccess(res)
   } catch (e) {
@@ -322,36 +179,31 @@ const uploadCover = async ({ file, onSuccess, onError }) => {
   }
 }
 
-const createCase = async () => {
-  if (caseCategories.value.length === 0) await fetchCaseCategories()
-  const firstCat = caseCategories.value[0]
+const createCase = () => {
   currentCase.value = {
-    title: '', description: '', location: '', date: '', fullDescription: '',
-    coverType: 'image', cover: '', media: [], highlights: [], status: 'pending',
-    categoryId: firstCat ? Number(firstCat.id) : null,
-    service: firstCat ? firstCat.service : '', subTag: ''
+    title: '', category: '', description: '', images: [], clientName: '', result: '', status: 'pending'
   }
   showCaseEditPopup.value = true
 }
 
-const editCase = async (caseItem) => {
-  if (caseCategories.value.length === 0) await fetchCaseCategories()
+const editCase = (caseItem) => {
   currentCase.value = JSON.parse(JSON.stringify(caseItem))
-  if (!currentCase.value.media) currentCase.value.media = []
-  if (!currentCase.value.highlights) currentCase.value.highlights = []
-  if (!currentCase.value.coverType) currentCase.value.coverType = 'image'
-  if (currentCase.value.subTag == null) currentCase.value.subTag = ''
+  if (!Array.isArray(currentCase.value.images)) currentCase.value.images = []
   showCaseEditPopup.value = true
 }
 
 const onSaveCase = async () => {
   if (!currentCase.value) return
+  if (!currentCase.value.title?.trim()) {
+    Message.error('标题不能为空')
+    return
+  }
   Message.loading('保存中...', 0)
   try {
     if (currentCase.value.id) {
-      await axios.post('/api/cases/update', currentCase.value)
+      await axios.put(`/api/v1/admin/cases/${currentCase.value.id}`, currentCase.value)
     } else {
-      await axios.post('/api/cases/create', currentCase.value)
+      await axios.post('/api/v1/admin/cases', currentCase.value)
     }
     Message.clear()
     Message.success('保存成功')
@@ -371,7 +223,7 @@ const onDeleteCase = (caseItem) => {
     cancelText: '取消',
     onOk: async () => {
       try {
-        await axios.post('/api/cases/delete', { id: caseItem.id })
+        await axios.delete(`/api/v1/admin/cases/${caseItem.id}`)
         Message.success('删除成功')
         if (currentCase.value?.id === caseItem.id) showCaseEditPopup.value = false
         crudRef.value?.reload()
@@ -381,80 +233,13 @@ const onDeleteCase = (caseItem) => {
     }
   })
 }
-
-// --- 分类管理 ---
-const showCategoryPopup = ref(false)
-const showCategoryDialog = ref(false)
-const editingCategory = ref(null)
-
-const openCategoryManager = async () => {
-  await fetchCaseCategories()
-  showCategoryPopup.value = true
-}
-
-const openAddCategoryDialog = () => {
-  editingCategory.value = { id: null, name: '', service: '' }
-  showCategoryDialog.value = true
-}
-
-const startEditCategory = (cat) => {
-  editingCategory.value = { id: cat.id, name: cat.name || '', service: cat.service || '' }
-  showCategoryDialog.value = true
-}
-
-const onSaveCategory = async () => {
-  const form = editingCategory.value
-  if (!form || !form.name?.trim()) {
-    Message.error('分类名称不能为空')
-    return
-  }
-  Message.loading('保存中...', 0)
-  try {
-    if (form.id == null) {
-      await axios.post('/api/case-categories/create', { name: form.name.trim(), service: (form.service || '').trim() })
-    } else {
-      await axios.post('/api/case-categories/update', { id: form.id, name: form.name.trim(), service: (form.service || '').trim() })
-    }
-    Message.clear()
-    Message.success(form.id == null ? '分类已新增' : '分类已更新')
-    showCategoryDialog.value = false
-    await fetchCaseCategories()
-  } catch (error) {
-    Message.clear()
-    Message.error(error?.response?.data?.message || '保存失败')
-  }
-}
-
-const deleteCategory = (cat) => {
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除分类「${cat.name}」吗？若有案例仍归属该分类将无法删除。`,
-    okText: '删除',
-    cancelText: '取消',
-    onOk: async () => {
-      Message.loading('删除中...', 0)
-      try {
-        await axios.post('/api/case-categories/delete', { id: cat.id })
-        Message.clear()
-        Message.success('删除成功')
-        await fetchCaseCategories()
-      } catch (error) {
-        Message.clear()
-        Message.error(error?.response?.data?.message || '删除失败')
-      }
-    }
-  })
-}
-
-// 首屏加载分类（CrudList 自行加载列表数据）
-fetchCaseCategories()
 </script>
 
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
 
 .case-thumb { width: 56px; height: 56px; border-radius: 6px; overflow: hidden; background: #F7F8FA; }
-.case-thumb img, .case-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.case-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cell-title { font-weight: 500; }
 
 .dialog-form :deep(.arco-form-item-label-col) { min-width: 88px; }
@@ -465,47 +250,6 @@ fetchCaseCategories()
   padding-top: 16px;
   border-top: 1px solid #EEF1F4;
 }
-
-.highlight-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.media-card {
-  margin-bottom: 12px;
-  padding: 10px;
-  border: 1px dashed #E0E0E0;
-  border-radius: 6px;
-}
-
-.media-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.cat-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.cat-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid #EBEEF5;
-  border-radius: 6px;
-  margin-bottom: 8px;
-}
-
-.cat-index { color: #909399; font-size: 12px; }
-.cat-name { flex: 1; }
-.cat-service { color: #909399; font-size: 12px; }
 
 .cover-upload { display: inline-block; margin-right: 8px; }
 .cover-preview { width: 160px; height: 100px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }

@@ -110,7 +110,8 @@ const actionButtonText = computed(() => {
 })
 
 const onApply = () => {
-  uni.showToast({ title: '申请功能即将上线', icon: 'none', duration: 1500 })
+  if (!service.value?.id) return
+  uni.navigateTo({ url: '/pages/services/apply?id=' + service.value.id })
 }
 
 const goBack = () => {

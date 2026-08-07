@@ -34,7 +34,7 @@ export function normalizeMediaUrl(raw) {
 }
 
 /**
- * Upload a single file via /api/upload and return the normalised URL.
+ * Upload a single file via /api/v1/upload and return the normalised URL.
  * Supports both { file: File } object and direct File/Blob object.
  */
 export async function uploadFile(file) {
@@ -47,13 +47,13 @@ export async function uploadFile(file) {
   }
   formData.append('file', actualFile)
   try {
-    const res = await axios.post('/api/upload', formData, {
+    const res = await axios.post('/api/v1/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    // Backend returns: { file_id, sha256, size_bytes, content_type }
-    // Construct accessible path as /uploads/{file_id}
-    if (res.data?.file_id) {
-      return normalizeMediaUrl(`/uploads/${res.data.file_id}`)
+    // Backend returns: { url: "/uploads/{filename}" }
+    const url = res.data?.url || res?.url
+    if (url) {
+      return normalizeMediaUrl(url)
     } else {
       showFailToast('上传失败')
       return null

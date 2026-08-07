@@ -216,7 +216,7 @@ export default {
           data: {
             title: this.form.title,
             biz_type: this.form.biz_type,
-            budget: this.form.budget ? parseFloat(this.form.budget) : 0,
+            budget_fen: this.form.budget ? Math.round(parseFloat(this.form.budget) * 100) : 0,
             district: this.form.district,
             description: this.form.description,
             contact: this.form.contact,

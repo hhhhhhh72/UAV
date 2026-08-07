@@ -1,135 +1,22 @@
 <template>
   <view class="auth-page">
-    <view class="status-card" :class="{ verified: isVerified }">
-      <view class="status-icon">{{ isVerified ? '✓' : '!' }}</view>
-      <view class="status-text">{{ isVerified ? '已完成实名认证' : '未完成实名认证' }}</view>
-      <view class="status-tip" v-if="!isVerified">根据监管要求，使用低空服务需完成实名登记</view>
+    <view class="status-card">
+      <view class="status-icon">!</view>
+      <view class="status-text">实名认证建设中</view>
+      <view class="status-tip">根据监管要求，使用低空服务需完成实名登记。该功能正在对接权威核验渠道，上线前暂时无法提交认证。</view>
     </view>
 
-    <view class="form-box" v-if="!isVerified">
-      <view class="section-title">身份信息</view>
-      <view class="input-group">
-        <view class="input-item">
-          <text class="label">姓名</text>
-          <input class="input" v-model="form.realName" placeholder="请输入真实姓名" />
-        </view>
-        <view class="input-item">
-          <text class="label">身份证号</text>
-          <input class="input" v-model="form.idCard" type="idcard" placeholder="请输入身份证号码" />
-        </view>
-      </view>
-
-      <view class="section-title">手机验证</view>
-      <view class="input-group">
-        <view class="input-item">
-          <text class="label">手机号</text>
-          <input class="input" v-model="form.phone" type="number" placeholder="请输入手机号" />
-        </view>
-        <view class="input-item">
-          <text class="label">验证码</text>
-          <input class="input" v-model="form.code" type="number" placeholder="请输入验证码" />
-          <text class="code-btn" @tap="sendCode">{{ codeText }}</text>
-        </view>
-      </view>
-
-      <view class="notice">
-        <text class="notice-icon">ℹ️</text>
-        <text class="notice-text">您的信息将受到严格保护，仅用于身份核验。</text>
-      </view>
-
-      <button class="submit-btn" type="primary" @tap="handleSubmit">提交认证</button>
+    <view class="notice-box">
+      <view class="notice-title">敬请期待</view>
+      <view class="notice-text">功能上线后，您可在此提交真实姓名与身份证号完成实名登记。提交的信息将受到严格保护，仅用于身份核验。</view>
     </view>
-
-    <view class="info-box" v-else>
-      <view class="info-item">
-        <text class="label">真实姓名</text>
-        <text class="value">{{ maskName(form.realName) }}</text>
-      </view>
-      <view class="info-item">
-        <text class="label">身份证号</text>
-        <text class="value">{{ maskIdCard(form.idCard) }}</text>
-      </view>
-      <view class="info-item">
-        <text class="label">认证时间</text>
-        <text class="value">{{ authTime }}</text>
-      </view>
-    </view>
-
   </view>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-
-const isVerified = ref(false)
-const codeText = ref('获取验证码')
-const authTime = ref('')
-const form = reactive({
-  realName: '',
-  idCard: '',
-  phone: '',
-  code: ''
-})
-
-onMounted(() => {
-  const user = JSON.parse(uni.getStorageSync('user') || '{}')
-  if (user.isAuth) {
-    isVerified.value = true
-    form.realName = user.realName || '张**'
-    form.idCard = user.idCard || '3303***********1234'
-    authTime.value = user.authTime || '2025-12-24'
-  }
-})
-
-const sendCode = () => {
-  if (codeText.value !== '获取验证码') return
-  if (!form.phone) return uni.showToast({ title: '请输入手机号', icon: 'none' })
-  
-  uni.showToast({ title: '验证码已发送' })
-  let count = 60
-  const timer = setInterval(() => {
-    count--
-    if (count <= 0) {
-      clearInterval(timer)
-      codeText.value = '获取验证码'
-    } else {
-      codeText.value = `${count}s`
-    }
-  }, 1000)
-}
-
-const handleSubmit = () => {
-  if (!form.realName || !form.idCard || !form.phone || !form.code) {
-    return uni.showToast({ title: '请填写完整信息', icon: 'none' })
-  }
-
-  uni.showLoading({ title: '认证中...' })
-  
-  setTimeout(() => {
-    const user = JSON.parse(uni.getStorageSync('user') || '{}')
-    user.isAuth = true
-    user.realName = form.realName
-    user.idCard = form.idCard
-    user.authTime = new Date().toISOString().split('T')[0]
-    
-    uni.setStorageSync('user', JSON.stringify(user))
-    isVerified.value = true
-    authTime.value = user.authTime
-    
-    uni.hideLoading()
-    uni.showToast({ title: '认证成功' })
-  }, 1500)
-}
-
-const maskName = (name) => {
-  if (!name) return ''
-  return name.charAt(0) + '*'.repeat(name.length - 1)
-}
-
-const maskIdCard = (id) => {
-  if (!id) return ''
-  return id.substring(0, 4) + '***********' + id.substring(id.length - 4)
-}
+// 实名认证：后端暂无实名登记接口（User 模型无身份证字段），
+// 此前的前端伪造"认证成功"实现已下线，避免出现无法真实核验的"已认证"假状态。
+// 待接入权威实名核验接口后再恢复提交表单。
 </script>
 
 <style scoped>
@@ -152,16 +39,12 @@ const maskIdCard = (id) => {
   width: 60px;
   height: 60px;
   line-height: 60px;
-  border-radius: 8px;
-  background: #ff9900;
-  color: #fff;
+  border-radius: 50%;
+  background: #ffe4a8;
+  color: #d48806;
   font-size: 32px;
   font-weight: bold;
   margin: 0 auto 16px;
-}
-
-.verified .status-icon {
-  background: #07c160;
 }
 
 .status-text {
@@ -174,98 +57,26 @@ const maskIdCard = (id) => {
 .status-tip {
   font-size: 14px;
   color: #969799;
+  line-height: 1.6;
 }
 
-.section-title {
-  font-size: 14px;
-  color: #969799;
-  margin: 0 0 10px 4px;
-}
-
-.input-group {
+.notice-box {
   background: #fff;
   border-radius: 8px;
-  overflow: hidden;
-  margin-bottom: 20px;
+  padding: 20px;
 }
 
-.input-item {
-  display: flex;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #f2f3f5;
-}
-
-.input-item:last-child {
-  border-bottom: none;
-}
-
-.label {
-  width: 80px;
+.notice-title {
   font-size: 15px;
-  color: #323233;
-}
-
-.input {
-  flex: 1;
-  font-size: 15px;
-}
-
-.code-btn {
-  font-size: 14px;
-  color: #2f7ef7;
-  padding-left: 12px;
-  border-left: 1px solid #f2f3f5;
-}
-
-.notice {
-  display: flex;
-  gap: 6px;
-  padding: 0 4px;
-  margin-bottom: 30px;
-}
-
-.notice-icon {
-  font-size: 14px;
+  font-weight: 600;
+  color: #0a66c2;
+  display: block;
+  margin-bottom: 8px;
 }
 
 .notice-text {
-  font-size: 12px;
-  color: #969799;
-}
-
-.submit-btn {
-  height: 48px;
-  line-height: 48px;
-  border-radius: 8px;
-  background-color: #2f7ef7 !important;
-  font-weight: bold;
-}
-
-.info-box {
-  background: #fff;
-  border-radius: 8px;
-  padding: 8px 16px;
-}
-
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 16px 0;
-  border-bottom: 1px solid #f2f3f5;
-}
-
-.info-item:last-child {
-  border-bottom: none;
-}
-
-.info-item .label {
-  color: #969799;
-}
-
-.info-item .value {
-  color: #323233;
-  font-weight: 500;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.7;
 }
 </style>
-
