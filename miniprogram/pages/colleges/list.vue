@@ -15,6 +15,7 @@
 
       <!-- ③ 院校卡片 -->
       <StateView
+        class="state-fill"
         :loading="loading"
         :error="!!errorMsg"
         :empty="!loading && !errorMsg && list.length === 0"
@@ -257,7 +258,9 @@ onPullDownRefresh(function () {
   --anim-base: 240ms;
   --anim-slow: 320ms;
   --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(180deg, #f5f6f8 0%, #E8F2FC 100%);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -270,7 +273,19 @@ onPullDownRefresh(function () {
   border-radius: 0;
   position: relative;
   z-index: 2;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   animation: pageIn var(--anim-slow) var(--ease-out) both;
+}
+
+/* StateView 撑满剩余空间，scroll-view 才能自适应高度 */
+.state-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .tabs-container {
@@ -316,7 +331,7 @@ onPullDownRefresh(function () {
 /* ================================================================= */
 /* ③ 卡片                                                             */
 /* ================================================================= */
-.list-scroll { padding: 24rpx 24rpx 0; height: calc(100vh - 300rpx); }
+.list-scroll { padding: 24rpx 24rpx 0; height: auto; flex: 1; min-height: 0; }
 
 .college-card {
   position: relative;
