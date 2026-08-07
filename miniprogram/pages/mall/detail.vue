@@ -182,34 +182,38 @@ const anchors = [
 ]
 const activeAnchor = ref('anchor-product')
 const anchorSticky = ref(false)
-const anchorOffsets = {}
+// 各锚点相对页面顶部的绝对位置（测量一次，滚动后不失效）
+const anchorAbs = {}
 let lastScrollTop = 0
-// 手动点击后的锁定锚点：滚动动画期间 onPageScroll 不覆盖高亮（修复点击需两次才生效）
+// 手动点击后的锁定锚点：滚动动画期间 onPageScroll 不覆盖高亮（修复切换跳回）
 let pendingAnchor = null
 const NAV_OFFSET_PX = uni.upx2px(84) // 吸顶导航高度 + 间距补偿（84rpx）
 
 const scrollToAnchor = (id) => {
   pendingAnchor = id
   activeAnchor.value = id
+  // 解锁延时必须大于滚动动画时长（260ms）——complete 回调在微信端会提前触发，
+  // 动画中途解锁会被 onPageScroll 的高亮重算抢回原锚点
+  setTimeout(() => { if (pendingAnchor === id) pendingAnchor = null }, 360)
+  const abs = anchorAbs[id]
+  if (abs !== undefined) {
+    uni.pageScrollTo({ scrollTop: Math.max(0, abs - NAV_OFFSET_PX), duration: 260 })
+    return
+  }
+  // 兜底：实时测量（绝对位置 = 相对视口 top + 当前 scrollTop）
   const q = uni.createSelectorQuery()
   q.select('#' + id).boundingClientRect((rect) => {
-    if (!rect) { pendingAnchor = null; return }
-    // 目标相对页面顶部的距离 = 当前 scrollTop + 相对视口 top，再减去吸顶导航高度
-    const target = Math.max(0, lastScrollTop + rect.top - NAV_OFFSET_PX)
-    uni.pageScrollTo({
-      scrollTop: target,
-      duration: 260,
-      // 滚动完成：解除锁定，保持点击的目标高亮；用户继续滚动时自然校正
-      complete: () => { if (pendingAnchor === id) pendingAnchor = null },
-    })
+    if (!rect) return
+    anchorAbs[id] = rect.top + lastScrollTop
+    uni.pageScrollTo({ scrollTop: Math.max(0, anchorAbs[id] - NAV_OFFSET_PX), duration: 260 })
   })
   q.exec()
 }
-// 高亮当前区块（最后一个 offset <= scrollTop + 阈值 的锚点）
+// 高亮当前区块（最后一个 abs <= scrollTop + 阈值 的锚点）
 const recomputeHighlight = () => {
   let current = anchors[0].id
   anchors.forEach(a => {
-    const off = anchorOffsets[a.id]
+    const off = anchorAbs[a.id]
     if (off !== undefined && off <= lastScrollTop + 100) current = a.id
   })
   activeAnchor.value = current
@@ -220,7 +224,7 @@ const measureAnchors = () => {
     const q = uni.createSelectorQuery()
     anchors.forEach(a => {
       q.select('#' + a.id).boundingClientRect(rect => {
-        if (rect) anchorOffsets[a.id] = rect.top
+        if (rect) anchorAbs[a.id] = rect.top + lastScrollTop
       })
     })
     q.exec()
