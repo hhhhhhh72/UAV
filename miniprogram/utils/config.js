@@ -1,5 +1,3 @@
 // 后端 API 地址配置（唯一配置点）
-// 开发环境：电脑局域网 IP（真机调试时手机需与电脑同一 WiFi）
-// 测试环境：腾讯云服务器 IP（微信开发者工具需勾选"不校验合法域名"）
-// 生产环境：改为部署域名，如 'https://api.example.com'
-export const BASE_URL = 'http://1.14.109.203:8080'
+// 生产环境：正式域名（微信后台 request 合法域名已配置 https://uavtest.cloud）
+export const BASE_URL = 'https://uavtest.cloud'

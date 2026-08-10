@@ -267,7 +267,7 @@ export default {
       uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(item.id) })
     },
     goEnterpriseDetail(item) {
-      uni.navigateTo({ url: '/pages/enterprise/status?id=' + encodeURIComponent(item.id) })
+      uni.navigateTo({ url: '/pkg-eco/pages/enterprise/status?id=' + encodeURIComponent(item.id) })
     },
 
     // --- Helpers ---

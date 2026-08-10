@@ -369,7 +369,7 @@ function findMock(id) {
 /* ================= 导航 ================= */
 const goBack = () => uni.navigateBack()
 const goDetail = (r) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(r.id))
-const goMatches = () => safeNavigateTo('/pages/demands/matches')
+const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
 const previewImage = (i) => uni.previewImage({ urls: mediaImages.value, current: i })
 
 const onShare = () => {

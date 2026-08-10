@@ -56,7 +56,7 @@
       <!-- 我的发布管理 -->
       <view class="manage-section">
         <text class="manage-title">我的发布</text>
-        <view class="manage-item" hover-class="tap-fade" @tap="go('/pages/demands/mine')">
+        <view class="manage-item" hover-class="tap-fade" @tap="go('/pkg-demand/pages/demands/mine')">
           <text class="manage-name">我的需求</text>
           <text class="manage-desc">审核状态 · 对接意向 · 成交登记</text>
           <text class="pub-arrow">›</text>
@@ -80,10 +80,10 @@
 import Layout from '../../components/Layout.vue'
 
 const publish = (type) => {
-  if (type === 'demand') return uni.navigateTo({ url: '/pages/demands/publish' })
-  if (type === 'service') return uni.navigateTo({ url: '/pages/publish/service' })
-  if (type === 'product') return uni.navigateTo({ url: '/pages/publish/product' })
-  if (type === 'course') return uni.navigateTo({ url: '/pages/publish/course' })
+  if (type === 'demand') return uni.navigateTo({ url: '/pkg-demand/pages/demands/publish' })
+  if (type === 'service') return uni.navigateTo({ url: '/pkg-service/pages/publish/service' })
+  if (type === 'product') return uni.navigateTo({ url: '/pkg-service/pages/publish/product' })
+  if (type === 'course') return uni.navigateTo({ url: '/pkg-service/pages/publish/course' })
   uni.showToast({ title: '暂未开放', icon: 'none', duration: 2000 })
 }
 const go = (url) => uni.navigateTo({ url })

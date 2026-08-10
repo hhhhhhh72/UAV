@@ -226,12 +226,12 @@ const TAB_PAGES = new Set([
 const ALLOWED_ROUTES = new Set([
   '/pages/home/index', '/pages/demands/index', '/pages/publish/index',
   '/pages/services/index', '/pages/mine/index',
-  '/pages/demands/list', '/pages/demands/detail', '/pages/demands/publish',
-  '/pages/demands/mine', '/pages/intents/mine',
+  '/pages/demands/list', '/pages/demands/detail', '/pkg-demand/pages/demands/publish',
+  '/pkg-demand/pages/demands/mine', '/pages/intents/mine',
   '/pages/search/index', '/pages/messages/index',
-  '/pages/pilots/list', '/pages/training/courses',
-  '/pages/experts/list', '/pages/emergency/resources', '/pages/compliance/news',
-  '/pages/mall/index', '/pages/shops/index', '/pages/more/index',
+  '/pkg-talent/pages/pilots/list', '/pkg-talent/pages/training/courses',
+  '/pkg-talent/pages/experts/list', '/pkg-emergency/pages/emergency/resources', '/pkg-service/pages/compliance/news',
+  '/pkg-eco/pages/mall/index', '/pkg-eco/pages/shops/index', '/pkg-service/pages/more/index',
 ])
 
 const resolveBannerLink = (raw) => {
@@ -380,10 +380,10 @@ const HOME_ICONS = {
 }
 const services = ref([
   { name: '需求大厅', icon: HOME_ICONS.services.demand, path: '/pages/demands/index', tab: true },
-  { name: '培训认证', icon: HOME_ICONS.services.training, path: '/pages/training/courses', tab: false },
-  { name: '专家智库', icon: HOME_ICONS.services.pilot, path: '/pages/experts/list', tab: false },
-  { name: '场地预约', icon: HOME_ICONS.services.trade, path: '/pages/testsites/list', tab: false },
-  { name: '政策资讯', icon: HOME_ICONS.services.policy, path: '/pages/compliance/news', tab: false },
+  { name: '培训认证', icon: HOME_ICONS.services.training, path: '/pkg-talent/pages/training/courses', tab: false },
+  { name: '专家智库', icon: HOME_ICONS.services.pilot, path: '/pkg-talent/pages/experts/list', tab: false },
+  { name: '场地预约', icon: HOME_ICONS.services.trade, path: '/pkg-service/pages/testsites/list', tab: false },
+  { name: '政策资讯', icon: HOME_ICONS.services.policy, path: '/pkg-service/pages/compliance/news', tab: false },
   { name: '生态服务', icon: HOME_ICONS.services.shop, path: '/pages/services/index', tab: true },
 ])
 const goService = (s) => {
@@ -597,7 +597,7 @@ const loadUnreadCount = async () => {
 const goSearch = () => safeNavigateTo('/pages/search/index')
 const goMessages = () => safeNavigateTo('/pages/messages/index')
 const goFindProject = () => safeNavigateTo('/pages/demands/list')
-const goPublishDemand = () => safeNavigateTo('/pages/demands/publish')
+const goPublishDemand = () => safeNavigateTo('/pkg-demand/pages/demands/publish')
 const goDemandsList = () => safeNavigateTo('/pages/demands/list')
 const goDemandDetail = (d) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(d.id))
 

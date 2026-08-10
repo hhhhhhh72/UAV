@@ -261,27 +261,27 @@ const goSettings = () => {
 
 const goOrderList = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/demands/mine' })
+  uni.navigateTo({ url: '/pkg-demand/pages/demands/mine' })
 }
 
 const goOrderListWithStatus = (status) => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/demands/mine?status=' + encodeURIComponent(status) })
+  uni.navigateTo({ url: '/pkg-demand/pages/demands/mine?status=' + encodeURIComponent(status) })
 }
 
 const goMyDemands = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/demands/mine' })
+  uni.navigateTo({ url: '/pkg-demand/pages/demands/mine' })
 }
 
 const goMyOrders = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/orders/mine' })
+  uni.navigateTo({ url: '/pkg-demand/pages/orders/mine' })
 }
 
 const goMyContracts = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/applications/index' })
+  uni.navigateTo({ url: '/pkg-app/pages/applications/index' })
 }
 
 const goMyPublish = () => {
@@ -312,12 +312,12 @@ const goPilotCert = () => {
 
 const goEnterpriseCert = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/enterprise/register' })
+  uni.navigateTo({ url: '/pkg-eco/pages/enterprise/register' })
 }
 
 const goMyResume = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/jobs/resume' })
+  uni.navigateTo({ url: '/pkg-talent/pages/jobs/resume' })
 }
 
 const goMyPoints = () => {
@@ -326,7 +326,7 @@ const goMyPoints = () => {
 
 const goMyCertificates = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/training/certificates' })
+  uni.navigateTo({ url: '/pkg-talent/pages/training/certificates' })
 }
 
 const goOfficialService = () => {

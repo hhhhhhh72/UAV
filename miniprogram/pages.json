@@ -38,22 +38,6 @@
       }
     },
     {
-      "path": "pages/cases/index",
-      "style": {
-        "navigationBarTitleText": "案例展示",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
-      }
-    },
-    {
-      "path": "pages/cases/detail",
-      "style": {
-        "navigationBarTitleText": "案例详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
-      }
-    },
-    {
       "path": "pages/login/index",
       "style": {
         "navigationBarTitleText": "登录",
@@ -86,34 +70,6 @@
       }
     },
     {
-      "path": "pages/training/courses",
-      "style": {
-        "navigationBarTitleText": "培训认证",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/training/enroll",
-      "style": {
-        "navigationBarTitleText": "课程报名",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/training/certificates",
-      "style": {
-        "navigationBarTitleText": "我的证书",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
       "path": "pages/demands/index",
       "style": {
         "navigationBarTitleText": "供需大厅",
@@ -140,190 +96,6 @@
       }
     },
     {
-      "path": "pages/demands/publish",
-      "style": {
-        "navigationBarTitleText": "发布需求",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/demands/mine",
-      "style": {
-        "navigationBarTitleText": "我的需求",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/demands/search",
-      "style": {
-        "navigationBarTitleText": "供需搜索",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/demands/matches",
-      "style": {
-        "navigationBarTitleText": "智能匹配",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/demands/intents",
-      "style": {
-        "navigationBarTitleText": "收到的对接意向",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/demands/chat",
-      "style": {
-        "navigationBarTitleText": "一对一洽谈",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/orders/mine",
-      "style": {
-        "navigationBarTitleText": "我的订单",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/enterprise/register",
-      "style": {
-        "navigationBarTitleText": "企业入驻",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/enterprise/list",
-      "style": {
-        "navigationBarTitleText": "入驻企业",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/enterprise/status",
-      "style": {
-        "navigationBarTitleText": "企业审核",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/experts/list",
-      "style": {
-        "navigationBarTitleText": "专家智库",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/experts/detail",
-      "style": {
-        "navigationBarTitleText": "专家详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/achievements/list",
-      "style": {
-        "navigationBarTitleText": "科技成果库",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/achievements/detail",
-      "style": {
-        "navigationBarTitleText": "成果详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
-      }
-    },
-    {
-      "path": "pages/challenges/list",
-      "style": {
-        "navigationBarTitleText": "研发难题广场",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/competitions/list",
-      "style": {
-        "navigationBarTitleText": "赛事列表",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/competitions/detail",
-      "style": {
-        "navigationBarTitleText": "赛事详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/competitions/register",
-      "style": {
-        "navigationBarTitleText": "赛事报名",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/portfolios/list",
-      "style": {
-        "navigationBarTitleText": "品牌展示",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/match/recommend",
-      "style": {
-        "navigationBarTitleText": "智能推荐",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
       "path": "pages/search/index",
       "style": {
         "navigationBarTitleText": "全局搜索",
@@ -333,314 +105,9 @@
       }
     },
     {
-      "path": "pages/resources/list",
-      "style": {
-        "navigationBarTitleText": "产业资源台账",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/resources/detail",
-      "style": {
-        "navigationBarTitleText": "资源详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/compliance/news",
-      "style": {
-        "navigationBarTitleText": "政策资讯",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/compliance/knowledge",
-      "style": {
-        "navigationBarTitleText": "合规知识库",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/compliance/standards",
-      "style": {
-        "navigationBarTitleText": "团体标准库",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/jobs/list",
-      "style": {
-        "navigationBarTitleText": "招聘求职",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/jobs/resume",
-      "style": {
-        "navigationBarTitleText": "我的简历",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/colleges/list",
-      "style": {
-        "navigationBarTitleText": "院校展示",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/emergency/resources",
-      "style": {
-        "navigationBarTitleText": "应急资源",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/emergency/cases",
-      "style": {
-        "navigationBarTitleText": "救援案例库",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/emergency/depts",
-      "style": {
-        "navigationBarTitleText": "部门对接",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/emergency/dispatches",
-      "style": {
-        "navigationBarTitleText": "调度记录",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/projects/list",
-      "style": {
-        "navigationBarTitleText": "课题攻关",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/testsites/list",
-      "style": {
-        "navigationBarTitleText": "测试场地",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/testsites/detail",
-      "style": {
-        "navigationBarTitleText": "场地详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/testsites/booking",
-      "style": {
-        "navigationBarTitleText": "预约测试",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/testsites/pay",
-      "style": {
-        "navigationBarTitleText": "确认预约",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/testsites/result",
-      "style": {
-        "navigationBarTitleText": "预约结果",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/exhibitions/list",
-      "style": {
-        "navigationBarTitleText": "展会排期",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/exhibitions/booth",
-      "style": {
-        "navigationBarTitleText": "展位申请",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/reports/list",
-      "style": {
-        "navigationBarTitleText": "行业报告",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "enablePullDownRefresh": true,
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/mall/index",
-      "style": {
-        "navigationBarTitleText": "服务"
-      }
-    },
-    {
-      "path": "pages/mall/detail",
-      "style": {
-        "navigationBarTitleText": "商品详情"
-      }
-    },
-    {
       "path": "pages/publish/index",
       "style": {
         "navigationBarTitleText": "发布"
-      }
-    },
-    {
-      "path": "pages/publish/product",
-      "style": {
-        "navigationBarTitleText": "发布商品",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/publish/service",
-      "style": {
-        "navigationBarTitleText": "发布服务能力",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/publish/course",
-      "style": {
-        "navigationBarTitleText": "发布培训课程",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/jobs/mine",
-      "style": {
-        "navigationBarTitleText": "我的招聘",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/jobs/applications",
-      "style": {
-        "navigationBarTitleText": "我的投递",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/jobs/applicants",
-      "style": {
-        "navigationBarTitleText": "投递管理",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/jobs/detail",
-      "style": {
-        "navigationBarTitleText": "职位详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/publish/job",
-      "style": {
-        "navigationBarTitleText": "发布招聘",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/shops/index",
-      "style": {
-        "navigationBarTitleText": "商家列表"
-      }
-    },
-    {
-      "path": "pages/colleges/detail",
-      "style": {
-        "navigationBarTitleText": "院校详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/training/register",
-      "style": {
-        "navigationBarTitleText": "培训报名",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
       }
     },
     {
@@ -650,85 +117,15 @@
       }
     },
     {
-      "path": "pages/study/index",
-      "style": {
-        "navigationBarTitleText": "低空研学",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
-      }
-    },
-    {
-      "path": "pages/study/detail",
-      "style": {
-        "navigationBarTitleText": "课程详情",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
-      }
-    },
-    {
-      "path": "pages/pilots/list",
-      "style": {
-        "navigationBarTitleText": "认证飞手",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/pilots/apply",
-      "style": {
-        "navigationBarTitleText": "申请认证飞手",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/more/index",
-      "style": {
-        "navigationBarTitleText": "更多功能",
-        "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationStyle": "custom"
-      }
-    },
-    {
       "path": "pages/services/index",
       "style": {
         "navigationBarTitleText": "服务大厅"
       }
     },
     {
-      "path": "pages/services/detail",
-      "style": {
-        "navigationBarTitleText": "服务详情",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/services/apply",
-      "style": {
-        "navigationBarTitleText": "申请提交"
-      }
-    },
-    {
       "path": "pages/messages/index",
       "style": {
         "navigationBarTitleText": "消息中心"
-      }
-    },
-    {
-      "path": "pages/applications/index",
-      "style": {
-        "navigationBarTitleText": "我的申请",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/applications/submit",
-      "style": {
-        "navigationBarTitleText": "提交申请",
-        "navigationStyle": "custom"
       }
     }
   ],
@@ -777,5 +174,640 @@
     "custom": {
       "^u-(.*)": "@/components/ui/u-$1.vue"
     }
-  }
+  },
+  "subPackages": [
+    {
+      "root": "pkg-demand",
+      "pages": [
+        {
+          "path": "pages/demands/publish",
+          "style": {
+            "navigationBarTitleText": "发布需求",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/demands/mine",
+          "style": {
+            "navigationBarTitleText": "我的需求",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/demands/search",
+          "style": {
+            "navigationBarTitleText": "供需搜索",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/demands/matches",
+          "style": {
+            "navigationBarTitleText": "智能匹配",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/demands/intents",
+          "style": {
+            "navigationBarTitleText": "收到的对接意向",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/demands/chat",
+          "style": {
+            "navigationBarTitleText": "一对一洽谈",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/orders/mine",
+          "style": {
+            "navigationBarTitleText": "我的订单",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/match/recommend",
+          "style": {
+            "navigationBarTitleText": "智能推荐",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-talent",
+      "pages": [
+        {
+          "path": "pages/training/courses",
+          "style": {
+            "navigationBarTitleText": "培训认证",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/training/enroll",
+          "style": {
+            "navigationBarTitleText": "课程报名",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/training/certificates",
+          "style": {
+            "navigationBarTitleText": "我的证书",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/experts/list",
+          "style": {
+            "navigationBarTitleText": "专家智库",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/experts/detail",
+          "style": {
+            "navigationBarTitleText": "专家详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/jobs/list",
+          "style": {
+            "navigationBarTitleText": "招聘求职",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/jobs/resume",
+          "style": {
+            "navigationBarTitleText": "我的简历",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/jobs/mine",
+          "style": {
+            "navigationBarTitleText": "我的招聘",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/jobs/applications",
+          "style": {
+            "navigationBarTitleText": "我的投递",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/jobs/applicants",
+          "style": {
+            "navigationBarTitleText": "投递管理",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/jobs/detail",
+          "style": {
+            "navigationBarTitleText": "职位详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/publish/job",
+          "style": {
+            "navigationBarTitleText": "发布招聘",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/training/register",
+          "style": {
+            "navigationBarTitleText": "培训报名",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/study/index",
+          "style": {
+            "navigationBarTitleText": "低空研学",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
+        },
+        {
+          "path": "pages/study/detail",
+          "style": {
+            "navigationBarTitleText": "课程详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
+        },
+        {
+          "path": "pages/pilots/list",
+          "style": {
+            "navigationBarTitleText": "认证飞手",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/pilots/apply",
+          "style": {
+            "navigationBarTitleText": "申请认证飞手",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-eco",
+      "pages": [
+        {
+          "path": "pages/cases/index",
+          "style": {
+            "navigationBarTitleText": "案例展示",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
+        },
+        {
+          "path": "pages/cases/detail",
+          "style": {
+            "navigationBarTitleText": "案例详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
+        },
+        {
+          "path": "pages/enterprise/register",
+          "style": {
+            "navigationBarTitleText": "企业入驻",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/enterprise/list",
+          "style": {
+            "navigationBarTitleText": "入驻企业",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/enterprise/status",
+          "style": {
+            "navigationBarTitleText": "企业审核",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/achievements/list",
+          "style": {
+            "navigationBarTitleText": "科技成果库",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/achievements/detail",
+          "style": {
+            "navigationBarTitleText": "成果详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
+        },
+        {
+          "path": "pages/challenges/list",
+          "style": {
+            "navigationBarTitleText": "研发难题广场",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/competitions/list",
+          "style": {
+            "navigationBarTitleText": "赛事列表",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/competitions/detail",
+          "style": {
+            "navigationBarTitleText": "赛事详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/competitions/register",
+          "style": {
+            "navigationBarTitleText": "赛事报名",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/portfolios/list",
+          "style": {
+            "navigationBarTitleText": "品牌展示",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/colleges/list",
+          "style": {
+            "navigationBarTitleText": "院校展示",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/projects/list",
+          "style": {
+            "navigationBarTitleText": "课题攻关",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/exhibitions/list",
+          "style": {
+            "navigationBarTitleText": "展会排期",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/exhibitions/booth",
+          "style": {
+            "navigationBarTitleText": "展位申请",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/mall/index",
+          "style": {
+            "navigationBarTitleText": "服务"
+          }
+        },
+        {
+          "path": "pages/mall/detail",
+          "style": {
+            "navigationBarTitleText": "商品详情"
+          }
+        },
+        {
+          "path": "pages/shops/index",
+          "style": {
+            "navigationBarTitleText": "商家列表"
+          }
+        },
+        {
+          "path": "pages/colleges/detail",
+          "style": {
+            "navigationBarTitleText": "院校详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-service",
+      "pages": [
+        {
+          "path": "pages/resources/list",
+          "style": {
+            "navigationBarTitleText": "产业资源台账",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/resources/detail",
+          "style": {
+            "navigationBarTitleText": "资源详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/compliance/news",
+          "style": {
+            "navigationBarTitleText": "政策资讯",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/compliance/knowledge",
+          "style": {
+            "navigationBarTitleText": "合规知识库",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/compliance/standards",
+          "style": {
+            "navigationBarTitleText": "团体标准库",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/testsites/list",
+          "style": {
+            "navigationBarTitleText": "测试场地",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/testsites/detail",
+          "style": {
+            "navigationBarTitleText": "场地详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/testsites/booking",
+          "style": {
+            "navigationBarTitleText": "预约测试",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/testsites/pay",
+          "style": {
+            "navigationBarTitleText": "确认预约",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/testsites/result",
+          "style": {
+            "navigationBarTitleText": "预约结果",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/reports/list",
+          "style": {
+            "navigationBarTitleText": "行业报告",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/publish/product",
+          "style": {
+            "navigationBarTitleText": "发布商品",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/publish/service",
+          "style": {
+            "navigationBarTitleText": "发布服务能力",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/publish/course",
+          "style": {
+            "navigationBarTitleText": "发布培训课程",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/more/index",
+          "style": {
+            "navigationBarTitleText": "更多功能",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/services/detail",
+          "style": {
+            "navigationBarTitleText": "服务详情",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/services/apply",
+          "style": {
+            "navigationBarTitleText": "申请提交"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-emergency",
+      "pages": [
+        {
+          "path": "pages/emergency/resources",
+          "style": {
+            "navigationBarTitleText": "应急资源",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/emergency/cases",
+          "style": {
+            "navigationBarTitleText": "救援案例库",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/emergency/depts",
+          "style": {
+            "navigationBarTitleText": "部门对接",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/emergency/dispatches",
+          "style": {
+            "navigationBarTitleText": "调度记录",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pkg-app",
+      "pages": [
+        {
+          "path": "pages/applications/index",
+          "style": {
+            "navigationBarTitleText": "我的申请",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/applications/submit",
+          "style": {
+            "navigationBarTitleText": "提交申请",
+            "navigationStyle": "custom"
+          }
+        }
+      ]
+    }
+  ]
 }

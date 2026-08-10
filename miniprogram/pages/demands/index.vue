@@ -391,12 +391,12 @@ const pickCity = (value) => {
   showCity.value = false
 }
 
-const goSearch = () => safeNavigateTo('/pages/demands/search')
+const goSearch = () => safeNavigateTo('/pkg-demand/pages/demands/search')
 const goMessages = () => safeNavigateTo('/pages/messages/index')
-const goMatches = () => safeNavigateTo('/pages/demands/matches')
+const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
 const goDetail = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
 // 商品模式：跳电商商品详情页
-const goProductDetail = (item) => safeNavigateTo('/pages/mall/detail?id=' + encodeURIComponent(item.id))
+const goProductDetail = (item) => safeNavigateTo('/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(item.id))
 const onProductImgError = (item) => {
   if (item.image !== IMG_HERO) item.image = IMG_HERO
 }
