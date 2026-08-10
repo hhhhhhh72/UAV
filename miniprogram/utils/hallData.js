@@ -331,14 +331,25 @@ export function normalizeProduct(p) {
   }
 }
 
-// 电商卡片本地兜底（后端不可用时），由 MOCK_PRODUCTS 转换
-export function mockProducts() {
-  return MOCK_PRODUCTS.map((m) => ({
-    id: m.id, title: m.title, brand: m.company, model: '', spec: m.company,
-    condition: m.status === '可对接' ? '全新' : '商家发布', isUsed: false,
-    price: String(m.price).replace(/[^\d,.]/g, ''),
-    image: m.image, images: [m.image],
-    seller: m.company, desc: m.desc, cat: classifyProduct({ title: m.title, brand: m.company }),
-    views: 0, status: 'listed',
-  }))
+// 后端 ServiceListing → 大厅服务卡片（trade-card 结构）
+export function normalizeService(s) {
+  if (!s || !s.id) return null
+  const title = String(s.title || '').trim()
+  if (!title) return null
+  const price = fmtPriceFen(s.price_fen)
+  return {
+    id: String(s.id),
+    type: '服务',
+    cat: s.category || '其他',
+    status: '可对接',
+    title,
+    region: s.region || '重庆',
+    time: s.unit ? `按${s.unit}报价` : '',
+    price: price === '面议' ? '面议' : '¥' + price + ' 起',
+    unit: s.unit ? '按' + s.unit + '报价' : '按项目报价',
+    company: s.provider_name || '平台服务商',
+    desc: s.description || '暂无详细描述',
+    image: IMG_HERO,
+    fields: [['服务范围', s.category || '—'], ['服务区域', s.region || '—'], ['报价方式', s.unit ? '按' + s.unit + '报价' : '按项目报价'], ['服务商', s.provider_name || '—']],
+  }
 }

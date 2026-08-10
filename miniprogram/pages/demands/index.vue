@@ -250,7 +250,7 @@ import { safeNavigateTo } from '../../utils/nav'
 import {
   HALL_CATEGORIES, getKindItems, kindTypeLabel, isEnded, normalizeDemand,
   IMG_SOLAR, IMG_LIFT, IMG_HERO,
-  PRODUCT_CATEGORIES, normalizeProduct, mockProducts,
+  PRODUCT_CATEGORIES, normalizeProduct, normalizeService,
 } from '../../utils/hallData'
 
 const primary = ref('demand') // demand | supply
@@ -315,9 +315,7 @@ async function fetchList(showLoading = true) {
       list.value = normalized
       listState.value = normalized.length ? 'ready' : 'empty'
     } catch (e) {
-      // 后端不可用：降级到模拟数据，保证页面可交互
-      list.value = getKindItems('demand').slice()
-      listState.value = list.value.length ? 'ready' : 'empty'
+      listState.value = 'error'
     }
   } else if (supplyKind.value === 'product') {
     // 商品设备：电商模式走真实商品接口
@@ -332,14 +330,23 @@ async function fetchList(showLoading = true) {
       list.value = normalized
       listState.value = normalized.length ? 'ready' : 'empty'
     } catch (e) {
-      list.value = mockProducts()
-      listState.value = list.value.length ? 'ready' : 'empty'
+      listState.value = 'error'
     }
   } else {
-    // 供给本期为模拟数据
-    await new Promise((resolve) => setTimeout(resolve, 260))
-    list.value = getKindItems(primary.value, supplyKind.value).slice()
-    listState.value = list.value.length ? 'ready' : 'empty'
+    // 服务能力：真实服务接口（/api/v1/service-listings 公开列表）
+    try {
+      const res = await request({
+        url: '/api/v1/service-listings',
+        data: { page: 1, page_size: 20 },
+      })
+      const data = Array.isArray(res) ? res : (res && res.data) || res || {}
+      const items = Array.isArray(data) ? data : (data && data.items) || []
+      const normalized = items.map(normalizeService).filter(Boolean)
+      list.value = normalized
+      listState.value = normalized.length ? 'ready' : 'empty'
+    } catch (e) {
+      listState.value = 'error'
+    }
   }
 }
 

@@ -277,7 +277,8 @@ function prizes(item) {
 }
 
 function compMinFee(item) {
-  if (item.minFee != null) return item.minFee
+  if (item.min_fee != null) return item.min_fee
+  if (item.fee != null) return item.fee
   var evts = eventList(item)
   if (evts.length > 0) return Math.min.apply(null, evts.map(function (e) { return e.fee }))
   return 280
@@ -309,118 +310,14 @@ async function loadDetail() {
   loading.value = true
   errorMsg.value = ''
   try {
-    var res = await request({ url: '/api/v1/competitions' })
-    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
-    var items = Array.isArray(data) ? data : (data && data.items) || data || []
-    var found = null
-    for (var i = 0; i < items.length; i++) {
-      if (String(items[i].id) === String(id.value)) { found = items[i]; break }
-    }
-    detail.value = found
-    if (!found) detail.value = getMockDetail()
+    var res = await request({ url: '/api/v1/competitions/' + encodeURIComponent(id.value) })
+    detail.value = res
+    if (!res) errorMsg.value = '赛事不存在'
   } catch (e) {
-    detail.value = getMockDetail()
+    errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
-}
-
-function getMockDetail() {
-  var mockMap = {
-    'comp-1': {
-      id: 'comp-1',
-      name: '2026全国无人机职业技能大赛',
-      title: '2026全国无人机职业技能大赛',
-      status: 'enrolling',
-      tags: ['多旋翼', '固定翼', '国家级'],
-      start_date: '2026年9月15日',
-      end_date: '9月18日',
-      location: '深圳宝安区国际会展中心',
-      deadline: '2026年9月1日',
-      intro: '2026全国无人机职业技能大赛是由中国航空器拥有者及驾驶员协会主办的国家级专业赛事，旨在推动无人机技术的应用与发展。\n\n本赛事设有多个竞赛项目，涵盖多旋翼、固定翼等多种机型，欢迎广大飞手踊跃报名参加。',
-      organizer: '中国航空器拥有者及驾驶员协会',
-      organizer_sub: '简称中国AOPA · 国家级行业协会',
-      minFee: 280,
-      poster: '/static/home/hero-inspection.jpg',
-    },
-    'comp-2': {
-      id: 'comp-2',
-      name: '首届西南无人机FPV竞速挑战赛',
-      title: '首届西南无人机FPV竞速挑战赛',
-      status: 'enrolling',
-      tags: ['竞速FPV', '多旋翼'],
-      start_date: '2026年10月1日',
-      end_date: '10月3日',
-      location: '成都天府新区无人机竞速基地',
-      deadline: '2026年9月20日',
-      intro: '首届西南无人机FPV竞速挑战赛汇聚全国顶尖FPV飞手，在成都天府新区专业竞速赛道上展开速度与技巧的终极对决。\n\n赛道全长1.2公里，设有12个障碍门，最高时速可达120km/h。',
-      organizer: '四川省航空运动协会',
-      organizer_sub: '省级行业协会 · 专业竞速赛事',
-      minFee: 280,
-      poster: '/static/home/demand-lift.jpg',
-    },
-    'comp-3': {
-      id: 'comp-3',
-      name: '2026无人机创新应用大赛',
-      title: '2026无人机创新应用大赛',
-      status: 'ongoing',
-      tags: ['航拍', '固定翼', '国家级'],
-      start_date: '2026年8月1日',
-      end_date: '8月15日',
-      location: '北京亦庄经济技术开发区',
-      deadline: '2026年7月20日',
-      intro: '聚焦无人机在航拍、应急救援、农业植保、物流配送等领域的创新应用方案评选。\n\n参赛者需提交完整的项目方案和飞行演示视频，由行业专家组成的评审团进行综合评分。',
-      organizer: '工信部人才交流中心',
-      organizer_sub: '国家级人才评测机构',
-      minFee: 0,
-    },
-    'comp-4': {
-      id: 'comp-4',
-      name: '青少年无人机编程挑战赛',
-      title: '青少年无人机编程挑战赛',
-      status: 'enrolling',
-      tags: ['多旋翼', '航拍'],
-      start_date: '2026年11月1日',
-      end_date: '11月2日',
-      location: '上海市浦东新区青少年活动中心',
-      deadline: '2026年10月25日',
-      intro: '面向8-16岁青少年的无人机编程挑战赛，通过Python/Scratch编程控制无人机完成闯关任务。\n\n比赛分为初级组（8-12岁）和高级组（13-16岁），每组设置不同的难度关卡。',
-      organizer: '上海市教育委员会',
-      organizer_sub: '市级教育主管部门',
-      minFee: 120,
-    },
-    'comp-5': {
-      id: 'comp-5',
-      name: '国际无人机系统博览会竞技赛',
-      title: '国际无人机系统博览会竞技赛',
-      status: 'enrolling',
-      tags: ['多旋翼', '固定翼', '国际赛'],
-      start_date: '2026年12月5日',
-      end_date: '12月7日',
-      location: '广州琶洲国际会展中心',
-      deadline: '2026年11月20日',
-      intro: '全球无人机竞速爱好者的年度盛会，设有专业组和公开组两个级别。\n\n同期举办无人机系统博览会，参展企业超过500家，涵盖整机厂商、零部件供应商、行业解决方案提供商等。',
-      organizer: '广州市低空经济产业协会',
-      organizer_sub: '市级低空经济行业组织',
-      minFee: 580,
-    },
-    'comp-6': {
-      id: 'comp-6',
-      name: '2026贵州无人机应急救援演练赛',
-      title: '2026贵州无人机应急救援演练赛',
-      status: 'closed',
-      tags: ['多旋翼', '航拍'],
-      start_date: '2026年6月10日',
-      end_date: '6月12日',
-      location: '贵阳市观山湖区应急指挥中心',
-      deadline: '2026年5月30日',
-      intro: '模拟山地救援、森林火灾监测、灾害应急物资投送等场景，考察无人机在应急救援中的协同作战能力。\n\n参赛队伍需在指定时间内完成搜索定位、物资投送和灾情评估三项任务。',
-      organizer: '贵州省应急管理厅',
-      organizer_sub: '省级应急管理部门',
-      minFee: 0,
-    },
-  }
-  return mockMap[id.value] || mockMap['comp-1']
 }
 
 function goBack() { uni.navigateBack({ delta: 1 }) }

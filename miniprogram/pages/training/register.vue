@@ -344,58 +344,14 @@ async function fetchCourse() {
   errorMsg.value = ''
 
   try {
-    const res = await request({ url: '/api/v1/training-courses' })
-    const data = Array.isArray(res) ? res : (res && res.data) || res || {}
-    const items = Array.isArray(data) ? data : (data && data.items) || data || []
-    let found = null
-    for (let i = 0; i < items.length; i++) {
-      if (String(items[i].id) === String(id.value)) { found = items[i]; break }
-    }
-    // 接口空/未命中时降级到本地 mock（与 courses/enroll 页同源数据）
-    if (!found) found = findMockCourse(String(id.value))
-    course.value = found
-    if (!found) errorMsg.value = '课程不存在'
+    const res = await request({ url: '/api/v1/training-courses/' + encodeURIComponent(id.value) })
+    course.value = res
+    if (!res) errorMsg.value = '课程不存在'
   } catch (e) {
-    // 接口不可用时降级到本地 mock
-    course.value = findMockCourse(String(id.value))
-    if (!course.value) errorMsg.value = '课程不存在'
+    errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
-}
-
-/* === 本地 mock（接口空/失败时降级展示，与 courses/enroll 页同源）=== */
-function mockCourses() {
-  return [
-    {
-      id: 'course-mock-1', title: 'CAAC民航局多旋翼无人机驾驶员执照班', cert_type: 'caac', status: 'recruiting',
-      org_name: '重庆无人机飞行学院', price_fen: 980000,
-    },
-    {
-      id: 'course-mock-2', title: '大疆UTC航拍工程师认证班', cert_type: 'utc_dji', status: 'urgent',
-      org_name: '大疆慧飞重庆分校', price_fen: 39900,
-    },
-    {
-      id: 'course-mock-3', title: '人社职业技能等级证书·无人机装调检修', cert_type: 'gov_level', status: 'full',
-      org_name: '重庆职业技能培训中心', price_fen: 268000,
-    },
-    {
-      id: 'course-mock-4', title: 'AOPA多旋翼机长执照班', cert_type: 'caac', status: 'upcoming',
-      org_name: '成都空域无人机培训基地', price_fen: 1280000,
-    },
-    {
-      id: 'course-mock-5', title: '无人机应急应用与植保作业实战班', cert_type: 'utc_dji', status: 'recruiting',
-      org_name: '重庆农用无人机服务中心', price_fen: 45800,
-    },
-  ]
-}
-
-function findMockCourse(cid) {
-  const all = mockCourses()
-  for (let i = 0; i < all.length; i++) {
-    if (String(all[i].id) === String(cid)) return all[i]
-  }
-  return null
 }
 
 onLoad(function (options) {

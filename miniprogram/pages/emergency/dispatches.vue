@@ -118,14 +118,8 @@ export default {
         var items = Array.isArray(data) ? data : (data && data.items) || []
 
         this.list = items
-        // API 返回空数据，降级到本地 mock
-        if (this.list.length === 0) {
-          this.list = this.getMockDispatches(statusVal)
-        }
       } catch (e) {
-        // API 不可用，降级到本地 mock
-        this.list = this.getMockDispatches(this.statusMap[this.activeTabIndex])
-        this.errorMsg = ''
+        this.errorMsg = '加载失败，请稍后重试'
       } finally {
         this.loading = false
       }
@@ -133,20 +127,6 @@ export default {
     onTabChange(index) {
       this.activeTabIndex = index
       this.fetchList(true)
-    },
-    /* 本地 mock（API 空/失败时降级展示） */
-    getMockDispatches(status) {
-      var all = [
-        { id: 'dsp-1', event_desc: '南山森林火情应急侦察', status: 'ongoing', location: '重庆市南岸区南山', start_time: '2026-08-03 09:20', commander: '张队', result: '侦察火线分布，已回传指挥部' },
-        { id: 'dsp-2', event_desc: '嘉陵江洪水区域巡查', status: 'ongoing', location: '重庆市北碚区嘉陵江段', start_time: '2026-08-02 15:40', commander: '李指挥', result: '巡查12公里堤岸，发现2处隐患' },
-        { id: 'dsp-3', event_desc: '渝中区高层建筑外墙隐患检测', status: 'done', location: '重庆市渝中区解放碑', start_time: '2026-08-01 10:00', commander: '王工', result: '完成检测，已出具报告' },
-        { id: 'dsp-4', event_desc: '綦江暴雨受困群众搜索', status: 'done', location: '重庆市綦江区东溪镇', start_time: '2026-07-28 08:15', commander: '赵队', result: '定位3名受困群众，配合救援' },
-        { id: 'dsp-5', event_desc: '大型活动低空安保监控', status: 'cancelled', location: '重庆市江北区国博中心', start_time: '2026-07-25 14:00', commander: '孙队', result: '活动取消，调度终止' },
-      ]
-      if (status) {
-        return all.filter(function (d) { return d.status === status })
-      }
-      return all
     },
     goBack() {
       uni.navigateBack()

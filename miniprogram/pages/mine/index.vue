@@ -286,7 +286,8 @@ const goMyContracts = () => {
 
 const goMyPublish = () => {
   if (!user.value) return goLogin()
-  uni.navigateTo({ url: '/pages/publish/index' })
+  // 发布页是 tabBar 页，只能 switchTab
+  uni.switchTab({ url: '/pages/publish/index' })
 }
 
 const goAddress = () => {

@@ -349,82 +349,14 @@ async function fetchDetail() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await request({ url: '/api/v1/training-courses' })
-    const data = Array.isArray(res) ? res : (res && res.data) || res || {}
-    const items = Array.isArray(data) ? data : (data && data.items) || data || []
-    let found = null
-    const targetId = String(id.value)
-    for (let i = 0; i < items.length; i++) {
-      if (String(items[i].id) === targetId) { found = items[i]; break }
-    }
-    if (!found) found = findMockCourse(targetId)
-    detail.value = found
-    if (!found) errorMsg.value = '机构不存在'
+    const res = await request({ url: '/api/v1/training-courses/' + encodeURIComponent(id.value) })
+    detail.value = res
+    if (!res) errorMsg.value = '机构不存在'
   } catch (e) {
-    detail.value = findMockCourse(String(id.value))
-    errorMsg.value = ''
+    errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
-}
-
-/* === 本地 mock === */
-function mockCourses() {
-  return [
-    {
-      id: 'course-mock-1', title: 'CAAC民航局多旋翼无人机驾驶员执照班', cert_type: 'caac', status: 'recruiting',
-      org_name: '重庆无人机飞行学院', region: '重庆', location: '重庆市渝北区空港大道88号',
-      price_fen: 980000, duration_days: 25, rating: 4.8, review_count: 126,
-      phone: '400-116-0851', intro: '民航局无人机驾驶员执照班，含理论+实操+模拟考试，结业可考取CAAC执照。',
-      banner: '/static/home/hero-inspection.jpg',
-      certificate: '',
-      environment: ['/static/home/demand-lift.jpg', '/static/home/demand-solar.jpg', '/static/home/home-bg.jpg'],
-    },
-    {
-      id: 'course-mock-2', title: '大疆UTC航拍工程师认证班', cert_type: 'utc_dji', status: 'urgent',
-      org_name: '大疆慧飞重庆分校', region: '重庆', location: '重庆市南岸区茶园',
-      price_fen: 39900, duration_days: 7, rating: 4.6, review_count: 89, remain: 3,
-      phone: '400-116-0851', intro: '大疆官方UTC认证课程，航拍构图+飞行实操，适合入门。',
-      banner: '/static/home/demand-lift.jpg',
-      certificate: '',
-      environment: ['/static/home/hero-inspection.jpg', '/static/home/demand-solar.jpg', '/static/home/home-bg.jpg'],
-    },
-    {
-      id: 'course-mock-3', title: '人社职业技能等级证书·无人机装调检修', cert_type: 'gov_level', status: 'full',
-      org_name: '重庆职业技能培训中心', region: '四川', location: '成都市武侯区',
-      price_fen: 268000, duration_days: 15, rating: 4.5, review_count: 67,
-      phone: '400-116-0851', intro: '人社职业技能等级证书，无人机装调检修方向，可申请政府补贴。',
-      banner: '/static/home/demand-solar.jpg',
-      certificate: '',
-      environment: ['/static/home/home-bg.jpg', '/static/home/hero-inspection.jpg', '/static/home/demand-lift.jpg'],
-    },
-    {
-      id: 'course-mock-4', title: 'AOPA多旋翼机长执照班', cert_type: 'caac', status: 'upcoming',
-      org_name: '成都空域无人机培训基地', region: '四川', location: '成都市双流区',
-      price_fen: 1280000, duration_days: 30, rating: 4.9, review_count: 45,
-      phone: '400-116-0851', intro: 'AOPA机长执照班，含超视距飞行训练，面向进阶飞手。',
-      banner: '/static/home/home-bg.jpg',
-      certificate: '',
-      environment: ['/static/home/demand-solar.jpg', '/static/home/demand-lift.jpg', '/static/home/hero-inspection.jpg'],
-    },
-    {
-      id: 'course-mock-5', title: '无人机应急应用与植保作业实战班', cert_type: 'utc_dji', status: 'recruiting',
-      org_name: '重庆农用无人机服务中心', region: '重庆', location: '重庆市潼南区',
-      price_fen: 45800, duration_days: 5, rating: 4.7, review_count: 158,
-      phone: '400-116-0851', intro: '应急+植保实战课程，含农药喷洒作业规范与应急响应训练。',
-      banner: '/static/home/demand-lift.jpg',
-      certificate: '',
-      environment: ['/static/home/hero-inspection.jpg', '/static/home/home-bg.jpg', '/static/home/demand-solar.jpg'],
-    },
-  ]
-}
-
-function findMockCourse(cid) {
-  var all = mockCourses()
-  for (var i = 0; i < all.length; i++) {
-    if (String(all[i].id) === String(cid)) return all[i]
-  }
-  return null
 }
 
 /* === 交互 === */

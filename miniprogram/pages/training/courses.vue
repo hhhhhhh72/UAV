@@ -259,18 +259,8 @@ async function fetchList(reset) {
       list.value = list.value.concat(items)
     }
     hasMore.value = list.value.length < total
-    // API 返回空数据，降级到本地 mock（按区县/执照过滤）
-    if (list.value.length === 0) {
-      list.value = filterMockCourses()
-      hasMore.value = false
-    }
   } catch (e) {
-    // API 不可用，降级到本地 mock（按区县/执照过滤）
-    if (reset) {
-      list.value = filterMockCourses()
-      hasMore.value = false
-    }
-    errorMsg.value = ''
+    errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
     loadingMore.value = false
@@ -283,60 +273,6 @@ function loadMore() {
     page.value++
     fetchList(false)
   }
-}
-
-/* ===== 本地 mock（API 空/失败时降级展示） ===== */
-function getMockCourses() {
-  return [
-    {
-      id: 'course-mock-1', title: 'CAAC民航局多旋翼无人机驾驶员执照班', cert_type: 'caac', status: 'recruiting',
-      org_name: '重庆无人机飞行学院', district: '渝北区', price_fen: 980000,
-      duration_days: 25, tags: ['CAAC', '多旋翼'], rating: '5.0', review_count: 128,
-      image: '/static/home/hero-inspection.jpg',
-    },
-    {
-      id: 'course-mock-2', title: '大疆UTC航拍工程师认证班', cert_type: 'utc_dji', status: 'urgent',
-      org_name: '大疆慧飞重庆分校', district: '南岸区', price_fen: 39900,
-      duration_days: 7, tags: ['UTC', '航拍'], rating: '4.8', review_count: 89, remain: 3,
-      image: '/static/home/demand-lift.jpg',
-    },
-    {
-      id: 'course-mock-3', title: '人社职业技能等级证书·无人机装调检修', cert_type: 'gov_level', status: 'full',
-      org_name: '重庆职业技能培训中心', district: '江北区', price_fen: 268000,
-      duration_days: 15, tags: ['人社', '装调检修'], rating: '4.6', review_count: 67,
-      image: '',
-    },
-    {
-      id: 'course-mock-4', title: 'AOPA多旋翼机长执照班', cert_type: 'aopa', status: 'upcoming',
-      org_name: '重庆空域无人机培训基地', district: '渝北区', price_fen: 1280000,
-      duration_days: 30, tags: ['AOPA', '机长'], rating: '4.9', review_count: 45,
-      image: '/static/home/demand-solar.jpg',
-    },
-    {
-      id: 'course-mock-5', title: '无人机应急应用与植保作业实战班', cert_type: 'utc_dji', status: 'recruiting',
-      org_name: '重庆农用无人机服务中心', district: '綦江区', price_fen: 45800,
-      duration_days: 5, tags: ['UTC', '植保'], rating: '4.7', review_count: 158,
-      image: '/static/home/home-bg.jpg',
-    },
-  ]
-}
-
-/* 按证书类型 + 区县 + 关键词过滤 mock */
-function filterMockCourses() {
-  var all = getMockCourses()
-  if (activeCertType.value !== 'all') {
-    all = all.filter(function (c) { return c.cert_type === activeCertType.value })
-  }
-  if (selectedDistrict.value) {
-    all = all.filter(function (c) { return c.district === selectedDistrict.value })
-  }
-  if (keyword.value) {
-    var kw = keyword.value
-    all = all.filter(function (c) {
-      return (c.title || '').indexOf(kw) !== -1 || (c.org_name || '').indexOf(kw) !== -1
-    })
-  }
-  return all
 }
 
 /* ===== 搜索 & 筛选 ===== */

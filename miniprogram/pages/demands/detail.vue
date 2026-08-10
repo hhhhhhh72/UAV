@@ -213,7 +213,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
 import { safeNavigateTo } from '../../utils/nav'
 import {
-  IMG_SOLAR, IMG_LIFT, IMG_HERO, isEnded, normalizeDemand,
+  IMG_SOLAR, IMG_LIFT, IMG_HERO, isEnded, normalizeDemand, normalizeService,
   getKindItems, isLoggedIn, isCertified, setCertified,
   simulateLogin, currentUserName, saveSentIntents, getSentIntents,
 } from '../../utils/hallData'
@@ -293,6 +293,16 @@ async function loadDetail() {
     state.value = 'ready'
     return
   }
+  const applyServiceFallback = async () => {
+    // 服务能力无独立详情接口：从服务列表按 id 匹配
+    const svc = await fetchServiceByList(postId)
+    if (svc) {
+      item.value = svc
+      state.value = 'ready'
+      return true
+    }
+    return false
+  }
   try {
     const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(postId) })
     const d = (res && res.data) || res
@@ -302,7 +312,8 @@ async function loadDetail() {
       state.value = 'ready'
       return
     }
-    // 后端拿不到但本地有 mock 则降级
+    // 详情接口无此 id（如服务/商品）：先试服务列表匹配，再降级本地 mock
+    if (await applyServiceFallback()) return
     if (fallback) {
       item.value = fallback
       state.value = 'ready'
@@ -310,12 +321,25 @@ async function loadDetail() {
     }
     state.value = 'error'
   } catch (e) {
+    if (await applyServiceFallback()) return
     if (fallback) {
       item.value = fallback
       state.value = 'ready'
     } else {
       state.value = 'error'
     }
+  }
+}
+
+async function fetchServiceByList(id) {
+  try {
+    const res = await request({ url: '/api/v1/service-listings', data: { page: 1, page_size: 100 } })
+    const data = Array.isArray(res) ? res : (res && res.data) || res || {}
+    const items = Array.isArray(data) ? data : (data && data.items) || []
+    const found = items.find((s) => String(s.id) === String(id))
+    return found ? normalizeService(found) : null
+  } catch (err) {
+    return null
   }
 }
 

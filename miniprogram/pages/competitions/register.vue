@@ -19,7 +19,7 @@
             <text v-for="t in (competition.tags || compTags(competition))" :key="t" class="event-card-tag">{{ t }}</text>
           </view>
           <view class="event-card-meta">
-            <text class="event-card-meta-text">🏛️ 主办：{{ competition.organizer || '待定' }}</text>
+            <text class="event-card-meta-text">🏛️ 主办：{{ competition.organizer || competition.sponsor || '待定' }}</text>
           </view>
           <view class="event-card-footer">
             <view class="event-card-price">
@@ -317,97 +317,21 @@ async function loadCompetition() {
   errorMsg.value = ''
 
   try {
-    var res = await request({ url: '/api/v1/competitions' })
-    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
-    var items = Array.isArray(data) ? data : (data && data.items) || data || []
-    var found = null
-    for (var i = 0; i < items.length; i++) {
-      if (String(items[i].id) === String(id.value)) { found = items[i]; break }
-    }
-    competition.value = found
-    if (!found) useMock()
-    loadEvents(found)
+    var res = await request({ url: '/api/v1/competitions/' + encodeURIComponent(id.value) })
+    competition.value = res
+    if (!res) errorMsg.value = '赛事不存在'
+    loadEvents(res)
   } catch (e) {
-    useMock()
+    errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
 }
 
-function useMock() {
-  var mockMap = {
-    'comp-1': {
-      id: 'comp-1', name: '2026全国无人机职业技能大赛', title: '2026全国无人机职业技能大赛',
-      organizer: '中国航空器拥有者及驾驶员协会',
-      tags: ['多旋翼', '固定翼', '国家级'],
-      deadline: '2026年9月1日',
-      events: [
-        { name: '多旋翼竞速赛', type: '个人赛', fee: 380 },
-        { name: '固定翼编队赛', type: '团体赛', fee: 680 },
-        { name: '航拍创作赛', type: '个人赛', fee: 280 },
-      ],
-    },
-    'comp-2': {
-      id: 'comp-2', name: '首届西南无人机FPV竞速挑战赛', title: '首届西南无人机FPV竞速挑战赛',
-      organizer: '四川省航空运动协会',
-      tags: ['竞速FPV', '多旋翼'],
-      deadline: '2026年9月20日',
-      events: [
-        { name: 'FPV竞速赛', type: '个人赛', fee: 280 },
-        { name: 'FPV花飞表演赛', type: '个人赛', fee: 0 },
-      ],
-    },
-    'comp-3': {
-      id: 'comp-3', name: '2026无人机创新应用大赛', title: '2026无人机创新应用大赛',
-      organizer: '工信部人才交流中心',
-      tags: ['航拍', '固定翼', '国家级'],
-      deadline: '2026年7月20日',
-      events: [
-        { name: '航拍创作赛', type: '个人赛', fee: 0 },
-        { name: '应急救援方案赛', type: '团体赛', fee: 0 },
-        { name: '农业植保方案赛', type: '个人赛', fee: 0 },
-      ],
-    },
-    'comp-4': {
-      id: 'comp-4', name: '青少年无人机编程挑战赛', title: '青少年无人机编程挑战赛',
-      organizer: '上海市教育委员会',
-      tags: ['多旋翼', '航拍'],
-      deadline: '2026年10月25日',
-      events: [
-        { name: '初级编程挑战', type: '个人赛', fee: 120 },
-        { name: '高级编程挑战', type: '个人赛', fee: 120 },
-      ],
-    },
-    'comp-5': {
-      id: 'comp-5', name: '国际无人机系统博览会竞技赛', title: '国际无人机系统博览会竞技赛',
-      organizer: '广州市低空经济产业协会',
-      tags: ['多旋翼', '固定翼', '国际赛'],
-      deadline: '2026年11月20日',
-      events: [
-        { name: '专业组竞速赛', type: '个人赛', fee: 580 },
-        { name: '公开组竞速赛', type: '个人赛', fee: 380 },
-        { name: '编队飞行赛', type: '团体赛', fee: 1200 },
-      ],
-    },
-    'comp-6': {
-      id: 'comp-6', name: '2026贵州无人机应急救援演练赛', title: '2026贵州无人机应急救援演练赛',
-      organizer: '贵州省应急管理厅',
-      tags: ['多旋翼', '航拍'],
-      deadline: '2026年5月30日',
-      events: [
-        { name: '搜索定位赛', type: '团体赛', fee: 0 },
-        { name: '物资投送赛', type: '团体赛', fee: 0 },
-      ],
-    },
-  }
-  competition.value = mockMap[id.value] || mockMap['comp-1']
-  loadEvents(competition.value)
-}
-
 function loadEvents(item) {
   if (item && Array.isArray(item.events) && item.events.length > 0) {
     eventOptions.value = item.events.map(function (e) {
-      return { label: e.name + ' · ' + (e.type || '个人赛'), fee: e.fee || 380, type: e.type || '个人赛' }
+      return { label: e.name + ' · ' + (e.type || '个人赛'), fee: e.fee != null ? e.fee : 380, type: e.type || '个人赛' }
     })
   } else {
     eventOptions.value = [

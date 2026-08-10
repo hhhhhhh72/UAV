@@ -244,82 +244,16 @@ async function loadData(reset) {
 
     if (reset) { list.value = items } else { list.value = list.value.concat(items) }
     hasMore.value = list.value.length < total
-    // API 返回空数据，降级到本地 mock（按当前 Tab 过滤状态）
-    if (list.value.length === 0) {
-      list.value = filterMockByTab(getMockList())
-      hasMore.value = false
-    }
   } catch (e) {
-    // API 不可用，降级到本地 mock（按当前 Tab 过滤状态）
-    if (reset) {
-      list.value = filterMockByTab(getMockList())
-      hasMore.value = false
-    }
+    errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
     loadingMore.value = false
   }
 }
 
-function getMockList() {
-  return [
-    {
-      id: 'comp-1', title: '2026全国无人机职业技能大赛', status: 'enrolling',
-      location: '深圳宝安区国际会展中心', organizer: '中国航空器拥有者及驾驶员协会',
-      start_date: '2026.09.15', end_date: '2026.09.18',
-      tags: ['多旋翼', '固定翼', '国家级'], fee: 380, registration_count: 128,
-      poster: '/static/home/hero-inspection.jpg',
-    },
-    {
-      id: 'comp-2', title: '首届西南无人机FPV竞速挑战赛', status: 'enrolling',
-      location: '成都天府新区无人机竞速基地', organizer: '四川省航空运动协会',
-      start_date: '2026.10.01', end_date: '2026.10.03',
-      tags: ['竞速FPV', '多旋翼'], fee: 280, registration_count: 56,
-      poster: '/static/home/demand-lift.jpg',
-    },
-    {
-      id: 'comp-3', title: '2026无人机创新应用大赛', status: 'ongoing',
-      location: '北京亦庄经济技术开发区', organizer: '工信部人才交流中心',
-      start_date: '2026.08.01', end_date: '2026.08.15',
-      tags: ['航拍', '固定翼', '国家级'], fee: 0, registration_count: 256,
-      poster: '',
-    },
-    {
-      id: 'comp-4', title: '青少年无人机编程挑战赛', status: 'enrolling',
-      location: '上海市浦东新区青少年活动中心', organizer: '上海市教委',
-      start_date: '2026.11.01', end_date: '2026.11.02',
-      tags: ['多旋翼', '航拍'], fee: 120, registration_count: 340,
-      poster: '/static/home/demand-solar.jpg',
-    },
-    {
-      id: 'comp-5', title: '国际无人机系统博览会竞技赛', status: 'enrolling',
-      location: '广州琶洲国际会展中心', organizer: '广州市低空经济产业协会',
-      start_date: '2026.12.05', end_date: '2026.12.07',
-      tags: ['多旋翼', '固定翼', '国际赛'], fee: 580, registration_count: 89,
-      poster: '/static/home/home-bg.jpg',
-    },
-    {
-      id: 'comp-6', title: '2026贵州无人机应急救援演练赛', status: 'closed',
-      location: '贵阳市观山湖区应急指挥中心', organizer: '贵州省应急管理厅',
-      start_date: '2026.06.10', end_date: '2026.06.12',
-      tags: ['多旋翼', '航拍'], fee: 0, registration_count: 72,
-      poster: '',
-    },
-  ]
-}
-
 function loadMore() {
   if (!loadingMore.value && hasMore.value) { page.value++; loadData(false) }
-}
-
-/* 按当前 Tab 过滤 mock 赛事状态 */
-function filterMockByTab(all) {
-  if (currentTab.value === 'enrolling') {
-    return all.filter(function (c) {
-      return c.status === 'enrolling' || c.status === 'open' || c.registration_status === 'open'
-    })
-  }
-  return all
 }
 
 /* ===== 筛选 & 搜索 ===== */
