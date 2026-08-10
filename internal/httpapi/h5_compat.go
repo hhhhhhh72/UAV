@@ -1057,6 +1057,8 @@ func (s *Server) registerH5AuthRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/auth/me", s.h5AuthMe)
 	mux.HandleFunc("POST /api/auth/refresh", s.h5AuthRefresh)
 	mux.HandleFunc("POST /api/auth/logout", s.h5AuthLogout)
+	mux.HandleFunc("POST /api/auth/send-code", s.sendSMSCode)
+	mux.HandleFunc("POST /api/auth/login-code", s.loginWithSMS)
 	// 系统配置读写均无条件注册（管理后台 ServiceConfigList 在生产环境需要保存配置）
 	mux.HandleFunc("GET /api/services/config", s.h5GetServicesConfig)
 	mux.HandleFunc("POST /api/services/config", s.h5SaveServicesConfig)

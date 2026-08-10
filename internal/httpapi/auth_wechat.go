@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -24,9 +25,12 @@ type authResponse struct {
 }
 
 type userInfo struct {
-	ID     string      `json:"id"`
-	Role   domain.Role `json:"role"`
-	Status string      `json:"status"`
+	ID        string      `json:"id"`
+	Role      domain.Role `json:"role"`
+	Status    string      `json:"status"`
+	Name      string      `json:"name"`       // 昵称（users.name，微信账号可能为空）
+	AvatarURL string      `json:"avatar_url"` // 头像
+	HasWechat bool        `json:"has_wechat"` // 是否已绑定微信（微信登录恒为 true）
 }
 
 // POST /api/v1/auth/wechat/login
@@ -98,7 +102,7 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresIn:    900,
-		User:         userInfo{ID: u.ID, Role: role, Status: u.Status},
+		User:         userInfo{ID: u.ID, Role: role, Status: u.Status, Name: u.Name, AvatarURL: u.AvatarURL, HasWechat: true},
 	})
 }
 
@@ -118,8 +122,10 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 
 	s.refreshRepo.Revoke(tokenHash)
 
+	var u *domain.User
 	role := domain.RoleIndividual
-	if u, err := s.userRepo.FindByID(userID); err == nil && u.Role != "" {
+	if found, err := s.userRepo.FindByID(userID); err == nil && found.Role != "" {
+		u = &found
 		role = u.Role
 	}
 	accessToken, err := s.tokens.Issue(domain.Actor{ID: userID, Role: role}, 15*time.Minute)
@@ -136,11 +142,18 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 	newHash := service.HashToken(newRefresh)
 	s.refreshRepo.Store(userID, newHash, time.Now().Add(7*24*time.Hour))
 
+	hasWechat := u != nil && u.WechatOpenID != "" && !strings.HasPrefix(u.WechatOpenID, "phone:")
+	ui := userInfo{ID: userID, Role: role, Status: ""}
+	if u != nil {
+		ui.Name = u.Name
+		ui.AvatarURL = u.AvatarURL
+		ui.HasWechat = hasWechat
+	}
 	respond(w, r, http.StatusOK, authResponse{
 		AccessToken:  accessToken,
 		RefreshToken: newRefresh,
 		ExpiresIn:    900,
-		User:         userInfo{ID: userID, Role: role, Status: ""},
+		User:         ui,
 	})
 }
 
