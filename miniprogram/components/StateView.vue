@@ -1,5 +1,6 @@
 <template>
-  <view>
+  <!-- state-root：撑满宿主节点并成为 flex 容器，scroll-view 的 flex:1 才能生效 -->
+  <view class="state-root">
     <!-- 加载中 -->
     <view v-if="loading" class="state-loading flex-center flex-col" style="padding: 80rpx 0;">
       <u-loading size="48rpx" color="var(--color-primary)" />
@@ -46,6 +47,14 @@ defineEmits(['retry', 'create'])
 </script>
 
 <style scoped>
+/* 撑满宿主节点并成为 flex 容器（宿主是 flex column），
+   slot 里的 scroll-view 靠 flex:1 自适应高度才能滚动 */
+.state-root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .state-loading,
 .state-error,
 .state-empty {

@@ -34,13 +34,30 @@
       "style": {
         "navigationBarTitleText": "我的",
         "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/login/index",
       "style": {
         "navigationBarTitleText": "登录",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/login/phone",
+      "style": {
+        "navigationBarTitleText": "手机号登录",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/agreement/index",
+      "style": {
+        "navigationBarTitleText": "用户协议",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff"
       }
@@ -66,7 +83,8 @@
       "style": {
         "navigationBarTitleText": "个人信息",
         "navigationBarTextStyle": "black",
-        "navigationBarBackgroundColor": "#ffffff"
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -126,6 +144,69 @@
       "path": "pages/messages/index",
       "style": {
         "navigationBarTitleText": "消息中心"
+      }
+    },
+    {
+      "path": "pages/orders/index",
+      "style": {
+        "navigationBarTitleText": "我的订单",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/orders/list",
+      "style": {
+        "navigationBarTitleText": "我的订单",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/orders/detail",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/orders/logistics",
+      "style": {
+        "navigationBarTitleText": "物流详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/orders/review",
+      "style": {
+        "navigationBarTitleText": "发表评价",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/orders/aftersale",
+      "style": {
+        "navigationBarTitleText": "售后详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/orders/refund-apply",
+      "style": {
+        "navigationBarTitleText": "申请退款",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationStyle": "custom"
       }
     }
   ],
