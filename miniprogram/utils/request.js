@@ -162,3 +162,12 @@ export function getStoredUser() {
     return null
   }
 }
+
+// 提取后端统一错误包 { error: { code, message } } 中的中文提示
+export function getErrorMessage(e) {
+  try {
+    if (e && e.data && e.data.error && e.data.error.message) return e.data.error.message
+    if (e && e.message) return e.message
+  } catch { /* ignore */ }
+  return ''
+}

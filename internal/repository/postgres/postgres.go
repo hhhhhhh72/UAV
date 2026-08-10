@@ -1257,6 +1257,149 @@ func (r *pgIntentRepo) UpdateStatus(id string, status string) (domain.DemandInte
 	return it, nil
 }
 
+// ---- WorkOrder Repository (接单派单闭环) ----
+
+type pgWorkOrderRepo struct{ pool *pgxpool.Pool }
+
+func (s *Store) NewWorkOrderRepository() repository.WorkOrderRepository {
+	return &pgWorkOrderRepo{pool: s.pool}
+}
+
+const workOrderCols = `id, order_no, demand_id, publisher_id, publisher_name, worker_id, worker_name, amount_fen, status, result_photos, rework_note, cancel_reason, created_at, updated_at`
+
+func scanWorkOrder(row interface{ Scan(...any) error }) (domain.WorkOrder, error) {
+	var wo domain.WorkOrder
+	var photos []byte
+	err := row.Scan(&wo.ID, &wo.OrderNo, &wo.DemandID, &wo.PublisherID, &wo.PublisherName,
+		&wo.WorkerID, &wo.WorkerName, &wo.AmountFen, &wo.Status, &photos, &wo.ReworkNote, &wo.CancelReason,
+		&wo.CreatedAt, &wo.UpdatedAt)
+	if err != nil {
+		return domain.WorkOrder{}, err
+	}
+	if len(photos) > 0 {
+		if err := json.Unmarshal(photos, &wo.ResultPhotos); err != nil {
+			return domain.WorkOrder{}, fmt.Errorf("parse result_photos: %w", err)
+		}
+	}
+	return wo, nil
+}
+
+func (r *pgWorkOrderRepo) Create(wo domain.WorkOrder) (domain.WorkOrder, error) {
+	now := time.Now()
+	wo.CreatedAt = now
+	wo.UpdatedAt = now
+	photos, _ := json.Marshal(wo.ResultPhotos)
+	_, err := r.pool.Exec(context.Background(),
+		`INSERT INTO work_orders (`+workOrderCols+`)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		wo.ID, wo.OrderNo, wo.DemandID, wo.PublisherID, wo.PublisherName, wo.WorkerID, wo.WorkerName,
+		wo.AmountFen, wo.Status, photos, wo.ReworkNote, wo.CancelReason, wo.CreatedAt, wo.UpdatedAt)
+	if err != nil {
+		return domain.WorkOrder{}, fmt.Errorf("create work order: %w", err)
+	}
+	return wo, nil
+}
+
+func (r *pgWorkOrderRepo) FindByID(id string) (domain.WorkOrder, error) {
+	row := r.pool.QueryRow(context.Background(),
+		`SELECT `+workOrderCols+` FROM work_orders WHERE id=$1`, id)
+	wo, err := scanWorkOrder(row)
+	if err != nil {
+		return domain.WorkOrder{}, fmt.Errorf("find work order %s: %w", id, err)
+	}
+	return wo, nil
+}
+
+func (r *pgWorkOrderRepo) ListByPublisher(publisherID string) ([]domain.WorkOrder, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT `+workOrderCols+` FROM work_orders WHERE publisher_id=$1 ORDER BY created_at DESC`, publisherID)
+	if err != nil {
+		return nil, fmt.Errorf("query work orders by publisher: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.WorkOrder{}
+	for rows.Next() {
+		wo, err := scanWorkOrder(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan work order: %w", err)
+		}
+		out = append(out, wo)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgWorkOrderRepo) ListByWorker(workerID string) ([]domain.WorkOrder, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT `+workOrderCols+` FROM work_orders WHERE worker_id=$1 ORDER BY created_at DESC`, workerID)
+	if err != nil {
+		return nil, fmt.Errorf("query work orders by worker: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.WorkOrder{}
+	for rows.Next() {
+		wo, err := scanWorkOrder(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan work order: %w", err)
+		}
+		out = append(out, wo)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgWorkOrderRepo) UpdateStatus(id string, status domain.WorkOrderStatus) (domain.WorkOrder, error) {
+	var photos []byte
+	var wo domain.WorkOrder
+	err := r.pool.QueryRow(context.Background(),
+		`UPDATE work_orders SET status=$2, updated_at=now() WHERE id=$1
+		RETURNING `+workOrderCols, id, status).
+		Scan(&wo.ID, &wo.OrderNo, &wo.DemandID, &wo.PublisherID, &wo.PublisherName,
+			&wo.WorkerID, &wo.WorkerName, &wo.AmountFen, &wo.Status, &photos, &wo.ReworkNote, &wo.CancelReason,
+			&wo.CreatedAt, &wo.UpdatedAt)
+	if err != nil {
+		return domain.WorkOrder{}, fmt.Errorf("update work order status %s: %w", id, err)
+	}
+	if len(photos) > 0 {
+		if err := json.Unmarshal(photos, &wo.ResultPhotos); err != nil {
+			return domain.WorkOrder{}, fmt.Errorf("parse result_photos: %w", err)
+		}
+	}
+	return wo, nil
+}
+
+func (r *pgWorkOrderRepo) UpdatePhotos(id string, photos []string) (domain.WorkOrder, error) {
+	data, _ := json.Marshal(photos)
+	row := r.pool.QueryRow(context.Background(),
+		`UPDATE work_orders SET result_photos=$2, updated_at=now() WHERE id=$1
+		RETURNING `+workOrderCols, id, data)
+	wo, err := scanWorkOrder(row)
+	if err != nil {
+		return domain.WorkOrder{}, fmt.Errorf("update work order photos %s: %w", id, err)
+	}
+	return wo, nil
+}
+
+func (r *pgWorkOrderRepo) UpdateRework(id string, note string) (domain.WorkOrder, error) {
+	row := r.pool.QueryRow(context.Background(),
+		`UPDATE work_orders SET rework_note=$2, updated_at=now() WHERE id=$1
+		RETURNING `+workOrderCols, id, note)
+	wo, err := scanWorkOrder(row)
+	if err != nil {
+		return domain.WorkOrder{}, fmt.Errorf("update work order rework %s: %w", id, err)
+	}
+	return wo, nil
+}
+
+func (r *pgWorkOrderRepo) UpdateCancel(id string, reason string) (domain.WorkOrder, error) {
+	row := r.pool.QueryRow(context.Background(),
+		`UPDATE work_orders SET cancel_reason=$2, updated_at=now() WHERE id=$1
+		RETURNING `+workOrderCols, id, reason)
+	wo, err := scanWorkOrder(row)
+	if err != nil {
+		return domain.WorkOrder{}, fmt.Errorf("update work order cancel %s: %w", id, err)
+	}
+	return wo, nil
+}
+
 // ---- DemandBid Repository ----
 
 type pgBidRepo struct{ pool *pgxpool.Pool }

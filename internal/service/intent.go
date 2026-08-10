@@ -3,18 +3,27 @@ package service
 import (
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
 )
 
+// nextSeq 提供同纳秒内创建的 ID 唯一性（Windows 时钟精度约 100ns，
+// 连续创建两个对象可能拿到相同 UnixNano，导致内存/PG 按 ID 更新时错配）。
+var idSeq atomic.Uint64
+
+func nextSeq() uint64 {
+	return idSeq.Add(1)
+}
+
 // IntentService records contact intents on published demands (联系对接模式).
 //
 // 简版范围（V1）：登记意向 + 发布方查看意向列表 + 意向方查看自己的意向记录。
 // 状态流转（contacted / done / closed）与管理端成交标记留待 V2。
 type IntentService struct {
-	repo  repository.IntentRepository
+	repo    repository.IntentRepository
 	demands repository.DemandRepository
 }
 
@@ -52,7 +61,7 @@ func (s *IntentService) Create(a domain.Actor, demandID string, in CreateIntentI
 	}
 	now := time.Now()
 	it := domain.DemandIntent{
-		ID:           fmt.Sprintf("intent-%d", now.UnixNano()),
+		ID:           fmt.Sprintf("intent-%d-%d", now.UnixNano(), nextSeq()),
 		DemandID:     demandID,
 		IntentorID:   a.ID,
 		IntentorName: name,

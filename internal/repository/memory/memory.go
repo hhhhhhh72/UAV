@@ -1214,6 +1214,111 @@ func (r *intentRepo) UpdateStatus(id string, status string) (domain.DemandIntent
 	return domain.DemandIntent{}, fmt.Errorf("intent %s not found", id)
 }
 
+// ---- WorkOrder (接单派单闭环) ----
+
+type workOrderRepo struct {
+	mu    sync.RWMutex
+	items []domain.WorkOrder
+}
+
+func NewWorkOrderRepository() repository.WorkOrderRepository {
+	return &workOrderRepo{}
+}
+
+func (r *workOrderRepo) Create(wo domain.WorkOrder) (domain.WorkOrder, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = append(r.items, wo)
+	return wo, nil
+}
+
+func (r *workOrderRepo) FindByID(id string) (domain.WorkOrder, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, wo := range r.items {
+		if wo.ID == id {
+			return wo, nil
+		}
+	}
+	return domain.WorkOrder{}, fmt.Errorf("work order %s not found", id)
+}
+
+func (r *workOrderRepo) ListByPublisher(publisherID string) ([]domain.WorkOrder, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.WorkOrder, 0)
+	for _, wo := range r.items {
+		if wo.PublisherID == publisherID {
+			out = append(out, wo)
+		}
+	}
+	return out, nil
+}
+
+func (r *workOrderRepo) ListByWorker(workerID string) ([]domain.WorkOrder, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.WorkOrder, 0)
+	for _, wo := range r.items {
+		if wo.WorkerID == workerID {
+			out = append(out, wo)
+		}
+	}
+	return out, nil
+}
+
+func (r *workOrderRepo) UpdateStatus(id string, status domain.WorkOrderStatus) (domain.WorkOrder, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, wo := range r.items {
+		if wo.ID == id {
+			r.items[i].Status = status
+			r.items[i].UpdatedAt = time.Now()
+			return r.items[i], nil
+		}
+	}
+	return domain.WorkOrder{}, fmt.Errorf("work order %s not found", id)
+}
+
+func (r *workOrderRepo) UpdatePhotos(id string, photos []string) (domain.WorkOrder, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, wo := range r.items {
+		if wo.ID == id {
+			r.items[i].ResultPhotos = photos
+			r.items[i].UpdatedAt = time.Now()
+			return r.items[i], nil
+		}
+	}
+	return domain.WorkOrder{}, fmt.Errorf("work order %s not found", id)
+}
+
+func (r *workOrderRepo) UpdateRework(id string, note string) (domain.WorkOrder, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, wo := range r.items {
+		if wo.ID == id {
+			r.items[i].ReworkNote = note
+			r.items[i].UpdatedAt = time.Now()
+			return r.items[i], nil
+		}
+	}
+	return domain.WorkOrder{}, fmt.Errorf("work order %s not found", id)
+}
+
+func (r *workOrderRepo) UpdateCancel(id string, reason string) (domain.WorkOrder, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, wo := range r.items {
+		if wo.ID == id {
+			r.items[i].CancelReason = reason
+			r.items[i].UpdatedAt = time.Now()
+			return r.items[i], nil
+		}
+	}
+	return domain.WorkOrder{}, fmt.Errorf("work order %s not found", id)
+}
+
 // ---- Certificate ----
 
 type certRepo struct {

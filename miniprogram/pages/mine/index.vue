@@ -70,6 +70,11 @@
             <text class="menu-label">我的需求</text>
             <text class="menu-arrow">›</text>
           </view>
+          <view class="menu-item" hover-class="tap-fade" @tap="goMyOrders">
+            <text class="menu-label">我的订单</text>
+            <text class="menu-desc">接单作业与验收</text>
+            <text class="menu-arrow">›</text>
+          </view>
           <view class="menu-item" hover-class="tap-fade" @tap="goMyPublish">
             <text class="menu-label">我的发布</text>
             <text class="menu-arrow">›</text>
@@ -267,6 +272,11 @@ const goOrderListWithStatus = (status) => {
 const goMyDemands = () => {
   if (!user.value) return goLogin()
   uni.navigateTo({ url: '/pages/demands/mine' })
+}
+
+const goMyOrders = () => {
+  if (!user.value) return goLogin()
+  uni.navigateTo({ url: '/pages/orders/mine' })
 }
 
 const goMyContracts = () => {

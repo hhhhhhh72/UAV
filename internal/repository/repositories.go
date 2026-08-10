@@ -183,6 +183,18 @@ type IntentRepository interface {
 	UpdateStatus(id string, status string) (domain.DemandIntent, error)
 }
 
+// WorkOrderRepository manages work orders generated from confirmed intents (接单派单闭环).
+type WorkOrderRepository interface {
+	Create(domain.WorkOrder) (domain.WorkOrder, error)
+	FindByID(id string) (domain.WorkOrder, error)
+	ListByPublisher(publisherID string) ([]domain.WorkOrder, error)
+	ListByWorker(workerID string) ([]domain.WorkOrder, error)
+	UpdateStatus(id string, status domain.WorkOrderStatus) (domain.WorkOrder, error)
+	UpdatePhotos(id string, photos []string) (domain.WorkOrder, error)
+	UpdateRework(id string, note string) (domain.WorkOrder, error)
+	UpdateCancel(id string, reason string) (domain.WorkOrder, error)
+}
+
 // ---- Phase 3+ Repositories (migrated from in-memory services) ----
 
 // CertificateRepository manages drone operation certificates.

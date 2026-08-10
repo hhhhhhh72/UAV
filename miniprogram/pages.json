@@ -194,6 +194,16 @@
       }
     },
     {
+      "path": "pages/orders/mine",
+      "style": {
+        "navigationBarTitleText": "我的订单",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true,
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/enterprise/register",
       "style": {
         "navigationBarTitleText": "企业入驻",

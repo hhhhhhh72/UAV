@@ -61,7 +61,7 @@ func (s *DemandService) Create(a domain.Actor, in CreateDemandInput) (domain.Dem
 	if budgetFen == 0 && in.Budget > 0 {
 		budgetFen = in.Budget * 100
 	}
-	d := domain.Demand{ID: fmt.Sprintf("demand-%d", now.UnixNano()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: budgetFen, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
+	d := domain.Demand{ID: fmt.Sprintf("demand-%d-%d", now.UnixNano(), nextSeq()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: budgetFen, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
 	slog.Info("demand created", "demand_id", d.ID, "publisher_id", a.ID, "biz_type", string(bizType))
 	return s.repo.Create(d)
 }

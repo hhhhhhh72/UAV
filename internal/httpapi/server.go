@@ -83,6 +83,7 @@ type Server struct {
 	emergencySvc   *service.EmergencyService
 	matchingSvc    *service.MatchingService
 	intentSvc      *service.IntentService
+	workOrderSvc   *service.WorkOrderService
 	poolSvc        *service.ResourcePoolService
 	testSiteSvc    *service.TestSiteService
 	exhibitionSvc  *service.ExhibitionService
@@ -231,6 +232,7 @@ func (s *Server) SetResourceService(svc *service.ResourceService)               
 func (s *Server) SetEmergencyService(svc *service.EmergencyService)             { s.emergencySvc = svc }
 func (s *Server) SetMatchingService(svc *service.MatchingService)               { s.matchingSvc = svc }
 func (s *Server) SetIntentService(svc *service.IntentService)                   { s.intentSvc = svc }
+func (s *Server) SetWorkOrderService(svc *service.WorkOrderService)             { s.workOrderSvc = svc }
 func (s *Server) SetPoolService(svc *service.ResourcePoolService)               { s.poolSvc = svc }
 func (s *Server) SetTestSiteService(svc *service.TestSiteService)               { s.testSiteSvc = svc }
 func (s *Server) SetExhibitionService(svc *service.ExhibitionService)           { s.exhibitionSvc = svc }

@@ -14,8 +14,10 @@ func newBizServer(t *testing.T) http.Handler {
 	t.Helper()
 	tokens, err := httpapi.NewTokenManager(testSecret)
 	if err != nil { t.Fatal(err) }
+	demandRepo := memory.NewDemandRepository(nil)
+	intentRepo := memory.NewIntentRepository()
 	srv := httpapi.NewServer(
-		service.NewDemandService(memory.NewDemandRepository(nil)),
+		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),
 		service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil)),
 		service.NewEmploymentService(memory.NewEmploymentRepository()),
@@ -60,7 +62,9 @@ func newBizServer(t *testing.T) http.Handler {
 	srv.SetTransformationService(service.NewTransformationService(memory.NewTransformationRepository()))
 	srv.SetStudyTourRepo(memory.NewStudyTourRepository())
 	srv.SetEmergencyService(service.NewEmergencyService(memory.NewEmergencyRepository()))
-	srv.SetMatchingService(service.NewMatchingService(memory.NewDemandRepository(nil)))
+	srv.SetMatchingService(service.NewMatchingService(demandRepo))
+	srv.SetIntentService(service.NewIntentService(intentRepo, demandRepo))
+	srv.SetWorkOrderService(service.NewWorkOrderService(memory.NewWorkOrderRepository(), demandRepo, intentRepo))
 	srv.SetStorage("memory")
 	return srv.Router()
 }

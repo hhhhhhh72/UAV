@@ -3,9 +3,9 @@
     <!-- 头部 -->
     <view class="page-header">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
-      <text class="page-title">我的发布</text>
-      <view class="head-action" @tap="goIntents">
-        <text class="head-action-text">收到的意向</text>
+      <text class="page-title">我的需求</text>
+      <view class="head-action" @tap="goOrders">
+        <text class="head-action-text">我的订单</text>
       </view>
     </view>
 
@@ -15,11 +15,11 @@
         <view class="filter-inner">
           <view
             v-for="t in typeOptions"
-            :key="t"
+            :key="t.value"
             class="filter-chip"
-            :class="{ active: mineType === t }"
-            @tap="mineType = t"
-          >{{ t }}</view>
+            :class="{ active: mineType === t.value }"
+            @tap="mineType = t.value"
+          >{{ t.label }}</view>
         </view>
       </scroll-view>
     </view>
@@ -48,30 +48,30 @@
     <!-- 空状态 -->
     <view v-if="filteredPosts.length === 0" class="state-panel">
       <view class="state-mark">⌁</view>
-      <text class="state-title">暂无符合条件的发布</text>
-      <text class="state-desc">换个筛选条件试试，或先发布一条信息</text>
-      <view class="state-btn" @tap="resetMineFilter">清除筛选</view>
+      <text class="state-title">{{ loadError ? '加载失败' : '暂无符合条件的发布' }}</text>
+      <text class="state-desc">{{ loadError ? '网络异常，请稍后重试' : '换个筛选条件试试，或先发布一条需求' }}</text>
+      <view class="state-btn" @tap="loadError ? fetchMine() : resetMineFilter">{{ loadError ? '重新加载' : '清除筛选' }}</view>
     </view>
 
     <!-- 发布记录 -->
     <view v-else class="post-list">
       <view v-for="post in filteredPosts" :key="post.id" class="mine-card">
         <view class="tag-row">
-          <text class="tag" :class="typeTagClass(post.type)">{{ post.type }}</text>
-          <text class="tag" :class="statusTagClass(post.status)">{{ post.status }}</text>
+          <text class="tag" :class="typeTagClass(post.biz_type)">{{ bizTypeLabel(post.biz_type) }}</text>
+          <text class="tag" :class="statusTagClass(post.status)">{{ statusLabel(post.status) }}</text>
         </view>
         <text class="post-title">{{ post.title }}</text>
-        <text class="post-meta">{{ post.date }}{{ post.reason ? ' · ' + post.reason : '' }}</text>
+        <text class="post-meta">{{ formatBudget(post.budget_fen) }}{{ post.district ? ' · ' + post.district : '' }} · {{ formatDate(post.created_at) }}</text>
         <view class="mine-action-row">
-          <template v-if="post.status === '已驳回'">
+          <template v-if="post.status === 'rejected'">
             <view class="action-link" @tap="republish(post)">编辑重提</view>
           </template>
-          <template v-else-if="post.status === '已上架'">
-            <view class="action-link" @tap="goIntents">查看意向</view>
+          <template v-else-if="post.status === 'published'">
+            <view class="action-link" @tap="goIntents(post.id)">查看意向</view>
             <view class="action-link" @tap="completePost(post)">标记完成</view>
             <view class="action-link danger" @tap="closePost(post)">下架</view>
           </template>
-          <template v-else>
+          <template v-else-if="post.status === 'pending'">
             <view class="action-link" @tap="toastPending">查看审核进度</view>
           </template>
         </view>
@@ -82,57 +82,115 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { safeNavigateTo } from '../../utils/nav'
-import { getPosts, savePosts } from '../../utils/hallData'
+import { request, getErrorMessage } from '../../utils/request'
+import { BIZ_TYPE_TABS, bizTypeLabel } from '../../utils/enums'
 
-const mineType = ref('全部')
+const mineType = ref('')
 const mineStatus = ref('全部')
+const posts = ref([])
+const loadError = ref(false)
 
-const typeOptions = ['全部', '需求', '服务', '商品']
-const statusOptions = ['全部', '待审核', '已上架', '已驳回', '已结束']
+const typeOptions = BIZ_TYPE_TABS
+const statusOptions = ['全部', '待审核', '已上架', '已驳回', '已结束', '已取消']
 
-const posts = ref(getPosts())
+const STATUS_MAP = {
+  pending: '待审核',
+  published: '已上架',
+  completed: '已结束',
+  cancelled: '已取消',
+  rejected: '已驳回',
+}
+const statusLabel = (s) => STATUS_MAP[s] || s || ''
 
 const filteredPosts = computed(() => {
   return posts.value.filter(
     (p) =>
-      (mineType.value === '全部' || p.type === mineType.value) &&
-      (mineStatus.value === '全部' || p.status === mineStatus.value)
+      (mineType.value === '' || p.biz_type === mineType.value) &&
+      (mineStatus.value === '全部' || statusLabel(p.status) === mineStatus.value)
   )
 })
 
 function typeTagClass(t) {
-  return t === '需求' ? 'blue' : t === '服务' ? 'green' : 'orange'
+  const blue = ['cable_inspection', 'other']
+  const green = ['plant_transport', 'spray_pesticide']
+  return blue.includes(t) ? 'blue' : green.includes(t) ? 'green' : 'orange'
 }
 function statusTagClass(s) {
-  return s === '已驳回' ? 'red' : s === '待审核' ? 'orange' : s === '已结束' ? 'gray' : 'green'
+  return s === 'rejected' ? 'red' : s === 'pending' ? 'orange' : s === 'completed' || s === 'cancelled' ? 'gray' : 'green'
 }
 
+const formatBudget = (fen) => {
+  if (fen == null || fen === 0) return '面议'
+  const yuan = (fen / 100).toFixed(2)
+  return yuan.replace(/\.00$/, '') + ' 元'
+}
+const formatDate = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day
+}
+
+const fetchMine = async () => {
+  loadError.value = false
+  try {
+    const res = await request({ url: '/api/v1/demands?mine=1&page_size=100' })
+    const data = Array.isArray(res) ? res : (res && res.data) || []
+    posts.value = data
+  } catch {
+    loadError.value = true
+    posts.value = []
+  }
+}
+
+onLoad((options) => {
+  if (options && options.status && statusOptions.includes(options.status)) {
+    mineStatus.value = options.status
+  }
+  fetchMine()
+})
+onPullDownRefresh(() => {
+  fetchMine().finally(() => uni.stopPullDownRefresh())
+})
+
 const resetMineFilter = () => {
-  mineType.value = '全部'
+  mineType.value = ''
   mineStatus.value = '全部'
 }
 
-const goIntents = () => safeNavigateTo('/pages/demands/intents')
+const goIntents = (id) => safeNavigateTo('/pages/demands/intents?demandId=' + encodeURIComponent(id))
+const goOrders = () => safeNavigateTo('/pages/orders/mine')
 const goBack = () => uni.navigateBack()
 
 function republish(post) {
-  safeNavigateTo('/pages/demands/publish?type=' + postTypeValue(post.type))
-}
-function postTypeValue(t) {
-  return t === '需求' ? 'demand' : t === '服务' ? 'service' : 'product'
+  safeNavigateTo('/pages/demands/publish')
 }
 
-function completePost(post) {
-  post.status = '已结束'
-  savePosts(posts.value)
-  uni.showToast({ title: '已标记完成', icon: 'success' })
+async function completePost(post) {
+  try {
+    await request({ url: '/api/v1/demands/' + encodeURIComponent(post.id) + '/complete', method: 'POST' })
+    post.status = 'completed'
+    uni.showToast({ title: '已标记完成', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: getErrorMessage(e) || '操作失败，请重试', icon: 'none' })
+  }
 }
 
-function closePost(post) {
-  post.status = '已结束'
-  savePosts(posts.value)
-  uni.showToast({ title: '已下架', icon: 'none' })
+async function closePost(post) {
+  const confirm = await new Promise((resolve) => {
+    uni.showModal({ title: '下架需求', content: '下架后需求将从需求大厅移除，确定下架？', success: (r) => resolve(r.confirm) })
+  })
+  if (!confirm) return
+  try {
+    await request({ url: '/api/v1/demands/' + encodeURIComponent(post.id) + '/cancel', method: 'POST' })
+    post.status = 'cancelled'
+    uni.showToast({ title: '已下架', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: getErrorMessage(e) || '操作失败，请重试', icon: 'none' })
+  }
 }
 
 const toastPending = () => {

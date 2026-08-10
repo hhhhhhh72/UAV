@@ -231,6 +231,38 @@ type DemandIntent struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// WorkOrderStatus represents the lifecycle of a work order (订单状态流转, PRD FR-6.3/6.4).
+//
+//	pending → ongoing → awaiting_accept → completed
+//	   └─────────┴───────┴───────────────→ cancelled
+type WorkOrderStatus string
+
+const (
+	WorkOrderPending        WorkOrderStatus = "pending"         // 待开始：企业确认接单后生成
+	WorkOrderOngoing        WorkOrderStatus = "ongoing"         // 进行中：飞手确认开始
+	WorkOrderAwaitingAccept WorkOrderStatus = "awaiting_accept" // 待确认完成：飞手确认完成
+	WorkOrderCompleted      WorkOrderStatus = "completed"       // 已完成：企业验收通过
+	WorkOrderCancelled      WorkOrderStatus = "cancelled"       // 已取消：任意一方发起
+)
+
+// WorkOrder is the order generated when a publisher confirms an intent (接单派单闭环).
+type WorkOrder struct {
+	ID            string          `json:"id"`
+	OrderNo       string          `json:"order_no"`
+	DemandID      string          `json:"demand_id"`
+	PublisherID   string          `json:"publisher_id"` // 需求方（企业）
+	PublisherName string          `json:"publisher_name"`
+	WorkerID      string          `json:"worker_id"` // 接单飞手
+	WorkerName    string          `json:"worker_name"`
+	AmountFen     int64           `json:"amount_fen"` // 订单金额（企业确认接单时填写，面议为 0）
+	Status        WorkOrderStatus `json:"status"`
+	ResultPhotos  []string        `json:"result_photos"` // 作业成果照片（飞手确认完成时上传）
+	ReworkNote    string          `json:"rework_note"`   // 企业整改要求
+	CancelReason  string          `json:"cancel_reason"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+}
+
 // ---- Training & Certification ----
 
 // CertType represents the issuing authority for a drone operation certificate.
