@@ -293,8 +293,8 @@ async function loadDetail() {
     state.value = 'ready'
     return
   }
+  // 服务能力无独立详情接口时的最终兜底：从服务列表按 id 匹配
   const applyServiceFallback = async () => {
-    // 服务能力无独立详情接口：从服务列表按 id 匹配
     const svc = await fetchServiceByList(postId)
     if (svc) {
       item.value = svc
@@ -312,7 +312,8 @@ async function loadDetail() {
       state.value = 'ready'
       return
     }
-    // 详情接口无此 id（如服务/商品）：先试服务列表匹配，再降级本地 mock
+    // 详情接口无此 id（服务/商品）：先试服务详情接口，再列表匹配兜底
+    if (await applyServiceDetail()) return
     if (await applyServiceFallback()) return
     if (fallback) {
       item.value = fallback
@@ -321,6 +322,7 @@ async function loadDetail() {
     }
     state.value = 'error'
   } catch (e) {
+    if (await applyServiceDetail()) return
     if (await applyServiceFallback()) return
     if (fallback) {
       item.value = fallback
@@ -329,6 +331,22 @@ async function loadDetail() {
       state.value = 'error'
     }
   }
+}
+
+// 服务能力公开详情：GET /api/v1/service-listings/{id}
+async function applyServiceDetail() {
+  try {
+    const res = await request({ url: '/api/v1/service-listings/' + encodeURIComponent(postId) })
+    const svc = normalizeService((res && res.data) || res)
+    if (svc) {
+      item.value = svc
+      state.value = 'ready'
+      return true
+    }
+  } catch (err) {
+    // 404 等情况继续走列表兜底
+  }
+  return false
 }
 
 async function fetchServiceByList(id) {

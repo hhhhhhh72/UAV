@@ -4,6 +4,7 @@
       ref="crudRef"
       resource="service-listings"
       :columns="columns"
+      :search-fields="searchFields"
       :batch-actions="batchActions"
       creatable
       add-label="新增服务能力"
@@ -106,6 +107,15 @@ const priceLabel = (fen) => (!fen ? '面议' : (fen / 100).toFixed(2))
 const batchActions = [
   { key: 'publish', label: '批量上架', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'published' }) },
   { key: 'offline', label: '批量下架', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'offline' }) }
+]
+
+// 搜索过滤：keyword 命中标题/服务商/描述，category 精确匹配
+const searchFields = [
+  { key: 'keyword', label: '关键词', type: 'input', width: 220, placeholder: '标题 / 服务商 / 描述' },
+  { key: 'category', label: '分类', type: 'select', width: 140, options: [
+    { value: '', label: '全部分类' },
+    ...CATEGORIES.map(c => ({ value: c, label: c }))
+  ]}
 ]
 
 const columns = [
