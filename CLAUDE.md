@@ -173,6 +173,7 @@ go test ./internal/...  # 全部 PASS
 | H5 兼容路由 404 | `/api/auth/*` 曾只在 `ADMIN_DEV_MODE=true` 时注册，生产 404 | **已修复**：auth 路由（login/register/me/refresh/logout + GET services/config）已无条件生产注册，JSON 文件路由仍 dev-only |
 | 登录 401 | 小程序调 `/api/v1/login` 不存在 | 改为 `/api/auth/login` |
 | 登录后 Token 不匹配 | 旧代码只存 `token`，新 API 返回 `accessToken` | 改用 `authStorage.setTokens()` |
+| 小程序全部请求 `ERR_CONNECTION_TIMED_OUT` | `miniprogram/utils/config.js` 的 `BASE_URL` 写死旧局域网 IP（192.168.5.141），DHCP 换网后 IP 变了 | 用 `ipconfig` 查当前 WLAN IP（如 192.168.5.19），改 `BASE_URL` 后重新编译；真机调试需手机与电脑同一 WiFi |
 
 ## 本地开发
 
