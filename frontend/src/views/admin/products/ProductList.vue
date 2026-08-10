@@ -47,9 +47,9 @@
 
     <!-- 新增 / 编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑商品' : '新增商品'" :width="520" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal" class="dialog-form">
+      <a-form :model="form" layout="vertical" class="dialog-form">
         <a-form-item label="商品名称" required>
-          <a-input v-model="form.title" placeholder="如：工业级六旋翼无人机 X6-28L" allow-clear />
+          <a-input v-model="form.title" placeholder="如：工业级六旋翼无人机 X6-28L" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="类型">
           <a-select v-model="form.prod_type" style="width: 100%">
@@ -63,10 +63,10 @@
           </a-select>
         </a-form-item>
         <a-form-item label="品牌">
-          <a-input v-model="form.brand" placeholder="可选" allow-clear />
+          <a-input v-model="form.brand" placeholder="可选" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="型号">
-          <a-input v-model="form.model" placeholder="可选" allow-clear />
+          <a-input v-model="form.model" placeholder="可选" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="成色">
           <a-select v-model="form.condition" style="width: 100%">
@@ -75,7 +75,7 @@
           </a-select>
         </a-form-item>
         <a-form-item label="价格(元)">
-          <a-input v-model="form.priceYuan" type="number" placeholder="0.00" />
+          <a-input v-model="form.priceYuan" type="number" placeholder="0.00" style="width: 100%" />
         </a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
@@ -93,10 +93,10 @@
           />
         </a-form-item>
         <a-form-item label="卖家">
-          <a-input v-model="form.seller_name" placeholder="默认平台自营" allow-clear />
+          <a-input v-model="form.seller_name" placeholder="默认平台自营" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="描述">
-          <a-input v-model="form.description" type="textarea" :auto-size="{ minRows: 3, maxRows: 6 }" placeholder="商品说明" />
+          <a-input v-model="form.description" type="textarea" :auto-size="{ minRows: 3, maxRows: 6 }" placeholder="商品说明" style="width: 100%" />
         </a-form-item>
       </a-form>
       <template #footer>

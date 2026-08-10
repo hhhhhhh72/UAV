@@ -20,7 +20,7 @@
         <span class="time-text">{{ formatDate(record.end_date) }}</span>
       </template>
       <template #status="{ record }">
-        <a-tag :color="statusTag(record.status)" size="small">{{ record.status || '-' }}</a-tag>
+        <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
       </template>
       <template #actions="{ record }">
         <a-space :size="4">
@@ -44,7 +44,7 @@
           <a-descriptions-item label="结束日期">{{ formatDate(currentItem.end_date) }}</a-descriptions-item>
           <a-descriptions-item label="展位数">{{ currentItem.booth_count || 0 }}</a-descriptions-item>
           <a-descriptions-item label="状态">
-            <a-tag :color="statusTag(currentItem.status)" size="small">{{ currentItem.status || '-' }}</a-tag>
+            <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="组织方" :span="2">{{ currentItem.organizer || '-' }}</a-descriptions-item>
           <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
@@ -55,57 +55,27 @@
 
     <!-- 表单弹窗（新增/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑展会' : '新增展会'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal">
-        <a-row :gutter="16">
-          <a-col :span="16">
-            <a-form-item label="展会名称" required><a-input v-model="form.title" /></a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="展位数"><a-input-number v-model="form.booth_count" :min="0" hide-button style="width: 100%" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="地点"><a-input v-model="form.location" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="分类"><a-input v-model="form.category" placeholder="如：行业展会" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="组织方"><a-input v-model="form.organizer" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="封面图URL"><a-input v-model="form.cover_url" placeholder="展会封面图片地址" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="开始日期"><a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="结束日期"><a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="状态">
-              <a-select v-model="form.status" style="width: 100%">
-                <a-option value="draft">草稿</a-option>
-                <a-option value="recruiting">招募中</a-option>
-                <a-option value="underway">进行中</a-option>
-                <a-option value="ended">已结束</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="展位费(元)">
-              <a-input-number v-model="form.boothPriceYuan" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="展会名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="展位数"><a-input-number v-model="form.booth_count" :min="0" hide-button style="width: 100%" /></a-form-item>
+        <a-form-item label="地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
+        <a-form-item label="分类"><a-input v-model="form.category" placeholder="如：行业展会" style="width: 100%" /></a-form-item>
+        <a-form-item label="组织方"><a-input v-model="form.organizer" style="width: 100%" /></a-form-item>
+        <a-form-item label="封面图URL"><a-input v-model="form.cover_url" placeholder="展会封面图片地址" style="width: 100%" /></a-form-item>
+        <a-form-item label="开始日期"><a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
+        <a-form-item label="结束日期"><a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="draft">草稿</a-option>
+            <a-option value="recruiting">招募中</a-option>
+            <a-option value="underway">进行中</a-option>
+            <a-option value="ended">已结束</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="展位费(元)">
+          <a-input-number v-model="form.boothPriceYuan" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
+        </a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>
@@ -132,6 +102,7 @@ const formatDate = (d) => {
 }
 
 const statusTag = (s) => ({ draft: 'gray', recruiting: 'orange', underway: 'green', ended: 'gray' }[s] || 'gray')
+const statusLabel = { draft: '草稿', recruiting: '招募中', underway: '进行中', ended: '已结束' }
 
 // 批量动作：设为招募中 / 标记结束——传完整行数据避免清空其他字段
 const batchActions = [

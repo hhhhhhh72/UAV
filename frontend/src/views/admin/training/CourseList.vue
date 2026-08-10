@@ -56,60 +56,36 @@
 
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课程' : '新增课程'" :width="560" @cancel="formVisible = false">
-      <a-form :model="form" :label-col-flex="90">
-        <a-row :gutter="16">
-          <a-col :span="16">
-            <a-form-item label="课程名称" required><a-input v-model="form.title" /></a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="证书类型">
-              <a-select v-model="form.cert_type" style="width: 100%">
-                <a-option value="caac">CAAC 执照</a-option>
-                <a-option value="utc_dji">大疆 UTC</a-option>
-                <a-option value="gov_level">人社等级</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="上课地点"><a-input v-model="form.location" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="状态">
-              <a-select v-model="form.status" style="width: 100%">
-                <a-option value="draft">草稿</a-option>
-                <a-option value="published">已发布</a-option>
-                <a-option value="closed">已关闭</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="价格(元)">
-              <a-input-number v-model="form.priceYuan" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="名额">
-              <a-input-number v-model="form.max_students" :min="0" hide-button style="width: 100%" placeholder="招生人数" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="开始日期">
-              <a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择开班日期" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="结束日期">
-              <a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择结课日期" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="课程描述"><a-input v-model="form.description" type="textarea" :rows="3" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="课程名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="证书类型">
+          <a-select v-model="form.cert_type" style="width: 100%">
+            <a-option value="caac">CAAC 执照</a-option>
+            <a-option value="utc_dji">大疆 UTC</a-option>
+            <a-option value="gov_level">人社等级</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="上课地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="draft">草稿</a-option>
+            <a-option value="published">已发布</a-option>
+            <a-option value="closed">已关闭</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="价格(元)">
+          <a-input-number v-model="form.priceYuan" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
+        </a-form-item>
+        <a-form-item label="名额">
+          <a-input-number v-model="form.max_students" :min="0" hide-button style="width: 100%" placeholder="招生人数" />
+        </a-form-item>
+        <a-form-item label="开始日期">
+          <a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择开班日期" style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="结束日期">
+          <a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择结课日期" style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="课程描述"><a-input v-model="form.description" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>

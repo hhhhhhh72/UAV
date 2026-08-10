@@ -52,33 +52,21 @@
 
     <!-- 表单弹窗（新增/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑应急资源' : '新增应急资源'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal">
-        <a-row :gutter="16">
-          <a-col :span="14">
-            <a-form-item label="资源名称" required><a-input v-model="form.name" /></a-form-item>
-          </a-col>
-          <a-col :span="10">
-            <a-form-item label="类型">
-              <a-select v-model="form.res_type" style="width: 100%">
-                <a-option value="drone">无人机</a-option>
-                <a-option value="comm">通信</a-option>
-                <a-option value="light">照明</a-option>
-                <a-option value="transport">运输</a-option>
-                <a-option value="other">其他</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="规格"><a-input v-model="form.specs" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="数量"><a-input-number v-model="form.quantity" :min="0" hide-button style="width: 100%" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="位置"><a-input v-model="form.location" /></a-form-item>
-        <a-form-item label="联系人信息"><a-input v-model="form.contact_info" placeholder="姓名 / 电话，如：张工 13800138000" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="资源名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="类型">
+          <a-select v-model="form.res_type" style="width: 100%">
+            <a-option value="drone">无人机</a-option>
+            <a-option value="comm">通信</a-option>
+            <a-option value="light">照明</a-option>
+            <a-option value="transport">运输</a-option>
+            <a-option value="other">其他</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="规格"><a-input v-model="form.specs" style="width: 100%" /></a-form-item>
+        <a-form-item label="数量"><a-input-number v-model="form.quantity" :min="0" hide-button style="width: 100%" /></a-form-item>
+        <a-form-item label="位置"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
+        <a-form-item label="联系人信息"><a-input v-model="form.contact_info" placeholder="姓名 / 电话，如：张工 13800138000" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="available">可用</a-option>

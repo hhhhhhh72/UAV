@@ -66,35 +66,17 @@
 
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑证书' : '新增证书'" :width="560" @cancel="formVisible = false">
-      <a-form :model="form" :label-col-flex="90">
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="证书编号" required><a-input v-model="form.cert_number" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="证书类型"><a-input v-model="form.cert_type" placeholder="caac / utc_dji / gov_level" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="等级"><a-input v-model="form.level" placeholder="如：CAAC Ⅲ类" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="发证机构"><a-input v-model="form.issuer_org" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="签发日期">
-              <a-date-picker v-model="form.issue_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="有效期至">
-              <a-date-picker v-model="form.expire_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-        </a-row>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="证书编号" required><a-input v-model="form.cert_number" style="width: 100%" /></a-form-item>
+        <a-form-item label="证书类型"><a-input v-model="form.cert_type" placeholder="caac / utc_dji / gov_level" style="width: 100%" /></a-form-item>
+        <a-form-item label="等级"><a-input v-model="form.level" placeholder="如：CAAC Ⅲ类" style="width: 100%" /></a-form-item>
+        <a-form-item label="发证机构"><a-input v-model="form.issuer_org" style="width: 100%" /></a-form-item>
+        <a-form-item label="签发日期">
+          <a-date-picker v-model="form.issue_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="有效期至">
+          <a-date-picker v-model="form.expire_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" />
+        </a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="pending">待审核</a-option>

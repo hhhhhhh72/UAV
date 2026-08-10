@@ -51,32 +51,14 @@
 
     <!-- 表单弹窗（新增/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑调度' : '新建调度'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal">
-        <a-row :gutter="16">
-          <a-col :span="14">
-            <a-form-item label="任务名称" required><a-input v-model="form.event_desc" /></a-form-item>
-          </a-col>
-          <a-col :span="10">
-            <a-form-item label="处理结果"><a-input v-model="form.result" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="调度资源"><a-input v-model="form.resource_id" placeholder="资源 ID" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="位置"><a-input v-model="form.location" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="调度时间"><a-input v-model="form.start_time" placeholder="YYYY-MM-DD HH:mm" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="结束时间"><a-input v-model="form.end_time" placeholder="YYYY-MM-DD HH:mm" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="指挥员"><a-input v-model="form.commander" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="任务名称" required><a-input v-model="form.event_desc" style="width: 100%" /></a-form-item>
+        <a-form-item label="处理结果"><a-input v-model="form.result" style="width: 100%" /></a-form-item>
+        <a-form-item label="调度资源"><a-input v-model="form.resource_id" placeholder="资源 ID" style="width: 100%" /></a-form-item>
+        <a-form-item label="位置"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
+        <a-form-item label="调度时间"><a-input v-model="form.start_time" placeholder="YYYY-MM-DD HH:mm" style="width: 100%" /></a-form-item>
+        <a-form-item label="结束时间"><a-input v-model="form.end_time" placeholder="YYYY-MM-DD HH:mm" style="width: 100%" /></a-form-item>
+        <a-form-item label="指挥员"><a-input v-model="form.commander" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="dispatched">已调度</a-option>

@@ -17,7 +17,7 @@
         <a-tag :color="typeTag(record.category)" size="small">{{ typeLabel(record.category) }}</a-tag>
       </template>
       <template #status="{ record }">
-        <a-tag :color="statusTag(record.status)" size="small">{{ record.status || '-' }}</a-tag>
+        <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
       </template>
       <template #actions="{ record }">
         <a-space :size="4">
@@ -54,25 +54,19 @@
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑报告' : '新增报告'" :width="560" destroy-on-close>
       <a-form :model="form" layout="vertical">
-        <a-row :gutter="16">
-          <a-col :span="16"><a-form-item label="报告标题" required><a-input v-model="form.title" /></a-form-item></a-col>
-          <a-col :span="8">
-            <a-form-item label="类型">
-              <a-select v-model="form.category" style="width: 100%">
-                <a-option value="whitepaper">白皮书</a-option>
-                <a-option value="research">调研报告</a-option>
-                <a-option value="analysis">行业分析</a-option>
-                <a-option value="other">其他</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12"><a-form-item label="报告期"><a-input v-model="form.period" placeholder="如 2026-Q2" /></a-form-item></a-col>
-          <a-col :span="12"><a-form-item label="作者"><a-input v-model="form.author" /></a-form-item></a-col>
-        </a-row>
-        <a-form-item label="摘要"><a-input v-model="form.summary" type="textarea" :autosize="{ minRows: 3 }" /></a-form-item>
-        <a-form-item label="文件URL"><a-input v-model="form.file_url" /></a-form-item>
+        <a-form-item label="报告标题" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="类型">
+          <a-select v-model="form.category" style="width: 100%">
+            <a-option value="whitepaper">白皮书</a-option>
+            <a-option value="research">调研报告</a-option>
+            <a-option value="analysis">行业分析</a-option>
+            <a-option value="other">其他</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="报告期"><a-input v-model="form.period" placeholder="如 2026-Q2" style="width: 100%" /></a-form-item>
+        <a-form-item label="作者"><a-input v-model="form.author" style="width: 100%" /></a-form-item>
+        <a-form-item label="摘要"><a-input v-model="form.summary" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="文件URL"><a-input v-model="form.file_url" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="draft">草稿</a-option>
@@ -106,6 +100,7 @@ const formatDate = (d) => {
 const typeLabel = (t) => ({ whitepaper: '白皮书', research: '调研报告', analysis: '行业分析', other: '其他' }[t] || t || '-')
 const typeTag = (t) => ({ whitepaper: 'orangered', research: 'green', analysis: 'arcoblue', other: 'gray' }[t] || 'gray')
 const statusTag = (s) => ({ published: 'green', draft: 'orangered' }[s] || 'gray')
+const statusLabel = { published: '已发布', draft: '草稿' }
 
 // 批量动作：批量发布——传完整行数据避免清空其他字段
 const batchActions = [

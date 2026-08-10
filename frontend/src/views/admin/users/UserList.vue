@@ -36,8 +36,8 @@
 
     <!-- 新增用户弹窗 -->
     <a-modal v-model:visible="formVisible" title="新增用户" :width="420" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal">
-        <a-form-item label="用户ID" required><a-input v-model="form.id" placeholder="输入唯一用户ID" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="用户ID" required><a-input v-model="form.id" placeholder="输入唯一用户ID" style="width: 100%" /></a-form-item>
         <a-form-item label="角色">
           <a-select v-model="form.role" style="width: 100%">
             <a-option value="individual">个人用户</a-option>
@@ -47,7 +47,7 @@
           </a-select>
         </a-form-item>
         <a-form-item label="密码">
-          <a-input-password v-model="form.password" placeholder="可选：设置后可用于密码登录" />
+          <a-input-password v-model="form.password" placeholder="可选：设置后可用于密码登录" style="width: 100%" />
         </a-form-item>
       </a-form>
       <template #footer>

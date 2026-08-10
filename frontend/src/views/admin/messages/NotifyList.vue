@@ -54,10 +54,10 @@
 
     <!-- 表单弹窗（发送/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑通知' : '发送通知'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal">
-        <a-form-item label="消息标题" required><a-input v-model="form.title" /></a-form-item>
-        <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="留空 = 广播给所有管理员" /></a-form-item>
-        <a-form-item label="消息内容" required><a-input v-model="form.content" type="textarea" :rows="5" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="消息标题" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="留空 = 广播给所有管理员" style="width: 100%" /></a-form-item>
+        <a-form-item label="消息内容" required><a-input v-model="form.content" type="textarea" :rows="5" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>

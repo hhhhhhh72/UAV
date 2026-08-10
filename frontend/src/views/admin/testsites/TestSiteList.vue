@@ -56,43 +56,31 @@
 
     <!-- 表单弹窗（新增/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑场地' : '新增场地'" :width="560" :mask-closable="false" :unmount-on-close="true" @close="resetForm">
-      <a-form :model="form" layout="horizontal">
-        <a-form-item label="场地名称" required><a-input v-model="form.name" /></a-form-item>
-        <a-form-item label="地点"><a-input v-model="form.location" /></a-form-item>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="类型">
-              <a-select v-model="form.site_type" style="width: 100%">
-                <a-option value="flying_field">飞行场地</a-option>
-                <a-option value="lab">实验室</a-option>
-                <a-option value="anechoic_chamber">消声室</a-option>
-                <a-option value="wind_tunnel">风洞</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="状态">
-              <a-select v-model="form.status" style="width: 100%">
-                <a-option value="available">可用</a-option>
-                <a-option value="maintenance">维护中</a-option>
-                <a-option value="reserved">已预约</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="费用(元)">
-              <a-input-number v-model="form.priceYuan" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="配套设施">
-              <a-input v-model="form.facilitiesText" placeholder="如：充电桩、停机坪（逗号分隔）" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="使用规则"><a-input v-model="form.booking_rule" type="textarea" :rows="3" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="场地名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
+        <a-form-item label="类型">
+          <a-select v-model="form.site_type" style="width: 100%">
+            <a-option value="flying_field">飞行场地</a-option>
+            <a-option value="lab">实验室</a-option>
+            <a-option value="anechoic_chamber">消声室</a-option>
+            <a-option value="wind_tunnel">风洞</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="available">可用</a-option>
+            <a-option value="maintenance">维护中</a-option>
+            <a-option value="reserved">已预约</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="费用(元)">
+          <a-input-number v-model="form.priceYuan" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
+        </a-form-item>
+        <a-form-item label="配套设施">
+          <a-input v-model="form.facilitiesText" placeholder="如：充电桩、停机坪（逗号分隔）" style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="使用规则"><a-input v-model="form.booking_rule" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>

@@ -58,21 +58,15 @@
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课题' : '新增课题'" :width="560" @close="resetForm">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="课题名称"><a-input v-model="form.title" /></a-form-item>
-        <a-form-item label="牵头单位"><a-input v-model="form.lead_org" /></a-form-item>
-        <a-form-item label="领域"><a-input v-model="form.field" /></a-form-item>
-        <a-form-item label="参与单位"><a-input v-model="form.membersInput" placeholder="多个单位用逗号分隔" /></a-form-item>
+        <a-form-item label="课题名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="牵头单位"><a-input v-model="form.lead_org" style="width: 100%" /></a-form-item>
+        <a-form-item label="领域"><a-input v-model="form.field" style="width: 100%" /></a-form-item>
+        <a-form-item label="参与单位"><a-input v-model="form.membersInput" placeholder="多个单位用逗号分隔" style="width: 100%" /></a-form-item>
         <a-form-item label="预算(分)"><a-input-number v-model="form.budget_fen" :min="0" style="width: 100%" /></a-form-item>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="开始日期"><a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="结束日期"><a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="里程碑"><a-input v-model="form.milestones" placeholder="阶段目标，如：方案设计→样机测试" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" /></a-form-item>
+        <a-form-item label="开始日期"><a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
+        <a-form-item label="结束日期"><a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
+        <a-form-item label="里程碑"><a-input v-model="form.milestones" placeholder="阶段目标，如：方案设计→样机测试" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="active">进行中</a-option>

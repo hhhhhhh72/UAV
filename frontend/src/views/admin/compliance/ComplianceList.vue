@@ -116,42 +116,30 @@
     <!-- 新增 / 编辑表单弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑' : '新增'" :width="560" @cancel="formVisible = false">
       <!-- 文档表单 -->
-      <a-form v-if="activeTab === 'docs'" :model="docForm" layout="horizontal" class="dialog-form">
+      <a-form v-if="activeTab === 'docs'" :model="docForm" layout="vertical" class="dialog-form">
         <a-form-item label="文档标题" required>
-          <a-input v-model="docForm.title" allow-clear />
+          <a-input v-model="docForm.title" allow-clear style="width: 100%" />
         </a-form-item>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="分类">
-              <a-select v-model="docForm.category" style="width: 100%">
-                <a-option v-for="c in ['政策', '法规', '标准', '指南']" :key="c" :label="c" :value="c" />
-              </a-select>
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="发布机构">
-              <a-input v-model="docForm.publisher" allow-clear />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="发布日期">
-              <a-date-picker v-model="docForm.publish_date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="状态">
-              <a-select v-model="docForm.status" style="width: 100%">
-                <a-option label="待审核" value="pending" />
-                <a-option label="已发布" value="published" />
-                <a-option label="草稿" value="draft" />
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
+        <a-form-item label="分类">
+          <a-select v-model="docForm.category" style="width: 100%">
+            <a-option v-for="c in ['政策', '法规', '标准', '指南']" :key="c" :label="c" :value="c" />
+          </a-select>
+        </a-form-item>
+        <a-form-item label="发布机构">
+          <a-input v-model="docForm.publisher" allow-clear style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="发布日期">
+          <a-date-picker v-model="docForm.publish_date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="docForm.status" style="width: 100%">
+            <a-option label="待审核" value="pending" />
+            <a-option label="已发布" value="published" />
+            <a-option label="草稿" value="draft" />
+          </a-select>
+        </a-form-item>
         <a-form-item label="摘要">
-          <a-input v-model="docForm.summary" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" />
+          <a-input v-model="docForm.summary" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" style="width: 100%" />
         </a-form-item>
         <a-form-item label="附件文件">
           <a-upload
@@ -169,40 +157,28 @@
         </a-form-item>
       </a-form>
       <!-- 标准表单 -->
-      <a-form v-else :model="stdForm" layout="horizontal" class="dialog-form">
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="标准编号">
-              <a-input v-model="stdForm.standard_no" allow-clear />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="标准名称" required>
-              <a-input v-model="stdForm.title" allow-clear />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="发布机构">
-              <a-input v-model="stdForm.publisher" allow-clear />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="生效日期">
-              <a-date-picker v-model="stdForm.effective_date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-        </a-row>
+      <a-form v-else :model="stdForm" layout="vertical" class="dialog-form">
+        <a-form-item label="标准编号">
+          <a-input v-model="stdForm.standard_no" allow-clear style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="标准名称" required>
+          <a-input v-model="stdForm.title" allow-clear style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="发布机构">
+          <a-input v-model="stdForm.publisher" allow-clear style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="生效日期">
+          <a-date-picker v-model="stdForm.effective_date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
+        </a-form-item>
         <a-form-item label="状态">
-          <a-select v-model="stdForm.status" style="width: 200px">
+          <a-select v-model="stdForm.status" style="width: 100%">
             <a-option label="待审核" value="pending" />
             <a-option label="已发布" value="published" />
             <a-option label="草稿" value="draft" />
           </a-select>
         </a-form-item>
         <a-form-item label="适用范围">
-          <a-input v-model="stdForm.scope" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" />
+          <a-input v-model="stdForm.scope" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" style="width: 100%" />
         </a-form-item>
         <a-form-item label="附件文件">
           <a-upload

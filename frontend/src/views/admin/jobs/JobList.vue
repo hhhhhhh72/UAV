@@ -56,43 +56,27 @@
 
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑职位' : '新增职位'" :width="560" @cancel="formVisible = false">
-      <a-form :model="form" :label-col-flex="90">
-        <a-row :gutter="16">
-          <a-col :span="14">
-            <a-form-item label="职位名称" required><a-input v-model="form.title" /></a-form-item>
-          </a-col>
-          <a-col :span="10">
-            <a-form-item label="类型">
-              <a-select v-model="form.job_type" style="width: 100%">
-                <a-option value="全职">全职</a-option>
-                <a-option value="兼职">兼职</a-option>
-                <a-option value="实习">实习</a-option>
-                <a-option value="外包">外包</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="地区"><a-input v-model="form.location" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="状态">
-              <a-select v-model="form.status" style="width: 100%">
-                <a-option value="published">招聘中</a-option>
-                <a-option value="closed">已关闭</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="薪资(元)">
-              <a-input-number v-model="form.salary" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="职位描述"><a-input v-model="form.description" type="textarea" :rows="2" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="职位名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="类型">
+          <a-select v-model="form.job_type" style="width: 100%">
+            <a-option value="全职">全职</a-option>
+            <a-option value="兼职">兼职</a-option>
+            <a-option value="实习">实习</a-option>
+            <a-option value="外包">外包</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="地区"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="published">招聘中</a-option>
+            <a-option value="closed">已关闭</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="薪资(元)">
+          <a-input-number v-model="form.salary" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
+        </a-form-item>
+        <a-form-item label="职位描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>

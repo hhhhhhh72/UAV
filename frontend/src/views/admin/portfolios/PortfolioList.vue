@@ -48,11 +48,11 @@
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑品牌' : '新增品牌'" :width="560" destroy-on-close>
       <a-form :model="form" layout="vertical">
-        <a-form-item label="品牌名称" required><a-input v-model="form.name" /></a-form-item>
-        <a-form-item label="Logo URL"><a-input v-model="form.logo_url" /></a-form-item>
-        <a-form-item label="封面图 URL"><a-input v-model="form.cover_url" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 2 }" /></a-form-item>
-        <a-form-item label="荣誉"><a-input v-model="form.honorsText" type="textarea" :autosize="{ minRows: 2 }" placeholder="多个荣誉用逗号分隔" /></a-form-item>
+        <a-form-item label="品牌名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="Logo URL"><a-input v-model="form.logo_url" style="width: 100%" /></a-form-item>
+        <a-form-item label="封面图 URL"><a-input v-model="form.cover_url" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 2 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="荣誉"><a-input v-model="form.honorsText" type="textarea" :autosize="{ minRows: 2 }" placeholder="多个荣誉用逗号分隔" style="width: 100%" /></a-form-item>
         <a-form-item label="审核状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="draft">草稿</a-option>

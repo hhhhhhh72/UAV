@@ -47,35 +47,19 @@
 
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑研学项目' : '新增研学项目'" :width="560" :mask-closable="false" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal">
-        <a-row :gutter="16">
-          <a-col :span="16">
-            <a-form-item label="项目名称" required><a-input v-model="form.title" /></a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="状态">
-              <a-select v-model="form.status" style="width: 100%">
-                <a-option value="draft">草稿</a-option>
-                <a-option value="active">进行中</a-option>
-                <a-option value="closed">已结束</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="目的地"><a-input v-model="form.destination" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="时长"><a-input v-model="form.duration" placeholder="如: 3天2晚" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="名额"><a-input-number v-model="form.capacity" :min="0" hide-button style="width: 100%" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="项目介绍"><a-input v-model="form.description" type="textarea" :rows="2" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="项目名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="draft">草稿</a-option>
+            <a-option value="active">进行中</a-option>
+            <a-option value="closed">已结束</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="目的地"><a-input v-model="form.destination" style="width: 100%" /></a-form-item>
+        <a-form-item label="时长"><a-input v-model="form.duration" placeholder="如: 3天2晚" style="width: 100%" /></a-form-item>
+        <a-form-item label="名额"><a-input-number v-model="form.capacity" :min="0" hide-button style="width: 100%" /></a-form-item>
+        <a-form-item label="项目介绍"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>

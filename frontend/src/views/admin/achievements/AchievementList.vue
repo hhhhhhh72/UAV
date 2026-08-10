@@ -54,9 +54,9 @@
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑成果' : '新增成果'" :width="560" @cancel="formVisible = false">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="成果名称"><a-input v-model="form.title" /></a-form-item>
-        <a-form-item label="领域"><a-input v-model="form.field" /></a-form-item>
-        <a-form-item label="成果类型"><a-input v-model="form.achieve_type" placeholder="如：专利 / 样机 / 技术方案" /></a-form-item>
+        <a-form-item label="成果名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="领域"><a-input v-model="form.field" style="width: 100%" /></a-form-item>
+        <a-form-item label="成果类型"><a-input v-model="form.achieve_type" placeholder="如：专利 / 样机 / 技术方案" style="width: 100%" /></a-form-item>
         <a-form-item label="阶段">
           <a-select v-model="form.stage" style="width: 100%">
             <a-option value="lab">实验室</a-option>
@@ -65,8 +65,8 @@
             <a-option value="launched">上市</a-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="联系信息"><a-input v-model="form.contact_info" placeholder="如：电话 / 邮箱" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" /></a-form-item>
+        <a-form-item label="联系信息"><a-input v-model="form.contact_info" placeholder="如：电话 / 邮箱" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
         <a-form-item label="成果图片">
           <div style="width: 100%">
             <div v-for="(img, i) in form.images" :key="i" style="display: flex; gap: 6px; margin-bottom: 6px">

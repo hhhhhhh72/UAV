@@ -58,14 +58,14 @@
     <!-- 编辑弹窗（基础信息 + 状态） -->
     <a-modal v-model:visible="formVisible" title="编辑报名记录" :width="560" @cancel="formVisible = false">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="姓名"><a-input v-model="form.name" /></a-form-item>
-        <a-form-item label="电话"><a-input v-model="form.phone" /></a-form-item>
-        <a-form-item label="身份证号"><a-input v-model="form.id_card" /></a-form-item>
-        <a-form-item label="性别"><a-input v-model="form.gender" placeholder="如：男" /></a-form-item>
+        <a-form-item label="姓名"><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="电话"><a-input v-model="form.phone" style="width: 100%" /></a-form-item>
+        <a-form-item label="身份证号"><a-input v-model="form.id_card" style="width: 100%" /></a-form-item>
+        <a-form-item label="性别"><a-input v-model="form.gender" placeholder="如：男" style="width: 100%" /></a-form-item>
         <a-form-item label="生日"><a-date-picker v-model="form.birthday" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
-        <a-form-item label="邮箱"><a-input v-model="form.email" /></a-form-item>
-        <a-form-item label="学历"><a-input v-model="form.education" placeholder="如：本科" /></a-form-item>
-        <a-form-item label="从业经验"><a-input v-model="form.experience" /></a-form-item>
+        <a-form-item label="邮箱"><a-input v-model="form.email" style="width: 100%" /></a-form-item>
+        <a-form-item label="学历"><a-input v-model="form.education" placeholder="如：本科" style="width: 100%" /></a-form-item>
+        <a-form-item label="从业经验"><a-input v-model="form.experience" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="pending">待审核</a-option>

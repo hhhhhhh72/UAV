@@ -54,38 +54,26 @@
 
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑院校' : '新增院校'" :width="560" @cancel="formVisible = false">
-      <a-form :model="form" :label-col-flex="90">
-        <a-row :gutter="16">
-          <a-col :span="14">
-            <a-form-item label="院校名称" required><a-input v-model="form.name" /></a-form-item>
-          </a-col>
-          <a-col :span="10">
-            <a-form-item label="分域">
-              <a-select v-model="form.coop_type" style="width: 100%">
-                <a-option value="research">科研合作</a-option>
-                <a-option value="talent">人才培养</a-option>
-                <a-option value="both">综合</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="地区"><a-input v-model="form.region" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item v-if="formEdit" label="合作状态" :extra="formEdit ? '' : '新建默认合作中，创建后可在编辑中调整'">
-              <a-select v-model="form.status" style="width: 100%">
-                <a-option value="active">合作中</a-option>
-                <a-option value="inactive">已终止合作</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="Logo 地址"><a-input v-model="form.logo_url" placeholder="院校 Logo 图片地址" /></a-form-item>
-        <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" /></a-form-item>
-        <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="院校名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="分域">
+          <a-select v-model="form.coop_type" style="width: 100%">
+            <a-option value="research">科研合作</a-option>
+            <a-option value="talent">人才培养</a-option>
+            <a-option value="both">综合</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="地区"><a-input v-model="form.region" style="width: 100%" /></a-form-item>
+        <a-form-item v-if="formEdit" label="合作状态" :extra="formEdit ? '' : '新建默认合作中，创建后可在编辑中调整'">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="active">合作中</a-option>
+            <a-option value="inactive">已终止合作</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="Logo 地址"><a-input v-model="form.logo_url" placeholder="院校 Logo 图片地址" style="width: 100%" /></a-form-item>
+        <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" style="width: 100%" /></a-form-item>
+        <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>

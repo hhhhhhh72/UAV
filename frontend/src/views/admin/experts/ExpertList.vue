@@ -30,11 +30,11 @@
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑专家' : '新增专家'" :width="500" destroy-on-close>
       <a-form :model="form" layout="vertical">
-        <a-form-item label="姓名" required><a-input v-model="form.name" /></a-form-item>
-        <a-form-item label="职称"><a-input v-model="form.title" /></a-form-item>
-        <a-form-item label="单位"><a-input v-model="form.org" /></a-form-item>
-        <a-form-item label="领域"><a-input v-model="form.field" /></a-form-item>
-        <a-form-item label="简介"><a-input v-model="form.bio" type="textarea" :autosize="{ minRows: 3 }" /></a-form-item>
+        <a-form-item label="姓名" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="职称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="单位"><a-input v-model="form.org" style="width: 100%" /></a-form-item>
+        <a-form-item label="领域"><a-input v-model="form.field" style="width: 100%" /></a-form-item>
+        <a-form-item label="简介"><a-input v-model="form.bio" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
         <a-form-item label="头像">
           <a-upload
             class="avatar-upload"
@@ -50,7 +50,7 @@
           </a-upload>
           <a-button v-if="form.avatar_url" size="small" style="margin-top: 8px" @click="form.avatar_url = ''">清除</a-button>
         </a-form-item>
-        <a-form-item label="标签"><a-input v-model="tagsInput" placeholder="逗号分隔" /></a-form-item>
+        <a-form-item label="标签"><a-input v-model="tagsInput" placeholder="逗号分隔" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="pending">待审核</a-option>

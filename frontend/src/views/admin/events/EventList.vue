@@ -20,7 +20,7 @@
         <span class="time-text">{{ formatDate(record.start_time) }}</span>
       </template>
       <template #status="{ record }">
-        <a-tag :color="statusTag(record.status)" size="small">{{ record.status || '-' }}</a-tag>
+        <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
       </template>
       <template #actions="{ record }">
         <a-space :size="4">
@@ -52,49 +52,31 @@
 
     <!-- 表单弹窗（新增/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑活动' : '新增活动'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal">
-        <a-row :gutter="16">
-          <a-col :span="16">
-            <a-form-item label="活动名称" required><a-input v-model="form.title" /></a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="类型">
-              <a-select v-model="form.event_type" style="width: 100%">
-                <a-option value="论坛">论坛</a-option>
-                <a-option value="走访">走访</a-option>
-                <a-option value="沙龙">沙龙</a-option>
-                <a-option value="培训">培训</a-option>
-                <a-option value="其他">其他</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="地点"><a-input v-model="form.location" /></a-form-item>
-        <a-form-item label="封面图URL"><a-input v-model="form.cover_url" placeholder="活动封面图片地址" /></a-form-item>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="开始时间"><a-input v-model="form.start_time" placeholder="YYYY-MM-DD HH:mm" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="结束时间"><a-input v-model="form.end_time" placeholder="YYYY-MM-DD HH:mm" /></a-form-item>
-          </a-col>
-        </a-row>
-        <a-row :gutter="16">
-          <a-col :span="8">
-            <a-form-item label="名额"><a-input-number v-model="form.max_attendees" :min="0" hide-button style="width: 100%" /></a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="状态">
-              <a-select v-model="form.status" style="width: 100%">
-                <a-option value="published">已发布</a-option>
-                <a-option value="ongoing">进行中</a-option>
-                <a-option value="ended">已结束</a-option>
-                <a-option value="cancelled">已取消</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="3" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="活动名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="类型">
+          <a-select v-model="form.event_type" style="width: 100%">
+            <a-option value="论坛">论坛</a-option>
+            <a-option value="走访">走访</a-option>
+            <a-option value="沙龙">沙龙</a-option>
+            <a-option value="培训">培训</a-option>
+            <a-option value="其他">其他</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
+        <a-form-item label="封面图URL"><a-input v-model="form.cover_url" placeholder="活动封面图片地址" style="width: 100%" /></a-form-item>
+        <a-form-item label="开始时间"><a-input v-model="form.start_time" placeholder="YYYY-MM-DD HH:mm" style="width: 100%" /></a-form-item>
+        <a-form-item label="结束时间"><a-input v-model="form.end_time" placeholder="YYYY-MM-DD HH:mm" style="width: 100%" /></a-form-item>
+        <a-form-item label="名额"><a-input-number v-model="form.max_attendees" :min="0" hide-button style="width: 100%" /></a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model="form.status" style="width: 100%">
+            <a-option value="published">已发布</a-option>
+            <a-option value="ongoing">进行中</a-option>
+            <a-option value="ended">已结束</a-option>
+            <a-option value="cancelled">已取消</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>
@@ -122,6 +104,7 @@ const formatDate = (d) => {
 
 const typeTag = (t) => ({ '论坛': 'green', '走访': 'arcoblue', '沙龙': 'orange', '培训': 'gray', '其他': 'arcoblue' }[t] || 'gray')
 const statusTag = (s) => ({ published: 'orange', ongoing: 'green', ended: 'gray', cancelled: 'red' }[s] || 'gray')
+const statusLabel = { published: '已发布', ongoing: '进行中', ended: '已结束', cancelled: '已取消' }
 
 // 批量动作：批量发布 / 批量结束——传完整行数据避免清空其他字段
 const batchActions = [

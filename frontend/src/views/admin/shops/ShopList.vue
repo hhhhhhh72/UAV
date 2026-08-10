@@ -35,8 +35,8 @@
 
     <!-- 表单弹窗（新增/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑商家' : '新增商家'" :width="500" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
-      <a-form :model="form" layout="horizontal">
-        <a-form-item label="商家名称" required><a-input v-model="form.name" placeholder="输入商家名称" /></a-form-item>
+      <a-form :model="form" layout="vertical">
+        <a-form-item label="商家名称" required><a-input v-model="form.name" placeholder="输入商家名称" style="width: 100%" /></a-form-item>
         <a-form-item label="营业执照">
           <a-upload
             class="license-upload"
@@ -52,9 +52,9 @@
           </a-upload>
           <a-button v-if="form.license_url" size="small" style="margin-top: 8px" @click="form.license_url = ''">清除</a-button>
         </a-form-item>
-        <a-form-item label="对公账户"><a-input v-model="form.account_name" placeholder="对公账户名称" /></a-form-item>
-        <a-form-item label="联系电话"><a-input v-model="form.contact_phone" placeholder="商家联系电话" /></a-form-item>
-        <a-form-item label="地址"><a-input v-model="form.address" placeholder="商家地址" /></a-form-item>
+        <a-form-item label="对公账户"><a-input v-model="form.account_name" placeholder="对公账户名称" style="width: 100%" /></a-form-item>
+        <a-form-item label="联系电话"><a-input v-model="form.contact_phone" placeholder="商家联系电话" style="width: 100%" /></a-form-item>
+        <a-form-item label="地址"><a-input v-model="form.address" placeholder="商家地址" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="pending">待审核</a-option>

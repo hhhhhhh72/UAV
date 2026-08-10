@@ -44,22 +44,22 @@
       :footer="false"
     >
       <template v-if="currentCase">
-        <a-form :model="currentCase" layout="horizontal" class="dialog-form">
+        <a-form :model="currentCase" layout="vertical" class="dialog-form">
           <a-divider orientation="left">基本信息</a-divider>
           <a-form-item label="分类" required>
-            <a-input v-model="currentCase.category" placeholder="如：物流配送 / 测绘巡检 / 应急救援" allow-clear />
+            <a-input v-model="currentCase.category" placeholder="如：物流配送 / 测绘巡检 / 应急救援" allow-clear style="width: 100%" />
           </a-form-item>
           <a-form-item label="标题" required>
-            <a-input v-model="currentCase.title" placeholder="请输入标题" allow-clear />
+            <a-input v-model="currentCase.title" placeholder="请输入标题" allow-clear style="width: 100%" />
           </a-form-item>
           <a-form-item label="简介">
-            <a-input v-model="currentCase.description" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" placeholder="请输入简介" />
+            <a-input v-model="currentCase.description" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" placeholder="请输入简介" style="width: 100%" />
           </a-form-item>
           <a-form-item label="客户名称">
-            <a-input v-model="currentCase.clientName" placeholder="如：重庆市某区应急管理局" allow-clear />
+            <a-input v-model="currentCase.clientName" placeholder="如：重庆市某区应急管理局" allow-clear style="width: 100%" />
           </a-form-item>
           <a-form-item label="成果">
-            <a-input v-model="currentCase.result" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="项目成果/数据（可选）" />
+            <a-input v-model="currentCase.result" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="项目成果/数据（可选）" style="width: 100%" />
           </a-form-item>
 
           <a-divider orientation="left">封面图片</a-divider>
@@ -79,7 +79,7 @@
 
           <a-divider orientation="left">审核状态</a-divider>
           <a-form-item label="状态">
-            <a-select v-model="currentCase.status" style="width: 200px">
+            <a-select v-model="currentCase.status" style="width: 100%">
               <a-option label="待审核" value="pending" />
               <a-option label="已发布" value="published" />
               <a-option label="已下架" value="archived" />

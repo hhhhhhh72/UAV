@@ -27,6 +27,19 @@
       <template #bizType="{ record }">
         <a-tag color="arcoblue" size="small">{{ bizTypeLabel(record.biz_type) }}</a-tag>
       </template>
+      <template #image="{ record }">
+        <a-image
+          v-if="record.images && record.images.length"
+          :src="record.images[0]"
+          :preview-src="record.images[0]"
+          width="56"
+          height="40"
+          :style="{ objectFit: 'cover', borderRadius: '4px', display: 'block' }"
+          alt="需求图片"
+          @error="onImgError"
+        />
+        <span v-else class="img-empty">-</span>
+      </template>
       <template #price="{ record }">
         <span>{{ record.budget_fen ? '¥' + (record.budget_fen / 100).toLocaleString() : '面议' }}</span>
       </template>
@@ -76,6 +89,21 @@
           <a-descriptions-item label="联系人">{{ currentItem.contact || '-' }}</a-descriptions-item>
           <a-descriptions-item label="提交时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
           <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.images && currentItem.images.length" label="图片" :span="2">
+            <div class="detail-imgs">
+              <a-image
+                v-for="(img, i) in currentItem.images"
+                :key="i"
+                :src="img"
+                width="100"
+                height="72"
+                :style="{ objectFit: 'cover', borderRadius: '4px', marginRight: '8px' }"
+                :preview-src="img"
+                alt="需求图片"
+                @error="onImgError"
+              />
+            </div>
+          </a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>
@@ -101,6 +129,9 @@ import CrudList from '../components/CrudList.vue'
 
 const crudRef = ref()
 const defaultParams = { status: 'all' }
+
+// 图片加载失败（如 /static/ 相对路径 404）时隐藏，不显示破图
+const onImgError = (e) => { e.target.style.display = 'none' }
 
 const bizTypeLabel = (t) => ({
   cable_inspection: '工业巡检',
@@ -164,6 +195,7 @@ const batchActions = [
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
   { title: '需求标题', dataIndex: 'title', slotName: 'title', minWidth: 200 },
+  { title: '图片', dataIndex: 'images', slotName: 'image', width: 90 },
   { title: '类型', dataIndex: 'biz_type', slotName: 'bizType', width: 100 },
   { title: '预算', dataIndex: 'budget_fen', slotName: 'price', width: 110, align: 'right' },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
@@ -295,4 +327,8 @@ onMounted(loadStats)
 .amount-text { color: #E96012; font-weight: 500; }
 .amount-empty { color: #C9CDD4; }
 .time-text { color: #86909C; font-size: 12px; }
+
+.detail-imgs { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.img-empty { color: #C9CDD4; }
 </style>
