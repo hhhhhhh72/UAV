@@ -693,9 +693,9 @@ import { useAuth } from '../composables/useAuth'
 const { userRole, isPlatformAdmin, isAssociationAdmin } = useAuth()
 
 // el-upload on-change → a-upload custom-request 适配：保持原有上传业务逻辑不变
-const wrapUpload = (handler) => async ({ file, onSuccess, onError }) => {
+const wrapUpload = (handler) => async ({ fileItem, onSuccess, onError }) => {
   try {
-    await handler(file)
+    await handler(fileItem.file)
     onSuccess && onSuccess()
   } catch (err) {
     onError && onError(err)

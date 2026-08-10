@@ -184,9 +184,10 @@ const openForm = (row) => {
 }
 
 // 图片上传（/api/v1/upload 返回相对 URL）
-const uploadImage = async ({ file, onSuccess, onError }) => {
+// 注意：Arco custom-request 的参数是 fileItem，原生 File 在 fileItem.file 上
+const uploadImage = async ({ fileItem, onSuccess, onError }) => {
   const fd = new FormData()
-  fd.append('file', file)
+  fd.append('file', fileItem.file)
   try {
     const res = await axios.post('/api/v1/upload', fd)
     const url = res?.data?.url || res?.url
@@ -199,10 +200,11 @@ const uploadImage = async ({ file, onSuccess, onError }) => {
 }
 
 // a-upload 列表变化（新增/移除）时同步 form.images
+// 注意：f.url 是 Arco 的本地 blob 预览地址，不能入库；真实地址在响应 data.url 里
 const onImageChange = (fileList) => {
   imageList.length = 0
   imageList.push(...fileList)
-  form.images = fileList.map(f => f.url || f.response?.data?.url || f.response?.url).filter(Boolean)
+  form.images = fileList.map(f => f.response?.data?.url || f.response?.url || f.url).filter(Boolean)
 }
 
 const submitForm = async () => {

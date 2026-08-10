@@ -26,6 +26,7 @@ const routes = [
       { path: 'reviews', component: () => import('@/views/admin/reviews/ReviewList.vue'), meta: { title: '评价管理' } },
       { path: 'orders', component: () => import('@/views/admin/orders/OrderList.vue'), meta: { title: '订单管理' } },
       { path: 'products', component: () => import('@/views/admin/products/ProductList.vue'), meta: { title: '商品管理' } },
+      { path: 'service-listings', component: () => import('@/views/admin/serviceListings/ServiceListingList.vue'), meta: { title: '服务能力管理' } },
       { path: 'enterprises', component: () => import('@/views/admin/enterprises/EnterpriseList.vue'), meta: { title: '企业管理' } },
       { path: 'demands', component: () => import('@/views/admin/demands/DemandList.vue'), meta: { title: '需求管理' } },
       // --- Sprint 0: 20 new modules ---

@@ -163,9 +163,10 @@ const beforeUpload = (file) => {
 }
 
 // 封面图片上传（/api/v1/upload 返回 { url }）
-const uploadCover = async ({ file, onSuccess, onError }) => {
+// 注意：Arco custom-request 的参数是 fileItem，原生 File 在 fileItem.file 上
+const uploadCover = async ({ fileItem, onSuccess, onError }) => {
   const fd = new FormData()
-  fd.append('file', file)
+  fd.append('file', fileItem.file)
   try {
     const res = await axios.post('/api/v1/upload', fd)
     const url = res?.data?.url || res?.url

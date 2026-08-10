@@ -306,9 +306,9 @@ const beforeUpload = (file) => {
 }
 
 // 附件上传（/api/v1/upload 返回相对 URL，按当前 Tab 写入对应表单）
-const uploadFile = async ({ file, onSuccess, onError }) => {
+const uploadFile = async ({ fileItem, onSuccess, onError }) => {
   const fd = new FormData()
-  fd.append('file', file)
+  fd.append('file', fileItem.file)
   try {
     const res = await axios.post('/api/v1/upload', fd)
     const url = res?.data?.url || res?.url

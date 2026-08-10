@@ -7,6 +7,7 @@
       <a-tab-pane title="订单管理" key="orders"><OrderList v-if="tab === 'orders'" /></a-tab-pane>
       <a-tab-pane title="评价管理" key="reviews"><ReviewList v-if="tab === 'reviews'" /></a-tab-pane>
       <a-tab-pane title="商品管理" key="products"><ProductList v-if="tab === 'products'" /></a-tab-pane>
+      <a-tab-pane title="服务能力" key="serviceListings"><ServiceListingList v-if="tab === 'serviceListings'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>
@@ -17,6 +18,7 @@ import DemandList from '../demands/DemandList.vue'
 import OrderList from '../orders/OrderList.vue'
 import ReviewList from '../reviews/ReviewList.vue'
 import ProductList from '../products/ProductList.vue'
+import ServiceListingList from '../serviceListings/ServiceListingList.vue'
 import BizOverview from '../components/BizOverview.vue'
 
 const tab = ref('demands')
