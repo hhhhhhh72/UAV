@@ -118,8 +118,8 @@ const loading = ref(false)
 
 const goBack = () => uni.navigateBack()
 const goLogin = () => uni.navigateTo({ url: '/pages/login/index' })
-const showTerms = () => uni.showToast({ title: '服务协议详情', icon: 'none' })
-const showPrivacy = () => uni.showToast({ title: '隐私政策详情', icon: 'none' })
+const showTerms = () => uni.navigateTo({ url: '/pages/agreement/index?type=terms' })
+const showPrivacy = () => uni.navigateTo({ url: '/pages/agreement/index?type=privacy' })
 
 const doRegister = async () => {
   if (!name.value || !phone.value || !password.value) {

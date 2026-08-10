@@ -1,43 +1,28 @@
 <script>
 	export default {
 		onLaunch: function() {
-			this.tryWxSilentLogin()
+			this.restoreSession()
 		},
 		methods: {
-			tryWxSilentLogin() {
+			// 启动只恢复已有会话，绝不自动登录：没有 token 就保持游客态，
+			// 登录必须由用户主动触发（「我的」页 → 登录页 → 手机号/微信一键登录）。
+			restoreSession() {
 				// #ifdef MP-WEIXIN
 				const token = uni.getStorageSync('accessToken')
-				if (token) {
-					// 有 token 但 user 缺失（历史遗留/被清）：用 me 恢复用户信息
-					const { request } = require('./utils/request')
-					request({ url: '/api/auth/me' }).then(meRes => {
-						if (meRes?.user) {
-							uni.setStorageSync('user', JSON.stringify(meRes.user))
-						}
-					}).catch(() => { /* token 失效时由请求层处理 */ })
-					return
-				}
-				this.silentLogin()
-				// #endif
-			},
-			silentLogin() {
-				const { request, authStorage } = require('./utils/request')
-				uni.login({
-					provider: 'weixin',
-					success: (loginRes) => {
-						request({
-							url: '/api/v1/auth/wechat/login',
-							method: 'POST',
-							data: { code: loginRes.code }
-						}).then(res => {
-							// Backend returns snake_case: { access_token, refresh_token, expires_in, user }
-							if (res?.access_token && res?.user) {
-								uni.setStorageSync('user', JSON.stringify(res.user))
-								authStorage.setTokens(res.access_token, res.refresh_token)
-							}
-						}).catch(() => {})
+				if (!token) return
+				// 有 token 但 user 缺失（历史遗留/被清）：用 me 恢复用户信息
+				const { request } = require('./utils/request')
+				request({ url: '/api/auth/me' }).then(meRes => {
+					const fresh = meRes?.user
+					if (!fresh) return
+					const cached = JSON.parse(uni.getStorageSync('user') || '{}')
+					// 只覆盖非空字段，避免 me 的空 name 覆盖本地已存的昵称
+					for (const k of Object.keys(fresh)) {
+						if (fresh[k] !== '' && fresh[k] != null) cached[k] = fresh[k]
 					}
-				})
+					uni.setStorageSync('user', JSON.stringify(cached))
+				}).catch(() => { /* token 失效时由请求层处理 */ })
+				// #endif
 			}
 		}
 	}
