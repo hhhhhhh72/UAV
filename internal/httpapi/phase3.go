@@ -515,11 +515,22 @@ func buildMonthlyTrends[T any](items []T, getTime func(T) time.Time) []map[strin
 }
 
 func buildCategoryDist(dem []domain.Demand) map[string]int {
+	bizLabel := map[domain.BizType]string{
+		domain.BizCableInspection: "工业巡检",
+		domain.BizPlantTransport:  "植保运输",
+		domain.BizSprayPesticide:  "农药喷洒",
+		domain.BizCleanPaint:      "清洗保洁",
+		domain.BizTradeLease:      "租赁服务",
+		domain.BizOther:           "其他服务",
+	}
 	dist := map[string]int{}
 	for _, d := range dem {
-		bt := string(d.BizType)
-		if bt != "" {
-			dist[bt]++
+		label := bizLabel[d.BizType]
+		if label == "" {
+			label = string(d.BizType)
+		}
+		if label != "" {
+			dist[label]++
 		}
 	}
 	return dist

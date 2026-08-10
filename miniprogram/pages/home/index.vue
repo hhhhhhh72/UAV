@@ -371,7 +371,7 @@ const HOME_ICONS = {
   // 六项核心服务
   services: {
     demand: '/static/home/icons/demand.svg', // 需求大厅
-    trade: '/static/home/icons/trade.svg', // 应急调度
+    trade: '/static/home/icons/trade.svg', // 场地预约
     pilot: '/static/home/icons/pilot.svg', // 专家智库
     shop: '/static/home/icons/ecoservice.svg', // 生态服务
     training: '/static/home/icons/training.svg', // 培训认证
@@ -382,7 +382,7 @@ const services = ref([
   { name: '需求大厅', icon: HOME_ICONS.services.demand, path: '/pages/demands/index', tab: true },
   { name: '培训认证', icon: HOME_ICONS.services.training, path: '/pages/training/courses', tab: false },
   { name: '专家智库', icon: HOME_ICONS.services.pilot, path: '/pages/experts/list', tab: false },
-  { name: '应急调度', icon: HOME_ICONS.services.trade, path: '/pages/emergency/resources', tab: false },
+  { name: '场地预约', icon: HOME_ICONS.services.trade, path: '/pages/testsites/list', tab: false },
   { name: '政策资讯', icon: HOME_ICONS.services.policy, path: '/pages/compliance/news', tab: false },
   { name: '生态服务', icon: HOME_ICONS.services.shop, path: '/pages/services/index', tab: true },
 ])
