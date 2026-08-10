@@ -17,6 +17,20 @@ func (s *Server) listServiceListings(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, items, len(items))
 }
 
+// GET /api/v1/service-listings/{id} — 公开详情（仅上架中，下架视为不存在）
+func (s *Server) getServiceListing(w http.ResponseWriter, r *http.Request) {
+	sl, err := s.serviceListingSvc.Get(r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	if sl.Status != "" && sl.Status != "published" {
+		fail(w, r, http.StatusNotFound, errors.New("service listing not found"))
+		return
+	}
+	respond(w, r, http.StatusOK, sl)
+}
+
 // POST /api/v1/admin/service-listings — 管理端创建
 func (s *Server) adminCreateServiceListing(w http.ResponseWriter, r *http.Request) {
 	var in struct {
@@ -45,9 +59,9 @@ func (s *Server) adminCreateServiceListing(w http.ResponseWriter, r *http.Reques
 	respond(w, r, http.StatusCreated, sl)
 }
 
-// GET /api/v1/admin/service-listings — 管理端全部列表
+// GET /api/v1/admin/service-listings — 管理端全部列表（含下架），支持 keyword/category 过滤
 func (s *Server) adminListServiceListings(w http.ResponseWriter, r *http.Request) {
-	all, err := s.serviceListingSvc.ListPublished()
+	all, err := s.serviceListingSvc.ListAdmin(r.URL.Query().Get("keyword"), r.URL.Query().Get("category"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

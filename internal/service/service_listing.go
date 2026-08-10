@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -56,6 +57,29 @@ func (s *ServiceListingService) ListPublished() ([]domain.ServiceListing, error)
 // Get 按 ID 查询（管理后台编辑用）。
 func (s *ServiceListingService) Get(id string) (domain.ServiceListing, error) {
 	return s.repo.FindByID(id)
+}
+
+// ListAdmin 管理端列表：返回全部（含下架），支持关键词（标题/服务商/描述）与分类过滤。
+func (s *ServiceListingService) ListAdmin(keyword, category string) ([]domain.ServiceListing, error) {
+	all, err := s.repo.List()
+	if err != nil {
+		return nil, err
+	}
+	kw := strings.TrimSpace(keyword)
+	out := make([]domain.ServiceListing, 0, len(all))
+	for _, sl := range all {
+		if category != "" && sl.Category != category {
+			continue
+		}
+		if kw != "" &&
+			!strings.Contains(sl.Title, kw) &&
+			!strings.Contains(sl.ProviderName, kw) &&
+			!strings.Contains(sl.Description, kw) {
+			continue
+		}
+		out = append(out, sl)
+	}
+	return out, nil
 }
 
 // UpdateListing 更新服务能力（管理后台用）。
