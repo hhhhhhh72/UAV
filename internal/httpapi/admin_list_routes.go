@@ -35,6 +35,12 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/admin/colleges/{id}", s.updateCollege)
 	mux.HandleFunc("DELETE /api/v1/admin/colleges/{id}", s.deleteCollege)
 
+	// === 服务能力 === (PRD ②-2 供给能力展示)
+	mux.HandleFunc("GET /api/v1/admin/service-listings", s.adminListServiceListings)
+	mux.HandleFunc("POST /api/v1/admin/service-listings", s.adminCreateServiceListing)
+	mux.HandleFunc("PUT /api/v1/admin/service-listings/{id}", s.adminUpdateServiceListing)
+	mux.HandleFunc("DELETE /api/v1/admin/service-listings/{id}", s.adminDeleteServiceListing)
+
 	// === 研学 === (no existing POST)
 	mux.HandleFunc("GET /api/v1/admin/study-tours", s.listAdminStudy)
 	mux.HandleFunc("GET /api/v1/admin/study-tours/{id}", s.getStudyTour)

@@ -160,6 +160,7 @@ func (s *Server) registerTrainingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/certificates/mine", s.listMyCertificates)
 	mux.HandleFunc("POST /api/v1/training-courses", s.createCourse)
 	mux.HandleFunc("GET /api/v1/training-courses", s.listCourses)
+	mux.HandleFunc("GET /api/v1/training-courses/{id}", s.getCourse)
 	mux.HandleFunc("POST /api/v1/instructors", s.registerInstructor)
 	mux.HandleFunc("POST /api/v1/admin/instructors/{id}/approve", s.approveInstructor)
 	mux.HandleFunc("GET /api/v1/instructors", s.listInstructors)
@@ -177,6 +178,7 @@ func (s *Server) registerTradingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/products", s.createProduct)
 	mux.HandleFunc("GET /api/v1/products", s.listProducts)
 	mux.HandleFunc("GET /api/v1/products/{id}", s.getProductDetail)
+	mux.HandleFunc("GET /api/v1/service-listings", s.listServiceListings)
 	mux.HandleFunc("POST /api/v1/repairs", s.createRepair)
 	mux.HandleFunc("GET /api/v1/repairs/mine", s.listMyRepairs)
 }

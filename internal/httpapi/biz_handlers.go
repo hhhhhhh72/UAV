@@ -104,6 +104,8 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/experts/{id}", s.getExpert)
 	mux.HandleFunc("GET /api/v1/test-sites/{id}", s.getTestSite)
 	mux.HandleFunc("GET /api/v1/exhibitions/{id}", s.getExhibition)
+	mux.HandleFunc("GET /api/v1/competitions/{id}", s.getCompetition)
+	mux.HandleFunc("GET /api/v1/colleges/{id}", s.getCollege)
 
 	// ---- Emergency ----
 	mux.HandleFunc("GET /api/v1/emergency-resources", s.listEmergencyResources)
@@ -1045,16 +1047,16 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		EndDate     string `json:"end_date"`
 		MaxTeams    int    `json:"max_teams"`
 		// 小程序赛事页扩展字段（competitions/detail + register）
-		Deadline           string                     `json:"deadline"`
-		OrganizerSub       string                     `json:"organizer_sub"`
-		Fee                int                        `json:"fee"`
-		MinFee             int                        `json:"min_fee"`
-		Tags               []string                   `json:"tags"`
-		Poster             string                     `json:"poster"`
+		Deadline           string                          `json:"deadline"`
+		OrganizerSub       string                          `json:"organizer_sub"`
+		Fee                int                             `json:"fee"`
+		MinFee             int                             `json:"min_fee"`
+		Tags               []string                        `json:"tags"`
+		Poster             string                          `json:"poster"`
 		Requirements       []domain.CompetitionRequirement `json:"requirements"`
-		Events             []domain.CompetitionEvent  `json:"events"`
-		Prizes             []domain.CompetitionPrize  `json:"prizes"`
-		RegistrationStatus string                     `json:"registration_status"`
+		Events             []domain.CompetitionEvent       `json:"events"`
+		Prizes             []domain.CompetitionPrize       `json:"prizes"`
+		RegistrationStatus string                          `json:"registration_status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)

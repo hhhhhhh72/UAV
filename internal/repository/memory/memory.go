@@ -1657,6 +1657,63 @@ func (r *prodRepo) List(prodType string) ([]domain.DroneProduct, error) {
 	return out, nil
 }
 
+// ---- Service Listings ----
+
+type slrRepo struct {
+	mu    sync.RWMutex
+	items []domain.ServiceListing
+}
+
+func NewServiceListingRepository() repository.ServiceListingRepository { return &slrRepo{} }
+
+func (r *slrRepo) Create(sl domain.ServiceListing) (domain.ServiceListing, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = append(r.items, sl)
+	return sl, nil
+}
+
+func (r *slrRepo) FindByID(id string) (domain.ServiceListing, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, sl := range r.items {
+		if sl.ID == id {
+			return sl, nil
+		}
+	}
+	return domain.ServiceListing{}, fmt.Errorf("service listing %s not found", id)
+}
+
+func (r *slrRepo) List() ([]domain.ServiceListing, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]domain.ServiceListing(nil), r.items...), nil
+}
+
+func (r *slrRepo) Update(sl domain.ServiceListing) (domain.ServiceListing, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == sl.ID {
+			r.items[i] = sl
+			return sl, nil
+		}
+	}
+	return domain.ServiceListing{}, fmt.Errorf("service listing %s not found", sl.ID)
+}
+
+func (r *slrRepo) Delete(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("service listing %s not found", id)
+}
+
 // ---- Repair ----
 
 type repairRepo struct {

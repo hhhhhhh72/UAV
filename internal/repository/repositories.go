@@ -244,6 +244,15 @@ type ProductRepository interface {
 	IncrementViews(id string) error
 }
 
+// ServiceListingRepository manages enterprise service capability listings (PRD ②-2).
+type ServiceListingRepository interface {
+	Create(domain.ServiceListing) (domain.ServiceListing, error)
+	FindByID(id string) (domain.ServiceListing, error)
+	List() ([]domain.ServiceListing, error)
+	Update(sl domain.ServiceListing) (domain.ServiceListing, error)
+	Delete(id string) error
+}
+
 // RepairRepository manages repair orders.
 type RepairRepository interface {
 	Create(domain.RepairOrder) (domain.RepairOrder, error)

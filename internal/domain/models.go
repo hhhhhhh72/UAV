@@ -641,6 +641,23 @@ type DroneProduct struct {
 	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
+// ServiceListing is an enterprise service capability showcase (PRD ②-2 供给能力展示).
+type ServiceListing struct {
+	ID           string    `json:"id"`
+	ProviderID   string    `json:"provider_id"`   // 企业用户 ID（管理端录入可为空）
+	ProviderName string    `json:"provider_name"` // 企业名称（展示用）
+	Title        string    `json:"title"`         // 服务标题
+	Category     string    `json:"category"`      // 巡检/航拍/测绘/应急 等
+	Description  string    `json:"description"`
+	Region       string    `json:"region"`    // 服务区域
+	PriceFen     int64     `json:"price_fen"` // 报价（分），0 为面议
+	Unit         string    `json:"unit"`      // 单位：次/天/公里 等
+	Image        string    `json:"image"`     // 封面图
+	Status       string    `json:"status"`    // published / offline
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // RepairOrder is a repair service request submitted by a customer.
 type RepairOrder struct {
 	ID          string    `json:"id"`

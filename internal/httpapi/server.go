@@ -44,64 +44,65 @@ type requestIDKey struct{}
 // middleware state. Create one with NewServer and call Router() to get
 // an http.Handler ready for ListenAndServe.
 type Server struct {
-	demands        *service.DemandService
-	enterprises    *service.EnterpriseService
-	shopSvc        *service.ShopService
-	enterpriseSvc  *service.EnterpriseSvc
-	employment     *service.EmploymentService
-	contracts      *service.ContractService
-	jobSvc         *service.JobService
-	communitySvc   *service.CommunityService
-	listingSvc     *service.ListingService
-	labourSvc      *service.LabourService
-	trainingSvc    *service.TrainingService
-	tradingSvc     *service.TradingService
-	insuranceSvc   *service.InsuranceService
-	financeSvc     *service.FinanceService
-	homeSvc        *service.HomeService
-	fileSvc        *service.FileService
-	msgSvc         *service.MessageService
-	enrollSvc      *service.EnrollmentService
-	expirySvc      *service.ExpiryService
-	tradeSvc       *service.TradeOrderService
-	escrowSvc      *service.EscrowService
-	newsSvc        *service.NewsService
-	reviewSvc      *service.ReviewService
-	venueSvc       *service.VenueService
-	expertSvc      *service.ExpertService
-	caseSvc        *service.CaseService
-	complianceSvc  *service.ComplianceService
-	reportSvc      *service.ReportService
-	portfolioSvc   *service.PortfolioService
-	achievementSvc *service.AchievementService
-	rdService      *service.RDChallengeService
-	researchSvc    *service.ResearchProjectService
-	projectAppSvc  *service.ProjectAppService
-	competitionSvc *service.CompetitionService
-	eventSvc       *service.EventService
-	resourceSvc    *service.ResourceService
-	emergencySvc   *service.EmergencyService
-	matchingSvc    *service.MatchingService
-	intentSvc      *service.IntentService
-	workOrderSvc   *service.WorkOrderService
-	poolSvc        *service.ResourcePoolService
-	testSiteSvc    *service.TestSiteService
-	exhibitionSvc  *service.ExhibitionService
-	transSvc       *service.TransformationService
-	collegeSvc     *service.CollegeService
-	studyTourRepo  repository.StudyTourRepository
-	coopSvc        *service.CooperationService
-	rescueCaseSvc  *service.RescueCaseService
-	emergDeptSvc   *service.EmergencyDeptService
-	assocMemberSvc *service.AssociationMemberService
-	appSvc         *service.ApplicationService
-	userRepo       repository.UserRepository
-	refreshRepo    repository.RefreshTokenRepository
-	tokens         *TokenManager
-	rateLimiter    *rateLimiter
-	idempotency    *idempotencyStore
-	auditWriter    repository.AuditWriter
-	storage        string
+	demands           *service.DemandService
+	enterprises       *service.EnterpriseService
+	shopSvc           *service.ShopService
+	enterpriseSvc     *service.EnterpriseSvc
+	employment        *service.EmploymentService
+	contracts         *service.ContractService
+	jobSvc            *service.JobService
+	communitySvc      *service.CommunityService
+	listingSvc        *service.ListingService
+	labourSvc         *service.LabourService
+	trainingSvc       *service.TrainingService
+	tradingSvc        *service.TradingService
+	insuranceSvc      *service.InsuranceService
+	financeSvc        *service.FinanceService
+	homeSvc           *service.HomeService
+	fileSvc           *service.FileService
+	msgSvc            *service.MessageService
+	enrollSvc         *service.EnrollmentService
+	expirySvc         *service.ExpiryService
+	tradeSvc          *service.TradeOrderService
+	escrowSvc         *service.EscrowService
+	newsSvc           *service.NewsService
+	reviewSvc         *service.ReviewService
+	venueSvc          *service.VenueService
+	expertSvc         *service.ExpertService
+	caseSvc           *service.CaseService
+	complianceSvc     *service.ComplianceService
+	reportSvc         *service.ReportService
+	portfolioSvc      *service.PortfolioService
+	achievementSvc    *service.AchievementService
+	rdService         *service.RDChallengeService
+	researchSvc       *service.ResearchProjectService
+	projectAppSvc     *service.ProjectAppService
+	competitionSvc    *service.CompetitionService
+	serviceListingSvc *service.ServiceListingService
+	eventSvc          *service.EventService
+	resourceSvc       *service.ResourceService
+	emergencySvc      *service.EmergencyService
+	matchingSvc       *service.MatchingService
+	intentSvc         *service.IntentService
+	workOrderSvc      *service.WorkOrderService
+	poolSvc           *service.ResourcePoolService
+	testSiteSvc       *service.TestSiteService
+	exhibitionSvc     *service.ExhibitionService
+	transSvc          *service.TransformationService
+	collegeSvc        *service.CollegeService
+	studyTourRepo     repository.StudyTourRepository
+	coopSvc           *service.CooperationService
+	rescueCaseSvc     *service.RescueCaseService
+	emergDeptSvc      *service.EmergencyDeptService
+	assocMemberSvc    *service.AssociationMemberService
+	appSvc            *service.ApplicationService
+	userRepo          repository.UserRepository
+	refreshRepo       repository.RefreshTokenRepository
+	tokens            *TokenManager
+	rateLimiter       *rateLimiter
+	idempotency       *idempotencyStore
+	auditWriter       repository.AuditWriter
+	storage           string
 }
 
 type idempotencyStore struct {
@@ -227,21 +228,24 @@ func (s *Server) SetRDChallengeService(svc *service.RDChallengeService)         
 func (s *Server) SetResearchProjectService(svc *service.ResearchProjectService) { s.researchSvc = svc }
 func (s *Server) SetProjectAppService(svc *service.ProjectAppService)           { s.projectAppSvc = svc }
 func (s *Server) SetCompetitionService(svc *service.CompetitionService)         { s.competitionSvc = svc }
-func (s *Server) SetEventService(svc *service.EventService)                     { s.eventSvc = svc }
-func (s *Server) SetResourceService(svc *service.ResourceService)               { s.resourceSvc = svc }
-func (s *Server) SetEmergencyService(svc *service.EmergencyService)             { s.emergencySvc = svc }
-func (s *Server) SetMatchingService(svc *service.MatchingService)               { s.matchingSvc = svc }
-func (s *Server) SetIntentService(svc *service.IntentService)                   { s.intentSvc = svc }
-func (s *Server) SetWorkOrderService(svc *service.WorkOrderService)             { s.workOrderSvc = svc }
-func (s *Server) SetPoolService(svc *service.ResourcePoolService)               { s.poolSvc = svc }
-func (s *Server) SetTestSiteService(svc *service.TestSiteService)               { s.testSiteSvc = svc }
-func (s *Server) SetExhibitionService(svc *service.ExhibitionService)           { s.exhibitionSvc = svc }
-func (s *Server) SetTransformationService(svc *service.TransformationService)   { s.transSvc = svc }
-func (s *Server) SetCollegeService(svc *service.CollegeService)                 { s.collegeSvc = svc }
-func (s *Server) SetStudyTourRepo(r repository.StudyTourRepository)             { s.studyTourRepo = r }
-func (s *Server) SetCooperationService(svc *service.CooperationService)         { s.coopSvc = svc }
-func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)           { s.rescueCaseSvc = svc }
-func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)     { s.emergDeptSvc = svc }
+func (s *Server) SetServiceListingService(svc *service.ServiceListingService) {
+	s.serviceListingSvc = svc
+}
+func (s *Server) SetEventService(svc *service.EventService)                   { s.eventSvc = svc }
+func (s *Server) SetResourceService(svc *service.ResourceService)             { s.resourceSvc = svc }
+func (s *Server) SetEmergencyService(svc *service.EmergencyService)           { s.emergencySvc = svc }
+func (s *Server) SetMatchingService(svc *service.MatchingService)             { s.matchingSvc = svc }
+func (s *Server) SetIntentService(svc *service.IntentService)                 { s.intentSvc = svc }
+func (s *Server) SetWorkOrderService(svc *service.WorkOrderService)           { s.workOrderSvc = svc }
+func (s *Server) SetPoolService(svc *service.ResourcePoolService)             { s.poolSvc = svc }
+func (s *Server) SetTestSiteService(svc *service.TestSiteService)             { s.testSiteSvc = svc }
+func (s *Server) SetExhibitionService(svc *service.ExhibitionService)         { s.exhibitionSvc = svc }
+func (s *Server) SetTransformationService(svc *service.TransformationService) { s.transSvc = svc }
+func (s *Server) SetCollegeService(svc *service.CollegeService)               { s.collegeSvc = svc }
+func (s *Server) SetStudyTourRepo(r repository.StudyTourRepository)           { s.studyTourRepo = r }
+func (s *Server) SetCooperationService(svc *service.CooperationService)       { s.coopSvc = svc }
+func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)         { s.rescueCaseSvc = svc }
+func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)   { s.emergDeptSvc = svc }
 func (s *Server) SetAssociationMemberService(svc *service.AssociationMemberService) {
 	s.assocMemberSvc = svc
 }
@@ -312,6 +316,10 @@ func (s *Server) favicon(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) serveUploads(w http.ResponseWriter, r *http.Request) {
+	// withCORS 中间件预设了 application/json（供 JSON 响应嗅探），
+	// 此处必须清除，否则 FileServer 不会按扩展名推导类型，
+	// 加上 nosniff 头后浏览器会拒绝渲染图片。
+	w.Header().Del("Content-Type")
 	http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))).ServeHTTP(w, r)
 }
 
@@ -473,8 +481,8 @@ func (s *Server) adminDemandStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	stats := map[string]int64{
-		"total":     int64(len(result)),
-		"pending":   0, "published": 0, "completed": 0,
+		"total":   int64(len(result)),
+		"pending": 0, "published": 0, "completed": 0,
 		"cancelled": 0, "rejected": 0,
 	}
 	var offlineFen int64

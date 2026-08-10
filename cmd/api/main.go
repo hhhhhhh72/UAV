@@ -80,38 +80,39 @@ func main() {
 	}
 
 	var (
-		demandRepo       repository.DemandRepository
-		intentRepo       repository.IntentRepository
-		workOrderRepo    repository.WorkOrderRepository
-		enterpriseRepo   repository.EnterpriseRepository
-		employmentRepo   repository.EmploymentRepository
-		contractRepo     repository.ContractRepository
-		jobRepo          repository.JobRepository
-		resumeRepo       repository.ResumeRepository
-		appRepo          repository.JobApplicationRepository
-		postRepo         repository.PostRepository
-		commentRepo      repository.CommentRepository
-		reportRepo       repository.ReportRepository
-		listingRepo      repository.ListingRepository
-		labourRepo       repository.LabourOrderRepository
-		userRepo         repository.UserRepository
-		refreshTokenRepo repository.RefreshTokenRepository
-		certRepo         repository.CertificateRepository
-		courseRepo       repository.CourseRepository
-		instructorRepo   repository.InstructorRepository
-		pilotRepo        repository.PilotRepository
-		productRepo      repository.ProductRepository
-		repairRepo       repository.RepairRepository
-		policyRepo       repository.PolicyRepository
-		inspectRepo      repository.InspectionRepository
-		loanRepo         repository.LoanRepository
-		msgRepo          repository.MessageRepository
-		articleRepo      repository.ArticleRepository
-		reviewRepo       repository.ReviewRepository
-		venueRepo        repository.VenueRepository
-		enrollRepo       repository.EnrollmentRepository
-		tradeOrderRepo   repository.TradeOrderRepository
-		escrowRepo       repository.EscrowRepository
+		demandRepo         repository.DemandRepository
+		intentRepo         repository.IntentRepository
+		workOrderRepo      repository.WorkOrderRepository
+		enterpriseRepo     repository.EnterpriseRepository
+		employmentRepo     repository.EmploymentRepository
+		contractRepo       repository.ContractRepository
+		jobRepo            repository.JobRepository
+		resumeRepo         repository.ResumeRepository
+		appRepo            repository.JobApplicationRepository
+		postRepo           repository.PostRepository
+		commentRepo        repository.CommentRepository
+		reportRepo         repository.ReportRepository
+		listingRepo        repository.ListingRepository
+		labourRepo         repository.LabourOrderRepository
+		userRepo           repository.UserRepository
+		refreshTokenRepo   repository.RefreshTokenRepository
+		certRepo           repository.CertificateRepository
+		courseRepo         repository.CourseRepository
+		instructorRepo     repository.InstructorRepository
+		pilotRepo          repository.PilotRepository
+		productRepo        repository.ProductRepository
+		serviceListingRepo repository.ServiceListingRepository
+		repairRepo         repository.RepairRepository
+		policyRepo         repository.PolicyRepository
+		inspectRepo        repository.InspectionRepository
+		loanRepo           repository.LoanRepository
+		msgRepo            repository.MessageRepository
+		articleRepo        repository.ArticleRepository
+		reviewRepo         repository.ReviewRepository
+		venueRepo          repository.VenueRepository
+		enrollRepo         repository.EnrollmentRepository
+		tradeOrderRepo     repository.TradeOrderRepository
+		escrowRepo         repository.EscrowRepository
 		// Memory-only (coop/rescue/emergDept/assocMember — complex sub-methods).
 		poolRepo        = memory.NewResourcePoolRepository()
 		coopRepo        = memory.NewCooperationRepository()
@@ -178,6 +179,7 @@ func main() {
 		instructorRepo = pgStore.NewInstructorRepository()
 		pilotRepo = pgStore.NewPilotRepository(cipher)
 		productRepo = pgStore.NewProductRepository()
+		serviceListingRepo = pgStore.NewServiceListingRepository()
 		repairRepo = pgStore.NewRepairRepository()
 		policyRepo = pgStore.NewPolicyRepository()
 		inspectRepo = pgStore.NewInspectionRepository()
@@ -239,6 +241,7 @@ func main() {
 		instructorRepo = memory.NewInstructorRepository()
 		pilotRepo = memory.NewPilotRepository(cipher)
 		productRepo = memory.NewProductRepository()
+		serviceListingRepo = memory.NewServiceListingRepository()
 		repairRepo = memory.NewRepairRepository()
 		policyRepo = memory.NewPolicyRepository()
 		inspectRepo = memory.NewInspectionRepository()
@@ -324,6 +327,7 @@ func main() {
 	app.SetMatchingService(service.NewMatchingService(demandRepo))
 	app.SetIntentService(service.NewIntentService(intentRepo, demandRepo))
 	app.SetWorkOrderService(service.NewWorkOrderService(workOrderRepo, demandRepo, intentRepo))
+	app.SetServiceListingService(service.NewServiceListingService(serviceListingRepo))
 
 	// Memory-only repos: PG implementations pending (see docs/项目管理/项目审计报告).
 	app.SetRescueCaseService(service.NewRescueCaseService(rescueCaseRepo))
