@@ -39,6 +39,11 @@ func (s *Store) RunMigrationsFromDir(ctx context.Context, dir string) error {
 }
 
 func MigrationsDir() string {
+	// Docker 部署用 MIGRATIONS_DIR 显式指定（-trimpath 编译下 runtime.Caller
+	// 返回模块路径 drone-platform/...，运行时推导不可靠）
+	if dir := os.Getenv("MIGRATIONS_DIR"); dir != "" {
+		return dir
+	}
 	_, filename, _, _ := runtime.Caller(0)
 	dir := filepath.Dir(filename)
 	projectRoot := filepath.Join(dir, "..", "..", "..")
