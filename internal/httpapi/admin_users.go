@@ -11,7 +11,7 @@ import (
 	"drone-platform/internal/domain"
 )
 
-// GET /api/v1/admin/users — list all users (admin only).
+// GET /api/v1/admin/users — list users with pagination (admin only).
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
@@ -43,7 +43,8 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
-	respond(w, r, http.StatusOK, out)
+	// paginatedRespond 内部会按 query 的 page/page_size 自动切片，此处传全量
+	paginatedRespond(w, r, out, len(out))
 }
 
 // POST /api/v1/admin/users — create a new user.
