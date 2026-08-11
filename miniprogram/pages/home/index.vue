@@ -152,7 +152,25 @@
             hover-stay-time="120"
             @tap="goDemandDetail(d)"
           >
-            <image :src="d.image" :mode="index === 0 ? 'widthFix' : 'aspectFill'" class="demand-photo" @error="onDemandImageError(d)" />
+            <view v-if="index === 0" class="featured-photo">
+              <image
+                :src="d.image"
+                :mode="featuredImgMode(d, index)"
+                :style="featuredImgMode(d, index) === 'aspectFill' ? 'height: 420px' : ''"
+                class="demand-photo"
+                @load="onFeaturedImgLoad(d, $event)"
+                @error="onDemandImageError(d)"
+                @tap.stop="previewFeaturedImg(d)"
+              />
+              <view v-if="d.showFullTip" class="full-tip">查看完整图片</view>
+            </view>
+            <image
+              v-else
+              :src="d.image"
+              mode="aspectFill"
+              class="demand-photo"
+              @error="onDemandImageError(d)"
+            />
             <view class="demand-body">
               <view class="card-badges">
                 <text class="type-badge">{{ d.type }}</text>
@@ -498,6 +516,8 @@ const normalizeDemand = (d) => {
     statusLabel: st ? st.label : '',
     statusClass: st ? st.cls : '',
     image,
+    imgRatio: null, // 图片原始宽高比，加载后由 onFeaturedImgLoad 填充
+    showFullTip: false, // 超长图限高裁切时显示"查看完整图片"角标
     district: String(d.district || ''),
     publishedAt: fmtRelative(d.created_at),
     budgetText,
@@ -522,6 +542,32 @@ const onDemandImageError = (d) => {
   if (d.image !== LOCAL_LIFT_IMG && d.image !== LOCAL_DEMAND_IMG) {
     d.image = d.filterKey === '吊运' ? LOCAL_LIFT_IMG : LOCAL_DEMAND_IMG
   }
+  d.imgRatio = null
+  d.showFullTip = false
+}
+
+/* ================= 重点卡图片自适应 ================= */
+// 完整显示高度上限：超长图（高度会超过 420px）限高裁切并显示角标，
+// 点击图片可预览原图；正常比例图（宽度约 335px / 高度 ≤ 420px）完整显示不裁切
+const FEATURED_MAX_H = 420
+const FEATURED_RATIO_MIN = 335 / 420
+
+const featuredImgMode = (d, index) => {
+  if (index !== 0) return 'aspectFill'
+  if (d.imgRatio == null) return 'aspectFill' // 未加载完成前先稳定布局，加载后切换
+  return d.imgRatio >= FEATURED_RATIO_MIN ? 'widthFix' : 'aspectFill'
+}
+
+const onFeaturedImgLoad = (d, e) => {
+  const w = e && e.detail && e.detail.width
+  const h = e && e.detail && e.detail.height
+  if (!w || !h) return
+  d.imgRatio = w / h
+  d.showFullTip = d.imgRatio < FEATURED_RATIO_MIN
+}
+
+const previewFeaturedImg = (d) => {
+  if (d.image) uni.previewImage({ urls: [d.image] })
 }
 
 /* ================= 数据加载 ================= */
@@ -1235,10 +1281,25 @@ onPullDownRefresh(() => {
   min-height: 0;
   display: block;
 }
-/* 重点卡完整显示：widthFix 高度随图片比例自适应，不裁切；
-   模板按 index===0 动态切换 mode（widthFix / aspectFill） */
-.demand-card.featured .demand-photo {
+/* 重点卡图片自适应：正常比例 widthFix 完整显示；超长图限高 aspectFill 裁切；
+   aspectFill 时模板内联 height:420px，widthFix 时高度随图片比例 */
+.featured-photo {
+  position: relative;
+}
+.featured-photo .demand-photo {
   width: 100%;
+}
+/* 超长图裁切时右下角"查看完整图片"角标 */
+.full-tip {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: rgba(16, 24, 40, 0.6);
+  color: #fff;
+  font-size: 10px;
+  z-index: 1;
 }
 .demand-card.featured .demand-body {
   min-height: 112px;
