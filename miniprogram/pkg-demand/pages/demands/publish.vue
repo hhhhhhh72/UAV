@@ -90,7 +90,7 @@
           <text class="upload-hint">{{ images.length }}/9</text>
         </view>
       </view>
-      <text class="upload-tip">支持从相册选择或拍照，审核通过后在需求大厅公开展示</text>
+      <text class="upload-tip">支持从相册选择或拍照，将自动裁剪为 4:3 比例，审核通过后在需求大厅公开展示</text>
     </view>
 
     <!-- 底部操作栏 -->
@@ -113,6 +113,14 @@
       :columns="districtOptions"
       @confirm="onDistrictConfirm"
       @update:show="showDistrictPicker = $event"
+    />
+
+    <!-- 图片裁剪（4:3 统一比例，保证首页/大厅卡片整齐） -->
+    <crop-image
+      :visible="showCrop"
+      :src="cropSrc"
+      @confirm="onCropConfirm"
+      @cancel="onCropCancel"
     />
   </view>
 </template>
@@ -158,6 +166,10 @@ export default {
       images: [],
       showDistrictPicker: false,
       submitting: false,
+      // 裁剪流程状态：选图后逐张裁剪（4:3）再上传
+      showCrop: false,
+      cropSrc: '',
+      cropQueue: [],
     }
   },
   onLoad() {
@@ -199,7 +211,7 @@ export default {
       if (u.indexOf(BASE_URL) === 0) return u.slice(BASE_URL.length)
       return u
     },
-    // ---- 多图上传 ----
+    // ---- 多图上传（选图 → 逐张 4:3 裁剪 → 上传） ----
     chooseImages() {
       var self = this
       var remaining = MAX_IMAGES - self.images.length
@@ -210,27 +222,46 @@ export default {
         success: function (res) {
           var paths = res.tempFilePaths || []
           if (!paths.length) return
-          uni.showLoading({ title: '上传中...' })
-          self.uploadSequential(paths, 0, function () {
-            uni.hideLoading()
-          })
+          self.cropQueue = paths.slice()
+          self.openNextCrop()
         },
         fail: function () {
           uni.showToast({ title: '选择图片失败', icon: 'none' })
         },
       })
     },
-    // 逐张上传（注意：预览必须用完整 URL，小程序 image 的 src 若为 /uploads/xxx
-    // 会被当作本地包内资源 → 白图，与上传企业 logo 的问题同源）
-    uploadSequential(paths, index, onAllDone) {
+    // 打开下一张图的裁剪弹层
+    openNextCrop() {
       var self = this
-      if (index >= paths.length) {
-        if (onAllDone) onAllDone()
+      if (!self.cropQueue.length) return
+      self.cropSrc = self.cropQueue.shift()
+      self.showCrop = true
+    },
+    // 裁剪完成：上传裁剪结果，继续下一张
+    onCropConfirm(path) {
+      var self = this
+      self.showCrop = false
+      if (!path) {
+        self.openNextCrop()
         return
       }
+      uni.showLoading({ title: '上传中...' })
+      self.uploadOne(path, function () {
+        uni.hideLoading()
+        self.openNextCrop()
+      })
+    },
+    onCropCancel() {
+      this.showCrop = false
+      this.cropQueue = []
+    },
+    // 单张上传（注意：预览必须用完整 URL，小程序 image 的 src 若为 /uploads/xxx
+    // 会被当作本地包内资源 → 白图，与上传企业 logo 的问题同源）
+    uploadOne(filePath, onDone) {
+      var self = this
       uni.uploadFile({
         url: BASE_URL + '/api/v1/files/upload',
-        filePath: paths[index],
+        filePath: filePath,
         name: 'file',
         header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
         success: function (r) {
@@ -244,19 +275,19 @@ export default {
             var tip = reason.indexOf('401') >= 0 || reason.indexOf('登录') >= 0 || reason.indexOf('token') >= 0
               ? '登录已过期，请重新登录后重试'
               : ('上传失败：' + reason)
-            uni.hideLoading()
             uni.showToast({ title: tip, icon: 'none', duration: 2500 })
+            if (onDone) onDone()
             return
           }
           var fid = data.file_id || (data.data && data.data.file_id)
           if (fid) {
             self.images.push(self.resolveUrl('/uploads/' + fid))
           }
-          self.uploadSequential(paths, index + 1, onAllDone)
+          if (onDone) onDone()
         },
         fail: function () {
-          uni.hideLoading()
           uni.showToast({ title: '上传失败，请重试', icon: 'none' })
+          if (onDone) onDone()
         },
       })
     },
