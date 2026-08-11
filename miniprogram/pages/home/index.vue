@@ -171,6 +171,7 @@
               mode="aspectFill"
               class="demand-photo"
               :class="{ 'tall-photo': d.needsCrop }"
+              @longpress="openFullImage(d)"
               @error="onDemandImageError(d)"
             />
             <view class="demand-body">
@@ -198,6 +199,18 @@
       </view>
     </view>
   </Layout>
+
+  <!-- 长按小图卡图片：全屏完整图预览（淡入 + 放大动画）。
+       缩略图是 aspectFill 裁剪过的（112x126），长按看原图；
+       点遮罩任意处关闭。大图卡已有 tap 预览，不重复挂 -->
+  <view
+    v-if="fullImage.show"
+    class="img-overlay"
+    @tap="closeFullImage"
+    @touchmove.stop.prevent
+  >
+    <image :src="fullImage.src" mode="aspectFit" class="img-overlay-photo" />
+  </view>
 
   <!-- 城市选择底部弹层 -->
   <u-popup :show="showCityPicker" position="bottom" round @close="closeCityPicker">
@@ -578,6 +591,17 @@ const markTallImages = async (items) => {
 // 重点卡图片点击 → 预览原图（发布端已统一 16:9，此处兼容旧数据查看原图）
 const previewFeaturedImg = (d) => {
   if (d.image) uni.previewImage({ urls: [d.image] })
+}
+
+// 小图卡长按 → 全屏显示完整图：缩略图为 112px 列裁剪（aspectFill），
+// 长按弹遮罩看原图，点遮罩任意处关闭（长按后不会误触卡片的 tap 跳转）
+const fullImage = ref({ show: false, src: '' })
+const openFullImage = (d) => {
+  if (!d || !d.image) return
+  fullImage.value = { show: true, src: d.image }
+}
+const closeFullImage = () => {
+  fullImage.value.show = false
 }
 
 /* ================= 数据加载 ================= */
@@ -1333,6 +1357,35 @@ onPullDownRefresh(() => {
 }
 .demand-card:first-child .demand-foot {
   padding-top: 7px;
+}
+
+/* 长按小图卡图片的全屏预览：遮罩淡入 + 图片放大浮现（aspectFit 完整展示） */
+.img-overlay {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: img-overlay-in 0.18s ease-out;
+}
+.img-overlay-photo {
+  width: 92%;
+  max-height: 80vh;
+  border-radius: 6px;
+  animation: img-photo-in 0.22s ease-out;
+}
+@keyframes img-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes img-photo-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .filter-empty {
