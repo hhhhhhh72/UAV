@@ -166,6 +166,8 @@
               :src="d.image"
               mode="aspectFill"
               class="demand-photo"
+              :class="{ 'tall-photo': d.needsCrop }"
+              @load="onDemandImageLoad(d, $event)"
               @error="onDemandImageError(d)"
             />
             <view class="demand-body">
@@ -537,6 +539,16 @@ const onDemandImageError = (d) => {
   if (d.image !== LOCAL_LIFT_IMG && d.image !== LOCAL_DEMAND_IMG) {
     d.image = d.filterKey === '吊运' ? LOCAL_LIFT_IMG : LOCAL_DEMAND_IMG
   }
+}
+
+// 图片加载后按原始比例标记超高图：旧上传图未走 16:9 裁剪（竖图在 112px 列中
+// 可撑到 200px+），把卡片撑高后右侧数据与其他小图卡不对齐；定向裁到 126px
+// （aspectFill 填满无变形），16:9 等矮图不受影响，样式保持原样
+const onDemandImageLoad = (d, e) => {
+  const w = e.detail && e.detail.width
+  const h = e.detail && e.detail.height
+  const tall = w > 0 && h / w > 1.2
+  if (tall !== !!d.needsCrop) d.needsCrop = tall
 }
 
 // 重点卡图片点击 → 预览原图（发布端已统一 16:9，此处兼容旧数据查看原图）
@@ -1167,6 +1179,11 @@ onPullDownRefresh(() => {
   width: 112px;
   min-height: 126px;
   display: block;
+}
+/* 超高图（旧上传竖图，比例 > 1.2）定向裁到与其他小图卡相同高度：
+   仅这类图生效，16:9 图无 tall-photo 标记，外观不变 */
+.demand-photo.tall-photo {
+  height: 126px;
 }
 .demand-body {
   min-width: 0;
