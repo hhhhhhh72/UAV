@@ -166,12 +166,22 @@
               />
             </view>
             <image
-              v-else
+              v-if="!d.expanded"
               :src="d.image"
               mode="aspectFill"
               class="demand-photo"
               :class="{ 'tall-photo': d.needsCrop }"
-              @longpress="openFullImage(d)"
+              @longpress="d.expanded = true"
+              @error="onDemandImageError(d)"
+            />
+            <!-- 长按后的展开态：完整图覆盖整张卡片（overflow:hidden 裁在卡内，
+                 aspectFit 不变形完整展示），点图收起回缩略图 -->
+            <image
+              v-else
+              :src="d.image"
+              mode="aspectFit"
+              class="demand-photo-expanded"
+              @tap.stop="d.expanded = false"
               @error="onDemandImageError(d)"
             />
             <view class="demand-body">
@@ -199,18 +209,6 @@
       </view>
     </view>
   </Layout>
-
-  <!-- 长按小图卡图片：全屏完整图预览（淡入 + 放大动画）。
-       缩略图是 aspectFill 裁剪过的（112x126），长按看原图；
-       点遮罩任意处关闭。大图卡已有 tap 预览，不重复挂 -->
-  <view
-    v-if="fullImage.show"
-    class="img-overlay"
-    @tap="closeFullImage"
-    @touchmove.stop.prevent
-  >
-    <image :src="fullImage.src" mode="aspectFit" class="img-overlay-photo" />
-  </view>
 
   <!-- 城市选择底部弹层 -->
   <u-popup :show="showCityPicker" position="bottom" round @close="closeCityPicker">
@@ -592,17 +590,8 @@ const markTallImages = async (items) => {
 const previewFeaturedImg = (d) => {
   if (d.image) uni.previewImage({ urls: [d.image] })
 }
-
-// 小图卡长按 → 全屏显示完整图：缩略图为 112px 列裁剪（aspectFill），
-// 长按弹遮罩看原图，点遮罩任意处关闭（长按后不会误触卡片的 tap 跳转）
-const fullImage = ref({ show: false, src: '' })
-const openFullImage = (d) => {
-  if (!d || !d.image) return
-  fullImage.value = { show: true, src: d.image }
-}
-const closeFullImage = () => {
-  fullImage.value.show = false
-}
+// 小图卡长按展开完整图：由模板 v-if/v-else 结构切换（d.expanded），
+// 结构切换在微信渲染层可靠，不依赖属性/class 更新；点图收起
 
 /* ================= 数据加载 ================= */
 let loadSeq = 0
@@ -1217,6 +1206,7 @@ onPullDownRefresh(() => {
   gap: 9px;
 }
 .demand-card {
+  position: relative;
   min-height: 126px;
   border: 1px solid #EEF1F4;
   border-radius: 8px;
@@ -1359,31 +1349,20 @@ onPullDownRefresh(() => {
   padding-top: 7px;
 }
 
-/* 长按小图卡图片的全屏预览：遮罩淡入 + 图片放大浮现（aspectFit 完整展示） */
-.img-overlay {
-  position: fixed;
+/* 小图卡长按展开的完整图：覆盖整张卡片（占卡片大部分位置），深色底 +
+   aspectFit 完整展示，放大浮现动画；卡片 overflow:hidden 保证裁在卡内 */
+.demand-photo-expanded {
+  position: absolute;
   left: 0;
   top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 999;
-  background: rgba(0, 0, 0, 0.88);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: img-overlay-in 0.18s ease-out;
+  width: 100%;
+  height: 100%;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.82);
+  border-radius: 8px;
+  animation: demand-photo-in 0.22s ease-out;
 }
-.img-overlay-photo {
-  width: 92%;
-  max-height: 80vh;
-  border-radius: 6px;
-  animation: img-photo-in 0.22s ease-out;
-}
-@keyframes img-overlay-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes img-photo-in {
+@keyframes demand-photo-in {
   from { opacity: 0; transform: scale(0.85); }
   to { opacity: 1; transform: scale(1); }
 }
