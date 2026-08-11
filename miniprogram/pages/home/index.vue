@@ -166,19 +166,13 @@
               />
             </view>
             <image
-              v-if="!d.expanded"
+              v-else
               :src="d.image"
               mode="aspectFill"
               class="demand-photo"
               :class="{ 'tall-photo': d.needsCrop }"
-              @longpress="d.expanded = true"
               @error="onDemandImageError(d)"
             />
-            <!-- 长按后的展开态：图片右侧向右延展（112px → 90% 卡宽动画）
-                 露出完整原图（aspectFit 不变形），点图收起回缩略图 -->
-            <view v-else class="photo-expand" @tap.stop="d.expanded = false">
-              <image :src="d.image" mode="aspectFit" class="photo-expand-img" @error="onDemandImageError(d)" />
-            </view>
             <view class="demand-body">
               <view class="card-badges">
                 <text class="type-badge">{{ d.type }}</text>
@@ -585,8 +579,6 @@ const markTallImages = async (items) => {
 const previewFeaturedImg = (d) => {
   if (d.image) uni.previewImage({ urls: [d.image] })
 }
-// 小图卡长按：图片向右延展露出完整原图，由模板 v-if/v-else 结构切换
-// （d.expanded），结构切换在微信渲染层可靠，不依赖属性/class 更新
 
 /* ================= 数据加载 ================= */
 let loadSeq = 0
@@ -1201,7 +1193,6 @@ onPullDownRefresh(() => {
   gap: 9px;
 }
 .demand-card {
-  position: relative;
   min-height: 126px;
   border: 1px solid #EEF1F4;
   border-radius: 8px;
@@ -1342,31 +1333,6 @@ onPullDownRefresh(() => {
 }
 .demand-card:first-child .demand-foot {
   padding-top: 7px;
-}
-
-/* 小图卡长按展开：左侧图片向右延展露出完整原图。
-   宽度动画 112px → 90% 卡宽（动画期间 aspectFit 图片随容器重排放大），
-   深色底 + 圆角与卡片一致；点图收起回缩略图。
-   收起不留动画（v-if 移除即回缩略图，渲染层可靠优先） */
-.photo-expand {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 90%;
-  height: 100%;
-  z-index: 30;
-  background: rgba(0, 0, 0, 0.82);
-  border-radius: 8px;
-  overflow: hidden;
-  animation: photo-expand-in 0.28s ease-out;
-}
-.photo-expand-img {
-  width: 100%;
-  height: 100%;
-}
-@keyframes photo-expand-in {
-  from { width: 112px; }
-  to { width: 90%; }
 }
 
 .filter-empty {
