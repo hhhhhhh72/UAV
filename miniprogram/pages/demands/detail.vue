@@ -216,7 +216,9 @@ import {
   IMG_SOLAR, IMG_LIFT, IMG_HERO, isEnded, normalizeDemand, normalizeService,
   getKindItems, isLoggedIn, isCertified, setCertified,
   simulateLogin, currentUserName, saveSentIntents, getSentIntents,
+  publishPostToCard,
 } from '../../utils/hallData'
+import { getPosts } from '../../utils/publishData'
 
 const item = ref(null)
 const state = ref('loading') // loading | ready | error
@@ -302,6 +304,19 @@ async function loadDetail() {
     }
     return false
   }
+  // 本地已上架发布（发布页打通展示）：接口找不到时按 id 匹配本地内容
+  const applyLocal = () => {
+    const local = getPosts()
+      .filter((p) => p.statusKey === 'live')
+      .map(publishPostToCard)
+      .find((c) => c && String(c.id) === String(postId))
+    if (local) {
+      item.value = local
+      state.value = 'ready'
+      return true
+    }
+    return false
+  }
   try {
     const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(postId) })
     const d = (res && res.data) || res
@@ -314,6 +329,7 @@ async function loadDetail() {
     // 详情接口无此 id（服务/商品）：先试服务详情接口，再列表匹配兜底
     if (await applyServiceDetail()) return
     if (await applyServiceFallback()) return
+    if (applyLocal()) return
     if (fallback) {
       item.value = fallback
       state.value = 'ready'
@@ -323,6 +339,7 @@ async function loadDetail() {
   } catch (e) {
     if (await applyServiceDetail()) return
     if (await applyServiceFallback()) return
+    if (applyLocal()) return
     if (fallback) {
       item.value = fallback
       state.value = 'ready'

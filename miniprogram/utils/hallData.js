@@ -2,6 +2,7 @@
 // 本期为前端交互态：需求走真实 API（失败降级到模拟数据），供给/洽谈用模拟数据。
 // 请求统一仍走 utils/request.js，这里仅提供本地兜底数据与展示层归一化。
 import { authStorage, getStoredUser, BASE_URL } from './request'
+import { getPosts as getPublishedPosts } from './publishData'
 
 /* ================= 图片资源（复用首页静态图，保持稳定降级） ================= */
 export const IMG_SOLAR = '/static/home/demand-solar.jpg'
@@ -118,6 +119,83 @@ export const HALL_CATEGORIES = {
 export function getKindItems(primary, supplyKind) {
   if (primary === 'demand') return MOCK_DEMANDS
   return supplyKind === 'service' ? MOCK_SERVICES : MOCK_PRODUCTS
+}
+
+/* ================= 发布页本地内容 → 大厅卡片 ================= */
+// 后端未接入期间，发布页内容存于本地 publish_posts（utils/publishData.js）。
+// 已上架（live）内容由这里转换成大厅卡片结构，并入大厅列表展示；课程无大厅分类，不在此展示。
+const PRODUCT_CAT_MAP = { 整机: '整机', 零部件: '配件', 载荷设备: '载荷', 租赁设备: '配件', 维修服务: '配件' }
+
+export function publishPostToCard(post) {
+  const v = post.values || {}
+  if (post.type === 'demand') {
+    const cat = v.biz || '其他'
+    return {
+      id: post.id,
+      type: '需求',
+      cat,
+      status: '进行中',
+      title: post.title,
+      region: v.district ? `重庆 · ${v.district}` : '重庆',
+      time: post.date,
+      price: v.budget ? '¥' + v.budget : '面议',
+      unit: '项目预算',
+      deadline: '近期',
+      company: '平台用户',
+      desc: v.description || '暂无详细描述',
+      image: cat === '吊运' ? IMG_LIFT : IMG_SOLAR,
+      fields: [['作业区域', v.district || '重庆'], ['发布时间', post.date], ['预算', v.budget ? v.budget + ' 元' : '面议'], ['状态', '进行中']],
+    }
+  }
+  if (post.type === 'service') {
+    return {
+      id: post.id,
+      type: '服务',
+      cat: v.category || '其他',
+      status: '可对接',
+      title: post.title,
+      region: v.range || '重庆',
+      time: post.date,
+      price: '面议',
+      unit: v.quote || '按项目报价',
+      company: '平台服务商',
+      desc: [v.equipment, v.cert].filter(Boolean).join('；') || '暂无详细描述',
+      image: IMG_HERO,
+      fields: [['服务范围', v.range || '—'], ['设备载荷', v.equipment || '—'], ['资质证书', v.cert || '—'], ['报价方式', v.quote || '—']],
+    }
+  }
+  if (post.type === 'product') {
+    const condition = v.condition || ''
+    return {
+      id: post.id,
+      type: '商品',
+      title: post.title,
+      brand: v.brand || '',
+      model: v.stock ? '可售 ' + v.stock + ' 件' : '',
+      spec: v.brand || '平台商品',
+      condition,
+      isUsed: condition.indexOf('二手') === 0,
+      price: v.price || '面议',
+      image: IMG_HERO,
+      images: [IMG_HERO],
+      seller: '平台商家',
+      company: '平台商家',
+      desc: v.description || '',
+      cat: PRODUCT_CAT_MAP[v.productType] || '配件',
+      views: 0,
+      status: '在售',
+      fields: [['品牌型号', v.brand || '—'], ['成色', condition || '—'], ['交付方式', v.delivery || '—'], ['可售数量', v.stock ? v.stock + ' 件' : '—']],
+    }
+  }
+  return null
+}
+
+// 指定类型下已上架的本地发布（课程除外）
+export function getLocalLiveCards(kind) {
+  return getPublishedPosts()
+    .filter((p) => p.statusKey === 'live' && p.type === kind)
+    .map(publishPostToCard)
+    .filter(Boolean)
 }
 
 export function kindTypeLabel(primary, supplyKind) {

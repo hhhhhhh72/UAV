@@ -250,7 +250,7 @@ import { safeNavigateTo } from '../../utils/nav'
 import {
   HALL_CATEGORIES, getKindItems, kindTypeLabel, isEnded, normalizeDemand,
   IMG_SOLAR, IMG_LIFT, IMG_HERO,
-  PRODUCT_CATEGORIES, normalizeProduct, normalizeService,
+  PRODUCT_CATEGORIES, normalizeProduct, normalizeService, getLocalLiveCards,
 } from '../../utils/hallData'
 
 const primary = ref('demand') // demand | supply
@@ -303,6 +303,21 @@ const list = ref([])
 async function fetchList(showLoading = true) {
   if (showLoading) listState.value = 'loading'
 
+  // 发布页已上架的本地内容并入列表（后端未接入期间的展示打通）
+  const local = () => {
+    if (primary.value === 'demand') return getLocalLiveCards('demand')
+    return supplyKind.value === 'product' ? getLocalLiveCards('product') : getLocalLiveCards('service')
+  }
+  const merge = (remote) => {
+    list.value = [...local(), ...remote]
+    listState.value = list.value.length ? 'ready' : 'empty'
+  }
+  // 接口失败但本地有已上架发布时，降级展示本地内容（演示闭环）
+  const fallback = () => {
+    list.value = local()
+    listState.value = list.value.length ? 'ready' : 'error'
+  }
+
   if (primary.value === 'demand') {
     try {
       const res = await request({
@@ -311,11 +326,9 @@ async function fetchList(showLoading = true) {
       })
       const data = Array.isArray(res) ? res : (res && res.data) || res || {}
       const items = Array.isArray(data) ? data : (data && data.items) || []
-      const normalized = items.map(normalizeDemand).filter(Boolean)
-      list.value = normalized
-      listState.value = normalized.length ? 'ready' : 'empty'
+      merge(items.map(normalizeDemand).filter(Boolean))
     } catch (e) {
-      listState.value = 'error'
+      fallback()
     }
   } else if (supplyKind.value === 'product') {
     // 商品设备：电商模式走真实商品接口
@@ -326,11 +339,9 @@ async function fetchList(showLoading = true) {
       })
       const data = Array.isArray(res) ? res : (res && res.data) || res || {}
       const items = Array.isArray(data) ? data : (data && data.items) || []
-      const normalized = items.map(normalizeProduct).filter(Boolean)
-      list.value = normalized
-      listState.value = normalized.length ? 'ready' : 'empty'
+      merge(items.map(normalizeProduct).filter(Boolean))
     } catch (e) {
-      listState.value = 'error'
+      fallback()
     }
   } else {
     // 服务能力：真实服务接口（/api/v1/service-listings 公开列表）
@@ -341,11 +352,9 @@ async function fetchList(showLoading = true) {
       })
       const data = Array.isArray(res) ? res : (res && res.data) || res || {}
       const items = Array.isArray(data) ? data : (data && data.items) || []
-      const normalized = items.map(normalizeService).filter(Boolean)
-      list.value = normalized
-      listState.value = normalized.length ? 'ready' : 'empty'
+      merge(items.map(normalizeService).filter(Boolean))
     } catch (e) {
-      listState.value = 'error'
+      fallback()
     }
   }
 }
@@ -395,8 +404,14 @@ const goSearch = () => safeNavigateTo('/pkg-demand/pages/demands/search')
 const goMessages = () => safeNavigateTo('/pages/messages/index')
 const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
 const goDetail = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
-// 商品模式：跳电商商品详情页
-const goProductDetail = (item) => safeNavigateTo('/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(item.id))
+// 商品模式：跳电商商品详情页（本地发布商品走大厅详情页，已含本地兜底）
+const goProductDetail = (item) => {
+  if (String(item.id).indexOf('post-') === 0) {
+    safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
+    return
+  }
+  safeNavigateTo('/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(item.id))
+}
 const onProductImgError = (item) => {
   if (item.image !== IMG_HERO) item.image = IMG_HERO
 }

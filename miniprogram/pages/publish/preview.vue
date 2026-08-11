@@ -9,7 +9,7 @@
 
     <!-- 预览卡片 -->
     <view class="pub-preview-card">
-      <view class="pub-preview-type">{{ typeConfig.short }} · 待审核</view>
+      <view class="pub-preview-type">{{ typeConfig.short }} · 发布预览</view>
       <view class="pub-preview-title">{{ title }}</view>
       <view class="pub-preview-meta">
         <text v-for="(m, i) in metaList" :key="i">{{ m }}</text>
@@ -17,10 +17,10 @@
       <view class="pub-preview-copy">{{ copyText }}</view>
     </view>
 
-    <!-- 审核说明 -->
+    <!-- 发布说明 -->
     <view class="pub-review-note">
-      <text class="pub-review-note-b">审核说明</text>
-      <text>提交后平台将核验内容合规性；联系方式仅向登录并发起对接的用户展示。</text>
+      <text class="pub-review-note-b">发布说明</text>
+      <text>发布后将展示在供需大厅对应列表；联系方式仅向登录并发起对接的用户展示。</text>
     </view>
 
     <!-- 发布前检查 -->
@@ -39,17 +39,17 @@
     <!-- 固定底部操作区 -->
     <view class="pub-sticky">
       <view class="pub-btn pub-btn--ghost" hover-class="pub-btn--active" @tap="goBack">返回修改</view>
-      <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="openConfirm">提交审核</view>
+      <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="openConfirm">确认发布</view>
     </view>
 
     <!-- 确认弹窗 -->
     <view v-if="showConfirm" class="pub-modal" @tap="showConfirm = false">
       <view class="pub-dialog" @tap.stop>
-        <view class="pub-dialog-title">确认提交审核？</view>
-        <view class="pub-dialog-text">{{ typeConfig.name }}提交后将进入审核。审核前可在「我的发布」中继续修改草稿。</view>
+        <view class="pub-dialog-title">确认发布？</view>
+        <view class="pub-dialog-text">{{ confirmText }}</view>
         <view class="pub-dialog-actions">
           <view class="pub-dialog-btn" @tap="showConfirm = false">再检查一下</view>
-          <view class="pub-dialog-btn" @tap="submitPublish">确认提交</view>
+          <view class="pub-dialog-btn" @tap="submitPublish">确认发布</view>
         </view>
       </view>
     </view>
@@ -58,8 +58,8 @@
     <view v-if="showSuccess" class="pub-modal">
       <view class="pub-dialog pub-success">
         <view class="pub-success-mark">✓</view>
-        <view class="pub-dialog-title">已提交审核</view>
-        <view class="pub-dialog-text">{{ typeConfig.name }}已保存。审核通过后会公开展示，并可在「我的发布」中查看状态。</view>
+        <view class="pub-dialog-title">已发布成功</view>
+        <view class="pub-dialog-text">{{ successText }}</view>
         <view class="pub-dialog-actions">
           <view class="pub-dialog-btn" @tap="goHome">返回发布首页</view>
           <view class="pub-dialog-btn" @tap="goMyPosts">查看我的发布</view>
@@ -93,7 +93,18 @@ const typeConfig = computed(() => TYPES[type.value] || null)
 
 const title = computed(() => values.value.title || '待命名发布内容')
 const metaList = computed(() => computePreviewMeta(type.value, values.value))
-const copyText = computed(() => values.value.description || '暂未填写补充说明。发布前仍可返回编辑，审核通过后将在相应的大厅或列表页展示。')
+const copyText = computed(() => values.value.description || '暂未填写补充说明。发布前仍可返回编辑，发布后将展示在供需大厅对应列表。')
+
+// 课程无大厅分类，发布文案与需求/服务/商品区分
+const isCourse = computed(() => type.value === 'course')
+const confirmText = computed(() => {
+  if (isCourse.value) return typeConfig.value.name + '发布后将公开展示，可在「我的发布」中管理。'
+  return '发布后将立即上架到供需大厅，可在「我的发布」中随时下架或编辑。'
+})
+const successText = computed(() => {
+  if (isCourse.value) return '内容已保存并公开展示，可在「我的发布」中查看状态。'
+  return '内容已上架到供需大厅，可在「我的发布」中管理。'
+})
 
 function showToast(text) {
   toast.value = text
@@ -117,10 +128,10 @@ function submitPublish() {
     type: type.value,
     values: Object.assign({}, values.value),
     photoCount: photoCount.value,
-    statusKey: 'pending',
-    status: '审核中',
-    date: '今日 刚刚提交',
-    note: '平台正在核验发布内容与联系人信息。',
+    statusKey: 'live',
+    status: '已发布',
+    date: '刚刚发布',
+    note: '内容已上架，可在「我的发布」中随时下架或编辑。',
   })
   upsertPost(post)
   showConfirm.value = false
@@ -134,7 +145,7 @@ function goHome() {
 
 function goMyPosts() {
   clearFormState()
-  uni.navigateTo({ url: '/pages/publish/my-posts?tab=pending' })
+  uni.navigateTo({ url: '/pages/publish/my-posts?tab=live' })
 }
 
 onLoad((options) => {
