@@ -120,9 +120,10 @@
           >{{ f.label }}</view>
         </scroll-view>
 
-        <!-- 加载中：第一个骨架为重点卡尺寸，第二个为紧凑卡 -->
+        <!-- 加载中：紧凑卡骨架 -->
         <view v-if="demandState === 'loading'" class="skeleton-list">
-          <view class="skeleton-card featured-skeleton"></view>
+          <view class="skeleton-card"></view>
+          <view class="skeleton-card"></view>
           <view class="skeleton-card"></view>
         </view>
 
@@ -141,28 +142,17 @@
           <text class="state-desc">新的需求发布后会第一时间展示在这里。</text>
         </view>
 
-        <!-- 正常列表：首条可见数据为重点卡，其余为紧凑横卡 -->
+        <!-- 正常列表：全部统一为左图右文紧凑卡（16:9 图区与发布端裁剪一致，标签同列对齐） -->
         <view v-else class="demand-list">
           <view
-            v-for="(d, index) in filteredDemands"
+            v-for="d in filteredDemands"
             :key="d.id"
             class="demand-card"
-            :class="{ featured: index === 0 }"
             hover-class="tap-fade"
             hover-stay-time="120"
             @tap="goDemandDetail(d)"
           >
-            <view v-if="index === 0" class="featured-photo">
-              <image
-                :src="d.image"
-                mode="aspectFill"
-                class="demand-photo"
-                @error="onDemandImageError(d)"
-                @tap.stop="previewFeaturedImg(d)"
-              />
-            </view>
             <image
-              v-else
               :src="d.image"
               mode="aspectFill"
               class="demand-photo"
@@ -537,11 +527,6 @@ const onDemandImageError = (d) => {
   if (d.image !== LOCAL_LIFT_IMG && d.image !== LOCAL_DEMAND_IMG) {
     d.image = d.filterKey === '吊运' ? LOCAL_LIFT_IMG : LOCAL_DEMAND_IMG
   }
-}
-
-// 重点卡图片点击 → 预览原图（发布端已统一 16:9，此处兼容旧数据查看原图）
-const previewFeaturedImg = (d) => {
-  if (d.image) uni.previewImage({ urls: [d.image] })
 }
 
 /* ================= 数据加载 ================= */
@@ -1165,7 +1150,7 @@ onPullDownRefresh(() => {
 }
 .demand-photo {
   width: 112px;
-  min-height: 126px;
+  height: 63px; /* 16:9 固定比例：与发布端裁剪一致，图完整显示、卡片同高 */
   display: block;
 }
 .demand-body {
@@ -1250,41 +1235,6 @@ onPullDownRefresh(() => {
   white-space: nowrap;
 }
 
-/* 首条重点卡：全宽大图 + 紧凑正文 */
-.demand-card.featured {
-  min-height: 0;
-  display: block;
-}
-/* 重点卡 16:9 固定比例图区（发布端裁剪已统一比例，aspectFill 几乎零裁切；
-   卡片高度固定 → 每个需求块大小一致） */
-.featured-photo {
-  position: relative;
-  width: 100%;
-  padding-top: 56.25%;
-}
-.featured-photo .demand-photo {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-}
-.demand-card.featured .demand-body {
-  min-height: 112px;
-  padding: 9px 11px 10px;
-}
-.demand-card.featured .demand-title {
-  margin-top: 6px;
-  font-size: 14px;
-  -webkit-line-clamp: 1;
-}
-.demand-card.featured .demand-meta {
-  margin-top: 5px;
-}
-.demand-card.featured .demand-foot {
-  padding-top: 7px;
-}
-
 .filter-empty {
   display: block;
   padding: 28px 12px 24px;
@@ -1304,9 +1254,6 @@ onPullDownRefresh(() => {
   background: #EDF0F3;
   position: relative;
   overflow: hidden;
-}
-.skeleton-card.featured-skeleton {
-  height: 250px;
 }
 .skeleton-card::after {
   content: '';
@@ -1436,11 +1383,12 @@ onPullDownRefresh(() => {
 
 /* ================= 响应式：375px 宽度 ================= */
 @media (max-width: 380px) {
-  .demand-card:not(.featured) {
+  .demand-card {
     grid-template-columns: 104px minmax(0, 1fr);
   }
-  .demand-card:not(.featured) .demand-photo {
+  .demand-card .demand-photo {
     width: 104px;
+    height: 58.5px; /* 104 × 9/16 */
   }
 }
 </style>
