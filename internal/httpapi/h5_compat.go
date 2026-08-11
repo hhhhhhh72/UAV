@@ -120,6 +120,12 @@ func (s *Server) h5GetServicesConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) h5SaveServicesConfig(w http.ResponseWriter, r *http.Request) {
+	// 覆盖全局配置的写接口：仅平台管理员/协会管理员可保存
+	a, ok := authenticatedActor(r)
+	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
 	var body struct {
 		Config map[string]any `json:"config"`
 	}
@@ -135,7 +141,62 @@ func (s *Server) h5SaveServicesConfig(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 管理后台「首页配置」→ 平台全局配置：小程序 /api/v1/home 读 platform_config.json，
+	// 后台的 _home 存 services_config.json，不打通则轮播 Banner/公告永远不生效
+	if err := syncHomeConfigToPlatform(body.Config); err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, http.StatusOK, map[string]string{"status": "saved"})
+}
+
+// buildPlatformBanners 把管理后台 _home.banners（{image, link} 字段）映射为
+// PlatformConfig.Banners（image_url/link_url），无图项跳过。
+func buildPlatformBanners(raw []any) []domain.Banner {
+	var out []domain.Banner
+	for _, item := range raw {
+		bm, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		img, _ := bm["image"].(string)
+		if strings.TrimSpace(img) == "" {
+			continue
+		}
+		link, _ := bm["link"].(string)
+		out = append(out, domain.Banner{
+			ID:        fmt.Sprintf("banner-%d", len(out)+1),
+			ImageURL:  strings.TrimSpace(img),
+			LinkURL:   strings.TrimSpace(link),
+			SortOrder: len(out) + 1,
+			Status:    "active",
+		})
+	}
+	return out
+}
+
+// syncHomeConfigToPlatform 把管理后台「首页配置」（services_config.json 的 _home）
+// 同步到平台全局配置（platform_config.json）。只覆盖 banners/notices，
+// 其余字段（费率等）保留当前值。
+func syncHomeConfigToPlatform(cfg map[string]any) error {
+	home, ok := cfg["_home"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	platform := config.GetPlatformConfig()
+	if raw, ok := home["banners"].([]any); ok {
+		platform.Banners = buildPlatformBanners(raw)
+	}
+	if raw, ok := home["notices"].([]any); ok {
+		var notices []string
+		for _, item := range raw {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				notices = append(notices, strings.TrimSpace(s))
+			}
+		}
+		platform.Notices = notices
+	}
+	return config.SavePlatformConfig(platform)
 }
 
 // ─── File Upload ────────────────────────────────────────────────────────────

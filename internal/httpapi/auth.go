@@ -127,11 +127,23 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			r.URL.Path == "/admin" || r.URL.Path == "/favicon.ico" ||
 			strings.HasPrefix(r.URL.Path, "/uploads/") ||
 			strings.HasPrefix(r.URL.Path, "/swagger/") ||
-			strings.HasPrefix(r.URL.Path, "/api/services/") ||
 			r.URL.Path == "/api/v1/admin/token" ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/webhooks/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// /api/services/* 配置层：GET 公开（banner 等本就是公开数据），
+		// 但 POST 会覆盖全局配置（platform_config/services_config），必须管理员。
+		// 这里放行但尽量解析 token 进 context，供 handler 校验角色。
+		if strings.HasPrefix(r.URL.Path, "/api/services/") {
+			if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+				if a, err := s.tokens.Verify(strings.TrimPrefix(h, "Bearer ")); err == nil {
+					next.ServeHTTP(w, r.WithContext(contextWithActor(r, a)))
+					return
+				}
+			}
 			next.ServeHTTP(w, r)
 			return
 		}

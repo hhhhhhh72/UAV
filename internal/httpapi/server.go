@@ -329,11 +329,35 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// resolveBannerImageURL 给 /uploads/ 开头的 banner 图补全域名：
+// 管理后台存相对路径，小程序 <image> 直接渲染相对路径会当本地资源 → 白图。
+// 优先 BASE_URL 环境变量，其次 X-Forwarded-Proto（nginx 反代）+ Host。
+func resolveBannerImageURL(r *http.Request, url string) string {
+	if !strings.HasPrefix(url, "/uploads/") {
+		return url
+	}
+	if origin := os.Getenv("BASE_URL"); origin != "" {
+		return origin + url
+	}
+	proto := r.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		proto = "http"
+	}
+	return proto + "://" + r.Host + url
+}
+
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	city := r.URL.Query().Get("city")
 	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
 	lng, _ := strconv.ParseFloat(r.URL.Query().Get("lng"), 64)
 	data := s.homeSvc.GetHome(city, lat, lng)
+
+	// Banner 图补全域名（拷贝 slice，不污染全局配置的底层数组）
+	banners := make([]domain.Banner, len(data.Banners))
+	for i, b := range data.Banners {
+		b.ImageURL = resolveBannerImageURL(r, b.ImageURL)
+		banners[i] = b
+	}
 
 	// Stats: demand count, user count
 	demands, _ := s.demands.List(repository.DemandFilter{})
@@ -345,7 +369,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 
 	respond(w, r, http.StatusOK, map[string]any{
 		"city":           data.City,
-		"banners":        data.Banners,
+		"banners":        banners,
 		"quick_entries":  data.QuickEntries,
 		"latest_demands": data.HotDemands,
 		"notices":        data.Notices,
