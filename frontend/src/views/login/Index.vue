@@ -57,22 +57,6 @@
         </a-button>
       </a-form>
 
-      <div class="divider">
-        <span class="divider-line"></span>
-        <span class="divider-text">快捷入口</span>
-        <span class="divider-line"></span>
-      </div>
-
-      <!-- 开发环境快捷登录（生产 403 时提示禁用） -->
-      <a-button
-        class="dev-btn"
-        long
-        :loading="devLoading"
-        @click="onDevLogin"
-      >
-        开发环境快速登录
-      </a-button>
-
       <p class="footer-tip">登录即表示同意用户协议和隐私政策</p>
     </div>
   </div>
@@ -87,7 +71,6 @@ import { showFailToast, showSuccessToast } from '@/utils/feedback'
 const router = useRouter()
 const formRef = ref(null)
 const loading = ref(false)
-const devLoading = ref(false)
 
 const loginForm = ref({
   phone: '',
@@ -143,24 +126,6 @@ const onSubmit = async () => {
     showFailToast(message || '账号或密码错误')
   } finally {
     loading.value = false
-  }
-}
-
-// 开发环境快捷登录：POST /api/v1/admin/token（仅 ADMIN_DEV_MODE 可用）
-const onDevLogin = async () => {
-  devLoading.value = true
-  try {
-    const res = await axios.post('/api/v1/admin/token', { role: 'platform_admin' })
-    const data = res.data || {}
-    afterLogin(data.user, data.access_token || data.accessToken)
-  } catch (error) {
-    if (error?.response?.status === 403) {
-      showFailToast('开发登录已禁用')
-    } else {
-      showFailToast('开发登录失败，请使用账号密码登录')
-    }
-  } finally {
-    devLoading.value = false
   }
 }
 </script>
@@ -267,30 +232,6 @@ const onDevLogin = async () => {
 .submit-btn {
   height: 44px;
   font-size: 16px;
-  border-radius: 8px;
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 24px 0 16px;
-}
-
-.divider-line {
-  flex: 1;
-  height: 1px;
-  background: #e5e6eb;
-}
-
-.divider-text {
-  font-size: 12px;
-  color: #86909c;
-  white-space: nowrap;
-}
-
-.dev-btn {
-  height: 40px;
   border-radius: 8px;
 }
 

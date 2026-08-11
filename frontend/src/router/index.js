@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { showFailToast } from '@/utils/feedback'
-import axios from '@/utils/http'
 
 const routes = [
   {
@@ -30,7 +29,6 @@ const routes = [
       { path: 'enterprises', component: () => import('@/views/admin/enterprises/EnterpriseList.vue'), meta: { title: '企业管理' } },
       { path: 'demands', component: () => import('@/views/admin/demands/DemandList.vue'), meta: { title: '需求管理' } },
       // --- Sprint 0: 20 new modules ---
-      { path: 'shops', component: () => import('@/views/admin/shops/ShopList.vue'), meta: { title: '商家管理' } },
       { path: 'experts', component: () => import('@/views/admin/experts/ExpertList.vue'), meta: { title: '专家管理' } },
       { path: 'resources', component: () => import('@/views/admin/resources/ResourceList.vue'), meta: { title: '产业资源' } },
       { path: 'compliance', component: () => import('@/views/admin/compliance/ComplianceList.vue'), meta: { title: '合规管理' } },
@@ -84,31 +82,12 @@ router.beforeEach(async (to, from, next) => {
   // Admin route protection
   if (to.path.startsWith('/admin')) {
     let userStr = localStorage.getItem('user')
-    let token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem('accessToken')
 
-    // Auto dev-login: get token from /api/v1/admin/token if missing
+    // 无会话 → 登录页（生产环境禁用了 dev 自动登录）
     if (!token || !userStr) {
-      try {
-        const res = await axios.post('/api/v1/admin/token', { role: 'platform_admin' })
-        const data = res.data?.data || res.data
-        const accessToken = data?.access_token || data?.accessToken
-        const refreshToken = data?.refresh_token || data?.refreshToken
-        const userInfo = data?.user || {}
-        if (accessToken) {
-          localStorage.setItem('accessToken', accessToken)
-          if (refreshToken) localStorage.setItem('refreshToken', refreshToken)
-          localStorage.setItem('user', JSON.stringify({
-            id: userInfo.id, role: userInfo.role || 'platform_admin',
-            phone: userInfo.id
-          }))
-          userStr = localStorage.getItem('user')
-          token = accessToken
-        }
-      } catch (e) {
-        console.error('dev auto-login failed', e)
-        next('/login')
-        return
-      }
+      next('/login')
+      return
     }
 
     if (!userStr) { next('/login'); return }
