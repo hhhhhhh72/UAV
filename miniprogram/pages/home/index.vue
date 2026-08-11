@@ -88,7 +88,7 @@
             <text class="service-name">{{ s.name }}</text>
           </view>
         </view>
-        <view v-if="notice" class="notice-strip">
+        <view v-if="notice" class="notice-strip" hover-class="tap-fade" hover-stay-time="120" @tap="goNotices">
           <text class="notice-label">平台公告</text>
           <text class="notice-copy">{{ notice }}</text>
           <view class="icon icon-arrow"></view>
@@ -308,7 +308,7 @@ const cityLabel = computed(() => (city.value === ALL_CITY ? '重庆' : city.valu
 
 const DISTRICT_LIST = [
   '渝中区', '江北区', '南岸区', '沙坪坝区', '九龙坡区', '大渡口区', '北碚区', '渝北区',
-  '巴南区', '两江新区', '高新区', '涪陵区', '长寿区', '江津区', '合川区', '永川区',
+  '巴南区', '两江新区', '涪陵区', '长寿区', '江津区', '合川区', '永川区',
   '南川区', '綦江区', '大足区', '璧山区', '铜梁区', '潼南区', '荣昌区', '开州区',
   '梁平区', '武隆区', '万州区', '黔江区', '城口县', '丰都县', '垫江县', '忠县',
   '云阳县', '奉节县', '巫山县', '巫溪县', '石柱县', '秀山县', '酉阳县', '彭水县',
@@ -395,6 +395,7 @@ const HOME_ICONS = {
     enterprise: '/static/home/icons/briefcase.svg', // 企业入驻
     shop: '/static/home/icons/ecoservice.svg', // 生态服务
     training: '/static/home/icons/training.svg', // 培训认证
+    pilot: '/static/home/icons/pilot.svg', // 认证飞手
     policy: '/static/home/icons/policy.svg', // 政策资讯
   },
 }
@@ -403,7 +404,7 @@ const services = ref([
   { name: '培训认证', icon: HOME_ICONS.services.training, path: '/pkg-talent/pages/training/courses', tab: false },
   { name: '企业入驻', icon: HOME_ICONS.services.enterprise, path: '/pkg-eco/pages/enterprise/register', tab: false },
   { name: '场地预约', icon: HOME_ICONS.services.trade, path: '/pkg-service/pages/testsites/list', tab: false },
-  { name: '政策资讯', icon: HOME_ICONS.services.policy, path: '/pkg-service/pages/compliance/news', tab: false },
+  { name: '认证飞手', icon: HOME_ICONS.services.pilot, path: '/pkg-talent/pages/pilots/list', tab: false },
   { name: '生态服务', icon: HOME_ICONS.services.shop, path: '/pages/services/index', tab: true },
 ])
 const goService = (s) => {
@@ -411,6 +412,8 @@ const goService = (s) => {
   else safeNavigateTo(s.path)
 }
 const goAllServices = () => safeSwitchTab('/pages/services/index')
+// 平台公告 = 政策资讯：公告条点击直接进入合规资讯列表
+const goNotices = () => safeNavigateTo('/pkg-service/pages/compliance/news')
 
 /* ================= 供需项目 ================= */
 const demandState = ref('loading')
@@ -894,8 +897,8 @@ onPullDownRefresh(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  font-size: 11px;
+  gap: 4px;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1077,14 +1080,14 @@ onPullDownRefresh(() => {
 }
 .service-item {
   min-width: 0;
-  min-height: 42px;
-  border-radius: 7px;
-  padding: 0 7px;
+  min-height: 58px;
+  border-radius: 9px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 6px;
-  font-size: 10px;
+  gap: 9px;
+  font-size: 12px;
   color: #344054;
   background: #F4F8FC;
   white-space: nowrap;
@@ -1101,17 +1104,17 @@ onPullDownRefresh(() => {
 }
 .service-icon {
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.78);
 }
 .service-icon-img {
-  width: 17px;
-  height: 17px;
+  width: 24px;
+  height: 24px;
   display: block;
 }
 .service-name {
@@ -1169,17 +1172,17 @@ onPullDownRefresh(() => {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0 13px;
+  min-height: 36px;
+  padding: 0 16px;
   border: 1px solid #E4E7EC;
-  border-radius: 6px;
+  border-radius: 7px;
   background: #fff;
   color: #667085;
-  font-size: 11px;
+  font-size: 12px;
   box-sizing: border-box;
 }
 .category-chip + .category-chip {
-  margin-left: 7px;
+  margin-left: 8px;
 }
 .category-chip.active {
   color: #fff;
@@ -1193,24 +1196,24 @@ onPullDownRefresh(() => {
   gap: 9px;
 }
 .demand-card {
-  min-height: 126px;
+  min-height: 108px;
   border: 1px solid #EEF1F4;
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr);
   box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
 }
 .demand-photo {
-  width: 112px;
-  min-height: 126px;
+  width: 96px;
+  min-height: 108px;
   display: block;
 }
 /* 超高图（旧上传竖图，比例 > 1.2）定向裁到与其他小图卡相同高度：
    仅这类图生效，16:9 图无 tall-photo 标记，外观不变 */
 .demand-photo.tall-photo {
-  height: 126px;
+  height: 108px;
 }
 .demand-body {
   min-width: 0;
@@ -1305,12 +1308,12 @@ onPullDownRefresh(() => {
   min-height: 0;
   display: block;
 }
-/* 重点卡 16:9 固定比例图区（发布端裁剪已统一比例，aspectFill 几乎零裁切；
+/* 重点卡固定高度图区（150px，全宽 aspectFill 裁切，比 16:9 大图紧凑；
    卡片高度固定 → 每个需求块大小一致） */
 .featured-photo {
   position: relative;
   width: 100%;
-  padding-top: 56.25%;
+  height: 150px;
 }
 .featured-photo .demand-photo {
   position: absolute;
@@ -1320,12 +1323,12 @@ onPullDownRefresh(() => {
   height: 100%;
 }
 .demand-card:first-child .demand-body {
-  min-height: 112px;
-  padding: 9px 11px 10px;
+  min-height: 84px;
+  padding: 8px 10px;
 }
 .demand-card:first-child .demand-title {
-  margin-top: 6px;
-  font-size: 14px;
+  margin-top: 5px;
+  font-size: 13px;
   -webkit-line-clamp: 1;
 }
 .demand-card:first-child .demand-meta {
@@ -1349,14 +1352,14 @@ onPullDownRefresh(() => {
   gap: 9px;
 }
 .skeleton-card {
-  height: 126px;
+  height: 108px;
   border-radius: 8px;
   background: #EDF0F3;
   position: relative;
   overflow: hidden;
 }
 .skeleton-card.featured-skeleton {
-  height: 250px;
+  height: 234px;
 }
 .skeleton-card::after {
   content: '';
@@ -1487,10 +1490,10 @@ onPullDownRefresh(() => {
 /* ================= 响应式：375px 宽度 ================= */
 @media (max-width: 380px) {
   .demand-card:not(:first-child) {
-    grid-template-columns: 104px minmax(0, 1fr);
+    grid-template-columns: 88px minmax(0, 1fr);
   }
   .demand-card:not(:first-child) .demand-photo {
-    width: 104px;
+    width: 88px;
   }
 }
 </style>

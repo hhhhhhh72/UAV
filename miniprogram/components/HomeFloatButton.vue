@@ -49,6 +49,19 @@ const goHome = () => {
   background: transparent; /* 无轮廓/无胶囊背景 */
   border: none;
   box-shadow: none;
+  animation: floatBtnIn 0.4s ease both;
+}
+
+/* 悬浮按钮入场：淡入 + 上移 */
+@keyframes floatBtnIn {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .home-icon {

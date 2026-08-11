@@ -132,7 +132,9 @@ const capsuleGap = ref(0)
 
 // 认证状态：由真实接口得出，不由前端任意切换
 const pilotStatus = ref('')      // '' 未申请 / pending / approved / rejected
+const pilotId = ref('')          // 飞手认证记录 ID（已认证跳档案用）
 const enterpriseStatus = ref('') // '' 无企业 / draft / submitted / supplement_required / approved / rejected
+const authStatus = ref('approved') // 实名认证：演示写死已认证（不接外部核验，无真实接口）
 
 // 概览统计（真实可用则取，否则 0/暂无数据；仅开发 fixture 提供样例）
 const overviewLoading = ref(false)
@@ -165,6 +167,12 @@ const enterpriseStatusText = computed(() => {
 const pilotStatusText = computed(() => {
   const map = { pending: '审核中', approved: '飞手认证已通过', rejected: '未通过' }
   return map[pilotStatus.value] || (pilotStatus.value ? pilotStatus.value : '去申请')
+})
+
+// 实名认证短标签（概览格 / 认证信息 tail）
+const authText = computed(() => {
+  const map = { pending: '审核中', approved: '已认证', rejected: '被驳回' }
+  return map[authStatus.value] || '未认证'
 })
 
 const isEnterpriseApproved = computed(() => identity.value === 'enterprise' && enterpriseStatus.value === 'approved')
@@ -212,15 +220,15 @@ const headerVm = computed(() => {
     g.certState = '已认证'
     g.certStateClass = 'ok'
   } else if (identity.value === 'individual') {
+    // 实名认证为演示写死状态：一律显示已认证
     g.badge = '个人用户'
     g.badgeClass = 'plain'
-    // 实名认证未上线：不误导用户"完成认证解锁功能"，现有功能不受实名状态限制
-    g.note = u.isAuth ? '已实名认证 · 可申请升级飞手' : '可发布需求、承接业务，实名认证建设中'
     g.showCertBar = true
     g.certIcon = '/static/mine-icons/certification.svg'
-    g.certMain = '实名认证建设中 · 现有服务均可使用'
-    g.certState = u.isAuth ? '已实名认证' : '建设中'
-    g.certStateClass = u.isAuth ? 'ok' : 'plain'
+    g.note = '已实名认证 · 可申请升级飞手'
+    g.certMain = '实名认证已通过'
+    g.certState = '已认证'
+    g.certStateClass = 'ok'
   } else {
     g.badge = roleLabels[u.role] || '平台账号'
     g.badgeClass = 'plain'
@@ -273,7 +281,7 @@ const overviewCells = computed(() => {
   }
   if (identity.value === 'individual') {
     return [
-      { value: c.authText || (user.value?.isAuth ? '已认证' : '未认证'), label: '实名认证', go: goAuth },
+      { value: c.authText || authText.value, label: '实名认证', go: goAuth },
       { value: '0', label: '培训报名', go: goCourses },
       { value: '0', label: '商城订单', go: goOrders },
     ]
@@ -289,7 +297,8 @@ const overviewNote = computed(() => {
     return { lead: '飞手档案已完善', rest: ' · 可承接更多匹配任务' }
   }
   if (identity.value === 'individual') {
-    return { lead: '实名认证建设中', rest: '· 可随时申请飞手认证或企业入驻' }
+    // 实名认证为演示写死状态：一律显示已认证
+    return { lead: '实名认证已通过', rest: '· 可申请飞手认证或企业入驻' }
   }
   return null
 })
@@ -316,7 +325,13 @@ const onBusinessSelect = (i) => {
 const certMenuText = computed(() => {
   if (identity.value === 'enterprise') return { desc: '企业认证与资质状态', tail: enterpriseStatusText.value, tailClass: certTailClass(enterpriseStatus.value, 'approved') }
   if (identity.value === 'pilot') return { desc: '飞手认证与执照状态', tail: pilotStatusText.value, tailClass: certTailClass(pilotStatus.value, 'approved') }
-  if (identity.value === 'individual') return { desc: '个人实名信息', tail: user.value?.isAuth ? '已认证' : '未认证', tailClass: user.value?.isAuth ? 'ok' : 'wait' }
+  if (identity.value === 'individual') {
+    // 飞手认证申请中 / 被驳回：优先展示飞手状态（入口不能因状态消失；sync=请求失败占位不算）
+    if (pilotStatus.value && pilotStatus.value !== 'sync') {
+      return { desc: '飞手认证与执照状态', tail: pilotStatusText.value, tailClass: certTailClass(pilotStatus.value, 'approved') }
+    }
+    return { desc: '个人实名信息', tail: authText.value, tailClass: certTailClass(authStatus.value, 'approved') }
+  }
   return { desc: '登录后查看认证状态', tail: '', tailClass: '' }
 })
 
@@ -382,7 +397,7 @@ const fetchData = async () => {
       unreadCount.value = msgRes?.data?.count || msgRes?.count || 0
     } catch (e) { unreadCount.value = 0 }
 
-    // 并行读取认证状态（企业 / 飞手），互不连坐
+    // 并行读取认证状态（企业 / 飞手），互不连坐；实名认证为演示写死状态
     await Promise.allSettled([fetchEnterpriseStatus(), fetchPilotStatus()])
     // 概览统计：真实可用则取，失败回退 0/暂无数据
     await fetchOverviewCounts()
@@ -407,6 +422,7 @@ const fetchPilotStatus = async () => {
   try {
     const res = await request({ url: '/api/v1/certified-pilots/mine' })
     pilotStatus.value = (res && res.status) || (res && res.data && res.data.status) || ''
+    pilotId.value = (res && res.id) || (res && res.data && res.data.id) || ''
   } catch (e) {
     pilotStatus.value = 'sync'
   }
@@ -486,7 +502,11 @@ const goPrimaryCert = () => {
   if (!requireLogin()) return
   if (identity.value === 'enterprise') return goEnterpriseCert()
   if (identity.value === 'pilot') return goPilotCert()
-  if (identity.value === 'individual') return goAuth()
+  if (identity.value === 'individual') {
+    // 飞手申请中/被驳回：先进飞手入口（审核中提示、驳回重提），无申请才走实名认证
+    if (pilotStatus.value && pilotStatus.value !== 'sync') return goPilotCert()
+    return goAuth()
+  }
   return goComingSoon()
 }
 
@@ -497,7 +517,12 @@ const goAuth = () => {
 
 const goPilotCert = () => {
   if (!requireLogin()) return
-  // 飞手认证必须去飞手申请页，不能导到普通实名认证
+  // 已认证 → 查看我的档案；未认证/待审/驳回 → 飞手申请页（不能导到普通实名认证）
+  if (pilotStatus.value === 'approved' && pilotId.value) {
+    uni.removeStorageSync('pilot_detail')
+    uni.navigateTo({ url: '/pkg-talent/pages/pilots/detail?id=' + encodeURIComponent(pilotId.value) })
+    return
+  }
   uni.navigateTo({ url: '/pkg-talent/pages/pilots/apply' })
 }
 

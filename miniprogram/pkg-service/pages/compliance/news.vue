@@ -1,18 +1,11 @@
 <template>
   <view class="page">
-    <!-- ========== Hero ========== -->
-    <view class="hero">
-      <view class="hero-row">
-        <view class="hero-text">
-          <text class="hero-eyebrow">POLICY UPDATE</text>
-          <text class="hero-title">政策动态，边界清晰</text>
-          <text class="hero-desc">聚合低空、通航与无人机政策，厘清不同业态适用边界。</text>
-        </view>
-        <view class="hero-icon-box">
-          <image :src="heroIconSrc" class="hero-icon-img" mode="aspectFit" />
-        </view>
+    <!-- ========== 深蓝顶部 ========== -->
+    <view class="topbar">
+      <view class="topbar-row">
+        <text class="top-title">政策资讯</text>
       </view>
-      <view class="hero-search">
+      <view class="search-trigger">
         <image :src="searchIconSrc" class="search-icon" mode="aspectFit" />
         <input
           v-model="searchText"
@@ -24,21 +17,7 @@
       </view>
     </view>
 
-    <!-- ========== Module tabs ========== -->
-    <view class="module-tabs">
-      <view
-        v-for="tab in moduleTabs"
-        :key="tab.key"
-        class="module-tab"
-        :class="{ active: activeModule === tab.key }"
-        @tap="onModuleTab(tab.key)"
-      >
-        <image :src="tabIcon(tab.key)" class="tab-icon-img" mode="aspectFit" />
-        <text class="tab-label">{{ tab.label }}</text>
-      </view>
-    </view>
-
-    <!-- ========== Category chips ========== -->
+    <!-- ========== Category chips（分类即筛选，覆盖全部分类） ========== -->
     <scroll-view scroll-x class="chips-scroll" :show-scrollbar="false">
       <view class="chips">
         <view
@@ -82,7 +61,7 @@
       <view class="empty-icon-wrap">
         <image :src="folderIconSrc" class="empty-icon-img" mode="aspectFit" />
       </view>
-      <text class="empty-title">暂无政策资讯</text>
+      <text class="empty-title">暂无相关资讯</text>
       <text class="empty-desc">调整关键词或分类后重试</text>
     </view>
 
@@ -171,12 +150,6 @@
 <script>
 import { request } from '../../../utils/request'
 
-const MODULE_TABS = [
-  { key: 'news', label: '政策' },
-  { key: 'knowledge', label: '知识' },
-  { key: 'standards', label: '标准' },
-]
-
 const CATEGORY_CHIPS = [
   { label: '全部', value: '' },
   { label: '低空经济', value: 'low_altitude_policy' },
@@ -184,6 +157,7 @@ const CATEGORY_CHIPS = [
   { label: '空域管理', value: 'airspace_management' },
   { label: '补贴政策', value: 'subsidy_policy' },
   { label: '行业标准', value: 'industry_standard' },
+  { label: '无人机知识', value: 'drone_knowledge' },
 ]
 
 const CATEGORY_MAP = {
@@ -192,6 +166,7 @@ const CATEGORY_MAP = {
   airspace_management: '空域管理',
   subsidy_policy: '补贴政策',
   industry_standard: '行业标准',
+  drone_knowledge: '无人机知识',
 }
 
 const PAGE_SIZE = 10
@@ -207,19 +182,6 @@ function svgUri(pathD, color) {
   )
 }
 
-const TAB_ICONS_INACTIVE = {
-  news: svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', '718096'),
-  knowledge: svgUri('M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z', '718096'),
-  standards: svgUri('M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', '718096'),
-}
-
-const TAB_ICONS_ACTIVE = {
-  news: svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', '0A66C2'),
-  knowledge: svgUri('M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z', '0A66C2'),
-  standards: svgUri('M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', '0A66C2'),
-}
-
-const ICON_HERO_NEWS = svgUri('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8', 'ffffff')
 const ICON_SEARCH = svgUri('M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35', '98A2B3')
 const ICON_EMPTY = svgUri('M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z', 'c0cad8')
 const ICON_X = svgUri('M18 6 6 18 M6 6l12 12', '101828')
@@ -228,7 +190,6 @@ export default {
   data() {
     return {
       searchText: '',
-      activeModule: 'news',
       activeCategory: '',
       loading: false,
       loadingMore: false,
@@ -241,9 +202,7 @@ export default {
       sheetVisible: false,
       selectedItem: null,
 
-      moduleTabs: MODULE_TABS,
       categoryChips: CATEGORY_CHIPS,
-      heroIconSrc: ICON_HERO_NEWS,
       searchIconSrc: ICON_SEARCH,
       emptyIconSrc: ICON_EMPTY,
       folderIconSrc: ICON_EMPTY,
@@ -349,15 +308,6 @@ export default {
       this.fetchList(true)
     },
 
-    onModuleTab(key) {
-      if (key === 'news') return
-      if (key === 'knowledge') {
-        uni.navigateTo({ url: '/pkg-service/pages/compliance/knowledge' })
-      } else if (key === 'standards') {
-        uni.navigateTo({ url: '/pkg-service/pages/compliance/standards' })
-      }
-    },
-
     openDetail(item) {
       this.selectedItem = item
       this.sheetVisible = true
@@ -366,10 +316,6 @@ export default {
     closeSheet() {
       this.sheetVisible = false
       this.selectedItem = null
-    },
-
-    tabIcon(key) {
-      return key === this.activeModule ? TAB_ICONS_ACTIVE[key] : TAB_ICONS_INACTIVE[key]
     },
 
     categoryLabel(cat) {
@@ -402,91 +348,41 @@ export default {
   padding-bottom: calc(env(safe-area-inset-bottom) + 32rpx);
 }
 
-/* ========== Hero ========== */
-.hero {
-  min-height: 316rpx;
-  padding: 40rpx 36rpx 32rpx;
-  background: #071225;
-  border-radius: 16rpx;
-  margin: 28rpx 28rpx 0;
-  position: relative;
-  overflow: hidden;
+/* ========== 深蓝顶部 ========== */
+.topbar {
+  background: #074D92;
+  color: #fff;
+  padding: 16rpx 24rpx 28rpx;
+  padding-top: calc(env(safe-area-inset-top) + 16rpx);
 }
 
-.hero-row {
+.topbar-row {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  position: relative;
-  z-index: 1;
+  align-items: center;
+  gap: 12rpx;
 }
 
-.hero-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.hero-eyebrow {
-  display: block;
-  font-size: 22rpx;
+.top-title {
+  font-size: 34rpx;
   font-weight: 700;
-  color: #9FBAFF;
-  margin-bottom: 16rpx;
-  letter-spacing: 2rpx;
 }
 
-.hero-title {
-  display: block;
-  font-size: 48rpx;
-  font-weight: 760;
-  color: #FFFFFF;
-  line-height: 1.25;
-}
-
-.hero-desc {
-  display: block;
-  margin-top: 18rpx;
-  max-width: 500rpx;
-  font-size: 26rpx;
-  color: #BFC9DC;
-  line-height: 1.55;
-}
-
-.hero-icon-box {
-  width: 88rpx;
-  height: 88rpx;
-  flex-shrink: 0;
+.search-trigger {
+  width: 100%;
+  height: 44px;
+  margin-top: 28rpx;
+  border-radius: 7px;
+  background: #fff;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 16rpx;
-}
-
-.hero-icon-img {
-  width: 40rpx;
-  height: 40rpx;
-}
-
-/* Hero search */
-.hero-search {
-  position: relative;
-  z-index: 2;
-  height: 88rpx;
-  display: flex;
-  align-items: center;
-  margin-top: 36rpx;
+  gap: 10rpx;
   padding: 0 24rpx;
-  background: #FFFFFF;
-  border: 1px solid #E5EAF1;
-  border-radius: 16rpx;
-  box-shadow: 0 12rpx 36rpx rgba(16, 24, 40, 0.1);
+  box-sizing: border-box;
 }
 
 .search-icon {
-  width: 36rpx;
-  height: 36rpx;
+  width: 30rpx;
+  height: 30rpx;
   flex-shrink: 0;
 }
 
@@ -494,87 +390,43 @@ export default {
   flex: 1;
   min-width: 0;
   height: 100%;
-  margin-left: 16rpx;
-  font-size: 28rpx;
-  color: var(--color-text);
+  font-size: 26rpx;
+  color: #344054;
   background: transparent;
 }
 
-/* ========== Module tabs ========== */
-.module-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8rpx;
-  margin: 24rpx 28rpx 8rpx;
-  padding: 10rpx;
-  background: #E9EDF4;
-  border: 1px solid #DFE5EE;
-  border-radius: 16rpx;
-}
-
-.module-tab {
-  min-height: 96rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6rpx;
-  color: #718096;
-  background: transparent;
-  border-radius: 12rpx;
-  font-size: 20rpx;
-  font-weight: 680;
-  transition: all 0.2s;
-}
-
-.module-tab.active {
-  color: var(--color-primary);
-  background: #FFFFFF;
-  box-shadow: 0 6rpx 20rpx rgba(16, 24, 40, 0.08);
-}
-
-.tab-icon-img {
-  width: 34rpx;
-  height: 34rpx;
-}
-
-.tab-label {
-  font-size: 20rpx;
-  line-height: 1;
-}
-
-/* ========== Category chips ========== */
+/* ========== Category chips（与需求大厅 filter-chip 同款） ========== */
 .chips-scroll {
   white-space: nowrap;
-  margin: 28rpx -28rpx 0;
-  padding: 0 28rpx;
+  margin: 24rpx 0 0;
+  padding: 0 24rpx;
 }
 
 .chips {
   display: flex;
-  gap: 16rpx;
+  gap: 12rpx;
 }
 
 .chip {
   flex-shrink: 0;
-  min-height: 72rpx;
-  padding: 0 30rpx;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  color: #66758E;
-  background: var(--color-bg-card);
-  border: 1px solid #E5EAF1;
-  border-radius: 16rpx;
-  font-size: 26rpx;
-  font-weight: 650;
-  transition: all 0.2s;
+  height: 60rpx;
+  padding: 0 20rpx;
+  border: 1px solid #E4E7EC;
+  border-radius: 12rpx;
+  background: #fff;
+  color: #344054;
+  font-size: 24rpx;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .chip.active {
-  color: #FFFFFF;
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  box-shadow: 0 10rpx 28rpx rgba(10, 102, 194, 0.25);
+  color: #0A66C2;
+  border-color: #B9D6EF;
+  background: #EAF3FB;
+  font-weight: 650;
 }
 
 /* ========== Section head ========== */
@@ -582,25 +434,15 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 36rpx 32rpx 20rpx;
+  margin: 28rpx 24rpx 16rpx;
 }
 
 .section-title {
   display: flex;
   align-items: center;
-  gap: 16rpx;
   font-size: 34rpx;
   font-weight: 760;
   color: var(--color-text);
-}
-
-.section-title::before {
-  content: '';
-  width: 8rpx;
-  height: 36rpx;
-  background: var(--color-primary);
-  border-radius: 4rpx;
-  flex-shrink: 0;
 }
 
 .section-count {
@@ -662,11 +504,11 @@ export default {
   justify-content: center;
   gap: 16rpx;
   padding: 16rpx 28rpx;
-  margin: 0 28rpx;
+  margin: 0 24rpx;
   font-size: 24rpx;
   color: #B42318;
   background: #FEF0EF;
-  border-radius: 16rpx;
+  border-radius: 12rpx;
 }
 
 .error-retry {
@@ -676,16 +518,16 @@ export default {
 
 /* ========== Card list ========== */
 .list-body {
-  padding: 0 28rpx;
+  padding: 0 24rpx;
 }
 
 .card {
-  padding: 32rpx;
+  padding: 24rpx;
   margin-bottom: 20rpx;
-  background: var(--color-bg-card);
-  border: 1px solid #E5EAF1;
+  background: #fff;
+  border: 1px solid #EEF1F4;
   border-radius: 16rpx;
-  box-shadow: 0 10rpx 36rpx rgba(16, 24, 40, 0.05);
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
 }
 
 .card:active {
@@ -738,7 +580,7 @@ export default {
 .card-title {
   display: block;
   margin-top: 20rpx;
-  font-size: 32rpx;
+  font-size: 28rpx;
   font-weight: 740;
   color: var(--color-text);
   line-height: 1.45;

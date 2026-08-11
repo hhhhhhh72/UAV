@@ -12,6 +12,19 @@
 
       <!-- 服务信息填写区 -->
       <view v-else>
+        <!-- 活动摘要卡（研学专属：从 storage 读研学信息） -->
+        <view class="study-summary" v-if="serviceId === '9' && studyTour">
+          <view class="summary-bar" />
+          <view class="summary-body">
+            <text class="summary-title">{{ studyTour.title || '研学活动' }}</text>
+            <text class="summary-meta">📅 {{ summaryDate }} · 📍 {{ summaryLoc }}</text>
+          </view>
+          <view class="summary-price">
+            <text class="summary-price-num">¥{{ studyPrice }}</text>
+            <text class="summary-price-unit">/人</text>
+          </view>
+        </view>
+
         <view class="notice-bar">
           <text class="notice-icon">ℹ️</text>
           <text class="notice-text">请填写以下信息，我们将尽快与您联系</text>
@@ -208,31 +221,31 @@
 
             <!-- 低空研学报名 (ID: 9) -->
             <template v-if="serviceId === '9'">
-              <view class="form-item">
-                <text class="label">学校/机构</text>
+              <view class="form-item vertical">
+                <text class="label">学校/机构 <text class="req">*</text></text>
                 <input class="input" v-model="formData.studyOrg" placeholder="请输入学校/机构名称" />
               </view>
-              <view class="form-item">
-                <text class="label">年级段</text>
-                <input class="input" v-model="formData.studyGrade" placeholder="如：四-六年级 / 10-12岁" />
-              </view>
-              <view class="form-item">
-                <text class="label">参与人数</text>
-                <input class="input" v-model="formData.studyParticipants" type="number" placeholder="请输入参与人数" />
-              </view>
-              <view class="form-item">
-                <text class="label">期望日期</text>
-                <picker class="picker" mode="date" @change="(e) => formData.studyDate = e.detail.value">
-                  <view class="picker-value" :class="{ 'placeholder': !formData.studyDate }">
-                    {{ formData.studyDate || '请选择日期' }}
+              <view class="form-item vertical">
+                <text class="label">年级段 <text class="req">*</text></text>
+                <picker class="picker" :range="studyGradeOptions" @change="(e) => formData.studyGrade = studyGradeOptions[e.detail.value]">
+                  <view class="picker-value" :class="{ 'placeholder': !formData.studyGrade }">
+                    {{ formData.studyGrade || '请选择年级段' }}
                   </view>
                 </picker>
               </view>
-              <view class="form-item">
-                <text class="label">场次</text>
-                <picker class="picker" :range="studySessionOptions" @change="(e) => formData.studySessionText = studySessionOptions[e.detail.value]">
-                  <view class="picker-value" :class="{ 'placeholder': !formData.studySessionText }">
-                    {{ formData.studySessionText || '请选择上午/下午场次' }}
+              <view class="form-item vertical">
+                <text class="label">参与人数 <text class="req">*</text></text>
+                <view class="stepper">
+                  <view class="stepper-btn" :class="{ disabled: participants <= 1 }" @tap="changeParticipants(-1)">−</view>
+                  <input class="stepper-input" v-model="formData.studyParticipants" type="number" @input="onParticipantsInput" />
+                  <view class="stepper-btn" @tap="changeParticipants(1)">+</view>
+                </view>
+              </view>
+              <view class="form-item vertical">
+                <text class="label">期望日期 <text class="req">*</text></text>
+                <picker class="picker" mode="date" @change="(e) => formData.studyDate = e.detail.value">
+                  <view class="picker-value" :class="{ 'placeholder': !formData.studyDate }">
+                    {{ formData.studyDate || '请选择日期' }}
                   </view>
                 </picker>
               </view>
@@ -462,9 +475,22 @@
           </view>
         </view>
 
-        <view class="submit-section">
-          <button class="submit-btn" type="primary" @tap="handleSubmit">{{ submitButtonText }}</button>
+        <!-- 底部 CTA：研学带费用预估，其他服务保持原样 -->
+        <view class="submit-section" :class="{ 'submit-fixed': serviceId === '9' }">
+          <view v-if="serviceId === '9'" class="submit-bar">
+            <view class="submit-price">
+              <text class="submit-price-label">费用预估</text>
+              <view class="submit-price-row">
+                <text class="submit-price-symbol">¥</text>
+                <text class="submit-price-num">{{ displayFee }}</text>
+              </view>
+              <text class="submit-price-note">最终费用以机构确认为准</text>
+            </view>
+            <button class="submit-btn" type="primary" @tap="handleSubmit">{{ submitButtonText }}</button>
+          </view>
+          <button v-else class="submit-btn" type="primary" @tap="handleSubmit">{{ submitButtonText }}</button>
         </view>
+        <view v-if="serviceId === '9'" class="privacy-note">报名信息仅用于活动组织，受隐私政策保护</view>
       </view>
     </view>
     <HomeFloatButton />
@@ -505,7 +531,7 @@ const formData = ref({
   liftItemType: '', liftItemWeight: '', workLocation: '', liftHeight: '',
   traineeName: '', traineePhone: '', traineeGender: 'male', traineeIdCard: '',
   examModel: '', licenseLevel: '',
-  studyOrg: '', studyGrade: '', studyParticipants: '', studyDate: '', studySessionText: '',
+  studyOrg: '', studyGrade: '', studyParticipants: '', studyDate: '',
   maintenanceType: 'repair', isWarranty: 'yes', purchaseDate: '',
   competitionRole: '', competitionRoleText: '', competitionGroup: '',
   competitionProject: '', athleteGroup: '',
@@ -520,7 +546,62 @@ const urgencyOptions = ['加急配送（2小时内）', '标准配送（当日�
 const durationOptions = ['1个月', '3个月', '6个月', '12个月', '长期托管']
 const examModelOptions = ['小型无人机 (多旋翼)', '中型无人机 (多旋翼)', '垂起固定翼']
 const licenseLevelOptions = ['视距内', '超视距']
-const studySessionOptions = ['上午场 (9:00-11:30)', '下午场 (13:30-16:00)', '全天 (9:00-16:00)']
+
+// ── 研学报名新增 ──
+const studyGradeOptions = ['小学低年级（1-3年级）', '小学高年级（4-6年级）', '初中', '高中']
+const studyTour = ref(null)
+const studyPrice = ref('1280')
+const studyDate = ref('')
+const studyLoc = ref('')
+
+const summaryDate = computed(() => studyDate.value || '时间待定')
+const summaryLoc = computed(() => studyLoc.value || '地点待定')
+
+// 研学价格（按时长兜底，与详情页一致）
+const calcStudyPrice = (tour) => {
+  const d = (tour && tour.duration) || ''
+  if (d.includes('3天')) return '1280'
+  if (d.includes('2天')) return '880'
+  if (d.includes('1天')) return '480'
+  return '980'
+}
+
+// 参与人数（步进器）
+const participants = computed(() => parseInt(formData.value.studyParticipants) || 1)
+const changeParticipants = (delta) => {
+  const next = Math.max(1, Math.min(100, participants.value + delta))
+  formData.value.studyParticipants = String(next)
+  animateFee()
+}
+const onParticipantsInput = (e) => {
+  const v = parseInt(e.detail.value)
+  if (!isNaN(v)) {
+    if (v < 1) formData.value.studyParticipants = '1'
+    else if (v > 100) formData.value.studyParticipants = '100'
+    animateFee()
+  }
+}
+
+// 费用预估 = 人数 × 单价（滚动计数）
+const feeEstimate = computed(() => {
+  const p = participants.value
+  const price = parseInt(studyPrice.value) || 0
+  return (p * price).toLocaleString()
+})
+const displayFee = ref('0')
+const animateFee = (duration = 400) => {
+  const target = parseInt(String(feeEstimate.value).replace(/,/g, '')) || 0
+  const from = parseInt(String(displayFee.value).replace(/,/g, '')) || 0
+  const start = Date.now()
+  // 微信小程序无 requestAnimationFrame，用 setTimeout 模拟帧（16ms）
+  const tick = () => {
+    const p = Math.min(1, (Date.now() - start) / duration)
+    const ease = 1 - Math.pow(1 - p, 3)
+    displayFee.value = Math.round(from + (target - from) * ease).toLocaleString()
+    if (p < 1) setTimeout(tick, 16)
+  }
+  tick()
+}
 const competitionGroupOptions = ['足球', 'FPV', '航拍']
 const athleteGroupOptions = ['成人组', '中学组', '小学组']
 const competitionProjectOptions = ['足球', 'FPV', '航拍']
@@ -547,6 +628,28 @@ onLoad((options) => {
     formData.value.contactPhone = user.phone || ''
     formData.value.traineeName = user.name || ''
     formData.value.traineePhone = user.phone || ''
+  }
+  // 研学报名：从 storage 读列表传入的研学信息（活动摘要卡）
+  if (serviceId.value === '9') {
+    const tour = uni.getStorageSync('study_tour_detail')
+    if (tour && tour.id) {
+      studyTour.value = tour
+      studyPrice.value = calcStudyPrice(tour)
+      // 日期范围（零值降级）
+      const fmt = (v) => {
+        if (!v) return ''
+        const d = new Date(v)
+        if (isNaN(d.getTime()) || d.getFullYear() <= 1) return ''
+        const p = (n) => String(n).padStart(2, '0')
+        return `${d.getFullYear()}年${p(d.getMonth() + 1)}月${p(d.getDate())}日`
+      }
+      const s = fmt(tour.start_date)
+      const e = fmt(tour.end_date)
+      studyDate.value = s && e ? `${s}-${e.replace(/^\d{4}年/, '')}` : (s || '')
+      studyLoc.value = tour.location || tour.destination || ''
+      // 费用预估初始滚动（延迟到视图渲染后）
+      setTimeout(() => animateFee(600), 200)
+    }
   }
 })
 
@@ -660,7 +763,17 @@ const handleSubmit = async () => {
 .notice-text { font-size: 13px; }
 
 .form-body { padding: 16px; }
-.form-section { background: #fff; border-radius: 8px; padding: 0 16px; margin-bottom: 16px; overflow: hidden; }
+.form-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 16px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  animation: formSectionIn 0.4s ease both;
+}
+.form-section:nth-child(1) { animation-delay: 0.12s; }
+.form-section:nth-child(2) { animation-delay: 0.2s; }
+.form-section:nth-child(3) { animation-delay: 0.28s; }
 .section-title { font-size: 15px; font-weight: 600; padding: 16px 0 8px; color: #323233; border-bottom: 1px solid #f2f3f5; margin-bottom: 8px; }
 
 .form-item { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid #f2f3f5; }
@@ -689,4 +802,133 @@ const handleSubmit = async () => {
 
 .submit-section { padding: 20px 16px 40px; }
 .submit-btn { border-radius: 8px; height: 48px; line-height: 48px; font-weight: bold; background: #667eea !important; }
+
+/* ═══ 研学报名新增样式 ═══ */
+
+/* 必填标记 */
+.req { color: #EF4444; font-size: 12px; }
+
+/* 活动摘要卡 */
+.study-summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.06);
+  overflow: hidden;
+  animation: summaryIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.summary-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6rpx;
+  background: linear-gradient(180deg, #0A1F44, #1E5EFF);
+}
+.summary-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.summary-title { font-size: 16px; font-weight: 700; color: #0A1F44; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.summary-meta { font-size: 12px; color: #6B7B95; }
+.summary-price { flex-shrink: 0; text-align: right; }
+.summary-price-num { font-size: 22px; font-weight: 800; color: #FF8E3C; }
+.summary-price-unit { font-size: 11px; color: #ADB8C7; margin-left: 2px; }
+
+/* 步进器 */
+.stepper { display: flex; align-items: center; gap: 12px; }
+.stepper-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #F5F8FC;
+  border: 1px solid #E8EEF7;
+  color: #1E5EFF;
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stepper-btn.disabled { color: #ADB8C7; background: #F5F8FC; }
+.stepper-input {
+  width: 60px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0A1F44;
+  background: #F5F8FC;
+  border-radius: 8px;
+  height: 40px;
+}
+
+/* 底部固定 CTA（研学） */
+.submit-fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background: #ffffff;
+  border-top: 1px solid #E8EEF7;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+}
+.submit-bar { display: flex; align-items: center; gap: 16px; }
+.submit-price { flex: 1; }
+.submit-price-label { font-size: 11px; color: #6B7B95; display: block; }
+.submit-price-row { display: flex; align-items: baseline; gap: 2px; }
+.submit-price-symbol { font-size: 16px; font-weight: 700; color: #FF8E3C; }
+.submit-price-num { font-size: 20px; font-weight: 800; color: #FF8E3C; }
+.submit-price-note { font-size: 10px; color: #ADB8C7; display: block; }
+.submit-fixed .submit-btn {
+  flex: 2;
+  height: 46px;
+  line-height: 46px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #1E5EFF, #0A66C2) !important;
+  border: none;
+  border-radius: 999rpx;
+  box-shadow: 0 8px 24px rgba(30, 94, 255, 0.35);
+  animation: applyGlow 2.5s ease-in-out infinite;
+  padding: 0;
+}
+.privacy-note {
+  padding: 0 16px 16px;
+  text-align: center;
+  font-size: 11px;
+  color: #ADB8C7;
+  background: #ffffff;
+}
+@keyframes applyGlow {
+  0%, 100% { box-shadow: 0 8px 24px rgba(30, 94, 255, 0.35); }
+  50% { box-shadow: 0 8px 32px rgba(30, 94, 255, 0.55); }
+}
+
+/* 活动摘要卡入场 */
+@keyframes summaryIn {
+  from {
+    transform: translateX(20rpx);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+/* 表单区块入场 */
+@keyframes formSectionIn {
+  from {
+    transform: translateY(16rpx);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
 </style>

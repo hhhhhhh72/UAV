@@ -35,9 +35,9 @@ const FIXTURES = {
     overview: { certText: '已通过', flights: '12', certs: '2' },
     device: { bound: '2', online: '1', flights: '12' },
   },
-  // 普通个人：张航 / individual / isAuth true
+  // 普通个人：张航 / individual（实名认证为演示写死状态，无需 fixture 字段）
   individual: {
-    user: { name: '张航', role: 'individual', phone: '138****5621', isAuth: true },
+    user: { name: '张航', role: 'individual', phone: '138****5621' },
     enterpriseStatus: '',
     pilotStatus: '',
     overview: { authText: '已认证' },

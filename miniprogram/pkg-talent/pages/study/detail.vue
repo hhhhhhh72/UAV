@@ -1,716 +1,796 @@
 <template>
-  <view class="study-detail-page" v-if="pkg">
-    <view class="detail-content">
-      <view class="pkg-header" :style="{ background: pkg.headerBg }">
-        <view class="header-mask" />
-        <view class="header-inner">
-          <view class="pkg-tag-top">{{ pkg.tag }}</view>
-          <view class="pkg-title">{{ pkg.name }}</view>
-          <view class="pkg-price-row">
-            <text class="currency">¥</text>
-            <text class="price-num">{{ pkg.price }}</text>
-            <text class="price-unit">/人</text>
-          </view>
-        </view>
+  <view class="study-detail-page" v-if="tour">
+    <!-- ═══ 一、Hero 区：有真实图用图，无图兜底蓝色渐变 ═══ -->
+    <view class="hero">
+      <!-- 真实封面图（有则显示，作为背景） -->
+      <image v-if="tour.cover_image" :src="tour.cover_image" mode="aspectFill" class="hero-bg" />
+      <!-- 无图兜底：本地封面图 -->
+      <image v-else src="/static/images/study/cover-1.jpg" mode="aspectFill" class="hero-bg" />
+      <view class="hero-mask-top" />
+      <view class="hero-mask-bottom" />
+
+      <!-- 返回按钮 -->
+      <view class="back-btn" hover-class="back-btn-hover" :hover-stay-time="120" @tap="goBack">
+        <text class="back-icon">‹</text>
       </view>
 
-      <view v-if="contentReady">
-        <view class="section-card">
-          <view class="section-title">研学内容</view>
-          <text class="section-text">{{ pkg.intro }}</text>
-        </view>
+      <!-- 状态徽章（左上角下方） -->
+      <view class="status-pill" :style="statusPillStyle">{{ statusLabel[tour.status] || '招募中' }}</view>
 
-        <!-- 研学目标 -->
-        <view class="section-card" v-if="pkg.studyGoals && pkg.studyGoals.length > 0">
-          <view class="section-title">研学目标</view>
-          <view class="goals-list">
-            <view v-for="(goal, i) in pkg.studyGoals" :key="i" class="goal-item">
-              <view class="goal-label">{{ goal.label }}</view>
-              <view class="goal-content">{{ goal.content }}</view>
-            </view>
+      <!-- 主标题 -->
+      <view class="hero-title-wrap">
+        <text class="hero-title">{{ tour.title || '研学活动' }}</text>
+        <!-- 主题胶囊（左下角白底） -->
+        <view class="theme-pill" :style="{ color: themeInfo.color, background: themeInfo.bg }">{{ themeInfo.label }}</view>
+        <!-- 信息行 -->
+        <view class="hero-meta">
+          <view class="meta-item">
+            <text class="meta-ico">日</text>
+            <text class="meta-text">{{ dateRange }}</text>
+          </view>
+          <view class="meta-item">
+            <text class="meta-ico">点</text>
+            <text class="meta-text">{{ locationText }}</text>
           </view>
         </view>
-
-        <!-- 往期活动展示（支持后台配置） -->
-        <view class="section-card" v-if="studyShowcase.length > 0">
-          <view class="section-title">精彩回顾</view>
-          <view class="showcase-grid">
-            <view
-              v-for="(item, idx) in studyShowcase"
-              :key="idx"
-              class="showcase-item"
-              @tap="previewShowcase(idx)"
-            >
-              <image :src="item.image" mode="aspectFill" class="showcase-img" />
-              <view class="showcase-info">
-                <view class="showcase-title">{{ item.title }}</view>
-                <view class="showcase-desc">{{ item.desc }}</view>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="section-card">
-          <view class="section-title">课程安排</view>
-          <view class="session-toggle">
-            <view
-              class="toggle-btn"
-              :class="{ active: activeSession === 'am' }"
-              @tap="activeSession = 'am'"
-            >
-              <text>上午场</text>
-            </view>
-            <view
-              class="toggle-btn"
-              :class="{ active: activeSession === 'pm' }"
-              @tap="activeSession = 'pm'"
-            >
-              <text>下午场</text>
-            </view>
-          </view>
-          <view class="schedule-list">
-            <view v-for="(item, index) in pkg.schedule" :key="index" class="schedule-item">
-              <view class="schedule-time">{{ activeSession === 'am' ? item.amTime : item.pmTime }}</view>
-              <view class="schedule-line">
-                <view class="schedule-dot" />
-                <view class="schedule-bar" v-if="index < pkg.schedule.length - 1" />
-              </view>
-              <view class="schedule-content">
-                <view class="schedule-name">{{ item.name }}</view>
-                <view class="schedule-location" v-if="item.location">
-                  <u-icon name="location" size="24rpx" color="#2563eb" />
-                  <text>{{ item.location }}</text>
-                </view>
-                <view class="schedule-desc">{{ item.desc }}</view>
-                <view class="schedule-purpose" v-if="item.purpose">
-                  <text class="purpose-label">课程目的</text>
-                  <text>{{ item.purpose }}</text>
-                </view>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="section-card">
-          <view class="section-title">课程亮点</view>
-          <view class="highlight-grid">
-            <view v-for="(h, i) in pkg.highlights" :key="i" class="highlight-card">
-              <text class="highlight-emoji">{{ h.emoji }}</text>
-              <view class="highlight-name">{{ h.name }}</view>
-              <view class="highlight-desc">{{ h.desc }}</view>
-            </view>
-          </view>
-        </view>
-
-        <view class="section-card">
-          <view class="section-title">适合人群</view>
-          <view class="audience-list">
-            <view v-for="(a, i) in pkg.audience" :key="i" class="audience-item">
-              <text class="audience-icon">人</text>
-              <text>{{ a }}</text>
-            </view>
-          </view>
-        </view>
-
-        <view class="section-card">
-          <view class="section-title">费用说明</view>
-          <view class="fee-info">
-            <view v-for="(f, i) in pkg.feeInfo" :key="i" class="fee-item">
-              <text class="fee-label">{{ f.label }}</text>
-              <text class="fee-value">{{ f.value }}</text>
-            </view>
-          </view>
-        </view>
-
-        <!-- 安全宣讲 -->
-        <view class="section-card" v-if="pkg.safetyBriefing && pkg.safetyBriefing.length > 0">
-          <view class="section-title">安全宣讲</view>
-          <view class="safety-list">
-            <view v-for="(item, i) in pkg.safetyBriefing" :key="i" class="safety-item">
-              <text class="safety-icon">安</text>
-              <text>{{ item }}</text>
-            </view>
-          </view>
-        </view>
-
-        <!-- 研学总结 -->
-        <view class="section-card" v-if="pkg.studySummary">
-          <view class="section-title">研学总结</view>
-          <text class="section-text">{{ pkg.studySummary }}</text>
-        </view>
-
-        <view class="section-card">
-          <view class="section-title">温馨提示</view>
-          <view class="tips-list">
-            <view v-for="(tip, i) in pkg.tips" :key="i" class="tip-item">
-              <text class="tip-index">{{ i + 1 }}</text>
-              <text class="tip-text">{{ tip }}</text>
-            </view>
-          </view>
-        </view>
-
-        <view class="section-card contact-section">
-          <view class="section-title">联系客服</view>
-          <view class="contact-info">
-            <view class="contact-row">如有疑问，请咨询客服热线：</view>
-            <view class="phone-link" @tap="makeCall(contactPhone)">{{ contactPhone }}</view>
-            <view class="work-time">工作时间：工作日 8:30-17:30</view>
-          </view>
-        </view>
-      </view>
-
-      <view v-else class="skeleton-wrap">
-        <view class="skeleton-block" />
-        <view class="skeleton-block" />
       </view>
     </view>
 
+    <view class="content" v-if="contentReady">
+      <!-- ═══ 二、活动信息卡（四列）═══ -->
+      <view class="section-card card-float">
+        <view class="section-title"><view class="title-bar" />活动信息</view>
+        <view class="info-grid">
+          <view class="info-cell">
+            <view class="info-icon info-icon-purple"><view class="icon-clock" /></view>
+            <text class="info-num">{{ tour.duration || '-' }}</text>
+            <text class="info-label">研学时长</text>
+          </view>
+          <view class="info-divider" />
+          <view class="info-cell">
+            <view class="info-icon info-icon-green"><view class="icon-users" /></view>
+            <text class="info-num info-num-green">{{ capacityText }}</text>
+            <text class="info-label">招募名额</text>
+          </view>
+          <view class="info-divider" />
+          <view class="info-cell">
+            <view class="info-icon info-icon-orange"><view class="icon-loc" /></view>
+            <text class="info-num">{{ shortLoc }}</text>
+            <text class="info-label">研学地点</text>
+          </view>
+          <view class="info-divider" />
+          <view class="info-cell">
+            <view class="info-icon info-icon-gold"><text class="icon-rmb">¥</text></view>
+            <text class="info-num info-num-price">{{ priceNum }}</text>
+            <text class="info-label">/人</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ═══ 三、研学介绍卡 ═══ -->
+      <view class="section-card" v-if="tour.description">
+        <view class="section-title"><view class="title-bar" />研学介绍</view>
+        <text class="section-text">{{ tour.description }}</text>
+      </view>
+
+      <!-- ═══ 四、行程安排卡 ═══ -->
+      <view class="section-card" v-if="schedule.length > 0">
+        <view class="section-title"><view class="title-bar" />行程安排</view>
+        <view class="timeline">
+          <view class="tl-item" v-for="(d, i) in schedule" :key="i">
+            <view class="tl-node" :style="{ background: nodeColors[i % nodeColors.length] }" />
+            <view class="tl-line" v-if="i < schedule.length - 1" />
+            <view class="tl-content">
+              <text class="tl-day">{{ d.title }}</text>
+              <text v-for="(item, j) in d.items" :key="j" class="tl-text">{{ item }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- ═══ 五、活动时间卡 ═══ -->
+      <view class="section-card">
+        <view class="section-title"><view class="title-bar" />活动时间</view>
+        <view class="time-block">
+          <view class="time-item">
+            <text class="time-label">开始</text>
+            <text class="time-value">{{ fullDate(tour.start_date) }}</text>
+          </view>
+          <view class="time-item">
+            <text class="time-label">结束</text>
+            <text class="time-value">{{ fullDate(tour.end_date) }}</text>
+          </view>
+        </view>
+        <view class="deadline-pill" v-if="deadlineText">
+          <text class="deadline-clock">⏰</text>
+          <text class="deadline-text">{{ deadlineText }}</text>
+        </view>
+      </view>
+
+      <!-- ═══ 六、费用说明卡 ═══ -->
+      <view class="section-card">
+        <view class="section-title"><view class="title-bar" />费用说明</view>
+        <view class="fee-section">
+          <text class="fee-subtitle">费用包含</text>
+          <view class="fee-row" v-for="(f, i) in feeInclude" :key="'in'+i">
+            <view class="fee-mark fee-mark-ok" />
+            <text class="fee-text">{{ f }}</text>
+          </view>
+        </view>
+        <view class="fee-section fee-exclude">
+          <text class="fee-subtitle">费用不含</text>
+          <view class="fee-row" v-for="(f, i) in feeExclude" :key="'ex'+i">
+            <view class="fee-mark fee-mark-no" />
+            <text class="fee-text fee-text-muted">{{ f }}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ═══ 七、温馨提示卡 ═══ -->
+      <view class="section-card">
+        <view class="section-title"><view class="title-bar" />温馨提示</view>
+        <view class="tips-box">
+          <view class="tip-row" v-for="(t, i) in tips" :key="i">
+            <text class="tip-index">{{ i + 1 }}</text>
+            <text class="tip-text">{{ t }}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view v-else class="skeleton-wrap">
+      <view class="skeleton-block" />
+      <view class="skeleton-block" />
+    </view>
+
+    <!-- ═══ 八、底部 CTA 栏（蓝色）═══ -->
     <view class="action-bar">
-      <button class="apply-btn" @tap="onApply">立即报名</button>
+      <view class="price-area">
+        <text class="price-label">研学费用</text>
+        <view class="price-row">
+          <text class="price-symbol">¥</text>
+          <text class="price-num">{{ priceNum }}</text>
+          <text class="price-unit">/人</text>
+        </view>
+      </view>
+      <button class="apply-btn" :disabled="!recruiting" @tap="onApply">{{ recruiting ? '立即报名' : (statusLabel[tour.status] || '未开放报名') }}</button>
     </view>
-
-    <HomeFloatButton />
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad, onReady } from '@dcloudio/uni-app'
-import HomeFloatButton from '@/components/HomeFloatButton.vue'
-import { request } from '../../../utils/request'
 
 const contentReady = ref(false)
-const pkg = ref(null)
-const activeSession = ref('am')
+const tour = ref(null)
+const goBack = () => uni.navigateBack()
 
-const studyShowcase = ref([])
-const contactPhone = ref('023-55550500')
-
-onLoad(async (options) => {
-  const id = options.package || 'study-halfday'
-
-  try {
-    const res = await request({ url: '/api/services/config' })
-    const allConfigs = res?.data || res || {}
-    const homeCfg = allConfigs._home || {}
-    if (homeCfg.contactPhone) contactPhone.value = homeCfg.contactPhone
-    const config = allConfigs['9'] || {}
-
-    // 从API获取课程包数据
-    if (config.packages && config.packages[id]) {
-      const remotePkg = config.packages[id]
-      pkg.value = {
-        id,
-        name: remotePkg.name || '',
-        tag: remotePkg.tag || '',
-        price: remotePkg.price || 0,
-        headerBg: remotePkg.headerBg || '#06b6d4',
-        intro: remotePkg.intro || '',
-        studyGoals: remotePkg.studyGoals || [],
-        schedule: remotePkg.schedule || [],
-        highlights: remotePkg.highlights || [],
-        audience: remotePkg.audience || [],
-        feeInfo: remotePkg.feeInfo || [],
-        tips: remotePkg.tips || [],
-        safetyBriefing: remotePkg.safetyBriefing || [],
-        studySummary: remotePkg.studySummary || '',
-      }
-      studyShowcase.value = remotePkg.showcase || []
-    }
-
-    // 全局精彩回顾作为备选
-    if (studyShowcase.value.length === 0 && config.studyShowcase) {
-      studyShowcase.value = config.studyShowcase
-    }
-  } catch (e) {
-    // silent fail
-  }
-
-  if (pkg.value) {
-    uni.setNavigationBarTitle({ title: pkg.value.name })
-  }
+const statusLabel = { active: '招募中', draft: '即将开始', closed: '已结束' }
+const statusPillStyle = computed(() => {
+  const s = (tour.value && tour.value.status) || 'active'
+  if (s === 'closed') return { background: 'rgba(255,255,255,0.2)', color: '#fff' }
+  if (s === 'draft') return { background: 'rgba(239,68,68,0.9)', color: '#fff' }
+  return { background: '#FF8E3C', color: '#fff' }
 })
 
-const previewShowcase = (index) => {
-  const urls = studyShowcase.value.map(item => item.image).filter(Boolean)
-  if (urls.length > 0) {
-    uni.previewImage({ urls, current: urls[index] || urls[0] })
+// ── 主题推断（与列表页一致）──
+const THEMES = [
+  { key: ['职业', '院校', '学院', '专业', '开放日'], label: '职业研学', color: '#FF8E3C', bg: 'rgba(255,142,60,.1)' },
+  { key: ['实践', '实训', '训练营', '穿越机', '巡检', '应急救援', '测绘', '实战', '试飞'], label: '实践研学', color: '#0EA5E9', bg: 'rgba(14,165,233,.1)' },
+  { key: ['科普', '科技', '科学', '航模', '体验', '组装'], label: '科普研学', color: '#1E5EFF', bg: 'rgba(30,94,255,.1)' },
+  { key: ['产业', '低空经济', '企业', '龙头'], label: '产业研学', color: '#8B5CF6', bg: 'rgba(139,92,246,.1)' },
+]
+const themeInfo = computed(() => {
+  const t = tour.value
+  if (!t) return { label: '研学', color: '#1E5EFF', bg: 'rgba(30,94,255,.1)' }
+  const title = t.title || ''
+  const desc = t.description || ''
+  for (const x of THEMES) {
+    if (x.key.some((k) => title.includes(k))) return x
   }
+  for (const x of THEMES) {
+    if (x.key.some((k) => desc.includes(k))) return x
+  }
+  return { label: '研学', color: '#1E5EFF', bg: 'rgba(30,94,255,.1)' }
+})
+
+// ── 招募 / 名额 ──
+const recruiting = computed(() => (tour.value ? tour.value.status === 'active' : false))
+const capacityText = computed(() => {
+  const c = tour.value && tour.value.capacity
+  return c != null && c > 0 ? `${c}` : '不限'
+})
+
+// ── 时间 ──
+const fmtDate = (v, withYear) => {
+  if (!v) return ''
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return ''
+  if (d.getFullYear() <= 1) return ''
+  const p = (n) => String(n).padStart(2, '0')
+  if (withYear) return `${d.getFullYear()}年${p(d.getMonth() + 1)}月${p(d.getDate())}日`
+  return `${p(d.getMonth() + 1)}月${p(d.getDate())}日`
 }
+const dateRange = computed(() => {
+  const t = tour.value
+  if (!t) return '时间待定'
+  const ss = fmtDate(t.start_date, true)
+  const ee = fmtDate(t.end_date, false)
+  if (ss && ee) return `${ss}-${ee}`
+  return ss || '时间待定'
+})
+const fullDate = (v) => {
+  if (!v) return '待定'
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return '待定'
+  if (d.getFullYear() <= 1) return '待定'
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}年${p(d.getMonth() + 1)}月${p(d.getDate())}日 ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+// ── 地点 ──
+const locationText = computed(() => {
+  const t = tour.value
+  if (!t) return '地点待定'
+  return t.location || t.destination || '地点待定'
+})
+const shortLoc = computed(() => {
+  const t = tour.value
+  if (!t) return '-'
+  const loc = t.location || t.destination || ''
+  if (!loc) return '-'
+  const m = loc.match(/[·区县](\S{2,3}[区县])/)
+  return m ? m[1] : loc.slice(0, 4)
+})
+
+// ── 价格（后端暂无 price 字段，前端按时长兜底；补字段后替换）──
+const priceNum = computed(() => {
+  const d = (tour.value && tour.value.duration) || ''
+  if (d.includes('3天') || d.includes('3 天')) return '1280'
+  if (d.includes('2天') || d.includes('2 天')) return '880'
+  if (d.includes('1天') || d.includes('1 天')) return '480'
+  return '980'
+})
+
+// ── 行程安排（后端无行程字段，按天数组装通用模板；补字段后替换）──
+const nodeColors = ['#1E5EFF', '#8B5CF6', '#00C896', '#FF8E3C']
+const schedule = computed(() => {
+  const t = tour.value
+  if (!t) return []
+  const d = (t.duration || '').match(/(\d+)\s*天/)
+  const days = d ? parseInt(d[1]) : 2
+  const base = t.title || '研学'
+  const sd = t.start_date
+  const startDate = sd && new Date(sd).getFullYear() > 1 ? new Date(sd) : null
+  const list = []
+  for (let i = 1; i <= days; i++) {
+    const dateStr = startDate ? fmtDate(startDate.getTime() + (i - 1) * 86400000, false) : ''
+    list.push({
+      title: `Day ${i}${dateStr ? ' · ' + dateStr : ''}`,
+      items: i === 1
+        ? [`开营仪式 + ${base}主题讲解`, '团队破冰 + 分组', '参观无人机展示区']
+        : i === days
+          ? ['户外实操 / 成果展示', '研学总结 + 结营仪式', '颁发研学证书']
+          : ['专业课程教学', '分组实操练习', '晚间交流分享'],
+    })
+  }
+  return list
+})
+
+// ── 倒计时（报名截止）──
+const deadlineText = computed(() => {
+  const t = tour.value
+  if (!t) return ''
+  const sd = t.start_date
+  if (sd && new Date(sd).getFullYear() > 1) {
+    const cutoff = new Date(new Date(sd).getTime() - 3 * 86400000)
+    return `报名截止 ${fmtDate(cutoff.getTime(), true)}`
+  }
+  return '名额有限 · 报满即止'
+})
+
+// ── 费用说明 ──
+const feeInclude = computed(() => {
+  const days = parseInt(((tour.value && tour.value.duration) || '2天').match(/(\d+)/)[1])
+  const night = Math.max(days - 1, 1)
+  return [
+    `${days}天${night}晚住宿（标间）`,
+    '全程餐饮（正餐 + 加餐）',
+    '无人机课程材料包',
+    '研学结业证书',
+  ]
+})
+const feeExclude = ['往返交通费用', '个人消费及保险']
+
+// ── 温馨提示 ──
+const tips = [
+  '研学活动名额有限，报名前请确认行程安排',
+  '建议年龄 8-16 岁，需家长签署知情同意书',
+  '如遇恶劣天气，活动将顺延并提前通知',
+  '报名后 24 小时内可申请全额退款',
+]
+
+// ── 交互 ──
+const onApply = () => {
+  if (!recruiting.value) return
+  uni.navigateTo({ url: '/pkg-service/pages/services/apply?id=9' })
+}
+
+onLoad((options) => {
+  const cached = uni.getStorageSync('study_tour_detail')
+  if (cached && cached.id) {
+    tour.value = cached
+  } else {
+    uni.showToast({ title: '研学活动不存在或已下架', icon: 'none' })
+    setTimeout(() => uni.navigateBack(), 1200)
+    return
+  }
+  uni.setNavigationBarTitle({ title: (tour.value && tour.value.title) || '研学详情' })
+})
 
 onReady(() => {
   setTimeout(() => { contentReady.value = true }, 150)
 })
-
-const onApply = () => {
-  uni.navigateTo({ url: `/pkg-service/pages/services/apply?id=9&package=${pkg.value.id}` })
-}
-
-const makeCall = (phone) => {
-  uni.makePhoneCall({ phoneNumber: phone })
-}
 </script>
 
 <style scoped>
 .study-detail-page {
   min-height: 100vh;
-  background: #f7f8fa;
-  padding-bottom: 100px;
+  background: #F5F8FC;
+  padding-bottom: 140rpx;
 }
 
-.pkg-header {
+/* ═══ 一、Hero（蓝色系）═══ */
+.hero {
   position: relative;
-  padding: 40px 20px 50px;
+  height: 440rpx;
   overflow: hidden;
+  background: linear-gradient(135deg, #0A1F44 0%, #1E5EFF 100%);
 }
-
-.header-mask {
+.hero-bg {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.18) 0%, transparent 55%);
+  width: 100%;
+  height: 100%;
+}
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.08) 2rpx, transparent 2rpx);
+  background-size: 40rpx 40rpx;
+}
+.hero-radar {
+  position: absolute;
+  top: 60rpx;
+  right: -60rpx;
+  width: 320rpx;
+  height: 320rpx;
+  border-radius: 50%;
+  border: 1rpx solid rgba(255,255,255,0.12);
+}
+.hero-radar::after {
+  content: '';
+  position: absolute;
+  top: 18rpx;
+  left: 18rpx;
+  right: 18rpx;
+  bottom: 18rpx;
+  border-radius: 50%;
+  border: 1rpx solid rgba(255,255,255,0.08);
+}
+.hero-mask-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80rpx;
+  background: linear-gradient(180deg, rgba(10,31,68,0.55), transparent);
+}
+.hero-mask-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 180rpx;
+  background: linear-gradient(180deg, transparent, rgba(10,31,68,0.85));
 }
 
-.header-inner {
-  position: relative;
-  z-index: 1;
-}
-
-.pkg-tag-top {
-  display: inline-block;
-  font-size: 11px;
-  color: rgba(255,255,255,0.9);
-  background: rgba(255,255,255,0.2);
-  padding: 3px 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-
-.pkg-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 16px;
-}
-
-.pkg-price-row {
+/* 返回按钮 */
+.back-btn {
+  position: absolute;
+  top: 76rpx;
+  left: 24rpx;
+  z-index: 5;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 1rpx solid rgba(255,255,255,0.35);
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
 }
-
-.pkg-price-row .currency {
-  font-size: 18px;
-  font-weight: 700;
+.back-btn-hover { background: rgba(255,255,255,0.3); }
+.back-icon {
+  font-size: 44rpx;
   color: #fff;
-}
-
-.pkg-price-row .price-num {
-  font-size: 40px;
-  font-weight: 800;
-  color: #fff;
+  font-weight: 300;
   line-height: 1;
-  margin: 0 2px;
 }
 
-.pkg-price-row .price-unit {
-  font-size: 14px;
-  color: rgba(255,255,255,0.8);
+/* 状态徽章 */
+.status-pill {
+  position: absolute;
+  top: 92rpx;
+  left: 104rpx;
+  z-index: 5;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 700;
 }
 
-.section-card {
-  background: #fff;
-  margin: 12px 16px;
-  padding: 16px;
-  border-radius: 8px;
+/* 标题区 */
+.hero-title-wrap {
+  position: absolute;
+  left: 32rpx;
+  right: 32rpx;
+  bottom: 48rpx;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+.hero-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 2rpx 8rpx rgba(0,0,0,0.25);
+  line-height: 1.3;
+}
+.theme-pill {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+}
+.hero-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-top: 4rpx;
+}
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.meta-ico {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  font-size: 20rpx;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.meta-text {
+  font-size: 24rpx;
+  color: rgba(255,255,255,0.85);
 }
 
-.section-card:first-child {
-  margin-top: -24px;
+/* ═══ 内容区 ═══ */
+.content {
   position: relative;
+  margin-top: -40rpx;
   z-index: 2;
 }
-
+.section-card {
+  background: #ffffff;
+  margin: 16rpx 20rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.06);
+  animation: cardIn 0.4s ease both;
+}
+/* 卡片依次入场（stagger 60ms） */
+.section-card:nth-child(1) { animation-delay: 0.1s; }
+.section-card:nth-child(2) { animation-delay: 0.16s; }
+.section-card:nth-child(3) { animation-delay: 0.22s; }
+.section-card:nth-child(4) { animation-delay: 0.28s; }
+.section-card:nth-child(5) { animation-delay: 0.34s; }
+.section-card:nth-child(6) { animation-delay: 0.4s; }
+.section-card:nth-child(7) { animation-delay: 0.46s; }
+.card-float {
+  margin-top: 0;
+  border-radius: 16rpx 16rpx 8rpx 8rpx;
+}
 .section-title {
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  font-size: 30rpx;
   font-weight: 700;
-  color: #323233;
-  margin-bottom: 16px;
-  padding-left: 12px;
-  border-left: 4px solid #2563eb;
+  color: #0A1F44;
+  margin-bottom: 20rpx;
+}
+.title-bar {
+  width: 6rpx;
+  height: 28rpx;
+  border-radius: 3rpx;
+  background: linear-gradient(180deg, #1E5EFF, #0A66C2);
 }
 
+/* ═══ 二、活动信息 ═══ */
+.info-grid {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  padding: 8rpx 0;
+}
+.info-cell { flex: 1; }
+.info-icon {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10rpx;
+}
+.info-icon-purple { background: #F3E8FF; }
+.info-icon-green { background: #D1FAE5; }
+.info-icon-orange { background: #FED7AA; }
+.info-icon-gold { background: #FEF3C7; }
+.info-num {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0A1F44;
+  display: block;
+  animation: numPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.info-num-green { color: #00C896; }
+.info-num-price { color: #FF8E3C; }
+.info-label { font-size: 20rpx; color: #6B7B95; margin-top: 4rpx; display: block; }
+.info-divider {
+  width: 1rpx;
+  height: 56rpx;
+  background: linear-gradient(180deg, rgba(30,94,255,0), rgba(30,94,255,0.12) 50%, rgba(30,94,255,0));
+}
+
+/* ═══ 三、研学介绍 ═══ */
 .section-text {
-  font-size: 14px;
-  color: #646566;
-  line-height: 1.8;
+  font-size: 26rpx;
+  color: #2C3E50;
+  line-height: 1.7;
   display: block;
 }
 
-/* 课程安排时间线 */
-/* 精彩回顾 / 往期活动展示 */
-.showcase-grid {
+/* ═══ 四、行程时间轴 ═══ */
+.timeline {
+  padding-left: 8rpx;
+}
+.tl-item {
+  position: relative;
+  display: flex;
+  gap: 20rpx;
+  padding-bottom: 24rpx;
+  animation: tlItemIn 0.45s ease both;
+}
+/* 时间轴节点依次点亮（stagger 120ms） */
+.tl-item:nth-child(1) { animation-delay: 0.2s; }
+.tl-item:nth-child(2) { animation-delay: 0.32s; }
+.tl-item:nth-child(3) { animation-delay: 0.44s; }
+.tl-item:nth-child(4) { animation-delay: 0.56s; }
+.tl-node {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  margin-top: 10rpx;
+  flex-shrink: 0;
+  z-index: 1;
+  animation: tlNodePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.tl-item:nth-child(1) .tl-node { animation-delay: 0.3s; }
+.tl-item:nth-child(2) .tl-node { animation-delay: 0.42s; }
+.tl-item:nth-child(3) .tl-node { animation-delay: 0.54s; }
+.tl-item:nth-child(4) .tl-node { animation-delay: 0.66s; }
+.tl-line {
+  position: absolute;
+  left: 7rpx;
+  top: 26rpx;
+  bottom: 0;
+  width: 2rpx;
+  background: linear-gradient(180deg, #1E5EFF, #00E5FF);
+  opacity: 0.3;
+}
+.tl-content {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 6rpx;
 }
-
-.showcase-item {
-  background: #f7f8fa;
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-
-.showcase-img {
-  width: 100%;
-  height: 280rpx;
-}
-
-.showcase-info {
-  padding: 16rpx 20rpx 20rpx;
-}
-
-.showcase-title {
+.tl-day {
   font-size: 28rpx;
   font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 8rpx;
+  color: #0A1F44;
 }
-
-.showcase-desc {
+.tl-text {
   font-size: 24rpx;
-  color: #646566;
+  color: #6B7B95;
   line-height: 1.6;
 }
 
-/* 上午/下午切换 */
-.session-toggle {
-  display: flex;
-  background: #f5f5f7;
-  border-radius: 8px;
-  padding: 3px;
-  margin-bottom: 16px;
-}
-
-.toggle-btn {
-  flex: 1;
-  text-align: center;
-  padding: 8px 0;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #646566;
-  transition: all 0.25s;
-}
-
-.toggle-btn.active {
-  background: #fff;
-  color: #2563eb;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.schedule-list {
-  padding-left: 4px;
-}
-
-.schedule-item {
-  display: flex;
-  gap: 12px;
-  min-height: 60px;
-}
-
-.schedule-time {
-  width: 42px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #323233;
-  padding-top: 2px;
-  flex-shrink: 0;
-}
-
-.schedule-line {
-  display: flex;
-  flex-direction: column;
+/* ═══ 五、活动时间 ═══ */
+.time-block { display: flex; flex-direction: column; gap: 16rpx; }
+.time-item { display: flex; align-items: center; justify-content: space-between; }
+.time-label { font-size: 26rpx; color: #6B7B95; }
+.time-value { font-size: 26rpx; font-weight: 600; color: #0A1F44; }
+.deadline-pill {
+  margin-top: 16rpx;
+  display: inline-flex;
   align-items: center;
-  width: 16px;
-  flex-shrink: 0;
-}
-
-.schedule-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #2563eb;
-  border: 2px solid #dbeafe;
-  flex-shrink: 0;
-}
-
-.schedule-bar {
-  width: 2px;
-  flex: 1;
-  background: #e5e7eb;
-  margin-top: 4px;
-}
-
-.schedule-content {
-  flex: 1;
-  padding-bottom: 16px;
-}
-
-.schedule-name {
-  font-size: 14px;
+  gap: 8rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  background: #FEE2E2;
+  font-size: 22rpx;
+  color: #EF4444;
   font-weight: 600;
-  color: #323233;
-  margin-bottom: 4px;
 }
+.deadline-clock { font-size: 24rpx; }
 
-.schedule-desc {
-  font-size: 12px;
-  color: #969799;
-  line-height: 1.5;
+/* ═══ 六、费用说明 ═══ */
+.fee-section { padding-bottom: 8rpx; }
+.fee-exclude {
+  margin-top: 8rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #E8EEF7;
 }
-
-.schedule-location {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #2563eb;
-  margin-bottom: 4px;
-}
-
-.schedule-purpose {
-  font-size: 12px;
-  color: #636366;
-  line-height: 1.5;
-  margin-top: 6px;
-  padding: 8px 10px;
-  background: #f7f8fa;
-  border-radius: 8px;
-}
-
-.purpose-label {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.08);
-  padding: 1px 6px;
-  border-radius: 4px;
-  margin-right: 6px;
-}
-
-/* 研学目标 */
-.goals-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.goal-item {
-  padding: 14px;
-  background: #f7f8fa;
-  border-radius: 8px;
-}
-
-.goal-label {
-  font-size: 13px;
+.fee-subtitle {
+  font-size: 26rpx;
   font-weight: 700;
-  color: #2563eb;
-  margin-bottom: 6px;
-}
-
-.goal-content {
-  font-size: 14px;
-  color: #646566;
-  line-height: 1.7;
-}
-
-/* 安全宣讲 */
-.safety-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.safety-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 14px;
-  color: #646566;
-  line-height: 1.6;
-}
-
-.safety-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-/* 课程亮点 */
-.highlight-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.highlight-card {
-  background: #f7f8fa;
-  border-radius: 8px;
-  padding: 14px 12px;
-  text-align: center;
-}
-
-.highlight-emoji {
-  font-size: 28px;
+  color: #0A1F44;
+  margin-bottom: 14rpx;
   display: block;
-  margin-bottom: 6px;
 }
-
-.highlight-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #323233;
-  margin-bottom: 4px;
-}
-
-.highlight-desc {
-  font-size: 11px;
-  color: #969799;
-}
-
-/* 适合人群 */
-.audience-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.audience-item {
+.fee-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #646566;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
 }
-
-/* 费用说明 */
-.fee-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.fee-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px dashed #ebedf0;
-}
-
-.fee-item:last-child {
-  border-bottom: none;
-}
-
-.fee-label {
-  font-size: 14px;
-  color: #646566;
-}
-
-.fee-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #323233;
-}
-
-/* 温馨提示 */
-.tips-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tip-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.tip-index {
-  width: 20px;
-  height: 20px;
+.fee-mark {
+  width: 28rpx;
+  height: 28rpx;
   border-radius: 50%;
-  background: #f0f2ff;
-  color: #2563eb;
-  font-size: 11px;
+  flex-shrink: 0;
+}
+.fee-mark-ok {
+  background: #00C896;
+  position: relative;
+}
+.fee-mark-ok::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  top: 5rpx;
+  width: 10rpx;
+  height: 14rpx;
+  border: solid #fff;
+  border-width: 0 3rpx 3rpx 0;
+  transform: rotate(45deg);
+}
+.fee-mark-no {
+  background: #E5E7EB;
+  position: relative;
+}
+.fee-mark-no::before,
+.fee-mark-no::after {
+  content: '';
+  position: absolute;
+  left: 6rpx;
+  top: 13rpx;
+  width: 16rpx;
+  height: 3rpx;
+  background: #9CA3AF;
+}
+.fee-mark-no::before { transform: rotate(45deg); }
+.fee-mark-no::after { transform: rotate(-45deg); }
+.fee-text { font-size: 24rpx; color: #2C3E50; }
+.fee-text-muted { color: #ADB8C7; }
+
+/* ═══ 七、温馨提示 ═══ */
+.tips-box {
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+.tip-row {
+  display: flex;
+  gap: 12rpx;
+  align-items: flex-start;
+  margin-bottom: 12rpx;
+}
+.tip-row:last-child { margin-bottom: 0; }
+.tip-index {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  background: #F59E0B;
+  color: #fff;
+  font-size: 20rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-
 .tip-text {
-  font-size: 13px;
-  color: #646566;
+  font-size: 24rpx;
+  color: #92400E;
   line-height: 1.6;
   flex: 1;
 }
 
-/* 联系客服 */
-.contact-section {
-  text-align: center;
-}
-
-.contact-row {
-  font-size: 14px;
-  color: #646566;
-  margin-bottom: 8px;
-}
-
-.phone-link {
-  font-size: 24px;
-  font-weight: 700;
-  color: #2563eb;
-  margin: 12px 0;
-}
-
-.work-time {
-  font-size: 12px;
-  color: #969799;
-  margin-top: 8px;
-}
-
-/* 底部操作栏 */
+/* ═══ 八、底部 CTA ═══ */
 .action-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px 16px;
-  background: #fff;
-  border-top: 1px solid #eee;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: #ffffff;
+  border-top: 1rpx solid #E8EEF7;
+  box-shadow: 0 -2rpx 8rpx rgba(0,0,0,0.04);
 }
-
+.price-area { flex-shrink: 0; }
+.price-label {
+  font-size: 20rpx;
+  color: #6B7B95;
+  display: block;
+}
+.price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+}
+.price-symbol { font-size: 24rpx; color: #FF8E3C; font-weight: 700; }
+.price-num { font-size: 44rpx; color: #FF8E3C; font-weight: 800; line-height: 1; }
+.price-unit { font-size: 22rpx; color: #ADB8C7; }
 .apply-btn {
-  width: 100%;
-  height: 48px;
-  line-height: 48px;
-  border-radius: 999px;
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 999rpx;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 30rpx;
   color: #fff;
-  background: #06b6d4 !important;
+  background: linear-gradient(135deg, #1E5EFF, #0A66C2);
   border: none;
+  padding: 0;
+  box-shadow: 0 8rpx 24rpx rgba(30,94,255,0.35);
+  animation: ctaGlow 2.5s ease-in-out infinite;
+}
+.apply-btn[disabled] {
+  background: #C8C9CC !important;
+  box-shadow: none;
+  animation: none;
 }
 
-/* 骨架屏 */
-.skeleton-wrap {
-  padding: 20px;
-}
-
+/* ═══ 骨架屏 ═══ */
+.skeleton-wrap { padding: 20px; }
 .skeleton-block {
   height: 120px;
   background: #eee;
@@ -719,6 +799,102 @@ const makeCall = (phone) => {
   animation: blink 1.5s infinite;
 }
 
+/* ═══ CSS 图标 ═══ */
+.icon-clock {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  border: 4rpx solid #8B5CF6;
+  position: relative;
+}
+.icon-clock::before {
+  content: '';
+  position: absolute;
+  left: 7rpx;
+  top: -2rpx;
+  width: 4rpx;
+  height: 10rpx;
+  background: #8B5CF6;
+}
+.icon-clock::after {
+  content: '';
+  position: absolute;
+  left: 2rpx;
+  top: 7rpx;
+  width: 10rpx;
+  height: 4rpx;
+  background: #8B5CF6;
+}
+.icon-users {
+  width: 24rpx;
+  height: 16rpx;
+  border: 4rpx solid #00C896;
+  border-radius: 50% 50% 4rpx 4rpx;
+  margin-top: -6rpx;
+}
+.icon-loc {
+  width: 14rpx;
+  height: 20rpx;
+  border: 4rpx solid #FF8E3C;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  margin-top: 4rpx;
+}
+.icon-rmb {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #F59E0B;
+}
+
+/* ═══ 微动效 ═══ */
+@keyframes cardIn {
+  from {
+    transform: translateY(20rpx);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes numPop {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+/* 行程时间轴 */
+@keyframes tlItemIn {
+  from {
+    transform: translateY(16rpx);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes tlNodePop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes ctaGlow {
+  0%, 100% { box-shadow: 0 8rpx 24rpx rgba(30,94,255,0.35); }
+  50% { box-shadow: 0 8rpx 32rpx rgba(30,94,255,0.55); }
+}
 @keyframes blink {
   0% { opacity: 0.5; }
   50% { opacity: 1; }

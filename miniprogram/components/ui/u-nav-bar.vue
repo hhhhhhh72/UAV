@@ -6,7 +6,7 @@
         <text v-if="leftText && leftText !== '返回'" class="u-nav-bar-text">{{ leftText }}</text>
       </view>
       <text class="u-nav-bar-title">{{ title }}</text>
-      <view class="u-nav-bar-side u-nav-bar-right" @click="onRight">
+      <view class="u-nav-bar-side u-nav-bar-right" :style="{ right: rightOffset + 'px' }" @click="onRight">
         <text v-if="rightText" class="u-nav-bar-text">{{ rightText }}</text>
         <slot name="right" />
       </view>
@@ -27,11 +27,18 @@ defineProps({
 })
 const emit = defineEmits(['back', 'right'])
 const statusBarHeight = ref(20)
+// 右侧内容右偏移：微信小程序胶囊避让（右缘内容不能被胶囊遮挡）
+const rightOffset = ref(0)
 onMounted(() => {
   // #ifdef MP-WEIXIN
   try {
     const sys = uni.getSystemInfoSync()
     statusBarHeight.value = sys.statusBarHeight || 20
+    if (typeof uni.getMenuButtonBoundingClientRect === 'function') {
+      const rect = uni.getMenuButtonBoundingClientRect()
+      // 胶囊左缘到屏幕右缘的距离 + 8px 间距 = 右侧内容的右偏移
+      rightOffset.value = Math.max(sys.windowWidth - rect.left + 8, 0)
+    }
   } catch (e) { /* 取不到时保持默认 20 */ }
   // #endif
 })
