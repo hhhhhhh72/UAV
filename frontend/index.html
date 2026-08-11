@@ -9,6 +9,12 @@
     <script>
       // Global Error Handler for White Screen Debugging
       window.onerror = function(msg, url, line, col, error) {
+        // 良性警告过滤：ResizeObserver loop 是浏览器规范行为（容器尺寸单帧多次变化时
+        // 由浏览器异步报告），Chrome 官方明确该错误无法通过代码消除、建议忽略，
+        // 不影响任何功能——不显示红条以免误报。其余真实错误仍显示红条。
+        if (msg && (msg.indexOf('ResizeObserver loop') === 0 || msg.indexOf('Script error.') === 0)) {
+          return false;
+        }
         var errorHtml = '<div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:20px;z-index:99999;word-break:break-all;">' +
           '<h3>JS Error:</h3>' +
           '<p>' + msg + '</p>' +
