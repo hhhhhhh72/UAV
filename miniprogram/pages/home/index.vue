@@ -152,7 +152,7 @@
             hover-stay-time="120"
             @tap="goDemandDetail(d)"
           >
-            <image :src="d.image" mode="aspectFill" class="demand-photo" @error="onDemandImageError(d)" />
+            <image :src="d.image" :mode="index === 0 ? 'widthFix' : 'aspectFill'" class="demand-photo" @error="onDemandImageError(d)" />
             <view class="demand-body">
               <view class="card-badges">
                 <text class="type-badge">{{ d.type }}</text>
@@ -1235,10 +1235,10 @@ onPullDownRefresh(() => {
   min-height: 0;
   display: block;
 }
+/* 重点卡完整显示：widthFix 高度随图片比例自适应，不裁切；
+   模板按 index===0 动态切换 mode（widthFix / aspectFill） */
 .demand-card.featured .demand-photo {
   width: 100%;
-  height: 138px;
-  min-height: 138px;
 }
 .demand-card.featured .demand-body {
   min-height: 112px;
