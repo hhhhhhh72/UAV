@@ -210,7 +210,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
 import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
-import { request } from '../../utils/request'
+import { request, BASE_URL } from '../../utils/request'
 
 /* ================= 路由安全 ================= */
 const ROUTE_MAP = {
@@ -480,7 +480,10 @@ const normalizeDemand = (d) => {
   const title = String(d.title || '').trim()
   if (!title) return null
   const cat = classifyDemand(d)
-  const imgs = Array.isArray(d.images) ? d.images.filter((u) => typeof u === 'string' && u.trim()) : []
+  // /uploads/ 相对路径必须补域名（否则小程序按本地包资源加载 → 白图 → 降级静态图，
+  // 首页所有卡片都变成同一张图）；/static/ 是本地包资源保持原样；http 开头原样
+  const resolveImgUrl = (u) => (u.indexOf('http') === 0 || u.indexOf('/static/') === 0 ? u : BASE_URL + u)
+  const imgs = Array.isArray(d.images) ? d.images.filter((u) => typeof u === 'string' && u.trim()).map(resolveImgUrl) : []
   const image = imgs[0] || (cat === '吊运' ? LOCAL_LIFT_IMG : LOCAL_DEMAND_IMG)
   const budgetText = fmtBudget(d.budget_fen)
   const st = STATUS_MAP[d.status] || null

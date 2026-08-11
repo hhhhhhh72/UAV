@@ -262,7 +262,7 @@ const fieldsTitle = computed(() => {
 })
 const mediaTitle = computed(() => {
   if (!item.value) return ''
-  return item.value.type === '需求' ? '相关附件' : item.value.type === '服务' ? '作业案例' : '实拍与资料'
+  return item.value.type === '需求' ? '图片资料' : item.value.type === '服务' ? '作业案例' : '实拍与资料'
 })
 
 const mediaImages = computed(() => {
@@ -273,12 +273,9 @@ const mediaImages = computed(() => {
   const second = first === IMG_SOLAR ? IMG_HERO : IMG_SOLAR
   return [first, second]
 })
-const attachmentNames = computed(() => {
-  if (!item.value) return []
-  if (item.value.type === '需求') return ['作业技术要求.pdf']
-  if (item.value.type === '服务') return ['江津光伏巡检方案.pdf']
-  return ['设备实拍图.zip']
-})
+// 附件名列表：原为写死的模拟文件名（作业技术要求.pdf 等），实际从未真实上传，
+// 属误导性死数据，已移除；模板 v-if="attachmentNames.length" 保证空时不渲染
+const attachmentNames = computed(() => [])
 
 const recommendItems = computed(() => {
   if (!item.value) return []

@@ -184,8 +184,9 @@ export function normalizeDemand(d) {
   const title = String(d.title || '').trim()
   if (!title) return null
   const cat = classifyDemand(d)
-  // 存库为相对路径 /uploads/xxx，展示层统一补全域名（否则小程序按本地包内资源加载 → 白图）
-  const resolveUrl = (u) => (u.indexOf('http') === 0 ? u : BASE_URL + u)
+  // 存库为相对路径 /uploads/xxx，展示层补全域名（否则小程序按本地包内资源加载 → 白图）；
+  // /static/ 是本地包资源保持原样（补域名会 404），http 开头原样
+  const resolveUrl = (u) => (u.indexOf('http') === 0 || u.indexOf('/static/') === 0 ? u : BASE_URL + u)
   const imgs = Array.isArray(d.images) ? d.images.filter((u) => typeof u === 'string' && u.trim()).map(resolveUrl) : []
   const image = imgs[0] || (cat === '吊运' ? IMG_LIFT : IMG_SOLAR)
   const status = DEMAND_STATUS_MAP[d.status] || '进行中'
