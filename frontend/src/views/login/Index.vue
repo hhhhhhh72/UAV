@@ -175,7 +175,10 @@ const onSubmit = async () => {
   background: rgba(29, 212, 168, 0.12);
 }
 
-/* Arco 主题覆盖为品牌蓝 #0A66C2 */
+/* Arco 主题覆盖为品牌蓝 #0A66C2
+   注意：必须用 RGB 分量格式（10,102,194），Arco 组件样式是
+   rgb(var(--primary-6)) 包装；十六进制会生成 rgb(#0a66c2) 非法值
+   → 按钮背景失效变白（登录按钮曾因此"消失"）。 */
 .login-card {
   position: relative;
   z-index: 1;
@@ -185,14 +188,14 @@ const onSubmit = async () => {
   border-radius: 16px;
   padding: 40px 36px 28px;
   box-shadow: 0 16px 48px rgba(2, 32, 71, 0.35);
-  --primary-1: #e9f1fb;
-  --primary-2: #c2d8f0;
-  --primary-3: #9cbfe6;
-  --primary-4: #74a6dd;
-  --primary-5: #4587d1;
-  --primary-6: #0a66c2;
-  --primary-7: #08549d;
-  --primary-8: #063f74;
+  --primary-1: 233,241,251;
+  --primary-2: 194,216,240;
+  --primary-3: 156,191,230;
+  --primary-4: 116,166,221;
+  --primary-5: 69,135,209;
+  --primary-6: 10,102,194;
+  --primary-7: 8,84,157;
+  --primary-8: 6,63,116;
 }
 
 .login-header {

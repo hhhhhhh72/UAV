@@ -50,17 +50,20 @@ body {
   --sidebar-width: 220px;
 }
 
-/* ── Arco Design 主题（照抄 Arco Design Pro 默认视觉：主色用品牌蓝） ── */
+/* ── Arco Design 主题（照抄 Arco Design Pro 默认视觉：主色用品牌蓝） ──
+   注意：必须用 RGB 分量格式（如 22,93,255），Arco 组件样式是
+   rgb(var(--primary-6)) 包装；写十六进制（#165dff）会生成 rgb(#165dff)
+   非法值，导致背景色失效回退白色。 */
 :root {
-  --primary-1: #e8f3ff;
-  --primary-2: #bedaff;
-  --primary-3: #87b8ff;
-  --primary-4: #3d8fff;
-  --primary-5: #2b7fff;
-  --primary-6: #165dff;
-  --primary-7: #0e42d2;
-  --primary-8: #072ca6;
-  --primary-9: #041a79;
+  --primary-1: 232,243,255;
+  --primary-2: 190,218,255;
+  --primary-3: 135,184,255;
+  --primary-4: 61,143,255;
+  --primary-5: 43,127,255;
+  --primary-6: 22,93,255;
+  --primary-7: 14,66,210;
+  --primary-8: 7,44,166;
+  --primary-9: 4,26,121;
 }
 
 /* 注意：不覆盖 Arco 的中性色变量（--color-bg-* / --color-fill-* / --color-border /
