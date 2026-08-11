@@ -71,7 +71,9 @@
         <!-- 上传区 -->
         <view v-if="section.upload">
           <view class="pub-upload-row">
-            <view v-for="(photo, i) in photos" :key="i" class="pub-photo"></view>
+            <view v-for="(photo, i) in photos" :key="i" class="pub-photo">
+              <image v-if="photo && photo.src" :src="photo.src" mode="aspectFill" class="pub-photo-img" />
+            </view>
             <view class="pub-add-photo" hover-class="pub-fade" @tap="addPhoto">＋</view>
           </view>
           <view class="pub-upload-tip">建议上传清晰实拍图，首图将作为列表封面</view>
@@ -189,8 +191,22 @@ function pickOption(id, val) {
 }
 function addPhoto() {
   if (photos.value.length >= 5) return
-  photos.value.push(photos.value.length)
-  showToast('已添加一张示例图片')
+  const pick = (paths) => {
+    photos.value.push(...paths.map((p) => ({ src: p })))
+    showToast('已添加 ' + paths.length + ' 张图片')
+  }
+  if (typeof uni.chooseMedia === 'function') {
+    uni.chooseMedia({
+      count: 5 - photos.value.length,
+      mediaType: ['image'],
+      success: (res) => pick(res.tempFiles.map((f) => f.tempFilePath)),
+    })
+  } else {
+    uni.chooseImage({
+      count: 5 - photos.value.length,
+      success: (res) => pick(res.tempFilePaths),
+    })
+  }
 }
 function showToast(text) {
   toast.value = text
@@ -275,13 +291,13 @@ onLoad((options) => {
   if (t && TYPES[t]) {
     type.value = t
   }
-  // 编辑已有草稿/发布
+  // 编辑已有草稿/发布（历史数据只存数量，无真实路径，恢复为占位）
   if (options && options.id) {
     const post = getPost(options.id)
     if (post) {
       resumeId.value = post.id
       values.value = Object.assign({}, post.values || {})
-      photos.value = Array.from({ length: post.photoCount || 0 }, (_, i) => i)
+      photos.value = Array.from({ length: post.photoCount || 0 }, () => ({}))
     }
   }
   // 恢复发布首页“继续编辑”的草稿（原型 resumeDraft 行为）
@@ -292,7 +308,7 @@ onLoad((options) => {
       type.value = p.type || t
       resumeId.value = p.id
       values.value = Object.assign({}, p.values || {})
-      photos.value = Array.from({ length: p.photoCount || 0 }, (_, i) => i)
+      photos.value = Array.from({ length: p.photoCount || 0 }, () => ({}))
     }
   }
   if (type.value && !typeConfig.value) type.value = ''
@@ -302,6 +318,11 @@ onLoad((options) => {
 <style scoped>
 @import './pub-style.css';
 
+.pub-photo-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 .pub-form-intro-h2 {
   font-size: 20px;
   margin: 0 0 4px;

@@ -41,22 +41,6 @@
       </view>
     </view>
 
-    <!-- 未通过原因 -->
-    <view v-if="post.statusKey === 'rejected'" class="pub-detail-alert">
-      <text class="pub-detail-alert-b">未通过原因</text>
-      <text>培训机构资质证明不完整，请补充证明材料后重新提交。</text>
-    </view>
-
-    <!-- 对接动态 -->
-    <view v-if="post.leads" class="pub-section">
-      <view class="pub-section-title">对接动态</view>
-      <view class="pub-form-card">
-        <view class="pub-field">
-          <text style="font-size:13px;color:#667085">已有 {{ post.leads }}，可进入详情页查看并回复。</text>
-        </view>
-      </view>
-    </view>
-
     <!-- 动作按钮 -->
     <view class="pub-detail-actions">
       <view
@@ -175,7 +159,6 @@ function applyAction() {
   p.statusKey = 'draft'
   p.date = '刚刚保存'
   p.note = '内容已保存为草稿，可继续编辑后再次提交。'
-  delete p.leads
   upsertPost(p)
   showToast(label + '成功，内容已移入草稿')
   setTimeout(goBack, 600)
@@ -214,5 +197,4 @@ onLoad((options) => {
 .pub-timeline-body { flex: 1; }
 .pub-timeline-b { display: block; font-size: 12px; color: #17212B; }
 .pub-timeline-date { font-size: 11px; color: #98A2B3; }
-.pub-detail-alert-b { color: #FF3B30; font-weight: 700; flex-shrink: 0; }
 </style>

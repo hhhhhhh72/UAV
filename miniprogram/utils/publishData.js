@@ -134,15 +134,6 @@ export const TYPES = {
   },
 }
 
-// ==================== 示例发布数据（原型真实样例） ====================
-const SEED_POSTS = [
-  { id: 'demand-1', type: 'demand', label: '需求', title: '光伏电站红外巡检', status: '审核中', statusKey: 'pending', date: '今日 10:24 提交', meta: ['巡检', '南岸区', '预算 2 万'], note: '平台正在核验项目描述与联系人信息。', values: { title: '光伏电站红外巡检', biz: '巡检', district: '南岸区', date: '两周内', contact: '', budget: '', description: '' }, photoCount: 0 },
-  { id: 'service-1', type: 'service', label: '服务能力', title: '低空电力巡检服务', status: '已发布', statusKey: 'live', date: '发布于 8 月 08 日', meta: ['巡检', '重庆及周边', '按项目报价'], note: '已收到 3 条对接意向。', leads: '3 条意向', values: { title: '低空电力巡检服务', category: '巡检', range: '重庆及周边', quote: '按项目报价', equipment: '', cert: '', contact: '' }, photoCount: 0 },
-  { id: 'product-1', type: 'product', label: '商品设备', title: 'DJI M350 RTK 行业套装', status: '已发布', statusKey: 'live', date: '发布于 8 月 06 日', meta: ['整机', '二手 90 新', '¥ 68,000'], note: '商品已在设备大厅展示。', leads: '8 次咨询', values: { title: 'DJI M350 RTK 行业套装', productType: '整机', condition: '二手 90 新', price: '68000', stock: '1', brand: 'DJI / M350 RTK', delivery: '物流发货', description: '' }, photoCount: 0 },
-  { id: 'course-1', type: 'course', label: '培训课程', title: 'CAAC 多旋翼驾驶员执照班', status: '未通过', statusKey: 'rejected', date: '审核于 8 月 05 日', meta: ['CAAC 民航局执照', '渝北区', '¥ 9,800'], note: '缺少培训机构相关证明，请补充后重新提交。', values: { title: 'CAAC 多旋翼驾驶员执照班', certType: 'CAAC 民航局执照', org: '', district: '渝北区', location: '', schedule: '', price: '9800', duration: '', quota: '', description: '' }, photoCount: 0 },
-  { id: 'draft-1', type: 'demand', label: '需求', title: '园区三维建模测绘项目', status: '草稿', statusKey: 'draft', date: '保存于 昨日 17:40', meta: ['测绘', '两江新区', '待完善'], note: '还有作业时间与联系人未填写。', values: { title: '园区三维建模测绘项目', biz: '测绘', district: '两江新区', date: '', contact: '', budget: '', description: '' }, photoCount: 0 },
-]
-
 // ==================== 状态/类型文案 ====================
 export const STATUS_META = {
   pending: { label: '审核中', cls: 'status-pending', color: '#D56A00' },
@@ -166,13 +157,15 @@ function readPosts() {
   return null
 }
 
+// 旧版内置示例数据的 id（已移除），用于清理早期版本写入本地的演示数据
+const LEGACY_SEED_IDS = ['demand-1', 'service-1', 'product-1', 'course-1', 'draft-1']
+
 export function getPosts() {
-  let list = readPosts()
-  if (!list) {
-    list = SEED_POSTS.slice()
-    try { uni.setStorageSync(STORAGE_KEY, list) } catch (e) { /* ignore */ }
-  }
-  return list
+  const list = readPosts()
+  if (!list) return []
+  const cleaned = list.filter((p) => !LEGACY_SEED_IDS.includes(p.id))
+  if (cleaned.length !== list.length) savePosts(cleaned)
+  return cleaned
 }
 
 export function savePosts(list) {
@@ -238,11 +231,6 @@ export function computePreviewMeta(type, values) {
   return []
 }
 
-// 提交后的默认说明文案
-export function submitNote(type) {
-  return '平台正在核验发布内容与联系人信息。'
-}
-
 // 创建/更新一条发布
 export function makePost({ id, type, values, photoCount, statusKey, status, date, note }) {
   const t = TYPES[type]
@@ -251,15 +239,14 @@ export function makePost({ id, type, values, photoCount, statusKey, status, date
     type,
     label: t ? t.short : type,
     title: (values && values.title) || '未命名发布内容',
-    status: status || '审核中',
-    statusKey: statusKey || 'pending',
-    date: date || '刚刚提交',
+    status: status || '已发布',
+    statusKey: statusKey || 'live',
+    date: date || '刚刚发布',
     meta: computeMeta(type, values),
-    note: note || submitNote(type),
+    note: note || '',
     values: values || {},
     photoCount: photoCount || 0,
   }
-  if (post.leads === undefined) delete post.leads
   return post
 }
 

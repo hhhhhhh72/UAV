@@ -627,18 +627,6 @@
   color: #17212B;
 }
 .pub-timeline span { font-size: 11px; }
-.pub-detail-alert {
-  display: flex;
-  gap: 9px;
-  margin-top: 12px;
-  padding: 11px 12px;
-  border-radius: 9px;
-  background: #FFF6F2;
-  color: #A94B18;
-  font-size: 12px;
-  line-height: 1.55;
-}
-.pub-detail-alert b { color: #FF3B30; }
 .pub-detail-actions {
   display: flex;
   gap: 9px;
