@@ -1,75 +1,62 @@
 <template>
   <Layout :current="2">
-    <view class="publish-page">
-      <view class="page-head">
-        <text class="page-title">发布</text>
-        <text class="page-sub">发布需求与供给，快速对接业务机会</text>
+    <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
+      <!-- 标题区 -->
+      <view class="pub-home-head">
+        <view class="pub-eyebrow">低空综合服务平台</view>
+        <view class="pub-h1">发布</view>
+        <view class="pub-sub">发布需求与供给，快速对接业务机会</view>
       </view>
 
-      <!-- 发布类型功能砖 -->
-      <view class="publish-grid">
-        <view class="pub-item" hover-class="tap-fade" @tap="publish('demand')">
-          <view class="pub-icon" :style="{ background: '#EAF3FB' }">
-            <image class="pub-icon-img" :src="'/static/home/icons/demand.svg'" mode="aspectFit" />
-          </view>
-          <view class="pub-copy">
-            <text class="pub-name">发布需求</text>
-            <text class="pub-desc">巡检/植保/测绘等项目</text>
-          </view>
-          <text class="pub-arrow">›</text>
-        </view>
+      <!-- 草稿横幅 -->
+      <view v-if="draftCount > 0" class="pub-draft-banner">
+        <view class="pub-draft-dot"></view>
+        <text>你有 {{ draftCount }} 条草稿待完善</text>
+        <view class="pub-draft-btn" @tap="resumeDraft">继续编辑</view>
+      </view>
 
-        <view class="pub-item" hover-class="tap-fade" @tap="publish('service')">
-          <view class="pub-icon" :style="{ background: '#FFF0E6' }">
-            <image class="pub-icon-img" :src="'/static/icons/service.svg'" mode="aspectFit" />
+      <!-- 四张发布入口卡片 -->
+      <view class="pub-grid">
+        <view
+          v-for="card in typeCards"
+          :key="card.key"
+          class="pub-type-card"
+          hover-class="pub-type-card--active"
+          @tap="chooseType(card.key)"
+        >
+          <view class="pub-type-icon" :class="'pub-type-icon--' + card.key">
+            <image :src="card.icon" mode="aspectFit" />
           </view>
-          <view class="pub-copy">
-            <text class="pub-name">发布服务能力</text>
-            <text class="pub-desc">展示巡检、测绘、航拍等可承接能力</text>
-          </view>
-          <text class="pub-arrow">›</text>
-        </view>
-
-        <view class="pub-item" hover-class="tap-fade" @tap="publish('product')">
-          <view class="pub-icon" :style="{ background: '#E9F7F0' }">
-            <image class="pub-icon-img" :src="'/static/home/icons/shop.svg'" mode="aspectFit" />
-          </view>
-          <view class="pub-copy">
-            <text class="pub-name">发布商品设备</text>
-            <text class="pub-desc">设备租赁、整机、零部件或载荷</text>
-          </view>
-          <text class="pub-arrow">›</text>
-        </view>
-
-        <view class="pub-item" hover-class="tap-fade" @tap="publish('course')">
-          <view class="pub-icon" :style="{ background: '#F0EDFF' }">
-            <image class="pub-icon-img" :src="'/static/home/icons/training.svg'" mode="aspectFit" />
-          </view>
-          <view class="pub-copy">
-            <text class="pub-name">发布培训课程</text>
-            <text class="pub-desc">CAAC/UTC/职业技能等课程招生</text>
+          <view class="pub-type-main">
+            <text class="pub-type-name">{{ card.name }}</text>
+            <text class="pub-type-desc">{{ card.desc }}</text>
           </view>
           <text class="pub-arrow">›</text>
         </view>
       </view>
 
-      <!-- 我的发布管理 -->
-      <view class="manage-section">
-        <text class="manage-title">我的发布</text>
-        <view class="manage-item" hover-class="tap-fade" @tap="go('/pkg-demand/pages/demands/mine')">
-          <text class="manage-name">我的需求</text>
-          <text class="manage-desc">审核状态 · 对接意向 · 成交登记</text>
-          <text class="pub-arrow">›</text>
+      <!-- 我的发布 -->
+      <view class="pub-section-title">我的发布</view>
+      <view class="pub-manage">
+        <view class="pub-manage-row" hover-class="pub-manage-row--active" @tap="goMyPosts('all', 'all')">
+          <text class="pub-manage-name">全部发布</text>
+          <text class="pub-manage-desc pub-manage-count">{{ totalCount }} 条</text>
+          <text class="pub-arrow" style="font-size:14px">›</text>
         </view>
-        <view class="manage-item" hover-class="tap-fade" @tap="go('/pages/tasks/index')">
-          <text class="manage-name">我的任务</text>
-          <text class="manage-desc">接单与执行记录</text>
-          <text class="pub-arrow">›</text>
+        <view class="pub-manage-row" hover-class="pub-manage-row--active" @tap="goMyPosts('demand', 'all')">
+          <text class="pub-manage-name">我的需求</text>
+          <text class="pub-manage-desc">状态 · 对接意向</text>
+          <text class="pub-arrow" style="font-size:14px">›</text>
         </view>
-        <view class="manage-item" hover-class="tap-fade" @tap="go('/pages/intents/mine')">
-          <text class="manage-name">我的对接意向</text>
-          <text class="manage-desc">我登记过的对接记录</text>
-          <text class="pub-arrow">›</text>
+        <view class="pub-manage-row" hover-class="pub-manage-row--active" @tap="goMyPosts('service', 'all')">
+          <text class="pub-manage-name">我的服务</text>
+          <text class="pub-manage-desc">能力卡 · 线索咨询</text>
+          <text class="pub-arrow" style="font-size:14px">›</text>
+        </view>
+        <view class="pub-manage-row" hover-class="pub-manage-row--active" @tap="goMyPosts('all', 'draft')">
+          <text class="pub-manage-name">我的草稿</text>
+          <text class="pub-manage-desc">{{ draftCount }} 条待完善</text>
+          <text class="pub-arrow" style="font-size:14px">›</text>
         </view>
       </view>
     </view>
@@ -77,141 +64,61 @@
 </template>
 
 <script setup>
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import Layout from '../../components/Layout.vue'
+import { TYPES, getPosts, draftPosts } from '../../utils/publishData'
+import { useSafeTop } from '../../utils/safeTop'
 
-const publish = (type) => {
-  if (type === 'demand') return uni.navigateTo({ url: '/pkg-demand/pages/demands/publish' })
-  if (type === 'service') return uni.navigateTo({ url: '/pkg-service/pages/publish/service' })
-  if (type === 'product') return uni.navigateTo({ url: '/pkg-service/pages/publish/product' })
-  if (type === 'course') return uni.navigateTo({ url: '/pkg-service/pages/publish/course' })
-  uni.showToast({ title: '暂未开放', icon: 'none', duration: 2000 })
+const { topPad, initSafeTop } = useSafeTop()
+
+const typeCards = [
+  { key: 'demand', name: '发布需求', desc: '发布具体项目，获得飞手与服务商报价', icon: '/static/publish/demand.svg' },
+  { key: 'service', name: '发布服务能力', desc: '展示团队、设备和可承接服务，让需求方主动联系', icon: '/static/publish/service.svg' },
+  { key: 'product', name: '发布商品设备', desc: '按商品逻辑补齐型号、成色、价格和交付方式', icon: '/static/publish/product.svg' },
+  { key: 'course', name: '发布培训课程', desc: '用课程、证书、日期与招生信息回答学员的核心问题', icon: '/static/publish/course.svg' },
+]
+
+const allPosts = ref([])
+const draftCount = computed(() => draftPosts().length)
+const totalCount = computed(() => allPosts.value.length)
+
+function refresh() {
+  allPosts.value = getPosts()
 }
-const go = (url) => uni.navigateTo({ url })
+
+function chooseType(type) {
+  uni.navigateTo({ url: '/pages/publish/form?type=' + type })
+}
+
+function resumeDraft() {
+  uni.navigateTo({ url: '/pages/publish/form?type=demand&resume=1' })
+}
+
+function goMyPosts(kind, tab) {
+  uni.navigateTo({ url: '/pages/publish/my-posts?kind=' + kind + '&tab=' + tab })
+}
+
+onShow(() => {
+  initSafeTop()
+  refresh()
+})
 </script>
 
 <style scoped>
-.publish-page {
+@import './pub-style.css';
+.pub-page {
   min-height: 100vh;
-  background: #F4F6F8;
-  padding: 16px 12px calc(24px + env(safe-area-inset-bottom));
+  background: #F5F6F8;
+  padding: 14px 12px calc(96px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
-
-.page-head {
-  padding: 8px 4px 16px;
-}
-
-.page-title {
-  display: block;
-  font-size: 21px;
-  font-weight: 700;
-  color: #17212B;
-}
-
-.page-sub {
-  display: block;
-  font-size: 12px;
-  color: #667085;
-  margin-top: 4px;
-}
-
-/* 发布类型砖 */
-.publish-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.pub-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #fff;
-  border: 1px solid #EEF1F4;
-  border-radius: 8px;
-  padding: 14px;
-}
-
-.pub-item.pub-muted {
-  opacity: 0.85;
-}
-
-.pub-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.pub-icon-img {
-  width: 26px;
-  height: 26px;
-}
-
-.pub-copy {
+.pub-manage-desc {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pub-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #17212B;
-}
-
-.pub-desc {
-  font-size: 11px;
-  color: #98A2B3;
-}
-
-.pub-arrow {
-  font-size: 18px;
-  color: #98A2B3;
-}
-
-/* 我的发布管理 */
-.manage-section {
-  margin-top: 16px;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #EEF1F4;
-  padding: 4px 14px;
-}
-
-.manage-title {
-  display: block;
-  font-size: 15px;
-  font-weight: 700;
-  color: #17212B;
-  padding: 14px 0 10px;
-}
-
-.manage-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 13px 0;
-  border-top: 1px solid #EEF1F4;
-}
-
-.manage-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #17212B;
-}
-
-.manage-desc {
-  flex: 1;
-  font-size: 11px;
-  color: #98A2B3;
   text-align: right;
 }
-
-.tap-fade {
-  opacity: 0.7;
+.pub-manage-count {
+  margin-left: 0;
 }
+.pub-manage-row .pub-arrow { font-size: 14px; }
 </style>
