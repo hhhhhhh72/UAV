@@ -143,11 +143,15 @@
 
         <!-- 正常列表：首条可见数据为重点卡（全宽大图），其余为左图右文紧凑卡 -->
         <view v-else class="demand-list">
+          <!-- 注意：不能用 :class="{ featured: index===0 }" 动态切换样式——
+               微信渲染层对 v-for 复用节点（key=d.id）的属性更新存在丢失风险，
+               实测老的大图卡掉到第二行后 class 残留 featured（display:block）
+               → body 跑到图片下方、与其他小图卡布局不一致。
+               改用 CSS :first-child 结构性选择器，由 DOM 位置决定样式 -->
           <view
             v-for="(d, index) in filteredDemands"
             :key="d.id"
             class="demand-card"
-            :class="{ featured: index === 0 }"
             hover-class="tap-fade"
             hover-stay-time="120"
             @tap="goDemandDetail(d)"
@@ -167,7 +171,6 @@
               mode="aspectFill"
               class="demand-photo"
               :class="{ 'tall-photo': d.needsCrop }"
-              @load="onDemandImageLoad(d, $event)"
               @error="onDemandImageError(d)"
             />
             <view class="demand-body">
@@ -541,14 +544,35 @@ const onDemandImageError = (d) => {
   }
 }
 
-// 图片加载后按原始比例标记超高图：旧上传图未走 16:9 裁剪（竖图在 112px 列中
-// 可撑到 200px+），把卡片撑高后右侧数据与其他小图卡不对齐；定向裁到 126px
-// （aspectFill 填满无变形），16:9 等矮图不受影响，样式保持原样
-const onDemandImageLoad = (d, e) => {
-  const w = e.detail && e.detail.width
-  const h = e.detail && e.detail.height
-  const tall = w > 0 && h / w > 1.2
-  if (tall !== !!d.needsCrop) d.needsCrop = tall
+// 超高图定向裁剪：旧上传图未走 16:9 裁剪（竖图在 112px 列中可撑到 200px+），
+// 把卡片撑高后右侧数据与其他小图卡不对齐；needsCrop=true 时图区裁到 126px
+// （aspectFill 填满无变形），16:9 等矮图不受影响。
+// 不能用 @load 事件标记（同 URL 图片从缓存加载时 load 不触发，刷新后标记丢失），
+// 改用 uni.getImageInfo 在数据渲染前获取原始比例 + URL 级缓存，刷新秒回。
+const imgRatioCache = {}
+const getImageRatio = (url) =>
+  new Promise((resolve) => {
+    if (imgRatioCache[url]) return resolve(imgRatioCache[url])
+    uni.getImageInfo({
+      src: url,
+      success: (info) => {
+        if (info.width > 0 && info.height > 0) {
+          imgRatioCache[url] = { w: info.width, h: info.height }
+        }
+        resolve(imgRatioCache[url] || null)
+      },
+      fail: () => resolve(null),
+    })
+  })
+
+const markTallImages = async (items) => {
+  if (!items || !items.length) return
+  await Promise.all(
+    items.map(async (it) => {
+      const ratio = await getImageRatio(it.image)
+      if (ratio && ratio.h / ratio.w > 1.2) it.needsCrop = true
+    })
+  )
 }
 
 // 重点卡图片点击 → 预览原图（发布端已统一 16:9，此处兼容旧数据查看原图）
@@ -592,6 +616,9 @@ const loadAll = async (opts = {}) => {
     // demands 独立处理，与 home 互不连坐
     if (demandsRes.status === 'fulfilled') {
       const items = normalizeDemandList(demandsRes.value)
+      // 渲染前标记超高图（getImageInfo 原始比例，URL 级缓存），
+      // 避免竖图在 112px 列中把卡片撑高、右侧数据与其他小图卡错位
+      await markTallImages(items)
       if (!items.length) {
         demands.value = []
         demandState.value = 'empty'
@@ -1272,8 +1299,9 @@ onPullDownRefresh(() => {
   white-space: nowrap;
 }
 
-/* 首条重点卡：全宽大图 + 紧凑正文 */
-.demand-card.featured {
+/* 首条重点卡：全宽大图 + 紧凑正文（:first-child 由 DOM 位置决定，不依赖
+   动态 class，避免微信渲染层对列表节点 class 更新丢失导致残留 featured） */
+.demand-card:first-child {
   min-height: 0;
   display: block;
 }
@@ -1291,19 +1319,19 @@ onPullDownRefresh(() => {
   width: 100%;
   height: 100%;
 }
-.demand-card.featured .demand-body {
+.demand-card:first-child .demand-body {
   min-height: 112px;
   padding: 9px 11px 10px;
 }
-.demand-card.featured .demand-title {
+.demand-card:first-child .demand-title {
   margin-top: 6px;
   font-size: 14px;
   -webkit-line-clamp: 1;
 }
-.demand-card.featured .demand-meta {
+.demand-card:first-child .demand-meta {
   margin-top: 5px;
 }
-.demand-card.featured .demand-foot {
+.demand-card:first-child .demand-foot {
   padding-top: 7px;
 }
 
@@ -1458,10 +1486,10 @@ onPullDownRefresh(() => {
 
 /* ================= 响应式：375px 宽度 ================= */
 @media (max-width: 380px) {
-  .demand-card:not(.featured) {
+  .demand-card:not(:first-child) {
     grid-template-columns: 104px minmax(0, 1fr);
   }
-  .demand-card:not(.featured) .demand-photo {
+  .demand-card:not(:first-child) .demand-photo {
     width: 104px;
   }
 }
