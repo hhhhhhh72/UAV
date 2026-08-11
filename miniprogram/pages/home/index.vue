@@ -539,7 +539,7 @@ const onDemandImageError = (d) => {
   }
 }
 
-// 重点卡图片点击 → 预览原图（发布端已统一 21:9，此处兼容旧数据查看原图）
+// 重点卡图片点击 → 预览原图（发布端已统一 16:9，此处兼容旧数据查看原图）
 const previewFeaturedImg = (d) => {
   if (d.image) uni.previewImage({ urls: [d.image] })
 }
@@ -1255,12 +1255,12 @@ onPullDownRefresh(() => {
   min-height: 0;
   display: block;
 }
-/* 重点卡 21:9 固定比例图区（发布端裁剪已统一比例，aspectFill 几乎零裁切；
+/* 重点卡 16:9 固定比例图区（发布端裁剪已统一比例，aspectFill 几乎零裁切；
    卡片高度固定 → 每个需求块大小一致） */
 .featured-photo {
   position: relative;
   width: 100%;
-  padding-top: 42.857%;
+  padding-top: 56.25%;
 }
 .featured-photo .demand-photo {
   position: absolute;
