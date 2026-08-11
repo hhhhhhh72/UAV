@@ -19,7 +19,7 @@ func newBizServer(t *testing.T) http.Handler {
 	srv := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),
-		service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil)),
+		service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)),
 		service.NewEmploymentService(memory.NewEmploymentRepository()),
 		service.NewContractService(memory.NewContractRepository()),
 		service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()),
@@ -42,7 +42,6 @@ func newBizServer(t *testing.T) http.Handler {
 		service.NewVenueService(memory.NewVenueRepository()),
 		memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens,
 	)
-	srv.SetShopService(service.NewShopService(memory.NewShopRepository()))
 	srv.SetExpertService(service.NewExpertService(memory.NewExpertRepository()))
 	srv.SetCaseService(service.NewCaseService(memory.NewCaseRepository()))
 	srv.SetComplianceService(service.NewComplianceService(memory.NewComplianceRepository()))

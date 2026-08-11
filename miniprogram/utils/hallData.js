@@ -184,7 +184,9 @@ export function normalizeDemand(d) {
   const title = String(d.title || '').trim()
   if (!title) return null
   const cat = classifyDemand(d)
-  const imgs = Array.isArray(d.images) ? d.images.filter((u) => typeof u === 'string' && u.trim()) : []
+  // 存库为相对路径 /uploads/xxx，展示层统一补全域名（否则小程序按本地包内资源加载 → 白图）
+  const resolveUrl = (u) => (u.indexOf('http') === 0 ? u : BASE_URL + u)
+  const imgs = Array.isArray(d.images) ? d.images.filter((u) => typeof u === 'string' && u.trim()).map(resolveUrl) : []
   const image = imgs[0] || (cat === '吊运' ? IMG_LIFT : IMG_SOLAR)
   const status = DEMAND_STATUS_MAP[d.status] || '进行中'
   const budget = fmtBudget(d.budget_fen)
@@ -202,6 +204,7 @@ export function normalizeDemand(d) {
     company: d.publisher_name || '平台用户',
     desc: d.description || '暂无详细描述',
     image,
+    images: imgs,
     fields: [['地区', d.district || '重庆'], ['发布时间', fmtDate(d.created_at)], ['预算', budget], ['状态', status]],
   }
 }

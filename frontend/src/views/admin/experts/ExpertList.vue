@@ -45,7 +45,7 @@
             :before-upload="beforeUpload"
             @success="onUploadSuccess"
           >
-            <a-avatar v-if="form.avatar_url" :src="form.avatar_url" :size="80" shape="square" />
+            <a-avatar v-if="form.avatar_url" :image-url="form.avatar_url" :size="80" shape="square" />
             <a-button v-else type="outline">点击上传</a-button>
           </a-upload>
           <a-button v-if="form.avatar_url" size="small" style="margin-top: 8px" @click="form.avatar_url = ''">清除</a-button>

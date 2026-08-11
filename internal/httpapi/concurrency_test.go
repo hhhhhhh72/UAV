@@ -33,7 +33,7 @@ func newFullServer(t *testing.T) *httpapi.Server {
 	srv := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(enterpriseRepo),
-		service.NewEnterpriseSvc(enterpriseRepo),
+		service.NewEnterpriseSvc(enterpriseRepo, memory.NewUserRepository(nil)),
 		service.NewEmploymentService(employmentRepo),
 		service.NewContractService(contractRepo),
 		service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()),
@@ -66,7 +66,7 @@ func TestConcurrent_200EnterpriseRegistrations(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping concurrency test in short mode")
 	}
-	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil))
+	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	var wg sync.WaitGroup
 	errs := make(chan error, 200)
 	start := time.Now()
@@ -111,7 +111,7 @@ func TestConcurrent_BatchApprove(t *testing.T) {
 		t.Skip("skipping concurrency test in short mode")
 	}
 	repo := memory.NewEnterpriseRepository(nil)
-	svc := service.NewEnterpriseSvc(repo)
+	svc := service.NewEnterpriseSvc(repo, memory.NewUserRepository(nil))
 	admin := domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}
 
 	// Create and submit 200 enterprises
@@ -178,7 +178,7 @@ func TestConcurrent_MixedWorkload(t *testing.T) {
 	demandRepo := memory.NewDemandRepository(nil)
 	entRepo := memory.NewEnterpriseRepository(nil)
 	demandSvc := service.NewDemandService(demandRepo)
-	entSvc := service.NewEnterpriseSvc(entRepo)
+	entSvc := service.NewEnterpriseSvc(entRepo, memory.NewUserRepository(nil))
 
 	start := time.Now()
 	var wg sync.WaitGroup

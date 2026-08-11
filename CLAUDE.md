@@ -174,6 +174,7 @@ go test ./internal/...  # 全部 PASS
 | 登录 401 | 小程序调 `/api/v1/login` 不存在 | 改为 `/api/auth/login` |
 | 登录后 Token 不匹配 | 旧代码只存 `token`，新 API 返回 `accessToken` | 改用 `authStorage.setTokens()` |
 | 小程序全部请求 `ERR_CONNECTION_TIMED_OUT` | `miniprogram/utils/config.js` 的 `BASE_URL` 写死旧局域网 IP（192.168.5.141），DHCP 换网后 IP 变了 | 用 `ipconfig` 查当前 WLAN IP（如 192.168.5.19），改 `BASE_URL` 后重新编译；真机调试需手机与电脑同一 WiFi |
+| 微信一键登录变成"同一个号/多出 dev-fixed 用户" | 打包 tar 未排除 `.env`，本地 `.env` 覆盖服务器 `.env` → `WECHAT_APPID/APPSECRET` 丢失 → code2Session 失败 → `adminDevMode()` 兜底 `openid=dev-fixed` → 每次失败都建共享账号 | 打包命令必须 `--exclude='.env'`；部署后验证 `docker exec uav-api-1 env \| grep WECHAT` 非空；恢复 `~/UAV/.env` 中 WECHAT_APPID/WECHAT_APPSECRET 后 `docker compose up -d api` |
 
 ## 本地开发
 

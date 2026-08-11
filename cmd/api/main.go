@@ -125,7 +125,6 @@ func main() {
 		studyTourRepo   repository.StudyTourRepository
 		assocMemberRepo = memory.NewAssociationMemberRepository()
 		expertRepo      repository.ExpertRepository
-		shopRepo        repository.ShopRepository
 		caseRepo        repository.CaseRepository
 		svcAppRepo      repository.ApplicationRepository
 		complianceRepo  repository.ComplianceRepository
@@ -193,7 +192,6 @@ func main() {
 		escrowRepo = pgStore.NewEscrowRepository()
 		refreshTokenRepo = pgStore.NewRefreshTokenRepository()
 		expertRepo = pgStore.NewExpertRepository()
-		shopRepo = pgStore.NewShopRepository()
 		caseRepo = pgStore.NewCaseRepository()
 		svcAppRepo = pgStore.NewApplicationRepository()
 		complianceRepo = pgStore.NewComplianceRepository()
@@ -263,7 +261,6 @@ func main() {
 		collegeRepo = memory.NewCollegeRepository()
 		studyTourRepo = memory.NewStudyTourRepository()
 		expertRepo = memory.NewExpertRepository()
-		shopRepo = memory.NewShopRepository()
 		caseRepo = memory.NewCaseRepository()
 		svcAppRepo = memory.NewApplicationRepository()
 		complianceRepo = memory.NewComplianceRepository()
@@ -282,7 +279,7 @@ func main() {
 	app := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(enterpriseRepo),
-		service.NewEnterpriseSvc(enterpriseRepo),
+		service.NewEnterpriseSvc(enterpriseRepo, userRepo),
 		service.NewEmploymentService(employmentRepo),
 		service.NewContractService(contractRepo),
 		service.NewJobService(jobRepo, resumeRepo, appRepo),
@@ -311,7 +308,6 @@ func main() {
 	// ── Wire extended services ──────────────────────────────────────
 	// PG-backed services: wired for both storage modes.
 	app.SetExpertService(service.NewExpertService(expertRepo))
-	app.SetShopService(service.NewShopService(shopRepo))
 	app.SetCaseService(service.NewCaseService(caseRepo))
 	app.SetComplianceService(service.NewComplianceService(complianceRepo))
 	app.SetReportService(service.NewReportService(industryRptRepo))

@@ -75,15 +75,19 @@ func (s *Server) listPublicEnterprises(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	// 仅暴露展示字段，脱敏敏感信息
+	// 仅暴露展示字段，脱敏敏感信息（PRD FR-2.3 列表展示：logo/名称/分类/核心能力/认证状态）
 	out := make([]map[string]any, 0, len(items))
 	for _, e := range items {
 		out = append(out, map[string]any{
-			"id":         e.ID,
-			"name":       e.Name,
-			"status":     e.Status,
-			"is_member":  e.IsMember,
-			"created_at": e.CreatedAt,
+			"id":                e.ID,
+			"name":              e.Name,
+			"status":            e.Status,
+			"is_member":         e.IsMember,
+			"created_at":        e.CreatedAt,
+			"logo":              e.Logo,
+			"industry_category": e.IndustryCategory,
+			"capability_tags":   e.CapabilityTags,
+			"description":       e.Description,
 		})
 	}
 	respond(w, r, http.StatusOK, out)

@@ -121,7 +121,7 @@
 </template>
 
 <script>
-import { request, getStoredUser } from '../../utils/request'
+import { request, getStoredUser, BASE_URL } from '../../utils/request'
 import { BIZ_TYPE_TABS, bizTypeLabel as bizTypeLabelOf } from '../../utils/enums'
 
 export default {
@@ -235,9 +235,15 @@ export default {
     featuredImage(item) {
       try {
         const arr = typeof item.images === 'string' ? JSON.parse(item.images) : item.images
-        if (Array.isArray(arr) && arr[0]) return arr[0]
+        // 存库为相对路径 /uploads/xxx，预览必须补全域名，否则小程序按本地包内资源加载 → 白图
+        if (Array.isArray(arr) && arr[0]) return this.resolveUrl(arr[0])
       } catch {}
       return '/static/home/hero-inspection.jpg'
+    },
+    resolveUrl(u) {
+      if (!u) return ''
+      if (u.indexOf('http') === 0) return u
+      return BASE_URL + u
     },
     formatBudget(fen) {
       if (fen == null || fen === 0) return '面议'

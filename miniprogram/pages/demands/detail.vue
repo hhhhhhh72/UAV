@@ -267,6 +267,8 @@ const mediaTitle = computed(() => {
 
 const mediaImages = computed(() => {
   if (!item.value) return []
+  // 真实数据：展示全部上传图片；模拟/兜底数据：展示封面图
+  if (Array.isArray(item.value.images) && item.value.images.length) return item.value.images
   const first = item.value.image || IMG_SOLAR
   const second = first === IMG_SOLAR ? IMG_HERO : IMG_SOLAR
   return [first, second]
@@ -370,7 +372,7 @@ function findMock(id) {
 const goBack = () => uni.navigateBack()
 const goDetail = (r) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(r.id))
 const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
-const previewImage = (i) => uni.previewImage({ urls: mediaImages.value, current: i })
+const previewImage = (i) => uni.previewImage({ urls: mediaImages.value, current: mediaImages.value[i] })
 
 const onShare = () => {
   uni.showToast({ title: '已生成分享卡片', icon: 'none' })

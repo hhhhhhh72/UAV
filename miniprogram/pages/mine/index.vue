@@ -190,7 +190,8 @@ const headerVm = computed(() => {
   const u = user.value
   g.name = u.name || u.phone || '微信用户'
   g.initial = (u.name || u.phone || '微').charAt(0).toUpperCase()
-  g.avatar = avatarSrc(u.avatar)
+  // 头像字段兼容：本地缓存存 avatar（profile.vue 保存时写入），后端登录/me 返回 avatar_url
+  g.avatar = avatarSrc(u.avatar || u.avatar_url)
 
   if (identity.value === 'enterprise') {
     g.badge = '企业账号'
@@ -213,12 +214,13 @@ const headerVm = computed(() => {
   } else if (identity.value === 'individual') {
     g.badge = '个人用户'
     g.badgeClass = 'plain'
-    g.note = u.isAuth ? '已实名认证 · 可申请升级飞手' : '完成实名认证，解锁更多产业服务'
+    // 实名认证未上线：不误导用户"完成认证解锁功能"，现有功能不受实名状态限制
+    g.note = u.isAuth ? '已实名认证 · 可申请升级飞手' : '可发布需求、承接业务，实名认证建设中'
     g.showCertBar = true
     g.certIcon = '/static/mine-icons/certification.svg'
-    g.certMain = '完成认证，解锁更多产业服务'
-    g.certState = u.isAuth ? '已实名认证' : '去实名认证'
-    g.certStateClass = u.isAuth ? 'ok' : 'wait'
+    g.certMain = '实名认证建设中 · 现有服务均可使用'
+    g.certState = u.isAuth ? '已实名认证' : '建设中'
+    g.certStateClass = u.isAuth ? 'ok' : 'plain'
   } else {
     g.badge = roleLabels[u.role] || '平台账号'
     g.badgeClass = 'plain'
@@ -287,7 +289,7 @@ const overviewNote = computed(() => {
     return { lead: '飞手档案已完善', rest: ' · 可承接更多匹配任务' }
   }
   if (identity.value === 'individual') {
-    return { lead: '完成个人认证后', rest: '可申请升级为飞手或企业账号' }
+    return { lead: '实名认证建设中', rest: '· 可随时申请飞手认证或企业入驻' }
   }
   return null
 })

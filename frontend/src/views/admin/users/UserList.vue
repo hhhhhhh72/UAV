@@ -10,6 +10,13 @@
       add-label="新增用户"
       @add="openForm()"
     >
+      <template #name="{ record }">
+        <div class="cell-user">
+          <a-avatar v-if="record.avatar_url" :size="28" :image-url="record.avatar_url" />
+          <a-avatar v-else :size="28" class="cell-avatar-fallback">{{ (record.name || '?').charAt(0) }}</a-avatar>
+          <span class="cell-name">{{ record.name || '-' }}</span>
+        </div>
+      </template>
       <template #role="{ record }">
         <a-tag :color="roleTagType(record.role)" size="small">{{ record.roleLabel }}</a-tag>
       </template>
@@ -78,6 +85,7 @@ const roleTagType = (r) => ({ platform_admin: 'green', association_admin: 'orang
 const searchFields = []
 
 const columns = [
+  { title: '用户名', dataIndex: 'name', slotName: 'name', minWidth: 160 },
   { title: '用户ID', dataIndex: 'id', minWidth: 220 },
   { title: '角色', dataIndex: 'role', slotName: 'role', width: 120 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
@@ -138,4 +146,10 @@ const handleDelete = (row) => {
 .page { max-width: 1200px; margin: 0 auto; }
 
 .super-admin-tip { color: #999; font-size: 12px; }
+
+.cell-user { display: flex; align-items: center; gap: 8px; }
+
+.cell-name { font-weight: 500; color: var(--color-text-1); }
+
+.cell-avatar-fallback { background: #C9CDD4; color: #fff; font-size: 13px; }
 </style>

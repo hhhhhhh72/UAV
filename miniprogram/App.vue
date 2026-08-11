@@ -10,19 +10,66 @@
 				// #ifdef MP-WEIXIN
 				const token = uni.getStorageSync('accessToken')
 				if (!token) return
-				// 有 token 但 user 缺失（历史遗留/被清）：用 me 恢复用户信息
-				const { request } = require('./utils/request')
-				request({ url: '/api/auth/me' }).then(meRes => {
-					const fresh = meRes?.user
-					if (!fresh) return
-					const cached = JSON.parse(uni.getStorageSync('user') || '{}')
-					// 只覆盖非空字段，避免 me 的空 name 覆盖本地已存的昵称
-					for (const k of Object.keys(fresh)) {
-						if (fresh[k] !== '' && fresh[k] != null) cached[k] = fresh[k]
-					}
-					uni.setStorageSync('user', JSON.stringify(cached))
-				}).catch(() => { /* token 失效时由请求层处理 */ })
+				const cached = JSON.parse(uni.getStorageSync('user') || '{}')
+				// 手机号/密码/历史会话（无 has_wechat 标记）：不做微信账号探测，避免误切换
+				if (!cached.has_wechat) {
+					// 有 token 但 user 缺失（历史遗留/被清）：用 me 恢复用户信息
+					const { request } = require('./utils/request')
+					request({ url: '/api/auth/me' }).then(meRes => {
+						const fresh = meRes?.user
+						if (!fresh) return
+						// 只覆盖非空字段，避免 me 的空 name 覆盖本地已存的昵称
+						for (const k of Object.keys(fresh)) {
+							if (fresh[k] !== '' && fresh[k] != null) cached[k] = fresh[k]
+						}
+						uni.setStorageSync('user', JSON.stringify(cached))
+					}).catch(() => { /* token 失效时由请求层处理 */ })
+					return
+				}
+				// 微信会话：探测「当前微信账号」是否与已登录账号一致。
+				// openid 由后端比对，客户端用 user.id 判断（每个微信账号对应唯一 user.id）。
+				// 注意：用原生 uni.request 直连，不走请求层，避免探测失败时的 401 跳登录副作用。
+				this.checkWechatAccount(cached)
 				// #endif
+			},
+			checkWechatAccount(cached) {
+				const { BASE_URL, authStorage } = require('./utils/request')
+				uni.login({
+					provider: 'weixin',
+					success: (loginRes) => {
+						uni.request({
+							url: BASE_URL + '/api/v1/auth/wechat/login',
+							method: 'POST',
+							data: { code: loginRes.code },
+							success: (r) => {
+								if (r.statusCode < 200 || r.statusCode >= 300) return
+								const body = r.data || {}
+								const payload = (body.data && body.data.access_token) ? body.data : body
+								const fresh = payload.user
+								if (!payload.access_token || !fresh || !fresh.id) return
+								if (fresh.id === cached.id) {
+									// 同一微信账号：合并最新资料，不轮换 token
+									const merged = Object.assign({}, cached)
+									for (const k of Object.keys(fresh)) {
+										if (fresh[k] !== '' && fresh[k] != null) merged[k] = fresh[k]
+									}
+									uni.setStorageSync('user', JSON.stringify(merged))
+									return
+								}
+								// 微信账号已切换：整体换会话，清理原账号本地态
+								authStorage.setTokens(payload.access_token, payload.refresh_token)
+								uni.setStorageSync('user', JSON.stringify(fresh))
+								uni.removeStorageSync('hall_certified')
+								uni.removeStorageSync('unreadCount')
+								setTimeout(() => {
+									uni.showToast({ title: '已切换微信账号', icon: 'none' })
+								}, 600)
+							},
+							fail: () => { /* 探测失败保持原会话 */ },
+						})
+					},
+					fail: () => { /* wx.login 失败保持原会话 */ },
+				})
 			}
 		}
 	}

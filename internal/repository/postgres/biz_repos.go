@@ -455,8 +455,6 @@ type resourceRepo struct{ pool *pgxpool.Pool }
 func (s *Store) NewResourceRepository() repository.ResourceRepository {
 	return &resourceRepo{pool: s.Pool()}
 }
-func (s *Store) NewShopRepository() repository.ShopRepository { return &shopRepo{pool: s.Pool()} }
-
 func (r *resourceRepo) Create(res domain.IndustryResource) (domain.IndustryResource, error) {
 	res.CreatedAt = time.Now()
 	res.UpdatedAt = res.CreatedAt

@@ -13,12 +13,6 @@ import (
 
 // registerBizRoutes registers all business-module routes.
 func (s *Server) registerBizRoutes(mux *http.ServeMux) {
-	// ---- Shops (Admin CRUD) ----
-	mux.HandleFunc("GET /api/v1/admin/shops", s.listAdminShops)
-	mux.HandleFunc("POST /api/v1/admin/shops", s.createAdminShop)
-	mux.HandleFunc("PUT /api/v1/admin/shops/{id}", s.updateAdminShop)
-	mux.HandleFunc("DELETE /api/v1/admin/shops/{id}", s.deleteAdminShop)
-
 	// ---- Experts ----
 	mux.HandleFunc("GET /api/v1/experts", s.listExperts)
 	mux.HandleFunc("POST /api/v1/admin/experts", s.createExpert)

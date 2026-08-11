@@ -88,7 +88,12 @@ type Enterprise struct {
 	CoverImage       string           `json:"cover_image"`       // 机构封面图
 	LicenseURL       string           `json:"license_url"`
 	AccountName      string           `json:"account_name"`
+	ContactPerson    string           `json:"contact_person"`   // 联系人（PRD FR-2.1）
+	Email            string           `json:"email"`            // 邮箱
+	FoundedAt        string           `json:"founded_at"`       // 成立时间（YYYY-MM）
+	CapabilityTags   string           `json:"capability_tags"`  // 能力标签，逗号分隔（预设标签库多选）
 	Status           EnterpriseStatus `json:"status"`
+	ReviewComment    string           `json:"review_comment"` // 审核意见：驳回/需补充原因，用户端展示
 	IsMember         bool             `json:"is_member"`
 	Version          int              `json:"version"`
 	CreatedAt        time.Time        `json:"created_at"`

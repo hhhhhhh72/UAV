@@ -25,7 +25,7 @@ func TestExtreme_1000GoroutineSustained(t *testing.T) {
 	demandRepo := memory.NewDemandRepository(nil)
 	entRepo := memory.NewEnterpriseRepository(nil)
 	demandSvc := service.NewDemandService(demandRepo)
-	entSvc := service.NewEnterpriseSvc(entRepo)
+	entSvc := service.NewEnterpriseSvc(entRepo, memory.NewUserRepository(nil))
 	admin := domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}
 
 	// Pre-populate 50 demands

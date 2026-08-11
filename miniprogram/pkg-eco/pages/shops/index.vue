@@ -53,7 +53,7 @@
     <!-- 店铺卡片（真实数据：home.shops） -->
     <view class="shop-list">
       <view v-for="s in filteredShops" :key="s.id" class="shop-card">
-        <image :src="s.logo_url || '/static/home-bg.jpg'" mode="aspectFill" class="shop-logo" />
+        <image :src="s.logo_url ? resolveUrl(s.logo_url) : '/static/home-bg.jpg'" mode="aspectFill" class="shop-logo" />
         <view class="shop-body">
           <view class="shop-row1">
             <text class="shop-name">{{ s.name }}</text>
@@ -80,7 +80,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import Layout from '@/components/Layout.vue'
-import { request } from '@/utils/request'
+import { request, BASE_URL } from '@/utils/request'
 
 const banners = ref([
   { bg: '#4fc3f7', title: '无人机商家入驻' },
@@ -101,6 +101,13 @@ const notices = ref([])
 const keyword = ref('')
 
 // 搜索 + Tab 过滤：推荐=全部 / 新人=最新加入 / 附近=全部（无定位时展示全部）
+// 相对路径（存库格式）→ 完整 URL（预览格式）
+const resolveUrl = (u) => {
+  if (!u) return ''
+  if (u.indexOf('http') === 0) return u
+  return BASE_URL + u
+}
+
 const filteredShops = computed(() => {
   let list = shops.value
   const kw = keyword.value.trim().toLowerCase()
@@ -189,5 +196,5 @@ const callShop = (s) => {
 .empty { text-align:center; padding:40px; color:#999; font-size:13px; }
 
 /* Join CTA */
-.join-cta { position:fixed; right:12px; bottom:80px; width:54px; height:54px; border-radius:50%; background:var(--color-warning)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; box-shadow:0 4px 12px rgba(255,107,53,.4); z-index:50; }
+.join-cta { position:fixed; right:12px; bottom:80px; width:54px; height:54px; border-radius:50%; background:var(--color-warning); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; box-shadow:0 4px 12px rgba(255,107,53,.4); z-index:50; }
 </style>

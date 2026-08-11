@@ -46,7 +46,6 @@ type requestIDKey struct{}
 type Server struct {
 	demands           *service.DemandService
 	enterprises       *service.EnterpriseService
-	shopSvc           *service.ShopService
 	enterpriseSvc     *service.EnterpriseSvc
 	employment        *service.EmploymentService
 	contracts         *service.ContractService
@@ -218,7 +217,6 @@ func (s *Server) SetStorage(name string) { s.storage = name }
 
 // New business module service setters.
 func (s *Server) SetExpertService(svc *service.ExpertService)                   { s.expertSvc = svc }
-func (s *Server) SetShopService(svc *service.ShopService)                       { s.shopSvc = svc }
 func (s *Server) SetCaseService(svc *service.CaseService)                       { s.caseSvc = svc }
 func (s *Server) SetComplianceService(svc *service.ComplianceService)           { s.complianceSvc = svc }
 func (s *Server) SetReportService(svc *service.ReportService)                   { s.reportSvc = svc }
@@ -337,11 +335,9 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	lng, _ := strconv.ParseFloat(r.URL.Query().Get("lng"), 64)
 	data := s.homeSvc.GetHome(city, lat, lng)
 
-	// Stats: demand count, shop count
+	// Stats: demand count, user count
 	demands, _ := s.demands.List(repository.DemandFilter{})
 	demandTotal := len(demands)
-	shops, _, _ := s.shopSvc.List(0, 100)
-	shopTotal := len(shops)
 	users, _ := s.userRepo.All()
 	userTotal := len(users)
 
@@ -353,11 +349,10 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		"quick_entries":  data.QuickEntries,
 		"latest_demands": data.HotDemands,
 		"notices":        data.Notices,
-		"shops":          shops,
+		"shops":          data.Shops, // 商家/企业合一：已审核企业即商家（PRD 企业展示页）
 		"products":       products,
 		"stats": map[string]int{
 			"demands": demandTotal,
-			"shops":   shopTotal,
 			"users":   userTotal,
 			"views":   6690000, // platform lifetime views
 		},

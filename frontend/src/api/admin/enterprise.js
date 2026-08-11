@@ -24,6 +24,15 @@ export function reviewEnterprise(id, data) {
 }
 
 /**
+ * 编辑企业（管理员任意状态可编辑；已审核/已驳回企业编辑后回到待审核，需重新审核）
+ * @param {string} id - 企业 ID
+ * @param {Object} data - 企业档案字段（name/credit_code/legal_person/contact_person/contact_phone/email/industry_category/capability_tags/scale/address/founded_at/description/logo/license_url）
+ */
+export function updateEnterprise(id, data) {
+  return axios.patch(`/api/v1/enterprises/${id}`, data).then(res => res.data)
+}
+
+/**
  * 批量审核企业
  * @param {string} action - 'approved' | 'rejected'
  * @param {Object} data - { ids: string[] }

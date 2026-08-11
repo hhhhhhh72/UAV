@@ -28,7 +28,7 @@ func TestStress_2000MixedOperations(t *testing.T) {
 	demandRepo := memory.NewDemandRepository(nil)
 	entRepo := memory.NewEnterpriseRepository(nil)
 	demandSvc := service.NewDemandService(demandRepo)
-	entSvc := service.NewEnterpriseSvc(entRepo)
+	entSvc := service.NewEnterpriseSvc(entRepo, memory.NewUserRepository(nil))
 
 	// Setup: create 20 published demands and 20 enterprises
 	for i := 0; i < 20; i++ {
@@ -250,7 +250,7 @@ func TestStress_AdminDashboardLoad(t *testing.T) {
 	}
 	entRepo := memory.NewEnterpriseRepository(nil)
 	demandRepo := memory.NewDemandRepository(nil)
-	entSvc := service.NewEnterpriseSvc(entRepo)
+	entSvc := service.NewEnterpriseSvc(entRepo, memory.NewUserRepository(nil))
 	demandSvc := service.NewDemandService(demandRepo)
 	admin := domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}
 
@@ -332,7 +332,7 @@ func TestStress_DeadlockDetection(t *testing.T) {
 		t.Skip("skipping stress test in short mode")
 	}
 	entRepo := memory.NewEnterpriseRepository(nil)
-	svc := service.NewEnterpriseSvc(entRepo)
+	svc := service.NewEnterpriseSvc(entRepo, memory.NewUserRepository(nil))
 	admin := domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}
 
 	// 100 enterprises

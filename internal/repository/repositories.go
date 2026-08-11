@@ -80,14 +80,6 @@ type EnterpriseRepository interface {
 	Delete(id string) error
 }
 
-type ShopRepository interface {
-	Create(domain.Shop) (domain.Shop, error)
-	Update(domain.Shop) (domain.Shop, error)
-	FindByID(id string) (domain.Shop, error)
-	List(offset, limit int) ([]domain.Shop, int, error)
-	Delete(id string) error
-}
-
 type EmploymentRepository interface {
 	Create(domain.EmploymentRequest) (domain.EmploymentRequest, error)
 	ListByEnterprise(enterpriseID string, offset, limit int) ([]domain.EmploymentRequest, int, error)

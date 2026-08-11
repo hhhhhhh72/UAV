@@ -38,6 +38,8 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 				"role":         string(u.Role),
 				"status":       u.Status,
 				"roleLabel":    rl,
+				"name":         u.Name,
+				"avatar_url":   u.AvatarURL,
 				"created_at":   u.CreatedAt.Format("2006-01-02 15:04"),
 				"has_password": hasPassword,
 			})

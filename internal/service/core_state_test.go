@@ -118,7 +118,7 @@ func TestContractOwnershipCheck(t *testing.T) {
 // === Enterprise State Machine ===
 
 func TestEnterpriseReviewFlow(t *testing.T) {
-	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil))
+	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	a := entActor()
 	e, err := svc.Create(a, service.CreateEnterpriseInput{Name: "测试企业", AccountName: "6222"})
 	if err != nil {
@@ -146,7 +146,7 @@ func TestEnterpriseReviewFlow(t *testing.T) {
 }
 
 func TestEnterpriseReviewReject(t *testing.T) {
-	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil))
+	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	a := entActor()
 	e, _ := svc.Create(a, service.CreateEnterpriseInput{Name: "测试企业"})
 	svc.Submit(a, e.ID)
@@ -161,7 +161,7 @@ func TestEnterpriseReviewReject(t *testing.T) {
 }
 
 func TestEnterpriseNonAdminCannotReview(t *testing.T) {
-	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil))
+	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	a := entActor()
 	e, _ := svc.Create(a, service.CreateEnterpriseInput{Name: "测试企业"})
 	svc.Submit(a, e.ID)

@@ -70,6 +70,7 @@ func (s *HomeService) GetHome(city string, lat, lng float64) HomeData {
 					ID:        e.ID,
 					Name:      e.Name,
 					OwnerID:   e.OwnerUserID,
+					LogoURL:   e.Logo,
 					IsMember:  e.IsMember,
 					Status:    string(e.Status),
 					CreatedAt: e.CreatedAt,

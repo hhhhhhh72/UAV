@@ -5,7 +5,6 @@
     <a-tabs v-model:active-key="tab">
       <a-tab-pane title="用户管理" key="users"><UserList v-if="tab === 'users'" /></a-tab-pane>
       <a-tab-pane title="企业管理" key="enterprises"><EnterpriseList v-if="tab === 'enterprises'" /></a-tab-pane>
-      <a-tab-pane title="商家管理" key="shops"><ShopList v-if="tab === 'shops'" /></a-tab-pane>
       <a-tab-pane title="专家管理" key="experts"><ExpertList v-if="tab === 'experts'" /></a-tab-pane>
     </a-tabs>
   </div>
@@ -14,7 +13,6 @@
 import { ref } from 'vue'
 import UserList from '../users/UserList.vue'
 import EnterpriseList from '../enterprises/EnterpriseList.vue'
-import ShopList from '../shops/ShopList.vue'
 import ExpertList from '../experts/ExpertList.vue'
 import BizOverview from '../components/BizOverview.vue'
 

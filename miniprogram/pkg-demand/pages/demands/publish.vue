@@ -2,86 +2,111 @@
   <view class="publish-page">
     <u-nav-bar title="发布需求" show-back @back="goBack" />
 
+    <!-- 基本信息 -->
+    <view class="section-title">基本信息</view>
     <u-cell-group inset>
-      <view class="form-wrap">
+      <u-field
+        v-model="form.title"
+        label="需求标题"
+        placeholder="一句话说清需求，如：光伏电站红外巡检"
+      />
+      <view class="field-row" @tap="showDistrictPicker = true">
         <u-field
-          v-model="form.title"
-          label="标题"
-          placeholder="请输入需求标题"
+          :model-value="districtText"
+          label="所在地区"
+          placeholder="请选择重庆区县"
+          disabled
         />
-
-        <view class="field-row" @tap="showBizTypePicker = true">
-          <u-field
-            v-model="bizTypeText"
-            label="业务类型"
-            placeholder="请选择业务类型"
-            disabled
-          />
-          <text class="field-arrow">›</text>
-        </view>
-
-        <view class="field-row">
-          <u-field
-            v-model="form.budget"
-            label="预算"
-            placeholder="请输入预算金额"
-            type="digit"
-          />
-          <text class="unit">元</text>
-        </view>
-
-        <view class="field-row" @tap="showDistrictPicker = true">
-          <u-field
-            v-model="districtText"
-            label="地区"
-            placeholder="请选择重庆区县"
-            disabled
-          />
-          <text class="field-arrow">›</text>
-        </view>
-
-        <view class="field-row">
-          <u-field
-            v-model="form.contact"
-            label="联系电话"
-            placeholder="对接人电话（公告展示）"
-            type="number"
-          />
-          <text class="required">*</text>
-        </view>
-
-        <u-field
-          v-model="form.description"
-          label="描述"
-          type="textarea"
-          placeholder="请详细描述需求内容"
-          auto-height
-        />
-
-        <view class="submit-wrap">
-          <u-button
-            round
-            block
-            type="primary"
-            :loading="submitting"
-            @click="handleSubmit"
-          >
-            发布需求
-          </u-button>
-        </view>
+        <text class="field-arrow">›</text>
       </view>
     </u-cell-group>
 
-    <!-- Biz type picker -->
-    <u-picker
-      :show="showBizTypePicker"
-      title="请选择业务类型"
-      :columns="bizTypeNames"
-      @confirm="onBizTypeConfirm"
-      @update:show="showBizTypePicker = $event"
-    />
+    <!-- 业务类型（chips 单选，与业务术语标准一致） -->
+    <view class="section-title">业务类型</view>
+    <view class="chips-card">
+      <view
+        v-for="opt in bizTypeOptions"
+        :key="opt.value"
+        class="chip"
+        :class="{ 'chip--active': form.biz_type === opt.value }"
+        @tap="pickBizType(opt.value)"
+      >
+        {{ opt.text }}
+      </view>
+    </view>
 
-    <!-- District picker -->
+    <!-- 预算与联系 -->
+    <view class="section-title">预算与联系</view>
+    <u-cell-group inset>
+      <view class="field-row">
+        <u-field
+          v-model="form.budget"
+          label="预算"
+          placeholder="项目预算金额（选填）"
+          type="digit"
+        />
+        <text class="unit">元</text>
+      </view>
+      <view class="field-row">
+        <u-field
+          v-model="form.contact"
+          label="联系电话"
+          placeholder="对接人电话，公开可见"
+          type="number"
+        />
+        <text class="required">*</text>
+      </view>
+    </u-cell-group>
+
+    <!-- 需求详情 -->
+    <view class="section-title">需求详情</view>
+    <u-cell-group inset>
+      <u-field
+        v-model="form.description"
+        label="描述"
+        type="textarea"
+        auto-height
+        placeholder="请详细描述需求内容、交付要求、作业工期等"
+      />
+    </u-cell-group>
+
+    <!-- 图片上传（选填，最多 9 张） -->
+    <view class="section-title">现场图 / 资料图（选填）</view>
+    <view class="upload-card">
+      <view class="upload-grid">
+        <view
+          v-for="(img, i) in images"
+          :key="i"
+          class="upload-item"
+          @tap="previewImage(i)"
+        >
+          <image :src="img" mode="aspectFill" class="upload-thumb" />
+          <view class="upload-remove" @tap.stop="removeImage(i)">
+            <u-icon name="close" size="24rpx" color="var(--color-danger)" />
+          </view>
+        </view>
+        <view v-if="images.length < 9" class="upload-add" @tap="chooseImages">
+          <u-icon name="plus" size="32rpx" color="var(--color-text-secondary)" />
+          <text class="upload-hint">{{ images.length }}/9</text>
+        </view>
+      </view>
+      <text class="upload-tip">支持从相册选择或拍照，审核通过后在需求大厅公开展示</text>
+    </view>
+
+    <!-- 底部操作栏 -->
+    <view class="action-bar">
+      <u-button
+        type="primary"
+        round
+        block
+        :loading="submitting"
+        @click="handleSubmit"
+      >
+        发布需求
+      </u-button>
+    </view>
+
+    <!-- 区县选择器 -->
     <u-picker
       :show="showDistrictPicker"
       title="请选择重庆区县"
@@ -93,31 +118,27 @@
 </template>
 
 <script>
-import { request, authStorage, getStoredUser } from '../../../utils/request'
+import { request, authStorage, getStoredUser, BASE_URL } from '../../../utils/request'
 
-var BIZ_TYPE_MAP = {
-  cable_inspection: '巡检',
-  plant_transport: '植保',
-  spray_pesticide: '农药',
-  trade_lease: '租赁',
-  clean_paint: '清洗',
-  other: '其他',
-}
-
-var BIZ_TYPE_OPTIONS = Object.keys(BIZ_TYPE_MAP).map(function (k) {
-  return { text: BIZ_TYPE_MAP[k], value: k }
-})
+// 业务类型与 utils/enums.js BIZ_TYPE_LABEL 保持一致（对应后端 biz_standard.go）
+var BIZ_TYPE_OPTIONS = [
+  { text: '巡检', value: 'cable_inspection' },
+  { text: '植保', value: 'plant_transport' },
+  { text: '农药', value: 'spray_pesticide' },
+  { text: '租赁', value: 'trade_lease' },
+  { text: '清洗', value: 'clean_paint' },
+  { text: '其他', value: 'other' },
+]
 
 var DISTRICT_OPTIONS = [
-  '万州区', '涪陵区', '渝中区', '大渡口区', '江北区',
-  '沙坪坝区', '九龙坡区', '南岸区', '北碚区', '綦江区',
-  '大足区', '渝北区', '巴南区', '黔江区', '长寿区',
-  '江津区', '合川区', '永川区', '南川区', '璧山区',
-  '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区',
-  '武隆区', '城口县', '丰都县', '垫江县', '忠县',
-  '云阳县', '奉节县', '巫山县', '巫溪县', '石柱县',
-  '秀山县', '酉阳县', '彭水县',
+  '渝中区', '江北区', '南岸区', '渝北区', '沙坪坝区', '九龙坡区', '大渡口区', '北碚区', '巴南区',
+  '两江新区', '高新区', '万州区', '涪陵区', '黔江区', '长寿区', '江津区', '合川区', '永川区',
+  '南川区', '綦江区', '大足区', '璧山区', '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区',
+  '武隆区', '城口县', '丰都县', '垫江县', '忠县', '云阳县', '奉节县', '巫山县', '巫溪县',
+  '石柱县', '秀山县', '酉阳县', '彭水县',
 ]
+
+var MAX_IMAGES = 9
 
 export default {
   data() {
@@ -130,19 +151,11 @@ export default {
         contact: '',
         description: '',
       },
-      bizTypeText: '',
+      bizTypeOptions: BIZ_TYPE_OPTIONS,
+      districtOptions: DISTRICT_OPTIONS,
       districtText: '',
-      // 重庆区县（发布需求地区选择，修复：此前 districtOptions 未定义导致选择器空白）
-      districtOptions: [
-        '渝中区', '江北区', '南岸区', '渝北区', '沙坪坝区', '九龙坡区', '大渡口区', '北碚区', '巴南区',
-        '两江新区', '高新区', '万州区', '涪陵区', '黔江区', '长寿区', '江津区', '合川区', '永川区',
-        '南川区', '綦江区', '大足区', '璧山区', '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区',
-        '武隆区', '城口县', '丰都县', '垫江县', '忠县', '云阳县', '奉节县', '巫山县', '巫溪县',
-        '石柱县', '秀山县', '酉阳县', '彭水县',
-      ],
-      // u-picker 的 columns 只接受字符串数组，业务类型选项先映射为名称列表
-      bizTypeNames: BIZ_TYPE_OPTIONS.map(function (o) { return o.text }),
-      showBizTypePicker: false,
+      // 预览态图片数组：完整 URL（BASE_URL + 相对路径），提交时转回相对路径
+      images: [],
       showDistrictPicker: false,
       submitting: false,
     }
@@ -163,21 +176,95 @@ export default {
     }
   },
   methods: {
-    onBizTypeConfirm(selected) {
-      // u-picker confirm 直接回传选中的字符串（单列）
-      for (var i = 0; i < BIZ_TYPE_OPTIONS.length; i++) {
-        if (BIZ_TYPE_OPTIONS[i].text === selected) {
-          this.form.biz_type = BIZ_TYPE_OPTIONS[i].value
-          this.bizTypeText = selected
-          break
-        }
-      }
-      this.showBizTypePicker = false
+    goBack() {
+      uni.navigateBack()
+    },
+    pickBizType(value) {
+      this.form.biz_type = value
     },
     onDistrictConfirm(selected) {
       this.form.district = selected
       this.districtText = selected
       this.showDistrictPicker = false
+    },
+    // 相对路径（存库格式）→ 完整 URL（预览格式）
+    resolveUrl(u) {
+      if (!u) return ''
+      if (u.indexOf('http') === 0) return u
+      return BASE_URL + u
+    },
+    // 完整 URL（预览格式）→ 相对路径（存库格式）
+    storageUrl(u) {
+      if (!u) return ''
+      if (u.indexOf(BASE_URL) === 0) return u.slice(BASE_URL.length)
+      return u
+    },
+    // ---- 多图上传 ----
+    chooseImages() {
+      var self = this
+      var remaining = MAX_IMAGES - self.images.length
+      uni.chooseImage({
+        count: remaining,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: function (res) {
+          var paths = res.tempFilePaths || []
+          if (!paths.length) return
+          uni.showLoading({ title: '上传中...' })
+          self.uploadSequential(paths, 0, function () {
+            uni.hideLoading()
+          })
+        },
+        fail: function () {
+          uni.showToast({ title: '选择图片失败', icon: 'none' })
+        },
+      })
+    },
+    // 逐张上传（注意：预览必须用完整 URL，小程序 image 的 src 若为 /uploads/xxx
+    // 会被当作本地包内资源 → 白图，与上传企业 logo 的问题同源）
+    uploadSequential(paths, index, onAllDone) {
+      var self = this
+      if (index >= paths.length) {
+        if (onAllDone) onAllDone()
+        return
+      }
+      uni.uploadFile({
+        url: BASE_URL + '/api/v1/files/upload',
+        filePath: paths[index],
+        name: 'file',
+        header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
+        success: function (r) {
+          var data = null
+          try { data = JSON.parse(r.data) } catch (e) {}
+          if (r.statusCode >= 400 || !data || (!data.file_id && !(data.data && data.data.file_id))) {
+            var msg = ''
+            if (data && data.error) msg = data.error.message || data.error.code || ''
+            if (data && data.message) msg = data.message
+            var reason = msg || ('HTTP ' + r.statusCode)
+            var tip = reason.indexOf('401') >= 0 || reason.indexOf('登录') >= 0 || reason.indexOf('token') >= 0
+              ? '登录已过期，请重新登录后重试'
+              : ('上传失败：' + reason)
+            uni.hideLoading()
+            uni.showToast({ title: tip, icon: 'none', duration: 2500 })
+            return
+          }
+          var fid = data.file_id || (data.data && data.data.file_id)
+          if (fid) {
+            self.images.push(self.resolveUrl('/uploads/' + fid))
+          }
+          self.uploadSequential(paths, index + 1, onAllDone)
+        },
+        fail: function () {
+          uni.hideLoading()
+          uni.showToast({ title: '上传失败，请重试', icon: 'none' })
+        },
+      })
+    },
+    previewImage(i) {
+      uni.previewImage({ urls: this.images, current: this.images[i] })
+    },
+    removeImage(i) {
+      this.images.splice(i, 1)
     },
     async handleSubmit() {
       var token = authStorage.getAccessToken()
@@ -221,6 +308,7 @@ export default {
             description: this.form.description,
             contact: this.form.contact,
             publisher_name: (currentUser && currentUser.name) || '',
+            images: this.images.map(function (u) { return this.storageUrl(u) }.bind(this)),
           },
         })
         uni.hideLoading()
@@ -235,9 +323,6 @@ export default {
         this.submitting = false
       }
     },
-    goBack() {
-      uni.navigateBack()
-    },
   },
 }
 </script>
@@ -246,46 +331,145 @@ export default {
 .publish-page {
   min-height: 100vh;
   background: var(--color-bg);
-  padding-bottom: 40px;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
 }
 
-.form-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+/* 区块标题（与入驻页一致） */
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 8px 20px 4px;
 }
 
+/* 带箭头 / 单位 / 必填 的行 */
 .field-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  background: #fff;
+  padding-right: 16px;
 }
 
 .field-row .u-field {
   flex: 1;
 }
 
-.required {
-  position: absolute;
-  right: 28rpx;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--color-danger);
-  font-size: 28rpx;
-  z-index: 2;
-}
 .field-arrow {
   font-size: 20px;
   color: var(--color-text-placeholder);
+  flex-shrink: 0;
 }
 
 .unit {
   font-size: 14px;
   color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
-.submit-wrap {
-  padding: 8px 0 0;
+.required {
+  color: var(--color-danger);
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+
+/* 业务类型 chips */
+.chips-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  margin: 0 12px 12px;
+}
+
+.chip {
+  padding: 10px 18px;
+  border-radius: 24rpx;
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  transition: all 0.2s;
+}
+
+.chip--active {
+  background: rgba(10, 102, 194, 0.08);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* 图片上传 */
+.upload-card {
+  margin: 0 12px 12px;
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.upload-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.upload-item {
+  position: relative;
+  width: 150rpx;
+  height: 150rpx;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.upload-thumb {
+  width: 100%;
+  height: 100%;
+}
+
+.upload-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  padding: 2px;
+}
+
+.upload-add {
+  width: 150rpx;
+  height: 150rpx;
+  border: 1px dashed var(--color-text-placeholder);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.upload-tip {
+  display: block;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--color-text-placeholder);
+}
+
+/* 底部操作栏 */
+.action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px;
+  background: var(--color-bg-card);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 100;
 }
 </style>
