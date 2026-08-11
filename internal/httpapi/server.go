@@ -329,21 +329,27 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// resolveBannerImageURL 给 /uploads/ 开头的 banner 图补全域名：
-// 管理后台存相对路径，小程序 <image> 直接渲染相对路径会当本地资源 → 白图。
-// 优先 BASE_URL 环境变量，其次 X-Forwarded-Proto（nginx 反代）+ Host。
+// resolveBannerImageURL 给 banner 图补全域名/校正协议：
+//   - 相对路径 /uploads/xxx：管理后台存的是相对路径，小程序 <image> 直接
+//     渲染相对路径会当本地资源 → 白图，需拼完整域名（BASE_URL 优先，
+//     其次 X-Forwarded-Proto + Host，适配 nginx https 反代）
+//   - http://本站/uploads/xxx 存量数据：管理后台早期版本存过 http 完整 URL，
+//     微信小程序强制 https，http 图白屏 → 统一升为 https
 func resolveBannerImageURL(r *http.Request, url string) string {
-	if !strings.HasPrefix(url, "/uploads/") {
-		return url
+	if strings.HasPrefix(url, "/uploads/") {
+		if origin := os.Getenv("BASE_URL"); origin != "" {
+			return origin + url
+		}
+		proto := r.Header.Get("X-Forwarded-Proto")
+		if proto == "" {
+			proto = "http"
+		}
+		return proto + "://" + r.Host + url
 	}
-	if origin := os.Getenv("BASE_URL"); origin != "" {
-		return origin + url
+	if strings.HasPrefix(url, "http://") && strings.Contains(url, r.Host) {
+		return "https://" + strings.TrimPrefix(url, "http://")
 	}
-	proto := r.Header.Get("X-Forwarded-Proto")
-	if proto == "" {
-		proto = "http"
-	}
-	return proto + "://" + r.Host + url
+	return url
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {

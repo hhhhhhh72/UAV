@@ -133,6 +133,9 @@ func TestResolveBannerImageURL(t *testing.T) {
 		{name: "无 BASE_URL 默认 http+Host", url: "/uploads/x.jpg", want: "http://uav.example.com/uploads/x.jpg"},
 		{name: "nginx 反代走 X-Forwarded-Proto", url: "/uploads/x.jpg", hdr: "https", want: "https://uav.example.com/uploads/x.jpg"},
 		{name: "BASE_URL 优先", url: "/uploads/x.jpg", env: "https://api.example.com", want: "https://api.example.com/uploads/x.jpg"},
+		// 存量数据：管理后台早期存过 http 完整 URL，微信小程序强制 https → 升 https
+		{name: "存量 http 完整 URL 升 https", url: "http://uav.example.com/uploads/old.jpg", want: "https://uav.example.com/uploads/old.jpg"},
+		{name: "异站 http URL 不动", url: "http://other.example.com/a.jpg", want: "http://other.example.com/a.jpg"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
