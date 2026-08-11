@@ -1163,12 +1163,14 @@ onPullDownRefresh(() => {
   grid-template-columns: 112px minmax(0, 1fr);
   box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
 }
-/* 注意：小图卡图片必须显式固定 16:9 高度！仅设 min-height 时小程序 image 按原图
-   比例渲染（竖图被撑到 140px+/默认 240px），grid 行高随图变化 → 卡片高度参差、
-   右侧数据（标签/预算）布局被拉伸 → 表现为"老的大图卡变普通卡后数据位置不对齐" */
+/* 图区外观与原先一致（112×126 竖条，仅把 min-height 改为固定 height）：
+   min-height 时小程序 image 按原图比例渲染（竖图 140px+/横图 63px），grid 行高
+   随图变化 → 卡片高度参差、右侧数据（标签/预算）被拉伸 → 表现为
+   "老的大图卡变普通卡后数据布局与其他小图卡不一致"；固定高度后所有
+   小图卡图片填满同一区域、卡片同高、数据布局完全一致 */
 .demand-photo {
   width: 112px;
-  height: 63px;
+  height: 126px;
   display: block;
 }
 .demand-body {
@@ -1444,7 +1446,6 @@ onPullDownRefresh(() => {
   }
   .demand-card:not(.featured) .demand-photo {
     width: 104px;
-    height: 58.5px; /* 104 × 9/16，保持 16:9 */
   }
 }
 </style>
