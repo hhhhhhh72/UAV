@@ -127,6 +127,9 @@ type StudyTour struct {
 	Location    string    `json:"location"`
 	Destination string    `json:"destination"`
 	OrganizerID string    `json:"organizer_id"`
+	CoverImage  string    `json:"cover_image"` // 封面图 URL（/uploads/...）
+	PriceFen    int64     `json:"price_fen"`   // 价格（分），0 表示免费/面议
+	Schedule    []StudySchedule `json:"schedule"` // 行程安排（JSONB）
 	StartDate   time.Time `json:"start_date"`
 	EndDate     time.Time `json:"end_date"`
 	Duration    string    `json:"duration"`
@@ -134,4 +137,11 @@ type StudyTour struct {
 	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// StudySchedule 研学行程中的一天安排
+type StudySchedule struct {
+	Day   int      `json:"day"`
+	Title string   `json:"title"`
+	Items []string `json:"items"`
 }

@@ -40,6 +40,8 @@ services:
       # 微信登录（值来自服务器 .env，密钥不进 git）
       WECHAT_APPID: "${WECHAT_APPID:-}"
       WECHAT_APPSECRET: "${WECHAT_APPSECRET:-}"
+      # banner 图片 URL 补全域名用（如 https://api.cqnarc.cn）；缺省时回退 nginx X-Forwarded-Proto
+      BASE_URL: "${BASE_URL:-}"
     volumes:
       - uploads:/uploads
     depends_on:

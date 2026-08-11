@@ -136,7 +136,7 @@ func (s *TrainingService) ListInstructors() ([]domain.Instructor, error) {
 
 // ---- Certified Pilots ----
 
-func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string, flightHours int, bio string) (domain.CertifiedPilot, error) {
+func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string, flightHours int, bio, avatar, region string) (domain.CertifiedPilot, error) {
 	// 自动关联已认证证书（审核管线 approved 状态，无手动勾选/造假空间）
 	certIDs := []string{}
 	if certs, err := s.certRepo.ListByUser(a.ID); err == nil {
@@ -161,6 +161,8 @@ func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string,
 			default: // rejected：覆盖重提
 				e.RealName = realName
 				e.IDCard = idCard
+				e.Avatar = avatar
+				e.Region = region
 				e.CertIDs = certIDs
 				e.FlightHours = flightHours
 				e.Bio = bio
@@ -170,7 +172,7 @@ func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string,
 		}
 	}
 	p := domain.CertifiedPilot{ID: fmt.Sprintf("pilot-%d", now.UnixNano()), UserID: a.ID, RealName: realName,
-		IDCard: idCard, CertIDs: certIDs, FlightHours: flightHours, Bio: bio,
+		IDCard: idCard, Avatar: avatar, Region: region, CertIDs: certIDs, FlightHours: flightHours, Bio: bio,
 		Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.pilotRepo.Create(p)
 }
@@ -192,6 +194,80 @@ func (s *TrainingService) RejectPilot(a domain.Actor, id string) (domain.Certifi
 
 func (s *TrainingService) ListPilots() ([]domain.CertifiedPilot, error) {
 	return s.pilotRepo.List()
+}
+
+// GetPilot 按 ID 单查飞手（详情页）。
+func (s *TrainingService) GetPilot(id string) (domain.CertifiedPilot, error) {
+	return s.pilotRepo.FindByID(id)
+}
+
+// GetPilotDetail 按 ID 单查飞手详情（含 certificates 证书明细，一次性 ListAll 关联防 N+1）。
+func (s *TrainingService) GetPilotDetail(id string) (domain.CertifiedPilotDetail, error) {
+	p, err := s.pilotRepo.FindByID(id)
+	if err != nil || p.ID == "" {
+		return domain.CertifiedPilotDetail{}, err
+	}
+	certs, err := s.certRepo.ListAll()
+	if err != nil {
+		return domain.CertifiedPilotDetail{}, err
+	}
+	d := domain.CertifiedPilotDetail{CertifiedPilot: p}
+	for _, c := range certs {
+		if c.UserID != p.UserID || c.Status != "approved" {
+			continue
+		}
+		d.Certificates = append(d.Certificates, domain.CertificateBrief{
+			ID: c.ID, CertType: string(c.CertType), CertName: certTypeName(c.CertType),
+			IssuerOrg: c.IssuerOrg, Level: c.Level, Status: c.Status,
+		})
+	}
+	return d, nil
+}
+
+// ListPilotsDetailed 名录输出：把 cert_ids 扩展为证书对象数组（certificates）。
+// 一次性 ListAll 后按 UserID 分组，避免 N+1 查询。
+func (s *TrainingService) ListPilotsDetailed() ([]domain.CertifiedPilotDetail, error) {
+	pilots, err := s.pilotRepo.List()
+	if err != nil {
+		return nil, err
+	}
+	certs, err := s.certRepo.ListAll()
+	if err != nil {
+		return nil, err
+	}
+	byUser := make(map[string][]domain.Certificate)
+	for _, c := range certs {
+		byUser[c.UserID] = append(byUser[c.UserID], c)
+	}
+	out := make([]domain.CertifiedPilotDetail, 0, len(pilots))
+	for _, p := range pilots {
+		d := domain.CertifiedPilotDetail{CertifiedPilot: p}
+		for _, c := range byUser[p.UserID] {
+			if c.Status != "approved" {
+				continue
+			}
+			d.Certificates = append(d.Certificates, domain.CertificateBrief{
+				ID: c.ID, CertType: string(c.CertType), CertName: certTypeName(c.CertType),
+				IssuerOrg: c.IssuerOrg, Level: c.Level, Status: c.Status,
+			})
+		}
+		out = append(out, d)
+	}
+	return out, nil
+}
+
+// certTypeName 证书类型 → 展示名称（前端详情页证书卡用）。
+func certTypeName(t domain.CertType) string {
+	switch t {
+	case domain.CertCAAC:
+		return "CAAC无人机驾驶员执照"
+	case domain.CertUTCDJI:
+		return "DJI UTC 植保无人机驾驶证"
+	case domain.CertGovLevel:
+		return "政府职业技能等级证书"
+	default:
+		return string(t)
+	}
 }
 
 // GetPilotByOwner 查询我的飞手认证记录（未申请返回零值）。

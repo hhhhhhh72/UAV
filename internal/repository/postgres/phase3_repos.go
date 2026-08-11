@@ -271,8 +271,8 @@ func (r *pilotRepo) Create(p domain.CertifiedPilot) (domain.CertifiedPilot, erro
 		return domain.CertifiedPilot{}, fmt.Errorf("marshal cert ids: %w", err)
 	}
 	_, err = r.pool.Exec(context.Background(),
-		`INSERT INTO certified_pilots (id,user_id,real_name,id_card,cert_ids,flight_hours,bio,rating,completed_jobs,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-		p.ID, p.UserID, p.RealName, p.IDCard, certIDs, p.FlightHours, p.Bio, p.Rating, p.CompletedJobs, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
+		`INSERT INTO certified_pilots (id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		p.ID, p.UserID, p.RealName, p.IDCard, p.Avatar, p.Region, certIDs, p.FlightHours, p.Bio, p.Rating, p.CompletedJobs, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
 	p.IDCard = r.dec(p.IDCard)
 	return p, err
 }
@@ -284,8 +284,8 @@ func (r *pilotRepo) Update(p domain.CertifiedPilot) (domain.CertifiedPilot, erro
 		return domain.CertifiedPilot{}, fmt.Errorf("marshal cert ids: %w", err)
 	}
 	_, err = r.pool.Exec(context.Background(),
-		`UPDATE certified_pilots SET real_name=$1,id_card=$2,cert_ids=$3,flight_hours=$4,bio=$5,status=$6,updated_at=$7 WHERE id=$8`,
-		p.RealName, p.IDCard, certIDs, p.FlightHours, p.Bio, p.Status, p.UpdatedAt, p.ID)
+		`UPDATE certified_pilots SET real_name=$1,id_card=$2,avatar=$3,region=$4,cert_ids=$5,flight_hours=$6,bio=$7,status=$8,updated_at=$9 WHERE id=$10`,
+		p.RealName, p.IDCard, p.Avatar, p.Region, certIDs, p.FlightHours, p.Bio, p.Status, p.UpdatedAt, p.ID)
 	if err != nil {
 		return domain.CertifiedPilot{}, fmt.Errorf("update pilot: %w", err)
 	}
@@ -295,14 +295,14 @@ func (r *pilotRepo) Update(p domain.CertifiedPilot) (domain.CertifiedPilot, erro
 func (r *pilotRepo) FindByID(id string) (domain.CertifiedPilot, error) {
 	var p domain.CertifiedPilot
 	var certIDs []byte
-	err := r.pool.QueryRow(context.Background(), `SELECT id,user_id,real_name,id_card,cert_ids,flight_hours,bio,rating,completed_jobs,status,version,created_at,updated_at FROM certified_pilots WHERE id=$1`, id).
-		Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+	err := r.pool.QueryRow(context.Background(), `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,version,created_at,updated_at FROM certified_pilots WHERE id=$1`, id).
+		Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 	json.Unmarshal(certIDs, &p.CertIDs)
 	p.IDCard = r.dec(p.IDCard)
 	return p, err
 }
 func (r *pilotRepo) List() ([]domain.CertifiedPilot, error) {
-	rows, err := r.pool.Query(context.Background(), `SELECT id,user_id,real_name,id_card,cert_ids,flight_hours,bio,rating,completed_jobs,status,version,created_at,updated_at FROM certified_pilots ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(context.Background(), `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,version,created_at,updated_at FROM certified_pilots ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list pilots: %w", err)
 	}
@@ -311,7 +311,7 @@ func (r *pilotRepo) List() ([]domain.CertifiedPilot, error) {
 	for rows.Next() {
 		var p domain.CertifiedPilot
 		var certIDs []byte
-		rows.Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+		rows.Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 		json.Unmarshal(certIDs, &p.CertIDs)
 		p.IDCard = r.dec(p.IDCard)
 		out = append(out, p)

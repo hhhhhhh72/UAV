@@ -225,6 +225,8 @@ func (s *Server) registerPilot(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		RealName    string `json:"real_name"`
 		IDCard      string `json:"id_card"`
+		Avatar      string `json:"avatar"`
+		Region      string `json:"region"`
 		FlightHours int    `json:"flight_hours"`
 		Bio         string `json:"bio"`
 	}
@@ -236,7 +238,7 @@ func (s *Server) registerPilot(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("real_name and id_card are required"))
 		return
 	}
-	p, err := s.trainingSvc.RegisterPilot(a, in.RealName, in.IDCard, in.FlightHours, in.Bio)
+	p, err := s.trainingSvc.RegisterPilot(a, in.RealName, in.IDCard, in.FlightHours, in.Bio, in.Avatar, in.Region)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -262,15 +264,15 @@ func (s *Server) approvePilot(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, p)
 }
 
-// GET /api/v1/certified-pilots — 公开名录：仅已认证（approved）飞手，身份证脱敏
+// GET /api/v1/certified-pilots — 公开名录：仅已认证（approved）飞手，身份证脱敏，支持 page/page_size 分页
 func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
-	pilots, err := s.trainingSvc.ListPilots()
+	pilots, err := s.trainingSvc.ListPilotsDetailed()
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	// 公开名录只显示已认证（待审/驳回不入名录）
-	approved := make([]domain.CertifiedPilot, 0, len(pilots))
+	approved := make([]domain.CertifiedPilotDetail, 0, len(pilots))
 	for _, p := range pilots {
 		if p.Status == "approved" {
 			approved = append(approved, p)
@@ -279,7 +281,7 @@ func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
 	pilots = approved
 	// 关键词过滤（姓名）
 	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
-		filtered := make([]domain.CertifiedPilot, 0, len(pilots))
+		filtered := make([]domain.CertifiedPilotDetail, 0, len(pilots))
 		for _, p := range pilots {
 			if strings.Contains(p.RealName, kw) {
 				filtered = append(filtered, p)
@@ -293,7 +295,40 @@ func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
 			pilots[i].IDCard = crypto.MaskIDCard(pilots[i].IDCard)
 		}
 	}
+	// 分页（兼容：显式传 page_size 才分页，否则保持全量返回）
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		page, size := paginationFromQuery(r)
+		total := len(pilots)
+		start := (page - 1) * size
+		if start >= total {
+			paginatedRespond(w, r, []domain.CertifiedPilotDetail{}, total)
+			return
+		}
+		end := start + size
+		if end > total {
+			end = total
+		}
+		paginatedRespond(w, r, pilots[start:end], total)
+		return
+	}
 	respond(w, r, http.StatusOK, pilots)
+}
+
+// GET /api/v1/certified-pilots/{id} — 飞手详情单查：仅 approved 可公开查看，身份证脱敏，返回 certificates 明细
+func (s *Server) getPilot(w http.ResponseWriter, r *http.Request) {
+	p, err := s.trainingSvc.GetPilotDetail(r.PathValue("id"))
+	if err != nil || p.ID == "" {
+		fail(w, r, http.StatusNotFound, errors.New("pilot not found"))
+		return
+	}
+	if p.Status != "approved" {
+		fail(w, r, http.StatusNotFound, errors.New("pilot not found"))
+		return
+	}
+	if p.IDCard != "" {
+		p.IDCard = crypto.MaskIDCard(p.IDCard)
+	}
+	respond(w, r, http.StatusOK, p)
 }
 
 // GET /api/v1/admin/certified-pilots — 管理端全量（含待审，身份证完整可见供审核核对）

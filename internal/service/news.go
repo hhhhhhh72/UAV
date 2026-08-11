@@ -24,6 +24,21 @@ func (s *NewsService) Create(title, content, category, source string) (domain.Ar
 	return s.repo.Create(a)
 }
 
+// Update 编辑资讯内容（保留 ID/状态/创建时间，摘要重新截取）。
+func (s *NewsService) Update(id, title, content, category, source string) (domain.Article, error) {
+	a, err := s.repo.FindByID(id)
+	if err != nil {
+		return domain.Article{}, err
+	}
+	a.Title = title
+	a.Content = content
+	a.Summary = truncate(content, 100)
+	a.Category = category
+	a.Source = source
+	a.UpdatedAt = time.Now()
+	return s.repo.Update(a)
+}
+
 func (s *NewsService) Publish(id string) (domain.Article, error) {
 	a, err := s.repo.FindByID(id)
 	if err != nil {

@@ -579,6 +579,8 @@ type CertifiedPilot struct {
 	UserID        string    `json:"user_id"`
 	RealName      string    `json:"real_name"`
 	IDCard        string    `json:"id_card"` // encrypted at rest
+	Avatar        string    `json:"avatar"`  // 头像 URL（/uploads/...）
+	Region        string    `json:"region"`  // 所在地区（如：重庆·渝北区）
 	CertIDs       []string  `json:"cert_ids"`
 	FlightHours   int       `json:"flight_hours"`
 	Bio           string    `json:"bio"` // 擅长领域/简介
@@ -589,6 +591,23 @@ type CertifiedPilot struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
+
+// CertifiedPilotDetail 名录/详情输出：cert_ids 扩展为证书对象数组（清单 4：关联证书详情）
+type CertifiedPilotDetail struct {
+	CertifiedPilot
+	Certificates []CertificateBrief `json:"certificates"`
+}
+
+// CertificateBrief 飞手展示用证书摘要（不含用户隐私字段）
+type CertificateBrief struct {
+	ID        string `json:"id"`
+	CertType  string `json:"cert_type"`
+	CertName  string `json:"cert_name"`
+	IssuerOrg string `json:"issuer_org"`
+	Level     string `json:"level"`
+	Status    string `json:"status"`
+}
+
 
 // ReviewRecord is an immutable audit entry for an admin review action.
 type ReviewRecord struct {

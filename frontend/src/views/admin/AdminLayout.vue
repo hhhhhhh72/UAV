@@ -182,6 +182,7 @@ const allMenus = [
   { path: '/admin/members', label: '会员管理', icon: 'icon-user-group', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/trading', label: '交易管理', icon: 'icon-list', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/content', label: '内容管理', icon: 'icon-file', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/articles', label: '资讯管理', icon: 'icon-file', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/talent', label: '人才教育', icon: 'icon-book', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/innovation', label: '产学研', icon: 'icon-experiment', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/promotion', label: '运营推广', icon: 'icon-bulb', roles: ['platform_admin', 'association_admin'] },

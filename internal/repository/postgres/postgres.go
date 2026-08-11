@@ -1702,24 +1702,34 @@ func (s *Store) NewStudyTourRepository() repository.StudyTourRepository {
 func (r *pgStudyTourRepo) Create(st domain.StudyTour) (domain.StudyTour, error) {
 	st.CreatedAt = time.Now()
 	st.UpdatedAt = st.CreatedAt
-	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO study_tours (id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,created_at,updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+	scheduleJSON, err := json.Marshal(jsonbSlice(st.Schedule))
+	if err != nil {
+		return domain.StudyTour{}, fmt.Errorf("marshal schedule: %w", err)
+	}
+	_, err = r.pool.Exec(context.Background(),
+		`INSERT INTO study_tours (id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,cover_image,price_fen,schedule,created_at,updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		st.ID, st.Title, st.Destination, st.Duration, st.Capacity, st.Status,
-		st.Description, st.Location, st.OrganizerID, st.StartDate, st.EndDate, st.CreatedAt, st.UpdatedAt)
+		st.Description, st.Location, st.OrganizerID, st.StartDate, st.EndDate,
+		st.CoverImage, st.PriceFen, scheduleJSON, st.CreatedAt, st.UpdatedAt)
 	return st, err
 }
 
 func (r *pgStudyTourRepo) FindByID(id string) (domain.StudyTour, error) {
 	var s domain.StudyTour
-	err := r.pool.QueryRow(context.Background(), `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,created_at,updated_at FROM study_tours WHERE id=$1`, id).
+	var schedule []byte
+	err := r.pool.QueryRow(context.Background(), `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,cover_image,price_fen,schedule,created_at,updated_at FROM study_tours WHERE id=$1`, id).
 		Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status,
-			&s.Description, &s.Location, &s.OrganizerID, &s.StartDate, &s.EndDate, &s.CreatedAt, &s.UpdatedAt)
+			&s.Description, &s.Location, &s.OrganizerID, &s.StartDate, &s.EndDate,
+			&s.CoverImage, &s.PriceFen, &schedule, &s.CreatedAt, &s.UpdatedAt)
+	if schedule != nil {
+		json.Unmarshal(schedule, &s.Schedule)
+	}
 	return s, err
 }
 
 func (r *pgStudyTourRepo) List() ([]domain.StudyTour, error) {
-	rows, err := r.pool.Query(context.Background(), `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,created_at,updated_at FROM study_tours ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(context.Background(), `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,cover_image,price_fen,schedule,created_at,updated_at FROM study_tours ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -1727,9 +1737,14 @@ func (r *pgStudyTourRepo) List() ([]domain.StudyTour, error) {
 	var out []domain.StudyTour
 	for rows.Next() {
 		var s domain.StudyTour
+		var schedule []byte
 		if err := rows.Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status,
-			&s.Description, &s.Location, &s.OrganizerID, &s.StartDate, &s.EndDate, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			&s.Description, &s.Location, &s.OrganizerID, &s.StartDate, &s.EndDate,
+			&s.CoverImage, &s.PriceFen, &schedule, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if schedule != nil {
+			json.Unmarshal(schedule, &s.Schedule)
 		}
 		out = append(out, s)
 	}
@@ -1738,10 +1753,15 @@ func (r *pgStudyTourRepo) List() ([]domain.StudyTour, error) {
 
 func (r *pgStudyTourRepo) Update(s domain.StudyTour) (domain.StudyTour, error) {
 	s.UpdatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
-		`UPDATE study_tours SET title=$1,destination=$2,duration=$3,capacity=$4,status=$5,description=$6,location=$7,organizer_id=$8,start_date=$9,end_date=$10,updated_at=$11 WHERE id=$12`,
+	scheduleJSON, err := json.Marshal(jsonbSlice(s.Schedule))
+	if err != nil {
+		return domain.StudyTour{}, fmt.Errorf("marshal schedule: %w", err)
+	}
+	_, err = r.pool.Exec(context.Background(),
+		`UPDATE study_tours SET title=$1,destination=$2,duration=$3,capacity=$4,status=$5,description=$6,location=$7,organizer_id=$8,start_date=$9,end_date=$10,cover_image=$11,price_fen=$12,schedule=$13,updated_at=$14 WHERE id=$15`,
 		s.Title, s.Destination, s.Duration, s.Capacity, s.Status,
-		s.Description, s.Location, s.OrganizerID, s.StartDate, s.EndDate, s.UpdatedAt, s.ID)
+		s.Description, s.Location, s.OrganizerID, s.StartDate, s.EndDate,
+		s.CoverImage, s.PriceFen, scheduleJSON, s.UpdatedAt, s.ID)
 	return s, err
 }
 

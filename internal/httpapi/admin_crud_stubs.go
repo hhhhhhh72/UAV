@@ -664,6 +664,7 @@ func convStudy(items []domain.StudyTour) []map[string]any {
 			"id": it.ID, "title": it.Title, "destination": it.Destination,
 			"duration": it.Duration, "capacity": it.Capacity, "status": it.Status,
 			"description": it.Description, "location": it.Location, "organizer_id": it.OrganizerID,
+			"cover_image": it.CoverImage, "price_fen": it.PriceFen, "schedule": it.Schedule,
 			"start_date": it.StartDate, "end_date": it.EndDate,
 			"created_at": it.CreatedAt, "updated_at": it.UpdatedAt,
 		}
@@ -673,18 +674,26 @@ func convStudy(items []domain.StudyTour) []map[string]any {
 
 func (s *Server) createStudyTour(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Title       string `json:"title"`
-		Destination string `json:"destination"`
-		Duration    string `json:"duration"`
-		Capacity    int    `json:"capacity"`
-		Status      string `json:"status"`
-		Description string `json:"description"`
+		Title       string                 `json:"title"`
+		Destination string                 `json:"destination"`
+		Duration    string                 `json:"duration"`
+		Capacity    int                    `json:"capacity"`
+		Status      string                 `json:"status"`
+		Description string                 `json:"description"`
+		Location    string                 `json:"location"`
+		StartDate   string                 `json:"start_date"`
+		EndDate     string                 `json:"end_date"`
+		CoverImage  string                 `json:"cover_image"`
+		PriceFen    int64                  `json:"price_fen"`
+		Schedule    []domain.StudySchedule `json:"schedule"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	st := domain.StudyTour{ID: fmt.Sprintf("study-%d", time.Now().UnixNano()), Title: in.Title, Destination: in.Destination, Duration: in.Duration, Capacity: in.Capacity, Status: in.Status, Description: in.Description}
+	st := domain.StudyTour{ID: fmt.Sprintf("study-%d", time.Now().UnixNano()), Title: in.Title, Destination: in.Destination, Duration: in.Duration, Capacity: in.Capacity, Status: in.Status, Description: in.Description,
+		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		CoverImage: in.CoverImage, PriceFen: in.PriceFen, Schedule: in.Schedule}
 	sr, err := s.studyTourRepo.Create(st)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -695,12 +704,18 @@ func (s *Server) createStudyTour(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
-		Title       string `json:"title"`
-		Destination string `json:"destination"`
-		Duration    string `json:"duration"`
-		Capacity    int    `json:"capacity"`
-		Status      string `json:"status"`
-		Description string `json:"description"`
+		Title       string                 `json:"title"`
+		Destination string                 `json:"destination"`
+		Duration    string                 `json:"duration"`
+		Capacity    int                    `json:"capacity"`
+		Status      string                 `json:"status"`
+		Description string                 `json:"description"`
+		Location    string                 `json:"location"`
+		StartDate   string                 `json:"start_date"`
+		EndDate     string                 `json:"end_date"`
+		CoverImage  string                 `json:"cover_image"`
+		PriceFen    int64                  `json:"price_fen"`
+		Schedule    []domain.StudySchedule `json:"schedule"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -717,6 +732,16 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 	st.Capacity = in.Capacity
 	st.Status = in.Status
 	st.Description = in.Description
+	st.Location = in.Location
+	if in.StartDate != "" {
+		st.StartDate = domain.ParseTime(in.StartDate)
+	}
+	if in.EndDate != "" {
+		st.EndDate = domain.ParseTime(in.EndDate)
+	}
+	st.CoverImage = in.CoverImage
+	st.PriceFen = in.PriceFen
+	st.Schedule = in.Schedule
 	sr, err := s.studyTourRepo.Update(st)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)

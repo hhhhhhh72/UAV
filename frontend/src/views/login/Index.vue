@@ -55,6 +55,17 @@
         >
           登 录
         </a-button>
+
+        <!-- 仅本地开发环境显示（import.meta.env.DEV 在构建时被替换，生产自动剔除） -->
+        <a-button
+          v-if="isDev"
+          class="dev-btn"
+          long
+          :loading="devLoading"
+          @click="devQuickLogin"
+        >
+          开发者快捷登录
+        </a-button>
       </a-form>
 
       <p class="footer-tip">登录即表示同意用户协议和隐私政策</p>
@@ -71,6 +82,31 @@ import { showFailToast, showSuccessToast } from '@/utils/feedback'
 const router = useRouter()
 const formRef = ref(null)
 const loading = ref(false)
+
+// 开发者快捷登录：仅本地 dev 环境（后端须 ADMIN_DEV_MODE=true，生产为 403）
+const isDev = import.meta.env.DEV
+const devLoading = ref(false)
+
+const devQuickLogin = async () => {
+  devLoading.value = true
+  try {
+    const res = await axios.post('/api/v1/admin/token', { role: 'platform_admin' })
+    const data = res.data || {}
+    const accessToken = data.access_token || data.accessToken
+    if (!accessToken) {
+      showFailToast('开发者登录失败：未获取到令牌')
+      return
+    }
+    const user = data.user || { id: 'admin-dev', role: 'platform_admin' }
+    saveSession(user, accessToken)
+    router.push('/admin')
+  } catch (error) {
+    const message = error?.response?.data?.error?.message
+    showFailToast(message || '开发者登录失败（请确认后端 ADMIN_DEV_MODE=true）')
+  } finally {
+    devLoading.value = false
+  }
+}
 
 const loginForm = ref({
   phone: '',
@@ -236,6 +272,15 @@ const onSubmit = async () => {
   height: 44px;
   font-size: 16px;
   border-radius: 8px;
+}
+
+.dev-btn {
+  margin-top: 12px;
+  height: 40px;
+  font-size: 14px;
+  border-radius: 8px;
+  border-style: dashed;
+  color: #0a66c2;
 }
 
 .footer-tip {

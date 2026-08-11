@@ -24,6 +24,23 @@ func (s *Server) createArticle(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusCreated, art)
 }
 
+// PUT /api/v1/articles/{id} — 编辑资讯（标题/分类/来源/正文）
+func (s *Server) updateArticle(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required")); return
+	}
+	var in struct {
+		Title, Content, Category, Source string
+	}
+	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
+	art, err := s.newsSvc.Update(r.PathValue("id"), in.Title, in.Content, in.Category, in.Source)
+	if err != nil { fail(w, r, http.StatusNotFound, err); return }
+	s.audit(r.Context(), a.ID, "update_article", "article", art.ID, "updated")
+	respond(w, r, http.StatusOK, art)
+}
+
 // POST /api/v1/articles/{id}/publish
 func (s *Server) publishArticle(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)

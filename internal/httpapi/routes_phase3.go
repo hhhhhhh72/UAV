@@ -25,6 +25,7 @@ func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
 	// News (行业资讯)
 	mux.HandleFunc("POST /api/v1/articles", s.createArticle)
 	mux.HandleFunc("GET /api/v1/articles", s.listArticles)
+	mux.HandleFunc("PUT /api/v1/articles/{id}", s.updateArticle)
 	mux.HandleFunc("POST /api/v1/articles/{id}/publish", s.publishArticle)
 	// Reviews + Venues
 	mux.HandleFunc("POST /api/v1/reviews", s.submitReview)

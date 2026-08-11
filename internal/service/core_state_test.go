@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -286,6 +287,26 @@ func TestNewsCreatePublish(t *testing.T) {
 	}
 }
 
+func TestNewsUpdate(t *testing.T) {
+	svc := service.NewNewsService(memory.NewArticleRepository())
+	a, _ := svc.Create("原标题", "原内容", "policy", "来源")
+	// 编辑：保留 ID 与状态，内容更新，摘要重算
+	u, err := svc.Update(a.ID, "新标题", strings.Repeat("新内容", 60), "uav_regulation", "新来源")
+	if err != nil {
+		t.Fatal("update should succeed")
+	}
+	if u.ID != a.ID || u.Status != "draft" || u.Title != "新标题" || u.Category != "uav_regulation" || u.Source != "新来源" {
+		t.Fatal("update should keep id/status and change fields")
+	}
+	if n := len([]rune(u.Summary)); n > 103 { // 100 字 + "..."
+		t.Fatal("summary should be truncated to 100 chars")
+	}
+	// 编辑不存在的文章应报错
+	if _, err := svc.Update("article-missing", "x", "y", "", ""); err == nil {
+		t.Fatal("update missing article should error")
+	}
+}
+
 // === Training ===
 func TestTrainingCertCourseFlow(t *testing.T) {
 	svc := service.NewTrainingService(
@@ -318,7 +339,7 @@ func TestTrainingCertCourseFlow(t *testing.T) {
 	inst2, _ := svc.ApproveInstructor(admActor(), inst.ID)
 	_ = inst2
 	// Pilot
-	pilot, _ := svc.RegisterPilot(indActor(), "飞行员", "500101199001011234", 120, "电力巡检")
+	pilot, _ := svc.RegisterPilot(indActor(), "飞行员", "500101199001011234", 120, "电力巡检", "avatar.jpg", "重庆")
 	pilot2, _ := svc.ApprovePilot(admActor(), pilot.ID)
 	_ = pilot2
 	// Lists
@@ -337,5 +358,56 @@ func TestTrainingCertCourseFlow(t *testing.T) {
 	pilots, _ := svc.ListPilots()
 	if len(pilots) != 1 {
 		t.Fatal("list pilots")
+	}
+}
+
+// === Pilot 详情字段：avatar/region 落库 + 证书关联 + 单查 ===
+func TestPilotDetailFields(t *testing.T) {
+	svc := service.NewTrainingService(
+		memory.NewCertificateRepository(), memory.NewCourseRepository(),
+		memory.NewInstructorRepository(), memory.NewPilotRepository(nil),
+	)
+	// 证书：一张 approved，一张 pending（后者不应出现在名录关联里）
+	caac, _ := svc.AddCertificate(indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", time.Now(), time.Now().AddDate(2, 0, 0))
+	svc.ApproveCertificate(admActor(), caac.ID)
+	svc.AddCertificate(indActor(), domain.CertUTCDJI, "UTC-001", "", "大疆", time.Now(), time.Now().AddDate(2, 0, 0))
+
+	// 注册带 avatar/region
+	pilot, err := svc.RegisterPilot(indActor(), "王飞", "500101199001011234", 120, "电力巡检", "/uploads/a.jpg", "重庆渝北")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pilot.Avatar != "/uploads/a.jpg" || pilot.Region != "重庆渝北" {
+		t.Fatalf("avatar/region 未落库: %+v", pilot)
+	}
+	svc.ApprovePilot(admActor(), pilot.ID)
+
+	// 单查
+	got, err := svc.GetPilot(pilot.ID)
+	if err != nil || got.ID == "" {
+		t.Fatalf("GetPilot failed: %v", err)
+	}
+	if got.Avatar != "/uploads/a.jpg" || got.Region != "重庆渝北" {
+		t.Fatalf("GetPilot 新字段缺失: %+v", got)
+	}
+
+	// 名录详情：cert_ids 扩展为 certificates（仅 approved）
+	details, err := svc.ListPilotsDetailed()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(details) != 1 {
+		t.Fatalf("expected 1 pilot, got %d", len(details))
+	}
+	if len(details[0].Certificates) != 1 {
+		t.Fatalf("expected 1 approved certificate, got %d", len(details[0].Certificates))
+	}
+	c := details[0].Certificates[0]
+	if c.CertType != "caac" || c.CertName != "CAAC无人机驾驶员执照" {
+		t.Fatalf("cert brief wrong: %+v", c)
+	}
+	// 管理员视角不含敏感字段时不可见 IDCard 明文
+	if details[0].IDCard == "" {
+		t.Fatal("名录应带身份证号（handler 层才脱敏）")
 	}
 }
