@@ -7,8 +7,7 @@
       </view>
       <view class="crop-stage">
         <canvas
-          type="2d"
-          id="cropCanvas"
+          canvas-id="cropCanvas"
           class="crop-canvas"
           @touchstart="onTouchStart"
           @touchmove="onTouchMove"
@@ -25,10 +24,11 @@
 </template>
 
 <script>
-// 4:3 固定比例图片裁剪器（canvas 2d，无第三方依赖）
-// 流程：visible=true 且 src 变化 → 初始化 canvas → 加载图片 → 可拖动/缩放 →
-// 确认后导出裁剪框区域为 1200×900 的 jpg 临时文件，emit confirm(tempFilePath)
-// 注意：导出前重绘一次纯图片（去掉遮罩/框线），避免框线混入成图
+// 4:3 固定比例图片裁剪器（老式 canvas 接口，目标端为微信小程序）
+// 不用 canvas 2d 的 node.createImage()（微信开发者工具存在 nodeId undefined 兼容问题），
+// 老式 drawImage 直接接受本地临时路径，稳定可靠。
+// 流程：visible=true → 初始化画布 → getImageInfo 拿原图宽高算布局 →
+// 单指拖动/双指缩放（最小缩放保证框内不露白）→ 确认导出 1200×900 jpg
 export default {
   name: 'CropImage',
   props: {
@@ -37,23 +37,21 @@ export default {
   },
   data() {
     return {
-      canvas: null,
       ctx: null,
-      cw: 0,
+      cw: 0, // canvas CSS 宽（逻辑 px）
       ch: 0,
-      canvasImg: null,
-      imgW: 0,
+      imgW: 0, // 原图宽高
       imgH: 0,
-      baseW: 0,
+      baseW: 0, // 原图 fit 到画布后的基础尺寸
       baseH: 0,
       scale: 1,
       minScale: 1,
       maxScale: 4,
       offsetX: 0,
       offsetY: 0,
-      box: null, // { x, y, w, h } 裁剪框（CSS px，居中）
+      box: null, // { x, y, w, h } 裁剪框（居中 4:3）
       touch: null,
-      inited: false,
+      ready: false,
     }
   },
   watch: {
@@ -67,8 +65,7 @@ export default {
   },
   methods: {
     reset() {
-      this.inited = false
-      this.canvasImg = null
+      this.ready = false
       this.offsetX = 0
       this.offsetY = 0
       this.touch = null
@@ -78,26 +75,8 @@ export default {
         this.$emit('cancel')
         return
       }
-      const query = uni.createSelectorQuery().in(this)
-      query
-        .select('#cropCanvas')
-        .fields({ node: true, size: true })
-        .exec((res) => {
-          if (!res || !res[0] || !res[0].node) {
-            this.$emit('cancel')
-            return
-          }
-          const { node, width, height } = res[0]
-          this.canvas = node
-          this.ctx = node.getContext('2d')
-          const dpr = uni.getSystemInfoSync().pixelRatio || 2
-          node.width = width * dpr
-          node.height = height * dpr
-          this.ctx.scale(dpr, dpr)
-          this.cw = width
-          this.ch = height
-          this.loadImage()
-        })
+      this.ctx = uni.createCanvasContext('cropCanvas', this)
+      this.loadImage()
     },
     loadImage() {
       uni.getImageInfo({
@@ -113,34 +92,36 @@ export default {
       })
     },
     prepare() {
-      const margin = 24
-      const availW = this.cw - margin * 2
-      const availH = this.ch - margin * 2
-      const fit = Math.min(availW / this.imgW, availH / this.imgH)
-      this.baseW = this.imgW * fit
-      this.baseH = this.imgH * fit
-      // 裁剪框：宽为画布 88%，高按 4:3
-      const boxW = this.cw * 0.88
-      const boxH = (boxW * 3) / 4
-      this.box = { x: (this.cw - boxW) / 2, y: (this.ch - boxH) / 2, w: boxW, h: boxH }
-      // 最小缩放：图片必须完全覆盖裁剪框（框内不出现空白）
-      this.minScale = Math.max(boxW / this.baseW, boxH / this.baseH, 1)
-      this.scale = this.minScale
-      this.maxScale = this.minScale * 4
-      this.offsetX = 0
-      this.offsetY = 0
-      // canvas 2d 的 Image 对象（仅微信小程序可用）
-      if (this.canvas.createImage) {
-        const img = this.canvas.createImage()
-        img.onload = () => {
-          this.canvasImg = img
+      const query = uni.createSelectorQuery().in(this)
+      query
+        .select('.crop-canvas')
+        .boundingClientRect((rect) => {
+          if (!rect || !rect.width || !rect.height) {
+            this.$emit('cancel')
+            return
+          }
+          this.cw = rect.width
+          this.ch = rect.height
+          const margin = 24
+          const availW = this.cw - margin * 2
+          const availH = this.ch - margin * 2
+          const fit = Math.min(availW / this.imgW, availH / this.imgH)
+          this.baseW = this.imgW * fit
+          this.baseH = this.imgH * fit
+          // 裁剪框：宽为画布 88%，高按 4:3
+          const boxW = this.cw * 0.88
+          const boxH = (boxW * 3) / 4
+          this.box = { x: (this.cw - boxW) / 2, y: (this.ch - boxH) / 2, w: boxW, h: boxH }
+          // 最小缩放：图片必须完全覆盖裁剪框（框内不出现空白）
+          this.minScale = Math.max(boxW / this.baseW, boxH / this.baseH, 1)
+          this.scale = this.minScale
+          this.maxScale = this.minScale * 4
+          this.offsetX = 0
+          this.offsetY = 0
+          this.ready = true
           this.render()
-        }
-        img.onerror = () => this.$emit('cancel')
-        img.src = this.src
-      } else {
-        this.$emit('cancel')
-      }
+        })
+        .exec()
     },
     // 图片绘制位置（CSS px）
     imgRect() {
@@ -156,22 +137,22 @@ export default {
     render() {
       const ctx = this.ctx
       const { box } = this
-      if (!ctx || !box) return
+      if (!ctx || !box || !this.ready) return
       const { ix, iy, iw, ih } = this.imgRect()
       ctx.clearRect(0, 0, this.cw, this.ch)
-      ctx.drawImage(this.canvasImg, ix, iy, iw, ih)
+      ctx.drawImage(this.src, ix, iy, iw, ih)
       // 裁剪框外遮罩
-      ctx.fillStyle = 'rgba(0,0,0,0.62)'
+      ctx.setFillStyle('rgba(0,0,0,0.62)')
       ctx.fillRect(0, 0, this.cw, box.y)
       ctx.fillRect(0, box.y + box.h, this.cw, this.ch - box.y - box.h)
       ctx.fillRect(0, box.y, box.x, box.h)
       ctx.fillRect(box.x + box.w, box.y, this.cw - box.x - box.w, box.h)
       // 框线 + 三等分辅助线
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)'
-      ctx.lineWidth = 1
+      ctx.setStrokeStyle('rgba(255,255,255,0.9)')
+      ctx.setLineWidth(1)
       ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1)
       ctx.beginPath()
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+      ctx.setStrokeStyle('rgba(255,255,255,0.35)')
       for (let i = 1; i < 3; i++) {
         const gx = box.x + (box.w * i) / 3
         ctx.moveTo(gx, box.y)
@@ -181,6 +162,7 @@ export default {
         ctx.lineTo(box.x + box.w, gy)
       }
       ctx.stroke()
+      ctx.draw()
     },
     // 导出前重绘：只画图片，无遮罩/框线（避免框线混入成图）
     renderPlain() {
@@ -188,7 +170,8 @@ export default {
       if (!ctx) return
       const { ix, iy, iw, ih } = this.imgRect()
       ctx.clearRect(0, 0, this.cw, this.ch)
-      ctx.drawImage(this.canvasImg, ix, iy, iw, ih)
+      ctx.drawImage(this.src, ix, iy, iw, ih)
+      ctx.draw()
     },
     // 图片显示区域必须覆盖裁剪框
     clamp() {
@@ -222,7 +205,7 @@ export default {
     },
     onTouchMove(e) {
       const t = e.touches || []
-      if (!this.touch) return
+      if (!this.touch || !this.ready) return
       if (this.touch.mode === 'move' && t.length === 1) {
         this.offsetX = this.touch.sx + (t[0].clientX - this.touch.x)
         this.offsetY = this.touch.sy + (t[0].clientY - this.touch.y)
@@ -246,12 +229,12 @@ export default {
       this.$emit('cancel')
     },
     onConfirm() {
-      if (!this.canvas || !this.box) return
+      if (!this.ctx || !this.box || !this.ready) return
       const { box } = this
       this.renderPlain()
       uni.canvasToTempFilePath(
         {
-          canvas: this.canvas,
+          canvasId: 'cropCanvas',
           x: box.x,
           y: box.y,
           width: box.w,
