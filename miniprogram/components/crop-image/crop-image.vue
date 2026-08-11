@@ -3,7 +3,7 @@
     <view class="crop-panel">
       <view class="crop-head">
         <text class="crop-title">调整图片位置与大小</text>
-        <text class="crop-ratio">4:3 比例</text>
+        <text class="crop-ratio">16:9 比例</text>
       </view>
       <view class="crop-stage">
         <canvas
@@ -24,11 +24,11 @@
 </template>
 
 <script>
-// 4:3 固定比例图片裁剪器（老式 canvas 接口，目标端为微信小程序）
+// 16:9 固定比例图片裁剪器（老式 canvas 接口，目标端为微信小程序）
 // 不用 canvas 2d 的 node.createImage()（微信开发者工具存在 nodeId undefined 兼容问题），
 // 老式 drawImage 直接接受本地临时路径，稳定可靠。
 // 流程：visible=true → 初始化画布 → getImageInfo 拿原图宽高算布局 →
-// 单指拖动/双指缩放（最小缩放保证框内不露白）→ 确认导出 1200×900 jpg
+// 单指拖动/双指缩放（最小缩放保证框内不露白）→ 确认导出 1280×720 jpg
 export default {
   name: 'CropImage',
   props: {
@@ -49,7 +49,7 @@ export default {
       maxScale: 4,
       offsetX: 0,
       offsetY: 0,
-      box: null, // { x, y, w, h } 裁剪框（居中 4:3）
+      box: null, // { x, y, w, h } 裁剪框（居中 16:9）
       touch: null,
       ready: false,
     }
@@ -108,9 +108,9 @@ export default {
           const fit = Math.min(availW / this.imgW, availH / this.imgH)
           this.baseW = this.imgW * fit
           this.baseH = this.imgH * fit
-          // 裁剪框：宽为画布 88%，高按 4:3
+          // 裁剪框：宽为画布 88%，高按 16:9
           const boxW = this.cw * 0.88
-          const boxH = (boxW * 3) / 4
+          const boxH = (boxW * 9) / 16
           this.box = { x: (this.cw - boxW) / 2, y: (this.ch - boxH) / 2, w: boxW, h: boxH }
           // 最小缩放：图片必须完全覆盖裁剪框（框内不出现空白）
           this.minScale = Math.max(boxW / this.baseW, boxH / this.baseH, 1)
@@ -239,8 +239,8 @@ export default {
           y: box.y,
           width: box.w,
           height: box.h,
-          destWidth: 1200,
-          destHeight: 900,
+          destWidth: 1280,
+          destHeight: 720,
           fileType: 'jpg',
           quality: 0.9,
           success: (res) => {

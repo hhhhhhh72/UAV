@@ -90,7 +90,7 @@
           <text class="upload-hint">{{ images.length }}/9</text>
         </view>
       </view>
-      <text class="upload-tip">支持从相册选择或拍照，将自动裁剪为 4:3 比例，审核通过后在需求大厅公开展示</text>
+      <text class="upload-tip">支持从相册选择或拍照，将自动裁剪为 16:9 比例，审核通过后在需求大厅公开展示</text>
     </view>
 
     <!-- 底部操作栏 -->
@@ -115,7 +115,7 @@
       @update:show="showDistrictPicker = $event"
     />
 
-    <!-- 图片裁剪（4:3 统一比例，保证首页/大厅卡片整齐） -->
+    <!-- 图片裁剪（16:9 统一比例，保证首页/大厅卡片整齐） -->
     <crop-image
       :visible="showCrop"
       :src="cropSrc"
@@ -166,7 +166,7 @@ export default {
       images: [],
       showDistrictPicker: false,
       submitting: false,
-      // 裁剪流程状态：选图后逐张裁剪（4:3）再上传
+      // 裁剪流程状态：选图后逐张裁剪（16:9）再上传
       showCrop: false,
       cropSrc: '',
       cropQueue: [],
@@ -211,7 +211,7 @@ export default {
       if (u.indexOf(BASE_URL) === 0) return u.slice(BASE_URL.length)
       return u
     },
-    // ---- 多图上传（选图 → 逐张 4:3 裁剪 → 上传） ----
+    // ---- 多图上传（选图 → 逐张 16:9 裁剪 → 上传） ----
     chooseImages() {
       var self = this
       var remaining = MAX_IMAGES - self.images.length
