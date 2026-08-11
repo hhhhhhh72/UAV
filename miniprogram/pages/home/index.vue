@@ -1163,14 +1163,9 @@ onPullDownRefresh(() => {
   grid-template-columns: 112px minmax(0, 1fr);
   box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
 }
-/* 图区外观与原先一致（112×126 竖条，仅把 min-height 改为固定 height）：
-   min-height 时小程序 image 按原图比例渲染（竖图 140px+/横图 63px），grid 行高
-   随图变化 → 卡片高度参差、右侧数据（标签/预算）被拉伸 → 表现为
-   "老的大图卡变普通卡后数据布局与其他小图卡不一致"；固定高度后所有
-   小图卡图片填满同一区域、卡片同高、数据布局完全一致 */
 .demand-photo {
   width: 112px;
-  height: 126px;
+  min-height: 126px;
   display: block;
 }
 .demand-body {
@@ -1225,8 +1220,13 @@ onPullDownRefresh(() => {
   gap: 8px;
   font-size: 9px;
 }
+/* 预算行不再贴底（margin-top:auto 会让位置随卡片高度漂移）：
+   老需求用旧图（未裁剪，竖图在 112px 列中可高达 199px），把卡片撑高后
+   预算行被推到卡片底部，与 16:9 图的小图卡（126px 高）不在同一位置；
+   改为固定间距跟随内容流后，预算行位置只由上方标签/标题/meta 决定，
+   老的大图卡变普通卡后右侧数据与其他小图卡完全对齐（图片高度不再影响） */
 .demand-foot {
-  margin-top: auto;
+  margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid #EEF1F4;
   display: flex;
