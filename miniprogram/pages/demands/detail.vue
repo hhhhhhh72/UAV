@@ -482,8 +482,12 @@ const submitIntent = async () => {
   }
   submitting.value = true
   try {
-    // 尝试走后端登记意向；失败降级到本地存储
-    if (postId && /^[a-zA-Z0-9]+$/.test(postId)) {
+    // 登记后端意向。真实需求（demand-* 前缀，后端已创建）必须提交成功，
+    // 失败明确提示；本地演示内容（hallData mock d1/s1 与本地发布 post-*）
+    // 后端无此需求，保留本地兜底
+    const isReal = !!(postId && postId.startsWith('demand-'))
+    let backendOk = false
+    if (isReal) {
       try {
         await request({
           url: '/api/v1/demands/' + encodeURIComponent(postId) + '/intents',
@@ -494,20 +498,28 @@ const submitIntent = async () => {
             remark: intentForm.value.note,
           },
         })
-      } catch (e) { /* 忽略，走本地兜底 */ }
+        backendOk = true
+      } catch (e) {
+        uni.showToast({ title: '提交失败，请稍后重试', icon: 'none' })
+        submitting.value = false
+        return
+      }
     }
-    const sent = getSentIntents()
-    sent.unshift({
-      id: 'sent' + Date.now(),
-      name: currentUserName(),
-      initial: (currentUserName() || '云').slice(0, 1),
-      target: item.value ? item.value.title : '',
-      note: intentForm.value.note.trim(),
-      status: '待处理',
-      createdAt: '刚刚',
-    })
-    saveSentIntents(sent)
-    uni.showToast({ title: '对接意向已提交', icon: 'success' })
+    if (!backendOk) {
+      // 仅本地演示内容写入本地存储（后端成功时由 /api/v1/intents/mine 承载）
+      const sent = getSentIntents()
+      sent.unshift({
+        id: 'sent' + Date.now(),
+        name: currentUserName(),
+        initial: (currentUserName() || '云').slice(0, 1),
+        target: item.value ? item.value.title : '',
+        note: intentForm.value.note.trim(),
+        status: '待处理',
+        createdAt: '刚刚',
+      })
+      saveSentIntents(sent)
+    }
+    uni.showToast({ title: backendOk ? '对接意向已提交' : '意向已保存到本地', icon: 'success' })
     closeSheet()
   } finally {
     submitting.value = false
