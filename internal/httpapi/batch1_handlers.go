@@ -20,6 +20,7 @@ func (s *Server) registerBatch1Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/test-sites", s.createTestSite)
 	mux.HandleFunc("GET /api/v1/test-sites", s.listTestSites)
 	mux.HandleFunc("POST /api/v1/test-sites/{id}/book", s.bookTestSite)
+	mux.HandleFunc("GET /api/v1/test-sites/bookings/mine", s.listMyTestSiteBookings) // 我的预约
 	mux.HandleFunc("POST /api/v1/admin/test-sites/bookings/{id}/review", s.reviewTestSiteBooking)
 
 	mux.HandleFunc("POST /api/v1/admin/exhibitions", s.createExhibition)
@@ -201,6 +202,21 @@ func (s *Server) reviewTestSiteBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond(w, r, http.StatusOK, bk)
+}
+
+// GET /api/v1/test-sites/bookings/mine — 我的预约：当前用户提交的场地预约（最新在前）
+func (s *Server) listMyTestSiteBookings(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
+		return
+	}
+	list, err := s.testSiteSvc.ListMyBookings(a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, list)
 }
 
 // ── Exhibition ──

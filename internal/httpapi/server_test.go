@@ -24,6 +24,7 @@ func newServer(t *testing.T) http.Handler {
 	}
 	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/"), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository()), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
 	// Extended services used by public handlers (home endpoint etc.).
+	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
 	return srv.Router()
 }
 func auth(t *testing.T, role domain.Role) string {
@@ -476,4 +477,85 @@ func TestAftersaleFlow(t *testing.T) {
 	if rj.Code != http.StatusOK || !bytes.Contains(rj.Body.Bytes(), []byte(`"aftersale_status":"rejected"`)) {
 		t.Fatalf("review reject: %d %s", rj.Code, rj.Body.String())
 	}
+}
+
+// 我的预约（测试场地）：预约提交 → mine 可见 → 数据隔离 → 审核后状态同步 → 未登录 401
+func TestMyTestSiteBookings(t *testing.T) {
+	app := newServer(t)
+
+	// 1. 管理后台建试飞场
+	cw := requestAs(t, app, http.MethodPost, "/api/v1/admin/test-sites",
+		[]byte(`{"name":"渝北试飞场","site_type":"flying_field","location":"渝北区","booking_rule":"工作日9-18点","price_fen":0,"status":"available"}`),
+		"admin-1", domain.RolePlatformAdmin)
+	if cw.Code != http.StatusCreated {
+		t.Fatalf("create site: %d %s", cw.Code, cw.Body.String())
+	}
+	var site struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(cw.Body.Bytes(), &site); err != nil {
+		t.Fatalf("parse site: %v", err)
+	}
+
+	// 2. 买家预约 → pending
+	bw := requestAs(t, app, http.MethodPost, "/api/v1/test-sites/"+site.Data.ID+"/book",
+		[]byte(`{"purpose":"certification","date":"2026-08-20","time_slot":"09:00-11:00","contact_name":"张三","contact_phone":"13800000001"}`),
+		"buyer-1", domain.RoleIndividual)
+	if bw.Code != http.StatusCreated {
+		t.Fatalf("book site: %d %s", bw.Code, bw.Body.String())
+	}
+
+	// 3. 我的预约可见（含场地 id 与 pending 状态）
+	mine := requestAs(t, app, http.MethodGet, "/api/v1/test-sites/bookings/mine", nil, "buyer-1", domain.RoleIndividual)
+	if mine.Code != http.StatusOK {
+		t.Fatalf("my bookings: %d %s", mine.Code, mine.Body.String())
+	}
+	if !bytes.Contains(mine.Body.Bytes(), []byte(`"status":"pending"`)) ||
+		!bytes.Contains(mine.Body.Bytes(), []byte(site.Data.ID)) {
+		t.Fatalf("mine should contain booking: %s", mine.Body.String())
+	}
+
+	// 4. 数据隔离：他人 mine 为空
+	other := requestAs(t, app, http.MethodGet, "/api/v1/test-sites/bookings/mine", nil, "buyer-2", domain.RoleIndividual)
+	if !bytes.Contains(other.Body.Bytes(), []byte(`"data":[]`)) {
+		t.Fatalf("other user should see empty: %s", other.Body.String())
+	}
+
+	// 5. 未登录 401
+	rr := httptest.NewRequest(http.MethodGet, "/api/v1/test-sites/bookings/mine", nil)
+	w := httptest.NewRecorder()
+	app.ServeHTTP(w, rr)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized should be 401, got %d", w.Code)
+	}
+
+	// 6. 管理端审核通过后，mine 显示 approved
+	rw := requestAs(t, app, http.MethodPost, "/api/v1/admin/test-sites/bookings/"+bookingIDOf(t, mine)+"/review",
+		[]byte(`{"status":"approved","note":"已确认档期"}`), "admin-1", domain.RolePlatformAdmin)
+	if rw.Code != http.StatusOK {
+		t.Fatalf("review booking: %d %s", rw.Code, rw.Body.String())
+	}
+	mine2 := requestAs(t, app, http.MethodGet, "/api/v1/test-sites/bookings/mine", nil, "buyer-1", domain.RoleIndividual)
+	if !bytes.Contains(mine2.Body.Bytes(), []byte(`"status":"approved"`)) {
+		t.Fatalf("mine should reflect approved: %s", mine2.Body.String())
+	}
+}
+
+// bookingIDOf 从 mine 列表响应里取出第一条预约 ID（测试辅助）。
+func bookingIDOf(t *testing.T, w *httptest.ResponseRecorder) string {
+	t.Helper()
+	var resp struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse mine: %v", err)
+	}
+	if len(resp.Data) == 0 {
+		t.Fatalf("no bookings: %s", w.Body.String())
+	}
+	return resp.Data[0].ID
 }

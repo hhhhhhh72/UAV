@@ -68,6 +68,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
+import { safeBack } from '../../../utils/nav'
 import StateView from '../../../components/StateView.vue'
 
 const SITE_TYPE_MAP = {
@@ -152,7 +153,7 @@ function goDetail(site) {
 }
 
 function goBack() {
-  uni.navigateBack()
+  safeBack()
 }
 
 onLoad(() => fetchList())

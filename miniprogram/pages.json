@@ -491,6 +491,16 @@
           }
         },
         {
+          "path": "pages/training/myenrollments",
+          "style": {
+            "navigationBarTitleText": "我的报名",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
           "path": "pages/study/index",
           "style": {
             "navigationBarTitleText": "低空研学",
@@ -805,6 +815,16 @@
             "navigationBarTitleText": "预约结果",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/testsites/mybookings",
+          "style": {
+            "navigationBarTitleText": "我的预约",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
             "navigationStyle": "custom"
           }
         },

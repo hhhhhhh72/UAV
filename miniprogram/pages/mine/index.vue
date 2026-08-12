@@ -310,8 +310,8 @@ const showDeviceCard = computed(() => identity.value === 'enterprise' || identit
 const businessItems = computed(() => [
   { icon: '/static/mine-icons/publish.svg', tone: 'publish', label: '我的发布', go: goMyDemands },
   { icon: '/static/mine-icons/intent.svg', tone: 'intent', label: '合作意向', go: goIntents },
-  { icon: '/static/mine-icons/appointment.svg', tone: 'appointment', label: '我的预约', go: goComingSoon },
-  { icon: '/static/mine-icons/enroll.svg', tone: 'enroll', label: '我的报名', go: goComingSoon },
+  { icon: '/static/mine-icons/appointment.svg', tone: 'appointment', label: '我的预约', go: goMyBookings },
+  { icon: '/static/mine-icons/enroll.svg', tone: 'enroll', label: '我的报名', go: goMyEnrollments },
   { icon: '/static/mine-icons/favorite.svg', tone: 'favorite', label: '我的收藏', go: goComingSoon },
   { icon: '/static/mine-icons/order.svg', tone: 'order', label: '商城订单', go: goOrders },
 ])
@@ -557,6 +557,16 @@ const goCourses = () => {
 const goOrders = () => {
   if (!requireLogin()) return
   uni.navigateTo({ url: '/pages/orders/index' })
+}
+
+const goMyBookings = () => {
+  if (!requireLogin()) return
+  uni.navigateTo({ url: '/pkg-service/pages/testsites/mybookings' })
+}
+
+const goMyEnrollments = () => {
+  if (!requireLogin()) return
+  uni.navigateTo({ url: '/pkg-talent/pages/training/myenrollments' })
 }
 
 const goProfile = () => {

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -126,6 +127,21 @@ func (r *testSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, er
 			out = append(out, b)
 		}
 	}
+	return out, nil
+}
+
+// ListBookingsByUser 我的预约：按用户返回全部预约（最新在前）
+func (r *testSiteRepo) ListBookingsByUser(userID string) ([]domain.TestSiteBooking, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.TestSiteBooking, 0)
+	for _, b := range r.bookings {
+		if b.UserID == userID {
+			out = append(out, b)
+		}
+	}
+	// 按申请时间倒序（与 ListAllBookings 排序一致）
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *testSiteRepo) ListAllBookings(offset, limit int) ([]domain.TestSiteBooking, int, error) {

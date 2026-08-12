@@ -82,6 +82,7 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
+import { safeBack } from '../../../utils/nav'
 
 const SITE_TYPE_MAP = {
   flying_field: '飞行场地',
@@ -138,7 +139,7 @@ function goBooking() {
 }
 
 function goBack() {
-  uni.navigateBack()
+  safeBack()
 }
 
 onLoad((options) => {

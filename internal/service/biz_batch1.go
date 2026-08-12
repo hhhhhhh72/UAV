@@ -110,6 +110,11 @@ func (s *TestSiteService) ListBookings(siteID string) ([]domain.TestSiteBooking,
 	return s.repo.ListBookings(siteID)
 }
 
+// ListMyBookings 我的预约：当前用户提交的全部场地预约（最新在前）。
+func (s *TestSiteService) ListMyBookings(userID string) ([]domain.TestSiteBooking, error) {
+	return s.repo.ListBookingsByUser(userID)
+}
+
 func (s *TestSiteService) DeleteSite(id string) error { return s.repo.DeleteSite(id) }
 
 // ── Exhibition Service ──

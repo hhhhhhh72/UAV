@@ -29,6 +29,17 @@ export const safeSwitchTab = (url) => {
   uni.switchTab({ url })
 }
 
+// 栈感知返回：有上一页则 navigateBack；无上一页（如从预约结果 reLaunch 进来的列表页）
+// 则落到 fallbackUrl，避免在首屏 navigateBack 报 "cannot navigate back at first page"。
+export const safeBack = (fallbackUrl = '/pages/home/index') => {
+  const pages = getCurrentPages()
+  if (pages.length > 1) {
+    uni.navigateBack()
+    return
+  }
+  uni.switchTab({ url: fallbackUrl })
+}
+
 export const safeReLaunch = (url) => {
   uni.reLaunch({ url })
 }
