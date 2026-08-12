@@ -2193,6 +2193,25 @@ func (r *tradeOrderRepo) UpdateStatus(id string, status string) (domain.TradeOrd
 	}
 	return domain.TradeOrder{}, fmt.Errorf("order %s not found", id)
 }
+func (r *tradeOrderRepo) UpdateAftersale(o domain.TradeOrder) (domain.TradeOrder, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == o.ID {
+			r.items[i].Status = o.Status
+			r.items[i].AftersaleType = o.AftersaleType
+			r.items[i].AftersaleReason = o.AftersaleReason
+			r.items[i].AftersaleDesc = o.AftersaleDesc
+			r.items[i].AftersaleAmountFen = o.AftersaleAmountFen
+			r.items[i].AftersaleStatus = o.AftersaleStatus
+			r.items[i].AftersaleTime = o.AftersaleTime
+			r.items[i].UpdatedAt = time.Now()
+			r.items[i].Version++
+			return r.items[i], nil
+		}
+	}
+	return domain.TradeOrder{}, fmt.Errorf("order %s not found", o.ID)
+}
 func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

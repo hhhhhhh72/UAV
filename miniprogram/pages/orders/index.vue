@@ -81,7 +81,7 @@
             <text class="order-origin-mark">{{ kindMark(o.kind_label) }}</text>
             <text class="order-origin-text">{{ o.origin }}</text>
           </view>
-          <text class="order-state" :class="stateClass(o.status)">{{ ORDER_STATUS[o.status] || o.status }}</text>
+          <text class="order-state" :class="stateClass(o.status)">{{ o.status_text || ORDER_STATUS[o.status] || o.status }}</text>
         </view>
 
         <view class="order-body" @tap.stop="goDetail(o)">

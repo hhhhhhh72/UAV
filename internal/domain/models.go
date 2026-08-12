@@ -475,9 +475,18 @@ type TradeOrder struct {
 	SellerID  string    `json:"seller_id"`
 	AmountFen int64     `json:"amount_fen"`
 	Status    string    `json:"status"`
-	Version   int       `json:"version"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	// 售后契约（一期）：aftersale_type=refund(仅退款)/return(退货退款)；
+	// aftersale_status=pending(待审核)/approved(已同意退款)/rejected(已驳回)。
+	// aftersale_status 为空串表示该订单从未申请过售后。
+	AftersaleType      string    `json:"aftersale_type"`
+	AftersaleReason    string    `json:"aftersale_reason"`
+	AftersaleDesc      string    `json:"aftersale_desc"`
+	AftersaleAmountFen int64     `json:"aftersale_amount_fen"`
+	AftersaleStatus    string    `json:"aftersale_status"`
+	AftersaleTime      time.Time `json:"aftersale_time"`
+	Version            int       `json:"version"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // EscrowAccount holds a user's balance and frozen funds in the escrow system.

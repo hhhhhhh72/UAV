@@ -145,6 +145,7 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/orders/{id}", s.getOrder)
 	mux.HandleFunc("POST /api/v1/admin/orders", s.createOrder)
 	mux.HandleFunc("PUT /api/v1/admin/orders/{id}", s.updateOrder)
+	mux.HandleFunc("PUT /api/v1/admin/orders/{id}/aftersale", s.reviewAftersale)
 	mux.HandleFunc("DELETE /api/v1/admin/orders/{id}", s.deleteOrder)
 
 	// === 商品管理 === (商城上架)

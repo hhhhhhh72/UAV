@@ -330,6 +330,8 @@ type TradeOrderRepository interface {
 	Create(domain.TradeOrder) (domain.TradeOrder, error)
 	FindByID(id string) (domain.TradeOrder, error)
 	UpdateStatus(id string, status string) (domain.TradeOrder, error)
+	// UpdateAftersale 一次性写订单状态 + 售后字段（申请/审核结案共用），只写这两类列
+	UpdateAftersale(o domain.TradeOrder) (domain.TradeOrder, error)
 	ListByUser(userID string) ([]domain.TradeOrder, error)
 	ListAll(offset, limit int) ([]domain.TradeOrder, int, error)
 	Delete(id string) error

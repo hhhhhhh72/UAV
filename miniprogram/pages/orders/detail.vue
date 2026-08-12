@@ -73,6 +73,15 @@
         </view>
         <text class="action-note" v-if="actionNote">{{ actionNote }}</text>
       </view>
+
+      <!-- 申请售后（买家：已发货/已完成且无售后记录时） -->
+      <view v-if="showAftersaleEntry" class="aftersale-entry" hover-class="aftersale-entry--active" @tap="goRefundApply">
+        <view class="aftersale-entry-copy">
+          <text class="aftersale-entry-title">申请售后</text>
+          <text class="aftersale-entry-hint">商品有问题可申请退款，由平台审核处理</text>
+        </view>
+        <text class="aftersale-entry-arrow">›</text>
+      </view>
     </template>
 
     <view class="bottom-spacer"></view>
@@ -83,6 +92,7 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { loadOrder, fmtFen, toastCustomerService } from '../../utils/orderAdapter'
+import { request } from '../../utils/request'
 
 const order = ref(null)
 const loading = ref(true)
@@ -95,14 +105,31 @@ const navTitle = computed(() => {
   return '商品订单详情'
 })
 
+// 申请售后入口：仅买家、已付款（未发货退款）/已发货/已完成且从未申请过售后（aftersale 记录存在时不再显示）
+const showAftersaleEntry = computed(() => {
+  const o = order.value
+  if (!o || o.role === 'seller') return false
+  if (o.aftersale) return false
+  return o.status === 'paid' || o.status === 'shipped' || o.status === 'completed'
+})
+
 const actionNote = computed(() => {
   if (!order.value) return ''
   const o = order.value
-  if (o.status === 'pending') return '支付接口接入中，暂不修改订单状态'
-  if (o.status === 'paid') return '发货提醒已记录，前端不改变订单状态'
-  if (o.status === 'shipped') return '确认收货需后端支持后方可生效'
-  if (o.status === 'completed') return '评价后结课凭证进入「我的报名 / 证书」'
-  if (o.status === 'aftersale') return '退款由平台审核，前端仅提交申请'
+  // 卖家视角：发货方文案
+  if (o.role === 'seller') {
+    if (o.status === 'pending') return '等待买家完成付款，付款后即可发货'
+    if (o.status === 'paid') return '模拟发货：确认发货后订单将标记为已发货'
+    if (o.status === 'shipped') return '等待买家确认收货'
+    if (o.status === 'completed') return '交易已完成，感谢你的销售'
+    return ''
+  }
+  // 买家视角：付款方文案
+  if (o.aftersale) return '退款由平台审核，可在售后详情查看处理进度'
+  if (o.status === 'pending') return '模拟支付：确认支付后订单将标记为已支付'
+  if (o.status === 'paid') return '卖家将在 48 小时内发货，请留意物流更新'
+  if (o.status === 'shipped') return '模拟收货：确认收货后订单将完成'
+  if (o.status === 'completed') return o.action === '已评价' ? '感谢你的评价，结课凭证已存入「我的报名 / 证书」' : '评价后结课凭证进入「我的报名 / 证书」'
   return ''
 })
 
@@ -130,9 +157,33 @@ onLoad(loadData)
 const handlePrimaryAction = () => {
   if (!order.value) return
   const o = order.value
+  // 有售后记录的订单（含结案单：状态已回 completed）一律看售后详情
+  if (o.aftersale) {
+    uni.navigateTo({
+      url: `/pages/orders/aftersale?id=${encodeURIComponent(o.id)}&type=${o.type}`,
+    })
+    return
+  }
+  // ── 卖家视角：发货 / 等待流转提示 ──
+  if (o.role === 'seller') {
+    if (o.status === 'paid') {
+      // 模拟发货：调后端状态机 paid→shipped（真实物流接入后替换此逻辑）
+      shipOrder(o)
+      return
+    }
+    const sellerTips = {
+      pending: '等待买家完成付款',
+      shipped: '等待买家确认收货',
+      completed: '交易已完成',
+      aftersale: '售后处理中',
+    }
+    uni.showToast({ title: sellerTips[o.status] || '请等待买家操作', icon: 'none' })
+    return
+  }
+  // ── 买家视角：支付 / 收货 / 评价 ──
   if (o.status === 'pending') {
-    // 去支付：无真实支付契约，仅提示入口，不把订单改为已支付
-    uni.showToast({ title: '支付功能待接入，订单保持待付款', icon: 'none' })
+    // 模拟支付：调后端状态机 pending→paid（真实微信支付接入后替换此逻辑）
+    payOrder(o)
     return
   }
   if (o.status === 'paid') {
@@ -141,28 +192,89 @@ const handlePrimaryAction = () => {
     return
   }
   if (o.status === 'shipped') {
-    // 确认收货：需要后端支持后才可改变状态
-    uni.showModal({
-      title: '确认收货',
-      content: '确认收货功能需后端支持后开放，当前订单状态不会改变。',
-      showCancel: false,
-      confirmText: '知道了',
-    })
+    // 模拟确认收货：调后端状态机 shipped→completed（真实物流接入后替换此逻辑）
+    confirmOrder(o)
     return
   }
   if (o.status === 'completed') {
-    // 去评价
+    // 去评价（结案单已在上方 o.aftersale 分支处理，不会走到这里）
     uni.navigateTo({
       url: `/pages/orders/review?id=${encodeURIComponent(o.id)}&type=${o.type}`,
     })
     return
   }
-  if (o.status === 'aftersale') {
-    // 查看售后
-    uni.navigateTo({
-      url: `/pages/orders/aftersale?id=${encodeURIComponent(o.id)}&type=${o.type}`,
+}
+
+// 模拟支付：PATCH /api/v1/trade-orders/{id}/status 置 paid，成功即刷新订单
+const payOrder = async (o) => {
+  uni.showLoading({ title: '支付中...' })
+  try {
+    await request({
+      url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/status',
+      method: 'PATCH',
+      data: { status: 'paid' },
     })
+    uni.hideLoading()
+    uni.showToast({ title: '支付成功', icon: 'success' })
+    loadData({ id: o.id })
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || '支付失败，请稍后重试'
+    uni.showToast({ title: msg, icon: 'none' })
   }
+}
+
+// 模拟发货：卖家 PATCH 置 shipped（真实物流接入后替换此逻辑）
+const shipOrder = async (o) => {
+  uni.showModal({
+    title: '确认发货',
+    content: '确认已安排发货？订单将标记为已发货，买家确认收货后完成交易。',
+    confirmText: '确认发货',
+    success: (res) => {
+      if (!res.confirm) return
+      patchOrderStatus(o, 'shipped', '发货中...', '发货成功', '发货失败，请稍后重试')
+    },
+  })
+}
+
+// 模拟确认收货：买家 PATCH 置 completed（真实物流接入后替换此逻辑）
+const confirmOrder = async (o) => {
+  uni.showModal({
+    title: '确认收货',
+    content: '确认已收到商品？确认后订单将完成，可进行评价。',
+    confirmText: '确认收货',
+    success: (res) => {
+      if (!res.confirm) return
+      patchOrderStatus(o, 'completed', '确认中...', '确认收货成功', '操作失败，请稍后重试')
+    },
+  })
+}
+
+// 模拟流转共用：PATCH /api/v1/trade-orders/{id}/status 置新状态，成功即刷新订单
+const patchOrderStatus = async (o, status, loadingText, successText, failText) => {
+  uni.showLoading({ title: loadingText })
+  try {
+    await request({
+      url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/status',
+      method: 'PATCH',
+      data: { status },
+    })
+    uni.hideLoading()
+    uni.showToast({ title: successText, icon: 'success' })
+    loadData({ id: o.id })
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || failText
+    uni.showToast({ title: msg, icon: 'none' })
+  }
+}
+
+// 申请售后：进入退款申请页（提交后回这里/售后详情看进度）
+const goRefundApply = () => {
+  if (!order.value) return
+  uni.navigateTo({
+    url: `/pages/orders/refund-apply?id=${encodeURIComponent(order.value.id)}&type=${order.value.type}`,
+  })
 }
 
 const goLogistics = () => {
@@ -428,6 +540,26 @@ const rowClass = (status) => {
   color: var(--color-text-placeholder);
   text-align: center;
 }
+
+/* 申请售后入口 */
+.aftersale-entry {
+  margin: 20rpx 24rpx 0;
+  background: #fff;
+  border: 1rpx solid var(--color-border);
+  border-radius: 16rpx;
+  box-shadow: var(--shadow-sm);
+  min-height: 104rpx;
+  padding: 0 28rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  box-sizing: border-box;
+}
+.aftersale-entry--active { opacity: 0.7; }
+.aftersale-entry-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6rpx; }
+.aftersale-entry-title { font-size: 26rpx; font-weight: 600; color: var(--color-text); }
+.aftersale-entry-hint { font-size: 22rpx; color: var(--color-text-placeholder); }
+.aftersale-entry-arrow { font-size: 30rpx; color: var(--color-text-placeholder); }
 
 .bottom-spacer { height: 24rpx; }
 </style>

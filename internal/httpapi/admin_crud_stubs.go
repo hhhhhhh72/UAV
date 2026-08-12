@@ -1506,6 +1506,33 @@ func (s *Server) updateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, r, 200, o)
 }
+// PUT /api/v1/admin/orders/{id}/aftersale — 售后单审核（同意退款 / 驳回），仅售后待审核单可审
+func (s *Server) reviewAftersale(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Action string `json:"action"` // approve=同意退款 / reject=驳回
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, 400, err)
+		return
+	}
+	switch in.Action {
+	case "approve", "reject":
+	default:
+		fail(w, r, 400, fmt.Errorf("action 仅支持 approve / reject"))
+		return
+	}
+	o, err := s.tradeSvc.ReviewAftersale(r.PathValue("id"), in.Action == "approve")
+	if err != nil {
+		fail(w, r, 400, err)
+		return
+	}
+	adminID := ""
+	if a, ok := authenticatedActor(r); ok {
+		adminID = a.ID
+	}
+	s.audit(r.Context(), adminID, "review_aftersale", "trade_order", o.ID, o.AftersaleStatus)
+	respond(w, r, 200, o)
+}
 func (s *Server) deleteOrder(w http.ResponseWriter, r *http.Request) {
 	if err := s.tradeSvc.Delete(r.PathValue("id")); err != nil {
 		fail(w, r, 500, fmt.Errorf("delete order: %w", err))

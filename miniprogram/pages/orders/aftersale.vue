@@ -87,7 +87,7 @@ const order = ref(null)
 const loading = ref(true)
 const error = ref(false)
 
-const as = computed(() => order.value?.detail?.aftersale || null)
+const as = computed(() => order.value?.aftersale || null)
 
 const loadData = async (query = {}) => {
   const id = query.id
@@ -101,7 +101,7 @@ const loadData = async (query = {}) => {
   try {
     const o = await loadOrder(id)
     order.value = o
-    if (!o || !o.detail || !o.detail.aftersale) error.value = true
+    if (!o || !o.aftersale) error.value = true
   } catch (e) {
     error.value = true
   } finally {

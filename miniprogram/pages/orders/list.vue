@@ -48,7 +48,7 @@
             <text class="order-origin-mark">{{ kindMark(o.kind_label) }}</text>
             <text class="order-origin-text">{{ o.origin }}</text>
           </view>
-          <text class="order-state" :class="stateClass(o.status)">{{ ORDER_STATUS[o.status] || o.status }}</text>
+          <text class="order-state" :class="stateClass(o.status)">{{ o.status_text || ORDER_STATUS[o.status] || o.status }}</text>
         </view>
 
         <view class="order-body" @tap.stop="goDetail(o)">
@@ -119,6 +119,7 @@ import {
   ORDER_TYPE_LABEL,
   loadOrders,
   fmtFen,
+  markStatusSeen,
 } from '../../utils/orderAdapter'
 
 const status = ref('all')
@@ -180,6 +181,8 @@ onLoad((query) => {
 })
 
 onShow(() => {
+  // 提醒型状态（待评价/退款售后）查看即消角标；待办型（待付款/发货/收货）不受影响
+  if (status.value === 'completed' || status.value === 'aftersale') markStatusSeen(status.value)
   loadData()
 })
 

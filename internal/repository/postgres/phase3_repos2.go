@@ -463,12 +463,20 @@ func (r *tradeOrderRepo) Create(o domain.TradeOrder) (domain.TradeOrder, error) 
 		o.ID, o.ProductID, o.BuyerID, o.SellerID, o.AmountFen, o.Status, o.Version, o.CreatedAt, o.UpdatedAt)
 	return o, err
 }
-func (r *tradeOrderRepo) FindByID(id string) (domain.TradeOrder, error) {
+// tradeOrderColumns trade_orders 查询列（含售后字段），各查询统一复用
+const tradeOrderColumns = `id,product_id,buyer_id,seller_id,amount_fen,status,aftersale_type,aftersale_reason,aftersale_desc,aftersale_amount_fen,aftersale_status,aftersale_time,version,created_at,updated_at`
+
+func scanTradeOrder(row interface{ Scan(...any) error }) (domain.TradeOrder, error) {
 	var o domain.TradeOrder
-	err := r.pool.QueryRow(context.Background(),
-		`SELECT id,product_id,buyer_id,seller_id,amount_fen,status,version,created_at,updated_at FROM trade_orders WHERE id=$1`, id).
-		Scan(&o.ID, &o.ProductID, &o.BuyerID, &o.SellerID, &o.AmountFen, &o.Status, &o.Version, &o.CreatedAt, &o.UpdatedAt)
+	err := row.Scan(&o.ID, &o.ProductID, &o.BuyerID, &o.SellerID, &o.AmountFen, &o.Status,
+		&o.AftersaleType, &o.AftersaleReason, &o.AftersaleDesc, &o.AftersaleAmountFen, &o.AftersaleStatus, &o.AftersaleTime,
+		&o.Version, &o.CreatedAt, &o.UpdatedAt)
 	return o, err
+}
+
+func (r *tradeOrderRepo) FindByID(id string) (domain.TradeOrder, error) {
+	return scanTradeOrder(r.pool.QueryRow(context.Background(),
+		`SELECT `+tradeOrderColumns+` FROM trade_orders WHERE id=$1`, id))
 }
 func (r *tradeOrderRepo) UpdateStatus(id, status string) (domain.TradeOrder, error) {
 	_, err := r.pool.Exec(context.Background(), `UPDATE trade_orders SET status=$1,updated_at=$2,version=version+1 WHERE id=$3`, status, time.Now(), id)
@@ -476,6 +484,15 @@ func (r *tradeOrderRepo) UpdateStatus(id, status string) (domain.TradeOrder, err
 		return domain.TradeOrder{}, fmt.Errorf("update trade order status: %w", err)
 	}
 	return r.FindByID(id)
+}
+func (r *tradeOrderRepo) UpdateAftersale(o domain.TradeOrder) (domain.TradeOrder, error) {
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE trade_orders SET status=$1,aftersale_type=$2,aftersale_reason=$3,aftersale_desc=$4,aftersale_amount_fen=$5,aftersale_status=$6,aftersale_time=$7,updated_at=$8,version=version+1 WHERE id=$9`,
+		o.Status, o.AftersaleType, o.AftersaleReason, o.AftersaleDesc, o.AftersaleAmountFen, o.AftersaleStatus, o.AftersaleTime, time.Now(), o.ID)
+	if err != nil {
+		return domain.TradeOrder{}, fmt.Errorf("update trade order aftersale: %w", err)
+	}
+	return r.FindByID(o.ID)
 }
 func (r *tradeOrderRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM trade_orders WHERE id=$1`, id)
@@ -486,15 +503,17 @@ func (r *tradeOrderRepo) Delete(id string) error {
 }
 func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) {
 	rows, err := r.pool.Query(context.Background(),
-		`SELECT id,product_id,buyer_id,seller_id,amount_fen,status,version,created_at,updated_at FROM trade_orders WHERE buyer_id=$1 OR seller_id=$1 ORDER BY created_at DESC`, userID)
+		`SELECT `+tradeOrderColumns+` FROM trade_orders WHERE buyer_id=$1 OR seller_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list trade orders: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.TradeOrder
 	for rows.Next() {
-		var o domain.TradeOrder
-		rows.Scan(&o.ID, &o.ProductID, &o.BuyerID, &o.SellerID, &o.AmountFen, &o.Status, &o.Version, &o.CreatedAt, &o.UpdatedAt)
+		o, err := scanTradeOrder(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan trade order: %w", err)
+		}
 		out = append(out, o)
 	}
 	return out, rows.Err()
@@ -503,15 +522,17 @@ func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) 
 func (r *tradeOrderRepo) ListAll(offset, limit int) ([]domain.TradeOrder, int, error) {
 	var total int
 	r.pool.QueryRow(context.Background(), "SELECT count(*) FROM trade_orders").Scan(&total)
-	rows, _ := r.pool.Query(context.Background(), "SELECT id,product_id,buyer_id,seller_id,amount_fen,status,version,created_at,updated_at FROM trade_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
-	if rows == nil {
-		return nil, total, fmt.Errorf("order query failed")
+	rows, err := r.pool.Query(context.Background(), "SELECT "+tradeOrderColumns+" FROM trade_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	if err != nil {
+		return nil, total, fmt.Errorf("order query failed: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.TradeOrder
 	for rows.Next() {
-		var o domain.TradeOrder
-		rows.Scan(&o.ID, &o.ProductID, &o.BuyerID, &o.SellerID, &o.AmountFen, &o.Status, &o.Version, &o.CreatedAt, &o.UpdatedAt)
+		o, err := scanTradeOrder(rows)
+		if err != nil {
+			return nil, total, fmt.Errorf("scan trade order: %w", err)
+		}
 		out = append(out, o)
 	}
 	return out, total, rows.Err()

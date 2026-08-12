@@ -40,7 +40,7 @@
           <text class="form-label">退款信息</text>
           <view class="data-row">
             <text class="data-label">退款类型</text>
-            <text class="data-value">{{ as ? as.type : '服务未按约执行' }}</text>
+            <text class="data-value">{{ as ? as.type : '仅退款' }}</text>
           </view>
           <view class="data-row">
             <text class="data-label">退款金额</text>
@@ -64,7 +64,7 @@
         </view>
 
         <view class="note-card">
-          <text class="note-text">退款申请目前仅保存为演示草稿，平台审核后才进入真实退款流程，不会调用资金托管退款接口。</text>
+          <text class="note-text">提交后由平台审核，审核通过后按原路退款；可在「售后详情」查看处理进度。</text>
         </view>
 
         <view class="submit-wrap">
@@ -83,11 +83,13 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { loadOrder, fmtFen } from '../../utils/orderAdapter'
+import { request, getErrorMessage } from '../../utils/request'
 
 const order = ref(null)
 const loading = ref(true)
 const error = ref(false)
 const submitted = ref(false)
+const submitting = ref(false)
 const reason = ref('')
 
 const as = computed(() => order.value?.detail?.aftersale || null)
@@ -117,16 +119,36 @@ const loadData = async (query = {}) => {
 onLoad(loadData)
 
 const submitRefund = async () => {
-  if (submitted.value) return
-  // 第一期为演示提交：真实退款需要后端售后工单契约 + 平台审核，
-  // 不错误调用 escrow/refund，也不修改订单状态。
-  submitted.value = true
-  uni.showToast({ title: '退款申请已提交', icon: 'success' })
+  if (submitted.value || submitting.value) return
+  if (!order.value) return
+  submitting.value = true
+  try {
+    // 真实提交售后单：POST /api/v1/trade-orders/{id}/aftersale
+    // 仅退款（退货退款后续扩展），金额默认整单金额；后端状态机 shipped/completed → aftersale
+    await request({
+      url: '/api/v1/trade-orders/' + encodeURIComponent(order.value.id) + '/aftersale',
+      method: 'POST',
+      data: {
+        aftersale_type: 'refund',
+        aftersale_reason: reason.value.trim() || '商品问题申请退款',
+        aftersale_desc: reason.value.trim(),
+        aftersale_amount_fen: order.value.amount_fen || 0,
+      },
+    })
+    submitted.value = true
+  } catch (e) {
+    uni.showToast({ title: getErrorMessage(e) || '提交失败，请稍后重试', icon: 'none' })
+  } finally {
+    submitting.value = false
+  }
 }
 
 const goAftersale = () => {
-  // refund-apply 由 aftersale 进入，返回即回到售后进度
-  uni.navigateBack()
+  if (!order.value) return
+  // 跳到售后详情（真实售后单展示审核状态与进度）
+  uni.redirectTo({
+    url: `/pages/orders/aftersale?id=${encodeURIComponent(order.value.id)}&type=${order.value.type}`,
+  })
 }
 
 const goBack = () => {

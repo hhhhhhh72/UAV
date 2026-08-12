@@ -17,6 +17,10 @@
       <template #createdAt="{ record }">
         <span class="time-text">{{ formatDate(record.created_at) }}</span>
       </template>
+      <template #aftersale="{ record }">
+        <a-tag v-if="record.aftersale_status" :color="aftersaleTagColor(record.aftersale_status)" size="small">{{ aftersaleStatusLabel(record.aftersale_status) }}</a-tag>
+        <span v-else class="no-aftersale">-</span>
+      </template>
       <template #actions="{ record }">
         <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
       </template>
@@ -50,13 +54,35 @@
           <a-descriptions-item label="下单时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
         </a-descriptions>
 
+        <!-- 售后单（aftersale 记录） -->
+        <template v-if="currentItem.aftersale_status">
+          <a-divider>售后单</a-divider>
+          <a-descriptions :column="2" bordered size="medium">
+            <a-descriptions-item label="售后类型">{{ currentItem.aftersale_type === 'return' ? '退货退款' : '仅退款' }}</a-descriptions-item>
+            <a-descriptions-item label="审核状态">
+              <a-tag :color="aftersaleTagColor(currentItem.aftersale_status)" size="small">{{ aftersaleStatusLabel(currentItem.aftersale_status) }}</a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="退款金额(元)">{{ ((currentItem.aftersale_amount_fen || 0) / 100).toFixed(2) }}</a-descriptions-item>
+            <a-descriptions-item label="申请时间">{{ formatDate(currentItem.aftersale_time) }}</a-descriptions-item>
+            <a-descriptions-item label="原因">{{ currentItem.aftersale_reason || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="说明">{{ currentItem.aftersale_desc || '-' }}</a-descriptions-item>
+          </a-descriptions>
+        </template>
+
         <div class="review-actions">
           <a-divider />
-          <span class="review-label">修改状态：</span>
-          <a-select v-model="newStatus" style="width: 140px;">
-            <a-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
-          </a-select>
-          <a-button type="primary" @click="onUpdateStatus">更新</a-button>
+          <template v-if="currentItem.aftersale_status === 'pending'">
+            <span class="review-label">售后审核：</span>
+            <a-button type="primary" status="success" @click="onReviewAftersale('approve')">同意退款</a-button>
+            <a-button status="danger" @click="onReviewAftersale('reject')">驳回申请</a-button>
+          </template>
+          <template v-else>
+            <span class="review-label">修改状态：</span>
+            <a-select v-model="newStatus" style="width: 140px;">
+              <a-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
+            </a-select>
+            <a-button type="primary" @click="onUpdateStatus">更新</a-button>
+          </template>
         </div>
       </template>
     </a-modal>
@@ -65,8 +91,8 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Message } from '@arco-design/web-vue'
-import { updateOrderStatus } from '@/api/admin/order'
+import { Message, Modal } from '@arco-design/web-vue'
+import { updateOrderStatus, reviewAftersale } from '@/api/admin/order'
 import CrudList from '../components/CrudList.vue'
 
 const crudRef = ref()
@@ -75,11 +101,16 @@ const statusOptions = [
   { label: '待付款', value: 'pending' },
   { label: '已付款', value: 'paid' },
   { label: '已发货', value: 'shipped' },
+  { label: '退款/售后', value: 'aftersale' },
   { label: '已完成', value: 'completed' },
   { label: '已取消', value: 'cancelled' }
 ]
 const statusLabel = (s) => statusOptions.find(o => o.value === s)?.label || s || '-'
-const statusTagColor = (s) => ({ completed: 'green', shipped: 'arcoblue', paid: 'orange', pending: 'gray', cancelled: 'gray' }[s] || 'gray')
+const statusTagColor = (s) => ({ completed: 'green', shipped: 'arcoblue', paid: 'orange', aftersale: 'purple', pending: 'gray', cancelled: 'gray' }[s] || 'gray')
+
+// 售后单审核状态：pending=待审核 / approved=已同意退款 / rejected=已驳回
+const aftersaleStatusLabel = (s) => ({ pending: '待审核', approved: '已同意退款', rejected: '已驳回' }[s] || s || '-')
+const aftersaleTagColor = (s) => ({ pending: 'orange', approved: 'green', rejected: 'red' }[s] || 'gray')
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -107,6 +138,7 @@ const columns = [
   { title: '卖家', dataIndex: 'seller_id', width: 130 },
   { title: '金额(元)', dataIndex: 'amount_fen', slotName: 'amount', width: 110, align: 'right' },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 110 },
+  { title: '售后', dataIndex: 'aftersale_status', slotName: 'aftersale', width: 100 },
   { title: '下单时间', dataIndex: 'created_at', slotName: 'createdAt', width: 170 },
   { title: '操作', slotName: 'actions', width: 120, fixed: 'right' },
 ]
@@ -144,6 +176,27 @@ const onUpdateStatus = async () => {
     crudRef.value?.reload()
   } catch (e) { Message.error('更新失败') }
 }
+
+// 售后审核：同意退款（approve）/ 驳回（reject）——仅 aftersale+pending 可审
+const onReviewAftersale = (action) => {
+  if (!currentItem.value) return
+  const approve = action === 'approve'
+  Modal.confirm({
+    title: approve ? '同意退款' : '驳回售后申请',
+    content: approve
+      ? `确认同意退款 ¥${((currentItem.value.aftersale_amount_fen || 0) / 100).toFixed(2)}？结案后订单回到已完成状态。`
+      : '确认驳回该售后申请？驳回后订单回到已完成状态。',
+    okText: '确认',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await reviewAftersale(currentItem.value.id, action)
+        Message.success(approve ? '已同意退款' : '已驳回')
+        crudRef.value?.reload()
+      } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
+    }
+  })
+}
 </script>
 
 <style scoped>
@@ -178,6 +231,7 @@ const onUpdateStatus = async () => {
 .stat.rate .stat-num { color: #165DFF; }
 
 .time-text { color: #86909C; font-size: 12px; }
+.no-aftersale { color: #C9CDD4; }
 
 .review-actions { display: flex; align-items: center; justify-content: center; padding-top: 16px; gap: 8px; }
 .review-label { color: #4E5969; }

@@ -7,13 +7,13 @@
 // 策略（对齐 docs 交付说明「第一阶段」）：
 //   1. 商品订单：读取真实接口 /trade-orders/mine，并用 /products 建映射补齐标题/图片/规格；
 //      缺失字段一律降级展示，不臆造。
-//   2. 课程 / 服务订单：后端无统一订单契约，使用明确标注 source='demo' 的本地演示数据，
-//      让五条状态流程可达可演示；真实接入统一订单接口后以 adapter 替换，不动页面。
+//   2. 课程 / 服务订单：后端无统一订单契约，当前不返回数据，订单中心显示空态；
+//      真实接入统一订单接口后以 adapter 替换，不动页面。
 //   3. 金额一律以 amount_fen（分）存储，展示时 /100 格式化，禁止直接用浮点数存金额。
 //
 // 所有从这里输出的订单对象都是「展示层归一化」后的形态，页面不直接解析后端字段。
 
-import { request, BASE_URL } from './request'
+import { request, BASE_URL, getStoredUser } from './request'
 
 /* ================= 常量（唯一状态/类型定义，页面不得另立） ================= */
 
@@ -125,13 +125,65 @@ async function fetchRealOrders() {
   }
 }
 
+// 售后单 → 展示区块（aftersale 状态字段来自后端售后契约：
+// aftersale_status = pending 待审核 / approved 已同意退款 / rejected 已驳回）
+function aftersaleInfo(t) {
+  if (!t.aftersale_status) return null
+  const type = t.aftersale_type === 'return' ? '退货退款' : '仅退款'
+  const time = fmtDate(t.aftersale_time)
+  const statusMap = { pending: '待审核', approved: '已同意，退款完成', rejected: '已驳回' }
+  // 进度按申请状态推导（不臆造节点：时间缺省用申请时间/占位）
+  const progress = [{ time: time || '-', text: '已提交售后申请，等待平台审核' }]
+  if (t.aftersale_status === 'approved') progress.push({ time: '-', text: '平台已同意退款，款项原路退回' })
+  if (t.aftersale_status === 'rejected') progress.push({ time: '-', text: '平台已驳回申请，订单已结案' })
+  return {
+    type,
+    status: statusMap[t.aftersale_status] || t.aftersale_status,
+    amount_fen: t.aftersale_amount_fen || 0,
+    created_at: time,
+    description: t.aftersale_desc || t.aftersale_reason || '',
+    progress,
+  }
+}
+
 function normalizeRealOrder(t, product) {
   const status = t.status || 'pending'
+  // 交易角色：seller_id 是自己 → 我是卖家（发货方），否则买家。
+  // demo 用户无 id 时按买家渲染（正常登录用户必有 id）。
+  const me = getStoredUser()
+  const myId = me && me.id
+  const role = myId && t.seller_id === myId ? 'seller' : 'buyer'
+  const af = aftersaleInfo(t)
+  const sections = [
+    {
+      title: '订单信息',
+      rows: [
+        // 有售后记录时显示售后状态（结案单状态已回 completed，不再显示「待评价」）
+        { label: '订单状态', value: af ? af.status : (ORDER_STATUS[status] || status), status: 'wait' },
+        { label: '订单编号', value: orderNo({ id: t.id }) },
+        { label: '创建时间', value: fmtDate(t.created_at) },
+        { label: '交易角色', value: role === 'seller' ? '我是卖家（卖出）' : '我是买家（买入）' },
+        { label: '商品来源', value: product?.seller_name || '平台商城' },
+      ],
+    },
+  ]
+  if (af) {
+    sections.push({
+      title: '售后信息',
+      rows: [
+        { label: '售后类型', value: af.type },
+        { label: '申请状态', value: af.status, status: af.status === '待审核' ? 'wait' : '' },
+        { label: '退款金额', value: '¥' + fmtFen(af.amount_fen) },
+        { label: '申请时间', value: af.created_at },
+      ],
+    })
+  }
   return {
     id: t.id,
     order_no: '',
     type: 'product',
     status,
+    role,
     source: 'real',
     origin: product?.seller_name || '低空商城',
     kind_label: '商品',
@@ -140,26 +192,28 @@ function normalizeRealOrder(t, product) {
     amount_fen: t.amount_fen ?? 0,
     quantity_label: '共 1 件',
     due_text: STATUS_DUE_TEXT[status] || '待处理',
-    action: statusAction(status),
+    // 列表状态标签：售后单显示售后状态（结案单不回「待评价」）
+    status_text: af ? af.status : undefined,
+    action: statusAction(status, role, af),
     image: productImage(product) || '/static/home/demand-solar.jpg',
     created_at: t.created_at,
-    detail: {
-      sections: [
-        {
-          title: '订单信息',
-          rows: [
-            { label: '订单状态', value: ORDER_STATUS[status] || status, status: 'wait' },
-            { label: '订单编号', value: orderNo({ id: t.id }) },
-            { label: '创建时间', value: fmtDate(t.created_at) },
-            { label: '商品来源', value: product?.seller_name || '平台商城' },
-          ],
-        },
-      ],
-    },
+    detail: { sections },
+    // 售后区块：aftersale.vue 直接消费（type/status/amount_fen/created_at/progress/description）
+    aftersale: af,
   }
 }
 
-function statusAction(status) {
+// 主操作按钮文案：按交易角色区分（买家付钱收货，卖家发货收钱）。
+// 有售后记录（af 非空）的订单无论当前状态一律「查看售后」——结案单（approved/rejected）状态已回 completed。
+function statusAction(status, role, af) {
+  if (af) return '查看售后'
+  if (role === 'seller') {
+    if (status === 'paid') return '发货'
+    if (status === 'pending') return '等待付款'
+    if (status === 'shipped') return '待确认'
+    if (status === 'completed') return '已完成'
+    return '查看售后'
+  }
   if (status === 'pending') return '去支付'
   if (status === 'paid') return '提醒发货'
   if (status === 'shipped') return '确认收货'
@@ -167,249 +221,145 @@ function statusAction(status) {
   return '查看售后'
 }
 
-/* ================= 演示数据（课程 / 服务 + 商品兜底，source='demo'） ================= */
-
-const DEMO_ORDERS = [
-  {
-    id: 'demo-pay-01',
-    order_no: 'UAV202608100321',
-    type: 'product',
-    status: 'pending',
-    source: 'demo',
-    origin: '低空商城',
-    kind_label: '商品',
-    title: 'Mavic 3E 智能飞行电池',
-    subtitle: 'DJI 原厂 · 5000mAh · 单块装',
-    amount_fen: 199900,
-    quantity_label: '共 1 件',
-    due_text: '请在 18:24 内完成付款',
-    action: '去支付',
-    image: '/static/home/demand-solar.jpg',
-    created_at: '2026-08-10T10:21:00+08:00',
-    detail: {
-      hero: { title: 'Mavic 3E 智能飞行电池', sub: '低空商城 · 待付款' },
-      sections: [
-        {
-          title: '商品参数',
-          rows: [
-            { label: '型号规格', value: 'Mavic 3E 系列专用' },
-            { label: '容量', value: '5000mAh' },
-            { label: '质保', value: '原厂 12 个月质保' },
-            { label: '配送方式', value: '顺丰寄送' },
-          ],
-        },
-        {
-          title: '订单信息',
-          rows: [
-            { label: '订单状态', value: '待付款', status: 'wait' },
-            { label: '订单编号', value: 'UAV202608100321' },
-            { label: '收货信息', value: '张航 · 重庆市两江新区' },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: 'demo-ship-01',
-    order_no: 'UAV202608080211',
-    type: 'product',
-    status: 'paid',
-    source: 'demo',
-    origin: '低空商城',
-    kind_label: '商品',
-    title: '无人机测绘套件（RTK）',
-    subtitle: '含 RTK 模块、三脚架与收纳箱',
-    amount_fen: 680000,
-    quantity_label: '共 1 件',
-    due_text: '商家承诺 48 小时内发货',
-    action: '提醒发货',
-    image: '/static/home/demand-lift.jpg',
-    created_at: '2026-08-08T14:05:00+08:00',
-    detail: {
-      hero: { title: '无人机测绘套件（RTK）', sub: '低空商城 · 待发货' },
-      sections: [
-        {
-          title: '商品与发货',
-          rows: [
-            { label: '套件内容', value: 'RTK 模块、三脚架与收纳箱' },
-            { label: '发货时效', value: '48 小时内发货' },
-            { label: '收货信息', value: '张航 · 重庆市两江新区' },
-            { label: '订单状态', value: '待发货', status: 'wait' },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: 'demo-recv-01',
-    order_no: 'UAV202608060910',
-    type: 'product',
-    status: 'shipped',
-    source: 'demo',
-    origin: '低空商城',
-    kind_label: '商品',
-    title: 'DJI M350 RTK 智能飞行电池',
-    subtitle: '原厂配件 · 已由顺丰揽收',
-    amount_fen: 199900,
-    quantity_label: '共 1 件',
-    due_text: '快递运输中 · 预计明日送达',
-    action: '确认收货',
-    image: '/static/home/hero-inspection.jpg',
-    created_at: '2026-08-06T09:10:00+08:00',
-    detail: {
-      hero: { title: 'DJI M350 RTK 智能飞行电池', sub: '低空商城 · 待收货' },
-      logistics: {
-        carrier: '顺丰速运',
-        tracking_no: 'SF15800329145',
-        latest: '已到达重庆两江新区营业点',
-        nodes: [
-          { time: '2026-08-10 08:20', text: '到达两江新区营业点，配送员将尽快派送' },
-          { time: '2026-08-09 21:42', text: '重庆转运中心发出' },
-          { time: '2026-08-09 16:13', text: '商家已交付顺丰揽收' },
-        ],
-      },
-      sections: [
-        {
-          title: '物流信息',
-          rows: [
-            { label: '承运公司', value: '顺丰速运' },
-            { label: '物流单号', value: 'SF15800329145' },
-            { label: '最新状态', value: '已到达重庆两江新区营业点', status: 'good' },
-            { label: '订单状态', value: '待收货', status: 'wait' },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: 'demo-review-01',
-    order_no: 'UAV202607301133',
-    type: 'course',
-    status: 'completed',
-    source: 'demo',
-    origin: '协会培训中心',
-    kind_label: '培训课程',
-    title: '无人机运行安全与任务规划实训',
-    subtitle: '线上直播 + 线下实操 · 16 课时',
-    amount_fen: 68000,
-    quantity_label: '1 名学员',
-    due_text: '课程已结束，评价后可领取结课凭证',
-    action: '去评价',
-    image: '/static/images/study/science-class.svg',
-    created_at: '2026-07-30T11:33:00+08:00',
-    detail: {
-      hero: { title: '无人机运行安全与任务规划实训', sub: '协会培训中心 · 待评价' },
-      review: {
-        rating: 5,
-        hint: '请评价本次课程内容、讲师讲解与实操安排',
-        default_text: '课程内容符合预期，实操安排清晰，对实际任务规划很有帮助。',
-      },
-      sections: [
-        {
-          title: '课程信息',
-          rows: [
-            { label: '授课方式', value: '线上直播 + 线下实操' },
-            { label: '课程时长', value: '16 课时' },
-            { label: '培训地点', value: '重庆两江新区低空实训基地' },
-            { label: '学员人数', value: '1 名学员' },
-            { label: '订单状态', value: '待评价', status: 'wait' },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: 'demo-after-01',
-    order_no: 'UAV202608020846',
-    type: 'service',
-    status: 'aftersale',
-    source: 'demo',
-    origin: '渝航智能装备有限公司',
-    kind_label: '无人机服务',
-    title: '电网巡检无人机服务（含热成像）',
-    subtitle: '重庆两江新区 · 50km 线路巡检',
-    amount_fen: 880000,
-    quantity_label: '1 个服务项目',
-    due_text: '售后申请处理中 · 等待服务商响应',
-    action: '查看售后',
-    image: '/static/home/demand-lift.jpg',
-    created_at: '2026-08-02T08:46:00+08:00',
-    detail: {
-      hero: { title: '电网巡检无人机服务（含热成像）', sub: '渝航智能装备有限公司 · 退款/售后' },
-      aftersale: {
-        type: '服务未按约执行',
-        status: '服务商处理中',
-        amount_fen: 880000,
-        created_at: '2026-08-09 14:36',
-        description: '原定巡检时间未能按预约执行，申请全额退款。可在正式页面补充图片或沟通记录。',
-        progress: [
-          { time: '2026-08-09 14:36', text: '已提交售后申请' },
-          { time: '2026-08-09 15:10', text: '平台已受理申请' },
-          { time: '处理中', text: '等待服务商响应' },
-        ],
-      },
-      sections: [
-        {
-          title: '售后信息',
-          rows: [
-            { label: '售后类型', value: '服务未按约执行' },
-            { label: '申请状态', value: '服务商处理中', status: 'wait' },
-            { label: '申请时间', value: '2026-08-09 14:36' },
-            { label: '退款金额', value: '¥' + fmtFen(880000) },
-          ],
-        },
-      ],
-    },
-  },
-]
-
 /* ================= 对外主接口 ================= */
 
 // 加载订单列表（按状态 + 类型筛选）。返回 Promise<Order[]>
 // status 传 STATUS_KEYS 中的 key 或 'all'；order_type 传 ORDER_TYPES 中的值。
 export async function loadOrders({ status = 'all', order_type = 'all' } = {}) {
-  const [real, demo] = await Promise.all([fetchRealOrders(), Promise.resolve(DEMO_ORDERS)])
+  const real = await fetchRealOrders()
 
   let orders = []
   if (real.length) {
     const pMap = await fetchProductMap()
     orders = real.map((t) => normalizeRealOrder(t, pMap[t.product_id] || null))
   }
-  orders = orders.concat(demo)
+  orders = orders.map(applyReviewed)
 
-  const statusMatch = (o) => status === 'all' || o.status === status
+  // 售后归类规则：有售后记录（aftersale 非空）的订单归「退款/售后」——
+  // 审核结案后 status 回 completed，但仍是售后单，不应出现在「待评价」。
+  const statusMatch = (o) => {
+    if (status === 'all') return true
+    if (status === 'aftersale') return !!o.aftersale
+    if (status === 'completed') return o.status === 'completed' && !o.aftersale
+    return o.status === status
+  }
   const typeMatch = (o) => order_type === 'all' || o.type === order_type
   return orders.filter(statusMatch).filter(typeMatch)
 }
 
-// 按状态统计各入口数量（含类型筛选），用于订单中心五状态角标
+// 按状态统计各入口角标数（含类型筛选），用于订单中心五状态角标。混合语义：
+// ① pending/paid/shipped = 待办数量：状态流转（付款/发货/收货）后移出，查看不消失；
+// ② completed（待评价）= 提醒：查看即消（已读时间），评价完也消；
+// ③ aftersale（退款/售后）= 提醒：查看即消，仅统计待审核单，审核结案后消失；
+// ④ 售后结案单（approved/rejected，状态回 completed）不进任何角标。
 export async function loadStatusCounts(order_type = 'all') {
   const real = await fetchRealOrders()
-  const demo = DEMO_ORDERS
-  const all = real
-    .map((t) => ({ status: t.status || 'pending', type: 'product' }))
-    .concat(demo.map((d) => ({ status: d.status, type: d.type })))
+  const all = real.map((t) => {
+    const asPending = t.aftersale_status === 'pending'
+    const reviewed = !t.aftersale_status && t.status === 'completed' && getReview(t.id) !== null
+    const closed = !!t.aftersale_status && !asPending
+    return {
+      status: asPending ? 'aftersale' : (reviewed ? 'reviewed' : (closed ? 'closed' : (t.status || 'pending'))),
+      type: 'product',
+      created_at: parseTs(t.created_at),
+    }
+  })
 
   const counts = { pending: 0, paid: 0, shipped: 0, completed: 0, aftersale: 0 }
   all.forEach((o) => {
     if (order_type !== 'all' && o.type !== order_type) return
-    if (counts[o.status] !== undefined) counts[o.status] += 1
+    if (counts[o.status] === undefined) return
+    // 待办型（pending/paid/shipped）恒计数；提醒型（completed/aftersale）只计未读
+    const isReminder = o.status === 'completed' || o.status === 'aftersale'
+    if (!isReminder || o.created_at > getSeenTime(o.status)) counts[o.status] += 1
   })
   return counts
 }
 
-// 按 ID 查单条订单（真实 + 演示）。返回 Promise<Order|null>
+// 按 ID 查单条订单。返回 Promise<Order|null>
 export async function loadOrder(orderId) {
   if (!orderId) return null
-  const demo = DEMO_ORDERS.find((d) => d.id === orderId)
-  if (demo) return demo
-
   const [real, pMap] = await Promise.all([fetchRealOrders(), fetchProductMap()])
   const t = real.find((r) => r.id === orderId || r.order_no === orderId)
-  return t ? normalizeRealOrder(t, pMap[t.product_id] || null) : null
+  return t ? applyReviewed(normalizeRealOrder(t, pMap[t.product_id] || null)) : null
 }
 
 // 演示数据的「客服」占位：未接入真实客服会话前只提示，不制造假会话
 export function toastCustomerService() {
   uni.showToast({ title: '客服接入中，请联系协会秘书处', icon: 'none' })
+}
+
+/* ================= 提醒型状态已读存储 ================= */
+// 仅「待评价」「退款/售后」使用：进入对应列表即标记已读，角标查看后消失。
+// 本地存储；换设备/清缓存后历史单重新视为未读。
+const SEEN_KEY = 'order_center_seen'
+
+export function getSeenTime(status) {
+  try {
+    const raw = uni.getStorageSync(SEEN_KEY)
+    return raw && raw[status] ? raw[status] : 0
+  } catch (e) { return 0 }
+}
+
+export function markStatusSeen(status) {
+  let raw = {}
+  try {
+    const r = uni.getStorageSync(SEEN_KEY)
+    if (r && typeof r === 'object' && !Array.isArray(r)) raw = r
+  } catch (e) { /* ignore */ }
+  raw[status] = Date.now()
+  try { uni.setStorageSync(SEEN_KEY, raw) } catch (e) { /* ignore */ }
+}
+
+// ISO 时间 → 毫秒时间戳；解析失败按旧单（0）处理，不阻塞角标逻辑
+function parseTs(iso) {
+  if (!iso) return 0
+  const ts = Date.parse(iso)
+  return Number.isNaN(ts) ? 0 : ts
+}
+
+
+/* ================= 评价本地存储（演示闭环） ================= */
+// 后端未接入评价接口前，评价结果按订单 id 存本地；已评价订单在列表/详情
+// 显示「已评价」并回显内容（评价页可再次提交覆盖，不改变订单状态）。
+const REVIEWS_KEY = 'order_reviews'
+
+export function getReview(orderId) {
+  try {
+    const raw = uni.getStorageSync(REVIEWS_KEY)
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw[orderId] || null
+  } catch (e) { /* ignore */ }
+  return null
+}
+
+export function saveReview(orderId, { rating, content }) {
+  let raw = {}
+  try {
+    const r = uni.getStorageSync(REVIEWS_KEY)
+    if (r && typeof r === 'object' && !Array.isArray(r)) raw = r
+  } catch (e) { /* ignore */ }
+  raw[orderId] = { rating, content, created_at: fmtDate(new Date().toISOString()) }
+  try { uni.setStorageSync(REVIEWS_KEY, raw) } catch (e) { /* ignore */ }
+}
+
+// 已完成订单若已有本地评价：展示层标记「已评价」。
+// 不修改 status 字段（避免破坏状态筛选与角标统计），仅覆盖展示文案。
+// 售后单（order.aftersale 非空）不适用——结案单状态也是 completed，但应显示售后状态而非「已评价」。
+function applyReviewed(order) {
+  if (!order || order.status !== 'completed' || order.aftersale || !getReview(order.id)) return order
+  const detail = order.detail
+    ? {
+        ...order.detail,
+        hero: order.detail.hero
+          ? { ...order.detail.hero, sub: String(order.detail.hero.sub || '').replace('待评价', '已评价') }
+          : order.detail.hero,
+        sections: (order.detail.sections || []).map((s) => ({
+          ...s,
+          rows: (s.rows || []).map((r) =>
+            r.label === '订单状态' ? { ...r, value: '已评价' } : r
+          ),
+        })),
+      }
+    : order.detail
+  return { ...order, status_text: '已评价', action: '已评价', due_text: '已完成评价，感谢你的反馈', detail }
 }

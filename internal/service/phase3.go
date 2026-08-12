@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -134,16 +135,19 @@ func NewTradeOrderService(repo repository.TradeOrderRepository) *TradeOrderServi
 
 func (s *TradeOrderService) Create(buyerID, productID, sellerID string, amountFen int64) (domain.TradeOrder, error) {
 	now := time.Now()
-	o := domain.TradeOrder{ID: fmt.Sprintf("torder-%d", now.UnixNano()), ProductID: productID, BuyerID: buyerID, SellerID: sellerID, AmountFen: amountFen, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
+	// ID 含随机后缀：同纳秒并发下单会生成相同 UnixNano ID（内存 repo 不去重、PG 主键冲突）
+	o := domain.TradeOrder{ID: fmt.Sprintf("torder-%d-%d", now.UnixNano(), rand.Intn(100000)), ProductID: productID, BuyerID: buyerID, SellerID: sellerID, AmountFen: amountFen, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.repo.Create(o)
 }
 
-// orderFlow 订单合法状态流转（交易管理一期：pending → paid → shipped → completed / cancelled）
+// orderFlow 订单合法状态流转（交易管理一期：pending → paid → shipped → completed / cancelled；
+// 售后：paid/shipped/completed → aftersale（买家申请，paid=付款后未发货退款）→ completed（审核结案，售后记录留在 aftersale_* 字段））
 var orderFlow = map[string][]string{
 	"pending":   {"paid", "cancelled"},
-	"paid":      {"shipped", "cancelled"},
-	"shipped":   {"completed", "cancelled"},
-	"completed": {},
+	"paid":      {"shipped", "cancelled", "aftersale"},
+	"shipped":   {"completed", "cancelled", "aftersale"},
+	"completed": {"aftersale"},
+	"aftersale": {"completed"},
 	"cancelled": {},
 }
 
@@ -169,6 +173,53 @@ func (s *TradeOrderService) UpdateStatus(id, userID, newStatus string) (domain.T
 		return domain.TradeOrder{}, err
 	}
 	return s.repo.UpdateStatus(id, newStatus)
+}
+
+// ApplyAftersale 买家申请售后：仅买家可申请；一次订单仅一份有效售后单
+// （aftersale_status 非空即已有申请，不得重复）；状态机 paid/shipped/completed → aftersale。
+func (s *TradeOrderService) ApplyAftersale(userID, orderID, aftType, reason, desc string, amountFen int64) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(orderID)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if o.BuyerID != userID {
+		return domain.TradeOrder{}, fmt.Errorf("permission denied")
+	}
+	if o.AftersaleStatus != "" {
+		return domain.TradeOrder{}, fmt.Errorf("该订单已存在售后申请")
+	}
+	if err := checkOrderTransition(o.Status, "aftersale"); err != nil {
+		return domain.TradeOrder{}, err
+	}
+	now := time.Now()
+	o.Status = "aftersale"
+	o.AftersaleType = aftType
+	o.AftersaleReason = reason
+	o.AftersaleDesc = desc
+	o.AftersaleAmountFen = amountFen
+	o.AftersaleStatus = "pending"
+	o.AftersaleTime = now
+	return s.repo.UpdateAftersale(o)
+}
+
+// ReviewAftersale 管理端审核售后单：同意 → aftersale_status=approved（退款完成）；
+// 驳回 → aftersale_status=rejected。结案后订单状态回到 completed（交易结束态），
+// 售后记录保留在 aftersale_* 字段供买家/后台查看。
+func (s *TradeOrderService) ReviewAftersale(orderID string, approve bool) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(orderID)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if o.Status != "aftersale" || o.AftersaleStatus != "pending" {
+		return domain.TradeOrder{}, fmt.Errorf("该订单不在售后待审核状态")
+	}
+	if approve {
+		o.AftersaleStatus = "approved"
+	} else {
+		o.AftersaleStatus = "rejected"
+	}
+	o.Status = "completed"
+	return s.repo.UpdateAftersale(o)
 }
 
 // UpdateStatusAdmin 管理端改单：跳过买卖双方校验，仍受状态机约束。

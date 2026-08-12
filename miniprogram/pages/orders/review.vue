@@ -1,6 +1,6 @@
 <template>
   <view class="review-page">
-    <u-nav-bar :title="submitted ? '评价成功' : '发表评价'" show-back @back="goBack" />
+    <u-nav-bar :title="navTitle" show-back @back="goBack" />
 
     <view v-if="loading" class="state-panel">
       <view class="loading-inline">
@@ -52,7 +52,15 @@
               @tap="rating = i"
             >★</text>
           </view>
-          <text class="star-hint">{{ rating }} 星 · {{ ratingText }}</text>
+          <!-- 1~5 星解释横排，选中星级高亮 -->
+          <view class="star-legend">
+            <text
+              v-for="(t, i) in ratingText"
+              :key="i"
+              class="star-legend-item"
+              :class="{ on: rating === i + 1 }"
+            >{{ i + 1 }} 星 · {{ t }}</text>
+          </view>
         </view>
 
         <!-- 文字评价 -->
@@ -69,7 +77,7 @@
 
         <!-- 提示 -->
         <view class="note-card">
-          <text class="note-text">当前评价接口不校验订单归属与重复评价，属于演示提交，不改变订单状态。</text>
+          <text class="note-text">{{ reviewed ? '该订单已完成评价，可修改后重新提交（覆盖原评价）。' : '评价结果保存在本地（演示闭环），接入评价接口后改为真实存储。' }}</text>
         </view>
 
         <view class="submit-wrap">
@@ -85,9 +93,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { loadOrder } from '../../utils/orderAdapter'
+import { loadOrder, getReview, saveReview } from '../../utils/orderAdapter'
 
 const order = ref(null)
 const loading = ref(true)
@@ -95,8 +103,15 @@ const error = ref(false)
 const rating = ref(5)
 const content = ref('')
 const submitted = ref(false)
+const reviewed = ref(false)
+let orderId = ''
 
 const ratingText = ['极差', '较差', '一般', '满意', '非常满意']
+
+const navTitle = computed(() => {
+  if (submitted.value) return '评价成功'
+  return reviewed.value ? '修改评价' : '发表评价'
+})
 
 const loadData = async (query = {}) => {
   const id = query.id
@@ -105,13 +120,25 @@ const loadData = async (query = {}) => {
     loading.value = false
     return
   }
+  orderId = id
   loading.value = true
   error.value = false
   try {
     order.value = await loadOrder(id)
     if (!order.value) error.value = true
-    else if (order.value.detail?.review?.rating) rating.value = order.value.detail.review.rating
-    else if (order.value.detail?.review?.default_text) content.value = order.value.detail.review.default_text
+    else {
+      // 已提交过的评价优先回显（本地存储），否则用订单自带的引导默认值
+      const saved = getReview(id)
+      if (saved) {
+        reviewed.value = true
+        rating.value = saved.rating
+        content.value = saved.content
+      } else if (order.value.detail?.review?.rating) {
+        rating.value = order.value.detail.review.rating
+      } else if (order.value.detail?.review?.default_text) {
+        content.value = order.value.detail.review.default_text
+      }
+    }
   } catch (e) {
     error.value = true
   } finally {
@@ -127,8 +154,10 @@ const submitReview = async () => {
     uni.showToast({ title: '请选择星级', icon: 'none' })
     return
   }
-  // 第一期为演示提交：评价接口（POST /reviews）不校验订单归属/是否已评价，
-  // 不把订单状态改为已评价。这里仅记录本地演示提交结果。
+  // 评价接口（POST /reviews）接入前，结果按订单 id 存本地：
+  // 列表/详情显示「已评价」，评价页回显内容，可再次提交覆盖。
+  saveReview(orderId, { rating: rating.value, content: content.value })
+  reviewed.value = true
   submitted.value = true
   uni.showToast({ title: '评价提交成功', icon: 'success' })
 }
@@ -227,11 +256,20 @@ const goBack = () => {
 .star.on {
   color: var(--color-accent);
 }
-.star-hint {
-  display: block;
+.star-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx 20rpx;
   margin-top: 16rpx;
+}
+.star-legend-item {
   font-size: 22rpx;
+  color: var(--color-text-placeholder);
+  white-space: nowrap;
+}
+.star-legend-item.on {
   color: var(--color-accent-deep);
+  font-weight: 600;
 }
 
 .review-textarea {

@@ -348,6 +348,33 @@ func (s *Server) updateTradeOrderStatus(w http.ResponseWriter, r *http.Request) 
 	respond(w, r, http.StatusOK, o)
 }
 
+// POST /api/v1/trade-orders/{id}/aftersale — 买家申请售后（仅买家可调，shipped/completed → aftersale）
+func (s *Server) applyAftersale(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		AftersaleType      string `json:"aftersale_type"`
+		AftersaleReason    string `json:"aftersale_reason"`
+		AftersaleDesc      string `json:"aftersale_desc"`
+		AftersaleAmountFen int64  `json:"aftersale_amount_fen"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	o, err := s.tradeSvc.ApplyAftersale(a.ID, r.PathValue("id"), in.AftersaleType, in.AftersaleReason, in.AftersaleDesc, in.AftersaleAmountFen)
+	if err != nil {
+		// 权限/状态机/重复申请错误统一 400，不泄露细节
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "apply_aftersale", "trade_order", o.ID, "pending")
+	respond(w, r, http.StatusOK, o)
+}
+
 // GET /api/v1/trade-orders/mine
 func (s *Server) listMyTradeOrders(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
