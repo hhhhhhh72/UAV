@@ -20,14 +20,15 @@ func (s *Server) createProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, Description, Brand, Model, Condition string
-		ProdType                                    string `json:"prod_type"`
-		PriceFen                                    int64  `json:"price_fen"`
+		ProdType                                    string   `json:"prod_type"`
+		PriceFen                                    int64    `json:"price_fen"`
+		Images                                      []string `json:"images"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.tradingSvc.CreateProduct(a, domain.ProductType(in.ProdType), in.Title, in.Description, in.Brand, in.Model, in.Condition, in.PriceFen)
+	p, err := s.tradingSvc.CreateProduct(a, domain.ProductType(in.ProdType), in.Title, in.Description, in.Brand, in.Model, in.Condition, in.PriceFen, in.Images)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -39,6 +40,22 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 	products, err := s.tradingSvc.ListProducts(r.URL.Query().Get("prod_type"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	// mine=1：只看当前用户发布的商品（含已下架/已售，未登录返回空）
+	if r.URL.Query().Get("mine") == "1" {
+		a, ok := authenticatedActor(r)
+		if !ok {
+			paginatedRespond(w, r, []domain.DroneProduct{}, 0)
+			return
+		}
+		mine := make([]domain.DroneProduct, 0, len(products))
+		for _, p := range products {
+			if p.SellerID == a.ID {
+				mine = append(mine, p)
+			}
+		}
+		paginatedRespond(w, r, mine, len(mine))
 		return
 	}
 	// 公开列表只显示在售商品（下架/已售不展示）
@@ -121,7 +138,7 @@ func (s *Server) adminCreateProduct(w http.ResponseWriter, r *http.Request) {
 	if p.SellerName == "" {
 		p.SellerName = "平台自营"
 	}
-	created, err := s.tradingSvc.CreateProduct(domain.Actor{Role: domain.RolePlatformAdmin}, p.ProdType, p.Title, p.Description, p.Brand, p.Model, p.Condition, p.PriceFen)
+	created, err := s.tradingSvc.CreateProduct(domain.Actor{Role: domain.RolePlatformAdmin}, p.ProdType, p.Title, p.Description, p.Brand, p.Model, p.Condition, p.PriceFen, p.Images)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

@@ -154,9 +154,18 @@ const detail = ref(null)
 const imgLoaded = ref({ hero: false })
 
 /** Hero 校园全景图：兼容 cover / image / campus_image / cover_image */
+/** 生产库院校 cover 为空，按 id 兜底映射本地校园图（与列表页同一套） */
+const COVER_FALLBACK = {
+  'college-1': '/static/colleges/buaa-library.jpg',
+  'college-2': '/static/colleges/nuaa-yufeng.jpg',
+  'college-3': '/static/colleges/npu-building.jpg',
+  'college-4': '/static/colleges/chengdu-building.jpg',
+  'college-5': '/static/colleges/changsha-tiaoma.jpg',
+  'college-6': '/static/colleges/cauc-scenery.jpg',
+}
 function heroImage(item) {
   const u = item.cover || item.image || item.campus_image || item.cover_image
-  return u ? u : ''
+  return u ? u : COVER_FALLBACK[item.id] || ''
 }
 
 function onHeroLoad() {

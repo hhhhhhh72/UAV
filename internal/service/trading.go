@@ -17,11 +17,12 @@ func NewTradingService(pr repository.ProductRepository, rr repository.RepairRepo
 	return &TradingService{prodRepo: pr, repairRepo: rr}
 }
 
-func (s *TradingService) CreateProduct(a domain.Actor, prodType domain.ProductType, title, desc, brand, model, condition string, priceFen int64) (domain.DroneProduct, error) {
+func (s *TradingService) CreateProduct(a domain.Actor, prodType domain.ProductType, title, desc, brand, model, condition string, priceFen int64, images []string) (domain.DroneProduct, error) {
 	now := time.Now()
+	// 用户发布商品默认"待审核"，管理后台通过后才上架（公开列表只展示 listed）
 	p := domain.DroneProduct{ID: fmt.Sprintf("product-%d", now.UnixNano()), SellerID: a.ID, SellerName: a.ID,
 		ProdType: prodType, Title: title, Description: desc, PriceFen: priceFen,
-		Brand: brand, Model: model, Condition: condition, Status: "listed", Version: 1, CreatedAt: now, UpdatedAt: now}
+		Brand: brand, Model: model, Condition: condition, Images: images, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.prodRepo.Create(p)
 }
 

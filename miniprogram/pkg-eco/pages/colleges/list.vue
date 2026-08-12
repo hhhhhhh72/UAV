@@ -131,10 +131,19 @@ function collegeLevel(item) {
   return 'undergraduate'
 }
 
-/** 封面图 URL：兼容 cover / image / campus_image */
+/** 封面图 URL：兼容 cover / image / campus_image / cover_image */
+/** 生产库院校 cover 为空，按 id 兜底映射本地校园图（与 mock 同一套图） */
+const COVER_FALLBACK = {
+  'college-1': '/static/colleges/buaa-library.jpg',
+  'college-2': '/static/colleges/nuaa-yufeng.jpg',
+  'college-3': '/static/colleges/npu-building.jpg',
+  'college-4': '/static/colleges/chengdu-building.jpg',
+  'college-5': '/static/colleges/changsha-tiaoma.jpg',
+  'college-6': '/static/colleges/cauc-scenery.jpg',
+}
 function coverOf(item) {
   const u = item.cover || item.image || item.campus_image || item.cover_image
-  return u ? u : ''
+  return u ? u : COVER_FALLBACK[item.id] || ''
 }
 
 /** 封面图加载完成淡入 */
@@ -161,7 +170,7 @@ function levelTagClass(tag) {
 }
 
 function initShort(item) {
-  if (item.short_name || item.shortName) return item.short_name || item.shortName
+  if (item.shortName) return item.shortName
   var name = item.name || ''
   return name.charAt(0) || '院'
 }
@@ -204,12 +213,36 @@ async function loadData(reset) {
 
     if (reset) { list.value = items } else { list.value = list.value.concat(items) }
     hasMore.value = list.value.length < total
+    if (list.value.length === 0) { list.value = filterMockByTab(getMockList()); hasMore.value = false }
   } catch (e) {
-    errorMsg.value = '加载失败，请稍后重试'
+    if (reset) { list.value = filterMockByTab(getMockList()); hasMore.value = false }
   } finally {
     loading.value = false
     loadingMore.value = false
   }
+}
+
+/* 按当前 Tab 过滤 mock 院校（本科包含 985/211 + 普通本科，专科单独） */
+function filterMockByTab(all) {
+  if (currentTab.value === 'undergraduate') {
+    // 本科 = 985/211(top) + 普通本科(undergraduate)，即非专科
+    return all.filter(function (c) { return collegeLevel(c) !== 'vocational' })
+  }
+  if (currentTab.value === 'vocational') {
+    return all.filter(function (c) { return collegeLevel(c) === 'vocational' })
+  }
+  return all
+}
+
+function getMockList() {
+  return [
+    { id: 'college-1', name: '北京航空航天大学', city: '北京市', tags: ['双一流', '985'], cover: '/static/colleges/buaa-library.jpg', majorCount: 6, partnerCount: 28, studentCount: '320', intro: '航空科学与工程学院是国内顶尖的航空航天教育基地，拥有无人机系统设计与控制工程等6个本科专业方向。', specialties: ['飞行器设计', '无人机工程', '博士点'] },
+    { id: 'college-2', name: '南京航空航天大学', city: '南京市', tags: ['双一流', '211'], cover: '/static/colleges/nuaa-yufeng.jpg', majorCount: 5, partnerCount: 22, studentCount: '280', intro: '民航学院是首批设立无人机应用技术专业的高校之一，与多家无人机企业共建产学研基地。', specialties: ['无人机应用', '适航技术', '硕士点'] },
+    { id: 'college-3', name: '西北工业大学', city: '西安市', tags: ['双一流', '985'], cover: '/static/colleges/npu-building.jpg', majorCount: 7, partnerCount: 35, studentCount: '450', intro: '无人机特种技术重点实验室依托单位，在军用和民用无人机领域均有深厚的研究积累。', specialties: ['飞行控制', '无人机系统', '博士点'] },
+    { id: 'college-4', name: '成都航空职业技术学院', city: '成都市', tags: ['专科', '示范校'], cover: '/static/colleges/chengdu-building.jpg', majorCount: 3, partnerCount: 15, studentCount: '180', intro: '西南地区最早开设无人机应用技术专业的高职院校，与成飞、成发等企业深度合作。', specialties: ['无人机装调', '航拍测绘'] },
+    { id: 'college-5', name: '长沙航空职业技术学院', city: '长沙市', tags: ['专科', '示范校'], cover: '/static/colleges/changsha-tiaoma.jpg', majorCount: 4, partnerCount: 18, studentCount: '210', intro: '与中航工业、中国航发等企业共建实训基地，注重实操能力培养。', specialties: ['无人机装调', '农业植保', '巡检'] },
+    { id: 'college-6', name: '中国民航大学', city: '天津市', tags: ['双一流'], cover: '/static/colleges/cauc-scenery.jpg', majorCount: 5, partnerCount: 25, studentCount: '350', intro: '民航系统唯一博士学位授予单位，设有无人机适航与运行管理专业方向。', specialties: ['适航管理', '无人机运行', '硕士点'] },
+  ]
 }
 
 function loadMore() {
@@ -307,16 +340,17 @@ onPullDownRefresh(function () {
 /* ================================================================= */
 /* ③ 卡片                                                             */
 /* ================================================================= */
-.list-scroll { padding: 24rpx 24rpx 0; height: auto; flex: 1; min-height: 0; }
+.list-scroll { padding: 24rpx 0 0; height: auto; flex: 1; min-height: 0; }
 
 .college-card {
   position: relative;
-  width: 100%;
+  width: auto;
+  box-sizing: border-box;
   background: #ffffff;
   border-radius: 16rpx;
   border: 1rpx solid #f0f1f3;
   overflow: hidden;
-  margin-bottom: 16rpx;
+  margin: 0 24rpx 16rpx;
   box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.06);
   box-sizing: border-box;
   animation: cardIn var(--anim-base) var(--ease-out) both;

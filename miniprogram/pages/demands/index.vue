@@ -239,6 +239,85 @@
     </u-popup>
 
   </Layout>
+
+  <!-- ═══════ 就地搜索覆盖层（点击搜索框在当前页展开，不跳搜索页） ═══════ -->
+  <view v-if="showSearch" class="ov-overlay">
+    <view class="ov-bar">
+      <view class="ov-back" hover-class="tap-fade" hover-stay-time="120" @tap="closeSearch">
+        <view class="ov-back-arrow"></view>
+      </view>
+      <view class="ov-search-box">
+        <view class="ov-search-icon"></view>
+        <input
+          class="ov-search-input"
+          v-model="keyword"
+          placeholder="搜索需求、服务或设备"
+          confirm-type="search"
+          focus
+          @confirm="onSearch"
+        />
+        <view v-if="keyword" class="ov-clear" @tap="keyword = ''"><text class="ov-clear-x">×</text></view>
+      </view>
+      <view class="ov-search-btn" hover-class="tap-fade" @tap="onSearch"><text>搜索</text></view>
+    </view>
+
+    <!-- 有结果 -->
+    <view v-if="searched" class="ov-results">
+      <view class="ov-result-head">找到 {{ searchResults.length }} 条相关内容</view>
+      <view v-if="searchResults.length" class="ov-card-list">
+        <view
+          v-for="item in searchResults"
+          :key="item.id"
+          class="ov-trade-card"
+          hover-class="tap-fade"
+          @tap="goSearchResult(item)"
+        >
+          <view class="ov-trade-card-main">
+            <image :src="item.image" mode="aspectFill" class="ov-trade-visual" @error="onImageError(item)" />
+            <view class="ov-trade-body">
+              <view class="ov-tag-row">
+                <text class="ov-tag ov-tag-blue">{{ item.cat }}</text>
+                <text class="ov-tag" :class="'ov-tag-' + statusTagClass(item)">{{ item.status }}</text>
+              </view>
+              <text class="ov-trade-title">{{ item.title }}</text>
+              <view class="ov-trade-meta">
+                <text>{{ item.region }}</text>
+                <text>{{ item.time }}</text>
+              </view>
+            </view>
+          </view>
+          <view class="ov-trade-footer">
+            <view class="ov-price-block">
+              <text class="ov-price">{{ item.price }}</text>
+              <text class="ov-price-unit"> {{ item.unit }}</text>
+            </view>
+            <view class="ov-card-action"><text>查看详情 ›</text></view>
+          </view>
+        </view>
+      </view>
+      <view v-else class="ov-state-panel">
+        <view class="ov-state-mark">⌁</view>
+        <text class="ov-state-title">没有找到相关内容</text>
+        <text class="ov-state-desc">换个关键词试试</text>
+      </view>
+    </view>
+
+    <!-- 推荐 / 最近搜索 -->
+    <view v-else class="ov-suggest">
+      <view class="ov-search-block">
+        <text class="ov-block-title">推荐搜索</text>
+        <view class="ov-keyword-row">
+          <view v-for="w in hotWords" :key="w" class="ov-keyword" @tap="keyword = w; onSearch()">{{ w }}</view>
+        </view>
+      </view>
+      <view class="ov-search-block">
+        <text class="ov-block-title">最近搜索</text>
+        <view class="ov-keyword-row">
+          <view v-for="w in recentWords" :key="w" class="ov-keyword" @tap="keyword = w; onSearch()">{{ w }}</view>
+        </view>
+      </view>
+    </view>
+  </view>
 </template>
 
 <script setup>
@@ -400,12 +479,55 @@ const pickCity = (value) => {
   showCity.value = false
 }
 
-const goSearch = () => safeNavigateTo('/pkg-demand/pages/demands/search')
+const goSearch = () => openSearch()
+
+/* ================= 就地搜索（覆盖层内本地过滤，逻辑与 demands/search.vue 一致） ================= */
+const showSearch = ref(false)
+const keyword = ref('')
+const searched = ref(false)
+const searchResults = ref([])
+
+const hotWords = ['巡检', '航拍', '测绘', '吊运', '设备租赁', '植保']
+const recentWords = ['光伏巡检', 'M350']
+
+const openSearch = () => {
+  showSearch.value = true
+}
+const closeSearch = () => {
+  showSearch.value = false
+  keyword.value = ''
+  searched.value = false
+  searchResults.value = []
+}
+
+function searchAllItems() {
+  return [...getKindItems('demand'), ...getKindItems('supply', 'service'), ...getKindItems('supply', 'product')]
+}
+
+function onSearch() {
+  const kw = keyword.value.trim()
+  searched.value = true
+  if (!kw) {
+    searchResults.value = []
+    return
+  }
+  searchResults.value = searchAllItems().filter(
+    (i) => i.title.includes(kw) || i.cat.includes(kw) || i.company.includes(kw)
+  )
+}
+
+const goSearchResult = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
 const goMessages = () => safeNavigateTo('/pages/messages/index')
 const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
 const goDetail = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
-// 商品模式：跳电商商品详情页（本地发布商品走大厅详情页，已含本地兜底）
+// 商品模式：跳电商商品详情页。
+// 本地发布的商品已接后端（backendId 非空）→ 用后端 id 进真商品详情；仅旧版未接
+// 后端的纯本地商品才走大厅详情页兜底展示。
 const goProductDetail = (item) => {
+  if (item.backendId) {
+    safeNavigateTo('/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(item.backendId))
+    return
+  }
   if (String(item.id).indexOf('post-') === 0) {
     safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
     return
@@ -983,5 +1105,198 @@ onPullDownRefresh(() => {
 .ecom-views {
   color: #98A2B3;
   font-size: 20rpx;
+}
+
+/* ═══════ 就地搜索覆盖层（深蓝条 + 推荐/最近 + 结果卡片，.ov- 前缀避让页面同名类） ═══════ */
+.ov-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9990;
+  background: #F4F6F8;
+  display: flex;
+  flex-direction: column;
+}
+.ov-bar {
+  background: #074D92;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 20rpx 16rpx;
+  /* 原生导航页面：视口从导航条下方开始，无需状态栏避让；
+     与页面 .topbar 同款写法，env(safe-area-inset-top) 在本页返回 0 */
+  padding-top: calc(env(safe-area-inset-top) + 16rpx);
+  flex-shrink: 0;
+}
+.ov-back {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ov-back-arrow {
+  width: 20rpx;
+  height: 20rpx;
+  border-left: 4rpx solid #fff;
+  border-bottom: 4rpx solid #fff;
+  transform: rotate(45deg);
+  margin-left: 10rpx;
+}
+.ov-search-box {
+  flex: 1;
+  height: 78rpx;
+  border-radius: 12rpx;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 0 20rpx;
+  min-width: 0;
+}
+.ov-search-icon {
+  width: 28rpx;
+  height: 28rpx;
+  border: 4rpx solid #98A2B3;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.ov-search-icon::after {
+  content: '';
+  position: absolute;
+  right: -11rpx;
+  bottom: -6rpx;
+  width: 13rpx;
+  height: 4rpx;
+  border-radius: 4rpx;
+  background: #98A2B3;
+  transform: rotate(45deg);
+}
+.ov-search-input { flex: 1; font-size: 26rpx; color: #17212B; }
+.ov-clear { padding: 4rpx; }
+.ov-clear-x { font-size: 30rpx; color: #98A2B3; line-height: 1; }
+.ov-search-btn { color: #fff; font-size: 26rpx; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+
+/* 结果区（可滚动） */
+.ov-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.ov-result-head {
+  margin: 32rpx 32rpx 8rpx;
+  color: #667085;
+  font-size: 24rpx;
+}
+.ov-card-list { padding: 0 32rpx 32rpx; display: flex; flex-direction: column; gap: 20rpx; }
+.ov-trade-card {
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
+  border: 1px solid rgba(228, 231, 236, 0.7);
+  overflow: hidden;
+}
+.ov-trade-card-main { display: flex; gap: 22rpx; padding: 24rpx; }
+.ov-trade-visual {
+  width: 164rpx;
+  height: 164rpx;
+  border-radius: 14rpx;
+  flex-shrink: 0;
+  background: #E8F2FC;
+}
+.ov-trade-body { flex: 1; min-width: 0; }
+.ov-tag-row { display: flex; gap: 10rpx; align-items: center; margin-bottom: 12rpx; }
+.ov-tag {
+  max-width: 240rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 8rpx;
+  padding: 6rpx 12rpx;
+  font-size: 20rpx;
+  line-height: 1;
+}
+.ov-tag-blue { color: #0A66C2; background: #EAF3FB; }
+.ov-tag-orange { color: #DB5F0D; background: #FFF0E6; }
+.ov-tag-green { color: #168A55; background: #E9F7F0; }
+.ov-tag-gray { color: #667085; background: #F1F3F5; }
+.ov-trade-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: #17212B;
+  font-size: 28rpx;
+  line-height: 1.42;
+  font-weight: 700;
+}
+.ov-trade-meta {
+  display: flex;
+  gap: 14rpx;
+  margin-top: 14rpx;
+  color: #667085;
+  font-size: 22rpx;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ov-trade-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 80rpx;
+  padding: 0 24rpx;
+  border-top: 1px solid #EEF1F4;
+}
+.ov-price-block { display: flex; align-items: baseline; min-width: 0; }
+.ov-price { color: #DF620F; font-size: 30rpx; font-weight: 750; }
+.ov-price-unit { color: #667085; font-size: 20rpx; }
+.ov-card-action { color: #0A66C2; font-size: 24rpx; font-weight: 650; white-space: nowrap; }
+
+/* 空状态 */
+.ov-state-panel {
+  min-height: 560rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56rpx;
+  text-align: center;
+}
+.ov-state-mark {
+  width: 124rpx;
+  height: 124rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+  border-radius: 50%;
+  background: #EAF3FB;
+  color: #0A66C2;
+  font-size: 54rpx;
+}
+.ov-state-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
+.ov-state-desc { margin: 12rpx 0 0; font-size: 22rpx; color: #98A2B3; }
+
+/* 推荐 / 最近 */
+.ov-suggest { padding-bottom: 40rpx; overflow-y: auto; }
+.ov-search-block { padding: 36rpx 32rpx 0; }
+.ov-block-title { display: block; font-size: 30rpx; font-weight: 700; color: #17212B; margin-bottom: 24rpx; }
+.ov-keyword-row { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.ov-keyword {
+  color: #344054;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10rpx;
+  padding: 14rpx 20rpx;
+  font-size: 24rpx;
+}
+
+@media (max-width: 380px) {
+  .ov-trade-visual { width: 150rpx; height: 150rpx; }
 }
 </style>

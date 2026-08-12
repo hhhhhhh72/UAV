@@ -32,10 +32,14 @@
         <span>{{ ((record.price_fen || 0) / 100).toFixed(2) }}</span>
       </template>
       <template #status="{ record }">
-        <a-tag :color="record.status === 'listed' ? 'green' : 'gray'" size="small">{{ record.status === 'listed' ? '在售' : record.status }}</a-tag>
+        <a-tag :color="statusColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
       </template>
       <template #actions="{ record }">
         <a-space :size="4">
+          <template v-if="record.status === 'pending'">
+            <a-button type="text" status="success" size="small" @click="handleApprove(record, 'listed')">通过</a-button>
+            <a-button type="text" status="danger" size="small" @click="handleApprove(record, 'removed')">驳回</a-button>
+          </template>
           <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
           <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
@@ -79,8 +83,10 @@
         </a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
+            <a-option label="待审核" value="pending" />
             <a-option label="在售" value="listed" />
-            <a-option label="下架" value="removed" />
+            <a-option label="已售" value="sold" />
+            <a-option label="已下架" value="removed" />
           </a-select>
         </a-form-item>
         <a-form-item label="商品图片">
@@ -118,6 +124,9 @@ const crudRef = ref()
 const api = useAdminApi('products')
 
 const typeLabel = (t) => ({ drone: '整机', part: '配件', repair: '维修服务', aerial: '航拍服务', test_fly: '试飞测试', calibration: '检测标定', airspace: '空域协调' }[t] || t || '-')
+// 商品状态：pending=待审核（用户发布，通过后才上架）/ listed=在售 / sold=已售 / removed=已下架
+const statusLabel = (s) => ({ pending: '待审核', listed: '在售', sold: '已售', removed: '已下架' }[s] || s || '-')
+const statusColor = (s) => ({ pending: 'orange', listed: 'green', sold: 'gray', removed: 'gray' }[s] || 'gray')
 
 // 批量动作：批量上架 / 批量下架——传完整行数据避免清空其他字段
 const batchActions = [
@@ -126,6 +135,13 @@ const batchActions = [
 ]
 
 const searchFields = [
+  { key: 'status', label: '状态', type: 'select', width: 120, options: [
+    { value: '', label: '全部状态' },
+    { value: 'pending', label: '待审核' },
+    { value: 'listed', label: '在售' },
+    { value: 'sold', label: '已售' },
+    { value: 'removed', label: '已下架' }
+  ]},
   { key: 'prod_type', label: '类型', type: 'select', width: 140, options: [
     { value: '', label: '全部类型' },
     { value: 'drone', label: '整机' },
@@ -230,6 +246,15 @@ const submitForm = async () => {
     crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '保存失败') }
   finally { formLoading.value = false }
+}
+
+// 审核快捷操作：通过（pending→listed 上架）/ 驳回（pending→removed 下架）——传完整行避免清空其他字段
+const handleApprove = async (row, status) => {
+  try {
+    await api.update(row.id, { ...row, status })
+    Message.success(status === 'listed' ? '已通过，商品已上架' : '已驳回，商品已下架')
+    crudRef.value?.reload()
+  } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
 }
 
 const handleDelete = (row) => {

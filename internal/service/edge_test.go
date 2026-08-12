@@ -113,7 +113,7 @@ func TestInsuranceFinanceAll(t *testing.T) {
 // === Trading ===
 func TestTradingAll(t *testing.T) {
 	svc := service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository())
-	svc.CreateProduct(indActor(), domain.ProductDrone, "M300", "RTK版", "DJI", "M300", "new", 5000000)
+	svc.CreateProduct(indActor(), domain.ProductDrone, "M300", "RTK版", "DJI", "M300", "new", 5000000, nil)
 	svc.ListProducts("")
 	svc.CreateRepair(indActor(), "M300", "云台故障")
 	svc.ListMyRepairs(indActor())

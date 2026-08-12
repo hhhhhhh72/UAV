@@ -251,6 +251,9 @@ function saveDraft() {
   const t = typeConfig.value
   if (!t) return
   const id = resumeId.value || 'draft-' + Date.now()
+  // 记住草稿 id：继续「预览发布」时携带该 id，发布时 upsert 覆盖草稿，
+  // 避免同内容"草稿 + 发布"两条并存（曾现：存草稿后发布，my-posts 显示两条）
+  resumeId.value = id
   const post = {
     id,
     type: type.value,
@@ -274,6 +277,8 @@ function goPreview() {
     step: step.value,
     values: Object.assign({}, values.value),
     photoCount: photos.value.length,
+    // 图片真实临时路径（发布时上传到服务器；历史数据只有数量无路径，过滤为空）
+    photos: photos.value.map((p) => p && p.src).filter(Boolean),
     resumeId: resumeId.value || '',
   }
   saveFormState(state)

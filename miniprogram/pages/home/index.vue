@@ -95,7 +95,51 @@
         </view>
       </view>
 
-      <!-- 4. 供需项目：唯一内容板块，首条为重点卡 -->
+      <!-- 4. 企业展示：入驻平台的低空企业（横向滑动卡片，点击/全部 → 企业列表页） -->
+      <view v-if="enterprises.length > 0" class="surface-section enterprise-section">
+        <view class="section-head">
+          <view class="section-title">
+            <text class="section-title-main">企业展示</text>
+            <text class="section-title-sub">入驻平台的低空服务企业</text>
+          </view>
+          <view class="more-button" hover-class="tap-fade" hover-stay-time="120" @tap="goEnterpriseList">
+            <text>全部</text>
+            <view class="icon icon-arrow"></view>
+          </view>
+        </view>
+        <scroll-view scroll-x class="enterprise-scroll" :show-scrollbar="false">
+          <view class="enterprise-row">
+            <view
+              v-for="e in enterprises"
+              :key="e.id"
+              class="enterprise-card"
+              hover-class="tap-fade"
+              hover-stay-time="120"
+              @tap="goEnterpriseList"
+            >
+              <view class="ent-logo">
+                <image
+                  v-if="e.logo"
+                  :src="resolveEntImg(e.logo)"
+                  mode="aspectFill"
+                  class="ent-logo-img"
+                  @error="e.logo = ''"
+                />
+                <view v-else class="ent-logo-fallback">{{ e.name ? e.name.charAt(0) : '企' }}</view>
+              </view>
+              <view class="ent-info">
+                <text class="ent-card-name">{{ e.name }}</text>
+                <view class="ent-card-tags">
+                  <text v-if="firstCategory(e)" class="ent-card-tag">{{ firstCategory(e) }}</text>
+                  <text v-if="e.is_member" class="ent-card-tag ent-card-tag--member">会员</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 5. 供需项目：唯一内容板块，首条为重点卡 -->
       <view class="surface-section demand-section">
         <view class="section-head">
           <view class="section-title">
@@ -198,6 +242,119 @@
       </view>
     </view>
   </Layout>
+
+  <!-- ═══════ 就地搜索覆盖层（点击搜索栏在当前页展开，不跳搜索页） ═══════ -->
+  <view v-if="showSearch" class="ov-overlay">
+    <view class="ov-topbar" :style="{ paddingTop: (statusBarH + 4) + 'px' }">
+      <view class="ov-topbar-row">
+        <view class="ov-back" hover-class="tap-fade" hover-stay-time="120" @tap="closeSearch">
+          <view class="ov-back-arrow"></view>
+        </view>
+        <text class="ov-title">全局搜索</text>
+        <view class="ov-spacer"></view>
+      </view>
+      <view class="ov-search-box">
+        <view class="ov-search-icon"></view>
+        <input
+          class="ov-search-input"
+          v-model="searchText"
+          placeholder="搜索需求、企业..."
+          placeholder-class="ov-search-ph"
+          confirm-type="search"
+          focus
+          @input="onSearchInput($event.detail.value)"
+          @confirm="onSearch"
+        />
+      </view>
+    </view>
+
+    <view class="ov-tabs">
+      <view
+        class="ov-tab"
+        :class="{ active: activeTab === 'demand' }"
+        @tap="onTabChange(0)"
+      >搜需求</view>
+      <view
+        class="ov-tab"
+        :class="{ active: activeTab === 'enterprise' }"
+        @tap="onTabChange(1)"
+      >搜企业</view>
+    </view>
+
+    <!-- 无输入：搜索历史 -->
+    <view v-if="!searchText" class="ov-history">
+      <view v-if="searchHistory.length > 0" class="ov-history-header">
+        <text class="ov-history-title">搜索历史</text>
+        <view class="ov-history-clear" @tap="clearSearchHistory"><text>清除</text></view>
+      </view>
+      <view v-if="searchHistory.length > 0" class="ov-history-tags">
+        <text
+          v-for="(tag, index) in searchHistory"
+          :key="index"
+          class="ov-history-tag"
+          @tap="fillSearch(tag)"
+        >{{ tag }}</text>
+      </view>
+      <view v-else class="ov-empty">
+        <u-empty description="暂无搜索历史" />
+      </view>
+    </view>
+
+    <!-- 有输入：搜索结果 -->
+    <view v-else class="ov-results">
+      <view v-if="searchLoading" class="ov-loading">
+        <view class="ov-loading-inline">
+          <u-loading size="28rpx" />
+          <text>搜索中...</text>
+        </view>
+      </view>
+      <view v-else-if="searchError && searchResults.length === 0" class="ov-error">
+        <u-empty description="搜索失败" />
+        <view class="ov-retry" @tap="doSearch"><text>重新加载</text></view>
+      </view>
+      <view v-else-if="!searchLoading && searchResults.length === 0 && searched" class="ov-empty">
+        <u-empty description="未找到相关内容" />
+      </view>
+      <view v-else-if="searchResults.length > 0" class="ov-result-list">
+        <template v-if="activeTab === 'demand'">
+          <view
+            v-for="item in searchResults"
+            :key="item.id"
+            class="ov-result-card"
+            hover-class="tap-fade"
+            hover-stay-time="120"
+            @tap="goSearchDemand(item)"
+          >
+            <text class="ov-result-title">{{ item.title }}</text>
+            <view class="ov-result-meta">
+              <text class="ov-meta-tag" :class="'ov-meta-tag--' + bizTypeTagType(item.biz_type)">{{ bizTypeLabel(item.biz_type) }}</text>
+              <text v-if="item.district" class="ov-meta-text">{{ item.district }}</text>
+              <text class="ov-meta-text">{{ formatBudget(item.budget_fen) }}</text>
+              <text class="ov-meta-date">{{ formatDate(item.created_at) }}</text>
+            </view>
+          </view>
+        </template>
+        <template v-else>
+          <view
+            v-for="item in searchResults"
+            :key="item.id"
+            class="ov-result-card ov-ent-card"
+            hover-class="tap-fade"
+            hover-stay-time="120"
+            @tap="goSearchEnterprise(item)"
+          >
+            <view class="ov-ent-icon">
+              <text class="ov-ent-icon-text">企</text>
+            </view>
+            <view class="ov-ent-title-row">
+              <text class="ov-ent-name">{{ item.name || item.enterprise_name }}</text>
+              <text v-if="item.description || item.business_scope" class="ov-ent-desc">{{ item.description || item.business_scope || '' }}</text>
+            </view>
+          </view>
+        </template>
+      </view>
+    </view>
+  </view>
 
   <!-- 城市选择底部弹层 -->
   <u-popup :show="showCityPicker" position="bottom" round @close="closeCityPicker">
@@ -418,6 +575,7 @@ const goNotices = () => safeNavigateTo('/pkg-service/pages/compliance/news')
 /* ================= 供需项目 ================= */
 const demandState = ref('loading')
 const demands = ref([])
+const enterprises = ref([]) // 企业展示区（/api/v1/enterprises/public 已认证企业）
 const activeFilter = ref('all')
 const filters = [
   { key: 'all', label: '全部' },
@@ -599,9 +757,10 @@ const loadAll = async (opts = {}) => {
   if (!isAllCity) demandsParams.district = city.value
 
   try {
-    const [homeRes, demandsRes] = await Promise.allSettled([
+    const [homeRes, demandsRes, entRes] = await Promise.allSettled([
       request({ url: '/api/v1/home' + cityQuery }),
       request({ url: '/api/v1/demands', data: demandsParams }),
+      request({ url: '/api/v1/enterprises/public' }),
     ])
     if (seq !== loadSeq) return
 
@@ -633,6 +792,14 @@ const loadAll = async (opts = {}) => {
       demands.value = []
       demandState.value = 'error'
     }
+
+    // 企业展示独立处理：失败/空数据 → 隐藏板块
+    if (entRes.status === 'fulfilled') {
+      const ents = Array.isArray(entRes.value) ? entRes.value : []
+      enterprises.value = ents.slice(0, 10)
+    } else {
+      enterprises.value = []
+    }
   } catch (e) {
     if (seq !== loadSeq) return
     demands.value = []
@@ -659,12 +826,171 @@ const loadUnreadCount = async () => {
 }
 
 /* ================= 导航 ================= */
-const goSearch = () => safeNavigateTo('/pages/search/index')
+const goSearch = () => openSearch()
 const goMessages = () => safeNavigateTo('/pages/messages/index')
 const goFindProject = () => safeNavigateTo('/pages/demands/list')
 const goPublishDemand = () => safeNavigateTo('/pkg-demand/pages/demands/publish')
 const goDemandsList = () => safeNavigateTo('/pages/demands/list')
 const goDemandDetail = (d) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(d.id))
+// 企业无公开详情页（status 是"我的企业"），展示区卡片与"全部"统一进企业列表页
+const goEnterpriseList = () => safeNavigateTo('/pkg-eco/pages/enterprise/list')
+
+/* 企业展示辅助 */
+const splitTags = (str) => {
+  if (!str) return []
+  return String(str).split(',').map((t) => t.trim()).filter(Boolean)
+}
+// 相对路径（存库格式）→ 完整 URL（预览格式），完整 URL 原样返回
+const resolveEntImg = (u) => (u.indexOf('http') === 0 ? u : BASE_URL + u)
+const firstCategory = (e) => {
+  const cats = splitTags(e.industry_category)
+  return cats.length ? cats[0] : ''
+}
+
+/* ================= 就地搜索（覆盖层内搜索，逻辑与 search/index.vue 一致） ================= */
+const showSearch = ref(false)
+const searchText = ref('')
+const activeTab = ref('demand') // demand | enterprise
+const searchHistory = ref([])
+const searchResults = ref([])
+const searchLoading = ref(false)
+const searchError = ref('')
+const searched = ref(false)
+
+const SEARCH_HISTORY_KEY = 'searchHistory'
+const SEARCH_HISTORY_MAX = 10
+
+const openSearch = () => {
+  showSearch.value = true
+  activeTab.value = 'demand'
+  loadSearchHistory()
+}
+const closeSearch = () => {
+  showSearch.value = false
+  searchText.value = ''
+  searchResults.value = []
+  searched.value = false
+  searchError.value = ''
+}
+
+/* --- 历史 --- */
+function loadSearchHistory() {
+  try {
+    const raw = uni.getStorageSync(SEARCH_HISTORY_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    searchHistory.value = Array.isArray(arr) ? arr : []
+  } catch (e) {
+    searchHistory.value = []
+  }
+}
+function saveSearchHistory() {
+  try {
+    uni.setStorageSync(SEARCH_HISTORY_KEY, JSON.stringify(searchHistory.value))
+  } catch (e) {
+    // ignore
+  }
+}
+function addToSearchHistory(keyword) {
+  if (!keyword || !keyword.trim()) return
+  const kw = keyword.trim()
+  const list = searchHistory.value.filter((w) => w !== kw)
+  list.unshift(kw)
+  searchHistory.value = list.slice(0, SEARCH_HISTORY_MAX)
+  saveSearchHistory()
+}
+const clearSearchHistory = () => {
+  searchHistory.value = []
+  uni.removeStorageSync(SEARCH_HISTORY_KEY)
+}
+const fillSearch = (tag) => {
+  searchText.value = tag
+  doSearch()
+}
+
+/* --- 搜索 --- */
+const onSearchInput = (val) => {
+  searchText.value = val
+  if (!searchText.value) {
+    searchResults.value = []
+    searched.value = false
+    searchError.value = ''
+  }
+}
+const onSearch = () => {
+  if (searchText.value && searchText.value.trim()) doSearch()
+}
+async function doSearch() {
+  const kw = searchText.value && searchText.value.trim()
+  if (!kw) {
+    searchResults.value = []
+    searched.value = false
+    return
+  }
+  searchLoading.value = true
+  searchError.value = ''
+  searchResults.value = []
+  try {
+    const res = await request({
+      url: '/api/v1/search',
+      data: { q: kw, type: activeTab.value },
+    })
+    const data = Array.isArray(res) ? res : (res && res.items) || []
+    searchResults.value = data
+    searched.value = true
+    addToSearchHistory(kw)
+  } catch (e) {
+    searchError.value = '网络异常，请稍后重试'
+  } finally {
+    searchLoading.value = false
+  }
+}
+const onTabChange = (index) => {
+  activeTab.value = index === 1 ? 'enterprise' : 'demand'
+  searchResults.value = []
+  searched.value = false
+  searchError.value = ''
+  if (searchText.value && searchText.value.trim()) doSearch()
+}
+
+/* --- 结果跳转 --- */
+const goSearchDemand = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
+const goSearchEnterprise = (item) => safeNavigateTo('/pkg-eco/pages/enterprise/status?id=' + encodeURIComponent(item.id))
+
+/* --- 展示辅助 --- */
+function bizTypeLabel(type) {
+  const map = {
+    cable_inspection: '巡检',
+    plant_transport: '植保',
+    spray_pesticide: '农药',
+    trade_lease: '租赁',
+    clean_paint: '清洗',
+    other: '其他',
+  }
+  return map[type] || type || '其他'
+}
+function bizTypeTagType(type) {
+  const map = {
+    cable_inspection: 'primary',
+    plant_transport: 'success',
+    spray_pesticide: 'warning',
+    trade_lease: 'danger',
+    clean_paint: 'primary',
+    other: 'default',
+  }
+  return map[type] || 'default'
+}
+function formatBudget(fen) {
+  if (fen == null || fen === 0) return '面议'
+  const yuan = (fen / 100).toFixed(2)
+  return yuan.replace(/\.00$/, '') + ' 元'
+}
+function formatDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day
+}
 
 /* ================= 生命周期 ================= */
 onLoad(() => {
@@ -1157,6 +1483,93 @@ onPullDownRefresh(() => {
   color: #98A2B3;
 }
 
+/* ================= 企业展示：横向滑动卡片 ================= */
+.enterprise-section {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.enterprise-scroll {
+  margin: 0 -12px;
+  padding: 0 12px;
+  box-sizing: content-box;
+  white-space: nowrap;
+}
+.enterprise-scroll::-webkit-scrollbar {
+  display: none;
+}
+.enterprise-row {
+  display: inline-flex;
+  gap: 8px;
+}
+.enterprise-card {
+  width: 180px;
+  height: 64px;
+  flex-shrink: 0;
+  border: 1px solid #EEF1F4;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
+  box-sizing: border-box;
+}
+.ent-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #F4F8FC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ent-logo-img {
+  width: 100%;
+  height: 100%;
+}
+.ent-logo-fallback {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0A66C2;
+}
+.ent-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ent-card-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: #17212B;
+}
+.ent-card-tags {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ent-card-tag {
+  font-size: 10px;
+  color: #667085;
+  background: #F1F3F5;
+  padding: 2px 7px;
+  border-radius: 4px;
+  line-height: 1.5;
+}
+.ent-card-tag--member {
+  color: #0A66C2;
+  background: #EAF3FB;
+}
+
 /* ================= 供需项目 ================= */
 .category-scroll {
   margin: -1px -12px 8px;
@@ -1196,28 +1609,28 @@ onPullDownRefresh(() => {
   gap: 9px;
 }
 .demand-card {
-  min-height: 108px;
+  min-height: 100px;
   border: 1px solid #EEF1F4;
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
+  grid-template-columns: 80px minmax(0, 1fr);
   box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
 }
 .demand-photo {
-  width: 96px;
-  min-height: 108px;
+  width: 80px;
+  min-height: 100px;
   display: block;
 }
 /* 超高图（旧上传竖图，比例 > 1.2）定向裁到与其他小图卡相同高度：
    仅这类图生效，16:9 图无 tall-photo 标记，外观不变 */
 .demand-photo.tall-photo {
-  height: 108px;
+  height: 100px;
 }
 .demand-body {
   min-width: 0;
-  padding: 10px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
 }
@@ -1230,7 +1643,7 @@ onPullDownRefresh(() => {
 .status-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 20px;
+  min-height: 18px;
   padding: 0 6px;
   border-radius: 4px;
   font-size: 9px;
@@ -1249,18 +1662,19 @@ onPullDownRefresh(() => {
   background: #EEF1F4;
 }
 .demand-title {
-  margin-top: 7px;
+  margin-top: 6px;
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  /* 单行：小图卡高度由两行标题撑开（实际 ~130px）无法压矮，改单行与重点大图卡一致 */
+  -webkit-line-clamp: 1;
   font-size: 13px;
   line-height: 1.4;
   font-weight: 700;
   color: #17212B;
 }
 .demand-meta {
-  margin-top: 7px;
+  margin-top: 5px;
   color: #667085;
   display: flex;
   align-items: center;
@@ -1273,8 +1687,8 @@ onPullDownRefresh(() => {
    改为固定间距跟随内容流后，预算行位置只由上方标签/标题/meta 决定，
    老的大图卡变普通卡后右侧数据与其他小图卡完全对齐（图片高度不再影响） */
 .demand-foot {
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 5px;
+  padding-top: 5px;
   border-top: 1px solid #EEF1F4;
   display: flex;
   align-items: flex-end;
@@ -1352,7 +1766,7 @@ onPullDownRefresh(() => {
   gap: 9px;
 }
 .skeleton-card {
-  height: 108px;
+  height: 100px;
   border-radius: 8px;
   background: #EDF0F3;
   position: relative;
@@ -1478,6 +1892,237 @@ onPullDownRefresh(() => {
   font-weight: 700;
 }
 
+/* ================= 就地搜索覆盖层（对齐需求大厅：深蓝条 + 白底下划线 tabs） ================= */
+.ov-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9990;
+  background: #F4F6F8;
+  display: flex;
+  flex-direction: column;
+}
+.ov-topbar {
+  background: #074D92;
+  color: #fff;
+  padding: 16rpx 24rpx 28rpx;
+  /* 顶部避让由 :style 动态 paddingTop 控制 */
+}
+.ov-topbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.ov-back {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ov-back-arrow {
+  width: 20rpx;
+  height: 20rpx;
+  border-left: 4rpx solid #fff;
+  border-bottom: 4rpx solid #fff;
+  transform: rotate(45deg);
+  margin-left: 10rpx;
+}
+.ov-title {
+  flex: 1;
+  font-size: 38rpx;
+  font-weight: 700;
+  text-align: center;
+}
+.ov-spacer { width: 60rpx; }
+.ov-search-box {
+  width: 100%;
+  height: 44px;
+  margin-top: 24rpx;
+  border-radius: 7px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+}
+.ov-search-icon {
+  width: 30rpx;
+  height: 30rpx;
+  border: 4rpx solid #98A2B3;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.ov-search-icon::after {
+  content: '';
+  position: absolute;
+  right: -12rpx;
+  bottom: -7rpx;
+  width: 14rpx;
+  height: 4rpx;
+  border-radius: 4rpx;
+  background: #98A2B3;
+  transform: rotate(45deg);
+}
+.ov-search-input { flex: 1; font-size: 28rpx; color: #17212B; }
+.ov-search-ph { color: #98A2B3; }
+
+/* 白底下划线 Tabs */
+.ov-tabs {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #EEF1F4;
+  padding: 0 32rpx;
+  flex-shrink: 0;
+}
+.ov-tab {
+  flex: 1;
+  height: 92rpx;
+  line-height: 92rpx;
+  text-align: center;
+  position: relative;
+  color: #667085;
+  font-weight: 600;
+  font-size: 28rpx;
+}
+.ov-tab.active { color: #0A66C2; }
+.ov-tab.active::after {
+  content: '';
+  position: absolute;
+  width: 56rpx;
+  height: 6rpx;
+  background: #0A66C2;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 3rpx;
+}
+
+/* 历史 */
+.ov-history { padding: 24rpx; }
+.ov-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+.ov-history-title { font-size: 28rpx; font-weight: 600; color: #17212B; }
+.ov-history-clear { font-size: 24rpx; color: #667085; }
+.ov-history-tags { display: flex; flex-wrap: wrap; gap: 20rpx; }
+.ov-history-tag {
+  padding: 10rpx 28rpx;
+  background: #fff;
+  border: 1rpx solid #E4E7EC;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+  color: #344054;
+}
+
+/* 结果 */
+.ov-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 8px;
+}
+.ov-loading {
+  display: flex;
+  justify-content: center;
+  padding: 80px 0;
+}
+.ov-loading-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #667085;
+}
+.ov-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 120px;
+}
+.ov-retry {
+  margin-top: 12px;
+  padding: 8px 24px;
+  background: #0A66C2;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.ov-empty { padding-top: 60px; }
+.ov-result-list { padding: 20rpx 24rpx 24rpx; }
+.ov-result-card {
+  background: #fff;
+  border: 1rpx solid #E4E7EC;
+  border-radius: 16rpx;
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+}
+.ov-result-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #17212B;
+  line-height: 1.4;
+}
+.ov-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+  margin-top: 14rpx;
+}
+.ov-meta-tag {
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+}
+.ov-meta-tag--primary { background: #EAF3FB; color: #0A66C2; }
+.ov-meta-tag--success { background: #E8F7EF; color: #16A34A; }
+.ov-meta-tag--warning { background: #FDF1E7; color: #E46426; }
+.ov-meta-tag--danger { background: #FDECEC; color: #E84C3D; }
+.ov-meta-tag--default { background: #F0F3F6; color: #667085; }
+.ov-meta-text { font-size: 24rpx; color: #667085; }
+.ov-meta-date { font-size: 24rpx; color: #98A2B3; }
+
+/* 企业结果 */
+.ov-ent-card { display: flex; align-items: center; gap: 20rpx; }
+.ov-ent-icon {
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #EAF3FB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ov-ent-icon-text { font-size: 30rpx; font-weight: 600; color: #0A66C2; }
+.ov-ent-title-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.ov-ent-name { font-size: 28rpx; font-weight: 700; color: #17212B; }
+.ov-ent-desc {
+  font-size: 24rpx;
+  color: #667085;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* ================= 按压反馈 ================= */
 .tap-fade {
   opacity: 0.85;
@@ -1490,10 +2135,10 @@ onPullDownRefresh(() => {
 /* ================= 响应式：375px 宽度 ================= */
 @media (max-width: 380px) {
   .demand-card:not(:first-child) {
-    grid-template-columns: 88px minmax(0, 1fr);
+    grid-template-columns: 72px minmax(0, 1fr);
   }
   .demand-card:not(:first-child) .demand-photo {
-    width: 88px;
+    width: 72px;
   }
 }
 </style>

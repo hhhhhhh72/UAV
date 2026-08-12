@@ -168,6 +168,8 @@ export function publishPostToCard(post) {
     const condition = v.condition || ''
     return {
       id: post.id,
+      // 已发布到后端的商品（发布页商品提交走 POST /api/v1/products），后端 id 供列表跳转商品详情
+      backendId: post.backendId || '',
       type: '商品',
       title: post.title,
       brand: v.brand || '',
@@ -190,10 +192,13 @@ export function publishPostToCard(post) {
   return null
 }
 
-// 指定类型下已上架的本地发布（课程除外）
+// 指定类型下已上架的本地发布（课程除外）。
+// 商品类型：已发布到后端的（backendId 非空）由后端 /products 接口返回，这里不再
+// 并入，避免同一商品在列表中同时来自本地与后端；仅需求/服务等无后端通道的类型全量并入。
 export function getLocalLiveCards(kind) {
   return getPublishedPosts()
     .filter((p) => p.statusKey === 'live' && p.type === kind)
+    .filter((p) => !(p.type === 'product' && p.backendId))
     .map(publishPostToCard)
     .filter(Boolean)
 }

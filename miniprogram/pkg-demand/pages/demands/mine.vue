@@ -3,7 +3,7 @@
     <!-- 头部 -->
     <view class="page-header">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
-      <text class="page-title">我的需求</text>
+      <text class="page-title">我的发布</text>
       <view class="head-action" @tap="goOrders">
         <text class="head-action-text">我的订单</text>
       </view>
@@ -14,7 +14,7 @@
       <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
         <view class="filter-inner">
           <view
-            v-for="t in typeOptions"
+            v-for="t in kindOptions"
             :key="t.value"
             class="filter-chip"
             :class="{ active: mineType === t.value }"
@@ -49,31 +49,37 @@
     <view v-if="filteredPosts.length === 0" class="state-panel">
       <view class="state-mark">⌁</view>
       <text class="state-title">{{ loadError ? '加载失败' : '暂无符合条件的发布' }}</text>
-      <text class="state-desc">{{ loadError ? '网络异常，请稍后重试' : '换个筛选条件试试，或先发布一条需求' }}</text>
+      <text class="state-desc">{{ loadError ? '网络异常，请稍后重试' : '发布的需求、服务、商品、课程都在这里查看' }}</text>
       <view class="state-btn" @tap="loadError ? fetchMine() : resetMineFilter">{{ loadError ? '重新加载' : '清除筛选' }}</view>
     </view>
 
     <!-- 发布记录 -->
     <view v-else class="post-list">
-      <view v-for="post in filteredPosts" :key="post.id" class="mine-card">
+      <view v-for="post in filteredPosts" :key="post.id" class="mine-card" hover-class="mine-card--active" @tap="goDetail(post)">
         <view class="tag-row">
-          <text class="tag" :class="typeTagClass(post.biz_type)">{{ bizTypeLabel(post.biz_type) }}</text>
-          <text class="tag" :class="statusTagClass(post.status)">{{ statusLabel(post.status) }}</text>
+          <text class="tag" :class="typeTagClass(post.type)">{{ post.label }}</text>
+          <text class="tag" :class="statusTagClass(post.statusKey)">{{ post.status }}</text>
         </view>
         <text class="post-title">{{ post.title }}</text>
-        <text class="post-meta">{{ formatBudget(post.budget_fen) }}{{ post.district ? ' · ' + post.district : '' }} · {{ formatDate(post.created_at) }}</text>
-        <view class="mine-action-row">
-          <template v-if="post.status === 'rejected'">
-            <view class="action-link" @tap="republish(post)">编辑重提</view>
+        <view class="post-meta">
+          <text v-for="(m, i) in post.meta" :key="i" class="post-meta-item">{{ m }}</text>
+        </view>
+        <view class="mine-action-row" v-if="post.source === 'backend' && post.type === 'demand'">
+          <template v-if="post.statusKey === 'rejected'">
+            <view class="action-link" @tap.stop="republish(post)">编辑重提</view>
           </template>
-          <template v-else-if="post.status === 'published'">
-            <view class="action-link" @tap="goIntents(post.id)">查看意向</view>
-            <view class="action-link" @tap="completePost(post)">标记完成</view>
-            <view class="action-link danger" @tap="closePost(post)">下架</view>
+          <template v-else-if="post.statusKey === 'published'">
+            <view class="action-link" @tap.stop="goIntents(post.id)">查看意向</view>
+            <view class="action-link" @tap.stop="completePost(post)">标记完成</view>
+            <view class="action-link danger" @tap.stop="closePost(post)">下架</view>
           </template>
-          <template v-else-if="post.status === 'pending'">
-            <view class="action-link" @tap="toastPending">查看审核进度</view>
+          <template v-else-if="post.statusKey === 'pending'">
+            <view class="action-link" @tap.stop="toastPending">查看审核进度</view>
           </template>
+        </view>
+        <view class="mine-action-row" v-else-if="post.source === 'local' && post.statusKey === 'live'">
+          <view class="action-link" @tap.stop="goDetail(post)">查看详情</view>
+          <view class="action-link danger" @tap.stop="localOffShelf(post)">下架</view>
         </view>
       </view>
     </view>
@@ -84,63 +90,138 @@
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { safeNavigateTo } from '../../../utils/nav'
-import { request, getErrorMessage } from '../../../utils/request'
-import { BIZ_TYPE_TABS, bizTypeLabel } from '../../../utils/enums'
+import { request, getErrorMessage, authStorage } from '../../../utils/request'
+import { getPosts, upsertPost, KIND_ORDER, KIND_LABEL } from '../../../utils/publishData'
+import { bizTypeLabel } from '../../../utils/enums'
 
 const mineType = ref('')
 const mineStatus = ref('全部')
 const posts = ref([])
 const loadError = ref(false)
 
-const typeOptions = BIZ_TYPE_TABS
-const statusOptions = ['全部', '待审核', '已上架', '已驳回', '已结束', '已取消']
+// 类型筛选：全部 + 四类发布内容
+const kindOptions = KIND_ORDER.map((k) => ({ value: k === 'all' ? '' : k, label: KIND_LABEL[k] }))
 
-const STATUS_MAP = {
-  pending: '待审核',
-  published: '已上架',
-  completed: '已结束',
-  cancelled: '已取消',
-  rejected: '已驳回',
+// 通用状态筛选（跨 需求/服务/商品/课程 归一化分组）
+const statusOptions = ['全部', '已发布', '审核中', '草稿', '已下架', '已结束', '未通过']
+const STATUS_GROUP = {
+  live: '已发布', published: '已发布', listed: '已发布',
+  pending: '审核中', draft: '草稿',
+  removed: '已下架', cancelled: '已下架',
+  completed: '已结束', rejected: '未通过',
 }
-const statusLabel = (s) => STATUS_MAP[s] || s || ''
+const PRODUCT_STATUS = { pending: '待审核', listed: '在售', sold: '已售', removed: '已下架' }
+const DEMAND_STATUS = { pending: '待审核', published: '已上架', completed: '已结束', cancelled: '已下架', rejected: '未通过' }
 
 const filteredPosts = computed(() => {
   return posts.value.filter(
     (p) =>
-      (mineType.value === '' || p.biz_type === mineType.value) &&
-      (mineStatus.value === '全部' || statusLabel(p.status) === mineStatus.value)
+      (mineType.value === '' || p.type === mineType.value) &&
+      (mineStatus.value === '全部' || (STATUS_GROUP[p.statusKey] || p.status || '') === mineStatus.value)
   )
 })
 
 function typeTagClass(t) {
-  const blue = ['cable_inspection', 'other']
-  const green = ['plant_transport', 'spray_pesticide']
-  return blue.includes(t) ? 'blue' : green.includes(t) ? 'green' : 'orange'
+  if (t === 'demand') return 'blue'
+  if (t === 'product') return 'orange'
+  if (t === 'service') return 'green'
+  return 'purple' // course
 }
-function statusTagClass(s) {
-  return s === 'rejected' ? 'red' : s === 'pending' ? 'orange' : s === 'completed' || s === 'cancelled' ? 'gray' : 'green'
+function statusTagClass(key) {
+  if (key === 'rejected' || key === 'removed' || key === 'cancelled') return 'red'
+  if (key === 'pending' || key === 'draft') return 'orange'
+  if (key === 'completed' || key === 'sold') return 'gray'
+  return 'green'
 }
 
-const formatBudget = (fen) => {
-  if (fen == null || fen === 0) return '面议'
-  const yuan = (fen / 100).toFixed(2)
-  return yuan.replace(/\.00$/, '') + ' 元'
+/* ================= 数据加载 ================= */
+
+const fmtMoney = (fen) => {
+  const yuan = (Number(fen) || 0) / 100
+  return String(Math.round(yuan)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 const formatDate = (iso) => {
   if (!iso) return ''
   const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10)
   const m = d.getMonth() + 1
   const day = d.getDate()
   return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day
+}
+const normalizeList = (res) => {
+  if (Array.isArray(res)) return res
+  if (res && Array.isArray(res.data)) return res.data
+  return []
+}
+
+// 后端需求 → 统一卡片
+function demandToCard(d) {
+  return {
+    id: d.id,
+    type: 'demand',
+    source: 'backend',
+    label: '需求',
+    title: d.title || '未命名需求',
+    status: DEMAND_STATUS[d.status] || d.status || '',
+    statusKey: d.status || 'published',
+    meta: [bizTypeLabel(d.biz_type) || '其他', d.district || '重庆', d.budget_fen ? '预算 ' + fmtMoney(d.budget_fen) + ' 元' : '预算可协商'],
+    date: formatDate(d.created_at),
+    raw: d,
+  }
+}
+
+// 后端商品 → 统一卡片
+function productToCard(p) {
+  return {
+    id: p.id,
+    type: 'product',
+    source: 'backend',
+    label: '商品设备',
+    title: p.title || '未命名商品',
+    status: PRODUCT_STATUS[p.status] || '在售',
+    statusKey: p.status || 'listed',
+    meta: [p.brand || '品牌待定', p.model || '型号待定', p.price_fen ? fmtMoney(p.price_fen) + ' 元' : '面议'],
+    date: formatDate(p.created_at),
+    raw: p,
+  }
+}
+
+// 本地发布记录 → 统一卡片（商品 backendId 非空的由后端商品统一展示，这里跳过）
+function localToCard(p) {
+  return {
+    id: p.id,
+    type: p.type,
+    source: 'local',
+    label: p.label || p.type,
+    title: p.title,
+    status: p.status || '',
+    statusKey: p.statusKey || 'live',
+    meta: p.meta || [],
+    date: p.date || '',
+    backendId: p.backendId || '',
+    raw: p,
+  }
 }
 
 const fetchMine = async () => {
   loadError.value = false
   try {
-    const res = await request({ url: '/api/v1/demands?mine=1&page_size=100' })
-    const data = Array.isArray(res) ? res : (res && res.data) || []
-    posts.value = data
-  } catch {
+    const [demandsRes, productsRes] = await Promise.all([
+      request({ url: '/api/v1/demands?mine=1&page_size=100' }).catch(() => []),
+      request({ url: '/api/v1/products?mine=1&page_size=100' }).catch(() => []),
+    ])
+    const cards = []
+    // 后端商品（权威，含本地缓存被清后的记录）
+    normalizeList(productsRes).forEach((p) => cards.push(productToCard(p)))
+    // 后端需求
+    normalizeList(demandsRes).forEach((d) => cards.push(demandToCard(d)))
+    // 本地发布（需求/服务/课程全在本地；商品仅无 backendId 的历史记录）
+    getPosts().forEach((p) => {
+      if (p.type === 'product' && p.backendId) return
+      cards.push(localToCard(p))
+    })
+    posts.value = cards
+  } catch (e) {
     loadError.value = true
     posts.value = []
   }
@@ -149,6 +230,11 @@ const fetchMine = async () => {
 onLoad((options) => {
   if (options && options.status && statusOptions.includes(options.status)) {
     mineStatus.value = options.status
+  }
+  // 未登录不进"我的发布"：后端 mine=1 未登录只返回空列表，这里提前拦截引导登录
+  if (!authStorage.getAccessToken()) {
+    uni.navigateTo({ url: '/pages/login/index' })
+    return
   }
   fetchMine()
 })
@@ -161,18 +247,47 @@ const resetMineFilter = () => {
   mineStatus.value = '全部'
 }
 
+/* ================= 跳转 ================= */
+
+const goDetail = (post) => {
+  if (post.source === 'backend') {
+    if (post.type === 'product') {
+      safeNavigateTo('/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(post.id))
+    } else {
+      safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(post.id))
+    }
+    return
+  }
+  // 本地记录 → 本地详情
+  safeNavigateTo('/pages/publish/detail?id=' + encodeURIComponent(post.id))
+}
 const goIntents = (id) => safeNavigateTo('/pkg-demand/pages/demands/intents?demandId=' + encodeURIComponent(id))
 const goOrders = () => safeNavigateTo('/pkg-demand/pages/orders/mine')
 const goBack = () => uni.navigateBack()
 
-function republish(post) {
+function republish() {
   safeNavigateTo('/pkg-demand/pages/demands/publish')
+}
+
+/* ================= 操作 ================= */
+
+// 本地下架：仅改状态（需求大厅/各列表只并入 live 记录），保留在"我的发布"
+async function localOffShelf(post) {
+  const confirm = await new Promise((resolve) => {
+    uni.showModal({ title: '下架发布', content: '下架后将从对应列表移除，可在筛选「已下架」中找回，确定下架？', success: (r) => resolve(r.confirm) })
+  })
+  if (!confirm) return
+  upsertPost(Object.assign({}, post.raw, { statusKey: 'removed', status: '已下架' }))
+  post.statusKey = 'removed'
+  post.status = '已下架'
+  uni.showToast({ title: '已下架', icon: 'none' })
 }
 
 async function completePost(post) {
   try {
     await request({ url: '/api/v1/demands/' + encodeURIComponent(post.id) + '/complete', method: 'POST' })
-    post.status = 'completed'
+    post.status = '已结束'
+    post.statusKey = 'completed'
     uni.showToast({ title: '已标记完成', icon: 'success' })
   } catch (e) {
     uni.showToast({ title: getErrorMessage(e) || '操作失败，请重试', icon: 'none' })
@@ -186,7 +301,8 @@ async function closePost(post) {
   if (!confirm) return
   try {
     await request({ url: '/api/v1/demands/' + encodeURIComponent(post.id) + '/cancel', method: 'POST' })
-    post.status = 'cancelled'
+    post.status = '已下架'
+    post.statusKey = 'cancelled'
     uni.showToast({ title: '已下架', icon: 'none' })
   } catch (e) {
     uni.showToast({ title: getErrorMessage(e) || '操作失败，请重试', icon: 'none' })
@@ -282,6 +398,7 @@ const toastPending = () => {
 .tag.blue { color: #0A66C2; background: #EAF3FB; }
 .tag.green { color: #168A55; background: #E9F7F0; }
 .tag.orange { color: #DB5F0D; background: #FFF0E6; }
+.tag.purple { color: #7B61D1; background: #F0EDFF; }
 .tag.red { color: #D92D20; background: #FEF3F2; }
 .tag.gray { color: #667085; background: #F1F3F5; }
 
@@ -293,7 +410,12 @@ const toastPending = () => {
   font-weight: 700;
   margin: 16rpx 0 8rpx;
 }
-.post-meta { display: block; font-size: 22rpx; color: #667085; }
+.post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx 20rpx;
+}
+.post-meta-item { font-size: 22rpx; color: #667085; }
 
 .mine-action-row {
   display: flex;

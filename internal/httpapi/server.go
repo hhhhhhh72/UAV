@@ -431,9 +431,13 @@ func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
 		}
 		result = filtered
 	}
-	// Mine filter: only demands published by current user
+	// Mine filter: only demands published by current user.
+	// 未登录时返回空列表，绝不回退为"全部需求"（防止未登录泄露他人/种子数据）。
 	if r.URL.Query().Get("mine") == "1" {
-		if a, ok := authenticatedActor(r); ok {
+		a, ok := authenticatedActor(r)
+		if !ok {
+			result = nil
+		} else {
 			filtered := make([]domain.Demand, 0, len(result))
 			for _, d := range result {
 				if d.PublisherID == a.ID {

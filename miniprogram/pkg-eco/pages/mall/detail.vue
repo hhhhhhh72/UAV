@@ -120,7 +120,7 @@
       </view>
     </view>
     <view class="bottom-contact" hover-class="btn-press" @tap="contactShop">联系卖家</view>
-    <view class="bottom-buy" hover-class="btn-press" @tap="buy">{{ product.prod_type === 'test_fly' ? '预约试飞' : '咨询报价' }}</view>
+    <view class="bottom-buy" hover-class="btn-press" @tap="buy">{{ product.prod_type === 'test_fly' ? '预约试飞' : '立即购买' }}</view>
   </view>
 </view>
 </template>
@@ -129,7 +129,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onPageScroll } from '@dcloudio/uni-app'
 import { productTypeLabel } from '@/utils/enums'
-import { request } from '../../../utils/request'
+import { request, getStoredUser } from '../../../utils/request'
 import { fullImgUrl } from '../../../utils/hallData'
 
 const product = ref({})
@@ -281,13 +281,41 @@ const onShare = () => {
   setTimeout(() => { shareAnim.value = false }, 450)
   uni.showToast({ title: '分享', icon: 'none' })
 }
-// 主行动按钮：试飞测试供给 → 测试场地列表（②展示卡 → ③预约入口打通）；其余为咨询报价
-const buy = () => {
+// 主行动按钮：试飞测试供给 → 测试场地列表（②展示卡 → ③预约入口打通）；其余为立即购买（下单闭环）
+const buy = async () => {
   if (product.value.prod_type === 'test_fly') {
     uni.navigateTo({ url: '/pkg-service/pages/testsites/list' })
     return
   }
-  uni.showToast({ title: '咨询报价功能开发中', icon: 'none' })
+  // 面议商品（无定价）不支持下单，引导联系卖家
+  const fen = product.value.price_fen || 0
+  if (fen <= 0) {
+    uni.showToast({ title: '该商品为面议报价，请联系卖家', icon: 'none' })
+    return
+  }
+  // 登录校验（未登录跳登录页）
+  if (!getStoredUser()) {
+    uni.navigateTo({ url: '/pages/login/index' })
+    return
+  }
+  uni.showLoading({ title: '下单中...' })
+  try {
+    const o = await request({
+      url: '/api/v1/trade-orders',
+      method: 'POST',
+      data: { product_id: product.value.id, seller_id: product.value.seller_id || '', amount_fen: fen },
+    })
+    uni.hideLoading()
+    uni.showToast({ title: '下单成功', icon: 'success' })
+    // 跳订单详情：新订单为待付款（支付接口接入前保持该状态）
+    setTimeout(() => {
+      uni.redirectTo({ url: '/pages/orders/detail?id=' + encodeURIComponent(o.id) + '&type=product' })
+    }, 600)
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || '下单失败，请稍后重试'
+    uni.showToast({ title: msg, icon: 'none' })
+  }
 }
 </script>
 
