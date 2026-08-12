@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 	"drone-platform/internal/repository"
 	"drone-platform/internal/service"
 )
+
+// phoneRe matches mainland China mobile numbers (11 digits starting with 13-19).
+var phoneRe = regexp.MustCompile(`^1[3-9]\d{9}$`)
 
 type wechatLoginRequest struct {
 	Code string `json:"code"`
@@ -170,7 +174,8 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
-// PATCH /api/v1/me — update profile fields (currently: avatar_url).
+// PATCH /api/v1/me — update profile fields (avatar_url/name/phone/gender/birthday/region/bio).
+// Phone is encrypted before persistence by the repository; empty values are left unchanged.
 func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
@@ -180,9 +185,18 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Name      string `json:"name"`
 		AvatarURL string `json:"avatar_url"`
+		Phone     string `json:"phone"`
+		Gender    string `json:"gender"`
+		Birthday  string `json:"birthday"`
+		Region    string `json:"region"`
+		Bio       string `json:"bio"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if in.Phone != "" && !phoneRe.MatchString(in.Phone) {
+		fail(w, r, http.StatusBadRequest, errors.New("invalid phone number"))
 		return
 	}
 	if in.AvatarURL != "" {
@@ -197,7 +211,23 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	respond(w, r, http.StatusOK, map[string]any{"id": a.ID, "role": a.Role, "name": in.Name, "avatar_url": in.AvatarURL, "status": "active"})
+	if in.Phone != "" || in.Gender != "" || in.Birthday != "" || in.Region != "" || in.Bio != "" {
+		if err := s.userRepo.UpdateProfile(a.ID, domain.UserProfile{
+			Phone:    in.Phone,
+			Gender:   in.Gender,
+			Birthday: in.Birthday,
+			Region:   in.Region,
+			Bio:      in.Bio,
+		}); err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+	}
+	respond(w, r, http.StatusOK, map[string]any{
+		"id": a.ID, "role": a.Role, "status": "active",
+		"name": in.Name, "avatar_url": in.AvatarURL, "phone": in.Phone,
+		"gender": in.Gender, "birthday": in.Birthday, "region": in.Region, "bio": in.Bio,
+	})
 }
 
 // GET /api/v1/me
@@ -222,9 +252,20 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	}
 	name := ""
 	avatarURL := ""
+	phone := ""
+	gender := ""
+	birthday := ""
+	region := ""
+	bio := ""
 	if u, err := s.userRepo.FindByID(a.ID); err == nil {
 		name = u.Name
 		avatarURL = u.AvatarURL
+		// PhoneCipher holds the decrypted plaintext after FindByID (see repository)
+		phone = u.PhoneCipher
+		gender = u.Gender
+		birthday = u.Birthday
+		region = u.Region
+		bio = u.Bio
 	}
 	respond(w, r, http.StatusOK, map[string]any{
 		"id":           a.ID,
@@ -232,6 +273,11 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		"status":       "active",
 		"name":         name,
 		"avatar_url":   avatarURL,
+		"phone":        phone,
+		"gender":       gender,
+		"birthday":     birthday,
+		"region":       region,
+		"bio":          bio,
 		"demand_count": demandCount,
 		"cert_count":   certCount,
 	})

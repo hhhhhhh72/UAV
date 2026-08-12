@@ -16,6 +16,9 @@ func newBizServer(t *testing.T) http.Handler {
 	if err != nil { t.Fatal(err) }
 	demandRepo := memory.NewDemandRepository(nil)
 	intentRepo := memory.NewIntentRepository()
+	// auth() issues tokens for user-1; pre-seed it so /api/v1/me writes resolve.
+	userRepo := memory.NewUserRepository(nil)
+	userRepo.Create(domain.User{ID: "user-1", Name: "测试用户", Role: domain.RoleIndividual, Status: "active"})
 	srv := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),
@@ -40,7 +43,7 @@ func newBizServer(t *testing.T) http.Handler {
 		service.NewNewsService(memory.NewArticleRepository()),
 		service.NewReviewService(memory.NewReviewRepository()),
 		service.NewVenueService(memory.NewVenueRepository()),
-		memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens,
+		userRepo, memory.NewRefreshTokenRepository(), tokens,
 	)
 	srv.SetExpertService(service.NewExpertService(memory.NewExpertRepository()))
 	srv.SetCaseService(service.NewCaseService(memory.NewCaseRepository()))

@@ -1040,8 +1040,8 @@ func (s *Store) NewUserRepository() repository.UserRepository {
 func (r *userRepo) FindByOpenID(openid string) (domain.User, error) {
 	var u domain.User
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, role, status, version, created_at, updated_at FROM users WHERE wechat_openid=$1 AND deleted_at IS NULL`, openid).
-		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, version, created_at, updated_at FROM users WHERE wechat_openid=$1 AND deleted_at IS NULL`, openid).
+		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
 			u.PhoneCipher = dec
@@ -1067,8 +1067,8 @@ func (r *userRepo) Create(u domain.User) (domain.User, error) {
 func (r *userRepo) FindByID(id string) (domain.User, error) {
 	var u domain.User
 	err := r.pool.QueryRow(context.Background(),
-		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, role, status, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
-		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
+		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
 			u.PhoneCipher = dec
@@ -1078,7 +1078,7 @@ func (r *userRepo) FindByID(id string) (domain.User, error) {
 }
 
 func (r *userRepo) All() ([]domain.User, error) {
-	rows, err := r.pool.Query(context.Background(), `SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, role, status, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
+	rows, err := r.pool.Query(context.Background(), `SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}
@@ -1086,7 +1086,7 @@ func (r *userRepo) All() ([]domain.User, error) {
 	var out []domain.User
 	for rows.Next() {
 		var u domain.User
-		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			continue
 		}
 		if r.cipher != nil && u.PhoneCipher != "" {
@@ -1119,6 +1119,26 @@ func (r *userRepo) UpdateName(userID, name string) error {
 	_, err := r.pool.Exec(context.Background(), `UPDATE users SET name=$1, updated_at=NOW() WHERE id=$2`, name, userID)
 	if err != nil {
 		return fmt.Errorf("update name for %s: %w", userID, err)
+	}
+	return nil
+}
+
+// UpdateProfile updates the editable profile fields. Phone is plaintext here;
+// it is encrypted before persistence. An empty Phone leaves it unchanged.
+func (r *userRepo) UpdateProfile(id string, p domain.UserProfile) error {
+	enc := p.Phone
+	if p.Phone != "" && r.cipher != nil {
+		if c, err := r.cipher.Encrypt(p.Phone); err == nil {
+			enc = c
+		}
+	}
+	_, err := r.pool.Exec(context.Background(),
+		`UPDATE users SET gender=$2, birthday=$3, region=$4, bio=$5,
+		 phone_ciphertext=CASE WHEN $6='' THEN phone_ciphertext ELSE $6 END,
+		 updated_at=NOW() WHERE id=$1`,
+		id, p.Gender, p.Birthday, p.Region, p.Bio, enc)
+	if err != nil {
+		return fmt.Errorf("update profile for %s: %w", id, err)
 	}
 	return nil
 }
@@ -1942,6 +1962,25 @@ func (r *pgTestSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, 
 		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE site_id=$1 ORDER BY created_at DESC`, siteID)
 	if err != nil {
 		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.TestSiteBooking
+	for rows.Next() {
+		var b domain.TestSiteBooking
+		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// ListBookingsByUser 我的预约：按用户返回全部预约（最新在前）
+func (r *pgTestSiteRepo) ListBookingsByUser(userID string) ([]domain.TestSiteBooking, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list bookings by user: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.TestSiteBooking

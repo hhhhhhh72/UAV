@@ -28,6 +28,35 @@ func TestMeEndpoint(t *testing.T) {
 	if w.Code != http.StatusOK { t.Fatalf("me: %d %s", w.Code, w.Body.String()) }
 }
 
+// PATCH /api/v1/me 全字段保存后，GET /api/v1/me 必须能读回手机号/性别/生日/地区/简介；
+// 非法手机号必须 400 拒绝。
+func TestUpdateMeProfileRoundtrip(t *testing.T) {
+	app := newBizServer(t)
+	body := []byte(`{"name":"张三","gender":"male","birthday":"1995-06-18","region":"重庆市江北区","bio":"无人机测绘飞手","phone":"13800138000"}`)
+	w := request(t, app, http.MethodPatch, "/api/v1/me", body, domain.RoleEnterprise)
+	if w.Code != http.StatusOK { t.Fatalf("patch me: %d %s", w.Code, w.Body.String()) }
+
+	w = request(t, app, http.MethodGet, "/api/v1/me", nil, domain.RoleEnterprise)
+	if w.Code != http.StatusOK { t.Fatalf("get me: %d %s", w.Code, w.Body.String()) }
+	s := w.Body.String()
+	for _, kv := range []struct{ k, v string }{
+		{`"gender":"male"`, "gender"},
+		{`"birthday":"1995-06-18"`, "birthday"},
+		{`"region":"重庆市江北区"`, "region"},
+		{`"bio":"无人机测绘飞手"`, "bio"},
+		{`"phone":"13800138000"`, "phone"},
+	} {
+		if !strings.Contains(s, kv.k) {
+			t.Fatalf("me response missing %s: %s", kv.v, s)
+		}
+	}
+
+	bad := request(t, app, http.MethodPatch, "/api/v1/me", []byte(`{"phone":"123"}`), domain.RoleEnterprise)
+	if bad.Code != http.StatusBadRequest {
+		t.Fatalf("invalid phone should be 400, got %d %s", bad.Code, bad.Body.String())
+	}
+}
+
 func TestAdminDashboard(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/admin/dashboard", nil, domain.RolePlatformAdmin)

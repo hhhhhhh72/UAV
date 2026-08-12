@@ -976,6 +976,30 @@ func (r *memUserRepo) UpdateName(userID, name string) error {
 	return fmt.Errorf("user not found")
 }
 
+func (r *memUserRepo) UpdateProfile(id string, p domain.UserProfile) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items[i].Gender = p.Gender
+			r.items[i].Birthday = p.Birthday
+			r.items[i].Region = p.Region
+			r.items[i].Bio = p.Bio
+			if p.Phone != "" {
+				enc := p.Phone
+				if r.cipher != nil {
+					if c, err := r.cipher.Encrypt(p.Phone); err == nil {
+						enc = c
+					}
+				}
+				r.items[i].PhoneCipher = enc
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("user not found")
+}
+
 func (r *memUserRepo) Delete(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

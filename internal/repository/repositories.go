@@ -41,6 +41,9 @@ type UserRepository interface {
 	UpdateRole(id string, role domain.Role) error
 	UpdateAvatar(userID, avatarURL string) error
 	UpdateName(userID, name string) error
+	// UpdateProfile 更新个人资料扩展字段（性别/生日/地区/简介/手机号）。
+	// Phone 为明文，由实现加密后落库；空 Phone 表示不修改手机号。
+	UpdateProfile(id string, p domain.UserProfile) error
 	Delete(id string) error
 }
 
@@ -499,6 +502,7 @@ type TestSiteRepository interface {
 	UpdateSite(domain.TestSite) (domain.TestSite, error)
 	DeleteSite(id string) error
 	ListBookings(siteID string) ([]domain.TestSiteBooking, error)
+	ListBookingsByUser(userID string) ([]domain.TestSiteBooking, error) // 我的预约（按用户）
 	ListAllBookings(offset, limit int) ([]domain.TestSiteBooking, int, error) // 管理端全量
 }
 

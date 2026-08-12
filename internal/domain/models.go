@@ -46,12 +46,26 @@ type User struct {
 	PasswordHash string     `json:"-"`
 	Name         string     `json:"name"` // 昵称（users.name）
 	AvatarURL    string     `json:"avatar_url"`
+	Gender       string     `json:"gender"`   // 性别（男/女）
+	Birthday     string     `json:"birthday"` // 生日 YYYY-MM-DD
+	Region       string     `json:"region"`   // 所在地区
+	Bio          string     `json:"bio"`      // 个人简介
 	Role         Role       `json:"role"`
 	Status       string     `json:"status"`
 	Version      int        `json:"version"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
+}
+
+// UserProfile carries editable profile fields for PATCH /api/v1/me.
+// Phone is plaintext here; repositories encrypt it before persistence.
+type UserProfile struct {
+	Gender   string
+	Birthday string
+	Region   string
+	Bio      string
+	Phone    string
 }
 
 // EnterpriseStatus represents the approval lifecycle of a business registration.

@@ -33,6 +33,80 @@
       </view>
     </view>
 
+    <!-- ═══════ 基础信息 ═══════ -->
+    <view class="card">
+      <view class="row">
+        <view class="row-label-wrap">
+          <text class="row-label">手机号</text>
+        </view>
+        <view class="row-right row-right--input">
+          <input
+            class="row-input"
+            v-model="form.phone"
+            type="number"
+            maxlength="11"
+            placeholder="请输入手机号"
+            placeholder-class="row-input-ph"
+          />
+        </view>
+      </view>
+
+      <picker mode="selector" :range="genderOptions" @change="onGenderChange">
+        <view class="row" hover-class="row-fade">
+          <view class="row-label-wrap">
+            <text class="row-label">性别</text>
+          </view>
+          <view class="row-right">
+            <text class="row-tail" :class="form.gender ? 'val' : 'dim'">{{ form.gender || '请选择' }}</text>
+            <text class="row-chev">›</text>
+          </view>
+        </view>
+      </picker>
+
+      <picker mode="date" :start="'1950-01-01'" :end="todayStr" @change="onBirthdayChange">
+        <view class="row" hover-class="row-fade">
+          <view class="row-label-wrap">
+            <text class="row-label">生日</text>
+          </view>
+          <view class="row-right">
+            <text class="row-tail" :class="form.birthday ? 'val' : 'dim'">{{ form.birthday || '请选择' }}</text>
+            <text class="row-chev">›</text>
+          </view>
+        </view>
+      </picker>
+
+      <view class="row">
+        <view class="row-label-wrap">
+          <text class="row-label">所在地区</text>
+        </view>
+        <view class="row-right row-right--input">
+          <input
+            class="row-input"
+            v-model="form.region"
+            maxlength="30"
+            placeholder="如：重庆市江北区"
+            placeholder-class="row-input-ph"
+          />
+        </view>
+      </view>
+    </view>
+
+    <!-- ═══════ 个人简介 ═══════ -->
+    <view class="card">
+      <view class="row row--textarea">
+        <view class="row-label-wrap">
+          <text class="row-label">个人简介</text>
+        </view>
+        <textarea
+          class="row-textarea"
+          v-model="form.bio"
+          maxlength="120"
+          placeholder="介绍一下自己，如从业经历、擅长领域（可选）"
+          placeholder-class="row-input-ph"
+        />
+      </view>
+    </view>
+
     <!-- ═══════ 账号 ═══════ -->
     <view class="card">
       <view class="row">
@@ -71,8 +145,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { request, BASE_URL, authStorage } from '../../utils/request'
 
-const form = ref({ name: '', avatar: '', isAuth: false })
+const form = ref({ name: '', avatar: '', isAuth: false, phone: '', gender: '', birthday: '', region: '', bio: '' })
 const wechatBound = ref(false)
+const genderOptions = ['男', '女']
+const pad2 = (n) => String(n).padStart(2, '0')
+const todayStr = `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`
 
 const avatarFull = (u) => {
   if (!u) return ''
@@ -84,15 +161,42 @@ const initial = computed(() => {
   return c.toUpperCase()
 })
 
-onMounted(() => {
+onMounted(async () => {
   const user = JSON.parse(uni.getStorageSync('user') || '{}')
   form.value = {
     name: user.name || '',
     avatar: user.avatar || user.avatar_url || '',
     isAuth: !!user.isAuth,
+    phone: user.phone || '',
+    gender: user.gender || '',
+    birthday: user.birthday || '',
+    region: user.region || '',
+    bio: user.bio || '',
   }
   wechatBound.value = !!(user.has_wechat || user.wechat_openid || user.openid)
+  // 从后端拉最新资料（手机号/性别/生日等可能在其他设备上改过）
+  try {
+    const res = await request({ url: '/api/v1/me', method: 'GET' })
+    const d = res && res.data ? res.data : res
+    if (d && typeof d === 'object') {
+      form.value.phone = d.phone || form.value.phone
+      form.value.gender = d.gender || form.value.gender
+      form.value.birthday = d.birthday || form.value.birthday
+      form.value.region = d.region || form.value.region
+      form.value.bio = d.bio || form.value.bio
+    }
+  } catch (e) {
+    // 拉取失败时沿用本地缓存
+  }
 })
+
+const onGenderChange = (e) => {
+  form.value.gender = genderOptions[Number(e.detail.value)] || ''
+}
+
+const onBirthdayChange = (e) => {
+  form.value.birthday = e.detail.value
+}
 
 // 选择头像后立即上传 /api/v1/upload，成功后保存服务器 URL
 const chooseAvatar = () => {
@@ -141,18 +245,39 @@ const goBack = () => {
 
 const handleSave = async () => {
   if (!form.value.name.trim()) return uni.showToast({ title: '请输入昵称', icon: 'none' })
+  const phone = form.value.phone.trim()
+  if (phone && !/^1[3-9]\d{9}$/.test(phone)) {
+    return uni.showToast({ title: '手机号格式不正确', icon: 'none' })
+  }
 
   uni.showLoading({ title: '保存中...', mask: true })
   try {
-    // 昵称/头像保存到服务端（users.name / users.avatar_url）
+    // 昵称/头像/手机号/性别/生日/地区/简介保存到服务端
     await request({
       url: '/api/v1/me',
       method: 'PATCH',
-      data: { name: form.value.name.trim(), avatar_url: form.value.avatar },
+      data: {
+        name: form.value.name.trim(),
+        avatar_url: form.value.avatar,
+        phone,
+        gender: form.value.gender,
+        birthday: form.value.birthday,
+        region: form.value.region.trim(),
+        bio: form.value.bio.trim(),
+      },
     })
     // 同步本地缓存
     const user = JSON.parse(uni.getStorageSync('user') || '{}')
-    const updatedUser = { ...user, name: form.value.name.trim(), avatar: form.value.avatar }
+    const updatedUser = {
+      ...user,
+      name: form.value.name.trim(),
+      avatar: form.value.avatar,
+      phone,
+      gender: form.value.gender,
+      birthday: form.value.birthday,
+      region: form.value.region.trim(),
+      bio: form.value.bio.trim(),
+    }
     uni.setStorageSync('user', JSON.stringify(updatedUser))
     uni.hideLoading()
     uni.showToast({ title: '保存成功' })
@@ -251,12 +376,32 @@ const handleSave = async () => {
 /* 状态文字 */
 .row-tail {
   flex-shrink: 0;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: #98A2B3;
 }
 .row-tail.ok { color: #168A55; }
 .row-tail.wait { color: #B54708; }
 .row-tail.dim { color: #C0C8D2; }
+.row-tail.val { color: #344054; }
+
+/* 个人简介（多行） */
+.row--textarea {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+  padding: 24rpx 28rpx;
+}
+.row--textarea .row-label-wrap {
+  margin-right: 0;
+  margin-bottom: 12rpx;
+}
+.row-textarea {
+  width: 100%;
+  min-height: 132rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: #344054;
+}
 
 .row-chev {
   flex-shrink: 0;
