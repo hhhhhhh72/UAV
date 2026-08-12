@@ -93,7 +93,9 @@ import CrudList from '../components/CrudList.vue'
 const crudRef = ref()
 const api = useAdminApi('enrollments')
 
-const fullUrl = (u) => (u && u.startsWith('http') ? u : (import.meta.env.VITE_API_TARGET || 'http://localhost:8080') + (u || ''))
+// 图片路径同源相对引用：生产 nginx 已反代 /uploads/，开发 vite 已代理 /uploads；
+// 早期版本回退拼接 localhost:8080 会在生产环境指向管理员本机导致图片加载失败
+const fullUrl = (u) => (u && u.startsWith('http') ? u : u || '')
 
 const formatDate = (d) => {
   if (!d) return '-'
