@@ -1,0 +1,68 @@
+name: prod-healthcheck
+
+# 生产探活：每 10 分钟探测 API /healthz 与管理后台首页。
+# 失败 → 开 issue（label: prod-alert，故障期间不重复开，只追加评论）；
+# 恢复 → 自动评论并关闭告警 issue。
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe production
+        run: |
+          fail=0
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://api.cqnarc.cn/healthz || echo 000)
+          echo "API /healthz => $code"
+          [ "$code" = "200" ] || fail=1
+          code2=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://api.cqnarc.cn/ || echo 000)
+          echo "Admin SPA / => $code2"
+          [ "$code2" = "200" ] || fail=1
+          exit $fail
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const now = new Date().toISOString();
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'prod-alert',
+            });
+            const openAlert = issues.find(i => i.title.startsWith('[告警] 生产服务探活失败'));
+            if (openAlert) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: openAlert.number,
+                body: `仍在故障中（${now}）`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner, repo,
+                title: `[告警] 生产服务探活失败 ${now}`,
+                body: `探活失败于 ${now}（run ${context.runId}）\n\n日志: https://github.com/${owner}/${repo}/actions/runs/${context.runId}`,
+                labels: ['prod-alert'],
+              });
+            }
+
+      - name: Recover — close open alerts
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'prod-alert',
+            });
+            for (const i of issues) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: i.number,
+                body: `服务已恢复（${new Date().toISOString()}）`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: i.number, state: 'closed',
+              });
+            }
