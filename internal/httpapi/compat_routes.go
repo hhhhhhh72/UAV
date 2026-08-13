@@ -1,13 +1,8 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
-	"time"
-
-	"drone-platform/internal/domain"
 )
 
 func (s *Server) registerCompatRoutes(mux *http.ServeMux) {
@@ -17,106 +12,10 @@ func (s *Server) registerCompatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/wx-phone", s.wxPhone)
 }
 
-// passwordLogin handles old /api/auth/login with phone+password.
-func (s *Server) passwordLogin(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Phone    string `json:"phone"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-	if err := decode(r, &in); err != nil {
-		fail(w, r, http.StatusBadRequest, err)
-		return
-	}
-	loginID := in.Phone
-	if loginID == "" {
-		loginID = in.Username
-	}
-	if loginID == "" || in.Password == "" {
-		fail(w, r, http.StatusBadRequest, fmt.Errorf("账号或密码不能为空"))
-		return
-	}
-
-	// Find user by phone or username
-	users, _ := s.userRepo.All()
-	var found *domain.User
-	for _, u := range users {
-		if u.ID == loginID || u.WechatOpenID == loginID {
-			found = &u
-			break
-		}
-	}
-	if found == nil {
-		fail(w, r, http.StatusUnauthorized, fmt.Errorf("账号或密码错误"))
-		return
-	}
-	// NOTE: this handler is not currently registered (registerCompatRoutes only
-	// mounts wechatLogin/wx-phone). Password validation is enforced in
-	// h5AuthLogin; do not re-enable without a real credential check.
-
-	actor := domain.Actor{ID: found.ID, Role: found.Role}
-	access, _ := s.tokens.Issue(actor, 15*time.Minute)
-	refresh, _ := s.tokens.Issue(actor, 7*24*time.Hour)
-	s.refreshRepo.Store(found.ID, refresh, time.Now().Add(7*24*time.Hour))
-
-	legacyJSON(w, r, http.StatusOK, map[string]any{
-		"success":      true,
-		"accessToken":  access,
-		"refreshToken": refresh,
-		"expiresIn":    900,
-		"user": map[string]any{
-			"id":       found.ID,
-			"username": found.ID,
-			"phone":    "",
-			"role":     string(found.Role),
-			"status":   found.Status,
-		},
-	})
-}
-
-// passwordRegister handles old /api/auth/register.
-func (s *Server) passwordRegister(w http.ResponseWriter, r *http.Request) {
-	// Forward to wechatLogin for simplicity — creates user in dev mode
-	s.wechatLogin(w, r)
-}
-
-// getMeLegacy returns user info in legacy format for /api/auth/me.
-// Does its own token parsing since /api/auth/* skips the auth middleware.
-func (s *Server) getMeLegacy(w http.ResponseWriter, r *http.Request) {
-	h := r.Header.Get("Authorization")
-	token := ""
-	if len(h) > 7 && h[:7] == "Bearer " {
-		token = h[7:]
-	} else {
-		fail(w, r, http.StatusUnauthorized, fmt.Errorf("未登录"))
-		return
-	}
-	actor, err := s.tokens.Verify(token)
-	if err != nil {
-		fail(w, r, http.StatusUnauthorized, fmt.Errorf("未登录"))
-		return
-	}
-	u, err := s.userRepo.FindByID(actor.ID)
-	if err != nil {
-		fail(w, r, http.StatusNotFound, err)
-		return
-	}
-	legacyJSON(w, r, http.StatusOK, map[string]any{
-		"success": true,
-		"user": map[string]any{
-			"id":     u.ID,
-			"role":   string(u.Role),
-			"status": u.Status,
-		},
-	})
-}
-
-// legacyJSON writes a structured JSON response (compat format).
-func legacyJSON(w http.ResponseWriter, r *http.Request, status int, v any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
-}
+// C9 修复说明：此处原有无注册的 passwordLogin / passwordRegister / getMeLegacy
+// 死代码——passwordLogin 不校验密码即签发 token 且 refresh 明文入库，
+// 一旦被重新挂载即成安全事故，已整体删除。
+// 生产密码登录走 h5_compat.go 的 h5AuthLogin（bcrypt 校验，已注册）。
 
 // listAllAdapter / submitAdapter / updateAdapter
 func (s *Server) listAllAdapter(w http.ResponseWriter, r *http.Request) {

@@ -63,3 +63,28 @@ func (s *LabourService) ListQuotes(a domain.Actor, orderID string) ([]domain.Lab
 	}
 	return s.repo.ListQuotes(orderID)
 }
+
+func (s *LabourService) CreateAssignment(a domain.Actor, orderID, workerID string) (domain.Assignment, error) {
+	o, err := s.repo.FindByID(orderID)
+	if err != nil { return domain.Assignment{}, err }
+	if o.EmployerID != a.ID && a.Role != domain.RolePlatformAdmin {
+		return domain.Assignment{}, errors.New("only the employer can assign workers")
+	}
+	now := time.Now()
+	asgn := domain.Assignment{ID: fmt.Sprintf("assign-%d", now.UnixNano()), OrderID: orderID,
+		WorkerID: workerID, Status: "assigned", CreatedAt: now}
+	return s.repo.CreateAssignment(asgn)
+}
+
+func (s *LabourService) ListAssignments(a domain.Actor, orderID string) ([]domain.Assignment, error) {
+	o, err := s.repo.FindByID(orderID)
+	if err != nil { return nil, err }
+	if o.EmployerID != a.ID && a.Role != domain.RolePlatformAdmin {
+		return nil, errors.New("permission denied")
+	}
+	return s.repo.ListAssignmentsByOrder(orderID)
+}
+
+func (s *LabourService) ListMyAssignments(a domain.Actor) ([]domain.Assignment, error) {
+	return s.repo.ListAssignmentsByWorker(a.ID)
+}

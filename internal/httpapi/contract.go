@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"drone-platform/internal/domain"
 )
@@ -21,14 +20,26 @@ import (
 var webhookDedup sync.Map
 
 // GET /api/v1/contract-templates
+// 从 contract_templates 表读取；服务未装配或旧环境未跑种子迁移时兜底返回内置模板。
 func (s *Server) listContractTemplates(w http.ResponseWriter, r *http.Request) {
-	respond(w, r, http.StatusOK, []map[string]string{
-		{"id": "tpl-001", "name": "标准无人机服务合同", "version": "1"},
-		{"id": "tpl-002", "name": "无人机买卖协议", "version": "1"},
-	})
+	if s.contractTplSvc != nil {
+		list, err := s.contractTplSvc.List()
+		if err != nil {
+			slog.Error("list contract templates failed", "err", err)
+			fail(w, r, http.StatusInternalServerError, errors.New("failed to load contract templates"))
+			return
+		}
+		if len(list) > 0 {
+			respond(w, r, http.StatusOK, list)
+			return
+		}
+	}
+	respond(w, r, http.StatusOK, domain.DefaultContractTemplates)
 }
 
 // POST /api/v1/admin/members/import
+// 同步批量导入：{"members":[{"user_id","enterprise_id","role"}]}，逐条落库。
+// role 为空默认 member；行级校验失败不影响其余行，返回导入数与逐行失败明细。
 func (s *Server) importMembers(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
@@ -36,23 +47,84 @@ func (s *Server) importMembers(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	respond(w, r, http.StatusAccepted, map[string]string{
-		"task_id": fmt.Sprintf("import-%d", time.Now().UnixNano()),
-		"status":  "processing",
+	var in struct {
+		Members []struct {
+			UserID       string `json:"user_id"`
+			EnterpriseID string `json:"enterprise_id"`
+			Role         string `json:"role"`
+		} `json:"members"`
+	}
+	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
+	if len(in.Members) == 0 { fail(w, r, http.StatusBadRequest, errors.New("members is required")); return }
+	if s.assocMemberSvc == nil { fail(w, r, http.StatusInternalServerError, errors.New("member service unavailable")); return }
+
+	type failedRow struct {
+		Index  int    `json:"index"`
+		UserID string `json:"user_id"`
+		Error  string `json:"error"`
+	}
+	imported := 0
+	var failed []failedRow
+	for i, m := range in.Members {
+		if m.UserID == "" {
+			failed = append(failed, failedRow{Index: i, Error: "user_id is required"})
+			continue
+		}
+		role := domain.AssociationRole(m.Role)
+		if m.Role == "" {
+			role = domain.AssocMember
+		}
+		if !validAssociationRole(role) {
+			failed = append(failed, failedRow{Index: i, UserID: m.UserID, Error: "invalid role: " + m.Role})
+			continue
+		}
+		if _, err := s.assocMemberSvc.AddMember(m.UserID, m.EnterpriseID, role); err != nil {
+			failed = append(failed, failedRow{Index: i, UserID: m.UserID, Error: err.Error()})
+			continue
+		}
+		imported++
+	}
+	s.audit(r.Context(), a.ID, "import_members", "association_member", "", fmt.Sprintf("imported=%d failed=%d", imported, len(failed)))
+	respond(w, r, http.StatusOK, map[string]any{
+		"imported": imported,
+		"failed":   failed,
+		"total":    len(in.Members),
 	})
+}
+
+func validAssociationRole(role domain.AssociationRole) bool {
+	switch role {
+	case domain.AssocPresident, domain.AssocVicePresident, domain.AssocSecretary,
+		domain.AssocDeptHead, domain.AssocMember, domain.AssocPartner,
+		domain.AssocCollege, domain.AssocGuest:
+		return true
+	}
+	return false
 }
 
 // POST /api/v1/assignments
 func (s *Server) createAssignment(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
 	var in struct {
 		OrderID  string `json:"order_id"`
 		WorkerID string `json:"worker_id"`
 	}
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
-	now := time.Now()
-	asgn := domain.Assignment{ID: fmt.Sprintf("assign-%d", now.UnixNano()), OrderID: in.OrderID, WorkerID: in.WorkerID, Status: "assigned", CreatedAt: now}
+	if in.OrderID == "" || in.WorkerID == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("order_id and worker_id are required"))
+		return
+	}
+	asgn, err := s.labourSvc.CreateAssignment(a, in.OrderID, in.WorkerID)
+	if err != nil {
+		code := http.StatusForbidden
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		}
+		fail(w, r, code, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "assign_worker", "assignment", asgn.ID, in.OrderID)
 	respond(w, r, http.StatusCreated, asgn)
 }
 

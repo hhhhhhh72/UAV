@@ -204,6 +204,7 @@ func (r *demandRepo) Delete(id string) error {
 type enterpriseRepo struct {
 	mu     sync.RWMutex
 	items  []domain.Enterprise
+	docs   []domain.EnterpriseDocument
 	cipher *crypto.Cipher
 }
 
@@ -351,6 +352,25 @@ func (r *enterpriseRepo) Search(q string) ([]domain.Enterprise, error) {
 		if strings.Contains(strings.ToLower(e.Name), q) {
 			r.decrypt(&e)
 			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+func (r *enterpriseRepo) AddDocument(d domain.EnterpriseDocument) (domain.EnterpriseDocument, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.docs = append(r.docs, d)
+	return d, nil
+}
+
+func (r *enterpriseRepo) ListDocuments(enterpriseID string) ([]domain.EnterpriseDocument, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := []domain.EnterpriseDocument{}
+	for _, d := range r.docs {
+		if d.EnterpriseID == enterpriseID {
+			out = append(out, d)
 		}
 	}
 	return out, nil
@@ -546,6 +566,11 @@ func (r *resumeRepo) ListByUser(userID string) ([]domain.Resume, error) {
 	}
 	return out, nil
 }
+func (r *resumeRepo) ListAll(offset, limit int) ([]domain.Resume, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return paginateSlice(r.items, offset, limit)
+}
 
 type applicationRepo struct {
 	mu    sync.RWMutex
@@ -559,6 +584,16 @@ func (r *applicationRepo) Create(a domain.JobApplication) (domain.JobApplication
 	defer r.mu.Unlock()
 	r.items = append(r.items, a)
 	return a, nil
+}
+func (r *applicationRepo) FindByID(id string) (domain.JobApplication, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, a := range r.items {
+		if a.ID == id {
+			return a, nil
+		}
+	}
+	return domain.JobApplication{}, fmt.Errorf("application %s not found", id)
 }
 func (r *applicationRepo) UpdateStatus(id string, status domain.AppStatus) (domain.JobApplication, error) {
 	r.mu.Lock()
@@ -882,6 +917,30 @@ func (r *labourOrderRepo) CreateAssignment(a domain.Assignment) (domain.Assignme
 	return a, nil
 }
 
+func (r *labourOrderRepo) ListAssignmentsByOrder(orderID string) ([]domain.Assignment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := []domain.Assignment{}
+	for _, a := range r.assigns {
+		if a.OrderID == orderID {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+func (r *labourOrderRepo) ListAssignmentsByWorker(workerID string) ([]domain.Assignment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := []domain.Assignment{}
+	for _, a := range r.assigns {
+		if a.WorkerID == workerID {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
 // ---- User ----
 
 type memUserRepo struct {
@@ -1061,6 +1120,31 @@ type contractRepo struct {
 
 func NewContractRepository() repository.ContractRepository {
 	return &contractRepo{}
+}
+
+// ---- Contract Template ----
+
+type contractTplRepo struct {
+	mu    sync.RWMutex
+	items []domain.ContractTemplate
+}
+
+// NewContractTemplateRepository 初始化时即内置默认模板（对齐 PG 种子迁移 000062）。
+func NewContractTemplateRepository() repository.ContractTemplateRepository {
+	return &contractTplRepo{items: append([]domain.ContractTemplate(nil), domain.DefaultContractTemplates...)}
+}
+
+func (r *contractTplRepo) List() ([]domain.ContractTemplate, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]domain.ContractTemplate(nil), r.items...), nil
+}
+
+func (r *contractTplRepo) Create(t domain.ContractTemplate) (domain.ContractTemplate, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = append(r.items, t)
+	return t, nil
 }
 
 func (r *contractRepo) Create(v domain.Contract) (domain.Contract, error) {
@@ -1764,6 +1848,11 @@ func (r *repairRepo) ListByUser(userID string) ([]domain.RepairOrder, error) {
 	}
 	return out, nil
 }
+func (r *repairRepo) ListAll(offset, limit int) ([]domain.RepairOrder, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return paginateSlice(r.items, offset, limit)
+}
 
 // ---- Insurance Policy ----
 
@@ -1790,6 +1879,11 @@ func (r *policyRepo) ListByUser(userID string) ([]domain.InsurancePolicy, error)
 		}
 	}
 	return out, nil
+}
+func (r *policyRepo) ListAll(offset, limit int) ([]domain.InsurancePolicy, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return paginateSlice(r.items, offset, limit)
 }
 
 // ---- Inspection ----
@@ -1849,6 +1943,11 @@ func (r *loanRepo) ListByUser(userID string) ([]domain.LoanApplication, error) {
 		}
 	}
 	return out, nil
+}
+func (r *loanRepo) ListAll(offset, limit int) ([]domain.LoanApplication, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return paginateSlice(r.items, offset, limit)
 }
 
 // ---- Message ----
@@ -2285,28 +2384,85 @@ func NewEscrowRepository() repository.EscrowRepository {
 }
 
 func (r *escrowRepo) GetAccount(userID string) (domain.EscrowAccount, error) {
-	r.mu.RLock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	acct, ok := r.accts[userID]
-	r.mu.RUnlock()
-	if ok {
-		return *acct, nil
+	if !ok {
+		acct = &domain.EscrowAccount{UserID: userID}
+		r.accts[userID] = acct
 	}
+	return *acct, nil
+}
+
+// 原子资金操作（C6 修复）：校验、改账、记流水在同一临界区内完成，
+// 消除旧接口读-改-写的并发丢更新窗口。
+func (r *escrowRepo) Deposit(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.accts[userID]; !ok {
-		r.accts[userID] = &domain.EscrowAccount{UserID: userID}
+	acct, ok := r.accts[userID]
+	if !ok {
+		acct = &domain.EscrowAccount{UserID: userID}
+		r.accts[userID] = acct
 	}
-	return *r.accts[userID], nil
+	acct.BalanceFen += amountFen
+	acct.UpdatedAt = time.Now()
+	r.txs = append(r.txs, tx)
+	return tx, nil
 }
-func (r *escrowRepo) UpsertAccount(a domain.EscrowAccount) error {
+func (r *escrowRepo) Freeze(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.accts[a.UserID] = &a
-	return nil
+	acct, ok := r.accts[userID]
+	if !ok {
+		acct = &domain.EscrowAccount{UserID: userID}
+		r.accts[userID] = acct
+	}
+	if acct.BalanceFen < amountFen {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientBalance
+	}
+	acct.BalanceFen -= amountFen
+	acct.FrozenFen += amountFen
+	acct.UpdatedAt = time.Now()
+	r.txs = append(r.txs, tx)
+	return tx, nil
 }
-func (r *escrowRepo) CreateTransaction(tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+func (r *escrowRepo) Release(fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	from, ok := r.accts[fromUser]
+	if !ok {
+		from = &domain.EscrowAccount{UserID: fromUser}
+		r.accts[fromUser] = from
+	}
+	if from.FrozenFen < amountFen {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
+	}
+	to, ok := r.accts[toUser]
+	if !ok {
+		to = &domain.EscrowAccount{UserID: toUser}
+		r.accts[toUser] = to
+	}
+	from.FrozenFen -= amountFen
+	from.UpdatedAt = time.Now()
+	to.BalanceFen += amountFen
+	to.UpdatedAt = time.Now()
+	r.txs = append(r.txs, tx)
+	return tx, nil
+}
+func (r *escrowRepo) Refund(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	acct, ok := r.accts[userID]
+	if !ok {
+		acct = &domain.EscrowAccount{UserID: userID}
+		r.accts[userID] = acct
+	}
+	if acct.FrozenFen < amountFen {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
+	}
+	acct.FrozenFen -= amountFen
+	acct.BalanceFen += amountFen
+	acct.UpdatedAt = time.Now()
 	r.txs = append(r.txs, tx)
 	return tx, nil
 }

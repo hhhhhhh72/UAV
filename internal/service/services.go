@@ -298,6 +298,19 @@ type ContractService struct {
 func NewContractService(r repository.ContractRepository) *ContractService {
 	return &ContractService{repo: r}
 }
+
+// ContractTemplateService 提供合同模板列表（contract_templates 表）。
+type ContractTemplateService struct {
+	repo repository.ContractTemplateRepository
+}
+
+func NewContractTemplateService(r repository.ContractTemplateRepository) *ContractTemplateService {
+	return &ContractTemplateService{repo: r}
+}
+
+func (s *ContractTemplateService) List() ([]domain.ContractTemplate, error) {
+	return s.repo.List()
+}
 func (s *ContractService) Create(a domain.Actor, v domain.Contract) (domain.Contract, error) {
 	if a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleEnterprise {
 		return v, errors.New("platform admin or enterprise permission required")

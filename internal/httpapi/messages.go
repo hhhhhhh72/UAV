@@ -7,12 +7,12 @@ import (
 
 // POST /api/v1/messages/{id}/read
 func (s *Server) markMessageRead(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if _, err := s.msgSvc.MarkRead(r.PathValue("id")); err != nil {
+	if _, err := s.msgSvc.MarkRead(a.ID, r.PathValue("id")); err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}

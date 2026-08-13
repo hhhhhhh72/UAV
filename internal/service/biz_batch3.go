@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -10,6 +11,28 @@ import (
 
 // ── RescueCase Service ──
 
+// rescueEventTypeAliases: 救援案例事件类型英文键 → 中文规范值。
+// 存量数据与小程序 tab 均为中文（山火/洪水/地震/搜救/其他），
+// 英文键仅作 API 兼容别名（domain 注释中的 mountain_fire 等历史值）。
+var rescueEventTypeAliases = map[string]string{
+	"fire":          "山火",
+	"mountain_fire": "山火",
+	"flood":         "洪水",
+	"earthquake":    "地震",
+	"search_rescue": "搜救",
+	"rescue":        "搜救",
+	"other":         "其他",
+}
+
+// normalizeRescueEventType 将英文别名归一到中文规范值；未知值原样返回。
+func normalizeRescueEventType(s string) string {
+	s = strings.TrimSpace(s)
+	if v, ok := rescueEventTypeAliases[strings.ToLower(s)]; ok {
+		return v
+	}
+	return s
+}
+
 type RescueCaseService struct{ repo repository.RescueCaseRepository }
 
 func NewRescueCaseService(r repository.RescueCaseRepository) *RescueCaseService {
@@ -17,14 +40,14 @@ func NewRescueCaseService(r repository.RescueCaseRepository) *RescueCaseService 
 }
 func (s *RescueCaseService) Create(title, eventType, location, droneModel, teamName, summary, result, lessons, source string, date time.Time) (domain.RescueCase, error) {
 	rc := domain.RescueCase{ID: fmt.Sprintf("rc-%d", time.Now().UnixNano()),
-		Title: title, EventType: eventType, Location: location, Date: date,
+		Title: title, EventType: normalizeRescueEventType(eventType), Location: location, Date: date,
 		DroneModel: droneModel, TeamName: teamName, Summary: summary,
 		Result: result, Lessons: lessons, Source: source,
 		Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	return s.repo.Create(rc)
 }
-func (s *RescueCaseService) List(eventType string, page, pageSize int) ([]domain.RescueCase, int, error) {
-	return s.repo.List(eventType, (page-1)*pageSize, pageSize)
+func (s *RescueCaseService) List(eventType, q string, page, pageSize int) ([]domain.RescueCase, int, error) {
+	return s.repo.List(normalizeRescueEventType(eventType), strings.TrimSpace(q), (page-1)*pageSize, pageSize)
 }
 func (s *RescueCaseService) Get(id string) (domain.RescueCase, error) {
 	return s.repo.FindByID(id)

@@ -47,9 +47,9 @@ import CrudList from '../components/CrudList.vue'
 const crudRef = ref()
 const api = useAdminApi('reviews')
 
-const targetTypeLabel = (t) => ({ demand: '需求', product: '商品', shop: '商家', job: '职位', course: '课程', venue: '场地' }[t] || t || '通用')
+const targetTypeLabel = (t) => ({ demand: '需求', product: '商品', job: '职位', course: '课程', venue: '场地' }[t] || t || '通用')
 const statusLabel = (s) => ({ pending: '待审核', approved: '已通过', rejected: '已拒绝' }[s] || s)
-const sectionTagColor = (t) => ({ demand: 'arcoblue', product: 'green', shop: 'orange', job: 'arcoblue', course: 'arcoblue', venue: 'gray' }[t] || 'gray')
+const sectionTagColor = (t) => ({ demand: 'arcoblue', product: 'green', job: 'arcoblue', course: 'arcoblue', venue: 'gray' }[t] || 'gray')
 const statusTagColor = (s) => ({ pending: 'orange', approved: 'green', rejected: 'red' }[s] || 'gray')
 
 const formatDate = (d) => {

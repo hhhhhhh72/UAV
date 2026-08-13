@@ -16,80 +16,45 @@ func NewEscrowService(repo repository.EscrowRepository) *EscrowService {
 	return &EscrowService{repo: repo}
 }
 
+// newTx 构造一条资金流水（状态恒为 completed，写入与余额调整同事务原子提交）。
+func newTx(userID, counterparty, txType, refType, refID string, amountFen int64) domain.EscrowTransaction {
+	return domain.EscrowTransaction{
+		ID: fmt.Sprintf("escrow-%d", time.Now().UnixNano()), FromUser: userID, ToUser: counterparty,
+		AmountFen: amountFen, TxType: txType, ReferenceType: refType, ReferenceID: refID,
+		Status: "completed", CreatedAt: time.Now(),
+	}
+}
+
 func (s *EscrowService) Deposit(userID string, amountFen int64) (domain.EscrowTransaction, error) {
-	acct, _ := s.repo.GetAccount(userID)
-	acct.BalanceFen += amountFen
-	acct.UpdatedAt = time.Now()
-	if err := s.repo.UpsertAccount(acct); err != nil {
-		return domain.EscrowTransaction{}, err
+	if amountFen <= 0 {
+		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
-	tx := domain.EscrowTransaction{
-		ID: fmt.Sprintf("escrow-%d", time.Now().UnixNano()), FromUser: "system",
-		ToUser: userID, AmountFen: amountFen, TxType: "deposit", Status: "completed", CreatedAt: time.Now(),
-	}
-	return s.repo.CreateTransaction(tx)
+	tx := newTx("system", userID, "deposit", "", "", amountFen)
+	return s.repo.Deposit(userID, amountFen, tx)
 }
 
 func (s *EscrowService) Freeze(userID string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
-	acct, _ := s.repo.GetAccount(userID)
-	if acct.BalanceFen < amountFen {
-		return domain.EscrowTransaction{}, fmt.Errorf("insufficient balance: have %d, need %d", acct.BalanceFen, amountFen)
+	if amountFen <= 0 {
+		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
-	acct.BalanceFen -= amountFen
-	acct.FrozenFen += amountFen
-	acct.UpdatedAt = time.Now()
-	if err := s.repo.UpsertAccount(acct); err != nil {
-		return domain.EscrowTransaction{}, err
-	}
-	tx := domain.EscrowTransaction{
-		ID: fmt.Sprintf("escrow-%d", time.Now().UnixNano()), FromUser: userID, ToUser: "escrow",
-		AmountFen: amountFen, TxType: "freeze", ReferenceType: refType, ReferenceID: refID,
-		Status: "completed", CreatedAt: time.Now(),
-	}
-	return s.repo.CreateTransaction(tx)
+	tx := newTx(userID, "escrow", "freeze", refType, refID, amountFen)
+	return s.repo.Freeze(userID, amountFen, tx)
 }
 
 func (s *EscrowService) Release(fromUser, toUser string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
-	fromAcct, _ := s.repo.GetAccount(fromUser)
-	if fromAcct.FrozenFen < amountFen {
-		return domain.EscrowTransaction{}, fmt.Errorf("insufficient frozen balance")
+	if amountFen <= 0 {
+		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
-	toAcct, _ := s.repo.GetAccount(toUser)
-	fromAcct.FrozenFen -= amountFen
-	fromAcct.UpdatedAt = time.Now()
-	toAcct.BalanceFen += amountFen
-	toAcct.UpdatedAt = time.Now()
-	if err := s.repo.UpsertAccount(fromAcct); err != nil {
-		return domain.EscrowTransaction{}, err
-	}
-	if err := s.repo.UpsertAccount(toAcct); err != nil {
-		return domain.EscrowTransaction{}, err
-	}
-	tx := domain.EscrowTransaction{
-		ID: fmt.Sprintf("escrow-%d", time.Now().UnixNano()), FromUser: fromUser, ToUser: toUser,
-		AmountFen: amountFen, TxType: "release", ReferenceType: refType, ReferenceID: refID,
-		Status: "completed", CreatedAt: time.Now(),
-	}
-	return s.repo.CreateTransaction(tx)
+	tx := newTx(fromUser, toUser, "release", refType, refID, amountFen)
+	return s.repo.Release(fromUser, toUser, amountFen, tx)
 }
 
 func (s *EscrowService) Refund(userID string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
-	acct, _ := s.repo.GetAccount(userID)
-	if acct.FrozenFen < amountFen {
-		return domain.EscrowTransaction{}, fmt.Errorf("insufficient frozen balance")
+	if amountFen <= 0 {
+		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
-	acct.FrozenFen -= amountFen
-	acct.BalanceFen += amountFen
-	acct.UpdatedAt = time.Now()
-	if err := s.repo.UpsertAccount(acct); err != nil {
-		return domain.EscrowTransaction{}, err
-	}
-	tx := domain.EscrowTransaction{
-		ID: fmt.Sprintf("escrow-%d", time.Now().UnixNano()), FromUser: "escrow", ToUser: userID,
-		AmountFen: amountFen, TxType: "refund", ReferenceType: refType, ReferenceID: refID,
-		Status: "completed", CreatedAt: time.Now(),
-	}
-	return s.repo.CreateTransaction(tx)
+	tx := newTx("escrow", userID, "refund", refType, refID, amountFen)
+	return s.repo.Refund(userID, amountFen, tx)
 }
 
 func (s *EscrowService) Balance(userID string) (domain.EscrowAccount, error) {

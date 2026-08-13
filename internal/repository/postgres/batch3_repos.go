@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -160,13 +161,21 @@ func (r *pgRescueRepo) FindByID(id string) (domain.RescueCase, error) {
 	return c, err
 }
 
-func (r *pgRescueRepo) List(eventType string, offset, limit int) ([]domain.RescueCase, int, error) {
+func (r *pgRescueRepo) List(eventType, q string, offset, limit int) ([]domain.RescueCase, int, error) {
 	where := ""; args := []any{}
 	if eventType != "" { where = `WHERE event_type=$1`; args = append(args, eventType) }
+	if q = strings.TrimSpace(q); q != "" {
+		args = append(args, "%"+q+"%")
+		if where == "" { where = "WHERE " } else { where += " AND " }
+		where += fmt.Sprintf(`(title ILIKE $%d OR location ILIKE $%d OR summary ILIKE $%d OR team_name ILIKE $%d OR drone_model ILIKE $%d)`,
+			len(args), len(args), len(args), len(args), len(args))
+	}
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rescue_cases `+where, args...).Scan(&total)
-	q := fmt.Sprintf(`SELECT id,title,event_type,location,date,drone_model,team_name,summary,result,lessons,media_urls,source,status,created_at,updated_at FROM rescue_cases %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
-	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rescue_cases `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count rescue cases: %w", err)
+	}
+	qStr := fmt.Sprintf(`SELECT id,title,event_type,location,date,drone_model,team_name,summary,result,lessons,media_urls,source,status,created_at,updated_at FROM rescue_cases %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	rows, err := r.pool.Query(context.Background(), qStr, append(args, limit, offset)...)
 	if err != nil { return nil, 0, err }
 	defer rows.Close()
 	var out []domain.RescueCase
@@ -263,7 +272,9 @@ func (r *pgAssocMemberRepo) List(role string, offset, limit int) ([]domain.Assoc
 	where := ""; args := []any{}
 	if role != "" { where = `WHERE role=$1`; args = append(args, role) }
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM association_members `+where, args...).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM association_members `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count association members: %w", err)
+	}
 	q := fmt.Sprintf(`SELECT id,user_id,enterprise_id,role,join_date,expire_date,status,created_at,updated_at FROM association_members %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil { return nil, 0, err }

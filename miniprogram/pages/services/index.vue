@@ -120,6 +120,7 @@ const categories = [
       { name: '产业资源台账', icon: iconRoot + 'demand.svg', path: '/pkg-service/pages/resources/list' },
       { name: '认证飞手', icon: iconRoot + 'pilot.svg', path: '/pkg-talent/pages/pilots/list' },
       { name: '低空研学', icon: iconRoot + 'training.svg', path: '/pkg-talent/pages/study/index' },
+      { name: '入驻企业', icon: iconRoot + 'ecoservice.svg', path: '/pkg-eco/pages/enterprise/list' },
     ],
   },
 ]

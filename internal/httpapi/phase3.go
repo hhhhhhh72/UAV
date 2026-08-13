@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -406,29 +407,41 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 
 	ent, err := s.enterprises.Pending(a)
 	if err != nil {
+		slog.Warn("admin dashboard: load pending enterprises", "err", err)
 		ent = nil
 	}
 	entPending := len(ent)
 
 	dem, err := s.demands.ListAll(repository.DemandFilter{})
 	if err != nil {
+		slog.Warn("admin dashboard: load demands", "err", err)
 		dem = nil
 	}
 	totalDemands := len(dem)
 
 	posts, _, err := s.communitySvc.ListPublishedPosts(0, 10000)
 	if err != nil {
+		slog.Warn("admin dashboard: load posts", "err", err)
 		posts = nil
 	}
 	totalPosts := len(posts)
 
-	pendingList, _, _ := s.reviewSvc.ListAll("", 0, 10000)
+	pendingList, _, err := s.reviewSvc.ListAll("", 0, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load pending reports", "err", err)
+	}
 	totalReports := len(pendingList)
 
-	users, _ := s.userRepo.All()
+	users, err := s.userRepo.All()
+	if err != nil {
+		slog.Warn("admin dashboard: load users", "err", err)
+	}
 	totalUsers := len(users)
 
-	msgs, _, _ := s.msgSvc.ListAll(0, 10000)
+	msgs, _, err := s.msgSvc.ListAll(0, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load messages", "err", err)
+	}
 	totalMessages := len(msgs)
 
 	// Trends: monthly counts (last 12 months) — 4 维趋势（需求/帖子/用户/消息）
@@ -452,47 +465,104 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	// Module stats
 	modules := map[string]map[string]int{"talent": {}, "events": {}, "industry": {}}
 	// Talent
-	certs, _ := s.trainingSvc.ListAllCertificates()
+	certs, err := s.trainingSvc.ListAllCertificates()
+	if err != nil {
+		slog.Warn("admin dashboard: load certificates", "err", err)
+	}
 	modules["talent"]["certificates"] = len(certs)
-	cols, _ := s.collegeSvc.List("")
+	cols, err := s.collegeSvc.List("")
+	if err != nil {
+		slog.Warn("admin dashboard: load colleges", "err", err)
+	}
 	modules["talent"]["colleges"] = len(cols)
-	jobs, _, _ := s.jobSvc.ListPublishedJobs(0, 10000)
+	jobs, _, err := s.jobSvc.ListPublishedJobs(0, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load jobs", "err", err)
+	}
 	modules["talent"]["jobs"] = len(jobs)
-	tours, _ := s.studyTourRepo.List()
+	tours, err := s.studyTourRepo.List()
+	if err != nil {
+		slog.Warn("admin dashboard: load study tours", "err", err)
+	}
 	modules["talent"]["study_tours"] = len(tours)
-	courses, _ := s.trainingSvc.ListCourses()
+	courses, err := s.trainingSvc.ListCourses()
+	if err != nil {
+		slog.Warn("admin dashboard: load training courses", "err", err)
+	}
 	modules["talent"]["training_courses"] = len(courses)
 
 	// Events
-	competitions, _, _ := s.competitionSvc.List(1, 10000)
+	competitions, _, err := s.competitionSvc.List(1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load competitions", "err", err)
+	}
 	modules["events"]["competitions"] = competitionsIfNil(competitions)
-	evs, _, _ := s.eventSvc.List(1, 10000)
+	evs, _, err := s.eventSvc.List(1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load events", "err", err)
+	}
 	modules["events"]["events"] = evsIfNil(evs)
-	exhs, _, _ := s.exhibitionSvc.List(1, 10000)
+	exhs, _, err := s.exhibitionSvc.List(1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load exhibitions", "err", err)
+	}
 	modules["events"]["exhibitions"] = exhsIfNil(exhs)
-	emergRes, _, _ := s.emergencySvc.ListResources(1, 10000)
+	emergRes, _, err := s.emergencySvc.ListResources("", "", 1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load emergency resources", "err", err)
+	}
 	modules["events"]["emergency_resources"] = emgResIfNil(emergRes)
-	disps, _, _ := s.emergencySvc.ListDispatches(1, 10000)
+	disps, _, err := s.emergencySvc.ListDispatches(1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load emergency dispatches", "err", err)
+	}
 	modules["events"]["emergency_dispatches"] = dispIfNil(disps)
 
 	// Industry
-	achs, _, _ := s.achievementSvc.List("", 1, 10000)
+	achs, _, err := s.achievementSvc.List("", 1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load achievements", "err", err)
+	}
 	modules["industry"]["achievements"] = achsIfNil(achs)
-	cases, _, _ := s.caseSvc.List("", 1, 10000)
+	cases, _, err := s.caseSvc.List("", 1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load cases", "err", err)
+	}
 	modules["industry"]["cases"] = casesIfNil(cases)
-	exps, _ := s.expertSvc.List("")
+	exps, err := s.expertSvc.List("")
+	if err != nil {
+		slog.Warn("admin dashboard: load experts", "err", err)
+	}
 	modules["industry"]["experts"] = len(exps)
-	rpts, _, _ := s.reportSvc.List(1, 10000)
+	rpts, _, err := s.reportSvc.List(1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load industry reports", "err", err)
+	}
 	modules["industry"]["industry_reports"] = rptsIfNil(rpts)
-	res, _, _ := s.resourceSvc.List("", 1, 10000)
+	res, _, err := s.resourceSvc.List("", 1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load industry resources", "err", err)
+	}
 	modules["industry"]["industry_resources"] = resIfNil(res)
-	ports, _, _ := s.portfolioSvc.ListPublished(1, 10000)
+	ports, _, err := s.portfolioSvc.ListPublished(1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load portfolios", "err", err)
+	}
 	modules["industry"]["portfolios"] = len(ports)
-	rds, _, _ := s.rdService.List("", 1, 10000)
+	rds, _, err := s.rdService.List("", 1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load rd challenges", "err", err)
+	}
 	modules["industry"]["rd_challenges"] = rdsIfNil(rds)
-	projs, _, _ := s.researchSvc.List(1, 10000)
+	projs, _, err := s.researchSvc.List(1, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load research projects", "err", err)
+	}
 	modules["industry"]["research_projects"] = projsIfNil(projs)
-	sites, _ := s.testSiteSvc.List("")
+	sites, err := s.testSiteSvc.List("")
+	if err != nil {
+		slog.Warn("admin dashboard: load test sites", "err", err)
+	}
 	modules["industry"]["test_sites"] = len(sites)
 
 	// Status distribution

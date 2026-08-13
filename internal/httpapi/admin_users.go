@@ -68,6 +68,18 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	if req.Role == "" {
 		req.Role = "individual"
 	}
+	// 角色白名单：与 updateUserRole 一致，拒绝任意字符串
+	allowed := map[string]bool{"individual": true, "enterprise": true, "association_admin": true, "platform_admin": true}
+	if !allowed[req.Role] {
+		fail(w, r, http.StatusBadRequest, errors.New("invalid role"))
+		return
+	}
+	// 防提权：协会管理员只能创建 individual/enterprise 账号，
+	// 不得创建 association_admin / platform_admin（C1 修复）
+	if a.Role == domain.RoleAssociationAdmin && (req.Role == "association_admin" || req.Role == "platform_admin") {
+		fail(w, r, http.StatusForbidden, errors.New("association admin cannot create admin accounts"))
+		return
+	}
 	now := time.Now()
 	u := domain.User{
 		ID:        req.ID,

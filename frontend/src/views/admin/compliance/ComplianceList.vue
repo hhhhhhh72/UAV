@@ -158,6 +158,11 @@
       </a-form>
       <!-- 标准表单 -->
       <a-form v-else :model="stdForm" layout="vertical" class="dialog-form">
+        <a-form-item label="分类">
+          <a-select v-model="stdForm.category" style="width: 100%">
+            <a-option v-for="c in ['国家标准', '行业标准', '团体标准', '企业标准']" :key="c" :label="c" :value="c" />
+          </a-select>
+        </a-form-item>
         <a-form-item label="标准编号">
           <a-input v-model="stdForm.standard_no" allow-clear style="width: 100%" />
         </a-form-item>
@@ -223,7 +228,7 @@ const formatDate = (d) => {
   return dt.getFullYear() + '-' + p(dt.getMonth() + 1) + '-' + p(dt.getDate())
 }
 
-const categoryColor = { '政策': 'orange', '法规': 'red', '标准': 'green', '指南': 'gray' }
+const categoryColor = { '政策': 'orange', '法规': 'red', '标准': 'green', '指南': 'gray', '国家标准': 'purple', '行业标准': 'blue', '团体标准': 'green', '企业标准': 'gray' }
 const statusColor = { 'published': 'green', 'draft': 'gray', 'archived': 'orange', 'pending': 'orange' }
 const statusLabel = { 'published': '已发布', 'draft': '草稿', 'archived': '已下架', 'pending': '待审核' }
 
@@ -269,6 +274,7 @@ const stdSearchFields = [
 
 const stdColumns = [
   { title: 'ID', dataIndex: 'id', width: 160, sortable: true },
+  { title: '分类', dataIndex: 'category', slotName: 'category', width: 100 },
   { title: '标准编号', dataIndex: 'standard_no', width: 180 },
   { title: '标准名称', dataIndex: 'title', minWidth: 200 },
   { title: '发布机构', dataIndex: 'publisher', width: 160 },
@@ -297,7 +303,7 @@ const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
 const docForm = reactive({ id: '', title: '', category: '政策', publisher: '', publish_date: '', status: 'published', summary: '', file_url: '' })
-const stdForm = reactive({ id: '', standard_no: '', title: '', publisher: '', effective_date: '', status: 'published', scope: '', file_url: '' })
+const stdForm = reactive({ id: '', category: '团体标准', standard_no: '', title: '', publisher: '', effective_date: '', status: 'published', scope: '', file_url: '' })
 
 const beforeUpload = (file) => {
   const maxSize = 20 * 1024 * 1024 // 20MB for documents
@@ -324,7 +330,7 @@ const uploadFile = async ({ fileItem, onSuccess, onError }) => {
 }
 
 const resetDocForm = () => Object.assign(docForm, { id: '', title: '', category: '政策', publisher: '', publish_date: '', status: 'published', summary: '', file_url: '' })
-const resetStdForm = () => Object.assign(stdForm, { id: '', standard_no: '', title: '', publisher: '', effective_date: '', status: 'published', scope: '', file_url: '' })
+const resetStdForm = () => Object.assign(stdForm, { id: '', category: '团体标准', standard_no: '', title: '', publisher: '', effective_date: '', status: 'published', scope: '', file_url: '' })
 const handleAdd = () => {
   if (activeTab.value === 'docs') resetDocForm(); else resetStdForm()
   formEdit.value = false; formVisible.value = true

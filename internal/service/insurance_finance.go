@@ -29,6 +29,10 @@ func (s *InsuranceService) ListMyPolicies(a domain.Actor) ([]domain.InsurancePol
 	return s.policyRepo.ListByUser(a.ID)
 }
 
+func (s *InsuranceService) ListAllPolicies(offset, limit int) ([]domain.InsurancePolicy, int, error) {
+	return s.policyRepo.ListAll(offset, limit)
+}
+
 func (s *InsuranceService) CreateInspection(a domain.Actor, droneModel, droneSN string, inspectDate, expireDate time.Time) (domain.AnnualInspection, error) {
 	now := time.Now()
 	i := domain.AnnualInspection{ID: fmt.Sprintf("inspect-%d", now.UnixNano()), UserID: a.ID, DroneModel: droneModel,
@@ -60,4 +64,8 @@ func (s *FinanceService) ApplyLoan(a domain.Actor, amountFen int64, termMonths i
 
 func (s *FinanceService) ListMyLoans(a domain.Actor) ([]domain.LoanApplication, error) {
 	return s.loanRepo.ListByUser(a.ID)
+}
+
+func (s *FinanceService) ListAllLoans(offset, limit int) ([]domain.LoanApplication, int, error) {
+	return s.loanRepo.ListAll(offset, limit)
 }

@@ -66,6 +66,7 @@ type ComplianceDoc struct {
 type StandardDoc struct {
 	ID            string    `json:"id"`
 	Title         string    `json:"title"`
+	Category      string    `json:"category"` // 国家标准/行业标准/团体标准/企业标准（C11 补列）
 	StandardNo    string    `json:"standard_no"`
 	Publisher     string    `json:"publisher"`
 	EffectiveDate time.Time `json:"effective_date"`
@@ -174,29 +175,29 @@ type CompetitionPrize struct {
 // Competition is a drone competition / contest.
 // 字段与小程序 pages/competitions/{list,detail,register}.vue 读取的名称对齐。
 type Competition struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Category    string    `json:"category"`
-	Description string    `json:"description"`
-	Location    string    `json:"location"`
-	StartDate   time.Time `json:"start_date"`
-	EndDate     time.Time `json:"end_date"`
-	Deadline    *time.Time `json:"deadline"` // 报名截止（页面 deadline || enroll_deadline）
-	MaxTeams    int       `json:"max_teams"`
-	RegCount    int       `json:"reg_count"`
-	Sponsor     string    `json:"sponsor"`       // 主办方（页面 organizer || sponsor）
-	OrganizerSub string   `json:"organizer_sub"` // 承办方
-	Fee         int       `json:"fee"`           // 报名费（分）
-	MinFee      int       `json:"min_fee"`       // 页面「报名费 ¥xx 起/人」
-	Tags        []string  `json:"tags"`
-	Poster      string    `json:"poster"`              // 海报图（页面 poster||cover||image||banner）
-	Requirements []CompetitionRequirement `json:"requirements"`
-	Events      []CompetitionEvent `json:"events"`
-	Prizes      []CompetitionPrize `json:"prizes"`
-	RegistrationStatus string `json:"registration_status"` // 页面报名状态（open/enrolling 等）
-	Status      string    `json:"status"` // published / enrolling / ongoing / closed / full
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                 string                   `json:"id"`
+	Title              string                   `json:"title"`
+	Category           string                   `json:"category"`
+	Description        string                   `json:"description"`
+	Location           string                   `json:"location"`
+	StartDate          time.Time                `json:"start_date"`
+	EndDate            time.Time                `json:"end_date"`
+	Deadline           *time.Time               `json:"deadline"` // 报名截止（页面 deadline || enroll_deadline）
+	MaxTeams           int                      `json:"max_teams"`
+	RegCount           int                      `json:"reg_count"`
+	Sponsor            string                   `json:"sponsor"`       // 主办方（页面 organizer || sponsor）
+	OrganizerSub       string                   `json:"organizer_sub"` // 承办方
+	Fee                int                      `json:"fee"`           // 报名费（分）
+	MinFee             int                      `json:"min_fee"`       // 页面「报名费 ¥xx 起/人」
+	Tags               []string                 `json:"tags"`
+	Poster             string                   `json:"poster"` // 海报图（页面 poster||cover||image||banner）
+	Requirements       []CompetitionRequirement `json:"requirements"`
+	Events             []CompetitionEvent       `json:"events"`
+	Prizes             []CompetitionPrize       `json:"prizes"`
+	RegistrationStatus string                   `json:"registration_status"` // 页面报名状态（open/enrolling 等）
+	Status             string                   `json:"status"`              // published / enrolling / ongoing / closed / full
+	CreatedAt          time.Time                `json:"created_at"`
+	UpdatedAt          time.Time                `json:"updated_at"`
 }
 
 // CompetitionReg is a team/individual registration for a competition.
@@ -207,6 +208,11 @@ type CompetitionReg struct {
 	TeamName      string    `json:"team_name"`
 	MemberCount   int       `json:"member_count"`
 	ContactInfo   string    `json:"contact_info"`
+	Name          string    `json:"name"`          // 参赛人姓名（C13 补列）
+	Phone         string    `json:"phone"`         // 参赛人手机号（C13 补列）
+	IDCard        string    `json:"id_card"`       // 身份证号（C13 补列）
+	PhotoURL      string    `json:"photo_url"`     // 白底免冠证件照（C13 补列）
+	IDCardImage   string    `json:"id_card_image"` // 身份证正面影像（C13 补列）
 	Status        string    `json:"status"`
 	CreatedAt     time.Time `json:"created_at"`
 }
@@ -273,20 +279,34 @@ type IndustryReport struct {
 
 // IndustryResource is a physical resource (drone, airfield, test site, etc.).
 type IndustryResource struct {
-	ID          string    `json:"id"`
-	OwnerID     string    `json:"owner_id"`
-	Name        string    `json:"name"`
-	ResType     string    `json:"res_type"`
-	Model       string    `json:"model"`
-	Specs       string    `json:"specs"`
-	Location    string    `json:"location"`
-	PriceFen    int64     `json:"price_fen"`
-	BookingInfo string    `json:"booking_info"`
+	ID          string `json:"id"`
+	OwnerID     string `json:"owner_id"`
+	Name        string `json:"name"`
+	ResType     string `json:"res_type"`
+	Model       string `json:"model"`
+	Specs       string `json:"specs"`
+	Location    string `json:"location"`
+	PriceFen    int64  `json:"price_fen"`
+	BookingInfo string `json:"booking_info"`
 	// VisibilityLevel: public(政府访客) < member(会员+) < partner(副会长单位+) < admin(仅协会管理员)
 	VisibilityLevel string    `json:"visibility_level"`
 	Status          string    `json:"status"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// IndustryResourceBooking is a booking request for an industry resource (C11).
+type IndustryResourceBooking struct {
+	ID           string    `json:"id"`
+	ResourceID   string    `json:"resource_id"`
+	UserID       string    `json:"user_id"`
+	BookingDate  string    `json:"date"` // YYYY-MM-DD（小程序日期选择器格式）
+	Purpose      string    `json:"purpose"`
+	ContactName  string    `json:"contact_name"`
+	ContactPhone string    `json:"contact_phone"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // EmergencyResource is a drone-related emergency response resource.

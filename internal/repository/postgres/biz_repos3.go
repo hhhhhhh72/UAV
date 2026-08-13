@@ -3,20 +3,25 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
 )
 
 // ---- Competition ----
 
-type compRepo struct{ pool *pgxpool.Pool }
+type compRepo struct {
+	pool   *pgxpool.Pool
+	cipher *crypto.Cipher // 报名实名信息（id_card/phone）静态加密（仿 pilotRepo）
+}
 
-func (s *Store) NewCompetitionRepository() repository.CompetitionRepository {
-	return &compRepo{pool: s.Pool()}
+func (s *Store) NewCompetitionRepository(cipher *crypto.Cipher) repository.CompetitionRepository {
+	return &compRepo{pool: s.Pool(), cipher: cipher}
 }
 
 // compCols 与 competitions 表列一一对应（迁移 000044 补齐小程序页面字段）
@@ -47,7 +52,9 @@ func (r *compRepo) FindByID(id string) (domain.Competition, error) {
 }
 func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM competitions`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM competitions`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count competitions: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT `+compCols+` FROM competitions ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
@@ -57,9 +64,11 @@ func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
 	var out []domain.Competition
 	for rows.Next() {
 		var c domain.Competition
-		rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.Deadline, &c.MaxTeams, &c.RegCount,
+		if err := rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.Deadline, &c.MaxTeams, &c.RegCount,
 			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
-			&c.RegistrationStatus, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+			&c.RegistrationStatus, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan competition: %w", err)
+		}
 		out = append(out, c)
 	}
 	return out, total, rows.Err()
@@ -83,16 +92,49 @@ func (r *compRepo) Delete(id string) error {
 	return err
 }
 
+// encRegPII 加密报名实名字段（cipher 为空或失败时保留明文，兼容无 ENCRYPTION_KEY 环境）。
+func (r *compRepo) encRegPII(reg *domain.CompetitionReg) {
+	if r.cipher == nil {
+		return
+	}
+	if reg.IDCard != "" {
+		if enc, err := r.cipher.Encrypt(reg.IDCard); err == nil {
+			reg.IDCard = enc
+		}
+	}
+	if reg.Phone != "" {
+		if enc, err := r.cipher.Encrypt(reg.Phone); err == nil {
+			reg.Phone = enc
+		}
+	}
+}
+func (r *compRepo) decRegPII(reg *domain.CompetitionReg) {
+	if r.cipher == nil {
+		return
+	}
+	if reg.IDCard != "" {
+		if dec, err := r.cipher.Decrypt(reg.IDCard); err == nil {
+			reg.IDCard = dec
+		}
+	}
+	if reg.Phone != "" {
+		if dec, err := r.cipher.Decrypt(reg.Phone); err == nil {
+			reg.Phone = dec
+		}
+	}
+}
 func (r *compRepo) CreateReg(reg domain.CompetitionReg) (domain.CompetitionReg, error) {
 	reg.CreatedAt = time.Now()
+	r.encRegPII(&reg)
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO competition_registrations (id,competition_id,user_id,team_name,member_count,contact_info,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		reg.ID, reg.CompetitionID, reg.UserID, reg.TeamName, reg.MemberCount, reg.ContactInfo, reg.Status, reg.CreatedAt)
+		`INSERT INTO competition_registrations (id,competition_id,user_id,team_name,member_count,contact_info,name,phone,id_card,photo_url,id_card_image,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		reg.ID, reg.CompetitionID, reg.UserID, reg.TeamName, reg.MemberCount, reg.ContactInfo, reg.Name, reg.Phone, reg.IDCard, reg.PhotoURL, reg.IDCardImage, reg.Status, reg.CreatedAt)
+	r.decRegPII(&reg)
 	return reg, err
 }
 func (r *compRepo) ListRegs(competitionID string) ([]domain.CompetitionReg, error) {
 	rows, err := r.pool.Query(context.Background(),
-		`SELECT id,competition_id,user_id,team_name,member_count,contact_info,status,created_at FROM competition_registrations WHERE competition_id=$1 ORDER BY created_at DESC`, competitionID)
+		`SELECT id,competition_id,user_id,team_name,member_count,contact_info,name,phone,id_card,photo_url,id_card_image,status,created_at FROM competition_registrations WHERE competition_id=$1 ORDER BY created_at DESC`, competitionID)
 	if err != nil {
 		return nil, fmt.Errorf("list regs: %w", err)
 	}
@@ -100,7 +142,10 @@ func (r *compRepo) ListRegs(competitionID string) ([]domain.CompetitionReg, erro
 	var out []domain.CompetitionReg
 	for rows.Next() {
 		var reg domain.CompetitionReg
-		rows.Scan(&reg.ID, &reg.CompetitionID, &reg.UserID, &reg.TeamName, &reg.MemberCount, &reg.ContactInfo, &reg.Status, &reg.CreatedAt)
+		if err := rows.Scan(&reg.ID, &reg.CompetitionID, &reg.UserID, &reg.TeamName, &reg.MemberCount, &reg.ContactInfo, &reg.Name, &reg.Phone, &reg.IDCard, &reg.PhotoURL, &reg.IDCardImage, &reg.Status, &reg.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan reg: %w", err)
+		}
+		r.decRegPII(&reg)
 		out = append(out, reg)
 	}
 	return out, rows.Err()
@@ -129,7 +174,9 @@ func (r *eventRepo) FindByID(id string) (domain.AssociationEvent, error) {
 }
 func (r *eventRepo) List(offset, limit int) ([]domain.AssociationEvent, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM association_events`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM association_events`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count events: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,title,event_type,description,location,start_time,end_time,max_attendees,reg_count,cover_url,status,created_at,updated_at FROM association_events ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
@@ -139,7 +186,9 @@ func (r *eventRepo) List(offset, limit int) ([]domain.AssociationEvent, int, err
 	var out []domain.AssociationEvent
 	for rows.Next() {
 		var e domain.AssociationEvent
-		rows.Scan(&e.ID, &e.Title, &e.EventType, &e.Description, &e.Location, &e.StartTime, &e.EndTime, &e.MaxAttendees, &e.RegCount, &e.CoverURL, &e.Status, &e.CreatedAt, &e.UpdatedAt)
+		if err := rows.Scan(&e.ID, &e.Title, &e.EventType, &e.Description, &e.Location, &e.StartTime, &e.EndTime, &e.MaxAttendees, &e.RegCount, &e.CoverURL, &e.Status, &e.CreatedAt, &e.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan event: %w", err)
+		}
 		out = append(out, e)
 	}
 	return out, total, rows.Err()
@@ -174,7 +223,9 @@ func (r *eventRepo) ListRegs(eventID string) ([]domain.EventRegistration, error)
 	var out []domain.EventRegistration
 	for rows.Next() {
 		var reg domain.EventRegistration
-		rows.Scan(&reg.ID, &reg.EventID, &reg.UserID, &reg.Name, &reg.Phone, &reg.Org, &reg.Status, &reg.CreatedAt)
+		if err := rows.Scan(&reg.ID, &reg.EventID, &reg.UserID, &reg.Name, &reg.Phone, &reg.Org, &reg.Status, &reg.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan event reg: %w", err)
+		}
 		out = append(out, reg)
 	}
 	return out, rows.Err()
@@ -203,11 +254,29 @@ func (r *emergRepo) FindResourceByID(id string) (domain.EmergencyResource, error
 		Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Specs, &res.Quantity, &res.Location, &res.ContactInfo, &res.Status, &res.CreatedAt, &res.UpdatedAt)
 	return res, err
 }
-func (r *emergRepo) ListResources(offset, limit int) ([]domain.EmergencyResource, int, error) {
+func (r *emergRepo) ListResources(resType, q string, offset, limit int) ([]domain.EmergencyResource, int, error) {
+	where := ""
+	args := []any{}
+	if resType != "" {
+		where = `WHERE res_type=$1`
+		args = append(args, resType)
+	}
+	if q = strings.TrimSpace(q); q != "" {
+		args = append(args, "%"+q+"%")
+		if where == "" {
+			where = "WHERE "
+		} else {
+			where += " AND "
+		}
+		where += fmt.Sprintf(`(name ILIKE $%d OR specs ILIKE $%d OR location ILIKE $%d OR contact_info ILIKE $%d)`,
+			len(args), len(args), len(args), len(args))
+	}
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM emergency_resources`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM emergency_resources `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count emergency resources: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
-		`SELECT id,owner_id,name,res_type,specs,quantity,location,contact_info,status,created_at,updated_at FROM emergency_resources ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		fmt.Sprintf(`SELECT id,owner_id,name,res_type,specs,quantity,location,contact_info,status,created_at,updated_at FROM emergency_resources %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2), append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list emergency resources: %w", err)
 	}
@@ -215,7 +284,9 @@ func (r *emergRepo) ListResources(offset, limit int) ([]domain.EmergencyResource
 	var out []domain.EmergencyResource
 	for rows.Next() {
 		var res domain.EmergencyResource
-		rows.Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Specs, &res.Quantity, &res.Location, &res.ContactInfo, &res.Status, &res.CreatedAt, &res.UpdatedAt)
+		if err := rows.Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Specs, &res.Quantity, &res.Location, &res.ContactInfo, &res.Status, &res.CreatedAt, &res.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan emergency resource: %w", err)
+		}
 		out = append(out, res)
 	}
 	return out, total, rows.Err()
@@ -236,7 +307,9 @@ func (r *emergRepo) CreateDispatch(d domain.EmergencyDispatch) (domain.Emergency
 }
 func (r *emergRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatch, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM emergency_dispatches`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM emergency_dispatches`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count dispatches: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
@@ -246,7 +319,9 @@ func (r *emergRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatc
 	var out []domain.EmergencyDispatch
 	for rows.Next() {
 		var d domain.EmergencyDispatch
-		rows.Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &d.EndTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt)
+		if err := rows.Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &d.EndTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan dispatch: %w", err)
+		}
 		out = append(out, d)
 	}
 	return out, total, rows.Err()

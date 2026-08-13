@@ -310,8 +310,8 @@ func TestVenueEnrollTradeEscrowRepos(t *testing.T) {
 
 	escR := memory.NewEscrowRepository()
 	escR.GetAccount("u-1")
-	escR.UpsertAccount(domain.EscrowAccount{UserID: "u-1", BalanceFen: 100000})
-	escR.CreateTransaction(domain.EscrowTransaction{ID: "tx-1", FromUser: "sys", ToUser: "u-1", AmountFen: 100000, TxType: "deposit"})
+	// C6 接口变更：资金操作原子化，Deposit 即开户
+	escR.Deposit("u-1", 100000, domain.EscrowTransaction{ID: "tx-1", FromUser: "sys", ToUser: "u-1", AmountFen: 100000, TxType: "deposit"})
 	escR.ListTransactions("u-1")
 }
 
@@ -366,7 +366,7 @@ func TestNewBizReposFull(t *testing.T) {
 	paR.ListAll("", 0, 20)
 	paR.Update(domain.ProjectApplication{ID: "pa-1", Status: "submitted"})
 
-	compR2 := memory.NewCompetitionRepository()
+	compR2 := memory.NewCompetitionRepository(nil)
 	compR2.Create(domain.Competition{ID: "comp-1", Title: "比赛"})
 	compR2.FindByID("comp-1")
 	compR2.List(0, 20)
@@ -405,7 +405,7 @@ func TestNewBizReposFull(t *testing.T) {
 	emR := memory.NewEmergencyRepository()
 	emR.CreateResource(domain.EmergencyResource{ID: "er-1", OwnerID: "u-1", Name: "应急机"})
 	emR.FindResourceByID("er-1")
-	emR.ListResources(0, 20)
+	emR.ListResources("", "", 0, 20)
 	emR.UpdateResource(domain.EmergencyResource{ID: "er-1", Name: "updated"})
 	emR.CreateDispatch(domain.EmergencyDispatch{ID: "ed-1", ResourceID: "er-1"})
 	emR.ListDispatches(0, 20)

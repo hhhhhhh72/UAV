@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -188,5 +189,31 @@ func (s *Server) listLabourQuotes(w http.ResponseWriter, r *http.Request) {
 	if orderID == "" { fail(w, r, http.StatusBadRequest, errors.New("order_id required")); return }
 	items, err := s.labourSvc.ListQuotes(a, orderID)
 	if err != nil { fail(w, r, http.StatusForbidden, err); return }
+	respond(w, r, http.StatusOK, items)
+}
+
+// GET /api/v1/labour-orders/{id}/assignments
+func (s *Server) listOrderAssignments(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	orderID := r.PathValue("id")
+	items, err := s.labourSvc.ListAssignments(a, orderID)
+	if err != nil {
+		code := http.StatusForbidden
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		}
+		fail(w, r, code, err)
+		return
+	}
+	respond(w, r, http.StatusOK, items)
+}
+
+// GET /api/v1/assignments/mine
+func (s *Server) listMyAssignments(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	items, err := s.labourSvc.ListMyAssignments(a)
+	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
 	respond(w, r, http.StatusOK, items)
 }

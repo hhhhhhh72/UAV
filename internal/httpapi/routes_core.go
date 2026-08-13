@@ -33,6 +33,7 @@ func (s *Server) registerCoreRoutes(mux *http.ServeMux) {
 func (s *Server) registerMetaRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", s.index)
 	mux.HandleFunc("GET /uploads/", s.serveUploads)
+	mux.HandleFunc("GET /uploads/private/", s.servePrivateUploads) // 身份证影像等敏感文件，需登录态
 	mux.HandleFunc("GET /favicon.ico", s.favicon)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		respond(w, r, http.StatusOK, map[string]any{
@@ -82,6 +83,9 @@ func (s *Server) registerDemandRoutes(mux *http.ServeMux) {
 
 func (s *Server) registerEnterpriseRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/enterprises/public", s.listPublicEnterprises)
+	// 详情走全字面量路径 + query 参数：{id} 通配会与 GET /api/v1/enterprises/{id}/documents
+	// 在 /enterprises/public/documents 上重叠（两侧各有一级更具体），ServeMux 判冲突 panic。
+	mux.HandleFunc("GET /api/v1/enterprises/public/detail", s.getPublicEnterprise)
 	mux.HandleFunc("GET /api/v1/enterprises", s.listMyEnterprises)
 	mux.HandleFunc("POST /api/v1/enterprises", s.createEnterprise)
 	mux.HandleFunc("PATCH /api/v1/enterprises/{id}", s.updateEnterprise)
@@ -150,6 +154,8 @@ func (s *Server) registerLabourRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/labour-orders", s.listLabourOrders)
 	mux.HandleFunc("POST /api/v1/labour-orders/{id}/quote", s.createLabourQuote)
 	mux.HandleFunc("GET /api/v1/labour-orders/quotes", s.listLabourQuotes)
+	mux.HandleFunc("GET /api/v1/labour-orders/{id}/assignments", s.listOrderAssignments)
+	mux.HandleFunc("GET /api/v1/assignments/mine", s.listMyAssignments)
 }
 
 // ── Training ─────────────────────────────────────────────────────────────
@@ -222,6 +228,7 @@ func (s *Server) registerMiscRoutes(mux *http.ServeMux) {
 func (s *Server) registerFileRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/files/upload", s.uploadFile)
 	mux.HandleFunc("POST /api/v1/enterprises/{id}/documents", s.attachEnterpriseDocument)
+	mux.HandleFunc("GET /api/v1/enterprises/{id}/documents", s.listEnterpriseDocuments)
 }
 
 // ── Admin (config, export, image) ────────────────────────────────────────

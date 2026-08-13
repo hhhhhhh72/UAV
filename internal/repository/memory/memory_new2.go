@@ -2,9 +2,11 @@ package memory
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
 )
@@ -12,12 +14,15 @@ import (
 // ---- Competition ----
 
 type compRepo struct {
-	mu    sync.RWMutex
-	items []domain.Competition
-	regs  []domain.CompetitionReg
+	mu     sync.RWMutex
+	items  []domain.Competition
+	regs   []domain.CompetitionReg
+	cipher *crypto.Cipher // 报名实名信息（id_card/phone）静态加密（仿 pilotRepo）
 }
 
-func NewCompetitionRepository() repository.CompetitionRepository { return &compRepo{} }
+func NewCompetitionRepository(cipher *crypto.Cipher) repository.CompetitionRepository {
+	return &compRepo{cipher: cipher}
+}
 
 func (r *compRepo) Create(c domain.Competition) (domain.Competition, error) {
 	r.mu.Lock()
@@ -65,11 +70,47 @@ func (r *compRepo) Delete(id string) error {
 	}
 	return fmt.Errorf("competition %s not found", id)
 }
+
+// encryptRegInPlace 对报名实名字段静态加密（cipher 为空或加密失败时保留明文，兼容无 ENCRYPTION_KEY 的开发环境）。
+func (r *compRepo) encryptRegInPlace(reg *domain.CompetitionReg) {
+	if r.cipher == nil {
+		return
+	}
+	for _, v := range []struct {
+		src  string
+		dest *string
+	}{{reg.IDCard, &reg.IDCard}, {reg.Phone, &reg.Phone}} {
+		if v.src == "" {
+			continue
+		}
+		if enc, err := r.cipher.Encrypt(v.src); err == nil {
+			*v.dest = enc
+		}
+	}
+}
+func (r *compRepo) decryptRegInPlace(reg *domain.CompetitionReg) {
+	if r.cipher == nil {
+		return
+	}
+	for _, v := range []struct {
+		src  string
+		dest *string
+	}{{reg.IDCard, &reg.IDCard}, {reg.Phone, &reg.Phone}} {
+		if v.src == "" {
+			continue
+		}
+		if dec, err := r.cipher.Decrypt(v.src); err == nil {
+			*v.dest = dec
+		}
+	}
+}
 func (r *compRepo) CreateReg(reg domain.CompetitionReg) (domain.CompetitionReg, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	reg.CreatedAt = time.Now()
+	r.encryptRegInPlace(&reg)
 	r.regs = append(r.regs, reg)
+	r.decryptRegInPlace(&reg)
 	return reg, nil
 }
 func (r *compRepo) ListRegs(competitionID string) ([]domain.CompetitionReg, error) {
@@ -78,6 +119,7 @@ func (r *compRepo) ListRegs(competitionID string) ([]domain.CompetitionReg, erro
 	out := make([]domain.CompetitionReg, 0)
 	for _, reg := range r.regs {
 		if reg.CompetitionID == competitionID {
+			r.decryptRegInPlace(&reg)
 			out = append(out, reg)
 		}
 	}
@@ -298,8 +340,9 @@ func (r *industryReportRepo) Delete(id string) error {
 // ---- Resource ----
 
 type resourceRepo struct {
-	mu    sync.RWMutex
-	items []domain.IndustryResource
+	mu       sync.RWMutex
+	items    []domain.IndustryResource
+	bookings []domain.IndustryResourceBooking
 }
 
 func NewResourceRepository() repository.ResourceRepository { return &resourceRepo{} }
@@ -358,6 +401,39 @@ func (r *resourceRepo) Delete(id string) error {
 	return fmt.Errorf("resource %s not found", id)
 }
 
+// ---- Resource bookings (C11) ----
+
+func (r *resourceRepo) CreateBooking(b domain.IndustryResourceBooking) (domain.IndustryResourceBooking, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	b.CreatedAt = time.Now()
+	b.UpdatedAt = b.CreatedAt
+	r.bookings = append(r.bookings, b)
+	return b, nil
+}
+func (r *resourceRepo) ListBookingsByResource(resourceID string) ([]domain.IndustryResourceBooking, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.IndustryResourceBooking, 0)
+	for _, b := range r.bookings {
+		if b.ResourceID == resourceID {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}
+func (r *resourceRepo) ListBookingsByUser(userID string) ([]domain.IndustryResourceBooking, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.IndustryResourceBooking, 0)
+	for _, b := range r.bookings {
+		if b.UserID == userID {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}
+
 // ---- Emergency ----
 
 type emergencyRepo struct {
@@ -386,10 +462,21 @@ func (r *emergencyRepo) FindResourceByID(id string) (domain.EmergencyResource, e
 	}
 	return domain.EmergencyResource{}, fmt.Errorf("emergency resource %s not found", id)
 }
-func (r *emergencyRepo) ListResources(offset, limit int) ([]domain.EmergencyResource, int, error) {
+func (r *emergencyRepo) ListResources(resType, q string, offset, limit int) ([]domain.EmergencyResource, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.resources, offset, limit)
+	query := strings.ToLower(strings.TrimSpace(q))
+	filtered := make([]domain.EmergencyResource, 0)
+	for _, res := range r.resources {
+		if resType != "" && res.ResType != resType {
+			continue
+		}
+		if query != "" && !matchAnyFold(query, res.Name, res.Specs, res.Location, res.ContactInfo) {
+			continue
+		}
+		filtered = append(filtered, res)
+	}
+	return paginateSlice(filtered, offset, limit)
 }
 func (r *emergencyRepo) UpdateResource(res domain.EmergencyResource) (domain.EmergencyResource, error) {
 	r.mu.Lock()

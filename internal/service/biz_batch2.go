@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -64,10 +65,21 @@ func (s *TransformationService) ListByAchievement(achievementID string) ([]domai
 	return out, nil
 }
 
-func (s *TransformationService) AdvanceStage(id string, nextStage domain.TransformationStage, progress string) (domain.Transformation, error) {
+// canMutateTransformation 归属校验：仅转化负责人或管理员可推进阶段/添加里程碑（C2 修复）。
+func canMutateTransformation(a domain.Actor, t domain.Transformation) bool {
+	if t.OwnerID == a.ID {
+		return true
+	}
+	return a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
+}
+
+func (s *TransformationService) AdvanceStage(a domain.Actor, id string, nextStage domain.TransformationStage, progress string) (domain.Transformation, error) {
 	t, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.Transformation{}, err
+	}
+	if !canMutateTransformation(a, t) {
+		return domain.Transformation{}, errors.New("only the owner or admin can advance stage")
 	}
 	t.Stage = nextStage
 	t.Progress = progress
@@ -75,10 +87,13 @@ func (s *TransformationService) AdvanceStage(id string, nextStage domain.Transfo
 	return s.repo.Update(t)
 }
 
-func (s *TransformationService) AddMilestone(id, name, evidence string) (domain.Transformation, error) {
+func (s *TransformationService) AddMilestone(a domain.Actor, id, name, evidence string) (domain.Transformation, error) {
 	t, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.Transformation{}, err
+	}
+	if !canMutateTransformation(a, t) {
+		return domain.Transformation{}, errors.New("only the owner or admin can add milestone")
 	}
 	t.Milestones = append(t.Milestones, domain.TransMilestone{
 		Name: name, Completed: true, Date: time.Now(), Evidence: evidence,

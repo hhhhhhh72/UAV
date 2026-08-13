@@ -37,7 +37,7 @@
     </view>
 
     <!-- Empty state -->
-    <view v-else-if="!loading && list.length === 0" class="state-view">
+    <view v-else-if="!loading && filteredList.length === 0" class="state-view">
       <u-empty description="暂无团体标准" />
     </view>
 
@@ -45,7 +45,7 @@
     <view v-else class="list-body">
       <u-cell-group inset>
         <u-cell
-          v-for="item in list"
+          v-for="item in filteredList"
           :key="item.id"
           is-clickable
           @click="openStandard(item)"
@@ -56,8 +56,8 @@
               <view class="standard-info">
                 <text class="standard-title">{{ item.title || '--' }}</text>
                 <view class="standard-meta">
-                  <text v-if="item.version" class="meta-tag">v{{ item.version }}</text>
-                  <text class="meta-date">{{ formatDate(item.publish_date || item.created_at) }}</text>
+                  <text v-if="item.standard_no" class="meta-tag">{{ item.standard_no }}</text>
+                  <text class="meta-date">{{ formatDate(item.effective_date || item.created_at) }}</text>
                 </view>
               </view>
             </view>
@@ -92,9 +92,10 @@ export default {
       hasMore: true,
       categoryTabs: [
         { label: '全部', value: '' },
-        { label: '低空', value: 'low_altitude' },
-        { label: '无人机', value: 'drone' },
-        { label: '通用', value: 'general' },
+        { label: '国家标准', value: '国家标准' },
+        { label: '行业标准', value: '行业标准' },
+        { label: '团体标准', value: '团体标准' },
+        { label: '企业标准', value: '企业标准' },
       ],
     }
   },
@@ -105,6 +106,14 @@ export default {
     tabIndex() {
       var idx = this.categoryTabs.findIndex(function (t) { return t.value === this.activeCategory }.bind(this))
       return idx >= 0 ? idx : 0
+    },
+    // 后端 ListStandards 仅支持 category 过滤，搜索词在前端本地过滤
+    filteredList() {
+      var kw = (this.searchText || '').trim()
+      if (!kw) return this.list
+      return this.list.filter(function (item) {
+        return (item.title || '').indexOf(kw) !== -1 || (item.standard_no || '').indexOf(kw) !== -1
+      })
     },
   },
   onLoad() {
@@ -132,7 +141,6 @@ export default {
           page_size: this.pageSize,
         }
         if (this.activeCategory) params.category = this.activeCategory
-        if (this.searchText) params.q = this.searchText
 
         var res = await request({
           url: '/api/v1/compliance-standards',
@@ -163,7 +171,7 @@ export default {
       this.fetchList(true)
     },
     openStandard(item) {
-      var content = item.content || item.description || item.standard_no || ''
+      var content = item.summary || item.scope || item.standard_no || ''
       uni.showModal({
         title: item.title || '标准详情',
         content: content || '暂无详细内容',

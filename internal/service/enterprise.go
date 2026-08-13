@@ -192,3 +192,31 @@ func (s *EnterpriseSvc) Search(a domain.Actor, q string) ([]domain.Enterprise, e
 	}
 	return s.repo.Search(q)
 }
+
+// AttachDocument links an uploaded file to an enterprise (business license, ID card, ...).
+// Only the enterprise owner or admins may attach.
+func (s *EnterpriseSvc) AttachDocument(a domain.Actor, enterpriseID, fileID, documentType string) (domain.EnterpriseDocument, error) {
+	e, err := s.repo.FindByID(enterpriseID)
+	if err != nil {
+		return domain.EnterpriseDocument{}, err
+	}
+	if e.OwnerUserID != a.ID && a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return domain.EnterpriseDocument{}, errors.New("permission denied")
+	}
+	now := time.Now()
+	doc := domain.EnterpriseDocument{ID: fmt.Sprintf("edoc-%d", now.UnixNano()), EnterpriseID: enterpriseID,
+		FileID: fileID, DocumentType: documentType, ReviewStatus: "pending", CreatedAt: now}
+	return s.repo.AddDocument(doc)
+}
+
+// ListDocuments returns documents of an enterprise for the owner or admins.
+func (s *EnterpriseSvc) ListDocuments(a domain.Actor, enterpriseID string) ([]domain.EnterpriseDocument, error) {
+	e, err := s.repo.FindByID(enterpriseID)
+	if err != nil {
+		return nil, err
+	}
+	if e.OwnerUserID != a.ID && a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return nil, errors.New("permission denied")
+	}
+	return s.repo.ListDocuments(enterpriseID)
+}

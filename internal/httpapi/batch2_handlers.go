@@ -3,7 +3,6 @@ package httpapi
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"drone-platform/internal/domain"
@@ -67,27 +66,37 @@ func (s *Server) listTransformations(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, list)
 }
 func (s *Server) advanceStage(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var in struct{ Stage, Progress string }
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	t, err := s.transSvc.AdvanceStage(r.PathValue("id"), domain.TransformationStage(in.Stage), in.Progress)
+	t, err := s.transSvc.AdvanceStage(a, r.PathValue("id"), domain.TransformationStage(in.Stage), in.Progress)
 	if err != nil {
-		fail(w, r, http.StatusNotFound, err)
+		fail(w, r, mutationErrorCode(err), err)
 		return
 	}
 	respond(w, r, http.StatusOK, t)
 }
 func (s *Server) addMilestone(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var in struct{ Name, Evidence string }
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	t, err := s.transSvc.AddMilestone(r.PathValue("id"), in.Name, in.Evidence)
+	t, err := s.transSvc.AddMilestone(a, r.PathValue("id"), in.Name, in.Evidence)
 	if err != nil {
-		fail(w, r, http.StatusNotFound, err)
+		fail(w, r, mutationErrorCode(err), err)
 		return
 	}
 	respond(w, r, http.StatusOK, t)
@@ -180,7 +189,30 @@ func matchCollegeType(tp string, c domain.College) bool {
 }
 
 // ── Cooperation ──
+
+// requireAdmin 复用于非 /admin/ 前缀的管理写操作（C2 修复）：
+// 这些路由不受 adminGate 覆盖，必须显式校验管理员角色。
+func requireAdmin(w http.ResponseWriter, r *http.Request) bool {
+	a, ok := authenticatedActor(r)
+	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return false
+	}
+	return true
+}
+
+// mutationErrorCode 区分归属拒绝(403)与资源不存在(404)。
+func mutationErrorCode(err error) int {
+	if strings.Contains(err.Error(), "only the owner") {
+		return http.StatusForbidden
+	}
+	return http.StatusNotFound
+}
+
 func (s *Server) createCooperation(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(w, r) {
+		return
+	}
 	var in struct {
 		Title, CollegeID, EnterpriseID, CoopType, Description, StartDate, EndDate string
 		StudentQuota                                                              int
@@ -207,7 +239,9 @@ func (s *Server) listCooperations(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, list)
 }
 func (s *Server) updateCooperationStatus(w http.ResponseWriter, r *http.Request) {
-	_, _ = strconv.Atoi(r.URL.Query().Get("dummy")) // suppress unused import
+	if !requireAdmin(w, r) {
+		return
+	}
 	var in struct{ Status string }
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)

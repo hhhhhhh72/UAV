@@ -189,7 +189,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request } from '../../../utils/request'
+import { request, authStorage, BASE_URL } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
 const id = ref('')
@@ -268,6 +268,38 @@ function uploadImage(type) {
   })
 }
 
+/* 图片上传：POST /api/v1/files/upload。
+   isPrivate=true 时（身份证影像）带 private 表单字段，文件落 uploads/private/ 且仅登录态可读；
+   后端返回的 url 字段优先使用，缺失时回退 /uploads/{file_id}。 */
+function uploadFile(filePath, isPrivate) {
+  return new Promise(function (resolve, reject) {
+    uni.uploadFile({
+      url: BASE_URL + '/api/v1/files/upload',
+      filePath: filePath,
+      name: 'file',
+      formData: { private: isPrivate ? 'true' : 'false' },
+      header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
+      success: function (res) {
+        var data = null
+        try { data = JSON.parse(res.data) } catch (e) { data = null }
+        if (res.statusCode >= 200 && res.statusCode < 300 && data) {
+          var url = data.url || (data.data && data.data.url)
+          if (url) { resolve(url); return }
+          var fid = data.file_id || (data.data && data.data.file_id)
+          if (fid) { resolve('/uploads/' + fid); return }
+        }
+        var msg = ''
+        if (data && data.error && data.error.message) msg = data.error.message
+        else if (data && data.message) msg = data.message
+        reject(new Error(msg || '图片上传失败（HTTP ' + res.statusCode + '）'))
+      },
+      fail: function (err) {
+        reject(err || new Error('图片上传失败，请检查网络'))
+      },
+    })
+  })
+}
+
 /* 校验 */
 function validate() {
   if (!form.name.trim()) return '请输入参赛人姓名'
@@ -288,6 +320,20 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
+    /* 先上传证件照与身份证照，全部成功后才提交报名 */
+    uni.showLoading({ title: '上传中...', mask: true })
+    var photoUrl = ''
+    var idCardUrl = ''
+    try {
+      photoUrl = await uploadFile(form.photo, false)
+      idCardUrl = await uploadFile(form.idCardImage, true)
+    } catch (uploadErr) {
+      uni.showToast({ title: (uploadErr && uploadErr.message) || '图片上传失败，请重试', icon: 'none' })
+      return
+    } finally {
+      uni.hideLoading()
+    }
+
     await request({
       url: '/api/v1/competitions/' + encodeURIComponent(id.value) + '/register',
       method: 'POST',
@@ -295,6 +341,11 @@ async function handleSubmit() {
         team_name: (form.team_name || form.name).trim(),
         member_count: form.member_count,
         contact_info: form.phone.trim(),
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        id_card: form.idCard.trim(),
+        photo_url: photoUrl,
+        id_card_image: idCardUrl,
       },
     })
     uni.showToast({ title: '报名成功', icon: 'success' })

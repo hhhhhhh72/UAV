@@ -180,3 +180,42 @@ func TestEmploymentRepo_ListWithPagination(t *testing.T) {
 	}
 	_ = list
 }
+
+// 回归：resumes.skills 是 text 列存 JSON 数组，写入端曾直接传 []string 触发
+// pgx "unable to encode []string into text"（生产创建简历 500），读取端 FindByID
+// 也曾直接 Scan 进 []string。校验 Create→FindByID→ListByUser→Update 全链路往返。
+func TestResumeRepo_SkillsRoundtrip(t *testing.T) {
+	store := setupStore(t)
+	if store == nil {
+		return
+	}
+	repo := store.NewResumeRepository()
+	id := ug("rv")
+	in := domain.Resume{
+		ID: id, UserID: "user-x", Title: "飞手简历", Name: "张三", Phone: "13800000000",
+		Email: "z@test.cn", Education: "本科", WorkExperience: "3年",
+		Skills: []string{"测绘", "巡检"}, CertificateURL: "", Content: "", Visibility: "public",
+		Version: 1, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	if _, err := repo.Create(in); err != nil {
+		t.Fatalf("create with skills: %v", err)
+	}
+	got, err := repo.FindByID(id)
+	if err != nil {
+		t.Fatalf("find: %v", err)
+	}
+	if len(got.Skills) != 2 || got.Skills[0] != "测绘" || got.Skills[1] != "巡检" {
+		t.Fatalf("skills roundtrip mismatch: %v", got.Skills)
+	}
+	got.Skills = []string{"测绘", "巡检", "植保"}
+	if _, err := repo.Update(id, got); err != nil {
+		t.Fatalf("update with skills: %v", err)
+	}
+	got2, err := repo.FindByID(id)
+	if err != nil {
+		t.Fatalf("find after update: %v", err)
+	}
+	if len(got2.Skills) != 3 || got2.Skills[2] != "植保" {
+		t.Fatalf("skills after update mismatch: %v", got2.Skills)
+	}
+}

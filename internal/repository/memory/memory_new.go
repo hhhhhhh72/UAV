@@ -194,7 +194,7 @@ func (r *complianceRepo) CreateStandard(s domain.StandardDoc) (domain.StandardDo
 func (r *complianceRepo) ListStandards(category string, offset, limit int) ([]domain.StandardDoc, int, error) {
 	r.mu.RLock(); defer r.mu.RUnlock()
 	filtered := make([]domain.StandardDoc, 0)
-	for _, s := range r.stds { filtered = append(filtered, s) }
+	for _, s := range r.stds { if category == "" || s.Category == category { filtered = append(filtered, s) } }
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }

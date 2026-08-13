@@ -86,6 +86,7 @@ func main() {
 		enterpriseRepo     repository.EnterpriseRepository
 		employmentRepo     repository.EmploymentRepository
 		contractRepo       repository.ContractRepository
+		contractTplRepo    repository.ContractTemplateRepository
 		jobRepo            repository.JobRepository
 		resumeRepo         repository.ResumeRepository
 		appRepo            repository.JobApplicationRepository
@@ -162,6 +163,7 @@ func main() {
 		enterpriseRepo = pgStore.NewEnterpriseRepository()
 		employmentRepo = pgStore.NewEmploymentRepository()
 		contractRepo = pgStore.NewContractRepository()
+		contractTplRepo = pgStore.NewContractTemplateRepository()
 		jobRepo = pgStore.NewJobRepository()
 		resumeRepo = pgStore.NewResumeRepository()
 		appRepo = pgStore.NewJobApplicationRepository()
@@ -199,7 +201,7 @@ func main() {
 		rdChallengeRepo = pgStore.NewRDChallengeRepository()
 		researchRepo = pgStore.NewResearchProjectRepository()
 		projAppRepo = pgStore.NewProjectAppRepository()
-		competitionRepo = pgStore.NewCompetitionRepository()
+		competitionRepo = pgStore.NewCompetitionRepository(cipher)
 		eventRepo = pgStore.NewEventRepository()
 		portfolioRepo = pgStore.NewPortfolioRepository()
 		industryRptRepo = pgStore.NewIndustryReportRepository()
@@ -224,6 +226,7 @@ func main() {
 		enterpriseRepo = memory.NewEnterpriseRepository(cipher)
 		employmentRepo = memory.NewEmploymentRepository()
 		contractRepo = memory.NewContractRepository()
+		contractTplRepo = memory.NewContractTemplateRepository()
 		jobRepo = memory.NewJobRepository()
 		resumeRepo = memory.NewResumeRepository()
 		appRepo = memory.NewJobApplicationRepository()
@@ -268,7 +271,7 @@ func main() {
 		rdChallengeRepo = memory.NewRDChallengeRepository()
 		researchRepo = memory.NewResearchProjectRepository()
 		projAppRepo = memory.NewProjectAppRepository()
-		competitionRepo = memory.NewCompetitionRepository()
+		competitionRepo = memory.NewCompetitionRepository(cipher)
 		eventRepo = memory.NewEventRepository()
 		portfolioRepo = memory.NewPortfolioRepository()
 		industryRptRepo = memory.NewIndustryReportRepository()
@@ -324,6 +327,7 @@ func main() {
 	app.SetIntentService(service.NewIntentService(intentRepo, demandRepo))
 	app.SetWorkOrderService(service.NewWorkOrderService(workOrderRepo, demandRepo, intentRepo))
 	app.SetServiceListingService(service.NewServiceListingService(serviceListingRepo))
+	app.SetContractTemplateService(service.NewContractTemplateService(contractTplRepo))
 
 	// Memory-only repos: PG implementations pending (see docs/项目管理/项目审计报告).
 	app.SetRescueCaseService(service.NewRescueCaseService(rescueCaseRepo))

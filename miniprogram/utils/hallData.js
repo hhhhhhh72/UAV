@@ -311,20 +311,12 @@ export function currentUserName() {
 
 /* ================= 本地发布 / 意向存储（前端交互态） ================= */
 const POSTS_KEY = 'hall_posts'
-const RECEIVED_KEY = 'hall_intents_received'
 const SENT_KEY = 'hall_intents_sent'
 
 export const SEED_POSTS = [
   { id: 'm1', type: '需求', title: '两江新区产业园三维建模项目', status: '已上架', date: '今天 09:40' },
   { id: 'm2', type: '服务', title: '桥梁与光伏设施精细化巡检', status: '已上架', date: '昨天 16:10' },
   { id: 'm3', type: '商品', title: '大疆 M350 RTK 行业套装租赁', status: '已驳回', date: '08-02', reason: '请补充设备实拍图和租赁押金说明。' },
-]
-
-export const SEED_RECEIVED = [
-  {
-    id: 'i1', name: '重庆翼航科技', initial: '翼', target: '光伏电站红外巡检服务',
-    note: '可提供两台 M350 RTK 与热成像载荷，江津周边可 24 小时响应。', status: '待处理',
-  },
 ]
 
 export function getPosts() {
@@ -337,16 +329,6 @@ export function savePosts(posts) {
   uni.setStorageSync(POSTS_KEY, posts || [])
 }
 
-export function getReceivedIntents() {
-  const raw = uni.getStorageSync(RECEIVED_KEY)
-  if (Array.isArray(raw)) return raw
-  uni.setStorageSync(RECEIVED_KEY, SEED_RECEIVED)
-  return SEED_RECEIVED
-}
-export function saveReceivedIntents(list) {
-  uni.setStorageSync(RECEIVED_KEY, list || [])
-}
-
 export function getSentIntents() {
   const raw = uni.getStorageSync(SENT_KEY)
   return Array.isArray(raw) ? raw : []
@@ -354,13 +336,6 @@ export function getSentIntents() {
 export function saveSentIntents(list) {
   uni.setStorageSync(SENT_KEY, list || [])
 }
-
-/* ================= 洽谈会话模拟 ================= */
-export const SEED_CHAT = [
-  { id: 'c1', mine: false, avatar: '翼', text: '您好，我们已看过光伏电站的需求，具备热成像巡检与缺陷报告交付经验。' },
-  { id: 'c2', mine: true, avatar: '绿', text: '请问最快何时能安排团队进场？是否可以提供相近项目案例？', attach: '项目技术要求.pdf' },
-  { id: 'c3', mine: false, avatar: '翼', text: '明天下午可现场踏勘，案例方案已附上。', attach: '江津光伏巡检方案.pdf' },
-]
 
 /* ================= 商品设备（电商化展示层） ================= */
 // 图片相对路径处理：/static 为小程序本地资源原样使用，/uploads 等拼后端地址

@@ -481,7 +481,7 @@ const pickCity = (value) => {
 
 const goSearch = () => openSearch()
 
-/* ================= 就地搜索（覆盖层内本地过滤，逻辑与 demands/search.vue 一致） ================= */
+/* ================= 就地搜索（覆盖层内本地过滤） ================= */
 const showSearch = ref(false)
 const keyword = ref('')
 const searched = ref(false)

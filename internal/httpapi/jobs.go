@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"drone-platform/internal/domain"
+	"drone-platform/internal/service"
 )
 
 // ---- Jobs ----
@@ -44,7 +45,7 @@ func (s *Server) publishJob(w http.ResponseWriter, r *http.Request) {
 	}
 	j, err := s.jobSvc.PublishJob(a, r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		fail(w, r, jobMutationCode(err), err)
 		return
 	}
 	respond(w, r, http.StatusOK, j)
@@ -59,10 +60,18 @@ func (s *Server) closeJob(w http.ResponseWriter, r *http.Request) {
 	}
 	j, err := s.jobSvc.CloseJob(a, r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		fail(w, r, jobMutationCode(err), err)
 		return
 	}
 	respond(w, r, http.StatusOK, j)
+}
+
+// jobMutationCode 区分状态机流转违规（409）与归属/角色违规（403）。
+func jobMutationCode(err error) int {
+	if errors.Is(err, service.ErrInvalidJobTransition) {
+		return http.StatusConflict
+	}
+	return http.StatusForbidden
 }
 
 // GET /api/v1/jobs

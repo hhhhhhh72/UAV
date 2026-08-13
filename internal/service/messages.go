@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -33,7 +34,16 @@ func (s *MessageService) Get(msgID string) (domain.Message, error) {
 	return s.repo.FindByID(msgID)
 }
 
-func (s *MessageService) MarkRead(msgID string) (domain.Message, error) {
+// MarkRead 归属校验（C10 修复）：仅收件人本人可将消息标为已读，
+// 防止任意用户通过消息 ID 修改他人消息状态（IDOR）。
+func (s *MessageService) MarkRead(userID, msgID string) (domain.Message, error) {
+	m, err := s.repo.FindByID(msgID)
+	if err != nil {
+		return domain.Message{}, err
+	}
+	if m.ReceiverID != userID {
+		return domain.Message{}, errors.New("message not found")
+	}
 	return s.repo.MarkRead(msgID)
 }
 

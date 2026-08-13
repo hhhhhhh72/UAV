@@ -185,60 +185,16 @@
           <text class="state-desc">新的需求发布后会第一时间展示在这里。</text>
         </view>
 
-        <!-- 正常列表：首条可见数据为重点卡（全宽大图），其余为左图右文紧凑卡 -->
-        <view v-else class="demand-list">
-          <!-- 注意：不能用 :class="{ featured: index===0 }" 动态切换样式——
-               微信渲染层对 v-for 复用节点（key=d.id）的属性更新存在丢失风险，
-               实测老的大图卡掉到第二行后 class 残留 featured（display:block）
-               → body 跑到图片下方、与其他小图卡布局不一致。
-               改用 CSS :first-child 结构性选择器，由 DOM 位置决定样式 -->
-          <view
-            v-for="(d, index) in filteredDemands"
-            :key="d.id"
-            class="demand-card"
-            hover-class="tap-fade"
-            hover-stay-time="120"
-            @tap="goDemandDetail(d)"
-          >
-            <view v-if="index === 0" class="featured-photo">
-              <image
-                :src="d.image"
-                mode="aspectFill"
-                class="demand-photo"
-                @error="onDemandImageError(d)"
-                @tap.stop="previewFeaturedImg(d)"
-              />
-            </view>
-            <image
-              v-else
-              :src="d.image"
-              mode="aspectFill"
-              class="demand-photo"
-              :class="{ 'tall-photo': d.needsCrop }"
-              @error="onDemandImageError(d)"
-            />
-            <view class="demand-body">
-              <view class="card-badges">
-                <text class="type-badge">{{ d.type }}</text>
-                <text v-if="d.statusLabel" class="status-badge" :class="d.statusClass">{{ d.statusLabel }}</text>
-              </view>
-              <text class="demand-title">{{ d.title }}</text>
-              <view v-if="d.district || d.publishedAt" class="demand-meta">
-                <text v-if="d.district" class="meta-item">{{ d.district }}</text>
-                <text v-if="d.publishedAt" class="meta-item">{{ d.publishedAt }}</text>
-              </view>
-              <view class="demand-foot">
-                <view class="budget">
-                  <text class="budget-label">预算</text>
-                  <text class="budget-value">{{ d.budgetText }}</text>
-                </view>
-                <text v-if="d.bidCount != null" class="bid-count">已有 {{ d.bidCount }} 家报价</text>
-              </view>
-            </view>
-          </view>
-          <!-- 筛选无匹配 -->
-          <view v-if="filteredDemands.length === 0" class="filter-empty">当前类型暂无项目，试试其他筛选条件</view>
-        </view>
+        <!-- 正常列表：锚点无限循环窗口（首条重点卡动态展开/收缩，其余为左图右文紧凑卡） -->
+        <DemandLoop
+          v-else-if="filteredDemands.length"
+          :items="filteredDemands"
+          @select="goDemandDetail"
+          @preview="previewFeaturedImg"
+          @image-error="onDemandImageError"
+        />
+        <!-- 筛选无匹配 -->
+        <view v-else class="filter-empty">当前类型暂无项目，试试其他筛选条件</view>
       </view>
     </view>
   </Layout>
@@ -386,6 +342,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
+import DemandLoop from './components/DemandLoop.vue'
 import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
 import { request, BASE_URL } from '../../utils/request'
 
@@ -405,10 +362,10 @@ const ALLOWED_ROUTES = new Set([
   '/pages/services/index', '/pages/mine/index',
   '/pages/demands/list', '/pages/demands/detail', '/pkg-demand/pages/demands/publish',
   '/pkg-demand/pages/demands/mine', '/pages/intents/mine',
-  '/pages/search/index', '/pages/messages/index',
+  '/pages/messages/index',
   '/pkg-talent/pages/pilots/list', '/pkg-talent/pages/training/courses',
   '/pkg-talent/pages/experts/list', '/pkg-emergency/pages/emergency/resources', '/pkg-service/pages/compliance/news',
-  '/pkg-eco/pages/mall/index', '/pkg-eco/pages/shops/index', '/pkg-service/pages/more/index',
+  '/pkg-eco/pages/mall/index', '/pkg-service/pages/more/index',
 ])
 
 const resolveBannerLink = (raw) => {
@@ -683,6 +640,7 @@ const normalizeDemand = (d) => {
     publishedAt: fmtRelative(d.created_at),
     budgetText,
     bidCount,
+    description: String(d.description || '').trim(),
   }
 }
 
@@ -1604,154 +1562,6 @@ onPullDownRefresh(() => {
   font-weight: 700;
 }
 
-.demand-list {
-  display: grid;
-  gap: 9px;
-}
-.demand-card {
-  min-height: 100px;
-  border: 1px solid #EEF1F4;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #fff;
-  display: grid;
-  grid-template-columns: 80px minmax(0, 1fr);
-  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
-}
-.demand-photo {
-  width: 80px;
-  min-height: 100px;
-  display: block;
-}
-/* 超高图（旧上传竖图，比例 > 1.2）定向裁到与其他小图卡相同高度：
-   仅这类图生效，16:9 图无 tall-photo 标记，外观不变 */
-.demand-photo.tall-photo {
-  height: 100px;
-}
-.demand-body {
-  min-width: 0;
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-}
-.card-badges {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.type-badge,
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 18px;
-  padding: 0 6px;
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 700;
-}
-.type-badge {
-  color: #074D92;
-  background: #EAF3FB;
-}
-.status-badge.ok {
-  color: #168A55;
-  background: #E9F7F0;
-}
-.status-badge.neutral {
-  color: #667085;
-  background: #EEF1F4;
-}
-.demand-title {
-  margin-top: 6px;
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  /* 单行：小图卡高度由两行标题撑开（实际 ~130px）无法压矮，改单行与重点大图卡一致 */
-  -webkit-line-clamp: 1;
-  font-size: 13px;
-  line-height: 1.4;
-  font-weight: 700;
-  color: #17212B;
-}
-.demand-meta {
-  margin-top: 5px;
-  color: #667085;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 9px;
-}
-/* 预算行不再贴底（margin-top:auto 会让位置随卡片高度漂移）：
-   老需求用旧图（未裁剪，竖图在 112px 列中可高达 199px），把卡片撑高后
-   预算行被推到卡片底部，与 16:9 图的小图卡（126px 高）不在同一位置；
-   改为固定间距跟随内容流后，预算行位置只由上方标签/标题/meta 决定，
-   老的大图卡变普通卡后右侧数据与其他小图卡完全对齐（图片高度不再影响） */
-.demand-foot {
-  margin-top: 5px;
-  padding-top: 5px;
-  border-top: 1px solid #EEF1F4;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 7px;
-}
-.budget {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  color: #E96012;
-}
-.budget-label {
-  font-size: 9px;
-  font-weight: 500;
-}
-.budget-value {
-  font-size: 15px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.bid-count {
-  color: #98A2B3;
-  font-size: 9px;
-  white-space: nowrap;
-}
-
-/* 首条重点卡：全宽大图 + 紧凑正文（:first-child 由 DOM 位置决定，不依赖
-   动态 class，避免微信渲染层对列表节点 class 更新丢失导致残留 featured） */
-.demand-card:first-child {
-  min-height: 0;
-  display: block;
-}
-/* 重点卡固定高度图区（150px，全宽 aspectFill 裁切，比 16:9 大图紧凑；
-   卡片高度固定 → 每个需求块大小一致） */
-.featured-photo {
-  position: relative;
-  width: 100%;
-  height: 150px;
-}
-.featured-photo .demand-photo {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-}
-.demand-card:first-child .demand-body {
-  min-height: 84px;
-  padding: 8px 10px;
-}
-.demand-card:first-child .demand-title {
-  margin-top: 5px;
-  font-size: 13px;
-  -webkit-line-clamp: 1;
-}
-.demand-card:first-child .demand-meta {
-  margin-top: 5px;
-}
-.demand-card:first-child .demand-foot {
-  padding-top: 7px;
-}
-
 .filter-empty {
   display: block;
   padding: 28px 12px 24px;
@@ -2130,15 +1940,5 @@ onPullDownRefresh(() => {
 .tap-scale {
   transform: scale(0.985);
   opacity: 0.9;
-}
-
-/* ================= 响应式：375px 宽度 ================= */
-@media (max-width: 380px) {
-  .demand-card:not(:first-child) {
-    grid-template-columns: 72px minmax(0, 1fr);
-  }
-  .demand-card:not(:first-child) .demand-photo {
-    width: 72px;
-  }
 }
 </style>

@@ -2,6 +2,8 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -136,6 +138,32 @@ func NewComplianceService(repo repository.ComplianceRepository) *ComplianceServi
 	return &ComplianceService{repo: repo}
 }
 
+// complianceDocCategoryAliases: 合规文档英文分类 → 中文规范值。
+// 种子数据与小程序/管理端均以中文为准（政策/法规/标准/指南），兼容历史英文传值。
+var complianceDocCategoryAliases = map[string]string{
+	"policy": "政策", "regulation": "法规", "standard": "标准", "guide": "指南",
+}
+
+// complianceStandardCategoryAliases: 团体标准英文分类 → 中文规范值
+// （国家标准/行业标准/团体标准/企业标准，与小程序 standards.vue tabs 一致）。
+var complianceStandardCategoryAliases = map[string]string{
+	"national": "国家标准", "industry": "行业标准", "group": "团体标准", "enterprise": "企业标准",
+}
+
+func normalizeComplianceDocCategory(s string) string {
+	if v, ok := complianceDocCategoryAliases[strings.TrimSpace(s)]; ok {
+		return v
+	}
+	return strings.TrimSpace(s)
+}
+
+func normalizeComplianceStandardCategory(s string) string {
+	if v, ok := complianceStandardCategoryAliases[strings.TrimSpace(s)]; ok {
+		return v
+	}
+	return strings.TrimSpace(s)
+}
+
 // Docs
 func (s *ComplianceService) CreateDoc(title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
 	now := time.Now()
@@ -149,7 +177,7 @@ func (s *ComplianceService) CreateDoc(title, category, publisher, publishDate, s
 	d := domain.ComplianceDoc{
 		ID:          fmt.Sprintf("compdoc-%d", now.UnixNano()),
 		Title:       title,
-		Category:    category,
+		Category:    normalizeComplianceDocCategory(category),
 		Publisher:   publisher,
 		PublishDate: pd,
 		Status:      status,
@@ -164,7 +192,7 @@ func (s *ComplianceService) CreateDoc(title, category, publisher, publishDate, s
 
 func (s *ComplianceService) ListDocs(category string, page, pageSize int) ([]domain.ComplianceDoc, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListDocs(category, offset, pageSize)
+	return s.repo.ListDocs(normalizeComplianceDocCategory(category), offset, pageSize)
 }
 
 func (s *ComplianceService) UpdateDoc(id, title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
@@ -173,9 +201,12 @@ func (s *ComplianceService) UpdateDoc(id, title, category, publisher, publishDat
 		return domain.ComplianceDoc{}, err
 	}
 	d.Title = title
-	d.Category = category
+	d.Category = normalizeComplianceDocCategory(category)
 	d.Publisher = publisher
-	pd, _ := time.Parse("2006-01-02", publishDate)
+	pd, err := time.Parse("2006-01-02", publishDate)
+	if err != nil {
+		slog.Warn("compliance update doc: parse publish date", "publish_date", publishDate, "err", err)
+	}
 	d.PublishDate = pd
 	d.Status = status
 	d.Summary = summary
@@ -190,7 +221,7 @@ func (s *ComplianceService) DeleteDoc(id string) error {
 }
 
 // Standards
-func (s *ComplianceService) CreateStandard(title, stdNumber, publisher, effectiveDate, status, scope, fileURL string) (domain.StandardDoc, error) {
+func (s *ComplianceService) CreateStandard(title, category, stdNumber, publisher, effectiveDate, status, scope, fileURL string) (domain.StandardDoc, error) {
 	now := time.Now()
 	if status == "" {
 		status = "published"
@@ -202,6 +233,7 @@ func (s *ComplianceService) CreateStandard(title, stdNumber, publisher, effectiv
 	sd := domain.StandardDoc{
 		ID:            fmt.Sprintf("std-%d", now.UnixNano()),
 		Title:         title,
+		Category:      normalizeComplianceStandardCategory(category),
 		StandardNo:    stdNumber,
 		Publisher:     publisher,
 		EffectiveDate: pd,
@@ -216,7 +248,7 @@ func (s *ComplianceService) CreateStandard(title, stdNumber, publisher, effectiv
 
 func (s *ComplianceService) ListStandards(category string, page, pageSize int) ([]domain.StandardDoc, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListStandards(category, offset, pageSize)
+	return s.repo.ListStandards(normalizeComplianceStandardCategory(category), offset, pageSize)
 }
 
 func (s *ComplianceService) DeleteStandard(id string) error { return s.repo.DeleteStandard(id) }
@@ -228,12 +260,13 @@ func (s *ComplianceService) FindStandardByID(id string) (domain.StandardDoc, err
 	return s.repo.FindStandardByID(id)
 }
 
-func (s *ComplianceService) UpdateStandard(id, title, stdNumber, publisher, effectiveDate, scope, status, fileURL string) (domain.StandardDoc, error) {
+func (s *ComplianceService) UpdateStandard(id, title, category, stdNumber, publisher, effectiveDate, scope, status, fileURL string) (domain.StandardDoc, error) {
 	sd, err := s.repo.FindStandardByID(id)
 	if err != nil {
 		return domain.StandardDoc{}, err
 	}
 	sd.Title = title
+	sd.Category = normalizeComplianceStandardCategory(category)
 	sd.StandardNo = stdNumber
 	sd.Publisher = publisher
 	sd.Scope = scope

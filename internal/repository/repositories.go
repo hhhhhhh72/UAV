@@ -9,6 +9,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -81,6 +82,8 @@ type EnterpriseRepository interface {
 	Pending() ([]domain.Enterprise, error)
 	Search(string) ([]domain.Enterprise, error)
 	Delete(id string) error
+	AddDocument(domain.EnterpriseDocument) (domain.EnterpriseDocument, error)
+	ListDocuments(enterpriseID string) ([]domain.EnterpriseDocument, error)
 }
 
 type EmploymentRepository interface {
@@ -90,6 +93,12 @@ type EmploymentRepository interface {
 }
 
 // ContractRepository manages contracts and their signing lifecycle via webhook callbacks.
+// ContractTemplateRepository manages reusable contract templates.
+type ContractTemplateRepository interface {
+	List() ([]domain.ContractTemplate, error)
+	Create(domain.ContractTemplate) (domain.ContractTemplate, error)
+}
+
 type ContractRepository interface {
 	Create(domain.Contract) (domain.Contract, error)
 	ListByEnterprise(enterpriseID string, offset, limit int) ([]domain.Contract, int, error)
@@ -113,10 +122,12 @@ type ResumeRepository interface {
 	Update(id string, r domain.Resume) (domain.Resume, error)
 	FindByID(id string) (domain.Resume, error)
 	ListByUser(userID string) ([]domain.Resume, error)
+	ListAll(offset, limit int) ([]domain.Resume, int, error)
 }
 
 type JobApplicationRepository interface {
 	Create(domain.JobApplication) (domain.JobApplication, error)
+	FindByID(id string) (domain.JobApplication, error)
 	UpdateStatus(id string, status domain.AppStatus) (domain.JobApplication, error)
 	ListByJob(jobID string) ([]domain.JobApplication, error)
 	ListByApplicant(userID string) ([]domain.JobApplication, error)
@@ -158,6 +169,8 @@ type LabourOrderRepository interface {
 	CreateQuote(domain.LabourQuote) (domain.LabourQuote, error)
 	ListQuotes(orderID string) ([]domain.LabourQuote, error)
 	CreateAssignment(domain.Assignment) (domain.Assignment, error)
+	ListAssignmentsByOrder(orderID string) ([]domain.Assignment, error)
+	ListAssignmentsByWorker(workerID string) ([]domain.Assignment, error)
 }
 
 // BidRepository manages demand bids (quotations). Bids are created by bidders,
@@ -252,12 +265,14 @@ type ServiceListingRepository interface {
 type RepairRepository interface {
 	Create(domain.RepairOrder) (domain.RepairOrder, error)
 	ListByUser(userID string) ([]domain.RepairOrder, error)
+	ListAll(offset, limit int) ([]domain.RepairOrder, int, error)
 }
 
 // PolicyRepository manages insurance policies.
 type PolicyRepository interface {
 	Create(domain.InsurancePolicy) (domain.InsurancePolicy, error)
 	ListByUser(userID string) ([]domain.InsurancePolicy, error)
+	ListAll(offset, limit int) ([]domain.InsurancePolicy, int, error)
 }
 
 // InspectionRepository manages annual drone inspections.
@@ -271,6 +286,7 @@ type InspectionRepository interface {
 type LoanRepository interface {
 	Create(domain.LoanApplication) (domain.LoanApplication, error)
 	ListByUser(userID string) ([]domain.LoanApplication, error)
+	ListAll(offset, limit int) ([]domain.LoanApplication, int, error)
 }
 
 // MessageRepository manages in-app messages.
@@ -341,10 +357,22 @@ type TradeOrderRepository interface {
 }
 
 // EscrowRepository manages escrow accounts and transactions.
+// 资金操作哨兵错误（C6 修复）：Service 层用 errors.Is 判断，
+// 避免依赖字符串匹配。
+var (
+	ErrInsufficientBalance       = errors.New("insufficient balance")
+	ErrInsufficientFrozenBalance = errors.New("insufficient frozen balance")
+)
+
 type EscrowRepository interface {
 	GetAccount(userID string) (domain.EscrowAccount, error)
-	UpsertAccount(domain.EscrowAccount) error
-	CreateTransaction(domain.EscrowTransaction) (domain.EscrowTransaction, error)
+	// 以下四个资金方法必须原子：调整余额并写入流水，全成或全败。
+	// 余额/冻结不足时返回 ErrInsufficientBalance / ErrInsufficientFrozenBalance。
+	// 旧接口的读-改-写（GetAccount→UpsertAccount）存在并发丢更新，已移除。
+	Deposit(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
+	Freeze(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
+	Release(fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
+	Refund(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	ListTransactions(userID string) ([]domain.EscrowTransaction, error)
 }
 
@@ -467,13 +495,17 @@ type ResourceRepository interface {
 	List(resType string, offset, limit int) ([]domain.IndustryResource, int, error)
 	Update(domain.IndustryResource) (domain.IndustryResource, error)
 	Delete(id string) error
+	// Bookings (C11: 小程序资源预约 → POST /api/v1/industry-resources/{id}/book)
+	CreateBooking(domain.IndustryResourceBooking) (domain.IndustryResourceBooking, error)
+	ListBookingsByResource(resourceID string) ([]domain.IndustryResourceBooking, error)
+	ListBookingsByUser(userID string) ([]domain.IndustryResourceBooking, error)
 }
 
 // EmergencyRepository manages emergency resources and dispatches.
 type EmergencyRepository interface {
 	CreateResource(domain.EmergencyResource) (domain.EmergencyResource, error)
 	FindResourceByID(id string) (domain.EmergencyResource, error)
-	ListResources(offset, limit int) ([]domain.EmergencyResource, int, error)
+	ListResources(resType, q string, offset, limit int) ([]domain.EmergencyResource, int, error)
 	UpdateResource(domain.EmergencyResource) (domain.EmergencyResource, error)
 	DeleteResource(id string) error
 	FindDispatchByID(id string) (domain.EmergencyDispatch, error)
@@ -556,7 +588,7 @@ type CooperationRepository interface {
 type RescueCaseRepository interface {
 	Create(domain.RescueCase) (domain.RescueCase, error)
 	FindByID(id string) (domain.RescueCase, error)
-	List(eventType string, offset, limit int) ([]domain.RescueCase, int, error)
+	List(eventType, q string, offset, limit int) ([]domain.RescueCase, int, error)
 }
 
 type EmergencyDeptRepository interface {

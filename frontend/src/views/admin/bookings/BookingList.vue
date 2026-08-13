@@ -6,6 +6,7 @@
       :columns="columns"
       :search-fields="searchFields"
       :batch-actions="batchActions"
+      :batch-delete="false"
     >
       <template #time="{ record }">
         <span class="time-text">{{ formatTime(record.start_time) }} ~ {{ formatTime(record.end_time).split(' ')[1] }}</span>

@@ -93,6 +93,39 @@ func (s *Server) listPublicEnterprises(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, out)
 }
 
+// GET /api/v1/enterprises/public/detail?id={id} — 公开企业详情。
+// 仅已审核企业可见；未审核/不存在统一 404，不暴露存在性。
+// 路径挂 public 前缀：auth.go publicPrefixes 的前缀匹配自动放行匿名访问。
+func (s *Server) getPublicEnterprise(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		fail(w, r, http.StatusNotFound, errors.New("enterprise not found"))
+		return
+	}
+	e, err := s.enterpriseSvc.FindByID(id)
+	if err != nil || e.Status != domain.EnterpriseApproved {
+		fail(w, r, http.StatusNotFound, errors.New("enterprise not found"))
+		return
+	}
+	// 公开展示字段（PRD FR-2.3）：不含电话/信用代码等敏感信息
+	respond(w, r, http.StatusOK, map[string]any{
+		"id":                e.ID,
+		"name":              e.Name,
+		"status":            e.Status,
+		"is_member":         e.IsMember,
+		"created_at":        e.CreatedAt,
+		"logo":              e.Logo,
+		"cover_image":       e.CoverImage,
+		"industry_category": e.IndustryCategory,
+		"capability_tags":   e.CapabilityTags,
+		"description":       e.Description,
+		"address":           e.Address,
+		"scale":             e.Scale,
+		"business_hours":    e.BusinessHours,
+		"founded_at":        e.FoundedAt,
+	})
+}
+
 // GET /api/v1/admin/enterprises
 func (s *Server) listEnterprises(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)

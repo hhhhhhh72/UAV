@@ -60,7 +60,7 @@
             <u-cell
               v-for="doc in section.list"
               :key="doc.id"
-              :label="doc.description || ''"
+              :label="doc.summary || ''"
               is-link
               @click="openDoc(doc)"
             >
@@ -82,11 +82,10 @@
 import { request } from '../../../utils/request'
 
 var sectionConfigs = [
-  { key: 'registration', title: '实名登记', value: 'real_name' },
-  { key: 'flight_report', title: '飞行报备', value: 'flight_report' },
-  { key: 'operation_license', title: '经营资质', value: 'operation_license' },
-  { key: 'airworthiness', title: '适航指南', value: 'airworthiness' },
-  { key: 'no_fly', title: '禁飞区域', value: 'no_fly_zone' },
+  { key: 'policy', title: '政策', value: '政策' },
+  { key: 'regulation', title: '法规', value: '法规' },
+  { key: 'standard', title: '标准', value: '标准' },
+  { key: 'guide', title: '指南', value: '指南' },
 ]
 
 export default {
@@ -171,7 +170,7 @@ export default {
     openDoc(doc) {
       uni.showModal({
         title: doc.title || '文档内容',
-        content: doc.content || doc.description || '暂无详细内容',
+        content: doc.summary || '暂无详细内容',
         showCancel: false,
         confirmText: '知道了',
       })

@@ -21,11 +21,23 @@ func NewFileService(uploadDir string) *FileService {
 }
 
 func (s *FileService) Upload(ownerID string, filename, contentType string, reader io.Reader) (domain.FileRecord, error) {
+	return s.uploadTo(ownerID, filename, contentType, reader, s.uploadDir)
+}
+
+// UploadPrivate 存入 uploads/private/ 子目录（身份证影像等敏感文件，仅鉴权后可读）。
+func (s *FileService) UploadPrivate(ownerID string, filename, contentType string, reader io.Reader) (domain.FileRecord, error) {
+	return s.uploadTo(ownerID, filename, contentType, reader, filepath.Join(s.uploadDir, "private"))
+}
+
+func (s *FileService) uploadTo(ownerID string, filename, contentType string, reader io.Reader, dir string) (domain.FileRecord, error) {
 	now := time.Now()
 	id := fmt.Sprintf("file-%d", now.UnixNano())
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return domain.FileRecord{}, fmt.Errorf("create upload dir: %w", err)
+	}
 
 	hasher := sha256.New()
-	destPath := filepath.Join(s.uploadDir, id)
+	destPath := filepath.Join(dir, id)
 	f, err := os.Create(destPath)
 	if err != nil {
 		return domain.FileRecord{}, fmt.Errorf("create file: %w", err)

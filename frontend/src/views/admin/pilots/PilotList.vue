@@ -6,6 +6,7 @@
       :columns="columns"
       :search-fields="searchFields"
       :batch-actions="batchActions"
+      :batch-delete="false"
     >
       <template #certCount="{ record }">
         <span>{{ (record.cert_ids || []).length }} 项</span>

@@ -123,6 +123,20 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/admin/messages/{id}", s.updateMessage)
 	mux.HandleFunc("DELETE /api/v1/admin/messages/{id}", s.deleteMessage)
 
+	// === 保险金融/维修/简历 管理端列表（P2-1 补齐，见 admin_lists_p2.go）===
+	mux.HandleFunc("GET /api/v1/admin/policies", s.listAdminPolicies)
+	mux.HandleFunc("GET /api/v1/admin/inspections", s.listAdminInspections)
+	mux.HandleFunc("GET /api/v1/admin/repairs", s.listAdminRepairs)
+	mux.HandleFunc("GET /api/v1/admin/loans", s.listAdminLoans)
+	mux.HandleFunc("GET /api/v1/admin/resumes", s.listAdminResumes)
+
+	// === 场地/讲师/校企/应急部门/救援案例：复用既有公开列表 handler ===
+	mux.HandleFunc("GET /api/v1/admin/venues", s.listVenues)
+	mux.HandleFunc("GET /api/v1/admin/instructors", s.listInstructors)
+	mux.HandleFunc("GET /api/v1/admin/cooperations", s.listCooperations)
+	mux.HandleFunc("GET /api/v1/admin/emergency-depts", s.listEmergencyDepts)
+	mux.HandleFunc("GET /api/v1/admin/rescue-cases", s.listRescueCases)
+
 	// === 合规文档 === (POST: POST /api/v1/admin/compliance-docs in biz_handlers.go — DUPLICATE, SKIP)
 	mux.HandleFunc("GET /api/v1/admin/compliance-docs", s.listComplianceDocs)
 	mux.HandleFunc("GET /api/v1/admin/compliance-docs/{id}", s.getComplianceDoc)

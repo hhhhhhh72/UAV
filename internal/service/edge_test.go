@@ -41,8 +41,6 @@ func TestJobServiceAll(t *testing.T) {
 	j, _ := svc.CreateJob(entActor(), "飞手招聘", "描述", "重庆", 100000)
 	// PublishJob
 	svc.PublishJob(entActor(), j.ID)
-	// CloseJob
-	svc.CloseJob(entActor(), j.ID)
 	// ListPublishedJobs
 	svc.ListPublishedJobs(0, 20)
 	// ListMyJobs
@@ -53,8 +51,13 @@ func TestJobServiceAll(t *testing.T) {
 	svc.UpdateResume(indActor(), r.ID, "更新简历", "张三", "13800000000", "a@b.com", "本科", "新经验...", []string{"巡检"}, "", "新经验...", "public")
 	// ListMyResumes
 	svc.ListMyResumes(indActor())
-	// Apply
-	app, _ := svc.Apply(indActor(), j.ID, r.ID)
+	// Apply（招聘中状态方可投递）
+	app, err := svc.Apply(indActor(), j.ID, r.ID)
+	if err != nil {
+		t.Fatalf("apply to published job: %v", err)
+	}
+	// CloseJob
+	svc.CloseJob(entActor(), j.ID)
 	// UpdateApplicationStatus
 	svc.UpdateApplicationStatus(entActor(), app.ID, domain.AppInterviewing)
 	// ListApplicationsForJob

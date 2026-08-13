@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,11 +18,30 @@ func (r *rescueCaseRepo) FindByID(id string) (domain.RescueCase, error) {
 	for _, rc := range r.items { if rc.ID == id { return rc, nil } }
 	return domain.RescueCase{}, fmt.Errorf("not found")
 }
-func (r *rescueCaseRepo) List(eventType string, offset, limit int) ([]domain.RescueCase, int, error) {
+func (r *rescueCaseRepo) List(eventType, q string, offset, limit int) ([]domain.RescueCase, int, error) {
 	r.mu.RLock(); defer r.mu.RUnlock()
+	query := strings.ToLower(strings.TrimSpace(q))
 	filtered := make([]domain.RescueCase, 0)
-	for _, rc := range r.items { if eventType == "" || rc.EventType == eventType { filtered = append(filtered, rc) } }
+	for _, rc := range r.items {
+		if eventType != "" && rc.EventType != eventType {
+			continue
+		}
+		if query != "" && !matchAnyFold(query, rc.Title, rc.Location, rc.Summary, rc.TeamName, rc.DroneModel) {
+			continue
+		}
+		filtered = append(filtered, rc)
+	}
 	return paginateSlice(filtered, offset, limit)
+}
+
+// matchAnyFold reports whether any field contains query (case-insensitive).
+func matchAnyFold(query string, fields ...string) bool {
+	for _, f := range fields {
+		if strings.Contains(strings.ToLower(f), query) {
+			return true
+		}
+	}
+	return false
 }
 
 type emergDeptRepo struct{ mu sync.RWMutex; depts []domain.EmergencyDept; drills []domain.EmergencyDrill }

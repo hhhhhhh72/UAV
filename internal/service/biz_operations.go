@@ -1,7 +1,9 @@
 package service
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -55,19 +57,25 @@ func (s *CompetitionService) Delete(id string) error {
 	return s.repo.Delete(id)
 }
 
-func (s *CompetitionService) Register(competitionID, userID, teamName string, memberCount int, contactInfo string) (domain.CompetitionReg, error) {
+// Register 报名：name/phone/idCard 为参赛人实名信息，photoURL/idCardImage 为证件影像（C13 补字段）。
+func (s *CompetitionService) Register(competitionID, userID, teamName string, memberCount int, contactInfo, name, phone, idCard, photoURL, idCardImage string) (domain.CompetitionReg, error) {
 	now := time.Now()
 	// Check competition exists
 	if _, err := s.repo.FindByID(competitionID); err != nil {
 		return domain.CompetitionReg{}, err
 	}
 	cr := domain.CompetitionReg{
-		ID:            fmt.Sprintf("compreg-%d", now.UnixNano()),
+		ID:            fmt.Sprintf("compreg-%d-%d", now.UnixNano(), nextSeq()),
 		CompetitionID: competitionID,
 		UserID:        userID,
 		TeamName:      teamName,
 		MemberCount:   memberCount,
 		ContactInfo:   contactInfo,
+		Name:          name,
+		Phone:         phone,
+		IDCard:        idCard,
+		PhotoURL:      photoURL,
+		IDCardImage:   idCardImage,
 		Status:        "registered",
 		CreatedAt:     now,
 	}
@@ -160,6 +168,9 @@ func (s *EventService) ListRegs(eventID string) ([]domain.EventRegistration, err
 
 // ---- ResourceService (产业资源共享) ----
 
+// ErrResourceNotFound 预约/查询的资源不存在（Handler 映射为 404）。
+var ErrResourceNotFound = errors.New("resource not found")
+
 type ResourceService struct {
 	repo repository.ResourceRepository
 }
@@ -174,7 +185,7 @@ func (s *ResourceService) Create(ownerID, name, resType, model, specs, location,
 		visibilityLevel = "public"
 	}
 	r := domain.IndustryResource{
-		ID:              fmt.Sprintf("res-%d", now.UnixNano()),
+		ID:              fmt.Sprintf("res-%d-%d", now.UnixNano(), nextSeq()),
 		OwnerID:         ownerID,
 		Name:            name,
 		ResType:         resType,
@@ -224,6 +235,33 @@ func (s *ResourceService) Update(id, name, resType, model, specs, location, book
 
 func (s *ResourceService) Delete(id string) error { return s.repo.Delete(id) }
 
+// Book 提交资源预约（C11：小程序资源详情页 → POST /api/v1/industry-resources/{id}/book）。
+// date 为 YYYY-MM-DD（小程序日期选择器格式，格式校验在 Handler 层）。
+func (s *ResourceService) Book(userID, resourceID, date, purpose, contactName, contactPhone string) (domain.IndustryResourceBooking, error) {
+	if _, err := s.repo.FindByID(resourceID); err != nil {
+		return domain.IndustryResourceBooking{}, fmt.Errorf("%w: %s", ErrResourceNotFound, resourceID)
+	}
+	now := time.Now()
+	b := domain.IndustryResourceBooking{
+		ID:           fmt.Sprintf("resbook-%d-%d", now.UnixNano(), nextSeq()),
+		ResourceID:   resourceID,
+		UserID:       userID,
+		BookingDate:  date,
+		Purpose:      purpose,
+		ContactName:  contactName,
+		ContactPhone: contactPhone,
+		Status:       "pending",
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	return s.repo.CreateBooking(b)
+}
+
+// ListBookingsByResource 某资源的全部预约（供测试与管理端查询）。
+func (s *ResourceService) ListBookingsByResource(resourceID string) ([]domain.IndustryResourceBooking, error) {
+	return s.repo.ListBookingsByResource(resourceID)
+}
+
 // ---- EmergencyService (应急管理) ----
 
 type EmergencyService struct {
@@ -236,13 +274,31 @@ func NewEmergencyService(repo repository.EmergencyRepository) *EmergencyService 
 
 // Emergency Resources
 
+// emergencyResTypeAliases: 应急资源类型中文 → 英文规范值。
+// 小程序与 domain 约定英文键（drone/comm/vehicle/medical），管理端可能传中文。
+var emergencyResTypeAliases = map[string]string{
+	"无人机": "drone",
+	"通讯":  "comm",
+	"通信":  "comm",
+	"车辆":  "vehicle",
+	"医疗":  "medical",
+}
+
+// normalizeEmergencyResType 将中文别名归一到英文规范值；未知值原样返回。
+func normalizeEmergencyResType(s string) string {
+	if v, ok := emergencyResTypeAliases[strings.TrimSpace(s)]; ok {
+		return v
+	}
+	return strings.TrimSpace(s)
+}
+
 func (s *EmergencyService) CreateResource(ownerID, name, resType, specs, location, contactInfo string, quantity int) (domain.EmergencyResource, error) {
 	now := time.Now()
 	r := domain.EmergencyResource{
-		ID:          fmt.Sprintf("emres-%d", now.UnixNano()),
+		ID:          fmt.Sprintf("emres-%d-%d", now.UnixNano(), nextSeq()),
 		OwnerID:     ownerID,
 		Name:        name,
-		ResType:     resType,
+		ResType:     normalizeEmergencyResType(resType),
 		Specs:       specs,
 		Quantity:    quantity,
 		Location:    location,
@@ -254,9 +310,9 @@ func (s *EmergencyService) CreateResource(ownerID, name, resType, specs, locatio
 	return s.repo.CreateResource(r)
 }
 
-func (s *EmergencyService) ListResources(page, pageSize int) ([]domain.EmergencyResource, int, error) {
+func (s *EmergencyService) ListResources(resType, q string, page, pageSize int) ([]domain.EmergencyResource, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListResources(offset, pageSize)
+	return s.repo.ListResources(normalizeEmergencyResType(resType), strings.TrimSpace(q), offset, pageSize)
 }
 
 func (s *EmergencyService) GetResource(id string) (domain.EmergencyResource, error) {
@@ -295,8 +351,18 @@ func (s *EmergencyService) ListDispatches(page, pageSize int) ([]domain.Emergenc
 }
 
 func (s *EmergencyService) UpdateResource(id, name, resType, specs, location, contactInfo, status string, quantity int) (domain.EmergencyResource, error) {
-	r, err := s.repo.FindResourceByID(id); if err != nil { return domain.EmergencyResource{}, err }
-	r.Name = name; r.ResType = resType; r.Specs = specs; r.Location = location; r.ContactInfo = contactInfo; r.Status = status; r.Quantity = quantity; r.UpdatedAt = time.Now()
+	r, err := s.repo.FindResourceByID(id)
+	if err != nil {
+		return domain.EmergencyResource{}, err
+	}
+	r.Name = name
+	r.ResType = normalizeEmergencyResType(resType)
+	r.Specs = specs
+	r.Location = location
+	r.ContactInfo = contactInfo
+	r.Status = status
+	r.Quantity = quantity
+	r.UpdatedAt = time.Now()
 	return s.repo.UpdateResource(r)
 }
 
@@ -304,8 +370,17 @@ func (s *EmergencyService) DeleteResource(id string) error { return s.repo.Delet
 func (s *EmergencyService) DeleteDispatch(id string) error { return s.repo.DeleteDispatch(id) }
 
 func (s *EmergencyService) UpdateDispatch(id, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
-	d, err := s.repo.FindDispatchByID(id); if err != nil { return domain.EmergencyDispatch{}, err }
-	d.ResourceID = resourceID; d.EventDesc = eventDesc; d.Location = location; d.Commander = commander; d.Result = result; d.Status = status
-	d.StartTime = startTime; d.EndTime = endTime
+	d, err := s.repo.FindDispatchByID(id)
+	if err != nil {
+		return domain.EmergencyDispatch{}, err
+	}
+	d.ResourceID = resourceID
+	d.EventDesc = eventDesc
+	d.Location = location
+	d.Commander = commander
+	d.Result = result
+	d.Status = status
+	d.StartTime = startTime
+	d.EndTime = endTime
 	return s.repo.UpdateDispatch(d)
 }

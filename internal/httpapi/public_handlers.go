@@ -9,58 +9,98 @@ import (
 // ── public handlers for mini-program ──
 
 func (s *Server) publicListCourses(w http.ResponseWriter, r *http.Request) {
-	all, _ := s.trainingSvc.ListCourses()
+	all, err := s.trainingSvc.ListCourses()
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListCerts(w http.ResponseWriter, r *http.Request) {
-	all, _ := s.trainingSvc.ListAllCertificates()
+	all, err := s.trainingSvc.ListAllCertificates()
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
-	all, _ := s.studyTourRepo.List()
+	all, err := s.studyTourRepo.List()
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListRD(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, _ := s.rdService.List("", page, size)
+	all, _, err := s.rdService.List("", page, size)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListResearch(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, _ := s.researchSvc.List(page, size)
+	all, _, err := s.researchSvc.List(page, size)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListTestSites(w http.ResponseWriter, r *http.Request) {
-	all, _ := s.testSiteSvc.List("")
+	all, err := s.testSiteSvc.List("")
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListEmergency(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, _ := s.emergencySvc.ListResources(page, size)
+	all, _, err := s.emergencySvc.ListResources("", "", page, size)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListReports(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, _ := s.reportSvc.List(page, size)
+	all, _, err := s.reportSvc.List(page, size)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListIndustryResources(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, _ := s.resourceSvc.List("", page, size)
+	all, _, err := s.resourceSvc.List("", page, size)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, all)
 }
 
 func (s *Server) publicListServices(w http.ResponseWriter, r *http.Request) {
 	// services = jobs + demands summary
-	jobs, _, _ := s.jobSvc.ListPublishedJobs(0, 100)
+	jobs, _, err := s.jobSvc.ListPublishedJobs(0, 100)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	respond(w, r, 200, map[string]any{
 		"jobs":    jobs,
 		"demands": "see /api/v1/demands",

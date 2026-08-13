@@ -13,7 +13,9 @@ import (
 func newBizServer(t *testing.T) http.Handler {
 	t.Helper()
 	tokens, err := httpapi.NewTokenManager(testSecret)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	demandRepo := memory.NewDemandRepository(nil)
 	intentRepo := memory.NewIntentRepository()
 	// auth() issues tokens for user-1; pre-seed it so /api/v1/me writes resolve.
@@ -54,14 +56,19 @@ func newBizServer(t *testing.T) http.Handler {
 	srv.SetRDChallengeService(service.NewRDChallengeService(memory.NewRDChallengeRepository()))
 	srv.SetResearchProjectService(service.NewResearchProjectService(memory.NewResearchProjectRepository()))
 	srv.SetProjectAppService(service.NewProjectAppService(memory.NewProjectAppRepository()))
-	srv.SetCompetitionService(service.NewCompetitionService(memory.NewCompetitionRepository()))
+	srv.SetCompetitionService(service.NewCompetitionService(memory.NewCompetitionRepository(nil)))
 	srv.SetEventService(service.NewEventService(memory.NewEventRepository()))
 	srv.SetResourceService(service.NewResourceService(memory.NewResourceRepository()))
 	srv.SetEmergencyService(service.NewEmergencyService(memory.NewEmergencyRepository()))
+	srv.SetRescueCaseService(service.NewRescueCaseService(memory.NewRescueCaseRepository()))
+	srv.SetCooperationService(service.NewCooperationService(memory.NewCooperationRepository()))
+	srv.SetEmergencyDeptService(service.NewEmergencyDeptService(memory.NewEmergencyDeptRepository()))
 	srv.SetCollegeService(service.NewCollegeService(memory.NewCollegeRepository()))
 	srv.SetExhibitionService(service.NewExhibitionService(memory.NewExhibitionRepository()))
 	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
 	srv.SetTransformationService(service.NewTransformationService(memory.NewTransformationRepository()))
+	srv.SetAssociationMemberService(service.NewAssociationMemberService(memory.NewAssociationMemberRepository()))
+	srv.SetContractTemplateService(service.NewContractTemplateService(memory.NewContractTemplateRepository()))
 	srv.SetStudyTourRepo(memory.NewStudyTourRepository())
 	srv.SetEmergencyService(service.NewEmergencyService(memory.NewEmergencyRepository()))
 	srv.SetMatchingService(service.NewMatchingService(demandRepo))
@@ -74,62 +81,84 @@ func newBizServer(t *testing.T) http.Handler {
 func TestBizExpertPublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/experts", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET experts: %d %s", w.Code, w.Body.String()) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET experts: %d %s", w.Code, w.Body.String())
+	}
 	t.Log("expert public list OK")
 }
 
 func TestBizCasePublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/cases", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET cases: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET cases: %d", w.Code)
+	}
 }
 
 func TestBizCompliancePublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/compliance-docs", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET docs: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET docs: %d", w.Code)
+	}
 	w = request(t, app, http.MethodGet, "/api/v1/compliance-standards", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET standards: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET standards: %d", w.Code)
+	}
 }
 
 func TestBizAchievementPublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/achievements", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET achievements: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET achievements: %d", w.Code)
+	}
 }
 
 func TestBizCompetitionPublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/competitions", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET competitions: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET competitions: %d", w.Code)
+	}
 }
 
 func TestBizEventPublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/events", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET events: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET events: %d", w.Code)
+	}
 }
 
 func TestBizReportPublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/industry-reports", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET reports: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET reports: %d", w.Code)
+	}
 }
 
 func TestBizEmergencyPublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/emergency-resources", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET emergency: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET emergency: %d", w.Code)
+	}
 }
 
 func TestBizResourcePublicList(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/industry-resources", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET resources: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET resources: %d", w.Code)
+	}
 }
 
 func TestBizRecommendEndpoint(t *testing.T) {
 	app := newBizServer(t)
 	w := request(t, app, http.MethodGet, "/api/v1/recommendations?biz_type=cable_inspection&limit=5", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("GET recommend: %d %s", w.Code, w.Body.String()) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET recommend: %d %s", w.Code, w.Body.String())
+	}
 }

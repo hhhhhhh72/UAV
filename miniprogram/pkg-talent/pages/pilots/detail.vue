@@ -114,7 +114,10 @@
         <view class="section-title"><view class="title-bar" />个人信息</view>
         <view class="profile-row">
           <text class="profile-label">证件号</text>
-          <text class="profile-value">{{ pilot.id_card || '已脱敏' }}</text>
+          <view class="profile-id">
+            <text class="profile-value">{{ maskIdCard(pilot.id_card) }}</text>
+            <text class="profile-id-hint">已脱敏，仅协会审核可见</text>
+          </view>
         </view>
         <view class="profile-row">
           <text class="profile-label">认证时间</text>
@@ -271,6 +274,13 @@ const countUpNums = (target, duration = 800) => {
     if (p < 1) setTimeout(tick, 16)
   }
   tick()
+}
+
+// ── 证件号脱敏：保留前 3 位 + 11 个 * + 后 4 位（与后端 MaskIDCard 口径一致）──
+const maskIdCard = (v) => {
+  const s = String(v || '')
+  if (s.length < 8) return '已脱敏'
+  return `${s.slice(0, 3)}***********${s.slice(-4)}`
 }
 
 // ── 时间格式化 ────────────────────────
@@ -659,6 +669,13 @@ onReady(() => {
 .profile-row:last-child { border-bottom: none; }
 .profile-label { font-size: 26rpx; color: #6B7B95; }
 .profile-value { font-size: 28rpx; font-weight: 600; color: #0A1F44; }
+.profile-id {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4rpx;
+}
+.profile-id-hint { font-size: 20rpx; color: #ADB8C7; }
 
 /* ═══ 六、飞手简介 ═══ */
 .section-text {

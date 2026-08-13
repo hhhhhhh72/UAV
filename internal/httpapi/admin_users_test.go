@@ -59,3 +59,34 @@ func TestAdminUsersPagination(t *testing.T) {
 		t.Fatalf("page3 items: expected 2, got %d", len(page3.Data))
 	}
 }
+
+// TestCreateUserRoleRestrictions: createUser 防提权回归（C1）。
+//   - association_admin 不得创建 platform_admin / association_admin 账号
+//   - 任意管理员可创建 individual / enterprise
+//   - 非法角色字符串一律 400
+func TestCreateUserRoleRestrictions(t *testing.T) {
+	app := newServer(t)
+
+	cases := []struct {
+		name     string
+		actor    domain.Role
+		target   string
+		wantCode int
+	}{
+		{"association admin cannot create platform_admin", domain.RoleAssociationAdmin, "platform_admin", http.StatusForbidden},
+		{"association admin cannot create association_admin", domain.RoleAssociationAdmin, "association_admin", http.StatusForbidden},
+		{"association admin can create individual", domain.RoleAssociationAdmin, "individual", http.StatusCreated},
+		{"association admin can create enterprise", domain.RoleAssociationAdmin, "enterprise", http.StatusCreated},
+		{"platform admin can create platform_admin", domain.RolePlatformAdmin, "platform_admin", http.StatusCreated},
+		{"invalid role rejected", domain.RolePlatformAdmin, "superuser", http.StatusBadRequest},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := []byte(fmt.Sprintf(`{"id":"u-%s","role":"%s"}`, tc.target, tc.target))
+			w := request(t, app, http.MethodPost, "/api/v1/admin/users", body, tc.actor)
+			if w.Code != tc.wantCode {
+				t.Fatalf("code: expected %d, got %d (%s)", tc.wantCode, w.Code, w.Body.String())
+			}
+		})
+	}
+}

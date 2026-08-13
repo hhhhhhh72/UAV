@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"drone-platform/internal/domain"
+	"drone-platform/internal/service"
 )
 
 func parsePagination(r *http.Request) (int, int) {
@@ -123,14 +125,7 @@ func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 }
 
 // ----- Reviews -----
-func (s *Server) listAdminReviews(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.reviewSvc.ListAll("", 0, 100000)
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	paginatedRespond(w, r, items, total)
-}
+// GET /api/v1/admin/reviews 实际绑定 routes_phase3.go 的 listAllReviews。
 
 // ----- Case entries -----
 func (s *Server) listAdminCaseEntries(w http.ResponseWriter, r *http.Request) {
@@ -160,51 +155,7 @@ func (s *Server) listAdminCompetitions(w http.ResponseWriter, r *http.Request) {
 		func(c domain.Competition) string { return c.Status })
 	paginatedRespond(w, r, filtered, ftotal)
 }
-func (s *Server) adminCreateCompetition(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Title       string `json:"title"`
-		Category    string `json:"category"`
-		Description string `json:"description"`
-		Location    string `json:"location"`
-		Sponsor     string `json:"sponsor"`
-		StartDate   string `json:"start_date"`
-		EndDate     string `json:"end_date"`
-		MaxTeams    int    `json:"max_teams"`
-		// 小程序赛事页扩展字段
-		Deadline           string                          `json:"deadline"`
-		OrganizerSub       string                          `json:"organizer_sub"`
-		Fee                int                             `json:"fee"`
-		MinFee             int                             `json:"min_fee"`
-		Tags               []string                        `json:"tags"`
-		Poster             string                          `json:"poster"`
-		Requirements       []domain.CompetitionRequirement `json:"requirements"`
-		Events             []domain.CompetitionEvent       `json:"events"`
-		Prizes             []domain.CompetitionPrize       `json:"prizes"`
-		RegistrationStatus string                          `json:"registration_status"`
-	}
-	if err := decode(r, &in); err != nil {
-		fail(w, r, http.StatusBadRequest, err)
-		return
-	}
-	var deadline *time.Time
-	if d, err := parseDateInput(in.Deadline); err == nil && !d.IsZero() {
-		deadline = &d
-	}
-	c, err := s.competitionSvc.Create(domain.Competition{
-		Title: in.Title, Category: in.Category, Description: in.Description,
-		Location: in.Location, Sponsor: in.Sponsor,
-		StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
-		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
-		Fee: in.Fee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
-		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
-		RegistrationStatus: in.RegistrationStatus,
-	})
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	respond(w, r, http.StatusCreated, c)
-}
+// POST /api/v1/admin/competitions 实际绑定 biz_handlers.go 的 createCompetition。
 func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
@@ -483,7 +434,11 @@ func (s *Server) updateJob(w http.ResponseWriter, r *http.Request) {
 	}
 	j, err := s.jobSvc.UpdateJob(id, in.Title, in.Description, in.Location, in.JobType, in.SalaryFen, in.Status)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		code := http.StatusInternalServerError
+		if errors.Is(err, service.ErrInvalidJobStatus) {
+			code = http.StatusBadRequest
+		}
+		fail(w, r, code, err)
 		return
 	}
 	respond(w, r, http.StatusOK, j)
@@ -596,53 +551,7 @@ func (s *Server) deleteCollege(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
 }
 
-func (s *Server) adminCreateCollege(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Name        string   `json:"name"`
-		Region      string   `json:"region"`
-		Description string   `json:"description"`
-		LogoURL     string   `json:"logo_url"`
-		CoopType    string   `json:"coop_type"`
-		Majors      []string `json:"majors"`
-		Facilities  []string `json:"facilities"`
-		// 小程序院校页扩展字段
-		City         string                  `json:"city"`
-		Tags         []string                `json:"tags"`
-		ShortName    string                  `json:"short_name"`
-		LevelTags    string                  `json:"level_tags"`
-		Specialties  []string                `json:"specialties"`
-		MajorCount   int                     `json:"major_count"`
-		PartnerCount int                     `json:"partner_count"`
-		TeacherCount int                     `json:"teacher_count"`
-		StudentCount int                     `json:"student_count"`
-		GraduateRate string                  `json:"graduate_rate"`
-		Partners     []domain.CollegePartner `json:"partners"`
-		Cover        string                  `json:"cover"`
-		Photos       []string                `json:"photos"`
-		Phone        string                  `json:"phone"`
-		Website      string                  `json:"website"`
-		Intro        string                  `json:"intro"`
-		MajorsDetail []domain.CollegeMajor   `json:"majors_detail"`
-	}
-	if err := decode(r, &in); err != nil {
-		fail(w, r, http.StatusBadRequest, err)
-		return
-	}
-	c, err := s.collegeSvc.Create(domain.College{
-		Name: in.Name, Region: in.Region, City: in.City, Description: in.Description,
-		LogoURL: in.LogoURL, CoopType: in.CoopType, Majors: in.Majors, Facilities: in.Facilities,
-		Tags: in.Tags, ShortName: in.ShortName, LevelTags: in.LevelTags, Specialties: in.Specialties,
-		MajorCount: in.MajorCount, PartnerCount: in.PartnerCount, TeacherCount: in.TeacherCount,
-		StudentCount: in.StudentCount, GraduateRate: in.GraduateRate, Partners: in.Partners,
-		CoverURL: in.Cover, Photos: in.Photos, Phone: in.Phone, Website: in.Website,
-		Intro: in.Intro, MajorsDetail: in.MajorsDetail,
-	})
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	respond(w, r, http.StatusCreated, c)
-}
+// POST /api/v1/admin/colleges 实际绑定 batch2_handlers.go 的 createCollege。
 
 // --- Study Tours (missing list/create/update/delete) ---
 func (s *Server) listAdminStudy(w http.ResponseWriter, r *http.Request) {
@@ -975,7 +884,7 @@ func (s *Server) updateIndustryReport(w http.ResponseWriter, r *http.Request) {
 
 // --- Emergency Resources (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyResources(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.emergencySvc.ListResources(1, 100000)
+	all, _, err := s.emergencySvc.ListResources("", "", 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list emergency resources: %w", err))
 		return
@@ -1144,12 +1053,19 @@ func (s *Server) broadcastMessageToAdmins(r *http.Request, senderID, title, cont
 	return sent, nil
 }
 func (s *Server) updateMessage(w http.ResponseWriter, r *http.Request) {
-	msg, err := s.msgSvc.MarkRead(r.PathValue("id"))
+	// 该路由在 /api/v1/admin/ 前缀下（adminGate 已校验管理员角色）。
+	// 先取消息再用收件人身份调用 MarkRead，与 C10 归属校验口径一致。
+	m, err := s.msgSvc.Get(r.PathValue("id"))
 	if err != nil {
-		fail(w, r, 500, err)
+		fail(w, r, http.StatusNotFound, err)
 		return
 	}
-	respond(w, r, 200, msg)
+	msg, err := s.msgSvc.MarkRead(m.ReceiverID, m.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, msg)
 }
 func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	if err := s.msgSvc.Delete(r.PathValue("id")); err != nil {
@@ -1197,6 +1113,7 @@ func (s *Server) updateComplianceStandard(w http.ResponseWriter, r *http.Request
 	id := r.PathValue("id")
 	var in struct {
 		Title         string `json:"title"`
+		Category      string `json:"category"`
 		StandardNo    string `json:"standard_no"`
 		Publisher     string `json:"publisher"`
 		EffectiveDate string `json:"effective_date"`
@@ -1208,7 +1125,7 @@ func (s *Server) updateComplianceStandard(w http.ResponseWriter, r *http.Request
 		fail(w, r, 400, err)
 		return
 	}
-	sd, err := s.complianceSvc.UpdateStandard(id, in.Title, in.StandardNo, in.Publisher, in.EffectiveDate, in.Scope, in.Status, in.FileURL)
+	sd, err := s.complianceSvc.UpdateStandard(id, in.Title, in.Category, in.StandardNo, in.Publisher, in.EffectiveDate, in.Scope, in.Status, in.FileURL)
 	if err != nil {
 		fail(w, r, 500, err)
 		return

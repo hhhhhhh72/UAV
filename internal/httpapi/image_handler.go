@@ -1,12 +1,13 @@
 package httpapi
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
-	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,8 +17,16 @@ import (
 	"drone-platform/internal/middleware"
 )
 
+// imageCacheKey 生成磁盘缓存文件名：完整 hash 拼接宽/质量/格式。
+// 回归 C7：旧实现 [:32] 截断把 width/quality/format 全部切掉，
+// 同图不同尺寸命中同一缓存文件。
+func imageCacheKey(urlPath string, width, quality int, outputFormat string, modTime int64) string {
+	h := sha256.Sum256([]byte(fmt.Sprintf("%s%d%d%s%d", urlPath, width, quality, outputFormat, modTime)))
+	return fmt.Sprintf("%x_%d_%d_%s", h, width, quality, outputFormat)
+}
+
 // GET /api/v1/image — resize & convert images with disk caching.
-// Query params: url (path), width (default 800), quality (default 75), format (jpeg|png|webp)
+// Query params: url (path), width (default 800), quality (default 75), format (jpeg|png)
 func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	urlPath := r.URL.Query().Get("url")
 	if urlPath == "" {
@@ -26,11 +35,6 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	}
 	urlPath = strings.TrimPrefix(urlPath, "/")
 	baseDir := "uploads"
-	imagePath := filepath.Join(baseDir, middleware.SanitizeString(urlPath))
-	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
-		fail(w, r, http.StatusNotFound, fmt.Errorf("image not found"))
-		return
-	}
 
 	width, _ := strconv.Atoi(r.URL.Query().Get("width"))
 	if width <= 0 {
@@ -44,12 +48,40 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	if outputFormat == "" {
 		outputFormat = "jpeg"
 	}
+	// C7 修复：仅支持 jpeg/png。webp 曾按 jpeg 编码却声明 image/webp + .webp 后缀，
+	// 与其返回错乱内容不如显式拒绝。
+	if outputFormat != "jpeg" && outputFormat != "png" {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("unsupported format %q (supported: jpeg, png)", outputFormat))
+		return
+	}
+
+	imagePath := filepath.Join(baseDir, middleware.SanitizeString(urlPath))
+	// 路径包含校验：SanitizeString 只去 HTML 标签，挡不住 ../ 逃逸。
+	// 解析后的绝对路径必须仍在 uploads 目录内，否则拒绝。
+	if absBase, err := filepath.Abs(baseDir); err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	} else if absPath, err := filepath.Abs(imagePath); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	} else if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("invalid image path"))
+		return
+	}
+	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
+		fail(w, r, http.StatusNotFound, fmt.Errorf("image not found"))
+		return
+	}
 
 	// Check disk cache
 	cacheDir := filepath.Join(baseDir, ".image-cache")
 	os.MkdirAll(cacheDir, 0755)
-	srcStat, _ := os.Stat(imagePath)
-	cacheKey := fmt.Sprintf("%x_%d_%d_%s", sha256.Sum256([]byte(fmt.Sprintf("%s%d%d%s%d", urlPath, width, quality, outputFormat, srcStat.ModTime().Unix()))), width, quality, outputFormat)[:32]
+	srcStat, err := os.Stat(imagePath)
+	if err != nil {
+		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	cacheKey := imageCacheKey(urlPath, width, quality, outputFormat, srcStat.ModTime().Unix())
 	cachePath := filepath.Join(cacheDir, cacheKey+"."+outputFormat)
 
 	if cached, err := os.ReadFile(cachePath); err == nil {
@@ -90,34 +122,28 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Encode to cache
-	var buf strings.Builder
-	writer := io.StringWriter(&buf)
-	_ = writer // unused in practice for jpeg
-
-	// Write to temp buffer
-	var encoded []byte
-	cacheFile, _ := os.Create(cachePath)
-	if cacheFile != nil {
-		defer cacheFile.Close()
-		switch outputFormat {
-		case "png":
-			png.Encode(cacheFile, resized)
-		default:
-			jpeg.Encode(cacheFile, resized, &jpeg.Options{Quality: quality})
+	// Encode once into a buffer, then persist to the disk cache and respond
+	// from the same buffer. 旧实现写缓存文件后再 ReadFile 回读且吞错——
+	// 回读失败时响应体为空。编码失败现在显式 500。
+	var buf bytes.Buffer
+	switch outputFormat {
+	case "png":
+		if err := png.Encode(&buf, resized); err != nil {
+			fail(w, r, http.StatusInternalServerError, fmt.Errorf("encode png: %w", err))
+			return
 		}
-		cacheFile.Close()
-		encoded, _ = os.ReadFile(cachePath)
+	default:
+		if err := jpeg.Encode(&buf, resized, &jpeg.Options{Quality: quality}); err != nil {
+			fail(w, r, http.StatusInternalServerError, fmt.Errorf("encode jpeg: %w", err))
+			return
+		}
 	}
-
-	if encoded == nil {
-		jpeg.Encode(io.Discard, resized, &jpeg.Options{Quality: quality})
+	if err := os.WriteFile(cachePath, buf.Bytes(), 0644); err != nil {
+		slog.Warn("image: write cache file", "path", cachePath, "err", err)
 	}
 
 	w.Header().Set("Content-Type", "image/"+outputFormat)
 	w.Header().Set("Cache-Control", "public, max-age=2592000, immutable")
 	w.Header().Set("Vary", "Accept")
-	if encoded != nil {
-		w.Write(encoded)
-	}
+	w.Write(buf.Bytes())
 }

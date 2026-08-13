@@ -1154,17 +1154,10 @@ const confirmStudyItemEdit = () => {
 }
 
 const onReadStudyImage = async (file) => {
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await axios.post('/api/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-    if (res.data?.file_id && studyEditingItem.value) {
-      studyEditingItem.value = { ...studyEditingItem.value, image: normalizeMediaUrl(`/uploads/${res.data.file_id}`) }
-    } else {
-      showFailToast('上传失败')
-    }
-  } catch (error) {
-    showFailToast('上传失败')
+  // /api/upload 是 dev-only 路由，生产 404——统一走 uploadFile（POST /api/v1/upload）
+  const url = await uploadFile(file)
+  if (url && studyEditingItem.value) {
+    studyEditingItem.value = { ...studyEditingItem.value, image: url }
   }
 }
 

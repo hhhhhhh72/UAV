@@ -125,7 +125,8 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" || r.URL.Path == "/" ||
 			r.URL.Path == "/admin" || r.URL.Path == "/favicon.ico" ||
-			strings.HasPrefix(r.URL.Path, "/uploads/") ||
+			// /uploads/ 公开，但 /uploads/private/（身份证影像等）必须走 token 校验
+			(strings.HasPrefix(r.URL.Path, "/uploads/") && !strings.HasPrefix(r.URL.Path, "/uploads/private/")) ||
 			strings.HasPrefix(r.URL.Path, "/swagger/") ||
 			r.URL.Path == "/api/v1/admin/token" ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||

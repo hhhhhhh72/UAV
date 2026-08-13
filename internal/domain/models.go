@@ -165,6 +165,24 @@ type Contract struct {
 	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
+// ContractTemplate is a reusable contract text template (contract_templates table).
+type ContractTemplate struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Version   int       `json:"version"`
+	Content   string    `json:"content"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// DefaultContractTemplates are the built-in templates seeded on first use
+// (memory repo 初始化 / PG 种子迁移 000062)。
+var DefaultContractTemplates = []ContractTemplate{
+	{ID: "tpl-001", Name: "标准无人机服务合同", Version: 1, Status: "active"},
+	{ID: "tpl-002", Name: "无人机买卖协议", Version: 1, Status: "active"},
+}
+
 // BizType categorises a demand by the type of drone operation needed.
 type BizType string
 

@@ -42,7 +42,9 @@ func (r *achieveRepo) List(field string, offset, limit int) ([]domain.Achievemen
 	where := ""; args := []any{}
 	if field != "" { where = `WHERE field=$1`; args = append(args, field) }
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM achievements `+where, args...).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM achievements `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count achievements: %w", err)
+	}
 	q := fmt.Sprintf(`SELECT id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,created_at,updated_at FROM achievements %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil { return nil, 0, fmt.Errorf("list achievements: %w", err) }
@@ -50,7 +52,9 @@ func (r *achieveRepo) List(field string, offset, limit int) ([]domain.Achievemen
 	var out []domain.Achievement
 	for rows.Next() {
 		var a domain.Achievement; var imgs, atts []byte
-		rows.Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.CreatedAt, &a.UpdatedAt)
+		if err := rows.Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan achievement: %w", err)
+		}
 		json.Unmarshal(imgs, &a.Images)
 		json.Unmarshal(atts, &a.Attachments)
 		out = append(out, a)
@@ -96,7 +100,9 @@ func (r *rdChallengeRepo) List(field string, offset, limit int) ([]domain.RDChal
 	where := ""; args := []any{}
 	if field != "" { where = `WHERE field=$1`; args = append(args, field) }
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rd_challenges `+where, args...).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM rd_challenges `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count challenges: %w", err)
+	}
 	q := fmt.Sprintf(`SELECT id,poster_id,title,field,description,budget_fen,deadline,status,created_at,updated_at FROM rd_challenges %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil { return nil, 0, fmt.Errorf("list challenges: %w", err) }
@@ -104,7 +110,9 @@ func (r *rdChallengeRepo) List(field string, offset, limit int) ([]domain.RDChal
 	var out []domain.RDChallenge
 	for rows.Next() {
 		var c domain.RDChallenge
-		rows.Scan(&c.ID, &c.PosterID, &c.Title, &c.Field, &c.Description, &c.BudgetFen, &c.Deadline, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+		if err := rows.Scan(&c.ID, &c.PosterID, &c.Title, &c.Field, &c.Description, &c.BudgetFen, &c.Deadline, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan challenge: %w", err)
+		}
 		out = append(out, c)
 	}
 	return out, total, rows.Err()
@@ -149,7 +157,9 @@ func (r *researchProjRepo) FindByID(id string) (domain.ResearchProject, error) {
 }
 func (r *researchProjRepo) List(offset, limit int) ([]domain.ResearchProject, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM research_projects`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM research_projects`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count projects: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,title,field,description,lead_org,members,budget_fen,start_date,end_date,milestones,status,created_at,updated_at FROM research_projects ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil { return nil, 0, fmt.Errorf("list projects: %w", err) }
@@ -157,7 +167,9 @@ func (r *researchProjRepo) List(offset, limit int) ([]domain.ResearchProject, in
 	var out []domain.ResearchProject
 	for rows.Next() {
 		var p domain.ResearchProject; var members []byte
-		rows.Scan(&p.ID, &p.Title, &p.Field, &p.Description, &p.LeadOrg, &members, &p.BudgetFen, &p.StartDate, &p.EndDate, &p.Milestones, &p.Status, &p.CreatedAt, &p.UpdatedAt)
+		if err := rows.Scan(&p.ID, &p.Title, &p.Field, &p.Description, &p.LeadOrg, &members, &p.BudgetFen, &p.StartDate, &p.EndDate, &p.Milestones, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan project: %w", err)
+		}
 		json.Unmarshal(members, &p.Members)
 		out = append(out, p)
 	}
@@ -209,7 +221,9 @@ func (r *projAppRepo) ListByUser(userID string) ([]domain.ProjectApplication, er
 	var out []domain.ProjectApplication
 	for rows.Next() {
 		var a domain.ProjectApplication; var att []byte
-		rows.Scan(&a.ID, &a.ApplicantID, &a.ProjectName, &a.Category, &a.BudgetFen, &a.Description, &att, &a.Status, &a.ReviewNote, &a.CreatedAt, &a.UpdatedAt)
+		if err := rows.Scan(&a.ID, &a.ApplicantID, &a.ProjectName, &a.Category, &a.BudgetFen, &a.Description, &att, &a.Status, &a.ReviewNote, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan app: %w", err)
+		}
 		json.Unmarshal(att, &a.Attachments)
 		out = append(out, a)
 	}
@@ -219,7 +233,9 @@ func (r *projAppRepo) ListAll(status string, offset, limit int) ([]domain.Projec
 	where := ""; args := []any{}
 	if status != "" { where = `WHERE status=$1`; args = append(args, status) }
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM project_applications `+where, args...).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM project_applications `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count apps: %w", err)
+	}
 	q := fmt.Sprintf(`SELECT id,applicant_id,project_name,category,budget_fen,description,attachments,status,review_note,created_at,updated_at FROM project_applications %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil { return nil, 0, fmt.Errorf("list all apps: %w", err) }
@@ -227,7 +243,9 @@ func (r *projAppRepo) ListAll(status string, offset, limit int) ([]domain.Projec
 	var out []domain.ProjectApplication
 	for rows.Next() {
 		var a domain.ProjectApplication; var att []byte
-		rows.Scan(&a.ID, &a.ApplicantID, &a.ProjectName, &a.Category, &a.BudgetFen, &a.Description, &att, &a.Status, &a.ReviewNote, &a.CreatedAt, &a.UpdatedAt)
+		if err := rows.Scan(&a.ID, &a.ApplicantID, &a.ProjectName, &a.Category, &a.BudgetFen, &a.Description, &att, &a.Status, &a.ReviewNote, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan app: %w", err)
+		}
 		json.Unmarshal(att, &a.Attachments)
 		out = append(out, a)
 	}

@@ -52,7 +52,9 @@ func (r *certRepo) ListByUser(userID string) ([]domain.Certificate, error) {
 	for rows.Next() {
 		var c domain.Certificate
 		var ct string
-		rows.Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+		if err := rows.Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan certificate: %w", err)
+		}
 		c.CertType = domain.CertType(ct)
 		out = append(out, c)
 	}
@@ -75,7 +77,9 @@ func (r *certRepo) ListAll() ([]domain.Certificate, error) {
 	for rows.Next() {
 		var c domain.Certificate
 		var ct string
-		rows.Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+		if err := rows.Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan certificate: %w", err)
+		}
 		c.CertType = domain.CertType(ct)
 		out = append(out, c)
 	}
@@ -134,11 +138,13 @@ func (r *courseRepo) List() ([]domain.TrainingCourse, error) {
 	for rows.Next() {
 		var c domain.TrainingCourse
 		var ct string
-		rows.Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
+		if err := rows.Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
 			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
 			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
 			&c.Remain, &c.Environment, &c.CourseTypes,
-			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan course: %w", err)
+		}
 		c.CertType = domain.CertType(ct)
 		out = append(out, c)
 	}
@@ -220,7 +226,9 @@ func (r *instructorRepo) List() ([]domain.Instructor, error) {
 	for rows.Next() {
 		var i domain.Instructor
 		var ct []byte
-		rows.Scan(&i.ID, &i.UserID, &i.Name, &i.Photo, &ct, &i.Bio, &i.OrgID, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt)
+		if err := rows.Scan(&i.ID, &i.UserID, &i.Name, &i.Photo, &ct, &i.Bio, &i.OrgID, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan instructor: %w", err)
+		}
 		json.Unmarshal(ct, &i.CertTypes)
 		out = append(out, i)
 	}
@@ -311,7 +319,9 @@ func (r *pilotRepo) List() ([]domain.CertifiedPilot, error) {
 	for rows.Next() {
 		var p domain.CertifiedPilot
 		var certIDs []byte
-		rows.Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+		if err := rows.Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan pilot: %w", err)
+		}
 		json.Unmarshal(certIDs, &p.CertIDs)
 		p.IDCard = r.dec(p.IDCard)
 		out = append(out, p)
@@ -405,7 +415,9 @@ func (r *prodRepo) List(prodType string) ([]domain.DroneProduct, error) {
 		var p domain.DroneProduct
 		var pt string
 		var imgs []byte
-		rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan product: %w", err)
+		}
 		p.ProdType = domain.ProductType(pt)
 		json.Unmarshal(imgs, &p.Images)
 		out = append(out, p)
@@ -437,10 +449,32 @@ func (r *repairRepo) ListByUser(userID string) ([]domain.RepairOrder, error) {
 	var out []domain.RepairOrder
 	for rows.Next() {
 		var ro domain.RepairOrder
-		rows.Scan(&ro.ID, &ro.CustomerID, &ro.ProductDesc, &ro.FaultDesc, &ro.QuoteFen, &ro.Status, &ro.Technician, &ro.Version, &ro.CreatedAt, &ro.UpdatedAt)
+		if err := rows.Scan(&ro.ID, &ro.CustomerID, &ro.ProductDesc, &ro.FaultDesc, &ro.QuoteFen, &ro.Status, &ro.Technician, &ro.Version, &ro.CreatedAt, &ro.UpdatedAt); err != nil {
+			return nil, err
+		}
 		out = append(out, ro)
 	}
 	return out, rows.Err()
+}
+func (r *repairRepo) ListAll(offset, limit int) ([]domain.RepairOrder, int, error) {
+	var total int
+	if err := r.pool.QueryRow(context.Background(), `SELECT count(*) FROM repair_orders`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(context.Background(), `SELECT id,customer_id,product_desc,fault_desc,quote_fen,status,technician,version,created_at,updated_at FROM repair_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []domain.RepairOrder
+	for rows.Next() {
+		var ro domain.RepairOrder
+		if err := rows.Scan(&ro.ID, &ro.CustomerID, &ro.ProductDesc, &ro.FaultDesc, &ro.QuoteFen, &ro.Status, &ro.Technician, &ro.Version, &ro.CreatedAt, &ro.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, ro)
+	}
+	return out, total, rows.Err()
 }
 
 // ---- Policy ----
@@ -467,8 +501,30 @@ func (r *policyRepo) ListByUser(userID string) ([]domain.InsurancePolicy, error)
 	var out []domain.InsurancePolicy
 	for rows.Next() {
 		var p domain.InsurancePolicy
-		rows.Scan(&p.ID, &p.UserID, &p.DroneModel, &p.DroneSN, &p.PolicyType, &p.PremiumFen, &p.CoverageFen, &p.StartDate, &p.EndDate, &p.Insurer, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+		if err := rows.Scan(&p.ID, &p.UserID, &p.DroneModel, &p.DroneSN, &p.PolicyType, &p.PremiumFen, &p.CoverageFen, &p.StartDate, &p.EndDate, &p.Insurer, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+func (r *policyRepo) ListAll(offset, limit int) ([]domain.InsurancePolicy, int, error) {
+	var total int
+	if err := r.pool.QueryRow(context.Background(), `SELECT count(*) FROM insurance_policies`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(context.Background(), `SELECT id,user_id,drone_model,drone_sn,policy_type,premium_fen,coverage_fen,start_date,end_date,insurer,status,version,created_at,updated_at FROM insurance_policies ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []domain.InsurancePolicy
+	for rows.Next() {
+		var p domain.InsurancePolicy
+		if err := rows.Scan(&p.ID, &p.UserID, &p.DroneModel, &p.DroneSN, &p.PolicyType, &p.PremiumFen, &p.CoverageFen, &p.StartDate, &p.EndDate, &p.Insurer, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, p)
+	}
+	return out, total, rows.Err()
 }

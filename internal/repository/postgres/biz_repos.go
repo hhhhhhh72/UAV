@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"drone-platform/internal/domain"
@@ -56,7 +57,9 @@ func (r *expertRepo) List(field string) ([]domain.Expert, error) {
 	for rows.Next() {
 		var e domain.Expert
 		var tags []byte
-		rows.Scan(&e.ID, &e.Name, &e.Title, &e.Org, &e.Field, &tags, &e.Bio, &e.AvatarURL, &e.Status, &e.CreatedAt, &e.UpdatedAt)
+		if err := rows.Scan(&e.ID, &e.Name, &e.Title, &e.Org, &e.Field, &tags, &e.Bio, &e.AvatarURL, &e.Status, &e.CreatedAt, &e.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan expert: %w", err)
+		}
 		json.Unmarshal(tags, &e.Tags)
 		out = append(out, e)
 	}
@@ -116,7 +119,9 @@ func (r *caseRepo) List(category string, offset, limit int) ([]domain.CaseEntry,
 		args = append(args, category)
 	}
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM case_entries `+where, args...).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM case_entries `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count cases: %w", err)
+	}
 	q := fmt.Sprintf(`SELECT id,title,category,description,images,client_name,result,status,created_at,updated_at FROM case_entries %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil {
@@ -127,7 +132,9 @@ func (r *caseRepo) List(category string, offset, limit int) ([]domain.CaseEntry,
 	for rows.Next() {
 		var c domain.CaseEntry
 		var imgs []byte
-		rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &imgs, &c.ClientName, &c.Result, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+		if err := rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &imgs, &c.ClientName, &c.Result, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan case: %w", err)
+		}
 		json.Unmarshal(imgs, &c.Images)
 		out = append(out, c)
 	}
@@ -189,7 +196,9 @@ func (r *complianceRepo) ListDocs(category string, offset, limit int) ([]domain.
 		args = append(args, category)
 	}
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM compliance_docs `+where, args...).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM compliance_docs `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count docs: %w", err)
+	}
 	q := fmt.Sprintf(`SELECT id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at FROM compliance_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil {
@@ -200,7 +209,9 @@ func (r *complianceRepo) ListDocs(category string, offset, limit int) ([]domain.
 	for rows.Next() {
 		var d domain.ComplianceDoc
 		var tags []byte
-		rows.Scan(&d.ID, &d.Title, &d.Category, &d.Publisher, &d.PublishDate, &d.Status, &d.Summary, &d.FileURL, &tags, &d.CreatedAt, &d.UpdatedAt)
+		if err := rows.Scan(&d.ID, &d.Title, &d.Category, &d.Publisher, &d.PublishDate, &d.Status, &d.Summary, &d.FileURL, &tags, &d.CreatedAt, &d.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan doc: %w", err)
+		}
 		json.Unmarshal(tags, &d.Tags)
 		out = append(out, d)
 	}
@@ -235,16 +246,16 @@ func (r *complianceRepo) DeleteStandard(id string) error {
 
 func (r *complianceRepo) FindStandardByID(id string) (domain.StandardDoc, error) {
 	var s domain.StandardDoc
-	err := r.pool.QueryRow(context.Background(), "SELECT id,title,standard_no,publisher,effective_date,status,scope,summary,file_url FROM standard_docs WHERE id=$1", id).
-		Scan(&s.ID, &s.Title, &s.StandardNo, &s.Publisher, &s.EffectiveDate, &s.Status, &s.Scope, &s.Summary, &s.FileURL)
+	err := r.pool.QueryRow(context.Background(), "SELECT id,title,category,standard_no,publisher,effective_date,status,scope,summary,file_url FROM standard_docs WHERE id=$1", id).
+		Scan(&s.ID, &s.Title, &s.Category, &s.StandardNo, &s.Publisher, &s.EffectiveDate, &s.Status, &s.Scope, &s.Summary, &s.FileURL)
 	return s, err
 }
 
 func (r *complianceRepo) UpdateStandard(s domain.StandardDoc) (domain.StandardDoc, error) {
 	s.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
-		`UPDATE standard_docs SET title=$1,standard_no=$2,publisher=$3,effective_date=$4,status=$5,scope=$6,file_url=$7,updated_at=$8 WHERE id=$9`,
-		s.Title, s.StandardNo, s.Publisher, s.EffectiveDate, s.Status, s.Scope, s.FileURL, s.UpdatedAt, s.ID)
+		`UPDATE standard_docs SET title=$1,category=$2,standard_no=$3,publisher=$4,effective_date=$5,status=$6,scope=$7,file_url=$8,updated_at=$9 WHERE id=$10`,
+		s.Title, s.Category, s.StandardNo, s.Publisher, s.EffectiveDate, s.Status, s.Scope, s.FileURL, s.UpdatedAt, s.ID)
 	return s, err
 }
 
@@ -252,8 +263,8 @@ func (r *complianceRepo) CreateStandard(s domain.StandardDoc) (domain.StandardDo
 	s.CreatedAt = time.Now()
 	s.UpdatedAt = s.CreatedAt
 	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO standard_docs (id,title,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		s.ID, s.Title, s.StandardNo, s.Publisher, s.EffectiveDate, s.Status, s.Scope, s.FileURL, s.CreatedAt, s.UpdatedAt)
+		`INSERT INTO standard_docs (id,title,category,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		s.ID, s.Title, s.Category, s.StandardNo, s.Publisher, s.EffectiveDate, s.Status, s.Scope, s.FileURL, s.CreatedAt, s.UpdatedAt)
 	return s, err
 }
 func (r *complianceRepo) ListStandards(category string, offset, limit int) ([]domain.StandardDoc, int, error) {
@@ -264,8 +275,10 @@ func (r *complianceRepo) ListStandards(category string, offset, limit int) ([]do
 		args = append(args, category)
 	}
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM standard_docs `+where, args...).Scan(&total)
-	q := fmt.Sprintf(`SELECT id,title,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at FROM standard_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM standard_docs `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count standards: %w", err)
+	}
+	q := fmt.Sprintf(`SELECT id,title,category,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at FROM standard_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list standards: %w", err)
@@ -274,7 +287,9 @@ func (r *complianceRepo) ListStandards(category string, offset, limit int) ([]do
 	var out []domain.StandardDoc
 	for rows.Next() {
 		var s domain.StandardDoc
-		rows.Scan(&s.ID, &s.Title, &s.StandardNo, &s.Publisher, &s.EffectiveDate, &s.Status, &s.Scope, &s.FileURL, &s.CreatedAt, &s.UpdatedAt)
+		if err := rows.Scan(&s.ID, &s.Title, &s.Category, &s.StandardNo, &s.Publisher, &s.EffectiveDate, &s.Status, &s.Scope, &s.FileURL, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan standard: %w", err)
+		}
 		out = append(out, s)
 	}
 	return out, total, rows.Err()
@@ -305,7 +320,9 @@ func (r *indReportRepo) FindByID(id string) (domain.IndustryReport, error) {
 }
 func (r *indReportRepo) List(offset, limit int) ([]domain.IndustryReport, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM industry_reports`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM industry_reports`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count reports: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,title,period,category,summary,content,file_url,author,status,created_at,updated_at FROM industry_reports ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
@@ -315,7 +332,9 @@ func (r *indReportRepo) List(offset, limit int) ([]domain.IndustryReport, int, e
 	var out []domain.IndustryReport
 	for rows.Next() {
 		var rp domain.IndustryReport
-		rows.Scan(&rp.ID, &rp.Title, &rp.Period, &rp.Category, &rp.Summary, &rp.Content, &rp.FileURL, &rp.Author, &rp.Status, &rp.CreatedAt, &rp.UpdatedAt)
+		if err := rows.Scan(&rp.ID, &rp.Title, &rp.Period, &rp.Category, &rp.Summary, &rp.Content, &rp.FileURL, &rp.Author, &rp.Status, &rp.CreatedAt, &rp.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan report: %w", err)
+		}
 		out = append(out, rp)
 	}
 	return out, total, rows.Err()
@@ -380,7 +399,9 @@ func (r *portfolioRepo) ListByEnterprise(eid string) ([]domain.MemberPortfolio, 
 	for rows.Next() {
 		var p domain.MemberPortfolio
 		var prod, hon []byte
-		rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt)
+		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan portfolio: %w", err)
+		}
 		json.Unmarshal(prod, &p.Products)
 		json.Unmarshal(hon, &p.Honors)
 		out = append(out, p)
@@ -389,7 +410,9 @@ func (r *portfolioRepo) ListByEnterprise(eid string) ([]domain.MemberPortfolio, 
 }
 func (r *portfolioRepo) ListPublished(offset, limit int) ([]domain.MemberPortfolio, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM member_portfolios WHERE status='published'`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM member_portfolios WHERE status='published'`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count published portfolios: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
@@ -400,7 +423,9 @@ func (r *portfolioRepo) ListPublished(offset, limit int) ([]domain.MemberPortfol
 	for rows.Next() {
 		var p domain.MemberPortfolio
 		var prod, hon []byte
-		rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt)
+		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan portfolio: %w", err)
+		}
 		json.Unmarshal(prod, &p.Products)
 		json.Unmarshal(hon, &p.Honors)
 		out = append(out, p)
@@ -409,7 +434,9 @@ func (r *portfolioRepo) ListPublished(offset, limit int) ([]domain.MemberPortfol
 }
 func (r *portfolioRepo) List(offset, limit int) ([]domain.MemberPortfolio, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM member_portfolios`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM member_portfolios`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count portfolios: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
@@ -420,7 +447,9 @@ func (r *portfolioRepo) List(offset, limit int) ([]domain.MemberPortfolio, int, 
 	for rows.Next() {
 		var p domain.MemberPortfolio
 		var prod, hon []byte
-		rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt)
+		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan portfolio: %w", err)
+		}
 		json.Unmarshal(prod, &p.Products)
 		json.Unmarshal(hon, &p.Honors)
 		out = append(out, p)
@@ -481,7 +510,9 @@ func (r *resourceRepo) List(resType string, offset, limit int) ([]domain.Industr
 		args = append(args, resType)
 	}
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM industry_resources `+where, args...).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM industry_resources `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count resources: %w", err)
+	}
 	q := fmt.Sprintf(`SELECT id,owner_id,name,res_type,model,specs,location,price_fen,booking_info,visibility_level,status,created_at,updated_at FROM industry_resources %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(context.Background(), q, append(args, limit, offset)...)
 	if err != nil {
@@ -491,7 +522,9 @@ func (r *resourceRepo) List(resType string, offset, limit int) ([]domain.Industr
 	var out []domain.IndustryResource
 	for rows.Next() {
 		var res domain.IndustryResource
-		rows.Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Model, &res.Specs, &res.Location, &res.PriceFen, &res.BookingInfo, &res.VisibilityLevel, &res.Status, &res.CreatedAt, &res.UpdatedAt)
+		if err := rows.Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Model, &res.Specs, &res.Location, &res.PriceFen, &res.BookingInfo, &res.VisibilityLevel, &res.Status, &res.CreatedAt, &res.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan resource: %w", err)
+		}
 		out = append(out, res)
 	}
 	return out, total, rows.Err()
@@ -507,6 +540,51 @@ func (r *resourceRepo) Update(res domain.IndustryResource) (domain.IndustryResou
 func (r *resourceRepo) Delete(id string) error {
 	_, err := r.pool.Exec(context.Background(), `DELETE FROM industry_resources WHERE id=$1`, id)
 	return err
+}
+
+// ---- Resource bookings (C11) ----
+
+func (r *resourceRepo) CreateBooking(b domain.IndustryResourceBooking) (domain.IndustryResourceBooking, error) {
+	b.CreatedAt = time.Now()
+	b.UpdatedAt = b.CreatedAt
+	_, err := r.pool.Exec(context.Background(),
+		`INSERT INTO industry_resource_bookings (id,resource_id,user_id,booking_date,purpose,contact_name,contact_phone,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		b.ID, b.ResourceID, b.UserID, b.BookingDate, b.Purpose, b.ContactName, b.ContactPhone, b.Status, b.CreatedAt, b.UpdatedAt)
+	if err != nil {
+		return domain.IndustryResourceBooking{}, fmt.Errorf("insert resource booking: %w", err)
+	}
+	return b, nil
+}
+
+func scanResourceBookings(rows pgx.Rows) ([]domain.IndustryResourceBooking, error) {
+	defer rows.Close()
+	out := make([]domain.IndustryResourceBooking, 0)
+	for rows.Next() {
+		var b domain.IndustryResourceBooking
+		if err := rows.Scan(&b.ID, &b.ResourceID, &b.UserID, &b.BookingDate, &b.Purpose, &b.ContactName, &b.ContactPhone, &b.Status, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan resource booking: %w", err)
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+func (r *resourceRepo) ListBookingsByResource(resourceID string) ([]domain.IndustryResourceBooking, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,resource_id,user_id,booking_date,purpose,contact_name,contact_phone,status,created_at,updated_at FROM industry_resource_bookings WHERE resource_id=$1 ORDER BY created_at DESC`, resourceID)
+	if err != nil {
+		return nil, fmt.Errorf("list resource bookings: %w", err)
+	}
+	return scanResourceBookings(rows)
+}
+
+func (r *resourceRepo) ListBookingsByUser(userID string) ([]domain.IndustryResourceBooking, error) {
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,resource_id,user_id,booking_date,purpose,contact_name,contact_phone,status,created_at,updated_at FROM industry_resource_bookings WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list user bookings: %w", err)
+	}
+	return scanResourceBookings(rows)
 }
 
 // ---- Application (service_applications) ----
@@ -543,7 +621,9 @@ func (r *appRepo) FindByID(id string) (domain.Application, error) {
 }
 func (r *appRepo) ListByUser(userID string, offset, limit int) ([]domain.Application, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM service_applications WHERE user_id=$1`, userID).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM service_applications WHERE user_id=$1`, userID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count applications: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,user_id,service_id,service_name,order_no,status,apply_time,form_data,created_at FROM service_applications WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
 		userID, limit, offset)
@@ -555,7 +635,9 @@ func (r *appRepo) ListByUser(userID string, offset, limit int) ([]domain.Applica
 	for rows.Next() {
 		var a domain.Application
 		var data []byte
-		rows.Scan(&a.ID, &a.UserID, &a.ServiceID, &a.ServiceName, &a.OrderNo, &a.Status, &a.ApplyTime, &data, &a.CreatedAt)
+		if err := rows.Scan(&a.ID, &a.UserID, &a.ServiceID, &a.ServiceName, &a.OrderNo, &a.Status, &a.ApplyTime, &data, &a.CreatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan application: %w", err)
+		}
 		json.Unmarshal(data, &a.FormData)
 		out = append(out, a)
 	}
@@ -563,7 +645,9 @@ func (r *appRepo) ListByUser(userID string, offset, limit int) ([]domain.Applica
 }
 func (r *appRepo) ListAll(offset, limit int) ([]domain.Application, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM service_applications`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM service_applications`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count applications: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,user_id,service_id,service_name,order_no,status,apply_time,form_data,created_at FROM service_applications ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
 		limit, offset)
@@ -575,7 +659,9 @@ func (r *appRepo) ListAll(offset, limit int) ([]domain.Application, int, error) 
 	for rows.Next() {
 		var a domain.Application
 		var data []byte
-		rows.Scan(&a.ID, &a.UserID, &a.ServiceID, &a.ServiceName, &a.OrderNo, &a.Status, &a.ApplyTime, &data, &a.CreatedAt)
+		if err := rows.Scan(&a.ID, &a.UserID, &a.ServiceID, &a.ServiceName, &a.OrderNo, &a.Status, &a.ApplyTime, &data, &a.CreatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan application: %w", err)
+		}
 		json.Unmarshal(data, &a.FormData)
 		out = append(out, a)
 	}

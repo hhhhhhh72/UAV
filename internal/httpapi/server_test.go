@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,6 +26,10 @@ func newServer(t *testing.T) http.Handler {
 	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/"), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository()), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
 	// Extended services used by public handlers (home endpoint etc.).
 	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
+	// batch2 模块服务：鉴权回归测试（C2）需要
+	srv.SetTransformationService(service.NewTransformationService(memory.NewTransformationRepository()))
+	srv.SetCollegeService(service.NewCollegeService(memory.NewCollegeRepository()))
+	srv.SetCooperationService(service.NewCooperationService(memory.NewCooperationRepository()))
 	return srv.Router()
 }
 func auth(t *testing.T, role domain.Role) string {
@@ -127,6 +132,63 @@ func TestDemandMineUnauthenticatedReturnsEmpty(t *testing.T) {
 		t.Fatalf("other user must not see someone else's demand: %d %s", other.Code, other.Body.String())
 	}
 }
+// TestDemandListPagination: 回归 C8——listDemands 曾手工切片后再经
+// paginatedRespond 二次切片，导致 page≥2 恒为空。
+func TestDemandListPagination(t *testing.T) {
+	app := newServer(t)
+
+	// Arrange: 发布并审批 5 条需求，使其进入公开列表
+	for i := 0; i < 5; i++ {
+		body := []byte(fmt.Sprintf(`{"title":"分页需求%d","contact":"13800000000","biz_type":"cable_inspection"}`, i))
+		dw := requestAs(t, app, http.MethodPost, "/api/v1/demands", body, "enterprise-1", domain.RoleEnterprise)
+		if dw.Code != http.StatusCreated {
+			t.Fatalf("create demand %d: %d %s", i, dw.Code, dw.Body.String())
+		}
+		var created struct {
+			Data struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(dw.Body.Bytes(), &created); err != nil {
+			t.Fatalf("parse demand %d: %v", i, err)
+		}
+		rw := requestAs(t, app, http.MethodPost, "/api/v1/admin/demands/"+created.Data.ID+"/review",
+			[]byte(`{"action":"approve"}`), "admin-1", domain.RolePlatformAdmin)
+		if rw.Code != http.StatusOK {
+			t.Fatalf("approve demand %d: %d %s", i, rw.Code, rw.Body.String())
+		}
+	}
+
+	pages := []struct {
+		query     string
+		wantItems int
+		wantTotal int
+	}{
+		{"page=1&page_size=2", 2, 5},
+		{"page=2&page_size=2", 2, 5}, // 修复前恒为 0
+		{"page=3&page_size=2", 1, 5},
+	}
+	for _, p := range pages {
+		w := requestAs(t, app, http.MethodGet, "/api/v1/demands?"+p.query, nil, "worker-1", domain.RoleIndividual)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", p.query, w.Code, w.Body.String())
+		}
+		var out struct {
+			Data  []map[string]any `json:"data"`
+			Total int              `json:"total"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+			t.Fatalf("parse %s: %v", p.query, err)
+		}
+		if len(out.Data) != p.wantItems {
+			t.Fatalf("%s: expected %d items, got %d (%s)", p.query, p.wantItems, len(out.Data), w.Body.String())
+		}
+		if out.Total != p.wantTotal {
+			t.Fatalf("%s: expected total %d, got %d", p.query, p.wantTotal, out.Total)
+		}
+	}
+}
+
 func TestPanicRecovery(t *testing.T) {
 	// BLK-07: directly verify that a panic in a handler returns 500 instead of crashing.
 	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

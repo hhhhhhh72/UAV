@@ -24,7 +24,18 @@ func (s *Server) registerBatch3Routes(mux *http.ServeMux) {
 
 // ── RescueCase ──
 func (s *Server) createRescueCase(w http.ResponseWriter, r *http.Request) {
-	var in struct{ Title, EventType, Location, DroneModel, TeamName, Summary, Result, Lessons, Source, Date string }
+	var in struct {
+		Title      string `json:"title"`
+		EventType  string `json:"event_type"`
+		Location   string `json:"location"`
+		DroneModel string `json:"drone_model"`
+		TeamName   string `json:"team_name"`
+		Summary    string `json:"summary"`
+		Result     string `json:"result"`
+		Lessons    string `json:"lessons"`
+		Source     string `json:"source"`
+		Date       string `json:"date"`
+	}
 	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
 	rc, err := s.rescueCaseSvc.Create(in.Title, in.EventType, in.Location, in.DroneModel, in.TeamName, in.Summary, in.Result, in.Lessons, in.Source, domain.ParseTime(in.Date))
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
@@ -32,7 +43,8 @@ func (s *Server) createRescueCase(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) listRescueCases(w http.ResponseWriter, r *http.Request) {
 	page, ps := paginationFromQuery(r)
-	list, total, err := s.rescueCaseSvc.List(r.URL.Query().Get("event_type"), page, ps)
+	// event_type 支持中文（山火/洪水/…）与英文别名（mountain_fire/…），服务层归一
+	list, total, err := s.rescueCaseSvc.List(r.URL.Query().Get("event_type"), r.URL.Query().Get("q"), page, ps)
 	if err != nil { fail(w, r, http.StatusInternalServerError, err); return }
 	paginatedRespond(w, r, list, total)
 }

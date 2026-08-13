@@ -253,7 +253,11 @@ func TestMessageSendMarkRead(t *testing.T) {
 	if m.IsRead {
 		t.Fatal("should be unread")
 	}
-	svc.MarkRead(m.ID)
+	// C10 回归：非收件人标已读必须被拒绝
+	if _, err := svc.MarkRead("stranger", m.ID); err == nil {
+		t.Fatal("stranger should not mark read")
+	}
+	svc.MarkRead("user-1", m.ID)
 	// Unread count
 	count, _ := svc.UnreadCount("user-1")
 	if count != 0 {

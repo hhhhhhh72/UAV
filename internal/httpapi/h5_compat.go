@@ -583,8 +583,16 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		role = "individual"
 	}
 
-	accessToken, _ := s.tokens.IssueJWT(actorFromMap(id, role), 15*time.Minute)
-	refreshToken, _ := service.GenerateRefreshToken()
+	accessToken, err := s.tokens.IssueJWT(actorFromMap(id, role), 15*time.Minute)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("issue access token: %w", err))
+		return
+	}
+	refreshToken, err := service.GenerateRefreshToken()
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("generate refresh token: %w", err))
+		return
+	}
 	tokenHash := service.HashToken(refreshToken)
 	s.refreshRepo.Store(id, tokenHash, time.Now().Add(7*24*time.Hour))
 
@@ -672,8 +680,16 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 	users = append(users, jsonUser)
 	writeJSON(_usersFile, &_usersMu, users)
 
-	accessToken, _ := s.tokens.Issue(domain.Actor{ID: uid, Role: domain.RoleIndividual}, 15*time.Minute)
-	refreshToken, _ := service.GenerateRefreshToken()
+	accessToken, err := s.tokens.Issue(domain.Actor{ID: uid, Role: domain.RoleIndividual}, 15*time.Minute)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("issue access token: %w", err))
+		return
+	}
+	refreshToken, err := service.GenerateRefreshToken()
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("generate refresh token: %w", err))
+		return
+	}
 	s.refreshRepo.Store(uid, service.HashToken(refreshToken), time.Now().Add(7*24*time.Hour))
 
 	safeUser := map[string]any{}

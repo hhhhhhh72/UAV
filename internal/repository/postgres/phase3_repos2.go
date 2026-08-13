@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -39,7 +40,9 @@ func (r *inspectRepo) ListByUser(userID string) ([]domain.AnnualInspection, erro
 	var out []domain.AnnualInspection
 	for rows.Next() {
 		var i domain.AnnualInspection
-		rows.Scan(&i.ID, &i.UserID, &i.DroneModel, &i.DroneSN, &i.InspectDate, &i.ExpireDate, &i.Result, &i.ReportURL, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt)
+		if err := rows.Scan(&i.ID, &i.UserID, &i.DroneModel, &i.DroneSN, &i.InspectDate, &i.ExpireDate, &i.Result, &i.ReportURL, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan inspection: %w", err)
+		}
 		out = append(out, i)
 	}
 	return out, rows.Err()
@@ -54,7 +57,9 @@ func (r *inspectRepo) ListAll() ([]domain.AnnualInspection, error) {
 	var out []domain.AnnualInspection
 	for rows.Next() {
 		var i domain.AnnualInspection
-		rows.Scan(&i.ID, &i.UserID, &i.DroneModel, &i.DroneSN, &i.InspectDate, &i.ExpireDate, &i.Result, &i.ReportURL, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt)
+		if err := rows.Scan(&i.ID, &i.UserID, &i.DroneModel, &i.DroneSN, &i.InspectDate, &i.ExpireDate, &i.Result, &i.ReportURL, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan inspection: %w", err)
+		}
 		out = append(out, i)
 	}
 	return out, rows.Err()
@@ -85,10 +90,33 @@ func (r *loanRepo) ListByUser(userID string) ([]domain.LoanApplication, error) {
 	var out []domain.LoanApplication
 	for rows.Next() {
 		var l domain.LoanApplication
-		rows.Scan(&l.ID, &l.UserID, &l.AmountFen, &l.TermMonths, &l.Purpose, &l.Status, &l.ApprovedFen, &l.MonthlyPayFen, &l.Version, &l.CreatedAt, &l.UpdatedAt)
+		if err := rows.Scan(&l.ID, &l.UserID, &l.AmountFen, &l.TermMonths, &l.Purpose, &l.Status, &l.ApprovedFen, &l.MonthlyPayFen, &l.Version, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			return nil, err
+		}
 		out = append(out, l)
 	}
 	return out, rows.Err()
+}
+func (r *loanRepo) ListAll(offset, limit int) ([]domain.LoanApplication, int, error) {
+	var total int
+	if err := r.pool.QueryRow(context.Background(), `SELECT count(*) FROM loan_applications`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(context.Background(),
+		`SELECT id,user_id,amount_fen,term_months,purpose,status,approved_fen,monthly_pay_fen,version,created_at,updated_at FROM loan_applications ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []domain.LoanApplication
+	for rows.Next() {
+		var l domain.LoanApplication
+		if err := rows.Scan(&l.ID, &l.UserID, &l.AmountFen, &l.TermMonths, &l.Purpose, &l.Status, &l.ApprovedFen, &l.MonthlyPayFen, &l.Version, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, l)
+	}
+	return out, total, rows.Err()
 }
 
 // ---- Message ----
@@ -128,7 +156,9 @@ func (r *msgRepo) ListByUser(userID string, unreadOnly bool) ([]domain.Message, 
 	var out []domain.Message
 	for rows.Next() {
 		var m domain.Message
-		rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt)
+		if err := rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan message: %w", err)
+		}
 		out = append(out, m)
 	}
 	return out, rows.Err()
@@ -153,16 +183,20 @@ func (r *msgRepo) UnreadCount(userID string) (int, error) {
 
 func (r *msgRepo) ListAll(offset, limit int) ([]domain.Message, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), "SELECT count(*) FROM messages").Scan(&total)
-	rows, _ := r.pool.Query(context.Background(), "SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
-	if rows == nil {
-		return nil, total, nil
+	if err := r.pool.QueryRow(context.Background(), "SELECT count(*) FROM messages").Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count messages: %w", err)
+	}
+	rows, err := r.pool.Query(context.Background(), "SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list all messages: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.Message
 	for rows.Next() {
 		var m domain.Message
-		rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt)
+		if err := rows.Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan message: %w", err)
+		}
 		out = append(out, m)
 	}
 	return out, total, rows.Err()
@@ -226,7 +260,9 @@ func (r *articleRepo) ListByCategory(category string, offset, limit int) ([]doma
 	var out []domain.Article
 	for rows.Next() {
 		var a domain.Article
-		rows.Scan(&a.ID, &a.Title, &a.Content, &a.Summary, &a.Category, &a.Source, &a.Author, &a.IsPinned, &a.Status, &a.Version, &a.CreatedAt, &a.UpdatedAt)
+		if err := rows.Scan(&a.ID, &a.Title, &a.Content, &a.Summary, &a.Category, &a.Source, &a.Author, &a.IsPinned, &a.Status, &a.Version, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan article: %w", err)
+		}
 		out = append(out, a)
 	}
 	return out, total, rows.Err()
@@ -255,7 +291,9 @@ func (r *reviewRepo) ListByTarget(targetType, targetID string) ([]domain.Review,
 	var out []domain.Review
 	for rows.Next() {
 		var rv domain.Review
-		rows.Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt)
+		if err := rows.Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan review: %w", err)
+		}
 		out = append(out, rv)
 	}
 	return out, rows.Err()
@@ -281,7 +319,9 @@ func (r *reviewRepo) ListAll(status string, offset, limit int) ([]domain.Review,
 	var out []domain.Review
 	for rows.Next() {
 		var rv domain.Review
-		rows.Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt)
+		if err := rows.Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan review: %w", err)
+		}
 		out = append(out, rv)
 	}
 	return out, total, rows.Err()
@@ -333,7 +373,9 @@ func (r *venueRepo) List(venueType string) ([]domain.Venue, error) {
 	var out []domain.Venue
 	for rows.Next() {
 		var v domain.Venue
-		rows.Scan(&v.ID, &v.OwnerID, &v.Name, &v.VenueType, &v.Location, &v.PriceFen, &v.Status, &v.CreatedAt)
+		if err := rows.Scan(&v.ID, &v.OwnerID, &v.Name, &v.VenueType, &v.Location, &v.PriceFen, &v.Status, &v.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan venue: %w", err)
+		}
 		out = append(out, v)
 	}
 	return out, rows.Err()
@@ -362,7 +404,9 @@ func (r *venueRepo) ListBookings(venueID string) ([]domain.VenueBooking, error) 
 	var out []domain.VenueBooking
 	for rows.Next() {
 		var b domain.VenueBooking
-		rows.Scan(&b.ID, &b.VenueID, &b.UserID, &b.StartTime, &b.EndTime, &b.Status, &b.CreatedAt)
+		if err := rows.Scan(&b.ID, &b.VenueID, &b.UserID, &b.StartTime, &b.EndTime, &b.Status, &b.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan venue booking: %w", err)
+		}
 		out = append(out, b)
 	}
 	return out, rows.Err()
@@ -395,7 +439,9 @@ func (r *enrollRepo) Update(e domain.Enrollment) (domain.Enrollment, error) {
 }
 func (r *enrollRepo) ListAll(offset, limit int) ([]domain.Enrollment, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), `SELECT count(*) FROM training_enrollments`).Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), `SELECT count(*) FROM training_enrollments`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count enrollments: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(),
 		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
@@ -405,7 +451,9 @@ func (r *enrollRepo) ListAll(offset, limit int) ([]domain.Enrollment, int, error
 	var out []domain.Enrollment
 	for rows.Next() {
 		var e domain.Enrollment
-		rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt)
+		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan enrollment: %w", err)
+		}
 		out = append(out, e)
 	}
 	return out, total, rows.Err()
@@ -420,7 +468,9 @@ func (r *enrollRepo) ListByCourse(courseID string) ([]domain.Enrollment, error) 
 	var out []domain.Enrollment
 	for rows.Next() {
 		var e domain.Enrollment
-		rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt)
+		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan enrollment: %w", err)
+		}
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -521,7 +571,9 @@ func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) 
 
 func (r *tradeOrderRepo) ListAll(offset, limit int) ([]domain.TradeOrder, int, error) {
 	var total int
-	r.pool.QueryRow(context.Background(), "SELECT count(*) FROM trade_orders").Scan(&total)
+	if err := r.pool.QueryRow(context.Background(), "SELECT count(*) FROM trade_orders").Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count trade orders: %w", err)
+	}
 	rows, err := r.pool.Query(context.Background(), "SELECT "+tradeOrderColumns+" FROM trade_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, total, fmt.Errorf("order query failed: %w", err)
@@ -549,29 +601,137 @@ func (r *escrowRepo) GetAccount(userID string) (domain.EscrowAccount, error) {
 	err := r.pool.QueryRow(context.Background(),
 		`SELECT user_id,balance_fen,frozen_fen,updated_at FROM escrow_accounts WHERE user_id=$1`, userID).
 		Scan(&a.UserID, &a.BalanceFen, &a.FrozenFen, &a.UpdatedAt)
-	if err != nil {
-		// Return a zero account if not found.
+	if errors.Is(err, pgx.ErrNoRows) {
+		// 账户不存在：返回零值账户（与内存实现一致）。
 		return domain.EscrowAccount{UserID: userID}, nil
+	}
+	if err != nil {
+		// C6 修复：连接/查询错误必须上抛——旧实现把一切错误当"账户不存在"，
+		// 数据库故障时会在幻影零余额账户上继续操作。
+		return domain.EscrowAccount{}, fmt.Errorf("get escrow account %s: %w", userID, err)
 	}
 	return a, nil
 }
-func (r *escrowRepo) UpsertAccount(a domain.EscrowAccount) error {
-	a.UpdatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
-		`INSERT INTO escrow_accounts (user_id,balance_fen,frozen_fen,updated_at) VALUES ($1,$2,$3,$4)
-		 ON CONFLICT (user_id) DO UPDATE SET balance_fen=$2,frozen_fen=$3,updated_at=$4`,
-		a.UserID, a.BalanceFen, a.FrozenFen, a.UpdatedAt)
-	if err != nil {
-		return fmt.Errorf("upsert escrow account %s: %w", a.UserID, err)
-	}
-	return nil
-}
-func (r *escrowRepo) CreateTransaction(tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
-	tx.CreatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+
+// insertEscrowTx 在同一事务中写入流水。
+func insertEscrowTx(ctx context.Context, q pgx.Tx, tx domain.EscrowTransaction) error {
+	_, err := q.Exec(ctx,
 		`INSERT INTO escrow_transactions (id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		tx.ID, tx.FromUser, tx.ToUser, tx.AmountFen, tx.TxType, tx.ReferenceType, tx.ReferenceID, tx.Status, tx.CreatedAt)
-	return tx, err
+	return err
+}
+
+// 原子资金操作（C6 修复）：余额调整 + 流水写入在同一事务中，全成或全败；
+// 条件 UPDATE（WHERE balance_fen>=$1）防并发丢更新。
+
+func (r *escrowRepo) Deposit(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	ctx := context.Background()
+	now := time.Now()
+	btx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("begin escrow deposit: %w", err)
+	}
+	defer btx.Rollback(ctx)
+	if _, err := btx.Exec(ctx,
+		`INSERT INTO escrow_accounts (user_id,balance_fen,frozen_fen,updated_at) VALUES ($1,$2,0,$3)
+		 ON CONFLICT (user_id) DO UPDATE SET balance_fen=escrow_accounts.balance_fen+$2, updated_at=$3`,
+		userID, amountFen, now); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("deposit %s: %w", userID, err)
+	}
+	if err := insertEscrowTx(ctx, btx, tx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("insert deposit tx: %w", err)
+	}
+	if err := btx.Commit(ctx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow deposit: %w", err)
+	}
+	return tx, nil
+}
+
+func (r *escrowRepo) Freeze(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	ctx := context.Background()
+	btx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("begin escrow freeze: %w", err)
+	}
+	defer btx.Rollback(ctx)
+	tag, err := btx.Exec(ctx,
+		`UPDATE escrow_accounts SET balance_fen=balance_fen-$1, frozen_fen=frozen_fen+$1, updated_at=$3
+		 WHERE user_id=$2 AND balance_fen>=$1`,
+		amountFen, userID, time.Now())
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("freeze %s: %w", userID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientBalance
+	}
+	if err := insertEscrowTx(ctx, btx, tx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("insert freeze tx: %w", err)
+	}
+	if err := btx.Commit(ctx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow freeze: %w", err)
+	}
+	return tx, nil
+}
+
+func (r *escrowRepo) Release(fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	ctx := context.Background()
+	now := time.Now()
+	btx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("begin escrow release: %w", err)
+	}
+	defer btx.Rollback(ctx)
+	tag, err := btx.Exec(ctx,
+		`UPDATE escrow_accounts SET frozen_fen=frozen_fen-$1, updated_at=$3
+		 WHERE user_id=$2 AND frozen_fen>=$1`,
+		amountFen, fromUser, now)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("release from %s: %w", fromUser, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
+	}
+	// 收款方可能尚无账户：upsert + 原子累加（C6 修复——旧实现两次独立
+	// Upsert，付款方扣减成功而收款方失败时资金凭空消失）
+	if _, err := btx.Exec(ctx,
+		`INSERT INTO escrow_accounts (user_id,balance_fen,frozen_fen,updated_at) VALUES ($1,$2,0,$3)
+		 ON CONFLICT (user_id) DO UPDATE SET balance_fen=escrow_accounts.balance_fen+$2, updated_at=$3`,
+		toUser, amountFen, now); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("release to %s: %w", toUser, err)
+	}
+	if err := insertEscrowTx(ctx, btx, tx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("insert release tx: %w", err)
+	}
+	if err := btx.Commit(ctx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow release: %w", err)
+	}
+	return tx, nil
+}
+
+func (r *escrowRepo) Refund(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	ctx := context.Background()
+	btx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("begin escrow refund: %w", err)
+	}
+	defer btx.Rollback(ctx)
+	tag, err := btx.Exec(ctx,
+		`UPDATE escrow_accounts SET frozen_fen=frozen_fen-$1, balance_fen=balance_fen+$1, updated_at=$3
+		 WHERE user_id=$2 AND frozen_fen>=$1`,
+		amountFen, userID, time.Now())
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("refund %s: %w", userID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
+	}
+	if err := insertEscrowTx(ctx, btx, tx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("insert refund tx: %w", err)
+	}
+	if err := btx.Commit(ctx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow refund: %w", err)
+	}
+	return tx, nil
 }
 func (r *escrowRepo) ListTransactions(userID string) ([]domain.EscrowTransaction, error) {
 	rows, err := r.pool.Query(context.Background(),
@@ -583,7 +743,9 @@ func (r *escrowRepo) ListTransactions(userID string) ([]domain.EscrowTransaction
 	var out []domain.EscrowTransaction
 	for rows.Next() {
 		var tx domain.EscrowTransaction
-		rows.Scan(&tx.ID, &tx.FromUser, &tx.ToUser, &tx.AmountFen, &tx.TxType, &tx.ReferenceType, &tx.ReferenceID, &tx.Status, &tx.CreatedAt)
+		if err := rows.Scan(&tx.ID, &tx.FromUser, &tx.ToUser, &tx.AmountFen, &tx.TxType, &tx.ReferenceType, &tx.ReferenceID, &tx.Status, &tx.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan escrow transaction: %w", err)
+		}
 		out = append(out, tx)
 	}
 	return out, rows.Err()

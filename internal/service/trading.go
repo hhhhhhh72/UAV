@@ -65,3 +65,7 @@ func (s *TradingService) CreateRepair(a domain.Actor, productDesc, faultDesc str
 func (s *TradingService) ListMyRepairs(a domain.Actor) ([]domain.RepairOrder, error) {
 	return s.repairRepo.ListByUser(a.ID)
 }
+
+func (s *TradingService) ListAllRepairs(offset, limit int) ([]domain.RepairOrder, int, error) {
+	return s.repairRepo.ListAll(offset, limit)
+}

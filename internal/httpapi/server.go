@@ -94,6 +94,7 @@ type Server struct {
 	rescueCaseSvc     *service.RescueCaseService
 	emergDeptSvc      *service.EmergencyDeptService
 	assocMemberSvc    *service.AssociationMemberService
+	contractTplSvc    *service.ContractTemplateService
 	appSvc            *service.ApplicationService
 	userRepo          repository.UserRepository
 	refreshRepo       repository.RefreshTokenRepository
@@ -248,6 +249,9 @@ func (s *Server) SetAssociationMemberService(svc *service.AssociationMemberServi
 	s.assocMemberSvc = svc
 }
 func (s *Server) SetApplicationService(svc *service.ApplicationService) { s.appSvc = svc }
+func (s *Server) SetContractTemplateService(svc *service.ContractTemplateService) {
+	s.contractTplSvc = svc
+}
 
 // audit records a write operation to the audit log if a writer is configured.
 func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resourceID, result string) {
@@ -321,6 +325,17 @@ func (s *Server) serveUploads(w http.ResponseWriter, r *http.Request) {
 	http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))).ServeHTTP(w, r)
 }
 
+// servePrivateUploads 鉴权读取 uploads/private/（身份证影像等敏感文件）。
+// authenticate 中间件不放行 /uploads/private/ 前缀，此处 actor 必然已注入。
+func (s *Server) servePrivateUploads(w http.ResponseWriter, r *http.Request) {
+	if _, ok := authenticatedActor(r); !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	w.Header().Del("Content-Type")
+	http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))).ServeHTTP(w, r)
+}
+
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]any{
 		"name":      "Drone Industry Service Platform API",
@@ -365,13 +380,28 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		banners[i] = b
 	}
 
-	// Stats: demand count, user count
-	demands, _ := s.demands.List(repository.DemandFilter{})
+	// Stats: demand count, user count — 单源失败不阻断首页，记日志后按零值继续
+	demands, err := s.demands.List(repository.DemandFilter{})
+	if err != nil {
+		slog.Warn("home: list demands", "err", err)
+	}
 	demandTotal := len(demands)
-	users, _ := s.userRepo.All()
+	users, err := s.userRepo.All()
+	if err != nil {
+		slog.Warn("home: list users", "err", err)
+	}
 	userTotal := len(users)
 
-	products, _ := s.tradingSvc.ListProducts("")
+	products, err := s.tradingSvc.ListProducts("")
+	if err != nil {
+		slog.Warn("home: list products", "err", err)
+	}
+
+	// 平台累计浏览量：商品浏览量之和（需求无浏览统计字段，只能按商品口径汇总）
+	productViews := 0
+	for _, p := range products {
+		productViews += p.Views
+	}
 
 	respond(w, r, http.StatusOK, map[string]any{
 		"city":           data.City,
@@ -384,7 +414,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		"stats": map[string]int{
 			"demands": demandTotal,
 			"users":   userTotal,
-			"views":   6690000, // platform lifetime views
+			"views":   productViews, // 商品累计浏览量之和
 		},
 	})
 }
@@ -412,7 +442,6 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]any{"demands": public, "enterprises": es})
 }
 func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
 	result, err := s.demands.List(repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type"), Sort: r.URL.Query().Get("sort")})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -447,17 +476,10 @@ func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
 			result = filtered
 		}
 	}
-	start := (page - 1) * pageSize
-	if start > len(result) {
-		start = len(result)
-	}
-	end := start + pageSize
-	if end > len(result) {
-		end = len(result)
-	}
-	paged := result[start:end]
-	public := make([]domain.Demand, len(paged))
-	for i, d := range paged {
+	// C8 修复：不再手工切片——paginatedRespond 内部已按 page/page_size 分页，
+	// 双重切片导致 page≥2 恒为空。此处只做公开字段脱敏，分页交给响应层。
+	public := make([]domain.Demand, len(result))
+	for i, d := range result {
 		public[i] = publicDemand(d)
 	}
 	paginatedRespond(w, r, public, len(result))

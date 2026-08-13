@@ -29,15 +29,9 @@
 
     <!-- Normal state -->
     <template v-else>
-      <!-- Hero image -->
+      <!-- Hero: 后端模型无图片字段，统一用类型占位图 -->
       <view class="hero-section">
-        <image
-          v-if="detail.photo_url"
-          :src="detail.photo_url"
-          mode="aspectFill"
-          class="hero-img"
-        />
-        <view v-else class="hero-placeholder">
+        <view class="hero-placeholder">
           <text class="placeholder-emoji">{{ resourceEmoji(detail.res_type) }}</text>
         </view>
       </view>
@@ -45,7 +39,9 @@
       <!-- Info cards -->
       <u-cell-group inset>
         <u-cell title="资源名称" :value="detail.name || '--'" />
+        <u-cell v-if="detail.res_type" title="资源类型" :value="resTypeLabel(detail.res_type)" />
         <u-cell v-if="detail.model" title="型号" :value="detail.model" />
+        <u-cell v-if="detail.specs" title="规格" :value="detail.specs" />
         <u-cell v-if="detail.location" title="所在地">
           <template #value>
             <view class="cell-with-icon">
@@ -54,9 +50,9 @@
             </view>
           </template>
         </u-cell>
-        <u-cell title="日租费用">
+        <u-cell title="参考价格">
           <template #value>
-            <text class="fee-text">¥{{ detail.daily_fee || 0 }}/天</text>
+            <text :class="isFreePrice ? 'face-text' : 'fee-text'">{{ priceText }}</text>
           </template>
         </u-cell>
         <u-cell title="状态">
@@ -64,14 +60,12 @@
             <text class="status-text" :class="'status-' + (detail.status || 'available')">{{ statusLabel(detail.status) }}</text>
           </template>
         </u-cell>
-        <u-cell v-if="detail.contact" title="联系方式" :value="detail.contact" />
-        <u-cell v-if="detail.booking_method" title="预约方式" :value="detail.booking_method" />
       </u-cell-group>
 
-      <!-- Description -->
-      <view v-if="detail.description" class="desc-card">
-        <text class="desc-label">资源描述</text>
-        <text class="desc-text">{{ detail.description }}</text>
+      <!-- Booking info -->
+      <view v-if="detail.booking_info" class="desc-card">
+        <text class="desc-label">预约信息</text>
+        <text class="desc-text">{{ detail.booking_info }}</text>
       </view>
 
       <!-- Required margin for bottom button -->
@@ -174,6 +168,19 @@ export default {
       },
     }
   },
+  computed: {
+    // price_fen 分转元；0 / 空显示"面议"
+    priceText() {
+      var fen = this.detail ? this.detail.price_fen : 0
+      if (!fen || fen <= 0) return '面议'
+      var yuan = fen / 100
+      return '¥' + (yuan % 1 === 0 ? yuan.toFixed(0) : yuan.toFixed(2))
+    },
+    isFreePrice() {
+      var fen = this.detail ? this.detail.price_fen : 0
+      return !fen || fen <= 0
+    },
+  },
   onLoad(options) {
     this.id = options.id || ''
     this.fetchDetail()
@@ -275,6 +282,15 @@ export default {
       }
       return map[type] || '源'
     },
+    resTypeLabel(type) {
+      var map = {
+        drone: '无人机',
+        airport: '机场/场地',
+        test_site: '测试场地',
+        test_base: '测试基地',
+      }
+      return map[type] || type || '--'
+    },
   },
 }
 </script>
@@ -316,12 +332,6 @@ export default {
   margin-bottom: 12px;
 }
 
-.hero-img {
-  width: 100%;
-  height: 440rpx;
-  display: block;
-}
-
 .hero-placeholder {
   height: 440rpx;
   background: var(--color-primary);
@@ -345,6 +355,10 @@ export default {
 
 .fee-text {
   color: var(--color-danger);
+  font-weight: 600;
+}
+.face-text {
+  color: var(--color-text-secondary);
   font-weight: 600;
 }
 .status-text { font-size: 26rpx; font-weight: 500; }

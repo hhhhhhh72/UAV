@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
+	"drone-platform/internal/service"
 )
 
 // registerBizRoutes registers all business-module routes.
@@ -91,6 +93,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 	// ---- Industry Resources ----
 	mux.HandleFunc("GET /api/v1/industry-resources", s.listIndustryResources)
 	mux.HandleFunc("GET /api/v1/industry-resources/{id}", s.getIndustryResourcePublic)
+	mux.HandleFunc("POST /api/v1/industry-resources/{id}/book", s.bookIndustryResource)
 	mux.HandleFunc("POST /api/v1/admin/industry-resources", s.createIndustryResource)
 	mux.HandleFunc("PUT /api/v1/admin/industry-resources/{id}", s.updateIndustryResource)
 
@@ -402,6 +405,7 @@ func (s *Server) createComplianceStandard(w http.ResponseWriter, r *http.Request
 	var in struct {
 		ID            string `json:"id"`
 		Title         string `json:"title"`
+		Category      string `json:"category"`
 		StandardNo    string `json:"standard_no"`
 		Publisher     string `json:"publisher"`
 		EffectiveDate string `json:"effective_date"`
@@ -413,7 +417,7 @@ func (s *Server) createComplianceStandard(w http.ResponseWriter, r *http.Request
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	sd, err := s.complianceSvc.CreateStandard(in.Title, in.StandardNo, in.Publisher, in.EffectiveDate, in.Status, in.Scope, in.FileURL)
+	sd, err := s.complianceSvc.CreateStandard(in.Title, in.Category, in.StandardNo, in.Publisher, in.EffectiveDate, in.Status, in.Scope, in.FileURL)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1116,12 +1120,26 @@ func (s *Server) registerCompetition(w http.ResponseWriter, r *http.Request) {
 		TeamName    string `json:"team_name"`
 		MemberCount int    `json:"member_count"`
 		ContactInfo string `json:"contact_info"`
+		Name        string `json:"name"`
+		Phone       string `json:"phone"`
+		IDCard      string `json:"id_card"`
+		PhotoURL    string `json:"photo_url"`
+		IDCardImage string `json:"id_card_image"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	reg, err := s.competitionSvc.Register(r.PathValue("id"), a.ID, in.TeamName, in.MemberCount, in.ContactInfo)
+	// 边界校验：非空时校验手机号/身份证格式（与 register.vue 端一致）；不强制必填以兼容旧客户端
+	if in.Phone != "" && !participantPhonePattern.MatchString(in.Phone) {
+		fail(w, r, http.StatusBadRequest, errors.New("invalid phone number"))
+		return
+	}
+	if in.IDCard != "" && !idCardPattern.MatchString(in.IDCard) {
+		fail(w, r, http.StatusBadRequest, errors.New("invalid id card number"))
+		return
+	}
+	reg, err := s.competitionSvc.Register(r.PathValue("id"), a.ID, in.TeamName, in.MemberCount, in.ContactInfo, in.Name, in.Phone, in.IDCard, in.PhotoURL, in.IDCardImage)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -1303,6 +1321,68 @@ func (s *Server) listIndustryResources(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, visible, len(visible))
 }
 
+// phonePattern 11 位手机号（预约联系人校验，与小程序端一致）。
+var phonePattern = regexp.MustCompile(`^\d{11}$`)
+
+// participantPhonePattern 赛事报名手机号（与 register.vue 校验一致：1 开头 3-9 段）。
+var participantPhonePattern = regexp.MustCompile(`^1[3-9]\d{9}$`)
+
+// idCardPattern 18 位身份证号（末位可为 X）。
+var idCardPattern = regexp.MustCompile(`^\d{17}[\dXx]$`)
+
+// POST /api/v1/industry-resources/{id}/book — 资源预约（C11：小程序资源详情页预约弹窗）
+// 该路径不在 publicPrefixes 白名单内（两段子路径），自动要求登录态；预约归属当前用户。
+func (s *Server) bookIndustryResource(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		Date         string `json:"date"`
+		Purpose      string `json:"purpose"`
+		ContactName  string `json:"contact_name"`
+		ContactPhone string `json:"contact_phone"`
+		ResourceID   string `json:"resource_id"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	// 边界校验：日期格式 YYYY-MM-DD、联系人非空、11 位手机号（与小程序端校验一致）
+	if _, err := time.Parse("2006-01-02", in.Date); err != nil {
+		fail(w, r, http.StatusBadRequest, errors.New("invalid date, expected YYYY-MM-DD"))
+		return
+	}
+	if strings.TrimSpace(in.ContactName) == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("contact name is required"))
+		return
+	}
+	if !phonePattern.MatchString(in.ContactPhone) {
+		fail(w, r, http.StatusBadRequest, errors.New("contact phone must be 11 digits"))
+		return
+	}
+	// 可见级别校验：与列表/详情一致，无权查看的资源不允许预约
+	resID := r.PathValue("id")
+	if res, err := s.resourceSvc.Get(resID); err == nil {
+		if resourceLevelRank(res.VisibilityLevel) > s.visitorResourceLevel(r) {
+			fail(w, r, http.StatusForbidden, errors.New("resource not visible to current user"))
+			return
+		}
+	}
+	bk, err := s.resourceSvc.Book(a.ID, resID, in.Date, in.Purpose, in.ContactName, in.ContactPhone)
+	if err != nil {
+		if errors.Is(err, service.ErrResourceNotFound) {
+			fail(w, r, http.StatusNotFound, err)
+			return
+		}
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "book_resource", "industry_resource", bk.ResourceID, "booked")
+	respond(w, r, http.StatusCreated, bk)
+}
+
 // POST /api/v1/admin/industry-resources
 func (s *Server) createIndustryResource(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
@@ -1373,10 +1453,10 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 
 // ---- Emergency ----
 
-// GET /api/v1/emergency-resources?page=1&page_size=10
+// GET /api/v1/emergency-resources?page=1&page_size=10&res_type=drone&q=关键词
 func (s *Server) listEmergencyResources(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.emergencySvc.ListResources(page, pageSize)
+	items, total, err := s.emergencySvc.ListResources(r.URL.Query().Get("res_type"), r.URL.Query().Get("q"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

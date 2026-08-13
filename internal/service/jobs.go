@@ -16,6 +16,18 @@ type JobService struct {
 	app    repository.JobApplicationRepository
 }
 
+var (
+	// ErrInvalidJobStatus 管理端更新职位时传入了白名单（draft/published/closed）之外的状态。
+	ErrInvalidJobStatus = errors.New("invalid job status")
+	// ErrInvalidJobTransition 状态机不允许的流转（如发布已发布的职位、关闭草稿职位）。
+	ErrInvalidJobTransition = errors.New("invalid job status transition")
+)
+
+// validJobStatus 职位状态白名单：draft → published → closed，无其他状态。
+func validJobStatus(s domain.JobStatus) bool {
+	return s == domain.JobDraft || s == domain.JobPublished || s == domain.JobClosed
+}
+
 func NewJobService(j repository.JobRepository, r repository.ResumeRepository, a repository.JobApplicationRepository) *JobService {
 	return &JobService{repo: j, resume: r, app: a}
 }
@@ -40,6 +52,9 @@ func (s *JobService) PublishJob(a domain.Actor, id string) (domain.Job, error) {
 	if j.EnterpriseID != a.ID {
 		return domain.Job{}, errors.New("only the owner can publish")
 	}
+	if j.Status != domain.JobDraft {
+		return domain.Job{}, fmt.Errorf("%w: cannot publish job in %q status", ErrInvalidJobTransition, j.Status)
+	}
 	j.Status = domain.JobPublished
 	j.UpdatedAt = time.Now()
 	slog.Info("job updated", "job_id", id)
@@ -52,6 +67,9 @@ func (s *JobService) CloseJob(a domain.Actor, id string) (domain.Job, error) {
 	}
 	if j.EnterpriseID != a.ID {
 		return domain.Job{}, errors.New("only the owner can close")
+	}
+	if j.Status != domain.JobPublished {
+		return domain.Job{}, fmt.Errorf("%w: cannot close job in %q status", ErrInvalidJobTransition, j.Status)
 	}
 	j.Status = domain.JobClosed
 	j.UpdatedAt = time.Now()
@@ -74,6 +92,9 @@ func (s *JobService) ListMyJobs(a domain.Actor) ([]domain.Job, error) {
 func (s *JobService) GetJob(id string) (domain.Job, error) { return s.repo.FindByID(id) }
 
 func (s *JobService) UpdateJob(id, title, desc, location, jobType string, salaryFen int64, status string) (domain.Job, error) {
+	if !validJobStatus(domain.JobStatus(status)) {
+		return domain.Job{}, fmt.Errorf("%w: %q", ErrInvalidJobStatus, status)
+	}
 	j, err := s.repo.FindByID(id)
 	if err != nil {
 		return domain.Job{}, err
@@ -126,12 +147,20 @@ func (s *JobService) ListMyResumes(a domain.Actor) ([]domain.Resume, error) {
 	return s.resume.ListByUser(a.ID)
 }
 
+func (s *JobService) ListAllResumes(offset, limit int) ([]domain.Resume, int, error) {
+	return s.resume.ListAll(offset, limit)
+}
+
 // ---- Applications ----
 
 func (s *JobService) Apply(a domain.Actor, jobID, resumeID string) (domain.JobApplication, error) {
 	j, err := s.repo.FindByID(jobID)
 	if err != nil {
 		return domain.JobApplication{}, err
+	}
+	// 仅招聘中的职位可投递：草稿/已关闭一律拒绝（旧实现草稿也可投递）
+	if j.Status != domain.JobPublished {
+		return domain.JobApplication{}, fmt.Errorf("job %q is not open for applications", j.Status)
 	}
 	if j.EnterpriseID == a.ID {
 		return domain.JobApplication{}, errors.New("cannot apply to your own job")
@@ -151,7 +180,9 @@ func (s *JobService) Apply(a domain.Actor, jobID, resumeID string) (domain.JobAp
 	return s.app.Create(app)
 }
 func (s *JobService) UpdateApplicationStatus(a domain.Actor, appID string, status domain.AppStatus) (domain.JobApplication, error) {
-	ap, err := s.app.UpdateStatus(appID, status)
+	// 归属校验前置（C5 修复）：必须先确认操作者身份再落库，
+	// 旧实现先 UpdateStatus 后校验，越权写入已生效才返回 403。
+	ap, err := s.app.FindByID(appID)
 	if err != nil {
 		return domain.JobApplication{}, err
 	}
@@ -162,7 +193,7 @@ func (s *JobService) UpdateApplicationStatus(a domain.Actor, appID string, statu
 	if j.EnterpriseID != a.ID && ap.ApplicantID != a.ID {
 		return domain.JobApplication{}, errors.New("only the job owner or applicant can update")
 	}
-	return ap, nil
+	return s.app.UpdateStatus(appID, status)
 }
 func (s *JobService) ListApplicationsForJob(a domain.Actor, jobID string) ([]domain.JobApplication, error) {
 	j, err := s.repo.FindByID(jobID)
