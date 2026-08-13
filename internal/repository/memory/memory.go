@@ -346,6 +346,8 @@ func (r *enterpriseRepo) Delete(id string) error {
 }
 
 func (r *enterpriseRepo) Search(q string) ([]domain.Enterprise, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	q = strings.ToLower(q)
 	out := []domain.Enterprise{}
 	for _, e := range r.items {
