@@ -1,17 +1,12 @@
 <template>
-  <!-- 供需项目锚点无限循环窗口（420px 高，接管窗口内纵向手势）
+  <!-- 供需项目锚点无限循环窗口（静止时完整显示 1 张重点卡 + 2 张紧凑卡）
        顶部锚点用 2px 蓝色短线提示，不添加解释性文案 -->
   <view
     class="dl-window"
-    data-eventsync="true"
-    :data-loop-width="windowWidth"
-    :data-loop-disabled="itemCount < 2"
-    :loopVersion="renderVersion"
-    :change:loopVersion="loopGesture.onVersionChange"
-    @touchstart="loopGesture.touchstart"
-    @touchmove.stop="loopGesture.touchmove"
-    @touchend="loopGesture.touchend"
-    @touchcancel="loopGesture.touchcancel"
+    @touchstart="onTouchStart"
+    @touchmove.stop.prevent="onTouchMove"
+    @touchend="onTouchEnd"
+    @touchcancel="onTouchEnd"
   >
     <view class="dl-anchor-mark"></view>
 
@@ -19,22 +14,14 @@
       v-for="slot in slots"
       :key="slot.poolIndex"
       class="dl-card"
-      :class="[`dl-card-${slot.poolIndex}`, { 'is-anchor': slot.virtualOffset === 0 }]"
-      :data-pool-index="slot.poolIndex"
+      :class="{ 'is-anchor': slot.progress > 0.5 }"
       :style="slot.style"
-      @tap="loopGesture.cardTap"
-      @transitionend="loopGesture.transitionend"
+      @tap="onCardTap(slot)"
     >
-      <!-- 固定全宽 150px 图片图层 + 裁剪窗口：图片不随尺寸重新裁剪，
-           裁剪窗口连续揭示更多左上角区域 -->
-      <view
-        class="dl-media-wrap"
-        :class="`dl-media-${slot.poolIndex}`"
-        :style="slot.mediaStyle"
-      >
+      <!-- 固定 144×168 图片图层 + 裁剪窗口：从 96×112 连续揭示中心区域 -->
+      <view class="dl-media-wrap" :style="slot.mediaStyle">
         <image
           class="dl-media-img"
-          :class="`dl-img-${slot.poolIndex}`"
           mode="aspectFill"
           :src="slot.item.image"
           :style="slot.mediaImgStyle"
@@ -43,20 +30,11 @@
       </view>
       <!-- 仅锚点卡大图区域可预览原图（与首页 featured-photo 行为一致）；
            紧凑卡图片不拦截点击，交由卡片进入详情 -->
-      <view
-        v-if="slot.virtualOffset === 0"
-        class="dl-media-hit"
-        :data-pool-index="slot.poolIndex"
-        @tap.stop="loopGesture.mediaTap"
-      ></view>
+      <view v-if="slot.progress > 0.5" class="dl-media-hit" @tap.stop="onMediaTap(slot)"></view>
 
-      <!-- 两套固定尺寸信息层错峰切换：紧凑层（左图右文）/ 展开层（图下正文），
+      <!-- 两套固定尺寸信息层错峰切换：紧凑横卡 / 加大横卡，
            变形期间只改 opacity/transform，不重排文字 -->
-      <view
-        class="dl-copy dl-compact"
-        :class="`dl-compact-${slot.poolIndex}`"
-        :style="slot.compactStyle"
-      >
+      <view class="dl-copy dl-compact" :style="slot.compactStyle">
         <view class="dl-badges">
           <text class="dl-type">{{ slot.item.type }}</text>
           <text v-if="slot.item.statusLabel" class="dl-status">{{ slot.item.statusLabel }}</text>
@@ -75,11 +53,7 @@
         </view>
       </view>
 
-      <view
-        class="dl-copy dl-expanded"
-        :class="`dl-expanded-${slot.poolIndex}`"
-        :style="slot.expandedStyle"
-      >
+      <view class="dl-copy dl-expanded" :style="slot.expandedStyle">
         <view class="dl-badges">
           <text class="dl-type">{{ slot.item.type }}</text>
           <text v-if="slot.item.statusLabel" class="dl-status">{{ slot.item.statusLabel }}</text>
@@ -102,417 +76,404 @@
   </view>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+
+const props = defineProps({
+  items: { type: Array, default: () => [] },
+})
+
+const emit = defineEmits(['select', 'preview', 'image-error'])
+
+/* ================= 几何参数 ================= */
 const COMPACT_HEIGHT = 112
-const EXPANDED_HEIGHT = 290
-const COMPACT_PITCH = 121
+const EXPANDED_HEIGHT = 168
 const COMPACT_IMAGE_WIDTH = 96
-const EXPANDED_IMAGE_HEIGHT = 150
+const EXPANDED_IMAGE_WIDTH = 144
+const EXPANDED_IMAGE_HEIGHT = 168
 const CARD_GAP = 9
+const COMPACT_PITCH = COMPACT_HEIGHT + CARD_GAP
+const SNAP_MIN_MS = 240
+const SNAP_MAX_MS = 270
+const SNAP_OMEGA = 0.026
 const POOL_SIZE = 8
+// 手势灵敏度：纵向拖动 230px 对应一个卡片间距
+const DRAG_RATIO = 230
+// 超过 7px 视为拖动，不触发详情
+const DRAG_TAP_LIMIT = 7
 
+/* ================= 工具函数 ================= */
 const modulo = (value, length) => ((value % length) + length) % length
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
+const lerp = (from, to, progress) => from + (to - from) * progress
+const smoothstep = (from, to, value) => {
+  const p = clamp((value - from) / (to - from), 0, 1)
+  return p * p * (3 - 2 * p)
+}
+const cardHeightFor = (progress) =>
+  lerp(COMPACT_HEIGHT, EXPANDED_HEIGHT, smoothstep(0.42, 0.88, progress))
+// 统一的动画时钟：rAF 时间戳与 performance.now 同为页面时间原点，避免 Date.now 混用
+const perfNow = () =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now()
 
-export default {
-  name: 'DemandLoop',
-  props: {
-    items: { type: Array, default: () => [] },
-  },
-  emits: ['select', 'preview', 'image-error'],
-  data() {
-    return {
-      activeItems: [],
-      anchorIndex: 0,
-      renderVersion: 0,
-      windowWidth: 351,
-    }
-  },
-  computed: {
-    itemCount() {
-      return this.activeItems.length
-    },
-    slots() {
-      if (this.itemCount === 0) return []
-      if (this.itemCount === 1) return [this.buildStaticSlot(0, 0, this.activeItems[0], true)]
+/* ================= 动画帧：全局优先，失败回退 16ms 定时器 ================= */
+let raf =
+  typeof requestAnimationFrame === 'function'
+    ? requestAnimationFrame
+    : (cb) => setTimeout(() => cb(perfNow()), 16)
+let caf =
+  typeof cancelAnimationFrame === 'function'
+    ? cancelAnimationFrame
+    : (handle) => clearTimeout(handle)
 
-      const slots = []
-      for (let poolIndex = 0; poolIndex < POOL_SIZE; poolIndex += 1) {
-        const virtualOffset = poolIndex - 2
-        const itemIndex = modulo(this.anchorIndex + virtualOffset, this.itemCount)
-        slots.push(this.buildStaticSlot(poolIndex, virtualOffset, this.activeItems[itemIndex], false))
-      }
-      return slots
-    },
-  },
-  watch: {
-    items: {
-      handler() {
-        this.applyItems()
-      },
-      immediate: true,
-    },
-  },
-  mounted() {
-    this.measureWidth()
-  },
-  methods: {
-    buildStaticSlot(poolIndex, virtualOffset, item, single) {
-      let y = 0
-      let progress = 0
-      if (single || virtualOffset === 0) {
-        progress = 1
-      } else if (virtualOffset === 1) {
-        y = EXPANDED_HEIGHT + CARD_GAP
-      } else if (virtualOffset > 1) {
-        y = EXPANDED_HEIGHT + CARD_GAP + (virtualOffset - 1) * COMPACT_PITCH
-      } else {
-        y = virtualOffset * COMPACT_PITCH
-      }
+/* ================= 循环位置状态（position 为渲染源，ref 驱动 slots computed） ================= */
+const position = ref(0)
+const targetPosition = ref(0)
+// 响应式数据源：items 变化驱动 activeItems 替换，进而触发 slots computed 重算
+const activeItems = ref([])
+const itemCount = computed(() => activeItems.value.length)
 
-      const expanded = progress === 1
-      const mediaWidth = expanded ? this.windowWidth : COMPACT_IMAGE_WIDTH
-      const mediaHeight = expanded ? EXPANDED_IMAGE_HEIGHT : COMPACT_HEIGHT
-      const mediaInsetX = Math.max(0, (this.windowWidth - mediaWidth) / 2)
-      return {
-        poolIndex,
-        virtualOffset,
+// 非响应式运行态（每帧访问，避免额外响应式开销）
+let dragging = false
+let snapping = false
+let snapFrom = 0
+let snapTo = 0
+let snapStartedAt = 0
+let snapDuration = SNAP_MIN_MS
+let snapDisplacement = 0
+let snapVelocity = 0
+let frameHandle = 0
+let frameActive = false
+
+// 手势
+let dragStartY = 0
+let dragStartPosition = 0
+let dragDistance = 0
+let inputVelocity = 0
+let lastInputPosition = 0
+let lastInputAt = 0
+
+/* ================= 视图池 ================= */
+const poolIndexToVirtual = (poolIndex) => {
+  const base = Math.floor(position.value)
+  return base - 2 + poolIndex
+}
+
+const geometryFor = (virtualIndex, base, fraction) => {
+  const currentProgress = 1 - fraction
+  const currentY = -COMPACT_PITCH * fraction
+  const currentHeight = cardHeightFor(currentProgress)
+  const nextY = currentY + currentHeight + CARD_GAP
+  if (virtualIndex === base) return { progress: currentProgress, y: currentY }
+  if (virtualIndex === base + 1) return { progress: fraction, y: nextY }
+  if (virtualIndex > base + 1) {
+    const nextHeight = cardHeightFor(fraction)
+    return { progress: 0, y: nextY + nextHeight + CARD_GAP + (virtualIndex - base - 2) * COMPACT_PITCH }
+  }
+  return { progress: 0, y: -COMPACT_PITCH * (base - virtualIndex + fraction) }
+}
+
+const buildSlots = () => {
+  const list = activeItems.value
+  if (list.length <= 1) {
+    const item = list[0]
+    if (!item) return []
+    // 唯一卡片静态展开，不制造重复卡片
+    return [
+      {
+        poolIndex: 0,
+        virtualIndex: 0,
         item,
-        style: `transform:translate3d(0,${y}px,0);height:${expanded ? EXPANDED_HEIGHT : COMPACT_HEIGHT}px;visibility:${y < -EXPANDED_HEIGHT || y > 470 ? 'hidden' : 'visible'}`,
-        compactStyle: `opacity:${expanded ? 0 : 1};transform:translate3d(${expanded ? -5 : 0}px,0,0)`,
-        expandedStyle: `opacity:${expanded ? 1 : 0};transform:translate3d(0,${expanded ? 0 : 6}px,0)`,
-        mediaStyle: `width:${mediaWidth}px;height:${mediaHeight}px;left:0;top:0;overflow:hidden`,
-        mediaImgStyle: `width:${this.windowWidth}px;height:${EXPANDED_IMAGE_HEIGHT}px;transform:translate3d(${-mediaInsetX}px,0,0);max-width:none`,
-      }
-    },
-    applyItems() {
-      const next = (this.items || []).filter(Boolean)
-      const current = this.activeItems[this.anchorIndex]
-      const anchorId = current && current.id
-      this.activeItems = next
-      const retainedIndex = anchorId ? next.findIndex((item) => item && item.id === anchorId) : -1
-      this.anchorIndex = retainedIndex >= 0 ? retainedIndex : 0
-      this.renderVersion += 1
-    },
-    commitLoopStep(payload) {
-      if (this.itemCount < 2) return
-      const rawStep = payload && typeof payload === 'object' ? payload.step : payload
-      const step = Number(rawStep)
-      if (step !== 1 && step !== -1) return
-      this.anchorIndex = modulo(this.anchorIndex + step, this.itemCount)
-      // 锚点轮换和 WXS 复位在同一次 setData 中提交，避免一帧内容错位。
-      this.renderVersion += 1
-    },
-    selectPoolItem(payload) {
-      const poolIndex = Number(payload && payload.poolIndex)
-      const slot = this.slots.find((candidate) => candidate.poolIndex === poolIndex)
-      if (slot) this.$emit('select', slot.item)
-    },
-    previewPoolItem(payload) {
-      const poolIndex = Number(payload && payload.poolIndex)
-      const slot = this.slots.find((candidate) => candidate.poolIndex === poolIndex)
-      if (slot && slot.virtualOffset === 0) this.$emit('preview', slot.item)
-    },
-    onImageError(item) {
-      this.$emit('image-error', item)
-    },
-    measureWidth() {
-      try {
-        const system = uni.getSystemInfoSync()
-        this.windowWidth = ((system && system.windowWidth) || 375) - 24
-      } catch (error) {
-        this.windowWidth = 351
-      }
-      this.$nextTick(() => {
-        try {
-          uni
-            .createSelectorQuery()
-            .in(this)
-            .select('.dl-window')
-            .boundingClientRect((rect) => {
-              if (rect && rect.width > 0 && rect.width !== this.windowWidth) {
-                this.windowWidth = rect.width
-                this.renderVersion += 1
-              }
-            })
-            .exec()
-        } catch (error) {
-          // 保留同步取得的兜底宽度。
-        }
-      })
-    },
-  },
-}
-</script>
+        progress: 1,
+        style: `transform:translate3d(0,0,0);height:${EXPANDED_HEIGHT}px;visibility:visible`,
+        compactStyle: 'opacity:0;transform:translate3d(-5px,0,0)',
+        expandedStyle: 'opacity:1;transform:translate3d(0,0,0)',
+        mediaStyle: `width:${EXPANDED_IMAGE_WIDTH}px;height:${EXPANDED_IMAGE_HEIGHT}px;left:0;top:0;overflow:hidden`,
+        mediaImgStyle: `width:${EXPANDED_IMAGE_WIDTH}px;height:${EXPANDED_IMAGE_HEIGHT}px;transform:translate3d(0,0,0);max-width:none`,
+      },
+    ]
+  }
 
-<!-- 高频手势和吸附只在小程序视图层运行，避免每帧穿过逻辑层通信桥。 -->
-<script module="loopGesture" lang="wxs">
-var COMPACT_HEIGHT = 112
-var EXPANDED_HEIGHT = 290
-var COMPACT_PITCH = 121
-var COMPACT_IMAGE_WIDTH = 96
-var EXPANDED_IMAGE_HEIGHT = 150
-var CARD_GAP = 9
-var POOL_SIZE = 8
-var DRAG_RATIO = 230
-var TAP_LIMIT = 7
+  const pos = position.value
+  const base = Math.floor(pos)
+  const fraction = pos - base
+  const count = itemCount.value
+  const slots = []
+  for (let poolIndex = 0; poolIndex < POOL_SIZE; poolIndex++) {
+    const virtualIndex = poolIndexToVirtual(poolIndex)
+    const itemIndex = modulo(virtualIndex, count)
+    const item = list[itemIndex]
+    if (!item) continue
 
-var owner = null
-var width = 351
-var dragging = false
-var locked = false
-var moved = false
-var startY = 0
-var position = 0
-var velocity = 0
-var lastPosition = 0
-var lastAt = 0
-var settleTarget = 0
+    const geometry = geometryFor(virtualIndex, base, fraction)
+    const p = clamp(geometry.progress, 0, 1)
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value))
+    const mediaWidth = lerp(COMPACT_IMAGE_WIDTH, EXPANDED_IMAGE_WIDTH, p)
+    const mediaHeight = lerp(COMPACT_HEIGHT, EXPANDED_IMAGE_HEIGHT, p)
+    const cardHeight = cardHeightFor(p)
+    const mediaInsetX = Math.max(0, (EXPANDED_IMAGE_WIDTH - mediaWidth) / 2)
+    const mediaInsetY = Math.max(0, (EXPANDED_IMAGE_HEIGHT - mediaHeight) / 2)
+    const compactOpacity = 1 - smoothstep(0.15, 0.45, p)
+    const expandedOpacity = smoothstep(0.55, 0.85, p)
+
+    // 裁剪窗口（等价于原型 clip-path 的可见区域）：
+    // 窗口固定在卡片左上角 (left:0, top:0)，宽高随 progress 从 96×112 连续
+    // 展开到 144×168；图片固定为展开尺寸，通过双轴位移始终显示中心区域。
+    const mediaStyle = [
+      `width:${mediaWidth.toFixed(2)}px`,
+      `height:${mediaHeight.toFixed(2)}px`,
+      'left:0',
+      'top:0',
+      'overflow:hidden',
+    ].join(';')
+    const mediaImgStyle = [
+      `width:${EXPANDED_IMAGE_WIDTH}px`,
+      `height:${EXPANDED_IMAGE_HEIGHT}px`,
+      `transform:translate3d(${(-mediaInsetX).toFixed(2)}px,${(-mediaInsetY).toFixed(2)}px,0)`,
+      'max-width:none',
+    ].join(';')
+
+    // 卡片仅允许 translate3d 移动 + 高度变化；越界槽位隐藏
+    const hidden = geometry.y < -EXPANDED_HEIGHT || geometry.y > 470
+    const cardStyle = [
+      `transform:translate3d(0,${geometry.y.toFixed(2)}px,0)`,
+      `height:${cardHeight.toFixed(2)}px`,
+      `visibility:${hidden ? 'hidden' : 'visible'}`,
+    ].join(';')
+
+    const compactStyle = `opacity:${compactOpacity.toFixed(3)};transform:translate3d(${lerp(0, -5, p).toFixed(2)}px,0,0)`
+    const expandedStyle = `opacity:${expandedOpacity.toFixed(3)};transform:translate3d(0,${lerp(6, 0, expandedOpacity).toFixed(2)}px,0)`
+
+    slots.push({
+      poolIndex,
+      virtualIndex,
+      item,
+      progress: p,
+      style: cardStyle,
+      compactStyle,
+      expandedStyle,
+      mediaStyle,
+      mediaImgStyle,
+    })
+  }
+  return slots
 }
 
-function lerp(from, to, progress) {
-  return from + (to - from) * progress
-}
+const slots = computed(() => buildSlots())
 
-function smoothstep(from, to, value) {
-  var progress = clamp((value - from) / (to - from), 0, 1)
-  return progress * progress * (3 - 2 * progress)
-}
-
-function cardHeight(progress) {
-  return lerp(COMPACT_HEIGHT, EXPANDED_HEIGHT, smoothstep(0.42, 0.88, progress))
-}
-
-function geometry(offset, base, fraction) {
-  var currentProgress = 1 - fraction
-  var currentY = -COMPACT_PITCH * fraction
-  var currentHeight = cardHeight(currentProgress)
-  var nextY = currentY + currentHeight + CARD_GAP
-  if (offset === base) return { progress: currentProgress, y: currentY }
-  if (offset === base + 1) return { progress: fraction, y: nextY }
-  if (offset > base + 1) {
-    var nextHeight = cardHeight(fraction)
-    return {
-      progress: 0,
-      y: nextY + nextHeight + CARD_GAP + (offset - base - 2) * COMPACT_PITCH,
+/* ================= 数据同步 ================= */
+const applyItems = () => {
+  const next = (props.items || []).filter(Boolean)
+  const previousItems = activeItems.value
+  const previousCount = previousItems.length
+  // 数据集合变化后优先保留当前业务 id；不存在时重置到第 0 项
+  const anchorId =
+    previousCount > 0
+      ? previousItems[modulo(Math.round(position.value), previousCount)]?.id
+      : null
+  activeItems.value = next
+  if (itemCount.value === 0) {
+    stopMotion()
+    return
+  }
+  if (itemCount.value === 1) {
+    // 唯一卡片静态展开
+    stopMotion()
+    position.value = 0
+    targetPosition.value = 0
+    return
+  }
+  const anchorIndex = anchorId ? next.findIndex((it) => it.id === anchorId) : -1
+  if (previousCount > 0 && anchorIndex >= 0) {
+    // 保留当前锚点对应业务 id：把 position 移到该 id 的新下标，视觉锚点不动
+    const oldAnchorIndex = modulo(Math.round(position.value), previousCount)
+    if (anchorIndex !== oldAnchorIndex) {
+      const shift = (anchorIndex - oldAnchorIndex) % itemCount.value
+      const nextPos = Math.round(position.value) + shift
+      position.value = nextPos
+      targetPosition.value = nextPos
     }
-  }
-  return { progress: 0, y: -COMPACT_PITCH * (base - offset + fraction) }
-}
-
-function select(ins, selector) {
-  return ins && ins.selectComponent ? ins.selectComponent(selector) : null
-}
-
-function setStyle(node, style) {
-  if (node && node.setStyle) node.setStyle(style)
-}
-
-function transitionFor(duration, properties) {
-  if (!duration) return 'none'
-  var names = properties.split(',')
-  var transitions = []
-  for (var index = 0; index < names.length; index += 1) {
-    transitions.push(names[index] + ' ' + duration + 'ms cubic-bezier(0.22,0.8,0.32,1)')
-  }
-  return transitions.join(',')
-}
-
-function renderAt(nextPosition, ins, duration) {
-  if (!ins) return
-  position = nextPosition
-  var base = Math.floor(nextPosition)
-  var fraction = nextPosition - base
-  var cardTransition = transitionFor(duration, 'transform,height')
-  var mediaTransition = transitionFor(duration, 'width,height')
-  var imageTransition = transitionFor(duration, 'transform')
-  var copyTransition = transitionFor(duration, 'opacity,transform')
-
-  for (var poolIndex = 0; poolIndex < POOL_SIZE; poolIndex += 1) {
-    var offset = poolIndex - 2
-    var result = geometry(offset, base, fraction)
-    var progress = clamp(result.progress, 0, 1)
-    var height = cardHeight(progress)
-    var mediaWidth = lerp(COMPACT_IMAGE_WIDTH, width, progress)
-    var mediaHeight = lerp(COMPACT_HEIGHT, EXPANDED_IMAGE_HEIGHT, progress)
-    var insetX = Math.max(0, (width - mediaWidth) / 2)
-    var compactOpacity = 1 - smoothstep(0.15, 0.45, progress)
-    var expandedOpacity = smoothstep(0.55, 0.85, progress)
-    var hidden = result.y < -EXPANDED_HEIGHT || result.y > 470
-
-    setStyle(select(ins, '.dl-card-' + poolIndex), {
-      transform: 'translate3d(0,' + result.y.toFixed(2) + 'px,0)',
-      height: height.toFixed(2) + 'px',
-      visibility: hidden ? 'hidden' : 'visible',
-      zIndex: progress > 0.5 ? 4 : 1,
-      borderColor: progress > 0.5 ? '#dbe8f4' : '#EEF1F4',
-      transition: cardTransition,
-    })
-    setStyle(select(ins, '.dl-media-' + poolIndex), {
-      width: mediaWidth.toFixed(2) + 'px',
-      height: mediaHeight.toFixed(2) + 'px',
-      transition: mediaTransition,
-    })
-    setStyle(select(ins, '.dl-img-' + poolIndex), {
-      width: width + 'px',
-      transform: 'translate3d(' + (-insetX).toFixed(2) + 'px,0,0)',
-      transition: imageTransition,
-    })
-    setStyle(select(ins, '.dl-compact-' + poolIndex), {
-      opacity: compactOpacity.toFixed(3),
-      transform: 'translate3d(' + lerp(0, -5, progress).toFixed(2) + 'px,0,0)',
-      transition: copyTransition,
-    })
-    setStyle(select(ins, '.dl-expanded-' + poolIndex), {
-      opacity: expandedOpacity.toFixed(3),
-      transform: 'translate3d(0,' + lerp(6, 0, expandedOpacity).toFixed(2) + 'px,0)',
-      transition: copyTransition,
-    })
-  }
-}
-
-function readY(event) {
-  var touches = event && event.touches
-  var touch = touches && touches[0]
-  if (!touch) return null
-  return touch.clientY || touch.pageY || 0
-}
-
-function touchstart(event, ins) {
-  if (locked) return false
-  var y = readY(event)
-  if (y === null) return false
-  owner = ins
-  var dataset = event.currentTarget && event.currentTarget.dataset
-  if (dataset && dataset.loopWidth) width = dataset.loopWidth
-  if (dataset && dataset.loopDisabled) return false
-  dragging = true
-  moved = false
-  startY = y
-  position = 0
-  velocity = 0
-  lastPosition = 0
-  lastAt = Date.now()
-  renderAt(0, ins, 0)
-  return false
-}
-
-function touchmove(event, ins) {
-  if (!dragging || locked) return false
-  var y = readY(event)
-  if (y === null) return false
-  var deltaY = y - startY
-  moved = moved || Math.abs(deltaY) > TAP_LIMIT
-  var raw = -deltaY / DRAG_RATIO
-  if (Math.abs(raw) > 1) {
-    raw = (raw < 0 ? -1 : 1) * (1 + Math.min(0.12, (Math.abs(raw) - 1) * 0.15))
-  }
-  var now = Date.now()
-  var elapsed = Math.max(1, now - lastAt)
-  var instant = (raw - lastPosition) / elapsed
-  velocity = velocity * 0.55 + instant * 0.45
-  lastPosition = raw
-  lastAt = now
-  renderAt(raw, ins, 0)
-  return false
-}
-
-function settle(ins) {
-  if (!dragging || locked) return false
-  dragging = false
-  var projected = position + velocity * 45
-  var target = 0
-  if (Math.abs(position) >= 0.18 || Math.abs(projected) >= 0.28) {
-    target = projected <= 0 ? -1 : 1
-  }
-  var remaining = Math.abs(target - position)
-  if (remaining < 0.001) {
-    renderAt(0, ins, 0)
-    locked = false
-    return false
-  }
-  var duration = Math.round(clamp(176 + remaining * 38, 184, 224))
-  locked = true
-  settleTarget = target
-  renderAt(target, ins, duration)
-  return false
-}
-
-function transitionend(event, ins) {
-  if (!locked) return false
-  var target = settleTarget
-  settleTarget = 0
-  locked = false
-  dragging = false
-  position = target
-  velocity = 0
-  if (target === 0) {
-    renderAt(0, ins, 0)
-  } else if (ins && ins.callMethod) {
-    ins.callMethod('commitLoopStep', { step: target })
   } else {
-    renderAt(0, ins, 0)
+    stopMotion()
+    position.value = 0
+    targetPosition.value = 0
   }
-  return false
 }
 
-function touchend(event, ins) {
-  return settle(ins)
+watch(
+  () => props.items,
+  () => {
+    applyItems()
+  },
+  { deep: false }
+)
+
+/* ================= 动画帧循环 ================= */
+function animate(now) {
+  const t = typeof now === 'number' ? now : perfNow()
+  if (dragging) {
+    position.value = targetPosition.value
+    frameActive = false
+    frameHandle = 0
+    return
+  }
+  if (!snapping) {
+    position.value = targetPosition.value
+    frameActive = false
+    frameHandle = 0
+    return
+  }
+  const elapsed = Math.max(0, t - snapStartedAt)
+  const progress = clamp(elapsed / snapDuration, 0, 1)
+  const decay = Math.exp(-SNAP_OMEGA * elapsed)
+  const offset = (snapDisplacement + (snapVelocity + SNAP_OMEGA * snapDisplacement) * elapsed) * decay
+  position.value = snapTo + offset
+  targetPosition.value = snapTo + offset
+  if (progress < 1) {
+    frameHandle = raf(animate)
+    return
+  }
+  // 最后一帧直接落定目标整数，停止帧循环
+  position.value = snapTo
+  targetPosition.value = snapTo
+  snapping = false
+  frameActive = false
+  frameHandle = 0
+  normalizePosition()
 }
 
-function touchcancel(event, ins) {
-  velocity = 0
-  return settle(ins)
+function requestRender() {
+  if (!frameActive) {
+    frameActive = true
+    frameHandle = raf(animate)
+  }
 }
 
-function onVersionChange(newValue, oldValue, ownerInstance, instance) {
-  var ins = ownerInstance || instance || owner
-  owner = ins
-  renderAt(0, ins, 0)
-  position = 0
-  velocity = 0
-  settleTarget = 0
+function stopMotion() {
+  snapping = false
+  if (frameActive) {
+    if (caf) caf(frameHandle)
+    frameActive = false
+    frameHandle = 0
+  }
+  targetPosition.value = position.value
+}
+
+function normalizePosition() {
+  if (itemCount.value < 2) return
+  const abs = Math.abs(position.value)
+  if (abs > 10000) {
+    const cycles = Math.trunc(position.value / itemCount.value) * itemCount.value
+    position.value -= cycles
+    targetPosition.value -= cycles
+  }
+}
+
+/* ================= 松手吸附（临界阻尼，无回弹） ================= */
+function sampleInput(nextPosition, now) {
+  if (lastInputAt > 0) {
+    const elapsed = Math.max(1, now - lastInputAt)
+    const instantVelocity = (nextPosition - lastInputPosition) / elapsed
+    inputVelocity = inputVelocity * 0.55 + instantVelocity * 0.45
+  }
+  lastInputPosition = nextPosition
+  lastInputAt = now
+}
+
+function startSnap(nextPosition, releaseVelocity) {
+  const velocity = releaseVelocity === undefined ? inputVelocity : releaseVelocity
+  const distance = Math.abs(nextPosition - position.value)
+  if (distance < 0.0008) {
+    stopMotion()
+    position.value = nextPosition
+    targetPosition.value = nextPosition
+    return
+  }
+  snapping = true
+  snapFrom = position.value
+  snapTo = nextPosition
+  targetPosition.value = nextPosition
+  snapStartedAt = perfNow()
+  snapDuration = clamp(SNAP_MIN_MS + distance * 30, SNAP_MIN_MS, SNAP_MAX_MS)
+  snapDisplacement = snapFrom - snapTo
+  // 限制松手速度不会改变目标方向（单调逼近，不越过锚点）
+  const monotonicLimit = -SNAP_OMEGA * snapDisplacement
+  snapVelocity = clamp(velocity, Math.min(0, monotonicLimit), Math.max(0, monotonicLimit))
+  inputVelocity = 0
+  lastInputAt = 0
+  requestRender()
+}
+
+/* ================= 手势 ================= */
+function onTouchStart(e) {
+  if (!e.touches || !e.touches.length) return
+  const touch = e.touches[0]
+  stopMotion()
+  dragging = true
+  dragStartY = touch.clientY || touch.pageY || 0
+  dragStartPosition = position.value
+  dragDistance = 0
+  inputVelocity = 0
+  lastInputPosition = position.value
+  lastInputAt = perfNow()
+}
+
+function onTouchMove(e) {
+  if (!dragging || !e.touches || !e.touches.length) return
+  const touch = e.touches[0]
+  const clientY = touch.clientY || touch.pageY || dragStartY
+  const deltaY = clientY - dragStartY
+  dragDistance = deltaY
+  const next = dragStartPosition - deltaY / DRAG_RATIO
+  targetPosition.value = next
+  sampleInput(next, perfNow())
+  requestRender()
+}
+
+function onTouchEnd() {
+  if (!dragging) return
+  const velocity = inputVelocity
   dragging = false
-  locked = false
+  startSnap(Math.round(targetPosition.value), velocity)
 }
 
-function cardTap(event, ins) {
-  if (moved || locked) return false
-  var dataset = event.currentTarget && event.currentTarget.dataset
-  if (ins && ins.callMethod) {
-    ins.callMethod('selectPoolItem', { poolIndex: dataset && dataset.poolIndex })
+/* ================= 点击详情 / 图片预览 ================= */
+function onCardTap(slot) {
+  // 拖动超过 7px 不触发详情
+  if (Math.abs(dragDistance) > DRAG_TAP_LIMIT) return
+  emit('select', slot.item)
+}
+
+function onMediaTap(slot) {
+  // 仅锚点大图可预览原图（与首页 featured-photo 行为一致）；拖动超过 7px 不触发
+  if (Math.abs(dragDistance) > DRAG_TAP_LIMIT) return
+  if (slot.progress > 0.5) {
+    emit('preview', slot.item)
   }
-  return false
 }
 
-function mediaTap(event, ins) {
-  if (moved || locked) return false
-  var dataset = event.currentTarget && event.currentTarget.dataset
-  if (ins && ins.callMethod) {
-    ins.callMethod('previewPoolItem', { poolIndex: dataset && dataset.poolIndex })
-  }
-  return false
+function onImageError(item) {
+  emit('image-error', item)
 }
 
-module.exports = {
-  touchstart: touchstart,
-  touchmove: touchmove,
-  touchend: touchend,
-  touchcancel: touchcancel,
-  transitionend: transitionend,
-  onVersionChange: onVersionChange,
-  cardTap: cardTap,
-  mediaTap: mediaTap,
-}
+/* ================= 生命周期 ================= */
+onMounted(() => {
+  applyItems()
+})
+
+onBeforeUnmount(() => {
+  stopMotion()
+  dragging = false
+})
 </script>
 
 <style scoped>
 /* ================= 循环窗口 ================= */
 .dl-window {
   position: relative;
-  height: 420px;
+  height: 410px;
   overflow: hidden;
   border-top: 2px solid #dbeaf7;
   border-bottom: 1px solid #EEF1F4;
@@ -553,7 +514,7 @@ module.exports = {
   box-shadow: 0 8px 24px rgba(16, 57, 91, 0.09);
 }
 
-/* 图片裁剪窗口：绝对定位遮罩宽高，图片全宽 150px 不重排，向左位移露出中心区域 */
+/* 图片裁剪窗口：绝对定位遮罩宽高，双轴位移露出中心区域 */
 .dl-media-wrap {
   position: absolute;
   z-index: 1;
@@ -567,7 +528,7 @@ module.exports = {
   left: 0;
   top: 0;
   width: 100%;
-  height: 150px;
+  height: 168px;
   display: block;
   pointer-events: none;
 }
@@ -577,8 +538,8 @@ module.exports = {
   z-index: 1;
   left: 0;
   top: 0;
-  width: 100%;
-  height: 150px;
+  width: 144px;
+  height: 168px;
   background: transparent;
 }
 
@@ -602,12 +563,12 @@ module.exports = {
   height: 112px;
 }
 
-/* 展开层：图下正文，标题最多两行，描述一行 */
+/* 展开层：144px 左图右文，标题最多两行，描述一行 */
 .dl-expanded {
-  top: 150px;
-  left: 0;
-  width: 100%;
-  height: 140px;
+  top: 0;
+  left: 144px;
+  width: calc(100% - 144px);
+  height: 168px;
 }
 
 .dl-badges {
@@ -689,6 +650,7 @@ module.exports = {
   gap: 6px;
 }
 .dl-budget {
+  flex: 0 0 auto;
   display: flex;
   align-items: baseline;
   gap: 3px;
@@ -707,8 +669,11 @@ module.exports = {
   font-size: 16px;
 }
 .dl-bid {
+  min-width: 0;
+  overflow: hidden;
   color: #98A2B3;
   font-size: 8px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 </style>

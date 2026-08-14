@@ -362,10 +362,10 @@ const ALLOWED_ROUTES = new Set([
   '/pages/services/index', '/pages/mine/index',
   '/pages/demands/list', '/pages/demands/detail', '/pkg-demand/pages/demands/publish',
   '/pkg-demand/pages/demands/mine', '/pages/intents/mine',
-  '/pages/messages/index',
+  '/pages/search/index', '/pages/messages/index',
   '/pkg-talent/pages/pilots/list', '/pkg-talent/pages/training/courses',
   '/pkg-talent/pages/experts/list', '/pkg-emergency/pages/emergency/resources', '/pkg-service/pages/compliance/news',
-  '/pkg-eco/pages/mall/index', '/pkg-service/pages/more/index',
+  '/pkg-eco/pages/mall/index', '/pkg-eco/pages/shops/index', '/pkg-service/pages/more/index',
 ])
 
 const resolveBannerLink = (raw) => {
