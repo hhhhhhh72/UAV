@@ -1,22 +1,20 @@
-<!-- Generated: 2026-08-06 | Files scanned: 160 | Token estimate: ~900 -->
+<!-- Generated: 2026-08-19 | Files scanned: 160+ | Token estimate: ~900 -->
 
 # 前端架构地图（管理后台 + 小程序）
 
 ## A. Web 管理后台 frontend/（Vue3 + @arco-design/web-vue ^2.58 + ECharts 6）
 
-⚠️ 2026-08 已从 Element Plus 全面切换 Arco（README/CLAUDE.md 已同步）。
-
 ### 目录
 ```
 src/
 ├── main.js            Pinia(无store) + Router + ArcoVue + http 拦截器挂载
-├── router/index.js    39 条 /admin 子路由 + /login，全量懒加载
+├── router/index.js    40 条 /admin 子路由 + /login，全量懒加载
 ├── utils/http.js      axios：Token注入、{data}解包、401单飞刷新+排队
 ├── utils/feedback.js  Arco Message/Modal 封装（兼容旧 El 签名）
 ├── hooks/useListRequest.js  列表 Hook：分页/搜索/排序/批量
 ├── api/admin/common.js      useAdminApi(resource) CRUD 工厂
 └── views/admin/
-    ├── AdminLayout.vue      顶栏+侧边9菜单(按角色过滤)+暗色主题
+    ├── AdminLayout.vue      顶栏+侧边菜单(按角色过滤)+暗色主题
     ├── Dashboard.vue        看板（4 图，/api/v1/admin/dashboard）
     ├── components/CrudList.vue  核心配置化列表组件
     ├── config/ServiceConfigList.vue + ImageCropper.vue
@@ -36,7 +34,7 @@ src/
 - 401 流程：`POST /api/auth/refresh` 单飞刷新 → 排队重放；失败清登录态跳 /login
 - 管理端 CRUD：`/api/v1/admin/{resource}`，PUT 全字段更新语义
 
-## B. 微信小程序 miniprogram/（uni-app + Vue3，78 页）
+## B. 微信小程序 miniprogram/（uni-app + Vue3，103 页：27 主包 + 6 分包）
 
 ### 结构
 ```
@@ -50,26 +48,24 @@ components/
     HomeFloatButton.vue StateView.vue(四态)
 utils/
 ├── request.js   BASE_URL+unwrap{data,total}+401刷新队列；authStorage
-├── config.js    后端地址唯一配置点（现 http://192.168.5.141:8080）
+├── config.js    后端地址唯一配置点（现 https://api.cqnarc.cn，生产域名）
 ├── enums.js     业务术语统一标签（对齐 Go 端 biz_standard.go）
 └── nav.js       防连点导航封装
 ```
 
-### 页面分组（78 页）
+### 页面分组（103 页 = 27 主包 + 6 分包）
 ```
-Tab: home/demands/publish/services/mine
-供需: demands/{list,detail,publish,mine} intents/mine tasks/{index,detail}
-商城: mall/{index,detail} shops/index portfolios/list
-人才: jobs/{list,detail,mine,applications,applicants,resume} pilots/{list,apply}
-培训: training/{courses,enroll,register,certificates} study/{index,detail}
-创新: achievements/{list,detail} challenges projects colleges/{list,detail}
-合规: compliance/{news,knowledge,standards}
-赛事: competitions/{list,detail,register} exhibitions/{list,booth}
-应急: emergency/{resources,cases,depts,dispatches}
-资源: resources/{list,detail} experts/{list,detail} reports cases/{index,detail}
-其他: search match messages applications/{index,submit} more
-      testsites/{list,detail,booking,pay,result} login register mine/{auth,profile}
-      webview services/{index,detail,apply}
+Tab: home/demands/publish/services/mine（自绘 TabBar + 隐藏原生）
+主包 27: 首页/供需大厅/发布流(5)/登录注册协议/我的(4)/订单(7)/消息/服务/网页
+pkg-demand 5:   发布需求/我的发布/智能匹配/对接意向/我的订单
+pkg-talent 19:  培训认证(5)/专家智库(2)/招聘求职(7)/低空研学(2)/认证飞手(3)
+pkg-eco 30:     案例/企业入驻(4)/成果(3)/难题(3)/赛事(3)/品牌(4)/院校(2)/
+                课题(2)/展会(3)/商城(2)/协会活动(3)
+pkg-service 17: 产业资源(2)/合规(3)/测试场地(6)/行业报告/发布(3)/更多/申请
+pkg-emergency 4: 应急资源/救援案例/部门对接/调度记录
+pkg-app 1:      我的申请
+mock 降级: mockAchievements/Brands/Challenges/Exhibitions/Projects + hallData
+           均标注【接口替换点】，后端就绪后按注释切换真实接口
 ```
 
 ### 设计规范（App.vue 全局 CSS 变量）
@@ -79,6 +75,6 @@ Tab: home/demands/publish/services/mine
 - 列表页标配 u-sticky(u-search+u-tabs) + StateView 四态
 
 ### 认证
-- 主链路：App.vue → wx.login() → POST /api/v1/auth/wechat/login（snake_case token）
+- 主链路：App.vue onLaunch → restoreSession（**不自动登录**，无 token 保持游客态）→ 微信会话启动时原生 uni.request 探测账号一致性 → wx.login() → POST /api/v1/auth/wechat/login（snake_case token）
 - 备用：login 页账号密码 POST /api/auth/login（camelCase token，⚠两端格式不一致）
 - 页内拦截（非全局守卫）：每个跳转前查 user，无则 goLogin()

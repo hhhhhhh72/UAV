@@ -114,7 +114,7 @@ func main() {
 		enrollRepo         repository.EnrollmentRepository
 		tradeOrderRepo     repository.TradeOrderRepository
 		escrowRepo         repository.EscrowRepository
-		// Memory-only (coop/rescue/emergDept/assocMember — complex sub-methods).
+		// 资源池/校企/救援案例/应急部门/协会成员：PG 实现位于 batch3_repos.go，DATABASE_URL 分支下会替换为 PG 实现。
 		poolRepo        = memory.NewResourcePoolRepository()
 		coopRepo        = memory.NewCooperationRepository()
 		rescueCaseRepo  = memory.NewRescueCaseRepository()
@@ -329,7 +329,7 @@ func main() {
 	app.SetServiceListingService(service.NewServiceListingService(serviceListingRepo))
 	app.SetContractTemplateService(service.NewContractTemplateService(contractTplRepo))
 
-	// Memory-only repos: PG implementations pending (see docs/项目管理/项目审计报告).
+	// Batch2/3 与扩展服务：PG 与内存双实现均已齐备，按 DATABASE_URL 分支注入。
 	app.SetRescueCaseService(service.NewRescueCaseService(rescueCaseRepo))
 	app.SetEmergencyDeptService(service.NewEmergencyDeptService(emergDeptRepo))
 	app.SetAssociationMemberService(service.NewAssociationMemberService(assocMemberRepo))
@@ -345,7 +345,6 @@ func main() {
 	if pgStore != nil {
 		app.SetAuditWriter(postgres.NewAuditAdapter(pgStore))
 		app.SetStorage("postgres")
-		slog.Warn("PG mode: 4 repos lack PG impl, using in-memory (coop/rescueCase/emergDept/assocMember)")
 	} else {
 		app.SetStorage("memory")
 	}

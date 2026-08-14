@@ -67,6 +67,8 @@ type DemandRepository interface {
 	List(DemandFilter) ([]domain.Demand, error)    // 公开语义：仅已发布
 	ListAll(DemandFilter) ([]domain.Demand, error) // 管理端全量（含待审核等）
 	Search(string) ([]domain.Demand, error)
+	// ListByPublisher 返回某发布者的全部需求（全状态），供"我的"页统计/查询。
+	ListByPublisher(publisherID string) ([]domain.Demand, error)
 	SetStatus(id string, status domain.DemandStatus) (domain.Demand, error)
 	CompareAndSetStatus(id string, oldStatus, newStatus domain.DemandStatus) (bool, domain.Demand, error)
 	Delete(id string) error

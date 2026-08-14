@@ -1,136 +1,48 @@
-# 无人机产业综合服务平台 - H5移动端
+# 无人机产业综合服务平台 — Web 管理后台
 
-## 项目介绍
+面向协会管理员的 Web 管理后台（SPA），覆盖 7 大业务系统的数据管理、审核与统计。
 
-无人机产业综合服务平台H5移动端，参考[时尚科技官网](https://www.dj978.com/)设计，提供十四项低空服务的在线申请与管理功能。
+> 历史说明：本目录曾包含 H5 移动端前台（Vant + Element Plus），已于 2026-08 随「瘦身为纯 Admin」重构删除；本 README 已同步为纯管理后台描述。
 
 ## 技术栈
 
-- **Vue 3** - 渐进式JavaScript框架  
-- **Vite 5** - 下一代前端构建工具  
-- **Element Plus** - 桌面端组件库  
-- **Vue Router 4** - 官方路由  
-- **Pinia 2** - 状态管理  
-- **Axios** - HTTP客户端
+- **Vue 3.4** + `<script setup>`
+- **Arco Design Vue ^2.58**（含 ArcoVueIcon，2026-08 从 Element Plus 全面切换）
+- **ECharts 6** + vue-echarts 8（看板图表）
+- **Vue Router 4** / **Pinia 2**（未建 store）/ **Axios**
+- **Vite 5**（`/api`、`/uploads` 代理到 `VITE_API_TARGET || http://localhost:8080`）
 
 ## 快速开始
 
-### 安装依赖
-
 ```bash
 npm install
+npm run dev        # → http://localhost:5173
+npm run build      # 生产构建
 ```
 
-### 启动开发服务器
+- 开发登录：`POST /api/v1/admin/token {role}`（需后端 `ADMIN_DEV_MODE=true`，生产自动剔除）
+- 生产登录：`POST /api/auth/login`（账号密码 + bcrypt）
 
-```bash
-npm run dev
-```
+## 路由结构（`src/router/index.js`）
 
-访问：http://localhost:5173
+- `/login` 登录页
+- `/admin` 挂 AdminLayout，**40 条子路由**（全部懒加载，守卫校验 `user.role ∈ {platform_admin, association_admin}`）：
+  - 基础 11：dashboard / cases / users / competition / config / reviews / orders / products / service-listings / enterprises / demands
+  - 业务 20：experts / resources / compliance / training / certs / jobs / colleges / admin-study / achievements / challenges / projects / testsites / transformations / events / portfolios / exhibitions / reports / emergency-resources / emergency-dispatches / messages
+  - 聚合 9：members / trading / content / articles / talent / innovation / promotion / emergency / settings
 
-### 手机端调试
+## 核心抽象
 
-确保手机和电脑在同一局域网，访问：http://[你的IP]:5173
+- **`useAdminApi(resource)`**（`src/api/admin/common.js`）：一行生成 `/api/v1/admin/{resource}` 的 list/get/create/update/delete
+- **`CrudList.vue`**：配置驱动列表——页面只声明 `columns + searchFields + batchActions`；批量动作传**完整行数据**（后端 PUT 全字段覆盖语义）
+- **聚合页**（`views/admin/consolidated/`）：指标卡 + ECharts + a-tabs 嵌套子列表，按 7 大系统组织
+- **`utils/http.js`**：`{data}` 信封透明解包（分页保留 total）、401 单飞刷新 + pendingQueue 排队重放（`/api/auth/refresh`）
 
-或使用Chrome开发工具的设备模拟器
+## 对接约定（易踩坑）
 
-## 主要功能
-
-### 1. 服务大厅（首页）
-- ✅ 紫色渐变Banner
-- ✅ 8个快捷服务入口
-- ✅ 服务分类展示
-- ✅ 平台优势展示
-
-### 2. 全部服务
-- ✅ 十四项服务完整展示
-- ✅ 服务搜索功能
-- ✅ 网格布局设计
-
-### 3. 服务详情
-- ✅ 服务介绍
-- ✅ 服务项目展示
-- ✅ 服务优势说明
-- ✅ 立即申请入口
-
-### 4. 服务申请（四项重点服务）
-- ✅ 无人机物流服务表单
-- ✅ 政务巡检服务表单
-- ✅ 无人机托管服务表单
-- ✅ 无人机吊运服务表单
-- ✅ 表单验证
-- ✅ 提交成功提示
-
-### 5. 我的申请
-- ✅ 申请列表展示
-- ✅ 状态标签显示
-- ✅ 申请详情查看
-- ✅ 空状态提示
-
-### 6. 个人中心
-- ✅ 用户信息卡片（紫色渐变）
-- ✅ 统计数据展示
-- ✅ 功能菜单
-- ✅ 服务指南/常见问题/联系客服
-
-### 7. 登录注册
-- ✅ 短信验证码登录
-- ✅ 紫色渐变背景
-- ✅ 验证码倒计时
-
-## 十四项低空服务
-
-1. 无人机物流服务 ⭐
-2. 政务巡检服务 ⭐
-3. 无人机托管服务 ⭐
-4. 无人机吊运服务 ⭐
-5. 航空摄影测量服务
-6. 空中救援服务
-7. 农林植保服务
-8. 电力巡检服务
-9. 环境监测服务
-10. 应急通信服务
-11. 航空表演服务
-12. 影视航拍服务
-13. 无人机培训服务
-14. 无人机租赁服务
-
-## 页面路由
-
-- `/home` - 服务大厅
-- `/services` - 全部服务
-- `/service-detail/:id` - 服务详情
-- `/service-apply/:id` - 服务申请
-- `/applications` - 我的申请
-- `/mine` - 个人中心
-- `/login` - 登录注册
-
-## 设计特色
-
-- **视觉设计**：紫色渐变主题（#667eea → #764ba2）
-- **布局设计**：现代化卡片式布局
-- **交互设计**：底部Tab导航，流畅动画
-- **响应式**：适配不同屏幕尺寸
-
-## 待开发功能
-
-- [ ] 高德地图SDK集成
-- [ ] 地图选点功能
-- [ ] API接口对接
-- [ ] 文件上传功能
-- [ ] 实名认证功能
-- [ ] 消息推送功能
-
-## 浏览器兼容
-
-- Chrome (推荐)
-- Safari
-- Edge
-- 微信浏览器
-- 各主流移动浏览器
-
-## License
-
-MIT
-
+1. **全字段覆盖更新**：PUT/PATCH 必须提交完整行对象，否则其余字段被清空
+2. `/api/v1/admin/config` 为整包替换语义：先 GET 全量、改字段后整体 POST 写回
+3. 企业编辑走**非 admin 前缀** `PATCH /api/v1/enterprises/{id}`
+4. 资讯列表用公开读接口 `/api/v1/articles`
+5. Arco 主题色必须 `rgb(var(--primary-6))` 分量格式，写十六进制会生成非法 CSS
+6. 排序参数 `sort_field/sort_order`，分页参数 `page/page_size`

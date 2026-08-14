@@ -2,7 +2,7 @@
 
 面向微信小程序与 Web 管理后台的全栈服务平台，覆盖无人机产业链 7 大业务系统。
 
-> 🟢 **当前状态**: Go 后端 100% | 代码质量 A- (P0/P1清零) | 小程序 78页 | 后台全面可用（Arco + 30 页 CrudList 重构）  
+> 🟢 **当前状态**: Go 后端 100% | 代码质量 A- (P0/P1清零) | 小程序 103页 | 后台全面可用（Arco + CrudList 配置驱动）  
 > 📋 **团队协作**: [四人并行开发方案 PRD](docs/项目管理/PRD-四人并行开发方案.md)
 
 ---
@@ -129,24 +129,24 @@ git push origin feat/b-pages
 .
 ├── cmd/api/main.go              # 启动入口
 ├── internal/
-│   ├── httpapi/                 # 路由 + 中间件 + Handler (约 380 注册)
+│   ├── httpapi/                 # 路由 + 中间件 + Handler (443 条注册，生产 403)
 │   ├── service/                 # 业务规则 + 权限校验 + 状态流转
 │   ├── repository/
-│   │   ├── postgres/            # PostgreSQL 持久化 (80 表)
+│   │   ├── postgres/            # PostgreSQL 持久化 (85 表)
 │   │   └── memory/              # 内存存储 (开发用)
 │   ├── domain/                  # 业务实体 + 常量
 │   ├── config/                  # 集中配置
 │   ├── logger/                  # 结构化日志 (slog)
-│   ├── cache/                   # TTL 内存缓存
-│   ├── middleware/              # 输入消毒 + 统一错误
+│   ├── cache/                   # TTL 内存缓存 (single-flight)
+│   ├── middleware/              # 输入消毒 (已挂载) + 统一错误
 │   └── crypto/                  # AES-256-GCM 加密
 ├── frontend/                    # Vue 3 + Arco Design Vue 管理后台
 │   └── src/views/admin/         # 31 独立模块 + 8 聚合页
 ├── miniprogram/                 # 微信小程序 (uni-app + 自研 u- 组件库)
-│   ├── pages/                   # 78 个页面文件 (7大系统)
-│   ├── components/              # 14 个 u- 组件 + 4 个业务组件
+│   ├── pages/ + pkg-*/          # 103 页 (27 主包 + 6 分包, 7大系统)
+│   ├── components/              # 14 个 u- 组件 + 业务组件
 │   └── utils/                   # API 封装 + Token 刷新
-├── migrations/                  # 37 组迁移 (74 SQL 文件)
+├── migrations/                  # 63 组迁移 (126 SQL 文件)
 ├── docs/                        # 项目文档 + Swagger + PRD
 └── prototypes/                  # HTML 原型 (首页+商家页)
 ```
@@ -190,13 +190,13 @@ git push origin feat/b-pages
 
 | 指标 | 数值 |
 |------|:--:|
-| API 端点 | **约 380 条注册**（生产约 335） |
-| 数据库表 | **80 张**（37 组迁移） |
-| 小程序页面文件 | **78 页** (7大系统) |
-| 管理后台模块 | **31 独立模块 + 8 聚合页** |
-| Go 源文件 | **115** |
-| 测试通过率 | **100%** (92 HTTP case) |
-| 测试覆盖率 | **45.8%** |
+| API 端点 | **443 条注册**（生产 403，dev-only 40） |
+| 数据库表 | **85 张**（63 组迁移） |
+| 小程序页面文件 | **103 页** (27 主包 + 6 分包) |
+| 管理后台模块 | **31 独立模块 + 8 聚合页**（40 条 admin 路由） |
+| Go 文件 | **154**（100 源码 + 54 测试） |
+| 测试通过率 | **100%** |
+| 测试覆盖率 | **约 46%** |
 | 静态分析 | `go vet` ✅ 零告警 |
 | Lint 工具 | `.golangci.yml` (11 linter) |
 | 前端构建 | Vue 3 + Arco Design Vue ✅ |
@@ -209,7 +209,7 @@ git push origin feat/b-pages
 | 文档 | 说明 |
 |------|------|
 | [四人并行开发方案](docs/项目管理/PRD-四人并行开发方案.md) | 零冲突分工 + Git 策略 + AI Prompt 模板 |
-| [API 契约](docs/接口文档/API契约.md) | 212 条端点完整定义 |
+| [API 契约](docs/接口文档/API契约.md) | 模块级端点概览（完整 443 条以代码 `register*Routes` 为准） |
 | [Code Review Checklist](docs/开发规范/Code-Review-Checklist.md) | 10 大维度 30+ 检查项 |
 | [系统架构](docs/系统架构/架构总览.md) | 架构设计 + 中间件链 + 角色权限矩阵 |
 | [Swagger 独立页](docs/swagger-standalone.html) | 离线 API 文档 (单文件, 无需服务) |

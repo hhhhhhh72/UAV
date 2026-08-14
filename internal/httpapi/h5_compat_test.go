@@ -147,3 +147,39 @@ func TestResolveBannerImageURL(t *testing.T) {
 		})
 	}
 }
+
+// TestH5ImageProxyRedirectPolicy verifies the open-redirect fix:
+// 任意外域 http/https URL 一律 403（此前直接 302 跳转），仅本机与
+// BASE_URL 域名白名单内的地址允许跳转，非 http(s) 协议 400。
+func TestH5ImageProxyRedirectPolicy(t *testing.T) {
+	t.Setenv("BASE_URL", "https://api.cqnarc.cn")
+	s := &Server{}
+
+	// 1) 任意外域 URL → 403（开放重定向修复）
+	w := httptest.NewRecorder()
+	s.h5ImageProxy(w, httptest.NewRequest(http.MethodGet, "/api/image?url=https://evil.example.com/x.png", nil))
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("external redirect should be 403, got %d", w.Code)
+	}
+
+	// 2) 非 http(s) 协议 → 400
+	w = httptest.NewRecorder()
+	s.h5ImageProxy(w, httptest.NewRequest(http.MethodGet, "/api/image?url=javascript:alert(1)", nil))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("js scheme should be 400, got %d", w.Code)
+	}
+
+	// 3) 本机白名单 → 302
+	w = httptest.NewRecorder()
+	s.h5ImageProxy(w, httptest.NewRequest(http.MethodGet, "/api/image?url=http://localhost:8080/x.png", nil))
+	if w.Code != http.StatusFound {
+		t.Fatalf("localhost redirect should be 302, got %d", w.Code)
+	}
+
+	// 4) BASE_URL 域名白名单 → 302
+	w = httptest.NewRecorder()
+	s.h5ImageProxy(w, httptest.NewRequest(http.MethodGet, "/api/image?url=https://api.cqnarc.cn/uploads/x.png", nil))
+	if w.Code != http.StatusFound {
+		t.Fatalf("BASE_URL host redirect should be 302, got %d", w.Code)
+	}
+}

@@ -32,6 +32,7 @@ import (
 	_ "drone-platform/docs"
 	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
+	"drone-platform/internal/middleware"
 	"drone-platform/internal/repository"
 	"drone-platform/internal/service"
 
@@ -309,7 +310,7 @@ func (s *Server) Router() http.Handler {
 		))
 	}
 
-	return s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.idempotencyCheck(s.adminGate(mux))))))))
+	return s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.idempotencyCheck(s.adminGate(middleware.SanitizeBody(mux)))))))))
 }
 
 func (s *Server) favicon(w http.ResponseWriter, r *http.Request) {

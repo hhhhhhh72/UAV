@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-06 | Files scanned: 300 | Token estimate: ~600 -->
+<!-- Generated: 2026-08-19 | Files scanned: 300+ | Token estimate: ~600 -->
 
 # 无人机产业综合服务平台 — 架构地图
 
@@ -7,14 +7,15 @@
 单体仓库（monorepo）：1 个 Go 后端 + 2 个前端（Web 管理后台 / 微信小程序）+ 1 个 PostgreSQL。
 
 ```
-微信小程序 (uni-app, 78页)          Web 管理后台 (Vue3+Arco, 39路由)
+微信小程序 (uni-app, 103页)          Web 管理后台 (Vue3+Arco, 40路由)
         │  HTTPS JSON                       │
         ▼                                  ▼
 ┌───────────────── Go API :8080 ─────────────────┐
 │ cmd/api/main.go → httpapi.NewServer          │
 │ 中间件链: rateLimit→requestID→recoverPanic→  │
 │   securityHeaders→CORS→authenticate→idempotency│
-│ Handler(60+) → Service(40+) → Repository(54接口)│
+│   →adminGate→SanitizeBody                    │
+│ Handler(60+) → Service(约50) → Repository(59接口)│
 └──────────────┬────────────────┬───────────────┘
                │                │
     PostgreSQL 16 (生产)   内存存储 (开发, 无 DATABASE_URL)
@@ -47,9 +48,9 @@ POST /api/v1/demands → createDemand(handler) → DemandService.Create
 
 ## 认证模型
 
-- 自研 HMAC-SHA256 Bearer Token（兼容标准 JWT 格式），Access 15min / Refresh 7d 轮转，refresh 只存 SHA-256 哈希
+- 标准 JWT (HS256, IssueJWT) 为主、兼容旧式两段格式，Access 15min / Refresh 7d 轮转（先存新再撤旧防锁号），refresh 只存 SHA-256 哈希
 - RBAC 4 级主角色（platform_admin > association_admin > enterprise > individual，写入 token）
-- 协会内部 7 级（association_members 表：president/vice_president/secretary/dept_head/member/partner/college/guest），与主角色分层叠加（admin=3 > partner=2 > member=1 > public=0 的可见性模型）
+- 协会内部 8 级（association_members 表：president/vice_president/secretary/dept_head/member/partner/college/guest），与主角色分层叠加（admin=3 > partner=2 > member=1 > public=0 的可见性模型）
 
 ## 关键文件索引
 
@@ -58,8 +59,8 @@ POST /api/v1/demands → createDemand(handler) → DemandService.Create
 | cmd/api/main.go | 依赖组装、双存储分支、种子管理员 |
 | internal/httpapi/server.go | Server struct、中间件链、respond/fail |
 | internal/httpapi/auth.go | Token 签发/验证、authenticate/adminGate |
-| internal/service/ | 40+ 个 *Service，业务规则与状态机 |
-| internal/repository/repositories.go | 54+ Repository 接口 |
-| internal/repository/postgres/ | pgxpool 实现（postgres.go 1832 行，最大文件） |
-| internal/repository/memory/ | 内存实现（memory.go 2086 行） |
-| internal/domain/models.go | 66+ 业务实体与角色常量 |
+| internal/service/ | 约 50 个 *Service，业务规则与状态机 |
+| internal/repository/repositories.go | 59 个 Repository 接口 |
+| internal/repository/postgres/ | pgxpool 实现（postgres.go 2305 行，最大文件） |
+| internal/repository/memory/ | 内存实现（memory.go 2497 行） |
+| internal/domain/ | 90 个业务实体 struct 与角色常量 |

@@ -154,6 +154,22 @@ func (r *demandRepo) Search(q string) ([]domain.Demand, error) {
 	return out, nil
 }
 
+// ListByPublisher 返回某发布者的全部需求（全状态），供"我的"页统计/查询。
+func (r *demandRepo) ListByPublisher(publisherID string) ([]domain.Demand, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.Demand, 0)
+	for _, d := range r.items {
+		if d.PublisherID != publisherID {
+			continue
+		}
+		r.decrypt(&d)
+		out = append(out, d)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+
 func (r *demandRepo) SetStatus(id string, status domain.DemandStatus) (domain.Demand, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

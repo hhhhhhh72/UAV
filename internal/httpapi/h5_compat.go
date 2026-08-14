@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -1096,14 +1097,14 @@ func (s *Server) h5StudyShowcaseSave(w http.ResponseWriter, r *http.Request) {
 // ─── Image Proxy ────────────────────────────────────────────────────────────
 
 func (s *Server) h5ImageProxy(w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query().Get("url")
-	if url == "" {
+	target := r.URL.Query().Get("url")
+	if target == "" {
 		fail(w, r, http.StatusBadRequest, errBadRequest("url required"))
 		return
 	}
 	// Serve the image directly if it's in uploads
-	if strings.HasPrefix(url, "/uploads/") || strings.HasPrefix(url, "uploads/") {
-		clean := strings.TrimPrefix(url, "/")
+	if strings.HasPrefix(target, "/uploads/") || strings.HasPrefix(target, "uploads/") {
+		clean := strings.TrimPrefix(target, "/")
 		resolved := filepath.Clean(filepath.Join(".", clean))
 		// 防止路径穿越：确保解析后的路径在 uploads/ 目录内
 		if !strings.HasPrefix(resolved, "uploads"+string(filepath.Separator)) && resolved != "uploads" {
@@ -1113,12 +1114,25 @@ func (s *Server) h5ImageProxy(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, resolved)
 		return
 	}
-	// 仅允许 http/https 跳转，防止 javascript: 等协议注入
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+	// 仅允许 http/https 且域名在白名单内的跳转（本机 + BASE_URL 域名），
+	// 防止任意 URL 302 跳转被用作开放重定向（钓鱼/绕过 Referer 检查）。
+	u, err := url.Parse(target)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		fail(w, r, http.StatusBadRequest, errBadRequest("unsupported url scheme"))
 		return
 	}
-	http.Redirect(w, r, url, http.StatusFound)
+	host := strings.ToLower(u.Hostname())
+	allowed := map[string]bool{"localhost": true, "127.0.0.1": true}
+	if base := os.Getenv("BASE_URL"); base != "" {
+		if bu, err := url.Parse(base); err == nil && bu.Hostname() != "" {
+			allowed[strings.ToLower(bu.Hostname())] = true
+		}
+	}
+	if !allowed[host] {
+		fail(w, r, http.StatusForbidden, errBadRequest("external image redirect not allowed"))
+		return
+	}
+	http.Redirect(w, r, target, http.StatusFound)
 }
 
 // ─── Route Registration ─────────────────────────────────────────────────────
