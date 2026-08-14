@@ -1,10 +1,8 @@
-<!-- Generated: 2026-08-06 | Files scanned: 74 | Token estimate: ~700 -->
+<!-- Generated: 2026-08-19 | Files scanned: 126 SQL | Token estimate: ~700 -->
 
 # 数据架构地图（PostgreSQL 16 / 内存存储）
 
-⚠️ 曾发现文档称"17 组 34 文件"（实际 **37 组 74 文件**）——2026-08-06 已同步至 docs/数据设计/数据模型.md。
-
-## 80 张表按业务域分组
+## 85 张表（63 组迁移，126 个 SQL 文件；demand_bids 历史重复建表 2 次）
 
 | 域 | 表 |
 |----|----|
@@ -27,7 +25,7 @@
 | 院校/校企/店铺/协会 | colleges, study_tours / cooperation_programs / shops / association_members |
 | 基建 | audit_logs, outbox_events, files |
 
-## 迁移历史（37 组）
+## 迁移历史（63 组）
 
 ```
 000001-000005  基础+业务模块+审核+社区+审计（users/enterprises/demands/contracts...）
@@ -37,13 +35,18 @@
                企业档案7字段/简历7字段/飞手bio/报名12字段/线下成交金额...）
 000033         意向登记 demand_intents
 000034-000037  seed/级联（院校/应急初始数据、需求删除级联、研学数据）
+000038-000043  转化阶段/应急状态归一/服务申报/展会封面/用户昵称/小程序页面字段对齐
+000044-000047  小程序字段二轮/工单 work_orders/服务能力 service_listings
+000048-000052  赛事种子/院校种子二轮/服务展示种子/服务图集/企业审核意见
+000053-000057  废弃 shops/企业PRD字段/研学扩展/飞手头像地区/交易售后
+000058-000063  用户档案/标准文档分类/资源预约/赛事报名扩展/合同模板种子/应急资源种子
 ```
 
 ## 关键设计
 
 - **加密字段**：Contact/IDCard/LicenseURL/AccountName/PhoneCipher — memory 锁内加解密，PG SQL 前后加解密（AES-256-GCM）
 - **分页规范**：page/page_size（max 100），PG 用 COUNT(*)+LIMIT，memory 全量过滤切片
-- **迁移执行**：启动时 RunMigrationsFromDir 按文件名排序跑 .up.sql（幂等 IF NOT EXISTS）
+- **迁移执行**：启动时 RunMigrationsFromDir 按文件名排序跑 .up.sql（幂等 IF NOT EXISTS；pg_advisory_lock 防多实例竞争 + schema_migrations 版本表）
 - **级联**：需求删除级联（000036）、院校/应急 seed 数据（000034/000037）
 
 ## 迁移文件命名

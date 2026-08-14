@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-06 | Files scanned: 12 | Token estimate: ~400 -->
+<!-- Generated: 2026-08-19 | Files scanned: 12+ | Token estimate: ~400 -->
 
 # 依赖与外部服务地图
 
@@ -7,7 +7,7 @@
 | 依赖 | 用途 | 备注 |
 |------|------|------|
 | PostgreSQL 16 | 生产存储 | docker-compose 端口 **5433:5432**，用户 drone |
-| 微信开放平台 | 小程序登录 code2Session | WECHAT_APPID/APPSECRET（当前 manifest appid 为空） |
+| 微信开放平台 | 小程序登录 code2Session | WECHAT_APPID/APPSECRET（manifest AppID `wx10842887836afd68`） |
 | 电子签服务 | 合同 webhook 回调 | SIGNING_SECRET HMAC 校验 + event_id 去重（对接方未实指） |
 | 文件存储 | 上传文件 /uploads/{file_id} | 本地磁盘，10MB 限制；OSS/COS 待接入（PRD Q-5） |
 | 短信通道 | 验证码 | 未接入（PRD Q-4，待签名模板） |
@@ -41,9 +41,9 @@ nginx           (生产) 前端静态 + /api 转发 172.17.0.1:8090
 | run_api.bat / cmd/cli/main.go | Windows 开发启动（构建+设 PG 连接+开浏览器） |
 | scripts/fix_prd.py, fix_prd_tree.py | 一次性 PRD docx 修改工具（未提交） |
 
-## 文档新鲜度（2026-08-06 已清理）
+## 文档新鲜度（2026-08-19 已清理）
 
-- ✅ README/CLAUDE.md — 已同步 Arco Design Vue、小程序 78 页、37 组迁移
-- ✅ docs/数据设计/数据模型.md — 已更新 37 组迁移 + 表分组补齐
+- ✅ README/CLAUDE.md — 已同步 Arco Design Vue、小程序 103 页、63 组迁移、443 条路由
+- ✅ docs/数据设计/数据模型.md — 已更新 63 组迁移 + 表分组补齐
 - ✅ CLAUDE.md 死链 — 已改为 README.md / PRD-四人并行开发方案.md
 - ℹ️ 小程序开发规格.md / 功能方案评审.md / 功能方案修订版.md — 已由用户删除（过时需求文档）
