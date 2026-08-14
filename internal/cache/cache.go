@@ -12,10 +12,19 @@ type item struct {
 	expiresAt time.Time
 }
 
+// flight guards an in-flight GetOrSet fill so concurrent callers for the same
+// key share one fn execution (single-flight，防缓存击穿)。
+type flight struct {
+	done chan struct{}
+	v    any
+	err  error
+}
+
 // Cache is a thread-safe in-memory key-value store with TTL expiration.
 type Cache struct {
 	mu         sync.RWMutex
 	store      map[string]item
+	flights    map[string]*flight
 	defaultTTL time.Duration
 }
 
@@ -26,6 +35,7 @@ func New(defaultTTL time.Duration) *Cache {
 	}
 	c := &Cache{
 		store:      make(map[string]item),
+		flights:    make(map[string]*flight),
 		defaultTTL: defaultTTL,
 	}
 	go c.cleanupLoop()
@@ -76,16 +86,34 @@ func (c *Cache) Clear() {
 }
 
 // GetOrSet returns the cached value, or calls fn to populate it.
+// Concurrent callers for the same key share a single fn execution
+// (single-flight); the first caller fills the cache, the rest wait for it.
 func (c *Cache) GetOrSet(key string, fn func() (any, error), ttl time.Duration) (any, error) {
 	if v, ok := c.Get(key); ok {
 		return v, nil
 	}
-	v, err := fn()
-	if err != nil {
-		return nil, err
+	c.mu.Lock()
+	if f, ok := c.flights[key]; ok {
+		c.mu.Unlock()
+		<-f.done
+		return f.v, f.err
 	}
-	c.SetTTL(key, v, ttl)
-	return v, nil
+	f := &flight{done: make(chan struct{})}
+	c.flights[key] = f
+	c.mu.Unlock()
+
+	// defer 清理：即使 fn panic，等待者也会被唤醒，flight 不会泄漏。
+	defer func() {
+		c.mu.Lock()
+		delete(c.flights, key)
+		c.mu.Unlock()
+		close(f.done)
+	}()
+	f.v, f.err = fn()
+	if f.err == nil {
+		c.SetTTL(key, f.v, ttl)
+	}
+	return f.v, f.err
 }
 
 // cleanupLoop periodically removes expired entries.

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"drone-platform/internal/domain"
-	"drone-platform/internal/repository"
 	"drone-platform/internal/service"
 )
 
@@ -124,15 +123,14 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.refreshRepo.Revoke(tokenHash)
-
 	var u *domain.User
 	role := domain.RoleIndividual
 	if found, err := s.userRepo.FindByID(userID); err == nil && found.Role != "" {
 		u = &found
 		role = u.Role
 	}
-	accessToken, err := s.tokens.Issue(domain.Actor{ID: userID, Role: role}, 15*time.Minute)
+	// 与登录路径保持一致：统一签发标准 JWT（此前这里用旧式两段 Issue）。
+	accessToken, err := s.tokens.IssueJWT(domain.Actor{ID: userID, Role: role}, 15*time.Minute)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -143,8 +141,15 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("generate refresh token: %w", err))
 		return
 	}
+	// 轮转顺序：先落库新令牌、成功后再撤销旧令牌。
+	// 旧实现先 Revoke 后 Store——Store 失败会导致旧令牌已作废、新令牌未落库，
+	// 用户被永久锁死（refresh 不可用）。新顺序下 Store 失败时旧令牌仍有效。
 	newHash := service.HashToken(newRefresh)
-	s.refreshRepo.Store(userID, newHash, time.Now().Add(7*24*time.Hour))
+	if err := s.refreshRepo.Store(userID, newHash, time.Now().Add(7*24*time.Hour)); err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("store refresh token: %w", err))
+		return
+	}
+	s.refreshRepo.Revoke(tokenHash)
 
 	hasWechat := u != nil && u.WechatOpenID != "" && !strings.HasPrefix(u.WechatOpenID, "phone:")
 	ui := userInfo{ID: userID, Role: role, Status: ""}
@@ -237,8 +242,9 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	var demandCount int
-	if ds, err := s.demands.List(repository.DemandFilter{}); err == nil {
+	// demand_count 只统计当前用户发布的需求（此前误用 List(空 filter) 返回平台全量）。
+	demandCount := 0
+	if ds, err := s.demands.ListByPublisher(a.ID); err == nil {
 		demandCount = len(ds)
 	}
 	var certCount int
@@ -257,6 +263,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	birthday := ""
 	region := ""
 	bio := ""
+	status := "active"
 	if u, err := s.userRepo.FindByID(a.ID); err == nil {
 		name = u.Name
 		avatarURL = u.AvatarURL
@@ -266,11 +273,14 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		birthday = u.Birthday
 		region = u.Region
 		bio = u.Bio
+		if u.Status != "" {
+			status = u.Status
+		}
 	}
 	respond(w, r, http.StatusOK, map[string]any{
 		"id":           a.ID,
 		"role":         string(a.Role),
-		"status":       "active",
+		"status":       status,
 		"name":         name,
 		"avatar_url":   avatarURL,
 		"phone":        phone,

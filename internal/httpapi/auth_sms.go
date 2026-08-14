@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -19,13 +20,17 @@ import (
 type smsRecord struct {
 	Code      string
 	ExpiresAt time.Time
+	// Attempts 记录错误校验次数：达到 maxSMSCodeAttempts 即作废验证码，
+	// 防止 6 位码被在线爆破（此前无尝试限制）。
+	Attempts int
 }
 
 var smsCodes sync.Map // phone -> smsRecord
 
 const (
-	smsCodeTTL    = 5 * time.Minute
-	smsResendWait = 60 * time.Second
+	smsCodeTTL         = 5 * time.Minute
+	smsResendWait      = 60 * time.Second
+	maxSMSCodeAttempts = 5
 )
 
 func genSMSCode() (string, error) {
@@ -94,7 +99,20 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	recv := rec.(smsRecord)
-	if time.Now().After(recv.ExpiresAt) || recv.Code != body.Code {
+	if time.Now().After(recv.ExpiresAt) {
+		smsCodes.Delete(body.Phone)
+		fail(w, r, http.StatusUnauthorized, errBadRequest("验证码错误或已过期"))
+		return
+	}
+	// 常量时间比较防时序侧信道；错误累计 5 次后作废验证码，须重新获取。
+	if subtle.ConstantTimeCompare([]byte(recv.Code), []byte(body.Code)) != 1 {
+		recv.Attempts++
+		if recv.Attempts >= maxSMSCodeAttempts {
+			smsCodes.Delete(body.Phone)
+			fail(w, r, http.StatusUnauthorized, errBadRequest("验证码错误次数过多，请重新获取验证码"))
+			return
+		}
+		smsCodes.Store(body.Phone, recv)
 		fail(w, r, http.StatusUnauthorized, errBadRequest("验证码错误或已过期"))
 		return
 	}

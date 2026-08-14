@@ -201,6 +201,16 @@ func (r *demandRepo) Search(q string) ([]domain.Demand, error) {
 	return scanDemands(r.pool, r.cipher, sql, []any{"%" + q + "%"})
 }
 
+// ListByPublisher 返回某发布者的全部需求（全状态），供"我的"页统计/查询。
+func (r *demandRepo) ListByPublisher(publisherID string) ([]domain.Demand, error) {
+	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		status, version, created_at, updated_at
+		FROM demands WHERE publisher_id = $1
+		ORDER BY created_at DESC`
+	return scanDemands(r.pool, r.cipher, q, []any{publisherID})
+}
+
 func (r *demandRepo) SetStatus(id string, status domain.DemandStatus) (domain.Demand, error) {
 	tag, err := r.pool.Exec(context.Background(),
 		`UPDATE demands SET status = $1, updated_at = $2, version = version + 1 WHERE id = $3`,

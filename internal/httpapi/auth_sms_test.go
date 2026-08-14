@@ -74,3 +74,60 @@ func TestSMSLoginFlow(t *testing.T) {
 		t.Fatalf("login-code no code requested: expected 401, got %d", w5.Code)
 	}
 }
+
+// TestSMSLoginAttemptLimit verifies brute-force protection:
+// 5 wrong attempts invalidate the code (record deleted), so even the correct
+// code is rejected afterwards and the client must request a new one.
+func TestSMSLoginAttemptLimit(t *testing.T) {
+	old := os.Getenv("ADMIN_DEV_MODE")
+	os.Setenv("ADMIN_DEV_MODE", "true")
+	t.Cleanup(func() { os.Setenv("ADMIN_DEV_MODE", old) })
+
+	app := newServer(t)
+	phone := "13900005678"
+
+	w := httptest.NewRecorder()
+	app.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/auth/send-code", strings.NewReader(`{"phone":"`+phone+`"}`)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("send-code: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var sendResp struct {
+		Data struct {
+			DevCode string `json:"dev_code"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &sendResp); err != nil || sendResp.Data.DevCode == "" {
+		t.Fatalf("send-code: dev_code missing: %s", w.Body.String())
+	}
+	// 构造与真实验证码必然不同的错误码
+	wrong := "000000"
+	if sendResp.Data.DevCode == wrong {
+		wrong = "000001"
+	}
+
+	// 前 4 次错误尝试：仍返回 401，验证码继续有效（不误杀偶发输错）
+	for i := 0; i < 4; i++ {
+		w = httptest.NewRecorder()
+		app.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/auth/login-code", strings.NewReader(`{"phone":"`+phone+`","code":"`+wrong+`"}`)))
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("wrong attempt %d: expected 401, got %d", i+1, w.Code)
+		}
+	}
+
+	// 第 5 次错误：验证码作废，提示重新获取
+	w = httptest.NewRecorder()
+	app.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/auth/login-code", strings.NewReader(`{"phone":"`+phone+`","code":"`+wrong+`"}`)))
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("5th wrong attempt: expected 401, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "次数过多") {
+		t.Fatalf("expected attempt-limit message, got: %s", w.Body.String())
+	}
+
+	// 验证码已作废：即使正确码也拒绝
+	w = httptest.NewRecorder()
+	app.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/auth/login-code", strings.NewReader(`{"phone":"`+phone+`","code":"`+sendResp.Data.DevCode+`"}`)))
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("invalidated code must be rejected, got %d", w.Code)
+	}
+}

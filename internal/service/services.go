@@ -75,6 +75,11 @@ func (s *DemandService) ListAll(f repository.DemandFilter) ([]domain.Demand, err
 }
 func (s *DemandService) Search(q string) ([]domain.Demand, error)  { return s.repo.Search(q) }
 func (s *DemandService) FindByID(id string) (domain.Demand, error) { return s.repo.FindByID(id) }
+
+// ListByPublisher 返回某发布者的全部需求（全状态），供"我的"页统计/查询。
+func (s *DemandService) ListByPublisher(publisherID string) ([]domain.Demand, error) {
+	return s.repo.ListByPublisher(publisherID)
+}
 func (s *DemandService) UpdateDraft(a domain.Actor, id, title, desc string) (domain.Demand, error) {
 	d, err := s.repo.FindByID(id)
 	if err != nil {
