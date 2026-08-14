@@ -1,88 +1,101 @@
 <template>
-  <view class="apply-page">
-    <u-nav-bar title="申请认证飞手" show-back @back="goBack" />
+  <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
+    <!-- 顶栏（与发布页同款） -->
+    <view class="pub-nav">
+      <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
+      <view class="pub-nav-title">申请认证飞手</view>
+    </view>
 
-    <!-- 头部品牌区 -->
-    <view class="hero">
-      <view class="hero-glow" />
-      <text class="hero-title">申请认证飞手</text>
-      <text class="hero-sub">提交资质信息，经协会审核通过后展示在认证飞手名录</text>
-      <view class="hero-steps">
-        <view v-for="(s, i) in steps" :key="i" class="step">
-          <view class="step-dot">{{ i + 1 }}</view>
-          <text class="step-label">{{ s }}</text>
-        </view>
-      </view>
+    <!-- 表单头部 -->
+    <view class="pub-form-intro">
+      <view class="pub-form-intro-h2">申请认证飞手</view>
+      <view class="pub-form-intro-p">提交资质信息，经协会审核通过后展示在认证飞手名录</view>
     </view>
 
     <!-- 个人信息 -->
-    <view class="section">
-      <view class="section-title">
-        <view class="section-dot" />
-        <text>个人信息</text>
-        <text class="section-note">用于资质审核</text>
-      </view>
-      <u-cell-group inset>
-        <view class="form-wrap">
-          <view class="field-row avatar-field">
-            <text class="avatar-label">头像</text>
-            <view class="avatar-upload" @tap="chooseAvatar">
-              <image v-if="form.avatar" :src="avatarPreview" mode="aspectFill" class="avatar-upload-img" />
-              <template v-else>
-                <view class="avatar-upload-plus">＋</view>
-                <text class="avatar-upload-text">上传头像</text>
-              </template>
+    <view class="pub-section">
+      <view class="pub-section-title">个人信息</view>
+      <view class="pub-section-note">用于资质审核</view>
+      <view class="pub-form-card">
+        <view class="pub-field">
+          <view class="pub-field-label">头像</view>
+          <view class="pub-upload-row avatar-row">
+            <view v-if="form.avatar" class="pub-photo" @tap="chooseAvatar">
+              <image :src="avatarPreview" mode="aspectFill" class="pub-photo-img" />
             </view>
+            <view v-else class="pub-add-photo" hover-class="pub-fade" @tap="chooseAvatar">＋</view>
             <text class="avatar-hint">选填，展示在名录</text>
           </view>
-          <view class="field-row">
-            <u-field v-model="form.real_name" label="真实姓名" placeholder="请输入真实姓名" />
-            <text class="required">*</text>
-          </view>
-          <view class="field-row">
-            <u-field v-model="form.id_card" label="身份证号" placeholder="请输入身份证号" type="idcard" />
-            <text class="required">*</text>
-          </view>
         </view>
-      </u-cell-group>
+        <view class="pub-field">
+          <view class="pub-field-label">真实姓名<text class="pub-required">*</text></view>
+          <input
+            v-model="form.real_name"
+            class="pub-input"
+            placeholder="请输入真实姓名"
+            placeholder-class="pub-placeholder"
+          />
+        </view>
+        <view class="pub-field">
+          <view class="pub-field-label">身份证号<text class="pub-required">*</text></view>
+          <input
+            v-model="form.id_card"
+            class="pub-input"
+            type="idcard"
+            placeholder="请输入身份证号"
+            placeholder-class="pub-placeholder"
+          />
+        </view>
+      </view>
     </view>
 
     <!-- 资质信息 -->
-    <view class="section">
-      <view class="section-title">
-        <view class="section-dot" />
-        <text>资质信息</text>
-        <text class="section-note">选填，展示在名录</text>
-      </view>
-      <u-cell-group inset>
-        <view class="form-wrap">
-          <view class="field-row">
-            <u-field v-model="form.flight_hours" label="飞行时长" placeholder="累计飞行小时" type="digit" />
-            <text class="unit">小时</text>
-          </view>
-          <u-field v-model="form.bio" label="擅长领域" placeholder="如：电力巡检 / 测绘航拍" />
+    <view class="pub-section">
+      <view class="pub-section-title">资质信息</view>
+      <view class="pub-section-note">选填，展示在名录</view>
+      <view class="pub-form-card">
+        <view class="pub-field">
+          <view class="pub-field-label">飞行时长</view>
+          <input
+            v-model="form.flight_hours"
+            class="pub-input"
+            type="digit"
+            placeholder="累计飞行小时"
+            placeholder-class="pub-placeholder"
+          />
+          <text class="pub-field-hint">小时</text>
+        </view>
+        <view class="pub-field">
+          <view class="pub-field-label">擅长领域</view>
+          <input
+            v-model="form.bio"
+            class="pub-input"
+            placeholder="如：电力巡检 / 测绘航拍"
+            placeholder-class="pub-placeholder"
+          />
+        </view>
+        <view class="pub-field">
+          <view class="pub-field-label">所在地区</view>
           <picker :range="chongqingDistricts" @change="onDistrictChange">
-            <view class="field-row district-field">
-              <text class="district-label">所在地区</text>
-              <text class="district-value" :class="{ 'district-placeholder': !form.region }">{{ form.region || '请选择区县（选填）' }}</text>
-              <text class="district-arrow">▾</text>
+            <view class="pub-select-field">
+              <text :class="form.region ? 'pub-select-value' : 'pub-placeholder'">{{ form.region || '请选择区县（选填）' }}</text>
+              <text class="pub-arrow">›</text>
             </view>
           </picker>
         </view>
-      </u-cell-group>
+      </view>
     </view>
 
     <!-- 证书自动关联 -->
-    <view class="section">
-      <view class="section-title">
-        <view class="section-dot" />
-        <text>证书认证</text>
-        <text class="section-note">自动关联</text>
-      </view>
+    <view class="pub-section">
+      <view class="pub-section-title">证书认证</view>
+      <view class="pub-section-note">自动关联</view>
       <view class="cert-card">
         <template v-if="loadingCerts">
-          <u-loading size="24rpx" />
-          <text class="cert-loading">读取证书中...</text>
+          <view class="cert-loading">
+            <u-loading size="24rpx" />
+            <text>读取证书中...</text>
+          </view>
         </template>
         <template v-else-if="approvedCerts.length">
           <view class="cert-head">
@@ -100,15 +113,16 @@
     </view>
 
     <!-- 隐私说明 -->
-    <view class="privacy">
+    <view class="privacy-note">
       <text class="privacy-tag">隐私</text>
       <text class="privacy-text">身份证号加密存储，名录中自动脱敏展示，仅协会审核可见</text>
     </view>
 
-    <view class="submit-wrap">
-      <u-button type="primary" size="large" round :loading="submitting" @tap="submit">
-        提交申请
-      </u-button>
+    <!-- 固定底部操作区（与发布页同款） -->
+    <view class="pub-sticky">
+      <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="submit">
+        {{ submitting ? '提交中...' : '提交申请' }}
+      </view>
     </view>
   </view>
 </template>
@@ -117,9 +131,11 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request, BASE_URL, authStorage } from '../../../utils/request'
+import { useSafeTop } from '../../../utils/safeTop'
+
+const { topPad, initSafeTop } = useSafeTop(true)
 
 const goBack = () => uni.navigateBack()
-const steps = ['提交申请', '协会审核', '名录展示']
 const form = ref({ real_name: '', id_card: '', flight_hours: '', bio: '', avatar: '', region: '' })
 const submitting = ref(false)
 
@@ -191,6 +207,7 @@ const loadCerts = async () => {
 }
 
 const submit = async () => {
+  if (submitting.value) return
   if (!form.value.real_name.trim()) return uni.showToast({ title: '请输入真实姓名', icon: 'none' })
   if (!form.value.id_card.trim()) return uni.showToast({ title: '请输入身份证号', icon: 'none' })
   submitting.value = true
@@ -223,6 +240,7 @@ const submit = async () => {
 
 // 已认证 / 审核中直接提示（驳回状态放行，可重提）；已认证给「查看档案」入口
 onLoad(async () => {
+  initSafeTop()
   loadCerts()
   try {
     const res = await request({ url: '/api/v1/certified-pilots/mine' })
@@ -253,107 +271,104 @@ onLoad(async () => {
 </script>
 
 <style scoped>
-.apply-page { min-height: 100vh; background: var(--color-bg); padding-bottom: 40rpx; }
+@import '../../../pages/publish/pub-style.css';
 
-/* 头部品牌区 */
-.hero {
-  position: relative;
-  overflow: hidden;
-  padding: 36rpx 32rpx 40rpx;
-  background: var(--color-primary-deep) 100%);
+.pub-fade { opacity: 0.6; }
+.pub-form-intro-h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
+  color: #17212B;
 }
-.hero-glow {
-  position: absolute;
-  top: -120rpx;
-  right: -80rpx;
-  width: 360rpx;
-  height: 360rpx;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(29,212,168,.15), transparent 65%);
-  pointer-events: none;
+.pub-form-intro-p {
+  font-size: 12px;
+  color: #667085;
+  margin: 0;
+  line-height: 1.5;
 }
-.hero-title { font-size: 40rpx; font-weight: 700; color: #fff; display: block; position: relative; }
-.hero-sub { font-size: 24rpx; color: rgba(255,255,255,.7); margin-top: 12rpx; display: block; line-height: 1.6; position: relative; }
-.hero-steps { display: flex; gap: 24rpx; margin-top: 28rpx; position: relative; }
-.step { display: flex; align-items: center; gap: 10rpx; }
-.step-dot {
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 50%;
-  background: rgba(255,255,255,.18);
-  color: #fff;
-  font-size: 22rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.pub-photo-img {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
-.step-label { font-size: 22rpx; color: rgba(255,255,255,.8); }
 
-/* 分区 */
-.section { margin-top: 28rpx; }
-.section-title { display: flex; align-items: center; gap: 12rpx; padding: 0 32rpx 16rpx; }
-.section-dot { width: 12rpx; height: 12rpx; border-radius: 4rpx; background: var(--color-primary); }
-.section-title text:nth-child(2) { font-size: 28rpx; font-weight: 700; color: var(--color-text); }
-.section-note { font-size: 22rpx; color: var(--color-text-placeholder); margin-left: auto; }
-.form-wrap { padding: 24rpx 0; }
-.field-row { position: relative; }
-.required { position: absolute; right: 28rpx; top: 50%; transform: translateY(-50%); color: var(--color-danger); font-size: 28rpx; z-index: 2; }
-.unit { position: absolute; right: 28rpx; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-size: 26rpx; z-index: 2; }
+/* 头像上传（嵌入 pub-field，去掉行内自带 padding） */
+.avatar-row { padding: 0; }
+.avatar-hint {
+  color: #98A2B3;
+  font-size: 11px;
+  line-height: 1.45;
+}
 
-/* 头像上传 */
-.avatar-field { display: flex; align-items: center; gap: 24rpx; padding: 8rpx 0 24rpx; margin: 0 32rpx; border-bottom: 1rpx solid var(--color-border); }
-.avatar-label { font-size: 26rpx; color: var(--color-text); width: 140rpx; }
-.avatar-upload { width: 120rpx; height: 120rpx; border-radius: 16rpx; border: 1rpx dashed #C6D0DC; background: #FAFAFA; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
-.avatar-upload-img { width: 100%; height: 100%; }
-.avatar-upload-plus { font-size: 40rpx; color: #ADB8C7; line-height: 1; }
-.avatar-upload-text { font-size: 20rpx; color: #ADB8C7; margin-top: 6rpx; }
-.avatar-hint { font-size: 22rpx; color: var(--color-text-secondary); }
-
-/* 地区选择 */
-.district-field { display: flex; align-items: center; padding: 0 32rpx; height: 104rpx; }
-.district-label { font-size: 28rpx; color: var(--color-text); width: 140rpx; }
-.district-value { flex: 1; font-size: 28rpx; color: var(--color-text); }
-.district-placeholder { color: #ADB8C7; }
-.district-arrow { color: #ADB8C7; font-size: 26rpx; }
-
-/* 证书卡 */
+/* 证书自动关联卡（浅蓝底蓝字，对齐 pub 色板） */
 .cert-card {
-  margin: 0 24rpx;
-  background: var(--color-bg-card);
-  border-radius: 8px;
-  padding: 28rpx;
+  background: #E8F2FC;
+  border-radius: 9px;
+  padding: 13px;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
-  box-shadow: 0 3px 12px rgba(16,24,40,.05);
+  gap: 10px;
 }
-.cert-loading { font-size: 24rpx; color: var(--color-text-secondary); display: flex; align-items: center; gap: 12rpx; }
-.cert-head { display: flex; align-items: baseline; gap: 16rpx; }
-.cert-num { font-size: 44rpx; font-weight: 800; color: var(--color-success); }
-.cert-desc { font-size: 22rpx; color: var(--color-text-secondary); line-height: 1.6; flex: 1; }
-.cert-tags { display: flex; flex-wrap: wrap; gap: 10rpx; }
+.cert-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #315776;
+  font-size: 12px;
+}
+.cert-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.cert-num {
+  font-size: 20px;
+  font-weight: 750;
+  color: #0A66C2;
+}
+.cert-desc {
+  font-size: 12px;
+  color: #315776;
+  line-height: 1.6;
+  flex: 1;
+}
+.cert-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .cert-tag {
-  font-size: 20rpx;
-  padding: 4rpx 16rpx;
-  border-radius: 4px;
-  background: var(--color-success-soft, #E9F7F0);
-  color: var(--color-success);
-  font-weight: 600;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: #fff;
+  color: #0A66C2;
+  font-weight: 700;
 }
-.cert-empty { font-size: 24rpx; color: var(--color-text-secondary); line-height: 1.6; }
+.cert-empty {
+  font-size: 12px;
+  color: #315776;
+  line-height: 1.6;
+}
 
-/* 隐私说明 + 提交 */
-.privacy { display: flex; align-items: flex-start; gap: 12rpx; padding: 24rpx 40rpx 0; }
+/* 隐私说明 */
+.privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 4px 13px;
+}
 .privacy-tag {
-  font-size: 20rpx;
-  padding: 2rpx 12rpx;
-  border-radius: 4px;
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  font-weight: 600;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #E8F2FC;
+  color: #0A66C2;
+  font-weight: 700;
   flex-shrink: 0;
 }
-.privacy-text { font-size: 22rpx; color: var(--color-text-placeholder); line-height: 1.6; }
-.submit-wrap { padding: 40rpx 32rpx 0; }
+.privacy-text {
+  font-size: 11px;
+  color: #98A2B3;
+  line-height: 1.6;
+}
 </style>

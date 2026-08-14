@@ -1,94 +1,97 @@
 <template>
-  <view class="review-page">
-    <u-nav-bar :title="navTitle" show-back @back="goBack" />
-
-    <view v-if="loading" class="state-panel">
-      <view class="loading-inline">
-        <u-loading size="24rpx" />
-        <text>加载中...</text>
-      </view>
+  <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
+    <!-- 顶栏（与发布页同款） -->
+    <view class="pub-nav">
+      <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
+      <view class="pub-nav-title">{{ navTitle }}</view>
     </view>
 
-    <view v-else-if="error || !order" class="state-panel">
-      <u-empty description="订单加载失败" />
-      <view class="retry-btn" @tap="loadData">
-        <text>重新加载</text>
-      </view>
+    <!-- 加载中 -->
+    <view v-if="loading" class="loading-state">
+      <u-loading size="24rpx" />
+      <text>加载中...</text>
+    </view>
+
+    <!-- 加载失败 -->
+    <view v-else-if="error || !order" class="pub-empty">
+      <view class="pub-empty-mark">!</view>
+      <view class="pub-empty-title">订单加载失败</view>
+      <view class="pub-btn pub-btn--primary retry-btn" hover-class="pub-btn--active" @tap="retryLoad">重新加载</view>
     </view>
 
     <template v-else>
       <!-- 提交成功态 -->
       <view v-if="submitted" class="success-card">
-        <view class="success-mark">✓</view>
+        <view class="pub-success-mark">✓</view>
         <text class="success-title">评价提交成功</text>
         <text class="success-desc">结课凭证已存入「我的报名 / 证书」</text>
         <view class="success-actions">
-          <view class="success-btn" @tap="goOrders">
-            <text>返回我的订单</text>
-          </view>
-          <view class="success-btn ghost" @tap="goCertificates">
-            <text>查看我的证书</text>
-          </view>
+          <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="goOrders">返回我的订单</view>
+          <view class="pub-btn pub-btn--ghost" hover-class="pub-btn--active" @tap="goCertificates">查看我的证书</view>
         </view>
       </view>
 
       <!-- 评价表单 -->
       <template v-else>
-        <!-- 课程信息 -->
-        <view class="course-card">
-          <text class="course-title">{{ order.title }}</text>
-          <text class="course-sub">{{ order.subtitle }}</text>
+        <!-- 表单头部：所评课程信息 -->
+        <view class="pub-form-intro">
+          <view class="pub-form-intro-h2">{{ order.title }}</view>
+          <view class="pub-form-intro-p">{{ order.subtitle }}</view>
         </view>
 
         <!-- 星级 -->
-        <view class="form-card">
-          <text class="form-label">课程评价</text>
-          <view class="star-row">
-            <text
-              v-for="i in 5"
-              :key="i"
-              class="star"
-              :class="{ on: rating >= i }"
-              @tap="rating = i"
-            >★</text>
-          </view>
-          <!-- 1~5 星解释横排，选中星级高亮 -->
-          <view class="star-legend">
-            <text
-              v-for="(t, i) in ratingText"
-              :key="i"
-              class="star-legend-item"
-              :class="{ on: rating === i + 1 }"
-            >{{ i + 1 }} 星 · {{ t }}</text>
+        <view class="pub-section">
+          <view class="pub-section-title">课程评价</view>
+          <view class="pub-form-card">
+            <view class="pub-field">
+              <view class="star-row">
+                <text
+                  v-for="i in 5"
+                  :key="i"
+                  class="star"
+                  :class="{ on: rating >= i }"
+                  @tap="rating = i"
+                >★</text>
+              </view>
+              <!-- 1~5 星解释横排，选中星级高亮 -->
+              <view class="star-legend">
+                <text
+                  v-for="(t, i) in ratingText"
+                  :key="i"
+                  class="star-legend-item"
+                  :class="{ on: rating === i + 1 }"
+                >{{ i + 1 }} 星 · {{ t }}</text>
+              </view>
+            </view>
           </view>
         </view>
 
         <!-- 文字评价 -->
-        <view class="form-card">
-          <text class="form-label">文字评价</text>
-          <textarea
-            class="review-textarea"
-            v-model="content"
-            placeholder="说说课程内容、讲师讲解与实操安排..."
-            :maxlength="200"
-          />
-          <text class="textarea-count">{{ content.length }}/200</text>
+        <view class="pub-section">
+          <view class="pub-section-title">文字评价</view>
+          <view class="pub-form-card">
+            <view class="pub-field">
+              <textarea
+                class="pub-input pub-input--textarea review-textarea"
+                v-model="content"
+                placeholder="说说课程内容、讲师讲解与实操安排..."
+                placeholder-class="pub-placeholder"
+                :maxlength="200"
+              ></textarea>
+              <text class="textarea-count">{{ content.length }}/200</text>
+            </view>
+          </view>
         </view>
 
         <!-- 提示 -->
-        <view class="note-card">
-          <text class="note-text">{{ reviewed ? '该订单已完成评价，可修改后重新提交（覆盖原评价）。' : '评价结果保存在本地（演示闭环），接入评价接口后改为真实存储。' }}</text>
-        </view>
+        <view class="pub-review-note">{{ reviewed ? '该订单已完成评价，可修改后重新提交（覆盖原评价）。' : '评价结果保存在本地（演示闭环），接入评价接口后改为真实存储。' }}</view>
 
-        <view class="submit-wrap">
-          <view class="submit-btn" @tap="submitReview">
-            <text>提交评价</text>
-          </view>
+        <!-- 固定底部操作区（与发布页同款） -->
+        <view class="pub-sticky">
+          <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="submitReview">提交评价</view>
         </view>
       </template>
     </template>
-
-    <view class="bottom-spacer"></view>
   </view>
 </template>
 
@@ -96,6 +99,9 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { loadOrder, getReview, saveReview } from '../../utils/orderAdapter'
+import { useSafeTop } from '../../utils/safeTop'
+
+const { topPad, initSafeTop } = useSafeTop(true)
 
 const order = ref(null)
 const loading = ref(true)
@@ -146,7 +152,14 @@ const loadData = async (query = {}) => {
   }
 }
 
-onLoad(loadData)
+const retryLoad = () => {
+  loadData({ id: orderId })
+}
+
+onLoad((options) => {
+  initSafeTop()
+  loadData(options)
+})
 
 const submitReview = async () => {
   if (submitted.value) return
@@ -180,202 +193,104 @@ const goBack = () => {
 </script>
 
 <style scoped>
-.review-page {
-  min-height: 100vh;
-  background: var(--color-bg);
-  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+@import '../../pages/publish/pub-style.css';
+
+.pub-fade { opacity: 0.6; }
+.pub-form-intro-h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
+  color: #17212B;
 }
-.state-panel {
+.pub-form-intro-p {
+  font-size: 12px;
+  color: #667085;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 加载中 */
+.loading-state {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding-top: 120rpx;
+  justify-content: center;
+  gap: 8px;
+  padding: 80px 0;
+  color: #667085;
+  font-size: 13px;
 }
-.loading-inline {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  font-size: 26rpx;
-  color: var(--color-text-secondary);
-}
+
+/* 错误重试按钮 */
 .retry-btn {
-  margin-top: 12rpx;
-  padding: 16rpx 48rpx;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: 12rpx;
-  font-size: 26rpx;
+  flex: none;
+  margin: 12px auto 0;
+  padding: 0 22px;
 }
 
-.course-card {
-  margin: 20rpx 24rpx 0;
-  background: #fff;
-  border: 1rpx solid var(--color-border);
-  border-radius: 16rpx;
-  box-shadow: var(--shadow-sm);
-  padding: 28rpx;
-}
-.course-title {
-  display: block;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: var(--color-text);
-  line-height: 1.4;
-}
-.course-sub {
-  display: block;
-  margin-top: 10rpx;
-  font-size: 24rpx;
-  color: var(--color-text-secondary);
-}
-
-.form-card {
-  margin: 20rpx 24rpx 0;
-  background: #fff;
-  border: 1rpx solid var(--color-border);
-  border-radius: 16rpx;
-  box-shadow: var(--shadow-sm);
-  padding: 28rpx;
-}
-.form-label {
-  display: block;
-  font-size: 26rpx;
-  font-weight: 600;
-  color: var(--color-text);
-}
+/* 星级（选中橙 #F97316，未选灰 #D7DEE6） */
 .star-row {
   display: flex;
-  gap: 16rpx;
-  margin-top: 24rpx;
+  gap: 8px;
+  padding: 2px 0 0;
 }
 .star {
-  font-size: 56rpx;
-  color: var(--color-divider);
+  font-size: 28px;
+  color: #D7DEE6;
   line-height: 1;
 }
-.star.on {
-  color: var(--color-accent);
-}
+.star.on { color: #F97316; }
 .star-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 8rpx 20rpx;
-  margin-top: 16rpx;
+  gap: 6px 16px;
+  margin-top: 10px;
 }
 .star-legend-item {
-  font-size: 22rpx;
-  color: var(--color-text-placeholder);
+  font-size: 11px;
+  color: #98A2B3;
   white-space: nowrap;
 }
 .star-legend-item.on {
-  color: var(--color-accent-deep);
-  font-weight: 600;
+  color: #E96012;
+  font-weight: 700;
 }
 
-.review-textarea {
-  margin-top: 20rpx;
-  width: 100%;
-  height: 200rpx;
-  box-sizing: border-box;
-  background: var(--color-bg);
-  border-radius: 12rpx;
-  padding: 20rpx;
-  font-size: 26rpx;
-  line-height: 1.5;
-}
+/* 文字评价 */
+.review-textarea { min-height: 110px; }
 .textarea-count {
   display: block;
   text-align: right;
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: var(--color-text-placeholder);
+  margin-top: 6px;
+  font-size: 11px;
+  color: #98A2B3;
 }
 
-.note-card {
-  margin: 20rpx 24rpx 0;
-  background: #FFF4E6;
-  border-radius: 12rpx;
-  padding: 20rpx 24rpx;
-}
-.note-text {
-  font-size: 22rpx;
-  color: #B54708;
-  line-height: 1.6;
-}
-
-.submit-wrap {
-  margin: 32rpx 24rpx 0;
-}
-.submit-btn {
-  height: 92rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12rpx;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: 700;
-  box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.22);
-}
-
-/* 成功态 */
+/* 提交成功态 */
 .success-card {
-  margin: 24rpx;
   background: #fff;
-  border: 1rpx solid var(--color-border);
-  border-radius: 16rpx;
-  box-shadow: var(--shadow-sm);
-  padding: 80rpx 40rpx;
+  border: 1px solid #EEF1F4;
+  border-radius: 10px;
+  padding: 44px 30px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-.success-mark {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 50%;
-  background: var(--color-success);
-  color: #fff;
-  font-size: 48rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 .success-title {
-  margin-top: 24rpx;
-  font-size: 32rpx;
-  font-weight: 700;
-  color: var(--color-text);
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 750;
+  color: #17212B;
 }
 .success-desc {
-  margin-top: 12rpx;
-  font-size: 24rpx;
-  color: var(--color-text-secondary);
+  margin-top: 8px;
+  font-size: 12px;
+  color: #667085;
 }
 .success-actions {
-  margin-top: 32rpx;
+  margin-top: 26px;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 9px;
 }
-.success-btn {
-  height: 84rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12rpx;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-.success-btn.ghost {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-}
-
-.bottom-spacer { height: 24rpx; }
+.success-actions .pub-btn { flex: none; }
 </style>

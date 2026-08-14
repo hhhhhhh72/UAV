@@ -67,9 +67,8 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { request } from '../../../utils/request'
-import { safeBack } from '../../../utils/nav'
-import StateView from '../../../components/StateView.vue'
+import { request } from '@/utils/request'
+import StateView from '@/components/StateView.vue'
 
 const SITE_TYPE_MAP = {
   flying_field: '飞行场地',
@@ -153,7 +152,7 @@ function goDetail(site) {
 }
 
 function goBack() {
-  safeBack()
+  uni.navigateBack()
 }
 
 onLoad(() => fetchList())

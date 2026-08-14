@@ -1,12 +1,12 @@
 <template>
-  <view class="register-page">
-    <u-nav-bar
-      title="企业入驻"
-      show-back
-      @back="goBack"
-    />
+  <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
+    <!-- 顶栏（与发布页同款） -->
+    <view class="pub-nav">
+      <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
+      <view class="pub-nav-title">{{ isEdit ? '编辑企业资料' : '企业入驻' }}</view>
+    </view>
 
-    <!-- Step indicator -->
+    <!-- Step indicator（3 步向导） -->
     <view class="step-indicator">
       <view
         v-for="(step, index) in steps"
@@ -21,175 +21,211 @@
     </view>
 
     <!-- Step 1: 基本信息（PRD FR-2.1：名称/信用代码/logo/成立时间/注册地/简介） -->
-    <view v-if="currentStep === 0" class="step-body">
-      <view class="section-title">企业档案</view>
-      <u-cell-group inset>
-        <!-- logo 上传 -->
-        <view class="upload-cell">
-          <text class="upload-label">企业 logo</text>
-          <view class="upload-area">
-            <view v-if="logoUrl" class="logo-preview" @tap="previewLogo">
-              <image :src="logoUrl" mode="aspectFill" class="logo-img" />
-              <view class="upload-remove" @tap.stop="removeLogo">
-                <u-icon name="close" size="24rpx" color="var(--color-danger)" />
+    <view v-if="currentStep === 0">
+      <view class="pub-section">
+        <view class="pub-section-title">企业档案</view>
+        <view class="pub-form-card">
+          <!-- logo 上传 -->
+          <view class="pub-field">
+            <view class="pub-field-label">企业 logo</view>
+            <view class="pub-upload-row pub-upload-inline">
+              <view v-if="logoUrl" class="pub-photo" @tap="previewLogo">
+                <image :src="logoUrl" mode="aspectFill" class="pub-photo-img" />
+                <view class="pub-photo-remove" @tap.stop="removeLogo">×</view>
+              </view>
+              <view v-else class="pub-add-photo" hover-class="pub-fade" @tap="chooseLogo">＋</view>
+            </view>
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">企业名称<text class="pub-required">*</text></view>
+            <input
+              v-model="form.name"
+              class="pub-input"
+              placeholder="请输入企业名称"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">信用代码<text class="pub-required">*</text></view>
+            <input
+              v-model="form.credit_code"
+              class="pub-input"
+              placeholder="统一社会信用代码"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <picker mode="date" fields="month" :value="form.founded_at" @change="onDateChange">
+            <view class="pub-field pub-field--pick">
+              <view class="pub-field-label">成立时间</view>
+              <view class="pub-select-field">
+                <text :class="form.founded_at ? 'pub-select-value' : 'pub-placeholder'">
+                  {{ form.founded_at || '请选择成立时间' }}
+                </text>
+                <text class="pub-arrow">›</text>
               </view>
             </view>
-            <view v-else class="logo-upload-btn" @tap="chooseLogo">
-              <u-icon name="plus" size="28rpx" color="var(--color-text-secondary)" />
-              <text class="upload-hint">上传</text>
-            </view>
+          </picker>
+          <view class="pub-field">
+            <view class="pub-field-label">注册地</view>
+            <input
+              v-model="form.address"
+              class="pub-input"
+              placeholder="请输入办公地址"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">企业简介</view>
+            <textarea
+              v-model="form.description"
+              class="pub-input pub-input--textarea"
+              auto-height
+              placeholder="简要介绍企业经营范围与能力（将公开展示）"
+              placeholder-class="pub-placeholder"
+            />
           </view>
         </view>
-        <u-field
-          v-model="form.name"
-          label="企业名称"
-          placeholder="请输入企业名称"
-        />
-        <u-field
-          v-model="form.credit_code"
-          label="信用代码"
-          placeholder="统一社会信用代码"
-        />
-        <picker mode="date" fields="month" :value="form.founded_at" @change="onDateChange">
-          <view class="field-row">
-            <u-field
-              :model-value="form.founded_at"
-              label="成立时间"
-              placeholder="请选择成立时间"
-              disabled
-            />
-            <text class="field-arrow">›</text>
-          </view>
-        </picker>
-        <u-field
-          v-model="form.address"
-          label="注册地"
-          placeholder="请输入办公地址"
-        />
-        <u-field
-          v-model="form.description"
-          label="企业简介"
-          type="textarea"
-          auto-height
-          placeholder="简要介绍企业经营范围与能力（将公开展示）"
-        />
-      </u-cell-group>
+      </view>
     </view>
 
     <!-- Step 2: 分类与能力（PRD FR-2.1：8 类多选 + 预设能力标签） -->
-    <view v-if="currentStep === 1" class="step-body">
-      <view class="section-title">企业分类</view>
-      <view class="chips-card">
-        <view
-          v-for="opt in categoryOptions"
-          :key="opt.value"
-          class="chip"
-          :class="{ 'chip--active': form.industry_categories.includes(opt.value) }"
-          @tap="toggleCategory(opt.value)"
-        >
-          {{ opt.name }}
+    <view v-if="currentStep === 1">
+      <view class="pub-section">
+        <view class="pub-section-title">企业分类</view>
+        <view class="pub-form-card">
+          <view class="chips-card">
+            <view
+              v-for="opt in categoryOptions"
+              :key="opt.value"
+              class="chip"
+              :class="{ 'chip--active': form.industry_categories.includes(opt.value) }"
+              @tap="toggleCategory(opt.value)"
+            >
+              {{ opt.name }}
+            </view>
+          </view>
         </view>
       </view>
-      <view class="section-title">能力标签（多选）</view>
-      <view class="chips-card">
-        <view
-          v-for="opt in tagOptions"
-          :key="opt.value"
-          class="chip"
-          :class="{ 'chip--active': form.capability_tags.includes(opt.value) }"
-          @tap="toggleTag(opt.value)"
-        >
-          {{ opt.name }}
+      <view class="pub-section">
+        <view class="pub-section-title">能力标签（多选）</view>
+        <view class="pub-form-card">
+          <view class="chips-card">
+            <view
+              v-for="opt in tagOptions"
+              :key="opt.value"
+              class="chip"
+              :class="{ 'chip--active': form.capability_tags.includes(opt.value) }"
+              @tap="toggleTag(opt.value)"
+            >
+              {{ opt.name }}
+            </view>
+          </view>
         </view>
       </view>
-      <view class="scale-card">
-        <u-cell-group inset>
-          <u-field
-            v-model="form.scale"
-            label="企业规模"
-            placeholder="如：50-100人"
-          />
-        </u-cell-group>
+      <view class="pub-section">
+        <view class="pub-section-title">企业规模</view>
+        <view class="pub-form-card">
+          <view class="pub-field">
+            <view class="pub-field-label">企业规模</view>
+            <input
+              v-model="form.scale"
+              class="pub-input"
+              placeholder="如：50-100人"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+        </view>
       </view>
     </view>
 
     <!-- Step 3: 联系与资质（PRD FR-2.1：法人/联系人/电话/邮箱 + 营业执照） -->
-    <view v-if="currentStep === 2" class="step-body">
-      <view class="section-title">联系信息</view>
-      <u-cell-group inset>
-        <u-field
-          v-model="form.legal_person"
-          label="法人代表"
-          placeholder="请输入法人代表姓名"
-        />
-        <u-field
-          v-model="form.contact_person"
-          label="联系人"
-          placeholder="请输入联系人姓名"
-        />
-        <u-field
-          v-model="form.contact_phone"
-          label="联系电话"
-          type="number"
-          placeholder="请输入联系电话"
-        />
-        <u-field
-          v-model="form.email"
-          label="邮箱"
-          placeholder="请输入企业邮箱"
-        />
-      </u-cell-group>
-      <view class="section-title">企业资质</view>
-      <u-cell-group inset>
-        <view class="upload-cell">
-          <text class="upload-label">营业执照</text>
-          <view class="upload-area">
-            <view v-if="licenseUrl" class="upload-preview" @tap="previewLicense">
-              <image :src="licenseUrl" mode="aspectFill" class="upload-img" />
-              <view class="upload-remove" @tap.stop="removeLicense">
-                <u-icon name="close" size="24rpx" color="var(--color-danger)" />
-              </view>
-            </view>
-            <view v-else class="upload-btn" @tap="chooseLicense">
-              <u-icon name="plus" size="28rpx" color="var(--color-text-secondary)" />
-              <text class="upload-hint">点击上传</text>
-            </view>
+    <view v-if="currentStep === 2">
+      <view class="pub-section">
+        <view class="pub-section-title">联系信息</view>
+        <view class="pub-form-card">
+          <view class="pub-field">
+            <view class="pub-field-label">法人代表</view>
+            <input
+              v-model="form.legal_person"
+              class="pub-input"
+              placeholder="请输入法人代表姓名"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">联系人</view>
+            <input
+              v-model="form.contact_person"
+              class="pub-input"
+              placeholder="请输入联系人姓名"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">联系电话</view>
+            <input
+              v-model="form.contact_phone"
+              class="pub-input"
+              type="number"
+              placeholder="请输入联系电话"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">邮箱</view>
+            <input
+              v-model="form.email"
+              class="pub-input"
+              placeholder="请输入企业邮箱"
+              placeholder-class="pub-placeholder"
+            />
           </view>
         </view>
-        <view class="upload-tip">营业执照用于审核，审核通过后仅管理员可见</view>
-      </u-cell-group>
+      </view>
+      <view class="pub-section">
+        <view class="pub-section-title">企业资质</view>
+        <view class="pub-form-card">
+          <view class="pub-field">
+            <view class="pub-field-label">营业执照</view>
+            <view class="pub-upload-row pub-upload-inline">
+              <view v-if="licenseUrl" class="pub-photo" @tap="previewLicense">
+                <image :src="licenseUrl" mode="aspectFill" class="pub-photo-img" />
+                <view class="pub-photo-remove" @tap.stop="removeLicense">×</view>
+              </view>
+              <view v-else class="pub-add-photo" hover-class="pub-fade" @tap="chooseLicense">＋</view>
+            </view>
+          </view>
+          <view class="pub-upload-tip">营业执照用于审核，审核通过后仅管理员可见</view>
+        </view>
+      </view>
     </view>
 
-    <!-- Bottom action buttons -->
-    <view class="action-bar">
-      <u-button
+    <!-- 固定底部操作区（与发布页同款） -->
+    <view class="pub-sticky">
+      <view
         v-if="currentStep > 0"
-        type="default"
-        round
-        class="prev-btn"
-        @click="prevStep"
+        class="pub-btn pub-btn--ghost"
+        hover-class="pub-btn--active"
+        @tap="prevStep"
       >
         上一步
-      </u-button>
-      <u-button
+      </view>
+      <view
         v-if="currentStep < 2"
-        type="primary"
-        round
-        class="next-btn"
-        @click="nextStep"
+        class="pub-btn pub-btn--primary"
+        hover-class="pub-btn--active"
+        @tap="nextStep"
       >
         下一步
-      </u-button>
-      <u-button
+      </view>
+      <view
         v-else
-        type="primary"
-        round
-        class="submit-btn"
-        :loading="submitting"
-        @click="handleSubmit"
+        class="pub-btn pub-btn--primary"
+        hover-class="pub-btn--active"
+        @tap="handleSubmit"
       >
-        {{ isEdit ? '保存并重新提交' : '提交审核' }}
-      </u-button>
+        {{ submitting ? '提交中...' : (isEdit ? '保存并重新提交' : '提交审核') }}
+      </view>
     </view>
 
   </view>
@@ -197,6 +233,10 @@
 
 <script>
 import { request, authStorage, BASE_URL } from '../../../utils/request'
+import { useSafeTop } from '../../../utils/safeTop'
+
+// 自定义顶栏安全区（与发布页同款 pub-nav）
+const { topPad: safeTopPad, initSafeTop } = useSafeTop(true)
 
 // PRD FR-2.1 企业分类（多选标签）
 const CATEGORY_OPTIONS = [
@@ -227,9 +267,11 @@ const TAG_OPTIONS = [
 export default {
   data() {
     return {
+      topPad: 24,
       currentStep: 0,
       steps: ['基本信息', '分类能力', '联系资质'],
       submitting: false,
+      backTimer: null,
       categoryOptions: CATEGORY_OPTIONS,
       tagOptions: TAG_OPTIONS,
       form: {
@@ -258,6 +300,9 @@ export default {
     },
   },
   onLoad(options) {
+    // 顶栏安全区（pub-nav 自定义顶栏）
+    initSafeTop()
+    this.topPad = safeTopPad.value
     // 登录守卫：入驻表单提交需要 token，未登录先引导登录
     if (!uni.getStorageSync('accessToken')) {
       uni.navigateTo({ url: '/pages/login/index' })
@@ -268,6 +313,9 @@ export default {
       uni.setNavigationBarTitle({ title: '编辑企业资料' })
       this.loadEnterprise()
     }
+  },
+  onUnload() {
+    if (this.backTimer) clearTimeout(this.backTimer)
   },
   methods: {
     goBack() {
@@ -444,6 +492,7 @@ export default {
     },
     // ---- 提交 ----
     async handleSubmit() {
+      if (this.submitting) return
       var self = this
       self.submitting = true
 
@@ -490,7 +539,7 @@ export default {
         }
 
         uni.showToast({ title: self.isEdit ? '已重新提交审核' : '已提交审核' })
-        setTimeout(function () {
+        self.backTimer = setTimeout(function () {
           uni.navigateBack()
         }, 1200)
       } catch (e) {
@@ -505,20 +554,21 @@ export default {
 </script>
 
 <style scoped>
-.register-page {
-  min-height: 100vh;
-  background: var(--color-bg);
-  padding-bottom: 100px;
+@import '../../../pages/publish/pub-style.css';
+
+.pub-fade { opacity: 0.6; }
+.pub-photo-img {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-/* Step indicator */
+/* 步骤指示器（配色对齐 pub：进行中蓝 / 完成绿 / 未到灰） */
 .step-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 32px 16px;
-  background: var(--color-bg-card);
-  margin-bottom: 12px;
+  padding: 4px 12px 20px;
 }
 
 .step-item {
@@ -528,12 +578,12 @@ export default {
 }
 
 .step-circle {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: var(--color-divider);
-  color: var(--color-text-secondary);
-  font-size: 14px;
+  background: #EDF1F5;
+  color: #98A2B3;
+  font-size: 13px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -543,12 +593,12 @@ export default {
 }
 
 .step-item.active .step-circle {
-  background: var(--color-primary);
+  background: #0A66C2;
   color: #fff;
 }
 
 .step-item.done .step-circle {
-  background: var(--color-success);
+  background: #219653;
   color: #fff;
 }
 
@@ -559,201 +609,78 @@ export default {
 .step-label {
   margin-left: 6px;
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: #98A2B3;
   white-space: nowrap;
 }
 
 .step-item.active .step-label {
-  color: var(--color-primary);
+  color: #0A66C2;
   font-weight: 600;
 }
 
 .step-item.done .step-label {
-  color: var(--color-success);
+  color: #219653;
 }
 
 .step-line {
-  width: 40px;
+  width: 32px;
   height: 2px;
-  background: var(--color-divider);
-  margin: 0 10px;
+  background: #DDE6F0;
+  margin: 0 8px;
   transition: all 0.3s;
 }
 
 .step-line.filled {
-  background: var(--color-success);
+  background: #219653;
 }
 
-/* Step body */
-.step-body {
-  padding: 12px 0;
-}
-
-.section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  padding: 8px 20px 4px;
-}
-
-/* Field row with arrow */
-.field-row {
-  display: flex;
-  align-items: center;
-  background: #fff;
-  padding-right: 16px;
-}
-
-.field-arrow {
-  color: var(--color-text-placeholder);
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-/* 多选 chips */
+/* 多选 chips（选中态浅蓝底蓝字、圆角 5px，对齐 pub / resume.vue skill-tag） */
 .chips-card {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 16px;
-  background: var(--color-bg-card);
-  border-radius: 12px;
-  margin: 0 12px 12px;
+  gap: 8px;
+  padding: 13px;
 }
 
 .chip {
-  padding: 10px 18px;
-  border-radius: 24rpx;
-  background: var(--color-bg);
-  border: 1px solid var(--color-divider);
-  font-size: 13px;
-  color: var(--color-text-secondary);
+  padding: 7px 13px;
+  border-radius: 5px;
+  background: #F5F6F8;
+  border: 1px solid #EEF1F4;
+  font-size: 12px;
+  color: #667085;
   transition: all 0.2s;
 }
 
 .chip--active {
-  background: rgba(10, 102, 194, 0.08);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  font-weight: 500;
+  background: #E8F2FC;
+  border-color: #A6C9EE;
+  color: #0A66C2;
+  font-weight: 700;
 }
 
-.scale-card {
-  margin: 0 12px;
+/* 卡片字段内嵌上传行：去掉 pub-upload-row 自带内边距（字段本身已有 padding） */
+.pub-upload-inline {
+  padding: 0;
 }
 
-/* Upload area */
-.upload-cell {
-  padding: 12px 16px;
-  display: flex;
-  align-items: flex-start;
+/* 成立时间：picker 组件内的 pub-field 会命中 :first-child 去线规则，补回顶部分隔线 */
+.pub-field.pub-field--pick {
+  border-top: 1px solid #EEF1F4;
 }
 
-.upload-label {
-  width: 68px;
-  font-size: 14px;
-  color: var(--color-text);
-  flex-shrink: 0;
-  line-height: 24px;
-  padding-top: 8px;
-}
-
-.upload-area {
-  flex: 1;
-}
-
-.upload-btn {
-  width: 80px;
-  height: 80px;
-  border: 1px dashed var(--color-text-placeholder);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.logo-upload-btn {
-  width: 72px;
-  height: 72px;
-  border: 1px dashed var(--color-text-placeholder);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.upload-hint {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.logo-preview {
-  position: relative;
-  width: 72px;
-  height: 72px;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.logo-img {
-  width: 100%;
-  height: 100%;
-}
-
-.upload-preview {
-  position: relative;
-  width: 200px;
-  height: 120px;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.upload-img {
-  width: 100%;
-  height: 100%;
-}
-
-.upload-remove {
+/* 上传预览删除角标（同 resume.vue） */
+.pub-photo-remove {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  background: rgba(255, 255, 255, 0.9);
+  top: 3px;
+  right: 3px;
+  width: 17px;
+  height: 17px;
   border-radius: 50%;
-  padding: 2px;
-}
-
-.upload-tip {
-  padding: 0 16px 12px;
+  background: rgba(23, 33, 43, 0.55);
+  color: #fff;
   font-size: 12px;
-  color: var(--color-text-placeholder);
+  line-height: 17px;
+  text-align: center;
 }
-
-/* Action bar */
-.action-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 12px 16px;
-  background: var(--color-bg-card);
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
-  display: flex;
-  gap: 12px;
-  z-index: 100;
-}
-
-.prev-btn {
-  flex: 1;
-}
-
-.next-btn,
-.submit-btn {
-  flex: 1;
-}
-
 </style>

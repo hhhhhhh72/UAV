@@ -1,153 +1,153 @@
 <template>
-  <view class="profile-page">
-    <u-nav-bar title="个人信息" show-back @back="goBack" />
+  <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
+    <!-- 顶栏（与发布页同款） -->
+    <view class="pub-nav">
+      <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
+      <view class="pub-nav-title">个人信息</view>
+    </view>
 
-    <!-- ═══════ 资料 ═══════ -->
-    <view class="card">
-      <view class="row" hover-class="row-fade" @tap="chooseAvatar">
-        <view class="row-label-wrap">
-          <text class="row-label">头像</text>
-        </view>
-        <view class="row-right">
-          <image v-if="form.avatar" :src="avatarFull(form.avatar)" mode="aspectFill" class="row-avatar" />
-          <view v-else class="row-avatar row-avatar-ph">
-            <text>{{ initial }}</text>
+    <!-- 表单头部 -->
+    <view class="pub-form-intro">
+      <view class="pub-form-intro-h2">个人信息</view>
+      <view class="pub-form-intro-p">完善个人资料，让行业伙伴更好地了解你</view>
+    </view>
+
+    <!-- 资料 -->
+    <view class="pub-section">
+      <view class="pub-section-title">资料</view>
+      <view class="pub-form-card">
+        <view class="pub-field">
+          <view class="pub-field-label">头像</view>
+          <view class="pub-upload-row pub-avatar-row">
+            <view v-if="form.avatar" class="pub-photo" @tap="chooseAvatar">
+              <image :src="avatarFull(form.avatar)" mode="aspectFill" class="pub-photo-img" />
+            </view>
+            <view v-else class="pub-photo pub-avatar-initial" @tap="chooseAvatar">
+              <text>{{ initial }}</text>
+            </view>
+            <view class="pub-add-photo" hover-class="pub-fade" @tap="chooseAvatar">＋</view>
           </view>
-          <text class="row-chev">›</text>
+          <view class="pub-upload-tip">点击头像可更换，选择后自动上传</view>
         </view>
-      </view>
-
-      <view class="row">
-        <view class="row-label-wrap">
-          <text class="row-label">昵称</text>
-        </view>
-        <view class="row-right row-right--input">
+        <view class="pub-field">
+          <view class="pub-field-label">昵称<text class="pub-required">*</text></view>
           <input
-            class="row-input"
+            class="pub-input"
             v-model="form.name"
             placeholder="请输入昵称"
-            placeholder-class="row-input-ph"
+            placeholder-class="pub-placeholder"
             maxlength="20"
           />
         </view>
       </view>
     </view>
 
-    <!-- ═══════ 基础信息 ═══════ -->
-    <view class="card">
-      <view class="row">
-        <view class="row-label-wrap">
-          <text class="row-label">手机号</text>
-        </view>
-        <view class="row-right row-right--input">
+    <!-- 基础信息 -->
+    <view class="pub-section">
+      <view class="pub-section-title">基础信息</view>
+      <view class="pub-form-card">
+        <view class="pub-field">
+          <view class="pub-field-label">手机号</view>
           <input
-            class="row-input"
+            class="pub-input"
             v-model="form.phone"
             type="number"
             maxlength="11"
             placeholder="请输入手机号"
-            placeholder-class="row-input-ph"
+            placeholder-class="pub-placeholder"
           />
         </view>
-      </view>
 
-      <picker mode="selector" :range="genderOptions" @change="onGenderChange">
-        <view class="row" hover-class="row-fade">
-          <view class="row-label-wrap">
-            <text class="row-label">性别</text>
+        <picker mode="selector" :range="genderOptions" @change="onGenderChange">
+          <view class="pub-field" hover-class="pub-fade">
+            <view class="pub-field-label">性别</view>
+            <view class="pub-select-field">
+              <text :class="form.gender ? 'pub-select-value' : 'pub-placeholder'">{{ form.gender || '请选择' }}</text>
+              <text class="pub-arrow">›</text>
+            </view>
           </view>
-          <view class="row-right">
-            <text class="row-tail" :class="form.gender ? 'val' : 'dim'">{{ form.gender || '请选择' }}</text>
-            <text class="row-chev">›</text>
-          </view>
-        </view>
-      </picker>
+        </picker>
 
-      <picker mode="date" :start="'1950-01-01'" :end="todayStr" @change="onBirthdayChange">
-        <view class="row" hover-class="row-fade">
-          <view class="row-label-wrap">
-            <text class="row-label">生日</text>
+        <picker mode="date" :start="'1950-01-01'" :end="todayStr" @change="onBirthdayChange">
+          <view class="pub-field" hover-class="pub-fade">
+            <view class="pub-field-label">生日</view>
+            <view class="pub-select-field">
+              <text :class="form.birthday ? 'pub-select-value' : 'pub-placeholder'">{{ form.birthday || '请选择' }}</text>
+              <text class="pub-arrow">›</text>
+            </view>
           </view>
-          <view class="row-right">
-            <text class="row-tail" :class="form.birthday ? 'val' : 'dim'">{{ form.birthday || '请选择' }}</text>
-            <text class="row-chev">›</text>
-          </view>
-        </view>
-      </picker>
+        </picker>
 
-      <view class="row">
-        <view class="row-label-wrap">
-          <text class="row-label">所在地区</text>
-        </view>
-        <view class="row-right row-right--input">
+        <view class="pub-field">
+          <view class="pub-field-label">所在地区</view>
           <input
-            class="row-input"
+            class="pub-input"
             v-model="form.region"
             maxlength="30"
             placeholder="如：重庆市江北区"
-            placeholder-class="row-input-ph"
+            placeholder-class="pub-placeholder"
           />
         </view>
       </view>
     </view>
 
-    <!-- ═══════ 个人简介 ═══════ -->
-    <view class="card">
-      <view class="row row--textarea">
-        <view class="row-label-wrap">
-          <text class="row-label">个人简介</text>
-        </view>
-        <textarea
-          class="row-textarea"
-          v-model="form.bio"
-          maxlength="120"
-          placeholder="介绍一下自己，如从业经历、擅长领域（可选）"
-          placeholder-class="row-input-ph"
-        />
-      </view>
-    </view>
-
-    <!-- ═══════ 账号 ═══════ -->
-    <view class="card">
-      <view class="row">
-        <view class="row-label-wrap">
-          <text class="row-label">微信账号</text>
-        </view>
-        <view class="row-right">
-          <text class="row-tail" :class="wechatBound ? 'ok' : 'dim'">{{ wechatBound ? '已绑定' : '未绑定' }}</text>
-          <text class="row-chev">›</text>
-        </view>
-      </view>
-
-      <view class="row" hover-class="row-fade" @tap="goAuth">
-        <view class="row-label-wrap">
-          <text class="row-label">实名认证</text>
-        </view>
-        <view class="row-right">
-          <text class="row-tail" :class="form.isAuth ? 'ok' : 'wait'">{{ form.isAuth ? '已认证' : '未认证' }}</text>
-          <text class="row-chev">›</text>
+    <!-- 个人简介 -->
+    <view class="pub-section">
+      <view class="pub-form-card">
+        <view class="pub-field">
+          <view class="pub-field-label">个人简介</view>
+          <textarea
+            class="pub-input pub-input--textarea"
+            v-model="form.bio"
+            maxlength="120"
+            placeholder="介绍一下自己，如从业经历、擅长领域（可选）"
+            placeholder-class="pub-placeholder"
+          />
+          <text class="pub-field-hint">{{ (form.bio || '').length }}/120</text>
         </view>
       </view>
     </view>
 
-    <!-- ═══════ 保存 ═══════ -->
-    <view class="save-wrap">
-      <view class="save-btn" hover-class="save-btn-hover" @tap="handleSave">
-        <text class="save-btn-text">保存修改</text>
+    <!-- 账号 -->
+    <view class="pub-section">
+      <view class="pub-section-title">账号</view>
+      <view class="pub-form-card">
+        <view class="pub-field">
+          <view class="pub-field-label">微信账号</view>
+          <view class="pub-select-field">
+            <text :class="wechatBound ? 'status-live' : 'status-draft'">{{ wechatBound ? '已绑定' : '未绑定' }}</text>
+            <text class="pub-arrow">›</text>
+          </view>
+        </view>
+        <view class="pub-field" hover-class="pub-fade" @tap="goAuth">
+          <view class="pub-field-label">实名认证</view>
+          <view class="pub-select-field">
+            <text :class="form.isAuth ? 'status-live' : 'status-pending'">{{ form.isAuth ? '已认证' : '未认证' }}</text>
+            <text class="pub-arrow">›</text>
+          </view>
+        </view>
       </view>
     </view>
 
-    <view class="bottom-spacer"></view>
+    <!-- 固定底部操作区（与发布页同款） -->
+    <view class="pub-sticky">
+      <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="handleSave">保存修改</view>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { request, BASE_URL, authStorage } from '../../utils/request'
+import { useSafeTop } from '../../utils/safeTop'
+
+const { topPad, initSafeTop } = useSafeTop(true)
 
 const form = ref({ name: '', avatar: '', isAuth: false, phone: '', gender: '', birthday: '', region: '', bio: '' })
 const wechatBound = ref(false)
 const genderOptions = ['男', '女']
+let backTimer = null
 const pad2 = (n) => String(n).padStart(2, '0')
 const todayStr = `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}-${pad2(new Date().getDate())}`
 
@@ -159,6 +159,10 @@ const avatarFull = (u) => {
 const initial = computed(() => {
   const c = (form.value.name || '我').charAt(0)
   return c.toUpperCase()
+})
+
+onLoad(() => {
+  initSafeTop()
 })
 
 onMounted(async () => {
@@ -214,7 +218,13 @@ const chooseAvatar = () => {
         success: (upRes) => {
           uni.hideLoading()
           if (upRes.statusCode >= 200 && upRes.statusCode < 300) {
-            const body = JSON.parse(upRes.data || '{}')
+            let body = null
+            try {
+              body = JSON.parse(upRes.data || '{}')
+            } catch (e) {
+              uni.showToast({ title: '上传失败', icon: 'none' })
+              return
+            }
             const url = body.data?.url || body.url
             if (url) {
               form.value.avatar = url
@@ -281,157 +291,52 @@ const handleSave = async () => {
     uni.setStorageSync('user', JSON.stringify(updatedUser))
     uni.hideLoading()
     uni.showToast({ title: '保存成功' })
-    setTimeout(() => uni.navigateBack(), 1200)
+    backTimer = setTimeout(() => uni.navigateBack(), 1200)
   } catch (err) {
     uni.hideLoading()
     uni.showToast({ title: '保存失败，请重试', icon: 'none' })
   }
 }
+
+onUnload(() => {
+  if (backTimer) clearTimeout(backTimer)
+})
 </script>
 
 <style scoped>
-.profile-page {
-  min-height: 100vh;
-  background: #F4F6F8;
-  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
-}
+@import '../../pages/publish/pub-style.css';
 
-/* ===== 卡片 ===== */
-.card {
-  background: #fff;
-  border: 1rpx solid #EEF1F4;
-  border-radius: 16rpx;
-  box-shadow: 0 8rpx 32rpx rgba(16, 24, 40, 0.06);
-  margin: 24rpx 24rpx 0;
-  overflow: hidden;
-}
-
-/* ===== 行 ===== */
-.row {
-  display: flex;
-  align-items: center;
-  min-height: 104rpx;
-  padding: 0 28rpx;
-  border-top: 1rpx solid #EEF1F4;
-  box-sizing: border-box;
-}
-.row:first-child {
-  border-top: none;
-}
-.row-label-wrap {
-  min-width: 0;
-  margin-right: 24rpx;
-}
-.row-label {
-  font-size: 26rpx;
-  font-weight: 600;
+.pub-fade { opacity: 0.6; }
+.pub-form-intro-h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
   color: #17212B;
 }
-.row-right {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12rpx;
+.pub-form-intro-p {
+  font-size: 12px;
+  color: #667085;
+  margin: 0;
+  line-height: 1.5;
 }
-.row-right--input {
-  height: 100%;
-}
-.row-input {
-  flex: 1;
-  min-width: 0;
-  text-align: right;
-  font-size: 28rpx;
-  color: #344054;
-  padding: 8rpx 0;
-}
-.row-input-ph {
-  color: #98A2B3;
-}
-
-/* 头像 */
-.row-avatar {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: block;
-  box-sizing: border-box;
-  background: #F0F2F5;
-}
-.row-avatar-ph {
-  background: linear-gradient(145deg, #3A8BDD, #0B579F);
-  border: 2rpx solid rgba(10, 102, 194, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.row-avatar-ph text {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: #DDECFF;
-}
-
-/* 状态文字 */
-.row-tail {
-  flex-shrink: 0;
-  font-size: 24rpx;
-  color: #98A2B3;
-}
-.row-tail.ok { color: #168A55; }
-.row-tail.wait { color: #B54708; }
-.row-tail.dim { color: #C0C8D2; }
-.row-tail.val { color: #344054; }
-
-/* 个人简介（多行） */
-.row--textarea {
-  flex-direction: column;
-  align-items: stretch;
-  min-height: 0;
-  padding: 24rpx 28rpx;
-}
-.row--textarea .row-label-wrap {
-  margin-right: 0;
-  margin-bottom: 12rpx;
-}
-.row-textarea {
+.pub-photo-img {
   width: 100%;
-  min-height: 132rpx;
-  font-size: 26rpx;
-  line-height: 1.6;
-  color: #344054;
+  height: 100%;
+  display: block;
 }
 
-.row-chev {
-  flex-shrink: 0;
-  color: #98A2B3;
-  font-size: 30rpx;
-  font-weight: 300;
-  margin-left: 4rpx;
-}
+/* 头像上传行：贴齐字段内边距 */
+.pub-avatar-row { padding: 0; }
 
-.row-fade { opacity: 0.8; }
-
-/* ===== 保存按钮（低圆角主按钮） ===== */
-.save-wrap {
-  margin: 40rpx 24rpx 0;
-}
-.save-btn {
-  height: 88rpx;
+/* 无头像时的首字占位方块（替代原圆形首字头像） */
+.pub-avatar-initial {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12rpx;
-  background: var(--color-primary);
-  box-shadow: 0 6rpx 16rpx rgba(10, 102, 194, 0.22);
 }
-.save-btn-text {
-  font-size: 30rpx;
+.pub-avatar-initial text {
+  font-size: 22px;
   font-weight: 700;
-  color: #fff;
+  color: #0A66C2;
+  line-height: 1;
 }
-.save-btn-hover { opacity: 0.85; }
-
-.bottom-spacer { height: 24rpx; }
 </style>

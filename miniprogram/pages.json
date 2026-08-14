@@ -569,6 +569,7 @@
             "navigationBarTitleText": "研发难题广场",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom",
             "enablePullDownRefresh": true
           }
         },
@@ -624,6 +625,7 @@
             "navigationBarTitleText": "课题攻关",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom",
             "enablePullDownRefresh": true
           }
         },
@@ -665,6 +667,106 @@
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
             "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/activities/list",
+          "style": {
+            "navigationBarTitleText": "协会活动",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
+          "path": "pages/activities/detail",
+          "style": {
+            "navigationBarTitleText": "活动详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/activities/signup",
+          "style": {
+            "navigationBarTitleText": "活动报名",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/challenges/detail",
+          "style": {
+            "navigationBarTitleText": "难题详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/challenges/publish",
+          "style": {
+            "navigationBarTitleText": "发布难题",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/exhibitions/detail",
+          "style": {
+            "navigationBarTitleText": "展会详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/portfolios/detail",
+          "style": {
+            "navigationBarTitleText": "品牌详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/portfolios/edit",
+          "style": {
+            "navigationBarTitleText": "品牌资料",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/portfolios/mine",
+          "style": {
+            "navigationBarTitleText": "我的品牌",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "enablePullDownRefresh": true,
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/projects/detail",
+          "style": {
+            "navigationBarTitleText": "课题详情",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
+          "path": "pages/transformations/track",
+          "style": {
+            "navigationBarTitleText": "成果转化",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
           }
         }
       ]

@@ -1,81 +1,93 @@
 <template>
-  <view class="refund-page">
-    <u-nav-bar :title="submitted ? '退款申请已提交' : '申请退款'" show-back @back="goBack" />
-
-    <view v-if="loading" class="state-panel">
-      <view class="loading-inline">
-        <u-loading size="24rpx" />
-        <text>加载中...</text>
-      </view>
+  <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
+    <!-- 顶栏（与发布页同款） -->
+    <view class="pub-nav">
+      <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
+      <view class="pub-nav-title">{{ submitted ? '退款申请已提交' : '申请退款' }}</view>
     </view>
 
-    <view v-else-if="error || !order" class="state-panel">
-      <u-empty description="订单加载失败" />
-      <view class="retry-btn" @tap="loadData">
-        <text>重新加载</text>
-      </view>
+    <!-- 加载中 -->
+    <view v-if="loading" class="loading-state">
+      <u-loading size="28rpx" />
+      <text>加载中...</text>
+    </view>
+
+    <!-- 加载失败 -->
+    <view v-else-if="error || !order" class="pub-empty">
+      <view class="pub-empty-mark">!</view>
+      <view class="pub-empty-title">订单加载失败</view>
+      <view class="pub-empty-desc">网络异常，请稍后重试</view>
+      <view class="pub-btn pub-btn--primary retry-btn" hover-class="pub-btn--active" @tap="retryLoad">重新加载</view>
     </view>
 
     <template v-else>
       <!-- 提交成功态 -->
-      <view v-if="submitted" class="success-card">
-        <view class="success-mark">✓</view>
-        <text class="success-title">退款申请已提交</text>
-        <text class="success-desc">平台将在 1 个工作日内完成审核并同步处理进度</text>
-        <view class="success-actions">
-          <view class="success-btn" @tap="goAftersale">
-            <text>查看售后进度</text>
-          </view>
+      <view v-if="submitted" class="pub-form-card">
+        <view class="pub-success">
+          <view class="pub-success-mark">✓</view>
+          <view class="pub-success-title">退款申请已提交</view>
+          <view class="pub-success-desc">平台将在 1 个工作日内完成审核并同步处理进度</view>
         </view>
       </view>
 
       <!-- 退款表单 -->
       <template v-else>
-        <view class="service-card">
-          <text class="svc-title">{{ order.title }}</text>
-          <text class="svc-sub">{{ order.subtitle }}</text>
+        <!-- 订单概要 -->
+        <view class="pub-form-intro">
+          <view class="pub-form-intro-h2">{{ order.title }}</view>
+          <view class="pub-form-intro-p">{{ order.subtitle }}</view>
         </view>
 
-        <view class="form-card">
-          <text class="form-label">退款信息</text>
-          <view class="data-row">
-            <text class="data-label">退款类型</text>
-            <text class="data-value">{{ as ? as.type : '仅退款' }}</text>
-          </view>
-          <view class="data-row">
-            <text class="data-label">退款金额</text>
-            <text class="data-value accent">¥{{ as ? fmtFen(as.amount_fen) : fmtFen(order.amount_fen) }}</text>
-          </view>
-          <view class="data-row">
-            <text class="data-label">退款方式</text>
-            <text class="data-value">原路退回</text>
+        <!-- 退款信息（只读） -->
+        <view class="pub-section">
+          <view class="pub-section-title">退款信息</view>
+          <view class="pub-form-card">
+            <view class="pub-field">
+              <view class="pub-field-label">退款类型</view>
+              <view class="pub-field-value">{{ as ? as.type : '仅退款' }}</view>
+            </view>
+            <view class="pub-field">
+              <view class="pub-field-label">退款金额</view>
+              <view class="pub-field-value pub-field-value--accent">¥{{ as ? fmtFen(as.amount_fen) : fmtFen(order.amount_fen) }}</view>
+            </view>
+            <view class="pub-field">
+              <view class="pub-field-label">退款方式</view>
+              <view class="pub-field-value">原路退回</view>
+            </view>
           </view>
         </view>
 
-        <view class="form-card">
-          <text class="form-label">问题说明</text>
-          <textarea
-            class="refund-textarea"
-            v-model="reason"
-            :placeholder="defaultReason"
-            :maxlength="300"
-          />
-          <text class="textarea-count">{{ reason.length }}/300</text>
-        </view>
-
-        <view class="note-card">
-          <text class="note-text">提交后由平台审核，审核通过后按原路退款；可在「售后详情」查看处理进度。</text>
-        </view>
-
-        <view class="submit-wrap">
-          <view class="submit-btn" @tap="submitRefund">
-            <text>提交退款申请</text>
+        <!-- 问题说明 -->
+        <view class="pub-section">
+          <view class="pub-section-title">问题说明</view>
+          <view class="pub-form-card">
+            <view class="pub-field">
+              <textarea
+                class="pub-input pub-input--textarea"
+                v-model="reason"
+                :placeholder="defaultReason"
+                placeholder-class="pub-placeholder"
+                :maxlength="300"
+              ></textarea>
+              <view class="pub-field-count">{{ reason.length }}/300</view>
+            </view>
           </view>
         </view>
+
+        <!-- 审核提示 -->
+        <view class="pub-review-note">提交后由平台审核，审核通过后按原路退款；可在「售后详情」查看处理进度。</view>
       </template>
     </template>
 
-    <view class="bottom-spacer"></view>
+    <!-- 固定底部操作区（与发布页同款） -->
+    <view v-if="!loading && !error && order" class="pub-sticky">
+      <view v-if="submitted" class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="goAftersale">
+        查看售后进度
+      </view>
+      <view v-else class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="submitRefund">
+        {{ submitting ? '提交中...' : '提交退款申请' }}
+      </view>
+    </view>
   </view>
 </template>
 
@@ -84,6 +96,9 @@ import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { loadOrder, fmtFen } from '../../utils/orderAdapter'
 import { request, getErrorMessage } from '../../utils/request'
+import { useSafeTop } from '../../utils/safeTop'
+
+const { topPad, initSafeTop } = useSafeTop(true)
 
 const order = ref(null)
 const loading = ref(true)
@@ -91,6 +106,7 @@ const error = ref(false)
 const submitted = ref(false)
 const submitting = ref(false)
 const reason = ref('')
+let orderId = ''
 
 const as = computed(() => order.value?.detail?.aftersale || null)
 const defaultReason = computed(() =>
@@ -104,6 +120,7 @@ const loadData = async (query = {}) => {
     loading.value = false
     return
   }
+  orderId = id
   loading.value = true
   error.value = false
   try {
@@ -116,7 +133,14 @@ const loadData = async (query = {}) => {
   }
 }
 
-onLoad(loadData)
+const retryLoad = () => {
+  loadData({ id: orderId })
+}
+
+onLoad((options) => {
+  initSafeTop()
+  loadData(options)
+})
 
 const submitRefund = async () => {
   if (submitted.value || submitting.value) return
@@ -161,180 +185,70 @@ const goBack = () => {
 </script>
 
 <style scoped>
-.refund-page {
-  min-height: 100vh;
-  background: var(--color-bg);
-  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
-}
-.state-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 120rpx;
-}
-.loading-inline {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  font-size: 26rpx;
-  color: var(--color-text-secondary);
-}
-.retry-btn {
-  margin-top: 12rpx;
-  padding: 16rpx 48rpx;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: 12rpx;
-  font-size: 26rpx;
-}
+@import '../../pages/publish/pub-style.css';
 
-.service-card {
-  margin: 20rpx 24rpx 0;
-  background: #fff;
-  border: 1rpx solid var(--color-border);
-  border-radius: 16rpx;
-  box-shadow: var(--shadow-sm);
-  padding: 28rpx;
+.pub-fade { opacity: 0.6; }
+.pub-form-intro-h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
+  color: #17212B;
 }
-.svc-title {
-  display: block;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: var(--color-text);
-  line-height: 1.4;
-}
-.svc-sub {
-  display: block;
-  margin-top: 10rpx;
-  font-size: 24rpx;
-  color: var(--color-text-secondary);
-}
-
-.form-card {
-  margin: 20rpx 24rpx 0;
-  background: #fff;
-  border: 1rpx solid var(--color-border);
-  border-radius: 16rpx;
-  box-shadow: var(--shadow-sm);
-  padding: 28rpx;
-}
-.form-label {
-  display: block;
-  font-size: 26rpx;
-  font-weight: 600;
-  color: var(--color-text);
-}
-.data-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24rpx;
-  min-height: 76rpx;
-  border-top: 1rpx solid var(--color-divider);
-  margin-top: 12rpx;
-}
-.data-row:first-of-type { border-top: none; }
-.data-label { font-size: 24rpx; color: var(--color-text-secondary); flex-shrink: 0; }
-.data-value { font-size: 24rpx; color: var(--color-text); text-align: right; }
-.data-value.accent { color: var(--color-accent-deep); font-weight: 700; }
-
-.refund-textarea {
-  margin-top: 20rpx;
-  width: 100%;
-  height: 200rpx;
-  box-sizing: border-box;
-  background: var(--color-bg);
-  border-radius: 12rpx;
-  padding: 20rpx;
-  font-size: 26rpx;
+.pub-form-intro-p {
+  font-size: 12px;
+  color: #667085;
+  margin: 0;
   line-height: 1.5;
 }
-.textarea-count {
-  display: block;
-  text-align: right;
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: var(--color-text-placeholder);
+
+/* 只读字段值 */
+.pub-field-value {
+  font-size: 14px;
+  color: #17212B;
+  line-height: 1.5;
+}
+.pub-field-value--accent {
+  color: #0A66C2;
+  font-weight: 700;
 }
 
-.note-card {
-  margin: 20rpx 24rpx 0;
-  background: #FFF4E6;
-  border-radius: 12rpx;
-  padding: 20rpx 24rpx;
+/* 字数计数 */
+.pub-field-count {
+  display: block;
+  text-align: right;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #98A2B3;
 }
-.note-text {
-  font-size: 22rpx;
-  color: #B54708;
+
+/* 成功态文案 */
+.pub-success-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 750;
+  color: #17212B;
+}
+.pub-success-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #667085;
   line-height: 1.6;
 }
 
-.submit-wrap {
-  margin: 32rpx 24rpx 0;
-}
-.submit-btn {
-  height: 92rpx;
+/* 加载中 */
+.loading-state {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12rpx;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: 700;
-  box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.22);
+  gap: 8px;
+  padding: 80px 0;
+  color: #667085;
+  font-size: 13px;
 }
 
-.success-card {
-  margin: 24rpx;
-  background: #fff;
-  border: 1rpx solid var(--color-border);
-  border-radius: 16rpx;
-  box-shadow: var(--shadow-sm);
-  padding: 80rpx 40rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+/* 空态重试按钮 */
+.retry-btn {
+  flex: none;
+  margin: 12px auto 0;
+  padding: 0 22px;
 }
-.success-mark {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 50%;
-  background: var(--color-success);
-  color: #fff;
-  font-size: 48rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.success-title {
-  margin-top: 24rpx;
-  font-size: 32rpx;
-  font-weight: 700;
-  color: var(--color-text);
-}
-.success-desc {
-  margin-top: 12rpx;
-  font-size: 24rpx;
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-.success-actions {
-  margin-top: 32rpx;
-  width: 100%;
-}
-.success-btn {
-  height: 84rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12rpx;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: 28rpx;
-  font-weight: 600;
-}
-
-.bottom-spacer { height: 24rpx; }
 </style>

@@ -1,180 +1,202 @@
 <template>
-  <view class="page">
-    <u-nav-bar title="赛事报名" show-back @back="goBack" />
-    <StateView
-      :loading="loading"
-      :error="!!errorMsg"
-      :empty="!loading && !errorMsg && !competition"
-      empty-text="赛事不存在"
-      @retry="loadCompetition"
-    >
-      <template v-if="competition">
-        <!-- ① 赛事卡（作为首屏，替代原深蓝 Hero） -->
-        <view class="event-card">
-          <view class="event-card-strip" />
-          <view class="event-card-header">
-            <text class="event-card-title">{{ competition.name || competition.title }}</text>
-          </view>
-          <view class="event-card-tags">
-            <text v-for="t in (competition.tags || compTags(competition))" :key="t" class="event-card-tag">{{ t }}</text>
-          </view>
-          <view class="event-card-meta">
-            <text class="event-card-meta-text">🏛️ 主办：{{ competition.organizer || competition.sponsor || '待定' }}</text>
-          </view>
-          <view class="event-card-footer">
-            <view class="event-card-price">
-              <text class="event-card-symbol">¥</text>
-              <text class="event-card-value">{{ currentPrice.toLocaleString() }}</text>
-              <text class="event-card-unit">/人起</text>
-            </view>
-            <view v-if="countdownText" class="event-card-countdown">{{ countdownText }}</view>
-          </view>
+  <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
+    <!-- 顶栏（与发布页同款） -->
+    <view class="pub-nav">
+      <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
+      <view class="pub-nav-title">赛事报名</view>
+    </view>
+
+    <!-- 加载中 -->
+    <view v-if="loading" class="loading-state">
+      <u-loading size="28rpx" />
+      <text>加载中...</text>
+    </view>
+
+    <!-- 加载失败 -->
+    <view v-else-if="errorMsg" class="pub-empty">
+      <view class="pub-empty-mark">!</view>
+      <view class="pub-empty-title">加载失败</view>
+      <view class="pub-empty-desc">请检查网络后重试</view>
+      <view class="pub-btn pub-btn--primary retry-btn" hover-class="pub-btn--active" @tap="loadCompetition">重新加载</view>
+    </view>
+
+    <!-- 赛事不存在 -->
+    <view v-else-if="!competition" class="pub-empty">
+      <view class="pub-empty-title">赛事不存在</view>
+    </view>
+
+    <!-- 表单 -->
+    <template v-else>
+      <!-- ① 赛事卡（首屏） -->
+      <view class="event-card">
+        <view class="event-card-strip" />
+        <view class="event-card-title">{{ competition.name || competition.title }}</view>
+        <view class="event-card-tags">
+          <text v-for="t in (competition.tags || compTags(competition))" :key="t" class="event-card-tag">{{ t }}</text>
         </view>
-
-        <!-- ② 主卡片 -->
-        <view class="main-card">
-          <!-- 参赛项目选择（色条+价格+箭头） -->
-          <view class="event-picker" hover-class="press-feedback" :hover-stay-time="120" @click="showEventPicker = true">
-            <view class="ep-bar" :style="{ background: eventBarColor }" />
-            <view class="ep-info">
-              <view class="ep-label-row">
-                <text class="ep-label">选择参赛项目</text>
-                <view class="ep-type-badge" :class="isTeamEvent ? 'ep-type-badge--team' : ''">{{ isTeamEvent ? '团体赛' : '个人赛' }}</view>
-              </view>
-              <text class="ep-value">{{ selectedEvent }}</text>
-            </view>
-            <view class="ep-right">
-              <view class="ep-price">
-                <text class="ep-symbol">¥</text>
-                <text class="ep-fee">{{ currentPrice.toLocaleString() }}</text>
-              </view>
-              <text class="ep-arrow">▼</text>
-            </view>
+        <view class="event-card-meta">
+          <text class="event-card-meta-text">主办：{{ competition.organizer || competition.sponsor || '待定' }}</text>
+        </view>
+        <view class="event-card-footer">
+          <view class="event-card-price">
+            <text class="event-card-symbol">¥</text>
+            <text class="event-card-value">{{ currentPrice.toLocaleString() }}</text>
+            <text class="event-card-unit">/人起</text>
           </view>
+          <view v-if="countdownText" class="event-card-countdown">{{ countdownText }}</view>
+        </view>
+      </view>
 
-          <!-- 报名条件提示条 -->
-          <view class="req-hint">
-            <view class="req-hint-bar" />
-            <text class="req-hint-text">请确认已满足</text>
-            <text class="req-hint-link" @click="goBack">报名条件</text>
-            <text class="req-hint-text">，再填写表单</text>
-          </view>
-
-          <!-- ③ 个人信息表单 -->
-          <view class="section-header">
-            <view class="section-bar" />
-            <text class="section-title">参赛人员信息</text>
-            <text class="section-badge">必填</text>
-          </view>
-
-          <view class="form-group">
-            <view class="field">
-              <text class="field-label">姓名<text class="field-star">*</text></text>
-              <input class="field-input" v-model="form.name" placeholder="请输入参赛人姓名" />
-            </view>
-            <view class="field">
-              <text class="field-label">手机号<text class="field-star">*</text></text>
-              <input class="field-input" v-model="form.phone" type="number" maxlength="11" placeholder="请输入手机号码" />
-            </view>
-            <view class="field">
-              <text class="field-label">身份证号<text class="field-star">*</text></text>
-              <input class="field-input" v-model="form.idCard" maxlength="18" placeholder="请输入身份证号码" />
-            </view>
-            <template v-if="isTeamEvent">
-              <view class="field">
-                <text class="field-label">队伍名称<text class="field-star">*</text></text>
-                <input class="field-input" v-model="form.team_name" placeholder="请输入队伍名称" />
-              </view>
-              <view class="field">
-                <text class="field-label">队员人数<text class="field-star">*</text></text>
-                <view class="stepper-wrap">
-                  <view class="stepper-btn" :class="{ disabled: form.member_count <= 2 }"
-                    @click="form.member_count > 2 && form.member_count--"><text>−</text></view>
-                  <text class="stepper-val">{{ form.member_count }}</text>
-                  <view class="stepper-btn" :class="{ disabled: form.member_count >= 50 }"
-                    @click="form.member_count < 50 && form.member_count++"><text>+</text></view>
+      <!-- ② 参赛项目选择 -->
+      <view class="pub-section">
+        <view class="pub-section-title">参赛项目</view>
+        <view class="pub-form-card">
+          <view class="pub-field" hover-class="pub-fade" @tap="showEventPicker = true">
+            <view class="pub-field-label">选择参赛项目</view>
+            <view class="pub-select-field">
+              <view class="ep-left">
+                <view class="ep-bar" :style="{ background: eventBarColor }" />
+                <view class="ep-info">
+                  <view class="ep-label-row">
+                    <text class="ep-value">{{ selectedEvent }}</text>
+                    <view class="ep-type-badge" :class="isTeamEvent ? 'ep-type-badge--team' : ''">{{ isTeamEvent ? '团体赛' : '个人赛' }}</view>
+                  </view>
+                  <view class="ep-price">
+                    <text class="ep-symbol">¥</text>
+                    <text class="ep-fee">{{ currentPrice.toLocaleString() }}</text>
+                  </view>
                 </view>
               </view>
-            </template>
-          </view>
-
-          <!-- ④ 证件上传 -->
-          <view class="section-header">
-            <view class="section-bar" />
-            <text class="section-title">证件上传</text>
-            <text class="section-badge">必传</text>
-          </view>
-
-          <view class="upload-row">
-            <view class="upload-box" @click="uploadImage('photo')">
-              <image v-if="form.photo" :src="form.photo" class="upload-preview" mode="aspectFill" />
-              <view v-else class="upload-placeholder">
-                <view class="upload-cam"><text class="upload-cam-icon">＋</text></view>
-                <text class="upload-title">白底免冠证件照</text>
-                <text class="upload-hint">点击上传</text>
-              </view>
-              <view v-if="form.photo" class="upload-retag">重传</view>
-            </view>
-            <view class="upload-box" @click="uploadImage('idCard')">
-              <image v-if="form.idCardImage" :src="form.idCardImage" class="upload-preview" mode="aspectFill" />
-              <view v-else class="upload-placeholder">
-                <view class="upload-cam"><text class="upload-cam-icon">＋</text></view>
-                <text class="upload-title">身份证正面</text>
-                <text class="upload-hint">点击上传</text>
-              </view>
-              <view v-if="form.idCardImage" class="upload-retag">重传</view>
+              <text class="pub-arrow">›</text>
             </view>
           </view>
-
-          <!-- 声明 -->
-          <view class="checkbox-row" @click="form.agreeHealth = !form.agreeHealth">
-            <view class="checkbox-box" :class="{ checked: form.agreeHealth }">
-              <text v-if="form.agreeHealth" class="check-mark">✓</text>
-            </view>
-            <text class="checkbox-text">本人身体健康，适合参加比赛</text>
+          <!-- 报名条件提示条 -->
+          <view class="req-hint">
+            <text class="req-hint-text">请确认已满足</text>
+            <text class="req-hint-link" @tap="goBack">报名条件</text>
+            <text class="req-hint-text">，再填写表单</text>
           </view>
-          <view class="checkbox-row" @click="form.agreeRules = !form.agreeRules">
-            <view class="checkbox-box" :class="{ checked: form.agreeRules }">
-              <text v-if="form.agreeRules" class="check-mark">✓</text>
-            </view>
-            <text class="checkbox-text">已阅读并同意<text class="link">比赛规则</text>与<text class="link">免责声明</text></text>
-          </view>
-
-          <!-- ⑤ 费用（集中 + 倒计时） -->
-          <view class="price-section">
-            <view class="price-main">
-              <text class="price-label">报名费用</text>
-              <view class="price-amount">
-                <text class="price-symbol">¥</text>
-                <text class="price-value">{{ currentPrice.toLocaleString() }}</text>
-                <text class="price-suffix">/人</text>
-              </view>
-              <text class="price-sub">{{ eventOptions.length }} 项参赛项目可选</text>
-            </view>
-            <view v-if="countdownText" class="price-countdown">{{ countdownText }}</view>
-          </view>
-
-          <!-- ⑥ 底部 CTA -->
-          <view class="bottom-bar">
-            <view class="btn-outline" hover-class="press-feedback" :hover-stay-time="120" @click="handleConsult">联系咨询</view>
-            <view class="btn-primary" :class="{ 'is-loading': submitting }" hover-class="press-feedback" :hover-stay-time="120" @click="handleSubmit">
-              {{ submitting ? '提交中...' : '确认报名' }}<text v-if="!submitting" class="btn-arrow">→</text>
-            </view>
-          </view>
-          <text class="privacy-text">报名信息仅用于赛事注册，受隐私政策保护</text>
-
-          <view class="bottom-spacer" />
         </view>
-      </template>
-    </StateView>
+      </view>
 
-    <!-- 参赛项目选择弹层 -->
-    <u-popup :show="showEventPicker" position="bottom" round @close="showEventPicker = false">
-      <view class="picker-panel">
+      <!-- ③ 参赛人员信息 -->
+      <view class="pub-section">
+        <view class="pub-section-title">参赛人员信息</view>
+        <view class="pub-form-card">
+          <view class="pub-field">
+            <view class="pub-field-label">姓名<text class="pub-required">*</text></view>
+            <input class="pub-input" v-model="form.name" placeholder="请输入参赛人姓名" placeholder-class="pub-placeholder" />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">手机号<text class="pub-required">*</text></view>
+            <input class="pub-input" v-model="form.phone" type="number" maxlength="11" placeholder="请输入手机号码" placeholder-class="pub-placeholder" />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">身份证号<text class="pub-required">*</text></view>
+            <input class="pub-input" v-model="form.idCard" maxlength="18" placeholder="请输入身份证号码" placeholder-class="pub-placeholder" />
+          </view>
+          <template v-if="isTeamEvent">
+            <view class="pub-field">
+              <view class="pub-field-label">队伍名称<text class="pub-required">*</text></view>
+              <input class="pub-input" v-model="form.team_name" placeholder="请输入队伍名称" placeholder-class="pub-placeholder" />
+            </view>
+            <view class="pub-field">
+              <view class="pub-field-label">队员人数<text class="pub-required">*</text></view>
+              <view class="stepper-wrap">
+                <view class="stepper-btn" :class="{ disabled: form.member_count <= 2 }"
+                  @tap="form.member_count > 2 && form.member_count--"><text>−</text></view>
+                <text class="stepper-val">{{ form.member_count }}</text>
+                <view class="stepper-btn" :class="{ disabled: form.member_count >= 50 }"
+                  @tap="form.member_count < 50 && form.member_count++"><text>+</text></view>
+              </view>
+            </view>
+          </template>
+        </view>
+      </view>
+
+      <!-- ④ 证件上传 -->
+      <view class="pub-section">
+        <view class="pub-section-title">证件上传</view>
+        <view class="pub-form-card">
+          <view class="pub-field">
+            <view class="pub-field-label">白底免冠证件照<text class="pub-required">*</text></view>
+            <view class="pub-upload-row reg-upload-row">
+              <view v-if="form.photo" class="pub-photo" @tap="uploadImage('photo')">
+                <image :src="form.photo" class="pub-photo-img" mode="aspectFill" />
+                <view class="pub-photo-tag">重传</view>
+              </view>
+              <view v-else class="pub-add-photo" hover-class="pub-fade" @tap="uploadImage('photo')">＋</view>
+            </view>
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">身份证正面<text class="pub-required">*</text></view>
+            <view class="pub-upload-row reg-upload-row">
+              <view v-if="form.idCardImage" class="pub-photo" @tap="uploadImage('idCard')">
+                <image :src="form.idCardImage" class="pub-photo-img" mode="aspectFill" />
+                <view class="pub-photo-tag">重传</view>
+              </view>
+              <view v-else class="pub-add-photo" hover-class="pub-fade" @tap="uploadImage('idCard')">＋</view>
+            </view>
+          </view>
+          <view class="pub-upload-tip">白底免冠证件照与身份证正面共 2 张必传，点击已传图片可重新选择</view>
+        </view>
+      </view>
+
+      <!-- 声明 -->
+      <view class="pub-section">
+        <view class="pub-form-card">
+          <view class="agree-row" @tap="form.agreeHealth = !form.agreeHealth">
+            <view class="agree-box" :class="{ checked: form.agreeHealth }">
+              <text v-if="form.agreeHealth" class="agree-check">✓</text>
+            </view>
+            <text class="agree-text">本人身体健康，适合参加比赛</text>
+          </view>
+          <view class="agree-row" @tap="form.agreeRules = !form.agreeRules">
+            <view class="agree-box" :class="{ checked: form.agreeRules }">
+              <text v-if="form.agreeRules" class="agree-check">✓</text>
+            </view>
+            <text class="agree-text">已阅读并同意<text class="agree-link">比赛规则</text>与<text class="agree-link">免责声明</text></text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ⑤ 费用（集中 + 倒计时） -->
+      <view class="pub-section">
+        <view class="pub-form-card">
+          <view class="fee-row">
+            <view class="fee-main">
+              <text class="fee-label">报名费用</text>
+              <view class="fee-amount">
+                <text class="fee-symbol">¥</text>
+                <text class="fee-value">{{ currentPrice.toLocaleString() }}</text>
+                <text class="fee-suffix">/人</text>
+              </view>
+              <text class="fee-sub">{{ eventOptions.length }} 项参赛项目可选</text>
+            </view>
+            <view v-if="countdownText" class="fee-countdown">{{ countdownText }}</view>
+          </view>
+        </view>
+      </view>
+
+      <text class="privacy-text">报名信息仅用于赛事注册，受隐私政策保护</text>
+    </template>
+
+    <!-- ⑥ 固定底部操作区（双 CTA：次白描边 + 主蓝） -->
+    <view v-if="!loading && !errorMsg && competition" class="pub-sticky">
+      <view class="pub-btn pub-btn--secondary" hover-class="pub-btn--active" @tap="handleConsult">联系咨询</view>
+      <view class="pub-btn pub-btn--primary" :class="{ 'is-loading': submitting }" hover-class="pub-btn--active" @tap="handleSubmit">
+        {{ submitting ? '提交中...' : '确认报名' }}<text v-if="!submitting" class="btn-arrow">→</text>
+      </view>
+    </view>
+
+    <!-- 参赛项目选择弹层（picker-view，外壳对齐 pub-sheet） -->
+    <view v-if="showEventPicker" class="pub-overlay" @tap="showEventPicker = false">
+      <view class="pub-sheet pub-sheet--picker" @tap.stop>
+        <view class="pub-grab"></view>
         <view class="picker-bar">
-          <text class="picker-btn" @click="showEventPicker = false">取消</text>
+          <text class="picker-btn" @tap="showEventPicker = false">取消</text>
           <text class="picker-title">选择参赛项目</text>
-          <text class="picker-btn picker-btn--confirm" @click="onEventConfirm">确定</text>
+          <text class="picker-btn picker-btn--confirm" @tap="onEventConfirm">确定</text>
         </view>
         <picker-view :value="[eventIdx]" class="picker-view" @change="onEventChange">
           <picker-view-column>
@@ -182,15 +204,17 @@
           </picker-view-column>
         </picker-view>
       </view>
-    </u-popup>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, reactive, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { request, authStorage, BASE_URL } from '../../../utils/request'
-import StateView from '../../../components/StateView.vue'
+import { useSafeTop } from '../../../utils/safeTop'
+
+const { topPad, initSafeTop } = useSafeTop(true)
 
 const id = ref('')
 const loading = ref(false)
@@ -198,6 +222,7 @@ const errorMsg = ref('')
 const competition = ref(null)
 const submitting = ref(false)
 const showEventPicker = ref(false)
+let backTimer = null
 
 const eventOptions = ref([])
 const eventIdx = ref(0)
@@ -209,9 +234,9 @@ const isTeamEvent = computed(function () {
   return currentEventType.value === '团体赛'
 })
 
-/* 参赛项目色条：个人赛=橙、团体赛=紫 */
+/* 参赛项目色条：个人赛=橙、团体赛=绿（对齐发布页色板） */
 const eventBarColor = computed(function () {
-  return isTeamEvent.value ? '#8B5CF6' : '#F97316'
+  return isTeamEvent.value ? '#219653' : '#F97316'
 })
 
 /* 倒计时 */
@@ -349,7 +374,7 @@ async function handleSubmit() {
       },
     })
     uni.showToast({ title: '报名成功', icon: 'success' })
-    setTimeout(function () { uni.navigateBack() }, 1500)
+    backTimer = setTimeout(function () { uni.navigateBack() }, 1500)
   } catch (e) {
     var msg = (e && e.data && e.data.message) || '报名失败，请重试'
     uni.showToast({ title: msg, icon: 'none' })
@@ -400,35 +425,54 @@ function loadEvents(item) {
 }
 
 onLoad(function (options) {
+  initSafeTop()
   id.value = options.id || ''
   loadCompetition()
+})
+
+onUnload(function () {
+  if (backTimer) clearTimeout(backTimer)
 })
 </script>
 
 <style scoped>
-.page {
-  --anim-fast: 160ms;
-  --anim-base: 240ms;
-  --anim-slow: 320ms;
-  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  min-height: 100vh;
-  background: linear-gradient(180deg, #f5f6f8 0%, #E8F2FC 100%);
+@import '../../../pages/publish/pub-style.css';
+
+.pub-fade { opacity: 0.6; }
+.pub-photo-img {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-/* ================================================================= */
-/* ① 赛事卡                                                           */
-/* ================================================================= */
-/* ① 赛事卡（首屏，替代原深蓝 Hero）                                   */
-/* ================================================================= */
+/* 加载中 */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 80px 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+/* 错误重试按钮 */
+.retry-btn {
+  flex: none;
+  margin: 12px auto 0;
+  padding: 0 22px;
+}
+
+/* ① 赛事卡 */
 .event-card {
-  margin: 20rpx 24rpx 0;
-  background: #ffffff;
-  border: 1rpx solid rgba(10, 31, 68, 0.06);
-  border-radius: 16rpx;
-  padding: 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.06);
   position: relative;
   overflow: hidden;
+  margin: 0 0 13px;
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 10px;
+  padding: 13px;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.025);
 }
 
 .event-card-strip {
@@ -436,382 +480,237 @@ onLoad(function (options) {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 6rpx;
+  width: 3px;
   background: linear-gradient(180deg, #074D92, #0A66C2);
 }
 
-.event-card-header { margin-bottom: 12rpx; }
-
 .event-card-title {
-  font-size: 32rpx;
-  font-weight: 700;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 750;
   color: #17212B;
   line-height: 1.4;
-  display: block;
 }
 
-.event-card-tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 12rpx; }
+.event-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 
 .event-card-tag {
-  padding: 4rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
   color: #0A66C2;
-  background: rgba(10, 102, 194, 0.06);
-  border: 1rpx solid rgba(10, 102, 194, 0.25);
+  background: #E8F2FC;
+  border: 1px solid rgba(10, 102, 194, 0.25);
 }
 
-.event-card-meta { margin-bottom: 16rpx; }
-.event-card-meta-text { font-size: 26rpx; color: #969799; line-height: 1.5; }
+.event-card-meta { margin-bottom: 10px; }
+.event-card-meta-text { font-size: 12px; color: #667085; line-height: 1.5; }
 
 .event-card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 16rpx;
-  border-top: 1rpx solid #ebedf0;
+  padding-top: 10px;
+  border-top: 1px solid #EEF1F4;
 }
 
 .event-card-price { display: flex; align-items: baseline; }
-.event-card-symbol { font-size: 22rpx; color: #E96012; font-weight: 700; }
-.event-card-value { font-size: 36rpx; color: #E96012; font-weight: 800; margin: 0 4rpx; }
-.event-card-unit { font-size: 22rpx; color: #969799; }
+.event-card-symbol { font-size: 12px; color: #F97316; font-weight: 700; }
+.event-card-value { font-size: 20px; color: #F97316; font-weight: 800; margin: 0 3px; }
+.event-card-unit { font-size: 11px; color: #98A2B3; }
 
 .event-card-countdown {
-  font-size: 22rpx;
-  color: #EF4444;
-  background: #FEE2E2;
-  padding: 4rpx 16rpx;
-  border-radius: 999rpx;
-  font-weight: 500;
+  font-size: 11px;
+  color: #FF3B30;
+  background: rgba(255, 59, 48, 0.08);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 600;
 }
 
-/* ================================================================= */
-/* ② 主卡片                                                           */
-/* ================================================================= */
-.main-card {
-  background: #ffffff;
-  border-radius: 0;
-  padding: 24rpx 24rpx 32rpx;
-  position: relative;
-  z-index: 2;
-  animation: pageIn var(--anim-slow) var(--ease-out) both;
-}
-
-/* 参赛项目选择卡 */
-.event-picker {
+/* ② 参赛项目选择 */
+.ep-left {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  background: #fafafa;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  margin-bottom: 20rpx;
-  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
+  gap: 8px;
 }
 
-.ep-bar { width: 6rpx; height: 56rpx; border-radius: 3rpx; flex-shrink: 0; }
-
+.ep-bar { width: 3px; height: 32px; border-radius: 2px; flex-shrink: 0; }
 .ep-info { flex: 1; min-width: 0; }
 
-.ep-label-row { display: flex; align-items: center; gap: 8rpx; margin-bottom: 6rpx; }
-.ep-label { font-size: 22rpx; color: #969799; }
-
-/* 参赛类型徽章：个人赛=蓝、团体赛=紫 */
-.ep-type-badge {
-  font-size: 18rpx;
-  color: #0A66C2;
-  background: rgba(10, 102, 194, 0.08);
-  border: 1rpx solid rgba(10, 102, 194, 0.25);
-  padding: 0 10rpx;
-  border-radius: 999rpx;
-  line-height: 1.6;
-}
-
-.ep-type-badge--team {
-  color: #8B5CF6;
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.25);
-}
+.ep-label-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
 
 .ep-value {
-  font-size: 30rpx;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 650;
   color: #17212B;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
 }
 
-.ep-right { display: flex; align-items: center; gap: 12rpx; flex-shrink: 0; }
+.ep-type-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #0A66C2;
+  background: #E8F2FC;
+  border: 1px solid rgba(10, 102, 194, 0.25);
+  padding: 0 7px;
+  border-radius: 999px;
+  line-height: 1.7;
+}
+
+.ep-type-badge--team {
+  color: #219653;
+  background: #E9F7F0;
+  border-color: rgba(33, 150, 83, 0.25);
+}
 
 .ep-price { display: flex; align-items: baseline; }
-
-.ep-symbol { font-size: 22rpx; color: #E96012; font-weight: 700; }
-.ep-fee { font-size: 34rpx; font-weight: 800; color: #E96012; }
-.ep-arrow { font-size: 20rpx; color: #98A2B3; }
+.ep-symbol { font-size: 11px; color: #F97316; font-weight: 700; }
+.ep-fee { font-size: 17px; font-weight: 800; color: #F97316; }
 
 /* 报名条件提示条 */
 .req-hint {
   display: flex;
   align-items: center;
-  gap: 8rpx;
-  background: rgba(10, 102, 194, 0.06);
-  border-radius: 12rpx;
-  padding: 16rpx 20rpx;
-  margin-bottom: 28rpx;
+  gap: 3px;
+  border-top: 1px solid #EEF1F4;
+  background: #EAF3FB;
+  padding: 9px 13px;
+  font-size: 11px;
 }
 
-.req-hint-bar { width: 4rpx; height: 28rpx; background: #0A66C2; border-radius: 2rpx; flex-shrink: 0; }
-.req-hint-text { font-size: 24rpx; color: #969799; }
-.req-hint-link { font-size: 24rpx; color: #0A66C2; font-weight: 500; text-decoration: underline; }
+.req-hint-text { color: #667085; }
+.req-hint-link { color: #0A66C2; font-weight: 700; text-decoration: underline; }
 
-/* ③ 表单 */
-.section-header { display: flex; align-items: center; margin-bottom: 24rpx; }
-
-.section-bar { width: 6rpx; height: 32rpx; background: #0A66C2; border-radius: 3rpx; margin-right: 12rpx; }
-.section-title { font-size: 30rpx; font-weight: 700; color: #17212B; }
-.section-badge {
-  font-size: 20rpx;
-  color: #EF4444;
-  background: #FEE2E2;
-  padding: 2rpx 12rpx;
-  border-radius: 999rpx;
-  margin-left: 12rpx;
-  font-weight: 500;
-}
-
-.form-group { margin-bottom: 8rpx; }
-
-.field { margin-bottom: 20rpx; }
-
-.field-label { font-size: 26rpx; color: #17212B; font-weight: 500; display: block; margin-bottom: 10rpx; }
-.field-star { color: #EF4444; margin-left: 4rpx; }
-
-.field-input {
-  background: #fafafa;
-  border: 2rpx solid #ebedf0;
-  border-radius: 24rpx;
-  padding: 20rpx 24rpx;
-  font-size: 28rpx;
-  color: #17212B;
-  transition: border-color var(--anim-fast) ease, box-shadow var(--anim-fast) ease;
-}
-
-.field-input:focus {
-  border-color: #0A66C2;
-  box-shadow: 0 0 0 8rpx rgba(10, 102, 194, 0.12);
-}
-
-.stepper-wrap { display: flex; align-items: center; gap: 20rpx; }
+/* ③ 队员人数 stepper */
+.stepper-wrap { display: flex; align-items: center; gap: 12px; }
 
 .stepper-btn {
-  width: 56rpx;
-  height: 56rpx;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: #fafafa;
-  border: 2rpx solid #ebedf0;
+  background: #F5F6F8;
+  border: 1px solid #D7E1EA;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32rpx;
+  font-size: 15px;
   color: #17212B;
   font-weight: 500;
 }
 
-.stepper-btn.disabled { color: #CBD5E1; }
-.stepper-val { font-size: 30rpx; font-weight: 600; color: #17212B; min-width: 40rpx; text-align: center; }
+.stepper-btn.disabled { color: #C8D7E6; }
+.stepper-val { font-size: 14px; font-weight: 700; color: #17212B; min-width: 28px; text-align: center; }
 
 /* ④ 证件上传 */
-.upload-row { display: flex; gap: 20rpx; margin-bottom: 20rpx; }
+.reg-upload-row { padding: 0; }
 
-.upload-box {
-  flex: 1;
-  height: 240rpx;
-  background: linear-gradient(180deg, #f5f6f8, #E8F2FC);
-  border-radius: 16rpx;
-  border: 2rpx dashed #CBD5E1;
-  overflow: hidden;
-  position: relative;
-}
-
-.upload-preview { width: 100%; height: 100%; }
-
-.upload-placeholder {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-}
-
-.upload-cam {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 50%;
-  background: #EEF3FA;
-  border: 1rpx solid rgba(10, 102, 194, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.upload-cam-icon { font-size: 32rpx; color: #0A66C2; font-weight: 300; }
-.upload-title { font-size: 24rpx; color: #17212B; font-weight: 500; }
-.upload-hint { font-size: 22rpx; color: #98A2B3; }
-
-.upload-retag {
+.pub-photo-tag {
   position: absolute;
-  right: 8rpx;
-  bottom: 8rpx;
-  padding: 4rpx 12rpx;
-  background: rgba(10, 31, 68, 0.6);
-  color: #ffffff;
-  font-size: 20rpx;
-  border-radius: 8rpx;
+  right: 3px;
+  bottom: 3px;
+  padding: 1px 6px;
+  background: rgba(23, 33, 43, 0.55);
+  color: #fff;
+  font-size: 9px;
+  border-radius: 4px;
 }
 
 /* 声明 */
-.checkbox-row {
+.agree-row {
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  padding: 14rpx 0;
+  gap: 8px;
+  padding: 12px 13px;
+  border-top: 1px solid #EEF1F4;
+  font-size: 13px;
+  color: #667085;
 }
 
-.checkbox-box {
-  width: 40rpx;
-  height: 40rpx;
-  border: 2rpx solid #CBD5E1;
-  border-radius: 8rpx;
+.agree-row:first-child { border-top: 0; }
+
+.agree-box {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #A9B9C9;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background var(--anim-fast) ease, border-color var(--anim-fast) ease;
 }
 
-.checkbox-box.checked { background: #0A66C2; border-color: #0A66C2; }
-.check-mark { color: #ffffff; font-size: 26rpx; font-weight: 700; }
-.checkbox-text { font-size: 26rpx; color: #969799; }
-.link { color: #0A66C2; text-decoration: underline; }
+.agree-box.checked { background: #0A66C2; border-color: #0A66C2; }
+.agree-check { color: #fff; font-size: 12px; font-weight: 700; line-height: 1; }
+.agree-link { color: #0A66C2; text-decoration: underline; }
 
 /* ⑤ 费用 */
-.price-section {
-  background: #fafafa;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  margin-top: 20rpx;
-  margin-bottom: 24rpx;
+.fee-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 13px;
 }
 
-.price-label { font-size: 24rpx; color: #969799; display: block; margin-bottom: 6rpx; }
+.fee-label { font-size: 12px; color: #667085; display: block; margin-bottom: 3px; }
+.fee-amount { display: flex; align-items: baseline; }
+.fee-symbol { font-size: 12px; color: #F97316; font-weight: 700; }
+.fee-value { font-size: 22px; font-weight: 800; color: #F97316; line-height: 1; }
+.fee-suffix { font-size: 11px; color: #98A2B3; margin-left: 3px; }
+.fee-sub { font-size: 11px; color: #98A2B3; display: block; margin-top: 4px; }
 
-.price-amount { display: flex; align-items: baseline; }
-.price-symbol { font-size: 24rpx; color: #E96012; font-weight: 700; }
-.price-value { font-size: 44rpx; font-weight: 800; color: #E96012; line-height: 1; }
-.price-suffix { font-size: 22rpx; color: #969799; margin-left: 4rpx; }
-
-.price-sub { font-size: 22rpx; color: #98A2B3; display: block; margin-top: 6rpx; }
-
-.price-countdown {
-  padding: 8rpx 16rpx;
-  background: rgba(239, 68, 68, 0.1);
-  color: #EF4444;
-  font-size: 24rpx;
+.fee-countdown {
+  padding: 4px 10px;
+  background: rgba(255, 59, 48, 0.08);
+  color: #FF3B30;
+  font-size: 11px;
   font-weight: 600;
-  border-radius: 999rpx;
+  border-radius: 999px;
   flex-shrink: 0;
 }
 
-/* ⑥ 底部按钮 */
-.bottom-bar { display: flex; gap: 20rpx; }
+/* ⑥ 底部操作区 */
+.pub-sticky .pub-btn--secondary { flex: 1; }
+.is-loading { opacity: 0.7; }
+.btn-arrow { margin-left: 6px; font-size: 15px; }
 
-.btn-outline {
-  flex: 1;
-  height: 96rpx;
-  border-radius: 50rpx;
-  border: 2rpx solid #0A66C2;
-  background: #ffffff;
-  color: #0A66C2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
-  font-weight: 600;
-  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
+.privacy-text {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: #98A2B3;
+  margin: 4px 0 0;
 }
 
-.btn-primary {
-  flex: 1;
-  height: 96rpx;
-  border-radius: 50rpx;
-  background: linear-gradient(135deg, #074D92, #0A66C2);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
-  font-weight: 600;
-  box-shadow: 0 8rpx 24rpx rgba(10, 102, 194, 0.3);
-  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
-}
+/* 参赛项目选择弹层（picker-view） */
+.pub-sheet--picker { max-height: none; }
 
-.btn-primary.is-loading { opacity: 0.7; }
-.btn-arrow { margin-left: 8rpx; font-size: 30rpx; }
-
-.privacy-text { display: block; text-align: center; font-size: 22rpx; color: #98A2B3; margin-top: 16rpx; }
-.bottom-spacer { height: calc(40rpx + env(safe-area-inset-bottom)); }
-
-/* 项目选择弹层 */
-.picker-panel { background: #ffffff; }
 .picker-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 32rpx;
-  border-bottom: 1rpx solid #ebedf0;
+  padding: 0 0 10px;
+  border-bottom: 1px solid #EEF1F4;
 }
-.picker-btn { font-size: 28rpx; color: #969799; }
-.picker-btn--confirm { color: #0A66C2; font-weight: 600; }
-.picker-title { font-size: 30rpx; font-weight: 600; color: #17212B; }
-.picker-view { height: 400rpx; }
+
+.picker-btn { font-size: 14px; color: #667085; padding: 4px; }
+.picker-btn--confirm { color: #0A66C2; font-weight: 700; }
+.picker-title { font-size: 15px; font-weight: 750; color: #17212B; }
+
+.picker-view { height: 200px; }
+
 .picker-item {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
+  font-size: 14px;
   color: #17212B;
-}
-
-/* ================================================================= */
-/* 动效                                                              */
-/* ================================================================= */
-@keyframes pageIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0.2; }
-  50%      { opacity: 0.8; }
-}
-
-.press-feedback {
-  transform: scale(0.98);
-  opacity: 0.92;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .event-card, .main-card, .btn-primary, .btn-outline {
-    animation: none !important;
-    transition: none !important;
-  }
 }
 </style>

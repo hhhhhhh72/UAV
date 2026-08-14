@@ -1,577 +1,500 @@
 <template>
-  <view class="resume-page">
-    <!-- Nav -->
-    <u-nav-bar
-      title="我的简历"
-      show-back
-      @back="goBack"
-    />
+  <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
+    <!-- 顶栏（与发布页同款） -->
+    <view class="pub-nav">
+      <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
+      <view class="pub-nav-title">我的简历</view>
+    </view>
 
-    <!-- Loading state -->
+    <!-- 加载中 -->
     <view v-if="loading" class="loading-state">
-      <view class="loading-inline">
-        <u-loading size="28rpx" />
-        <text>加载中...</text>
-      </view>
+      <u-loading size="28rpx" />
+      <text>加载中...</text>
     </view>
 
-    <!-- Error state -->
-    <view v-else-if="errorMsg && !resumeLoaded" class="error-state">
-      <u-empty description="加载失败" />
-      <view class="retry-btn" @tap="fetchResume">
-        <text>重新加载</text>
-      </view>
+    <!-- 加载失败 -->
+    <view v-else-if="errorMsg && !resumeLoaded" class="pub-empty">
+      <view class="pub-empty-mark">!</view>
+      <view class="pub-empty-title">加载失败</view>
+      <view class="pub-empty-desc">网络异常，请稍后重试</view>
+      <view class="pub-btn pub-btn--primary retry-btn" hover-class="pub-btn--active" @tap="fetchResume">重新加载</view>
     </view>
 
-    <!-- Empty / Not logged in -->
-    <view v-else-if="!isAuth" class="empty-state-wrapper">
-      <u-empty description="请先登录" />
+    <!-- 未登录 -->
+    <view v-else-if="!isAuth" class="pub-empty">
+      <view class="pub-empty-title">请先登录</view>
+      <view class="pub-empty-desc">登录后可创建并编辑简历</view>
     </view>
 
-    <!-- Normal state -->
+    <!-- 表单 -->
     <template v-else>
-      <view class="section-title-wrapper">
-        <text class="section-title">基本信息</text>
+      <view class="pub-form-intro">
+        <view class="pub-form-intro-h2">我的简历</view>
+        <view class="pub-form-intro-p">完善简历信息，投递职位时自动展示给招聘方</view>
       </view>
-      <u-cell-group inset>
-        <u-field
-          v-model="form.name"
-          label="姓名"
-          placeholder="请输入姓名"
-        />
-        <u-field
-          v-model="form.phone"
-          label="手机号"
-          type="number"
-          placeholder="请输入手机号"
-        />
-        <u-field
-          v-model="form.email"
-          label="邮箱"
-          placeholder="请输入邮箱"
-        />
-        <view class="field-row" @tap="showEducationPicker">
-          <u-field
-            :model-value="educationLabel(form.education)"
-            label="学历"
-            placeholder="请选择学历"
-            disabled
-          />
-          <text class="field-arrow">›</text>
+
+      <!-- 基本信息 -->
+      <view class="pub-section">
+        <view class="pub-section-title">基本信息</view>
+        <view class="pub-form-card">
+          <view class="pub-field">
+            <view class="pub-field-label">姓名<text class="pub-required">*</text></view>
+            <input
+              v-model="form.name"
+              class="pub-input"
+              placeholder="请输入姓名"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">手机号<text class="pub-required">*</text></view>
+            <input
+              v-model="form.phone"
+              class="pub-input"
+              type="number"
+              placeholder="请输入手机号"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <view class="pub-field">
+            <view class="pub-field-label">邮箱</view>
+            <input
+              v-model="form.email"
+              class="pub-input"
+              placeholder="请输入邮箱"
+              placeholder-class="pub-placeholder"
+            />
+          </view>
+          <view class="pub-field" @tap="showEducationPicker">
+            <view class="pub-field-label">学历</view>
+            <view class="pub-select-field">
+              <text :class="form.education ? 'pub-select-value' : 'pub-placeholder'">
+                {{ form.education || '请选择学历' }}
+              </text>
+              <text class="pub-arrow">›</text>
+            </view>
+          </view>
         </view>
-      </u-cell-group>
-
-      <view class="section-title-wrapper">
-        <text class="section-title">工作经历</text>
       </view>
-      <u-cell-group inset>
-        <u-field
-          v-model="form.work_experience"
-          label="工作经历"
-          type="textarea"
-          placeholder="请描述您的工作经历"
-          auto-height
-        />
-      </u-cell-group>
 
-      <view class="section-title-wrapper">
-        <text class="section-title">技能标签</text>
+      <!-- 工作经历 -->
+      <view class="pub-section">
+        <view class="pub-section-title">工作经历</view>
+        <view class="pub-form-card">
+          <view class="pub-field">
+            <textarea
+              v-model="form.work_experience"
+              class="pub-input pub-input--textarea"
+              placeholder="请描述您的工作经历"
+              placeholder-class="pub-placeholder"
+              auto-height
+            />
+          </view>
+        </view>
       </view>
-      <u-cell-group inset>
-        <view class="skills-cell">
-          <view class="skills-tags">
+
+      <!-- 技能标签 -->
+      <view class="pub-section">
+        <view class="pub-section-title">技能标签</view>
+        <view class="pub-section-note">可添加多个技能，如：无人机飞行、航拍测绘</view>
+        <view class="pub-form-card">
+          <view v-if="form.skills.length" class="skill-tags">
             <view
-              v-for="(skill, idx) in form.skills"
-              :key="idx"
-              class="skill-tag-wrap"
-              @tap="removeSkill(idx)"
+              v-for="skill in form.skills"
+              :key="skill"
+              class="skill-tag"
+              @tap="removeSkill(form.skills.indexOf(skill))"
             >
-              <u-tag type="primary">{{ skill }}</u-tag>
-              <text class="skill-tag-close">×</text>
+              <text>{{ skill }}</text>
+              <text class="skill-tag-x">×</text>
             </view>
           </view>
-          <view class="skill-input-row">
-            <view class="skill-input">
-              <u-field
-                v-model="skillInput"
-                placeholder="输入技能名称"
-              />
-            </view>
-            <u-button
-              type="primary"
-              size="small"
-              @click="addSkill"
-            >
-              添加
-            </u-button>
+          <view class="pub-field skill-add-row">
+            <input
+              v-model="skillInput"
+              class="pub-input"
+              placeholder="输入技能名称"
+              placeholder-class="pub-placeholder"
+              @confirm="addSkill"
+            />
+            <view class="pub-btn pub-btn--ghost skill-add-btn" hover-class="pub-btn--active" @tap="addSkill">添加</view>
           </view>
         </view>
-      </u-cell-group>
-
-      <view class="section-title-wrapper">
-        <text class="section-title">证书上传</text>
       </view>
-      <u-cell-group inset>
-        <view class="cert-cell">
-          <view v-if="certImageUrl" class="cert-preview" @tap="previewCert">
-            <image :src="certImageUrl" mode="aspectFill" class="cert-img" />
-            <view class="cert-remove" @tap.stop="removeCert">
-              <u-icon name="close" size="18" color="var(--color-danger)" />
-            </view>
-          </view>
-          <view v-else class="cert-btn" @tap="chooseCert">
-            <u-icon name="plus" size="28" color="#969799" />
-            <text class="cert-hint">上传证书</text>
-          </view>
-        </view>
-      </u-cell-group>
 
-      <!-- Submit -->
-      <view class="submit-area">
-        <u-button
-          type="primary"
-          block
-          :loading="saving"
-          @click="handleSave"
-        >
-          保存简历
-        </u-button>
+      <!-- 证书上传 -->
+      <view class="pub-section">
+        <view class="pub-section-title">证书上传</view>
+        <view class="pub-section-note">上传无人机相关资质证书，提升求职竞争力</view>
+        <view class="pub-form-card">
+          <view class="pub-upload-row">
+            <view v-if="certImageUrl" class="pub-photo" @tap="previewCert">
+              <image :src="fullUrl(certImageUrl)" mode="aspectFill" class="pub-photo-img" />
+              <view class="pub-photo-remove" @tap.stop="removeCert">×</view>
+            </view>
+            <view class="pub-add-photo" hover-class="pub-fade" @tap="chooseCert">＋</view>
+          </view>
+          <view class="pub-upload-tip">支持上传 1 张证书图片，点击图片可预览</view>
+        </view>
       </view>
     </template>
 
-    <!-- Education picker -->
-    <u-popup
-      :show="educationPickerShow"
-      position="bottom"
-      round
-      @close="educationPickerShow = false"
-    >
-      <view class="sheet">
-        <view class="sheet-title">选择学历</view>
+    <!-- 固定底部操作区（与发布页同款） -->
+    <view v-if="!loading && !(errorMsg && !resumeLoaded) && isAuth" class="pub-sticky">
+      <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="handleSave">
+        {{ saving ? '保存中...' : '保存简历' }}
+      </view>
+    </view>
+
+    <!-- 学历选择抽屉（与发布页同款） -->
+    <view v-if="educationPickerShow" class="pub-overlay" @tap="closeEducation">
+      <view class="pub-sheet" @tap.stop>
+        <view class="pub-grab"></view>
+        <view class="pub-sheet-head">
+          <view class="pub-sheet-head-title">选择学历</view>
+          <view class="pub-sheet-cancel" @tap="closeEducation">取消</view>
+        </view>
         <view
           v-for="opt in educationOptions"
           :key="opt.value"
-          class="sheet-item"
-          :class="{ on: form.education === opt.value }"
+          class="pub-option"
+          :class="{ 'pub-option--selected': form.education === opt.value }"
           @tap="onEducationSelect(opt)"
         >
-          <text class="sheet-name">{{ opt.name }}</text>
-          <text v-if="form.education === opt.value" class="sheet-check">✓</text>
+          <text>{{ opt.name }}</text>
+          <text v-if="form.education === opt.value" class="pub-option-check">✓</text>
         </view>
-        <view class="sheet-cancel" @tap="educationPickerShow = false">取消</view>
       </view>
-    </u-popup>
+    </view>
   </view>
 </template>
 
-<script>
-import { request, getStoredUser, authStorage, BASE_URL } from '../../../utils/request'
+<script setup>
+import { ref, reactive } from 'vue'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { request, getStoredUser, authStorage, BASE_URL, getErrorMessage } from '../../../utils/request'
+import { useSafeTop } from '../../../utils/safeTop'
 
-export default {
-  data() {
-    return {
-      loading: false,
-      errorMsg: '',
-      resumeLoaded: false,
-      isAuth: false,
-      resumeId: '',
-      saving: false,
-      educationPickerShow: false,
-      skillInput: '',
-      certImageUrl: '',
-      form: {
-        name: '',
-        phone: '',
-        email: '',
-        education: '',
-        work_experience: '',
-        skills: [],
-      },
-      educationOptions: [
-        { name: '高中', value: '高中' },
-        { name: '大专', value: '大专' },
-        { name: '本科', value: '本科' },
-        { name: '硕士', value: '硕士' },
-        { name: '博士', value: '博士' },
-      ],
-    }
-  },
-  onLoad() {
-    var user = getStoredUser()
-    this.isAuth = !!user
-    if (this.isAuth) {
-      this.fetchResume()
-    }
-  },
-  methods: {
-    async fetchResume() {
-      this.loading = true
-      this.errorMsg = ''
+const { topPad, initSafeTop } = useSafeTop(true)
 
+// 证书图片完整地址：服务端相对路径拼 BASE_URL，本地临时路径原样返回
+const fullUrl = (u) => {
+  if (!u) return ''
+  if (u.startsWith('http') || u.startsWith('wxfile') || u.startsWith('blob:')) return u
+  return BASE_URL + u
+}
+
+const loading = ref(false)
+const errorMsg = ref('')
+const resumeLoaded = ref(false)
+const isAuth = ref(false)
+const resumeId = ref('')
+const saving = ref(false)
+const educationPickerShow = ref(false)
+const skillInput = ref('')
+const certImageUrl = ref('')
+let backTimer = null
+
+const form = reactive({
+  name: '',
+  phone: '',
+  email: '',
+  education: '',
+  work_experience: '',
+  skills: [],
+})
+
+const educationOptions = [
+  { name: '高中', value: '高中' },
+  { name: '大专', value: '大专' },
+  { name: '本科', value: '本科' },
+  { name: '硕士', value: '硕士' },
+  { name: '博士', value: '博士' },
+]
+
+onLoad(() => {
+  initSafeTop()
+  const user = getStoredUser()
+  isAuth.value = !!user
+  if (isAuth.value) {
+    fetchResume()
+  }
+})
+
+async function fetchResume() {
+  loading.value = true
+  errorMsg.value = ''
+
+  try {
+    const res = await request({ url: '/api/v1/resumes/mine' })
+    const data = (res && res.data) || res || null
+    if (data && (data.id || data._id)) {
+      resumeId.value = data.id || data._id
+      form.name = data.name || ''
+      form.phone = data.phone || ''
+      form.email = data.email || ''
+      form.education = data.education || ''
+      form.work_experience = data.work_experience || ''
+      form.skills = Array.isArray(data.skills) ? data.skills : []
+      certImageUrl.value = data.certificate_url || ''
+    }
+    resumeLoaded.value = true
+  } catch (e) {
+    errorMsg.value = '网络异常，请稍后重试'
+  } finally {
+    loading.value = false
+  }
+}
+
+function showEducationPicker() {
+  educationPickerShow.value = true
+}
+
+function closeEducation() {
+  educationPickerShow.value = false
+}
+
+function onEducationSelect(opt) {
+  form.education = opt.value
+  educationPickerShow.value = false
+}
+
+function addSkill() {
+  const skill = skillInput.value.trim()
+  if (!skill) return
+  if (form.skills.indexOf(skill) !== -1) {
+    uni.showToast({ title: '技能已存在', icon: 'none' })
+    return
+  }
+  form.skills = form.skills.concat([skill])
+  skillInput.value = ''
+}
+
+function removeSkill(idx) {
+  const next = form.skills.slice()
+  next.splice(idx, 1)
+  form.skills = next
+}
+
+function chooseCert() {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: (res) => {
+      certImageUrl.value = res.tempFilePaths[0]
+    },
+    fail: () => {
+      uni.showToast({ title: '选择图片失败', icon: 'none' })
+    },
+  })
+}
+
+function previewCert() {
+  uni.previewImage({
+    urls: [fullUrl(certImageUrl.value)],
+    current: fullUrl(certImageUrl.value),
+  })
+}
+
+function removeCert() {
+  certImageUrl.value = ''
+}
+
+function validateForm() {
+  if (!form.name.trim()) {
+    uni.showToast({ title: '请填写姓名', icon: 'none' })
+    return false
+  }
+  if (!form.phone.trim()) {
+    uni.showToast({ title: '请填写手机号', icon: 'none' })
+    return false
+  }
+  return true
+}
+
+async function handleSave() {
+  if (saving.value) return
+  if (!validateForm()) return
+
+  saving.value = true
+  try {
+    const payload = {
+      name: form.name,
+      phone: form.phone,
+      email: form.email,
+      education: form.education,
+      work_experience: form.work_experience,
+      skills: form.skills,
+    }
+
+    // 新选的本地图片先上传，成功后存证书路径（服务端已存的 /uploads/ 路径直接透传）
+    const isLocalCert = certImageUrl.value
+      && certImageUrl.value.indexOf('https') !== 0
+      && certImageUrl.value.indexOf('/uploads/') !== 0
+    if (isLocalCert) {
+      uni.showLoading({ title: '上传中...' })
       try {
-        var res = await request({ url: '/api/v1/resumes/mine' })
-        var data = (res && res.data) || res || null
-        if (data && (data.id || data._id)) {
-          this.resumeId = data.id || data._id
-          this.form.name = data.name || ''
-          this.form.phone = data.phone || ''
-          this.form.email = data.email || ''
-          this.form.education = data.education || ''
-          this.form.work_experience = data.work_experience || ''
-          this.form.skills = Array.isArray(data.skills) ? data.skills : []
-          this.certImageUrl = data.certificate_url || ''
+        const uploadRes = await new Promise((resolve, reject) => {
+          uni.uploadFile({
+            url: BASE_URL + '/api/v1/files/upload',
+            filePath: certImageUrl.value,
+            name: 'file',
+            header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
+            success: (r) => {
+              let data = null
+              try { data = JSON.parse(r.data) } catch (e) {}
+              // 非 2xx 或缺少 file_id（含 data 信封内层）：透出后端具体错误
+              if (r.statusCode >= 400 || !data || (!data.file_id && !(data.data && data.data.file_id))) {
+                let msg = ''
+                if (data && data.error) msg = data.error.message || data.error.code || ''
+                if (data && data.message) msg = data.message
+                resolve({ _error: msg || ('HTTP ' + r.statusCode) })
+                return
+              }
+              resolve(data)
+            },
+            fail: reject,
+          })
+        })
+        uni.hideLoading()
+        // /api/v1/files/upload 返回 {data:{file_id,...},request_id}（信封格式）
+        const fid = uploadRes && (uploadRes.file_id || (uploadRes.data && uploadRes.data.file_id))
+        if (!fid) {
+          const reason = (uploadRes && uploadRes._error) || ''
+          const tip = reason.indexOf('401') >= 0 || reason.indexOf('登录') >= 0 || reason.indexOf('token') >= 0
+            ? '登录已过期，请重新登录后重试'
+            : ('证书上传失败：' + (reason || '请重试'))
+          uni.showToast({ title: tip, icon: 'none', duration: 2500 })
+          return
         }
-        this.resumeLoaded = true
-      } catch (e) {
-        this.errorMsg = '网络异常，请稍后重试'
-      } finally {
-        this.loading = false
-      }
-    },
-    showEducationPicker() {
-      this.educationPickerShow = true
-    },
-    onEducationSelect(opt) {
-      this.form.education = opt.value
-      this.educationPickerShow = false
-    },
-    educationLabel(value) {
-      var found = this.educationOptions.find(function (o) { return o.value === value })
-      return found ? found.name : value
-    },
-    addSkill() {
-      var skill = this.skillInput.trim()
-      if (!skill) return
-      if (this.form.skills.indexOf(skill) !== -1) {
-        uni.showToast({ title: '技能已存在', icon: 'none' })
+        payload.certificate_url = '/uploads/' + fid
+      } catch (uploadErr) {
+        uni.hideLoading()
+        uni.showToast({ title: '证书上传失败，请重试', icon: 'none' })
         return
       }
-      this.form.skills = this.form.skills.concat([skill])
-      this.skillInput = ''
-    },
-    removeSkill(idx) {
-      var newSkills = this.form.skills.slice()
-      newSkills.splice(idx, 1)
-      this.form.skills = newSkills
-    },
-    chooseCert() {
-      var self = this
-      uni.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
-        sourceType: ['album', 'camera'],
-        success: function (res) {
-          self.certImageUrl = res.tempFilePaths[0]
-        },
-        fail: function () {
-          uni.showToast({ title: '选择图片失败', icon: 'none' })
-        },
-      })
-    },
-    previewCert() {
-      uni.previewImage({
-        urls: [this.certImageUrl],
-        current: this.certImageUrl,
-      })
-    },
-    removeCert() {
-      this.certImageUrl = ''
-    },
-    validateForm() {
-      if (!this.form.name.trim()) {
-        uni.showToast({ title: '请填写姓名', icon: 'none' })
-        return false
-      }
-      if (!this.form.phone.trim()) {
-        uni.showToast({ title: '请填写手机号', icon: 'none' })
-        return false
-      }
-      return true
-    },
-    async handleSave() {
-      if (!this.validateForm()) return
+    } else if (certImageUrl.value) {
+      payload.certificate_url = certImageUrl.value
+    }
 
-      this.saving = true
-      try {
-        var payload = {
-          name: this.form.name,
-          phone: this.form.phone,
-          email: this.form.email,
-          education: this.form.education,
-          work_experience: this.form.work_experience,
-          skills: this.form.skills,
-        }
+    const url = resumeId.value
+      ? '/api/v1/resumes/' + encodeURIComponent(resumeId.value)
+      : '/api/v1/resumes'
+    const method = resumeId.value ? 'PATCH' : 'POST'
 
-        // Upload certificate if selected
-        if (this.certImageUrl && this.certImageUrl.indexOf('https') !== 0) {
-          uni.showLoading({ title: '上传中...' })
-          try {
-            var uploadRes = await new Promise(function (resolve, reject) {
-              uni.uploadFile({
-                url: BASE_URL + '/api/v1/files/upload',
-                filePath: this.certImageUrl,
-                name: 'file',
-                header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
-                success: function (r) {
-                  var data = null
-                  try { data = JSON.parse(r.data) } catch (e) {}
-                  // 非 2xx 或缺少 file_id（含 data 信封内层）：透出后端具体错误
-                  if (r.statusCode >= 400 || !data || (!data.file_id && !(data.data && data.data.file_id))) {
-                    var msg = ''
-                    if (data && data.error) msg = data.error.message || data.error.code || ''
-                    if (data && data.message) msg = data.message
-                    resolve({ _error: msg || ('HTTP ' + r.statusCode) })
-                    return
-                  }
-                  resolve(data)
-                },
-                fail: reject,
-              })
-            }.bind(this))
-            uni.hideLoading()
-            // /api/v1/files/upload 返回 {data:{file_id,...},request_id}（信封格式）
-            var fid = uploadRes && (uploadRes.file_id || (uploadRes.data && uploadRes.data.file_id))
-            if (!fid) {
-              var reason = (uploadRes && uploadRes._error) || ''
-              var tip = reason.indexOf('401') >= 0 || reason.indexOf('登录') >= 0 || reason.indexOf('token') >= 0
-                ? '登录已过期，请重新登录后重试'
-                : ('证书上传失败：' + (reason || '请重试'))
-              uni.showToast({ title: tip, icon: 'none', duration: 2500 })
-              return
-            }
-            payload.certificate_url = '/uploads/' + fid
-          } catch (uploadErr) {
-            uni.hideLoading()
-            uni.showToast({ title: '证书上传失败，请重试', icon: 'none' })
-            return
-          }
-        } else if (this.certImageUrl) {
-          payload.certificate_url = this.certImageUrl
-        }
-
-        var url = this.resumeId
-          ? '/api/v1/resumes/' + encodeURIComponent(this.resumeId)
-          : '/api/v1/resumes'
-        var method = this.resumeId ? 'PATCH' : 'POST'
-
-        await request({ url: url, method: method, data: payload })
-        uni.showToast({ title: '保存成功', icon: 'success' })
-        setTimeout(function () {
-          uni.navigateBack()
-        }, 1200)
-      } catch (e) {
-        var msg = (e && e.data && e.data.message) || '保存失败，请重试'
-        uni.showToast({ title: msg, icon: 'none' })
-      } finally {
-        this.saving = false
-      }
-    },
-    goBack() {
+    await request({ url: url, method: method, data: payload })
+    uni.showToast({ title: '保存成功', icon: 'success' })
+    backTimer = setTimeout(() => {
       uni.navigateBack()
-    },
-  },
+    }, 1200)
+  } catch (e) {
+    const msg = getErrorMessage(e) || '保存失败，请重试'
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    saving.value = false
+  }
 }
+
+function goBack() {
+  uni.navigateBack()
+}
+
+onUnload(() => {
+  if (backTimer) clearTimeout(backTimer)
+})
 </script>
 
 <style scoped>
-.resume-page {
-  min-height: 100vh;
-  background: var(--color-bg);
-  padding-bottom: 80px;
-}
+@import '../../../pages/publish/pub-style.css';
 
-.loading-state {
-  display: flex;
-  justify-content: center;
-  padding: 80px 0;
+.pub-fade { opacity: 0.6; }
+.pub-form-intro-h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
+  color: #17212B;
 }
-
-.loading-inline {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-/* 只读选择字段 */
-.field-row {
-  position: relative;
-  padding: 8px 0;
-}
-
-.field-row .u-field {
-  padding-right: 56rpx;
-}
-
-.field-arrow {
-  position: absolute;
-  right: 24rpx;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 34rpx;
-  color: var(--color-text-placeholder);
-  line-height: 1;
-}
-
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 120px;
-}
-
-.retry-btn {
-  margin-top: 12px;
-  padding: 8px 24px;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: 8px;
-  font-size: 14px;
-}
-
-.empty-state-wrapper {
-  padding-top: 60px;
-}
-
-.section-title-wrapper {
-  padding: 16px 16px 8px;
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-/* Skills */
-.skills-cell {
-  padding: 12px 16px;
-}
-
-.skills-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.skill-tag-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 4rpx;
-}
-
-.skill-tag-close {
-  font-size: 24rpx;
-  color: var(--color-text-placeholder);
-  padding: 4rpx;
-  margin-right: 4rpx;
-}
-
-.skill-input-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.skill-input-row .skill-input {
-  flex: 1;
-}
-
-/* Certificate */
-.cert-cell {
-  padding: 12px 16px;
-}
-
-.cert-btn {
-  width: 80px;
-  height: 80px;
-  border: 1px dashed var(--color-text-placeholder);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.cert-hint {
+.pub-form-intro-p {
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: #667085;
+  margin: 0;
+  line-height: 1.5;
 }
-
-.cert-preview {
-  position: relative;
-  width: 200px;
-  height: 120px;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.cert-img {
+.pub-photo-img {
   width: 100%;
   height: 100%;
+  display: block;
 }
 
-.cert-remove {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 50%;
-  padding: 2px;
-}
-
-/* Submit */
-.submit-area {
-  padding: 24px 16px;
-}
-
-/* 学历选择弹层 */
-.sheet {
-  background: #fff;
-  border-radius: 16rpx 24rpx 0 0;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.sheet-title {
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-  padding: 16px 0 8px;
-}
-
-.sheet-item {
+/* 加载中 */
+.loading-state {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 14px 24px;
-  font-size: 14px;
-  color: var(--color-text);
+  padding: 80px 0;
+  color: #667085;
+  font-size: 13px;
 }
 
-.sheet-item.on {
-  color: var(--color-primary);
-  font-weight: 600;
+/* 错误重试按钮 */
+.retry-btn {
+  flex: none;
+  margin: 12px auto 0;
+  padding: 0 22px;
 }
 
-.sheet-name {
-  color: inherit;
+/* 技能标签 */
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 13px 13px 0;
+}
+.skill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #0A66C2;
+  background: #E8F2FC;
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.skill-tag-x {
+  color: #98A2B3;
+  font-size: 13px;
+  line-height: 1;
+}
+.skill-add-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.skill-add-row .pub-input {
+  flex: 1;
+  min-width: 0;
+}
+.skill-add-btn {
+  flex: none;
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 
-.sheet-check {
-  font-size: 14px;
-}
-
-.sheet-cancel {
+/* 证书预览删除角标 */
+.pub-photo-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(23, 33, 43, 0.55);
+  color: #fff;
+  font-size: 12px;
+  line-height: 17px;
   text-align: center;
-  padding: 14px;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  border-top: 1px solid var(--color-divider);
 }
 </style>

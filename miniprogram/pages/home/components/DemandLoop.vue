@@ -6,10 +6,10 @@
     data-eventsync="true"
     :data-loop-width="windowWidth"
     :data-loop-disabled="itemCount < 2"
-    :loop-version="renderVersion"
-    :change:loop-version="loopGesture.onVersionChange"
+    :loopVersion="renderVersion"
+    :change:loopVersion="loopGesture.onVersionChange"
     @touchstart="loopGesture.touchstart"
-    @touchmove="loopGesture.touchmove"
+    @touchmove.stop="loopGesture.touchmove"
     @touchend="loopGesture.touchend"
     @touchcancel="loopGesture.touchcancel"
   >
@@ -47,7 +47,7 @@
         v-if="slot.virtualOffset === 0"
         class="dl-media-hit"
         :data-pool-index="slot.poolIndex"
-        @tap="loopGesture.mediaTap"
+        @tap.stop="loopGesture.mediaTap"
       ></view>
 
       <!-- 两套固定尺寸信息层错峰切换：紧凑层（左图右文）/ 展开层（图下正文），
@@ -425,7 +425,7 @@ function settle(ins) {
   var projected = position + velocity * 45
   var target = 0
   if (Math.abs(position) >= 0.18 || Math.abs(projected) >= 0.28) {
-    target = projected < 0 ? -1 : 1
+    target = projected <= 0 ? -1 : 1
   }
   var remaining = Math.abs(target - position)
   if (remaining < 0.001) {

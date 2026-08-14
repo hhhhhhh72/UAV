@@ -63,7 +63,6 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { safeBack } from '../../../utils/nav'
 
 const draft = ref(null)
 
@@ -84,7 +83,7 @@ function confirmBooking() {
 }
 
 function goBack() {
-  safeBack()
+  uni.navigateBack()
 }
 
 function goList() {

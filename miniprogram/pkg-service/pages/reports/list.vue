@@ -58,10 +58,10 @@
                 <text class="cell-title">{{ item.title }}</text>
               </view>
               <view class="cell-meta">
-                <u-tag :type="typeTagType(item.category)" size="mini">
-                  {{ typeLabel(item.category) }}
+                <u-tag :type="typeTagType(item.report_type || item.type)" size="mini">
+                  {{ typeLabel(item.report_type || item.type) }}
                 </u-tag>
-                <text v-if="item.period" class="meta-text">报告期 {{ item.period }}</text>
+                <text v-if="item.publish_date" class="meta-text">{{ item.publish_date }}</text>
               </view>
             </view>
           </template>
@@ -86,13 +86,13 @@
 </template>
 
 <script>
-import { request } from '../../../utils/request'
+import { request } from '@/utils/request'
 
 export default {
   data() {
     return {
       searchText: '',
-      activeCategory: '',
+      activeType: '',
       loading: false,
       loadingMore: false,
       errorMsg: '',
@@ -100,21 +100,20 @@ export default {
       page: 1,
       pageSize: 20,
       hasMore: true,
-      categoryTabs: [
+      typeTabs: [
         { label: '全部', value: '' },
-        { label: '白皮书', value: 'whitepaper' },
-        { label: '调研报告', value: 'research' },
-        { label: '行业分析', value: 'analysis' },
-        { label: '其他', value: 'other' },
+        { label: '白皮书', value: '白皮书' },
+        { label: '调研报告', value: '调研报告' },
+        { label: '年度报告', value: '年度报告' },
       ],
     }
   },
   computed: {
     tabTitles() {
-      return this.categoryTabs.map(function (t) { return t.label })
+      return this.typeTabs.map(function (t) { return t.label })
     },
     tabIndex() {
-      var idx = this.categoryTabs.findIndex(function (t) { return t.value === this.activeCategory }.bind(this))
+      var idx = this.typeTabs.findIndex(function (t) { return t.value === this.activeType }.bind(this))
       return idx >= 0 ? idx : 0
     },
   },
@@ -144,8 +143,8 @@ export default {
 
       try {
         var params = {}
-        if (this.activeCategory) params.category = this.activeCategory
-        if (this.searchText) params.keyword = this.searchText
+        if (this.activeType) params.type = this.activeType
+        if (this.searchText) params.q = this.searchText
         params.page = this.page
         params.page_size = this.pageSize
 
@@ -175,8 +174,8 @@ export default {
       this.fetchList(true)
     },
     onTabChange(index) {
-      var tab = this.categoryTabs[index]
-      this.activeCategory = tab ? tab.value : ''
+      var tab = this.typeTabs[index]
+      this.activeType = tab ? tab.value : ''
       this.fetchList(true)
     },
 
@@ -215,20 +214,18 @@ export default {
 
     typeLabel(type) {
       var map = {
-        whitepaper: '白皮书',
-        research: '调研报告',
-        analysis: '行业分析',
-        other: '其他',
+        '白皮书': '白皮书',
+        '调研报告': '调研报告',
+        '年度报告': '年度报告',
       }
       return map[type] || type || '其他'
     },
 
     typeTagType(type) {
       var map = {
-        whitepaper: 'primary',
-        research: 'warning',
-        analysis: 'success',
-        other: 'default',
+        '白皮书': 'primary',
+        '调研报告': 'warning',
+        '年度报告': 'success',
       }
       return map[type] || 'default'
     },

@@ -66,7 +66,6 @@ const categories = [
       { name: '研发难题', icon: iconRoot + 'edit.svg', path: '/pkg-eco/pages/challenges/list' },
       { name: '课题攻关', icon: iconRoot + 'demand.svg', path: '/pkg-eco/pages/projects/list' },
       { name: '场地预约', icon: iconRoot + 'trade.svg', path: '/pkg-service/pages/testsites/list' },
-      { name: '成果转化', icon: iconRoot + 'trade.svg', path: '/pkg-eco/pages/achievements/list' },
     ],
   },
   {
@@ -89,6 +88,7 @@ const categories = [
     color: '#168A55',
     bg: '#E9F7F0',
     items: [
+      { name: '协会活动', icon: iconRoot + 'message.svg', path: '/pkg-eco/pages/activities/list' },
       { name: '赛事活动', icon: iconRoot + 'pilot.svg', path: '/pkg-eco/pages/competitions/list' },
       { name: '品牌展示', icon: iconRoot + 'shop.svg', path: '/pkg-eco/pages/portfolios/list' },
       { name: '展会排期', icon: iconRoot + 'ecoservice.svg', path: '/pkg-eco/pages/exhibitions/list' },

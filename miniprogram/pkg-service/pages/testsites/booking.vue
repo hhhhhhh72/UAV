@@ -97,8 +97,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request, authStorage, getStoredUser } from '../../../utils/request'
-import { safeBack } from '../../../utils/nav'
+import { request, authStorage, getStoredUser } from '@/utils/request'
 
 const SITE_TYPE_MAP = {
   flying_field: '飞行场地',
@@ -234,7 +233,7 @@ async function handleSubmit() {
 }
 
 function goBack() {
-  safeBack()
+  uni.navigateBack()
 }
 
 onLoad((options) => {
