@@ -354,6 +354,63 @@ func TestPG_EmergencyRepo(t *testing.T) {
 	r.ListDispatches(0, 20)
 }
 
+// 回归：end_time 为 NULL（进行中/待响应调度）时 List/FindByID 不能崩溃
+// 曾把 NULL 直接 Scan 进 time.Time 导致 500
+func TestPG_EmergencyRepo_NullEndTime(t *testing.T) {
+	if pgStore == nil {
+		t.Skip("PG not available")
+	}
+	r := pgStore.NewEmergencyRepository()
+	resID := uid("er-null")
+	r.CreateResource(domain.EmergencyResource{ID: resID, OwnerID: "u-1", Name: "中继站", ResType: "comm", Status: "standby"})
+
+	dID := uid("ed-null")
+	// EndTime 零值 → 应存 NULL；CreateDispatch 本身不能报错
+	if _, err := r.CreateDispatch(domain.EmergencyDispatch{
+		ID: dID, ResourceID: resID, EventDesc: "山区图传中断，正在调度中继站",
+		Location: "北碚区缙云山", Status: "ongoing", Commander: "张队",
+	}); err != nil {
+		t.Fatalf("create dispatch with NULL end_time: %v", err)
+	}
+
+	// List 不崩溃且该条 EndTime 为零值
+	got, _, err := r.ListDispatches(0, 100)
+	if err != nil {
+		t.Fatalf("list dispatches with NULL end_time: %v", err)
+	}
+	var found *domain.EmergencyDispatch
+	for i := range got {
+		if got[i].ID == dID {
+			found = &got[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("dispatch %s not found in list (%d rows)", dID, len(got))
+	}
+	if !found.EndTime.IsZero() {
+		t.Fatalf("NULL end_time should map to zero time, got %v", found.EndTime)
+	}
+
+	// FindByID 不崩溃且零值一致
+	one, err := r.FindDispatchByID(dID)
+	if err != nil {
+		t.Fatalf("find dispatch with NULL end_time: %v", err)
+	}
+	if !one.EndTime.IsZero() {
+		t.Fatalf("find: NULL end_time should map to zero time, got %v", one.EndTime)
+	}
+
+	// Update 零值 EndTime → 仍为 NULL，不报错
+	one.EventDesc = "updated"
+	if _, err := r.UpdateDispatch(one); err != nil {
+		t.Fatalf("update dispatch keeping NULL end_time: %v", err)
+	}
+	if after, err := r.FindDispatchByID(dID); err != nil || !after.EndTime.IsZero() {
+		t.Fatalf("after update: err=%v end_time=%v, want zero", err, after.EndTime)
+	}
+}
+
 // === Message PG ===
 func TestPG_MessageRepo(t *testing.T) {
 	if pgStore == nil {

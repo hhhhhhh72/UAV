@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"drone-platform/internal/crypto"
@@ -298,11 +299,20 @@ func (r *emergRepo) UpdateResource(res domain.EmergencyResource) (domain.Emergen
 		res.Name, res.ResType, res.Specs, res.Quantity, res.Location, res.ContactInfo, res.Status, res.UpdatedAt, res.ID)
 	return res, err
 }
+// nullableEndTime 把零值时间转为 NULL：进行中/待响应的调度没有结束时间，
+// end_time 列可空，零值应存 NULL 而非 0001-01-01
+func nullableEndTime(t time.Time) any {
+	if t.IsZero() {
+		return nil
+	}
+	return t
+}
+
 func (r *emergRepo) CreateDispatch(d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
 	d.CreatedAt = time.Now()
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO emergency_dispatches (id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		d.ID, d.ResourceID, d.EventDesc, d.Location, d.StartTime, d.EndTime, d.Commander, d.Result, d.Status, d.CreatedAt)
+		d.ID, d.ResourceID, d.EventDesc, d.Location, d.StartTime, nullableEndTime(d.EndTime), d.Commander, d.Result, d.Status, d.CreatedAt)
 	return d, err
 }
 func (r *emergRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatch, int, error) {
@@ -319,9 +329,12 @@ func (r *emergRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatc
 	var out []domain.EmergencyDispatch
 	for rows.Next() {
 		var d domain.EmergencyDispatch
-		if err := rows.Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &d.EndTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt); err != nil {
+		// end_time 可空：pgtype 吸收 NULL，空值映射为零值时间（前端不展示该字段）
+		var endTime pgtype.Timestamptz
+		if err := rows.Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &endTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan dispatch: %w", err)
 		}
+		d.EndTime = endTime.Time
 		out = append(out, d)
 	}
 	return out, total, rows.Err()
@@ -334,15 +347,17 @@ func (r *emergRepo) DeleteResource(id string) error {
 
 func (r *emergRepo) FindDispatchByID(id string) (domain.EmergencyDispatch, error) {
 	var d domain.EmergencyDispatch
+	var endTime pgtype.Timestamptz
 	err := r.pool.QueryRow(context.Background(), "SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches WHERE id=$1", id).
-		Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &d.EndTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt)
+		Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &endTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt)
+	d.EndTime = endTime.Time
 	return d, err
 }
 
 func (r *emergRepo) UpdateDispatch(d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
 	_, err := r.pool.Exec(context.Background(),
 		"UPDATE emergency_dispatches SET resource_id=$1,event_desc=$2,location=$3,start_time=$4,end_time=$5,commander=$6,result=$7,status=$8 WHERE id=$9",
-		d.ResourceID, d.EventDesc, d.Location, d.StartTime, d.EndTime, d.Commander, d.Result, d.Status, d.ID)
+		d.ResourceID, d.EventDesc, d.Location, d.StartTime, nullableEndTime(d.EndTime), d.Commander, d.Result, d.Status, d.ID)
 	return d, err
 }
 
