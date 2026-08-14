@@ -86,6 +86,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 	// ---- Events ----
 	mux.HandleFunc("GET /api/v1/events", s.listEvents)
+	mux.HandleFunc("GET /api/v1/events/{id}", s.getEvent)
 	mux.HandleFunc("POST /api/v1/admin/events", s.createEvent)
 	mux.HandleFunc("GET /api/v1/events/{id}/registrations", s.listEventRegistrations)
 	mux.HandleFunc("POST /api/v1/events/{id}/register", s.registerEvent)
