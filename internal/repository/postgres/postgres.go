@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"drone-platform/internal/crypto"
@@ -1443,6 +1445,11 @@ func (r *pgIntentRepo) Create(it domain.DemandIntent) (domain.DemandIntent, erro
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		it.ID, it.DemandID, it.IntentorID, it.IntentorName, it.Contact, it.Remark, it.Status, it.Version, it.CreatedAt, it.UpdatedAt)
 	if err != nil {
+		// P1 修复：唯一索引 (demand_id, intentor_id) 并发兜底——重复登记映射为友好错误。
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.DemandIntent{}, fmt.Errorf("已登记过该需求的对接意向，请勿重复提交")
+		}
 		return domain.DemandIntent{}, fmt.Errorf("create intent: %w", err)
 	}
 	return it, nil

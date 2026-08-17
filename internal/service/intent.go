@@ -55,6 +55,16 @@ func (s *IntentService) Create(a domain.Actor, demandID string, in CreateIntentI
 	if d.PublisherID == a.ID {
 		return domain.DemandIntent{}, errors.New("不能登记自己发布的需求")
 	}
+	// P1 修复：同一用户对同一需求只允许一条"待处理"意向（防重复提交）。
+	// 已被确认/关闭（contacted/closed 等）的旧意向不阻塞再次登记；
+	// 数据库层部分唯一索引 (demand_id, intentor_id) WHERE status='pending' 兜底并发。
+	if existing, err := s.repo.ListByDemand(demandID); err == nil {
+		for _, e := range existing {
+			if e.IntentorID == a.ID && e.Status == "pending" {
+				return domain.DemandIntent{}, errors.New("已登记过该需求的对接意向，请勿重复提交")
+			}
+		}
+	}
 	name := in.IntentorName
 	if name == "" {
 		name = a.ID

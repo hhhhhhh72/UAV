@@ -2,10 +2,14 @@ package httpapi_test
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -314,6 +318,11 @@ func TestPendingEnterpriseNeedsAssociationRole(t *testing.T) {
 }
 
 func TestContractWebhookFlow(t *testing.T) {
+	// P0 修复后 webhook 强制签名：测试需配置 SIGNING_SECRET 并计算 HMAC。
+	oldSecret := os.Getenv("SIGNING_SECRET")
+	os.Setenv("SIGNING_SECRET", "test-signing-secret")
+	t.Cleanup(func() { os.Setenv("SIGNING_SECRET", oldSecret) })
+
 	app := newServer(t)
 	// Create contract
 	contractBody := []byte(`{"template_id":"tpl-001","enterprise_id":"ent-webhook"}`)
@@ -327,13 +336,19 @@ func TestContractWebhookFlow(t *testing.T) {
 	}
 	cid := m["data"].(map[string]interface{})["id"].(string)
 
-	// Send signing webhook
+	// Send signing webhook（带合法 HMAC 签名）
 	ts := time.Now().Unix()
+	sign := func(ts int64, eventID, contractID, status string) string {
+		mac := hmac.New(sha256.New, []byte("test-signing-secret"))
+		mac.Write([]byte(fmt.Sprintf("%d.%s.%s.%s", ts, eventID, contractID, status)))
+		return hex.EncodeToString(mac.Sum(nil))
+	}
 	webhookBody, _ := json.Marshal(map[string]interface{}{
 		"event_id":    "evt-test-001",
 		"contract_id": cid,
 		"status":      "sent",
 		"timestamp":   ts,
+		"signature":   sign(ts, "evt-test-001", cid, "sent"),
 	})
 	w = request(t, app, http.MethodPost, "/api/v1/webhooks/signing", webhookBody, domain.RoleIndividual)
 	if w.Code != http.StatusOK {
@@ -346,7 +361,20 @@ func TestContractWebhookFlow(t *testing.T) {
 		t.Fatalf("duplicate webhook: expected 200, got %d", w.Code)
 	}
 
-	t.Log("contract webhook flow OK: create→signing callback→duplicate detected")
+	// 未签名（错误签名）的事件必须 403
+	forged, _ := json.Marshal(map[string]interface{}{
+		"event_id":    "evt-test-002",
+		"contract_id": cid,
+		"status":      "signed",
+		"timestamp":   time.Now().Unix(),
+		"signature":   "deadbeef",
+	})
+	w = request(t, app, http.MethodPost, "/api/v1/webhooks/signing", forged, domain.RoleIndividual)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("forged webhook: expected 403, got %d", w.Code)
+	}
+
+	t.Log("contract webhook flow OK: create→signed callback→duplicate→forged rejected")
 }
 
 func TestEmploymentListPagination(t *testing.T) {

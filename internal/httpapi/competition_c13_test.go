@@ -3,6 +3,8 @@ package httpapi_test
 import (
 	"bytes"
 	"encoding/json"
+	"image"
+	"image/png"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -114,7 +116,12 @@ func TestCompetitionRegPrivateUpload(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		part.Write([]byte("fake-png-bytes"))
+		// 魔数校验上线后必须上传真实 PNG 内容（声明 image/png 但传文本会被 400 拒绝）
+		var pngBuf bytes.Buffer
+		if err := png.Encode(&pngBuf, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+			t.Fatal(err)
+		}
+		part.Write(pngBuf.Bytes())
 		if private {
 			mw.WriteField("private", "true")
 		}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"drone-platform/internal/domain"
@@ -425,7 +426,15 @@ func (r *enrollRepo) Create(e domain.Enrollment) (domain.Enrollment, error) {
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO training_enrollments (id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		e.ID, e.CourseID, e.UserID, e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.CreatedAt)
-	return e, err
+	if err != nil {
+		// P1 修复：唯一索引 (user_id, course_id) 并发兜底——重复报名映射为友好错误。
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.Enrollment{}, fmt.Errorf("已报名过该课程，请勿重复报名")
+		}
+		return domain.Enrollment{}, fmt.Errorf("create enrollment: %w", err)
+	}
+	return e, nil
 }
 
 func (r *enrollRepo) Update(e domain.Enrollment) (domain.Enrollment, error) {

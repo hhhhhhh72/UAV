@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,25 @@ import (
 
 	"drone-platform/internal/domain"
 )
+
+// sniffAllowedType 读取前 512 字节做魔数检测，返回真实内容类型与已读字节。
+// P1 修复：客户端声明的 multipart Content-Type 可伪造，类型判定必须以文件
+// 内容为准；仅允许 jpeg/png/webp/pdf，其余一律拒绝。
+func sniffAllowedType(r io.Reader) (detected string, head []byte, err error) {
+	head = make([]byte, 512)
+	n, err := io.ReadFull(r, head)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return "", nil, fmt.Errorf("read file header: %w", err)
+	}
+	head = head[:n]
+	detected = http.DetectContentType(head)
+	switch detected {
+	case "image/jpeg", "image/png", "image/webp", "application/pdf":
+		return detected, head, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported file type %q: only jpeg/png/webp/pdf allowed", detected)
+	}
+}
 
 // POST /api/v1/files/upload
 // Accepts multipart/form-data with field "file"; 表单字段 private=true 时存到
@@ -35,19 +55,21 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Validate content type: allow images and PDFs.
-	ct := header.Header.Get("Content-Type")
-	if ct != "image/jpeg" && ct != "image/png" && ct != "image/webp" && ct != "application/pdf" {
-		fail(w, r, http.StatusBadRequest, errors.New("unsupported file type: only jpeg/png/webp/pdf allowed"))
+	// P1 修复：按魔数检测真实类型（客户端 Content-Type 可伪造），
+	// 落库 ContentType 使用检测结果而非客户端声明。
+	detected, head, err := sniffAllowedType(file)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
+	reader := io.MultiReader(bytes.NewReader(head), file)
 
 	private := r.FormValue("private") == "true"
 	var rec domain.FileRecord
 	if private {
-		rec, err = s.fileSvc.UploadPrivate(a.ID, header.Filename, ct, io.LimitReader(file, 10<<20))
+		rec, err = s.fileSvc.UploadPrivate(a.ID, header.Filename, detected, io.LimitReader(reader, 10<<20))
 	} else {
-		rec, err = s.fileSvc.Upload(a.ID, header.Filename, ct, io.LimitReader(file, 10<<20))
+		rec, err = s.fileSvc.Upload(a.ID, header.Filename, detected, io.LimitReader(reader, 10<<20))
 	}
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)

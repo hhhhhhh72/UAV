@@ -284,6 +284,10 @@ func (s *Server) h5SubmitApplication(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
+	// P1 修复：归属一律取已认证 actor，禁止客户端指定 userId 冒用他人身份。
+	if a, ok := authenticatedActor(r); ok {
+		raw["userId"] = a.ID
+	}
 	now := time.Now()
 	app := domain.Application{
 		ID:          now.Format("20060102150405") + randomSuffix(4),

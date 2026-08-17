@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"drone-platform/internal/domain"
 )
@@ -161,13 +162,23 @@ func (s *Server) signingWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify signature if SIGNING_SECRET is configured.
-	if secret := os.Getenv("SIGNING_SECRET"); secret != "" {
-		ts := strconv.FormatInt(event.Timestamp, 10)
-		if err := verifySigningSignature(secret, ts, event.EventID, event.ContractID, event.Status, event.Signature); err != nil {
-			fail(w, r, http.StatusForbidden, fmt.Errorf("signature verification failed: %w", err))
-			return
-		}
+	// P0 修复：签名校验不可缺省——此前 SIGNING_SECRET 未配置时跳过校验，
+	// 任何人不签名即可伪造事件翻转合同状态。未配置一律拒绝；
+	// 生产环境 config 硬校验已强制要求该密钥，此处兜底开发/误配场景。
+	secret := os.Getenv("SIGNING_SECRET")
+	if secret == "" {
+		fail(w, r, http.StatusServiceUnavailable, errors.New("webhook signing is not configured (SIGNING_SECRET missing)"))
+		return
+	}
+	// 时间戳新鲜度：拒绝重放旧事件（±5 分钟窗口）。
+	if d := time.Now().Unix() - event.Timestamp; d > 300 || d < -300 {
+		fail(w, r, http.StatusForbidden, errors.New("webhook timestamp expired"))
+		return
+	}
+	ts := strconv.FormatInt(event.Timestamp, 10)
+	if err := verifySigningSignature(secret, ts, event.EventID, event.ContractID, event.Status, event.Signature); err != nil {
+		fail(w, r, http.StatusForbidden, fmt.Errorf("signature verification failed: %w", err))
+		return
 	}
 
 	// Check deduplication. Process first, then mark as done — if processing fails

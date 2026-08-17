@@ -1298,6 +1298,13 @@ func NewIntentRepository() repository.IntentRepository {
 func (r *intentRepo) Create(it domain.DemandIntent) (domain.DemandIntent, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// P1 修复：锁内去重——同一 (demand, intentor) 只允许一条 pending 意向，
+	// 与 PG 部分唯一索引（WHERE status='pending'）语义对齐；已确认的旧意向不阻塞再登记。
+	for _, e := range r.items {
+		if e.DemandID == it.DemandID && e.IntentorID == it.IntentorID && e.Status == "pending" {
+			return domain.DemandIntent{}, fmt.Errorf("duplicate pending intent for demand %s by %s", it.DemandID, it.IntentorID)
+		}
+	}
 	r.items = append(r.items, it)
 	return it, nil
 }

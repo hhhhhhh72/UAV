@@ -108,8 +108,9 @@ type Server struct {
 }
 
 type idempotencyStore struct {
-	mu    sync.RWMutex
-	cache map[string]idempotencyEntry
+	mu      sync.RWMutex
+	cache   map[string]idempotencyEntry
+	flights map[string]*idempotencyFlight
 }
 
 type idempotencyEntry struct {
@@ -118,8 +119,16 @@ type idempotencyEntry struct {
 	expiresAt time.Time
 }
 
+// idempotencyFlight 并发同 key 单飞：首个请求执行，其余等待并复用其响应，
+// 防止网络重试风暴期重复执行写操作（P1 修复）。
+type idempotencyFlight struct {
+	done   chan struct{}
+	status int
+	body   string
+}
+
 func newIdempotencyStore() *idempotencyStore {
-	s := &idempotencyStore{cache: make(map[string]idempotencyEntry)}
+	s := &idempotencyStore{cache: make(map[string]idempotencyEntry), flights: make(map[string]*idempotencyFlight)}
 	go s.cleanupLoop()
 	return s
 }
@@ -259,6 +268,8 @@ func (s *Server) SetContractTemplateService(svc *service.ContractTemplateService
 }
 
 // audit records a write operation to the audit log if a writer is configured.
+// P1 修复：带 2s 超时（此前同步无超时，审计慢/池耗尽会拖死写请求），
+// 失败落日志（此前静默吞掉，审计链断裂无感知）。
 func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resourceID, result string) {
 	if s.auditWriter == nil {
 		return
@@ -267,14 +278,19 @@ func (s *Server) audit(ctx context.Context, actorID, action, resourceType, resou
 	if v, ok := ctx.Value(requestIDKey{}).(string); ok {
 		rid = v
 	}
-	_ = s.auditWriter.WriteAudit(context.Background(), repository.AuditEntry{
+	actx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := s.auditWriter.WriteAudit(actx, repository.AuditEntry{
 		ActorID:      actorID,
 		Action:       action,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
 		Result:       result,
 		RequestID:    rid,
-	})
+	}); err != nil {
+		slog.Warn("audit write failed", "action", action, "resource", resourceType,
+			"resource_id", resourceID, "err", err)
+	}
 }
 
 func (s *Server) Router() http.Handler {
@@ -784,14 +800,38 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 			key = a.ID + ":" + key
 		}
 		// Check for previously completed request.
-		if status, body, ok := s.idempotency.get(key); ok {
+		replay := func(status int, body string) {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.WriteHeader(status)
 			w.Write([]byte(body))
+		}
+		if status, body, ok := s.idempotency.get(key); ok {
+			replay(status, body)
 			return
 		}
-		// Capture the response via a response recorder.
+		// P1 修复：并发同 key 单飞——首个请求执行写操作，其余等待并复用
+		// 其响应（此前并发同 key 全部穿透执行，重复创建订单/报名）。
+		s.idempotency.mu.Lock()
+		if f, ok := s.idempotency.flights[key]; ok {
+			s.idempotency.mu.Unlock()
+			<-f.done
+			replay(f.status, f.body)
+			return
+		}
+		f := &idempotencyFlight{done: make(chan struct{})}
+		s.idempotency.flights[key] = f
+		s.idempotency.mu.Unlock()
+
+		// 用 defer 保证 panic 时也会关闭 flight，等待者不会永久挂起。
 		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+		defer func() {
+			s.idempotency.mu.Lock()
+			f.status, f.body = rec.statusCode, rec.body.String()
+			delete(s.idempotency.flights, key)
+			s.idempotency.mu.Unlock()
+			close(f.done)
+		}()
+		// Capture the response via a response recorder.
 		next.ServeHTTP(rec, r)
 		// Store the result for future idempotent requests.
 		s.idempotency.set(key, rec.statusCode, rec.body.String())

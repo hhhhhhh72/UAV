@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -23,18 +24,30 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("parse multipart: %w", err))
 		return
 	}
-	file, header, err := r.FormFile("file")
+	file, _, err := r.FormFile("file")
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("read file: %w", err))
 		return
 	}
 	defer file.Close()
 
-	// 校验文件类型：仅允许图片与 PDF
-	ct := header.Header.Get("Content-Type")
-	if ct != "image/jpeg" && ct != "image/png" && ct != "image/webp" && ct != "application/pdf" {
-		fail(w, r, http.StatusBadRequest, errors.New("unsupported file type: only jpeg/png/webp/pdf allowed"))
+	// P1 修复：魔数检测替代客户端 Content-Type 信任；
+	// 扩展名由检测结果决定，杜绝".html 装成 image/jpeg"落盘后被按扩展名回放。
+	detected, head, err := sniffAllowedType(file)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, err)
 		return
+	}
+	ext := ".bin"
+	switch detected {
+	case "image/jpeg":
+		ext = ".jpg"
+	case "image/png":
+		ext = ".png"
+	case "image/webp":
+		ext = ".webp"
+	case "application/pdf":
+		ext = ".pdf"
 	}
 
 	// 确保上传目录存在
@@ -44,11 +57,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 生成唯一文件名
-	ext := filepath.Ext(header.Filename)
-	if ext == "" {
-		ext = ".jpg"
-	}
+	// 生成唯一文件名（扩展名由检测类型决定，不再信任客户端文件名）
 	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 	path := filepath.Join(dir, filename)
 
@@ -59,7 +68,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dst.Close()
 
-	if _, err := io.Copy(dst, file); err != nil {
+	if _, err := io.Copy(dst, io.MultiReader(bytes.NewReader(head), file)); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
