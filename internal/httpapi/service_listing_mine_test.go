@@ -36,10 +36,10 @@ func TestCreateServiceListingPendingAndMine(t *testing.T) {
 		t.Fatalf("status = %q, want pending", created.Status)
 	}
 
-	// 2) 公开列表不包含（待审核不公开）
+	// 2) 公开列表不包含（待审核不公开），且匿名可访问（白名单回归：此前 401）
 	w = request(t, app, http.MethodGet, "/api/v1/service-listings", nil, "")
 	if w.Code != http.StatusOK {
-		t.Fatalf("public list: %d", w.Code)
+		t.Fatalf("public list: %d (was 401 before whitelist fix)", w.Code)
 	}
 	if strings.Contains(w.Body.String(), created.ID) {
 		t.Fatal("pending listing must not appear in public list")
