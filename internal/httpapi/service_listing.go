@@ -9,7 +9,7 @@ import (
 
 // GET /api/v1/service-listings — 公开列表（仅上架中）
 func (s *Server) listServiceListings(w http.ResponseWriter, r *http.Request) {
-	items, err := s.serviceListingSvc.ListPublished()
+	items, err := s.serviceListingSvc.ListPublished(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -19,7 +19,7 @@ func (s *Server) listServiceListings(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/service-listings/{id} — 公开详情（仅上架中，下架视为不存在）
 func (s *Server) getServiceListing(w http.ResponseWriter, r *http.Request) {
-	sl, err := s.serviceListingSvc.Get(r.PathValue("id"))
+	sl, err := s.serviceListingSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -51,7 +51,7 @@ func (s *Server) adminCreateServiceListing(w http.ResponseWriter, r *http.Reques
 		fail(w, r, http.StatusBadRequest, errors.New("title is required"))
 		return
 	}
-	sl, err := s.serviceListingSvc.CreateListing("", in.ProviderName, in.Title, in.Category, in.Description, in.Region, in.PriceFen, in.Unit, in.Image)
+	sl, err := s.serviceListingSvc.CreateListing(r.Context(), "", in.ProviderName, in.Title, in.Category, in.Description, in.Region, in.PriceFen, in.Unit, in.Image)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -61,7 +61,7 @@ func (s *Server) adminCreateServiceListing(w http.ResponseWriter, r *http.Reques
 
 // GET /api/v1/admin/service-listings — 管理端全部列表（含下架），支持 keyword/category 过滤
 func (s *Server) adminListServiceListings(w http.ResponseWriter, r *http.Request) {
-	all, err := s.serviceListingSvc.ListAdmin(r.URL.Query().Get("keyword"), r.URL.Query().Get("category"))
+	all, err := s.serviceListingSvc.ListAdmin(r.Context(), r.URL.Query().Get("keyword"), r.URL.Query().Get("category"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -86,7 +86,7 @@ func (s *Server) adminUpdateServiceListing(w http.ResponseWriter, r *http.Reques
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	existing, err := s.serviceListingSvc.Get(r.PathValue("id"))
+	existing, err := s.serviceListingSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -102,7 +102,7 @@ func (s *Server) adminUpdateServiceListing(w http.ResponseWriter, r *http.Reques
 	if in.Status != "" {
 		existing.Status = in.Status
 	}
-	sl, err := s.serviceListingSvc.UpdateListing(existing)
+	sl, err := s.serviceListingSvc.UpdateListing(r.Context(), existing)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -112,7 +112,7 @@ func (s *Server) adminUpdateServiceListing(w http.ResponseWriter, r *http.Reques
 
 // DELETE /api/v1/admin/service-listings/{id} — 管理端删除
 func (s *Server) adminDeleteServiceListing(w http.ResponseWriter, r *http.Request) {
-	if err := s.serviceListingSvc.DeleteListing(r.PathValue("id")); err != nil {
+	if err := s.serviceListingSvc.DeleteListing(r.Context(), r.PathValue("id")); err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}

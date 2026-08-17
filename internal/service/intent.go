@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync/atomic"
@@ -38,14 +39,14 @@ type CreateIntentInput struct {
 }
 
 // Create registers an intent to contact the publisher of a published demand.
-func (s *IntentService) Create(a domain.Actor, demandID string, in CreateIntentInput) (domain.DemandIntent, error) {
+func (s *IntentService) Create(ctx context.Context, a domain.Actor, demandID string, in CreateIntentInput) (domain.DemandIntent, error) {
 	if demandID == "" {
 		return domain.DemandIntent{}, errors.New("demand_id is required")
 	}
 	if in.Contact == "" {
 		return domain.DemandIntent{}, errors.New("contact is required")
 	}
-	d, err := s.demands.FindByID(demandID)
+	d, err := s.demands.FindByID(ctx, demandID)
 	if err != nil {
 		return domain.DemandIntent{}, fmt.Errorf("demand %s: %w", demandID, err)
 	}
@@ -58,7 +59,7 @@ func (s *IntentService) Create(a domain.Actor, demandID string, in CreateIntentI
 	// P1 修复：同一用户对同一需求只允许一条"待处理"意向（防重复提交）。
 	// 已被确认/关闭（contacted/closed 等）的旧意向不阻塞再次登记；
 	// 数据库层部分唯一索引 (demand_id, intentor_id) WHERE status='pending' 兜底并发。
-	if existing, err := s.repo.ListByDemand(demandID); err == nil {
+	if existing, err := s.repo.ListByDemand(ctx, demandID); err == nil {
 		for _, e := range existing {
 			if e.IntentorID == a.ID && e.Status == "pending" {
 				return domain.DemandIntent{}, errors.New("已登记过该需求的对接意向，请勿重复提交")
@@ -81,22 +82,22 @@ func (s *IntentService) Create(a domain.Actor, demandID string, in CreateIntentI
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	return s.repo.Create(it)
+	return s.repo.Create(ctx, it)
 }
 
 // ListByDemand returns intents for a demand. Only the publisher or admins.
-func (s *IntentService) ListByDemand(a domain.Actor, demandID string) ([]domain.DemandIntent, error) {
-	d, err := s.demands.FindByID(demandID)
+func (s *IntentService) ListByDemand(ctx context.Context, a domain.Actor, demandID string) ([]domain.DemandIntent, error) {
+	d, err := s.demands.FindByID(ctx, demandID)
 	if err != nil {
 		return nil, fmt.Errorf("demand %s: %w", demandID, err)
 	}
 	if d.PublisherID != a.ID && a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return nil, errors.New("只有需求发布者或管理员可以查看对接意向")
 	}
-	return s.repo.ListByDemand(demandID)
+	return s.repo.ListByDemand(ctx, demandID)
 }
 
 // ListMine returns intents registered by the current user.
-func (s *IntentService) ListMine(a domain.Actor) ([]domain.DemandIntent, error) {
-	return s.repo.ListByIntentor(a.ID)
+func (s *IntentService) ListMine(ctx context.Context, a domain.Actor) ([]domain.DemandIntent, error) {
+	return s.repo.ListByIntentor(ctx, a.ID)
 }

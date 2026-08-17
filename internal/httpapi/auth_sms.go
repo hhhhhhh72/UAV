@@ -119,7 +119,7 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 	smsCodes.Delete(body.Phone)
 
 	uid := "user-" + body.Phone
-	u, err := s.userRepo.FindByID(uid)
+	u, err := s.userRepo.FindByID(r.Context(), uid)
 	if err != nil {
 		now := time.Now()
 		u = domain.User{
@@ -131,7 +131,7 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}
-		if _, err := s.userRepo.Create(u); err != nil {
+		if _, err := s.userRepo.Create(r.Context(), u); err != nil {
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", err))
 			return
 		}
@@ -152,7 +152,7 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tokenHash := service.HashToken(refreshToken)
-	if err := s.refreshRepo.Store(u.ID, tokenHash, time.Now().Add(7*24*time.Hour)); err != nil {
+	if err := s.refreshRepo.Store(r.Context(), u.ID, tokenHash, time.Now().Add(7*24*time.Hour)); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}

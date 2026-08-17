@@ -31,7 +31,7 @@ func (s *Server) addCertificate(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.trainingSvc.AddCertificate(a, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.IssueDate, in.ExpireDate)
+	c, err := s.trainingSvc.AddCertificate(r.Context(), a, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.IssueDate, in.ExpireDate)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -47,7 +47,7 @@ func (s *Server) approveCertificate(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	c, err := s.trainingSvc.ApproveCertificate(a, r.PathValue("id"))
+	c, err := s.trainingSvc.ApproveCertificate(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -62,7 +62,7 @@ func (s *Server) listMyCertificates(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	certs, err := s.trainingSvc.ListMyCertificates(a)
+	certs, err := s.trainingSvc.ListMyCertificates(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -111,7 +111,7 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 	}
 	startDate := domain.ParseTime(in.StartDate)
 	endDate := domain.ParseTime(in.EndDate)
-	c, err := s.trainingSvc.CreateCourse(a, domain.TrainingCourse{
+	c, err := s.trainingSvc.CreateCourse(r.Context(), a, domain.TrainingCourse{
 		Title: in.Title, CertType: domain.CertType(in.CertType), Description: in.Description,
 		Location: in.Location, StartDate: startDate, EndDate: endDate,
 		MaxStudents: in.MaxStudents, PriceFen: in.PriceFen,
@@ -135,7 +135,7 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	certType := r.URL.Query().Get("cert_type")
 	region := r.URL.Query().Get("region")
-	courses, err := s.trainingSvc.ListCourses()
+	courses, err := s.trainingSvc.ListCourses(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -180,7 +180,7 @@ func (s *Server) registerInstructor(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	i, err := s.trainingSvc.RegisterInstructor(a, in.Name, in.Photo, in.Bio, in.OrgID, in.CertTypes)
+	i, err := s.trainingSvc.RegisterInstructor(r.Context(), a, in.Name, in.Photo, in.Bio, in.OrgID, in.CertTypes)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -195,7 +195,7 @@ func (s *Server) approveInstructor(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	i, err := s.trainingSvc.ApproveInstructor(a, r.PathValue("id"))
+	i, err := s.trainingSvc.ApproveInstructor(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -205,7 +205,7 @@ func (s *Server) approveInstructor(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/instructors
 func (s *Server) listInstructors(w http.ResponseWriter, r *http.Request) {
-	instructors, err := s.trainingSvc.ListInstructors()
+	instructors, err := s.trainingSvc.ListInstructors(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -238,7 +238,7 @@ func (s *Server) registerPilot(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("real_name and id_card are required"))
 		return
 	}
-	p, err := s.trainingSvc.RegisterPilot(a, in.RealName, in.IDCard, in.FlightHours, in.Bio, in.Avatar, in.Region)
+	p, err := s.trainingSvc.RegisterPilot(r.Context(), a, in.RealName, in.IDCard, in.FlightHours, in.Bio, in.Avatar, in.Region)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -253,7 +253,7 @@ func (s *Server) approvePilot(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	p, err := s.trainingSvc.ApprovePilot(a, r.PathValue("id"))
+	p, err := s.trainingSvc.ApprovePilot(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -266,7 +266,7 @@ func (s *Server) approvePilot(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/certified-pilots — 公开名录：仅已认证（approved）飞手，身份证脱敏，支持 page/page_size 分页
 func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
-	pilots, err := s.trainingSvc.ListPilotsDetailed()
+	pilots, err := s.trainingSvc.ListPilotsDetailed(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -316,7 +316,7 @@ func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/certified-pilots/{id} — 飞手详情单查：仅 approved 可公开查看，身份证脱敏，返回 certificates 明细
 func (s *Server) getPilot(w http.ResponseWriter, r *http.Request) {
-	p, err := s.trainingSvc.GetPilotDetail(r.PathValue("id"))
+	p, err := s.trainingSvc.GetPilotDetail(r.Context(), r.PathValue("id"))
 	if err != nil || p.ID == "" {
 		fail(w, r, http.StatusNotFound, errors.New("pilot not found"))
 		return
@@ -342,7 +342,7 @@ func (s *Server) listAdminPilots(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	pilots, err := s.trainingSvc.ListPilots()
+	pilots, err := s.trainingSvc.ListPilots(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -364,7 +364,7 @@ func (s *Server) rejectPilot(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	p, err := s.trainingSvc.RejectPilot(a, r.PathValue("id"))
+	p, err := s.trainingSvc.RejectPilot(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -379,7 +379,7 @@ func (s *Server) getMyPilot(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	p, err := s.trainingSvc.GetPilotByOwner(a.ID)
+	p, err := s.trainingSvc.GetPilotByOwner(r.Context(), a.ID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

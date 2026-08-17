@@ -55,7 +55,7 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := s.userRepo.FindByOpenID(sess.OpenID)
+	u, err := s.userRepo.FindByOpenID(r.Context(), sess.OpenID)
 	if err != nil {
 		now := time.Now()
 		u = domain.User{
@@ -67,7 +67,7 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}
-		u, err = s.userRepo.Create(u)
+		u, err = s.userRepo.Create(r.Context(), u)
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", err))
 			return
@@ -95,7 +95,7 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	refreshHash := service.HashToken(refreshToken)
-	if err := s.refreshRepo.Store(u.ID, refreshHash, time.Now().Add(7*24*time.Hour)); err != nil {
+	if err := s.refreshRepo.Store(r.Context(), u.ID, refreshHash, time.Now().Add(7*24*time.Hour)); err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("store refresh token: %w", err))
 		return
 	}
@@ -111,13 +111,15 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/v1/auth/refresh
 func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
-	var req struct{ RefreshToken string `json:"refresh_token"` }
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
 	if err := decode(r, &req); err != nil || req.RefreshToken == "" {
 		fail(w, r, http.StatusBadRequest, errors.New("refresh_token is required"))
 		return
 	}
 	tokenHash := service.HashToken(req.RefreshToken)
-	userID, expiresAt, revoked, err := s.refreshRepo.Find(tokenHash)
+	userID, expiresAt, revoked, err := s.refreshRepo.Find(r.Context(), tokenHash)
 	if err != nil || revoked || time.Now().After(expiresAt) {
 		fail(w, r, http.StatusUnauthorized, errors.New("invalid or expired refresh token"))
 		return
@@ -125,7 +127,7 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 
 	var u *domain.User
 	role := domain.RoleIndividual
-	if found, err := s.userRepo.FindByID(userID); err == nil && found.Role != "" {
+	if found, err := s.userRepo.FindByID(r.Context(), userID); err == nil && found.Role != "" {
 		u = &found
 		role = u.Role
 	}
@@ -145,11 +147,11 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 	// 旧实现先 Revoke 后 Store——Store 失败会导致旧令牌已作废、新令牌未落库，
 	// 用户被永久锁死（refresh 不可用）。新顺序下 Store 失败时旧令牌仍有效。
 	newHash := service.HashToken(newRefresh)
-	if err := s.refreshRepo.Store(userID, newHash, time.Now().Add(7*24*time.Hour)); err != nil {
+	if err := s.refreshRepo.Store(r.Context(), userID, newHash, time.Now().Add(7*24*time.Hour)); err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("store refresh token: %w", err))
 		return
 	}
-	s.refreshRepo.Revoke(tokenHash)
+	s.refreshRepo.Revoke(r.Context(), tokenHash)
 
 	hasWechat := u != nil && u.WechatOpenID != "" && !strings.HasPrefix(u.WechatOpenID, "phone:")
 	ui := userInfo{ID: userID, Role: role, Status: ""}
@@ -168,9 +170,11 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/v1/auth/logout
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	var req struct{ RefreshToken string `json:"refresh_token"` }
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
 	if err := decode(r, &req); err == nil && req.RefreshToken != "" {
-		s.refreshRepo.Revoke(service.HashToken(req.RefreshToken))
+		s.refreshRepo.Revoke(r.Context(), service.HashToken(req.RefreshToken))
 	}
 	a, _ := authenticatedActor(r)
 	if a.ID != "" {
@@ -205,19 +209,19 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.AvatarURL != "" {
-		if err := s.userRepo.UpdateAvatar(a.ID, in.AvatarURL); err != nil {
+		if err := s.userRepo.UpdateAvatar(r.Context(), a.ID, in.AvatarURL); err != nil {
 			fail(w, r, http.StatusInternalServerError, err)
 			return
 		}
 	}
 	if in.Name != "" {
-		if err := s.userRepo.UpdateName(a.ID, in.Name); err != nil {
+		if err := s.userRepo.UpdateName(r.Context(), a.ID, in.Name); err != nil {
 			fail(w, r, http.StatusInternalServerError, err)
 			return
 		}
 	}
 	if in.Phone != "" || in.Gender != "" || in.Birthday != "" || in.Region != "" || in.Bio != "" {
-		if err := s.userRepo.UpdateProfile(a.ID, domain.UserProfile{
+		if err := s.userRepo.UpdateProfile(r.Context(), a.ID, domain.UserProfile{
 			Phone:    in.Phone,
 			Gender:   in.Gender,
 			Birthday: in.Birthday,
@@ -244,12 +248,12 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	}
 	// demand_count 只统计当前用户发布的需求（此前误用 List(空 filter) 返回平台全量）。
 	demandCount := 0
-	if ds, err := s.demands.ListByPublisher(a.ID); err == nil {
+	if ds, err := s.demands.ListByPublisher(r.Context(), a.ID); err == nil {
 		demandCount = len(ds)
 	}
 	var certCount int
 	if s.trainingSvc != nil {
-		certs, err := s.trainingSvc.ListMyCertificates(a)
+		certs, err := s.trainingSvc.ListMyCertificates(r.Context(), a)
 		if err != nil {
 			certCount = 0
 		} else {
@@ -264,7 +268,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	region := ""
 	bio := ""
 	status := "active"
-	if u, err := s.userRepo.FindByID(a.ID); err == nil {
+	if u, err := s.userRepo.FindByID(r.Context(), a.ID); err == nil {
 		name = u.Name
 		avatarURL = u.AvatarURL
 		// PhoneCipher holds the decrypted plaintext after FindByID (see repository)

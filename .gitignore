@@ -3,6 +3,8 @@
 .superpowers/
 .workbuddy/
 cover.out
+coverage.out
+coverage
 *.exe
 *.exe~
 # binary backups

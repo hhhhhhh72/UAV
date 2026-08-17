@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"testing"
 
 	"drone-platform/internal/crypto"
@@ -17,7 +18,7 @@ func TestCompRegPIIEncryptionAtRest(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := NewCompetitionRepository(cipher).(*compRepo)
-	reg, err := r.CreateReg(domain.CompetitionReg{
+	reg, err := r.CreateReg(context.Background(), domain.CompetitionReg{
 		ID: "creg-enc-1", CompetitionID: "comp-enc-1", UserID: "u-1",
 		Name: "张三", Phone: "13800000000", IDCard: "500101199001011234", Status: "submitted",
 	})
@@ -37,7 +38,7 @@ func TestCompRegPIIEncryptionAtRest(t *testing.T) {
 		t.Fatalf("decrypt stored id_card: %q err=%v", dec, err)
 	}
 	// 读取还原明文
-	regs, err := r.ListRegs("comp-enc-1")
+	regs, err := r.ListRegs(context.Background(), "comp-enc-1")
 	if err != nil || len(regs) != 1 {
 		t.Fatalf("list regs: %d, %v", len(regs), err)
 	}
@@ -49,7 +50,7 @@ func TestCompRegPIIEncryptionAtRest(t *testing.T) {
 // TestCompRegNilCipherKeepsPlaintext: 无 ENCRYPTION_KEY 的开发环境/测试传 nil，保持明文。
 func TestCompRegNilCipherKeepsPlaintext(t *testing.T) {
 	r := NewCompetitionRepository(nil).(*compRepo)
-	reg, err := r.CreateReg(domain.CompetitionReg{
+	reg, err := r.CreateReg(context.Background(), domain.CompetitionReg{
 		ID: "creg-enc-2", CompetitionID: "comp-enc-2", UserID: "u-1", IDCard: "500101199001011234", Status: "submitted",
 	})
 	if err != nil {

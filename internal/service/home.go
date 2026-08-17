@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"math"
 
 	"drone-platform/internal/config"
@@ -28,7 +29,7 @@ type HomeData struct {
 }
 
 // GetHome assembles the home page data with optional city and location.
-func (s *HomeService) GetHome(city string, lat, lng float64) HomeData {
+func (s *HomeService) GetHome(ctx context.Context, city string, lat, lng float64) HomeData {
 	if city == "" {
 		city = "重庆"
 	}
@@ -40,7 +41,7 @@ func (s *HomeService) GetHome(city string, lat, lng float64) HomeData {
 	notices := cfg.Notices
 
 	// Get published demands.
-	demands, err := s.demandRepo.List(repository.DemandFilter{})
+	demands, err := s.demandRepo.List(ctx, repository.DemandFilter{})
 	if err != nil {
 		demands = nil
 	}
@@ -63,7 +64,7 @@ func (s *HomeService) GetHome(city string, lat, lng float64) HomeData {
 	// 商家列表 = 已审核企业（商家/企业合一：入驻审核通过即成为商家，供商家 Tab 展示）
 	shops := []domain.Shop{}
 	if s.enterpriseRepo != nil {
-		ents, _, err := s.enterpriseRepo.ListByStatus(string(domain.EnterpriseApproved), 0, 100)
+		ents, _, err := s.enterpriseRepo.ListByStatus(ctx, string(domain.EnterpriseApproved), 0, 100)
 		if err == nil {
 			for _, e := range ents {
 				shops = append(shops, domain.Shop{

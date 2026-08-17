@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 // 仅发布者与管理员可见。
 func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	d, err := s.demands.FindByID(id)
+	d, err := s.demands.FindByID(r.Context(), id)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -46,7 +47,7 @@ func (s *Server) updateDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.demands.UpdateDraft(a, r.PathValue("id"), in.Title, in.Description)
+	d, err := s.demands.UpdateDraft(r.Context(), a, r.PathValue("id"), in.Title, in.Description)
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -65,7 +66,7 @@ func (s *Server) submitDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	d, err := s.demands.Submit(a, r.PathValue("id"))
+	d, err := s.demands.Submit(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -86,7 +87,7 @@ func (s *Server) reviewDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.demands.Review(a, r.PathValue("id"), req.Action, req.Reason)
+	d, err := s.demands.Review(r.Context(), a, r.PathValue("id"), req.Action, req.Reason)
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -105,7 +106,9 @@ func (s *Server) reviewDemand(w http.ResponseWriter, r *http.Request) {
 	if (req.Action == "reject" || req.Action == "supplement") && req.Reason != "" {
 		reason = "：" + req.Reason
 	}
-	go s.msgSvc.Send("system", d.PublisherID, "需求审核结果",
+	// 异步通知使用 context.Background()：goroutine 生命周期超出请求，
+	// r.Context() 会在 handler 返回后取消，导致通知发送被中断。
+	go s.msgSvc.Send(context.Background(), "system", d.PublisherID, "需求审核结果",
 		fmt.Sprintf("您的需求「%s」已被%s%s", d.Title, mapAction(req.Action), reason), "demand", d.ID)
 }
 
@@ -130,7 +133,7 @@ func (s *Server) completeDemand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d, err := s.demands.Complete(a, r.PathValue("id"))
+	d, err := s.demands.Complete(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -140,7 +143,7 @@ func (s *Server) completeDemand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "complete_demand", "demand", d.ID, "completed")
-	s.msgSvc.Send("system", d.PublisherID, "需求已完成",
+	s.msgSvc.Send(r.Context(), "system", d.PublisherID, "需求已完成",
 		fmt.Sprintf("需求「%s」已标记完成", d.Title), "demand", d.ID)
 	respond(w, r, http.StatusOK, map[string]any{"status": "completed", "demand": d})
 }
@@ -153,7 +156,7 @@ func (s *Server) cancelDemand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d, err := s.demands.Cancel(a, r.PathValue("id"))
+	d, err := s.demands.Cancel(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {

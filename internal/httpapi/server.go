@@ -21,6 +21,7 @@ import (
 	"io"
 	"log/slog"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -436,7 +437,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	city := r.URL.Query().Get("city")
 	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
 	lng, _ := strconv.ParseFloat(r.URL.Query().Get("lng"), 64)
-	data := s.homeSvc.GetHome(city, lat, lng)
+	data := s.homeSvc.GetHome(r.Context(), city, lat, lng)
 
 	// Banner 图补全域名（拷贝 slice，不污染全局配置的底层数组）
 	banners := make([]domain.Banner, len(data.Banners))
@@ -446,18 +447,18 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Stats: demand count, user count — 单源失败不阻断首页，记日志后按零值继续
-	demands, err := s.demands.List(repository.DemandFilter{})
+	demands, err := s.demands.List(r.Context(), repository.DemandFilter{})
 	if err != nil {
 		slog.Warn("home: list demands", "err", err)
 	}
 	demandTotal := len(demands)
-	users, err := s.userRepo.All()
+	users, err := s.userRepo.All(r.Context())
 	if err != nil {
 		slog.Warn("home: list users", "err", err)
 	}
 	userTotal := len(users)
 
-	products, err := s.tradingSvc.ListProducts("")
+	products, err := s.tradingSvc.ListProducts(r.Context(), "")
 	if err != nil {
 		slog.Warn("home: list products", "err", err)
 	}
@@ -485,12 +486,12 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	ds, err := s.demands.Search(q)
+	ds, err := s.demands.Search(r.Context(), q)
 	if err != nil {
 		slog.Warn("search: demands failed", "error", err)
 		ds = nil
 	}
-	es, err := s.enterprises.Search(q)
+	es, err := s.enterprises.Search(r.Context(), q)
 	if err != nil {
 		slog.Warn("search: enterprises failed", "error", err)
 		es = nil
@@ -507,7 +508,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]any{"demands": public, "enterprises": es})
 }
 func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
-	result, err := s.demands.List(repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type"), Sort: r.URL.Query().Get("sort")})
+	result, err := s.demands.List(r.Context(), repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type"), Sort: r.URL.Query().Get("sort")})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -561,7 +562,7 @@ func (s *Server) listAdminDemands(w http.ResponseWriter, r *http.Request) {
 	if st == "" {
 		st = "all"
 	}
-	result, err := s.demands.ListAll(repository.DemandFilter{Status: st})
+	result, err := s.demands.ListAll(r.Context(), repository.DemandFilter{Status: st})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -576,7 +577,7 @@ func (s *Server) deleteDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	if err := s.demands.Delete(a, r.PathValue("id")); err != nil {
+	if err := s.demands.Delete(r.Context(), a, r.PathValue("id")); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
@@ -591,7 +592,7 @@ func (s *Server) adminDemandStats(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	result, err := s.demands.ListAll(repository.DemandFilter{Status: "all"})
+	result, err := s.demands.ListAll(r.Context(), repository.DemandFilter{Status: "all"})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -651,7 +652,7 @@ func (s *Server) createDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.demands.Create(a, in)
+	d, err := s.demands.Create(r.Context(), a, in)
 	if err != nil {
 		// 参数/校验错误 → 400；角色/权限错误 → 403（区分错误码，避免掩盖真实原因）
 		code := http.StatusForbidden
@@ -670,7 +671,7 @@ func (s *Server) approveDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	d, err := s.demands.Approve(a, r.PathValue("id"))
+	d, err := s.demands.Approve(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -700,7 +701,7 @@ func (s *Server) closeDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.demands.CloseByAdmin(a, r.PathValue("id"), in.Reason)
+	d, err := s.demands.CloseByAdmin(r.Context(), a, r.PathValue("id"), in.Reason)
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -730,7 +731,7 @@ func (s *Server) setDemandOfflineAmount(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.demands.SetOfflineAmount(a, r.PathValue("id"), in.OfflineAmountFen)
+	d, err := s.demands.SetOfflineAmount(r.Context(), a, r.PathValue("id"), in.OfflineAmountFen)
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -754,7 +755,7 @@ func (s *Server) listEmployment(w http.ResponseWriter, r *http.Request) {
 	}
 	page, pageSize := paginationFromQuery(r)
 	offset := (page - 1) * pageSize
-	out, total, err := s.employment.List(a, offset, pageSize)
+	out, total, err := s.employment.List(r.Context(), a, offset, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -772,7 +773,7 @@ func (s *Server) createEmployment(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	out, err := s.employment.Create(a, v)
+	out, err := s.employment.Create(r.Context(), a, v)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -787,7 +788,7 @@ func (s *Server) listContracts(w http.ResponseWriter, r *http.Request) {
 	}
 	page, pageSize := paginationFromQuery(r)
 	offset := (page - 1) * pageSize
-	out, total, err := s.contracts.List(a, offset, pageSize)
+	out, total, err := s.contracts.List(r.Context(), a, offset, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -805,7 +806,7 @@ func (s *Server) createContract(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	out, err := s.contracts.Create(a, v)
+	out, err := s.contracts.Create(r.Context(), a, v)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -818,7 +819,7 @@ func (s *Server) pendingEnterprises(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	out, err := s.enterprises.Pending(a)
+	out, err := s.enterprises.Pending(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -948,12 +949,31 @@ func (s *Server) accessLog(next http.Handler) http.Handler {
 	})
 }
 
+// clientIP 提取真实客户端 IP。
+// nginx 反代场景下 RemoteAddr 恒为 127.0.0.1（所有用户共享一个限流桶），
+// 须取 X-Forwarded-For 首个 IP：nginx 按 $remote_addr 追加，且 API 仅回环监听
+// （见 docker-compose 127.0.0.1:8080），直连者无法伪造该头。
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if i := strings.IndexByte(xff, ','); i >= 0 {
+			xff = xff[:i]
+		}
+		if ip := strings.TrimSpace(xff); ip != "" {
+			return ip
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
 func (s *Server) rateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Rate-limit by the direct peer address. X-Forwarded-For is client
-		// controlled and would let attackers rotate it to bypass the limit.
-		// (If a trusted proxy is added, parse the last hop it appends instead.)
-		key := r.RemoteAddr
+		// 按真实客户端 IP 限流（nginx 反代后取 X-Forwarded-For 首跳；
+		// API 仅回环监听，不存在绕过 nginx 伪造 XFF 的路径）。
+		key := clientIP(r)
 		if !s.rateLimiter.allow(key) {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.Header().Set("Retry-After", "1")

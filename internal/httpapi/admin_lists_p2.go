@@ -10,7 +10,7 @@ import "net/http"
 // GET /api/v1/admin/policies
 func (s *Server) listAdminPolicies(w http.ResponseWriter, r *http.Request) {
 	page, ps := paginationFromQuery(r)
-	list, total, err := s.insuranceSvc.ListAllPolicies((page-1)*ps, ps)
+	list, total, err := s.insuranceSvc.ListAllPolicies(r.Context(), (page-1)*ps, ps)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -20,7 +20,7 @@ func (s *Server) listAdminPolicies(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/inspections
 func (s *Server) listAdminInspections(w http.ResponseWriter, r *http.Request) {
-	list, err := s.insuranceSvc.ListAllInspections()
+	list, err := s.insuranceSvc.ListAllInspections(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -31,7 +31,7 @@ func (s *Server) listAdminInspections(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/admin/repairs
 func (s *Server) listAdminRepairs(w http.ResponseWriter, r *http.Request) {
 	page, ps := paginationFromQuery(r)
-	list, total, err := s.tradingSvc.ListAllRepairs((page-1)*ps, ps)
+	list, total, err := s.tradingSvc.ListAllRepairs(r.Context(), (page-1)*ps, ps)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -42,7 +42,7 @@ func (s *Server) listAdminRepairs(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/admin/loans
 func (s *Server) listAdminLoans(w http.ResponseWriter, r *http.Request) {
 	page, ps := paginationFromQuery(r)
-	list, total, err := s.financeSvc.ListAllLoans((page-1)*ps, ps)
+	list, total, err := s.financeSvc.ListAllLoans(r.Context(), (page-1)*ps, ps)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -53,7 +53,7 @@ func (s *Server) listAdminLoans(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/admin/resumes
 func (s *Server) listAdminResumes(w http.ResponseWriter, r *http.Request) {
 	page, ps := paginationFromQuery(r)
-	list, total, err := s.jobSvc.ListAllResumes((page-1)*ps, ps)
+	list, total, err := s.jobSvc.ListAllResumes(r.Context(), (page-1)*ps, ps)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

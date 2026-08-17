@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"testing"
 
 	"drone-platform/internal/domain"
@@ -15,18 +16,18 @@ func TestUpdateApplicationStatusOwnershipFirst(t *testing.T) {
 	svc := service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository())
 
 	// Arrange: 企业 A 建职位并发布，user-1 投递
-	job, err := svc.CreateJob(entActor(), "飞手招聘", "描述", "重庆", 100000)
+	job, err := svc.CreateJob(context.Background(), entActor(), "飞手招聘", "描述", "重庆", 100000)
 	if err != nil {
 		t.Fatalf("create job: %v", err)
 	}
-	if _, err := svc.PublishJob(entActor(), job.ID); err != nil {
+	if _, err := svc.PublishJob(context.Background(), entActor(), job.ID); err != nil {
 		t.Fatalf("publish job: %v", err)
 	}
-	resume, err := svc.CreateResume(indActor(), "简历", "张三", "13800000000", "a@b.com", "本科", "经验", nil, "", "内容", "public")
+	resume, err := svc.CreateResume(context.Background(), indActor(), "简历", "张三", "13800000000", "a@b.com", "本科", "经验", nil, "", "内容", "public")
 	if err != nil {
 		t.Fatalf("create resume: %v", err)
 	}
-	app, err := svc.Apply(indActor(), job.ID, resume.ID)
+	app, err := svc.Apply(context.Background(), indActor(), job.ID, resume.ID)
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
@@ -34,12 +35,12 @@ func TestUpdateApplicationStatusOwnershipFirst(t *testing.T) {
 	stranger := domain.Actor{ID: "ent-2", Role: domain.RoleEnterprise}
 
 	// Act: 无关企业尝试把投递改为"面试中"
-	if _, err := svc.UpdateApplicationStatus(stranger, app.ID, domain.AppInterviewing); err == nil {
+	if _, err := svc.UpdateApplicationStatus(context.Background(), stranger, app.ID, domain.AppInterviewing); err == nil {
 		t.Fatal("stranger update should be rejected")
 	}
 
 	// Assert: 状态未被越权修改
-	apps, err := svc.ListMyApplications(indActor())
+	apps, err := svc.ListMyApplications(context.Background(), indActor())
 	if err != nil {
 		t.Fatalf("list my apps: %v", err)
 	}
@@ -48,13 +49,13 @@ func TestUpdateApplicationStatusOwnershipFirst(t *testing.T) {
 	}
 
 	// Act/Assert: 合法操作者——职位所属企业与投递者本人均可更新
-	if _, err := svc.UpdateApplicationStatus(entActor(), app.ID, domain.AppInterviewing); err != nil {
+	if _, err := svc.UpdateApplicationStatus(context.Background(), entActor(), app.ID, domain.AppInterviewing); err != nil {
 		t.Fatalf("job owner update: %v", err)
 	}
-	if _, err := svc.UpdateApplicationStatus(indActor(), app.ID, domain.AppWithdrawn); err != nil {
+	if _, err := svc.UpdateApplicationStatus(context.Background(), indActor(), app.ID, domain.AppWithdrawn); err != nil {
 		t.Fatalf("applicant update: %v", err)
 	}
-	apps, _ = svc.ListMyApplications(indActor())
+	apps, _ = svc.ListMyApplications(context.Background(), indActor())
 	if apps[0].Status != domain.AppWithdrawn {
 		t.Fatalf("status after owner/applicant updates: %s", apps[0].Status)
 	}

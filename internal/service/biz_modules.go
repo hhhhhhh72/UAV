@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -20,7 +21,7 @@ func NewExpertService(repo repository.ExpertRepository) *ExpertService {
 	return &ExpertService{repo: repo}
 }
 
-func (s *ExpertService) Create(name, title, org, field, bio, avatarURL, status string, tags []string) (domain.Expert, error) {
+func (s *ExpertService) Create(ctx context.Context, name, title, org, field, bio, avatarURL, status string, tags []string) (domain.Expert, error) {
 	now := time.Now()
 	e := domain.Expert{
 		ID:        fmt.Sprintf("expert-%d", now.UnixNano()),
@@ -38,11 +39,11 @@ func (s *ExpertService) Create(name, title, org, field, bio, avatarURL, status s
 	if e.Status == "" {
 		e.Status = "published"
 	}
-	return s.repo.Create(e)
+	return s.repo.Create(ctx, e)
 }
 
-func (s *ExpertService) Update(id, name, title, org, field, bio, avatarURL, status string, tags []string) (domain.Expert, error) {
-	e, err := s.repo.FindByID(id)
+func (s *ExpertService) Update(ctx context.Context, id, name, title, org, field, bio, avatarURL, status string, tags []string) (domain.Expert, error) {
+	e, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Expert{}, err
 	}
@@ -57,19 +58,19 @@ func (s *ExpertService) Update(id, name, title, org, field, bio, avatarURL, stat
 	}
 	e.Tags = tags
 	e.UpdatedAt = time.Now()
-	return s.repo.Update(e)
+	return s.repo.Update(ctx, e)
 }
 
-func (s *ExpertService) List(field string) ([]domain.Expert, error) {
-	return s.repo.List(field)
+func (s *ExpertService) List(ctx context.Context, field string) ([]domain.Expert, error) {
+	return s.repo.List(ctx, field)
 }
 
-func (s *ExpertService) Get(id string) (domain.Expert, error) {
-	return s.repo.FindByID(id)
+func (s *ExpertService) Get(ctx context.Context, id string) (domain.Expert, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *ExpertService) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *ExpertService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // ---- CaseService (项目案例) ----
@@ -82,7 +83,7 @@ func NewCaseService(repo repository.CaseRepository) *CaseService {
 	return &CaseService{repo: repo}
 }
 
-func (s *CaseService) Create(title, category, description string, images []string, clientName, result string) (domain.CaseEntry, error) {
+func (s *CaseService) Create(ctx context.Context, title, category, description string, images []string, clientName, result string) (domain.CaseEntry, error) {
 	now := time.Now()
 	c := domain.CaseEntry{
 		ID:          fmt.Sprintf("case-%d", now.UnixNano()),
@@ -96,20 +97,20 @@ func (s *CaseService) Create(title, category, description string, images []strin
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	return s.repo.Create(c)
+	return s.repo.Create(ctx, c)
 }
 
-func (s *CaseService) List(category string, page, pageSize int) ([]domain.CaseEntry, int, error) {
+func (s *CaseService) List(ctx context.Context, category string, page, pageSize int) ([]domain.CaseEntry, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(category, offset, pageSize)
+	return s.repo.List(ctx, category, offset, pageSize)
 }
 
-func (s *CaseService) Get(id string) (domain.CaseEntry, error) {
-	return s.repo.FindByID(id)
+func (s *CaseService) Get(ctx context.Context, id string) (domain.CaseEntry, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *CaseService) Update(id, title, category, description, status string, images []string, clientName, result string) (domain.CaseEntry, error) {
-	c, err := s.repo.FindByID(id)
+func (s *CaseService) Update(ctx context.Context, id, title, category, description, status string, images []string, clientName, result string) (domain.CaseEntry, error) {
+	c, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.CaseEntry{}, err
 	}
@@ -121,11 +122,11 @@ func (s *CaseService) Update(id, title, category, description, status string, im
 	c.ClientName = clientName
 	c.Result = result
 	c.UpdatedAt = time.Now()
-	return s.repo.Update(c)
+	return s.repo.Update(ctx, c)
 }
 
-func (s *CaseService) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *CaseService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // ---- ComplianceService (合规管理) ----
@@ -165,7 +166,7 @@ func normalizeComplianceStandardCategory(s string) string {
 }
 
 // Docs
-func (s *ComplianceService) CreateDoc(title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
+func (s *ComplianceService) CreateDoc(ctx context.Context, title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
 	now := time.Now()
 	if status == "" {
 		status = "published"
@@ -187,16 +188,16 @@ func (s *ComplianceService) CreateDoc(title, category, publisher, publishDate, s
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	return s.repo.CreateDoc(d)
+	return s.repo.CreateDoc(ctx, d)
 }
 
-func (s *ComplianceService) ListDocs(category string, page, pageSize int) ([]domain.ComplianceDoc, int, error) {
+func (s *ComplianceService) ListDocs(ctx context.Context, category string, page, pageSize int) ([]domain.ComplianceDoc, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListDocs(normalizeComplianceDocCategory(category), offset, pageSize)
+	return s.repo.ListDocs(ctx, normalizeComplianceDocCategory(category), offset, pageSize)
 }
 
-func (s *ComplianceService) UpdateDoc(id, title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
-	d, err := s.repo.FindDocByID(id)
+func (s *ComplianceService) UpdateDoc(ctx context.Context, id, title, category, publisher, publishDate, status, summary, fileURL string, tags []string) (domain.ComplianceDoc, error) {
+	d, err := s.repo.FindDocByID(ctx, id)
 	if err != nil {
 		return domain.ComplianceDoc{}, err
 	}
@@ -213,15 +214,15 @@ func (s *ComplianceService) UpdateDoc(id, title, category, publisher, publishDat
 	d.FileURL = fileURL
 	d.Tags = tags
 	d.UpdatedAt = time.Now()
-	return s.repo.UpdateDoc(d)
+	return s.repo.UpdateDoc(ctx, d)
 }
 
-func (s *ComplianceService) DeleteDoc(id string) error {
-	return s.repo.DeleteDoc(id)
+func (s *ComplianceService) DeleteDoc(ctx context.Context, id string) error {
+	return s.repo.DeleteDoc(ctx, id)
 }
 
 // Standards
-func (s *ComplianceService) CreateStandard(title, category, stdNumber, publisher, effectiveDate, status, scope, fileURL string) (domain.StandardDoc, error) {
+func (s *ComplianceService) CreateStandard(ctx context.Context, title, category, stdNumber, publisher, effectiveDate, status, scope, fileURL string) (domain.StandardDoc, error) {
 	now := time.Now()
 	if status == "" {
 		status = "published"
@@ -243,25 +244,27 @@ func (s *ComplianceService) CreateStandard(title, category, stdNumber, publisher
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
-	return s.repo.CreateStandard(sd)
+	return s.repo.CreateStandard(ctx, sd)
 }
 
-func (s *ComplianceService) ListStandards(category string, page, pageSize int) ([]domain.StandardDoc, int, error) {
+func (s *ComplianceService) ListStandards(ctx context.Context, category string, page, pageSize int) ([]domain.StandardDoc, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListStandards(normalizeComplianceStandardCategory(category), offset, pageSize)
+	return s.repo.ListStandards(ctx, normalizeComplianceStandardCategory(category), offset, pageSize)
 }
 
-func (s *ComplianceService) DeleteStandard(id string) error { return s.repo.DeleteStandard(id) }
-
-func (s *ComplianceService) FindDocByID(id string) (domain.ComplianceDoc, error) {
-	return s.repo.FindDocByID(id)
-}
-func (s *ComplianceService) FindStandardByID(id string) (domain.StandardDoc, error) {
-	return s.repo.FindStandardByID(id)
+func (s *ComplianceService) DeleteStandard(ctx context.Context, id string) error {
+	return s.repo.DeleteStandard(ctx, id)
 }
 
-func (s *ComplianceService) UpdateStandard(id, title, category, stdNumber, publisher, effectiveDate, scope, status, fileURL string) (domain.StandardDoc, error) {
-	sd, err := s.repo.FindStandardByID(id)
+func (s *ComplianceService) FindDocByID(ctx context.Context, id string) (domain.ComplianceDoc, error) {
+	return s.repo.FindDocByID(ctx, id)
+}
+func (s *ComplianceService) FindStandardByID(ctx context.Context, id string) (domain.StandardDoc, error) {
+	return s.repo.FindStandardByID(ctx, id)
+}
+
+func (s *ComplianceService) UpdateStandard(ctx context.Context, id, title, category, stdNumber, publisher, effectiveDate, scope, status, fileURL string) (domain.StandardDoc, error) {
+	sd, err := s.repo.FindStandardByID(ctx, id)
 	if err != nil {
 		return domain.StandardDoc{}, err
 	}
@@ -280,7 +283,7 @@ func (s *ComplianceService) UpdateStandard(id, title, category, stdNumber, publi
 	if fileURL != "" {
 		sd.FileURL = fileURL
 	}
-	return s.repo.UpdateStandard(sd)
+	return s.repo.UpdateStandard(ctx, sd)
 }
 
 // ---- ReportService (行业报告) ----
@@ -293,7 +296,7 @@ func NewReportService(repo repository.IndustryReportRepository) *ReportService {
 	return &ReportService{repo: repo}
 }
 
-func (s *ReportService) Create(title, period, category, summary, content, fileURL, author string) (domain.IndustryReport, error) {
+func (s *ReportService) Create(ctx context.Context, title, period, category, summary, content, fileURL, author string) (domain.IndustryReport, error) {
 	now := time.Now()
 	r := domain.IndustryReport{
 		ID:        fmt.Sprintf("report-%d", now.UnixNano()),
@@ -308,20 +311,20 @@ func (s *ReportService) Create(title, period, category, summary, content, fileUR
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	return s.repo.Create(r)
+	return s.repo.Create(ctx, r)
 }
 
-func (s *ReportService) List(page, pageSize int) ([]domain.IndustryReport, int, error) {
+func (s *ReportService) List(ctx context.Context, page, pageSize int) ([]domain.IndustryReport, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(offset, pageSize)
+	return s.repo.List(ctx, offset, pageSize)
 }
 
-func (s *ReportService) Get(id string) (domain.IndustryReport, error) {
-	return s.repo.FindByID(id)
+func (s *ReportService) Get(ctx context.Context, id string) (domain.IndustryReport, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *ReportService) Update(id, title, period, category, summary, content, fileURL, author, status string) (domain.IndustryReport, error) {
-	r, err := s.repo.FindByID(id)
+func (s *ReportService) Update(ctx context.Context, id, title, period, category, summary, content, fileURL, author, status string) (domain.IndustryReport, error) {
+	r, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.IndustryReport{}, err
 	}
@@ -334,11 +337,11 @@ func (s *ReportService) Update(id, title, period, category, summary, content, fi
 	r.Author = author
 	r.Status = status
 	r.UpdatedAt = time.Now()
-	return s.repo.Update(r)
+	return s.repo.Update(ctx, r)
 }
 
-func (s *ReportService) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *ReportService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // ---- PortfolioService (企业品牌展示) ----
@@ -351,7 +354,7 @@ func NewPortfolioService(repo repository.PortfolioRepository) *PortfolioService 
 	return &PortfolioService{repo: repo}
 }
 
-func (s *PortfolioService) Create(enterpriseID, name, logoURL, coverURL, description, contactInfo string, products, honors []string) (domain.MemberPortfolio, error) {
+func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoURL, coverURL, description, contactInfo string, products, honors []string) (domain.MemberPortfolio, error) {
 	now := time.Now()
 	p := domain.MemberPortfolio{
 		ID:           fmt.Sprintf("portfolio-%d", now.UnixNano()),
@@ -367,26 +370,26 @@ func (s *PortfolioService) Create(enterpriseID, name, logoURL, coverURL, descrip
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	return s.repo.Create(p)
+	return s.repo.Create(ctx, p)
 }
 
-func (s *PortfolioService) ListPublished(page, pageSize int) ([]domain.MemberPortfolio, int, error) {
+func (s *PortfolioService) ListPublished(ctx context.Context, page, pageSize int) ([]domain.MemberPortfolio, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListPublished(offset, pageSize)
+	return s.repo.ListPublished(ctx, offset, pageSize)
 }
 
 // List 管理端全量列表（含草稿/待审），供 admin 列表页使用。
-func (s *PortfolioService) List(page, pageSize int) ([]domain.MemberPortfolio, int, error) {
+func (s *PortfolioService) List(ctx context.Context, page, pageSize int) ([]domain.MemberPortfolio, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(offset, pageSize)
+	return s.repo.List(ctx, offset, pageSize)
 }
 
-func (s *PortfolioService) Get(id string) (domain.MemberPortfolio, error) {
-	return s.repo.FindByID(id)
+func (s *PortfolioService) Get(ctx context.Context, id string) (domain.MemberPortfolio, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *PortfolioService) Update(id, name, logoURL, coverURL, description, contactInfo, status string, products, honors []string) (domain.MemberPortfolio, error) {
-	p, err := s.repo.FindByID(id)
+func (s *PortfolioService) Update(ctx context.Context, id, name, logoURL, coverURL, description, contactInfo, status string, products, honors []string) (domain.MemberPortfolio, error) {
+	p, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.MemberPortfolio{}, err
 	}
@@ -399,12 +402,13 @@ func (s *PortfolioService) Update(id, name, logoURL, coverURL, description, cont
 	p.ContactInfo = contactInfo
 	p.Status = status
 	p.UpdatedAt = time.Now()
-	return s.repo.Update(p)
+	return s.repo.Update(ctx, p)
 }
 
-func (s *PortfolioService) Delete(id string) error { return s.repo.Delete(id) }
-
-func (s *PortfolioService) ListByEnterprise(enterpriseID string) ([]domain.MemberPortfolio, error) {
-	return s.repo.ListByEnterprise(enterpriseID)
+func (s *PortfolioService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
 
+func (s *PortfolioService) ListByEnterprise(ctx context.Context, enterpriseID string) ([]domain.MemberPortfolio, error) {
+	return s.repo.ListByEnterprise(ctx, enterpriseID)
+}

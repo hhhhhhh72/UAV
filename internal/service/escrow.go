@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -25,42 +26,42 @@ func newTx(userID, counterparty, txType, refType, refID string, amountFen int64)
 	}
 }
 
-func (s *EscrowService) Deposit(userID string, amountFen int64) (domain.EscrowTransaction, error) {
+func (s *EscrowService) Deposit(ctx context.Context, userID string, amountFen int64) (domain.EscrowTransaction, error) {
 	if amountFen <= 0 {
 		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
 	tx := newTx("system", userID, "deposit", "", "", amountFen)
-	return s.repo.Deposit(userID, amountFen, tx)
+	return s.repo.Deposit(ctx, userID, amountFen, tx)
 }
 
-func (s *EscrowService) Freeze(userID string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
+func (s *EscrowService) Freeze(ctx context.Context, userID string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
 	if amountFen <= 0 {
 		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
 	tx := newTx(userID, "escrow", "freeze", refType, refID, amountFen)
-	return s.repo.Freeze(userID, amountFen, tx)
+	return s.repo.Freeze(ctx, userID, amountFen, tx)
 }
 
-func (s *EscrowService) Release(fromUser, toUser string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
+func (s *EscrowService) Release(ctx context.Context, fromUser, toUser string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
 	if amountFen <= 0 {
 		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
 	tx := newTx(fromUser, toUser, "release", refType, refID, amountFen)
-	return s.repo.Release(fromUser, toUser, amountFen, tx)
+	return s.repo.Release(ctx, fromUser, toUser, amountFen, tx)
 }
 
-func (s *EscrowService) Refund(userID string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
+func (s *EscrowService) Refund(ctx context.Context, userID string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
 	if amountFen <= 0 {
 		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
 	tx := newTx("escrow", userID, "refund", refType, refID, amountFen)
-	return s.repo.Refund(userID, amountFen, tx)
+	return s.repo.Refund(ctx, userID, amountFen, tx)
 }
 
-func (s *EscrowService) Balance(userID string) (domain.EscrowAccount, error) {
-	return s.repo.GetAccount(userID)
+func (s *EscrowService) Balance(ctx context.Context, userID string) (domain.EscrowAccount, error) {
+	return s.repo.GetAccount(ctx, userID)
 }
 
-func (s *EscrowService) Transactions(userID string) ([]domain.EscrowTransaction, error) {
-	return s.repo.ListTransactions(userID)
+func (s *EscrowService) Transactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {
+	return s.repo.ListTransactions(ctx, userID)
 }

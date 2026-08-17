@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -27,39 +28,39 @@ func NewTrainingService(cr repository.CertificateRepository, cor repository.Cour
 
 // ---- Certificates ----
 
-func (s *TrainingService) AddCertificate(a domain.Actor, certType domain.CertType, certNumber, level, issuer string, issueDate, expireDate time.Time) (domain.Certificate, error) {
+func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, certType domain.CertType, certNumber, level, issuer string, issueDate, expireDate time.Time) (domain.Certificate, error) {
 	now := time.Now()
 	c := domain.Certificate{ID: fmt.Sprintf("cert-%d", now.UnixNano()), UserID: a.ID, CertType: certType,
 		CertNumber: certNumber, Level: level, IssueDate: issueDate, ExpireDate: expireDate,
 		IssuerOrg: issuer, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
-	return s.certRepo.Create(c)
+	return s.certRepo.Create(ctx, c)
 }
 
-func (s *TrainingService) ApproveCertificate(a domain.Actor, id string) (domain.Certificate, error) {
+func (s *TrainingService) ApproveCertificate(ctx context.Context, a domain.Actor, id string) (domain.Certificate, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Certificate{}, errors.New("admin permission required")
 	}
-	return s.certRepo.UpdateStatus(id, "approved")
+	return s.certRepo.UpdateStatus(ctx, id, "approved")
 }
 
-func (s *TrainingService) ListMyCertificates(a domain.Actor) ([]domain.Certificate, error) {
-	return s.certRepo.ListByUser(a.ID)
+func (s *TrainingService) ListMyCertificates(ctx context.Context, a domain.Actor) ([]domain.Certificate, error) {
+	return s.certRepo.ListByUser(ctx, a.ID)
 }
 
-func (s *TrainingService) ListAllCertificates() ([]domain.Certificate, error) {
-	return s.certRepo.ListAll()
+func (s *TrainingService) ListAllCertificates(ctx context.Context) ([]domain.Certificate, error) {
+	return s.certRepo.ListAll(ctx)
 }
 
-func (s *TrainingService) GetCourse(id string) (domain.TrainingCourse, error) {
-	return s.courseRepo.FindByID(id)
+func (s *TrainingService) GetCourse(ctx context.Context, id string) (domain.TrainingCourse, error) {
+	return s.courseRepo.FindByID(ctx, id)
 }
 
-func (s *TrainingService) GetCert(id string) (domain.Certificate, error) {
-	return s.certRepo.FindByID(id)
+func (s *TrainingService) GetCert(ctx context.Context, id string) (domain.Certificate, error) {
+	return s.certRepo.FindByID(ctx, id)
 }
 
-func (s *TrainingService) UpdateCertificate(id, certType, certNumber, level, issuer, status string, issueDate, expireDate time.Time) (domain.Certificate, error) {
-	c, err := s.certRepo.FindByID(id)
+func (s *TrainingService) UpdateCertificate(ctx context.Context, id, certType, certNumber, level, issuer, status string, issueDate, expireDate time.Time) (domain.Certificate, error) {
+	c, err := s.certRepo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Certificate{}, err
 	}
@@ -70,17 +71,17 @@ func (s *TrainingService) UpdateCertificate(id, certType, certNumber, level, iss
 	c.Status = status
 	c.IssueDate = issueDate
 	c.ExpireDate = expireDate
-	return s.certRepo.Update(c)
+	return s.certRepo.Update(ctx, c)
 }
 
-func (s *TrainingService) DeleteCertificate(id string) error {
-	return s.certRepo.Delete(id)
+func (s *TrainingService) DeleteCertificate(ctx context.Context, id string) error {
+	return s.certRepo.Delete(ctx, id)
 }
 
 // ---- Courses ----
 
 // CreateCourse 接收完整领域对象（含小程序页面字段 org_name/rating/district/courses 等）。
-func (s *TrainingService) CreateCourse(a domain.Actor, c domain.TrainingCourse) (domain.TrainingCourse, error) {
+func (s *TrainingService) CreateCourse(ctx context.Context, a domain.Actor, c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	now := time.Now()
 	if c.ID == "" {
 		c.ID = fmt.Sprintf("course-%d", now.UnixNano())
@@ -92,54 +93,54 @@ func (s *TrainingService) CreateCourse(a domain.Actor, c domain.TrainingCourse) 
 	c.Version = 1
 	c.CreatedAt = now
 	c.UpdatedAt = now
-	return s.courseRepo.Create(c)
+	return s.courseRepo.Create(ctx, c)
 }
 
-func (s *TrainingService) ListCourses() ([]domain.TrainingCourse, error) {
-	return s.courseRepo.List()
+func (s *TrainingService) ListCourses(ctx context.Context) ([]domain.TrainingCourse, error) {
+	return s.courseRepo.List(ctx)
 }
 
-func (s *TrainingService) UpdateCourse(c domain.TrainingCourse) (domain.TrainingCourse, error) {
-	old, err := s.courseRepo.FindByID(c.ID)
+func (s *TrainingService) UpdateCourse(ctx context.Context, c domain.TrainingCourse) (domain.TrainingCourse, error) {
+	old, err := s.courseRepo.FindByID(ctx, c.ID)
 	if err != nil {
 		return domain.TrainingCourse{}, err
 	}
 	c.Version = old.Version
 	c.CreatedAt = old.CreatedAt // 保留原创建时间
 	c.UpdatedAt = time.Now()
-	return s.courseRepo.Update(c)
+	return s.courseRepo.Update(ctx, c)
 }
 
-func (s *TrainingService) DeleteCourse(id string) error {
-	return s.courseRepo.Delete(id)
+func (s *TrainingService) DeleteCourse(ctx context.Context, id string) error {
+	return s.courseRepo.Delete(ctx, id)
 }
 
 // ---- Instructors ----
 
-func (s *TrainingService) RegisterInstructor(a domain.Actor, name, photo, bio, orgID string, certTypes []string) (domain.Instructor, error) {
+func (s *TrainingService) RegisterInstructor(ctx context.Context, a domain.Actor, name, photo, bio, orgID string, certTypes []string) (domain.Instructor, error) {
 	now := time.Now()
 	i := domain.Instructor{ID: fmt.Sprintf("instructor-%d", now.UnixNano()), UserID: a.ID, Name: name,
 		Photo: photo, CertTypes: certTypes, Bio: bio, OrgID: orgID, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
-	return s.instructorRepo.Create(i)
+	return s.instructorRepo.Create(ctx, i)
 }
 
-func (s *TrainingService) ApproveInstructor(a domain.Actor, id string) (domain.Instructor, error) {
+func (s *TrainingService) ApproveInstructor(ctx context.Context, a domain.Actor, id string) (domain.Instructor, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Instructor{}, errors.New("admin permission required")
 	}
-	return s.instructorRepo.UpdateStatus(id, "approved")
+	return s.instructorRepo.UpdateStatus(ctx, id, "approved")
 }
 
-func (s *TrainingService) ListInstructors() ([]domain.Instructor, error) {
-	return s.instructorRepo.List()
+func (s *TrainingService) ListInstructors(ctx context.Context) ([]domain.Instructor, error) {
+	return s.instructorRepo.List(ctx)
 }
 
 // ---- Certified Pilots ----
 
-func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string, flightHours int, bio, avatar, region string) (domain.CertifiedPilot, error) {
+func (s *TrainingService) RegisterPilot(ctx context.Context, a domain.Actor, realName, idCard string, flightHours int, bio, avatar, region string) (domain.CertifiedPilot, error) {
 	// 自动关联已认证证书（审核管线 approved 状态，无手动勾选/造假空间）
 	certIDs := []string{}
-	if certs, err := s.certRepo.ListByUser(a.ID); err == nil {
+	if certs, err := s.certRepo.ListByUser(ctx, a.ID); err == nil {
 		for _, c := range certs {
 			if c.Status == "approved" {
 				certIDs = append(certIDs, c.ID)
@@ -148,7 +149,7 @@ func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string,
 	}
 	now := time.Now()
 	// 已有记录：approved/pending 拒绝重复申请；rejected 覆盖重提（重置为 pending）
-	if existing, err := s.pilotRepo.List(); err == nil {
+	if existing, err := s.pilotRepo.List(ctx); err == nil {
 		for _, e := range existing {
 			if e.UserID != a.ID {
 				continue
@@ -167,47 +168,47 @@ func (s *TrainingService) RegisterPilot(a domain.Actor, realName, idCard string,
 				e.FlightHours = flightHours
 				e.Bio = bio
 				e.Status = "pending"
-				return s.pilotRepo.Update(e)
+				return s.pilotRepo.Update(ctx, e)
 			}
 		}
 	}
 	p := domain.CertifiedPilot{ID: fmt.Sprintf("pilot-%d", now.UnixNano()), UserID: a.ID, RealName: realName,
 		IDCard: idCard, Avatar: avatar, Region: region, CertIDs: certIDs, FlightHours: flightHours, Bio: bio,
 		Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
-	return s.pilotRepo.Create(p)
+	return s.pilotRepo.Create(ctx, p)
 }
 
-func (s *TrainingService) ApprovePilot(a domain.Actor, id string) (domain.CertifiedPilot, error) {
+func (s *TrainingService) ApprovePilot(ctx context.Context, a domain.Actor, id string) (domain.CertifiedPilot, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.CertifiedPilot{}, errors.New("admin permission required")
 	}
-	return s.pilotRepo.UpdateStatus(id, "approved")
+	return s.pilotRepo.UpdateStatus(ctx, id, "approved")
 }
 
 // RejectPilot 驳回飞手认证申请（管理员）。
-func (s *TrainingService) RejectPilot(a domain.Actor, id string) (domain.CertifiedPilot, error) {
+func (s *TrainingService) RejectPilot(ctx context.Context, a domain.Actor, id string) (domain.CertifiedPilot, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.CertifiedPilot{}, errors.New("admin permission required")
 	}
-	return s.pilotRepo.UpdateStatus(id, "rejected")
+	return s.pilotRepo.UpdateStatus(ctx, id, "rejected")
 }
 
-func (s *TrainingService) ListPilots() ([]domain.CertifiedPilot, error) {
-	return s.pilotRepo.List()
+func (s *TrainingService) ListPilots(ctx context.Context) ([]domain.CertifiedPilot, error) {
+	return s.pilotRepo.List(ctx)
 }
 
 // GetPilot 按 ID 单查飞手（详情页）。
-func (s *TrainingService) GetPilot(id string) (domain.CertifiedPilot, error) {
-	return s.pilotRepo.FindByID(id)
+func (s *TrainingService) GetPilot(ctx context.Context, id string) (domain.CertifiedPilot, error) {
+	return s.pilotRepo.FindByID(ctx, id)
 }
 
 // GetPilotDetail 按 ID 单查飞手详情（含 certificates 证书明细，一次性 ListAll 关联防 N+1）。
-func (s *TrainingService) GetPilotDetail(id string) (domain.CertifiedPilotDetail, error) {
-	p, err := s.pilotRepo.FindByID(id)
+func (s *TrainingService) GetPilotDetail(ctx context.Context, id string) (domain.CertifiedPilotDetail, error) {
+	p, err := s.pilotRepo.FindByID(ctx, id)
 	if err != nil || p.ID == "" {
 		return domain.CertifiedPilotDetail{}, err
 	}
-	certs, err := s.certRepo.ListAll()
+	certs, err := s.certRepo.ListAll(ctx)
 	if err != nil {
 		return domain.CertifiedPilotDetail{}, err
 	}
@@ -226,12 +227,12 @@ func (s *TrainingService) GetPilotDetail(id string) (domain.CertifiedPilotDetail
 
 // ListPilotsDetailed 名录输出：把 cert_ids 扩展为证书对象数组（certificates）。
 // 一次性 ListAll 后按 UserID 分组，避免 N+1 查询。
-func (s *TrainingService) ListPilotsDetailed() ([]domain.CertifiedPilotDetail, error) {
-	pilots, err := s.pilotRepo.List()
+func (s *TrainingService) ListPilotsDetailed(ctx context.Context) ([]domain.CertifiedPilotDetail, error) {
+	pilots, err := s.pilotRepo.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	certs, err := s.certRepo.ListAll()
+	certs, err := s.certRepo.ListAll(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -271,8 +272,8 @@ func certTypeName(t domain.CertType) string {
 }
 
 // GetPilotByOwner 查询我的飞手认证记录（未申请返回零值）。
-func (s *TrainingService) GetPilotByOwner(userID string) (domain.CertifiedPilot, error) {
-	pilots, err := s.pilotRepo.List()
+func (s *TrainingService) GetPilotByOwner(ctx context.Context, userID string) (domain.CertifiedPilot, error) {
+	pilots, err := s.pilotRepo.List(ctx)
 	if err != nil {
 		return domain.CertifiedPilot{}, err
 	}

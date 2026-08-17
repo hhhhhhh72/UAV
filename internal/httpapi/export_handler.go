@@ -20,7 +20,7 @@ func (s *Server) exportDemands(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	demands, err := s.demands.List(repository.DemandFilter{})
+	demands, err := s.demands.List(r.Context(), repository.DemandFilter{})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -72,7 +72,7 @@ func (s *Server) exportEnterprises(w http.ResponseWriter, r *http.Request) {
 	if status == "" {
 		status = "submitted"
 	}
-	items, _, err := s.enterpriseSvc.ListByStatus(a, status, 0, 10000)
+	items, _, err := s.enterpriseSvc.ListByStatus(r.Context(), a, status, 0, 10000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -123,7 +123,7 @@ func (s *Server) batchApproveDemands(w http.ResponseWriter, r *http.Request) {
 	}
 	approved, failed := 0, 0
 	for _, id := range req.IDs {
-		if _, err := s.demands.Approve(a, strings.TrimSpace(id)); err != nil {
+		if _, err := s.demands.Approve(r.Context(), a, strings.TrimSpace(id)); err != nil {
 			failed++
 		} else {
 			approved++

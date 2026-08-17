@@ -12,7 +12,7 @@ func (s *Server) markMessageRead(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if _, err := s.msgSvc.MarkRead(a.ID, r.PathValue("id")); err != nil {
+	if _, err := s.msgSvc.MarkRead(r.Context(), a.ID, r.PathValue("id")); err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
@@ -27,7 +27,7 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	unread := r.URL.Query().Get("unread") == "1"
-	msgs, err := s.msgSvc.ListForUser(a.ID, unread)
+	msgs, err := s.msgSvc.ListForUser(r.Context(), a.ID, unread)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -42,7 +42,7 @@ func (s *Server) unreadCount(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	count, err := s.msgSvc.UnreadCount(a.ID)
+	count, err := s.msgSvc.UnreadCount(r.Context(), a.ID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

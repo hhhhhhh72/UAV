@@ -28,7 +28,7 @@ func (s *Server) createProduct(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.tradingSvc.CreateProduct(a, domain.ProductType(in.ProdType), in.Title, in.Description, in.Brand, in.Model, in.Condition, in.PriceFen, in.Images)
+	p, err := s.tradingSvc.CreateProduct(r.Context(), a, domain.ProductType(in.ProdType), in.Title, in.Description, in.Brand, in.Model, in.Condition, in.PriceFen, in.Images)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -37,7 +37,7 @@ func (s *Server) createProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
-	products, err := s.tradingSvc.ListProducts(r.URL.Query().Get("prod_type"))
+	products, err := s.tradingSvc.ListProducts(r.Context(), r.URL.Query().Get("prod_type"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -80,7 +80,7 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/products/{id} — 商品详情（公开，浏览量+1）
 func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
-	p, err := s.tradingSvc.GetProductAndCountView(r.PathValue("id"))
+	p, err := s.tradingSvc.GetProductAndCountView(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -138,7 +138,7 @@ func (s *Server) adminCreateProduct(w http.ResponseWriter, r *http.Request) {
 	if p.SellerName == "" {
 		p.SellerName = "平台自营"
 	}
-	created, err := s.tradingSvc.CreateProduct(domain.Actor{Role: domain.RolePlatformAdmin}, p.ProdType, p.Title, p.Description, p.Brand, p.Model, p.Condition, p.PriceFen, p.Images)
+	created, err := s.tradingSvc.CreateProduct(r.Context(), domain.Actor{Role: domain.RolePlatformAdmin}, p.ProdType, p.Title, p.Description, p.Brand, p.Model, p.Condition, p.PriceFen, p.Images)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -147,7 +147,7 @@ func (s *Server) adminCreateProduct(w http.ResponseWriter, r *http.Request) {
 	created.Status = p.Status
 	created.Images = in.Images
 	created.SellerName = p.SellerName
-	if _, err := s.tradingSvc.UpdateProduct(created); err != nil {
+	if _, err := s.tradingSvc.UpdateProduct(r.Context(), created); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -172,7 +172,7 @@ func (s *Server) adminUpdateProduct(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	existing, err := s.tradingSvc.GetProduct(r.PathValue("id"))
+	existing, err := s.tradingSvc.GetProduct(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -207,7 +207,7 @@ func (s *Server) adminUpdateProduct(w http.ResponseWriter, r *http.Request) {
 	if in.SellerName != "" {
 		existing.SellerName = in.SellerName
 	}
-	updated, err := s.tradingSvc.UpdateProduct(existing)
+	updated, err := s.tradingSvc.UpdateProduct(r.Context(), existing)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -217,7 +217,7 @@ func (s *Server) adminUpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/v1/admin/products/{id} — 管理后台删除商品
 func (s *Server) adminDeleteProduct(w http.ResponseWriter, r *http.Request) {
-	if err := s.tradingSvc.DeleteProduct(r.PathValue("id")); err != nil {
+	if err := s.tradingSvc.DeleteProduct(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -226,7 +226,7 @@ func (s *Server) adminDeleteProduct(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/products — 管理后台商品列表
 func (s *Server) listAdminProducts(w http.ResponseWriter, r *http.Request) {
-	products, err := s.tradingSvc.ListProducts(r.URL.Query().Get("prod_type"))
+	products, err := s.tradingSvc.ListProducts(r.Context(), r.URL.Query().Get("prod_type"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -251,7 +251,7 @@ func (s *Server) createRepair(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	rp, err := s.tradingSvc.CreateRepair(a, in.ProductDesc, in.FaultDesc)
+	rp, err := s.tradingSvc.CreateRepair(r.Context(), a, in.ProductDesc, in.FaultDesc)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -265,7 +265,7 @@ func (s *Server) listMyRepairs(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	repairs, err := s.tradingSvc.ListMyRepairs(a)
+	repairs, err := s.tradingSvc.ListMyRepairs(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -294,7 +294,7 @@ func (s *Server) createPolicy(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.insuranceSvc.CreatePolicy(a, in.DroneModel, in.DroneSN, in.PolicyType, in.PremiumFen, in.CoverageFen, in.StartDate, in.EndDate)
+	p, err := s.insuranceSvc.CreatePolicy(r.Context(), a, in.DroneModel, in.DroneSN, in.PolicyType, in.PremiumFen, in.CoverageFen, in.StartDate, in.EndDate)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -308,7 +308,7 @@ func (s *Server) listMyPolicies(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	policies, err := s.insuranceSvc.ListMyPolicies(a)
+	policies, err := s.insuranceSvc.ListMyPolicies(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -332,7 +332,7 @@ func (s *Server) createInspection(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	i, err := s.insuranceSvc.CreateInspection(a, in.DroneModel, in.DroneSN, in.InspectDate, in.ExpireDate)
+	i, err := s.insuranceSvc.CreateInspection(r.Context(), a, in.DroneModel, in.DroneSN, in.InspectDate, in.ExpireDate)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -346,7 +346,7 @@ func (s *Server) listMyInspections(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	inspections, err := s.insuranceSvc.ListMyInspections(a)
+	inspections, err := s.insuranceSvc.ListMyInspections(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -371,7 +371,7 @@ func (s *Server) applyLoan(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	l, err := s.financeSvc.ApplyLoan(a, in.AmountFen, in.TermMonths, in.Purpose)
+	l, err := s.financeSvc.ApplyLoan(r.Context(), a, in.AmountFen, in.TermMonths, in.Purpose)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -385,7 +385,7 @@ func (s *Server) listMyLoans(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	loans, err := s.financeSvc.ListMyLoans(a)
+	loans, err := s.financeSvc.ListMyLoans(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

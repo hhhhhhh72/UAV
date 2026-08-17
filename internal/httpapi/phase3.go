@@ -27,7 +27,7 @@ func (s *Server) enrollCourse(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	e, err := s.enrollSvc.Enroll(a.ID, r.PathValue("id"), form)
+	e, err := s.enrollSvc.Enroll(r.Context(), a.ID, r.PathValue("id"), form)
 	if err != nil {
 		fail(w, r, http.StatusConflict, err)
 		return
@@ -44,7 +44,7 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	course, err := s.trainingSvc.GetCourse(r.PathValue("id"))
+	course, err := s.trainingSvc.GetCourse(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, errors.New("course not found"))
 		return
@@ -57,14 +57,14 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if course.PriceFen > 0 {
-		_, err := s.escrowSvc.Freeze(a.ID, course.PriceFen, "training_course", course.ID)
+		_, err := s.escrowSvc.Freeze(r.Context(), a.ID, course.PriceFen, "training_course", course.ID)
 		if err != nil {
 			fail(w, r, http.StatusPaymentRequired, fmt.Errorf("insufficient balance: %w", err))
 			return
 		}
 	}
 
-	e, err := s.enrollSvc.Enroll(a.ID, course.ID, form)
+	e, err := s.enrollSvc.Enroll(r.Context(), a.ID, course.ID, form)
 	if err != nil {
 		fail(w, r, http.StatusConflict, err)
 		return
@@ -86,7 +86,7 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	enrolls, err := s.enrollSvc.ListByCourse(r.PathValue("id"))
+	enrolls, err := s.enrollSvc.ListByCourse(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -107,7 +107,7 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find course to get price and org.
-	course, err := s.trainingSvc.GetCourse(enrollment.CourseID)
+	course, err := s.trainingSvc.GetCourse(r.Context(), enrollment.CourseID)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, fmt.Errorf("course not found: %w", err))
 		return
@@ -115,7 +115,7 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 
 	// Release funds if course was paid.
 	if course.PriceFen > 0 {
-		_, err := s.escrowSvc.Release(enrollment.UserID, course.OrgID, course.PriceFen, "training_course", course.ID)
+		_, err := s.escrowSvc.Release(r.Context(), enrollment.UserID, course.OrgID, course.PriceFen, "training_course", course.ID)
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("release escrow: %w", err))
 			return
@@ -123,7 +123,7 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auto-issue certificate.
-	cert, err := s.trainingSvc.AddCertificate(
+	cert, err := s.trainingSvc.AddCertificate(r.Context(),
 		domain.Actor{ID: enrollment.UserID, Role: domain.RoleIndividual},
 		course.CertType, "auto-"+enrollment.ID, "passed", course.OrgID,
 		time.Now(), time.Now().AddDate(3, 0, 0),
@@ -167,7 +167,7 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 查原记录保留 course_id/user_id/created_at
-	all, _, err := s.enrollSvc.All(0, 10000)
+	all, _, err := s.enrollSvc.All(r.Context(), 0, 10000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -199,7 +199,7 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 	found.IDCardImage = in.IDCardImage
 	found.NoCrime = in.NoCrime
 	found.Status = in.Status
-	updated, err := s.enrollSvc.Update(a, *found)
+	updated, err := s.enrollSvc.Update(r.Context(), a, *found)
 	if err != nil {
 		switch {
 		case strings.Contains(err.Error(), "not found"):
@@ -223,7 +223,7 @@ func (s *Server) listMyEnrollments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Collect all enrollments for this user across all courses.
-	courses, err := s.trainingSvc.ListCourses()
+	courses, err := s.trainingSvc.ListCourses(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -235,7 +235,7 @@ func (s *Server) listMyEnrollments(w http.ResponseWriter, r *http.Request) {
 	}
 	var out []enrollmentWithCourse
 	for _, c := range courses {
-		enrolls, _ := s.enrollSvc.ListByCourse(c.ID)
+		enrolls, _ := s.enrollSvc.ListByCourse(r.Context(), c.ID)
 		for _, e := range enrolls {
 			if e.UserID == a.ID {
 				out = append(out, enrollmentWithCourse{Enrollment: e, CourseTitle: c.Title})
@@ -252,7 +252,7 @@ func (s *Server) listEnrollments(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	enrolls, err := s.enrollSvc.ListByCourse(r.PathValue("id"))
+	enrolls, err := s.enrollSvc.ListByCourse(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -273,7 +273,7 @@ func (s *Server) listExpiringCerts(w http.ResponseWriter, r *http.Request) {
 	if d, err := fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days); d != 1 || err != nil {
 		days = 30
 	}
-	certs, err := s.trainingSvc.ListAllCertificates()
+	certs, err := s.trainingSvc.ListAllCertificates(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -292,7 +292,7 @@ func (s *Server) listExpiringInspections(w http.ResponseWriter, r *http.Request)
 	if d, err := fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days); d != 1 || err != nil {
 		days = 30
 	}
-	inspections, err := s.insuranceSvc.ListAllInspections()
+	inspections, err := s.insuranceSvc.ListAllInspections(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -318,7 +318,7 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	o, err := s.tradeSvc.Create(a.ID, in.ProductID, in.SellerID, in.AmountFen)
+	o, err := s.tradeSvc.Create(r.Context(), a.ID, in.ProductID, in.SellerID, in.AmountFen)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -341,7 +341,7 @@ func (s *Server) updateTradeOrderStatus(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	o, err := s.tradeSvc.UpdateStatus(r.PathValue("id"), a.ID, in.Status)
+	o, err := s.tradeSvc.UpdateStatus(r.Context(), r.PathValue("id"), a.ID, in.Status)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -366,7 +366,7 @@ func (s *Server) applyAftersale(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	o, err := s.tradeSvc.ApplyAftersale(a.ID, r.PathValue("id"), in.AftersaleType, in.AftersaleReason, in.AftersaleDesc, in.AftersaleAmountFen)
+	o, err := s.tradeSvc.ApplyAftersale(r.Context(), a.ID, r.PathValue("id"), in.AftersaleType, in.AftersaleReason, in.AftersaleDesc, in.AftersaleAmountFen)
 	if err != nil {
 		// 权限/状态机/重复申请错误统一 400，不泄露细节
 		fail(w, r, http.StatusBadRequest, err)
@@ -383,7 +383,7 @@ func (s *Server) listMyTradeOrders(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	orders, err := s.tradeSvc.ListMine(a.ID)
+	orders, err := s.tradeSvc.ListMine(r.Context(), a.ID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -405,40 +405,40 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ent, err := s.enterprises.Pending(a)
+	ent, err := s.enterprises.Pending(r.Context(), a)
 	if err != nil {
 		slog.Warn("admin dashboard: load pending enterprises", "err", err)
 		ent = nil
 	}
 	entPending := len(ent)
 
-	dem, err := s.demands.ListAll(repository.DemandFilter{})
+	dem, err := s.demands.ListAll(r.Context(), repository.DemandFilter{})
 	if err != nil {
 		slog.Warn("admin dashboard: load demands", "err", err)
 		dem = nil
 	}
 	totalDemands := len(dem)
 
-	posts, _, err := s.communitySvc.ListPublishedPosts(0, 10000)
+	posts, _, err := s.communitySvc.ListPublishedPosts(r.Context(), 0, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load posts", "err", err)
 		posts = nil
 	}
 	totalPosts := len(posts)
 
-	pendingList, _, err := s.reviewSvc.ListAll("", 0, 10000)
+	pendingList, _, err := s.reviewSvc.ListAll(r.Context(), "", 0, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load pending reports", "err", err)
 	}
 	totalReports := len(pendingList)
 
-	users, err := s.userRepo.All()
+	users, err := s.userRepo.All(r.Context())
 	if err != nil {
 		slog.Warn("admin dashboard: load users", "err", err)
 	}
 	totalUsers := len(users)
 
-	msgs, _, err := s.msgSvc.ListAll(0, 10000)
+	msgs, _, err := s.msgSvc.ListAll(r.Context(), 0, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load messages", "err", err)
 	}
@@ -465,101 +465,101 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	// Module stats
 	modules := map[string]map[string]int{"talent": {}, "events": {}, "industry": {}}
 	// Talent
-	certs, err := s.trainingSvc.ListAllCertificates()
+	certs, err := s.trainingSvc.ListAllCertificates(r.Context())
 	if err != nil {
 		slog.Warn("admin dashboard: load certificates", "err", err)
 	}
 	modules["talent"]["certificates"] = len(certs)
-	cols, err := s.collegeSvc.List("")
+	cols, err := s.collegeSvc.List(r.Context(), "")
 	if err != nil {
 		slog.Warn("admin dashboard: load colleges", "err", err)
 	}
 	modules["talent"]["colleges"] = len(cols)
-	jobs, _, err := s.jobSvc.ListPublishedJobs(0, 10000)
+	jobs, _, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load jobs", "err", err)
 	}
 	modules["talent"]["jobs"] = len(jobs)
-	tours, err := s.studyTourRepo.List()
+	tours, err := s.studyTourRepo.List(r.Context())
 	if err != nil {
 		slog.Warn("admin dashboard: load study tours", "err", err)
 	}
 	modules["talent"]["study_tours"] = len(tours)
-	courses, err := s.trainingSvc.ListCourses()
+	courses, err := s.trainingSvc.ListCourses(r.Context())
 	if err != nil {
 		slog.Warn("admin dashboard: load training courses", "err", err)
 	}
 	modules["talent"]["training_courses"] = len(courses)
 
 	// Events
-	competitions, _, err := s.competitionSvc.List(1, 10000)
+	competitions, _, err := s.competitionSvc.List(r.Context(), 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load competitions", "err", err)
 	}
 	modules["events"]["competitions"] = competitionsIfNil(competitions)
-	evs, _, err := s.eventSvc.List(1, 10000)
+	evs, _, err := s.eventSvc.List(r.Context(), 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load events", "err", err)
 	}
 	modules["events"]["events"] = evsIfNil(evs)
-	exhs, _, err := s.exhibitionSvc.List(1, 10000)
+	exhs, _, err := s.exhibitionSvc.List(r.Context(), 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load exhibitions", "err", err)
 	}
 	modules["events"]["exhibitions"] = exhsIfNil(exhs)
-	emergRes, _, err := s.emergencySvc.ListResources("", "", 1, 10000)
+	emergRes, _, err := s.emergencySvc.ListResources(r.Context(), "", "", 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load emergency resources", "err", err)
 	}
 	modules["events"]["emergency_resources"] = emgResIfNil(emergRes)
-	disps, _, err := s.emergencySvc.ListDispatches(1, 10000)
+	disps, _, err := s.emergencySvc.ListDispatches(r.Context(), 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load emergency dispatches", "err", err)
 	}
 	modules["events"]["emergency_dispatches"] = dispIfNil(disps)
 
 	// Industry
-	achs, _, err := s.achievementSvc.List("", 1, 10000)
+	achs, _, err := s.achievementSvc.List(r.Context(), "", 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load achievements", "err", err)
 	}
 	modules["industry"]["achievements"] = achsIfNil(achs)
-	cases, _, err := s.caseSvc.List("", 1, 10000)
+	cases, _, err := s.caseSvc.List(r.Context(), "", 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load cases", "err", err)
 	}
 	modules["industry"]["cases"] = casesIfNil(cases)
-	exps, err := s.expertSvc.List("")
+	exps, err := s.expertSvc.List(r.Context(), "")
 	if err != nil {
 		slog.Warn("admin dashboard: load experts", "err", err)
 	}
 	modules["industry"]["experts"] = len(exps)
-	rpts, _, err := s.reportSvc.List(1, 10000)
+	rpts, _, err := s.reportSvc.List(r.Context(), 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load industry reports", "err", err)
 	}
 	modules["industry"]["industry_reports"] = rptsIfNil(rpts)
-	res, _, err := s.resourceSvc.List("", 1, 10000)
+	res, _, err := s.resourceSvc.List(r.Context(), "", 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load industry resources", "err", err)
 	}
 	modules["industry"]["industry_resources"] = resIfNil(res)
-	ports, _, err := s.portfolioSvc.ListPublished(1, 10000)
+	ports, _, err := s.portfolioSvc.ListPublished(r.Context(), 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load portfolios", "err", err)
 	}
 	modules["industry"]["portfolios"] = len(ports)
-	rds, _, err := s.rdService.List("", 1, 10000)
+	rds, _, err := s.rdService.List(r.Context(), "", 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load rd challenges", "err", err)
 	}
 	modules["industry"]["rd_challenges"] = rdsIfNil(rds)
-	projs, _, err := s.researchSvc.List(1, 10000)
+	projs, _, err := s.researchSvc.List(r.Context(), 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load research projects", "err", err)
 	}
 	modules["industry"]["research_projects"] = projsIfNil(projs)
-	sites, err := s.testSiteSvc.List("")
+	sites, err := s.testSiteSvc.List(r.Context(), "")
 	if err != nil {
 		slog.Warn("admin dashboard: load test sites", "err", err)
 	}

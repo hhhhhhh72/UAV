@@ -21,7 +21,7 @@ func (s *Server) acceptIntent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	wo, err := s.workOrderSvc.AcceptIntent(a, r.PathValue("id"), r.PathValue("intentID"), req.AmountFen)
+	wo, err := s.workOrderSvc.AcceptIntent(r.Context(), a, r.PathValue("id"), r.PathValue("intentID"), req.AmountFen)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -37,7 +37,7 @@ func (s *Server) rejectIntent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if err := s.workOrderSvc.RejectIntent(a, r.PathValue("id"), r.PathValue("intentID")); err != nil {
+	if err := s.workOrderSvc.RejectIntent(r.Context(), a, r.PathValue("id"), r.PathValue("intentID")); err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
@@ -52,7 +52,7 @@ func (s *Server) listMyWorkOrders(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	orders, err := s.workOrderSvc.ListMine(a)
+	orders, err := s.workOrderSvc.ListMine(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -67,7 +67,7 @@ func (s *Server) workOrderDetail(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	wo, err := s.workOrderSvc.FindByID(a, r.PathValue("id"))
+	wo, err := s.workOrderSvc.FindByID(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -82,7 +82,7 @@ func (s *Server) startWorkOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	wo, err := s.workOrderSvc.StartWork(a, r.PathValue("id"))
+	wo, err := s.workOrderSvc.StartWork(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -106,7 +106,7 @@ func (s *Server) completeWorkOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	wo, err := s.workOrderSvc.CompleteWork(a, r.PathValue("id"), req.ResultPhotos)
+	wo, err := s.workOrderSvc.CompleteWork(r.Context(), a, r.PathValue("id"), req.ResultPhotos)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -122,7 +122,7 @@ func (s *Server) acceptWorkOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	wo, err := s.workOrderSvc.AcceptCompletion(a, r.PathValue("id"))
+	wo, err := s.workOrderSvc.AcceptCompletion(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -145,7 +145,7 @@ func (s *Server) reworkWorkOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	wo, err := s.workOrderSvc.RequestRework(a, r.PathValue("id"), req.Note)
+	wo, err := s.workOrderSvc.RequestRework(r.Context(), a, r.PathValue("id"), req.Note)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -168,7 +168,7 @@ func (s *Server) cancelWorkOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	wo, err := s.workOrderSvc.RequestCancel(a, r.PathValue("id"), req.Reason)
+	wo, err := s.workOrderSvc.RequestCancel(r.Context(), a, r.PathValue("id"), req.Reason)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return

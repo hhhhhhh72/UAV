@@ -28,35 +28,35 @@ func (s *Store) NewCompetitionRepository(cipher *crypto.Cipher) repository.Compe
 // compCols 与 competitions 表列一一对应（迁移 000044 补齐小程序页面字段）
 const compCols = `id,title,category,description,location,start_date,end_date,deadline,max_teams,reg_count,sponsor,organizer_sub,fee,min_fee,tags,poster,requirements,events,prizes,registration_status,status,created_at,updated_at`
 
-func (r *compRepo) Create(c domain.Competition) (domain.Competition, error) {
+func (r *compRepo) Create(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	c.CreatedAt = time.Now()
 	c.UpdatedAt = c.CreatedAt
 	c.Tags = jsonbSlice(c.Tags)
 	c.Requirements = jsonbSlice(c.Requirements)
 	c.Events = jsonbSlice(c.Events)
 	c.Prizes = jsonbSlice(c.Prizes)
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO competitions (`+compCols+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
 		c.ID, c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
 		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
 		c.RegistrationStatus, c.Status, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
-func (r *compRepo) FindByID(id string) (domain.Competition, error) {
+func (r *compRepo) FindByID(ctx context.Context, id string) (domain.Competition, error) {
 	var c domain.Competition
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT `+compCols+` FROM competitions WHERE id=$1`, id).
 		Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.Deadline, &c.MaxTeams, &c.RegCount,
 			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
 			&c.RegistrationStatus, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
-func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
+func (r *compRepo) List(ctx context.Context, offset, limit int) ([]domain.Competition, int, error) {
 	var total int
-	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM competitions`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM competitions`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count competitions: %w", err)
 	}
-	rows, err := r.pool.Query(context.Background(),
+	rows, err := r.pool.Query(ctx,
 		`SELECT `+compCols+` FROM competitions ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list competitions: %w", err)
@@ -74,13 +74,13 @@ func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
 	}
 	return out, total, rows.Err()
 }
-func (r *compRepo) Update(c domain.Competition) (domain.Competition, error) {
+func (r *compRepo) Update(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	c.UpdatedAt = time.Now()
 	c.Tags = jsonbSlice(c.Tags)
 	c.Requirements = jsonbSlice(c.Requirements)
 	c.Events = jsonbSlice(c.Events)
 	c.Prizes = jsonbSlice(c.Prizes)
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`UPDATE competitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,deadline=$7,max_teams=$8,reg_count=$9,sponsor=$10,organizer_sub=$11,fee=$12,min_fee=$13,tags=$14,poster=$15,requirements=$16,events=$17,prizes=$18,registration_status=$19,status=$20,updated_at=$21 WHERE id=$22`,
 		c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
 		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
@@ -88,8 +88,8 @@ func (r *compRepo) Update(c domain.Competition) (domain.Competition, error) {
 	return c, err
 }
 
-func (r *compRepo) Delete(id string) error {
-	_, err := r.pool.Exec(context.Background(), `DELETE FROM competitions WHERE id=$1`, id)
+func (r *compRepo) Delete(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM competitions WHERE id=$1`, id)
 	return err
 }
 
@@ -124,17 +124,17 @@ func (r *compRepo) decRegPII(reg *domain.CompetitionReg) {
 		}
 	}
 }
-func (r *compRepo) CreateReg(reg domain.CompetitionReg) (domain.CompetitionReg, error) {
+func (r *compRepo) CreateReg(ctx context.Context, reg domain.CompetitionReg) (domain.CompetitionReg, error) {
 	reg.CreatedAt = time.Now()
 	r.encRegPII(&reg)
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO competition_registrations (id,competition_id,user_id,team_name,member_count,contact_info,name,phone,id_card,photo_url,id_card_image,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		reg.ID, reg.CompetitionID, reg.UserID, reg.TeamName, reg.MemberCount, reg.ContactInfo, reg.Name, reg.Phone, reg.IDCard, reg.PhotoURL, reg.IDCardImage, reg.Status, reg.CreatedAt)
 	r.decRegPII(&reg)
 	return reg, err
 }
-func (r *compRepo) ListRegs(competitionID string) ([]domain.CompetitionReg, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *compRepo) ListRegs(ctx context.Context, competitionID string) ([]domain.CompetitionReg, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,competition_id,user_id,team_name,member_count,contact_info,name,phone,id_card,photo_url,id_card_image,status,created_at FROM competition_registrations WHERE competition_id=$1 ORDER BY created_at DESC`, competitionID)
 	if err != nil {
 		return nil, fmt.Errorf("list regs: %w", err)
@@ -158,27 +158,27 @@ type eventRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewEventRepository() repository.EventRepository { return &eventRepo{pool: s.Pool()} }
 
-func (r *eventRepo) Create(e domain.AssociationEvent) (domain.AssociationEvent, error) {
+func (r *eventRepo) Create(ctx context.Context, e domain.AssociationEvent) (domain.AssociationEvent, error) {
 	e.CreatedAt = time.Now()
 	e.UpdatedAt = e.CreatedAt
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO association_events (id,title,event_type,description,location,start_time,end_time,max_attendees,reg_count,cover_url,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		e.ID, e.Title, e.EventType, e.Description, e.Location, e.StartTime, e.EndTime, e.MaxAttendees, e.RegCount, e.CoverURL, e.Status, e.CreatedAt, e.UpdatedAt)
 	return e, err
 }
-func (r *eventRepo) FindByID(id string) (domain.AssociationEvent, error) {
+func (r *eventRepo) FindByID(ctx context.Context, id string) (domain.AssociationEvent, error) {
 	var e domain.AssociationEvent
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT id,title,event_type,description,location,start_time,end_time,max_attendees,reg_count,cover_url,status,created_at,updated_at FROM association_events WHERE id=$1`, id).
 		Scan(&e.ID, &e.Title, &e.EventType, &e.Description, &e.Location, &e.StartTime, &e.EndTime, &e.MaxAttendees, &e.RegCount, &e.CoverURL, &e.Status, &e.CreatedAt, &e.UpdatedAt)
 	return e, err
 }
-func (r *eventRepo) List(offset, limit int) ([]domain.AssociationEvent, int, error) {
+func (r *eventRepo) List(ctx context.Context, offset, limit int) ([]domain.AssociationEvent, int, error) {
 	var total int
-	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM association_events`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM association_events`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count events: %w", err)
 	}
-	rows, err := r.pool.Query(context.Background(),
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,title,event_type,description,location,start_time,end_time,max_attendees,reg_count,cover_url,status,created_at,updated_at FROM association_events ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list events: %w", err)
@@ -194,28 +194,28 @@ func (r *eventRepo) List(offset, limit int) ([]domain.AssociationEvent, int, err
 	}
 	return out, total, rows.Err()
 }
-func (r *eventRepo) Update(e domain.AssociationEvent) (domain.AssociationEvent, error) {
+func (r *eventRepo) Update(ctx context.Context, e domain.AssociationEvent) (domain.AssociationEvent, error) {
 	e.UpdatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`UPDATE association_events SET title=$1,event_type=$2,description=$3,location=$4,start_time=$5,end_time=$6,max_attendees=$7,reg_count=$8,cover_url=$9,status=$10,updated_at=$11 WHERE id=$12`,
 		e.Title, e.EventType, e.Description, e.Location, e.StartTime, e.EndTime, e.MaxAttendees, e.RegCount, e.CoverURL, e.Status, e.UpdatedAt, e.ID)
 	return e, err
 }
 
-func (r *eventRepo) Delete(id string) error {
-	_, err := r.pool.Exec(context.Background(), "DELETE FROM association_events WHERE id=$1", id)
+func (r *eventRepo) Delete(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, "DELETE FROM association_events WHERE id=$1", id)
 	return err
 }
 
-func (r *eventRepo) CreateReg(reg domain.EventRegistration) (domain.EventRegistration, error) {
+func (r *eventRepo) CreateReg(ctx context.Context, reg domain.EventRegistration) (domain.EventRegistration, error) {
 	reg.CreatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO event_registrations (id,event_id,user_id,name,phone,org,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
 		reg.ID, reg.EventID, reg.UserID, reg.Name, reg.Phone, reg.Org, reg.Status, reg.CreatedAt)
 	return reg, err
 }
-func (r *eventRepo) ListRegs(eventID string) ([]domain.EventRegistration, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *eventRepo) ListRegs(ctx context.Context, eventID string) ([]domain.EventRegistration, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,event_id,user_id,name,phone,org,status,created_at FROM event_registrations WHERE event_id=$1 ORDER BY created_at DESC`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("list event regs: %w", err)
@@ -240,22 +240,22 @@ func (s *Store) NewEmergencyRepository() repository.EmergencyRepository {
 	return &emergRepo{pool: s.Pool()}
 }
 
-func (r *emergRepo) CreateResource(res domain.EmergencyResource) (domain.EmergencyResource, error) {
+func (r *emergRepo) CreateResource(ctx context.Context, res domain.EmergencyResource) (domain.EmergencyResource, error) {
 	res.CreatedAt = time.Now()
 	res.UpdatedAt = res.CreatedAt
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO emergency_resources (id,owner_id,name,res_type,specs,quantity,location,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		res.ID, res.OwnerID, res.Name, res.ResType, res.Specs, res.Quantity, res.Location, res.ContactInfo, res.Status, res.CreatedAt, res.UpdatedAt)
 	return res, err
 }
-func (r *emergRepo) FindResourceByID(id string) (domain.EmergencyResource, error) {
+func (r *emergRepo) FindResourceByID(ctx context.Context, id string) (domain.EmergencyResource, error) {
 	var res domain.EmergencyResource
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT id,owner_id,name,res_type,specs,quantity,location,contact_info,status,created_at,updated_at FROM emergency_resources WHERE id=$1`, id).
 		Scan(&res.ID, &res.OwnerID, &res.Name, &res.ResType, &res.Specs, &res.Quantity, &res.Location, &res.ContactInfo, &res.Status, &res.CreatedAt, &res.UpdatedAt)
 	return res, err
 }
-func (r *emergRepo) ListResources(resType, q string, offset, limit int) ([]domain.EmergencyResource, int, error) {
+func (r *emergRepo) ListResources(ctx context.Context, resType, q string, offset, limit int) ([]domain.EmergencyResource, int, error) {
 	where := ""
 	args := []any{}
 	if resType != "" {
@@ -273,10 +273,10 @@ func (r *emergRepo) ListResources(resType, q string, offset, limit int) ([]domai
 			len(args), len(args), len(args), len(args))
 	}
 	var total int
-	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM emergency_resources `+where, args...).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_resources `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count emergency resources: %w", err)
 	}
-	rows, err := r.pool.Query(context.Background(),
+	rows, err := r.pool.Query(ctx,
 		fmt.Sprintf(`SELECT id,owner_id,name,res_type,specs,quantity,location,contact_info,status,created_at,updated_at FROM emergency_resources %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2), append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list emergency resources: %w", err)
@@ -292,13 +292,14 @@ func (r *emergRepo) ListResources(resType, q string, offset, limit int) ([]domai
 	}
 	return out, total, rows.Err()
 }
-func (r *emergRepo) UpdateResource(res domain.EmergencyResource) (domain.EmergencyResource, error) {
+func (r *emergRepo) UpdateResource(ctx context.Context, res domain.EmergencyResource) (domain.EmergencyResource, error) {
 	res.UpdatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`UPDATE emergency_resources SET name=$1,res_type=$2,specs=$3,quantity=$4,location=$5,contact_info=$6,status=$7,updated_at=$8 WHERE id=$9`,
 		res.Name, res.ResType, res.Specs, res.Quantity, res.Location, res.ContactInfo, res.Status, res.UpdatedAt, res.ID)
 	return res, err
 }
+
 // nullableEndTime 把零值时间转为 NULL：进行中/待响应的调度没有结束时间，
 // end_time 列可空，零值应存 NULL 而非 0001-01-01
 func nullableEndTime(t time.Time) any {
@@ -308,19 +309,19 @@ func nullableEndTime(t time.Time) any {
 	return t
 }
 
-func (r *emergRepo) CreateDispatch(d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
+func (r *emergRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
 	d.CreatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO emergency_dispatches (id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		d.ID, d.ResourceID, d.EventDesc, d.Location, d.StartTime, nullableEndTime(d.EndTime), d.Commander, d.Result, d.Status, d.CreatedAt)
 	return d, err
 }
-func (r *emergRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatch, int, error) {
+func (r *emergRepo) ListDispatches(ctx context.Context, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
 	var total int
-	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM emergency_dispatches`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count dispatches: %w", err)
 	}
-	rows, err := r.pool.Query(context.Background(),
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list dispatches: %w", err)
@@ -340,28 +341,28 @@ func (r *emergRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatc
 	return out, total, rows.Err()
 }
 
-func (r *emergRepo) DeleteResource(id string) error {
-	_, err := r.pool.Exec(context.Background(), "DELETE FROM emergency_resources WHERE id=$1", id)
+func (r *emergRepo) DeleteResource(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, "DELETE FROM emergency_resources WHERE id=$1", id)
 	return err
 }
 
-func (r *emergRepo) FindDispatchByID(id string) (domain.EmergencyDispatch, error) {
+func (r *emergRepo) FindDispatchByID(ctx context.Context, id string) (domain.EmergencyDispatch, error) {
 	var d domain.EmergencyDispatch
 	var endTime pgtype.Timestamptz
-	err := r.pool.QueryRow(context.Background(), "SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches WHERE id=$1", id).
+	err := r.pool.QueryRow(ctx, "SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches WHERE id=$1", id).
 		Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &endTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt)
 	d.EndTime = endTime.Time
 	return d, err
 }
 
-func (r *emergRepo) UpdateDispatch(d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
-	_, err := r.pool.Exec(context.Background(),
+func (r *emergRepo) UpdateDispatch(ctx context.Context, d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
+	_, err := r.pool.Exec(ctx,
 		"UPDATE emergency_dispatches SET resource_id=$1,event_desc=$2,location=$3,start_time=$4,end_time=$5,commander=$6,result=$7,status=$8 WHERE id=$9",
 		d.ResourceID, d.EventDesc, d.Location, d.StartTime, nullableEndTime(d.EndTime), d.Commander, d.Result, d.Status, d.ID)
 	return d, err
 }
 
-func (r *emergRepo) DeleteDispatch(id string) error {
-	_, err := r.pool.Exec(context.Background(), "DELETE FROM emergency_dispatches WHERE id=$1", id)
+func (r *emergRepo) DeleteDispatch(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, "DELETE FROM emergency_dispatches WHERE id=$1", id)
 	return err
 }

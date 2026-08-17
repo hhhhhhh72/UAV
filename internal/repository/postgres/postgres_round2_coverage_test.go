@@ -38,7 +38,7 @@ func TestRound2_ResourcePoolRepo(t *testing.T) {
 	}
 	r := store.NewResourcePoolRepository()
 	id := ug("cov-pool")
-	created, err := r.Create(domain.ResourcePool{
+	created, err := r.Create(context.Background(), domain.ResourcePool{
 		ID: id, Name: "应急无人机池", PoolType: "emergency", Description: "低空应急",
 		OwnerID: ug("cov-pool-owner"), Resources: []string{"r-1", "r-2"}, Status: "active",
 	})
@@ -48,7 +48,7 @@ func TestRound2_ResourcePoolRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("Create: pool id mismatch: got %q want %q", created.ID, id)
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
@@ -56,20 +56,20 @@ func TestRound2_ResourcePoolRepo(t *testing.T) {
 		t.Fatalf("FindByID: pool roundtrip mismatch: %+v", got)
 	}
 	// List：类型过滤 + 全量
-	if l, err := r.List("emergency"); err != nil || !containsByID(l, id, func(v domain.ResourcePool) string { return v.ID }) {
+	if l, err := r.List(context.Background(), "emergency"); err != nil || !containsByID(l, id, func(v domain.ResourcePool) string { return v.ID }) {
 		t.Fatalf("List(emergency): pool %s not found err=%v", id, err)
 	}
-	if l, err := r.List(""); err != nil || !containsByID(l, id, func(v domain.ResourcePool) string { return v.ID }) {
+	if l, err := r.List(context.Background(), ""); err != nil || !containsByID(l, id, func(v domain.ResourcePool) string { return v.ID }) {
 		t.Fatalf("List(all): pool %s not found err=%v", id, err)
 	}
 	// AddMember + ListMembers
 	mid := ug("cov-pool-member")
-	if _, err := r.AddMember(domain.ResourcePoolMember{
+	if _, err := r.AddMember(context.Background(), domain.ResourcePoolMember{
 		ID: mid, PoolID: id, ResID: "r-1", ResType: "drone", Quantity: 2, Status: "standby",
 	}); err != nil {
 		t.Fatalf("AddMember: %v", err)
 	}
-	if l, err := r.ListMembers(id); err != nil || !containsByID(l, mid, func(v domain.ResourcePoolMember) string { return v.ID }) {
+	if l, err := r.ListMembers(context.Background(), id); err != nil || !containsByID(l, mid, func(v domain.ResourcePoolMember) string { return v.ID }) {
 		t.Fatalf("ListMembers: member %s not found err=%v", mid, err)
 	}
 }
@@ -82,7 +82,7 @@ func TestRound2_CooperationRepo(t *testing.T) {
 	r := store.NewCooperationRepository()
 	id := ug("cov-coop")
 	eid := ug("cov-coop-ent")
-	created, err := r.Create(domain.CooperationProgram{
+	created, err := r.Create(context.Background(), domain.CooperationProgram{
 		ID: id, Title: "定向培养", CollegeID: ug("cov-coop-college"), EnterpriseID: eid,
 		CoopType: "directed_training", Description: "校企共建", StartDate: time.Now(),
 		EndDate: time.Now().AddDate(1, 0, 0), StudentQuota: 30, Status: "proposed",
@@ -93,16 +93,16 @@ func TestRound2_CooperationRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("Create: cooperation id mismatch")
 	}
-	if got, err := r.FindByID(id); err != nil || got.ID != id || got.StudentQuota != 30 {
+	if got, err := r.FindByID(context.Background(), id); err != nil || got.ID != id || got.StudentQuota != 30 {
 		t.Fatalf("FindByID: cooperation mismatch: %+v err=%v", got, err)
 	}
-	if l, err := r.List(eid); err != nil || !containsByID(l, id, func(v domain.CooperationProgram) string { return v.ID }) {
+	if l, err := r.List(context.Background(), eid); err != nil || !containsByID(l, id, func(v domain.CooperationProgram) string { return v.ID }) {
 		t.Fatalf("List(enterprise): cooperation %s not found err=%v", id, err)
 	}
-	if l, err := r.List(""); err != nil || !containsByID(l, id, func(v domain.CooperationProgram) string { return v.ID }) {
+	if l, err := r.List(context.Background(), ""); err != nil || !containsByID(l, id, func(v domain.CooperationProgram) string { return v.ID }) {
 		t.Fatalf("List(all): cooperation %s not found err=%v", id, err)
 	}
-	if upd, err := r.UpdateStatus(id, "active"); err != nil || upd.Status != "active" {
+	if upd, err := r.UpdateStatus(context.Background(), id, "active"); err != nil || upd.Status != "active" {
 		t.Fatalf("UpdateStatus: status=%q err=%v", upd.Status, err)
 	}
 }
@@ -116,16 +116,16 @@ func TestRound2_CaseUpdate(t *testing.T) {
 	}
 	r := store.NewCaseRepository()
 	id := ug("cov-case")
-	if _, err := r.Create(domain.CaseEntry{ID: id, Title: "巡检案例", Category: "inspection", Status: "draft"}); err != nil {
+	if _, err := r.Create(context.Background(), domain.CaseEntry{ID: id, Title: "巡检案例", Category: "inspection", Status: "draft"}); err != nil {
 		t.Fatalf("Create case: %v", err)
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
 	got.Title = "更新案例"
 	got.Images = []string{"/c1.jpg", "/c2.jpg"}
-	upd, err := r.Update(got)
+	upd, err := r.Update(context.Background(), got)
 	if err != nil {
 		t.Fatalf("Update case: %v", err)
 	}
@@ -141,19 +141,19 @@ func TestRound2_PortfolioListDelete(t *testing.T) {
 	}
 	r := store.NewPortfolioRepository()
 	id := ug("cov-portfolio")
-	if _, err := r.Create(domain.MemberPortfolio{
+	if _, err := r.Create(context.Background(), domain.MemberPortfolio{
 		ID: id, EnterpriseID: ug("cov-port-ent"), Name: "品牌展示", Status: "draft",
 		Products: []string{"p-1"}, Honors: []string{"h-1"},
 	}); err != nil {
 		t.Fatalf("Create portfolio: %v", err)
 	}
-	if l, total, err := r.List(0, 20); err != nil || total == 0 || !containsByID(l, id, func(v domain.MemberPortfolio) string { return v.ID }) {
+	if l, total, err := r.List(context.Background(), 0, 20); err != nil || total == 0 || !containsByID(l, id, func(v domain.MemberPortfolio) string { return v.ID }) {
 		t.Fatalf("List: portfolio %s not found total=%d err=%v", id, total, err)
 	}
-	if err := r.Delete(id); err != nil {
+	if err := r.Delete(context.Background(), id); err != nil {
 		t.Fatalf("Delete portfolio: %v", err)
 	}
-	if _, err := r.FindByID(id); err == nil {
+	if _, err := r.FindByID(context.Background(), id); err == nil {
 		t.Fatalf("Delete: expected not-found after delete")
 	}
 }
@@ -166,7 +166,7 @@ func TestRound2_ApplicationRepo(t *testing.T) {
 	r := store.NewApplicationRepository()
 	userID := ug("cov-app-user")
 	id := ug("cov-app")
-	created, err := r.Create(domain.Application{
+	created, err := r.Create(context.Background(), domain.Application{
 		ID: id, UserID: userID, ServiceID: "svc-1", ServiceName: "检测标定",
 		OrderNo: ug("cov-app-no"), Status: "submitted", ApplyTime: "2026-08-20",
 		FormData: map[string]any{"model": "M300"},
@@ -177,17 +177,17 @@ func TestRound2_ApplicationRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("Create: application id mismatch")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
 	if got.ID != id || got.FormData == nil || got.FormData["model"] != "M300" {
 		t.Fatalf("FindByID: application roundtrip mismatch: %+v", got)
 	}
-	if l, total, err := r.ListByUser(userID, 0, 20); err != nil || total == 0 || !containsByID(l, id, func(v domain.Application) string { return v.ID }) {
+	if l, total, err := r.ListByUser(context.Background(), userID, 0, 20); err != nil || total == 0 || !containsByID(l, id, func(v domain.Application) string { return v.ID }) {
 		t.Fatalf("ListByUser: application %s not found total=%d err=%v", id, total, err)
 	}
-	if l, total, err := r.ListAll(0, 20); err != nil || total == 0 || !containsByID(l, id, func(v domain.Application) string { return v.ID }) {
+	if l, total, err := r.ListAll(context.Background(), 0, 20); err != nil || total == 0 || !containsByID(l, id, func(v domain.Application) string { return v.ID }) {
 		t.Fatalf("ListAll: application %s not found total=%d err=%v", id, total, err)
 	}
 }
@@ -201,13 +201,13 @@ func TestRound2_RDChallengeDelete(t *testing.T) {
 	}
 	r := store.NewRDChallengeRepository()
 	id := ug("cov-rd")
-	if _, err := r.Create(domain.RDChallenge{ID: id, PosterID: "u-1", Title: "难题", Status: "open"}); err != nil {
+	if _, err := r.Create(context.Background(), domain.RDChallenge{ID: id, PosterID: "u-1", Title: "难题", Status: "open"}); err != nil {
 		t.Fatalf("Create challenge: %v", err)
 	}
-	if err := r.Delete(id); err != nil {
+	if err := r.Delete(context.Background(), id); err != nil {
 		t.Fatalf("Delete challenge: %v", err)
 	}
-	if _, err := r.FindByID(id); err == nil {
+	if _, err := r.FindByID(context.Background(), id); err == nil {
 		t.Fatalf("Delete: expected not-found after delete")
 	}
 }
@@ -219,13 +219,13 @@ func TestRound2_ResearchProjectDelete(t *testing.T) {
 	}
 	r := store.NewResearchProjectRepository()
 	id := ug("cov-rp")
-	if _, err := r.Create(domain.ResearchProject{ID: id, Title: "课题", Status: "planning", Members: []string{"m-1"}}); err != nil {
+	if _, err := r.Create(context.Background(), domain.ResearchProject{ID: id, Title: "课题", Status: "planning", Members: []string{"m-1"}}); err != nil {
 		t.Fatalf("Create project: %v", err)
 	}
-	if err := r.Delete(id); err != nil {
+	if err := r.Delete(context.Background(), id); err != nil {
 		t.Fatalf("Delete project: %v", err)
 	}
-	if _, err := r.FindByID(id); err == nil {
+	if _, err := r.FindByID(context.Background(), id); err == nil {
 		t.Fatalf("Delete: expected not-found after delete")
 	}
 }
@@ -239,22 +239,22 @@ func TestRound2_CompetitionEventDelete(t *testing.T) {
 	}
 	c := store.NewCompetitionRepository(nil)
 	cid := ug("cov-comp")
-	if _, err := c.Create(domain.Competition{ID: cid, Title: "比赛", Status: "draft"}); err != nil {
+	if _, err := c.Create(context.Background(), domain.Competition{ID: cid, Title: "比赛", Status: "draft"}); err != nil {
 		t.Fatalf("Create competition: %v", err)
 	}
-	if err := c.Delete(cid); err != nil {
+	if err := c.Delete(context.Background(), cid); err != nil {
 		t.Fatalf("Delete competition: %v", err)
 	}
 
 	e := store.NewEventRepository()
 	eid := ug("cov-event")
-	if _, err := e.Create(domain.AssociationEvent{ID: eid, Title: "活动", Status: "draft"}); err != nil {
+	if _, err := e.Create(context.Background(), domain.AssociationEvent{ID: eid, Title: "活动", Status: "draft"}); err != nil {
 		t.Fatalf("Create event: %v", err)
 	}
-	if err := e.Delete(eid); err != nil {
+	if err := e.Delete(context.Background(), eid); err != nil {
 		t.Fatalf("Delete event: %v", err)
 	}
-	if _, err := e.FindByID(eid); err == nil {
+	if _, err := e.FindByID(context.Background(), eid); err == nil {
 		t.Fatalf("Delete event: expected not-found after delete")
 	}
 }
@@ -266,39 +266,39 @@ func TestRound2_EmergencyFilterAndDelete(t *testing.T) {
 	}
 	r := store.NewEmergencyRepository()
 	resID := ug("cov-er")
-	if _, err := r.CreateResource(domain.EmergencyResource{
+	if _, err := r.CreateResource(context.Background(), domain.EmergencyResource{
 		ID: resID, OwnerID: "u-1", Name: "应急无人机", ResType: "drone", Specs: "M300",
 		Quantity: 3, Location: "渝北区", ContactInfo: "张队", Status: "standby",
 	}); err != nil {
 		t.Fatalf("CreateResource: %v", err)
 	}
 	// ListResources：resType 过滤 + 关键词（WHERE + AND 组合分支）
-	if l, total, err := r.ListResources("drone", "无人机", 0, 20); err != nil || total == 0 || !containsByID(l, resID, func(v domain.EmergencyResource) string { return v.ID }) {
+	if l, total, err := r.ListResources(context.Background(), "drone", "无人机", 0, 20); err != nil || total == 0 || !containsByID(l, resID, func(v domain.EmergencyResource) string { return v.ID }) {
 		t.Fatalf("ListResources(type+q): resource %s not found total=%d err=%v", resID, total, err)
 	}
-	if l, _, err := r.ListResources("", "渝北", 0, 20); err != nil || !containsByID(l, resID, func(v domain.EmergencyResource) string { return v.ID }) {
+	if l, _, err := r.ListResources(context.Background(), "", "渝北", 0, 20); err != nil || !containsByID(l, resID, func(v domain.EmergencyResource) string { return v.ID }) {
 		t.Fatalf("ListResources(q only): resource %s not found err=%v", resID, err)
 	}
 	// 非零 EndTime 的调度（覆盖 nullableEndTime 的 return t 分支）
 	dID := ug("cov-ed")
-	if _, err := r.CreateDispatch(domain.EmergencyDispatch{
+	if _, err := r.CreateDispatch(context.Background(), domain.EmergencyDispatch{
 		ID: dID, ResourceID: resID, EventDesc: "演练", Location: "渝北区",
 		StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), Commander: "张队",
 		Result: "完成", Status: "completed",
 	}); err != nil {
 		t.Fatalf("CreateDispatch: %v", err)
 	}
-	if one, err := r.FindDispatchByID(dID); err != nil || one.EndTime.IsZero() {
+	if one, err := r.FindDispatchByID(context.Background(), dID); err != nil || one.EndTime.IsZero() {
 		t.Fatalf("FindDispatchByID: dispatch mismatch err=%v end_time=%v", err, one.EndTime)
 	}
 	// 删除
-	if err := r.DeleteDispatch(dID); err != nil {
+	if err := r.DeleteDispatch(context.Background(), dID); err != nil {
 		t.Fatalf("DeleteDispatch: %v", err)
 	}
-	if err := r.DeleteResource(resID); err != nil {
+	if err := r.DeleteResource(context.Background(), resID); err != nil {
 		t.Fatalf("DeleteResource: %v", err)
 	}
-	if _, err := r.FindResourceByID(resID); err == nil {
+	if _, err := r.FindResourceByID(context.Background(), resID); err == nil {
 		t.Fatalf("DeleteResource: expected not-found after delete")
 	}
 }
@@ -312,7 +312,7 @@ func TestRound2_CourseRepo(t *testing.T) {
 	}
 	r := store.NewCourseRepository()
 	id := ug("cov-course")
-	created, err := r.Create(domain.TrainingCourse{
+	created, err := r.Create(context.Background(), domain.TrainingCourse{
 		ID: id, OrgID: ug("cov-course-org"), OrgName: "培训学校", Title: "无人机培训",
 		CertType: domain.CertCAAC, Description: "考证", Location: "重庆", District: "渝北区",
 		PriceFen: 100000, Rating: "4.8", ReviewCount: 10, DurationDays: 7, Image: "/c.jpg",
@@ -326,7 +326,7 @@ func TestRound2_CourseRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("Create: course id mismatch")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
@@ -335,17 +335,17 @@ func TestRound2_CourseRepo(t *testing.T) {
 	}
 	got.Title = "更新课程"
 	got.Status = "recruiting"
-	upd, err := r.Update(got)
+	upd, err := r.Update(context.Background(), got)
 	if err != nil {
 		t.Fatalf("Update course: %v", err)
 	}
 	if upd.Title != "更新课程" || upd.Version != 2 {
 		t.Fatalf("Update: course mismatch: %+v", upd)
 	}
-	if err := r.Delete(id); err != nil {
+	if err := r.Delete(context.Background(), id); err != nil {
 		t.Fatalf("Delete course: %v", err)
 	}
-	if _, err := r.FindByID(id); err == nil {
+	if _, err := r.FindByID(context.Background(), id); err == nil {
 		t.Fatalf("Delete: expected not-found after delete")
 	}
 }
@@ -357,7 +357,7 @@ func TestRound2_InstructorRepo(t *testing.T) {
 	}
 	r := store.NewInstructorRepository()
 	id := ug("cov-instructor")
-	created, err := r.Create(domain.Instructor{
+	created, err := r.Create(context.Background(), domain.Instructor{
 		ID: id, UserID: ug("cov-instr-user"), Name: "王教练", Photo: "/p.jpg",
 		CertTypes: []string{"CAAC", "AOPA"}, Bio: "10年飞龄", OrgID: ug("cov-instr-org"), Status: "pending",
 	})
@@ -367,17 +367,17 @@ func TestRound2_InstructorRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("Create: instructor id mismatch")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
 	if got.ID != id || len(got.CertTypes) != 2 || got.CertTypes[0] != "CAAC" {
 		t.Fatalf("FindByID: instructor roundtrip mismatch: %+v", got)
 	}
-	if l, err := r.List(); err != nil || !containsByID(l, id, func(v domain.Instructor) string { return v.ID }) {
+	if l, err := r.List(context.Background()); err != nil || !containsByID(l, id, func(v domain.Instructor) string { return v.ID }) {
 		t.Fatalf("List: instructor %s not found err=%v", id, err)
 	}
-	if upd, err := r.UpdateStatus(id, "approved"); err != nil || upd.Status != "approved" {
+	if upd, err := r.UpdateStatus(context.Background(), id, "approved"); err != nil || upd.Status != "approved" {
 		t.Fatalf("UpdateStatus: status=%q err=%v", upd.Status, err)
 	}
 }
@@ -393,7 +393,7 @@ func TestRound2_PilotRepo(t *testing.T) {
 	r := store.NewPilotRepository(cipher)
 	id := ug("cov-pilot")
 	idCard := "500101199001011234"
-	created, err := r.Create(domain.CertifiedPilot{
+	created, err := r.Create(context.Background(), domain.CertifiedPilot{
 		ID: id, UserID: ug("cov-pilot-user"), RealName: "飞手", IDCard: idCard,
 		Avatar: "/a.jpg", Region: "重庆", CertIDs: []string{"c-1", "c-2"}, FlightHours: 100,
 		Bio: "巡检", Rating: 4.5, CompletedJobs: 20, Status: "pending",
@@ -413,7 +413,7 @@ func TestRound2_PilotRepo(t *testing.T) {
 	if stored == idCard {
 		t.Fatalf("Create: id_card stored in plaintext")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
@@ -423,17 +423,17 @@ func TestRound2_PilotRepo(t *testing.T) {
 	// Update（覆盖 pilotRepo.Update）
 	got.RealName = "更新飞手"
 	got.Status = "approved"
-	upd, err := r.Update(got)
+	upd, err := r.Update(context.Background(), got)
 	if err != nil {
 		t.Fatalf("Update pilot: %v", err)
 	}
 	if upd.RealName != "更新飞手" || upd.Status != "approved" || upd.IDCard != idCard {
 		t.Fatalf("Update: pilot mismatch: %+v", upd)
 	}
-	if l, err := r.List(); err != nil || !containsByID(l, id, func(v domain.CertifiedPilot) string { return v.ID }) {
+	if l, err := r.List(context.Background()); err != nil || !containsByID(l, id, func(v domain.CertifiedPilot) string { return v.ID }) {
 		t.Fatalf("List: pilot %s not found err=%v", id, err)
 	}
-	if us, err := r.UpdateStatus(id, "rejected"); err != nil || us.Status != "rejected" {
+	if us, err := r.UpdateStatus(context.Background(), id, "rejected"); err != nil || us.Status != "rejected" {
 		t.Fatalf("UpdateStatus: status=%q err=%v", us.Status, err)
 	}
 }
@@ -447,7 +447,7 @@ func TestRound2_ProductRepo(t *testing.T) {
 	}
 	r := store.NewProductRepository()
 	id := ug("cov-prod")
-	created, err := r.Create(domain.DroneProduct{
+	created, err := r.Create(context.Background(), domain.DroneProduct{
 		ID: id, SellerID: ug("cov-prod-seller"), SellerName: "卖家", ProdType: domain.ProductDrone,
 		Title: "M300 RTK", Description: "行业机", PriceFen: 200000, Images: []string{"/d1.jpg", "/d2.jpg"},
 		Brand: "DJI", Model: "M300", Condition: "new", Views: 0, Status: "listed",
@@ -458,17 +458,17 @@ func TestRound2_ProductRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("Create: product id mismatch")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
 	if got.ID != id || len(got.Images) != 2 || got.ProdType != domain.ProductDrone {
 		t.Fatalf("FindByID: product roundtrip mismatch: %+v", got)
 	}
-	if err := r.IncrementViews(id); err != nil {
+	if err := r.IncrementViews(context.Background(), id); err != nil {
 		t.Fatalf("IncrementViews: %v", err)
 	}
-	after, err := r.FindByID(id)
+	after, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID after IncrementViews: %v", err)
 	}
@@ -477,17 +477,17 @@ func TestRound2_ProductRepo(t *testing.T) {
 	}
 	got.Title = "更新商品"
 	got.Status = "sold"
-	upd, err := r.Update(got)
+	upd, err := r.Update(context.Background(), got)
 	if err != nil {
 		t.Fatalf("Update product: %v", err)
 	}
 	if upd.Title != "更新商品" || upd.Status != "sold" {
 		t.Fatalf("Update: product mismatch: %+v", upd)
 	}
-	if err := r.Delete(id); err != nil {
+	if err := r.Delete(context.Background(), id); err != nil {
 		t.Fatalf("Delete product: %v", err)
 	}
-	if _, err := r.FindByID(id); err == nil {
+	if _, err := r.FindByID(context.Background(), id); err == nil {
 		t.Fatalf("Delete: expected not-found after delete")
 	}
 }
@@ -501,13 +501,13 @@ func TestRound2_ReviewListByTarget(t *testing.T) {
 	}
 	r := store.NewReviewRepository()
 	id := ug("cov-review")
-	if _, err := r.Create(domain.Review{
+	if _, err := r.Create(context.Background(), domain.Review{
 		ID: id, ReviewerID: "u-1", TargetType: "enterprise", TargetID: "ent-1",
 		Rating: 5, Content: "好评", Status: "approved",
 	}); err != nil {
 		t.Fatalf("Create review: %v", err)
 	}
-	if l, err := r.ListByTarget("enterprise", "ent-1"); err != nil || !containsByID(l, id, func(v domain.Review) string { return v.ID }) {
+	if l, err := r.ListByTarget(context.Background(), "enterprise", "ent-1"); err != nil || !containsByID(l, id, func(v domain.Review) string { return v.ID }) {
 		t.Fatalf("ListByTarget: review %s not found err=%v", id, err)
 	}
 }
@@ -519,7 +519,7 @@ func TestRound2_VenueRepo(t *testing.T) {
 	}
 	r := store.NewVenueRepository()
 	id := ug("cov-venue")
-	created, err := r.Create(domain.Venue{
+	created, err := r.Create(context.Background(), domain.Venue{
 		ID: id, OwnerID: ug("cov-venue-owner"), Name: "飞场", VenueType: "training_ground",
 		Location: "重庆", PriceFen: 50000, Status: "available",
 	})
@@ -529,23 +529,23 @@ func TestRound2_VenueRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("Create: venue id mismatch")
 	}
-	if got, err := r.FindByID(id); err != nil || got.ID != id || got.VenueType != "training_ground" {
+	if got, err := r.FindByID(context.Background(), id); err != nil || got.ID != id || got.VenueType != "training_ground" {
 		t.Fatalf("FindByID: venue mismatch: %+v err=%v", got, err)
 	}
-	if l, err := r.List("training_ground"); err != nil || !containsByID(l, id, func(v domain.Venue) string { return v.ID }) {
+	if l, err := r.List(context.Background(), "training_ground"); err != nil || !containsByID(l, id, func(v domain.Venue) string { return v.ID }) {
 		t.Fatalf("List(type): venue %s not found err=%v", id, err)
 	}
-	if l, err := r.List(""); err != nil || !containsByID(l, id, func(v domain.Venue) string { return v.ID }) {
+	if l, err := r.List(context.Background(), ""); err != nil || !containsByID(l, id, func(v domain.Venue) string { return v.ID }) {
 		t.Fatalf("List(all): venue %s not found err=%v", id, err)
 	}
 	bid := ug("cov-venue-booking")
-	if _, err := r.CreateBooking(domain.VenueBooking{
+	if _, err := r.CreateBooking(context.Background(), domain.VenueBooking{
 		ID: bid, VenueID: id, UserID: ug("cov-venue-user"), StartTime: time.Now(),
 		EndTime: time.Now().Add(time.Hour), Status: "confirmed",
 	}); err != nil {
 		t.Fatalf("CreateBooking: %v", err)
 	}
-	if l, err := r.ListBookings(id); err != nil || !containsByID(l, bid, func(v domain.VenueBooking) string { return v.ID }) {
+	if l, err := r.ListBookings(context.Background(), id); err != nil || !containsByID(l, bid, func(v domain.VenueBooking) string { return v.ID }) {
 		t.Fatalf("ListBookings: booking %s not found err=%v", bid, err)
 	}
 }
@@ -558,7 +558,7 @@ func TestRound2_TradeOrderRepo(t *testing.T) {
 	r := store.NewTradeOrderRepository()
 	buyer := ug("cov-to-buyer")
 	id := ug("cov-to")
-	created, err := r.Create(domain.TradeOrder{
+	created, err := r.Create(context.Background(), domain.TradeOrder{
 		ID: id, ProductID: ug("cov-to-prod"), BuyerID: buyer, SellerID: ug("cov-to-seller"),
 		AmountFen: 200000, Status: "pending",
 	})
@@ -568,14 +568,14 @@ func TestRound2_TradeOrderRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("Create: trade order id mismatch")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
 	if got.ID != id || got.Status != "pending" || got.AmountFen != 200000 {
 		t.Fatalf("FindByID: trade order mismatch: %+v", got)
 	}
-	if upd, err := r.UpdateStatus(id, "paid"); err != nil || upd.Status != "paid" {
+	if upd, err := r.UpdateStatus(context.Background(), id, "paid"); err != nil || upd.Status != "paid" {
 		t.Fatalf("UpdateStatus: status=%q err=%v", upd.Status, err)
 	}
 	// UpdateAftersale（一次性写售后字段）
@@ -586,23 +586,23 @@ func TestRound2_TradeOrderRepo(t *testing.T) {
 	got.AftersaleAmountFen = 200000
 	got.AftersaleStatus = "pending"
 	got.AftersaleTime = time.Now()
-	aft, err := r.UpdateAftersale(got)
+	aft, err := r.UpdateAftersale(context.Background(), got)
 	if err != nil {
 		t.Fatalf("UpdateAftersale: %v", err)
 	}
 	if aft.AftersaleType != "refund" || aft.AftersaleStatus != "pending" || aft.Status != "aftersale" {
 		t.Fatalf("UpdateAftersale: order mismatch: %+v", aft)
 	}
-	if l, err := r.ListByUser(buyer); err != nil || !containsByID(l, id, func(v domain.TradeOrder) string { return v.ID }) {
+	if l, err := r.ListByUser(context.Background(), buyer); err != nil || !containsByID(l, id, func(v domain.TradeOrder) string { return v.ID }) {
 		t.Fatalf("ListByUser: order %s not found err=%v", id, err)
 	}
-	if l, total, err := r.ListAll(0, 20); err != nil || total == 0 || !containsByID(l, id, func(v domain.TradeOrder) string { return v.ID }) {
+	if l, total, err := r.ListAll(context.Background(), 0, 20); err != nil || total == 0 || !containsByID(l, id, func(v domain.TradeOrder) string { return v.ID }) {
 		t.Fatalf("ListAll: order %s not found total=%d err=%v", id, total, err)
 	}
-	if err := r.Delete(id); err != nil {
+	if err := r.Delete(context.Background(), id); err != nil {
 		t.Fatalf("Delete trade order: %v", err)
 	}
-	if _, err := r.FindByID(id); err == nil {
+	if _, err := r.FindByID(context.Background(), id); err == nil {
 		t.Fatalf("Delete: expected not-found after delete")
 	}
 }
@@ -640,7 +640,7 @@ func TestRound2_DemandCipher(t *testing.T) {
 	r := store.NewDemandRepository()
 	id := ug("cov-demand-cipher")
 	contact := "13800001234"
-	if _, err := r.Create(domain.Demand{
+	if _, err := r.Create(context.Background(), domain.Demand{
 		ID: id, PublisherID: ug("cov-dc-pub"), Title: "加密需求", Contact: contact,
 		BizType: domain.BizCableInspection, Status: domain.DemandPublished,
 	}); err != nil {
@@ -654,7 +654,7 @@ func TestRound2_DemandCipher(t *testing.T) {
 	if stored == contact {
 		t.Fatalf("Create: contact stored in plaintext")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
@@ -662,14 +662,14 @@ func TestRound2_DemandCipher(t *testing.T) {
 		t.Fatalf("FindByID: contact not decrypted: got %q want %q", got.Contact, contact)
 	}
 	// Update（覆盖 demandRepo.Update 的 cipher 加密分支）
-	upd, err := r.Update(got)
+	upd, err := r.Update(context.Background(), got)
 	if err != nil {
 		t.Fatalf("Update demand: %v", err)
 	}
 	if upd.Contact != contact {
 		t.Fatalf("Update: contact not roundtripped: got %q want %q", upd.Contact, contact)
 	}
-	if us, err := r.SetStatus(id, domain.DemandCompleted); err != nil || us.Contact != contact {
+	if us, err := r.SetStatus(context.Background(), id, domain.DemandCompleted); err != nil || us.Contact != contact {
 		t.Fatalf("SetStatus: contact=%q err=%v", us.Contact, err)
 	}
 }
@@ -684,7 +684,7 @@ func TestRound2_EnterpriseCipher(t *testing.T) {
 	owner := ug("cov-entc-owner")
 	license := "license-url-123"
 	account := "account-name-123"
-	if _, err := r.Create(domain.Enterprise{
+	if _, err := r.Create(context.Background(), domain.Enterprise{
 		ID: id, OwnerUserID: owner, Name: "加密企业", LicenseURL: license, AccountName: account,
 		Status: domain.EnterpriseSubmitted,
 	}); err != nil {
@@ -698,7 +698,7 @@ func TestRound2_EnterpriseCipher(t *testing.T) {
 	if storedLicense == license || storedAccount == account {
 		t.Fatalf("Create: enterprise PII stored in plaintext: license=%q account=%q", storedLicense, storedAccount)
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
@@ -706,27 +706,27 @@ func TestRound2_EnterpriseCipher(t *testing.T) {
 		t.Fatalf("FindByID: PII not decrypted: license=%q account=%q", got.LicenseURL, got.AccountName)
 	}
 	// Search / Pending / FindByOwner（scanEnterprises 解密分支）
-	if l, err := r.Search("加密企业"); err != nil || !containsByID(l, id, func(v domain.Enterprise) string { return v.ID }) {
+	if l, err := r.Search(context.Background(), "加密企业"); err != nil || !containsByID(l, id, func(v domain.Enterprise) string { return v.ID }) {
 		t.Fatalf("Search: enterprise %s not found err=%v", id, err)
 	}
-	if l, err := r.Pending(); err != nil || !containsByID(l, id, func(v domain.Enterprise) string { return v.ID }) {
+	if l, err := r.Pending(context.Background()); err != nil || !containsByID(l, id, func(v domain.Enterprise) string { return v.ID }) {
 		t.Fatalf("Pending: enterprise %s not found err=%v", id, err)
 	}
-	if l, err := r.FindByOwner(owner); err != nil || !containsByID(l, id, func(v domain.Enterprise) string { return v.ID }) {
+	if l, err := r.FindByOwner(context.Background(), owner); err != nil || !containsByID(l, id, func(v domain.Enterprise) string { return v.ID }) {
 		t.Fatalf("FindByOwner: enterprise %s not found err=%v", id, err)
 	}
 	// Update（加密分支 + 更新路径）
 	got.Name = "更新加密企业"
 	got.LicenseURL = "license-new"
 	got.AccountName = "account-new"
-	upd, err := r.Update(id, got)
+	upd, err := r.Update(context.Background(), id, got)
 	if err != nil {
 		t.Fatalf("Update enterprise: %v", err)
 	}
 	if upd.Name != "更新加密企业" {
 		t.Fatalf("Update: name mismatch: %q", upd.Name)
 	}
-	if after, err := r.FindByID(id); err != nil || after.LicenseURL != "license-new" || after.AccountName != "account-new" {
+	if after, err := r.FindByID(context.Background(), id); err != nil || after.LicenseURL != "license-new" || after.AccountName != "account-new" {
 		t.Fatalf("Update: PII roundtrip mismatch: %+v err=%v", after, err)
 	}
 }

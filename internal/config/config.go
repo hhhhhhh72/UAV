@@ -15,7 +15,10 @@ type Config struct {
 	Database DatabaseConfig
 }
 
-type ServerConfig struct{ Port, Env, CORSOrigin, BaseURL string }
+type ServerConfig struct {
+	Port, Env, CORSOrigin, BaseURL string
+	UploadDailyQuotaBytes           int64 // 每用户每日上传字节上限（0 = 不限）
+}
 type JWTConfig struct {
 	Secret          string
 	AccessTokenTTL  int
@@ -35,10 +38,11 @@ type ValidationResult struct {
 func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port:       envOrDefault("HTTP_ADDR", ":8080"),
-			Env:        envOrDefault("ENV", "development"),
-			CORSOrigin: envOrDefault("CORS_ORIGINS", "http://localhost:3000"),
-			BaseURL:    envOrDefault("BASE_URL", "http://localhost:8080"),
+			Port:                    envOrDefault("HTTP_ADDR", ":8080"),
+			Env:                     envOrDefault("ENV", "development"),
+			CORSOrigin:              envOrDefault("CORS_ORIGINS", "http://localhost:3000"),
+			BaseURL:                 envOrDefault("BASE_URL", "http://localhost:8080"),
+			UploadDailyQuotaBytes:   envOrDefaultInt64("UPLOAD_DAILY_QUOTA_BYTES", 50<<20),
 		},
 		JWT: JWTConfig{
 			Secret:          os.Getenv("AUTH_SECRET"),
@@ -107,6 +111,13 @@ func envOrDefault(key, fallback string) string {
 func envOrDefaultInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if n, err := strconv.Atoi(v); err == nil { return n }
+	}
+	return fallback
+}
+
+func envOrDefaultInt64(key string, fallback int64) int64 {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil { return n }
 	}
 	return fallback
 }

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ func NewServiceListingService(r repository.ServiceListingRepository) *ServiceLis
 }
 
 // CreateListing 创建服务能力（管理后台录入 / 企业发布），默认上架状态。
-func (s *ServiceListingService) CreateListing(providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
+func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
 	now := time.Now()
 	sl := domain.ServiceListing{
 		ID:           fmt.Sprintf("service-listing-%d", now.UnixNano()),
@@ -36,12 +37,12 @@ func (s *ServiceListingService) CreateListing(providerID, providerName, title, c
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	return s.repo.Create(sl)
+	return s.repo.Create(ctx, sl)
 }
 
 // ListPublished 公开列表：只返回上架中的服务能力。
-func (s *ServiceListingService) ListPublished() ([]domain.ServiceListing, error) {
-	all, err := s.repo.List()
+func (s *ServiceListingService) ListPublished(ctx context.Context) ([]domain.ServiceListing, error) {
+	all, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -55,13 +56,13 @@ func (s *ServiceListingService) ListPublished() ([]domain.ServiceListing, error)
 }
 
 // Get 按 ID 查询（管理后台编辑用）。
-func (s *ServiceListingService) Get(id string) (domain.ServiceListing, error) {
-	return s.repo.FindByID(id)
+func (s *ServiceListingService) Get(ctx context.Context, id string) (domain.ServiceListing, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
 // ListAdmin 管理端列表：返回全部（含下架），支持关键词（标题/服务商/描述）与分类过滤。
-func (s *ServiceListingService) ListAdmin(keyword, category string) ([]domain.ServiceListing, error) {
-	all, err := s.repo.List()
+func (s *ServiceListingService) ListAdmin(ctx context.Context, keyword, category string) ([]domain.ServiceListing, error) {
+	all, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +84,11 @@ func (s *ServiceListingService) ListAdmin(keyword, category string) ([]domain.Se
 }
 
 // UpdateListing 更新服务能力（管理后台用）。
-func (s *ServiceListingService) UpdateListing(sl domain.ServiceListing) (domain.ServiceListing, error) {
-	return s.repo.Update(sl)
+func (s *ServiceListingService) UpdateListing(ctx context.Context, sl domain.ServiceListing) (domain.ServiceListing, error) {
+	return s.repo.Update(ctx, sl)
 }
 
 // DeleteListing 删除服务能力（管理后台用）。
-func (s *ServiceListingService) DeleteListing(id string) error {
-	return s.repo.Delete(id)
+func (s *ServiceListingService) DeleteListing(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }

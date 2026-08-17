@@ -19,7 +19,7 @@ func (s *Server) createIntent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	it, err := s.intentSvc.Create(a, r.PathValue("id"), in)
+	it, err := s.intentSvc.Create(r.Context(), a, r.PathValue("id"), in)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
@@ -34,7 +34,7 @@ func (s *Server) listDemandIntents(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	intents, err := s.intentSvc.ListByDemand(a, r.PathValue("id"))
+	intents, err := s.intentSvc.ListByDemand(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -49,7 +49,7 @@ func (s *Server) listMyIntents(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	intents, err := s.intentSvc.ListMine(a)
+	intents, err := s.intentSvc.ListMine(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

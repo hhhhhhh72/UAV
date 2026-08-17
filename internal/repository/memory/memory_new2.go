@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -24,7 +25,7 @@ func NewCompetitionRepository(cipher *crypto.Cipher) repository.CompetitionRepos
 	return &compRepo{cipher: cipher}
 }
 
-func (r *compRepo) Create(c domain.Competition) (domain.Competition, error) {
+func (r *compRepo) Create(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	c.CreatedAt = time.Now()
@@ -32,7 +33,7 @@ func (r *compRepo) Create(c domain.Competition) (domain.Competition, error) {
 	r.items = append(r.items, c)
 	return c, nil
 }
-func (r *compRepo) FindByID(id string) (domain.Competition, error) {
+func (r *compRepo) FindByID(ctx context.Context, id string) (domain.Competition, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, c := range r.items {
@@ -42,12 +43,12 @@ func (r *compRepo) FindByID(id string) (domain.Competition, error) {
 	}
 	return domain.Competition{}, fmt.Errorf("competition %s not found", id)
 }
-func (r *compRepo) List(offset, limit int) ([]domain.Competition, int, error) {
+func (r *compRepo) List(ctx context.Context, offset, limit int) ([]domain.Competition, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return paginateSlice(r.items, offset, limit)
 }
-func (r *compRepo) Update(c domain.Competition) (domain.Competition, error) {
+func (r *compRepo) Update(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.items {
@@ -59,7 +60,7 @@ func (r *compRepo) Update(c domain.Competition) (domain.Competition, error) {
 	}
 	return domain.Competition{}, fmt.Errorf("competition %s not found", c.ID)
 }
-func (r *compRepo) Delete(id string) error {
+func (r *compRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.items {
@@ -104,7 +105,7 @@ func (r *compRepo) decryptRegInPlace(reg *domain.CompetitionReg) {
 		}
 	}
 }
-func (r *compRepo) CreateReg(reg domain.CompetitionReg) (domain.CompetitionReg, error) {
+func (r *compRepo) CreateReg(ctx context.Context, reg domain.CompetitionReg) (domain.CompetitionReg, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	reg.CreatedAt = time.Now()
@@ -113,7 +114,7 @@ func (r *compRepo) CreateReg(reg domain.CompetitionReg) (domain.CompetitionReg, 
 	r.decryptRegInPlace(&reg)
 	return reg, nil
 }
-func (r *compRepo) ListRegs(competitionID string) ([]domain.CompetitionReg, error) {
+func (r *compRepo) ListRegs(ctx context.Context, competitionID string) ([]domain.CompetitionReg, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.CompetitionReg, 0)
@@ -136,7 +137,7 @@ type eventRepo struct {
 
 func NewEventRepository() repository.EventRepository { return &eventRepo{} }
 
-func (r *eventRepo) Create(e domain.AssociationEvent) (domain.AssociationEvent, error) {
+func (r *eventRepo) Create(ctx context.Context, e domain.AssociationEvent) (domain.AssociationEvent, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	e.CreatedAt = time.Now()
@@ -144,7 +145,7 @@ func (r *eventRepo) Create(e domain.AssociationEvent) (domain.AssociationEvent, 
 	r.items = append(r.items, e)
 	return e, nil
 }
-func (r *eventRepo) FindByID(id string) (domain.AssociationEvent, error) {
+func (r *eventRepo) FindByID(ctx context.Context, id string) (domain.AssociationEvent, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, e := range r.items {
@@ -154,12 +155,12 @@ func (r *eventRepo) FindByID(id string) (domain.AssociationEvent, error) {
 	}
 	return domain.AssociationEvent{}, fmt.Errorf("event %s not found", id)
 }
-func (r *eventRepo) List(offset, limit int) ([]domain.AssociationEvent, int, error) {
+func (r *eventRepo) List(ctx context.Context, offset, limit int) ([]domain.AssociationEvent, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return paginateSlice(r.items, offset, limit)
 }
-func (r *eventRepo) Update(e domain.AssociationEvent) (domain.AssociationEvent, error) {
+func (r *eventRepo) Update(ctx context.Context, e domain.AssociationEvent) (domain.AssociationEvent, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.items {
@@ -171,14 +172,14 @@ func (r *eventRepo) Update(e domain.AssociationEvent) (domain.AssociationEvent, 
 	}
 	return domain.AssociationEvent{}, fmt.Errorf("event %s not found", e.ID)
 }
-func (r *eventRepo) CreateReg(reg domain.EventRegistration) (domain.EventRegistration, error) {
+func (r *eventRepo) CreateReg(ctx context.Context, reg domain.EventRegistration) (domain.EventRegistration, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	reg.CreatedAt = time.Now()
 	r.regs = append(r.regs, reg)
 	return reg, nil
 }
-func (r *eventRepo) ListRegs(eventID string) ([]domain.EventRegistration, error) {
+func (r *eventRepo) ListRegs(ctx context.Context, eventID string) ([]domain.EventRegistration, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.EventRegistration, 0)
@@ -199,7 +200,7 @@ type portfolioRepo struct {
 
 func NewPortfolioRepository() repository.PortfolioRepository { return &portfolioRepo{} }
 
-func (r *portfolioRepo) Create(p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
+func (r *portfolioRepo) Create(ctx context.Context, p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	p.CreatedAt = time.Now()
@@ -207,7 +208,7 @@ func (r *portfolioRepo) Create(p domain.MemberPortfolio) (domain.MemberPortfolio
 	r.items = append(r.items, p)
 	return p, nil
 }
-func (r *portfolioRepo) FindByID(id string) (domain.MemberPortfolio, error) {
+func (r *portfolioRepo) FindByID(ctx context.Context, id string) (domain.MemberPortfolio, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, p := range r.items {
@@ -217,7 +218,7 @@ func (r *portfolioRepo) FindByID(id string) (domain.MemberPortfolio, error) {
 	}
 	return domain.MemberPortfolio{}, fmt.Errorf("portfolio %s not found", id)
 }
-func (r *portfolioRepo) ListByEnterprise(eid string) ([]domain.MemberPortfolio, error) {
+func (r *portfolioRepo) ListByEnterprise(ctx context.Context, eid string) ([]domain.MemberPortfolio, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.MemberPortfolio, 0)
@@ -228,7 +229,7 @@ func (r *portfolioRepo) ListByEnterprise(eid string) ([]domain.MemberPortfolio, 
 	}
 	return out, nil
 }
-func (r *portfolioRepo) ListPublished(offset, limit int) ([]domain.MemberPortfolio, int, error) {
+func (r *portfolioRepo) ListPublished(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	filtered := make([]domain.MemberPortfolio, 0)
@@ -239,12 +240,12 @@ func (r *portfolioRepo) ListPublished(offset, limit int) ([]domain.MemberPortfol
 	}
 	return paginateSlice(filtered, offset, limit)
 }
-func (r *portfolioRepo) List(offset, limit int) ([]domain.MemberPortfolio, int, error) {
+func (r *portfolioRepo) List(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return paginateSlice(append([]domain.MemberPortfolio(nil), r.items...), offset, limit)
 }
-func (r *portfolioRepo) Update(p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
+func (r *portfolioRepo) Update(ctx context.Context, p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.items {
@@ -257,7 +258,7 @@ func (r *portfolioRepo) Update(p domain.MemberPortfolio) (domain.MemberPortfolio
 	return domain.MemberPortfolio{}, fmt.Errorf("portfolio %s not found", p.ID)
 }
 
-func (r *portfolioRepo) Delete(id string) error {
+func (r *portfolioRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.items {
@@ -269,7 +270,7 @@ func (r *portfolioRepo) Delete(id string) error {
 	return fmt.Errorf("portfolio %s not found", id)
 }
 
-func (r *eventRepo) Delete(id string) error {
+func (r *eventRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.items {
@@ -290,7 +291,7 @@ type industryReportRepo struct {
 
 func NewIndustryReportRepository() repository.IndustryReportRepository { return &industryReportRepo{} }
 
-func (r *industryReportRepo) Create(rp domain.IndustryReport) (domain.IndustryReport, error) {
+func (r *industryReportRepo) Create(ctx context.Context, rp domain.IndustryReport) (domain.IndustryReport, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	rp.CreatedAt = time.Now()
@@ -298,7 +299,7 @@ func (r *industryReportRepo) Create(rp domain.IndustryReport) (domain.IndustryRe
 	r.items = append(r.items, rp)
 	return rp, nil
 }
-func (r *industryReportRepo) FindByID(id string) (domain.IndustryReport, error) {
+func (r *industryReportRepo) FindByID(ctx context.Context, id string) (domain.IndustryReport, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, rp := range r.items {
@@ -308,12 +309,12 @@ func (r *industryReportRepo) FindByID(id string) (domain.IndustryReport, error) 
 	}
 	return domain.IndustryReport{}, fmt.Errorf("report %s not found", id)
 }
-func (r *industryReportRepo) List(offset, limit int) ([]domain.IndustryReport, int, error) {
+func (r *industryReportRepo) List(ctx context.Context, offset, limit int) ([]domain.IndustryReport, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return paginateSlice(r.items, offset, limit)
 }
-func (r *industryReportRepo) Update(rp domain.IndustryReport) (domain.IndustryReport, error) {
+func (r *industryReportRepo) Update(ctx context.Context, rp domain.IndustryReport) (domain.IndustryReport, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.items {
@@ -325,7 +326,7 @@ func (r *industryReportRepo) Update(rp domain.IndustryReport) (domain.IndustryRe
 	}
 	return domain.IndustryReport{}, fmt.Errorf("report %s not found", rp.ID)
 }
-func (r *industryReportRepo) Delete(id string) error {
+func (r *industryReportRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.items {
@@ -347,7 +348,7 @@ type resourceRepo struct {
 
 func NewResourceRepository() repository.ResourceRepository { return &resourceRepo{} }
 
-func (r *resourceRepo) Create(res domain.IndustryResource) (domain.IndustryResource, error) {
+func (r *resourceRepo) Create(ctx context.Context, res domain.IndustryResource) (domain.IndustryResource, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	res.CreatedAt = time.Now()
@@ -355,7 +356,7 @@ func (r *resourceRepo) Create(res domain.IndustryResource) (domain.IndustryResou
 	r.items = append(r.items, res)
 	return res, nil
 }
-func (r *resourceRepo) FindByID(id string) (domain.IndustryResource, error) {
+func (r *resourceRepo) FindByID(ctx context.Context, id string) (domain.IndustryResource, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, res := range r.items {
@@ -365,7 +366,7 @@ func (r *resourceRepo) FindByID(id string) (domain.IndustryResource, error) {
 	}
 	return domain.IndustryResource{}, fmt.Errorf("resource %s not found", id)
 }
-func (r *resourceRepo) List(resType string, offset, limit int) ([]domain.IndustryResource, int, error) {
+func (r *resourceRepo) List(ctx context.Context, resType string, offset, limit int) ([]domain.IndustryResource, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	filtered := make([]domain.IndustryResource, 0)
@@ -376,7 +377,7 @@ func (r *resourceRepo) List(resType string, offset, limit int) ([]domain.Industr
 	}
 	return paginateSlice(filtered, offset, limit)
 }
-func (r *resourceRepo) Update(res domain.IndustryResource) (domain.IndustryResource, error) {
+func (r *resourceRepo) Update(ctx context.Context, res domain.IndustryResource) (domain.IndustryResource, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.items {
@@ -389,7 +390,7 @@ func (r *resourceRepo) Update(res domain.IndustryResource) (domain.IndustryResou
 	return domain.IndustryResource{}, fmt.Errorf("resource %s not found", res.ID)
 }
 
-func (r *resourceRepo) Delete(id string) error {
+func (r *resourceRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.items {
@@ -403,7 +404,7 @@ func (r *resourceRepo) Delete(id string) error {
 
 // ---- Resource bookings (C11) ----
 
-func (r *resourceRepo) CreateBooking(b domain.IndustryResourceBooking) (domain.IndustryResourceBooking, error) {
+func (r *resourceRepo) CreateBooking(ctx context.Context, b domain.IndustryResourceBooking) (domain.IndustryResourceBooking, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	b.CreatedAt = time.Now()
@@ -411,7 +412,7 @@ func (r *resourceRepo) CreateBooking(b domain.IndustryResourceBooking) (domain.I
 	r.bookings = append(r.bookings, b)
 	return b, nil
 }
-func (r *resourceRepo) ListBookingsByResource(resourceID string) ([]domain.IndustryResourceBooking, error) {
+func (r *resourceRepo) ListBookingsByResource(ctx context.Context, resourceID string) ([]domain.IndustryResourceBooking, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.IndustryResourceBooking, 0)
@@ -422,7 +423,7 @@ func (r *resourceRepo) ListBookingsByResource(resourceID string) ([]domain.Indus
 	}
 	return out, nil
 }
-func (r *resourceRepo) ListBookingsByUser(userID string) ([]domain.IndustryResourceBooking, error) {
+func (r *resourceRepo) ListBookingsByUser(ctx context.Context, userID string) ([]domain.IndustryResourceBooking, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.IndustryResourceBooking, 0)
@@ -444,7 +445,7 @@ type emergencyRepo struct {
 
 func NewEmergencyRepository() repository.EmergencyRepository { return &emergencyRepo{} }
 
-func (r *emergencyRepo) CreateResource(res domain.EmergencyResource) (domain.EmergencyResource, error) {
+func (r *emergencyRepo) CreateResource(ctx context.Context, res domain.EmergencyResource) (domain.EmergencyResource, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	res.CreatedAt = time.Now()
@@ -452,7 +453,7 @@ func (r *emergencyRepo) CreateResource(res domain.EmergencyResource) (domain.Eme
 	r.resources = append(r.resources, res)
 	return res, nil
 }
-func (r *emergencyRepo) FindResourceByID(id string) (domain.EmergencyResource, error) {
+func (r *emergencyRepo) FindResourceByID(ctx context.Context, id string) (domain.EmergencyResource, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, res := range r.resources {
@@ -462,7 +463,7 @@ func (r *emergencyRepo) FindResourceByID(id string) (domain.EmergencyResource, e
 	}
 	return domain.EmergencyResource{}, fmt.Errorf("emergency resource %s not found", id)
 }
-func (r *emergencyRepo) ListResources(resType, q string, offset, limit int) ([]domain.EmergencyResource, int, error) {
+func (r *emergencyRepo) ListResources(ctx context.Context, resType, q string, offset, limit int) ([]domain.EmergencyResource, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	query := strings.ToLower(strings.TrimSpace(q))
@@ -478,7 +479,7 @@ func (r *emergencyRepo) ListResources(resType, q string, offset, limit int) ([]d
 	}
 	return paginateSlice(filtered, offset, limit)
 }
-func (r *emergencyRepo) UpdateResource(res domain.EmergencyResource) (domain.EmergencyResource, error) {
+func (r *emergencyRepo) UpdateResource(ctx context.Context, res domain.EmergencyResource) (domain.EmergencyResource, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.resources {
@@ -490,20 +491,20 @@ func (r *emergencyRepo) UpdateResource(res domain.EmergencyResource) (domain.Eme
 	}
 	return domain.EmergencyResource{}, fmt.Errorf("emergency resource %s not found", res.ID)
 }
-func (r *emergencyRepo) CreateDispatch(d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
+func (r *emergencyRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	d.CreatedAt = time.Now()
 	r.dispatches = append(r.dispatches, d)
 	return d, nil
 }
-func (r *emergencyRepo) ListDispatches(offset, limit int) ([]domain.EmergencyDispatch, int, error) {
+func (r *emergencyRepo) ListDispatches(ctx context.Context, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return paginateSlice(r.dispatches, offset, limit)
 }
 
-func (r *emergencyRepo) DeleteResource(id string) error {
+func (r *emergencyRepo) DeleteResource(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.resources {
@@ -515,7 +516,7 @@ func (r *emergencyRepo) DeleteResource(id string) error {
 	return fmt.Errorf("resource %s not found", id)
 }
 
-func (r *emergencyRepo) FindDispatchByID(id string) (domain.EmergencyDispatch, error) {
+func (r *emergencyRepo) FindDispatchByID(ctx context.Context, id string) (domain.EmergencyDispatch, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, d := range r.dispatches {
@@ -526,7 +527,7 @@ func (r *emergencyRepo) FindDispatchByID(id string) (domain.EmergencyDispatch, e
 	return domain.EmergencyDispatch{}, fmt.Errorf("dispatch %s not found", id)
 }
 
-func (r *emergencyRepo) UpdateDispatch(d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
+func (r *emergencyRepo) UpdateDispatch(ctx context.Context, d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.dispatches {
@@ -538,7 +539,7 @@ func (r *emergencyRepo) UpdateDispatch(d domain.EmergencyDispatch) (domain.Emerg
 	return domain.EmergencyDispatch{}, fmt.Errorf("dispatch %s not found", d.ID)
 }
 
-func (r *emergencyRepo) DeleteDispatch(id string) error {
+func (r *emergencyRepo) DeleteDispatch(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.dispatches {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -21,7 +22,7 @@ func NewCompetitionService(repo repository.CompetitionRepository) *CompetitionSe
 }
 
 // Create 接收完整领域对象（含小程序页面字段 fee/tags/poster/deadline/events 等）。
-func (s *CompetitionService) Create(c domain.Competition) (domain.Competition, error) {
+func (s *CompetitionService) Create(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	now := time.Now()
 	if c.ID == "" {
 		c.ID = fmt.Sprintf("comp-%d", now.UnixNano())
@@ -31,37 +32,37 @@ func (s *CompetitionService) Create(c domain.Competition) (domain.Competition, e
 	}
 	c.CreatedAt = now
 	c.UpdatedAt = now
-	return s.repo.Create(c)
+	return s.repo.Create(ctx, c)
 }
 
-func (s *CompetitionService) List(page, pageSize int) ([]domain.Competition, int, error) {
+func (s *CompetitionService) List(ctx context.Context, page, pageSize int) ([]domain.Competition, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(offset, pageSize)
+	return s.repo.List(ctx, offset, pageSize)
 }
 
-func (s *CompetitionService) Get(id string) (domain.Competition, error) {
-	return s.repo.FindByID(id)
+func (s *CompetitionService) Get(ctx context.Context, id string) (domain.Competition, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *CompetitionService) Update(c domain.Competition) (domain.Competition, error) {
-	old, err := s.repo.FindByID(c.ID)
+func (s *CompetitionService) Update(ctx context.Context, c domain.Competition) (domain.Competition, error) {
+	old, err := s.repo.FindByID(ctx, c.ID)
 	if err != nil {
 		return domain.Competition{}, err
 	}
 	c.CreatedAt = old.CreatedAt // 保留原创建时间
 	c.UpdatedAt = time.Now()
-	return s.repo.Update(c)
+	return s.repo.Update(ctx, c)
 }
 
-func (s *CompetitionService) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *CompetitionService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // Register 报名：name/phone/idCard 为参赛人实名信息，photoURL/idCardImage 为证件影像（C13 补字段）。
-func (s *CompetitionService) Register(competitionID, userID, teamName string, memberCount int, contactInfo, name, phone, idCard, photoURL, idCardImage string) (domain.CompetitionReg, error) {
+func (s *CompetitionService) Register(ctx context.Context, competitionID, userID, teamName string, memberCount int, contactInfo, name, phone, idCard, photoURL, idCardImage string) (domain.CompetitionReg, error) {
 	now := time.Now()
 	// Check competition exists
-	if _, err := s.repo.FindByID(competitionID); err != nil {
+	if _, err := s.repo.FindByID(ctx, competitionID); err != nil {
 		return domain.CompetitionReg{}, err
 	}
 	cr := domain.CompetitionReg{
@@ -79,11 +80,11 @@ func (s *CompetitionService) Register(competitionID, userID, teamName string, me
 		Status:        "registered",
 		CreatedAt:     now,
 	}
-	return s.repo.CreateReg(cr)
+	return s.repo.CreateReg(ctx, cr)
 }
 
-func (s *CompetitionService) ListRegs(competitionID string) ([]domain.CompetitionReg, error) {
-	return s.repo.ListRegs(competitionID)
+func (s *CompetitionService) ListRegs(ctx context.Context, competitionID string) ([]domain.CompetitionReg, error) {
+	return s.repo.ListRegs(ctx, competitionID)
 }
 
 // ---- EventService (协会活动) ----
@@ -96,7 +97,7 @@ func NewEventService(repo repository.EventRepository) *EventService {
 	return &EventService{repo: repo}
 }
 
-func (s *EventService) Create(title, eventType, description, location, coverURL string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
+func (s *EventService) Create(ctx context.Context, title, eventType, description, location, coverURL string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
 	now := time.Now()
 	e := domain.AssociationEvent{
 		ID:           fmt.Sprintf("event-%d", now.UnixNano()),
@@ -112,20 +113,20 @@ func (s *EventService) Create(title, eventType, description, location, coverURL 
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	return s.repo.Create(e)
+	return s.repo.Create(ctx, e)
 }
 
-func (s *EventService) List(page, pageSize int) ([]domain.AssociationEvent, int, error) {
+func (s *EventService) List(ctx context.Context, page, pageSize int) ([]domain.AssociationEvent, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(offset, pageSize)
+	return s.repo.List(ctx, offset, pageSize)
 }
 
-func (s *EventService) Get(id string) (domain.AssociationEvent, error) {
-	return s.repo.FindByID(id)
+func (s *EventService) Get(ctx context.Context, id string) (domain.AssociationEvent, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *EventService) Update(id, title, eventType, description, location, coverURL, status string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
-	ev, err := s.repo.FindByID(id)
+func (s *EventService) Update(ctx context.Context, id, title, eventType, description, location, coverURL, status string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
+	ev, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.AssociationEvent{}, err
 	}
@@ -139,14 +140,14 @@ func (s *EventService) Update(id, title, eventType, description, location, cover
 	ev.EndTime = endTime
 	ev.MaxAttendees = maxAttendees
 	ev.UpdatedAt = time.Now()
-	return s.repo.Update(ev)
+	return s.repo.Update(ctx, ev)
 }
 
-func (s *EventService) Delete(id string) error { return s.repo.Delete(id) }
+func (s *EventService) Delete(ctx context.Context, id string) error { return s.repo.Delete(ctx, id) }
 
-func (s *EventService) Register(eventID, userID, name, phone, org string) (domain.EventRegistration, error) {
+func (s *EventService) Register(ctx context.Context, eventID, userID, name, phone, org string) (domain.EventRegistration, error) {
 	now := time.Now()
-	if _, err := s.repo.FindByID(eventID); err != nil {
+	if _, err := s.repo.FindByID(ctx, eventID); err != nil {
 		return domain.EventRegistration{}, err
 	}
 	er := domain.EventRegistration{
@@ -159,11 +160,11 @@ func (s *EventService) Register(eventID, userID, name, phone, org string) (domai
 		Status:    "registered",
 		CreatedAt: now,
 	}
-	return s.repo.CreateReg(er)
+	return s.repo.CreateReg(ctx, er)
 }
 
-func (s *EventService) ListRegs(eventID string) ([]domain.EventRegistration, error) {
-	return s.repo.ListRegs(eventID)
+func (s *EventService) ListRegs(ctx context.Context, eventID string) ([]domain.EventRegistration, error) {
+	return s.repo.ListRegs(ctx, eventID)
 }
 
 // ---- ResourceService (产业资源共享) ----
@@ -179,7 +180,7 @@ func NewResourceService(repo repository.ResourceRepository) *ResourceService {
 	return &ResourceService{repo: repo}
 }
 
-func (s *ResourceService) Create(ownerID, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel string) (domain.IndustryResource, error) {
+func (s *ResourceService) Create(ctx context.Context, ownerID, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel string) (domain.IndustryResource, error) {
 	now := time.Now()
 	if visibilityLevel == "" {
 		visibilityLevel = "public"
@@ -199,20 +200,20 @@ func (s *ResourceService) Create(ownerID, name, resType, model, specs, location,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
-	return s.repo.Create(r)
+	return s.repo.Create(ctx, r)
 }
 
-func (s *ResourceService) List(resType string, page, pageSize int) ([]domain.IndustryResource, int, error) {
+func (s *ResourceService) List(ctx context.Context, resType string, page, pageSize int) ([]domain.IndustryResource, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(resType, offset, pageSize)
+	return s.repo.List(ctx, resType, offset, pageSize)
 }
 
-func (s *ResourceService) Get(id string) (domain.IndustryResource, error) {
-	return s.repo.FindByID(id)
+func (s *ResourceService) Get(ctx context.Context, id string) (domain.IndustryResource, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *ResourceService) Update(id, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel, status string) (domain.IndustryResource, error) {
-	r, err := s.repo.FindByID(id)
+func (s *ResourceService) Update(ctx context.Context, id, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel, status string) (domain.IndustryResource, error) {
+	r, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.IndustryResource{}, err
 	}
@@ -230,15 +231,15 @@ func (s *ResourceService) Update(id, name, resType, model, specs, location, book
 		r.Status = status
 	}
 	r.UpdatedAt = time.Now()
-	return s.repo.Update(r)
+	return s.repo.Update(ctx, r)
 }
 
-func (s *ResourceService) Delete(id string) error { return s.repo.Delete(id) }
+func (s *ResourceService) Delete(ctx context.Context, id string) error { return s.repo.Delete(ctx, id) }
 
 // Book 提交资源预约（C11：小程序资源详情页 → POST /api/v1/industry-resources/{id}/book）。
 // date 为 YYYY-MM-DD（小程序日期选择器格式，格式校验在 Handler 层）。
-func (s *ResourceService) Book(userID, resourceID, date, purpose, contactName, contactPhone string) (domain.IndustryResourceBooking, error) {
-	if _, err := s.repo.FindByID(resourceID); err != nil {
+func (s *ResourceService) Book(ctx context.Context, userID, resourceID, date, purpose, contactName, contactPhone string) (domain.IndustryResourceBooking, error) {
+	if _, err := s.repo.FindByID(ctx, resourceID); err != nil {
 		return domain.IndustryResourceBooking{}, fmt.Errorf("%w: %s", ErrResourceNotFound, resourceID)
 	}
 	now := time.Now()
@@ -254,12 +255,12 @@ func (s *ResourceService) Book(userID, resourceID, date, purpose, contactName, c
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	return s.repo.CreateBooking(b)
+	return s.repo.CreateBooking(ctx, b)
 }
 
 // ListBookingsByResource 某资源的全部预约（供测试与管理端查询）。
-func (s *ResourceService) ListBookingsByResource(resourceID string) ([]domain.IndustryResourceBooking, error) {
-	return s.repo.ListBookingsByResource(resourceID)
+func (s *ResourceService) ListBookingsByResource(ctx context.Context, resourceID string) ([]domain.IndustryResourceBooking, error) {
+	return s.repo.ListBookingsByResource(ctx, resourceID)
 }
 
 // ---- EmergencyService (应急管理) ----
@@ -292,7 +293,7 @@ func normalizeEmergencyResType(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func (s *EmergencyService) CreateResource(ownerID, name, resType, specs, location, contactInfo string, quantity int) (domain.EmergencyResource, error) {
+func (s *EmergencyService) CreateResource(ctx context.Context, ownerID, name, resType, specs, location, contactInfo string, quantity int) (domain.EmergencyResource, error) {
 	now := time.Now()
 	r := domain.EmergencyResource{
 		ID:          fmt.Sprintf("emres-%d-%d", now.UnixNano(), nextSeq()),
@@ -307,27 +308,27 @@ func (s *EmergencyService) CreateResource(ownerID, name, resType, specs, locatio
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	return s.repo.CreateResource(r)
+	return s.repo.CreateResource(ctx, r)
 }
 
-func (s *EmergencyService) ListResources(resType, q string, page, pageSize int) ([]domain.EmergencyResource, int, error) {
+func (s *EmergencyService) ListResources(ctx context.Context, resType, q string, page, pageSize int) ([]domain.EmergencyResource, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListResources(normalizeEmergencyResType(resType), strings.TrimSpace(q), offset, pageSize)
+	return s.repo.ListResources(ctx, normalizeEmergencyResType(resType), strings.TrimSpace(q), offset, pageSize)
 }
 
-func (s *EmergencyService) GetResource(id string) (domain.EmergencyResource, error) {
-	return s.repo.FindResourceByID(id)
+func (s *EmergencyService) GetResource(ctx context.Context, id string) (domain.EmergencyResource, error) {
+	return s.repo.FindResourceByID(ctx, id)
 }
 
-func (s *EmergencyService) FindDispatchByID(id string) (domain.EmergencyDispatch, error) {
-	return s.repo.FindDispatchByID(id)
+func (s *EmergencyService) FindDispatchByID(ctx context.Context, id string) (domain.EmergencyDispatch, error) {
+	return s.repo.FindDispatchByID(ctx, id)
 }
 
 // Emergency Dispatches
 
-func (s *EmergencyService) CreateDispatch(resourceID, eventDesc, location, commander, result string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
+func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, eventDesc, location, commander, result string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
 	now := time.Now()
-	if _, err := s.repo.FindResourceByID(resourceID); err != nil {
+	if _, err := s.repo.FindResourceByID(ctx, resourceID); err != nil {
 		return domain.EmergencyDispatch{}, err
 	}
 	d := domain.EmergencyDispatch{
@@ -342,16 +343,16 @@ func (s *EmergencyService) CreateDispatch(resourceID, eventDesc, location, comma
 		Status:     "dispatched",
 		CreatedAt:  now,
 	}
-	return s.repo.CreateDispatch(d)
+	return s.repo.CreateDispatch(ctx, d)
 }
 
-func (s *EmergencyService) ListDispatches(page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
+func (s *EmergencyService) ListDispatches(ctx context.Context, page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListDispatches(offset, pageSize)
+	return s.repo.ListDispatches(ctx, offset, pageSize)
 }
 
-func (s *EmergencyService) UpdateResource(id, name, resType, specs, location, contactInfo, status string, quantity int) (domain.EmergencyResource, error) {
-	r, err := s.repo.FindResourceByID(id)
+func (s *EmergencyService) UpdateResource(ctx context.Context, id, name, resType, specs, location, contactInfo, status string, quantity int) (domain.EmergencyResource, error) {
+	r, err := s.repo.FindResourceByID(ctx, id)
 	if err != nil {
 		return domain.EmergencyResource{}, err
 	}
@@ -363,14 +364,18 @@ func (s *EmergencyService) UpdateResource(id, name, resType, specs, location, co
 	r.Status = status
 	r.Quantity = quantity
 	r.UpdatedAt = time.Now()
-	return s.repo.UpdateResource(r)
+	return s.repo.UpdateResource(ctx, r)
 }
 
-func (s *EmergencyService) DeleteResource(id string) error { return s.repo.DeleteResource(id) }
-func (s *EmergencyService) DeleteDispatch(id string) error { return s.repo.DeleteDispatch(id) }
+func (s *EmergencyService) DeleteResource(ctx context.Context, id string) error {
+	return s.repo.DeleteResource(ctx, id)
+}
+func (s *EmergencyService) DeleteDispatch(ctx context.Context, id string) error {
+	return s.repo.DeleteDispatch(ctx, id)
+}
 
-func (s *EmergencyService) UpdateDispatch(id, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
-	d, err := s.repo.FindDispatchByID(id)
+func (s *EmergencyService) UpdateDispatch(ctx context.Context, id, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
+	d, err := s.repo.FindDispatchByID(ctx, id)
 	if err != nil {
 		return domain.EmergencyDispatch{}, err
 	}
@@ -382,5 +387,5 @@ func (s *EmergencyService) UpdateDispatch(id, resourceID, eventDesc, location, c
 	d.Status = status
 	d.StartTime = startTime
 	d.EndTime = endTime
-	return s.repo.UpdateDispatch(d)
+	return s.repo.UpdateDispatch(ctx, d)
 }

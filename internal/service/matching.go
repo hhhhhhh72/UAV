@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"math"
 	"sort"
 	"strings"
@@ -20,15 +21,15 @@ func NewMatchingService(dr repository.DemandRepository) *MatchingService {
 
 // MatchResult is a scored demand recommendation.
 type MatchResult struct {
-	Demand domain.Demand `json:"demand"`
-	Score  float64       `json:"score"`
-	Reasons []string     `json:"reasons"`
+	Demand  domain.Demand `json:"demand"`
+	Score   float64       `json:"score"`
+	Reasons []string      `json:"reasons"`
 }
 
 // Recommend returns demands ranked by relevance for a given user context.
 // lat/lng are optional (0 means unknown). bizType is the user's preferred type.
-func (s *MatchingService) Recommend(userID string, lat, lng float64, bizType, district string, limit int) ([]MatchResult, error) {
-	demands, err := s.demandRepo.List(repository.DemandFilter{})
+func (s *MatchingService) Recommend(ctx context.Context, userID string, lat, lng float64, bizType, district string, limit int) ([]MatchResult, error) {
+	demands, err := s.demandRepo.List(ctx, repository.DemandFilter{})
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +60,9 @@ func (s *MatchingService) score(d domain.Demand, lat, lng float64, bizType, dist
 	var reasons []string
 	score := 0.0
 	weights := map[string]float64{
-		"biz_type_match":  0.35,
-		"district_match":  0.25,
-		"distance_close":   0.25,
+		"biz_type_match":    0.35,
+		"district_match":    0.25,
+		"distance_close":    0.25,
 		"budget_reasonable": 0.15,
 	}
 
@@ -114,8 +115,8 @@ func haversineKm(lat1, lng1, lat2, lng2 float64) float64 {
 }
 
 // SearchAndMatch combines keyword search with intelligent scoring.
-func (s *MatchingService) SearchAndMatch(q string, lat, lng float64, bizType string, limit int) ([]MatchResult, error) {
-	demands, err := s.demandRepo.Search(q)
+func (s *MatchingService) SearchAndMatch(ctx context.Context, q string, lat, lng float64, bizType string, limit int) ([]MatchResult, error) {
+	demands, err := s.demandRepo.Search(ctx, q)
 	if err != nil {
 		return nil, err
 	}

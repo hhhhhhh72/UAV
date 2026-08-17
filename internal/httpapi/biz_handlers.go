@@ -120,7 +120,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 // GET /api/v1/experts?field=农业
 func (s *Server) listExperts(w http.ResponseWriter, r *http.Request) {
-	items, err := s.expertSvc.List(r.URL.Query().Get("field"))
+	items, err := s.expertSvc.List(r.Context(), r.URL.Query().Get("field"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -155,7 +155,7 @@ func (s *Server) createExpert(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	e, err := s.expertSvc.Create(in.Name, in.Title, in.Org, in.Field, in.Bio, in.AvatarURL, in.Status, in.Tags)
+	e, err := s.expertSvc.Create(r.Context(), in.Name, in.Title, in.Org, in.Field, in.Bio, in.AvatarURL, in.Status, in.Tags)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -192,7 +192,7 @@ func (s *Server) updateExpert(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	e, err := s.expertSvc.Update(r.PathValue("id"), in.Name, in.Title, in.Org, in.Field, in.Bio, in.AvatarURL, in.Status, in.Tags)
+	e, err := s.expertSvc.Update(r.Context(), r.PathValue("id"), in.Name, in.Title, in.Org, in.Field, in.Bio, in.AvatarURL, in.Status, in.Tags)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -211,7 +211,7 @@ func (s *Server) deleteExpert(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	if err := s.expertSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.expertSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
@@ -223,7 +223,7 @@ func (s *Server) deleteExpert(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/cases?category=农业&page=1&page_size=10
 func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.caseSvc.List(r.URL.Query().Get("category"), 1, 100000)
+	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -254,7 +254,7 @@ func (s *Server) createCase(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.caseSvc.Create(in.Title, in.Category, in.Description, in.Images, in.ClientName, in.Result)
+	c, err := s.caseSvc.Create(r.Context(), in.Title, in.Category, in.Description, in.Images, in.ClientName, in.Result)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -274,7 +274,7 @@ func (s *Server) getCase(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	c, err := s.caseSvc.Get(r.PathValue("id"))
+	c, err := s.caseSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -306,7 +306,7 @@ func (s *Server) updateCase(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.caseSvc.Update(r.PathValue("id"), in.Title, in.Category, in.Description, in.Status, in.Images, in.ClientName, in.Result)
+	c, err := s.caseSvc.Update(r.Context(), r.PathValue("id"), in.Title, in.Category, in.Description, in.Status, in.Images, in.ClientName, in.Result)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -325,7 +325,7 @@ func (s *Server) deleteCase(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	if err := s.caseSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.caseSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
@@ -338,7 +338,7 @@ func (s *Server) deleteCase(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/compliance-docs?category=政策法规&page=1&page_size=10
 func (s *Server) listComplianceDocs(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.complianceSvc.ListDocs(r.URL.Query().Get("category"), page, pageSize)
+	items, total, err := s.complianceSvc.ListDocs(r.Context(), r.URL.Query().Get("category"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -372,7 +372,7 @@ func (s *Server) createComplianceDoc(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.complianceSvc.CreateDoc(in.Title, in.Category, in.Publisher, in.PublishDate, in.Status, in.Summary, in.FileURL, in.Tags)
+	d, err := s.complianceSvc.CreateDoc(r.Context(), in.Title, in.Category, in.Publisher, in.PublishDate, in.Status, in.Summary, in.FileURL, in.Tags)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -384,7 +384,7 @@ func (s *Server) createComplianceDoc(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/compliance-standards?category=团体标准&page=1&page_size=10
 func (s *Server) listComplianceStandards(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.complianceSvc.ListStandards(r.URL.Query().Get("category"), page, pageSize)
+	items, total, err := s.complianceSvc.ListStandards(r.Context(), r.URL.Query().Get("category"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -418,7 +418,7 @@ func (s *Server) createComplianceStandard(w http.ResponseWriter, r *http.Request
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	sd, err := s.complianceSvc.CreateStandard(in.Title, in.Category, in.StandardNo, in.Publisher, in.EffectiveDate, in.Status, in.Scope, in.FileURL)
+	sd, err := s.complianceSvc.CreateStandard(r.Context(), in.Title, in.Category, in.StandardNo, in.Publisher, in.EffectiveDate, in.Status, in.Scope, in.FileURL)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -432,7 +432,7 @@ func (s *Server) createComplianceStandard(w http.ResponseWriter, r *http.Request
 // GET /api/v1/industry-reports?page=1&page_size=10
 // 支持 keyword/status 过滤（管理端搜索/筛选；无参时与公开列表行为一致）
 func (s *Server) listIndustryReports(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.reportSvc.List(1, 10000)
+	items, _, err := s.reportSvc.List(r.Context(), 1, 10000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -477,7 +477,7 @@ func (s *Server) createIndustryReport(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	rep, err := s.reportSvc.Create(in.Title, in.Period, in.Category, in.Summary, in.Content, in.FileURL, in.Author)
+	rep, err := s.reportSvc.Create(r.Context(), in.Title, in.Period, in.Category, in.Summary, in.Content, in.FileURL, in.Author)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -497,7 +497,7 @@ func (s *Server) deleteIndustryReport(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	if err := s.reportSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.reportSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
@@ -510,7 +510,7 @@ func (s *Server) deleteIndustryReport(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/portfolios?page=1&page_size=10
 func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.portfolioSvc.ListPublished(page, pageSize)
+	items, total, err := s.portfolioSvc.ListPublished(r.Context(), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -520,7 +520,7 @@ func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/portfolios — 管理端全量（含草稿/待审），公开端仅 published
 func (s *Server) listAdminPortfolios(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.portfolioSvc.List(1, 100000)
+	items, _, err := s.portfolioSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -538,7 +538,7 @@ func (s *Server) listMyPortfolios(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	items, err := s.portfolioSvc.ListByEnterprise(a.ID)
+	items, err := s.portfolioSvc.ListByEnterprise(r.Context(), a.ID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -566,7 +566,7 @@ func (s *Server) createPortfolio(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.portfolioSvc.Create(a.ID, in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Products, in.Honors)
+	p, err := s.portfolioSvc.Create(r.Context(), a.ID, in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Products, in.Honors)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -596,7 +596,7 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.portfolioSvc.Update(r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Status, in.Products, in.Honors)
+	p, err := s.portfolioSvc.Update(r.Context(), r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Status, in.Products, in.Honors)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -608,7 +608,7 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/achievements?field=智能巡检&page=1&page_size=10
 func (s *Server) listAchievements(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.achievementSvc.List(r.URL.Query().Get("field"), 1, 100000)
+	items, _, err := s.achievementSvc.List(r.Context(), r.URL.Query().Get("field"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -647,7 +647,7 @@ func (s *Server) createAchievement(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ach, err := s.achievementSvc.Create(a.ID, in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
+	ach, err := s.achievementSvc.Create(r.Context(), a.ID, in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -677,7 +677,7 @@ func (s *Server) updateAchievement(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ach, err := s.achievementSvc.Update(r.PathValue("id"), in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
+	ach, err := s.achievementSvc.Update(r.Context(), r.PathValue("id"), in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -692,7 +692,7 @@ func (s *Server) deleteAchievement(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if err := s.achievementSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.achievementSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
@@ -704,7 +704,7 @@ func (s *Server) deleteAchievement(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/rd-challenges?field=飞控&page=1&page_size=10
 func (s *Server) listRDChallenges(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.rdService.List(r.URL.Query().Get("field"), 1, 100000)
+	items, _, err := s.rdService.List(r.Context(), r.URL.Query().Get("field"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -753,7 +753,7 @@ func (s *Server) createRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
 		return
 	}
-	ch, err := s.rdService.Create(a.ID, in.Title, in.Field, in.Description, in.BudgetFen, deadline)
+	ch, err := s.rdService.Create(r.Context(), a.ID, in.Title, in.Field, in.Description, in.BudgetFen, deadline)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -782,7 +782,7 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
 		return
 	}
-	ch, err := s.rdService.Update(r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.BudgetFen, deadline)
+	ch, err := s.rdService.Update(r.Context(), r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.BudgetFen, deadline)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -795,7 +795,7 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/research-projects?page=1&page_size=10
 // GET /api/v1/research-projects — 支持 keyword/status 过滤（管理端搜索/筛选；无参时与公开列表行为一致）
 func (s *Server) listResearchProjects(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.researchSvc.List(1, 10000)
+	items, _, err := s.researchSvc.List(r.Context(), 1, 10000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -843,7 +843,7 @@ func (s *Server) createResearchProject(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
 		return
 	}
-	p, err := s.researchSvc.Create(in.Title, in.Field, in.Description, in.LeadOrg, in.Milestones, in.Members, in.BudgetFen, startDate, endDate)
+	p, err := s.researchSvc.Create(r.Context(), in.Title, in.Field, in.Description, in.LeadOrg, in.Milestones, in.Members, in.BudgetFen, startDate, endDate)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -889,7 +889,7 @@ func (s *Server) updateResearchProject(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
 		return
 	}
-	p, err := s.researchSvc.Update(r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.LeadOrg, in.Milestones, in.Members, in.BudgetFen, startDate, endDate)
+	p, err := s.researchSvc.Update(r.Context(), r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.LeadOrg, in.Milestones, in.Members, in.BudgetFen, startDate, endDate)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -906,7 +906,7 @@ func (s *Server) listMyProjectApps(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	items, err := s.projectAppSvc.ListMy(a.ID)
+	items, err := s.projectAppSvc.ListMy(r.Context(), a.ID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -925,7 +925,7 @@ func (s *Server) listAllProjectApps(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	items, total, err := s.projectAppSvc.ListAll(r.URL.Query().Get("status"), 1, 100000)
+	items, total, err := s.projectAppSvc.ListAll(r.Context(), r.URL.Query().Get("status"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -949,7 +949,7 @@ func (s *Server) createProjectApp(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	app, err := s.projectAppSvc.Create(a.ID, in.ProjectName, in.Category, in.Description, in.BudgetFen, in.Attachments)
+	app, err := s.projectAppSvc.Create(r.Context(), a.ID, in.ProjectName, in.Category, in.Description, in.BudgetFen, in.Attachments)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -977,7 +977,7 @@ func (s *Server) reviewProjectApp(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	app, err := s.projectAppSvc.Review(r.PathValue("id"), in.ReviewNote, in.Action)
+	app, err := s.projectAppSvc.Review(r.Context(), r.PathValue("id"), in.ReviewNote, in.Action)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -991,7 +991,7 @@ func (s *Server) reviewProjectApp(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/competitions?page=1&page_size=10&status=enrolling&keyword=无人机
 // status 筛选兼容页面值域（enrolling/open/ongoing/closed/full）与后端状态（published/...）。
 func (s *Server) listCompetitions(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.competitionSvc.List(1, 100000)
+	items, _, err := s.competitionSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1075,7 +1075,7 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 	if d, err := parseDateInput(in.Deadline); err == nil && !d.IsZero() {
 		deadline = &d
 	}
-	c, err := s.competitionSvc.Create(domain.Competition{
+	c, err := s.competitionSvc.Create(r.Context(), domain.Competition{
 		Title: in.Title, Category: in.Category, Description: in.Description,
 		Location: in.Location, Sponsor: in.Sponsor, StartDate: startDate, EndDate: endDate,
 		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
@@ -1102,7 +1102,7 @@ func (s *Server) listCompetitionRegs(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	regs, err := s.competitionSvc.ListRegs(r.PathValue("id"))
+	regs, err := s.competitionSvc.ListRegs(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -1140,7 +1140,7 @@ func (s *Server) registerCompetition(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("invalid id card number"))
 		return
 	}
-	reg, err := s.competitionSvc.Register(r.PathValue("id"), a.ID, in.TeamName, in.MemberCount, in.ContactInfo, in.Name, in.Phone, in.IDCard, in.PhotoURL, in.IDCardImage)
+	reg, err := s.competitionSvc.Register(r.Context(), r.PathValue("id"), a.ID, in.TeamName, in.MemberCount, in.ContactInfo, in.Name, in.Phone, in.IDCard, in.PhotoURL, in.IDCardImage)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -1152,7 +1152,7 @@ func (s *Server) registerCompetition(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/events?page=1&page_size=10
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.eventSvc.List(1, 100000)
+	items, total, err := s.eventSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1195,7 +1195,7 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
 		return
 	}
-	ev, err := s.eventSvc.Create(in.Title, in.EventType, in.Description, in.Location, in.CoverURL, startTime, endTime, in.MaxAttendees)
+	ev, err := s.eventSvc.Create(r.Context(), in.Title, in.EventType, in.Description, in.Location, in.CoverURL, startTime, endTime, in.MaxAttendees)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1215,7 +1215,7 @@ func (s *Server) listEventRegistrations(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	regs, err := s.eventSvc.ListRegs(r.PathValue("id"))
+	regs, err := s.eventSvc.ListRegs(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -1237,7 +1237,7 @@ func (s *Server) registerEvent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	reg, err := s.eventSvc.Register(r.PathValue("id"), a.ID, in.Name, in.Phone, in.Org)
+	reg, err := s.eventSvc.Register(r.Context(), r.PathValue("id"), a.ID, in.Name, in.Phone, in.Org)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -1279,7 +1279,7 @@ func (s *Server) visitorResourceLevel(r *http.Request) int {
 	}
 	// 查单位身份（association_members.role: partner 副会长单位 / college 合作院校）
 	if s.assocMemberSvc != nil {
-		if m, err := s.assocMemberSvc.GetByUserID(a.ID); err == nil {
+		if m, err := s.assocMemberSvc.GetByUserID(r.Context(), a.ID); err == nil {
 			if m.Role == domain.AssocPartner {
 				return 2
 			}
@@ -1293,7 +1293,7 @@ func (s *Server) visitorResourceLevel(r *http.Request) int {
 
 // GET /api/v1/industry-resources/{id} — 公开详情（分级校验：资源级别 ≤ 访问者级别）
 func (s *Server) getIndustryResourcePublic(w http.ResponseWriter, r *http.Request) {
-	res, err := s.resourceSvc.Get(r.PathValue("id"))
+	res, err := s.resourceSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -1306,7 +1306,7 @@ func (s *Server) getIndustryResourcePublic(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) listIndustryResources(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.resourceSvc.List(r.URL.Query().Get("res_type"), 1, 100000)
+	items, _, err := s.resourceSvc.List(r.Context(), r.URL.Query().Get("res_type"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1365,13 +1365,13 @@ func (s *Server) bookIndustryResource(w http.ResponseWriter, r *http.Request) {
 	}
 	// 可见级别校验：与列表/详情一致，无权查看的资源不允许预约
 	resID := r.PathValue("id")
-	if res, err := s.resourceSvc.Get(resID); err == nil {
+	if res, err := s.resourceSvc.Get(r.Context(), resID); err == nil {
 		if resourceLevelRank(res.VisibilityLevel) > s.visitorResourceLevel(r) {
 			fail(w, r, http.StatusForbidden, errors.New("resource not visible to current user"))
 			return
 		}
 	}
-	bk, err := s.resourceSvc.Book(a.ID, resID, in.Date, in.Purpose, in.ContactName, in.ContactPhone)
+	bk, err := s.resourceSvc.Book(r.Context(), a.ID, resID, in.Date, in.Purpose, in.ContactName, in.ContactPhone)
 	if err != nil {
 		if errors.Is(err, service.ErrResourceNotFound) {
 			fail(w, r, http.StatusNotFound, err)
@@ -1409,7 +1409,7 @@ func (s *Server) createIndustryResource(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.resourceSvc.Create(a.ID, in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel)
+	res, err := s.resourceSvc.Create(r.Context(), a.ID, in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1444,7 +1444,7 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.resourceSvc.Update(r.PathValue("id"), in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel, in.Status)
+	res, err := s.resourceSvc.Update(r.Context(), r.PathValue("id"), in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel, in.Status)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -1457,7 +1457,7 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 // GET /api/v1/emergency-resources?page=1&page_size=10&res_type=drone&q=关键词
 func (s *Server) listEmergencyResources(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.emergencySvc.ListResources(r.URL.Query().Get("res_type"), r.URL.Query().Get("q"), page, pageSize)
+	items, total, err := s.emergencySvc.ListResources(r.Context(), r.URL.Query().Get("res_type"), r.URL.Query().Get("q"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1488,7 +1488,7 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.emergencySvc.CreateResource(a.ID, in.Name, in.ResType, in.Specs, in.Location, in.ContactInfo, in.Quantity)
+	res, err := s.emergencySvc.CreateResource(r.Context(), a.ID, in.Name, in.ResType, in.Specs, in.Location, in.ContactInfo, in.Quantity)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1502,7 +1502,7 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 // status 筛选支持页面 dispatches.vue 值域：pending / dispatched / completed / ongoing / done / cancelled
 func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.emergencySvc.ListDispatches(page, pageSize)
+	items, total, err := s.emergencySvc.ListDispatches(r.Context(), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1554,7 +1554,7 @@ func (s *Server) createEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
 		return
 	}
-	d, err := s.emergencySvc.CreateDispatch(in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, startTime, endTime)
+	d, err := s.emergencySvc.CreateDispatch(r.Context(), in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, startTime, endTime)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -1579,7 +1579,7 @@ func (s *Server) recommendDemands(w http.ResponseWriter, r *http.Request) {
 	if a, ok := authenticatedActor(r); ok {
 		userID = a.ID
 	}
-	results, err := s.matchingSvc.Recommend(userID, lat, lng, bizType, district, limit)
+	results, err := s.matchingSvc.Recommend(r.Context(), userID, lat, lng, bizType, district, limit)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1601,7 +1601,7 @@ func (s *Server) searchAndMatch(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 20
 	}
-	results, err := s.matchingSvc.SearchAndMatch(q, lat, lng, bizType, limit)
+	results, err := s.matchingSvc.SearchAndMatch(r.Context(), q, lat, lng, bizType, limit)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

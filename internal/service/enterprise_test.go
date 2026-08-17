@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"testing"
 
 	"drone-platform/internal/domain"
@@ -16,26 +17,26 @@ func TestReviewApprovedUpgradesOwnerRole(t *testing.T) {
 
 	// Arrange: 个体用户 + 提交入驻申请
 	owner := domain.User{ID: "user-ent-owner", Role: domain.RoleIndividual, Status: "active"}
-	if _, err := users.Create(owner); err != nil {
+	if _, err := users.Create(context.Background(), owner); err != nil {
 		t.Fatal(err)
 	}
 	a := domain.Actor{ID: owner.ID, Role: domain.RoleIndividual}
-	e, err := svc.Create(a, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Submit(a, e.ID); err != nil {
+	if _, err := svc.Submit(context.Background(), a, e.ID); err != nil {
 		t.Fatal(err)
 	}
 
 	// Act: 管理员审核通过
 	admin := domain.Actor{ID: "admin-1", Role: domain.RoleAssociationAdmin}
-	if _, err := svc.Review(admin, e.ID, "approve", ""); err != nil {
+	if _, err := svc.Review(context.Background(), admin, e.ID, "approve", ""); err != nil {
 		t.Fatal(err)
 	}
 
 	// Assert: 用户角色升级为 enterprise
-	u, err := users.FindByID(owner.ID)
+	u, err := users.FindByID(context.Background(), owner.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,22 +52,22 @@ func TestReviewStoresReason(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
 
 	owner := domain.User{ID: "user-ent-2", Role: domain.RoleIndividual, Status: "active"}
-	if _, err := users.Create(owner); err != nil {
+	if _, err := users.Create(context.Background(), owner); err != nil {
 		t.Fatal(err)
 	}
 	a := domain.Actor{ID: owner.ID, Role: domain.RoleIndividual}
-	e, err := svc.Create(a, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Submit(a, e.ID); err != nil {
+	if _, err := svc.Submit(context.Background(), a, e.ID); err != nil {
 		t.Fatal(err)
 	}
 
 	// Act: 驳回并附理由
 	admin := domain.Actor{ID: "admin-2", Role: domain.RolePlatformAdmin}
 	reason := "营业执照不清晰，请重新拍摄上传"
-	got, err := svc.Review(admin, e.ID, "reject", reason)
+	got, err := svc.Review(context.Background(), admin, e.ID, "reject", reason)
 	if err != nil {
 		t.Fatal(err)
 	}

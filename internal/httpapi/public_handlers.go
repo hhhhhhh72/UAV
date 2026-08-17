@@ -9,7 +9,7 @@ import (
 // ── public handlers for mini-program ──
 
 func (s *Server) publicListCourses(w http.ResponseWriter, r *http.Request) {
-	all, err := s.trainingSvc.ListCourses()
+	all, err := s.trainingSvc.ListCourses(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -18,7 +18,7 @@ func (s *Server) publicListCourses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) publicListCerts(w http.ResponseWriter, r *http.Request) {
-	all, err := s.trainingSvc.ListAllCertificates()
+	all, err := s.trainingSvc.ListAllCertificates(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -27,7 +27,7 @@ func (s *Server) publicListCerts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
-	all, err := s.studyTourRepo.List()
+	all, err := s.studyTourRepo.List(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -37,7 +37,7 @@ func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) publicListRD(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, err := s.rdService.List("", page, size)
+	all, _, err := s.rdService.List(r.Context(), "", page, size)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -47,7 +47,7 @@ func (s *Server) publicListRD(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) publicListResearch(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, err := s.researchSvc.List(page, size)
+	all, _, err := s.researchSvc.List(r.Context(), page, size)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -56,7 +56,7 @@ func (s *Server) publicListResearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) publicListTestSites(w http.ResponseWriter, r *http.Request) {
-	all, err := s.testSiteSvc.List("")
+	all, err := s.testSiteSvc.List(r.Context(), "")
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -66,7 +66,7 @@ func (s *Server) publicListTestSites(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) publicListEmergency(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, err := s.emergencySvc.ListResources("", "", page, size)
+	all, _, err := s.emergencySvc.ListResources(r.Context(), "", "", page, size)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -76,7 +76,7 @@ func (s *Server) publicListEmergency(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) publicListReports(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, err := s.reportSvc.List(page, size)
+	all, _, err := s.reportSvc.List(r.Context(), page, size)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -86,7 +86,7 @@ func (s *Server) publicListReports(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) publicListIndustryResources(w http.ResponseWriter, r *http.Request) {
 	page, size := paginationFromQuery(r)
-	all, _, err := s.resourceSvc.List("", page, size)
+	all, _, err := s.resourceSvc.List(r.Context(), "", page, size)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -96,7 +96,7 @@ func (s *Server) publicListIndustryResources(w http.ResponseWriter, r *http.Requ
 
 func (s *Server) publicListServices(w http.ResponseWriter, r *http.Request) {
 	// services = jobs + demands summary
-	jobs, _, err := s.jobSvc.ListPublishedJobs(0, 100)
+	jobs, _, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 100)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -113,24 +113,26 @@ func (s *Server) publicMatch(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * size
 	// Search across multiple sources
 	var results []map[string]any
-	if dem, err := s.demands.List(repository.DemandFilter{}); err == nil {
+	if dem, err := s.demands.List(r.Context(), repository.DemandFilter{}); err == nil {
 		for _, d := range dem {
 			if q == "" || contains(d.Title, q) {
-				results = append(results, map[string]any{"type":"demand","id":d.ID,"title":d.Title})
+				results = append(results, map[string]any{"type": "demand", "id": d.ID, "title": d.Title})
 			}
 		}
 	}
-	if jobs, _, err := s.jobSvc.ListPublishedJobs(0, 100); err == nil {
+	if jobs, _, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 100); err == nil {
 		for _, j := range jobs {
 			if q == "" || contains(j.Title, q) {
-				results = append(results, map[string]any{"type":"job","id":j.ID,"title":j.Title})
+				results = append(results, map[string]any{"type": "job", "id": j.ID, "title": j.Title})
 			}
 		}
 	}
 	// paginate
 	if offset < len(results) {
 		end := offset + size
-		if end > len(results) { end = len(results) }
+		if end > len(results) {
+			end = len(results)
+		}
 		results = results[offset:end]
 	} else {
 		results = nil

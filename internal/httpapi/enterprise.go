@@ -22,7 +22,7 @@ func (s *Server) createEnterprise(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ent, err := s.enterpriseSvc.Create(a, in)
+	ent, err := s.enterpriseSvc.Create(r.Context(), a, in)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -43,7 +43,7 @@ func (s *Server) updateEnterprise(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ent, err := s.enterpriseSvc.Update(a, r.PathValue("id"), in)
+	ent, err := s.enterpriseSvc.Update(r.Context(), a, r.PathValue("id"), in)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -59,7 +59,7 @@ func (s *Server) submitEnterprise(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	ent, err := s.enterpriseSvc.Submit(a, r.PathValue("id"))
+	ent, err := s.enterpriseSvc.Submit(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -70,7 +70,7 @@ func (s *Server) submitEnterprise(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/enterprises/public — 公开已认证企业列表（第一版企业入驻价值展示）
 func (s *Server) listPublicEnterprises(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.enterpriseSvc.ListByStatus(domain.Actor{Role: domain.RolePlatformAdmin}, "approved", 0, 100)
+	items, _, err := s.enterpriseSvc.ListByStatus(r.Context(), domain.Actor{Role: domain.RolePlatformAdmin}, "approved", 0, 100)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -102,7 +102,7 @@ func (s *Server) getPublicEnterprise(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, errors.New("enterprise not found"))
 		return
 	}
-	e, err := s.enterpriseSvc.FindByID(id)
+	e, err := s.enterpriseSvc.FindByID(r.Context(), id)
 	if err != nil || e.Status != domain.EnterpriseApproved {
 		fail(w, r, http.StatusNotFound, errors.New("enterprise not found"))
 		return
@@ -143,7 +143,7 @@ func (s *Server) listEnterprises(w http.ResponseWriter, r *http.Request) {
 	}
 	page, pageSize := paginationFromQuery(r)
 	offset := (page - 1) * pageSize
-	items, total, err := s.enterpriseSvc.ListByStatus(a, status, offset, pageSize)
+	items, total, err := s.enterpriseSvc.ListByStatus(r.Context(), a, status, offset, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -172,7 +172,7 @@ func (s *Server) reviewEnterprise(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ent, err := s.enterpriseSvc.Review(a, r.PathValue("id"), req.Action, req.Reason)
+	ent, err := s.enterpriseSvc.Review(r.Context(), a, r.PathValue("id"), req.Action, req.Reason)
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -192,7 +192,7 @@ func (s *Server) listMyEnterprises(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	items, err := s.enterpriseSvc.ListMine(a)
+	items, err := s.enterpriseSvc.ListMine(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -234,7 +234,7 @@ func (s *Server) batchReviewEnterprises(w http.ResponseWriter, r *http.Request) 
 
 	results := make([]map[string]string, 0, len(req.IDs))
 	for _, id := range req.IDs {
-		_, err := s.enterpriseSvc.Review(a, id, req.Action, req.Reason)
+		_, err := s.enterpriseSvc.Review(r.Context(), a, id, req.Action, req.Reason)
 		status := "ok"
 		if err != nil {
 			status = err.Error()
@@ -260,7 +260,7 @@ func (s *Server) searchEnterprises(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("q is required"))
 		return
 	}
-	items, err := s.enterpriseSvc.Search(a, q)
+	items, err := s.enterpriseSvc.Search(r.Context(), a, q)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return

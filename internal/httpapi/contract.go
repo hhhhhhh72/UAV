@@ -24,7 +24,7 @@ var webhookDedup sync.Map
 // 从 contract_templates 表读取；服务未装配或旧环境未跑种子迁移时兜底返回内置模板。
 func (s *Server) listContractTemplates(w http.ResponseWriter, r *http.Request) {
 	if s.contractTplSvc != nil {
-		list, err := s.contractTplSvc.List()
+		list, err := s.contractTplSvc.List(r.Context())
 		if err != nil {
 			slog.Error("list contract templates failed", "err", err)
 			fail(w, r, http.StatusInternalServerError, errors.New("failed to load contract templates"))
@@ -43,7 +43,10 @@ func (s *Server) listContractTemplates(w http.ResponseWriter, r *http.Request) {
 // role 为空默认 member；行级校验失败不影响其余行，返回导入数与逐行失败明细。
 func (s *Server) importMembers(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
@@ -55,9 +58,18 @@ func (s *Server) importMembers(w http.ResponseWriter, r *http.Request) {
 			Role         string `json:"role"`
 		} `json:"members"`
 	}
-	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
-	if len(in.Members) == 0 { fail(w, r, http.StatusBadRequest, errors.New("members is required")); return }
-	if s.assocMemberSvc == nil { fail(w, r, http.StatusInternalServerError, errors.New("member service unavailable")); return }
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if len(in.Members) == 0 {
+		fail(w, r, http.StatusBadRequest, errors.New("members is required"))
+		return
+	}
+	if s.assocMemberSvc == nil {
+		fail(w, r, http.StatusInternalServerError, errors.New("member service unavailable"))
+		return
+	}
 
 	type failedRow struct {
 		Index  int    `json:"index"`
@@ -79,7 +91,7 @@ func (s *Server) importMembers(w http.ResponseWriter, r *http.Request) {
 			failed = append(failed, failedRow{Index: i, UserID: m.UserID, Error: "invalid role: " + m.Role})
 			continue
 		}
-		if _, err := s.assocMemberSvc.AddMember(m.UserID, m.EnterpriseID, role); err != nil {
+		if _, err := s.assocMemberSvc.AddMember(r.Context(), m.UserID, m.EnterpriseID, role); err != nil {
 			failed = append(failed, failedRow{Index: i, UserID: m.UserID, Error: err.Error()})
 			continue
 		}
@@ -106,17 +118,23 @@ func validAssociationRole(role domain.AssociationRole) bool {
 // POST /api/v1/assignments
 func (s *Server) createAssignment(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok { fail(w, r, http.StatusUnauthorized, errors.New("authentication required")); return }
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var in struct {
 		OrderID  string `json:"order_id"`
 		WorkerID string `json:"worker_id"`
 	}
-	if err := decode(r, &in); err != nil { fail(w, r, http.StatusBadRequest, err); return }
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
 	if in.OrderID == "" || in.WorkerID == "" {
 		fail(w, r, http.StatusBadRequest, errors.New("order_id and worker_id are required"))
 		return
 	}
-	asgn, err := s.labourSvc.CreateAssignment(a, in.OrderID, in.WorkerID)
+	asgn, err := s.labourSvc.CreateAssignment(r.Context(), a, in.OrderID, in.WorkerID)
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -136,7 +154,7 @@ func (s *Server) voidContract(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if _, err := s.contracts.UpdateStatus(a, r.PathValue("id"), domain.ContractVoided); err != nil {
+	if _, err := s.contracts.UpdateStatus(r.Context(), a, r.PathValue("id"), domain.ContractVoided); err != nil {
 		code := http.StatusConflict
 		if strings.Contains(err.Error(), "not found") {
 			code = http.StatusNotFound
@@ -189,7 +207,7 @@ func (s *Server) signingWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newStatus := mapContractStatus(event.Status)
-	if _, err := s.contracts.UpdateStatus(domain.Actor{ID: "system", Role: domain.RolePlatformAdmin}, event.ContractID, newStatus); err != nil {
+	if _, err := s.contracts.UpdateStatus(r.Context(), domain.Actor{ID: "system", Role: domain.RolePlatformAdmin}, event.ContractID, newStatus); err != nil {
 		slog.Warn("signing webhook: failed to update contract status, not deduping", "contract_id", event.ContractID, "event_status", event.Status, "error", err)
 		fail(w, r, http.StatusInternalServerError, err)
 		return

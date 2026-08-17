@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -31,12 +32,12 @@ func TestExtreme_1000GoroutineSustained(t *testing.T) {
 	// Pre-populate 50 demands
 	for i := 0; i < 50; i++ {
 		pub := domain.Actor{ID: fmt.Sprintf("ext-pub-%d", i), Role: domain.RoleEnterprise}
-		d, _ := demandSvc.Create(pub, service.CreateDemandInput{
+		d, _ := demandSvc.Create(context.Background(), pub, service.CreateDemandInput{
 			PublisherName: "ext", Contact: "13800001111", Title: fmt.Sprintf("极限需求-%d", i), BizType: "other",
 		})
 		time.Sleep(time.Microsecond)
-		demandSvc.Submit(pub, d.ID)
-		demandSvc.Approve(admin, d.ID)
+		demandSvc.Submit(context.Background(), pub, d.ID)
+		demandSvc.Approve(context.Background(), admin, d.ID)
 	}
 
 	var (
@@ -55,21 +56,21 @@ func TestExtreme_1000GoroutineSustained(t *testing.T) {
 				start := time.Now()
 				switch ops % 10 {
 				case 0, 1, 2: // 30% read — list demands
-					demandSvc.List(repository.DemandFilter{})
+					demandSvc.List(context.Background(), repository.DemandFilter{})
 				case 3, 4: // 20% read — search enterprises
-					entSvc.Search(domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, fmt.Sprintf("ext-%d", wid))
+					entSvc.Search(context.Background(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, fmt.Sprintf("ext-%d", wid))
 				case 5, 6: // 20% write — create demands
 					actor := domain.Actor{ID: fmt.Sprintf("ext-pub-%d-%d", wid, ops), Role: domain.RoleEnterprise}
-					demandSvc.Create(actor, service.CreateDemandInput{
+					demandSvc.Create(context.Background(), actor, service.CreateDemandInput{
 						PublisherName: "ext", Contact: "13800001111", Title: fmt.Sprintf("极限新需求-%d-%d", wid, ops), BizType: "other",
 					})
 				case 7, 8: // 20% write — enterprises
 					actor := domain.Actor{ID: fmt.Sprintf("ext-ent-%d-%d", wid, ops), Role: domain.RoleEnterprise}
-					entSvc.Create(actor, service.CreateEnterpriseInput{
+					entSvc.Create(context.Background(), actor, service.CreateEnterpriseInput{
 						Name: fmt.Sprintf("极限企业-%d-%d", wid, ops), AccountName: "13800000000",
 					})
 				case 9: // 10% admin — list enterprises
-					entSvc.ListByStatus(domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, "", 0, 50)
+					entSvc.ListByStatus(context.Background(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, "", 0, 50)
 				}
 				lat := time.Since(start).Nanoseconds()
 				latMu.Lock()

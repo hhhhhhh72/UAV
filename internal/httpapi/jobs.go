@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -27,7 +28,7 @@ func (s *Server) createJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	j, err := s.jobSvc.CreateJob(a, in.Title, in.Description, in.Location, in.SalaryFen)
+	j, err := s.jobSvc.CreateJob(r.Context(), a, in.Title, in.Description, in.Location, in.SalaryFen)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -43,7 +44,7 @@ func (s *Server) publishJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	j, err := s.jobSvc.PublishJob(a, r.PathValue("id"))
+	j, err := s.jobSvc.PublishJob(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, jobMutationCode(err), err)
 		return
@@ -58,7 +59,7 @@ func (s *Server) closeJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	j, err := s.jobSvc.CloseJob(a, r.PathValue("id"))
+	j, err := s.jobSvc.CloseJob(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		fail(w, r, jobMutationCode(err), err)
 		return
@@ -78,7 +79,7 @@ func jobMutationCode(err error) int {
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
 	offset := (page - 1) * pageSize
-	items, total, err := s.jobSvc.ListPublishedJobs(offset, pageSize)
+	items, total, err := s.jobSvc.ListPublishedJobs(r.Context(), offset, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -93,7 +94,7 @@ func (s *Server) listMyJobs(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	items, err := s.jobSvc.ListMyJobs(a)
+	items, err := s.jobSvc.ListMyJobs(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -126,7 +127,7 @@ func (s *Server) createResume(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.jobSvc.CreateResume(a, in.Title, in.Name, in.Phone, in.Email, in.Education, in.WorkExperience, in.Skills, in.CertificateURL, in.Content, in.Visibility)
+	res, err := s.jobSvc.CreateResume(r.Context(), a, in.Title, in.Name, in.Phone, in.Email, in.Education, in.WorkExperience, in.Skills, in.CertificateURL, in.Content, in.Visibility)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -157,7 +158,7 @@ func (s *Server) updateResume(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.jobSvc.UpdateResume(a, r.PathValue("id"), in.Title, in.Name, in.Phone, in.Email, in.Education, in.WorkExperience, in.Skills, in.CertificateURL, in.Content, in.Visibility)
+	res, err := s.jobSvc.UpdateResume(r.Context(), a, r.PathValue("id"), in.Title, in.Name, in.Phone, in.Email, in.Education, in.WorkExperience, in.Skills, in.CertificateURL, in.Content, in.Visibility)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -172,7 +173,7 @@ func (s *Server) listMyResumes(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	items, err := s.jobSvc.ListMyResumes(a)
+	items, err := s.jobSvc.ListMyResumes(r.Context(), a)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -197,7 +198,7 @@ func (s *Server) createApplication(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	app, err := s.jobSvc.Apply(a, in.JobID, in.ResumeID)
+	app, err := s.jobSvc.Apply(r.Context(), a, in.JobID, in.ResumeID)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -226,19 +227,20 @@ func (s *Server) updateApplicationStatus(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusBadRequest, errors.New("invalid status"))
 		return
 	}
-	app, err := s.jobSvc.UpdateApplicationStatus(a, r.PathValue("id"), st)
+	app, err := s.jobSvc.UpdateApplicationStatus(r.Context(), a, r.PathValue("id"), st)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
-	// 状态流转通知求职者（面试/录用/拒绝）
+	// 状态流转通知求职者（面试/录用/拒绝）——异步 goroutine 用 Background()：
+	// r.Context() 会在 handler 返回后取消，导致通知发送被中断。
 	switch st {
 	case domain.AppInterviewing:
-		go s.msgSvc.Send("system", app.ApplicantID, "面试通知", "您的求职投递已被企业查看，邀请进入面试环节，请留意后续沟通", "application", app.ID)
+		go s.msgSvc.Send(context.Background(), "system", app.ApplicantID, "面试通知", "您的求职投递已被企业查看，邀请进入面试环节，请留意后续沟通", "application", app.ID)
 	case domain.AppOffered:
-		go s.msgSvc.Send("system", app.ApplicantID, "录用通知", "恭喜！企业已向您发出录用意向，请及时联系确认入职安排", "application", app.ID)
+		go s.msgSvc.Send(context.Background(), "system", app.ApplicantID, "录用通知", "恭喜！企业已向您发出录用意向，请及时联系确认入职安排", "application", app.ID)
 	case domain.AppRejected:
-		go s.msgSvc.Send("system", app.ApplicantID, "投递结果", "很遗憾，您的求职投递未通过筛选，感谢关注，欢迎继续投递其他职位", "application", app.ID)
+		go s.msgSvc.Send(context.Background(), "system", app.ApplicantID, "投递结果", "很遗憾，您的求职投递未通过筛选，感谢关注，欢迎继续投递其他职位", "application", app.ID)
 	}
 	respond(w, r, http.StatusOK, app)
 }
@@ -252,7 +254,7 @@ func (s *Server) listApplications(w http.ResponseWriter, r *http.Request) {
 	}
 	jobID := r.URL.Query().Get("job_id")
 	if jobID == "" {
-		items, err := s.jobSvc.ListMyApplications(a)
+		items, err := s.jobSvc.ListMyApplications(r.Context(), a)
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, err)
 			return
@@ -260,7 +262,7 @@ func (s *Server) listApplications(w http.ResponseWriter, r *http.Request) {
 		respond(w, r, http.StatusOK, items)
 		return
 	}
-	items, err := s.jobSvc.ListApplicantsForJob(a, jobID)
+	items, err := s.jobSvc.ListApplicantsForJob(r.Context(), a, jobID)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return

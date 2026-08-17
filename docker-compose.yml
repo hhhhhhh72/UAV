@@ -28,7 +28,9 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # 仅绑定回环：公网流量一律经宿主机 nginx 反代（nginx 负责设置 X-Forwarded-For）。
+      # 直连 8080 被防火墙/绑定阻断，XFF 头不可伪造，限流按真实客户端 IP 生效。
+      - "127.0.0.1:8080:8080"
     environment:
       HTTP_ADDR: ":8080"
       ENV: "${ENV:-production}"

@@ -38,7 +38,7 @@ func (s *Server) createTransformation(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	t, err := s.transSvc.Create(in.Title, in.AchievementID, a.ID, in.PartnerID)
+	t, err := s.transSvc.Create(r.Context(), in.Title, in.AchievementID, a.ID, in.PartnerID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -52,9 +52,9 @@ func (s *Server) listTransformations(w http.ResponseWriter, r *http.Request) {
 		err  error
 	)
 	if aid := r.URL.Query().Get("achievement_id"); aid != "" {
-		list, err = s.transSvc.ListByAchievement(aid)
+		list, err = s.transSvc.ListByAchievement(r.Context(), aid)
 	} else {
-		list, err = s.transSvc.List(r.URL.Query().Get("owner_id"))
+		list, err = s.transSvc.List(r.Context(), r.URL.Query().Get("owner_id"))
 	}
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -76,7 +76,7 @@ func (s *Server) advanceStage(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	t, err := s.transSvc.AdvanceStage(a, r.PathValue("id"), domain.TransformationStage(in.Stage), in.Progress)
+	t, err := s.transSvc.AdvanceStage(r.Context(), a, r.PathValue("id"), domain.TransformationStage(in.Stage), in.Progress)
 	if err != nil {
 		fail(w, r, mutationErrorCode(err), err)
 		return
@@ -94,7 +94,7 @@ func (s *Server) addMilestone(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	t, err := s.transSvc.AddMilestone(a, r.PathValue("id"), in.Name, in.Evidence)
+	t, err := s.transSvc.AddMilestone(r.Context(), a, r.PathValue("id"), in.Name, in.Evidence)
 	if err != nil {
 		fail(w, r, mutationErrorCode(err), err)
 		return
@@ -131,7 +131,7 @@ func (s *Server) createCollege(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.collegeSvc.Create(domain.College{
+	c, err := s.collegeSvc.Create(r.Context(), domain.College{
 		Name: in.Name, Region: in.Region, City: in.City, Description: in.Description,
 		LogoURL: in.LogoURL, CoopType: in.CoopType, Majors: in.Majors, Facilities: in.Facilities,
 		Tags: in.Tags, ShortName: in.ShortName, LevelTags: in.LevelTags, Specialties: in.Specialties,
@@ -153,7 +153,7 @@ func (s *Server) listColleges(w http.ResponseWriter, r *http.Request) {
 	region := r.URL.Query().Get("region")
 	keyword := r.URL.Query().Get("keyword")
 	collegeType := r.URL.Query().Get("type")
-	list, err := s.collegeSvc.List(region)
+	list, err := s.collegeSvc.List(r.Context(), region)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -223,7 +223,7 @@ func (s *Server) createCooperation(w http.ResponseWriter, r *http.Request) {
 	}
 	sd := domain.ParseTime(in.StartDate)
 	ed := domain.ParseTime(in.EndDate)
-	cp, err := s.coopSvc.Create(in.Title, in.CollegeID, in.EnterpriseID, in.CoopType, in.Description, sd, ed, in.StudentQuota)
+	cp, err := s.coopSvc.Create(r.Context(), in.Title, in.CollegeID, in.EnterpriseID, in.CoopType, in.Description, sd, ed, in.StudentQuota)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -231,7 +231,7 @@ func (s *Server) createCooperation(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusCreated, cp)
 }
 func (s *Server) listCooperations(w http.ResponseWriter, r *http.Request) {
-	list, err := s.coopSvc.List(r.URL.Query().Get("enterprise_id"))
+	list, err := s.coopSvc.List(r.Context(), r.URL.Query().Get("enterprise_id"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -247,7 +247,7 @@ func (s *Server) updateCooperationStatus(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	cp, err := s.coopSvc.UpdateStatus(r.PathValue("id"), in.Status)
+	cp, err := s.coopSvc.UpdateStatus(r.Context(), r.PathValue("id"), in.Status)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return

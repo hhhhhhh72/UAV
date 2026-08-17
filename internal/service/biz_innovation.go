@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -18,7 +19,7 @@ func NewAchievementService(repo repository.AchievementRepository) *AchievementSe
 	return &AchievementService{repo: repo}
 }
 
-func (s *AchievementService) Create(ownerID, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
+func (s *AchievementService) Create(ctx context.Context, ownerID, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
 	now := time.Now()
 	a := domain.Achievement{
 		ID:          fmt.Sprintf("achieve-%d", now.UnixNano()),
@@ -35,20 +36,20 @@ func (s *AchievementService) Create(ownerID, title, achieveType, description, fi
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	return s.repo.Create(a)
+	return s.repo.Create(ctx, a)
 }
 
-func (s *AchievementService) List(field string, page, pageSize int) ([]domain.Achievement, int, error) {
+func (s *AchievementService) List(ctx context.Context, field string, page, pageSize int) ([]domain.Achievement, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(field, offset, pageSize)
+	return s.repo.List(ctx, field, offset, pageSize)
 }
 
-func (s *AchievementService) Get(id string) (domain.Achievement, error) {
-	return s.repo.FindByID(id)
+func (s *AchievementService) Get(ctx context.Context, id string) (domain.Achievement, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *AchievementService) Update(id, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
-	a, err := s.repo.FindByID(id)
+func (s *AchievementService) Update(ctx context.Context, id, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
+	a, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Achievement{}, err
 	}
@@ -61,11 +62,11 @@ func (s *AchievementService) Update(id, title, achieveType, description, field, 
 	a.Attachments = attachments
 	a.ContactInfo = contactInfo
 	a.UpdatedAt = time.Now()
-	return s.repo.Update(a)
+	return s.repo.Update(ctx, a)
 }
 
-func (s *AchievementService) Delete(id string) error {
-	return s.repo.Delete(id)
+func (s *AchievementService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
 
 // ---- RDChallengeService (技术攻关/揭榜挂帅) ----
@@ -78,7 +79,7 @@ func NewRDChallengeService(repo repository.RDChallengeRepository) *RDChallengeSe
 	return &RDChallengeService{repo: repo}
 }
 
-func (s *RDChallengeService) Create(posterID, title, field, description string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
+func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field, description string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
 	now := time.Now()
 	c := domain.RDChallenge{
 		ID:          fmt.Sprintf("challenge-%d", now.UnixNano()),
@@ -92,20 +93,20 @@ func (s *RDChallengeService) Create(posterID, title, field, description string, 
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	return s.repo.Create(c)
+	return s.repo.Create(ctx, c)
 }
 
-func (s *RDChallengeService) List(field string, page, pageSize int) ([]domain.RDChallenge, int, error) {
+func (s *RDChallengeService) List(ctx context.Context, field string, page, pageSize int) ([]domain.RDChallenge, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(field, offset, pageSize)
+	return s.repo.List(ctx, field, offset, pageSize)
 }
 
-func (s *RDChallengeService) Get(id string) (domain.RDChallenge, error) {
-	return s.repo.FindByID(id)
+func (s *RDChallengeService) Get(ctx context.Context, id string) (domain.RDChallenge, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *RDChallengeService) Update(id, title, field, description, status string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
-	c, err := s.repo.FindByID(id)
+func (s *RDChallengeService) Update(ctx context.Context, id, title, field, description, status string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
+	c, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.RDChallenge{}, err
 	}
@@ -116,10 +117,12 @@ func (s *RDChallengeService) Update(id, title, field, description, status string
 	c.BudgetFen = budgetFen
 	c.Deadline = deadline
 	c.UpdatedAt = time.Now()
-	return s.repo.Update(c)
+	return s.repo.Update(ctx, c)
 }
 
-func (s *RDChallengeService) Delete(id string) error { return s.repo.Delete(id) }
+func (s *RDChallengeService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
+}
 
 // ---- ResearchProjectService (联合研发项目) ----
 
@@ -131,7 +134,7 @@ func NewResearchProjectService(repo repository.ResearchProjectRepository) *Resea
 	return &ResearchProjectService{repo: repo}
 }
 
-func (s *ResearchProjectService) Create(title, field, description, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
+func (s *ResearchProjectService) Create(ctx context.Context, title, field, description, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
 	now := time.Now()
 	p := domain.ResearchProject{
 		ID:          fmt.Sprintf("proj-%d", now.UnixNano()),
@@ -148,20 +151,20 @@ func (s *ResearchProjectService) Create(title, field, description, leadOrg, mile
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	return s.repo.Create(p)
+	return s.repo.Create(ctx, p)
 }
 
-func (s *ResearchProjectService) List(page, pageSize int) ([]domain.ResearchProject, int, error) {
+func (s *ResearchProjectService) List(ctx context.Context, page, pageSize int) ([]domain.ResearchProject, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(offset, pageSize)
+	return s.repo.List(ctx, offset, pageSize)
 }
 
-func (s *ResearchProjectService) Get(id string) (domain.ResearchProject, error) {
-	return s.repo.FindByID(id)
+func (s *ResearchProjectService) Get(ctx context.Context, id string) (domain.ResearchProject, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *ResearchProjectService) Update(id, title, field, description, status, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
-	p, err := s.repo.FindByID(id)
+func (s *ResearchProjectService) Update(ctx context.Context, id, title, field, description, status, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
+	p, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.ResearchProject{}, err
 	}
@@ -176,10 +179,12 @@ func (s *ResearchProjectService) Update(id, title, field, description, status, l
 	p.EndDate = endDate
 	p.Milestones = milestones
 	p.UpdatedAt = time.Now()
-	return s.repo.Update(p)
+	return s.repo.Update(ctx, p)
 }
 
-func (s *ResearchProjectService) Delete(id string) error { return s.repo.Delete(id) }
+func (s *ResearchProjectService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
+}
 
 // ---- ProjectAppService (项目申报) ----
 
@@ -191,7 +196,7 @@ func NewProjectAppService(repo repository.ProjectAppRepository) *ProjectAppServi
 	return &ProjectAppService{repo: repo}
 }
 
-func (s *ProjectAppService) Create(applicantID, projectName, category, description string, budgetFen int64, attachments []string) (domain.ProjectApplication, error) {
+func (s *ProjectAppService) Create(ctx context.Context, applicantID, projectName, category, description string, budgetFen int64, attachments []string) (domain.ProjectApplication, error) {
 	now := time.Now()
 	a := domain.ProjectApplication{
 		ID:          fmt.Sprintf("app-%d", now.UnixNano()),
@@ -205,24 +210,24 @@ func (s *ProjectAppService) Create(applicantID, projectName, category, descripti
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	return s.repo.Create(a)
+	return s.repo.Create(ctx, a)
 }
 
-func (s *ProjectAppService) ListMy(userID string) ([]domain.ProjectApplication, error) {
-	return s.repo.ListByUser(userID)
+func (s *ProjectAppService) ListMy(ctx context.Context, userID string) ([]domain.ProjectApplication, error) {
+	return s.repo.ListByUser(ctx, userID)
 }
 
-func (s *ProjectAppService) ListAll(status string, page, pageSize int) ([]domain.ProjectApplication, int, error) {
+func (s *ProjectAppService) ListAll(ctx context.Context, status string, page, pageSize int) ([]domain.ProjectApplication, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListAll(status, offset, pageSize)
+	return s.repo.ListAll(ctx, status, offset, pageSize)
 }
 
-func (s *ProjectAppService) Get(id string) (domain.ProjectApplication, error) {
-	return s.repo.FindByID(id)
+func (s *ProjectAppService) Get(ctx context.Context, id string) (domain.ProjectApplication, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *ProjectAppService) Review(id, reviewNote, action string) (domain.ProjectApplication, error) {
-	a, err := s.repo.FindByID(id)
+func (s *ProjectAppService) Review(ctx context.Context, id, reviewNote, action string) (domain.ProjectApplication, error) {
+	a, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.ProjectApplication{}, err
 	}
@@ -235,5 +240,5 @@ func (s *ProjectAppService) Review(id, reviewNote, action string) (domain.Projec
 	}
 	a.ReviewNote = reviewNote
 	a.UpdatedAt = time.Now()
-	return s.repo.Update(a)
+	return s.repo.Update(ctx, a)
 }

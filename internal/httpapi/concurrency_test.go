@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -76,7 +77,7 @@ func TestConcurrent_200EnterpriseRegistrations(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			actor := domain.Actor{ID: fmt.Sprintf("user-%d", idx), Role: domain.RoleEnterprise}
-			_, err := svc.Create(actor, service.CreateEnterpriseInput{
+			_, err := svc.Create(context.Background(), actor, service.CreateEnterpriseInput{
 				Name:        fmt.Sprintf("企业-%d 科技有限公司", idx),
 				AccountName: fmt.Sprintf("138%08d", idx),
 				LicenseURL:  fmt.Sprintf("/uploads/license-%d.jpg", idx),
@@ -119,10 +120,10 @@ func TestConcurrent_BatchApprove(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		time.Sleep(time.Microsecond) // ensure unique ID
 		actor := domain.Actor{ID: fmt.Sprintf("user-%d", i), Role: domain.RoleEnterprise}
-		ent, _ := svc.Create(actor, service.CreateEnterpriseInput{
+		ent, _ := svc.Create(context.Background(), actor, service.CreateEnterpriseInput{
 			Name: fmt.Sprintf("批量企业-%d", i), AccountName: fmt.Sprintf("138%08d", i),
 		})
-		svc.Submit(actor, ent.ID)
+		svc.Submit(context.Background(), actor, ent.ID)
 		ids[i] = ent.ID
 	}
 
@@ -142,7 +143,7 @@ func TestConcurrent_BatchApprove(t *testing.T) {
 				endIdx = len(ids)
 			}
 			for _, id := range ids[startIdx:endIdx] {
-				_, err := svc.Review(admin, id, "approve", "")
+				_, err := svc.Review(context.Background(), admin, id, "approve", "")
 				if err != nil {
 					errs <- fmt.Errorf("approve %s: %w", id, err)
 				}
@@ -160,7 +161,7 @@ func TestConcurrent_BatchApprove(t *testing.T) {
 	t.Logf("Batch approve 200: %d failed, elapsed %v", failCount, elapsed)
 
 	// Verify all approved
-	items, total, _ := svc.ListByStatus(admin, "approved", 0, 500)
+	items, total, _ := svc.ListByStatus(context.Background(), admin, "approved", 0, 500)
 	if total != 200 {
 		t.Errorf("expected 200 approved, got %d", total)
 	}
@@ -190,7 +191,7 @@ func TestConcurrent_MixedWorkload(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			actor := domain.Actor{ID: fmt.Sprintf("mix-user-%d", idx), Role: domain.RoleEnterprise}
-			_, err := entSvc.Create(actor, service.CreateEnterpriseInput{
+			_, err := entSvc.Create(context.Background(), actor, service.CreateEnterpriseInput{
 				Name: fmt.Sprintf("混合企业-%d", idx), AccountName: fmt.Sprintf("138%08d", idx),
 			})
 			if err != nil {
@@ -205,7 +206,7 @@ func TestConcurrent_MixedWorkload(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			actor := domain.Actor{ID: fmt.Sprintf("mix-pub-%d", idx), Role: domain.RoleEnterprise}
-			_, err := demandSvc.Create(actor, service.CreateDemandInput{
+			_, err := demandSvc.Create(context.Background(), actor, service.CreateDemandInput{
 				PublisherName: fmt.Sprintf("发布方-%d", idx),
 				Contact:       fmt.Sprintf("138%08d", idx),
 				Title:         fmt.Sprintf("混合需求-%d", idx),

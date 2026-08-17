@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"sort"
@@ -33,11 +34,11 @@ func TestStress_2000MixedOperations(t *testing.T) {
 	// Setup: create 20 published demands and 20 enterprises
 	for i := 0; i < 20; i++ {
 		pub := domain.Actor{ID: fmt.Sprintf("pub-%d", i), Role: domain.RoleEnterprise}
-		d, _ := demandSvc.Create(pub, service.CreateDemandInput{
+		d, _ := demandSvc.Create(context.Background(), pub, service.CreateDemandInput{
 			PublisherName: "pub", Contact: "13800001111", Title: fmt.Sprintf("压测需求-%d", i), BizType: "other",
 		})
 		time.Sleep(time.Microsecond)
-		demandSvc.Approve(domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}, d.ID)
+		demandSvc.Approve(context.Background(), domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}, d.ID)
 	}
 
 	var (
@@ -62,12 +63,12 @@ func TestStress_2000MixedOperations(t *testing.T) {
 
 				switch opCount % 10 {
 				case 0, 1, 2, 3: // 40% reads — list demands
-					_, _ = demandSvc.List(repository.DemandFilter{})
+					_, _ = demandSvc.List(context.Background(), repository.DemandFilter{})
 				case 4, 5: // 20% reads — search enterprises
-					_, _ = entSvc.Search(domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, fmt.Sprintf("企业-%d", workerID))
+					_, _ = entSvc.Search(context.Background(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, fmt.Sprintf("企业-%d", workerID))
 				case 6, 7: // 20% writes — create demands
 					actor := domain.Actor{ID: fmt.Sprintf("new-pub-%d-%d", workerID, opCount), Role: domain.RoleEnterprise}
-					_, err := demandSvc.Create(actor, service.CreateDemandInput{
+					_, err := demandSvc.Create(context.Background(), actor, service.CreateDemandInput{
 						PublisherName: "pub", Contact: "13800001111", Title: fmt.Sprintf("压测新需求-%d-%d", workerID, opCount), BizType: "other",
 					})
 					if err != nil {
@@ -75,7 +76,7 @@ func TestStress_2000MixedOperations(t *testing.T) {
 					}
 				case 8: // 10% writes — create enterprises
 					actor := domain.Actor{ID: fmt.Sprintf("new-ent-%d-%d", workerID, opCount), Role: domain.RoleEnterprise}
-					_, err := entSvc.Create(actor, service.CreateEnterpriseInput{
+					_, err := entSvc.Create(context.Background(), actor, service.CreateEnterpriseInput{
 						Name: fmt.Sprintf("压测企业-%d-%d", workerID, opCount), AccountName: "13800000000",
 					})
 					if err != nil {
@@ -83,7 +84,7 @@ func TestStress_2000MixedOperations(t *testing.T) {
 					}
 				case 9: // 10% writes — create demands
 					actor := domain.Actor{ID: fmt.Sprintf("new-pub-%d-%d", workerID, opCount), Role: domain.RoleEnterprise}
-					_, err := demandSvc.Create(actor, service.CreateDemandInput{
+					_, err := demandSvc.Create(context.Background(), actor, service.CreateDemandInput{
 						PublisherName: "pub", Contact: "13800001111", Title: fmt.Sprintf("新需求-%d-%d", workerID, opCount), BizType: "other",
 					})
 					if err != nil {
@@ -147,13 +148,13 @@ func TestStress_MemoryLeakDetection(t *testing.T) {
 	// 10,000 operations — create, approve
 	for i := 0; i < 10000; i++ {
 		pub := domain.Actor{ID: fmt.Sprintf("mem-pub-%d", i%100), Role: domain.RoleEnterprise}
-		d, err := svc.Create(pub, service.CreateDemandInput{
+		d, err := svc.Create(context.Background(), pub, service.CreateDemandInput{
 			PublisherName: "memtest", Contact: "13800001111", Title: fmt.Sprintf("内存测试-%d", i), BizType: "other",
 		})
 		if err != nil {
 			continue
 		}
-		svc.Approve(admin, d.ID)
+		svc.Approve(context.Background(), admin, d.ID)
 	}
 
 	runtime.GC()
@@ -199,13 +200,13 @@ func TestStress_SearchDuringMutation(t *testing.T) {
 					return
 				default:
 				}
-				d, _ := svc.Create(publisher, service.CreateDemandInput{
+				d, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 					PublisherName: "search-pub", Contact: "13800001111",
 					Title: fmt.Sprintf("搜索测试-%d-%d", wid, j), BizType: "other",
 				})
 				time.Sleep(time.Microsecond)
-				svc.Submit(publisher, d.ID)
-				svc.Approve(admin, d.ID)
+				svc.Submit(context.Background(), publisher, d.ID)
+				svc.Approve(context.Background(), admin, d.ID)
 			}
 		}(i)
 	}
@@ -221,7 +222,7 @@ func TestStress_SearchDuringMutation(t *testing.T) {
 					return
 				default:
 				}
-				_, err := svc.List(repository.DemandFilter{})
+				_, err := svc.List(context.Background(), repository.DemandFilter{})
 				if err != nil {
 					atomic.AddInt64(&searchErrors, 1)
 				}
@@ -257,16 +258,16 @@ func TestStress_AdminDashboardLoad(t *testing.T) {
 	// Pre-populate: 200 enterprises, 200 demands
 	for i := 0; i < 200; i++ {
 		actor := domain.Actor{ID: fmt.Sprintf("dash-user-%d", i), Role: domain.RoleEnterprise}
-		entSvc.Create(actor, service.CreateEnterpriseInput{
+		entSvc.Create(context.Background(), actor, service.CreateEnterpriseInput{
 			Name: fmt.Sprintf("仪表盘企业-%d", i), AccountName: fmt.Sprintf("138%08d", i),
 		})
 		time.Sleep(time.Microsecond)
-		d, _ := demandSvc.Create(actor, service.CreateDemandInput{
+		d, _ := demandSvc.Create(context.Background(), actor, service.CreateDemandInput{
 			PublisherName: "dash", Contact: "13800001111", Title: fmt.Sprintf("仪表盘需求-%d", i), BizType: "other",
 		})
 		time.Sleep(time.Microsecond)
-		demandSvc.Submit(actor, d.ID)
-		demandSvc.Approve(domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}, d.ID)
+		demandSvc.Submit(context.Background(), actor, d.ID)
+		demandSvc.Approve(context.Background(), domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin}, d.ID)
 	}
 
 	var wg sync.WaitGroup
@@ -284,8 +285,8 @@ func TestStress_AdminDashboardLoad(t *testing.T) {
 			for j := 0; j < 100; j++ {
 				opStart := time.Now()
 				// Simulate dashboard: list enterprises + demand stats
-				_, _, _ = entSvc.ListByStatus(admin, "submitted", 0, 50)
-				_, _ = demandSvc.List(repository.DemandFilter{Status: "all"})
+				_, _, _ = entSvc.ListByStatus(context.Background(), admin, "submitted", 0, 50)
+				_, _ = demandSvc.List(context.Background(), repository.DemandFilter{Status: "all"})
 				lats = append(lats, time.Since(opStart).Nanoseconds())
 				atomic.AddInt64(&totalOps, 2)
 			}
@@ -339,11 +340,11 @@ func TestStress_DeadlockDetection(t *testing.T) {
 	ids := make([]string, 100)
 	for i := 0; i < 100; i++ {
 		actor := domain.Actor{ID: fmt.Sprintf("deadlock-u-%d", i), Role: domain.RoleEnterprise}
-		ent, _ := svc.Create(actor, service.CreateEnterpriseInput{
+		ent, _ := svc.Create(context.Background(), actor, service.CreateEnterpriseInput{
 			Name: fmt.Sprintf("死锁测试-%d", i), AccountName: fmt.Sprintf("138%08d", i),
 		})
 		time.Sleep(time.Microsecond)
-		svc.Submit(actor, ent.ID)
+		svc.Submit(context.Background(), actor, ent.ID)
 		ids[i] = ent.ID
 	}
 
@@ -363,11 +364,11 @@ func TestStress_DeadlockDetection(t *testing.T) {
 				}
 				switch grp {
 				case 0: // Approver
-					svc.Review(admin, ids[i%len(ids)], "approve", "")
+					svc.Review(context.Background(), admin, ids[i%len(ids)], "approve", "")
 				case 1: // Searcher
-					svc.Search(admin, fmt.Sprintf("死锁-%d", i%50))
+					svc.Search(context.Background(), admin, fmt.Sprintf("死锁-%d", i%50))
 				case 2: // Lister
-					svc.ListByStatus(admin, "approved", 0, 20)
+					svc.ListByStatus(context.Background(), admin, "approved", 0, 20)
 				}
 			}
 		}(g)

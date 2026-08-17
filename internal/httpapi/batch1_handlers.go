@@ -31,7 +31,7 @@ func (s *Server) registerBatch1Routes(mux *http.ServeMux) {
 
 // GET /api/v1/resource-pools?type=emergency
 func (s *Server) listResourcePools(w http.ResponseWriter, r *http.Request) {
-	pools, err := s.poolSvc.List(r.URL.Query().Get("type"))
+	pools, err := s.poolSvc.List(r.Context(), r.URL.Query().Get("type"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -54,7 +54,7 @@ func (s *Server) createResourcePool(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.poolSvc.Create(in.Name, in.PoolType, in.Description, a.ID)
+	p, err := s.poolSvc.Create(r.Context(), in.Name, in.PoolType, in.Description, a.ID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -77,7 +77,7 @@ func (s *Server) addPoolMember(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	m, err := s.poolSvc.AddMember(r.PathValue("id"), in.ResID, in.ResType, in.Quantity)
+	m, err := s.poolSvc.AddMember(r.Context(), r.PathValue("id"), in.ResID, in.ResType, in.Quantity)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -86,7 +86,7 @@ func (s *Server) addPoolMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listPoolMembers(w http.ResponseWriter, r *http.Request) {
-	members, err := s.poolSvc.ListMembers(r.PathValue("id"))
+	members, err := s.poolSvc.ListMembers(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -115,7 +115,7 @@ func (s *Server) createTestSite(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ts, err := s.testSiteSvc.Create(in.Name, in.SiteType, in.Location, in.BookingRule, a.ID, in.PriceFen, in.Facilities, in.Status)
+	ts, err := s.testSiteSvc.Create(r.Context(), in.Name, in.SiteType, in.Location, in.BookingRule, a.ID, in.PriceFen, in.Facilities, in.Status)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -124,7 +124,7 @@ func (s *Server) createTestSite(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listTestSites(w http.ResponseWriter, r *http.Request) {
-	list, err := s.testSiteSvc.List(r.URL.Query().Get("site_type"))
+	list, err := s.testSiteSvc.List(r.Context(), r.URL.Query().Get("site_type"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -174,7 +174,7 @@ func (s *Server) bookTestSite(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("start_time/end_time (或 date+time_slot) 必填"))
 		return
 	}
-	bk, err := s.testSiteSvc.Book(r.PathValue("id"), a.ID, in.Purpose, in.ContactName, in.ContactPhone, st, et)
+	bk, err := s.testSiteSvc.Book(r.Context(), r.PathValue("id"), a.ID, in.Purpose, in.ContactName, in.ContactPhone, st, et)
 	if err != nil {
 		fail(w, r, http.StatusConflict, err)
 		return
@@ -196,7 +196,7 @@ func (s *Server) reviewTestSiteBooking(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	bk, err := s.testSiteSvc.ReviewBooking(r.PathValue("id"), in.Status, in.Note)
+	bk, err := s.testSiteSvc.ReviewBooking(r.Context(), r.PathValue("id"), in.Status, in.Note)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -211,7 +211,7 @@ func (s *Server) listMyTestSiteBookings(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
 		return
 	}
-	list, err := s.testSiteSvc.ListMyBookings(a.ID)
+	list, err := s.testSiteSvc.ListMyBookings(r.Context(), a.ID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -246,7 +246,7 @@ func (s *Server) createExhibition(w http.ResponseWriter, r *http.Request) {
 	}
 	sd := domain.ParseTime(in.StartDate)
 	ed := domain.ParseTime(in.EndDate)
-	e, err := s.exhibitionSvc.Create(in.Title, in.Category, in.Description, in.Location, in.Organizer, in.CoverURL, sd, ed, in.BoothCount, in.BoothPrice, in.Status)
+	e, err := s.exhibitionSvc.Create(r.Context(), in.Title, in.Category, in.Description, in.Location, in.Organizer, in.CoverURL, sd, ed, in.BoothCount, in.BoothPrice, in.Status)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -255,7 +255,7 @@ func (s *Server) createExhibition(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listExhibitions(w http.ResponseWriter, r *http.Request) {
-	list, total, err := s.exhibitionSvc.List(1, 100000)
+	list, total, err := s.exhibitionSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -274,7 +274,7 @@ func (s *Server) applyBooth(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	b, err := s.exhibitionSvc.ApplyBooth(r.PathValue("id"), a.ID, in.BoothNumber, in.ExhibitName, in.ExhibitDesc)
+	b, err := s.exhibitionSvc.ApplyBooth(r.Context(), r.PathValue("id"), a.ID, in.BoothNumber, in.ExhibitName, in.ExhibitDesc)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -283,7 +283,7 @@ func (s *Server) applyBooth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listBooths(w http.ResponseWriter, r *http.Request) {
-	booths, err := s.exhibitionSvc.ListBooths(r.PathValue("id"))
+	booths, err := s.exhibitionSvc.ListBooths(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

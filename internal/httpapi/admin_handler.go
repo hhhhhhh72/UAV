@@ -19,7 +19,9 @@ func (s *Server) adminDevLogin(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("dev token disabled in production"))
 		return
 	}
-	var req struct{ Role string `json:"role"` }
+	var req struct {
+		Role string `json:"role"`
+	}
 	if err := decode(r, &req); err != nil {
 		req.Role = "platform_admin"
 	}

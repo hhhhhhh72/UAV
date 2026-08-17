@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"drone-platform/internal/domain"
+	"drone-platform/internal/service"
 )
 
 // sniffAllowedType 读取前 512 字节做魔数检测，返回真实内容类型与已读字节。
@@ -67,11 +68,16 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 	private := r.FormValue("private") == "true"
 	var rec domain.FileRecord
 	if private {
-		rec, err = s.fileSvc.UploadPrivate(a.ID, header.Filename, detected, io.LimitReader(reader, 10<<20))
+		rec, err = s.fileSvc.UploadPrivate(r.Context(), a.ID, header.Filename, detected, io.LimitReader(reader, 10<<20))
 	} else {
-		rec, err = s.fileSvc.Upload(a.ID, header.Filename, detected, io.LimitReader(reader, 10<<20))
+		rec, err = s.fileSvc.Upload(r.Context(), a.ID, header.Filename, detected, io.LimitReader(reader, 10<<20))
 	}
 	if err != nil {
+		// 收尾批次：每日上传配额超限 → 413（文件已由 service 侧删除，不落盘）。
+		if errors.Is(err, service.ErrUploadQuotaExceeded) {
+			fail(w, r, http.StatusRequestEntityTooLarge, err)
+			return
+		}
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -114,7 +120,7 @@ func (s *Server) attachEnterpriseDocument(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	doc, err := s.enterpriseSvc.AttachDocument(a, entID, in.FileID, in.DocumentType)
+	doc, err := s.enterpriseSvc.AttachDocument(r.Context(), a, entID, in.FileID, in.DocumentType)
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {
@@ -134,7 +140,7 @@ func (s *Server) listEnterpriseDocuments(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	docs, err := s.enterpriseSvc.ListDocuments(a, r.PathValue("id"))
+	docs, err := s.enterpriseSvc.ListDocuments(r.Context(), a, r.PathValue("id"))
 	if err != nil {
 		code := http.StatusForbidden
 		if strings.Contains(err.Error(), "not found") {

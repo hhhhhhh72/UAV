@@ -34,18 +34,18 @@ import (
 // ─── JSON File Storage ──────────────────────────────────────────────────────
 
 var (
-	_appsMu        sync.RWMutex
-	_appsFile      = "applications.json"
-	_casesMu       sync.RWMutex
-	_casesFile     = "cases.json"
-	_catsMu        sync.RWMutex
-	_catsFile      = "case_categories.json"
-	_reviewsMu     sync.RWMutex
-	_reviewsFile   = "reviews.json"
-	_usersMu       sync.RWMutex
-	_usersFile     = "users.json"
-	_servicesMu    sync.RWMutex
-	_servicesFile  = "services_config.json"
+	_appsMu       sync.RWMutex
+	_appsFile     = "applications.json"
+	_casesMu      sync.RWMutex
+	_casesFile    = "cases.json"
+	_catsMu       sync.RWMutex
+	_catsFile     = "case_categories.json"
+	_reviewsMu    sync.RWMutex
+	_reviewsFile  = "reviews.json"
+	_usersMu      sync.RWMutex
+	_usersFile    = "users.json"
+	_servicesMu   sync.RWMutex
+	_servicesFile = "services_config.json"
 )
 
 func ensureFile(path string, fallback []byte) {
@@ -209,44 +209,44 @@ func (s *Server) h5Upload(w http.ResponseWriter, r *http.Request) {
 // ─── Applications (JSON file backed) ────────────────────────────────────────
 
 type h5Application struct {
-	ID        string `json:"id"`
-	OrderNo   string `json:"orderNo,omitempty"`
-	ServiceID string `json:"serviceId"`
-	ServiceName string `json:"serviceName"`
-	Status    string `json:"status"`
-	UserID    string `json:"userId"`
-	ContactName  string `json:"contactName,omitempty"`
-	ContactPhone string `json:"contactPhone,omitempty"`
-	TraineeName  string `json:"traineeName,omitempty"`
-	TraineePhone string `json:"traineePhone,omitempty"`
-	Name       string `json:"name,omitempty"`
-	Phone      string `json:"phone,omitempty"`
-	CompanyName string `json:"companyName,omitempty"`
-	CompetitionRole string `json:"competitionRole,omitempty"`
+	ID                  string `json:"id"`
+	OrderNo             string `json:"orderNo,omitempty"`
+	ServiceID           string `json:"serviceId"`
+	ServiceName         string `json:"serviceName"`
+	Status              string `json:"status"`
+	UserID              string `json:"userId"`
+	ContactName         string `json:"contactName,omitempty"`
+	ContactPhone        string `json:"contactPhone,omitempty"`
+	TraineeName         string `json:"traineeName,omitempty"`
+	TraineePhone        string `json:"traineePhone,omitempty"`
+	Name                string `json:"name,omitempty"`
+	Phone               string `json:"phone,omitempty"`
+	CompanyName         string `json:"companyName,omitempty"`
+	CompetitionRole     string `json:"competitionRole,omitempty"`
 	CompetitionRoleText string `json:"competitionRoleText,omitempty"`
-	CompetitionGroup string `json:"competitionGroup,omitempty"`
-	CompetitionProject string `json:"competitionProject,omitempty"`
-	Gender     string `json:"gender,omitempty"`
-	IDCard     string `json:"idCard,omitempty"`
-	RegNo      string `json:"regNo,omitempty"`
-	Level      string `json:"level,omitempty"`
-	ValidDate  string `json:"validDate,omitempty"`
-	Manager    string `json:"manager,omitempty"`
-	ManagerPhone string `json:"managerPhone,omitempty"`
-	ContactPerson string `json:"contactPerson,omitempty"`
-	CustomerType string `json:"customerType,omitempty"`
-	CargoType  string `json:"cargoType,omitempty"`
-	StartAddress string `json:"startAddress,omitempty"`
-	EndAddress  string `json:"endAddress,omitempty"`
-	TraineeGender string `json:"traineeGender,omitempty"`
-	TraineeIDCard string `json:"traineeIdCard,omitempty"`
-	LicenseLevel string `json:"licenseLevel,omitempty"`
-	ExamModel  string `json:"examModel,omitempty"`
-	Remark     string `json:"remark,omitempty"`
-	Email      string `json:"email,omitempty"`
-	Location   string `json:"location,omitempty"`
-	CreateTime string `json:"createTime"`
-	ApplyTime  string `json:"applyTime,omitempty"`
+	CompetitionGroup    string `json:"competitionGroup,omitempty"`
+	CompetitionProject  string `json:"competitionProject,omitempty"`
+	Gender              string `json:"gender,omitempty"`
+	IDCard              string `json:"idCard,omitempty"`
+	RegNo               string `json:"regNo,omitempty"`
+	Level               string `json:"level,omitempty"`
+	ValidDate           string `json:"validDate,omitempty"`
+	Manager             string `json:"manager,omitempty"`
+	ManagerPhone        string `json:"managerPhone,omitempty"`
+	ContactPerson       string `json:"contactPerson,omitempty"`
+	CustomerType        string `json:"customerType,omitempty"`
+	CargoType           string `json:"cargoType,omitempty"`
+	StartAddress        string `json:"startAddress,omitempty"`
+	EndAddress          string `json:"endAddress,omitempty"`
+	TraineeGender       string `json:"traineeGender,omitempty"`
+	TraineeIDCard       string `json:"traineeIdCard,omitempty"`
+	LicenseLevel        string `json:"licenseLevel,omitempty"`
+	ExamModel           string `json:"examModel,omitempty"`
+	Remark              string `json:"remark,omitempty"`
+	Email               string `json:"email,omitempty"`
+	Location            string `json:"location,omitempty"`
+	CreateTime          string `json:"createTime"`
+	ApplyTime           string `json:"applyTime,omitempty"`
 }
 
 func (s *Server) h5ListApplications(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +305,7 @@ func (s *Server) h5SubmitApplication(w http.ResponseWriter, r *http.Request) {
 	if v := strFromMap(raw, "applyTime"); v != "" {
 		app.ApplyTime = v
 	}
-	if _, err := s.appSvc.Create(app); err != nil {
+	if _, err := s.appSvc.Create(r.Context(), app); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -547,7 +547,7 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	passwordHash := ""
 	var user map[string]any
 	for _, candidate := range []string{uid, loginID} {
-		u, err := s.userRepo.FindByID(candidate)
+		u, err := s.userRepo.FindByID(r.Context(), candidate)
 		if err != nil {
 			continue
 		}
@@ -599,7 +599,7 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tokenHash := service.HashToken(refreshToken)
-	s.refreshRepo.Store(id, tokenHash, time.Now().Add(7*24*time.Hour))
+	s.refreshRepo.Store(r.Context(), id, tokenHash, time.Now().Add(7*24*time.Hour))
 
 	safeUser := map[string]any{}
 	for k, v := range user {
@@ -636,7 +636,7 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 	uid := "user-" + body.Phone
 
 	// Check if user already exists in PG
-	if _, err := s.userRepo.FindByID(uid); err == nil {
+	if _, err := s.userRepo.FindByID(r.Context(), uid); err == nil {
 		fail(w, r, http.StatusConflict, errBadRequest("user already exists"))
 		return
 	}
@@ -665,7 +665,7 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	if _, err := s.userRepo.Create(user); err != nil {
+	if _, err := s.userRepo.Create(r.Context(), user); err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", err))
 		return
 	}
@@ -695,7 +695,7 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("generate refresh token: %w", err))
 		return
 	}
-	s.refreshRepo.Store(uid, service.HashToken(refreshToken), time.Now().Add(7*24*time.Hour))
+	s.refreshRepo.Store(r.Context(), uid, service.HashToken(refreshToken), time.Now().Add(7*24*time.Hour))
 
 	safeUser := map[string]any{}
 	for k, v := range jsonUser {
@@ -726,7 +726,7 @@ func (s *Server) h5AuthMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Try real user repo first, fall back to users.json.
-	u, repoErr := s.userRepo.FindByID(actor.ID)
+	u, repoErr := s.userRepo.FindByID(r.Context(), actor.ID)
 	if repoErr == nil {
 		// name/phone live in the legacy users.json for password accounts;
 		// phone is derivable from the "phone:" openid prefix.
@@ -762,14 +762,19 @@ func (s *Server) h5AuthMe(w http.ResponseWriter, r *http.Request) {
 	readJSON(_usersFile, &_usersMu, &users)
 	var user map[string]any
 	for _, ju := range users {
-		if ju["id"] == actor.ID { user = ju; break }
+		if ju["id"] == actor.ID {
+			user = ju
+			break
+		}
 	}
 	if user == nil {
 		user = map[string]any{"id": actor.ID, "role": string(actor.Role)}
 	}
 	safe := map[string]any{}
 	for k, v := range user {
-		if k != "password" && k != "passwordHash" { safe[k] = v }
+		if k != "password" && k != "passwordHash" {
+			safe[k] = v
+		}
 	}
 	respond(w, r, http.StatusOK, map[string]any{"success": true, "user": safe})
 }
@@ -877,7 +882,9 @@ func (s *Server) h5CasesUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) h5CasesDelete(w http.ResponseWriter, r *http.Request) {
-	var body struct{ ID float64 `json:"id"` }
+	var body struct {
+		ID float64 `json:"id"`
+	}
 	if err := decode(r, &body); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
@@ -959,7 +966,9 @@ func (s *Server) h5CaseCategoriesUpdate(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) h5CaseCategoriesDelete(w http.ResponseWriter, r *http.Request) {
-	var body struct{ ID float64 `json:"id"` }
+	var body struct {
+		ID float64 `json:"id"`
+	}
 	if err := decode(r, &body); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
@@ -1027,7 +1036,9 @@ func (s *Server) h5AdminReviews(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) h5AdminReviewUpdate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	var body struct{ Status string `json:"status"` }
+	var body struct {
+		Status string `json:"status"`
+	}
 	if err := decode(r, &body); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return

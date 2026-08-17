@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -36,12 +37,12 @@ type EnrollmentForm struct {
 }
 
 // All 管理端全量报名记录（分页）。
-func (s *EnrollmentService) All(offset, limit int) ([]domain.Enrollment, int, error) {
-	return s.repo.ListAll(offset, limit)
+func (s *EnrollmentService) All(ctx context.Context, offset, limit int) ([]domain.Enrollment, int, error) {
+	return s.repo.ListAll(ctx, offset, limit)
 }
 
-func (s *EnrollmentService) Enroll(userID, courseID string, form EnrollmentForm) (domain.Enrollment, error) {
-	if _, ok, _ := s.repo.FindByUserAndCourse(userID, courseID); ok {
+func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string, form EnrollmentForm) (domain.Enrollment, error) {
+	if _, ok, _ := s.repo.FindByUserAndCourse(ctx, userID, courseID); ok {
 		return domain.Enrollment{}, fmt.Errorf("already enrolled")
 	}
 	// 生日：前端提交 "YYYY-MM-DD"，解析为 DATE 语义
@@ -57,7 +58,7 @@ func (s *EnrollmentService) Enroll(userID, courseID string, form EnrollmentForm)
 		Email: form.Email, Education: form.Education, Experience: form.Experience,
 		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,
 		Status: "enrolled", CreatedAt: now}
-	return s.repo.Create(e)
+	return s.repo.Create(ctx, e)
 }
 
 // validEnrollmentStatus 报名状态白名单（与前端 statusLabel 对齐）。
@@ -71,14 +72,14 @@ func validEnrollmentStatus(status string) bool {
 
 // Update 管理端编辑报名记录（基础信息 + 状态；全字段覆盖）。
 // 状态校验：白名单 + 防回退（已缴费/已入学为定局状态，不允许改回待审核/驳回）。
-func (s *EnrollmentService) Update(a domain.Actor, e domain.Enrollment) (domain.Enrollment, error) {
+func (s *EnrollmentService) Update(ctx context.Context, a domain.Actor, e domain.Enrollment) (domain.Enrollment, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Enrollment{}, errors.New("admin permission required")
 	}
 	if e.ID == "" {
 		return domain.Enrollment{}, errors.New("enrollment id is required")
 	}
-	old, err := s.repo.FindByID(e.ID)
+	old, err := s.repo.FindByID(ctx, e.ID)
 	if err != nil {
 		return domain.Enrollment{}, err
 	}
@@ -88,11 +89,11 @@ func (s *EnrollmentService) Update(a domain.Actor, e domain.Enrollment) (domain.
 	if (old.Status == "paid" || old.Status == "enrolled") && (e.Status == "pending" || e.Status == "rejected") {
 		return domain.Enrollment{}, fmt.Errorf("cannot change enrollment status from %q to %q", old.Status, e.Status)
 	}
-	return s.repo.Update(e)
+	return s.repo.Update(ctx, e)
 }
 
-func (s *EnrollmentService) ListByCourse(courseID string) ([]domain.Enrollment, error) {
-	return s.repo.ListByCourse(courseID)
+func (s *EnrollmentService) ListByCourse(ctx context.Context, courseID string) ([]domain.Enrollment, error) {
+	return s.repo.ListByCourse(ctx, courseID)
 }
 
 // ---- Expiry Checker ----
@@ -133,11 +134,11 @@ func NewTradeOrderService(repo repository.TradeOrderRepository) *TradeOrderServi
 	return &TradeOrderService{repo: repo}
 }
 
-func (s *TradeOrderService) Create(buyerID, productID, sellerID string, amountFen int64) (domain.TradeOrder, error) {
+func (s *TradeOrderService) Create(ctx context.Context, buyerID, productID, sellerID string, amountFen int64) (domain.TradeOrder, error) {
 	now := time.Now()
 	// ID 含随机后缀：同纳秒并发下单会生成相同 UnixNano ID（内存 repo 不去重、PG 主键冲突）
 	o := domain.TradeOrder{ID: fmt.Sprintf("torder-%d-%d", now.UnixNano(), rand.Intn(100000)), ProductID: productID, BuyerID: buyerID, SellerID: sellerID, AmountFen: amountFen, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
-	return s.repo.Create(o)
+	return s.repo.Create(ctx, o)
 }
 
 // orderFlow 订单合法状态流转（交易管理一期：pending → paid → shipped → completed / cancelled；
@@ -161,8 +162,8 @@ func checkOrderTransition(current, next string) error {
 	return fmt.Errorf("非法订单状态流转: %s → %s", current, next)
 }
 
-func (s *TradeOrderService) UpdateStatus(id, userID, newStatus string) (domain.TradeOrder, error) {
-	o, err := s.repo.FindByID(id)
+func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newStatus string) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.TradeOrder{}, err
 	}
@@ -172,13 +173,13 @@ func (s *TradeOrderService) UpdateStatus(id, userID, newStatus string) (domain.T
 	if err := checkOrderTransition(o.Status, newStatus); err != nil {
 		return domain.TradeOrder{}, err
 	}
-	return s.repo.UpdateStatus(id, newStatus)
+	return s.repo.UpdateStatus(ctx, id, newStatus)
 }
 
 // ApplyAftersale 买家申请售后：仅买家可申请；一次订单仅一份有效售后单
 // （aftersale_status 非空即已有申请，不得重复）；状态机 paid/shipped/completed → aftersale。
-func (s *TradeOrderService) ApplyAftersale(userID, orderID, aftType, reason, desc string, amountFen int64) (domain.TradeOrder, error) {
-	o, err := s.repo.FindByID(orderID)
+func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID, aftType, reason, desc string, amountFen int64) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.TradeOrder{}, err
 	}
@@ -199,14 +200,14 @@ func (s *TradeOrderService) ApplyAftersale(userID, orderID, aftType, reason, des
 	o.AftersaleAmountFen = amountFen
 	o.AftersaleStatus = "pending"
 	o.AftersaleTime = now
-	return s.repo.UpdateAftersale(o)
+	return s.repo.UpdateAftersale(ctx, o)
 }
 
 // ReviewAftersale 管理端审核售后单：同意 → aftersale_status=approved（退款完成）；
 // 驳回 → aftersale_status=rejected。结案后订单状态回到 completed（交易结束态），
 // 售后记录保留在 aftersale_* 字段供买家/后台查看。
-func (s *TradeOrderService) ReviewAftersale(orderID string, approve bool) (domain.TradeOrder, error) {
-	o, err := s.repo.FindByID(orderID)
+func (s *TradeOrderService) ReviewAftersale(ctx context.Context, orderID string, approve bool) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.TradeOrder{}, err
 	}
@@ -219,32 +220,34 @@ func (s *TradeOrderService) ReviewAftersale(orderID string, approve bool) (domai
 		o.AftersaleStatus = "rejected"
 	}
 	o.Status = "completed"
-	return s.repo.UpdateAftersale(o)
+	return s.repo.UpdateAftersale(ctx, o)
 }
 
 // UpdateStatusAdmin 管理端改单：跳过买卖双方校验，仍受状态机约束。
-func (s *TradeOrderService) UpdateStatusAdmin(id, newStatus string) (domain.TradeOrder, error) {
-	o, err := s.repo.FindByID(id)
+func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus string) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.TradeOrder{}, err
 	}
 	if err := checkOrderTransition(o.Status, newStatus); err != nil {
 		return domain.TradeOrder{}, err
 	}
-	return s.repo.UpdateStatus(id, newStatus)
+	return s.repo.UpdateStatus(ctx, id, newStatus)
 }
 
 // Delete 管理端删除订单（真删除，替代原假删除 stub）。
-func (s *TradeOrderService) Delete(id string) error { return s.repo.Delete(id) }
-
-func (s *TradeOrderService) ListMine(userID string) ([]domain.TradeOrder, error) {
-	return s.repo.ListByUser(userID)
+func (s *TradeOrderService) Delete(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
 }
 
-func (s *TradeOrderService) ListAll(offset, limit int) ([]domain.TradeOrder, int, error) {
-	return s.repo.ListAll(offset, limit)
+func (s *TradeOrderService) ListMine(ctx context.Context, userID string) ([]domain.TradeOrder, error) {
+	return s.repo.ListByUser(ctx, userID)
 }
 
-func (s *TradeOrderService) FindByID(id string) (domain.TradeOrder, error) {
-	return s.repo.FindByID(id)
+func (s *TradeOrderService) ListAll(ctx context.Context, offset, limit int) ([]domain.TradeOrder, int, error) {
+	return s.repo.ListAll(ctx, offset, limit)
+}
+
+func (s *TradeOrderService) FindByID(ctx context.Context, id string) (domain.TradeOrder, error) {
+	return s.repo.FindByID(ctx, id)
 }

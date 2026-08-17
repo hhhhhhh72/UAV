@@ -139,6 +139,7 @@ func main() {
 		industryRptRepo repository.IndustryReportRepository
 		resourceRepo    repository.ResourceRepository
 		emergencyRepo   repository.EmergencyRepository
+		uploadRepo      repository.UploadRepository
 		pgStore         *postgres.Store
 	)
 
@@ -218,6 +219,7 @@ func main() {
 		assocMemberRepo = pgStore.NewAssociationMemberRepository()
 		intentRepo = pgStore.NewIntentRepository()
 		workOrderRepo = pgStore.NewWorkOrderRepository()
+		uploadRepo = pgStore.NewUploadRepository()
 	} else {
 		slog.Warn("DATABASE_URL not set, using in-memory storage (NOT FOR PRODUCTION)")
 		demandRepo = memory.NewDemandRepository(cipher)
@@ -277,6 +279,7 @@ func main() {
 		industryRptRepo = memory.NewIndustryReportRepository()
 		resourceRepo = memory.NewResourceRepository()
 		emergencyRepo = memory.NewEmergencyRepository()
+		uploadRepo = memory.NewUploadRepository()
 	}
 
 	app := httpapi.NewServer(
@@ -294,7 +297,7 @@ func main() {
 		service.NewInsuranceService(policyRepo, inspectRepo),
 		service.NewFinanceService(loanRepo),
 		service.NewHomeService(demandRepo, enterpriseRepo),
-		service.NewFileService("uploads/"),
+		service.NewFileService("uploads/", service.WithUploadQuota(uploadRepo, cfg.Server.UploadDailyQuotaBytes)),
 		service.NewMessageService(msgRepo),
 		service.NewEnrollmentService(enrollRepo),
 		service.NewExpiryService(),
@@ -353,9 +356,11 @@ func main() {
 	// Seed super admin user from SUPER_ADMIN_PHONE env var.
 	superPhone := os.Getenv("SUPER_ADMIN_PHONE")
 	if superPhone != "" {
-		if _, err := userRepo.FindByID(superPhone); err != nil {
+		seedCtx, seedCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer seedCancel()
+		if _, err := userRepo.FindByID(seedCtx, superPhone); err != nil {
 			now := time.Now()
-			userRepo.Create(domain.User{
+			userRepo.Create(seedCtx, domain.User{
 				ID: superPhone, WechatOpenID: superPhone, Role: domain.RolePlatformAdmin,
 				Status: "active", Version: 1, CreatedAt: now, UpdatedAt: now,
 			})

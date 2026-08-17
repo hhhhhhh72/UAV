@@ -45,7 +45,7 @@ func adminFail(w http.ResponseWriter, r *http.Request, err error) {
 
 // ----- Enrollments (报名记录) -----
 func (s *Server) listAdminEnrollments(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.enrollSvc.All(0, 10000)
+	all, _, err := s.enrollSvc.All(r.Context(), 0, 10000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list enrollments: %w", err))
 		return
@@ -58,7 +58,7 @@ func (s *Server) listAdminEnrollments(w http.ResponseWriter, r *http.Request) {
 
 // ----- Test site bookings (场地预约记录) -----
 func (s *Server) listAdminBookings(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.testSiteSvc.ListAllBookings(0, 10000)
+	all, _, err := s.testSiteSvc.ListAllBookings(r.Context(), 0, 10000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list bookings: %w", err))
 		return
@@ -71,7 +71,7 @@ func (s *Server) listAdminBookings(w http.ResponseWriter, r *http.Request) {
 
 // ----- Orders (trade_orders) -----
 func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.tradeSvc.ListAll(0, 10000)
+	all, _, err := s.tradeSvc.ListAll(r.Context(), 0, 10000)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -114,7 +114,7 @@ func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 // ----- Case entries -----
 func (s *Server) listAdminCaseEntries(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
-	items, total, err := s.caseSvc.List(category, 1, 100000)
+	items, total, err := s.caseSvc.List(r.Context(), category, 1, 100000)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -129,7 +129,7 @@ func (s *Server) listAdminExperts(w http.ResponseWriter, r *http.Request) {
 
 // ----- Competitions -----
 func (s *Server) listAdminCompetitions(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.competitionSvc.List(1, 100000)
+	items, _, err := s.competitionSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -139,6 +139,7 @@ func (s *Server) listAdminCompetitions(w http.ResponseWriter, r *http.Request) {
 		func(c domain.Competition) string { return c.Status })
 	paginatedRespond(w, r, filtered, ftotal)
 }
+
 // POST /api/v1/admin/competitions 实际绑定 biz_handlers.go 的 createCompetition。
 func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -172,7 +173,7 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 	if d, err := parseDateInput(in.Deadline); err == nil && !d.IsZero() {
 		deadline = &d
 	}
-	c, err := s.competitionSvc.Update(domain.Competition{
+	c, err := s.competitionSvc.Update(r.Context(), domain.Competition{
 		ID: id, Title: in.Title, Category: in.Category, Description: in.Description,
 		Location: in.Location, Sponsor: in.Sponsor, Status: in.Status,
 		StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
@@ -188,7 +189,7 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCompetition(w http.ResponseWriter, r *http.Request) {
-	if err := s.competitionSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.competitionSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -238,7 +239,7 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 	if ms == 0 {
 		ms = in.Capacity
 	}
-	c, err := s.trainingSvc.CreateCourse(domain.Actor{Role: domain.RolePlatformAdmin}, domain.TrainingCourse{
+	c, err := s.trainingSvc.CreateCourse(r.Context(), domain.Actor{Role: domain.RolePlatformAdmin}, domain.TrainingCourse{
 		Title: in.Title, CertType: domain.CertType(ct), Description: in.Description,
 		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
 		MaxStudents: ms, PriceFen: in.PriceFen, Status: in.Status,
@@ -297,7 +298,7 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 	if ms == 0 {
 		ms = in.Capacity
 	}
-	c, err := s.trainingSvc.UpdateCourse(domain.TrainingCourse{
+	c, err := s.trainingSvc.UpdateCourse(r.Context(), domain.TrainingCourse{
 		ID: id, Title: in.Title, CertType: domain.CertType(ct), Description: in.Description,
 		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
 		MaxStudents: ms, PriceFen: in.PriceFen, Status: in.Status,
@@ -314,7 +315,7 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCourse(w http.ResponseWriter, r *http.Request) {
-	if err := s.trainingSvc.DeleteCourse(r.PathValue("id")); err != nil {
+	if err := s.trainingSvc.DeleteCourse(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -323,7 +324,7 @@ func (s *Server) deleteCourse(w http.ResponseWriter, r *http.Request) {
 
 // --- Certificates (missing admin list/update/delete) ---
 func (s *Server) listAdminCerts(w http.ResponseWriter, r *http.Request) {
-	certs, err := s.trainingSvc.ListAllCertificates()
+	certs, err := s.trainingSvc.ListAllCertificates(r.Context())
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list certs: %w", err))
 		return
@@ -348,7 +349,7 @@ func (s *Server) updateCertificate(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.trainingSvc.UpdateCertificate(id, in.CertType, in.CertNumber, in.Level, in.IssuerOrg, in.Status, in.IssueDate, in.ExpireDate)
+	c, err := s.trainingSvc.UpdateCertificate(r.Context(), id, in.CertType, in.CertNumber, in.Level, in.IssuerOrg, in.Status, in.IssueDate, in.ExpireDate)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -356,7 +357,7 @@ func (s *Server) updateCertificate(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCertificate(w http.ResponseWriter, r *http.Request) {
-	if err := s.trainingSvc.DeleteCertificate(r.PathValue("id")); err != nil {
+	if err := s.trainingSvc.DeleteCertificate(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -382,7 +383,7 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusUnauthorized, fmt.Errorf("auth required"))
 		return
 	}
-	c, err := s.trainingSvc.AddCertificate(domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.IssueDate, in.ExpireDate)
+	c, err := s.trainingSvc.AddCertificate(r.Context(), domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.IssueDate, in.ExpireDate)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -392,7 +393,7 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 
 // --- Jobs (missing admin list/update/delete) ---
 func (s *Server) listAdminJobs(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.jobSvc.ListAllJobs(0, 10000)
+	all, _, err := s.jobSvc.ListAllJobs(r.Context(), 0, 10000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list jobs: %w", err))
 		return
@@ -416,7 +417,7 @@ func (s *Server) updateJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	j, err := s.jobSvc.UpdateJob(id, in.Title, in.Description, in.Location, in.JobType, in.SalaryFen, in.Status)
+	j, err := s.jobSvc.UpdateJob(r.Context(), id, in.Title, in.Description, in.Location, in.JobType, in.SalaryFen, in.Status)
 	if err != nil {
 		code := http.StatusInternalServerError
 		if errors.Is(err, service.ErrInvalidJobStatus) {
@@ -428,7 +429,7 @@ func (s *Server) updateJob(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, j)
 }
 func (s *Server) deleteJob(w http.ResponseWriter, r *http.Request) {
-	if err := s.jobSvc.DeleteJob(r.PathValue("id")); err != nil {
+	if err := s.jobSvc.DeleteJob(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -448,7 +449,7 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	j, err := s.jobSvc.CreateJob(domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, in.Title, in.Description, in.Location, in.SalaryFen)
+	j, err := s.jobSvc.CreateJob(r.Context(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, in.Title, in.Description, in.Location, in.SalaryFen)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -456,7 +457,7 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 	if in.Status == "published" {
 		var err error
 		// 与 CreateJob 使用同一 actor（ID:"admin"），否则 owner 校验失败
-		j, err = s.jobSvc.PublishJob(domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, j.ID)
+		j, err = s.jobSvc.PublishJob(r.Context(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, j.ID)
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("publish job: %w", err))
 			return
@@ -467,7 +468,7 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 
 // --- Colleges (missing admin list/update/delete) ---
 func (s *Server) listAdminColleges(w http.ResponseWriter, r *http.Request) {
-	all, err := s.collegeSvc.List("")
+	all, err := s.collegeSvc.List(r.Context(), "")
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list colleges: %w", err))
 		return
@@ -511,7 +512,7 @@ func (s *Server) updateCollege(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.collegeSvc.Update(domain.College{
+	c, err := s.collegeSvc.Update(r.Context(), domain.College{
 		ID: id, Name: in.Name, Region: in.Region, City: in.City, Description: in.Description,
 		LogoURL: in.LogoURL, Status: in.Status, CoopType: in.CoopType,
 		Majors: in.Majors, Facilities: in.Facilities,
@@ -528,7 +529,7 @@ func (s *Server) updateCollege(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCollege(w http.ResponseWriter, r *http.Request) {
-	if err := s.collegeSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.collegeSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -539,7 +540,7 @@ func (s *Server) deleteCollege(w http.ResponseWriter, r *http.Request) {
 
 // --- Study Tours (missing list/create/update/delete) ---
 func (s *Server) listAdminStudy(w http.ResponseWriter, r *http.Request) {
-	items, err := s.studyTourRepo.List()
+	items, err := s.studyTourRepo.List(r.Context())
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -587,7 +588,7 @@ func (s *Server) createStudyTour(w http.ResponseWriter, r *http.Request) {
 	st := domain.StudyTour{ID: fmt.Sprintf("study-%d", time.Now().UnixNano()), Title: in.Title, Destination: in.Destination, Duration: in.Duration, Capacity: in.Capacity, Status: in.Status, Description: in.Description,
 		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
 		CoverImage: in.CoverImage, PriceFen: in.PriceFen, Schedule: in.Schedule}
-	sr, err := s.studyTourRepo.Create(st)
+	sr, err := s.studyTourRepo.Create(r.Context(), st)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -614,7 +615,7 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	st, err := s.studyTourRepo.FindByID(id)
+	st, err := s.studyTourRepo.FindByID(r.Context(), id)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -635,7 +636,7 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 	st.CoverImage = in.CoverImage
 	st.PriceFen = in.PriceFen
 	st.Schedule = in.Schedule
-	sr, err := s.studyTourRepo.Update(st)
+	sr, err := s.studyTourRepo.Update(r.Context(), st)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -643,7 +644,7 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, sr)
 }
 func (s *Server) deleteStudyTour(w http.ResponseWriter, r *http.Request) {
-	if err := s.studyTourRepo.Delete(r.PathValue("id")); err != nil {
+	if err := s.studyTourRepo.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -652,7 +653,7 @@ func (s *Server) deleteStudyTour(w http.ResponseWriter, r *http.Request) {
 
 // --- Test Sites (missing admin list/update/delete) ---
 func (s *Server) listAdminTestSites(w http.ResponseWriter, r *http.Request) {
-	all, err := s.testSiteSvc.List(r.URL.Query().Get("site_type"))
+	all, err := s.testSiteSvc.List(r.Context(), r.URL.Query().Get("site_type"))
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list test sites: %w", err))
 		return
@@ -677,7 +678,7 @@ func (s *Server) updateTestSite(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	site, err := s.testSiteSvc.UpdateSite(id, in.Name, in.SiteType, in.Location, in.BookingRule, in.Status, in.PriceFen, in.Facilities)
+	site, err := s.testSiteSvc.UpdateSite(r.Context(), id, in.Name, in.SiteType, in.Location, in.BookingRule, in.Status, in.PriceFen, in.Facilities)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -685,7 +686,7 @@ func (s *Server) updateTestSite(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, site)
 }
 func (s *Server) deleteTestSite(w http.ResponseWriter, r *http.Request) {
-	if err := s.testSiteSvc.DeleteSite(r.PathValue("id")); err != nil {
+	if err := s.testSiteSvc.DeleteSite(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -694,7 +695,7 @@ func (s *Server) deleteTestSite(w http.ResponseWriter, r *http.Request) {
 
 // --- Transformations (missing admin list/update/delete) ---
 func (s *Server) listAdminTransformations(w http.ResponseWriter, r *http.Request) {
-	all, err := s.transSvc.List("")
+	all, err := s.transSvc.List(r.Context(), "")
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list transformations: %w", err))
 		return
@@ -728,7 +729,7 @@ func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	t, err := s.transSvc.UpdateTrans(id, in.Title, in.Stage, in.Progress, in.PartnerID, in.Status)
+	t, err := s.transSvc.UpdateTrans(r.Context(), id, in.Title, in.Stage, in.Progress, in.PartnerID, in.Status)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -736,7 +737,7 @@ func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, t)
 }
 func (s *Server) deleteTransformation(w http.ResponseWriter, r *http.Request) {
-	if err := s.transSvc.DeleteTrans(r.PathValue("id")); err != nil {
+	if err := s.transSvc.DeleteTrans(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -745,7 +746,7 @@ func (s *Server) deleteTransformation(w http.ResponseWriter, r *http.Request) {
 
 // --- Events (missing admin list/update/delete) ---
 func (s *Server) listAdminEvents(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.eventSvc.List(1, 100000)
+	all, _, err := s.eventSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list events: %w", err))
 		return
@@ -772,7 +773,7 @@ func (s *Server) updateEvent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	ev, err := s.eventSvc.Update(id, in.Title, in.EventType, in.Description, in.Location, in.CoverURL, in.Status, domain.ParseTime(in.StartTime), domain.ParseTime(in.EndTime), in.MaxAttendees)
+	ev, err := s.eventSvc.Update(r.Context(), id, in.Title, in.EventType, in.Description, in.Location, in.CoverURL, in.Status, domain.ParseTime(in.StartTime), domain.ParseTime(in.EndTime), in.MaxAttendees)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -780,7 +781,7 @@ func (s *Server) updateEvent(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, ev)
 }
 func (s *Server) deleteEvent(w http.ResponseWriter, r *http.Request) {
-	if err := s.eventSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.eventSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -789,7 +790,7 @@ func (s *Server) deleteEvent(w http.ResponseWriter, r *http.Request) {
 
 // --- Portfolios (missing delete) ---
 func (s *Server) deletePortfolio(w http.ResponseWriter, r *http.Request) {
-	if err := s.portfolioSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.portfolioSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -798,7 +799,7 @@ func (s *Server) deletePortfolio(w http.ResponseWriter, r *http.Request) {
 
 // --- Exhibitions (missing admin list/update/delete) ---
 func (s *Server) listAdminExhibitions(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.exhibitionSvc.List(1, 100000)
+	all, _, err := s.exhibitionSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list exhibitions: %w", err))
 		return
@@ -826,7 +827,7 @@ func (s *Server) updateExhibition(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	e, err := s.exhibitionSvc.Update(id, in.Title, in.Category, in.Description, in.Location, in.Organizer, domain.ParseTime(in.StartDate), domain.ParseTime(in.EndDate), in.BoothCount, in.BoothPrice, in.Status)
+	e, err := s.exhibitionSvc.Update(r.Context(), id, in.Title, in.Category, in.Description, in.Location, in.Organizer, domain.ParseTime(in.StartDate), domain.ParseTime(in.EndDate), in.BoothCount, in.BoothPrice, in.Status)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -834,7 +835,7 @@ func (s *Server) updateExhibition(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, e)
 }
 func (s *Server) deleteExhibition(w http.ResponseWriter, r *http.Request) {
-	if err := s.exhibitionSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.exhibitionSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -858,7 +859,7 @@ func (s *Server) updateIndustryReport(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	rpt, err := s.reportSvc.Update(id, in.Title, in.Period, in.Category, in.Summary, in.Content, in.FileURL, in.Author, in.Status)
+	rpt, err := s.reportSvc.Update(r.Context(), id, in.Title, in.Period, in.Category, in.Summary, in.Content, in.FileURL, in.Author, in.Status)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -868,7 +869,7 @@ func (s *Server) updateIndustryReport(w http.ResponseWriter, r *http.Request) {
 
 // --- Emergency Resources (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyResources(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.emergencySvc.ListResources("", "", 1, 100000)
+	all, _, err := s.emergencySvc.ListResources(r.Context(), "", "", 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list emergency resources: %w", err))
 		return
@@ -911,7 +912,7 @@ func (s *Server) updateEmergencyResource(w http.ResponseWriter, r *http.Request)
 		fail(w, r, 400, err)
 		return
 	}
-	r2, err := s.emergencySvc.UpdateResource(id, in.Name, in.ResType, in.Specs, in.Location, in.ContactInfo, in.Status, in.Quantity)
+	r2, err := s.emergencySvc.UpdateResource(r.Context(), id, in.Name, in.ResType, in.Specs, in.Location, in.ContactInfo, in.Status, in.Quantity)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -919,7 +920,7 @@ func (s *Server) updateEmergencyResource(w http.ResponseWriter, r *http.Request)
 	respond(w, r, 200, r2)
 }
 func (s *Server) deleteEmergencyResource(w http.ResponseWriter, r *http.Request) {
-	if err := s.emergencySvc.DeleteResource(r.PathValue("id")); err != nil {
+	if err := s.emergencySvc.DeleteResource(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -928,7 +929,7 @@ func (s *Server) deleteEmergencyResource(w http.ResponseWriter, r *http.Request)
 
 // --- Emergency Dispatches (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.emergencySvc.ListDispatches(1, 100000)
+	all, _, err := s.emergencySvc.ListDispatches(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list dispatches: %w", err))
 		return
@@ -954,7 +955,7 @@ func (s *Server) updateEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		fail(w, r, 400, err)
 		return
 	}
-	d, err := s.emergencySvc.UpdateDispatch(id, in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, in.Status, domain.ParseTime(in.StartTime), domain.ParseTime(in.EndTime))
+	d, err := s.emergencySvc.UpdateDispatch(r.Context(), id, in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, in.Status, domain.ParseTime(in.StartTime), domain.ParseTime(in.EndTime))
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -962,7 +963,7 @@ func (s *Server) updateEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 	respond(w, r, 200, d)
 }
 func (s *Server) deleteEmergencyDispatch(w http.ResponseWriter, r *http.Request) {
-	if err := s.emergencySvc.DeleteDispatch(r.PathValue("id")); err != nil {
+	if err := s.emergencySvc.DeleteDispatch(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -971,7 +972,7 @@ func (s *Server) deleteEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 
 // --- Messages (missing admin list/create/update/delete) ---
 func (s *Server) listAdminMessages(w http.ResponseWriter, r *http.Request) {
-	all, total, err := s.msgSvc.ListAll(0, 100000)
+	all, total, err := s.msgSvc.ListAll(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list messages: %w", err))
 		return
@@ -1002,7 +1003,7 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 		respond(w, r, 201, map[string]any{"broadcast": len(sent), "messages": sent})
 		return
 	}
-	msg, err := s.msgSvc.Send(in.SenderID, in.ReceiverID, in.Title, in.Content, in.ResourceType, in.ResourceID)
+	msg, err := s.msgSvc.Send(r.Context(), in.SenderID, in.ReceiverID, in.Title, in.Content, in.ResourceType, in.ResourceID)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1014,7 +1015,7 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 // (users table) plus the current requester, and returns the messages created.
 func (s *Server) broadcastMessageToAdmins(r *http.Request, senderID, title, content, resType, resID string) ([]domain.Message, error) {
 	receivers := map[string]bool{}
-	users, err := s.userRepo.All()
+	users, err := s.userRepo.All(r.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -1028,7 +1029,7 @@ func (s *Server) broadcastMessageToAdmins(r *http.Request, senderID, title, cont
 	}
 	sent := make([]domain.Message, 0, len(receivers))
 	for rid := range receivers {
-		m, err := s.msgSvc.Send(senderID, rid, title, content, resType, resID)
+		m, err := s.msgSvc.Send(r.Context(), senderID, rid, title, content, resType, resID)
 		if err != nil {
 			return nil, err
 		}
@@ -1039,12 +1040,12 @@ func (s *Server) broadcastMessageToAdmins(r *http.Request, senderID, title, cont
 func (s *Server) updateMessage(w http.ResponseWriter, r *http.Request) {
 	// 该路由在 /api/v1/admin/ 前缀下（adminGate 已校验管理员角色）。
 	// 先取消息再用收件人身份调用 MarkRead，与 C10 归属校验口径一致。
-	m, err := s.msgSvc.Get(r.PathValue("id"))
+	m, err := s.msgSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
-	msg, err := s.msgSvc.MarkRead(m.ReceiverID, m.ID)
+	msg, err := s.msgSvc.MarkRead(r.Context(), m.ReceiverID, m.ID)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1052,7 +1053,7 @@ func (s *Server) updateMessage(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, msg)
 }
 func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
-	if err := s.msgSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.msgSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -1077,7 +1078,7 @@ func (s *Server) updateComplianceDoc(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.complianceSvc.UpdateDoc(id, in.Title, in.Category, in.Publisher, in.PublishDate, in.Status, in.Summary, in.FileURL, in.Tags)
+	d, err := s.complianceSvc.UpdateDoc(r.Context(), id, in.Title, in.Category, in.Publisher, in.PublishDate, in.Status, in.Summary, in.FileURL, in.Tags)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1085,7 +1086,7 @@ func (s *Server) updateComplianceDoc(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, d)
 }
 func (s *Server) deleteComplianceDoc(w http.ResponseWriter, r *http.Request) {
-	if err := s.complianceSvc.DeleteDoc(r.PathValue("id")); err != nil {
+	if err := s.complianceSvc.DeleteDoc(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -1109,7 +1110,7 @@ func (s *Server) updateComplianceStandard(w http.ResponseWriter, r *http.Request
 		fail(w, r, 400, err)
 		return
 	}
-	sd, err := s.complianceSvc.UpdateStandard(id, in.Title, in.Category, in.StandardNo, in.Publisher, in.EffectiveDate, in.Scope, in.Status, in.FileURL)
+	sd, err := s.complianceSvc.UpdateStandard(r.Context(), id, in.Title, in.Category, in.StandardNo, in.Publisher, in.EffectiveDate, in.Scope, in.Status, in.FileURL)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1117,7 +1118,7 @@ func (s *Server) updateComplianceStandard(w http.ResponseWriter, r *http.Request
 	respond(w, r, 200, sd)
 }
 func (s *Server) deleteComplianceStandard(w http.ResponseWriter, r *http.Request) {
-	if err := s.complianceSvc.DeleteStandard(r.PathValue("id")); err != nil {
+	if err := s.complianceSvc.DeleteStandard(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -1126,7 +1127,7 @@ func (s *Server) deleteComplianceStandard(w http.ResponseWriter, r *http.Request
 
 // --- Industry Resources (missing admin list/delete) ---
 func (s *Server) listAdminResources(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.resourceSvc.List("", 1, 100000)
+	all, _, err := s.resourceSvc.List(r.Context(), "", 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list resources: %w", err))
 		return
@@ -1155,7 +1156,7 @@ func (s *Server) listAdminResources(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, filtered, len(filtered))
 }
 func (s *Server) deleteIndustryResource(w http.ResponseWriter, r *http.Request) {
-	if err := s.resourceSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.resourceSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -1164,7 +1165,7 @@ func (s *Server) deleteIndustryResource(w http.ResponseWriter, r *http.Request) 
 
 // --- RD Challenges (missing delete) ---
 func (s *Server) deleteRDChallenge(w http.ResponseWriter, r *http.Request) {
-	if err := s.rdService.Delete(r.PathValue("id")); err != nil {
+	if err := s.rdService.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -1173,7 +1174,7 @@ func (s *Server) deleteRDChallenge(w http.ResponseWriter, r *http.Request) {
 
 // --- Research Projects (missing delete) ---
 func (s *Server) deleteResearchProject(w http.ResponseWriter, r *http.Request) {
-	if err := s.researchSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.researchSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -1181,7 +1182,7 @@ func (s *Server) deleteResearchProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getCourse(w http.ResponseWriter, r *http.Request) {
-	c, err := s.trainingSvc.GetCourse(r.PathValue("id"))
+	c, err := s.trainingSvc.GetCourse(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1190,7 +1191,7 @@ func (s *Server) getCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getCert(w http.ResponseWriter, r *http.Request) {
-	c, err := s.trainingSvc.GetCert(r.PathValue("id"))
+	c, err := s.trainingSvc.GetCert(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1199,7 +1200,7 @@ func (s *Server) getCert(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
-	j, err := s.jobSvc.GetJob(r.PathValue("id"))
+	j, err := s.jobSvc.GetJob(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1208,7 +1209,7 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getCompetition(w http.ResponseWriter, r *http.Request) {
-	c, err := s.competitionSvc.Get(r.PathValue("id"))
+	c, err := s.competitionSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1217,7 +1218,7 @@ func (s *Server) getCompetition(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getCollege(w http.ResponseWriter, r *http.Request) {
-	c, err := s.collegeSvc.Get(r.PathValue("id"))
+	c, err := s.collegeSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1226,7 +1227,7 @@ func (s *Server) getCollege(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getStudyTour(w http.ResponseWriter, r *http.Request) {
-	s2, err := s.studyTourRepo.FindByID(r.PathValue("id"))
+	s2, err := s.studyTourRepo.FindByID(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1235,7 +1236,7 @@ func (s *Server) getStudyTour(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getEvent(w http.ResponseWriter, r *http.Request) {
-	e, err := s.eventSvc.Get(r.PathValue("id"))
+	e, err := s.eventSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1244,7 +1245,7 @@ func (s *Server) getEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getExhibition(w http.ResponseWriter, r *http.Request) {
-	e, err := s.exhibitionSvc.Get(r.PathValue("id"))
+	e, err := s.exhibitionSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1253,7 +1254,7 @@ func (s *Server) getExhibition(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getEmergencyResource(w http.ResponseWriter, r *http.Request) {
-	r2, err := s.emergencySvc.GetResource(r.PathValue("id"))
+	r2, err := s.emergencySvc.GetResource(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1262,7 +1263,7 @@ func (s *Server) getEmergencyResource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getReport(w http.ResponseWriter, r *http.Request) {
-	rpt, err := s.reportSvc.Get(r.PathValue("id"))
+	rpt, err := s.reportSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1270,7 +1271,7 @@ func (s *Server) getReport(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, rpt)
 }
 func (s *Server) getIndustryResource(w http.ResponseWriter, r *http.Request) {
-	r2, err := s.resourceSvc.Get(r.PathValue("id"))
+	r2, err := s.resourceSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1278,7 +1279,7 @@ func (s *Server) getIndustryResource(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, r2)
 }
 func (s *Server) getPortfolio(w http.ResponseWriter, r *http.Request) {
-	p, err := s.portfolioSvc.Get(r.PathValue("id"))
+	p, err := s.portfolioSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1286,7 +1287,7 @@ func (s *Server) getPortfolio(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, p)
 }
 func (s *Server) getExpert(w http.ResponseWriter, r *http.Request) {
-	e, err := s.expertSvc.Get(r.PathValue("id"))
+	e, err := s.expertSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1294,7 +1295,7 @@ func (s *Server) getExpert(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, e)
 }
 func (s *Server) getAchievement(w http.ResponseWriter, r *http.Request) {
-	a, err := s.achievementSvc.Get(r.PathValue("id"))
+	a, err := s.achievementSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1302,7 +1303,7 @@ func (s *Server) getAchievement(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, a)
 }
 func (s *Server) getRDChallenge(w http.ResponseWriter, r *http.Request) {
-	c2, err := s.rdService.Get(r.PathValue("id"))
+	c2, err := s.rdService.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1310,7 +1311,7 @@ func (s *Server) getRDChallenge(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, c2)
 }
 func (s *Server) getResearchProject(w http.ResponseWriter, r *http.Request) {
-	rp, err := s.researchSvc.Get(r.PathValue("id"))
+	rp, err := s.researchSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1318,7 +1319,7 @@ func (s *Server) getResearchProject(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, rp)
 }
 func (s *Server) getTestSite(w http.ResponseWriter, r *http.Request) {
-	ts, err := s.testSiteSvc.Get(r.PathValue("id"))
+	ts, err := s.testSiteSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1326,7 +1327,7 @@ func (s *Server) getTestSite(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, ts)
 }
 func (s *Server) getTransformation(w http.ResponseWriter, r *http.Request) {
-	t, err := s.transSvc.Get(r.PathValue("id"))
+	t, err := s.transSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1334,7 +1335,7 @@ func (s *Server) getTransformation(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, t)
 }
 func (s *Server) getComplianceDoc(w http.ResponseWriter, r *http.Request) {
-	cd, err := s.complianceSvc.FindDocByID(r.PathValue("id"))
+	cd, err := s.complianceSvc.FindDocByID(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1342,7 +1343,7 @@ func (s *Server) getComplianceDoc(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, cd)
 }
 func (s *Server) getComplianceStandard(w http.ResponseWriter, r *http.Request) {
-	cs, err := s.complianceSvc.FindStandardByID(r.PathValue("id"))
+	cs, err := s.complianceSvc.FindStandardByID(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1350,7 +1351,7 @@ func (s *Server) getComplianceStandard(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, cs)
 }
 func (s *Server) getMessage(w http.ResponseWriter, r *http.Request) {
-	m, err := s.msgSvc.Get(r.PathValue("id"))
+	m, err := s.msgSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1358,7 +1359,7 @@ func (s *Server) getMessage(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, m)
 }
 func (s *Server) getEmergencyDispatch(w http.ResponseWriter, r *http.Request) {
-	d, err := s.emergencySvc.FindDispatchByID(r.PathValue("id"))
+	d, err := s.emergencySvc.FindDispatchByID(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1366,7 +1367,7 @@ func (s *Server) getEmergencyDispatch(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, d)
 }
 func (s *Server) getOrder(w http.ResponseWriter, r *http.Request) {
-	o, err := s.tradeSvc.FindByID(r.PathValue("id"))
+	o, err := s.tradeSvc.FindByID(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
 		return
@@ -1385,7 +1386,7 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	o, err := s.tradeSvc.Create(in.BuyerID, in.ProductID, in.SellerID, in.AmountFen)
+	o, err := s.tradeSvc.Create(r.Context(), in.BuyerID, in.ProductID, in.SellerID, in.AmountFen)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1400,13 +1401,14 @@ func (s *Server) updateOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	o, err := s.tradeSvc.UpdateStatusAdmin(r.PathValue("id"), in.Status)
+	o, err := s.tradeSvc.UpdateStatusAdmin(r.Context(), r.PathValue("id"), in.Status)
 	if err != nil {
 		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, o)
 }
+
 // PUT /api/v1/admin/orders/{id}/aftersale — 售后单审核（同意退款 / 驳回），仅售后待审核单可审
 func (s *Server) reviewAftersale(w http.ResponseWriter, r *http.Request) {
 	var in struct {
@@ -1422,7 +1424,7 @@ func (s *Server) reviewAftersale(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, fmt.Errorf("action 仅支持 approve / reject"))
 		return
 	}
-	o, err := s.tradeSvc.ReviewAftersale(r.PathValue("id"), in.Action == "approve")
+	o, err := s.tradeSvc.ReviewAftersale(r.Context(), r.PathValue("id"), in.Action == "approve")
 	if err != nil {
 		fail(w, r, 400, err)
 		return
@@ -1435,7 +1437,7 @@ func (s *Server) reviewAftersale(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 200, o)
 }
 func (s *Server) deleteOrder(w http.ResponseWriter, r *http.Request) {
-	if err := s.tradeSvc.Delete(r.PathValue("id")); err != nil {
+	if err := s.tradeSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, fmt.Errorf("delete order: %w", err))
 		return
 	}

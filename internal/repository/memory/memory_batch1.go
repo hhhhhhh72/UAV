@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -19,13 +20,13 @@ type poolRepo struct {
 
 func NewResourcePoolRepository() repository.ResourcePoolRepository { return &poolRepo{} }
 
-func (r *poolRepo) Create(p domain.ResourcePool) (domain.ResourcePool, error) {
+func (r *poolRepo) Create(ctx context.Context, p domain.ResourcePool) (domain.ResourcePool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.pools = append(r.pools, p)
 	return p, nil
 }
-func (r *poolRepo) FindByID(id string) (domain.ResourcePool, error) {
+func (r *poolRepo) FindByID(ctx context.Context, id string) (domain.ResourcePool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, p := range r.pools {
@@ -35,7 +36,7 @@ func (r *poolRepo) FindByID(id string) (domain.ResourcePool, error) {
 	}
 	return domain.ResourcePool{}, fmt.Errorf("pool %s not found", id)
 }
-func (r *poolRepo) List(poolType string) ([]domain.ResourcePool, error) {
+func (r *poolRepo) List(ctx context.Context, poolType string) ([]domain.ResourcePool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.ResourcePool, 0)
@@ -46,13 +47,13 @@ func (r *poolRepo) List(poolType string) ([]domain.ResourcePool, error) {
 	}
 	return out, nil
 }
-func (r *poolRepo) AddMember(m domain.ResourcePoolMember) (domain.ResourcePoolMember, error) {
+func (r *poolRepo) AddMember(ctx context.Context, m domain.ResourcePoolMember) (domain.ResourcePoolMember, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.members = append(r.members, m)
 	return m, nil
 }
-func (r *poolRepo) ListMembers(poolID string) ([]domain.ResourcePoolMember, error) {
+func (r *poolRepo) ListMembers(ctx context.Context, poolID string) ([]domain.ResourcePoolMember, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.ResourcePoolMember, 0)
@@ -73,13 +74,13 @@ type testSiteRepo struct {
 
 func NewTestSiteRepository() repository.TestSiteRepository { return &testSiteRepo{} }
 
-func (r *testSiteRepo) Create(ts domain.TestSite) (domain.TestSite, error) {
+func (r *testSiteRepo) Create(ctx context.Context, ts domain.TestSite) (domain.TestSite, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.sites = append(r.sites, ts)
 	return ts, nil
 }
-func (r *testSiteRepo) FindByID(id string) (domain.TestSite, error) {
+func (r *testSiteRepo) FindByID(ctx context.Context, id string) (domain.TestSite, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, ts := range r.sites {
@@ -89,7 +90,7 @@ func (r *testSiteRepo) FindByID(id string) (domain.TestSite, error) {
 	}
 	return domain.TestSite{}, fmt.Errorf("testsite %s not found", id)
 }
-func (r *testSiteRepo) List(siteType string) ([]domain.TestSite, error) {
+func (r *testSiteRepo) List(ctx context.Context, siteType string) ([]domain.TestSite, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.TestSite, 0)
@@ -100,13 +101,13 @@ func (r *testSiteRepo) List(siteType string) ([]domain.TestSite, error) {
 	}
 	return out, nil
 }
-func (r *testSiteRepo) CreateBooking(b domain.TestSiteBooking) (domain.TestSiteBooking, error) {
+func (r *testSiteRepo) CreateBooking(ctx context.Context, b domain.TestSiteBooking) (domain.TestSiteBooking, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.bookings = append(r.bookings, b)
 	return b, nil
 }
-func (r *testSiteRepo) UpdateBookingStatus(id, status, note string) (domain.TestSiteBooking, error) {
+func (r *testSiteRepo) UpdateBookingStatus(ctx context.Context, id, status, note string) (domain.TestSiteBooking, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, b := range r.bookings {
@@ -118,7 +119,7 @@ func (r *testSiteRepo) UpdateBookingStatus(id, status, note string) (domain.Test
 	}
 	return domain.TestSiteBooking{}, fmt.Errorf("booking %s not found", id)
 }
-func (r *testSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, error) {
+func (r *testSiteRepo) ListBookings(ctx context.Context, siteID string) ([]domain.TestSiteBooking, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.TestSiteBooking, 0)
@@ -131,7 +132,7 @@ func (r *testSiteRepo) ListBookings(siteID string) ([]domain.TestSiteBooking, er
 }
 
 // ListBookingsByUser 我的预约：按用户返回全部预约（最新在前）
-func (r *testSiteRepo) ListBookingsByUser(userID string) ([]domain.TestSiteBooking, error) {
+func (r *testSiteRepo) ListBookingsByUser(ctx context.Context, userID string) ([]domain.TestSiteBooking, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.TestSiteBooking, 0)
@@ -144,7 +145,7 @@ func (r *testSiteRepo) ListBookingsByUser(userID string) ([]domain.TestSiteBooki
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
-func (r *testSiteRepo) ListAllBookings(offset, limit int) ([]domain.TestSiteBooking, int, error) {
+func (r *testSiteRepo) ListAllBookings(ctx context.Context, offset, limit int) ([]domain.TestSiteBooking, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	items := append([]domain.TestSiteBooking(nil), r.bookings...)
@@ -159,7 +160,7 @@ func (r *testSiteRepo) ListAllBookings(offset, limit int) ([]domain.TestSiteBook
 	return items[offset:end], total, nil
 }
 
-func (r *testSiteRepo) UpdateSite(s domain.TestSite) (domain.TestSite, error) {
+func (r *testSiteRepo) UpdateSite(ctx context.Context, s domain.TestSite) (domain.TestSite, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.sites {
@@ -171,7 +172,7 @@ func (r *testSiteRepo) UpdateSite(s domain.TestSite) (domain.TestSite, error) {
 	return domain.TestSite{}, fmt.Errorf("site %s not found", s.ID)
 }
 
-func (r *testSiteRepo) DeleteSite(id string) error {
+func (r *testSiteRepo) DeleteSite(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.sites {
@@ -192,7 +193,7 @@ type exhibitionRepo struct {
 
 func NewExhibitionRepository() repository.ExhibitionRepository { return &exhibitionRepo{} }
 
-func (r *exhibitionRepo) Create(e domain.Exhibition) (domain.Exhibition, error) {
+func (r *exhibitionRepo) Create(ctx context.Context, e domain.Exhibition) (domain.Exhibition, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	e.CreatedAt = time.Now()
@@ -200,7 +201,7 @@ func (r *exhibitionRepo) Create(e domain.Exhibition) (domain.Exhibition, error) 
 	r.expos = append(r.expos, e)
 	return e, nil
 }
-func (r *exhibitionRepo) FindByID(id string) (domain.Exhibition, error) {
+func (r *exhibitionRepo) FindByID(ctx context.Context, id string) (domain.Exhibition, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, e := range r.expos {
@@ -210,12 +211,12 @@ func (r *exhibitionRepo) FindByID(id string) (domain.Exhibition, error) {
 	}
 	return domain.Exhibition{}, fmt.Errorf("exhibition %s not found", id)
 }
-func (r *exhibitionRepo) List(offset, limit int) ([]domain.Exhibition, int, error) {
+func (r *exhibitionRepo) List(ctx context.Context, offset, limit int) ([]domain.Exhibition, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return paginateSlice(r.expos, offset, limit)
 }
-func (r *exhibitionRepo) Update(e domain.Exhibition) (domain.Exhibition, error) {
+func (r *exhibitionRepo) Update(ctx context.Context, e domain.Exhibition) (domain.Exhibition, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, v := range r.expos {
@@ -227,7 +228,7 @@ func (r *exhibitionRepo) Update(e domain.Exhibition) (domain.Exhibition, error) 
 	}
 	return domain.Exhibition{}, fmt.Errorf("exhibition %s not found", e.ID)
 }
-func (r *exhibitionRepo) Delete(id string) error {
+func (r *exhibitionRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.expos {
@@ -238,13 +239,13 @@ func (r *exhibitionRepo) Delete(id string) error {
 	}
 	return fmt.Errorf("exhibition %s not found", id)
 }
-func (r *exhibitionRepo) CreateBooth(b domain.ExhibitionBooth) (domain.ExhibitionBooth, error) {
+func (r *exhibitionRepo) CreateBooth(ctx context.Context, b domain.ExhibitionBooth) (domain.ExhibitionBooth, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.booths = append(r.booths, b)
 	return b, nil
 }
-func (r *exhibitionRepo) ListBooths(exhibitionID string) ([]domain.ExhibitionBooth, error) {
+func (r *exhibitionRepo) ListBooths(ctx context.Context, exhibitionID string) ([]domain.ExhibitionBooth, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.ExhibitionBooth, 0)
@@ -255,7 +256,7 @@ func (r *exhibitionRepo) ListBooths(exhibitionID string) ([]domain.ExhibitionBoo
 	}
 	return out, nil
 }
-func (r *exhibitionRepo) UpdateBoothStatus(id, status string) (domain.ExhibitionBooth, error) {
+func (r *exhibitionRepo) UpdateBoothStatus(ctx context.Context, id, status string) (domain.ExhibitionBooth, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, b := range r.booths {

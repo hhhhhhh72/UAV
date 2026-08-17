@@ -1,6 +1,7 @@
 package memory_test
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestEnterpriseRepoConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := repo.Pending()
+			_, err := repo.Pending(context.Background())
 			if err != nil {
 				t.Errorf("Pending() error: %v", err)
 			}
@@ -30,7 +31,7 @@ func TestEnterpriseRepoConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := repo.Search("重庆")
+			_, err := repo.Search(context.Background(), "重庆")
 			if err != nil {
 				t.Errorf("Search() error: %v", err)
 			}
@@ -49,14 +50,14 @@ func TestDemandRepoConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			_, _ = repo.List(repository.DemandFilter{})
+			_, _ = repo.List(context.Background(), repository.DemandFilter{})
 		}(i)
 	}
 	for i := 0; i < goroutines; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			_, _ = repo.Create(domain.Demand{ID: "test-" + string(rune(idx))})
+			_, _ = repo.Create(context.Background(), domain.Demand{ID: "test-" + string(rune(idx))})
 		}(i)
 	}
 	wg.Wait()

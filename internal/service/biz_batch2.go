@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -19,21 +20,23 @@ func NewTransformationService(r repository.TransformationRepository) *Transforma
 	return &TransformationService{repo: r}
 }
 
-func (s *TransformationService) Create(title, achievementID, ownerID, partnerID string) (domain.Transformation, error) {
+func (s *TransformationService) Create(ctx context.Context, title, achievementID, ownerID, partnerID string) (domain.Transformation, error) {
 	t := domain.Transformation{ID: fmt.Sprintf("tran-%d", time.Now().UnixNano()),
 		Title: title, AchievementID: achievementID, OwnerID: ownerID, PartnerID: partnerID,
 		Stage: domain.StageLab, Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	return s.repo.Create(t)
+	return s.repo.Create(ctx, t)
 }
 
-func (s *TransformationService) Get(id string) (domain.Transformation, error) {
-	return s.repo.FindByID(id)
+func (s *TransformationService) Get(ctx context.Context, id string) (domain.Transformation, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *TransformationService) DeleteTrans(id string) error { return s.repo.Delete(id) }
+func (s *TransformationService) DeleteTrans(ctx context.Context, id string) error {
+	return s.repo.Delete(ctx, id)
+}
 
-func (s *TransformationService) UpdateTrans(id, title, stage, progress, partnerID, status string) (domain.Transformation, error) {
-	t, err := s.repo.FindByID(id)
+func (s *TransformationService) UpdateTrans(ctx context.Context, id, title, stage, progress, partnerID, status string) (domain.Transformation, error) {
+	t, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Transformation{}, err
 	}
@@ -43,16 +46,16 @@ func (s *TransformationService) UpdateTrans(id, title, stage, progress, partnerI
 	t.Status = status
 	t.PartnerID = partnerID
 	t.UpdatedAt = time.Now()
-	return s.repo.Update(t)
+	return s.repo.Update(ctx, t)
 }
 
-func (s *TransformationService) List(ownerID string) ([]domain.Transformation, error) {
-	return s.repo.List(ownerID)
+func (s *TransformationService) List(ctx context.Context, ownerID string) ([]domain.Transformation, error) {
+	return s.repo.List(ctx, ownerID)
 }
 
 // ListByAchievement 按成果查询转化记录（数据量小，内存过滤）
-func (s *TransformationService) ListByAchievement(achievementID string) ([]domain.Transformation, error) {
-	all, err := s.repo.List("")
+func (s *TransformationService) ListByAchievement(ctx context.Context, achievementID string) ([]domain.Transformation, error) {
+	all, err := s.repo.List(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +76,8 @@ func canMutateTransformation(a domain.Actor, t domain.Transformation) bool {
 	return a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
 }
 
-func (s *TransformationService) AdvanceStage(a domain.Actor, id string, nextStage domain.TransformationStage, progress string) (domain.Transformation, error) {
-	t, err := s.repo.FindByID(id)
+func (s *TransformationService) AdvanceStage(ctx context.Context, a domain.Actor, id string, nextStage domain.TransformationStage, progress string) (domain.Transformation, error) {
+	t, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Transformation{}, err
 	}
@@ -84,11 +87,11 @@ func (s *TransformationService) AdvanceStage(a domain.Actor, id string, nextStag
 	t.Stage = nextStage
 	t.Progress = progress
 	t.UpdatedAt = time.Now()
-	return s.repo.Update(t)
+	return s.repo.Update(ctx, t)
 }
 
-func (s *TransformationService) AddMilestone(a domain.Actor, id, name, evidence string) (domain.Transformation, error) {
-	t, err := s.repo.FindByID(id)
+func (s *TransformationService) AddMilestone(ctx context.Context, a domain.Actor, id, name, evidence string) (domain.Transformation, error) {
+	t, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Transformation{}, err
 	}
@@ -99,7 +102,7 @@ func (s *TransformationService) AddMilestone(a domain.Actor, id, name, evidence 
 		Name: name, Completed: true, Date: time.Now(), Evidence: evidence,
 	})
 	t.UpdatedAt = time.Now()
-	return s.repo.Update(t)
+	return s.repo.Update(ctx, t)
 }
 
 // ── College Service ──
@@ -132,7 +135,7 @@ func CoopTypeLabel(t string) string {
 }
 
 // Create 接收完整领域对象（含小程序页面字段 city/tags/major_count/cover 等）。
-func (s *CollegeService) Create(c domain.College) (domain.College, error) {
+func (s *CollegeService) Create(ctx context.Context, c domain.College) (domain.College, error) {
 	now := time.Now()
 	if c.ID == "" {
 		c.ID = fmt.Sprintf("col-%d", now.UnixNano())
@@ -142,22 +145,26 @@ func (s *CollegeService) Create(c domain.College) (domain.College, error) {
 	}
 	c.CreatedAt = now
 	c.UpdatedAt = now
-	return s.repo.Create(c)
+	return s.repo.Create(ctx, c)
 }
-func (s *CollegeService) List(region string) ([]domain.College, error) { return s.repo.List(region) }
-func (s *CollegeService) Get(id string) (domain.College, error)        { return s.repo.FindByID(id) }
+func (s *CollegeService) List(ctx context.Context, region string) ([]domain.College, error) {
+	return s.repo.List(ctx, region)
+}
+func (s *CollegeService) Get(ctx context.Context, id string) (domain.College, error) {
+	return s.repo.FindByID(ctx, id)
+}
 
-func (s *CollegeService) Update(c domain.College) (domain.College, error) {
-	old, err := s.repo.FindByID(c.ID)
+func (s *CollegeService) Update(ctx context.Context, c domain.College) (domain.College, error) {
+	old, err := s.repo.FindByID(ctx, c.ID)
 	if err != nil {
 		return domain.College{}, err
 	}
 	c.CreatedAt = old.CreatedAt // 保留原创建时间
 	c.UpdatedAt = time.Now()
-	return s.repo.Update(c)
+	return s.repo.Update(ctx, c)
 }
 
-func (s *CollegeService) Delete(id string) error { return s.repo.Delete(id) }
+func (s *CollegeService) Delete(ctx context.Context, id string) error { return s.repo.Delete(ctx, id) }
 
 // ── Cooperation Service ──
 
@@ -169,19 +176,19 @@ func NewCooperationService(r repository.CooperationRepository) *CooperationServi
 	return &CooperationService{repo: r}
 }
 
-func (s *CooperationService) Create(title, collegeID, enterpriseID, coopType, description string, startDate, endDate time.Time, quota int) (domain.CooperationProgram, error) {
+func (s *CooperationService) Create(ctx context.Context, title, collegeID, enterpriseID, coopType, description string, startDate, endDate time.Time, quota int) (domain.CooperationProgram, error) {
 	cp := domain.CooperationProgram{ID: fmt.Sprintf("coop-%d", time.Now().UnixNano()),
 		Title: title, CollegeID: collegeID, EnterpriseID: enterpriseID, CoopType: coopType,
 		Description: description, StartDate: startDate, EndDate: endDate, StudentQuota: quota,
 		Status: "proposed", CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	return s.repo.Create(cp)
+	return s.repo.Create(ctx, cp)
 }
-func (s *CooperationService) List(enterpriseID string) ([]domain.CooperationProgram, error) {
-	return s.repo.List(enterpriseID)
+func (s *CooperationService) List(ctx context.Context, enterpriseID string) ([]domain.CooperationProgram, error) {
+	return s.repo.List(ctx, enterpriseID)
 }
-func (s *CooperationService) Get(id string) (domain.CooperationProgram, error) {
-	return s.repo.FindByID(id)
+func (s *CooperationService) Get(ctx context.Context, id string) (domain.CooperationProgram, error) {
+	return s.repo.FindByID(ctx, id)
 }
-func (s *CooperationService) UpdateStatus(id, status string) (domain.CooperationProgram, error) {
-	return s.repo.UpdateStatus(id, status)
+func (s *CooperationService) UpdateStatus(ctx context.Context, id, status string) (domain.CooperationProgram, error) {
+	return s.repo.UpdateStatus(ctx, id, status)
 }

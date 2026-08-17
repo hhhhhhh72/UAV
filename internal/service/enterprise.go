@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -39,7 +40,7 @@ type CreateEnterpriseInput struct {
 	CapabilityTags   string `json:"capability_tags"`
 }
 
-func (s *EnterpriseSvc) Create(a domain.Actor, in CreateEnterpriseInput) (domain.Enterprise, error) {
+func (s *EnterpriseSvc) Create(ctx context.Context, a domain.Actor, in CreateEnterpriseInput) (domain.Enterprise, error) {
 	now := time.Now()
 	e := domain.Enterprise{
 		ID:               fmt.Sprintf("ent-%d", now.UnixNano()),
@@ -67,11 +68,11 @@ func (s *EnterpriseSvc) Create(a domain.Actor, in CreateEnterpriseInput) (domain
 		UpdatedAt:        now,
 	}
 	slog.Info("enterprise created", "enterprise_id", e.ID, "name", e.Name)
-	return s.repo.Create(e)
+	return s.repo.Create(ctx, e)
 }
 
-func (s *EnterpriseSvc) Update(a domain.Actor, id string, in CreateEnterpriseInput) (domain.Enterprise, error) {
-	existing, err := s.repo.FindByID(id)
+func (s *EnterpriseSvc) Update(ctx context.Context, a domain.Actor, id string, in CreateEnterpriseInput) (domain.Enterprise, error) {
+	existing, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Enterprise{}, err
 	}
@@ -112,11 +113,11 @@ func (s *EnterpriseSvc) Update(a domain.Actor, id string, in CreateEnterpriseInp
 		existing.Status = domain.EnterpriseSubmitted
 		existing.ReviewComment = ""
 	}
-	return s.repo.Update(id, existing)
+	return s.repo.Update(ctx, id, existing)
 }
 
-func (s *EnterpriseSvc) Submit(a domain.Actor, id string) (domain.Enterprise, error) {
-	e, err := s.repo.FindByID(id)
+func (s *EnterpriseSvc) Submit(ctx context.Context, a domain.Actor, id string) (domain.Enterprise, error) {
+	e, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Enterprise{}, err
 	}
@@ -128,17 +129,17 @@ func (s *EnterpriseSvc) Submit(a domain.Actor, id string) (domain.Enterprise, er
 	}
 	e.Status = domain.EnterpriseSubmitted
 	e.UpdatedAt = time.Now()
-	return s.repo.Update(id, e)
+	return s.repo.Update(ctx, id, e)
 }
 
-func (s *EnterpriseSvc) Review(a domain.Actor, id, action, reason string) (domain.Enterprise, error) {
+func (s *EnterpriseSvc) Review(ctx context.Context, a domain.Actor, id, action, reason string) (domain.Enterprise, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Enterprise{}, errors.New("admin permission required")
 	}
 	if (action == "reject" || action == "rejected") && reason == "" {
 		return domain.Enterprise{}, errors.New("reason is required for rejection")
 	}
-	e, err := s.repo.FindByID(id)
+	e, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Enterprise{}, err
 	}
@@ -158,45 +159,45 @@ func (s *EnterpriseSvc) Review(a domain.Actor, id, action, reason string) (domai
 	// 审核意见持久化：驳回/需补充必须附原因，通过时清空历史意见
 	e.ReviewComment = reason
 	e.UpdatedAt = time.Now()
-	ent, err := s.repo.Update(id, e)
+	ent, err := s.repo.Update(ctx, id, e)
 	if err != nil {
 		return domain.Enterprise{}, err
 	}
 	// 审核通过：owner 用户升级为企业角色，否则用户仍是个体、无法获得企业权益（发招聘/合同等）
 	if newStatus == domain.EnterpriseApproved {
-		if err := s.users.UpdateRole(e.OwnerUserID, domain.RoleEnterprise); err != nil {
+		if err := s.users.UpdateRole(ctx, e.OwnerUserID, domain.RoleEnterprise); err != nil {
 			slog.Warn("upgrade owner role failed", "user_id", e.OwnerUserID, "error", err)
 		}
 	}
 	return ent, nil
 }
 
-func (s *EnterpriseSvc) ListByStatus(a domain.Actor, status string, offset, limit int) ([]domain.Enterprise, int, error) {
+func (s *EnterpriseSvc) ListByStatus(ctx context.Context, a domain.Actor, status string, offset, limit int) ([]domain.Enterprise, int, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return nil, 0, errors.New("admin permission required")
 	}
-	return s.repo.ListByStatus(status, offset, limit)
+	return s.repo.ListByStatus(ctx, status, offset, limit)
 }
 
-func (s *EnterpriseSvc) FindByID(id string) (domain.Enterprise, error) {
-	return s.repo.FindByID(id)
+func (s *EnterpriseSvc) FindByID(ctx context.Context, id string) (domain.Enterprise, error) {
+	return s.repo.FindByID(ctx, id)
 }
 
-func (s *EnterpriseSvc) ListMine(a domain.Actor) ([]domain.Enterprise, error) {
-	return s.repo.FindByOwner(a.ID)
+func (s *EnterpriseSvc) ListMine(ctx context.Context, a domain.Actor) ([]domain.Enterprise, error) {
+	return s.repo.FindByOwner(ctx, a.ID)
 }
 
-func (s *EnterpriseSvc) Search(a domain.Actor, q string) ([]domain.Enterprise, error) {
+func (s *EnterpriseSvc) Search(ctx context.Context, a domain.Actor, q string) ([]domain.Enterprise, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return nil, errors.New("admin permission required")
 	}
-	return s.repo.Search(q)
+	return s.repo.Search(ctx, q)
 }
 
 // AttachDocument links an uploaded file to an enterprise (business license, ID card, ...).
 // Only the enterprise owner or admins may attach.
-func (s *EnterpriseSvc) AttachDocument(a domain.Actor, enterpriseID, fileID, documentType string) (domain.EnterpriseDocument, error) {
-	e, err := s.repo.FindByID(enterpriseID)
+func (s *EnterpriseSvc) AttachDocument(ctx context.Context, a domain.Actor, enterpriseID, fileID, documentType string) (domain.EnterpriseDocument, error) {
+	e, err := s.repo.FindByID(ctx, enterpriseID)
 	if err != nil {
 		return domain.EnterpriseDocument{}, err
 	}
@@ -206,17 +207,17 @@ func (s *EnterpriseSvc) AttachDocument(a domain.Actor, enterpriseID, fileID, doc
 	now := time.Now()
 	doc := domain.EnterpriseDocument{ID: fmt.Sprintf("edoc-%d", now.UnixNano()), EnterpriseID: enterpriseID,
 		FileID: fileID, DocumentType: documentType, ReviewStatus: "pending", CreatedAt: now}
-	return s.repo.AddDocument(doc)
+	return s.repo.AddDocument(ctx, doc)
 }
 
 // ListDocuments returns documents of an enterprise for the owner or admins.
-func (s *EnterpriseSvc) ListDocuments(a domain.Actor, enterpriseID string) ([]domain.EnterpriseDocument, error) {
-	e, err := s.repo.FindByID(enterpriseID)
+func (s *EnterpriseSvc) ListDocuments(ctx context.Context, a domain.Actor, enterpriseID string) ([]domain.EnterpriseDocument, error) {
+	e, err := s.repo.FindByID(ctx, enterpriseID)
 	if err != nil {
 		return nil, err
 	}
 	if e.OwnerUserID != a.ID && a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return nil, errors.New("permission denied")
 	}
-	return s.repo.ListDocuments(enterpriseID)
+	return s.repo.ListDocuments(ctx, enterpriseID)
 }

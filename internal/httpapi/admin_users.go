@@ -27,7 +27,7 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out := []map[string]any{{"id": "admin", "role": "platform_admin", "status": "active", "roleLabel": "平台管理员", "created_at": "—", "has_password": true}}
-	users, err := s.userRepo.All()
+	users, err := s.userRepo.All(r.Context())
 	if err == nil {
 		for _, u := range users {
 			rl := roleLabel(string(u.Role))
@@ -97,7 +97,7 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		}
 		u.PasswordHash = string(hash)
 	}
-	_, err := s.userRepo.Create(u)
+	_, err := s.userRepo.Create(r.Context(), u)
 	if err != nil {
 		fail(w, r, http.StatusConflict, fmt.Errorf("user '%s' already exists or create failed", req.ID))
 		return
@@ -122,7 +122,7 @@ func (s *Server) updateUserRole(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("invalid role"))
 		return
 	}
-	if err := s.userRepo.UpdateRole(r.PathValue("id"), domain.Role(req.Role)); err != nil {
+	if err := s.userRepo.UpdateRole(r.Context(), r.PathValue("id"), domain.Role(req.Role)); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
@@ -141,7 +141,7 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("cannot delete super admin"))
 		return
 	}
-	if err := s.userRepo.Delete(id); err != nil {
+	if err := s.userRepo.Delete(r.Context(), id); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}

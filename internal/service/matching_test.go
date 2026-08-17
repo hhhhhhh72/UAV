@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"testing"
 
 	"drone-platform/internal/repository/memory"
@@ -11,7 +12,7 @@ func TestMatchingService_Recommend(t *testing.T) {
 	repo := memory.NewDemandRepository(nil)
 	svc := service.NewMatchingService(repo)
 
-	results, err := svc.Recommend("user-1", 29.5, 106.5, "cable_inspection", "", 10)
+	results, err := svc.Recommend(context.Background(), "user-1", 29.5, 106.5, "cable_inspection", "", 10)
 	if err != nil {
 		t.Fatalf("recommend failed: %v", err)
 	}
@@ -25,7 +26,7 @@ func TestMatchingService_SearchAndMatch(t *testing.T) {
 	repo := memory.NewDemandRepository(nil)
 	svc := service.NewMatchingService(repo)
 
-	results, err := svc.SearchAndMatch("巡检", 29.5, 106.5, "cable_inspection", 10)
+	results, err := svc.SearchAndMatch(context.Background(), "巡检", 29.5, 106.5, "cable_inspection", 10)
 	if err != nil {
 		t.Fatalf("search+match failed: %v", err)
 	}

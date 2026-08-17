@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -20,7 +21,7 @@ func newBizServer(t *testing.T) http.Handler {
 	intentRepo := memory.NewIntentRepository()
 	// auth() issues tokens for user-1; pre-seed it so /api/v1/me writes resolve.
 	userRepo := memory.NewUserRepository(nil)
-	userRepo.Create(domain.User{ID: "user-1", Name: "测试用户", Role: domain.RoleIndividual, Status: "active"})
+	userRepo.Create(context.Background(), domain.User{ID: "user-1", Name: "测试用户", Role: domain.RoleIndividual, Status: "active"})
 	srv := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,79 +13,102 @@ import (
 
 type ListingService struct{ repo repository.ListingRepository }
 
-func NewListingService(r repository.ListingRepository) *ListingService { return &ListingService{repo: r} }
-
-func (s *ListingService) Create(l domain.Listing) (domain.Listing, error) { slog.Info("listing created", "listing_id", l.ID)
-	return s.repo.Create(l) }
-
-func (s *ListingService) Close(a domain.Actor, id string) (domain.Listing, error) {
-	l, err := s.repo.FindByID(id)
-	if err != nil { return domain.Listing{}, err }
-	if l.SellerID != a.ID { return domain.Listing{}, errors.New("only the seller can close") }
-	l.Status = "removed"; l.UpdatedAt = time.Now()
-	return s.repo.Update(id, l)
+func NewListingService(r repository.ListingRepository) *ListingService {
+	return &ListingService{repo: r}
 }
 
-func (s *ListingService) ListListed(offset, limit int) ([]domain.Listing, int, error) {
-	return s.repo.ListByStatus("listed", offset, limit)
+func (s *ListingService) Create(ctx context.Context, l domain.Listing) (domain.Listing, error) {
+	slog.Info("listing created", "listing_id", l.ID)
+	return s.repo.Create(ctx, l)
 }
 
-func (s *ListingService) Favorite(listingID, userID string) error { return s.repo.AddFavorite(listingID, userID) }
+func (s *ListingService) Close(ctx context.Context, a domain.Actor, id string) (domain.Listing, error) {
+	l, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return domain.Listing{}, err
+	}
+	if l.SellerID != a.ID {
+		return domain.Listing{}, errors.New("only the seller can close")
+	}
+	l.Status = "removed"
+	l.UpdatedAt = time.Now()
+	return s.repo.Update(ctx, id, l)
+}
 
-type LabourService struct{ repo repository.LabourOrderRepository }
+func (s *ListingService) ListListed(ctx context.Context, offset, limit int) ([]domain.Listing, int, error) {
+	return s.repo.ListByStatus(ctx, "listed", offset, limit)
+}
 
-func NewLabourService(r repository.LabourOrderRepository) *LabourService { return &LabourService{repo: r} }
+func (s *ListingService) Favorite(ctx context.Context, listingID, userID string) error {
+	return s.repo.AddFavorite(ctx, listingID, userID)
+}
 
-func (s *LabourService) CreateOrder(a domain.Actor, title, desc string, workers int, start, end time.Time, budget int64) (domain.LabourOrder, error) {
+type LabourService struct {
+	repo repository.LabourOrderRepository
+}
+
+func NewLabourService(r repository.LabourOrderRepository) *LabourService {
+	return &LabourService{repo: r}
+}
+
+func (s *LabourService) CreateOrder(ctx context.Context, a domain.Actor, title, desc string, workers int, start, end time.Time, budget int64) (domain.LabourOrder, error) {
 	now := time.Now()
 	o := domain.LabourOrder{ID: fmt.Sprintf("labour-%d", now.UnixNano()), EmployerID: a.ID, Title: title,
 		Description: desc, WorkerCount: workers, StartDate: start, EndDate: end, BudgetFen: budget, Status: "draft",
 		Version: 1, CreatedAt: now, UpdatedAt: now}
-	return s.repo.Create(o)
+	return s.repo.Create(ctx, o)
 }
 
-func (s *LabourService) ListOrders(a domain.Actor, offset, limit int) ([]domain.LabourOrder, int, error) {
-	if a.Role == domain.RolePlatformAdmin { return s.repo.ListAll(offset, limit) }
-	items, err := s.repo.ListByEmployer(a.ID)
+func (s *LabourService) ListOrders(ctx context.Context, a domain.Actor, offset, limit int) ([]domain.LabourOrder, int, error) {
+	if a.Role == domain.RolePlatformAdmin {
+		return s.repo.ListAll(ctx, offset, limit)
+	}
+	items, err := s.repo.ListByEmployer(ctx, a.ID)
 	return items, len(items), err
 }
 
-func (s *LabourService) CreateQuote(a domain.Actor, orderID string, amount int64, proposal, name string) (domain.LabourQuote, error) {
+func (s *LabourService) CreateQuote(ctx context.Context, a domain.Actor, orderID string, amount int64, proposal, name string) (domain.LabourQuote, error) {
 	q := domain.LabourQuote{ID: fmt.Sprintf("quote-%d", time.Now().UnixNano()), OrderID: orderID, QuoterID: a.ID,
 		QuoterName: name, AmountFen: amount, Proposal: proposal, Status: "pending", CreatedAt: time.Now()}
-	return s.repo.CreateQuote(q)
+	return s.repo.CreateQuote(ctx, q)
 }
 
-func (s *LabourService) ListQuotes(a domain.Actor, orderID string) ([]domain.LabourQuote, error) {
-	o, err := s.repo.FindByID(orderID)
-	if err != nil { return nil, err }
+func (s *LabourService) ListQuotes(ctx context.Context, a domain.Actor, orderID string) ([]domain.LabourQuote, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
 	if o.EmployerID != a.ID && a.Role != domain.RolePlatformAdmin {
 		return nil, errors.New("permission denied")
 	}
-	return s.repo.ListQuotes(orderID)
+	return s.repo.ListQuotes(ctx, orderID)
 }
 
-func (s *LabourService) CreateAssignment(a domain.Actor, orderID, workerID string) (domain.Assignment, error) {
-	o, err := s.repo.FindByID(orderID)
-	if err != nil { return domain.Assignment{}, err }
+func (s *LabourService) CreateAssignment(ctx context.Context, a domain.Actor, orderID, workerID string) (domain.Assignment, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
+	if err != nil {
+		return domain.Assignment{}, err
+	}
 	if o.EmployerID != a.ID && a.Role != domain.RolePlatformAdmin {
 		return domain.Assignment{}, errors.New("only the employer can assign workers")
 	}
 	now := time.Now()
 	asgn := domain.Assignment{ID: fmt.Sprintf("assign-%d", now.UnixNano()), OrderID: orderID,
 		WorkerID: workerID, Status: "assigned", CreatedAt: now}
-	return s.repo.CreateAssignment(asgn)
+	return s.repo.CreateAssignment(ctx, asgn)
 }
 
-func (s *LabourService) ListAssignments(a domain.Actor, orderID string) ([]domain.Assignment, error) {
-	o, err := s.repo.FindByID(orderID)
-	if err != nil { return nil, err }
+func (s *LabourService) ListAssignments(ctx context.Context, a domain.Actor, orderID string) ([]domain.Assignment, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
 	if o.EmployerID != a.ID && a.Role != domain.RolePlatformAdmin {
 		return nil, errors.New("permission denied")
 	}
-	return s.repo.ListAssignmentsByOrder(orderID)
+	return s.repo.ListAssignmentsByOrder(ctx, orderID)
 }
 
-func (s *LabourService) ListMyAssignments(a domain.Actor) ([]domain.Assignment, error) {
-	return s.repo.ListAssignmentsByWorker(a.ID)
+func (s *LabourService) ListMyAssignments(ctx context.Context, a domain.Actor) ([]domain.Assignment, error) {
+	return s.repo.ListAssignmentsByWorker(ctx, a.ID)
 }

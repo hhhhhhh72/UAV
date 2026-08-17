@@ -26,7 +26,7 @@ func TestCoverage_RescueCaseRepo(t *testing.T) {
 	}
 	r := store.NewRescueCaseRepository()
 	id := ug("cov-rescue")
-	created, err := r.Create(domain.RescueCase{
+	created, err := r.Create(context.Background(), domain.RescueCase{
 		ID: id, Title: "山火救援", EventType: "mountain_fire", Location: "缙云山",
 		Date: time.Now(), DroneModel: "M300", TeamName: "救援队",
 		Summary: "火情侦查", Result: "成功", Lessons: "提前规划航线",
@@ -38,7 +38,7 @@ func TestCoverage_RescueCaseRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("id mismatch")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("find rescue case: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestCoverage_RescueCaseRepo(t *testing.T) {
 		t.Fatalf("media_urls roundtrip mismatch: %v", got.MediaURLs)
 	}
 	// List: 事件类型 + 关键词 ILIKE + 分页
-	list, total, err := r.List("mountain_fire", "山火", 0, 20)
+	list, total, err := r.List(context.Background(), "mountain_fire", "山火", 0, 20)
 	if err != nil {
 		t.Fatalf("list rescue cases: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestCoverage_RescueCaseRepo(t *testing.T) {
 		t.Fatalf("rescue case %s not found in filtered list", id)
 	}
 	// 关键词过滤：不匹配的查询不应命中该条
-	if others, _, _ := r.List("mountain_fire", "不存在关键词xyz", 0, 20); containsRescueID(others, id) {
+	if others, _, _ := r.List(context.Background(), "mountain_fire", "不存在关键词xyz", 0, 20); containsRescueID(others, id) {
 		t.Fatalf("unexpected hit with non-matching keyword")
 	}
 }
@@ -86,7 +86,7 @@ func TestCoverage_EmergencyDeptRepo(t *testing.T) {
 	}
 	r := store.NewEmergencyDeptRepository()
 	deptID := ug("cov-dept")
-	d, err := r.CreateDept(domain.EmergencyDept{
+	d, err := r.CreateDept(context.Background(), domain.EmergencyDept{
 		ID: deptID, Name: "渝北应急局", DeptType: "emergency_bureau", Region: "渝北区",
 		ContactName: "张队", ContactPhone: "13800000000", ProtocolURL: "/p.pdf", Status: "active",
 	})
@@ -96,7 +96,7 @@ func TestCoverage_EmergencyDeptRepo(t *testing.T) {
 	if d.ID != deptID {
 		t.Fatalf("dept id mismatch")
 	}
-	depts, err := r.ListDepts()
+	depts, err := r.ListDepts(context.Background())
 	if err != nil {
 		t.Fatalf("list depts: %v", err)
 	}
@@ -104,14 +104,14 @@ func TestCoverage_EmergencyDeptRepo(t *testing.T) {
 		t.Fatalf("dept %s not found in list", deptID)
 	}
 	drillID := ug("cov-drill")
-	if _, err := r.CreateDrill(domain.EmergencyDrill{
+	if _, err := r.CreateDrill(context.Background(), domain.EmergencyDrill{
 		ID: drillID, DeptID: deptID, Title: "森林火情联合演练", Scenario: "山火",
 		Date: time.Now(), Participants: 30, DroneCount: 5, Result: "圆满",
 	}); err != nil {
 		t.Fatalf("create drill: %v", err)
 	}
 	// 带 dept_id 过滤
-	drills, err := r.ListDrills(deptID)
+	drills, err := r.ListDrills(context.Background(), deptID)
 	if err != nil {
 		t.Fatalf("list drills: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestCoverage_EmergencyDeptRepo(t *testing.T) {
 		t.Fatalf("drill %s not found in dept list", drillID)
 	}
 	// 全量（空 deptID）
-	all, err := r.ListDrills("")
+	all, err := r.ListDrills(context.Background(), "")
 	if err != nil {
 		t.Fatalf("list all drills: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestCoverage_AssociationMemberRepo(t *testing.T) {
 	r := store.NewAssociationMemberRepository()
 	userID := ug("cov-assoc-user")
 	id := ug("cov-assoc")
-	m, err := r.Create(domain.AssociationMember{
+	m, err := r.Create(context.Background(), domain.AssociationMember{
 		ID: id, UserID: userID, EnterpriseID: "ent-1", Role: domain.AssocMember,
 		Status: "active",
 	})
@@ -170,7 +170,7 @@ func TestCoverage_AssociationMemberRepo(t *testing.T) {
 	if m.JoinDate.IsZero() {
 		t.Fatalf("join_date should be backfilled")
 	}
-	got, err := r.FindByUserID(userID)
+	got, err := r.FindByUserID(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("find member by user: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestCoverage_AssociationMemberRepo(t *testing.T) {
 		t.Fatalf("find member id mismatch")
 	}
 	// List 带 role 过滤
-	list, total, err := r.List(string(domain.AssocMember), 0, 20)
+	list, total, err := r.List(context.Background(), string(domain.AssocMember), 0, 20)
 	if err != nil {
 		t.Fatalf("list members: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestCoverage_AssociationMemberRepo(t *testing.T) {
 		t.Fatalf("member %s not found in role-filtered list (total=%d)", id, total)
 	}
 	// UpdateRole
-	upd, err := r.UpdateRole(id, domain.AssocSecretary)
+	upd, err := r.UpdateRole(context.Background(), id, domain.AssocSecretary)
 	if err != nil {
 		t.Fatalf("update role: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestCoverage_ServiceListingRepo(t *testing.T) {
 	}
 	r := store.NewServiceListingRepository()
 	id := ug("cov-sl")
-	created, err := r.Create(domain.ServiceListing{
+	created, err := r.Create(context.Background(), domain.ServiceListing{
 		ID: id, ProviderID: "prov-1", ProviderName: "测试企业", Title: "电力巡检服务",
 		Category: "巡检", Description: "高压线巡检", Region: "重庆", PriceFen: 50000,
 		Unit: "公里", Image: "/sl.png", Status: "published",
@@ -224,14 +224,14 @@ func TestCoverage_ServiceListingRepo(t *testing.T) {
 	if created.ID != id {
 		t.Fatalf("sl id mismatch")
 	}
-	got, err := r.FindByID(id)
+	got, err := r.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("find service listing: %v", err)
 	}
 	if got.Title != "电力巡检服务" {
 		t.Fatalf("sl title mismatch: %v", got.Title)
 	}
-	list, err := r.List()
+	list, err := r.List(context.Background())
 	if err != nil {
 		t.Fatalf("list service listings: %v", err)
 	}
@@ -240,17 +240,17 @@ func TestCoverage_ServiceListingRepo(t *testing.T) {
 	}
 	got.Title = "更新后的巡检服务"
 	got.Status = "offline"
-	upd, err := r.Update(got)
+	upd, err := r.Update(context.Background(), got)
 	if err != nil {
 		t.Fatalf("update service listing: %v", err)
 	}
 	if upd.Title != "更新后的巡检服务" || upd.Status != "offline" {
 		t.Fatalf("sl update mismatch: %+v", upd)
 	}
-	if err := r.Delete(id); err != nil {
+	if err := r.Delete(context.Background(), id); err != nil {
 		t.Fatalf("delete service listing: %v", err)
 	}
-	if _, err := r.FindByID(id); err == nil {
+	if _, err := r.FindByID(context.Background(), id); err == nil {
 		t.Fatalf("expected find error after delete")
 	}
 }
@@ -327,7 +327,7 @@ func TestCoverage_DemandRepo(t *testing.T) {
 	repo := store.NewDemandRepository()
 	pub := ug("cov-demand-pub")
 	// 公开需求用于 List/Search/ListByPublisher
-	if _, err := repo.Create(domain.Demand{
+	if _, err := repo.Create(context.Background(), domain.Demand{
 		ID: pub, PublisherID: pub, PublisherName: "覆盖测试企业", Contact: "13800000000",
 		BizType: domain.BizCableInspection, District: "渝北区", CityCode: "500112",
 		Title: "电力巡检需求", Description: "需要飞手巡检高压线路",
@@ -337,7 +337,7 @@ func TestCoverage_DemandRepo(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create demand: %v", err)
 	}
-	got, err := repo.FindByID(pub)
+	got, err := repo.FindByID(context.Background(), pub)
 	if err != nil {
 		t.Fatalf("find demand: %v", err)
 	}
@@ -346,56 +346,56 @@ func TestCoverage_DemandRepo(t *testing.T) {
 	}
 
 	// List：仅已发布 + 地区/类型过滤
-	if l, _ := repo.List(repository.DemandFilter{District: "渝北区"}); !containsDemandID(l, pub) {
+	if l, _ := repo.List(context.Background(), repository.DemandFilter{District: "渝北区"}); !containsDemandID(l, pub) {
 		t.Fatalf("demand %s not in district-filtered list", pub)
 	}
-	if l, _ := repo.List(repository.DemandFilter{BizType: "cable_inspection"}); !containsDemandID(l, pub) {
+	if l, _ := repo.List(context.Background(), repository.DemandFilter{BizType: "cable_inspection"}); !containsDemandID(l, pub) {
 		t.Fatalf("demand %s not in biztype-filtered list", pub)
 	}
 
 	// ListAll：status 过滤
-	if l, _ := repo.ListAll(repository.DemandFilter{Status: "published"}); !containsDemandID(l, pub) {
+	if l, _ := repo.ListAll(context.Background(), repository.DemandFilter{Status: "published"}); !containsDemandID(l, pub) {
 		t.Fatalf("demand %s not in ListAll published", pub)
 	}
 
 	// Search
-	if l, _ := repo.Search("巡检"); !containsDemandID(l, pub) {
+	if l, _ := repo.Search(context.Background(), "巡检"); !containsDemandID(l, pub) {
 		t.Fatalf("demand %s not found by Search", pub)
 	}
 
 	// ListByPublisher
-	if l, _ := repo.ListByPublisher(pub); !containsDemandID(l, pub) {
+	if l, _ := repo.ListByPublisher(context.Background(), pub); !containsDemandID(l, pub) {
 		t.Fatalf("demand %s not found by ListByPublisher", pub)
 	}
 
 	// Update：成功路径 + 乐观锁冲突
 	got.Title = "第一次更新"
-	if _, err := repo.Update(got); err != nil {
+	if _, err := repo.Update(context.Background(), got); err != nil {
 		t.Fatalf("update demand: %v", err)
 	}
 	// got 仍是 version=1 的旧值 → 第二次 Update 命中 0 行
 	got.Title = "第二次更新（应冲突）"
-	if _, err := repo.Update(got); err == nil {
+	if _, err := repo.Update(context.Background(), got); err == nil {
 		t.Fatalf("expected optimistic lock conflict, got nil error")
 	}
 
 	// CompareAndSetStatus：成功 / 错误旧状态 / 不存在
-	ok, d, err := repo.CompareAndSetStatus(pub, domain.DemandPublished, domain.DemandCompleted)
+	ok, d, err := repo.CompareAndSetStatus(context.Background(), pub, domain.DemandPublished, domain.DemandCompleted)
 	if err != nil || !ok || d.Status != domain.DemandCompleted {
 		t.Fatalf("CAS success failed: ok=%v err=%v", ok, err)
 	}
-	if ok2, _, _ := repo.CompareAndSetStatus(pub, domain.DemandCancelled, domain.DemandPublished); ok2 {
+	if ok2, _, _ := repo.CompareAndSetStatus(context.Background(), pub, domain.DemandCancelled, domain.DemandPublished); ok2 {
 		t.Fatalf("CAS should fail with wrong old status")
 	}
-	if _, _, err := repo.CompareAndSetStatus(ug("cov-demand-missing"), domain.DemandPending, domain.DemandPublished); err == nil {
+	if _, _, err := repo.CompareAndSetStatus(context.Background(), ug("cov-demand-missing"), domain.DemandPending, domain.DemandPublished); err == nil {
 		t.Fatalf("CAS on missing demand should return error")
 	}
 
 	// Delete：成功 / 再次删除报 not found
-	if err := repo.Delete(pub); err != nil {
+	if err := repo.Delete(context.Background(), pub); err != nil {
 		t.Fatalf("delete demand: %v", err)
 	}
-	if err := repo.Delete(pub); err == nil {
+	if err := repo.Delete(context.Background(), pub); err == nil {
 		t.Fatalf("expected not-found error on second delete")
 	}
 }
@@ -420,7 +420,7 @@ func TestCoverage_EnterpriseRepo(t *testing.T) {
 	owner := ug("cov-ent-owner")
 	id := ug("cov-ent")
 	now := time.Now()
-	if _, err := repo.Create(domain.Enterprise{
+	if _, err := repo.Create(context.Background(), domain.Enterprise{
 		ID: id, OwnerUserID: owner, Name: "覆盖率测试企业", CreditCode: "91150000TEST",
 		LegalPerson: "张三", ContactPhone: "13800000000", IndustryCategory: "整机",
 		Scale: "中型", Address: "重庆市渝北区", Description: "测试描述",
@@ -432,7 +432,7 @@ func TestCoverage_EnterpriseRepo(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create enterprise: %v", err)
 	}
-	got, err := repo.FindByID(id)
+	got, err := repo.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("find enterprise: %v", err)
 	}
@@ -440,28 +440,28 @@ func TestCoverage_EnterpriseRepo(t *testing.T) {
 		t.Fatalf("enterprise mismatch: %+v", got)
 	}
 	// FindByOwner
-	if owned, _ := repo.FindByOwner(owner); !containsEnterpriseID(owned, id) {
+	if owned, _ := repo.FindByOwner(context.Background(), owner); !containsEnterpriseID(owned, id) {
 		t.Fatalf("enterprise %s not found by owner", id)
 	}
 	// ListByStatus：空 = 全部；submitted = 过滤
-	if all, _, _ := repo.ListByStatus("", 0, 20); !containsEnterpriseID(all, id) {
+	if all, _, _ := repo.ListByStatus(context.Background(), "", 0, 20); !containsEnterpriseID(all, id) {
 		t.Fatalf("enterprise %s not in ListByStatus all", id)
 	}
-	if sub, _, _ := repo.ListByStatus("submitted", 0, 20); !containsEnterpriseID(sub, id) {
+	if sub, _, _ := repo.ListByStatus(context.Background(), "submitted", 0, 20); !containsEnterpriseID(sub, id) {
 		t.Fatalf("enterprise %s not in ListByStatus submitted", id)
 	}
 	// Pending（status=submitted）
-	if p, _ := repo.Pending(); !containsEnterpriseID(p, id) {
+	if p, _ := repo.Pending(context.Background()); !containsEnterpriseID(p, id) {
 		t.Fatalf("enterprise %s not in Pending", id)
 	}
 	// Search
-	if s, _ := repo.Search("覆盖率"); !containsEnterpriseID(s, id) {
+	if s, _ := repo.Search(context.Background(), "覆盖率"); !containsEnterpriseID(s, id) {
 		t.Fatalf("enterprise %s not found by Search", id)
 	}
 	// Update
 	got.Name = "更新后的企业"
 	got.Status = domain.EnterpriseApproved
-	upd, err := repo.Update(id, got)
+	upd, err := repo.Update(context.Background(), id, got)
 	if err != nil {
 		t.Fatalf("update enterprise: %v", err)
 	}
@@ -470,13 +470,13 @@ func TestCoverage_EnterpriseRepo(t *testing.T) {
 	}
 	// AddDocument / ListDocuments
 	docID := ug("cov-doc")
-	if _, err := repo.AddDocument(domain.EnterpriseDocument{
+	if _, err := repo.AddDocument(context.Background(), domain.EnterpriseDocument{
 		ID: docID, EnterpriseID: id, FileID: "f-1", DocumentType: "license",
 		ReviewStatus: "pending", CreatedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("add document: %v", err)
 	}
-	docs, err := repo.ListDocuments(id)
+	docs, err := repo.ListDocuments(context.Background(), id)
 	if err != nil {
 		t.Fatalf("list documents: %v", err)
 	}
@@ -484,7 +484,7 @@ func TestCoverage_EnterpriseRepo(t *testing.T) {
 		t.Fatalf("document %s not found", docID)
 	}
 	// Delete
-	if err := repo.Delete(id); err != nil {
+	if err := repo.Delete(context.Background(), id); err != nil {
 		t.Fatalf("delete enterprise: %v", err)
 	}
 }
@@ -517,13 +517,13 @@ func TestCoverage_JobRepo(t *testing.T) {
 	repo := store.NewJobRepository()
 	eid := ug("cov-job-ent")
 	id := ug("cov-job")
-	if _, err := repo.Create(domain.Job{
+	if _, err := repo.Create(context.Background(), domain.Job{
 		ID: id, EnterpriseID: eid, Title: "飞手", Description: "巡检飞手",
 		Location: "重庆", SalaryFen: 50000, JobType: "full-time", Status: domain.JobPublished,
 	}); err != nil {
 		t.Fatalf("create job: %v", err)
 	}
-	got, err := repo.FindByID(id)
+	got, err := repo.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("find job: %v", err)
 	}
@@ -531,20 +531,20 @@ func TestCoverage_JobRepo(t *testing.T) {
 		t.Fatalf("job status mismatch: %v", got.Status)
 	}
 	// ListByEnterprise
-	if l, _ := repo.ListByEnterprise(eid); !containsJobID(l, id) {
+	if l, _ := repo.ListByEnterprise(context.Background(), eid); !containsJobID(l, id) {
 		t.Fatalf("job %s not in ListByEnterprise", id)
 	}
 	// ListPublished / ListAll
-	if l, _, _ := repo.ListPublished(0, 20); !containsJobID(l, id) {
+	if l, _, _ := repo.ListPublished(context.Background(), 0, 20); !containsJobID(l, id) {
 		t.Fatalf("job %s not in ListPublished", id)
 	}
-	if l, _, _ := repo.ListAll(0, 20); !containsJobID(l, id) {
+	if l, _, _ := repo.ListAll(context.Background(), 0, 20); !containsJobID(l, id) {
 		t.Fatalf("job %s not in ListAll", id)
 	}
 	// Update
 	got.Title = "更新飞手"
 	got.Status = domain.JobClosed
-	upd, err := repo.Update(id, got)
+	upd, err := repo.Update(context.Background(), id, got)
 	if err != nil {
 		t.Fatalf("update job: %v", err)
 	}
@@ -552,7 +552,7 @@ func TestCoverage_JobRepo(t *testing.T) {
 		t.Fatalf("job update mismatch: %+v", upd)
 	}
 	// Delete
-	if err := repo.Delete(id); err != nil {
+	if err := repo.Delete(context.Background(), id); err != nil {
 		t.Fatalf("delete job: %v", err)
 	}
 }
@@ -576,7 +576,7 @@ func TestCoverage_UserRepo(t *testing.T) {
 	repo := store.NewUserRepository()
 	id := ug("cov-user")
 	openid := ug("cov-openid")
-	created, err := repo.Create(domain.User{
+	created, err := repo.Create(context.Background(), domain.User{
 		ID: id, WechatOpenID: openid, Name: "覆盖率用户", AvatarURL: "/av.png",
 		Role: domain.RoleEnterprise, Status: "active",
 	})
@@ -587,7 +587,7 @@ func TestCoverage_UserRepo(t *testing.T) {
 		t.Fatalf("user create mismatch: %+v", created)
 	}
 	// FindByOpenID
-	u, err := repo.FindByOpenID(openid)
+	u, err := repo.FindByOpenID(context.Background(), openid)
 	if err != nil {
 		t.Fatalf("find by openid: %v", err)
 	}
@@ -595,29 +595,29 @@ func TestCoverage_UserRepo(t *testing.T) {
 		t.Fatalf("find by openid id mismatch")
 	}
 	// FindByID / All
-	if _, err := repo.FindByID(id); err != nil {
+	if _, err := repo.FindByID(context.Background(), id); err != nil {
 		t.Fatalf("find by id: %v", err)
 	}
-	if _, err := repo.All(); err != nil {
+	if _, err := repo.All(context.Background()); err != nil {
 		t.Fatalf("all users: %v", err)
 	}
 	// UpdateRole / UpdateAvatar / UpdateName
-	if err := repo.UpdateRole(id, domain.RoleAssociationAdmin); err != nil {
+	if err := repo.UpdateRole(context.Background(), id, domain.RoleAssociationAdmin); err != nil {
 		t.Fatalf("update role: %v", err)
 	}
-	if err := repo.UpdateAvatar(id, "/av2.png"); err != nil {
+	if err := repo.UpdateAvatar(context.Background(), id, "/av2.png"); err != nil {
 		t.Fatalf("update avatar: %v", err)
 	}
-	if err := repo.UpdateName(id, "改名用户"); err != nil {
+	if err := repo.UpdateName(context.Background(), id, "改名用户"); err != nil {
 		t.Fatalf("update name: %v", err)
 	}
 	// UpdateProfile（含手机号）
-	if err := repo.UpdateProfile(id, domain.UserProfile{
+	if err := repo.UpdateProfile(context.Background(), id, domain.UserProfile{
 		Gender: "男", Birthday: "1995-05-20", Region: "重庆", Bio: "飞手", Phone: "13900000000",
 	}); err != nil {
 		t.Fatalf("update profile: %v", err)
 	}
-	after, err := repo.FindByID(id)
+	after, err := repo.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("find after profile update: %v", err)
 	}
@@ -626,18 +626,18 @@ func TestCoverage_UserRepo(t *testing.T) {
 	}
 	// Delete 级联：先落 refresh_token + user_role，再删用户
 	rt := store.NewRefreshTokenRepository()
-	if err := rt.Store(id, "hash-"+id, time.Now().Add(time.Hour)); err != nil {
+	if err := rt.Store(context.Background(), id, "hash-"+id, time.Now().Add(time.Hour)); err != nil {
 		t.Fatalf("store refresh token: %v", err)
 	}
 	if _, err := store.Pool().Exec(context.Background(),
 		`INSERT INTO user_roles (user_id, role_code) VALUES ($1, $2)`, id, "enterprise"); err != nil {
 		t.Fatalf("insert user_role: %v", err)
 	}
-	if err := repo.Delete(id); err != nil {
+	if err := repo.Delete(context.Background(), id); err != nil {
 		t.Fatalf("delete user: %v", err)
 	}
 	// refresh_token 与 user_role 应被级联删除
-	if _, _, _, err := rt.Find("hash-" + id); err == nil {
+	if _, _, _, err := rt.Find(context.Background(), "hash-"+id); err == nil {
 		t.Fatalf("refresh token should be cascade-deleted")
 	}
 	var roleCount int
@@ -659,7 +659,7 @@ func TestCoverage_RefreshTokenRepo(t *testing.T) {
 	}
 	// refresh_tokens.user_id 有外键，先建用户
 	userID := ug("cov-rt-user")
-	if _, err := store.NewUserRepository().Create(domain.User{
+	if _, err := store.NewUserRepository().Create(context.Background(), domain.User{
 		ID: userID, WechatOpenID: ug("cov-rt-openid"), Name: "rt用户", Status: "active",
 	}); err != nil {
 		t.Fatalf("create user for refresh token: %v", err)
@@ -667,10 +667,10 @@ func TestCoverage_RefreshTokenRepo(t *testing.T) {
 	repo := store.NewRefreshTokenRepository()
 	hash := "cov-rt-hash-" + userID
 	exp := time.Now().Add(24 * time.Hour)
-	if err := repo.Store(userID, hash, exp); err != nil {
+	if err := repo.Store(context.Background(), userID, hash, exp); err != nil {
 		t.Fatalf("store refresh token: %v", err)
 	}
-	uid, gotExp, revoked, err := repo.Find(hash)
+	uid, gotExp, revoked, err := repo.Find(context.Background(), hash)
 	if err != nil {
 		t.Fatalf("find refresh token: %v", err)
 	}
@@ -681,10 +681,10 @@ func TestCoverage_RefreshTokenRepo(t *testing.T) {
 		t.Fatalf("expires_at mismatch: got=%v want=%v", gotExp, exp)
 	}
 	// Revoke 后再查 revoked=true
-	if err := repo.Revoke(hash); err != nil {
+	if err := repo.Revoke(context.Background(), hash); err != nil {
 		t.Fatalf("revoke refresh token: %v", err)
 	}
-	if _, _, revoked, err := repo.Find(hash); err != nil || !revoked {
+	if _, _, revoked, err := repo.Find(context.Background(), hash); err != nil || !revoked {
 		t.Fatalf("token should be revoked: revoked=%v err=%v", revoked, err)
 	}
 }
@@ -698,27 +698,27 @@ func TestCoverage_CertificateRepo(t *testing.T) {
 	}
 	repo := store.NewCertificateRepository()
 	id := ug("cov-cert")
-	if _, err := repo.Create(domain.Certificate{
+	if _, err := repo.Create(context.Background(), domain.Certificate{
 		ID: id, UserID: "u-1", CertType: domain.CertCAAC, CertNumber: "CN-001",
 		Level: "Ⅱ", IssueDate: time.Now(), ExpireDate: time.Now().AddDate(2, 0, 0),
 		IssuerOrg: "CAAC", ImageURL: "/c.png", Status: "approved",
 	}); err != nil {
 		t.Fatalf("create certificate: %v", err)
 	}
-	got, err := repo.FindByID(id)
+	got, err := repo.FindByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("find certificate: %v", err)
 	}
 	got.Level = "Ⅲ"
 	got.Status = "rejected"
-	upd, err := repo.Update(got)
+	upd, err := repo.Update(context.Background(), got)
 	if err != nil {
 		t.Fatalf("update certificate: %v", err)
 	}
 	if upd.Version != 2 || upd.Level != "Ⅲ" || upd.Status != "rejected" {
 		t.Fatalf("certificate update mismatch: %+v", upd)
 	}
-	if err := repo.Delete(id); err != nil {
+	if err := repo.Delete(context.Background(), id); err != nil {
 		t.Fatalf("delete certificate: %v", err)
 	}
 }
@@ -735,7 +735,7 @@ func TestCoverage_EnrollmentRepo(t *testing.T) {
 	courseID := ug("cov-enr-course")
 	id := ug("cov-enr")
 	birthday := time.Date(1995, 5, 20, 0, 0, 0, 0, time.UTC)
-	if _, err := repo.Create(domain.Enrollment{
+	if _, err := repo.Create(context.Background(), domain.Enrollment{
 		ID: id, CourseID: courseID, UserID: userID, Name: "张三", Phone: "13800000000",
 		IDCard: "500101199505201234", Gender: "男", Birthday: birthday, Email: "z@t.com",
 		Education: "本科", Experience: "3年", PhotoURL: "/p.jpg", IDCardImage: "/i.jpg",
@@ -744,7 +744,7 @@ func TestCoverage_EnrollmentRepo(t *testing.T) {
 		t.Fatalf("create enrollment: %v", err)
 	}
 	// 唯一索引 (user_id, course_id) 重复报名 → 友好错误
-	if _, err := repo.Create(domain.Enrollment{
+	if _, err := repo.Create(context.Background(), domain.Enrollment{
 		ID: ug("cov-enr-dup"), CourseID: courseID, UserID: userID, Status: "enrolled",
 	}); err == nil {
 		t.Fatalf("expected duplicate enrollment error")
@@ -752,21 +752,21 @@ func TestCoverage_EnrollmentRepo(t *testing.T) {
 		t.Fatalf("unexpected duplicate error: %v", err)
 	}
 	// FindByUserAndCourse：命中 / 未命中
-	found, ok, err := repo.FindByUserAndCourse(userID, courseID)
+	found, ok, err := repo.FindByUserAndCourse(context.Background(), userID, courseID)
 	if err != nil {
 		t.Fatalf("find by user+course: %v", err)
 	}
 	if !ok || found.ID != id {
 		t.Fatalf("expected found enrollment, ok=%v", ok)
 	}
-	if _, ok2, _ := repo.FindByUserAndCourse(ug("cov-enr-missing"), courseID); ok2 {
+	if _, ok2, _ := repo.FindByUserAndCourse(context.Background(), ug("cov-enr-missing"), courseID); ok2 {
 		t.Fatalf("expected not-found for missing user")
 	}
 	// FindByID / Update / ListAll / ListByCourse
-	if _, err := repo.FindByID(id); err != nil {
+	if _, err := repo.FindByID(context.Background(), id); err != nil {
 		t.Fatalf("find enrollment by id: %v", err)
 	}
-	upd, err := repo.Update(domain.Enrollment{
+	upd, err := repo.Update(context.Background(), domain.Enrollment{
 		ID: id, Name: "张三改", Phone: "13900000000", IDCard: "500101199505201234",
 		Gender: "男", Birthday: birthday, Email: "z2@t.com", Education: "硕士",
 		Experience: "5年", PhotoURL: "/p2.jpg", IDCardImage: "/i2.jpg",
@@ -778,10 +778,10 @@ func TestCoverage_EnrollmentRepo(t *testing.T) {
 	if upd.Name != "张三改" || upd.Status != "completed" {
 		t.Fatalf("enrollment update mismatch: %+v", upd)
 	}
-	if _, _, err := repo.ListAll(0, 20); err != nil {
+	if _, _, err := repo.ListAll(context.Background(), 0, 20); err != nil {
 		t.Fatalf("list all enrollments: %v", err)
 	}
-	if l, _ := repo.ListByCourse(courseID); !containsEnrollmentID(l, id) {
+	if l, _ := repo.ListByCourse(context.Background(), courseID); !containsEnrollmentID(l, id) {
 		t.Fatalf("enrollment %s not in ListByCourse", id)
 	}
 }
@@ -806,7 +806,7 @@ func TestCoverage_EscrowRepo(t *testing.T) {
 	uid := ug("cov-esc")
 	now := time.Now()
 	// GetAccount 不存在 → 零值账户
-	zero, err := r.GetAccount(uid)
+	zero, err := r.GetAccount(context.Background(), uid)
 	if err != nil {
 		t.Fatalf("get account (absent): %v", err)
 	}
@@ -814,13 +814,13 @@ func TestCoverage_EscrowRepo(t *testing.T) {
 		t.Fatalf("absent account mismatch: %+v", zero)
 	}
 	// Deposit 即开户
-	if _, err := r.Deposit(uid, 100000, domain.EscrowTransaction{
+	if _, err := r.Deposit(context.Background(), uid, 100000, domain.EscrowTransaction{
 		ID: "cov-tx-dep-" + uid, FromUser: "sys", ToUser: uid, AmountFen: 100000,
 		TxType: "deposit", Status: "completed", CreatedAt: now,
 	}); err != nil {
 		t.Fatalf("deposit: %v", err)
 	}
-	acct, err := r.GetAccount(uid)
+	acct, err := r.GetAccount(context.Background(), uid)
 	if err != nil {
 		t.Fatalf("get account: %v", err)
 	}
@@ -828,7 +828,7 @@ func TestCoverage_EscrowRepo(t *testing.T) {
 		t.Fatalf("balance after deposit = %d, want 100000", acct.BalanceFen)
 	}
 	// Freeze
-	if _, err := r.Freeze(uid, 30000, domain.EscrowTransaction{
+	if _, err := r.Freeze(context.Background(), uid, 30000, domain.EscrowTransaction{
 		ID: "cov-tx-frz-" + uid, FromUser: uid, ToUser: "escrow", AmountFen: 30000,
 		TxType: "freeze", Status: "completed", CreatedAt: now,
 	}); err != nil {
@@ -836,13 +836,13 @@ func TestCoverage_EscrowRepo(t *testing.T) {
 	}
 	// Release 给收款方（收款方无账户，upsert 开户）
 	worker := ug("cov-esc-worker")
-	if _, err := r.Release(uid, worker, 30000, domain.EscrowTransaction{
+	if _, err := r.Release(context.Background(), uid, worker, 30000, domain.EscrowTransaction{
 		ID: "cov-tx-rel-" + uid, FromUser: uid, ToUser: worker, AmountFen: 30000,
 		TxType: "release", Status: "completed", CreatedAt: now,
 	}); err != nil {
 		t.Fatalf("release: %v", err)
 	}
-	workerAcct, err := r.GetAccount(worker)
+	workerAcct, err := r.GetAccount(context.Background(), worker)
 	if err != nil {
 		t.Fatalf("get worker account: %v", err)
 	}
@@ -850,40 +850,40 @@ func TestCoverage_EscrowRepo(t *testing.T) {
 		t.Fatalf("worker balance = %d, want 30000", workerAcct.BalanceFen)
 	}
 	// Refund
-	if _, err := r.Freeze(uid, 20000, domain.EscrowTransaction{
+	if _, err := r.Freeze(context.Background(), uid, 20000, domain.EscrowTransaction{
 		ID: "cov-tx-frz2-" + uid, FromUser: uid, ToUser: "escrow", AmountFen: 20000,
 		TxType: "freeze", Status: "completed", CreatedAt: now,
 	}); err != nil {
 		t.Fatalf("freeze2: %v", err)
 	}
-	if _, err := r.Refund(uid, 20000, domain.EscrowTransaction{
+	if _, err := r.Refund(context.Background(), uid, 20000, domain.EscrowTransaction{
 		ID: "cov-tx-ref-" + uid, FromUser: "escrow", ToUser: uid, AmountFen: 20000,
 		TxType: "refund", Status: "completed", CreatedAt: now,
 	}); err != nil {
 		t.Fatalf("refund: %v", err)
 	}
 	// 余额不足哨兵：Freeze 超过余额
-	if _, err := r.Freeze(uid, 999999, domain.EscrowTransaction{
+	if _, err := r.Freeze(context.Background(), uid, 999999, domain.EscrowTransaction{
 		ID: "cov-tx-fail-" + uid, FromUser: uid, ToUser: "escrow", AmountFen: 999999,
 		TxType: "freeze", Status: "completed", CreatedAt: now,
 	}); !errors.Is(err, repository.ErrInsufficientBalance) {
 		t.Fatalf("expected ErrInsufficientBalance, got %v", err)
 	}
 	// 冻结不足哨兵：Refund / Release 超过冻结
-	if _, err := r.Refund(uid, 999999, domain.EscrowTransaction{
+	if _, err := r.Refund(context.Background(), uid, 999999, domain.EscrowTransaction{
 		ID: "cov-tx-ref-fail-" + uid, FromUser: "escrow", ToUser: uid, AmountFen: 999999,
 		TxType: "refund", Status: "completed", CreatedAt: now,
 	}); !errors.Is(err, repository.ErrInsufficientFrozenBalance) {
 		t.Fatalf("expected ErrInsufficientFrozenBalance, got %v", err)
 	}
-	if _, err := r.Release(uid, worker, 999999, domain.EscrowTransaction{
+	if _, err := r.Release(context.Background(), uid, worker, 999999, domain.EscrowTransaction{
 		ID: "cov-tx-rel-fail-" + uid, FromUser: uid, ToUser: worker, AmountFen: 999999,
 		TxType: "release", Status: "completed", CreatedAt: now,
 	}); !errors.Is(err, repository.ErrInsufficientFrozenBalance) {
 		t.Fatalf("expected ErrInsufficientFrozenBalance on release, got %v", err)
 	}
 	// ListTransactions
-	txs, err := r.ListTransactions(uid)
+	txs, err := r.ListTransactions(context.Background(), uid)
 	if err != nil {
 		t.Fatalf("list transactions: %v", err)
 	}

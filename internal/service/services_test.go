@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -31,7 +32,7 @@ func platformAdminActor() domain.Actor {
 
 func TestDemandService_Create(t *testing.T) {
 	svc := setupDemandService(t)
-	d, err := svc.Create(enterpriseActor(), service.CreateDemandInput{
+	d, err := svc.Create(context.Background(), enterpriseActor(), service.CreateDemandInput{
 		PublisherName: "测试企业",
 		Contact:       "13800001111",
 		Title:         "测试需求",
@@ -51,7 +52,7 @@ func TestDemandService_Create(t *testing.T) {
 
 func TestDemandService_Create_RequiresTitle(t *testing.T) {
 	svc := setupDemandService(t)
-	_, err := svc.Create(enterpriseActor(), service.CreateDemandInput{
+	_, err := svc.Create(context.Background(), enterpriseActor(), service.CreateDemandInput{
 		Contact: "13800001111",
 		Title:   "",
 	})
@@ -63,13 +64,13 @@ func TestDemandService_Create_RequiresTitle(t *testing.T) {
 func TestDemandService_List(t *testing.T) {
 	svc := setupDemandService(t)
 	// Create and approve a demand so it appears in published list
-	d, _ := svc.Create(enterpriseActor(), service.CreateDemandInput{
+	d, _ := svc.Create(context.Background(), enterpriseActor(), service.CreateDemandInput{
 		PublisherName: "测试", Contact: "13800001111", Title: "已发布需求",
 	})
-	svc.Submit(enterpriseActor(), d.ID)
-	svc.Approve(platformAdminActor(), d.ID)
+	svc.Submit(context.Background(), enterpriseActor(), d.ID)
+	svc.Approve(context.Background(), platformAdminActor(), d.ID)
 	// List with no status filter returns published demands
-	items, err := svc.List(repository.DemandFilter{})
+	items, err := svc.List(context.Background(), repository.DemandFilter{})
 	if err != nil {
 		t.Fatalf("failed to list: %v", err)
 	}
@@ -85,11 +86,11 @@ func TestDemandService_Complete(t *testing.T) {
 	publisher := enterpriseActor()
 
 	// Publisher completes a published demand → completed
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
+	d, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "完成测试",
 	})
-	svc.Approve(platformAdminActor(), d.ID)
-	done, err := svc.Complete(publisher, d.ID)
+	svc.Approve(context.Background(), platformAdminActor(), d.ID)
+	done, err := svc.Complete(context.Background(), publisher, d.ID)
 	if err != nil {
 		t.Fatalf("failed to complete: %v", err)
 	}
@@ -99,20 +100,20 @@ func TestDemandService_Complete(t *testing.T) {
 
 	// Non-publisher cannot complete
 	time.Sleep(time.Microsecond) // ensure unique demand IDs (UnixNano collision)
-	d2, _ := svc.Create(publisher, service.CreateDemandInput{
+	d2, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "完成归属测试",
 	})
-	svc.Approve(platformAdminActor(), d2.ID)
-	if _, err := svc.Complete(individualActor(), d2.ID); err == nil {
+	svc.Approve(context.Background(), platformAdminActor(), d2.ID)
+	if _, err := svc.Complete(context.Background(), individualActor(), d2.ID); err == nil {
 		t.Fatal("expected error when non-publisher completes")
 	}
 
 	// Non-published demand cannot be completed
 	time.Sleep(time.Microsecond)
-	d3, _ := svc.Create(publisher, service.CreateDemandInput{
+	d3, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "未发布完成测试",
 	})
-	if _, err := svc.Complete(publisher, d3.ID); err == nil {
+	if _, err := svc.Complete(context.Background(), publisher, d3.ID); err == nil {
 		t.Fatal("expected error when completing a pending demand")
 	}
 }
@@ -122,10 +123,10 @@ func TestDemandService_Cancel(t *testing.T) {
 	publisher := enterpriseActor()
 
 	// Pending demand can be cancelled by publisher
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
+	d, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "取消测试",
 	})
-	cancelled, err := svc.Cancel(publisher, d.ID)
+	cancelled, err := svc.Cancel(context.Background(), publisher, d.ID)
 	if err != nil {
 		t.Fatalf("failed to cancel pending demand: %v", err)
 	}
@@ -135,11 +136,11 @@ func TestDemandService_Cancel(t *testing.T) {
 
 	// Published demand can be cancelled by publisher
 	time.Sleep(time.Microsecond) // ensure unique demand IDs (UnixNano collision)
-	d2, _ := svc.Create(publisher, service.CreateDemandInput{
+	d2, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "已发布取消测试",
 	})
-	svc.Approve(platformAdminActor(), d2.ID)
-	c2, err := svc.Cancel(publisher, d2.ID)
+	svc.Approve(context.Background(), platformAdminActor(), d2.ID)
+	c2, err := svc.Cancel(context.Background(), publisher, d2.ID)
 	if err != nil {
 		t.Fatalf("failed to cancel published demand: %v", err)
 	}
@@ -149,21 +150,21 @@ func TestDemandService_Cancel(t *testing.T) {
 
 	// Non-publisher cannot cancel
 	time.Sleep(time.Microsecond)
-	d3, _ := svc.Create(publisher, service.CreateDemandInput{
+	d3, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "取消归属测试",
 	})
-	if _, err := svc.Cancel(individualActor(), d3.ID); err == nil {
+	if _, err := svc.Cancel(context.Background(), individualActor(), d3.ID); err == nil {
 		t.Fatal("expected error when non-publisher cancels")
 	}
 
 	// Completed demand cannot be cancelled
 	time.Sleep(time.Microsecond)
-	d4, _ := svc.Create(publisher, service.CreateDemandInput{
+	d4, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "完成不可取消测试",
 	})
-	svc.Approve(platformAdminActor(), d4.ID)
-	svc.Complete(publisher, d4.ID)
-	if _, err := svc.Cancel(publisher, d4.ID); err == nil {
+	svc.Approve(context.Background(), platformAdminActor(), d4.ID)
+	svc.Complete(context.Background(), publisher, d4.ID)
+	if _, err := svc.Cancel(context.Background(), publisher, d4.ID); err == nil {
 		t.Fatal("expected error when cancelling a completed demand")
 	}
 }
@@ -171,17 +172,17 @@ func TestDemandService_Cancel(t *testing.T) {
 func TestDemandService_Submit_ResubmitRejected(t *testing.T) {
 	svc := setupDemandService(t)
 	publisher := enterpriseActor()
-	d, _ := svc.Create(publisher, service.CreateDemandInput{
+	d, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "重新提交测试",
 	})
 	// Admin rejects
-	svc.Review(platformAdminActor(), d.ID, "reject", "资料不全")
-	if rejected, _ := svc.FindByID(d.ID); rejected.Status != domain.DemandRejected {
+	svc.Review(context.Background(), platformAdminActor(), d.ID, "reject", "资料不全")
+	if rejected, _ := svc.FindByID(context.Background(), d.ID); rejected.Status != domain.DemandRejected {
 		t.Fatalf("expected rejected, got %s", rejected.Status)
 	}
 
 	// Publisher resubmits a rejected demand → pending
-	submitted, err := svc.Submit(publisher, d.ID)
+	submitted, err := svc.Submit(context.Background(), publisher, d.ID)
 	if err != nil {
 		t.Fatalf("failed to resubmit: %v", err)
 	}
@@ -191,10 +192,10 @@ func TestDemandService_Submit_ResubmitRejected(t *testing.T) {
 
 	// Non-rejected demand cannot be submitted
 	time.Sleep(time.Microsecond) // ensure unique demand IDs (UnixNano collision)
-	d2, _ := svc.Create(publisher, service.CreateDemandInput{
+	d2, _ := svc.Create(context.Background(), publisher, service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "非法提交测试",
 	})
-	if _, err := svc.Submit(publisher, d2.ID); err == nil {
+	if _, err := svc.Submit(context.Background(), publisher, d2.ID); err == nil {
 		t.Fatal("expected error when submitting a pending demand")
 	}
 }
@@ -203,10 +204,10 @@ func TestDemandService_Submit_ResubmitRejected(t *testing.T) {
 
 func TestDemandService_Review_Approve(t *testing.T) {
 	svc := setupDemandService(t)
-	d, _ := svc.Create(enterpriseActor(), service.CreateDemandInput{
+	d, _ := svc.Create(context.Background(), enterpriseActor(), service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "待审核需求",
 	})
-	d, err := svc.Review(platformAdminActor(), d.ID, "approve", "")
+	d, err := svc.Review(context.Background(), platformAdminActor(), d.ID, "approve", "")
 	if err != nil {
 		t.Fatalf("failed to approve: %v", err)
 	}
@@ -217,10 +218,10 @@ func TestDemandService_Review_Approve(t *testing.T) {
 
 func TestDemandService_Review_Reject(t *testing.T) {
 	svc := setupDemandService(t)
-	d, _ := svc.Create(enterpriseActor(), service.CreateDemandInput{
+	d, _ := svc.Create(context.Background(), enterpriseActor(), service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "拒绝测试",
 	})
-	d, err := svc.Review(platformAdminActor(), d.ID, "reject", "不符合要求")
+	d, err := svc.Review(context.Background(), platformAdminActor(), d.ID, "reject", "不符合要求")
 	if err != nil {
 		t.Fatalf("failed to reject: %v", err)
 	}
@@ -231,10 +232,10 @@ func TestDemandService_Review_Reject(t *testing.T) {
 
 func TestDemandService_Review_RequiresReason(t *testing.T) {
 	svc := setupDemandService(t)
-	d, _ := svc.Create(enterpriseActor(), service.CreateDemandInput{
+	d, _ := svc.Create(context.Background(), enterpriseActor(), service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "原因测试",
 	})
-	_, err := svc.Review(platformAdminActor(), d.ID, "reject", "")
+	_, err := svc.Review(context.Background(), platformAdminActor(), d.ID, "reject", "")
 	if err == nil {
 		t.Fatal("expected error for reject without reason")
 	}
@@ -242,10 +243,10 @@ func TestDemandService_Review_RequiresReason(t *testing.T) {
 
 func TestDemandService_Review_NonAdmin(t *testing.T) {
 	svc := setupDemandService(t)
-	d, _ := svc.Create(enterpriseActor(), service.CreateDemandInput{
+	d, _ := svc.Create(context.Background(), enterpriseActor(), service.CreateDemandInput{
 		PublisherName: "发布者", Contact: "13800001111", Title: "越权测试",
 	})
-	_, err := svc.Review(individualActor(), d.ID, "approve", "")
+	_, err := svc.Review(context.Background(), individualActor(), d.ID, "approve", "")
 	if err == nil {
 		t.Fatal("expected error when non-admin reviews")
 	}
@@ -260,10 +261,10 @@ func setupContractService(t *testing.T) *service.ContractService {
 
 func TestContractService_UpdateStatus_ValidTransition(t *testing.T) {
 	svc := setupContractService(t)
-	c, _ := svc.Create(domain.Actor{ID: "ent-test", Role: domain.RoleEnterprise}, domain.Contract{
+	c, _ := svc.Create(context.Background(), domain.Actor{ID: "ent-test", Role: domain.RoleEnterprise}, domain.Contract{
 		EnterpriseID: "ent-test",
 	})
-	c, err := svc.UpdateStatus(platformAdminActor(), c.ID, domain.ContractSent)
+	c, err := svc.UpdateStatus(context.Background(), platformAdminActor(), c.ID, domain.ContractSent)
 	if err != nil {
 		t.Fatalf("failed to update status: %v", err)
 	}
@@ -274,10 +275,10 @@ func TestContractService_UpdateStatus_ValidTransition(t *testing.T) {
 
 func TestContractService_UpdateStatus_InvalidTransition(t *testing.T) {
 	svc := setupContractService(t)
-	c, _ := svc.Create(domain.Actor{ID: "ent-test", Role: domain.RoleEnterprise}, domain.Contract{
+	c, _ := svc.Create(context.Background(), domain.Actor{ID: "ent-test", Role: domain.RoleEnterprise}, domain.Contract{
 		EnterpriseID: "ent-test",
 	})
-	_, err := svc.UpdateStatus(platformAdminActor(), c.ID, domain.ContractSigned)
+	_, err := svc.UpdateStatus(context.Background(), platformAdminActor(), c.ID, domain.ContractSigned)
 	if err == nil {
 		t.Fatal("expected error for invalid transition draft -> signed")
 	}
@@ -285,12 +286,12 @@ func TestContractService_UpdateStatus_InvalidTransition(t *testing.T) {
 
 func TestContractService_UpdateStatus_OwnershipCheck(t *testing.T) {
 	svc := setupContractService(t)
-	c, _ := svc.Create(domain.Actor{ID: "ent-owner", Role: domain.RoleEnterprise}, domain.Contract{
+	c, _ := svc.Create(context.Background(), domain.Actor{ID: "ent-owner", Role: domain.RoleEnterprise}, domain.Contract{
 		EnterpriseID: "ent-owner",
 	})
 	// Another enterprise tries to void
 	otherEnterprise := domain.Actor{ID: "ent-other", Role: domain.RoleEnterprise}
-	_, err := svc.UpdateStatus(otherEnterprise, c.ID, domain.ContractVoided)
+	_, err := svc.UpdateStatus(context.Background(), otherEnterprise, c.ID, domain.ContractVoided)
 	if err == nil {
 		t.Fatal("expected error when non-owner enterprise voids contract")
 	}
@@ -298,7 +299,7 @@ func TestContractService_UpdateStatus_OwnershipCheck(t *testing.T) {
 
 func TestContractService_Create(t *testing.T) {
 	svc := setupContractService(t)
-	c, err := svc.Create(domain.Actor{ID: "ent-001", Role: domain.RoleEnterprise}, domain.Contract{
+	c, err := svc.Create(context.Background(), domain.Actor{ID: "ent-001", Role: domain.RoleEnterprise}, domain.Contract{
 		EnterpriseID: "ent-001",
 	})
 	if err != nil {
@@ -322,13 +323,13 @@ func setupEmploymentService(t *testing.T) *service.EmploymentService {
 func TestEmploymentService_CreateAndList(t *testing.T) {
 	svc := setupEmploymentService(t)
 	ent := domain.Actor{ID: "ent-emp", Role: domain.RoleEnterprise}
-	_, err := svc.Create(ent, domain.EmploymentRequest{
+	_, err := svc.Create(context.Background(), ent, domain.EmploymentRequest{
 		Position: "测试岗位", Headcount: 3,
 	})
 	if err != nil {
 		t.Fatalf("create employment: %v", err)
 	}
-	items, total, err := svc.List(ent, 0, 20)
+	items, total, err := svc.List(context.Background(), ent, 0, 20)
 	if err != nil {
 		t.Fatalf("list employment: %v", err)
 	}
@@ -342,7 +343,7 @@ func TestEmploymentService_CreateAndList(t *testing.T) {
 
 func TestEmploymentService_List_NonEnterprise(t *testing.T) {
 	svc := setupEmploymentService(t)
-	_, _, err := svc.List(individualActor(), 0, 20)
+	_, _, err := svc.List(context.Background(), individualActor(), 0, 20)
 	if err == nil {
 		t.Fatal("expected error for individual listing employment")
 	}
@@ -353,25 +354,25 @@ func TestEmploymentService_List_NonEnterprise(t *testing.T) {
 func TestContractService_FullLifecycle(t *testing.T) {
 	svc := setupContractService(t)
 	ent := domain.Actor{ID: "ent-life", Role: domain.RoleEnterprise}
-	c, _ := svc.Create(ent, domain.Contract{EnterpriseID: "ent-life"})
+	c, _ := svc.Create(context.Background(), ent, domain.Contract{EnterpriseID: "ent-life"})
 
 	// draft → sent
-	c, err := svc.UpdateStatus(ent, c.ID, domain.ContractSent)
+	c, err := svc.UpdateStatus(context.Background(), ent, c.ID, domain.ContractSent)
 	if err != nil {
 		t.Fatalf("draft→sent: %v", err)
 	}
 	// sent → signing
-	c, err = svc.UpdateStatus(ent, c.ID, domain.ContractSigning)
+	c, err = svc.UpdateStatus(context.Background(), ent, c.ID, domain.ContractSigning)
 	if err != nil {
 		t.Fatalf("sent→signing: %v", err)
 	}
 	// signing → signed
-	c, err = svc.UpdateStatus(ent, c.ID, domain.ContractSigned)
+	c, err = svc.UpdateStatus(context.Background(), ent, c.ID, domain.ContractSigned)
 	if err != nil {
 		t.Fatalf("signing→signed: %v", err)
 	}
 	// signed → voided
-	c, err = svc.UpdateStatus(ent, c.ID, domain.ContractVoided)
+	c, err = svc.UpdateStatus(context.Background(), ent, c.ID, domain.ContractVoided)
 	if err != nil {
 		t.Fatalf("signed→voided: %v", err)
 	}
@@ -379,7 +380,7 @@ func TestContractService_FullLifecycle(t *testing.T) {
 		t.Errorf("expected voided, got %s", c.Status)
 	}
 	// voided → anything should fail
-	_, err = svc.UpdateStatus(ent, c.ID, domain.ContractSigned)
+	_, err = svc.UpdateStatus(context.Background(), ent, c.ID, domain.ContractSigned)
 	if err == nil {
 		t.Fatal("expected error transitioning from voided")
 	}
@@ -394,7 +395,7 @@ func setupEnterpriseService(t *testing.T) *service.EnterpriseService {
 
 func TestEnterpriseService_Pending(t *testing.T) {
 	svc := setupEnterpriseService(t)
-	items, err := svc.Pending(domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin})
+	items, err := svc.Pending(context.Background(), domain.Actor{ID: "admin", Role: domain.RoleAssociationAdmin})
 	if err != nil {
 		t.Fatalf("pending: %v", err)
 	}
@@ -405,7 +406,7 @@ func TestEnterpriseService_Pending(t *testing.T) {
 
 func TestEnterpriseService_Pending_NonAdmin(t *testing.T) {
 	svc := setupEnterpriseService(t)
-	_, err := svc.Pending(individualActor())
+	_, err := svc.Pending(context.Background(), individualActor())
 	if err == nil {
 		t.Fatal("expected error for non-admin")
 	}

@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestDemandFullLifecycle(t *testing.T) {
 	svc := service.NewDemandService(memory.NewDemandRepository(nil))
 
 	// Create → pending (awaiting admin review)
-	d, err := svc.Create(entActor(), service.CreateDemandInput{
+	d, err := svc.Create(context.Background(), entActor(), service.CreateDemandInput{
 		PublisherName: "测试企业", Contact: "13800001111", Title: "巡检需求", BizType: "cable_inspection",
 	})
 	if err != nil {
@@ -31,7 +32,7 @@ func TestDemandFullLifecycle(t *testing.T) {
 	}
 
 	// Admin approve → published
-	d, err = svc.Approve(admActor(), d.ID)
+	d, err = svc.Approve(context.Background(), admActor(), d.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +41,7 @@ func TestDemandFullLifecycle(t *testing.T) {
 	}
 
 	// Publisher complete → completed
-	d, err = svc.Complete(entActor(), d.ID)
+	d, err = svc.Complete(context.Background(), entActor(), d.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,9 +53,9 @@ func TestDemandFullLifecycle(t *testing.T) {
 func TestDemandUpdateDraft(t *testing.T) {
 	svc := service.NewDemandService(memory.NewDemandRepository(nil))
 	a := entActor()
-	d, _ := svc.Create(a, service.CreateDemandInput{PublisherName: "P", Contact: "138", Title: "T"})
+	d, _ := svc.Create(context.Background(), a, service.CreateDemandInput{PublisherName: "P", Contact: "138", Title: "T"})
 	// Update draft
-	d2, err := svc.UpdateDraft(a, d.ID, "新标题", "新描述")
+	d2, err := svc.UpdateDraft(context.Background(), a, d.ID, "新标题", "新描述")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +63,7 @@ func TestDemandUpdateDraft(t *testing.T) {
 		t.Fatal("title not updated")
 	}
 	// Non-owner cannot update
-	if _, err := svc.UpdateDraft(indActor(), d.ID, "x", "x"); err == nil {
+	if _, err := svc.UpdateDraft(context.Background(), indActor(), d.ID, "x", "x"); err == nil {
 		t.Fatal("non-owner should not update")
 	}
 }
@@ -72,7 +73,7 @@ func TestDemandUpdateDraft(t *testing.T) {
 func TestContractStateMachine(t *testing.T) {
 	svc := service.NewContractService(memory.NewContractRepository())
 	a := entActor()
-	c, err := svc.Create(a, domain.Contract{EnterpriseID: a.ID, TemplateID: "tpl-1"})
+	c, err := svc.Create(context.Background(), a, domain.Contract{EnterpriseID: a.ID, TemplateID: "tpl-1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,11 +81,11 @@ func TestContractStateMachine(t *testing.T) {
 		t.Fatalf("expected draft, got %s", c.Status)
 	}
 	// Invalid transition: draft -> signed (should fail)
-	if _, err := svc.UpdateStatus(a, c.ID, domain.ContractSigned); err == nil {
+	if _, err := svc.UpdateStatus(context.Background(), a, c.ID, domain.ContractSigned); err == nil {
 		t.Fatal("draft -> signed should fail")
 	}
 	// Valid: draft -> sent
-	c2, err := svc.UpdateStatus(a, c.ID, domain.ContractSent)
+	c2, err := svc.UpdateStatus(context.Background(), a, c.ID, domain.ContractSent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,11 +93,11 @@ func TestContractStateMachine(t *testing.T) {
 		t.Fatal("status not sent")
 	}
 	// Valid: sent -> signing
-	svc.UpdateStatus(a, c.ID, domain.ContractSigning)
+	svc.UpdateStatus(context.Background(), a, c.ID, domain.ContractSigning)
 	// Valid: signing -> signed
-	svc.UpdateStatus(a, c.ID, domain.ContractSigned)
+	svc.UpdateStatus(context.Background(), a, c.ID, domain.ContractSigned)
 	// Valid: signed -> voided
-	c5, err := svc.UpdateStatus(a, c.ID, domain.ContractVoided)
+	c5, err := svc.UpdateStatus(context.Background(), a, c.ID, domain.ContractVoided)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,10 +109,10 @@ func TestContractStateMachine(t *testing.T) {
 func TestContractOwnershipCheck(t *testing.T) {
 	svc := service.NewContractService(memory.NewContractRepository())
 	a := entActor()
-	c, _ := svc.Create(a, domain.Contract{EnterpriseID: a.ID, TemplateID: "tpl-1"})
+	c, _ := svc.Create(context.Background(), a, domain.Contract{EnterpriseID: a.ID, TemplateID: "tpl-1"})
 	// Another enterprise cannot update
 	other := domain.Actor{ID: "ent-2", Role: domain.RoleEnterprise}
-	if _, err := svc.UpdateStatus(other, c.ID, domain.ContractSent); err == nil {
+	if _, err := svc.UpdateStatus(context.Background(), other, c.ID, domain.ContractSent); err == nil {
 		t.Fatal("other enterprise should not update contract")
 	}
 }
@@ -121,7 +122,7 @@ func TestContractOwnershipCheck(t *testing.T) {
 func TestEnterpriseReviewFlow(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	a := entActor()
-	e, err := svc.Create(a, service.CreateEnterpriseInput{Name: "测试企业", AccountName: "6222"})
+	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业", AccountName: "6222"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +130,7 @@ func TestEnterpriseReviewFlow(t *testing.T) {
 		t.Fatal("should be draft")
 	}
 	// Submit
-	e2, err := svc.Submit(a, e.ID)
+	e2, err := svc.Submit(context.Background(), a, e.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +138,7 @@ func TestEnterpriseReviewFlow(t *testing.T) {
 		t.Fatal("should be submitted")
 	}
 	// Admin review: approve
-	e3, err := svc.Review(admActor(), e.ID, "approve", "")
+	e3, err := svc.Review(context.Background(), admActor(), e.ID, "approve", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,10 +150,10 @@ func TestEnterpriseReviewFlow(t *testing.T) {
 func TestEnterpriseReviewReject(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	a := entActor()
-	e, _ := svc.Create(a, service.CreateEnterpriseInput{Name: "测试企业"})
-	svc.Submit(a, e.ID)
+	e, _ := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
+	svc.Submit(context.Background(), a, e.ID)
 	// Admin reject
-	e2, err := svc.Review(admActor(), e.ID, "reject", "资料不全")
+	e2, err := svc.Review(context.Background(), admActor(), e.ID, "reject", "资料不全")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,9 +165,9 @@ func TestEnterpriseReviewReject(t *testing.T) {
 func TestEnterpriseNonAdminCannotReview(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	a := entActor()
-	e, _ := svc.Create(a, service.CreateEnterpriseInput{Name: "测试企业"})
-	svc.Submit(a, e.ID)
-	if _, err := svc.Review(indActor(), e.ID, "approve", ""); err == nil {
+	e, _ := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
+	svc.Submit(context.Background(), a, e.ID)
+	if _, err := svc.Review(context.Background(), indActor(), e.ID, "approve", ""); err == nil {
 		t.Fatal("individual should not review")
 	}
 }
@@ -175,13 +176,13 @@ func TestEnterpriseNonAdminCannotReview(t *testing.T) {
 func TestEmploymentCreateAndList(t *testing.T) {
 	svc := service.NewEmploymentService(memory.NewEmploymentRepository())
 	a := entActor()
-	er, err := svc.Create(a, domain.EmploymentRequest{EnterpriseID: a.ID, Position: "飞手", Headcount: 5})
+	er, err := svc.Create(context.Background(), a, domain.EmploymentRequest{EnterpriseID: a.ID, Position: "飞手", Headcount: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = er
 	// Enterprise lists own
-	list, total, err := svc.List(a, 0, 20)
+	list, total, err := svc.List(context.Background(), a, 0, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +191,7 @@ func TestEmploymentCreateAndList(t *testing.T) {
 	}
 	_ = list
 	// Individual cannot list
-	if _, _, err := svc.List(indActor(), 0, 20); err == nil {
+	if _, _, err := svc.List(context.Background(), indActor(), 0, 20); err == nil {
 		t.Fatal("individual should not list employment")
 	}
 }
@@ -199,7 +200,7 @@ func TestEmploymentCreateAndList(t *testing.T) {
 func TestEscrowDepositFreezeReleaseRefund(t *testing.T) {
 	svc := service.NewEscrowService(memory.NewEscrowRepository())
 	// Deposit
-	tx, err := svc.Deposit("user-1", 100000)
+	tx, err := svc.Deposit(context.Background(), "user-1", 100000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,13 +208,13 @@ func TestEscrowDepositFreezeReleaseRefund(t *testing.T) {
 		t.Fatal("wrong tx type")
 	}
 	// Balance
-	acct, _ := svc.Balance("user-1")
+	acct, _ := svc.Balance(context.Background(), "user-1")
 	if acct.BalanceFen != 100000 {
 		t.Fatalf("balance: %d", acct.BalanceFen)
 	}
 	// Freeze
-	svc.Freeze("user-1", 30000, "course", "course-1")
-	acct2, _ := svc.Balance("user-1")
+	svc.Freeze(context.Background(), "user-1", 30000, "course", "course-1")
+	acct2, _ := svc.Balance(context.Background(), "user-1")
 	if acct2.FrozenFen != 30000 {
 		t.Fatalf("frozen: %d", acct2.FrozenFen)
 	}
@@ -221,14 +222,14 @@ func TestEscrowDepositFreezeReleaseRefund(t *testing.T) {
 		t.Fatalf("balance after freeze: %d", acct2.BalanceFen)
 	}
 	// Release
-	svc.Release("user-1", "org-1", 20000, "course", "course-1")
-	acct3, _ := svc.Balance("user-1")
+	svc.Release(context.Background(), "user-1", "org-1", 20000, "course", "course-1")
+	acct3, _ := svc.Balance(context.Background(), "user-1")
 	if acct3.FrozenFen != 10000 {
 		t.Fatalf("frozen after release: %d", acct3.FrozenFen)
 	}
 	// Refund
-	svc.Refund("user-1", 10000, "course", "course-1")
-	acct4, _ := svc.Balance("user-1")
+	svc.Refund(context.Background(), "user-1", 10000, "course", "course-1")
+	acct4, _ := svc.Balance(context.Background(), "user-1")
 	if acct4.FrozenFen != 0 {
 		t.Fatalf("frozen after refund: %d", acct4.FrozenFen)
 	}
@@ -236,11 +237,11 @@ func TestEscrowDepositFreezeReleaseRefund(t *testing.T) {
 		t.Fatalf("balance: %d", acct4.BalanceFen)
 	}
 	// Insufficient balance
-	if _, err := svc.Freeze("user-1", 200000, "x", "x"); err == nil {
+	if _, err := svc.Freeze(context.Background(), "user-1", 200000, "x", "x"); err == nil {
 		t.Fatal("should fail on insufficient balance")
 	}
 	// Transactions
-	txs, _ := svc.Transactions("user-1")
+	txs, _ := svc.Transactions(context.Background(), "user-1")
 	if len(txs) != 4 {
 		t.Fatalf("expected 4 txs, got %d", len(txs))
 	}
@@ -249,26 +250,26 @@ func TestEscrowDepositFreezeReleaseRefund(t *testing.T) {
 // === Message ===
 func TestMessageSendMarkRead(t *testing.T) {
 	svc := service.NewMessageService(memory.NewMessageRepository())
-	m, _ := svc.Send("sys", "user-1", "通知", "内容", "demand", "d-1")
+	m, _ := svc.Send(context.Background(), "sys", "user-1", "通知", "内容", "demand", "d-1")
 	if m.IsRead {
 		t.Fatal("should be unread")
 	}
 	// C10 回归：非收件人标已读必须被拒绝
-	if _, err := svc.MarkRead("stranger", m.ID); err == nil {
+	if _, err := svc.MarkRead(context.Background(), "stranger", m.ID); err == nil {
 		t.Fatal("stranger should not mark read")
 	}
-	svc.MarkRead("user-1", m.ID)
+	svc.MarkRead(context.Background(), "user-1", m.ID)
 	// Unread count
-	count, _ := svc.UnreadCount("user-1")
+	count, _ := svc.UnreadCount(context.Background(), "user-1")
 	if count != 0 {
 		t.Fatalf("unread: %d", count)
 	}
 	// List
-	msgs, _ := svc.ListForUser("user-1", false)
+	msgs, _ := svc.ListForUser(context.Background(), "user-1", false)
 	if len(msgs) != 1 {
 		t.Fatal("list all")
 	}
-	msgs2, _ := svc.ListForUser("user-1", true)
+	msgs2, _ := svc.ListForUser(context.Background(), "user-1", true)
 	if len(msgs2) != 0 {
 		t.Fatal("list unread should be empty")
 	}
@@ -277,15 +278,15 @@ func TestMessageSendMarkRead(t *testing.T) {
 // === News ===
 func TestNewsCreatePublish(t *testing.T) {
 	svc := service.NewNewsService(memory.NewArticleRepository())
-	a, _ := svc.Create("新闻", "内容...", "policy", "来源")
+	a, _ := svc.Create(context.Background(), "新闻", "内容...", "policy", "来源")
 	if a.Status != "draft" {
 		t.Fatal("should be draft")
 	}
-	a2, _ := svc.Publish(a.ID)
+	a2, _ := svc.Publish(context.Background(), a.ID)
 	if a2.Status != "published" {
 		t.Fatal("should be published")
 	}
-	_, total, _ := svc.ListByCategory("policy", 1, 20)
+	_, total, _ := svc.ListByCategory(context.Background(), "policy", 1, 20)
 	if total != 1 {
 		t.Fatal("list by category")
 	}
@@ -293,9 +294,9 @@ func TestNewsCreatePublish(t *testing.T) {
 
 func TestNewsUpdate(t *testing.T) {
 	svc := service.NewNewsService(memory.NewArticleRepository())
-	a, _ := svc.Create("原标题", "原内容", "policy", "来源")
+	a, _ := svc.Create(context.Background(), "原标题", "原内容", "policy", "来源")
 	// 编辑：保留 ID 与状态，内容更新，摘要重算
-	u, err := svc.Update(a.ID, "新标题", strings.Repeat("新内容", 60), "uav_regulation", "新来源")
+	u, err := svc.Update(context.Background(), a.ID, "新标题", strings.Repeat("新内容", 60), "uav_regulation", "新来源")
 	if err != nil {
 		t.Fatal("update should succeed")
 	}
@@ -306,7 +307,7 @@ func TestNewsUpdate(t *testing.T) {
 		t.Fatal("summary should be truncated to 100 chars")
 	}
 	// 编辑不存在的文章应报错
-	if _, err := svc.Update("article-missing", "x", "y", "", ""); err == nil {
+	if _, err := svc.Update(context.Background(), "article-missing", "x", "y", "", ""); err == nil {
 		t.Fatal("update missing article should error")
 	}
 }
@@ -318,20 +319,20 @@ func TestTrainingCertCourseFlow(t *testing.T) {
 		memory.NewInstructorRepository(), memory.NewPilotRepository(nil),
 	)
 	// Certificate
-	cert, _ := svc.AddCertificate(indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", time.Now(), time.Now().AddDate(2, 0, 0))
+	cert, _ := svc.AddCertificate(context.Background(), indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", time.Now(), time.Now().AddDate(2, 0, 0))
 	if cert.Status != "pending" {
 		t.Fatal("should be pending")
 	}
-	cert2, _ := svc.ApproveCertificate(admActor(), cert.ID)
+	cert2, _ := svc.ApproveCertificate(context.Background(), admActor(), cert.ID)
 	if cert2.Status != "approved" {
 		t.Fatal("should be approved")
 	}
 	// Non-admin cannot approve
-	if _, err := svc.ApproveCertificate(indActor(), cert.ID); err == nil {
+	if _, err := svc.ApproveCertificate(context.Background(), indActor(), cert.ID); err == nil {
 		t.Fatal("individual should not approve cert")
 	}
 	// Course
-	course, _ := svc.CreateCourse(entActor(), domain.TrainingCourse{
+	course, _ := svc.CreateCourse(context.Background(), entActor(), domain.TrainingCourse{
 		Title: "课程", CertType: domain.CertCAAC, Description: "描述", Location: "重庆",
 		StartDate: time.Now(), EndDate: time.Now().AddDate(0, 1, 0), MaxStudents: 30, PriceFen: 50000,
 	})
@@ -339,27 +340,27 @@ func TestTrainingCertCourseFlow(t *testing.T) {
 		t.Fatal("course should be draft")
 	}
 	// Instructor
-	inst, _ := svc.RegisterInstructor(indActor(), "教练", "", "bio", "org-1", []string{"CAAC"})
-	inst2, _ := svc.ApproveInstructor(admActor(), inst.ID)
+	inst, _ := svc.RegisterInstructor(context.Background(), indActor(), "教练", "", "bio", "org-1", []string{"CAAC"})
+	inst2, _ := svc.ApproveInstructor(context.Background(), admActor(), inst.ID)
 	_ = inst2
 	// Pilot
-	pilot, _ := svc.RegisterPilot(indActor(), "飞行员", "500101199001011234", 120, "电力巡检", "avatar.jpg", "重庆")
-	pilot2, _ := svc.ApprovePilot(admActor(), pilot.ID)
+	pilot, _ := svc.RegisterPilot(context.Background(), indActor(), "飞行员", "500101199001011234", 120, "电力巡检", "avatar.jpg", "重庆")
+	pilot2, _ := svc.ApprovePilot(context.Background(), admActor(), pilot.ID)
 	_ = pilot2
 	// Lists
-	certs, _ := svc.ListMyCertificates(indActor())
+	certs, _ := svc.ListMyCertificates(context.Background(), indActor())
 	if len(certs) != 1 {
 		t.Fatal("list my certs")
 	}
-	courses, _ := svc.ListCourses()
+	courses, _ := svc.ListCourses(context.Background())
 	if len(courses) != 1 {
 		t.Fatal("list courses")
 	}
-	insts, _ := svc.ListInstructors()
+	insts, _ := svc.ListInstructors(context.Background())
 	if len(insts) != 1 {
 		t.Fatal("list instructors")
 	}
-	pilots, _ := svc.ListPilots()
+	pilots, _ := svc.ListPilots(context.Background())
 	if len(pilots) != 1 {
 		t.Fatal("list pilots")
 	}
@@ -372,22 +373,22 @@ func TestPilotDetailFields(t *testing.T) {
 		memory.NewInstructorRepository(), memory.NewPilotRepository(nil),
 	)
 	// 证书：一张 approved，一张 pending（后者不应出现在名录关联里）
-	caac, _ := svc.AddCertificate(indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", time.Now(), time.Now().AddDate(2, 0, 0))
-	svc.ApproveCertificate(admActor(), caac.ID)
-	svc.AddCertificate(indActor(), domain.CertUTCDJI, "UTC-001", "", "大疆", time.Now(), time.Now().AddDate(2, 0, 0))
+	caac, _ := svc.AddCertificate(context.Background(), indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", time.Now(), time.Now().AddDate(2, 0, 0))
+	svc.ApproveCertificate(context.Background(), admActor(), caac.ID)
+	svc.AddCertificate(context.Background(), indActor(), domain.CertUTCDJI, "UTC-001", "", "大疆", time.Now(), time.Now().AddDate(2, 0, 0))
 
 	// 注册带 avatar/region
-	pilot, err := svc.RegisterPilot(indActor(), "王飞", "500101199001011234", 120, "电力巡检", "/uploads/a.jpg", "重庆渝北")
+	pilot, err := svc.RegisterPilot(context.Background(), indActor(), "王飞", "500101199001011234", 120, "电力巡检", "/uploads/a.jpg", "重庆渝北")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if pilot.Avatar != "/uploads/a.jpg" || pilot.Region != "重庆渝北" {
 		t.Fatalf("avatar/region 未落库: %+v", pilot)
 	}
-	svc.ApprovePilot(admActor(), pilot.ID)
+	svc.ApprovePilot(context.Background(), admActor(), pilot.ID)
 
 	// 单查
-	got, err := svc.GetPilot(pilot.ID)
+	got, err := svc.GetPilot(context.Background(), pilot.ID)
 	if err != nil || got.ID == "" {
 		t.Fatalf("GetPilot failed: %v", err)
 	}
@@ -396,7 +397,7 @@ func TestPilotDetailFields(t *testing.T) {
 	}
 
 	// 名录详情：cert_ids 扩展为 certificates（仅 approved）
-	details, err := svc.ListPilotsDetailed()
+	details, err := svc.ListPilotsDetailed(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

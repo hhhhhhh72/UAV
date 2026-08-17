@@ -22,17 +22,17 @@ func (s *Store) NewInspectionRepository() repository.InspectionRepository {
 	return &inspectRepo{pool: s.Pool()}
 }
 
-func (r *inspectRepo) Create(i domain.AnnualInspection) (domain.AnnualInspection, error) {
+func (r *inspectRepo) Create(ctx context.Context, i domain.AnnualInspection) (domain.AnnualInspection, error) {
 	i.Version = 1
 	i.CreatedAt = time.Now()
 	i.UpdatedAt = i.CreatedAt
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO annual_inspections (id,user_id,drone_model,drone_sn,inspect_date,expire_date,result,report_url,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		i.ID, i.UserID, i.DroneModel, i.DroneSN, i.InspectDate, i.ExpireDate, i.Result, i.ReportURL, i.Status, i.Version, i.CreatedAt, i.UpdatedAt)
 	return i, err
 }
-func (r *inspectRepo) ListByUser(userID string) ([]domain.AnnualInspection, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *inspectRepo) ListByUser(ctx context.Context, userID string) ([]domain.AnnualInspection, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,user_id,drone_model,drone_sn,inspect_date,expire_date,result,report_url,status,version,created_at,updated_at FROM annual_inspections WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list inspections: %w", err)
@@ -48,8 +48,8 @@ func (r *inspectRepo) ListByUser(userID string) ([]domain.AnnualInspection, erro
 	}
 	return out, rows.Err()
 }
-func (r *inspectRepo) ListAll() ([]domain.AnnualInspection, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *inspectRepo) ListAll(ctx context.Context) ([]domain.AnnualInspection, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,user_id,drone_model,drone_sn,inspect_date,expire_date,result,report_url,status,version,created_at,updated_at FROM annual_inspections ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list all inspections: %w", err)
@@ -72,17 +72,17 @@ type loanRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewLoanRepository() repository.LoanRepository { return &loanRepo{pool: s.Pool()} }
 
-func (r *loanRepo) Create(l domain.LoanApplication) (domain.LoanApplication, error) {
+func (r *loanRepo) Create(ctx context.Context, l domain.LoanApplication) (domain.LoanApplication, error) {
 	l.Version = 1
 	l.CreatedAt = time.Now()
 	l.UpdatedAt = l.CreatedAt
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO loan_applications (id,user_id,amount_fen,term_months,purpose,status,approved_fen,monthly_pay_fen,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		l.ID, l.UserID, l.AmountFen, l.TermMonths, l.Purpose, l.Status, l.ApprovedFen, l.MonthlyPayFen, l.Version, l.CreatedAt, l.UpdatedAt)
 	return l, err
 }
-func (r *loanRepo) ListByUser(userID string) ([]domain.LoanApplication, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *loanRepo) ListByUser(ctx context.Context, userID string) ([]domain.LoanApplication, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,user_id,amount_fen,term_months,purpose,status,approved_fen,monthly_pay_fen,version,created_at,updated_at FROM loan_applications WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list loans: %w", err)
@@ -98,12 +98,12 @@ func (r *loanRepo) ListByUser(userID string) ([]domain.LoanApplication, error) {
 	}
 	return out, rows.Err()
 }
-func (r *loanRepo) ListAll(offset, limit int) ([]domain.LoanApplication, int, error) {
+func (r *loanRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.LoanApplication, int, error) {
 	var total int
-	if err := r.pool.QueryRow(context.Background(), `SELECT count(*) FROM loan_applications`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM loan_applications`).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := r.pool.Query(context.Background(),
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,user_id,amount_fen,term_months,purpose,status,approved_fen,monthly_pay_fen,version,created_at,updated_at FROM loan_applications ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -126,16 +126,16 @@ type msgRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewMessageRepository() repository.MessageRepository { return &msgRepo{pool: s.Pool()} }
 
-func (r *msgRepo) Create(m domain.Message) (domain.Message, error) {
+func (r *msgRepo) Create(ctx context.Context, m domain.Message) (domain.Message, error) {
 	m.CreatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO messages (id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		m.ID, m.SenderID, m.ReceiverID, m.Title, m.Content, m.ResourceType, m.ResourceID, m.IsRead, m.CreatedAt)
 	return m, err
 }
-func (r *msgRepo) FindByID(id string) (domain.Message, error) {
+func (r *msgRepo) FindByID(ctx context.Context, id string) (domain.Message, error) {
 	var m domain.Message
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages WHERE id=$1`, id).
 		Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt)
 	if err != nil {
@@ -143,13 +143,13 @@ func (r *msgRepo) FindByID(id string) (domain.Message, error) {
 	}
 	return m, nil
 }
-func (r *msgRepo) ListByUser(userID string, unreadOnly bool) ([]domain.Message, error) {
+func (r *msgRepo) ListByUser(ctx context.Context, userID string, unreadOnly bool) ([]domain.Message, error) {
 	q := `SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages WHERE receiver_id=$1`
 	if unreadOnly {
 		q += ` AND is_read=false`
 	}
 	q += ` ORDER BY created_at DESC`
-	rows, err := r.pool.Query(context.Background(), q, userID)
+	rows, err := r.pool.Query(ctx, q, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list messages: %w", err)
 	}
@@ -164,30 +164,30 @@ func (r *msgRepo) ListByUser(userID string, unreadOnly bool) ([]domain.Message, 
 	}
 	return out, rows.Err()
 }
-func (r *msgRepo) MarkRead(id string) (domain.Message, error) {
-	_, err := r.pool.Exec(context.Background(), `UPDATE messages SET is_read=true WHERE id=$1`, id)
+func (r *msgRepo) MarkRead(ctx context.Context, id string) (domain.Message, error) {
+	_, err := r.pool.Exec(ctx, `UPDATE messages SET is_read=true WHERE id=$1`, id)
 	if err != nil {
 		return domain.Message{}, fmt.Errorf("mark message read: %w", err)
 	}
 	var m domain.Message
-	err = r.pool.QueryRow(context.Background(),
+	err = r.pool.QueryRow(ctx,
 		`SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages WHERE id=$1`, id).
 		Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt)
 	return m, err
 }
-func (r *msgRepo) UnreadCount(userID string) (int, error) {
+func (r *msgRepo) UnreadCount(ctx context.Context, userID string) (int, error) {
 	var n int
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT COUNT(*) FROM messages WHERE receiver_id=$1 AND is_read=false`, userID).Scan(&n)
 	return n, err
 }
 
-func (r *msgRepo) ListAll(offset, limit int) ([]domain.Message, int, error) {
+func (r *msgRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Message, int, error) {
 	var total int
-	if err := r.pool.QueryRow(context.Background(), "SELECT count(*) FROM messages").Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, "SELECT count(*) FROM messages").Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count messages: %w", err)
 	}
-	rows, err := r.pool.Query(context.Background(), "SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := r.pool.Query(ctx, "SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list all messages: %w", err)
 	}
@@ -203,8 +203,8 @@ func (r *msgRepo) ListAll(offset, limit int) ([]domain.Message, int, error) {
 	return out, total, rows.Err()
 }
 
-func (r *msgRepo) Delete(id string) error {
-	_, err := r.pool.Exec(context.Background(), "DELETE FROM messages WHERE id=$1", id)
+func (r *msgRepo) Delete(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, "DELETE FROM messages WHERE id=$1", id)
 	return err
 }
 
@@ -216,31 +216,31 @@ func (s *Store) NewArticleRepository() repository.ArticleRepository {
 	return &articleRepo{pool: s.Pool()}
 }
 
-func (r *articleRepo) Create(a domain.Article) (domain.Article, error) {
+func (r *articleRepo) Create(ctx context.Context, a domain.Article) (domain.Article, error) {
 	a.Version = 1
 	a.CreatedAt = time.Now()
 	a.UpdatedAt = a.CreatedAt
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO articles (id,title,content,summary,category,source,author,is_pinned,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		a.ID, a.Title, a.Content, a.Summary, a.Category, a.Source, a.Author, a.IsPinned, a.Status, a.Version, a.CreatedAt, a.UpdatedAt)
 	return a, err
 }
-func (r *articleRepo) FindByID(id string) (domain.Article, error) {
+func (r *articleRepo) FindByID(ctx context.Context, id string) (domain.Article, error) {
 	var a domain.Article
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT id,title,content,summary,category,source,author,is_pinned,status,version,created_at,updated_at FROM articles WHERE id=$1`, id).
 		Scan(&a.ID, &a.Title, &a.Content, &a.Summary, &a.Category, &a.Source, &a.Author, &a.IsPinned, &a.Status, &a.Version, &a.CreatedAt, &a.UpdatedAt)
 	return a, err
 }
-func (r *articleRepo) Update(a domain.Article) (domain.Article, error) {
+func (r *articleRepo) Update(ctx context.Context, a domain.Article) (domain.Article, error) {
 	a.UpdatedAt = time.Now()
 	a.Version++
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`UPDATE articles SET title=$1,content=$2,summary=$3,category=$4,source=$5,author=$6,is_pinned=$7,status=$8,version=$9,updated_at=$10 WHERE id=$11`,
 		a.Title, a.Content, a.Summary, a.Category, a.Source, a.Author, a.IsPinned, a.Status, a.Version, a.UpdatedAt, a.ID)
 	return a, err
 }
-func (r *articleRepo) ListByCategory(category string, offset, limit int) ([]domain.Article, int, error) {
+func (r *articleRepo) ListByCategory(ctx context.Context, category string, offset, limit int) ([]domain.Article, int, error) {
 	where := ""
 	args := []any{}
 	if category != "" {
@@ -248,12 +248,12 @@ func (r *articleRepo) ListByCategory(category string, offset, limit int) ([]doma
 		args = append(args, category)
 	}
 	var total int
-	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM articles `+where, args...).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM articles `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	q := `SELECT id,title,content,summary,category,source,author,is_pinned,status,version,created_at,updated_at FROM articles ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
-	rows, err := r.pool.Query(context.Background(), q, allArgs...)
+	rows, err := r.pool.Query(ctx, q, allArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list articles: %w", err)
 	}
@@ -275,15 +275,15 @@ type reviewRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewReviewRepository() repository.ReviewRepository { return &reviewRepo{pool: s.Pool()} }
 
-func (r *reviewRepo) Create(rv domain.Review) (domain.Review, error) {
+func (r *reviewRepo) Create(ctx context.Context, rv domain.Review) (domain.Review, error) {
 	rv.CreatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO reviews (id,reviewer_id,target_type,target_id,rating,content,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
 		rv.ID, rv.ReviewerID, rv.TargetType, rv.TargetID, rv.Rating, rv.Content, rv.Status, rv.CreatedAt)
 	return rv, err
 }
-func (r *reviewRepo) ListByTarget(targetType, targetID string) ([]domain.Review, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *reviewRepo) ListByTarget(ctx context.Context, targetType, targetID string) ([]domain.Review, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,reviewer_id,target_type,target_id,rating,content,status,created_at FROM reviews WHERE target_type=$1 AND target_id=$2 AND status='approved' ORDER BY created_at DESC`, targetType, targetID)
 	if err != nil {
 		return nil, fmt.Errorf("list reviews: %w", err)
@@ -299,7 +299,7 @@ func (r *reviewRepo) ListByTarget(targetType, targetID string) ([]domain.Review,
 	}
 	return out, rows.Err()
 }
-func (r *reviewRepo) ListAll(status string, offset, limit int) ([]domain.Review, int, error) {
+func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error) {
 	where := ""
 	args := []any{}
 	if status != "" {
@@ -307,12 +307,12 @@ func (r *reviewRepo) ListAll(status string, offset, limit int) ([]domain.Review,
 		args = append(args, status)
 	}
 	var total int
-	if err := r.pool.QueryRow(context.Background(), `SELECT COUNT(*) FROM reviews `+where, args...).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM reviews `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	q := `SELECT id,reviewer_id,target_type,target_id,rating,content,status,created_at FROM reviews ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
-	rows, err := r.pool.Query(context.Background(), q, allArgs...)
+	rows, err := r.pool.Query(ctx, q, allArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list all reviews: %w", err)
 	}
@@ -327,19 +327,19 @@ func (r *reviewRepo) ListAll(status string, offset, limit int) ([]domain.Review,
 	}
 	return out, total, rows.Err()
 }
-func (r *reviewRepo) UpdateStatus(id, status string) (domain.Review, error) {
-	_, err := r.pool.Exec(context.Background(), `UPDATE reviews SET status=$1 WHERE id=$2`, status, id)
+func (r *reviewRepo) UpdateStatus(ctx context.Context, id, status string) (domain.Review, error) {
+	_, err := r.pool.Exec(ctx, `UPDATE reviews SET status=$1 WHERE id=$2`, status, id)
 	if err != nil {
 		return domain.Review{}, fmt.Errorf("update review status: %w", err)
 	}
 	var rv domain.Review
-	err = r.pool.QueryRow(context.Background(),
+	err = r.pool.QueryRow(ctx,
 		`SELECT id,reviewer_id,target_type,target_id,rating,content,status,created_at FROM reviews WHERE id=$1`, id).
 		Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt)
 	return rv, err
 }
-func (r *reviewRepo) Delete(id string) error {
-	_, err := r.pool.Exec(context.Background(), `DELETE FROM reviews WHERE id=$1`, id)
+func (r *reviewRepo) Delete(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM reviews WHERE id=$1`, id)
 	if err != nil {
 		return fmt.Errorf("delete review %s: %w", id, err)
 	}
@@ -352,20 +352,20 @@ type venueRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewVenueRepository() repository.VenueRepository { return &venueRepo{pool: s.Pool()} }
 
-func (r *venueRepo) Create(v domain.Venue) (domain.Venue, error) {
+func (r *venueRepo) Create(ctx context.Context, v domain.Venue) (domain.Venue, error) {
 	v.CreatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO venues (id,owner_id,name,venue_type,location,price_fen,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
 		v.ID, v.OwnerID, v.Name, v.VenueType, v.Location, v.PriceFen, v.Status, v.CreatedAt)
 	return v, err
 }
-func (r *venueRepo) List(venueType string) ([]domain.Venue, error) {
+func (r *venueRepo) List(ctx context.Context, venueType string) ([]domain.Venue, error) {
 	var rows pgx.Rows
 	var err error
 	if venueType == "" {
-		rows, err = r.pool.Query(context.Background(), `SELECT id,owner_id,name,venue_type,location,price_fen,status,created_at FROM venues ORDER BY created_at DESC`)
+		rows, err = r.pool.Query(ctx, `SELECT id,owner_id,name,venue_type,location,price_fen,status,created_at FROM venues ORDER BY created_at DESC`)
 	} else {
-		rows, err = r.pool.Query(context.Background(), `SELECT id,owner_id,name,venue_type,location,price_fen,status,created_at FROM venues WHERE venue_type=$1 ORDER BY created_at DESC`, venueType)
+		rows, err = r.pool.Query(ctx, `SELECT id,owner_id,name,venue_type,location,price_fen,status,created_at FROM venues WHERE venue_type=$1 ORDER BY created_at DESC`, venueType)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list venues: %w", err)
@@ -381,22 +381,22 @@ func (r *venueRepo) List(venueType string) ([]domain.Venue, error) {
 	}
 	return out, rows.Err()
 }
-func (r *venueRepo) FindByID(id string) (domain.Venue, error) {
+func (r *venueRepo) FindByID(ctx context.Context, id string) (domain.Venue, error) {
 	var v domain.Venue
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT id,owner_id,name,venue_type,location,price_fen,status,created_at FROM venues WHERE id=$1`, id).
 		Scan(&v.ID, &v.OwnerID, &v.Name, &v.VenueType, &v.Location, &v.PriceFen, &v.Status, &v.CreatedAt)
 	return v, err
 }
-func (r *venueRepo) CreateBooking(b domain.VenueBooking) (domain.VenueBooking, error) {
+func (r *venueRepo) CreateBooking(ctx context.Context, b domain.VenueBooking) (domain.VenueBooking, error) {
 	b.CreatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO venue_bookings (id,venue_id,user_id,start_time,end_time,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
 		b.ID, b.VenueID, b.UserID, b.StartTime, b.EndTime, b.Status, b.CreatedAt)
 	return b, err
 }
-func (r *venueRepo) ListBookings(venueID string) ([]domain.VenueBooking, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *venueRepo) ListBookings(ctx context.Context, venueID string) ([]domain.VenueBooking, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,venue_id,user_id,start_time,end_time,status,created_at FROM venue_bookings WHERE venue_id=$1 ORDER BY created_at DESC`, venueID)
 	if err != nil {
 		return nil, fmt.Errorf("list bookings: %w", err)
@@ -421,9 +421,9 @@ func (s *Store) NewEnrollmentRepository() repository.EnrollmentRepository {
 	return &enrollRepo{pool: s.Pool()}
 }
 
-func (r *enrollRepo) Create(e domain.Enrollment) (domain.Enrollment, error) {
+func (r *enrollRepo) Create(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error) {
 	e.CreatedAt = time.Now()
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO training_enrollments (id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		e.ID, e.CourseID, e.UserID, e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.CreatedAt)
 	if err != nil {
@@ -437,8 +437,8 @@ func (r *enrollRepo) Create(e domain.Enrollment) (domain.Enrollment, error) {
 	return e, nil
 }
 
-func (r *enrollRepo) Update(e domain.Enrollment) (domain.Enrollment, error) {
-	_, err := r.pool.Exec(context.Background(),
+func (r *enrollRepo) Update(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error) {
+	_, err := r.pool.Exec(ctx,
 		`UPDATE training_enrollments SET name=$1,phone=$2,id_card=$3,gender=$4,birthday=$5,email=$6,education=$7,experience=$8,photo_url=$9,id_card_image=$10,no_crime=$11,status=$12 WHERE id=$13`,
 		e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.ID)
 	if err != nil {
@@ -446,12 +446,12 @@ func (r *enrollRepo) Update(e domain.Enrollment) (domain.Enrollment, error) {
 	}
 	return e, nil
 }
-func (r *enrollRepo) ListAll(offset, limit int) ([]domain.Enrollment, int, error) {
+func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Enrollment, int, error) {
 	var total int
-	if err := r.pool.QueryRow(context.Background(), `SELECT count(*) FROM training_enrollments`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM training_enrollments`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count enrollments: %w", err)
 	}
-	rows, err := r.pool.Query(context.Background(),
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list all enrollments: %w", err)
@@ -467,8 +467,8 @@ func (r *enrollRepo) ListAll(offset, limit int) ([]domain.Enrollment, int, error
 	}
 	return out, total, rows.Err()
 }
-func (r *enrollRepo) ListByCourse(courseID string) ([]domain.Enrollment, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domain.Enrollment, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments WHERE course_id=$1 ORDER BY created_at DESC`, courseID)
 	if err != nil {
 		return nil, fmt.Errorf("list enrollments: %w", err)
@@ -484,9 +484,9 @@ func (r *enrollRepo) ListByCourse(courseID string) ([]domain.Enrollment, error) 
 	}
 	return out, rows.Err()
 }
-func (r *enrollRepo) FindByUserAndCourse(userID, courseID string) (domain.Enrollment, bool, error) {
+func (r *enrollRepo) FindByUserAndCourse(ctx context.Context, userID, courseID string) (domain.Enrollment, bool, error) {
 	var e domain.Enrollment
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments WHERE user_id=$1 AND course_id=$2`, userID, courseID).
 		Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt)
 	if err != nil {
@@ -494,9 +494,9 @@ func (r *enrollRepo) FindByUserAndCourse(userID, courseID string) (domain.Enroll
 	}
 	return e, true, nil
 }
-func (r *enrollRepo) FindByID(id string) (domain.Enrollment, error) {
+func (r *enrollRepo) FindByID(ctx context.Context, id string) (domain.Enrollment, error) {
 	var e domain.Enrollment
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments WHERE id=$1`, id).
 		Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt)
 	if err != nil {
@@ -513,15 +513,16 @@ func (s *Store) NewTradeOrderRepository() repository.TradeOrderRepository {
 	return &tradeOrderRepo{pool: s.Pool()}
 }
 
-func (r *tradeOrderRepo) Create(o domain.TradeOrder) (domain.TradeOrder, error) {
+func (r *tradeOrderRepo) Create(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error) {
 	o.Version = 1
 	o.CreatedAt = time.Now()
 	o.UpdatedAt = o.CreatedAt
-	_, err := r.pool.Exec(context.Background(),
+	_, err := r.pool.Exec(ctx,
 		`INSERT INTO trade_orders (id,product_id,buyer_id,seller_id,amount_fen,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		o.ID, o.ProductID, o.BuyerID, o.SellerID, o.AmountFen, o.Status, o.Version, o.CreatedAt, o.UpdatedAt)
 	return o, err
 }
+
 // tradeOrderColumns trade_orders 查询列（含售后字段），各查询统一复用
 const tradeOrderColumns = `id,product_id,buyer_id,seller_id,amount_fen,status,aftersale_type,aftersale_reason,aftersale_desc,aftersale_amount_fen,aftersale_status,aftersale_time,version,created_at,updated_at`
 
@@ -533,35 +534,35 @@ func scanTradeOrder(row interface{ Scan(...any) error }) (domain.TradeOrder, err
 	return o, err
 }
 
-func (r *tradeOrderRepo) FindByID(id string) (domain.TradeOrder, error) {
-	return scanTradeOrder(r.pool.QueryRow(context.Background(),
+func (r *tradeOrderRepo) FindByID(ctx context.Context, id string) (domain.TradeOrder, error) {
+	return scanTradeOrder(r.pool.QueryRow(ctx,
 		`SELECT `+tradeOrderColumns+` FROM trade_orders WHERE id=$1`, id))
 }
-func (r *tradeOrderRepo) UpdateStatus(id, status string) (domain.TradeOrder, error) {
-	_, err := r.pool.Exec(context.Background(), `UPDATE trade_orders SET status=$1,updated_at=$2,version=version+1 WHERE id=$3`, status, time.Now(), id)
+func (r *tradeOrderRepo) UpdateStatus(ctx context.Context, id, status string) (domain.TradeOrder, error) {
+	_, err := r.pool.Exec(ctx, `UPDATE trade_orders SET status=$1,updated_at=$2,version=version+1 WHERE id=$3`, status, time.Now(), id)
 	if err != nil {
 		return domain.TradeOrder{}, fmt.Errorf("update trade order status: %w", err)
 	}
-	return r.FindByID(id)
+	return r.FindByID(ctx, id)
 }
-func (r *tradeOrderRepo) UpdateAftersale(o domain.TradeOrder) (domain.TradeOrder, error) {
-	_, err := r.pool.Exec(context.Background(),
+func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error) {
+	_, err := r.pool.Exec(ctx,
 		`UPDATE trade_orders SET status=$1,aftersale_type=$2,aftersale_reason=$3,aftersale_desc=$4,aftersale_amount_fen=$5,aftersale_status=$6,aftersale_time=$7,updated_at=$8,version=version+1 WHERE id=$9`,
 		o.Status, o.AftersaleType, o.AftersaleReason, o.AftersaleDesc, o.AftersaleAmountFen, o.AftersaleStatus, o.AftersaleTime, time.Now(), o.ID)
 	if err != nil {
 		return domain.TradeOrder{}, fmt.Errorf("update trade order aftersale: %w", err)
 	}
-	return r.FindByID(o.ID)
+	return r.FindByID(ctx, o.ID)
 }
-func (r *tradeOrderRepo) Delete(id string) error {
-	_, err := r.pool.Exec(context.Background(), `DELETE FROM trade_orders WHERE id=$1`, id)
+func (r *tradeOrderRepo) Delete(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM trade_orders WHERE id=$1`, id)
 	if err != nil {
 		return fmt.Errorf("delete trade order: %w", err)
 	}
 	return nil
 }
-func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *tradeOrderRepo) ListByUser(ctx context.Context, userID string) ([]domain.TradeOrder, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT `+tradeOrderColumns+` FROM trade_orders WHERE buyer_id=$1 OR seller_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list trade orders: %w", err)
@@ -578,12 +579,12 @@ func (r *tradeOrderRepo) ListByUser(userID string) ([]domain.TradeOrder, error) 
 	return out, rows.Err()
 }
 
-func (r *tradeOrderRepo) ListAll(offset, limit int) ([]domain.TradeOrder, int, error) {
+func (r *tradeOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.TradeOrder, int, error) {
 	var total int
-	if err := r.pool.QueryRow(context.Background(), "SELECT count(*) FROM trade_orders").Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, "SELECT count(*) FROM trade_orders").Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count trade orders: %w", err)
 	}
-	rows, err := r.pool.Query(context.Background(), "SELECT "+tradeOrderColumns+" FROM trade_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := r.pool.Query(ctx, "SELECT "+tradeOrderColumns+" FROM trade_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, total, fmt.Errorf("order query failed: %w", err)
 	}
@@ -605,9 +606,9 @@ type escrowRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewEscrowRepository() repository.EscrowRepository { return &escrowRepo{pool: s.Pool()} }
 
-func (r *escrowRepo) GetAccount(userID string) (domain.EscrowAccount, error) {
+func (r *escrowRepo) GetAccount(ctx context.Context, userID string) (domain.EscrowAccount, error) {
 	var a domain.EscrowAccount
-	err := r.pool.QueryRow(context.Background(),
+	err := r.pool.QueryRow(ctx,
 		`SELECT user_id,balance_fen,frozen_fen,updated_at FROM escrow_accounts WHERE user_id=$1`, userID).
 		Scan(&a.UserID, &a.BalanceFen, &a.FrozenFen, &a.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -633,8 +634,7 @@ func insertEscrowTx(ctx context.Context, q pgx.Tx, tx domain.EscrowTransaction) 
 // 原子资金操作（C6 修复）：余额调整 + 流水写入在同一事务中，全成或全败；
 // 条件 UPDATE（WHERE balance_fen>=$1）防并发丢更新。
 
-func (r *escrowRepo) Deposit(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
-	ctx := context.Background()
+func (r *escrowRepo) Deposit(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	now := time.Now()
 	btx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -656,8 +656,7 @@ func (r *escrowRepo) Deposit(userID string, amountFen int64, tx domain.EscrowTra
 	return tx, nil
 }
 
-func (r *escrowRepo) Freeze(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
-	ctx := context.Background()
+func (r *escrowRepo) Freeze(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	btx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.EscrowTransaction{}, fmt.Errorf("begin escrow freeze: %w", err)
@@ -682,8 +681,7 @@ func (r *escrowRepo) Freeze(userID string, amountFen int64, tx domain.EscrowTran
 	return tx, nil
 }
 
-func (r *escrowRepo) Release(fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
-	ctx := context.Background()
+func (r *escrowRepo) Release(ctx context.Context, fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	now := time.Now()
 	btx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -717,8 +715,7 @@ func (r *escrowRepo) Release(fromUser, toUser string, amountFen int64, tx domain
 	return tx, nil
 }
 
-func (r *escrowRepo) Refund(userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
-	ctx := context.Background()
+func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	btx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.EscrowTransaction{}, fmt.Errorf("begin escrow refund: %w", err)
@@ -742,8 +739,8 @@ func (r *escrowRepo) Refund(userID string, amountFen int64, tx domain.EscrowTran
 	}
 	return tx, nil
 }
-func (r *escrowRepo) ListTransactions(userID string) ([]domain.EscrowTransaction, error) {
-	rows, err := r.pool.Query(context.Background(),
+func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,created_at FROM escrow_transactions WHERE from_user=$1 OR to_user=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list escrow transactions: %w", err)

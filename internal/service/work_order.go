@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -23,8 +24,8 @@ func NewWorkOrderService(o repository.WorkOrderRepository, d repository.DemandRe
 
 // AcceptIntent 企业确认接单：意向 → contacted，其他意向 → closed，生成订单（pending）。
 // amountFen 为订单金额（企业确认时填写，面议为 0）。
-func (s *WorkOrderService) AcceptIntent(a domain.Actor, demandID, intentID string, amountFen int64) (domain.WorkOrder, error) {
-	d, err := s.demands.FindByID(demandID)
+func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, demandID, intentID string, amountFen int64) (domain.WorkOrder, error) {
+	d, err := s.demands.FindByID(ctx, demandID)
 	if err != nil {
 		return domain.WorkOrder{}, fmt.Errorf("demand %s: %w", demandID, err)
 	}
@@ -34,7 +35,7 @@ func (s *WorkOrderService) AcceptIntent(a domain.Actor, demandID, intentID strin
 	if d.Status != domain.DemandPublished {
 		return domain.WorkOrder{}, errors.New("只有已发布的需求可以确认接单")
 	}
-	intents, err := s.intents.ListByDemand(demandID)
+	intents, err := s.intents.ListByDemand(ctx, demandID)
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
@@ -53,14 +54,14 @@ func (s *WorkOrderService) AcceptIntent(a domain.Actor, demandID, intentID strin
 	}
 
 	// 确认接单：本意向 → contacted，其余意向 → closed
-	if _, err := s.intents.UpdateStatus(it.ID, "contacted"); err != nil {
+	if _, err := s.intents.UpdateStatus(ctx, it.ID, "contacted"); err != nil {
 		return domain.WorkOrder{}, err
 	}
-	others, err := s.intents.ListByDemand(demandID)
+	others, err := s.intents.ListByDemand(ctx, demandID)
 	if err == nil {
 		for _, o := range others {
 			if o.ID != it.ID && o.Status == "pending" {
-				_, _ = s.intents.UpdateStatus(o.ID, "closed")
+				_, _ = s.intents.UpdateStatus(ctx, o.ID, "closed")
 			}
 		}
 	}
@@ -80,19 +81,19 @@ func (s *WorkOrderService) AcceptIntent(a domain.Actor, demandID, intentID strin
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
-	return s.orders.Create(wo)
+	return s.orders.Create(ctx, wo)
 }
 
 // RejectIntent 企业拒绝接单：意向 → closed。
-func (s *WorkOrderService) RejectIntent(a domain.Actor, demandID, intentID string) error {
-	d, err := s.demands.FindByID(demandID)
+func (s *WorkOrderService) RejectIntent(ctx context.Context, a domain.Actor, demandID, intentID string) error {
+	d, err := s.demands.FindByID(ctx, demandID)
 	if err != nil {
 		return fmt.Errorf("demand %s: %w", demandID, err)
 	}
 	if d.PublisherID != a.ID {
 		return errors.New("只有需求发布者可以处理意向")
 	}
-	intents, err := s.intents.ListByDemand(demandID)
+	intents, err := s.intents.ListByDemand(ctx, demandID)
 	if err != nil {
 		return err
 	}
@@ -101,7 +102,7 @@ func (s *WorkOrderService) RejectIntent(a domain.Actor, demandID, intentID strin
 			if intents[i].Status != "pending" {
 				return errors.New("该意向已处理")
 			}
-			_, err := s.intents.UpdateStatus(intents[i].ID, "closed")
+			_, err := s.intents.UpdateStatus(ctx, intents[i].ID, "closed")
 			return err
 		}
 	}
@@ -109,8 +110,8 @@ func (s *WorkOrderService) RejectIntent(a domain.Actor, demandID, intentID strin
 }
 
 // StartWork 飞手确认开始作业：pending → ongoing。
-func (s *WorkOrderService) StartWork(a domain.Actor, orderID string) (domain.WorkOrder, error) {
-	wo, err := s.orders.FindByID(orderID)
+func (s *WorkOrderService) StartWork(ctx context.Context, a domain.Actor, orderID string) (domain.WorkOrder, error) {
+	wo, err := s.orders.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
@@ -120,12 +121,12 @@ func (s *WorkOrderService) StartWork(a domain.Actor, orderID string) (domain.Wor
 	if wo.Status != domain.WorkOrderPending {
 		return domain.WorkOrder{}, errors.New("订单状态不允许开始作业")
 	}
-	return s.orders.UpdateStatus(orderID, domain.WorkOrderOngoing)
+	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderOngoing)
 }
 
 // CompleteWork 飞手确认作业完成：ongoing → awaiting_accept，可上传成果照片。
-func (s *WorkOrderService) CompleteWork(a domain.Actor, orderID string, photos []string) (domain.WorkOrder, error) {
-	wo, err := s.orders.FindByID(orderID)
+func (s *WorkOrderService) CompleteWork(ctx context.Context, a domain.Actor, orderID string, photos []string) (domain.WorkOrder, error) {
+	wo, err := s.orders.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
@@ -136,16 +137,16 @@ func (s *WorkOrderService) CompleteWork(a domain.Actor, orderID string, photos [
 		return domain.WorkOrder{}, errors.New("订单状态不允许确认完成")
 	}
 	if len(photos) > 0 {
-		if _, err := s.orders.UpdatePhotos(orderID, photos); err != nil {
+		if _, err := s.orders.UpdatePhotos(ctx, orderID, photos); err != nil {
 			return domain.WorkOrder{}, err
 		}
 	}
-	return s.orders.UpdateStatus(orderID, domain.WorkOrderAwaitingAccept)
+	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderAwaitingAccept)
 }
 
 // AcceptCompletion 企业验收通过：awaiting_accept → completed。
-func (s *WorkOrderService) AcceptCompletion(a domain.Actor, orderID string) (domain.WorkOrder, error) {
-	wo, err := s.orders.FindByID(orderID)
+func (s *WorkOrderService) AcceptCompletion(ctx context.Context, a domain.Actor, orderID string) (domain.WorkOrder, error) {
+	wo, err := s.orders.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
@@ -155,12 +156,12 @@ func (s *WorkOrderService) AcceptCompletion(a domain.Actor, orderID string) (dom
 	if wo.Status != domain.WorkOrderAwaitingAccept {
 		return domain.WorkOrder{}, errors.New("订单状态不允许验收")
 	}
-	return s.orders.UpdateStatus(orderID, domain.WorkOrderCompleted)
+	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderCompleted)
 }
 
 // RequestRework 企业提出整改：awaiting_accept → ongoing，记录整改要求。
-func (s *WorkOrderService) RequestRework(a domain.Actor, orderID, note string) (domain.WorkOrder, error) {
-	wo, err := s.orders.FindByID(orderID)
+func (s *WorkOrderService) RequestRework(ctx context.Context, a domain.Actor, orderID, note string) (domain.WorkOrder, error) {
+	wo, err := s.orders.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
@@ -170,15 +171,15 @@ func (s *WorkOrderService) RequestRework(a domain.Actor, orderID, note string) (
 	if wo.Status != domain.WorkOrderAwaitingAccept {
 		return domain.WorkOrder{}, errors.New("订单状态不允许整改")
 	}
-	if _, err := s.orders.UpdateRework(orderID, note); err != nil {
+	if _, err := s.orders.UpdateRework(ctx, orderID, note); err != nil {
 		return domain.WorkOrder{}, err
 	}
-	return s.orders.UpdateStatus(orderID, domain.WorkOrderOngoing)
+	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderOngoing)
 }
 
 // RequestCancel 任意一方取消订单（填写原因）：→ cancelled。
-func (s *WorkOrderService) RequestCancel(a domain.Actor, orderID, reason string) (domain.WorkOrder, error) {
-	wo, err := s.orders.FindByID(orderID)
+func (s *WorkOrderService) RequestCancel(ctx context.Context, a domain.Actor, orderID, reason string) (domain.WorkOrder, error) {
+	wo, err := s.orders.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
@@ -188,15 +189,15 @@ func (s *WorkOrderService) RequestCancel(a domain.Actor, orderID, reason string)
 	if wo.Status == domain.WorkOrderCompleted || wo.Status == domain.WorkOrderCancelled {
 		return domain.WorkOrder{}, errors.New("订单已结束，不能取消")
 	}
-	if _, err := s.orders.UpdateCancel(orderID, reason); err != nil {
+	if _, err := s.orders.UpdateCancel(ctx, orderID, reason); err != nil {
 		return domain.WorkOrder{}, err
 	}
-	return s.orders.UpdateStatus(orderID, domain.WorkOrderCancelled)
+	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderCancelled)
 }
 
 // FindByID 订单详情：仅订单双方可查看。
-func (s *WorkOrderService) FindByID(a domain.Actor, orderID string) (domain.WorkOrder, error) {
-	wo, err := s.orders.FindByID(orderID)
+func (s *WorkOrderService) FindByID(ctx context.Context, a domain.Actor, orderID string) (domain.WorkOrder, error) {
+	wo, err := s.orders.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
@@ -207,12 +208,12 @@ func (s *WorkOrderService) FindByID(a domain.Actor, orderID string) (domain.Work
 }
 
 // ListMine 我的订单：企业=我发出的，飞手=我接到的，双方视角合并。
-func (s *WorkOrderService) ListMine(a domain.Actor) ([]domain.WorkOrder, error) {
-	pub, err := s.orders.ListByPublisher(a.ID)
+func (s *WorkOrderService) ListMine(ctx context.Context, a domain.Actor) ([]domain.WorkOrder, error) {
+	pub, err := s.orders.ListByPublisher(ctx, a.ID)
 	if err != nil {
 		return nil, err
 	}
-	wk, err := s.orders.ListByWorker(a.ID)
+	wk, err := s.orders.ListByWorker(ctx, a.ID)
 	if err != nil {
 		return nil, err
 	}
