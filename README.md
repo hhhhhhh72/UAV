@@ -196,7 +196,7 @@ git push origin feat/b-pages
 | 管理后台模块 | **31 独立模块 + 8 聚合页**（40 条 admin 路由） |
 | Go 文件 | **154**（100 源码 + 54 测试） |
 | 测试通过率 | **100%** |
-| 测试覆盖率 | **约 47%**（含 PG 集成，CI 全量合并口径） |
+| 测试覆盖率 | **约 49%**（含 PG 集成，CI 全量合并口径） |
 | 静态分析 | `go vet` ✅ 零告警 |
 | Lint 工具 | `.golangci.yml` (11 linter) |
 | 前端构建 | Vue 3 + Arco Design Vue ✅ |
