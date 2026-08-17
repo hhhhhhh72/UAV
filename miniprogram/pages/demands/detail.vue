@@ -4,7 +4,7 @@
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">{{ detailTitle }}</text>
-      <view class="head-action" @tap="onShare">
+      <view class="head-action" :style="{ marginRight: capsuleGap + 'px' }" @tap="onShare">
         <text class="head-action-text">分享</text>
       </view>
     </view>
@@ -218,18 +218,20 @@ import {
   publishPostToCard,
 } from '../../utils/hallData'
 import { getPosts } from '../../utils/publishData'
+import { useSafeTop } from '../../utils/safeTop'
 
 const item = ref(null)
 const state = ref('loading') // loading | ready | error
 const favorited = ref(false)
 const submitting = ref(false)
 
-// 自定义导航：状态栏留白（JS 方式）
+// 自定义导航：状态栏留白 + 右上角避让微信胶囊（JS 方式）
 const statusBarH = ref(20)
 try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
 const headerStyle = computed(() => ({
-  paddingTop: statusBarH.value + 'px',
-  height: (56 + statusBarH.value) + 'px',
+  paddingTop: (topPad.value || statusBarH.value) + 'px',
+  height: (56 + (topPad.value || statusBarH.value)) + 'px',
 }))
 let postId = ''
 
@@ -541,6 +543,7 @@ const submitIntent = async () => {
 
 /* ================= 生命周期 ================= */
 onLoad((options) => {
+  initSafeTop()
   postId = (options && options.id) || ''
   loadDetail()
 })

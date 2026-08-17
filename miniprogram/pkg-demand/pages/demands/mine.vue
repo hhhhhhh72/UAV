@@ -1,10 +1,10 @@
 <template>
   <view class="mine-page">
     <!-- 头部 -->
-    <view class="page-header">
+    <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">我的发布</text>
-      <view class="head-action" @tap="goOrders">
+      <view class="head-action" :style="{ marginRight: capsuleGap + 'px' }" @tap="goOrders">
         <text class="head-action-text">我的订单</text>
       </view>
     </view>
@@ -93,11 +93,21 @@ import { safeNavigateTo } from '../../../utils/nav'
 import { request, getErrorMessage, authStorage } from '../../../utils/request'
 import { getPosts, upsertPost, KIND_ORDER, KIND_LABEL } from '../../../utils/publishData'
 import { bizTypeLabel } from '../../../utils/enums'
+import { useSafeTop } from '../../../utils/safeTop'
 
 const mineType = ref('')
 const mineStatus = ref('全部')
 const posts = ref([])
 const loadError = ref(false)
+
+// 自定义导航：状态栏留白 + 右上角避让微信胶囊（JS 方式）
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
+const headerStyle = computed(() => ({
+  paddingTop: (topPad.value || statusBarH.value) + 'px',
+  height: (56 + (topPad.value || statusBarH.value)) + 'px',
+}))
 
 // 类型筛选：全部 + 四类发布内容
 const kindOptions = KIND_ORDER.map((k) => ({ value: k === 'all' ? '' : k, label: KIND_LABEL[k] }))
@@ -228,6 +238,7 @@ const fetchMine = async () => {
 }
 
 onLoad((options) => {
+  initSafeTop()
   if (options && options.status && statusOptions.includes(options.status)) {
     mineStatus.value = options.status
   }
@@ -323,8 +334,7 @@ const toastPending = () => {
 
 /* 头部 */
 .page-header {
-  height: 56px;
-  padding: 0 28rpx;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 8rpx;
