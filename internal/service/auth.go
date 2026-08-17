@@ -20,13 +20,17 @@ type WeChatSession struct {
 	ErrMsg     string `json:"errmsg"`
 }
 
+// wechatAPIBase 为微信 code2Session 接口基地址。
+// 包级变量以便测试内联替换为 httptest 地址（生产恒为官方域名）。
+var wechatAPIBase = "https://api.weixin.qq.com"
+
 // WeChatLogin calls the WeChat code2Session API.
 func WeChatLogin(code, appID, appSecret string) (WeChatSession, error) {
 	if appID == "" || appSecret == "" {
 		return WeChatSession{}, fmt.Errorf("WeChat AppID and AppSecret are required")
 	}
-	u := fmt.Sprintf("https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
-		url.QueryEscape(appID), url.QueryEscape(appSecret), url.QueryEscape(code))
+	u := fmt.Sprintf("%s/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+		wechatAPIBase, url.QueryEscape(appID), url.QueryEscape(appSecret), url.QueryEscape(code))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(u)
