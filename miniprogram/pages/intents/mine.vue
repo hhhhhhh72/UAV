@@ -1,6 +1,6 @@
 <template>
   <view class="intents-page">
-    <view class="page-head">
+    <view class="page-head" :style="headStyle">
       <text class="back-btn" @tap="goBack">‹</text>
       <text class="page-title">我的对接意向</text>
       <text class="head-space"></text>
@@ -31,9 +31,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
+
+// 自定义导航：状态栏留白（JS 方式）
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+const headStyle = computed(() => ({ paddingTop: statusBarH.value + 'px' }))
 
 const list = ref([])
 const loading = ref(false)
@@ -82,7 +87,7 @@ onPullDownRefresh(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(14px + var(--status-bar-height)) 14px 10px;
+  padding: 14px 14px 10px;
   background: #fff;
   border-bottom: 1px solid #EEF1F4;
 }

@@ -1,7 +1,7 @@
 <template>
   <view class="detail-page">
     <!-- 头部 -->
-    <view class="page-header">
+    <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">{{ detailTitle }}</text>
       <view class="head-action" @tap="onShare">
@@ -223,6 +223,14 @@ const item = ref(null)
 const state = ref('loading') // loading | ready | error
 const favorited = ref(false)
 const submitting = ref(false)
+
+// 自定义导航：状态栏留白（JS 方式）
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+const headerStyle = computed(() => ({
+  paddingTop: statusBarH.value + 'px',
+  height: (56 + statusBarH.value) + 'px',
+}))
 let postId = ''
 
 const isEndedItem = computed(() => (item.value ? isEnded(item.value) : false))
@@ -549,8 +557,6 @@ onLoad((options) => {
 
 /* ═══════ 头部 ═══════ */
 .page-header {
-  height: calc(56px + var(--status-bar-height));
-  padding: var(--status-bar-height) 28rpx 0;
   box-sizing: border-box;
   display: flex;
   align-items: center;

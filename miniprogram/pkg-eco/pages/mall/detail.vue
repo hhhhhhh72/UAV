@@ -9,7 +9,7 @@
     </swiper>
     <image v-else src="/static/home/demand-lift.jpg" mode="aspectFill" class="img-swiper" :class="{ 'img-loaded': true }" />
     <!-- 返回按钮 -->
-    <view class="img-back" hover-class="back-press" @tap="goBack">
+    <view class="img-back" :style="backStyle" hover-class="back-press" @tap="goBack">
       <view class="back-arrow"></view>
     </view>
     <!-- 图片计数 -->
@@ -136,6 +136,11 @@ const product = ref({})
 const images = ref([])
 const curImg = ref(0)
 const loadedImgs = ref([])
+
+// 自定义导航：返回按钮下沉到状态栏下方（JS 方式）
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+const backStyle = computed(() => ({ top: (8 + statusBarH.value) + 'px' })) // 原 16rpx = 8px
 
 const priceInt = computed(() => Math.floor((product.value.price_fen||0) / 100))
 const priceDec = computed(() => String((product.value.price_fen||0) % 100).padStart(2,'0'))
@@ -347,7 +352,6 @@ const buy = async () => {
 .img-swiper.img-loaded { opacity: 1; }
 .img-back {
   position: absolute;
-  top: calc(16rpx + var(--status-bar-height));
   left: 24rpx;
   width: 72rpx;
   height: 72rpx;

@@ -10,7 +10,7 @@
       <view class="hero-mask-bottom" />
 
       <!-- 返回按钮 -->
-      <view class="back-btn" hover-class="back-btn-hover" :hover-stay-time="120" @tap="goBack">
+      <view class="back-btn" :style="backStyle" hover-class="back-btn-hover" :hover-stay-time="120" @tap="goBack">
         <text class="back-icon">‹</text>
       </view>
 
@@ -165,6 +165,11 @@ import { onLoad, onReady } from '@dcloudio/uni-app'
 const contentReady = ref(false)
 const tour = ref(null)
 const goBack = () => uni.navigateBack()
+
+// 自定义导航：返回按钮下沉到状态栏下方（JS 方式）
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+const backStyle = computed(() => ({ top: (38 + statusBarH.value) + 'px' })) // 原 76rpx = 38px
 
 const statusLabel = { active: '招募中', draft: '即将开始', closed: '已结束' }
 const statusPillStyle = computed(() => {
@@ -399,7 +404,6 @@ onReady(() => {
 /* 返回按钮 */
 .back-btn {
   position: absolute;
-  top: calc(76rpx + var(--status-bar-height));
   left: 24rpx;
   z-index: 5;
   width: 64rpx;

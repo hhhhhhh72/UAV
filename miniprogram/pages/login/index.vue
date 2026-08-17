@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <!-- 返回 -->
-    <view class="nav-bar">
+    <view class="nav-bar" :style="navStyle">
       <text class="back-btn" @tap="goBack">←</text>
     </view>
 
@@ -48,8 +48,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { request, authStorage, getErrorMessage } from '@/utils/request'
+
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+// 自定义导航：状态栏留白（JS 方式，微信端 var(--status-bar-height) 不可靠）
+const navStyle = computed(() => ({
+  paddingTop: statusBarH.value + 'px',
+  height: (48 + statusBarH.value) + 'px', // 原 96rpx = 48px + 状态栏
+}))
 
 const loading = ref(false)
 const agreed = ref(false)
@@ -112,8 +120,6 @@ const doWxLogin = () => {
 }
 
 .nav-bar {
-  height: calc(96rpx + var(--status-bar-height));
-  padding-top: var(--status-bar-height);
   box-sizing: border-box;
   display: flex;
   align-items: center;
