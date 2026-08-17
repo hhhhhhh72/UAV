@@ -39,7 +39,10 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Message, Modal } from '@arco-design/web-vue'
+import Message from '@arco-design/web-vue/es/message'
+import '@arco-design/web-vue/es/message/style/css'
+import Modal from '@arco-design/web-vue/es/modal'
+import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import { updateReviewStatus } from '@/api/admin/review'
 import CrudList from '../components/CrudList.vue'

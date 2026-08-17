@@ -86,7 +86,8 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { Message } from '@arco-design/web-vue'
+import Message from '@arco-design/web-vue/es/message'
+import '@arco-design/web-vue/es/message/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
 

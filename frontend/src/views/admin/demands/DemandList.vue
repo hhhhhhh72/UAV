@@ -122,7 +122,10 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Message, Modal } from '@arco-design/web-vue'
+import Message from '@arco-design/web-vue/es/message'
+import '@arco-design/web-vue/es/message/style/css'
+import Modal from '@arco-design/web-vue/es/modal'
+import '@arco-design/web-vue/es/modal/style/css'
 import axios from '@/utils/http'
 import { approveDemand, rejectDemand, closeDemand, setOfflineAmount, deleteDemand } from '@/api/admin/demand'
 import CrudList from '../components/CrudList.vue'

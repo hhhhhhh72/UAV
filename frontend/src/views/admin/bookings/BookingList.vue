@@ -37,7 +37,8 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Message } from '@arco-design/web-vue'
+import Message from '@arco-design/web-vue/es/message'
+import '@arco-design/web-vue/es/message/style/css'
 import axios from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
 

@@ -1,6 +1,9 @@
 // 统一提示工具（Arco Design 实现，函数签名与旧 Element 版保持一致，
 // useListRequest / 各页面 / 路由守卫均依赖这些导出）
-import { Message, Modal } from '@arco-design/web-vue'
+import Message from '@arco-design/web-vue/es/message'
+import '@arco-design/web-vue/es/message/style/css'
+import Modal from '@arco-design/web-vue/es/modal'
+import '@arco-design/web-vue/es/modal/style/css'
 
 export function showToast(message) {
   Message.info(message)
