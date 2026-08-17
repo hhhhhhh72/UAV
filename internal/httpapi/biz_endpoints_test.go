@@ -66,6 +66,7 @@ func newBizServer(t *testing.T) http.Handler {
 	srv.SetCollegeService(service.NewCollegeService(memory.NewCollegeRepository()))
 	srv.SetExhibitionService(service.NewExhibitionService(memory.NewExhibitionRepository()))
 	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
+	srv.SetPoolService(service.NewResourcePoolService(memory.NewResourcePoolRepository()))
 	srv.SetTransformationService(service.NewTransformationService(memory.NewTransformationRepository()))
 	srv.SetAssociationMemberService(service.NewAssociationMemberService(memory.NewAssociationMemberRepository()))
 	srv.SetContractTemplateService(service.NewContractTemplateService(memory.NewContractTemplateRepository()))
