@@ -100,6 +100,16 @@ const submitting = ref(false)
 const backendProductId = ref('')
 // 需求发布成功后的后端需求 id（写入本地记录 backendId）
 const backendDemandId = ref('')
+// 服务能力/培训课程发布成功后的后端 id
+const backendServiceId = ref('')
+const backendCourseId = ref('')
+
+// 表单证书类型（中文）→ 后端 cert_type 枚举（caac / utc_dji / gov_level）
+const mapCertType = (t) => {
+  if (t === '大疆 UTC 证书') return 'utc_dji'
+  if (t === '职业技能等级') return 'gov_level'
+  return 'caac' // CAAC 民航局执照 / AOPA 执照
+}
 
 const typeConfig = computed(() => TYPES[type.value] || null)
 
@@ -173,7 +183,6 @@ async function submitPublish() {
   }
   // 需求发布：先提交后端（POST /api/v1/demands），成功才落本地记录。
   // 与商品同模式：失败则不发布，避免本地假上架。
-  // service/course 后端暂无公开创建接口，保持本地发布（已知边界）。
   if (type.value === 'demand') {
     try {
       const images = photoList.value.length ? await uploadImages(photoList.value) : []
@@ -186,9 +195,73 @@ async function submitPublish() {
       return
     }
   }
-  // 商品/需求走后端审核：提交后为"待审核"（通过后由后端统一展示，本地记录仅留发布根）；
-  // service/course 本地即时上架
-  const reviewBackend = type.value === 'product' || type.value === 'demand'
+  // 服务能力发布：POST /api/v1/service-listings（待审核，管理端通过后进入公开列表）
+  if (type.value === 'service') {
+    if (!authStorage.getAccessToken()) {
+      submitting.value = false
+      showToast('请先登录后再发布服务')
+      uni.navigateTo({ url: '/pages/login/index' })
+      return
+    }
+    try {
+      const user = getStoredUser()
+      const created = await request({
+        url: '/api/v1/service-listings',
+        method: 'POST',
+        data: {
+          provider_name: (user && user.name) || '',
+          title: String(values.value.title || '').trim(),
+          category: String(values.value.category || '').trim(),
+          description: [values.value.equipment, values.value.cert].filter(Boolean).join('\n'),
+          region: String(values.value.range || '').trim(),
+          price_fen: 0, // 报价方式见 unit；具体金额由需求方洽谈
+          unit: String(values.value.quote || '面议'),
+          image: '',
+        },
+      })
+      if (!created || !created.id) throw new Error('create service listing failed')
+      backendServiceId.value = created.id
+    } catch (e) {
+      submitting.value = false
+      showToast('发布失败，请稍后重试')
+      return
+    }
+  }
+  // 培训课程发布：POST /api/v1/training-courses（即时上架公开）
+  if (type.value === 'course') {
+    if (!authStorage.getAccessToken()) {
+      submitting.value = false
+      showToast('请先登录后再发布课程')
+      uni.navigateTo({ url: '/pages/login/index' })
+      return
+    }
+    try {
+      const created = await request({
+        url: '/api/v1/training-courses',
+        method: 'POST',
+        data: {
+          title: String(values.value.title || '').trim(),
+          cert_type: mapCertType(values.value.certType),
+          description: String(values.value.description || '').trim(),
+          org_name: String(values.value.org || '').trim(),
+          district: String(values.value.district || '').trim(),
+          location: String(values.value.location || '').trim(),
+          price_fen: Math.round((Number(values.value.price) || 0) * 100),
+          duration_days: Number(values.value.duration) || 0,
+          max_students: Number(values.value.quota) || 0,
+          image: '',
+        },
+      })
+      if (!created || !created.id) throw new Error('create course failed')
+      backendCourseId.value = created.id
+    } catch (e) {
+      submitting.value = false
+      showToast('发布失败，请稍后重试')
+      return
+    }
+  }
+  // 四种类型均走后端：提交后为"待审核/已发布"（通过后由后端统一展示，本地记录仅留发布根）
+  const reviewBackend = true
   const post = makePost({
     id: resumeId.value || '',
     type: type.value,
@@ -201,10 +274,14 @@ async function submitPublish() {
       ? '商品已提交审核，协会通过后上架到低空商城，可在「我的发布」中查看状态。'
       : type.value === 'demand'
         ? '需求已提交，协会审核通过后公开展示'
-        : '内容已上架，可在「我的发布」中随时下架或编辑。',
+        : type.value === 'service'
+          ? '服务已提交审核，协会通过后展示在生态服务'
+          : '课程已发布，可在「我的发布」中随时查看。',
   })
   if (backendProductId.value) post.backendId = backendProductId.value
   if (backendDemandId.value) post.backendId = backendDemandId.value
+  if (backendServiceId.value) post.backendId = backendServiceId.value
+  if (backendCourseId.value) post.backendId = backendCourseId.value
   upsertPost(post)
   showConfirm.value = false
   showSuccess.value = true

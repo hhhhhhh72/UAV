@@ -3,18 +3,74 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+
+	"drone-platform/internal/domain"
 )
 
 // ---- Service Listings (PRD ②-2 供给能力展示) ----
 
-// GET /api/v1/service-listings — 公开列表（仅上架中）
+// GET /api/v1/service-listings — 公开列表（仅上架中）；mine=1 时返回当前用户发布的全部（含待审核，未登录返回空）
 func (s *Server) listServiceListings(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("mine") == "1" {
+		a, ok := authenticatedActor(r)
+		if !ok {
+			paginatedRespond(w, r, []domain.ServiceListing{}, 0)
+			return
+		}
+		all, err := s.serviceListingSvc.ListAdmin(r.Context(), "", "")
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		mine := make([]domain.ServiceListing, 0, len(all))
+		for _, sl := range all {
+			if sl.ProviderID == a.ID {
+				mine = append(mine, sl)
+			}
+		}
+		paginatedRespond(w, r, mine, len(mine))
+		return
+	}
 	items, err := s.serviceListingSvc.ListPublished(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	paginatedRespond(w, r, items, len(items))
+}
+
+// POST /api/v1/service-listings — 用户自助发布服务能力（登录；待审核，管理端审核后上架）
+func (s *Server) createServiceListing(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		ProviderName string `json:"provider_name"`
+		Title        string `json:"title"`
+		Category     string `json:"category"`
+		Description  string `json:"description"`
+		Region       string `json:"region"`
+		PriceFen     int64  `json:"price_fen"`
+		Unit         string `json:"unit"`
+		Image        string `json:"image"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if in.Title == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("title is required"))
+		return
+	}
+	sl, err := s.serviceListingSvc.CreateListingPending(r.Context(), a.ID, in.ProviderName, in.Title, in.Category, in.Description, in.Region, in.PriceFen, in.Unit, in.Image)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "create_service_listing", "service_listing", sl.ID, "created")
+	respond(w, r, http.StatusCreated, sl)
 }
 
 // GET /api/v1/service-listings/{id} — 公开详情（仅上架中，下架视为不存在）

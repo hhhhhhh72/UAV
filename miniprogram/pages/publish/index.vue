@@ -85,17 +85,21 @@ const backendCount = ref(0)
 const draftCount = computed(() => draftPosts().length)
 const totalCount = computed(() => allPosts.value.length + backendCount.value)
 
-// 我的发布计数 = 本地记录 + 后端已提交（需求 mine=1 + 商品 mine=1；未登录后端返回空）
+// 我的发布计数 = 本地记录 + 后端已提交（需求/商品/服务/课程 mine=1；未登录后端返回空）
 async function refresh() {
   allPosts.value = getPosts()
   try {
-    const [dRes, pRes] = await Promise.all([
+    const [dRes, pRes, sRes, cRes] = await Promise.all([
       request({ url: '/api/v1/demands', data: { mine: '1', page: 1, page_size: 100 } }),
       request({ url: '/api/v1/products', data: { mine: '1', page: 1, page_size: 100 } }),
+      request({ url: '/api/v1/service-listings', data: { mine: '1' } }),
+      request({ url: '/api/v1/training-courses', data: { mine: '1' } }),
     ])
     const dList = Array.isArray(dRes) ? dRes : dRes?.data || []
     const pList = Array.isArray(pRes) ? pRes : pRes?.data || []
-    backendCount.value = dList.length + pList.length
+    const sList = Array.isArray(sRes) ? sRes : sRes?.data || []
+    const cList = Array.isArray(cRes) ? cRes : cRes?.data || []
+    backendCount.value = dList.length + pList.length + sList.length + cList.length
   } catch (e) {
     backendCount.value = 0
   }

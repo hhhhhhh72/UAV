@@ -120,6 +120,8 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
+		// 用户发布课程即上架（公开列表可见）；服务能力走 pending 审核，课程暂即时上架
+		Status: "published",
 	})
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
@@ -138,6 +140,22 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 	courses, err := s.trainingSvc.ListCourses(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	// mine=1：只看当前用户（机构）发布的课程（含草稿/未上架，未登录返回空）
+	if r.URL.Query().Get("mine") == "1" {
+		a, ok := authenticatedActor(r)
+		if !ok {
+			paginatedRespond(w, r, []domain.TrainingCourse{}, 0)
+			return
+		}
+		mine := make([]domain.TrainingCourse, 0, len(courses))
+		for _, c := range courses {
+			if c.OrgID == a.ID {
+				mine = append(mine, c)
+			}
+		}
+		paginatedRespond(w, r, mine, len(mine))
 		return
 	}
 	// filter

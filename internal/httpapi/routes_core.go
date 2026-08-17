@@ -208,6 +208,7 @@ func (s *Server) registerTradingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/products", s.listProducts)
 	mux.HandleFunc("GET /api/v1/products/{id}", s.getProductDetail)
 	mux.HandleFunc("GET /api/v1/service-listings", s.listServiceListings)
+	mux.HandleFunc("POST /api/v1/service-listings", s.createServiceListing)
 	mux.HandleFunc("GET /api/v1/service-listings/{id}", s.getServiceListing)
 	mux.HandleFunc("POST /api/v1/repairs", s.createRepair)
 	mux.HandleFunc("GET /api/v1/repairs/mine", s.listMyRepairs)

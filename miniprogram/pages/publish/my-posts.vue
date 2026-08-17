@@ -168,30 +168,64 @@ const mapProduct = (p) => {
   }
 }
 
+// service_listing.status: pending/published（off 表示已下架）
+const mapService = (sl) => {
+  let statusKey = 'pending'
+  let status = '审核中'
+  if (sl.status === 'published') { statusKey = 'live'; status = '已发布' }
+  if (sl.status === 'off') { statusKey = 'live'; status = '已下架' }
+  return {
+    id: sl.id, type: 'service', label: '服务能力', backend: true,
+    statusKey, status,
+    title: sl.title || '',
+    meta: [sl.category, sl.region].filter(Boolean),
+    date: fmtDate(sl.created_at),
+    note: '',
+  }
+}
+
+// course.status: draft/published
+const mapCourse = (c) => {
+  const statusKey = c.status === 'published' ? 'live' : 'pending'
+  const status = c.status === 'published' ? '已发布' : '草稿'
+  return {
+    id: c.id, type: 'course', label: '培训课程', backend: true,
+    statusKey, status,
+    title: c.title || '',
+    meta: [c.org_name, c.district].filter(Boolean),
+    date: fmtDate(c.created_at),
+    note: '',
+  }
+}
+
 async function refresh() {
   const local = getPosts()
-  // 后端：我的需求 + 我的商品（mine=1；未登录返回空，不会泄露他人数据）
+  // 后端：我的需求 + 商品 + 服务能力 + 课程（mine=1；未登录返回空，不会泄露他人数据）
   let backend = []
   try {
-    const [dRes, pRes] = await Promise.all([
+    const [dRes, pRes, sRes, cRes] = await Promise.all([
       request({ url: '/api/v1/demands', data: { mine: '1', page: 1, page_size: 100 } }),
       request({ url: '/api/v1/products', data: { mine: '1', page: 1, page_size: 100 } }),
+      request({ url: '/api/v1/service-listings', data: { mine: '1' } }),
+      request({ url: '/api/v1/training-courses', data: { mine: '1' } }),
     ])
     const dList = Array.isArray(dRes) ? dRes : dRes?.data || []
     const pList = Array.isArray(pRes) ? pRes : pRes?.data || []
-    backend = [...dList.map(mapDemand), ...pList.map(mapProduct)]
+    const sList = Array.isArray(sRes) ? sRes : sRes?.data || []
+    const cList = Array.isArray(cRes) ? cRes : cRes?.data || []
+    backend = [
+      ...dList.map(mapDemand),
+      ...pList.map(mapProduct),
+      ...sList.map(mapService),
+      ...cList.map(mapCourse),
+    ]
   } catch (e) {
     // 后端不可用：保留本地记录展示，不阻塞页面
   }
-  // 本地保留：草稿 + service/course 本地发布（已知边界：后端暂无创建接口）
-  // 本地 demand/product 记录：已有 backendId 的以后端为准（去重），无 backendId 的旧数据保留
+  // 本地保留：草稿（四类均可能）+ 无 backendId 的旧记录（去重后）
   const backendIds = new Set(backend.map((b) => b.id))
   const localKeep = local.filter(
-    (p) =>
-      p.statusKey === 'draft' ||
-      p.type === 'service' ||
-      p.type === 'course' ||
-      ((p.type === 'demand' || p.type === 'product') && !p.backendId)
+    (p) => p.statusKey === 'draft' || !p.backendId
   ).filter((p) => !backendIds.has(p.id))
   allPosts.value = [...localKeep, ...backend]
 }
@@ -227,7 +261,7 @@ function pickKind(kind) {
 }
 
 function openDetail(post) {
-  // 后端记录 → 跳真实详情；本地草稿/service/course → 本地详情
+  // 后端记录 → 跳真实详情/列表；本地草稿 → 本地详情
   if (post.backend) {
     if (post.type === 'demand') {
       uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(post.id) })
@@ -235,6 +269,14 @@ function openDetail(post) {
     }
     if (post.type === 'product') {
       uni.navigateTo({ url: '/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(post.id) })
+      return
+    }
+    if (post.type === 'service') {
+      uni.navigateTo({ url: '/pages/demands/index' })
+      return
+    }
+    if (post.type === 'course') {
+      uni.navigateTo({ url: '/pkg-talent/pages/training/courses' })
       return
     }
   }

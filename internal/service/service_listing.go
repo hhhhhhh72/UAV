@@ -19,7 +19,7 @@ func NewServiceListingService(r repository.ServiceListingRepository) *ServiceLis
 	return &ServiceListingService{repo: r}
 }
 
-// CreateListing 创建服务能力（管理后台录入 / 企业发布），默认上架状态。
+// CreateListing 创建服务能力（管理后台录入），默认直接上架。
 func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
 	now := time.Now()
 	sl := domain.ServiceListing{
@@ -34,6 +34,28 @@ func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, p
 		Unit:         unit,
 		Image:        image,
 		Status:       "published",
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	return s.repo.Create(ctx, sl)
+}
+
+// CreateListingPending 用户自助发布服务能力：默认待审核（pending），
+// 由协会在管理端审核通过后才进入公开列表（ListPublished 只返回 published）。
+func (s *ServiceListingService) CreateListingPending(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
+	now := time.Now()
+	sl := domain.ServiceListing{
+		ID:           fmt.Sprintf("service-listing-%d", now.UnixNano()),
+		ProviderID:   providerID,
+		ProviderName: providerName,
+		Title:        title,
+		Category:     category,
+		Description:  description,
+		Region:       region,
+		PriceFen:     priceFen,
+		Unit:         unit,
+		Image:        image,
+		Status:       "pending",
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
