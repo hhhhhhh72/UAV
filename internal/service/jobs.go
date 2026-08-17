@@ -39,7 +39,9 @@ func (s *JobService) CreateJob(a domain.Actor, title, desc, location string, sal
 		return domain.Job{}, errors.New("only enterprise can post jobs")
 	}
 	now := time.Now()
-	j := domain.Job{ID: fmt.Sprintf("job-%d", now.UnixNano()), EnterpriseID: a.ID, Title: title, Description: desc,
+	// nextSeq 保证同纳秒连续创建时 ID 唯一（Windows 时钟精度约 100ns），
+	// 否则内存/PG 按 ID 更新会错配到前一条记录。
+	j := domain.Job{ID: fmt.Sprintf("job-%d-%d", now.UnixNano(), nextSeq()), EnterpriseID: a.ID, Title: title, Description: desc,
 		Location: location, SalaryFen: salaryFen, Status: domain.JobDraft, Version: 1, CreatedAt: now, UpdatedAt: now}
 	slog.Info("job created", "job_id", j.ID, "enterprise_id", j.EnterpriseID)
 	return s.repo.Create(j)
