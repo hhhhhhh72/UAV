@@ -1,6 +1,10 @@
 package httpapi
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+	"time"
+)
 
 // ── Core route registration methods ──────────────────────────────────────
 //
@@ -36,13 +40,31 @@ func (s *Server) registerMetaRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /uploads/private/", s.servePrivateUploads) // 身份证影像等敏感文件，需登录态
 	mux.HandleFunc("GET /favicon.ico", s.favicon)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		respond(w, r, http.StatusOK, map[string]any{
-			"status": "ok",
-			"checks": map[string]string{
-				"server":  "up",
-				"storage": s.storage,
-			},
-		})
+		checks := map[string]string{"server": "up", "storage": s.storage}
+		status := http.StatusOK
+		// P1 修复：PG 模式下真实探测数据库——此前恒 200，DB 宕机时
+		// Docker HEALTHCHECK 假阳性，容器不会自动重启。
+		if s.storage == "postgres" {
+			if s.dbPinger == nil {
+				checks["database"] = "not configured"
+				status = http.StatusServiceUnavailable
+			} else {
+				ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+				err := s.dbPinger.Ping(ctx)
+				cancel()
+				if err != nil {
+					checks["database"] = "down"
+					status = http.StatusServiceUnavailable
+				} else {
+					checks["database"] = "up"
+				}
+			}
+		}
+		overall := "ok"
+		if status != http.StatusOK {
+			overall = "degraded"
+		}
+		respond(w, r, status, map[string]any{"status": overall, "checks": checks})
 	})
 	mux.HandleFunc("GET /api/v1/home", s.home)
 	mux.HandleFunc("GET /api/v1/search", s.search)
@@ -234,7 +256,11 @@ func (s *Server) registerFileRoutes(mux *http.ServeMux) {
 // ── Admin (config, export, image) ────────────────────────────────────────
 
 func (s *Server) registerAdminRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/v1/admin/token", s.adminDevLogin)
+	// P0 修复：开发令牌路由仅在 ADMIN_DEV_MODE 下注册——
+	// 此前无条件注册且 adminGate 豁免，生产误配即任意人可签管理员令牌。
+	if adminDevMode() {
+		mux.HandleFunc("POST /api/v1/admin/token", s.adminDevLogin)
+	}
 	mux.HandleFunc("GET /api/v1/admin/config", s.getConfig)
 	mux.HandleFunc("POST /api/v1/admin/config", s.updateConfig)
 	mux.HandleFunc("GET /api/v1/admin/export/demands", s.exportDemands)

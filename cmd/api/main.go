@@ -344,6 +344,7 @@ func main() {
 
 	if pgStore != nil {
 		app.SetAuditWriter(postgres.NewAuditAdapter(pgStore))
+		app.SetDBPinger(pgStore.Pool())
 		app.SetStorage("postgres")
 	} else {
 		app.SetStorage("memory")

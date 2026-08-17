@@ -84,12 +84,20 @@ axios.interceptors.response.use(
 
     isRefreshing = true
     try {
-      const refreshRes = await axios.post('/api/auth/refresh', { refreshToken })
-      const newAccessToken = refreshRes.data?.accessToken
+      // P0 修复：后端 /api/auth/refresh 契约是 snake_case——
+      // 请求体 refresh_token、响应 access_token / refresh_token。轮转后必须持久化
+      // 新 refresh_token（旧令牌已被服务端 Revoke，不存则第二次刷新必 401）。
+      const refreshRes = await axios.post('/api/auth/refresh', { refresh_token: refreshToken })
+      const data = refreshRes.data || {}
+      const newAccessToken = data.access_token
       if (!newAccessToken) {
         throw new Error('No access token returned')
       }
       localStorage.setItem(ACCESS_TOKEN_KEY, newAccessToken)
+      const newRefreshToken = data.refresh_token
+      if (newRefreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken)
+      }
       resolveQueue(newAccessToken)
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
       return axios(originalRequest)

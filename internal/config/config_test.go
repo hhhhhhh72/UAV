@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"drone-platform/internal/config"
@@ -45,6 +46,61 @@ func TestValidateShortSecret(t *testing.T) {
 	cfg := config.Load()
 	result := cfg.Validate()
 	if len(result.Errors) == 0 { t.Fatal("should have error for short AUTH_SECRET") }
+}
+
+// TestValidateProductionHardChecks: P0 回归——生产环境必须硬校验
+// DATABASE_URL / ENCRYPTION_KEY / SIGNING_SECRET，并拒绝 ADMIN_DEV_MODE，
+// 任一缺失即启动失败（此前仅 WARN/静默，误配即沦陷）。
+func TestValidateProductionHardChecks(t *testing.T) {
+	os.Setenv("ENV", "production")
+	os.Setenv("AUTH_SECRET", "test-secret-key-32bytes-0123456789")
+	os.Setenv("WECHAT_APPID", "wx123")
+	os.Setenv("WECHAT_APPSECRET", "sec123")
+	os.Setenv("ADMIN_DEV_MODE", "true")
+	os.Unsetenv("DATABASE_URL")
+	os.Unsetenv("ENCRYPTION_KEY")
+	os.Unsetenv("SIGNING_SECRET")
+	t.Cleanup(func() {
+		os.Unsetenv("ENV")
+		os.Unsetenv("ADMIN_DEV_MODE")
+		os.Unsetenv("WECHAT_APPID")
+		os.Unsetenv("WECHAT_APPSECRET")
+	})
+
+	cfg := config.Load()
+	res := cfg.Validate()
+	joined := strings.Join(res.Errors, " | ")
+	for _, want := range []string{"DATABASE_URL", "ENCRYPTION_KEY", "SIGNING_SECRET", "ADMIN_DEV_MODE"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("production validation missing %q; errors: %v", want, res.Errors)
+		}
+	}
+}
+
+// TestValidateProductionOK: 生产环境变量齐全时不应报错。
+func TestValidateProductionOK(t *testing.T) {
+	os.Setenv("ENV", "production")
+	os.Setenv("AUTH_SECRET", "test-secret-key-32bytes-0123456789")
+	os.Setenv("WECHAT_APPID", "wx123")
+	os.Setenv("WECHAT_APPSECRET", "sec123")
+	os.Setenv("DATABASE_URL", "postgres://u:p@host/db?sslmode=require")
+	os.Setenv("ENCRYPTION_KEY", "dGVzdC1rZXktMzJieXRlcy0wMTIzNDU2Nzg5MA==")
+	os.Setenv("SIGNING_SECRET", "sig-secret")
+	os.Unsetenv("ADMIN_DEV_MODE")
+	t.Cleanup(func() {
+		os.Unsetenv("ENV")
+		os.Unsetenv("DATABASE_URL")
+		os.Unsetenv("ENCRYPTION_KEY")
+		os.Unsetenv("SIGNING_SECRET")
+		os.Unsetenv("WECHAT_APPID")
+		os.Unsetenv("WECHAT_APPSECRET")
+	})
+
+	cfg := config.Load()
+	res := cfg.Validate()
+	if len(res.Errors) > 0 {
+		t.Fatalf("production with complete env should pass; errors: %v", res.Errors)
+	}
 }
 
 func TestPrint(t *testing.T) {

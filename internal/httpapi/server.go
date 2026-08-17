@@ -103,6 +103,7 @@ type Server struct {
 	rateLimiter       *rateLimiter
 	idempotency       *idempotencyStore
 	auditWriter       repository.AuditWriter
+	dbPinger          interface{ Ping(context.Context) error }
 	storage           string
 }
 
@@ -213,6 +214,9 @@ func NewServer(d *service.DemandService, e *service.EnterpriseService, es *servi
 
 // SetAuditWriter injects an audit log writer (typically the PG store).
 func (s *Server) SetAuditWriter(w repository.AuditWriter) { s.auditWriter = w }
+
+// SetDBPinger injects a database prober for /healthz (typically the pgx pool).
+func (s *Server) SetDBPinger(p interface{ Ping(context.Context) error }) { s.dbPinger = p }
 
 // SetStorage sets the storage backend name shown in health checks.
 func (s *Server) SetStorage(name string) { s.storage = name }
@@ -987,6 +991,11 @@ func respond(w http.ResponseWriter, r *http.Request, status int, v any) {
 func fail(w http.ResponseWriter, r *http.Request, status int, err error) {
 	if errors.Is(err, io.EOF) {
 		err = errors.New("request body is required")
+	}
+	// P1 修复：5xx 必须落日志——此前所有业务错误仅返回客户端，服务端完全不可见。
+	if status >= http.StatusInternalServerError {
+		slog.Error("request failed", "method", r.Method, "path", r.URL.Path,
+			"status", status, "err", err, "request_id", requestIDFromCtx(r))
 	}
 	w.WriteHeader(status)
 	if e := json.NewEncoder(w).Encode(map[string]any{

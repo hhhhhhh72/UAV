@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"drone-platform/internal/domain"
 )
 
 // TestServeImageRejectsUnsupportedFormat: 回归 C7——webp 曾按 jpeg 编码
@@ -93,5 +95,45 @@ func TestServeImageServesAndCaches(t *testing.T) {
 	}
 	if !bytes.Equal(body, w2.Body.Bytes()) {
 		t.Fatal("cache hit returned different bytes")
+	}
+}
+
+// TestServeImagePrivateRequiresAuth: P0 回归——/api/v1/image 在公开白名单，
+// 此前匿名可凭可预测的 file-<UnixNano> ID 重编码读取 uploads/private/ 下的
+// 身份证影像。修复后 private 路径必须登录。
+func TestServeImagePrivateRequiresAuth(t *testing.T) {
+	app := newServer(t)
+
+	// Arrange: uploads/private/ 下放一张测试 PNG
+	const rel = "private/idcard-test.png"
+	if err := os.MkdirAll(filepath.Join("uploads", "private"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	var pngBuf bytes.Buffer
+	if err := png.Encode(&pngBuf, image.NewRGBA(image.Rect(0, 0, 32, 32))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join("uploads", rel), pngBuf.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		os.Remove(filepath.Join("uploads", rel))
+		entries, _ := filepath.Glob(filepath.Join("uploads", ".image-cache", "*.jpeg"))
+		for _, e := range entries {
+			os.Remove(e)
+		}
+	}()
+
+	// 匿名访问 private 路径 → 401（修复前是 200 且能读到内容）
+	w := doRaw(app, http.MethodGet, "/api/v1/image?url="+rel+"&width=16&format=jpeg", "", "")
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous private image: expected 401, got %d (%s)", w.Code, w.Body.String())
+	}
+
+	// 带 token → 200
+	tok := authAs(t, "user-1", domain.RoleIndividual)
+	w = doRaw(app, http.MethodGet, "/api/v1/image?url="+rel+"&width=16&format=jpeg", "", tok)
+	if w.Code != http.StatusOK {
+		t.Fatalf("authorized private image: expected 200, got %d (%s)", w.Code, w.Body.String())
 	}
 }

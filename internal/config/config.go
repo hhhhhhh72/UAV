@@ -59,6 +59,20 @@ func (c *Config) Validate() ValidationResult {
 	if c.Server.Env == "production" {
 		if c.WeChat.AppID == "" { r.Errors = append(r.Errors, "WECHAT_APPID is required in production") }
 		if c.WeChat.AppSecret == "" { r.Errors = append(r.Errors, "WECHAT_APPSECRET is required in production") }
+		// P0 修复：生产环境硬校验——此前这些项缺失仅告警/静默，
+		// 一次误配即可导致管理员令牌任意签发、敏感字段明文落库、数据存内存重启即丢。
+		if !c.Database.UsePostgres || c.Database.DatabaseURL == "" {
+			r.Errors = append(r.Errors, "DATABASE_URL is required in production (in-memory storage is not allowed)")
+		}
+		if os.Getenv("ENCRYPTION_KEY") == "" {
+			r.Errors = append(r.Errors, "ENCRYPTION_KEY is required in production")
+		}
+		if os.Getenv("ADMIN_DEV_MODE") == "true" {
+			r.Errors = append(r.Errors, "ADMIN_DEV_MODE must NOT be enabled in production")
+		}
+		if os.Getenv("SIGNING_SECRET") == "" {
+			r.Errors = append(r.Errors, "SIGNING_SECRET is required in production (contract webhook signature)")
+		}
 	}
 	if c.Database.UsePostgres {
 		if !strings.Contains(c.Database.DatabaseURL, "sslmode=require") && c.Server.Env == "production" {

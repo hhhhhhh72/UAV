@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -58,15 +59,30 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	imagePath := filepath.Join(baseDir, middleware.SanitizeString(urlPath))
 	// 路径包含校验：SanitizeString 只去 HTML 标签，挡不住 ../ 逃逸。
 	// 解析后的绝对路径必须仍在 uploads 目录内，否则拒绝。
-	if absBase, err := filepath.Abs(baseDir); err != nil {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
-	} else if absPath, err := filepath.Abs(imagePath); err != nil {
+	}
+	absPath, err := filepath.Abs(imagePath)
+	if err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
-	} else if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) {
+	}
+	if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("invalid image path"))
 		return
+	}
+	// P0 修复：uploads/private/ 下是身份证影像等敏感文件。
+	// /api/v1/image 在公开白名单里，此前匿名凭文件 ID（file-<UnixNano>，可预测）
+	// 即可重编码读取私有影像——此处强制登录，与 servePrivateUploads 对齐。
+	if absPrivate, err := filepath.Abs(filepath.Join(baseDir, "private")); err == nil {
+		if absPath == absPrivate || strings.HasPrefix(absPath, absPrivate+string(filepath.Separator)) {
+			if _, ok := authenticatedActor(r); !ok {
+				fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+				return
+			}
+		}
 	}
 	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
 		fail(w, r, http.StatusNotFound, fmt.Errorf("image not found"))
