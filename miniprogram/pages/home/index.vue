@@ -500,13 +500,13 @@ const HOME_ICONS = {
   search: '/static/home/icons/search-white.svg',
   message: '/static/home/icons/message.svg',
   // 双行动入口
-  findProject: '/static/home/icons/briefcase.svg',
+  findProject: '/static/home/icons/briefcase-blue.svg', // 浅色底用彩色描边
   publishDemand: '/static/home/icons/edit.svg',
   // 六项核心服务
   services: {
     demand: '/static/home/icons/demand.svg', // 需求大厅
     trade: '/static/home/icons/trade.svg', // 场地预约
-    enterprise: '/static/home/icons/briefcase.svg', // 企业入驻
+    enterprise: '/static/home/icons/briefcase-blue.svg', // 企业入驻
     shop: '/static/home/icons/ecoservice.svg', // 生态服务
     training: '/static/home/icons/training.svg', // 培训认证
     pilot: '/static/home/icons/pilot.svg', // 认证飞手
