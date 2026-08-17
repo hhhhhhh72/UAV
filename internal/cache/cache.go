@@ -121,14 +121,17 @@ func (c *Cache) cleanupLoop() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
-		c.mu.Lock()
-		now := time.Now()
-		for k, v := range c.store {
-			if now.After(v.expiresAt) {
-				delete(c.store, k)
+		func() {
+			defer func() { _ = recover() }() // 批3：后台协程 panic 防护
+			c.mu.Lock()
+			now := time.Now()
+			for k, v := range c.store {
+				if now.After(v.expiresAt) {
+					delete(c.store, k)
+				}
 			}
-		}
-		c.mu.Unlock()
+			c.mu.Unlock()
+		}()
 	}
 }
 

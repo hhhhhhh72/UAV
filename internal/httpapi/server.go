@@ -135,14 +135,17 @@ func newIdempotencyStore() *idempotencyStore {
 
 func (s *idempotencyStore) cleanupLoop() {
 	for range time.Tick(time.Minute * 10) {
-		s.mu.Lock()
-		now := time.Now()
-		for k, v := range s.cache {
-			if now.After(v.expiresAt) {
-				delete(s.cache, k)
+		func() {
+			defer func() { _ = recover() }() // 批3：后台协程裸跑，panic 防护
+			s.mu.Lock()
+			now := time.Now()
+			for k, v := range s.cache {
+				if now.After(v.expiresAt) {
+					delete(s.cache, k)
+				}
 			}
-		}
-		s.mu.Unlock()
+			s.mu.Unlock()
+		}()
 	}
 }
 
@@ -330,7 +333,7 @@ func (s *Server) Router() http.Handler {
 		))
 	}
 
-	return s.rateLimit(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.idempotencyCheck(s.adminGate(middleware.SanitizeBody(mux)))))))))
+	return s.rateLimit(s.accessLog(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.idempotencyCheck(s.adminGate(middleware.SanitizeBody(mux))))))))))
 }
 
 func (s *Server) favicon(w http.ResponseWriter, r *http.Request) {
@@ -853,6 +856,34 @@ func (r *responseRecorder) WriteHeader(code int) {
 func (r *responseRecorder) Write(b []byte) (int, error) {
 	r.body.Write(b)
 	return r.ResponseWriter.Write(b)
+}
+
+// statusWriter 透传写操作并记录状态码，供访问日志中间件使用。
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+// accessLog 记录每个请求的方法/路径/状态码/耗时/来源 IP/request_id。
+// 批3 P1：此前 RequestLog 定义但零调用，生产完全无访问日志；挂在最外层
+// （rateLimit 之后），panic 恢复写入的状态也能被记录。
+func (s *Server) accessLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(sw, r)
+		if sw.status == 0 {
+			sw.status = http.StatusOK
+		}
+		slog.Info("http", "method", r.Method, "path", r.URL.Path,
+			"status", sw.status, "dur_ms", time.Since(start).Milliseconds(),
+			"ip", r.RemoteAddr, "request_id", requestIDFromCtx(r))
+	})
 }
 
 func (s *Server) rateLimit(next http.Handler) http.Handler {

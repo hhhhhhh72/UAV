@@ -363,7 +363,9 @@ func main() {
 		}
 	}
 
-	server := &http.Server{Addr: addr, Handler: app.Router(), ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	server := &http.Server{Addr: addr, Handler: app.Router(),
+		ReadHeaderTimeout: 10 * time.Second, // 慢速头攻击防护（批3 P1）
+		ReadTimeout:       30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
@@ -380,6 +382,8 @@ func main() {
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
 		slog.Error("server forced shutdown", "error", err)
+		// 批3 P2：Shutdown 超时后强制关闭，避免挂起连接拖住进程退出。
+		_ = server.Close()
 	}
 	slog.Info("server exited")
 }

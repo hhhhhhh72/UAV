@@ -38,6 +38,13 @@ func NewStore(ctx context.Context, databaseURL string, cipher *crypto.Cipher) (*
 		return nil, fmt.Errorf("parse db url: %w", err)
 	}
 	cfg.MaxConns = 50
+	// P1 修复（批3）：查询级超时 + 连接生命周期管理——
+	// 此前无 statement_timeout，慢查询/锁等待会无限挂起并耗尽连接池；
+	// 连接老化无回收导致空闲连接被 PG 回收后复用报错。
+	cfg.ConnConfig.RuntimeParams["statement_timeout"] = "10000" // 单条 SQL 上限 10s
+	cfg.MaxConnLifetime = 30 * time.Minute
+	cfg.MaxConnIdleTime = 5 * time.Minute
+	cfg.HealthCheckPeriod = 30 * time.Second
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect db: %w", err)
@@ -129,15 +136,23 @@ func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
 		encContact = enc
 	}
 	d.UpdatedAt = time.Now()
+	oldVersion := d.Version // 乐观锁：WHERE version=$旧值，并发编辑时后写方失败
 	d.Version++
-	_, err = r.pool.Exec(context.Background(),
+	tag, err := r.pool.Exec(context.Background(),
 		`UPDATE demands SET publisher_name=$1, contact=$2, district=$3, city_code=$4,
 		biz_type=$5, title=$6, description=$7, images=$8, latitude=$9, longitude=$10,
-		budget_fen=$11, offline_amount_fen=$12, biz_fields=$13, status=$14, version=$15, updated_at=$16 WHERE id=$17`,
+		budget_fen=$11, offline_amount_fen=$12, biz_fields=$13, status=$14, version=$15, updated_at=$16
+		WHERE id=$17 AND version=$18`,
 		d.PublisherName, encContact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Version, d.UpdatedAt, d.ID)
-	return d, err
+		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Version, d.UpdatedAt, d.ID, oldVersion)
+	if err != nil {
+		return domain.Demand{}, fmt.Errorf("update demand %s: %w", d.ID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.Demand{}, fmt.Errorf("demand %s 已被他人修改，请刷新后重试", d.ID)
+	}
+	return d, nil
 }
 
 func (r *demandRepo) List(f repository.DemandFilter) ([]domain.Demand, error) {

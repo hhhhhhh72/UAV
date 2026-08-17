@@ -94,7 +94,7 @@ func (s *DemandService) UpdateDraft(a domain.Actor, id, title, desc string) (dom
 	d.Title = title
 	d.Description = desc
 	d.UpdatedAt = time.Now()
-	d.Version++
+	// 版本号自增由仓储层 Update 统一处理（乐观锁语义：WHERE version=$旧值）
 	return s.repo.Update(d)
 }
 

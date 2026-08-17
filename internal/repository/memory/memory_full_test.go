@@ -49,13 +49,23 @@ func TestDemandRepoFull(t *testing.T) {
 	if ok2 {
 		t.Fatal("CAS should fail with wrong old status")
 	}
-	// Update
-	d.Title = "updated"
-	u, err := r.Update(d)
+	// Update（乐观锁：必须基于最新版本——CAS 已把版本自增，旧对象会冲突）
+	fresh, err := r.FindByID("d-1")
+	if err != nil {
+		t.Fatal("find before update:", err)
+	}
+	fresh.Title = "updated"
+	u, err := r.Update(fresh)
 	if err != nil {
 		t.Fatal("update failed:", err)
 	}
 	_ = u
+	// 旧版本对象更新必须报并发冲突
+	old := d
+	old.Title = "stale"
+	if _, err := r.Update(old); err == nil {
+		t.Fatal("stale version update should conflict")
+	}
 }
 
 // === Enterprise Repository ===

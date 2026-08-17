@@ -72,6 +72,10 @@ func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == d.ID {
+			// 乐观锁：与 PG 实现对齐——旧版本号不匹配视为并发修改
+			if r.items[i].Version != d.Version {
+				return domain.Demand{}, fmt.Errorf("demand %s 已被他人修改，请刷新后重试", d.ID)
+			}
 			if r.cipher != nil && d.Contact != "" {
 				enc, err := r.cipher.Encrypt(d.Contact)
 				if err != nil {
@@ -79,6 +83,7 @@ func (r *demandRepo) Update(d domain.Demand) (domain.Demand, error) {
 				}
 				d.Contact = enc
 			}
+			d.Version++
 			r.items[i] = d
 			return d, nil
 		}
