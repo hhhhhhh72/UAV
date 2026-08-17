@@ -39,6 +39,7 @@ func NewStore(ctx context.Context, databaseURL string, cipher *crypto.Cipher) (*
 		return nil, fmt.Errorf("parse db url: %w", err)
 	}
 	cfg.MaxConns = 50
+	cfg.MinConns = 5 // C 批：常驻最小连接，避免突发流量下冷启动建连延迟
 	// P1 修复（批3）：查询级超时 + 连接生命周期管理——
 	// 此前无 statement_timeout，慢查询/锁等待会无限挂起并耗尽连接池；
 	// 连接老化无回收导致空闲连接被 PG 回收后复用报错。
@@ -1030,7 +1031,7 @@ func (r *pgReportRepo) ListPending(offset, limit int) ([]domain.Report, int, err
 	if err := r.pool.QueryRow(context.Background(), `SELECT count(*) FROM reports WHERE status='pending'`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count pending reports: %w", err)
 	}
-	rows, err := r.pool.Query(context.Background(), `SELECT id,reporter_id,resource_type,resource_id,reason,status,created_at FROM reports WHERE status='pending' ORDER BY created_at LIMIT $1 OFFSET $2`, limit, offset)
+	rows, err := r.pool.Query(context.Background(), `SELECT id,reporter_id,resource_type,resource_id,reason,status,created_at FROM reports WHERE status='pending' ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}

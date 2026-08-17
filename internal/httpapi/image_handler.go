@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"drone-platform/internal/middleware"
 )
@@ -24,6 +26,39 @@ import (
 func imageCacheKey(urlPath string, width, quality int, outputFormat string, modTime int64) string {
 	h := sha256.Sum256([]byte(fmt.Sprintf("%s%d%d%s%d", urlPath, width, quality, outputFormat, modTime)))
 	return fmt.Sprintf("%x_%d_%d_%s", h, width, quality, outputFormat)
+}
+
+// cleanImageCacheOnce 删除缓存目录中超过 30 天未修改的图片缓存文件。
+// sync.Once 保证整个进程只执行一次；失败仅记录日志，不影响图片服务。
+var cleanImageCache sync.Once
+
+func cleanImageCacheOnce(cacheDir string) {
+	cleanImageCache.Do(func() {
+		entries, err := os.ReadDir(cacheDir)
+		if err != nil {
+			slog.Warn("image: read cache dir", "path", cacheDir, "err", err)
+			return
+		}
+		cutoff := time.Now().Add(-30 * 24 * time.Hour)
+		removed := 0
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			info, err := e.Info()
+			if err != nil {
+				continue
+			}
+			if info.ModTime().Before(cutoff) {
+				if err := os.Remove(filepath.Join(cacheDir, e.Name())); err == nil {
+					removed++
+				}
+			}
+		}
+		if removed > 0 {
+			slog.Info("image: cache janitor removed stale files", "count", removed)
+		}
+	})
 }
 
 // GET /api/v1/image — resize & convert images with disk caching.
@@ -97,6 +132,9 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	// Check disk cache
 	cacheDir := filepath.Join(baseDir, ".image-cache")
 	os.MkdirAll(cacheDir, 0755)
+	// C 批：缓存目录上限/过期清理——启动后首次访问触发一次 >30 天缓存清理，
+	// 避免 .image-cache 磁盘无限增长（此后由周期清理承担，见 startImageCacheJanitor）。
+	cleanImageCacheOnce(cacheDir)
 	srcStat, err := os.Stat(imagePath)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)

@@ -13,6 +13,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,8 +22,10 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"reflect"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -162,8 +165,24 @@ func (s *idempotencyStore) get(key string) (int, string, bool) {
 func (s *idempotencyStore) set(key string, status int, body string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// C 批：缓存容量上限——恶意构造海量唯一 key 时防止内存无限增长。
+	// 超限时先清理过期项，仍超限则拒绝缓存新条目（仅本次响应不缓存，不影响功能）。
+	if len(s.cache) >= maxIdempotencyEntries {
+		now := time.Now()
+		for k, v := range s.cache {
+			if now.After(v.expiresAt) {
+				delete(s.cache, k)
+			}
+		}
+		if len(s.cache) >= maxIdempotencyEntries {
+			return
+		}
+	}
 	s.cache[key] = idempotencyEntry{status: status, body: body, expiresAt: time.Now().Add(24 * time.Hour)}
 }
+
+// maxIdempotencyEntries 幂等响应缓存条目上限（防内存 DoS）。
+const maxIdempotencyEntries = 20000
 
 type rateLimiter struct {
 	mu        sync.Mutex
@@ -186,6 +205,9 @@ func newRateLimiter(ratePerSec, burst int) *rateLimiter {
 	}
 }
 
+// maxRateBuckets 限流桶上限（防内存 DoS），超限的新来源直接拒绝。
+const maxRateBuckets = 100000
+
 func (rl *rateLimiter) allow(key string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -198,6 +220,14 @@ func (rl *rateLimiter) allow(key string) bool {
 			}
 		}
 		rl.cleanupAt = time.Now().Add(time.Hour)
+	}
+
+	// C 批：桶容量上限——海量来源 IP 下 map 持续增长的内存 DoS 防护。
+	// 超限时新 IP 不建桶（按限流拒绝），不驱逐既有桶。
+	if len(rl.buckets) >= maxRateBuckets {
+		if _, ok := rl.buckets[key]; !ok {
+			return false
+		}
 	}
 
 	b, ok := rl.buckets[key]
@@ -331,6 +361,17 @@ func (s *Server) Router() http.Handler {
 		mux.HandleFunc("/swagger/", httpSwagger.Handler(
 			httpSwagger.URL("/swagger/doc.json"),
 		))
+	}
+
+	// ── C 批：性能观测 ─────────────────────────────────────────────
+	// pprof 仅 dev 暴露（生产如需再经网关/内网注入）；/metrics 轻量公开。
+	mux.HandleFunc("/metrics", s.metricsHandler)
+	if adminDevMode() {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 
 	return s.rateLimit(s.accessLog(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.idempotencyCheck(s.adminGate(middleware.SanitizeBody(mux))))))))))
@@ -861,6 +902,24 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 	return r.ResponseWriter.Write(b)
 }
 
+// appStartTime 记录进程启动时刻，供 /metrics 计算运行时长。
+var appStartTime = time.Now()
+
+// metricsHandler 输出轻量运行时指标（内存/协程/GC/运行时长），JSON 格式。
+func (s *Server) metricsHandler(w http.ResponseWriter, r *http.Request) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"goroutines":       runtime.NumGoroutine(),
+		"heap_alloc_bytes": m.HeapAlloc,
+		"heap_sys_bytes":   m.HeapSys,
+		"heap_objects":     m.HeapObjects,
+		"gc_cycles":        m.NumGC,
+		"uptime_seconds":   int64(time.Since(appStartTime).Seconds()),
+	})
+}
+
 // statusWriter 透传写操作并记录状态码，供访问日志中间件使用。
 type statusWriter struct {
 	http.ResponseWriter
@@ -985,9 +1044,24 @@ func (s *Server) allowedCORSOrigins() []string {
 	return strings.Split(raw, ",")
 }
 
+// maxBodyBytes JSON 请求体上限（与 SanitizeBody 一致）。
+const maxBodyBytes = 1 << 20
+
 func decode(r *http.Request, v any) error {
-	d := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
-	return d.Decode(v)
+	// C 批：超限不再静默截断——1MiB+1 探测，超限返回明确错误（由 handler 映射 413）。
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodyBytes+1))
+	if err != nil {
+		return fmt.Errorf("read request body: %w", err)
+	}
+	if len(body) > maxBodyBytes {
+		return errors.New("request body too large (max 1MiB)")
+	}
+	// 空 body 保持 io.EOF 语义：handler 常用 errors.Is(err, io.EOF) 区分"无 body 但可选"，
+	// fail() 也将其映射为统一文案。
+	if len(bytes.TrimSpace(body)) == 0 {
+		return io.EOF
+	}
+	return json.Unmarshal(body, v)
 }
 
 // parseDateInput accepts both RFC3339 timestamps and plain "2006-01-02" dates.
@@ -1008,6 +1082,10 @@ func paginationFromQuery(r *http.Request) (page, pageSize int) {
 	}
 	if ps, err := strconv.Atoi(r.URL.Query().Get("page_size")); err == nil && ps > 0 {
 		pageSize = ps
+	}
+	// C 批：page 上界——防超大 OFFSET 深分页慢查询。
+	if page > 10000 {
+		page = 10000
 	}
 	if pageSize > 100 {
 		pageSize = 100
