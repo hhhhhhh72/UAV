@@ -218,7 +218,7 @@ func (s *Server) adminUpdateProduct(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/v1/admin/products/{id} — 管理后台删除商品
 func (s *Server) adminDeleteProduct(w http.ResponseWriter, r *http.Request) {
 	if err := s.tradingSvc.DeleteProduct(r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})

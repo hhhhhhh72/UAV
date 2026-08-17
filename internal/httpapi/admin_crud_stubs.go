@@ -4,25 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/service"
 )
-
-func parsePagination(r *http.Request) (int, int) {
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	return page, pageSize
-}
 
 // ============================================================
 // Admin CRUD stub handlers — fill gaps for frontend useAdminApi()
@@ -46,17 +33,14 @@ func adminListFilter[T any](items []T, kw, status string, kwField func(T) string
 	return out, len(out)
 }
 
-// adminSlicePage 对过滤后的全量列表按页码切片。
-func adminSlicePage[T any](items []T, page, pageSize int) []T {
-	offset := (page - 1) * pageSize
-	if offset >= len(items) {
-		return []T{}
+// adminFail 管理端写操作错误映射：资源不存在 → 404，其余 → 500。
+// 修复前 update/delete 一律 500，前端无法区分"资源不存在"与真实服务故障。
+func adminFail(w http.ResponseWriter, r *http.Request, err error) {
+	code := http.StatusInternalServerError
+	if strings.Contains(strings.ToLower(err.Error()), "not found") {
+		code = http.StatusNotFound
 	}
-	end := offset + pageSize
-	if end > len(items) {
-		end = len(items)
-	}
-	return items[offset:end]
+	fail(w, r, code, err)
 }
 
 // ----- Enrollments (报名记录) -----
@@ -89,7 +73,7 @@ func (s *Server) listAdminBookings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 	all, _, err := s.tradeSvc.ListAll(0, 10000)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	// 状态 + 关键词过滤（复用管理端通用过滤）
@@ -132,7 +116,7 @@ func (s *Server) listAdminCaseEntries(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	items, total, err := s.caseSvc.List(category, 1, 100000)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	paginatedRespond(w, r, items, total)
@@ -147,7 +131,7 @@ func (s *Server) listAdminExperts(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listAdminCompetitions(w http.ResponseWriter, r *http.Request) {
 	items, _, err := s.competitionSvc.List(1, 100000)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	filtered, ftotal := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
@@ -198,14 +182,14 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 		RegistrationStatus: in.RegistrationStatus,
 	})
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCompetition(w http.ResponseWriter, r *http.Request) {
 	if err := s.competitionSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
@@ -265,7 +249,7 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
 	})
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusCreated, c)
@@ -324,14 +308,14 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
 	})
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCourse(w http.ResponseWriter, r *http.Request) {
 	if err := s.trainingSvc.DeleteCourse(r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
@@ -366,14 +350,14 @@ func (s *Server) updateCertificate(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.trainingSvc.UpdateCertificate(id, in.CertType, in.CertNumber, in.Level, in.IssuerOrg, in.Status, in.IssueDate, in.ExpireDate)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCertificate(w http.ResponseWriter, r *http.Request) {
 	if err := s.trainingSvc.DeleteCertificate(r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
@@ -400,7 +384,7 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 	}
 	c, err := s.trainingSvc.AddCertificate(domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.IssueDate, in.ExpireDate)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusCreated, c)
@@ -445,7 +429,7 @@ func (s *Server) updateJob(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) deleteJob(w http.ResponseWriter, r *http.Request) {
 	if err := s.jobSvc.DeleteJob(r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
@@ -466,7 +450,7 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 	}
 	j, err := s.jobSvc.CreateJob(domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, in.Title, in.Description, in.Location, in.SalaryFen)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	if in.Status == "published" {
@@ -538,14 +522,14 @@ func (s *Server) updateCollege(w http.ResponseWriter, r *http.Request) {
 		Intro: in.Intro, MajorsDetail: in.MajorsDetail,
 	})
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCollege(w http.ResponseWriter, r *http.Request) {
 	if err := s.collegeSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
@@ -557,7 +541,7 @@ func (s *Server) deleteCollege(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listAdminStudy(w http.ResponseWriter, r *http.Request) {
 	items, err := s.studyTourRepo.List()
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
@@ -605,7 +589,7 @@ func (s *Server) createStudyTour(w http.ResponseWriter, r *http.Request) {
 		CoverImage: in.CoverImage, PriceFen: in.PriceFen, Schedule: in.Schedule}
 	sr, err := s.studyTourRepo.Create(st)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusCreated, sr)
@@ -653,14 +637,14 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 	st.Schedule = in.Schedule
 	sr, err := s.studyTourRepo.Update(st)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, sr)
 }
 func (s *Server) deleteStudyTour(w http.ResponseWriter, r *http.Request) {
 	if err := s.studyTourRepo.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
@@ -695,14 +679,14 @@ func (s *Server) updateTestSite(w http.ResponseWriter, r *http.Request) {
 	}
 	site, err := s.testSiteSvc.UpdateSite(id, in.Name, in.SiteType, in.Location, in.BookingRule, in.Status, in.PriceFen, in.Facilities)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, site)
 }
 func (s *Server) deleteTestSite(w http.ResponseWriter, r *http.Request) {
 	if err := s.testSiteSvc.DeleteSite(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -746,14 +730,14 @@ func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := s.transSvc.UpdateTrans(id, in.Title, in.Stage, in.Progress, in.PartnerID, in.Status)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, t)
 }
 func (s *Server) deleteTransformation(w http.ResponseWriter, r *http.Request) {
 	if err := s.transSvc.DeleteTrans(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -790,14 +774,14 @@ func (s *Server) updateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	ev, err := s.eventSvc.Update(id, in.Title, in.EventType, in.Description, in.Location, in.CoverURL, in.Status, domain.ParseTime(in.StartTime), domain.ParseTime(in.EndTime), in.MaxAttendees)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, ev)
 }
 func (s *Server) deleteEvent(w http.ResponseWriter, r *http.Request) {
 	if err := s.eventSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -806,7 +790,7 @@ func (s *Server) deleteEvent(w http.ResponseWriter, r *http.Request) {
 // --- Portfolios (missing delete) ---
 func (s *Server) deletePortfolio(w http.ResponseWriter, r *http.Request) {
 	if err := s.portfolioSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -844,14 +828,14 @@ func (s *Server) updateExhibition(w http.ResponseWriter, r *http.Request) {
 	}
 	e, err := s.exhibitionSvc.Update(id, in.Title, in.Category, in.Description, in.Location, in.Organizer, domain.ParseTime(in.StartDate), domain.ParseTime(in.EndDate), in.BoothCount, in.BoothPrice, in.Status)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, e)
 }
 func (s *Server) deleteExhibition(w http.ResponseWriter, r *http.Request) {
 	if err := s.exhibitionSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -876,7 +860,7 @@ func (s *Server) updateIndustryReport(w http.ResponseWriter, r *http.Request) {
 	}
 	rpt, err := s.reportSvc.Update(id, in.Title, in.Period, in.Category, in.Summary, in.Content, in.FileURL, in.Author, in.Status)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, rpt)
@@ -929,14 +913,14 @@ func (s *Server) updateEmergencyResource(w http.ResponseWriter, r *http.Request)
 	}
 	r2, err := s.emergencySvc.UpdateResource(id, in.Name, in.ResType, in.Specs, in.Location, in.ContactInfo, in.Status, in.Quantity)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, r2)
 }
 func (s *Server) deleteEmergencyResource(w http.ResponseWriter, r *http.Request) {
 	if err := s.emergencySvc.DeleteResource(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -972,14 +956,14 @@ func (s *Server) updateEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 	}
 	d, err := s.emergencySvc.UpdateDispatch(id, in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, in.Status, domain.ParseTime(in.StartTime), domain.ParseTime(in.EndTime))
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, d)
 }
 func (s *Server) deleteEmergencyDispatch(w http.ResponseWriter, r *http.Request) {
 	if err := s.emergencySvc.DeleteDispatch(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -1020,7 +1004,7 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	msg, err := s.msgSvc.Send(in.SenderID, in.ReceiverID, in.Title, in.Content, in.ResourceType, in.ResourceID)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 201, msg)
@@ -1062,14 +1046,14 @@ func (s *Server) updateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	msg, err := s.msgSvc.MarkRead(m.ReceiverID, m.ID)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, msg)
 }
 func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	if err := s.msgSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -1095,14 +1079,14 @@ func (s *Server) updateComplianceDoc(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.complianceSvc.UpdateDoc(id, in.Title, in.Category, in.Publisher, in.PublishDate, in.Status, in.Summary, in.FileURL, in.Tags)
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, d)
 }
 func (s *Server) deleteComplianceDoc(w http.ResponseWriter, r *http.Request) {
 	if err := s.complianceSvc.DeleteDoc(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -1127,14 +1111,14 @@ func (s *Server) updateComplianceStandard(w http.ResponseWriter, r *http.Request
 	}
 	sd, err := s.complianceSvc.UpdateStandard(id, in.Title, in.Category, in.StandardNo, in.Publisher, in.EffectiveDate, in.Scope, in.Status, in.FileURL)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, sd)
 }
 func (s *Server) deleteComplianceStandard(w http.ResponseWriter, r *http.Request) {
 	if err := s.complianceSvc.DeleteStandard(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -1172,7 +1156,7 @@ func (s *Server) listAdminResources(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) deleteIndustryResource(w http.ResponseWriter, r *http.Request) {
 	if err := s.resourceSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -1181,7 +1165,7 @@ func (s *Server) deleteIndustryResource(w http.ResponseWriter, r *http.Request) 
 // --- RD Challenges (missing delete) ---
 func (s *Server) deleteRDChallenge(w http.ResponseWriter, r *http.Request) {
 	if err := s.rdService.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -1190,7 +1174,7 @@ func (s *Server) deleteRDChallenge(w http.ResponseWriter, r *http.Request) {
 // --- Research Projects (missing delete) ---
 func (s *Server) deleteResearchProject(w http.ResponseWriter, r *http.Request) {
 	if err := s.researchSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
@@ -1403,7 +1387,7 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	o, err := s.tradeSvc.Create(in.BuyerID, in.ProductID, in.SellerID, in.AmountFen)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 201, o)
@@ -1418,7 +1402,7 @@ func (s *Server) updateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	o, err := s.tradeSvc.UpdateStatusAdmin(r.PathValue("id"), in.Status)
 	if err != nil {
-		fail(w, r, 500, err)
+		adminFail(w, r, err)
 		return
 	}
 	respond(w, r, 200, o)
@@ -1452,7 +1436,7 @@ func (s *Server) reviewAftersale(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) deleteOrder(w http.ResponseWriter, r *http.Request) {
 	if err := s.tradeSvc.Delete(r.PathValue("id")); err != nil {
-		fail(w, r, 500, fmt.Errorf("delete order: %w", err))
+		adminFail(w, r, fmt.Errorf("delete order: %w", err))
 		return
 	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})

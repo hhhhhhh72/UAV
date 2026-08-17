@@ -90,13 +90,13 @@ var adminListOnly = []adminResource{
 	{name: "rescue-cases", listPath: "/api/v1/admin/rescue-cases"},
 }
 
-// 错误分支状态码集合：handler 对 service 的 not-found 错误映射不一致——
-// 一部分映射为 404（先 Get/FindByID），另一部分把任何错误映射为 500，
-// 因此用集合断言而非单一状态码。
+// 错误分支状态码集合：adminFail 统一把 not-found 映射为 404；
+// 其余（decode 失败等）为 400/409/422。500 已从 update/delete 集合移除——
+// 若再出现 500 即回归（此前 update/delete 对 not-found 一律 500）。
 var (
-	okGetCodes    = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict}                                                                // 400/404/409
-	okUpdateCodes = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError} // 400/404/409/422/500
-	okDeleteCodes = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError}                                 // 400/404/409/500
+	okGetCodes    = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict}                              // 400/404/409
+	okUpdateCodes = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity} // 400/404/409/422
+	okDeleteCodes = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict}                               // 400/404/409
 )
 
 // checkStatus 断言响应状态码等于 want，失败时输出 method/path/code/body 前 200 字符。
