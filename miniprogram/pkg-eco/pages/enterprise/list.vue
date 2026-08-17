@@ -33,6 +33,21 @@
           <text class="h-stat-label">行业覆盖</text>
         </view>
       </view>
+
+      <!-- 搜索框：按企业名称 / 核心能力 / 行业模糊过滤（对齐输入框规范：radius 24rpx） -->
+      <view class="hero-search">
+        <view class="search-box">
+          <view class="search-icon" />
+          <input
+            class="search-input"
+            v-model="keyword"
+            placeholder="搜索企业名称、能力、行业"
+            placeholder-class="search-ph"
+            confirm-type="search"
+          />
+          <view v-if="keyword" class="search-clear" hover-class="tap-fade" hover-stay-time="120" @tap="keyword = ''" />
+        </view>
+      </view>
     </view>
 
     <!-- 加载中：骨架屏 -->
@@ -42,7 +57,7 @@
       <view class="skeleton-card"></view>
     </view>
 
-    <!-- 空数据 -->
+    <!-- 空数据（全量无企业） -->
     <view v-else-if="list.length === 0" class="state-panel">
       <view class="state-mark">
         <view class="state-mark-inner">
@@ -54,6 +69,23 @@
       </view>
       <text class="state-title">暂无入驻企业</text>
       <text class="state-desc">企业完成入驻审核后将在此公示</text>
+      <view class="state-btn" hover-class="tap-fade" hover-stay-time="120" @tap="goRegister">
+        <text>申请入驻</text>
+      </view>
+    </view>
+
+    <!-- 搜索/筛选无结果 -->
+    <view v-else-if="filteredList.length === 0" class="state-panel">
+      <view class="state-mark state-mark-muted">
+        <view class="state-mark-inner">
+          <view class="state-search-icon" />
+        </view>
+      </view>
+      <text class="state-title">未找到相关企业</text>
+      <text class="state-desc">换个关键词试试，或浏览全部入驻企业</text>
+      <view class="state-btn" hover-class="tap-fade" hover-stay-time="120" @tap="resetFilter">
+        <text>清除筛选</text>
+      </view>
     </view>
 
     <template v-else>
@@ -90,7 +122,7 @@
           <text v-if="e.is_member" class="member-badge">会员</text>
 
           <view class="ent-logo">
-            <image v-if="e.logo" :src="resolveUrl(e.logo)" mode="aspectFill" class="ent-logo-img" />
+            <image v-if="e.logo" :src="resolveUrl(e.logo)" mode="aspectFill" class="ent-logo-img" @error="e.logo = ''" />
             <view v-else class="ent-logo-fallback">{{ e.name ? e.name.charAt(0) : '企' }}</view>
             <view class="logo-ring" />
           </view>
@@ -112,25 +144,68 @@
           <text class="ent-date">入驻 {{ formatDate(e.created_at) }}</text>
         </view>
       </view>
+
+      <!-- 列表底部提示 + 申请入驻 CTA -->
+      <view class="list-foot">
+        <text class="list-foot-text">共 {{ filteredList.length }} 家入驻企业</text>
+        <view class="foot-join" hover-class="tap-fade" hover-stay-time="120" @tap="goRegister">
+          <text class="foot-join-text">您的企业也想入驻？立即申请</text>
+          <view class="foot-join-arrow" />
+        </view>
+      </view>
     </template>
+
+    <!-- 底部固定申请入驻条（按钮规范：radius 50rpx + box-shadow） -->
+    <view class="join-bar">
+      <view class="join-btn" hover-class="join-btn-hover" hover-stay-time="120" @tap="goRegister">
+        <text class="join-btn-text">申请企业入驻</text>
+        <view class="join-arrow" />
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request, BASE_URL } from '../../../utils/request'
 
 const loading = ref(false)
 const list = ref([])
 const statusBarH = ref(20)
 const activeCat = ref('')
+const keyword = ref('')
 
 const goBack = () => uni.navigateBack()
+
+const goRegister = () => uni.navigateTo({ url: '/pkg-eco/pages/enterprise/register' })
+
+// 清除搜索与行业筛选
+const resetFilter = () => {
+  keyword.value = ''
+  activeCat.value = ''
+}
 
 const openDetail = (e) => {
   uni.navigateTo({ url: '/pkg-eco/pages/enterprise/detail?id=' + encodeURIComponent(e.id) })
 }
+
+const load = async () => {
+  loading.value = true
+  try {
+    const res = await request({ url: '/api/v1/enterprises/public' })
+    list.value = Array.isArray(res) ? res : []
+  } catch (e) {
+    list.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onPullDownRefresh(async () => {
+  await load()
+  uni.stopPullDownRefresh()
+})
 
 const splitTags = (str) => {
   if (!str) return []
@@ -174,9 +249,20 @@ const cats = computed(() => {
   return ['', ...set]
 })
 
+// 关键词匹配：企业名称 / 简介 / 行业 / 能力 任一命中
+const matchKeyword = (e) => {
+  const kw = keyword.value.trim().toLowerCase()
+  if (!kw) return true
+  const hay = [e.name, e.description, e.industry_category, e.capability_tags]
+    .filter(Boolean).join(' ').toLowerCase()
+  return hay.includes(kw)
+}
+
 const filteredList = computed(() => {
-  if (!activeCat.value) return list.value
-  return list.value.filter((e) => categoryList(e).includes(activeCat.value))
+  const base = activeCat.value
+    ? list.value.filter((e) => categoryList(e).includes(activeCat.value))
+    : list.value
+  return base.filter(matchKeyword)
 })
 
 const formatDate = (d) => {
@@ -191,15 +277,7 @@ onLoad(async () => {
   } catch (e) {
     // 默认 20
   }
-  loading.value = true
-  try {
-    const res = await request({ url: '/api/v1/enterprises/public' })
-    list.value = Array.isArray(res) ? res : []
-  } catch (e) {
-    list.value = []
-  } finally {
-    loading.value = false
-  }
+  await load()
 })
 </script>
 
@@ -207,7 +285,7 @@ onLoad(async () => {
 .ent-list-page {
   min-height: 100vh;
   background: #F4F6F8;
-  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(200rpx + env(safe-area-inset-bottom));
 }
 
 .tap-fade { opacity: 0.85; }
@@ -311,6 +389,75 @@ onLoad(async () => {
   height: 44rpx;
   background: rgba(255, 255, 255, 0.18);
 }
+
+/* ═══════ Hero 搜索框（输入框规范：radius 24rpx；深色 hero 上取白色半透明底） ═══════ */
+.hero-search {
+  position: relative;
+  z-index: 2;
+  margin-top: 20rpx;
+}
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  height: 72rpx;
+  padding: 0 24rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1rpx solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 6rpx 20rpx rgba(7, 77, 146, 0.22);
+}
+/* CSS 放大镜（非 emoji） */
+.search-icon {
+  width: 24rpx;
+  height: 24rpx;
+  border: 3rpx solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.search-icon::after {
+  content: '';
+  position: absolute;
+  right: -9rpx;
+  bottom: -6rpx;
+  width: 12rpx;
+  height: 3rpx;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 2rpx;
+  transform: rotate(45deg);
+}
+.search-input {
+  flex: 1;
+  height: 72rpx;
+  font-size: 26rpx;
+  color: #fff;
+}
+.search-ph {
+  color: rgba(255, 255, 255, 0.55);
+}
+/* CSS 清除按钮（圆形 ×） */
+.search-clear {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  position: relative;
+  flex-shrink: 0;
+}
+.search-clear::before,
+.search-clear::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #fff;
+}
+.search-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
+.search-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
 
 /* ═══════ 行业筛选 chips ═══════ */
 .chip-scroll {
@@ -428,6 +575,38 @@ onLoad(async () => {
 .state-win-2 { right: 12rpx; }
 .state-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
 .state-desc { margin: 12rpx 0 0; font-size: 22rpx; color: #98A2B3; }
+.state-btn {
+  margin-top: 36rpx;
+  padding: 16rpx 64rpx;
+  border-radius: 50rpx;
+  background: linear-gradient(135deg, #0A66C2, #0D7AE0);
+  box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.28);
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #fff;
+}
+/* 搜索空态：灰调图标变体 */
+.state-mark-muted {
+  background: linear-gradient(160deg, #F1F3F5, #F7F9FB);
+}
+.state-search-icon {
+  width: 44rpx;
+  height: 44rpx;
+  border: 4rpx solid #C0C8D2;
+  border-radius: 50%;
+  position: relative;
+}
+.state-search-icon::after {
+  content: '';
+  position: absolute;
+  right: -14rpx;
+  bottom: -9rpx;
+  width: 22rpx;
+  height: 4rpx;
+  border-radius: 2rpx;
+  background: #C0C8D2;
+  transform: rotate(45deg);
+}
 
 /* ═══════ 企业卡片（两列网格，竖向布局） ═══════ */
 .card-list {
@@ -601,5 +780,81 @@ onLoad(async () => {
   padding-top: 12rpx;
   font-size: 20rpx;
   color: #98A2B3;
+}
+
+/* ═══════ 列表底部提示 + 入驻引导 ═══════ */
+.list-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18rpx;
+  padding: 36rpx 32rpx 24rpx;
+}
+.list-foot-text {
+  font-size: 22rpx;
+  color: #98A2B3;
+}
+.foot-join {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  padding: 14rpx 32rpx;
+  border-radius: 50rpx;
+  background: #F4F8FC;
+  border: 1rpx solid rgba(10, 102, 194, 0.16);
+}
+.foot-join-text {
+  font-size: 24rpx;
+  color: #0A66C2;
+  font-weight: 600;
+}
+.foot-join-arrow {
+  width: 12rpx;
+  height: 12rpx;
+  border-top: 3rpx solid #0A66C2;
+  border-right: 3rpx solid #0A66C2;
+  transform: rotate(45deg);
+  margin-left: 2rpx;
+}
+
+/* ═══════ 底部固定申请入驻条（按钮规范：radius 50rpx + box-shadow） ═══════ */
+.join-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  padding: 16rpx 32rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(244, 246, 248, 0), #F4F6F8 30%);
+  pointer-events: none;
+}
+.join-btn {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  height: 88rpx;
+  border-radius: 50rpx;
+  background: linear-gradient(135deg, #0A66C2 0%, #0D7AE0 100%);
+  box-shadow: 0 10rpx 26rpx rgba(10, 102, 194, 0.34);
+}
+.join-btn-hover {
+  opacity: 0.88;
+  transform: scale(0.985);
+}
+.join-btn-text {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 2rpx;
+}
+.join-arrow {
+  width: 14rpx;
+  height: 14rpx;
+  border-top: 4rpx solid #fff;
+  border-right: 4rpx solid #fff;
+  transform: rotate(45deg);
 }
 </style>

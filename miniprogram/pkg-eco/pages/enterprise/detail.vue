@@ -43,7 +43,7 @@
       <!-- ═══════ 品牌区：封面 + 叠压 Logo + 名称/认证 ═══════ -->
       <view class="brand-panel">
         <view class="cover-box">
-          <image v-if="ent.cover_image" :src="resolveUrl(ent.cover_image)" mode="aspectFill" class="cover-img" />
+          <image v-if="ent.cover_image" :src="resolveUrl(ent.cover_image)" mode="aspectFill" class="cover-img" @error="ent.cover_image = ''" />
           <view v-else class="cover-fallback">
             <view class="cover-ring cover-ring-a" />
             <view class="cover-ring cover-ring-b" />
@@ -53,7 +53,7 @@
 
         <view class="brand-id">
           <view class="brand-logo">
-            <image v-if="ent.logo" :src="resolveUrl(ent.logo)" mode="aspectFill" class="brand-logo-img" />
+            <image v-if="ent.logo" :src="resolveUrl(ent.logo)" mode="aspectFill" class="brand-logo-img" @error="ent.logo = ''" />
             <view v-else class="brand-logo-fallback">{{ ent.name ? ent.name.charAt(0) : '企' }}</view>
           </view>
           <view class="brand-info">

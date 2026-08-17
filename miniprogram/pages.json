@@ -524,7 +524,9 @@
             "navigationBarTitleText": "入驻企业",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
-            "navigationStyle": "custom"
+            "navigationStyle": "custom",
+            "enablePullDownRefresh": true,
+            "backgroundTextStyle": "dark"
           }
         },
         {
