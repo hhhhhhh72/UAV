@@ -161,19 +161,19 @@
         <view class="sheet-body">
           <!-- 登录引导 -->
           <template v-if="sheet.kind === 'login'">
-            <text class="sheet-desc">发布、收藏和登记对接需要登录。模拟登录后，仍需完成企业认证才能建立正式对接。</text>
+            <text class="sheet-desc">发布、收藏和登记对接需要登录，登录后仍需完成企业认证才能建立正式对接。</text>
             <view class="sheet-actions">
               <view class="ghost-btn" @tap="closeSheet">暂不登录</view>
-              <view class="primary-btn" @tap="handleSimulateLogin">模拟登录</view>
+              <view class="primary-btn" @tap="goLogin">去登录</view>
             </view>
           </template>
 
           <!-- 认证引导 -->
           <template v-else-if="sheet.kind === 'cert'">
-            <text class="sheet-desc">为保障供需双方信息真实，登记对接前需完成企业认证。原型将直接模拟认证通过。</text>
+            <text class="sheet-desc">为保障供需双方信息真实，登记对接前需完成企业认证。</text>
             <view class="sheet-actions">
               <view class="ghost-btn" @tap="closeSheet">稍后认证</view>
-              <view class="primary-btn" @tap="simulateCert">模拟认证通过</view>
+              <view class="primary-btn" @tap="goCert">去认证</view>
             </view>
           </template>
 
@@ -214,8 +214,7 @@ import { request } from '../../utils/request'
 import { safeNavigateTo } from '../../utils/nav'
 import {
   IMG_SOLAR, IMG_LIFT, IMG_HERO, isEnded, normalizeDemand, normalizeService,
-  getKindItems, isLoggedIn, isCertified, setCertified,
-  simulateLogin, currentUserName, saveSentIntents, getSentIntents,
+  getKindItems, isLoggedIn, currentUserName, saveSentIntents, getSentIntents,
   publishPostToCard,
 } from '../../utils/hallData'
 import { getPosts } from '../../utils/publishData'
@@ -410,19 +409,31 @@ const onFavorite = () => {
   uni.showToast({ title: '已收藏', icon: 'success' })
 }
 
-const onIntent = () => {
+const onIntent = async () => {
   if (!isLoggedIn()) {
     openSheet('login')
     return
   }
-  if (!isCertified()) {
+  if (!(await isEnterpriseCertified())) {
     openSheet('cert')
     return
   }
   openSheet('intent')
 }
 
-/* ================= 会话模拟 ================= */
+// 企业认证：真实检查（/api/v1/enterprises 是否存在 approved 记录），不再读 mock hall_certified
+const isEnterpriseCertified = async () => {
+  try {
+    const res = await request({ url: '/api/v1/enterprises' })
+    const data = (res && res.data) || res || {}
+    const items = Array.isArray(data) ? data : (data && data.items) || []
+    return items.some((e) => e.status === 'approved')
+  } catch (e) {
+    return false
+  }
+}
+
+/* ================= 会话弹层 ================= */
 const sheet = ref({ show: false, kind: '', title: '' })
 const intentForm = ref({ name: '', phone: '', note: '', agree: false })
 
@@ -446,20 +457,14 @@ function openSheet(kind) {
 
 const closeSheet = () => { sheet.value = { show: false, kind: '', title: '' } }
 
-const handleSimulateLogin = () => {
-  if (import.meta.env.DEV) { simulateLogin() }
+const goLogin = () => {
   closeSheet()
-  if (item.value) {
-    // 已登录后继续认证引导
-    openSheet('cert')
-  }
+  uni.navigateTo({ url: '/pages/login/index' })
 }
 
-const simulateCert = () => {
-  setCertified(true)
+const goCert = () => {
   closeSheet()
-  uni.showToast({ title: '企业认证已通过，请继续登记对接', icon: 'none' })
-  openSheet('intent')
+  uni.navigateTo({ url: '/pkg-eco/pages/enterprise/register' })
 }
 
 const submitIntent = async () => {

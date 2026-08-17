@@ -155,7 +155,8 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request, getStoredUser } from '../../../utils/request'
+import { request } from '../../../utils/request'
+import { requireLogin } from '../../../utils/nav'
 
 const searchText = ref('')
 const list = ref([])
@@ -293,10 +294,7 @@ const fetchData = async () => {
 
 // ---- 申请认证 / 我的状态 ----
 const applyPilot = async () => {
-  if (!getStoredUser()) {
-    uni.showToast({ title: '请先登录', icon: 'none' })
-    return
-  }
+  if (!requireLogin()) return
   let mine = null
   try {
     const res = await request({ url: '/api/v1/certified-pilots/mine' })

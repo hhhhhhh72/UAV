@@ -84,7 +84,7 @@
         </view>
 
         <!-- 提示 -->
-        <view class="pub-review-note">{{ reviewed ? '该订单已完成评价，可修改后重新提交（覆盖原评价）。' : '评价结果保存在本地（演示闭环），接入评价接口后改为真实存储。' }}</view>
+        <view class="pub-review-note">{{ reviewed ? '该订单已完成评价，可修改后重新提交（覆盖原评价）。' : '评价提交后经平台审核展示，感谢您的反馈。' }}</view>
 
         <!-- 固定底部操作区（与发布页同款） -->
         <view class="pub-sticky">
@@ -98,7 +98,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { loadOrder, getReview, saveReview } from '../../utils/orderAdapter'
+import { loadOrder, getReview, submitReview as submitOrderReview } from '../../utils/orderAdapter'
 import { useSafeTop } from '../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)
@@ -167,12 +167,15 @@ const submitReview = async () => {
     uni.showToast({ title: '请选择星级', icon: 'none' })
     return
   }
-  // 评价接口（POST /reviews）接入前，结果按订单 id 存本地：
-  // 列表/详情显示「已评价」，评价页回显内容，可再次提交覆盖。
-  saveReview(orderId, { rating: rating.value, content: content.value })
-  reviewed.value = true
-  submitted.value = true
-  uni.showToast({ title: '评价提交成功', icon: 'success' })
+  try {
+    // 真实评价接口 POST /api/v1/reviews（orderAdapter 内处理开发环境本地回退）
+    await submitOrderReview(orderId, { rating: rating.value, content: content.value })
+    reviewed.value = true
+    submitted.value = true
+    uni.showToast({ title: '评价成功', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: '评价提交失败，请重试', icon: 'none' })
+  }
 }
 
 const goOrders = () => {

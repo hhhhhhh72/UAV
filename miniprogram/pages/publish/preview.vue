@@ -80,7 +80,7 @@ import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { TYPES, computePreviewMeta, makePost, upsertPost, loadFormState, clearFormState } from '../../utils/publishData'
 import { useSafeTop } from '../../utils/safeTop'
-import { request, authStorage, BASE_URL } from '../../utils/request'
+import { request, authStorage, BASE_URL, getStoredUser } from '../../utils/request'
 
 const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
 
@@ -98,6 +98,8 @@ const toastTimer = ref(null)
 const submitting = ref(false)
 // 商品发布成功后的后端商品 id（写入本地记录 backendId，供列表跳转商品详情）
 const backendProductId = ref('')
+// 需求发布成功后的后端需求 id（写入本地记录 backendId）
+const backendDemandId = ref('')
 
 const typeConfig = computed(() => TYPES[type.value] || null)
 
@@ -110,11 +112,13 @@ const isCourse = computed(() => type.value === 'course')
 const confirmText = computed(() => {
   if (isCourse.value) return typeConfig.value.name + '发布后将公开展示，可在「我的发布」中管理。'
   if (type.value === 'product') return '提交后由协会审核，通过后才上架到低空商城，可在「我的发布」中查看审核状态。'
+  if (type.value === 'demand') return '提交后由协会审核，通过后才公开展示到供需大厅，可在「我的发布」中查看审核状态。'
   return '发布后将立即上架到供需大厅，可在「我的发布」中随时下架或编辑。'
 })
 const successText = computed(() => {
   if (isCourse.value) return '内容已保存并公开展示，可在「我的发布」中查看状态。'
   if (type.value === 'product') return '商品已提交审核，协会通过后上架到低空商城，可在「我的发布」中查看状态。'
+  if (type.value === 'demand') return '需求已提交审核，协会通过后公开展示到供需大厅，可在「我的发布」中查看状态。'
   return '内容已上架到供需大厅，可在「我的发布」中管理。'
 })
 
@@ -144,7 +148,14 @@ async function submitPublish() {
     uni.navigateTo({ url: '/pages/login/index' })
     return
   }
-  // 商品发布：先写入后端商城（POST /api/v1/products），成功才置 live 并记录 backendId。
+  // 需求发布同样要求登录：先提交后端（POST /api/v1/demands），成功才落本地
+  if (type.value === 'demand' && !authStorage.getAccessToken()) {
+    submitting.value = false
+    showToast('请先登录后再发布需求')
+    uni.navigateTo({ url: '/pages/login/index' })
+    return
+  }
+  // 商品发布：先写入后端商城（POST /api/v1/products），成功才置 pending 并记录 backendId。
   // 后端商品在商城/需求大厅展示并支持下单；失败则不发布，避免本地假上架。
   if (type.value === 'product') {
     try {
@@ -160,18 +171,40 @@ async function submitPublish() {
       return
     }
   }
+  // 需求发布：先提交后端（POST /api/v1/demands），成功才落本地记录。
+  // 与商品同模式：失败则不发布，避免本地假上架。
+  // service/course 后端暂无公开创建接口，保持本地发布（已知边界）。
+  if (type.value === 'demand') {
+    try {
+      const images = photoList.value.length ? await uploadImages(photoList.value) : []
+      const created = await createBackendDemand(values.value, images)
+      if (!created || !created.id) throw new Error('create demand failed')
+      backendDemandId.value = created.id
+    } catch (e) {
+      submitting.value = false
+      showToast('发布失败，请稍后重试')
+      return
+    }
+  }
+  // 商品/需求走后端审核：提交后为"待审核"（通过后由后端统一展示，本地记录仅留发布根）；
+  // service/course 本地即时上架
+  const reviewBackend = type.value === 'product' || type.value === 'demand'
   const post = makePost({
     id: resumeId.value || '',
     type: type.value,
     values: Object.assign({}, values.value),
     photoCount: photoCount.value,
-    // 商品走后端审核：提交后为"待审核"（通过后由后端商品统一展示，本地记录仅留发布根）
-    statusKey: type.value === 'product' ? 'pending' : 'live',
-    status: type.value === 'product' ? '待审核' : '已发布',
+    statusKey: reviewBackend ? 'pending' : 'live',
+    status: reviewBackend ? '待审核' : '已发布',
     date: '刚刚发布',
-    note: type.value === 'product' ? '商品已提交审核，协会通过后上架到低空商城，可在「我的发布」中查看状态。' : '内容已上架，可在「我的发布」中随时下架或编辑。',
+    note: type.value === 'product'
+      ? '商品已提交审核，协会通过后上架到低空商城，可在「我的发布」中查看状态。'
+      : type.value === 'demand'
+        ? '需求已提交，协会审核通过后公开展示'
+        : '内容已上架，可在「我的发布」中随时下架或编辑。',
   })
   if (backendProductId.value) post.backendId = backendProductId.value
+  if (backendDemandId.value) post.backendId = backendDemandId.value
   upsertPost(post)
   showConfirm.value = false
   showSuccess.value = true
@@ -232,6 +265,39 @@ function mapProdType(t) {
   if (t === '整机') return 'drone'
   if (t === '维修服务') return 'repair'
   return 'part' // 零部件 / 载荷设备 / 租赁设备
+}
+
+// POST /api/v1/demands，返回创建的后端需求
+async function createBackendDemand(v, images) {
+  const u = getStoredUser() || {}
+  return request({
+    url: '/api/v1/demands',
+    method: 'POST',
+    data: {
+      publisher_name: String(u.name || u.phone || '').trim() || '微信用户',
+      contact: String(v.contact || '').trim(),
+      district: String(v.district || '').trim(),
+      biz_type: mapBizType(v.biz),
+      title: String(v.title || '').trim(),
+      description: String(v.description || '').trim(),
+      images: images || [],
+      budget: Number(v.budget) || 0, // 元，后端自动换算为 budget_fen（分）
+    },
+  })
+}
+
+// 表单业务类型（中文）→ 后端 biz_type 枚举（与 utils/enums.js BIZ_TYPE_LABEL 一致）
+function mapBizType(b) {
+  const m = {
+    '巡检': 'cable_inspection',
+    '植保': 'plant_transport',
+    // 后端 BizType 暂无「测绘/航拍/吊运」枚举，统一归入 other（需求仍可正常发布展示）
+    '测绘': 'other',
+    '航拍': 'other',
+    '吊运': 'other',
+    '其他': 'other',
+  }
+  return m[b] || 'other'
 }
 
 // 表单品牌/型号为合并输入（如「DJI / M350 RTK」），拆分到后端 brand/model

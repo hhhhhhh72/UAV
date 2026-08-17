@@ -131,10 +131,19 @@ const statusBarH = ref(20)
 const capsuleGap = ref(0)
 
 // 认证状态：由真实接口得出，不由前端任意切换
-const pilotStatus = ref('')      // '' 未申请 / pending / approved / rejected
+const pilotStatus = ref('')      // '' 未申请 / pending / approved / rejected / sync
 const pilotId = ref('')          // 飞手认证记录 ID（已认证跳档案用）
-const enterpriseStatus = ref('') // '' 无企业 / draft / submitted / supplement_required / approved / rejected
-const authStatus = ref('approved') // 实名认证：演示写死已认证（不接外部核验，无真实接口）
+const enterpriseStatus = ref('') // '' 无企业 / draft / submitted / supplement_required / approved / rejected / sync
+
+// 实名认证状态：从真实认证数据派生（飞手认证 / 企业认证均视为实名认证），不写死、不由前端切换
+const authStatus = computed(() => {
+  const pilotOk = pilotStatus.value === 'approved'
+  const entOk = enterpriseStatus.value === 'approved'
+  if (pilotOk && entOk) return 'both'
+  if (pilotOk) return 'pilot'
+  if (entOk) return 'enterprise'
+  return ''
+})
 
 // 概览统计（真实可用则取，否则 0/暂无数据；仅开发 fixture 提供样例）
 const overviewLoading = ref(false)
@@ -171,7 +180,7 @@ const pilotStatusText = computed(() => {
 
 // 实名认证短标签（概览格 / 认证信息 tail）
 const authText = computed(() => {
-  const map = { pending: '审核中', approved: '已认证', rejected: '被驳回' }
+  const map = { both: '已认证', pilot: '已认证（飞手）', enterprise: '企业已认证' }
   return map[authStatus.value] || '未认证'
 })
 
@@ -220,15 +229,16 @@ const headerVm = computed(() => {
     g.certState = '已认证'
     g.certStateClass = 'ok'
   } else if (identity.value === 'individual') {
-    // 实名认证为演示写死状态：一律显示已认证
+    // 实名认证状态：由企业认证数据派生（飞手已认证时身份已是 pilot，不会进入此分支）
+    const certified = authStatus.value === 'enterprise'
     g.badge = '个人用户'
     g.badgeClass = 'plain'
     g.showCertBar = true
     g.certIcon = '/static/mine-icons/certification.svg'
-    g.note = '已实名认证 · 可申请升级飞手'
-    g.certMain = '实名认证已通过'
-    g.certState = '已认证'
-    g.certStateClass = 'ok'
+    g.note = certified ? '企业认证已通过 · 可申请升级飞手' : '尚未实名认证 · 可申请飞手认证'
+    g.certMain = certified ? '企业认证已通过' : '实名认证未完成'
+    g.certState = certified ? '企业已认证' : '未认证'
+    g.certStateClass = certified ? 'ok' : 'wait'
   } else {
     g.badge = roleLabels[u.role] || '平台账号'
     g.badgeClass = 'plain'
@@ -297,8 +307,10 @@ const overviewNote = computed(() => {
     return { lead: '飞手档案已完善', rest: ' · 可承接更多匹配任务' }
   }
   if (identity.value === 'individual') {
-    // 实名认证为演示写死状态：一律显示已认证
-    return { lead: '实名认证已通过', rest: '· 可申请飞手认证或企业入驻' }
+    const certified = !!authStatus.value
+    return certified
+      ? { lead: '认证已通过', rest: '· 可申请飞手认证或企业入驻' }
+      : { lead: '尚未实名认证', rest: '· 完成认证后可申请飞手' }
   }
   return null
 })
@@ -330,7 +342,7 @@ const certMenuText = computed(() => {
     if (pilotStatus.value && pilotStatus.value !== 'sync') {
       return { desc: '飞手认证与执照状态', tail: pilotStatusText.value, tailClass: certTailClass(pilotStatus.value, 'approved') }
     }
-    return { desc: '个人实名信息', tail: authText.value, tailClass: certTailClass(authStatus.value, 'approved') }
+    return { desc: '个人实名信息', tail: authText.value, tailClass: authStatus.value ? 'ok' : '' }
   }
   return { desc: '登录后查看认证状态', tail: '', tailClass: '' }
 })
@@ -397,7 +409,7 @@ const fetchData = async () => {
       unreadCount.value = msgRes?.data?.count || msgRes?.count || 0
     } catch (e) { unreadCount.value = 0 }
 
-    // 并行读取认证状态（企业 / 飞手），互不连坐；实名认证为演示写死状态
+    // 并行读取认证状态（企业 / 飞手），互不连坐；实名认证由两者派生
     await Promise.allSettled([fetchEnterpriseStatus(), fetchPilotStatus()])
     // 概览统计：真实可用则取，失败回退 0/暂无数据
     await fetchOverviewCounts()

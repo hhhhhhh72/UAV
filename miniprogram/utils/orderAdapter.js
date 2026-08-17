@@ -319,12 +319,13 @@ function parseTs(iso) {
 }
 
 
-/* ================= 评价本地存储（演示闭环） ================= */
-// 后端未接入评价接口前，评价结果按订单 id 存本地；已评价订单在列表/详情
-// 显示「已评价」并回显内容（评价页可再次提交覆盖，不改变订单状态）。
+/* ================= 评价提交（真实接口） ================= */
+// 评价走真实接口 POST /api/v1/reviews（target_type/target_id/rating/content 必填）。
+// 本地 order_reviews 仅开发环境作为回退（接口不可用时的演示闭环），生产不再写本地。
 const REVIEWS_KEY = 'order_reviews'
 
 export function getReview(orderId) {
+  if (!import.meta.env.DEV) return null
   try {
     const raw = uni.getStorageSync(REVIEWS_KEY)
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw[orderId] || null
@@ -332,7 +333,7 @@ export function getReview(orderId) {
   return null
 }
 
-export function saveReview(orderId, { rating, content }) {
+function saveReviewLocal(orderId, { rating, content }) {
   let raw = {}
   try {
     const r = uni.getStorageSync(REVIEWS_KEY)
@@ -340,6 +341,21 @@ export function saveReview(orderId, { rating, content }) {
   } catch (e) { /* ignore */ }
   raw[orderId] = { rating, content, created_at: fmtDate(new Date().toISOString()) }
   try { uni.setStorageSync(REVIEWS_KEY, raw) } catch (e) { /* ignore */ }
+}
+
+// 提交订单评价：优先真实接口；仅开发环境接口失败时回退本地存储（不阻断演示闭环）。
+export async function submitReview(orderId, { rating, content }) {
+  try {
+    await request({
+      url: '/api/v1/reviews',
+      method: 'POST',
+      data: { target_type: 'order', target_id: String(orderId), rating, content: content || '' },
+    })
+    if (import.meta.env.DEV) saveReviewLocal(orderId, { rating, content })
+  } catch (e) {
+    if (!import.meta.env.DEV) throw e
+    saveReviewLocal(orderId, { rating, content })
+  }
 }
 
 // 已完成订单若已有本地评价：展示层标记「已评价」。

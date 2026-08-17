@@ -105,7 +105,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { request } from '@/utils/request'
+import { request, getErrorMessage } from '@/utils/request'
 
 const name = ref('')
 const phone = ref('')
@@ -161,7 +161,7 @@ const doRegister = async () => {
     }
   } catch (e) {
     loading.value = false
-    const msg = e?.data?.error?.message || e?.message || e?.errMsg || '网络错误'
+    const msg = getErrorMessage(e) || '网络错误'
     uni.showToast({ title: String(msg).substring(0, 30), icon: 'none' })
   }
 }

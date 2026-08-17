@@ -136,7 +136,7 @@
 </template>
 
 <script>
-import { request, BASE_URL } from '../../../utils/request'
+import { request, BASE_URL, getErrorMessage } from '../../../utils/request'
 
 export default {
   data() {
@@ -200,7 +200,7 @@ export default {
           this.enterprise = null
         }
       } catch (e) {
-        this.errorMsg = '网络异常，请稍后重试'
+        this.errorMsg = getErrorMessage(e) || '网络异常，请稍后重试'
       } finally {
         this.loading = false
       }

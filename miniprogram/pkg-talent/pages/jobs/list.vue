@@ -98,7 +98,8 @@
 </template>
 
 <script>
-import { request, getStoredUser } from '../../../utils/request'
+import { request, getStoredUser, getErrorMessage } from '../../../utils/request'
+import { requireLogin } from '../../../utils/nav'
 
 export default {
   data() {
@@ -178,7 +179,7 @@ export default {
         }
         this.hasMore = this.list.length < total
       } catch (e) {
-        this.errorMsg = '网络异常，请稍后重试'
+        this.errorMsg = getErrorMessage(e) || '网络异常，请稍后重试'
       } finally {
         this.loading = false
         this.loadingMore = false
@@ -228,11 +229,7 @@ export default {
 
     async applyJob(item) {
       if (this.appliedIds.includes(item.id)) return
-      const user = getStoredUser()
-      if (!user) {
-        uni.showToast({ title: '请先登录', icon: 'none' })
-        return
-      }
+      if (!requireLogin()) return
       try {
         const resumes = await request({ url: '/api/v1/resumes/mine' })
         const rlist = Array.isArray(resumes) ? resumes : ((resumes && resumes.data) || [])

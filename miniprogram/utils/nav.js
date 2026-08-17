@@ -1,4 +1,7 @@
+import { authStorage } from './request'
+
 let navLock = false
+let loginLock = false
 
 export const safeNavigateTo = (url) => {
   if (navLock) return
@@ -42,4 +45,19 @@ export const safeBack = (fallbackUrl = '/pages/home/index') => {
 
 export const safeReLaunch = (url) => {
   uni.reLaunch({ url })
+}
+
+// 登录守卫：未登录时 toast 提示并跳转登录页，带防重入（1.5s 内不重复触发）
+export const requireLogin = () => {
+  if (authStorage.getAccessToken()) return true
+  if (loginLock) return false
+  loginLock = true
+  uni.showToast({ title: '请先登录', icon: 'none' })
+  uni.navigateTo({
+    url: '/pages/login/index',
+    complete: () => {
+      setTimeout(() => { loginLock = false }, 1500)
+    },
+  })
+  return false
 }

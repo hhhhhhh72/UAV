@@ -132,7 +132,7 @@
           <!-- ⑦ 底部按钮 -->
           <view class="bottom-bar">
             <view class="btn-outline" hover-class="press-feedback" :hover-stay-time="120" @click="callPhone">联系电话</view>
-            <view class="btn-primary" hover-class="press-feedback" :hover-stay-time="120" @click="openWebsite">访问官网</view>
+            <view v-if="detail.website" class="btn-primary" hover-class="press-feedback" :hover-stay-time="120" @click="openWebsite">访问官网</view>
           </view>
           <view class="bottom-spacer" />
         </view>
@@ -257,12 +257,20 @@ function handleShare() {
   uni.showToast({ title: '分享功能开发中', icon: 'none' })
 }
 
+function websiteHost(u) {
+  if (typeof u !== 'string') return ''
+  var m = /^https?:\/\/([^\/?#]+)/.exec(u)
+  return m ? m[1].replace(/:\d+$/, '').toLowerCase() : ''
+}
+
 function openWebsite() {
-  if (detail.value && detail.value.website) {
-    uni.navigateTo({ url: '/pages/webview/index?url=' + encodeURIComponent(detail.value.website) })
-  } else {
-    uni.showToast({ title: '官网信息暂未录入', icon: 'none' })
-  }
+  var w = detail.value && detail.value.website
+  if (!w) return
+  // 显式声明业务白名单：仅放行该院校官网域名，webview 页据此校验 https + 域名
+  var host = websiteHost(w) || 'api.cqnarc.cn'
+  uni.navigateTo({
+    url: '/pages/webview/index?url=' + encodeURIComponent(w) + '&allowed_domains=' + encodeURIComponent(host),
+  })
 }
 
 function goBack() { uni.navigateBack({ delta: 1 }) }

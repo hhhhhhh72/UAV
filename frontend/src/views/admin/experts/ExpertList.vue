@@ -38,12 +38,10 @@
         <a-form-item label="头像">
           <a-upload
             class="avatar-upload"
-            :action="uploadUrl"
-            :headers="uploadHeaders"
             :show-file-list="false"
+            :custom-request="uploadRequest"
             accept="image/*"
             :before-upload="beforeUpload"
-            @success="onUploadSuccess"
           >
             <a-avatar v-if="form.avatar_url" :image-url="form.avatar_url" :size="80" shape="square" />
             <a-button v-else type="outline">点击上传</a-button>
@@ -71,6 +69,7 @@
 import { ref, reactive } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import { useAdminApi } from '@/api/admin/common'
+import axios, { getAuthHeader } from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
 
 const crudRef = ref()
@@ -84,7 +83,6 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', name: '', title: '', org: '', field: '', bio: '', avatar_url: '', status: 'pending', tags: [] })
 const uploadUrl = '/api/v1/upload'
-const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}` }
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 140 },
@@ -127,10 +125,21 @@ const beforeUpload = (item) => {
   return true
 }
 
-const onUploadSuccess = (fileItem) => {
-  const res = fileItem?.response || {}
-  form.avatar_url = res?.data?.url || res?.url || ''
-  Message.success('上传成功')
+// 头像上传：动态读取最新 accessToken（避免组件创建时快照导致 token 轮转/过期后仍用旧值）
+const uploadRequest = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    form.avatar_url = url
+    Message.success('上传成功')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  }
 }
 
 const resetForm = () => Object.assign(form, { id: '', name: '', title: '', org: '', field: '', bio: '', avatar_url: '', status: 'pending', tags: [] })

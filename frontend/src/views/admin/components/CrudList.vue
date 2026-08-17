@@ -205,6 +205,12 @@ const onPageSizeChange = () => {
   loadData()
 }
 
+// 提取首个失败原因（后端 fail 返回 { error: { message } }，兼容 { message } 与 axios 网络错误）
+const firstRejectReason = (results) => {
+  const e = results.find(r => r.status === 'rejected')?.reason
+  return e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '未知错误'
+}
+
 // 批量动作（配置化：批量发布/下架/通过等任意 API 调用）
 const handleBatchAction = (act) => {
   Modal.confirm({
@@ -213,15 +219,17 @@ const handleBatchAction = (act) => {
     okText: '确定',
     cancelText: '取消',
     onOk: async () => {
-      try {
-        // 传选中行的完整数据（后端 Update 是全字段覆盖，只传 status 会清空其他字段）
-        await Promise.all(selectedRows.value.map(row => act.api(row)))
+      // 传选中行的完整数据（后端 Update 是全字段覆盖，只传 status 会清空其他字段）
+      const results = await Promise.allSettled(selectedRows.value.map(row => act.api(row)))
+      const succeeded = results.filter(r => r.status === 'fulfilled').length
+      const failed = results.filter(r => r.status === 'rejected').length
+      if (failed > 0) {
+        Message.error(`成功 ${succeeded} 条，失败 ${failed} 条：${firstRejectReason(results)}`)
+      } else {
         Message.success(`${act.label}成功`)
-        selectedIds.value = []
-        loadData()
-      } catch (e) {
-        Message.error(e?.response?.data?.message || act.label + '失败')
       }
+      selectedIds.value = []
+      loadData()
     }
   })
 }
@@ -235,14 +243,16 @@ const handleBatchDelete = () => {
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
-      try {
-        await Promise.all(selectedIds.value.map(id => api.delete(id)))
+      const results = await Promise.allSettled(selectedIds.value.map(id => api.delete(id)))
+      const succeeded = results.filter(r => r.status === 'fulfilled').length
+      const failed = results.filter(r => r.status === 'rejected').length
+      if (failed > 0) {
+        Message.error(`成功 ${succeeded} 条，失败 ${failed} 条：${firstRejectReason(results)}`)
+      } else {
         Message.success('已删除 ' + selectedIds.value.length + ' 条')
-        selectedIds.value = []
-        loadData()
-      } catch (e) {
-        Message.error(e?.response?.data?.message || '批量删除失败')
       }
+      selectedIds.value = []
+      loadData()
     }
   })
 }

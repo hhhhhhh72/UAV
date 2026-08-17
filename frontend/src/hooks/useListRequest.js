@@ -44,10 +44,14 @@ export function useListRequest(options) {
     return typeof fn === 'function' ? fn : () => Promise.reject(new Error('API function is invalid'))
   })
 
+  // 请求序号：快速切换搜索/翻页时，旧请求的响应不得覆盖新请求
+  let seq = 0
+
   /**
    * 加载数据
    */
   const loadData = async () => {
+    const currentSeq = ++seq
     loading.value = true
     try {
       // Trim keyword
@@ -55,6 +59,9 @@ export function useListRequest(options) {
         filterParams.keyword = filterParams.keyword.trim()
       }
       const result = await resolvedApi.value(filterParams)
+
+      // 竞态保护：响应返回时若已发起更新的请求，丢弃本次结果
+      if (currentSeq !== seq) return
 
       // 兼容多种后端响应格式
       if (Array.isArray(result)) {
@@ -68,11 +75,16 @@ export function useListRequest(options) {
         total.value = 0
       }
     } catch (error) {
+      // 旧请求的失败同样丢弃，避免误清空新数据 / 覆盖新错误提示
+      if (currentSeq !== seq) return
       listData.value = []
       total.value = 0
       showFailToast(error?.response?.data?.message || error?.message || '请求失败')
     } finally {
-      loading.value = false
+      // 仅最新请求负责关闭 loading，避免旧请求提前关闭
+      if (currentSeq === seq) {
+        loading.value = false
+      }
     }
   }
 

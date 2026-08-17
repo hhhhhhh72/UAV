@@ -102,7 +102,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onUnload } from '@dcloudio/uni-app'
-import { request, authStorage } from '@/utils/request'
+import { request, authStorage, getErrorMessage } from '@/utils/request'
 
 const mode = ref('password') // password | code
 const phone = ref('')
@@ -193,7 +193,7 @@ const doLogin = async () => {
     }
   } catch (e) {
     loading.value = false
-    const msg = e?.data?.error?.message || e?.message || e?.errMsg || '网络错误'
+    const msg = getErrorMessage(e) || '网络错误'
     uni.showToast({ title: String(msg).substring(0, 30), icon: 'none' })
   }
 }

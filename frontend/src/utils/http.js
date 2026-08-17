@@ -87,7 +87,7 @@ axios.interceptors.response.use(
       // P0 修复：后端 /api/auth/refresh 契约是 snake_case——
       // 请求体 refresh_token、响应 access_token / refresh_token。轮转后必须持久化
       // 新 refresh_token（旧令牌已被服务端 Revoke，不存则第二次刷新必 401）。
-      const refreshRes = await axios.post('/api/auth/refresh', { refresh_token: refreshToken })
+      const refreshRes = await axios.post('/api/auth/refresh', { refresh_token: refreshToken }, { timeout: 10000 })
       const data = refreshRes.data || {}
       const newAccessToken = data.access_token
       if (!newAccessToken) {
@@ -102,12 +102,20 @@ axios.interceptors.response.use(
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
       return axios(originalRequest)
     } catch (refreshError) {
+      // 关键：pendingQueue 必须先 reject，否则等待中的请求会永久挂起
       rejectQueue(refreshError)
-      localStorage.removeItem(ACCESS_TOKEN_KEY)
-      localStorage.removeItem(REFRESH_TOKEN_KEY)
-      localStorage.removeItem('user')
-      if (window.location.pathname.startsWith('/admin')) {
-        window.location.href = '/login'
+
+      // 仅当 refresh 明确返回 401（后端对无效/过期 refresh_token 返回 401）才清除登录态；
+      // 网络错误 / 5xx 保留 token，避免误登出。
+      if (refreshError?.response?.status === 401) {
+        localStorage.removeItem(ACCESS_TOKEN_KEY)
+        localStorage.removeItem(REFRESH_TOKEN_KEY)
+        localStorage.removeItem('user')
+        if (window.location.pathname.startsWith('/admin')) {
+          window.location.href = '/login'
+        }
+      } else {
+        console.error('[http] refresh token 失败（保留登录态）:', refreshError?.message || refreshError)
       }
       return Promise.reject(refreshError)
     } finally {
@@ -131,6 +139,15 @@ export const authStorage = {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
   }
+}
+
+/**
+ * 上传等非 axios 拦截器场景下，动态构造带最新 accessToken 的 Authorization 头。
+ * 在调用时刻读取 localStorage，避免组件创建时快照导致 token 轮转/过期后仍用旧值。
+ */
+export function getAuthHeader() {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export default axios

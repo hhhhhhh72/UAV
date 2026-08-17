@@ -91,7 +91,7 @@
 </template>
 
 <script>
-import { request } from '../../../utils/request'
+import { request, getErrorMessage } from '../../../utils/request'
 
 export default {
   data() {
@@ -159,7 +159,7 @@ export default {
         }
         this.hasMore = this.list.length < total
       } catch (e) {
-        this.errorMsg = '网络异常，请稍后重试'
+        this.errorMsg = getErrorMessage(e) || '网络异常，请稍后重试'
       } finally {
         this.loading = false
         this.loadingMore = false

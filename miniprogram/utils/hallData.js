@@ -295,17 +295,8 @@ export function normalizeDemand(d) {
   }
 }
 
-/* ================= 会话状态（本期前端交互态） ================= */
+/* ================= 会话状态 ================= */
 export const isLoggedIn = () => !!authStorage.getAccessToken()
-export const isCertified = () => uni.getStorageSync('hall_certified') === '1'
-export const setCertified = (v) => uni.setStorageSync('hall_certified', v ? '1' : '0')
-export const getSession = () => ({ loggedIn: isLoggedIn(), certified: isCertified() })
-
-export function simulateLogin() {
-  if (!import.meta.env.DEV) return // 生产环境 no-op：不写入任何 mock token
-  authStorage.setTokens('mock-access-token', 'mock-refresh-token')
-  uni.setStorageSync('user', JSON.stringify({ name: '重庆云翼低空科技有限公司', role: 'enterprise', phone: '138****2468' }))
-}
 
 export function currentUserName() {
   const u = getStoredUser()

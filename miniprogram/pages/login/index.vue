@@ -49,7 +49,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { request, authStorage } from '@/utils/request'
+import { request, authStorage, getErrorMessage } from '@/utils/request'
 
 const loading = ref(false)
 const agreed = ref(false)
@@ -88,9 +88,9 @@ const doWxLogin = () => {
           loading.value = false
           uni.showToast({ title: '登录失败，请重试', icon: 'none' })
         }
-      } catch {
+      } catch (e) {
         loading.value = false
-        uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+        uni.showToast({ title: getErrorMessage(e) || '网络错误，请重试', icon: 'none' })
       }
     },
     fail: () => {

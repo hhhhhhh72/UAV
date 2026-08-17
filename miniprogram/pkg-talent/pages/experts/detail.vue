@@ -94,7 +94,7 @@
 </template>
 
 <script>
-import { request } from '../../../utils/request'
+import { request, getErrorMessage } from '../../../utils/request'
 
 export default {
   data() {
@@ -127,7 +127,7 @@ export default {
           uni.setNavigationBarTitle({ title: this.expert.name })
         }
       } catch (e) {
-        this.errorMsg = '网络异常，请稍后重试'
+        this.errorMsg = getErrorMessage(e) || '网络异常，请稍后重试'
       } finally {
         this.loading = false
       }

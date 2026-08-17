@@ -40,6 +40,7 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request, getStoredUser } from '../../../utils/request'
+import { requireLogin } from '../../../utils/nav'
 
 const goBack = () => uni.navigateBack()
 const job = ref(null)
@@ -72,11 +73,7 @@ const load = async (id) => {
 // 投递：登录 → 简历检查 → 提交
 const applyJob = async () => {
   if (!job.value || applied.value) return
-  const user = getStoredUser()
-  if (!user) {
-    uni.showToast({ title: '请先登录', icon: 'none' })
-    return
-  }
+  if (!requireLogin()) return
   try {
     const resumes = await request({ url: '/api/v1/resumes/mine' })
     const rlist = Array.isArray(resumes) ? resumes : ((resumes && resumes.data) || [])
