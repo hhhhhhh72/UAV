@@ -74,6 +74,7 @@ func newBizServer(t *testing.T) http.Handler {
 	srv.SetMatchingService(service.NewMatchingService(demandRepo))
 	srv.SetIntentService(service.NewIntentService(intentRepo, demandRepo))
 	srv.SetWorkOrderService(service.NewWorkOrderService(memory.NewWorkOrderRepository(), demandRepo, intentRepo))
+	srv.SetServiceListingService(service.NewServiceListingService(memory.NewServiceListingRepository()))
 	srv.SetStorage("memory")
 	return srv.Router()
 }
