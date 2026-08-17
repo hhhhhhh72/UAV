@@ -1,7 +1,9 @@
 package service
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -31,7 +33,13 @@ func (s *FileService) UploadPrivate(ownerID string, filename, contentType string
 
 func (s *FileService) uploadTo(ownerID string, filename, contentType string, reader io.Reader, dir string) (domain.FileRecord, error) {
 	now := time.Now()
-	id := fmt.Sprintf("file-%d", now.UnixNano())
+	// B 批加固：ID 由可预测的时间戳改为 128 位随机（防枚举——
+	// 私有影像 ID 此前为 file-<UnixNano>，可被暴力遍历）。
+	randBytes := make([]byte, 16)
+	if _, err := rand.Read(randBytes); err != nil {
+		return domain.FileRecord{}, fmt.Errorf("generate file id: %w", err)
+	}
+	id := "file-" + hex.EncodeToString(randBytes)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return domain.FileRecord{}, fmt.Errorf("create upload dir: %w", err)
 	}

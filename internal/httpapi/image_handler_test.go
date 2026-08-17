@@ -100,7 +100,8 @@ func TestServeImageServesAndCaches(t *testing.T) {
 
 // TestServeImagePrivateRequiresAuth: P0 回归——/api/v1/image 在公开白名单，
 // 此前匿名可凭可预测的 file-<UnixNano> ID 重编码读取 uploads/private/ 下的
-// 身份证影像。修复后 private 路径必须登录。
+// 身份证影像。B 批加固后 private 路径一律 403：私有影像只允许登录用户直接读
+// /uploads/private/{id}（servePrivateUploads），不提供缩放代理。
 func TestServeImagePrivateRequiresAuth(t *testing.T) {
 	app := newServer(t)
 
@@ -116,24 +117,18 @@ func TestServeImagePrivateRequiresAuth(t *testing.T) {
 	if err := os.WriteFile(filepath.Join("uploads", rel), pngBuf.Bytes(), 0644); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		os.Remove(filepath.Join("uploads", rel))
-		entries, _ := filepath.Glob(filepath.Join("uploads", ".image-cache", "*.jpeg"))
-		for _, e := range entries {
-			os.Remove(e)
-		}
-	}()
+	defer os.Remove(filepath.Join("uploads", rel))
 
-	// 匿名访问 private 路径 → 401（修复前是 200 且能读到内容）
+	// 匿名访问 private 路径 → 403（修复前匿名 200 可读）
 	w := doRaw(app, http.MethodGet, "/api/v1/image?url="+rel+"&width=16&format=jpeg", "", "")
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("anonymous private image: expected 401, got %d (%s)", w.Code, w.Body.String())
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("anonymous private image: expected 403, got %d (%s)", w.Code, w.Body.String())
 	}
 
-	// 带 token → 200
+	// 带 token 同样 403（私有影像不走缩放代理）
 	tok := authAs(t, "user-1", domain.RoleIndividual)
 	w = doRaw(app, http.MethodGet, "/api/v1/image?url="+rel+"&width=16&format=jpeg", "", tok)
-	if w.Code != http.StatusOK {
-		t.Fatalf("authorized private image: expected 200, got %d (%s)", w.Code, w.Body.String())
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("authorized private image via proxy: expected 403, got %d (%s)", w.Code, w.Body.String())
 	}
 }

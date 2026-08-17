@@ -287,6 +287,7 @@ type WorkOrder struct {
 	ID            string          `json:"id"`
 	OrderNo       string          `json:"order_no"`
 	DemandID      string          `json:"demand_id"`
+	IntentID      string          `json:"intent_id"` // 来源意向（B 批：唯一约束防并发双建单）
 	PublisherID   string          `json:"publisher_id"` // 需求方（企业）
 	PublisherName string          `json:"publisher_name"`
 	WorkerID      string          `json:"worker_id"` // 接单飞手

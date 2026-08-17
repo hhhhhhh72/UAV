@@ -798,9 +798,12 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 			return
 		}
 		// Namespace the key by the authenticated actor so one user's key
-		// cannot replay another user's response.
+		// cannot replay another user's response. 未认证请求同样加固定前缀，
+		// 避免匿名写路径（如登录/注册）的响应被跨请求回放（B 批加固）。
 		if a, ok := authenticatedActor(r); ok {
 			key = a.ID + ":" + key
+		} else {
+			key = "anon:" + key
 		}
 		// Check for previously completed request.
 		replay := func(status int, body string) {
@@ -1068,9 +1071,15 @@ func fail(w http.ResponseWriter, r *http.Request, status int, err error) {
 		slog.Error("request failed", "method", r.Method, "path", r.URL.Path,
 			"status", status, "err", err, "request_id", requestIDFromCtx(r))
 	}
+	// B 批加固：生产环境 5xx 不再向客户端回显内部错误细节（可能含 SQL/实现信息），
+	// 统一文案，原始错误只留在服务端日志；4xx 保留业务提示语。
+	message := strings.TrimSpace(err.Error())
+	if status >= http.StatusInternalServerError && os.Getenv("ENV") == "production" {
+		message = "internal server error"
+	}
 	w.WriteHeader(status)
 	if e := json.NewEncoder(w).Encode(map[string]any{
-		"error":      map[string]string{"code": httpStatusToCode(status), "message": strings.TrimSpace(err.Error())},
+		"error":      map[string]string{"code": httpStatusToCode(status), "message": message},
 		"request_id": requestIDFromCtx(r),
 	}); e != nil {
 		slog.Warn("encode error response", "error", e)

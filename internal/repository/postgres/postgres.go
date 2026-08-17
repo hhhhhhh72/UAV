@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -384,16 +385,23 @@ func (r *enterpriseRepo) Update(id string, e domain.Enterprise) (domain.Enterpri
 			e.AccountName = enc
 		}
 	}
+	oldVersion := e.Version // 乐观锁：WHERE version=$旧值
 	e.Version++
 	e.UpdatedAt = time.Now()
 	tag, err := r.pool.Exec(context.Background(), `
-		UPDATE enterprises SET name=$1, credit_code=$2, legal_person=$3, contact_phone=$4, industry_category=$5, scale=$6, address=$7, description=$8, business_hours=$9, logo=$10, cover_image=$11, license_url=$12, account_name=$13, contact_person=$14, email=$15, founded_at=$16, capability_tags=$17, status=$18, review_comment=$19, version=$20, updated_at=$21 WHERE id=$22`,
-		e.Name, e.CreditCode, e.LegalPerson, e.ContactPhone, e.IndustryCategory, e.Scale, e.Address, e.Description, e.BusinessHours, e.Logo, e.CoverImage, e.LicenseURL, e.AccountName, e.ContactPerson, e.Email, e.FoundedAt, e.CapabilityTags, string(e.Status), e.ReviewComment, e.Version, e.UpdatedAt, id)
+		UPDATE enterprises SET name=$1, credit_code=$2, legal_person=$3, contact_phone=$4, industry_category=$5, scale=$6, address=$7, description=$8, business_hours=$9, logo=$10, cover_image=$11, license_url=$12, account_name=$13, contact_person=$14, email=$15, founded_at=$16, capability_tags=$17, status=$18, review_comment=$19, version=$20, updated_at=$21
+		WHERE id=$22 AND version=$23`,
+		e.Name, e.CreditCode, e.LegalPerson, e.ContactPhone, e.IndustryCategory, e.Scale, e.Address, e.Description, e.BusinessHours, e.Logo, e.CoverImage, e.LicenseURL, e.AccountName, e.ContactPerson, e.Email, e.FoundedAt, e.CapabilityTags, string(e.Status), e.ReviewComment, e.Version, e.UpdatedAt, id, oldVersion)
 	if err != nil {
 		return domain.Enterprise{}, fmt.Errorf("update enterprise: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return domain.Enterprise{}, fmt.Errorf("enterprise %s not found", id)
+		// 区分"不存在"与"并发版本冲突"
+		var one int
+		if err := r.pool.QueryRow(context.Background(), `SELECT 1 FROM enterprises WHERE id=$1`, id).Scan(&one); err != nil {
+			return domain.Enterprise{}, fmt.Errorf("enterprise %s not found", id)
+		}
+		return domain.Enterprise{}, fmt.Errorf("enterprise %s 已被他人修改，请刷新后重试", id)
 	}
 	return e, nil
 }
@@ -666,16 +674,21 @@ func (r *jobRepo) Create(j domain.Job) (domain.Job, error) {
 	return j, err
 }
 func (r *jobRepo) Update(id string, j domain.Job) (domain.Job, error) {
+	oldVersion := j.Version // 乐观锁：WHERE version=$旧值
 	j.Version++
 	j.UpdatedAt = time.Now()
 	tag, err := r.pool.Exec(context.Background(),
-		`UPDATE jobs SET title=$1,description=$2,location=$3,salary_fen=$4,job_type=$5,status=$6,version=$7,updated_at=$8 WHERE id=$9`,
-		j.Title, j.Description, j.Location, j.SalaryFen, j.JobType, string(j.Status), j.Version, j.UpdatedAt, id)
+		`UPDATE jobs SET title=$1,description=$2,location=$3,salary_fen=$4,job_type=$5,status=$6,version=$7,updated_at=$8 WHERE id=$9 AND version=$10`,
+		j.Title, j.Description, j.Location, j.SalaryFen, j.JobType, string(j.Status), j.Version, j.UpdatedAt, id, oldVersion)
 	if err != nil {
 		return domain.Job{}, err
 	}
 	if tag.RowsAffected() == 0 {
-		return domain.Job{}, fmt.Errorf("job %s not found", id)
+		var one int
+		if err := r.pool.QueryRow(context.Background(), `SELECT 1 FROM jobs WHERE id=$1`, id).Scan(&one); err != nil {
+			return domain.Job{}, fmt.Errorf("job %s not found", id)
+		}
+		return domain.Job{}, fmt.Errorf("job %s 已被他人修改，请刷新后重试", id)
 	}
 	return j, nil
 }
@@ -750,17 +763,22 @@ func (r *pgResumeRepo) Create(v domain.Resume) (domain.Resume, error) {
 	return v, err
 }
 func (r *pgResumeRepo) Update(id string, v domain.Resume) (domain.Resume, error) {
+	oldVersion := v.Version // 乐观锁：WHERE version=$旧值
 	v.Version++
 	v.UpdatedAt = time.Now()
 	skills, _ := json.Marshal(v.Skills)
 	tag, err := r.pool.Exec(context.Background(),
-		`UPDATE resumes SET title=$1,name=$2,phone=$3,email=$4,education=$5,work_experience=$6,skills=$7,certificate_url=$8,content=$9,visibility=$10,version=$11,updated_at=$12 WHERE id=$13`,
-		v.Title, v.Name, v.Phone, v.Email, v.Education, v.WorkExperience, skills, v.CertificateURL, v.Content, v.Visibility, v.Version, v.UpdatedAt, id)
+		`UPDATE resumes SET title=$1,name=$2,phone=$3,email=$4,education=$5,work_experience=$6,skills=$7,certificate_url=$8,content=$9,visibility=$10,version=$11,updated_at=$12 WHERE id=$13 AND version=$14`,
+		v.Title, v.Name, v.Phone, v.Email, v.Education, v.WorkExperience, skills, v.CertificateURL, v.Content, v.Visibility, v.Version, v.UpdatedAt, id, oldVersion)
 	if err != nil {
 		return domain.Resume{}, err
 	}
 	if tag.RowsAffected() == 0 {
-		return domain.Resume{}, fmt.Errorf("resume %s not found", id)
+		var one int
+		if err := r.pool.QueryRow(context.Background(), `SELECT 1 FROM resumes WHERE id=$1`, id).Scan(&one); err != nil {
+			return domain.Resume{}, fmt.Errorf("resume %s not found", id)
+		}
+		return domain.Resume{}, fmt.Errorf("resume %s 已被他人修改，请刷新后重试", id)
 	}
 	return v, nil
 }
@@ -1509,14 +1527,20 @@ func (r *pgIntentRepo) ListByIntentor(intentorID string) ([]domain.DemandIntent,
 }
 
 func (r *pgIntentRepo) UpdateStatus(id string, status string) (domain.DemandIntent, error) {
+	// B 批加固：CAS 语义——仅 pending 状态可流转（确认/关闭/拒绝）。
+	// 并发重复确认同一意向时，后到者 RowsAffected=0 → 明确报错，
+	// 消除"同一意向生成多张工单"的竞态窗口（配合 work_orders.intent_id 唯一索引）。
 	var it domain.DemandIntent
 	err := r.pool.QueryRow(context.Background(),
 		`UPDATE demand_intents SET status=$2, version=version+1, updated_at=now()
-		WHERE id=$1
+		WHERE id=$1 AND status='pending'
 		RETURNING id, demand_id, intentor_id, intentor_name, contact, remark, status, version, created_at, updated_at`,
 		id, status).
 		Scan(&it.ID, &it.DemandID, &it.IntentorID, &it.IntentorName, &it.Contact, &it.Remark, &it.Status, &it.Version, &it.CreatedAt, &it.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.DemandIntent{}, fmt.Errorf("意向不存在或已处理")
+		}
 		return domain.DemandIntent{}, fmt.Errorf("update intent %s: %w", id, err)
 	}
 	return it, nil
@@ -1530,12 +1554,12 @@ func (s *Store) NewWorkOrderRepository() repository.WorkOrderRepository {
 	return &pgWorkOrderRepo{pool: s.pool}
 }
 
-const workOrderCols = `id, order_no, demand_id, publisher_id, publisher_name, worker_id, worker_name, amount_fen, status, result_photos, rework_note, cancel_reason, created_at, updated_at`
+const workOrderCols = `id, order_no, demand_id, intent_id, publisher_id, publisher_name, worker_id, worker_name, amount_fen, status, result_photos, rework_note, cancel_reason, created_at, updated_at`
 
 func scanWorkOrder(row interface{ Scan(...any) error }) (domain.WorkOrder, error) {
 	var wo domain.WorkOrder
 	var photos []byte
-	err := row.Scan(&wo.ID, &wo.OrderNo, &wo.DemandID, &wo.PublisherID, &wo.PublisherName,
+	err := row.Scan(&wo.ID, &wo.OrderNo, &wo.DemandID, &wo.IntentID, &wo.PublisherID, &wo.PublisherName,
 		&wo.WorkerID, &wo.WorkerName, &wo.AmountFen, &wo.Status, &photos, &wo.ReworkNote, &wo.CancelReason,
 		&wo.CreatedAt, &wo.UpdatedAt)
 	if err != nil {
@@ -1556,10 +1580,15 @@ func (r *pgWorkOrderRepo) Create(wo domain.WorkOrder) (domain.WorkOrder, error) 
 	photos, _ := json.Marshal(wo.ResultPhotos)
 	_, err := r.pool.Exec(context.Background(),
 		`INSERT INTO work_orders (`+workOrderCols+`)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-		wo.ID, wo.OrderNo, wo.DemandID, wo.PublisherID, wo.PublisherName, wo.WorkerID, wo.WorkerName,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		wo.ID, wo.OrderNo, wo.DemandID, wo.IntentID, wo.PublisherID, wo.PublisherName, wo.WorkerID, wo.WorkerName,
 		wo.AmountFen, wo.Status, photos, wo.ReworkNote, wo.CancelReason, wo.CreatedAt, wo.UpdatedAt)
 	if err != nil {
+		// B 批加固：同一意向重复建单被唯一索引兜底（并发双建单场景）
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.WorkOrder{}, fmt.Errorf("该意向已生成工单，请勿重复确认")
+		}
 		return domain.WorkOrder{}, fmt.Errorf("create work order: %w", err)
 	}
 	return wo, nil
@@ -1612,21 +1641,12 @@ func (r *pgWorkOrderRepo) ListByWorker(workerID string) ([]domain.WorkOrder, err
 }
 
 func (r *pgWorkOrderRepo) UpdateStatus(id string, status domain.WorkOrderStatus) (domain.WorkOrder, error) {
-	var photos []byte
-	var wo domain.WorkOrder
-	err := r.pool.QueryRow(context.Background(),
+	row := r.pool.QueryRow(context.Background(),
 		`UPDATE work_orders SET status=$2, updated_at=now() WHERE id=$1
-		RETURNING `+workOrderCols, id, status).
-		Scan(&wo.ID, &wo.OrderNo, &wo.DemandID, &wo.PublisherID, &wo.PublisherName,
-			&wo.WorkerID, &wo.WorkerName, &wo.AmountFen, &wo.Status, &photos, &wo.ReworkNote, &wo.CancelReason,
-			&wo.CreatedAt, &wo.UpdatedAt)
+		RETURNING `+workOrderCols, id, status)
+	wo, err := scanWorkOrder(row)
 	if err != nil {
 		return domain.WorkOrder{}, fmt.Errorf("update work order status %s: %w", id, err)
-	}
-	if len(photos) > 0 {
-		if err := json.Unmarshal(photos, &wo.ResultPhotos); err != nil {
-			return domain.WorkOrder{}, fmt.Errorf("parse result_photos: %w", err)
-		}
 	}
 	return wo, nil
 }

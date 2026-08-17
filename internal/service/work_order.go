@@ -70,6 +70,7 @@ func (s *WorkOrderService) AcceptIntent(a domain.Actor, demandID, intentID strin
 		ID:            fmt.Sprintf("wo-%d-%d", now.UnixNano(), nextSeq()),
 		OrderNo:       fmt.Sprintf("WO%d%06d", now.Year()%100, now.Unix()%1000000),
 		DemandID:      demandID,
+		IntentID:      it.ID, // B 批：唯一约束防并发双建单
 		PublisherID:   d.PublisherID,
 		PublisherName: d.PublisherName,
 		WorkerID:      it.IntentorID,

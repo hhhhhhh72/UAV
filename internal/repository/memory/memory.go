@@ -298,9 +298,14 @@ func (r *enterpriseRepo) Update(id string, e domain.Enterprise) (domain.Enterpri
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == id {
+			// 乐观锁：与 PG 实现对齐——旧版本号不匹配视为并发修改
+			if r.items[i].Version != e.Version {
+				return domain.Enterprise{}, fmt.Errorf("enterprise %s 已被他人修改，请刷新后重试", id)
+			}
 			if err := r.encrypt(&e); err != nil {
 				return domain.Enterprise{}, err
 			}
+			e.Version++
 			r.items[i] = e
 			return e, nil
 		}
@@ -471,6 +476,11 @@ func (r *jobRepo) Update(id string, j domain.Job) (domain.Job, error) {
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == id {
+			// 乐观锁：与 PG 实现对齐——旧版本号不匹配视为并发修改
+			if r.items[i].Version != j.Version {
+				return domain.Job{}, fmt.Errorf("job %s 已被他人修改，请刷新后重试", id)
+			}
+			j.Version++
 			r.items[i] = j
 			return j, nil
 		}
@@ -562,6 +572,11 @@ func (r *resumeRepo) Update(id string, v domain.Resume) (domain.Resume, error) {
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == id {
+			// 乐观锁：与 PG 实现对齐——旧版本号不匹配视为并发修改
+			if r.items[i].Version != v.Version {
+				return domain.Resume{}, fmt.Errorf("resume %s 已被他人修改，请刷新后重试", id)
+			}
+			v.Version++
 			r.items[i] = v
 			return v, nil
 		}
@@ -1343,6 +1358,10 @@ func (r *intentRepo) UpdateStatus(id string, status string) (domain.DemandIntent
 	defer r.mu.Unlock()
 	for i, it := range r.items {
 		if it.ID == id {
+			// B 批加固：CAS 语义——仅 pending 可流转，与 PG 实现对齐
+			if it.Status != "pending" {
+				return domain.DemandIntent{}, fmt.Errorf("意向不存在或已处理")
+			}
 			r.items[i].Status = status
 			r.items[i].UpdatedAt = time.Now()
 			r.items[i].Version++

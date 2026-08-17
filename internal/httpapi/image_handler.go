@@ -41,6 +41,11 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	if width <= 0 {
 		width = 800
 	}
+	// B 批加固：width 无上界可被恶意参数触发超大位图内存分配（OOM）。
+	// 限制最大 2000px，超出按上限处理。
+	if width > 2000 {
+		width = 2000
+	}
 	quality, _ := strconv.Atoi(r.URL.Query().Get("quality"))
 	if quality <= 0 || quality > 100 {
 		quality = 75
@@ -75,13 +80,13 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	}
 	// P0 修复：uploads/private/ 下是身份证影像等敏感文件。
 	// /api/v1/image 在公开白名单里，此前匿名凭文件 ID（file-<UnixNano>，可预测）
-	// 即可重编码读取私有影像——此处强制登录，与 servePrivateUploads 对齐。
+	// 即可重编码读取私有影像。B 批加固：private 路径一律拒绝经本代理访问——
+	// 私有影像只允许登录用户直接读 /uploads/private/{id}（servePrivateUploads），
+	// 不提供缩放代理，彻底消除该代理面的 IDOR/大小写绕过风险。
 	if absPrivate, err := filepath.Abs(filepath.Join(baseDir, "private")); err == nil {
 		if absPath == absPrivate || strings.HasPrefix(absPath, absPrivate+string(filepath.Separator)) {
-			if _, ok := authenticatedActor(r); !ok {
-				fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
-				return
-			}
+			fail(w, r, http.StatusForbidden, errors.New("private images are not served through this endpoint"))
+			return
 		}
 	}
 	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
