@@ -290,14 +290,14 @@ const fetchAll = async () => {
       if (items.length < PAGE_SIZE || acc.length >= fetched) break
       nextPage++
     }
-    if (!acc.length) { useMock() } else {
+    if (!acc.length) { if (import.meta.env.DEV) { useMock() } } else {
       fullList.value = acc
       total.value = fetched
       mockMode.value = false
     }
     applyFilter()
   } catch {
-    useMock()
+    if (import.meta.env.DEV) { useMock() }
   } finally {
     loading.value = false
   }

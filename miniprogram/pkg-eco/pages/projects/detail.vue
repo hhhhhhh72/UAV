@@ -330,14 +330,20 @@ const fetchData = async () => {
     const it = (res && res.data) || res
     if (it && it.id) d.value = mapItem(it)
     else {
-      // 接口不可用时回退演示数据
+      // 接口不可用时回退演示数据（仅开发环境）
+      if (import.meta.env.DEV) {
+        const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
+        d.value = mock ? mapItem(mock) : null
+      } else {
+        err.value = true
+      }
+    }
+  } catch {
+    // 回退演示数据（仅开发环境）
+    if (import.meta.env.DEV) {
       const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
       d.value = mock ? mapItem(mock) : null
     }
-  } catch {
-    // 回退演示数据
-    const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
-    d.value = mock ? mapItem(mock) : null
     if (!d.value) err.value = true
   } finally {
     loading.value = false

@@ -219,7 +219,7 @@ const fetchList = async (reset) => {
     mockMode.value = false
   } catch {
     if (reset) {
-      useMock()
+      if (import.meta.env.DEV) { useMock() }
     } else {
       hasMore.value = false
     }

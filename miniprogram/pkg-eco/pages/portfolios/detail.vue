@@ -277,7 +277,11 @@ const fetchData = async () => {
     if (cached && cached.id) {
       d.value = buildDetail(cached)
     } else if (String(id.value).startsWith('demo-')) {
-      useMock()
+      if (import.meta.env.DEV) {
+        useMock()
+      } else {
+        err.value = true
+      }
     } else {
       err.value = true
     }

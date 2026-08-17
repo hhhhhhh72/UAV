@@ -166,7 +166,7 @@ const fetchData = async () => {
     const found = (tid.value ? list.find((x) => x.id === tid.value) : null) || list[0]
     applyT(found ? mapT(found) : null)
   } catch {
-    useMock()
+    if (import.meta.env.DEV) { useMock() }
   } finally {
     loading.value = false
   }

@@ -202,7 +202,7 @@ const RENDER_STEP = 100 // DOM 渲染上限步长：数据全量入 fullList，�
 const SEARCH_DEBOUNCE_MS = 250 // 搜索防抖：击键即筛改为停顿 250ms 后筛（防每键整表重渲染）
 const PANEL_CLOSE_MS = 230 // 面板退场 210ms + 缓冲：动画播完再 v-if 移除
 const SORT_CLOSE_MS = 170  // 排序弹层退场 150ms + 缓冲
-const isDev = process.env.NODE_ENV === 'development' // 演示数据横幅仅开发环境展示
+const isDev = import.meta.env.DEV // 演示数据横幅仅开发环境展示
 
 /* ===== 静态配置 ===== */
 const FIELD_OPTS = [
@@ -526,7 +526,7 @@ const fetchAll = async (silent = false) => {
     // 接口失败：从未成功加载过才回退演示数据；已有数据则保留，
     // 避免下拉刷新时一次网络抖动就用演示数据顶替真实列表
     if (fullList.value.length === 0) {
-      if (MOCK_CHALLENGES && MOCK_CHALLENGES.length) {
+      if (import.meta.env.DEV && MOCK_CHALLENGES && MOCK_CHALLENGES.length) {
         fullList.value = (MOCK_CHALLENGES || []).map(mapItem)
         total.value = fullList.value.length
         mockMode.value = true

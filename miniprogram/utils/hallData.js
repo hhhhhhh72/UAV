@@ -117,6 +117,8 @@ export const HALL_CATEGORIES = {
 }
 
 export function getKindItems(primary, supplyKind) {
+  // 生产构建禁 mock：供给/商品在真实接口未就绪前显示空态，不展示演示数据
+  if (!import.meta.env.DEV) return []
   if (primary === 'demand') return MOCK_DEMANDS
   return supplyKind === 'service' ? MOCK_SERVICES : MOCK_PRODUCTS
 }
@@ -300,6 +302,7 @@ export const setCertified = (v) => uni.setStorageSync('hall_certified', v ? '1' 
 export const getSession = () => ({ loggedIn: isLoggedIn(), certified: isCertified() })
 
 export function simulateLogin() {
+  if (!import.meta.env.DEV) return // 生产环境 no-op：不写入任何 mock token
   authStorage.setTokens('mock-access-token', 'mock-refresh-token')
   uni.setStorageSync('user', JSON.stringify({ name: '重庆云翼低空科技有限公司', role: 'enterprise', phone: '138****2468' }))
 }
@@ -322,6 +325,8 @@ export const SEED_POSTS = [
 export function getPosts() {
   const raw = uni.getStorageSync(POSTS_KEY)
   if (Array.isArray(raw)) return raw
+  // 生产构建不播种演示帖子：无本地记录时返回空，不做假数据
+  if (!import.meta.env.DEV) return []
   uni.setStorageSync(POSTS_KEY, SEED_POSTS)
   return SEED_POSTS
 }

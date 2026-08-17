@@ -144,7 +144,7 @@ const SORTS = [
 const SORT_LABEL = { views: '最多浏览', latest: '最新入驻', video: '视频优先' }
 const PAGE_SIZE = 100
 const SEARCH_DEBOUNCE_MS = 250 // 搜索防抖：停顿 250ms 后再请求（对齐 challenges）
-const isDev = process.env.NODE_ENV === 'development' // 演示数据仅在开发环境回退
+const isDev = import.meta.env.DEV // 演示数据仅在开发环境回退
 
 // ===== 状态 =====
 const statusBarHeight = ref(20)
@@ -258,11 +258,11 @@ const fetchList = async (reset = true) => {
       // 注意：request.js 的分页信封 {data:[...], total} 会丢弃顶层 featured——
       // 契约需后端以对象信封 {data:{items,total,featured}} 返回，或将 featured 挂到数据数组上
       const feats = data && Array.isArray(data.featured) ? data.featured : []
-      featured.value = (feats.length ? feats : (isDev ? MOCK_FEATURED : [])).map(mapFeatured)
+      featured.value = (feats.length ? feats : (import.meta.env.DEV ? MOCK_FEATURED : [])).map(mapFeatured)
       if (items.length) {
         fullList.value = items.map(mapItem)
         totalCount.value = total
-      } else if (isDev) {
+      } else if (import.meta.env.DEV) {
         useMock()
       } else {
         fullList.value = []
@@ -278,7 +278,7 @@ const fetchList = async (reset = true) => {
     if (seq !== fetchSeq) return
     if (reset) {
       // 失败回退仅限开发环境；生产：首次加载走错误态，已有数据保留并提示
-      if (isDev) {
+      if (import.meta.env.DEV) {
         useMock()
       } else if (!fullList.value.length) {
         loadError.value = true

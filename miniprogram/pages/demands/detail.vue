@@ -447,7 +447,7 @@ function openSheet(kind) {
 const closeSheet = () => { sheet.value = { show: false, kind: '', title: '' } }
 
 const handleSimulateLogin = () => {
-  simulateLogin()
+  if (import.meta.env.DEV) { simulateLogin() }
   closeSheet()
   if (item.value) {
     // 已登录后继续认证引导

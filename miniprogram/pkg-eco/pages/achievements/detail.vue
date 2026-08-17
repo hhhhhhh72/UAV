@@ -231,7 +231,7 @@ const fetchData = async () => {
       err.value = true
     }
   } catch {
-    useMock()
+    if (import.meta.env.DEV) { useMock() }
   } finally {
     loading.value = false
   }

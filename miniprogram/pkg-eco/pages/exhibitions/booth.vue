@@ -146,11 +146,18 @@ const fetchData = async () => {
     }
     throw new Error('empty')
   } catch {
+    // 回退：演示数据 / 列表缓存（仅开发环境回退演示数据）
     const cached = uni.getStorageSync('exhibition_cache_' + id.value)
-    const mock = MOCK_EXHIBITIONS.find((x) => x.id === id.value)
-    const src = mock || cached
-    if (src) {
-      detail.value = buildDetail(src, MOCK_BOOTHS_BY_EXPO[id.value] || [])
+    if (import.meta.env.DEV) {
+      const mock = MOCK_EXHIBITIONS.find((x) => x.id === id.value)
+      const src = mock || cached
+      if (src) {
+        detail.value = buildDetail(src, MOCK_BOOTHS_BY_EXPO[id.value] || [])
+      } else {
+        err.value = true
+      }
+    } else if (cached) {
+      detail.value = buildDetail(cached, [])
     } else {
       err.value = true
     }
