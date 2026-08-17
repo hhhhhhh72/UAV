@@ -132,9 +132,11 @@
           </view>
           <view class="cft">
             <text class="cf-date">{{ x.d }}</text>
-            <text class="cf-stats">
-              <text class="cf-eye">👁</text>{{ fmt(x.v) }}
-              <text class="cf-star">★</text>{{ x.s }}
+            <text v-if="x.v > 0 || x.s > 0" class="cf-stats">
+              <text v-if="x.v > 0" class="cf-eye">👁</text>
+              <text v-if="x.v > 0">{{ fmt(x.v) }}</text>
+              <text v-if="x.s > 0" class="cf-star">★</text>
+              <text v-if="x.s > 0">{{ x.s }}</text>
             </text>
           </view>
         </view>

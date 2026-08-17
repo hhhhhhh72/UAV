@@ -97,6 +97,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import {
   getPosts, TAB_ORDER, TAB_LABEL, KIND_ORDER, KIND_LABEL,
 } from '../../utils/publishData'
+import { request } from '../../utils/request'
 import { useSafeTop } from '../../utils/safeTop'
 
 const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
@@ -112,8 +113,87 @@ const kindOrder = KIND_ORDER
 
 const allPosts = ref([])
 
-function refresh() {
-  allPosts.value = getPosts()
+/* ── 后端记录 → 卡片结构（与本地 publishData 卡片字段对齐） ── */
+
+const BIZ_LABELS = {
+  cable_inspection: '工业巡检',
+  plant_transport: '植保运输',
+  spray_pesticide: '农药喷洒',
+  clean_paint: '清洗保洁',
+  trade_lease: '租赁服务',
+  other: '其他服务',
+}
+
+const fmtDate = (d) => {
+  if (!d) return ''
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return ''
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
+// demand.status: pending/published/matched/completed/rejected
+const mapDemand = (d) => {
+  let statusKey = 'pending'
+  let status = '待审核'
+  switch (d.status) {
+    case 'published': statusKey = 'live'; status = '招募中'; break
+    case 'matched': statusKey = 'live'; status = '已匹配'; break
+    case 'completed': statusKey = 'live'; status = '已完成'; break
+    case 'rejected': statusKey = 'rejected'; status = '未通过'; break
+  }
+  return {
+    id: d.id, type: 'demand', label: '需求', backend: true,
+    statusKey, status,
+    title: d.title || '',
+    meta: [d.district, BIZ_LABELS[d.biz_type]].filter(Boolean),
+    date: fmtDate(d.created_at),
+    note: '',
+  }
+}
+
+// product.status: listed/sold/off
+const mapProduct = (p) => {
+  let statusKey = 'live'
+  let status = '在售'
+  if (p.status === 'sold') status = '已售'
+  if (p.status === 'off') { statusKey = 'live'; status = '已下架' }
+  const price = p.price_fen ? '¥' + (p.price_fen / 100) : ''
+  return {
+    id: p.id, type: 'product', label: '商品', backend: true,
+    statusKey, status,
+    title: p.title || '',
+    meta: [p.prod_type ? (p.prod_type === 'drone' ? '整机' : p.prod_type === 'repair' ? '维修服务' : '零部件') : '', price].filter(Boolean),
+    date: fmtDate(p.created_at),
+    note: '',
+  }
+}
+
+async function refresh() {
+  const local = getPosts()
+  // 后端：我的需求 + 我的商品（mine=1；未登录返回空，不会泄露他人数据）
+  let backend = []
+  try {
+    const [dRes, pRes] = await Promise.all([
+      request({ url: '/api/v1/demands', data: { mine: '1', page: 1, page_size: 100 } }),
+      request({ url: '/api/v1/products', data: { mine: '1', page: 1, page_size: 100 } }),
+    ])
+    const dList = Array.isArray(dRes) ? dRes : dRes?.data || []
+    const pList = Array.isArray(pRes) ? pRes : pRes?.data || []
+    backend = [...dList.map(mapDemand), ...pList.map(mapProduct)]
+  } catch (e) {
+    // 后端不可用：保留本地记录展示，不阻塞页面
+  }
+  // 本地保留：草稿 + service/course 本地发布（已知边界：后端暂无创建接口）
+  // 本地 demand/product 记录：已有 backendId 的以后端为准（去重），无 backendId 的旧数据保留
+  const backendIds = new Set(backend.map((b) => b.id))
+  const localKeep = local.filter(
+    (p) =>
+      p.statusKey === 'draft' ||
+      p.type === 'service' ||
+      p.type === 'course' ||
+      ((p.type === 'demand' || p.type === 'product') && !p.backendId)
+  ).filter((p) => !backendIds.has(p.id))
+  allPosts.value = [...localKeep, ...backend]
 }
 
 const filtered = computed(() => {
@@ -147,6 +227,17 @@ function pickKind(kind) {
 }
 
 function openDetail(post) {
+  // 后端记录 → 跳真实详情；本地草稿/service/course → 本地详情
+  if (post.backend) {
+    if (post.type === 'demand') {
+      uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(post.id) })
+      return
+    }
+    if (post.type === 'product') {
+      uni.navigateTo({ url: '/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(post.id) })
+      return
+    }
+  }
   uni.navigateTo({
     url: '/pages/publish/detail?id=' + post.id +
       '&tab=' + postsTab.value + '&kind=' + postKind.value,

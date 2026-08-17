@@ -68,6 +68,7 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import Layout from '../../components/Layout.vue'
 import { TYPES, getPosts, draftPosts } from '../../utils/publishData'
+import { request } from '../../utils/request'
 import { useSafeTop } from '../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop()
@@ -80,11 +81,24 @@ const typeCards = [
 ]
 
 const allPosts = ref([])
+const backendCount = ref(0)
 const draftCount = computed(() => draftPosts().length)
-const totalCount = computed(() => allPosts.value.length)
+const totalCount = computed(() => allPosts.value.length + backendCount.value)
 
-function refresh() {
+// 我的发布计数 = 本地记录 + 后端已提交（需求 mine=1 + 商品 mine=1；未登录后端返回空）
+async function refresh() {
   allPosts.value = getPosts()
+  try {
+    const [dRes, pRes] = await Promise.all([
+      request({ url: '/api/v1/demands', data: { mine: '1', page: 1, page_size: 100 } }),
+      request({ url: '/api/v1/products', data: { mine: '1', page: 1, page_size: 100 } }),
+    ])
+    const dList = Array.isArray(dRes) ? dRes : dRes?.data || []
+    const pList = Array.isArray(pRes) ? pRes : pRes?.data || []
+    backendCount.value = dList.length + pList.length
+  } catch (e) {
+    backendCount.value = 0
+  }
 }
 
 function chooseType(type) {
