@@ -506,7 +506,10 @@
           "style": {
             "navigationBarTitleText": "案例展示",
             "navigationBarTextStyle": "black",
-            "navigationBarBackgroundColor": "#ffffff"
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom",
+            "enablePullDownRefresh": true,
+            "backgroundTextStyle": "dark"
           }
         },
         {
