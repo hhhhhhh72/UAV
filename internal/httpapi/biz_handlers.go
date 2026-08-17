@@ -223,7 +223,8 @@ func (s *Server) deleteExpert(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/cases?category=农业&page=1&page_size=10
 func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), 1, 100000)
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
