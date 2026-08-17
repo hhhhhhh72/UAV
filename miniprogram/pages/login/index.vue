@@ -111,7 +111,13 @@ const doWxLogin = () => {
   box-sizing: border-box;
 }
 
-.nav-bar { height: 96rpx; display: flex; align-items: center; }
+.nav-bar {
+  height: calc(96rpx + var(--status-bar-height));
+  padding-top: var(--status-bar-height);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
 .back-btn { font-size: 44rpx; color: var(--color-text); }
 
 /* ---- 品牌 ---- */

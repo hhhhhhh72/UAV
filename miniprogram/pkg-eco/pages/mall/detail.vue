@@ -347,7 +347,7 @@ const buy = async () => {
 .img-swiper.img-loaded { opacity: 1; }
 .img-back {
   position: absolute;
-  top: 16rpx;
+  top: calc(16rpx + var(--status-bar-height));
   left: 24rpx;
   width: 72rpx;
   height: 72rpx;

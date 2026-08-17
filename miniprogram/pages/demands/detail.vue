@@ -549,8 +549,9 @@ onLoad((options) => {
 
 /* ═══════ 头部 ═══════ */
 .page-header {
-  height: 56px;
-  padding: 0 28rpx;
+  height: calc(56px + var(--status-bar-height));
+  padding: var(--status-bar-height) 28rpx 0;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 8rpx;

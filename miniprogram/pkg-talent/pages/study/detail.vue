@@ -399,7 +399,7 @@ onReady(() => {
 /* 返回按钮 */
 .back-btn {
   position: absolute;
-  top: 76rpx;
+  top: calc(76rpx + var(--status-bar-height));
   left: 24rpx;
   z-index: 5;
   width: 64rpx;

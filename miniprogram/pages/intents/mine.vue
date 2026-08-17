@@ -82,7 +82,7 @@ onPullDownRefresh(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 14px 10px;
+  padding: calc(14px + var(--status-bar-height)) 14px 10px;
   background: #fff;
   border-bottom: 1px solid #EEF1F4;
 }
