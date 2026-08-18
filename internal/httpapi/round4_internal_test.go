@@ -56,12 +56,16 @@ func TestR4MapContractStatus(t *testing.T) {
 		"voided":      domain.ContractVoided,
 		"cancelled":   domain.ContractVoided,
 		"expired":     domain.ContractExpired,
-		"weird-xyz":   domain.ContractDraft, // unknown → draft
 	}
 	for in, want := range cases {
-		if got := mapContractStatus(in); got != want {
-			t.Fatalf("mapContractStatus(%q)=%q want %q", in, got, want)
+		got, err := mapContractStatus(in)
+		if err != nil || got != want {
+			t.Fatalf("mapContractStatus(%q)=%q err=%v want %q", in, got, err, want)
 		}
+	}
+	// 未知状态拒绝（不再降级 draft，防止已签合同被改回草稿）
+	if _, err := mapContractStatus("weird-xyz"); err == nil {
+		t.Fatal("unknown status must be rejected, not downgraded to draft")
 	}
 }
 

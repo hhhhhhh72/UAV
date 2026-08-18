@@ -206,7 +206,11 @@ func (s *Server) signingWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newStatus := mapContractStatus(event.Status)
+	newStatus, err := mapContractStatus(event.Status)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
 	if _, err := s.contracts.UpdateStatus(r.Context(), domain.Actor{ID: "system", Role: domain.RolePlatformAdmin}, event.ContractID, newStatus); err != nil {
 		slog.Warn("signing webhook: failed to update contract status, not deduping", "contract_id", event.ContractID, "event_status", event.Status, "error", err)
 		fail(w, r, http.StatusInternalServerError, err)
@@ -218,21 +222,21 @@ func (s *Server) signingWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 // mapContractStatus maps external signing service status strings to internal contract status.
-func mapContractStatus(eventStatus string) domain.ContractStatus {
+// 未知状态拒绝（返回错误）而非降级为 draft——此前未知事件会把已签合同改回草稿。
+func mapContractStatus(eventStatus string) (domain.ContractStatus, error) {
 	switch eventStatus {
 	case "sent", "created":
-		return domain.ContractSent
+		return domain.ContractSent, nil
 	case "signing", "in_progress":
-		return domain.ContractSigning
+		return domain.ContractSigning, nil
 	case "signed", "completed":
-		return domain.ContractSigned
+		return domain.ContractSigned, nil
 	case "voided", "cancelled":
-		return domain.ContractVoided
+		return domain.ContractVoided, nil
 	case "expired":
-		return domain.ContractExpired
+		return domain.ContractExpired, nil
 	default:
-		slog.Warn("signing webhook: unknown contract event status, defaulting to draft", "event_status", eventStatus)
-		return domain.ContractDraft
+		return "", fmt.Errorf("unknown webhook event status %q", eventStatus)
 	}
 }
 
