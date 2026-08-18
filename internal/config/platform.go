@@ -67,6 +67,10 @@ func GetPlatformConfig() PlatformConfig {
 }
 
 func SavePlatformConfig(cfg PlatformConfig) error {
+	// 费率范围校验：0（未启用）~ 100（%），防负数/越界配置
+	if cfg.MatchFeeRate < 0 || cfg.MatchFeeRate > 100 {
+		return fmt.Errorf("match fee rate must be between 0 and 100, got %v", cfg.MatchFeeRate)
+	}
 	platformMu.Lock()
 	platformCfg = cfg
 	platformMu.Unlock()
@@ -74,5 +78,14 @@ func SavePlatformConfig(cfg PlatformConfig) error {
 	if err != nil {
 		return fmt.Errorf("marshal platform config: %w", err)
 	}
-	return os.WriteFile("platform_config.json", data, 0644)
+	// 原子写：先写临时文件再 rename，崩溃/断电不产生半写文件
+	// （此前直接 WriteFile，写一半崩溃会损坏配置，重启回退默认 banner/费率）
+	tmp := "platform_config.json.tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		return fmt.Errorf("write platform config tmp: %w", err)
+	}
+	if err := os.Rename(tmp, "platform_config.json"); err != nil {
+		return fmt.Errorf("rename platform config: %w", err)
+	}
+	return nil
 }

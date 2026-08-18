@@ -71,7 +71,15 @@ func writeJSON(path string, mu *sync.RWMutex, data any) error {
 	if err != nil {
 		return fmt.Errorf("marshal for %s: %w", path, err)
 	}
-	return os.WriteFile(path, raw, 0644)
+	// 原子写：临时文件 + rename，防崩溃产生半写文件
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0644); err != nil {
+		return fmt.Errorf("write %s tmp: %w", path, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("rename %s: %w", path, err)
+	}
+	return nil
 }
 
 func init() {
