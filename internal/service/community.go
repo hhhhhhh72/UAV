@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -64,6 +66,13 @@ func (s *CommunityService) ListPublishedPosts(ctx context.Context, offset, limit
 // ---- Comments ----
 
 func (s *CommunityService) CreateComment(ctx context.Context, a domain.Actor, postID, content string) (domain.Comment, error) {
+	if strings.TrimSpace(content) == "" {
+		return domain.Comment{}, errors.New("comment content is required")
+	}
+	// 帖子存在性校验：防孤儿评论（此前任意 post_id 均可创建成功）
+	if _, err := s.post.FindByID(ctx, postID); err != nil {
+		return domain.Comment{}, fmt.Errorf("post %s: %w", postID, err)
+	}
 	c := domain.Comment{ID: nextID("comment"), PostID: postID, AuthorID: a.ID, Content: content, Status: "active", CreatedAt: time.Now()}
 	return s.comment.Create(ctx, c)
 }
