@@ -1071,6 +1071,7 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		Deadline           string                          `json:"deadline"`
 		OrganizerSub       string                          `json:"organizer_sub"`
 		Fee                int                             `json:"fee"`
+		OriginalFee        int64                           `json:"original_fee"`
 		MinFee             int                             `json:"min_fee"`
 		Tags               []string                        `json:"tags"`
 		Poster             string                          `json:"poster"`
@@ -1101,7 +1102,7 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		Title: in.Title, Category: in.Category, Description: in.Description,
 		Location: in.Location, Sponsor: in.Sponsor, StartDate: startDate, EndDate: endDate,
 		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
-		Fee: in.Fee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
+		Fee: in.Fee, OriginalFee: in.OriginalFee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
 		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
 		RegistrationStatus: in.RegistrationStatus,
 	})

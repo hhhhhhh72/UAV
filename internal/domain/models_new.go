@@ -188,6 +188,7 @@ type Competition struct {
 	Sponsor            string                   `json:"sponsor"`       // 主办方（页面 organizer || sponsor）
 	OrganizerSub       string                   `json:"organizer_sub"` // 承办方
 	Fee                int                      `json:"fee"`           // 报名费（分）
+	OriginalFee        int64                    `json:"original_fee"`  // 划线原价（分，页面 original_fee || original_price）
 	MinFee             int                      `json:"min_fee"`       // 页面「报名费 ¥xx 起/人」
 	Tags               []string                 `json:"tags"`
 	Poster             string                   `json:"poster"` // 海报图（页面 poster||cover||image||banner）

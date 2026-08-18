@@ -351,6 +351,12 @@ type TrainingCourse struct {
 	Location      string        `json:"location"`
 	District      string        `json:"district"` // 区县（页面筛选 district || region）
 	PriceFen      int64         `json:"price_fen"`
+	OriginalFee   int64         `json:"original_fee"` // 划线原价（分，页面 original_fee || original_price）
+	PassRate      float64       `json:"pass_rate"`    // 通过率（%，页面 pass_rate）
+	Years         int           `json:"years"`        // 机构年限（页面 years || establish_year 推导）
+	Scale         string        `json:"scale"`        // 机构规模（页面 featureTags 展示）
+	Intro         string        `json:"intro"`        // 机构简介（页面 intro || description）
+	Banner        string        `json:"banner"`       // Hero 大图（页面 banner || cover_image || image）
 	Rating        string        `json:"rating"`
 	ReviewCount   int           `json:"review_count"`
 	DurationDays  int           `json:"duration_days"`
