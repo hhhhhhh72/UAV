@@ -205,6 +205,7 @@ async function submitPublish() {
     }
     try {
       const user = getStoredUser()
+      const images = photoList.value.length ? await uploadImages(photoList.value) : []
       const created = await request({
         url: '/api/v1/service-listings',
         method: 'POST',
@@ -216,7 +217,7 @@ async function submitPublish() {
           region: String(values.value.range || '').trim(),
           price_fen: 0, // 报价方式见 unit；具体金额由需求方洽谈
           unit: String(values.value.quote || '面议'),
-          image: '',
+          image: images[0] || '',
         },
       })
       if (!created || !created.id) throw new Error('create service listing failed')
@@ -236,6 +237,7 @@ async function submitPublish() {
       return
     }
     try {
+      const images = photoList.value.length ? await uploadImages(photoList.value) : []
       const created = await request({
         url: '/api/v1/training-courses',
         method: 'POST',
@@ -249,7 +251,7 @@ async function submitPublish() {
           price_fen: Math.round((Number(values.value.price) || 0) * 100),
           duration_days: Number(values.value.duration) || 0,
           max_students: Number(values.value.quota) || 0,
-          image: '',
+          image: images[0] || '',
         },
       })
       if (!created || !created.id) throw new Error('create course failed')

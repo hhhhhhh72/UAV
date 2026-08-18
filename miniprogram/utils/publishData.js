@@ -49,6 +49,7 @@ export const TYPES = {
           ['title', '服务名称', '例如：低空电力巡检服务', 'input', true],
           ['category', '服务分类', '选择一项主营服务', 'select', true, ['巡检', '测绘', '航拍', '植保', '吊运', '检测标定']],
         ],
+        upload: true,
       },
       {
         title: '覆盖与报价',
@@ -112,6 +113,7 @@ export const TYPES = {
           ['certType', '证书类型', '选择对应证书', 'select', true, ['CAAC 民航局执照', 'AOPA 执照', '大疆 UTC 证书', '职业技能等级']],
           ['org', '培训机构', '填写机构全称', 'input', true],
         ],
+        upload: true,
       },
       {
         title: '开班与地点',
