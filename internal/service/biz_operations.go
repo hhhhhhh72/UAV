@@ -332,9 +332,12 @@ func (s *EmergencyService) FindDispatchByID(ctx context.Context, id string) (dom
 
 // Emergency Dispatches
 
-func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, eventDesc, location, commander, result string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
+func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
 	if !endTime.IsZero() && endTime.Before(startTime) {
 		return domain.EmergencyDispatch{}, errors.New("end time must not be earlier than start time")
+	}
+	if status == "" {
+		status = "dispatched"
 	}
 	now := time.Now()
 	if _, err := s.repo.FindResourceByID(ctx, resourceID); err != nil {
@@ -349,15 +352,53 @@ func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, event
 		EndTime:    endTime,
 		Commander:  commander,
 		Result:     result,
-		Status:     "dispatched",
+		Status:     status,
 		CreatedAt:  now,
 	}
 	return s.repo.CreateDispatch(ctx, d)
 }
 
-func (s *EmergencyService) ListDispatches(ctx context.Context, page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
-	offset := (page - 1) * pageSize
-	return s.repo.ListDispatches(ctx, offset, pageSize)
+// matchDispatchStatus 调度状态值域归并：前端 ongoing 匹配库内 dispatched/ongoing/done；
+// 其余精确匹配（pending/completed/cancelled）。
+func matchDispatchStatus(query, s string) bool {
+	switch query {
+	case "ongoing":
+		return s == "ongoing" || s == "dispatched" || s == "done"
+	case "done":
+		return s == "done" || s == "completed"
+	default:
+		return s == query
+	}
+}
+
+// ListDispatches 调度列表：先全量再按 status（值域归并）/resource_id 过滤后分页——
+// 修复前 handler 先分页后过滤（跨页漏数据）且精确匹配（ongoing 匹配不到 dispatched）。
+// 调度记录量级小，全量内存过滤可接受。
+func (s *EmergencyService) ListDispatches(ctx context.Context, status, resourceID string, page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
+	all, err := s.repo.ListDispatches(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]domain.EmergencyDispatch, 0, len(all))
+	for _, d := range all {
+		if status != "" && !matchDispatchStatus(status, d.Status) {
+			continue
+		}
+		if resourceID != "" && d.ResourceID != resourceID {
+			continue
+		}
+		out = append(out, d)
+	}
+	total := len(out)
+	start := (page - 1) * pageSize
+	if start >= total {
+		return []domain.EmergencyDispatch{}, total, nil
+	}
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	return out[start:end], total, nil
 }
 
 func (s *EmergencyService) UpdateResource(ctx context.Context, id, name, resType, specs, location, contactInfo, status string, quantity int) (domain.EmergencyResource, error) {

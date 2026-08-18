@@ -149,5 +149,5 @@ func TestEmergencyCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc.CreateDispatch(context.Background(), r.ID, "山火应急", "北碚", "张指挥", "成功灭火", time.Now(), time.Now().Add(3*time.Hour))
+	svc.CreateDispatch(context.Background(), r.ID, "山火应急", "北碚", "张指挥", "成功灭火", "", time.Now(), time.Now().Add(3*time.Hour))
 }

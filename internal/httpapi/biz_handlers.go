@@ -1519,24 +1519,15 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 	respond(w, r, http.StatusCreated, res)
 }
 
-// GET /api/v1/emergency-dispatches?page=1&page_size=10&status=pending
-// 公开展示（与救援案例一致）：调度记录作为应急协同成果对会员公开展示
-// status 筛选支持页面 dispatches.vue 值域：pending / dispatched / completed / ongoing / done / cancelled
+// GET /api/v1/emergency-dispatches?page=1&page_size=10&status=ongoing&resource_id=xxx
+// 公开展示（与救援案例一致）：调度记录作为应急协同成果对会员公开展示。
+// status 值域归并在 service 层（ongoing 匹配 dispatched/ongoing/done）；过滤先于分页。
 func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.emergencySvc.ListDispatches(r.Context(), page, pageSize)
+	items, total, err := s.emergencySvc.ListDispatches(r.Context(),
+		r.URL.Query().Get("status"), r.URL.Query().Get("resource_id"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	if status := r.URL.Query().Get("status"); status != "" {
-		var out []domain.EmergencyDispatch
-		for _, d := range items {
-			if d.Status == status {
-				out = append(out, d)
-			}
-		}
-		paginatedRespond(w, r, out, len(out))
 		return
 	}
 	paginatedRespond(w, r, items, total)
@@ -1559,6 +1550,7 @@ func (s *Server) createEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		Location   string `json:"location"`
 		Commander  string `json:"commander"`
 		Result     string `json:"result"`
+		Status     string `json:"status"`
 		StartTime  string `json:"start_time"`
 		EndTime    string `json:"end_time"`
 	}
@@ -1576,7 +1568,7 @@ func (s *Server) createEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
 		return
 	}
-	d, err := s.emergencySvc.CreateDispatch(r.Context(), in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, startTime, endTime)
+	d, err := s.emergencySvc.CreateDispatch(r.Context(), in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, in.Status, startTime, endTime)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return

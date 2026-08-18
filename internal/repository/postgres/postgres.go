@@ -349,6 +349,13 @@ func (r *enterpriseRepo) Pending(ctx context.Context) ([]domain.Enterprise, erro
 }
 
 func (r *enterpriseRepo) Create(ctx context.Context, e domain.Enterprise) (domain.Enterprise, error) {
+	now := time.Now()
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = now
+	}
+	if e.UpdatedAt.IsZero() {
+		e.UpdatedAt = now
+	}
 	if r.cipher != nil {
 		if e.LicenseURL != "" {
 			enc, err := r.cipher.Encrypt(e.LicenseURL)

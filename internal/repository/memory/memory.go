@@ -290,6 +290,15 @@ func (r *enterpriseRepo) Pending(ctx context.Context) ([]domain.Enterprise, erro
 func (r *enterpriseRepo) Create(ctx context.Context, e domain.Enterprise) (domain.Enterprise, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 时间戳兜底：与 PG 实现一致——调用方未设置时补当前时间
+	// （此前零值落库导致列表按 created_at DESC 排序时新记录排最后）。
+	now := time.Now()
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = now
+	}
+	if e.UpdatedAt.IsZero() {
+		e.UpdatedAt = now
+	}
 	if err := r.encrypt(&e); err != nil {
 		return domain.Enterprise{}, err
 	}

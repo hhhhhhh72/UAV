@@ -21,7 +21,7 @@ func TestTimeRangeValidation(t *testing.T) {
 	}
 	// 应急调度
 	emSvc := service.NewEmergencyService(memory.NewEmergencyRepository())
-	if _, err := emSvc.CreateDispatch(context.Background(), "r-1", "d", "l", "c", "", start, end); err == nil {
+	if _, err := emSvc.CreateDispatch(context.Background(), "r-1", "d", "l", "c", "", "", start, end); err == nil {
 		t.Fatal("dispatch with end < start must be rejected")
 	}
 	// 正常 + end 零值（进行中）放行

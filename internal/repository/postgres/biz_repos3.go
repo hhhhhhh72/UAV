@@ -316,15 +316,11 @@ func (r *emergRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDispat
 		d.ID, d.ResourceID, d.EventDesc, d.Location, d.StartTime, nullableEndTime(d.EndTime), d.Commander, d.Result, d.Status, d.CreatedAt)
 	return d, err
 }
-func (r *emergRepo) ListDispatches(ctx context.Context, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
-	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches`).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count dispatches: %w", err)
-	}
+func (r *emergRepo) ListDispatches(ctx context.Context) ([]domain.EmergencyDispatch, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches ORDER BY created_at DESC`)
 	if err != nil {
-		return nil, 0, fmt.Errorf("list dispatches: %w", err)
+		return nil, fmt.Errorf("list dispatches: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.EmergencyDispatch
@@ -333,12 +329,12 @@ func (r *emergRepo) ListDispatches(ctx context.Context, offset, limit int) ([]do
 		// end_time 可空：pgtype 吸收 NULL，空值映射为零值时间（前端不展示该字段）
 		var endTime pgtype.Timestamptz
 		if err := rows.Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &endTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt); err != nil {
-			return nil, 0, fmt.Errorf("scan dispatch: %w", err)
+			return nil, fmt.Errorf("scan dispatch: %w", err)
 		}
 		d.EndTime = endTime.Time
 		out = append(out, d)
 	}
-	return out, total, rows.Err()
+	return out, rows.Err()
 }
 
 func (r *emergRepo) DeleteResource(ctx context.Context, id string) error {
