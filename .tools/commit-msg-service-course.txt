@@ -1,0 +1,21 @@
+feat(api+miniprogram): 打通服务能力与培训课程发布流程（此前为本地发布已知边界）
+
+后端：
+- POST /api/v1/service-listings 用户自助发布服务能力（登录；
+  默认 pending 待审核，管理端 adminList/adminUpdate 审核闭环；
+  公开列表仅 published，待审核不泄露）
+- GET /api/v1/service-listings?mine=1 我的服务（含待审核；未登录返回空）
+- GET /api/v1/training-courses?mine=1 我的课程（按 org_id；未登录返回空）
+- POST /api/v1/training-courses 用户发布课程即时上架（status=published，
+  修复此前默认 draft 直接出现在公开列表的状态语义错误）
+
+前端：
+- preview.vue：service/course 提交改为真实接口（先落后端成功才写本地根记录）；
+  表单字段映射（cert_type 中文→枚举 caac/utc_dji/gov_level）
+- my-posts.vue：合并四类后端记录（demand/product/service/course mine=1），
+  本地仅保留草稿与无 backendId 旧记录；状态映射补齐
+  （service pending/published、course draft/published）
+- index.vue：我的发布计数并入四类后端数据
+
+测试：TestCreateServiceListingPendingAndMine（pending 不公开/mine 可见/
+匿名不泄露）+ TestCreateCoursePublishedAndMine（发布即上架/mine 过滤）

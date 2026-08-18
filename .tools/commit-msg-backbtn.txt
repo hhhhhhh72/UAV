@@ -1,0 +1,19 @@
+fix(miniprogram): 修复 9 个页面双返回按钮——统一改 custom 导航
+
+审计发现 15 个页面存在"系统导航栏 + 页内返回按钮"并存的疑似双返回，
+逐一甄别后 6 个为误报（搜索弹层关闭按钮/错误态按钮/无按钮死函数），
+真实多余返回 9 页，全部改为 navigationStyle: custom（保留页内返回，
+与项目 79 个 custom 页面模式统一）：
+
+- pages/login/index、login/phone、register/index：nav-bar 增加状态栏
+  高度适配（var(--status-bar-height)）
+- pages/agreement/index：u-nav-bar 组件自带状态栏适配
+- pages/demands/detail：page-header 状态栏适配（保留分享按钮）
+- pages/intents/mine：page-head 状态栏适配
+- pkg-eco/pages/mall/detail：全宽图区返回按钮下沉状态栏
+- pkg-talent/pages/study/detail：深色头图返回按钮下沉 + 状态栏文字改白
+- pkg-service/pages/services/apply：已有 useSafeTop 适配
+
+（误报 6 页保持不变：demands/index 的箭头是搜索弹层关闭、webview 无返回、
+achievements/detail 与 transformations/track 的 stb 是错误态按钮、
+competitions/list 与 colleges/list 的 goBack 为未使用函数）
