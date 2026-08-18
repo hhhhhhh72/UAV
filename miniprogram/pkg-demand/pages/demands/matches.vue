@@ -1,5 +1,5 @@
 <template>
-  <view class="matches-page">
+  <view class="matches-page" :style="{ paddingTop: topPad + 'px' }">
     <!-- 头部 -->
     <view class="page-header">
       <view class="back-btn" hover-class="tap-fade" hover-stay-time="120" @tap="goBack"><text class="back-sym">‹</text></view>
@@ -118,8 +118,14 @@
 
 <script setup>
 import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { safeNavigateTo } from '../../../utils/nav'
 import { request, BASE_URL } from '../../../utils/request'
+import { useSafeTop } from '../../../utils/safeTop'
+
+// 自定义顶栏：与状态栏/胶囊同排避让
+const { topPad, initSafeTop } = useSafeTop(true)
+onLoad(() => { initSafeTop() })
 
 const quickCats = ['巡检', '吊运', '植保', '测绘', '航拍']
 
