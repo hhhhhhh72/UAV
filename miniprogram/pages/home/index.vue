@@ -318,7 +318,7 @@
       <view class="city-sheet-head">
         <text class="city-sheet-title">选择服务区域</text>
         <view class="city-sheet-close" hover-class="tap-fade" hover-stay-time="120" @tap="closeCityPicker">
-          <text class="icon icon-x">×</text>
+          <text class="icon icon-x"></text>
         </view>
       </view>
       <scroll-view scroll-y class="city-sheet-body">
