@@ -109,6 +109,7 @@ type Server struct {
 	idempotency       *idempotencyStore
 	smsIPLimits       sync.Map // ip -> *smsIPLog（短信发送限频，实例级避免测试/多实例互扰）
 	smsIPEntries      atomic.Int64
+	pwLoginFailures   sync.Map // loginID -> *pwFailLog（密码登录失败锁定，实例级）
 	auditWriter       repository.AuditWriter
 	dbPinger          interface{ Ping(context.Context) error }
 	storage           string

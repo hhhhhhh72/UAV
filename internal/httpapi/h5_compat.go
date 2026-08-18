@@ -517,6 +517,54 @@ func (s *Server) h5UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 
 // ─── Auth Compatibility ─────────────────────────────────────────────────────
 
+// ── 密码登录失败锁定 ──
+// bcrypt 慢哈希 + IP 限频挡不住多 IP 分布式爆破：连续失败达上限后
+// 锁定该账号 15 分钟。表挂 Server 实例（测试互不干扰）。
+
+const (
+	pwMaxFailures  = 10
+	pwLockDuration = 15 * time.Minute
+)
+
+type pwFailLog struct {
+	mu          sync.Mutex
+	count       int
+	lockedUntil time.Time
+}
+
+// dummyPasswordHash 用于不存在的账号也执行一次 bcrypt 校验，
+// 抹平"账号不存在"与"密码错误"的响应时间差（防用户枚举时序侧信道）。
+var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password-for-timing"), bcrypt.DefaultCost)
+
+// passwordLoginLocked 报告账号是否处于失败锁定中。
+func (s *Server) passwordLoginLocked(loginID string) bool {
+	v, ok := s.pwLoginFailures.Load(loginID)
+	if !ok {
+		return false
+	}
+	log := v.(*pwFailLog)
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	return time.Now().Before(log.lockedUntil)
+}
+
+// recordPasswordFailure 记录一次失败；达到上限即锁定。
+func (s *Server) recordPasswordFailure(loginID string) {
+	v, _ := s.pwLoginFailures.LoadOrStore(loginID, &pwFailLog{})
+	log := v.(*pwFailLog)
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	log.count++
+	if log.count >= pwMaxFailures {
+		log.lockedUntil = time.Now().Add(pwLockDuration)
+	}
+}
+
+// clearPasswordFailures 登录成功后清零失败记录。
+func (s *Server) clearPasswordFailures(loginID string) {
+	s.pwLoginFailures.Delete(loginID)
+}
+
 func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Phone    string `json:"phone"`
@@ -533,6 +581,11 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if loginID == "" || body.Password == "" {
 		fail(w, r, http.StatusBadRequest, errBadRequest("phone/username and password required"))
+		return
+	}
+	// 账号失败锁定：连续失败达上限后拒绝校验（防分布式爆破）。
+	if s.passwordLoginLocked(loginID) {
+		fail(w, r, http.StatusTooManyRequests, errBadRequest("尝试次数过多，请稍后再试"))
 		return
 	}
 
@@ -573,9 +626,15 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if passwordHash == "" || bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(body.Password)) != nil {
+		// 账号不存在也执行一次 dummy bcrypt，抹平时序差异（防用户枚举）。
+		if passwordHash == "" {
+			_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(body.Password))
+		}
+		s.recordPasswordFailure(loginID)
 		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
 		return
 	}
+	s.clearPasswordFailures(loginID)
 
 	// Issue Go backend tokens
 	id, _ := user["id"].(string)
