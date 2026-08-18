@@ -419,5 +419,5 @@ func TestNewBizReposFull(t *testing.T) {
 	emR.ListResources(context.Background(), "", "", 0, 20)
 	emR.UpdateResource(context.Background(), domain.EmergencyResource{ID: "er-1", Name: "updated"})
 	emR.CreateDispatch(context.Background(), domain.EmergencyDispatch{ID: "ed-1", ResourceID: "er-1"})
-	emR.ListDispatches(context.Background())
+	emR.ListDispatches(context.Background(), 0, 20)
 }

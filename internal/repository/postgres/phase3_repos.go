@@ -107,7 +107,7 @@ type courseRepo struct{ pool *pgxpool.Pool }
 func (s *Store) NewCourseRepository() repository.CourseRepository { return &courseRepo{pool: s.Pool()} }
 
 // courseCols 与 training_courses 表列一一对应（迁移 000044/000045 补齐小程序页面字段）
-const courseCols = `id,org_id,org_name,title,cert_type,description,start_date,end_date,max_students,enrolled_count,location,district,price_fen,original_fee,pass_rate,years,scale,intro,banner,rating,review_count,duration_days,image,tags,certificate,courses,prices,business_hours,phone,remain,environment,course_types,status,version,created_at,updated_at`
+const courseCols = `id,org_id,org_name,title,cert_type,description,start_date,end_date,max_students,enrolled_count,location,district,price_fen,rating,review_count,duration_days,image,tags,certificate,courses,prices,business_hours,phone,remain,environment,course_types,status,version,created_at,updated_at`
 
 func (r *courseRepo) Create(ctx context.Context, c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	c.Version = 1
@@ -120,10 +120,9 @@ func (r *courseRepo) Create(ctx context.Context, c domain.TrainingCourse) (domai
 	c.CourseTypes = jsonbSlice(c.CourseTypes)
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO training_courses (`+courseCols+`)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)`,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)`,
 		c.ID, c.OrgID, c.OrgName, c.Title, string(c.CertType), c.Description, c.StartDate, c.EndDate,
-		c.MaxStudents, c.EnrolledCount, c.Location, c.District, c.PriceFen, c.OriginalFee, c.PassRate, c.Years,
-		c.Scale, c.Intro, c.Banner, c.Rating, c.ReviewCount,
+		c.MaxStudents, c.EnrolledCount, c.Location, c.District, c.PriceFen, c.Rating, c.ReviewCount,
 		c.DurationDays, c.Image, c.Tags, c.Certificate, c.Courses, c.Prices, c.BusinessHours, c.Phone,
 		c.Remain, c.Environment, c.CourseTypes,
 		c.Status, c.Version, c.CreatedAt, c.UpdatedAt)
@@ -140,8 +139,7 @@ func (r *courseRepo) List(ctx context.Context) ([]domain.TrainingCourse, error) 
 		var c domain.TrainingCourse
 		var ct string
 		if err := rows.Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
-			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.OriginalFee, &c.PassRate, &c.Years,
-			&c.Scale, &c.Intro, &c.Banner, &c.Rating, &c.ReviewCount,
+			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
 			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
 			&c.Remain, &c.Environment, &c.CourseTypes,
 			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
@@ -159,8 +157,7 @@ func (r *courseRepo) FindByID(ctx context.Context, id string) (domain.TrainingCo
 	err := r.pool.QueryRow(ctx,
 		`SELECT `+courseCols+` FROM training_courses WHERE id=$1`, id).
 		Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
-			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.OriginalFee, &c.PassRate, &c.Years,
-			&c.Scale, &c.Intro, &c.Banner, &c.Rating, &c.ReviewCount,
+			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
 			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
 			&c.Remain, &c.Environment, &c.CourseTypes,
 			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
@@ -177,10 +174,9 @@ func (r *courseRepo) Update(ctx context.Context, c domain.TrainingCourse) (domai
 	c.Environment = jsonbSlice(c.Environment)
 	c.CourseTypes = jsonbSlice(c.CourseTypes)
 	_, err := r.pool.Exec(ctx,
-		`UPDATE training_courses SET title=$1,cert_type=$2,description=$3,start_date=$4,end_date=$5,max_students=$6,location=$7,district=$8,price_fen=$9,original_fee=$10,pass_rate=$11,years=$12,scale=$13,intro=$14,banner=$15,rating=$16,review_count=$17,duration_days=$18,image=$19,tags=$20,certificate=$21,courses=$22,prices=$23,business_hours=$24,phone=$25,org_name=$26,remain=$27,environment=$28,course_types=$29,status=$30,version=$31,updated_at=$32 WHERE id=$33`,
+		`UPDATE training_courses SET title=$1,cert_type=$2,description=$3,start_date=$4,end_date=$5,max_students=$6,location=$7,district=$8,price_fen=$9,rating=$10,review_count=$11,duration_days=$12,image=$13,tags=$14,certificate=$15,courses=$16,prices=$17,business_hours=$18,phone=$19,org_name=$20,remain=$21,environment=$22,course_types=$23,status=$24,version=$25,updated_at=$26 WHERE id=$27`,
 		c.Title, string(c.CertType), c.Description, c.StartDate, c.EndDate, c.MaxStudents, c.Location,
-		c.District, c.PriceFen, c.OriginalFee, c.PassRate, c.Years, c.Scale, c.Intro, c.Banner,
-		c.Rating, c.ReviewCount, c.DurationDays, c.Image, c.Tags, c.Certificate,
+		c.District, c.PriceFen, c.Rating, c.ReviewCount, c.DurationDays, c.Image, c.Tags, c.Certificate,
 		c.Courses, c.Prices, c.BusinessHours, c.Phone, c.OrgName, c.Remain, c.Environment, c.CourseTypes,
 		c.Status, c.Version, c.UpdatedAt, c.ID)
 	return c, err

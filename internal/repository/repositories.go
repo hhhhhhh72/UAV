@@ -523,7 +523,7 @@ type EmergencyRepository interface {
 	UpdateDispatch(ctx context.Context, v domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
 	DeleteDispatch(ctx context.Context, id string) error
 	CreateDispatch(ctx context.Context, v domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
-	ListDispatches(ctx context.Context) ([]domain.EmergencyDispatch, error)
+	ListDispatches(ctx context.Context, offset, limit int) ([]domain.EmergencyDispatch, int, error)
 }
 
 // ── Batch1: 产业资源池 + 测试预约 + 展会 (per .doc) ──

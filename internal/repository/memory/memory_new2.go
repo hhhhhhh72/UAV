@@ -498,12 +498,10 @@ func (r *emergencyRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDi
 	r.dispatches = append(r.dispatches, d)
 	return d, nil
 }
-func (r *emergencyRepo) ListDispatches(ctx context.Context) ([]domain.EmergencyDispatch, error) {
+func (r *emergencyRepo) ListDispatches(ctx context.Context, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	out := make([]domain.EmergencyDispatch, len(r.dispatches))
-	copy(out, r.dispatches)
-	return out, nil
+	return paginateSlice(r.dispatches, offset, limit)
 }
 
 func (r *emergencyRepo) DeleteResource(ctx context.Context, id string) error {

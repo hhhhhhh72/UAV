@@ -91,12 +91,6 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		PriceFen    int64  `json:"price_fen"`
 		// 小程序培训页扩展字段（training/courses + enroll + register）
 		OrgName       string               `json:"org_name"`
-		OriginalFee   int64                `json:"original_fee"`
-		PassRate      float64              `json:"pass_rate"`
-		Years         int                  `json:"years"`
-		Scale         string               `json:"scale"`
-		Intro         string               `json:"intro"`
-		Banner        string               `json:"banner"`
 		Rating        string               `json:"rating"`
 		ReviewCount   int                  `json:"review_count"`
 		District      string               `json:"district"`
@@ -127,8 +121,6 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
-		OriginalFee: in.OriginalFee, PassRate: in.PassRate, Years: in.Years,
-		Scale: in.Scale, Intro: in.Intro, Banner: in.Banner,
 		// 用户发布课程即上架（公开列表可见）；服务能力走 pending 审核，课程暂即时上架
 		Status: "published",
 	})

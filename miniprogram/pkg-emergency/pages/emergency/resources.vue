@@ -2,7 +2,7 @@
   <!-- 弹窗打开时锁定底层 page 滚动，防止穿透 -->
   <page-meta :page-style="overlayStyle" />
   <view class="page">
-    <!-- ① 深蓝渐变导航（返回 + 双 Tab + 胶囊占位） -->
+    <!-- ① 白底导航（返回 + 双 Tab + 胶囊占位） -->
     <view class="nav-wrap" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="nav-bar">
         <view class="nav-back" hover-class="nav-press" :hover-stay-time="100" @click="goBack">
@@ -27,7 +27,7 @@
           <view class="sync-dot" />
           <text class="sync-text">已同步 · 重庆市应急指挥调度平台</text>
         </view>
-        <view class="meta-city">
+        <view class="meta-city" @click="showCityToast">
           <text class="city-text">重庆市</text>
           <text class="city-arrow">▾</text>
         </view>
@@ -51,7 +51,6 @@
             @input="onInput"
             @confirm="onSearch"
           />
-          <text v-show="!keyword && !searchFocus" class="search-kbd">⌘K</text>
           <view v-if="keyword" class="search-clear" @click="clearKeyword"><text class="search-clear-x">×</text></view>
         </view>
         <view class="filter-btn" hover-class="filter-press" :hover-stay-time="100" @click="openFilter">
@@ -69,10 +68,6 @@
             <view class="ov-trend">
               <view class="chip-dot" :class="s.chipCls" />
               <text class="ov-trend-text">{{ s.chip }}</text>
-              <view v-if="s.newTag" class="chip-new">
-                <view class="chip-new-arrow" />
-                <text class="chip-new-text">+1 本周新增</text>
-              </view>
             </view>
           </view>
         </view>
@@ -89,6 +84,11 @@
         <view v-else-if="!loading && list.length === 0" class="state-view">
           <view class="state-ico">◌</view>
           <text class="state-text">暂无应急资源</text>
+        </view>
+        <view v-else-if="!loading && filteredList.length === 0" class="state-view">
+          <view class="state-ico">◌</view>
+          <text class="state-text">无匹配结果</text>
+          <view class="retry-btn" @tap="resetFilter"><text>清除筛选</text></view>
         </view>
         <template v-else>
           <view class="sub-bar">
@@ -124,9 +124,6 @@
                     <view v-if="itemTags(item).length" class="res-tags">
                       <text v-for="tg in itemTags(item)" :key="tg.t" class="pill" :class="tg.cls">{{ tg.t }}</text>
                     </view>
-                    <view class="cap-badge" :style="capStyle(item)">
-                      <text class="cap-badge-char">{{ capChar(item) }}</text>
-                    </view>
                   </view>
                 </view>
               </view>
@@ -143,13 +140,6 @@
                 <view class="meta-row meta-row--full">
                   <text class="meta-label">联系人</text>
                   <text class="meta-val">{{ item.contact_info || '暂无' }}</text>
-                </view>
-                <view class="meta-row meta-row--full">
-                  <text class="meta-label">状态</text>
-                  <view class="meta-status" :class="'meta-status--' + statusKey(item.status)">
-                    <view class="meta-status-dot" />
-                    <text class="meta-status-text">{{ statusLabel(item.status) }}</text>
-                  </view>
                 </view>
               </view>
 
@@ -213,12 +203,12 @@
             <view class="res-meta">
               <view class="meta-row meta-row--full">
                 <text class="meta-label">联系人</text>
-                <text class="meta-val">{{ d.contact_name || '暂无' }}</text>
+                <text class="meta-val">{{ contactName(d) }}</text>
               </view>
               <view class="meta-row meta-row--full">
                 <text class="meta-label">电话</text>
-                <view class="meta-phone" hover-class="phone-press" :hover-stay-time="120" @click.stop="callPhone(d.contact_phone)">
-                  <text class="meta-val phone-val">{{ d.contact_phone || '暂无' }}</text>
+                <view class="meta-phone" hover-class="phone-press" :hover-stay-time="120" @click.stop="callPhone(contactPhone(d))">
+                  <text class="meta-val phone-val">{{ contactPhone(d) || '暂无' }}</text>
                 </view>
               </view>
             </view>
@@ -363,7 +353,6 @@
 
     <!-- ⑧ 自定义 Toast -->
     <view v-if="toast.show" class="custom-toast" :class="{ 'custom-toast--out': toast.hide }">
-      <view class="toast-icon"><view class="toast-check" /></view>
       <text class="toast-text">{{ toast.msg }}</text>
     </view>
   </view>
@@ -375,10 +364,10 @@ import { request } from '../../../utils/request'
 export default {
   data() {
     return {
-      // 状态栏高度：微信端 CSS 变量 --status-bar-height 不生效，须 JS 读取
-      statusBarHeight: uni.getSystemInfoSync().statusBarHeight || 20,
       mainTabIndex: 0,
       mainTitles: ['应急资源', '部门对接'],
+      // 顶部状态栏高度：自定义导航需自行下移，避免与状态栏重叠
+      statusBarHeight: 24,
       typePills: [
         { label: '全部', value: '', icon: '◈' },
         { label: '无人机', value: 'drone', icon: '机' },
@@ -433,9 +422,9 @@ export default {
       var avail = base.filter(function (it) { return self.statusKey(it.status) === 'available' }).length
       var busy = base.filter(function (it) { return self.statusKey(it.status) === 'in_use' }).length
       return [
-        { label: '在册资源', value: total, chip: '实时', chipCls: 'chip-dot--ok', newTag: true },
-        { label: '当前可用', value: avail, chip: '随时调用', muted: true, chipCls: 'chip-dot--blue' },
-        { label: '在调度中', value: busy, chip: '跟踪任务', muted: true, chipCls: 'chip-dot--amber' },
+        { label: '在册资源', value: total, chip: '实时', chipCls: 'chip-dot--ok' },
+        { label: '当前可用', value: avail, chip: '随时调用', chipCls: 'chip-dot--blue' },
+        { label: '在调度中', value: busy, chip: '跟踪任务', chipCls: 'chip-dot--green' },
       ]
     },
     regionOptions() {
@@ -472,6 +461,7 @@ export default {
     },
   },
   onLoad() {
+    this.statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 24
     this.fetchList(true)
   },
   onPullDownRefresh() {
@@ -657,22 +647,6 @@ export default {
       }
       this.showCustomToast('该资源离线')
     },
-    /* 能力标签：16px 圆形小图标（左下，按类型分色） */
-    capChar(item) {
-      var map = { drone: '机', comm: '信', vehicle: '车', medical: '医', rescue: '救' }
-      return map[this.resType(item)] || '能'
-    },
-    capStyle(item) {
-      var t = this.resType(item)
-      var map = {
-        drone: { background: '#EAF3FB', color: '#0A66C2' },
-        comm: { background: '#F4F8FC', color: '#0A66C2' },
-        vehicle: { background: '#FFF0E6', color: '#E96012' },
-        medical: { background: '#E9F7F0', color: '#168A55' },
-        rescue: { background: '#FEF6E7', color: '#B54708' },
-      }
-      return map[t] || { background: '#F4F8FC', color: '#0A66C2' }
-    },
     /* 自定义 Toast：入场淡入 + 2000ms 停留 + 淡出（连续触发重置计时） */
     showCustomToast(msg) {
       var self = this
@@ -719,12 +693,20 @@ export default {
         this.showCustomToast('暂无联系电话')
         return
       }
-      uni.makePhoneCall({ phoneNumber: phone })
-    },
+      uni.makePhoneCall({ phoneNumber: phone })    },
     extractPhone(str) {
       if (!str) return ''
       var m = String(str).match(/1[3-9]\d{9}/)
       return m ? m[0] : ''
+    },
+    // 列表卡片联系人：后端只有 contact_info 单字段（含姓名/电话文本），兼容旧 contact_name
+    contactName(d) {
+      if (!d) return '暂无'
+      return d.contact_name || d.contact_info || '暂无'
+    },
+    contactPhone(d) {
+      if (!d) return ''
+      return this.extractPhone(d.contact_info || d.contact_name)
     },
     statusKey(status) {
       var s = status || 'available'
@@ -811,6 +793,9 @@ export default {
         }
       }, Math.round(duration / steps))
     },
+    showCityToast() {
+      uni.showToast({ title: '当前仅支持重庆市', icon: 'none' })
+    },
     goBack() {
       uni.navigateBack()
     },
@@ -836,7 +821,8 @@ export default {
 /* ═══ ① 导航（白底，对齐其他页面）═══ */
 .nav-wrap {
   background: #ffffff;
-  padding: var(--status-bar-height) 0 0;
+  /* 顶部内边距由 JS 读取的真实状态栏高度接管（模板 :style），此处归零 */
+  padding: 0;
   position: relative;
   z-index: 5;
   border-bottom: 1rpx solid #EEF1F4;
@@ -858,10 +844,10 @@ export default {
   flex-shrink: 0;
 }
 .nav-press { transform: scale(0.92); background: #EAF3FB; }
-.nav-back-icon { color: #0A1F44; font-size: 40rpx; font-weight: 300; line-height: 1; }
+.nav-back-icon { color: #17212B; font-size: 40rpx; font-weight: 300; line-height: 1; }
 .nav-tabs { flex: 1; display: flex; gap: 48rpx; justify-content: center; }
 .nav-tab { position: relative; padding: 10rpx 4rpx; }
-.nav-tab-text { font-size: 30rpx; color: #6B7B95; transition: color 200ms ease; }
+.nav-tab-text { font-size: 34rpx; color: #6B7B95; transition: color 200ms ease; }
 .nav-tab.on .nav-tab-text { color: #0A66C2; font-weight: 700; }
 .nav-tab-line {
   position: absolute;
@@ -895,8 +881,6 @@ export default {
   height: 10rpx;
   border-radius: 50%;
   background: #168A55;
-  box-shadow: 0 0 0 0 rgba(22, 138, 85, 0.5);
-  animation: syncPulse 1.8s ease-out infinite;
 }
 .sync-text { font-size: 20rpx; color: #6B7B95; }
 .meta-city { display: flex; align-items: center; gap: 4rpx; }
@@ -951,15 +935,6 @@ export default {
 .search-box.focus .search-ico-bar { background: #0A66C2; }
 .search-input { flex: 1; font-size: 24rpx; color: #17212B; }
 .search-ph { color: #ADB8C7; }
-.search-kbd {
-  font-size: 18rpx;
-  color: #ADB8C7;
-  border: 1rpx solid #E4E7EC;
-  border-radius: 4rpx;
-  padding: 2rpx 10rpx;
-  transition: opacity 200ms ease;
-}
-.search-box.focus .search-kbd { opacity: 0; }
 .search-clear {
   width: 40rpx;
   height: 40rpx;
@@ -993,35 +968,34 @@ export default {
 .overview {
   display: flex;
   box-sizing: border-box;
-  margin: 14rpx 32rpx 0;
+  margin: 14rpx 24rpx 0;
   padding: 22rpx 8rpx;
-  background: linear-gradient(160deg, #0a5897 0%, #074D92 100%);
+  background: #ffffff;
+  border: 1rpx solid #EEF1F4;
   border-radius: 12rpx;
-  color: #fff;
-  box-shadow: 0 6rpx 18rpx rgba(7, 77, 146, 0.18);
 }
 .ov-item { flex: 1; text-align: center; }
-.ov-item + .ov-item { border-left: 1rpx solid rgba(255, 255, 255, 0.18); }
+.ov-item + .ov-item { border-left: 1rpx solid #EEF1F4; }
 .ov-num {
   display: block;
   font-size: 40rpx;
   font-weight: 700;
   line-height: 1.1;
+  color: #0A66C2;
   animation: numIn 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-.ov-num.muted { color: rgba(255, 255, 255, 0.86); }
-.ov-unit { font-size: 20rpx; font-weight: 500; color: rgba(255, 255, 255, 0.66); margin-left: 2rpx; }
-.ov-label { display: block; font-size: 20rpx; color: rgba(255, 255, 255, 0.7); margin-top: 4rpx; }
+.ov-unit { font-size: 20rpx; font-weight: 500; color: #98A2B3; margin-left: 2rpx; }
+.ov-label { display: block; font-size: 20rpx; color: #667085; margin-top: 4rpx; }
 .ov-trend {
   display: inline-flex;
   align-items: center;
   gap: 6rpx;
   margin-top: 8rpx;
   padding: 4rpx 12rpx;
-  background: rgba(255, 255, 255, 0.14);
+  background: #F4F6F8;
   border-radius: 6rpx;
 }
-.ov-trend-text { font-size: 18rpx; font-weight: 600; color: rgba(255, 255, 255, 0.92); }
+.ov-trend-text { font-size: 18rpx; font-weight: 600; color: #667085; }
 /* chip 语义色点 */
 .chip-dot {
   width: 8rpx;
@@ -1029,22 +1003,12 @@ export default {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.chip-dot--ok { background: #34c759; }
-.chip-dot--blue { background: #7db8ff; }
-.chip-dot--amber { background: #ffb85c; }
-/* 新增箭头：绿色上箭头 */
-.chip-new { display: inline-flex; align-items: center; gap: 3rpx; }
-.chip-new-arrow {
-  width: 0;
-  height: 0;
-  border-left: 5rpx solid transparent;
-  border-right: 5rpx solid transparent;
-  border-bottom: 7rpx solid #5BFFB0;
-}
-.chip-new-text { font-size: 16rpx; font-weight: 600; color: #5BFFB0; }
+.chip-dot--ok { background: #168A55; }
+.chip-dot--blue { background: #0A66C2; }
+.chip-dot--green { background: #168A55; }
 
 /* ═══ 状态视图 ═══ */
-.loading-state { display: flex; justify-content: center; padding: 80px 0; }
+.loading-state { display: flex; justify-content: center; padding: 160rpx 0; }
 .loading-inline { display: flex; align-items: center; gap: 16rpx; font-size: 26rpx; color: #667085; }
 .spinner {
   width: 28rpx;
@@ -1054,27 +1018,28 @@ export default {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-.state-view { display: flex; flex-direction: column; align-items: center; padding-top: 100rpx; }
+.state-view { display: flex; flex-direction: column; align-items: center; padding-top: 80rpx; }
 .state-ico {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 8rpx;
-  background: #EAF3FB;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #E8F2FC;
   color: #0A66C2;
-  font-size: 48rpx;
+  font-size: 36rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
 }
-.state-text { font-size: 26rpx; color: #667085; }
+.state-text { font-size: 28rpx; color: #17212B; }
 .retry-btn {
-  margin-top: 28rpx;
+  display: inline-block;
+  margin-top: 24rpx;
   padding: 14rpx 48rpx;
   background: #074D92;
   color: #ffffff;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   font-size: 26rpx;
 }
 
@@ -1084,7 +1049,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 12rpx;
-  padding: 12rpx 32rpx 4rpx;
+  padding: 12rpx 24rpx 4rpx;
 }
 .sub-bar-text { font-size: 20rpx; color: #667085; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub-strong { color: #17212B; font-weight: 700; }
@@ -1093,7 +1058,7 @@ export default {
   position: relative;
   box-sizing: border-box;
   width: auto;
-  margin: 0 32rpx 12rpx;
+  margin: 0 24rpx 12rpx;
   background: #ffffff;
   border: 1rpx solid #EEF1F4;
   border-radius: 8rpx;
@@ -1110,31 +1075,7 @@ export default {
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background: #D92D20;
-  box-shadow: 0 0 0 3rpx rgba(217, 45, 32, 0.18);
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-/* 红点：::before 光环扩散 + ::after 主体静止 */
-.res-new::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: #D92D20;
-  animation: newPulse 1.8s ease-out infinite;
-}
-.res-new::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: #D92D20;
-}
-.res-new:active { transform: scale(1.15); }
-@keyframes newPulse {
-  0% { transform: scale(1); opacity: 0.9; }
-  70% { transform: scale(2.5); opacity: 0; }
-  100% { transform: scale(2.5); opacity: 0; }
+  background: #0A66C2;
 }
 
 /* 头部 */
@@ -1184,22 +1125,6 @@ export default {
   margin-top: 10rpx;
 }
 .res-tags { display: flex; flex-wrap: wrap; gap: 8rpx; }
-/* 能力标签：16px 圆形小图标（按类型分色） */
-.cap-badge {
-  width: 32rpx;
-  height: 32rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  animation: capIn 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.cap-badge-char { font-size: 16rpx; font-weight: 700; }
-@keyframes capIn {
-  from { opacity: 0; transform: scale(0.6); }
-  to { opacity: 1; transform: scale(1); }
-}
 
 /* 状态徽章（overflow hidden 裁剪扩散环，防溢出闪烁） */
 .status-badge {
@@ -1211,12 +1136,12 @@ export default {
   flex-shrink: 0;
   overflow: hidden;
 }
-.status-badge.available { background: #E9F7F0; }
-.status-badge.in_use { background: #FEF6E7; }
+.status-badge.available { background: #E8F2FC; }
+.status-badge.in_use { background: #E9F7F0; }
 .status-badge.maintenance { background: #F3F4F6; }
 .badge-dot { width: 10rpx; height: 10rpx; border-radius: 50%; background: currentColor; position: relative; }
-.status-badge.available { color: #168A55; }
-.status-badge.in_use { color: #B54708; }
+.status-badge.available { color: #0A66C2; }
+.status-badge.in_use { color: #168A55; }
 .status-badge.maintenance { color: #98A2B3; }
 .status-badge.available .badge-dot::after {
   content: '';
@@ -1249,7 +1174,7 @@ export default {
   100% { transform: translateX(14rpx); opacity: 0.1; }
 }
 .badge-text { font-size: 20rpx; font-weight: 600; }
-.status-badge.ok { color: #168A55; background: #E9F7F0; }
+.status-badge.ok { color: #0A66C2; background: #E8F2FC; }
 .status-badge.ok .badge-dot::after {
   content: '';
   position: absolute;
@@ -1277,8 +1202,8 @@ export default {
   gap: 10rpx 0;
   margin-top: 16rpx;
   padding: 14rpx 0;
-  border-top: 1rpx dashed #E4E7EC;
-  border-bottom: 1rpx dashed #E4E7EC;
+  border-top: 1rpx solid #EEF1F4;
+  border-bottom: 1rpx solid #EEF1F4;
 }
 .meta-row { width: 50%; display: flex; align-items: center; gap: 8rpx; min-width: 0; }
 .meta-row--full { width: 100%; }
@@ -1290,28 +1215,6 @@ export default {
   text-overflow: ellipsis;
 }
 .meta-val.qty { color: #0A66C2; font-weight: 700; }
-.meta-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6rpx;
-  padding: 4rpx 12rpx 4rpx 8rpx;
-  border-radius: 6rpx;
-  position: relative;
-}
-/* 状态行：左侧 4px 彩色竖条 */
-.meta-status::before {
-  content: '';
-  width: 4rpx;
-  align-self: stretch;
-  border-radius: 2rpx;
-  background: currentColor;
-  margin-right: 8rpx;
-}
-.meta-status-dot { width: 8rpx; height: 8rpx; border-radius: 50%; background: currentColor; }
-.meta-status--available { color: #168A55; background: #E9F7F0; }
-.meta-status--in_use { color: #B54708; background: #FEF6E7; }
-.meta-status--maintenance { color: #98A2B3; background: #F3F4F6; }
-.meta-status-text { font-size: 20rpx; font-weight: 600; }
 .meta-phone { display: inline-flex; align-items: center; }
 .phone-val { color: #0A66C2; }
 .phone-press { transform: scale(0.96); opacity: 0.8; }
@@ -1332,21 +1235,13 @@ export default {
 .res-cta {
   height: 60rpx;
   padding: 0 26rpx;
-  border-radius: 6rpx;
+  border-radius: 999rpx;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: transform 180ms ease, background 180ms ease;
 }
-.cta--urgent { background: #F97316; box-shadow: 0 4rpx 10rpx rgba(249, 115, 22, 0.32); }
-.cta--urgent:active { background: #E96012; }
-/* 可用 + 高优：橙色呼吸光晕 */
-.cta--flash { animation: ctaFlash 1.8s ease-out infinite; }
-@keyframes ctaFlash {
-  0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.45); }
-  70% { box-shadow: 0 0 0 12rpx rgba(249, 115, 22, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
-}
+.cta--urgent { background: #0A66C2; box-shadow: 0 4rpx 10rpx rgba(10, 102, 194, 0.28); }
 /* 调度中：主蓝浅底文字版 */
 .cta--blue { background: #EAF3FB; }
 .cta--blue:active { background: #D8E9FB; }
@@ -1414,7 +1309,7 @@ export default {
 .sheet-close {
   width: 56rpx;
   height: 56rpx;
-  border-radius: 6rpx;
+  border-radius: 999rpx;
   background: #F4F6F8;
   display: flex;
   align-items: center;
@@ -1455,8 +1350,8 @@ export default {
 }
 .kv-k { display: block; font-size: 18rpx; color: #667085; }
 .kv-v { display: block; font-size: 26rpx; font-weight: 700; color: #17212B; margin-top: 6rpx; }
-.kv-status--available { color: #168A55; }
-.kv-status--in_use { color: #B54708; }
+.kv-status--available { color: #0A66C2; }
+.kv-status--in_use { color: #168A55; }
 .kv-status--maintenance { color: #98A2B3; }
 
 /* 调度记录时间线 */
@@ -1544,7 +1439,7 @@ export default {
 .filter-opts { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .filter-opt {
   padding: 14rpx 28rpx;
-  border-radius: 6rpx;
+  border-radius: 999rpx;
   border: 1rpx solid #E4E7EC;
   background: #ffffff;
   color: #344054;
@@ -1570,7 +1465,7 @@ export default {
 .btn {
   flex: 1;
   height: 80rpx;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1581,7 +1476,6 @@ export default {
 .btn--ghost { background: #F4F8FC; }
 .btn--ghost .btn-text { color: #0A66C2; }
 .btn--primary { background: #0A66C2; }
-.btn--primary.cta--urgent { background: #F97316; box-shadow: 0 4rpx 10rpx rgba(249, 115, 22, 0.28); }
 
 /* ═══ 动画 ═══ */
 @keyframes cardIn {
@@ -1592,11 +1486,6 @@ export default {
   0% { transform: scale(1); opacity: 0.8; }
   80% { transform: scale(2.4); opacity: 0; }
   100% { transform: scale(2.4); opacity: 0; }
-}
-@keyframes syncPulse {
-  0% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0.5); }
-  70% { box-shadow: 0 0 0 12rpx rgba(22, 138, 85, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0); }
 }
 @keyframes numIn {
   from { opacity: 0; transform: scale(0.7); }
@@ -1624,45 +1513,25 @@ export default {
   to { transform: rotate(360deg); }
 }
 
-/* ═══ ⑧ 自定义 Toast ═══ */
+/* ═══ ⑧ 自定义 Toast（对齐 pub-toast：底部黑底白字，无图标） ═══ */
 .custom-toast {
   position: fixed;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  bottom: 168rpx;
+  transform: translateX(-50%);
   z-index: 999;
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  padding: 20rpx 32rpx;
-  background: rgba(16, 24, 40, 0.92);
-  border-radius: 10rpx;
+  padding: 20rpx 28rpx;
+  background: rgba(23, 33, 43, 0.92);
+  border-radius: 18rpx;
   box-shadow: 0 8rpx 24rpx rgba(16, 24, 40, 0.24);
   animation: toastIn 250ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   max-width: 70vw;
 }
 .custom-toast--out { animation: toastOut 200ms ease both; }
-.toast-icon {
-  width: 32rpx;
-  height: 32rpx;
-  border-radius: 50%;
-  background: rgba(91, 255, 176, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.toast-check {
-  width: 16rpx;
-  height: 9rpx;
-  border-left: 3rpx solid #5BFFB0;
-  border-bottom: 3rpx solid #5BFFB0;
-  transform: rotate(-45deg) translate(1rpx, -1rpx);
-}
 .toast-text { font-size: 26rpx; color: #ffffff; font-weight: 500; line-height: 1.4; }
 @keyframes toastIn {
-  from { opacity: 0; transform: translate(-50%, calc(-50% - 20rpx)); }
-  to { opacity: 1; transform: translate(-50%, -50%); }
+  from { opacity: 0; transform: translate(-50%, 16rpx); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 @keyframes toastOut {
   from { opacity: 1; }
@@ -1672,12 +1541,8 @@ export default {
 /* ═══ 减少动态效果支持（prefers-reduced-motion）═══ */
 @media (prefers-reduced-motion: reduce) {
   .resource,
-  .res-new::before,
-  .sync-dot,
   .status-badge.available .badge-dot::after,
   .status-badge.in_use .badge-dot::before,
-  .cap-badge,
-  .cta--flash,
   .mask,
   .sheet,
   .mask--close,
