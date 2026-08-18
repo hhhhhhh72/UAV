@@ -156,7 +156,7 @@ func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, err
 	q = strings.ToLower(q)
 	out := []domain.Demand{}
 	for _, d := range all {
-		if strings.Contains(strings.ToLower(d.Title+d.PublisherName+d.Description), q) {
+		if strings.Contains(strings.ToLower(d.Title+d.PublisherName+d.Description+d.District+d.CityCode), q) {
 			out = append(out, d)
 		}
 	}
@@ -389,7 +389,7 @@ func (r *enterpriseRepo) Search(ctx context.Context, q string) ([]domain.Enterpr
 	q = strings.ToLower(q)
 	out := []domain.Enterprise{}
 	for _, e := range r.items {
-		if strings.Contains(strings.ToLower(e.Name), q) {
+		if strings.Contains(strings.ToLower(e.Name+e.Address+e.IndustryCategory), q) {
 			r.decrypt(&e)
 			out = append(out, e)
 		}

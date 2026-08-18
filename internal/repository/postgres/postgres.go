@@ -215,7 +215,7 @@ func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, err
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
 		status, version, created_at, updated_at
 		FROM demands WHERE status = 'published'
-		AND (title ILIKE $1 OR publisher_name ILIKE $1 OR description ILIKE $1)
+		AND (title ILIKE $1 OR publisher_name ILIKE $1 OR description ILIKE $1 OR district ILIKE $1 OR city_code ILIKE $1)
 		ORDER BY created_at DESC LIMIT 50`
 	return scanDemands(r.pool, r.cipher, sql, []any{"%" + q + "%"})
 }
@@ -537,7 +537,7 @@ func (r *enterpriseRepo) Delete(ctx context.Context, id string) error {
 func (r *enterpriseRepo) Search(ctx context.Context, q string) ([]domain.Enterprise, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, owner_user_id, name, license_url, account_name, status, is_member, version, created_at, updated_at
-		FROM enterprises WHERE name ILIKE $1 ORDER BY created_at DESC LIMIT 50`, "%"+q+"%")
+		FROM enterprises WHERE name ILIKE $1 OR address ILIKE $1 OR industry_category ILIKE $1 ORDER BY created_at DESC LIMIT 50`, "%"+q+"%")
 	if err != nil {
 		return nil, fmt.Errorf("search enterprises: %w", err)
 	}
