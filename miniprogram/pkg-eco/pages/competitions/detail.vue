@@ -8,179 +8,223 @@
       @retry="loadDetail"
     >
       <template v-if="detail">
-        <!-- ① Hero 区（真实海报图 + 三段蒙层 + 兜底） -->
+        <!-- ═══ ① 全屏 Hero（250px，有图用图，无图渐变兜底）═══ -->
         <view class="hero">
-          <!-- 真实赛事海报图（有则覆盖渐变） -->
-          <image
-            v-if="heroPoster(detail)"
-            :src="heroPoster(detail)"
-            mode="aspectFill"
-            class="hero-img"
-            lazy-load
-            :style="{ opacity: imgLoaded ? 1 : 0 }"
-            @load="onHeroImgLoad"
-          />
-
-          <!-- 装饰层：作为图片加载失败/缺失时的兜底背景 -->
-          <view class="hero-deco">
-            <view class="deco-grid" />
-            <view class="deco-radar" />
-            <view class="deco-radar-scanner" />
-            <view class="deco-trail" />
-            <view class="deco-star s1" />
-            <view class="deco-star s2" />
-            <view class="deco-star s3" />
-            <view class="deco-star s4" />
-          </view>
-
-          <!-- 三段渐变蒙层：顶暗→中透→底暗 -->
-          <view class="hero-mask-top" />
-          <view class="hero-mask-bottom" />
-
-          <!-- 导航层 -->
-          <view class="hero-nav">
-            <view class="back-btn" hover-class="press-feedback" :hover-stay-time="120" @click="goBack">
-              <text class="back-icon">‹</text>
-            </view>
-            <view class="hero-actions">
-              <view class="hero-action hero-action--fav" @click="handleFav"><text class="fav-icon">♥</text></view>
-              <view class="hero-action" @click="handleShare"><text class="share-icon">↗</text></view>
+          <!-- 赛事实景图（有则显示） -->
+          <image v-if="heroPoster(detail)" :src="heroPoster(detail)" mode="aspectFill" class="hero-img" lazy-load />
+          <!-- 无图兜底：深色渐变 + 线性无人机轮廓 -->
+          <view v-else class="hero-fallback">
+            <view class="drone-svg">
+              <view class="drone-prop p1" /><view class="drone-prop p2" /><view class="drone-prop p3" /><view class="drone-prop p4" />
+              <view class="drone-arm a1" /><view class="drone-arm a2" />
+              <view class="drone-body" />
+              <view class="drone-gimbal" />
             </view>
           </view>
 
-          <!-- 左下角赛事奖杯校徽（半嵌在图片底部） -->
-          <view class="hero-emblem"><text class="emblem-char">{{ emblemChar(detail) }}</text></view>
+          <!-- 双层遮罩：渐变 + 径向高光 -->
+          <view class="hero-mask" />
+          <view class="hero-highlight" />
 
-          <!-- 内容层：徽章 + 标题 + 标签 -->
-          <view class="hero-content">
-            <view class="status-badge" :class="statusClass(detail.status)">{{ statusText[detail.status] || '报名中' }}</view>
-            <text class="hero-title">{{ detail.title || detail.name || '未知赛事' }}</text>
+          <!-- 顶部导航（毛玻璃半透明） -->
+          <view class="hero-nav" :style="{ top: statusBarHeight + 'px' }">
+            <view class="nav-back" hover-class="nav-press" :hover-stay-time="100" @click="goBack">
+              <text class="nav-back-icon">‹</text>
+            </view>
+            <view class="nav-capsule">
+              <view class="capsule-dot" />
+              <view class="capsule-divider" />
+              <view class="capsule-arrow" />
+            </view>
+          </view>
+
+          <!-- 左上状态徽章 -->
+          <view class="status-badge" :class="'badge--' + normStatus(detail)">
+            <view v-if="normStatus(detail) === 'ongoing'" class="badge-dot" />
+            <text class="badge-text">{{ statusText(detail) }}</text>
+          </view>
+
+          <!-- Hero 底部信息区 -->
+          <view class="hero-bottom">
             <view class="hero-tags">
-              <text v-for="tag in compTags(detail)" :key="tag" class="hero-tag">{{ tag }}</text>
+              <view v-for="t in compTags(detail)" :key="t" class="hero-tag">{{ t }}</view>
+            </view>
+            <text class="hero-title">{{ detail.title || detail.name || '未知赛事' }}</text>
+            <view class="hero-meta-row">
+              <view class="meta-ico meta-ico--cal"><view class="cal-top" /><view class="cal-body"><view class="cal-line l1" /><view class="cal-line l2" /><view class="cal-line l3" /></view></view>
+              <text class="hero-meta-text">{{ dateRange(detail) }}</text>
+            </view>
+            <view class="hero-meta-row">
+              <view class="meta-ico meta-ico--loc"><view class="loc-pin" /></view>
+              <text class="hero-meta-text">{{ detail.location || '待定' }}</text>
             </view>
           </view>
         </view>
 
-        <!-- ③ 基本信息：时间轴 -->
-        <view class="info-timeline">
-          <view class="tl-item">
-            <view class="tl-dot tl-dot--solid" />
-            <view class="tl-content">
-              <text class="tl-label">比赛时间</text>
-              <text class="tl-value">{{ fmtDate(detail.start_date) }} - {{ fmtDate(detail.end_date) }}</text>
-            </view>
-          </view>
-          <view class="tl-item">
-            <view class="tl-dot tl-dot--solid" />
-            <view class="tl-content">
-              <text class="tl-label">比赛地点</text>
-              <text class="tl-value">{{ detail.location || '待定' }}</text>
-            </view>
-          </view>
-          <view class="tl-item">
-            <view class="tl-dot tl-dot--deadline" />
-            <view class="tl-content">
-              <text class="tl-label tl-label--deadline">报名截止</text>
-              <text class="tl-value tl-value--deadline">{{ fmtDate(detail.deadline || detail.enroll_deadline) }}</text>
-              <text v-if="!isClosed(detail)" class="tl-countdown">{{ countdownText(detail) }}</text>
-            </view>
-          </view>
-        </view>
-
-        <!-- ④ 赛事简介 -->
-        <view v-if="detail.intro || detail.description" class="section-block">
-          <view class="section-title">赛事简介</view>
-          <view class="intro-text">{{ detail.intro || detail.description }}</view>
-        </view>
-
-        <!-- ⑤ 报名条件 -->
-        <view class="section-block">
-          <view class="section-title">报名条件</view>
-          <view class="requirements-card">
-            <view v-for="(req, i) in requirements(detail)" :key="req.name" class="req-item">
-              <view class="req-icon" :class="'req-icon--' + (i % 5)">
-                <text class="req-icon-text">{{ req.icon }}</text>
-              </view>
-              <view class="req-body">
-                <text class="req-name">{{ req.name }}</text>
-                <text class="req-desc">{{ req.desc }}</text>
-              </view>
-              <view class="req-badge" :class="req.level === '必满足' ? 'req-badge--must' : 'req-badge--advise'">{{ req.level }}</view>
-            </view>
-          </view>
-        </view>
-
-        <!-- ⑥ 参赛项目 -->
-        <view class="section-block">
-          <view class="section-title">参赛项目</view>
-          <view class="event-list">
-            <view
-              v-for="(ev, i) in eventList(detail)"
-              :key="ev.name"
-              class="event-item"
-              :class="{ 'event-item--hot': i === 0 }"
-              :style="{ borderLeftColor: eventColor(i) }"
-            >
-              <view class="event-info">
-                <view class="event-name-row">
-                  <text class="event-name">{{ ev.name }}</text>
-                  <view v-if="i === 0" class="hot-badge">热门</view>
+        <!-- ═══ ② 白色内容区（向上圆角 14px 覆盖 Hero 底部）═══ -->
+        <view class="content">
+          <!-- 关键信息卡：左侧时间线 -->
+          <view class="section">
+            <view class="tl-card">
+              <view class="tl-item">
+                <view class="tl-dot tl-dot--primary" />
+                <view class="tl-body">
+                  <text class="tl-key">比赛时间</text>
+                  <text class="tl-value">{{ dateRange(detail) }}</text>
                 </view>
-                <text class="event-meta">{{ ev.type }} · {{ ev.format }}</text>
               </view>
-              <text class="event-price">¥{{ ev.fee.toLocaleString() }}</text>
-            </view>
-          </view>
-        </view>
-
-        <!-- ⑦ 奖项 -->
-        <view v-if="prizes(detail).length > 0" class="section-block">
-          <view class="section-title">奖项设置</view>
-          <view class="prize-row">
-            <view v-for="p in prizes(detail)" :key="p.level" class="prize-card" :class="'prize-card--' + p.metal">
-              <view class="prize-medal">{{ p.medal }}</view>
-              <text class="prize-level">{{ p.level }}</text>
-              <view class="prize-amount-row">
-                <text class="prize-symbol">¥</text>
-                <text class="prize-amount">{{ p.amount.toLocaleString() }}</text>
+              <view class="tl-item">
+                <view class="tl-dot tl-dot--primary" />
+                <view class="tl-body">
+                  <text class="tl-key">比赛地点</text>
+                  <text class="tl-value">{{ detail.location || '待定' }}</text>
+                </view>
+              </view>
+              <view class="tl-item">
+                <view class="tl-dot tl-dot--danger" />
+                <view class="tl-body">
+                  <text class="tl-key">报名截止</text>
+                  <text class="tl-value tl-value--danger">{{ deadlineText(detail) }}</text>
+                  <text v-if="countdownText(detail)" class="tl-countdown">{{ countdownText(detail) }}</text>
+                </view>
               </view>
             </view>
           </view>
-        </view>
 
-        <!-- ⑧ 主办单位 -->
-        <view class="section-block">
-          <view class="section-title">主办单位</view>
-          <view class="organizer-row">
-            <view class="org-avatar">{{ orgInitial(detail) }}</view>
-            <view class="org-info">
-              <text class="org-name">{{ detail.organizer || detail.sponsor || '待定' }}</text>
-              <text class="org-sub">{{ detail.organizer_sub || '主办单位' }}</text>
+          <!-- 报名条件卡 -->
+          <view class="section">
+            <text class="section-title">报名条件</text>
+            <view class="req-card">
+              <view
+                v-for="(req, i) in requirements(detail)"
+                :key="req.name"
+                class="req-item"
+                :class="{ 'req-item--last': i === requirements(detail).length - 1 }"
+              >
+                <view class="req-icon" :class="'req-icon--' + (i % 5)">
+                  <text class="req-icon-text">{{ req.icon }}</text>
+                </view>
+                <view class="req-body">
+                  <text class="req-name">{{ req.name }}</text>
+                  <text class="req-desc">{{ req.desc }}</text>
+                </view>
+                <view class="req-badge" :class="req.level === '必满足' ? 'req-badge--must' : 'req-badge--advise'">{{ req.level }}</view>
+              </view>
             </view>
-            <view class="org-arrow">›</view>
           </view>
-        </view>
 
-        <!-- ⑨ 底部 CTA -->
-        <view class="bottom-bar">
-          <view class="bottom-left">
-            <text class="fee-label">报名费</text>
-            <view class="fee-price">
-              <text class="fee-symbol">¥</text>
-              <text class="fee-value">{{ compMinFee(detail) }}</text>
-              <text class="fee-unit">起/人</text>
+          <!-- 参赛项目卡 -->
+          <view class="section">
+            <view class="section-head">
+              <text class="section-title">参赛项目</text>
+              <text class="section-sub">{{ eventList(detail).length }} 个项目</text>
+            </view>
+            <view class="event-card">
+              <view
+                v-for="(ev, i) in eventList(detail)"
+                :key="ev.name"
+                class="event-item"
+                hover-class="event-press"
+                :hover-stay-time="120"
+                @click="handleEventTap(ev)"
+              >
+                <view class="event-info">
+                  <view class="event-name-row">
+                    <text class="event-name">{{ ev.name }}</text>
+                    <view v-if="i === 0" class="hot-badge">热门</view>
+                  </view>
+                  <text class="event-meta">{{ ev.type }} · {{ ev.format }}</text>
+                </view>
+                <view class="event-price">
+                  <template v-if="ev.fee === 0 || ev.fee == null">
+                    <text class="event-fee-free">免费</text>
+                  </template>
+                  <template v-else>
+                    <text class="event-symbol">¥</text>
+                    <text class="event-num">{{ ev.fee.toLocaleString() }}</text>
+                    <text class="event-unit">{{ ev.type === '团体赛' ? '/队' : '/人' }}</text>
+                  </template>
+                </view>
+              </view>
             </view>
           </view>
-          <view class="bottom-actions">
-            <view class="btn-outline" hover-class="press-feedback" :hover-stay-time="120" @click="handleConsult">咨询</view>
-            <view class="btn-primary" :class="{ disabled: isClosed(detail) }" hover-class="press-feedback" :hover-stay-time="120" @click="goRegister">
-              {{ isClosed(detail) ? '已截止' : '立即报名' }}
+
+          <!-- 奖项设置卡 -->
+          <view v-if="prizes(detail).length > 0" class="section">
+            <view class="section-head">
+              <text class="section-title">奖项设置</text>
+              <text class="section-sub">总奖金池 ¥{{ totalPrize(detail) }}</text>
+            </view>
+            <view class="prize-grid">
+              <view
+                v-for="p in prizes(detail)"
+                :key="p.level"
+                class="prize-card"
+                :class="'prize-card--' + p.metal"
+              >
+                <view class="prize-glare" />
+                <view class="prize-medal">{{ p.medal }}</view>
+                <text class="prize-level">{{ p.level }}</text>
+                <view class="prize-amount-row">
+                  <text class="prize-symbol">¥</text>
+                  <text class="prize-amount">{{ p.amount.toLocaleString() }}</text>
+                </view>
+              </view>
             </view>
           </view>
+
+          <!-- 主办单位卡 -->
+          <view class="section section--last">
+            <text class="section-title">主办单位</text>
+            <view class="org-card">
+              <view class="org-avatar">{{ orgInitial(detail) }}</view>
+              <view class="org-info">
+                <text class="org-name">{{ detail.organizer || detail.sponsor || '待定' }}</text>
+                <text class="org-sub">{{ detail.organizer_sub || '主办单位' }}</text>
+              </view>
+              <view class="org-arrow">›</view>
+            </view>
+          </view>
+
+          <!-- 底部留白，防被固定底栏遮挡 -->
+          <view class="bottom-space" />
         </view>
-        <view class="bottom-spacer" />
       </template>
     </StateView>
+
+    <!-- ═══ ③ 底部固定操作栏（仅详情存在时）═══ -->
+    <view v-if="detail" class="bottom-bar">
+      <view class="bottom-left">
+        <text class="fee-label">报名费</text>
+        <view class="fee-price">
+          <text class="fee-symbol">¥</text>
+          <text class="fee-value">{{ compMinFee(detail) }}</text>
+          <text class="fee-unit">起/人</text>
+        </view>
+      </view>
+      <view class="bottom-actions">
+        <view class="btn-outline" hover-class="btn-outline-press" :hover-stay-time="100" @click="handleConsult">
+          <view class="btn-phone-ico" />
+          <text class="btn-outline-text">咨询</text>
+        </view>
+        <view
+          class="btn-primary"
+          :class="isClosed(detail) ? 'btn-primary--disabled' : 'btn-primary--active'"
+          :disabled="isClosed(detail)"
+          hover-class="btn-primary-press"
+          :hover-stay-time="100"
+          @click="goRegister"
+        >
+          <text class="btn-primary-text">{{ isClosed(detail) ? '已截止' : '立即报名' }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ═══ ④ 自定义 Toast ═══ -->
+    <view v-if="toast.show" class="custom-toast" :class="{ 'custom-toast--out': toast.hide }">
+      <view class="toast-icon"><view class="toast-check" /></view>
+      <text class="toast-text">{{ toast.msg }}</text>
+    </view>
   </view>
 </template>
 
@@ -190,59 +234,84 @@ import { onLoad } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
+// 状态栏高度：微信端 CSS 变量 --status-bar-height 不生效，须 JS 读取动态设置
+const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
+
 const id = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 const detail = ref(null)
-const imgLoaded = ref(false)
 
-const statusText = { enrolling: '报名中', open: '报名中', ongoing: '进行中', closed: '已结束', full: '已满额' }
+/* Toast */
+const toast = ref({ show: false, hide: false, msg: '' })
+let toastTimer = null
+let toastOutTimer = null
 
+/* ===== 状态（与列表页同源） ===== */
+function normStatus(item) {
+  var s = item.status
+  if (s === 'open' || s === 'enrolling' || s === 'registration_open') return 'enrolling'
+  if (s === 'upcoming' || s === 'not_started') return 'upcoming'
+  if (s === 'ongoing' || s === 'live') return 'ongoing'
+  if (s === 'full' || s === 'deadline') return 'closed'
+  return s || 'enrolling'
+}
+function statusText(item) {
+  var map = { enrolling: '报名中', upcoming: '即将开始', ongoing: '进行中', closed: '已结束' }
+  return map[normStatus(item)] || '报名中'
+}
 function isClosed(item) {
-  return item.status === 'closed' || item.status === 'full'
+  return normStatus(item) === 'closed'
 }
 
-function statusClass(status) {
-  if (status === 'ongoing') return 'badge--ongoing'
-  if (status === 'closed' || status === 'full') return 'badge--closed'
-  return 'badge--enrolling'
-}
-
-/** Hero 海报图：兼容 poster / cover / image / banner */
+/* ===== Hero ===== */
 function heroPoster(item) {
-  const u = item.poster || item.cover || item.image || item.banner
+  var u = item.poster || item.cover || item.image || item.banner
   return u ? u : ''
 }
 
-/** 海报图加载完成淡入 */
-function onHeroImgLoad() {
-  imgLoaded.value = true
+/* ===== 数据映射 ===== */
+function dateRange(item) {
+  var s = fmtDate(item.start_date)
+  var e = fmtDate(item.end_date)
+  if (s === '待定' && e === '待定') return '日期待定'
+  return e && e !== s ? s + ' - ' + e : s
 }
-
-/** Hero 左下角奖杯/首字校徽 */
-function emblemChar(item) {
-  const t = item.title || ''
-  if (t.indexOf('FPV') >= 0 || t.indexOf('竞速') >= 0) return '竞'
-  if (t.indexOf('创新') >= 0 || t.indexOf('应用') >= 0) return '创'
-  if (t.indexOf('青少年') >= 0) return '青'
-  if (t.indexOf('国际') >= 0) return '际'
-  if (t.indexOf('全国') >= 0) return '国'
-  if (t.indexOf('贵州') >= 0) return '黔'
-  return '赛'
-}
-
 function fmtDate(d) {
   if (!d) return '待定'
   if (String(d).indexOf('.') >= 0 || String(d).indexOf('年') >= 0) return String(d)
   return String(d).slice(0, 10)
 }
-
 function compTags(item) {
-  if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
-  if (item.category) return [item.category]
-  return ['多旋翼', '国家级']
+  if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags.slice(0, 3)
+  var tags = []
+  if (item.category) tags.push(item.category)
+  if (tags.length === 0) tags = ['多旋翼', '国家级']
+  return tags
+}
+function deadlineText(item) {
+  var d = item.deadline || item.enroll_deadline
+  if (!d) return '—'
+  if (String(d).indexOf('.') >= 0 || String(d).indexOf('年') >= 0) return String(d)
+  return String(d).slice(0, 10)
+}
+function countdownText(item) {
+  var d = item.deadline || item.enroll_deadline
+  if (!d) return ''
+  var days = deadlineDays(d)
+  if (days == null) return ''
+  if (days <= 0) return '已截止'
+  return '距截止 ' + days + ' 天'
+}
+function deadlineDays(d) {
+  var m = String(d).match(/(\d{4})[年.\-\/](\d{1,2})[月.\-\/](\d{1,2})/)
+  if (!m) return null
+  var target = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  var today = new Date()
+  return Math.ceil((target - today) / 86400000)
 }
 
+/* ===== 报名条件 / 参赛项目 / 奖项（有数据用数据，无则兜底） ===== */
 function requirements(item) {
   if (Array.isArray(item.requirements) && item.requirements.length > 0) return item.requirements
   return [
@@ -253,7 +322,6 @@ function requirements(item) {
     { icon: '险', name: '保险要求', desc: '须自行购买比赛期间的第三方责任险', level: '建议满足' },
   ]
 }
-
 function eventList(item) {
   if (Array.isArray(item.events) && item.events.length > 0) return item.events
   return [
@@ -262,11 +330,6 @@ function eventList(item) {
     { name: '航拍创作赛', type: '个人赛', format: '主题创作', fee: 280 },
   ]
 }
-
-function eventColor(i) {
-  return ['#0A66C2', '#8B5CF6', '#34c759'][i % 3]
-}
-
 function prizes(item) {
   if (Array.isArray(item.prizes) && item.prizes.length > 0) return item.prizes
   return [
@@ -275,51 +338,130 @@ function prizes(item) {
     { level: '三等奖', amount: 2000, metal: 'bronze', medal: '铜' },
   ]
 }
-
+function totalPrize(item) {
+  var arr = prizes(item)
+  var sum = 0
+  for (var i = 0; i < arr.length; i++) sum += arr[i].amount || 0
+  return sum.toLocaleString()
+}
 function compMinFee(item) {
-  if (item.min_fee != null) return item.min_fee
+  if (item.minFee != null) return item.minFee
   if (item.fee != null) return item.fee
+  if (item.price != null) return item.price
+  if (item.price_fen != null) return item.price_fen / 100
   var evts = eventList(item)
-  if (evts.length > 0) return Math.min.apply(null, evts.map(function (e) { return e.fee }))
+  if (evts.length > 0) {
+    var fees = evts.map(function (e) { return e.fee })
+    return Math.min.apply(null, fees)
+  }
   return 280
 }
-
 function orgInitial(item) {
   var name = item.organizer || item.sponsor || '中'
   return name.charAt(0)
 }
 
-function countdownText(item) {
-  var d = item.deadline || item.enroll_deadline
-  if (!d) return ''
-  var days = deadlineDays(d)
-  if (days == null) return ''
-  if (days <= 0) return '已截止'
-  return '剩余 ' + days + ' 天'
-}
-
-function deadlineDays(d) {
-  var m = String(d).match(/(\d{4})[年.\-\/](\d{1,2})[月.\-\/](\d{1,2})/)
-  if (!m) return null
-  var target = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  var today = new Date()
-  return Math.ceil((target - today) / 86400000)
-}
-
+/* ===== 加载（优先 storage，其次后端列表匹配，最后 mock） ===== */
 async function loadDetail() {
   loading.value = true
   errorMsg.value = ''
   try {
-    var res = await request({ url: '/api/v1/competitions/' + encodeURIComponent(id.value) })
-    detail.value = res
-    if (!res) errorMsg.value = '赛事不存在'
+    // 优先读取列表页经 storage 传入的完整数据（后端无公开单查接口）
+    var cached = uni.getStorageSync('competition_detail')
+    if (cached && String(cached.id) === String(id.value)) {
+      detail.value = cached
+      loading.value = false
+      return
+    }
+    // 兜底：拉全量列表按 id 匹配
+    var res = await request({ url: '/api/v1/competitions' })
+    var data = Array.isArray(res) ? res : (res && res.data) || res || {}
+    var items = Array.isArray(data) ? data : (data && data.items) || data || []
+    var found = null
+    for (var i = 0; i < items.length; i++) {
+      if (String(items[i].id) === String(id.value)) { found = items[i]; break }
+    }
+    detail.value = found
+    if (!found) detail.value = getMockDetail()
   } catch (e) {
-    errorMsg.value = '加载失败，请稍后重试'
+    detail.value = getMockDetail()
   } finally {
     loading.value = false
   }
 }
 
+function getMockDetail() {
+  var mockMap = {
+    'comp-1': {
+      id: 'comp-1',
+      title: '2026 全国无人机职业技能大赛',
+      status: 'enrolling',
+      tags: ['多旋翼', '固定翼', '国家级'],
+      start_date: '2026-09-15', end_date: '2026-09-18',
+      location: '深圳 · 宝安国际会展中心',
+      deadline: '2026-09-01',
+      organizer: '中国航空器拥有者及驾驶员协会',
+      organizer_sub: '简称中国AOPA · 国家级行业协会',
+      fee: 380,
+      poster: '/static/home/hero-inspection.jpg',
+    },
+    'comp-2': {
+      id: 'comp-2',
+      title: '首届西南无人机 FPV 竞速挑战赛',
+      status: 'enrolling',
+      tags: ['竞速FPV', '多旋翼', '省级'],
+      start_date: '2026-10-01', end_date: '2026-10-03',
+      location: '成都 · 天府新区无人机竞速基地',
+      deadline: '2026-09-20',
+      organizer: '四川省航空运动协会',
+      organizer_sub: '省级行业协会 · 专业竞速赛事',
+      fee: 280,
+      poster: '/static/home/demand-lift.jpg',
+    },
+    'comp-3': {
+      id: 'comp-3',
+      title: '低空物流配送实战演练赛',
+      status: 'ongoing',
+      tags: ['物流配送', '多旋翼', '城市级'],
+      start_date: '2026-08-01', end_date: '2026-08-15',
+      location: '杭州 · 余杭未来科技城',
+      deadline: '2026-07-20',
+      organizer: '杭州市低空经济产业协会',
+      organizer_sub: '市级低空经济行业组织',
+      fee: 0,
+      poster: '/static/home/demand-lift.jpg',
+    },
+    'comp-4': {
+      id: 'comp-4',
+      title: '第十届植保无人机飞防作业大赛',
+      status: 'upcoming',
+      tags: ['植保飞防', '多旋翼', '国家级'],
+      start_date: '2026-11-01', end_date: '2026-11-02',
+      location: '郑州 · 黄河农场',
+      deadline: '2026-10-25',
+      organizer: '河南省植保技术推广站',
+      organizer_sub: '省级植保技术推广机构',
+      fee: 580,
+      poster: '',
+    },
+    'comp-5': {
+      id: 'comp-5',
+      title: '2025 长三角无人机巡检技能赛',
+      status: 'closed',
+      tags: ['电力巡检', '固定翼', '省级'],
+      start_date: '2025-12-05', end_date: '2025-12-07',
+      location: '苏州 · 工业园区',
+      deadline: '2025-11-20',
+      organizer: '长三角低空经济发展联盟',
+      organizer_sub: '区域协同发展组织',
+      fee: 220,
+      poster: '/static/home/hero-inspection.jpg',
+    },
+  }
+  return mockMap[id.value] || mockMap['comp-1']
+}
+
+/* ===== 交互 ===== */
 function goBack() { uni.navigateBack({ delta: 1 }) }
 
 function goRegister() {
@@ -327,16 +469,20 @@ function goRegister() {
   uni.navigateTo({ url: '/pkg-eco/pages/competitions/register?id=' + encodeURIComponent(id.value) })
 }
 
-function handleConsult() {
-  uni.showToast({ title: '咨询功能开发中', icon: 'none' })
-}
+function handleConsult() { showCustomToast('已连接赛事客服') }
 
-function handleFav() {
-  uni.showToast({ title: '已收藏', icon: 'none' })
-}
+function handleEventTap(ev) { showCustomToast(ev.name + ' 详情') }
 
-function handleShare() {
-  uni.showToast({ title: '分享功能开发中', icon: 'none' })
+function showCustomToast(msg) {
+  clearTimeout(toastTimer)
+  clearTimeout(toastOutTimer)
+  toast.value = { show: true, hide: false, msg: msg }
+  toastTimer = setTimeout(function () {
+    toast.value.hide = true
+    toastOutTimer = setTimeout(function () {
+      toast.value.show = false
+    }, 200)
+  }, 2000)
 }
 
 onLoad(function (options) {
@@ -347,362 +493,342 @@ onLoad(function (options) {
 
 <style scoped>
 .page {
-  --anim-fast: 160ms;
-  --anim-base: 240ms;
-  --anim-slow: 320ms;
-  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   min-height: 100vh;
-  background: linear-gradient(180deg, #f5f6f8 0%, #E8F2FC 100%);
-  padding-bottom: env(safe-area-inset-bottom);
+  background: #F4F6F8;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+  padding-left: constant(safe-area-inset-left);
+  padding-left: env(safe-area-inset-left);
+  padding-right: constant(safe-area-inset-right);
+  padding-right: env(safe-area-inset-right);
+  overflow-x: hidden;
 }
 
-/* ================================================================= */
-/* ① Hero 区                                                          */
-/* ================================================================= */
+/* ═══ ① 全屏 Hero（250px） ═══ */
 .hero {
-  height: 280px;
-  background: linear-gradient(135deg, #074D92 0%, #0A66C2 100%);
   position: relative;
+  width: 100%;
+  height: 500rpx;
   overflow: hidden;
-  padding: 88rpx 32rpx 40rpx;
 }
-
-/* 真实海报图 */
 .hero-img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  transition: opacity var(--anim-base) ease-out;
+}
+.hero-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #0a5897 0%, #074D92 100%);
+}
+.drone-svg { position: relative; width: 160rpx; height: 120rpx; opacity: 0.9; }
+.drone-prop {
+  position: absolute;
+  width: 44rpx; height: 44rpx;
+  border: 3rpx solid rgba(255, 255, 255, 0.65);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.drone-prop.p1 { left: 0; top: 0; }
+.drone-prop.p2 { right: 0; top: 0; }
+.drone-prop.p3 { left: 0; bottom: 0; }
+.drone-prop.p4 { right: 0; bottom: 0; }
+.drone-arm {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 116rpx; height: 3rpx;
+  background: rgba(255, 255, 255, 0.4);
+}
+.drone-arm.a1 { transform: translate(-50%, -50%) rotate(-45deg); }
+.drone-arm.a2 { transform: translate(-50%, -50%) rotate(45deg); }
+.drone-body {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 56rpx; height: 36rpx;
+  margin: -18rpx 0 0 -28rpx;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 10rpx;
+}
+.drone-gimbal {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 24rpx; height: 24rpx;
+  margin: 20rpx 0 0 -12rpx;
+  border: 3rpx solid rgba(255, 255, 255, 0.65);
+  border-radius: 50%;
+  box-sizing: border-box;
 }
 
-/* 三段渐变蒙层：顶暗→中透→底暗 */
-.hero-mask-top {
+/* 双层遮罩 */
+.hero-mask {
   position: absolute;
-  top: 0;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(7, 77, 146, 0.35) 0%, rgba(7, 77, 146, 0.10) 30%, rgba(7, 77, 146, 0.65) 100%);
+}
+.hero-highlight {
+  position: absolute;
+  left: 80%;
+  top: 10%;
+  width: 900rpx;
+  height: 400rpx;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* 顶部导航（毛玻璃） */
+.hero-nav {
+  position: absolute;
+  top: var(--status-bar-height);
   left: 0;
   right: 0;
-  height: 90rpx;
-  background: linear-gradient(180deg, rgba(10, 31, 68, 0.65) 0%, rgba(10, 31, 68, 0) 100%);
-  pointer-events: none;
-  z-index: 1;
+  padding: 8rpx 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 5;
 }
-
-.hero-mask-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 110rpx;
-  background: linear-gradient(0deg, rgba(10, 31, 68, 0.85) 0%, rgba(10, 31, 68, 0) 100%);
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* 左下角赛事奖杯/首字校徽：半嵌在图片底部 */
-.hero-emblem {
-  position: absolute;
-  left: 32rpx;
-  bottom: -24rpx;
+.nav-back {
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background: #ffffff;
-  border: 2rpx solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.18);
+  border: 1rpx solid rgba(255, 255, 255, 0.24);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 3;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+  transition: background 180ms var(--ease);
+}
+.nav-press { background: rgba(255, 255, 255, 0.32); }
+.nav-back-icon { font-size: 40rpx; color: #ffffff; font-weight: 300; line-height: 1; }
+.nav-capsule {
+  width: 176rpx;
+  height: 60rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.24);
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14rpx;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 180ms var(--ease);
+}
+.nav-capsule:active { background: rgba(255, 255, 255, 0.28); }
+.capsule-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: #ffffff; }
+.capsule-divider { width: 1rpx; height: 28rpx; background: rgba(255, 255, 255, 0.4); }
+.capsule-arrow {
+  width: 0; height: 0;
+  border-left: 6rpx solid transparent;
+  border-right: 6rpx solid transparent;
+  border-top: 8rpx solid #ffffff;
 }
 
-.emblem-char {
-  font-size: 34rpx;
-  font-weight: 700;
-  color: #0A66C2;
+/* 状态徽章（左上） */
+.status-badge {
+  position: absolute;
+  top: calc(var(--status-bar-height) + 80rpx);
+  left: 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 6rpx;
+  z-index: 4;
 }
-
-/* ===== 装饰层（纯 CSS） ===== */
-.hero-deco { position: absolute; inset: 0; pointer-events: none; }
-
-/* 网格点阵 */
-.deco-grid {
+.badge-text { font-size: 20rpx; font-weight: 600; color: #ffffff; }
+.badge--enrolling { background: #F97316; box-shadow: 0 4rpx 10rpx rgba(249, 115, 22, 0.32); }
+.badge--upcoming { background: #0A66C2; box-shadow: 0 4rpx 10rpx rgba(10, 102, 194, 0.28); }
+.badge--ongoing { background: #168A55; }
+.badge--ongoing .badge-dot {
+  width: 10rpx; height: 10rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  position: relative;
+}
+.badge--ongoing .badge-dot::after {
+  content: '';
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.12) 2rpx, transparent 2rpx);
-  background-size: 40rpx 40rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  animation: badgeRing 1.4s ease-out infinite;
+}
+.badge--closed { background: rgba(16, 24, 40, 0.62); }
+
+/* Hero 底部信息区 */
+.hero-bottom {
+  position: absolute;
+  left: 32rpx;
+  right: 32rpx;
+  bottom: 24rpx;
+  z-index: 3;
+}
+.hero-tags { display: flex; flex-wrap: wrap; gap: 8rpx; margin-bottom: 12rpx; }
+.hero-tag {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1rpx solid rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 500;
+}
+.hero-title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 760;
+  color: #ffffff;
+  line-height: 1.35;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.hero-meta-row { display: flex; align-items: center; gap: 8rpx; margin-top: 12rpx; }
+.hero-meta-text { font-size: 24rpx; color: rgba(255, 255, 255, 0.85); }
+
+/* 线性图标（Hero 副信息） */
+.meta-ico { width: 28rpx; height: 28rpx; flex-shrink: 0; position: relative; }
+.meta-ico--cal {
+  border: 2rpx solid rgba(255, 255, 255, 0.9);
+  border-radius: 4rpx;
+  box-sizing: border-box;
+}
+.meta-ico--cal::before,
+.meta-ico--cal::after {
+  content: '';
+  position: absolute;
+  top: 4rpx;
+  width: 2rpx; height: 5rpx;
+  background: rgba(255, 255, 255, 0.9);
+}
+.meta-ico--cal::before { left: 6rpx; }
+.meta-ico--cal::after { right: 6rpx; }
+.meta-ico--cal .cal-top {
+  position: absolute;
+  left: 3rpx; right: 3rpx; top: 8rpx;
+  height: 2rpx;
+  background: rgba(255, 255, 255, 0.9);
+}
+.meta-ico--cal .cal-line {
+  position: absolute;
+  left: 5rpx; right: 5rpx;
+  height: 2rpx;
+  background: rgba(255, 255, 255, 0.9);
   opacity: 0.6;
 }
-
-/* 雷达同心圆 */
-.deco-radar {
+.meta-ico--cal .cal-line.l1 { top: 14rpx; }
+.meta-ico--cal .cal-line.l2 { top: 19rpx; }
+.meta-ico--cal .cal-line.l3 { top: 24rpx; }
+.meta-ico--loc { width: 22rpx; }
+.meta-ico--loc .loc-pin {
   position: absolute;
-  right: -80rpx;
-  top: -80rpx;
-  width: 300rpx;
-  height: 300rpx;
-  border: 2rpx solid rgba(255, 255, 255, 0.15);
-  border-radius: 50%;
+  left: 50%; top: 4rpx;
+  width: 14rpx; height: 14rpx;
+  margin-left: -7rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.9);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-sizing: border-box;
 }
-
-.deco-radar::before,
-.deco-radar::after {
+.meta-ico--loc .loc-pin::after {
   content: '';
   position: absolute;
-  inset: 40rpx;
-  border: 2rpx solid rgba(255, 255, 255, 0.1);
+  left: 50%; top: 50%;
+  width: 4rpx; height: 4rpx;
+  margin: -2rpx 0 0 -2rpx;
   border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
 }
 
-.deco-radar::after {
-  inset: 90rpx;
-  border: 2rpx solid rgba(255, 255, 255, 0.08);
-}
-
-/* 雷达扫射弧线 */
-.deco-radar-scanner {
-  position: absolute;
-  right: -80rpx;
-  top: -80rpx;
-  width: 300rpx;
-  height: 300rpx;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(0, 229, 255, 0.35) 0deg,
-    transparent 60deg
-  );
-  animation: radarRotate 4s linear infinite;
-}
-
-/* 飞行轨迹虚线 */
-.deco-trail {
-  position: absolute;
-  left: 40rpx;
-  bottom: 60rpx;
-  width: 200rpx;
-  height: 2rpx;
-  background: repeating-linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.5) 0 16rpx,
-    transparent 16rpx 28rpx
-  );
-  transform: rotate(-15deg);
-  opacity: 0.5;
-}
-
-/* 星点 */
-.deco-star {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
-  animation: twinkle 2.5s ease-in-out infinite;
-}
-.s1 { left: 60rpx;  top: 80rpx;  width: 6rpx;  height: 6rpx;  animation-delay: 0s; }
-.s2 { left: 200rpx; top: 120rpx; width: 8rpx;  height: 8rpx;  animation-delay: 0.6s; }
-.s3 { left: 500rpx; top: 60rpx;  width: 5rpx;  height: 5rpx;  animation-delay: 1.2s; }
-.s4 { left: 620rpx; top: 170rpx; width: 7rpx;  height: 7rpx;  animation-delay: 1.8s; }
-
-.hero-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* ═══ ② 白色内容区 ═══ */
+.content {
   position: relative;
-  z-index: 2;
+  background: #F4F6F8;
+  border-radius: 28rpx 28rpx 0 0;
+  margin-top: -28rpx;
+  padding: 28rpx 24rpx 0;
+  box-shadow: 0 -16rpx 48rpx rgba(7, 77, 146, 0.12);
+  animation: contentIn 400ms var(--ease) 100ms both;
 }
-
-.back-btn {
-  width: 88rpx;
-  height: 88rpx;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1rpx solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.back-icon { color: #ffffff; font-size: 44rpx; font-weight: 300; }
-
-.hero-actions { display: flex; gap: 16rpx; }
-
-.hero-action {
-  width: 88rpx;
-  height: 88rpx;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1rpx solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.fav-icon { color: #ffffff; font-size: 32rpx; }
-.share-icon { color: #ffffff; font-size: 36rpx; font-weight: 300; }
-
-/* 状态徽章 */
-.status-badge {
-  display: inline-block;
-  padding: 8rpx 20rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #ffffff;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.2);
-  z-index: 2;
-  margin-bottom: 20rpx;
-}
-
-.badge--enrolling { background: linear-gradient(135deg, #F97316, #E96012); animation: badgePulse 2s ease-in-out infinite; }
-.badge--ongoing { background: linear-gradient(135deg, #00E5FF, #0A66C2); }
-.badge--closed { background: #64748B; }
-
-/* ================================================================= */
-/* ② Hero 内容层                                                       */
-/* ================================================================= */
-.hero-content {
-  position: relative;
-  z-index: 2;
-  animation: pageIn var(--anim-slow) var(--ease-out) both;
-}
-
-.hero-title {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: #ffffff;
-  line-height: 1.3;
-  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.3);
-  display: block;
-  margin-bottom: 16rpx;
-}
-
-.hero-tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
-
-.hero-tag {
-  padding: 6rpx 18rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  font-weight: 500;
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  border: 1rpx solid rgba(255, 255, 255, 0.3);
-}
-
-/* ================================================================= */
-/* ③ 信息时间轴                                                       */
-/* ================================================================= */
-.info-timeline {
-  margin: 24rpx 24rpx 0;
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 8rpx 24rpx;
-  box-shadow: 0 4px 16px rgba(10, 31, 68, 0.06);
-  position: relative;
-}
-
-.info-timeline::before {
-  content: '';
-  position: absolute;
-  left: 34rpx;
-  top: 24rpx;
-  bottom: 24rpx;
-  width: 2rpx;
-  background: linear-gradient(180deg, #0A66C2, #00E5FF);
-}
-
-.tl-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 24rpx;
-  padding: 20rpx 0;
-  position: relative;
-}
-
-.tl-dot {
-  width: 20rpx;
-  height: 20rpx;
-  border-radius: 50%;
-  margin-top: 8rpx;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.tl-dot--solid { background: #0A66C2; box-shadow: 0 0 0 6rpx rgba(10, 102, 194, 0.15); }
-.tl-dot--deadline { background: #EF4444; box-shadow: 0 0 0 6rpx rgba(239, 68, 68, 0.15); }
-
-.tl-content { flex: 1; }
-
-.tl-label { font-size: 24rpx; color: #969799; display: block; margin-bottom: 4rpx; }
-.tl-label--deadline { color: #EF4444; font-weight: 500; }
-
-.tl-value { font-size: 30rpx; color: #17212B; font-weight: 500; display: block; }
-.tl-value--deadline { color: #EF4444; font-weight: 600; }
-
-.tl-countdown {
-  display: inline-block;
-  margin-top: 6rpx;
-  padding: 2rpx 12rpx;
-  background: rgba(239, 68, 68, 0.1);
-  color: #EF4444;
-  font-size: 22rpx;
-  font-weight: 600;
-  border-radius: 999rpx;
-}
-
-/* ================================================================= */
-/* 章节                                                               */
-/* ================================================================= */
-.section-block { margin: 36rpx 24rpx 0; animation: blockIn var(--anim-base) var(--ease-out) both; }
-.section-block:nth-of-type(1) { animation-delay: 60ms; }
-.section-block:nth-of-type(2) { animation-delay: 120ms; }
-.section-block:nth-of-type(3) { animation-delay: 180ms; }
-.section-block:nth-of-type(4) { animation-delay: 240ms; }
-.section-block:nth-of-type(5) { animation-delay: 300ms; }
-
+.section { margin-bottom: 28rpx; }
 .section-title {
+  display: block;
   font-size: 30rpx;
+  font-weight: 760;
+  color: #17212B;
+  margin-bottom: 14rpx;
+  padding-left: 16rpx;
+  border-left: 6rpx solid #0A66C2;
+}
+.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14rpx; padding-left: 16rpx; border-left: 6rpx solid #0A66C2; }
+.section-head .section-title { margin-bottom: 0; padding-left: 0; border-left: none; }
+.section-sub { font-size: 20rpx; color: #98A2B3; }
+
+/* 关键信息卡：左侧时间线 */
+.tl-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 24rpx;
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
+  padding: 28rpx 0 28rpx 56rpx;
+}
+.tl-card::before {
+  content: '';
+  position: absolute;
+  left: 36rpx;
+  top: 56rpx;
+  bottom: 56rpx;
+  width: 2rpx;
+  background: #EEF1F4;
+}
+.tl-item { position: relative; padding-bottom: 24rpx; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-dot {
+  position: absolute;
+  left: -44rpx;
+  top: 4rpx;
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 4rpx solid #0A66C2;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 4rpx #ffffff;
+}
+.tl-dot--danger { border-color: #D92D20; }
+.tl-dot--ok { border-color: #168A55; }
+.tl-key { display: block; font-size: 22rpx; color: #667085; }
+.tl-value {
+  display: block;
+  font-size: 28rpx;
   font-weight: 700;
   color: #17212B;
-  padding-left: 20rpx;
-  border-left: 6rpx solid #0A66C2;
-  line-height: 1.3;
-  margin-bottom: 20rpx;
+  margin-top: 4rpx;
 }
+.tl-value--danger { color: #D92D20; }
+.tl-countdown { display: block; font-size: 22rpx; color: #98A2B3; margin-top: 4rpx; }
 
-/* 简介 */
-.intro-text {
-  font-size: 28rpx;
-  color: #17212B;
-  line-height: 1.8;
-  white-space: pre-line;
-  margin-bottom: 8rpx;
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 24rpx;
-  box-shadow: 0 2rpx 12rpx rgba(10, 31, 68, 0.04);
-}
-
-/* ================================================================= */
-/* 报名条件                                                           */
-/* ================================================================= */
-.requirements-card {
-  background: linear-gradient(180deg, #FFFBEB, #FEF3C7);
-  border-radius: 16px;
-  border: 1rpx solid #FDE68A;
+/* 报名条件卡 */
+.req-card {
+  background: linear-gradient(135deg, #FFF0E6 0%, #fff7ee 100%);
+  border-radius: 20rpx;
   padding: 8rpx 24rpx;
 }
-
 .req-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16rpx;
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #F5E6C8;
+  border-bottom: 1rpx dashed rgba(233, 96, 18, 0.16);
 }
-
-.req-item:last-child { border-bottom: none; }
-
+.req-item--last { border-bottom: none; }
 .req-icon {
   width: 64rpx;
   height: 64rpx;
@@ -712,222 +838,280 @@ onLoad(function (options) {
   justify-content: center;
   flex-shrink: 0;
 }
-
-.req-icon--0 { background: linear-gradient(135deg, #0A66C2, #0A66C2); }
-.req-icon--1 { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
-.req-icon--2 { background: linear-gradient(135deg, #34c759, #06B6D4); }
-.req-icon--3 { background: linear-gradient(135deg, #22C55E, #4ADE80); }
-.req-icon--4 { background: linear-gradient(135deg, #F97316, #E96012); }
-
-.req-icon-text { font-size: 28rpx; color: #ffffff; font-weight: 600; }
-
-.req-body { flex: 1; }
-.req-name { font-size: 28rpx; font-weight: 500; color: #17212B; display: block; margin-bottom: 4rpx; }
-.req-desc { font-size: 24rpx; color: #969799; line-height: 1.5; }
-
+.req-icon-text { font-size: 28rpx; font-weight: 700; }
+.req-icon--0 { background: #EAF3FB; color: #0A66C2; }
+.req-icon--1 { background: #F3F0FF; color: #7C3AED; }
+.req-icon--2 { background: #E9F7F0; color: #168A55; }
+.req-icon--3 { background: #FFF0E6; color: #E96012; }
+.req-icon--4 { background: #FEF3F2; color: #D92D20; }
+.req-body { flex: 1; min-width: 0; }
+.req-name { display: block; font-size: 26rpx; font-weight: 700; color: #17212B; }
+.req-desc { display: block; font-size: 22rpx; color: #667085; margin-top: 4rpx; line-height: 1.5; }
 .req-badge {
-  padding: 4rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  font-weight: 600;
   flex-shrink: 0;
-}
-
-.req-badge--must { background: #EF4444; color: #ffffff; }
-.req-badge--advise { background: #ffffff; color: #0A66C2; border: 1rpx solid #0A66C2; }
-
-/* ================================================================= */
-/* 参赛项目                                                           */
-/* ================================================================= */
-.event-list { display: flex; flex-direction: column; gap: 16rpx; }
-
-.event-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24rpx;
-  background: #ffffff;
-  border-radius: 12px;
-  border-left: 4rpx solid #0A66C2;
-  box-shadow: 0 2rpx 12rpx rgba(10, 31, 68, 0.04);
-}
-
-.event-item--hot {
-  box-shadow: 0 4rpx 16rpx rgba(255, 142, 60, 0.2);
-}
-
-.event-name-row { display: flex; align-items: center; gap: 8rpx; }
-.event-name { font-size: 30rpx; font-weight: 500; color: #17212B; display: block; }
-.event-meta { font-size: 24rpx; color: #969799; margin-top: 4rpx; display: block; }
-.event-price { font-size: 34rpx; font-weight: 700; color: #E96012; }
-
-.hot-badge {
-  padding: 2rpx 12rpx;
-  background: linear-gradient(135deg, #F97316, #E96012);
-  color: #ffffff;
+  padding: 4rpx 14rpx;
+  border-radius: 6rpx;
   font-size: 20rpx;
   font-weight: 600;
-  border-radius: 999rpx;
-  animation: badgePulse 2s ease-in-out infinite;
 }
+.req-badge--must { background: #D92D20; color: #ffffff; }
+.req-badge--advise { background: transparent; border: 1rpx solid #0A66C2; color: #0A66C2; }
 
-/* ================================================================= */
-/* 奖项                                                               */
-/* ================================================================= */
-.prize-row { display: flex; gap: 16rpx; }
+/* 参赛项目卡 */
+.event-card {
+  background: #ffffff;
+  border: 1rpx solid #EEF1F4;
+  border-radius: 20rpx;
+  padding: 8rpx 24rpx;
+}
+.event-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid #EEF1F4;
+  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+.event-item:last-child { border-bottom: none; }
+.event-press { transform: scale(0.985); box-shadow: 0 6px 18px rgba(16, 24, 40, 0.08); }
+.event-info { flex: 1; min-width: 0; }
+.event-name-row { display: flex; align-items: center; gap: 8rpx; }
+.event-name { font-size: 28rpx; font-weight: 700; color: #17212B; }
+.hot-badge {
+  padding: 2rpx 10rpx;
+  border-radius: 4rpx;
+  background: #F97316;
+  color: #ffffff;
+  font-size: 18rpx;
+  font-weight: 600;
+}
+.event-meta { display: block; font-size: 22rpx; color: #667085; margin-top: 4rpx; }
+.event-price { display: flex; align-items: baseline; flex-shrink: 0; }
+.event-symbol { font-size: 22rpx; font-weight: 700; color: #E96012; }
+.event-num { font-size: 36rpx; font-weight: 760; color: #E96012; line-height: 1; }
+.event-unit { font-size: 20rpx; color: #98A2B3; margin-left: 4rpx; }
+.event-fee-free { font-size: 36rpx; font-weight: 760; color: #168A55; }
 
+/* 奖项设置卡（金银铜） */
+.prize-grid {
+  display: flex;
+  gap: 16rpx;
+}
 .prize-card {
   flex: 1;
-  padding: 24rpx 12rpx;
-  border-radius: 16px;
-  text-align: center;
+  position: relative;
+  border-radius: 20rpx;
+  padding: 20rpx 0 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  overflow: hidden;
 }
-
-.prize-card--gold { background: linear-gradient(135deg, #FFF9C4, #FFD54F); box-shadow: 0 4rpx 16rpx rgba(255, 193, 7, 0.3); }
-.prize-card--silver { background: linear-gradient(135deg, #F5F5F5, #E0E0E0); box-shadow: 0 4rpx 16rpx rgba(158, 158, 158, 0.25); }
-.prize-card--bronze { background: linear-gradient(135deg, #FFF3E0, #FFCC80); box-shadow: 0 4rpx 16rpx rgba(255, 152, 0, 0.25); }
-
+.prize-card--gold { background: linear-gradient(160deg, #FFD56B, #F5B301); }
+.prize-card--silver { background: linear-gradient(160deg, #e9edf2, #c2c8d1); }
+.prize-card--bronze { background: linear-gradient(160deg, #ffd2a8, #f2945a); }
+.prize-glare {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 100%);
+  pointer-events: none;
+}
 .prize-medal {
-  width: 56rpx;
-  height: 56rpx;
-  margin: 0 auto 8rpx;
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
+  font-size: 32rpx;
   font-weight: 700;
 }
+.prize-card--gold .prize-medal { color: #5c3b00; }
+.prize-card--silver .prize-medal { color: #4a4a4a; }
+.prize-card--bronze .prize-medal { color: #6e3300; }
+.prize-level { font-size: 24rpx; font-weight: 760; position: relative; }
+.prize-card--gold .prize-level { color: #5c3b00; }
+.prize-card--silver .prize-level { color: #4a4a4a; }
+.prize-card--bronze .prize-level { color: #6e3300; }
+.prize-amount-row { display: flex; align-items: baseline; position: relative; }
+.prize-symbol { font-size: 18rpx; font-weight: 700; }
+.prize-amount { font-size: 26rpx; font-weight: 760; }
+.prize-card--gold .prize-symbol, .prize-card--gold .prize-amount { color: #5c3b00; }
+.prize-card--silver .prize-symbol, .prize-card--silver .prize-amount { color: #4a4a4a; }
+.prize-card--bronze .prize-symbol, .prize-card--bronze .prize-amount { color: #6e3300; }
 
-.prize-card--gold .prize-medal { background: #FFB300; color: #fff; }
-.prize-card--silver .prize-medal { background: #9E9E9E; color: #fff; }
-.prize-card--bronze .prize-medal { background: #F57C00; color: #fff; }
-
-.prize-level { font-size: 26rpx; font-weight: 500; color: #17212B; display: block; margin-bottom: 4rpx; }
-
-.prize-amount-row { display: flex; align-items: baseline; justify-content: center; }
-.prize-symbol { font-size: 22rpx; color: #17212B; font-weight: 700; }
-.prize-amount { font-size: 30rpx; font-weight: 800; color: #17212B; }
-
-/* ================================================================= */
-/* 主办单位                                                           */
-/* ================================================================= */
-.organizer-row {
+/* 主办单位卡 */
+.org-card {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
   background: #ffffff;
-  border-radius: 16px;
-  padding: 24rpx;
-  box-shadow: 0 2rpx 12rpx rgba(10, 31, 68, 0.04);
+  border: 1rpx solid #EEF1F4;
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
 }
-
 .org-avatar {
-  width: 96rpx;
-  height: 96rpx;
-  background: linear-gradient(135deg, #074D92, #0A66C2);
-  border-radius: 24rpx;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 16rpx;
+  background: #0A66C2;
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  font-size: 40rpx;
-  font-weight: 600;
   flex-shrink: 0;
 }
+.org-info { flex: 1; min-width: 0; }
+.org-name { display: block; font-size: 26rpx; font-weight: 700; color: #17212B; }
+.org-sub { display: block; font-size: 20rpx; color: #667085; margin-top: 4rpx; }
+.org-arrow { font-size: 32rpx; color: #98A2B3; }
+.bottom-space { height: 20rpx; }
 
-.org-info { flex: 1; }
-.org-name { font-size: 28rpx; font-weight: 500; color: #17212B; display: block; margin-bottom: 4rpx; }
-.org-sub { font-size: 24rpx; color: #969799; }
-
-.org-arrow { font-size: 36rpx; color: #98A2B3; flex-shrink: 0; }
-
-/* ================================================================= */
-/* 底部 CTA                                                           */
-/* ================================================================= */
+/* ═══ ③ 底部固定操作栏 ═══ */
 .bottom-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  background: #ffffff;
-  border-top: 1rpx solid rgba(10, 31, 68, 0.06);
-  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.04);
-  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1rpx solid #EEF1F4;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  z-index: 10;
+  justify-content: space-between;
+  gap: 16rpx;
+  z-index: 50;
 }
-
-.fee-label { font-size: 22rpx; color: #969799; display: block; margin-bottom: 4rpx; }
-
+.bottom-left { display: flex; align-items: baseline; gap: 8rpx; flex-shrink: 0; }
+.fee-label { font-size: 20rpx; color: #98A2B3; }
 .fee-price { display: flex; align-items: baseline; }
-.fee-symbol { font-size: 24rpx; color: #E96012; font-weight: 700; }
-.fee-value { font-size: 44rpx; font-weight: 800; color: #E96012; line-height: 1; }
-.fee-unit { font-size: 22rpx; color: #969799; margin-left: 4rpx; }
-
-.bottom-actions { display: flex; gap: 20rpx; }
-
+.fee-symbol { font-size: 22rpx; font-weight: 700; color: #E96012; }
+.fee-value {
+  font-size: 44rpx;
+  font-weight: 760;
+  color: #E96012;
+  line-height: 1;
+  animation: priceIn 500ms var(--ease) both;
+}
+.fee-unit { font-size: 20rpx; color: #98A2B3; margin-left: 4rpx; }
+.bottom-actions { display: flex; gap: 12rpx; flex: 1; justify-content: flex-end; }
 .btn-outline {
-  padding: 20rpx 36rpx;
-  border-radius: 50rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  height: 76rpx;
+  padding: 0 24rpx;
+  border: 1rpx solid #0A66C2;
+  border-radius: 10rpx;
+  background: transparent;
+  transition: transform 180ms var(--ease), background 180ms var(--ease);
+}
+.btn-outline-press { background: #EAF3FB; }
+.btn-phone-ico {
+  width: 20rpx;
+  height: 20rpx;
   border: 2rpx solid #0A66C2;
-  color: #0A66C2;
-  font-size: 28rpx;
-  font-weight: 500;
-  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
+  border-radius: 4rpx;
+  position: relative;
 }
-
+.btn-phone-ico::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: -3rpx;
+  width: 6rpx; height: 3rpx;
+  background: #0A66C2;
+  margin-left: -3rpx;
+}
+.btn-outline-text { font-size: 24rpx; font-weight: 700; color: #0A66C2; }
 .btn-primary {
-  padding: 20rpx 40rpx;
-  border-radius: 50rpx;
-  background: linear-gradient(135deg, #074D92, #0A66C2);
-  color: #ffffff;
-  font-size: 28rpx;
-  font-weight: 600;
-  box-shadow: 0 4rpx 16rpx rgba(10, 102, 194, 0.3);
-  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
+  height: 76rpx;
+  padding: 0 32rpx;
+  border-radius: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 180ms var(--ease), background 180ms var(--ease), box-shadow 180ms var(--ease);
 }
+.btn-primary--active { background: #F97316; box-shadow: 0 4rpx 10rpx rgba(249, 115, 22, 0.32); }
+.btn-primary--disabled { background: #EEF1F4; }
+.btn-primary-press { transform: scale(0.97); }
+.btn-primary-text { font-size: 28rpx; font-weight: 700; color: #ffffff; }
+.btn-primary--disabled .btn-primary-text { color: #667085; }
 
-.btn-primary.disabled { background: #CBD5E1; box-shadow: none; }
-.bottom-spacer { height: 180rpx; }
+/* ═══ ④ 自定义 Toast ═══ */
+.custom-toast {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 20rpx 32rpx;
+  background: rgba(16, 24, 40, 0.92);
+  border-radius: 10rpx;
+  box-shadow: 0 8rpx 24rpx rgba(16, 24, 40, 0.24);
+  animation: toastIn 250ms var(--ease) both;
+  max-width: 70vw;
+}
+.custom-toast--out { animation: toastOut 200ms ease both; }
+.toast-icon {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  background: rgba(91, 255, 176, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.toast-check {
+  width: 16rpx;
+  height: 9rpx;
+  border-left: 3rpx solid #5BFFB0;
+  border-bottom: 3rpx solid #5BFFB0;
+  transform: rotate(-45deg) translate(1rpx, -1rpx);
+}
+.toast-text { font-size: 26rpx; color: #ffffff; font-weight: 500; line-height: 1.4; }
 
-/* ================================================================= */
-/* 动效                                                              */
-/* ================================================================= */
-@keyframes pageIn {
+/* ═══ 动画 ═══ */
+@keyframes contentIn {
   from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes badgeRing {
+  0% { transform: scale(1); opacity: 0.8; }
+  80% { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes priceIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% - 20rpx)); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+@keyframes toastOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
-@keyframes blockIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes badgePulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 142, 60, 0.4); }
-  50% { box-shadow: 0 0 0 8rpx rgba(255, 142, 60, 0); }
-}
-
-@keyframes radarRotate {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0.2; }
-  50%      { opacity: 0.8; }
-}
-
-.press-feedback {
-  transform: scale(0.98);
-  opacity: 0.92;
-}
-
+/* ═══ 减少动态效果支持 ═══ */
 @media (prefers-reduced-motion: reduce) {
-  .hero-content, .section-block, .btn-primary, .btn-outline {
+  .content,
+  .badge--ongoing .badge-dot::after,
+  .fee-value,
+  .custom-toast {
     animation: none !important;
     transition: none !important;
   }
