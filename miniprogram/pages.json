@@ -153,6 +153,7 @@
     {
       "path": "pages/services/index",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "服务大厅"
       }
     },

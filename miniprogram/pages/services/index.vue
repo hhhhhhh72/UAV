@@ -1,7 +1,7 @@
 <template>
   <Layout :current="3">
     <view class="services-page">
-      <view class="page-head">
+      <view class="page-head" :style="{ paddingTop: statusBarHeight + 'px' }">
         <text class="page-title">生态服务</text>
         <text class="page-sub">六大板块 · 产业服务一站式入口</text>
       </view>
@@ -33,6 +33,9 @@
 
 <script setup>
 import Layout from '@/components/Layout.vue'
+
+// 状态栏高度：custom 导航下自绘标题区需 JS 接管
+const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
 
 const iconRoot = '/static/home/icons/'
 const go = (path) => {
