@@ -4,10 +4,6 @@
       <!-- ═══════ 深蓝顶部 ═══════ -->
       <view class="topbar" :style="{ paddingTop: statusBarHeight + 'px' }">
         <view class="topbar-row">
-          <view class="city-btn" hover-class="tap-fade" @tap="openCity">
-            <text class="city-label">{{ cityLabel }}</text>
-            <text class="city-arrow">⌄</text>
-          </view>
           <text class="top-title">供需大厅</text>
           <view class="icon-btn" hover-class="tap-fade" @tap="goMessages">
             <text class="icon-bell">◌</text>
@@ -216,31 +212,7 @@
       </view>
     </u-popup>
 
-    <!-- ═══════ 城市弹层 ═══════ -->
-    <u-popup :show="showCity" position="bottom" round @close="showCity = false">
-      <view class="sheet">
-        <view class="sheet-head">
-          <text class="sheet-title">选择城市</text>
-          <view class="sheet-close" @tap="showCity = false"><text class="sheet-x">×</text></view>
-        </view>
-        <view class="sheet-body city-grid">
-          <view
-            v-for="r in cityOptions"
-            :key="r.value"
-            class="city-option"
-            :class="{ active: city === r.value }"
-            @tap="pickCity(r.value)"
-          >
-            <text>{{ r.label }}</text>
-            <text v-if="city === r.value" class="city-check">✓</text>
-          </view>
-        </view>
-      </view>
-    </u-popup>
-
-  </Layout>
-
-  <!-- ═══════ 就地搜索覆盖层（点击搜索框在当前页展开，不跳搜索页） ═══════ -->
+    <!-- ═══════ 就地搜索覆盖层（点击搜索框在当前页展开，不跳搜索页） ═══════ -->
   <view v-if="showSearch" class="ov-overlay">
     <view class="ov-bar">
       <view class="ov-back" hover-class="tap-fade" hover-stay-time="120" @tap="closeSearch">
@@ -338,22 +310,20 @@ const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
 const primary = ref('demand') // demand | supply
 const supplyKind = ref('product') // product | service
 const typeFilter = ref('全部')
-const city = ref('全重庆')
-const showCity = ref(false)
 
-const cityLabel = computed(() => (city.value === '全重庆' ? '重庆' : city.value))
-
-const ALL_REGIONS = ['不限', '渝北区', '江津区', '沙坪坝区', '南岸区', '涪陵区', '奉节县']
-const regionOptions = ['不限', '渝北区', '江津区', '沙坪坝区', '南岸区', '涪陵区']
+// 重庆市 38 个区县（筛选地区选项完整）
+const regionOptions = [
+  '不限', '渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区', '南岸区', '北碚区',
+  '渝北区', '巴南区', '两江新区', '长寿区', '江津区', '合川区', '永川区', '南川区',
+  '綦江区', '大足区', '璧山区', '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区',
+  '武隆区', '万州区', '涪陵区', '奉节县', '云阳县', '忠县', '垫江县', '丰都县',
+  '城口县', '巫山县', '巫溪县', '石柱县', '秀山县', '酉阳县', '彭水县',
+]
 const priceOptions = ['不限', '1 万以下', '1-5 万', '5 万以上', '面议']
 const sortOptions = [
   { label: '最新发布', value: 'newest' },
   { label: '匹配度优先', value: 'match' },
   { label: '价格优先', value: 'price' },
-]
-const cityOptions = [
-  { value: '全重庆', label: '重庆' },
-  ...regionOptions.filter((r) => r !== '不限').map((r) => ({ value: r, label: r })),
 ]
 
 const showFilter = ref(false)
@@ -476,12 +446,6 @@ const resetFilters = () => {
   fetchList(true)
 }
 
-const openCity = () => { showCity.value = true }
-const pickCity = (value) => {
-  city.value = value
-  showCity.value = false
-}
-
 const goSearch = () => openSearch()
 
 /* ================= 就地搜索（覆盖层内本地过滤） ================= */
@@ -560,6 +524,19 @@ const visibleList = computed(() => {
   let out = list.value
   if (typeFilter.value !== '全部') out = out.filter((i) => i.cat === typeFilter.value)
   if (filterRegion.value !== '不限' && !isProductMode.value) out = out.filter((i) => i.region.includes(filterRegion.value))
+  // 预算区间（需求 budgetFen / 服务 priceFen，单位分）
+  if (filterPrice.value !== '不限' && !isProductMode.value) {
+    const fen = (i) => Number(i.budgetFen || i.priceFen || 0)
+    const f = filterPrice.value
+    if (f === '1 万以下') out = out.filter((i) => fen(i) > 0 && fen(i) < 1000000)
+    else if (f === '1-5 万') out = out.filter((i) => fen(i) >= 1000000 && fen(i) <= 5000000)
+    else if (f === '5 万以上') out = out.filter((i) => fen(i) > 5000000)
+    else if (f === '面议') out = out.filter((i) => fen(i) === 0)
+  }
+  // 排序：价格优先 = 预算升序（低价优先）；最新发布/匹配度保持列表原序
+  if (sortBy.value === 'price' && !isProductMode.value) {
+    out = [...out].sort((a, b) => (Number(a.budgetFen || a.priceFen || 0)) - (Number(b.budgetFen || b.priceFen || 0)))
+  }
   return out
 })
 
@@ -594,15 +571,6 @@ onPullDownRefresh(() => {
   align-items: center;
   gap: 12rpx;
 }
-.city-btn {
-  display: flex;
-  align-items: center;
-  gap: 4rpx;
-  font-size: 26rpx;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.city-arrow { font-size: 22rpx; }
 .top-title {
   flex: 1;
   font-size: 38rpx;
@@ -988,32 +956,6 @@ onPullDownRefresh(() => {
   color: #0A66C2;
   font-weight: 650;
 }
-
-/* 城市网格 */
-.city-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14rpx;
-  padding-bottom: 32rpx;
-}
-.city-option {
-  min-height: 76rpx;
-  border: 1px solid #E4E7EC;
-  border-radius: 12rpx;
-  color: #344054;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24rpx;
-}
-.city-option.active {
-  color: #074D92;
-  border-color: #0A66C2;
-  background: #F4F8FC;
-  font-weight: 700;
-}
-.city-check { margin-left: 6rpx; }
 
 /* 响应式：375px 微调 */
 @media (max-width: 380px) {

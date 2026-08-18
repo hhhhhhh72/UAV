@@ -285,6 +285,7 @@ export function normalizeDemand(d) {
     region: d.district ? `重庆 · ${d.district}` : '重庆',
     time: fmtRelative(d.created_at),
     price: budget,
+    budgetFen: Number(d.budget_fen) || 0, // 预算原始数值（分），供筛选区间过滤
     unit: '项目预算',
     deadline: status === '已结束' ? '已结束' : '近期',
     company: d.publisher_name || '平台用户',
@@ -404,6 +405,7 @@ export function normalizeService(s) {
     region: s.region || '重庆',
     time: s.unit ? `按${s.unit}报价` : '',
     price: price === '面议' ? '面议' : '¥' + price + ' 起',
+    priceFen: Number(s.price_fen) || 0, // 报价原始数值（分），供筛选区间过滤
     unit: s.unit ? '按' + s.unit + '报价' : '按项目报价',
     company: s.provider_name || '平台服务商',
     desc: s.description || '暂无详细描述',
