@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +26,18 @@ func nextSeq() uint64 {
 // 所有新建资源的 ID 生成应统一走本函数。
 func nextID(prefix string) string {
 	return fmt.Sprintf("%s-%d-%d", prefix, time.Now().UnixNano(), nextSeq())
+}
+
+// lockByKey 进程内互斥锁池：check-then-insert 类操作的并发竞态防护
+// （如报名/投递的"先查重再创建"——无锁时双请求同时通过查重导致重复记录，
+// 内存 repo 无唯一约束；PG 唯一索引下后到者报 500）。
+// key 量级 = 用户×资源（报名/投递量小），无需清理。
+var onceLocks sync.Map // key -> *sync.Mutex
+
+func lockByKey(key string) func() {
+	l, _ := onceLocks.LoadOrStore(key, &sync.Mutex{})
+	l.(*sync.Mutex).Lock()
+	return l.(*sync.Mutex).Unlock
 }
 
 // IntentService records contact intents on published demands (联系对接模式).

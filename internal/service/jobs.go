@@ -170,6 +170,9 @@ func (s *JobService) Apply(ctx context.Context, a domain.Actor, jobID, resumeID 
 	if j.EnterpriseID == a.ID {
 		return domain.JobApplication{}, errors.New("cannot apply to your own job")
 	}
+	// 并发防重复投递：check-then-insert 加进程内锁。
+	unlock := lockByKey("apply|" + a.ID + "|" + jobID)
+	defer unlock()
 	// 防重复投递：同一职位已有有效投递（未撤回）则拒绝
 	existing, err := s.app.ListByJob(ctx, jobID)
 	if err == nil {

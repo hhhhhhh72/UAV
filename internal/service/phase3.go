@@ -42,6 +42,10 @@ func (s *EnrollmentService) All(ctx context.Context, offset, limit int) ([]domai
 }
 
 func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string, form EnrollmentForm) (domain.Enrollment, error) {
+	// 并发防重复：check-then-insert 加进程内锁（双请求同时通过查重会重复报名，
+	// 且付费报名会重复扣冻结金额）。
+	unlock := lockByKey("enroll|" + userID + "|" + courseID)
+	defer unlock()
 	if _, ok, _ := s.repo.FindByUserAndCourse(ctx, userID, courseID); ok {
 		return domain.Enrollment{}, fmt.Errorf("already enrolled")
 	}
