@@ -56,7 +56,7 @@
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑通知' : '发送通知'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
       <a-form :model="form" layout="vertical">
         <a-form-item label="消息标题" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
-        <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="留空 = 广播给所有管理员" style="width: 100%" /></a-form-item>
+        <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="留空 = 广播给全部用户" style="width: 100%" /></a-form-item>
         <a-form-item label="消息内容" required><a-input v-model="form.content" type="textarea" :rows="5" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
@@ -130,7 +130,7 @@ const submitForm = async () => {
   try {
     const p = { sender_id: 'system', receiver_id: form.receiver_id || '', title: form.title, content: form.content }
     await api.create(p)
-    Message.success(form.receiver_id ? '发送成功' : '已广播给所有管理员')
+    Message.success(form.receiver_id ? '发送成功' : '已广播给全部用户')
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }

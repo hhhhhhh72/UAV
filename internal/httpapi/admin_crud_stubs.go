@@ -1000,10 +1000,10 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	// 广播：receiver_id 留空 → 发给所有管理员 + 当前请求者
-	// （dev 影子管理员不在 users 表，须显式补发，否则演示收不到）
+	// 广播：receiver_id 留空 → 发给全部用户（管理员 + 企业 + 个人）
+	// 此前仅发管理员——普通用户小程序消息中心永远收不到通知，流程未打通。
 	if strings.TrimSpace(in.ReceiverID) == "" {
-		sent, err := s.broadcastMessageToAdmins(r, in.SenderID, in.Title, in.Content, in.ResourceType, in.ResourceID)
+		sent, err := s.broadcastMessageToAll(r, in.SenderID, in.Title, in.Content, in.ResourceType, in.ResourceID)
 		if err != nil {
 			fail(w, r, 500, fmt.Errorf("broadcast messages: %w", err))
 			return
@@ -1019,18 +1019,17 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, 201, msg)
 }
 
-// broadcastMessageToAdmins sends one message to every platform/association admin
-// (users table) plus the current requester, and returns the messages created.
-func (s *Server) broadcastMessageToAdmins(r *http.Request, senderID, title, content, resType, resID string) ([]domain.Message, error) {
+// broadcastMessageToAll sends one message to every platform user
+// (admin + enterprise + individual), plus the current requester,
+// and returns the messages created.
+func (s *Server) broadcastMessageToAll(r *http.Request, senderID, title, content, resType, resID string) ([]domain.Message, error) {
 	receivers := map[string]bool{}
 	users, err := s.userRepo.All(r.Context())
 	if err != nil {
 		return nil, err
 	}
 	for _, u := range users {
-		if u.Role == domain.RolePlatformAdmin || u.Role == domain.RoleAssociationAdmin {
-			receivers[u.ID] = true
-		}
+		receivers[u.ID] = true
 	}
 	if a, ok := authenticatedActor(r); ok {
 		receivers[a.ID] = true
