@@ -50,6 +50,9 @@ func (r *demandRepo) decrypt(d *domain.Demand) {
 	if r.cipher != nil && d.Contact != "" {
 		if dec, err := r.cipher.Decrypt(d.Contact); err == nil {
 			d.Contact = dec
+		} else {
+			// 解密失败（密钥变更/数据损坏）绝不回传密文——置空而非泄露加密串。
+			d.Contact = ""
 		}
 	}
 }

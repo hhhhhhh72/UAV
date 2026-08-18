@@ -262,6 +262,9 @@ func (r *demandRepo) SetStatus(ctx context.Context, id string, status domain.Dem
 	if r.cipher != nil && d.Contact != "" {
 		if dec, err := r.cipher.Decrypt(d.Contact); err == nil {
 			d.Contact = dec
+		} else {
+			// 解密失败（密钥变更/数据损坏）绝不回传密文——置空而非泄露加密串。
+			d.Contact = ""
 		}
 	}
 	return d, nil
@@ -290,6 +293,9 @@ func scanDemands(pool *pgxpool.Pool, cipher *crypto.Cipher, q string, args []any
 		if cipher != nil && d.Contact != "" {
 			if dec, err := cipher.Decrypt(d.Contact); err == nil {
 				d.Contact = dec
+			} else {
+				// 解密失败（密钥变更/数据损坏）绝不回传密文——置空而非泄露加密串。
+				d.Contact = ""
 			}
 		}
 		out = append(out, d)
