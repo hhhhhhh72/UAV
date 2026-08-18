@@ -126,6 +126,7 @@ func (s *Server) updateUserRole(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	s.audit(r.Context(), act.ID, "update_user_role", "user", r.PathValue("id"), req.Role)
 	respond(w, r, http.StatusOK, map[string]string{"status": "updated", "role": req.Role})
 }
 
@@ -145,5 +146,6 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	s.audit(r.Context(), a.ID, "delete_user", "user", id, "deleted")
 	respond(w, r, http.StatusOK, map[string]string{"id": id, "deleted": "ok"})
 }

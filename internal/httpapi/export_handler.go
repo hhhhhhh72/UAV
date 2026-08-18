@@ -132,6 +132,8 @@ func (s *Server) batchApproveDemands(w http.ResponseWriter, r *http.Request) {
 			approved++
 		}
 	}
+	s.audit(r.Context(), a.ID, "batch_approve_demands", "demand", "",
+		fmt.Sprintf("approved=%d failed=%d total=%d", approved, failed, len(req.IDs)))
 	respond(w, r, http.StatusOK, map[string]any{
 		"approved": approved, "failed": failed, "total": len(req.IDs),
 	})

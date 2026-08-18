@@ -52,6 +52,7 @@ func (s *Server) approveCertificate(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
+	s.audit(r.Context(), a.ID, "approve_certificate", "certificate", c.ID, "approved")
 	respond(w, r, http.StatusOK, c)
 }
 
@@ -279,6 +280,7 @@ func (s *Server) approvePilot(w http.ResponseWriter, r *http.Request) {
 	if p.IDCard != "" {
 		p.IDCard = crypto.MaskIDCard(p.IDCard)
 	}
+	s.audit(r.Context(), a.ID, "approve_pilot", "certified_pilot", p.ID, "approved")
 	respond(w, r, http.StatusOK, p)
 }
 

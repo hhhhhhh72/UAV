@@ -1462,5 +1462,8 @@ func (s *Server) deleteOrder(w http.ResponseWriter, r *http.Request) {
 		adminFail(w, r, fmt.Errorf("delete order: %w", err))
 		return
 	}
+	if a, ok := authenticatedActor(r); ok {
+		s.audit(r.Context(), a.ID, "delete_order", "trade_order", r.PathValue("id"), "deleted")
+	}
 	respond(w, r, 200, map[string]string{"deleted": "ok"})
 }
