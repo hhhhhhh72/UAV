@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "@electron/asar": "^4.2.1",
-    "rcedit": "^5.0.2"
-  }
-}
