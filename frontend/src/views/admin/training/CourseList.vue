@@ -75,8 +75,9 @@
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="draft">草稿</a-option>
-            <a-option value="published">已发布</a-option>
-            <a-option value="closed">已关闭</a-option>
+            <a-option value="pending">审核中</a-option>
+            <a-option value="published">已上架</a-option>
+            <a-option value="closed">已下架</a-option>
           </a-select>
         </a-form-item>
         <a-form-item label="价格(元)">
@@ -149,23 +150,24 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const statusTag = (s) => ({ published: 'green', draft: 'orangered', closed: 'gray' }[s] || 'gray')
-const statusLabel = { published: '已发布', draft: '草稿', closed: '已关闭' }
+const statusTag = (s) => ({ published: 'green', pending: 'orangered', draft: 'gray', closed: 'gray' }[s] || 'gray')
+const statusLabel = { published: '已上架', pending: '审核中', draft: '草稿', closed: '已下架' }
 const certTypeLabel = (t) => ({ caac: 'CAAC 执照', utc_dji: '大疆 UTC', gov_level: '人社等级' }[t] || t || '-')
 
-// 批量动作：批量发布 / 批量关闭——传完整行数据避免清空其他字段
+// 批量动作：批量上架 / 批量下架——传完整行数据避免清空其他字段
 const batchActions = [
-  { key: 'publish', label: '批量发布', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'published' }) },
-  { key: 'close', label: '批量关闭', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'closed' }) }
+  { key: 'publish', label: '批量上架', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'published' }) },
+  { key: 'close', label: '批量下架', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'closed' }) }
 ]
 
 const searchFields = [
   { key: 'keyword', label: '关键词', placeholder: '搜索课程标题...', width: 220 },
   { key: 'status', label: '状态', type: 'select', options: [
     { value: '', label: '全部' },
+    { value: 'pending', label: '审核中' },
     { value: 'draft', label: '草稿' },
-    { value: 'published', label: '已发布' },
-    { value: 'closed', label: '已关闭' }
+    { value: 'published', label: '已上架' },
+    { value: 'closed', label: '已下架' }
   ]}
 ]
 
