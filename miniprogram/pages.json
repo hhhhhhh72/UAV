@@ -950,7 +950,6 @@
         {
           "path": "pages/emergency/resources",
           "style": {
-            "navigationStyle": "custom",
             "navigationBarTitleText": "应急资源",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
@@ -980,7 +979,6 @@
         {
           "path": "pages/emergency/dispatches",
           "style": {
-            "navigationStyle": "custom",
             "navigationBarTitleText": "调度记录",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",

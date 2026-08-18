@@ -2,32 +2,35 @@
   <!-- 弹窗打开时锁定底层 page 滚动，防止穿透 -->
   <page-meta :page-style="overlayStyle" />
   <view class="page">
-    <!-- ① 顶栏：统一 u-nav-bar 组件（返回 + 标题 + 胶囊避让） -->
-    <u-nav-bar title="应急资源" show-back @back="goBack" />
-
-    <!-- ② 双 Tab（应急资源 / 部门对接） -->
-    <view class="nav-tabs">
-      <view
-        v-for="(t, i) in mainTitles"
-        :key="t"
-        class="nav-tab"
-        :class="{ on: mainTabIndex === i }"
-        @click="onMainTabChange(i)"
-      >
-        <text class="nav-tab-text">{{ t }}</text>
-        <view class="nav-tab-line" />
+    <!-- ① 白底导航（返回 + 双 Tab + 胶囊占位） -->
+    <view class="nav-wrap" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="nav-bar">
+        <view class="nav-back" hover-class="nav-press" :hover-stay-time="100" @click="goBack">
+          <text class="nav-back-icon">‹</text>
+        </view>
+        <view class="nav-tabs">
+          <view
+            v-for="(t, i) in mainTitles"
+            :key="t"
+            class="nav-tab"
+            :class="{ on: mainTabIndex === i }"
+            @click="onMainTabChange(i)"
+          >
+            <text class="nav-tab-text">{{ t }}</text>
+            <view class="nav-tab-line" />
+          </view>
+        </view>
+        <view class="nav-capsule" />
       </view>
-    </view>
-
-    <!-- ③ 同步栏 + 城市 -->
-    <view class="nav-meta">
-      <view class="meta-sync">
-        <view class="sync-dot" />
-        <text class="sync-text">已同步 · 重庆市应急指挥调度平台</text>
-      </view>
-      <view class="meta-city" @click="showCityToast">
-        <text class="city-text">重庆市</text>
-        <text class="city-arrow">▾</text>
+      <view class="nav-meta">
+        <view class="meta-sync">
+          <view class="sync-dot" />
+          <text class="sync-text">已同步 · 重庆市应急指挥调度平台</text>
+        </view>
+        <view class="meta-city" @click="showCityToast">
+          <text class="city-text">重庆市</text>
+          <text class="city-arrow">▾</text>
+        </view>
       </view>
     </view>
 
@@ -363,6 +366,8 @@ export default {
     return {
       mainTabIndex: 0,
       mainTitles: ['应急资源', '部门对接'],
+      // 顶部状态栏高度：自定义导航需自行下移，避免与状态栏重叠
+      statusBarHeight: 24,
       typePills: [
         { label: '全部', value: '', icon: '◈' },
         { label: '无人机', value: 'drone', icon: '机' },
@@ -456,6 +461,7 @@ export default {
     },
   },
   onLoad() {
+    this.statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 24
     this.fetchList(true)
   },
   onPullDownRefresh() {
@@ -812,15 +818,34 @@ export default {
   overflow-x: hidden;
 }
 
-/* ═══ ① 导航（u-nav-bar 顶栏 + 双 Tab + 同步栏）═══ */
-.nav-tabs {
-  display: flex;
-  gap: 48rpx;
-  justify-content: center;
-  padding: 8rpx 24rpx 0;
+/* ═══ ① 导航（白底，对齐其他页面）═══ */
+.nav-wrap {
   background: #ffffff;
+  /* 顶部内边距由 JS 读取的真实状态栏高度接管（模板 :style），此处归零 */
+  padding: 0;
+  position: relative;
+  z-index: 5;
   border-bottom: 1rpx solid #EEF1F4;
 }
+.nav-bar {
+  display: flex;
+  align-items: center;
+  height: 88rpx;
+  padding: 0 24rpx;
+}
+.nav-back {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #F5F8FC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.nav-press { transform: scale(0.92); background: #EAF3FB; }
+.nav-back-icon { color: #17212B; font-size: 40rpx; font-weight: 300; line-height: 1; }
+.nav-tabs { flex: 1; display: flex; gap: 48rpx; justify-content: center; }
 .nav-tab { position: relative; padding: 10rpx 4rpx; }
 .nav-tab-text { font-size: 34rpx; color: #6B7B95; transition: color 200ms ease; }
 .nav-tab.on .nav-tab-text { color: #0A66C2; font-weight: 700; }
@@ -837,6 +862,13 @@ export default {
   transition: transform 350ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .nav-tab.on .nav-tab-line { transform: scaleX(1); }
+.nav-capsule {
+  width: 88rpx;
+  height: 60rpx;
+  border: 1rpx solid #E4E7EC;
+  border-radius: 999rpx;
+  flex-shrink: 0;
+}
 .nav-meta {
   display: flex;
   align-items: center;
