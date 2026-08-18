@@ -212,7 +212,9 @@
       </view>
     </u-popup>
 
-    <!-- ═══════ 就地搜索覆盖层（点击搜索框在当前页展开，不跳搜索页） ═══════ -->
+  </Layout>
+
+  <!-- ═══════ 就地搜索覆盖层（点击搜索框在当前页展开，不跳搜索页） ═══════ -->
   <view v-if="showSearch" class="ov-overlay">
     <view class="ov-bar">
       <view class="ov-back" hover-class="tap-fade" hover-stay-time="120" @tap="closeSearch">
