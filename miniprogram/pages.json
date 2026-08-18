@@ -330,7 +330,6 @@
         {
           "path": "pages/training/courses",
           "style": {
-            "navigationStyle": "custom",
             "navigationBarTitleText": "培训认证",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
@@ -589,7 +588,6 @@
         {
           "path": "pages/competitions/list",
           "style": {
-            "navigationStyle": "custom",
             "navigationBarTitleText": "赛事列表",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
@@ -952,7 +950,6 @@
         {
           "path": "pages/emergency/resources",
           "style": {
-            "navigationStyle": "custom",
             "navigationBarTitleText": "应急资源",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
@@ -982,7 +979,6 @@
         {
           "path": "pages/emergency/dispatches",
           "style": {
-            "navigationStyle": "custom",
             "navigationBarTitleText": "调度记录",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",

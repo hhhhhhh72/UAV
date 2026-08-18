@@ -160,7 +160,6 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 		Deadline           string                          `json:"deadline"`
 		OrganizerSub       string                          `json:"organizer_sub"`
 		Fee                int                             `json:"fee"`
-		OriginalFee        int64                           `json:"original_fee"`
 		MinFee             int                             `json:"min_fee"`
 		Tags               []string                        `json:"tags"`
 		Poster             string                          `json:"poster"`
@@ -182,7 +181,7 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 		Location: in.Location, Sponsor: in.Sponsor, Status: in.Status,
 		StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
 		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
-		Fee: in.Fee, OriginalFee: in.OriginalFee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
+		Fee: in.Fee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
 		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
 		RegistrationStatus: in.RegistrationStatus,
 	})
@@ -216,12 +215,6 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 		Status      string `json:"status"`
 		// 小程序培训页扩展字段
 		OrgName       string               `json:"org_name"`
-		OriginalFee   int64                `json:"original_fee"`
-		PassRate      float64              `json:"pass_rate"`
-		Years         int                  `json:"years"`
-		Scale         string               `json:"scale"`
-		Intro         string               `json:"intro"`
-		Banner        string               `json:"banner"`
 		Rating        string               `json:"rating"`
 		ReviewCount   int                  `json:"review_count"`
 		District      string               `json:"district"`
@@ -258,8 +251,6 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
-		OriginalFee: in.OriginalFee, PassRate: in.PassRate, Years: in.Years,
-		Scale: in.Scale, Intro: in.Intro, Banner: in.Banner,
 	})
 	if err != nil {
 		adminFail(w, r, err)
@@ -283,12 +274,6 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 		Status      string `json:"status"`
 		// 小程序培训页扩展字段
 		OrgName       string               `json:"org_name"`
-		OriginalFee   int64                `json:"original_fee"`
-		PassRate      float64              `json:"pass_rate"`
-		Years         int                  `json:"years"`
-		Scale         string               `json:"scale"`
-		Intro         string               `json:"intro"`
-		Banner        string               `json:"banner"`
 		Rating        string               `json:"rating"`
 		ReviewCount   int                  `json:"review_count"`
 		District      string               `json:"district"`
@@ -325,8 +310,6 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
-		OriginalFee: in.OriginalFee, PassRate: in.PassRate, Years: in.Years,
-		Scale: in.Scale, Intro: in.Intro, Banner: in.Banner,
 	})
 	if err != nil {
 		adminFail(w, r, err)
@@ -954,7 +937,7 @@ func (s *Server) deleteEmergencyResource(w http.ResponseWriter, r *http.Request)
 
 // --- Emergency Dispatches (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.emergencySvc.ListDispatches(r.Context(), "", "", 1, 100000)
+	all, _, err := s.emergencySvc.ListDispatches(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list dispatches: %w", err))
 		return

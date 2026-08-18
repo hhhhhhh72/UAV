@@ -1,0 +1,14 @@
+style(miniprogram): 入驻企业列表页美化升级 + 详情页健壮性对齐设计规范
+
+列表页（pkg-eco/pages/enterprise/list.vue）：
+- Hero 新增搜索框（CSS 放大镜图标、清除按钮），按名称/简介/行业/能力
+  模糊过滤，对齐输入框规范（radius 24rpx、白半透明底）
+- 新增搜索空结果态（灰调放大镜图标 + 清除筛选按钮），与"暂无企业"区分
+- 开启下拉刷新（pages.json enablePullDownRefresh + onPullDownRefresh）
+- 底部新增"申请企业入驻"固定 CTA（按钮规范 radius 50rpx + box-shadow，
+  渐变品牌蓝），空态同样提供申请入口
+- 列表底部"共 N 家入驻企业"提示 + 软引导入驻链接
+- 企业 logo 增加 @error 降级回退（破图自动切换首字占位）
+
+详情页（detail.vue）：
+- cover/logo 图片加载失败自动回退渐变占位（对齐首页企业卡行为）

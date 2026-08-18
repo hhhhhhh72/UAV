@@ -1071,7 +1071,6 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		Deadline           string                          `json:"deadline"`
 		OrganizerSub       string                          `json:"organizer_sub"`
 		Fee                int                             `json:"fee"`
-		OriginalFee        int64                           `json:"original_fee"`
 		MinFee             int                             `json:"min_fee"`
 		Tags               []string                        `json:"tags"`
 		Poster             string                          `json:"poster"`
@@ -1102,7 +1101,7 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		Title: in.Title, Category: in.Category, Description: in.Description,
 		Location: in.Location, Sponsor: in.Sponsor, StartDate: startDate, EndDate: endDate,
 		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
-		Fee: in.Fee, OriginalFee: in.OriginalFee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
+		Fee: in.Fee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
 		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
 		RegistrationStatus: in.RegistrationStatus,
 	})
@@ -1520,15 +1519,24 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 	respond(w, r, http.StatusCreated, res)
 }
 
-// GET /api/v1/emergency-dispatches?page=1&page_size=10&status=ongoing&resource_id=xxx
-// 公开展示（与救援案例一致）：调度记录作为应急协同成果对会员公开展示。
-// status 值域归并在 service 层（ongoing 匹配 dispatched/ongoing/done）；过滤先于分页。
+// GET /api/v1/emergency-dispatches?page=1&page_size=10&status=pending
+// 公开展示（与救援案例一致）：调度记录作为应急协同成果对会员公开展示
+// status 筛选支持页面 dispatches.vue 值域：pending / dispatched / completed / ongoing / done / cancelled
 func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.emergencySvc.ListDispatches(r.Context(),
-		r.URL.Query().Get("status"), r.URL.Query().Get("resource_id"), page, pageSize)
+	items, total, err := s.emergencySvc.ListDispatches(r.Context(), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if status := r.URL.Query().Get("status"); status != "" {
+		var out []domain.EmergencyDispatch
+		for _, d := range items {
+			if d.Status == status {
+				out = append(out, d)
+			}
+		}
+		paginatedRespond(w, r, out, len(out))
 		return
 	}
 	paginatedRespond(w, r, items, total)
@@ -1551,7 +1559,6 @@ func (s *Server) createEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		Location   string `json:"location"`
 		Commander  string `json:"commander"`
 		Result     string `json:"result"`
-		Status     string `json:"status"`
 		StartTime  string `json:"start_time"`
 		EndTime    string `json:"end_time"`
 	}
@@ -1569,7 +1576,7 @@ func (s *Server) createEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
 		return
 	}
-	d, err := s.emergencySvc.CreateDispatch(r.Context(), in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, in.Status, startTime, endTime)
+	d, err := s.emergencySvc.CreateDispatch(r.Context(), in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, startTime, endTime)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return

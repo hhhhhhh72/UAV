@@ -16,7 +16,7 @@
           <view class="sync-dot" />
           <text class="sync-text">已同步 · 重庆市应急指挥调度平台</text>
         </view>
-        <view class="meta-city">
+        <view class="meta-city" @click="showCityToast">
           <text class="city-text">重庆市</text>
           <text class="city-arrow">▾</text>
         </view>
@@ -49,6 +49,10 @@
       <view class="state-ico">!</view>
       <text class="state-text">加载失败</text>
       <view class="retry-btn" @tap="fetchList(true)"><text>重新加载</text></view>
+    </view>
+    <view v-else-if="!loading && allList.length > 0 && list.length === 0" class="state-view">
+      <view class="state-ico">◌</view>
+      <text class="state-text">该状态下暂无记录</text>
     </view>
     <view v-else-if="!loading && list.length === 0" class="state-view">
       <view class="state-ico">◌</view>
@@ -231,7 +235,6 @@
 
     <!-- ⑤ 自定义 Toast -->
     <view v-if="toast.show" class="custom-toast" :class="{ 'custom-toast--out': toast.hide }">
-      <view class="toast-icon"><view class="toast-check" /></view>
       <text class="toast-text">{{ toast.msg }}</text>
     </view>
   </view>
@@ -243,9 +246,9 @@ import { request } from '../../../utils/request'
 export default {
   data() {
     return {
-      // 状态栏高度：微信端 CSS 变量 --status-bar-height 不生效，须 JS 读取
-      statusBarHeight: uni.getSystemInfoSync().statusBarHeight || 20,
       activeTabIndex: 0,
+      // 顶部状态栏高度：自定义导航需自行下移，避免与状态栏重叠
+      statusBarHeight: 24,
       loading: false,
       errorMsg: '',
       allList: [],
@@ -274,7 +277,7 @@ export default {
     relatedResources() {
       var d = this.activeDetail
       if (!d) return []
-      // mock 兜底：内嵌关联资源优先
+      // 服务端内嵌关联资源优先
       if (d.related && d.related.length) return d.related
       if (!d.resource_id) return []
       var rid = String(d.resource_id)
@@ -284,6 +287,7 @@ export default {
     },
   },
   onLoad() {
+    this.statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 24
     this.fetchList(true)
     this.fetchResources()
   },
@@ -306,9 +310,7 @@ export default {
         var items = Array.isArray(data) ? data : (data && data.items) || []
         this.allList = items
       } catch (e) {
-        // 仅网络失败时注入 mock 兜底预览；接口成功但空列表应显示「暂无」
         this.errorMsg = '网络异常，请稍后重试'
-        this.allList = this.getMockDispatches()
       } finally {
         this.loading = false
       }
@@ -381,62 +383,8 @@ export default {
       }, 2000)
     },
     noop() {},
-    /* mock（含关联资源 / 进度 / 单位 / 电话，便于离线预览） */
-    getMockDispatches(status) {
-      var all = [
-        {
-          id: 'DSP-20260730-01', event_desc: '南山森林火情应急侦察', status: 'completed',
-          location: '重庆市南岸区南山', start_time: '2026-07-30 17:20', commander: '张队',
-          unit: '南岸区消防救援支队', phone: '13800000001',
-          result: '侦察火线分布，已回传指挥部；确认 3 处火点并引导洒水作业。',
-          resource_id: 1,
-          related: [
-            { id: 1, name: '应急侦察无人机', res_type: 'drone', quantity: 2, status: 'available', specs: '大疆 M300RTK + 热成像云台' },
-            { id: 2, name: '应急通讯保障车', res_type: 'vehicle', quantity: 1, status: 'available', specs: '4G / 自组网中继' },
-          ],
-        },
-        {
-          id: 'DSP-20260810-02', event_desc: '嘉陵江洪水区域巡查', status: 'ongoing',
-          location: '重庆市北碚区嘉陵江段', start_time: '2026-08-10 23:40', commander: '李指挥',
-          unit: '北碚区应急管理局', phone: '13800000002', progress: 68,
-          result: '巡查 12 公里堤岸，发现 2 处隐患，正在复核加固。',
-          resource_id: 3,
-          related: [
-            { id: 3, name: '长航时巡查无人机', res_type: 'drone', quantity: 2, status: 'in_use', specs: '垂直起降固定翼' },
-          ],
-        },
-        {
-          id: 'DSP-20260806-03', event_desc: '渝中区夜间抢险照明保障', status: 'completed',
-          location: '重庆市渝中区解放碑', start_time: '2026-08-06 04:00', commander: '王工',
-          unit: '国网重庆应急中心', phone: '13800000003',
-          result: '保障抢险现场照明 4 小时，全程无中断。',
-          resource_id: 5,
-          related: [
-            { id: 5, name: '系留照明无人机', res_type: 'drone', quantity: 1, status: 'maintenance', specs: '系留供电' },
-          ],
-        },
-        {
-          id: 'DSP-20260728-04', event_desc: '綦江暴雨应急通讯保障', status: 'completed',
-          location: '重庆市綦江区东溪镇', start_time: '2026-07-28 16:15', commander: '赵队',
-          unit: '綦江区应急局', phone: '13800000004',
-          result: '恢复应急通讯链路，保障指挥部 6 小时稳定通信。',
-          resource_id: 4,
-          related: [
-            { id: 4, name: '卫星通讯便携站', res_type: 'comm', quantity: 1, status: 'available', specs: 'Ka 频段' },
-          ],
-        },
-        {
-          id: 'DSP-20260812-05', event_desc: '北碚山地搜救任务待命', status: 'pending',
-          location: '重庆市北碚区缙云山', start_time: '2026-08-12 09:00', commander: '待指派',
-          unit: '重庆市社会救援总队', phone: '',
-          result: '等待现场确认，准备受领任务。',
-          related: [],
-        },
-      ]
-      if (status) {
-        return all.filter(function (d) { return d.status === status })
-      }
-      return all
+    showCityToast() {
+      uni.showToast({ title: '当前仅支持重庆市', icon: 'none' })
     },
     /* 状态 */
     statusKey(status) {
@@ -583,7 +531,8 @@ export default {
 /* ═══ ① 白底导航（对齐应急资源页）═══ */
 .nav-wrap {
   background: #ffffff;
-  padding: var(--status-bar-height) 0 0;
+  /* 顶部内边距由 JS 读取的真实状态栏高度接管（模板 :style），此处归零 */
+  padding: 0;
   position: relative;
   z-index: 5;
   border-bottom: 1rpx solid #EEF1F4;
@@ -605,14 +554,14 @@ export default {
   flex-shrink: 0;
 }
 .nav-press { transform: scale(0.92); background: #EAF3FB; }
-.nav-back-icon { color: #0A1F44; font-size: 40rpx; font-weight: 300; line-height: 1; }
+.nav-back-icon { color: #17212B; font-size: 40rpx; font-weight: 300; line-height: 1; }
 .nav-title-area {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.nav-title { font-size: 30rpx; font-weight: 700; color: #0A1F44; }
+.nav-title { font-size: 34rpx; font-weight: 700; color: #17212B; }
 .nav-capsule {
   width: 88rpx;
   height: 60rpx;
@@ -631,9 +580,7 @@ export default {
   width: 10rpx;
   height: 10rpx;
   border-radius: 50%;
-  background: #00C896;
-  box-shadow: 0 0 0 0 rgba(0, 200, 150, 0.7);
-  animation: syncPulse 1.8s ease-out infinite;
+  background: #168A55;
 }
 .sync-text { font-size: 20rpx; color: #6B7B95; }
 .meta-city { display: flex; align-items: center; gap: 4rpx; }
@@ -653,7 +600,7 @@ export default {
   gap: 8rpx;
   height: 60rpx;
   padding: 0 24rpx;
-  border-radius: 6rpx;
+  border-radius: 999rpx;
   background: #ffffff;
   border: 1rpx solid #E4E7EC;
   color: #344054;
@@ -691,27 +638,28 @@ export default {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-.state-view { display: flex; flex-direction: column; align-items: center; padding-top: 100rpx; }
+.state-view { display: flex; flex-direction: column; align-items: center; padding-top: 80rpx; }
 .state-ico {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 8rpx;
-  background: #EAF3FB;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #E8F2FC;
   color: #0A66C2;
-  font-size: 48rpx;
+  font-size: 36rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
 }
-.state-text { font-size: 26rpx; color: #667085; }
+.state-text { font-size: 28rpx; color: #17212B; }
 .retry-btn {
-  margin-top: 28rpx;
+  display: inline-block;
+  margin-top: 24rpx;
   padding: 14rpx 48rpx;
   background: #074D92;
   color: #ffffff;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   font-size: 26rpx;
 }
 
@@ -755,9 +703,9 @@ export default {
   border-radius: 50%;
 }
 .dot--pending .dot-core { background: #B54708; }
-.dot--ongoing .dot-core { background: #0A66C2; }
+.dot--ongoing .dot-core { background: #168A55; }
 .dot--ongoing { animation: ringPulse 1.4s ease-out infinite; }
-.dot--completed .dot-core { background: #168A55; }
+.dot--completed .dot-core { background: #0A66C2; }
 .dot--cancelled .dot-core { background: #D92D20; }
 
 /* 卡片 */
@@ -888,8 +836,8 @@ export default {
   overflow: hidden;
 }
 .badge-dot { width: 10rpx; height: 10rpx; border-radius: 50%; background: currentColor; position: relative; }
-.badge--completed { background: #E9F7F0; color: #168A55; }
-.badge--ongoing { background: #EAF3FB; color: #0A66C2; }
+.badge--completed { background: #E8F2FC; color: #0A66C2; }
+.badge--ongoing { background: #E9F7F0; color: #168A55; }
 .badge--pending { background: #FEF6E7; color: #B54708; }
 .badge--cancelled { background: #FEF3F2; color: #D92D20; }
 .badge--ongoing .badge-dot { animation: badgePulse 1.4s ease-out infinite; }
@@ -940,7 +888,7 @@ export default {
 .sheet-close {
   width: 56rpx;
   height: 56rpx;
-  border-radius: 6rpx;
+  border-radius: 999rpx;
   background: #F4F6F8;
   display: flex;
   align-items: center;
@@ -975,8 +923,8 @@ export default {
 .progress-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12rpx; }
 .progress-label { font-size: 22rpx; color: #667085; font-weight: 600; }
 .progress-val { font-size: 22rpx; font-weight: 700; }
-.pv--completed { color: #168A55; }
-.pv--ongoing { color: #0A66C2; }
+.pv--completed { color: #0A66C2; }
+.pv--ongoing { color: #168A55; }
 .pv--pending { color: #B54708; }
 .pv--cancelled { color: #98A2B3; }
 .progress-track {
@@ -990,8 +938,8 @@ export default {
   border-radius: 999rpx;
   transition: width 800ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.fill--completed { background: #168A55; }
-.fill--ongoing { background: #0A66C2; }
+.fill--completed { background: #0A66C2; }
+.fill--ongoing { background: #168A55; }
 .fill--pending { background: #B54708; }
 .fill--cancelled { background: #CBD2DA; }
 
@@ -1228,7 +1176,7 @@ export default {
 .btn {
   flex: 1;
   height: 80rpx;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1239,7 +1187,7 @@ export default {
 .btn--ghost { background: #F4F8FC; }
 .btn--ghost .btn-text { color: #0A66C2; }
 .btn--primary { background: #0A66C2; }
-.btn--urgent { background: #F97316; box-shadow: 0 4rpx 10rpx rgba(249, 115, 22, 0.28); }
+.btn--urgent { background: #0A66C2; box-shadow: 0 4rpx 10rpx rgba(10, 102, 194, 0.28); }
 
 /* ═══ 动画 ═══ */
 @keyframes cardIn {
@@ -1247,14 +1195,14 @@ export default {
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes ringPulse {
-  0% { box-shadow: 0 0 0 0 rgba(10, 102, 194, 0.4); }
-  70% { box-shadow: 0 0 0 14rpx rgba(10, 102, 194, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(10, 102, 194, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0.4); }
+  70% { box-shadow: 0 0 0 14rpx rgba(22, 138, 85, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0); }
 }
 @keyframes badgePulse {
-  0% { box-shadow: 0 0 0 0 rgba(10, 102, 194, 0.4); }
-  70% { box-shadow: 0 0 0 10rpx rgba(10, 102, 194, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(10, 102, 194, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0.4); }
+  70% { box-shadow: 0 0 0 10rpx rgba(22, 138, 85, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0); }
 }
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -1277,51 +1225,26 @@ export default {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-@keyframes syncPulse {
-  0% { box-shadow: 0 0 0 0 rgba(0, 200, 150, 0.7); }
-  70% { box-shadow: 0 0 0 12rpx rgba(0, 200, 150, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(0, 200, 150, 0); }
-}
 
-/* ═══ ⑤ 自定义 Toast ═══ */
+/* ═══ ⑤ 自定义 Toast（对齐 pub-toast：底部黑底白字，无图标） ═══ */
 .custom-toast {
   position: fixed;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  bottom: 168rpx;
+  transform: translateX(-50%);
   z-index: 999;
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  padding: 20rpx 32rpx;
-  background: rgba(16, 24, 40, 0.92);
-  border-radius: 10rpx;
+  padding: 20rpx 28rpx;
+  background: rgba(23, 33, 43, 0.92);
+  border-radius: 18rpx;
   box-shadow: 0 8rpx 24rpx rgba(16, 24, 40, 0.24);
   animation: toastIn 250ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   max-width: 70vw;
 }
 .custom-toast--out { animation: toastOut 200ms ease both; }
-.toast-icon {
-  width: 32rpx;
-  height: 32rpx;
-  border-radius: 50%;
-  background: rgba(91, 255, 176, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.toast-check {
-  width: 16rpx;
-  height: 9rpx;
-  border-left: 3rpx solid #5BFFB0;
-  border-bottom: 3rpx solid #5BFFB0;
-  transform: rotate(-45deg) translate(1rpx, -1rpx);
-}
 .toast-text { font-size: 26rpx; color: #ffffff; font-weight: 500; line-height: 1.4; }
 @keyframes toastIn {
-  from { opacity: 0; transform: translate(-50%, calc(-50% - 20rpx)); }
-  to { opacity: 1; transform: translate(-50%, -50%); }
+  from { opacity: 0; transform: translate(-50%, 16rpx); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 @keyframes toastOut {
   from { opacity: 1; }
@@ -1333,7 +1256,6 @@ export default {
   .timeline-item,
   .dot--ongoing,
   .badge--ongoing .badge-dot,
-  .sync-dot,
   .mask,
   .sheet,
   .mask--close,

@@ -670,10 +670,10 @@ func TestEmergencyService_FullCRUD(t *testing.T) {
 
 	// CreateDispatch 不存在的资源 → 报错
 	now := time.Now()
-	if _, err := svc.CreateDispatch(context.Background(), "nope", "事件", "地点", "指挥", "结果", "", now, now.Add(time.Hour)); err == nil {
+	if _, err := svc.CreateDispatch(context.Background(), "nope", "事件", "地点", "指挥", "结果", now, now.Add(time.Hour)); err == nil {
 		t.Fatal("EmergencyService.CreateDispatch: expected error for unknown resource")
 	}
-	d, err := svc.CreateDispatch(context.Background(), r.ID, "山火应急", "北碚", "指挥", "结果", "", now, now.Add(time.Hour))
+	d, err := svc.CreateDispatch(context.Background(), r.ID, "山火应急", "北碚", "指挥", "结果", now, now.Add(time.Hour))
 	if err != nil {
 		t.Fatalf("EmergencyService.CreateDispatch: %v", err)
 	}
