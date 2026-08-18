@@ -163,7 +163,7 @@ func (s *Server) adminUpdateProduct(w http.ResponseWriter, r *http.Request) {
 		Brand       string   `json:"brand"`
 		Model       string   `json:"model"`
 		Condition   string   `json:"condition"`
-		PriceFen    int64    `json:"price_fen"`
+		PriceFen    *int64   `json:"price_fen"` // 指针区分"未传"与"传 0"（改面议价）
 		Status      string   `json:"status"`
 		Images      []string `json:"images"`
 		SellerName  string   `json:"seller_name"`
@@ -195,8 +195,8 @@ func (s *Server) adminUpdateProduct(w http.ResponseWriter, r *http.Request) {
 	if in.Condition != "" {
 		existing.Condition = in.Condition
 	}
-	if in.PriceFen > 0 {
-		existing.PriceFen = in.PriceFen
+	if in.PriceFen != nil {
+		existing.PriceFen = *in.PriceFen
 	}
 	if in.Status != "" {
 		existing.Status = in.Status
