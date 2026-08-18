@@ -439,14 +439,15 @@ const onIntent = async () => {
   openSheet('intent')
 }
 
-// 我的意向记录里是否已有该需求（任意状态）——有则隐藏登记入口
+// 我的意向记录里该需求是否存在"待处理"意向——存在则隐藏登记入口；
+// 已关闭（含取消登记）/已洽谈的不阻塞再次登记，与后端防重复规则一致
 const intented = ref(false)
 const checkIntented = async () => {
   if (!isLoggedIn()) return
   try {
     const res = await request({ url: '/api/v1/intents/mine' })
     const data = Array.isArray(res) ? res : (res && res.data) || []
-    intented.value = data.some((it) => it.demand_id === postId)
+    intented.value = data.some((it) => it.demand_id === postId && it.status === 'pending')
   } catch (e) {
     /* 拉取失败不阻塞页面 */
   }
