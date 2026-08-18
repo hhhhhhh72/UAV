@@ -890,9 +890,11 @@ async function doSearch() {
   try {
     const res = await request({
       url: '/api/v1/search',
-      data: { q: kw, type: activeTab.value },
+      data: { q: kw },
     })
-    const data = Array.isArray(res) ? res : (res && res.items) || []
+    // 后端返回 { demands: [...], enterprises: [...] }，按当前 Tab 取对应数组
+    const key = activeTab.value === 'enterprise' ? 'enterprises' : 'demands'
+    const data = (res && Array.isArray(res[key])) ? res[key] : []
     searchResults.value = data
     searched.value = true
     addToSearchHistory(kw)
