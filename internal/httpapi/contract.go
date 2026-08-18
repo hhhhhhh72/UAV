@@ -18,6 +18,7 @@ import (
 )
 
 // dedup set for webhook event_id (in-memory; PG contract_events table is the canonical store)
+// webhookDedup 已处理事件去重表（eventID -> 处理完成时间；24h 窗口，惰性清理）。
 var webhookDedup sync.Map
 
 // GET /api/v1/contract-templates
@@ -201,9 +202,13 @@ func (s *Server) signingWebhook(w http.ResponseWriter, r *http.Request) {
 
 	// Check deduplication. Process first, then mark as done — if processing fails
 	// the event_id is not consumed and the sender can safely retry.
-	if _, loaded := webhookDedup.Load(event.EventID); loaded {
-		respond(w, r, http.StatusOK, map[string]string{"received": event.EventID, "status": "duplicate"})
-		return
+	// 条目存处理完成时间：超过 24h 视为过期（惰性删除），map 内存有界。
+	if t, loaded := webhookDedup.Load(event.EventID); loaded {
+		if time.Since(t.(time.Time)) < 24*time.Hour {
+			respond(w, r, http.StatusOK, map[string]string{"received": event.EventID, "status": "duplicate"})
+			return
+		}
+		webhookDedup.Delete(event.EventID)
 	}
 
 	newStatus, err := mapContractStatus(event.Status)
@@ -216,7 +221,7 @@ func (s *Server) signingWebhook(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	webhookDedup.Store(event.EventID, true)
+	webhookDedup.Store(event.EventID, time.Now())
 	s.audit(r.Context(), "system", "signing_callback", "contract", event.ContractID, event.Status)
 	respond(w, r, http.StatusOK, map[string]string{"received": event.EventID})
 }

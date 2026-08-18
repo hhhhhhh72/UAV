@@ -1,4 +1,5 @@
 .git
+.git-rewrite
 .gitignore
 .env
 .env.local
@@ -14,6 +15,7 @@ work
 outputs
 logs
 uploads
+test_uploads
 *.exe
 *.log
 miniprogram/node_modules
