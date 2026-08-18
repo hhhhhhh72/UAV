@@ -1,50 +1,47 @@
 <template>
-  <Layout :current="0">
-    <view class="messages-page">
-      <!-- 加载状态 -->
-      <view v-if="loading" class="loading-state">
-        <view class="loading-inline">
-          <u-loading size="24rpx" />
-          <text>加载中...</text>
-        </view>
-      </view>
-
-      <!-- 空状态 -->
-      <view v-else-if="messages.length === 0" class="empty-state-wrapper">
-        <u-empty description="暂无消息" />
-      </view>
-
-      <!-- 消息列表 -->
-      <view v-else class="message-list">
-        <u-cell-group inset>
-          <u-cell
-            v-for="msg in messages"
-            :key="msg.id"
-            :label="msg.content"
-            :value="formatTime(msg.created_at || msg.createdAt)"
-            is-link
-            @click="onMessageClick(msg)"
-          >
-            <template #icon>
-              <view class="msg-icon-wrapper">
-                <text class="msg-icon-text">信</text>
-                <view v-if="!(msg.is_read || msg.isRead)" class="unread-dot" />
-              </view>
-            </template>
-            <template #title>
-              <text class="cell-title-text">{{ msg.title }}</text>
-            </template>
-          </u-cell>
-        </u-cell-group>
+  <view class="messages-page">
+    <!-- 加载状态 -->
+    <view v-if="loading" class="loading-state">
+      <view class="loading-inline">
+        <u-loading size="24rpx" />
+        <text>加载中...</text>
       </view>
     </view>
-  </Layout>
+
+    <!-- 空状态 -->
+    <view v-else-if="messages.length === 0" class="empty-state-wrapper">
+      <u-empty description="暂无消息" />
+    </view>
+
+    <!-- 消息列表 -->
+    <view v-else class="message-list">
+      <u-cell-group inset>
+        <u-cell
+          v-for="msg in messages"
+          :key="msg.id"
+          :label="msg.content"
+          :value="formatTime(msg.created_at || msg.createdAt)"
+          is-link
+          @click="onMessageClick(msg)"
+        >
+          <template #icon>
+            <view class="msg-icon-wrapper">
+              <text class="msg-icon-text">信</text>
+              <view v-if="!(msg.is_read || msg.isRead)" class="unread-dot" />
+            </view>
+          </template>
+          <template #title>
+            <text class="cell-title-text">{{ msg.title }}</text>
+          </template>
+        </u-cell>
+      </u-cell-group>
+    </view>
+  </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
-import Layout from '@/components/Layout.vue'
 import { request, getStoredUser } from '../../utils/request'
 
 const messages = ref([])
