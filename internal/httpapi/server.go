@@ -963,7 +963,7 @@ func (s *Server) accessLog(next http.Handler) http.Handler {
 		}
 		slog.Info("http", "method", r.Method, "path", r.URL.Path,
 			"status", sw.status, "dur_ms", time.Since(start).Milliseconds(),
-			"ip", r.RemoteAddr, "request_id", requestIDFromCtx(r))
+			"ip", clientIP(r), "request_id", requestIDFromCtx(r))
 	})
 }
 
