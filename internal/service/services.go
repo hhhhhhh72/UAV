@@ -62,6 +62,9 @@ func (s *DemandService) Create(ctx context.Context, a domain.Actor, in CreateDem
 	if budgetFen == 0 && in.Budget > 0 {
 		budgetFen = in.Budget * 100
 	}
+	if budgetFen < 0 {
+		return domain.Demand{}, errors.New("budget cannot be negative")
+	}
 	d := domain.Demand{ID: fmt.Sprintf("demand-%d-%d", now.UnixNano(), nextSeq()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: budgetFen, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
 	slog.Info("demand created", "demand_id", d.ID, "publisher_id", a.ID, "biz_type", string(bizType))
 	return s.repo.Create(ctx, d)

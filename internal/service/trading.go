@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -18,6 +19,9 @@ func NewTradingService(pr repository.ProductRepository, rr repository.RepairRepo
 }
 
 func (s *TradingService) CreateProduct(ctx context.Context, a domain.Actor, prodType domain.ProductType, title, desc, brand, model, condition string, priceFen int64, images []string) (domain.DroneProduct, error) {
+	if priceFen < 0 {
+		return domain.DroneProduct{}, errors.New("price cannot be negative")
+	}
 	now := time.Now()
 	// 用户发布商品默认"待审核"，管理后台通过后才上架（公开列表只展示 listed）
 	p := domain.DroneProduct{ID: nextID("product"), SellerID: a.ID, SellerName: a.ID,

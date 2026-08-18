@@ -51,6 +51,9 @@ func NewLabourService(r repository.LabourOrderRepository) *LabourService {
 }
 
 func (s *LabourService) CreateOrder(ctx context.Context, a domain.Actor, title, desc string, workers int, start, end time.Time, budget int64) (domain.LabourOrder, error) {
+	if budget < 0 {
+		return domain.LabourOrder{}, errors.New("budget cannot be negative")
+	}
 	now := time.Now()
 	o := domain.LabourOrder{ID: nextID("labour"), EmployerID: a.ID, Title: title,
 		Description: desc, WorkerCount: workers, StartDate: start, EndDate: end, BudgetFen: budget, Status: "draft",
@@ -67,6 +70,9 @@ func (s *LabourService) ListOrders(ctx context.Context, a domain.Actor, offset, 
 }
 
 func (s *LabourService) CreateQuote(ctx context.Context, a domain.Actor, orderID string, amount int64, proposal, name string) (domain.LabourQuote, error) {
+	if amount < 0 {
+		return domain.LabourQuote{}, errors.New("quote amount cannot be negative")
+	}
 	q := domain.LabourQuote{ID: nextID("quote"), OrderID: orderID, QuoterID: a.ID,
 		QuoterName: name, AmountFen: amount, Proposal: proposal, Status: "pending", CreatedAt: time.Now()}
 	return s.repo.CreateQuote(ctx, q)

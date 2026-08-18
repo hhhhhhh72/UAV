@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -50,6 +51,9 @@ func NewTestSiteService(r repository.TestSiteRepository) *TestSiteService {
 }
 
 func (s *TestSiteService) Create(ctx context.Context, name, siteType, location, bookingRule, ownerID string, priceFen int64, facilities []string, status string) (domain.TestSite, error) {
+	if priceFen < 0 {
+		return domain.TestSite{}, errors.New("price cannot be negative")
+	}
 	if status == "" {
 		status = "available"
 	}

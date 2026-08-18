@@ -81,6 +81,9 @@ func (s *TrainingService) DeleteCertificate(ctx context.Context, id string) erro
 
 // CreateCourse 接收完整领域对象（含小程序页面字段 org_name/rating/district/courses 等）。
 func (s *TrainingService) CreateCourse(ctx context.Context, a domain.Actor, c domain.TrainingCourse) (domain.TrainingCourse, error) {
+	if c.PriceFen < 0 {
+		return domain.TrainingCourse{}, errors.New("price cannot be negative")
+	}
 	now := time.Now()
 	if c.ID == "" {
 		c.ID = nextID("course")

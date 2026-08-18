@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -20,6 +21,9 @@ func NewServiceListingService(r repository.ServiceListingRepository) *ServiceLis
 
 // CreateListing 创建服务能力（管理后台录入），默认直接上架。
 func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
+	if priceFen < 0 {
+		return domain.ServiceListing{}, errors.New("price cannot be negative")
+	}
 	now := time.Now()
 	sl := domain.ServiceListing{
 		ID:           nextID("service-listing"),
@@ -42,6 +46,9 @@ func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, p
 // CreateListingPending 用户自助发布服务能力：默认待审核（pending），
 // 由协会在管理端审核通过后才进入公开列表（ListPublished 只返回 published）。
 func (s *ServiceListingService) CreateListingPending(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
+	if priceFen < 0 {
+		return domain.ServiceListing{}, errors.New("price cannot be negative")
+	}
 	now := time.Now()
 	sl := domain.ServiceListing{
 		ID:           nextID("service-listing"),

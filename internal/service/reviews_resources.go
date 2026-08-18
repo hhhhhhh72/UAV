@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -64,6 +65,9 @@ func NewVenueService(repo repository.VenueRepository) *VenueService {
 }
 
 func (s *VenueService) Create(ctx context.Context, ownerID, name, venueType, location string, priceFen int64) (domain.Venue, error) {
+	if priceFen < 0 {
+		return domain.Venue{}, errors.New("price cannot be negative")
+	}
 	v := domain.Venue{ID: nextID("venue"), OwnerID: ownerID, Name: name,
 		VenueType: venueType, Location: location, PriceFen: priceFen, Status: "available", CreatedAt: time.Now()}
 	return s.repo.Create(ctx, v)

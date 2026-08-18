@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -56,6 +57,12 @@ func NewFinanceService(lr repository.LoanRepository) *FinanceService {
 }
 
 func (s *FinanceService) ApplyLoan(ctx context.Context, a domain.Actor, amountFen int64, termMonths int, purpose string) (domain.LoanApplication, error) {
+	if amountFen <= 0 {
+		return domain.LoanApplication{}, errors.New("loan amount must be positive")
+	}
+	if termMonths <= 0 {
+		return domain.LoanApplication{}, errors.New("loan term must be positive")
+	}
 	now := time.Now()
 	l := domain.LoanApplication{ID: nextID("loan"), UserID: a.ID, AmountFen: amountFen,
 		TermMonths: termMonths, Purpose: purpose, Status: "submitted", Version: 1, CreatedAt: now, UpdatedAt: now}
