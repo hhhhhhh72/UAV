@@ -2,7 +2,7 @@
   <Layout :current="1">
     <view class="hall-page">
       <!-- ═══════ 深蓝顶部 ═══════ -->
-      <view class="topbar">
+      <view class="topbar" :style="{ paddingTop: statusBarHeight + 'px' }">
         <view class="topbar-row">
           <view class="city-btn" hover-class="tap-fade" @tap="openCity">
             <text class="city-label">{{ cityLabel }}</text>
@@ -331,6 +331,9 @@ import {
   IMG_SOLAR, IMG_LIFT, IMG_HERO,
   PRODUCT_CATEGORIES, normalizeProduct, normalizeService, getLocalLiveCards,
 } from '../../utils/hallData'
+
+// 状态栏高度：custom 导航下 topbar 需 JS 接管（env(safe-area-inset-top) 在微信端返回 0）
+const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
 
 const primary = ref('demand') // demand | supply
 const supplyKind = ref('product') // product | service

@@ -84,6 +84,7 @@
     {
       "path": "pages/demands/index",
       "style": {
+        "navigationStyle": "custom",
         "navigationBarTitleText": "供需大厅",
         "navigationBarTextStyle": "black",
         "navigationBarBackgroundColor": "#ffffff",
