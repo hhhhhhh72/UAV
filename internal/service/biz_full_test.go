@@ -103,7 +103,8 @@ func TestPortfolioFullCRUD(t *testing.T) {
 	if got.Name != "品牌A" {
 		t.Fatal("Get failed")
 	}
-	svc.Update(context.Background(), p.ID, "品牌A2", "logo2.png", "cover2.png", "方案2", "139", "active", []string{"物流"}, []string{"十佳"})
+	owner := domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}
+	svc.Update(context.Background(), owner, p.ID, "品牌A2", "logo2.png", "cover2.png", "方案2", "139", "active", []string{"物流"}, []string{"十佳"})
 	// ListByEnterprise
 	mine, _ := svc.ListByEnterprise(context.Background(), "ent-1")
 	if len(mine) != 1 {
@@ -123,13 +124,13 @@ func TestAchievementFullCRUD(t *testing.T) {
 	if got.AchieveType != "patent" {
 		t.Fatal("Get failed")
 	}
-	svc.Update(context.Background(), a.ID, "AI算法v2", "software", "避障v2", "低空", "pilot", "139", []string{"d2.jpg"}, nil)
+	svc.Update(context.Background(), domain.Actor{ID: "user-1", Role: domain.RoleIndividual}, a.ID, "AI算法v2", "software", "避障v2", "低空", "pilot", "139", []string{"d2.jpg"}, nil)
 	// List by field
 	_, total, _ := svc.List(context.Background(), "低空", 1, 20)
 	if total != 1 {
 		t.Fatal("list by field")
 	}
-	svc.Delete(context.Background(), a.ID)
+	svc.Delete(context.Background(), domain.Actor{ID: "user-1", Role: domain.RoleIndividual}, a.ID)
 }
 
 // === RDChallenge full CRUD ===
@@ -140,7 +141,7 @@ func TestRDChallengeFullCRUD(t *testing.T) {
 	if got.BudgetFen != 500000 {
 		t.Fatal("Get failed")
 	}
-	svc.Update(context.Background(), c.ID, "电池v2", "电池", ">3h", "open", 800000, time.Now().AddDate(0, 6, 0))
+	svc.Update(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, c.ID, "电池v2", "电池", ">3h", "open", 800000, time.Now().AddDate(0, 6, 0))
 }
 
 // === ResearchProject full CRUD ===

@@ -13,6 +13,15 @@ import (
 	"drone-platform/internal/service"
 )
 
+// writeMutationErr 用户侧写操作错误映射：越权 → 403，其余 → 404。
+func writeMutationErr(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, service.ErrNotOwner) {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	fail(w, r, http.StatusNotFound, err)
+}
+
 // registerBizRoutes registers all business-module routes.
 func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 	// ---- Experts ----
@@ -578,7 +587,7 @@ func (s *Server) createPortfolio(w http.ResponseWriter, r *http.Request) {
 
 // PUT /api/v1/portfolios/{id}
 func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
@@ -597,9 +606,9 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.portfolioSvc.Update(r.Context(), r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Status, in.Products, in.Honors)
+	p, err := s.portfolioSvc.Update(r.Context(), a, r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Status, in.Products, in.Honors)
 	if err != nil {
-		fail(w, r, http.StatusNotFound, err)
+		writeMutationErr(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, p)
@@ -659,7 +668,7 @@ func (s *Server) createAchievement(w http.ResponseWriter, r *http.Request) {
 
 // PUT /api/v1/achievements/{id}
 func (s *Server) updateAchievement(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
@@ -678,9 +687,9 @@ func (s *Server) updateAchievement(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ach, err := s.achievementSvc.Update(r.Context(), r.PathValue("id"), in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
+	ach, err := s.achievementSvc.Update(r.Context(), a, r.PathValue("id"), in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
 	if err != nil {
-		fail(w, r, http.StatusNotFound, err)
+		writeMutationErr(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, ach)
@@ -693,8 +702,8 @@ func (s *Server) deleteAchievement(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if err := s.achievementSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusNotFound, err)
+	if err := s.achievementSvc.Delete(r.Context(), a, r.PathValue("id")); err != nil {
+		writeMutationErr(w, r, err)
 		return
 	}
 	s.audit(r.Context(), a.ID, "delete_achievement", "achievement", r.PathValue("id"), "deleted")
@@ -765,7 +774,7 @@ func (s *Server) createRDChallenge(w http.ResponseWriter, r *http.Request) {
 
 // PUT /api/v1/rd-challenges/{id}
 func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
@@ -783,9 +792,9 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
 		return
 	}
-	ch, err := s.rdService.Update(r.Context(), r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.BudgetFen, deadline)
+	ch, err := s.rdService.Update(r.Context(), a, r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.BudgetFen, deadline)
 	if err != nil {
-		fail(w, r, http.StatusNotFound, err)
+		writeMutationErr(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, ch)

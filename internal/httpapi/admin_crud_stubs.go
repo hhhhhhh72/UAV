@@ -33,11 +33,14 @@ func adminListFilter[T any](items []T, kw, status string, kwField func(T) string
 	return out, len(out)
 }
 
-// adminFail 管理端写操作错误映射：资源不存在 → 404，其余 → 500。
+// adminFail 管理端写操作错误映射：资源不存在 → 404，越权 → 403，其余 → 500。
 // 修复前 update/delete 一律 500，前端无法区分"资源不存在"与真实服务故障。
 func adminFail(w http.ResponseWriter, r *http.Request, err error) {
 	code := http.StatusInternalServerError
-	if strings.Contains(strings.ToLower(err.Error()), "not found") {
+	switch {
+	case errors.Is(err, service.ErrNotOwner):
+		code = http.StatusForbidden
+	case strings.Contains(strings.ToLower(err.Error()), "not found"):
 		code = http.StatusNotFound
 	}
 	fail(w, r, code, err)
@@ -790,7 +793,12 @@ func (s *Server) deleteEvent(w http.ResponseWriter, r *http.Request) {
 
 // --- Portfolios (missing delete) ---
 func (s *Server) deletePortfolio(w http.ResponseWriter, r *http.Request) {
-	if err := s.portfolioSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if err := s.portfolioSvc.Delete(r.Context(), a, r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}
@@ -1165,7 +1173,12 @@ func (s *Server) deleteIndustryResource(w http.ResponseWriter, r *http.Request) 
 
 // --- RD Challenges (missing delete) ---
 func (s *Server) deleteRDChallenge(w http.ResponseWriter, r *http.Request) {
-	if err := s.rdService.Delete(r.Context(), r.PathValue("id")); err != nil {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if err := s.rdService.Delete(r.Context(), a, r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return
 	}

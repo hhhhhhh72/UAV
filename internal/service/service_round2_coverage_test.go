@@ -66,10 +66,10 @@ func TestPortfolioService_ListAndDelete(t *testing.T) {
 	if err != nil || total != 1 || len(list) != 1 {
 		t.Fatalf("PortfolioService.List: total=%d len=%d err=%v", total, len(list), err)
 	}
-	if err := svc.Delete(context.Background(), p.ID); err != nil {
+	if err := svc.Delete(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, p.ID); err != nil {
 		t.Fatalf("PortfolioService.Delete: %v", err)
 	}
-	if err := svc.Delete(context.Background(), "nope"); err == nil {
+	if err := svc.Delete(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, "nope"); err == nil {
 		t.Fatal("PortfolioService.Delete: expected error for unknown id")
 	}
 }

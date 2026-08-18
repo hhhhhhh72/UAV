@@ -48,24 +48,36 @@ func (s *AchievementService) Get(ctx context.Context, id string) (domain.Achieve
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *AchievementService) Update(ctx context.Context, id, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
-	a, err := s.repo.FindByID(ctx, id)
+func (s *AchievementService) Update(ctx context.Context, a domain.Actor, id, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
+	ach, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Achievement{}, err
 	}
-	a.Title = title
-	a.AchieveType = achieveType
-	a.Description = description
-	a.Field = field
-	a.Stage = stage
-	a.Images = images
-	a.Attachments = attachments
-	a.ContactInfo = contactInfo
-	a.UpdatedAt = time.Now()
-	return s.repo.Update(ctx, a)
+	// 越权防护：仅属主或管理员可修改
+	if !canMutate(a, ach.OwnerID) {
+		return domain.Achievement{}, ErrNotOwner
+	}
+	ach.Title = title
+	ach.AchieveType = achieveType
+	ach.Description = description
+	ach.Field = field
+	ach.Stage = stage
+	ach.Images = images
+	ach.Attachments = attachments
+	ach.ContactInfo = contactInfo
+	ach.UpdatedAt = time.Now()
+	return s.repo.Update(ctx, ach)
 }
 
-func (s *AchievementService) Delete(ctx context.Context, id string) error {
+func (s *AchievementService) Delete(ctx context.Context, a domain.Actor, id string) error {
+	ach, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	// 越权防护：仅属主或管理员可删除
+	if !canMutate(a, ach.OwnerID) {
+		return ErrNotOwner
+	}
 	return s.repo.Delete(ctx, id)
 }
 
@@ -105,10 +117,14 @@ func (s *RDChallengeService) Get(ctx context.Context, id string) (domain.RDChall
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *RDChallengeService) Update(ctx context.Context, id, title, field, description, status string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
+func (s *RDChallengeService) Update(ctx context.Context, a domain.Actor, id, title, field, description, status string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
 	c, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.RDChallenge{}, err
+	}
+	// 越权防护：仅发布者或管理员可修改
+	if !canMutate(a, c.PosterID) {
+		return domain.RDChallenge{}, ErrNotOwner
 	}
 	c.Title = title
 	c.Field = field
@@ -120,7 +136,15 @@ func (s *RDChallengeService) Update(ctx context.Context, id, title, field, descr
 	return s.repo.Update(ctx, c)
 }
 
-func (s *RDChallengeService) Delete(ctx context.Context, id string) error {
+func (s *RDChallengeService) Delete(ctx context.Context, a domain.Actor, id string) error {
+	c, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	// 越权防护：仅发布者或管理员可删除
+	if !canMutate(a, c.PosterID) {
+		return ErrNotOwner
+	}
 	return s.repo.Delete(ctx, id)
 }
 

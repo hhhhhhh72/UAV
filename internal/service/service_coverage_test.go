@@ -716,7 +716,7 @@ func TestEmergencyService_FullCRUD(t *testing.T) {
 
 func TestAchievementService_UpdateError(t *testing.T) {
 	svc := service.NewAchievementService(memory.NewAchievementRepository())
-	if _, err := svc.Update(context.Background(), "nope", "t", "", "", "", "", "", nil, nil); err == nil {
+	if _, err := svc.Update(context.Background(), domain.Actor{ID: "u-x", Role: domain.RoleIndividual}, "nope", "t", "", "", "", "", "", nil, nil); err == nil {
 		t.Fatal("AchievementService.Update: expected error for unknown id")
 	}
 }
@@ -727,13 +727,13 @@ func TestRDChallengeService_DeleteUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RDChallengeService.Create: %v", err)
 	}
-	if _, err := svc.Update(context.Background(), "nope", "", "", "", "", 0, time.Now()); err == nil {
+	if _, err := svc.Update(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, "nope", "", "", "", "", 0, time.Now()); err == nil {
 		t.Fatal("RDChallengeService.Update: expected error for unknown id")
 	}
-	if err := svc.Delete(context.Background(), c.ID); err != nil {
+	if err := svc.Delete(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, c.ID); err != nil {
 		t.Fatalf("RDChallengeService.Delete: %v", err)
 	}
-	if err := svc.Delete(context.Background(), "nope"); err == nil {
+	if err := svc.Delete(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, "nope"); err == nil {
 		t.Fatal("RDChallengeService.Delete: expected error for unknown id")
 	}
 }

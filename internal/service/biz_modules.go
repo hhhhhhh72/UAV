@@ -388,10 +388,14 @@ func (s *PortfolioService) Get(ctx context.Context, id string) (domain.MemberPor
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *PortfolioService) Update(ctx context.Context, id, name, logoURL, coverURL, description, contactInfo, status string, products, honors []string) (domain.MemberPortfolio, error) {
+func (s *PortfolioService) Update(ctx context.Context, a domain.Actor, id, name, logoURL, coverURL, description, contactInfo, status string, products, honors []string) (domain.MemberPortfolio, error) {
 	p, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.MemberPortfolio{}, err
+	}
+	// 越权防护：仅属主（创建者 a.ID 即 EnterpriseID）或管理员可修改
+	if !canMutate(a, p.EnterpriseID) {
+		return domain.MemberPortfolio{}, ErrNotOwner
 	}
 	p.Name = name
 	p.LogoURL = logoURL
@@ -405,7 +409,15 @@ func (s *PortfolioService) Update(ctx context.Context, id, name, logoURL, coverU
 	return s.repo.Update(ctx, p)
 }
 
-func (s *PortfolioService) Delete(ctx context.Context, id string) error {
+func (s *PortfolioService) Delete(ctx context.Context, a domain.Actor, id string) error {
+	p, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	// 越权防护：仅属主或管理员可删除
+	if !canMutate(a, p.EnterpriseID) {
+		return ErrNotOwner
+	}
 	return s.repo.Delete(ctx, id)
 }
 
