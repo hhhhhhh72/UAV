@@ -278,7 +278,7 @@ async function submitPublish() {
         ? '需求已提交，协会审核通过后公开展示'
         : type.value === 'service'
           ? '服务已提交审核，协会通过后展示在生态服务'
-          : '课程已发布，可在「我的发布」中随时查看。',
+          : '课程已提交审核，协会通过后展示在培训认证，可在「我的发布」中查看状态。',
   })
   if (backendProductId.value) post.backendId = backendProductId.value
   if (backendDemandId.value) post.backendId = backendDemandId.value

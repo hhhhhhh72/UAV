@@ -121,8 +121,9 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
-		// 用户发布课程即上架（公开列表可见）；服务能力走 pending 审核，课程暂即时上架
-		Status: "published",
+		// 用户发布课程待审核（pending），管理端审核（status 改 published）后进入公开列表——
+		// 与需求/服务/商品发布一致；此前课程即时上架，无需审核。
+		Status: "pending",
 	})
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
@@ -159,9 +160,17 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 		paginatedRespond(w, r, mine, len(mine))
 		return
 	}
-	// filter
+	// filter（公开列表仅已上架：待审核/草稿不公开；管理端请求可见全部）
+	adminReq := false
+	if a, ok := authenticatedActor(r); ok &&
+		(a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin) {
+		adminReq = true
+	}
 	var out []domain.TrainingCourse
 	for _, c := range courses {
+		if !adminReq && (c.Status == "pending" || c.Status == "draft") {
+			continue
+		}
 		if keyword != "" && !strings.Contains(c.Title, keyword) && !strings.Contains(c.OrgName, keyword) {
 			continue
 		}

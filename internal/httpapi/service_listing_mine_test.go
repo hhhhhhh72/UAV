@@ -64,8 +64,9 @@ func TestCreateServiceListingPendingAndMine(t *testing.T) {
 	}
 }
 
-// 用户发布课程即时上架；training-courses?mine=1 只看自己（机构）的课程，匿名为空。
-func TestCreateCoursePublishedAndMine(t *testing.T) {
+// 用户发布课程待审核（pending），不进公开列表；管理端审核通过（published）后公开；
+// mine=1 只看自己（机构）的课程，匿名为空。
+func TestCreateCoursePendingAndMine(t *testing.T) {
 	app := newBizServer(t)
 
 	body := []byte(`{"title":"CAAC 多旋翼执照班","cert_type":"caac","description":"执照培训","org_name":"测试航校","district":"南岸区","location":"金开大道68号","price_fen":980000,"duration_days":25,"max_students":20}`)
@@ -83,14 +84,14 @@ func TestCreateCoursePublishedAndMine(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	created := envelope.Data
-	if created.Status != "published" {
-		t.Fatalf("course status = %q, want published", created.Status)
+	if created.Status != "pending" {
+		t.Fatalf("course status = %q, want pending", created.Status)
 	}
 
-	// 公开列表可见（发布即上架）
+	// 公开列表不含待审核课程
 	w = request(t, app, http.MethodGet, "/api/v1/training-courses", nil, "")
-	if !strings.Contains(w.Body.String(), created.ID) {
-		t.Fatal("published course should appear in public list")
+	if strings.Contains(w.Body.String(), created.ID) {
+		t.Fatal("pending course must not appear in public list")
 	}
 
 	// mine=1 未登录 → 空
@@ -99,9 +100,20 @@ func TestCreateCoursePublishedAndMine(t *testing.T) {
 		t.Fatal("anonymous course mine must not leak")
 	}
 
-	// mine=1 登录 → 包含
+	// mine=1 登录 → 包含（含待审核）
 	w = request(t, app, http.MethodGet, "/api/v1/training-courses?mine=1", nil, domain.RoleIndividual)
 	if !strings.Contains(w.Body.String(), created.ID) {
 		t.Fatal("mine=1 should include own course")
+	}
+
+	// 管理端审核通过（status → published）后进入公开列表
+	aw := request(t, app, http.MethodPut, "/api/v1/admin/training-courses/"+created.ID,
+		[]byte(`{"status":"published"}`), domain.RolePlatformAdmin)
+	if aw.Code != http.StatusOK {
+		t.Fatalf("admin approve course: %d %s", aw.Code, aw.Body.String())
+	}
+	w = request(t, app, http.MethodGet, "/api/v1/training-courses", nil, "")
+	if !strings.Contains(w.Body.String(), created.ID) {
+		t.Fatal("approved course should appear in public list")
 	}
 }
