@@ -15,14 +15,18 @@
         >报名中</view>
       </view>
 
-      <view class="search-bar">
-        <u-icon name="search" size="28rpx" color="#0A66C2" />
-        <input
-          class="search-input"
-          v-model="keyword"
-          placeholder="搜索赛事名称"
-          @input="onSearch"
-        />
+      <view class="search-row">
+        <view class="search-bar">
+          <u-icon name="search" size="28rpx" color="#0A66C2" />
+          <input
+            class="search-input"
+            v-model="keyword"
+            placeholder="搜索赛事名称"
+            @input="onSearch"
+          />
+        </view>
+        <!-- 发布赛事入口（仅企业账号可见） -->
+        <view v-if="canPublish" class="publish-entry" hover-class="press-feedback" :hover-stay-time="120" @click="goPublish">＋ 发布赛事</view>
       </view>
 
       <!-- ③ 赛事卡片列表 -->
@@ -125,9 +129,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { request } from '../../../utils/request'
+import { request, getStoredUser } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
 const currentTab = ref('all')
@@ -140,6 +144,16 @@ const imgLoaded = ref({})
 const page = ref(1)
 const pageSize = 20
 const hasMore = ref(true)
+
+/* ===== 发布入口（仅企业账号） ===== */
+const canPublish = computed(() => {
+  const u = getStoredUser()
+  return !!(u && (u.role === 'enterprise' || u.user_type === 'enterprise'))
+})
+
+function goPublish() {
+  uni.navigateTo({ url: '/pkg-eco/pages/competitions/publish' })
+}
 
 /* ===== 状态 ===== */
 function isClosed(item) {
@@ -355,9 +369,17 @@ onPullDownRefresh(function () {
   box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.35);
 }
 
+/* 搜索行：搜索框 + 发布入口（仅企业可见） */
+.search-row {
+  margin: 24rpx 24rpx 0;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
 /* 搜索框 */
 .search-bar {
-  margin: 24rpx 24rpx 0;
+  flex: 1;
   background: rgba(245, 248, 252, 0.8);
   border: 1rpx solid rgba(10, 102, 194, 0.12);
   border-radius: 999rpx;
@@ -368,6 +390,20 @@ onPullDownRefresh(function () {
 }
 
 .search-input { flex: 1; font-size: 28rpx; color: #17212B; }
+
+/* 发布赛事入口 */
+.publish-entry {
+  flex-shrink: 0;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0 26rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0A66C2, #1B86E8);
+  box-shadow: 0 6rpx 16rpx rgba(10, 102, 194, 0.35);
+}
 
 /* ================================================================= */
 /* ③ 卡片                                                             */

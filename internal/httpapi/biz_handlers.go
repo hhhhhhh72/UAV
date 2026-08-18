@@ -89,6 +89,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 	// ---- Competitions ----
 	mux.HandleFunc("GET /api/v1/competitions", s.listCompetitions)
+	mux.HandleFunc("POST /api/v1/competitions", s.createCompetitionByEnterprise) // 企业自助发布（待审核）
 	mux.HandleFunc("POST /api/v1/admin/competitions", s.createCompetition)
 	mux.HandleFunc("GET /api/v1/competitions/{id}/registrations", s.listCompetitionRegs)
 	mux.HandleFunc("POST /api/v1/competitions/{id}/register", s.registerCompetition)
@@ -1012,16 +1013,25 @@ func (s *Server) reviewProjectApp(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/competitions?page=1&page_size=10&status=enrolling&keyword=无人机
 // status 筛选兼容页面值域（enrolling/open/ongoing/closed/full）与后端状态（published/...）。
+// 待审核（pending）/草稿（draft）不公开（管理员请求可见全部）。
 func (s *Server) listCompetitions(w http.ResponseWriter, r *http.Request) {
 	items, _, err := s.competitionSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	adminReq := false
+	if a, ok := authenticatedActor(r); ok &&
+		(a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin) {
+		adminReq = true
+	}
 	status := r.URL.Query().Get("status")
 	keyword := r.URL.Query().Get("keyword")
 	var out []domain.Competition
 	for _, c := range items {
+		if !adminReq && (c.Status == "pending" || c.Status == "draft" || c.Status == "closed") {
+			continue
+		}
 		if status != "" && !matchCompetitionStatus(status, c.Status) {
 			continue
 		}
@@ -1031,6 +1041,68 @@ func (s *Server) listCompetitions(w http.ResponseWriter, r *http.Request) {
 		out = append(out, c)
 	}
 	paginatedRespond(w, r, out, len(out))
+}
+
+// POST /api/v1/competitions — 企业自助发布赛事（待审核，管理端审核通过后公开）
+func (s *Server) createCompetitionByEnterprise(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if a.Role != domain.RoleEnterprise {
+		fail(w, r, http.StatusForbidden, errors.New("仅企业账号可发布赛事"))
+		return
+	}
+	var in struct {
+		Title       string `json:"title"`
+		Category    string `json:"category"`
+		Description string `json:"description"`
+		Location    string `json:"location"`
+		Sponsor     string `json:"sponsor"`
+		StartDate   string `json:"start_date"`
+		EndDate     string `json:"end_date"`
+		Deadline    string `json:"deadline"`
+		MaxTeams    int    `json:"max_teams"`
+		Fee         int    `json:"fee"`
+		Poster      string `json:"poster"`
+		Tags        []string `json:"tags"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if strings.TrimSpace(in.Title) == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("title required"))
+		return
+	}
+	startDate, err := parseDateInput(in.StartDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的开始日期格式: %w", err))
+		return
+	}
+	endDate, err := parseDateInput(in.EndDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束日期格式: %w", err))
+		return
+	}
+	var deadline *time.Time
+	if d, err := parseDateInput(in.Deadline); err == nil && !d.IsZero() {
+		deadline = &d
+	}
+	c, err := s.competitionSvc.Create(r.Context(), domain.Competition{
+		Title: in.Title, Category: in.Category, Description: in.Description,
+		Location: in.Location, Sponsor: in.Sponsor, StartDate: startDate, EndDate: endDate,
+		Deadline: deadline, MaxTeams: in.MaxTeams, Fee: in.Fee, Poster: in.Poster, Tags: in.Tags,
+		// 企业发布待审核，管理端审核（status 改 published/enrolling）后公开
+		Status: "pending",
+	})
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "create_competition", "competition", c.ID, "pending")
+	respond(w, r, http.StatusCreated, c)
 }
 
 // matchCompetitionStatus 页面 tab（enrolling/ongoing/closed/full）映射到后端状态值。

@@ -146,12 +146,13 @@ const uploadRequest = async ({ fileItem, onSuccess, onError }) => {
 }
 
 const statusOptions = [
+  { label: '审核中', value: 'pending' },
   { label: '草稿', value: 'draft' },
-  { label: '报名中', value: 'open' },
-  { label: '已结束', value: 'closed' }
+  { label: '报名中', value: 'enrolling' },
+  { label: '已下架', value: 'closed' }
 ]
 const statusLabel = (s) => statusOptions.find(o => o.value === s)?.label || s || '-'
-const statusTagType = (s) => ({ open: 'green', closed: 'gray', draft: 'orangered' }[s] || 'gray')
+const statusTagType = (s) => ({ enrolling: 'green', pending: 'orangered', closed: 'gray', draft: 'gray' }[s] || 'gray')
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -160,10 +161,10 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-// 批量动作：开始报名 / 结束报名——传完整行数据避免清空其他字段
+// 批量动作：开始报名 / 下架——传完整行数据避免清空其他字段
 const batchActions = [
-  { key: 'open', label: '开始报名', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'open' }) },
-  { key: 'close', label: '结束报名', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'closed' }) }
+  { key: 'open', label: '开始报名', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'enrolling' }) },
+  { key: 'close', label: '下架', status: 'warning', api: (row) => api.update(row.id, { ...row, status: 'closed' }) }
 ]
 
 const searchFields = [

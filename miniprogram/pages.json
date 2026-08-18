@@ -597,6 +597,15 @@
           }
         },
         {
+          "path": "pages/competitions/publish",
+          "style": {
+            "navigationBarTitleText": "发布赛事",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
           "path": "pages/competitions/detail",
           "style": {
             "navigationBarTitleText": "赛事详情",
