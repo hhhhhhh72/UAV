@@ -24,6 +24,12 @@ func (s *Server) createIntent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
+	// 站内消息通知需求发布方：收到新的对接意向（仅真实发布者；自己发自己的已被 Service 拒绝）
+	if d, err := s.demands.FindByID(r.Context(), r.PathValue("id")); err == nil && d.PublisherID != a.ID {
+		s.msgSvc.Send(r.Context(), "system", d.PublisherID, "新的对接意向",
+			"您的需求《"+d.Title+"》收到一条新的对接意向，请及时查看处理",
+			"demand", d.ID)
+	}
 	respond(w, r, http.StatusCreated, it)
 }
 
