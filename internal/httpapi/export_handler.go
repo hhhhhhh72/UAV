@@ -137,6 +137,10 @@ func (s *Server) batchApproveDemands(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("ids array required"))
 		return
 	}
+	if len(req.IDs) > 50 {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("ids 数量不能超过 50"))
+		return
+	}
 	approved, failed := 0, 0
 	for _, id := range req.IDs {
 		if _, err := s.demands.Approve(r.Context(), a, strings.TrimSpace(id)); err != nil {

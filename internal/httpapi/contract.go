@@ -67,6 +67,10 @@ func (s *Server) importMembers(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("members is required"))
 		return
 	}
+	if len(in.Members) > 1000 {
+		fail(w, r, http.StatusBadRequest, errors.New("members 数量不能超过 1000"))
+		return
+	}
 	if s.assocMemberSvc == nil {
 		fail(w, r, http.StatusInternalServerError, errors.New("member service unavailable"))
 		return
