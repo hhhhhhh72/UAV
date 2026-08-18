@@ -116,4 +116,15 @@ func TestCreateCoursePendingAndMine(t *testing.T) {
 	if !strings.Contains(w.Body.String(), created.ID) {
 		t.Fatal("approved course should appear in public list")
 	}
+
+	// 管理端关闭（closed）后不再公开
+	cw := request(t, app, http.MethodPut, "/api/v1/admin/training-courses/"+created.ID,
+		[]byte(`{"status":"closed"}`), domain.RolePlatformAdmin)
+	if cw.Code != http.StatusOK {
+		t.Fatalf("admin close course: %d %s", cw.Code, cw.Body.String())
+	}
+	w = request(t, app, http.MethodGet, "/api/v1/training-courses", nil, "")
+	if strings.Contains(w.Body.String(), created.ID) {
+		t.Fatal("closed course must not appear in public list")
+	}
 }

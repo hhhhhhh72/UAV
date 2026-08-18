@@ -160,15 +160,18 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 		paginatedRespond(w, r, mine, len(mine))
 		return
 	}
-	// filter（公开列表仅已上架：待审核/草稿不公开；管理端请求可见全部）
+	// filter（公开列表仅已上架：待审核/草稿/已关闭不公开；管理端请求可见全部）
 	adminReq := false
 	if a, ok := authenticatedActor(r); ok &&
 		(a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin) {
 		adminReq = true
 	}
+	isNonPublic := func(s string) bool {
+		return s == "pending" || s == "draft" || s == "closed"
+	}
 	var out []domain.TrainingCourse
 	for _, c := range courses {
-		if !adminReq && (c.Status == "pending" || c.Status == "draft") {
+		if !adminReq && isNonPublic(c.Status) {
 			continue
 		}
 		if keyword != "" && !strings.Contains(c.Title, keyword) && !strings.Contains(c.OrgName, keyword) {
