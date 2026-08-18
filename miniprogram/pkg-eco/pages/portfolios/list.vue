@@ -127,7 +127,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh, onReachBottom, onUnload } from '@dcloudio/uni-app'
-import { request } from '@/utils/request'
+import { request, BASE_URL } from '@/utils/request'
 import BrandCard from '../../components/BrandCard.vue'
 import { MOCK_BRANDS, MOCK_FEATURED, CATEGORY_MAP } from '@/utils/mockBrands'
 
@@ -181,19 +181,31 @@ const keyOf = (c) => {
   if (s.includes('检测') || s.includes('机构')) return 'inspector'
   return 'drone'
 }
+// 相对路径（存库格式）→ 完整 URL
+const resolveUrl = (u) => {
+  if (!u) return ''
+  if (u.indexOf('http') === 0) return u
+  return BASE_URL + u
+}
+
+// 后端 MemberPortfolio：id/enterprise_id/name/logo_url/cover_url/description/
+// products/honors/contact_info/status/created_at —— 前端按真实字段映射
 const mapItem = (it) => {
-  const catKey = keyOf(it.category || it.industry)
+  const honor = (it.honors && it.honors[0]) || ''
+  const catKey = keyOf(it.category || honor) || 'brand'
   return {
     id: it.id,
     name: it.name || it.company_name || '',
     catKey,
-    catLabel: CATEGORY_MAP[catKey] || it.category || '品牌',
-    char: it.char || (it.category ? String(it.category).charAt(0) : '牌'),
-    logoText: it.logo_text || it.char || (it.name ? String(it.name).charAt(0) : '牌'),
-    verified: !!it.verified,
-    hasVideo: !!(it.has_video || (it.video_count && it.video_count > 0)),
-    views: it.views || 0,
-    videoCount: it.video_count || 0,
+    catLabel: CATEGORY_MAP[catKey] || honor || '会员品牌',
+    char: it.name ? String(it.name).charAt(0) : '牌',
+    logo: resolveUrl(it.logo_url || ''),
+    cover: resolveUrl(it.cover_url || ''),
+    logoText: '',
+    verified: it.status === 'published', // 已公示 = 协会已认证
+    hasVideo: false, // 后端暂无视频字段
+    views: 0,
+    videoCount: 0,
     grad: 'gd-' + String(it.grad || 'gd1').replace(/^gd-?/, ''),
   }
 }

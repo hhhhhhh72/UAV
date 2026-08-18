@@ -1,8 +1,12 @@
 <template>
   <view class="brand-card" hover-class="tap-fade" @tap="$emit('click', item)">
     <view class="b-cover">
+      <image v-if="item.cover" :src="item.cover" mode="aspectFill" class="b-cover-img" />
       <view class="bg" :class="gradClass"></view>
-      <view class="b-logo"><text>{{ item.logoText || '牌' }}</text></view>
+      <view class="b-logo">
+        <image v-if="item.logo" :src="item.logo" mode="aspectFill" class="b-logo-img" />
+        <text v-else>{{ item.logoText || '牌' }}</text>
+      </view>
       <text class="b-char">{{ item.char || '牌' }}</text>
       <view v-if="item.hasVideo" class="b-play"><text>▶</text></view>
     </view>
@@ -13,7 +17,7 @@
         <text v-if="item.verified" class="b-tag tag-ok">已认证</text>
         <text v-else class="b-tag tag-ing">认证中</text>
       </view>
-      <view class="b-foot">
+      <view v-if="item.views > 0 || item.videoCount > 0" class="b-foot">
         <text>浏览 <text class="bf-num">{{ fmt(item.views) }}</text></text>
         <text>视频 {{ item.videoCount }}</text>
       </view>
@@ -46,6 +50,7 @@ const fmt = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + 'w' : n >= 1000 ? (n /
 
 /* 封面 4:3 */
 .b-cover { position: relative; padding-top: 75%; overflow: hidden; }
+.b-cover-img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .bg { position: absolute; inset: 0; }
 .b-logo {
   position: absolute; top: 20rpx; left: 20rpx;
@@ -54,7 +59,9 @@ const fmt = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + 'w' : n >= 1000 ? (n /
   display: flex; align-items: center; justify-content: center;
   font-size: 30rpx; font-weight: 700; color: #17212B;
   box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  overflow: hidden;
 }
+.b-logo-img { width: 100%; height: 100%; }
 .b-char {
   position: absolute; left: 20rpx; bottom: 16rpx;
   font-size: 68rpx; font-weight: 700;

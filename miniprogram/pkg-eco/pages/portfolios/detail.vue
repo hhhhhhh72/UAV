@@ -18,10 +18,11 @@
 
     <template v-else-if="d">
       <scroll-view scroll-y class="body">
-        <!-- 视频 Hero（接口替换点：hero 图用 images[0]，点击播放 video_list[0]） -->
+        <!-- 品牌 Hero：封面图（cover_url）或渐变占位；无视频不显示播放按钮 -->
         <view class="d-hero" :class="d.grad">
+          <image v-if="d.cover" :src="d.cover" mode="aspectFill" class="d-hero-img" />
           <view class="glow"></view>
-          <view class="play-btn" hover-class="tap-fade" @tap="openPlayer(d.videoList[0])">
+          <view v-if="d.videoList.length" class="play-btn" hover-class="tap-fade" @tap="openPlayer(d.videoList[0])">
             <view class="pulse"></view>
             <text>▶</text>
           </view>
@@ -31,7 +32,10 @@
         <!-- 上浮信息卡 -->
         <view class="d-info">
           <view class="d-top">
-            <view class="d-logo"><text>{{ d.logoText }}</text></view>
+            <view class="d-logo">
+              <image v-if="d.logo" :src="d.logo" mode="aspectFill" class="d-logo-img" />
+              <text v-else>{{ d.logoText }}</text>
+            </view>
             <view class="d-name-wrap">
               <text class="d-name">{{ d.name }}</text>
               <view class="d-cert">
@@ -43,7 +47,7 @@
             </view>
           </view>
           <text class="d-desc">{{ d.desc || '暂无品牌简介' }}</text>
-          <view class="d-stat">
+          <view v-if="d.caseCount > 0 || d.videoCount > 0 || d.views > 0" class="d-stat">
             <view class="d-si"><text class="d-sv">{{ d.caseCount }}</text><text class="d-sl">品牌案例</text></view>
             <view class="d-si"><text class="d-sv">{{ d.videoCount }}</text><text class="d-sl">宣传视频</text></view>
             <view class="d-si"><text class="d-sv">{{ fmt(d.views) }}</text><text class="d-sl">品牌浏览</text></view>
@@ -169,7 +173,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request, authStorage } from '@/utils/request'
+import { request, authStorage, BASE_URL } from '@/utils/request'
 import BrandVideoPlayer from '../../components/BrandVideoPlayer.vue'
 import { MOCK_BRANDS, CATEGORY_MAP } from '@/utils/mockBrands'
 
@@ -206,6 +210,13 @@ const keyOf = (c) => {
 const gradCls = (g) => 'gd-' + String(g || 'gd1').replace(/^gd-?/, '')
 const fmt = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + 'w' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n))
 
+// 相对路径（存库格式）→ 完整 URL
+const resolveUrl = (u) => {
+  if (!u) return ''
+  if (u.indexOf('http') === 0) return u
+  return BASE_URL + u
+}
+
 // 后端字段 → 详情展示字段（优雅降级）
 const buildDetail = (it) => {
   const catKey = keyOf(it.category || it.industry)
@@ -238,13 +249,15 @@ const buildDetail = (it) => {
     name: it.name || it.company_name || '',
     catKey,
     catLabel: CATEGORY_MAP[catKey] || it.category || '品牌',
+    logo: resolveUrl(it.logo_url || ''),
+    cover: resolveUrl(it.cover_url || ''),
     logoText: it.logo_text || (it.name ? String(it.name).charAt(0) : '牌'),
-    verified: !!it.verified,
+    verified: it.status === 'published', // 已公示 = 协会已认证
     isVip: !!it.is_vip,
     featured: !!it.featured,
-    views: it.views || 0,
-    videoCount: it.video_count ?? videos.length,
-    caseCount: it.case_count ?? cases.length,
+    views: 0, // 后端暂无统计字段
+    videoCount: videos.length,
+    caseCount: cases.length,
     grad: gradCls(it.grad),
     desc: it.desc || it.description || '',
     fields: it.fields || [],
@@ -349,6 +362,7 @@ onLoad((options) => {
 
 /* ===== Hero ===== */
 .d-hero { position: relative; height: 432rpx; overflow: hidden; }
+.d-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .glow { position: absolute; inset: 0; }
 .glow::after { content: ''; position: absolute; top: -30%; right: -10%; width: 440rpx; height: 440rpx; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 70%); }
 .play-btn {
@@ -381,7 +395,9 @@ onLoad((options) => {
   width: 104rpx; height: 104rpx; border-radius: 28rpx; background: #EAF3FB;
   display: flex; align-items: center; justify-content: center;
   font-size: 44rpx; font-weight: 700; color: #0A66C2; flex: none;
+  overflow: hidden;
 }
+.d-logo-img { width: 100%; height: 100%; }
 .d-name-wrap { flex: 1; min-width: 0; }
 .d-name { font-size: 36rpx; font-weight: 700; color: #17212B; line-height: 1.3; display: block; }
 .d-cert { margin-top: 12rpx; display: flex; gap: 12rpx; flex-wrap: wrap; }
