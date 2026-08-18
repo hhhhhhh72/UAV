@@ -13,16 +13,6 @@
           <view class="capsule-arrow" />
         </view>
       </view>
-      <view class="nav-meta">
-        <view class="meta-sync">
-          <view class="sync-dot" />
-          <text class="sync-text">已同步 · CAAC / UTC 考试管理中心</text>
-        </view>
-        <view class="meta-cert">
-          <text class="meta-cert-text">资质认证</text>
-          <view class="meta-cert-arrow" />
-        </view>
-      </view>
     </view>
 
     <!-- ② 工具栏：搜索（无筛选按钮） + 城市卡 -->
@@ -580,29 +570,6 @@ onPullDownRefresh(function () {
   border-right: 6rpx solid transparent;
   border-top: 8rpx solid #344054;
 }
-.nav-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24rpx 16rpx;
-}
-.meta-sync { display: flex; align-items: center; gap: 8rpx; }
-.sync-dot {
-  width: 10rpx; height: 10rpx;
-  border-radius: 50%;
-  background: #168A55;
-  box-shadow: 0 0 0 0 rgba(22, 138, 85, 0.5);
-  animation: syncPulse 1.8s ease-out infinite;
-}
-.sync-text { font-size: 20rpx; color: #667085; }
-.meta-cert { display: flex; align-items: center; gap: 6rpx; }
-.meta-cert-text { font-size: 22rpx; font-weight: 600; color: #344054; }
-.meta-cert-arrow {
-  width: 0; height: 0;
-  border-left: 6rpx solid transparent;
-  border-right: 6rpx solid transparent;
-  border-top: 7rpx solid #98A2B3;
-}
 
 /* ═══ ② 工具栏 ═══ */
 .toolbar { padding: 16rpx 24rpx 0; }
@@ -1099,11 +1066,6 @@ onPullDownRefresh(function () {
   80% { transform: scale(2.4); opacity: 0; }
   100% { transform: scale(2.4); opacity: 0; }
 }
-@keyframes syncPulse {
-  0% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0.5); }
-  70% { box-shadow: 0 0 0 12rpx rgba(22, 138, 85, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0); }
-}
 @keyframes priceIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1120,7 +1082,6 @@ onPullDownRefresh(function () {
 /* ═══ 减少动态效果支持 ═══ */
 @media (prefers-reduced-motion: reduce) {
   .card,
-  .sync-dot,
   .sb--enroll .status-dot::after,
   .price-num,
   .custom-toast {
