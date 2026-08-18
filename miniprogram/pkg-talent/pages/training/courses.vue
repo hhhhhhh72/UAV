@@ -67,7 +67,6 @@
           :class="{ on: activeCertType === t.value }"
           @click="selectCertType(t.value)"
         >
-          <view class="cert-tab-ico" :class="'cti--' + t.value" />
           <text class="cert-tab-label">{{ t.label }}</text>
           <view v-if="certCount(t.value)" class="cert-tab-count" :class="{ 'cert-tab-count--on': activeCertType === t.value }">
             {{ certCount(t.value) }}
@@ -724,60 +723,6 @@ onPullDownRefresh(function () {
   justify-content: center;
 }
 .cert-tab-count--on { background: rgba(255, 255, 255, 0.28); color: #ffffff; }
-
-/* Tab 线性图标（证件 / 无人机 / 圆加号） */
-.cert-tab-ico { width: 26rpx; height: 26rpx; flex-shrink: 0; position: relative; }
-.cti--all {
-  border: 2rpx solid currentColor;
-  border-radius: 4rpx;
-  box-sizing: border-box;
-}
-.cti--caac {
-  border: 2rpx solid currentColor;
-  border-radius: 4rpx;
-  box-sizing: border-box;
-}
-.cti--caac::before {
-  content: '';
-  position: absolute;
-  left: 4rpx; right: 4rpx; top: 7rpx;
-  height: 2rpx;
-  background: currentColor;
-}
-.cti--utc_dji::before {
-  content: '';
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 12rpx; height: 12rpx;
-  margin: -6rpx 0 0 -6rpx;
-  border: 2rpx solid currentColor;
-  border-radius: 3rpx;
-  box-sizing: border-box;
-}
-.cti--utc_dji::after {
-  content: '';
-  position: absolute;
-  left: 0; top: 50%;
-  width: 8rpx; height: 8rpx;
-  margin-top: -4rpx;
-  border: 2rpx solid currentColor;
-  border-radius: 50%;
-  box-sizing: border-box;
-}
-.cti--gov_level {
-  border: 2rpx solid currentColor;
-  border-radius: 50%;
-  box-sizing: border-box;
-}
-.cti--gov_level::before,
-.cti--gov_level::after {
-  content: '';
-  position: absolute;
-  left: 50%; top: 50%;
-  background: currentColor;
-}
-.cti--gov_level::before { width: 10rpx; height: 2rpx; margin: -1rpx 0 0 -5rpx; }
-.cti--gov_level::after { width: 2rpx; height: 10rpx; margin: -5rpx 0 0 -1rpx; }
 
 /* ═══ ④ 列表区 ═══ */
 .content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
