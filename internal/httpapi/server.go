@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	_ "drone-platform/docs"
@@ -106,6 +107,8 @@ type Server struct {
 	tokens            *TokenManager
 	rateLimiter       *rateLimiter
 	idempotency       *idempotencyStore
+	smsIPLimits       sync.Map // ip -> *smsIPLog（短信发送限频，实例级避免测试/多实例互扰）
+	smsIPEntries      atomic.Int64
 	auditWriter       repository.AuditWriter
 	dbPinger          interface{ Ping(context.Context) error }
 	storage           string

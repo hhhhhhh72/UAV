@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -129,5 +130,31 @@ func TestSMSLoginAttemptLimit(t *testing.T) {
 	app.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/auth/login-code", strings.NewReader(`{"phone":"`+phone+`","code":"`+sendResp.Data.DevCode+`"}`)))
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("invalidated code must be rejected, got %d", w.Code)
+	}
+}
+
+// TestSMSIPRateLimit verifies IP-level send throttling:
+// 同一 IP 每分钟最多 smsIPMaxPerMinute 次发送（防换号轰炸），超出返回 429；
+// 换手机号无法绕过 IP 闸门。
+func TestSMSIPRateLimit(t *testing.T) {
+	old := os.Getenv("ADMIN_DEV_MODE")
+	os.Setenv("ADMIN_DEV_MODE", "true")
+	t.Cleanup(func() { os.Setenv("ADMIN_DEV_MODE", old) })
+
+	app := newServer(t)
+	// 5 个不同手机号（同一默认测试 IP）→ 前 5 次成功
+	for i := 0; i < 5; i++ {
+		w := httptest.NewRecorder()
+		phone := fmt.Sprintf("1390000%04d", 1000+i)
+		app.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/auth/send-code", strings.NewReader(`{"phone":"`+phone+`"}`)))
+		if w.Code != http.StatusOK {
+			t.Fatalf("send-code %d: expected 200, got %d: %s", i+1, w.Code, w.Body.String())
+		}
+	}
+	// 第 6 个手机号（同 IP）→ 429
+	w := httptest.NewRecorder()
+	app.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/auth/send-code", strings.NewReader(`{"phone":"13900009999"}`)))
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("6th send from same IP: expected 429, got %d: %s", w.Code, w.Body.String())
 	}
 }

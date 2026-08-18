@@ -31,7 +31,41 @@ const (
 	smsCodeTTL         = 5 * time.Minute
 	smsResendWait      = 60 * time.Second
 	maxSMSCodeAttempts = 5
+	// smsIPMaxPerMinute 同 IP 每分钟发送上限：60s 重发限制只按手机号，
+	// 攻击者可换号轰炸（接入真实短信商后有成本风险），须按 IP 再加一道闸。
+	smsIPMaxPerMinute = 5
+	// smsIPLimitMaxEntries 限频表上限（防内存 DoS），超限清空重建（粗糙但有效）。
+	smsIPLimitMaxEntries = 10000
 )
+
+// smsIPLog 记录某 IP 在窗口内的发送次数。
+type smsIPLog struct {
+	mu          sync.Mutex
+	count       int
+	windowStart time.Time
+}
+
+// smsIPAllowed 报告该 IP 是否仍允许发送短信，并累计本次发送。
+// 限频表挂在 Server 实例上（单实例足够，测试实例互不干扰）。
+// 表大小上限用惰性清理：条目过多时随机清空（sync.Map 无 Len，用计数近似）。
+func (s *Server) smsIPAllowed(ip string) bool {
+	if s.smsIPEntries.Load() >= smsIPLimitMaxEntries {
+		s.smsIPLimits.Range(func(k, _ any) bool { s.smsIPLimits.Delete(k); return true })
+		s.smsIPEntries.Store(int64(0))
+	}
+	s.smsIPEntries.Add(1)
+	v, _ := s.smsIPLimits.LoadOrStore(ip, &smsIPLog{windowStart: time.Now()})
+	log := v.(*smsIPLog)
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	now := time.Now()
+	if now.Sub(log.windowStart) >= time.Minute {
+		log.windowStart = now
+		log.count = 0
+	}
+	log.count++
+	return log.count <= smsIPMaxPerMinute
+}
 
 func genSMSCode() (string, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
@@ -60,6 +94,11 @@ func (s *Server) sendSMSCode(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decode(r, &body); err != nil || !isChinaPhone(body.Phone) {
 		fail(w, r, http.StatusBadRequest, errBadRequest("请输入正确的手机号"))
+		return
+	}
+	// IP 限频（防换号轰炸）：同 IP 每分钟最多 smsIPMaxPerMinute 次。
+	if !s.smsIPAllowed(clientIP(r)) {
+		fail(w, r, http.StatusTooManyRequests, errBadRequest("发送过于频繁，请稍后再试"))
 		return
 	}
 	if rec, ok := smsCodes.Load(body.Phone); ok {
