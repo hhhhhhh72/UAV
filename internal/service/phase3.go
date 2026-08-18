@@ -53,7 +53,7 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 		}
 	}
 	now := time.Now()
-	e := domain.Enrollment{ID: fmt.Sprintf("enroll-%d", now.UnixNano()), CourseID: courseID, UserID: userID,
+	e := domain.Enrollment{ID: nextID("enroll"), CourseID: courseID, UserID: userID,
 		Name: form.Name, Phone: form.Phone, IDCard: form.IDCard, Gender: form.Gender, Birthday: birthday,
 		Email: form.Email, Education: form.Education, Experience: form.Experience,
 		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,

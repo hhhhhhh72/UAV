@@ -36,6 +36,8 @@ type AuditWriter interface {
 // UploadRepository 记录每次文件上传（台账 + 按用户配额统计）。
 type UploadRepository interface {
 	Create(ctx context.Context, rec domain.FileRecord) error
+	// FindByID 按 ID 查上传台账（私有文件归属校验用）。
+	FindByID(ctx context.Context, id string) (domain.FileRecord, error)
 	// SumBytesSince 统计 owner 自 since 起的累计上传字节数。
 	SumBytesSince(ctx context.Context, ownerID string, since time.Time) (int64, error)
 }

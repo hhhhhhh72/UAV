@@ -393,9 +393,23 @@ func (s *Server) serveUploads(w http.ResponseWriter, r *http.Request) {
 
 // servePrivateUploads 鉴权读取 uploads/private/（身份证影像等敏感文件）。
 // authenticate 中间件不放行 /uploads/private/ 前缀，此处 actor 必然已注入。
+// P1 修复：文件 ID 虽为 128 位随机（不可枚举），仍须校验台账归属——
+// 仅上传者本人或平台/协会管理员可读；台账无记录（配额上线前的旧文件）一律 404。
 func (s *Server) servePrivateUploads(w http.ResponseWriter, r *http.Request) {
-	if _, ok := authenticatedActor(r); !ok {
+	a, ok := authenticatedActor(r)
+	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/uploads/private/")
+	rec, err := s.fileSvc.FindUpload(r.Context(), id)
+	if err != nil || rec.Visibility != "private" {
+		fail(w, r, http.StatusNotFound, errors.New("file not found"))
+		return
+	}
+	if rec.OwnerID != a.ID &&
+		a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("permission denied"))
 		return
 	}
 	w.Header().Del("Content-Type")

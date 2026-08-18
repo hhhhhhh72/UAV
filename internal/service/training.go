@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -30,7 +29,7 @@ func NewTrainingService(cr repository.CertificateRepository, cor repository.Cour
 
 func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, certType domain.CertType, certNumber, level, issuer string, issueDate, expireDate time.Time) (domain.Certificate, error) {
 	now := time.Now()
-	c := domain.Certificate{ID: fmt.Sprintf("cert-%d", now.UnixNano()), UserID: a.ID, CertType: certType,
+	c := domain.Certificate{ID: nextID("cert"), UserID: a.ID, CertType: certType,
 		CertNumber: certNumber, Level: level, IssueDate: issueDate, ExpireDate: expireDate,
 		IssuerOrg: issuer, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.certRepo.Create(ctx, c)
@@ -84,7 +83,7 @@ func (s *TrainingService) DeleteCertificate(ctx context.Context, id string) erro
 func (s *TrainingService) CreateCourse(ctx context.Context, a domain.Actor, c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	now := time.Now()
 	if c.ID == "" {
-		c.ID = fmt.Sprintf("course-%d", now.UnixNano())
+		c.ID = nextID("course")
 	}
 	c.OrgID = a.ID
 	if c.Status == "" {
@@ -119,7 +118,7 @@ func (s *TrainingService) DeleteCourse(ctx context.Context, id string) error {
 
 func (s *TrainingService) RegisterInstructor(ctx context.Context, a domain.Actor, name, photo, bio, orgID string, certTypes []string) (domain.Instructor, error) {
 	now := time.Now()
-	i := domain.Instructor{ID: fmt.Sprintf("instructor-%d", now.UnixNano()), UserID: a.ID, Name: name,
+	i := domain.Instructor{ID: nextID("instructor"), UserID: a.ID, Name: name,
 		Photo: photo, CertTypes: certTypes, Bio: bio, OrgID: orgID, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.instructorRepo.Create(ctx, i)
 }
@@ -172,7 +171,7 @@ func (s *TrainingService) RegisterPilot(ctx context.Context, a domain.Actor, rea
 			}
 		}
 	}
-	p := domain.CertifiedPilot{ID: fmt.Sprintf("pilot-%d", now.UnixNano()), UserID: a.ID, RealName: realName,
+	p := domain.CertifiedPilot{ID: nextID("pilot"), UserID: a.ID, RealName: realName,
 		IDCard: idCard, Avatar: avatar, Region: region, CertIDs: certIDs, FlightHours: flightHours, Bio: bio,
 		Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.pilotRepo.Create(ctx, p)

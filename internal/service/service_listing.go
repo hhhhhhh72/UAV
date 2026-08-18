@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -23,7 +22,7 @@ func NewServiceListingService(r repository.ServiceListingRepository) *ServiceLis
 func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
 	now := time.Now()
 	sl := domain.ServiceListing{
-		ID:           fmt.Sprintf("service-listing-%d", now.UnixNano()),
+		ID:           nextID("service-listing"),
 		ProviderID:   providerID,
 		ProviderName: providerName,
 		Title:        title,
@@ -45,7 +44,7 @@ func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, p
 func (s *ServiceListingService) CreateListingPending(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
 	now := time.Now()
 	sl := domain.ServiceListing{
-		ID:           fmt.Sprintf("service-listing-%d", now.UnixNano()),
+		ID:           nextID("service-listing"),
 		ProviderID:   providerID,
 		ProviderName: providerName,
 		Title:        title,

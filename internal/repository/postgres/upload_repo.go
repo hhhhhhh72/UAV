@@ -28,6 +28,17 @@ func (r *uploadRepo) Create(ctx context.Context, rec domain.FileRecord) error {
 	return nil
 }
 
+func (r *uploadRepo) FindByID(ctx context.Context, id string) (domain.FileRecord, error) {
+	var rec domain.FileRecord
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, owner_id, size_bytes, visibility, created_at FROM uploads WHERE id=$1`,
+		id).Scan(&rec.ID, &rec.OwnerID, &rec.SizeBytes, &rec.Visibility, &rec.CreatedAt)
+	if err != nil {
+		return domain.FileRecord{}, fmt.Errorf("find upload %s: %w", id, err)
+	}
+	return rec, nil
+}
+
 func (r *uploadRepo) SumBytesSince(ctx context.Context, ownerID string, since time.Time) (int64, error) {
 	var sum int64
 	if err := r.pool.QueryRow(ctx,

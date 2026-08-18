@@ -24,7 +24,7 @@ func NewExpertService(repo repository.ExpertRepository) *ExpertService {
 func (s *ExpertService) Create(ctx context.Context, name, title, org, field, bio, avatarURL, status string, tags []string) (domain.Expert, error) {
 	now := time.Now()
 	e := domain.Expert{
-		ID:        fmt.Sprintf("expert-%d", now.UnixNano()),
+		ID:        nextID("expert"),
 		Name:      name,
 		Title:     title,
 		Org:       org,
@@ -86,7 +86,7 @@ func NewCaseService(repo repository.CaseRepository) *CaseService {
 func (s *CaseService) Create(ctx context.Context, title, category, description string, images []string, clientName, result string) (domain.CaseEntry, error) {
 	now := time.Now()
 	c := domain.CaseEntry{
-		ID:          fmt.Sprintf("case-%d", now.UnixNano()),
+		ID:          nextID("case"),
 		Title:       title,
 		Category:    category,
 		Description: description,
@@ -176,7 +176,7 @@ func (s *ComplianceService) CreateDoc(ctx context.Context, title, category, publ
 		return domain.ComplianceDoc{}, fmt.Errorf("invalid publish date: %w", err)
 	}
 	d := domain.ComplianceDoc{
-		ID:          fmt.Sprintf("compdoc-%d", now.UnixNano()),
+		ID:          nextID("compdoc"),
 		Title:       title,
 		Category:    normalizeComplianceDocCategory(category),
 		Publisher:   publisher,
@@ -232,7 +232,7 @@ func (s *ComplianceService) CreateStandard(ctx context.Context, title, category,
 		return domain.StandardDoc{}, fmt.Errorf("invalid effective date: %w", err)
 	}
 	sd := domain.StandardDoc{
-		ID:            fmt.Sprintf("std-%d", now.UnixNano()),
+		ID:            nextID("std"),
 		Title:         title,
 		Category:      normalizeComplianceStandardCategory(category),
 		StandardNo:    stdNumber,
@@ -299,7 +299,7 @@ func NewReportService(repo repository.IndustryReportRepository) *ReportService {
 func (s *ReportService) Create(ctx context.Context, title, period, category, summary, content, fileURL, author string) (domain.IndustryReport, error) {
 	now := time.Now()
 	r := domain.IndustryReport{
-		ID:        fmt.Sprintf("report-%d", now.UnixNano()),
+		ID:        nextID("report"),
 		Title:     title,
 		Period:    period,
 		Category:  category,
@@ -357,7 +357,7 @@ func NewPortfolioService(repo repository.PortfolioRepository) *PortfolioService 
 func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoURL, coverURL, description, contactInfo string, products, honors []string) (domain.MemberPortfolio, error) {
 	now := time.Now()
 	p := domain.MemberPortfolio{
-		ID:           fmt.Sprintf("portfolio-%d", now.UnixNano()),
+		ID:           nextID("portfolio"),
 		EnterpriseID: enterpriseID,
 		Name:         name,
 		LogoURL:      logoURL,

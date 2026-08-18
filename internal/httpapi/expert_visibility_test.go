@@ -29,7 +29,7 @@ func TestExpertVisibilityPendingNotPublic(t *testing.T) {
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &envelope); err != nil {
-			t.Fatalf("parse create(%s): %v", status, err)
+			t.Fatalf("parse create(%s): %v body=%s", status, err, w.Body.String())
 		}
 		return envelope.Data.ID
 	}

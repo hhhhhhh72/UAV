@@ -2546,6 +2546,17 @@ func (r *uploadRepo) Create(ctx context.Context, rec domain.FileRecord) error {
 	return nil
 }
 
+func (r *uploadRepo) FindByID(ctx context.Context, id string) (domain.FileRecord, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, rec := range r.records {
+		if rec.ID == id {
+			return rec, nil
+		}
+	}
+	return domain.FileRecord{}, fmt.Errorf("upload %s not found", id)
+}
+
 func (r *uploadRepo) SumBytesSince(ctx context.Context, ownerID string, since time.Time) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

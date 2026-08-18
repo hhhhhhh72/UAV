@@ -25,7 +25,7 @@ func NewCompetitionService(repo repository.CompetitionRepository) *CompetitionSe
 func (s *CompetitionService) Create(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	now := time.Now()
 	if c.ID == "" {
-		c.ID = fmt.Sprintf("comp-%d", now.UnixNano())
+		c.ID = nextID("comp")
 	}
 	if c.Status == "" {
 		c.Status = "published"
@@ -100,7 +100,7 @@ func NewEventService(repo repository.EventRepository) *EventService {
 func (s *EventService) Create(ctx context.Context, title, eventType, description, location, coverURL string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
 	now := time.Now()
 	e := domain.AssociationEvent{
-		ID:           fmt.Sprintf("event-%d", now.UnixNano()),
+		ID:           nextID("event"),
 		Title:        title,
 		EventType:    eventType,
 		Description:  description,
@@ -151,7 +151,7 @@ func (s *EventService) Register(ctx context.Context, eventID, userID, name, phon
 		return domain.EventRegistration{}, err
 	}
 	er := domain.EventRegistration{
-		ID:        fmt.Sprintf("evtreg-%d", now.UnixNano()),
+		ID:        nextID("evtreg"),
 		EventID:   eventID,
 		UserID:    userID,
 		Name:      name,
@@ -332,7 +332,7 @@ func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, event
 		return domain.EmergencyDispatch{}, err
 	}
 	d := domain.EmergencyDispatch{
-		ID:         fmt.Sprintf("emdisp-%d", now.UnixNano()),
+		ID:         nextID("emdisp"),
 		ResourceID: resourceID,
 		EventDesc:  eventDesc,
 		Location:   location,

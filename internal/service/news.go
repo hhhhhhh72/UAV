@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -19,7 +18,7 @@ func NewNewsService(repo repository.ArticleRepository) *NewsService {
 
 func (s *NewsService) Create(ctx context.Context, title, content, category, source string) (domain.Article, error) {
 	now := time.Now()
-	a := domain.Article{ID: fmt.Sprintf("article-%d", now.UnixNano()), Title: title, Content: content,
+	a := domain.Article{ID: nextID("article"), Title: title, Content: content,
 		Summary: truncate(content, 100), Category: category, Source: source, Status: "draft",
 		Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.repo.Create(ctx, a)

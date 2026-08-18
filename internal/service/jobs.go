@@ -121,7 +121,7 @@ func (s *JobService) DeleteJob(ctx context.Context, id string) error {
 
 func (s *JobService) CreateResume(ctx context.Context, a domain.Actor, title, name, phone, email, education, workExperience string, skills []string, certificateURL, content, visibility string) (domain.Resume, error) {
 	now := time.Now()
-	r := domain.Resume{ID: fmt.Sprintf("resume-%d", now.UnixNano()), UserID: a.ID, Title: title,
+	r := domain.Resume{ID: nextID("resume"), UserID: a.ID, Title: title,
 		Name: name, Phone: phone, Email: email, Education: education, WorkExperience: workExperience,
 		Skills: skills, CertificateURL: certificateURL, Content: content, Visibility: visibility,
 		Version: 1, CreatedAt: now, UpdatedAt: now}
@@ -180,7 +180,7 @@ func (s *JobService) Apply(ctx context.Context, a domain.Actor, jobID, resumeID 
 		}
 	}
 	now := time.Now()
-	app := domain.JobApplication{ID: fmt.Sprintf("app-%d", now.UnixNano()), JobID: jobID, ResumeID: resumeID,
+	app := domain.JobApplication{ID: nextID("app"), JobID: jobID, ResumeID: resumeID,
 		ApplicantID: a.ID, Status: domain.AppSubmitted, Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.app.Create(ctx, app)
 }

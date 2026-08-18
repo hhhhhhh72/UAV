@@ -19,6 +19,14 @@ func nextSeq() uint64 {
 	return idSeq.Add(1)
 }
 
+// nextID 生成进程内唯一 ID（前缀-UnixNano-原子序号）：
+// 纯 UnixNano 在快速连续创建（如 HTTP 顺序请求间隔小于时钟粒度）时
+// 可能相同，导致内存 repo 记录互相覆盖、PG 主键冲突 500。
+// 所有新建资源的 ID 生成应统一走本函数。
+func nextID(prefix string) string {
+	return fmt.Sprintf("%s-%d-%d", prefix, time.Now().UnixNano(), nextSeq())
+}
+
 // IntentService records contact intents on published demands (联系对接模式).
 //
 // 简版范围（V1）：登记意向 + 发布方查看意向列表 + 意向方查看自己的意向记录。

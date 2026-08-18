@@ -20,7 +20,7 @@ func NewResourcePoolService(r repository.ResourcePoolRepository) *ResourcePoolSe
 }
 
 func (s *ResourcePoolService) Create(ctx context.Context, name, poolType, description, ownerID string) (domain.ResourcePool, error) {
-	p := domain.ResourcePool{ID: fmt.Sprintf("pool-%d", time.Now().UnixNano()),
+	p := domain.ResourcePool{ID: nextID("pool"),
 		Name: name, PoolType: poolType, Description: description, OwnerID: ownerID,
 		Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	return s.repo.Create(ctx, p)
@@ -32,7 +32,7 @@ func (s *ResourcePoolService) Get(ctx context.Context, id string) (domain.Resour
 	return s.repo.FindByID(ctx, id)
 }
 func (s *ResourcePoolService) AddMember(ctx context.Context, poolID, resID, resType string, quantity int) (domain.ResourcePoolMember, error) {
-	m := domain.ResourcePoolMember{ID: fmt.Sprintf("rpm-%d", time.Now().UnixNano()),
+	m := domain.ResourcePoolMember{ID: nextID("rpm"),
 		PoolID: poolID, ResID: resID, ResType: resType, Quantity: quantity,
 		Status: "standby", JoinedAt: time.Now()}
 	return s.repo.AddMember(ctx, m)
@@ -53,7 +53,7 @@ func (s *TestSiteService) Create(ctx context.Context, name, siteType, location, 
 	if status == "" {
 		status = "available"
 	}
-	ts := domain.TestSite{ID: fmt.Sprintf("tst-%d", time.Now().UnixNano()),
+	ts := domain.TestSite{ID: nextID("tst"),
 		Name: name, SiteType: siteType, OwnerID: ownerID, Location: location,
 		Facilities: facilities, PriceFen: priceFen, BookingRule: bookingRule,
 		Status: status, CreatedAt: time.Now(), UpdatedAt: time.Now()}
@@ -93,7 +93,7 @@ func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, con
 			return domain.TestSiteBooking{}, fmt.Errorf("time slot conflicted")
 		}
 	}
-	bk := domain.TestSiteBooking{ID: fmt.Sprintf("tsbk-%d", time.Now().UnixNano()),
+	bk := domain.TestSiteBooking{ID: nextID("tsbk"),
 		SiteID: siteID, UserID: userID, Purpose: purpose,
 		ContactName: contactName, ContactPhone: contactPhone,
 		StartTime: startTime, EndTime: endTime, Status: "pending", CreatedAt: time.Now()}
@@ -134,7 +134,7 @@ func (s *ExhibitionService) Create(ctx context.Context, title, category, descrip
 	if status == "" {
 		status = "draft"
 	}
-	e := domain.Exhibition{ID: fmt.Sprintf("expo-%d", time.Now().UnixNano()),
+	e := domain.Exhibition{ID: nextID("expo"),
 		Title: title, Category: category, Description: description, Location: location,
 		Organizer: organizer, CoverURL: coverURL, StartDate: startDate, EndDate: endDate,
 		BoothCount: boothCount, BoothPrice: boothPrice, Status: status,
@@ -172,7 +172,7 @@ func (s *ExhibitionService) Delete(ctx context.Context, id string) error {
 }
 
 func (s *ExhibitionService) ApplyBooth(ctx context.Context, exhibitionID, exhibitorID, boothNumber, exhibitName, exhibitDesc string) (domain.ExhibitionBooth, error) {
-	b := domain.ExhibitionBooth{ID: fmt.Sprintf("exbk-%d", time.Now().UnixNano()),
+	b := domain.ExhibitionBooth{ID: nextID("exbk"),
 		ExhibitionID: exhibitionID, ExhibitorID: exhibitorID, BoothNumber: boothNumber,
 		ExhibitName: exhibitName, ExhibitDesc: exhibitDesc, Status: "applied", CreatedAt: time.Now()}
 	return s.repo.CreateBooth(ctx, b)

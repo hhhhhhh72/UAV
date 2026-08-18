@@ -285,7 +285,7 @@ func (s *EmploymentService) Create(ctx context.Context, a domain.Actor, v domain
 		return v, errors.New("enterprise permission required")
 	}
 	now := time.Now()
-	v.ID = fmt.Sprintf("employment-%d", now.UnixNano())
+	v.ID = nextID("employment")
 	v.EnterpriseID = a.ID
 	v.Status = domain.EmploymentPending
 	v.Version = 1
@@ -331,7 +331,7 @@ func (s *ContractService) Create(ctx context.Context, a domain.Actor, v domain.C
 		v.EnterpriseID = a.ID
 	}
 	now := time.Now()
-	v.ID = fmt.Sprintf("contract-%d", now.UnixNano())
+	v.ID = nextID("contract")
 	v.Status = domain.ContractDraft
 	v.Version = 1
 	v.CreatedAt = now

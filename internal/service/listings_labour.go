@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -53,7 +52,7 @@ func NewLabourService(r repository.LabourOrderRepository) *LabourService {
 
 func (s *LabourService) CreateOrder(ctx context.Context, a domain.Actor, title, desc string, workers int, start, end time.Time, budget int64) (domain.LabourOrder, error) {
 	now := time.Now()
-	o := domain.LabourOrder{ID: fmt.Sprintf("labour-%d", now.UnixNano()), EmployerID: a.ID, Title: title,
+	o := domain.LabourOrder{ID: nextID("labour"), EmployerID: a.ID, Title: title,
 		Description: desc, WorkerCount: workers, StartDate: start, EndDate: end, BudgetFen: budget, Status: "draft",
 		Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.repo.Create(ctx, o)
@@ -68,7 +67,7 @@ func (s *LabourService) ListOrders(ctx context.Context, a domain.Actor, offset, 
 }
 
 func (s *LabourService) CreateQuote(ctx context.Context, a domain.Actor, orderID string, amount int64, proposal, name string) (domain.LabourQuote, error) {
-	q := domain.LabourQuote{ID: fmt.Sprintf("quote-%d", time.Now().UnixNano()), OrderID: orderID, QuoterID: a.ID,
+	q := domain.LabourQuote{ID: nextID("quote"), OrderID: orderID, QuoterID: a.ID,
 		QuoterName: name, AmountFen: amount, Proposal: proposal, Status: "pending", CreatedAt: time.Now()}
 	return s.repo.CreateQuote(ctx, q)
 }
@@ -93,7 +92,7 @@ func (s *LabourService) CreateAssignment(ctx context.Context, a domain.Actor, or
 		return domain.Assignment{}, errors.New("only the employer can assign workers")
 	}
 	now := time.Now()
-	asgn := domain.Assignment{ID: fmt.Sprintf("assign-%d", now.UnixNano()), OrderID: orderID,
+	asgn := domain.Assignment{ID: nextID("assign"), OrderID: orderID,
 		WorkerID: workerID, Status: "assigned", CreatedAt: now}
 	return s.repo.CreateAssignment(ctx, asgn)
 }

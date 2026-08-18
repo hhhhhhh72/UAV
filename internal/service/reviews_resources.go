@@ -20,7 +20,7 @@ func NewReviewService(repo repository.ReviewRepository) *ReviewService {
 }
 
 func (s *ReviewService) Submit(ctx context.Context, reviewerID, targetType, targetID string, rating int, content string) (domain.Review, error) {
-	r := domain.Review{ID: fmt.Sprintf("review-%d", time.Now().UnixNano()), ReviewerID: reviewerID,
+	r := domain.Review{ID: nextID("review"), ReviewerID: reviewerID,
 		TargetType: targetType, TargetID: targetID, Rating: rating, Content: content, Status: "pending", CreatedAt: time.Now()}
 	return s.repo.Create(ctx, r)
 }
@@ -64,7 +64,7 @@ func NewVenueService(repo repository.VenueRepository) *VenueService {
 }
 
 func (s *VenueService) Create(ctx context.Context, ownerID, name, venueType, location string, priceFen int64) (domain.Venue, error) {
-	v := domain.Venue{ID: fmt.Sprintf("venue-%d", time.Now().UnixNano()), OwnerID: ownerID, Name: name,
+	v := domain.Venue{ID: nextID("venue"), OwnerID: ownerID, Name: name,
 		VenueType: venueType, Location: location, PriceFen: priceFen, Status: "available", CreatedAt: time.Now()}
 	return s.repo.Create(ctx, v)
 }
@@ -84,7 +84,7 @@ func (s *VenueService) Book(ctx context.Context, venueID, userID string, start, 
 			return domain.VenueBooking{}, fmt.Errorf("time slot conflicted")
 		}
 	}
-	bk := domain.VenueBooking{ID: fmt.Sprintf("booking-%d", time.Now().UnixNano()), VenueID: venueID,
+	bk := domain.VenueBooking{ID: nextID("booking"), VenueID: venueID,
 		UserID: userID, StartTime: start, EndTime: end, Status: "booked", CreatedAt: time.Now()}
 	return s.repo.CreateBooking(ctx, bk)
 }

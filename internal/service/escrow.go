@@ -20,7 +20,7 @@ func NewEscrowService(repo repository.EscrowRepository) *EscrowService {
 // newTx 构造一条资金流水（状态恒为 completed，写入与余额调整同事务原子提交）。
 func newTx(userID, counterparty, txType, refType, refID string, amountFen int64) domain.EscrowTransaction {
 	return domain.EscrowTransaction{
-		ID: fmt.Sprintf("escrow-%d", time.Now().UnixNano()), FromUser: userID, ToUser: counterparty,
+		ID: nextID("escrow"), FromUser: userID, ToUser: counterparty,
 		AmountFen: amountFen, TxType: txType, ReferenceType: refType, ReferenceID: refID,
 		Status: "completed", CreatedAt: time.Now(),
 	}

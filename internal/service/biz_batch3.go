@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -42,7 +41,7 @@ func NewRescueCaseService(r repository.RescueCaseRepository) *RescueCaseService 
 	return &RescueCaseService{repo: r}
 }
 func (s *RescueCaseService) Create(ctx context.Context, title, eventType, location, droneModel, teamName, summary, result, lessons, source string, date time.Time) (domain.RescueCase, error) {
-	rc := domain.RescueCase{ID: fmt.Sprintf("rc-%d", time.Now().UnixNano()),
+	rc := domain.RescueCase{ID: nextID("rc"),
 		Title: title, EventType: normalizeRescueEventType(eventType), Location: location, Date: date,
 		DroneModel: droneModel, TeamName: teamName, Summary: summary,
 		Result: result, Lessons: lessons, Source: source,
@@ -66,7 +65,7 @@ func NewEmergencyDeptService(r repository.EmergencyDeptRepository) *EmergencyDep
 	return &EmergencyDeptService{repo: r}
 }
 func (s *EmergencyDeptService) CreateDept(ctx context.Context, name, deptType, region, contactName, contactPhone, protocolURL string) (domain.EmergencyDept, error) {
-	d := domain.EmergencyDept{ID: fmt.Sprintf("dept-%d", time.Now().UnixNano()),
+	d := domain.EmergencyDept{ID: nextID("dept"),
 		Name: name, DeptType: deptType, Region: region, ContactName: contactName,
 		ContactPhone: contactPhone, ProtocolURL: protocolURL,
 		Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}
@@ -76,7 +75,7 @@ func (s *EmergencyDeptService) ListDepts(ctx context.Context) ([]domain.Emergenc
 	return s.repo.ListDepts(ctx)
 }
 func (s *EmergencyDeptService) CreateDrill(ctx context.Context, deptID, title, scenario string, date time.Time, participants, droneCount int, result string) (domain.EmergencyDrill, error) {
-	d := domain.EmergencyDrill{ID: fmt.Sprintf("drill-%d", time.Now().UnixNano()),
+	d := domain.EmergencyDrill{ID: nextID("drill"),
 		DeptID: deptID, Title: title, Scenario: scenario, Date: date,
 		Participants: participants, DroneCount: droneCount, Result: result, CreatedAt: time.Now()}
 	return s.repo.CreateDrill(ctx, d)
@@ -95,7 +94,7 @@ func NewAssociationMemberService(r repository.AssociationMemberRepository) *Asso
 	return &AssociationMemberService{repo: r}
 }
 func (s *AssociationMemberService) AddMember(ctx context.Context, userID, enterpriseID string, role domain.AssociationRole) (domain.AssociationMember, error) {
-	m := domain.AssociationMember{ID: fmt.Sprintf("am-%d", time.Now().UnixNano()),
+	m := domain.AssociationMember{ID: nextID("am"),
 		UserID: userID, EnterpriseID: enterpriseID, Role: role,
 		JoinDate: time.Now(), ExpireDate: time.Now().AddDate(1, 0, 0),
 		Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}

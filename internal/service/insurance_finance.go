@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -20,7 +19,7 @@ func NewInsuranceService(pr repository.PolicyRepository, ir repository.Inspectio
 
 func (s *InsuranceService) CreatePolicy(ctx context.Context, a domain.Actor, droneModel, droneSN, policyType string, premiumFen, coverageFen int64, start, end time.Time) (domain.InsurancePolicy, error) {
 	now := time.Now()
-	p := domain.InsurancePolicy{ID: fmt.Sprintf("policy-%d", now.UnixNano()), UserID: a.ID, DroneModel: droneModel,
+	p := domain.InsurancePolicy{ID: nextID("policy"), UserID: a.ID, DroneModel: droneModel,
 		DroneSN: droneSN, PolicyType: policyType, PremiumFen: premiumFen, CoverageFen: coverageFen,
 		StartDate: start, EndDate: end, Insurer: "default", Status: "active", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.policyRepo.Create(ctx, p)
@@ -36,7 +35,7 @@ func (s *InsuranceService) ListAllPolicies(ctx context.Context, offset, limit in
 
 func (s *InsuranceService) CreateInspection(ctx context.Context, a domain.Actor, droneModel, droneSN string, inspectDate, expireDate time.Time) (domain.AnnualInspection, error) {
 	now := time.Now()
-	i := domain.AnnualInspection{ID: fmt.Sprintf("inspect-%d", now.UnixNano()), UserID: a.ID, DroneModel: droneModel,
+	i := domain.AnnualInspection{ID: nextID("inspect"), UserID: a.ID, DroneModel: droneModel,
 		DroneSN: droneSN, InspectDate: inspectDate, ExpireDate: expireDate, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.inspectRepo.Create(ctx, i)
 }
@@ -58,7 +57,7 @@ func NewFinanceService(lr repository.LoanRepository) *FinanceService {
 
 func (s *FinanceService) ApplyLoan(ctx context.Context, a domain.Actor, amountFen int64, termMonths int, purpose string) (domain.LoanApplication, error) {
 	now := time.Now()
-	l := domain.LoanApplication{ID: fmt.Sprintf("loan-%d", now.UnixNano()), UserID: a.ID, AmountFen: amountFen,
+	l := domain.LoanApplication{ID: nextID("loan"), UserID: a.ID, AmountFen: amountFen,
 		TermMonths: termMonths, Purpose: purpose, Status: "submitted", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.loanRepo.Create(ctx, l)
 }

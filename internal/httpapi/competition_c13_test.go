@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -154,26 +155,49 @@ func TestCompetitionRegPrivateUpload(t *testing.T) {
 		t.Fatalf("public upload url %q, want /uploads/ prefix without private", pubURL)
 	}
 
-	// 服务端读取：FileServer 从 ./uploads 提供文件；测试环境直接落一个文件验证鉴权门
+	// 读取鉴权：无 token → 401；非属主登录 → 403（归属校验）；属主/管理员 → 200。
+	// 修复前只要登录即可读任意 private 文件（P1 越权读取）。
+	// 测试环境上传目录（test_uploads/）与 FileServer 服务目录（uploads/）不同，
+	// 先把真实上传的文件镜像到服务目录再验证读取鉴权。
+	id := strings.TrimPrefix(privURL, "/uploads/private/")
 	os.MkdirAll("uploads/private", 0755)
-	serveFile := "uploads/private/serve-test.png"
-	if err := os.WriteFile(serveFile, []byte("fake-png-bytes"), 0644); err != nil {
+	imgData, err := os.ReadFile(filepath.Join("test_uploads/private", id))
+	if err != nil {
+		t.Fatalf("read uploaded file: %v", err)
+	}
+	dst := filepath.Join("uploads/private", id)
+	if err := os.WriteFile(dst, imgData, 0644); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Remove(serveFile) })
+	t.Cleanup(func() { os.Remove(dst) })
 
-	// 无 token → 401（/uploads/private/ 不在 authenticate 放行列表）
 	anon := httptest.NewRecorder()
-	app.ServeHTTP(anon, httptest.NewRequest(http.MethodGet, "/uploads/private/serve-test.png", nil))
+	app.ServeHTTP(anon, httptest.NewRequest(http.MethodGet, privURL, nil))
 	if anon.Code != http.StatusUnauthorized {
 		t.Fatalf("GET private upload without auth: %d, want 401", anon.Code)
 	}
-	// 携带 token → 200
-	r := httptest.NewRequest(http.MethodGet, "/uploads/private/serve-test.png", nil)
-	r.Header.Set("Authorization", auth(t, domain.RoleIndividual))
-	w := httptest.NewRecorder()
-	app.ServeHTTP(w, r)
-	if w.Code != http.StatusOK {
-		t.Fatalf("GET private upload with auth: %d, want 200", w.Code)
+	// 非属主（user-2）→ 403
+	intruder := httptest.NewRequest(http.MethodGet, privURL, nil)
+	intruder.Header.Set("Authorization", authAs(t, "user-2", domain.RoleIndividual))
+	w2 := httptest.NewRecorder()
+	app.ServeHTTP(w2, intruder)
+	if w2.Code != http.StatusForbidden {
+		t.Fatalf("GET private upload as other user: %d, want 403", w2.Code)
+	}
+	// 属主（user-1，上传者）→ 200
+	owner := httptest.NewRequest(http.MethodGet, privURL, nil)
+	owner.Header.Set("Authorization", auth(t, domain.RoleIndividual))
+	w3 := httptest.NewRecorder()
+	app.ServeHTTP(w3, owner)
+	if w3.Code != http.StatusOK {
+		t.Fatalf("GET private upload as owner: %d, want 200", w3.Code)
+	}
+	// 管理员 → 200
+	adm := httptest.NewRequest(http.MethodGet, privURL, nil)
+	adm.Header.Set("Authorization", authAs(t, "admin-1", domain.RolePlatformAdmin))
+	w4 := httptest.NewRecorder()
+	app.ServeHTTP(w4, adm)
+	if w4.Code != http.StatusOK {
+		t.Fatalf("GET private upload as admin: %d, want 200", w4.Code)
 	}
 }

@@ -53,6 +53,15 @@ func (s *FileService) UploadPrivate(ctx context.Context, ownerID string, filenam
 	return s.uploadTo(ctx, ownerID, filename, contentType, reader, filepath.Join(s.uploadDir, "private"), "private")
 }
 
+// FindUpload 查询上传台账（私有文件归属校验用）。
+// 未启用台账（uploads == nil）或查无记录时返回 not found——调用方须 fail closed。
+func (s *FileService) FindUpload(ctx context.Context, id string) (domain.FileRecord, error) {
+	if s.uploads == nil {
+		return domain.FileRecord{}, fmt.Errorf("upload ledger disabled")
+	}
+	return s.uploads.FindByID(ctx, id)
+}
+
 func (s *FileService) uploadTo(ctx context.Context, ownerID string, filename, contentType string, reader io.Reader, dir, visibility string) (domain.FileRecord, error) {
 	now := time.Now()
 	// B 批加固：ID 由可预测的时间戳改为 128 位随机（防枚举——

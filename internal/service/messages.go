@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -20,7 +19,7 @@ func NewMessageService(repo repository.MessageRepository) *MessageService {
 
 func (s *MessageService) Send(ctx context.Context, senderID, receiverID, title, content, resType, resID string) (domain.Message, error) {
 	m := domain.Message{
-		ID: fmt.Sprintf("msg-%d", time.Now().UnixNano()), SenderID: senderID,
+		ID: nextID("msg"), SenderID: senderID,
 		ReceiverID: receiverID, Title: title, Content: content,
 		ResourceType: resType, ResourceID: resID, IsRead: false, CreatedAt: time.Now(),
 	}

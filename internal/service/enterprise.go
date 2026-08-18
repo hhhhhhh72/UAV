@@ -43,7 +43,7 @@ type CreateEnterpriseInput struct {
 func (s *EnterpriseSvc) Create(ctx context.Context, a domain.Actor, in CreateEnterpriseInput) (domain.Enterprise, error) {
 	now := time.Now()
 	e := domain.Enterprise{
-		ID:               fmt.Sprintf("ent-%d", now.UnixNano()),
+		ID:               nextID("ent"),
 		OwnerUserID:      a.ID,
 		Name:             in.Name,
 		CreditCode:       in.CreditCode,
@@ -205,7 +205,7 @@ func (s *EnterpriseSvc) AttachDocument(ctx context.Context, a domain.Actor, ente
 		return domain.EnterpriseDocument{}, errors.New("permission denied")
 	}
 	now := time.Now()
-	doc := domain.EnterpriseDocument{ID: fmt.Sprintf("edoc-%d", now.UnixNano()), EnterpriseID: enterpriseID,
+	doc := domain.EnterpriseDocument{ID: nextID("edoc"), EnterpriseID: enterpriseID,
 		FileID: fileID, DocumentType: documentType, ReviewStatus: "pending", CreatedAt: now}
 	return s.repo.AddDocument(ctx, doc)
 }

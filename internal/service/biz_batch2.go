@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -21,7 +20,7 @@ func NewTransformationService(r repository.TransformationRepository) *Transforma
 }
 
 func (s *TransformationService) Create(ctx context.Context, title, achievementID, ownerID, partnerID string) (domain.Transformation, error) {
-	t := domain.Transformation{ID: fmt.Sprintf("tran-%d", time.Now().UnixNano()),
+	t := domain.Transformation{ID: nextID("tran"),
 		Title: title, AchievementID: achievementID, OwnerID: ownerID, PartnerID: partnerID,
 		Stage: domain.StageLab, Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	return s.repo.Create(ctx, t)
@@ -138,7 +137,7 @@ func CoopTypeLabel(t string) string {
 func (s *CollegeService) Create(ctx context.Context, c domain.College) (domain.College, error) {
 	now := time.Now()
 	if c.ID == "" {
-		c.ID = fmt.Sprintf("col-%d", now.UnixNano())
+		c.ID = nextID("col")
 	}
 	if c.Status == "" {
 		c.Status = "active"
@@ -177,7 +176,7 @@ func NewCooperationService(r repository.CooperationRepository) *CooperationServi
 }
 
 func (s *CooperationService) Create(ctx context.Context, title, collegeID, enterpriseID, coopType, description string, startDate, endDate time.Time, quota int) (domain.CooperationProgram, error) {
-	cp := domain.CooperationProgram{ID: fmt.Sprintf("coop-%d", time.Now().UnixNano()),
+	cp := domain.CooperationProgram{ID: nextID("coop"),
 		Title: title, CollegeID: collegeID, EnterpriseID: enterpriseID, CoopType: coopType,
 		Description: description, StartDate: startDate, EndDate: endDate, StudentQuota: quota,
 		Status: "proposed", CreatedAt: time.Now(), UpdatedAt: time.Now()}

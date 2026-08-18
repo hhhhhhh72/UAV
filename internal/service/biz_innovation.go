@@ -22,7 +22,7 @@ func NewAchievementService(repo repository.AchievementRepository) *AchievementSe
 func (s *AchievementService) Create(ctx context.Context, ownerID, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
 	now := time.Now()
 	a := domain.Achievement{
-		ID:          fmt.Sprintf("achieve-%d", now.UnixNano()),
+		ID:          nextID("achieve"),
 		OwnerID:     ownerID,
 		Title:       title,
 		AchieveType: achieveType,
@@ -94,7 +94,7 @@ func NewRDChallengeService(repo repository.RDChallengeRepository) *RDChallengeSe
 func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field, description string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
 	now := time.Now()
 	c := domain.RDChallenge{
-		ID:          fmt.Sprintf("challenge-%d", now.UnixNano()),
+		ID:          nextID("challenge"),
 		PosterID:    posterID,
 		Title:       title,
 		Field:       field,
@@ -161,7 +161,7 @@ func NewResearchProjectService(repo repository.ResearchProjectRepository) *Resea
 func (s *ResearchProjectService) Create(ctx context.Context, title, field, description, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
 	now := time.Now()
 	p := domain.ResearchProject{
-		ID:          fmt.Sprintf("proj-%d", now.UnixNano()),
+		ID:          nextID("proj"),
 		Title:       title,
 		Field:       field,
 		Description: description,
@@ -223,7 +223,7 @@ func NewProjectAppService(repo repository.ProjectAppRepository) *ProjectAppServi
 func (s *ProjectAppService) Create(ctx context.Context, applicantID, projectName, category, description string, budgetFen int64, attachments []string) (domain.ProjectApplication, error) {
 	now := time.Now()
 	a := domain.ProjectApplication{
-		ID:          fmt.Sprintf("app-%d", now.UnixNano()),
+		ID:          nextID("app"),
 		ApplicantID: applicantID,
 		ProjectName: projectName,
 		Category:    category,
