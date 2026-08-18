@@ -786,7 +786,7 @@ const loadUnreadCount = async () => {
 /* ================= 导航 ================= */
 const goSearch = () => openSearch()
 const goMessages = () => safeNavigateTo('/pages/messages/index')
-const goFindProject = () => safeNavigateTo('/pages/demands/list')
+const goFindProject = () => safeSwitchTab('/pages/demands/index')
 const goPublishDemand = () => safeNavigateTo('/pkg-demand/pages/demands/publish')
 const goDemandsList = () => safeNavigateTo('/pages/demands/list')
 const goDemandDetail = (d) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(d.id))
