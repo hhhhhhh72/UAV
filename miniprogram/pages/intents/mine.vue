@@ -25,6 +25,12 @@
           <text class="meta-date">{{ formatDate(it.created_at) }}</text>
         </view>
         <text v-if="it.remark" class="intent-remark">{{ it.remark }}</text>
+        <!-- 待处理意向可取消登记 -->
+        <view v-if="it.status === 'pending'" class="intent-foot">
+          <view class="cancel-btn" hover-class="tap-fade" @tap.stop="cancelIntent(it)">
+            <text>取消登记</text>
+          </view>
+        </view>
       </view>
     </view>
   </view>
@@ -56,6 +62,31 @@ const formatDate = (iso) => {
   } catch { return '' }
 }
 const goDemand = (it) => uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(it.demand_id) })
+
+// 取消登记：仅待处理意向可取消
+const cancelIntent = (it) => {
+  uni.showModal({
+    title: '取消登记',
+    content: '确定取消这条对接意向吗？取消后发布方将不再看到你的登记。',
+    confirmText: '取消登记',
+    confirmColor: '#D92D20',
+    success: async (res) => {
+      if (!res.confirm) return
+      try {
+        await request({ url: '/api/v1/intents/' + encodeURIComponent(it.id) + '/cancel', method: 'POST' })
+        uni.showToast({ title: '已取消登记', icon: 'success' })
+        fetchList()
+      } catch (e) {
+        let msg = ''
+        try {
+          if (e && e.data && e.data.error && e.data.error.message) msg = e.data.error.message
+          else if (e && e.message) msg = e.message
+        } catch { /* ignore */ }
+        uni.showToast({ title: msg || '取消失败，请稍后重试', icon: 'none' })
+      }
+    },
+  })
+}
 
 const fetchList = async () => {
   loading.value = true
@@ -204,4 +235,20 @@ onPullDownRefresh(() => {
   border-radius: 6px;
   padding: 8px 10px;
 }
+
+.intent-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.cancel-btn {
+  font-size: 12px;
+  color: #D92D20;
+  border: 1px solid #F3C1C0;
+  border-radius: 999px;
+  padding: 6px 16px;
+}
+
+.tap-fade { opacity: 0.85; }
 </style>

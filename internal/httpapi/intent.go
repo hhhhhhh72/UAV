@@ -62,3 +62,18 @@ func (s *Server) listMyIntents(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, r, http.StatusOK, intents)
 }
+
+// POST /api/v1/intents/{id}/cancel — 意向方取消自己的登记（仅待处理可取消）
+func (s *Server) cancelIntent(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if err := s.intentSvc.Cancel(r.Context(), a, r.PathValue("id")); err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "cancel_intent", "intent", r.PathValue("id"), "cancelled")
+	respond(w, r, http.StatusOK, map[string]any{"status": "cancelled"})
+}

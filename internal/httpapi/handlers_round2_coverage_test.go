@@ -323,6 +323,35 @@ func TestIntentsEndpoints(t *testing.T) {
 
 	w = doRaw(app, http.MethodPost, "/api/v1/demands/"+demand2ID+"/intents/"+intent2ID+"/reject", "", entTok)
 	assertStatus(t, http.MethodPost, "/api/v1/demands/"+demand2ID+"/intents/"+intent2ID+"/reject", w, http.StatusOK)
+
+	// 取消登记分支：新建需求 + 意向 → 意向方取消 → 200；重复取消 → 403
+	w = doRaw(app, http.MethodPost, "/api/v1/demands",
+		`{"title":"航拍需求","contact":"13800000000","biz_type":"cable_inspection"}`, entTok)
+	assertStatus(t, http.MethodPost, "/api/v1/demands (demand3)", w, http.StatusCreated)
+	demand3ID := dataID(t, w)
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/demands/"+demand3ID+"/review", `{"action":"approve"}`, adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/demands/"+demand3ID+"/review", w, http.StatusOK)
+
+	w = doRaw(app, http.MethodPost, "/api/v1/demands/"+demand3ID+"/intents",
+		`{"intentor_name":"飞手小赵","contact":"13900000002"}`, workerTok)
+	assertStatus(t, http.MethodPost, "/api/v1/demands/"+demand3ID+"/intents", w, http.StatusCreated)
+	intent3ID := dataID(t, w)
+
+	w = doRaw(app, http.MethodPost, "/api/v1/intents/"+intent3ID+"/cancel", "", workerTok)
+	assertStatus(t, http.MethodPost, "/api/v1/intents/"+intent3ID+"/cancel", w, http.StatusOK)
+
+	// 已取消 → 再取消 403（已处理）；发布方视角该意向 closed
+	w = doRaw(app, http.MethodPost, "/api/v1/intents/"+intent3ID+"/cancel", "", workerTok)
+	assertStatus(t, http.MethodPost, "/api/v1/intents/"+intent3ID+"/cancel (again)", w, http.StatusForbidden)
+	w = doRaw(app, http.MethodGet, "/api/v1/demands/"+demand3ID+"/intents", "", entTok)
+	if !strings.Contains(w.Body.String(), `"closed"`) {
+		t.Fatalf("cancelled intent should be closed, got: %s", w.Body.String())
+	}
+
+	// 非本人取消他人意向 → 403
+	otherTok := authAs(t, "worker-2", domain.RoleIndividual)
+	w = doRaw(app, http.MethodPost, "/api/v1/intents/"+intent2ID+"/cancel", "", otherTok)
+	assertStatus(t, http.MethodPost, "/api/v1/intents/"+intent2ID+"/cancel (other)", w, http.StatusForbidden)
 }
 
 // TestCompatRoutes 覆盖 compat_routes.go 的旧版 /api/auth/* 兼容路由（dev 模式）。

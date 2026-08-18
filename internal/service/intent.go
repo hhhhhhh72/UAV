@@ -122,3 +122,22 @@ func (s *IntentService) ListByDemand(ctx context.Context, a domain.Actor, demand
 func (s *IntentService) ListMine(ctx context.Context, a domain.Actor) ([]domain.DemandIntent, error) {
 	return s.repo.ListByIntentor(ctx, a.ID)
 }
+
+// Cancel 意向方取消自己的登记（撤回意向）：
+// 仅待处理（pending）可取消；已确认洽谈/已关闭的意向不可撤回。取消后状态 closed。
+func (s *IntentService) Cancel(ctx context.Context, a domain.Actor, intentID string) error {
+	mine, err := s.repo.ListByIntentor(ctx, a.ID)
+	if err != nil {
+		return err
+	}
+	for i := range mine {
+		if mine[i].ID == intentID {
+			if mine[i].Status != "pending" {
+				return errors.New("该意向已处理，无法取消")
+			}
+			_, err := s.repo.UpdateStatus(ctx, intentID, "closed")
+			return err
+		}
+	}
+	return errors.New("意向不存在")
+}

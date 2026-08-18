@@ -90,6 +90,7 @@ func (s *Server) registerDemandRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/demands/{id}/intents", s.createIntent)
 	mux.HandleFunc("GET /api/v1/demands/{id}/intents", s.listDemandIntents)
 	mux.HandleFunc("GET /api/v1/intents/mine", s.listMyIntents)
+	mux.HandleFunc("POST /api/v1/intents/{id}/cancel", s.cancelIntent)
 	mux.HandleFunc("POST /api/v1/demands/{id}/intents/{intentID}/accept", s.acceptIntent)
 	mux.HandleFunc("POST /api/v1/demands/{id}/intents/{intentID}/reject", s.rejectIntent)
 	mux.HandleFunc("GET /api/v1/work-orders/mine", s.listMyWorkOrders)
