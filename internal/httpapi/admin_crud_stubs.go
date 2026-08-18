@@ -1305,6 +1305,14 @@ func (s *Server) getExpert(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, err)
 		return
 	}
+	// 公开详情仅已发布专家；pending/archived 仅管理员可见（admin 路由复用本 handler）
+	if e.Status != "published" {
+		if a, ok := authenticatedActor(r); !ok ||
+			(a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
+			fail(w, r, http.StatusNotFound, errors.New("expert not found"))
+			return
+		}
+	}
 	respond(w, r, 200, e)
 }
 func (s *Server) getAchievement(w http.ResponseWriter, r *http.Request) {

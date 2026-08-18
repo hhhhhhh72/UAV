@@ -134,6 +134,18 @@ func (s *Server) listExperts(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 公开列表仅显示已发布（published）专家；管理端列表（listAdminExperts 复用本 handler）
+	// 携带管理员 token，可见全部状态（含 pending/archived）。
+	if a, ok := authenticatedActor(r); !ok ||
+		(a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
+		pub := make([]domain.Expert, 0, len(items))
+		for _, e := range items {
+			if e.Status == "published" {
+				pub = append(pub, e)
+			}
+		}
+		items = pub
+	}
 	respond(w, r, http.StatusOK, items)
 }
 
