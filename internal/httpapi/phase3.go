@@ -66,6 +66,11 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 
 	e, err := s.enrollSvc.Enroll(r.Context(), a.ID, course.ID, form)
 	if err != nil {
+		// 报名失败必须回滚冻结（重复报名/参数错误等），否则用户资金滞留 frozen
+		// 且无法自助解冻——托管金写接口仅管理员可用。
+		if course.PriceFen > 0 {
+			_, _ = s.escrowSvc.Refund(r.Context(), a.ID, course.PriceFen, "training_course", course.ID)
+		}
 		fail(w, r, http.StatusConflict, err)
 		return
 	}
@@ -311,14 +316,23 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		ProductID string `json:"product_id"`
-		SellerID  string `json:"seller_id"`
-		AmountFen int64  `json:"amount_fen"`
 	}
-	if err := decode(r, &in); err != nil {
-		fail(w, r, http.StatusBadRequest, err)
+	if err := decode(r, &in); err != nil || in.ProductID == "" {
+		fail(w, r, http.StatusBadRequest, errors.New("product_id required"))
 		return
 	}
-	o, err := s.tradeSvc.Create(r.Context(), a.ID, in.ProductID, in.SellerID, in.AmountFen)
+	// P0 修复：订单金额与卖家一律以服务端商品为准——此前 amount_fen/seller_id
+	// 客户端自报，任意买家可 1 分钱下单或把订单挂到任意卖家名下。
+	product, err := s.tradingSvc.GetProduct(r.Context(), in.ProductID)
+	if err != nil {
+		fail(w, r, http.StatusNotFound, errors.New("product not found"))
+		return
+	}
+	if product.Status != "" && product.Status != "listed" {
+		fail(w, r, http.StatusConflict, errors.New("product not available"))
+		return
+	}
+	o, err := s.tradeSvc.Create(r.Context(), a.ID, product.ID, product.SellerID, product.PriceFen)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

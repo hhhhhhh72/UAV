@@ -453,12 +453,12 @@ func TestProductRequiresApproval(t *testing.T) {
 func TestAftersaleFlow(t *testing.T) {
 	app := newServer(t)
 
-	// 1. 管理后台直接创建商品（listed，跳过审核流程，聚焦订单售后链路）
-	pw := requestAs(t, app, http.MethodPost, "/api/v1/admin/products",
-		[]byte(`{"title":"售后测试无人机","prod_type":"drone","price_fen":500000,"seller_name":"卖家A"}`),
-		"admin-1", domain.RolePlatformAdmin)
+	// 1. 卖家用户发布商品（pending）→ 管理后台审核上架（listed）
+	pw := requestAs(t, app, http.MethodPost, "/api/v1/products",
+		[]byte(`{"title":"售后测试无人机","prod_type":"drone","price_fen":500000}`),
+		"seller-1", domain.RoleEnterprise)
 	if pw.Code != http.StatusCreated {
-		t.Fatalf("admin create product: %d %s", pw.Code, pw.Body.String())
+		t.Fatalf("seller create product: %d %s", pw.Code, pw.Body.String())
 	}
 	var product struct {
 		Data struct {
@@ -468,13 +468,24 @@ func TestAftersaleFlow(t *testing.T) {
 	if err := json.Unmarshal(pw.Body.Bytes(), &product); err != nil {
 		t.Fatalf("parse product: %v", err)
 	}
+	appr := requestAs(t, app, http.MethodPut, "/api/v1/admin/products/"+product.Data.ID,
+		[]byte(`{"status":"listed"}`), "admin-1", domain.RolePlatformAdmin)
+	if appr.Code != http.StatusOK {
+		t.Fatalf("admin approve product: %d %s", appr.Code, appr.Body.String())
+	}
 
-	// 2. 买家下单 → pending
+	// 2. 买家下单 → pending；金额/卖家以服务端商品为准（客户端传 1 分钱+假卖家被忽略）
 	ow := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+product.Data.ID+`","seller_id":"seller-1","amount_fen":500000}`),
+		[]byte(`{"product_id":"`+product.Data.ID+`","seller_id":"hacker-x","amount_fen":1}`),
 		"buyer-1", domain.RoleIndividual)
 	if ow.Code != http.StatusCreated {
 		t.Fatalf("create order: %d %s", ow.Code, ow.Body.String())
+	}
+	if !bytes.Contains(ow.Body.Bytes(), []byte(`"amount_fen":500000`)) {
+		t.Fatalf("order must use server-side price, got: %s", ow.Body.String())
+	}
+	if !bytes.Contains(ow.Body.Bytes(), []byte(`"seller_id":"seller-1"`)) {
+		t.Fatalf("order must use product seller, got: %s", ow.Body.String())
 	}
 	var order struct {
 		Data struct {

@@ -166,13 +166,21 @@ func TestBizAllNonAdminBlocked(t *testing.T) {
 	}
 }
 
+// 托管金写接口仅管理员可操作（P0 印钞修复）：普通用户 deposit → 403，
+// 管理员可正常充值，用户可查自己的余额。
 func TestEscrowDepositFlow(t *testing.T) {
 	app := newBizServer(t)
+	// 普通用户（RoleIndividual）不可充值
 	w := request(t, app, http.MethodPost, "/api/v1/escrow/deposit",
 		[]byte(`{"amount_fen":100000}`), domain.RoleIndividual)
-	// Works or fails based on balance existence
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("individual deposit: want 403, got %d %s", w.Code, w.Body.String())
+	}
+	// 管理员充值成功
+	w = requestAs(t, app, http.MethodPost, "/api/v1/escrow/deposit",
+		[]byte(`{"amount_fen":100000}`), "admin-1", domain.RolePlatformAdmin)
 	if w.Code != http.StatusCreated && w.Code != http.StatusOK {
-		t.Logf("deposit: %d %s", w.Code, w.Body.String())
+		t.Fatalf("admin deposit: %d %s", w.Code, w.Body.String())
 	}
 	w = request(t, app, http.MethodGet, "/api/v1/escrow/balance", nil, domain.RoleIndividual)
 	if w.Code != http.StatusOK {

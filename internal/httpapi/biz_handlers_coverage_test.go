@@ -133,40 +133,54 @@ func TestCommunityListingsLabour(t *testing.T) {
 
 func TestEscrowFullCycle(t *testing.T) {
 	app := newBizServer(t)
+	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
 	userTok := authAs(t, "user-1", domain.RoleIndividual)
 
-	// 反向：amount_fen<=0 → 400
-	w := doRaw(app, http.MethodPost, "/api/v1/escrow/deposit", `{"amount_fen":0}`, userTok)
+	// 普通用户不可操作托管金（P0 印钞修复：写接口仅管理员）
+	for _, tc := range []struct{ method, path, body string }{
+		{http.MethodPost, "/api/v1/escrow/deposit", `{"amount_fen":100000}`},
+		{http.MethodPost, "/api/v1/escrow/freeze", `{"amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`},
+		{http.MethodPost, "/api/v1/escrow/release", `{"to_user":"user-2","amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`},
+		{http.MethodPost, "/api/v1/escrow/refund", `{"amount_fen":30000,"reference_type":"work_order","reference_id":"wo-2"}`},
+	} {
+		w := doRaw(app, tc.method, tc.path, tc.body, userTok)
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("individual %s %s: want 403, got %d", tc.method, tc.path, w.Code)
+		}
+	}
+
+	// 反向：amount_fen<=0 → 400（管理员）
+	w := doRaw(app, http.MethodPost, "/api/v1/escrow/deposit", `{"amount_fen":0}`, adminTok)
 	checkCode(t, http.MethodPost, "/api/v1/escrow/deposit (zero)", w, http.StatusBadRequest)
 
-	// 充值 → 201（handler 返回 Created）
-	w = doRaw(app, http.MethodPost, "/api/v1/escrow/deposit", `{"amount_fen":100000}`, userTok)
+	// 管理员充值 → 201（handler 返回 Created）
+	w = doRaw(app, http.MethodPost, "/api/v1/escrow/deposit", `{"amount_fen":100000}`, adminTok)
 	checkCode(t, http.MethodPost, "/api/v1/escrow/deposit", w, http.StatusCreated)
 
 	// 余额 → 200
-	w = doRaw(app, http.MethodGet, "/api/v1/escrow/balance", "", userTok)
+	w = doRaw(app, http.MethodGet, "/api/v1/escrow/balance", "", adminTok)
 	checkCode(t, http.MethodGet, "/api/v1/escrow/balance", w, http.StatusOK)
 
 	// 冻结 → 201
 	w = doRaw(app, http.MethodPost, "/api/v1/escrow/freeze",
-		`{"amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`, userTok)
+		`{"amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`, adminTok)
 	checkCode(t, http.MethodPost, "/api/v1/escrow/freeze", w, http.StatusCreated)
 
 	// 解冻（release 给 user-2）→ 201
 	w = doRaw(app, http.MethodPost, "/api/v1/escrow/release",
-		`{"to_user":"user-2","amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`, userTok)
+		`{"to_user":"user-2","amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`, adminTok)
 	checkCode(t, http.MethodPost, "/api/v1/escrow/release", w, http.StatusCreated)
 
 	// 再次冻结 → 退款（refund 回到可用余额）→ 201
 	w = doRaw(app, http.MethodPost, "/api/v1/escrow/freeze",
-		`{"amount_fen":30000,"reference_type":"work_order","reference_id":"wo-2"}`, userTok)
+		`{"amount_fen":30000,"reference_type":"work_order","reference_id":"wo-2"}`, adminTok)
 	checkCode(t, http.MethodPost, "/api/v1/escrow/freeze (2nd)", w, http.StatusCreated)
 	w = doRaw(app, http.MethodPost, "/api/v1/escrow/refund",
-		`{"amount_fen":30000,"reference_type":"work_order","reference_id":"wo-2"}`, userTok)
+		`{"amount_fen":30000,"reference_type":"work_order","reference_id":"wo-2"}`, adminTok)
 	checkCode(t, http.MethodPost, "/api/v1/escrow/refund", w, http.StatusCreated)
 
 	// 交易流水 → 200
-	w = doRaw(app, http.MethodGet, "/api/v1/escrow/transactions", "", userTok)
+	w = doRaw(app, http.MethodGet, "/api/v1/escrow/transactions", "", adminTok)
 	checkCode(t, http.MethodGet, "/api/v1/escrow/transactions", w, http.StatusOK)
 }
 

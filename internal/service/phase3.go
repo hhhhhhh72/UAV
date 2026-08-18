@@ -186,6 +186,9 @@ func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID,
 	if o.BuyerID != userID {
 		return domain.TradeOrder{}, fmt.Errorf("permission denied")
 	}
+	if amountFen < 0 || amountFen > o.AmountFen {
+		return domain.TradeOrder{}, fmt.Errorf("售后金额必须在 0~订单金额之间")
+	}
 	if o.AftersaleStatus != "" {
 		return domain.TradeOrder{}, fmt.Errorf("该订单已存在售后申请")
 	}

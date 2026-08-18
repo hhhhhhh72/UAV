@@ -3,13 +3,27 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+
+	"drone-platform/internal/domain"
 )
+
+// requireEscrowAdmin 托管金写操作门禁：托管金为内部记账（无外部支付网关），
+// 充值/冻结/释放/退款仅管理员可操作；业务侧由服务端状态机内部调用
+// （pay-and-enroll / completeEnrollment），前端无公开调用。
+// 此前任意登录用户可无限充值（deposit 无资金来源校验）再转账，属 P0 印钞漏洞。
+func requireEscrowAdmin(a domain.Actor) bool {
+	return a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
+}
 
 // POST /api/v1/escrow/deposit
 func (s *Server) escrowDeposit(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if !requireEscrowAdmin(a) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
 	var in struct {
@@ -33,6 +47,10 @@ func (s *Server) escrowFreeze(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if !requireEscrowAdmin(a) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
 	var in struct {
@@ -60,6 +78,10 @@ func (s *Server) escrowRelease(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
+	if !requireEscrowAdmin(a) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
 	var in struct {
 		ToUser        string `json:"to_user"`
 		AmountFen     int64  `json:"amount_fen"`
@@ -84,6 +106,10 @@ func (s *Server) escrowRefund(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if !requireEscrowAdmin(a) {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
 	var in struct {
