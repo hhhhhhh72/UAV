@@ -1,7 +1,7 @@
 <template>
-  <view class="matches-page" :style="{ paddingTop: topPad + 'px' }">
-    <!-- 头部 -->
-    <view class="page-header">
+  <view class="matches-page">
+    <!-- 头部（白底延伸到状态栏，避免顶部留灰条） -->
+    <view class="page-header" :style="{ paddingTop: topPad + 'px' }">
       <view class="back-btn" hover-class="tap-fade" hover-stay-time="120" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">智能匹配</text>
       <view class="head-spacer"></view>
@@ -200,7 +200,7 @@ const goBack = () => uni.navigateBack()
 .tap-fade { opacity: 0.85; }
 
 .page-header {
-  height: 56px;
+  min-height: 56px;
   padding: 0 28rpx;
   display: flex;
   align-items: center;
@@ -210,6 +210,7 @@ const goBack = () => uni.navigateBack()
   position: sticky;
   top: 0;
   z-index: 10;
+  box-sizing: border-box;
 }
 .back-btn { width: 72rpx; height: 72rpx; display: flex; align-items: center; justify-content: center; }
 .back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
