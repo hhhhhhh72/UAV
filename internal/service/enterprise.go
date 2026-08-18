@@ -143,6 +143,10 @@ func (s *EnterpriseSvc) Review(ctx context.Context, a domain.Actor, id, action, 
 	if err != nil {
 		return domain.Enterprise{}, err
 	}
+	// 状态机前置：仅已提交/需补充的企业可审（防对草稿/已通过/已驳回重复翻转）
+	if e.Status != domain.EnterpriseSubmitted && e.Status != domain.EnterpriseSupplementRequired {
+		return domain.Enterprise{}, fmt.Errorf("只有已提交的企业可审核（当前状态 %s）", e.Status)
+	}
 	var newStatus domain.EnterpriseStatus
 	// 兼容两种写法：动词 approve/reject/supplement 与过去式 approved/rejected
 	switch action {

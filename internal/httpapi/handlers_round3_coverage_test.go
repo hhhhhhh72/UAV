@@ -72,11 +72,14 @@ func TestRound3Enterprise(t *testing.T) {
 	w = doRaw(app, http.MethodGet, "/api/v1/enterprises/public/detail?id="+entID, "", "")
 	assertStatus(t, http.MethodGet, "/api/v1/enterprises/public/detail?id="+entID, w, http.StatusOK)
 
-	// 批量审核：第二条企业直接批量通过（Review 无状态前置校验）
+	// 批量审核：第二条企业提交后批量通过
 	w = doRaw(app, http.MethodPost, "/api/v1/enterprises",
 		`{"name":"round3企业2"}`, ownerTok)
 	assertStatus(t, http.MethodPost, "/api/v1/enterprises (2)", w, http.StatusCreated)
 	entID2 := dataID(t, w)
+
+	w = doRaw(app, http.MethodPost, "/api/v1/enterprises/"+entID2+"/submit", "", ownerTok)
+	assertStatus(t, http.MethodPost, "/api/v1/enterprises/"+entID2+"/submit", w, http.StatusOK)
 
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/enterprises/batch-review",
 		`{"ids":["`+entID2+`"],"action":"approve"}`, adminTok)

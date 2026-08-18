@@ -158,6 +158,14 @@ func (s *DemandService) Review(ctx context.Context, a domain.Actor, id, action, 
 	if action == "reject" && reason == "" {
 		return domain.Demand{}, errors.New("reason is required for rejection")
 	}
+	// 状态机前置：仅待审核（pending）需求可审；已公开的用 close、已驳回的先重提
+	d, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if d.Status != domain.DemandPending {
+		return domain.Demand{}, fmt.Errorf("只有待审核的需求可审核（当前状态 %s）", d.Status)
+	}
 	switch action {
 	case "approve":
 		return s.repo.SetStatus(ctx, id, domain.DemandPublished)
@@ -240,7 +248,15 @@ func (s *DemandService) Approve(ctx context.Context, a domain.Actor, id string) 
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Demand{}, errors.New("admin permission required")
 	}
-	d, err := s.repo.SetStatus(ctx, id, domain.DemandPublished)
+	// 状态机前置：仅待审核需求可批量通过（防对已公开/已完成需求重复翻转）
+	d, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if d.Status != domain.DemandPending {
+		return domain.Demand{}, fmt.Errorf("只有待审核的需求可审核（当前状态 %s）", d.Status)
+	}
+	d, err = s.repo.SetStatus(ctx, id, domain.DemandPublished)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("approve demand %s: %w", id, err)
 	}
