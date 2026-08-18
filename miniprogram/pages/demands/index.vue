@@ -567,10 +567,9 @@ onPullDownRefresh(() => {
 .topbar-row {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  justify-content: center;
 }
 .top-title {
-  flex: 1;
   font-size: 38rpx;
   font-weight: 700;
   text-align: center;
