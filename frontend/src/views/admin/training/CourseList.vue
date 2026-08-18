@@ -49,6 +49,18 @@
           <a-descriptions-item label="状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</a-tag>
           </a-descriptions-item>
+          <a-descriptions-item label="封面图" :span="2">
+            <a-image
+              v-if="currentItem.image"
+              :src="currentItem.image"
+              :width="160"
+              :height="100"
+              :preview-props="{ src: currentItem.image }"
+              fit="cover"
+              :style="{ borderRadius: '8px' }"
+            />
+            <span v-else>-</span>
+          </a-descriptions-item>
           <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
         </a-descriptions>
       </template>

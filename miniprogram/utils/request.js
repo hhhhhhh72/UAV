@@ -14,14 +14,39 @@ function idempotencyKey(url, data) {
   return 'idem-' + hash + '-' + String(s.length).slice(0, 60)
 }
 
+// 补全后端返回的图片相对路径（/uploads/xxx → 完整域名）：培训/赛事/服务等
+// 列表接口存的 image/poster 都是相对路径，小程序 <image> 直接渲染相对路径会
+// 当本地资源 → 白图。仅在响应侧统一补全，提交给后端的数据保持相对路径不变。
+// /uploads/private/（身份证影像等）不在业务卡片展示，跳过。
+function resolveUploadsUrl(value) {
+  if (typeof value === 'string') {
+    if (value.indexOf('/uploads/') === 0 && value.indexOf('/uploads/private/') !== 0) {
+      return BASE_URL + value
+    }
+    return value
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => resolveUploadsUrl(v))
+  }
+  if (value && typeof value === 'object') {
+    const out = {}
+    for (const k of Object.keys(value)) {
+      out[k] = resolveUploadsUrl(value[k])
+    }
+    return out
+  }
+  return value
+}
+
 // Unwrap the Go backend envelope. Paginated responses ({ data: [...], total, ... })
 // keep their total attached to the array so list pages can read res.total.
 function unwrap(body) {
   if (body && typeof body === 'object' && Array.isArray(body.data) && typeof body.total === 'number') {
-    body.data.total = body.total
-    return body.data
+    const data = resolveUploadsUrl(body.data)
+    data.total = body.total
+    return data
   }
-  return body?.data || body
+  return resolveUploadsUrl(body?.data || body)
 }
 
 let isRefreshing = false
