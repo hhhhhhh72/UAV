@@ -388,6 +388,15 @@ func (s *Server) listMyTradeOrders(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 补商品名（product_id → title）；商品已删除/下架时忽略，保持订单可读。
+	for i := range orders {
+		if orders[i].ProductID == "" {
+			continue
+		}
+		if p, err := s.tradingSvc.GetProduct(r.Context(), orders[i].ProductID); err == nil {
+			orders[i].ProductName = p.Title
+		}
+	}
 	respond(w, r, http.StatusOK, orders)
 }
 

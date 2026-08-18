@@ -68,7 +68,7 @@
                 >
                   {{ f }}
                 </u-tag>
-                <text v-if="item.organization" class="meta-text">{{ item.organization }}</text>
+                <text v-if="item.org || item.organization" class="meta-text">{{ item.org || item.organization }}</text>
               </view>
             </view>
           </template>

@@ -502,12 +502,15 @@ type Enrollment struct {
 
 // TradeOrder is a purchase order in the drone marketplace.
 type TradeOrder struct {
-	ID        string    `json:"id"`
-	ProductID string    `json:"product_id"`
-	BuyerID   string    `json:"buyer_id"`
-	SellerID  string    `json:"seller_id"`
-	AmountFen int64     `json:"amount_fen"`
-	Status    string    `json:"status"`
+	ID        string `json:"id"`
+	ProductID string `json:"product_id"`
+	// ProductName 响应增强字段（不入库）：列表接口按 product_id 关联填充，
+	// 供小程序订单展示商品名（避免前端仅显示"订单N"）。
+	ProductName string `json:"product_name"`
+	BuyerID     string `json:"buyer_id"`
+	SellerID    string `json:"seller_id"`
+	AmountFen   int64  `json:"amount_fen"`
+	Status      string `json:"status"`
 	// 售后契约（一期）：aftersale_type=refund(仅退款)/return(退货退款)；
 	// aftersale_status=pending(待审核)/approved(已同意退款)/rejected(已驳回)。
 	// aftersale_status 为空串表示该订单从未申请过售后。

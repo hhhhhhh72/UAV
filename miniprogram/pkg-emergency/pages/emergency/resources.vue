@@ -203,12 +203,12 @@
             <view class="res-meta">
               <view class="meta-row meta-row--full">
                 <text class="meta-label">联系人</text>
-                <text class="meta-val">{{ d.contact_name || '暂无' }}</text>
+                <text class="meta-val">{{ contactName(d) }}</text>
               </view>
               <view class="meta-row meta-row--full">
                 <text class="meta-label">电话</text>
-                <view class="meta-phone" hover-class="phone-press" :hover-stay-time="120" @click.stop="callPhone(d.contact_phone)">
-                  <text class="meta-val phone-val">{{ d.contact_phone || '暂无' }}</text>
+                <view class="meta-phone" hover-class="phone-press" :hover-stay-time="120" @click.stop="callPhone(contactPhone(d))">
+                  <text class="meta-val phone-val">{{ contactPhone(d) || '暂无' }}</text>
                 </view>
               </view>
             </view>
@@ -693,12 +693,20 @@ export default {
         this.showCustomToast('暂无联系电话')
         return
       }
-      uni.makePhoneCall({ phoneNumber: phone })
-    },
+      uni.makePhoneCall({ phoneNumber: phone })    },
     extractPhone(str) {
       if (!str) return ''
       var m = String(str).match(/1[3-9]\d{9}/)
       return m ? m[0] : ''
+    },
+    // 列表卡片联系人：后端只有 contact_info 单字段（含姓名/电话文本），兼容旧 contact_name
+    contactName(d) {
+      if (!d) return '暂无'
+      return d.contact_name || d.contact_info || '暂无'
+    },
+    contactPhone(d) {
+      if (!d) return ''
+      return this.extractPhone(d.contact_info || d.contact_name)
     },
     statusKey(status) {
       var s = status || 'available'
