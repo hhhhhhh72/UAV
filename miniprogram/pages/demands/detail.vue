@@ -144,6 +144,9 @@
         <view v-if="isEndedItem" class="action-primary disabled">
           <text>该信息已结束</text>
         </view>
+        <view v-else-if="intented" class="action-primary disabled" @tap="onIntent">
+          <text>已登记</text>
+        </view>
         <view v-else class="action-primary" @tap="onIntent">
           <text>登记对接</text>
         </view>
@@ -424,11 +427,29 @@ const onIntent = async () => {
     openSheet('login')
     return
   }
+  // 已登记过该需求（历史任意状态）→ 不再开放重复登记
+  if (intented.value) {
+    uni.showToast({ title: '已登记过该需求的对接意向', icon: 'none' })
+    return
+  }
   if (!(await isEnterpriseCertified())) {
     openSheet('cert')
     return
   }
   openSheet('intent')
+}
+
+// 我的意向记录里是否已有该需求（任意状态）——有则隐藏登记入口
+const intented = ref(false)
+const checkIntented = async () => {
+  if (!isLoggedIn()) return
+  try {
+    const res = await request({ url: '/api/v1/intents/mine' })
+    const data = Array.isArray(res) ? res : (res && res.data) || []
+    intented.value = data.some((it) => it.demand_id === postId)
+  } catch (e) {
+    /* 拉取失败不阻塞页面 */
+  }
 }
 
 // 企业认证：真实检查（/api/v1/enterprises 是否存在 approved 记录），不再读 mock hall_certified
@@ -515,7 +536,12 @@ const submitIntent = async () => {
         })
         backendOk = true
       } catch (e) {
-        uni.showToast({ title: '提交失败，请稍后重试', icon: 'none' })
+        let msg = ''
+        try {
+          if (e && e.data && e.data.error && e.data.error.message) msg = e.data.error.message
+          else if (e && e.message) msg = e.message
+        } catch { /* ignore */ }
+        uni.showToast({ title: msg || '提交失败，请稍后重试', icon: 'none' })
         submitting.value = false
         return
       }
@@ -546,6 +572,7 @@ onLoad((options) => {
   initSafeTop()
   postId = (options && options.id) || ''
   loadDetail()
+  checkIntented()
 })
 </script>
 
