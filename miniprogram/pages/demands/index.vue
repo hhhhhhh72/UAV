@@ -5,9 +5,6 @@
       <view class="topbar" :style="{ paddingTop: statusBarHeight + 'px' }">
         <view class="topbar-row">
           <text class="top-title">供需大厅</text>
-          <view class="icon-btn" hover-class="tap-fade" @tap="goMessages">
-            <text class="icon-bell">◌</text>
-          </view>
         </view>
         <view class="search-trigger" hover-class="tap-fade" @tap="goSearch">
           <view class="search-icon"></view>
@@ -486,7 +483,6 @@ function onSearch() {
 }
 
 const goSearchResult = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
-const goMessages = () => safeNavigateTo('/pages/messages/index')
 const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
 const goDetail = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
 // 商品模式：跳电商商品详情页。
@@ -579,14 +575,6 @@ onPullDownRefresh(() => {
   font-weight: 700;
   text-align: center;
 }
-.icon-btn {
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.icon-bell { font-size: 40rpx; line-height: 1; }
 
 /* 搜索框：居中、接近满宽、44px 高 */
 .search-trigger {
