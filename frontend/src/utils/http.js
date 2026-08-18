@@ -3,6 +3,17 @@ import axios from 'axios'
 const ACCESS_TOKEN_KEY = 'accessToken'
 const REFRESH_TOKEN_KEY = 'refreshToken'
 
+// 确定性幂等键：POST/PATCH 自动附带，同 URL+body 的重试复用同 key，
+// 服务端 24h 去重（防双击/网络重试重复创建）。用户修改内容 → 新 key。
+function idempotencyKey(url, data) {
+  const s = url + '|' + JSON.stringify(data || {})
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
+  const hash = Math.abs(h).toString(36)
+  // 服务端要求 8-128 字符：前缀 + hash + 长度（截断保持上限）
+  return 'idem-' + hash + '-' + String(s.length).slice(0, 60)
+}
+
 let isRefreshing = false
 let pendingQueue = []
 
@@ -21,6 +32,11 @@ axios.interceptors.request.use((config) => {
   if (token) {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`
+  }
+  // 写操作自动幂等键（不覆盖调用方显式指定的 key）
+  const method = (config.method || 'get').toLowerCase()
+  if ((method === 'post' || method === 'patch') && !config.headers['Idempotency-Key']) {
+    config.headers['Idempotency-Key'] = idempotencyKey(config.url || '', config.data)
   }
   return config
 })

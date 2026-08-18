@@ -4,6 +4,16 @@ export { BASE_URL }
 const ACCESS_TOKEN_KEY = 'accessToken'
 const REFRESH_TOKEN_KEY = 'refreshToken'
 
+// 确定性幂等键：POST/PATCH 自动附带，同 URL+body 的重试复用同 key，
+// 服务端 24h 去重（防双击/网络重试重复创建）。用户修改内容 → 新 key。
+function idempotencyKey(url, data) {
+  const s = url + '|' + JSON.stringify(data || {})
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
+  const hash = Math.abs(h).toString(36)
+  return 'idem-' + hash + '-' + String(s.length).slice(0, 60)
+}
+
 // Unwrap the Go backend envelope. Paginated responses ({ data: [...], total, ... })
 // keep their total attached to the array so list pages can read res.total.
 function unwrap(body) {
@@ -77,6 +87,11 @@ export function request(options) {
     const header = { ...(options.header || {}) }
     if (token) {
       header['Authorization'] = `Bearer ${token}`
+    }
+    // 写操作自动幂等键（不覆盖调用方显式指定的 key）
+    const method = (options.method || 'GET').toUpperCase()
+    if ((method === 'POST' || method === 'PATCH') && !header['Idempotency-Key']) {
+      header['Idempotency-Key'] = idempotencyKey(options.url, options.data)
     }
 
     uni.request({

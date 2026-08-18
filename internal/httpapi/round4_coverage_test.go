@@ -205,6 +205,13 @@ func TestR4IdempotencyMiddleware(t *testing.T) {
 	if w.Body.String() != firstBody {
 		t.Fatalf("idempotent replay body mismatch:\nfirst=%s\nreplay=%s", firstBody, w.Body.String())
 	}
+
+	// 不同用户同 key → 不互相去重（actor 命名空间），应正常创建
+	w = doRawWithKey(app, http.MethodPost, "/api/v1/demands", `{"title":"幂等需求2","contact":"13800000000"}`, authAs(t, "ent-2", domain.RoleEnterprise), "r4-idem-key-1")
+	assertStatus(t, http.MethodPost, "/api/v1/demands (other actor)", w, http.StatusCreated)
+	if w.Body.String() == firstBody {
+		t.Fatal("different actor with same key must not replay another user's response")
+	}
 }
 
 // TestR4Batch2ListAndCollege 覆盖 listTransformations/listColleges/matchCollegeType/createCollege。
