@@ -1199,6 +1199,11 @@ func (s *Server) getCourse(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, err)
 		return
 	}
+	// 非管理端不可通过详情接口查看未公开课程（待审核/草稿/已下架）——与列表过滤一致
+	if !isAdminRequest(r) && isNonPublicStatus(c.Status) {
+		fail(w, r, http.StatusNotFound, errors.New("course not found"))
+		return
+	}
 	respond(w, r, 200, c)
 }
 
@@ -1224,6 +1229,11 @@ func (s *Server) getCompetition(w http.ResponseWriter, r *http.Request) {
 	c, err := s.competitionSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
+		return
+	}
+	// 非管理端不可通过详情接口查看未公开赛事（待审核/草稿/已下架）——与列表过滤一致
+	if !isAdminRequest(r) && isNonPublicStatus(c.Status) {
+		fail(w, r, http.StatusNotFound, errors.New("competition not found"))
 		return
 	}
 	respond(w, r, 200, c)

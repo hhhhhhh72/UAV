@@ -1014,22 +1014,30 @@ func (s *Server) reviewProjectApp(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/competitions?page=1&page_size=10&status=enrolling&keyword=无人机
 // status 筛选兼容页面值域（enrolling/open/ongoing/closed/full）与后端状态（published/...）。
 // 待审核（pending）/草稿（draft）不公开（管理员请求可见全部）。
+// isAdminRequest 判断请求是否来自管理端（平台管理员/协会管理员）。
+// 管理端可查看未公开内容（待审核/草稿/已下架），普通用户一律不可见。
+func isAdminRequest(r *http.Request) bool {
+	a, ok := authenticatedActor(r)
+	return ok && (a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin)
+}
+
+// isNonPublicStatus 非公开状态：待审核/草稿/已下架（与各公开列表过滤一致）。
+func isNonPublicStatus(s string) bool {
+	return s == "pending" || s == "draft" || s == "closed"
+}
+
 func (s *Server) listCompetitions(w http.ResponseWriter, r *http.Request) {
 	items, _, err := s.competitionSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	adminReq := false
-	if a, ok := authenticatedActor(r); ok &&
-		(a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin) {
-		adminReq = true
-	}
+	adminReq := isAdminRequest(r)
 	status := r.URL.Query().Get("status")
 	keyword := r.URL.Query().Get("keyword")
 	var out []domain.Competition
 	for _, c := range items {
-		if !adminReq && (c.Status == "pending" || c.Status == "draft" || c.Status == "closed") {
+		if !adminReq && isNonPublicStatus(c.Status) {
 			continue
 		}
 		if status != "" && !matchCompetitionStatus(status, c.Status) {
@@ -1210,6 +1218,13 @@ func (s *Server) registerCompetition(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
+	}
+	// 未公开赛事（待审核/草稿/已下架）不可报名——防绕过列表过滤直接报名
+	if !isAdminRequest(r) {
+		if c, err := s.competitionSvc.Get(r.Context(), r.PathValue("id")); err == nil && isNonPublicStatus(c.Status) {
+			fail(w, r, http.StatusNotFound, errors.New("competition not found"))
+			return
+		}
 	}
 	var in struct {
 		TeamName    string `json:"team_name"`

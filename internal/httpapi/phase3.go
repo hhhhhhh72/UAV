@@ -22,6 +22,13 @@ func (s *Server) enrollCourse(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
+	// 未公开课程（待审核/草稿/已下架）不可报名——防绕过列表过滤直接报名
+	if !isAdminRequest(r) {
+		if c, err := s.trainingSvc.GetCourse(r.Context(), r.PathValue("id")); err == nil && isNonPublicStatus(c.Status) {
+			fail(w, r, http.StatusNotFound, errors.New("course not found"))
+			return
+		}
+	}
 	var form service.EnrollmentForm
 	if err := decode(r, &form); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -46,6 +53,11 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 
 	course, err := s.trainingSvc.GetCourse(r.Context(), r.PathValue("id"))
 	if err != nil {
+		fail(w, r, http.StatusNotFound, errors.New("course not found"))
+		return
+	}
+	// 未公开课程（待审核/草稿/已下架）不可付费报名——与 enrollCourse 一致
+	if isNonPublicStatus(course.Status) {
 		fail(w, r, http.StatusNotFound, errors.New("course not found"))
 		return
 	}

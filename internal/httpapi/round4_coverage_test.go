@@ -411,6 +411,11 @@ func TestR4Phase3Enrollments(t *testing.T) {
 	assertStatus(t, http.MethodPost, "/api/v1/training-courses", w, http.StatusCreated)
 	courseID := dataID(t, w)
 
+	// 课程发布默认待审核（pending）：先管理端审核通过，否则报名 404
+	w = doRaw(app, http.MethodPut, "/api/v1/admin/training-courses/"+courseID,
+		`{"title":"无人机执照培训","status":"published"}`, adminTok)
+	assertStatus(t, http.MethodPut, "/api/v1/admin/training-courses/"+courseID, w, http.StatusOK)
+
 	// enrollCourse → 201
 	w = doRaw(app, http.MethodPost, "/api/v1/training-courses/"+courseID+"/enroll",
 		`{"name":"学员A","phone":"13800000001","gender":"男"}`, userTok)

@@ -46,6 +46,28 @@ func TestCompetitionEnterpriseReviewFlow(t *testing.T) {
 		t.Fatal("pending competition must not be public")
 	}
 
+	// 详情接口：非管理端访问 pending → 404（防绕过列表过滤直接看详情）
+	dw := request(t, app, http.MethodGet, "/api/v1/competitions/"+created.Data.ID, nil, "")
+	if dw.Code != http.StatusNotFound {
+		t.Fatalf("pending detail as anonymous: want 404, got %d", dw.Code)
+	}
+	dw = request(t, app, http.MethodGet, "/api/v1/competitions/"+created.Data.ID, nil, domain.RoleIndividual)
+	if dw.Code != http.StatusNotFound {
+		t.Fatalf("pending detail as individual: want 404, got %d", dw.Code)
+	}
+	// 管理端可查看详情
+	dwa := request(t, app, http.MethodGet, "/api/v1/competitions/"+created.Data.ID, nil, domain.RolePlatformAdmin)
+	if dwa.Code != http.StatusOK {
+		t.Fatalf("pending detail as admin: want 200, got %d", dwa.Code)
+	}
+
+	// 报名接口：pending 赛事不可报名（404）
+	rw := request(t, app, http.MethodPost, "/api/v1/competitions/"+created.Data.ID+"/register",
+		[]byte(`{"team_name":"测试队","name":"张三","phone":"13800000000"}`), domain.RoleIndividual)
+	if rw.Code != http.StatusNotFound {
+		t.Fatalf("register pending competition: want 404, got %d", rw.Code)
+	}
+
 	// 管理端审核（enrolling）→ 公开
 	aw := request(t, app, http.MethodPut, "/api/v1/admin/competitions/"+created.Data.ID,
 		[]byte(`{"title":"2026企业杯无人机大赛","status":"enrolling"}`), domain.RolePlatformAdmin)
