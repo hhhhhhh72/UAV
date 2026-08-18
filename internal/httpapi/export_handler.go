@@ -12,6 +12,19 @@ import (
 	"drone-platform/internal/repository"
 )
 
+// csvCell 防 CSV 公式注入：单元格以 = + - @ 或制表符开头时前缀单引号，
+// 防止恶意内容（如 =HYPERLINK(...)）在 Excel/WPS 中作为公式执行。
+func csvCell(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
+
 // GET /api/v1/admin/export — exports demands as CSV (browser-compatible).
 // 全量数据导出（含联系电话），仅平台管理员可操作。
 func (s *Server) exportDemands(w http.ResponseWriter, r *http.Request) {
@@ -54,8 +67,8 @@ func (s *Server) exportDemands(w http.ResponseWriter, r *http.Request) {
 		}
 		budget := fmt.Sprintf("%.2f", float64(d.BudgetFen)/100.0)
 		writer.Write([]string{
-			d.ID, d.Title, bizLabel, d.District, budget,
-			statusLabel, d.PublisherName, d.CreatedAt.Format("2006-01-02 15:04"),
+			csvCell(d.ID), csvCell(d.Title), csvCell(bizLabel), csvCell(d.District), csvCell(budget),
+			csvCell(statusLabel), csvCell(d.PublisherName), csvCell(d.CreatedAt.Format("2006-01-02 15:04")),
 		})
 	}
 	writer.Flush()
@@ -102,8 +115,8 @@ func (s *Server) exportEnterprises(w http.ResponseWriter, r *http.Request) {
 			acct = "-"
 		}
 		writer.Write([]string{
-			e.ID, e.Name, acct, st, member,
-			e.CreatedAt.Format("2006-01-02 15:04"),
+			csvCell(e.ID), csvCell(e.Name), csvCell(acct), csvCell(st), csvCell(member),
+			csvCell(e.CreatedAt.Format("2006-01-02 15:04")),
 		})
 	}
 	writer.Flush()
