@@ -788,7 +788,7 @@ const goSearch = () => openSearch()
 const goMessages = () => safeNavigateTo('/pages/messages/index')
 const goFindProject = () => safeSwitchTab('/pages/demands/index')
 const goPublishDemand = () => safeNavigateTo('/pkg-demand/pages/demands/publish')
-const goDemandsList = () => safeNavigateTo('/pages/demands/list')
+const goDemandsList = () => safeSwitchTab('/pages/demands/index')
 const goDemandDetail = (d) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(d.id))
 // 企业无公开详情页（status 是"我的企业"），展示区卡片与"全部"统一进企业列表页
 const goEnterpriseList = () => safeNavigateTo('/pkg-eco/pages/enterprise/list')
