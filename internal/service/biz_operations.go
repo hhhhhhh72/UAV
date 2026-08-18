@@ -98,6 +98,9 @@ func NewEventService(repo repository.EventRepository) *EventService {
 }
 
 func (s *EventService) Create(ctx context.Context, title, eventType, description, location, coverURL string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
+	if !endTime.IsZero() && endTime.Before(startTime) {
+		return domain.AssociationEvent{}, errors.New("end time must not be earlier than start time")
+	}
 	now := time.Now()
 	e := domain.AssociationEvent{
 		ID:           nextID("event"),
@@ -126,6 +129,9 @@ func (s *EventService) Get(ctx context.Context, id string) (domain.AssociationEv
 }
 
 func (s *EventService) Update(ctx context.Context, id, title, eventType, description, location, coverURL, status string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
+	if !endTime.IsZero() && endTime.Before(startTime) {
+		return domain.AssociationEvent{}, errors.New("end time must not be earlier than start time")
+	}
 	ev, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.AssociationEvent{}, err
@@ -327,6 +333,9 @@ func (s *EmergencyService) FindDispatchByID(ctx context.Context, id string) (dom
 // Emergency Dispatches
 
 func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, eventDesc, location, commander, result string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
+	if !endTime.IsZero() && endTime.Before(startTime) {
+		return domain.EmergencyDispatch{}, errors.New("end time must not be earlier than start time")
+	}
 	now := time.Now()
 	if _, err := s.repo.FindResourceByID(ctx, resourceID); err != nil {
 		return domain.EmergencyDispatch{}, err
@@ -375,6 +384,9 @@ func (s *EmergencyService) DeleteDispatch(ctx context.Context, id string) error 
 }
 
 func (s *EmergencyService) UpdateDispatch(ctx context.Context, id, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
+	if !endTime.IsZero() && endTime.Before(startTime) {
+		return domain.EmergencyDispatch{}, errors.New("end time must not be earlier than start time")
+	}
 	d, err := s.repo.FindDispatchByID(ctx, id)
 	if err != nil {
 		return domain.EmergencyDispatch{}, err
