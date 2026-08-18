@@ -914,7 +914,7 @@ const onTabChange = (index) => {
 
 /* --- 结果跳转 --- */
 const goSearchDemand = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
-const goSearchEnterprise = (item) => safeNavigateTo('/pkg-eco/pages/enterprise/status?id=' + encodeURIComponent(item.id))
+const goSearchEnterprise = (item) => safeNavigateTo('/pkg-eco/pages/enterprise/detail?id=' + encodeURIComponent(item.id))
 
 /* --- 展示辅助 --- */
 function bizTypeLabel(type) {
