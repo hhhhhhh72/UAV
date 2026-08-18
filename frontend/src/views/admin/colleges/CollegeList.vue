@@ -70,7 +70,12 @@
             <a-option value="inactive">已终止合作</a-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="Logo 地址"><a-input v-model="form.logo_url" placeholder="院校 Logo 图片地址" style="width: 100%" /></a-form-item>
+        <a-form-item label="Logo">
+          <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadRequest" accept="image/*" :before-upload="beforeUpload">
+            <a-avatar v-if="form.logo_url" :image-url="form.logo_url" :size="80" shape="square" />
+            <a-button v-else type="outline">点击上传</a-button>
+          </a-upload>
+        </a-form-item>
         <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" style="width: 100%" /></a-form-item>
         <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" style="width: 100%" /></a-form-item>
         <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
@@ -90,7 +95,36 @@ import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
+import axios, { getAuthHeader } from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
+
+const uploadUrl = '/api/v1/upload'
+
+const beforeUpload = (item) => {
+  const file = item?.file || item
+  const isImage = !!file.type && file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) { Message.error('只能上传图片文件'); return false }
+  if (!isLt5M) { Message.error('图片不能超过 5MB'); return false }
+  return true
+}
+
+// Logo 上传：动态读取最新 accessToken
+const uploadRequest = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    form.logo_url = url
+    Message.success('上传成功')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  }
+}
 
 const crudRef = ref()
 const api = useAdminApi('colleges')

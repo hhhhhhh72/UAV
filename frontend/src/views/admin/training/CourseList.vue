@@ -58,6 +58,12 @@
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课程' : '新增课程'" :width="560" @cancel="formVisible = false">
       <a-form :model="form" layout="vertical">
         <a-form-item label="课程名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="封面图">
+          <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadRequest" accept="image/*" :before-upload="beforeUpload">
+            <a-avatar v-if="form.image" :image-url="form.image" :size="80" shape="square" />
+            <a-button v-else type="outline">点击上传</a-button>
+          </a-upload>
+        </a-form-item>
         <a-form-item label="证书类型">
           <a-select v-model="form.cert_type" style="width: 100%">
             <a-option value="caac">CAAC 执照</a-option>
@@ -102,7 +108,36 @@ import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
+import axios, { getAuthHeader } from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
+
+const uploadUrl = '/api/v1/upload'
+
+const beforeUpload = (item) => {
+  const file = item?.file || item
+  const isImage = !!file.type && file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) { Message.error('只能上传图片文件'); return false }
+  if (!isLt5M) { Message.error('图片不能超过 5MB'); return false }
+  return true
+}
+
+// 封面图上传：动态读取最新 accessToken（避免 token 轮转后仍用旧值）
+const uploadRequest = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    form.image = url
+    Message.success('上传成功')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  }
+}
 
 const crudRef = ref()
 const api = useAdminApi('training-courses')
@@ -150,9 +185,9 @@ const showDetail = (d) => { currentItem.value = d; detailVisible.value = true }
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '', end_date: '', status: 'draft', description: '' })
+const form = reactive({ id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '', end_date: '', status: 'draft', description: '', image: '' })
 
-const resetForm = () => Object.assign(form, { id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '', end_date: '', status: 'draft', description: '' })
+const resetForm = () => Object.assign(form, { id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '', end_date: '', status: 'draft', description: '', image: '' })
 
 const openForm = (row) => {
   resetForm()
