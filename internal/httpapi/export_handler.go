@@ -13,10 +13,11 @@ import (
 )
 
 // GET /api/v1/admin/export — exports demands as CSV (browser-compatible).
+// 全量数据导出（含联系电话），仅平台管理员可操作。
 func (s *Server) exportDemands(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
-		fail(w, r, http.StatusForbidden, fmt.Errorf("admin permission required"))
+	if !ok || a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, fmt.Errorf("platform admin permission required"))
 		return
 	}
 
@@ -61,10 +62,11 @@ func (s *Server) exportDemands(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/v1/admin/enterprises/export — exports enterprises as CSV.
+// 全量数据导出，仅平台管理员可操作。
 func (s *Server) exportEnterprises(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
-		fail(w, r, http.StatusForbidden, fmt.Errorf("admin permission required"))
+	if !ok || a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, fmt.Errorf("platform admin permission required"))
 		return
 	}
 
@@ -108,10 +110,11 @@ func (s *Server) exportEnterprises(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/v1/admin/demands/batch-approve — batch approve demands.
+// 批量审批全平台需求，仅平台管理员可操作。
 func (s *Server) batchApproveDemands(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
-		fail(w, r, http.StatusForbidden, fmt.Errorf("admin permission required"))
+	if !ok || a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, fmt.Errorf("platform admin permission required"))
 		return
 	}
 	var req struct {

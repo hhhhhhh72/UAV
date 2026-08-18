@@ -121,10 +121,10 @@ func (s *Server) h5GetServicesConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) h5SaveServicesConfig(w http.ResponseWriter, r *http.Request) {
-	// 覆盖全局配置的写接口：仅平台管理员/协会管理员可保存
+	// 覆盖全局配置的写接口（含同步平台 banner/公告）：仅平台管理员可保存
 	a, ok := authenticatedActor(r)
-	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+	if !ok || a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("platform admin permission required"))
 		return
 	}
 	var body struct {

@@ -9,10 +9,11 @@ import (
 )
 
 // GET /api/v1/admin/config
+// 平台级配置（banner/服务配置等影响全体用户），仅平台管理员可读写。
 func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+	if !ok || a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("platform admin permission required"))
 		return
 	}
 	respond(w, r, http.StatusOK, config.GetPlatformConfig())
@@ -21,8 +22,8 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/admin/config
 func (s *Server) updateConfig(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+	if !ok || a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("platform admin permission required"))
 		return
 	}
 	var cfg config.PlatformConfig
