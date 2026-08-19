@@ -140,8 +140,8 @@ const goBack = () => uni.navigateBack()
 const form = ref({ real_name: '', id_card: '', flight_hours: '', bio: '', avatar: '', region: '' })
 const submitting = ref(false)
 
-// 所在地区（重庆区县，与研学列表一致）
-const chongqingDistricts = ['渝中区', '江北区', '南岸区', '渝北区', '两江新区', '巴南区', '北碚区', '九龙坡区']
+// 所在地区（重庆 38 个区县，与研学/培训列表一致）
+const chongqingDistricts = ['渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区', '南岸区', '北碚区', '渝北区', '巴南区', '两江新区', '长寿区', '江津区', '合川区', '永川区', '南川区', '綦江区', '大足区', '璧山区', '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区', '武隆区', '万州区', '黔江区', '涪陵区', '奉节县', '云阳县', '忠县', '垫江县', '丰都县', '城口县', '巫山县', '巫溪县', '石柱县', '秀山县', '酉阳县', '彭水县']
 const onDistrictChange = (e) => { form.value.region = chongqingDistricts[Number(e.detail.value)] || '' }
 
 // 头像上传：uni.uploadFile → /api/v1/files/upload，保存为 /uploads/{file_id} 路径
