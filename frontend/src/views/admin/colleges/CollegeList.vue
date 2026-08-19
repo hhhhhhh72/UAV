@@ -13,6 +13,10 @@
       <template #name="{ record }">
         <span class="cell-title">{{ record.name || '-' }}</span>
       </template>
+      <template #logo="{ record }">
+        <a-avatar v-if="record.logo_url" :image-url="record.logo_url" :size="36" shape="square" alt="院校 Logo" />
+        <span v-else>-</span>
+      </template>
       <template #coopType="{ record }">
         <span>{{ coopTypeLabel[record.coop_type] || coopTypeLabel.both }}</span>
       </template>
@@ -96,7 +100,7 @@
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑院校' : '新增院校'" :width="'min(680px, 94vw)'" :before-close="beforeClose">
       <a-form :model="form" layout="vertical">
         <div class="form-group-title">基本信息</div>
-        <a-form-item label="院校名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="院校名称" required><a-input v-model="form.name" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="所在城市"><a-input v-model="form.city" placeholder="如：重庆" style="width: 100%" /></a-form-item>
@@ -126,15 +130,15 @@
         </a-row>
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="层次标签"><a-input v-model="form.level_tags" placeholder="学历层次，如：双一流 985 / 专科 示范校" style="width: 100%" /></a-form-item>
+            <a-form-item label="办学层次"><a-input v-model="form.level_tags" placeholder="办学层次，如：双一流 985 / 专科 示范校" style="width: 100%" /></a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="类型标签"><a-input v-model="form.tagsText" placeholder="院校类型，逗号分隔，如：本科,双一流" style="width: 100%" /></a-form-item>
+            <a-form-item label="院校类型"><a-input v-model="form.tagsText" placeholder="院校类型，逗号分隔，如：本科,综合类" style="width: 100%" /></a-form-item>
           </a-col>
         </a-row>
         <a-form-item label="Logo">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadRequest" accept="image/*" :before-upload="beforeUpload">
-            <a-avatar v-if="form.logo_url" :image-url="form.logo_url" :size="80" shape="square" />
+            <a-avatar v-if="form.logo_url" :image-url="form.logo_url" :size="80" shape="square" alt="Logo 预览" />
             <a-button v-else type="outline" :loading="uploadingLogo">点击上传</a-button>
           </a-upload>
         </a-form-item>
@@ -142,7 +146,7 @@
         <div class="form-group-title">图片</div>
         <a-form-item label="封面图">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadCover" accept="image/*" :before-upload="beforeUpload">
-            <a-avatar v-if="form.cover" :image-url="form.cover" :size="80" shape="square" />
+            <a-image v-if="form.cover" :src="form.cover" :width="140" :height="88" fit="cover" alt="封面预览" :preview-props="{ src: form.cover }" :style="{ borderRadius: '8px' }" />
             <a-button v-else type="outline" :loading="uploadingCover">点击上传</a-button>
           </a-upload>
           <div class="form-tip">小程序院校列表/详情页展示的封面全景图</div>
@@ -153,6 +157,7 @@
             list-type="picture-card"
             :limit="4"
             :custom-request="uploadPhoto"
+            :before-upload="beforeUpload"
             @change="onPhotoChange"
           />
           <div class="form-tip">最多 4 张，小程序详情页校园环境四格展示</div>
@@ -194,11 +199,11 @@
         <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
 
         <div class="form-group-title">专业与合作</div>
-        <a-form-item label="无人机专业">
+        <a-form-item label="无人机专业" :validate-status="majorsError ? 'error' : undefined" :help="majorsError">
           <a-textarea ref="majorsRef" v-model="form.majorsDetailText" :auto-size="{ minRows: 2, maxRows: 5 }" placeholder="每行一个专业，格式：名称|学历|年制|王牌，如：&#10;飞行器设计与工程|本科|4|1&#10;无人机系统工程|本科|4|0&#10;飞行器控制与信息工程|硕士|3|0" style="width: 100%" />
           <div class="form-tip">学历：本科/硕士/博士；王牌填 1 表示该专业为国家级特色专业</div>
         </a-form-item>
-        <a-form-item label="合作企业">
+        <a-form-item label="合作企业" :validate-status="partnersError ? 'error' : undefined" :help="partnersError">
           <a-textarea ref="partnersRef" v-model="form.partnersText" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="每行一个企业，格式：名称|类型，如：&#10;大疆创新|联合实验室&#10;中航工业|实习基地" style="width: 100%" />
         </a-form-item>
         <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" style="width: 100%" /></a-form-item>
@@ -285,6 +290,7 @@ const uploadPhoto = async ({ fileItem, onSuccess, onError }) => {
     const url = res?.data?.url || res?.url
     if (!url) throw new Error('上传失败')
     onSuccess && onSuccess(res)
+    Message.success('上传成功')
   } catch (e) {
     onError && onError(e)
     Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
@@ -333,6 +339,7 @@ const searchFields = [
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
+  { title: 'Logo', dataIndex: 'logo_url', slotName: 'logo', width: 80 },
   { title: '院校名称', dataIndex: 'name', slotName: 'name', minWidth: 200 },
   { title: '分域', dataIndex: 'coop_type', slotName: 'coopType', width: 100 },
   { title: '所在城市', dataIndex: 'city', slotName: 'city', width: 120 },
@@ -350,6 +357,8 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const majorsRef = ref()
 const partnersRef = ref()
+const majorsError = ref('')
+const partnersError = ref('')
 const coopTypeLabel = { research: '科研合作', talent: '人才培养', both: '综合' }
 const arrText = (v) => (Array.isArray(v) ? v.join('、') : (v || ''))
 const splitArr = (s) => String(s || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean)
@@ -433,17 +442,21 @@ const openForm = (row) => {
 }
 
 const submitForm = async () => {
+  majorsError.value = ''
+  partnersError.value = ''
   if (!form.name) { Message.warning('请输入院校名称'); return }
   // 专业/合作企业：逐行校验，坏行明确报错（一次报至多 3 条）并聚焦对应输入框
   const majorsParsed = parseMajorsDetail(form.majorsDetailText)
   if (majorsParsed.errors.length > 0) {
-    Message.error(majorsParsed.errors.slice(0, 3).join('；'))
+    majorsError.value = majorsParsed.errors.slice(0, 3).join('；')
+    Message.error(majorsError.value)
     majorsRef.value && majorsRef.value.focus && majorsRef.value.focus()
     return
   }
   const partnersParsed = parsePartners(form.partnersText)
   if (partnersParsed.errors.length > 0) {
-    Message.error(partnersParsed.errors.slice(0, 3).join('；'))
+    partnersError.value = partnersParsed.errors.slice(0, 3).join('；')
+    Message.error(partnersError.value)
     partnersRef.value && partnersRef.value.focus && partnersRef.value.focus()
     return
   }
