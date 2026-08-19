@@ -65,28 +65,101 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑院校' : '新增院校'" :width="560" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑院校' : '新增院校'" :width="680" @cancel="formVisible = false">
       <a-form :model="form" layout="vertical">
         <a-form-item label="院校名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
-        <a-form-item label="分域">
-          <a-select v-model="form.coop_type" style="width: 100%">
-            <a-option value="research">科研合作</a-option>
-            <a-option value="talent">人才培养</a-option>
-            <a-option value="both">综合</a-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="地区"><a-input v-model="form.region" style="width: 100%" /></a-form-item>
-        <a-form-item v-if="formEdit" label="合作状态" :extra="formEdit ? '' : '新建默认合作中，创建后可在编辑中调整'">
-          <a-select v-model="form.status" style="width: 100%">
-            <a-option value="active">合作中</a-option>
-            <a-option value="inactive">已终止合作</a-option>
-          </a-select>
-        </a-form-item>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="所在城市"><a-input v-model="form.city" placeholder="如：重庆" style="width: 100%" /></a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="院校简称"><a-input v-model="form.short_name" placeholder="如：渝职院" style="width: 100%" /></a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="分域">
+              <a-select v-model="form.coop_type" style="width: 100%">
+                <a-option value="research">科研合作</a-option>
+                <a-option value="talent">人才培养</a-option>
+                <a-option value="both">综合</a-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="合作状态">
+              <a-select v-model="form.status" style="width: 100%">
+                <a-option value="active">合作中</a-option>
+                <a-option value="inactive">已终止合作</a-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="层次标签"><a-input v-model="form.level_tags" placeholder="如：双一流 985 / 专科 示范校" style="width: 100%" /></a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="类型标签"><a-input v-model="form.tagsText" placeholder="逗号分隔，如：双一流,985" style="width: 100%" /></a-form-item>
+          </a-col>
+        </a-row>
         <a-form-item label="Logo">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadRequest" accept="image/*" :before-upload="beforeUpload">
             <a-avatar v-if="form.logo_url" :image-url="form.logo_url" :size="80" shape="square" />
             <a-button v-else type="outline">点击上传</a-button>
           </a-upload>
+        </a-form-item>
+        <a-form-item label="封面图">
+          <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadCover" accept="image/*" :before-upload="beforeUpload">
+            <a-avatar v-if="form.cover" :image-url="form.cover" :size="80" shape="square" />
+            <a-button v-else type="outline">点击上传</a-button>
+          </a-upload>
+          <div class="form-tip">小程序院校列表/详情页展示的封面全景图</div>
+        </a-form-item>
+        <a-form-item label="校园环境图">
+          <a-upload
+            :file-list="photoList"
+            list-type="picture-card"
+            :limit="4"
+            :custom-request="uploadPhoto"
+            @change="onPhotoChange"
+          />
+          <div class="form-tip">最多 4 张，小程序详情页校园环境四格展示</div>
+        </a-form-item>
+        <a-row :gutter="16">
+          <a-col :span="8">
+            <a-form-item label="无人机专业数"><a-input-number v-model="form.major_count" :min="0" hide-button style="width: 100%" /></a-form-item>
+          </a-col>
+          <a-col :span="8">
+            <a-form-item label="合作企业数"><a-input-number v-model="form.partner_count" :min="0" hide-button style="width: 100%" /></a-form-item>
+          </a-col>
+          <a-col :span="8">
+            <a-form-item label="在读学生"><a-input-number v-model="form.student_count" :min="0" hide-button style="width: 100%" /></a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="硕博导师数"><a-input-number v-model="form.teacher_count" :min="0" hide-button style="width: 100%" /></a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="就业率"><a-input v-model="form.graduate_rate" placeholder="如：98%" style="width: 100%" /></a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="联系电话"><a-input v-model="form.phone" placeholder="如：023-88886666" style="width: 100%" /></a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="官网地址"><a-input v-model="form.website" placeholder="如：https://www.cqxx.edu.cn" style="width: 100%" /></a-form-item>
+          </a-col>
+        </a-row>
+        <a-form-item label="院校介绍"><a-input v-model="form.intro" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="无人机专业">
+          <a-textarea v-model="form.majorsDetailText" :auto-size="{ minRows: 2, maxRows: 5 }" placeholder="每行一个专业，格式：名称|学历|年制|王牌，如：&#10;飞行器设计与工程|本科|4|1&#10;无人机系统工程|本科|4|0&#10;飞行器控制与信息工程|硕士|3|0" style="width: 100%" />
+          <div class="form-tip">学历：本科/硕士/博士；王牌填 1 表示该专业为国家级特色专业</div>
+        </a-form-item>
+        <a-form-item label="合作企业">
+          <a-textarea v-model="form.partnersText" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="每行一个企业，格式：名称|类型，如：&#10;大疆创新|联合实验室&#10;中航工业|实习基地" style="width: 100%" />
         </a-form-item>
         <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" style="width: 100%" /></a-form-item>
         <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" style="width: 100%" /></a-form-item>
@@ -138,6 +211,46 @@ const uploadRequest = async ({ fileItem, onSuccess, onError }) => {
   }
 }
 
+// 封面图上传
+const uploadCover = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    form.cover = url
+    Message.success('上传成功')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  }
+}
+
+// 校园环境图（多图，最多 4 张）
+const photoList = reactive([])
+const uploadPhoto = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  }
+}
+// a-upload 列表变化（新增/移除）时同步 form.photos
+// 注意：f.url 是 Arco 的本地 blob 预览地址，不能入库；真实地址在响应 data.url 里
+const onPhotoChange = (fileList) => {
+  photoList.length = 0
+  photoList.push(...fileList)
+  form.photos = (fileList || []).map((f) => f.response?.data?.url || f.response?.url || f.url).filter(Boolean)
+}
+
 const crudRef = ref()
 const api = useAdminApi('colleges')
 
@@ -186,18 +299,55 @@ const formLoading = ref(false)
 const coopTypeLabel = { research: '科研合作', talent: '人才培养', both: '综合' }
 const arrText = (v) => (Array.isArray(v) ? v.join('、') : (v || ''))
 const splitArr = (s) => String(s || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean)
-const form = reactive({ id: '', name: '', coop_type: 'both', region: '', logo_url: '', majorsText: '', facilitiesText: '', status: 'active', description: '' })
-const resetForm = () => Object.assign(form, { id: '', name: '', coop_type: 'both', region: '', logo_url: '', majorsText: '', facilitiesText: '', status: 'active', description: '' })
+// 专业对象数组 ↔ 文本（每行：名称|学历|年制|王牌）
+const majorsDetailText = (list) => (Array.isArray(list) ? list.map((m) => [m.name, m.degree || '本科', m.duration || 4, m.flagship ? 1 : 0].join('|')).join('\n') : '')
+const parseMajorsDetail = (s) => String(s || '').split('\n').map(l => l.trim()).filter(Boolean).map((line) => {
+  const p = line.split('|').map(x => x.trim())
+  return { name: p[0] || '', degree: p[1] || '本科', duration: Number(p[2]) || 4, flagship: p[3] === '1', key: p[3] === '1' ? '国家级特色专业' : '' }
+}).filter((m) => m.name)
+// 合作企业对象数组 ↔ 文本（每行：名称|类型）
+const partnersText = (list) => (Array.isArray(list) ? list.map((p) => [p.name, p.type || '合作单位'].join('|')).join('\n') : '')
+const parsePartners = (s) => String(s || '').split('\n').map(l => l.trim()).filter(Boolean).map((line) => {
+  const p = line.split('|').map(x => x.trim())
+  return { icon: (p[0] || '企').slice(0, 1), name: p[0] || '', type: p[1] || '合作单位' }
+}).filter((p) => p.name)
+
+const form = reactive({
+  id: '', name: '', city: '', short_name: '', coop_type: 'both', status: 'active',
+  level_tags: '', tagsText: '', logo_url: '', cover: '', photos: [],
+  major_count: null, partner_count: null, teacher_count: null, student_count: null, graduate_rate: '',
+  phone: '', website: '', intro: '', majorsDetailText: '', partnersText: '',
+  majorsText: '', facilitiesText: '', region: '', description: '',
+})
+const resetForm = () => {
+  photoList.length = 0
+  Object.assign(form, {
+    id: '', name: '', city: '', short_name: '', coop_type: 'both', status: 'active',
+    level_tags: '', tagsText: '', logo_url: '', cover: '', photos: [],
+    major_count: null, partner_count: null, teacher_count: null, student_count: null, graduate_rate: '',
+    phone: '', website: '', intro: '', majorsDetailText: '', partnersText: '',
+    majorsText: '', facilitiesText: '', region: '', description: '',
+  })
+}
 
 const openForm = (row) => {
   resetForm()
   if (row) {
     formEdit.value = true
     Object.assign(form, {
-      id: row.id, name: row.name || '', coop_type: row.coop_type || 'both', region: row.region || '',
-      logo_url: row.logo_url || '', majorsText: arrText(row.majors), facilitiesText: arrText(row.facilities),
-      status: row.status || 'active', description: row.description || ''
+      id: row.id, name: row.name || '', city: row.city || '', short_name: row.short_name || '',
+      coop_type: row.coop_type || 'both', status: row.status || 'active',
+      level_tags: row.level_tags || '', tagsText: arrText(row.tags),
+      logo_url: row.logo_url || '', cover: row.cover || '', photos: row.photos || [],
+      major_count: row.major_count ?? null, partner_count: row.partner_count ?? null,
+      teacher_count: row.teacher_count ?? null, student_count: row.student_count ?? null,
+      graduate_rate: row.graduate_rate || '',
+      phone: row.phone || '', website: row.website || '', intro: row.intro || '',
+      majorsDetailText: majorsDetailText(row.majors_detail), partnersText: partnersText(row.partners),
+      majorsText: arrText(row.majors), facilitiesText: arrText(row.facilities),
+      region: row.region || '', description: row.description || '',
     })
+    ;(row.photos || []).forEach((u) => photoList.push({ name: u.split('/').pop(), url: u }))
   } else {
     formEdit.value = false
   }
@@ -211,7 +361,15 @@ const submitForm = async () => {
     const p = {
       id: form.id, name: form.name, coop_type: form.coop_type, region: form.region,
       logo_url: form.logo_url, status: form.status, description: form.description,
-      majors: splitArr(form.majorsText), facilities: splitArr(form.facilitiesText)
+      majors: splitArr(form.majorsText), facilities: splitArr(form.facilitiesText),
+      // 小程序院校页对齐字段
+      city: form.city, short_name: form.short_name, level_tags: form.level_tags,
+      tags: splitArr(form.tagsText), cover: form.cover, photos: form.photos || [],
+      major_count: Number(form.major_count) || 0, partner_count: Number(form.partner_count) || 0,
+      teacher_count: Number(form.teacher_count) || 0, student_count: Number(form.student_count) || 0,
+      graduate_rate: form.graduate_rate, phone: form.phone, website: form.website,
+      intro: form.intro, majors_detail: parseMajorsDetail(form.majorsDetailText),
+      partners: parsePartners(form.partnersText),
     }
     if (formEdit.value) {
       await api.update(form.id, p)
@@ -255,5 +413,12 @@ const handleDelete = (row) => {
   white-space: nowrap;
   display: block;
   max-width: 300px;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: var(--color-text-3);
+  line-height: 1.5;
+  margin-top: 4px;
 }
 </style>
