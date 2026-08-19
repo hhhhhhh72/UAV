@@ -141,6 +141,7 @@
             <a-avatar v-if="form.logo_url" :image-url="form.logo_url" :size="80" shape="square" alt="Logo 预览" />
             <a-button v-else type="outline" :loading="uploadingLogo">点击上传</a-button>
           </a-upload>
+          <span v-if="uploadingLogo" class="upload-status">上传中…</span>
         </a-form-item>
 
         <div class="form-group-title">图片</div>
@@ -149,6 +150,7 @@
             <a-image v-if="form.cover" :src="form.cover" :width="140" :height="88" fit="cover" alt="封面预览" :preview-props="{ src: form.cover }" :style="{ borderRadius: '8px' }" />
             <a-button v-else type="outline" :loading="uploadingCover">点击上传</a-button>
           </a-upload>
+          <span v-if="uploadingCover" class="upload-status">上传中…</span>
           <div class="form-tip">小程序院校列表/详情页展示的封面全景图</div>
         </a-form-item>
         <a-form-item label="校园环境图">
@@ -175,14 +177,7 @@
             <a-form-item label="在读学生"><a-input-number v-model="form.student_count" :min="0" :max="999999" hide-button style="width: 100%" /></a-form-item>
           </a-col>
         </a-row>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="硕博导师数"><a-input-number v-model="form.teacher_count" :min="0" :max="999999" hide-button style="width: 100%" /></a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="就业率"><a-input v-model="form.graduate_rate" placeholder="如：98%" style="width: 100%" /></a-form-item>
-          </a-col>
-        </a-row>
+        <a-form-item label="硕博导师数"><a-input-number v-model="form.teacher_count" :min="0" :max="999999" hide-button style="width: 100%" /></a-form-item>
 
         <div class="form-group-title">联系方式</div>
         <a-row :gutter="16">
@@ -196,8 +191,12 @@
         <a-form-item label="就业率"><a-input ref="rateRef" v-model="form.graduate_rate" placeholder="如：98%" :maxlength="10" style="width: 100%" /></a-form-item>
 
         <div class="form-group-title">院校介绍</div>
-        <a-form-item label="院校介绍"><a-input v-model="form.intro" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" :maxlength="500" style="width: 100%" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" :maxlength="500" style="width: 100%" /></a-form-item>
+        <a-form-item label="院校介绍"><a-input v-model="form.intro" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" :maxlength="500" style="width: 100%" />
+          <div class="form-tip">小程序院校详情页主展示文案</div>
+        </a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" :maxlength="500" style="width: 100%" />
+          <div class="form-tip">备用描述，仅当院校介绍为空时展示</div>
+        </a-form-item>
 
         <div class="form-group-title">专业与合作</div>
         <a-form-item label="无人机专业" :validate-status="majorsError ? 'error' : undefined" :help="majorsError">
@@ -207,8 +206,10 @@
         <a-form-item label="合作企业" :validate-status="partnersError ? 'error' : undefined" :help="partnersError">
           <a-textarea ref="partnersRef" v-model="form.partnersText" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="每行一个企业，格式：名称|类型，如：&#10;大疆创新|联合实验室&#10;中航工业|实习基地" style="width: 100%" />
         </a-form-item>
-        <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" style="width: 100%" /></a-form-item>
-        <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" style="width: 100%" /></a-form-item>
+        <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" :maxlength="200" style="width: 100%" />
+          <div class="form-tip">列表页特色专业展示；与上方结构化"无人机专业"二选一即可</div>
+        </a-form-item>
+        <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" :maxlength="200" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
@@ -220,6 +221,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
@@ -543,6 +545,27 @@ const guardClose = () => {
 // 底部取消按钮：走守卫，确认无改动/放弃修改后才真正关闭
 const handleCancel = () => { if (guardClose()) formVisible.value = false }
 
+// 路由级守卫：弹窗打开且有改动时，侧边栏切走也拦截（弹窗守卫不覆盖此路径）
+const router = useRouter()
+let pendingLeave = null
+onBeforeRouteLeave((to) => {
+  if (formVisible.value && JSON.stringify(form) !== formSnapshot) {
+    pendingLeave = to
+    Modal.confirm({
+      title: '放弃修改',
+      content: '表单有未保存的修改，确定离开吗？',
+      okText: '放弃修改',
+      cancelText: '继续编辑',
+      onOk: () => {
+        formVisible.value = false
+        pendingLeave && router.push(pendingLeave.fullPath)
+      },
+    })
+    return false
+  }
+  return true
+})
+
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除院校',
@@ -576,6 +599,14 @@ const handleDelete = (row) => {
   color: var(--color-text-2);
   line-height: 1.5;
   margin-top: 4px;
+}
+
+/* 上传中状态（编辑态重传时按钮不可见，用文字提示） */
+.upload-status {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--color-text-2);
+  margin-left: 10px;
 }
 
 /* 表单分区：组间宽松留白 + 细分隔线，组内保持 Arco 默认紧凑节奏 */
