@@ -16,6 +16,9 @@
       <template #coopType="{ record }">
         <span>{{ coopTypeLabel[record.coop_type] || coopTypeLabel.both }}</span>
       </template>
+      <template #city="{ record }">
+        <span>{{ record.city || record.region || '-' }}</span>
+      </template>
       <template #majors="{ record }">
         <span>{{ arrText(record.majors) }}</span>
       </template>
@@ -123,10 +126,10 @@
         </a-row>
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="层次标签"><a-input v-model="form.level_tags" placeholder="如：双一流 985 / 专科 示范校" style="width: 100%" /></a-form-item>
+            <a-form-item label="层次标签"><a-input v-model="form.level_tags" placeholder="学历层次，如：双一流 985 / 专科 示范校" style="width: 100%" /></a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="类型标签"><a-input v-model="form.tagsText" placeholder="逗号分隔，如：双一流,985" style="width: 100%" /></a-form-item>
+            <a-form-item label="类型标签"><a-input v-model="form.tagsText" placeholder="院校类型，逗号分隔，如：本科,双一流" style="width: 100%" /></a-form-item>
           </a-col>
         </a-row>
         <a-form-item label="Logo">
@@ -203,7 +206,7 @@
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -321,7 +324,7 @@ const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
   { title: '院校名称', dataIndex: 'name', slotName: 'name', minWidth: 200 },
   { title: '分域', dataIndex: 'coop_type', slotName: 'coopType', width: 100 },
-  { title: '地区', dataIndex: 'region', width: 120 },
+  { title: '所在城市', dataIndex: 'city', slotName: 'city', width: 120 },
   { title: '特色专业', dataIndex: 'majors', slotName: 'majors', minWidth: 160 },
   { title: '合作状态', dataIndex: 'status', slotName: 'status', width: 100 },
   { title: '操作', slotName: 'actions', width: 200, fixed: 'right' }
@@ -475,7 +478,7 @@ const beforeClose = () => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除院校',
-    content: '确定删除该院校吗？删除后不可恢复',
+    content: `确定删除院校「${row.name || row.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
