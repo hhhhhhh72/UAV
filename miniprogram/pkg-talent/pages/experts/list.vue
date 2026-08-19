@@ -1,84 +1,88 @@
 <template>
-  <view class="expert-list-page">
-    <u-nav-bar
-      title="专家智库"
-      show-back
-      @back="goBack"
-    />
+  <view class="page" :class="{ 'no-motion': noMotion }" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
+    <u-nav-bar title="专家智库" show-back :fixed="true" @back="goBack" />
 
-    <!-- Search bar -->
-    <u-search
-      v-model="searchText"
-      placeholder="搜索专家姓名或领域"
-      @search="onSearch"
-    />
+    <!-- ① 白底头部：搜索 + 筛选 -->
+    <view class="head-zone">
+      <!-- 搜索框（白上白：双层投影浮起） -->
+      <view class="sbar">
+        <view class="b-search">
+          <view class="b-search-ic"><view class="ic-ring" /><view class="ic-bar" /></view>
+          <input
+            class="b-sinp"
+            v-model="searchText"
+            placeholder="搜索专家姓名或领域"
+            placeholder-class="b-ph"
+            confirm-type="search"
+            @confirm="onSearch"
+          />
+          <text v-if="searchText" class="b-sclr" @tap="clearSearch">×</text>
+          <view class="b-sep" />
+          <text class="b-sbtn" @tap="onSearch">搜索</text>
+        </view>
+      </view>
 
-    <!-- Field filter tabs -->
-    <view class="filter-tabs">
+      <!-- 筛选胶囊：全部 / 低空管控 / 适航认证 / 无人机研发 / 应急救援 / 政策法规 / 投融资 -->
+      <scroll-view class="fscroll" scroll-x :show-scrollbar="false">
+        <view class="fbar">
+          <view
+            v-for="tab in fieldTabs"
+            :key="tab.value"
+            class="fpill"
+            :class="{ on: activeField === tab.value }"
+            hover-class="fpill-press"
+            :hover-stay-time="100"
+            @tap="switchField(tab.value)"
+          >
+            <text class="fpv">{{ tab.label }}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- ② 信息行 -->
+    <view class="ir">
+      <text>共 <text class="irn">{{ list.length }}</text> 位专家</text>
+      <text class="ir-hint">{{ activeField || '全部领域' }}</text>
+    </view>
+
+    <!-- ③ 骨架屏：首次加载 -->
+    <view v-if="loading && list.length === 0" class="skl">
+      <view v-for="i in 3" :key="'sk' + i" class="skc">
+        <view class="sk-row"><view class="sk-tag"></view><view class="sk-l w60"></view></view>
+        <view class="sk-bd">
+          <view class="sk-l w80"></view>
+          <view class="sk-l w40"></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ④ 空 / 错误 -->
+    <view v-else-if="!loading && list.length === 0" class="st">
+      <u-empty :description="errorMsg || '暂无专家信息'">
+        <view v-if="errorMsg" class="stb" @tap="fetchList(true)">重新加载</view>
+      </u-empty>
+    </view>
+
+    <!-- ⑤ 专家列表 -->
+    <view v-else class="cl">
       <view
-        v-for="(tab, index) in fieldTabs"
-        :key="index"
-        class="filter-tab"
-        :class="{ active: activeField === tab.value }"
-        @tap="switchField(tab.value)"
+        v-for="item in list"
+        :key="item.id"
+        class="card"
+        hover-class="tap-scale"
+        :hover-stay-time="100"
+        @tap="goDetail(item)"
       >
-        {{ tab.label }}
+        <view class="cell-name">{{ item.name }}</view>
+        <view class="cell-meta">
+          <text v-for="(f, fi) in parseFields(item.field)" :key="fi" class="field-tag">{{ f }}</text>
+          <text v-if="item.org || item.organization" class="meta-text">{{ item.org || item.organization }}</text>
+        </view>
+        <view v-if="item.title" class="cell-title">{{ item.title }}</view>
       </view>
-    </view>
 
-    <!-- Loading state -->
-    <view v-if="loading && list.length === 0" class="loading-state">
-      <view class="loading-inline">
-        <u-loading size="28rpx" />
-        <text>加载中...</text>
-      </view>
-    </view>
-
-    <!-- Empty state -->
-    <view v-else-if="!loading && list.length === 0 && !errorMsg" class="empty-state-wrapper">
-      <u-empty description="暂无专家信息" />
-    </view>
-
-    <!-- Error state -->
-    <view v-else-if="errorMsg && list.length === 0" class="error-state">
-      <u-empty description="加载失败" />
-      <view class="retry-btn" @tap="fetchList(true)">
-        <text>重新加载</text>
-      </view>
-    </view>
-
-    <!-- Normal state -->
-    <view v-else class="list-body">
-      <u-cell-group inset>
-        <u-cell
-          v-for="item in list"
-          :key="item.id"
-          is-link
-          @click="goDetail(item)"
-        >
-          <template #title>
-            <view class="cell-content">
-              <text class="cell-name">{{ item.name }}</text>
-              <view class="cell-meta">
-                <u-tag
-                  v-for="(f, fi) in parseFields(item.field)"
-                  :key="fi"
-                  type="primary"
-                  size="mini"
-                >
-                  {{ f }}
-                </u-tag>
-                <text v-if="item.org || item.organization" class="meta-text">{{ item.org || item.organization }}</text>
-              </view>
-            </view>
-          </template>
-          <template #value>
-            <text class="cell-value-text">{{ item.title || '' }}</text>
-          </template>
-        </u-cell>
-      </u-cell-group>
-
-      <!-- Load more -->
+      <!-- 加载更多 -->
       <view v-if="list.length > 0" class="load-more">
         <view v-if="loadingMore" class="loading-inline">
           <u-loading size="24rpx" />
@@ -96,6 +100,8 @@ import { request, getErrorMessage } from '../../../utils/request'
 export default {
   data() {
     return {
+      noMotion: false,
+      statusBarHeight: 20,
       searchText: '',
       activeField: '',
       loading: false,
@@ -117,6 +123,7 @@ export default {
     }
   },
   onLoad() {
+    this.checkMotion()
     this.fetchList(true)
   },
   onPullDownRefresh() {
@@ -130,6 +137,20 @@ export default {
     }
   },
   methods: {
+    // 减弱动效（无障碍）+ 状态栏高度
+    checkMotion() {
+      try {
+        const sys = uni.getSystemInfoSync()
+        if (sys && sys.statusBarHeight) this.statusBarHeight = sys.statusBarHeight
+        if (sys && sys.reduceMotion) this.noMotion = true
+      } catch (e) {}
+      try {
+        if (typeof uni.onAccessibilityInfoChange === 'function') {
+          uni.onAccessibilityInfoChange((res) => { this.noMotion = !!(res && res.reduceMotion) })
+        }
+      } catch (e) {}
+    },
+
     async fetchList(reset) {
       if (reset) {
         this.page = 1
@@ -172,7 +193,12 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
+    clearSearch() {
+      this.searchText = ''
+      this.fetchList(true)
+    },
     switchField(value) {
+      if (this.activeField === value) return
       this.activeField = value
       this.fetchList(true)
     },
@@ -195,122 +221,154 @@ export default {
 </script>
 
 <style scoped>
-.expert-list-page {
+.page {
   min-height: 100vh;
-  background: var(--color-bg);
+  background: #fff;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Filter tabs */
-.filter-tabs {
-  display: flex;
-  padding: 10px 12px;
-  gap: 8px;
+/* ===== 白底头部 ===== */
+.head-zone { background: #fff; }
+
+/* ===== 搜索框：白上白——纯白填充 + 灰描边 + 双层投影 ===== */
+.sbar { padding: 12px 12px 8px; background: #fff; }
+.b-search {
+  height: 44px;
+  padding: 0 11px;
+  border: 1px solid #E4E7EC;
+  border-radius: 7px;
   background: #fff;
-  overflow-x: auto;
-  white-space: nowrap;
-  -webkit-overflow-scrolling: touch;
-}
-
-.filter-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.filter-tab {
-  flex-shrink: 0;
-  padding: 6px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  background: var(--color-bg);
-  transition: all 0.2s;
-}
-
-.filter-tab.active {
-  color: #fff;
-  background: var(--color-primary);
-}
-
-/* State views */
-.loading-state {
-  display: flex;
-  justify-content: center;
-  padding: 80px 0;
-}
-
-.loading-inline {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
+  gap: 7px;
+  box-sizing: border-box;
 }
+.b-search-ic { position: relative; width: 15px; height: 15px; flex: none; }
+.ic-ring {
+  width: 9px; height: 9px;
+  border: 1.5px solid #98A2B3;
+  border-radius: 50%;
+  position: absolute; top: 0; left: 0;
+}
+.ic-bar {
+  position: absolute; right: 0; bottom: 1px;
+  width: 5px; height: 1.5px;
+  background: #98A2B3;
+  transform: rotate(45deg);
+}
+.b-sinp { flex: 1; min-width: 0; background: transparent; font-size: 13px; color: #17212B; }
+.b-ph { color: #667085; }
+.b-sclr { color: #667085; font-size: 15px; padding: 10px; margin: -10px; }
+.b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
+.b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-.cell-content {
+/* ===== 筛选胶囊（横向滚动） ===== */
+.fscroll { width: 100%; }
+.fscroll ::-webkit-scrollbar { display: none; }
+.fbar { display: inline-flex; gap: 8px; padding: 10px 12px 4px; background: #fff; white-space: nowrap; }
+.fpill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #E4E7EC;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
+  color: #344054;
+  font-size: 12px;
+  overflow: hidden;
+  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+}
+.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
+.fpill-press { transform: scale(0.95); opacity: 0.85; }
+.fpv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== 信息行 ===== */
+.ir {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 14px 4px;
+  font-size: 12px;
+  color: #667085;
+  animation: fadeUp .25s ease-out backwards;
+  animation-delay: 60ms;
+}
+.irn { color: #0A66C2; font-weight: 600; }
+.ir-hint { font-size: 12px; color: #98A2B3; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===== 骨架屏 ===== */
+.skl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px; }
+.skc {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  width: 100%;
+  gap: 10px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
 }
+.sk-row { display: flex; align-items: center; gap: 8px; }
+.sk-tag { width: 56px; height: 18px; border-radius: 4px; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-bd { display: flex; flex-direction: column; gap: 8px; }
+.sk-l { height: 12px; background: #EDF0F3; border-radius: 4px; animation: skPulse 1.4s linear infinite; }
+.sk-l.w40 { width: 40%; }
+.sk-l.w60 { width: 60%; }
+.sk-l.w80 { width: 80%; }
+@keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
-.cell-name {
-  font-size: 15px;
+/* ===== 空 / 错误 ===== */
+.st { display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
+.stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
+
+/* ===== 专家卡片 ===== */
+.cl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  position: relative;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
+}
+.card:nth-child(-n+6) { animation: cardIn .22s ease-out backwards; }
+.card:nth-child(1) { animation-delay: 80ms; }
+.card:nth-child(2) { animation-delay: 100ms; }
+.card:nth-child(3) { animation-delay: 120ms; }
+.card:nth-child(4) { animation-delay: 140ms; }
+.card:nth-child(5) { animation-delay: 160ms; }
+.card:nth-child(6) { animation-delay: 180ms; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.tap-scale { transform: scale(0.97); opacity: 0.9; }
+
+.cell-name { font-size: 15px; font-weight: 600; color: #17212B; }
+.cell-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.field-tag {
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: #EAF3FB;
+  color: #0A66C2;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--color-text);
 }
+.meta-text { font-size: 12px; color: #667085; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-title { font-size: 12px; color: #98A2B3; }
 
-.empty-state-wrapper {
-  padding-top: 60px;
-}
+/* 加载更多 */
+.load-more { text-align: center; padding: 12px 0; }
+.loading-inline { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #667085; }
+.no-more { color: #98A2B3; font-size: 12px; }
 
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 120px;
-}
-
-.retry-btn {
-  margin-top: 12px;
-  padding: 8px 24px;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: 8px;
-  font-size: 14px;
-}
-
-/* List */
-.list-body {
-  padding: 12px 0 24px;
-}
-
-.cell-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-}
-
-.meta-text {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.cell-value-text {
-  font-size: 12px;
-  color: var(--color-text-placeholder);
-}
-
-/* Load more */
-.load-more {
-  text-align: center;
-  padding: 16px 0;
-}
-
-.no-more {
-  color: var(--color-text-placeholder);
-  font-size: 13px;
-}
+/* ===== 减弱动效（无障碍） ===== */
+.page.no-motion .card,
+.page.no-motion .ir { animation: none; }
+.page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
 </style>

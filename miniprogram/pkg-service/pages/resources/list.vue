@@ -1,5 +1,6 @@
 <template>
-  <view class="resource-page">
+  <view class="page" :class="{ 'no-motion': noMotion }">
+    <!-- ① 台账头卡（品牌渐变 + 实时统计） -->
     <view class="hero-card">
       <view class="hero-icon"><text class="hero-icon-text">资</text></view>
       <text class="hero-kicker">INDUSTRY ASSETS</text>
@@ -17,45 +18,78 @@
       </view>
     </view>
 
-    <view class="search-card">
-      <u-search
-        v-model="searchText"
-        placeholder="搜索资源名称、型号或位置"
-      />
+    <!-- ② 搜索框（白上白：双层投影浮起） -->
+    <view class="sbar">
+      <view class="b-search">
+        <view class="b-search-ic"><view class="ic-ring" /><view class="ic-bar" /></view>
+        <input
+          class="b-sinp"
+          v-model="searchText"
+          placeholder="搜索资源名称、型号或位置"
+          placeholder-class="b-ph"
+          confirm-type="search"
+          @confirm="onSearch"
+        />
+        <text v-if="searchText" class="b-sclr" @tap="clearSearch">×</text>
+        <view class="b-sep" />
+        <text class="b-sbtn" @tap="onSearch">搜索</text>
+      </view>
     </view>
 
-    <scroll-view class="filter-scroll" scroll-x :show-scrollbar="false">
-      <view class="filter-row">
+    <!-- ③ 筛选胶囊：全部 / 无人机 / 无人机机场 / 试飞场地 / 测试基地 -->
+    <scroll-view class="fscroll" scroll-x :show-scrollbar="false">
+      <view class="fbar">
         <view
           v-for="item in typeTabs"
           :key="item.value"
-          class="filter-item"
-          :class="{ active: activeType === item.value }"
+          class="fpill"
+          :class="{ on: activeType === item.value }"
+          hover-class="fpill-press"
+          :hover-stay-time="100"
           @tap="switchType(item.value)"
         >
-          {{ item.label }}
+          <text class="fpv">{{ item.label }}</text>
         </view>
       </view>
     </scroll-view>
 
-    <view v-if="loading && !list.length" class="state-panel">
-      <view class="loading-inline">
-        <u-loading size="26rpx" color="#0A66C2" />
-        <text>正在加载产业资源</text>
+    <!-- ④ 信息行 -->
+    <view class="ir">
+      <text>共 <text class="irn">{{ displayList.length }}</text> 项资源</text>
+      <text class="ir-hint">{{ activeType ? typeLabel(activeType) : '全部类别' }}</text>
+    </view>
+
+    <!-- ⑤ 骨架屏：首次加载 -->
+    <view v-if="loading && !list.length" class="skl">
+      <view v-for="i in 3" :key="'sk' + i" class="skc">
+        <view class="sk-row"><view class="sk-tag"></view><view class="sk-l w70"></view></view>
+        <view class="sk-bd">
+          <view class="sk-l w90"></view>
+          <view class="sk-l w50"></view>
+        </view>
       </view>
     </view>
 
-    <view v-else-if="errorMsg && !list.length" class="state-panel">
-      <u-empty description="产业资源加载失败" />
-      <button class="retry-btn" @tap="fetchList(true)">重新加载</button>
+    <!-- ⑥ 空 / 错误 -->
+    <view v-else-if="errorMsg && !list.length" class="st">
+      <u-empty :description="errorMsg">
+        <view class="stb" @tap="fetchList(true)">重新加载</view>
+      </u-empty>
     </view>
-
-    <view v-else-if="!displayList.length" class="state-panel compact">
+    <view v-else-if="!displayList.length" class="st">
       <u-empty description="暂无匹配的产业资源" />
     </view>
 
-    <view v-else class="resource-list">
-      <view v-for="item in displayList" :key="item.id" class="resource-card" @tap="goDetail(item)">
+    <!-- ⑦ 资源列表 -->
+    <view v-else class="cl">
+      <view
+        v-for="item in displayList"
+        :key="item.id"
+        class="card"
+        hover-class="tap-scale"
+        :hover-stay-time="100"
+        @tap="goDetail(item)"
+      >
         <view class="resource-icon">
           <text class="resource-icon-text">{{ resourceIcon(item.res_type) }}</text>
         </view>
@@ -68,15 +102,12 @@
           <text class="resource-model text-ellipsis">{{ item.model || item.specs || '型号信息暂未填写' }}</text>
           <view class="meta-row">
             <text class="price">{{ formatPrice(item.price_fen) }}</text>
-            <text class="location text-ellipsis">
-              <u-icon name="location" size="26rpx" color="var(--color-text-secondary)" />
-              {{ item.location || '位置待确认' }}
-            </text>
+            <text class="location text-ellipsis">{{ item.location || '位置待确认' }}</text>
           </view>
         </view>
-        <text class="card-arrow">›</text>
       </view>
 
+      <!-- 加载更多 -->
       <view class="load-more">
         <view v-if="loadingMore" class="loading-inline">
           <u-loading size="20rpx" color="#0A66C2" />
@@ -94,6 +125,7 @@ import { request } from '../../../utils/request'
 export default {
   data() {
     return {
+      noMotion: false,
       searchText: '',
       activeType: '',
       loading: true,
@@ -126,6 +158,7 @@ export default {
     },
   },
   onLoad() {
+    this.checkMotion()
     this.fetchList(true)
   },
   onPullDownRefresh() {
@@ -140,6 +173,19 @@ export default {
     }
   },
   methods: {
+    // 减弱动效（无障碍）
+    checkMotion() {
+      try {
+        const sys = uni.getSystemInfoSync()
+        if (sys && sys.reduceMotion) this.noMotion = true
+      } catch (e) {}
+      try {
+        if (typeof uni.onAccessibilityInfoChange === 'function') {
+          uni.onAccessibilityInfoChange((res) => { this.noMotion = !!(res && res.reduceMotion) })
+        }
+      } catch (e) {}
+    },
+
     async fetchList(reset) {
       if (reset) {
         this.page = 1
@@ -165,6 +211,13 @@ export default {
         this.loading = false
         this.loadingMore = false
       }
+    },
+    onSearch() {
+      // 搜索为前端过滤（displayList），无需请求；确认后收起输入
+      uni.hideKeyboard()
+    },
+    clearSearch() {
+      this.searchText = ''
     },
     switchType(value) {
       if (this.activeType === value) return
@@ -196,39 +249,40 @@ export default {
 </script>
 
 <style scoped>
-.resource-page {
+.page {
   min-height: 100vh;
   box-sizing: border-box;
-  padding: var(--space-md) var(--space-md) 60rpx;
-  background: var(--color-bg);
+  padding: 12px 12px 30px;
+  background: #fff;
 }
 
+/* ===== 台账头卡（品牌渐变 + 统计，有内容支撑） ===== */
 .hero-card {
   position: relative;
   overflow: hidden;
-  padding: 38rpx 36rpx 30rpx;
+  padding: 19px 18px 15px;
   color: #ffffff;
-  background: #071225;
-  border-radius: var(--radius-lg);
-  box-shadow: inset -180rpx -100rpx 140rpx rgba(10, 102, 194, 0.4), var(--shadow-lg);
+  background: linear-gradient(135deg, #0A66C2 0%, #074D92 100%);
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(7, 77, 146, 0.22);
 }
 
 .hero-icon {
   position: absolute;
-  top: 34rpx;
-  right: 34rpx;
-  width: 76rpx;
-  height: 76rpx;
+  top: 17px;
+  right: 17px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2rpx solid rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
 }
 
 .hero-icon-text {
-  font-size: 32rpx;
+  font-size: 16px;
   font-weight: 600;
   color: #ffffff;
 }
@@ -241,227 +295,198 @@ export default {
   display: block;
 }
 
-.hero-kicker {
-  color: #91adff;
-  font-size: var(--font-xs);
-}
-
-.hero-title {
-  margin-top: 8rpx;
-  font-size: var(--font-xxl);
-  font-weight: 700;
-}
-
-.hero-desc {
-  width: 76%;
-  margin-top: 10rpx;
-  color: #b8c4dc;
-  font-size: var(--font-sm);
-  line-height: 1.5;
-}
+.hero-kicker { color: rgba(255, 255, 255, 0.75); font-size: 11px; letter-spacing: 0.5px; }
+.hero-title { margin-top: 4px; font-size: 20px; font-weight: 700; }
+.hero-desc { width: 76%; margin-top: 5px; color: rgba(255, 255, 255, 0.85); font-size: 12px; line-height: 1.5; }
 
 .hero-stats {
   display: flex;
-  gap: 90rpx;
-  margin-top: 30rpx;
-  padding-top: 24rpx;
-  border-top: 2rpx solid rgba(255, 255, 255, 0.12);
+  gap: 45px;
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-.stat-value {
-  font-size: var(--font-xl);
-  font-weight: 700;
-}
+.stat-value { font-size: 18px; font-weight: 700; }
+.stat-label { margin-top: 2px; color: rgba(255, 255, 255, 0.7); font-size: 11px; }
 
-.stat-label {
-  margin-top: 4rpx;
-  color: #94a6c3;
-  font-size: var(--font-xs);
-}
-
-.search-card {
-  margin-top: var(--space-md);
-  overflow: hidden;
-  background: #ffffff;
-  border: 2rpx solid #e3e8ef;
-  border-radius: var(--radius-lg);
-}
-
-.filter-scroll {
-  width: 100%;
-  margin: 20rpx 0;
-  white-space: nowrap;
-}
-
-.filter-row {
-  display: inline-flex;
-  gap: 12rpx;
-  padding-right: 20rpx;
-}
-
-.filter-item {
-  flex-shrink: 0;
-  padding: 12rpx 26rpx;
-  color: var(--color-text-secondary);
-  font-size: var(--font-sm);
-  background: #ffffff;
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-
-.filter-item.active {
-  color: #ffffff;
-  font-weight: 600;
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-}
-
-.state-panel {
-  min-height: 50vh;
+/* ===== 搜索框：白上白 ===== */
+.sbar { padding: 12px 0 8px; background: #fff; }
+.b-search {
+  height: 44px;
+  padding: 0 11px;
+  border: 1px solid #E4E7EC;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  box-sizing: border-box;
+}
+.b-search-ic { position: relative; width: 15px; height: 15px; flex: none; }
+.ic-ring {
+  width: 9px; height: 9px;
+  border: 1.5px solid #98A2B3;
+  border-radius: 50%;
+  position: absolute; top: 0; left: 0;
+}
+.ic-bar {
+  position: absolute; right: 0; bottom: 1px;
+  width: 5px; height: 1.5px;
+  background: #98A2B3;
+  transform: rotate(45deg);
+}
+.b-sinp { flex: 1; min-width: 0; background: transparent; font-size: 13px; color: #17212B; }
+.b-ph { color: #667085; }
+.b-sclr { color: #667085; font-size: 15px; padding: 10px; margin: -10px; }
+.b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
+.b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
+
+/* ===== 筛选胶囊（横向滚动） ===== */
+.fscroll { width: 100%; margin: 4px 0; white-space: nowrap; }
+.fscroll ::-webkit-scrollbar { display: none; }
+.fbar { display: inline-flex; gap: 8px; padding-right: 12px; }
+.fpill {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #E4E7EC;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
+  color: #344054;
+  font-size: 12px;
+  overflow: hidden;
+  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
 }
+.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
+.fpill-press { transform: scale(0.95); opacity: 0.85; }
+.fpv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.state-panel.compact {
-  min-height: 38vh;
+/* ===== 信息行 ===== */
+.ir {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2px 4px;
+  font-size: 12px;
+  color: #667085;
+  animation: fadeUp .25s ease-out backwards;
+  animation-delay: 60ms;
 }
+.irn { color: #0A66C2; font-weight: 600; }
+.ir-hint { font-size: 12px; color: #98A2B3; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-.retry-btn {
-  min-width: 220rpx;
-  height: 76rpx;
-  margin: 8rpx 0 0;
-  color: #ffffff;
-  font-size: var(--font-sm);
-  line-height: 76rpx;
-  background: var(--color-primary);
-  border-radius: var(--radius-round);
-}
-
-.retry-btn::after {
-  border: 0;
-}
-
-.resource-list {
+/* ===== 骨架屏 ===== */
+.skl { display: flex; flex-direction: column; gap: 8px; }
+.skc {
   display: flex;
   flex-direction: column;
-  gap: 18rpx;
+  gap: 10px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
 }
+.sk-row { display: flex; align-items: center; gap: 8px; }
+.sk-tag { width: 32px; height: 32px; border-radius: 8px; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-bd { display: flex; flex-direction: column; gap: 8px; }
+.sk-l { height: 12px; background: #EDF0F3; border-radius: 4px; animation: skPulse 1.4s linear infinite; }
+.sk-l.w50 { width: 50%; }
+.sk-l.w70 { width: 70%; }
+.sk-l.w90 { width: 90%; }
+@keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
-.resource-card {
-  min-height: 164rpx;
+/* ===== 空 / 错误 ===== */
+.st { display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
+.stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
+
+/* ===== 资源卡片 ===== */
+.cl { display: flex; flex-direction: column; gap: 8px; }
+.card {
   display: flex;
-  align-items: center;
-  gap: 22rpx;
-  box-sizing: border-box;
-  padding: 26rpx 24rpx;
-  background: #ffffff;
-  border: 2rpx solid #e3e8ef;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  position: relative;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
 }
+.card:nth-child(-n+6) { animation: cardIn .22s ease-out backwards; }
+.card:nth-child(1) { animation-delay: 80ms; }
+.card:nth-child(2) { animation-delay: 100ms; }
+.card:nth-child(3) { animation-delay: 120ms; }
+.card:nth-child(4) { animation-delay: 140ms; }
+.card:nth-child(5) { animation-delay: 160ms; }
+.card:nth-child(6) { animation-delay: 180ms; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.tap-scale { transform: scale(0.97); opacity: 0.9; }
 
 .resource-icon {
-  width: 94rpx;
-  height: 94rpx;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #EAF3FB;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: var(--color-primary-light);
-  border-radius: var(--radius-md);
 }
+.resource-icon-text { font-size: 14px; font-weight: 700; color: #0A66C2; }
 
-.resource-icon-text {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.resource-main {
-  min-width: 0;
-  flex: 1;
-}
-
-.title-row,
-.meta-row {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.resource-name {
-  max-width: 70%;
-  color: var(--color-text);
-  font-size: var(--font-lg);
-  font-weight: 700;
-}
+.resource-main { flex: 1; min-width: 0; }
+.title-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.resource-name { font-size: 15px; font-weight: 600; color: #17212B; }
 
 .type-tag {
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: #EAF3FB;
+  color: #0A66C2;
+  font-size: 11px;
+  font-weight: 600;
   flex-shrink: 0;
-  padding: 4rpx 10rpx;
-  color: var(--color-primary);
-  font-size: var(--font-xs);
-  background: var(--color-primary-light);
-  border-radius: var(--radius-sm);
 }
 .status-tag {
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
   flex-shrink: 0;
-  padding: 4rpx 10rpx;
-  font-size: var(--font-xs);
-  border-radius: var(--radius-sm);
 }
-.status-tag.status-in_use { color: var(--color-warning); background: var(--color-warning-light, #FFF4E6); }
-.status-tag.status-maintenance { color: var(--color-text-secondary); background: var(--color-divider); }
+.status-in_use { background: #FFF4EC; color: #E96012; }
+.status-maintenance { background: #EEF1F4; color: #5D6B82; }
 
 .resource-model {
   display: block;
-  margin-top: 8rpx;
-  color: var(--color-text-secondary);
-  font-size: var(--font-sm);
+  margin-top: 4px;
+  font-size: 12px;
+  color: #667085;
+}
+.meta-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.price { font-size: 13px; font-weight: 700; color: #C2410C; }
+.location { font-size: 12px; color: #667085; }
+
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.meta-row {
-  margin-top: 12rpx;
-  justify-content: space-between;
-}
+/* 加载更多 */
+.load-more { text-align: center; padding: 12px 0; }
+.loading-inline { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #667085; }
+.no-more { color: #98A2B3; font-size: 12px; }
 
-.price {
-  flex-shrink: 0;
-  color: var(--color-primary);
-  font-size: var(--font-sm);
-  font-weight: 700;
-}
-
-.location {
-  min-width: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-xs);
-}
-
-.loading-inline {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  color: var(--color-text-secondary);
-  font-size: var(--font-xs);
-}
-
-.card-arrow {
-  font-size: 18px;
-  color: var(--color-text-placeholder);
-}
-
-.load-more {
-  min-height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.no-more {
-  color: var(--color-text-placeholder);
-  font-size: var(--font-xs);
-}
+/* ===== 减弱动效（无障碍） ===== */
+.page.no-motion .card,
+.page.no-motion .ir { animation: none; }
+.page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
 </style>
