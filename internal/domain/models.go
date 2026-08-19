@@ -239,6 +239,7 @@ type Demand struct {
 	OfflineAmountFen int64          `json:"offline_amount_fen"` // 线下成交金额（联系对接模式撮合价值度量）
 	BizFields        map[string]any `json:"biz_fields"`
 	Status           DemandStatus   `json:"status"`
+	IsMine           bool           `json:"is_mine,omitempty"` // 详情接口标记：当前请求者即发布者（前端据此禁用自登记）
 	Version          int            `json:"version"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`

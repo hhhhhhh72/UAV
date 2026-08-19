@@ -37,6 +37,10 @@ func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// 标记"我的需求"（请求者即发布者）——前端据此禁用自登记入口
+	if a, ok := authenticatedActor(r); ok && a.ID == d.PublisherID {
+		d.IsMine = true
+	}
 	// 公开完整联系方式（公告目的），隐藏发布者 ID 与坐标
 	d.PublisherID = ""
 	d.Latitude = 0

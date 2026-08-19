@@ -145,6 +145,9 @@
         <view v-if="isEndedItem" class="action-primary disabled">
           <text>该信息已结束</text>
         </view>
+        <view v-else-if="isMyDemand" class="action-primary disabled">
+          <text>这是您发布的需求</text>
+        </view>
         <view v-else-if="intented" class="action-primary disabled" @tap="onIntent">
           <text>已登记</text>
         </view>
@@ -440,6 +443,11 @@ const onIntent = async () => {
     openSheet('login')
     return
   }
+  // 自己发布的需求不可登记对接（本地记录/后端 is_mine 双路径拦截）
+  if (isMyDemand.value) {
+    uni.showToast({ title: '不能登记自己发布的需求', icon: 'none' })
+    return
+  }
   // 已登记过该需求（历史任意状态）→ 不再开放重复登记
   if (intented.value) {
     uni.showToast({ title: '已登记过该需求的对接意向', icon: 'none' })
@@ -451,6 +459,12 @@ const onIntent = async () => {
   }
   openSheet('intent')
 }
+
+// 是否自己发布的需求：后端 is_mine 标记（真实需求）或本地记录（post- 前缀，本地记录均为本人发布）
+const isMyDemand = computed(() => {
+  if (item.value && item.value.is_mine) return true
+  return !!(postId && (postId.indexOf('post-') === 0 || postId.indexOf('local-') === 0))
+})
 
 // 我的意向记录里该需求是否存在"待处理"意向——存在则隐藏登记入口；
 // 已关闭（含取消登记）/已洽谈的不阻塞再次登记，与后端防重复规则一致
@@ -529,6 +543,11 @@ const submitIntent = async () => {
   }
   if (!intentForm.value.agree) {
     uni.showToast({ title: '请确认信息授权', icon: 'none' })
+    return
+  }
+  // 兜底：自己发布的需求（本地记录）不可自登记，直接阻断不落本地
+  if (isMyDemand.value) {
+    uni.showToast({ title: '不能登记自己发布的需求', icon: 'none' })
     return
   }
   submitting.value = true
