@@ -1,55 +1,69 @@
 <template>
-  <view class="page">
-    <!-- ① 搜索栏（顶部直达，小程序胶囊标题） -->
-    <view class="search-container">
-      <view class="search-box">
-        <u-icon name="search" size="14px" color="#c8c9cc" />
-        <input
-          class="search-input"
-          v-model="keyword"
-          placeholder="搜索机构或课程名称"
-          confirm-type="search"
-          @confirm="onSearch"
-          @input="onSearchInput"
-        />
-        <view v-if="keyword" class="search-clear" @click="clearKeyword"><text class="search-clear-x">×</text></view>
+  <view class="page" :class="{ 'no-motion': noMotion }">
+    <!-- ① 搜索栏（吸顶，原生导航栏之下） -->
+    <view class="sticky-head">
+      <view class="search-container">
+        <view class="b-search">
+          <image class="b-search-ic" src="/static/home/icons/search.svg" mode="aspectFit" />
+          <input
+            class="search-input"
+            v-model="keyword"
+            placeholder="搜索机构或课程名称"
+            placeholder-class="b-ph"
+            confirm-type="search"
+            @confirm="onSearch"
+            @input="onSearchInput"
+          />
+          <view v-if="keyword" class="b-sclr" @click="clearKeyword"><text>×</text></view>
+          <view class="b-sep"></view>
+          <text class="b-sbtn" @tap="onSearch">搜索</text>
+        </view>
+      </view>
+
+      <!-- ② 位置筛选 + 证书类型（胶囊条一体） -->
+      <view class="fbar">
+        <picker
+          mode="selector"
+          :range="chongqingDistricts"
+          :value="districtIndex"
+          @change="onDistrictChange"
+          class="district-picker"
+        >
+          <view class="fpill">
+            <text class="fpv">{{ selectedDistrict || '全部区县' }}</text><text class="farr">▾</text>
+          </view>
+        </picker>
+        <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
+          <view class="filter-inner">
+            <view
+              v-for="pill in certPills"
+              :key="pill.value"
+              class="fpill"
+              :class="{ on: activeCertType === pill.value }"
+              @click="selectCertType(pill.value)"
+            >
+              <text class="fpv">{{ pill.label }}</text>
+            </view>
+          </view>
+        </scroll-view>
       </view>
     </view>
 
-    <!-- ② 位置筛选条（左右分栏 + 副信息） -->
-    <picker
-      mode="selector"
-      :range="chongqingDistricts"
-      :value="districtIndex"
-      @change="onDistrictChange"
-      class="district-picker"
-    >
-      <view class="district-bar">
-        <view class="district-left">
-          <u-icon name="location" size="13px" color="#0A66C2" />
-          <text class="district-city">重庆市</text>
-          <view class="district-divider" />
-          <text class="district-value" :class="{ placeholder: !selectedDistrict }">{{ selectedDistrict || '全部区县' }}</text>
-          <text class="district-arrow">▾</text>
-        </view>
-        <text class="district-count">{{ list.length }} 家机构</text>
+    <!-- Banner 渐变卡 -->
+    <view class="banner">
+      <view class="banner-icon">训</view>
+      <view class="banner-info">
+        <text class="banner-title">技能提升，认证护航</text>
+        <text class="banner-sub">CAAC / UTC 执照培训 · 权威机构授课</text>
       </view>
-    </picker>
-
-    <!-- ③ 证书类型筛选 Pills（胶囊） -->
-    <view class="filter-row">
-      <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
-        <view class="filter-inner">
-          <view
-            v-for="pill in certPills"
-            :key="pill.value"
-            class="filter-pill"
-            :class="{ on: activeCertType === pill.value }"
-            @click="selectCertType(pill.value)"
-          >{{ pill.label }}</view>
-        </view>
-      </scroll-view>
     </view>
+
+    <!-- 白色板块：信息行 + 列表 -->
+    <view class="section">
+      <view class="ir">
+        <text>共 <text class="irn">{{ list.length }}</text> 家机构</text>
+        <text class="ir-hint">{{ activeCertType ? certTypeLabel(activeCertType) : '全部类型' }}</text>
+      </view>
 
     <!-- ④ 机构列表（水平卡片） -->
     <!-- 骨架屏：首次加载时显示 3 条 shimmer 卡片 -->
@@ -166,14 +180,31 @@
         </view>
       </scroll-view>
     </StateView>
+    </view>
+
+    <!-- 回到顶部 -->
+    <view class="bt" :class="{ show: showBt }" aria-role="button" aria-label="回到顶部" @tap="scrollToTop"><text>↑</text></view>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { onLoad, onPageScroll, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { useReduceMotion } from '../../../utils/motion'
+
+// 减弱动效（无障碍）+ 回到顶部
+const { noMotion, checkMotion } = useReduceMotion()
+const showBt = ref(false)
+const scrollToTop = () => {
+  uni.pageScrollTo({ scrollTop: 0, duration: 200 })
+}
 import { request } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
+
+// 页面滚动：回到顶部按钮浮现
+onPageScroll((e) => {
+  showBt.value = (e?.scrollTop ?? 0) > 400
+})
 
 /* ===== 状态 ===== */
 const keyword = ref('')
@@ -390,6 +421,7 @@ function goEnroll(item) {
 
 /* ===== 生命周期 ===== */
 onLoad(() => {
+  checkMotion()
   fetchList(true)
 })
 
@@ -409,88 +441,185 @@ onReachBottom(() => {
   --anim-fast: 160ms;
   --anim-base: 240ms;
   --anim-slow: 320ms;
-  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   min-height: 100vh;
-  background: #f5f6f8;
+  background: #fff;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ================================================================= */
-/* ① 搜索栏                                                          */
+/* ① 吸顶头部：搜索 + 筛选胶囊                                        */
 /* ================================================================= */
-.search-container {
-  padding: 12px;
+.sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #fff;
+  padding-bottom: 4px;
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.04);
 }
 
-.search-box {
+.search-container {
+  padding: 12px 12px 0;
+}
+
+.b-search {
   display: flex;
   align-items: center;
   gap: 8px;
   background: #ffffff;
-  border: 1px solid #ebedf0;
-  border-radius: 999rpx;
-  padding: 10px 16px;
-  box-shadow: 0 2rpx 8rpx rgba(10, 31, 68, 0.04);
+  border: 1px solid #EDF0F4;
+  border-radius: 7px;
+  padding: 9px 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
 }
+
+.b-search-ic { width: 15px; height: 15px; flex-shrink: 0; }
+.b-ph { color: #98A2B3; }
 
 .search-input {
   flex: 1;
-  font-size: 12px;
+  font-size: 13px;
   color: #17212B;
-  height: 16px;
+  height: 18px;
 }
 
-.search-clear { padding: 2px 4px; }
-.search-clear-x { color: #c8c9cc; font-size: 14px; }
+.b-sclr { padding: 2px 4px; color: #98A2B3; font-size: 15px; }
+.b-sep { width: 1px; height: 14px; background: #E5E8EC; }
+.b-sbtn { font-size: 13px; color: #0A66C2; font-weight: 600; }
 
-/* ================================================================= */
-/* ② 位置筛选条                                                      */
-/* ================================================================= */
-.district-picker { display: block; margin: 0 12px 10px; }
+/* 筛选胶囊条 */
+.fbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 6px;
+}
+.district-picker { display: block; flex-shrink: 0; }
+.filter-scroll { flex: 1; min-width: 0; }
+.filter-inner { display: flex; gap: 8px; padding-right: 4px; }
 
-.district-bar {
+.fpill {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999rpx;
+  background: #fff;
+  border: 1px solid #E5E8EC;
+  font-size: 13px;
+  color: #344054;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+}
+.fpill.on {
+  border-color: #0A66C2;
+  color: #0A66C2;
+  font-weight: 600;
+  background: #F4F8FC;
+}
+.fpill:active { transform: scale(0.95); opacity: 0.85; }
+.fpv { line-height: 1; }
+.farr { font-size: 10px; color: #98A2B3; }
+
+/* Banner 渐变卡 */
+.banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 12px 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0A66C2, #074D92);
+  box-shadow: 0 6px 18px rgba(7, 77, 146, 0.22);
+  overflow: hidden;
+  animation: bannerIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards;
+}
+.banner::after {
+  content: '';
+  position: absolute;
+  top: -30px;
+  right: -20px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+.banner-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: fadeUp 0.25s ease-out backwards;
+}
+.banner-info { display: flex; flex-direction: column; gap: 3px; position: relative; z-index: 1; }
+.banner-title { font-size: 16px; font-weight: 700; color: #fff; animation: fadeUp 0.25s ease-out 80ms backwards; }
+.banner-sub { font-size: 12px; color: rgba(255, 255, 255, 0.85); animation: fadeUp 0.25s ease-out 140ms backwards; }
+
+/* 白色板块：信息行 */
+.section { padding: 12px 12px 0; }
+.ir {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #ffffff;
-  border: 1px solid #ebedf0;
-  border-radius: 12rpx;
+  background: #fff;
+  border-radius: 8px;
   padding: 10px 14px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #344054;
+  box-shadow: 0 8px 28px rgba(16, 24, 40, 0.12);
+  animation: fadeUp 0.25s ease-out backwards;
 }
+.irn { color: #0A66C2; font-weight: 700; }
+.ir-hint { font-size: 12px; color: #98A2B3; }
 
-.district-left { display: flex; align-items: center; gap: 6px; }
-.district-city { font-size: 12px; font-weight: 500; color: #17212B; }
-.district-divider { width: 1px; height: 14px; background: #ebedf0; margin: 0 4rpx; }
-.district-value { font-size: 12px; color: #0A66C2; font-weight: 500; }
-.district-value.placeholder { color: #c8c9cc; font-weight: 400; }
-.district-arrow { font-size: 10px; color: #c8c9cc; }
-.district-count { font-size: 11px; color: #98A2B3; }
-
-/* ================================================================= */
-/* ③ 证书类型筛选 Pills                                               */
-/* ================================================================= */
-.filter-row { padding: 0 12px 10px; }
-
-.filter-scroll { white-space: nowrap; width: 100%; }
-.filter-inner { display: inline-flex; gap: 8px; }
-
-.filter-pill {
-  padding: 6px 16px;
-  border-radius: 999rpx;
-  border: 1px solid #ebedf0;
-  background: #ffffff;
-  color: #969799;
-  font-size: 12px;
-  flex-shrink: 0;
-  transition: background-color var(--anim-fast) ease, color var(--anim-fast) ease, border-color var(--anim-fast) ease;
+/* 回到顶部 */
+.bt {
+  position: fixed;
+  right: 16px;
+  bottom: 60px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #344054;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 30;
 }
+.bt.show { opacity: 1; pointer-events: auto; }
+.bt:active { transform: scale(0.92); }
 
-.filter-pill.on {
-  border-color: #0A66C2;
-  background: #0A66C2;
-  color: #ffffff;
-  font-weight: 500;
-}
+/* 动效 */
+@keyframes bannerIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* no-motion：装饰动画关闭 */
+.page.no-motion .banner,
+.page.no-motion .banner-icon,
+.page.no-motion .banner-title,
+.page.no-motion .banner-sub,
+.page.no-motion .ir,
+.page.no-motion .card { animation: none; transition: opacity 0.15s ease; }
+.page.no-motion .fpill { transition: none; }
 
 /* ================================================================= */
 /* ④ 机构列表（水平卡片）                                             */
@@ -547,22 +676,25 @@ onReachBottom(() => {
 
 .list { padding: 0 12px 20px; box-sizing: border-box; }
 
-/* 卡片：纵向封面图 + 信息区 */
+/* 卡片：纵向封面图 + 信息区（白底圆角 + 柔和阴影 + 错峰入场） */
 .card {
   background: #ffffff;
-  border: 1px solid #ebedf0;
-  border-radius: 16rpx;
+  border: 1px solid #EDF0F4;
+  border-radius: 10px;
   overflow: hidden;
-  margin-bottom: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.06);
+  margin-bottom: 14px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
   box-sizing: border-box;
-  transition: transform var(--anim-fast) ease;
-  animation: cardIn var(--anim-base) var(--ease-out) both;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+  animation: cardIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-.card:nth-child(1) { animation-delay: 40ms; }
-.card:nth-child(2) { animation-delay: 80ms; }
-.card:nth-child(3) { animation-delay: 120ms; }
+.card:nth-child(1) { animation-delay: 60ms; }
+.card:nth-child(2) { animation-delay: 100ms; }
+.card:nth-child(3) { animation-delay: 140ms; }
+.card:nth-child(4) { animation-delay: 180ms; }
+.card:nth-child(5) { animation-delay: 220ms; }
+.card:nth-child(6) { animation-delay: 260ms; }
 
 /* ===== 封面图区 ===== */
 .card-cover {
