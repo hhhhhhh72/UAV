@@ -210,11 +210,15 @@ function initShort(item) {
 }
 
 function statsData(item) {
+  // 未填（0/空）显示 "—"，不伪造默认数字；兼容 snake/camel 两种字段名
+  const num = (v) => { const n = Number(v); return n > 0 ? n : null }
+  const val = (snake, camel) => num(item[snake] != null ? item[snake] : item[camel])
+  const students = val('student_count', 'studentCount')
   return [
-    { label: '无人机专业', value: item.majorCount || item.major_count || 6 },
-    { label: '合作企业', value: item.partnerCount || item.partner_count || 28 },
-    { label: '在读学生', value: (item.studentCount || item.student_count || '320') + '+' },
-    { label: '硕博导师', value: item.teacherCount || item.teacher_count || 12 },
+    { label: '无人机专业', value: val('major_count', 'majorCount') ?? '—' },
+    { label: '合作企业', value: val('partner_count', 'partnerCount') ?? '—' },
+    { label: '在读学生', value: students != null ? students + '+' : '—' },
+    { label: '硕博导师', value: val('teacher_count', 'teacherCount') ?? '—' },
   ]
 }
 
