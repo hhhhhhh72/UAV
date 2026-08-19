@@ -210,8 +210,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { onMounted, onPullDownRefresh, onReachBottom, onPageScroll } from '@dcloudio/uni-app'
+import { ref, computed, onMounted } from 'vue'
+import { onPullDownRefresh, onReachBottom, onPageScroll } from '@dcloudio/uni-app'
 import { request, BASE_URL } from '../../../utils/request'
 import { useReduceMotion } from '../../../utils/motion'
 
