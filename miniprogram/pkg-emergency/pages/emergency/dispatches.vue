@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page" :class="{ 'no-motion': noMotion }">
     <!-- ① 白底导航（对齐应急资源页：返回 + 标题 + 胶囊 + 同步栏） -->
     <view class="nav-wrap" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="nav-bar">
@@ -247,6 +247,7 @@ export default {
   data() {
     return {
       activeTabIndex: 0,
+      noMotion: false,
       // 顶部状态栏高度：自定义导航需自行下移，避免与状态栏重叠
       statusBarHeight: 24,
       loading: false,
@@ -287,6 +288,7 @@ export default {
     },
   },
   onLoad() {
+    this.checkMotion()
     this.statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 24
     this.fetchList(true)
     this.fetchResources()
@@ -298,6 +300,18 @@ export default {
     })
   },
   methods: {
+    // 减弱动效（无障碍）：系统开启时装饰动画/位移全关
+    checkMotion() {
+      try {
+        const sys = uni.getSystemInfoSync()
+        if (sys && sys.reduceMotion) this.noMotion = true
+      } catch (e) {}
+      try {
+        if (typeof uni.onAccessibilityInfoChange === 'function') {
+          uni.onAccessibilityInfoChange((res) => { this.noMotion = !!(res && res.reduceMotion) })
+        }
+      } catch (e) {}
+    },
     async fetchList(reset) {
       if (reset) {
         this.loading = true
@@ -1250,21 +1264,19 @@ export default {
   to { opacity: 0; }
 }
 
-/* ═══ 减少动态效果支持（prefers-reduced-motion）═══ */
-@media (prefers-reduced-motion: reduce) {
-  .timeline-item,
-  .dot--ongoing,
-  .badge--ongoing .badge-dot,
-  .mask,
-  .sheet,
-  .mask--close,
-  .sheet--close,
-  .progress-fill,
-  .stage-dot,
-  .res-card,
-  .custom-toast {
-    animation: none !important;
-    transition: none !important;
-  }
+/* ═══ 减弱动效（无障碍）：no-motion 时装饰动画全关 ═══ */
+.page.no-motion .timeline-item,
+.page.no-motion .dot--ongoing,
+.page.no-motion .badge--ongoing .badge-dot,
+.page.no-motion .mask,
+.page.no-motion .sheet,
+.page.no-motion .mask--close,
+.page.no-motion .sheet--close,
+.page.no-motion .progress-fill,
+.page.no-motion .stage-dot,
+.page.no-motion .res-card,
+.page.no-motion .custom-toast {
+  animation: none !important;
+  transition: none !important;
 }
 </style>

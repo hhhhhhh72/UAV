@@ -1,7 +1,7 @@
 <template>
   <!-- 弹窗打开时锁定底层 page 滚动，防止穿透 -->
   <page-meta :page-style="overlayStyle" />
-  <view class="page">
+  <view class="page" :class="{ 'no-motion': noMotion }">
     <!-- ① 白底导航（返回 + 双 Tab + 胶囊占位） -->
     <view class="nav-wrap" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="nav-bar">
@@ -366,6 +366,7 @@ export default {
     return {
       mainTabIndex: 0,
       mainTitles: ['应急资源', '部门对接'],
+      noMotion: false,
       // 顶部状态栏高度：自定义导航需自行下移，避免与状态栏重叠
       statusBarHeight: 24,
       typePills: [
@@ -461,6 +462,7 @@ export default {
     },
   },
   onLoad() {
+    this.checkMotion()
     this.statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 24
     this.fetchList(true)
   },
@@ -477,6 +479,18 @@ export default {
     }
   },
   methods: {
+    // 减弱动效（无障碍）：系统开启时装饰动画/位移全关
+    checkMotion() {
+      try {
+        const sys = uni.getSystemInfoSync()
+        if (sys && sys.reduceMotion) this.noMotion = true
+      } catch (e) {}
+      try {
+        if (typeof uni.onAccessibilityInfoChange === 'function') {
+          uni.onAccessibilityInfoChange((res) => { this.noMotion = !!(res && res.reduceMotion) })
+        }
+      } catch (e) {}
+    },
     resType(item) {
       return item.res_type || item.resource_type || 'drone'
     },
@@ -1538,22 +1552,20 @@ export default {
   to { opacity: 0; }
 }
 
-/* ═══ 减少动态效果支持（prefers-reduced-motion）═══ */
-@media (prefers-reduced-motion: reduce) {
-  .resource,
-  .status-badge.available .badge-dot::after,
-  .status-badge.in_use .badge-dot::before,
-  .mask,
-  .sheet,
-  .mask--close,
-  .sheet--close,
-  .detail-head,
-  .kv-grid,
-  .detail-sec,
-  .filter-group,
-  .custom-toast {
-    animation: none !important;
-    transition: none !important;
-  }
+/* ═══ 减弱动效（无障碍）：no-motion 时装饰动画全关 ═══ */
+.page.no-motion .resource,
+.page.no-motion .status-badge.available .badge-dot::after,
+.page.no-motion .status-badge.in_use .badge-dot::before,
+.page.no-motion .mask,
+.page.no-motion .sheet,
+.page.no-motion .mask--close,
+.page.no-motion .sheet--close,
+.page.no-motion .detail-head,
+.page.no-motion .kv-grid,
+.page.no-motion .detail-sec,
+.page.no-motion .filter-group,
+.page.no-motion .custom-toast {
+  animation: none !important;
+  transition: none !important;
 }
 </style>
