@@ -1,80 +1,105 @@
 <template>
-  <view class="cases-page">
-    <u-nav-bar
-      title="救援案例库"
-      show-back
-      @back="goBack"
-    />
+  <view class="page" :class="{ 'no-motion': noMotion }" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
+    <u-nav-bar title="救援案例库" show-back :fixed="true" @back="goBack" />
 
-    <u-sticky>
-      <u-search
-        v-model="searchText"
-        placeholder="搜索救援案例"
-        @search="onSearch"
-      />
-      <u-tabs
-        v-model:active="typeIndex"
-        :titles="typeTitles"
-        @change="onTypeChange"
-      />
-    </u-sticky>
-
-    <!-- Loading -->
-    <view v-if="loading && list.length === 0" class="loading-state">
-      <view class="loading-inline">
-        <u-loading size="24rpx" color="#667085" />
-        <text>加载中...</text>
-      </view>
-    </view>
-
-    <!-- Error -->
-    <view v-else-if="errorMsg && list.length === 0" class="state-view">
-      <u-empty description="加载失败" />
-      <view class="retry-btn" @tap="fetchList(true)">
-        <text>重新加载</text>
-      </view>
-    </view>
-
-    <!-- Empty -->
-    <view v-else-if="!loading && list.length === 0" class="state-view">
-      <u-empty description="暂无案例" />
-    </view>
-
-    <!-- List -->
-    <view v-else class="list-body">
-      <view class="c-list">
-        <view v-for="item in list" :key="item.id" class="c-card">
-          <view class="c-top">
-            <view class="c-icon" :style="eventIconStyle(item.event_type)"><text>{{ eventIcon(item.event_type) }}</text></view>
-            <text class="c-title">{{ item.title || '未命名案例' }}</text>
-          </view>
-
-          <view class="c-meta">
-            <u-tag :type="eventTagType(item.event_type)" size="mini" :round="false" plain>{{ item.event_type || '未知' }}</u-tag>
-            <text v-if="item.date" class="c-text">{{ item.date }}</text>
-          </view>
-
-          <view v-if="item.location || item.drone_model" class="c-extra">
-            <text v-if="item.location" class="c-text">{{ item.location }}</text>
-            <text v-if="item.drone_model" class="c-text">{{ item.drone_model }}</text>
-          </view>
-
-          <view v-if="item.result" class="c-result">
-            <text class="c-result-label">处置结果</text>
-            <u-tag :type="resultTagType(item.result)" size="mini" :round="false" plain>{{ resultLabel(item.result) }}</u-tag>
-          </view>
-        </view>
-
-        <!-- Load more -->
-        <view v-if="list.length > 0" class="load-more">
-          <view v-if="loadingMore" class="loading-inline">
-            <u-loading size="24rpx" color="#667085" />
-            <text>加载更多...</text>
-          </view>
-          <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+    <!-- ① 白底头部：搜索 + 筛选 -->
+    <view class="head-zone">
+      <!-- 搜索框（白上白：双层投影浮起） -->
+      <view class="sbar">
+        <view class="b-search">
+          <view class="b-search-ic"><view class="ic-ring" /><view class="ic-bar" /></view>
+          <input
+            class="b-sinp"
+            v-model="searchText"
+            placeholder="搜索救援案例"
+            placeholder-class="b-ph"
+            confirm-type="search"
+            @confirm="onSearch"
+          />
+          <text v-if="searchText" class="b-sclr" @tap="clearSearch">×</text>
+          <view class="b-sep" />
+          <text class="b-sbtn" @tap="onSearch">搜索</text>
         </view>
       </view>
-      <view class="bottom-space" />
+
+      <!-- 筛选胶囊：全部 / 山火 / 洪水 / 地震 / 搜救 / 其他 -->
+      <view class="fbar">
+        <view
+          v-for="(t, i) in typeTabs"
+          :key="t.value"
+          class="fpill"
+          :class="{ on: activeType === t.value }"
+          hover-class="fpill-press"
+          :hover-stay-time="100"
+          @tap="onTypeChange(i)"
+        >
+          <text class="fpv">{{ t.label }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ② 信息行 -->
+    <view class="ir">
+      <text>共 <text class="irn">{{ list.length }}</text> 个案例</text>
+      <text class="ir-hint">{{ activeType || '全部类型' }}</text>
+    </view>
+
+    <!-- ③ 骨架屏：首次加载 -->
+    <view v-if="loading && list.length === 0" class="skl">
+      <view v-for="i in 3" :key="'sk' + i" class="skc">
+        <view class="sk-row"><view class="sk-tag"></view><view class="sk-l w70"></view></view>
+        <view class="sk-bd">
+          <view class="sk-l w90"></view>
+          <view class="sk-l w50"></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ④ 空 / 错误 -->
+    <view v-else-if="!loading && list.length === 0" class="st">
+      <u-empty :description="errorMsg || '暂无案例'">
+        <view v-if="errorMsg" class="stb" @tap="fetchList(true)">重新加载</view>
+      </u-empty>
+    </view>
+
+    <!-- ⑤ 案例列表 -->
+    <view v-else class="cl">
+      <view
+        v-for="item in list"
+        :key="item.id"
+        class="card"
+        hover-class="tap-scale"
+        :hover-stay-time="100"
+      >
+        <view class="c-top">
+          <view class="c-icon" :style="eventIconStyle(item.event_type)"><text>{{ eventIcon(item.event_type) }}</text></view>
+          <text class="c-title">{{ item.title || '未命名案例' }}</text>
+        </view>
+
+        <view class="c-meta">
+          <text class="type-tag" :class="eventTagCls(item.event_type)">{{ item.event_type || '未知' }}</text>
+          <text v-if="item.date" class="c-text">{{ item.date }}</text>
+        </view>
+
+        <view v-if="item.location || item.drone_model" class="c-extra">
+          <text v-if="item.location" class="c-text">{{ item.location }}</text>
+          <text v-if="item.drone_model" class="c-text c-text--model">{{ item.drone_model }}</text>
+        </view>
+
+        <view v-if="item.result" class="c-result">
+          <text class="c-result-label">处置结果</text>
+          <text class="result-tag" :class="resultTagCls(item.result)">{{ resultLabel(item.result) }}</text>
+        </view>
+      </view>
+
+      <!-- 加载更多 -->
+      <view v-if="list.length > 0" class="load-more">
+        <view v-if="loadingMore" class="loading-inline">
+          <u-loading size="24rpx" />
+          <text>加载更多...</text>
+        </view>
+        <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+      </view>
     </view>
   </view>
 </template>
@@ -85,11 +110,18 @@ import { request } from '../../../utils/request'
 export default {
   data() {
     return {
+      noMotion: false,
+      statusBarHeight: 20,
       searchText: '',
       activeType: '',
-      typeIndex: 0,
-      typeTitles: ['全部', '山火', '洪水', '地震', '搜救', '其他'],
-      typeMap: ['', '山火', '洪水', '地震', '搜救', '其他'],
+      typeTabs: [
+        { label: '全部', value: '' },
+        { label: '山火', value: '山火' },
+        { label: '洪水', value: '洪水' },
+        { label: '地震', value: '地震' },
+        { label: '搜救', value: '搜救' },
+        { label: '其他', value: '其他' },
+      ],
       loading: false,
       loadingMore: false,
       errorMsg: '',
@@ -100,6 +132,7 @@ export default {
     }
   },
   onLoad() {
+    this.checkMotion()
     this.fetchList(true)
   },
   onPullDownRefresh() {
@@ -113,6 +146,20 @@ export default {
     }
   },
   methods: {
+    // 减弱动效（无障碍）+ 状态栏高度
+    checkMotion() {
+      try {
+        const sys = uni.getSystemInfoSync()
+        if (sys && sys.statusBarHeight) this.statusBarHeight = sys.statusBarHeight
+        if (sys && sys.reduceMotion) this.noMotion = true
+      } catch (e) {}
+      try {
+        if (typeof uni.onAccessibilityInfoChange === 'function') {
+          uni.onAccessibilityInfoChange((res) => { this.noMotion = !!(res && res.reduceMotion) })
+        }
+      } catch (e) {}
+    },
+
     async fetchList(reset) {
       if (reset) {
         this.page = 1
@@ -155,11 +202,17 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
-    onTypeChange(index) {
-      this.typeIndex = index
-      this.activeType = this.typeMap[index]
+    clearSearch() {
+      this.searchText = ''
       this.fetchList(true)
     },
+    onTypeChange(index) {
+      var t = this.typeTabs[index]
+      if (!t || this.activeType === t.value) return
+      this.activeType = t.value
+      this.fetchList(true)
+    },
+
     /* 事件类型字符图标（低饱和色块，非 emoji） */
     eventIcon(type) {
       var map = {
@@ -180,15 +233,15 @@ export default {
       }
       return map[type] || { background: '#F4F6F8', color: '#667085' }
     },
-    eventTagType(type) {
+    eventTagCls(type) {
       var map = {
-        '山火': 'danger',
-        '洪水': 'primary',
-        '地震': 'warning',
-        '搜救': 'success',
-        '其他': 'default',
+        '山火': 'tag--orange',
+        '洪水': 'tag--blue',
+        '地震': 'tag--gray',
+        '搜救': 'tag--green',
+        '其他': 'tag--gray',
       }
-      return map[type] || 'default'
+      return map[type] || 'tag--gray'
     },
     resultLabel(result) {
       var map = {
@@ -198,9 +251,9 @@ export default {
       }
       return map[result] || result || '未知'
     },
-    resultTagType(result) {
-      var map = { '成功': 'success', '部分': 'warning', '失败': 'danger' }
-      return map[result] || 'default'
+    resultTagCls(result) {
+      var map = { '成功': 'tag--green', '部分': 'tag--orange', '失败': 'tag--red' }
+      return map[result] || 'tag--gray'
     },
     goBack() {
       uni.navigateBack()
@@ -210,82 +263,156 @@ export default {
 </script>
 
 <style scoped>
-.cases-page {
+.page {
   min-height: 100vh;
-  background: #F4F6F8;
+  background: #fff;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* State views */
-.loading-state {
-  display: flex;
-  justify-content: center;
-  padding: 80px 0;
-}
+/* ===== 白底头部 ===== */
+.head-zone { background: #fff; }
 
-.loading-inline {
+/* ===== 搜索框：白上白——纯白填充 + 灰描边 + 双层投影 ===== */
+.sbar { padding: 12px 12px 8px; background: #fff; }
+.b-search {
+  height: 44px;
+  padding: 0 11px;
+  border: 1px solid #E4E7EC;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #667085;
+  gap: 7px;
+  box-sizing: border-box;
 }
+.b-search-ic { position: relative; width: 15px; height: 15px; flex: none; }
+.ic-ring {
+  width: 9px; height: 9px;
+  border: 1.5px solid #98A2B3;
+  border-radius: 50%;
+  position: absolute; top: 0; left: 0;
+}
+.ic-bar {
+  position: absolute; right: 0; bottom: 1px;
+  width: 5px; height: 1.5px;
+  background: #98A2B3;
+  transform: rotate(45deg);
+}
+.b-sinp { flex: 1; min-width: 0; background: transparent; font-size: 13px; color: #17212B; }
+.b-ph { color: #667085; }
+.b-sclr { color: #667085; font-size: 15px; padding: 10px; margin: -10px; }
+.b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
+.b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-.state-view {
+/* ===== 筛选胶囊 ===== */
+.fbar { display: flex; gap: 8px; padding: 10px 12px 4px; background: #fff; }
+.fpill {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid #E4E7EC;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
+  color: #344054;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+}
+.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
+.fpill-press { transform: scale(0.95); opacity: 0.85; }
+.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== 信息行 ===== */
+.ir {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 14px 4px;
+  font-size: 12px;
+  color: #667085;
+  animation: fadeUp .25s ease-out backwards;
+  animation-delay: 60ms;
+}
+.irn { color: #0A66C2; font-weight: 600; }
+.ir-hint { font-size: 12px; color: #98A2B3; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===== 骨架屏 ===== */
+.skl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px; }
+.skc {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding-top: 80px;
+  gap: 10px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
 }
+.sk-row { display: flex; align-items: center; gap: 8px; }
+.sk-tag { width: 32px; height: 32px; border-radius: 8px; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-bd { display: flex; flex-direction: column; gap: 8px; }
+.sk-l { height: 12px; background: #EDF0F3; border-radius: 4px; animation: skPulse 1.4s linear infinite; }
+.sk-l.w50 { width: 50%; }
+.sk-l.w70 { width: 70%; }
+.sk-l.w90 { width: 90%; }
+@keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
-.retry-btn {
-  margin-top: 12px;
-  padding: 8px 24px;
-  background: #0A66C2;
-  color: #fff;
-  border-radius: 8px;
-  font-size: 14px;
+/* ===== 空 / 错误 ===== */
+.st { display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
+.stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
+
+/* ===== 案例卡片 ===== */
+.cl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  position: relative;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
 }
-
-/* List */
-.list-body {
-  padding-top: 12px;
-}
-
-.c-list { padding: 0 24rpx; }
-
-.c-card {
-  background: #ffffff;
-  border: 1px solid #EEF1F4;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  margin-bottom: 20rpx;
-}
+.card:nth-child(-n+6) { animation: cardIn .22s ease-out backwards; }
+.card:nth-child(1) { animation-delay: 80ms; }
+.card:nth-child(2) { animation-delay: 100ms; }
+.card:nth-child(3) { animation-delay: 120ms; }
+.card:nth-child(4) { animation-delay: 140ms; }
+.card:nth-child(5) { animation-delay: 160ms; }
+.card:nth-child(6) { animation-delay: 180ms; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.tap-scale { transform: scale(0.97); opacity: 0.9; }
 
 .c-top {
   display: flex;
   align-items: flex-start;
-  gap: 16rpx;
-  margin-bottom: 14rpx;
+  gap: 8px;
 }
-
 .c-icon {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 16rpx;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
+  font-size: 14px;
   font-weight: 600;
   flex-shrink: 0;
 }
-
 .c-title {
-  font-size: 30rpx;
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
   font-weight: 600;
   color: #17212B;
-  flex: 1;
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -294,49 +421,47 @@ export default {
   -webkit-box-orient: vertical;
 }
 
-.c-meta {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  margin-bottom: 10rpx;
+.c-meta { display: flex; align-items: center; gap: 8px; }
+.type-tag {
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
 }
+.tag--blue { background: #EAF3FB; color: #0A66C2; }
+.tag--orange { background: #FFF4EC; color: #E96012; }
+.tag--green { background: #E9F7F0; color: #0B6B41; }
+.tag--gray { background: #EEF1F4; color: #5D6B82; }
+.tag--red { background: #FDECEC; color: #B42318; }
 
-.c-extra {
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  margin-bottom: 12rpx;
-}
+.c-text { font-size: 12px; color: #667085; }
+.c-text--model { color: #98A2B3; }
 
-.c-text {
-  font-size: 23rpx;
-  color: #667085;
-}
+.c-extra { display: flex; align-items: center; gap: 12px; }
 
 .c-result {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  background: #F4F6F8;
-  border-radius: 8rpx;
-  padding: 14rpx 16rpx;
+  gap: 8px;
+  background: #F7F9FC;
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+.c-result-label { font-size: 12px; color: #98A2B3; }
+.result-tag {
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-.c-result-label {
-  font-size: 24rpx;
-  color: #98A2B3;
-}
+/* 加载更多 */
+.load-more { text-align: center; padding: 10px 0; }
+.loading-inline { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #667085; }
+.no-more { font-size: 12px; color: #98A2B3; }
 
-/* Load more */
-.load-more {
-  text-align: center;
-  padding: 20rpx 0;
-}
-
-.no-more {
-  font-size: 24rpx;
-  color: #98A2B3;
-}
-
-.bottom-space { height: 24rpx; }
+/* ===== 减弱动效（无障碍） ===== */
+.page.no-motion .card,
+.page.no-motion .ir { animation: none; }
+.page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
 </style>
