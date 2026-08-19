@@ -14,7 +14,16 @@
         <span class="cell-title">{{ record.name || '-' }}</span>
       </template>
       <template #logo="{ record }">
-        <a-avatar v-if="record.logo_url" :image-url="record.logo_url" :size="36" shape="square" :alt="(record.name || '院校') + ' Logo'" />
+        <a-image
+          v-if="record.logo_url"
+          :src="record.logo_url"
+          :width="36"
+          :height="36"
+          fit="cover"
+          :preview="false"
+          :alt="(record.name || '院校') + ' Logo'"
+          :style="{ borderRadius: '6px', display: 'block' }"
+        />
         <span v-else>-</span>
       </template>
       <template #coopType="{ record }">
@@ -138,7 +147,7 @@
         </a-row>
         <a-form-item label="Logo">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadRequest" accept="image/*" :before-upload="beforeUpload">
-            <a-avatar v-if="form.logo_url" :image-url="form.logo_url" :size="80" shape="square" alt="Logo 预览" />
+            <a-image v-if="form.logo_url" :src="form.logo_url" :width="80" :height="80" fit="cover" :preview="false" alt="Logo 预览" :style="{ borderRadius: '8px', display: 'block' }" />
             <a-button v-else type="outline" :loading="uploadingLogo">点击上传</a-button>
           </a-upload>
           <span v-if="uploadingLogo" class="upload-status">上传中…</span>
@@ -179,7 +188,7 @@
         </a-row>
         <a-form-item label="硕博导师数"><a-input-number v-model="form.teacher_count" :min="0" :max="999999" hide-button style="width: 100%" /></a-form-item>
 
-        <div class="form-group-title">联系方式</div>
+        <div class="form-group-title">联系方式与就业</div>
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="联系电话"><a-input ref="phoneRef" v-model="form.phone" placeholder="如：023-88886666" :maxlength="20" style="width: 100%" /></a-form-item>
@@ -201,7 +210,7 @@
         <div class="form-group-title">专业与合作</div>
         <a-form-item label="无人机专业" :validate-status="majorsError ? 'error' : undefined" :help="majorsError">
           <a-textarea ref="majorsRef" v-model="form.majorsDetailText" :auto-size="{ minRows: 2, maxRows: 5 }" placeholder="每行一个专业，格式：名称|学历|年制|王牌，如：&#10;飞行器设计与工程|本科|4|1&#10;无人机系统工程|本科|4|0&#10;飞行器控制与信息工程|硕士|3|0" style="width: 100%" />
-          <div class="form-tip">学历：本科/硕士/博士；王牌填 1 表示该专业为国家级特色专业</div>
+          <div class="form-tip">学历（如：本科/硕士/博士）；王牌填 1 表示该专业为国家级特色专业</div>
         </a-form-item>
         <a-form-item label="合作企业" :validate-status="partnersError ? 'error' : undefined" :help="partnersError">
           <a-textarea ref="partnersRef" v-model="form.partnersText" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="每行一个企业，格式：名称|类型，如：&#10;大疆创新|联合实验室&#10;中航工业|实习基地" style="width: 100%" />
@@ -283,7 +292,7 @@ const uploadCover = async ({ fileItem, onSuccess, onError }) => {
   }
 }
 
-// 校园环境图（多图，最多 4 张）
+// 校园环境图（多图，最多 4 张；成功由卡片缩略图反馈，不逐张弹 toast）
 const photoList = reactive([])
 const uploadPhoto = async ({ fileItem, onSuccess, onError }) => {
   const fd = new FormData()
@@ -293,7 +302,6 @@ const uploadPhoto = async ({ fileItem, onSuccess, onError }) => {
     const url = res?.data?.url || res?.url
     if (!url) throw new Error('上传失败')
     onSuccess && onSuccess(res)
-    Message.success('上传成功')
   } catch (e) {
     onError && onError(e)
     Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
@@ -302,12 +310,12 @@ const uploadPhoto = async ({ fileItem, onSuccess, onError }) => {
 // a-upload 列表变化（新增/移除）时同步 form.photos
 // 注意：f.url 是 Arco 的本地 blob 预览地址，不能入库；真实地址在响应 data.url 里。
 // 编辑态旧照片以 {name, url} 推入（无 response），其 url 是真实地址——保留；
-// 仅排除上传中（uploading）的 blob 项，防止编辑后旧照片静默丢失。
+// 排除上传中（uploading）与失败（error）的 blob 项，防止 blob 地址入库。
 const onPhotoChange = (fileList) => {
   photoList.length = 0
   photoList.push(...fileList)
   form.photos = (fileList || [])
-    .map((f) => f.response?.data?.url || f.response?.url || (f.status === 'uploading' ? '' : f.url))
+    .map((f) => f.response?.data?.url || f.response?.url || (f.status === 'uploading' || f.status === 'error' ? '' : f.url))
     .filter(Boolean)
 }
 
@@ -413,6 +421,8 @@ const form = reactive({
 })
 const resetForm = () => {
   photoList.length = 0
+  majorsError.value = ''
+  partnersError.value = ''
   Object.assign(form, {
     id: '', name: '', city: '', short_name: '', coop_type: 'both', status: 'active',
     level_tags: '', tagsText: '', logo_url: '', cover: '', photos: [],
