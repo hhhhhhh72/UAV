@@ -292,11 +292,14 @@ const uploadPhoto = async ({ fileItem, onSuccess, onError }) => {
 }
 // a-upload 列表变化（新增/移除）时同步 form.photos
 // 注意：f.url 是 Arco 的本地 blob 预览地址，不能入库；真实地址在响应 data.url 里。
-// 未上传完成（无 response）的文件不写入 form.photos，防止 blob 地址入库。
+// 编辑态旧照片以 {name, url} 推入（无 response），其 url 是真实地址——保留；
+// 仅排除上传中（uploading）的 blob 项，防止编辑后旧照片静默丢失。
 const onPhotoChange = (fileList) => {
   photoList.length = 0
   photoList.push(...fileList)
-  form.photos = (fileList || []).map((f) => f.response?.data?.url || f.response?.url).filter(Boolean)
+  form.photos = (fileList || [])
+    .map((f) => f.response?.data?.url || f.response?.url || (f.status === 'uploading' ? '' : f.url))
+    .filter(Boolean)
 }
 
 const crudRef = ref()
@@ -351,13 +354,15 @@ const coopTypeLabel = { research: '科研合作', talent: '人才培养', both: 
 const arrText = (v) => (Array.isArray(v) ? v.join('、') : (v || ''))
 const splitArr = (s) => String(s || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean)
 // 专业对象数组 ↔ 文本（每行：名称|学历|年制|王牌）
-// 解析返回 { items, errors }——坏行不再静默丢弃，逐行报错指明行号
+// 解析返回 { items, errors }——坏行不再静默丢弃，逐行报错指明行号；
+// 全角竖线（｜）归一为半角，避免整行被当成长名称的脏数据。
 const majorsDetailText = (list) => (Array.isArray(list) ? list.map((m) => [m.name, m.degree || '本科', m.duration || 4, m.flagship ? 1 : 0].join('|')).join('\n') : '')
 const parseMajorsDetail = (s) => {
   const items = []
   const errors = []
-  String(s || '').split('\n').map(l => l.trim()).filter(Boolean).forEach((line, i) => {
+  String(s || '').replace(/｜/g, '|').split('\n').map(l => l.trim()).filter(Boolean).forEach((line, i) => {
     const p = line.split('|').map(x => x.trim())
+    if (p.length > 4) { errors.push(`专业第 ${i + 1} 行字段过多（应为 名称|学历|年制|王牌 4 项）`); return }
     if (!p[0]) { errors.push(`专业第 ${i + 1} 行缺少名称`); return }
     const duration = Number(p[2])
     if (p[2] && (!Number.isInteger(duration) || duration < 1 || duration > 10)) {
@@ -375,8 +380,9 @@ const partnersText = (list) => (Array.isArray(list) ? list.map((p) => [p.name, p
 const parsePartners = (s) => {
   const items = []
   const errors = []
-  String(s || '').split('\n').map(l => l.trim()).filter(Boolean).forEach((line, i) => {
+  String(s || '').replace(/｜/g, '|').split('\n').map(l => l.trim()).filter(Boolean).forEach((line, i) => {
     const p = line.split('|').map(x => x.trim())
+    if (p.length > 2) { errors.push(`合作企业第 ${i + 1} 行字段过多（应为 名称|类型 2 项）`); return }
     if (!p[0]) { errors.push(`合作企业第 ${i + 1} 行缺少名称`); return }
     items.push({ icon: p[0].slice(0, 1), name: p[0], type: p[1] || '合作单位' })
   })
@@ -428,16 +434,16 @@ const openForm = (row) => {
 
 const submitForm = async () => {
   if (!form.name) { Message.warning('请输入院校名称'); return }
-  // 专业/合作企业：逐行校验，坏行明确报错并聚焦对应输入框（不再静默丢弃）
+  // 专业/合作企业：逐行校验，坏行明确报错（一次报至多 3 条）并聚焦对应输入框
   const majorsParsed = parseMajorsDetail(form.majorsDetailText)
   if (majorsParsed.errors.length > 0) {
-    Message.error(majorsParsed.errors[0])
+    Message.error(majorsParsed.errors.slice(0, 3).join('；'))
     majorsRef.value && majorsRef.value.focus && majorsRef.value.focus()
     return
   }
   const partnersParsed = parsePartners(form.partnersText)
   if (partnersParsed.errors.length > 0) {
-    Message.error(partnersParsed.errors[0])
+    Message.error(partnersParsed.errors.slice(0, 3).join('；'))
     partnersRef.value && partnersRef.value.focus && partnersRef.value.focus()
     return
   }
