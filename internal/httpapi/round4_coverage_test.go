@@ -235,6 +235,14 @@ func TestR4Batch2ListAndCollege(t *testing.T) {
 		`{"name":"重庆大学","city":"重庆","tags":["本科","双一流"],"short_name":"重大"}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/colleges (undergrad)", w, http.StatusCreated)
 
+	// 院校创建须接收 logo_url（回归：曾因缺 json tag 导致新增院校 Logo 恒为空）
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/colleges",
+		`{"name":"重庆理工职院","city":"重庆","logo_url":"/uploads/logo-a.png"}`, adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/colleges (logo)", w, http.StatusCreated)
+	if !strings.Contains(w.Body.String(), "/uploads/logo-a.png") {
+		t.Fatalf("create college should persist logo_url, got: %s", w.Body.String())
+	}
+
 	// listColleges 各种 type/keyword 分支
 	for _, q := range []string{"", "?type=vocational", "?type=undergraduate", "?type=undergraduate&keyword=重庆", "?type=vocational&keyword=不存在"} {
 		if w := doRaw(app, http.MethodGet, "/api/v1/colleges"+q, "", ""); w.Code != http.StatusOK {

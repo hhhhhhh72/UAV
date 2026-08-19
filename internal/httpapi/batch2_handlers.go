@@ -105,9 +105,13 @@ func (s *Server) addMilestone(w http.ResponseWriter, r *http.Request) {
 // ── College ──
 func (s *Server) createCollege(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Name, Region, Description, LogoURL string
-		CoopType                           string `json:"coop_type"` // research/talent/both
-		Majors, Facilities                 []string
+		Name        string `json:"name"`
+		Region      string `json:"region"`
+		Description string `json:"description"`
+		LogoURL     string `json:"logo_url"`
+		CoopType    string `json:"coop_type"` // research/talent/both
+		Majors      []string
+		Facilities  []string
 		// 小程序院校页扩展字段（colleges/list + detail）
 		City         string                  `json:"city"`
 		Tags         []string                `json:"tags"`

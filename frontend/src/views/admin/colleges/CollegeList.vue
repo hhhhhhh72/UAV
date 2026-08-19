@@ -44,6 +44,18 @@
           <a-descriptions-item label="合作状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</a-tag>
           </a-descriptions-item>
+          <a-descriptions-item label="Logo" :span="2">
+            <a-image
+              v-if="currentItem.logo_url"
+              :src="currentItem.logo_url"
+              :width="120"
+              :height="80"
+              :preview-props="{ src: currentItem.logo_url }"
+              fit="cover"
+              :style="{ borderRadius: '8px' }"
+            />
+            <span v-else>-</span>
+          </a-descriptions-item>
           <a-descriptions-item label="特色专业" :span="2">{{ arrText(currentItem.majors) || '-' }}</a-descriptions-item>
           <a-descriptions-item label="实训设施" :span="2">{{ arrText(currentItem.facilities) || '-' }}</a-descriptions-item>
           <a-descriptions-item label="简介" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
