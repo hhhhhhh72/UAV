@@ -379,11 +379,10 @@ onPullDownRefresh(function () {
 /* ① Hero 区                                                          */
 /* ================================================================= */
 .hero {
-  min-height: 240px;
   background: linear-gradient(135deg, #074D92 0%, #0A66C2 100%);
   position: relative;
   overflow: hidden;
-  padding: 40px 16px 20px;
+  padding: 40px 16px 56px;
 }
 
 /* 真实海报图 */
