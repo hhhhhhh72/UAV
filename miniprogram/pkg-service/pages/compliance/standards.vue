@@ -60,7 +60,7 @@
         </u-empty>
       </view>
 
-      <!-- 列表：纯文字卡片（左缘分类色条 + 分类 tag + 下载按钮） -->
+      <!-- 列表：纯文字卡片（分类 tag + 标题 + 描述 + 下载按钮） -->
       <view v-else class="cl">
         <view
           v-for="item in filteredList"
@@ -72,7 +72,6 @@
           hover-stay-time="120"
           @tap="openStandard(item)"
         >
-          <view class="c-bar"></view>
           <view class="c-top">
             <view class="c-badges">
               <text class="c-tag" :class="'tag-' + stdClass(item.category)">{{ item.category || '其他' }}</text>
@@ -452,7 +451,7 @@ page {
 .sth { font-size: 12px; color: #667085; display: block; margin-bottom: 16px; }
 .stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
 
-/* ===== 列表卡片：白上白 + 左缘分类色条 + 分类 tag + 下载按钮 ===== */
+/* ===== 列表卡片：白上白 + 分类 tag + 下载按钮 ===== */
 .cl {
   display: flex;
   flex-direction: column;
@@ -471,14 +470,6 @@ page {
   box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
 }
 .tap-scale { transform: scale(0.95); opacity: 0.9; }
-.c-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 10px 0 0 10px;
-}
 .c-top {
   display: flex;
   align-items: center;
@@ -544,17 +535,12 @@ page {
 .c-dl-btn:active { transform: scale(.9); background: #DCEBF9; transition: transform .08s linear; }
 .dl-ic { font-size: 16px; font-weight: 700; line-height: 1; }
 
-/* 标准类型配色（tag 浅底深字 = 左缘色条同源同色，对比度 ≥4.5:1，取自参考页 FIELD_TAG 体系） */
+/* 标准类型配色（tag 浅底深字，对比度 ≥4.5:1，取自参考页 FIELD_TAG 体系） */
 .tag-national { color: #0d47a1; background: #E3EDF9; }
-.cat-national .c-bar { background: #0d47a1; }
 .tag-industry { color: #B54708; background: #FDEEE4; }
-.cat-industry .c-bar { background: #B54708; }
 .tag-group { color: #004d40; background: #E4F2EF; }
-.cat-group .c-bar { background: #004d40; }
 .tag-enterprise { color: #4a148c; background: #F0E9F7; }
-.cat-enterprise .c-bar { background: #4a148c; }
 .tag-other { color: #344054; background: #EEF1F4; }
-.cat-other .c-bar { background: #344054; }
 
 /* ===== 加载更多 / 错误横幅 / 回到顶部 ===== */
 .lm { text-align: center; padding: 12px; font-size: 12px; color: #667085; }
@@ -609,15 +595,6 @@ page {
 .card:nth-child(4) { animation-delay: 140ms; }
 .card:nth-child(5) { animation-delay: 160ms; }
 .card:nth-child(6) { animation-delay: 180ms; }
-/* 分类色条与卡片同拍"点亮"（scaleY 顶部抽出，与 cardIn 同错峰，380ms 内收完） */
-.card:nth-child(-n+6) .c-bar { animation: barIn .2s ease-out backwards; }
-.card:nth-child(1) .c-bar { animation-delay: 80ms; }
-.card:nth-child(2) .c-bar { animation-delay: 100ms; }
-.card:nth-child(3) .c-bar { animation-delay: 120ms; }
-.card:nth-child(4) .c-bar { animation-delay: 140ms; }
-.card:nth-child(5) .c-bar { animation-delay: 160ms; }
-.card:nth-child(6) .c-bar { animation-delay: 180ms; }
-@keyframes barIn { from { opacity: 0; transform: scaleY(.3); } to { opacity: 1; transform: scaleY(1); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 /* 卡片按压（快进慢出）：按下 .1s linear 直接到位，松手 .35s ios-pop 弹簧回位 */
 .card { transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
@@ -663,7 +640,6 @@ page {
 
 /* ===== 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用，保留淡入与颜色反馈 ===== */
 .page.no-motion .card,
-.page.no-motion .c-bar,
 .page.no-motion .banner,
 .page.no-motion .ir { animation: none; }
 .page.no-motion .banner-icon,

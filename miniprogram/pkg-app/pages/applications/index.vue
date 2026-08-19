@@ -83,7 +83,7 @@
         </u-empty>
       </view>
 
-      <!-- 列表：纯文字卡片（左缘类别色条 + tag 为视觉锚点） -->
+      <!-- 列表：纯文字卡片（类别/状态 tag + 标题 + 描述 + 元信息） -->
       <view v-else class="cl" :class="{ replay }">
         <view
           v-for="x in shownList"
@@ -94,7 +94,6 @@
           hover-stay-time="120"
           @tap="viewDetail(x.type, x.raw)"
         >
-          <view class="c-bar" :style="{ background: x.tagC }" />
           <view class="c-top">
             <view class="c-badges">
               <text class="c-tag" :style="{ color: x.tagC, background: x.tagBg }">{{ x.cat }}</text>
@@ -657,7 +656,7 @@ page {
 .sp-opt.act { color: #0A66C2; font-weight: 600; background: #EAF3FB; }
 .chk { color: #0A66C2; font-size: 12px; }
 
-/* ===== 列表项：纯文字卡片（白上白：灰描边 + 极淡灰投影浮起，窄缝 8px；左缘类别色条 + tag 为视觉锚点） ===== */
+/* ===== 列表项：纯文字卡片（白上白：灰描边 + 极淡灰投影浮起，窄缝 8px；类别/状态 tag 为视觉锚点） ===== */
 .cl {
   display: flex;
   flex-direction: column;
@@ -676,16 +675,6 @@ page {
   box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06); /* 卡片浮层：大偏移 + 宽模糊 + 低透明，柔和环境阴影 */
 }
 .tap-scale { transform: scale(0.95); opacity: 0.9; }
-/* 类别色条：卡片左缘 4px 全高色条，无图片时的类别身份锚点 */
-.c-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 10px 0 0 10px; /* 跟随卡片左圆角 */
-  transform-origin: center top; /* 入场 scaleY 从顶部抽出 */
-}
 .c-top {
   display: flex;
   align-items: center;
@@ -822,15 +811,6 @@ page {
 .card:nth-child(4) { animation-delay: 140ms; }
 .card:nth-child(5) { animation-delay: 160ms; }
 .card:nth-child(6) { animation-delay: 180ms; }
-/* 类别色条与卡片同拍"点亮"：身份注入是入场的主旋律（scaleY 顶部抽出，与 cardIn 同错峰，380ms 内收完） */
-.card:nth-child(-n+6) .c-bar { animation: barIn .2s ease-out backwards; }
-.card:nth-child(1) .c-bar { animation-delay: 80ms; }
-.card:nth-child(2) .c-bar { animation-delay: 100ms; }
-.card:nth-child(3) .c-bar { animation-delay: 120ms; }
-.card:nth-child(4) .c-bar { animation-delay: 140ms; }
-.card:nth-child(5) .c-bar { animation-delay: 160ms; }
-.card:nth-child(6) .c-bar { animation-delay: 180ms; }
-@keyframes barIn { from { opacity: 0; transform: scaleY(.3); } to { opacity: 1; transform: scaleY(1); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 /* 列表刷新（搜索/排序后）：前 4 项轻淡入——2px 上移 + 半透明起，180ms + 30ms 错峰 ≤270ms；
    说明"这组内容因操作而更新"，无大位移不抢戏；nth-child 优先级高于入场错峰（同源覆盖） */
@@ -891,9 +871,8 @@ page {
 
 /* ===================== 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用，保留淡入与颜色反馈 ===================== */
 .page.no-motion .card,
-.page.no-motion .c-bar,
 .page.no-motion .banner,
-.page.no-motion .ir { animation: none; } /* 装饰入场全关（色条抽出属缩放，一并关闭） */
+.page.no-motion .ir { animation: none; } /* 装饰入场全关 */
 .page.no-motion .cl.replay .card { animation: none; } /* 列表刷新轻淡入关闭（覆盖高优先级重播规则） */
 .page.no-motion .banner-icon,
 .page.no-motion .banner-title,

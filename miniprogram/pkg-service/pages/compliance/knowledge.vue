@@ -102,7 +102,6 @@
             </view>
             <view v-else class="d-list">
               <view v-for="doc in visibleDocs(s)" :key="doc.id" class="d-card" hover-class="tap-scale" hover-start-time="0" hover-stay-time="120" @tap="openDoc(doc)">
-                <view class="c-bar" :style="{ background: secColor(s).tagC }" />
                 <view class="c-badges">
                   <text class="c-tag" :style="{ color: secColor(s).tagC, background: secColor(s).tagBg }">{{ doc.category || s.title }}</text>
                   <text class="c-st" :class="docSt(doc).cls">{{ docSt(doc).label }}</text>
@@ -468,7 +467,7 @@ page {
 .panel-err-t { font-size: 12px; color: #667085; }
 .panel-err-r { font-size: 13px; color: #0A66C2; font-weight: 500; padding: 6px 12px; }
 
-/* ===== 文档卡片（参考页卡片体系：左缘色条 + 顶部徽章 + 标题 + 描述 + 元信息） ===== */
+/* ===== 文档卡片（参考页卡片体系：顶部徽章 + 标题 + 描述 + 元信息） ===== */
 .d-list { display: flex; flex-direction: column; gap: 8px; }
 .d-card {
   display: flex;
@@ -480,14 +479,6 @@ page {
   border: 1px solid #E4E7EC;
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
-}
-.c-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 10px 0 0 10px;
 }
 .c-badges { display: flex; gap: 6px; }
 .c-tag, .c-st {

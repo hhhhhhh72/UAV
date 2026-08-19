@@ -74,7 +74,7 @@
         </u-empty>
       </view>
 
-      <!-- 列表：卡片（封面 + 左缘分类色条 + 徽章 + 标题 + 描述 + 元信息） -->
+      <!-- 列表：卡片（封面 + 徽章 + 标题 + 描述 + 元信息，无左缘色条） -->
       <view v-else class="cl">
         <view
           v-for="caseItem in cases"
@@ -85,7 +85,6 @@
           hover-stay-time="120"
           @tap="showCaseDetail(caseItem)"
         >
-          <view class="c-bar" :style="{ background: catColor(caseItem.category).tagC }" />
 
           <!-- 封面：视频自动播放 / 图片 / 渐变占位 -->
           <view class="case-cover">
@@ -548,15 +547,6 @@ page {
   box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
   overflow: hidden;
 }
-.c-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  z-index: 2;
-  border-radius: 10px 0 0 10px;
-}
 
 /* 封面 */
 .case-cover {
@@ -760,15 +750,6 @@ page {
 .card:nth-child(4) { animation-delay: 140ms; }
 .card:nth-child(5) { animation-delay: 160ms; }
 .card:nth-child(6) { animation-delay: 180ms; }
-/* 分类色条与卡片同拍"点亮"（scaleY 顶部抽出） */
-.card:nth-child(-n+6) .c-bar { animation: barIn .2s ease-out backwards; }
-.card:nth-child(1) .c-bar { animation-delay: 80ms; }
-.card:nth-child(2) .c-bar { animation-delay: 100ms; }
-.card:nth-child(3) .c-bar { animation-delay: 120ms; }
-.card:nth-child(4) .c-bar { animation-delay: 140ms; }
-.card:nth-child(5) .c-bar { animation-delay: 160ms; }
-.card:nth-child(6) .c-bar { animation-delay: 180ms; }
-@keyframes barIn { from { opacity: 0; transform: scaleY(.3); } to { opacity: 1; transform: scaleY(1); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 /* 骨架呼吸（加载中环境光；一页仅此 1 处循环） */
@@ -784,7 +765,6 @@ page {
 
 /* ===== 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用 ===== */
 .page.no-motion .card,
-.page.no-motion .c-bar,
 .page.no-motion .banner,
 .page.no-motion .banner-icon,
 .page.no-motion .banner-title,
