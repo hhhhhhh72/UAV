@@ -71,6 +71,13 @@ type UserProfile struct {
 // EnterpriseStatus represents the approval lifecycle of a business registration.
 type EnterpriseStatus string
 
+// EnterpriseBrief 发布者企业摘要（需求/服务等详情页展示用，不含敏感字段）
+type EnterpriseBrief struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Logo string `json:"logo"`
+}
+
 const (
 	// EnterpriseDraft is the initial state; the owner can edit freely.
 	EnterpriseDraft EnterpriseStatus = "draft"
@@ -218,6 +225,7 @@ type Demand struct {
 	ID               string         `json:"id"`
 	PublisherID      string         `json:"publisher_id"`
 	PublisherName    string         `json:"publisher_name"`
+	PublisherEnterprise *EnterpriseBrief `json:"publisher_enterprise,omitempty"` // 发布者已认证企业摘要（无则省略）
 	Contact          string         `json:"contact"` // encrypted at rest, masked in public responses
 	BizType          BizType        `json:"biz_type"`
 	District         string         `json:"district"`

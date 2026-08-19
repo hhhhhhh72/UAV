@@ -93,18 +93,19 @@
         </view>
       </view>
 
-      <!-- 发布企业 -->
+      <!-- 发布企业（有已认证企业才显示认证声明；无则按个人发布展示，杜绝虚假认证） -->
       <view class="detail-section">
-        <text class="section-title">发布企业</text>
+        <text class="section-title">发布方</text>
         <view class="company-row">
           <view class="company-avatar">
             <text>{{ companyInitial }}</text>
           </view>
           <view class="company-copy">
-            <text class="company-name">{{ item.company }}</text>
-            <text class="company-tag">已完成企业认证 · 信息经平台审核</text>
+            <text class="company-name">{{ publisherName }}</text>
+            <text v-if="publisherEnterprise" class="company-tag">已完成企业认证 · 信息经平台审核</text>
+            <text v-else class="company-tag company-tag--plain">个人发布 · 信息由发布者提供</text>
           </view>
-          <view class="company-link" @tap="toastCompany">
+          <view v-if="publisherEnterprise" class="company-link" @tap="toastCompany">
             <text>企业主页 ›</text>
           </view>
         </view>
@@ -264,7 +265,13 @@ const shortCompany = computed(() => {
   if (!item.value) return ''
   return item.value.company.replace('有限公司', '')
 })
-const companyInitial = computed(() => (item.value ? item.value.company.slice(0, 1) : '企'))
+const companyInitial = computed(() => (item.value ? (item.value.company || '企').slice(0, 1) : '企'))
+// 发布方展示：有已认证企业显示企业名，否则显示发布者名（个人）
+const publisherEnterprise = computed(() => (item.value && item.value.publisher_enterprise) || null)
+const publisherName = computed(() => {
+  if (!item.value) return ''
+  return (publisherEnterprise.value && publisherEnterprise.value.name) || item.value.company || '平台用户'
+})
 
 const descTitle = computed(() => {
   if (!item.value) return ''
@@ -403,8 +410,14 @@ const previewImage = (i) => uni.previewImage({ urls: mediaImages.value, current:
 const onShare = () => {
   uni.showToast({ title: '已生成分享卡片', icon: 'none' })
 }
+// 企业主页：仅当发布者有已认证企业时可跳转（后端 publisher_enterprise 兜底）
 const toastCompany = () => {
-  uni.showToast({ title: '企业主页将在正式版本接入', icon: 'none' })
+  const ent = item.value && item.value.publisher_enterprise
+  if (ent && ent.id) {
+    uni.navigateTo({ url: '/pkg-eco/pages/enterprise/detail?id=' + encodeURIComponent(ent.id) })
+  } else {
+    uni.showToast({ title: '该发布者为个人，暂无企业主页', icon: 'none' })
+  }
 }
 
 /* ================= 收藏 / 登记对接 ================= */
@@ -761,6 +774,7 @@ onLoad((options) => {
 .company-copy { flex: 1; min-width: 0; }
 .company-name { display: block; font-size: 26rpx; font-weight: 700; color: #17212B; }
 .company-tag { display: block; font-size: 22rpx; color: #667085; margin-top: 6rpx; }
+.company-tag--plain { color: #98A2B3; }
 .company-link { color: #0A66C2; font-size: 24rpx; white-space: nowrap; }
 
 /* 推荐 */

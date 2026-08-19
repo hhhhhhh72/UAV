@@ -28,6 +28,15 @@ func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// 发布者企业摘要：有 approved 认证企业才返回（无则前端按个人发布展示，杜绝虚假认证声明）
+	if ents, err := s.enterprises.ListByOwner(r.Context(), d.PublisherID); err == nil {
+		for _, e := range ents {
+			if e.Status == domain.EnterpriseApproved {
+				d.PublisherEnterprise = &domain.EnterpriseBrief{ID: e.ID, Name: e.Name, Logo: e.Logo}
+				break
+			}
+		}
+	}
 	// 公开完整联系方式（公告目的），隐藏发布者 ID 与坐标
 	d.PublisherID = ""
 	d.Latitude = 0

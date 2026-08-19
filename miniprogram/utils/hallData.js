@@ -289,6 +289,7 @@ export function normalizeDemand(d) {
     unit: '项目预算',
     deadline: status === '已结束' ? '已结束' : '近期',
     company: d.publisher_name || '平台用户',
+    publisher_enterprise: d.publisher_enterprise || null, // 发布者已认证企业摘要 {id,name,logo}，无则个人发布
     desc: d.description || '暂无详细描述',
     image,
     images: imgs,

@@ -292,6 +292,11 @@ func (s *EnterpriseService) Search(ctx context.Context, q string) ([]domain.Ente
 	return s.repo.Search(ctx, q)
 }
 
+// ListByOwner 按用户 ID 查企业（详情页发布者企业摘要用，无权限检查）
+func (s *EnterpriseService) ListByOwner(ctx context.Context, userID string) ([]domain.Enterprise, error) {
+	return s.repo.FindByOwner(ctx, userID)
+}
+
 type EmploymentService struct {
 	repo repository.EmploymentRepository
 }
