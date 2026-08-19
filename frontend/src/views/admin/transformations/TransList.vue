@@ -35,7 +35,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="转化详情" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="转化详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="转化标题" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -60,9 +60,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑转化' : '新增转化'" :width="560" @close="resetForm">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑转化' : '新增转化'" :width="'min(560px, 94vw)'" @close="resetForm">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="标题"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="标题" required><a-input v-model="form.title" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="成果ID"><a-input v-model="form.achievement_id" placeholder="关联成果 ID" style="width: 100%" /></a-form-item>
         <a-form-item label="合作方ID"><a-input v-model="form.partner_id" placeholder="关联合作企业 ID" style="width: 100%" /></a-form-item>
         <a-form-item label="阶段" :extra="formEdit ? '' : '新转化默认从「实验室」阶段开始，创建后可编辑推进'">
@@ -167,7 +167,7 @@ const submitForm = async () => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除转化记录',
-    content: `确定删除转化记录 "${row.achievement_title}" 吗？`,
+    content: `确定删除转化记录「${row.title || row.achievement_id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

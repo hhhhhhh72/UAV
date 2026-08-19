@@ -35,7 +35,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="成果详情" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="成果详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="成果名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -52,9 +52,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑成果' : '新增成果'" :width="560" :on-before-cancel="beforeClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑成果' : '新增成果'" :width="'min(560px, 94vw)'" :on-before-cancel="beforeClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="成果名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="成果名称" required><a-input v-model="form.title" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="领域"><a-input v-model="form.field" style="width: 100%" /></a-form-item>
         <a-form-item label="成果类型"><a-input v-model="form.achieve_type" placeholder="如：专利 / 样机 / 技术方案" style="width: 100%" /></a-form-item>
         <a-form-item label="阶段">
@@ -90,7 +90,7 @@
       </a-form>
       <template #footer>
         <a-button @click="cancelForm">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -223,7 +223,7 @@ const beforeClose = () => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除成果',
-    content: `确定删除成果"${row.title}"吗？`,
+    content: `确定删除成果「${row.title || row.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
@@ -248,5 +248,5 @@ const handleDelete = (row) => {
   max-width: 300px;
 }
 
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 </style>

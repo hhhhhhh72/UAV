@@ -79,7 +79,7 @@
     </a-modal>
 
     <!-- 编辑弹窗：管理员编辑企业档案（PRD FR-2.1 全部字段） -->
-    <a-modal v-model:visible="editModal.visible" title="编辑企业档案" :width="720" @ok="confirmEdit" @cancel="resetEditModal" :confirm-loading="editModal.loading" :mask-closable="false" :on-before-ok="beforeOkEdit" @before-cancel="beforeCancelEdit">
+    <a-modal v-model:visible="editModal.visible" title="编辑企业档案" :width="'min(720px, 94vw)'" @ok="confirmEdit" @cancel="resetEditModal" :confirm-loading="editModal.loading" :mask-closable="false" :on-before-ok="beforeOkEdit" @before-cancel="beforeCancelEdit">
       <a-alert
         v-if="editModal.status && editModal.status !== 'draft' && editModal.status !== 'supplement_required'"
         type="warning"
@@ -90,12 +90,12 @@
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="企业名称" required>
-              <a-input v-model="editModal.form.name" placeholder="请输入企业名称" />
+              <a-input v-model="editModal.form.name" :aria-required="true" placeholder="请输入企业名称" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
             <a-form-item label="统一社会信用代码" required>
-              <a-input v-model="editModal.form.credit_code" placeholder="请输入信用代码" />
+              <a-input v-model="editModal.form.credit_code" :aria-required="true" placeholder="请输入信用代码" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
@@ -157,11 +157,12 @@
     </a-modal>
 
     <!-- 审核意见弹窗：驳回必填理由（持久化到 review_comment，用户端可见） -->
-    <a-modal v-model:visible="reviewModal.visible" :title="reviewModal.action === 'approved' ? '审核通过' : '驳回企业'" :width="520" @ok="confirmReview" @cancel="resetReviewModal" :confirm-loading="reviewModal.loading" :on-before-ok="beforeOkReview" @before-cancel="beforeCancelReview">
+    <a-modal v-model:visible="reviewModal.visible" :title="reviewModal.action === 'approved' ? '审核通过' : '驳回企业'" :width="'min(520px, 94vw)'" @ok="confirmReview" @cancel="resetReviewModal" :confirm-loading="reviewModal.loading" :on-before-ok="beforeOkReview" @before-cancel="beforeCancelReview">
       <a-form layout="vertical">
         <a-form-item :label="reviewModal.action === 'approved' ? '审核意见（选填）' : '驳回理由（必填，将展示给申请人）'" required>
           <a-textarea
             v-model="reviewModal.reason"
+            :aria-required="true"
             :rows="4"
             max-length="200"
             show-word-limit

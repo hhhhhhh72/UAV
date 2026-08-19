@@ -92,5 +92,5 @@ const review = async (row, status) => {
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
 
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 </style>

@@ -32,7 +32,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="调度详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="调度详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="任务名称" :span="2">{{ currentItem.event_desc || '-' }}</a-descriptions-item>
@@ -50,9 +50,9 @@
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑调度' : '新建调度'" :width="560" :mask-closable="false" :unmount-on-close="true" @before-cancel="beforeCancel">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑调度' : '新建调度'" :width="'min(560px, 94vw)'" :mask-closable="false" :unmount-on-close="true" @before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="任务名称" required><a-input v-model="form.event_desc" style="width: 100%" /></a-form-item>
+        <a-form-item label="任务名称" required><a-input v-model="form.event_desc" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="处理结果"><a-input v-model="form.result" style="width: 100%" /></a-form-item>
         <a-form-item label="调度资源"><a-input v-model="form.resource_id" placeholder="资源 ID" style="width: 100%" /></a-form-item>
         <a-form-item label="位置"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
@@ -199,7 +199,7 @@ const submitForm = async () => {
 const handleDelete = (r) => {
   Modal.confirm({
     title: '提示',
-    content: '确定删除?',
+    content: `确定删除调度「${r.event_desc || r.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
@@ -222,5 +222,5 @@ const handleDelete = (r) => {
   max-width: 300px;
 }
 
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 </style>

@@ -32,7 +32,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="报告详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="报告详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="报告标题" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -42,6 +42,9 @@
           <a-descriptions-item label="报告期">{{ currentItem.period || '-' }}</a-descriptions-item>
           <a-descriptions-item label="作者">{{ currentItem.author || '-' }}</a-descriptions-item>
           <a-descriptions-item label="发布时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
+          <a-descriptions-item label="状态">
+            <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</a-tag>
+          </a-descriptions-item>
           <a-descriptions-item label="摘要" :span="2">{{ currentItem.summary || '-' }}</a-descriptions-item>
           <a-descriptions-item label="文件" :span="2">
             <a v-if="currentItem.file_url" :href="currentItem.file_url" target="_blank">下载报告</a>
@@ -52,7 +55,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑报告' : '新增报告'" :width="560" unmount-on-close :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑报告' : '新增报告'" :width="'min(560px, 94vw)'" unmount-on-close :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="报告标题" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="类型">
@@ -76,7 +79,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -174,6 +177,10 @@ const openForm = (r) => {
 }
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入报告标题'); return }
+  const fileUrl = (form.file_url || '').trim()
+  if (fileUrl && !/^https?:\/\/\S+$/i.test(fileUrl)) { Message.warning('文件URL须以 http(s):// 开头'); return }
+  const period = (form.period || '').trim()
+  if (period && !/^\d{4}(-Q[1-4])?$/.test(period)) { Message.warning('报告期格式应为 YYYY 或 YYYY-Q1~Q4，如 2026-Q2'); return }
   formLoading.value = true
   try {
     const p = { ...form }
@@ -188,7 +195,7 @@ const submitForm = async () => {
 const handleDelete = (r) => {
   Modal.confirm({
     title: '删除报告',
-    content: `确定删除报告"${r.title}"吗？`,
+    content: `确定删除报告「${r.title}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

@@ -35,7 +35,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="课程详情" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="课程详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="课程名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -55,6 +55,7 @@
               :src="currentItem.image"
               :width="160"
               :height="100"
+              alt="封面图"
               :preview-props="{ src: currentItem.image }"
               fit="cover"
               :style="{ borderRadius: '8px' }"
@@ -67,9 +68,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课程' : '新增课程'" :width="560" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课程' : '新增课程'" :width="'min(560px, 94vw)'" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="课程名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="课程名称" required><a-input v-model="form.title" style="width: 100%" :aria-required="true" /></a-form-item>
         <a-form-item label="封面图">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadRequest" accept="image/*" :before-upload="beforeUpload">
             <a-avatar v-if="form.image" :image-url="form.image" :size="80" shape="square" />
@@ -108,7 +109,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>

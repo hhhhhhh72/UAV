@@ -18,6 +18,9 @@
       <template #createdAt="{ record }">
         <span class="time-text">{{ formatDate(record.created_at) }}</span>
       </template>
+      <template #idCard="{ record }">
+        <span>{{ maskIdCard(record.id_card) || '-' }}</span>
+      </template>
       <template #actions="{ record }">
         <a-space :size="4">
           <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
@@ -30,7 +33,7 @@
     </CrudList>
 
     <!-- 报名详情（含证件资料） -->
-    <a-modal v-model:visible="detailVisible" title="报名详情" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="报名详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="姓名" :span="2">{{ currentItem.name || '-' }}</a-descriptions-item>
@@ -43,11 +46,11 @@
           <a-descriptions-item label="从业经验" :span="2">{{ currentItem.experience || '-' }}</a-descriptions-item>
           <a-descriptions-item label="课程ID" :span="2">{{ currentItem.course_id || '-' }}</a-descriptions-item>
           <a-descriptions-item label="证件照">
-            <a-image v-if="currentItem.photo_url" :src="fullUrl(currentItem.photo_url)" :preview="true" width="64" height="64" fit="cover" style="border-radius: 4px; cursor: pointer;" />
+            <a-image v-if="currentItem.photo_url" :src="fullUrl(currentItem.photo_url)" alt="证件照" :preview="true" width="64" height="64" fit="cover" style="border-radius: 4px; cursor: pointer;" />
             <span v-else>-</span>
           </a-descriptions-item>
           <a-descriptions-item label="身份证照片">
-            <a-image v-if="currentItem.id_card_image" :src="fullUrl(currentItem.id_card_image)" :preview="true" width="64" height="64" fit="cover" style="border-radius: 4px; cursor: pointer;" />
+            <a-image v-if="currentItem.id_card_image" :src="fullUrl(currentItem.id_card_image)" alt="身份证照片" :preview="true" width="64" height="64" fit="cover" style="border-radius: 4px; cursor: pointer;" />
             <span v-else>-</span>
           </a-descriptions-item>
           <a-descriptions-item label="无犯罪证明" :span="2">{{ currentItem.no_crime || '-' }}</a-descriptions-item>
@@ -56,7 +59,7 @@
     </a-modal>
 
     <!-- 编辑弹窗（基础信息 + 状态） -->
-    <a-modal v-model:visible="formVisible" title="编辑报名记录" :width="560" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" title="编辑报名记录" :width="'min(560px, 94vw)'" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="姓名"><a-input v-model="form.name" style="width: 100%" /></a-form-item>
         <a-form-item label="电话"><a-input v-model="form.phone" style="width: 100%" /></a-form-item>
@@ -78,7 +81,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -99,6 +102,13 @@ const api = useAdminApi('enrollments')
 // 图片路径同源相对引用：生产 nginx 已反代 /uploads/，开发 vite 已代理 /uploads；
 // 早期版本回退拼接 localhost:8080 会在生产环境指向管理员本机导致图片加载失败
 const fullUrl = (u) => (u && u.startsWith('http') ? u : u || '')
+
+// 身份证脱敏：仅显示前6后4，中间打码（列表展示）
+const maskIdCard = (c) => {
+  if (!c) return ''
+  if (c.length <= 10) return c
+  return c.slice(0, 6) + '********' + c.slice(-4)
+}
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -131,7 +141,7 @@ const searchFields = [
 const columns = [
   { title: '姓名', dataIndex: 'name', minWidth: 100 },
   { title: '电话', dataIndex: 'phone', width: 130 },
-  { title: '身份证号', dataIndex: 'id_card', width: 190 },
+  { title: '身份证号', dataIndex: 'id_card', slotName: 'idCard', width: 190 },
   { title: '课程ID', dataIndex: 'course_id', slotName: 'courseId', minWidth: 180 },
   { title: '性别', dataIndex: 'gender', width: 70 },
   { title: '学历', dataIndex: 'education', width: 80 },
@@ -206,5 +216,5 @@ const handleCancel = () => { if (guardClose()) formVisible.value = false }
 </script>
 
 <style scoped>
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 </style>

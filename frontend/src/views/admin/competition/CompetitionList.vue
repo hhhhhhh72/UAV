@@ -14,7 +14,7 @@
         <span class="time-text">{{ formatDate(record.start_date) }}</span>
       </template>
       <template #regCount="{ record }">
-        <span>{{ record.reg_count || 0 }} / {{ record.max_teams || 0 }}</span>
+        <span>{{ record.reg_count || 0 }} / {{ record.max_teams ? record.max_teams : '不限' }}</span>
       </template>
       <template #status="{ record }">
         <a-tag :color="statusTagType(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
@@ -32,7 +32,7 @@
     </CrudList>
 
     <!-- 详情弹窗（含修改状态区） -->
-    <a-modal v-model:visible="detailVisible" title="赛事详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="赛事详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="赛事名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -40,13 +40,13 @@
           <a-descriptions-item label="地点">{{ currentItem.location || '-' }}</a-descriptions-item>
           <a-descriptions-item label="开始">{{ formatDate(currentItem.start_date) }}</a-descriptions-item>
           <a-descriptions-item label="结束">{{ formatDate(currentItem.end_date) }}</a-descriptions-item>
-          <a-descriptions-item label="报名/名额">{{ currentItem.reg_count || 0 }} / {{ currentItem.max_teams || 0 }}</a-descriptions-item>
+          <a-descriptions-item label="报名/名额">{{ currentItem.reg_count || 0 }} / {{ currentItem.max_teams ? currentItem.max_teams : '不限' }}</a-descriptions-item>
           <a-descriptions-item label="主办方">{{ currentItem.sponsor || '-' }}</a-descriptions-item>
           <a-descriptions-item label="状态">
             <a-tag :color="statusTagType(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
           </a-descriptions-item>
           <a-descriptions-item v-if="currentItem.poster" label="海报" :span="2">
-            <a-image :src="currentItem.poster" :width="160" :preview-props="{ src: currentItem.poster }" />
+            <a-image :src="currentItem.poster" :width="160" alt="赛事海报" :preview-props="{ src: currentItem.poster }" />
           </a-descriptions-item>
           <a-descriptions-item v-if="currentItem.description" label="简介" :span="2">{{ currentItem.description }}</a-descriptions-item>
         </a-descriptions>
@@ -63,9 +63,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑赛事' : '新建赛事'" :width="600" :mask-closable="false" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑赛事' : '新建赛事'" :width="'min(600px, 94vw)'" :mask-closable="false" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="赛事名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="赛事名称" required><a-input v-model="form.title" style="width: 100%" :aria-required="true" /></a-form-item>
         <a-form-item label="海报图">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadRequest" accept="image/*" :before-upload="beforeUpload">
             <a-avatar v-if="form.poster" :image-url="form.poster" :size="80" shape="square" />
@@ -99,7 +99,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -229,6 +229,9 @@ const openForm = (row) => {
 
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入赛事名称'); return }
+  // 日期先后校验：报名截止 ≤ 开始 ≤ 结束
+  if (form.start_date && form.end_date && form.start_date > form.end_date) { Message.warning('开始日期不能晚于结束日期'); return }
+  if (form.deadline && form.start_date && form.deadline > form.start_date) { Message.warning('报名截止日期不能晚于开始日期'); return }
   formLoading.value = true
   try {
     const p = {
@@ -299,7 +302,7 @@ const handleDelete = (row) => {
 </script>
 
 <style scoped>
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 
 .review-actions {
   display: flex;

@@ -42,9 +42,9 @@
     </CrudList>
 
     <!-- 新增用户弹窗 -->
-    <a-modal v-model:visible="formVisible" title="新增用户" :width="420" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeCancel">
+    <a-modal v-model:visible="formVisible" title="新增用户" :width="'min(420px, 94vw)'" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="用户ID" required><a-input v-model="form.id" placeholder="输入唯一用户ID" style="width: 100%" /></a-form-item>
+        <a-form-item label="用户ID" required><a-input v-model="form.id" :aria-required="true" placeholder="输入唯一用户ID" style="width: 100%" /></a-form-item>
         <a-form-item label="角色">
           <a-select v-model="form.role" style="width: 100%">
             <a-option value="individual">个人用户</a-option>
@@ -161,7 +161,7 @@ const toggleRole = (user) => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '提示',
-    content: `确认删除用户「${row.id}」？`,
+    content: `确认删除用户「${row.name || row.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
@@ -178,7 +178,7 @@ const handleDelete = (row) => {
 <style scoped>
 .page { max-width: 1200px; margin: 0 auto; }
 
-.super-admin-tip { color: #999; font-size: 12px; }
+.super-admin-tip { color: var(--color-text-2); font-size: 12px; }
 
 .cell-user { display: flex; align-items: center; gap: 8px; }
 

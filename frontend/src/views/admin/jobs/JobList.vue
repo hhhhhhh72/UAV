@@ -35,7 +35,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="职位详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="职位详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="职位名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -55,9 +55,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑职位' : '新增职位'" :width="560" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑职位' : '新增职位'" :width="'min(560px, 94vw)'" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="职位名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="职位名称" required><a-input v-model="form.title" style="width: 100%" :aria-required="true" /></a-form-item>
         <a-form-item label="类型">
           <a-select v-model="form.job_type" style="width: 100%">
             <a-option value="全职">全职</a-option>
@@ -74,13 +74,13 @@
           </a-select>
         </a-form-item>
         <a-form-item label="薪资(元)">
-          <a-input-number v-model="form.salary" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
+          <a-input-number v-model="form.salary" :min="0" :max="1000000" hide-button style="width: 100%" placeholder="单位：元" />
         </a-form-item>
         <a-form-item label="职位描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -105,7 +105,7 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const jobTypeTag = (t) => ({ '全职': 'arcoblue', '兼职': 'orangered', '实习': 'gray', 'contract': 'gray' }[t] || 'gray')
+const jobTypeTag = (t) => ({ '全职': 'arcoblue', '兼职': 'orangered', '实习': 'gray', '外包': 'purple' }[t] || 'gray')
 
 const statusTag = (s) => ({ published: 'green', closed: 'gray' }[s] || 'gray')
 const statusLabel = { published: '招聘中', closed: '已关闭' }
@@ -166,6 +166,8 @@ const openForm = (row) => {
 
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入职位名称'); return }
+  // 薪资范围校验：最高 100 万/月（前端兜底，防误填超范围数值）
+  if (Number(form.salary) > 1000000) { Message.warning('薪资超出合理范围（最高 100 万/月）'); return }
   formLoading.value = true
   try {
     const p = {
@@ -210,7 +212,7 @@ const handleCancel = () => { if (guardClose()) formVisible.value = false }
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除职位',
-    content: '确定删除该职位吗？删除后不可恢复',
+    content: `确定删除职位「${row.title}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

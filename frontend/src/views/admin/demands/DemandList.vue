@@ -75,7 +75,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="需求详情" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="需求详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="需求标题" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -88,6 +88,8 @@
           <a-descriptions-item label="地区" :span="2">{{ currentItem.district || '-' }}</a-descriptions-item>
           <a-descriptions-item label="联系人">{{ currentItem.contact || '-' }}</a-descriptions-item>
           <a-descriptions-item label="提交时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
+          <a-descriptions-item label="发布者">{{ currentItem.publisher_name || currentItem.publisher_id || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="更新时间">{{ formatDate(currentItem.updated_at) }}</a-descriptions-item>
           <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
           <a-descriptions-item v-if="currentItem.images && currentItem.images.length" label="图片" :span="2">
             <div class="detail-imgs">
@@ -109,7 +111,7 @@
     </a-modal>
 
     <!-- 输入弹窗（驳回理由 / 关闭原因 / 登记金额） -->
-    <a-modal v-model:visible="inputModal.visible" :title="inputModal.title" :width="440" @ok="confirmInputModal" @cancel="inputModal.visible = false">
+    <a-modal v-model:visible="inputModal.visible" :title="inputModal.title" :width="'min(440px, 94vw)'" @ok="confirmInputModal" @cancel="inputModal.visible = false">
       <a-input
         ref="inputModalRef"
         v-model="inputModal.value"
@@ -257,14 +259,22 @@ const confirmInputModal = async () => {
 
 const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '操作失败'
 
-const handleApprove = async (item) => {
-  try {
-    await approveDemand(item.id)
-    Message.success('审核通过')
-    item.status = 'published'
-    detailVisible.value = false
-    crudRef.value?.reload(); loadStats()
-  } catch (e) { Message.error(errMsg(e)) }
+const handleApprove = (item) => {
+  Modal.confirm({
+    title: '审核通过',
+    content: `确定通过需求「${item.title || item.id}」的审核吗？通过后将在需求大厅公开。`,
+    okText: '通过',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await approveDemand(item.id)
+        Message.success('审核通过')
+        item.status = 'published'
+        detailVisible.value = false
+        crudRef.value?.reload(); loadStats()
+      } catch (e) { Message.error(errMsg(e)) }
+    }
+  })
 }
 
 // 删除已取消/已驳回需求
@@ -317,7 +327,7 @@ onMounted(loadStats)
 
 .stat-label {
   font-size: 12px;
-  color: #86909C;
+  color: var(--color-text-2);
 }
 
 .stat.warn .stat-num { color: #E96012; }
@@ -338,7 +348,7 @@ onMounted(loadStats)
 
 .amount-text { color: #E96012; font-weight: 500; }
 .amount-empty { color: #C9CDD4; }
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 
 .detail-imgs { display: flex; flex-wrap: wrap; gap: 8px; }
 

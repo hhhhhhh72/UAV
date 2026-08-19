@@ -30,7 +30,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="品牌详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="品牌详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="品牌名称">{{ currentItem.name || '-' }}</a-descriptions-item>
@@ -46,9 +46,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑品牌' : '新增品牌'" :width="560" :on-before-cancel="beforeClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑品牌' : '新增品牌'" :width="'min(560px, 94vw)'" :on-before-cancel="beforeClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="品牌名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="品牌名称" required><a-input v-model="form.name" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="Logo URL"><a-input v-model="form.logo_url" style="width: 100%" /></a-form-item>
         <a-form-item label="封面图 URL"><a-input v-model="form.cover_url" style="width: 100%" /></a-form-item>
         <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 2 }" style="width: 100%" /></a-form-item>
@@ -63,7 +63,7 @@
       </a-form>
       <template #footer>
         <a-button @click="cancelForm">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -129,6 +129,12 @@ const openForm = (r) => {
 }
 const submitForm = async () => {
   if (!form.name) { Message.warning('请输入品牌名称'); return }
+  // Logo/封面 URL 为手动填写，校验 http(s) 格式（未填则跳过）
+  const urlFields = [['logo_url', 'Logo URL'], ['cover_url', '封面图 URL']]
+  for (const [key, label] of urlFields) {
+    const v = String(form[key] || '').trim()
+    if (v && !/^https?:\/\//i.test(v)) { Message.warning(`${label}需以 http:// 或 https:// 开头`); return }
+  }
   formLoading.value = true
   try {
     const p = { id: form.id, name: form.name, logo_url: form.logo_url, cover_url: form.cover_url, description: form.description, status: form.status, honors: String(form.honorsText || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean) }
@@ -174,7 +180,7 @@ const handleReject = async (r) => {
 const handleDelete = (r) => {
   Modal.confirm({
     title: '删除品牌',
-    content: '确定删除该品牌吗？',
+    content: `确定删除品牌「${r.name || r.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

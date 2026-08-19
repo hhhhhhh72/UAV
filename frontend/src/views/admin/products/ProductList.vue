@@ -19,6 +19,7 @@
           height="56"
           fit="cover"
           class="cover-img"
+          alt="商品封面"
         />
         <span v-else class="no-image">无图</span>
       </template>
@@ -29,7 +30,7 @@
         <span>{{ record.condition === 'used' ? '二手' : '全新' }}</span>
       </template>
       <template #price="{ record }">
-        <span>{{ ((record.price_fen || 0) / 100).toFixed(2) }}</span>
+        <span>{{ record.price_fen ? '¥' + (record.price_fen / 100).toLocaleString() : '面议' }}</span>
       </template>
       <template #status="{ record }">
         <a-tag :color="statusColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
@@ -50,10 +51,10 @@
     </CrudList>
 
     <!-- 新增 / 编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑商品' : '新增商品'" :width="520" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑商品' : '新增商品'" :width="'min(520px, 94vw)'" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical" class="dialog-form">
         <a-form-item label="商品名称" required>
-          <a-input v-model="form.title" placeholder="如：工业级六旋翼无人机 X6-28L" allow-clear style="width: 100%" />
+          <a-input v-model="form.title" :aria-required="true" placeholder="如：工业级六旋翼无人机 X6-28L" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="类型">
           <a-select v-model="form.prod_type" style="width: 100%">
@@ -94,6 +95,7 @@
             :file-list="imageList"
             list-type="picture-card"
             :limit="6"
+            :before-upload="beforeUpload"
             :custom-request="uploadImage"
             @change="onImageChange"
           />
@@ -206,6 +208,13 @@ const openForm = (row) => {
 
 // 图片上传（/api/v1/upload 返回相对 URL）
 // 注意：Arco custom-request 的参数是 fileItem，原生 File 在 fileItem.file 上
+// 上传前校验：仅图片类型、单张不超过 5MB
+const beforeUpload = (file) => {
+  if (!file.type || !file.type.startsWith('image/')) { Message.warning('仅支持上传图片文件'); return false }
+  if (file.size > 5 * 1024 * 1024) { Message.warning('图片大小不能超过 5MB'); return false }
+  return true
+}
+
 const uploadImage = async ({ fileItem, onSuccess, onError }) => {
   const fd = new FormData()
   fd.append('file', fileItem.file)

@@ -28,9 +28,9 @@
     </CrudList>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑专家' : '新增专家'" :width="500" destroy-on-close :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑专家' : '新增专家'" :width="'min(500px, 94vw)'" destroy-on-close :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="姓名" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="姓名" required><a-input v-model="form.name" style="width: 100%" :aria-required="true" /></a-form-item>
         <a-form-item label="职称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="单位"><a-input v-model="form.org" style="width: 100%" /></a-form-item>
         <a-form-item label="领域"><a-input v-model="form.field" style="width: 100%" /></a-form-item>
@@ -59,7 +59,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -161,7 +161,7 @@ const openForm = (row) => {
 }
 const submitForm = async () => {
   if (!form.name) { Message.warning('请输入姓名'); return }
-  form.tags = tagsInput.value.split(',').map(s => s.trim()).filter(Boolean)
+  form.tags = tagsInput.value.split(/[,，、]/).map(s => s.trim()).filter(Boolean)
   formLoading.value = true
   try {
     if (formEdit.value) {

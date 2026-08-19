@@ -40,7 +40,7 @@
     <a-modal
       v-model:visible="showCaseEditPopup"
       :title="currentCase?.id ? '编辑案例' : '新增案例'"
-      :width="720"
+      :width="'min(720px, 94vw)'"
       :footer="false"
       :on-before-cancel="beforeClose"
     >
@@ -48,19 +48,19 @@
         <a-form :model="currentCase" layout="vertical" class="dialog-form">
           <a-divider orientation="left">基本信息</a-divider>
           <a-form-item label="分类" required>
-            <a-input ref="categoryRef" v-model="currentCase.category" placeholder="如：物流配送 / 测绘巡检 / 应急救援" allow-clear style="width: 100%" />
+            <a-input ref="categoryRef" v-model="currentCase.category" placeholder="如：物流配送 / 测绘巡检 / 应急救援" allow-clear :aria-required="true" style="width: 100%" />
           </a-form-item>
           <a-form-item label="标题" required>
-            <a-input v-model="currentCase.title" placeholder="请输入标题" allow-clear style="width: 100%" />
+            <a-input v-model="currentCase.title" placeholder="请输入标题" allow-clear :aria-required="true" style="width: 100%" />
           </a-form-item>
           <a-form-item label="简介">
-            <a-input v-model="currentCase.description" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" placeholder="请输入简介" style="width: 100%" />
+            <a-input v-model="currentCase.description" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" :maxlength="500" placeholder="请输入简介" style="width: 100%" />
           </a-form-item>
           <a-form-item label="客户名称">
-            <a-input v-model="currentCase.clientName" placeholder="如：重庆市某区应急管理局" allow-clear style="width: 100%" />
+            <a-input v-model="currentCase.clientName" :maxlength="100" placeholder="如：重庆市某区应急管理局" allow-clear style="width: 100%" />
           </a-form-item>
           <a-form-item label="成果">
-            <a-input v-model="currentCase.result" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="项目成果/数据（可选）" style="width: 100%" />
+            <a-input v-model="currentCase.result" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" :maxlength="500" placeholder="项目成果/数据（可选）" style="width: 100%" />
           </a-form-item>
 
           <a-divider orientation="left">封面图片</a-divider>
@@ -72,7 +72,7 @@
               :before-upload="beforeUpload"
               accept="image/*"
             >
-              <img v-if="(currentCase.images || [])[0]" :src="normalizeMediaUrl(currentCase.images[0])" class="cover-preview" />
+              <img v-if="(currentCase.images || [])[0]" :src="normalizeMediaUrl(currentCase.images[0])" class="cover-preview" alt="案例封面预览" />
               <a-button v-else type="primary">点击上传</a-button>
             </a-upload>
             <a-button v-if="(currentCase.images || [])[0]" size="small" style="margin-top: 8px" @click="currentCase.images = []">清除</a-button>
@@ -255,7 +255,7 @@ const beforeClose = () => {
 const onDeleteCase = (caseItem) => {
   Modal.confirm({
     title: '确认删除',
-    content: '确定要删除这个案例吗？删除后无法恢复。',
+    content: `确定删除案例「${caseItem.title || caseItem.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

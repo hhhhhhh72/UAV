@@ -31,7 +31,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="通知详情" :width="640" :footer="false" :unmount-on-close="true">
+    <a-modal v-model:visible="detailVisible" title="通知详情" :width="'min(640px, 94vw)'" :footer="false" :unmount-on-close="true">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="ID" :span="2">{{ currentItem.id }}</a-descriptions-item>
@@ -52,11 +52,11 @@
     </a-modal>
 
     <!-- 表单弹窗（发送/广播） -->
-    <a-modal v-model:visible="formVisible" title="发送通知" :width="560" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeCancel">
+    <a-modal v-model:visible="formVisible" title="发送通知" :width="'min(560px, 94vw)'" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="消息标题" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="消息标题" required><a-input v-model="form.title" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="留空 = 广播给全部用户" style="width: 100%" /></a-form-item>
-        <a-form-item label="消息内容" required><a-input v-model="form.content" type="textarea" :rows="5" style="width: 100%" /></a-form-item>
+        <a-form-item label="消息内容" required><a-input v-model="form.content" :aria-required="true" type="textarea" :rows="5" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="beforeCancel">取消</a-button>
@@ -150,7 +150,7 @@ const submitForm = async () => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '提示',
-    content: '确定删除该通知吗？',
+    content: `确定删除通知「${row.title || row.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

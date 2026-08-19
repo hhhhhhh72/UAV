@@ -104,7 +104,7 @@ const handleStatus = async (item, status) => {
 const handleDelete = (item) => {
   Modal.confirm({
     title: '确认删除',
-    content: '删除后不可恢复',
+    content: `确定删除该评价吗？删除后不可恢复（评价对象：${item.target_id || '-'}）`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
@@ -121,8 +121,8 @@ const handleDelete = (item) => {
 <style scoped>
 .page { max-width: 1200px; margin: 0 auto; }
 
-.target-id { margin-left: 6px; color: #86909C; }
+.target-id { margin-left: 6px; color: var(--color-text-2); }
 
 .stars { color: #ffd21e; font-size: 14px; letter-spacing: 1px; }
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 </style>

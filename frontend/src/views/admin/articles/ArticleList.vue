@@ -40,24 +40,24 @@
     <a-modal
       v-model:visible="showPopup"
       :title="editingId ? '编辑资讯' : '发布资讯'"
-      :width="640"
+      :width="'min(640px, 94vw)'"
       :footer="false"
       :on-before-cancel="guardClose"
     >
       <a-form :model="form" layout="vertical" class="dialog-form">
         <a-form-item label="分类" required>
-          <a-select v-model="form.category" placeholder="选择资讯分类" style="width: 100%">
+          <a-select v-model="form.category" placeholder="选择资讯分类" style="width: 100%" :aria-required="true">
             <a-option v-for="opt in CATEGORY_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</a-option>
           </a-select>
         </a-form-item>
         <a-form-item label="标题" required>
-          <a-input v-model="form.title" placeholder="请输入资讯标题" allow-clear style="width: 100%" />
+          <a-input v-model="form.title" placeholder="请输入资讯标题" maxlength="100" allow-clear style="width: 100%" :aria-required="true" />
         </a-form-item>
         <a-form-item label="来源">
           <a-input v-model="form.source" placeholder="如：重庆市无人机产业协会" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="正文" required>
-          <a-textarea v-model="form.content" :auto-size="{ minRows: 6, maxRows: 14 }" placeholder="请输入资讯正文（列表摘要将自动截取前 100 字）" style="width: 100%" />
+          <a-textarea v-model="form.content" :auto-size="{ minRows: 6, maxRows: 14 }" maxlength="5000" placeholder="请输入资讯正文（列表摘要将自动截取前 100 字）" style="width: 100%" :aria-required="true" />
         </a-form-item>
       </a-form>
 

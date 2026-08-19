@@ -18,6 +18,7 @@
           height="56"
           fit="cover"
           class="cover-img"
+          alt="服务封面"
         />
         <span v-else class="no-image">无图</span>
       </template>
@@ -39,13 +40,13 @@
     </CrudList>
 
     <!-- 新增 / 编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑服务能力' : '新增服务能力'" :width="520" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑服务能力' : '新增服务能力'" :width="'min(520px, 94vw)'" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical" class="dialog-form">
         <a-form-item label="服务标题" required>
-          <a-input v-model="form.title" placeholder="如：桥梁与光伏设施精细化巡检" allow-clear style="width: 100%" />
+          <a-input v-model="form.title" :aria-required="true" placeholder="如：桥梁与光伏设施精细化巡检" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="服务商名称" required>
-          <a-input v-model="form.provider_name" placeholder="如：重庆翼航科技有限公司" allow-clear style="width: 100%" />
+          <a-input v-model="form.provider_name" :aria-required="true" placeholder="如：重庆翼航科技有限公司" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="服务分类">
           <a-select v-model="form.category" style="width: 100%">

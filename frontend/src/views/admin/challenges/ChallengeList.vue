@@ -38,7 +38,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="难题详情" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="难题详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="难题标题" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -55,9 +55,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑难题' : '新增难题'" :width="560" :on-before-cancel="beforeClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑难题' : '新增难题'" :width="'min(560px, 94vw)'" :on-before-cancel="beforeClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="难题名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="难题名称" required><a-input v-model="form.title" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="领域"><a-input v-model="form.field" placeholder="如：飞控系统" style="width: 100%" /></a-form-item>
         <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
         <a-form-item label="悬赏金额(分)"><a-input-number v-model="form.budget_fen" :min="0" style="width: 100%" placeholder="单位：分" /></a-form-item>
@@ -72,7 +72,7 @@
       </a-form>
       <template #footer>
         <a-button @click="cancelForm">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -207,7 +207,7 @@ const beforeClose = () => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除难题',
-    content: `确定删除难题"${row.title}"吗？`,
+    content: `确定删除难题「${row.title || row.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
@@ -234,5 +234,5 @@ const handleDelete = (row) => {
 
 .cell-amount { color: #E96012; font-weight: 500; }
 
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 </style>

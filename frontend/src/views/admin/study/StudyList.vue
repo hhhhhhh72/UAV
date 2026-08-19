@@ -16,6 +16,9 @@
       <template #status="{ record }">
         <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
       </template>
+      <template #capacity="{ record }">
+        <span>{{ record.capacity ?? '-' }}</span>
+      </template>
       <template #actions="{ record }">
         <a-space :size="4">
           <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
@@ -29,7 +32,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="研学项目详情" :width="600" :footer="false" :mask-closable="false">
+    <a-modal v-model:visible="detailVisible" title="研学项目详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="项目名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -46,9 +49,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑研学项目' : '新增研学项目'" :width="560" :mask-closable="false" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑研学项目' : '新增研学项目'" :width="'min(560px, 94vw)'" :mask-closable="false" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="项目名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="项目名称" required><a-input v-model="form.title" style="width: 100%" :aria-required="true" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="draft">草稿</a-option>
@@ -63,7 +66,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -112,7 +115,7 @@ const columns = [
   { title: '研学项目', dataIndex: 'title', slotName: 'title', minWidth: 220 },
   { title: '目的地', dataIndex: 'destination', width: 140 },
   { title: '时长', dataIndex: 'duration', width: 100 },
-  { title: '名额', dataIndex: 'capacity', width: 80 },
+  { title: '名额', dataIndex: 'capacity', slotName: 'capacity', width: 80 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
   { title: '操作', slotName: 'actions', width: 200, fixed: 'right' }
 ]

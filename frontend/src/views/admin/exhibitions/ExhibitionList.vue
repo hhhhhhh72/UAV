@@ -35,7 +35,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="展会详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="展会详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="展会名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -54,12 +54,12 @@
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑展会' : '新增展会'" :width="560" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑展会' : '新增展会'" :width="'min(560px, 94vw)'" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="展会名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="展会名称" required><a-input v-model="form.title" style="width: 100%" :aria-required="true" /></a-form-item>
         <a-form-item label="展位数"><a-input-number v-model="form.booth_count" :min="0" hide-button style="width: 100%" /></a-form-item>
         <a-form-item label="地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
-        <a-form-item label="分类"><a-input v-model="form.category" placeholder="如：行业展会" style="width: 100%" /></a-form-item>
+        <a-form-item label="分类"><a-input v-model="form.category" placeholder="如：行业展会" maxlength="50" style="width: 100%" /></a-form-item>
         <a-form-item label="组织方"><a-input v-model="form.organizer" style="width: 100%" /></a-form-item>
         <a-form-item label="封面图URL"><a-input v-model="form.cover_url" placeholder="展会封面图片地址" style="width: 100%" /></a-form-item>
         <a-form-item label="开始日期"><a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
@@ -79,7 +79,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -224,7 +224,7 @@ const submitForm = async () => {
 const handleDelete = (r) => {
   Modal.confirm({
     title: '提示',
-    content: '确定删除?',
+    content: `确定删除展会「${r.title}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

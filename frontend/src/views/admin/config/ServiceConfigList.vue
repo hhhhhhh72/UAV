@@ -66,7 +66,7 @@
     <a-modal
       v-model:visible="showServiceEditPopup"
       :title="editingService?.name || '服务配置'"
-      :width="860"
+      :width="'min(860px, 94vw)'"
       :top="'4vh'"
       :unmount-on-close="true"
       :mask-closable="false"
@@ -594,7 +594,7 @@
     <a-modal
       v-model:visible="showHomeConfigPopup"
       title="首页配置"
-      :width="640"
+      :width="'min(640px, 94vw)'"
       :unmount-on-close="true"
       :on-before-cancel="guardHomeConfigClose"
     >
@@ -1320,7 +1320,7 @@ onMounted(() => {
   margin-top: 8px;
   padding: 0 4px;
   font-size: 12px;
-  color: var(--color-text-3);
+  color: var(--color-text-2);
 }
 
 /* 可点击行 */
@@ -1346,7 +1346,7 @@ onMounted(() => {
 }
 .link-row-label {
   font-size: 12px;
-  color: var(--color-text-3);
+  color: var(--color-text-2);
   margin-top: 2px;
 }
 .link-row-arrow {

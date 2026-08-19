@@ -35,7 +35,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="活动详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="活动详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="活动名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -43,15 +43,21 @@
           <a-descriptions-item label="地点">{{ currentItem.location || '-' }}</a-descriptions-item>
           <a-descriptions-item label="开始时间">{{ formatDate(currentItem.start_time) }}</a-descriptions-item>
           <a-descriptions-item label="结束时间">{{ formatDate(currentItem.end_time) }}</a-descriptions-item>
-          <a-descriptions-item label="名额">{{ currentItem.max_attendees || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="名额">{{ currentItem.max_attendees ? currentItem.max_attendees + ' 人' : '不限' }}</a-descriptions-item>
           <a-descriptions-item label="已报名">{{ currentItem.reg_count || 0 }} 人</a-descriptions-item>
+          <a-descriptions-item label="状态">
+            <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.cover_url" label="封面" :span="2">
+            <a-image :src="currentItem.cover_url" :width="160" :alt="(currentItem.title || '活动') + '封面'" :preview="true" />
+          </a-descriptions-item>
           <a-descriptions-item label="描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑活动' : '新增活动'" :width="560" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="guardClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑活动' : '新增活动'" :width="'min(560px, 94vw)'" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="活动名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="类型">
@@ -67,7 +73,7 @@
         <a-form-item label="封面图URL"><a-input v-model="form.cover_url" placeholder="活动封面图片地址" style="width: 100%" /></a-form-item>
         <a-form-item label="开始时间"><a-input v-model="form.start_time" placeholder="YYYY-MM-DD HH:mm" style="width: 100%" /></a-form-item>
         <a-form-item label="结束时间"><a-input v-model="form.end_time" placeholder="YYYY-MM-DD HH:mm" style="width: 100%" /></a-form-item>
-        <a-form-item label="名额"><a-input-number v-model="form.max_attendees" :min="0" hide-button style="width: 100%" /></a-form-item>
+        <a-form-item label="名额" extra="0 表示不限名额"><a-input-number v-model="form.max_attendees" :min="0" hide-button style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="published">已发布</a-option>
@@ -80,7 +86,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -195,6 +201,12 @@ const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.me
 
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入活动名称'); return }
+  const timeRe = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/
+  const startT = (form.start_time || '').trim()
+  const endT = (form.end_time || '').trim()
+  if (startT && !timeRe.test(startT)) { Message.warning('开始时间格式应为 YYYY-MM-DD HH:mm'); return }
+  if (endT && !timeRe.test(endT)) { Message.warning('结束时间格式应为 YYYY-MM-DD HH:mm'); return }
+  if (startT && endT && new Date(startT.replace(' ', 'T')) >= new Date(endT.replace(' ', 'T'))) { Message.warning('结束时间须晚于开始时间'); return }
   formLoading.value = true
   try {
     // 白名单 payload：只回传可写字段，避免 reg_count 等只读/统计字段覆盖后端数据
@@ -221,7 +233,7 @@ const submitForm = async () => {
 const handleDelete = (r) => {
   Modal.confirm({
     title: '提示',
-    content: '确定删除该活动?',
+    content: `确定删除活动「${r.title}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

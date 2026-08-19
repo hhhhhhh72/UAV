@@ -7,7 +7,7 @@
       :search-fields="searchFields"
       :default-params="defaultParams"
       creatable
-      add-label="新增"
+      add-label="新增场地"
       @add="openForm()"
     >
       <template #name="{ record }">
@@ -47,15 +47,14 @@
           <a-descriptions-item label="状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="设施">{{ (currentItem.facilities || []).join('、') || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="配套设施" :span="2">{{ currentItem.facilities || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="配套设施" :span="2">{{ (currentItem.facilities || []).join('、') || '-' }}</a-descriptions-item>
           <a-descriptions-item label="使用规则" :span="2">{{ currentItem.booking_rule || '-' }}</a-descriptions-item>
         </a-descriptions>
       </template>
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑场地' : '新增场地'" :width="560" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeClose" @close="resetForm">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑场地' : '新增场地'" :width="'min(560px, 94vw)'" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeClose" @close="resetForm">
       <a-form :model="form" layout="vertical">
         <a-form-item label="场地名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
         <a-form-item label="地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
@@ -75,7 +74,7 @@
           </a-select>
         </a-form-item>
         <a-form-item label="费用(元)">
-          <a-input-number v-model="form.priceYuan" :min="0" hide-button style="width: 100%" placeholder="单位：元" />
+          <a-input-number v-model="form.priceYuan" :min="0" :max="999999" hide-button style="width: 100%" placeholder="单位：元" />
         </a-form-item>
         <a-form-item label="配套设施">
           <a-input v-model="form.facilitiesText" placeholder="如：充电桩、停机坪（逗号分隔）" style="width: 100%" />
@@ -84,7 +83,7 @@
       </a-form>
       <template #footer>
         <a-button @click="cancelForm">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -215,8 +214,8 @@ const beforeClose = () => {
 
 const handleDelete = (row) => {
   Modal.confirm({
-    title: '提示',
-    content: `确定删除场地 "${row.name}" 吗？`,
+    title: '删除场地',
+    content: `确定删除场地「${row.name || row.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

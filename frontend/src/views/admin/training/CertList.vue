@@ -23,6 +23,7 @@
         <a-image
           v-if="record.image_url"
           :src="fullUrl(record.image_url)"
+          alt="证书图片"
           :preview="true"
           width="44"
           height="44"
@@ -47,7 +48,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="证书详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="证书详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="证书编号">{{ currentItem.cert_number || '-' }}</a-descriptions-item>
@@ -65,9 +66,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑证书' : '新增证书'" :width="560" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑证书' : '新增证书'" :width="'min(560px, 94vw)'" @cancel="formVisible = false">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="证书编号" required><a-input v-model="form.cert_number" style="width: 100%" /></a-form-item>
+        <a-form-item label="证书编号" required><a-input v-model="form.cert_number" style="width: 100%" :aria-required="true" /></a-form-item>
         <a-form-item label="证书类型"><a-input v-model="form.cert_type" placeholder="caac / utc_dji / gov_level" style="width: 100%" /></a-form-item>
         <a-form-item label="等级"><a-input v-model="form.level" placeholder="如：CAAC Ⅲ类" style="width: 100%" /></a-form-item>
         <a-form-item label="发证机构"><a-input v-model="form.issuer_org" style="width: 100%" /></a-form-item>
@@ -87,7 +88,7 @@
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -194,7 +195,7 @@ const submitForm = async () => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除证书',
-    content: '确定删除该证书吗？删除后不可恢复',
+    content: `确定删除证书「${row.cert_number || row.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
@@ -210,5 +211,5 @@ const handleDelete = (row) => {
 
 <style scoped>
 .cell-mono { font-family: 'Courier New', monospace; font-size: 13px; }
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 </style>

@@ -9,7 +9,7 @@
       @loaded="onLoaded"
     >
       <template #amount="{ record }">
-        <span>{{ ((record.amount_fen || 0) / 100).toFixed(2) }}</span>
+        <span>¥{{ ((record.amount_fen || 0) / 100).toFixed(2) }}</span>
       </template>
       <template #status="{ record }">
         <a-tag :color="statusTagColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
@@ -40,7 +40,7 @@
     </a-card>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="订单详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="订单详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="订单号">{{ currentItem.id || '-' }}</a-descriptions-item>
@@ -48,7 +48,7 @@
             <a-tag :color="statusTagColor(currentItem.status)" size="small">{{ statusLabel(currentItem.status) }}</a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="商品 ID">{{ currentItem.product_id || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="金额(元)">{{ ((currentItem.amount_fen || 0) / 100).toFixed(2) }}</a-descriptions-item>
+          <a-descriptions-item label="金额(元)">¥{{ ((currentItem.amount_fen || 0) / 100).toFixed(2) }}</a-descriptions-item>
           <a-descriptions-item label="买家">{{ currentItem.buyer_id || '-' }}</a-descriptions-item>
           <a-descriptions-item label="卖家">{{ currentItem.seller_id || '-' }}</a-descriptions-item>
           <a-descriptions-item label="下单时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
@@ -62,7 +62,7 @@
             <a-descriptions-item label="审核状态">
               <a-tag :color="aftersaleTagColor(currentItem.aftersale_status)" size="small">{{ aftersaleStatusLabel(currentItem.aftersale_status) }}</a-tag>
             </a-descriptions-item>
-            <a-descriptions-item label="退款金额(元)">{{ ((currentItem.aftersale_amount_fen || 0) / 100).toFixed(2) }}</a-descriptions-item>
+            <a-descriptions-item label="退款金额(元)">¥{{ ((currentItem.aftersale_amount_fen || 0) / 100).toFixed(2) }}</a-descriptions-item>
             <a-descriptions-item label="申请时间">{{ formatDate(currentItem.aftersale_time) }}</a-descriptions-item>
             <a-descriptions-item label="原因">{{ currentItem.aftersale_reason || '-' }}</a-descriptions-item>
             <a-descriptions-item label="说明">{{ currentItem.aftersale_desc || '-' }}</a-descriptions-item>
@@ -227,13 +227,13 @@ const onReviewAftersale = (action) => {
   line-height: 1.2;
 }
 
-.stat-label { font-size: 12px; color: #86909C; }
+.stat-label { font-size: 12px; color: var(--color-text-2); }
 
 .stat.money .stat-num { color: #E96012; }
 .stat.done .stat-num { color: #168A55; }
 .stat.rate .stat-num { color: #165DFF; }
 
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 .no-aftersale { color: #C9CDD4; }
 
 .review-actions { display: flex; align-items: center; justify-content: center; padding-top: 16px; gap: 8px; }

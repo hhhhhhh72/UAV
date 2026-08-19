@@ -36,7 +36,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="项目详情" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="项目详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="项目名称" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
@@ -56,9 +56,9 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课题' : '新增课题'" :width="560" :on-before-cancel="beforeClose" @close="resetForm">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑项目' : '新增项目'" :width="'min(560px, 94vw)'" :on-before-cancel="beforeClose" @close="resetForm">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="课题名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
+        <a-form-item label="项目名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="牵头单位"><a-input v-model="form.lead_org" style="width: 100%" /></a-form-item>
         <a-form-item label="领域"><a-input v-model="form.field" style="width: 100%" /></a-form-item>
         <a-form-item label="参与单位"><a-input v-model="form.membersInput" placeholder="多个单位用逗号分隔" style="width: 100%" /></a-form-item>
@@ -76,7 +76,7 @@
       </a-form>
       <template #footer>
         <a-button @click="cancelForm">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -172,7 +172,7 @@ const submitForm = async () => {
   try {
     const p = { ...form, budget_fen: form.budget_fen == null || form.budget_fen === '' ? null : Number(form.budget_fen) }
     // members: 逗号/顿号分隔 → 数组（后端 []string）
-    p.members = (form.membersInput || '').split(/[,、]/).map(s => s.trim()).filter(Boolean)
+    p.members = (form.membersInput || '').split(/[,，、]/).map(s => s.trim()).filter(Boolean)
     delete p.membersInput
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
@@ -208,7 +208,7 @@ const beforeClose = () => {
 const handleDelete = (r) => {
   Modal.confirm({
     title: '删除项目',
-    content: `确定删除项目"${r.title}"吗？`,
+    content: `确定删除项目「${r.title || r.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

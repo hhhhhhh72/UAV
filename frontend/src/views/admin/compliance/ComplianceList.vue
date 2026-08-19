@@ -74,7 +74,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" :title="activeTab === 'docs' ? '文档详情' : '标准详情'" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" :title="activeTab === 'docs' ? '文档详情' : '标准详情'" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem && activeTab === 'docs'">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="ID" :span="2">{{ currentItem.id }}</a-descriptions-item>
@@ -114,7 +114,7 @@
     </a-modal>
 
     <!-- 新增 / 编辑表单弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑' : '新增'" :width="560" :on-before-cancel="guardClose" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? (activeTab === 'docs' ? '编辑文档' : '编辑标准') : (activeTab === 'docs' ? '新增文档' : '新增标准')" :width="'min(560px, 94vw)'" :on-before-cancel="guardClose" @cancel="formVisible = false">
       <!-- 文档表单 -->
       <a-form v-if="activeTab === 'docs'" :model="docForm" layout="vertical" class="dialog-form">
         <a-form-item label="文档标题" required>
@@ -136,6 +136,7 @@
             <a-option label="待审核" value="pending" />
             <a-option label="已发布" value="published" />
             <a-option label="草稿" value="draft" />
+            <a-option label="已下架" value="archived" />
           </a-select>
         </a-form-item>
         <a-form-item label="摘要">
@@ -180,6 +181,7 @@
             <a-option label="待审核" value="pending" />
             <a-option label="已发布" value="published" />
             <a-option label="草稿" value="draft" />
+            <a-option label="已下架" value="archived" />
           </a-select>
         </a-form-item>
         <a-form-item label="适用范围">
@@ -202,7 +204,7 @@
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="handleFormSubmit">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="handleFormSubmit">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -370,7 +372,8 @@ const handleEdit = (row) => {
 const handleFormSubmit = async () => {
   const api = activeTab.value === 'docs' ? docsApi : standardsApi
   const payload = activeTab.value === 'docs' ? { ...docForm } : { ...stdForm }
-  if (!payload.title) { Message.warning('请输入标题'); return }
+  if (!payload.title?.trim()) { Message.warning('请输入标题'); return }
+  payload.title = payload.title.trim()
   formLoading.value = true
   try {
     if (formEdit.value) { await api.update(payload.id, payload); Message.success('更新成功') }
@@ -383,7 +386,7 @@ const handleFormSubmit = async () => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '提示',
-    content: '确定删除该项吗？',
+    content: `确定删除「${row.title}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

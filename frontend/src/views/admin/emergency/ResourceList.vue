@@ -32,7 +32,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="应急资源详情" :width="600" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="应急资源详情" :width="'min(600px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="资源名称" :span="2">{{ currentItem.name || '-' }}</a-descriptions-item>
@@ -51,9 +51,9 @@
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑应急资源' : '新增应急资源'" :width="560" :mask-closable="false" :unmount-on-close="true" @before-cancel="beforeCancel">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑应急资源' : '新增应急资源'" :width="'min(560px, 94vw)'" :mask-closable="false" :unmount-on-close="true" @before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="资源名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="资源名称" required><a-input v-model="form.name" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="类型">
           <a-select v-model="form.res_type" style="width: 100%">
             <a-option value="drone">无人机</a-option>
@@ -77,7 +77,7 @@
       </a-form>
       <template #footer>
         <a-button @click="cancelForm">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>
@@ -206,7 +206,7 @@ const submitForm = async () => {
 const handleDelete = (r) => {
   Modal.confirm({
     title: '提示',
-    content: '确定删除?',
+    content: `确定删除应急资源「${r.name || r.id}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {

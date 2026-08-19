@@ -35,7 +35,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="资源详情" :width="640" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="资源详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="ID" :span="2">{{ currentItem.id }}</a-descriptions-item>
@@ -57,11 +57,11 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑资源' : '新增资源'" :width="560" :mask-closable="false" @before-cancel="beforeCancel" destroy-on-close>
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑资源' : '新增资源'" :width="'min(560px, 94vw)'" :mask-closable="false" @before-cancel="beforeCancel" destroy-on-close>
       <a-form :model="form" layout="vertical">
-        <a-form-item label="资源名称" required><a-input v-model="form.name" placeholder="输入名称" style="width: 100%" /></a-form-item>
+        <a-form-item label="资源名称" required><a-input v-model="form.name" :aria-required="true" placeholder="输入名称" style="width: 100%" /></a-form-item>
         <a-form-item label="资源类型" required>
-          <a-select v-model="form.res_type" style="width: 100%">
+          <a-select v-model="form.res_type" :aria-required="true" style="width: 100%">
             <a-option value="drone">无人机</a-option>
             <a-option value="airport">机场</a-option>
             <a-option value="test_site">试飞场地</a-option>
@@ -237,7 +237,7 @@ const submitForm = async () => {
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除资源',
-    content: `确定删除「${row.name}」吗？`,
+    content: `确定删除「${row.name}」吗？删除后不可恢复`,
     okText: '删除',
     cancelText: '取消',
     onOk: async () => {
