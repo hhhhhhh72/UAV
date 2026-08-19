@@ -1749,6 +1749,22 @@ func (r *pilotRepo) UpdateStatus(ctx context.Context, id string, status string) 
 	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s not found", id)
 }
 
+func (r *pilotRepo) UpdateReject(ctx context.Context, id string, reason string) (domain.CertifiedPilot, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, p := range r.items {
+		if p.ID == id {
+			r.items[i].Status = "rejected"
+			r.items[i].RejectReason = reason
+			r.items[i].UpdatedAt = time.Now()
+			result := r.items[i]
+			r.decryptInPlace(&result)
+			return result, nil
+		}
+	}
+	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s not found", id)
+}
+
 // ---- Product ----
 
 type prodRepo struct {

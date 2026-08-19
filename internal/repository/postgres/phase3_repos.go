@@ -303,14 +303,14 @@ func (r *pilotRepo) Update(ctx context.Context, p domain.CertifiedPilot) (domain
 func (r *pilotRepo) FindByID(ctx context.Context, id string) (domain.CertifiedPilot, error) {
 	var p domain.CertifiedPilot
 	var certIDs []byte
-	err := r.pool.QueryRow(ctx, `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,version,created_at,updated_at FROM certified_pilots WHERE id=$1`, id).
-		Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+	err := r.pool.QueryRow(ctx, `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots WHERE id=$1`, id).
+		Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.RejectReason, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 	json.Unmarshal(certIDs, &p.CertIDs)
 	p.IDCard = r.dec(p.IDCard)
 	return p, err
 }
 func (r *pilotRepo) List(ctx context.Context) ([]domain.CertifiedPilot, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,version,created_at,updated_at FROM certified_pilots ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(ctx, `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list pilots: %w", err)
 	}
@@ -319,7 +319,7 @@ func (r *pilotRepo) List(ctx context.Context) ([]domain.CertifiedPilot, error) {
 	for rows.Next() {
 		var p domain.CertifiedPilot
 		var certIDs []byte
-		if err := rows.Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.RejectReason, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan pilot: %w", err)
 		}
 		json.Unmarshal(certIDs, &p.CertIDs)
@@ -332,6 +332,14 @@ func (r *pilotRepo) UpdateStatus(ctx context.Context, id, status string) (domain
 	_, err := r.pool.Exec(ctx, `UPDATE certified_pilots SET status=$1,updated_at=$2 WHERE id=$3`, status, time.Now(), id)
 	if err != nil {
 		return domain.CertifiedPilot{}, fmt.Errorf("update pilot status: %w", err)
+	}
+	return r.FindByID(ctx, id)
+}
+
+func (r *pilotRepo) UpdateReject(ctx context.Context, id, reason string) (domain.CertifiedPilot, error) {
+	_, err := r.pool.Exec(ctx, `UPDATE certified_pilots SET status='rejected',reject_reason=$2,updated_at=$3 WHERE id=$1`, id, reason, time.Now())
+	if err != nil {
+		return domain.CertifiedPilot{}, fmt.Errorf("reject pilot: %w", err)
 	}
 	return r.FindByID(ctx, id)
 }

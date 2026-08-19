@@ -187,12 +187,12 @@ func (s *TrainingService) ApprovePilot(ctx context.Context, a domain.Actor, id s
 	return s.pilotRepo.UpdateStatus(ctx, id, "approved")
 }
 
-// RejectPilot 驳回飞手认证申请（管理员）。
-func (s *TrainingService) RejectPilot(ctx context.Context, a domain.Actor, id string) (domain.CertifiedPilot, error) {
+// RejectPilot 驳回飞手认证申请（管理员），reason 为驳回理由（审核留痕）。
+func (s *TrainingService) RejectPilot(ctx context.Context, a domain.Actor, id, reason string) (domain.CertifiedPilot, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.CertifiedPilot{}, errors.New("admin permission required")
 	}
-	return s.pilotRepo.UpdateStatus(ctx, id, "rejected")
+	return s.pilotRepo.UpdateReject(ctx, id, reason)
 }
 
 func (s *TrainingService) ListPilots(ctx context.Context) ([]domain.CertifiedPilot, error) {

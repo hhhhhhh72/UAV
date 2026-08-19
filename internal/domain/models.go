@@ -632,6 +632,7 @@ type CertifiedPilot struct {
 	Rating        float64   `json:"rating"`
 	CompletedJobs int       `json:"completed_jobs"`
 	Status        string    `json:"status"` // pending / approved / rejected
+	RejectReason  string    `json:"reject_reason"` // 驳回理由（管理端审核留痕）
 	Version       int       `json:"version"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`

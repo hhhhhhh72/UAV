@@ -251,6 +251,7 @@ type PilotRepository interface {
 	List(ctx context.Context) ([]domain.CertifiedPilot, error)
 	Update(ctx context.Context, v domain.CertifiedPilot) (domain.CertifiedPilot, error) // 被驳回后重新申请（覆盖重提）
 	UpdateStatus(ctx context.Context, id string, status string) (domain.CertifiedPilot, error)
+	UpdateReject(ctx context.Context, id string, reason string) (domain.CertifiedPilot, error) // 驳回并记录理由
 }
 
 // ProductRepository manages drone product listings.

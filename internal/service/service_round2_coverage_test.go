@@ -853,7 +853,7 @@ func TestTrainingService_PilotLifecycle(t *testing.T) {
 	}
 
 	// RejectPilot：非管理员被拒
-	if _, err := svc.RejectPilot(context.Background(), actor, p.ID); err == nil {
+	if _, err := svc.RejectPilot(context.Background(), actor, p.ID, ""); err == nil {
 		t.Fatal("RejectPilot: expected error for non-admin")
 	}
 	// 通过认证
@@ -864,10 +864,10 @@ func TestTrainingService_PilotLifecycle(t *testing.T) {
 	if _, err := svc.RegisterPilot(context.Background(), actor, "张三", "id", 100, "", "", ""); err == nil {
 		t.Fatal("RegisterPilot: expected error when approved")
 	}
-	// 驳回 → rejected
-	rp, err := svc.RejectPilot(context.Background(), admin, p.ID)
-	if err != nil || rp.Status != "rejected" {
-		t.Fatalf("RejectPilot: status=%q err=%v", rp.Status, err)
+	// 驳回 → rejected + 理由留痕
+	rp, err := svc.RejectPilot(context.Background(), admin, p.ID, "材料不齐全")
+	if err != nil || rp.Status != "rejected" || rp.RejectReason != "材料不齐全" {
+		t.Fatalf("RejectPilot: status=%q reason=%q err=%v", rp.Status, rp.RejectReason, err)
 	}
 
 	// GetPilot

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -389,14 +390,22 @@ func (s *Server) listAdminPilots(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, filtered, total)
 }
 
-// POST /api/v1/admin/certified-pilots/{id}/reject — 驳回飞手认证
+// POST /api/v1/admin/certified-pilots/{id}/reject — 驳回飞手认证（可选携带驳回理由）
 func (s *Server) rejectPilot(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	p, err := s.trainingSvc.RejectPilot(r.Context(), a, r.PathValue("id"))
+	var in struct {
+		Reason string `json:"reason"`
+	}
+	// 无 body 视为空理由（兼容旧客户端）
+	if err := decode(r, &in); err != nil && !errors.Is(err, io.EOF) {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	p, err := s.trainingSvc.RejectPilot(r.Context(), a, r.PathValue("id"), in.Reason)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
