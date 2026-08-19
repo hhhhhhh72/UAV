@@ -112,14 +112,8 @@
 
 <script>
 import { request } from '../../../utils/request'
-import { useReduceMotion } from '../../../utils/motion'
 
 export default {
-  setup() {
-    // 减弱动效（无障碍）：与参考页同款 useReduceMotion 模式
-    const { noMotion, checkMotion } = useReduceMotion()
-    return { noMotion, checkMotion }
-  },
   data() {
     return {
       searchText: '',
@@ -132,6 +126,7 @@ export default {
       hasMore: true,
       statusBarHeight: 20,
       showBt: false,
+      noMotion: false, // 减弱动效（无障碍）：Options API 直存，避免 setup() 混合触发微信端 props 解析异常
       categoryTabs: [
         { label: '全部', value: '' },
         { label: '国家标准', value: '国家标准' },
@@ -181,6 +176,18 @@ export default {
     this.showBt = (e ? e.scrollTop : 0) > 400
   },
   methods: {
+    // 减弱动效检测（无障碍）：逻辑同 utils/motion.js，Options API 直实现
+    checkMotion() {
+      try {
+        const sys = uni.getSystemInfoSync()
+        if (sys && sys.reduceMotion) this.noMotion = true
+      } catch (e) { /* 忽略 */ }
+      try {
+        if (typeof uni.onAccessibilityInfoChange === 'function') {
+          uni.onAccessibilityInfoChange((res) => { this.noMotion = !!(res && res.reduceMotion) })
+        }
+      } catch (e) { /* 旧基础库无此 API */ }
+    },
     async fetchList(reset) {
       if (reset) {
         this.page = 1
