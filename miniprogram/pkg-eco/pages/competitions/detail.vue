@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page" :class="{ 'no-motion': noMotion }">
     <StateView
       :loading="loading"
       :error="!!errorMsg"
@@ -8,29 +8,25 @@
       @retry="loadDetail"
     >
       <template v-if="detail">
-        <!-- ① Hero 区（真实海报图 + 三段蒙层 + 兜底） -->
-        <view class="hero">
-          <!-- 真实赛事海报图（有则覆盖渐变） -->
+        <!-- ① Hero 区（海报优先，装饰仅在无图时兜底） -->
+        <view class="hero" :style="{ paddingTop: (statusBarHeight + 10) + 'px' }">
+          <!-- 真实赛事海报图（有则覆盖兜底；加载失败回退兜底） -->
           <image
-            v-if="heroPoster(detail)"
+            v-if="heroPoster(detail) && !imgError"
             :src="heroPoster(detail)"
             mode="aspectFill"
             class="hero-img"
             lazy-load
             :style="{ opacity: imgLoaded ? 1 : 0 }"
             @load="onHeroImgLoad"
+            @error="onHeroImgError"
           />
 
-          <!-- 装饰层：作为图片加载失败/缺失时的兜底背景 -->
-          <view class="hero-deco">
+          <!-- 兜底装饰层：仅在无海报/海报加载失败时渲染 -->
+          <view v-if="!heroPoster(detail) || imgError" class="hero-deco">
             <view class="deco-grid" />
             <view class="deco-radar" />
-            <view class="deco-radar-scanner" />
             <view class="deco-trail" />
-            <view class="deco-star s1" />
-            <view class="deco-star s2" />
-            <view class="deco-star s3" />
-            <view class="deco-star s4" />
           </view>
 
           <!-- 三段渐变蒙层：顶暗→中透→底暗 -->
@@ -40,20 +36,19 @@
           <!-- 导航层 -->
           <view class="hero-nav">
             <view class="back-btn" hover-class="press-feedback" :hover-stay-time="120" @click="goBack">
-              <text class="back-icon">‹</text>
+              <view class="back-arrow" />
             </view>
-            <view class="hero-actions">
-              <view class="hero-action hero-action--fav" @click="handleFav"><text class="fav-icon">♥</text></view>
-              <button class="hero-action hero-action--share" open-type="share" hover-class="press-feedback" :hover-stay-time="120"><text class="share-icon">↗</text></button>
-            </view>
+            <button class="share-btn" open-type="share" hover-class="press-feedback" :hover-stay-time="120">
+              <text class="share-text">分享</text>
+            </button>
           </view>
 
-          <!-- 左下角赛事奖杯校徽（半嵌在图片底部） -->
+          <!-- 左下角赛事首字徽章（半嵌在图片底部） -->
           <view class="hero-emblem"><text class="emblem-char">{{ emblemChar(detail) }}</text></view>
 
           <!-- 内容层：徽章 + 标题 + 标签 -->
           <view class="hero-content">
-            <view class="status-badge" :class="statusClass(detail.status)">{{ statusText[detail.status] || '报名中' }}</view>
+            <view class="status-badge" :class="statusClass(derivedStatus(detail))">{{ statusTextOf(detail) }}</view>
             <text class="hero-title">{{ detail.title || detail.name || '未知赛事' }}</text>
             <view class="hero-tags">
               <text v-for="tag in compTags(detail)" :key="tag" class="hero-tag">{{ tag }}</text>
@@ -61,17 +56,17 @@
           </view>
         </view>
 
-        <!-- ③ 基本信息：时间轴 -->
-        <view class="info-timeline">
+        <!-- ② 基本信息：时间轴 -->
+        <view class="card info-timeline">
           <view class="tl-item">
-            <view class="tl-dot tl-dot--solid" />
+            <view class="tl-dot" />
             <view class="tl-content">
               <text class="tl-label">比赛时间</text>
               <text class="tl-value">{{ fmtDate(detail.start_date) }} - {{ fmtDate(detail.end_date) }}</text>
             </view>
           </view>
           <view class="tl-item">
-            <view class="tl-dot tl-dot--solid" />
+            <view class="tl-dot" />
             <view class="tl-content">
               <text class="tl-label">比赛地点</text>
               <text class="tl-value">{{ detail.location || '待定' }}</text>
@@ -87,19 +82,19 @@
           </view>
         </view>
 
-        <!-- ④ 赛事简介 -->
+        <!-- ③ 赛事简介 -->
         <view v-if="detail.intro || detail.description" class="section-block">
           <view class="section-title">赛事简介</view>
-          <view class="intro-text">{{ detail.intro || detail.description }}</view>
+          <view class="card intro-text">{{ detail.intro || detail.description }}</view>
         </view>
 
-        <!-- ⑤ 报名条件 -->
+        <!-- ④ 报名条件 -->
         <view class="section-block">
           <view class="section-title">报名条件</view>
-          <view class="requirements-card">
+          <view class="card requirements-card">
             <view v-if="requirements(detail).length === 0" class="req-empty">以主办方公布为准</view>
-            <view v-for="(req, i) in requirements(detail)" :key="req.name" class="req-item">
-              <view class="req-icon" :class="'req-icon--' + (i % 5)">
+            <view v-for="req in requirements(detail)" :key="req.name" class="req-item">
+              <view class="req-icon">
                 <text class="req-icon-text">{{ req.icon }}</text>
               </view>
               <view class="req-body">
@@ -111,17 +106,15 @@
           </view>
         </view>
 
-        <!-- ⑥ 参赛项目 -->
+        <!-- ⑤ 参赛项目 -->
         <view class="section-block">
           <view class="section-title">参赛项目</view>
           <view class="event-list">
-            <view v-if="eventList(detail).length === 0" class="event-empty">以主办方公布为准</view>
+            <view v-if="eventList(detail).length === 0" class="card event-empty">以主办方公布为准</view>
             <view
               v-for="(ev, i) in eventList(detail)"
               :key="ev.name"
-              class="event-item"
-              :class="{ 'event-item--hot': i === 0 }"
-              :style="{ borderLeftColor: eventColor(i) }"
+              class="card event-item"
             >
               <view class="event-info">
                 <view class="event-name-row">
@@ -131,12 +124,12 @@
                 <text class="event-meta">{{ ev.type }} · {{ ev.format }}</text>
               </view>
               <text v-if="ev.fee != null" class="event-price">¥{{ ev.fee.toLocaleString() }}</text>
-              <text v-else class="event-price">费用待定</text>
+              <text v-else class="event-price event-price--pending">费用待定</text>
             </view>
           </view>
         </view>
 
-        <!-- ⑦ 奖项 -->
+        <!-- ⑥ 奖项 -->
         <view v-if="prizes(detail).length > 0" class="section-block">
           <view class="section-title">奖项设置</view>
           <view class="prize-row">
@@ -151,25 +144,27 @@
           </view>
         </view>
 
-        <!-- ⑧ 主办单位 -->
+        <!-- ⑦ 主办单位 -->
         <view class="section-block">
           <view class="section-title">主办单位</view>
-          <view class="organizer-row">
+          <view class="card organizer-row">
             <view class="org-avatar">{{ orgInitial(detail) }}</view>
             <view class="org-info">
               <text class="org-name">{{ detail.organizer || detail.sponsor || '待定' }}</text>
               <text class="org-sub">{{ detail.organizer_sub || '主办单位' }}</text>
             </view>
-            <view class="org-arrow">›</view>
           </view>
         </view>
 
-        <!-- ⑨ 底部 CTA -->
+        <!-- ⑧ 底部 CTA -->
         <view class="bottom-bar">
           <view class="bottom-left">
             <text class="fee-label">报名费</text>
             <view class="fee-price">
-              <template v-if="compMinFee(detail) != null">
+              <template v-if="compMinFee(detail) === 0">
+                <text class="free-badge">免费</text>
+              </template>
+              <template v-else-if="compMinFee(detail) != null">
                 <text class="fee-symbol">¥</text>
                 <text class="fee-value">{{ compMinFee(detail) }}</text>
                 <text class="fee-unit">起/人</text>
@@ -178,10 +173,13 @@
             </view>
           </view>
           <view class="bottom-actions">
-            <view class="btn-outline" hover-class="press-feedback" :hover-stay-time="120" @click="handleConsult">咨询</view>
-            <view class="btn-primary" :class="{ disabled: isClosed(detail) }" hover-class="press-feedback" :hover-stay-time="120" @click="goRegister">
-              {{ isClosed(detail) ? '已截止' : '立即报名' }}
-            </view>
+            <view
+              class="btn-primary"
+              :class="{ disabled: isClosed(detail) }"
+              hover-class="press-feedback"
+              :hover-stay-time="120"
+              @click="goRegister"
+            >{{ isClosed(detail) ? '已截止' : '立即报名' }}</view>
           </view>
         </view>
         <view class="bottom-spacer" />
@@ -192,26 +190,58 @@
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onShareAppMessage } from '@dcloudio/uni-app'
+import { useReduceMotion } from '../../../utils/motion'
 import { request } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
+const { noMotion, checkMotion } = useReduceMotion()
+const statusBarHeight = ref(20)
 const id = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 const detail = ref(null)
 const imgLoaded = ref(false)
+const imgError = ref(false)
 
-const statusText = { enrolling: '报名中', open: '报名中', ongoing: '进行中', closed: '已结束', full: '已满额' }
+const statusMap = { enrolling: '报名中', open: '报名中', ongoing: '进行中', closed: '已截止', full: '已截止' }
+
+/* ===== 单一状态源：status 与报名截止时间统一判定，徽章/倒计时/CTA 全部由此派生 ===== */
+function deadlineDate(item) {
+  const d = item.deadline || item.enroll_deadline
+  if (!d) return null
+  const t = Date.parse(String(d).replace(/-/g, '/'))
+  return isNaN(t) ? null : new Date(t)
+}
+
+function derivedStatus(item) {
+  if (item.status === 'closed' || item.status === 'full') return 'closed'
+  const dl = deadlineDate(item)
+  if (dl && dl.getTime() < Date.now()) return 'closed'
+  return item.status || 'enrolling'
+}
 
 function isClosed(item) {
-  return item.status === 'closed' || item.status === 'full'
+  return derivedStatus(item) === 'closed'
+}
+
+function statusTextOf(item) {
+  return statusMap[derivedStatus(item)] || '报名中'
 }
 
 function statusClass(status) {
   if (status === 'ongoing') return 'badge--ongoing'
   if (status === 'closed' || status === 'full') return 'badge--closed'
   return 'badge--enrolling'
+}
+
+function countdownText(item) {
+  const dl = deadlineDate(item)
+  if (!dl) return ''
+  const days = Math.floor((dl.getTime() - Date.now()) / 86400000)
+  if (days < 0) return '已截止'
+  if (days === 0) return '今天截止'
+  return '剩余 ' + days + ' 天'
 }
 
 /** Hero 海报图：兼容 poster / cover / image / banner */
@@ -225,7 +255,12 @@ function onHeroImgLoad() {
   imgLoaded.value = true
 }
 
-/** Hero 左下角奖杯/首字校徽 */
+/** 海报加载失败：隐藏图片走兜底装饰 */
+function onHeroImgError() {
+  imgError.value = true
+}
+
+/** Hero 左下角首字徽章 */
 function emblemChar(item) {
   const t = item.title || ''
   if (t.indexOf('FPV') >= 0 || t.indexOf('竞速') >= 0) return '竞'
@@ -233,7 +268,7 @@ function emblemChar(item) {
   if (t.indexOf('青少年') >= 0) return '青'
   if (t.indexOf('国际') >= 0) return '际'
   if (t.indexOf('全国') >= 0) return '国'
-  if (t.indexOf('贵州') >= 0) return '黔'
+  if (t.indexOf('贵州') >= 0) return '贵'
   return '赛'
 }
 
@@ -259,10 +294,6 @@ function eventList(item) {
   return []
 }
 
-function eventColor(i) {
-  return ['#0A66C2', '#8B5CF6', '#34c759'][i % 3]
-}
-
 function prizes(item) {
   if (Array.isArray(item.prizes) && item.prizes.length > 0) return item.prizes
   return []
@@ -282,23 +313,6 @@ function compMinFee(item) {
 function orgInitial(item) {
   var name = item.organizer || item.sponsor || '中'
   return name.charAt(0)
-}
-
-function countdownText(item) {
-  var d = item.deadline || item.enroll_deadline
-  if (!d) return ''
-  var days = deadlineDays(d)
-  if (days == null) return ''
-  if (days <= 0) return '已截止'
-  return '剩余 ' + days + ' 天'
-}
-
-function deadlineDays(d) {
-  var m = String(d).match(/(\d{4})[年.\-\/](\d{1,2})[月.\-\/](\d{1,2})/)
-  if (!m) return null
-  var target = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  var today = new Date()
-  return Math.ceil((target - today) / 86400000)
 }
 
 async function loadDetail() {
@@ -322,20 +336,6 @@ function goRegister() {
   uni.navigateTo({ url: '/pkg-eco/pages/competitions/register?id=' + encodeURIComponent(id.value) })
 }
 
-function handleConsult() {
-  uni.showToast({ title: '咨询功能开发中', icon: 'none' })
-}
-
-function handleFav() {
-  // 收藏接口未就绪：不做假成功提示，保持原状态
-  uni.showToast({ title: '收藏功能即将开放', icon: 'none' })
-}
-
-function handleShare() {
-  // 分享按钮（open-type="share"）与右上角菜单均走 onShareAppMessage
-  uni.showToast({ title: '请点击右上角菜单分享', icon: 'none' })
-}
-
 onShareAppMessage(function () {
   const item = detail.value || {}
   return {
@@ -345,31 +345,45 @@ onShareAppMessage(function () {
 })
 
 onLoad(function (options) {
+  checkMotion()
+  try {
+    const sys = uni.getSystemInfoSync()
+    if (sys && sys.statusBarHeight) statusBarHeight.value = sys.statusBarHeight
+  } catch (e) {}
   id.value = options.id || ''
   loadDetail()
+})
+
+onPullDownRefresh(function () {
+  loadDetail().then(function () { uni.stopPullDownRefresh() })
 })
 </script>
 
 <style scoped>
 .page {
-  --anim-fast: 160ms;
-  --anim-base: 240ms;
-  --anim-slow: 320ms;
-  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   min-height: 100vh;
-  background: linear-gradient(180deg, #f5f6f8 0%, #E8F2FC 100%);
+  background: #fff;
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ===== 通用卡片：白上白（对齐设计语言 token） ===== */
+.card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
 }
 
 /* ================================================================= */
 /* ① Hero 区                                                          */
 /* ================================================================= */
 .hero {
-  height: 280px;
+  min-height: 240px;
   background: linear-gradient(135deg, #074D92 0%, #0A66C2 100%);
   position: relative;
   overflow: hidden;
-  padding: 88rpx 32rpx 40rpx;
+  padding: 40px 16px 20px;
 }
 
 /* 真实海报图 */
@@ -378,7 +392,7 @@ onLoad(function (options) {
   inset: 0;
   width: 100%;
   height: 100%;
-  transition: opacity var(--anim-base) ease-out;
+  transition: opacity .25s ease-out;
 }
 
 /* 三段渐变蒙层：顶暗→中透→底暗 */
@@ -387,7 +401,7 @@ onLoad(function (options) {
   top: 0;
   left: 0;
   right: 0;
-  height: 90rpx;
+  height: 45px;
   background: linear-gradient(180deg, rgba(10, 31, 68, 0.65) 0%, rgba(10, 31, 68, 0) 100%);
   pointer-events: none;
   z-index: 1;
@@ -398,36 +412,36 @@ onLoad(function (options) {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 110rpx;
+  height: 55px;
   background: linear-gradient(0deg, rgba(10, 31, 68, 0.85) 0%, rgba(10, 31, 68, 0) 100%);
   pointer-events: none;
   z-index: 1;
 }
 
-/* 左下角赛事奖杯/首字校徽：半嵌在图片底部 */
+/* 左下角首字徽章：半嵌在图片底部 */
 .hero-emblem {
   position: absolute;
-  left: 32rpx;
-  bottom: -24rpx;
-  width: 72rpx;
-  height: 72rpx;
+  left: 16px;
+  bottom: -12px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2rpx solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 3;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .emblem-char {
-  font-size: 34rpx;
+  font-size: 17px;
   font-weight: 700;
   color: #0A66C2;
 }
 
-/* ===== 装饰层（纯 CSS） ===== */
+/* ===== 兜底装饰层（仅无海报时渲染，静态无动画） ===== */
 .hero-deco { position: absolute; inset: 0; pointer-events: none; }
 
 /* 网格点阵 */
@@ -439,7 +453,7 @@ onLoad(function (options) {
   opacity: 0.6;
 }
 
-/* 雷达同心圆 */
+/* 雷达同心圆（静态） */
 .deco-radar {
   position: absolute;
   right: -80rpx;
@@ -464,49 +478,21 @@ onLoad(function (options) {
   border: 2rpx solid rgba(255, 255, 255, 0.08);
 }
 
-/* 雷达扫射弧线 */
-.deco-radar-scanner {
-  position: absolute;
-  right: -80rpx;
-  top: -80rpx;
-  width: 300rpx;
-  height: 300rpx;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(0, 229, 255, 0.35) 0deg,
-    transparent 60deg
-  );
-  animation: radarRotate 4s linear infinite;
-}
-
-/* 飞行轨迹虚线 */
+/* 飞行轨迹虚线（静态） */
 .deco-trail {
   position: absolute;
-  left: 40rpx;
-  bottom: 60rpx;
-  width: 200rpx;
-  height: 2rpx;
+  left: 20px;
+  bottom: 30px;
+  width: 100px;
+  height: 1px;
   background: repeating-linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.5) 0 16rpx,
-    transparent 16rpx 28rpx
+    rgba(255, 255, 255, 0.5) 0 8px,
+    transparent 8px 14px
   );
   transform: rotate(-15deg);
   opacity: 0.5;
 }
-
-/* 星点 */
-.deco-star {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
-  animation: twinkle 2.5s ease-in-out infinite;
-}
-.s1 { left: 60rpx;  top: 80rpx;  width: 6rpx;  height: 6rpx;  animation-delay: 0s; }
-.s2 { left: 200rpx; top: 120rpx; width: 8rpx;  height: 8rpx;  animation-delay: 0.6s; }
-.s3 { left: 500rpx; top: 60rpx;  width: 5rpx;  height: 5rpx;  animation-delay: 1.2s; }
-.s4 { left: 620rpx; top: 170rpx; width: 7rpx;  height: 7rpx;  animation-delay: 1.8s; }
 
 .hero-nav {
   display: flex;
@@ -517,443 +503,385 @@ onLoad(function (options) {
 }
 
 .back-btn {
-  width: 88rpx;
-  height: 88rpx;
+  width: 44px;
+  height: 44px;
   background: rgba(255, 255, 255, 0.15);
-  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.back-icon { color: #ffffff; font-size: 44rpx; font-weight: 300; }
-
-.hero-actions { display: flex; gap: 16rpx; }
-
-.hero-action {
-  width: 88rpx;
-  height: 88rpx;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1rpx solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* CSS 绘制返回箭头（左向 V 形） */
+.back-arrow {
+  width: 10px;
+  height: 10px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg);
+  margin-left: 4px;
 }
 
-.fav-icon { color: #ffffff; font-size: 32rpx; }
-.share-icon { color: #ffffff; font-size: 36rpx; font-weight: 300; }
+/* 分享：文字标签按钮（button 去默认样式） */
+.share-btn {
+  width: 56px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  line-height: 32px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.share-btn::after { border: none; }
+.share-text { color: #fff; font-weight: 500; }
 
-/* 分享按钮（open-type="share"）沿用 hero-action 圆形玻璃样式，去掉 button 默认样式 */
-.hero-action--share { padding: 0; margin: 0; line-height: 1; }
-.hero-action--share::after { border: none; }
-
-/* 状态徽章 */
+/* 状态徽章（扁平 tint，无脉冲） */
 .status-badge {
   display: inline-block;
-  padding: 8rpx 20rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 600;
-  color: #ffffff;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.2);
   z-index: 2;
-  margin-bottom: 20rpx;
+  margin-bottom: 10px;
 }
 
-.badge--enrolling { background: linear-gradient(135deg, #F97316, #E96012); animation: badgePulse 2s ease-in-out infinite; }
-.badge--ongoing { background: linear-gradient(135deg, #00E5FF, #0A66C2); }
-.badge--closed { background: #64748B; }
+.badge--enrolling { background: #E9F7F0; color: #0B6B41; }
+.badge--ongoing { background: #EAF3FB; color: #0A66C2; }
+.badge--closed { background: #EEF1F4; color: #5D6B82; }
 
-/* ================================================================= */
-/* ② Hero 内容层                                                       */
-/* ================================================================= */
+/* ===== Hero 内容层 ===== */
 .hero-content {
   position: relative;
   z-index: 2;
-  animation: pageIn var(--anim-slow) var(--ease-out) both;
+  animation: fadeUp .25s ease-out backwards;
+  animation-delay: 60ms;
 }
 
 .hero-title {
-  font-size: 40rpx;
+  font-size: 20px;
   font-weight: 700;
   color: #ffffff;
-  line-height: 1.3;
-  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.3);
-  display: block;
-  margin-bottom: 16rpx;
+  line-height: 1.35;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
 }
 
-.hero-tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.hero-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .hero-tag {
-  padding: 6rpx 18rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 500;
   background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  border: 1rpx solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-/* ================================================================= */
-/* ③ 信息时间轴                                                       */
-/* ================================================================= */
+/* ===== 信息时间轴 ===== */
 .info-timeline {
-  margin: 24rpx 24rpx 0;
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 8rpx 24rpx;
-  box-shadow: 0 4px 16px rgba(10, 31, 68, 0.06);
-  position: relative;
+  margin: 12px 12px 0;
+  padding: 4px 12px;
+  animation: cardIn .22s ease-out backwards;
+  animation-delay: 80ms;
 }
 
 .info-timeline::before {
   content: '';
   position: absolute;
-  left: 34rpx;
-  top: 24rpx;
-  bottom: 24rpx;
-  width: 2rpx;
-  background: linear-gradient(180deg, #0A66C2, #00E5FF);
+  left: 17px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: #0A66C2;
 }
 
 .tl-item {
   display: flex;
   align-items: flex-start;
-  gap: 24rpx;
-  padding: 20rpx 0;
+  gap: 12px;
+  padding: 10px 0;
   position: relative;
 }
 
 .tl-dot {
-  width: 20rpx;
-  height: 20rpx;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  margin-top: 8rpx;
+  margin-top: 8px;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
+  background: #0A66C2;
+  box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.15);
 }
 
-.tl-dot--solid { background: #0A66C2; box-shadow: 0 0 0 6rpx rgba(10, 102, 194, 0.15); }
-.tl-dot--deadline { background: #EF4444; box-shadow: 0 0 0 6rpx rgba(239, 68, 68, 0.15); }
+.tl-dot--deadline { background: #EF4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }
 
 .tl-content { flex: 1; }
 
-.tl-label { font-size: 24rpx; color: #969799; display: block; margin-bottom: 4rpx; }
+.tl-label { font-size: 12px; color: #667085; display: block; margin-bottom: 2px; }
 .tl-label--deadline { color: #EF4444; font-weight: 500; }
 
-.tl-value { font-size: 30rpx; color: #17212B; font-weight: 500; display: block; }
+.tl-value { font-size: 15px; color: #17212B; font-weight: 500; display: block; }
 .tl-value--deadline { color: #EF4444; font-weight: 600; }
 
 .tl-countdown {
   display: inline-block;
-  margin-top: 6rpx;
-  padding: 2rpx 12rpx;
+  margin-top: 3px;
+  padding: 1px 6px;
   background: rgba(239, 68, 68, 0.1);
   color: #EF4444;
-  font-size: 22rpx;
+  font-size: 11px;
   font-weight: 600;
-  border-radius: 999rpx;
+  border-radius: 999px;
 }
 
-/* ================================================================= */
-/* 章节                                                               */
-/* ================================================================= */
-.section-block { margin: 36rpx 24rpx 0; animation: blockIn var(--anim-base) var(--ease-out) both; }
-.section-block:nth-of-type(1) { animation-delay: 60ms; }
+/* ===== 章节 ===== */
+.section-block { margin: 16px 12px 0; animation: cardIn .22s ease-out backwards; }
+.section-block:nth-of-type(1) { animation-delay: 100ms; }
 .section-block:nth-of-type(2) { animation-delay: 120ms; }
-.section-block:nth-of-type(3) { animation-delay: 180ms; }
-.section-block:nth-of-type(4) { animation-delay: 240ms; }
-.section-block:nth-of-type(5) { animation-delay: 300ms; }
+.section-block:nth-of-type(3) { animation-delay: 140ms; }
+.section-block:nth-of-type(4) { animation-delay: 160ms; }
+.section-block:nth-of-type(5) { animation-delay: 180ms; }
 
 .section-title {
-  font-size: 30rpx;
+  font-size: 15px;
   font-weight: 700;
   color: #17212B;
-  padding-left: 20rpx;
-  border-left: 6rpx solid #0A66C2;
   line-height: 1.3;
-  margin-bottom: 20rpx;
+  margin-bottom: 10px;
 }
 
 /* 简介 */
 .intro-text {
-  font-size: 28rpx;
-  color: #17212B;
+  font-size: 14px;
+  color: #344054;
   line-height: 1.8;
   white-space: pre-line;
-  margin-bottom: 8rpx;
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 24rpx;
-  box-shadow: 0 2rpx 12rpx rgba(10, 31, 68, 0.04);
+  padding: 12px;
 }
 
-/* ================================================================= */
-/* 报名条件                                                           */
-/* ================================================================= */
-.requirements-card {
-  background: linear-gradient(180deg, #FFFBEB, #FEF3C7);
-  border-radius: 16px;
-  border: 1rpx solid #FDE68A;
-  padding: 8rpx 24rpx;
-}
+/* ===== 报名条件 ===== */
+.requirements-card { padding: 2px 12px; }
 
 .req-item {
   display: flex;
   align-items: flex-start;
-  gap: 16rpx;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #F5E6C8;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #F0F1F3;
 }
 
 .req-item:last-child { border-bottom: none; }
 
 .req-icon {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 16rpx;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #0A66C2;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.req-icon--0 { background: linear-gradient(135deg, #0A66C2, #0A66C2); }
-.req-icon--1 { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
-.req-icon--2 { background: linear-gradient(135deg, #34c759, #06B6D4); }
-.req-icon--3 { background: linear-gradient(135deg, #22C55E, #4ADE80); }
-.req-icon--4 { background: linear-gradient(135deg, #F97316, #E96012); }
-
-.req-icon-text { font-size: 28rpx; color: #ffffff; font-weight: 600; }
+.req-icon-text { font-size: 14px; color: #ffffff; font-weight: 600; }
 
 .req-body { flex: 1; }
-.req-name { font-size: 28rpx; font-weight: 500; color: #17212B; display: block; margin-bottom: 4rpx; }
-.req-desc { font-size: 24rpx; color: #969799; line-height: 1.5; }
+.req-name { font-size: 14px; font-weight: 500; color: #17212B; display: block; margin-bottom: 2px; }
+.req-desc { font-size: 12px; color: #667085; line-height: 1.5; }
 
 .req-badge {
-  padding: 4rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 600;
   flex-shrink: 0;
 }
 
-.req-badge--must { background: #EF4444; color: #ffffff; }
-.req-badge--advise { background: #ffffff; color: #0A66C2; border: 1rpx solid #0A66C2; }
+.req-badge--must { background: #FDECEC; color: #B42318; }
+.req-badge--advise { background: #EAF3FB; color: #0A66C2; }
 
 .req-empty {
-  padding: 32rpx 8rpx;
-  font-size: 26rpx;
-  color: #969799;
+  padding: 16px 4px;
+  font-size: 13px;
+  color: #667085;
   text-align: center;
 }
 
-/* ================================================================= */
-/* 参赛项目                                                           */
-/* ================================================================= */
-.event-list { display: flex; flex-direction: column; gap: 16rpx; }
+/* ===== 参赛项目（无左缘彩条） ===== */
+.event-list { display: flex; flex-direction: column; gap: 8px; }
 
 .event-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24rpx;
-  background: #ffffff;
-  border-radius: 12px;
-  border-left: 4rpx solid #0A66C2;
-  box-shadow: 0 2rpx 12rpx rgba(10, 31, 68, 0.04);
+  padding: 12px;
 }
 
-.event-item--hot {
-  box-shadow: 0 4rpx 16rpx rgba(255, 142, 60, 0.2);
-}
-
-.event-name-row { display: flex; align-items: center; gap: 8rpx; }
-.event-name { font-size: 30rpx; font-weight: 500; color: #17212B; display: block; }
-.event-meta { font-size: 24rpx; color: #969799; margin-top: 4rpx; display: block; }
-.event-price { font-size: 34rpx; font-weight: 700; color: #E96012; }
+.event-info { min-width: 0; }
+.event-name-row { display: flex; align-items: center; gap: 6px; }
+.event-name { font-size: 15px; font-weight: 500; color: #17212B; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-meta { font-size: 12px; color: #667085; margin-top: 2px; display: block; }
+.event-price { font-size: 16px; font-weight: 700; color: #C2410C; flex-shrink: 0; }
+.event-price--pending { font-size: 12px; font-weight: 500; color: #98A2B3; }
 
 .event-empty {
-  padding: 32rpx 8rpx;
-  font-size: 26rpx;
-  color: #969799;
+  padding: 16px 4px;
+  font-size: 13px;
+  color: #667085;
   text-align: center;
 }
 
 .hot-badge {
-  padding: 2rpx 12rpx;
-  background: linear-gradient(135deg, #F97316, #E96012);
-  color: #ffffff;
-  font-size: 20rpx;
+  padding: 1px 6px;
+  background: #FFF4EC;
+  color: #E96012;
+  font-size: 10px;
   font-weight: 600;
-  border-radius: 999rpx;
-  animation: badgePulse 2s ease-in-out infinite;
+  border-radius: 999px;
 }
 
-/* ================================================================= */
-/* 奖项                                                               */
-/* ================================================================= */
-.prize-row { display: flex; gap: 16rpx; }
+/* ===== 奖项 ===== */
+.prize-row { display: flex; gap: 8px; }
 
 .prize-card {
   flex: 1;
-  padding: 24rpx 12rpx;
-  border-radius: 16px;
+  padding: 12px 6px;
+  border-radius: 10px;
   text-align: center;
+  border: 1px solid #E4E7EC;
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
 }
 
-.prize-card--gold { background: linear-gradient(135deg, #FFF9C4, #FFD54F); box-shadow: 0 4rpx 16rpx rgba(255, 193, 7, 0.3); }
-.prize-card--silver { background: linear-gradient(135deg, #F5F5F5, #E0E0E0); box-shadow: 0 4rpx 16rpx rgba(158, 158, 158, 0.25); }
-.prize-card--bronze { background: linear-gradient(135deg, #FFF3E0, #FFCC80); box-shadow: 0 4rpx 16rpx rgba(255, 152, 0, 0.25); }
+.prize-card--gold { background: linear-gradient(135deg, #FFF9C4, #FFE082); }
+.prize-card--silver { background: linear-gradient(135deg, #F5F5F5, #E0E0E0); }
+.prize-card--bronze { background: linear-gradient(135deg, #FFF3E0, #FFCC80); }
 
 .prize-medal {
-  width: 56rpx;
-  height: 56rpx;
-  margin: 0 auto 8rpx;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 4px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
+  font-size: 14px;
   font-weight: 700;
+  color: #fff;
 }
 
-.prize-card--gold .prize-medal { background: #FFB300; color: #fff; }
-.prize-card--silver .prize-medal { background: #9E9E9E; color: #fff; }
-.prize-card--bronze .prize-medal { background: #F57C00; color: #fff; }
+.prize-card--gold .prize-medal { background: #92400E; }
+.prize-card--silver .prize-medal { background: #4B5563; }
+.prize-card--bronze .prize-medal { background: #9A3412; }
 
-.prize-level { font-size: 26rpx; font-weight: 500; color: #17212B; display: block; margin-bottom: 4rpx; }
+.prize-level { font-size: 13px; font-weight: 500; color: #17212B; display: block; margin-bottom: 2px; }
 
 .prize-amount-row { display: flex; align-items: baseline; justify-content: center; }
-.prize-symbol { font-size: 22rpx; color: #17212B; font-weight: 700; }
-.prize-amount { font-size: 30rpx; font-weight: 800; color: #17212B; }
+.prize-symbol { font-size: 11px; color: #344054; font-weight: 700; }
+.prize-amount { font-size: 15px; font-weight: 800; color: #344054; }
 
-/* ================================================================= */
-/* 主办单位                                                           */
-/* ================================================================= */
+/* ===== 主办单位 ===== */
 .organizer-row {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 24rpx;
-  box-shadow: 0 2rpx 12rpx rgba(10, 31, 68, 0.04);
+  gap: 10px;
+  padding: 12px;
 }
 
 .org-avatar {
-  width: 96rpx;
-  height: 96rpx;
-  background: linear-gradient(135deg, #074D92, #0A66C2);
-  border-radius: 24rpx;
+  width: 48px;
+  height: 48px;
+  background: #0A66C2;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 40rpx;
+  font-size: 20px;
   font-weight: 600;
   flex-shrink: 0;
 }
 
-.org-info { flex: 1; }
-.org-name { font-size: 28rpx; font-weight: 500; color: #17212B; display: block; margin-bottom: 4rpx; }
-.org-sub { font-size: 24rpx; color: #969799; }
+.org-info { flex: 1; min-width: 0; }
+.org-name { font-size: 14px; font-weight: 500; color: #17212B; display: block; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.org-sub { font-size: 12px; color: #98A2B3; }
 
-.org-arrow { font-size: 36rpx; color: #98A2B3; flex-shrink: 0; }
-
-/* ================================================================= */
-/* 底部 CTA                                                           */
-/* ================================================================= */
+/* ===== 底部 CTA ===== */
 .bottom-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   background: #ffffff;
-  border-top: 1rpx solid rgba(10, 31, 68, 0.06);
-  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.04);
-  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  border-top: 1px solid #EEF1F4;
+  box-shadow: 0 -2px 12px rgba(16, 24, 40, 0.04);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 10;
 }
 
-.fee-label { font-size: 22rpx; color: #969799; display: block; margin-bottom: 4rpx; }
+.fee-label { font-size: 11px; color: #98A2B3; display: block; margin-bottom: 2px; }
 
 .fee-price { display: flex; align-items: baseline; }
-.fee-symbol { font-size: 24rpx; color: #E96012; font-weight: 700; }
-.fee-value { font-size: 44rpx; font-weight: 800; color: #E96012; line-height: 1; }
-.fee-value--pending { font-size: 28rpx; font-weight: 600; color: #969799; line-height: 1.4; }
-.fee-unit { font-size: 22rpx; color: #969799; margin-left: 4rpx; }
+.fee-symbol { font-size: 12px; color: #C2410C; font-weight: 700; }
+.fee-value { font-size: 22px; font-weight: 800; color: #C2410C; line-height: 1; }
+.fee-value--pending { font-size: 14px; font-weight: 600; color: #98A2B3; line-height: 1.4; }
+.fee-unit { font-size: 11px; color: #98A2B3; margin-left: 2px; }
 
-.bottom-actions { display: flex; gap: 20rpx; }
-
-.btn-outline {
-  padding: 20rpx 36rpx;
-  border-radius: 50rpx;
-  border: 2rpx solid #0A66C2;
-  color: #0A66C2;
-  font-size: 28rpx;
-  font-weight: 500;
-  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
+.free-badge {
+  padding: 2px 10px;
+  background: #E9F7F0;
+  border: 1px solid #C9EEDC;
+  color: #0B6B41;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
 }
+
+.bottom-actions { display: flex; gap: 10px; }
 
 .btn-primary {
-  padding: 20rpx 40rpx;
-  border-radius: 50rpx;
-  background: linear-gradient(135deg, #074D92, #0A66C2);
+  padding: 10px 24px;
+  border-radius: 999px;
+  background: #0A66C2;
   color: #ffffff;
-  font-size: 28rpx;
+  font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 4rpx 16rpx rgba(10, 102, 194, 0.3);
-  transition: transform var(--anim-fast) ease, opacity var(--anim-fast) ease;
+  box-shadow: 0 2px 8px rgba(10, 102, 194, 0.24);
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
 }
 
-.btn-primary.disabled { background: #CBD5E1; box-shadow: none; }
-.bottom-spacer { height: 180rpx; }
-
-/* ================================================================= */
-/* 动效                                                              */
-/* ================================================================= */
-@keyframes pageIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+.btn-primary.disabled {
+  background: #EEF1F4;
+  color: #667085;
+  box-shadow: none;
+  pointer-events: none;
 }
 
-@keyframes blockIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+.bottom-spacer { height: 140rpx; }
 
-@keyframes badgePulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 142, 60, 0.4); }
-  50% { box-shadow: 0 0 0 8rpx rgba(255, 142, 60, 0); }
-}
+/* ===== 动效 ===== */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-@keyframes radarRotate {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
+.press-feedback { transform: scale(0.98); opacity: 0.92; }
 
-@keyframes twinkle {
-  0%, 100% { opacity: 0.2; }
-  50%      { opacity: 0.8; }
-}
-
-.press-feedback {
-  transform: scale(0.98);
-  opacity: 0.92;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-content, .section-block, .btn-primary, .btn-outline {
-    animation: none !important;
-    transition: none !important;
-  }
-}
+/* ===== 减弱动效（无障碍）：装饰动画全关，保留淡入 ===== */
+.page.no-motion .hero-content,
+.page.no-motion .card,
+.page.no-motion .section-block { animation: none; }
 </style>
