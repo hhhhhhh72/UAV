@@ -68,9 +68,14 @@
         </u-cell>
       </u-cell-group>
 
-      <!-- Load more (if API supports pagination) -->
+      <!-- Load more：onReachBottom 自动加载下一页 -->
       <view v-if="list.length > 0" class="load-more">
-        <text v-if="!hasMore" class="no-more">没有更多了</text>
+        <view v-if="loading" class="loading-inline">
+          <u-loading size="20rpx" />
+          <text>加载中...</text>
+        </view>
+        <text v-else-if="!hasMore" class="no-more">没有更多了</text>
+        <text v-else class="load-more-btn" @tap="fetchList(false)">上拉加载更多</text>
       </view>
     </view>
   </view>
@@ -124,6 +129,12 @@ export default {
       uni.stopPullDownRefresh()
     })
   },
+  onReachBottom() {
+    // P1 修复：pageSize=20 有分页但页面此前无触底加载，超过一页即不可达
+    if (!this.loading && this.hasMore) {
+      this.fetchList(false)
+    }
+  },
   methods: {
     async fetchList(reset) {
       if (reset) {
@@ -158,6 +169,11 @@ export default {
         this.hasMore = this.list.length < total
       } catch (e) {
         this.errorMsg = '网络异常，请稍后重试'
+        if (!reset) {
+          // 加载更多失败回滚页码，避免跳过一页
+          this.page--
+          uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+        }
       } finally {
         this.loading = false
       }
@@ -332,5 +348,11 @@ export default {
 .no-more {
   color: var(--color-text-placeholder);
   font-size: 13px;
+}
+
+.load-more-btn {
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 500;
 }
 </style>

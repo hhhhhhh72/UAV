@@ -115,7 +115,7 @@
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useSafeTop } from '../../../utils/safeTop'
-import { request, authStorage, BASE_URL } from '../../../utils/request'
+import { request, authStorage, BASE_URL, getStoredUser } from '../../../utils/request'
 
 const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
 
@@ -212,6 +212,17 @@ function goBack() {
 
 onLoad(() => {
   initSafeTop()
+  // 登录/角色守卫：未登录重定向登录页；非企业账号提示并返回
+  if (!authStorage.getAccessToken()) {
+    uni.redirectTo({ url: '/pages/login/index' })
+    return
+  }
+  const u = getStoredUser()
+  if (!(u && (u.role === 'enterprise' || u.user_type === 'enterprise'))) {
+    uni.showToast({ title: '仅企业账号可发布赛事', icon: 'none' })
+    setTimeout(() => goBack(), 800)
+    return
+  }
 })
 </script>
 

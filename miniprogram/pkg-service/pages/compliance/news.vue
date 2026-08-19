@@ -15,6 +15,7 @@
           @input="onSearchInput"
         />
       </view>
+      <view v-if="searchText" class="search-hint">仅搜索已加载内容，清除关键词后可加载更多</view>
     </view>
 
     <!-- ========== Category chips（分类即筛选，覆盖全部分类） ========== -->
@@ -222,7 +223,8 @@ export default {
       })
     },
     showLoadMore() {
-      return this.list.length > 0 && !this.searchText
+      // 搜索为前端本地过滤：搜索态下仍允许加载更多，把更多数据纳入过滤范围
+      return this.list.length > 0
     },
   },
   onLoad() {
@@ -234,7 +236,7 @@ export default {
     })
   },
   onReachBottom() {
-    if (!this.loadingMore && this.hasMore && !this.searchText) {
+    if (!this.loadingMore && this.hasMore) {
       this.loadMore()
     }
   },
@@ -270,13 +272,16 @@ export default {
         if (reqId !== this.requestId) return
 
         const items = Array.isArray(res) ? res : []
-        this.hasMore = items.length === this.pageSize
 
+        // P1 修复：优先用分页响应 total 判定 hasMore，
+        // 避免末页恰好等于 pageSize 时（items.length === pageSize）误判还有更多
         if (reset) {
           this.list = items
         } else {
           this.list = this.list.concat(items)
         }
+        const total = typeof res.total === 'number' ? res.total : null
+        this.hasMore = total !== null ? this.list.length < total : items.length === this.pageSize
       } catch (e) {
         if (reqId !== this.requestId) return
         if (reset) {
@@ -393,6 +398,12 @@ export default {
   font-size: 26rpx;
   color: #344054;
   background: transparent;
+}
+
+.search-hint {
+  margin-top: 14rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 /* ========== Category chips（与需求大厅 filter-chip 同款） ========== */

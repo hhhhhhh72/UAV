@@ -79,6 +79,7 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getPost, removePost, upsertPost } from '../../utils/publishData'
+import { request, getErrorMessage } from '../../utils/request'
 import { useSafeTop } from '../../utils/safeTop'
 
 const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
@@ -144,10 +145,35 @@ function openAction(label) {
   actionModal.value = label
 }
 
-function applyAction() {
+async function applyAction() {
   const label = actionModal.value
   const p = post.value
   actionModal.value = ''
+  // 已发布到后端的记录（backendId 非空）：不能只改本地，服务器仍公开。
+  // 需求有公开撤回接口（POST /api/v1/demands/{id}/cancel）；商品/服务/课程
+  // 后端无公开下架/删除接口，明确提示走管理端，不得假提示「下架成功」。
+  if (p.backendId) {
+    if (p.type === 'demand' && (label === '撤回申请' || label === '下架发布')) {
+      try {
+        await request({ url: '/api/v1/demands/' + encodeURIComponent(p.backendId) + '/cancel', method: 'POST' })
+      } catch (e) {
+        showToast(getErrorMessage(e) || '撤回失败，请稍后重试')
+        return
+      }
+      // 后端已撤回（不再公开展示），本地转为草稿
+      p.status = '草稿'
+      p.statusKey = 'draft'
+      p.date = '刚刚保存'
+      p.note = '内容已保存为草稿，可继续编辑后再次提交。'
+      upsertPost(p)
+      showToast(label + '成功（后端已同步）')
+      setTimeout(goBack, 600)
+      return
+    }
+    // 删除 / 其他类型：后端无公开接口，提示管理端处理，不动本地记录
+    showToast('后端记录需在管理端处理')
+    return
+  }
   if (label.startsWith('删除')) {
     removePost(p.id)
     showToast('发布内容已删除')
@@ -165,6 +191,12 @@ function applyAction() {
 }
 
 function editPost() {
+  // 已发布到后端的记录：编辑后再确认发布会走 POST 新建（重复发布），
+  // 后端无公开整表更新接口（商品/服务/课程均无），明确提示走管理端
+  if (post.value && post.value.backendId) {
+    showToast('该内容已发布，修改请走管理端')
+    return
+  }
   uni.navigateTo({
     url: '/pages/publish/form?type=' + post.value.type + '&id=' + post.value.id,
   })

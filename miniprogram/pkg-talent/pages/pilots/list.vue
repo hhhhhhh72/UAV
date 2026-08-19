@@ -22,12 +22,14 @@
         <text class="stat-num" :class="{ 'stat-anim': loaded }">{{ displayStats.totalHours }}</text>
         <text class="stat-label">飞行小时</text>
       </view>
-      <view class="stat-divider" />
-      <view class="stat-cell">
-        <view class="stat-icon"><text class="icon-star">★</text></view>
-        <text class="stat-num" :class="{ 'stat-anim': loaded }">{{ displayStats.avgRating }}</text>
-        <text class="stat-label">平均评分</text>
-      </view>
+      <template v-if="displayStats.hasRating">
+        <view class="stat-divider" />
+        <view class="stat-cell">
+          <view class="stat-icon"><text class="icon-star">★</text></view>
+          <text class="stat-num" :class="{ 'stat-anim': loaded }">{{ displayStats.avgRating }}</text>
+          <text class="stat-label">平均评分</text>
+        </view>
+      </template>
     </view>
 
     <!-- ③ 搜索框 -->
@@ -136,8 +138,15 @@
       <text class="footer-line" />
     </view>
 
+    <!-- 错误态 -->
+    <view v-if="!loading && errorMsg" class="empty-wrap">
+      <view class="empty-icon"><text>飞</text></view>
+      <text class="empty-title">{{ errorMsg }}</text>
+      <view class="empty-btn" @tap="fetchData">重新加载</view>
+    </view>
+
     <!-- 空态 -->
-    <view v-if="!loading && !list.length" class="empty-wrap">
+    <view v-if="!loading && !errorMsg && !list.length" class="empty-wrap">
       <view class="empty-icon"><text>飞</text></view>
       <text class="empty-title">暂无认证飞手</text>
       <text class="empty-sub">成为协会认证飞手，即可展示在此名录</text>
@@ -162,6 +171,7 @@ const searchText = ref('')
 const list = ref([])
 const loading = ref(false)
 const loaded = ref(false)
+const errorMsg = ref('')
 const goBack = () => uni.navigateBack()
 
 // 右上按钮文案：随我的认证状态变化，入口永远存在
@@ -179,7 +189,7 @@ const refreshMineLabel = async () => {
 }
 
 // ── 统计数字滚动计数 ─────────────────────
-const displayStats = ref({ totalCerts: 0, totalHours: 0, avgRating: '5.0' })
+const displayStats = ref({ totalCerts: 0, totalHours: 0, avgRating: '—', hasRating: false })
 const countUp = (target, duration = 800) => {
   const from = { totalCerts: 0, totalHours: 0 }
   const to = { totalCerts: target.totalCerts, totalHours: target.totalHours }
@@ -192,6 +202,7 @@ const countUp = (target, duration = 800) => {
       totalCerts: Math.round(from.totalCerts + (to.totalCerts - from.totalCerts) * ease),
       totalHours: Math.round(from.totalHours + (to.totalHours - from.totalHours) * ease),
       avgRating: target.avgRating,
+      hasRating: target.hasRating,
     }
     if (p < 1) setTimeout(tick, 16)
   }
@@ -204,11 +215,13 @@ const stats = computed(() => {
   const totalHours = list.value.reduce((s, p) => s + (p.flight_hours || 0), 0)
   const rated = list.value.filter((p) => p.rating > 0)
   const avg = rated.length ? (rated.reduce((s, p) => s + p.rating, 0) / rated.length) : 0
+  const hasRating = avg > 0
   return {
     totalCerts,
     totalHours,
-    // 无真实评分时默认展示 5.0（测试数据无评分时更好看）
-    avgRating: avg ? avg.toFixed(1) : '5.0',
+    hasRating,
+    // 无真实评分时不展示评分项（横幅由 hasRating 控制显隐）
+    avgRating: hasRating ? avg.toFixed(1) : '—',
   }
 })
 
@@ -235,9 +248,8 @@ const idLabel = (item) => {
   const n = (item.cert_ids || []).length
   return `协会认证 · ${n} 项证书`
 }
-// 评分：rating>0 显示，否则"—"
-// 评分：rating>0 显示实际评分；为 0 时默认展示满分 5.0（测试数据无评分时更好看）
-const ratingText = (item) => (item.rating > 0 ? item.rating.toFixed(1) : '5.0')
+// 评分：rating>0 显示实际评分；无评分显示"—"（不伪造满分）
+const ratingText = (item) => (item.rating > 0 ? item.rating.toFixed(1) : '—')
 // 评价数：≥10 才显示"XX 人评价"，否则显示"暂无评价"（弱化）
 const ratingSub = (item) => {
   const n = item.completed_jobs || 0
@@ -280,11 +292,15 @@ const clearSearch = () => { searchText.value = ''; fetchData() }
 
 const fetchData = async () => {
   loading.value = true
+  errorMsg.value = ''
   try {
     const kw = searchText.value.trim()
     const res = await request({ url: '/api/v1/certified-pilots', data: { page: 1, page_size: 100, keyword: kw } })
     list.value = (Array.isArray(res) ? res : (res.data || []))
-  } catch { list.value = [] } finally {
+  } catch {
+    list.value = []
+    errorMsg.value = '加载失败，请稍后重试'
+  } finally {
     loading.value = false
     loaded.value = true
     // 统计数字滚动动画（数据就绪后触发）

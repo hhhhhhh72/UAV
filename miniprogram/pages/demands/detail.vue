@@ -480,7 +480,8 @@ function openSheet(kind) {
   if (kind === 'intent') {
     const u = currentUserName()
     intentForm.value.name = u === '微信用户' ? '' : u
-    intentForm.value.phone = '138****2468'
+    // 不预填假手机号：真实号码由用户填写（placeholder 已提示），避免误导发布方
+    intentForm.value.phone = ''
     intentForm.value.note = ''
     intentForm.value.agree = false
   }
@@ -519,10 +520,14 @@ const submitIntent = async () => {
   }
   submitting.value = true
   try {
-    // 登记后端意向。真实需求（demand-* 前缀，后端已创建）必须提交成功，
-    // 失败明确提示；本地演示内容（hallData mock d1/s1 与本地发布 post-*）
-    // 后端无此需求，保留本地兜底
-    const isReal = !!(postId && postId.startsWith('demand-'))
+    // 登记后端意向。真实后端需求 id 是数字字符串（normalizeDemand 的 String(d.id)），
+    // 非本地前缀（post-*/local-* 与 hallData mock d1/s1/p1）一律走后端 POST，
+    // 提交失败明确提示；仅本地演示内容落本地存储兜底
+    const isLocalDemo = !postId ||
+      postId.indexOf('post-') === 0 ||
+      postId.indexOf('local-') === 0 ||
+      !!findMock(postId)
+    const isReal = !isLocalDemo
     let backendOk = false
     if (isReal) {
       try {

@@ -19,17 +19,17 @@
       <!-- 统计条：企业总数 / 协会会员 / 行业覆盖（实时聚合） -->
       <view class="hero-stats">
         <view class="h-stat">
-          <text class="h-stat-num">{{ list.length }}</text>
+          <text class="h-stat-num">{{ errorMsg ? '--' : list.length }}</text>
           <text class="h-stat-label">入驻企业</text>
         </view>
         <view class="h-stat-divider" />
         <view class="h-stat">
-          <text class="h-stat-num">{{ memberCount }}</text>
+          <text class="h-stat-num">{{ errorMsg ? '--' : memberCount }}</text>
           <text class="h-stat-label">协会会员</text>
         </view>
         <view class="h-stat-divider" />
         <view class="h-stat">
-          <text class="h-stat-num">{{ industryCount }}</text>
+          <text class="h-stat-num">{{ errorMsg ? '--' : industryCount }}</text>
           <text class="h-stat-label">行业覆盖</text>
         </view>
       </view>
@@ -55,6 +55,20 @@
       <view class="skeleton-card"></view>
       <view class="skeleton-card"></view>
       <view class="skeleton-card"></view>
+    </view>
+
+    <!-- 加载失败（无旧数据）：错误态 + 重试 -->
+    <view v-else-if="errorMsg && list.length === 0" class="state-panel">
+      <view class="state-mark state-mark-muted">
+        <view class="state-mark-inner">
+          <view class="state-search-icon" />
+        </view>
+      </view>
+      <text class="state-title">加载失败</text>
+      <text class="state-desc">{{ errorMsg }}</text>
+      <view class="state-btn" hover-class="tap-fade" hover-stay-time="120" @tap="load">
+        <text>重新加载</text>
+      </view>
     </view>
 
     <!-- 空数据（全量无企业） -->
@@ -89,6 +103,12 @@
     </view>
 
     <template v-else>
+      <!-- 有旧数据时刷新失败：错误横幅 + 重试 -->
+      <view v-if="errorMsg" class="list-error-banner">
+        <text>{{ errorMsg }}</text>
+        <text class="list-error-retry" @tap="load">重试</text>
+      </view>
+
       <!-- 行业筛选 chips（从数据聚合） -->
       <scroll-view v-if="cats.length > 1" class="chip-scroll" scroll-x :show-scrollbar="false">
         <view class="chip-row">
@@ -172,6 +192,7 @@ import { request, BASE_URL } from '../../../utils/request'
 
 const loading = ref(false)
 const list = ref([])
+const errorMsg = ref('')
 const statusBarH = ref(20)
 const activeCat = ref('')
 const keyword = ref('')
@@ -195,8 +216,10 @@ const load = async () => {
   try {
     const res = await request({ url: '/api/v1/enterprises/public' })
     list.value = Array.isArray(res) ? res : []
+    errorMsg.value = ''
   } catch (e) {
-    list.value = []
+    // P1 修复：失败不再静默清空——空列表展示错误态+重试；有旧数据时保留并降级统计
+    errorMsg.value = '网络异常，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -458,6 +481,24 @@ onLoad(async () => {
 }
 .search-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
 .search-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+/* 有旧数据时刷新失败横幅 */
+.list-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14rpx;
+  margin: 24rpx 32rpx 0;
+  padding: 16rpx 28rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  color: #B42318;
+  background: #FEF0EF;
+}
+.list-error-retry {
+  color: #0A66C2;
+  font-weight: 600;
+}
 
 /* ═══════ 行业筛选 chips ═══════ */
 .chip-scroll {

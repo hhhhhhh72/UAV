@@ -73,6 +73,12 @@
         </u-cell>
       </u-cell-group>
 
+      <!-- 已有数据时加载失败：错误横幅 + 重试（保留旧数据） -->
+      <view v-if="errorMsg && list.length > 0" class="error-banner">
+        <text>{{ errorMsg }}</text>
+        <text class="error-retry" @tap="fetchList(true)">重试</text>
+      </view>
+
       <!-- Load more -->
       <view v-if="list.length > 0" class="load-more">
         <view v-if="loadingMore" class="loading-inline">
@@ -161,6 +167,11 @@ export default {
         this.hasMore = this.list.length < total
       } catch (e) {
         this.errorMsg = '网络异常，请稍后重试'
+        if (!reset) {
+          // P1 修复：加载更多失败回滚页码，避免跳过一页
+          this.page--
+          uni.showToast({ title: '加载失败，请重试', icon: 'none' })
+        }
       } finally {
         this.loading = false
         this.loadingMore = false
@@ -276,6 +287,25 @@ export default {
   color: #fff;
   border-radius: 8px;
   font-size: 14px;
+}
+
+/* 已有数据时加载失败横幅（参考 news.vue error-banner） */
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 16rpx 28rpx;
+  margin: 0 24rpx;
+  font-size: 24rpx;
+  color: #B42318;
+  background: #FEF0EF;
+  border-radius: 12rpx;
+}
+
+.error-retry {
+  color: var(--color-primary);
+  font-weight: 650;
 }
 
 .list-body {

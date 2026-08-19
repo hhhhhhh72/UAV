@@ -97,6 +97,7 @@
         <view class="section-block">
           <view class="section-title">报名条件</view>
           <view class="requirements-card">
+            <view v-if="requirements(detail).length === 0" class="req-empty">以主办方公布为准</view>
             <view v-for="(req, i) in requirements(detail)" :key="req.name" class="req-item">
               <view class="req-icon" :class="'req-icon--' + (i % 5)">
                 <text class="req-icon-text">{{ req.icon }}</text>
@@ -114,6 +115,7 @@
         <view class="section-block">
           <view class="section-title">参赛项目</view>
           <view class="event-list">
+            <view v-if="eventList(detail).length === 0" class="event-empty">以主办方公布为准</view>
             <view
               v-for="(ev, i) in eventList(detail)"
               :key="ev.name"
@@ -128,7 +130,8 @@
                 </view>
                 <text class="event-meta">{{ ev.type }} · {{ ev.format }}</text>
               </view>
-              <text class="event-price">¥{{ ev.fee.toLocaleString() }}</text>
+              <text v-if="ev.fee != null" class="event-price">¥{{ ev.fee.toLocaleString() }}</text>
+              <text v-else class="event-price">费用待定</text>
             </view>
           </view>
         </view>
@@ -140,7 +143,7 @@
             <view v-for="p in prizes(detail)" :key="p.level" class="prize-card" :class="'prize-card--' + p.metal">
               <view class="prize-medal">{{ p.medal }}</view>
               <text class="prize-level">{{ p.level }}</text>
-              <view class="prize-amount-row">
+              <view v-if="p.amount != null" class="prize-amount-row">
                 <text class="prize-symbol">¥</text>
                 <text class="prize-amount">{{ p.amount.toLocaleString() }}</text>
               </view>
@@ -166,9 +169,12 @@
           <view class="bottom-left">
             <text class="fee-label">报名费</text>
             <view class="fee-price">
-              <text class="fee-symbol">¥</text>
-              <text class="fee-value">{{ compMinFee(detail) }}</text>
-              <text class="fee-unit">起/人</text>
+              <template v-if="compMinFee(detail) != null">
+                <text class="fee-symbol">¥</text>
+                <text class="fee-value">{{ compMinFee(detail) }}</text>
+                <text class="fee-unit">起/人</text>
+              </template>
+              <text v-else class="fee-value fee-value--pending">以主办方公布为准</text>
             </view>
           </view>
           <view class="bottom-actions">
@@ -245,22 +251,12 @@ function compTags(item) {
 
 function requirements(item) {
   if (Array.isArray(item.requirements) && item.requirements.length > 0) return item.requirements
-  return [
-    { icon: '证', name: '持证要求', desc: '须持有CAAC/AOPA/UTC任一类无人机执照', level: '必满足' },
-    { icon: '龄', name: '年龄限制', desc: '年满16周岁，未满18周岁需监护人签字同意', level: '必满足' },
-    { icon: '时', name: '飞行时长', desc: '累计飞行时长不低于20小时', level: '建议满足' },
-    { icon: '康', name: '健康要求', desc: '身体健康，无色盲色弱', level: '必满足' },
-    { icon: '险', name: '保险要求', desc: '须自行购买比赛期间的第三方责任险', level: '建议满足' },
-  ]
+  return []
 }
 
 function eventList(item) {
   if (Array.isArray(item.events) && item.events.length > 0) return item.events
-  return [
-    { name: '多旋翼竞速赛', type: '个人赛', format: '计时排名', fee: 380 },
-    { name: '固定翼编队赛', type: '团体赛', format: '3人一队', fee: 680 },
-    { name: '航拍创作赛', type: '个人赛', format: '主题创作', fee: 280 },
-  ]
+  return []
 }
 
 function eventColor(i) {
@@ -269,19 +265,18 @@ function eventColor(i) {
 
 function prizes(item) {
   if (Array.isArray(item.prizes) && item.prizes.length > 0) return item.prizes
-  return [
-    { level: '一等奖', amount: 10000, metal: 'gold', medal: '金' },
-    { level: '二等奖', amount: 5000, metal: 'silver', medal: '银' },
-    { level: '三等奖', amount: 2000, metal: 'bronze', medal: '铜' },
-  ]
+  return []
 }
 
 function compMinFee(item) {
   if (item.min_fee != null) return item.min_fee
   if (item.fee != null) return item.fee
   var evts = eventList(item)
-  if (evts.length > 0) return Math.min.apply(null, evts.map(function (e) { return e.fee }))
-  return 280
+  if (evts.length > 0) {
+    var fees = evts.map(function (e) { return e.fee }).filter(function (f) { return f != null })
+    if (fees.length > 0) return Math.min.apply(null, fees)
+  }
+  return null
 }
 
 function orgInitial(item) {
@@ -736,6 +731,13 @@ onLoad(function (options) {
 .req-badge--must { background: #EF4444; color: #ffffff; }
 .req-badge--advise { background: #ffffff; color: #0A66C2; border: 1rpx solid #0A66C2; }
 
+.req-empty {
+  padding: 32rpx 8rpx;
+  font-size: 26rpx;
+  color: #969799;
+  text-align: center;
+}
+
 /* ================================================================= */
 /* 参赛项目                                                           */
 /* ================================================================= */
@@ -760,6 +762,13 @@ onLoad(function (options) {
 .event-name { font-size: 30rpx; font-weight: 500; color: #17212B; display: block; }
 .event-meta { font-size: 24rpx; color: #969799; margin-top: 4rpx; display: block; }
 .event-price { font-size: 34rpx; font-weight: 700; color: #E96012; }
+
+.event-empty {
+  padding: 32rpx 8rpx;
+  font-size: 26rpx;
+  color: #969799;
+  text-align: center;
+}
 
 .hot-badge {
   padding: 2rpx 12rpx;
@@ -865,6 +874,7 @@ onLoad(function (options) {
 .fee-price { display: flex; align-items: baseline; }
 .fee-symbol { font-size: 24rpx; color: #E96012; font-weight: 700; }
 .fee-value { font-size: 44rpx; font-weight: 800; color: #E96012; line-height: 1; }
+.fee-value--pending { font-size: 28rpx; font-weight: 600; color: #969799; line-height: 1.4; }
 .fee-unit { font-size: 22rpx; color: #969799; margin-left: 4rpx; }
 
 .bottom-actions { display: flex; gap: 20rpx; }

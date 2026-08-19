@@ -131,6 +131,7 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request, BASE_URL, authStorage } from '../../../utils/request'
+import { requireLogin } from '../../../utils/nav'
 import { useSafeTop } from '../../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)
@@ -153,11 +154,8 @@ const chooseAvatar = () => {
   })
 }
 const uploadAvatar = async (filePath) => {
+  if (!requireLogin()) return
   const token = authStorage.getAccessToken()
-  if (!token) {
-    uni.showToast({ title: '请先登录', icon: 'none' })
-    return
-  }
   uni.showLoading({ title: '上传中...' })
   try {
     const data = await new Promise((resolve, reject) => {
@@ -207,9 +205,11 @@ const loadCerts = async () => {
 }
 
 const submit = async () => {
+  if (!requireLogin()) return
   if (submitting.value) return
   if (!form.value.real_name.trim()) return uni.showToast({ title: '请输入真实姓名', icon: 'none' })
   if (!form.value.id_card.trim()) return uni.showToast({ title: '请输入身份证号', icon: 'none' })
+  if (!/^\d{17}[\dXx]$/.test(form.value.id_card.trim())) return uni.showToast({ title: '身份证号格式不正确', icon: 'none' })
   submitting.value = true
   try {
     await request({

@@ -290,6 +290,8 @@ export default {
       },
       logoUrl: '',
       licenseUrl: '',
+      // 营业执照私有文件的服务端相对路径（/uploads/private/{fid}）；预览用 licenseUrl（本地临时路径）
+      licensePath: '',
       // 编辑模式：status 页「需补充资料/驳回」后带 entId 进入
       editEntId: '',
     }
@@ -351,7 +353,10 @@ export default {
         this.form.founded_at = ent.founded_at || ''
         this.form.description = ent.description || ''
         this.logoUrl = this.resolveUrl(ent.logo)
-        this.licenseUrl = this.resolveUrl(ent.license_url)
+        var lic = ent.license_url || ''
+        this.licensePath = lic
+        // 私有文件（/uploads/private/）需 Authorization 头，<image> 无法携带 → 预览留空待重新上传
+        this.licenseUrl = lic.indexOf('/uploads/private/') === 0 ? '' : this.resolveUrl(lic)
       } catch (e) {
         uni.showToast({ title: '加载企业资料失败', icon: 'none' })
       }
@@ -426,24 +431,30 @@ export default {
         self.logoUrl = self.resolveUrl(path)
       })
     },
+    // 营业执照走私有上传（formData.private=true → 落 /uploads/private/{fid}，仅鉴权可读）；
+    // 私有文件 <image>/previewImage 无法携带 Authorization 头，预览用本地临时路径
     chooseLicense() {
       var self = this
-      this.uploadImage(function (path) {
-        self.licenseUrl = self.resolveUrl(path)
-      })
+      this.uploadImage(function (path, localPreview) {
+        self.licensePath = path
+        self.licenseUrl = localPreview || self.resolveUrl(path)
+      }, true)
     },
-    uploadImage(onSuccess) {
+    uploadImage(onSuccess, isPrivate) {
       var self = this
       uni.chooseImage({
         count: 1,
         sizeType: ['compressed'],
         sourceType: ['album', 'camera'],
         success: function (res) {
+          var localPath = res.tempFilePaths[0]
           uni.showLoading({ title: '上传中...' })
           uni.uploadFile({
             url: BASE_URL + '/api/v1/files/upload',
-            filePath: res.tempFilePaths[0],
+            filePath: localPath,
             name: 'file',
+            // P0 修复：营业执照等敏感证件走私有上传（后端 FormValue("private")=="true" → /uploads/private/）
+            formData: { private: isPrivate ? 'true' : 'false' },
             header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
             success: function (r) {
               uni.hideLoading()
@@ -465,7 +476,10 @@ export default {
                 uni.showToast({ title: '上传失败，请重试', icon: 'none' })
                 return
               }
-              onSuccess('/uploads/' + fid)
+              // 优先用后端返回的 url（私有上传为 /uploads/private/{fid}），缺失时按私有标记拼路径
+              var url = data.url || (data.data && data.data.url)
+              var rel = url || ('/uploads/' + (isPrivate ? 'private/' : '') + fid)
+              onSuccess(rel, isPrivate ? localPath : '')
             },
             fail: function () {
               uni.hideLoading()
@@ -489,6 +503,7 @@ export default {
     },
     removeLicense() {
       this.licenseUrl = ''
+      this.licensePath = ''
     },
     // ---- 提交 ----
     async handleSubmit() {
@@ -511,7 +526,7 @@ export default {
           founded_at: self.form.founded_at,
           description: self.form.description,
           logo: self.storageUrl(self.logoUrl),
-          license_url: self.storageUrl(self.licenseUrl),
+          license_url: self.licensePath || self.storageUrl(self.licenseUrl),
         }
 
         var ent
@@ -531,12 +546,15 @@ export default {
 
         // 新建时创建为草稿 → 立即提交审核；编辑时（draft/supplement_required）重提审核
         var entId = self.editEntId || (ent && (ent.data && ent.data.id ? ent.data.id : ent.id))
-        if (entId) {
-          await request({
-            url: '/api/v1/enterprises/' + encodeURIComponent(entId) + '/submit',
-            method: 'POST',
-          })
+        // P0 修复：entId 取不到时不得静默跳过提审并提示成功，必须报失败可重试
+        if (!entId) {
+          uni.showToast({ title: '提交失败：未获取到企业ID，请重试', icon: 'none', duration: 2500 })
+          return
         }
+        await request({
+          url: '/api/v1/enterprises/' + encodeURIComponent(entId) + '/submit',
+          method: 'POST',
+        })
 
         uni.showToast({ title: self.isEdit ? '已重新提交审核' : '已提交审核' })
         self.backTimer = setTimeout(function () {

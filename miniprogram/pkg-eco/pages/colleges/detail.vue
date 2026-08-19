@@ -131,7 +131,7 @@
 
           <!-- ⑦ 底部按钮 -->
           <view class="bottom-bar">
-            <view class="btn-outline" hover-class="press-feedback" :hover-stay-time="120" @click="callPhone">联系电话</view>
+            <view class="btn-outline" v-if="detail.phone" hover-class="press-feedback" :hover-stay-time="120" @click="callPhone">联系电话</view>
             <view v-if="detail.website" class="btn-primary" hover-class="press-feedback" :hover-stay-time="120" @click="openWebsite">访问官网</view>
           </view>
           <view class="bottom-spacer" />
@@ -229,21 +229,12 @@ function majorsList(item) {
     var objList = item.majors.filter(function (m) { return m && typeof m === 'object' })
     if (objList.length > 0) return objList
   }
-  return [
-    { name: '飞行器设计与工程', degree: '本科', duration: 4, key: '国家级特色专业', flagship: true },
-    { name: '无人机系统工程', degree: '本科', duration: 4, key: '', flagship: false },
-    { name: '飞行器控制与信息工程', degree: '硕士', duration: 3, key: '', flagship: false },
-  ]
+  return []
 }
 
 function partnerList(item) {
   if (Array.isArray(item.partners) && item.partners.length > 0) return item.partners
-  return [
-    { icon: '机', name: '大疆创新', type: '联合实验室' },
-    { icon: '航', name: '中航工业', type: '实习基地' },
-    { icon: '天', name: '航天科技', type: '合作研究' },
-    { icon: '装', name: '亿航智能', type: '人才输送' },
-  ]
+  return []
 }
 
 function previewPhotos(idx) {
@@ -253,7 +244,8 @@ function previewPhotos(idx) {
 }
 
 function callPhone() {
-  var phone = (detail.value && detail.value.phone) || '010-82310000'
+  var phone = detail.value && detail.value.phone
+  if (!phone) return
   uni.makePhoneCall({ phoneNumber: phone })
 }
 
@@ -267,11 +259,20 @@ function websiteHost(u) {
   return m ? m[1].replace(/:\d+$/, '').toLowerCase() : ''
 }
 
+/** 官网跳转白名单：固定列表，仅放行 .edu.cn 后缀的教育机构官网域名（不由 URL 自行推导） */
+const WEBSITE_ALLOW_SUFFIXES = ['.edu.cn']
+
 function openWebsite() {
   var w = detail.value && detail.value.website
   if (!w) return
-  // 显式声明业务白名单：仅放行该院校官网域名，webview 页据此校验 https + 域名
-  var host = websiteHost(w) || 'api.cqnarc.cn'
+  var host = websiteHost(w)
+  var allowed = !!host && WEBSITE_ALLOW_SUFFIXES.some(function (suffix) {
+    return host.indexOf(suffix) === host.length - suffix.length
+  })
+  if (!allowed) {
+    uni.showToast({ title: '该官网暂不支持跳转', icon: 'none' })
+    return
+  }
   uni.navigateTo({
     url: '/pages/webview/index?url=' + encodeURIComponent(w) + '&allowed_domains=' + encodeURIComponent(host),
   })

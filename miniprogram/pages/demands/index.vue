@@ -298,7 +298,7 @@ import Layout from '@/components/Layout.vue'
 import { request } from '../../utils/request'
 import { safeNavigateTo } from '../../utils/nav'
 import {
-  HALL_CATEGORIES, getKindItems, kindTypeLabel, isEnded, normalizeDemand,
+  HALL_CATEGORIES, kindTypeLabel, isEnded, normalizeDemand,
   IMG_SOLAR, IMG_LIFT, IMG_HERO,
   PRODUCT_CATEGORIES, normalizeProduct, normalizeService, getLocalLiveCards,
 } from '../../utils/hallData'
@@ -354,8 +354,10 @@ const list = ref([])
 async function fetchList(showLoading = true) {
   if (showLoading) listState.value = 'loading'
 
-  // 发布页已上架的本地内容并入列表（后端未接入期间的展示打通）
+  // 发布页已上架的本地内容并入列表（仅 DEV：后端未接入期间的展示打通；
+  // 生产构建不混入本地 storage，避免与后端真实数据重复/失真）
   const local = () => {
+    if (!import.meta.env.DEV) return []
     if (primary.value === 'demand') return getLocalLiveCards('demand')
     return supplyKind.value === 'product' ? getLocalLiveCards('product') : getLocalLiveCards('service')
   }
@@ -466,20 +468,24 @@ const closeSearch = () => {
   searchResults.value = []
 }
 
-function searchAllItems() {
-  return [...getKindItems('demand'), ...getKindItems('supply', 'service'), ...getKindItems('supply', 'product')]
-}
-
-function onSearch() {
+// 就地搜索走真实接口 /api/v1/search（与 home/index.vue 同款模式，返回 { demands, enterprises }）。
+// 需求结果用 normalizeDemand 映射为现有卡片结构；不再检索本地 mock
+// （生产构建 getKindItems 返回 []，本地检索正式包永远无结果）
+async function onSearch() {
   const kw = keyword.value.trim()
   searched.value = true
   if (!kw) {
     searchResults.value = []
     return
   }
-  searchResults.value = searchAllItems().filter(
-    (i) => i.title.includes(kw) || i.cat.includes(kw) || i.company.includes(kw)
-  )
+  try {
+    const res = await request({ url: '/api/v1/search', data: { q: kw } })
+    const demands = (res && Array.isArray(res.demands)) ? res.demands : []
+    searchResults.value = demands.map(normalizeDemand).filter(Boolean)
+  } catch (e) {
+    searchResults.value = []
+    uni.showToast({ title: '搜索失败，请稍后重试', icon: 'none' })
+  }
 }
 
 const goSearchResult = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
