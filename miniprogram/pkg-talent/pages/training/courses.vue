@@ -49,15 +49,6 @@
       </view>
     </view>
 
-    <!-- Banner 渐变卡 -->
-    <view class="banner">
-      <view class="banner-icon">训</view>
-      <view class="banner-info">
-        <text class="banner-title">技能提升，认证护航</text>
-        <text class="banner-sub">CAAC / UTC 执照培训 · 权威机构授课</text>
-      </view>
-    </view>
-
     <!-- 白色板块：信息行 + 列表 -->
     <view class="section">
       <view class="ir">
@@ -524,48 +515,6 @@ onReachBottom(() => {
 .fpv { line-height: 1; }
 .farr { font-size: 10px; color: #98A2B3; }
 
-/* Banner 渐变卡 */
-.banner {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 8px 12px 0;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0A66C2, #074D92);
-  box-shadow: 0 6px 18px rgba(7, 77, 146, 0.22);
-  overflow: hidden;
-  animation: bannerIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards;
-}
-.banner::after {
-  content: '';
-  position: absolute;
-  top: -30px;
-  right: -20px;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-}
-.banner-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  font-size: 20px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  animation: fadeUp 0.25s ease-out backwards;
-}
-.banner-info { display: flex; flex-direction: column; gap: 3px; position: relative; z-index: 1; }
-.banner-title { font-size: 16px; font-weight: 700; color: #fff; animation: fadeUp 0.25s ease-out 80ms backwards; }
-.banner-sub { font-size: 12px; color: rgba(255, 255, 255, 0.85); animation: fadeUp 0.25s ease-out 140ms backwards; }
-
 /* 白色板块：信息行 */
 .section { padding: 12px 12px 0; }
 .ir {
@@ -608,15 +557,10 @@ onReachBottom(() => {
 .bt:active { transform: scale(0.92); }
 
 /* 动效 */
-@keyframes bannerIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 /* no-motion：装饰动画关闭 */
-.page.no-motion .banner,
-.page.no-motion .banner-icon,
-.page.no-motion .banner-title,
-.page.no-motion .banner-sub,
 .page.no-motion .ir,
 .page.no-motion .card { animation: none; transition: opacity 0.15s ease; }
 .page.no-motion .fpill { transition: none; }

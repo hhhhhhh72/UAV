@@ -2,15 +2,6 @@
   <view class="page" :class="{ 'no-motion': noMotion }" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
     <u-nav-bar title="我的报名" show-back :fixed="true" @back="goBack" />
 
-    <!-- Banner：点击逛逛新课 -->
-    <view class="banner" @tap="goCourses">
-      <view class="banner-icon">报</view>
-      <view class="banner-info">
-        <text class="banner-title">我的报名</text>
-        <text class="banner-sub">培训课程报名记录 · 报名进度一目了然</text>
-      </view>
-    </view>
-
     <!-- 白色板块：信息行 + 列表 -->
     <view class="section">
       <!-- 信息行：共 N 项 -->
@@ -167,49 +158,6 @@ page {
   padding-bottom: 40px;
 }
 
-/* ===== Banner（对齐研发难题广场：蓝渐变 + 圆角图标 + 标题/副标题） ===== */
-.banner {
-  margin: 12px 14px;
-  padding: 16px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0A66C2 0%, #074D92 100%);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 6px 18px rgba(7, 77, 146, 0.22);
-}
-.banner::after {
-  content: '';
-  position: absolute;
-  top: -30%;
-  right: -20%;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
-}
-.banner-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-  font-size: 18px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-.banner-info { flex: 1; min-width: 0; position: relative; z-index: 1; }
-.banner-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: block; line-height: 1.3; color: #fff; }
-.banner-sub { font-size: 12px; color: rgba(255, 255, 255, 0.95); display: block; }
-
 /* ===== 白色板块 ===== */
 .section {
   margin-top: 0;
@@ -349,35 +297,7 @@ page {
 .ir { animation: fadeUp .25s ease-out backwards; animation-delay: 60ms; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Banner 内部微编排：图标 0ms → 标题 80ms → 装饰圆 120ms → 副文案 140ms，总 340ms ≤ 400ms */
-.banner-icon { animation: iconIn .2s ease-out backwards; }
-.banner-title { animation: fadeUp .2s ease-out 80ms backwards; }
-.banner-sub { animation: fadeUp .2s ease-out 140ms backwards; }
-.banner::after { animation: orbIn .3s ease-out 120ms backwards; }
-@keyframes iconIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
-@keyframes orbIn { from { opacity: 0; transform: scale(1.1); } to { opacity: 1; transform: scale(1); } }
-
-/* Banner 单次扫光（非循环装饰：100ms 起播 280ms 线性，380ms 内收完） */
-.banner::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.22) 50%, transparent 100%);
-  transform: translateX(-150%) skewX(-20deg);
-  animation: shineOnce .28s linear 100ms backwards;
-  pointer-events: none;
-}
-@keyframes shineOnce {
-  from { transform: translateX(-150%) skewX(-20deg); }
-  to { transform: translateX(320%) skewX(-20deg); }
-}
-
-/* 2) 交互反馈：Banner 可点击（按压反馈） */
-.banner { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
-.banner:active { transform: scale(.985); opacity: .95; transition: transform .08s linear; }
+/* 2) 交互反馈：卡片按压（快进慢出） */
 .stb { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
 .stb:active { transform: scale(.95); opacity: .85; transition: transform .08s linear; }
 
@@ -387,15 +307,8 @@ page {
 
 /* 3) 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用，保留淡入与颜色反馈 */
 .page.no-motion .card,
-.page.no-motion .banner,
 .page.no-motion .ir { animation: none; }
-.page.no-motion .banner-icon,
-.page.no-motion .banner-title,
-.page.no-motion .banner-sub,
-.page.no-motion .banner::before,
-.page.no-motion .banner::after { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
 .page.no-motion .stb:active,
-.page.no-motion .bt:active,
-.page.no-motion .banner:active { transform: none; }
+.page.no-motion .bt:active { transform: none; }
 </style>
