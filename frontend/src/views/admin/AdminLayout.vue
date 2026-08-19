@@ -125,7 +125,7 @@
   </a-layout>
 
   <!-- 消息详情弹窗 -->
-  <a-modal v-model:visible="detailVisible" :footer="false" :title="currentMsg?.title || '消息详情'" :width="520" :unmount-on-close="true">
+  <a-modal v-model:visible="detailVisible" :footer="false" :title="currentMsg?.title || '消息详情'" :width="'min(520px, 94vw)'" :unmount-on-close="true">
     <template v-if="currentMsg">
       <div class="msg-detail-meta">
         <a-space :size="12">
