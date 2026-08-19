@@ -937,7 +937,7 @@ func (s *Server) deleteEmergencyResource(w http.ResponseWriter, r *http.Request)
 
 // --- Emergency Dispatches (missing admin list/update/delete) ---
 func (s *Server) listAdminEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.emergencySvc.ListDispatches(r.Context(), 1, 100000)
+	all, _, err := s.emergencySvc.ListDispatches(r.Context(), "", 1, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list dispatches: %w", err))
 		return

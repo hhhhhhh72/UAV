@@ -498,10 +498,25 @@ func (r *emergencyRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDi
 	r.dispatches = append(r.dispatches, d)
 	return d, nil
 }
-func (r *emergencyRepo) ListDispatches(ctx context.Context, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
+func (r *emergencyRepo) ListDispatches(ctx context.Context, resourceID string, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.dispatches, offset, limit)
+	// 按资源过滤 + 内嵌 related 资源摘要（与 PG 实现语义一致；锁内直接查 resources，避免读锁重入）
+	var filtered []domain.EmergencyDispatch
+	for _, d := range r.dispatches {
+		if resourceID != "" && d.ResourceID != resourceID {
+			continue
+		}
+		for _, res := range r.resources {
+			if res.ID == d.ResourceID {
+				d.Related = &domain.EmergencyResourceBrief{ID: res.ID, Name: res.Name, ResType: res.ResType, Status: res.Status}
+				break
+			}
+		}
+		filtered = append(filtered, d)
+	}
+	page, total, err := paginateSlice(filtered, offset, limit)
+	return page, total, err
 }
 
 func (r *emergencyRepo) DeleteResource(ctx context.Context, id string) error {

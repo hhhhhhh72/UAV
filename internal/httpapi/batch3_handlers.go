@@ -60,7 +60,14 @@ func (s *Server) listRescueCases(w http.ResponseWriter, r *http.Request) {
 
 // ── EmergencyDept ──
 func (s *Server) createEmergencyDept(w http.ResponseWriter, r *http.Request) {
-	var in struct{ Name, DeptType, Region, ContactName, ContactPhone, ProtocolURL string }
+	var in struct {
+		Name        string `json:"name"`
+		DeptType    string `json:"dept_type"`
+		Region      string `json:"region"`
+		ContactName string `json:"contact_name"`
+		ContactPhone string `json:"contact_phone"`
+		ProtocolURL string `json:"protocol_url"`
+	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
@@ -82,8 +89,13 @@ func (s *Server) listEmergencyDepts(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) createEmergencyDrill(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		DeptID, Title, Scenario, Date, Result string
-		Participants, DroneCount              int
+		DeptID       string `json:"dept_id"`
+		Title        string `json:"title"`
+		Scenario     string `json:"scenario"`
+		Date         string `json:"date"`
+		Result       string `json:"result"`
+		Participants int    `json:"participants"`
+		DroneCount   int    `json:"drone_count"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -107,7 +119,11 @@ func (s *Server) listEmergencyDrills(w http.ResponseWriter, r *http.Request) {
 
 // ── AssociationMember ──
 func (s *Server) addAssociationMember(w http.ResponseWriter, r *http.Request) {
-	var in struct{ UserID, EnterpriseID, Role string }
+	var in struct {
+		UserID       string `json:"user_id"`
+		EnterpriseID string `json:"enterprise_id"`
+		Role         string `json:"role"`
+	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return

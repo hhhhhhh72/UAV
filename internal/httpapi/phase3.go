@@ -547,7 +547,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("admin dashboard: load emergency resources", "err", err)
 	}
 	modules["events"]["emergency_resources"] = emgResIfNil(emergRes)
-	disps, _, err := s.emergencySvc.ListDispatches(r.Context(), 1, 10000)
+	disps, _, err := s.emergencySvc.ListDispatches(r.Context(), "", 1, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load emergency dispatches", "err", err)
 	}

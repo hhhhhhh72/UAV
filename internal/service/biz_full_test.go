@@ -254,7 +254,7 @@ func TestEmergencyFullCRUD(t *testing.T) {
 		t.Fatal("Get failed")
 	}
 	// Dispatch
-	d, _ := svc.CreateDispatch(context.Background(), r.ID, "山火", "北碚", "张指挥", "成功", time.Now(), time.Now().Add(3*time.Hour))
+	d, _ := svc.CreateDispatch(context.Background(), r.ID, "山火", "北碚", "张指挥", "成功", "", time.Now(), time.Now().Add(3*time.Hour))
 	_ = d
 	// List resources
 	_, total, _ := svc.ListResources(context.Background(), "", "", 1, 20)
@@ -262,7 +262,7 @@ func TestEmergencyFullCRUD(t *testing.T) {
 		t.Fatal("list resources")
 	}
 	// List dispatches
-	_, total2, _ := svc.ListDispatches(context.Background(), 1, 20)
+	_, total2, _ := svc.ListDispatches(context.Background(), "", 1, 20)
 	if total2 != 1 {
 		t.Fatal("list dispatches")
 	}

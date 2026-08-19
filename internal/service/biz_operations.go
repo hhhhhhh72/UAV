@@ -332,9 +332,14 @@ func (s *EmergencyService) FindDispatchByID(ctx context.Context, id string) (dom
 
 // Emergency Dispatches
 
-func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, eventDesc, location, commander, result string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
+// CreateDispatch 创建调度记录；status 可指定（dispatched/ongoing/completed），
+// 空值或非法值回退默认 "dispatched"（补录历史调度时可传实际状态）。
+func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
 	if !endTime.IsZero() && endTime.Before(startTime) {
 		return domain.EmergencyDispatch{}, errors.New("end time must not be earlier than start time")
+	}
+	if status != "ongoing" && status != "completed" {
+		status = "dispatched"
 	}
 	now := time.Now()
 	if _, err := s.repo.FindResourceByID(ctx, resourceID); err != nil {
@@ -349,15 +354,15 @@ func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, event
 		EndTime:    endTime,
 		Commander:  commander,
 		Result:     result,
-		Status:     "dispatched",
+		Status:     status,
 		CreatedAt:  now,
 	}
 	return s.repo.CreateDispatch(ctx, d)
 }
 
-func (s *EmergencyService) ListDispatches(ctx context.Context, page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
+func (s *EmergencyService) ListDispatches(ctx context.Context, resourceID string, page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListDispatches(ctx, offset, pageSize)
+	return s.repo.ListDispatches(ctx, resourceID, offset, pageSize)
 }
 
 func (s *EmergencyService) UpdateResource(ctx context.Context, id, name, resType, specs, location, contactInfo, status string, quantity int) (domain.EmergencyResource, error) {

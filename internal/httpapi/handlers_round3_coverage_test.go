@@ -162,7 +162,7 @@ func TestRound3Batch3(t *testing.T) {
 
 	// 应急部门
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/emergency-depts",
-		`{"Name":"round3应急救援队","DeptType":"fire","Region":"渝北区"}`, adminTok)
+		`{"name":"round3应急救援队","dept_type":"fire","region":"渝北区"}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/emergency-depts", w, http.StatusCreated)
 
 	w = doRaw(app, http.MethodGet, "/api/v1/emergency-depts", "", "")
@@ -170,7 +170,7 @@ func TestRound3Batch3(t *testing.T) {
 
 	// 联合演练
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/emergency-drills",
-		`{"DeptID":"dept-1","Title":"round3联合演练","Scenario":"山火","Participants":20,"DroneCount":5}`, adminTok)
+		`{"dept_id":"dept-1","title":"round3联合演练","scenario":"山火","participants":20,"drone_count":5}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/emergency-drills", w, http.StatusCreated)
 
 	w = doRaw(app, http.MethodGet, "/api/v1/emergency-drills", "", "")
@@ -178,7 +178,7 @@ func TestRound3Batch3(t *testing.T) {
 
 	// 协会会员：添加 user-1 → 列表 → 我的身份
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/association-members",
-		`{"UserID":"user-1","EnterpriseID":"ent-1","Role":"member"}`, adminTok)
+		`{"user_id":"user-1","enterprise_id":"ent-1","role":"member"}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/association-members", w, http.StatusCreated)
 
 	w = doRaw(app, http.MethodGet, "/api/v1/association-members", "", "")

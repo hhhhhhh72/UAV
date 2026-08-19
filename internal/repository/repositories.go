@@ -524,7 +524,9 @@ type EmergencyRepository interface {
 	UpdateDispatch(ctx context.Context, v domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
 	DeleteDispatch(ctx context.Context, id string) error
 	CreateDispatch(ctx context.Context, v domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
-	ListDispatches(ctx context.Context, offset, limit int) ([]domain.EmergencyDispatch, int, error)
+	// ListDispatches 分页列出调度记录；resourceID 非空时仅返回该资源的调度；
+	// 返回项内嵌 related 资源摘要（名称/类型/状态）。
+	ListDispatches(ctx context.Context, resourceID string, offset, limit int) ([]domain.EmergencyDispatch, int, error)
 }
 
 // ── Batch1: 产业资源池 + 测试预约 + 展会 (per .doc) ──

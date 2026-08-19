@@ -324,16 +324,25 @@ type EmergencyResource struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// EmergencyResourceBrief 调度关联资源摘要（列表展示用，避免全量字段）
+type EmergencyResourceBrief struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	ResType string `json:"res_type"`
+	Status string `json:"status"`
+}
+
 // EmergencyDispatch records an emergency resource dispatch event.
 type EmergencyDispatch struct {
-	ID         string    `json:"id"`
-	ResourceID string    `json:"resource_id"`
-	EventDesc  string    `json:"event_desc"`
-	Location   string    `json:"location"`
-	StartTime  time.Time `json:"start_time"`
-	EndTime    time.Time `json:"end_time,omitempty"`
-	Commander  string    `json:"commander"`
-	Result     string    `json:"result"`
-	Status     string    `json:"status"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         string                  `json:"id"`
+	ResourceID string                  `json:"resource_id"`
+	EventDesc  string                  `json:"event_desc"`
+	Location   string                  `json:"location"`
+	StartTime  time.Time               `json:"start_time"`
+	EndTime    time.Time               `json:"end_time,omitempty"`
+	Commander  string                  `json:"commander"`
+	Result     string                  `json:"result"`
+	Status     string                  `json:"status"`
+	Related    *EmergencyResourceBrief `json:"related,omitempty"` // 关联资源摘要（列表查询内嵌）
+	CreatedAt  time.Time               `json:"created_at"`
 }

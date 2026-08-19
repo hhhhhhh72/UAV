@@ -316,13 +316,25 @@ func (r *emergRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDispat
 		d.ID, d.ResourceID, d.EventDesc, d.Location, d.StartTime, nullableEndTime(d.EndTime), d.Commander, d.Result, d.Status, d.CreatedAt)
 	return d, err
 }
-func (r *emergRepo) ListDispatches(ctx context.Context, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
+func (r *emergRepo) ListDispatches(ctx context.Context, resourceID string, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
+	// resourceID 非空时按资源过滤（防注入：参数化）
+	where := ""
+	args := []any{limit, offset}
+	if resourceID != "" {
+		where = " WHERE d.resource_id = $3"
+		args = append(args, resourceID)
+	}
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches d`+where, args[2:]...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count dispatches: %w", err)
 	}
+	// LEFT JOIN 资源表：内嵌 related 摘要（资源可能已删除 → 保留调度记录，related 为空）
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT d.id,d.resource_id,d.event_desc,d.location,d.start_time,d.end_time,d.commander,d.result,d.status,d.created_at,
+		        res.id,res.name,res.res_type,res.status
+		 FROM emergency_dispatches d
+		 LEFT JOIN emergency_resources res ON res.id = d.resource_id`+where+
+			` ORDER BY d.created_at DESC LIMIT $1 OFFSET $2`, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list dispatches: %w", err)
 	}
@@ -330,12 +342,16 @@ func (r *emergRepo) ListDispatches(ctx context.Context, offset, limit int) ([]do
 	var out []domain.EmergencyDispatch
 	for rows.Next() {
 		var d domain.EmergencyDispatch
-		// end_time 可空：pgtype 吸收 NULL，空值映射为零值时间（前端不展示该字段）
+		var resID, resName, resType, resStatus pgtype.Text
 		var endTime pgtype.Timestamptz
-		if err := rows.Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &endTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt); err != nil {
+		if err := rows.Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &endTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt,
+			&resID, &resName, &resType, &resStatus); err != nil {
 			return nil, 0, fmt.Errorf("scan dispatch: %w", err)
 		}
 		d.EndTime = endTime.Time
+		if resID.Valid {
+			d.Related = &domain.EmergencyResourceBrief{ID: resID.String, Name: resName.String, ResType: resType.String, Status: resStatus.String}
+		}
 		out = append(out, d)
 	}
 	return out, total, rows.Err()
