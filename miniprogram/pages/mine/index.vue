@@ -285,15 +285,15 @@ const overviewCells = computed(() => {
   if (identity.value === 'pilot') {
     return [
       { value: c.certText || '已通过', label: '飞手认证', go: goPilotCert },
-      { value: c.flights || '0', label: '飞行记录', go: goComingSoon },
+      { value: c.flights || '—', label: '飞行记录', go: goComingSoon },
       { value: c.certs || '0', label: '培训证书', go: goCertificates },
     ]
   }
   if (identity.value === 'individual') {
     return [
       { value: c.authText || authText.value, label: '实名认证', go: goAuth },
-      { value: '0', label: '培训报名', go: goCourses },
-      { value: '0', label: '商城订单', go: goOrders },
+      { value: c.enrolls || '0', label: '培训报名', go: goCourses },
+      { value: c.orders || '0', label: '商城订单', go: goOrders },
     ]
   }
   return []
@@ -443,16 +443,53 @@ const fetchPilotStatus = async () => {
 const fetchOverviewCounts = async () => {
   overviewLoading.value = true
   const counts = {}
-  // 我的发布数：真实接口可读 total
-  try {
-    const res = await request({ url: '/api/v1/demands', data: { mine: 1, page_size: 1 } })
-    const list = Array.isArray(res) ? res : ((res && res.data) || [])
-    counts.publish = String(res?.total ?? list.length ?? 0)
-  } catch (e) {
-    counts.publish = '0'
+  // 我的发布数：需求 + 服务 + 商品 + 课程 四类 mine 接口汇总（各自独立失败回退 0）
+  const mineCount = async (url) => {
+    try {
+      const res = await request({ url, data: { mine: 1, page_size: 1 } })
+      const list = Array.isArray(res) ? res : ((res && res.data) || [])
+      return Number(res?.total ?? list.length ?? 0)
+    } catch (e) {
+      return 0
+    }
   }
-  // 洽谈会话数：当前无统一计数接口，回退 0（不用 "—"）
-  counts.talk = '0'
+  const [demands, services, products, courses] = await Promise.all([
+    mineCount('/api/v1/demands'),
+    mineCount('/api/v1/service-listings'),
+    mineCount('/api/v1/products'),
+    mineCount('/api/v1/training-courses'),
+  ])
+  counts.publish = String(demands + services + products + courses)
+  // 洽谈会话：我的意向登记数（真实接口）
+  try {
+    const res = await request({ url: '/api/v1/intents/mine' })
+    const list = Array.isArray(res) ? res : ((res && res.data) || [])
+    counts.talk = String(list.length || 0)
+  } catch (e) {
+    counts.talk = '0'
+  }
+  // 飞手/个人侧：培训证书数、报名数、订单数（真实接口）
+  try {
+    const res = await request({ url: '/api/v1/certificates/mine' })
+    const list = Array.isArray(res) ? res : ((res && res.data) || [])
+    counts.certs = String(list.length || 0)
+  } catch (e) {
+    counts.certs = '0'
+  }
+  try {
+    const res = await request({ url: '/api/v1/enrollments/mine' })
+    const list = Array.isArray(res) ? res : ((res && res.data) || [])
+    counts.enrolls = String(list.length || 0)
+  } catch (e) {
+    counts.enrolls = '0'
+  }
+  try {
+    const res = await request({ url: '/api/v1/trade-orders/mine' })
+    const list = Array.isArray(res) ? res : ((res && res.data) || [])
+    counts.orders = String(list.length || 0)
+  } catch (e) {
+    counts.orders = '0'
+  }
   overviewCounts.value = counts
   overviewLoading.value = false
 }
