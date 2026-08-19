@@ -98,7 +98,7 @@
         </view>
         <view class="job-tags">
           <text v-if="item.job_type" class="job-type">{{ item.job_type }}</text>
-          <view v-if="item.location" class="job-loc"><view class="loc-pin" /><text>{{ item.location }}</text></view>
+          <view v-if="item.location" class="job-loc"><text>{{ item.location }}</text></view>
         </view>
         <view class="job-foot">
           <text class="job-date">{{ formatDate(item.created_at) }} 发布</text>
@@ -475,15 +475,7 @@ export default {
   color: #0A66C2;
   font-weight: 600;
 }
-.job-loc { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #667085; }
-.loc-pin {
-  width: 7px;
-  height: 7px;
-  border: 1.5px solid #98A2B3;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  flex: none;
-}
+.job-loc { font-size: 12px; color: #667085; }
 .job-foot {
   display: flex;
   align-items: center;

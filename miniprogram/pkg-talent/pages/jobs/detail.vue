@@ -31,7 +31,7 @@
           <text v-if="job.status === 'published'" class="st-tag">招聘中</text>
         </view>
         <view class="job-sub">
-          <view v-if="job.location" class="job-loc"><view class="loc-pin" /><text>{{ job.location }}</text></view>
+          <view v-if="job.location" class="job-loc"><text>{{ job.location }}</text></view>
           <text>{{ formatDate(job.created_at) }} 发布</text>
         </view>
       </view>
@@ -201,15 +201,7 @@ onLoad((opts) => {
   font-weight: 600;
 }
 .job-sub { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #667085; margin-top: 10px; }
-.job-loc { display: flex; align-items: center; gap: 4px; }
-.loc-pin {
-  width: 7px;
-  height: 7px;
-  border: 1.5px solid #98A2B3;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  flex: none;
-}
+.job-loc { font-size: 12px; color: #667085; }
 
 .section-title { font-size: 14px; font-weight: 700; color: #17212B; display: block; margin-bottom: 10px; }
 .job-desc { font-size: 13px; color: #344054; line-height: 1.7; white-space: pre-wrap; }
