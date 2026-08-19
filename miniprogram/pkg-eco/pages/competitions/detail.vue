@@ -418,11 +418,11 @@ onPullDownRefresh(function () {
   z-index: 1;
 }
 
-/* 左下角首字徽章：半嵌在图片底部 */
+/* 左下角首字徽章：完整收纳在 Hero 内，不与下方卡片重叠 */
 .hero-emblem {
   position: absolute;
   left: 16px;
-  bottom: -12px;
+  bottom: 10px;
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -589,7 +589,7 @@ onPullDownRefresh(function () {
 
 /* ===== 信息时间轴 ===== */
 .info-timeline {
-  margin: 12px 12px 0;
+  margin: 20px 12px 0;
   padding: 4px 12px;
   animation: cardIn .22s ease-out backwards;
   animation-delay: 80ms;
