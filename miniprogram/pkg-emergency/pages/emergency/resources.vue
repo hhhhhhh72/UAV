@@ -873,7 +873,7 @@ export default {
   border-radius: 999rpx;
   background: #0A66C2;
   transform: scaleX(0);
-  transition: transform 350ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 350ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .nav-tab.on .nav-tab-line { transform: scaleX(1); }
 .nav-capsule {
@@ -901,95 +901,101 @@ export default {
 .city-text { font-size: 20rpx; color: #17212B; font-weight: 600; }
 .city-arrow { font-size: 18rpx; color: #98A2B3; }
 
-/* ═══ ② 搜索区（白底浅灰框，对齐其他页面）═══ */
+/* ═══ ② 搜索区（对齐 b-search：白上白双层投影）═══ */
 .search-area {
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  padding: 16rpx 24rpx;
+  gap: 8px;
+  padding: 12px;
   background: #ffffff;
 }
 .search-box {
   flex: 1;
-  height: 76rpx;
-  background: #F5F8FC;
-  border: 1rpx solid #EDF0F5;
-  border-radius: 999rpx;
+  height: 44px;
+  background: #ffffff;
+  border: 1px solid #E4E7EC;
+  border-radius: 7px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
   display: flex;
   align-items: center;
-  padding: 0 20rpx;
-  gap: 10rpx;
-  transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+  padding: 0 11px;
+  gap: 7px;
+  box-sizing: border-box;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .search-box.focus {
-  background: #ffffff;
   border-color: #0A66C2;
-  box-shadow: 0 0 0 4rpx rgba(10, 102, 194, 0.12);
+  box-shadow: 0 0 0 3px rgba(10, 102, 194, 0.12);
 }
-.search-ico { position: relative; width: 26rpx; height: 26rpx; flex-shrink: 0; }
+.search-ico { position: relative; width: 15px; height: 15px; flex-shrink: 0; }
 .search-ico-ring {
-  width: 16rpx;
-  height: 16rpx;
-  border: 2rpx solid #98A2B3;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid #98A2B3;
   border-radius: 50%;
+  position: absolute;
+  top: 0;
+  left: 0;
   transition: border-color 200ms ease;
 }
 .search-box.focus .search-ico-ring { border-color: #0A66C2; }
 .search-ico-bar {
   position: absolute;
   right: 0;
-  bottom: 2rpx;
-  width: 8rpx;
-  height: 3rpx;
+  bottom: 1px;
+  width: 5px;
+  height: 1.5px;
   background: #98A2B3;
   transform: rotate(45deg);
-  transform-origin: right center;
   transition: background 200ms ease;
 }
 .search-box.focus .search-ico-bar { background: #0A66C2; }
-.search-input { flex: 1; font-size: 24rpx; color: #17212B; }
-.search-ph { color: #ADB8C7; }
+.search-input { flex: 1; min-width: 0; font-size: 13px; color: #17212B; }
+.search-ph { color: #667085; }
 .search-clear {
-  width: 40rpx;
-  height: 40rpx;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #EDF0F5;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.search-clear-x { font-size: 28rpx; color: #6B7B95; line-height: 1; }
+.search-clear-x { font-size: 14px; color: #667085; line-height: 1; }
 .filter-btn {
-  height: 76rpx;
-  padding: 0 22rpx;
+  height: 44px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
-  gap: 8rpx;
+  gap: 6px;
   background: #ffffff;
-  border: 1rpx solid #E4E7EC;
-  border-radius: 999rpx;
+  border: 1px solid #E4E7EC;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
   flex-shrink: 0;
+  transition: transform .2s ease;
 }
-.filter-press { transform: scale(0.96); background: #F5F8FC; }
-.filter-ico { display: flex; flex-direction: column; gap: 4rpx; }
-.filter-ico-l { width: 20rpx; height: 2rpx; background: #344054; }
-.filter-ico-m { width: 28rpx; height: 2rpx; background: #344054; }
-.filter-ico-r { width: 14rpx; height: 2rpx; background: #344054; align-self: flex-end; }
-.filter-btn-text { font-size: 24rpx; color: #344054; font-weight: 600; }
+.filter-press { transform: scale(0.95); background: #F5F8FC; }
+.filter-ico { display: flex; flex-direction: column; gap: 3px; }
+.filter-ico-l { width: 12px; height: 1.5px; background: #344054; }
+.filter-ico-m { width: 16px; height: 1.5px; background: #344054; }
+.filter-ico-r { width: 8px; height: 1.5px; background: #344054; align-self: flex-end; }
+.filter-btn-text { font-size: 12px; color: #344054; font-weight: 600; }
 
 /* ═══ ③ 统计卡 ═══ */
 .content { padding-top: 4rpx; }
 .overview {
   display: flex;
   box-sizing: border-box;
-  margin: 14rpx 24rpx 0;
-  padding: 22rpx 8rpx;
+  margin: 12px;
+  padding: 12px 4px;
   background: #ffffff;
-  border: 1rpx solid #EEF1F4;
-  border-radius: 12rpx;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
 }
 .ov-item { flex: 1; text-align: center; }
-.ov-item + .ov-item { border-left: 1rpx solid #EEF1F4; }
+.ov-item + .ov-item { border-left: 1px solid #EEF1F4; }
 .ov-num {
   display: block;
   font-size: 40rpx;
@@ -1072,16 +1078,16 @@ export default {
   position: relative;
   box-sizing: border-box;
   width: auto;
-  margin: 0 24rpx 12rpx;
+  margin: 0 12px 8px;
   background: #ffffff;
-  border: 1rpx solid #EEF1F4;
-  border-radius: 8rpx;
-  padding: 24rpx 28rpx 20rpx;
-  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
-  animation: cardIn 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  padding: 12px 14px 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  animation: cardIn .22s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
 }
-.card-press { transform: scale(0.985); box-shadow: 0 2rpx 8rpx rgba(16, 24, 40, 0.08); border-color: #EAF3FB; }
+.card-press { transform: scale(0.985); box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08); border-color: #EAF3FB; }
 .res-new {
   position: absolute;
   top: 16rpx;
@@ -1163,9 +1169,8 @@ export default {
   inset: 0;
   border-radius: 50%;
   background: currentColor;
-  animation: ringPulse 1.8s ease-out infinite;
 }
-/* 调度中：琥珀 dot 1.4s 横向漂移光点 */
+/* 调度中：琥珀 dot 静态（原 driftDot 循环光点已按项目规范移除） */
 .status-badge.in_use .badge-dot {
   background: transparent;
   border: 2rpx solid currentColor;
@@ -1181,11 +1186,6 @@ export default {
   width: 6rpx;
   background: currentColor;
   border-radius: 999rpx;
-  animation: driftDot 1.4s ease-in-out infinite;
-}
-@keyframes driftDot {
-  0% { transform: translateX(-8rpx); opacity: 0.9; }
-  100% { transform: translateX(14rpx); opacity: 0.1; }
 }
 .badge-text { font-size: 20rpx; font-weight: 600; }
 .status-badge.ok { color: #0A66C2; background: #E8F2FC; }
@@ -1195,7 +1195,6 @@ export default {
   inset: 0;
   border-radius: 50%;
   background: currentColor;
-  animation: ringPulse 1.8s ease-out infinite;
 }
 
 /* 标签 pill */
@@ -1301,7 +1300,7 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: sheetUp 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: sheetUp 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .sheet-handle {
   width: 72rpx;
@@ -1426,9 +1425,9 @@ export default {
 }
 
 /* 详情抽屉内容 stagger 入场 */
-.detail-head { animation: detailIn 400ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.kv-grid { animation: detailIn 400ms cubic-bezier(0.2, 0.8, 0.2, 1) 150ms both; }
-.detail-sec { animation: detailIn 400ms cubic-bezier(0.2, 0.8, 0.2, 1) 300ms both; }
+.detail-head { animation: detailIn 400ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.kv-grid { animation: detailIn 400ms cubic-bezier(0.16, 1, 0.3, 1) 150ms both; }
+.detail-sec { animation: detailIn 400ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both; }
 .detail-sec + .detail-sec { animation-delay: 380ms; }
 @keyframes detailIn {
   from { opacity: 0; transform: translateY(6rpx); }
@@ -1436,7 +1435,7 @@ export default {
 }
 
 /* 筛选抽屉 filter-group 错峰淡入 */
-.sheet .filter-group { animation: detailIn 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.sheet .filter-group { animation: detailIn 300ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .sheet .filter-group:nth-child(2) { animation-delay: 100ms; }
 .sheet .filter-group:nth-child(3) { animation-delay: 200ms; }
 .sheet .filter-group:nth-child(4) { animation-delay: 300ms; }
@@ -1496,11 +1495,6 @@ export default {
   from { opacity: 0; transform: translateY(8rpx); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes ringPulse {
-  0% { transform: scale(1); opacity: 0.8; }
-  80% { transform: scale(2.4); opacity: 0; }
-  100% { transform: scale(2.4); opacity: 0; }
-}
 @keyframes numIn {
   from { opacity: 0; transform: scale(0.7); }
   to { opacity: 1; transform: scale(1); }
@@ -1522,7 +1516,7 @@ export default {
   to { opacity: 0; }
 }
 .mask--close { animation: fadeOut 250ms ease both; }
-.sheet--close { animation: sheetDown 250ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.sheet--close { animation: sheetDown 250ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -1538,7 +1532,7 @@ export default {
   background: rgba(23, 33, 43, 0.92);
   border-radius: 18rpx;
   box-shadow: 0 8rpx 24rpx rgba(16, 24, 40, 0.24);
-  animation: toastIn 250ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: toastIn 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
   max-width: 70vw;
 }
 .custom-toast--out { animation: toastOut 200ms ease both; }

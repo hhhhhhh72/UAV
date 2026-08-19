@@ -530,7 +530,7 @@ export default {
 
 <style scoped>
 .page {
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
   min-height: 100vh;
   background: #F4F6F8;
   padding-left: constant(safe-area-inset-left);
@@ -612,34 +612,36 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 8rpx;
-  height: 60rpx;
-  padding: 0 24rpx;
-  border-radius: 999rpx;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
   background: #ffffff;
-  border: 1rpx solid #E4E7EC;
+  border: 1px solid #E4E7EC;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
   color: #344054;
-  transition: background 180ms ease, box-shadow 180ms ease, color 180ms ease;
+  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
 }
 .filter-pill.on {
-  background: #0A66C2;
   border-color: #0A66C2;
-  color: #ffffff;
-  box-shadow: 0 4rpx 10rpx rgba(10, 102, 194, 0.28);
+  color: #0A66C2;
+  font-weight: 600;
+  background: #F4F8FC;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
 }
-.pill-text { font-size: 24rpx; font-weight: 600; }
+.pill-text { font-size: 12px; font-weight: 600; }
 .pill-count {
   display: inline-flex;
   align-items: center;
-  min-width: 36rpx;
-  height: 32rpx;
-  padding: 0 8rpx;
-  border-radius: 999rpx;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
   background: #F4F8FC;
   color: #0A66C2;
-  font-size: 18rpx;
+  font-size: 10px;
   font-weight: 600;
 }
-.filter-pill.on .pill-count { background: rgba(255, 255, 255, 0.24); color: #ffffff; }
+.filter-pill.on .pill-count { background: rgba(10, 102, 194, 0.12); color: #0A66C2; }
 
 /* ═══ 状态视图 ═══ */
 .loading-state { display: flex; justify-content: center; padding: 100rpx 0; }
@@ -704,7 +706,7 @@ export default {
   border-radius: 50%;
   background: #ffffff;
   z-index: 2;
-  animation: dotIn 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: dotIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .dot-core {
   position: absolute;
@@ -718,21 +720,20 @@ export default {
 }
 .dot--pending .dot-core { background: #B54708; }
 .dot--ongoing .dot-core { background: #168A55; }
-.dot--ongoing { animation: ringPulse 1.4s ease-out infinite; }
 .dot--completed .dot-core { background: #0A66C2; }
 .dot--cancelled .dot-core { background: #D92D20; }
 
 /* 卡片 */
 .timeline-card {
   background: #ffffff;
-  border: 1rpx solid #EEF1F4;
-  border-radius: 8rpx;
-  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
-  padding: 28rpx 28rpx 28rpx 32rpx;
-  margin-bottom: 20rpx;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  padding: 14px;
+  margin-bottom: 10px;
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
 }
-.card-press { transform: scale(0.985); box-shadow: 0 2rpx 8rpx rgba(16, 24, 40, 0.08); }
+.card-press { transform: scale(0.985); box-shadow: 0 2px 8px rgba(16, 24, 40, 0.08); }
 .tc-top { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; margin-bottom: 12rpx; }
 .tc-title {
   font-size: 30rpx;
@@ -854,7 +855,6 @@ export default {
 .badge--ongoing { background: #E9F7F0; color: #168A55; }
 .badge--pending { background: #FEF6E7; color: #B54708; }
 .badge--cancelled { background: #FEF3F2; color: #D92D20; }
-.badge--ongoing .badge-dot { animation: badgePulse 1.4s ease-out infinite; }
 .badge-text { font-size: 20rpx; font-weight: 600; }
 .timeline-end { height: 20rpx; }
 
@@ -958,9 +958,9 @@ export default {
 
 /* 信息栅格（单列堆叠） */
 .kv-list {
-  margin-top: 24rpx;
-  border: 1rpx solid #EEF1F4;
-  border-radius: 8rpx;
+  margin-top: 12px;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
   overflow: hidden;
 }
 .kv-row {
@@ -1028,7 +1028,7 @@ export default {
   border: 2rpx solid #CBD2DA;
   background: #ffffff;
   margin-top: 2rpx;
-  animation: dotIn 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: dotIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .stage-item:nth-child(2) .stage-dot { animation-delay: 200ms; }
 .stage-item:nth-child(3) .stage-dot { animation-delay: 400ms; }
@@ -1053,14 +1053,14 @@ export default {
 .res-card {
   display: inline-flex;
   flex-direction: column;
-  width: 192rpx;
+  width: 96px;
   background: #ffffff;
-  border: 1rpx solid #EEF1F4;
-  border-radius: 8rpx;
-  padding: 0 12rpx 12rpx;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  padding: 0 6px 6px;
   box-sizing: border-box;
-  transition: transform 180ms ease;
-  animation: resIn 500ms cubic-bezier(0.2, 0.8, 0.2, 1) 400ms backwards;
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
+  animation: resIn 500ms cubic-bezier(0.16, 1, 0.3, 1) 400ms backwards;
 }
 @keyframes resIn {
   from { opacity: 0; transform: translateY(6rpx); }
@@ -1167,10 +1167,10 @@ export default {
 .res-empty { font-size: 24rpx; color: #98A2B3; text-align: center; padding: 20rpx 0; }
 
 /* 详情抽屉内容 stagger 入场 */
-.detail-head { animation: detailIn 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.progress-sec { animation: detailIn 380ms cubic-bezier(0.2, 0.8, 0.2, 1) 70ms both; }
-.kv-list { animation: detailIn 380ms cubic-bezier(0.2, 0.8, 0.2, 1) 140ms both; }
-.detail-sec { animation: detailIn 380ms cubic-bezier(0.2, 0.8, 0.2, 1) 210ms both; }
+.detail-head { animation: detailIn 380ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.progress-sec { animation: detailIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 70ms both; }
+.kv-list { animation: detailIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 140ms both; }
+.detail-sec { animation: detailIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 210ms both; }
 .detail-sec + .detail-sec { animation-delay: 280ms; }
 @keyframes detailIn {
   from { opacity: 0; transform: translateY(16rpx); }
@@ -1207,16 +1207,6 @@ export default {
   from { opacity: 0; transform: translateY(8rpx); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes ringPulse {
-  0% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0.4); }
-  70% { box-shadow: 0 0 0 14rpx rgba(22, 138, 85, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0); }
-}
-@keyframes badgePulse {
-  0% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0.4); }
-  70% { box-shadow: 0 0 0 10rpx rgba(22, 138, 85, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(22, 138, 85, 0); }
-}
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1250,7 +1240,7 @@ export default {
   background: rgba(23, 33, 43, 0.92);
   border-radius: 18rpx;
   box-shadow: 0 8rpx 24rpx rgba(16, 24, 40, 0.24);
-  animation: toastIn 250ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: toastIn 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
   max-width: 70vw;
 }
 .custom-toast--out { animation: toastOut 200ms ease both; }
