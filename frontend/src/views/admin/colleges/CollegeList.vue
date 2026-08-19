@@ -14,7 +14,7 @@
         <span class="cell-title">{{ record.name || '-' }}</span>
       </template>
       <template #logo="{ record }">
-        <a-avatar v-if="record.logo_url" :image-url="record.logo_url" :size="36" shape="square" alt="院校 Logo" />
+        <a-avatar v-if="record.logo_url" :image-url="record.logo_url" :size="36" shape="square" :alt="(record.name || '院校') + ' Logo'" />
         <span v-else>-</span>
       </template>
       <template #coopType="{ record }">
@@ -100,13 +100,13 @@
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑院校' : '新增院校'" :width="'min(680px, 94vw)'" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <div class="form-group-title">基本信息</div>
-        <a-form-item label="院校名称" required><a-input v-model="form.name" :aria-required="true" style="width: 100%" /></a-form-item>
+        <a-form-item label="院校名称" required><a-input v-model="form.name" :aria-required="true" :maxlength="100" style="width: 100%" /></a-form-item>
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="所在城市"><a-input v-model="form.city" placeholder="如：重庆" style="width: 100%" /></a-form-item>
+            <a-form-item label="所在城市"><a-input v-model="form.city" placeholder="如：重庆" :maxlength="30" style="width: 100%" /></a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="院校简称"><a-input v-model="form.short_name" placeholder="如：渝职院" style="width: 100%" /></a-form-item>
+            <a-form-item label="院校简称"><a-input v-model="form.short_name" placeholder="如：渝职院" :maxlength="30" style="width: 100%" /></a-form-item>
           </a-col>
         </a-row>
         <a-row :gutter="16">
@@ -130,10 +130,10 @@
         </a-row>
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="办学层次"><a-input v-model="form.level_tags" placeholder="办学层次，如：双一流 985 / 专科 示范校" style="width: 100%" /></a-form-item>
+            <a-form-item label="办学层次"><a-input v-model="form.level_tags" placeholder="办学层次，如：双一流 985 / 专科 示范校" :maxlength="50" style="width: 100%" /></a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="院校类型"><a-input v-model="form.tagsText" placeholder="院校类型，逗号分隔，如：本科,综合类" style="width: 100%" /></a-form-item>
+            <a-form-item label="院校类型"><a-input v-model="form.tagsText" placeholder="院校类型，逗号分隔，如：本科,综合类" :maxlength="100" style="width: 100%" /></a-form-item>
           </a-col>
         </a-row>
         <a-form-item label="Logo">
@@ -187,16 +187,17 @@
         <div class="form-group-title">联系方式</div>
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="联系电话"><a-input v-model="form.phone" placeholder="如：023-88886666" style="width: 100%" /></a-form-item>
+            <a-form-item label="联系电话"><a-input ref="phoneRef" v-model="form.phone" placeholder="如：023-88886666" :maxlength="20" style="width: 100%" /></a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="官网地址"><a-input v-model="form.website" placeholder="如：https://www.cqxx.edu.cn" style="width: 100%" /></a-form-item>
+            <a-form-item label="官网地址"><a-input ref="websiteRef" v-model="form.website" placeholder="如：https://www.cqxx.edu.cn" :maxlength="200" style="width: 100%" /></a-form-item>
           </a-col>
         </a-row>
+        <a-form-item label="就业率"><a-input ref="rateRef" v-model="form.graduate_rate" placeholder="如：98%" :maxlength="10" style="width: 100%" /></a-form-item>
 
         <div class="form-group-title">院校介绍</div>
-        <a-form-item label="院校介绍"><a-input v-model="form.intro" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" style="width: 100%" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
+        <a-form-item label="院校介绍"><a-input v-model="form.intro" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" :maxlength="500" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" :maxlength="500" style="width: 100%" /></a-form-item>
 
         <div class="form-group-title">专业与合作</div>
         <a-form-item label="无人机专业" :validate-status="majorsError ? 'error' : undefined" :help="majorsError">
@@ -357,6 +358,9 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const majorsRef = ref()
 const partnersRef = ref()
+const phoneRef = ref()
+const websiteRef = ref()
+const rateRef = ref()
 const majorsError = ref('')
 const partnersError = ref('')
 const coopTypeLabel = { research: '科研合作', talent: '人才培养', both: '综合' }
@@ -445,25 +449,52 @@ const submitForm = async () => {
   majorsError.value = ''
   partnersError.value = ''
   if (!form.name) { Message.warning('请输入院校名称'); return }
-  // 专业/合作企业：逐行校验，坏行明确报错（一次报至多 3 条）并聚焦对应输入框
+  // 专业/合作企业：逐行校验，坏行明确报错（一次报至多 3 条 + 计数）并聚焦对应输入框
   const majorsParsed = parseMajorsDetail(form.majorsDetailText)
   if (majorsParsed.errors.length > 0) {
-    majorsError.value = majorsParsed.errors.slice(0, 3).join('；')
+    const more = majorsParsed.errors.length > 3 ? ` 等 ${majorsParsed.errors.length} 处` : ''
+    majorsError.value = majorsParsed.errors.slice(0, 3).join('；') + more
     Message.error(majorsError.value)
     majorsRef.value && majorsRef.value.focus && majorsRef.value.focus()
     return
   }
   const partnersParsed = parsePartners(form.partnersText)
   if (partnersParsed.errors.length > 0) {
-    partnersError.value = partnersParsed.errors.slice(0, 3).join('；')
+    const more = partnersParsed.errors.length > 3 ? ` 等 ${partnersParsed.errors.length} 处` : ''
+    partnersError.value = partnersParsed.errors.slice(0, 3).join('；') + more
     Message.error(partnersError.value)
     partnersRef.value && partnersRef.value.focus && partnersRef.value.focus()
     return
   }
-  // 联系方式/就业率格式校验（均选填，填了就要合法）
-  if (form.phone && !/^[\d\-+() ]{5,20}$/.test(form.phone.trim())) { Message.warning('联系电话格式不正确'); return }
-  if (form.website && !/^https?:\/\/\S+$/.test(form.website.trim())) { Message.warning('官网地址需以 http:// 或 https:// 开头'); return }
-  if (form.graduate_rate && !/^\d{1,3}(\.\d{1,2})?%?$/.test(form.graduate_rate.trim())) { Message.warning('就业率格式不正确，如：98 或 98%'); return }
+  // 联系方式/就业率格式校验（均选填，填了就要合法；错误聚焦对应输入框）
+  if (form.phone && !/^[\d\-+() ]{5,20}$/.test(form.phone.trim())) {
+    Message.warning('联系电话格式不正确')
+    phoneRef.value && phoneRef.value.focus && phoneRef.value.focus()
+    return
+  }
+  if (form.website && !/^https?:\/\/\S+$/.test(form.website.trim())) {
+    Message.warning('官网地址需以 http:// 或 https:// 开头')
+    websiteRef.value && websiteRef.value.focus && websiteRef.value.focus()
+    return
+  }
+  // 就业率：≤100；小数（如 0.98）归一为 98%
+  if (form.graduate_rate) {
+    const gv = form.graduate_rate.trim()
+    const m = /^(\d{1,3}(?:\.\d{1,2})?)%?$/.exec(gv)
+    if (!m) {
+      Message.warning('就业率格式不正确，如：98 或 98%')
+      rateRef.value && rateRef.value.focus && rateRef.value.focus()
+      return
+    }
+    let rate = Number(m[1])
+    if (rate > 100) {
+      Message.warning('就业率不能超过 100%')
+      rateRef.value && rateRef.value.focus && rateRef.value.focus()
+      return
+    }
+    if (rate > 0 && rate < 1) rate = rate * 100 // 0.98 → 98
+    form.graduate_rate = String(rate) + '%'
+  }
   formLoading.value = true
   try {
     const p = {
@@ -568,15 +599,16 @@ const handleDelete = (row) => {
 }
 .detail-tag {
   display: inline-block;
-  font-size: 12px;
-  color: var(--color-text-3);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-2);
   background: var(--color-fill-2);
   border-radius: 4px;
   padding: 1px 8px;
   margin-left: 6px;
 }
 .detail-tag--hot {
-  color: var(--color-warning-6);
-  background: var(--color-warning-1);
+  color: #B54708;
+  background: #FFF0E6;
 }
 </style>
