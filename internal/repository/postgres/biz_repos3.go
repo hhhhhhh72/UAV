@@ -325,8 +325,15 @@ func (r *emergRepo) ListDispatches(ctx context.Context, resourceID string, offse
 		args = append(args, resourceID)
 	}
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches d`+where, args[2:]...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count dispatches: %w", err)
+	if resourceID != "" {
+		// COUNT 独立查询：占位符从 $1 起（避免 $3 单独出现类型无法推断）
+		if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches d WHERE d.resource_id = $1`, resourceID).Scan(&total); err != nil {
+			return nil, 0, fmt.Errorf("count dispatches: %w", err)
+		}
+	} else {
+		if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches d`).Scan(&total); err != nil {
+			return nil, 0, fmt.Errorf("count dispatches: %w", err)
+		}
 	}
 	// LEFT JOIN 资源表：内嵌 related 摘要（资源可能已删除 → 保留调度记录，related 为空）
 	rows, err := r.pool.Query(ctx,
