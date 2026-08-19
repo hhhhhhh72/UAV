@@ -135,7 +135,7 @@
         <a-form-item label="Logo">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadRequest" accept="image/*" :before-upload="beforeUpload">
             <a-avatar v-if="form.logo_url" :image-url="form.logo_url" :size="80" shape="square" />
-            <a-button v-else type="outline">点击上传</a-button>
+            <a-button v-else type="outline" :loading="uploadingLogo">点击上传</a-button>
           </a-upload>
         </a-form-item>
 
@@ -143,7 +143,7 @@
         <a-form-item label="封面图">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadCover" accept="image/*" :before-upload="beforeUpload">
             <a-avatar v-if="form.cover" :image-url="form.cover" :size="80" shape="square" />
-            <a-button v-else type="outline">点击上传</a-button>
+            <a-button v-else type="outline" :loading="uploadingCover">点击上传</a-button>
           </a-upload>
           <div class="form-tip">小程序院校列表/详情页展示的封面全景图</div>
         </a-form-item>
@@ -195,11 +195,11 @@
 
         <div class="form-group-title">专业与合作</div>
         <a-form-item label="无人机专业">
-          <a-textarea v-model="form.majorsDetailText" :auto-size="{ minRows: 2, maxRows: 5 }" placeholder="每行一个专业，格式：名称|学历|年制|王牌，如：&#10;飞行器设计与工程|本科|4|1&#10;无人机系统工程|本科|4|0&#10;飞行器控制与信息工程|硕士|3|0" style="width: 100%" />
+          <a-textarea ref="majorsRef" v-model="form.majorsDetailText" :auto-size="{ minRows: 2, maxRows: 5 }" placeholder="每行一个专业，格式：名称|学历|年制|王牌，如：&#10;飞行器设计与工程|本科|4|1&#10;无人机系统工程|本科|4|0&#10;飞行器控制与信息工程|硕士|3|0" style="width: 100%" />
           <div class="form-tip">学历：本科/硕士/博士；王牌填 1 表示该专业为国家级特色专业</div>
         </a-form-item>
         <a-form-item label="合作企业">
-          <a-textarea v-model="form.partnersText" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="每行一个企业，格式：名称|类型，如：&#10;大疆创新|联合实验室&#10;中航工业|实习基地" style="width: 100%" />
+          <a-textarea ref="partnersRef" v-model="form.partnersText" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="每行一个企业，格式：名称|类型，如：&#10;大疆创新|联合实验室&#10;中航工业|实习基地" style="width: 100%" />
         </a-form-item>
         <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" style="width: 100%" /></a-form-item>
         <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" style="width: 100%" /></a-form-item>
@@ -234,9 +234,11 @@ const beforeUpload = (item) => {
 }
 
 // Logo 上传：动态读取最新 accessToken
+const uploadingLogo = ref(false)
 const uploadRequest = async ({ fileItem, onSuccess, onError }) => {
   const fd = new FormData()
   fd.append('file', fileItem.file)
+  uploadingLogo.value = true
   try {
     const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
     const url = res?.data?.url || res?.url
@@ -247,13 +249,17 @@ const uploadRequest = async ({ fileItem, onSuccess, onError }) => {
   } catch (e) {
     onError && onError(e)
     Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  } finally {
+    uploadingLogo.value = false
   }
 }
 
 // 封面图上传
+const uploadingCover = ref(false)
 const uploadCover = async ({ fileItem, onSuccess, onError }) => {
   const fd = new FormData()
   fd.append('file', fileItem.file)
+  uploadingCover.value = true
   try {
     const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
     const url = res?.data?.url || res?.url
@@ -264,6 +270,8 @@ const uploadCover = async ({ fileItem, onSuccess, onError }) => {
   } catch (e) {
     onError && onError(e)
     Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  } finally {
+    uploadingCover.value = false
   }
 }
 
@@ -337,6 +345,8 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
+const majorsRef = ref()
+const partnersRef = ref()
 const coopTypeLabel = { research: '科研合作', talent: '人才培养', both: '综合' }
 const arrText = (v) => (Array.isArray(v) ? v.join('、') : (v || ''))
 const splitArr = (s) => String(s || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean)
@@ -418,11 +428,19 @@ const openForm = (row) => {
 
 const submitForm = async () => {
   if (!form.name) { Message.warning('请输入院校名称'); return }
-  // 专业/合作企业：逐行校验，坏行明确报错（不再静默丢弃）
+  // 专业/合作企业：逐行校验，坏行明确报错并聚焦对应输入框（不再静默丢弃）
   const majorsParsed = parseMajorsDetail(form.majorsDetailText)
-  if (majorsParsed.errors.length > 0) { Message.error(majorsParsed.errors[0]); return }
+  if (majorsParsed.errors.length > 0) {
+    Message.error(majorsParsed.errors[0])
+    majorsRef.value && majorsRef.value.focus && majorsRef.value.focus()
+    return
+  }
   const partnersParsed = parsePartners(form.partnersText)
-  if (partnersParsed.errors.length > 0) { Message.error(partnersParsed.errors[0]); return }
+  if (partnersParsed.errors.length > 0) {
+    Message.error(partnersParsed.errors[0])
+    partnersRef.value && partnersRef.value.focus && partnersRef.value.focus()
+    return
+  }
   // 联系方式/就业率格式校验（均选填，填了就要合法）
   if (form.phone && !/^[\d\-+() ]{5,20}$/.test(form.phone.trim())) { Message.warning('联系电话格式不正确'); return }
   if (form.website && !/^https?:\/\/\S+$/.test(form.website.trim())) { Message.warning('官网地址需以 http:// 或 https:// 开头'); return }
@@ -505,7 +523,7 @@ const handleDelete = (row) => {
 
 .form-tip {
   font-size: 12px;
-  color: var(--color-text-3);
+  color: var(--color-text-2);
   line-height: 1.5;
   margin-top: 4px;
 }
@@ -539,7 +557,7 @@ const handleDelete = (row) => {
   margin-left: 6px;
 }
 .detail-tag--hot {
-  color: #B54708;
-  background: #FFF7F1;
+  color: var(--color-warning-6);
+  background: var(--color-warning-1);
 }
 </style>
