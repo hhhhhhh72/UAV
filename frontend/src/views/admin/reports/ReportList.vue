@@ -52,7 +52,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑报告' : '新增报告'" :width="560" destroy-on-close>
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑报告' : '新增报告'" :width="560" unmount-on-close :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="报告标题" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="类型">
@@ -75,7 +75,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -110,7 +110,7 @@ const batchActions = [
   { key: 'publish', label: '批量发布', status: 'success', api: (row) => api.update(row.id, { ...row, status: 'published' }) }
 ]
 
-// 搜索用 report_type（列表字段为 category，表单字段为 category，详情字段为 report_type——三处字段差异保持原样）
+// 类型字段为 category（后端表列/创建/更新/列表筛选均为 category，无 report_type 字段）
 const searchFields = [
   { key: 'keyword', label: '关键词', type: 'input', width: 220, placeholder: '搜索报告标题' },
   { key: 'category', label: '类型', type: 'select', width: 140, options: [
@@ -141,6 +141,26 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', title: '', category: 'whitepaper', period: '', author: '', summary: '', file_url: '', status: 'draft' })
 const resetForm = () => Object.assign(form, { id: '', title: '', category: 'whitepaper', period: '', author: '', summary: '', file_url: '', status: 'draft' })
+
+// 未保存守卫：formSnapshot 快照比对 + Modal.confirm；
+// X/遮罩/Esc 走 onBeforeCancel，footer 取消按钮也走守卫
+let formSnapshot = ''
+const takeSnapshot = () => { formSnapshot = JSON.stringify(form) }
+const guardClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+const handleCancel = () => {
+  if (guardClose()) formVisible.value = false
+}
+
 const openForm = (r) => {
   resetForm()
   if (r) {
@@ -149,6 +169,7 @@ const openForm = (r) => {
   } else {
     formEdit.value = false
   }
+  takeSnapshot()
   formVisible.value = true
 }
 const submitForm = async () => {
@@ -158,6 +179,7 @@ const submitForm = async () => {
     const p = { ...form }
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
+    takeSnapshot()
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }

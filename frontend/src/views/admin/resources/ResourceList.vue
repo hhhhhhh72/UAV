@@ -57,7 +57,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑资源' : '新增资源'" :width="560" destroy-on-close>
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑资源' : '新增资源'" :width="560" :mask-closable="false" @before-cancel="beforeCancel" destroy-on-close>
       <a-form :model="form" layout="vertical">
         <a-form-item label="资源名称" required><a-input v-model="form.name" placeholder="输入名称" style="width: 100%" /></a-form-item>
         <a-form-item label="资源类型" required>
@@ -94,7 +94,7 @@
         <a-form-item label="预约方式"><a-input v-model="form.booking_info" placeholder="如：工作日 9-18 点，需提前 3 天" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="cancelForm">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -166,30 +166,69 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', name: '', res_type: '', model: '', specs: '', location: '', priceYuan: null, status: 'available', booking_info: '', visibility_level: 'public' })
 const resetForm = () => Object.assign(form, { id: '', name: '', res_type: '', model: '', specs: '', location: '', priceYuan: null, status: 'available', booking_info: '', visibility_level: 'public' })
+// 未保存守卫：Esc/遮罩/X/取消 关闭前若有改动则确认，避免输入全丢
+let formSnapshot = ''
+const confirmDiscard = (onOk) => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk,
+  })
+}
+// Arco 2.x：@before-cancel 为同步守卫（返回 false 阻止关闭），Esc/X/遮罩均走此路径
+const beforeCancel = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  confirmDiscard(() => { formVisible.value = false })
+  return false
+}
+// footer 取消按钮也走守卫
+const cancelForm = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return }
+  confirmDiscard(() => { formVisible.value = false })
+}
+
 const openForm = (row) => {
   resetForm()
   if (row) {
     formEdit.value = true
-    // price_fen(分) → priceYuan(元) 回显
-    Object.assign(form, { ...row, priceYuan: row.price_fen ? Math.round(row.price_fen / 100 * 100) / 100 : null })
+    // 显式映射可编辑字段：不整行回传，避免把只读字段（id/created_at 等）带回提交
+    Object.assign(form, {
+      id: row.id, name: row.name || '', res_type: row.res_type || '',
+      model: row.model || '', specs: row.specs || '', location: row.location || '',
+      status: row.status || 'available', booking_info: row.booking_info || '',
+      visibility_level: row.visibility_level || 'public',
+      priceYuan: row.price_fen != null ? Math.round(row.price_fen) / 100 : null,
+    })
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 const submitForm = async () => {
   if (!form.name) { Message.warning('请输入资源名称'); return }
   formLoading.value = true
   try {
-    // priceYuan(元) → price_fen(分) 提交
-    const payload = { ...form }
-    payload.price_fen = Math.round((form.priceYuan || 0) * 100)
-    delete payload.priceYuan
+    // 只提交可编辑字段；费用为空传 null，不伪造 0
+    const payload = {
+      name: form.name,
+      res_type: form.res_type,
+      model: form.model || '',
+      specs: form.specs || '',
+      location: form.location || '',
+      booking_info: form.booking_info || '',
+      visibility_level: form.visibility_level || 'public',
+      status: form.status,
+      price_fen: (form.priceYuan == null || form.priceYuan === '') ? null : Math.round(form.priceYuan * 100),
+    }
     if (formEdit.value) {
       await api.update(form.id, payload); Message.success('更新成功')
     } else {
       await api.create(payload); Message.success('创建成功')
     }
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }

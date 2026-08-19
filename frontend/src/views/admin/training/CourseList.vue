@@ -67,7 +67,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课程' : '新增课程'" :width="560" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课程' : '新增课程'" :width="560" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="课程名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="封面图">
@@ -107,7 +107,7 @@
         <a-form-item label="课程描述"><a-input v-model="form.description" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -215,6 +215,7 @@ const openForm = (row) => {
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -223,8 +224,9 @@ const submitForm = async () => {
   formLoading.value = true
   try {
     const payload = { ...form }
-    payload.price_fen = Math.round((form.priceYuan || 0) * 100)
-    payload.max_students = payload.max_students ?? 0
+    // 空值提交 null：价格/名额未填时不再写 0 假数据（用户显式输入 0 仍保留 0）
+    payload.price_fen = form.priceYuan == null ? null : Math.round(form.priceYuan * 100)
+    payload.max_students = form.max_students ?? null
     delete payload.priceYuan
     if (formEdit.value) {
       await api.update(form.id, payload)
@@ -233,6 +235,7 @@ const submitForm = async () => {
       await api.create(payload)
       Message.success('创建成功')
     }
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) {
@@ -241,6 +244,22 @@ const submitForm = async () => {
     formLoading.value = false
   }
 }
+
+// 未保存守卫：X/Esc/遮罩/取消 关闭前，表单有改动则确认（onBeforeCancel 返回 false 阻断关闭）
+let formSnapshot = ''
+const guardClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+// 底部取消按钮：走守卫，确认无改动/放弃修改后才真正关闭
+const handleCancel = () => { if (guardClose()) formVisible.value = false }
 
 const handleDelete = (row) => {
   Modal.confirm({

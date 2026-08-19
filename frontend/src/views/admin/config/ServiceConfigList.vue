@@ -70,6 +70,7 @@
       :top="'4vh'"
       :unmount-on-close="true"
       :mask-closable="false"
+      :on-before-cancel="guardServiceEditClose"
     >
       <div class="dialog-body" v-if="editingService">
         <div class="config-section">
@@ -506,7 +507,7 @@
         </template>
       </div>
       <template #footer>
-        <a-button @click="showServiceEditPopup = false">取消</a-button>
+        <a-button @click="guardServiceEditClose">取消</a-button>
         <a-button type="primary" @click="saveServiceConfig">保存</a-button>
       </template>
     </a-modal>
@@ -517,6 +518,7 @@
       title="编辑图文"
       :width="560"
       :unmount-on-close="true"
+      :on-before-cancel="guardStudyItemClose"
     >
       <div class="dialog-body" v-if="studyEditingItem">
         <div class="field-row">
@@ -538,7 +540,7 @@
         </div>
       </div>
       <template #footer>
-        <a-button @click="showStudyItemEditPopup = false">取消</a-button>
+        <a-button @click="guardStudyItemClose">取消</a-button>
         <a-button type="primary" @click="confirmStudyItemEdit">确定</a-button>
       </template>
     </a-modal>
@@ -558,6 +560,7 @@
       title="编辑精彩回顾"
       :width="560"
       :unmount-on-close="true"
+      :on-before-cancel="guardShowcaseClose"
     >
       <div class="dialog-body" v-if="showcaseEditingItem">
         <div class="field-row">
@@ -582,7 +585,7 @@
         </div>
       </div>
       <template #footer>
-        <a-button @click="showShowcaseEditPopup = false">取消</a-button>
+        <a-button @click="guardShowcaseClose">取消</a-button>
         <a-button type="primary" @click="confirmShowcaseEdit">确定</a-button>
       </template>
     </a-modal>
@@ -593,6 +596,7 @@
       title="首页配置"
       :width="640"
       :unmount-on-close="true"
+      :on-before-cancel="guardHomeConfigClose"
     >
       <div class="dialog-body" v-if="editingHomeConfig">
         <div class="config-section">
@@ -646,7 +650,7 @@
         </div>
       </div>
       <template #footer>
-        <a-button @click="showHomeConfigPopup = false">取消</a-button>
+        <a-button @click="guardHomeConfigClose">取消</a-button>
         <a-button type="primary" @click="saveHomeConfig">保存</a-button>
       </template>
     </a-modal>
@@ -657,6 +661,7 @@
       title="新增课程包"
       :width="480"
       :unmount-on-close="true"
+      :on-before-cancel="guardAddPackageClose"
     >
       <div class="field-row">
         <span class="field-label">标识</span>
@@ -674,7 +679,7 @@
         <p>提示：标识建议使用 study- 前缀，如 study-fullday、study-summer 等</p>
       </div>
       <template #footer>
-        <a-button @click="showAddPackagePopup = false">取消</a-button>
+        <a-button @click="guardAddPackageClose">取消</a-button>
         <a-button type="primary" @click="confirmAddPackage">确定</a-button>
       </template>
     </a-modal>
@@ -684,6 +689,8 @@
 <script setup>
 import { ref, computed, reactive, onMounted, nextTick } from 'vue'
 import axios from '@/utils/http'
+import Modal from '@arco-design/web-vue/es/modal'
+import '@arco-design/web-vue/es/modal/style/css'
 import { showFailToast, showSuccessToast, showLoadingToast, closeToast } from '@/utils/feedback'
 import ImageCropper from './ImageCropper.vue'
 import DataToolbar from '../components/DataToolbar.vue'
@@ -701,6 +708,62 @@ const wrapUpload = (handler) => async ({ fileItem, onSuccess, onError }) => {
     onError && onError(err)
   }
 }
+
+// ===== 未保存守卫 =====
+// 本仓库 Arco 2.58 的 a-modal 仅支持 on-before-cancel 同步钩子（before-close 属性不生效），
+// 有改动时先弹确认，确认后才真正关闭；返回 false 阻止 Arco 自动关闭。
+const makeCloseGuard = (isDirty, doClose) => () => {
+  if (!isDirty()) { doClose(); return true }
+  Modal.confirm({
+    title: '放弃修改',
+    content: '当前内容有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => doClose(),
+  })
+  return false
+}
+// 服务编辑弹窗：快照覆盖 服务本体 + 研学课程包 + 培训拆分字段
+let serviceEditSnapshot = ''
+const serviceEditSnapshotOf = () => JSON.stringify({
+  svc: editingService.value,
+  pkgs: studyPackages.value,
+  conditions: trainingConditions.value,
+  prices: trainingPrices.value,
+  features: trainingFeatures.value,
+  companyTitle: trainingCompanyTitle.value,
+  companyContent: trainingCompanyContent.value,
+  licenseContent: trainingLicenseContent.value,
+  licenseQuote: trainingLicenseQuote.value,
+})
+const guardServiceEditClose = makeCloseGuard(
+  () => serviceEditSnapshot !== serviceEditSnapshotOf(),
+  () => { showServiceEditPopup.value = false }
+)
+// 首页配置弹窗
+let homeConfigSnapshot = ''
+const guardHomeConfigClose = makeCloseGuard(
+  () => homeConfigSnapshot !== JSON.stringify(editingHomeConfig.value),
+  () => { showHomeConfigPopup.value = false }
+)
+// 图文展示子弹窗
+let studyItemSnapshot = ''
+const guardStudyItemClose = makeCloseGuard(
+  () => studyItemSnapshot !== JSON.stringify(studyEditingItem.value),
+  () => { showStudyItemEditPopup.value = false }
+)
+// 精彩回顾子弹窗
+let showcaseSnapshot = ''
+const guardShowcaseClose = makeCloseGuard(
+  () => showcaseSnapshot !== JSON.stringify(showcaseEditingItem.value),
+  () => { showShowcaseEditPopup.value = false }
+)
+// 新增课程包弹窗
+let addPackageSnapshot = ''
+const guardAddPackageClose = makeCloseGuard(
+  () => addPackageSnapshot !== JSON.stringify(newPackage.value),
+  () => { showAddPackagePopup.value = false }
+)
 
 const DEFAULT_HOME_CONFIG = {
   headerImage: '',
@@ -816,6 +879,7 @@ const editHomeConfig = () => {
   if (!Array.isArray(editingHomeConfig.value.banners)) {
     editingHomeConfig.value.banners = []
   }
+  homeConfigSnapshot = JSON.stringify(editingHomeConfig.value)
   showHomeConfigPopup.value = true
 }
 
@@ -915,6 +979,7 @@ const editServiceConfig = (id) => {
     trainingLicenseQuote.value = ti.licenseFunction?.quote || ''
   }
 
+  serviceEditSnapshot = serviceEditSnapshotOf()
   showServiceEditPopup.value = true
 }
 
@@ -944,6 +1009,7 @@ const saveServiceConfig = async () => {
     allServiceConfigs.value = newConfigs
     closeToast()
     showSuccessToast('保存成功')
+    serviceEditSnapshot = serviceEditSnapshotOf()
     showServiceEditPopup.value = false
   } catch (error) {
     closeToast()
@@ -969,7 +1035,7 @@ const createEmptyPackage = (pkgId) => {
     id: pkgId,
     name: '新课程',
     tag: '新课程',
-    price: 0,
+    price: null,
     recommended: false,
     desc: '',
     cardHighlights: [],
@@ -1045,6 +1111,7 @@ const onCropConfirm = async (croppedFile) => {
 const addShowcaseItem = () => {
   showcaseEditingIndex.value = -1
   showcaseEditingItem.value = { title: '', desc: '', image: '' }
+  showcaseSnapshot = JSON.stringify(showcaseEditingItem.value)
   showShowcaseEditPopup.value = true
 }
 
@@ -1053,6 +1120,7 @@ const editShowcaseItem = (idx) => {
   if (!activeStudyPkg.value?.showcase) return
   showcaseEditingIndex.value = idx
   showcaseEditingItem.value = { ...activeStudyPkg.value.showcase[idx] }
+  showcaseSnapshot = JSON.stringify(showcaseEditingItem.value)
   showShowcaseEditPopup.value = true
 }
 
@@ -1088,6 +1156,7 @@ const onReadShowcaseImage = async (file) => {
 // 显示新增课程包弹窗
 const showAddPackageDialog = () => {
   newPackage.value = { id: '', tag: '', price: '' }
+  addPackageSnapshot = JSON.stringify(newPackage.value)
   showAddPackagePopup.value = true
 }
 
@@ -1105,39 +1174,50 @@ const confirmAddPackage = () => {
   // 创建新课程包
   studyPackages.value[id] = createEmptyPackage(id)
   studyPackages.value[id].tag = tag
-  studyPackages.value[id].price = Number(price) || 0
+  // 空值不写 0：价格未填时存 null（避免前台展示虚假的 ¥0）
+  studyPackages.value[id].price = price === '' || price == null ? null : Number(price)
   studyPackageIds.value.push(id)
   activeStudyPkgId.value = id
   showAddPackagePopup.value = false
   showSuccessToast('添加成功')
 }
 
-// 删除课程包
+// 删除课程包（整包数据删除，保存后不可恢复，先确认）
 const removeStudyPackage = (pkgId) => {
   if (studyPackageIds.value.length <= 1) {
     showFailToast('至少保留一个课程包')
     return
   }
-  const idx = studyPackageIds.value.indexOf(pkgId)
-  if (idx > -1) {
-    studyPackageIds.value.splice(idx, 1)
-    delete studyPackages.value[pkgId]
-    // 切换到第一个课程包
-    activeStudyPkgId.value = studyPackageIds.value[0]
-    showSuccessToast('删除成功')
-  }
+  Modal.confirm({
+    title: '删除课程包',
+    content: `确定删除课程包「${studyPackages.value[pkgId]?.tag || pkgId}」吗？其全部配置（课程安排/精彩回顾等）将一并删除`,
+    okText: '删除',
+    cancelText: '取消',
+    onOk: () => {
+      const idx = studyPackageIds.value.indexOf(pkgId)
+      if (idx > -1) {
+        studyPackageIds.value.splice(idx, 1)
+        delete studyPackages.value[pkgId]
+        // 切换到第一个课程包
+        activeStudyPkgId.value = studyPackageIds.value[0]
+        showSuccessToast('删除成功')
+      }
+    }
+  })
 }
 
 // --- Study showcase ---
 const innerAddStudyItem = () => {
   studyEditingIndex.value = -1
   studyEditingItem.value = { title: '', desc: '', image: '' }
+  studyItemSnapshot = JSON.stringify(studyEditingItem.value)
   showStudyItemEditPopup.value = true
 }
 
 const innerEditStudyItem = (idx) => {
   studyEditingIndex.value = idx
   studyEditingItem.value = { ...editingService.value.studyShowcase[idx] }
+  studyItemSnapshot = JSON.stringify(studyEditingItem.value)
   showStudyItemEditPopup.value = true
 }
 

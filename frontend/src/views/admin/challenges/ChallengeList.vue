@@ -55,7 +55,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑难题' : '新增难题'" :width="560" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑难题' : '新增难题'" :width="560" :on-before-cancel="beforeClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="难题名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="领域"><a-input v-model="form.field" placeholder="如：飞控系统" style="width: 100%" /></a-form-item>
@@ -71,7 +71,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="cancelForm">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
       </template>
     </a-modal>
@@ -140,8 +140,8 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', title: '', field: '', budget_fen: 0, deadline: '', status: 'open', description: '' })
-const resetForm = () => Object.assign(form, { id: '', title: '', field: '', budget_fen: 0, deadline: '', status: 'open', description: '' })
+const form = reactive({ id: '', title: '', field: '', budget_fen: null, deadline: '', status: 'open', description: '' })
+const resetForm = () => Object.assign(form, { id: '', title: '', field: '', budget_fen: null, deadline: '', status: 'open', description: '' })
 
 const openForm = (row) => {
   resetForm()
@@ -149,12 +149,13 @@ const openForm = (row) => {
     formEdit.value = true
     Object.assign(form, {
       id: row.id, title: row.title || '', field: row.field || '',
-      budget_fen: row.budget_fen || 0, deadline: row.deadline || '',
+      budget_fen: row.budget_fen ?? null, deadline: row.deadline || '',
       status: row.status || 'open', description: row.description || ''
     })
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -162,7 +163,7 @@ const submitForm = async () => {
   if (!form.title) { Message.warning('请输入难题标题'); return }
   formLoading.value = true
   try {
-    const p = { ...form }
+    const p = { ...form, budget_fen: form.budget_fen == null || form.budget_fen === '' ? null : Number(form.budget_fen) }
     if (formEdit.value) {
       await api.update(form.id, p)
       Message.success('更新成功')
@@ -170,6 +171,7 @@ const submitForm = async () => {
       await api.create(p)
       Message.success('创建成功')
     }
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) {
@@ -177,6 +179,29 @@ const submitForm = async () => {
   } finally {
     formLoading.value = false
   }
+}
+
+// 未保存守卫：Esc/点 X/点遮罩/底部取消 关闭前比对快照，有改动先确认
+// 注意：Arco 2.58 无 beforeClose prop（beforeClose 只是 emits 事件），
+// 需用 on-before-cancel 拦截用户关闭（X/ESC/遮罩）；底部取消按钮走 cancelForm。
+let formSnapshot = ''
+const confirmDiscard = () => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+}
+const cancelForm = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return }
+  confirmDiscard()
+}
+const beforeClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  confirmDiscard()
+  return false
 }
 
 const handleDelete = (row) => {

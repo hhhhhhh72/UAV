@@ -114,7 +114,7 @@
     </a-modal>
 
     <!-- 新增 / 编辑表单弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑' : '新增'" :width="560" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑' : '新增'" :width="560" :on-before-cancel="guardClose" @cancel="formVisible = false">
       <!-- 文档表单 -->
       <a-form v-if="activeTab === 'docs'" :model="docForm" layout="vertical" class="dialog-form">
         <a-form-item label="文档标题" required>
@@ -201,7 +201,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="handleFormSubmit">提交</a-button>
       </template>
     </a-modal>
@@ -214,7 +214,7 @@ import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
-import axios from '@/utils/http'
+import axios, { getAuthHeader } from '@/utils/http'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
 
@@ -308,6 +308,26 @@ const formLoading = ref(false)
 const docForm = reactive({ id: '', title: '', category: '政策', publisher: '', publish_date: '', status: 'published', summary: '', file_url: '' })
 const stdForm = reactive({ id: '', category: '团体标准', standard_no: '', title: '', publisher: '', effective_date: '', status: 'published', scope: '', file_url: '' })
 
+// 未保存守卫：按当前 Tab 的表单做快照比对 + Modal.confirm；
+// X/遮罩/Esc 走 onBeforeCancel，footer 取消按钮也走守卫
+let formSnapshot = ''
+const activeForm = () => (activeTab.value === 'docs' ? docForm : stdForm)
+const takeSnapshot = () => { formSnapshot = JSON.stringify(activeForm()) }
+const guardClose = () => {
+  if (JSON.stringify(activeForm()) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+const handleCancel = () => {
+  if (guardClose()) formVisible.value = false
+}
+
 const beforeUpload = (file) => {
   const maxSize = 20 * 1024 * 1024 // 20MB for documents
   if (file.size > maxSize) { Message.error('文件不能超过 20MB'); return false }
@@ -319,7 +339,7 @@ const uploadFile = async ({ fileItem, onSuccess, onError }) => {
   const fd = new FormData()
   fd.append('file', fileItem.file)
   try {
-    const res = await axios.post('/api/v1/upload', fd)
+    const res = await axios.post('/api/v1/upload', fd, { headers: getAuthHeader() })
     const url = res?.data?.url || res?.url
     if (!url) throw new Error('上传失败')
     if (activeTab.value === 'docs') docForm.file_url = url
@@ -336,12 +356,16 @@ const resetDocForm = () => Object.assign(docForm, { id: '', title: '', category:
 const resetStdForm = () => Object.assign(stdForm, { id: '', category: '团体标准', standard_no: '', title: '', publisher: '', effective_date: '', status: 'published', scope: '', file_url: '' })
 const handleAdd = () => {
   if (activeTab.value === 'docs') resetDocForm(); else resetStdForm()
-  formEdit.value = false; formVisible.value = true
+  formEdit.value = false
+  takeSnapshot()
+  formVisible.value = true
 }
 const handleEdit = (row) => {
   if (activeTab.value === 'docs') Object.assign(docForm, row)
   else Object.assign(stdForm, row)
-  formEdit.value = true; formVisible.value = true
+  formEdit.value = true
+  takeSnapshot()
+  formVisible.value = true
 }
 const handleFormSubmit = async () => {
   const api = activeTab.value === 'docs' ? docsApi : standardsApi
@@ -351,6 +375,7 @@ const handleFormSubmit = async () => {
   try {
     if (formEdit.value) { await api.update(payload.id, payload); Message.success('更新成功') }
     else { await api.create(payload); Message.success('创建成功') }
+    takeSnapshot()
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { console.error('[compliance]', e?.response?.status, e?.response?.data || e); Message.error(e?.response?.data?.message || '操作失败') } finally { formLoading.value = false }

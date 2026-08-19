@@ -50,7 +50,7 @@
     </CrudList>
 
     <!-- 新增 / 编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑商品' : '新增商品'" :width="520" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑商品' : '新增商品'" :width="520" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical" class="dialog-form">
         <a-form-item label="商品名称" required>
           <a-input v-model="form.title" placeholder="如：工业级六旋翼无人机 X6-28L" allow-clear style="width: 100%" />
@@ -79,7 +79,7 @@
           </a-select>
         </a-form-item>
         <a-form-item label="价格(元)">
-          <a-input v-model="form.priceYuan" type="number" placeholder="0.00" style="width: 100%" />
+          <a-input ref="priceRef" v-model="form.priceYuan" type="number" placeholder="0.00" style="width: 100%" />
         </a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
@@ -106,7 +106,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
@@ -174,6 +174,7 @@ const columns = [
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
+const priceRef = ref()
 const form = reactive({ id: '', title: '', prod_type: 'drone', brand: '', model: '', condition: 'new', priceYuan: '', status: 'listed', description: '', seller_name: '', images: [] })
 const imageList = reactive([])
 
@@ -199,6 +200,7 @@ const openForm = (row) => {
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -219,15 +221,25 @@ const uploadImage = async ({ fileItem, onSuccess, onError }) => {
 }
 
 // a-upload 列表变化（新增/移除）时同步 form.images
-// 注意：f.url 是 Arco 的本地 blob 预览地址，不能入库；真实地址在响应 data.url 里
+// 注意：f.url 是 Arco 的本地 blob 预览地址，不能入库；真实地址在响应 data.url 里。
+// 仅排除上传中（uploading）的 blob 项，编辑态旧照片（无 response 但 url 是真实地址）保留。
 const onImageChange = (fileList) => {
   imageList.length = 0
   imageList.push(...fileList)
-  form.images = fileList.map(f => f.response?.data?.url || f.response?.url || f.url).filter(Boolean)
+  form.images = fileList
+    .map((f) => f.response?.data?.url || f.response?.url || (f.status === 'uploading' ? '' : f.url))
+    .filter(Boolean)
 }
 
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入商品名称'); return }
+  // 价格校验：NaN/Infinity/负数/超大值一律拦截，避免 null/负数/溢出值入库
+  const price = Number(form.priceYuan)
+  if (!Number.isFinite(price) || price < 0 || price > 100000000) {
+    Message.error('价格需为 0-100000000 之间的数字（元）')
+    priceRef.value && priceRef.value.focus && priceRef.value.focus()
+    return
+  }
   formLoading.value = true
   const payload = {
     title: form.title,
@@ -235,7 +247,7 @@ const submitForm = async () => {
     brand: form.brand,
     model: form.model,
     condition: form.condition,
-    price_fen: Math.round(parseFloat(form.priceYuan || 0) * 100),
+    price_fen: Math.round(price * 100),
     status: form.status,
     description: form.description,
     seller_name: form.seller_name,
@@ -245,10 +257,29 @@ const submitForm = async () => {
     if (formEdit.value) await api.update(form.id, payload)
     else await api.create(payload)
     Message.success('保存成功')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '保存失败') }
   finally { formLoading.value = false }
+}
+
+// 未保存守卫：X/遮罩/Esc 关闭前经 on-before-cancel 校验，若表单有改动则确认，避免输入全丢
+let formSnapshot = ''
+const guardClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+// 底部取消按钮：走守卫，确认无改动/放弃修改后才真正关闭
+const handleCancel = () => {
+  if (guardClose()) formVisible.value = false
 }
 
 // 审核快捷操作：通过（pending→listed 上架）/ 驳回（pending→removed 下架）——传完整行避免清空其他字段

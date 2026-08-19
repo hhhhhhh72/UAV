@@ -42,7 +42,7 @@
     </CrudList>
 
     <!-- 新增用户弹窗 -->
-    <a-modal v-model:visible="formVisible" title="新增用户" :width="420" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" title="新增用户" :width="420" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
         <a-form-item label="用户ID" required><a-input v-model="form.id" placeholder="输入唯一用户ID" style="width: 100%" /></a-form-item>
         <a-form-item label="角色">
@@ -58,7 +58,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="beforeCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">创建</a-button>
       </template>
     </a-modal>
@@ -101,7 +101,25 @@ const formVisible = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', role: 'individual', password: '' })
 
-const openForm = () => { form.id = ''; form.role = 'individual'; form.password = ''; formVisible.value = true }
+const openForm = () => {
+  form.id = ''; form.role = 'individual'; form.password = ''
+  formSnapshot = JSON.stringify(form)
+  formVisible.value = true
+}
+
+// 未保存守卫：Esc/点 X/点取消关闭前，若表单有改动则确认，避免输入全丢
+let formSnapshot = ''
+const beforeCancel = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return true }
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
 
 const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '操作失败'
 
@@ -111,21 +129,33 @@ const submitForm = async () => {
   try {
     await api.create({ id: form.id, role: form.role, password: form.password || undefined })
     Message.success('创建成功')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }
   finally { formLoading.value = false }
 }
 
-// 角色切换：平台管理员 ↔ 个人用户
-const toggleRole = async (user) => {
+// 角色切换：平台管理员 ↔ 个人用户（直接生效的高危操作，必须先确认）
+const toggleRole = (user) => {
   const newRole = user.role === 'platform_admin' ? 'individual' : 'platform_admin'
-  try {
-    await updateUserRole(user.id, newRole)
-    user.role = newRole
-    user.roleLabel = newRole === 'platform_admin' ? '平台管理员' : '个人用户'
-    Message.success('权限已更新')
-  } catch (e) { Message.error(errMsg(e)) }
+  const promote = newRole === 'platform_admin'
+  Modal.confirm({
+    title: promote ? '设为平台管理员' : '取消平台管理员',
+    content: promote
+      ? `确定将用户「${user.name || user.id}」设为平台管理员吗？该用户将获得全部管理权限`
+      : `确定取消用户「${user.name || user.id}」的平台管理员权限吗？`,
+    okText: '确定',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await updateUserRole(user.id, newRole)
+        user.role = newRole
+        user.roleLabel = newRole === 'platform_admin' ? '平台管理员' : '个人用户'
+        Message.success('权限已更新')
+      } catch (e) { Message.error(errMsg(e)) }
+    }
+  })
 }
 
 const handleDelete = (row) => {

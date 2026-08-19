@@ -55,7 +55,7 @@
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑场地' : '新增场地'" :width="560" :mask-closable="false" :unmount-on-close="true" @close="resetForm">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑场地' : '新增场地'" :width="560" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeClose" @close="resetForm">
       <a-form :model="form" layout="vertical">
         <a-form-item label="场地名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
         <a-form-item label="地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
@@ -83,7 +83,7 @@
         <a-form-item label="使用规则"><a-input v-model="form.booking_rule" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="cancelForm">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
       </template>
     </a-modal>
@@ -154,7 +154,7 @@ const openForm = (row) => {
       name: row.name || '',
       site_type: row.site_type || 'flying_field',
       location: row.location || '',
-      priceYuan: row.price_fen ? Math.round(row.price_fen / 100 * 100) / 100 : null,
+      priceYuan: row.price_fen == null ? null : Math.round(row.price_fen) / 100,
       facilitiesText: Array.isArray(row.facilities) ? row.facilities.join('、') : '',
       booking_rule: row.booking_rule || '',
       status: row.status || 'available'
@@ -162,6 +162,7 @@ const openForm = (row) => {
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -177,15 +178,39 @@ const submitForm = async () => {
       location: form.location,
       status: form.status,
       booking_rule: form.booking_rule,
-      price_fen: Math.round((form.priceYuan || 0) * 100),
+      price_fen: form.priceYuan == null || form.priceYuan === '' ? null : Math.round(Number(form.priceYuan) * 100),
       facilities: form.facilitiesText.split(/[,，、]/).map(s => s.trim()).filter(Boolean)
     }
     formEdit.value ? await api.update(form.id, payload) : await api.create(payload)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }
   finally { formLoading.value = false }
+}
+
+// 未保存守卫：Esc/点 X/点遮罩/底部取消 关闭前比对快照，有改动先确认
+// 注意：Arco 2.58 无 beforeClose prop（beforeClose 只是 emits 事件），
+// 需用 on-before-cancel 拦截用户关闭（X/ESC/遮罩）；底部取消按钮走 cancelForm。
+let formSnapshot = ''
+const confirmDiscard = () => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+}
+const cancelForm = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return }
+  confirmDiscard()
+}
+const beforeClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  confirmDiscard()
+  return false
 }
 
 const handleDelete = (row) => {

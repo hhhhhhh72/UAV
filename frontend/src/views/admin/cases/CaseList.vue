@@ -42,12 +42,13 @@
       :title="currentCase?.id ? '编辑案例' : '新增案例'"
       :width="720"
       :footer="false"
+      :on-before-cancel="beforeClose"
     >
       <template v-if="currentCase">
         <a-form :model="currentCase" layout="vertical" class="dialog-form">
           <a-divider orientation="left">基本信息</a-divider>
           <a-form-item label="分类" required>
-            <a-input v-model="currentCase.category" placeholder="如：物流配送 / 测绘巡检 / 应急救援" allow-clear style="width: 100%" />
+            <a-input ref="categoryRef" v-model="currentCase.category" placeholder="如：物流配送 / 测绘巡检 / 应急救援" allow-clear style="width: 100%" />
           </a-form-item>
           <a-form-item label="标题" required>
             <a-input v-model="currentCase.title" placeholder="请输入标题" allow-clear style="width: 100%" />
@@ -89,7 +90,7 @@
 
         <div class="modal-footer">
           <a-space>
-            <a-button @click="showCaseEditPopup = false">取消</a-button>
+            <a-button @click="cancelForm">取消</a-button>
             <a-button v-if="currentCase?.id" status="danger" @click="onDeleteCase(currentCase)">删除案例</a-button>
             <a-button type="primary" @click="onSaveCase">保存</a-button>
           </a-space>
@@ -153,6 +154,7 @@ const handleSorterChange = (dataIndex, direction) => {
 
 // --- 案例编辑 ---
 const showCaseEditPopup = ref(false)
+const categoryRef = ref()
 const currentCase = ref(null)
 const caseStatusColor = { pending: 'orange', published: 'green', archived: 'gray' }
 const caseStatusLabel = { pending: '待审核', published: '已发布', archived: '已下架' }
@@ -187,12 +189,14 @@ const createCase = () => {
   currentCase.value = {
     title: '', category: '', description: '', images: [], clientName: '', result: '', status: 'pending'
   }
+  caseSnapshot = JSON.stringify(currentCase.value)
   showCaseEditPopup.value = true
 }
 
 const editCase = (caseItem) => {
   currentCase.value = JSON.parse(JSON.stringify(caseItem))
   if (!Array.isArray(currentCase.value.images)) currentCase.value.images = []
+  caseSnapshot = JSON.stringify(currentCase.value)
   showCaseEditPopup.value = true
 }
 
@@ -200,6 +204,11 @@ const onSaveCase = async () => {
   if (!currentCase.value) return
   if (!currentCase.value.title?.trim()) {
     Message.error('标题不能为空')
+    return
+  }
+  if (!String(currentCase.value.category || '').trim()) {
+    Message.error('分类不能为空')
+    categoryRef.value && categoryRef.value.focus && categoryRef.value.focus()
     return
   }
   Message.loading('保存中...', 0)
@@ -211,12 +220,36 @@ const onSaveCase = async () => {
     }
     Message.clear()
     Message.success('保存成功')
+    caseSnapshot = JSON.stringify(currentCase.value)
     showCaseEditPopup.value = false
     crudRef.value?.reload()
   } catch (error) {
     Message.clear()
     Message.error(error?.response?.data?.message || '保存失败')
   }
+}
+
+// 未保存守卫：Esc/点 X/点遮罩/底部取消 关闭前比对快照，有改动先确认
+// 注意：Arco 2.58 无 beforeClose prop（beforeClose 只是 emits 事件），
+// 需用 on-before-cancel 拦截用户关闭（X/ESC/遮罩）；底部取消按钮走 cancelForm。
+let caseSnapshot = ''
+const confirmDiscard = () => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { showCaseEditPopup.value = false },
+  })
+}
+const cancelForm = () => {
+  if (JSON.stringify(currentCase.value) === caseSnapshot) { showCaseEditPopup.value = false; return }
+  confirmDiscard()
+}
+const beforeClose = () => {
+  if (JSON.stringify(currentCase.value) === caseSnapshot) return true
+  confirmDiscard()
+  return false
 }
 
 const onDeleteCase = (caseItem) => {

@@ -50,7 +50,7 @@
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑调度' : '新建调度'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑调度' : '新建调度'" :width="560" :mask-closable="false" :unmount-on-close="true" @before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
         <a-form-item label="任务名称" required><a-input v-model="form.event_desc" style="width: 100%" /></a-form-item>
         <a-form-item label="处理结果"><a-input v-model="form.result" style="width: 100%" /></a-form-item>
@@ -69,7 +69,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="cancelForm">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -129,14 +129,44 @@ const formLoading = ref(false)
 const form = reactive({ id: '', event_desc: '', result: '', resource_id: '', start_time: '', end_time: '', location: '', commander: '', status: 'dispatched' })
 const resetForm = () => Object.assign(form, { id: '', event_desc: '', result: '', resource_id: '', start_time: '', end_time: '', location: '', commander: '', status: 'dispatched' })
 
+// 未保存守卫：Esc/遮罩/X/取消 关闭前若有改动则确认，避免输入全丢
+let formSnapshot = ''
+const confirmDiscard = (onOk) => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk,
+  })
+}
+// Arco 2.x：@before-cancel 为同步守卫（返回 false 阻止关闭），Esc/X/遮罩均走此路径
+const beforeCancel = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  confirmDiscard(() => { formVisible.value = false })
+  return false
+}
+// footer 取消按钮也走守卫
+const cancelForm = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return }
+  confirmDiscard(() => { formVisible.value = false })
+}
+
 const openForm = (row) => {
   resetForm()
   if (row) {
     formEdit.value = true
-    Object.assign(form, row)
+    // 显式映射可编辑字段：不整行回传，避免把只读字段（id/created_at 等）带回提交
+    Object.assign(form, {
+      id: row.id, event_desc: row.event_desc || '', result: row.result || '',
+      resource_id: row.resource_id || '', location: row.location || '',
+      start_time: row.start_time || '', end_time: row.end_time || '',
+      commander: row.commander || '', status: row.status || 'dispatched',
+    })
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -146,9 +176,20 @@ const submitForm = async () => {
   if (!form.event_desc) { Message.warning('请输入任务名称'); return }
   formLoading.value = true
   try {
-    const p = { ...form }
+    // 只提交可编辑字段，不整行回传
+    const p = {
+      event_desc: form.event_desc,
+      result: form.result || '',
+      resource_id: form.resource_id || '',
+      location: form.location || '',
+      start_time: form.start_time || '',
+      end_time: form.end_time || '',
+      commander: form.commander || '',
+      status: form.status,
+    }
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }

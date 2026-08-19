@@ -56,7 +56,7 @@
     </a-modal>
 
     <!-- 编辑弹窗（基础信息 + 状态） -->
-    <a-modal v-model:visible="formVisible" title="编辑报名记录" :width="560" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" title="编辑报名记录" :width="560" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="姓名"><a-input v-model="form.name" style="width: 100%" /></a-form-item>
         <a-form-item label="电话"><a-input v-model="form.phone" style="width: 100%" /></a-form-item>
@@ -77,7 +77,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
       </template>
     </a-modal>
@@ -88,6 +88,8 @@
 import { ref, reactive } from 'vue'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
+import Modal from '@arco-design/web-vue/es/modal'
+import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
 
@@ -161,6 +163,7 @@ const openForm = (row) => {
     photo_url: row.photo_url || '', id_card_image: row.id_card_image || '',
     no_crime: row.no_crime || '', status: row.status || 'pending'
   })
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -175,6 +178,7 @@ const submitForm = async () => {
       no_crime: form.no_crime, status: form.status
     })
     Message.success('更新成功')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) {
@@ -183,6 +187,22 @@ const submitForm = async () => {
     formLoading.value = false
   }
 }
+
+// 未保存守卫：X/Esc/遮罩/取消 关闭前，表单有改动则确认（onBeforeCancel 返回 false 阻断关闭）
+let formSnapshot = ''
+const guardClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+// 底部取消按钮：走守卫，确认无改动/放弃修改后才真正关闭
+const handleCancel = () => { if (guardClose()) formVisible.value = false }
 </script>
 
 <style scoped>

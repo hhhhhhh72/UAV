@@ -56,7 +56,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课题' : '新增课题'" :width="560" @close="resetForm">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑课题' : '新增课题'" :width="560" :on-before-cancel="beforeClose" @close="resetForm">
       <a-form :model="form" layout="vertical">
         <a-form-item label="课题名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="牵头单位"><a-input v-model="form.lead_org" style="width: 100%" /></a-form-item>
@@ -75,7 +75,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="cancelForm">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
       </template>
     </a-modal>
@@ -143,38 +143,68 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', title: '', lead_org: '', field: '', budget_fen: 0, milestones: '', start_date: '', end_date: '', membersInput: '', status: 'active', description: '' })
-const resetForm = () => Object.assign(form, { id: '', title: '', lead_org: '', field: '', budget_fen: 0, start_date: '', end_date: '', membersInput: '', status: 'active', description: '' })
+const form = reactive({ id: '', title: '', lead_org: '', field: '', budget_fen: null, milestones: '', start_date: '', end_date: '', membersInput: '', status: 'active', description: '' })
+const resetForm = () => Object.assign(form, { id: '', title: '', lead_org: '', field: '', budget_fen: null, milestones: '', start_date: '', end_date: '', membersInput: '', status: 'active', description: '' })
 const openForm = (row) => {
   resetForm()
   if (row) {
     formEdit.value = true
     Object.assign(form, {
       id: row.id, title: row.title || '', lead_org: row.lead_org || '', field: row.field || '',
-      budget_fen: row.budget_fen || 0, milestones: row.milestones || '', status: row.status || 'active', description: row.description || '',
+      budget_fen: row.budget_fen ?? null, milestones: row.milestones || '', status: row.status || 'active', description: row.description || '',
       start_date: (row.start_date || '').slice(0, 10), end_date: (row.end_date || '').slice(0, 10),
       membersInput: Array.isArray(row.members) ? row.members.join('、') : (row.members || '')
     })
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入项目名称'); return }
+  // 日期校验：开始/结束均为 YYYY-MM-DD，字符串比较即可判序
+  if (form.start_date && form.end_date && form.end_date < form.start_date) {
+    Message.warning('结束日期不能早于开始日期')
+    return
+  }
   formLoading.value = true
   try {
-    const p = { ...form }
+    const p = { ...form, budget_fen: form.budget_fen == null || form.budget_fen === '' ? null : Number(form.budget_fen) }
     // members: 逗号/顿号分隔 → 数组（后端 []string）
     p.members = (form.membersInput || '').split(/[,、]/).map(s => s.trim()).filter(Boolean)
     delete p.membersInput
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
   finally { formLoading.value = false }
 }
+// 未保存守卫：Esc/点 X/点遮罩/底部取消 关闭前比对快照，有改动先确认
+// 注意：Arco 2.58 无 beforeClose prop（beforeClose 只是 emits 事件），
+// 需用 on-before-cancel 拦截用户关闭（X/ESC/遮罩）；底部取消按钮走 cancelForm。
+let formSnapshot = ''
+const confirmDiscard = () => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+}
+const cancelForm = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return }
+  confirmDiscard()
+}
+const beforeClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  confirmDiscard()
+  return false
+}
+
 const handleDelete = (r) => {
   Modal.confirm({
     title: '删除项目',

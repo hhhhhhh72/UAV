@@ -97,7 +97,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑院校' : '新增院校'" :width="'min(680px, 94vw)'" :before-close="beforeClose">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑院校' : '新增院校'" :width="'min(680px, 94vw)'" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <div class="form-group-title">基本信息</div>
         <a-form-item label="院校名称" required><a-input v-model="form.name" :aria-required="true" style="width: 100%" /></a-form-item>
@@ -210,7 +210,7 @@
         <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
@@ -496,21 +496,21 @@ const submitForm = async () => {
   }
 }
 
-// 未保存守卫：Esc/点遮罩/点 X 关闭前，若表单有改动则确认，避免 20+ 字段输入全丢
+// 未保存守卫：X/Esc/遮罩/取消 关闭前，表单有改动则确认（onBeforeCancel 返回 false 阻断关闭）
 let formSnapshot = ''
-const beforeClose = () => {
+const guardClose = () => {
   if (JSON.stringify(form) === formSnapshot) return true
-  return new Promise((resolve) => {
-    Modal.confirm({
-      title: '放弃修改',
-      content: '表单有未保存的修改，确定放弃吗？',
-      okText: '放弃修改',
-      cancelText: '继续编辑',
-      onOk: () => resolve(true),
-      onCancel: () => resolve(false),
-    })
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
   })
+  return false
 }
+// 底部取消按钮：走守卫，确认无改动/放弃修改后才真正关闭
+const handleCancel = () => { if (guardClose()) formVisible.value = false }
 
 const handleDelete = (row) => {
   Modal.confirm({

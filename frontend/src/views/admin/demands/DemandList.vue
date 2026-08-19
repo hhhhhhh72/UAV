@@ -111,6 +111,7 @@
     <!-- 输入弹窗（驳回理由 / 关闭原因 / 登记金额） -->
     <a-modal v-model:visible="inputModal.visible" :title="inputModal.title" :width="440" @ok="confirmInputModal" @cancel="inputModal.visible = false">
       <a-input
+        ref="inputModalRef"
         v-model="inputModal.value"
         :placeholder="inputModal.placeholder"
         :type="inputModal.type === 'amount' ? 'number' : 'text'"
@@ -213,6 +214,7 @@ const showDetail = (d) => { currentItem.value = d; detailVisible.value = true }
 
 // 输入弹窗（驳回/关闭/金额共用）
 const inputModal = reactive({ visible: false, type: '', title: '', placeholder: '', value: '', record: null })
+const inputModalRef = ref()
 
 const openInputModal = (type, record) => {
   const cfg = {
@@ -236,7 +238,14 @@ const confirmInputModal = async () => {
       Message.success('已关闭')
       record.status = 'cancelled'
     } else if (type === 'amount') {
-      const fen = Math.round(Number(value) * 100)
+      // 金额校验：NaN/Infinity/非正数/超大值一律拦截，避免 null/负数/溢出值入库
+      const n = Number(value)
+      if (!Number.isFinite(n) || n <= 0 || n > 99999999.99) {
+        Message.error('成交金额需为大于 0 且不超过 99999999.99 的数字（元）')
+        inputModalRef.value && inputModalRef.value.focus && inputModalRef.value.focus()
+        return
+      }
+      const fen = Math.round(n * 100)
       await setOfflineAmount(record.id, fen)
       Message.success('已登记 ¥' + value)
       record.offline_amount_fen = fen

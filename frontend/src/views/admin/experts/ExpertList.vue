@@ -28,7 +28,7 @@
     </CrudList>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑专家' : '新增专家'" :width="500" destroy-on-close>
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑专家' : '新增专家'" :width="500" destroy-on-close :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="姓名" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
         <a-form-item label="职称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
@@ -58,7 +58,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -156,6 +156,7 @@ const openForm = (row) => {
     formEdit.value = false
     tagsInput.value = ''
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 const submitForm = async () => {
@@ -170,10 +171,29 @@ const submitForm = async () => {
       await api.create({ name: form.name, title: form.title, org: form.org, field: form.field, bio: form.bio, avatar_url: form.avatar_url, tags: form.tags, status: form.status })
       Message.success('创建成功')
     }
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') } finally { formLoading.value = false }
 }
+// 未保存守卫：Esc/点遮罩/点 X/点取消关闭前，若表单有改动则确认，避免输入全丢
+let formSnapshot = ''
+const guardClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+// 底部取消按钮：走守卫，确认无改动/放弃修改后才真正关闭
+const handleCancel = () => {
+  if (guardClose()) formVisible.value = false
+}
+
 const handleDelete = (row) => {
   Modal.confirm({
     title: '删除专家',

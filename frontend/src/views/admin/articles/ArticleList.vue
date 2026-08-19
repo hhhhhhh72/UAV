@@ -18,14 +18,14 @@
         <a-tag size="small" color="arcoblue">{{ categoryLabel(record.category) }}</a-tag>
       </template>
       <template #status="{ record }">
-        <a-tag size="small" :color="record.status === 'published' ? 'green' : 'orange'">
-          {{ record.status === 'published' ? '已发布' : '草稿' }}
+        <a-tag size="small" :color="statusTag(record.status)">
+          {{ statusLabel[record.status] || record.status || '-' }}
         </a-tag>
       </template>
       <template #actions="{ record }">
         <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
         <a-button
-          v-if="record.status !== 'published'"
+          v-if="PUBLISHABLE_STATUSES.includes(record.status)"
           type="text"
           size="small"
           @click="publishArticle(record)"
@@ -42,6 +42,7 @@
       :title="editingId ? '编辑资讯' : '发布资讯'"
       :width="640"
       :footer="false"
+      :on-before-cancel="guardClose"
     >
       <a-form :model="form" layout="vertical" class="dialog-form">
         <a-form-item label="分类" required>
@@ -62,7 +63,7 @@
 
       <div class="modal-footer">
         <a-space>
-          <a-button @click="showPopup = false">取消</a-button>
+          <a-button @click="handleCancel">取消</a-button>
           <a-button type="primary" @click="onSave">保存草稿</a-button>
           <a-button type="primary" status="success" @click="onSaveAndPublish">保存并发布</a-button>
         </a-space>
@@ -94,6 +95,12 @@ const CATEGORY_OPTIONS = [
 const CATEGORY_MAP = Object.fromEntries(CATEGORY_OPTIONS.map((o) => [o.value, o.label]))
 
 const categoryLabel = (v) => CATEGORY_MAP[v] || v || '其他'
+
+// 状态展示：映射表 + 兜底显示原始值，避免吞掉未知状态（后端仅 draft/published）
+const statusLabel = { published: '已发布', draft: '草稿' }
+const statusTag = (s) => ({ published: 'green', draft: 'orange' }[s] || 'gray')
+// 发布按钮白名单：仅草稿可发布
+const PUBLISHABLE_STATUSES = ['draft']
 
 // --- 列表（公开读接口 /api/v1/articles） ---
 const fetchArticles = async (params) => {
@@ -135,6 +142,7 @@ const editingId = ref('')
 const openCreate = () => {
   editingId.value = ''
   form.value = createEmptyForm()
+  takeSnapshot()
   showPopup.value = true
 }
 
@@ -146,6 +154,7 @@ const openEdit = (item) => {
     category: item.category || '',
     source: item.source || ''
   }
+  takeSnapshot()
   showPopup.value = true
 }
 
@@ -175,6 +184,7 @@ const onSave = async () => {
       Message.success('草稿已保存')
     }
     Message.clear()
+    takeSnapshot()
     showPopup.value = false
     crudRef.value?.reload()
   } catch (error) {
@@ -188,21 +198,44 @@ const onSaveAndPublish = async () => {
   Message.loading('发布中...', 0)
   try {
     if (editingId.value) {
-      // 编辑已发布/草稿文章：更新内容，状态保持不变
+      // 编辑态：先 PUT 保存内容，再显式调发布接口（POST /api/v1/articles/{id}/publish，后端幂等：草稿→已发布）
       await axios.put(`/api/v1/articles/${editingId.value}`, buildPayload())
+      await axios.post(`/api/v1/articles/${editingId.value}/publish`)
     } else {
       const res = await axios.post('/api/v1/articles', buildPayload())
-      const id = res?.data?.data?.id || res?.data?.id
-      if (id) await axios.post(`/api/v1/articles/${id}/publish`)
+      // 响应拦截器已解包 { data: ... }，取 res.data.id；拿不到 id 不得提示成功
+      const id = res?.data?.id || res?.data?.data?.id
+      if (!id) throw new Error('文章已创建但未返回 ID，无法完成发布，请刷新列表后重试')
+      await axios.post(`/api/v1/articles/${id}/publish`)
     }
     Message.clear()
     Message.success('已发布')
+    takeSnapshot()
     showPopup.value = false
     crudRef.value?.reload()
   } catch (error) {
     Message.clear()
-    Message.error(error?.response?.data?.message || '发布失败')
+    Message.error(error?.response?.data?.message || error?.message || '发布失败')
   }
+}
+
+// 未保存守卫：formSnapshot 快照比对 + Modal.confirm；
+// X/遮罩/Esc 走 onBeforeCancel，footer 取消按钮也走守卫
+let formSnapshot = ''
+const takeSnapshot = () => { formSnapshot = JSON.stringify(form.value) }
+const guardClose = () => {
+  if (JSON.stringify(form.value) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { showPopup.value = false },
+  })
+  return false
+}
+const handleCancel = () => {
+  if (guardClose()) showPopup.value = false
 }
 
 // 草稿 → 发布

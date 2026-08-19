@@ -18,6 +18,9 @@
       <template #createdAt="{ record }">
         <span class="time-text">{{ formatDate(record.created_at) }}</span>
       </template>
+      <template #contactPhone="{ record }">
+        <span>{{ maskPhone(record.contact_phone) }}</span>
+      </template>
       <template #actions="{ record }">
         <a-space :size="4">
           <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
@@ -76,7 +79,7 @@
     </a-modal>
 
     <!-- 编辑弹窗：管理员编辑企业档案（PRD FR-2.1 全部字段） -->
-    <a-modal v-model:visible="editModal.visible" title="编辑企业档案" :width="720" @ok="confirmEdit" @cancel="resetEditModal" :confirm-loading="editModal.loading" :mask-closable="false">
+    <a-modal v-model:visible="editModal.visible" title="编辑企业档案" :width="720" @ok="confirmEdit" @cancel="resetEditModal" :confirm-loading="editModal.loading" :mask-closable="false" :on-before-ok="beforeOkEdit" @before-cancel="beforeCancelEdit">
       <a-alert
         v-if="editModal.status && editModal.status !== 'draft' && editModal.status !== 'supplement_required'"
         type="warning"
@@ -154,7 +157,7 @@
     </a-modal>
 
     <!-- 审核意见弹窗：驳回必填理由（持久化到 review_comment，用户端可见） -->
-    <a-modal v-model:visible="reviewModal.visible" :title="reviewModal.action === 'approved' ? '审核通过' : '驳回企业'" :width="520" @ok="confirmReview" @cancel="resetReviewModal" :confirm-loading="reviewModal.loading">
+    <a-modal v-model:visible="reviewModal.visible" :title="reviewModal.action === 'approved' ? '审核通过' : '驳回企业'" :width="520" @ok="confirmReview" @cancel="resetReviewModal" :confirm-loading="reviewModal.loading" :on-before-ok="beforeOkReview" @before-cancel="beforeCancelReview">
       <a-form layout="vertical">
         <a-form-item :label="reviewModal.action === 'approved' ? '审核意见（选填）' : '驳回理由（必填，将展示给申请人）'" required>
           <a-textarea
@@ -173,6 +176,8 @@
 <script setup>
 import { ref } from 'vue'
 import { showSuccessToast, showFailToast } from '@/utils/feedback'
+import Modal from '@arco-design/web-vue/es/modal'
+import '@arco-design/web-vue/es/modal/style/css'
 import { reviewEnterprise, updateEnterprise } from '@/api/admin/enterprise'
 import CrudList from '../components/CrudList.vue'
 
@@ -207,6 +212,13 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// 敏感信息展示：列表联系电话脱敏（详情/编辑保留完整号码，供管理员联系/核对）
+const maskPhone = (p) => {
+  if (!p) return '-'
+  const s = String(p).trim()
+  return s.length < 7 ? s : `${s.slice(0, 3)}****${s.slice(-4)}`
+}
+
 // 批量动作：仅批量通过（无需理由）；驳回必须逐条填写理由，避免无说明驳回
 const batchActions = [
   { key: 'approve', label: '批量通过', status: 'success', api: (row) => reviewEnterprise(row.id, { action: 'approved', reason: '' }) }
@@ -228,7 +240,7 @@ const columns = [
   { title: '企业名称', dataIndex: 'name', slotName: 'name', minWidth: 180 },
   { title: '对公账户', dataIndex: 'account_name', width: 160 },
   { title: '法人', dataIndex: 'legal_person', width: 100 },
-  { title: '联系电话', dataIndex: 'contact_phone', width: 130 },
+  { title: '联系电话', dataIndex: 'contact_phone', slotName: 'contactPhone', width: 130 },
   { title: '审核状态', dataIndex: 'status', slotName: 'status', width: 100 },
   { title: '提交时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160 },
   { title: '操作', slotName: 'actions', width: 200, fixed: 'right' },
@@ -269,6 +281,28 @@ const openEditModal = (ent) => {
       description: ent.description || '',
     },
   }
+  editFormSnapshot = JSON.stringify(editModal.value.form)
+}
+
+// 未保存守卫：编辑弹窗 Esc/遮罩/X/取消 关闭前若有改动则确认，避免输入丢失
+let editFormSnapshot = ''
+const beforeCancelEdit = () => {
+  if (JSON.stringify(editModal.value.form) === editFormSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '编辑内容有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { editModal.value.visible = false },
+  })
+  return false
+}
+// OK 前校验：不合法则不关闭弹窗（Arco onBeforeOk 返回 false 阻止关闭），避免输入丢失
+const beforeOkEdit = () => {
+  const { form } = editModal.value
+  if (!form.name || !form.name.trim()) { showFailToast('请填写企业名称'); return false }
+  if (!form.credit_code || !form.credit_code.trim()) { showFailToast('请填写统一社会信用代码'); return false }
+  return true
 }
 
 const resetEditModal = () => {
@@ -318,6 +352,27 @@ const reviewModal = ref({ visible: false, action: 'approved', record: null, reas
 
 const openReviewModal = (ent, action) => {
   reviewModal.value = { visible: true, action, record: ent, reason: '', loading: false }
+  reviewReasonSnapshot = reviewModal.value.reason
+}
+
+// 未保存守卫：审核弹窗 Esc/遮罩/X/取消 关闭前若有改动则确认，避免驳回理由丢失
+let reviewReasonSnapshot = ''
+const beforeCancelReview = () => {
+  if (reviewModal.value.reason === reviewReasonSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '审核意见有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { reviewModal.value.visible = false },
+  })
+  return false
+}
+// OK 前校验：驳回必须填写理由，不合法则不关闭弹窗
+const beforeOkReview = () => {
+  const { action, reason } = reviewModal.value
+  if (action === 'rejected' && !reason.trim()) { showFailToast('请填写驳回理由'); return false }
+  return true
 }
 
 const resetReviewModal = () => {

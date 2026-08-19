@@ -55,7 +55,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑职位' : '新增职位'" :width="560" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑职位' : '新增职位'" :width="560" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="职位名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="类型">
@@ -79,7 +79,7 @@
         <a-form-item label="职位描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -143,8 +143,8 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', title: '', location: '', salary: 0, job_type: '全职', status: 'published', description: '' })
-const resetForm = () => Object.assign(form, { id: '', title: '', location: '', salary: 0, job_type: '全职', status: 'published', description: '' })
+const form = reactive({ id: '', title: '', location: '', salary: 0, job_type: '全职', status: 'published', description: '', enterprise_id: null })
+const resetForm = () => Object.assign(form, { id: '', title: '', location: '', salary: 0, job_type: '全职', status: 'published', description: '', enterprise_id: null })
 
 const openForm = (row) => {
   resetForm()
@@ -153,11 +153,14 @@ const openForm = (row) => {
     Object.assign(form, {
       id: row.id, title: row.title || '', location: row.location || '',
       salary: row.salary_fen ? Math.round(row.salary_fen / 100 * 100) / 100 : 0,
-      job_type: row.job_type || '全职', status: row.status || 'published', description: row.description || ''
+      job_type: row.job_type || '全职', status: row.status || 'published', description: row.description || '',
+      // 原行企业归属：后端 PUT 全字段覆盖，不带上会把 enterprise_id 清空
+      enterprise_id: row.enterprise_id ?? null
     })
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -171,12 +174,14 @@ const submitForm = async () => {
       salary_fen: Math.round((Number(form.salary) || 0) * 100)
     }
     if (formEdit.value) {
-      await api.update(form.id, p)
+      // 编辑时并入原行 enterprise_id，避免后端全字段覆盖清空企业归属
+      await api.update(form.id, { ...p, enterprise_id: form.enterprise_id })
       Message.success('更新成功')
     } else {
       await api.create(p)
       Message.success('创建成功')
     }
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) {
@@ -185,6 +190,22 @@ const submitForm = async () => {
     formLoading.value = false
   }
 }
+
+// 未保存守卫：X/Esc/遮罩/取消 关闭前，表单有改动则确认（onBeforeCancel 返回 false 阻断关闭）
+let formSnapshot = ''
+const guardClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+// 底部取消按钮：走守卫，确认无改动/放弃修改后才真正关闭
+const handleCancel = () => { if (guardClose()) formVisible.value = false }
 
 const handleDelete = (row) => {
   Modal.confirm({

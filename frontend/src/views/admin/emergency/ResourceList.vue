@@ -40,7 +40,7 @@
             <a-tag :color="typeTag(currentItem.res_type)" size="small">{{ typeLabel(currentItem.res_type) }}</a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="规格">{{ currentItem.specs || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="数量">{{ currentItem.quantity || 0 }}</a-descriptions-item>
+          <a-descriptions-item label="数量">{{ currentItem.quantity ?? '-' }}</a-descriptions-item>
           <a-descriptions-item label="位置">{{ currentItem.location || '-' }}</a-descriptions-item>
           <a-descriptions-item label="联系人">{{ currentItem.contact_info || '-' }}</a-descriptions-item>
           <a-descriptions-item label="状态">
@@ -51,7 +51,7 @@
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑应急资源' : '新增应急资源'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑应急资源' : '新增应急资源'" :width="560" :mask-closable="false" :unmount-on-close="true" @before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
         <a-form-item label="资源名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
         <a-form-item label="类型">
@@ -76,7 +76,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="cancelForm">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -135,16 +135,46 @@ const showDetail = (r) => { currentItem.value = r; detailVisible.value = true }
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', name: '', res_type: 'drone', specs: '', quantity: 0, location: '', contact_info: '', status: 'available' })
-const resetForm = () => Object.assign(form, { id: '', name: '', res_type: 'drone', specs: '', quantity: 0, location: '', contact_info: '', status: 'available' })
+const form = reactive({ id: '', name: '', res_type: 'drone', specs: '', quantity: null, location: '', contact_info: '', status: 'available' })
+const resetForm = () => Object.assign(form, { id: '', name: '', res_type: 'drone', specs: '', quantity: null, location: '', contact_info: '', status: 'available' })
+
+// 未保存守卫：Esc/遮罩/X/取消 关闭前若有改动则确认，避免输入全丢
+let formSnapshot = ''
+const confirmDiscard = (onOk) => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk,
+  })
+}
+// Arco 2.x：@before-cancel 为同步守卫（返回 false 阻止关闭），Esc/X/遮罩均走此路径
+const beforeCancel = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  confirmDiscard(() => { formVisible.value = false })
+  return false
+}
+// footer 取消按钮也走守卫
+const cancelForm = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return }
+  confirmDiscard(() => { formVisible.value = false })
+}
+
 const openForm = (r) => {
   resetForm()
   if (r) {
     formEdit.value = true
-    Object.assign(form, { ...r, quantity: r.quantity || 0 })
+    // 显式映射可编辑字段：不整行回传，避免把只读字段（id/created_at 等）带回提交
+    Object.assign(form, {
+      id: r.id, name: r.name || '', res_type: r.res_type || 'drone', specs: r.specs || '',
+      quantity: r.quantity ?? null, location: r.location || '', contact_info: r.contact_info || '',
+      status: r.status || 'available',
+    })
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -154,9 +184,19 @@ const submitForm = async () => {
   if (!form.name) { Message.warning('请输入资源名称'); return }
   formLoading.value = true
   try {
-    const p = { ...form }
+    // 只提交可编辑字段；数量为空传 null，不伪造 0
+    const p = {
+      name: form.name,
+      res_type: form.res_type,
+      specs: form.specs || '',
+      quantity: form.quantity ?? null,
+      location: form.location || '',
+      contact_info: form.contact_info || '',
+      status: form.status,
+    }
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }

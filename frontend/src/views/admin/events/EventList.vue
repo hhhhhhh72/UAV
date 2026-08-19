@@ -51,7 +51,7 @@
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑活动' : '新增活动'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑活动' : '新增活动'" :width="560" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="活动名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="类型">
@@ -79,7 +79,7 @@
         <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -147,14 +147,47 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', title: '', event_type: '论坛', location: '', cover_url: '', start_time: '', end_time: '', max_attendees: 0, status: 'published', description: '' })
 const resetForm = () => Object.assign(form, { id: '', title: '', event_type: '论坛', location: '', cover_url: '', start_time: '', end_time: '', max_attendees: 0, status: 'published', description: '' })
+
+// 未保存守卫：formSnapshot 快照比对 + Modal.confirm；
+// X/遮罩/Esc 走 on-before-cancel（onBeforeCancel 返回 false 阻止关闭），footer 取消按钮也走守卫
+let formSnapshot = ''
+const takeSnapshot = () => { formSnapshot = JSON.stringify(form) }
+const guardClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+const handleCancel = () => {
+  if (guardClose()) formVisible.value = false
+}
+
 const openForm = (r) => {
   resetForm()
   if (r) {
     formEdit.value = true
-    Object.assign(form, r)
+    // 显式映射可写字段，避免 reg_count/created_at 等只读/统计字段混入表单后被全量回传
+    Object.assign(form, {
+      id: r.id,
+      title: r.title || '',
+      event_type: r.event_type || '论坛',
+      location: r.location || '',
+      cover_url: r.cover_url || '',
+      start_time: r.start_time || '',
+      end_time: r.end_time || '',
+      max_attendees: r.max_attendees ?? 0,
+      status: r.status || 'published',
+      description: r.description || '',
+    })
   } else {
     formEdit.value = false
   }
+  takeSnapshot()
   formVisible.value = true
 }
 
@@ -164,9 +197,21 @@ const submitForm = async () => {
   if (!form.title) { Message.warning('请输入活动名称'); return }
   formLoading.value = true
   try {
-    const p = { ...form }
+    // 白名单 payload：只回传可写字段，避免 reg_count 等只读/统计字段覆盖后端数据
+    const p = {
+      title: form.title,
+      event_type: form.event_type,
+      location: form.location,
+      cover_url: form.cover_url,
+      start_time: form.start_time,
+      end_time: form.end_time,
+      max_attendees: form.max_attendees,
+      status: form.status,
+      description: form.description,
+    }
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
+    takeSnapshot()
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }

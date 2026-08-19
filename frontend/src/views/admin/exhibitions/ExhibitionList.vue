@@ -54,7 +54,7 @@
     </a-modal>
 
     <!-- 表单弹窗（新增/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑展会' : '新增展会'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑展会' : '新增展会'" :width="560" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="guardClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="展会名称" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="展位数"><a-input-number v-model="form.booth_count" :min="0" hide-button style="width: 100%" /></a-form-item>
@@ -78,7 +78,7 @@
         <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -144,15 +144,50 @@ const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', title: '', category: '', location: '', cover_url: '', start_date: '', end_date: '', booth_count: 0, organizer: '', boothPriceYuan: null, status: 'draft', description: '' })
 const resetForm = () => Object.assign(form, { id: '', title: '', category: '', location: '', cover_url: '', start_date: '', end_date: '', booth_count: 0, organizer: '', boothPriceYuan: null, status: 'draft', description: '' })
+
+// 未保存守卫：formSnapshot 快照比对 + Modal.confirm；
+// X/遮罩/Esc 走 on-before-cancel（onBeforeCancel 返回 false 阻止关闭），footer 取消按钮也走守卫
+let formSnapshot = ''
+const takeSnapshot = () => { formSnapshot = JSON.stringify(form) }
+const guardClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
+}
+const handleCancel = () => {
+  if (guardClose()) formVisible.value = false
+}
+
 const openForm = (r) => {
   resetForm()
   if (r) {
     formEdit.value = true
+    // 显式映射可写字段，避免只读/统计字段混入表单后被全量回传；
     // booth_price_fen(分) → boothPriceYuan(元) 回显
-    Object.assign(form, { ...r, booth_count: r.booth_count || 0, boothPriceYuan: r.booth_price_fen ? Math.round(r.booth_price_fen / 100 * 100) / 100 : null })
+    Object.assign(form, {
+      id: r.id,
+      title: r.title || '',
+      category: r.category || '',
+      location: r.location || '',
+      cover_url: r.cover_url || '',
+      start_date: r.start_date || '',
+      end_date: r.end_date || '',
+      booth_count: r.booth_count ?? 0,
+      organizer: r.organizer || '',
+      status: r.status || 'draft',
+      description: r.description || '',
+      boothPriceYuan: r.booth_price_fen ? Math.round(r.booth_price_fen / 100 * 100) / 100 : null,
+    })
   } else {
     formEdit.value = false
   }
+  takeSnapshot()
   formVisible.value = true
 }
 
@@ -162,12 +197,24 @@ const submitForm = async () => {
   if (!form.title) { Message.warning('请输入展会名称'); return }
   formLoading.value = true
   try {
-    // boothPriceYuan(元) → booth_price_fen(分) 提交
-    const p = { ...form }
-    p.booth_price_fen = Math.round((form.boothPriceYuan || 0) * 100)
-    delete p.boothPriceYuan
+    // 白名单 payload：只回传可写字段；
+    // boothPriceYuan(元) → booth_price_fen(分)，清空（null/空）时提交 null（"未设置"），不写 0 分
+    const p = {
+      title: form.title,
+      category: form.category,
+      location: form.location,
+      cover_url: form.cover_url,
+      start_date: form.start_date,
+      end_date: form.end_date,
+      booth_count: form.booth_count,
+      organizer: form.organizer,
+      status: form.status,
+      description: form.description,
+      booth_price_fen: form.boothPriceYuan == null || form.boothPriceYuan === '' ? null : Math.round(Number(form.boothPriceYuan) * 100),
+    }
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
+    takeSnapshot()
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }

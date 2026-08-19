@@ -46,7 +46,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑品牌' : '新增品牌'" :width="560" destroy-on-close>
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑品牌' : '新增品牌'" :width="560" :on-before-cancel="beforeClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="品牌名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
         <a-form-item label="Logo URL"><a-input v-model="form.logo_url" style="width: 100%" /></a-form-item>
@@ -62,7 +62,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="cancelForm">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
       </template>
     </a-modal>
@@ -124,6 +124,7 @@ const openForm = (r) => {
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 const submitForm = async () => {
@@ -133,10 +134,33 @@ const submitForm = async () => {
     const p = { id: form.id, name: form.name, logo_url: form.logo_url, cover_url: form.cover_url, description: form.description, status: form.status, honors: String(form.honorsText || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean) }
     formEdit.value ? await api.update(form.id, p) : await api.create(p)
     Message.success(formEdit.value ? '更新成功' : '创建成功')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
   finally { formLoading.value = false }
+}
+// 未保存守卫：Esc/点 X/点遮罩/底部取消 关闭前比对快照，有改动先确认
+// 注意：Arco 2.58 无 beforeClose prop（beforeClose 只是 emits 事件），
+// 需用 on-before-cancel 拦截用户关闭（X/ESC/遮罩）；底部取消按钮走 cancelForm。
+let formSnapshot = ''
+const confirmDiscard = () => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+}
+const cancelForm = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return }
+  confirmDiscard()
+}
+const beforeClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  confirmDiscard()
+  return false
 }
 const handleApprove = async (r) => {
   // 传完整行：后端 update 是全字段覆盖，只传 status 会清空 name/logo/描述等

@@ -22,7 +22,6 @@
       <template #actions="{ record }">
         <a-space :size="4">
           <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
-          <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
           <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
       </template>
@@ -52,15 +51,15 @@
       </template>
     </a-modal>
 
-    <!-- 表单弹窗（发送/编辑） -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑通知' : '发送通知'" :width="560" :mask-closable="false" :unmount-on-close="true" @cancel="formVisible = false">
+    <!-- 表单弹窗（发送/广播） -->
+    <a-modal v-model:visible="formVisible" title="发送通知" :width="560" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
         <a-form-item label="消息标题" required><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="留空 = 广播给全部用户" style="width: 100%" /></a-form-item>
         <a-form-item label="消息内容" required><a-input v-model="form.content" type="textarea" :rows="5" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="beforeCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">发送</a-button>
       </template>
     </a-modal>
@@ -106,20 +105,30 @@ const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
 
 const formVisible = ref(false)
-const formEdit = ref(false)
 const formLoading = ref(false)
 const form = reactive({ id: '', title: '', receiver_id: '', content: '' })
 const resetForm = () => Object.assign(form, { id: '', title: '', receiver_id: '', content: '' })
 
-const openForm = (row) => {
+// 仅支持发送/广播：后端没有消息更新接口（PUT /admin/messages/{id} 实为标记已读），
+// 原"编辑"会走创建逻辑重复入库，故列表不提供编辑入口，避免产生重复消息。
+const openForm = () => {
   resetForm()
-  if (row) {
-    formEdit.value = true
-    Object.assign(form, { title: row.title || '', receiver_id: row.receiver_id || '', content: row.content || '' })
-  } else {
-    formEdit.value = false
-  }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
+}
+
+// 未保存守卫：Esc/点 X/点取消关闭前，若表单有改动则确认，避免输入全丢
+let formSnapshot = ''
+const beforeCancel = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return true }
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+  return false
 }
 
 const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '发送失败'
@@ -131,6 +140,7 @@ const submitForm = async () => {
     const p = { sender_id: 'system', receiver_id: form.receiver_id || '', title: form.title, content: form.content }
     await api.create(p)
     Message.success(form.receiver_id ? '发送成功' : '已广播给全部用户')
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) { Message.error(errMsg(e)) }

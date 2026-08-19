@@ -52,7 +52,7 @@
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
-    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑成果' : '新增成果'" :width="560" @cancel="formVisible = false">
+    <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑成果' : '新增成果'" :width="560" :on-before-cancel="beforeClose">
       <a-form :model="form" layout="vertical">
         <a-form-item label="成果名称"><a-input v-model="form.title" style="width: 100%" /></a-form-item>
         <a-form-item label="领域"><a-input v-model="form.field" style="width: 100%" /></a-form-item>
@@ -89,7 +89,7 @@
         </a-form-item>
       </a-form>
       <template #footer>
-        <a-button @click="formVisible = false">取消</a-button>
+        <a-button @click="cancelForm">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">确定</a-button>
       </template>
     </a-modal>
@@ -171,6 +171,7 @@ const openForm = (row) => {
   } else {
     formEdit.value = false
   }
+  formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
 
@@ -186,6 +187,7 @@ const submitForm = async () => {
       await api.create(p)
       Message.success('创建成功')
     }
+    formSnapshot = JSON.stringify(form)
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) {
@@ -193,6 +195,29 @@ const submitForm = async () => {
   } finally {
     formLoading.value = false
   }
+}
+
+// 未保存守卫：Esc/点 X/点遮罩/底部取消 关闭前比对快照，有改动先确认
+// 注意：Arco 2.58 无 beforeClose prop（beforeClose 只是 emits 事件），
+// 需用 on-before-cancel 拦截用户关闭（X/ESC/遮罩）；底部取消按钮走 cancelForm。
+let formSnapshot = ''
+const confirmDiscard = () => {
+  Modal.confirm({
+    title: '放弃修改',
+    content: '表单有未保存的修改，确定放弃吗？',
+    okText: '放弃修改',
+    cancelText: '继续编辑',
+    onOk: () => { formVisible.value = false },
+  })
+}
+const cancelForm = () => {
+  if (JSON.stringify(form) === formSnapshot) { formVisible.value = false; return }
+  confirmDiscard()
+}
+const beforeClose = () => {
+  if (JSON.stringify(form) === formSnapshot) return true
+  confirmDiscard()
+  return false
 }
 
 const handleDelete = (row) => {
