@@ -95,7 +95,7 @@
       </a-form>
       <template #footer>
         <a-button @click="cancelForm">取消</a-button>
-        <a-button type="primary" :loading="formLoading" @click="submitForm">提交</a-button>
+        <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
       </template>
     </a-modal>
   </div>

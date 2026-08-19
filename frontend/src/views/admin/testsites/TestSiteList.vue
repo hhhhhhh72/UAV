@@ -35,7 +35,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="场地详情" :width="640" :footer="false" :mask-closable="false">
+    <a-modal v-model:visible="detailVisible" title="场地详情" :width="'min(640px, 94vw)'" :footer="false" :mask-closable="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="场地名称" :span="2">{{ currentItem.name || '-' }}</a-descriptions-item>
@@ -56,7 +56,7 @@
     <!-- 表单弹窗（新增/编辑） -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑场地' : '新增场地'" :width="'min(560px, 94vw)'" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeClose" @close="resetForm">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="场地名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
+        <a-form-item label="场地名称" required><a-input v-model="form.name" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
         <a-form-item label="类型">
           <a-select v-model="form.site_type" style="width: 100%">

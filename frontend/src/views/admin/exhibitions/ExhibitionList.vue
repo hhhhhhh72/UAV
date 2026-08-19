@@ -247,5 +247,5 @@ const handleDelete = (r) => {
   max-width: 300px;
 }
 
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 </style>

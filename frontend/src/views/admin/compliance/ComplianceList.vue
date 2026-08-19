@@ -406,7 +406,7 @@ const handleDelete = (row) => {
 
 .tab-card { margin-bottom: 16px; }
 
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 
 .dialog-form :deep(.arco-form-item-label-col) { min-width: 88px; }
 

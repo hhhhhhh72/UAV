@@ -516,7 +516,7 @@
     <a-modal
       v-model:visible="showStudyItemEditPopup"
       title="编辑图文"
-      :width="560"
+      :width="'min(560px, 94vw)'"
       :unmount-on-close="true"
       :on-before-cancel="guardStudyItemClose"
     >
@@ -558,7 +558,7 @@
     <a-modal
       v-model:visible="showShowcaseEditPopup"
       title="编辑精彩回顾"
-      :width="560"
+      :width="'min(560px, 94vw)'"
       :unmount-on-close="true"
       :on-before-cancel="guardShowcaseClose"
     >
@@ -659,7 +659,7 @@
     <a-modal
       v-model:visible="showAddPackagePopup"
       title="新增课程包"
-      :width="480"
+      :width="'min(480px, 94vw)'"
       :unmount-on-close="true"
       :on-before-cancel="guardAddPackageClose"
     >

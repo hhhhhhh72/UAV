@@ -38,7 +38,7 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="企业详情" :width="640" :footer="false" :mask-closable="false">
+    <a-modal v-model:visible="detailVisible" title="企业详情" :width="'min(640px, 94vw)'" :footer="false" :mask-closable="false">
       <template v-if="currentEnterprise">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="企业名称" :span="2">{{ currentEnterprise.name || '-' }}</a-descriptions-item>
@@ -412,7 +412,7 @@ const confirmReview = async () => {
 
 .cell-name { font-weight: 500; color: var(--color-text-1); }
 
-.time-text { color: #86909C; font-size: 12px; }
+.time-text { color: var(--color-text-2); font-size: 12px; }
 
 .license-img { cursor: pointer; }
 
