@@ -131,7 +131,7 @@ function collegeLevel(item) {
   return 'undergraduate'
 }
 
-/** 封面图 URL：兼容 cover / image / campus_image / cover_image */
+/** 封面图 URL：兼容 cover / image / campus_image / cover_image / logo_url */
 /** 生产库院校 cover 为空，按 id 兜底映射本地校园图（与 mock 同一套图） */
 const COVER_FALLBACK = {
   'college-1': '/static/colleges/buaa-library.jpg',
@@ -142,7 +142,7 @@ const COVER_FALLBACK = {
   'college-6': '/static/colleges/cauc-scenery.jpg',
 }
 function coverOf(item) {
-  const u = item.cover || item.image || item.campus_image || item.cover_image
+  const u = item.cover || item.image || item.campus_image || item.cover_image || item.logo_url
   return u ? u : COVER_FALLBACK[item.id] || ''
 }
 
