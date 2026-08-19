@@ -35,15 +35,18 @@
     </CrudList>
 
     <!-- 详情弹窗 -->
-    <a-modal v-model:visible="detailVisible" title="院校详情" :width="'min(600px, 94vw)'" :footer="false">
+    <a-modal v-model:visible="detailVisible" title="院校详情" :width="'min(640px, 94vw)'" :footer="false">
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="院校名称" :span="2">{{ currentItem.name || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="所在城市">{{ currentItem.city || currentItem.region || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="院校简称">{{ currentItem.short_name || '-' }}</a-descriptions-item>
           <a-descriptions-item label="分域">{{ coopTypeLabel[currentItem.coop_type] || coopTypeLabel.both }}</a-descriptions-item>
-          <a-descriptions-item label="地区">{{ currentItem.region || '-' }}</a-descriptions-item>
           <a-descriptions-item label="合作状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</a-tag>
           </a-descriptions-item>
+          <a-descriptions-item label="层次标签" :span="2">{{ currentItem.level_tags || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="类型标签" :span="2">{{ arrText(currentItem.tags) || '-' }}</a-descriptions-item>
           <a-descriptions-item label="Logo" :span="2">
             <a-image
               v-if="currentItem.logo_url"
@@ -57,9 +60,30 @@
             />
             <span v-else>-</span>
           </a-descriptions-item>
+          <a-descriptions-item label="无人机专业数">{{ currentItem.major_count ?? '-' }}</a-descriptions-item>
+          <a-descriptions-item label="合作企业数">{{ currentItem.partner_count ?? '-' }}</a-descriptions-item>
+          <a-descriptions-item label="在读学生">{{ currentItem.student_count ?? '-' }}</a-descriptions-item>
+          <a-descriptions-item label="硕博导师数">{{ currentItem.teacher_count ?? '-' }}</a-descriptions-item>
+          <a-descriptions-item label="就业率">{{ currentItem.graduate_rate || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="联系电话">{{ currentItem.phone || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="官网" :span="2">
+            <a-link v-if="currentItem.website" :href="currentItem.website" target="_blank">{{ currentItem.website }}</a-link>
+            <span v-else>-</span>
+          </a-descriptions-item>
+          <a-descriptions-item label="院校介绍" :span="2">{{ currentItem.intro || currentItem.description || '-' }}</a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.majors_detail && currentItem.majors_detail.length" label="无人机专业" :span="2">
+            <div v-for="m in currentItem.majors_detail" :key="m.name" class="detail-item">
+              {{ m.name }} <span class="detail-tag">{{ m.degree || '本科' }} · {{ m.duration || 4 }}年制</span>
+              <span v-if="m.flagship" class="detail-tag detail-tag--hot">王牌</span>
+            </div>
+          </a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.partners && currentItem.partners.length" label="合作企业" :span="2">
+            <div v-for="p in currentItem.partners" :key="p.name" class="detail-item">
+              {{ p.name }} <span class="detail-tag">{{ p.type || '合作单位' }}</span>
+            </div>
+          </a-descriptions-item>
           <a-descriptions-item label="特色专业" :span="2">{{ arrText(currentItem.majors) || '-' }}</a-descriptions-item>
           <a-descriptions-item label="实训设施" :span="2">{{ arrText(currentItem.facilities) || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="简介" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
           <a-descriptions-item label="创建时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
         </a-descriptions>
       </template>
@@ -68,6 +92,7 @@
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑院校' : '新增院校'" :width="'min(680px, 94vw)'" :before-close="beforeClose">
       <a-form :model="form" layout="vertical">
+        <div class="form-group-title">基本信息</div>
         <a-form-item label="院校名称" required><a-input v-model="form.name" style="width: 100%" /></a-form-item>
         <a-row :gutter="16">
           <a-col :span="12">
@@ -110,6 +135,8 @@
             <a-button v-else type="outline">点击上传</a-button>
           </a-upload>
         </a-form-item>
+
+        <div class="form-group-title">图片</div>
         <a-form-item label="封面图">
           <a-upload class="avatar-upload" :show-file-list="false" :custom-request="uploadCover" accept="image/*" :before-upload="beforeUpload">
             <a-avatar v-if="form.cover" :image-url="form.cover" :size="80" shape="square" />
@@ -127,6 +154,8 @@
           />
           <div class="form-tip">最多 4 张，小程序详情页校园环境四格展示</div>
         </a-form-item>
+
+        <div class="form-group-title">数据指标</div>
         <a-row :gutter="16">
           <a-col :span="8">
             <a-form-item label="无人机专业数"><a-input-number v-model="form.major_count" :min="0" :max="999999" hide-button style="width: 100%" /></a-form-item>
@@ -146,6 +175,8 @@
             <a-form-item label="就业率"><a-input v-model="form.graduate_rate" placeholder="如：98%" style="width: 100%" /></a-form-item>
           </a-col>
         </a-row>
+
+        <div class="form-group-title">联系方式</div>
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="联系电话"><a-input v-model="form.phone" placeholder="如：023-88886666" style="width: 100%" /></a-form-item>
@@ -154,7 +185,12 @@
             <a-form-item label="官网地址"><a-input v-model="form.website" placeholder="如：https://www.cqxx.edu.cn" style="width: 100%" /></a-form-item>
           </a-col>
         </a-row>
+
+        <div class="form-group-title">院校介绍</div>
         <a-form-item label="院校介绍"><a-input v-model="form.intro" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
+
+        <div class="form-group-title">专业与合作</div>
         <a-form-item label="无人机专业">
           <a-textarea v-model="form.majorsDetailText" :auto-size="{ minRows: 2, maxRows: 5 }" placeholder="每行一个专业，格式：名称|学历|年制|王牌，如：&#10;飞行器设计与工程|本科|4|1&#10;无人机系统工程|本科|4|0&#10;飞行器控制与信息工程|硕士|3|0" style="width: 100%" />
           <div class="form-tip">学历：本科/硕士/博士；王牌填 1 表示该专业为国家级特色专业</div>
@@ -164,7 +200,6 @@
         </a-form-item>
         <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" style="width: 100%" /></a-form-item>
         <a-form-item label="实训设施"><a-input v-model="form.facilitiesText" placeholder="多个设施用逗号分隔，如：实训基地,联合实验室" style="width: 100%" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="formVisible = false">取消</a-button>
@@ -470,5 +505,38 @@ const handleDelete = (row) => {
   color: var(--color-text-3);
   line-height: 1.5;
   margin-top: 4px;
+}
+
+/* 表单分区：组间宽松留白 + 细分隔线，组内保持 Arco 默认紧凑节奏 */
+.form-group-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  margin: 20px 0 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-2);
+}
+.form-group-title:first-child {
+  margin-top: 0;
+}
+
+/* 详情弹窗内嵌列表项 */
+.detail-item {
+  font-size: 13px;
+  color: var(--color-text-1);
+  line-height: 1.8;
+}
+.detail-tag {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--color-text-3);
+  background: var(--color-fill-2);
+  border-radius: 4px;
+  padding: 1px 8px;
+  margin-left: 6px;
+}
+.detail-tag--hot {
+  color: #B54708;
+  background: #FFF7F1;
 }
 </style>
