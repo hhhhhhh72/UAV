@@ -335,7 +335,6 @@
             "navigationBarTitleText": "培训认证",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
-            "navigationStyle": "custom",
             "enablePullDownRefresh": true
           }
         },
