@@ -57,7 +57,7 @@
           <a-descriptions-item label="院校名称" :span="2">{{ currentItem.name || '-' }}</a-descriptions-item>
           <a-descriptions-item label="所在城市">{{ currentItem.city || currentItem.region || '-' }}</a-descriptions-item>
           <a-descriptions-item label="院校简称">{{ currentItem.short_name || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="分域">{{ coopTypeLabel[currentItem.coop_type] || coopTypeLabel.both }}</a-descriptions-item>
+          <a-descriptions-item label="合作模式">{{ coopTypeLabel[currentItem.coop_type] || coopTypeLabel.both }}</a-descriptions-item>
           <a-descriptions-item label="合作状态">
             <a-tag :color="statusTag(currentItem.status)" size="small">{{ statusLabel[currentItem.status] || currentItem.status || '-' }}</a-tag>
           </a-descriptions-item>
@@ -120,7 +120,7 @@
         </a-row>
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="分域">
+            <a-form-item label="合作模式">
               <a-select v-model="form.coop_type" style="width: 100%">
                 <a-option value="research">科研合作</a-option>
                 <a-option value="talent">人才培养</a-option>
@@ -208,12 +208,31 @@
         </a-form-item>
 
         <div class="form-group-title">专业与合作</div>
-        <a-form-item label="无人机专业" :validate-status="majorsError ? 'error' : undefined" :help="majorsError">
-          <a-textarea ref="majorsRef" v-model="form.majorsDetailText" :auto-size="{ minRows: 2, maxRows: 5 }" placeholder="每行一个专业，格式：名称|学历|年制|王牌，如：&#10;飞行器设计与工程|本科|4|1&#10;无人机系统工程|本科|4|0&#10;飞行器控制与信息工程|硕士|3|0" style="width: 100%" />
-          <div class="form-tip">学历（如：本科/硕士/博士）；王牌填 1 表示该专业为国家级特色专业</div>
+        <a-form-item label="无人机专业">
+          <view v-for="(row, i) in majorsRows" :key="i" class="dsl-row">
+            <a-input v-model="row.name" placeholder="专业名称（如：飞行器设计与工程）" :maxlength="50" style="flex: 2; min-width: 160px" />
+            <a-select v-model="row.degree" style="width: 100px">
+              <a-option value="本科">本科</a-option>
+              <a-option value="硕士">硕士</a-option>
+              <a-option value="博士">博士</a-option>
+            </a-select>
+            <a-input-number v-model="row.duration" :min="1" :max="10" hide-button style="width: 70px" />
+            <span class="dsl-unit">年制</span>
+            <a-switch v-model="row.flagship" :checked-value="true" :unchecked-value="false" />
+            <span class="dsl-unit">王牌</span>
+            <a-button type="text" status="danger" size="small" @click="removeMajorRow(i)">删除</a-button>
+          </view>
+          <a-button type="outline" size="small" @click="addMajorRow">＋ 添加专业</a-button>
+          <div class="form-tip">王牌 = 国家级特色专业；留空则小程序不展示该区块</div>
         </a-form-item>
-        <a-form-item label="合作企业" :validate-status="partnersError ? 'error' : undefined" :help="partnersError">
-          <a-textarea ref="partnersRef" v-model="form.partnersText" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="每行一个企业，格式：名称|类型，如：&#10;大疆创新|联合实验室&#10;中航工业|实习基地" style="width: 100%" />
+        <a-form-item label="合作企业">
+          <view v-for="(row, i) in partnersRows" :key="i" class="dsl-row">
+            <a-input v-model="row.name" placeholder="企业名称（如：大疆创新）" :maxlength="50" style="flex: 2; min-width: 160px" />
+            <a-input v-model="row.type" placeholder="合作类型（如：联合实验室）" :maxlength="30" style="flex: 1; min-width: 120px" />
+            <a-button type="text" status="danger" size="small" @click="removePartnerRow(i)">删除</a-button>
+          </view>
+          <a-button type="outline" size="small" @click="addPartnerRow">＋ 添加企业</a-button>
+          <div class="form-tip">留空则小程序不展示该区块</div>
         </a-form-item>
         <a-form-item label="特色专业"><a-input v-model="form.majorsText" placeholder="多个专业用逗号分隔，如：无人机应用技术,测绘地理信息" :maxlength="200" style="width: 100%" />
           <div class="form-tip">列表页特色专业展示；与上方结构化"无人机专业"二选一即可</div>
@@ -352,7 +371,7 @@ const columns = [
   { title: 'ID', dataIndex: 'id', width: 160 },
   { title: 'Logo', dataIndex: 'logo_url', slotName: 'logo', width: 80 },
   { title: '院校名称', dataIndex: 'name', slotName: 'name', minWidth: 200 },
-  { title: '分域', dataIndex: 'coop_type', slotName: 'coopType', width: 100 },
+  { title: '合作模式', dataIndex: 'coop_type', slotName: 'coopType', width: 100 },
   { title: '所在城市', dataIndex: 'city', slotName: 'city', width: 120 },
   { title: '特色专业', dataIndex: 'majors', slotName: 'majors', minWidth: 160 },
   { title: '合作状态', dataIndex: 'status', slotName: 'status', width: 100 },
@@ -366,8 +385,6 @@ const showDetail = (row) => { currentItem.value = row; detailVisible.value = tru
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const majorsRef = ref()
-const partnersRef = ref()
 const phoneRef = ref()
 const websiteRef = ref()
 const rateRef = ref()
@@ -378,56 +395,38 @@ const arrText = (v) => (Array.isArray(v) ? v.join('、') : (v || ''))
 const splitArr = (s) => String(s || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean)
 // 专业对象数组 ↔ 文本（每行：名称|学历|年制|王牌）
 // 解析返回 { items, errors }——坏行不再静默丢弃，逐行报错指明行号；
-// 全角竖线（｜）归一为半角，避免整行被当成长名称的脏数据。
-const majorsDetailText = (list) => (Array.isArray(list) ? list.map((m) => [m.name, m.degree || '本科', m.duration || 4, m.flagship ? 1 : 0].join('|')).join('\n') : '')
-const parseMajorsDetail = (s) => {
-  const items = []
-  const errors = []
-  String(s || '').replace(/｜/g, '|').split('\n').map(l => l.trim()).filter(Boolean).forEach((line, i) => {
-    const p = line.split('|').map(x => x.trim())
-    if (p.length > 4) { errors.push(`专业第 ${i + 1} 行字段过多（应为 名称|学历|年制|王牌 4 项）`); return }
-    if (!p[0]) { errors.push(`专业第 ${i + 1} 行缺少名称`); return }
-    const duration = Number(p[2])
-    if (p[2] && (!Number.isInteger(duration) || duration < 1 || duration > 10)) {
-      errors.push(`专业第 ${i + 1} 行年制需为 1-10 的整数（当前：${p[2]}）`); return
-    }
-    if (p[3] && p[3] !== '1' && p[3] !== '0') {
-      errors.push(`专业第 ${i + 1} 行王牌需填 1 或 0（当前：${p[3]}）`); return
-    }
-    items.push({ name: p[0], degree: p[1] || '本科', duration: duration || 4, flagship: p[3] === '1', key: p[3] === '1' ? '国家级特色专业' : '' })
-  })
-  return { items, errors }
-}
-// 合作企业对象数组 ↔ 文本（每行：名称|类型）
-const partnersText = (list) => (Array.isArray(list) ? list.map((p) => [p.name, p.type || '合作单位'].join('|')).join('\n') : '')
-const parsePartners = (s) => {
-  const items = []
-  const errors = []
-  String(s || '').replace(/｜/g, '|').split('\n').map(l => l.trim()).filter(Boolean).forEach((line, i) => {
-    const p = line.split('|').map(x => x.trim())
-    if (p.length > 2) { errors.push(`合作企业第 ${i + 1} 行字段过多（应为 名称|类型 2 项）`); return }
-    if (!p[0]) { errors.push(`合作企业第 ${i + 1} 行缺少名称`); return }
-    items.push({ icon: p[0].slice(0, 1), name: p[0], type: p[1] || '合作单位' })
-  })
-  return { items, errors }
+// 结构化行编辑器：专业/合作企业（替代管道 DSL 文本域，格式错误架构上不可能）
+const majorsRows = reactive([])
+const partnersRows = reactive([])
+const addMajorRow = () => majorsRows.push({ name: '', degree: '本科', duration: 4, flagship: false })
+const removeMajorRow = (i) => majorsRows.splice(i, 1)
+const addPartnerRow = () => partnersRows.push({ name: '', type: '' })
+const removePartnerRow = (i) => partnersRows.splice(i, 1)
+const loadRows = (row) => {
+  majorsRows.length = 0
+  partnersRows.length = 0
+  ;(row.majors_detail || []).forEach((m) => majorsRows.push({ name: m.name || '', degree: m.degree || '本科', duration: m.duration || 4, flagship: !!m.flagship }))
+  ;(row.partners || []).forEach((p) => partnersRows.push({ name: p.name || '', type: p.type || '' }))
 }
 
 const form = reactive({
   id: '', name: '', city: '', short_name: '', coop_type: 'both', status: 'active',
   level_tags: '', tagsText: '', logo_url: '', cover: '', photos: [],
   major_count: null, partner_count: null, teacher_count: null, student_count: null, graduate_rate: '',
-  phone: '', website: '', intro: '', majorsDetailText: '', partnersText: '',
+  phone: '', website: '', intro: '',
   majorsText: '', facilitiesText: '', region: '', description: '',
 })
 const resetForm = () => {
   photoList.length = 0
   majorsError.value = ''
   partnersError.value = ''
+  majorsRows.length = 0
+  partnersRows.length = 0
   Object.assign(form, {
     id: '', name: '', city: '', short_name: '', coop_type: 'both', status: 'active',
     level_tags: '', tagsText: '', logo_url: '', cover: '', photos: [],
     major_count: null, partner_count: null, teacher_count: null, student_count: null, graduate_rate: '',
-    phone: '', website: '', intro: '', majorsDetailText: '', partnersText: '',
+    phone: '', website: '', intro: '',
     majorsText: '', facilitiesText: '', region: '', description: '',
   })
 }
@@ -445,15 +444,15 @@ const openForm = (row) => {
       teacher_count: row.teacher_count ?? null, student_count: row.student_count ?? null,
       graduate_rate: row.graduate_rate || '',
       phone: row.phone || '', website: row.website || '', intro: row.intro || '',
-      majorsDetailText: majorsDetailText(row.majors_detail), partnersText: partnersText(row.partners),
       majorsText: arrText(row.majors), facilitiesText: arrText(row.facilities),
       region: row.region || '', description: row.description || '',
     })
+    loadRows(row)
     ;(row.photos || []).forEach((u) => photoList.push({ name: u.split('/').pop(), url: u }))
   } else {
     formEdit.value = false
   }
-  formSnapshot = JSON.stringify(form)
+  takeSnapshot()
   formVisible.value = true
 }
 
@@ -461,23 +460,17 @@ const submitForm = async () => {
   majorsError.value = ''
   partnersError.value = ''
   if (!form.name) { Message.warning('请输入院校名称'); return }
-  // 专业/合作企业：逐行校验，坏行明确报错（一次报至多 3 条 + 计数）并聚焦对应输入框
-  const majorsParsed = parseMajorsDetail(form.majorsDetailText)
-  if (majorsParsed.errors.length > 0) {
-    const more = majorsParsed.errors.length > 3 ? ` 等 ${majorsParsed.errors.length} 处` : ''
-    majorsError.value = majorsParsed.errors.slice(0, 3).join('；') + more
-    Message.error(majorsError.value)
-    majorsRef.value && majorsRef.value.focus && majorsRef.value.focus()
-    return
-  }
-  const partnersParsed = parsePartners(form.partnersText)
-  if (partnersParsed.errors.length > 0) {
-    const more = partnersParsed.errors.length > 3 ? ` 等 ${partnersParsed.errors.length} 处` : ''
-    partnersError.value = partnersParsed.errors.slice(0, 3).join('；') + more
-    Message.error(partnersError.value)
-    partnersRef.value && partnersRef.value.focus && partnersRef.value.focus()
-    return
-  }
+  // 结构化行编辑器：仅校验每行名称非空（格式由控件架构保证）
+  const majorsItems = majorsRows
+    .map((r) => ({ name: String(r.name || '').trim(), degree: r.degree || '本科', duration: Number(r.duration) || 4, flagship: !!r.flagship, key: r.flagship ? '国家级特色专业' : '' }))
+    .filter((m) => m.name)
+  const partnersItems = partnersRows
+    .map((p) => ({ icon: (String(p.name || '').trim() || '企').slice(0, 1), name: String(p.name || '').trim(), type: String(p.type || '').trim() || '合作单位' }))
+    .filter((p) => p.name)
+  const emptyMajor = majorsRows.find((r) => !String(r.name || '').trim())
+  const emptyPartner = partnersRows.find((p) => !String(p.name || '').trim())
+  if (emptyMajor) { Message.warning('请填写专业名称或删除空行'); return }
+  if (emptyPartner) { Message.warning('请填写企业名称或删除空行'); return }
   // 联系方式/就业率格式校验（均选填，填了就要合法；错误聚焦对应输入框）
   if (form.phone && !/^[\d\-+() ]{5,20}$/.test(form.phone.trim())) {
     Message.warning('联系电话格式不正确')
@@ -519,8 +512,8 @@ const submitForm = async () => {
       major_count: Number(form.major_count) || 0, partner_count: Number(form.partner_count) || 0,
       teacher_count: Number(form.teacher_count) || 0, student_count: Number(form.student_count) || 0,
       graduate_rate: form.graduate_rate.trim(), phone: form.phone.trim(), website: form.website.trim(),
-      intro: form.intro, majors_detail: majorsParsed.items,
-      partners: partnersParsed.items,
+      intro: form.intro, majors_detail: majorsItems,
+      partners: partnersItems,
     }
     if (formEdit.value) {
       await api.update(form.id, p)
@@ -529,7 +522,7 @@ const submitForm = async () => {
       await api.create(p)
       Message.success('创建成功')
     }
-    formSnapshot = JSON.stringify(form)
+    takeSnapshot()
     formVisible.value = false
     crudRef.value?.reload()
   } catch (e) {
@@ -540,9 +533,12 @@ const submitForm = async () => {
 }
 
 // 未保存守卫：X/Esc/遮罩/取消 关闭前，表单有改动则确认（onBeforeCancel 返回 false 阻断关闭）
+// 快照同时覆盖结构化行（majorsRows/partnersRows），行的增删改也触发守卫
 let formSnapshot = ''
+const takeSnapshot = () => { formSnapshot = JSON.stringify({ f: form, m: majorsRows, p: partnersRows }) }
+const hasUnsaved = () => JSON.stringify({ f: form, m: majorsRows, p: partnersRows }) !== formSnapshot
 const guardClose = () => {
-  if (JSON.stringify(form) === formSnapshot) return true
+  if (!hasUnsaved()) return true
   Modal.confirm({
     title: '放弃修改',
     content: '表单有未保存的修改，确定放弃吗？',
@@ -559,7 +555,7 @@ const handleCancel = () => { if (guardClose()) formVisible.value = false }
 const router = useRouter()
 let pendingLeave = null
 onBeforeRouteLeave((to) => {
-  if (formVisible.value && JSON.stringify(form) !== formSnapshot) {
+  if (formVisible.value && hasUnsaved()) {
     pendingLeave = to
     Modal.confirm({
       title: '放弃修改',
@@ -617,6 +613,20 @@ const handleDelete = (row) => {
   font-size: 12px;
   color: var(--color-text-2);
   margin-left: 10px;
+}
+
+/* 结构化行编辑器：行内 flex 布局，间距紧凑 */
+.dsl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.dsl-unit {
+  font-size: 12px;
+  color: var(--color-text-3);
+  white-space: nowrap;
 }
 
 /* 表单分区：组间宽松留白 + 细分隔线，组内保持 Arco 默认紧凑节奏 */
