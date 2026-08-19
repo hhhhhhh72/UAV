@@ -982,7 +982,7 @@ export default {
   font-weight: 700;
   line-height: 1.1;
   color: #0A66C2;
-  animation: numIn 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: numIn 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .ov-unit { font-size: 20rpx; font-weight: 500; color: #98A2B3; margin-left: 2rpx; }
 .ov-label { display: block; font-size: 20rpx; color: #667085; margin-top: 4rpx; }

@@ -177,7 +177,7 @@ const avatarBg = (name) => {
 
 // ── 核心信息 ──────────────────────────
 const certCount = computed(() => (pilot.value && (pilot.value.cert_ids || []).length) || 0)
-const ratingText = computed(() => (pilot.value && pilot.value.rating > 0 ? pilot.value.rating.toFixed(1) : '5.0'))
+const ratingText = computed(() => (pilot.value && pilot.value.rating > 0 ? pilot.value.rating.toFixed(1) : '—'))
 // 评价数弱化：≥10 显示"XX 人评价"，否则"暂无评价"
 const ratingSub = computed(() => {
   const n = (pilot.value && pilot.value.completed_jobs) || 0
@@ -419,7 +419,7 @@ onReady(() => {
   height: 120rpx;
   border-radius: 50%;
   background: #DCE9FF;
-  animation: avatarIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: avatarIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .avatar-fallback {
   display: flex;
@@ -603,7 +603,7 @@ onReady(() => {
   font-weight: 700;
   color: #0A1F44;
   display: block;
-  animation: numPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: numPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .data-label { font-size: 22rpx; color: #6B7B95; margin-top: 4rpx; display: block; }
 .data-divider {

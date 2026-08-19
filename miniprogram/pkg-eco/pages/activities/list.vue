@@ -354,6 +354,19 @@ const applyFilter = () => {
   let items = fullList.value.slice()
   if (kw) items = items.filter((x) => (x.t + ' ' + x.catLabel).toLowerCase().includes(kw))
   if (activeGroup.value !== 'all') items = items.filter((x) => x.catKey === activeGroup.value)
+  // 二级分类过滤：后端无独立子类字段，对原始数据中的分类/主题/标题做包含匹配
+  const sub = subSel.value
+  if (sub && sub !== '全部活动') {
+    items = items.filter((x) => {
+      const raw = x.raw || {}
+      const blob = [
+        x.t, x.catLabel,
+        raw.category, raw.event_type, raw.activity_type,
+        raw.theme, raw.topic, raw.sub_category, raw.field, raw.location,
+      ].filter(Boolean).join(' ')
+      return blob.indexOf(sub) >= 0
+    })
+  }
   if (activeStatus.value !== 'all') items = items.filter((x) => x.status === activeStatus.value)
   // 时间过滤
   if (quick.value === 'week') {
@@ -431,6 +444,7 @@ const pickGroup = (k) => {
 const pickSub = (s) => {
   subSel.value = s
   closeAll()
+  applyFilter()
 }
 const pickStatus = (v) => { activeStatus.value = v; closeAll(); applyFilter() }
 const pickSort = (v) => { sort.value = v; closeAll(); applyFilter() }
@@ -470,7 +484,12 @@ const resetTime = () => {
   applyFilter()
 }
 
-const onSearch = () => applyFilter()
+let searchTimer = null
+const onSearch = () => {
+  // 250ms 防抖：连续输入只做一次全量重筛
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(function () { applyFilter() }, 250)
+}
 const clearSearch = () => { q.value = ''; applyFilter() }
 const goDetail = (x) => {
   try { uni.setStorageSync('act_detail_' + x.id, x.raw || x) } catch (e) { /* 存储失败不影响跳转 */ }

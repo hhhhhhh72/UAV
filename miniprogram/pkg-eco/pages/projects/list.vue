@@ -1085,7 +1085,7 @@ page {
   align-items: center;
 }
 /* 重置按钮：随激活筛选状态弹出（ios-pop 弹簧） */
-.freset { animation: chipIn .22s cubic-bezier(.34, 1.8, .64, 1) backwards; }
+.freset { animation: chipIn .22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
 @keyframes chipIn { from { transform: scale(.85); } to { transform: scale(1); } }
 
 /* ===== 信息行 ===== */
@@ -1438,7 +1438,7 @@ page {
   opacity: 0;
   transform: scale(0.5);
   pointer-events: none;
-  transition: opacity 0.2s, transform .35s cubic-bezier(.34, 1.8, .64, 1); /* ios-pop：出现/隐藏弹簧收尾，返回顶部"弹"出来 */
+  transition: opacity 0.2s, transform .35s cubic-bezier(0.16, 1, 0.3, 1); /* ios-pop：出现/隐藏弹簧收尾，返回顶部"弹"出来 */
   font-size: 20px;
   color: #666;
 }
@@ -1450,7 +1450,7 @@ page {
    禁参与动画：top/left/width/height/margin（触发重排）、box-shadow/filter（低端安卓掉帧）
    时长：微反馈 150-200ms（按压按下 .08s 即时到位）/ 松手弹簧回位 .3s（ios-pop）/ 浮层 200-300ms / 页面级 ≤400ms；
         退场 = 进场 ×0.7 且必须存在
-   曲线：两枚固定曲线——ios-pop cubic-bezier(.34,1.8,.64,1) 松手弹簧回弹（仅按压/弹出类 transform）+
+   曲线：两枚固定曲线——ios-pop cubic-bezier(0.16,1,0.3,1) 松手柔顺减速（仅按压/弹出类 transform）+
         ios-decel cubic-bezier(.32,.72,0,1) 浮层流体减速（sheet/下拉进场）；
         其余进场 ease-out / 退场 ease-in / 循环 linear；除这两枚外禁手写 cubic-bezier
    数量：列表入场仅错峰首屏 6 项，其余卡片滚动触达浮现（observer 标记）；离散筛选/排序后仅前 4 项 180ms 轻淡入（禁大批量并发动画）
@@ -1492,7 +1492,7 @@ page {
 .cl.replay .card:nth-child(4) { animation-delay: 90ms; }
 @keyframes listFade { from { opacity: .3; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 /* 卡片按压（快进慢出）：hover-start-time=0 按下立即触发；按下 .1s linear 直接到位，松手 .35s ios-pop 弹簧回位——iOS"即按即应、松手弹回"手感 */
-.card { transition: transform .35s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop */
+.card { transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop */
 .card.tap-scale { transition-duration: .1s; transition-timing-function: linear; }
 
 /* Banner 内部微编排（替代整块 fadeUp）：图标 0ms → 标题 80ms → 装饰圆 120ms → 副文案 140ms，
@@ -1531,28 +1531,28 @@ page {
 
 /* 2) 交互反馈：可点元素按压反馈（按下 .08s linear 即时到位；松手 .3s ios-pop 弹簧回位；opacity/background 150-200ms） */
 .freset:active { opacity: .7; }
-.irs { transition: opacity .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop */
+.irs { transition: opacity .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop */
 .irs:active { opacity: .7; transform: scale(.95); transition: transform .08s linear; }
 .sp-opt { transition: background .2s ease, color .2s ease; }
 .sp-opt:active { background: #F4F8FC; }
 .b-sclr:active { opacity: .6; }
 .b-sbtn { transition: opacity .2s ease; }
 .b-sbtn:active { opacity: .5; }
-.stb { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop：松手弹簧回位 */
+.stb { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop：松手弹簧回位 */
 .stb:active { transform: scale(.95); opacity: .85; transition: transform .08s linear; }
-.cal-nav { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease; } /* ios-pop */
+.cal-nav { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease; } /* ios-pop */
 .cal-nav:active { transform: scale(.9); background: #E9EFF7; transition: transform .08s linear; }
 .cal-reset { transition: opacity .2s ease; }
 .cal-reset:active { opacity: .6; }
-.money-done { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, opacity .15s ease; } /* ios-pop */
+.money-done { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease, opacity .15s ease; } /* ios-pop */
 .money-done:active { transform: scale(.95); opacity: .9; transition: transform .08s linear; }
 
 /* 3) 状态过渡：chip 选中 200ms 平滑 + ios-pop 微弹过冲回位；日历格选中/范围高亮 200ms 平滑；日历格按压轻微缩放（弹簧回位） */
-.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop：松手弹簧回位 */
+.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop：松手弹簧回位 */
 .p-chip:active { transform: scale(.94); transition: transform .08s linear; } /* 按下即时到位，其余按压变化同步走即时 */
-.p-chip.act { animation: chipPop .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop：选中微弹带轻微过冲回位 */
+.p-chip.act { animation: chipPop .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop：选中微弹带轻微过冲回位 */
 @keyframes chipPop { from { transform: scale(.9); } to { transform: scale(1); } }
-.cal-cell { transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop */
+.cal-cell { transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop */
 .cal-cell:active { transform: scale(.9); transition: transform .08s linear; }
 
 /* ===================== 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用，保留淡入与颜色反馈 ===================== */

@@ -371,7 +371,7 @@ onLoad(() => { fetchData(); refreshMineLabel() })
   background: linear-gradient(135deg, #0A66C2 0%, #0E7AE0 100%);
   border-radius: 999rpx;
   box-shadow: 0 10rpx 30rpx rgba(10, 102, 194, 0.35);
-  animation: fab-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: fab-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 /* 微光呼吸（青绿辅色光晕，呼应品牌辅色） */
 .apply-fab::after {
@@ -449,7 +449,7 @@ onLoad(() => { fetchData(); refreshMineLabel() })
   line-height: 1.2;
 }
 .stat-anim {
-  animation: statPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: statPop 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .stat-label {
   font-size: 22rpx;

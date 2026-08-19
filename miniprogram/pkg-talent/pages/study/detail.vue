@@ -558,7 +558,7 @@ onReady(() => {
   font-weight: 700;
   color: #0A1F44;
   display: block;
-  animation: numPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: numPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .info-num-green { color: #00C896; }
 .info-num-price { color: #FF8E3C; }
@@ -600,7 +600,7 @@ onReady(() => {
   margin-top: 10rpx;
   flex-shrink: 0;
   z-index: 1;
-  animation: tlNodePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: tlNodePop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .tl-item:nth-child(1) .tl-node { animation-delay: 0.3s; }
 .tl-item:nth-child(2) .tl-node { animation-delay: 0.42s; }

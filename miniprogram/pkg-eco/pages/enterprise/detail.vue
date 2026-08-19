@@ -39,6 +39,23 @@
       </view>
     </view>
 
+    <!-- 加载失败：网络/服务端错误态 + 重试 -->
+    <view v-else-if="err" class="state-panel">
+      <view class="state-mark">
+        <view class="state-mark-inner">
+          <view class="state-building">
+            <view class="state-win state-win-1" />
+            <view class="state-win state-win-2" />
+          </view>
+        </view>
+      </view>
+      <text class="state-title">加载失败</text>
+      <text class="state-desc">请检查网络后重试</text>
+      <view class="state-btn" hover-class="tap-fade" hover-stay-time="120" @tap="loadDetail">
+        <text>重新加载</text>
+      </view>
+    </view>
+
     <template v-else>
       <!-- ═══════ 品牌区：封面 + 叠压 Logo + 名称/认证 ═══════ -->
       <view class="brand-panel">
@@ -143,8 +160,10 @@ import { request, BASE_URL } from '../../../utils/request'
 
 const loading = ref(true)
 const notFound = ref(false)
+const err = ref(false)
 const ent = ref({})
 const statusBarH = ref(20)
+let detailId = ''
 
 const goBack = () => {
   // 栈感知：有上级页面则返回，否则兜底回列表页
@@ -172,27 +191,36 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
+async function loadDetail() {
+  loading.value = true
+  notFound.value = false
+  err.value = false
+  try {
+    const res = await request({ url: '/api/v1/enterprises/public/detail?id=' + encodeURIComponent(detailId) })
+    ent.value = res || {}
+  } catch (e) {
+    // 404（未审核/不存在）走空态；网络/服务端错误走错误态 + 重试
+    const status = (e && e.statusCode) || 0
+    if (status === 404) notFound.value = true
+    else err.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
 onLoad(async (query) => {
   try {
     statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20
   } catch (e) {
     // 默认 20
   }
-  const id = query && query.id
-  if (!id) {
+  detailId = query && query.id
+  if (!detailId) {
     notFound.value = true
     loading.value = false
     return
   }
-  try {
-    const res = await request({ url: '/api/v1/enterprises/public/detail?id=' + encodeURIComponent(id) })
-    ent.value = res || {}
-  } catch (e) {
-    // 404（未审核/不存在）与其他错误统一进入空态
-    notFound.value = true
-  } finally {
-    loading.value = false
-  }
+  loadDetail()
 })
 </script>
 

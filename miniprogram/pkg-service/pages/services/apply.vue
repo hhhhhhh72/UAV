@@ -848,7 +848,7 @@ const handleSubmit = async () => {
   border: 1px solid #EEF1F4;
   border-radius: 10px;
   overflow: hidden;
-  animation: summaryIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: summaryIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .summary-bar {
   position: absolute;

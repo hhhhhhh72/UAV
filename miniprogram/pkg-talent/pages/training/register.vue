@@ -341,6 +341,18 @@ async function handleSubmit() {
     uni.showToast({ title: err, icon: 'none' })
     return
   }
+  // 隐私二次确认：报名收集姓名+身份证号+证件照等高敏信息，提交前明确用途
+  const confirmed = await new Promise((resolve) => {
+    uni.showModal({
+      title: '信息授权确认',
+      content: '报名将提交您的姓名、身份证号与证件照片，用于实名报名与培训档案管理，仅平台与课程机构可见。是否确认提交？',
+      confirmText: '确认提交',
+      cancelText: '再想想',
+      success: (r) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
 
   submitting.value = true
   try {

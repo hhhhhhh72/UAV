@@ -273,7 +273,7 @@ page { background: var(--color-bg); }
 .tr-flow { position: relative; display: flex; flex-direction: column; gap: 16rpx; }
 .tr-track { position: relative; padding: 6rpx 0 10rpx; }
 .tr-base { position: absolute; left: 12.5%; right: 12.5%; top: 10rpx; border-top: 2rpx dashed #C7D2DE; z-index: 0; }
-.tr-prog { position: absolute; left: 12.5%; top: 9rpx; height: 4rpx; background: linear-gradient(90deg, var(--color-primary), #42a5f5); border-radius: 2rpx; z-index: 1; transition: width 1.1s cubic-bezier(.2,.9,.3,1); }
+.tr-prog { position: absolute; left: 12.5%; top: 9rpx; height: 4rpx; background: linear-gradient(90deg, var(--color-primary), #42a5f5); border-radius: 2rpx; z-index: 1; }
 .tr-stages { display: flex; justify-content: space-between; position: relative; z-index: 2; }
 .tr-stage { display: flex; flex-direction: column; align-items: center; gap: 8rpx; width: 25%; }
 .tr-dot { width: 20rpx; height: 20rpx; border-radius: 50%; background: #fff; border: 4rpx solid var(--color-divider); box-sizing: border-box; transition: all .3s; }
@@ -368,8 +368,8 @@ page { background: var(--color-bg); }
 .stb:active { transform: scale(.95); opacity: .85; }
 
 /* 3) 状态过渡：勾选图标出现（done 时 300ms 弹性弹出）+ 图标容器过渡 */
-.ms-ic { transition: transform .3s cubic-bezier(.2,1.4,.4,1), background .3s ease, box-shadow .3s ease; }
-.ms-item.done .ms-ic { animation: uiCheck .3s cubic-bezier(.2,1.4,.4,1); }
+.ms-ic { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .3s ease, box-shadow .3s ease; }
+.ms-item.done .ms-ic { animation: uiCheck .3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes uiCheck { 0% { transform: scale(.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
 /* 4) 渲染视觉细节 + 层级加固：连线在最底层、图标/文字在上、底部栏置顶（防穿透覆盖） */

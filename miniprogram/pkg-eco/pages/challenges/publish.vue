@@ -417,7 +417,7 @@ page {
    禁参与动画：top/left/width/height/margin（触发重排）、box-shadow/filter（低端安卓掉帧）
    时长：微反馈 150-200ms（按压按下 .08s 即时到位）/ 松手弹簧回位 .3s（ios-pop）/ 浮层 200-300ms / 页面级 ≤400ms；
         退场 = 进场 ×0.7 且必须存在
-   曲线：两枚固定曲线——ios-pop cubic-bezier(.34,1.8,.64,1) 松手弹簧回弹（仅按压/弹出类 transform）+
+   曲线：两枚固定曲线——ios-pop cubic-bezier(0.16,1,0.3,1) 松手柔顺减速（仅按压/弹出类 transform）+
         ios-decel cubic-bezier(.32,.72,0,1) 浮层流体减速（提交栏进场）；
         其余进场 ease-out / 退场 ease-in / 循环 linear；除这两枚外禁手写 cubic-bezier
    数量：入场错峰首屏可见项，整页编排 ≤400ms；循环动画任何时刻全页 ≤1 处（本页无循环动画）
@@ -441,7 +441,7 @@ page {
 
 /* 2) 成功态入场编排：圆环 ios-pop 弹簧落位（本页唯一作者时刻，.35s 过冲回位）→ 标题 40ms → 描述 80ms → 回执 120ms
    → 主按钮 160ms → 次按钮 190ms（总 390ms ≤ 400ms；backwards 填充，延迟期保持隐藏不闪跳） */
-.succ-ring { animation: ringIn .35s cubic-bezier(.34, 1.8, .64, 1) backwards; }
+.succ-ring { animation: ringIn .35s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
 .succ-title { animation: fadeUp .2s ease-out 40ms backwards; }
 .succ-desc { animation: fadeUp .2s ease-out 80ms backwards; }
 .receipt { animation: fadeUp .2s ease-out 120ms backwards; }
@@ -450,20 +450,20 @@ page {
 @keyframes ringIn { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
 
 /* 3) 状态过渡：领域 chip / 面议 chip 选中与 list 筛选面板同套（200ms 平滑 + ios-pop 微弹过冲回位） */
-.pill, .free-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop：松手弹簧回位 */
+.pill, .free-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop：松手弹簧回位 */
 .pill:active, .free-chip:active { transform: scale(.94); transition: transform .08s linear; } /* 按下即时到位，其余按压变化同步走即时 */
-.pill.act, .free-chip.act { animation: chipPop .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop：选中微弹带轻微过冲回位 */
+.pill.act, .free-chip.act { animation: chipPop .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop：选中微弹带轻微过冲回位 */
 @keyframes chipPop { from { transform: scale(.9); } to { transform: scale(1); } }
 
 /* 4) 交互反馈：按压反馈（按下 .08s linear 即时到位；松手 .3s ios-pop 弹簧回位——与 list/detail 同套手感） */
-.submit-btn { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease, background .2s ease; } /* ios-pop；含 disabled 切换平滑 */
+.submit-btn { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease, background .2s ease; } /* ios-pop；含 disabled 切换平滑 */
 .submit-btn:active { transform: scale(.95); opacity: .92; transition: transform .08s linear; }
 .submit-btn.disabled:active { transform: none; opacity: 1; } /* 提交中不响应按压 */
-.picker-value { transition: background .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop */
+.picker-value { transition: background .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop */
 .picker-value:active { background: #F4F8FC; transform: scale(.99); transition: transform .08s linear; }
-.btn-main { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease, background .2s ease; } /* ios-pop */
+.btn-main { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease, background .2s ease; } /* ios-pop */
 .btn-main:active { transform: scale(.95); opacity: .92; transition: transform .08s linear; }
-.btn-ghost { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, color .2s ease; } /* ios-pop */
+.btn-ghost { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease, color .2s ease; } /* ios-pop */
 .btn-ghost:active { background: #F4F8FC; transform: scale(.96); transition: transform .08s linear; }
 
 /* ===================== 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用，保留淡入与颜色反馈 ===================== */

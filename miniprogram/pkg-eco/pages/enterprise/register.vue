@@ -306,7 +306,7 @@ export default {
     initSafeTop()
     this.topPad = safeTopPad.value
     // 登录守卫：入驻表单提交需要 token，未登录先引导登录
-    if (!uni.getStorageSync('accessToken')) {
+    if (!authStorage.getAccessToken()) {
       uni.navigateTo({ url: '/pages/login/index' })
       return
     }
@@ -391,9 +391,22 @@ export default {
         if (!this.form.credit_code) {
           return uni.showToast({ title: '请填写信用代码', icon: 'none' })
         }
+        if (!/^[0-9A-Z]{18}$/.test(String(this.form.credit_code).trim())) {
+          return uni.showToast({ title: '信用代码应为18位字母或数字', icon: 'none' })
+        }
       }
       if (this.currentStep === 1 && this.form.industry_categories.length === 0) {
         return uni.showToast({ title: '请至少选择一个企业分类', icon: 'none' })
+      }
+      if (this.currentStep === 2) {
+        var phone = String(this.form.contact_phone || '').trim()
+        if (phone && !/^1[3-9]\d{9}$/.test(phone)) {
+          return uni.showToast({ title: '请输入正确的11位手机号', icon: 'none' })
+        }
+        var email = String(this.form.email || '').trim()
+        if (email && !/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) {
+          return uni.showToast({ title: '请输入正确的邮箱格式', icon: 'none' })
+        }
       }
       this.currentStep++
     },
@@ -506,9 +519,26 @@ export default {
       this.licensePath = ''
     },
     // ---- 提交 ----
+    // 全表单校验：逐字段返回首个错误文案，空串表示通过
+    validateAll() {
+      if (!this.form.name) return '请填写企业名称'
+      if (!this.form.credit_code) return '请填写信用代码'
+      if (!/^[0-9A-Z]{18}$/.test(String(this.form.credit_code).trim())) return '信用代码应为18位字母或数字'
+      if (this.form.industry_categories.length === 0) return '请至少选择一个企业分类'
+      var phone = String(this.form.contact_phone || '').trim()
+      if (phone && !/^1[3-9]\d{9}$/.test(phone)) return '请输入正确的11位手机号'
+      var email = String(this.form.email || '').trim()
+      if (email && !/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) return '请输入正确的邮箱格式'
+      return ''
+    },
     async handleSubmit() {
       if (this.submitting) return
       var self = this
+      var v = self.validateAll()
+      if (v) {
+        uni.showToast({ title: v, icon: 'none' })
+        return
+      }
       self.submitting = true
 
       try {

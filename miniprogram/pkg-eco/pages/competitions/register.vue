@@ -39,9 +39,9 @@
         </view>
         <view class="event-card-footer">
           <view class="event-card-price">
-            <text class="event-card-symbol">¥</text>
-            <text class="event-card-value">{{ currentPrice.toLocaleString() }}</text>
-            <text class="event-card-unit">/人起</text>
+            <text v-if="currentPrice != null" class="event-card-symbol">¥</text>
+            <text class="event-card-value">{{ priceText }}</text>
+            <text v-if="currentPrice != null" class="event-card-unit">/人起</text>
           </view>
           <view v-if="countdownText" class="event-card-countdown">{{ countdownText }}</view>
         </view>
@@ -62,8 +62,8 @@
                     <view class="ep-type-badge" :class="isTeamEvent ? 'ep-type-badge--team' : ''">{{ isTeamEvent ? '团体赛' : '个人赛' }}</view>
                   </view>
                   <view class="ep-price">
-                    <text class="ep-symbol">¥</text>
-                    <text class="ep-fee">{{ currentPrice.toLocaleString() }}</text>
+                    <text v-if="currentPrice != null" class="ep-symbol">¥</text>
+                    <text class="ep-fee">{{ priceText }}</text>
                   </view>
                 </view>
               </view>
@@ -167,9 +167,9 @@
             <view class="fee-main">
               <text class="fee-label">报名费用</text>
               <view class="fee-amount">
-                <text class="fee-symbol">¥</text>
-                <text class="fee-value">{{ currentPrice.toLocaleString() }}</text>
-                <text class="fee-suffix">/人</text>
+                <text v-if="currentPrice != null" class="fee-symbol">¥</text>
+                <text class="fee-value">{{ priceText }}</text>
+                <text v-if="currentPrice != null" class="fee-suffix">/人</text>
               </view>
               <text class="fee-sub">{{ eventOptions.length }} 项参赛项目可选</text>
             </view>
@@ -404,21 +404,22 @@ async function loadCompetition() {
   }
 }
 
+/* 费用文案：费用缺失时不编造价格，统一显示占位 */
+const priceText = computed(function () {
+  if (currentPrice.value == null) return '以主办方公布为准'
+  return currentPrice.value.toLocaleString()
+})
+
 function loadEvents(item) {
-  if (item && Array.isArray(item.events) && item.events.length > 0) {
-    eventOptions.value = item.events.map(function (e) {
-      return { label: e.name + ' · ' + (e.type || '个人赛'), fee: e.fee != null ? e.fee : 380, type: e.type || '个人赛' }
-    })
-  } else {
-    eventOptions.value = [
-      { label: '多旋翼竞速赛 · 个人赛', fee: 380, type: '个人赛' },
-      { label: '固定翼编队赛 · 团体赛', fee: 680, type: '团体赛' },
-      { label: '航拍创作赛 · 个人赛', fee: 280, type: '个人赛' },
-    ]
-  }
-  selectedEvent.value = eventOptions.value[0].label
-  currentPrice.value = eventOptions.value[0].fee
-  currentEventType.value = eventOptions.value[0].type || ''
+  // 只使用后端真实下发的参赛项目；缺失时不再兜底 mock 项目/费用
+  var list = (item && Array.isArray(item.events)) ? item.events : []
+  eventOptions.value = list.map(function (e) {
+    return { label: e.name + ' · ' + (e.type || '个人赛'), fee: e.fee != null ? e.fee : null, type: e.type || '个人赛' }
+  })
+  var first = eventOptions.value[0]
+  selectedEvent.value = first ? first.label : ''
+  currentPrice.value = first ? first.fee : null
+  currentEventType.value = first ? (first.type || '') : ''
   if (currentEventType.value !== '团体赛') {
     form.member_count = 1
   }

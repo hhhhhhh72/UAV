@@ -121,7 +121,7 @@ const handleTap = (tab, idx) => {
   height: 6rpx;
   border-radius: 3rpx;
   background: #0A66C2;
-  animation: indicatorSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: indicatorSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes indicatorSlideIn {
@@ -137,7 +137,7 @@ const handleTap = (tab, idx) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tab-icon-box--active {
@@ -167,7 +167,7 @@ const handleTap = (tab, idx) => {
   text-align: center;
   border: 2rpx solid #fff;
   box-shadow: 0 2rpx 8rpx rgba(255, 59, 48, 0.3);
-  animation: badgePopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: badgePopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes badgePopIn {

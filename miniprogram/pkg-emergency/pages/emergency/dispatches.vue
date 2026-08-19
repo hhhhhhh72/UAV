@@ -936,7 +936,6 @@ export default {
 .progress-fill {
   height: 100%;
   border-radius: 999rpx;
-  transition: width 800ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .fill--completed { background: #0A66C2; }
 .fill--ongoing { background: #168A55; }

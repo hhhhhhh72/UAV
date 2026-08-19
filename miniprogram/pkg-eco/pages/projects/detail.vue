@@ -742,7 +742,7 @@ page {
    白名单：仅 transform / opacity（小尺寸元素 color/background 过渡允许，仅重绘不重排）
    禁参与动画：top/left/width/height/margin（触发重排）、box-shadow/filter（低端安卓掉帧）
    时长：微反馈 150-200ms（按压按下 .08s 即时到位）/ 松手弹簧回位 .3s（ios-pop）/ 页面级 ≤400ms
-   曲线：两枚固定曲线：ios-pop cubic-bezier(.34,1.8,.64,1) 松手弹簧回弹（仅按压/弹出类 transform）+
+   曲线：两枚固定曲线：ios-pop cubic-bezier(0.16,1,0.3,1) 松手柔顺减速（仅按压/弹出类 transform）+
         ios-decel cubic-bezier(.32,.72,0,1) 浮层流体减速（滚动浮现/操作栏落地）；
         其余进场 ease-out / 退场 ease-in / 循环 linear；除这两枚外禁手写 cubic-bezier
    数量：入场 = 设计稿动效规划（Hero 整块淡入 → 轨道环 scale 收缩落位 → 经费数字 ios-pop 弹出），
@@ -757,7 +757,7 @@ page {
 .orb { animation: ringIn .34s cubic-bezier(.32, .72, 0, 1) 40ms backwards; }
 @keyframes ringIn { from { opacity: 0; transform: scale(1.18); } to { opacity: 1; transform: scale(1); } }
 /* 经费数字：Hero 心脏 ios-pop 弹簧弹出（80ms 起播 .25s，总 330ms ≤ 400ms） */
-.h-vl { animation: popIn .25s cubic-bezier(.34, 1.8, .64, 1) 80ms backwards; }
+.h-vl { animation: popIn .25s cubic-bezier(0.16, 1, 0.3, 1) 80ms backwards; }
 @keyframes popIn { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 /* 规格卡：60ms 起播 .25s */
 .spec-card { animation: fadeUp .25s ease-out 60ms backwards; }
@@ -785,7 +785,7 @@ page {
 .sec.seen .rt-item:nth-child(3) .rt-line { animation-delay: 160ms; }
 .sec.seen .rt-item:nth-child(4) .rt-line { animation-delay: 240ms; }
 @keyframes lineGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-.sec.seen .rt-node { animation: nodeIn .26s cubic-bezier(.34, 1.8, .64, 1) backwards; }
+.sec.seen .rt-node { animation: nodeIn .26s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
 .sec.seen .rt-item:nth-child(2) .rt-node { animation-delay: 80ms; }
 .sec.seen .rt-item:nth-child(3) .rt-node { animation-delay: 160ms; }
 .sec.seen .rt-item:nth-child(4) .rt-node { animation-delay: 240ms; }
@@ -816,16 +816,16 @@ page {
 @keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* 3) 交互反馈：按压按下 .08s linear 即时到位，松手 .3s ios-pop 弹簧回位 */
-.stb { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; }
+.stb { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
 .stb:active { transform: scale(.94); opacity: .85; transition: transform .08s linear; }
-.bi { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, color .2s ease; }
+.bi { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease, color .2s ease; }
 .bi:active { transform: scale(.9); background: #EAF3FB; transition: transform .08s linear; }
 .bi.fv:active { background: #FDECEC; }
-.bp { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; }
+.bp { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
 .bp:active { transform: scale(.95); opacity: .92; transition: transform .08s linear; }
 
 /* 4) 状态过渡：收藏点亮时心形 ios-pop 弹簧弹出（scale .8→1 自然过冲回位）；取消收藏无反向动画 */
-.bi.fv .heart { animation: heartPop .3s cubic-bezier(.34, 1.8, .64, 1); }
+.bi.fv .heart { animation: heartPop .3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes heartPop { from { transform: scale(.8); } to { transform: scale(1); } }
 
 /* 5) "紧急"状态标签呼吸：全页唯一循环动画（语义反馈：紧急在呼吸）

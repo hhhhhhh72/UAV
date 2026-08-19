@@ -224,8 +224,8 @@ const toggleFav = () => {
     uni.navigateTo({ url: '/pages/login/index' })
     return
   }
-  isFav.value = !isFav.value
-  uni.showToast({ title: isFav.value ? '已收藏' : '已取消收藏', icon: isFav.value ? 'success' : 'none', duration: 1200 })
+  // 收藏接口未就绪：不做本地假成功，保持原状态并如实提示
+  uni.showToast({ title: '收藏功能即将开放', icon: 'none', duration: 1200 })
 }
 const onShare = () => {
   uni.showToast({ title: '分享功能待开放', icon: 'none', duration: 1200 })

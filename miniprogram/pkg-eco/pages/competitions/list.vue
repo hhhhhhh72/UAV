@@ -659,10 +659,7 @@ onPullDownRefresh(function () {
 .price-num {
   font-size: 22px;
   font-weight: 800;
-  background: linear-gradient(135deg, #F97316, #E96012);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #E96012;
   line-height: 1;
 }
 

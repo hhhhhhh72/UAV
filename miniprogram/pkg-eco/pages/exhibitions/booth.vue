@@ -312,7 +312,7 @@ onLoad((options) => {
 
 /* ===== 成功态 ===== */
 .succ { padding: 80rpx 48rpx; display: flex; flex-direction: column; align-items: center; text-align: center; }
-.succ-ring { width: 176rpx; height: 176rpx; border-radius: 50%; background: linear-gradient(135deg, #34c759, #5bd88a); display: flex; align-items: center; justify-content: center; box-shadow: 0 28rpx 72rpx rgba(52,199,89,.35); margin-bottom: 44rpx; animation: pop .45s cubic-bezier(.2,1.4,.4,1) both; }
+.succ-ring { width: 176rpx; height: 176rpx; border-radius: 50%; background: linear-gradient(135deg, #34c759, #5bd88a); display: flex; align-items: center; justify-content: center; box-shadow: 0 28rpx 72rpx rgba(52,199,89,.35); margin-bottom: 44rpx; animation: pop .45s cubic-bezier(0.16, 1, 0.3, 1) both; }
 @keyframes pop { from { transform: scale(.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .succ-title { font-size: 42rpx; font-weight: 700; color: #17212B; margin-bottom: 16rpx; }
 .succ-desc { font-size: 26rpx; color: #667085; line-height: 1.7; margin-bottom: 36rpx; white-space: pre-line; }

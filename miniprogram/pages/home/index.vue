@@ -1132,7 +1132,6 @@ onPullDownRefresh(() => {
   height: 6px;
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.44);
-  transition: width 0.2s;
 }
 .hero-dot.active {
   width: 18px;

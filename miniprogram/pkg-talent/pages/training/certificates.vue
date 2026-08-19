@@ -61,6 +61,7 @@
 
 <script>
 import { request } from '../../../utils/request'
+import { requireLogin } from '../../../utils/nav'
 
 export default {
   data() {
@@ -71,10 +72,7 @@ export default {
     }
   },
   onLoad() {
-    if (!uni.getStorageSync('accessToken')) {
-      uni.navigateTo({ url: '/pages/login/index' })
-      return
-    }
+    if (!requireLogin()) return
     this.fetchList()
   },
   onPullDownRefresh() {
@@ -99,8 +97,13 @@ export default {
       }
     },
     viewCert(item) {
-      // Placeholder — could navigate to certificate detail or show image
-      uni.showToast({ title: item.title || item.cert_name || '证书详情', icon: 'none' })
+      // 有证书图则全屏预览；无图如实提示
+      var url = item && (item.image_url || item.certificate_url || item.image || item.certificate)
+      if (url) {
+        uni.previewImage({ urls: [url], current: url })
+      } else {
+        uni.showToast({ title: '暂无证书图片', icon: 'none' })
+      }
     },
     goBack() {
       uni.navigateBack()

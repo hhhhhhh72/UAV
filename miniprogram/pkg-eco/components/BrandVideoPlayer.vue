@@ -109,7 +109,7 @@ onUnmounted(stopTimer)
   background: rgba(255,255,255,.16); border: 2px solid rgba(255,255,255,.7);
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 52rpx;
-  transition: transform .25s cubic-bezier(.2,1.4,.4,1);
+  transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .vbig:active { transform: scale(.94); }
 .vbig.playing { animation: spin 1.2s linear infinite; }
@@ -118,6 +118,6 @@ onUnmounted(stopTimer)
   position: absolute; left: 40rpx; right: 40rpx; bottom: 180rpx;
   height: 6rpx; background: rgba(255,255,255,.25); border-radius: 3rpx; overflow: hidden;
 }
-.vbar-i { display: block; height: 100%; background: #fff; border-radius: 3rpx; transition: width .2s linear; }
+.vbar-i { display: block; height: 100%; background: #fff; border-radius: 3rpx; }
 .vmeta { position: absolute; bottom: 120rpx; color: rgba(255,255,255,.6); font-size: 20rpx; }
 </style>

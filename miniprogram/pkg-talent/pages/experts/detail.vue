@@ -284,7 +284,7 @@ export default {
   color: var(--color-text);
   margin-bottom: 10px;
   padding-left: 10px;
-  border-left: 3px solid var(--color-primary);
+  border-left: 1px solid var(--color-primary);
 }
 
 .section-text {

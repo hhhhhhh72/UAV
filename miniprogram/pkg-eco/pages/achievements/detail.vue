@@ -397,7 +397,7 @@ page { background: var(--color-bg); }
 .tr-flow { position: relative; display: flex; flex-direction: column; gap: 16rpx; }
 .tr-track { position: relative; padding: 6rpx 0 10rpx; }
 .tr-base { position: absolute; left: 12.5%; right: 12.5%; top: 10rpx; border-top: 2rpx dashed #C7D2DE; z-index: 0; }
-.tr-prog { position: absolute; left: 12.5%; top: 9rpx; height: 4rpx; background: linear-gradient(90deg, var(--color-primary), #42a5f5); border-radius: 2rpx; z-index: 1; transition: width 1.1s cubic-bezier(.2,.9,.3,1); }
+.tr-prog { position: absolute; left: 12.5%; top: 9rpx; height: 4rpx; background: linear-gradient(90deg, var(--color-primary), #42a5f5); border-radius: 2rpx; z-index: 1; }
 .tr-stages { display: flex; justify-content: space-between; position: relative; z-index: 2; }
 .tr-stage { display: flex; flex-direction: column; align-items: center; gap: 8rpx; width: 25%; }
 .tr-dot { width: 20rpx; height: 20rpx; border-radius: 50%; background: #fff; border: 4rpx solid var(--color-divider); box-sizing: border-box; transition: all .3s; }
@@ -428,7 +428,7 @@ page { background: var(--color-bg); }
 .bo:active { background: #e8f0fe; }
 
 /* ===== 收藏弹心（保留） ===== */
-.fp { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 48px; color: #F5A623; z-index: 100; pointer-events: none; transition: transform .4s cubic-bezier(.17,.89,.32,1.9), opacity .3s; opacity: 0; }
+.fp { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 48px; color: #F5A623; z-index: 100; pointer-events: none; transition: transform .4s cubic-bezier(0.16, 1, 0.3, 1), opacity .3s; opacity: 0; }
 .fp:not(.hide) { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 .fp.hide { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
 

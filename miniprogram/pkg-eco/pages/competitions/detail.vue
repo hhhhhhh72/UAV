@@ -44,7 +44,7 @@
             </view>
             <view class="hero-actions">
               <view class="hero-action hero-action--fav" @click="handleFav"><text class="fav-icon">♥</text></view>
-              <view class="hero-action" @click="handleShare"><text class="share-icon">↗</text></view>
+              <button class="hero-action hero-action--share" open-type="share" hover-class="press-feedback" :hover-stay-time="120"><text class="share-icon">↗</text></button>
             </view>
           </view>
 
@@ -192,7 +192,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
@@ -327,12 +327,22 @@ function handleConsult() {
 }
 
 function handleFav() {
-  uni.showToast({ title: '已收藏', icon: 'none' })
+  // 收藏接口未就绪：不做假成功提示，保持原状态
+  uni.showToast({ title: '收藏功能即将开放', icon: 'none' })
 }
 
 function handleShare() {
-  uni.showToast({ title: '分享功能开发中', icon: 'none' })
+  // 分享按钮（open-type="share"）与右上角菜单均走 onShareAppMessage
+  uni.showToast({ title: '请点击右上角菜单分享', icon: 'none' })
 }
+
+onShareAppMessage(function () {
+  const item = detail.value || {}
+  return {
+    title: '赛事报名：' + (item.title || item.name || '无人机赛事'),
+    path: '/pkg-eco/pages/competitions/detail?id=' + encodeURIComponent(id.value),
+  }
+})
 
 onLoad(function (options) {
   id.value = options.id || ''
@@ -534,6 +544,10 @@ onLoad(function (options) {
 
 .fav-icon { color: #ffffff; font-size: 32rpx; }
 .share-icon { color: #ffffff; font-size: 36rpx; font-weight: 300; }
+
+/* 分享按钮（open-type="share"）沿用 hero-action 圆形玻璃样式，去掉 button 默认样式 */
+.hero-action--share { padding: 0; margin: 0; line-height: 1; }
+.hero-action--share::after { border: none; }
 
 /* 状态徽章 */
 .status-badge {

@@ -38,7 +38,7 @@
 import { ref } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
-import { safeBack } from '../../../utils/nav'
+import { safeBack, requireLogin } from '../../../utils/nav'
 import StateView from '../../../components/StateView.vue'
 
 // 与后端 validEnrollmentStatus / 管理后台状态语义对齐（用户视角文案）
@@ -65,6 +65,11 @@ async function fetchList() {
     const list = Array.isArray(res) ? res : (res && res.data) || []
     enrollments.value = Array.isArray(list) ? list : []
   } catch (e) {
+    // 401 未登录/登录过期：由 request 自动跳登录，文案明确提示登录而非网络异常
+    if (e && e.statusCode === 401) {
+      errorMsg.value = '登录已过期，请重新登录'
+      return
+    }
     errorMsg.value = '网络异常，请稍后重试'
   } finally {
     loading.value = false
@@ -80,7 +85,11 @@ function goBack() {
 }
 
 // onShow 而非 onLoad：报名提交返回后立即看到最新记录
-onShow(() => fetchList())
+// 登录守卫前置：未登录直接引导登录，避免 401 误报"网络异常"
+onShow(() => {
+  if (!requireLogin()) return
+  fetchList()
+})
 onPullDownRefresh(() => {
   fetchList().finally(() => uni.stopPullDownRefresh())
 })

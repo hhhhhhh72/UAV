@@ -375,7 +375,7 @@ export default {
   margin: 0 16px 12px;
   padding: 12px 16px;
   border-radius: 12px;
-  border-left: 4px solid #FAAD14;
+  border-left: 1px solid #FAAD14;
 }
 
 .review-card--danger {

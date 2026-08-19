@@ -237,6 +237,7 @@
 import { ref, reactive, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
+import { requireLogin } from '../../../utils/nav'
 import StateView from '../../../components/StateView.vue'
 
 const id = ref('')
@@ -383,7 +384,20 @@ function handleConsult() {
 }
 
 function handleEnroll() {
-  uni.navigateTo({ url: '/pkg-talent/pages/training/register?id=' + encodeURIComponent(id.value) })
+  // 报名前登录守卫：未登录先引导登录，避免进入报名表单后 401 误报"报名失败"
+  if (!requireLogin()) return
+  // 隐私二次确认：报名表单将收集姓名与身份证信息，进入前明确用途
+  uni.showModal({
+    title: '信息授权确认',
+    content: '报名培训需提交您的姓名与身份证信息，用于课程报名与证书核发，仅限本次报名使用，受隐私政策保护。',
+    confirmText: '同意并继续',
+    cancelText: '暂不报名',
+    success: (res) => {
+      if (res.confirm) {
+        uni.navigateTo({ url: '/pkg-talent/pages/training/register?id=' + encodeURIComponent(id.value) })
+      }
+    },
+  })
 }
 
 function previewCert() {

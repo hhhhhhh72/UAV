@@ -510,7 +510,7 @@ onLoad((options) => {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(.85);
   background: rgba(23,33,43,.92); color: #fff; font-size: 26rpx;
   padding: 24rpx 44rpx; border-radius: 20rpx;
-  opacity: 0; pointer-events: none; transition: all .28s cubic-bezier(.2,1.2,.4,1); z-index: 100;
+  opacity: 0; pointer-events: none; transition: all .28s cubic-bezier(0.16, 1, 0.3, 1); z-index: 100;
 }
 .toast.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
 

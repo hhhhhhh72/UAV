@@ -267,7 +267,7 @@ page {
 .h-budget { display: flex; align-items: baseline; gap: 6px; margin-top: 10px; }
 .h-vl { font-size: 26px; font-weight: 800; color: #FFD166; }
 /* 悬赏金额数字：hero 的心脏——落位时 ios-pop 弹簧弹出一次（80ms 起播 .25s，总 330ms ≤ 400ms） */
-.h-vl { animation: popIn .25s cubic-bezier(.34, 1.8, .64, 1) 80ms backwards; }
+.h-vl { animation: popIn .25s cubic-bezier(0.16, 1, 0.3, 1) 80ms backwards; }
 /* 95% 白：蓝端渐变上 ≥4.5:1（原 78% 仅约 3.6:1，AA 不达标） */
 .h-lb { font-size: 11px; color: rgba(255, 255, 255, 0.95); }
 
@@ -437,7 +437,7 @@ page {
    禁参与动画：top/left/width/height/margin（触发重排）、box-shadow/filter（低端安卓掉帧）
    时长：微反馈 150-200ms（按压按下 .08s 即时到位）/ 松手弹簧回位 .3s（ios-pop）/ 浮层 200-300ms / 页面级 ≤400ms；
         退场 = 进场 ×0.7 且必须存在
-   曲线：两枚固定曲线——ios-pop cubic-bezier(.34,1.8,.64,1) 松手弹簧回弹（仅按压/弹出类 transform）+
+   曲线：两枚固定曲线——ios-pop cubic-bezier(0.16,1,0.3,1) 松手柔顺减速（仅按压/弹出类 transform）+
         ios-decel cubic-bezier(.32,.72,0,1) 浮层流体减速（底部操作栏进场）；
         其余进场 ease-out / 退场 ease-in / 循环 linear；除这两枚外禁手写 cubic-bezier
    数量：入场错峰首屏可见项，整页编排 ≤400ms；循环动画任何时刻全页 ≤1 处
@@ -473,13 +473,13 @@ page {
 .step::after { animation: lineGrow .25s ease-out backwards; transform-origin: left center; }
 .step:nth-child(2)::after { animation-delay: 40ms; }
 @keyframes lineGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.step .no { animation: popIn .3s cubic-bezier(.34, 1.8, .64, 1) backwards; } /* ios-pop：步骤圈弹簧弹出 */
+.step .no { animation: popIn .3s cubic-bezier(0.16, 1, 0.3, 1) backwards; } /* ios-pop：步骤圈弹簧弹出 */
 .step:nth-child(2) .no { animation-delay: 40ms; }
 .step:nth-child(3) .no { animation-delay: 80ms; }
 @keyframes popIn { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* 统计数字：信息卡落位后弹簧弹出（40ms 错峰，总 370ms ≤ 400ms；ios-pop 数字过冲回位） */
-.sv { animation: popIn .25s cubic-bezier(.34, 1.8, .64, 1) 40ms backwards; }
+.sv { animation: popIn .25s cubic-bezier(0.16, 1, 0.3, 1) 40ms backwards; }
 .si:nth-child(2) .sv { animation-delay: 80ms; }
 .si:nth-child(3) .sv { animation-delay: 120ms; }
 
@@ -496,18 +496,18 @@ page {
 @keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* 3) 交互反馈：按压反馈（按下 .08s linear 即时到位；松手 .3s ios-pop 弹簧回位——与 list 同套手感） */
-.stb { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop */
+.stb { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop */
 .stb:active { transform: scale(.94); opacity: .85; transition: transform .08s linear; }
-.bi { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, color .2s ease; } /* ios-pop */
+.bi { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease, color .2s ease; } /* ios-pop */
 .bi:active { transform: scale(.9); background: #EAF3FB; transition: transform .08s linear; }
 .bi.fv:active { background: #FDECEC; } /* 已收藏时按压给红色系反馈 */
-.bo { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, color .2s ease; } /* ios-pop */
+.bo { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease, color .2s ease; } /* ios-pop */
 .bo:active { transform: scale(.95); background: #F4F8FC; transition: transform .08s linear; }
-.bp { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop */
+.bp { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop */
 .bp:active { transform: scale(.95); opacity: .92; transition: transform .08s linear; }
 
 /* 4) 状态过渡：收藏点亮时心形 ios-pop 弹簧弹出（scale .8→1 自然过冲回位，iOS 收藏手感）；取消收藏无反向动画 */
-.bi.fv .bit { animation: heartPop .3s cubic-bezier(.34, 1.8, .64, 1); }
+.bi.fv .bit { animation: heartPop .3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes heartPop { from { transform: scale(.8); } to { transform: scale(1); } }
 
 /* 5) 视觉层级：信息卡与 Hero 重叠处补柔和投影，强化"卡片浮在 Hero 上"的层次（纯视觉，无布局影响） */
