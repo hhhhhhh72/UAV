@@ -1,15 +1,14 @@
 <template>
-  <view class="page-container">
-    <!-- ① 胶囊导航 + 标题 -->
-    <u-nav-bar title="认证飞手" show-back @back="goBack" />
+  <view class="page" :class="{ 'no-motion': noMotion }" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
+    <u-nav-bar title="认证飞手" show-back :fixed="true" @back="goBack" />
 
-    <!-- 右下角浮动申请按钮（避开微信胶囊，弹性入场 + 微光呼吸） -->
+    <!-- 右下角浮动申请按钮（避开微信胶囊，单次弹性入场） -->
     <view class="apply-fab" hover-class="apply-fab-hover" :hover-stay-time="80" @tap="applyPilot">
       <view class="fab-icon"><text class="fab-icon-char">飞</text></view>
       <text class="fab-text">{{ applyText }}</text>
     </view>
 
-    <!-- ② 统计横幅（第一视觉锚点） -->
+    <!-- ① 统计横幅（真实聚合） -->
     <view class="stats-banner">
       <view class="stat-cell">
         <view class="stat-icon"><view class="icon-cert" /></view>
@@ -25,138 +24,160 @@
       <template v-if="displayStats.hasRating">
         <view class="stat-divider" />
         <view class="stat-cell">
-          <view class="stat-icon"><text class="icon-star">★</text></view>
+          <view class="stat-icon"><view class="star-shape" /></view>
           <text class="stat-num" :class="{ 'stat-anim': loaded }">{{ displayStats.avgRating }}</text>
           <text class="stat-label">平均评分</text>
         </view>
       </template>
     </view>
 
-    <!-- ③ 搜索框 -->
-    <view class="search-bar">
-      <u-icon name="search" size="32rpx" color="#1E5EFF" />
-      <input
-        class="search-input"
-        v-model="searchText"
-        placeholder="搜索认证飞手姓名/编号"
-        placeholder-class="search-ph"
-        confirm-type="search"
-        @confirm="onSearch"
-      />
-      <view v-if="searchText" class="search-clear" @tap="clearSearch">
-        <u-icon name="close" size="24rpx" color="#ADB8C7" />
+    <!-- ② 搜索框（白上白：描边 + 双层投影；CSS 画放大镜；右侧"搜索"文字按钮） -->
+    <view class="sbar">
+      <view class="b-search">
+        <view class="b-search-ic"><view class="ic-ring" /><view class="ic-bar" /></view>
+        <input
+          class="b-sinp"
+          v-model="searchText"
+          placeholder="搜索认证飞手姓名/编号"
+          placeholder-class="b-ph"
+          confirm-type="search"
+          @confirm="onSearch"
+        />
+        <text v-if="searchText" class="b-sclr" @tap="clearSearch">×</text>
+        <view class="b-sep" />
+        <text class="b-sbtn" @tap="onSearch">搜索</text>
       </view>
     </view>
 
-    <!-- ④ 飞手卡片列表 -->
-    <view v-for="(item, i) in list" :key="item.id" class="card card-anim" :style="{ animationDelay: (i * 60) + 'ms' }" hover-class="card-hover" :hover-stay-time="120" @tap="goDetail(item)">
-      <!-- 4.1 卡片头部：头像 + 认证徽章 + 名字/编号 + 评分 -->
-      <view class="card-head">
-        <view class="avatar-wrap">
-          <image
-            v-if="item.avatar"
-            :src="item.avatar"
-            mode="aspectFill"
-            class="avatar"
-            lazy-load
-          />
-          <view v-else class="avatar avatar-fallback" :style="{ background: avatarBg(item.real_name) }">
-            <text class="avatar-char">{{ firstChar(item.real_name) }}</text>
-          </view>
-          <view class="cert-badge" />
-        </view>
-        <view class="head-main">
-          <view class="name-row">
-            <text class="name">{{ item.real_name || '认证飞手' }}</text>
-            <text class="pilot-id">{{ idLabel(item) }}</text>
-          </view>
-          <view class="sub-row">
-            <text class="cert-count">{{ (item.cert_ids || []).length }} 项认证</text>
-          </view>
-        </view>
-        <view class="rating-wrap">
-          <view class="star">★</view>
-          <text class="rating-num">{{ ratingText(item) }}</text>
-          <text class="rating-sub">{{ ratingSub(item) }}</text>
-        </view>
-      </view>
+    <!-- ③ 信息行 -->
+    <view class="ir">
+      <text>共 <text class="irn">{{ list.length }}</text> 位飞手</text>
+      <text class="ir-hint">{{ searchText ? '搜索结果' : '协会认证' }}</text>
+    </view>
 
-      <!-- 4.3 数据行（两行四列） -->
-      <view class="data-grid">
-        <view class="data-item">
-          <view class="data-icon data-icon-blue"><view class="icon-cert" /></view>
-          <view class="data-body">
-            <text class="data-label">证书</text>
-            <text class="data-value">{{ (item.cert_ids || []).length }}</text>
-          </view>
+    <!-- ④ 骨架屏：首次加载 -->
+    <view v-if="loading && !list.length" class="skl">
+      <view v-for="i in 3" :key="'sk' + i" class="skc">
+        <view class="sk-row"><view class="sk-tag"></view><view class="sk-l w60"></view></view>
+        <view class="sk-bd">
+          <view class="sk-l w90"></view>
+          <view class="sk-l w40"></view>
         </view>
-        <view class="data-item">
-          <view class="data-icon data-icon-purple"><view class="icon-plane" /></view>
-          <view class="data-body">
-            <text class="data-label">飞行</text>
-            <text class="data-value">{{ item.flight_hours || 0 }} 小时</text>
-          </view>
-        </view>
-        <view class="data-item">
-          <view class="data-icon data-icon-green"><view class="icon-check" /></view>
-          <view class="data-body">
-            <text class="data-label">作业</text>
-            <text class="data-value">{{ item.completed_jobs || 0 }}</text>
-          </view>
-        </view>
-        <view class="data-item">
-          <view class="data-icon data-icon-orange"><view class="icon-target" /></view>
-          <view class="data-body">
-            <text class="data-label">擅长</text>
-            <text class="data-value ellipsis">{{ mainSkill(item) }}</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 4.4 作业类型标签（7 类分色） -->
-      <view v-if="jobTags(item).length > 0" class="tag-row">
-        <text
-          v-for="(t, ti) in shownTags(item)"
-          :key="ti"
-          class="job-tag tag-pop"
-          :style="tagStyle(t)"
-        >{{ t }}</text>
-        <text v-if="jobTags(item).length > 3" class="more-tag">+{{ jobTags(item).length - 3 }}</text>
-      </view>
-
-      <!-- 4.5 底部：查看飞手档案（整行可点击） -->
-      <view class="card-footer" hover-class="footer-hover" :hover-stay-time="120" @tap.stop="goDetail(item)">
-        <text class="card-hint">查看飞手档案</text>
-        <text class="footer-arrow">›</text>
       </view>
     </view>
 
-    <!-- 列表底部 -->
-    <view v-if="!loading && list.length > 0" class="list-footer">
-      <text class="footer-line" />
-      <text class="footer-text">没有更多了</text>
-      <text class="footer-line" />
+    <!-- ⑤ 错误态 -->
+    <view v-else-if="!loading && errorMsg" class="st">
+      <u-empty :description="errorMsg">
+        <view class="stb" @tap="fetchData">重新加载</view>
+      </u-empty>
     </view>
 
-    <!-- 错误态 -->
-    <view v-if="!loading && errorMsg" class="empty-wrap">
-      <view class="empty-icon"><text>飞</text></view>
-      <text class="empty-title">{{ errorMsg }}</text>
-      <view class="empty-btn" @tap="fetchData">重新加载</view>
+    <!-- ⑥ 空态 -->
+    <view v-else-if="!loading && !list.length" class="st">
+      <u-empty description="暂无认证飞手">
+        <text class="sth">成为协会认证飞手，即可展示在此名录</text>
+        <view class="stb" @tap="applyPilot">申请认证</view>
+      </u-empty>
     </view>
 
-    <!-- 空态 -->
-    <view v-if="!loading && !errorMsg && !list.length" class="empty-wrap">
-      <view class="empty-icon"><text>飞</text></view>
-      <text class="empty-title">暂无认证飞手</text>
-      <text class="empty-sub">成为协会认证飞手，即可展示在此名录</text>
-      <view class="empty-btn" @tap="applyPilot">申请认证</view>
-    </view>
+    <!-- ⑦ 飞手卡片列表 -->
+    <view v-else class="cl">
+      <view
+        v-for="item in list"
+        :key="item.id"
+        class="card"
+        hover-class="tap-scale"
+        :hover-stay-time="100"
+        @tap="goDetail(item)"
+      >
+        <!-- 卡片头部：头像 + 认证徽章 + 名字/编号 + 评分 -->
+        <view class="card-head">
+          <view class="avatar-wrap">
+            <image
+              v-if="item.avatar"
+              :src="item.avatar"
+              mode="aspectFill"
+              class="avatar"
+              lazy-load
+            />
+            <view v-else class="avatar avatar-fallback" :style="{ background: avatarBg(item.real_name) }">
+              <text class="avatar-char">{{ firstChar(item.real_name) }}</text>
+            </view>
+            <view class="cert-badge" />
+          </view>
+          <view class="head-main">
+            <view class="name-row">
+              <text class="name">{{ item.real_name || '认证飞手' }}</text>
+              <text class="pilot-id">{{ idLabel(item) }}</text>
+            </view>
+            <view class="sub-row">
+              <text class="cert-count">{{ (item.cert_ids || []).length }} 项认证</text>
+            </view>
+          </view>
+          <view class="rating-wrap">
+            <view class="star"><view class="star-shape" /></view>
+            <text class="rating-num">{{ ratingText(item) }}</text>
+            <text class="rating-sub">{{ ratingSub(item) }}</text>
+          </view>
+        </view>
 
-    <!-- 加载态 -->
-    <view v-if="loading && !list.length" class="loading-wrap">
-      <u-loading size="32rpx" />
-      <text class="loading-text">加载中...</text>
+        <!-- 数据行（两行四列） -->
+        <view class="data-grid">
+          <view class="data-item">
+            <view class="data-icon data-icon-blue"><view class="icon-cert" /></view>
+            <view class="data-body">
+              <text class="data-label">证书</text>
+              <text class="data-value">{{ (item.cert_ids || []).length }}</text>
+            </view>
+          </view>
+          <view class="data-item">
+            <view class="data-icon data-icon-purple"><view class="icon-plane" /></view>
+            <view class="data-body">
+              <text class="data-label">飞行</text>
+              <text class="data-value">{{ item.flight_hours || 0 }} 小时</text>
+            </view>
+          </view>
+          <view class="data-item">
+            <view class="data-icon data-icon-green"><view class="icon-check" /></view>
+            <view class="data-body">
+              <text class="data-label">作业</text>
+              <text class="data-value">{{ item.completed_jobs || 0 }}</text>
+            </view>
+          </view>
+          <view class="data-item">
+            <view class="data-icon data-icon-orange"><view class="icon-target" /></view>
+            <view class="data-body">
+              <text class="data-label">擅长</text>
+              <text class="data-value ellipsis">{{ mainSkill(item) }}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 作业类型标签（扁平 tint） -->
+        <view v-if="jobTags(item).length > 0" class="tag-row">
+          <text
+            v-for="(t, ti) in shownTags(item)"
+            :key="ti"
+            class="job-tag"
+            :style="tagStyle(t)"
+          >{{ t }}</text>
+          <text v-if="jobTags(item).length > 3" class="more-tag">+{{ jobTags(item).length - 3 }}</text>
+        </view>
+
+        <!-- 底部：查看飞手档案（整行可点击） -->
+        <view class="card-footer" hover-class="footer-hover" :hover-stay-time="100" @tap.stop="goDetail(item)">
+          <text class="card-hint">查看飞手档案</text>
+          <view class="footer-chev" />
+        </view>
+      </view>
+
+      <!-- 列表底部 -->
+      <view class="list-footer">
+        <text class="footer-line" />
+        <text class="footer-text">没有更多了</text>
+        <text class="footer-line" />
+      </view>
     </view>
   </view>
 </template>
@@ -166,12 +187,15 @@ import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
 import { requireLogin } from '../../../utils/nav'
+import { useReduceMotion } from '../../../utils/motion'
 
 const searchText = ref('')
 const list = ref([])
 const loading = ref(false)
 const loaded = ref(false)
 const errorMsg = ref('')
+const statusBarHeight = ref(20)
+const { noMotion, checkMotion } = useReduceMotion() // 减弱动效（无障碍）：装饰动画全关
 const goBack = () => uni.navigateBack()
 
 // 右上按钮文案：随我的认证状态变化，入口永远存在
@@ -259,27 +283,27 @@ const ratingSub = (item) => {
 const bioList = (bio) => String(bio || '').split(/[/，,、\s]+/).filter(Boolean)
 const mainSkill = (item) => bioList(item.bio)[0] || '综合'
 
-// ── 作业类型标签（7 类分色）──────────────
+// ── 作业类型标签（扁平 tint：浅底深字，无描边）──────────────
 const JOB_TAG_MAP = [
-  { key: ['电力巡检', '巡检'], color: '#1E5EFF', bg: 'rgba(30,94,255,.08)' },
-  { key: ['测绘', '航拍', '拍摄'], color: '#8B5CF6', bg: 'rgba(139,92,246,.08)' },
-  { key: ['植保', '喷洒'], color: '#00C896', bg: 'rgba(0,200,150,.08)' },
-  { key: ['应急', '救援', '侦察'], color: '#EF4444', bg: 'rgba(239,68,68,.08)' },
-  { key: ['吊运', '吊装', '实操'], color: '#FF8E3C', bg: 'rgba(255,142,60,.08)' },
-  { key: ['物流', '运输', '投送'], color: '#06B6D4', bg: 'rgba(6,182,212,.08)' },
-  { key: ['航拍', '宣传'], color: '#EC4899', bg: 'rgba(236,72,153,.08)' },
+  { key: ['电力巡检', '巡检'], color: '#0A66C2', bg: '#EAF3FB' },
+  { key: ['测绘', '航拍', '拍摄'], color: '#6941C6', bg: '#F0E9F7' },
+  { key: ['植保', '喷洒'], color: '#0B6B41', bg: '#E9F7F0' },
+  { key: ['应急', '救援', '侦察'], color: '#B42318', bg: '#FDECEC' },
+  { key: ['吊运', '吊装', '实操'], color: '#C2410C', bg: '#FFF4EC' },
+  { key: ['物流', '运输', '投送'], color: '#0E7090', bg: '#E6F4F7' },
+  { key: ['航拍', '宣传'], color: '#C11574', bg: '#FCE7F3' },
 ]
 const matchTag = (tag) => {
   for (const m of JOB_TAG_MAP) {
     if (m.key.some((k) => tag.includes(k))) return m
   }
-  return { color: '#6B7B95', bg: 'rgba(107,123,149,.08)' }
+  return { color: '#5D6B82', bg: '#EEF1F4' }
 }
 const jobTags = (item) => bioList(item.bio)
 const shownTags = (item) => jobTags(item).slice(0, 3)
 const tagStyle = (t) => {
   const m = matchTag(t)
-  return { color: m.color, background: m.bg, borderColor: m.color }
+  return { color: m.color, background: m.bg }
 }
 
 // ── 数据加载 ────────────────────────────
@@ -348,47 +372,46 @@ const applyPilot = async () => {
   uni.navigateTo({ url: '/pkg-talent/pages/pilots/apply' })
 }
 
-onLoad(() => { fetchData(); refreshMineLabel() })
+onLoad(() => {
+  try {
+    const sys = uni.getSystemInfoSync()
+    if (sys && sys.statusBarHeight) statusBarHeight.value = sys.statusBarHeight
+  } catch (e) { /* 保持默认 */ }
+  checkMotion()
+  fetchData()
+  refreshMineLabel()
+})
 </script>
 
 <style scoped>
-.page-container {
+.page {
   min-height: 100vh;
-  background: #F5F8FC;
-  padding-bottom: 200rpx; /* 给右下角浮动按钮留空间 */
+  background: #fff;
+  padding-bottom: 80px; /* 给右下角浮动按钮留空间 */
 }
 
 /* ═══ 右下角浮动申请按钮 ═══ */
 .apply-fab {
   position: fixed;
-  right: 32rpx;
-  bottom: calc(48rpx + env(safe-area-inset-bottom));
+  right: 16px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   z-index: 60;
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  padding: 14rpx 32rpx 14rpx 14rpx;
-  background: linear-gradient(135deg, #0A66C2 0%, #0E7AE0 100%);
-  border-radius: 999rpx;
-  box-shadow: 0 10rpx 30rpx rgba(10, 102, 194, 0.35);
+  gap: 6px;
+  padding: 7px 16px 7px 7px;
+  background: #0A66C2;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(10, 102, 194, 0.28);
   animation: fab-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-/* 微光呼吸（青绿辅色光晕，呼应品牌辅色） */
-.apply-fab::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 999rpx;
-  animation: fab-glow 2.6s ease-in-out infinite;
-  pointer-events: none;
 }
 .apply-fab-hover {
   transform: scale(0.94);
   opacity: 0.92;
 }
 .fab-icon {
-  width: 56rpx;
-  height: 56rpx;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
   display: flex;
@@ -396,132 +419,177 @@ onLoad(() => { fetchData(); refreshMineLabel() })
   justify-content: center;
 }
 .fab-icon-char {
-  font-size: 28rpx;
+  font-size: 14px;
   font-weight: 700;
   color: #fff;
 }
 .fab-text {
-  font-size: 28rpx;
+  font-size: 14px;
   font-weight: 600;
   color: #fff;
 }
-/* 弹性入场：上浮 + 缩放回弹 */
+/* 单次弹性入场：上浮 + 缩放回弹（无循环装饰动画） */
 @keyframes fab-in {
-  from { opacity: 0; transform: translateY(60rpx) scale(0.6); }
+  from { opacity: 0; transform: translateY(30px) scale(0.6); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-/* 呼吸光晕 */
-@keyframes fab-glow {
-  0%, 100% { box-shadow: 0 0 18rpx rgba(29, 212, 168, 0.35); }
-  50% { box-shadow: 0 0 36rpx rgba(29, 212, 168, 0.6); }
-}
 
-/* ═══ ② 统计横幅 ═══ */
+/* ═══ ① 统计横幅 ═══ */
 .stats-banner {
   display: flex;
   align-items: center;
-  margin: 20rpx 24rpx 0;
-  background: linear-gradient(135deg, #EEF3FA 0%, #F0F6FF 100%);
-  border-radius: 16rpx;
-  padding: 20rpx 24rpx;
+  margin: 10px 12px 2px;
+  background: #F4F8FC;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  padding: 14px 10px;
 }
 .stat-cell {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6rpx;
+  gap: 4px;
 }
 .stat-icon {
-  width: 44rpx;
-  height: 44rpx;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: #DCE9FF;
+  background: #EAF3FB;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 4rpx;
 }
 .stat-num {
-  font-size: 40rpx;
+  font-size: 20px;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
   line-height: 1.2;
 }
 .stat-anim {
   animation: statPop 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .stat-label {
-  font-size: 22rpx;
-  color: #6B7B95;
+  font-size: 11px;
+  color: #667085;
 }
 .stat-divider {
-  width: 1rpx;
-  height: 72rpx;
-  background: linear-gradient(180deg, rgba(30,94,255,0), rgba(30,94,255,0.1) 50%, rgba(30,94,255,0));
+  width: 1px;
+  height: 36px;
+  background: #E4E7EC;
 }
 
-/* ═══ ③ 搜索框 ═══ */
-.search-bar {
+/* ═══ ② 搜索框：白上白——纯白填充 + 灰描边 + 双层投影 ═══ */
+.sbar { padding: 8px 12px 6px; background: #fff; }
+.b-search {
+  height: 44px;
+  padding: 0 11px;
+  border: 1px solid #E4E7EC;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
   display: flex;
   align-items: center;
-  gap: 14rpx;
-  margin: 20rpx 24rpx;
-  background: #F5F8FC;
-  border-radius: 999rpx;
-  padding: 18rpx 26rpx;
-  border: 1rpx solid #EDF0F5;
+  gap: 7px;
+  box-sizing: border-box;
 }
-.search-input {
-  flex: 1;
-  font-size: 26rpx;
-  color: #17212B;
-}
-.search-ph {
-  color: #ADB8C7;
-}
-.search-clear {
-  width: 40rpx;
-  height: 40rpx;
+.b-search-ic { position: relative; width: 15px; height: 15px; flex: none; }
+.ic-ring {
+  width: 9px; height: 9px;
+  border: 1.5px solid #98A2B3;
   border-radius: 50%;
-  background: #EDF0F5;
+  position: absolute; top: 0; left: 0;
+}
+.ic-bar {
+  position: absolute; right: 0; bottom: 1px;
+  width: 5px; height: 1.5px;
+  background: #98A2B3;
+  transform: rotate(45deg);
+}
+.b-sinp { flex: 1; min-width: 0; background: transparent; font-size: 13px; color: #17212B; }
+.b-ph { color: #667085; }
+.b-sclr { color: #667085; font-size: 15px; padding: 10px; margin: -10px; }
+.b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
+.b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
+
+/* ═══ ③ 信息行 ═══ */
+.ir {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
+  padding: 0 14px 4px;
+  font-size: 12px;
+  color: #667085;
+  animation: fadeUp 0.25s ease-out backwards;
+  animation-delay: 60ms;
 }
+.irn { color: #0A66C2; font-weight: 600; }
+.ir-hint { font-size: 12px; color: #98A2B3; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-/* ═══ ④ 飞手卡片 ═══ */
+/* ═══ ④ 骨架屏 ═══ */
+.skl { display: flex; flex-direction: column; gap: 8px; padding: 4px 12px 12px; }
+.skc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+}
+.sk-row { display: flex; align-items: center; gap: 8px; }
+.sk-tag { width: 40px; height: 40px; border-radius: 8px; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-bd { display: flex; flex-direction: column; gap: 8px; }
+.sk-l { height: 12px; background: #EDF0F3; border-radius: 4px; animation: skPulse 1.4s linear infinite; }
+.sk-l.w40 { width: 40%; }
+.sk-l.w60 { width: 60%; }
+.sk-l.w90 { width: 90%; }
+@keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* ═══ ⑤⑥ 空 / 错误 ═══ */
+.st { display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
+.sth { font-size: 12px; color: #667085; display: block; margin-bottom: 16px; }
+.stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
+
+/* ═══ ⑦ 飞手卡片 ═══ */
+.cl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
 .card {
-  margin: 16rpx 24rpx;
-  background: #ffffff;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.06);
-  transition: background 0.2s, transform 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  position: relative;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
 }
-.card-anim {
-  animation: cardIn 0.45s ease both;
-}
-.card-hover {
-  background: #EEF3FA;
-  transform: scale(0.98);
-}
+.card:nth-child(-n+6) { animation: cardIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.card:nth-child(1) { animation-delay: 80ms; }
+.card:nth-child(2) { animation-delay: 100ms; }
+.card:nth-child(3) { animation-delay: 120ms; }
+.card:nth-child(4) { animation-delay: 140ms; }
+.card:nth-child(5) { animation-delay: 160ms; }
+.card:nth-child(6) { animation-delay: 180ms; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.tap-scale { transform: scale(0.97); opacity: 0.9; }
 
-/* 4.1 卡片头部 */
+/* 7.1 卡片头部 */
 .card-head {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 10px;
 }
 .avatar-wrap {
   position: relative;
   flex-shrink: 0;
 }
 .avatar {
-  width: 88rpx;
-  height: 88rpx;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  animation: fadeIn 0.4s ease;
 }
 .avatar-fallback {
   display: flex;
@@ -529,7 +597,7 @@ onLoad(() => { fetchData(); refreshMineLabel() })
   justify-content: center;
 }
 .avatar-char {
-  font-size: 36rpx;
+  font-size: 18px;
   font-weight: 700;
   color: #ffffff;
 }
@@ -537,11 +605,11 @@ onLoad(() => { fetchData(); refreshMineLabel() })
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 32rpx;
-  height: 32rpx;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #00C896;
-  border: 3rpx solid #ffffff;
+  border: 2px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -549,12 +617,12 @@ onLoad(() => { fetchData(); refreshMineLabel() })
 .cert-badge::after {
   content: '';
   position: absolute;
-  left: 9rpx;
-  top: 7rpx;
-  width: 10rpx;
-  height: 14rpx;
+  left: 4.5px;
+  top: 3.5px;
+  width: 5px;
+  height: 8px;
   border: solid #fff;
-  border-width: 0 3rpx 3rpx 0;
+  border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
 }
 .head-main {
@@ -564,27 +632,27 @@ onLoad(() => { fetchData(); refreshMineLabel() })
 .name-row {
   display: flex;
   align-items: baseline;
-  gap: 12rpx;
+  gap: 6px;
 }
 .name {
-  font-size: 32rpx;
+  font-size: 15px;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .pilot-id {
-  font-size: 22rpx;
-  color: #ADB8C7;
+  font-size: 11px;
+  color: #98A2B3;
   flex-shrink: 0;
 }
 .sub-row {
-  margin-top: 8rpx;
+  margin-top: 4px;
 }
 .cert-count {
-  font-size: 22rpx;
-  color: #6B7B95;
+  font-size: 11px;
+  color: #667085;
 }
 .rating-wrap {
   display: flex;
@@ -593,278 +661,223 @@ onLoad(() => { fetchData(); refreshMineLabel() })
   flex-shrink: 0;
 }
 .star {
-  font-size: 26rpx;
-  color: #FBBF24;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .rating-num {
-  font-size: 30rpx;
+  font-size: 15px;
   font-weight: 700;
-  color: #0A1F44;
-  margin-top: 2rpx;
+  color: #17212B;
+  margin-top: 2px;
 }
 .rating-sub {
-  font-size: 20rpx;
-  color: #ADB8C7;
-  margin-top: 2rpx;
+  font-size: 10px;
+  color: #98A2B3;
+  margin-top: 2px;
 }
 
-/* 4.3 数据行 */
+/* 7.2 数据行 */
 .data-grid {
   display: flex;
   flex-wrap: wrap;
-  margin-top: 20rpx;
-  background: #FAFBFC;
-  border-radius: 12rpx;
-  padding: 16rpx 12rpx;
-  gap: 12rpx 0;
+  background: #F7F8FA;
+  border-radius: 8px;
+  padding: 8px 10px;
+  gap: 4px 0;
 }
 .data-item {
   width: 50%;
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  padding: 6rpx 12rpx;
+  gap: 8px;
+  padding: 4px 4px;
+  box-sizing: border-box;
 }
 .data-icon {
-  width: 36rpx;
-  height: 36rpx;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.data-icon-blue { background: #DCE9FF; }
-.data-icon-purple { background: #F3E8FF; }
-.data-icon-green { background: #D1FAE5; }
-.data-icon-orange { background: #FED7AA; }
-
-/* ═══ CSS 绘制的符号图标（禁 emoji 规范）═══ */
-
-/* 证书：圆角方块 + 中缝 */
-.icon-cert {
-  width: 16rpx;
-  height: 20rpx;
-  border-radius: 3rpx;
-  background: #1E5EFF;
-  position: relative;
-}
-.icon-cert::after {
-  content: '';
-  position: absolute;
-  left: 3rpx;
-  right: 3rpx;
-  top: 8rpx;
-  height: 2rpx;
-  background: #DCE9FF;
-  box-shadow: 0 4rpx 0 #DCE9FF;
-}
-
-/* 纸飞机：三角翼 */
-.icon-plane {
-  width: 0;
-  height: 0;
-  border-top: 5rpx solid transparent;
-  border-bottom: 5rpx solid transparent;
-  border-right: 18rpx solid #8B5CF6;
-  position: relative;
-  transform: rotate(-8deg);
-}
-.icon-plane::after {
-  content: '';
-  position: absolute;
-  right: -16rpx;
-  top: -4rpx;
-  width: 0;
-  height: 0;
-  border-left: 4rpx solid transparent;
-  border-right: 4rpx solid transparent;
-  border-bottom: 8rpx solid #8B5CF6;
-}
-
-/* 对勾：作业完成 */
-.icon-check {
-  width: 14rpx;
-  height: 24rpx;
-  border: solid #00C896;
-  border-width: 0 4rpx 4rpx 0;
-  transform: rotate(45deg);
-  margin-top: -6rpx;
-}
-
-/* 目标：圆环 + 中心点 */
-.icon-target {
-  width: 20rpx;
-  height: 20rpx;
-  border-radius: 50%;
-  border: 4rpx solid #FF8E3C;
-  position: relative;
-}
-.icon-target::after {
-  content: '';
-  position: absolute;
-  left: 4rpx;
-  top: 4rpx;
-  width: 4rpx;
-  height: 4rpx;
-  border-radius: 50%;
-  background: #FF8E3C;
-}
-
-/* 星星（统计横幅） */
-.icon-star {
-  font-size: 24rpx;
-  color: #FBBF24;
-  line-height: 1;
-}
+.data-icon-blue { background: #EAF3FB; }
+.data-icon-purple { background: #F0E9F7; }
+.data-icon-green { background: #E9F7F0; }
+.data-icon-orange { background: #FFF4EC; }
 .data-body {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 .data-label {
-  font-size: 20rpx;
-  color: #6B7B95;
+  font-size: 10px;
+  color: #667085;
 }
 .data-value {
-  font-size: 26rpx;
+  font-size: 13px;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
 }
 .data-value.ellipsis {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  max-width: 200rpx;
+  max-width: 90px;
 }
 
-/* 4.4 作业标签 */
+/* ═══ CSS 绘制的符号图标（禁 emoji 规范）═══ */
+
+/* 证书：圆角方块 + 中缝 */
+.icon-cert {
+  width: 8px;
+  height: 10px;
+  border-radius: 2px;
+  background: #0A66C2;
+  position: relative;
+}
+.icon-cert::after {
+  content: '';
+  position: absolute;
+  left: 1.5px;
+  right: 1.5px;
+  top: 4px;
+  height: 1px;
+  background: #EAF3FB;
+  box-shadow: 0 2px 0 #EAF3FB;
+}
+
+/* 纸飞机：clip-path 三角翼 + 尾翼（非 emoji） */
+.icon-plane {
+  width: 9px;
+  height: 5px;
+  background: #6941C6;
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+  position: relative;
+  transform: rotate(-8deg);
+}
+.icon-plane::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: 2px;
+  width: 4px;
+  height: 4px;
+  background: #6941C6;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+/* 对勾：作业完成 */
+.icon-check {
+  width: 7px;
+  height: 12px;
+  border: solid #0B6B41;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -3px;
+}
+
+/* 目标：圆环 + 中心点 */
+.icon-target {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #C2410C;
+  position: relative;
+}
+.icon-target::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #C2410C;
+}
+
+/* 星星：clip-path 五角（评分/统计横幅共用） */
+.star-shape {
+  width: 11px;
+  height: 11px;
+  background: #F79009;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+/* 7.3 作业标签（扁平 tint：浅底深字，无描边无动画） */
 .tag-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8rpx;
-  margin-top: 16rpx;
+  gap: 6px;
+  margin-top: 2px;
 }
 .job-tag {
-  font-size: 20rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
-  border: 1rpx solid;
+  font-size: 11px;
   font-weight: 600;
-  max-width: 200rpx;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: none;
+  max-width: 140px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .more-tag {
-  font-size: 20rpx;
-  color: #6B7B95;
-  background: rgba(107,123,149,.08);
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
+  font-size: 11px;
   font-weight: 600;
+  color: #5D6B82;
+  background: #EEF1F4;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
-/* 4.5 卡片底部：整行可点击 */
+/* 7.4 卡片底部：整行可点击 */
 .card-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 16rpx;
-  padding: 0 16rpx;
-  height: 48rpx;
-  border-top: 1rpx solid #E8EEF7;
-  border-radius: 0 0 16rpx 16rpx;
-  transition: background 0.2s;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid #F0F1F3;
 }
 .footer-hover {
-  background: #EEF3FA;
+  opacity: 0.7;
 }
 .card-hint {
-  font-size: 26rpx;
-  color: #1E5EFF;
+  font-size: 13px;
+  color: #0A66C2;
   font-weight: 600;
 }
-.footer-arrow {
-  font-size: 36rpx;
-  color: #1E5EFF;
-  line-height: 1;
-  font-weight: 300;
+.footer-chev {
+  width: 6px;
+  height: 6px;
+  border-top: 1.5px solid #0A66C2;
+  border-right: 1.5px solid #0A66C2;
+  transform: rotate(45deg);
 }
 
-/* ═══ ⑤ 列表底部 ═══ */
+/* ═══ 列表底部 ═══ */
 .list-footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20rpx;
-  padding: 48rpx 0;
+  gap: 10px;
+  padding: 20px 0 8px;
 }
 .footer-line {
-  width: 100rpx;
-  height: 1rpx;
-  background: linear-gradient(90deg, rgba(107,123,149,0), rgba(107,123,149,.4), rgba(107,123,149,0));
+  width: 48px;
+  height: 1px;
+  background: #EDF0F3;
 }
 .footer-text {
-  font-size: 22rpx;
-  color: #ADB8C7;
+  font-size: 12px;
+  color: #98A2B3;
 }
 
-/* ═══ 空态 ═══ */
-.empty-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 120rpx;
-}
-.empty-icon {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 50%;
-  background: #DCE9FF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 56rpx;
-  color: #1E5EFF;
-  font-weight: 700;
-}
-.empty-title {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #0A1F44;
-  margin-top: 24rpx;
-}
-.empty-sub {
-  font-size: 24rpx;
-  color: #6B7B95;
-  margin-top: 10rpx;
-}
-.empty-btn {
-  margin-top: 32rpx;
-  padding: 16rpx 56rpx;
-  background: #1E5EFF;
-  border-radius: 999rpx;
-  color: #ffffff;
-  font-size: 26rpx;
-  font-weight: 600;
-}
-
-/* ═══ 加载态 ═══ */
-.loading-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12rpx;
-  padding: 120rpx 0;
-}
-.loading-text {
-  font-size: 24rpx;
-  color: #6B7B95;
-}
-
-/* ═══ 微动效 ═══ */
+/* ═══ 微动效（单次入场，无循环装饰动画）═══ */
 @keyframes statPop {
   from {
     transform: scale(0.8);
@@ -875,33 +888,13 @@ onLoad(() => { fetchData(); refreshMineLabel() })
     opacity: 1;
   }
 }
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes cardIn {
-  from {
-    transform: translateY(24rpx);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-/* 标签浮起微动效 */
-.tag-pop {
-  transition: transform 0.2s ease;
-  animation: tagIn 0.4s ease both;
-}
-@keyframes tagIn {
-  from {
-    transform: scale(0.7);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
+
+/* ═══ 减弱动效（无障碍） ═══ */
+.page.no-motion .card,
+.page.no-motion .ir,
+.page.no-motion .stats-banner,
+.page.no-motion .stat-num { animation: none; }
+.page.no-motion .sk-tag,
+.page.no-motion .sk-l { animation: none; }
+.page.no-motion .apply-fab { animation: none; }
 </style>

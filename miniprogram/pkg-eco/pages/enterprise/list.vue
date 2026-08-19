@@ -1,185 +1,144 @@
 <template>
-  <view class="ent-list-page">
-    <!-- ═══════ 渐变 Hero：返回 + 标题 + 实时统计 ═══════ -->
-    <view class="hero" :style="{ paddingTop: (statusBarH + 4) + 'px' }">
-      <view class="hero-glow hero-glow-a" />
-      <view class="hero-glow hero-glow-b" />
+  <view class="page" :class="{ 'no-motion': noMotion }" :style="{ paddingTop: (statusBarH + 44) + 'px' }">
+    <u-nav-bar title="入驻企业" show-back :fixed="true" @back="goBack" />
 
-      <view class="topbar-row">
-        <view class="back-btn" hover-class="tap-fade" hover-stay-time="120" @tap="goBack">
-          <view class="back-arrow"></view>
-        </view>
-        <view class="topbar-center">
-          <text class="top-title">入驻企业</text>
-          <text class="top-sub">协会认证 · 优质产业主体</text>
-        </view>
-        <view class="topbar-spacer"></view>
-      </view>
-
-      <!-- 统计条：企业总数 / 协会会员 / 行业覆盖（实时聚合） -->
-      <view class="hero-stats">
-        <view class="h-stat">
-          <text class="h-stat-num">{{ errorMsg ? '--' : list.length }}</text>
-          <text class="h-stat-label">入驻企业</text>
-        </view>
-        <view class="h-stat-divider" />
-        <view class="h-stat">
-          <text class="h-stat-num">{{ errorMsg ? '--' : memberCount }}</text>
-          <text class="h-stat-label">协会会员</text>
-        </view>
-        <view class="h-stat-divider" />
-        <view class="h-stat">
-          <text class="h-stat-num">{{ errorMsg ? '--' : industryCount }}</text>
-          <text class="h-stat-label">行业覆盖</text>
-        </view>
-      </view>
-
-      <!-- 搜索框：按企业名称 / 核心能力 / 行业模糊过滤（对齐输入框规范：radius 24rpx） -->
-      <view class="hero-search">
-        <view class="search-box">
-          <view class="search-icon" />
+    <!-- ① 白底头部：搜索 + 筛选 -->
+    <view class="head-zone">
+      <!-- 搜索框（白上白：双层投影浮起；左侧 CSS 放大镜，右侧"搜索"文字按钮） -->
+      <view class="sbar">
+        <view class="b-search">
+          <view class="b-search-ic"><view class="ic-ring" /><view class="ic-bar" /></view>
           <input
-            class="search-input"
+            class="b-sinp"
             v-model="keyword"
             placeholder="搜索企业名称、能力、行业"
-            placeholder-class="search-ph"
+            placeholder-class="b-ph"
             confirm-type="search"
           />
-          <view v-if="keyword" class="search-clear" hover-class="tap-fade" hover-stay-time="120" @tap="keyword = ''" />
+          <text v-if="keyword" class="b-sclr" hover-class="tap-fade" :hover-stay-time="100" @tap="keyword = ''">×</text>
+          <view class="b-sep" />
+          <text class="b-sbtn">搜索</text>
         </view>
       </view>
-    </view>
 
-    <!-- 加载中：骨架屏 -->
-    <view v-if="loading" class="skeleton-list">
-      <view class="skeleton-card"></view>
-      <view class="skeleton-card"></view>
-      <view class="skeleton-card"></view>
-    </view>
-
-    <!-- 加载失败（无旧数据）：错误态 + 重试 -->
-    <view v-else-if="errorMsg && list.length === 0" class="state-panel">
-      <view class="state-mark state-mark-muted">
-        <view class="state-mark-inner">
-          <view class="state-search-icon" />
-        </view>
-      </view>
-      <text class="state-title">加载失败</text>
-      <text class="state-desc">{{ errorMsg }}</text>
-      <view class="state-btn" hover-class="tap-fade" hover-stay-time="120" @tap="load">
-        <text>重新加载</text>
-      </view>
-    </view>
-
-    <!-- 空数据（全量无企业） -->
-    <view v-else-if="list.length === 0" class="state-panel">
-      <view class="state-mark">
-        <view class="state-mark-inner">
-          <view class="state-building">
-            <view class="state-win state-win-1" />
-            <view class="state-win state-win-2" />
-          </view>
-        </view>
-      </view>
-      <text class="state-title">暂无入驻企业</text>
-      <text class="state-desc">企业完成入驻审核后将在此公示</text>
-      <view class="state-btn" hover-class="tap-fade" hover-stay-time="120" @tap="goRegister">
-        <text>申请入驻</text>
-      </view>
-    </view>
-
-    <!-- 搜索/筛选无结果 -->
-    <view v-else-if="filteredList.length === 0" class="state-panel">
-      <view class="state-mark state-mark-muted">
-        <view class="state-mark-inner">
-          <view class="state-search-icon" />
-        </view>
-      </view>
-      <text class="state-title">未找到相关企业</text>
-      <text class="state-desc">换个关键词试试，或浏览全部入驻企业</text>
-      <view class="state-btn" hover-class="tap-fade" hover-stay-time="120" @tap="resetFilter">
-        <text>清除筛选</text>
-      </view>
-    </view>
-
-    <template v-else>
-      <!-- 有旧数据时刷新失败：错误横幅 + 重试 -->
-      <view v-if="errorMsg" class="list-error-banner">
-        <text>{{ errorMsg }}</text>
-        <text class="list-error-retry" @tap="load">重试</text>
-      </view>
-
-      <!-- 行业筛选 chips（从数据聚合） -->
-      <scroll-view v-if="cats.length > 1" class="chip-scroll" scroll-x :show-scrollbar="false">
-        <view class="chip-row">
+      <!-- 筛选胶囊：全部 + 各行业分类（横向滚动，选中态蓝描边浅蓝底） -->
+      <scroll-view v-if="cats.length > 1" class="fscroll" scroll-x :show-scrollbar="false">
+        <view class="fbar">
           <view
             v-for="c in cats"
             :key="c"
-            class="chip"
-            :class="{ 'chip-active': activeCat === c }"
+            class="fpill"
+            :class="{ on: activeCat === c }"
+            hover-class="fpill-press"
+            :hover-stay-time="100"
             @tap="activeCat = c"
           >
-            <text>{{ c === '' ? '全部' : c }}</text>
+            <text class="fpv">{{ c === '' ? '全部' : c }}</text>
           </view>
         </view>
       </scroll-view>
+    </view>
 
-      <!-- 企业卡片列表（两列网格，PRD FR-2.3：logo/名称/分类标签/核心能力/认证状态） -->
-      <view class="card-list">
-        <view
-          v-for="(e, i) in filteredList"
-          :key="e.id"
-          class="ent-card"
-          :style="{ animationDelay: (i * 50) + 'ms' }"
-          hover-class="card-hover"
-          :hover-stay-time="120"
-          @tap="openDetail(e)"
-        >
-          <!-- 顶部品牌渐变条 -->
-          <view class="card-strip" />
+    <!-- ② 信息行：共 N 家 + 统计提示 -->
+    <view class="ir">
+      <text>共 <text class="irn">{{ filteredList.length }}</text> 家企业</text>
+      <text class="ir-hint">{{ activeCat || '全部行业' }} · 会员 {{ memberCount }} · 覆盖 {{ industryCount }} 行业</text>
+    </view>
 
-          <!-- 会员角标 -->
-          <text v-if="e.is_member" class="member-badge">会员</text>
+    <!-- ③ 骨架屏：首次加载 -->
+    <view v-if="loading && list.length === 0" class="skl">
+      <view v-for="i in 4" :key="'sk' + i" class="skc">
+        <view class="sk-row">
+          <view class="sk-tag"></view>
+          <view class="sk-bd">
+            <view class="sk-l w60"></view>
+            <view class="sk-l w40"></view>
+          </view>
+        </view>
+        <view class="sk-bd">
+          <view class="sk-l w90"></view>
+          <view class="sk-l w40"></view>
+        </view>
+      </view>
+    </view>
 
+    <!-- ④ 加载失败（无旧数据）：错误态 + 重试 -->
+    <view v-else-if="errorMsg && list.length === 0" class="st">
+      <u-empty :description="errorMsg">
+        <view class="stb" @tap="load">重新加载</view>
+      </u-empty>
+    </view>
+
+    <!-- ⑤ 空数据（全量无企业） -->
+    <view v-else-if="list.length === 0" class="st">
+      <u-empty description="暂无入驻企业">
+        <text class="sth">企业完成入驻审核后将在此公示</text>
+        <view class="stb" @tap="goRegister">申请入驻</view>
+      </u-empty>
+    </view>
+
+    <!-- ⑥ 搜索/筛选无结果 -->
+    <view v-else-if="filteredList.length === 0" class="st">
+      <u-empty description="未找到相关企业">
+        <text class="sth">换个关键词试试，或浏览全部入驻企业</text>
+        <view class="stb" @tap="resetFilter">清除筛选</view>
+      </u-empty>
+    </view>
+
+    <!-- ⑦ 企业列表：logo / 名称 / 认证状态 / 标签 / 简介 / 入驻时间 -->
+    <view v-else class="cl">
+      <view
+        v-for="e in filteredList"
+        :key="e.id"
+        class="card"
+        hover-class="tap-scale"
+        :hover-stay-time="100"
+        @tap="openDetail(e)"
+      >
+        <view class="cell-top">
           <view class="ent-logo">
             <image v-if="e.logo" :src="resolveUrl(e.logo)" mode="aspectFill" class="ent-logo-img" @error="e.logo = ''" />
             <view v-else class="ent-logo-fallback">{{ e.name ? e.name.charAt(0) : '企' }}</view>
-            <view class="logo-ring" />
           </view>
-
-          <text class="ent-name">{{ e.name }}</text>
-
-          <view class="ent-verified">
-            <view class="verified-dot" />
-            <text class="verified-text">协会已认证</text>
+          <view class="cell-main">
+            <view class="cell-title-row">
+              <text class="cell-title">{{ e.name }}</text>
+              <text v-if="e.is_member" class="member-badge">会员</text>
+            </view>
+            <view class="cell-verified">
+              <view class="verified-dot" />
+              <text class="verified-text">协会已认证</text>
+            </view>
+            <view v-if="displayTags(e).length" class="tag-row">
+              <text v-for="t in displayTags(e)" :key="t.label" class="type-tag" :class="t.blue ? 'tag--blue' : 'tag--gray'">{{ t.label }}</text>
+              <text v-if="tagMore(e) > 0" class="tag-more">+{{ tagMore(e) }}</text>
+            </view>
           </view>
+        </view>
 
-          <view v-if="displayTags(e).length" class="tag-row">
-            <text v-for="t in displayTags(e)" :key="t.label" class="tag" :class="t.blue ? 'blue' : 'gray'">{{ t.label }}</text>
-            <text v-if="tagMore(e) > 0" class="tag-more">+{{ tagMore(e) }}</text>
-          </view>
+        <text v-if="e.description" class="c-desc">{{ e.description }}</text>
 
-          <text v-if="e.description" class="ent-desc">{{ e.description }}</text>
-
-          <text class="ent-date">入驻 {{ formatDate(e.created_at) }}</text>
+        <view class="cell-foot">
+          <text class="cell-org">入驻 {{ formatDate(e.created_at) }}</text>
         </view>
       </view>
 
-      <!-- 列表底部提示 + 申请入驻 CTA -->
-      <view class="list-foot">
-        <text class="list-foot-text">共 {{ filteredList.length }} 家入驻企业</text>
-        <view class="foot-join" hover-class="tap-fade" hover-stay-time="120" @tap="goRegister">
-          <text class="foot-join-text">您的企业也想入驻？立即申请</text>
-          <view class="foot-join-arrow" />
-        </view>
+      <!-- 有旧数据时刷新失败：错误横幅 + 重试（保留旧数据） -->
+      <view v-if="errorMsg" class="error-banner">
+        <text>{{ errorMsg }}</text>
+        <text class="error-retry" @tap="load">重试</text>
       </view>
-    </template>
 
-    <!-- 底部固定申请入驻条（按钮规范：radius 50rpx + box-shadow） -->
+      <!-- 入驻引导 -->
+      <view class="foot-join" hover-class="tap-fade" :hover-stay-time="100" @tap="goRegister">
+        <text class="foot-join-text">您的企业也想入驻？立即申请</text>
+      </view>
+    </view>
+
+    <!-- ⑧ 底部固定申请入驻条 -->
     <view class="join-bar">
-      <view class="join-btn" hover-class="join-btn-hover" hover-stay-time="120" @tap="goRegister">
+      <view class="join-btn" hover-class="join-btn-hover" hover-stay-time="100" @tap="goRegister">
         <text class="join-btn-text">申请企业入驻</text>
-        <view class="join-arrow" />
       </view>
     </view>
   </view>
@@ -189,6 +148,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request, BASE_URL } from '../../../utils/request'
+import { useReduceMotion } from '../../../utils/motion'
 
 const loading = ref(false)
 const list = ref([])
@@ -196,6 +156,7 @@ const errorMsg = ref('')
 const statusBarH = ref(20)
 const activeCat = ref('')
 const keyword = ref('')
+const { noMotion, checkMotion } = useReduceMotion()
 
 const goBack = () => uni.navigateBack()
 
@@ -300,574 +261,259 @@ onLoad(async () => {
   } catch (e) {
     // 默认 20
   }
+  checkMotion()
   await load()
 })
 </script>
 
+<style>
+page {
+  background: #fff;
+}
+</style>
+
 <style scoped>
-.ent-list-page {
+.page {
   min-height: 100vh;
-  background: #F4F6F8;
-  padding-bottom: calc(200rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
 }
 
 .tap-fade { opacity: 0.85; }
 
-/* ═══════ 渐变 Hero ═══════ */
-.hero {
-  position: relative;
-  overflow: hidden;
-  padding: 16rpx 24rpx 32rpx;
-  background: linear-gradient(160deg, #074D92 0%, #0A66C2 62%, #0D7AE0 100%);
-  color: #fff;
-}
-/* 右上角同心圆装饰 */
-.hero-glow {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-.hero-glow-a {
-  top: -120rpx;
-  right: -80rpx;
-  width: 320rpx;
-  height: 320rpx;
-  background: rgba(255, 255, 255, 0.07);
-}
-.hero-glow-b {
-  top: -30rpx;
-  right: 10rpx;
-  width: 200rpx;
-  height: 200rpx;
-  background: rgba(29, 212, 168, 0.12);
-}
-.topbar-row {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-.back-btn {
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.back-arrow {
-  width: 20rpx;
-  height: 20rpx;
-  border-left: 4rpx solid #fff;
-  border-bottom: 4rpx solid #fff;
-  transform: rotate(45deg);
-  margin-left: 10rpx;
-}
-.topbar-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6rpx;
-}
-.top-title {
-  font-size: 38rpx;
-  font-weight: 700;
-  letter-spacing: 2rpx;
-}
-.top-sub {
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.78);
-}
-.topbar-spacer { width: 60rpx; }
+/* ===== 白底头部 ===== */
+.head-zone { background: #fff; }
 
-/* 统计条 */
-.hero-stats {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  margin-top: 26rpx;
-  padding: 20rpx 8rpx 4rpx;
-  border-top: 1rpx solid rgba(255, 255, 255, 0.16);
-}
-.h-stat {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4rpx;
-}
-.h-stat-num {
-  font-size: 36rpx;
-  font-weight: 800;
-  line-height: 1.1;
-}
-.h-stat-label {
-  font-size: 20rpx;
-  color: rgba(255, 255, 255, 0.72);
-}
-.h-stat-divider {
-  width: 1rpx;
-  height: 44rpx;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-/* ═══════ Hero 搜索框（输入框规范：radius 24rpx；深色 hero 上取白色半透明底） ═══════ */
-.hero-search {
-  position: relative;
-  z-index: 2;
-  margin-top: 20rpx;
-}
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  height: 72rpx;
-  padding: 0 24rpx;
-  border-radius: 24rpx;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1rpx solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 6rpx 20rpx rgba(7, 77, 146, 0.22);
-}
-/* CSS 放大镜（非 emoji） */
-.search-icon {
-  width: 24rpx;
-  height: 24rpx;
-  border: 3rpx solid rgba(255, 255, 255, 0.85);
-  border-radius: 50%;
-  position: relative;
-  flex-shrink: 0;
-}
-.search-icon::after {
-  content: '';
-  position: absolute;
-  right: -9rpx;
-  bottom: -6rpx;
-  width: 12rpx;
-  height: 3rpx;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 2rpx;
-  transform: rotate(45deg);
-}
-.search-input {
-  flex: 1;
-  height: 72rpx;
-  font-size: 26rpx;
-  color: #fff;
-}
-.search-ph {
-  color: rgba(255, 255, 255, 0.55);
-}
-/* CSS 清除按钮（圆形 ×） */
-.search-clear {
-  width: 32rpx;
-  height: 32rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.28);
-  position: relative;
-  flex-shrink: 0;
-}
-.search-clear::before,
-.search-clear::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 14rpx;
-  height: 3rpx;
-  border-radius: 2rpx;
+/* ===== 搜索框：白上白——纯白填充 + 灰描边 + 双层投影 ===== */
+.sbar { padding: 12px 12px 8px; background: #fff; }
+.b-search {
+  height: 44px;
+  padding: 0 11px;
+  border: 1px solid #E4E7EC;
+  border-radius: 7px;
   background: #fff;
-}
-.search-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
-.search-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
-
-/* 有旧数据时刷新失败横幅 */
-.list-error-banner {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 14rpx;
-  margin: 24rpx 32rpx 0;
-  padding: 16rpx 28rpx;
-  border-radius: 12rpx;
-  font-size: 24rpx;
-  color: #B42318;
-  background: #FEF0EF;
+  gap: 7px;
+  box-sizing: border-box;
 }
-.list-error-retry {
-  color: #0A66C2;
-  font-weight: 600;
+.b-search-ic { position: relative; width: 15px; height: 15px; flex: none; }
+.ic-ring {
+  width: 9px; height: 9px;
+  border: 1.5px solid #98A2B3;
+  border-radius: 50%;
+  position: absolute; top: 0; left: 0;
 }
+.ic-bar {
+  position: absolute; right: 0; bottom: 1px;
+  width: 5px; height: 1.5px;
+  background: #98A2B3;
+  transform: rotate(45deg);
+}
+.b-sinp { flex: 1; min-width: 0; background: transparent; font-size: 13px; color: #17212B; }
+.b-ph { color: #667085; }
+.b-sclr { color: #667085; font-size: 15px; padding: 10px; margin: -10px; }
+.b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
+.b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ═══════ 行业筛选 chips ═══════ */
-.chip-scroll {
-  width: 100%;
-  white-space: nowrap;
-  padding-top: 20rpx;
-}
-.chip-row {
-  display: inline-flex;
-  gap: 16rpx;
-  padding: 0 32rpx 8rpx;
-}
-.chip {
+/* ===== 筛选胶囊：白上白，选中态蓝描边 + 浅蓝底 ===== */
+.fscroll { width: 100%; white-space: nowrap; }
+.fbar { display: inline-flex; gap: 8px; padding: 10px 12px 4px; }
+.fpill {
+  flex: none;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #E4E7EC;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
+  color: #344054;
+  font-size: 12px;
   display: inline-flex;
   align-items: center;
-  height: 56rpx;
-  padding: 0 28rpx;
-  border-radius: 999rpx;
-  background: #fff;
-  border: 1rpx solid #E4E7EC;
-  font-size: 24rpx;
-  color: #475467;
-  transition: all 0.18s ease;
+  justify-content: center;
+  gap: 4px;
+  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
 }
-.chip-active {
-  background: linear-gradient(135deg, #0A66C2, #0D7AE0);
-  border-color: transparent;
-  color: #fff;
-  font-weight: 600;
-  box-shadow: 0 6rpx 16rpx rgba(10, 102, 194, 0.28);
-}
+.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
+.fpill-press { transform: scale(0.95); opacity: 0.85; }
+.fpv { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ═══════ 骨架屏 ═══════ */
-.skeleton-list {
+/* ===== 信息行 ===== */
+.ir {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 4px;
+  font-size: 12px;
+  color: #667085;
+  animation: fadeUp .25s ease-out backwards;
+  animation-delay: 60ms;
+}
+.irn { color: #0A66C2; font-weight: 600; }
+.ir-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #98A2B3; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===== 骨架屏 ===== */
+.skl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px; }
+.skc {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
-  padding: 24rpx 32rpx;
+  gap: 10px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
 }
-.skeleton-card {
-  height: 216rpx;
-  border-radius: 16rpx;
-  background: linear-gradient(90deg, #E9EDF1 25%, #F5F7F9 37%, #E9EDF1 63%);
-  background-size: 400% 100%;
-  animation: shimmer 1.3s infinite;
-}
-@keyframes shimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: 0 0; }
-}
+.sk-row { display: flex; align-items: center; gap: 8px; }
+.sk-tag { width: 40px; height: 40px; border-radius: 8px; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-bd { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+.sk-l { height: 12px; background: #EDF0F3; border-radius: 4px; animation: skPulse 1.4s linear infinite; }
+.sk-l.w40 { width: 40%; }
+.sk-l.w60 { width: 60%; }
+.sk-l.w90 { width: 90%; }
+@keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
-/* ═══════ 空状态 ═══════ */
-.state-panel {
-  min-height: 620rpx;
+/* ===== 空 / 错误 ===== */
+.st { display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
+.sth { font-size: 12px; color: #667085; display: block; margin-bottom: 16px; }
+.stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
+
+/* ===== 企业卡片：白上白——灰描边 + 柔和环境阴影，错峰入场 ===== */
+.cl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
+.card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 56rpx;
-  text-align: center;
-}
-.state-mark {
-  width: 132rpx;
-  height: 132rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 24rpx;
-  border-radius: 50%;
-  background: linear-gradient(160deg, #EAF3FB, #F0FAF6);
-  animation: floaty 3s ease-in-out infinite;
-}
-@keyframes floaty {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8rpx); }
-}
-.state-mark-inner {
-  width: 92rpx;
-  height: 92rpx;
-  border-radius: 24rpx;
-  background: #fff;
-  box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* CSS 楼宇图标（非 emoji） */
-.state-building {
-  width: 52rpx;
-  height: 44rpx;
-  position: relative;
-  background: linear-gradient(180deg, #0D7AE0, #0A66C2);
-  border-radius: 6rpx 6rpx 2rpx 2rpx;
-}
-.state-building::after {
-  content: '';
-  position: absolute;
-  left: 14rpx;
-  bottom: -8rpx;
-  width: 24rpx;
-  height: 8rpx;
-  background: #1DD4A8;
-  border-radius: 0 0 4rpx 4rpx;
-}
-.state-win {
-  position: absolute;
-  top: 12rpx;
-  width: 8rpx;
-  height: 12rpx;
-  background: #fff;
-  border-radius: 2rpx;
-  opacity: 0.85;
-}
-.state-win-1 { left: 12rpx; }
-.state-win-2 { right: 12rpx; }
-.state-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
-.state-desc { margin: 12rpx 0 0; font-size: 22rpx; color: #98A2B3; }
-.state-btn {
-  margin-top: 36rpx;
-  padding: 16rpx 64rpx;
-  border-radius: 50rpx;
-  background: linear-gradient(135deg, #0A66C2, #0D7AE0);
-  box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.28);
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #fff;
-}
-/* 搜索空态：灰调图标变体 */
-.state-mark-muted {
-  background: linear-gradient(160deg, #F1F3F5, #F7F9FB);
-}
-.state-search-icon {
-  width: 44rpx;
-  height: 44rpx;
-  border: 4rpx solid #C0C8D2;
-  border-radius: 50%;
-  position: relative;
-}
-.state-search-icon::after {
-  content: '';
-  position: absolute;
-  right: -14rpx;
-  bottom: -9rpx;
-  width: 22rpx;
-  height: 4rpx;
-  border-radius: 2rpx;
-  background: #C0C8D2;
-  transform: rotate(45deg);
-}
-
-/* ═══════ 企业卡片（两列网格，竖向布局） ═══════ */
-.card-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20rpx;
-  padding: 24rpx 32rpx 0;
-}
-.ent-card {
+  gap: 8px;
+  padding: 14px;
   position: relative;
   background: #fff;
-  border-radius: 16rpx;
-  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
-  border: 1px solid rgba(228, 231, 236, 0.7);
-  padding: 28rpx 20rpx 22rpx;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  animation: cardIn 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  border: 1px solid #E4E7EC;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
 }
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(22rpx); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.card-hover {
-  transform: scale(0.97);
-  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.1);
-}
-/* 顶部品牌渐变条 */
-.card-strip {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4rpx;
-  background: linear-gradient(90deg, #0A66C2, #1DD4A8);
-  opacity: 0.85;
-}
+.card:nth-child(-n+6) { animation: cardIn .22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.card:nth-child(1) { animation-delay: 80ms; }
+.card:nth-child(2) { animation-delay: 100ms; }
+.card:nth-child(3) { animation-delay: 120ms; }
+.card:nth-child(4) { animation-delay: 140ms; }
+.card:nth-child(5) { animation-delay: 160ms; }
+.card:nth-child(6) { animation-delay: 180ms; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.tap-scale { transform: scale(0.97); opacity: 0.9; }
 
-/* 会员角标（右上角） */
-.member-badge {
-  position: absolute;
-  top: 18rpx;
-  right: 18rpx;
-  font-size: 18rpx;
-  font-weight: 600;
-  color: #fff;
-  background: linear-gradient(135deg, #0FC293, #1DD4A8);
-  border-radius: 999rpx;
-  padding: 4rpx 12rpx;
-  line-height: 1.2;
-  box-shadow: 0 4rpx 10rpx rgba(29, 212, 168, 0.32);
-  z-index: 2;
-}
-
+.cell-top { display: flex; align-items: flex-start; gap: 10px; }
 .ent-logo {
-  position: relative;
-  width: 104rpx;
-  height: 104rpx;
-  border-radius: 20rpx;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
   overflow: hidden;
-  flex-shrink: 0;
-  background: #E8F2FC;
-  margin-top: 6rpx;
+  background: #EAF3FB;
+  flex: none;
 }
-.ent-logo-img {
-  width: 100%;
-  height: 100%;
-}
+.ent-logo-img { width: 100%; height: 100%; }
 .ent-logo-fallback {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40rpx;
+  font-size: 16px;
   font-weight: 700;
   color: #0A66C2;
-  background: linear-gradient(150deg, #EAF3FB, #DCEBFA);
+  background: #EAF3FB;
 }
-.logo-ring {
-  position: absolute;
-  right: -16rpx;
-  bottom: -16rpx;
-  width: 50rpx;
-  height: 50rpx;
-  border-radius: 50%;
-  background: rgba(29, 212, 168, 0.22);
-}
-
-.ent-name {
-  width: 100%;
-  margin-top: 16rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 27rpx;
-  font-weight: 700;
+.cell-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.cell-title-row { display: flex; align-items: center; gap: 6px; }
+.cell-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
   color: #17212B;
-}
-
-.ent-verified {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  margin-top: 8rpx;
-}
-.verified-dot {
-  width: 10rpx;
-  height: 10rpx;
-  border-radius: 50%;
-  background: #0FC293;
-}
-.verified-text {
-  font-size: 20rpx;
-  color: #0B8A63;
-  font-weight: 500;
-}
-
-/* 标签行：最多 2 个 + 溢出计数（分类蓝 / 能力灰） */
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8rpx;
-  margin-top: 14rpx;
-}
-.tag {
-  max-width: 180rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  border-radius: 8rpx;
-  padding: 5rpx 12rpx;
-  font-size: 19rpx;
-  line-height: 1.4;
 }
-.tag.blue { color: #0A66C2; background: #EAF3FB; border: 1rpx solid rgba(10, 102, 194, 0.12); }
-.tag.gray { color: #667085; background: #F1F3F5; border: 1rpx solid rgba(102, 112, 133, 0.1); }
-.tag-more {
-  border-radius: 8rpx;
-  padding: 5rpx 10rpx;
-  font-size: 19rpx;
-  line-height: 1.4;
-  color: #98A2B3;
-  background: #F9FAFB;
+.member-badge {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0B6B41;
+  background: #E9F7F0;
 }
+.cell-verified { display: flex; align-items: center; gap: 4px; }
+.verified-dot { width: 6px; height: 6px; border-radius: 50%; background: #0B6B41; }
+.verified-text { font-size: 11px; color: #0B6B41; font-weight: 500; }
 
-/* 描述：两行截断，同行两卡高度对齐 */
-.ent-desc {
+/* 标签行：最多 2 个 + 溢出计数（分类蓝 / 能力灰，扁平 tint） */
+.tag-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.type-tag { padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.tag--blue { background: #EAF3FB; color: #0A66C2; }
+.tag--gray { background: #EEF1F4; color: #5D6B82; }
+.tag-more { padding: 1px 4px; font-size: 11px; color: #98A2B3; }
+
+/* 描述：两行截断 */
+.c-desc {
+  font-size: 12.5px;
+  color: #667085;
+  line-height: 1.5;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  width: 100%;
-  margin-top: 14rpx;
-  padding-top: 14rpx;
-  border-top: 1rpx dashed #E4E7EC;
-  font-size: 21rpx;
-  color: #667085;
-  line-height: 1.55;
-  text-align: left;
 }
 
-/* 底部入驻时间（贴底，两卡视觉对齐） */
-.ent-date {
-  width: 100%;
-  margin-top: auto;
-  padding-top: 12rpx;
-  font-size: 20rpx;
-  color: #98A2B3;
-}
-
-/* ═══════ 列表底部提示 + 入驻引导 ═══════ */
-.list-foot {
+/* 底部入驻时间 */
+.cell-foot {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 18rpx;
-  padding: 36rpx 32rpx 24rpx;
+  justify-content: space-between;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid #F0F1F3;
 }
-.list-foot-text {
-  font-size: 22rpx;
-  color: #98A2B3;
+.cell-org { font-size: 12px; color: #98A2B3; }
+
+/* 已有数据时加载失败横幅 */
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin: 0 12px;
+  font-size: 12px;
+  color: #B42318;
+  background: #FEF0EF;
+  border-radius: 8px;
 }
+.error-retry { color: #0A66C2; font-weight: 600; }
+
+/* 入驻引导 */
 .foot-join {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10rpx;
-  padding: 14rpx 32rpx;
-  border-radius: 50rpx;
-  background: #F4F8FC;
-  border: 1rpx solid rgba(10, 102, 194, 0.16);
+  padding: 14px 0 4px;
 }
-.foot-join-text {
-  font-size: 24rpx;
-  color: #0A66C2;
-  font-weight: 600;
-}
-.foot-join-arrow {
-  width: 12rpx;
-  height: 12rpx;
-  border-top: 3rpx solid #0A66C2;
-  border-right: 3rpx solid #0A66C2;
-  transform: rotate(45deg);
-  margin-left: 2rpx;
-}
+.foot-join-text { font-size: 13px; color: #0A66C2; font-weight: 600; }
 
-/* ═══════ 底部固定申请入驻条（按钮规范：radius 50rpx + box-shadow） ═══════ */
+/* ===== 底部固定申请入驻条（按钮规范：radius 50rpx + box-shadow，扁平主色） ===== */
 .join-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 20;
-  padding: 16rpx 32rpx calc(16rpx + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(244, 246, 248, 0), #F4F6F8 30%);
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -1px 0 #F0F1F3;
   pointer-events: none;
 }
 .join-btn {
@@ -875,27 +521,21 @@ onLoad(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12rpx;
-  height: 88rpx;
-  border-radius: 50rpx;
-  background: linear-gradient(135deg, #0A66C2 0%, #0D7AE0 100%);
-  box-shadow: 0 10rpx 26rpx rgba(10, 102, 194, 0.34);
+  height: 44px;
+  border-radius: 22px;
+  background: #0A66C2;
+  box-shadow: 0 6px 16px rgba(10, 102, 194, 0.24);
 }
-.join-btn-hover {
-  opacity: 0.88;
-  transform: scale(0.985);
-}
+.join-btn-hover { opacity: 0.88; transform: scale(0.985); }
 .join-btn-text {
-  font-size: 30rpx;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
-  letter-spacing: 2rpx;
+  letter-spacing: 1px;
 }
-.join-arrow {
-  width: 14rpx;
-  height: 14rpx;
-  border-top: 4rpx solid #fff;
-  border-right: 4rpx solid #fff;
-  transform: rotate(45deg);
-}
+
+/* ===== 减弱动效（无障碍） ===== */
+.page.no-motion .card,
+.page.no-motion .ir { animation: none; }
+.page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
 </style>
