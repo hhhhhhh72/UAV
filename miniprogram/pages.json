@@ -335,6 +335,7 @@
             "navigationBarTitleText": "培训认证",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom",
             "enablePullDownRefresh": true
           }
         },
@@ -344,7 +345,8 @@
             "navigationBarTitleText": "课程报名",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
-            "navigationStyle": "custom"
+            "navigationStyle": "custom",
+            "enablePullDownRefresh": true
           }
         },
         {
