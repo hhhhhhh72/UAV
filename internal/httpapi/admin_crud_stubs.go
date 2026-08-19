@@ -161,6 +161,7 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 		OrganizerSub       string                          `json:"organizer_sub"`
 		Fee                int                             `json:"fee"`
 		MinFee             int                             `json:"min_fee"`
+		OriginalFee        int                             `json:"original_fee"`
 		Tags               []string                        `json:"tags"`
 		Poster             string                          `json:"poster"`
 		Requirements       []domain.CompetitionRequirement `json:"requirements"`
@@ -181,7 +182,7 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 		Location: in.Location, Sponsor: in.Sponsor, Status: in.Status,
 		StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
 		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
-		Fee: in.Fee, MinFee: in.MinFee, Tags: in.Tags, Poster: in.Poster,
+		Fee: in.Fee, MinFee: in.MinFee, OriginalFee: in.OriginalFee, Tags: in.Tags, Poster: in.Poster,
 		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
 		RegistrationStatus: in.RegistrationStatus,
 	})

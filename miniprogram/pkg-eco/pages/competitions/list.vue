@@ -127,6 +127,7 @@
               <view v-else class="price-cap">
                 <text class="price-symbol">¥</text>
                 <text class="price-num">{{ compFee(item).toLocaleString() }}</text>
+                <text v-if="origFee(item)" class="price-orig">¥{{ origFee(item).toLocaleString() }}</text>
                 <text class="price-suffix">/人</text>
               </view>
               <view v-if="!isClosed(item)" class="btn-enroll" hover-class="press-feedback" :hover-stay-time="100" @tap.stop="goRegister(item)">
@@ -221,6 +222,13 @@ function compFee(item) {
 
 function isFree(item) {
   return compFee(item) <= 0
+}
+
+/* 划线原价：original_fee > 现价才显示 */
+function origFee(item) {
+  var o = item.original_fee
+  if (o == null && item.original_price != null) o = item.original_price
+  return o && o > compFee(item) ? o : null
 }
 
 /* 分类类型：竞技=orange, FPV=purple, 创新=teal */
@@ -665,6 +673,12 @@ onPullDownRefresh(function () {
 
 .price-symbol { font-size: 13px; color: #C2410C; font-weight: 700; }
 .price-num { font-size: 20px; font-weight: 800; color: #C2410C; line-height: 1; }
+.price-orig {
+  font-size: 11px;
+  color: #98A2B3;
+  text-decoration: line-through;
+  margin-left: 4px;
+}
 .price-suffix { font-size: 10px; color: #98A2B3; margin-left: 2px; }
 
 .btn-enroll {

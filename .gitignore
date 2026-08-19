@@ -37,3 +37,7 @@ microAPP-main/
 
 # 本地测试上传残留目录（API 运行时生成）
 internal/httpapi/test_uploads/
+
+# Go 构建缓存与本地临时目录（不入库）
+.gocache/
+.impeccable/

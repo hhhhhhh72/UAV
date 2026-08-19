@@ -95,7 +95,7 @@
             <view v-if="requirements(detail).length === 0" class="req-empty">以主办方公布为准</view>
             <view v-for="req in requirements(detail)" :key="req.name" class="req-item">
               <view class="req-icon">
-                <text class="req-icon-text">{{ req.icon }}</text>
+                <text class="req-icon-text">{{ (req.name || '条').charAt(0) }}</text>
               </view>
               <view class="req-body">
                 <text class="req-name">{{ req.name }}</text>

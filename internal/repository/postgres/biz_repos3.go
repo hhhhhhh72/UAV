@@ -25,8 +25,8 @@ func (s *Store) NewCompetitionRepository(cipher *crypto.Cipher) repository.Compe
 	return &compRepo{pool: s.Pool(), cipher: cipher}
 }
 
-// compCols 与 competitions 表列一一对应（迁移 000044 补齐小程序页面字段）
-const compCols = `id,title,category,description,location,start_date,end_date,deadline,max_teams,reg_count,sponsor,organizer_sub,fee,min_fee,tags,poster,requirements,events,prizes,registration_status,status,created_at,updated_at`
+// compCols 与 competitions 表列一一对应（迁移 000044 补齐小程序页面字段，000069 补 original_fee）
+const compCols = `id,title,category,description,location,start_date,end_date,deadline,max_teams,reg_count,sponsor,organizer_sub,fee,min_fee,original_fee,tags,poster,requirements,events,prizes,registration_status,status,created_at,updated_at`
 
 func (r *compRepo) Create(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	c.CreatedAt = time.Now()
@@ -36,9 +36,9 @@ func (r *compRepo) Create(ctx context.Context, c domain.Competition) (domain.Com
 	c.Events = jsonbSlice(c.Events)
 	c.Prizes = jsonbSlice(c.Prizes)
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO competitions (`+compCols+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+		`INSERT INTO competitions (`+compCols+`) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
 		c.ID, c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
-		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
+		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.OriginalFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
 		c.RegistrationStatus, c.Status, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
@@ -47,7 +47,7 @@ func (r *compRepo) FindByID(ctx context.Context, id string) (domain.Competition,
 	err := r.pool.QueryRow(ctx,
 		`SELECT `+compCols+` FROM competitions WHERE id=$1`, id).
 		Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.Deadline, &c.MaxTeams, &c.RegCount,
-			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
+			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.OriginalFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
 			&c.RegistrationStatus, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
@@ -66,7 +66,7 @@ func (r *compRepo) List(ctx context.Context, offset, limit int) ([]domain.Compet
 	for rows.Next() {
 		var c domain.Competition
 		if err := rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.Deadline, &c.MaxTeams, &c.RegCount,
-			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
+			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.OriginalFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
 			&c.RegistrationStatus, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan competition: %w", err)
 		}
@@ -81,9 +81,9 @@ func (r *compRepo) Update(ctx context.Context, c domain.Competition) (domain.Com
 	c.Events = jsonbSlice(c.Events)
 	c.Prizes = jsonbSlice(c.Prizes)
 	_, err := r.pool.Exec(ctx,
-		`UPDATE competitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,deadline=$7,max_teams=$8,reg_count=$9,sponsor=$10,organizer_sub=$11,fee=$12,min_fee=$13,tags=$14,poster=$15,requirements=$16,events=$17,prizes=$18,registration_status=$19,status=$20,updated_at=$21 WHERE id=$22`,
+		`UPDATE competitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,deadline=$7,max_teams=$8,reg_count=$9,sponsor=$10,organizer_sub=$11,fee=$12,min_fee=$13,original_fee=$14,tags=$15,poster=$16,requirements=$17,events=$18,prizes=$19,registration_status=$20,status=$21,updated_at=$22 WHERE id=$23`,
 		c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
-		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
+		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.OriginalFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
 		c.RegistrationStatus, c.Status, c.UpdatedAt, c.ID)
 	return c, err
 }
