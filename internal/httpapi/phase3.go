@@ -103,23 +103,19 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	enrolls, err := s.enrollSvc.ListByCourse(r.Context(), r.PathValue("id"))
+	// 按报名 ID 定位（原实现误用 ListByCourse 按课程 ID 匹配报名 ID，恒 404 → 学费释放/发证闭环瘫痪）
+	enrollment, err := s.enrollSvc.FindByID(r.Context(), r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		fail(w, r, http.StatusNotFound, errors.New("enrollment not found"))
 		return
 	}
-
-	var enrollment domain.Enrollment
-	found := false
-	for _, e := range enrolls {
-		if e.ID == r.PathValue("id") {
-			enrollment = e
-			found = true
-			break
-		}
+	// 幂等 + 状态校验：仅 enrolled/paid 可完成；completed 拒绝重复释放/重复发证；pending/rejected 不可完成
+	if enrollment.Status == "completed" {
+		fail(w, r, http.StatusConflict, errors.New("enrollment already completed"))
+		return
 	}
-	if !found {
-		fail(w, r, http.StatusNotFound, errors.New("enrollment not found"))
+	if enrollment.Status != "enrolled" && enrollment.Status != "paid" {
+		fail(w, r, http.StatusConflict, fmt.Errorf("enrollment status %q cannot be completed", enrollment.Status))
 		return
 	}
 
@@ -147,6 +143,13 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("issue certificate: %w", err))
+		return
+	}
+
+	// 标记完成（防重复释放/发证）
+	enrollment.Status = "completed"
+	if _, err := s.enrollSvc.Update(r.Context(), domain.Actor{ID: a.ID, Role: a.Role}, enrollment); err != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("mark enrollment completed: %w", err))
 		return
 	}
 
@@ -262,11 +265,15 @@ func (s *Server) listMyEnrollments(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, out)
 }
 
-// GET /api/v1/training-courses/{id}/enrollments
+// GET /api/v1/training-courses/{id}/enrollments — 管理端按课程查报名（含 PII），限管理员
 func (s *Server) listEnrollments(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
 	enrolls, err := s.enrollSvc.ListByCourse(r.Context(), r.PathValue("id"))

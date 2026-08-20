@@ -41,6 +41,11 @@ func (s *EnrollmentService) All(ctx context.Context, offset, limit int) ([]domai
 	return s.repo.ListAll(ctx, offset, limit)
 }
 
+// FindByID 按报名 ID 定位单条记录（管理端完成报名/编辑用，替代全表扫描）。
+func (s *EnrollmentService) FindByID(ctx context.Context, id string) (domain.Enrollment, error) {
+	return s.repo.FindByID(ctx, id)
+}
+
 func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string, form EnrollmentForm) (domain.Enrollment, error) {
 	// 并发防重复：check-then-insert 加进程内锁（双请求同时通过查重会重复报名，
 	// 且付费报名会重复扣冻结金额）。
@@ -65,10 +70,10 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	return s.repo.Create(ctx, e)
 }
 
-// validEnrollmentStatus 报名状态白名单（与前端 statusLabel 对齐）。
+// validEnrollmentStatus 报名状态白名单（与前端 statusLabel 对齐；completed 由管理端完成闭环写入）。
 func validEnrollmentStatus(status string) bool {
 	switch status {
-	case "pending", "approved", "paid", "enrolled", "rejected":
+	case "pending", "approved", "paid", "enrolled", "rejected", "completed":
 		return true
 	}
 	return false

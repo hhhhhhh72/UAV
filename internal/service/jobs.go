@@ -187,6 +187,21 @@ func (s *JobService) Apply(ctx context.Context, a domain.Actor, jobID, resumeID 
 		ApplicantID: a.ID, Status: domain.AppSubmitted, Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.app.Create(ctx, app)
 }
+// appCanTransition 投递状态机合法迁移表（rejected/withdrawn 为终态，不可回退）。
+func appCanTransition(from, to domain.AppStatus) bool {
+	switch from {
+	case domain.AppSubmitted:
+		return to == domain.AppViewed || to == domain.AppRejected || to == domain.AppWithdrawn
+	case domain.AppViewed:
+		return to == domain.AppInterviewing || to == domain.AppRejected || to == domain.AppWithdrawn
+	case domain.AppInterviewing:
+		return to == domain.AppOffered || to == domain.AppRejected
+	case domain.AppOffered:
+		return false // 已录用为定局，由录用流程推进
+	}
+	return false
+}
+
 func (s *JobService) UpdateApplicationStatus(ctx context.Context, a domain.Actor, appID string, status domain.AppStatus) (domain.JobApplication, error) {
 	// 归属校验前置（C5 修复）：必须先确认操作者身份再落库，
 	// 旧实现先 UpdateStatus 后校验，越权写入已生效才返回 403。
@@ -198,8 +213,25 @@ func (s *JobService) UpdateApplicationStatus(ctx context.Context, a domain.Actor
 	if err != nil {
 		return domain.JobApplication{}, err
 	}
-	if j.EnterpriseID != a.ID && ap.ApplicantID != a.ID {
+	isOwner := j.EnterpriseID == a.ID
+	isApplicant := ap.ApplicantID == a.ID
+	if !isOwner && !isApplicant {
 		return domain.JobApplication{}, errors.New("only the job owner or applicant can update")
+	}
+	// 角色限定：viewed/interviewing/offered/rejected 仅企业可设；withdrawn 仅求职者可设
+	switch status {
+	case domain.AppViewed, domain.AppInterviewing, domain.AppOffered, domain.AppRejected:
+		if !isOwner {
+			return domain.JobApplication{}, errors.New("only the job owner can set this status")
+		}
+	case domain.AppWithdrawn:
+		if !isApplicant {
+			return domain.JobApplication{}, errors.New("only the applicant can withdraw")
+		}
+	}
+	// 状态机校验：非法跳变（如 submitted→offered、rejected→interviewing）一律拒绝
+	if !appCanTransition(ap.Status, status) {
+		return domain.JobApplication{}, fmt.Errorf("invalid application status transition %q -> %q", ap.Status, status)
 	}
 	return s.app.UpdateStatus(ctx, appID, status)
 }

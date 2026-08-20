@@ -18,6 +18,7 @@ import (
 // 接入短信服务商（腾讯云/阿里云 SMS）后，在 sendSMSCode 中发送真实短信并移除 dev_code。
 
 type smsRecord struct {
+	mu sync.Mutex // 串行化同号并发校验的读-改-写，防错误计数丢更新（爆破防护）
 	Code      string
 	ExpiresAt time.Time
 	// Attempts 记录错误校验次数：达到 maxSMSCodeAttempts 即作废验证码，
@@ -25,7 +26,7 @@ type smsRecord struct {
 	Attempts int
 }
 
-var smsCodes sync.Map // phone -> smsRecord
+var smsCodes sync.Map // phone -> *smsRecord（指针 + 条目锁，并发安全递增）
 
 const (
 	smsCodeTTL         = 5 * time.Minute
@@ -102,7 +103,7 @@ func (s *Server) sendSMSCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rec, ok := smsCodes.Load(body.Phone); ok {
-		if time.Until(rec.(smsRecord).ExpiresAt) > smsCodeTTL-smsResendWait {
+		if time.Until(rec.(*smsRecord).ExpiresAt) > smsCodeTTL-smsResendWait {
 			fail(w, r, http.StatusTooManyRequests, errBadRequest("验证码已发送，请 60 秒后再试"))
 			return
 		}
@@ -112,7 +113,7 @@ func (s *Server) sendSMSCode(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	smsCodes.Store(body.Phone, smsRecord{Code: code, ExpiresAt: time.Now().Add(smsCodeTTL)})
+	smsCodes.Store(body.Phone, &smsRecord{Code: code, ExpiresAt: time.Now().Add(smsCodeTTL)})
 
 	// TODO(短信服务商): 接入腾讯云/阿里云 SMS 后在此发送真实短信，并删除 dev_code 回显。
 	resp := map[string]any{"success": true, "expires_in": int(smsCodeTTL.Seconds())}
@@ -137,13 +138,16 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errBadRequest("请先获取验证码"))
 		return
 	}
-	recv := rec.(smsRecord)
+	recv := rec.(*smsRecord)
+	recv.mu.Lock()
+	defer recv.mu.Unlock()
 	if time.Now().After(recv.ExpiresAt) {
 		smsCodes.Delete(body.Phone)
 		fail(w, r, http.StatusUnauthorized, errBadRequest("验证码错误或已过期"))
 		return
 	}
 	// 常量时间比较防时序侧信道；错误累计 5 次后作废验证码，须重新获取。
+	// 锁内递增：并发请求串行化，杜绝计数丢更新绕过爆破防护。
 	if subtle.ConstantTimeCompare([]byte(recv.Code), []byte(body.Code)) != 1 {
 		recv.Attempts++
 		if recv.Attempts >= maxSMSCodeAttempts {
@@ -151,7 +155,6 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 			fail(w, r, http.StatusUnauthorized, errBadRequest("验证码错误次数过多，请重新获取验证码"))
 			return
 		}
-		smsCodes.Store(body.Phone, recv)
 		fail(w, r, http.StatusUnauthorized, errBadRequest("验证码错误或已过期"))
 		return
 	}

@@ -63,7 +63,7 @@ func (s *Server) createResourcePool(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) addPoolMember(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
 		return
@@ -75,6 +75,17 @@ func (s *Server) addPoolMember(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	// 归属校验：仅资源池创建者或管理员可注入成员（防任意用户向任意池写入）
+	pool, err := s.poolSvc.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusNotFound, errors.New("resource pool not found"))
+		return
+	}
+	isAdmin := a.Role == domain.RoleAssociationAdmin || a.Role == domain.RolePlatformAdmin
+	if !isAdmin && pool.OwnerID != a.ID {
+		fail(w, r, http.StatusForbidden, errors.New("only pool owner or admin can add members"))
 		return
 	}
 	m, err := s.poolSvc.AddMember(r.Context(), r.PathValue("id"), in.ResID, in.ResType, in.Quantity)

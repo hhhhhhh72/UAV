@@ -48,15 +48,19 @@ func TestUpdateApplicationStatusOwnershipFirst(t *testing.T) {
 		t.Fatalf("status changed by stranger: %+v", apps)
 	}
 
-	// Act/Assert: 合法操作者——职位所属企业与投递者本人均可更新
-	if _, err := svc.UpdateApplicationStatus(context.Background(), entActor(), app.ID, domain.AppInterviewing); err != nil {
-		t.Fatalf("job owner update: %v", err)
+	// Act/Assert: 合法操作者——职位所属企业按状态机推进（submitted→viewed→interviewing）
+	if _, err := svc.UpdateApplicationStatus(context.Background(), entActor(), app.ID, domain.AppViewed); err != nil {
+		t.Fatalf("job owner update viewed: %v", err)
 	}
-	if _, err := svc.UpdateApplicationStatus(context.Background(), indActor(), app.ID, domain.AppWithdrawn); err != nil {
-		t.Fatalf("applicant update: %v", err)
+	if _, err := svc.UpdateApplicationStatus(context.Background(), entActor(), app.ID, domain.AppInterviewing); err != nil {
+		t.Fatalf("job owner update interviewing: %v", err)
+	}
+	// 非法跳变（interviewing→withdrawn 求职者撤回不允许；submitted→offered 直接录用不允许）应被拒绝
+	if _, err := svc.UpdateApplicationStatus(context.Background(), indActor(), app.ID, domain.AppWithdrawn); err == nil {
+		t.Fatal("applicant withdraw after interviewing should be rejected")
 	}
 	apps, _ = svc.ListMyApplications(context.Background(), indActor())
-	if apps[0].Status != domain.AppWithdrawn {
-		t.Fatalf("status after owner/applicant updates: %s", apps[0].Status)
+	if apps[0].Status != domain.AppInterviewing {
+		t.Fatalf("status after owner updates: %s", apps[0].Status)
 	}
 }

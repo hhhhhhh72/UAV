@@ -132,8 +132,16 @@ func TestJobsEndpoints(t *testing.T) {
 	assertStatus(t, http.MethodPost, "/api/v1/applications", w, http.StatusCreated)
 	appID := dataID(t, w)
 
+	// 投递状态机：submitted → viewed → interviewing（企业按序推进）
+	w = doRaw(app, http.MethodPatch, "/api/v1/applications/"+appID+"/status", `{"status":"viewed"}`, entTok)
+	assertStatus(t, http.MethodPatch, "/api/v1/applications/"+appID+"/status", w, http.StatusOK)
+
 	w = doRaw(app, http.MethodPatch, "/api/v1/applications/"+appID+"/status", `{"status":"interviewing"}`, entTok)
 	assertStatus(t, http.MethodPatch, "/api/v1/applications/"+appID+"/status", w, http.StatusOK)
+
+	// 非法跳变（求职者自改 offered）应被拒绝
+	w = doRaw(app, http.MethodPatch, "/api/v1/applications/"+appID+"/status", `{"status":"offered"}`, indTok)
+	assertStatus(t, http.MethodPatch, "/api/v1/applications/"+appID+"/status", w, http.StatusForbidden)
 
 	w = doRaw(app, http.MethodGet, "/api/v1/applications", "", entTok)
 	assertStatus(t, http.MethodGet, "/api/v1/applications", w, http.StatusOK)

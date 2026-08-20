@@ -101,9 +101,14 @@ func TestRound3Batch1(t *testing.T) {
 	w = doRaw(app, http.MethodGet, "/api/v1/resource-pools", "", "")
 	assertStatus(t, http.MethodGet, "/api/v1/resource-pools", w, http.StatusOK)
 
+	// 资源池成员：仅池主(admin)或管理员可注入；普通用户应被拒绝
 	w = doRaw(app, http.MethodPost, "/api/v1/resource-pools/"+poolID+"/members",
-		`{"res_id":"res-1","res_type":"drone","quantity":3}`, userTok)
+		`{"res_id":"res-1","res_type":"drone","quantity":3}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/resource-pools/"+poolID+"/members", w, http.StatusCreated)
+
+	w = doRaw(app, http.MethodPost, "/api/v1/resource-pools/"+poolID+"/members",
+		`{"res_id":"res-2","res_type":"drone","quantity":1}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/resource-pools/"+poolID+"/members", w, http.StatusForbidden)
 
 	w = doRaw(app, http.MethodGet, "/api/v1/resource-pools/"+poolID+"/members", "", userTok)
 	assertStatus(t, http.MethodGet, "/api/v1/resource-pools/"+poolID+"/members", w, http.StatusOK)

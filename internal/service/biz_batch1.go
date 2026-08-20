@@ -33,6 +33,9 @@ func (s *ResourcePoolService) Get(ctx context.Context, id string) (domain.Resour
 	return s.repo.FindByID(ctx, id)
 }
 func (s *ResourcePoolService) AddMember(ctx context.Context, poolID, resID, resType string, quantity int) (domain.ResourcePoolMember, error) {
+	if quantity <= 0 {
+		return domain.ResourcePoolMember{}, errors.New("quantity must be positive")
+	}
 	m := domain.ResourcePoolMember{ID: nextID("rpm"),
 		PoolID: poolID, ResID: resID, ResType: resType, Quantity: quantity,
 		Status: "standby", JoinedAt: time.Now()}
