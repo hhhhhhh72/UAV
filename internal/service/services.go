@@ -231,6 +231,22 @@ func (s *DemandService) Delete(ctx context.Context, a domain.Actor, id string) e
 	return s.repo.Delete(ctx, id)
 }
 
+// ToggleFavorite 收藏/取消收藏需求（登录用户可收藏任意公开需求）。
+func (s *DemandService) ToggleFavorite(ctx context.Context, userID, demandID string, favorite bool) error {
+	if _, err := s.repo.FindByID(ctx, demandID); err != nil {
+		return err
+	}
+	if favorite {
+		return s.repo.FavoriteDemand(ctx, userID, demandID)
+	}
+	return s.repo.UnfavoriteDemand(ctx, userID, demandID)
+}
+
+// ListFavoriteDemandIDs 当前用户已收藏的需求 ID 列表。
+func (s *DemandService) ListFavoriteDemandIDs(ctx context.Context, userID string) ([]string, error) {
+	return s.repo.ListFavoriteDemandIDs(ctx, userID)
+}
+
 // SetOfflineAmount 登记线下成交金额（联系对接模式：平台撮合价值度量）。
 // 仅已公开/已完成需求可登记；管理端补登或发布者完成时登记。
 func (s *DemandService) SetOfflineAmount(ctx context.Context, a domain.Actor, id string, amountFen int64) (domain.Demand, error) {

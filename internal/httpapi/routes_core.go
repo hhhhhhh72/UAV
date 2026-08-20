@@ -80,6 +80,8 @@ func (s *Server) registerDemandRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/demands/{id}/submit", s.submitDemand)
 	mux.HandleFunc("POST /api/v1/demands/{id}/complete", s.completeDemand)
 	mux.HandleFunc("POST /api/v1/demands/{id}/cancel", s.cancelDemand)
+	mux.HandleFunc("POST /api/v1/demands/{id}/favorite", s.toggleDemandFavorite)
+	mux.HandleFunc("GET /api/v1/demands/favorites/mine", s.listMyDemandFavorites)
 	mux.HandleFunc("GET /api/v1/admin/demands", s.listAdminDemands)
 	mux.HandleFunc("GET /api/v1/admin/demands/stats", s.adminDemandStats)
 	mux.HandleFunc("POST /api/v1/admin/demands/{id}/review", s.reviewDemand)

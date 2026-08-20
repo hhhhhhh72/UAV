@@ -4,9 +4,9 @@
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">{{ detailTitle }}</text>
-      <view class="head-action" :style="{ marginRight: capsuleGap + 'px' }" @tap="onShare">
+      <button class="head-action" :style="{ marginRight: capsuleGap + 'px' }" open-type="share">
         <text class="head-action-text">分享</text>
-      </view>
+      </button>
     </view>
 
     <!-- 加载状态 -->
@@ -216,7 +216,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
 import { safeNavigateTo } from '../../utils/nav'
 import {
@@ -230,6 +230,7 @@ import { useSafeTop } from '../../utils/safeTop'
 const item = ref(null)
 const state = ref('loading') // loading | ready | error
 const favorited = ref(false)
+const favoriting = ref(false)
 const submitting = ref(false)
 
 // 自定义导航：状态栏留白 + 右上角避让微信胶囊（JS 方式）
@@ -411,8 +412,18 @@ const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
 const previewImage = (i) => uni.previewImage({ urls: mediaImages.value, current: mediaImages.value[i] })
 
 const onShare = () => {
-  uni.showToast({ title: '已生成分享卡片', icon: 'none' })
+  // 头部分享改为 button open-type="share"，此函数仅保留兼容（不再展示假提示）
+  uni.showToast({ title: '请点击右上角菜单分享', icon: 'none' })
 }
+
+// 微信原生分享（右上角菜单与 open-type="share" 按钮共用）
+onShareAppMessage(() => {
+  const it = item.value || {}
+  return {
+    title: '需求：' + (it.title || '无人机服务需求'),
+    path: '/pages/demands/detail?id=' + encodeURIComponent(demandId),
+  }
+})
 // 企业主页：仅当发布者有已认证企业时可跳转（后端 publisher_enterprise 兜底）
 const toastCompany = () => {
   const ent = item.value && item.value.publisher_enterprise
@@ -424,13 +435,38 @@ const toastCompany = () => {
 }
 
 /* ================= 收藏 / 登记对接 ================= */
-// 收藏为假交互：后端无收藏接口，仅提示即将上线（保留 UI 入口）
-const onFavorite = () => {
+// 收藏走真实接口（POST /api/v1/demands/{id}/favorite），登录后可用
+const onFavorite = async () => {
   if (!isLoggedIn()) {
     openSheet('login')
     return
   }
-  uni.showToast({ title: '收藏功能即将上线', icon: 'none' })
+  if (favoriting.value) return
+  favoriting.value = true
+  try {
+    const next = !favorited.value
+    await request({
+      url: '/api/v1/demands/' + encodeURIComponent(postId) + '/favorite',
+      method: 'POST',
+      data: { favorite: next },
+    })
+    favorited.value = next
+    uni.showToast({ title: next ? '已收藏' : '已取消收藏', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+  } finally {
+    favoriting.value = false
+  }
+}
+
+// 进入页面时加载收藏状态（登录后）
+const loadFavoriteState = async () => {
+  if (!isLoggedIn() || !postId) return
+  try {
+    const res = await request({ url: '/api/v1/demands/favorites/mine' })
+    const ids = Array.isArray(res) ? res : (res && res.data) || []
+    favorited.value = ids.includes(postId)
+  } catch (e) { /* 忽略：保持未收藏 */ }
 }
 
 const onIntent = async () => {
@@ -606,6 +642,7 @@ onLoad((options) => {
   postId = (options && options.id) || ''
   loadDetail()
   checkIntented()
+  loadFavoriteState()
 })
 </script>
 

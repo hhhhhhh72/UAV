@@ -15,10 +15,17 @@ import (
 
 // ---- Demand ----
 
+type demandFavorite struct {
+	UserID    string
+	DemandID  string
+	CreatedAt time.Time
+}
+
 type demandRepo struct {
-	mu     sync.RWMutex
-	items  []domain.Demand
-	cipher *crypto.Cipher
+	mu        sync.RWMutex
+	items     []domain.Demand
+	cipher    *crypto.Cipher
+	favorites []demandFavorite
 }
 
 func NewDemandRepository(cipher *crypto.Cipher) repository.DemandRepository {
@@ -256,6 +263,43 @@ func (r *demandRepo) Delete(ctx context.Context, id string) error {
 		}
 	}
 	return fmt.Errorf("demand %s not found", id)
+}
+
+// 需求收藏：按 (user_id, demand_id) 去重
+func (r *demandRepo) FavoriteDemand(ctx context.Context, userID, demandID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, f := range r.favorites {
+		if f.UserID == userID && f.DemandID == demandID {
+			return nil // 已收藏，幂等
+		}
+	}
+	r.favorites = append(r.favorites, demandFavorite{UserID: userID, DemandID: demandID, CreatedAt: time.Now()})
+	return nil
+}
+
+func (r *demandRepo) UnfavoriteDemand(ctx context.Context, userID, demandID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, f := range r.favorites {
+		if f.UserID == userID && f.DemandID == demandID {
+			r.favorites = append(r.favorites[:i], r.favorites[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (r *demandRepo) ListFavoriteDemandIDs(ctx context.Context, userID string) ([]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]string, 0)
+	for _, f := range r.favorites {
+		if f.UserID == userID {
+			out = append(out, f.DemandID)
+		}
+	}
+	return out, nil
 }
 
 // ---- Enterprise ----

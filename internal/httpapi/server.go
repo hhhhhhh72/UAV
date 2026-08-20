@@ -632,6 +632,42 @@ func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, public, len(result))
 }
 
+// POST /api/v1/demands/{id}/favorite — 收藏/取消收藏需求
+func (s *Server) toggleDemandFavorite(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		Favorite bool `json:"favorite"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if err := s.demands.ToggleFavorite(r.Context(), a.ID, r.PathValue("id"), in.Favorite); err != nil {
+		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	respond(w, r, http.StatusOK, map[string]bool{"favorite": in.Favorite})
+}
+
+// GET /api/v1/demands/favorites/mine — 我的收藏需求 ID 列表
+func (s *Server) listMyDemandFavorites(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		respond(w, r, http.StatusOK, []string{})
+		return
+	}
+	ids, err := s.demands.ListFavoriteDemandIDs(r.Context(), a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, ids)
+}
+
 // GET /api/v1/admin/demands — 管理员查看所有状态需求
 func (s *Server) listAdminDemands(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)

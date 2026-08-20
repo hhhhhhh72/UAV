@@ -89,6 +89,10 @@ type DemandRepository interface {
 	SetStatus(ctx context.Context, id string, status domain.DemandStatus) (domain.Demand, error)
 	CompareAndSetStatus(ctx context.Context, id string, oldStatus, newStatus domain.DemandStatus) (bool, domain.Demand, error)
 	Delete(ctx context.Context, id string) error
+	// 需求收藏（按 (user_id, demand_id) 唯一）
+	FavoriteDemand(ctx context.Context, userID, demandID string) error
+	UnfavoriteDemand(ctx context.Context, userID, demandID string) error
+	ListFavoriteDemandIDs(ctx context.Context, userID string) ([]string, error)
 }
 
 // EnterpriseRepository manages enterprise registrations and the admin review workflow.

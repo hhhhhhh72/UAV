@@ -2012,6 +2012,44 @@ func (r *demandRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+func (r *demandRepo) FavoriteDemand(ctx context.Context, userID, demandID string) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO demand_favorites (id, user_id, demand_id) VALUES ($1,$2,$3)
+		 ON CONFLICT (user_id, demand_id) DO NOTHING`,
+		"dfav-"+userID+"-"+demandID, userID, demandID)
+	if err != nil {
+		return fmt.Errorf("favorite demand %s: %w", demandID, err)
+	}
+	return nil
+}
+
+func (r *demandRepo) UnfavoriteDemand(ctx context.Context, userID, demandID string) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM demand_favorites WHERE user_id=$1 AND demand_id=$2`, userID, demandID)
+	if err != nil {
+		return fmt.Errorf("unfavorite demand %s: %w", demandID, err)
+	}
+	return nil
+}
+
+func (r *demandRepo) ListFavoriteDemandIDs(ctx context.Context, userID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT demand_id FROM demand_favorites WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list favorite demands: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan favorite demand: %w", err)
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 // ---- College Repository ----
 
 type pgCollegeRepo struct{ pool *pgxpool.Pool }
