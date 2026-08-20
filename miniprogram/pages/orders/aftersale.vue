@@ -67,8 +67,9 @@
       </view>
 
       <!-- 操作 -->
-      <!-- 卖家视角：售后待审核时显示审核按钮（同意退款 / 驳回） -->
-      <view v-if="isSeller && as && as.status === '待审核'" class="action-wrap">
+      <!-- 卖家视角：仅「售后处理中 + 待审核」显示审核按钮（同意退款 / 驳回）。
+           已退款完成/已驳回的结案单（订单状态已回 completed）绝不显示操作按钮 -->
+      <view v-if="isSeller && order.status === 'aftersale' && as && as.status === '待审核'" class="action-wrap">
         <view class="action-btn action-btn--danger" @tap="review(false)">
           <text>驳回申请</text>
         </view>

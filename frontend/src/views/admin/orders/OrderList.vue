@@ -76,6 +76,10 @@
             <a-button type="primary" status="success" @click="onReviewAftersale('approve')">同意退款</a-button>
             <a-button status="danger" @click="onReviewAftersale('reject')">驳回申请</a-button>
           </template>
+          <!-- 售后已结案（approved/rejected）：只读展示，不再提供状态修改，防止对已退款完成订单重复操作 -->
+          <template v-else-if="currentItem.aftersale_status">
+            <span class="review-label review-closed">售后已结案，无需操作</span>
+          </template>
           <template v-else>
             <span class="review-label">修改状态：</span>
             <a-select v-model="newStatus" style="width: 140px;">
@@ -235,6 +239,7 @@ const onReviewAftersale = (action) => {
 
 .time-text { color: var(--color-text-2); font-size: 12px; }
 .no-aftersale { color: #C9CDD4; }
+.review-closed { color: var(--color-text-3); font-size: 13px; }
 
 .review-actions { display: flex; align-items: center; justify-content: center; padding-top: 16px; gap: 8px; }
 .review-label { color: #4E5969; }

@@ -140,11 +140,17 @@ function aftersaleInfo(t) {
   if (!t.aftersale_status) return null
   const type = t.aftersale_type === 'return' ? '退货退款' : '仅退款'
   const time = fmtDate(t.aftersale_time)
-  const statusMap = { pending: '待审核', approved: '已同意，退款完成', rejected: '已驳回' }
+  const statusMap = { pending: '待审核', approved: '售后已完成', rejected: '已驳回' }
   // 进度按申请状态推导（不臆造节点：时间缺省用申请时间/占位）
-  const progress = [{ time: time || '-', text: '已提交售后申请，等待平台审核' }]
+  const progress = []
+  // 第一步：申请提交。待审核单才提示「等待平台审核」；已结案单只陈述已提交，
+  // 避免退款完成后仍显示「等待审核」的误导。
+  progress.push({ time: time || '-', text: t.aftersale_status === 'pending' ? '已提交售后申请，等待平台审核' : '已提交售后申请' })
   // 模拟支付体系下无真实资金动作：不承诺「款项原路退回」，只描述平台流程处理
-  if (t.aftersale_status === 'approved') progress.push({ time: '-', text: '已同意退款，退款将按平台流程处理' })
+  if (t.aftersale_status === 'approved') {
+    progress.push({ time: '-', text: '已同意退款，退款按平台流程处理' })
+    progress.push({ time: '-', text: '售后已完成，退款处理结束' })
+  }
   if (t.aftersale_status === 'rejected') progress.push({ time: '-', text: '平台已驳回申请，订单已结案' })
   return {
     type,
