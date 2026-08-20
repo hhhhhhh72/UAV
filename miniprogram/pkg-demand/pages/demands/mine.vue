@@ -196,6 +196,38 @@ function productToCard(p) {
   }
 }
 
+// 后端服务能力 → 统一卡片
+function serviceToCard(s) {
+  return {
+    id: s.id,
+    type: 'service',
+    source: 'backend',
+    label: '服务能力',
+    title: s.title || '未命名服务',
+    status: s.status === 'published' ? '已发布' : (s.status === 'off' ? '已下架' : '审核中'),
+    statusKey: s.status === 'published' ? 'published' : (s.status === 'off' ? 'removed' : 'pending'),
+    meta: [s.category || '', s.region || ''].filter(Boolean),
+    date: formatDate(s.created_at),
+    raw: s,
+  }
+}
+
+// 后端课程 → 统一卡片
+function courseToCard(c) {
+  return {
+    id: c.id,
+    type: 'course',
+    source: 'backend',
+    label: '培训课程',
+    title: c.title || '未命名课程',
+    status: c.status === 'published' ? '已发布' : (c.status === 'draft' ? '草稿' : '审核中'),
+    statusKey: c.status === 'published' ? 'published' : (c.status === 'draft' ? 'draft' : 'pending'),
+    meta: [c.org_name || '', c.district || ''].filter(Boolean),
+    date: formatDate(c.created_at),
+    raw: c,
+  }
+}
+
 // 本地发布记录 → 统一卡片（商品 backendId 非空的由后端商品统一展示，这里跳过）
 function localToCard(p) {
   return {
@@ -216,18 +248,22 @@ function localToCard(p) {
 const fetchMine = async () => {
   loadError.value = false
   try {
-    const [demandsRes, productsRes] = await Promise.all([
+    const [demandsRes, productsRes, servicesRes, coursesRes] = await Promise.all([
       request({ url: '/api/v1/demands?mine=1&page_size=100' }).catch(() => []),
       request({ url: '/api/v1/products?mine=1&page_size=100' }).catch(() => []),
+      request({ url: '/api/v1/service-listings?mine=1&page_size=100' }).catch(() => []),
+      request({ url: '/api/v1/training-courses?mine=1&page_size=100' }).catch(() => []),
     ])
     const cards = []
-    // 后端商品（权威，含本地缓存被清后的记录）
+    // 后端记录（权威，含本地缓存被清后的记录；四类全部走后端）
     normalizeList(productsRes).forEach((p) => cards.push(productToCard(p)))
-    // 后端需求
     normalizeList(demandsRes).forEach((d) => cards.push(demandToCard(d)))
-    // 本地发布（需求/服务/课程全在本地；商品仅无 backendId 的历史记录）
+    normalizeList(servicesRes).forEach((s) => cards.push(serviceToCard(s)))
+    normalizeList(coursesRes).forEach((c) => cards.push(courseToCard(c)))
+    // 本地发布：有 backendId 且后端已返回的跳过（需求/服务/课程同商品规则，防同一发布重复展示）
+    const backendIds = new Set(cards.map((c) => String(c.id)))
     getPosts().forEach((p) => {
-      if (p.type === 'product' && p.backendId) return
+      if (p.backendId && backendIds.has(String(p.backendId))) return
       cards.push(localToCard(p))
     })
     posts.value = cards
@@ -264,10 +300,20 @@ const goDetail = (post) => {
   if (post.source === 'backend') {
     if (post.type === 'product') {
       safeNavigateTo('/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(post.id))
-    } else {
-      safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(post.id))
+      return
     }
-    return
+    if (post.type === 'demand') {
+      safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(post.id))
+      return
+    }
+    if (post.type === 'service') {
+      safeNavigateTo('/pages/demands/index')
+      return
+    }
+    if (post.type === 'course') {
+      safeNavigateTo('/pkg-talent/pages/training/courses')
+      return
+    }
   }
   // 本地记录 → 本地详情
   safeNavigateTo('/pages/publish/detail?id=' + encodeURIComponent(post.id))
