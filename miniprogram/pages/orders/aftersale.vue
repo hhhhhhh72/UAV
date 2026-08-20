@@ -67,7 +67,17 @@
       </view>
 
       <!-- 操作 -->
-      <view class="action-wrap">
+      <!-- 卖家视角：售后待审核时显示审核按钮（同意退款 / 驳回） -->
+      <view v-if="isSeller && as && as.status === '待审核'" class="action-wrap">
+        <view class="action-btn action-btn--danger" @tap="review(false)">
+          <text>驳回申请</text>
+        </view>
+        <view class="action-btn action-btn--primary" @tap="review(true)">
+          <text>同意退款</text>
+        </view>
+      </view>
+      <!-- 买家视角：补充退款申请 -->
+      <view v-else-if="!isSeller && order" class="action-wrap">
         <view class="action-btn" @tap="goRefundApply">
           <text>补充退款申请</text>
         </view>
@@ -82,12 +92,52 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { loadOrder, fmtFen, toastCustomerService } from '../../utils/orderAdapter'
+import { request } from '../../utils/request'
 
 const order = ref(null)
 const loading = ref(true)
 const error = ref(false)
 
 const as = computed(() => order.value?.aftersale || null)
+
+// 卖家视角：订单角色为 seller（orderAdapter 按 seller_id 与当前用户匹配）
+const isSeller = computed(() => !!(order.value && order.value.role === 'seller'))
+
+// 卖家审核售后：同意退款 / 驳回
+const reviewing = ref(false)
+const review = async (approve) => {
+  const o = order.value
+  if (!o || reviewing.value) return
+  const action = approve ? 'approve' : 'reject'
+  const tip = approve ? '确认同意退款？' : '确认驳回该售后申请？'
+  const confirmed = await new Promise((resolve) => {
+    uni.showModal({
+      title: tip,
+      content: approve ? '同意后售后单结案，订单完成' : '驳回后订单结案，买家可联系客服',
+      success: (r) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
+  reviewing.value = true
+  uni.showLoading({ title: '处理中...' })
+  try {
+    await request({
+      url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/aftersale/review',
+      method: 'POST',
+      data: { action },
+    })
+    uni.hideLoading()
+    uni.showToast({ title: approve ? '已同意退款' : '已驳回申请', icon: 'success' })
+    setTimeout(() => { loadData({ id: o.id }) }, 600)
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || '操作失败，请重试'
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    reviewing.value = false
+  }
+}
 
 const loadData = async (query = {}) => {
   const id = query.id
@@ -276,8 +326,11 @@ const kindClass = (type) => (type === 'service' ? 'service' : type === 'course' 
 
 .action-wrap {
   margin: 32rpx 24rpx 0;
+  display: flex;
+  gap: 16rpx;
 }
 .action-btn {
+  flex: 1;
   height: 92rpx;
   display: flex;
   align-items: center;
@@ -288,6 +341,16 @@ const kindClass = (type) => (type === 'service' ? 'service' : type === 'course' 
   font-size: 30rpx;
   font-weight: 700;
   box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.22);
+}
+.action-btn--primary {
+  background: #0A66C2;
+  box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.22);
+}
+.action-btn--danger {
+  background: #ffffff;
+  color: #B42318;
+  border: 1rpx solid #FDECEC;
+  box-shadow: none;
 }
 
 .bottom-spacer { height: 24rpx; }

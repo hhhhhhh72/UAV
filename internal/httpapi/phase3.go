@@ -399,6 +399,35 @@ func (s *Server) updateTradeOrderStatus(w http.ResponseWriter, r *http.Request) 
 	respond(w, r, http.StatusOK, o)
 }
 
+// POST /api/v1/trade-orders/{id}/aftersale/review — 卖家/管理员审核售后单（同意退款 / 驳回）
+func (s *Server) reviewAftersaleBySeller(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		Action string `json:"action"` // approve=同意退款 / reject=驳回
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	switch in.Action {
+	case "approve", "reject":
+	default:
+		fail(w, r, http.StatusBadRequest, errors.New("action 仅支持 approve / reject"))
+		return
+	}
+	o, err := s.tradeSvc.ReviewAftersaleAsSeller(r.Context(), a, r.PathValue("id"), in.Action == "approve")
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "review_aftersale", "trade_order", o.ID, o.AftersaleStatus)
+	respond(w, r, http.StatusOK, o)
+}
+
 // POST /api/v1/trade-orders/{id}/aftersale — 买家申请售后（仅买家可调，shipped/completed → aftersale）
 func (s *Server) applyAftersale(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)

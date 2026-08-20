@@ -260,6 +260,24 @@ func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID,
 // 驳回 → aftersale_status=rejected。结案后订单状态回到 completed（交易结束态），
 // 售后记录保留在 aftersale_* 字段供买家/后台查看。
 func (s *TradeOrderService) ReviewAftersale(ctx context.Context, orderID string, approve bool) (domain.TradeOrder, error) {
+	return s.reviewAftersale(ctx, orderID, approve)
+}
+
+// ReviewAftersaleAsSeller 卖家/管理员审核自己订单的售后单：
+// 仅订单卖家（或平台/协会管理员）可审，其余逻辑与管理端审核一致。
+func (s *TradeOrderService) ReviewAftersaleAsSeller(ctx context.Context, a domain.Actor, orderID string, approve bool) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	isAdmin := a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
+	if !isAdmin && o.SellerID != a.ID {
+		return domain.TradeOrder{}, fmt.Errorf("permission denied: 仅订单卖家或管理员可审核售后")
+	}
+	return s.reviewAftersale(ctx, orderID, approve)
+}
+
+func (s *TradeOrderService) reviewAftersale(ctx context.Context, orderID string, approve bool) (domain.TradeOrder, error) {
 	o, err := s.repo.FindByID(ctx, orderID)
 	if err != nil {
 		return domain.TradeOrder{}, err
