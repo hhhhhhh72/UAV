@@ -24,16 +24,15 @@
       <view v-if="submitted" class="success-card">
         <view class="pub-success-mark">✓</view>
         <text class="success-title">评价提交成功</text>
-        <text class="success-desc">结课凭证已存入「我的报名 / 证书」</text>
+        <text class="success-desc">感谢你的评价，将帮助更多用户了解该商品</text>
         <view class="success-actions">
           <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="goOrders">返回我的订单</view>
-          <view class="pub-btn pub-btn--ghost" hover-class="pub-btn--active" @tap="goCertificates">查看我的证书</view>
         </view>
       </view>
 
       <!-- 评价表单 -->
       <template v-else>
-        <!-- 表单头部：所评课程信息 -->
+        <!-- 表单头部：所购商品信息 -->
         <view class="pub-form-intro">
           <view class="pub-form-intro-h2">{{ order.title }}</view>
           <view class="pub-form-intro-p">{{ order.subtitle }}</view>
@@ -41,7 +40,7 @@
 
         <!-- 星级 -->
         <view class="pub-section">
-          <view class="pub-section-title">课程评价</view>
+          <view class="pub-section-title">商品评价</view>
           <view class="pub-form-card">
             <view class="pub-field">
               <view class="star-row">
@@ -74,7 +73,7 @@
               <textarea
                 class="pub-input pub-input--textarea review-textarea"
                 v-model="content"
-                placeholder="说说课程内容、讲师讲解与实操安排..."
+                placeholder="说说商品质量、性价比与服务体验..."
                 placeholder-class="pub-placeholder"
                 :maxlength="200"
               ></textarea>
@@ -180,10 +179,6 @@ const submitReview = async () => {
 
 const goOrders = () => {
   uni.reLaunch({ url: '/pages/orders/index' })
-}
-
-const goCertificates = () => {
-  uni.navigateTo({ url: '/pkg-talent/pages/training/certificates' })
 }
 
 const goBack = () => {
