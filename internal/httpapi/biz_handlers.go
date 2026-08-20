@@ -1687,6 +1687,10 @@ func (s *Server) recommendDemands(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 20
 	}
+	// P2 修复：limit 钳制上界 100——任意大的 limit 此前触发全量加载。
+	if limit > 100 {
+		limit = 100
+	}
 	userID := ""
 	if a, ok := authenticatedActor(r); ok {
 		userID = a.ID
@@ -1712,6 +1716,10 @@ func (s *Server) searchAndMatch(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 {
 		limit = 20
+	}
+	// P2 修复：limit 钳制上界 100——任意大的 limit 此前触发全量加载。
+	if limit > 100 {
+		limit = 100
 	}
 	results, err := s.matchingSvc.SearchAndMatch(r.Context(), q, lat, lng, bizType, limit)
 	if err != nil {

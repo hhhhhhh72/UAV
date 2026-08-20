@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -18,6 +19,13 @@ import (
 
 // ErrUploadQuotaExceeded 当日上传配额已用尽（handler 映射为 413）。
 var ErrUploadQuotaExceeded = errors.New("今日上传额度已用尽")
+
+// uploadQuotaMu 串行化配额路径的"检查配额→写盘→记账"（P2 修复）。
+// 此前先写盘→查账→记账非原子：并发同用户上传会各自读到旧用量再各自记账，
+// 放大当日配额（如 2 并发各写 6MB、配额 10MB 双双通过）。上传是低频操作，
+// 全局互斥足够且实现最简单；多实例部署时进程内锁不跨实例（注释说明局限，
+// 当前为单实例部署；跨实例需依赖数据库层原子记账）。
+var uploadQuotaMu sync.Mutex
 
 type FileService struct {
 	uploadDir  string
@@ -64,6 +72,13 @@ func (s *FileService) FindUpload(ctx context.Context, id string) (domain.FileRec
 
 func (s *FileService) uploadTo(ctx context.Context, ownerID string, filename, contentType string, reader io.Reader, dir, visibility string) (domain.FileRecord, error) {
 	now := time.Now()
+	// P2 修复：启用配额时整个"检查配额→写盘→记账"串行化（全局互斥），
+	// 防并发上传各自读到旧用量放大当日配额；未启用配额不取锁，正常上传零阻塞。
+	quotaEnabled := s.dailyLimit > 0 && s.uploads != nil
+	if quotaEnabled {
+		uploadQuotaMu.Lock()
+		defer uploadQuotaMu.Unlock()
+	}
 	// B 批加固：ID 由可预测的时间戳改为 128 位随机（防枚举——
 	// 私有影像 ID 此前为 file-<UnixNano>，可被暴力遍历）。
 	randBytes := make([]byte, 16)
@@ -109,7 +124,7 @@ func (s *FileService) uploadTo(ctx context.Context, ownerID string, filename, co
 
 	// 收尾批次：按用户每日配额记账（uploads 台账）。
 	// 先写盘后校验：超限即删文件、不落台账，保证已记录数据与磁盘一致；
-	// 并发同用户上传可能瞬时略超一档（单实例可接受，无事务必要）。
+	// 配额路径整体由 uploadQuotaMu 串行化，并发上传不再放大当日配额。
 	if s.dailyLimit > 0 && s.uploads != nil {
 		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 		used, err := s.uploads.SumBytesSince(ctx, ownerID, start)

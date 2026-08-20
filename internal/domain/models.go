@@ -506,6 +506,7 @@ type Enrollment struct {
 	IDCardImage string    `json:"id_card_image"` // 身份证照片
 	NoCrime     string    `json:"no_crime"`      // 无犯罪证明
 	Status      string    `json:"status"`
+	PaidAmountFen int64   `json:"paid_amount_fen"` // 报名时冻结的学费（分），完成时按此金额释放——与课程实时价格解耦
 	CreatedAt   time.Time `json:"created_at"`
 }
 

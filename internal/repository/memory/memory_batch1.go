@@ -214,7 +214,11 @@ func (r *exhibitionRepo) FindByID(ctx context.Context, id string) (domain.Exhibi
 func (r *exhibitionRepo) List(ctx context.Context, offset, limit int) ([]domain.Exhibition, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.expos, offset, limit)
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	// 先复制再排序，避免持读锁时原地重排底层切片（数据竞争）。
+	sorted := append([]domain.Exhibition(nil), r.expos...)
+	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].CreatedAt.After(sorted[j].CreatedAt) })
+	return paginateSlice(sorted, offset, limit)
 }
 func (r *exhibitionRepo) Update(ctx context.Context, e domain.Exhibition) (domain.Exhibition, error) {
 	r.mu.Lock()

@@ -1568,7 +1568,12 @@ func (s *Store) NewWorkOrderRepository() repository.WorkOrderRepository {
 	return &pgWorkOrderRepo{pool: s.pool}
 }
 
-const workOrderCols = `id, order_no, demand_id, intent_id, publisher_id, publisher_name, worker_id, worker_name, amount_fen, status, result_photos, rework_note, cancel_reason, created_at, updated_at`
+// workOrderInsertCols 用于 INSERT（原列名）；workOrderSelectCols 用于 SELECT/RETURNING——
+// 存量工单 intent_id 可能为 NULL，直接 Scan 进 *string 会报错导致全部工单接口 500，
+// SELECT 侧用 COALESCE 包裹成空串，两处列顺序一致（scanWorkOrder 的 Scan 顺序不变）。
+const workOrderInsertCols = `id, order_no, demand_id, intent_id, publisher_id, publisher_name, worker_id, worker_name, amount_fen, status, result_photos, rework_note, cancel_reason, created_at, updated_at`
+
+const workOrderSelectCols = `id, order_no, demand_id, COALESCE(intent_id,'') AS intent_id, publisher_id, publisher_name, worker_id, worker_name, amount_fen, status, result_photos, rework_note, cancel_reason, created_at, updated_at`
 
 func scanWorkOrder(row interface{ Scan(...any) error }) (domain.WorkOrder, error) {
 	var wo domain.WorkOrder
@@ -1593,7 +1598,7 @@ func (r *pgWorkOrderRepo) Create(ctx context.Context, wo domain.WorkOrder) (doma
 	wo.UpdatedAt = now
 	photos, _ := json.Marshal(wo.ResultPhotos)
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO work_orders (`+workOrderCols+`)
+		`INSERT INTO work_orders (`+workOrderInsertCols+`)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 		wo.ID, wo.OrderNo, wo.DemandID, wo.IntentID, wo.PublisherID, wo.PublisherName, wo.WorkerID, wo.WorkerName,
 		wo.AmountFen, wo.Status, photos, wo.ReworkNote, wo.CancelReason, wo.CreatedAt, wo.UpdatedAt)
@@ -1610,7 +1615,7 @@ func (r *pgWorkOrderRepo) Create(ctx context.Context, wo domain.WorkOrder) (doma
 
 func (r *pgWorkOrderRepo) FindByID(ctx context.Context, id string) (domain.WorkOrder, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT `+workOrderCols+` FROM work_orders WHERE id=$1`, id)
+		`SELECT `+workOrderSelectCols+` FROM work_orders WHERE id=$1`, id)
 	wo, err := scanWorkOrder(row)
 	if err != nil {
 		return domain.WorkOrder{}, fmt.Errorf("find work order %s: %w", id, err)
@@ -1620,7 +1625,7 @@ func (r *pgWorkOrderRepo) FindByID(ctx context.Context, id string) (domain.WorkO
 
 func (r *pgWorkOrderRepo) ListByPublisher(ctx context.Context, publisherID string) ([]domain.WorkOrder, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+workOrderCols+` FROM work_orders WHERE publisher_id=$1 ORDER BY created_at DESC`, publisherID)
+		`SELECT `+workOrderSelectCols+` FROM work_orders WHERE publisher_id=$1 ORDER BY created_at DESC`, publisherID)
 	if err != nil {
 		return nil, fmt.Errorf("query work orders by publisher: %w", err)
 	}
@@ -1638,7 +1643,7 @@ func (r *pgWorkOrderRepo) ListByPublisher(ctx context.Context, publisherID strin
 
 func (r *pgWorkOrderRepo) ListByWorker(ctx context.Context, workerID string) ([]domain.WorkOrder, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+workOrderCols+` FROM work_orders WHERE worker_id=$1 ORDER BY created_at DESC`, workerID)
+		`SELECT `+workOrderSelectCols+` FROM work_orders WHERE worker_id=$1 ORDER BY created_at DESC`, workerID)
 	if err != nil {
 		return nil, fmt.Errorf("query work orders by worker: %w", err)
 	}
@@ -1659,7 +1664,7 @@ func (r *pgWorkOrderRepo) UpdateStatus(ctx context.Context, id string, oldStatus
 	// 消除"取消与开始作业并发导致已取消订单复活"的竞态窗口。
 	row := r.pool.QueryRow(ctx,
 		`UPDATE work_orders SET status=$2, updated_at=now() WHERE id=$1 AND status=$3
-		RETURNING `+workOrderCols, id, status, oldStatus)
+		RETURNING `+workOrderSelectCols, id, status, oldStatus)
 	wo, err := scanWorkOrder(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1674,7 +1679,7 @@ func (r *pgWorkOrderRepo) UpdatePhotos(ctx context.Context, id string, photos []
 	data, _ := json.Marshal(photos)
 	row := r.pool.QueryRow(ctx,
 		`UPDATE work_orders SET result_photos=$2, updated_at=now() WHERE id=$1
-		RETURNING `+workOrderCols, id, data)
+		RETURNING `+workOrderSelectCols, id, data)
 	wo, err := scanWorkOrder(row)
 	if err != nil {
 		return domain.WorkOrder{}, fmt.Errorf("update work order photos %s: %w", id, err)
@@ -1685,7 +1690,7 @@ func (r *pgWorkOrderRepo) UpdatePhotos(ctx context.Context, id string, photos []
 func (r *pgWorkOrderRepo) UpdateRework(ctx context.Context, id string, note string) (domain.WorkOrder, error) {
 	row := r.pool.QueryRow(ctx,
 		`UPDATE work_orders SET rework_note=$2, updated_at=now() WHERE id=$1
-		RETURNING `+workOrderCols, id, note)
+		RETURNING `+workOrderSelectCols, id, note)
 	wo, err := scanWorkOrder(row)
 	if err != nil {
 		return domain.WorkOrder{}, fmt.Errorf("update work order rework %s: %w", id, err)
@@ -1696,7 +1701,7 @@ func (r *pgWorkOrderRepo) UpdateRework(ctx context.Context, id string, note stri
 func (r *pgWorkOrderRepo) UpdateCancel(ctx context.Context, id string, reason string) (domain.WorkOrder, error) {
 	row := r.pool.QueryRow(ctx,
 		`UPDATE work_orders SET cancel_reason=$2, updated_at=now() WHERE id=$1
-		RETURNING `+workOrderCols, id, reason)
+		RETURNING `+workOrderSelectCols, id, reason)
 	wo, err := scanWorkOrder(row)
 	if err != nil {
 		return domain.WorkOrder{}, fmt.Errorf("update work order cancel %s: %w", id, err)
@@ -2086,14 +2091,14 @@ func (r *pgExhibitionRepo) Create(ctx context.Context, e domain.Exhibition) (dom
 	e.CreatedAt = time.Now()
 	e.UpdatedAt = e.CreatedAt
 	_, err := r.pool.Exec(ctx,
-		"INSERT INTO exhibitions (id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
-		e.ID, e.Title, e.Category, e.Description, e.Location, e.StartDate, e.EndDate, e.BoothCount, e.BoothPrice, e.Organizer, e.Status, e.CreatedAt, e.UpdatedAt)
+		"INSERT INTO exhibitions (id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,cover_url,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",
+		e.ID, e.Title, e.Category, e.Description, e.Location, e.StartDate, e.EndDate, e.BoothCount, e.BoothPrice, e.Organizer, e.CoverURL, e.Status, e.CreatedAt, e.UpdatedAt)
 	return e, err
 }
 func (r *pgExhibitionRepo) FindByID(ctx context.Context, id string) (domain.Exhibition, error) {
 	var e domain.Exhibition
-	err := r.pool.QueryRow(ctx, "SELECT id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,status,created_at,updated_at FROM exhibitions WHERE id=$1", id).
-		Scan(&e.ID, &e.Title, &e.Category, &e.Description, &e.Location, &e.StartDate, &e.EndDate, &e.BoothCount, &e.BoothPrice, &e.Organizer, &e.Status, &e.CreatedAt, &e.UpdatedAt)
+	err := r.pool.QueryRow(ctx, "SELECT id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,cover_url,status,created_at,updated_at FROM exhibitions WHERE id=$1", id).
+		Scan(&e.ID, &e.Title, &e.Category, &e.Description, &e.Location, &e.StartDate, &e.EndDate, &e.BoothCount, &e.BoothPrice, &e.Organizer, &e.CoverURL, &e.Status, &e.CreatedAt, &e.UpdatedAt)
 	return e, err
 }
 func (r *pgExhibitionRepo) List(ctx context.Context, offset, limit int) ([]domain.Exhibition, int, error) {
@@ -2101,7 +2106,7 @@ func (r *pgExhibitionRepo) List(ctx context.Context, offset, limit int) ([]domai
 	if err := r.pool.QueryRow(ctx, "SELECT count(*) FROM exhibitions").Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count exhibitions: %w", err)
 	}
-	rows, err := r.pool.Query(ctx, "SELECT id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,status,created_at,updated_at FROM exhibitions ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := r.pool.Query(ctx, "SELECT id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,cover_url,status,created_at,updated_at FROM exhibitions ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2109,7 +2114,7 @@ func (r *pgExhibitionRepo) List(ctx context.Context, offset, limit int) ([]domai
 	var out []domain.Exhibition
 	for rows.Next() {
 		var e domain.Exhibition
-		if err := rows.Scan(&e.ID, &e.Title, &e.Category, &e.Description, &e.Location, &e.StartDate, &e.EndDate, &e.BoothCount, &e.BoothPrice, &e.Organizer, &e.Status, &e.CreatedAt, &e.UpdatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.Title, &e.Category, &e.Description, &e.Location, &e.StartDate, &e.EndDate, &e.BoothCount, &e.BoothPrice, &e.Organizer, &e.CoverURL, &e.Status, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, e)
@@ -2119,8 +2124,8 @@ func (r *pgExhibitionRepo) List(ctx context.Context, offset, limit int) ([]domai
 func (r *pgExhibitionRepo) Update(ctx context.Context, e domain.Exhibition) (domain.Exhibition, error) {
 	e.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
-		"UPDATE exhibitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,booth_count=$7,booth_price_fen=$8,organizer=$9,status=$10,updated_at=$11 WHERE id=$12",
-		e.Title, e.Category, e.Description, e.Location, e.StartDate, e.EndDate, e.BoothCount, e.BoothPrice, e.Organizer, e.Status, e.UpdatedAt, e.ID)
+		"UPDATE exhibitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,booth_count=$7,booth_price_fen=$8,organizer=$9,cover_url=$10,status=$11,updated_at=$12 WHERE id=$13",
+		e.Title, e.Category, e.Description, e.Location, e.StartDate, e.EndDate, e.BoothCount, e.BoothPrice, e.Organizer, e.CoverURL, e.Status, e.UpdatedAt, e.ID)
 	return e, err
 }
 func (r *pgExhibitionRepo) Delete(ctx context.Context, id string) error {

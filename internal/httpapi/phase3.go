@@ -67,6 +67,8 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
+	// 报名记录固化冻结金额：completeEnrollment 按此释放，与课程后续改价解耦
+	form.PaidAmountFen = course.PriceFen
 
 	if course.PriceFen > 0 {
 		_, err := s.escrowSvc.Freeze(r.Context(), a.ID, course.PriceFen, "training_course", course.ID)
@@ -119,39 +121,46 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find course to get price and org.
+	// Find course for org/type context（价格不再用于资金操作，仅取机构与证书类型）
 	course, err := s.trainingSvc.GetCourse(r.Context(), enrollment.CourseID)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, fmt.Errorf("course not found: %w", err))
 		return
 	}
 
-	// Release funds if course was paid.
-	if course.PriceFen > 0 {
-		_, err := s.escrowSvc.Release(r.Context(), enrollment.UserID, course.OrgID, course.PriceFen, "training_course", course.ID)
-		if err != nil {
+	// ① 先原子置 completed（CAS：仅 enrolled/paid 可改）——防并发/重试重复释放。
+	//    置完成失败（状态已被他人变更）直接 409，资金不会动。
+	enrollment.Status = "completed"
+	if _, err := s.enrollSvc.Update(r.Context(), domain.Actor{ID: a.ID, Role: a.Role}, enrollment); err != nil {
+		fail(w, r, http.StatusConflict, fmt.Errorf("mark enrollment completed: %w", err))
+		return
+	}
+
+	// ② 按报名时冻结金额释放（与课程实时价格解耦；免费报名 paid_amount_fen=0 不释放）
+	released := false
+	if enrollment.PaidAmountFen > 0 {
+		if _, err := s.escrowSvc.Release(r.Context(), enrollment.UserID, course.OrgID, enrollment.PaidAmountFen, "training_course", course.ID); err != nil {
+			// 释放失败：状态已置 completed（幂等锚点，不会重复释放），
+			// 资金滞留 frozen —— 记录审计供管理员人工处理（escrow 管理员接口可解）
+			s.audit(r.Context(), a.ID, "complete_enrollment_release_failed", "enrollment", enrollment.ID, err.Error())
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("release escrow: %w", err))
 			return
 		}
+		released = true
 	}
 
-	// Auto-issue certificate.
+	// ③ 发证（幂等：同报名已发过则跳过，防重试重复发证）
 	cert, err := s.trainingSvc.AddCertificate(r.Context(),
 		domain.Actor{ID: enrollment.UserID, Role: domain.RoleIndividual},
 		course.CertType, "auto-"+enrollment.ID, "passed", course.OrgID,
 		time.Now(), time.Now().AddDate(3, 0, 0),
 	)
 	if err != nil {
+		s.audit(r.Context(), a.ID, "complete_enrollment_cert_failed", "enrollment", enrollment.ID, err.Error())
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("issue certificate: %w", err))
 		return
 	}
-
-	// 标记完成（防重复释放/发证）
-	enrollment.Status = "completed"
-	if _, err := s.enrollSvc.Update(r.Context(), domain.Actor{ID: a.ID, Role: a.Role}, enrollment); err != nil {
-		fail(w, r, http.StatusInternalServerError, fmt.Errorf("mark enrollment completed: %w", err))
-		return
-	}
+	_ = released
 
 	s.audit(r.Context(), a.ID, "complete_enrollment", "enrollment", enrollment.ID, "completed+cert_issued")
 	respond(w, r, http.StatusOK, map[string]any{

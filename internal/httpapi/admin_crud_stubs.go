@@ -177,10 +177,19 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 	if d, err := parseDateInput(in.Deadline); err == nil && !d.IsZero() {
 		deadline = &d
 	}
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	startDate, ok := strictDate(w, r, in.StartDate)
+	if !ok {
+		return
+	}
+	endDate, ok := strictDate(w, r, in.EndDate)
+	if !ok {
+		return
+	}
 	c, err := s.competitionSvc.Update(r.Context(), domain.Competition{
 		ID: id, Title: in.Title, Category: in.Category, Description: in.Description,
 		Location: in.Location, Sponsor: in.Sponsor, Status: in.Status,
-		StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		StartDate: startDate, EndDate: endDate,
 		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
 		Fee: in.Fee, MinFee: in.MinFee, OriginalFee: in.OriginalFee, Tags: in.Tags, Poster: in.Poster,
 		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
@@ -243,9 +252,18 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 	if ms == 0 {
 		ms = in.Capacity
 	}
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	startDate, ok := strictDate(w, r, in.StartDate)
+	if !ok {
+		return
+	}
+	endDate, ok := strictDate(w, r, in.EndDate)
+	if !ok {
+		return
+	}
 	c, err := s.trainingSvc.CreateCourse(r.Context(), domain.Actor{Role: domain.RolePlatformAdmin}, domain.TrainingCourse{
 		Title: in.Title, CertType: domain.CertType(ct), Description: in.Description,
-		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		Location: in.Location, StartDate: startDate, EndDate: endDate,
 		MaxStudents: ms, PriceFen: in.PriceFen, Status: in.Status,
 		OrgName: in.OrgName, Rating: in.Rating, ReviewCount: in.ReviewCount,
 		District: in.District, DurationDays: in.DurationDays, Image: in.Image,
@@ -302,9 +320,18 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 	if ms == 0 {
 		ms = in.Capacity
 	}
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	startDate, ok := strictDate(w, r, in.StartDate)
+	if !ok {
+		return
+	}
+	endDate, ok := strictDate(w, r, in.EndDate)
+	if !ok {
+		return
+	}
 	c, err := s.trainingSvc.UpdateCourse(r.Context(), domain.TrainingCourse{
 		ID: id, Title: in.Title, CertType: domain.CertType(ct), Description: in.Description,
-		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		Location: in.Location, StartDate: startDate, EndDate: endDate,
 		MaxStudents: ms, PriceFen: in.PriceFen, Status: in.Status,
 		OrgName: in.OrgName, Rating: in.Rating, ReviewCount: in.ReviewCount,
 		District: in.District, DurationDays: in.DurationDays, Image: in.Image,
@@ -599,8 +626,17 @@ func (s *Server) createStudyTour(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	startDate, ok := strictDate(w, r, in.StartDate)
+	if !ok {
+		return
+	}
+	endDate, ok := strictDate(w, r, in.EndDate)
+	if !ok {
+		return
+	}
 	st := domain.StudyTour{ID: fmt.Sprintf("study-%d", time.Now().UnixNano()), Title: in.Title, Destination: in.Destination, Duration: in.Duration, Capacity: in.Capacity, Status: in.Status, Description: in.Description,
-		Location: in.Location, StartDate: domain.ParseTime(in.StartDate), EndDate: domain.ParseTime(in.EndDate),
+		Location: in.Location, StartDate: startDate, EndDate: endDate,
 		CoverImage: in.CoverImage, PriceFen: in.PriceFen, Schedule: in.Schedule}
 	sr, err := s.studyTourRepo.Create(r.Context(), st)
 	if err != nil {
@@ -642,10 +678,19 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 	st.Description = in.Description
 	st.Location = in.Location
 	if in.StartDate != "" {
-		st.StartDate = domain.ParseTime(in.StartDate)
+		// P2 修复：严格解析——非法日期此前被 ParseTime 静默写成当前时间落库。
+		t, ok := strictDate(w, r, in.StartDate)
+		if !ok {
+			return
+		}
+		st.StartDate = t
 	}
 	if in.EndDate != "" {
-		st.EndDate = domain.ParseTime(in.EndDate)
+		t, ok := strictDate(w, r, in.EndDate)
+		if !ok {
+			return
+		}
+		st.EndDate = t
 	}
 	st.CoverImage = in.CoverImage
 	st.PriceFen = in.PriceFen
@@ -787,7 +832,16 @@ func (s *Server) updateEvent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	ev, err := s.eventSvc.Update(r.Context(), id, in.Title, in.EventType, in.Description, in.Location, in.CoverURL, in.Status, domain.ParseTime(in.StartTime), domain.ParseTime(in.EndTime), in.MaxAttendees)
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	startTime, ok := strictDate(w, r, in.StartTime)
+	if !ok {
+		return
+	}
+	endTime, ok := strictDate(w, r, in.EndTime)
+	if !ok {
+		return
+	}
+	ev, err := s.eventSvc.Update(r.Context(), id, in.Title, in.EventType, in.Description, in.Location, in.CoverURL, in.Status, startTime, endTime, in.MaxAttendees)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -846,7 +900,16 @@ func (s *Server) updateExhibition(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 400, err)
 		return
 	}
-	e, err := s.exhibitionSvc.Update(r.Context(), id, in.Title, in.Category, in.Description, in.Location, in.Organizer, domain.ParseTime(in.StartDate), domain.ParseTime(in.EndDate), in.BoothCount, in.BoothPrice, in.Status)
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	startDate, ok := strictDate(w, r, in.StartDate)
+	if !ok {
+		return
+	}
+	endDate, ok := strictDate(w, r, in.EndDate)
+	if !ok {
+		return
+	}
+	e, err := s.exhibitionSvc.Update(r.Context(), id, in.Title, in.Category, in.Description, in.Location, in.Organizer, startDate, endDate, in.BoothCount, in.BoothPrice, in.Status)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -974,7 +1037,16 @@ func (s *Server) updateEmergencyDispatch(w http.ResponseWriter, r *http.Request)
 		fail(w, r, 400, err)
 		return
 	}
-	d, err := s.emergencySvc.UpdateDispatch(r.Context(), id, in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, in.Status, domain.ParseTime(in.StartTime), domain.ParseTime(in.EndTime))
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	startTime, ok := strictDate(w, r, in.StartTime)
+	if !ok {
+		return
+	}
+	endTime, ok := strictDate(w, r, in.EndTime)
+	if !ok {
+		return
+	}
+	d, err := s.emergencySvc.UpdateDispatch(r.Context(), id, in.ResourceID, in.EventDesc, in.Location, in.Commander, in.Result, in.Status, startTime, endTime)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1233,6 +1305,12 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, err)
 		return
 	}
+	// 非管理端不可通过公开详情接口查看未发布职位（draft/closed/archived）——
+	// 与公开列表 ListPublished 的过滤一致，否则公开详情可绕过列表状态过滤读取草稿/已关闭职位。
+	if !isAdminRequest(r) && j.Status != domain.JobPublished {
+		fail(w, r, http.StatusNotFound, errors.New("job not found"))
+		return
+	}
 	respond(w, r, 200, j)
 }
 
@@ -1315,6 +1393,13 @@ func (s *Server) getPortfolio(w http.ResponseWriter, r *http.Request) {
 	p, err := s.portfolioSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
+		return
+	}
+	// 非管理端不可通过公开详情接口查看未发布名片（draft 等）——与公开列表
+	// listPortfolios（ListPublished 仅返回 published）的过滤一致，防止草稿名片
+	// （含 contact_info 联系方式）被公开详情接口绕过列表过滤读取。
+	if !isAdminRequest(r) && p.Status != "published" {
+		fail(w, r, http.StatusNotFound, errors.New("portfolio not found"))
 		return
 	}
 	respond(w, r, 200, p)

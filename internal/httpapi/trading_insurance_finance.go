@@ -79,15 +79,26 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 		}
 		listed = filtered
 	}
+	// P1 脱敏：公开列表返回前把手机号注册用户的 seller_id（user-<手机号>）替换为 user-***，
+	// 防止公开接口批量抓取手机号；mine=1 分支返回本人商品不脱敏。
+	for i := range listed {
+		listed[i].SellerID = maskUserID(listed[i].SellerID)
+	}
 	paginatedRespond(w, r, listed, len(listed))
 }
 
 // GET /api/v1/products/{id} — 商品详情（公开，浏览量+1）
+// 本 handler 同时服务管理端路由 GET /api/v1/admin/products/{id}（admin_list_routes.go），
+// 管理端需要真实 seller_id，不脱敏。
 func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
 	p, err := s.tradingSvc.GetProductAndCountView(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
+	}
+	// P1 脱敏：公开请求返回前替换手机号注册用户的 seller_id，防止手机号泄露。
+	if !isAdminRequest(r) {
+		p.SellerID = maskUserID(p.SellerID)
 	}
 	respond(w, r, http.StatusOK, p)
 }

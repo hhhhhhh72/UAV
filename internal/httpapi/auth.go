@@ -125,8 +125,10 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" || r.URL.Path == "/" ||
 			r.URL.Path == "/admin" || r.URL.Path == "/favicon.ico" ||
-			// /uploads/ 公开，但 /uploads/private/（身份证影像等）必须走 token 校验
-			(strings.HasPrefix(r.URL.Path, "/uploads/") && !strings.HasPrefix(r.URL.Path, "/uploads/private/")) ||
+			// /uploads/ 公开，但 /uploads/private/（身份证影像等）必须走 token 校验。
+			// P2 修复：大小写不敏感按路径段匹配 "private"——/uploads/Private/xx
+			// 此前因 HasPrefix 大小写敏感绕过鉴权落到公开 FileServer。
+			(strings.HasPrefix(r.URL.Path, "/uploads/") && !pathHasPrivateSegment(r.URL.Path)) ||
 			strings.HasPrefix(r.URL.Path, "/swagger/") ||
 			r.URL.Path == "/api/v1/admin/token" ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||
@@ -177,6 +179,18 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 }
 func contextWithActor(r *http.Request, a domain.Actor) context.Context {
 	return context.WithValue(r.Context(), actorKey{}, a)
+}
+
+// pathHasPrivateSegment 报告路径是否含 "private" 段（大小写不敏感）。
+// 鉴权豁免判定用：/uploads/private 及 /uploads/Private 等大小写变体
+// 一律不得走公开 FileServer 豁免（身份证影像等敏感文件须鉴权）。
+func pathHasPrivateSegment(p string) bool {
+	for _, seg := range strings.Split(p, "/") {
+		if strings.EqualFold(seg, "private") {
+			return true
+		}
+	}
+	return false
 }
 func authenticatedActor(r *http.Request) (domain.Actor, bool) {
 	a, ok := r.Context().Value(actorKey{}).(domain.Actor)

@@ -524,7 +524,8 @@ func (s *Server) h5UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 
 // ── 密码登录失败锁定 ──
 // bcrypt 慢哈希 + IP 限频挡不住多 IP 分布式爆破：连续失败达上限后
-// 锁定该账号 15 分钟。表挂 Server 实例（测试互不干扰）。
+// 锁定 15 分钟。P2 修复：锁定键为 loginID|clientIP 双维度（单 IP 爆破
+// 某账号只锁该 IP 维度，真实用户不被整体锁出）。表挂 Server 实例（测试互不干扰）。
 
 const (
 	pwMaxFailures  = 10
@@ -541,9 +542,9 @@ type pwFailLog struct {
 // 抹平"账号不存在"与"密码错误"的响应时间差（防用户枚举时序侧信道）。
 var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password-for-timing"), bcrypt.DefaultCost)
 
-// passwordLoginLocked 报告账号是否处于失败锁定中。
-func (s *Server) passwordLoginLocked(loginID string) bool {
-	v, ok := s.pwLoginFailures.Load(loginID)
+// passwordLoginLocked 报告 loginID|clientIP 维度是否处于失败锁定中。
+func (s *Server) passwordLoginLocked(lockKey string) bool {
+	v, ok := s.pwLoginFailures.Load(lockKey)
 	if !ok {
 		return false
 	}
@@ -553,9 +554,9 @@ func (s *Server) passwordLoginLocked(loginID string) bool {
 	return time.Now().Before(log.lockedUntil)
 }
 
-// recordPasswordFailure 记录一次失败；达到上限即锁定。
-func (s *Server) recordPasswordFailure(loginID string) {
-	v, _ := s.pwLoginFailures.LoadOrStore(loginID, &pwFailLog{})
+// recordPasswordFailure 记录一次失败；达到上限即锁定。lockKey = loginID|clientIP。
+func (s *Server) recordPasswordFailure(lockKey string) {
+	v, _ := s.pwLoginFailures.LoadOrStore(lockKey, &pwFailLog{})
 	log := v.(*pwFailLog)
 	log.mu.Lock()
 	defer log.mu.Unlock()
@@ -565,9 +566,9 @@ func (s *Server) recordPasswordFailure(loginID string) {
 	}
 }
 
-// clearPasswordFailures 登录成功后清零失败记录。
-func (s *Server) clearPasswordFailures(loginID string) {
-	s.pwLoginFailures.Delete(loginID)
+// clearPasswordFailures 登录成功后清零失败记录。lockKey = loginID|clientIP。
+func (s *Server) clearPasswordFailures(lockKey string) {
+	s.pwLoginFailures.Delete(lockKey)
 }
 
 func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
@@ -588,8 +589,12 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errBadRequest("phone/username and password required"))
 		return
 	}
+	// P2 修复：锁定键为 loginID|clientIP 双维度——仅锁定"同一账号从同一 IP"的失败，
+	// 单 IP 爆破某账号不再把真实用户整体锁出（此前任意手机号错误密码 10 次即锁 15 分钟，
+	// 可被恶意锁定任意真实用户）。
+	lockKey := loginID + "|" + clientIP(r)
 	// 账号失败锁定：连续失败达上限后拒绝校验（防分布式爆破）。
-	if s.passwordLoginLocked(loginID) {
+	if s.passwordLoginLocked(lockKey) {
 		fail(w, r, http.StatusTooManyRequests, errBadRequest("尝试次数过多，请稍后再试"))
 		return
 	}
@@ -604,11 +609,13 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	uid := "user-" + loginID
 	passwordHash := ""
 	var user map[string]any
+	found := false // 账号是否存在于用户库（PG 或兼容 users.json）
 	for _, candidate := range []string{uid, loginID} {
 		u, err := s.userRepo.FindByID(r.Context(), candidate)
 		if err != nil {
 			continue
 		}
+		found = true
 		passwordHash = u.PasswordHash
 		if u.Role != "" {
 			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(u.Role), "status": u.Status}
@@ -622,6 +629,7 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		readJSON(_usersFile, &_usersMu, &users)
 		for _, ju := range users {
 			if ju["phone"] == loginID || ju["username"] == loginID {
+				found = true
 				if h, _ := ju["passwordHash"].(string); h != "" {
 					passwordHash = h
 				}
@@ -635,11 +643,15 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		if passwordHash == "" {
 			_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(body.Password))
 		}
-		s.recordPasswordFailure(loginID)
+		// P2 修复：账号不存在（用户库中无记录）的尝试不累计失败计数，
+		// 防止攻击者对任意手机号刷失败次数锁定真实用户。
+		if found {
+			s.recordPasswordFailure(lockKey)
+		}
 		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
 		return
 	}
-	s.clearPasswordFailures(loginID)
+	s.clearPasswordFailures(lockKey)
 
 	// Issue Go backend tokens
 	id, _ := user["id"].(string)
@@ -682,6 +694,42 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ── 开放注册限频 ──
+// 开放注册此前无独立限流：批量注册（每次 bcrypt 慢哈希）可耗尽 CPU。
+// 按手机号 + IP 双维度各自限频（复用 smsIPLimits 的窗口计数模式，实例级）：
+// 每维度 10 分钟内最多 regLimitMax 次注册尝试。
+const (
+	regLimitMax        = 3
+	regLimitWindow     = 10 * time.Minute
+	regLimitMaxEntries = 10000
+)
+
+type regLimitLog struct {
+	mu          sync.Mutex
+	count       int
+	windowStart time.Time
+}
+
+// regAllowed 报告该维度（"phone:"+手机号 / "ip:"+IP）是否仍允许注册尝试，并累计本次。
+func (s *Server) regAllowed(key string) bool {
+	if s.regLimitEntries.Load() >= regLimitMaxEntries {
+		s.regLimits.Range(func(k, _ any) bool { s.regLimits.Delete(k); return true })
+		s.regLimitEntries.Store(0)
+	}
+	s.regLimitEntries.Add(1)
+	v, _ := s.regLimits.LoadOrStore(key, &regLimitLog{windowStart: time.Now()})
+	log := v.(*regLimitLog)
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	now := time.Now()
+	if now.Sub(log.windowStart) >= regLimitWindow {
+		log.windowStart = now
+		log.count = 0
+	}
+	log.count++
+	return log.count <= regLimitMax
+}
+
 func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Phone    string `json:"phone"`
@@ -694,6 +742,17 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Phone == "" || body.Password == "" {
 		fail(w, r, http.StatusBadRequest, errBadRequest("phone and password required"))
+		return
+	}
+	// P2 修复：弱密码拒绝（长度下限），防批量注册占号。
+	if len(body.Password) < 6 {
+		fail(w, r, http.StatusBadRequest, errBadRequest("密码长度不能少于 6 位"))
+		return
+	}
+	// P2 修复：开放注册独立限频（手机号 + IP 双维度，各自 10 分钟内最多
+	// regLimitMax 次），防批量注册耗尽 bcrypt CPU（此前仅全局限流可绕过）。
+	if !s.regAllowed("phone:"+body.Phone) || !s.regAllowed("ip:"+clientIP(r)) {
+		fail(w, r, http.StatusTooManyRequests, errBadRequest("注册过于频繁，请稍后再试"))
 		return
 	}
 

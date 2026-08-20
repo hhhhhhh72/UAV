@@ -40,7 +40,12 @@ func (s *Server) createRescueCase(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	rc, err := s.rescueCaseSvc.Create(r.Context(), in.Title, in.EventType, in.Location, in.DroneModel, in.TeamName, in.Summary, in.Result, in.Lessons, in.Source, domain.ParseTime(in.Date))
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	date, ok := strictDate(w, r, in.Date)
+	if !ok {
+		return
+	}
+	rc, err := s.rescueCaseSvc.Create(r.Context(), in.Title, in.EventType, in.Location, in.DroneModel, in.TeamName, in.Summary, in.Result, in.Lessons, in.Source, date)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -101,7 +106,12 @@ func (s *Server) createEmergencyDrill(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	d, err := s.emergDeptSvc.CreateDrill(r.Context(), in.DeptID, in.Title, in.Scenario, domain.ParseTime(in.Date), in.Participants, in.DroneCount, in.Result)
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	date, ok := strictDate(w, r, in.Date)
+	if !ok {
+		return
+	}
+	d, err := s.emergDeptSvc.CreateDrill(r.Context(), in.DeptID, in.Title, in.Scenario, date, in.Participants, in.DroneCount, in.Result)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -141,6 +151,12 @@ func (s *Server) listAssociationMembers(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	// P1 脱敏：公开响应返回前替换手机号注册用户的 user_id/enterprise_id，
+	// 防止手机号被批量抓取（协会成员名录可匿名访问）。
+	for i := range list {
+		list[i].UserID = maskUserID(list[i].UserID)
+		list[i].EnterpriseID = maskUserID(list[i].EnterpriseID)
 	}
 	paginatedRespond(w, r, list, total)
 }

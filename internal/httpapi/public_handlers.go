@@ -15,7 +15,16 @@ func (s *Server) publicListCourses(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, 200, all)
+	// P2 修复：匿名接口此前直出全量（含 pending/draft 未过审课程，机构电话随之泄露）。
+	// 与 listCourses 共用 isNonPublicCourseStatus——仅公开已上架状态（published/recruiting）。
+	out := make([]domain.TrainingCourse, 0, len(all))
+	for _, c := range all {
+		if isNonPublicCourseStatus(c.Status) {
+			continue
+		}
+		out = append(out, c)
+	}
+	respond(w, r, http.StatusOK, out)
 }
 
 func (s *Server) publicListCerts(w http.ResponseWriter, r *http.Request) {

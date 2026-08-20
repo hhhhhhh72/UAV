@@ -2,10 +2,12 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -130,6 +132,15 @@ func (r *compRepo) CreateReg(ctx context.Context, reg domain.CompetitionReg) (do
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO competition_registrations (id,competition_id,user_id,team_name,member_count,contact_info,name,phone,id_card,photo_url,id_card_image,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		reg.ID, reg.CompetitionID, reg.UserID, reg.TeamName, reg.MemberCount, reg.ContactInfo, reg.Name, reg.Phone, reg.IDCard, reg.PhotoURL, reg.IDCardImage, reg.Status, reg.CreatedAt)
+	// P2 修复：并发重复报名由唯一索引（uniq_competition_regs_user_comp，迁移 000071）
+	// 兜底——service 层 ListRegs 预检存在 TOCTOU 窗口，23505 映射为友好错误。
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			r.decRegPII(&reg)
+			return domain.CompetitionReg{}, fmt.Errorf("已报名过该赛事，请勿重复报名")
+		}
+	}
 	r.decRegPII(&reg)
 	return reg, err
 }

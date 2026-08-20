@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -18,6 +19,16 @@ import (
 	"time"
 
 	"drone-platform/internal/middleware"
+)
+
+// 图片代理安全上限：
+// maxSourceDim 源图最大边长（px）——解压前用 DecodeConfig 读 PNG IHDR/JPEG SOF 头部预检，
+// 阻止"魔数合法但解压后 30000×30000"的解压炸弹 OOM（3.6GB 位图分配）。
+// maxOutputDim 输出位图最大边长（px）——极端宽高比源图等比放大后目标高度可能远超上限，
+// 钳制到该值，避免 newRGBA 分配 GB 级缓冲。
+const (
+	maxSourceDim = 4096
+	maxOutputDim = 4096
 )
 
 // imageCacheKey 生成磁盘缓存文件名：完整 hash 拼接宽/质量/格式。
@@ -192,6 +203,22 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
+	// P1 加固（解压炸弹）：解码前先 DecodeConfig 只读头部（PNG IHDR / JPEG SOF）预检源图尺寸。
+	// 合法魔数 + 超大解压尺寸的图片（如 30000×30000 PNG）不再直接 image.Decode 全量解压，
+	// 宽或高超过 4096 直接 400 拒绝；DecodeConfig 失败（非图片/损坏）同样 400。
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("invalid image: %w", err))
+		return
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > maxSourceDim || cfg.Height > maxSourceDim {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("image dimensions %dx%d exceed limit", cfg.Width, cfg.Height))
+		return
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	srcImg, _, err := image.Decode(f)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("decode failed: %w", err))
@@ -205,6 +232,20 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	newW, newH := width, origH*width/origW
 	if origW <= width {
 		newW, newH = origW, origH
+	}
+	// P1 加固（输出尺寸钳制）：极端宽高比源图（如 1×4096 放大到 width=2000）等比后
+	// 目标高度可达数百万 px，newRGBA 直接分配 GB 级内存。超出上限时等比压缩到上限。
+	if newH > maxOutputDim {
+		newH = maxOutputDim
+		newW = origW * maxOutputDim / origH
+	}
+	if newW > maxOutputDim {
+		newW = maxOutputDim
+		newH = origH * maxOutputDim / origW
+	}
+	if newW <= 0 || newH <= 0 {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("invalid image dimensions"))
+		return
 	}
 	resized := image.NewRGBA(image.Rect(0, 0, newW, newH))
 	for y := 0; y < newH; y++ {

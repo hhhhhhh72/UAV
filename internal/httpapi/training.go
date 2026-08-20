@@ -111,8 +111,15 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	startDate := domain.ParseTime(in.StartDate)
-	endDate := domain.ParseTime(in.EndDate)
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	startDate, ok := strictDate(w, r, in.StartDate)
+	if !ok {
+		return
+	}
+	endDate, ok := strictDate(w, r, in.EndDate)
+	if !ok {
+		return
+	}
 	c, err := s.trainingSvc.CreateCourse(r.Context(), a, domain.TrainingCourse{
 		Title: in.Title, CertType: domain.CertType(in.CertType), Description: in.Description,
 		Location: in.Location, StartDate: startDate, EndDate: endDate,
@@ -167,12 +174,9 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 		(a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin) {
 		adminReq = true
 	}
-	isNonPublic := func(s string) bool {
-		return s == "pending" || s == "draft" || s == "closed"
-	}
 	var out []domain.TrainingCourse
 	for _, c := range courses {
-		if !adminReq && isNonPublic(c.Status) {
+		if !adminReq && isNonPublicCourseStatus(c.Status) {
 			continue
 		}
 		if keyword != "" && !strings.Contains(c.Title, keyword) && !strings.Contains(c.OrgName, keyword) {
@@ -190,6 +194,13 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 		out = append(out, c)
 	}
 	paginatedRespond(w, r, out, len(out))
+}
+
+// isNonPublicCourseStatus 报告课程状态是否不对外公开（待审核/草稿/已关闭）。
+// 公开接口（publicListCourses）与认证列表（listCourses）共用同一过滤逻辑，
+// 保证匿名可见状态集与登录可见集一致。
+func isNonPublicCourseStatus(s string) bool {
+	return s == "pending" || s == "draft" || s == "closed"
 }
 
 // ---- Instructors ----
@@ -236,13 +247,23 @@ func (s *Server) approveInstructor(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/v1/instructors
+// P2 修复：公开列表此前直出全量（含未审核教练与其 user_id）。
+// 现仅返回已审核（approved）教练，并脱敏 user_id（不暴露账号 ID）。
 func (s *Server) listInstructors(w http.ResponseWriter, r *http.Request) {
 	instructors, err := s.trainingSvc.ListInstructors(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, http.StatusOK, instructors)
+	out := make([]domain.Instructor, 0, len(instructors))
+	for _, i := range instructors {
+		if i.Status != "approved" {
+			continue
+		}
+		i.UserID = ""
+		out = append(out, i)
+	}
+	respond(w, r, http.StatusOK, out)
 }
 
 // ---- Certified Pilots ----
@@ -322,11 +343,12 @@ func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
 		}
 		pilots = filtered
 	}
-	// 脱敏身份证号
+	// 脱敏身份证号 + P1 脱敏用户 ID（手机号注册用户 user_id=user-<手机号>，公开名录不得泄露）
 	for i := range pilots {
 		if pilots[i].IDCard != "" {
 			pilots[i].IDCard = crypto.MaskIDCard(pilots[i].IDCard)
 		}
+		pilots[i].UserID = maskUserID(pilots[i].UserID)
 	}
 	// 分页（兼容：显式传 page_size 才分页，否则保持全量返回）
 	if ps := r.URL.Query().Get("page_size"); ps != "" {
@@ -361,6 +383,8 @@ func (s *Server) getPilot(w http.ResponseWriter, r *http.Request) {
 	if p.IDCard != "" {
 		p.IDCard = crypto.MaskIDCard(p.IDCard)
 	}
+	// P1 脱敏：公开详情返回前替换手机号注册用户的 user_id，防止手机号泄露。
+	p.UserID = maskUserID(p.UserID)
 	respond(w, r, http.StatusOK, p)
 }
 

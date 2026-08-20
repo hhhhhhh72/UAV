@@ -225,8 +225,15 @@ func (s *Server) createCooperation(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	sd := domain.ParseTime(in.StartDate)
-	ed := domain.ParseTime(in.EndDate)
+	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
+	sd, ok := strictDate(w, r, in.StartDate)
+	if !ok {
+		return
+	}
+	ed, ok := strictDate(w, r, in.EndDate)
+	if !ok {
+		return
+	}
 	cp, err := s.coopSvc.Create(r.Context(), in.Title, in.CollegeID, in.EnterpriseID, in.CoopType, in.Description, sd, ed, in.StudentQuota)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)

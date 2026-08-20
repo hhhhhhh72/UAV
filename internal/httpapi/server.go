@@ -109,7 +109,9 @@ type Server struct {
 	idempotency       *idempotencyStore
 	smsIPLimits       sync.Map // ip -> *smsIPLog（短信发送限频，实例级避免测试/多实例互扰）
 	smsIPEntries      atomic.Int64
-	pwLoginFailures   sync.Map // loginID -> *pwFailLog（密码登录失败锁定，实例级）
+	pwLoginFailures   sync.Map // loginID|clientIP -> *pwFailLog（密码登录失败锁定，双维度键，实例级）
+	regLimits         sync.Map // "phone:"+phone / "ip:"+ip -> *regLimitLog（开放注册限频，实例级）
+	regLimitEntries   atomic.Int64
 	auditWriter       repository.AuditWriter
 	dbPinger          interface{ Ping(context.Context) error }
 	storage           string
@@ -391,8 +393,40 @@ func (s *Server) serveUploads(w http.ResponseWriter, r *http.Request) {
 	// withCORS 中间件预设了 application/json（供 JSON 响应嗅探），
 	// 此处必须清除，否则 FileServer 不会按扩展名推导类型，
 	// 加上 nosniff 头后浏览器会拒绝渲染图片。
+	// P2 修复：目录列举 + 大小写变体绕过。
+	// ① 指向 uploads/private 子树（大小写不敏感）的请求一律 404——私有文件只经
+	//    servePrivateUploads 鉴权读取，公开 FileServer 不服务该子树（/uploads/Private/xx
+	//    此前可绕过鉴权）；
+	// ② 磁盘上为目录的路径一律 404——GET /uploads/private（无尾斜杠）此前被 FileServer
+	//    重定向后列出私有文件 ID。
+	if isPrivateUploadsPath(r.URL.Path) || isUploadDirPath(r.URL.Path) {
+		http.NotFound(w, r)
+		return
+	}
 	w.Header().Del("Content-Type")
 	http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))).ServeHTTP(w, r)
+}
+
+// isPrivateUploadsPath 报告路径是否指向 uploads/private 子树（大小写不敏感）。
+func isPrivateUploadsPath(p string) bool {
+	for _, seg := range strings.Split(strings.TrimPrefix(p, "/"), "/") {
+		if strings.EqualFold(seg, "private") {
+			return true
+		}
+	}
+	return false
+}
+
+// isUploadDirPath 报告路径在磁盘上对应 uploads 下的一个目录（目录列举拒绝）。
+// 经 http.Dir 打开，路径穿越（../）由 http.Dir 自身拒绝。
+func isUploadDirPath(p string) bool {
+	f, err := http.Dir("uploads").Open(strings.TrimPrefix(p, "/uploads/"))
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	return err == nil && fi.IsDir()
 }
 
 // servePrivateUploads 鉴权读取 uploads/private/（身份证影像等敏感文件）。
@@ -900,7 +934,11 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 		// Capture the response via a response recorder.
 		next.ServeHTTP(rec, r)
 		// Store the result for future idempotent requests.
-		s.idempotency.set(key, rec.statusCode, rec.body.String())
+		// P2 修复：仅缓存 2xx（200-299）与 4xx 校验类错误（400/409/422 等确定性结果）；
+		// 5xx 不缓存——服务端错误重试须重新执行写操作，而非回放错误响应。
+		if rec.statusCode < http.StatusInternalServerError {
+			s.idempotency.set(key, rec.statusCode, rec.body.String())
+		}
 		// Write the actual response (already written to rec.wrapped).
 	})
 }
@@ -969,14 +1007,17 @@ func (s *Server) accessLog(next http.Handler) http.Handler {
 
 // clientIP 提取真实客户端 IP。
 // nginx 反代场景下 RemoteAddr 恒为 127.0.0.1（所有用户共享一个限流桶），
-// 须取 X-Forwarded-For 首个 IP：nginx 按 $remote_addr 追加，且 API 仅回环监听
-// （见 docker-compose 127.0.0.1:8080），直连者无法伪造该头。
+// 须取 X-Forwarded-For：nginx 按 $proxy_add_x_forwarded_for 把远端地址追加在
+// 末尾，取最后一项即最接近真实客户端的一跳（nginx 标准做法）。
+// P2 修复：此前无条件信任 XFF 首个 IP，客户端伪造 X-Forwarded-For 即可
+// 绕过全局限流与短信限频。现取最后一项并校验其为合法 IP，非法/空则回退 RemoteAddr。
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if i := strings.IndexByte(xff, ','); i >= 0 {
-			xff = xff[:i]
+		// 取最后一项（代理追加的远端在末尾，最接近真实客户端）。
+		if i := strings.LastIndexByte(xff, ','); i >= 0 {
+			xff = xff[i+1:]
 		}
-		if ip := strings.TrimSpace(xff); ip != "" {
+		if ip := strings.TrimSpace(xff); ip != "" && net.ParseIP(ip) != nil {
 			return ip
 		}
 	}
@@ -1112,6 +1153,18 @@ func parseDateInput(s string) (time.Time, error) {
 		return t, nil
 	}
 	return time.Parse("2006-01-02", s)
+}
+
+// strictDate 严格解析用户提交的日期字段（P2 修复）：非法日期（非 RFC3339 /
+// "2006-01-02 15:04:05" / "2006-01-02" 格式）直接 400，防止此前 ParseTime 把
+// 非法日期静默写成当前时间落库；空串视为"未设置"，返回零值时间不报错。
+func strictDate(w http.ResponseWriter, r *http.Request, v string) (time.Time, bool) {
+	t, err := domain.ParseTimeStrict(v)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, errors.New("invalid date format"))
+		return time.Time{}, false
+	}
+	return t, true
 }
 func paginationFromQuery(r *http.Request) (page, pageSize int) {
 	page, pageSize = 1, 20

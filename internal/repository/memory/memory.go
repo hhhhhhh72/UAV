@@ -518,6 +518,8 @@ func (r *jobRepo) ListByEnterprise(ctx context.Context, eid string) ([]domain.Jo
 			out = append(out, j)
 		}
 	}
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *jobRepo) ListPublished(ctx context.Context, offset, limit int) ([]domain.Job, int, error) {
@@ -614,6 +616,8 @@ func (r *resumeRepo) ListByUser(ctx context.Context, userID string) ([]domain.Re
 			out = append(out, v)
 		}
 	}
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *resumeRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Resume, int, error) {
@@ -743,6 +747,8 @@ func (r *postRepo) ListByAuthor(ctx context.Context, uid string) ([]domain.Post,
 			out = append(out, p)
 		}
 	}
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -871,6 +877,8 @@ func (r *listingRepo) ListBySeller(ctx context.Context, uid string) ([]domain.Li
 			out = append(out, l)
 		}
 	}
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *listingRepo) AddFavorite(ctx context.Context, listingID, userID string) error {
@@ -928,6 +936,8 @@ func (r *labourOrderRepo) ListByEmployer(ctx context.Context, uid string) ([]dom
 			out = append(out, o)
 		}
 	}
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *labourOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.LabourOrder, int, error) {
@@ -1042,8 +1052,15 @@ func (r *memUserRepo) FindByID(ctx context.Context, id string) (domain.User, err
 func (r *memUserRepo) All(ctx context.Context) ([]domain.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	out := make([]domain.User, len(r.items))
-	copy(out, r.items)
+	// P2 修复：与 PG 版（ORDER BY created_at DESC LIMIT 200）对齐——
+	// 先按 CreatedAt 倒序再取前 200 条，保证两存储返回的计数一致。
+	sorted := append([]domain.User(nil), r.items...)
+	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].CreatedAt.After(sorted[j].CreatedAt) })
+	if len(sorted) > 200 {
+		sorted = sorted[:200]
+	}
+	out := make([]domain.User, len(sorted))
+	copy(out, sorted)
 	for i := range out {
 		r.decrypt(&out[i])
 	}
@@ -1421,6 +1438,8 @@ func (r *workOrderRepo) ListByPublisher(ctx context.Context, publisherID string)
 			out = append(out, wo)
 		}
 	}
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -1433,6 +1452,8 @@ func (r *workOrderRepo) ListByWorker(ctx context.Context, workerID string) ([]do
 			out = append(out, wo)
 		}
 	}
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -1516,6 +1537,16 @@ func (r *certRepo) FindByID(ctx context.Context, id string) (domain.Certificate,
 		}
 	}
 	return domain.Certificate{}, fmt.Errorf("certificate %s not found", id)
+}
+func (r *certRepo) FindByNumber(ctx context.Context, certNumber string) (domain.Certificate, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, c := range r.items {
+		if c.CertNumber == certNumber {
+			return c, nil
+		}
+	}
+	return domain.Certificate{}, fmt.Errorf("certificate %s not found", certNumber)
 }
 func (r *certRepo) ListByUser(ctx context.Context, userID string) ([]domain.Certificate, error) {
 	r.mu.RLock()
@@ -2105,6 +2136,8 @@ func (r *msgRepo) ListByUser(ctx context.Context, userID string, unreadOnly bool
 		}
 		out = append(out, m)
 	}
+	// P2 修复：与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *msgRepo) MarkRead(ctx context.Context, id string) (domain.Message, error) {

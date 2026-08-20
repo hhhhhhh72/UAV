@@ -29,6 +29,12 @@ func NewTrainingService(cr repository.CertificateRepository, cor repository.Cour
 // ---- Certificates ----
 
 func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, certType domain.CertType, certNumber, level, issuer string, issueDate, expireDate time.Time) (domain.Certificate, error) {
+	// 幂等：cert_number 已存在（如 completeEnrollment 重试/并发）直接返回已有证书，防重复发证
+	if certNumber != "" {
+		if existing, err := s.certRepo.FindByNumber(ctx, certNumber); err == nil {
+			return existing, nil
+		}
+	}
 	now := time.Now()
 	c := domain.Certificate{ID: nextID("cert"), UserID: a.ID, CertType: certType,
 		CertNumber: certNumber, Level: level, IssueDate: issueDate, ExpireDate: expireDate,

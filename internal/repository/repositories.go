@@ -222,6 +222,7 @@ type WorkOrderRepository interface {
 type CertificateRepository interface {
 	Create(ctx context.Context, v domain.Certificate) (domain.Certificate, error)
 	FindByID(ctx context.Context, id string) (domain.Certificate, error)
+	FindByNumber(ctx context.Context, certNumber string) (domain.Certificate, error) // 幂等发证查重
 	ListByUser(ctx context.Context, userID string) ([]domain.Certificate, error)
 	UpdateStatus(ctx context.Context, id string, status string) (domain.Certificate, error)
 	ListAll(ctx context.Context) ([]domain.Certificate, error)

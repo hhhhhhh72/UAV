@@ -36,6 +36,11 @@ func (s *Server) listServiceListings(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// P1 脱敏：公开列表返回前替换手机号注册用户的 provider_id，防止手机号泄露。
+	// mine=1 分支返回本人发布的服务不脱敏。
+	for i := range items {
+		items[i].ProviderID = maskUserID(items[i].ProviderID)
+	}
 	paginatedRespond(w, r, items, len(items))
 }
 
@@ -84,6 +89,8 @@ func (s *Server) getServiceListing(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, errors.New("service listing not found"))
 		return
 	}
+	// P1 脱敏：公开详情返回前替换手机号注册用户的 provider_id，防止手机号泄露。
+	sl.ProviderID = maskUserID(sl.ProviderID)
 	respond(w, r, http.StatusOK, sl)
 }
 

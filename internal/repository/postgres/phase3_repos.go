@@ -36,14 +36,23 @@ func (r *certRepo) FindByID(ctx context.Context, id string) (domain.Certificate,
 	var c domain.Certificate
 	var ct string
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,user_id,cert_type,cert_number,level,issue_date,expire_date,issuer_org,image_url,status,version,created_at,updated_at FROM certificates WHERE id=$1`, id).
+		`SELECT id,user_id,cert_type,cert_number,level,COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),issuer_org,COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE id=$1`, id).
+		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+	c.CertType = domain.CertType(ct)
+	return c, err
+}
+func (r *certRepo) FindByNumber(ctx context.Context, certNumber string) (domain.Certificate, error) {
+	var c domain.Certificate
+	var ct string
+	err := r.pool.QueryRow(ctx,
+		`SELECT id,user_id,cert_type,cert_number,level,COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),issuer_org,COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE cert_number=$1 LIMIT 1`, certNumber).
 		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	c.CertType = domain.CertType(ct)
 	return c, err
 }
 func (r *certRepo) ListByUser(ctx context.Context, userID string) ([]domain.Certificate, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,user_id,cert_type,cert_number,level,issue_date,expire_date,issuer_org,image_url,status,version,created_at,updated_at FROM certificates WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+		`SELECT id,user_id,cert_type,cert_number,level,COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),issuer_org,COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list certificates: %w", err)
 	}

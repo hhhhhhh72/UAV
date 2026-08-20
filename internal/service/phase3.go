@@ -23,6 +23,7 @@ func NewEnrollmentService(repo repository.EnrollmentRepository, courseRepo repos
 }
 
 // EnrollmentForm 培训报名表单数据（小程序 register.vue 12 字段）。
+// PaidAmountFen 由服务端填充（payAndEnroll 冻结成功后写入），客户端不可见不可改。
 type EnrollmentForm struct {
 	Name        string `json:"name"`
 	Phone       string `json:"phone"`
@@ -35,6 +36,10 @@ type EnrollmentForm struct {
 	Photo       string `json:"photo"`
 	IDCardImage string `json:"idCardImage"`
 	NoCrime     string `json:"noCrime"`
+
+	// PaidAmountFen 报名时冻结的学费（分）。仅 payAndEnroll 在冻结成功后填充；
+	// 免费/普通报名为 0。completeEnrollment 按此金额释放，与课程实时价格解耦。
+	PaidAmountFen int64 `json:"-"`
 }
 
 // All 管理端全量报名记录（分页）。
@@ -78,7 +83,7 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 		Name: form.Name, Phone: form.Phone, IDCard: form.IDCard, Gender: form.Gender, Birthday: birthday,
 		Email: form.Email, Education: form.Education, Experience: form.Experience,
 		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,
-		Status: "enrolled", CreatedAt: now}
+		Status: "enrolled", PaidAmountFen: form.PaidAmountFen, CreatedAt: now}
 	return s.repo.Create(ctx, e)
 }
 
@@ -109,6 +114,10 @@ func (s *EnrollmentService) Update(ctx context.Context, a domain.Actor, e domain
 	}
 	if (old.Status == "paid" || old.Status == "enrolled") && (e.Status == "pending" || e.Status == "rejected") {
 		return domain.Enrollment{}, fmt.Errorf("cannot change enrollment status from %q to %q", old.Status, e.Status)
+	}
+	// completed 为终态：已完成（学费已释放/证书已发）的报名不可回退任何状态，防重复释放/发证
+	if old.Status == "completed" && e.Status != "completed" {
+		return domain.Enrollment{}, fmt.Errorf("cannot change completed enrollment status")
 	}
 	return s.repo.Update(ctx, e)
 }
@@ -311,6 +320,7 @@ func (s *TradeOrderService) PayOrder(ctx context.Context, buyerID, orderID strin
 }
 
 // UpdateStatusAdmin 管理端改单：跳过买卖双方校验，仍受状态机约束。
+// 取消订单（pending/paid → cancelled）同步恢复商品为可售（sold → listed）。
 func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus string) (domain.TradeOrder, error) {
 	o, err := s.repo.FindByID(ctx, id)
 	if err != nil {
@@ -319,11 +329,28 @@ func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus
 	if err := checkOrderTransition(o.Status, newStatus); err != nil {
 		return domain.TradeOrder{}, err
 	}
-	return s.repo.UpdateStatus(ctx, id, newStatus)
+	updated, err := s.repo.UpdateStatus(ctx, id, newStatus)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if newStatus == "cancelled" && s.prodRepo != nil && o.ProductID != "" {
+		if rerr := s.prodRepo.Restore(ctx, o.ProductID); rerr != nil {
+			return domain.TradeOrder{}, fmt.Errorf("订单已取消但商品恢复失败: %w", rerr)
+		}
+	}
+	return updated, nil
 }
 
-// Delete 管理端删除订单（真删除，替代原假删除 stub）。
+// Delete 管理端删除订单（真删除）：被删除的未完成订单对应商品恢复可售。
 func (s *TradeOrderService) Delete(ctx context.Context, id string) error {
+	o, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return s.repo.Delete(ctx, id)
+	}
+	// 未完成订单（pending/paid）删除后商品恢复；已完成/售后单不恢复（交易已终结）
+	if o.ProductID != "" && (o.Status == "pending" || o.Status == "paid") && s.prodRepo != nil {
+		_ = s.prodRepo.Restore(ctx, o.ProductID)
+	}
 	return s.repo.Delete(ctx, id)
 }
 

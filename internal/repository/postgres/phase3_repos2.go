@@ -424,8 +424,8 @@ func (s *Store) NewEnrollmentRepository() repository.EnrollmentRepository {
 func (r *enrollRepo) Create(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error) {
 	e.CreatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO training_enrollments (id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-		e.ID, e.CourseID, e.UserID, e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.CreatedAt)
+		`INSERT INTO training_enrollments (id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+		e.ID, e.CourseID, e.UserID, e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.PaidAmountFen, e.CreatedAt)
 	if err != nil {
 		// P1 修复：唯一索引 (user_id, course_id) 并发兜底——重复报名映射为友好错误。
 		var pgErr *pgconn.PgError
@@ -439,8 +439,8 @@ func (r *enrollRepo) Create(ctx context.Context, e domain.Enrollment) (domain.En
 
 func (r *enrollRepo) Update(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error) {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE training_enrollments SET name=$1,phone=$2,id_card=$3,gender=$4,birthday=$5,email=$6,education=$7,experience=$8,photo_url=$9,id_card_image=$10,no_crime=$11,status=$12 WHERE id=$13`,
-		e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.ID)
+		`UPDATE training_enrollments SET name=$1,phone=$2,id_card=$3,gender=$4,birthday=$5,email=$6,education=$7,experience=$8,photo_url=$9,id_card_image=$10,no_crime=$11,status=$12,paid_amount_fen=$13 WHERE id=$14`,
+		e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.PaidAmountFen, e.ID)
 	if err != nil {
 		return domain.Enrollment{}, fmt.Errorf("update enrollment %s: %w", e.ID, err)
 	}
@@ -452,7 +452,7 @@ func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.E
 		return nil, 0, fmt.Errorf("count enrollments: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at FROM training_enrollments ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list all enrollments: %w", err)
 	}
@@ -460,7 +460,7 @@ func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.E
 	var out []domain.Enrollment
 	for rows.Next() {
 		var e domain.Enrollment
-		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan enrollment: %w", err)
 		}
 		out = append(out, e)
@@ -469,7 +469,7 @@ func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.E
 }
 func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domain.Enrollment, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments WHERE course_id=$1 ORDER BY created_at DESC`, courseID)
+		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at FROM training_enrollments WHERE course_id=$1 ORDER BY created_at DESC`, courseID)
 	if err != nil {
 		return nil, fmt.Errorf("list enrollments: %w", err)
 	}
@@ -477,7 +477,7 @@ func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domai
 	var out []domain.Enrollment
 	for rows.Next() {
 		var e domain.Enrollment
-		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan enrollment: %w", err)
 		}
 		out = append(out, e)
@@ -487,8 +487,8 @@ func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domai
 func (r *enrollRepo) FindByUserAndCourse(ctx context.Context, userID, courseID string) (domain.Enrollment, bool, error) {
 	var e domain.Enrollment
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments WHERE user_id=$1 AND course_id=$2`, userID, courseID).
-		Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt)
+		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at FROM training_enrollments WHERE user_id=$1 AND course_id=$2`, userID, courseID).
+		Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.CreatedAt)
 	if err != nil {
 		return domain.Enrollment{}, false, nil
 	}
@@ -497,8 +497,8 @@ func (r *enrollRepo) FindByUserAndCourse(ctx context.Context, userID, courseID s
 func (r *enrollRepo) FindByID(ctx context.Context, id string) (domain.Enrollment, error) {
 	var e domain.Enrollment
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,created_at FROM training_enrollments WHERE id=$1`, id).
-		Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.CreatedAt)
+		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at FROM training_enrollments WHERE id=$1`, id).
+		Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.CreatedAt)
 	if err != nil {
 		return domain.Enrollment{}, fmt.Errorf("enrollment %s not found: %w", id, err)
 	}

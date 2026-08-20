@@ -41,10 +41,11 @@ func TestClientIP(t *testing.T) {
 		want string
 	}{
 		{"xff single hop", "1.2.3.4", "127.0.0.1:8080", "1.2.3.4"},
-		{"xff first hop of chain", "1.2.3.4, 10.0.0.1", "127.0.0.1:8080", "1.2.3.4"},
+		{"xff last hop of chain", "1.2.3.4, 10.0.0.1", "127.0.0.1:8080", "10.0.0.1"},
 		{"xff trimmed", "  198.51.100.7  ", "127.0.0.1:8080", "198.51.100.7"},
 		{"no xff falls back to peer", "", "203.0.113.9:5555", "203.0.113.9"},
 		{"blank xff falls back to peer", "   ", "203.0.113.9:5555", "203.0.113.9"},
+		{"invalid xff falls back to peer", "not-an-ip", "203.0.113.9:5555", "203.0.113.9"},
 		{"peer without port", "", "203.0.113.9", "203.0.113.9"},
 	}
 	for _, c := range cases {
