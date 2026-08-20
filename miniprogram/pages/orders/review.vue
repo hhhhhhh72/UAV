@@ -24,7 +24,7 @@
       <view v-if="submitted" class="success-card">
         <view class="pub-success-mark">✓</view>
         <text class="success-title">评价提交成功</text>
-        <text class="success-desc">感谢你的评价，将帮助更多用户了解该商品</text>
+        <text class="success-desc">{{ reviewKind.successText }}</text>
         <view class="success-actions">
           <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="goOrders">返回我的订单</view>
         </view>
@@ -32,7 +32,7 @@
 
       <!-- 评价表单 -->
       <template v-else>
-        <!-- 表单头部：所购商品信息 -->
+        <!-- 表单头部：所评对象信息 -->
         <view class="pub-form-intro">
           <view class="pub-form-intro-h2">{{ order.title }}</view>
           <view class="pub-form-intro-p">{{ order.subtitle }}</view>
@@ -40,7 +40,7 @@
 
         <!-- 星级 -->
         <view class="pub-section">
-          <view class="pub-section-title">商品评价</view>
+          <view class="pub-section-title">{{ reviewKind.title }}</view>
           <view class="pub-form-card">
             <view class="pub-field">
               <view class="star-row">
@@ -73,7 +73,7 @@
               <textarea
                 class="pub-input pub-input--textarea review-textarea"
                 v-model="content"
-                placeholder="说说商品质量、性价比与服务体验..."
+                :placeholder="reviewKind.placeholder"
                 placeholder-class="pub-placeholder"
                 :maxlength="200"
               ></textarea>
@@ -112,6 +112,30 @@ const reviewed = ref(false)
 let orderId = ''
 
 const ratingText = ['极差', '较差', '一般', '满意', '非常满意']
+
+// 评价文案按订单类型区分（商品/课程/服务），默认商品
+const reviewKind = computed(() => {
+  const t = order.value?.type
+  if (t === 'course') {
+    return {
+      title: '课程评价',
+      placeholder: '说说课程内容、讲师讲解与实操安排...',
+      successText: '感谢你的评价，将帮助更多学员了解该课程',
+    }
+  }
+  if (t === 'service') {
+    return {
+      title: '服务评价',
+      placeholder: '说说服务质量、专业水平与响应速度...',
+      successText: '感谢你的评价，将帮助更多用户了解该服务',
+    }
+  }
+  return {
+    title: '商品评价',
+    placeholder: '说说商品质量、性价比与服务体验...',
+    successText: '感谢你的评价，将帮助更多用户了解该商品',
+  }
+})
 
 const navTitle = computed(() => {
   if (submitted.value) return '评价成功'
