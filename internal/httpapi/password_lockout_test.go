@@ -68,3 +68,76 @@ func TestPasswordLoginUnknownUserUniform(t *testing.T) {
 		}
 	}
 }
+
+// 账号级跨 IP 锁定上限（回归修复）：(loginID, IP) 维度 10 次/15 分钟可被换 IP 绕过，
+// 现另按 loginID 累计：15 分钟窗口内跨 IP 合计失败 ≥50 次锁定账号 15 分钟（无论 IP）。
+// 每次失败用不同 X-Forwarded-For，确保只触发账号维度、不触发单 IP 维度。
+func TestPasswordAccountLevelLockoutCrossIP(t *testing.T) {
+	old := os.Getenv("ADMIN_DEV_MODE")
+	os.Setenv("ADMIN_DEV_MODE", "true")
+	t.Cleanup(func() { os.Setenv("ADMIN_DEV_MODE", old) })
+
+	app := newServer(t)
+	const phone = "13800005678"
+
+	reg := httptest.NewRecorder()
+	app.ServeHTTP(reg, httptest.NewRequest(http.MethodPost, "/api/auth/register",
+		strings.NewReader(`{"phone":"`+phone+`","password":"Secret123"}`)))
+	if reg.Code != http.StatusCreated && reg.Code != http.StatusOK {
+		t.Fatalf("register: %d %s", reg.Code, reg.Body.String())
+	}
+
+	// 前 49 次错误密码，每次来自不同 IP → 401（未达账号上限 50）
+	for i := 0; i < 49; i++ {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login",
+			strings.NewReader(`{"phone":"`+phone+`","password":"WrongPass"}`))
+		req.Header.Set("X-Forwarded-For", ipFor(i))
+		app.ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d from ip %s: want 401, got %d", i+1, ipFor(i), w.Code)
+		}
+	}
+
+	// 第 50 次错误（新 IP）→ 401（该次触发账号锁定）
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login",
+		strings.NewReader(`{"phone":"`+phone+`","password":"WrongPass"}`))
+	req.Header.Set("X-Forwarded-For", ipFor(49))
+	app.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("50th wrong attempt: want 401, got %d", w.Code)
+	}
+
+	// 锁定后：换一个从未失败的 IP 用正确密码 → 仍 429（账号级锁定跨 IP 生效）
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/auth/login",
+		strings.NewReader(`{"phone":"`+phone+`","password":"Secret123"}`))
+	req.Header.Set("X-Forwarded-For", ipFor(50))
+	app.ServeHTTP(w, req)
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("account locked across IPs: correct password from fresh ip want 429, got %d %s", w.Code, w.Body.String())
+	}
+}
+
+// ipFor 生成测试用不同客户端 IP（10.0.0.N / 10.0.1.N），避开单 IP 维度锁定。
+func ipFor(i int) string {
+	if i < 250 {
+		return "10.0.0." + itoa(i+1)
+	}
+	return "10.0.1." + itoa(i-249)
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var b [8]byte
+	i := len(b)
+	for n > 0 {
+		i--
+		b[i] = byte('0' + n%10)
+		n /= 10
+	}
+	return string(b[i:])
+}

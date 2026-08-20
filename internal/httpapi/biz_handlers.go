@@ -260,14 +260,14 @@ func (s *Server) deleteExpert(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/cases?category=农业&page=1&page_size=10
 func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
-	// 系统性双重分页修复：service/repo 已按 offset 切片，不能再交 paginatedRespond
-	// 二次切片（page≥2 恒空）——全量拉取，分页只由响应层做一次。
-	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), 1, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // POST /api/v1/admin/cases
@@ -376,13 +376,14 @@ func (s *Server) deleteCase(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/compliance-docs?category=政策法规&page=1&page_size=10
 func (s *Server) listComplianceDocs(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	items, total, err := s.complianceSvc.ListDocs(r.Context(), r.URL.Query().Get("category"), 1, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.complianceSvc.ListDocs(r.Context(), r.URL.Query().Get("category"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // POST /api/v1/admin/compliance-docs
@@ -422,13 +423,14 @@ func (s *Server) createComplianceDoc(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/compliance-standards?category=团体标准&page=1&page_size=10
 func (s *Server) listComplianceStandards(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	items, total, err := s.complianceSvc.ListStandards(r.Context(), r.URL.Query().Get("category"), 1, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.complianceSvc.ListStandards(r.Context(), r.URL.Query().Get("category"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // POST /api/v1/admin/compliance-standards
@@ -541,12 +543,15 @@ func (s *Server) createIndustryReport(w http.ResponseWriter, r *http.Request) {
 		Content  string `json:"content"`
 		FileURL  string `json:"file_url"`
 		Author   string `json:"author"`
+		// 前端表单可选状态（草稿等），透传 service；非法值回退默认 published
+		Status string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	rep, err := s.reportSvc.Create(r.Context(), in.Title, in.Period, in.Category, in.Summary, in.Content, in.FileURL, in.Author)
+	rep, err := s.reportSvc.Create(r.Context(), in.Title, in.Period, in.Category, in.Summary, in.Content, in.FileURL, in.Author,
+		normalizeCreateStatus(in.Status, "published", "draft"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -579,8 +584,10 @@ func (s *Server) deleteIndustryReport(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/portfolios?q=关键词&sort=created_at&page=1&page_size=10
 // 模型无 Views/category 字段：不支持热度排序与分类筛选（前端筛选保留 UI 但不生效）。
 func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	items, total, err := s.portfolioSvc.ListPublished(r.Context(), 1, 100000)
+	// 性能审查：repo 不支持 q 过滤（名称/描述包含），保持全量上限 2000 +
+	// 内存过滤；TODO 下沉：PortfolioRepository.ListPublished 增加 q 参数后改
+	// 分页下沉 SQL + respondPage。
+	items, _, err := s.portfolioSvc.ListPublished(r.Context(), 1, 2000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -595,13 +602,13 @@ func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
 				filtered = append(filtered, p)
 			}
 		}
-		items, total = filtered, len(filtered)
+		items = filtered
 	}
 	// sort：created_at desc 为默认（唯一支持的值）；其余值忽略（无 views 字段，不支持热度排序）
 	if sortBy := r.URL.Query().Get("sort"); sortBy == "" || sortBy == "created_at" {
 		sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	}
-	paginatedRespond(w, r, items, total)
+	paginatedRespond(w, r, items, len(items))
 }
 
 // GET /api/v1/admin/portfolios — 管理端全量（含草稿/待审），公开端仅 published
@@ -647,12 +654,15 @@ func (s *Server) createPortfolio(w http.ResponseWriter, r *http.Request) {
 		ContactInfo string   `json:"contact_info"`
 		Products    []string `json:"products"`
 		Honors      []string `json:"honors"`
+		// 前端表单可选状态（草稿/待审核），透传 service；非法值回退默认 draft
+		Status string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.portfolioSvc.Create(r.Context(), a.ID, in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Products, in.Honors)
+	p, err := s.portfolioSvc.Create(r.Context(), a.ID, in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Products, in.Honors,
+		normalizeCreateStatus(in.Status, "draft", "published", "pending", "rejected"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -839,7 +849,10 @@ func (s *Server) createRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
 		return
 	}
-	ch, err := s.rdService.Create(r.Context(), a.ID, in.Title, in.Field, in.Description, in.BudgetFen, deadline)
+	// createRDChallenge 的 in.Status 此前已 decode 但未透传（服务端恒 published），
+	// 现在校验白名单后透传；非法值回退默认 published。
+	ch, err := s.rdService.Create(r.Context(), a.ID, in.Title, in.Field, in.Description, in.BudgetFen, deadline,
+		normalizeCreateStatus(in.Status, "open", "closed", "resolved", "in_progress", "published", "pending", "draft"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1210,6 +1223,8 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		StartDate   string `json:"start_date"`
 		EndDate     string `json:"end_date"`
 		MaxTeams    int    `json:"max_teams"`
+		// 前端表单可选状态（草稿/待审核等），透传 service；非法值回退默认 published
+		Status string `json:"status"`
 		// 小程序赛事页扩展字段（competitions/detail + register）
 		Deadline           string                          `json:"deadline"`
 		OrganizerSub       string                          `json:"organizer_sub"`
@@ -1248,6 +1263,8 @@ func (s *Server) createCompetition(w http.ResponseWriter, r *http.Request) {
 		Fee: in.Fee, MinFee: in.MinFee, OriginalFee: in.OriginalFee, Tags: in.Tags, Poster: in.Poster,
 		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
 		RegistrationStatus: in.RegistrationStatus,
+		Status: normalizeCreateStatus(in.Status, "pending", "draft", "enrolling", "open", "upcoming",
+			"ongoing", "active", "in_progress", "closed", "full", "ended", "finished", "published"),
 	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -1353,6 +1370,8 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		StartTime    string `json:"start_time"`
 		EndTime      string `json:"end_time"`
 		MaxAttendees int    `json:"max_attendees"`
+		// 前端表单可选状态（草稿/待审核等），透传 service；非法值回退默认 published
+		Status string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -1368,7 +1387,8 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的结束时间格式: %w", err))
 		return
 	}
-	ev, err := s.eventSvc.Create(r.Context(), in.Title, in.EventType, in.Description, in.Location, in.CoverURL, startTime, endTime, in.MaxAttendees)
+	ev, err := s.eventSvc.Create(r.Context(), in.Title, in.EventType, in.Description, in.Location, in.CoverURL, startTime, endTime, in.MaxAttendees,
+		normalizeCreateStatus(in.Status, "published", "ongoing", "ended", "cancelled"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1577,12 +1597,15 @@ func (s *Server) createIndustryResource(w http.ResponseWriter, r *http.Request) 
 		BookingInfo     string `json:"booking_info"`
 		VisibilityLevel string `json:"visibility_level"`
 		PriceFen        int64  `json:"price_fen"`
+		// 前端表单可选状态，透传 service；非法值回退默认 available
+		Status string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.resourceSvc.Create(r.Context(), a.ID, in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel)
+	res, err := s.resourceSvc.Create(r.Context(), a.ID, in.Name, in.ResType, in.Model, in.Specs, in.Location, in.BookingInfo, in.PriceFen, in.VisibilityLevel,
+		normalizeCreateStatus(in.Status, "available", "in_use", "maintenance", "offline"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1629,13 +1652,14 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 
 // GET /api/v1/emergency-resources?page=1&page_size=10&res_type=drone&q=关键词
 func (s *Server) listEmergencyResources(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	items, total, err := s.emergencySvc.ListResources(r.Context(), r.URL.Query().Get("res_type"), r.URL.Query().Get("q"), 1, 100000)
+	// 性能审查：repo 支持 res_type/q 过滤 → 分页下沉 SQL，respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.emergencySvc.ListResources(r.Context(), r.URL.Query().Get("res_type"), r.URL.Query().Get("q"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // POST /api/v1/admin/emergency-resources
@@ -1656,12 +1680,15 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 		Location    string `json:"location"`
 		ContactInfo string `json:"contact_info"`
 		Quantity    int    `json:"quantity"`
+		// 前端表单可选状态，透传 service；非法值回退默认 available
+		Status string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	res, err := s.emergencySvc.CreateResource(r.Context(), a.ID, in.Name, in.ResType, in.Specs, in.Location, in.ContactInfo, in.Quantity)
+	res, err := s.emergencySvc.CreateResource(r.Context(), a.ID, in.Name, in.ResType, in.Specs, in.Location, in.ContactInfo, in.Quantity,
+		normalizeCreateStatus(in.Status, "available", "in_use", "maintenance", "offline"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1675,10 +1702,10 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 // status 筛选支持页面 dispatches.vue 值域：pending / dispatched / completed / ongoing / done / cancelled
 // resource_id 筛选：只看某资源的调度记录
 func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	// status 筛选必须在分页前：先在全量结果上按 status 过滤，再交响应层分页——
-	// 旧实现先分页后过滤，导致 total 错误且翻页错乱。
-	items, total, err := s.emergencySvc.ListDispatches(r.Context(), r.URL.Query().Get("resource_id"), 1, 100000)
+	// 性能审查：service ListDispatches 暂无 status 参数（上轮仅加了 resourceID），
+	// status 仍走内存过滤——全量上限 2000；TODO 下沉：给 EmergencyService.
+	// ListDispatches 加 status 参数后改分页下沉 SQL + respondPage。
+	items, _, err := s.emergencySvc.ListDispatches(r.Context(), r.URL.Query().Get("resource_id"), 1, 2000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1693,7 +1720,7 @@ func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request)
 		paginatedRespond(w, r, out, len(out))
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	paginatedRespond(w, r, items, len(items))
 }
 
 // POST /api/v1/admin/emergency-dispatches

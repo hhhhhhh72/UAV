@@ -257,15 +257,34 @@ type ApplicantView struct {
 }
 
 // ListApplicantsForJob 企业查看某职位的投递者（含简历快照）。
+// 性能审查：简历按 ResumeID 批量一次查询（ListByIDs），替代逐投递 FindByID 的 N+1。
 func (s *JobService) ListApplicantsForJob(ctx context.Context, a domain.Actor, jobID string) ([]ApplicantView, error) {
 	apps, err := s.ListApplicationsForJob(ctx, a, jobID)
 	if err != nil {
 		return nil, err
 	}
+	// 收集去重简历 ID 一次查询
+	ids := make([]string, 0, len(apps))
+	seen := make(map[string]bool, len(apps))
+	for _, ap := range apps {
+		if ap.ResumeID == "" || seen[ap.ResumeID] {
+			continue
+		}
+		seen[ap.ResumeID] = true
+		ids = append(ids, ap.ResumeID)
+	}
+	resumes, err := s.resume.ListByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]domain.Resume, len(resumes))
+	for _, rs := range resumes {
+		byID[rs.ID] = rs
+	}
 	out := make([]ApplicantView, 0, len(apps))
 	for _, ap := range apps {
-		rs, err := s.resume.FindByID(ctx, ap.ResumeID)
-		if err != nil {
+		rs, ok := byID[ap.ResumeID]
+		if !ok {
 			continue // 简历已删：跳过该投递
 		}
 		out = append(out, ApplicantView{Application: ap, Resume: rs})

@@ -60,8 +60,11 @@
             <a-button type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
             <a-button type="text" status="danger" size="small" @click="openInputModal('reject', record)">驳回</a-button>
           </template>
-          <template v-else-if="record.status === 'published' || record.status === 'completed'">
+          <template v-else-if="record.status === 'published'">
             <a-button type="text" status="warning" size="small" @click="openInputModal('close', record)">关闭</a-button>
+            <a-button type="text" size="small" @click="openInputModal('amount', record)">登记金额</a-button>
+          </template>
+          <template v-else-if="record.status === 'completed'">
             <a-button type="text" size="small" @click="openInputModal('amount', record)">登记金额</a-button>
           </template>
           <template v-else-if="record.status === 'cancelled' || record.status === 'rejected'">
@@ -192,10 +195,16 @@ const searchFields = [
   ]}
 ]
 
-// 批量动作：批量通过/批量驳回（传完整行数据，逐行调用审核接口；完成后同步刷新统计条）
+// 批量动作：批量通过/批量驳回（传完整行数据，逐行调用审核接口；完成后同步刷新统计条）。
+// 批量驳回必须留理由（后端 reject 语义要求审核留痕）：通过 prompt 弹窗先收集一次理由，
+// 再对选中行逐条提交；无理由不执行。
 const batchActions = [
   { key: 'approve', label: '批量通过', status: 'success', api: async (row) => { await approveDemand(row.id); loadStats() } },
-  { key: 'reject', label: '批量驳回', status: 'danger', api: async (row) => { await rejectDemand(row.id, ''); loadStats() } }
+  {
+    key: 'reject', label: '批量驳回', status: 'danger',
+    prompt: { title: '批量驳回需求', placeholder: '请填写驳回理由（发布者可见，可据此修改后重提）' },
+    api: async (row, reason) => { await rejectDemand(row.id, reason); loadStats() }
+  }
 ]
 
 const columns = [

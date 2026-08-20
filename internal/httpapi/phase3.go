@@ -111,20 +111,64 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, errors.New("enrollment not found"))
 		return
 	}
-	// 幂等 + 状态校验：仅 enrolled/paid 可完成；completed 拒绝重复释放/重复发证；pending/rejected 不可完成
-	if enrollment.Status == "completed" {
-		fail(w, r, http.StatusConflict, errors.New("enrollment already completed"))
-		return
-	}
-	if enrollment.Status != "enrolled" && enrollment.Status != "paid" {
-		fail(w, r, http.StatusConflict, fmt.Errorf("enrollment status %q cannot be completed", enrollment.Status))
-		return
-	}
 
 	// Find course for org/type context（价格不再用于资金操作，仅取机构与证书类型）
 	course, err := s.trainingSvc.GetCourse(r.Context(), enrollment.CourseID)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, fmt.Errorf("course not found: %w", err))
+		return
+	}
+
+	// completed 幂等重试（回归修复）：此前先 CAS 置 completed 再 Release/AddCertificate，
+	// 释放/发证失败后状态已 completed，重试被下方 409 "already completed" 挡死——
+	// 学费滞留 frozen、证书缺失且无法补齐。现允许 completed 报名补齐缺失步骤：
+	// 资金（release 流水缺失则按 PaidAmountFen 释放）与证书（cert_number='auto-'+ID 缺失则补发）。
+	// 两者都完成 → 幂等返回 200（不重复操作）。
+	if enrollment.Status == "completed" {
+		// 查证：cert_number='auto-'+enrollment.ID 存在即已发证（err==nil 即存在）
+		cert, certErr := s.trainingSvc.FindByNumber(r.Context(), "auto-"+enrollment.ID)
+		certFound := certErr == nil
+		// 免费报名（PaidAmountFen=0）无需释放，视为已完成该步骤。
+		releaseDone := enrollment.PaidAmountFen <= 0
+		if !releaseDone {
+			hasReleased, herr := s.escrowSvc.HasReleased(r.Context(), enrollment.UserID, "training_course", course.ID)
+			if herr != nil {
+				fail(w, r, http.StatusInternalServerError, fmt.Errorf("check escrow release: %w", herr))
+				return
+			}
+			releaseDone = hasReleased
+		}
+		if !releaseDone {
+			if _, rerr := s.escrowSvc.Release(r.Context(), enrollment.UserID, course.OrgID, enrollment.PaidAmountFen, "training_course", course.ID); rerr != nil {
+				s.audit(r.Context(), a.ID, "complete_enrollment_release_failed", "enrollment", enrollment.ID, rerr.Error())
+				fail(w, r, http.StatusInternalServerError, fmt.Errorf("release escrow: %w", rerr))
+				return
+			}
+		}
+		if !certFound {
+			cert, err = s.trainingSvc.AddCertificate(r.Context(),
+				domain.Actor{ID: enrollment.UserID, Role: domain.RoleIndividual},
+				course.CertType, "auto-"+enrollment.ID, "passed", course.OrgID,
+				time.Now(), time.Now().AddDate(3, 0, 0),
+			)
+			if err != nil {
+				s.audit(r.Context(), a.ID, "complete_enrollment_cert_failed", "enrollment", enrollment.ID, err.Error())
+				fail(w, r, http.StatusInternalServerError, fmt.Errorf("issue certificate: %w", err))
+				return
+			}
+		}
+		s.audit(r.Context(), a.ID, "complete_enrollment", "enrollment", enrollment.ID, "completed(retry)")
+		respond(w, r, http.StatusOK, map[string]any{
+			"enrollment":  enrollment,
+			"certificate": cert,
+			"status":      "completed",
+		})
+		return
+	}
+
+	// 状态校验：仅 enrolled/paid 可完成；pending/rejected 不可完成
+	if enrollment.Status != "enrolled" && enrollment.Status != "paid" {
+		fail(w, r, http.StatusConflict, fmt.Errorf("enrollment status %q cannot be completed", enrollment.Status))
 		return
 	}
 
@@ -141,7 +185,8 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 	if enrollment.PaidAmountFen > 0 {
 		if _, err := s.escrowSvc.Release(r.Context(), enrollment.UserID, course.OrgID, enrollment.PaidAmountFen, "training_course", course.ID); err != nil {
 			// 释放失败：状态已置 completed（幂等锚点，不会重复释放），
-			// 资金滞留 frozen —— 记录审计供管理员人工处理（escrow 管理员接口可解）
+			// 资金滞留 frozen —— 记录审计供管理员人工处理（escrow 管理员接口可解）；
+			// 重试走上方 completed 幂等补齐分支，不再被 409 挡死。
 			s.audit(r.Context(), a.ID, "complete_enrollment_release_failed", "enrollment", enrollment.ID, err.Error())
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("release escrow: %w", err))
 			return
@@ -256,14 +301,22 @@ func (s *Server) listMyEnrollments(w http.ResponseWriter, r *http.Request) {
 		domain.Enrollment
 		CourseTitle string `json:"course_title"`
 	}
-	var out []enrollmentWithCourse
+
+	// 性能审查（N+1 修复）：一次 ListByUser 拿全部报名（替代按课程 ListByCourse
+	// 循环 + 用户过滤），课程名用一次 ListCourses 建 map 批量补齐（替代逐报名
+	// GetCourse），两次查询取代 N+1。
+	enrolls, err := s.enrollSvc.ListByUser(r.Context(), a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	courseByID := make(map[string]domain.TrainingCourse, len(courses))
 	for _, c := range courses {
-		enrolls, _ := s.enrollSvc.ListByCourse(r.Context(), c.ID)
-		for _, e := range enrolls {
-			if e.UserID == a.ID {
-				out = append(out, enrollmentWithCourse{Enrollment: e, CourseTitle: c.Title})
-			}
-		}
+		courseByID[c.ID] = c
+	}
+	out := make([]enrollmentWithCourse, 0, len(enrolls))
+	for _, e := range enrolls {
+		out = append(out, enrollmentWithCourse{Enrollment: e, CourseTitle: courseByID[e.CourseID].Title})
 	}
 	respond(w, r, http.StatusOK, out)
 }
@@ -493,12 +546,28 @@ func (s *Server) listMyTradeOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 补商品名（product_id → title）；商品已删除/下架时忽略，保持订单可读。
-	for i := range orders {
-		if orders[i].ProductID == "" {
+	// 性能审查（N+1 修复）：收集去重 product_id 一次 ListByIDs 批量查询 +
+	// map 填充，替代逐订单 GetProduct。
+	ids := make([]string, 0, len(orders))
+	seen := make(map[string]bool, len(orders))
+	for _, o := range orders {
+		if o.ProductID == "" || seen[o.ProductID] {
 			continue
 		}
-		if p, err := s.tradingSvc.GetProduct(r.Context(), orders[i].ProductID); err == nil {
-			orders[i].ProductName = p.Title
+		seen[o.ProductID] = true
+		ids = append(ids, o.ProductID)
+	}
+	if len(ids) > 0 {
+		if prods, err := s.tradingSvc.ListProductsByIDs(r.Context(), ids); err == nil {
+			byID := make(map[string]domain.DroneProduct, len(prods))
+			for _, p := range prods {
+				byID[p.ID] = p
+			}
+			for i := range orders {
+				if p, ok := byID[orders[i].ProductID]; ok {
+					orders[i].ProductName = p.Title
+				}
+			}
 		}
 	}
 	respond(w, r, http.StatusOK, orders)
@@ -530,8 +599,11 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("admin dashboard: load demands", "err", err)
 		dem = nil
 	}
+	// dem 全量保留：trends/category_dist/status_dist/offline_amount_total 四个聚合依赖它
+	//（转 SQL 聚合属后续优化，本轮保持响应值不变）。
 	totalDemands := len(dem)
 
+	// posts 全量保留：trends_detail.post 需按创建时间做月度桶（COUNT 无法替代）。
 	posts, _, err := s.communitySvc.ListPublishedPosts(r.Context(), 0, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load posts", "err", err)
@@ -541,18 +613,20 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 
 	// pending_reports：社区举报待处理数（Report.status=pending）。
 	// 此前误用 ReviewService.ListAll（企业评价审核）且 status="" 全量，字段名与实体不符。
-	pendingReports, _, err := s.communitySvc.ListPendingReports(r.Context(), a, 0, 10000)
+	// 性能审查：只取 total，不物化行。
+	_, totalReports, err := s.communitySvc.ListPendingReports(r.Context(), a, 0, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load pending reports", "err", err)
+		slog.Warn("admin dashboard: count pending reports", "err", err)
 	}
-	totalReports := len(pendingReports)
 
+	// users 全量保留：trends_detail.user 需按创建时间做月度桶（All 已 LIMIT 200）。
 	users, err := s.userRepo.All(r.Context())
 	if err != nil {
 		slog.Warn("admin dashboard: load users", "err", err)
 	}
 	totalUsers := len(users)
 
+	// msgs 全量保留：trends_detail.message 需按创建时间做月度桶。
 	msgs, _, err := s.msgSvc.ListAll(r.Context(), 0, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load messages", "err", err)
@@ -590,11 +664,12 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("admin dashboard: load colleges", "err", err)
 	}
 	modules["talent"]["colleges"] = len(cols)
-	jobs, _, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 10000)
+	// 性能审查：以下计数只取 total（List 的 COUNT 返回值），不再物化行。
+	_, jobsTotal, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load jobs", "err", err)
+		slog.Warn("admin dashboard: count jobs", "err", err)
 	}
-	modules["talent"]["jobs"] = len(jobs)
+	modules["talent"]["jobs"] = jobsTotal
 	tours, err := s.studyTourRepo.List(r.Context())
 	if err != nil {
 		slog.Warn("admin dashboard: load study tours", "err", err)
@@ -607,73 +682,73 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	modules["talent"]["training_courses"] = len(courses)
 
 	// Events
-	competitions, _, err := s.competitionSvc.List(r.Context(), 1, 10000)
+	_, competitionsTotal, err := s.competitionSvc.List(r.Context(), 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load competitions", "err", err)
+		slog.Warn("admin dashboard: count competitions", "err", err)
 	}
-	modules["events"]["competitions"] = competitionsIfNil(competitions)
-	evs, _, err := s.eventSvc.List(r.Context(), 1, 10000)
+	modules["events"]["competitions"] = competitionsTotal
+	_, evsTotal, err := s.eventSvc.List(r.Context(), 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load events", "err", err)
+		slog.Warn("admin dashboard: count events", "err", err)
 	}
-	modules["events"]["events"] = evsIfNil(evs)
-	exhs, _, err := s.exhibitionSvc.List(r.Context(), 1, 10000)
+	modules["events"]["events"] = evsTotal
+	_, exhsTotal, err := s.exhibitionSvc.List(r.Context(), 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load exhibitions", "err", err)
+		slog.Warn("admin dashboard: count exhibitions", "err", err)
 	}
-	modules["events"]["exhibitions"] = exhsIfNil(exhs)
-	emergRes, _, err := s.emergencySvc.ListResources(r.Context(), "", "", 1, 10000)
+	modules["events"]["exhibitions"] = exhsTotal
+	_, emgResTotal, err := s.emergencySvc.ListResources(r.Context(), "", "", 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load emergency resources", "err", err)
+		slog.Warn("admin dashboard: count emergency resources", "err", err)
 	}
-	modules["events"]["emergency_resources"] = emgResIfNil(emergRes)
-	disps, _, err := s.emergencySvc.ListDispatches(r.Context(), "", 1, 10000)
+	modules["events"]["emergency_resources"] = emgResTotal
+	_, dispTotal, err := s.emergencySvc.ListDispatches(r.Context(), "", 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load emergency dispatches", "err", err)
+		slog.Warn("admin dashboard: count emergency dispatches", "err", err)
 	}
-	modules["events"]["emergency_dispatches"] = dispIfNil(disps)
+	modules["events"]["emergency_dispatches"] = dispTotal
 
 	// Industry
-	achs, _, err := s.achievementSvc.List(r.Context(), "", 1, 10000)
+	_, achsTotal, err := s.achievementSvc.List(r.Context(), "", 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load achievements", "err", err)
+		slog.Warn("admin dashboard: count achievements", "err", err)
 	}
-	modules["industry"]["achievements"] = achsIfNil(achs)
-	cases, _, err := s.caseSvc.List(r.Context(), "", 1, 10000)
+	modules["industry"]["achievements"] = achsTotal
+	_, casesTotal, err := s.caseSvc.List(r.Context(), "", 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load cases", "err", err)
+		slog.Warn("admin dashboard: count cases", "err", err)
 	}
-	modules["industry"]["cases"] = casesIfNil(cases)
+	modules["industry"]["cases"] = casesTotal
 	exps, err := s.expertSvc.List(r.Context(), "")
 	if err != nil {
 		slog.Warn("admin dashboard: load experts", "err", err)
 	}
 	modules["industry"]["experts"] = len(exps)
-	rpts, _, err := s.reportSvc.List(r.Context(), 1, 10000)
+	_, rptsTotal, err := s.reportSvc.List(r.Context(), 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load industry reports", "err", err)
+		slog.Warn("admin dashboard: count industry reports", "err", err)
 	}
-	modules["industry"]["industry_reports"] = rptsIfNil(rpts)
-	res, _, err := s.resourceSvc.List(r.Context(), "", 1, 10000)
+	modules["industry"]["industry_reports"] = rptsTotal
+	_, resTotal, err := s.resourceSvc.List(r.Context(), "", 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load industry resources", "err", err)
+		slog.Warn("admin dashboard: count industry resources", "err", err)
 	}
-	modules["industry"]["industry_resources"] = resIfNil(res)
-	ports, _, err := s.portfolioSvc.ListPublished(r.Context(), 1, 10000)
+	modules["industry"]["industry_resources"] = resTotal
+	_, portsTotal, err := s.portfolioSvc.ListPublished(r.Context(), 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load portfolios", "err", err)
+		slog.Warn("admin dashboard: count portfolios", "err", err)
 	}
-	modules["industry"]["portfolios"] = len(ports)
-	rds, _, err := s.rdService.List(r.Context(), "", 1, 10000)
+	modules["industry"]["portfolios"] = portsTotal
+	_, rdsTotal, err := s.rdService.List(r.Context(), "", 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load rd challenges", "err", err)
+		slog.Warn("admin dashboard: count rd challenges", "err", err)
 	}
-	modules["industry"]["rd_challenges"] = rdsIfNil(rds)
-	projs, _, err := s.researchSvc.List(r.Context(), 1, 10000)
+	modules["industry"]["rd_challenges"] = rdsTotal
+	_, projsTotal, err := s.researchSvc.List(r.Context(), 1, 1)
 	if err != nil {
-		slog.Warn("admin dashboard: load research projects", "err", err)
+		slog.Warn("admin dashboard: count research projects", "err", err)
 	}
-	modules["industry"]["research_projects"] = projsIfNil(projs)
+	modules["industry"]["research_projects"] = projsTotal
 	sites, err := s.testSiteSvc.List(r.Context(), "")
 	if err != nil {
 		slog.Warn("admin dashboard: load test sites", "err", err)
@@ -764,16 +839,3 @@ func buildStatusDist(dem []domain.Demand) map[string]int {
 	}
 	return dist
 }
-
-// Nil-safe helpers for service List results
-func competitionsIfNil(v []domain.Competition) int { return len(v) }
-func evsIfNil(v []domain.AssociationEvent) int     { return len(v) }
-func exhsIfNil(v []domain.Exhibition) int          { return len(v) }
-func emgResIfNil(v []domain.EmergencyResource) int { return len(v) }
-func dispIfNil(v []domain.EmergencyDispatch) int   { return len(v) }
-func achsIfNil(v []domain.Achievement) int         { return len(v) }
-func casesIfNil(v []domain.CaseEntry) int          { return len(v) }
-func rptsIfNil(v []domain.IndustryReport) int      { return len(v) }
-func resIfNil(v []domain.IndustryResource) int     { return len(v) }
-func rdsIfNil(v []domain.RDChallenge) int          { return len(v) }
-func projsIfNil(v []domain.ResearchProject) int    { return len(v) }

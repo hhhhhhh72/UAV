@@ -171,9 +171,11 @@ func TestB1CompleteEnrollmentFundRelease(t *testing.T) {
 		t.Fatalf("org escrow after complete: balance=%d frozen=%d want %d/0", b, f, price)
 	}
 
-	// 幂等：再次 complete → 409，余额/证书数不变（不重复释放、不重复发证）
+	// 幂等重试（回归修复）：再次 complete（状态已 completed）→ 200 幂等完成，
+	// 余额/证书数不变（不重复释放、不重复发证）。此前返回 409，释放/发证失败后
+	// 重试被挡死，学费滞留 frozen 无法补齐。
 	w = requestAs(t, app, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/complete", nil, "admin-1", domain.RolePlatformAdmin)
-	assertStatus(t, http.MethodPost, ".../complete (2nd)", w, http.StatusConflict)
+	assertStatus(t, http.MethodPost, ".../complete (2nd)", w, http.StatusOK)
 	if b, _ := escrowBal(t, app, "org-1", domain.RoleEnterprise); b != price {
 		t.Fatalf("duplicate complete must not re-release: org balance=%d want %d", b, price)
 	}
@@ -197,6 +199,106 @@ func TestB1CompleteEnrollmentFundRelease(t *testing.T) {
 	}
 	if n := myCertCount(t, app, "student-2"); n != 1 {
 		t.Fatalf("free complete should issue 1 cert, got %d", n)
+	}
+}
+
+// ── B1b：completeEnrollment 失败可重试（幂等补齐） ─────────────────────────
+
+// 回归：旧实现先 CAS 置 completed 再 Release/AddCertificate，释放/发证失败后
+// 状态已 completed，重试被 409 挡死——学费滞留 frozen、证书缺失无法补齐。
+// 修复后 completed 报名重试：查 release 流水与证书，缺哪个补哪个，全成则幂等 200。
+func TestB1bCompleteEnrollmentRetryAfterPartialFailure(t *testing.T) {
+	app := newBizServer(t)
+	const price = int64(300000)
+
+	// ── 场景 A：CAS 已置 completed，但释放与发证都未发生（旧实现释放失败后的状态）──
+	courseID := createPublishedCourse(t, app, "org-1", "执照培训R1", price)
+	fundEscrow(t, app, "student-1", 500000)
+	w := requestAs(t, app, http.MethodPost, "/api/v1/training-courses/"+courseID+"/pay-and-enroll",
+		[]byte(`{"name":"学员甲","phone":"13800000001"}`), "student-1", domain.RoleIndividual)
+	assertStatus(t, http.MethodPost, ".../pay-and-enroll", w, http.StatusCreated)
+	enrollID := dataID(t, w)
+
+	// 模拟旧实现"释放失败后状态已 completed"：管理端直接改状态为 completed（不发证不释放）
+	w = requestAs(t, app, http.MethodPut, "/api/v1/admin/enrollments/"+enrollID,
+		[]byte(`{"status":"completed"}`), "admin-1", domain.RolePlatformAdmin)
+	assertStatus(t, http.MethodPut, ".../admin set completed", w, http.StatusOK)
+	if _, f := escrowBal(t, app, "student-1", domain.RoleIndividual); f != price {
+		t.Fatalf("pre-retry state: student frozen=%d want %d (funds must still be frozen)", f, price)
+	}
+	if b, _ := escrowBal(t, app, "org-1", domain.RoleEnterprise); b != 0 {
+		t.Fatalf("pre-retry state: org balance=%d want 0 (not yet released)", b)
+	}
+
+	// 重试 complete → 200：补齐释放 + 发证（此前 409 挡死）
+	w = requestAs(t, app, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/complete", nil, "admin-1", domain.RolePlatformAdmin)
+	assertStatus(t, http.MethodPost, ".../complete retry", w, http.StatusOK)
+	if !strings.Contains(w.Body.String(), `"cert_number":"auto-`+enrollID+`"`) {
+		t.Fatalf("retry should issue cert auto-%s: %s", enrollID, w.Body.String())
+	}
+	if b, f := escrowBal(t, app, "student-1", domain.RoleIndividual); b != 200000 || f != 0 {
+		t.Fatalf("student escrow after retry: balance=%d frozen=%d want 200000/0", b, f)
+	}
+	if b, f := escrowBal(t, app, "org-1", domain.RoleEnterprise); b != price || f != 0 {
+		t.Fatalf("org escrow after retry: balance=%d frozen=%d want %d/0", b, f, price)
+	}
+	if n := myCertCount(t, app, "student-1"); n != 1 {
+		t.Fatalf("retry should issue exactly 1 cert, got %d", n)
+	}
+
+	// 再重试 → 幂等 200，资金/证书不动
+	w = requestAs(t, app, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/complete", nil, "admin-1", domain.RolePlatformAdmin)
+	assertStatus(t, http.MethodPost, ".../complete retry again", w, http.StatusOK)
+	if b, _ := escrowBal(t, app, "org-1", domain.RoleEnterprise); b != price {
+		t.Fatalf("idempotent retry must not double-release: org balance=%d want %d", b, price)
+	}
+	if n := myCertCount(t, app, "student-1"); n != 1 {
+		t.Fatalf("idempotent retry must not re-issue cert: got %d certs", n)
+	}
+
+	// ── 场景 B：释放已完成、证书缺失（旧实现发证失败后的状态）──
+	courseID2 := createPublishedCourse(t, app, "org-2", "执照培训R2", price)
+	fundEscrow(t, app, "student-2", 400000)
+	w = requestAs(t, app, http.MethodPost, "/api/v1/training-courses/"+courseID2+"/pay-and-enroll",
+		[]byte(`{"name":"学员乙","phone":"13800000002"}`), "student-2", domain.RoleIndividual)
+	assertStatus(t, http.MethodPost, ".../pay-and-enroll B", w, http.StatusCreated)
+	enrollID2 := dataID(t, w)
+	// 状态置 completed（模拟 CAS 已发生）
+	w = requestAs(t, app, http.MethodPut, "/api/v1/admin/enrollments/"+enrollID2,
+		[]byte(`{"status":"completed"}`), "admin-1", domain.RolePlatformAdmin)
+	assertStatus(t, http.MethodPut, ".../admin set completed B", w, http.StatusOK)
+	// 手动完成资金释放（模拟旧实现"释放成功、发证失败"）
+	w = requestAs(t, app, http.MethodPost, "/api/v1/escrow/release",
+		[]byte(fmt.Sprintf(`{"to_user":"org-2","amount_fen":%d,"reference_type":"training_course","reference_id":%q}`, price, courseID2)),
+		"student-2", domain.RolePlatformAdmin)
+	assertStatus(t, http.MethodPost, ".../manual release", w, http.StatusCreated)
+
+	// 重试 complete → 200：只补发证书，不重复释放（org-2 到账恰为 price）
+	w = requestAs(t, app, http.MethodPost, "/api/v1/enrollments/"+enrollID2+"/complete", nil, "admin-1", domain.RolePlatformAdmin)
+	assertStatus(t, http.MethodPost, ".../complete retry B", w, http.StatusOK)
+	if b, f := escrowBal(t, app, "org-2", domain.RoleEnterprise); b != price || f != 0 {
+		t.Fatalf("retry B must not double-release: org-2 balance=%d frozen=%d want %d/0", b, f, price)
+	}
+	if n := myCertCount(t, app, "student-2"); n != 1 {
+		t.Fatalf("retry B should issue 1 cert, got %d", n)
+	}
+
+	// 免费课程 completed 后重试：不释放资金、只补证
+	freeCourseID := createPublishedCourse(t, app, "org-3", "免费课R", 0)
+	w = requestAs(t, app, http.MethodPost, "/api/v1/training-courses/"+freeCourseID+"/pay-and-enroll",
+		[]byte(`{"name":"学员丙","phone":"13800000003"}`), "student-3", domain.RoleIndividual)
+	assertStatus(t, http.MethodPost, ".../pay-and-enroll free", w, http.StatusCreated)
+	freeEnrollID := dataID(t, w)
+	w = requestAs(t, app, http.MethodPut, "/api/v1/admin/enrollments/"+freeEnrollID,
+		[]byte(`{"status":"completed"}`), "admin-1", domain.RolePlatformAdmin)
+	assertStatus(t, http.MethodPut, ".../admin set completed free", w, http.StatusOK)
+	w = requestAs(t, app, http.MethodPost, "/api/v1/enrollments/"+freeEnrollID+"/complete", nil, "admin-1", domain.RolePlatformAdmin)
+	assertStatus(t, http.MethodPost, ".../complete retry free", w, http.StatusOK)
+	if !strings.Contains(w.Body.String(), `"cert_number":"auto-`+freeEnrollID+`"`) {
+		t.Fatalf("free retry should issue cert: %s", w.Body.String())
+	}
+	if b, f := escrowBal(t, app, "org-3", domain.RoleEnterprise); b != 0 || f != 0 {
+		t.Fatalf("free course retry must not move funds: org-3 balance=%d frozen=%d", b, f)
 	}
 }
 

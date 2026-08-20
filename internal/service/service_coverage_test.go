@@ -280,11 +280,11 @@ func TestExhibitionService_CRUD_Booths(t *testing.T) {
 		t.Fatal("ExhibitionService.Get: expected error for unknown id")
 	}
 
-	upd, err := svc.Update(context.Background(), e.ID, "无人机展2", "equipment_expo", "新描述", "北京", "主办", start, end, 20, 8000, "recruiting")
+	upd, err := svc.Update(context.Background(), e.ID, "无人机展2", "equipment_expo", "新描述", "北京", "主办", "cover2.jpg", start, end, 20, 8000, "recruiting")
 	if err != nil || upd.Title != "无人机展2" || upd.Status != "recruiting" {
 		t.Fatalf("ExhibitionService.Update: title=%q status=%q err=%v", upd.Title, upd.Status, err)
 	}
-	if _, err := svc.Update(context.Background(), "nope", "", "", "", "", "", start, end, 0, 0, ""); err == nil {
+	if _, err := svc.Update(context.Background(), "nope", "", "", "", "", "", "", start, end, 0, 0, ""); err == nil {
 		t.Fatal("ExhibitionService.Update: expected error for unknown id")
 	}
 
@@ -347,11 +347,11 @@ func TestTransformationService_CRUD_StageMilestone(t *testing.T) {
 		t.Fatalf("TransformationService.ListByAchievement(nope): len=%d, want 0", len(byAch))
 	}
 
-	upd, err := svc.UpdateTrans(context.Background(), tr.ID, "新标题", "pilot", "50%", "partner-2", "active")
+	upd, err := svc.UpdateTrans(context.Background(), tr.ID, "新标题", "ach-1", "pilot", "50%", "partner-2", "active")
 	if err != nil || upd.Title != "新标题" || upd.Stage != domain.StagePilot {
 		t.Fatalf("TransformationService.UpdateTrans: title=%q stage=%q err=%v", upd.Title, upd.Stage, err)
 	}
-	if _, err := svc.UpdateTrans(context.Background(), "nope", "", "", "", "", ""); err == nil {
+	if _, err := svc.UpdateTrans(context.Background(), "nope", "", "", "", "", "", ""); err == nil {
 		t.Fatal("TransformationService.UpdateTrans: expected error for unknown id")
 	}
 
@@ -608,7 +608,7 @@ func TestEventService_DeleteUpdateRegister(t *testing.T) {
 	start := time.Now().AddDate(0, 1, 0)
 	end := start.AddDate(0, 0, 1)
 
-	e, err := svc.Create(context.Background(), "产业论坛", "forum", "描述", "地点", "", start, end, 100)
+	e, err := svc.Create(context.Background(), "产业论坛", "forum", "描述", "地点", "", start, end, 100, "")
 	if err != nil {
 		t.Fatalf("EventService.Create: %v", err)
 	}
@@ -632,7 +632,7 @@ func TestResourceService_DeleteBookAndVisibility(t *testing.T) {
 	svc := service.NewResourceService(memory.NewResourceRepository())
 
 	// 空 visibilityLevel 默认 public
-	r, err := svc.Create(context.Background(), "owner-1", "无人机", "drone", "M300", "规格", "地点", "预约信息", 10000, "")
+	r, err := svc.Create(context.Background(), "owner-1", "无人机", "drone", "M300", "规格", "地点", "预约信息", 10000, "", "")
 	if err != nil {
 		t.Fatalf("ResourceService.Create: %v", err)
 	}
@@ -654,7 +654,7 @@ func TestResourceService_DeleteBookAndVisibility(t *testing.T) {
 func TestEmergencyService_FullCRUD(t *testing.T) {
 	svc := service.NewEmergencyService(memory.NewEmergencyRepository())
 
-	r, err := svc.CreateResource(context.Background(), "owner-1", "应急无人机", "drone", "M300", "南岸", "138", 2)
+	r, err := svc.CreateResource(context.Background(), "owner-1", "应急无人机", "drone", "M300", "南岸", "138", 2, "")
 	if err != nil {
 		t.Fatalf("EmergencyService.CreateResource: %v", err)
 	}
@@ -723,7 +723,7 @@ func TestAchievementService_UpdateError(t *testing.T) {
 
 func TestRDChallengeService_DeleteUpdate(t *testing.T) {
 	svc := service.NewRDChallengeService(memory.NewRDChallengeRepository())
-	c, err := svc.Create(context.Background(), "ent-1", "长续航电池", "电池", "描述", 500000, time.Now().AddDate(0, 3, 0))
+	c, err := svc.Create(context.Background(), "ent-1", "长续航电池", "电池", "描述", 500000, time.Now().AddDate(0, 3, 0), "")
 	if err != nil {
 		t.Fatalf("RDChallengeService.Create: %v", err)
 	}

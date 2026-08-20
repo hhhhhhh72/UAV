@@ -82,7 +82,7 @@ func TestComplianceFullCRUD(t *testing.T) {
 // === Report full CRUD ===
 func TestReportFullCRUD(t *testing.T) {
 	svc := service.NewReportService(memory.NewIndustryReportRepository())
-	r, _ := svc.Create(context.Background(), "报告", "2026H1", "行业", "摘要", "全文", "f.pdf", "作者")
+	r, _ := svc.Create(context.Background(), "报告", "2026H1", "行业", "摘要", "全文", "f.pdf", "作者", "")
 	got, _ := svc.Get(context.Background(), r.ID)
 	if got.Author != "作者" {
 		t.Fatal("Get failed")
@@ -98,7 +98,7 @@ func TestReportFullCRUD(t *testing.T) {
 // === Portfolio full CRUD ===
 func TestPortfolioFullCRUD(t *testing.T) {
 	svc := service.NewPortfolioService(memory.NewPortfolioRepository())
-	p, _ := svc.Create(context.Background(), "ent-1", "品牌A", "logo.png", "cover.png", "无人机方案", "138", []string{"巡检"}, []string{"优秀"})
+	p, _ := svc.Create(context.Background(), "ent-1", "品牌A", "logo.png", "cover.png", "无人机方案", "138", []string{"巡检"}, []string{"优秀"}, "")
 	got, _ := svc.Get(context.Background(), p.ID)
 	if got.Name != "品牌A" {
 		t.Fatal("Get failed")
@@ -136,7 +136,7 @@ func TestAchievementFullCRUD(t *testing.T) {
 // === RDChallenge full CRUD ===
 func TestRDChallengeFullCRUD(t *testing.T) {
 	svc := service.NewRDChallengeService(memory.NewRDChallengeRepository())
-	c, _ := svc.Create(context.Background(), "ent-1", "电池技术", "电池", ">2h续航", 500000, time.Now().AddDate(0, 3, 0))
+	c, _ := svc.Create(context.Background(), "ent-1", "电池技术", "电池", ">2h续航", 500000, time.Now().AddDate(0, 3, 0), "")
 	got, _ := svc.Get(context.Background(), c.ID)
 	if got.BudgetFen != 500000 {
 		t.Fatal("Get failed")
@@ -210,7 +210,7 @@ func TestCompetitionFullCRUD(t *testing.T) {
 // === Event full CRUD ===
 func TestEventFullCRUD(t *testing.T) {
 	svc := service.NewEventService(memory.NewEventRepository())
-	e, _ := svc.Create(context.Background(), "论坛", "forum", "年度", "博览中心", "cover.jpg", time.Now().AddDate(0, 2, 0), time.Now().AddDate(0, 2, 1), 500)
+	e, _ := svc.Create(context.Background(), "论坛", "forum", "年度", "博览中心", "cover.jpg", time.Now().AddDate(0, 2, 0), time.Now().AddDate(0, 2, 1), 500, "")
 	got, _ := svc.Get(context.Background(), e.ID)
 	if got.EventType != "forum" {
 		t.Fatal("Get failed")
@@ -227,7 +227,7 @@ func TestEventFullCRUD(t *testing.T) {
 // === Resource full CRUD ===
 func TestResourceFullCRUD(t *testing.T) {
 	svc := service.NewResourceService(memory.NewResourceRepository())
-	r, _ := svc.Create(context.Background(), "user-1", "无人机01", "drone", "M300", "RTK+热成像", "南岸", "9-18点", 100000, "public")
+	r, _ := svc.Create(context.Background(), "user-1", "无人机01", "drone", "M300", "RTK+热成像", "南岸", "9-18点", 100000, "public", "")
 	got, _ := svc.Get(context.Background(), r.ID)
 	if got.Model != "M300" {
 		t.Fatal("Get failed")
@@ -248,7 +248,7 @@ func TestResourceFullCRUD(t *testing.T) {
 // === Emergency full CRUD ===
 func TestEmergencyFullCRUD(t *testing.T) {
 	svc := service.NewEmergencyService(memory.NewEmergencyRepository())
-	r, _ := svc.CreateResource(context.Background(), "user-1", "应急机01", "drone", "M300RTK", "南岸", "138", 2)
+	r, _ := svc.CreateResource(context.Background(), "user-1", "应急机01", "drone", "M300RTK", "南岸", "138", 2, "")
 	got, _ := svc.GetResource(context.Background(), r.ID)
 	if got.Quantity != 2 {
 		t.Fatal("Get failed")

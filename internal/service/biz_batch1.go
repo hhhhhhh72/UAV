@@ -159,7 +159,7 @@ func (s *ExhibitionService) Get(ctx context.Context, id string) (domain.Exhibiti
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *ExhibitionService) Update(ctx context.Context, id, title, category, description, location, organizer string, startDate, endDate time.Time, boothCount int, boothPrice int64, status string) (domain.Exhibition, error) {
+func (s *ExhibitionService) Update(ctx context.Context, id, title, category, description, location, organizer, coverURL string, startDate, endDate time.Time, boothCount int, boothPrice int64, status string) (domain.Exhibition, error) {
 	e, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Exhibition{}, err
@@ -169,6 +169,7 @@ func (s *ExhibitionService) Update(ctx context.Context, id, title, category, des
 	e.Description = description
 	e.Location = location
 	e.Organizer = organizer
+	e.CoverURL = coverURL
 	e.StartDate = startDate
 	e.EndDate = endDate
 	e.BoothCount = boothCount

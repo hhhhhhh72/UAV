@@ -33,7 +33,7 @@
             {{ record.role === 'platform_admin' ? '取消管理员' : '设为管理员' }}
           </a-button>
           <span v-else-if="record.id === 'admin'" class="super-admin-tip">超级管理员</span>
-          <a-button v-if="record.id !== 'admin'" type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
+          <a-button v-if="isSuperAdmin && record.id !== 'admin'" type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
       </template>
       <template #empty>
@@ -50,7 +50,7 @@
             <a-option value="individual">个人用户</a-option>
             <a-option value="enterprise">企业用户</a-option>
             <a-option value="association_admin">协会管理员</a-option>
-            <a-option value="platform_admin">平台管理员</a-option>
+            <a-option v-if="isSuperAdmin" value="platform_admin">平台管理员</a-option>
           </a-select>
         </a-form-item>
         <a-form-item label="密码">

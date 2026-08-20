@@ -171,9 +171,14 @@ func (s *ComplianceService) CreateDoc(ctx context.Context, title, category, publ
 	if status == "" {
 		status = "published"
 	}
-	pd, err := time.Parse("2006-01-02", publishDate)
-	if err != nil {
-		return domain.ComplianceDoc{}, fmt.Errorf("invalid publish date: %w", err)
+	// 空发布日按零值（"未设置"）处理，非空才解析——避免空串 time.Parse 直接 error → 500
+	var pd time.Time
+	if publishDate != "" {
+		p, perr := time.Parse("2006-01-02", publishDate)
+		if perr != nil {
+			return domain.ComplianceDoc{}, fmt.Errorf("invalid publish date: %w", perr)
+		}
+		pd = p
 	}
 	d := domain.ComplianceDoc{
 		ID:          nextID("compdoc"),
@@ -204,11 +209,15 @@ func (s *ComplianceService) UpdateDoc(ctx context.Context, id, title, category, 
 	d.Title = title
 	d.Category = normalizeComplianceDocCategory(category)
 	d.Publisher = publisher
-	pd, err := time.Parse("2006-01-02", publishDate)
-	if err != nil {
-		slog.Warn("compliance update doc: parse publish date", "publish_date", publishDate, "err", err)
+	// 日期解析失败保留原值（管理端编辑时前端传 RFC3339，直接覆盖会把发布日期清成零值）
+	if publishDate != "" {
+		pd, err := time.Parse("2006-01-02", publishDate)
+		if err == nil {
+			d.PublishDate = pd
+		} else {
+			slog.Warn("compliance update doc: parse publish date", "publish_date", publishDate, "err", err)
+		}
 	}
-	d.PublishDate = pd
 	d.Status = status
 	d.Summary = summary
 	d.FileURL = fileURL
@@ -227,9 +236,14 @@ func (s *ComplianceService) CreateStandard(ctx context.Context, title, category,
 	if status == "" {
 		status = "published"
 	}
-	pd, err := time.Parse("2006-01-02", effectiveDate)
-	if err != nil {
-		return domain.StandardDoc{}, fmt.Errorf("invalid effective date: %w", err)
+	// 空生效日按零值（"未设置"）处理，非空才解析——避免空串 time.Parse 直接 error → 500
+	var pd time.Time
+	if effectiveDate != "" {
+		p, perr := time.Parse("2006-01-02", effectiveDate)
+		if perr != nil {
+			return domain.StandardDoc{}, fmt.Errorf("invalid effective date: %w", perr)
+		}
+		pd = p
 	}
 	sd := domain.StandardDoc{
 		ID:            nextID("std"),
@@ -296,8 +310,11 @@ func NewReportService(repo repository.IndustryReportRepository) *ReportService {
 	return &ReportService{repo: repo}
 }
 
-func (s *ReportService) Create(ctx context.Context, title, period, category, summary, content, fileURL, author string) (domain.IndustryReport, error) {
+func (s *ReportService) Create(ctx context.Context, title, period, category, summary, content, fileURL, author, status string) (domain.IndustryReport, error) {
 	now := time.Now()
+	if status == "" {
+		status = "published"
+	}
 	r := domain.IndustryReport{
 		ID:        nextID("report"),
 		Title:     title,
@@ -307,7 +324,7 @@ func (s *ReportService) Create(ctx context.Context, title, period, category, sum
 		Content:   content,
 		FileURL:   fileURL,
 		Author:    author,
-		Status:    "published",
+		Status:    status,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -354,8 +371,11 @@ func NewPortfolioService(repo repository.PortfolioRepository) *PortfolioService 
 	return &PortfolioService{repo: repo}
 }
 
-func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoURL, coverURL, description, contactInfo string, products, honors []string) (domain.MemberPortfolio, error) {
+func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoURL, coverURL, description, contactInfo string, products, honors []string, status string) (domain.MemberPortfolio, error) {
 	now := time.Now()
+	if status == "" {
+		status = "draft"
+	}
 	p := domain.MemberPortfolio{
 		ID:           nextID("portfolio"),
 		EnterpriseID: enterpriseID,
@@ -366,7 +386,7 @@ func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoU
 		Products:     products,
 		Honors:       honors,
 		ContactInfo:  contactInfo,
-		Status:       "draft",
+		Status:       status,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}

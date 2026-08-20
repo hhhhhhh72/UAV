@@ -66,6 +66,13 @@ func (s *EscrowService) Transactions(ctx context.Context, userID string) ([]doma
 	return s.repo.ListTransactions(ctx, userID)
 }
 
+// HasReleased 报告 userID 对 (refType, refID) 是否已有完成的 release 流水。
+// completeEnrollment 幂等重试用：completed 报名重试时先查此判定"学费是否已释放"，
+// 已释放则跳过 Release（防重复释放），未释放则补齐。
+func (s *EscrowService) HasReleased(ctx context.Context, userID, refType, refID string) (bool, error) {
+	return s.repo.HasReleased(ctx, userID, refType, refID)
+}
+
 // RefundOrphanFreezes 自动补偿：找出"冻结了但业务记录不存在"的孤儿冻结并退回余额。
 // 场景：payAndEnroll 先冻结后报名，进程在两步之间崩溃 → 资金滞留 frozen。
 // olderThan 过滤最近刚冻结的正常窗口（避免误伤刚发起、报名尚未落库的请求）；

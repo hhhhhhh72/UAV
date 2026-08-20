@@ -53,12 +53,14 @@
         v-for="[id, cfg] in group.items"
         :key="id"
         class="link-row"
-        @click="editServiceConfig(id)"
+        :class="{ 'link-row--readonly': !isPlatformAdmin }"
+        @click="onServiceRowClick(id)"
       >
         <div class="link-row-main">
           <div class="link-row-title">{{ cfg.name }}</div>
         </div>
-        <icon-arrow-right class="link-row-arrow" />
+        <span v-if="!isPlatformAdmin" class="link-row-readonly-tag">只读</span>
+        <icon-arrow-right v-else class="link-row-arrow" />
       </div>
     </a-card>
 
@@ -928,6 +930,15 @@ const saveHomeConfig = async () => {
 }
 
 // --- Service config ---
+// 编辑入口按角色门控：仅平台管理员可编辑服务配置；协会管理员等只读展示。
+const onServiceRowClick = (id) => {
+  if (!isPlatformAdmin.value) {
+    showFailToast('仅平台管理员可编辑服务配置')
+    return
+  }
+  editServiceConfig(id)
+}
+
 const editServiceConfig = (id) => {
   editingServiceId.value = id
   const raw = JSON.parse(JSON.stringify(allServiceConfigs.value[id]))
@@ -1335,6 +1346,19 @@ onMounted(() => {
 }
 .link-row:hover {
   background: var(--color-fill-2);
+}
+/* 只读行：非平台管理员不可编辑，去掉可点击视觉 */
+.link-row--readonly {
+  cursor: default;
+}
+.link-row--readonly:hover {
+  background: transparent;
+}
+.link-row-readonly-tag {
+  font-size: 12px;
+  color: var(--color-text-3);
+  flex-shrink: 0;
+  padding-left: 8px;
 }
 .link-row-main { min-width: 0; }
 .link-row-title {

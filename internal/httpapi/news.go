@@ -81,8 +81,28 @@ func (s *Server) publishArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/v1/articles?category=policy&page=1&page_size=10
+// 公开路由（匿名可读）：只返回已发布（published）资讯——草稿不得对公众可见。
+// 管理端列表走 GET /api/v1/admin/articles（listAdminArticles，不过滤）。
 func (s *Server) listArticles(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	// 性能审查：repo 支持 category 过滤，但公开路由的 status=published 过滤在内存
+	// （ListByCategory 需同时服务管理端全量）——保持全量上限 2000 + 内存过滤；
+	// TODO 下沉：ListByCategory 增加 status 参数后改分页下沉 SQL + respondPage。
+	items, _, err := s.newsSvc.ListByCategory(r.Context(), r.URL.Query().Get("category"), 1, 2000)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	filtered := make([]domain.Article, 0, len(items))
+	for _, a := range items {
+		if a.Status == "published" {
+			filtered = append(filtered, a)
+		}
+	}
+	paginatedRespond(w, r, filtered, len(filtered))
+}
+
+// GET /api/v1/admin/articles — 管理端全量列表（含草稿），与 listArticles 共用分页逻辑。
+func (s *Server) listAdminArticles(w http.ResponseWriter, r *http.Request) {
 	items, total, err := s.newsSvc.ListByCategory(r.Context(), r.URL.Query().Get("category"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)

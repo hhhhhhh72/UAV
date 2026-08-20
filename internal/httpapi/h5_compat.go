@@ -526,15 +526,29 @@ func (s *Server) h5UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 // bcrypt 慢哈希 + IP 限频挡不住多 IP 分布式爆破：连续失败达上限后
 // 锁定 15 分钟。P2 修复：锁定键为 loginID|clientIP 双维度（单 IP 爆破
 // 某账号只锁该 IP 维度，真实用户不被整体锁出）。表挂 Server 实例（测试互不干扰）。
+// 账号级跨 IP 上限（本轮修复）：(loginID, IP) 10 次/15 分钟只挡单 IP 爆破，
+// 换 IP 仍可无限尝试——另按 loginID 累计，15 分钟窗口内跨 IP 合计失败
+// ≥50 次锁定账号 15 分钟（无论 IP）。现有 (loginID, IP) 逻辑保持不变。
 
 const (
-	pwMaxFailures  = 10
-	pwLockDuration = 15 * time.Minute
+	pwMaxFailures        = 10
+	pwLockDuration       = 15 * time.Minute
+	pwAccountMaxFailures = 50              // 账号级跨 IP 累计上限
+	pwAccountWindow      = 15 * time.Minute // 账号级计数窗口（超窗重置）
 )
 
 type pwFailLog struct {
 	mu          sync.Mutex
 	count       int
+	lockedUntil time.Time
+}
+
+// accountFailLog 账号级（跨 IP）失败计数：pwAccountWindow 窗口内累计
+// 失败 ≥ pwAccountMaxFailures 次 → lockedUntil 起锁定 pwLockDuration。
+type accountFailLog struct {
+	mu          sync.Mutex
+	count       int
+	windowStart time.Time
 	lockedUntil time.Time
 }
 
@@ -571,6 +585,45 @@ func (s *Server) clearPasswordFailures(lockKey string) {
 	s.pwLoginFailures.Delete(lockKey)
 }
 
+// passwordAccountLocked 报告账号级（跨 IP）是否处于失败锁定中。
+func (s *Server) passwordAccountLocked(loginID string) bool {
+	v, ok := s.accountFailCounts.Load(loginID)
+	if !ok {
+		return false
+	}
+	log := v.(*accountFailLog)
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	return time.Now().Before(log.lockedUntil)
+}
+
+// recordAccountFailure 账号级累计一次失败（跨 IP）：
+// pwAccountWindow 窗口内（自首次失败起）累计 ≥ pwAccountMaxFailures 次
+// → 锁定账号 pwLockDuration（无论 IP）；窗口超时自动重置计数。
+func (s *Server) recordAccountFailure(loginID string) {
+	v, _ := s.accountFailCounts.LoadOrStore(loginID, &accountFailLog{})
+	log := v.(*accountFailLog)
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	now := time.Now()
+	if log.count > 0 && now.Sub(log.windowStart) >= pwAccountWindow {
+		// 超窗重置：上一窗口已过期，计数从头开始
+		log.count = 0
+	}
+	if log.count == 0 {
+		log.windowStart = now
+	}
+	log.count++
+	if log.count >= pwAccountMaxFailures {
+		log.lockedUntil = now.Add(pwLockDuration)
+	}
+}
+
+// clearAccountFailures 登录成功后清零账号级失败记录。
+func (s *Server) clearAccountFailures(loginID string) {
+	s.accountFailCounts.Delete(loginID)
+}
+
 func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Phone    string `json:"phone"`
@@ -595,6 +648,12 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	lockKey := loginID + "|" + clientIP(r)
 	// 账号失败锁定：连续失败达上限后拒绝校验（防分布式爆破）。
 	if s.passwordLoginLocked(lockKey) {
+		fail(w, r, http.StatusTooManyRequests, errBadRequest("尝试次数过多，请稍后再试"))
+		return
+	}
+	// 账号级跨 IP 上限（本轮修复）：(loginID, IP) 维度可被换 IP 绕过，
+	// 账号维度 15 分钟窗口内累计失败 ≥50 次即锁定账号 15 分钟，无论 IP。
+	if s.passwordAccountLocked(loginID) {
 		fail(w, r, http.StatusTooManyRequests, errBadRequest("尝试次数过多，请稍后再试"))
 		return
 	}
@@ -647,11 +706,13 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		// 防止攻击者对任意手机号刷失败次数锁定真实用户。
 		if found {
 			s.recordPasswordFailure(lockKey)
+			s.recordAccountFailure(loginID) // 账号级跨 IP 累计（仅真实存在账号，防锁任意手机号）
 		}
 		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
 		return
 	}
 	s.clearPasswordFailures(lockKey)
+	s.clearAccountFailures(loginID)
 
 	// Issue Go backend tokens
 	id, _ := user["id"].(string)

@@ -77,6 +77,11 @@ func (s *DemandService) List(ctx context.Context, f repository.DemandFilter) ([]
 func (s *DemandService) ListAll(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	return s.repo.ListAll(ctx, f)
 }
+
+// Count 按 filter 统计需求条数（首页 stats 计数，避免全表拉取只为 len()）。
+func (s *DemandService) Count(ctx context.Context, f repository.DemandFilter) (int, error) {
+	return s.repo.Count(ctx, f)
+}
 func (s *DemandService) Search(ctx context.Context, q string) ([]domain.Demand, error) {
 	return s.repo.Search(ctx, q)
 }

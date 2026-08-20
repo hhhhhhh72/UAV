@@ -79,8 +79,9 @@ func jobMutationCode(err error) int {
 
 // GET /api/v1/jobs?q=关键词&type=全职&page=1&page_size=10
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	items, total, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 100000)
+	// 性能审查：repo 不支持 q/type 过滤，保持全量上限 2000 + 内存过滤；
+	// TODO 下沉：JobRepository.ListPublished 增加 q/type 参数后改分页下沉 SQL + respondPage。
+	items, _, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 2000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -100,9 +101,9 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 			}
 			filtered = append(filtered, j)
 		}
-		items, total = filtered, len(filtered)
+		items = filtered
 	}
-	paginatedRespond(w, r, items, total)
+	paginatedRespond(w, r, items, len(items))
 }
 
 // GET /api/v1/jobs/mine

@@ -54,6 +54,7 @@ func (r *compRepo) Update(ctx context.Context, c domain.Competition) (domain.Com
 	for i, v := range r.items {
 		if v.ID == c.ID {
 			c.UpdatedAt = time.Now()
+			c.RegCount = v.RegCount // 报名数由报名系统维护，编辑赛事不得清零（与 PG 一致）
 			r.items[i] = c
 			return c, nil
 		}

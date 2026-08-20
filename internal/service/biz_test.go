@@ -50,7 +50,7 @@ func TestComplianceCRUD(t *testing.T) {
 
 func TestReportCRUD(t *testing.T) {
 	svc := service.NewReportService(memory.NewIndustryReportRepository())
-	r, err := svc.Create(context.Background(), "无人机产业报告", "2026H1", "行业", "摘要", "全文", "", "协会")
+	r, err := svc.Create(context.Background(), "无人机产业报告", "2026H1", "行业", "摘要", "全文", "", "协会", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestReportCRUD(t *testing.T) {
 
 func TestPortfolioCRUD(t *testing.T) {
 	svc := service.NewPortfolioService(memory.NewPortfolioRepository())
-	p, err := svc.Create(context.Background(), "ent-001", "巡航科技", "logo.png", "cover.png", "无人机方案商", "138", []string{"巡检"}, []string{"优秀"})
+	p, err := svc.Create(context.Background(), "ent-001", "巡航科技", "logo.png", "cover.png", "无人机方案商", "138", []string{"巡检"}, []string{"优秀"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestAchievementCRUD(t *testing.T) {
 
 func TestRDChallengeCRUD(t *testing.T) {
 	svc := service.NewRDChallengeService(memory.NewRDChallengeRepository())
-	c, err := svc.Create(context.Background(), "ent-001", "长续航电池", "电池", ">2小时轻量方案", 500000, time.Now().AddDate(0, 3, 0))
+	c, err := svc.Create(context.Background(), "ent-001", "长续航电池", "电池", ">2小时轻量方案", 500000, time.Now().AddDate(0, 3, 0), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestCompetitionCRUD(t *testing.T) {
 
 func TestEventCRUD(t *testing.T) {
 	svc := service.NewEventService(memory.NewEventRepository())
-	e, err := svc.Create(context.Background(), "产业论坛", "forum", "年度论坛", "博览中心", "", time.Now().AddDate(0, 2, 0), time.Now().AddDate(0, 2, 1), 500)
+	e, err := svc.Create(context.Background(), "产业论坛", "forum", "年度论坛", "博览中心", "", time.Now().AddDate(0, 2, 0), time.Now().AddDate(0, 2, 1), 500, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestEventCRUD(t *testing.T) {
 
 func TestEmergencyCRUD(t *testing.T) {
 	svc := service.NewEmergencyService(memory.NewEmergencyRepository())
-	r, err := svc.CreateResource(context.Background(), "user-1", "应急无人机01", "drone", "M300RTK+热成像", "南岸", "138", 2)
+	r, err := svc.CreateResource(context.Background(), "user-1", "应急无人机01", "drone", "M300RTK+热成像", "南岸", "138", 2, "")
 	if err != nil {
 		t.Fatal(err)
 	}

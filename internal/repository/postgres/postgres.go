@@ -210,6 +210,62 @@ func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]
 	return scanDemands(ctx, r.pool, r.cipher, q, args)
 }
 
+// ListTop 公开语义（仅已发布）按 created_at 倒序取前 limit 条——SQL 端 LIMIT，
+// 首页 Top-N 不再整表拉取。
+func (r *demandRepo) ListTop(ctx context.Context, f repository.DemandFilter, limit int) ([]domain.Demand, error) {
+	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		status, version, created_at, updated_at
+		FROM demands WHERE status = 'published'`
+	args := []any{}
+	argIdx := 1
+	if f.District != "" {
+		q += fmt.Sprintf(" AND district = $%d", argIdx)
+		args = append(args, f.District)
+		argIdx++
+	}
+	if f.BizType != "" {
+		q += fmt.Sprintf(" AND biz_type = $%d", argIdx)
+		args = append(args, f.BizType)
+		argIdx++
+	}
+	q += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d", argIdx)
+	args = append(args, limit)
+	return scanDemands(ctx, r.pool, r.cipher, q, args)
+}
+
+// Count 按 filter 统计条数（ListAll 语义：status 为空统计全部；首页公开计数传
+// Status=published）。聚合查询不物化行。
+func (r *demandRepo) Count(ctx context.Context, f repository.DemandFilter) (int, error) {
+	q := `SELECT count(*) FROM demands`
+	args := []any{}
+	argIdx := 1
+	conds := []string{}
+	if f.Status != "" && f.Status != "all" {
+		conds = append(conds, fmt.Sprintf("status = $%d", argIdx))
+		args = append(args, f.Status)
+		argIdx++
+	}
+	if f.District != "" {
+		conds = append(conds, fmt.Sprintf("district = $%d", argIdx))
+		args = append(args, f.District)
+		argIdx++
+	}
+	if f.BizType != "" {
+		conds = append(conds, fmt.Sprintf("biz_type = $%d", argIdx))
+		args = append(args, f.BizType)
+		argIdx++
+	}
+	if len(conds) > 0 {
+		q += " WHERE " + strings.Join(conds, " AND ")
+	}
+	var n int
+	if err := r.pool.QueryRow(ctx, q, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count demands: %w", err)
+	}
+	return n, nil
+}
+
 func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, error) {
 	sql := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
@@ -821,6 +877,14 @@ func (r *pgResumeRepo) ListAll(ctx context.Context, offset, limit int) ([]domain
 	}
 	return items, total, nil
 }
+
+// ListByIDs 批量按 ID 取简历（ListApplicantsForJob 防 N+1）。
+func (r *pgResumeRepo) ListByIDs(ctx context.Context, ids []string) ([]domain.Resume, error) {
+	if len(ids) == 0 {
+		return []domain.Resume{}, nil
+	}
+	return scanResumes(ctx, r.pool, "WHERE id = ANY($1)", ids)
+}
 func scanResumes(ctx context.Context, pool *pgxpool.Pool, where string, args ...any) ([]domain.Resume, error) {
 	q := `SELECT id, user_id, title, name, phone, email, education, work_experience, skills, certificate_url, content, visibility, version, created_at, updated_at FROM resumes ` + where
 	rows, err := pool.Query(ctx, q, args...)
@@ -956,6 +1020,31 @@ func (r *pgPostRepo) ListPublished(ctx context.Context, offset, limit int) ([]do
 		return nil, 0, fmt.Errorf("count published posts: %w", err)
 	}
 	rows, err := r.pool.Query(ctx, `SELECT id,author_id,title,content,images,city_code,status,version,created_at,updated_at FROM posts WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []domain.Post{}
+	for rows.Next() {
+		var p domain.Post
+		var img []byte
+		if err := rows.Scan(&p.ID, &p.AuthorID, &p.Title, &p.Content, &img, &p.CityCode, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
+		json.Unmarshal(img, &p.Images)
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
+}
+func (r *pgPostRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Post, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM posts`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count all posts: %w", err)
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id,author_id,title,content,images,city_code,status,version,created_at,updated_at FROM posts ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1369,6 +1458,15 @@ func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
 		out = append(out, u)
 	}
 	return out, rows.Err()
+}
+
+// Count 统计未删除用户总数（首页 stats 计数，聚合查询不物化行）。
+func (r *userRepo) Count(ctx context.Context) (int, error) {
+	var n int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE deleted_at IS NULL`).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+	return n, nil
 }
 
 func (r *userRepo) UpdateRole(ctx context.Context, id string, role domain.Role) error {

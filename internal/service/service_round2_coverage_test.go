@@ -58,7 +58,7 @@ func TestComplianceService_FindAndDelete(t *testing.T) {
 func TestPortfolioService_ListAndDelete(t *testing.T) {
 	svc := service.NewPortfolioService(memory.NewPortfolioRepository())
 
-	p, err := svc.Create(context.Background(), "ent-1", "品牌", "logo", "cover", "描述", "联系人", nil, nil)
+	p, err := svc.Create(context.Background(), "ent-1", "品牌", "logo", "cover", "描述", "联系人", nil, nil, "")
 	if err != nil {
 		t.Fatalf("PortfolioService.Create: %v", err)
 	}
@@ -542,7 +542,7 @@ func TestServiceListingService_CRUD(t *testing.T) {
 	repo := memory.NewServiceListingRepository()
 	svc := service.NewServiceListingService(repo)
 
-	sl, err := svc.CreateListing(context.Background(), "prov-1", "服务商", "巡检服务", "巡检", "描述", "重庆", 10000, "次", "img")
+	sl, err := svc.CreateListing(context.Background(), "prov-1", "服务商", "巡检服务", "巡检", "描述", "重庆", 10000, "次", "img", "")
 	if err != nil || sl.Status != "published" {
 		t.Fatalf("CreateListing: status=%q err=%v", sl.Status, err)
 	}

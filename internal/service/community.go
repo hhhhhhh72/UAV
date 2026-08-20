@@ -65,6 +65,15 @@ func (s *CommunityService) ListPublishedPosts(ctx context.Context, offset, limit
 	return s.post.ListPublished(ctx, offset, limit)
 }
 
+// ListAllPosts 管理端帖子全量列表（含待审核 pending）——管理端审核上架入口的数据源。
+// 仅协会/平台管理员可用；公开列表走 ListPublishedPosts（只含 published）。
+func (s *CommunityService) ListAllPosts(ctx context.Context, a domain.Actor, offset, limit int) ([]domain.Post, int, error) {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return nil, 0, errors.New("admin permission required")
+	}
+	return s.post.ListAll(ctx, offset, limit)
+}
+
 // ---- Comments ----
 
 func (s *CommunityService) CreateComment(ctx context.Context, a domain.Actor, postID, content string) (domain.Comment, error) {

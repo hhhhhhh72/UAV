@@ -83,7 +83,7 @@ func TestResourceBookingService(t *testing.T) {
 	if _, err := svc.Book(context.Background(), "u-1", "res-missing", "2026-08-20", "测试", "张三", "13800000000"); !errors.Is(err, service.ErrResourceNotFound) {
 		t.Fatalf("book missing resource: err=%v, want ErrResourceNotFound", err)
 	}
-	res, err := svc.Create(context.Background(), "u-admin", "M300 航测机", "drone", "M300", "RTK", "重庆", "预约说明", 50000, "public")
+	res, err := svc.Create(context.Background(), "u-admin", "M300 航测机", "drone", "M300", "RTK", "重庆", "预约说明", 50000, "public", "")
 	if err != nil {
 		t.Fatal(err)
 	}

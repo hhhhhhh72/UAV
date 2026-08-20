@@ -33,9 +33,12 @@ axios.interceptors.request.use((config) => {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`
   }
-  // 写操作自动幂等键（不覆盖调用方显式指定的 key）
+  // 写操作自动幂等键（不覆盖调用方显式指定的 key）。
+  // FormData/multipart 上传一律不加：JSON.stringify(FormData) 恒为 '{}'，
+  // 会导致同一用户所有上传共用一个 key——24h 内第 2 次上传被服务端回放第 1 次的结果。
   const method = (config.method || 'get').toLowerCase()
-  if ((method === 'post' || method === 'patch') && !config.headers['Idempotency-Key']) {
+  const isMultipart = typeof FormData !== 'undefined' && config.data instanceof FormData
+  if ((method === 'post' || method === 'patch') && !isMultipart && !config.headers['Idempotency-Key']) {
     config.headers['Idempotency-Key'] = idempotencyKey(config.url || '', config.data)
   }
   return config

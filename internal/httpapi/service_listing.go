@@ -105,6 +105,8 @@ func (s *Server) adminCreateServiceListing(w http.ResponseWriter, r *http.Reques
 		PriceFen     int64  `json:"price_fen"`
 		Unit         string `json:"unit"`
 		Image        string `json:"image"`
+		// 前端表单可选状态（草稿/待审核），透传 service；非法值回退默认 published
+		Status string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -114,7 +116,8 @@ func (s *Server) adminCreateServiceListing(w http.ResponseWriter, r *http.Reques
 		fail(w, r, http.StatusBadRequest, errors.New("title is required"))
 		return
 	}
-	sl, err := s.serviceListingSvc.CreateListing(r.Context(), "", in.ProviderName, in.Title, in.Category, in.Description, in.Region, in.PriceFen, in.Unit, in.Image)
+	sl, err := s.serviceListingSvc.CreateListing(r.Context(), "", in.ProviderName, in.Title, in.Category, in.Description, in.Region, in.PriceFen, in.Unit, in.Image,
+		normalizeCreateStatus(in.Status, "published", "offline", "draft", "pending"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

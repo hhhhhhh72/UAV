@@ -123,6 +123,9 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/admin/messages/{id}", s.updateMessage)
 	mux.HandleFunc("DELETE /api/v1/admin/messages/{id}", s.deleteMessage)
 
+	// === 资讯 === (公开 GET /api/v1/articles 仅 published；管理端全量含草稿)
+	mux.HandleFunc("GET /api/v1/admin/articles", s.listAdminArticles)
+
 	// === 保险金融/维修/简历 管理端列表（P2-1 补齐，见 admin_lists_p2.go）===
 	mux.HandleFunc("GET /api/v1/admin/policies", s.listAdminPolicies)
 	mux.HandleFunc("GET /api/v1/admin/inspections", s.listAdminInspections)
@@ -181,4 +184,8 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/competitions/{id}", s.getCompetition)
 	mux.HandleFunc("PUT /api/v1/admin/competitions/{id}", s.updateCompetition)
 	mux.HandleFunc("DELETE /api/v1/admin/competitions/{id}", s.deleteCompetition)
+
+	// === 社区帖子 === (POST: POST /api/v1/posts in community_listings_labour.go — public path;
+	// 审核闭环：CreatePost 默认 pending，管理端经此接口查看全量（含待审），publish 用 POST /api/v1/posts/{id}/publish)
+	mux.HandleFunc("GET /api/v1/admin/posts", s.listAdminPosts)
 }

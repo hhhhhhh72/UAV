@@ -82,9 +82,10 @@ func (r *compRepo) Update(ctx context.Context, c domain.Competition) (domain.Com
 	c.Requirements = jsonbSlice(c.Requirements)
 	c.Events = jsonbSlice(c.Events)
 	c.Prizes = jsonbSlice(c.Prizes)
+	// reg_count 不参与更新：报名数由报名系统维护，管理端编辑赛事不得清零
 	_, err := r.pool.Exec(ctx,
-		`UPDATE competitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,deadline=$7,max_teams=$8,reg_count=$9,sponsor=$10,organizer_sub=$11,fee=$12,min_fee=$13,original_fee=$14,tags=$15,poster=$16,requirements=$17,events=$18,prizes=$19,registration_status=$20,status=$21,updated_at=$22 WHERE id=$23`,
-		c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams, c.RegCount,
+		`UPDATE competitions SET title=$1,category=$2,description=$3,location=$4,start_date=$5,end_date=$6,deadline=$7,max_teams=$8,sponsor=$9,organizer_sub=$10,fee=$11,min_fee=$12,original_fee=$13,tags=$14,poster=$15,requirements=$16,events=$17,prizes=$18,registration_status=$19,status=$20,updated_at=$21 WHERE id=$22`,
+		c.Title, c.Category, c.Description, c.Location, c.StartDate, c.EndDate, c.Deadline, c.MaxTeams,
 		c.Sponsor, c.OrganizerSub, c.Fee, c.MinFee, c.OriginalFee, c.Tags, c.Poster, c.Requirements, c.Events, c.Prizes,
 		c.RegistrationStatus, c.Status, c.UpdatedAt, c.ID)
 	return c, err

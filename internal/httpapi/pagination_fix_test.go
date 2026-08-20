@@ -136,11 +136,15 @@ func TestSystematicDoublePaginationFixed(t *testing.T) {
 	}
 	assertPagination(t, app, "/api/v1/rescue-cases", "user-1", domain.RoleIndividual, n)
 
-	// 7. articles
+	// 7. articles（公开列表仅 published：创建后显式发布，草稿不进公开列表）
 	for i := 0; i < n; i++ {
-		createVia(t, app, http.MethodPost, "/api/v1/articles",
+		id := createVia(t, app, http.MethodPost, "/api/v1/articles",
 			[]byte(fmt.Sprintf(`{"title":"资讯%d","content":"c","category":"policy","source":"s"}`, i)),
 			admin, adminRole)
+		w := requestAs(t, app, http.MethodPost, "/api/v1/articles/"+id+"/publish", nil, admin, adminRole)
+		if w.Code != http.StatusOK {
+			t.Fatalf("publish article %s: %d %s", id, w.Code, w.Body.String())
+		}
 	}
 	assertPagination(t, app, "/api/v1/articles", "user-1", domain.RoleIndividual, n)
 

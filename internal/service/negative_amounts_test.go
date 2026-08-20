@@ -47,7 +47,7 @@ func TestNegativeAmountsRejected(t *testing.T) {
 
 	// 服务供给价格
 	slSvc := service.NewServiceListingService(memory.NewServiceListingRepository())
-	if _, err := slSvc.CreateListing(context.Background(), "p", "n", "t", "c", "d", "r", -1, "u", ""); err == nil {
+	if _, err := slSvc.CreateListing(context.Background(), "p", "n", "t", "c", "d", "r", -1, "u", "", ""); err == nil {
 		t.Fatal("negative service listing price accepted")
 	}
 

@@ -325,6 +325,11 @@ func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 性能审查：全量上限 2000（ListPilotsDetailed 为整表加载 + 证书关联，
+	// 公开名录不再无界返回；keyword 过滤在截断后进行）。
+	if len(pilots) > 2000 {
+		pilots = pilots[:2000]
+	}
 	// 公开名录只显示已认证（待审/驳回不入名录）
 	approved := make([]domain.CertifiedPilotDetail, 0, len(pilots))
 	for _, p := range pilots {

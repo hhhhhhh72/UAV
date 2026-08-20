@@ -105,14 +105,14 @@ func ParseTime(s string) time.Time {
 }
 
 // ParseTimeStrict 严格解析时间字符串，解析失败返回错误（不静默回退当前时间）。
-// 支持 RFC3339、"2006-01-02 15:04:05"、"2006-01-02" 三种格式；空串视为
-// "未设置"，返回零值时间（前端按零值渲染"未设置"）。
+// 支持 RFC3339、"2006-01-02 15:04"、"2006-01-02 15:04:05"、"2006-01-02" 四种格式；
+// 空串视为"未设置"，返回零值时间（前端按零值渲染"未设置"）。
 // 用户可触达的 handler 入口用其校验非法日期，避免非法日期被静默写成当前时间落库（P2）。
 func ParseTimeStrict(s string) (time.Time, error) {
 	if s == "" {
 		return time.Time{}, nil
 	}
-	for _, layout := range []string{time.RFC3339, "2006-01-02 15:04:05", "2006-01-02"} {
+	for _, layout := range []string{time.RFC3339, "2006-01-02 15:04", "2006-01-02 15:04:05", "2006-01-02"} {
 		if t, err := time.Parse(layout, s); err == nil {
 			return t, nil
 		}

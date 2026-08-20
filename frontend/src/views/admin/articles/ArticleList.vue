@@ -102,10 +102,10 @@ const statusTag = (s) => ({ published: 'green', draft: 'orange' }[s] || 'gray')
 // 发布按钮白名单：仅草稿可发布
 const PUBLISHABLE_STATUSES = ['draft']
 
-// --- 列表（公开读接口 /api/v1/articles） ---
+// --- 列表（管理端全量接口 /api/v1/admin/articles，含草稿；公开 /api/v1/articles 仅 published） ---
 const fetchArticles = async (params) => {
   try {
-    const res = await axios.get('/api/v1/articles', { params })
+    const res = await axios.get('/api/v1/admin/articles', { params })
     return {
       data: Array.isArray(res.data?.data) ? res.data.data : [],
       total: res.data?.total || 0

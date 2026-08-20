@@ -103,7 +103,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive } from 'vue'
+import { computed, onMounted, reactive, ref, h } from 'vue'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
@@ -215,25 +215,52 @@ const firstRejectReason = (results) => {
 }
 
 // 批量动作（配置化：批量发布/下架/通过等任意 API 调用）
+// 支持 act.prompt = { title, placeholder }：先弹输入框收集一个值（如驳回理由），
+// 再逐行执行 act.api(row, promptValue)——供"批量驳回必须留理由"类操作使用。
 const handleBatchAction = (act) => {
+  const execute = async (promptValue) => {
+    // 传选中行的完整数据（后端 Update 是全字段覆盖，只传 status 会清空其他字段）
+    const results = await Promise.allSettled(selectedRows.value.map(row => act.api(row, promptValue)))
+    const succeeded = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected').length
+    if (failed > 0) {
+      Message.error(`成功 ${succeeded} 条，失败 ${failed} 条：${firstRejectReason(results)}`)
+    } else {
+      Message.success(`${act.label}成功`)
+    }
+    selectedIds.value = []
+    loadData()
+  }
+
+  if (act.prompt) {
+    const promptVal = ref('')
+    Modal.confirm({
+      title: act.prompt.title || act.label,
+      content: () => h('div', { style: 'padding: 4px 0;' }, [
+        h('input', {
+          value: promptVal.value,
+          placeholder: act.prompt.placeholder || '',
+          style: 'width:100%; box-sizing:border-box; padding:6px 10px; border:1px solid var(--color-border); border-radius:4px; outline:none; font-size:14px;',
+          onInput: (e) => { promptVal.value = e.target.value }
+        })
+      ]),
+      okText: '确定',
+      cancelText: '取消',
+      onOk: () => {
+        const v = (promptVal.value || '').trim()
+        if (!v) { Message.warning('请填写内容'); return false }
+        return execute(v)
+      }
+    })
+    return
+  }
+
   Modal.confirm({
     title: act.label,
     content: act.confirm || `确定对选中的 ${selectedIds.value.length} 条数据执行「${act.label}」吗？`,
     okText: '确定',
     cancelText: '取消',
-    onOk: async () => {
-      // 传选中行的完整数据（后端 Update 是全字段覆盖，只传 status 会清空其他字段）
-      const results = await Promise.allSettled(selectedRows.value.map(row => act.api(row)))
-      const succeeded = results.filter(r => r.status === 'fulfilled').length
-      const failed = results.filter(r => r.status === 'rejected').length
-      if (failed > 0) {
-        Message.error(`成功 ${succeeded} 条，失败 ${failed} 条：${firstRejectReason(results)}`)
-      } else {
-        Message.success(`${act.label}成功`)
-      }
-      selectedIds.value = []
-      loadData()
-    }
+    onOk: () => execute()
   })
 }
 

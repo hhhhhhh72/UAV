@@ -151,6 +151,40 @@ func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]
 	return out, nil
 }
 
+// ListTop 公开语义（仅已发布）按 created_at 倒序取前 limit 条——复用 List 全量
+// 排序后截断，与「List 后取前 N」旧语义完全一致（内存为开发存储，无整表成本）。
+func (r *demandRepo) ListTop(ctx context.Context, f repository.DemandFilter, limit int) ([]domain.Demand, error) {
+	all, err := r.List(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	if len(all) > limit {
+		all = all[:limit]
+	}
+	return all, nil
+}
+
+// Count 按 filter 统计条数（ListAll 语义：status 为空统计全部；首页公开计数传
+// Status=published）。只计数不解密，避免无谓开销。
+func (r *demandRepo) Count(ctx context.Context, f repository.DemandFilter) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	n := 0
+	for _, d := range r.items {
+		if f.Status != "" && f.Status != "all" && string(d.Status) != f.Status {
+			continue
+		}
+		if f.District != "" && d.District != f.District {
+			continue
+		}
+		if f.BizType != "" && string(d.BizType) != f.BizType {
+			continue
+		}
+		n++
+	}
+	return n, nil
+}
+
 func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, error) {
 	all, _ := r.List(ctx, repository.DemandFilter{})
 	q = strings.ToLower(q)
@@ -626,6 +660,23 @@ func (r *resumeRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.R
 	return paginateSlice(r.items, offset, limit)
 }
 
+// ListByIDs 批量按 ID 取简历（ListApplicantsForJob 防 N+1）。
+func (r *resumeRepo) ListByIDs(ctx context.Context, ids []string) ([]domain.Resume, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	want := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		want[id] = true
+	}
+	out := make([]domain.Resume, 0, len(ids))
+	for _, v := range r.items {
+		if want[v.ID] {
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
 type applicationRepo struct {
 	mu    sync.RWMutex
 	items []domain.JobApplication
@@ -737,6 +788,23 @@ func (r *postRepo) ListPublished(ctx context.Context, offset, limit int) ([]doma
 		e = t
 	}
 	return f[offset:e], t, nil
+}
+func (r *postRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Post, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.Post, len(r.items))
+	copy(out, r.items)
+	// 与 PG 版（ORDER BY created_at DESC）对齐——新→旧。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	t := len(out)
+	if offset > t {
+		return []domain.Post{}, t, nil
+	}
+	e := offset + limit
+	if e > t {
+		e = t
+	}
+	return out[offset:e], t, nil
 }
 func (r *postRepo) ListByAuthor(ctx context.Context, uid string) ([]domain.Post, error) {
 	r.mu.RLock()
@@ -1065,6 +1133,13 @@ func (r *memUserRepo) All(ctx context.Context) ([]domain.User, error) {
 		r.decrypt(&out[i])
 	}
 	return out, nil
+}
+
+// Count 统计用户总数（首页 stats 计数，只计数不解密）。
+func (r *memUserRepo) Count(ctx context.Context) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.items), nil
 }
 func (r *memUserRepo) UpdateRole(ctx context.Context, id string, role domain.Role) error {
 	r.mu.Lock()
@@ -1913,6 +1988,55 @@ func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DronePro
 	return out, nil
 }
 
+// ListTop 按插入序取前 limit 条（内存为开发存储，与 List 顺序一致；
+// PG 版按 created_at 倒序，语义对齐"最新 N 条"）。
+func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]domain.DroneProduct, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.DroneProduct, 0, limit)
+	for _, p := range r.items {
+		if prodType != "" && string(p.ProdType) != prodType {
+			continue
+		}
+		out = append(out, p)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+// ListByIDs 批量按 ID 取商品（订单列表补商品名防 N+1）。
+func (r *prodRepo) ListByIDs(ctx context.Context, ids []string) ([]domain.DroneProduct, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	want := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		want[id] = true
+	}
+	out := make([]domain.DroneProduct, 0, len(ids))
+	for _, p := range r.items {
+		if want[p.ID] {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+// SumViews 商品浏览量总和（可选按类型；首页 stats.views 聚合）。
+func (r *prodRepo) SumViews(ctx context.Context, prodType string) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	sum := 0
+	for _, p := range r.items {
+		if prodType != "" && string(p.ProdType) != prodType {
+			continue
+		}
+		sum += p.Views
+	}
+	return sum, nil
+}
+
 // ---- Service Listings ----
 
 type slrRepo struct {
@@ -2393,6 +2517,19 @@ func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domai
 	}
 	return out, nil
 }
+
+// ListByUser 某用户全部报名（"我的报名"一次查询，避免按课程 N+1）。
+func (r *enrollRepo) ListByUser(ctx context.Context, userID string) ([]domain.Enrollment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.Enrollment, 0)
+	for _, e := range r.items {
+		if e.UserID == userID {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
 func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Enrollment, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -2626,6 +2763,19 @@ func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]dom
 		}
 	}
 	return out, nil
+}
+
+// HasReleased 遍历流水：fromUser 对 (refType, refID) 是否存在完成的 release。
+func (r *escrowRepo) HasReleased(ctx context.Context, fromUser, refType, refID string) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, tx := range r.txs {
+		if tx.FromUser == fromUser && tx.ReferenceType == refType && tx.ReferenceID == refID &&
+			tx.TxType == "release" && tx.Status == "completed" {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ListOrphanFreezes 内存模式无跨进程崩溃窗口（同一进程内 Freeze+Enroll 顺序执行），

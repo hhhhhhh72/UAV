@@ -35,6 +35,7 @@ import (
 	"time"
 
 	_ "drone-platform/docs"
+	"drone-platform/internal/cache"
 	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
 	"drone-platform/internal/middleware"
@@ -110,11 +111,14 @@ type Server struct {
 	smsIPLimits       sync.Map // ip -> *smsIPLog（短信发送限频，实例级避免测试/多实例互扰）
 	smsIPEntries      atomic.Int64
 	pwLoginFailures   sync.Map // loginID|clientIP -> *pwFailLog（密码登录失败锁定，双维度键，实例级）
+	accountFailCounts sync.Map // loginID -> *accountFailLog（账号级跨 IP 失败累计，实例级——换 IP 无法绕过账号上限）
 	regLimits         sync.Map // "phone:"+phone / "ip:"+ip -> *regLimitLog（开放注册限频，实例级）
 	regLimitEntries   atomic.Int64
 	auditWriter       repository.AuditWriter
 	dbPinger          interface{ Ping(context.Context) error }
 	storage           string
+	// homeCache 首页数据 60s 缓存（实例级：测试各自隔离，生产单实例内共享）。
+	homeCache *cache.Cache
 }
 
 type idempotencyStore struct {
@@ -258,7 +262,7 @@ func (rl *rateLimiter) allow(key string) bool {
 }
 
 func NewServer(d *service.DemandService, e *service.EnterpriseService, es *service.EnterpriseSvc, h *service.EmploymentService, c *service.ContractService, js *service.JobService, cs *service.CommunityService, ls *service.ListingService, lbs *service.LabourService, ts *service.TrainingService, trs *service.TradingService, ins *service.InsuranceService, fin *service.FinanceService, hs *service.HomeService, fs *service.FileService, ms *service.MessageService, ens *service.EnrollmentService, exps *service.ExpiryService, trds *service.TradeOrderService, esc *service.EscrowService, nws *service.NewsService, rvs *service.ReviewService, vns *service.VenueService, ur repository.UserRepository, rr repository.RefreshTokenRepository, tokens *TokenManager) *Server {
-	return &Server{demands: d, enterprises: e, enterpriseSvc: es, employment: h, contracts: c, jobSvc: js, communitySvc: cs, listingSvc: ls, labourSvc: lbs, trainingSvc: ts, tradingSvc: trs, insuranceSvc: ins, financeSvc: fin, homeSvc: hs, fileSvc: fs, msgSvc: ms, enrollSvc: ens, expirySvc: exps, tradeSvc: trds, escrowSvc: esc, newsSvc: nws, reviewSvc: rvs, venueSvc: vns, userRepo: ur, refreshRepo: rr, tokens: tokens, rateLimiter: newRateLimiter(100, 200), idempotency: newIdempotencyStore()}
+	return &Server{demands: d, enterprises: e, enterpriseSvc: es, employment: h, contracts: c, jobSvc: js, communitySvc: cs, listingSvc: ls, labourSvc: lbs, trainingSvc: ts, tradingSvc: trs, insuranceSvc: ins, financeSvc: fin, homeSvc: hs, fileSvc: fs, msgSvc: ms, enrollSvc: ens, expirySvc: exps, tradeSvc: trds, escrowSvc: esc, newsSvc: nws, reviewSvc: rvs, venueSvc: vns, userRepo: ur, refreshRepo: rr, tokens: tokens, rateLimiter: newRateLimiter(100, 200), idempotency: newIdempotencyStore(), homeCache: cache.New(60 * time.Second)}
 }
 
 // SetAuditWriter injects an audit log writer (typically the PG store).
@@ -485,11 +489,26 @@ func resolveBannerImageURL(r *http.Request, url string) string {
 	return url
 }
 
+// homeCacheKey 首页缓存键：city + 经纬度（用于距离排序的热门需求，含坐标防串）。
+func homeCacheKey(city string, lat, lng float64) string {
+	return fmt.Sprintf("home:%s:%.3f:%.3f", city, lat, lng)
+}
+
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	city := r.URL.Query().Get("city")
 	lat, _ := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
 	lng, _ := strconv.ParseFloat(r.URL.Query().Get("lng"), 64)
-	data := s.homeSvc.GetHome(r.Context(), city, lat, lng)
+
+	// 性能审查：首页数据（banners/快捷入口/公告/热门需求/商家）60s 缓存 +
+	// GetOrSet 单飞防击穿；stats 与商品列表不缓存，各自走轻量 COUNT/SUM/LIMIT 查询。
+	key := homeCacheKey(city, lat, lng)
+	cached, err := s.homeCache.GetOrSet(key, func() (any, error) {
+		return s.homeSvc.GetHome(r.Context(), city, lat, lng), nil
+	}, 60*time.Second)
+	if err != nil {
+		slog.Warn("home: cache fill", "err", err)
+	}
+	data, _ := cached.(service.HomeData)
 
 	// Banner 图补全域名（拷贝 slice，不污染全局配置的底层数组）
 	banners := make([]domain.Banner, len(data.Banners))
@@ -498,27 +517,25 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		banners[i] = b
 	}
 
-	// Stats: demand count, user count — 单源失败不阻断首页，记日志后按零值继续
-	demands, err := s.demands.List(r.Context(), repository.DemandFilter{})
+	// Stats: demand count, user count — 单源失败不阻断首页，记日志后按零值继续。
+	// 审查修复：全量拉取只为 len() → COUNT 聚合查询。
+	demandTotal, err := s.demands.Count(r.Context(), repository.DemandFilter{Status: string(domain.DemandPublished)})
 	if err != nil {
-		slog.Warn("home: list demands", "err", err)
+		slog.Warn("home: count demands", "err", err)
 	}
-	demandTotal := len(demands)
-	users, err := s.userRepo.All(r.Context())
+	userTotal, err := s.userRepo.Count(r.Context())
 	if err != nil {
-		slog.Warn("home: list users", "err", err)
+		slog.Warn("home: count users", "err", err)
 	}
-	userTotal := len(users)
 
-	products, err := s.tradingSvc.ListProducts(r.Context(), "")
+	// 商品只取 Top-N（LIMIT 10）不整表；浏览量用 SUM 聚合（不物化行）。
+	products, err := s.tradingSvc.ListTopProducts(r.Context(), "", 10)
 	if err != nil {
 		slog.Warn("home: list products", "err", err)
 	}
-
-	// 平台累计浏览量：商品浏览量之和（需求无浏览统计字段，只能按商品口径汇总）
-	productViews := 0
-	for _, p := range products {
-		productViews += p.Views
+	productViews, err := s.tradingSvc.SumProductViews(r.Context(), "")
+	if err != nil {
+		slog.Warn("home: sum product views", "err", err)
 	}
 
 	respond(w, r, http.StatusOK, map[string]any{
@@ -532,7 +549,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		"stats": map[string]int{
 			"demands": demandTotal,
 			"users":   userTotal,
-			"views":   productViews, // 商品累计浏览量之和
+			"views":   productViews, // 商品累计浏览量之和（SUM 聚合）
 		},
 	})
 }
@@ -817,14 +834,14 @@ func (s *Server) listEmployment(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	// 双重分页修复：service/repo 已按 offset 切片，全量拉取后由 paginatedRespond
-	// 做唯一一次分页切片（否则 page≥2 恒为空）。
-	out, total, err := s.employment.List(r.Context(), a, 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），响应层不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	out, total, err := s.employment.List(r.Context(), a, (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
-	paginatedRespond(w, r, out, total)
+	respondPage(w, r, out, total, page, pageSize)
 }
 func (s *Server) createEmployment(w http.ResponseWriter, r *http.Request) {
 	var v domain.EmploymentRequest
@@ -850,13 +867,14 @@ func (s *Server) listContracts(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	out, total, err := s.contracts.List(r.Context(), a, 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），响应层不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	out, total, err := s.contracts.List(r.Context(), a, (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
-	paginatedRespond(w, r, out, total)
+	respondPage(w, r, out, total, page, pageSize)
 }
 func (s *Server) createContract(w http.ResponseWriter, r *http.Request) {
 	var v domain.Contract
@@ -1154,7 +1172,8 @@ func decode(r *http.Request, v any) error {
 	return json.Unmarshal(body, v)
 }
 
-// parseDateInput accepts both RFC3339 timestamps and plain "2006-01-02" dates.
+// parseDateInput accepts RFC3339 timestamps, "2006-01-02 15:04" (管理端活动/调度
+// 表单的 placeholder 格式) and plain "2006-01-02" dates.
 // Returns a zero time (no error) for empty input.
 func parseDateInput(s string) (time.Time, error) {
 	if s == "" {
@@ -1163,7 +1182,22 @@ func parseDateInput(s string) (time.Time, error) {
 	if t, err := time.Parse(time.RFC3339, s); err == nil {
 		return t, nil
 	}
+	if t, err := time.Parse("2006-01-02 15:04", s); err == nil {
+		return t, nil
+	}
 	return time.Parse("2006-01-02", s)
+}
+
+// normalizeCreateStatus 校验创建请求透传的状态值：仅白名单内值透传，
+// 其余（含空）返回 ""，由 service 层按各自默认状态兜底——防止前端传非法
+// 状态值直接落库（创建入口只透传合法值，非法值用默认）。
+func normalizeCreateStatus(s string, allowed ...string) string {
+	for _, a := range allowed {
+		if s == a {
+			return s
+		}
+	}
+	return ""
 }
 
 // strictDate 严格解析用户提交的日期字段（P2 修复）：非法日期（非 RFC3339 /
@@ -1208,6 +1242,23 @@ func paginatedRespond(w http.ResponseWriter, r *http.Request, items any, total i
 		"request_id": requestIDFromCtx(r),
 	}); err != nil {
 		slog.Warn("encode paginated response", "error", err)
+	}
+}
+
+// respondPage 输出「已由 service/repo 按真实 offset/limit 分页好」的数据：
+// 与 paginatedRespond 同信封（data/page/page_size/total/request_id），但不再
+// 二次切片——调用方负责把分页下沉到 SQL（COUNT+LIMIT/OFFSET），total 为
+// 过滤后的总条数（COUNT 或 len(filtered)）。
+func respondPage(w http.ResponseWriter, r *http.Request, items any, total, page, pageSize int) {
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"data":       items,
+		"page":       page,
+		"page_size":  pageSize,
+		"total":      total,
+		"request_id": requestIDFromCtx(r),
+	}); err != nil {
+		slog.Warn("encode page response", "error", err)
 	}
 }
 

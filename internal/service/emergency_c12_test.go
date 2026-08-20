@@ -64,11 +64,11 @@ func TestRescueCaseListSearch(t *testing.T) {
 // res_type（中英皆可）/q 筛选生效。
 func TestEmergencyResourceTypeNormalization(t *testing.T) {
 	svc := service.NewEmergencyService(memory.NewEmergencyRepository())
-	r1, err := svc.CreateResource(context.Background(), "u-1", "应急无人机01", "无人机", "M300RTK+热成像", "南岸", "138", 2)
+	r1, err := svc.CreateResource(context.Background(), "u-1", "应急无人机01", "无人机", "M300RTK+热成像", "南岸", "138", 2, "")
 	if err != nil || r1.ResType != "drone" {
 		t.Fatalf("中文 res_type 创建: type=%q err=%v, want drone", r1.ResType, err)
 	}
-	svc.CreateResource(context.Background(), "u-1", "通讯指挥车", "comm", "卫星链路", "渝中", "139", 1)
+	svc.CreateResource(context.Background(), "u-1", "通讯指挥车", "comm", "卫星链路", "渝中", "139", 1, "")
 
 	if _, total, _ := svc.ListResources(context.Background(), "drone", "", 1, 20); total != 1 {
 		t.Fatalf("res_type=drone total=%d, want 1", total)

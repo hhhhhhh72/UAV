@@ -69,6 +69,12 @@ func (s *TrainingService) GetCert(ctx context.Context, id string) (domain.Certif
 	return s.certRepo.FindByID(ctx, id)
 }
 
+// FindByNumber 按证书编号查证书（不存在返回错误）。
+// completeEnrollment 幂等重试用：cert_number='auto-'+enrollment.ID 查证判断"是否已发证"。
+func (s *TrainingService) FindByNumber(ctx context.Context, certNumber string) (domain.Certificate, error) {
+	return s.certRepo.FindByNumber(ctx, certNumber)
+}
+
 func (s *TrainingService) UpdateCertificate(ctx context.Context, id, certType, certNumber, level, issuer, status string, issueDate, expireDate time.Time) (domain.Certificate, error) {
 	c, err := s.certRepo.FindByID(ctx, id)
 	if err != nil {

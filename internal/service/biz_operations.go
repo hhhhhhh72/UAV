@@ -117,9 +117,12 @@ func NewEventService(repo repository.EventRepository) *EventService {
 	return &EventService{repo: repo}
 }
 
-func (s *EventService) Create(ctx context.Context, title, eventType, description, location, coverURL string, startTime, endTime time.Time, maxAttendees int) (domain.AssociationEvent, error) {
+func (s *EventService) Create(ctx context.Context, title, eventType, description, location, coverURL string, startTime, endTime time.Time, maxAttendees int, status string) (domain.AssociationEvent, error) {
 	if !endTime.IsZero() && endTime.Before(startTime) {
 		return domain.AssociationEvent{}, errors.New("end time must not be earlier than start time")
+	}
+	if status == "" {
+		status = "published"
 	}
 	now := time.Now()
 	e := domain.AssociationEvent{
@@ -132,7 +135,7 @@ func (s *EventService) Create(ctx context.Context, title, eventType, description
 		StartTime:    startTime,
 		EndTime:      endTime,
 		MaxAttendees: maxAttendees,
-		Status:       "published",
+		Status:       status,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -221,10 +224,13 @@ func NewResourceService(repo repository.ResourceRepository) *ResourceService {
 	return &ResourceService{repo: repo}
 }
 
-func (s *ResourceService) Create(ctx context.Context, ownerID, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel string) (domain.IndustryResource, error) {
+func (s *ResourceService) Create(ctx context.Context, ownerID, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel, status string) (domain.IndustryResource, error) {
 	now := time.Now()
 	if visibilityLevel == "" {
 		visibilityLevel = "public"
+	}
+	if status == "" {
+		status = "available"
 	}
 	r := domain.IndustryResource{
 		ID:              fmt.Sprintf("res-%d-%d", now.UnixNano(), nextSeq()),
@@ -237,7 +243,7 @@ func (s *ResourceService) Create(ctx context.Context, ownerID, name, resType, mo
 		PriceFen:        priceFen,
 		BookingInfo:     bookingInfo,
 		VisibilityLevel: visibilityLevel,
-		Status:          "available",
+		Status:          status,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
@@ -334,8 +340,11 @@ func normalizeEmergencyResType(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func (s *EmergencyService) CreateResource(ctx context.Context, ownerID, name, resType, specs, location, contactInfo string, quantity int) (domain.EmergencyResource, error) {
+func (s *EmergencyService) CreateResource(ctx context.Context, ownerID, name, resType, specs, location, contactInfo string, quantity int, status string) (domain.EmergencyResource, error) {
 	now := time.Now()
+	if status == "" {
+		status = "available"
+	}
 	r := domain.EmergencyResource{
 		ID:          fmt.Sprintf("emres-%d-%d", now.UnixNano(), nextSeq()),
 		OwnerID:     ownerID,
@@ -345,7 +354,7 @@ func (s *EmergencyService) CreateResource(ctx context.Context, ownerID, name, re
 		Quantity:    quantity,
 		Location:    location,
 		ContactInfo: contactInfo,
-		Status:      "available",
+		Status:      status,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -367,13 +376,15 @@ func (s *EmergencyService) FindDispatchByID(ctx context.Context, id string) (dom
 
 // Emergency Dispatches
 
-// CreateDispatch 创建调度记录；status 可指定（dispatched/ongoing/completed），
+// CreateDispatch 创建调度记录；status 可指定（dispatched/ongoing/completed/cancelled），
 // 空值或非法值回退默认 "dispatched"（补录历史调度时可传实际状态）。
+// 状态值域与管理端/小程序一致：小程序 dispatches.vue 用 pending/ongoing/completed/cancelled，
+// 管理端编辑入口传 cancelled（调度已终止）须原样透传，不能被回退成 dispatched。
 func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
 	if !endTime.IsZero() && endTime.Before(startTime) {
 		return domain.EmergencyDispatch{}, errors.New("end time must not be earlier than start time")
 	}
-	if status != "ongoing" && status != "completed" {
+	if status != "ongoing" && status != "completed" && status != "cancelled" {
 		status = "dispatched"
 	}
 	now := time.Now()

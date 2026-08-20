@@ -40,8 +40,8 @@ func (s *HomeService) GetHome(ctx context.Context, city string, lat, lng float64
 	entries := cfg.QuickEntries
 	notices := cfg.Notices
 
-	// Get published demands.
-	demands, err := s.demandRepo.List(ctx, repository.DemandFilter{})
+	// Get published demands (Top-N: SQL 端 LIMIT，不整表拉取；距离排序在 Top-N 内进行)。
+	demands, err := s.demandRepo.ListTop(ctx, repository.DemandFilter{}, 10)
 	if err != nil {
 		demands = nil
 	}
@@ -49,10 +49,6 @@ func (s *HomeService) GetHome(ctx context.Context, city string, lat, lng float64
 	// Sort by distance if coordinates provided.
 	if lat != 0 && lng != 0 && len(demands) > 1 {
 		sortByDistance(demands, lat, lng)
-	}
-	// Limit to 10 for home display.
-	if len(demands) > 10 {
-		demands = demands[:10]
 	}
 
 	// Sanitize public output.

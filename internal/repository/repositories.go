@@ -48,6 +48,8 @@ type UserRepository interface {
 	Create(ctx context.Context, u domain.User) (domain.User, error)
 	FindByID(ctx context.Context, id string) (domain.User, error)
 	All(ctx context.Context) ([]domain.User, error)
+	// Count 统计用户总数（首页 stats 计数，聚合查询不物化行）。
+	Count(ctx context.Context) (int, error)
 	UpdateRole(ctx context.Context, id string, role domain.Role) error
 	UpdateAvatar(ctx context.Context, userID, avatarURL string) error
 	UpdateName(ctx context.Context, userID, name string) error
@@ -75,6 +77,12 @@ type DemandRepository interface {
 	FindByID(ctx context.Context, id string) (domain.Demand, error)
 	List(ctx context.Context, v DemandFilter) ([]domain.Demand, error)    // 公开语义：仅已发布
 	ListAll(ctx context.Context, v DemandFilter) ([]domain.Demand, error) // 管理端全量（含待审核等）
+	// ListTop 公开语义（仅已发布）按 created_at 倒序取前 limit 条（首页 Top-N，
+	// SQL 端 LIMIT，避免整表拉取）。
+	ListTop(ctx context.Context, v DemandFilter, limit int) ([]domain.Demand, error)
+	// Count 按 filter 统计条数（ListAll 语义：status 为空统计全部；
+	// 首页公开计数传 Status=published）。
+	Count(ctx context.Context, v DemandFilter) (int, error)
 	Search(ctx context.Context, v string) ([]domain.Demand, error)
 	// ListByPublisher 返回某发布者的全部需求（全状态），供"我的"页统计/查询。
 	ListByPublisher(ctx context.Context, publisherID string) ([]domain.Demand, error)
@@ -134,6 +142,8 @@ type ResumeRepository interface {
 	FindByID(ctx context.Context, id string) (domain.Resume, error)
 	ListByUser(ctx context.Context, userID string) ([]domain.Resume, error)
 	ListAll(ctx context.Context, offset, limit int) ([]domain.Resume, int, error)
+	// ListByIDs 批量按 ID 取简历（ListApplicantsForJob 防 N+1）。
+	ListByIDs(ctx context.Context, ids []string) ([]domain.Resume, error)
 }
 
 type JobApplicationRepository interface {
@@ -149,6 +159,7 @@ type PostRepository interface {
 	Update(ctx context.Context, id string, p domain.Post) (domain.Post, error)
 	FindByID(ctx context.Context, id string) (domain.Post, error)
 	ListPublished(ctx context.Context, offset, limit int) ([]domain.Post, int, error)
+	ListAll(ctx context.Context, offset, limit int) ([]domain.Post, int, error) // 管理端全量（含 pending），审核上架入口
 	ListByAuthor(ctx context.Context, userID string) ([]domain.Post, error)
 }
 
@@ -262,6 +273,12 @@ type ProductRepository interface {
 	Create(ctx context.Context, v domain.DroneProduct) (domain.DroneProduct, error)
 	FindByID(ctx context.Context, id string) (domain.DroneProduct, error)
 	List(ctx context.Context, prodType string) ([]domain.DroneProduct, error)
+	// ListTop 按创建时间倒序取前 limit 条（首页 Top-N，SQL 端 LIMIT 不整表）。
+	ListTop(ctx context.Context, prodType string, limit int) ([]domain.DroneProduct, error)
+	// ListByIDs 批量按 ID 取商品（订单列表补商品名防 N+1）。
+	ListByIDs(ctx context.Context, ids []string) ([]domain.DroneProduct, error)
+	// SumViews 商品浏览量总和（可选按类型；首页 stats.views 聚合查询）。
+	SumViews(ctx context.Context, prodType string) (int, error)
 	Update(ctx context.Context, p domain.DroneProduct) (domain.DroneProduct, error)
 	Delete(ctx context.Context, id string) error
 	IncrementViews(ctx context.Context, id string) error
@@ -360,6 +377,8 @@ type EnrollmentRepository interface {
 	Update(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error)
 	FindByID(ctx context.Context, id string) (domain.Enrollment, error) // 管理端编辑时取旧状态做防回退校验
 	ListByCourse(ctx context.Context, courseID string) ([]domain.Enrollment, error)
+	// ListByUser 某用户全部报名（"我的报名"一次查询，避免按课程 N+1）。
+	ListByUser(ctx context.Context, userID string) ([]domain.Enrollment, error)
 	ListAll(ctx context.Context, offset, limit int) ([]domain.Enrollment, int, error) // 管理端全量
 	FindByUserAndCourse(ctx context.Context, userID, courseID string) (domain.Enrollment, bool, error)
 }
@@ -394,6 +413,9 @@ type EscrowRepository interface {
 	Release(ctx context.Context, fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	Refund(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error)
+	// HasReleased 报告 fromUser 对 (reference_type, reference_id) 是否已有完成（status='completed'）的
+	// release 流水——completeEnrollment 幂等重试判断"学费是否已释放"用（避免重复释放）。
+	HasReleased(ctx context.Context, fromUser, refType, refID string) (bool, error)
 	// ListOrphanFreezes 列出"冻结但无对应业务记录"的孤儿冻结流水
 	// （ref_type/ref_id 指定的业务记录不存在，且冻结时间早于 olderThan），
 	// 供自动补偿解冻（如培训报名冻结后进程崩溃，报名未落库）。

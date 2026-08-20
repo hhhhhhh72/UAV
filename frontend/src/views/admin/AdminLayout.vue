@@ -376,6 +376,12 @@ const restoreTheme = () => {
 const goHome = () => router.push('/')
 
 const handleLogout = () => {
+  // 登出时先吊销 refresh token（后端 revoke 落库），再清本地登录态；
+  // 吊销失败不阻塞登出（本地清理必须执行，避免残留登录态）。
+  const refreshToken = localStorage.getItem('refreshToken')
+  if (refreshToken) {
+    axios.post('/api/auth/logout', { refresh_token: refreshToken }).catch(() => {})
+  }
   localStorage.removeItem('user')
   localStorage.removeItem('accessToken')
   localStorage.removeItem('refreshToken')

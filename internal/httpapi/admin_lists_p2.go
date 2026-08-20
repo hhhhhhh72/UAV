@@ -9,13 +9,14 @@ import "net/http"
 
 // GET /api/v1/admin/policies
 func (s *Server) listAdminPolicies(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	list, total, err := s.insuranceSvc.ListAllPolicies(r.Context(), 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	list, total, err := s.insuranceSvc.ListAllPolicies(r.Context(), (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, list, total)
+	respondPage(w, r, list, total, page, pageSize)
 }
 
 // GET /api/v1/admin/inspections
@@ -30,33 +31,36 @@ func (s *Server) listAdminInspections(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/repairs
 func (s *Server) listAdminRepairs(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	list, total, err := s.tradingSvc.ListAllRepairs(r.Context(), 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	list, total, err := s.tradingSvc.ListAllRepairs(r.Context(), (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, list, total)
+	respondPage(w, r, list, total, page, pageSize)
 }
 
 // GET /api/v1/admin/loans
 func (s *Server) listAdminLoans(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	list, total, err := s.financeSvc.ListAllLoans(r.Context(), 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	list, total, err := s.financeSvc.ListAllLoans(r.Context(), (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, list, total)
+	respondPage(w, r, list, total, page, pageSize)
 }
 
 // GET /api/v1/admin/resumes
 func (s *Server) listAdminResumes(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	list, total, err := s.jobSvc.ListAllResumes(r.Context(), 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	list, total, err := s.jobSvc.ListAllResumes(r.Context(), (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, list, total)
+	respondPage(w, r, list, total, page, pageSize)
 }

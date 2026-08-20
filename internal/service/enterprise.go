@@ -76,17 +76,19 @@ func (s *EnterpriseSvc) Update(ctx context.Context, a domain.Actor, id string, i
 	if err != nil {
 		return domain.Enterprise{}, err
 	}
-	if existing.OwnerUserID != a.ID && a.Role != domain.RolePlatformAdmin {
+	// 越权校验：属主本人、平台管理员、协会管理员可编辑。
+	// 协会管理员负责企业审核（本职），管理端企业档案编辑入口对其放行。
+	if existing.OwnerUserID != a.ID && a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin {
 		return domain.Enterprise{}, errors.New("only the owner can edit")
 	}
 	// 状态限制：
 	// - 企业主（owner）：仅草稿/需补充可编辑（编辑后状态不变，走提交流程）
-	// - 管理员（platform_admin）：任意状态可编辑；编辑已审核/已驳回/审核中企业时，
+	// - 管理员（platform_admin / association_admin）：任意状态可编辑；编辑已审核/已驳回/审核中企业时，
 	//   状态回退到「待审核」（PRD FR-2.2：信息修改后需重新审核）
 	if existing.OwnerUserID == a.ID && existing.Status != domain.EnterpriseDraft && existing.Status != domain.EnterpriseSupplementRequired {
 		return domain.Enterprise{}, fmt.Errorf("cannot edit enterprise in %s status", existing.Status)
 	}
-	isAdminEdit := a.Role == domain.RolePlatformAdmin
+	isAdminEdit := a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
 	wasApprovedOrReviewed := existing.Status == domain.EnterpriseApproved ||
 		existing.Status == domain.EnterpriseRejected ||
 		existing.Status == domain.EnterpriseSubmitted

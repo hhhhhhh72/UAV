@@ -378,19 +378,31 @@ func (s *Server) listAdminCerts(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateCertificate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
-		CertType   string    `json:"cert_type"`
-		CertNumber string    `json:"cert_number"`
-		Level      string    `json:"level"`
-		IssuerOrg  string    `json:"issuer_org"`
-		IssueDate  time.Time `json:"issue_date"`
-		ExpireDate time.Time `json:"expire_date"`
-		Status     string    `json:"status"`
+		CertType   string `json:"cert_type"`
+		CertNumber string `json:"cert_number"`
+		Level      string `json:"level"`
+		IssuerOrg  string `json:"issuer_org"`
+		// 前端 a-date-picker value-format="YYYY-MM-DD" 提交日期字符串（可空），
+		// 用 string 承接再解析，避免 time.Time 只认 RFC3339 导致 'YYYY-MM-DD' 400。
+		IssueDate  string `json:"issue_date"`
+		ExpireDate string `json:"expire_date"`
+		Status     string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.trainingSvc.UpdateCertificate(r.Context(), id, in.CertType, in.CertNumber, in.Level, in.IssuerOrg, in.Status, in.IssueDate, in.ExpireDate)
+	issueDate, err := parseDateInput(in.IssueDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的签发日期格式: %w", err))
+		return
+	}
+	expireDate, err := parseDateInput(in.ExpireDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的到期日期格式: %w", err))
+		return
+	}
+	c, err := s.trainingSvc.UpdateCertificate(r.Context(), id, in.CertType, in.CertNumber, in.Level, in.IssuerOrg, in.Status, issueDate, expireDate)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -407,16 +419,28 @@ func (s *Server) deleteCertificate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		CertType   string    `json:"cert_type"`
-		CertNumber string    `json:"cert_number"`
-		Level      string    `json:"level"`
-		IssuerOrg  string    `json:"issuer_org"`
-		IssueDate  time.Time `json:"issue_date"`
-		ExpireDate time.Time `json:"expire_date"`
-		Status     string    `json:"status"`
+		CertType   string `json:"cert_type"`
+		CertNumber string `json:"cert_number"`
+		Level      string `json:"level"`
+		IssuerOrg  string `json:"issuer_org"`
+		// 前端 a-date-picker value-format="YYYY-MM-DD" 提交日期字符串（可空），
+		// 用 string 承接再解析，避免 time.Time 只认 RFC3339 导致 'YYYY-MM-DD' 400。
+		IssueDate  string `json:"issue_date"`
+		ExpireDate string `json:"expire_date"`
+		Status     string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	issueDate, err := parseDateInput(in.IssueDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的签发日期格式: %w", err))
+		return
+	}
+	expireDate, err := parseDateInput(in.ExpireDate)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的到期日期格式: %w", err))
 		return
 	}
 	a, ok := authenticatedActor(r)
@@ -424,7 +448,7 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusUnauthorized, fmt.Errorf("auth required"))
 		return
 	}
-	c, err := s.trainingSvc.AddCertificate(r.Context(), domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.IssueDate, in.ExpireDate)
+	c, err := s.trainingSvc.AddCertificate(r.Context(), domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, issueDate, expireDate)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -778,17 +802,18 @@ func (s *Server) listAdminTransformations(w http.ResponseWriter, r *http.Request
 func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
-		Title     string `json:"title"`
-		Stage     string `json:"stage"` // lab/pilot/industrialized/listed
-		Progress  string `json:"progress"`
-		PartnerID string `json:"partner_id"`
-		Status    string `json:"status"`
+		Title         string `json:"title"`
+		AchievementID string `json:"achievement_id"`
+		Stage         string `json:"stage"` // lab/pilot/industrialized/listed
+		Progress      string `json:"progress"`
+		PartnerID     string `json:"partner_id"`
+		Status        string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, 400, err)
 		return
 	}
-	t, err := s.transSvc.UpdateTrans(r.Context(), id, in.Title, in.Stage, in.Progress, in.PartnerID, in.Status)
+	t, err := s.transSvc.UpdateTrans(r.Context(), id, in.Title, in.AchievementID, in.Stage, in.Progress, in.PartnerID, in.Status)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -890,6 +915,7 @@ func (s *Server) updateExhibition(w http.ResponseWriter, r *http.Request) {
 		Description string `json:"description"`
 		Location    string `json:"location"`
 		Organizer   string `json:"organizer"`
+		CoverURL    string `json:"cover_url"`
 		Status      string `json:"status"`
 		StartDate   string `json:"start_date"`
 		EndDate     string `json:"end_date"`
@@ -909,7 +935,7 @@ func (s *Server) updateExhibition(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	e, err := s.exhibitionSvc.Update(r.Context(), id, in.Title, in.Category, in.Description, in.Location, in.Organizer, startDate, endDate, in.BoothCount, in.BoothPrice, in.Status)
+	e, err := s.exhibitionSvc.Update(r.Context(), id, in.Title, in.Category, in.Description, in.Location, in.Organizer, in.CoverURL, startDate, endDate, in.BoothCount, in.BoothPrice, in.Status)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1066,6 +1092,19 @@ func (s *Server) listAdminMessages(w http.ResponseWriter, r *http.Request) {
 	all, total, err := s.msgSvc.ListAll(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, 500, fmt.Errorf("list messages: %w", err))
+		return
+	}
+	// 关键词过滤（标题/正文 contains，大小写不敏感）——通知量小，内存过滤即可。
+	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
+		lower := strings.ToLower(kw)
+		filtered := make([]domain.Message, 0, len(all))
+		for _, m := range all {
+			if strings.Contains(strings.ToLower(m.Title), lower) ||
+				strings.Contains(strings.ToLower(m.Content), lower) {
+				filtered = append(filtered, m)
+			}
+		}
+		paginatedRespond(w, r, filtered, len(filtered))
 		return
 	}
 	paginatedRespond(w, r, all, total)

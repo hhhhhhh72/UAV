@@ -34,6 +34,21 @@ func (s *TradingService) ListProducts(ctx context.Context, prodType string) ([]d
 	return s.prodRepo.List(ctx, prodType)
 }
 
+// ListTopProducts 首页 Top-N 商品（透传 repo.ListTop，SQL 端 LIMIT 不整表）。
+func (s *TradingService) ListTopProducts(ctx context.Context, prodType string, limit int) ([]domain.DroneProduct, error) {
+	return s.prodRepo.ListTop(ctx, prodType, limit)
+}
+
+// SumProductViews 商品浏览量总和（首页 stats.views，聚合查询）。
+func (s *TradingService) SumProductViews(ctx context.Context, prodType string) (int, error) {
+	return s.prodRepo.SumViews(ctx, prodType)
+}
+
+// ListProductsByIDs 批量按 ID 取商品（订单列表补商品名，防 N+1）。
+func (s *TradingService) ListProductsByIDs(ctx context.Context, ids []string) ([]domain.DroneProduct, error) {
+	return s.prodRepo.ListByIDs(ctx, ids)
+}
+
 func (s *TradingService) GetProduct(ctx context.Context, id string) (domain.DroneProduct, error) {
 	return s.prodRepo.FindByID(ctx, id)
 }

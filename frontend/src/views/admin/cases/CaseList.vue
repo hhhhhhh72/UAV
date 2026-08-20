@@ -57,7 +57,7 @@
             <a-input v-model="currentCase.description" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" :maxlength="500" placeholder="请输入简介" style="width: 100%" />
           </a-form-item>
           <a-form-item label="客户名称">
-            <a-input v-model="currentCase.clientName" :maxlength="100" placeholder="如：重庆市某区应急管理局" allow-clear style="width: 100%" />
+            <a-input v-model="currentCase.client_name" :maxlength="100" placeholder="如：重庆市某区应急管理局" allow-clear style="width: 100%" />
           </a-form-item>
           <a-form-item label="成果">
             <a-input v-model="currentCase.result" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" :maxlength="500" placeholder="项目成果/数据（可选）" style="width: 100%" />
@@ -141,7 +141,7 @@ const columns = [
   { title: '封面', dataIndex: 'images', slotName: 'cover', width: 90 },
   { title: '标题', dataIndex: 'title', slotName: 'title', minWidth: 180, sortable: true },
   { title: '分类', dataIndex: 'category', width: 110 },
-  { title: '客户', dataIndex: 'clientName', width: 140 },
+  { title: '客户', dataIndex: 'client_name', width: 140 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
   { title: '操作', slotName: 'actions', width: 140, fixed: 'right' },
 ]
@@ -187,7 +187,7 @@ const uploadCover = async ({ fileItem, onSuccess, onError }) => {
 
 const createCase = () => {
   currentCase.value = {
-    title: '', category: '', description: '', images: [], clientName: '', result: '', status: 'pending'
+    title: '', category: '', description: '', images: [], client_name: '', result: '', status: 'pending'
   }
   caseSnapshot = JSON.stringify(currentCase.value)
   showCaseEditPopup.value = true

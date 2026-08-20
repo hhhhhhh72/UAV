@@ -34,12 +34,13 @@ func (s *TransformationService) DeleteTrans(ctx context.Context, id string) erro
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *TransformationService) UpdateTrans(ctx context.Context, id, title, stage, progress, partnerID, status string) (domain.Transformation, error) {
+func (s *TransformationService) UpdateTrans(ctx context.Context, id, title, achievementID, stage, progress, partnerID, status string) (domain.Transformation, error) {
 	t, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Transformation{}, err
 	}
 	t.Title = title
+	t.AchievementID = achievementID
 	t.Stage = domain.TransformationStage(stage)
 	t.Progress = progress
 	t.Status = status

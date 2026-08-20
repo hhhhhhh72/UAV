@@ -216,7 +216,7 @@ const openForm = (row) => {
       start_date: row.start_date ? String(row.start_date).slice(0, 10) : '',
       end_date: row.end_date ? String(row.end_date).slice(0, 10) : '',
       deadline: row.deadline ? String(row.deadline).slice(0, 10) : '',
-      feeYuan: row.fee ? Math.round(row.fee / 100) : null,
+      feeYuan: row.fee ?? null,
       max_teams: row.max_teams ?? null,
       status: row.status || 'draft', description: row.description || ''
     })
@@ -237,7 +237,7 @@ const submitForm = async () => {
     const p = {
       title: form.title, category: form.category, poster: form.poster, location: form.location,
       sponsor: form.sponsor, start_date: form.start_date, end_date: form.end_date, deadline: form.deadline,
-      fee: Math.round((form.feeYuan || 0) * 100), max_teams: form.max_teams ?? 0,
+      fee: form.feeYuan ?? 0, max_teams: form.max_teams ?? 0,
       status: form.status, description: form.description
     }
     if (formEdit.value) {

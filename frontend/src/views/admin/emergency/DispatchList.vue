@@ -62,7 +62,7 @@
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="dispatched">已调度</a-option>
-            <a-option value="in_progress">执行中</a-option>
+            <a-option value="ongoing">执行中</a-option>
             <a-option value="completed">已完成</a-option>
             <a-option value="cancelled">已取消</a-option>
           </a-select>
@@ -96,15 +96,15 @@ const formatDate = (d) => {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }
 
-const statusLabel = (s) => ({ dispatched: '已调度', in_progress: '执行中', completed: '已完成', cancelled: '已取消' }[s] || s || '-')
-const statusTag = (s) => ({ dispatched: 'orange', in_progress: 'arcoblue', completed: 'green', cancelled: 'red' }[s] || 'gray')
+const statusLabel = (s) => ({ dispatched: '已调度', ongoing: '执行中', completed: '已完成', cancelled: '已取消' }[s] || s || '-')
+const statusTag = (s) => ({ dispatched: 'orange', ongoing: 'arcoblue', completed: 'green', cancelled: 'red' }[s] || 'gray')
 
 const searchFields = [
   { key: 'keyword', label: '关键词', placeholder: '搜索任务名称...', width: 220 },
   { key: 'status', label: '状态', type: 'select', options: [
     { value: '', label: '全部状态' },
     { value: 'dispatched', label: '已调度' },
-    { value: 'in_progress', label: '执行中' },
+    { value: 'ongoing', label: '执行中' },
     { value: 'completed', label: '已完成' },
     { value: 'cancelled', label: '已取消' }
   ]}

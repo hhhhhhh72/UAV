@@ -20,9 +20,12 @@ func NewServiceListingService(r repository.ServiceListingRepository) *ServiceLis
 }
 
 // CreateListing 创建服务能力（管理后台录入），默认直接上架。
-func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image string) (domain.ServiceListing, error) {
+func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, providerName, title, category, description, region string, priceFen int64, unit, image, status string) (domain.ServiceListing, error) {
 	if priceFen < 0 {
 		return domain.ServiceListing{}, errors.New("price cannot be negative")
+	}
+	if status == "" {
+		status = "published"
 	}
 	now := time.Now()
 	sl := domain.ServiceListing{
@@ -36,7 +39,7 @@ func (s *ServiceListingService) CreateListing(ctx context.Context, providerID, p
 		PriceFen:     priceFen,
 		Unit:         unit,
 		Image:        image,
-		Status:       "published",
+		Status:       status,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}

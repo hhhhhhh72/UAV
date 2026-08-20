@@ -69,8 +69,21 @@ func (s *LabourService) ListOrders(ctx context.Context, a domain.Actor, offset, 
 	if a.Role == domain.RolePlatformAdmin {
 		return s.repo.ListAll(ctx, offset, limit)
 	}
+	// 雇主视角：repo.ListByEmployer 无分页参数，服务层内存分页（total=全量条数，
+	// 分页语义与管理员 ListAll 对齐：COUNT + 当前页切片）。
 	items, err := s.repo.ListByEmployer(ctx, a.ID)
-	return items, len(items), err
+	if err != nil {
+		return nil, 0, err
+	}
+	total := len(items)
+	if offset > total {
+		return []domain.LabourOrder{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return items[offset:end], total, nil
 }
 
 func (s *LabourService) CreateQuote(ctx context.Context, a domain.Actor, orderID string, amount int64, proposal, name string) (domain.LabourQuote, error) {

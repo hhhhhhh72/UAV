@@ -83,6 +83,7 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 	// 防止公开接口批量抓取手机号；mine=1 分支返回本人商品不脱敏。
 	for i := range listed {
 		listed[i].SellerID = maskUserID(listed[i].SellerID)
+		listed[i].SellerName = maskUserID(listed[i].SellerName) // SellerName 落库即 a.ID，同源泄露
 	}
 	paginatedRespond(w, r, listed, len(listed))
 }
@@ -96,12 +97,13 @@ func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
-	// P1 脱敏：公开请求返回前替换手机号注册用户的 seller_id，防止手机号泄露。
+	// P1 脱敏：公开请求返回前替换手机号注册用户的 seller_id/seller_name，防止手机号泄露。
 	// 商品本人（卖家）查看自己的商品时保留真实 ID——前端 isOwnProduct 依赖它
 	// 隐藏"立即购买"按钮（自买后端同样拒绝）。
 	if !isAdminRequest(r) {
 		if a, ok := authenticatedActor(r); !ok || a.ID != p.SellerID {
 			p.SellerID = maskUserID(p.SellerID)
+			p.SellerName = maskUserID(p.SellerName)
 		}
 	}
 	respond(w, r, http.StatusOK, p)

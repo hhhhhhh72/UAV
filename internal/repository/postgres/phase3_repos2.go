@@ -484,6 +484,25 @@ func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domai
 	}
 	return out, rows.Err()
 }
+
+// ListByUser 某用户全部报名（"我的报名"一次查询，避免按课程 N+1）。
+func (r *enrollRepo) ListByUser(ctx context.Context, userID string) ([]domain.Enrollment, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at FROM training_enrollments WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list enrollments by user: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Enrollment
+	for rows.Next() {
+		var e domain.Enrollment
+		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan enrollment: %w", err)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
 func (r *enrollRepo) FindByUserAndCourse(ctx context.Context, userID, courseID string) (domain.Enrollment, bool, error) {
 	var e domain.Enrollment
 	err := r.pool.QueryRow(ctx,
@@ -754,6 +773,21 @@ func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]dom
 		out = append(out, tx)
 	}
 	return out, rows.Err()
+}
+
+// HasReleased 查 fromUser 对 (refType, refID) 是否已有完成的 release 流水。
+func (r *escrowRepo) HasReleased(ctx context.Context, fromUser, refType, refID string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM escrow_transactions
+			WHERE from_user=$1 AND reference_type=$2 AND reference_id=$3
+			  AND tx_type='release' AND status='completed'
+		)`, fromUser, refType, refID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check escrow release: %w", err)
+	}
+	return exists, nil
 }
 
 // ListOrphanFreezes 查"冻结但业务记录不存在"的孤儿冻结流水。

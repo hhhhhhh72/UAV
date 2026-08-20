@@ -64,13 +64,39 @@ func (s *Server) removePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listPosts(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	items, total, err := s.communitySvc.ListPublishedPosts(r.Context(), 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.communitySvc.ListPublishedPosts(r.Context(), (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	respondPage(w, r, items, total, page, pageSize)
+}
+
+// GET /api/v1/admin/posts — 管理端帖子全量列表（含待审核 pending）。
+// 审核闭环：CreatePost 默认 pending，管理端经此接口看到待审帖子，
+// 调 POST /api/v1/posts/{id}/publish 上架（PublishPost 已有，仅管理员）。
+func (s *Server) listAdminPosts(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
+	// 对齐现有 admin 列表风格：全量拉取 + adminListFilter（keyword/status）+ paginatedRespond。
+	all, _, err := s.communitySvc.ListAllPosts(r.Context(), a, 0, 100000)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
+		func(p domain.Post) string { return p.Title + p.Content },
+		func(p domain.Post) string { return p.Status })
+	paginatedRespond(w, r, filtered, total)
 }
 
 // ---- Comments ----
@@ -142,13 +168,14 @@ func (s *Server) listReports(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	items, total, err := s.communitySvc.ListPendingReports(r.Context(), a, 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.communitySvc.ListPendingReports(r.Context(), a, (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // ---- Listings ----
@@ -193,13 +220,18 @@ func (s *Server) closeListing(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listListings(w http.ResponseWriter, r *http.Request) {
-	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
-	items, total, err := s.listingSvc.ListListed(r.Context(), 0, 100000)
+	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.listingSvc.ListListed(r.Context(), (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	// 公开列表脱敏：手机号注册用户 ID 不随响应泄露（与商品/服务/飞手口径一致）
+	for i := range items {
+		items[i].SellerID = maskUserID(items[i].SellerID)
+	}
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 func (s *Server) favoriteListing(w http.ResponseWriter, r *http.Request) {
@@ -248,14 +280,15 @@ func (s *Server) listLabourOrders(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	// 双重分页修复：全量拉取（管理员 ListAll / 雇主 ListByEmployer），
-	// paginatedRespond 唯一一次分页。
-	items, total, err := s.labourSvc.ListOrders(r.Context(), a, 0, 100000)
+	// 性能审查：分页下沉 SQL（管理员 ListAll / 雇主 ListByEmployer+服务层内存分页），
+	// respondPage 不再二次切片。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.labourSvc.ListOrders(r.Context(), a, (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 func (s *Server) createLabourQuote(w http.ResponseWriter, r *http.Request) {

@@ -468,6 +468,74 @@ func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DronePro
 	return out, rows.Err()
 }
 
+// ListTop 按创建时间倒序取前 limit 条（首页 Top-N，SQL 端 LIMIT 不整表）。
+func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]domain.DroneProduct, error) {
+	var rows pgx.Rows
+	var err error
+	if prodType == "" {
+		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products ORDER BY created_at DESC LIMIT $1`, limit)
+	} else {
+		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 ORDER BY created_at DESC LIMIT $2`, prodType, limit)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list top products: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.DroneProduct
+	for rows.Next() {
+		var p domain.DroneProduct
+		var pt string
+		var imgs []byte
+		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan product: %w", err)
+		}
+		p.ProdType = domain.ProductType(pt)
+		json.Unmarshal(imgs, &p.Images)
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// ListByIDs 批量按 ID 取商品（订单列表补商品名防 N+1）。
+func (r *prodRepo) ListByIDs(ctx context.Context, ids []string) ([]domain.DroneProduct, error) {
+	if len(ids) == 0 {
+		return []domain.DroneProduct{}, nil
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("list products by ids: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.DroneProduct
+	for rows.Next() {
+		var p domain.DroneProduct
+		var pt string
+		var imgs []byte
+		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan product: %w", err)
+		}
+		p.ProdType = domain.ProductType(pt)
+		json.Unmarshal(imgs, &p.Images)
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// SumViews 商品浏览量总和（可选按类型；首页 stats.views 聚合查询）。
+func (r *prodRepo) SumViews(ctx context.Context, prodType string) (int, error) {
+	q := `SELECT COALESCE(SUM(views),0) FROM drone_products`
+	args := []any{}
+	if prodType != "" {
+		q += ` WHERE prod_type=$1`
+		args = append(args, prodType)
+	}
+	var n int
+	if err := r.pool.QueryRow(ctx, q, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("sum product views: %w", err)
+	}
+	return n, nil
+}
+
 // ---- Repair ----
 
 type repairRepo struct{ pool *pgxpool.Pool }

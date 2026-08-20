@@ -16,7 +16,7 @@ func TestTimeRangeValidation(t *testing.T) {
 
 	// 活动
 	eSvc := service.NewEventService(memory.NewEventRepository())
-	if _, err := eSvc.Create(context.Background(), "t", "exhibition", "d", "l", "c", start, end, 10); err == nil {
+	if _, err := eSvc.Create(context.Background(), "t", "exhibition", "d", "l", "c", start, end, 10, ""); err == nil {
 		t.Fatal("event with end < start must be rejected")
 	}
 	// 应急调度
@@ -25,7 +25,7 @@ func TestTimeRangeValidation(t *testing.T) {
 		t.Fatal("dispatch with end < start must be rejected")
 	}
 	// 正常 + end 零值（进行中）放行
-	ev, err := eSvc.Create(context.Background(), "t2", "exhibition", "d", "l", "c", start, time.Time{}, 10)
+	ev, err := eSvc.Create(context.Background(), "t2", "exhibition", "d", "l", "c", start, time.Time{}, 10, "")
 	if err != nil {
 		t.Fatalf("event with zero end should be allowed: %v", err)
 	}

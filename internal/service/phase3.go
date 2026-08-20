@@ -126,6 +126,11 @@ func (s *EnrollmentService) ListByCourse(ctx context.Context, courseID string) (
 	return s.repo.ListByCourse(ctx, courseID)
 }
 
+// ListByUser 某用户全部报名（"我的报名"一次查询，避免按课程 N+1）。
+func (s *EnrollmentService) ListByUser(ctx context.Context, userID string) ([]domain.Enrollment, error) {
+	return s.repo.ListByUser(ctx, userID)
+}
+
 // ---- Expiry Checker ----
 
 type ExpiryService struct{}

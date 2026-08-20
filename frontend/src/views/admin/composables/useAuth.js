@@ -7,7 +7,9 @@ export function useAuth() {
   const userStr = localStorage.getItem('user')
   const user = userStr ? JSON.parse(userStr) : null
   const userRole = ref(user ? user.role : 'user')
-  const isSuperAdmin = ref(user ? user.phone === SUPER_ADMIN_PHONE : false)
+  // 登录只存 { id, role }，无 phone 字段：超级管理员以角色 platform_admin 判定
+  // （此前用 phone === 'drone-platform-admin' 恒为 false，导致角色管理按钮不可见）
+  const isSuperAdmin = ref(user ? user.role === 'platform_admin' : false)
 
   const isPlatformAdmin = computed(() => userRole.value === 'platform_admin')
   const isAssociationAdmin = computed(() => userRole.value === 'association_admin')
@@ -22,7 +24,7 @@ export function useAuth() {
         const current = res.data
         localStorage.setItem('user', JSON.stringify(current))
         userRole.value = current.role || 'user'
-        isSuperAdmin.value = current.phone === SUPER_ADMIN_PHONE
+        isSuperAdmin.value = current.role === 'platform_admin'
       }
     } catch (error) {
       // 仅在明确的认证失败(401)时清除登录状态

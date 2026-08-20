@@ -91,8 +91,11 @@ func NewRDChallengeService(repo repository.RDChallengeRepository) *RDChallengeSe
 	return &RDChallengeService{repo: repo}
 }
 
-func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field, description string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
+func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field, description string, budgetFen int64, deadline time.Time, status string) (domain.RDChallenge, error) {
 	now := time.Now()
+	if status == "" {
+		status = "published"
+	}
 	c := domain.RDChallenge{
 		ID:          nextID("challenge"),
 		PosterID:    posterID,
@@ -101,7 +104,7 @@ func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field,
 		Description: description,
 		BudgetFen:   budgetFen,
 		Deadline:    deadline,
-		Status:      "published",
+		Status:      status,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
