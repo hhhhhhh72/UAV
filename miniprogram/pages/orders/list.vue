@@ -2,8 +2,8 @@
   <view class="orders-list-page">
     <u-nav-bar :title="pageTitle" show-back right-text="筛选" @back="goBack" @right="openFilter" />
 
-    <!-- 当前筛选提示 -->
-    <view class="current-filter">
+    <!-- 当前筛选提示（仅筛选了具体类型时显示） -->
+    <view v-if="appliedType !== 'all'" class="current-filter">
       <text class="current-filter-label">订单类型：</text>
       <text class="current-filter-value">{{ orderTypeLabel }}</text>
     </view>
