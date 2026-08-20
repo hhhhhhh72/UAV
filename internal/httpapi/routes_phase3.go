@@ -12,6 +12,7 @@ func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/certificates/expiring", s.listExpiringCerts)
 	mux.HandleFunc("GET /api/v1/inspections/expiring", s.listExpiringInspections)
 	mux.HandleFunc("POST /api/v1/trade-orders", s.createTradeOrder)
+	mux.HandleFunc("POST /api/v1/trade-orders/{id}/pay", s.payTradeOrder)
 	mux.HandleFunc("PATCH /api/v1/trade-orders/{id}/status", s.updateTradeOrderStatus)
 	mux.HandleFunc("POST /api/v1/trade-orders/{id}/aftersale", s.applyAftersale)
 	mux.HandleFunc("POST /api/v1/trade-orders/{id}/aftersale/review", s.reviewAftersaleBySeller)

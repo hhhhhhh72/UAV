@@ -294,6 +294,22 @@ func (s *TradeOrderService) reviewAftersale(ctx context.Context, orderID string,
 	return s.repo.UpdateAftersale(ctx, o)
 }
 
+// PayOrder 买家模拟支付：仅订单买家可调，仅 pending → paid 迁移
+// （真实微信支付接入后由服务端支付回调替代此接口，语义保持：买家确认付款）。
+func (s *TradeOrderService) PayOrder(ctx context.Context, buyerID, orderID string) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if o.BuyerID != buyerID {
+		return domain.TradeOrder{}, fmt.Errorf("permission denied")
+	}
+	if err := checkOrderTransition(o.Status, "paid"); err != nil {
+		return domain.TradeOrder{}, err
+	}
+	return s.repo.UpdateStatus(ctx, orderID, "paid")
+}
+
 // UpdateStatusAdmin 管理端改单：跳过买卖双方校验，仍受状态机约束。
 func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus string) (domain.TradeOrder, error) {
 	o, err := s.repo.FindByID(ctx, id)

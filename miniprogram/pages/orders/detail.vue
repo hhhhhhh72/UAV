@@ -205,14 +205,13 @@ const handlePrimaryAction = () => {
   }
 }
 
-// 模拟支付：PATCH /api/v1/trade-orders/{id}/status 置 paid，成功即刷新订单
+// 模拟支付：POST /api/v1/trade-orders/{id}/pay 置 paid（真实微信支付接入后替换此逻辑）
 const payOrder = async (o) => {
   uni.showLoading({ title: '支付中...' })
   try {
     await request({
-      url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/status',
-      method: 'PATCH',
-      data: { status: 'paid' },
+      url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/pay',
+      method: 'POST',
     })
     uni.hideLoading()
     uni.showToast({ title: '支付成功', icon: 'success' })

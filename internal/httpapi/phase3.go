@@ -377,6 +377,22 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusCreated, o)
 }
 
+// POST /api/v1/trade-orders/{id}/pay — 买家支付（模拟：pending → paid；真实支付接入后由回调替代）
+func (s *Server) payTradeOrder(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	o, err := s.tradeSvc.PayOrder(r.Context(), a.ID, r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "pay_trade_order", "trade_order", o.ID, "paid")
+	respond(w, r, http.StatusOK, o)
+}
+
 // PATCH /api/v1/trade-orders/{id}/status
 func (s *Server) updateTradeOrderStatus(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
