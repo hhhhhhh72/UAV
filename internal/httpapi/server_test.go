@@ -474,6 +474,14 @@ func TestAftersaleFlow(t *testing.T) {
 		t.Fatalf("admin approve product: %d %s", appr.Code, appr.Body.String())
 	}
 
+	// 1.5 卖家不能买自己发布的商品（防自买自卖）
+	selfBuy := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
+		[]byte(`{"product_id":"`+product.Data.ID+`"}`),
+		"seller-1", domain.RoleEnterprise)
+	if selfBuy.Code != http.StatusConflict {
+		t.Fatalf("seller buying own product should be rejected, got %d %s", selfBuy.Code, selfBuy.Body.String())
+	}
+
 	// 2. 买家下单 → pending；金额/卖家以服务端商品为准（客户端传 1 分钱+假卖家被忽略）
 	ow := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
 		[]byte(`{"product_id":"`+product.Data.ID+`","seller_id":"hacker-x","amount_fen":1}`),
