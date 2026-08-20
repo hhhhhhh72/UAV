@@ -120,7 +120,13 @@
       </view>
     </view>
     <view class="bottom-contact" hover-class="btn-press" @tap="contactShop">联系卖家</view>
-    <view class="bottom-buy" hover-class="btn-press" @tap="buy">{{ product.prod_type === 'test_fly' ? '预约试飞' : '立即购买' }}</view>
+    <view
+      v-if="!isOwnProduct"
+      class="bottom-buy"
+      hover-class="btn-press"
+      @tap="buy"
+    >{{ product.prod_type === 'test_fly' ? '预约试飞' : '立即购买' }}</view>
+    <view v-else class="bottom-buy bottom-buy--own" @tap="ownToast">我的商品</view>
   </view>
 </view>
 </template>
@@ -279,6 +285,15 @@ const toggleFav = () => {
   uni.showToast({ title: isFav.value ? '已收藏' : '已取消收藏', icon: 'none' })
 }
 
+// 自己发布的商品：不显示购买入口（后端同样拒绝自买）
+const isOwnProduct = computed(() => {
+  const u = getStoredUser()
+  return !!(u && product.value.seller_id && product.value.seller_id === u.id)
+})
+const ownToast = () => {
+  uni.showToast({ title: '这是你发布的商品', icon: 'none' })
+}
+
 // 分享：弹跳反馈
 const shareAnim = ref(false)
 const onShare = () => {
@@ -288,6 +303,10 @@ const onShare = () => {
 }
 // 主行动按钮：试飞测试供给 → 测试场地列表（②展示卡 → ③预约入口打通）；其余为立即购买（下单闭环）
 const buy = async () => {
+  if (isOwnProduct.value) {
+    uni.showToast({ title: '不能购买自己发布的商品', icon: 'none' })
+    return
+  }
   if (product.value.prod_type === 'test_fly') {
     uni.navigateTo({ url: '/pkg-service/pages/testsites/list' })
     return
@@ -678,6 +697,12 @@ const buy = async () => {
   font-size: 28rpx;
   font-weight: 700;
   transition: transform .18s;
+}
+
+/* 自己的商品：禁用态 */
+.bottom-buy--own {
+  background: #EEF1F4;
+  color: #98A2B3;
 }
 
 /* ═══════ 按压反馈 ═══════ */
