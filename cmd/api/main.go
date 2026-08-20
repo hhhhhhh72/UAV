@@ -282,6 +282,9 @@ func main() {
 		uploadRepo = memory.NewUploadRepository()
 	}
 
+	// 托管金服务（独立变量：后台孤儿冻结补偿任务复用）
+	escrowSvc := service.NewEscrowService(escrowRepo)
+
 	app := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(enterpriseRepo),
@@ -302,7 +305,7 @@ func main() {
 		service.NewEnrollmentService(enrollRepo, courseRepo),
 		service.NewExpiryService(),
 		service.NewTradeOrderService(tradeOrderRepo, productRepo),
-		service.NewEscrowService(escrowRepo),
+		escrowSvc,
 		service.NewNewsService(articleRepo),
 		service.NewReviewService(reviewRepo),
 		service.NewVenueService(venueRepo),
@@ -371,6 +374,29 @@ func main() {
 	server := &http.Server{Addr: addr, Handler: app.Router(),
 		ReadHeaderTimeout: 10 * time.Second, // 慢速头攻击防护（批3 P1）
 		ReadTimeout:       30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+
+	// 孤儿冻结自动补偿：培训报名"先冻结后落库"的崩溃窗口可能导致资金滞留，
+	// 每 10 分钟扫描一次 10 分钟前的冻结流水，业务记录不存在则自动退回余额。
+	if escrowSvc != nil {
+		go func() {
+			defer func() { _ = recover() }() // 后台任务兜底，不拖垮主进程
+			ticker := time.NewTicker(10 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				n, err := escrowSvc.RefundOrphanFreezes(ctx, "training_course", time.Now().Add(-10*time.Minute), 50)
+				cancel()
+				if err != nil {
+					slog.Warn("orphan freeze scan failed", "error", err)
+					continue
+				}
+				if n > 0 {
+					slog.Info("orphan freezes refunded", "count", n)
+				}
+			}
+		}()
+	}
+
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)

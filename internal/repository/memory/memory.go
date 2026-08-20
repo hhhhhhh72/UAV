@@ -2595,6 +2595,12 @@ func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]dom
 	return out, nil
 }
 
+// ListOrphanFreezes 内存模式无跨进程崩溃窗口（同一进程内 Freeze+Enroll 顺序执行），
+// 且内存存储无法跨仓库判定业务记录存在性，恒返回空——自动补偿仅在 PG 模式生效。
+func (r *escrowRepo) ListOrphanFreezes(ctx context.Context, refType string, olderThan time.Time, limit int) ([]domain.EscrowTransaction, error) {
+	return nil, nil
+}
+
 // ---- Upload（文件上传台账，配额统计用） ----
 
 type uploadRepo struct {

@@ -393,6 +393,10 @@ type EscrowRepository interface {
 	Release(ctx context.Context, fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	Refund(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error)
+	// ListOrphanFreezes 列出"冻结但无对应业务记录"的孤儿冻结流水
+	// （ref_type/ref_id 指定的业务记录不存在，且冻结时间早于 olderThan），
+	// 供自动补偿解冻（如培训报名冻结后进程崩溃，报名未落库）。
+	ListOrphanFreezes(ctx context.Context, refType string, olderThan time.Time, limit int) ([]domain.EscrowTransaction, error)
 }
 
 // ---- New Business Module Repositories ----

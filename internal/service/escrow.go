@@ -65,3 +65,26 @@ func (s *EscrowService) Balance(ctx context.Context, userID string) (domain.Escr
 func (s *EscrowService) Transactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {
 	return s.repo.ListTransactions(ctx, userID)
 }
+
+// RefundOrphanFreezes 自动补偿：找出"冻结了但业务记录不存在"的孤儿冻结并退回余额。
+// 场景：payAndEnroll 先冻结后报名，进程在两步之间崩溃 → 资金滞留 frozen。
+// olderThan 过滤最近刚冻结的正常窗口（避免误伤刚发起、报名尚未落库的请求）；
+// 每次最多处理 limit 条，返回处理条数。
+func (s *EscrowService) RefundOrphanFreezes(ctx context.Context, refType string, olderThan time.Time, limit int) (int, error) {
+	orphans, err := s.repo.ListOrphanFreezes(ctx, refType, olderThan, limit)
+	if err != nil {
+		return 0, err
+	}
+	refunded := 0
+	for _, tx := range orphans {
+		if tx.AmountFen <= 0 {
+			continue
+		}
+		if _, err := s.repo.Refund(ctx, tx.FromUser, tx.AmountFen, newTx("escrow", tx.FromUser, "refund", tx.ReferenceType, tx.ReferenceID, tx.AmountFen)); err != nil {
+			// 单条失败不阻断其余（余额可能已变动）；记录后继续
+			continue
+		}
+		refunded++
+	}
+	return refunded, nil
+}

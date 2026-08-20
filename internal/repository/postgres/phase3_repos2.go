@@ -739,8 +739,7 @@ func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64,
 	}
 	return tx, nil
 }
-func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {
-	rows, err := r.pool.Query(ctx,
+func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {	rows, err := r.pool.Query(ctx,
 		`SELECT id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,created_at FROM escrow_transactions WHERE from_user=$1 OR to_user=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list escrow transactions: %w", err)
@@ -751,6 +750,43 @@ func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]dom
 		var tx domain.EscrowTransaction
 		if err := rows.Scan(&tx.ID, &tx.FromUser, &tx.ToUser, &tx.AmountFen, &tx.TxType, &tx.ReferenceType, &tx.ReferenceID, &tx.Status, &tx.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan escrow transaction: %w", err)
+		}
+		out = append(out, tx)
+	}
+	return out, rows.Err()
+}
+
+// ListOrphanFreezes 查"冻结但业务记录不存在"的孤儿冻结流水。
+// refType 为业务引用类型（如 training_course）；业务表名与引用字段由 refType 映射。
+func (r *escrowRepo) ListOrphanFreezes(ctx context.Context, refType string, olderThan time.Time, limit int) ([]domain.EscrowTransaction, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	// refType → 业务表/关联列映射（目前仅培训报名；新增引用类型需同步扩展）
+	table, keyCol := "", ""
+	switch refType {
+	case "training_course":
+		table, keyCol = "training_enrollments", "course_id"
+	default:
+		return nil, nil // 未知引用类型无孤儿判定规则，跳过
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,created_at
+		 FROM escrow_transactions t
+		 WHERE t.tx_type='freeze' AND t.reference_type=$1 AND t.status='completed' AND t.created_at < $2
+		   AND NOT EXISTS (
+		     SELECT 1 FROM `+table+` e WHERE e.user_id = t.from_user AND e.`+keyCol+` = t.reference_id
+		   )
+		 ORDER BY t.created_at LIMIT $3`, refType, olderThan, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list orphan freezes: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.EscrowTransaction
+	for rows.Next() {
+		var tx domain.EscrowTransaction
+		if err := rows.Scan(&tx.ID, &tx.FromUser, &tx.ToUser, &tx.AmountFen, &tx.TxType, &tx.ReferenceType, &tx.ReferenceID, &tx.Status, &tx.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan orphan freeze: %w", err)
 		}
 		out = append(out, tx)
 	}
