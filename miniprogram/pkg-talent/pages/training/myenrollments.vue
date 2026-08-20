@@ -74,6 +74,7 @@ const STATUS_MAP = {
   paid: '已缴费',
   enrolled: '已报名',
   rejected: '已驳回',
+  completed: '已完成',
 }
 /* 状态 → 徽章色（对齐挑战广场语义：待处理=蓝、已通过=绿、已驳回=灰） */
 const STATUS_CLS = {
@@ -81,6 +82,7 @@ const STATUS_CLS = {
   paid: 'st-pending',
   approved: 'st-open',
   enrolled: 'st-open',
+  completed: 'st-open',
   rejected: 'st-closed',
 }
 

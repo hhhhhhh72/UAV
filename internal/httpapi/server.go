@@ -552,21 +552,49 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	for i, d := range ds {
 		public[i] = publicDemand(d)
 	}
-	for i := range es {
-		if es[i].AccountName != "" {
-			es[i].AccountName = crypto.MaskPhone(es[i].AccountName)
+	// 公开搜索仅返回已审核企业（与首页商家列表/公开企业列表口径一致），
+	// 并裁剪敏感字段（联系电话/信用代码/法人等不随搜索结果公开）。
+	publicEnts := make([]domain.Enterprise, 0, len(es))
+	for _, e := range es {
+		if e.Status != "approved" {
+			continue
 		}
+		e.AccountName = crypto.MaskPhone(e.AccountName)
+		e.ContactPhone = ""
+		e.CreditCode = ""
+		e.LegalPerson = ""
+		e.Email = ""
+		publicEnts = append(publicEnts, e)
 	}
-	respond(w, r, http.StatusOK, map[string]any{"demands": public, "enterprises": es})
+	respond(w, r, http.StatusOK, map[string]any{"demands": public, "enterprises": publicEnts})
 }
 func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
-	result, err := s.demands.List(r.Context(), repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type"), Sort: r.URL.Query().Get("sort")})
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
+	q := r.URL.Query().Get("q")
+	mine := r.URL.Query().Get("mine") == "1"
+	var result []domain.Demand
+	if mine {
+		// mine=1：按发布者全量拉取（含 pending/rejected/draft 等全部状态），
+		// 此前先经 List（仅 published）再按发布者过滤，导致待审核/已驳回需求在"我的发布"页丢失。
+		// 未登录时返回空列表，绝不回退为"全部需求"（防止未登录泄露他人/种子数据）。
+		a, ok := authenticatedActor(r)
+		if ok {
+			var err error
+			result, err = s.demands.ListByPublisher(r.Context(), a.ID)
+			if err != nil {
+				fail(w, r, http.StatusInternalServerError, err)
+				return
+			}
+		}
+	} else {
+		var err error
+		result, err = s.demands.List(r.Context(), repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type"), Sort: r.URL.Query().Get("sort")})
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
 	}
 	// Keyword search filter
-	if q := r.URL.Query().Get("q"); q != "" {
+	if q != "" {
 		qs := strings.ToLower(q)
 		filtered := make([]domain.Demand, 0, len(result))
 		for _, d := range result {
@@ -577,22 +605,6 @@ func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		result = filtered
-	}
-	// Mine filter: only demands published by current user.
-	// 未登录时返回空列表，绝不回退为"全部需求"（防止未登录泄露他人/种子数据）。
-	if r.URL.Query().Get("mine") == "1" {
-		a, ok := authenticatedActor(r)
-		if !ok {
-			result = nil
-		} else {
-			filtered := make([]domain.Demand, 0, len(result))
-			for _, d := range result {
-				if d.PublisherID == a.ID {
-					filtered = append(filtered, d)
-				}
-			}
-			result = filtered
-		}
 	}
 	// C8 修复：不再手工切片——paginatedRespond 内部已按 page/page_size 分页，
 	// 双重切片导致 page≥2 恒为空。此处只做公开字段脱敏，分页交给响应层。
@@ -805,9 +817,9 @@ func (s *Server) listEmployment(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	out, total, err := s.employment.List(r.Context(), a, offset, pageSize)
+	// 双重分页修复：service/repo 已按 offset 切片，全量拉取后由 paginatedRespond
+	// 做唯一一次分页切片（否则 page≥2 恒为空）。
+	out, total, err := s.employment.List(r.Context(), a, 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -838,9 +850,8 @@ func (s *Server) listContracts(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	out, total, err := s.contracts.List(r.Context(), a, offset, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	out, total, err := s.contracts.List(r.Context(), a, 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return

@@ -234,8 +234,8 @@ const chongqingDistricts = [
 ]
 
 /* ===== 状态标签 ===== */
-const statusText = { recruiting: '招生中', full: '已满', upcoming: '即将开课', urgent: '名额紧张' }
-const statusClass = { recruiting: 'recruiting', full: 'full', upcoming: 'upcoming', urgent: 'urgent' }
+const statusText = { recruiting: '招生中', published: '招生中', full: '已满', upcoming: '即将开课', urgent: '名额紧张' }
+const statusClass = { recruiting: 'recruiting', published: 'recruiting', full: 'full', upcoming: 'upcoming', urgent: 'urgent' }
 
 /* ===== 地区筛选 ===== */
 function onDistrictChange(e) {

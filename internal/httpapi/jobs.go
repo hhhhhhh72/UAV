@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/service"
@@ -22,13 +23,14 @@ func (s *Server) createJob(w http.ResponseWriter, r *http.Request) {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		Location    string `json:"location"`
+		JobType     string `json:"job_type"`
 		SalaryFen   int64  `json:"salary_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	j, err := s.jobSvc.CreateJob(r.Context(), a, in.Title, in.Description, in.Location, in.SalaryFen)
+	j, err := s.jobSvc.CreateJob(r.Context(), a, in.Title, in.Description, in.Location, in.SalaryFen, in.JobType)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -75,14 +77,30 @@ func jobMutationCode(err error) int {
 	return http.StatusForbidden
 }
 
-// GET /api/v1/jobs
+// GET /api/v1/jobs?q=关键词&type=全职&page=1&page_size=10
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	items, total, err := s.jobSvc.ListPublishedJobs(r.Context(), offset, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	// q：标题/地点包含（大小写不敏感）；type：job_type 精确匹配
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	typ := r.URL.Query().Get("type")
+	if q != "" || typ != "" {
+		qs := strings.ToLower(q)
+		filtered := make([]domain.Job, 0, len(items))
+		for _, j := range items {
+			if typ != "" && j.JobType != typ {
+				continue
+			}
+			if q != "" && !strings.Contains(strings.ToLower(j.Title), qs) && !strings.Contains(strings.ToLower(j.Location), qs) {
+				continue
+			}
+			filtered = append(filtered, j)
+		}
+		items, total = filtered, len(filtered)
 	}
 	paginatedRespond(w, r, items, total)
 }

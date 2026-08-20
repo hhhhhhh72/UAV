@@ -188,7 +188,7 @@ const fetchDemands = async () => {
   loadingDemands.value = true
   errorMsg.value = ''
   try {
-    const res = await request({ url: '/api/v1/demands', data: { mine: 1 } })
+    const res = await request({ url: '/api/v1/demands', data: { mine: 1, page: 1, page_size: 100 } })
     const list = res?.data || res || []
     demands.value = Array.isArray(list) ? list : []
   } catch (e) {
@@ -303,7 +303,8 @@ const mapItem = (ti, it) => {
     const fen = it.budget_fen != null ? it.budget_fen : it.budgetFen
     if (fen != null && Number(fen) > 0) { valLabel = '预算'; valText = fmtWan(fen) }
   } else if (ti === 1) {
-    t = it.title || it.contractNo || '合同' + it.id
+    // 后端 Contract 无 title/contractNo/partyB 字段，编号缺失时用兜底文案
+    t = it.title || it.contractNo || '合同详情'
     d = it.partyB || it.counterparty || ''
   } else {
     t = it.product_name || it.productName || it.title || '订单' + it.id
@@ -401,8 +402,11 @@ const getStatusType = (status) => {
   if (!status) return 'default'
   if (status === 'pending' || status === '待处理' || status === 'draft' || status === '草稿' || status === 'aftersale' || status === '售后中') return 'warning'
   if (status === 'processing' || status === '处理中' || status === 'active' || status === '进行中' || status === 'paid' || status === '已付款' || status === 'shipped' || status === '已发货') return 'primary'
+  if (status === 'sent' || status === 'signing' || status === '已发送' || status === '签署中') return 'primary'
   if (status === 'completed' || status === '已完成' || status === 'done' || status === 'published' || status === '已上架') return 'success'
+  if (status === 'signed' || status === '已签署') return 'success'
   if (status === 'cancelled' || status === '已取消' || status === 'rejected' || status === '已拒绝') return 'danger'
+  if (status === 'voided' || status === '已作废' || status === 'expired' || status === '已到期') return 'danger'
   return 'default'
 }
 
@@ -421,6 +425,12 @@ const getStatusText = (status) => {
     paid: '已付款',
     shipped: '已发货',
     aftersale: '售后中',
+    // 合同状态（后端 ContractStatus）
+    sent: '已发送',
+    signing: '签署中',
+    signed: '已签署',
+    voided: '已作废',
+    expired: '已到期',
   }
   return map[status] || status
 }

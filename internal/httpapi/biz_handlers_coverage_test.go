@@ -60,22 +60,22 @@ func TestCommunityPostsPublishCommentsReports(t *testing.T) {
 	w := doRaw(app, http.MethodPost, "/api/v1/posts", `{"title":"匿名帖","content":"x"}`, "")
 	checkCode(t, http.MethodPost, "/api/v1/posts (anonymous)", w, http.StatusUnauthorized)
 
-	// 带 author token 发帖 → 201
+	// 带 author token 发帖 → 201（默认待审核，不进公开列表）
 	w = doRaw(app, http.MethodPost, "/api/v1/posts",
 		`{"title":"巡检经验","content":"分享作业心得","images":["/uploads/a.jpg"]}`, authorTok)
 	checkCode(t, http.MethodPost, "/api/v1/posts", w, http.StatusCreated)
 	postID := idFromBody(t, w)
 
-	// 帖子列表 → 200（含刚发布的帖子）
+	// 管理员发布 → 200（审核通过后才公开展示）
+	w = doRaw(app, http.MethodPost, "/api/v1/posts/"+postID+"/publish", "", adminTok)
+	checkCode(t, http.MethodPost, "/api/v1/posts/{id}/publish", w, http.StatusOK)
+
+	// 帖子列表 → 200（含已发布帖子）
 	w = doRaw(app, http.MethodGet, "/api/v1/posts", "", authorTok)
 	checkCode(t, http.MethodGet, "/api/v1/posts", w, http.StatusOK)
 	if !strings.Contains(w.Body.String(), postID) {
-		t.Fatalf("GET /api/v1/posts should contain created post %s: %s", postID, w.Body.String())
+		t.Fatalf("GET /api/v1/posts should contain published post %s: %s", postID, w.Body.String())
 	}
-
-	// 管理员发布 → 200
-	w = doRaw(app, http.MethodPost, "/api/v1/posts/"+postID+"/publish", "", adminTok)
-	checkCode(t, http.MethodPost, "/api/v1/posts/{id}/publish", w, http.StatusOK)
 
 	// 评论 → 201（createComment 从 body 读 post_id）
 	w = doRaw(app, http.MethodPost, "/api/v1/posts/"+postID+"/comments",

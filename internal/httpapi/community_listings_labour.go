@@ -64,9 +64,8 @@ func (s *Server) removePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listPosts(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	items, total, err := s.communitySvc.ListPublishedPosts(r.Context(), offset, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.communitySvc.ListPublishedPosts(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -143,9 +142,8 @@ func (s *Server) listReports(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	items, total, err := s.communitySvc.ListPendingReports(r.Context(), a, offset, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.communitySvc.ListPendingReports(r.Context(), a, 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -195,9 +193,8 @@ func (s *Server) closeListing(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listListings(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	items, total, err := s.listingSvc.ListListed(r.Context(), offset, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.listingSvc.ListListed(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -251,9 +248,9 @@ func (s *Server) listLabourOrders(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	items, total, err := s.labourSvc.ListOrders(r.Context(), a, offset, pageSize)
+	// 双重分页修复：全量拉取（管理员 ListAll / 雇主 ListByEmployer），
+	// paginatedRespond 唯一一次分页。
+	items, total, err := s.labourSvc.ListOrders(r.Context(), a, 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return

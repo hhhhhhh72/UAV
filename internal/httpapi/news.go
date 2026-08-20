@@ -82,8 +82,8 @@ func (s *Server) publishArticle(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/articles?category=policy&page=1&page_size=10
 func (s *Server) listArticles(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.newsSvc.ListByCategory(r.Context(), r.URL.Query().Get("category"), page, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.newsSvc.ListByCategory(r.Context(), r.URL.Query().Get("category"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

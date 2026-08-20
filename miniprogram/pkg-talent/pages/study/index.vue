@@ -221,8 +221,18 @@ const filteredByTheme = computed(() => {
   return baseList.value.filter((it) => themeInfo(it).value === activeTheme.value)
 })
 const displayList = computed(() => {
-  if (!selectedDistrict.value || selectedDistrict.value === '全部区县') return filteredByTheme.value
-  return filteredByTheme.value.filter((it) => (it.location || '').includes(selectedDistrict.value.slice(0, 2)))
+  let items = filteredByTheme.value
+  if (selectedDistrict.value && selectedDistrict.value !== '全部区县') {
+    items = items.filter((it) => (it.location || '').includes(selectedDistrict.value.slice(0, 2)))
+  }
+  // 搜索：后端 /api/v1/study/tours 不识别 keyword 参数，改为前端本地过滤 title/name
+  const k = keyword.value.trim().toLowerCase()
+  if (k) {
+    items = items.filter((it) =>
+      (String(it.title || '') + ' ' + String(it.name || '')).toLowerCase().includes(k)
+    )
+  }
+  return items
 })
 
 // ── 信息行右侧提示（仅展示当前筛选状态，不改任何筛选逻辑）──
@@ -278,7 +288,7 @@ async function loadData(reset) {
   errorMsg.value = ''
   try {
     var params = { page: page.value, page_size: pageSize }
-    if (keyword.value) params.keyword = keyword.value
+    // 后端不识别 keyword 参数，搜索走 displayList 前端本地过滤
     var res = await request({ url: '/api/v1/study/tours', data: params })
     var data = Array.isArray(res) ? res : (res && res.data) || res || {}
     var items = Array.isArray(data) ? data : (data && data.items) || []

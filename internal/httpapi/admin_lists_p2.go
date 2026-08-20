@@ -9,8 +9,8 @@ import "net/http"
 
 // GET /api/v1/admin/policies
 func (s *Server) listAdminPolicies(w http.ResponseWriter, r *http.Request) {
-	page, ps := paginationFromQuery(r)
-	list, total, err := s.insuranceSvc.ListAllPolicies(r.Context(), (page-1)*ps, ps)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	list, total, err := s.insuranceSvc.ListAllPolicies(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -30,8 +30,8 @@ func (s *Server) listAdminInspections(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/repairs
 func (s *Server) listAdminRepairs(w http.ResponseWriter, r *http.Request) {
-	page, ps := paginationFromQuery(r)
-	list, total, err := s.tradingSvc.ListAllRepairs(r.Context(), (page-1)*ps, ps)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	list, total, err := s.tradingSvc.ListAllRepairs(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -41,8 +41,8 @@ func (s *Server) listAdminRepairs(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/loans
 func (s *Server) listAdminLoans(w http.ResponseWriter, r *http.Request) {
-	page, ps := paginationFromQuery(r)
-	list, total, err := s.financeSvc.ListAllLoans(r.Context(), (page-1)*ps, ps)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	list, total, err := s.financeSvc.ListAllLoans(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -52,8 +52,8 @@ func (s *Server) listAdminLoans(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/admin/resumes
 func (s *Server) listAdminResumes(w http.ResponseWriter, r *http.Request) {
-	page, ps := paginationFromQuery(r)
-	list, total, err := s.jobSvc.ListAllResumes(r.Context(), (page-1)*ps, ps)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	list, total, err := s.jobSvc.ListAllResumes(r.Context(), 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

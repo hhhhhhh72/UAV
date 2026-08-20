@@ -539,11 +539,13 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	totalPosts := len(posts)
 
-	pendingList, _, err := s.reviewSvc.ListAll(r.Context(), "", 0, 10000)
+	// pending_reports：社区举报待处理数（Report.status=pending）。
+	// 此前误用 ReviewService.ListAll（企业评价审核）且 status="" 全量，字段名与实体不符。
+	pendingReports, _, err := s.communitySvc.ListPendingReports(r.Context(), a, 0, 10000)
 	if err != nil {
 		slog.Warn("admin dashboard: load pending reports", "err", err)
 	}
-	totalReports := len(pendingList)
+	totalReports := len(pendingReports)
 
 	users, err := s.userRepo.All(r.Context())
 	if err != nil {

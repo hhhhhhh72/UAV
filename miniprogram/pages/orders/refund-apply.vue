@@ -108,7 +108,8 @@ const submitting = ref(false)
 const reason = ref('')
 let orderId = ''
 
-const as = computed(() => order.value?.detail?.aftersale || null)
+// 售后信息在订单顶层（orderAdapter normalizeRealOrder 的 aftersale 字段），detail 里没有
+const as = computed(() => order.value?.aftersale || null)
 const defaultReason = computed(() =>
   as.value?.description ? `已提交：${as.value.description}` : '请描述需要退款的原因',
 )

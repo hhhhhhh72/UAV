@@ -227,7 +227,9 @@ async function fetchResume() {
 
   try {
     const res = await request({ url: '/api/v1/resumes/mine' })
-    const data = (res && res.data) || res || null
+    // GET /api/v1/resumes/mine 经 request.js unwrap 后是数组，取第一条
+    const arr = Array.isArray(res) ? res : ((res && res.data) || [])
+    const data = arr[0] || {}
     if (data && (data.id || data._id)) {
       resumeId.value = data.id || data._id
       form.name = data.name || ''

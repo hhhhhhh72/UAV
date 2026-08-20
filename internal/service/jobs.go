@@ -35,7 +35,8 @@ func NewJobService(j repository.JobRepository, r repository.ResumeRepository, a 
 
 // ---- Jobs ----
 
-func (s *JobService) CreateJob(ctx context.Context, a domain.Actor, title, desc, location string, salaryFen int64) (domain.Job, error) {
+// CreateJob jobTypes 为可选参数：第 1 个即 job_type（变参避免改动既有测试/调用点签名）。
+func (s *JobService) CreateJob(ctx context.Context, a domain.Actor, title, desc, location string, salaryFen int64, jobTypes ...string) (domain.Job, error) {
 	if a.Role != domain.RoleEnterprise && a.Role != domain.RolePlatformAdmin {
 		return domain.Job{}, errors.New("only enterprise can post jobs")
 	}
@@ -44,6 +45,9 @@ func (s *JobService) CreateJob(ctx context.Context, a domain.Actor, title, desc,
 	// 否则内存/PG 按 ID 更新会错配到前一条记录。
 	j := domain.Job{ID: fmt.Sprintf("job-%d-%d", now.UnixNano(), nextSeq()), EnterpriseID: a.ID, Title: title, Description: desc,
 		Location: location, SalaryFen: salaryFen, Status: domain.JobDraft, Version: 1, CreatedAt: now, UpdatedAt: now}
+	if len(jobTypes) > 0 {
+		j.JobType = jobTypes[0]
+	}
 	slog.Info("job created", "job_id", j.ID, "enterprise_id", j.EnterpriseID)
 	return s.repo.Create(ctx, j)
 }

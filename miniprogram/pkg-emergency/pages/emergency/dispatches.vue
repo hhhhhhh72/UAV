@@ -278,7 +278,8 @@ export default {
     relatedResources() {
       var d = this.activeDetail
       if (!d) return []
-      // 服务端内嵌关联资源优先
+      // 服务端内嵌关联资源优先（后端 related 是单对象 EmergencyResourceBrief，兼容数组/对象两种形态）
+      if (d.related && !Array.isArray(d.related)) return [d.related]
       if (d.related && d.related.length) return d.related
       if (!d.resource_id) return []
       var rid = String(d.resource_id)

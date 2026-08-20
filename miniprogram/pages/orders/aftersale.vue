@@ -76,10 +76,10 @@
           <text>同意退款</text>
         </view>
       </view>
-      <!-- 买家视角：补充退款申请 -->
-      <view v-else-if="!isSeller && order" class="action-wrap">
+      <!-- 买家视角：售后未结案时可补充说明（结案单 approved/rejected 后端拒绝重复申请，不展示入口） -->
+      <view v-else-if="!isSeller && order && as && as.status === '待审核'" class="action-wrap">
         <view class="action-btn" @tap="goRefundApply">
-          <text>补充退款申请</text>
+          <text>补充说明</text>
         </view>
       </view>
     </template>

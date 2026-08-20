@@ -104,15 +104,20 @@ const STATUS_DUE_TEXT = {
 /* ================= 真实商品订单 ================= */
 
 async function fetchProductMap() {
+  const map = {}
   try {
-    const res = await request({ url: '/api/v1/products', data: { page: 1, page_size: 100 } })
-    const list = Array.isArray(res) ? res : (res?.data || [])
-    const map = {}
-    list.forEach((p) => { if (p && p.id) map[p.id] = p })
-    return map
+    // 翻页拉全量（后端 page_size 上限 100，商品可能超过一页；映射缺失时订单标题/图会回落兜底）
+    for (let page = 1; page <= 10; page++) {
+      const res = await request({ url: '/api/v1/products', data: { page, page_size: 100 } })
+      const list = Array.isArray(res) ? res : (res?.data || [])
+      if (!Array.isArray(list) || list.length === 0) break
+      list.forEach((p) => { if (p && p.id) map[p.id] = p })
+      if (list.length < 100) break
+    }
   } catch (e) {
-    return {}
+    /* 映射失败时订单回落兜底展示 */
   }
+  return map
 }
 
 async function fetchRealOrders() {

@@ -54,6 +54,10 @@ func (s *LabourService) CreateOrder(ctx context.Context, a domain.Actor, title, 
 	if budget < 0 {
 		return domain.LabourOrder{}, errors.New("budget cannot be negative")
 	}
+	// 时间范围校验：结束时间必须晚于开始时间（与 EventService 同款校验）
+	if !end.After(start) {
+		return domain.LabourOrder{}, errors.New("结束时间必须晚于开始时间")
+	}
 	now := time.Now()
 	o := domain.LabourOrder{ID: nextID("labour"), EmployerID: a.ID, Title: title,
 		Description: desc, WorkerCount: workers, StartDate: start, EndDate: end, BudgetFen: budget, Status: "draft",

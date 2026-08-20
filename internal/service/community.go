@@ -26,7 +26,9 @@ func NewCommunityService(p repository.PostRepository, c repository.CommentReposi
 
 func (s *CommunityService) CreatePost(ctx context.Context, a domain.Actor, title, content string, images []string) (domain.Post, error) {
 	now := time.Now()
-	p := domain.Post{ID: nextID("post"), AuthorID: a.ID, Title: title, Content: content, Images: images, Status: "published", Version: 1, CreatedAt: now, UpdatedAt: now}
+	// 帖子创建后默认为待审核（pending），经管理端 PublishPost 上架后公开展示
+	// （与 models.go 注释"Posts are invisible until an admin publishes them"一致）。
+	p := domain.Post{ID: nextID("post"), AuthorID: a.ID, Title: title, Content: content, Images: images, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	slog.Info("post created", "post_id", p.ID, "author_id", p.AuthorID)
 	return s.post.Create(ctx, p)
 }

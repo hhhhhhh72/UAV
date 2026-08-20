@@ -4,13 +4,16 @@
 #   0 3 * * * /home/ubuntu/UAV/deploy/db-backup.sh >> /home/ubuntu/UAV-db-backups/cron.log 2>&1
 set -euo pipefail
 
+# 容器名参数化：默认 uav-db-1（docker-compose.yml 中 db 服务已固定 container_name: uav-db-1，
+# 不再依赖项目目录推导；多环境部署可用 CONTAINER=xxx ./db-backup.sh 覆盖）
+CONTAINER=${CONTAINER:-uav-db-1}
 KEEP=${KEEP:-14}
 DIR="$HOME/UAV-db-backups"
 STAMP=$(date +%Y%m%d-%H%M%S)
 LOG="$DIR/backup.log"
 mkdir -p "$DIR"
 
-sudo docker exec uav-db-1 pg_dump -U drone -d drone_platform | gzip > "$DIR/uav-db-$STAMP.sql.gz"
+sudo docker exec "$CONTAINER" pg_dump -U drone -d drone_platform | gzip > "$DIR/uav-db-$STAMP.sql.gz"
 
 # 空文件视为失败（防 pg_dump 静默失败留下空档备份）
 if [ ! -s "$DIR/uav-db-$STAMP.sql.gz" ]; then

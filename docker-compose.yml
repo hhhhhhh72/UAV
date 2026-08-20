@@ -4,11 +4,15 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # 固定容器名：deploy/db-backup.sh 的 docker exec 目标（原按项目目录推导，改名即静默失败）
+    container_name: uav-db-1
     environment:
       POSTGRES_USER: drone
       # 密码从 .env 读取（不再硬编码进 git）；本地开发默认值仅限 loopback 访问
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-drone_secret}"
       POSTGRES_DB: drone_platform
+      # 与 api 一致使用东八区：备份脚本时间戳、日志时间与服务器本地时间对齐
+      TZ: Asia/Shanghai
     ports:
       # 仅绑定回环：本机 run_api.bat 需要 5433，但不对局域网/公网暴露 DB
       - "127.0.0.1:5433:5432"
@@ -23,6 +27,12 @@ services:
       resources:
         limits:
           memory: 512M
+    # docker logs 轮转上限：单文件 20M × 5 份，防止 db 日志无限增长占满磁盘
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   api:
     build: .
@@ -61,10 +71,20 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # docker logs 轮转上限：应用日志同时落文件（/logs 卷，50MB×5 轮转），
+    # json-file 再兜一层 20M×5，杜绝 docker logs 无限增长。
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     deploy:
       resources:
         limits:
-          memory: 256M
+          # 图片缩放单请求峰值 >130MB，256M 有 OOM 风险 → 512m 保守充足
+          memory: 512M
+          # 限制单容器 CPU 上限，防止图片处理打满宿主机
+          cpus: "2.0"
 
 volumes:
   pgdata:

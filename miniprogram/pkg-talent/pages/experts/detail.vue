@@ -28,8 +28,8 @@
       <view class="header-card">
         <view class="avatar-wrap">
           <image
-            v-if="expert.avatar"
-            :src="expert.avatar"
+            v-if="expert.avatar_url || expert.avatar"
+            :src="expert.avatar_url || expert.avatar"
             mode="aspectFill"
             class="avatar-img"
           />
@@ -40,7 +40,7 @@
         <view class="header-info">
           <text class="expert-name">{{ expert.name }}</text>
           <text v-if="expert.title" class="expert-title">{{ expert.title }}</text>
-          <text v-if="expert.organization" class="expert-org">{{ expert.organization }}</text>
+          <text v-if="expert.org || expert.organization" class="expert-org">{{ expert.org || expert.organization }}</text>
           <view class="field-tags">
             <u-tag
               v-for="(f, fi) in parseFields(expert.field)"
@@ -68,9 +68,9 @@
 
         <u-cell-group inset>
           <u-cell
-            v-if="expert.organization"
+            v-if="expert.org || expert.organization"
             title="所属机构"
-            :value="expert.organization"
+            :value="expert.org || expert.organization"
           />
           <u-cell
             v-if="expert.email"

@@ -182,7 +182,10 @@ func (s *DemandService) Review(ctx context.Context, a domain.Actor, id, action, 
 		d.BizFields["reject_reason"] = reason
 		return s.repo.Update(ctx, d)
 	case "supplement":
-		return s.repo.SetStatus(ctx, id, domain.DemandPending)
+		// 前端未使用该动作，且 Demand 无"需补充"状态/字段支撑该流转：
+		// 原实现只是把已是 pending 的需求再置 pending（恒 no-op）。
+		// 直接返回明确错误，避免调用方误以为已生效。
+		return domain.Demand{}, errors.New("不支持该动作：需求审核仅支持 approve / reject")
 	default:
 		return domain.Demand{}, fmt.Errorf("unknown review action: %s", action)
 	}

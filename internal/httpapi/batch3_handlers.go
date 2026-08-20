@@ -53,9 +53,9 @@ func (s *Server) createRescueCase(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusCreated, rc)
 }
 func (s *Server) listRescueCases(w http.ResponseWriter, r *http.Request) {
-	page, ps := paginationFromQuery(r)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
 	// event_type 支持中文（山火/洪水/…）与英文别名（mountain_fire/…），服务层归一
-	list, total, err := s.rescueCaseSvc.List(r.Context(), r.URL.Query().Get("event_type"), r.URL.Query().Get("q"), page, ps)
+	list, total, err := s.rescueCaseSvc.List(r.Context(), r.URL.Query().Get("event_type"), r.URL.Query().Get("q"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -146,8 +146,8 @@ func (s *Server) addAssociationMember(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusCreated, m)
 }
 func (s *Server) listAssociationMembers(w http.ResponseWriter, r *http.Request) {
-	page, ps := paginationFromQuery(r)
-	list, total, err := s.assocMemberSvc.ListMembers(r.Context(), r.URL.Query().Get("role"), page, ps)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	list, total, err := s.assocMemberSvc.ListMembers(r.Context(), r.URL.Query().Get("role"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

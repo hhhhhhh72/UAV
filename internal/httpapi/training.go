@@ -351,19 +351,9 @@ func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
 		pilots[i].UserID = maskUserID(pilots[i].UserID)
 	}
 	// 分页（兼容：显式传 page_size 才分页，否则保持全量返回）
-	if ps := r.URL.Query().Get("page_size"); ps != "" {
-		page, size := paginationFromQuery(r)
-		total := len(pilots)
-		start := (page - 1) * size
-		if start >= total {
-			paginatedRespond(w, r, []domain.CertifiedPilotDetail{}, total)
-			return
-		}
-		end := start + size
-		if end > total {
-			end = total
-		}
-		paginatedRespond(w, r, pilots[start:end], total)
+	// 双重分页修复：不再手工切片——paginatedRespond 内部按 page/page_size 唯一一次分页。
+	if r.URL.Query().Get("page_size") != "" {
+		paginatedRespond(w, r, pilots, len(pilots))
 		return
 	}
 	respond(w, r, http.StatusOK, pilots)

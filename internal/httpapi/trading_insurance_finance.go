@@ -97,8 +97,12 @@ func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// P1 脱敏：公开请求返回前替换手机号注册用户的 seller_id，防止手机号泄露。
+	// 商品本人（卖家）查看自己的商品时保留真实 ID——前端 isOwnProduct 依赖它
+	// 隐藏"立即购买"按钮（自买后端同样拒绝）。
 	if !isAdminRequest(r) {
-		p.SellerID = maskUserID(p.SellerID)
+		if a, ok := authenticatedActor(r); !ok || a.ID != p.SellerID {
+			p.SellerID = maskUserID(p.SellerID)
+		}
 	}
 	respond(w, r, http.StatusOK, p)
 }

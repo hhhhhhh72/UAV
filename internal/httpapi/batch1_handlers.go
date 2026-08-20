@@ -287,7 +287,11 @@ func (s *Server) applyBooth(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
 		return
 	}
-	var in struct{ BoothNumber, ExhibitName, ExhibitDesc string }
+	var in struct {
+		BoothNumber  string `json:"booth_number"`
+		ExhibitName  string `json:"exhibit_name"`
+		ExhibitDesc  string `json:"exhibit_desc"`
+	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return

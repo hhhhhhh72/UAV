@@ -206,8 +206,8 @@ async function refresh() {
     const [dRes, pRes, sRes, cRes] = await Promise.all([
       request({ url: '/api/v1/demands', data: { mine: '1', page: 1, page_size: 100 } }),
       request({ url: '/api/v1/products', data: { mine: '1', page: 1, page_size: 100 } }),
-      request({ url: '/api/v1/service-listings', data: { mine: '1' } }),
-      request({ url: '/api/v1/training-courses', data: { mine: '1' } }),
+      request({ url: '/api/v1/service-listings', data: { mine: '1', page: 1, page_size: 100 } }),
+      request({ url: '/api/v1/training-courses', data: { mine: '1', page: 1, page_size: 100 } }),
     ])
     const dList = Array.isArray(dRes) ? dRes : dRes?.data || []
     const pList = Array.isArray(pRes) ? pRes : pRes?.data || []

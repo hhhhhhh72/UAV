@@ -490,7 +490,7 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	j, err := s.jobSvc.CreateJob(r.Context(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, in.Title, in.Description, in.Location, in.SalaryFen)
+	j, err := s.jobSvc.CreateJob(r.Context(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, in.Title, in.Description, in.Location, in.SalaryFen, in.JobType)
 	if err != nil {
 		adminFail(w, r, err)
 		return

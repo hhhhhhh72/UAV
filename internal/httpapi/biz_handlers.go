@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -128,7 +129,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 // ---- Experts ----
 
-// GET /api/v1/experts?field=农业
+// GET /api/v1/experts?field=农业&q=关键词&page=1&page_size=10
 func (s *Server) listExperts(w http.ResponseWriter, r *http.Request) {
 	items, err := s.expertSvc.List(r.Context(), r.URL.Query().Get("field"))
 	if err != nil {
@@ -147,7 +148,21 @@ func (s *Server) listExperts(w http.ResponseWriter, r *http.Request) {
 		}
 		items = pub
 	}
-	respond(w, r, http.StatusOK, items)
+	// 关键词过滤（姓名/领域/机构，大小写不敏感）
+	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
+		qs := strings.ToLower(q)
+		filtered := make([]domain.Expert, 0, len(items))
+		for _, e := range items {
+			if strings.Contains(strings.ToLower(e.Name), qs) ||
+				strings.Contains(strings.ToLower(e.Field), qs) ||
+				strings.Contains(strings.ToLower(e.Org), qs) {
+				filtered = append(filtered, e)
+			}
+		}
+		items = filtered
+	}
+	// 单次分页：传全量 + total，分页交给 paginatedRespond（避免双重切片导致 page≥2 恒空）
+	paginatedRespond(w, r, items, len(items))
 }
 
 // POST /api/v1/admin/experts
@@ -245,8 +260,9 @@ func (s *Server) deleteExpert(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/cases?category=农业&page=1&page_size=10
 func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), page, pageSize)
+	// 系统性双重分页修复：service/repo 已按 offset 切片，不能再交 paginatedRespond
+	// 二次切片（page≥2 恒空）——全量拉取，分页只由响应层做一次。
+	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -360,8 +376,8 @@ func (s *Server) deleteCase(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/compliance-docs?category=政策法规&page=1&page_size=10
 func (s *Server) listComplianceDocs(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.complianceSvc.ListDocs(r.Context(), r.URL.Query().Get("category"), page, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.complianceSvc.ListDocs(r.Context(), r.URL.Query().Get("category"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -406,8 +422,8 @@ func (s *Server) createComplianceDoc(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/compliance-standards?category=团体标准&page=1&page_size=10
 func (s *Server) listComplianceStandards(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.complianceSvc.ListStandards(r.Context(), r.URL.Query().Get("category"), page, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.complianceSvc.ListStandards(r.Context(), r.URL.Query().Get("category"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -463,7 +479,19 @@ func (s *Server) listIndustryReports(w http.ResponseWriter, r *http.Request) {
 	filtered, _ := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(rep domain.IndustryReport) string { return rep.Title },
 		func(rep domain.IndustryReport) string { return rep.Status })
-	// 类型筛选（category：whitepaper/research/analysis/other）
+	// 类型筛选：兼容 category 枚举（whitepaper/research/analysis/other）与
+	// 小程序中文 type 参数（白皮书/调研报告/年度报告）。
+	if t := r.URL.Query().Get("type"); t != "" {
+		want := mapReportCategory(t)
+		tmp := make([]domain.IndustryReport, 0, len(filtered))
+		for _, rep := range filtered {
+			if rep.Category == want {
+				tmp = append(tmp, rep)
+			}
+		}
+		filtered = tmp
+	}
+	// category 参数（枚举原值直配，保留向后兼容）
 	if cat := r.URL.Query().Get("category"); cat != "" {
 		tmp := make([]domain.IndustryReport, 0, len(filtered))
 		for _, rep := range filtered {
@@ -474,6 +502,24 @@ func (s *Server) listIndustryReports(w http.ResponseWriter, r *http.Request) {
 		filtered = tmp
 	}
 	paginatedRespond(w, r, filtered, len(filtered))
+}
+
+// mapReportCategory 把小程序中文类型参数（或枚举原值）映射到 category 枚举。
+// 白皮书 → whitepaper；调研报告 → research；年度报告 → analysis；其他 → other；
+// 已是枚举原值（whitepaper 等）或未知值时原样返回，直接按 category 匹配。
+func mapReportCategory(t string) string {
+	switch t {
+	case "白皮书", "whitepaper":
+		return "whitepaper"
+	case "调研报告", "research":
+		return "research"
+	case "年度报告", "analysis":
+		return "analysis"
+	case "其他", "other":
+		return "other"
+	default:
+		return t
+	}
 }
 
 // POST /api/v1/admin/industry-reports
@@ -530,13 +576,30 @@ func (s *Server) deleteIndustryReport(w http.ResponseWriter, r *http.Request) {
 
 // ---- Portfolio ----
 
-// GET /api/v1/portfolios?page=1&page_size=10
+// GET /api/v1/portfolios?q=关键词&sort=created_at&page=1&page_size=10
+// 模型无 Views/category 字段：不支持热度排序与分类筛选（前端筛选保留 UI 但不生效）。
 func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.portfolioSvc.ListPublished(r.Context(), page, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.portfolioSvc.ListPublished(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	// q：名称/描述包含（大小写不敏感）
+	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
+		qs := strings.ToLower(q)
+		filtered := make([]domain.MemberPortfolio, 0, len(items))
+		for _, p := range items {
+			if strings.Contains(strings.ToLower(p.Name), qs) ||
+				strings.Contains(strings.ToLower(p.Description), qs) {
+				filtered = append(filtered, p)
+			}
+		}
+		items, total = filtered, len(filtered)
+	}
+	// sort：created_at desc 为默认（唯一支持的值）；其余值忽略（无 views 字段，不支持热度排序）
+	if sortBy := r.URL.Query().Get("sort"); sortBy == "" || sortBy == "created_at" {
+		sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	}
 	paginatedRespond(w, r, items, total)
 }
@@ -1566,8 +1629,8 @@ func (s *Server) updateIndustryResource(w http.ResponseWriter, r *http.Request) 
 
 // GET /api/v1/emergency-resources?page=1&page_size=10&res_type=drone&q=关键词
 func (s *Server) listEmergencyResources(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.emergencySvc.ListResources(r.Context(), r.URL.Query().Get("res_type"), r.URL.Query().Get("q"), page, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	items, total, err := s.emergencySvc.ListResources(r.Context(), r.URL.Query().Get("res_type"), r.URL.Query().Get("q"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -1612,8 +1675,10 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 // status 筛选支持页面 dispatches.vue 值域：pending / dispatched / completed / ongoing / done / cancelled
 // resource_id 筛选：只看某资源的调度记录
 func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.emergencySvc.ListDispatches(r.Context(), r.URL.Query().Get("resource_id"), page, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页。
+	// status 筛选必须在分页前：先在全量结果上按 status 过滤，再交响应层分页——
+	// 旧实现先分页后过滤，导致 total 错误且翻页错乱。
+	items, total, err := s.emergencySvc.ListDispatches(r.Context(), r.URL.Query().Get("resource_id"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

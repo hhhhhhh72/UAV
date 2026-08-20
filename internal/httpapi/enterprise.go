@@ -141,9 +141,9 @@ func (s *Server) listEnterprises(w http.ResponseWriter, r *http.Request) {
 	if status == "all" {
 		status = ""
 	}
-	page, pageSize := paginationFromQuery(r)
-	offset := (page - 1) * pageSize
-	items, total, err := s.enterpriseSvc.ListByStatus(r.Context(), a, status, offset, pageSize)
+	// 双重分页修复：全量拉取，paginatedRespond 唯一一次分页（service/repo
+	// 已按 offset 切片，二次切片导致 page≥2 恒为空）。
+	items, total, err := s.enterpriseSvc.ListByStatus(r.Context(), a, status, 0, 100000)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return

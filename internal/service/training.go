@@ -29,10 +29,14 @@ func NewTrainingService(cr repository.CertificateRepository, cor repository.Cour
 // ---- Certificates ----
 
 func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, certType domain.CertType, certNumber, level, issuer string, issueDate, expireDate time.Time) (domain.Certificate, error) {
-	// 幂等：cert_number 已存在（如 completeEnrollment 重试/并发）直接返回已有证书，防重复发证
+	// 幂等/防撞号：cert_number 已存在时——本人持有则幂等返回已有证书（completeEnrollment 重试），
+	// 他人持有则报错（防用户提交他人已占用的证书号静默返回错误结果）。
 	if certNumber != "" {
 		if existing, err := s.certRepo.FindByNumber(ctx, certNumber); err == nil {
-			return existing, nil
+			if existing.UserID == a.ID {
+				return existing, nil
+			}
+			return domain.Certificate{}, fmt.Errorf("certificate number %q already exists", certNumber)
 		}
 	}
 	now := time.Now()
@@ -130,6 +134,10 @@ func (s *TrainingService) UpdateCourse(ctx context.Context, c domain.TrainingCou
 	if !validCourseStatus(c.Status) {
 		return domain.TrainingCourse{}, fmt.Errorf("invalid course status %q", c.Status)
 	}
+	// 机构归属不可经更新接口篡改/丢失：PG 模式 UPDATE 语句不含 org_id（天然保留），
+	// 内存模式是整条替换——不显式保留会导致管理端改课程后 OrgID 清空，
+	// completeEnrollment 学费释放目标变成空用户（资金路径断裂）。
+	c.OrgID = old.OrgID
 	c.Version = old.Version
 	c.CreatedAt = old.CreatedAt // 保留原创建时间
 	c.UpdatedAt = time.Now()

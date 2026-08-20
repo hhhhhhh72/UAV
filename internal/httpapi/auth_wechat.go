@@ -131,7 +131,10 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 	if role == "" {
 		role = domain.RoleIndividual
 		// Super admin phone always gets platform_admin role.
-		if superPhone := os.Getenv("SUPER_ADMIN_PHONE"); superPhone != "" && u.ID == superPhone {
+		// 用户 ID 形如 "user-<手机号>"（手机号注册）或 "user-<unixnano>"（微信首登），
+		// 微信注册用户 openid 为 "phone:<手机号>"——环境变量为裸手机号，需带前缀比较。
+		if superPhone := os.Getenv("SUPER_ADMIN_PHONE"); superPhone != "" &&
+			(u.ID == superPhone || u.ID == "user-"+superPhone || u.WechatOpenID == "phone:"+superPhone) {
 			role = domain.RolePlatformAdmin
 		}
 	}

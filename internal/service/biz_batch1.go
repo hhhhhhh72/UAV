@@ -90,6 +90,10 @@ func (s *TestSiteService) UpdateSite(ctx context.Context, id, name, siteType, lo
 }
 
 func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, contactName, contactPhone string, startTime, endTime time.Time) (domain.TestSiteBooking, error) {
+	// 时间范围校验：结束时间必须晚于开始时间（与 EventService 同款校验）
+	if !endTime.After(startTime) {
+		return domain.TestSiteBooking{}, errors.New("结束时间必须晚于开始时间")
+	}
 	// Check conflicts
 	bookings, err := s.repo.ListBookings(ctx, siteID)
 	if err != nil {

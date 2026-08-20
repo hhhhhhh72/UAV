@@ -13,10 +13,10 @@ import (
 // === Community ===
 func TestCommunityAll(t *testing.T) {
 	svc := service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository())
-	// CreatePost
+	// CreatePost — 默认待审核（pending），管理端 PublishPost 后公开
 	p, _ := svc.CreatePost(context.Background(), entActor(), "帖子标题", "内容", nil)
-	if p.Status != "published" {
-		t.Fatal("post should be published")
+	if p.Status != "pending" {
+		t.Fatal("post should be pending until admin publishes")
 	}
 	// PublishPost
 	svc.PublishPost(context.Background(), admActor(), p.ID)

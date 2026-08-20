@@ -23,10 +23,15 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
+	"sync"
 	"syscall"
 	"time"
 
@@ -41,9 +46,124 @@ import (
 	"drone-platform/internal/service"
 )
 
+// rotateWriter 大小轮转的文件 writer：日志同时落盘时使用。
+// 单文件超过 maxBytes 即滚动新文件（文件名带日期+序号），目录内最多保留 keep 份。
+// 项目此前 logger 包的 writeFile 只被 logger.Info/Warn/Error 调用，
+// 而全代码一律用 slog.*（直出 stdout），文件日志实为死代码——这里把文件输出
+// 接进 slog handler（MultiWriter: stdout + 文件），文件不再只写不读。
+type rotateWriter struct {
+	mu       sync.Mutex
+	dir      string
+	maxBytes int64
+	keep     int
+	f        *os.File
+	seq      int
+	size     int64
+}
+
+func newRotateWriter(dir string) *rotateWriter {
+	return &rotateWriter{dir: dir, maxBytes: 50 << 20, keep: 5}
+}
+
+func (rw *rotateWriter) Write(p []byte) (int, error) {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+	if rw.f == nil {
+		if err := rw.open(); err != nil {
+			return 0, err
+		}
+	}
+	if rw.size+int64(len(p)) > rw.maxBytes {
+		_ = rw.f.Close()
+		rw.f = nil
+		if err := rw.open(); err != nil {
+			return 0, err
+		}
+	}
+	n, err := rw.f.Write(p)
+	rw.size += int64(n)
+	return n, err
+}
+
+// open 打开下一个日志文件：跳过已超限的同名文件（进程重启后继续滚动），并清理旧文件。
+func (rw *rotateWriter) open() error {
+	for {
+		rw.seq++
+		name := filepath.Join(rw.dir, fmt.Sprintf("app-%s-%03d.log", time.Now().Format("2006-01-02"), rw.seq))
+		f, err := os.OpenFile(name, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		st, err := f.Stat()
+		if err != nil {
+			_ = f.Close()
+			return err
+		}
+		if st.Size() >= rw.maxBytes {
+			_ = f.Close()
+			continue // 该文件已满，滚动到下一个序号
+		}
+		rw.f = f
+		rw.size = st.Size()
+		rw.cleanup()
+		return nil
+	}
+}
+
+// cleanup 只保留最近 keep 份日志文件（按修改时间倒序）。
+func (rw *rotateWriter) cleanup() {
+	entries, _ := filepath.Glob(filepath.Join(rw.dir, "app-*.log"))
+	if len(entries) <= rw.keep {
+		return
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		fi, _ := os.Stat(entries[i])
+		fj, _ := os.Stat(entries[j])
+		if fi == nil || fj == nil {
+			return false
+		}
+		return fi.ModTime().After(fj.ModTime())
+	})
+	for _, e := range entries[rw.keep:] {
+		_ = os.Remove(e)
+	}
+}
+
 func main() {
 	cfg := config.Load()
 	logger.Init(cfg.Server.Env)
+	// 文件日志接线：stdout + LOG_DIR（默认 ./logs，容器 cwd=/ 即 /logs 卷）双写，
+	// 大小轮转由 rotateWriter 负责；级别/格式沿用 logger.Init 的 env 约定。
+	logDir := os.Getenv("LOG_DIR")
+	if logDir == "" {
+		logDir = "./logs"
+	}
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		slog.Warn("create log dir failed, file logging disabled", "dir", logDir, "error", err)
+	} else {
+		rw := newRotateWriter(logDir)
+		level := slog.LevelInfo
+		if cfg.Server.Env == "development" || cfg.Server.Env == "dev" {
+			level = slog.LevelDebug
+		}
+		switch os.Getenv("LOG_LEVEL") {
+		case "error":
+			level = slog.LevelError
+		case "warn":
+			level = slog.LevelWarn
+		case "debug":
+			level = slog.LevelDebug
+		}
+		opts := &slog.HandlerOptions{Level: level}
+		var handler slog.Handler
+		if cfg.Server.Env == "production" {
+			handler = slog.NewJSONHandler(io.MultiWriter(os.Stdout, rw), opts)
+		} else {
+			handler = slog.NewTextHandler(io.MultiWriter(os.Stdout, rw), opts)
+		}
+		slog.SetDefault(slog.New(handler))
+		slog.Info("file logging enabled", "dir", logDir, "max_bytes_per_file", rw.maxBytes, "keep", rw.keep)
+	}
 	val := cfg.Validate()
 	if len(val.Errors) > 0 {
 		for _, e := range val.Errors {
@@ -221,7 +341,9 @@ func main() {
 		workOrderRepo = pgStore.NewWorkOrderRepository()
 		uploadRepo = pgStore.NewUploadRepository()
 	} else {
-		slog.Warn("DATABASE_URL not set, using in-memory storage (NOT FOR PRODUCTION)")
+		// A3 生产安全告警：脱离 compose 部署（ENV 默认 development）且未配 DATABASE_URL 时，
+		// 系统静默退回内存存储，重启即丢数据。此处醒目告警，运维排障第一眼可见。
+		slog.Warn("running with IN-MEMORY storage, data will be lost on restart (DATABASE_URL not set; NOT FOR PRODUCTION)")
 		demandRepo = memory.NewDemandRepository(cipher)
 		intentRepo = memory.NewIntentRepository()
 		workOrderRepo = memory.NewWorkOrderRepository()

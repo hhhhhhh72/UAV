@@ -78,6 +78,10 @@ func (s *VenueService) List(ctx context.Context, venueType string) ([]domain.Ven
 }
 
 func (s *VenueService) Book(ctx context.Context, venueID, userID string, start, end time.Time) (domain.VenueBooking, error) {
+	// 时间范围校验：结束时间必须晚于开始时间（与 EventService 同款校验）
+	if !end.After(start) {
+		return domain.VenueBooking{}, errors.New("结束时间必须晚于开始时间")
+	}
 	// Check for time-slot conflicts.
 	bookings, err := s.repo.ListBookings(ctx, venueID)
 	if err != nil {

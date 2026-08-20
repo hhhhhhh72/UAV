@@ -43,7 +43,8 @@
             <view class="dp-info">
               <view class="dp-name-row">
                 <text class="dp-name">{{ item.name }}</text>
-                <text class="agree-tag" :class="item.agreement_status === '已签署' ? 'agree-tag--yes' : 'agree-tag--no'">{{ item.agreement_status === '已签署' ? '已签署' : '未签署' }}</text>
+                <!-- 后端 EmergencyDept 无 agreement_status，用联动协议字段 protocol_url 判断 -->
+                <text class="agree-tag" :class="(item.protocol_url || item.agreement_status === '已签署') ? 'agree-tag--yes' : 'agree-tag--no'">{{ (item.protocol_url || item.agreement_status === '已签署') ? '已签署' : '未签署' }}</text>
               </view>
               <view class="dp-meta">
                 <text v-if="item.contact_name" class="dp-meta-item">{{ item.contact_name }}</text>
@@ -73,7 +74,7 @@
             <view class="tl-content">
               <text class="tl-date">{{ formatDate(item.date || item.created_at) }}</text>
               <text class="tl-event">{{ item.event_name || item.title }}</text>
-              <text v-if="item.description" class="tl-desc">{{ item.description }}</text>
+              <text v-if="item.scenario || item.result || item.description" class="tl-desc">{{ item.scenario || item.result || item.description }}</text>
             </view>
           </view>
         </view>

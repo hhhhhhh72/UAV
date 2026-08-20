@@ -45,12 +45,12 @@
           <view v-if="item.resume.content" class="resume-line"><text class="resume-k">说明</text><text>{{ item.resume.content }}</text></view>
         </view>
 
-        <!-- 操作按钮 -->
+        <!-- 操作按钮（对齐后端状态机：submitted→viewed/rejected；viewed→interviewing/rejected；interviewing→offered/rejected；offered 终态） -->
         <view class="apl-actions">
           <u-button v-if="item.application.status === 'submitted'" size="mini" type="primary" plain round @tap="updateStatus(item, 'viewed')">已查看</u-button>
-          <u-button v-if="item.application.status === 'submitted' || item.application.status === 'viewed'" size="mini" type="warning" plain round @tap="updateStatus(item, 'interviewing')">约面试</u-button>
-          <u-button v-if="item.application.status !== 'offered' && item.application.status !== 'rejected'" size="mini" type="success" plain round @tap="updateStatus(item, 'offered')">录用</u-button>
-          <u-button v-if="item.application.status !== 'rejected' && item.application.status !== 'withdrawn'" size="mini" type="danger" plain round @tap="updateStatus(item, 'rejected')">婉拒</u-button>
+          <u-button v-if="item.application.status === 'viewed'" size="mini" type="warning" plain round @tap="updateStatus(item, 'interviewing')">约面试</u-button>
+          <u-button v-if="item.application.status === 'interviewing'" size="mini" type="success" plain round @tap="updateStatus(item, 'offered')">录用</u-button>
+          <u-button v-if="item.application.status === 'submitted' || item.application.status === 'viewed' || item.application.status === 'interviewing'" size="mini" type="danger" plain round @tap="updateStatus(item, 'rejected')">婉拒</u-button>
         </view>
       </view>
     </view>

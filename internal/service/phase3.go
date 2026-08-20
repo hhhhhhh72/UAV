@@ -132,11 +132,20 @@ type ExpiryService struct{}
 
 func NewExpiryService() *ExpiryService { return &ExpiryService{} }
 
+// validExpireDate 排除无有效期的记录：time.Time 零值，或 PG NULL 经
+// COALESCE 读成的 1970-01-01（IsZero 不命中，需用下限判断）。
+func validExpireDate(t time.Time) bool {
+	if t.IsZero() {
+		return false
+	}
+	return t.After(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
+}
+
 func (s *ExpiryService) GetExpiringCerts(certs []domain.Certificate, withinDays int) []domain.Certificate {
 	cutoff := time.Now().AddDate(0, 0, withinDays)
 	out := []domain.Certificate{}
 	for _, c := range certs {
-		if c.ExpireDate.Before(cutoff) && c.Status == "approved" {
+		if c.Status == "approved" && validExpireDate(c.ExpireDate) && c.ExpireDate.Before(cutoff) {
 			out = append(out, c)
 		}
 	}
@@ -147,7 +156,7 @@ func (s *ExpiryService) GetExpiringInspections(list []domain.AnnualInspection, w
 	cutoff := time.Now().AddDate(0, 0, withinDays)
 	out := []domain.AnnualInspection{}
 	for _, i := range list {
-		if i.ExpireDate.Before(cutoff) && i.Status == "approved" {
+		if i.Status == "approved" && validExpireDate(i.ExpireDate) && i.ExpireDate.Before(cutoff) {
 			out = append(out, i)
 		}
 	}
