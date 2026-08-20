@@ -63,6 +63,10 @@
             <view class="order-btn primary" @tap="acceptWork(order)">验收通过</view>
             <view class="order-btn" @tap="openRework(order)">提出整改</view>
           </template>
+          <!-- 已完成：双方可评价（POST /api/v1/reviews，target_type=work_order，后端校验状态+归属） -->
+          <template v-else-if="order.status === 'completed'">
+            <view class="order-btn primary" @tap="reviewOrder(order)">{{ order.reviewed ? '修改评价' : '评价' }}</view>
+          </template>
           <template v-else-if="!order.status || order.status === 'pending' || order.status === 'ongoing' || order.status === 'awaiting_accept'">
             <view class="order-btn" @tap="cancelOrder(order)">取消订单</view>
           </template>
@@ -225,6 +229,41 @@ function openRework(order) {
   reworkTarget.value = order
   reworkNote.value = ''
   reworkShow.value = true
+}
+
+// 工单评价（最小方案）：ActionSheet 选 1-5 星 → Modal(editable) 输入内容 → 提交。
+// 调真实接口 POST /api/v1/reviews（target_type=work_order，后端校验：工单已完成且为双方之一）。
+async function reviewOrder(order) {
+  const star = await new Promise((resolve) => {
+    uni.showActionSheet({
+      itemList: ['1 星 · 极差', '2 星 · 较差', '3 星 · 一般', '4 星 · 满意', '5 星 · 非常满意'],
+      success: (r) => resolve(r.tapIndex + 1),
+      fail: () => resolve(0),
+    })
+  })
+  if (!star) return
+  const content = await new Promise((resolve) => {
+    uni.showModal({
+      title: '评价工单',
+      editable: true,
+      placeholderText: '请输入评价内容（选填，最多 200 字）',
+      confirmText: '提交评价',
+      success: (r) => resolve(r.confirm ? String(r.content || '') : null),
+      fail: () => resolve(null),
+    })
+  })
+  if (content === null) return
+  try {
+    await request({
+      url: '/api/v1/reviews',
+      method: 'POST',
+      data: { target_type: 'work_order', target_id: String(order.id), rating: star, content },
+    })
+    order.reviewed = true
+    uni.showToast({ title: '评价成功', icon: 'success' })
+  } catch (e) {
+    uni.showToast({ title: getErrorMessage(e) || '评价提交失败，请重试', icon: 'none' })
+  }
 }
 
 async function submitRework() {

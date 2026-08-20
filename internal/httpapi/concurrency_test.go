@@ -53,7 +53,7 @@ func newFullServer(t *testing.T) *httpapi.Server {
 		service.NewTradeOrderService(nil, nil),
 		service.NewEscrowService(nil),
 		service.NewNewsService(nil),
-		service.NewReviewService(nil),
+		service.NewReviewService(nil, nil),
 		service.NewVenueService(nil),
 		userRepo, refreshRepo, tokens,
 	)

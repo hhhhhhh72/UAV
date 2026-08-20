@@ -469,13 +469,14 @@ func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DronePro
 }
 
 // ListTop 按创建时间倒序取前 limit 条（首页 Top-N，SQL 端 LIMIT 不整表）。
+// 仅取已上架商品：待审核/下架/已售商品不得出现在首页公开区（P0 半断修复）。
 func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]domain.DroneProduct, error) {
 	var rows pgx.Rows
 	var err error
 	if prodType == "" {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products ORDER BY created_at DESC LIMIT $1`, limit)
+		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE status='listed' ORDER BY created_at DESC LIMIT $1`, limit)
 	} else {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 ORDER BY created_at DESC LIMIT $2`, prodType, limit)
+		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 AND status='listed' ORDER BY created_at DESC LIMIT $2`, prodType, limit)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list top products: %w", err)

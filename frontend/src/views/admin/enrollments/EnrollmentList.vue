@@ -25,6 +25,14 @@
         <a-space :size="4">
           <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
           <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
+          <!-- 完成结业：仅 enrolled/paid 可结（释放托管学费 + 发证；pending/approved/rejected 不可） -->
+          <a-button
+            v-if="record.status === 'enrolled' || record.status === 'paid'"
+            type="text"
+            size="small"
+            status="success"
+            @click="completeEnrollment(record)"
+          >完成结业</a-button>
         </a-space>
       </template>
       <template #empty>
@@ -71,8 +79,9 @@
         <a-form-item label="从业经验"><a-input v-model="form.experience" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
+            <!-- 无 approved：与后端状态机冲突（approved 既不能结业也不能回退，edit 置 approved 即卡死），
+                 结业走专用按钮 POST /enrollments/{id}/complete（enrolled/paid → completed） -->
             <a-option value="pending">待审核</a-option>
-            <a-option value="approved">已通过</a-option>
             <a-option value="paid">已缴费</a-option>
             <a-option value="enrolled">已入学</a-option>
             <a-option value="rejected">已拒绝</a-option>
@@ -94,6 +103,7 @@ import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
+import http from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
 
 const crudRef = ref()
@@ -122,9 +132,9 @@ const batchActions = []
 
 const statusLabel = {
   enrolled: '已入学', approved: '已通过', rejected: '已拒绝',
-  pending: '待审核', paid: '已缴费'
+  pending: '待审核', paid: '已缴费', completed: '已完成'
 }
-const statusTag = (s) => ({ enrolled: 'green', approved: 'green', paid: 'arcoblue', pending: 'orangered', rejected: 'red' }[s] || 'gray')
+const statusTag = (s) => ({ enrolled: 'green', approved: 'green', paid: 'arcoblue', pending: 'orangered', rejected: 'red', completed: 'gray' }[s] || 'gray')
 
 const searchFields = [
   { key: 'keyword', label: '关键词', placeholder: '搜索姓名/电话...', width: 200 },
@@ -147,12 +157,32 @@ const columns = [
   { title: '学历', dataIndex: 'education', width: 80 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
   { title: '报名时间', dataIndex: 'created_at', slotName: 'createdAt', width: 160 },
-  { title: '操作', slotName: 'actions', width: 80, fixed: 'right' }
+  { title: '操作', slotName: 'actions', width: 170, fixed: 'right' }
 ]
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
 const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+
+// 完成结业：POST /api/v1/enrollments/{id}/complete（后端释放托管学费 + 发放结业证书，
+// enrolled/paid → completed；completed 幂等重试可补齐缺失的释放/发证步骤）
+const completeEnrollment = (row) => {
+  Modal.confirm({
+    title: '完成结业',
+    content: `确认学员「${row.name || '-'}」已完成结业？将释放托管学费并发放结业证书。`,
+    okText: '确认完成',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await http.post('/api/v1/enrollments/' + encodeURIComponent(row.id) + '/complete')
+        Message.success('已完成结业')
+        crudRef.value?.reload()
+      } catch (e) {
+        Message.error(e?.response?.data?.message || '操作失败')
+      }
+    },
+  })
+}
 
 // 编辑：可编辑字段 + 图片/证明字段（photo_url/id_card_image/no_crime）从原记录带入
 // —— 后端 PUT 为全字段覆盖，不提交会清空原值（课程ID不可改，后端忽略）

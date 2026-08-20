@@ -97,6 +97,15 @@ func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
+	// 待审核/下架/已售商品不公开：非卖家本人且非管理端请求一律 404。
+	// 卖家本人可看自己的待审核商品（发布管理需要），管理端路由（/api/v1/admin/products/{id}）
+	// 复用本 handler 但 isAdminRequest 放行，管理后台可看全部状态。
+	if p.Status != "" && p.Status != "listed" && !isAdminRequest(r) {
+		if a, ok := authenticatedActor(r); !ok || a.ID != p.SellerID {
+			fail(w, r, http.StatusNotFound, errors.New("product not found"))
+			return
+		}
+	}
 	// P1 脱敏：公开请求返回前替换手机号注册用户的 seller_id/seller_name，防止手机号泄露。
 	// 商品本人（卖家）查看自己的商品时保留真实 ID——前端 isOwnProduct 依赖它
 	// 隐藏"立即购买"按钮（自买后端同样拒绝）。

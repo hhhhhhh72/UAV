@@ -147,7 +147,7 @@ func TestPhase3All(t *testing.T) {
 
 // === Reviews + Venues ===
 func TestReviewsVenuesAll(t *testing.T) {
-	rv := service.NewReviewService(memory.NewReviewRepository())
+	rv := service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository())
 	rv.Submit(context.Background(), "u-1", "enterprise", "ent-1", 4, "不错")
 	rv.ListByTarget(context.Background(), "enterprise", "ent-1")
 	rv.ListAll(context.Background(), "", 0, 20)

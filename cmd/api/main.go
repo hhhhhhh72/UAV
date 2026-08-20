@@ -429,7 +429,7 @@ func main() {
 		service.NewTradeOrderService(tradeOrderRepo, productRepo),
 		escrowSvc,
 		service.NewNewsService(articleRepo),
-		service.NewReviewService(reviewRepo),
+		service.NewReviewService(reviewRepo, workOrderRepo),
 		service.NewVenueService(venueRepo),
 		userRepo,
 		refreshTokenRepo,

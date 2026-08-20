@@ -13,14 +13,32 @@ import (
 // ---- Reviews ----
 
 type ReviewService struct {
-	repo repository.ReviewRepository
+	repo      repository.ReviewRepository
+	orderRepo repository.WorkOrderRepository // 工单评价校验（target_type=work_order）用
 }
 
-func NewReviewService(repo repository.ReviewRepository) *ReviewService {
-	return &ReviewService{repo: repo}
+func NewReviewService(repo repository.ReviewRepository, orderRepo repository.WorkOrderRepository) *ReviewService {
+	return &ReviewService{repo: repo, orderRepo: orderRepo}
 }
 
 func (s *ReviewService) Submit(ctx context.Context, reviewerID, targetType, targetID string, rating int, content string) (domain.Review, error) {
+	// 工单评价闭环：仅已完成工单的双方（需求方/接单方）可评价（P0 死链修复——
+	// 此前 POST /api/v1/reviews 零校验，任意登录用户可对任意目标刷评价）。
+	if targetType == "work_order" {
+		if s.orderRepo == nil {
+			return domain.Review{}, errors.New("work order repository not available")
+		}
+		wo, err := s.orderRepo.FindByID(ctx, targetID)
+		if err != nil {
+			return domain.Review{}, errors.New("work order not found")
+		}
+		if wo.Status != domain.WorkOrderCompleted {
+			return domain.Review{}, errors.New("only completed work orders can be reviewed")
+		}
+		if wo.PublisherID != reviewerID && wo.WorkerID != reviewerID {
+			return domain.Review{}, errors.New("only the publisher or worker can review the work order")
+		}
+	}
 	r := domain.Review{ID: nextID("review"), ReviewerID: reviewerID,
 		TargetType: targetType, TargetID: targetID, Rating: rating, Content: content, Status: "pending", CreatedAt: time.Now()}
 	return s.repo.Create(ctx, r)

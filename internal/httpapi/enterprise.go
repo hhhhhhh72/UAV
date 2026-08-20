@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -183,6 +184,27 @@ func (s *Server) reviewEnterprise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "review_enterprise", "enterprise", ent.ID, req.Action)
+	// 审核结果站内信通知企业 owner（异步，复用需求审核通知模式：
+	// context.Background() 保证 goroutine 生命周期超出请求，不被 r.Context() 取消）
+	switch req.Action {
+	case "approve", "approved":
+		go s.msgSvc.Send(context.Background(), "system", ent.OwnerUserID, "企业入驻审核结果",
+			"企业入驻审核已通过", "enterprise", ent.ID)
+	case "reject", "rejected":
+		reason := ""
+		if req.Reason != "" {
+			reason = "，原因：" + req.Reason
+		}
+		go s.msgSvc.Send(context.Background(), "system", ent.OwnerUserID, "企业入驻审核结果",
+			"企业入驻审核未通过"+reason, "enterprise", ent.ID)
+	case "supplement", "supplement_required":
+		reason := ""
+		if req.Reason != "" {
+			reason = "，原因：" + req.Reason
+		}
+		go s.msgSvc.Send(context.Background(), "system", ent.OwnerUserID, "企业入驻审核结果",
+			"企业入驻审核需补充材料"+reason, "enterprise", ent.ID)
+	}
 	respond(w, r, http.StatusOK, ent)
 }
 

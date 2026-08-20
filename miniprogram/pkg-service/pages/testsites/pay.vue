@@ -41,9 +41,9 @@
       <!-- 费用说明 -->
       <view class="notice-block">
         <text class="notice-title">费用说明</text>
-        <text class="notice-line">· 定金及测试费用在线下向场地方支付，平台不参与资金流转</text>
-        <text class="notice-line">· 预约提交后，场地方将与您联系确认费用与支付方式</text>
-        <text class="notice-line warn">· 请勿向任何线上渠道支付定金，谨防上当受骗</text>
+        <text class="notice-line">· 定金及测试费用在线下向场地方缴纳，平台不参与资金流转</text>
+        <text class="notice-line">· 预约提交后，场地方将与您联系确认费用与缴纳方式</text>
+        <text class="notice-line warn">· 请勿向任何线上渠道缴纳费用，谨防上当受骗</text>
       </view>
     </template>
 

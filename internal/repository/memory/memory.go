@@ -1990,11 +1990,15 @@ func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DronePro
 
 // ListTop 按插入序取前 limit 条（内存为开发存储，与 List 顺序一致；
 // PG 版按 created_at 倒序，语义对齐"最新 N 条"）。
+// 仅取已上架商品：待审核/下架/已售商品不得出现在首页公开区（与 listProducts 公开口径一致）。
 func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.DroneProduct, 0, limit)
 	for _, p := range r.items {
+		if p.Status != "" && p.Status != "listed" {
+			continue
+		}
 		if prodType != "" && string(p.ProdType) != prodType {
 			continue
 		}

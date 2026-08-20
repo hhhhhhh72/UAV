@@ -82,10 +82,12 @@ func (s *EnterpriseSvc) Update(ctx context.Context, a domain.Actor, id string, i
 		return domain.Enterprise{}, errors.New("only the owner can edit")
 	}
 	// 状态限制：
-	// - 企业主（owner）：仅草稿/需补充可编辑（编辑后状态不变，走提交流程）
+	// - 企业主（owner）：仅草稿/需补充/已驳回可编辑（编辑后状态不变，走提交流程；
+	//   已驳回可改后重新提交——PRD FR-2.2 驳回重提闭环）
 	// - 管理员（platform_admin / association_admin）：任意状态可编辑；编辑已审核/已驳回/审核中企业时，
 	//   状态回退到「待审核」（PRD FR-2.2：信息修改后需重新审核）
-	if existing.OwnerUserID == a.ID && existing.Status != domain.EnterpriseDraft && existing.Status != domain.EnterpriseSupplementRequired {
+	if existing.OwnerUserID == a.ID && existing.Status != domain.EnterpriseDraft &&
+		existing.Status != domain.EnterpriseSupplementRequired && existing.Status != domain.EnterpriseRejected {
 		return domain.Enterprise{}, fmt.Errorf("cannot edit enterprise in %s status", existing.Status)
 	}
 	isAdminEdit := a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
@@ -126,7 +128,7 @@ func (s *EnterpriseSvc) Submit(ctx context.Context, a domain.Actor, id string) (
 	if e.OwnerUserID != a.ID {
 		return domain.Enterprise{}, errors.New("only the owner can submit")
 	}
-	if e.Status != domain.EnterpriseDraft && e.Status != domain.EnterpriseSupplementRequired {
+	if e.Status != domain.EnterpriseDraft && e.Status != domain.EnterpriseSupplementRequired && e.Status != domain.EnterpriseRejected {
 		return domain.Enterprise{}, fmt.Errorf("cannot submit enterprise in %s status", e.Status)
 	}
 	e.Status = domain.EnterpriseSubmitted

@@ -333,7 +333,9 @@ function validate() {
   return null
 }
 
-/* === 提交：POST /api/v1/training-courses/{id}/enroll（与后端 EnrollmentForm 契约一致） === */
+/* === 提交：POST /api/v1/training-courses/{id}/pay-and-enroll（与后端 EnrollmentForm 契约一致） ===
+   报名即冻结托管金：payAndEnroll 先冻结课程费再报名；余额不足返回 402，
+   前端提示充值引导（小程序暂无托管金充值入口，toast 引导）。 */
 async function handleSubmit() {
   if (submitting.value) return
   const err = validate()
@@ -361,7 +363,7 @@ async function handleSubmit() {
       noCrime: form.noCrime ? '无犯罪记录' : '',
     })
     await request({
-      url: '/api/v1/training-courses/' + encodeURIComponent(id.value) + '/enroll',
+      url: '/api/v1/training-courses/' + encodeURIComponent(id.value) + '/pay-and-enroll',
       method: 'POST',
       data: payload,
     })
@@ -370,6 +372,11 @@ async function handleSubmit() {
   } catch (e) {
     // 后端统一错误信封 {error:{code,message}}，409 重复报名等场景展示真实原因
     const msg = (e && e.data && e.data.error && e.data.error.message) || ''
+    // 402 托管金余额不足：报名即冻结学费，余额不足后端拒绝——小程序暂无充值入口，toast 引导
+    if (e && e.statusCode === 402) {
+      uni.showToast({ title: '托管金余额不足，请先充值', icon: 'none', duration: 2500 })
+      return
+    }
     uni.showToast({ title: msg || '报名失败，请重试', icon: 'none', duration: 2500 })
   } finally {
     submitting.value = false
