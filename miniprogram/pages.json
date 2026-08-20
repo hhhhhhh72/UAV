@@ -297,6 +297,16 @@
           }
         },
         {
+          "path": "pages/demands/favorites",
+          "style": {
+            "navigationBarTitleText": "我的收藏",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom",
+            "enablePullDownRefresh": true
+          }
+        },
+        {
           "path": "pages/demands/matches",
           "style": {
             "navigationBarTitleText": "智能匹配",

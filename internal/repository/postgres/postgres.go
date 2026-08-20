@@ -2050,6 +2050,17 @@ func (r *demandRepo) ListFavoriteDemandIDs(ctx context.Context, userID string) (
 	return out, rows.Err()
 }
 
+func (r *demandRepo) ListFavoriteDemands(ctx context.Context, userID string) ([]domain.Demand, error) {
+	q := `SELECT d.id, d.publisher_id, d.publisher_name, d.contact, d.district, d.city_code,
+		d.biz_type, d.title, d.description, d.images, d.latitude, d.longitude, d.budget_fen, d.offline_amount_fen, d.biz_fields,
+		d.status, d.version, d.created_at, d.updated_at
+		FROM demands d
+		JOIN demand_favorites f ON f.demand_id = d.id
+		WHERE f.user_id = $1
+		ORDER BY f.created_at DESC`
+	return scanDemands(ctx, r.pool, r.cipher, q, []any{userID})
+}
+
 // ---- College Repository ----
 
 type pgCollegeRepo struct{ pool *pgxpool.Pool }

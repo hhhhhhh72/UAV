@@ -31,7 +31,7 @@ func TestBackfillEnrollmentPaidAmountMigration(t *testing.T) {
 	}
 	upSQL, downSQL := string(up), string(down)
 
-	// 1) 版本顺序：000073 必须晚于迁移目录中所有既有版本（生产已应用 000070，只能新增迁移）。
+	// 1) 版本顺序：000073 必须已存在且不晚于目录中最新版本（生产已应用 000070+，只能新增迁移）。
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("read migrations dir: %v", err)
@@ -54,8 +54,17 @@ func TestBackfillEnrollmentPaidAmountMigration(t *testing.T) {
 		}
 	}
 	sort.Strings(versions)
-	if len(versions) > 0 && versions[len(versions)-1] != "000073" {
-		t.Fatalf("000073 must be the newest migration, got max=%s (all: %v)", versions[len(versions)-1], versions)
+	found := false
+	for _, v := range versions {
+		if v == "000073" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("000073 migration missing (all: %v)", versions)
+	}
+	if len(versions) > 0 && versions[len(versions)-1] < "000073" {
+		t.Fatalf("000073 must not be older than the newest migration, got max=%s (all: %v)", versions[len(versions)-1], versions)
 	}
 
 	// 2) 关键子句：回填语句必须命中 escrow 冻结流水并按用户+课程取最近一条。

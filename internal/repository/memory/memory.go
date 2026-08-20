@@ -302,6 +302,29 @@ func (r *demandRepo) ListFavoriteDemandIDs(ctx context.Context, userID string) (
 	return out, nil
 }
 
+func (r *demandRepo) ListFavoriteDemands(ctx context.Context, userID string) ([]domain.Demand, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.Demand, 0)
+	for _, f := range r.favorites {
+		if f.UserID != userID {
+			continue
+		}
+		for _, d := range r.items {
+			if d.ID == f.DemandID {
+				r.decrypt(&d)
+				out = append(out, d)
+				break
+			}
+		}
+	}
+	// 与 PG 对齐：按收藏时间倒序（favorites 本身按收藏先后追加，反转即得倒序）
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
+}
+
 // ---- Enterprise ----
 
 type enterpriseRepo struct {

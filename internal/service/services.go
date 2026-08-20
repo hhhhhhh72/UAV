@@ -247,6 +247,11 @@ func (s *DemandService) ListFavoriteDemandIDs(ctx context.Context, userID string
 	return s.repo.ListFavoriteDemandIDs(ctx, userID)
 }
 
+// ListFavoriteDemands 当前用户收藏的完整需求列表（按收藏时间倒序）。
+func (s *DemandService) ListFavoriteDemands(ctx context.Context, userID string) ([]domain.Demand, error) {
+	return s.repo.ListFavoriteDemands(ctx, userID)
+}
+
 // SetOfflineAmount 登记线下成交金额（联系对接模式：平台撮合价值度量）。
 // 仅已公开/已完成需求可登记；管理端补登或发布者完成时登记。
 func (s *DemandService) SetOfflineAmount(ctx context.Context, a domain.Actor, id string, amountFen int64) (domain.Demand, error) {

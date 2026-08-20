@@ -464,8 +464,9 @@ const loadFavoriteState = async () => {
   if (!isLoggedIn() || !postId) return
   try {
     const res = await request({ url: '/api/v1/demands/favorites/mine' })
-    const ids = Array.isArray(res) ? res : (res && res.data) || []
-    favorited.value = ids.includes(postId)
+    const list = Array.isArray(res) ? res : (res && res.data) || []
+    // 接口返回收藏需求对象数组；兼容旧版纯 ID 数组
+    favorited.value = Array.isArray(list) && list.some(d => (typeof d === 'string' ? d : d && d.id) === postId)
   } catch (e) { /* 忽略：保持未收藏 */ }
 }
 

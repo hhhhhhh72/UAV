@@ -93,6 +93,8 @@ type DemandRepository interface {
 	FavoriteDemand(ctx context.Context, userID, demandID string) error
 	UnfavoriteDemand(ctx context.Context, userID, demandID string) error
 	ListFavoriteDemandIDs(ctx context.Context, userID string) ([]string, error)
+	// ListFavoriteDemands 按收藏时间倒序返回完整需求（我的收藏列表）。
+	ListFavoriteDemands(ctx context.Context, userID string) ([]domain.Demand, error)
 }
 
 // EnterpriseRepository manages enterprise registrations and the admin review workflow.

@@ -653,19 +653,23 @@ func (s *Server) toggleDemandFavorite(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]bool{"favorite": in.Favorite})
 }
 
-// GET /api/v1/demands/favorites/mine — 我的收藏需求 ID 列表
+// GET /api/v1/demands/favorites/mine — 我的收藏需求列表（按收藏时间倒序，公开视图脱敏）
 func (s *Server) listMyDemandFavorites(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
-		respond(w, r, http.StatusOK, []string{})
+		respond(w, r, http.StatusOK, []domain.Demand{})
 		return
 	}
-	ids, err := s.demands.ListFavoriteDemandIDs(r.Context(), a.ID)
+	demands, err := s.demands.ListFavoriteDemands(r.Context(), a.ID)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, http.StatusOK, ids)
+	public := make([]domain.Demand, len(demands))
+	for i, d := range demands {
+		public[i] = publicDemand(d)
+	}
+	respond(w, r, http.StatusOK, public)
 }
 
 // GET /api/v1/admin/demands — 管理员查看所有状态需求
