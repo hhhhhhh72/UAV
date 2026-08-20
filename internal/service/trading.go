@@ -53,6 +53,22 @@ func (s *TradingService) GetProduct(ctx context.Context, id string) (domain.Dron
 	return s.prodRepo.FindByID(ctx, id)
 }
 
+// ToggleProductFavorite 收藏/取消收藏商品（登录用户可收藏任意存在商品）。
+func (s *TradingService) ToggleProductFavorite(ctx context.Context, userID, productID string, favorite bool) error {
+	if _, err := s.prodRepo.FindByID(ctx, productID); err != nil {
+		return err
+	}
+	if favorite {
+		return s.prodRepo.FavoriteProduct(ctx, userID, productID)
+	}
+	return s.prodRepo.UnfavoriteProduct(ctx, userID, productID)
+}
+
+// ListFavoriteProducts 当前用户收藏的商品列表（按收藏时间倒序）。
+func (s *TradingService) ListFavoriteProducts(ctx context.Context, userID string) ([]domain.DroneProduct, error) {
+	return s.prodRepo.ListFavoriteProducts(ctx, userID)
+}
+
 // GetProductAndCountView 详情访问：浏览量 +1 后返回（先读旧值再递增）
 func (s *TradingService) GetProductAndCountView(ctx context.Context, id string) (domain.DroneProduct, error) {
 	p, err := s.prodRepo.FindByID(ctx, id)

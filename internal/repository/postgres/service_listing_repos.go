@@ -86,3 +86,47 @@ func (r *slrRepo) Delete(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// ---- Service Listing Favorites ----
+
+func (r *slrRepo) FavoriteListing(ctx context.Context, userID, listingID string) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO service_listing_favorites (id, user_id, listing_id) VALUES ($1,$2,$3)
+		 ON CONFLICT (user_id, listing_id) DO NOTHING`,
+		"slfav-"+userID+"-"+listingID, userID, listingID)
+	if err != nil {
+		return fmt.Errorf("favorite service listing %s: %w", listingID, err)
+	}
+	return nil
+}
+
+func (r *slrRepo) UnfavoriteListing(ctx context.Context, userID, listingID string) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM service_listing_favorites WHERE user_id=$1 AND listing_id=$2`, userID, listingID)
+	if err != nil {
+		return fmt.Errorf("unfavorite service listing %s: %w", listingID, err)
+	}
+	return nil
+}
+
+// ListFavoriteListings 按收藏时间倒序返回完整服务能力（我的收藏列表）。
+func (r *slrRepo) ListFavoriteListings(ctx context.Context, userID string) ([]domain.ServiceListing, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+slrColumns+` FROM service_listings s
+		 JOIN service_listing_favorites f ON f.listing_id = s.id
+		 WHERE f.user_id=$1
+		 ORDER BY f.created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list favorite service listings: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.ServiceListing
+	for rows.Next() {
+		sl, err := scanServiceListing(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan favorite service listing: %w", err)
+		}
+		out = append(out, sl)
+	}
+	return out, rows.Err()
+}

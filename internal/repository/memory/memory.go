@@ -21,6 +21,13 @@ type demandFavorite struct {
 	CreatedAt time.Time
 }
 
+// contentFavorite 商品/服务能力/课程 三类内容收藏的通用内存结构（ItemID 为对应内容 ID）。
+type contentFavorite struct {
+	UserID    string
+	ItemID    string
+	CreatedAt time.Time
+}
+
 type demandRepo struct {
 	mu        sync.RWMutex
 	items     []domain.Demand
@@ -1746,8 +1753,9 @@ func (r *certRepo) Delete(ctx context.Context, id string) error {
 // ---- Course ----
 
 type courseRepo struct {
-	mu    sync.RWMutex
-	items []domain.TrainingCourse
+	mu        sync.RWMutex
+	items     []domain.TrainingCourse
+	favorites []contentFavorite
 }
 
 func NewCourseRepository() repository.CourseRepository { return &courseRepo{} }
@@ -1794,6 +1802,54 @@ func (r *courseRepo) Delete(ctx context.Context, id string) error {
 		}
 	}
 	return fmt.Errorf("course %s not found", id)
+}
+
+// ---- Course Favorites ----
+
+func (r *courseRepo) FavoriteCourse(ctx context.Context, userID, courseID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, f := range r.favorites {
+		if f.UserID == userID && f.ItemID == courseID {
+			return nil // 已收藏，幂等
+		}
+	}
+	r.favorites = append(r.favorites, contentFavorite{UserID: userID, ItemID: courseID, CreatedAt: time.Now()})
+	return nil
+}
+
+func (r *courseRepo) UnfavoriteCourse(ctx context.Context, userID, courseID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, f := range r.favorites {
+		if f.UserID == userID && f.ItemID == courseID {
+			r.favorites = append(r.favorites[:i], r.favorites[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (r *courseRepo) ListFavoriteCourses(ctx context.Context, userID string) ([]domain.TrainingCourse, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.TrainingCourse, 0)
+	for _, f := range r.favorites {
+		if f.UserID != userID {
+			continue
+		}
+		for _, c := range r.items {
+			if c.ID == f.ItemID {
+				out = append(out, c)
+				break
+			}
+		}
+	}
+	// 与 PG 对齐：按收藏时间倒序
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
 }
 
 // ---- Instructor ----
@@ -1945,8 +2001,9 @@ func (r *pilotRepo) UpdateReject(ctx context.Context, id string, reason string) 
 // ---- Product ----
 
 type prodRepo struct {
-	mu    sync.RWMutex
-	items []domain.DroneProduct
+	mu        sync.RWMutex
+	items     []domain.DroneProduct
+	favorites []contentFavorite
 }
 
 func NewProductRepository() repository.ProductRepository { return &prodRepo{} }
@@ -1990,6 +2047,54 @@ func (r *prodRepo) Delete(ctx context.Context, id string) error {
 		}
 	}
 	return fmt.Errorf("product %s not found", id)
+}
+
+// ---- Product Favorites ----
+
+func (r *prodRepo) FavoriteProduct(ctx context.Context, userID, productID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, f := range r.favorites {
+		if f.UserID == userID && f.ItemID == productID {
+			return nil // 已收藏，幂等
+		}
+	}
+	r.favorites = append(r.favorites, contentFavorite{UserID: userID, ItemID: productID, CreatedAt: time.Now()})
+	return nil
+}
+
+func (r *prodRepo) UnfavoriteProduct(ctx context.Context, userID, productID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, f := range r.favorites {
+		if f.UserID == userID && f.ItemID == productID {
+			r.favorites = append(r.favorites[:i], r.favorites[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (r *prodRepo) ListFavoriteProducts(ctx context.Context, userID string) ([]domain.DroneProduct, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.DroneProduct, 0)
+	for _, f := range r.favorites {
+		if f.UserID != userID {
+			continue
+		}
+		for _, p := range r.items {
+			if p.ID == f.ItemID {
+				out = append(out, p)
+				break
+			}
+		}
+	}
+	// 与 PG 对齐：按收藏时间倒序（favorites 按收藏先后追加，反转即倒序）
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
 }
 
 func (r *prodRepo) IncrementViews(ctx context.Context, id string) error {
@@ -2111,8 +2216,9 @@ func (r *prodRepo) SumViews(ctx context.Context, prodType string) (int, error) {
 // ---- Service Listings ----
 
 type slrRepo struct {
-	mu    sync.RWMutex
-	items []domain.ServiceListing
+	mu        sync.RWMutex
+	items     []domain.ServiceListing
+	favorites []contentFavorite
 }
 
 func NewServiceListingRepository() repository.ServiceListingRepository { return &slrRepo{} }
@@ -2163,6 +2269,54 @@ func (r *slrRepo) Delete(ctx context.Context, id string) error {
 		}
 	}
 	return fmt.Errorf("service listing %s not found", id)
+}
+
+// ---- Service Listing Favorites ----
+
+func (r *slrRepo) FavoriteListing(ctx context.Context, userID, listingID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, f := range r.favorites {
+		if f.UserID == userID && f.ItemID == listingID {
+			return nil // 已收藏，幂等
+		}
+	}
+	r.favorites = append(r.favorites, contentFavorite{UserID: userID, ItemID: listingID, CreatedAt: time.Now()})
+	return nil
+}
+
+func (r *slrRepo) UnfavoriteListing(ctx context.Context, userID, listingID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, f := range r.favorites {
+		if f.UserID == userID && f.ItemID == listingID {
+			r.favorites = append(r.favorites[:i], r.favorites[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (r *slrRepo) ListFavoriteListings(ctx context.Context, userID string) ([]domain.ServiceListing, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.ServiceListing, 0)
+	for _, f := range r.favorites {
+		if f.UserID != userID {
+			continue
+		}
+		for _, sl := range r.items {
+			if sl.ID == f.ItemID {
+				out = append(out, sl)
+				break
+			}
+		}
+	}
+	// 与 PG 对齐：按收藏时间倒序
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
 }
 
 // ---- Repair ----

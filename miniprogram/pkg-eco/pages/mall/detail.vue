@@ -265,6 +265,7 @@ onLoad((opts) => {
         loadedImgs.value = images.value.map(() => false)
         animatePrice(priceInt.value)
         measureAnchors()
+        loadFavState()
       }
     } catch {}
   })()
@@ -276,14 +277,43 @@ const preview = (i) => {
 const goBack = () => uni.navigateBack()
 const contactShop = () => uni.showToast({ title: '已复制卖家联系方式', icon: 'none' })
 
-// 收藏：状态切换（灰心 → 红心）+ 心跳动画
+// 收藏：走真实接口（POST /api/v1/products/{id}/favorite），登录后可用；红心切换 + 心跳动画
 const isFav = ref(false)
 const favAnim = ref(false)
-const toggleFav = () => {
-  isFav.value = !isFav.value
-  favAnim.value = true
-  setTimeout(() => { favAnim.value = false }, 450)
-  uni.showToast({ title: isFav.value ? '已收藏' : '已取消收藏', icon: 'none' })
+const favBusy = ref(false)
+const toggleFav = async () => {
+  if (!getStoredUser()) {
+    uni.navigateTo({ url: '/pages/login/index' })
+    return
+  }
+  if (favBusy.value || !product.value || !product.value.id) return
+  favBusy.value = true
+  try {
+    const next = !isFav.value
+    await request({
+      url: '/api/v1/products/' + encodeURIComponent(product.value.id) + '/favorite',
+      method: 'POST',
+      data: { favorite: next },
+    })
+    isFav.value = next
+    favAnim.value = true
+    setTimeout(() => { favAnim.value = false }, 450)
+    uni.showToast({ title: next ? '已收藏' : '已取消收藏', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+  } finally {
+    favBusy.value = false
+  }
+}
+
+// 进入页面时回显收藏状态（登录后）
+const loadFavState = async () => {
+  if (!getStoredUser() || !product.value || !product.value.id) return
+  try {
+    const res = await request({ url: '/api/v1/products/favorites/mine' })
+    const list = Array.isArray(res) ? res : (res && res.data) || []
+    isFav.value = Array.isArray(list) && list.some((d) => (typeof d === 'string' ? d : d && d.id) === product.value.id)
+  } catch (e) { /* 忽略：保持未收藏 */ }
 }
 
 // 自己发布的商品：不显示购买入口（后端同样拒绝自买）

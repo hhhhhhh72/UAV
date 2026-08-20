@@ -65,6 +65,22 @@ func (s *TrainingService) GetCourse(ctx context.Context, id string) (domain.Trai
 	return s.courseRepo.FindByID(ctx, id)
 }
 
+// ToggleCourseFavorite 收藏/取消收藏培训课程（登录用户可收藏任意存在课程）。
+func (s *TrainingService) ToggleCourseFavorite(ctx context.Context, userID, courseID string, favorite bool) error {
+	if _, err := s.courseRepo.FindByID(ctx, courseID); err != nil {
+		return err
+	}
+	if favorite {
+		return s.courseRepo.FavoriteCourse(ctx, userID, courseID)
+	}
+	return s.courseRepo.UnfavoriteCourse(ctx, userID, courseID)
+}
+
+// ListFavoriteCourses 当前用户收藏的课程列表（按收藏时间倒序）。
+func (s *TrainingService) ListFavoriteCourses(ctx context.Context, userID string) ([]domain.TrainingCourse, error) {
+	return s.courseRepo.ListFavoriteCourses(ctx, userID)
+}
+
 func (s *TrainingService) GetCert(ctx context.Context, id string) (domain.Certificate, error) {
 	return s.certRepo.FindByID(ctx, id)
 }

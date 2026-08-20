@@ -254,6 +254,10 @@ type CourseRepository interface {
 	FindByID(ctx context.Context, id string) (domain.TrainingCourse, error)
 	Update(ctx context.Context, v domain.TrainingCourse) (domain.TrainingCourse, error)
 	Delete(ctx context.Context, id string) error
+	// FavoriteCourse/UnfavoriteCourse/ListFavoriteCourses 培训课程收藏（我的收藏列表）。
+	FavoriteCourse(ctx context.Context, userID, courseID string) error
+	UnfavoriteCourse(ctx context.Context, userID, courseID string) error
+	ListFavoriteCourses(ctx context.Context, userID string) ([]domain.TrainingCourse, error)
 }
 
 // InstructorRepository manages certified instructors.
@@ -293,6 +297,10 @@ type ProductRepository interface {
 	MarkSold(ctx context.Context, id string) error
 	// Restore 条件更新：sold → listed（订单创建失败回滚用）。
 	Restore(ctx context.Context, id string) error
+	// FavoriteProduct/UnfavoriteProduct/ListFavoriteProducts 商品收藏（我的收藏列表）。
+	FavoriteProduct(ctx context.Context, userID, productID string) error
+	UnfavoriteProduct(ctx context.Context, userID, productID string) error
+	ListFavoriteProducts(ctx context.Context, userID string) ([]domain.DroneProduct, error)
 }
 
 // ServiceListingRepository manages enterprise service capability listings (PRD ②-2).
@@ -302,6 +310,10 @@ type ServiceListingRepository interface {
 	List(ctx context.Context) ([]domain.ServiceListing, error)
 	Update(ctx context.Context, sl domain.ServiceListing) (domain.ServiceListing, error)
 	Delete(ctx context.Context, id string) error
+	// FavoriteListing/UnfavoriteListing/ListFavoriteListings 服务能力收藏（我的收藏列表）。
+	FavoriteListing(ctx context.Context, userID, listingID string) error
+	UnfavoriteListing(ctx context.Context, userID, listingID string) error
+	ListFavoriteListings(ctx context.Context, userID string) ([]domain.ServiceListing, error)
 }
 
 // RepairRepository manages repair orders.

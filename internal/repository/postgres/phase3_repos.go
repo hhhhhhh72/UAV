@@ -196,6 +196,56 @@ func (r *courseRepo) Delete(ctx context.Context, id string) error {
 	return err
 }
 
+// ---- Course Favorites ----
+
+func (r *courseRepo) FavoriteCourse(ctx context.Context, userID, courseID string) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO training_course_favorites (id, user_id, course_id) VALUES ($1,$2,$3)
+		 ON CONFLICT (user_id, course_id) DO NOTHING`,
+		"cfav-"+userID+"-"+courseID, userID, courseID)
+	if err != nil {
+		return fmt.Errorf("favorite course %s: %w", courseID, err)
+	}
+	return nil
+}
+
+func (r *courseRepo) UnfavoriteCourse(ctx context.Context, userID, courseID string) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM training_course_favorites WHERE user_id=$1 AND course_id=$2`, userID, courseID)
+	if err != nil {
+		return fmt.Errorf("unfavorite course %s: %w", courseID, err)
+	}
+	return nil
+}
+
+// ListFavoriteCourses 按收藏时间倒序返回完整课程（我的收藏列表）。
+func (r *courseRepo) ListFavoriteCourses(ctx context.Context, userID string) ([]domain.TrainingCourse, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+courseCols+` FROM training_courses c
+		 JOIN training_course_favorites f ON f.course_id = c.id
+		 WHERE f.user_id=$1
+		 ORDER BY f.created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list favorite courses: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.TrainingCourse
+	for rows.Next() {
+		var c domain.TrainingCourse
+		var ct string
+		if err := rows.Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
+			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
+			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
+			&c.Remain, &c.Environment, &c.CourseTypes,
+			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan favorite course: %w", err)
+		}
+		c.CertType = domain.CertType(ct)
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // ---- Instructor ----
 
 type instructorRepo struct{ pool *pgxpool.Pool }
@@ -489,6 +539,55 @@ func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]d
 		var imgs []byte
 		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
+		}
+		p.ProdType = domain.ProductType(pt)
+		json.Unmarshal(imgs, &p.Images)
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// ---- Product Favorites ----
+
+func (r *prodRepo) FavoriteProduct(ctx context.Context, userID, productID string) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO product_favorites (id, user_id, product_id) VALUES ($1,$2,$3)
+		 ON CONFLICT (user_id, product_id) DO NOTHING`,
+		"pfav-"+userID+"-"+productID, userID, productID)
+	if err != nil {
+		return fmt.Errorf("favorite product %s: %w", productID, err)
+	}
+	return nil
+}
+
+func (r *prodRepo) UnfavoriteProduct(ctx context.Context, userID, productID string) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM product_favorites WHERE user_id=$1 AND product_id=$2`, userID, productID)
+	if err != nil {
+		return fmt.Errorf("unfavorite product %s: %w", productID, err)
+	}
+	return nil
+}
+
+// ListFavoriteProducts 按收藏时间倒序返回完整商品（我的收藏列表）。
+func (r *prodRepo) ListFavoriteProducts(ctx context.Context, userID string) ([]domain.DroneProduct, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT p.id,p.seller_id,p.seller_name,p.prod_type,p.title,p.description,p.price_fen,p.images,p.brand,p.model,p.condition,p.views,p.status,p.version,p.created_at,p.updated_at
+		 FROM drone_products p
+		 JOIN product_favorites f ON f.product_id = p.id
+		 WHERE f.user_id=$1
+		 ORDER BY f.created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list favorite products: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.DroneProduct
+	for rows.Next() {
+		var p domain.DroneProduct
+		var pt string
+		var imgs []byte
+		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan favorite product: %w", err)
 		}
 		p.ProdType = domain.ProductType(pt)
 		json.Unmarshal(imgs, &p.Images)

@@ -124,6 +124,11 @@
                 <text v-else-if="statusBtn(item).type === 'urgent'">名额紧张</text>
                 <text v-else>{{ statusText[item.status] }}</text>
               </view>
+
+              <!-- 右上角收藏（独立操作，不触发展开） -->
+              <view class="fav-btn" :class="{ on: favMap[item.id] }" @click.stop="toggleFav(item)">
+                <text>{{ favMap[item.id] ? '♥' : '♡' }}</text>
+              </view>
             </view>
 
             <!-- 信息区 -->
@@ -190,7 +195,7 @@ const showBt = ref(false)
 const scrollToTop = () => {
   uni.pageScrollTo({ scrollTop: 0, duration: 200 })
 }
-import { request } from '../../../utils/request'
+import { request, authStorage } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
 // 页面滚动：回到顶部按钮浮现
@@ -414,10 +419,54 @@ function goEnroll(item) {
   uni.navigateTo({ url: '/pkg-talent/pages/training/enroll?id=' + encodeURIComponent(item.id) })
 }
 
+/* ===== 课程收藏（真实接口，登录后可用） ===== */
+const favMap = ref({})
+const favBusy = ref(false)
+
+async function toggleFav(item) {
+  if (!authStorage.getAccessToken()) {
+    uni.navigateTo({ url: '/pages/login/index' })
+    return
+  }
+  if (favBusy.value || !item || !item.id) return
+  favBusy.value = true
+  try {
+    const next = !favMap.value[item.id]
+    await request({
+      url: '/api/v1/training-courses/' + encodeURIComponent(item.id) + '/favorite',
+      method: 'POST',
+      data: { favorite: next },
+    })
+    favMap.value = Object.assign({}, favMap.value, { [item.id]: next })
+    uni.showToast({ title: next ? '已收藏，可在「我的收藏」查看' : '已取消收藏', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: '操作失败，请重试', icon: 'none' })
+  } finally {
+    favBusy.value = false
+  }
+}
+
+// 进入页面时回显收藏状态（登录后）
+async function loadFavState() {
+  if (!authStorage.getAccessToken()) return
+  try {
+    const res = await request({ url: '/api/v1/training-courses/favorites/mine' })
+    const list = Array.isArray(res) ? res : (res && res.data) || []
+    if (!Array.isArray(list)) return
+    const map = {}
+    list.forEach((d) => {
+      const id = typeof d === 'string' ? d : d && d.id
+      if (id) map[id] = true
+    })
+    favMap.value = map
+  } catch (e) { /* 忽略：保持未收藏 */ }
+}
+
 /* ===== 生命周期 ===== */
 onLoad(() => {
   checkMotion()
   fetchList(true)
+  loadFavState()
 })
 
 onPullDownRefresh(() => {
@@ -737,6 +786,26 @@ onReachBottom(() => {
 .status-badge.urgent { background: #EF4444; }
 .status-badge.full { background: #98A2B3; }
 .status-badge.upcoming { background: #0A66C2; }
+
+/* 收藏按钮（状态徽章下方，独立点击） */
+.fav-btn {
+  position: absolute;
+  top: 44rpx;
+  right: 10rpx;
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+  font-size: 26rpx;
+  color: #667085;
+  line-height: 1;
+}
+.fav-btn.on { color: #E96012; }
+.fav-btn:active { transform: scale(0.9); opacity: 0.85; }
 
 /* ===== 信息区 ===== */
 .card-info {

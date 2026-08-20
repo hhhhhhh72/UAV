@@ -123,3 +123,19 @@ func (s *ServiceListingService) UpdateListing(ctx context.Context, sl domain.Ser
 func (s *ServiceListingService) DeleteListing(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
+
+// ToggleFavorite 收藏/取消收藏服务能力（登录用户可收藏任意存在服务）。
+func (s *ServiceListingService) ToggleFavorite(ctx context.Context, userID, listingID string, favorite bool) error {
+	if _, err := s.repo.FindByID(ctx, listingID); err != nil {
+		return err
+	}
+	if favorite {
+		return s.repo.FavoriteListing(ctx, userID, listingID)
+	}
+	return s.repo.UnfavoriteListing(ctx, userID, listingID)
+}
+
+// ListFavorites 当前用户收藏的服务能力列表（按收藏时间倒序）。
+func (s *ServiceListingService) ListFavorites(ctx context.Context, userID string) ([]domain.ServiceListing, error) {
+	return s.repo.ListFavoriteListings(ctx, userID)
+}

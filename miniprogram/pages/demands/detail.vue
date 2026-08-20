@@ -215,7 +215,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
 import { safeNavigateTo } from '../../utils/nav'
@@ -435,18 +435,30 @@ const toastCompany = () => {
 }
 
 /* ================= 收藏 / 登记对接 ================= */
-// 收藏走真实接口（POST /api/v1/demands/{id}/favorite），登录后可用
+// 收藏走真实接口，按内容类型选端点：需求 / 服务能力 / 商品（登录后可用）
+const favBaseUrls = {
+  '需求': '/api/v1/demands/',
+  '服务': '/api/v1/service-listings/',
+  '商品': '/api/v1/products/',
+}
+const favListUrls = {
+  '需求': '/api/v1/demands/favorites/mine',
+  '服务': '/api/v1/service-listings/favorites/mine',
+  '商品': '/api/v1/products/favorites/mine',
+}
 const onFavorite = async () => {
   if (!isLoggedIn()) {
     openSheet('login')
     return
   }
+  const base = favBaseUrls[item.value && item.value.type]
+  if (!base) return
   if (favoriting.value) return
   favoriting.value = true
   try {
     const next = !favorited.value
     await request({
-      url: '/api/v1/demands/' + encodeURIComponent(postId) + '/favorite',
+      url: base + encodeURIComponent(postId) + '/favorite',
       method: 'POST',
       data: { favorite: next },
     })
@@ -459,13 +471,15 @@ const onFavorite = async () => {
   }
 }
 
-// 进入页面时加载收藏状态（登录后）
+// 进入页面时加载收藏状态（登录后，内容类型确定后调用）
 const loadFavoriteState = async () => {
-  if (!isLoggedIn() || !postId) return
+  if (!isLoggedIn() || !postId || !item.value) return
+  const url = favListUrls[item.value.type]
+  if (!url) return
   try {
-    const res = await request({ url: '/api/v1/demands/favorites/mine' })
+    const res = await request({ url })
     const list = Array.isArray(res) ? res : (res && res.data) || []
-    // 接口返回收藏需求对象数组；兼容旧版纯 ID 数组
+    // 接口返回收藏对象数组；兼容旧版纯 ID 数组
     favorited.value = Array.isArray(list) && list.some(d => (typeof d === 'string' ? d : d && d.id) === postId)
   } catch (e) { /* 忽略：保持未收藏 */ }
 }
@@ -643,7 +657,10 @@ onLoad((options) => {
   postId = (options && options.id) || ''
   loadDetail()
   checkIntented()
-  loadFavoriteState()
+  // 收藏状态依赖内容类型（需求/服务/商品），内容就绪后自动加载
+})
+watch(state, (v) => {
+  if (v === 'ready') loadFavoriteState()
 })
 </script>
 
