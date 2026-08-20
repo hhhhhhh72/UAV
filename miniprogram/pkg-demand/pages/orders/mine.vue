@@ -1,7 +1,7 @@
 <template>
   <view class="orders-page">
-    <!-- 头部 -->
-    <view class="page-header">
+    <!-- 头部（custom 导航：状态栏避让） -->
+    <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">我的订单</text>
       <view class="head-spacer"></view>
@@ -121,6 +121,14 @@ import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { safeNavigateTo } from '../../../utils/nav'
 import { request, getStoredUser, getErrorMessage } from '../../../utils/request'
+
+// 自定义导航：头部下沉到状态栏下方
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+const headerStyle = computed(() => ({
+  paddingTop: statusBarH.value + 'px',
+  height: (56 + statusBarH.value) + 'px',
+}))
 
 const orders = ref([])
 const currentStatus = ref('')
