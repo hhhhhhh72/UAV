@@ -4,9 +4,6 @@
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">{{ detailTitle }}</text>
-      <button class="head-action" :style="{ marginRight: capsuleGap + 'px' }" open-type="share">
-        <text class="head-action-text">分享</text>
-      </button>
     </view>
 
     <!-- 加载状态 -->
@@ -142,6 +139,10 @@
           <text class="fav-icon" :class="{ on: favorited }">{{ favorited ? '♥' : '♡' }}</text>
           <text>{{ favorited ? '已收藏' : '收藏' }}</text>
         </view>
+        <button class="action-secondary share-btn" open-type="share">
+          <text class="share-icon">↗</text>
+          <text>分享</text>
+        </button>
         <view v-if="isEndedItem" class="action-primary disabled">
           <text>该信息已结束</text>
         </view>
@@ -411,12 +412,7 @@ const goDetail = (r) => safeNavigateTo('/pages/demands/detail?id=' + encodeURICo
 const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
 const previewImage = (i) => uni.previewImage({ urls: mediaImages.value, current: mediaImages.value[i] })
 
-const onShare = () => {
-  // 头部分享改为 button open-type="share"，此函数仅保留兼容（不再展示假提示）
-  uni.showToast({ title: '请点击右上角菜单分享', icon: 'none' })
-}
-
-// 微信原生分享（右上角菜单与 open-type="share" 按钮共用）
+// 微信原生分享（右上角菜单与底部 open-type="share" 按钮共用）
 onShareAppMessage(() => {
   const it = item.value || {}
   return {
@@ -694,8 +690,6 @@ watch(state, (v) => {
 }
 .back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
 .page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; }
-.head-action { padding: 14rpx; }
-.head-action-text { color: #0A66C2; font-size: 26rpx; font-weight: 600; }
 
 /* ═══════ 内容区块 ═══════ */
 .detail-body { padding-bottom: 8rpx; }
@@ -911,6 +905,19 @@ watch(state, (v) => {
 }
 .fav-icon { font-size: 30rpx; line-height: 1; }
 .fav-icon.on { color: #E96012; }
+.share-icon { font-size: 28rpx; line-height: 1; }
+/* 分享走原生 button open-type="share"：清除微信 button 默认边框/背景，与收藏按钮同款 */
+.share-btn {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  line-height: 84rpx;
+  color: #344054;
+  background: #fff;
+  border: 1px solid #E4E7EC;
+  gap: 8rpx;
+}
+.share-btn::after { border: none; }
 .action-primary {
   flex: 1;
   color: #fff;
