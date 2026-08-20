@@ -249,12 +249,12 @@ const bioText = computed(() => {
   return '该飞手暂未填写简介'
 })
 
-// ── CTA ──────────────────────────────
+// ── CTA（后端暂无联系/邀请接口，仅提示即将上线）──────────
 const contactPilot = () => {
-  uni.showToast({ title: '功能开发中', icon: 'none' })
+  uni.showToast({ title: '功能即将上线', icon: 'none' })
 }
 const invitePilot = () => {
-  uni.showToast({ title: '功能开发中', icon: 'none' })
+  uni.showToast({ title: '功能即将上线', icon: 'none' })
 }
 
 // ── 数据滚动计数 ───────────────────────

@@ -543,7 +543,8 @@ const goMessages = () => {
 
 const goSettings = () => {
   if (!requireLogin()) return
-  uni.navigateTo({ url: '/pages/mine/profile' })
+  // 无独立设置页（/pages/mine/profile 是个人资料页，路由错位）：保留入口但提示，更友好
+  uni.showToast({ title: '设置功能即将上线', icon: 'none' })
 }
 
 // 认证 / 资料聚合入口

@@ -143,6 +143,7 @@ export default {
       pageSize: 20,
       hasMore: true,
       appliedIds: [],
+      submittingJobId: '',
       typeTabs: [
         { label: '全部', value: '' },
         { label: '全职', value: '全职' },
@@ -265,8 +266,10 @@ export default {
     },
 
     async applyJob(item) {
-      if (this.appliedIds.includes(item.id)) return
+      // submittingJobId 防重复点击：同一职位提交中直接拦截
+      if (this.submittingJobId || this.appliedIds.includes(item.id)) return
       if (!requireLogin()) return
+      this.submittingJobId = item.id
       try {
         const resumes = await request({ url: '/api/v1/resumes/mine' })
         const rlist = Array.isArray(resumes) ? resumes : ((resumes && resumes.data) || [])
@@ -287,6 +290,8 @@ export default {
         uni.showToast({ title: '投递成功', icon: 'success' })
       } catch (e) {
         uni.showToast({ title: (e && e.message) || '投递失败', icon: 'none' })
+      } finally {
+        this.submittingJobId = ''
       }
     },
     goBack() {

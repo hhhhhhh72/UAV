@@ -40,7 +40,7 @@
 
     <!-- ② 信息行 -->
     <view class="ir">
-      <text>共 <text class="irn">{{ list.length }}</text> 份报告</text>
+      <text>共 <text class="irn">{{ displayList.length }}</text> 份报告</text>
       <text class="ir-hint">{{ activeType || '全部类型' }}</text>
     </view>
 
@@ -64,8 +64,13 @@
 
     <!-- ⑤ 报告列表 -->
     <view v-else class="cl">
+      <!-- 列表已加载但本地过滤无匹配 -->
+      <view v-if="displayList.length === 0" class="st">
+        <u-empty description="无匹配的报告" />
+      </view>
+
       <view
-        v-for="item in list"
+        v-for="item in displayList"
         :key="item.id"
         class="card"
         hover-class="tap-scale"
@@ -130,6 +135,17 @@ export default {
       ],
     }
   },
+  computed: {
+    // 本地过滤兜底：已加载列表按关键字二次过滤（后端 keyword 生效时结果一致，失效时仍有兜底）
+    displayList() {
+      var kw = (this.searchText || '').trim().toLowerCase()
+      if (!kw) return this.list
+      return this.list.filter(function (it) {
+        var blob = String(it.title || '') + ' ' + String(it.author || '') + ' ' + String(it.report_type || it.type || '')
+        return blob.toLowerCase().indexOf(kw) >= 0
+      })
+    },
+  },
   onLoad() {
     this.checkMotion()
     this.fetchList(true)
@@ -172,7 +188,8 @@ export default {
       try {
         var params = {}
         if (this.activeType) params.type = this.activeType
-        if (this.searchText) params.q = this.searchText
+        // 后端 listIndustryReports 读 keyword 参数（不认 q）
+        if (this.searchText) params.keyword = this.searchText
         params.page = this.page
         params.page_size = this.pageSize
 

@@ -60,9 +60,9 @@
           </view>
           <view class="info-divider" />
           <view class="info-cell">
-            <view class="info-icon info-icon-gold"><text class="icon-rmb">¥</text></view>
+            <view class="info-icon info-icon-gold"><text v-if="priceNum !== '面议'" class="icon-rmb">¥</text></view>
             <text class="info-num info-num-price">{{ priceNum }}</text>
-            <text class="info-label">/人</text>
+            <text class="info-label">{{ priceNum !== '面议' ? '/人' : '' }}</text>
           </view>
         </view>
       </view>
@@ -117,7 +117,7 @@
             <text class="fee-text">{{ f }}</text>
           </view>
         </view>
-        <view class="fee-section fee-exclude">
+        <view class="fee-section fee-exclude" v-if="feeExclude.length > 0">
           <text class="fee-subtitle">费用不含</text>
           <view class="fee-row" v-for="(f, i) in feeExclude" :key="'ex'+i">
             <view class="fee-mark fee-mark-no" />
@@ -148,9 +148,9 @@
       <view class="price-area">
         <text class="price-label">研学费用</text>
         <view class="price-row">
-          <text class="price-symbol">¥</text>
+          <text v-if="priceNum !== '面议'" class="price-symbol">¥</text>
           <text class="price-num">{{ priceNum }}</text>
-          <text class="price-unit">/人</text>
+          <text v-if="priceNum !== '面议'" class="price-unit">/人</text>
         </view>
       </view>
       <button class="apply-btn" :disabled="!recruiting" @tap="onApply">{{ recruiting ? '立即报名' : (statusLabel[tour.status] || '未开放报名') }}</button>
@@ -249,64 +249,66 @@ const shortLoc = computed(() => {
   return m ? m[1] : loc.slice(0, 4)
 })
 
-// ── 价格（后端暂无 price 字段，前端按时长兜底；补字段后替换）──
+// ── 价格（优先后端 price_fen（分）字段，缺失显示"面议"）──
 const priceNum = computed(() => {
-  const d = (tour.value && tour.value.duration) || ''
-  if (d.includes('3天') || d.includes('3 天')) return '1280'
-  if (d.includes('2天') || d.includes('2 天')) return '880'
-  if (d.includes('1天') || d.includes('1 天')) return '480'
-  return '980'
+  const t = tour.value
+  if (!t) return '面议'
+  const fen = t.price_fen
+  if (fen == null || fen <= 0) return '面议'
+  const yuan = Number(fen) / 100
+  return Number.isInteger(yuan) ? String(yuan) : yuan.toFixed(2)
 })
 
-// ── 行程安排（后端无行程字段，按天数组装通用模板；补字段后替换）──
+// ── 行程安排（后端 schedule 字段，数组或 JSON 字符串都容错；缺失则隐藏行程区块）──
 const nodeColors = ['#1E5EFF', '#8B5CF6', '#00C896', '#FF8E3C']
 const schedule = computed(() => {
   const t = tour.value
-  if (!t) return []
-  const d = (t.duration || '').match(/(\d+)\s*天/)
-  const days = d ? parseInt(d[1]) : 2
-  const base = t.title || '研学'
-  const sd = t.start_date
-  const startDate = sd && new Date(sd).getFullYear() > 1 ? new Date(sd) : null
-  const list = []
-  for (let i = 1; i <= days; i++) {
-    const dateStr = startDate ? fmtDate(startDate.getTime() + (i - 1) * 86400000, false) : ''
-    list.push({
-      title: `Day ${i}${dateStr ? ' · ' + dateStr : ''}`,
-      items: i === 1
-        ? [`开营仪式 + ${base}主题讲解`, '团队破冰 + 分组', '参观无人机展示区']
-        : i === days
-          ? ['户外实操 / 成果展示', '研学总结 + 结营仪式', '颁发研学证书']
-          : ['专业课程教学', '分组实操练习', '晚间交流分享'],
-    })
+  if (!t || t.schedule == null) return []
+  let arr = t.schedule
+  if (typeof arr === 'string') {
+    try {
+      arr = JSON.parse(arr)
+    } catch (e) {
+      return []
+    }
   }
-  return list
+  if (!Array.isArray(arr) || arr.length === 0) return []
+  return arr
+    .map((d, i) => {
+      if (typeof d === 'string') return { title: 'Day ' + (i + 1), items: [d] }
+      if (d && typeof d === 'object') {
+        const items = Array.isArray(d.items) ? d.items.slice() : []
+        const single = d.text || d.content
+        if (single) items.push(single)
+        return { title: d.title || d.day || 'Day ' + (i + 1), items: items }
+      }
+      return null
+    })
+    .filter((d) => d && Array.isArray(d.items) && d.items.length > 0)
 })
 
-// ── 倒计时（报名截止）──
+// ── 报名截止（后端无独立截止字段时仅展示通用提示，不编造日期）──
 const deadlineText = computed(() => {
   const t = tour.value
   if (!t) return ''
-  const sd = t.start_date
-  if (sd && new Date(sd).getFullYear() > 1) {
-    const cutoff = new Date(new Date(sd).getTime() - 3 * 86400000)
-    return `报名截止 ${fmtDate(cutoff.getTime(), true)}`
+  const dl = t.deadline || t.register_deadline || t.enroll_deadline
+  if (dl && new Date(dl).getFullYear() > 1) {
+    return `报名截止 ${fmtDate(new Date(dl).getTime(), true)}`
   }
   return '名额有限 · 报满即止'
 })
 
-// ── 费用说明 ──
+// ── 费用说明（优先后端 fee_include/fee_exclude；缺失显示"费用面议"，不编造）──
 const feeInclude = computed(() => {
-  const days = parseInt(((tour.value && tour.value.duration) || '2天').match(/(\d+)/)[1])
-  const night = Math.max(days - 1, 1)
-  return [
-    `${days}天${night}晚住宿（标间）`,
-    '全程餐饮（正餐 + 加餐）',
-    '无人机课程材料包',
-    '研学结业证书',
-  ]
+  const t = tour.value
+  if (t && Array.isArray(t.fee_include) && t.fee_include.length > 0) return t.fee_include
+  return ['费用面议']
 })
-const feeExclude = ['往返交通费用', '个人消费及保险']
+const feeExclude = computed(() => {
+  const t = tour.value
+  if (t && Array.isArray(t.fee_exclude) && t.fee_exclude.length > 0) return t.fee_exclude
+  return []
+})
 
 // ── 温馨提示 ──
 const tips = [
@@ -316,10 +318,10 @@ const tips = [
   '报名后 24 小时内可申请全额退款',
 ]
 
-// ── 交互 ──
+// ── 交互（后端暂无报名接口，仅提示）──
 const onApply = () => {
   if (!recruiting.value) return
-  uni.navigateTo({ url: '/pkg-service/pages/services/apply?id=9' })
+  uni.showToast({ title: '报名功能即将开放', icon: 'none' })
 }
 
 onLoad((options) => {

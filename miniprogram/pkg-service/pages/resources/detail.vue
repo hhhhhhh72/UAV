@@ -144,7 +144,7 @@
 </template>
 
 <script>
-import { request, getStoredUser } from '../../../utils/request'
+import { request, getStoredUser, getErrorMessage } from '../../../utils/request'
 
 export default {
   data() {
@@ -265,7 +265,7 @@ export default {
         uni.showToast({ title: '预约成功', icon: 'success' })
         this.bookingPopupVisible = false
       } catch (e) {
-        uni.showToast({ title: '预约失败，请稍后重试', icon: 'none' })
+        uni.showToast({ title: getErrorMessage(e) || '预约失败，请稍后重试', icon: 'none' })
       } finally {
         this.bookingSubmitting = false
       }

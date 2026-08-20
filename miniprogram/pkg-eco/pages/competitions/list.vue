@@ -182,8 +182,18 @@ function goPublish() {
 }
 
 /* ===== 状态 ===== */
+/* 复用详情页单一状态源：status 与报名截止时间统一判定（deadline 已过同样视为已截止） */
+function deadlineDate(item) {
+  const d = item.deadline || item.enroll_deadline
+  if (!d) return null
+  const t = Date.parse(String(d).replace(/-/g, '/'))
+  return isNaN(t) ? null : new Date(t)
+}
+
 function isClosed(item) {
-  return item.status === 'closed' || item.status === 'full'
+  if (item.status === 'closed' || item.status === 'full') return true
+  const dl = deadlineDate(item)
+  return !!(dl && dl.getTime() < Date.now())
 }
 
 function statusText(item) {

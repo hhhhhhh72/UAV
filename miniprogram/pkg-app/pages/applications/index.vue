@@ -202,10 +202,21 @@ const fetchDemands = async () => {
   }
 }
 
+// 合同接口仅企业/协会/平台管理员可用（后端 GET /api/v1/contracts 仅 enterprise/admin 路由）：
+// 个人用户直接置空态「暂无合同」，不发必然 403 的请求。
+const CONTRACT_ROLES = ['enterprise', 'association_admin', 'platform_admin']
+
 const fetchContracts = async () => {
   const user = getStoredUser()
   if (!user) {
     showLogin.value = true
+    errorMsg.value = ''
+    contracts.value = []
+    return
+  }
+  const role = user.role || user.user_type || ''
+  if (!CONTRACT_ROLES.includes(role)) {
+    showLogin.value = false
     errorMsg.value = ''
     contracts.value = []
     return

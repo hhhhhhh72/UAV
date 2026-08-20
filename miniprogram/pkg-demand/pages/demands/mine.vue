@@ -66,7 +66,7 @@
         </view>
         <view class="mine-action-row" v-if="post.source === 'backend' && post.type === 'demand'">
           <template v-if="post.statusKey === 'rejected'">
-            <view class="action-link" @tap.stop="republish(post)">编辑重提</view>
+            <view class="action-link" @tap.stop="republish(post)">重新发布</view>
           </template>
           <template v-else-if="post.statusKey === 'published'">
             <view class="action-link" @tap.stop="goIntents(post.id)">查看意向</view>
@@ -276,8 +276,15 @@ const goIntents = (id) => safeNavigateTo('/pkg-demand/pages/demands/intents?dema
 const goOrders = () => safeNavigateTo('/pkg-demand/pages/orders/mine')
 const goBack = () => uni.navigateBack()
 
-function republish() {
-  safeNavigateTo('/pkg-demand/pages/demands/publish')
+// 重新发布：后端无按 id 复制接口，原内容不会带入，先确认再进发布页新建
+function republish(post) {
+  uni.showModal({
+    title: '重新发布',
+    content: '重新发布将新建一条需求，原内容不会自动带入，需重新填写。确定继续？',
+    success: (r) => {
+      if (r.confirm) safeNavigateTo('/pkg-demand/pages/demands/publish')
+    },
+  })
 }
 
 /* ================= 操作 ================= */

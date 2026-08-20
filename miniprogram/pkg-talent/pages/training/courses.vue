@@ -120,7 +120,8 @@
 
               <!-- 右上角状态徽章（悬浮） -->
               <view class="status-badge" :class="statusClass[item.status]">
-                <text v-if="statusBtn(item).type === 'urgent'">仅剩 {{ statusBtn(item).count }} 个</text>
+                <text v-if="statusBtn(item).type === 'urgent' && statusBtn(item).count != null">仅剩 {{ statusBtn(item).count }} 个</text>
+                <text v-else-if="statusBtn(item).type === 'urgent'">名额紧张</text>
                 <text v-else>{{ statusText[item.status] }}</text>
               </view>
             </view>
@@ -153,7 +154,7 @@
                   <text class="price-suffix">/人起</text>
                 </view>
                 <view v-if="statusBtn(item).type === 'enroll'" class="btn-primary" @click.stop="goEnroll(item)">立即报名</view>
-                <view v-else-if="statusBtn(item).type === 'urgent'" class="btn-urgent" @click.stop="goEnroll(item)">仅剩 {{ statusBtn(item).count }} 个名额</view>
+                <view v-else-if="statusBtn(item).type === 'urgent'" class="btn-urgent" @click.stop="goEnroll(item)">{{ statusBtn(item).count != null ? '仅剩 ' + statusBtn(item).count + ' 个名额' : '名额紧张' }}</view>
                 <view v-else class="btn-disabled">{{ statusBtn(item).text }}</view>
               </view>
             </view>
@@ -395,13 +396,16 @@ function remainCount(item) {
   return 0
 }
 
-/** 状态按钮：enroll=立即报名 / urgent=仅剩N个 / disabled=已满/即将开课 */
+/** 状态按钮：enroll=立即报名 / urgent=名额紧张（有剩余数字才展示）/ disabled=已满/即将开课 */
 function statusBtn(item) {
   var s = item.status
   if (s === 'full') return { type: 'disabled', text: '已报满' }
   if (s === 'upcoming') return { type: 'disabled', text: '即将开课' }
   var remain = remainCount(item)
-  if (s === 'urgent' || remain > 0) return { type: 'urgent', count: remain || 3 }
+  if (s === 'urgent' || remain > 0) {
+    // 无真实剩余名额时只显示"名额紧张"，不编造数字
+    return remain > 0 ? { type: 'urgent', count: remain } : { type: 'urgent' }
+  }
   return { type: 'enroll' }
 }
 

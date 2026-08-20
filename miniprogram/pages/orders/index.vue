@@ -267,7 +267,7 @@ const goBack = () => {
 // ── 展示辅助 ──
 const kindMark = (label) => (label ? label.charAt(0) : '单')
 const kindClass = (type) => (type === 'course' ? 'course' : type === 'service' ? 'service' : '')
-const stateClass = (status) => (status === 'completed' || status === 'paid' ? 'done' : status === 'aftersale' ? 'service' : '')
+const stateClass = (status) => (status === 'completed' || status === 'paid' ? 'done' : status === 'aftersale' ? 'service' : status === 'cancelled' ? 'cancelled' : '')
 </script>
 
 <style scoped>
@@ -462,6 +462,7 @@ const stateClass = (status) => (status === 'completed' || status === 'paid' ? 'd
 }
 .order-state.done { color: var(--color-success); }
 .order-state.service { color: #6B5CC7; }
+.order-state.cancelled { color: var(--color-text-placeholder); }
 
 .order-body {
   display: flex;

@@ -21,18 +21,23 @@
           <u-tag :type="statusTag(item.status)" size="mini">{{ statusLabel[item.status] || item.status }}</u-tag>
         </view>
         <text class="apply-time">{{ formatDate(item.created_at) }}</text>
+        <view v-if="item.status === 'submitted' || item.status === 'viewed'" class="apply-actions">
+          <view class="withdraw-btn" :class="{ disabled: withdrawing === item.id }" @tap="withdraw(item)">{{ withdrawing === item.id ? '撤回中...' : '撤回' }}</view>
+        </view>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
 
 const goBack = () => uni.navigateBack()
 const list = ref([])
 const loading = ref(false)
+const withdrawing = ref('')
 
 const statusLabel = { submitted: '已投递', viewed: '已查看', interviewing: '面试中', offered: '已录用', rejected: '未通过', withdrawn: '已撤回' }
 const statusTag = (s) => ({ submitted: 'primary', viewed: 'warning', interviewing: 'warning', offered: 'success', rejected: 'danger', withdrawn: 'info' }[s] || 'info')
@@ -56,7 +61,35 @@ const load = async () => {
   }
 }
 
-onMounted(load)
+// 撤回投递：submitted/viewed 可撤回，成功刷新列表
+const withdraw = async (item) => {
+  if (withdrawing.value) return
+  const confirm = await new Promise((resolve) => {
+    uni.showModal({
+      title: '撤回投递',
+      content: '确定撤回该投递？撤回后企业将无法查看您的简历。',
+      success: (r) => resolve(r.confirm),
+    })
+  })
+  if (!confirm) return
+  withdrawing.value = item.id
+  try {
+    await request({
+      url: '/api/v1/applications/' + encodeURIComponent(item.id) + '/status',
+      method: 'PATCH',
+      data: { status: 'withdrawn' },
+    })
+    uni.showToast({ title: '已撤回', icon: 'success' })
+    load()
+  } catch (e) {
+    uni.showToast({ title: (e && e.message) || '撤回失败，请稍后重试', icon: 'none' })
+  } finally {
+    withdrawing.value = ''
+  }
+}
+
+// onShow 而非 onMounted：操作返回后立即看到最新状态
+onShow(load)
 </script>
 
 <style scoped>
@@ -69,4 +102,7 @@ onMounted(load)
 .apply-row1 { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
 .apply-job { font-size: 28rpx; font-weight: 600; color: var(--color-text); }
 .apply-time { font-size: 22rpx; color: var(--color-text-placeholder); margin-top: 12rpx; display: block; }
+.apply-actions { display: flex; justify-content: flex-end; margin-top: 16rpx; }
+.withdraw-btn { padding: 8rpx 28rpx; border: 1rpx solid #D92D20; border-radius: 8rpx; color: #D92D20; font-size: 22rpx; font-weight: 600; }
+.withdraw-btn.disabled { opacity: 0.6; }
 </style>

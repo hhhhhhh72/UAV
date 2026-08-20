@@ -242,12 +242,27 @@ const onSearch = () => { /* 前端即时过滤，列表自动生效 */ }
 const clearSearch = () => { keyword.value = '' }
 const toastMore = (t) => { uni.showToast({ title: t + '已全部展示', icon: 'none' }) }
 
+// 翻页拉全量（同 orderAdapter fetchProductMap 模式）：后端 page_size 上限 100，
+// 循环 page 1..10 直到某页不足一页为止；合并去重，数据全量后「已加载全部」提示成立，无需翻页。
 const loadAll = async () => {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await request({ url: '/api/v1/products', data: { page: 1, page_size: 50 } })
-    products.value = Array.isArray(res) ? res : []
+    const merged = []
+    const seen = new Set()
+    for (let page = 1; page <= 10; page++) {
+      const res = await request({ url: '/api/v1/products', data: { page, page_size: 100 } })
+      const list = Array.isArray(res) ? res : (res?.data || [])
+      if (!Array.isArray(list) || list.length === 0) break
+      list.forEach((p) => {
+        if (p && p.id && !seen.has(p.id)) {
+          seen.add(p.id)
+          merged.push(p)
+        }
+      })
+      if (list.length < 100) break
+    }
+    products.value = merged
   } catch (e) {
     errorMsg.value = '加载失败'
   } finally {

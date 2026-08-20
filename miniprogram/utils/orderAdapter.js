@@ -26,6 +26,7 @@ export const ORDER_STATUS = {
   shipped: '待收货',
   completed: '待评价',
   aftersale: '退款/售后',
+  cancelled: '已取消',
 }
 
 // 状态入口固定顺序与文案，不得改动
@@ -99,6 +100,7 @@ const STATUS_DUE_TEXT = {
   shipped: '快递运输中，请留意物流节点',
   completed: '交易已完成，欢迎评价',
   aftersale: '售后处理中，请查看进度',
+  cancelled: '订单已取消，如有疑问请联系客服',
 }
 
 /* ================= 真实商品订单 ================= */
@@ -126,7 +128,9 @@ async function fetchRealOrders() {
     const list = Array.isArray(res) ? res : (res?.data || [])
     return Array.isArray(list) ? list : []
   } catch (e) {
-    return []
+    // 网络/接口失败必须向上抛：订单中心（index/list）与订单详情等调用方已处理
+    // error 分支（显示加载失败 + 重试），不能吞成空数组导致误显示「暂无订单」。
+    throw e
   }
 }
 
@@ -212,6 +216,7 @@ function normalizeRealOrder(t, product) {
 // 有售后记录（af 非空）的订单无论当前状态一律「查看售后」——结案单（approved/rejected）状态已回 completed。
 function statusAction(status, role, af) {
   if (af) return '查看售后'
+  if (status === 'cancelled') return '已取消'
   if (role === 'seller') {
     if (status === 'paid') return '发货'
     if (status === 'pending') return '等待付款'
@@ -261,7 +266,7 @@ export async function loadStatusCounts(order_type = 'all') {
   const real = await fetchRealOrders()
   const all = real.map((t) => {
     const asPending = t.aftersale_status === 'pending'
-    const reviewed = !t.aftersale_status && t.status === 'completed' && getReview(t.id) !== null
+    const reviewed = !t.aftersale_status && t.status === 'completed' && isReviewed(t.id)
     const closed = !!t.aftersale_status && !asPending
     return {
       status: asPending ? 'aftersale' : (reviewed ? 'reviewed' : (closed ? 'closed' : (t.status || 'pending'))),
@@ -329,6 +334,34 @@ function parseTs(iso) {
 // 本地 order_reviews 仅开发环境作为回退（接口不可用时的演示闭环），生产不再写本地。
 const REVIEWS_KEY = 'order_reviews'
 
+// 生产环境「已评价」标记：评价提交成功后写入（order_reviews 仅开发环境回退，
+// 生产不落评价内容，只记 orderId 用于「待评价」角标/文案消失判定）。
+const REVIEWED_KEY = 'order_reviewed_prod'
+
+export function markReviewed(orderId) {
+  if (!orderId) return
+  let raw = []
+  try {
+    const r = uni.getStorageSync(REVIEWED_KEY)
+    if (Array.isArray(r)) raw = r
+  } catch (e) { /* ignore */ }
+  const key = String(orderId)
+  if (!raw.includes(key)) {
+    raw.push(key)
+    try { uni.setStorageSync(REVIEWED_KEY, raw) } catch (e) { /* ignore */ }
+  }
+}
+
+export function isReviewed(orderId) {
+  // 开发环境：order_reviews 本地评价数据即视为已评价（保持 DEV 逻辑不变）
+  if (getReview(orderId)) return true
+  // 生产/通用：读取评价提交成功时写入的标记
+  try {
+    const raw = uni.getStorageSync(REVIEWED_KEY)
+    return Array.isArray(raw) && raw.includes(String(orderId))
+  } catch (e) { return false }
+}
+
 export function getReview(orderId) {
   if (!import.meta.env.DEV) return null
   try {
@@ -349,6 +382,7 @@ function saveReviewLocal(orderId, { rating, content }) {
 }
 
 // 提交订单评价：优先真实接口；仅开发环境接口失败时回退本地存储（不阻断演示闭环）。
+// 成功后统一写入「已评价」标记（生产环境的角标/文案消失依赖它）。
 export async function submitReview(orderId, { rating, content }) {
   try {
     await request({
@@ -357,9 +391,11 @@ export async function submitReview(orderId, { rating, content }) {
       data: { target_type: 'order', target_id: String(orderId), rating, content: content || '' },
     })
     if (import.meta.env.DEV) saveReviewLocal(orderId, { rating, content })
+    markReviewed(orderId)
   } catch (e) {
     if (!import.meta.env.DEV) throw e
     saveReviewLocal(orderId, { rating, content })
+    markReviewed(orderId)
   }
 }
 
@@ -367,7 +403,7 @@ export async function submitReview(orderId, { rating, content }) {
 // 不修改 status 字段（避免破坏状态筛选与角标统计），仅覆盖展示文案。
 // 售后单（order.aftersale 非空）不适用——结案单状态也是 completed，但应显示售后状态而非「已评价」。
 function applyReviewed(order) {
-  if (!order || order.status !== 'completed' || order.aftersale || !getReview(order.id)) return order
+  if (!order || order.status !== 'completed' || order.aftersale || !isReviewed(order.id)) return order
   const detail = order.detail
     ? {
         ...order.detail,

@@ -156,7 +156,8 @@ const mapProduct = (p) => {
   let statusKey = 'live'
   let status = '在售'
   if (p.status === 'sold') status = '已售'
-  if (p.status === 'off') { statusKey = 'live'; status = '已下架' }
+  // 已下架不属于「已发布」：归入非 live 状态（rejected「未通过」Tab），避免误标 live
+  if (p.status === 'off') { statusKey = 'rejected'; status = '已下架' }
   const price = p.price_fen ? '¥' + (p.price_fen / 100) : ''
   return {
     id: p.id, type: 'product', label: '商品', backend: true,
@@ -173,7 +174,8 @@ const mapService = (sl) => {
   let statusKey = 'pending'
   let status = '审核中'
   if (sl.status === 'published') { statusKey = 'live'; status = '已发布' }
-  if (sl.status === 'off') { statusKey = 'live'; status = '已下架' }
+  // 已下架同商品：归入非 live 状态（rejected「未通过」Tab），避免误标 live
+  if (sl.status === 'off') { statusKey = 'rejected'; status = '已下架' }
   return {
     id: sl.id, type: 'service', label: '服务能力', backend: true,
     statusKey, status,
@@ -186,8 +188,11 @@ const mapService = (sl) => {
 
 // course.status: draft/published
 const mapCourse = (c) => {
-  const statusKey = c.status === 'published' ? 'live' : 'pending'
-  const status = c.status === 'published' ? '已发布' : '草稿'
+  // 区分 pending（审核中）/draft（草稿）：只有 published 才算「已发布」
+  let statusKey = 'pending'
+  let status = '审核中'
+  if (c.status === 'published') { statusKey = 'live'; status = '已发布' }
+  else if (c.status === 'draft') { statusKey = 'draft'; status = '草稿' }
   return {
     id: c.id, type: 'course', label: '培训课程', backend: true,
     statusKey, status,
@@ -222,11 +227,13 @@ async function refresh() {
   } catch (e) {
     // 后端不可用：保留本地记录展示，不阻塞页面
   }
-  // 本地保留：草稿（四类均可能）+ 无 backendId 的旧记录（去重后）
+  // 本地保留：草稿（四类均可能）+ 无 backendId 的旧记录（去重后）。
+  // 去重键用 p.backendId（本地发布成功后写入的服务端 id）比对后端返回的 id：
+  // 后端已存在的记录不再从本地合并，避免同一发布重复展示。
   const backendIds = new Set(backend.map((b) => b.id))
   const localKeep = local.filter(
     (p) => p.statusKey === 'draft' || !p.backendId
-  ).filter((p) => !backendIds.has(p.id))
+  ).filter((p) => !backendIds.has(p.backendId))
   allPosts.value = [...localKeep, ...backend]
 }
 

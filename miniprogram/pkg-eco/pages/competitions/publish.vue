@@ -190,7 +190,8 @@ async function submit() {
         start_date: form.start_date,
         end_date: form.end_date,
         deadline: form.deadline,
-        fee: Math.round((Number(form.feeYuan) || 0) * 100),
+        // 后端 Competition.Fee 单位为元（非分），直接传元
+        fee: Math.round(Number(form.feeYuan) || 0),
         max_teams: Number(form.maxTeams) || 0,
         description: form.description.trim(),
         poster: posterUrl,

@@ -65,8 +65,8 @@
               <view class="rating-divider" />
               <view class="rating-right">
                 <view class="r-stat"><text class="r-key">累计评价</text><text class="r-val">{{ detail.review_count || 0 }} 条</text></view>
-                <view class="r-stat"><text class="r-key">通过考试</text><text class="r-val">{{ passRateOf(detail) }}%</text></view>
-                <view class="r-stat"><text class="r-key">机构年限</text><text class="r-val">{{ yearsOf(detail) }} 年</text></view>
+                <view class="r-stat"><text class="r-key">通过考试</text><text class="r-val">{{ passRateOf(detail) === '—' ? '—' : passRateOf(detail) + '%' }}</text></view>
+                <view class="r-stat"><text class="r-key">机构年限</text><text class="r-val">{{ yearsOf(detail) === '—' ? '—' : yearsOf(detail) + ' 年' }}</text></view>
               </view>
             </view>
           </view>
@@ -83,8 +83,8 @@
                   </view>
                 </view>
               </view>
-              <view class="group-divider" />
-              <view class="group-block">
+              <view class="group-divider" v-if="featureTags(detail).length > 0" />
+              <view class="group-block" v-if="featureTags(detail).length > 0">
                 <text class="group-title">机构服务</text>
                 <view class="group-tags">
                   <view v-for="(ft, i) in featureTags(detail)" :key="ft" class="g-tag" :class="'g-tag--c' + (i % 5)">
@@ -101,7 +101,7 @@
               <text class="section-title">培训参考价</text>
               <text class="section-sub">元 / 人 · 仅供参考</text>
             </view>
-            <view class="price-list">
+            <view class="price-list" v-if="priceList(detail).length > 0">
               <view
                 v-for="(p, i) in priceList(detail)"
                 :key="i"
@@ -126,6 +126,7 @@
                 </view>
               </view>
             </view>
+            <view v-else class="price-empty">费用面议</view>
           </view>
 
           <!-- 机构简介卡 -->
@@ -224,9 +225,9 @@
       <view class="bottom-left">
         <text class="fee-label">培训参考价</text>
         <view class="fee-price">
-          <text class="fee-symbol">¥</text>
+          <text v-if="minPrice(detail) !== '面议'" class="fee-symbol">¥</text>
           <text class="fee-value">{{ minPrice(detail) }}</text>
-          <text class="fee-unit">起/人</text>
+          <text v-if="minPrice(detail) !== '面议'" class="fee-unit">起/人</text>
         </view>
       </view>
       <view class="bottom-actions">
@@ -317,23 +318,23 @@ function fmtDate(d) {
   return String(d).slice(0, 10)
 }
 
-/* 评分 */
+/* 评分（缺失显示 —，不编造默认分） */
 function ratingOf(item) {
-  return item.rating || '4.7'
+  return item.rating != null ? item.rating : '—'
 }
 function starCount(item) {
-  var r = Number(item.rating || 4.7)
-  return Math.round(r)
+  var r = Number(item.rating)
+  return isNaN(r) ? 0 : Math.round(r)
 }
-/* 通过率（后端补字段后自动生效） */
+/* 通过率（缺失显示 —） */
 function passRateOf(item) {
-  return item.pass_rate != null ? item.pass_rate : 96.8
+  return item.pass_rate != null ? item.pass_rate : '—'
 }
-/* 机构年限 */
+/* 机构年限（缺失显示 —） */
 function yearsOf(item) {
   if (item.years != null) return item.years
   if (item.establish_year) return Math.max(1, new Date().getFullYear() - Number(item.establish_year))
-  return 5
+  return '—'
 }
 
 /* 证书类型标签 */
@@ -345,15 +346,7 @@ function certTypeTags(item) {
 
 function featureTags(item) {
   if (Array.isArray(item.tags) && item.tags.length > 0) return item.tags
-  const tags = []
-  if (item.district) tags.push(item.district)
-  else tags.push('花溪区')
-  if (item.scale) tags.push(item.scale)
-  else tags.push('规模大')
-  tags.push('包住')
-  tags.push('拿证快')
-  tags.push('专业教培')
-  return tags
+  return []
 }
 
 function priceList(item) {
@@ -367,12 +360,13 @@ function priceList(item) {
       }
     })
   }
-  const price = item.price != null ? item.price : (item.price_fen ? (item.price_fen / 100) : 5800)
-  const ct = item.cert_type || 'CAAC'
-  return [
-    { name: ct + '视距内', price: price, unit: '人' },
-    { name: ct + '超视距', price: Math.round(price * 1.5), unit: '人' },
-  ]
+  // 有真实价格字段才展示单条；缺失返回空（模板显示"费用面议"），不编造超视距价
+  if (item.price != null || item.price_fen != null) {
+    const price = item.price != null ? item.price : (item.price_fen ? (item.price_fen / 100) : 0)
+    const ct = item.cert_type || '课程'
+    return [{ name: ct, price: price, unit: '人' }]
+  }
+  return []
 }
 /* 价格内容清单 */
 function priceIncludes(i) {
@@ -380,7 +374,7 @@ function priceIncludes(i) {
 }
 function minPrice(item) {
   var arr = priceList(item)
-  if (arr.length === 0) return 0
+  if (arr.length === 0) return '面议'
   var min = arr[0].price
   for (var i = 1; i < arr.length; i++) if (arr[i].price < min) min = arr[i].price
   return min
@@ -388,8 +382,7 @@ function minPrice(item) {
 
 function orgIntro(item) {
   const intro = item.intro || item.description || ''
-  if (intro && intro.length > 40) return intro
-  return '1、构建"能力培养-场景应用-生态共建"全链条服务。即搭建"考证培训—实景应用—企业赋能"闭环\n\n2、差异化课程设计-垂直场景深度绑定。慧飞行6大行业课程设计-植保、吊运、航测、航拍、巡检、应急消防\n\n3、从培训到销售、维修、维护、保养、保险、飞行服务、二手交易、覆盖用户全生命周期价值。'
+  return intro || ''
 }
 
 function envImages(item) {
@@ -399,7 +392,7 @@ function envImages(item) {
   return []
 }
 
-/* ===== 数据获取（拉全量按 id 匹配 + mock 兜底） ===== */
+/* ===== 数据获取（按 id 单查 + storage 缓存，删除 mock 兜底） ===== */
 async function fetchDetail() {
   loading.value = true
   errorMsg.value = ''
@@ -411,87 +404,15 @@ async function fetchDetail() {
       loading.value = false
       return
     }
-    const res = await request({ url: '/api/v1/training-courses' })
-    const data = Array.isArray(res) ? res : (res && res.data) || res || {}
-    const items = Array.isArray(data) ? data : (data && data.items) || data || []
-    let found = null
-    const targetId = String(id.value)
-    for (let i = 0; i < items.length; i++) {
-      if (String(items[i].id) === targetId) { found = items[i]; break }
-    }
-    if (!found) found = findMockCourse(targetId)
-    detail.value = found
-    if (!found) errorMsg.value = '机构不存在'
+    const res = await request({ url: '/api/v1/training-courses/' + encodeURIComponent(id.value) })
+    const data = (res && res.data) || res || null
+    detail.value = data && data.id ? data : null
+    if (!detail.value) errorMsg.value = '机构不存在'
   } catch (e) {
-    detail.value = findMockCourse(String(id.value))
-    errorMsg.value = ''
+    errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
-}
-
-/* ===== 本地 mock ===== */
-function mockCourses() {
-  return [
-    {
-      id: 'course-mock-1', title: 'CAAC民航局多旋翼无人机驾驶员执照班', cert_type: 'caac', status: 'recruiting',
-      org_name: '重庆无人机飞行学院', region: '重庆', location: '重庆市渝北区空港大道88号',
-      price_fen: 980000, duration_days: 25, rating: 4.8, review_count: 126, pass_rate: 96.8, years: 5,
-      start_date: '2026-09-01', end_date: '2026-09-25',
-      phone: '400-116-0851', intro: '民航局无人机驾驶员执照班，含理论+实操+模拟考试，结业可考取CAAC执照。',
-      banner: '/static/home/hero-inspection.jpg',
-      certificate: '',
-      environment: ['/static/home/demand-lift.jpg', '/static/home/demand-solar.jpg', '/static/home/home-bg.jpg'],
-    },
-    {
-      id: 'course-mock-2', title: '大疆UTC航拍工程师认证班', cert_type: 'utc_dji', status: 'urgent',
-      org_name: '大疆慧飞重庆分校', region: '重庆', location: '重庆市南岸区茶园',
-      price_fen: 39900, duration_days: 7, rating: 4.6, review_count: 89, remain: 3, pass_rate: 94.2, years: 3,
-      start_date: '2026-09-05', end_date: '2026-09-11',
-      phone: '400-116-0851', intro: '大疆官方UTC认证课程，航拍构图+飞行实操，适合入门。',
-      banner: '/static/home/demand-lift.jpg',
-      certificate: '',
-      environment: ['/static/home/hero-inspection.jpg', '/static/home/demand-solar.jpg', '/static/home/home-bg.jpg'],
-    },
-    {
-      id: 'course-mock-3', title: '人社职业技能等级证书·无人机装调检修', cert_type: 'gov_level', status: 'full',
-      org_name: '重庆职业技能培训中心', region: '四川', location: '成都市武侯区',
-      price_fen: 268000, duration_days: 15, rating: 4.5, review_count: 67, pass_rate: 91.5, years: 8,
-      start_date: '2026-09-15', end_date: '2026-09-30',
-      phone: '400-116-0851', intro: '人社职业技能等级证书，无人机装调检修方向，可申请政府补贴。',
-      banner: '/static/home/demand-solar.jpg',
-      certificate: '',
-      environment: ['/static/home/home-bg.jpg', '/static/home/hero-inspection.jpg', '/static/home/demand-lift.jpg'],
-    },
-    {
-      id: 'course-mock-4', title: 'AOPA多旋翼机长执照班', cert_type: 'caac', status: 'upcoming',
-      org_name: '成都空域无人机培训基地', region: '四川', location: '成都市双流区',
-      price_fen: 1280000, duration_days: 30, rating: 4.9, review_count: 45, pass_rate: 97.1, years: 4,
-      start_date: '2026-10-01', end_date: '2026-10-30',
-      phone: '400-116-0851', intro: 'AOPA机长执照班，含超视距飞行训练，面向进阶飞手。',
-      banner: '/static/home/home-bg.jpg',
-      certificate: '',
-      environment: ['/static/home/demand-solar.jpg', '/static/home/demand-lift.jpg', '/static/home/hero-inspection.jpg'],
-    },
-    {
-      id: 'course-mock-5', title: '无人机应急应用与植保作业实战班', cert_type: 'utc_dji', status: 'recruiting',
-      org_name: '重庆农用无人机服务中心', region: '重庆', location: '重庆市潼南区',
-      price_fen: 45800, duration_days: 5, rating: 4.7, review_count: 158, pass_rate: 95.3, years: 6,
-      start_date: '2026-08-20', end_date: '2026-08-25',
-      phone: '400-116-0851', intro: '应急+植保实战课程，含农药喷洒作业规范与应急响应训练。',
-      banner: '/static/home/demand-lift.jpg',
-      certificate: '',
-      environment: ['/static/home/hero-inspection.jpg', '/static/home/home-bg.jpg', '/static/home/demand-solar.jpg'],
-    },
-  ]
-}
-
-function findMockCourse(cid) {
-  var all = mockCourses()
-  for (var i = 0; i < all.length; i++) {
-    if (String(all[i].id) === String(cid)) return all[i]
-  }
-  return null
 }
 
 /* ===== 交互 ===== */
@@ -886,6 +807,15 @@ onPullDownRefresh(function () {
 
 /* 培训参考价卡 */
 .price-list { display: flex; flex-direction: column; gap: 16rpx; }
+.price-empty {
+  background: #ffffff;
+  border: 1rpx solid #EEF1F4;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  font-size: 26rpx;
+  color: #667085;
+  text-align: center;
+}
 .price-item {
   position: relative;
   display: flex;

@@ -90,13 +90,14 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { loadOrder, fmtFen, toastCustomerService } from '../../utils/orderAdapter'
 import { request } from '../../utils/request'
 
 const order = ref(null)
 const loading = ref(true)
 const error = ref(false)
+let orderId = ''
 
 const navTitle = computed(() => {
   if (!order.value) return '订单详情'
@@ -134,7 +135,7 @@ const actionNote = computed(() => {
 })
 
 const loadData = async (query = {}) => {
-  const id = query.id
+  const id = query.id || orderId
   if (!id) {
     error.value = true
     loading.value = false
@@ -152,7 +153,16 @@ const loadData = async (query = {}) => {
   }
 }
 
-onLoad(loadData)
+onLoad((options) => {
+  orderId = (options && options.id) || ''
+  loadData(options)
+})
+
+// onShow 刷新：从支付/发货/收货/评价等子页返回后重载订单状态（订单详情为低频页，
+// 重复请求可接受；onLoad 先执行完成首屏加载，onShow 只负责后续返回时的刷新）
+onShow(() => {
+  if (orderId) loadData({ id: orderId })
+})
 
 const handlePrimaryAction = () => {
   if (!order.value) return
@@ -162,6 +172,11 @@ const handlePrimaryAction = () => {
     uni.navigateTo({
       url: `/pages/orders/aftersale?id=${encodeURIComponent(o.id)}&type=${o.type}`,
     })
+    return
+  }
+  // 已取消订单：无任何可操作项
+  if (o.status === 'cancelled') {
+    uni.showToast({ title: '订单已取消', icon: 'none' })
     return
   }
   // ── 卖家视角：发货 / 等待流转提示 ──

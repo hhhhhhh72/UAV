@@ -195,11 +195,24 @@ export default {
           this.list = this.list.concat(items)
         }
         this.hasMore = this.list.length < total
+        // 后端忽略 sort 参数：预算排序在前端本地完成（缺失 budget_fen 视为 0）
+        this.applySort()
       } catch (e) {
         this.errorMsg = '网络异常，请稍后重试'
       } finally {
         this.loading = false
         this.loadingMore = false
+      }
+    },
+    applySort() {
+      if (this.currentSort === 'budget_desc') {
+        this.list.sort(function (a, b) {
+          return (Number(b.budget_fen) || 0) - (Number(a.budget_fen) || 0)
+        })
+      } else if (this.currentSort === 'budget_asc') {
+        this.list.sort(function (a, b) {
+          return (Number(a.budget_fen) || 0) - (Number(b.budget_fen) || 0)
+        })
       }
     },
     async loadMore() {

@@ -44,7 +44,8 @@
 
       <!-- 底部操作 -->
       <view class="bottom-bar">
-        <view class="bottom-btn" :class="{ applied: applied }" hover-class="bottom-press" :hover-stay-time="100" @tap="applyJob">{{ applied ? '已投递' : '投递简历' }}</view>
+        <view v-if="job.status === 'published'" class="bottom-btn" :class="{ applied: applied }" hover-class="bottom-press" :hover-stay-time="100" @tap="applyJob">{{ applied ? '已投递' : '投递简历' }}</view>
+        <view v-else class="bottom-btn bottom-btn--disabled">{{ job.status === 'closed' ? '已关闭' : '暂未开放' }}</view>
       </view>
     </template>
   </view>
@@ -63,6 +64,7 @@ const statusBarHeight = ref(20)
 const id = ref('')
 const job = ref(null)
 const applied = ref(false)
+const submitting = ref(false)
 const loading = ref(true)
 const errorMsg = ref('')
 
@@ -96,10 +98,11 @@ const load = async (pid) => {
   }
 }
 
-// 投递：登录 → 简历检查 → 提交
+// 投递：登录 → 简历检查 → 提交（submitting 防重复点击）
 const applyJob = async () => {
-  if (!job.value || applied.value) return
+  if (submitting.value || !job.value || applied.value || job.value.status !== 'published') return
   if (!requireLogin()) return
+  submitting.value = true
   try {
     const resumes = await request({ url: '/api/v1/resumes/mine' })
     const rlist = Array.isArray(resumes) ? resumes : ((resumes && resumes.data) || [])
@@ -120,6 +123,8 @@ const applyJob = async () => {
     uni.showModal({ title: '投递成功', content: '简历已投递，可在「我的投递」查看进展', showCancel: false })
   } catch (e) {
     uni.showToast({ title: (e && e.message) || '投递失败', icon: 'none' })
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -230,6 +235,7 @@ onLoad((opts) => {
   box-shadow: 0 4px 14px rgba(10, 102, 194, 0.28);
 }
 .bottom-btn.applied { background: #EEF1F4; color: #667085; box-shadow: none; }
+.bottom-btn--disabled { background: #EEF1F4; color: #667085; box-shadow: none; }
 .bottom-press { transform: scale(0.98); opacity: 0.9; }
 
 /* ===== 减弱动效（无障碍） ===== */

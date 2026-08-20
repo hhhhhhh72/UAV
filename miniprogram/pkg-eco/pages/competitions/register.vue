@@ -76,6 +76,8 @@
             <text class="req-hint-link" @tap="goBack">报名条件</text>
             <text class="req-hint-text">，再填写表单</text>
           </view>
+          <!-- 项目选择说明：后端报名契约不收 event，选择仅作费用展示，最终以现场确认为准 -->
+          <view class="event-confirm-note">所选参赛项目仅作费用参考展示，最终参赛项目以现场确认为准</view>
         </view>
       </view>
 
@@ -182,10 +184,11 @@
     </template>
 
     <!-- ⑥ 固定底部操作区（双 CTA：次白描边 + 主蓝） -->
+    <view v-if="competitionClosed" class="pub-closed-banner">该赛事报名已截止，暂不能提交报名</view>
     <view v-if="!loading && !errorMsg && competition" class="pub-sticky">
       <view class="pub-btn pub-btn--secondary" hover-class="pub-btn--active" @tap="handleConsult">联系咨询</view>
-      <view class="pub-btn pub-btn--primary" :class="{ 'is-loading': submitting }" hover-class="pub-btn--active" @tap="handleSubmit">
-        {{ submitting ? '提交中...' : '确认报名' }}<text v-if="!submitting" class="btn-arrow">→</text>
+      <view class="pub-btn pub-btn--primary" :class="{ 'is-loading': submitting, 'is-disabled': competitionClosed }" hover-class="pub-btn--active" @tap="handleSubmit">
+        {{ submitting ? '提交中...' : (competitionClosed ? '已截止' : '确认报名') }}<text v-if="!submitting && !competitionClosed" class="btn-arrow">→</text>
       </view>
     </view>
 
@@ -211,7 +214,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
-import { request, authStorage, BASE_URL } from '../../../utils/request'
+import { request, authStorage, BASE_URL, getErrorMessage } from '../../../utils/request'
 import { useSafeTop } from '../../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)
@@ -239,15 +242,30 @@ const eventBarColor = computed(function () {
   return isTeamEvent.value ? '#219653' : '#F97316'
 })
 
-/* 倒计时 */
+/* 报名截止时间：复用详情页 deadlineDate 逻辑（Date.parse 完整时间，含时刻） */
+function deadlineDate(item) {
+  const d = item && (item.deadline || item.enroll_deadline)
+  if (!d) return null
+  const t = Date.parse(String(d).replace(/-/g, '/'))
+  return isNaN(t) ? null : new Date(t)
+}
+
+/* 赛事已截止：status closed/full 或报名截止时刻已过（提交按钮禁用） */
+const competitionClosed = computed(function () {
+  const c = competition.value
+  if (!c) return false
+  if (c.status === 'closed' || c.status === 'full') return true
+  const dl = deadlineDate(c)
+  return !!(dl && dl.getTime() < Date.now())
+})
+
+/* 倒计时（按完整时刻计算，对齐详情页「今天截止/剩余 N 天」） */
 const countdownText = computed(function () {
-  var d = competition.value && (competition.value.deadline || competition.value.enroll_deadline)
-  if (!d) return ''
-  var m = String(d).match(/(\d{4})[年.\-\/](\d{1,2})[月.\-\/](\d{1,2})/)
-  if (!m) return ''
-  var target = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-  var days = Math.ceil((target - new Date()) / 86400000)
-  if (days <= 0) return '报名已截止'
+  const dl = deadlineDate(competition.value)
+  if (!dl) return ''
+  const days = Math.floor((dl.getTime() - Date.now()) / 86400000)
+  if (days < 0) return '报名已截止'
+  if (days === 0) return '今天截止'
   return '报名截止倒计时 ' + days + ' 天'
 })
 
@@ -340,6 +358,7 @@ function validate() {
 /* 提交 */
 async function handleSubmit() {
   if (submitting.value) return
+  if (competitionClosed.value) { uni.showToast({ title: '报名已截止', icon: 'none' }); return }
   var err = validate()
   if (err) { uni.showToast({ title: err, icon: 'none' }); return }
 
@@ -376,7 +395,7 @@ async function handleSubmit() {
     uni.showToast({ title: '报名成功', icon: 'success' })
     backTimer = setTimeout(function () { uni.navigateBack() }, 1500)
   } catch (e) {
-    var msg = (e && e.data && e.data.message) || '报名失败，请重试'
+    var msg = getErrorMessage(e) || '报名失败，请重试'
     uni.showToast({ title: msg, icon: 'none' })
   } finally {
     submitting.value = false
@@ -587,6 +606,15 @@ onUnload(function () {
   font-size: 11px;
 }
 
+/* 参赛项目选择说明：仅作费用参考展示，最终以现场确认为准 */
+.event-confirm-note {
+  padding: 9px 13px;
+  border-top: 1px solid #EEF1F4;
+  font-size: 11px;
+  color: #E96012;
+  background: #FFF8F3;
+}
+
 .req-hint-text { color: #667085; }
 .req-hint-link { color: #0A66C2; font-weight: 700; text-decoration: underline; }
 
@@ -680,7 +708,23 @@ onUnload(function () {
 /* ⑥ 底部操作区 */
 .pub-sticky .pub-btn--secondary { flex: 1; }
 .is-loading { opacity: 0.7; }
+.is-disabled { background: #B0B8C4 !important; box-shadow: none !important; pointer-events: none; }
 .btn-arrow { margin-left: 6px; font-size: 15px; }
+
+/* 已截止横幅（固定于底部操作区上方） */
+.pub-closed-banner {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(env(safe-area-inset-bottom) + 132rpx);
+  z-index: 98;
+  padding: 12rpx 16rpx;
+  background: #FDECEC;
+  color: #B42318;
+  font-size: 24rpx;
+  text-align: center;
+  border-radius: 10rpx;
+}
 
 .privacy-text {
   display: block;

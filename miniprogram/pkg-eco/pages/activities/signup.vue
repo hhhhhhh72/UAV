@@ -80,7 +80,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request, authStorage, getStoredUser } from '@/utils/request'
+import { request, authStorage, getStoredUser, getErrorMessage } from '@/utils/request'
 import { dateOf, timeOf } from '@/utils/eventTime'
 
 const done = ref(false)
@@ -160,7 +160,7 @@ async function handleSubmit() {
     summary.value = act.value || { title: '', time: '', loc: '' }
     done.value = true
   } catch (e) {
-    uni.showToast({ title: '报名提交失败，请稍后重试', icon: 'none' })
+    uni.showToast({ title: getErrorMessage(e) || '报名提交失败，请稍后重试', icon: 'none' })
   } finally {
     submitting.value = false
   }

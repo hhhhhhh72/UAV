@@ -51,7 +51,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { request, getStoredUser } from '../../../utils/request'
 
 const goBack = () => uni.navigateBack()
@@ -60,7 +61,7 @@ const goPublish = () => uni.navigateTo({ url: '/pkg-talent/pages/publish/job' })
 const goApplicants = (item) => uni.navigateTo({ url: '/pkg-talent/pages/jobs/applicants?job_id=' + encodeURIComponent(item.id) })
 
 const user = getStoredUser()
-const isEnterprise = !!(user && (user.role === 'enterprise' || user.role === 'platform_admin' || user.role === 'association_admin'))
+const isEnterprise = !!(user && (user.role === 'enterprise' || user.role === 'platform_admin'))
 
 const list = ref([])
 const loading = ref(false)
@@ -100,7 +101,8 @@ const closeJob = async (item) => {
   }
 }
 
-onMounted(load)
+// onShow 而非 onMounted：发布/关闭等操作返回后立即看到最新状态
+onShow(load)
 </script>
 
 <style scoped>

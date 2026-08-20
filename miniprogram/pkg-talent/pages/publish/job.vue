@@ -42,6 +42,15 @@
             />
           </view>
           <view class="pub-field">
+            <view class="pub-field-label">职位类型</view>
+            <picker mode="selector" :range="jobTypeOptions" :value="jobTypeIndex" @change="onJobTypeChange">
+              <view class="pub-select-field">
+                <text class="pub-select-value" :class="{ 'pub-select-placeholder': !form.job_type }">{{ form.job_type || '请选择职位类型' }}</text>
+                <text class="pub-arrow">›</text>
+              </view>
+            </picker>
+          </view>
+          <view class="pub-field">
             <view class="pub-field-label">薪资</view>
             <input
               v-model="form.salary"
@@ -86,9 +95,16 @@ const goBack = () => uni.navigateBack()
 const goRegister = () => uni.navigateTo({ url: '/pkg-eco/pages/enterprise/register' })
 
 const user = getStoredUser()
-const canPost = computed(() => user && (user.role === 'enterprise' || user.role === 'platform_admin' || user.role === 'association_admin'))
+const canPost = computed(() => user && (user.role === 'enterprise' || user.role === 'platform_admin'))
 
-const form = ref({ title: '', location: '', salary: '', description: '' })
+const jobTypeOptions = ['全职', '兼职', '实习', '项目制']
+const jobTypeIndex = ref(0)
+const onJobTypeChange = (e) => {
+  jobTypeIndex.value = Number(e.detail.value)
+  form.value.job_type = jobTypeOptions[jobTypeIndex.value] || ''
+}
+
+const form = ref({ title: '', job_type: '', location: '', salary: '', description: '' })
 const submitting = ref(false)
 let backTimer = null
 
@@ -102,6 +118,7 @@ const submit = async () => {
       method: 'POST',
       data: {
         title: form.value.title,
+        job_type: form.value.job_type,
         location: form.value.location,
         salary_fen: Math.round((Number(form.value.salary) || 0) * 100),
         description: form.value.description,
@@ -129,6 +146,7 @@ onUnload(() => {
 @import '../../../pages/publish/pub-style.css';
 
 .pub-fade { opacity: 0.6; }
+.pub-select-placeholder { color: #C8C9CC; }
 .pub-form-intro-h2 {
   font-size: 20px;
   margin: 0 0 4px;

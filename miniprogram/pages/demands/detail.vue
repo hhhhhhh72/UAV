@@ -424,18 +424,13 @@ const toastCompany = () => {
 }
 
 /* ================= 收藏 / 登记对接 ================= */
+// 收藏为假交互：后端无收藏接口，仅提示即将上线（保留 UI 入口）
 const onFavorite = () => {
   if (!isLoggedIn()) {
     openSheet('login')
     return
   }
-  if (favorited.value) {
-    uni.showToast({ title: '已取消收藏', icon: 'none' })
-    favorited.value = false
-    return
-  }
-  favorited.value = true
-  uni.showToast({ title: '已收藏', icon: 'success' })
+  uni.showToast({ title: '收藏功能即将上线', icon: 'none' })
 }
 
 const onIntent = async () => {

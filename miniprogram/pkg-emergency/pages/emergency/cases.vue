@@ -77,7 +77,7 @@
         </view>
 
         <view class="c-meta">
-          <text class="type-tag" :class="eventTagCls(item.event_type)">{{ item.event_type || '未知' }}</text>
+          <text class="type-tag" :class="eventTagCls(item.event_type)">{{ eventTypeLabel(item.event_type) }}</text>
           <text v-if="item.date" class="c-text">{{ item.date }}</text>
         </view>
 
@@ -213,8 +213,26 @@ export default {
       this.fetchList(true)
     },
 
-    /* 事件类型字符图标（低饱和色块，非 emoji） */
+    /* 事件类型归一：后端可能下发英文（mountain_fire/flood/earthquake/search_rescue），统一映射为中文 */
+    eventTypeLabel(type) {
+      var map = {
+        'mountain_fire': '山火',
+        'flood': '洪水',
+        'earthquake': '地震',
+        'search_rescue': '搜救',
+        '山火': '山火',
+        '洪水': '洪水',
+        '地震': '地震',
+        '搜救': '搜救',
+        '其他': '其他',
+      }
+      var key = String(type || '').toLowerCase()
+      return map[key] || (type ? '其他' : '未知')
+    },
+
+    /* 事件类型字符图标（低饱和色块，非 emoji）；输入先归一，中英文均可 */
     eventIcon(type) {
+      type = this.eventTypeLabel(type)
       var map = {
         '山火': '火',
         '洪水': '水',
@@ -225,6 +243,7 @@ export default {
       return map[type] || '卫'
     },
     eventIconStyle(type) {
+      type = this.eventTypeLabel(type)
       var map = {
         '山火': { background: '#FFF0E6', color: '#E96012' },
         '洪水': { background: '#EAF3FB', color: '#0A66C2' },
@@ -234,6 +253,7 @@ export default {
       return map[type] || { background: '#F4F6F8', color: '#667085' }
     },
     eventTagCls(type) {
+      type = this.eventTypeLabel(type)
       var map = {
         '山火': 'tag--orange',
         '洪水': 'tag--blue',

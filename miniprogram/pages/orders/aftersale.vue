@@ -76,12 +76,7 @@
           <text>同意退款</text>
         </view>
       </view>
-      <!-- 买家视角：售后未结案时可补充说明（结案单 approved/rejected 后端拒绝重复申请，不展示入口） -->
-      <view v-else-if="!isSeller && order && as && as.status === '待审核'" class="action-wrap">
-        <view class="action-btn" @tap="goRefundApply">
-          <text>补充说明</text>
-        </view>
-      </view>
+      <!-- 买家视角：售后待审核时无操作（后端无补充说明接口，重复提交会被拒绝），查看进度即可 -->
     </template>
 
     <view class="bottom-spacer"></view>
@@ -160,13 +155,6 @@ const loadData = async (query = {}) => {
 }
 
 onLoad(loadData)
-
-const goRefundApply = () => {
-  if (!order.value) return
-  uni.navigateTo({
-    url: `/pages/orders/refund-apply?id=${encodeURIComponent(order.value.id)}&type=${order.value.type}`,
-  })
-}
 
 const goBack = () => {
   uni.navigateBack()

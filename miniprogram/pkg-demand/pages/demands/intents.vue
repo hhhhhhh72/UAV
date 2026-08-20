@@ -43,7 +43,7 @@
             <view class="intent-btn primary" @tap="goOrders">查看订单</view>
           </template>
           <template v-else>
-            <view class="intent-btn" @tap="toastClosed">意向已关闭</view>
+            <view class="intent-btn" @tap="toastClosed">{{ intent.status === 'done' ? '已成交' : '意向已关闭' }}</view>
           </template>
         </view>
       </view>
@@ -89,9 +89,9 @@ const acceptTarget = ref(null)
 const acceptAmount = ref('')
 const acceptSubmitting = ref(false)
 
-const STATUS_LABEL = { pending: '待处理', contacted: '已确认', closed: '已关闭' }
+const STATUS_LABEL = { pending: '待处理', contacted: '已确认', closed: '已关闭', done: '已成交' }
 const intentStatusLabel = (s) => STATUS_LABEL[s] || s || ''
-const intentStatusClass = (s) => (s === 'contacted' ? 'green' : s === 'closed' ? 'gray' : 'orange')
+const intentStatusClass = (s) => (s === 'contacted' || s === 'done' ? 'green' : s === 'closed' ? 'gray' : 'orange')
 const initialOf = (it) => (it.intentor_name || '?').slice(0, 1)
 
 // 拉取我的需求（mine=1），再逐个取意向

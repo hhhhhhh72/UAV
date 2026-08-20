@@ -315,7 +315,7 @@ const useMock = () => {
 const fetchMore = async () => {
   if (loading.value || nextPage >= MAX_PAGES || mockMode.value) return
   try {
-    const res = await request({ url: '/api/v1/achievements', data: { page: nextPage + 1, page_size: PAGE_SIZE } })
+    const res = await request({ url: '/api/v1/achievements', data: { page: nextPage, page_size: PAGE_SIZE } })
     const items = Array.isArray(res) ? res : (res?.items || [])
     fullList.value = fullList.value.concat(items.map(mapItem))
     total.value = (Array.isArray(res) && res.total) || (res && res.total) || fullList.value.length
