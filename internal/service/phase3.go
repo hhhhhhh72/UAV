@@ -14,11 +14,12 @@ import (
 // ---- Enrollment ----
 
 type EnrollmentService struct {
-	repo repository.EnrollmentRepository
+	repo       repository.EnrollmentRepository
+	courseRepo repository.CourseRepository // 报名容量检查（course.MaxStudents）用
 }
 
-func NewEnrollmentService(repo repository.EnrollmentRepository) *EnrollmentService {
-	return &EnrollmentService{repo: repo}
+func NewEnrollmentService(repo repository.EnrollmentRepository, courseRepo repository.CourseRepository) *EnrollmentService {
+	return &EnrollmentService{repo: repo, courseRepo: courseRepo}
 }
 
 // EnrollmentForm 培训报名表单数据（小程序 register.vue 12 字段）。
@@ -54,12 +55,23 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	if _, ok, _ := s.repo.FindByUserAndCourse(ctx, userID, courseID); ok {
 		return domain.Enrollment{}, fmt.Errorf("already enrolled")
 	}
-	// 生日：前端提交 "YYYY-MM-DD"，解析为 DATE 语义
+	// 容量：course.MaxStudents > 0 时，该课已报名数 >= MaxStudents 拒绝。
+	// 课程不存在/查询失败时跳过容量检查（兼容无课程仓储的测试与历史数据）。
+	if s.courseRepo != nil {
+		if c, err := s.courseRepo.FindByID(ctx, courseID); err == nil && c.MaxStudents > 0 {
+			if enrolls, err := s.repo.ListByCourse(ctx, courseID); err == nil && len(enrolls) >= c.MaxStudents {
+				return domain.Enrollment{}, fmt.Errorf("course is full")
+			}
+		}
+	}
+	// 生日：前端提交 "YYYY-MM-DD"，解析为 DATE 语义；解析失败返回错误（不再静默丢弃）
 	var birthday time.Time
 	if form.Birthday != "" {
-		if bd, err := time.Parse("2006-01-02", form.Birthday); err == nil {
-			birthday = bd
+		bd, err := time.Parse("2006-01-02", form.Birthday)
+		if err != nil {
+			return domain.Enrollment{}, fmt.Errorf("invalid birthday format")
 		}
+		birthday = bd
 	}
 	now := time.Now()
 	e := domain.Enrollment{ID: nextID("enroll"), CourseID: courseID, UserID: userID,
@@ -181,6 +193,24 @@ func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newSta
 	}
 	if err := checkOrderTransition(o.Status, newStatus); err != nil {
 		return domain.TradeOrder{}, err
+	}
+	// 角色限定迁移：paid 仅管理端可设（UpdateStatusAdmin）；shipped 仅卖家可设；
+	// completed 仅买家可设；cancelled 仅 pending 状态可取消（买卖双方在 pending 均可取消）。
+	switch newStatus {
+	case "paid":
+		return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（paid 仅管理端可设置）", o.Status, newStatus)
+	case "shipped":
+		if o.SellerID != userID {
+			return domain.TradeOrder{}, fmt.Errorf("permission denied: 仅卖家可标记发货")
+		}
+	case "completed":
+		if o.BuyerID != userID {
+			return domain.TradeOrder{}, fmt.Errorf("permission denied: 仅买家可确认收货")
+		}
+	case "cancelled":
+		if o.Status != "pending" {
+			return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（仅 pending 状态可取消）", o.Status, newStatus)
+		}
 	}
 	return s.repo.UpdateStatus(ctx, id, newStatus)
 }

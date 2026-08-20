@@ -48,7 +48,7 @@ func newFullServer(t *testing.T) *httpapi.Server {
 		service.NewHomeService(demandRepo, memory.NewEnterpriseRepository(nil)),
 		service.NewFileService("test_uploads/"),
 		service.NewMessageService(nil),
-		service.NewEnrollmentService(nil),
+		service.NewEnrollmentService(nil, nil),
 		service.NewExpiryService(),
 		service.NewTradeOrderService(nil),
 		service.NewEscrowService(nil),

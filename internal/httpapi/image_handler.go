@@ -28,37 +28,71 @@ func imageCacheKey(urlPath string, width, quality int, outputFormat string, modT
 	return fmt.Sprintf("%x_%d_%d_%s", h, width, quality, outputFormat)
 }
 
-// cleanImageCacheOnce 删除缓存目录中超过 30 天未修改的图片缓存文件。
+// cleanImageCacheOnce 删除缓存目录中超过 30 天未修改的图片缓存文件，并启动周期清理协程。
 // sync.Once 保证整个进程只执行一次；失败仅记录日志，不影响图片服务。
 var cleanImageCache sync.Once
 
 func cleanImageCacheOnce(cacheDir string) {
 	cleanImageCache.Do(func() {
-		entries, err := os.ReadDir(cacheDir)
-		if err != nil {
-			slog.Warn("image: read cache dir", "path", cacheDir, "err", err)
-			return
-		}
-		cutoff := time.Now().Add(-30 * 24 * time.Hour)
-		removed := 0
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
-			}
-			info, err := e.Info()
-			if err != nil {
-				continue
-			}
-			if info.ModTime().Before(cutoff) {
-				if err := os.Remove(filepath.Join(cacheDir, e.Name())); err == nil {
-					removed++
-				}
-			}
-		}
-		if removed > 0 {
-			slog.Info("image: cache janitor removed stale files", "count", removed)
-		}
+		cleanImageCacheDir(cacheDir, time.Now().Add(-30*24*time.Hour))
+		// 周期清理承担后续增长控制：每小时删除超过 24 小时未修改的缓存文件。
+		// 无退出通道，与 internal/cache 的 cleanupLoop 模式一致；panic 由 recover 兜底。
+		go imageCacheJanitor(cacheDir)
 	})
+}
+
+// imageCacheJanitor 每小时扫描缓存目录，删除修改时间超过 24 小时的
+// .jpg/.jpeg/.png/.webp 缓存文件，防止参数组合塞满磁盘。
+func imageCacheJanitor(cacheDir string) {
+	defer func() { _ = recover() }()
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		func() {
+			defer func() { _ = recover() }() // 后台协程 panic 防护
+			cleanImageCacheDir(cacheDir, time.Now().Add(-24*time.Hour))
+		}()
+	}
+}
+
+// cleanImageCacheDir 删除 cacheDir 中修改时间早于 cutoff 的图片缓存文件。
+// 缓存文件经 os.ReadFile/os.WriteFile 读写、句柄即时关闭，Windows 下可安全 os.Remove。
+func cleanImageCacheDir(cacheDir string, cutoff time.Time) {
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		slog.Warn("image: read cache dir", "path", cacheDir, "err", err)
+		return
+	}
+	removed := 0
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if !isImageCacheFile(e.Name()) {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if info.ModTime().Before(cutoff) {
+			if err := os.Remove(filepath.Join(cacheDir, e.Name())); err == nil {
+				removed++
+			}
+		}
+	}
+	if removed > 0 {
+		slog.Info("image: cache janitor removed stale files", "count", removed)
+	}
+}
+
+// isImageCacheFile 判断文件名是否为本代理写入的图片缓存文件。
+func isImageCacheFile(name string) bool {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".jpg", ".jpeg", ".png", ".webp":
+		return true
+	}
+	return false
 }
 
 // GET /api/v1/image — resize & convert images with disk caching.
@@ -133,7 +167,7 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request) {
 	cacheDir := filepath.Join(baseDir, ".image-cache")
 	os.MkdirAll(cacheDir, 0755)
 	// C 批：缓存目录上限/过期清理——启动后首次访问触发一次 >30 天缓存清理，
-	// 避免 .image-cache 磁盘无限增长（此后由周期清理承担，见 startImageCacheJanitor）。
+	// 避免 .image-cache 磁盘无限增长（此后由周期清理承担，见 imageCacheJanitor）。
 	cleanImageCacheOnce(cacheDir)
 	srcStat, err := os.Stat(imagePath)
 	if err != nil {

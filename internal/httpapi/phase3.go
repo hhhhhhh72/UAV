@@ -186,20 +186,9 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	// 查原记录保留 course_id/user_id/created_at
-	all, _, err := s.enrollSvc.All(r.Context(), 0, 10000)
+	// 按报名 ID 定位原记录（保留 course_id/user_id/created_at）——替代全表扫描
+	found, err := s.enrollSvc.FindByID(r.Context(), r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	var found *domain.Enrollment
-	for i := range all {
-		if all[i].ID == r.PathValue("id") {
-			found = &all[i]
-			break
-		}
-	}
-	if found == nil {
 		fail(w, r, http.StatusNotFound, errors.New("enrollment not found"))
 		return
 	}
@@ -209,7 +198,12 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 	found.Gender = in.Gender
 	if in.Birthday == "" {
 		found.Birthday = time.Time{} // 清空生日
-	} else if t, err := time.Parse("2006-01-02", in.Birthday); err == nil {
+	} else {
+		t, err := time.Parse("2006-01-02", in.Birthday)
+		if err != nil {
+			fail(w, r, http.StatusBadRequest, errors.New("invalid birthday format"))
+			return
+		}
 		found.Birthday = t
 	}
 	found.Email = in.Email
@@ -219,7 +213,7 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 	found.IDCardImage = in.IDCardImage
 	found.NoCrime = in.NoCrime
 	found.Status = in.Status
-	updated, err := s.enrollSvc.Update(r.Context(), a, *found)
+	updated, err := s.enrollSvc.Update(r.Context(), a, found)
 	if err != nil {
 		switch {
 		case strings.Contains(err.Error(), "not found"):
@@ -288,9 +282,14 @@ func (s *Server) listEnrollments(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/certificates/expiring?days=30
 func (s *Server) listExpiringCerts(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	// P2 修复：该接口返回全平台证书台账（证书编号等），此前任意登录用户可看，限管理员。
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
 	days := 30
@@ -307,9 +306,14 @@ func (s *Server) listExpiringCerts(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/inspections/expiring?days=30
 func (s *Server) listExpiringInspections(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	// P2 修复：该接口返回全平台年检台账，此前任意登录用户可看，限管理员。
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
 	days := 30

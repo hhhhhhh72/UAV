@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -15,6 +16,51 @@ import (
 
 // phoneRe matches mainland China mobile numbers (11 digits starting with 13-19).
 var phoneRe = regexp.MustCompile(`^1[3-9]\d{9}$`)
+
+// ── 按 key 的进程内登录锁 ──
+// loginLockByKey 为登录 find-or-create 提供按 key 的互斥（防并发首登重复建号）。
+// 与 service 层 lockByKey 同构：引用计数归零即从池中删除条目，防止 key 无限累积。
+var loginLocks sync.Map // key -> *loginLockEntry
+
+// loginLockEntry 是登录锁条目：mu 是实际互斥锁；refs 引用计数（受 refMu 保护），
+// 语义为"当前持有者 + 已递增但仍在等待 mu 的获取者"数量。
+type loginLockEntry struct {
+	mu    sync.Mutex
+	refMu sync.Mutex
+	refs  int
+}
+
+func loginLockByKey(key string) func() {
+	for {
+		created := false
+		v, loaded := loginLocks.LoadOrStore(key, &loginLockEntry{refs: 1})
+		if !loaded {
+			created = true // 本次创建者自带一个引用，下面不再递增
+		}
+		e := v.(*loginLockEntry)
+		e.refMu.Lock()
+		if e.refs == 0 {
+			// 条目刚被并发删除（refs 已归零），本 goroutine 拿到的指针已失效：重试。
+			e.refMu.Unlock()
+			continue
+		}
+		if !created {
+			e.refs++
+		}
+		e.refMu.Unlock()
+
+		e.mu.Lock()
+		return func() {
+			e.mu.Unlock()
+			e.refMu.Lock()
+			e.refs--
+			if e.refs == 0 {
+				loginLocks.Delete(key)
+			}
+			e.refMu.Unlock()
+		}
+	}
+}
 
 type wechatLoginRequest struct {
 	Code string `json:"code"`
@@ -57,19 +103,26 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 
 	u, err := s.userRepo.FindByOpenID(r.Context(), sess.OpenID)
 	if err != nil {
-		now := time.Now()
-		u = domain.User{
-			ID:           fmt.Sprintf("user-%d", now.UnixNano()),
-			WechatOpenID: sess.OpenID,
-			Role:         domain.RoleIndividual,
-			Status:       "active",
-			Version:      1,
-			CreatedAt:    now,
-			UpdatedAt:    now,
+		// P2 修复：同 openid 并发首登会双双 miss 再各 Create 一个用户（重复账号）。
+		// 按 openid 加进程内锁，锁内复查一次再创建；后到者复用先建好的用户。
+		unlock := loginLockByKey("openid|" + sess.OpenID)
+		u, findErr := s.userRepo.FindByOpenID(r.Context(), sess.OpenID)
+		if findErr != nil {
+			now := time.Now()
+			u = domain.User{
+				ID:           fmt.Sprintf("user-%d", now.UnixNano()),
+				WechatOpenID: sess.OpenID,
+				Role:         domain.RoleIndividual,
+				Status:       "active",
+				Version:      1,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			}
+			u, findErr = s.userRepo.Create(r.Context(), u)
 		}
-		u, err = s.userRepo.Create(r.Context(), u)
-		if err != nil {
-			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", err))
+		unlock()
+		if findErr != nil {
+			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", findErr))
 			return
 		}
 	}
@@ -125,11 +178,16 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var u *domain.User
-	role := domain.RoleIndividual
-	if found, err := s.userRepo.FindByID(r.Context(), userID); err == nil && found.Role != "" {
-		u = &found
-		role = u.Role
+	// P3 修复：用户已删除/不存在时拒绝续期——此前回退为 individual 继续签发，
+	// 被删除账号的 refresh token 仍可无限续期（deleteUser 后会话不失效）。
+	u, err := s.userRepo.FindByID(r.Context(), userID)
+	if err != nil {
+		fail(w, r, http.StatusUnauthorized, errors.New("user not found"))
+		return
+	}
+	role := u.Role
+	if role == "" {
+		role = domain.RoleIndividual
 	}
 	// 与登录路径保持一致：统一签发标准 JWT（此前这里用旧式两段 Issue）。
 	accessToken, err := s.tokens.IssueJWT(domain.Actor{ID: userID, Role: role}, 15*time.Minute)
@@ -153,13 +211,11 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 	s.refreshRepo.Revoke(r.Context(), tokenHash)
 
-	hasWechat := u != nil && u.WechatOpenID != "" && !strings.HasPrefix(u.WechatOpenID, "phone:")
+	hasWechat := u.WechatOpenID != "" && !strings.HasPrefix(u.WechatOpenID, "phone:")
 	ui := userInfo{ID: userID, Role: role, Status: ""}
-	if u != nil {
-		ui.Name = u.Name
-		ui.AvatarURL = u.AvatarURL
-		ui.HasWechat = hasWechat
-	}
+	ui.Name = u.Name
+	ui.AvatarURL = u.AvatarURL
+	ui.HasWechat = hasWechat
 	respond(w, r, http.StatusOK, authResponse{
 		AccessToken:  accessToken,
 		RefreshToken: newRefresh,

@@ -1436,11 +1436,15 @@ func (r *workOrderRepo) ListByWorker(ctx context.Context, workerID string) ([]do
 	return out, nil
 }
 
-func (r *workOrderRepo) UpdateStatus(ctx context.Context, id string, status domain.WorkOrderStatus) (domain.WorkOrder, error) {
+func (r *workOrderRepo) UpdateStatus(ctx context.Context, id string, oldStatus, status domain.WorkOrderStatus) (domain.WorkOrder, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, wo := range r.items {
 		if wo.ID == id {
+			// CAS 语义：当前状态 != 期望旧状态 → 拒绝更新（并发取消/开始作业防复活）
+			if wo.Status != oldStatus {
+				return domain.WorkOrder{}, fmt.Errorf("工单状态已变更，请刷新后重试")
+			}
 			r.items[i].Status = status
 			r.items[i].UpdatedAt = time.Now()
 			return r.items[i], nil

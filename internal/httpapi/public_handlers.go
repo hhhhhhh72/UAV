@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
 	"net/http"
 	"strings"
@@ -23,7 +24,18 @@ func (s *Server) publicListCerts(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, 200, all)
+	// P2 修复：匿名接口此前返回全部用户的证书台账（cert_number/user_id，含 pending）。
+	// 与飞手公开名录（listPilots）一致：仅公开已审核通过（approved）的证书，
+	// 并脱敏 user_id（不暴露持有者身份）。
+	out := make([]domain.Certificate, 0, len(all))
+	for _, c := range all {
+		if c.Status != "approved" {
+			continue
+		}
+		c.UserID = ""
+		out = append(out, c)
+	}
+	respond(w, r, http.StatusOK, out)
 }
 
 func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
@@ -85,13 +97,22 @@ func (s *Server) publicListReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) publicListIndustryResources(w http.ResponseWriter, r *http.Request) {
-	page, size := paginationFromQuery(r)
-	all, _, err := s.resourceSvc.List(r.Context(), "", page, size)
+	// P2 修复：匿名接口此前未做 VisibilityLevel 过滤，绕过主列表/详情的分级控制
+	// （任意未登录用户可见 member/partner/admin 级资源台账）。与 listIndustryResources
+	// 一致按访问者级别过滤——匿名访客级别为 public(0)，只能看到 public 级资源。
+	all, _, err := s.resourceSvc.List(r.Context(), "", 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, 200, all)
+	visitor := s.visitorResourceLevel(r)
+	visible := make([]domain.IndustryResource, 0, len(all))
+	for _, it := range all {
+		if resourceLevelRank(it.VisibilityLevel) <= visitor {
+			visible = append(visible, it)
+		}
+	}
+	paginatedRespond(w, r, visible, len(visible))
 }
 
 func (s *Server) publicListServices(w http.ResponseWriter, r *http.Request) {

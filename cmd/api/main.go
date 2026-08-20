@@ -299,7 +299,7 @@ func main() {
 		service.NewHomeService(demandRepo, enterpriseRepo),
 		service.NewFileService("uploads/", service.WithUploadQuota(uploadRepo, cfg.Server.UploadDailyQuotaBytes)),
 		service.NewMessageService(msgRepo),
-		service.NewEnrollmentService(enrollRepo),
+		service.NewEnrollmentService(enrollRepo, courseRepo),
 		service.NewExpiryService(),
 		service.NewTradeOrderService(tradeOrderRepo),
 		service.NewEscrowService(escrowRepo),

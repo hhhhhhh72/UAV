@@ -859,7 +859,7 @@ func TestCoverage_WorkOrderRepo(t *testing.T) {
 	} else if !containsByID(l, id, func(v domain.WorkOrder) string { return v.ID }) {
 		t.Fatalf("ListByWorker: work order %s not found", id)
 	}
-	upd, err := r.UpdateStatus(context.Background(), id, domain.WorkOrderOngoing)
+	upd, err := r.UpdateStatus(context.Background(), id, domain.WorkOrderPending, domain.WorkOrderOngoing)
 	if err != nil {
 		t.Fatalf("UpdateStatus: %v", err)
 	}

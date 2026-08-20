@@ -27,7 +27,7 @@ func newServer(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository()), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
+	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository()), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
 	// Extended services used by public handlers (home endpoint etc.).
 	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
 	// batch2 模块服务：鉴权回归测试（C2）需要
@@ -497,20 +497,26 @@ func TestAftersaleFlow(t *testing.T) {
 	}
 	oid := order.Data.ID
 
-	// 3. 模拟支付（买家）→ paid；模拟发货（卖家）→ shipped
-	for _, step := range []struct{ user, role string; body string }{
-		{"buyer-1", string(domain.RoleIndividual), `{"status":"paid"}`},
-		{"seller-1", string(domain.RoleEnterprise), `{"status":"shipped"}`},
-	} {
-		w := requestAs(t, app, http.MethodPatch, "/api/v1/trade-orders/"+oid+"/status",
-			[]byte(step.body), step.user, domain.Role(step.role))
-		if w.Code != http.StatusOK {
-			t.Fatalf("patch status %s: %d %s", step.body, w.Code, w.Body.String())
-		}
+	// 3. 模拟支付（paid 仅管理端可设，走管理端改单接口）→ paid；模拟发货（卖家）→ shipped
+	aw := requestAs(t, app, http.MethodPut, "/api/v1/admin/orders/"+oid,
+		[]byte(`{"status":"paid"}`), "admin-1", domain.RolePlatformAdmin)
+	if aw.Code != http.StatusOK {
+		t.Fatalf("admin mark paid: %d %s", aw.Code, aw.Body.String())
+	}
+	sw := requestAs(t, app, http.MethodPatch, "/api/v1/trade-orders/"+oid+"/status",
+		[]byte(`{"status":"shipped"}`), "seller-1", domain.RoleEnterprise)
+	if sw.Code != http.StatusOK {
+		t.Fatalf("seller mark shipped: %d %s", sw.Code, sw.Body.String())
+	}
+	// 买家不能伪造支付：PATCH paid 应被拒
+	fw := requestAs(t, app, http.MethodPatch, "/api/v1/trade-orders/"+oid+"/status",
+		[]byte(`{"status":"paid"}`), "buyer-1", domain.RoleIndividual)
+	if fw.Code != http.StatusForbidden {
+		t.Fatalf("buyer mark paid should be rejected, got %d", fw.Code)
 	}
 
 	// 4. 买家申请售后 → aftersale + pending
-	aw := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid+"/aftersale",
+	aw = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid+"/aftersale",
 		[]byte(`{"aftersale_type":"refund","aftersale_reason":"质量问题","aftersale_desc":"云台故障","aftersale_amount_fen":500000}`),
 		"buyer-1", domain.RoleIndividual)
 	if aw.Code != http.StatusOK {
@@ -567,8 +573,9 @@ func TestAftersaleFlow(t *testing.T) {
 		t.Fatalf("parse order2: %v", err)
 	}
 	oid2 := order2.Data.ID
-	// 仅支付（paid），不发货——验证「付款后未发货可申请售后」
-	requestAs(t, app, http.MethodPatch, "/api/v1/trade-orders/"+oid2+"/status", []byte(`{"status":"paid"}`), "buyer-2", domain.RoleIndividual)
+	// 仅支付（paid，管理端改单），不发货——验证「付款后未发货可申请售后」
+	requestAs(t, app, http.MethodPut, "/api/v1/admin/orders/"+oid2,
+		[]byte(`{"status":"paid"}`), "admin-1", domain.RolePlatformAdmin)
 	if w := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid2+"/aftersale",
 		[]byte(`{"aftersale_type":"return","aftersale_reason":"不想要了"}`), "buyer-2", domain.RoleIndividual); w.Code != http.StatusOK {
 		t.Fatalf("apply aftersale2: %d %s", w.Code, w.Body.String())

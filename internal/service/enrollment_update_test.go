@@ -13,7 +13,7 @@ import (
 // 管理端编辑报名记录：正常更新 / 权限 / 状态白名单 / 防回退 / 404
 func TestEnrollmentUpdate(t *testing.T) {
 	repo := memory.NewEnrollmentRepository()
-	svc := service.NewEnrollmentService(repo)
+	svc := service.NewEnrollmentService(repo, memory.NewCourseRepository())
 
 	created, err := svc.Enroll(context.Background(), "u-1", "crs-1", service.EnrollmentForm{Name: "张三", Phone: "13800000000", Birthday: "2000-01-02"})
 	if err != nil {

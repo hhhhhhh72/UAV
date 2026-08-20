@@ -458,9 +458,9 @@ func TestTradeOrderService_AftersaleFlow(t *testing.T) {
 	if _, err := svc.ApplyAftersale(context.Background(), "buyer-1", o.ID, "refund", "", "", 100000); err == nil {
 		t.Fatal("ApplyAftersale: expected invalid transition from pending")
 	}
-	// pending → paid
-	if _, err := svc.UpdateStatus(context.Background(), o.ID, "buyer-1", "paid"); err != nil {
-		t.Fatalf("UpdateStatus: %v", err)
+	// pending → paid（paid 仅管理端可设）
+	if _, err := svc.UpdateStatusAdmin(context.Background(), o.ID, "paid"); err != nil {
+		t.Fatalf("UpdateStatusAdmin: %v", err)
 	}
 	// 售后申请成功
 	ao, err := svc.ApplyAftersale(context.Background(), "buyer-1", o.ID, "refund", "理由", "描述", 100000)
@@ -487,7 +487,7 @@ func TestTradeOrderService_AftersaleFlow(t *testing.T) {
 
 	// 驳回分支
 	o2, _ := svc.Create(context.Background(), "buyer-2", "p2", "seller-2", 200000)
-	svc.UpdateStatus(context.Background(), o2.ID, "buyer-2", "paid")
+	svc.UpdateStatusAdmin(context.Background(), o2.ID, "paid")
 	if _, err := svc.ApplyAftersale(context.Background(), "buyer-2", o2.ID, "return", "理由", "描述", 200000); err != nil {
 		t.Fatalf("ApplyAftersale(2nd): %v", err)
 	}

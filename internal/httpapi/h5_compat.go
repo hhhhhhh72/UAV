@@ -307,12 +307,9 @@ func (s *Server) h5SubmitApplication(w http.ResponseWriter, r *http.Request) {
 		ApplyTime:   now.Format("2006-01-02 15:04:05"),
 		FormData:    raw,
 	}
-	if v := strFromMap(raw, "status"); v != "" {
-		app.Status = v
-	}
-	if v := strFromMap(raw, "applyTime"); v != "" {
-		app.ApplyTime = v
-	}
+	// P3 修复：忽略客户端提交的 status/applyTime——此前客户端可自报状态/申请时间
+	// 污染管理队列。状态一律由服务端默认（待处理），applyTime 一律用服务端 now；
+	// 原始字段仍保留在 form_data 快照中，但不影响抽列的管理字段。
 	if _, err := s.appSvc.Create(r.Context(), app); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

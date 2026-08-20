@@ -456,9 +456,11 @@ func TestR4Phase3Enrollments(t *testing.T) {
 	w = doRaw(app, http.MethodPost, "/api/v1/enrollments/zzz/complete", "", adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/enrollments/zzz/complete", w, http.StatusNotFound)
 
-	// listExpiringInspections → 200（days 默认 30）
+	// listExpiringInspections 限管理员——普通用户 403，管理员 200（days 默认 30）
 	w = doRaw(app, http.MethodGet, "/api/v1/inspections/expiring", "", userTok)
-	assertStatus(t, http.MethodGet, "/api/v1/inspections/expiring", w, http.StatusOK)
+	assertStatus(t, http.MethodGet, ".../inspections/expiring (user)", w, http.StatusForbidden)
+	w = doRaw(app, http.MethodGet, "/api/v1/inspections/expiring", "", adminTok)
+	assertStatus(t, http.MethodGet, ".../inspections/expiring (admin)", w, http.StatusOK)
 }
 
 // TestR4BizHandlersZero 覆盖 biz_handlers.go 的 0% 端点。

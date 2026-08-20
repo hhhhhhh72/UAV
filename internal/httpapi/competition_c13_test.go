@@ -94,11 +94,17 @@ func TestCompetitionRegisterExtendedFields(t *testing.T) {
 	if g.ID == "" {
 		t.Fatalf("reg missing id: %s", w.Body.String())
 	}
-	// 旧客户端（只有 team_name/member_count/contact_info）仍可报名——向后兼容
-	w = request(t, app, http.MethodPost, "/api/v1/competitions/"+compID+"/register",
-		[]byte(`{"team_name":"飞鹰队","member_count":4,"contact_info":"13900000000"}`), domain.RoleIndividual)
+	// 旧客户端（只有 team_name/member_count/contact_info）仍可报名——向后兼容。
+	// 同用户重复报名被幂等拒绝，改用另一用户验证旧客户端兼容。
+	w = requestAs(t, app, http.MethodPost, "/api/v1/competitions/"+compID+"/register",
+		[]byte(`{"team_name":"飞鹰队","member_count":4,"contact_info":"13900000000"}`), "user-2", domain.RoleIndividual)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("legacy register: %d %s", w.Code, w.Body.String())
+	}
+	// 同一用户重复报名同一赛事 → 拒绝
+	if w := requestAs(t, app, http.MethodPost, "/api/v1/competitions/"+compID+"/register",
+		[]byte(`{"team_name":"闪电队","member_count":3}`), "user-1", domain.RoleIndividual); w.Code != http.StatusNotFound && w.Code != http.StatusConflict {
+		t.Fatalf("duplicate register should be rejected, got %d %s", w.Code, w.Body.String())
 	}
 }
 

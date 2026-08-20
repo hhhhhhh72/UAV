@@ -125,7 +125,7 @@ func TestTradingAll(t *testing.T) {
 
 // === Phase3 (Enrollment + Expiry + TradeOrder) ===
 func TestPhase3All(t *testing.T) {
-	enr := service.NewEnrollmentService(memory.NewEnrollmentRepository())
+	enr := service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository())
 	enr.Enroll(context.Background(), "u-1", "crs-1", service.EnrollmentForm{Name: "张三", Phone: "13800000000"})
 	enr.ListByCourse(context.Background(), "crs-1")
 
@@ -137,7 +137,11 @@ func TestPhase3All(t *testing.T) {
 
 	to := service.NewTradeOrderService(memory.NewTradeOrderRepository())
 	o, _ := to.Create(context.Background(), "u-1", "prod-1", "u-2", 100000)
-	to.UpdateStatus(context.Background(), o.ID, "u-1", "paid")
+	// paid 仅管理端可设（UpdateStatusAdmin）；买家直接改 paid 应被拒
+	if _, err := to.UpdateStatus(context.Background(), o.ID, "u-1", "paid"); err == nil {
+		t.Fatal("buyer must not mark order paid")
+	}
+	to.UpdateStatusAdmin(context.Background(), o.ID, "paid")
 	to.ListMine(context.Background(), "u-1")
 }
 

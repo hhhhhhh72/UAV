@@ -112,6 +112,11 @@ func TestTradeOrdersMine(t *testing.T) {
 
 func TestCertExpiring(t *testing.T) {
 	app := newBizServer(t)
+	// P2：expiring 台账限管理员——普通用户 403，管理员 200
 	w := request(t, app, http.MethodGet, "/api/v1/certificates/expiring?days=30", nil, domain.RoleIndividual)
-	if w.Code != http.StatusOK { t.Fatalf("expiring: %d", w.Code) }
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expiring as individual: want 403, got %d", w.Code)
+	}
+	w = request(t, app, http.MethodGet, "/api/v1/certificates/expiring?days=30", nil, domain.RolePlatformAdmin)
+	if w.Code != http.StatusOK { t.Fatalf("expiring as admin: %d", w.Code) }
 }

@@ -458,10 +458,10 @@ func TestWorkOrderRepoCoverage(t *testing.T) {
 	mmErr(t, "workOrder.ListByWorker", err, false)
 	mmInt(t, "workOrder.ListByWorker.len", len(wk), 1)
 
-	u, err := r.UpdateStatus(context.Background(), "wo-1", domain.WorkOrderOngoing)
+	u, err := r.UpdateStatus(context.Background(), "wo-1", domain.WorkOrderPending, domain.WorkOrderOngoing)
 	mmErr(t, "workOrder.UpdateStatus", err, false)
 	mmStr(t, "workOrder.UpdateStatus.Status", string(u.Status), "ongoing")
-	_, err = r.UpdateStatus(context.Background(), "missing", domain.WorkOrderOngoing)
+	_, err = r.UpdateStatus(context.Background(), "missing", domain.WorkOrderPending, domain.WorkOrderOngoing)
 	mmErr(t, "workOrder.UpdateStatus(miss)", err, true)
 
 	u2, err := r.UpdatePhotos(context.Background(), "wo-1", []string{"p1.jpg"})

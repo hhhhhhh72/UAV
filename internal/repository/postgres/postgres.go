@@ -110,7 +110,7 @@ func (r *demandRepo) FindByID(ctx context.Context, id string) (domain.Demand, er
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
 		status, version, created_at, updated_at
 		FROM demands WHERE id = $1`
-	demands, err := scanDemands(r.pool, r.cipher, q, []any{id})
+	demands, err := scanDemands(ctx, r.pool, r.cipher, q, []any{id})
 	if err != nil {
 		return domain.Demand{}, err
 	}
@@ -176,7 +176,7 @@ func (r *demandRepo) List(ctx context.Context, f repository.DemandFilter) ([]dom
 		argIdx++
 	}
 	q += " ORDER BY created_at DESC"
-	return scanDemands(r.pool, r.cipher, q, args)
+	return scanDemands(ctx, r.pool, r.cipher, q, args)
 }
 
 // ListAll 管理端全量（含待审核等全部状态），status 过滤由 f.Status 控制。
@@ -207,7 +207,7 @@ func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]
 		q += " WHERE " + strings.Join(conds, " AND ")
 	}
 	q += " ORDER BY created_at DESC"
-	return scanDemands(r.pool, r.cipher, q, args)
+	return scanDemands(ctx, r.pool, r.cipher, q, args)
 }
 
 func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, error) {
@@ -217,7 +217,7 @@ func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, err
 		FROM demands WHERE status = 'published'
 		AND (title ILIKE $1 OR publisher_name ILIKE $1 OR description ILIKE $1 OR district ILIKE $1 OR city_code ILIKE $1)
 		ORDER BY created_at DESC LIMIT 50`
-	return scanDemands(r.pool, r.cipher, sql, []any{"%" + q + "%"})
+	return scanDemands(ctx, r.pool, r.cipher, sql, []any{"%" + q + "%"})
 }
 
 // ListByPublisher 返回某发布者的全部需求（全状态），供"我的"页统计/查询。
@@ -227,7 +227,7 @@ func (r *demandRepo) ListByPublisher(ctx context.Context, publisherID string) ([
 		status, version, created_at, updated_at
 		FROM demands WHERE publisher_id = $1
 		ORDER BY created_at DESC`
-	return scanDemands(r.pool, r.cipher, q, []any{publisherID})
+	return scanDemands(ctx, r.pool, r.cipher, q, []any{publisherID})
 }
 
 func (r *demandRepo) SetStatus(ctx context.Context, id string, status domain.DemandStatus) (domain.Demand, error) {
@@ -270,8 +270,8 @@ func (r *demandRepo) SetStatus(ctx context.Context, id string, status domain.Dem
 	return d, nil
 }
 
-func scanDemands(pool *pgxpool.Pool, cipher *crypto.Cipher, q string, args []any) ([]domain.Demand, error) {
-	rows, err := pool.Query(context.Background(), q, args...)
+func scanDemands(ctx context.Context, pool *pgxpool.Pool, cipher *crypto.Cipher, q string, args []any) ([]domain.Demand, error) {
+	rows, err := pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query demands: %w", err)
 	}
@@ -447,7 +447,7 @@ func (r *enterpriseRepo) FindByID(ctx context.Context, id string) (domain.Enterp
 }
 
 func (r *enterpriseRepo) FindByOwner(ctx context.Context, userID string) ([]domain.Enterprise, error) {
-	return scanEnterprises(r.pool, r.cipher, "WHERE owner_user_id = $1", userID)
+	return scanEnterprises(ctx, r.pool, r.cipher, "WHERE owner_user_id = $1", userID)
 }
 
 func (r *enterpriseRepo) ListByStatus(ctx context.Context, status string, offset, limit int) ([]domain.Enterprise, int, error) {
@@ -457,20 +457,20 @@ func (r *enterpriseRepo) ListByStatus(ctx context.Context, status string, offset
 		if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM enterprises`).Scan(&total); err != nil {
 			return nil, 0, fmt.Errorf("count enterprises: %w", err)
 		}
-		items, err := scanEnterprises(r.pool, r.cipher, "ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+		items, err := scanEnterprises(ctx, r.pool, r.cipher, "ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 		return items, total, err
 	}
 	var total int
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM enterprises WHERE status=$1`, status).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count enterprises: %w", err)
 	}
-	items, err := scanEnterprises(r.pool, r.cipher, "WHERE status=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3", status, limit, offset)
+	items, err := scanEnterprises(ctx, r.pool, r.cipher, "WHERE status=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3", status, limit, offset)
 	return items, total, err
 }
 
-func scanEnterprises(pool *pgxpool.Pool, cipher *crypto.Cipher, where string, args ...any) ([]domain.Enterprise, error) {
+func scanEnterprises(ctx context.Context, pool *pgxpool.Pool, cipher *crypto.Cipher, where string, args ...any) ([]domain.Enterprise, error) {
 	q := `SELECT id, owner_user_id, name, credit_code, legal_person, contact_phone, industry_category, scale, address, description, business_hours, logo, cover_image, license_url, account_name, contact_person, email, founded_at, capability_tags, status, review_comment, is_member, version, created_at, updated_at FROM enterprises ` + where
-	rows, err := pool.Query(context.Background(), q, args...)
+	rows, err := pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -593,11 +593,11 @@ func (r *employmentRepo) Create(ctx context.Context, v domain.EmploymentRequest)
 }
 
 func (r *employmentRepo) ListByEnterprise(ctx context.Context, eid string, offset, limit int) ([]domain.EmploymentRequest, int, error) {
-	return scanEmploymentPaged(r.pool, "WHERE enterprise_id = $1", offset, limit, eid)
+	return scanEmploymentPaged(ctx, r.pool, "WHERE enterprise_id = $1", offset, limit, eid)
 }
 
 func (r *employmentRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.EmploymentRequest, int, error) {
-	return scanEmploymentPaged(r.pool, "", offset, limit)
+	return scanEmploymentPaged(ctx, r.pool, "", offset, limit)
 }
 
 // ---- Contract Repository ----
@@ -663,11 +663,11 @@ func (r *contractRepo) Create(ctx context.Context, v domain.Contract) (domain.Co
 }
 
 func (r *contractRepo) ListByEnterprise(ctx context.Context, eid string, offset, limit int) ([]domain.Contract, int, error) {
-	return scanContractsPaged(r.pool, "WHERE enterprise_id = $1", offset, limit, eid)
+	return scanContractsPaged(ctx, r.pool, "WHERE enterprise_id = $1", offset, limit, eid)
 }
 
 func (r *contractRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Contract, int, error) {
-	return scanContractsPaged(r.pool, "", offset, limit)
+	return scanContractsPaged(ctx, r.pool, "", offset, limit)
 }
 
 // ---- Job Repository ----
@@ -716,14 +716,14 @@ func (r *jobRepo) FindByID(ctx context.Context, id string) (domain.Job, error) {
 	return j, err
 }
 func (r *jobRepo) ListByEnterprise(ctx context.Context, eid string) ([]domain.Job, error) {
-	return scanJobs(r.pool, "WHERE enterprise_id=$1 ORDER BY created_at DESC", eid)
+	return scanJobs(ctx, r.pool, "WHERE enterprise_id=$1 ORDER BY created_at DESC", eid)
 }
 func (r *jobRepo) ListPublished(ctx context.Context, offset, limit int) ([]domain.Job, int, error) {
 	var total int
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE status='published'`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count published jobs: %w", err)
 	}
-	items, err := scanJobs(r.pool, "WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	items, err := scanJobs(ctx, r.pool, "WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	return items, total, err
 }
 func (r *jobRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Job, int, error) {
@@ -731,12 +731,12 @@ func (r *jobRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Job,
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM jobs`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count jobs: %w", err)
 	}
-	items, err := scanJobs(r.pool, "ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	items, err := scanJobs(ctx, r.pool, "ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	return items, total, err
 }
-func scanJobs(pool *pgxpool.Pool, where string, args ...any) ([]domain.Job, error) {
+func scanJobs(ctx context.Context, pool *pgxpool.Pool, where string, args ...any) ([]domain.Job, error) {
 	q := `SELECT id, enterprise_id, title, description, location, salary_fen, job_type, status, version, created_at, updated_at FROM jobs ` + where
-	rows, err := pool.Query(context.Background(), q, args...)
+	rows, err := pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -808,22 +808,22 @@ func (r *pgResumeRepo) FindByID(ctx context.Context, id string) (domain.Resume, 
 	return v, err
 }
 func (r *pgResumeRepo) ListByUser(ctx context.Context, userID string) ([]domain.Resume, error) {
-	return scanResumes(r.pool, "WHERE user_id=$1 ORDER BY created_at DESC", userID)
+	return scanResumes(ctx, r.pool, "WHERE user_id=$1 ORDER BY created_at DESC", userID)
 }
 func (r *pgResumeRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Resume, int, error) {
 	var total int
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM resumes`).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	items, err := scanResumes(r.pool, "ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	items, err := scanResumes(ctx, r.pool, "ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
 	return items, total, nil
 }
-func scanResumes(pool *pgxpool.Pool, where string, args ...any) ([]domain.Resume, error) {
+func scanResumes(ctx context.Context, pool *pgxpool.Pool, where string, args ...any) ([]domain.Resume, error) {
 	q := `SELECT id, user_id, title, name, phone, email, education, work_experience, skills, certificate_url, content, visibility, version, created_at, updated_at FROM resumes ` + where
-	rows, err := pool.Query(context.Background(), q, args...)
+	rows, err := pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -887,14 +887,14 @@ func (r *pgAppRepo) UpdateStatus(ctx context.Context, id string, status domain.A
 	return a, err
 }
 func (r *pgAppRepo) ListByJob(ctx context.Context, jobID string) ([]domain.JobApplication, error) {
-	return scanApps(r.pool, "WHERE job_id=$1 ORDER BY created_at DESC", jobID)
+	return scanApps(ctx, r.pool, "WHERE job_id=$1 ORDER BY created_at DESC", jobID)
 }
 func (r *pgAppRepo) ListByApplicant(ctx context.Context, userID string) ([]domain.JobApplication, error) {
-	return scanApps(r.pool, "WHERE applicant_id=$1 ORDER BY created_at DESC", userID)
+	return scanApps(ctx, r.pool, "WHERE applicant_id=$1 ORDER BY created_at DESC", userID)
 }
-func scanApps(pool *pgxpool.Pool, where string, args ...any) ([]domain.JobApplication, error) {
+func scanApps(ctx context.Context, pool *pgxpool.Pool, where string, args ...any) ([]domain.JobApplication, error) {
 	q := `SELECT id, job_id, resume_id, applicant_id, status, version, created_at, updated_at FROM job_applications ` + where
-	rows, err := pool.Query(context.Background(), q, args...)
+	rows, err := pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -1654,12 +1654,17 @@ func (r *pgWorkOrderRepo) ListByWorker(ctx context.Context, workerID string) ([]
 	return out, rows.Err()
 }
 
-func (r *pgWorkOrderRepo) UpdateStatus(ctx context.Context, id string, status domain.WorkOrderStatus) (domain.WorkOrder, error) {
+func (r *pgWorkOrderRepo) UpdateStatus(ctx context.Context, id string, oldStatus, status domain.WorkOrderStatus) (domain.WorkOrder, error) {
+	// CAS 语义：WHERE 带旧状态，并发时后到者 RowsAffected=0 → 明确报错，
+	// 消除"取消与开始作业并发导致已取消订单复活"的竞态窗口。
 	row := r.pool.QueryRow(ctx,
-		`UPDATE work_orders SET status=$2, updated_at=now() WHERE id=$1
-		RETURNING `+workOrderCols, id, status)
+		`UPDATE work_orders SET status=$2, updated_at=now() WHERE id=$1 AND status=$3
+		RETURNING `+workOrderCols, id, status, oldStatus)
 	wo, err := scanWorkOrder(row)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.WorkOrder{}, fmt.Errorf("工单状态已变更，请刷新后重试")
+		}
 		return domain.WorkOrder{}, fmt.Errorf("update work order status %s: %w", id, err)
 	}
 	return wo, nil
@@ -1814,17 +1819,17 @@ func (r *contractRepo) UpdateStatus(ctx context.Context, id string, status domai
 
 // scanEmploymentPaged queries employment_requests with pagination.
 // The where clause must be a compile-time constant — never pass user input as where.
-func scanEmploymentPaged(pool *pgxpool.Pool, where string, offset, limit int, args ...any) ([]domain.EmploymentRequest, int, error) {
+func scanEmploymentPaged(ctx context.Context, pool *pgxpool.Pool, where string, offset, limit int, args ...any) ([]domain.EmploymentRequest, int, error) {
 	countQ := `SELECT COUNT(*) FROM employment_requests ` + where
 	var total int
-	if err := pool.QueryRow(context.Background(), countQ, args...).Scan(&total); err != nil {
+	if err := pool.QueryRow(ctx, countQ, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count employment: %w", err)
 	}
 
 	q := `SELECT id, enterprise_id, position, headcount, start_date, end_date, status, version, created_at, updated_at
 		FROM employment_requests ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
-	rows, err := pool.Query(context.Background(), q, allArgs...)
+	rows, err := pool.Query(ctx, q, allArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query employment: %w", err)
 	}
@@ -1845,17 +1850,17 @@ func scanEmploymentPaged(pool *pgxpool.Pool, where string, offset, limit int, ar
 
 // scanContractsPaged queries contracts with pagination.
 // The where clause must be a compile-time constant — never pass user input as where.
-func scanContractsPaged(pool *pgxpool.Pool, where string, offset, limit int, args ...any) ([]domain.Contract, int, error) {
+func scanContractsPaged(ctx context.Context, pool *pgxpool.Pool, where string, offset, limit int, args ...any) ([]domain.Contract, int, error) {
 	countQ := `SELECT COUNT(*) FROM contracts ` + where
 	var total int
-	if err := pool.QueryRow(context.Background(), countQ, args...).Scan(&total); err != nil {
+	if err := pool.QueryRow(ctx, countQ, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count contracts: %w", err)
 	}
 
 	q := `SELECT id, enterprise_id, template_id, sign_url, status, version, created_at, updated_at
 		FROM contracts ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
-	rows, err := pool.Query(context.Background(), q, allArgs...)
+	rows, err := pool.Query(ctx, q, allArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query contracts: %w", err)
 	}

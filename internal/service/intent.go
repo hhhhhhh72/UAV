@@ -31,13 +31,51 @@ func nextID(prefix string) string {
 // lockByKey 进程内互斥锁池：check-then-insert 类操作的并发竞态防护
 // （如报名/投递的"先查重再创建"——无锁时双请求同时通过查重导致重复记录，
 // 内存 repo 无唯一约束；PG 唯一索引下后到者报 500）。
-// key 量级 = 用户×资源（报名/投递量小），无需清理。
-var onceLocks sync.Map // key -> *sync.Mutex
+// key 量级 = 用户×资源（报名/投递量小）；条目带引用计数，refs 归零即从池中删除，
+// 避免每个不重复的 (用户,资源) 组合永久新增一个 *sync.Mutex 造成内存单调增长。
+var onceLocks sync.Map // key -> *refLockEntry
+
+// refLockEntry 是锁池条目：lockMu 是实际互斥锁；refs 为引用计数（受 refMu 保护），
+// 语义为"当前持有者 + 已递增但仍在等待 lockMu 的获取者"数量。
+// 计数保证：递增发生在 lockMu.Lock 之前、递减发生在 lockMu.Unlock 之后，
+// 因此 refs==0 ⟹ 不存在任何持有者/等待者，此时才可从池中删除条目。
+type refLockEntry struct {
+	lockMu sync.Mutex // 实际业务互斥锁
+	refMu  sync.Mutex // 保护 refs 与池删除
+	refs   int
+}
 
 func lockByKey(key string) func() {
-	l, _ := onceLocks.LoadOrStore(key, &sync.Mutex{})
-	l.(*sync.Mutex).Lock()
-	return l.(*sync.Mutex).Unlock
+	for {
+		created := false
+		v, loaded := onceLocks.LoadOrStore(key, &refLockEntry{refs: 1})
+		if !loaded {
+			created = true // 本次创建者自带一个引用，下面不再递增
+		}
+		e := v.(*refLockEntry)
+		e.refMu.Lock()
+		if e.refs == 0 {
+			// 条目刚被并发删除（refs 已归零），本 goroutine 拿到的指针已失效：
+			// 释放后重新 Load，下一次要么取到新条目，要么创建新条目。
+			e.refMu.Unlock()
+			continue
+		}
+		if !created {
+			e.refs++
+		}
+		e.refMu.Unlock()
+
+		e.lockMu.Lock()
+		return func() {
+			e.lockMu.Unlock()
+			e.refMu.Lock()
+			e.refs--
+			if e.refs == 0 {
+				onceLocks.Delete(key)
+			}
+			e.refMu.Unlock()
+		}
+	}
 }
 
 // IntentService records contact intents on published demands (联系对接模式).

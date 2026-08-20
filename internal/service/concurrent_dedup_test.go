@@ -13,7 +13,7 @@ import (
 // 并发报名防重复回归：双并发 Enroll 只能成功一条（此前 check-then-insert
 // 竞态会重复报名；付费报名场景还会重复扣冻结金额）。
 func TestConcurrentEnrollSingle(t *testing.T) {
-	svc := service.NewEnrollmentService(memory.NewEnrollmentRepository())
+	svc := service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository())
 
 	var wg sync.WaitGroup
 	okCount := 0

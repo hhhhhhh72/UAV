@@ -12,6 +12,10 @@ import (
 
 // ---- Trading ----
 
+// platformSellerID 平台自营商品的固定卖家 ID（管理端建商品时无真实用户 ID，
+// 空 SellerID 会导致下单后订单 seller_id 为空串——订单归属与售后均依赖卖家）。
+const platformSellerID = "platform"
+
 func (s *Server) createProduct(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
@@ -138,7 +142,7 @@ func (s *Server) adminCreateProduct(w http.ResponseWriter, r *http.Request) {
 	if p.SellerName == "" {
 		p.SellerName = "平台自营"
 	}
-	created, err := s.tradingSvc.CreateProduct(r.Context(), domain.Actor{Role: domain.RolePlatformAdmin}, p.ProdType, p.Title, p.Description, p.Brand, p.Model, p.Condition, p.PriceFen, p.Images)
+	created, err := s.tradingSvc.CreateProduct(r.Context(), domain.Actor{ID: platformSellerID, Role: domain.RolePlatformAdmin}, p.ProdType, p.Title, p.Description, p.Brand, p.Model, p.Condition, p.PriceFen, p.Images)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

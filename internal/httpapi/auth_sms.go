@@ -28,6 +28,38 @@ type smsRecord struct {
 
 var smsCodes sync.Map // phone -> *smsRecord（指针 + 条目锁，并发安全递增）
 
+// startSMSCodesJanitor 启动验证码条目周期清理（进程内只启动一次）：
+// 未使用/未删除的验证码条目（用户获取后从不校验）会永久留存，内存无限增长。
+func startSMSCodesJanitor() {
+	smsCodesJanitorOnce.Do(func() {
+		go smsCodesCleanupLoop()
+	})
+}
+
+var smsCodesJanitorOnce sync.Once
+
+// smsCodesCleanupLoop 每分钟遍历 smsCodes，删除已过期的验证码条目。
+// 无退出通道，与 internal/cache 的 cleanupLoop 模式一致；panic 由 recover 兜底。
+func smsCodesCleanupLoop() {
+	defer func() { _ = recover() }()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		func() {
+			defer func() { _ = recover() }() // 后台协程 panic 防护
+			now := time.Now()
+			smsCodes.Range(func(k, v any) bool {
+				rec := v.(*smsRecord)
+				// ExpiresAt 仅在 Store 前写入、之后不再修改，无需加锁读取。
+				if now.After(rec.ExpiresAt) {
+					smsCodes.Delete(k)
+				}
+				return true
+			})
+		}()
+	}
+}
+
 const (
 	smsCodeTTL         = 5 * time.Minute
 	smsResendWait      = 60 * time.Second
@@ -113,6 +145,7 @@ func (s *Server) sendSMSCode(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	startSMSCodesJanitor() // 首次发送时启动过期条目清理（sync.Once 幂等）
 	smsCodes.Store(body.Phone, &smsRecord{Code: code, ExpiresAt: time.Now().Add(smsCodeTTL)})
 
 	// TODO(短信服务商): 接入腾讯云/阿里云 SMS 后在此发送真实短信，并删除 dev_code 回显。
@@ -163,18 +196,26 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 	uid := "user-" + body.Phone
 	u, err := s.userRepo.FindByID(r.Context(), uid)
 	if err != nil {
-		now := time.Now()
-		u = domain.User{
-			ID:           uid,
-			WechatOpenID: "phone:" + body.Phone, // 非微信用户唯一 openid，避免 UNIQUE 冲突
-			Role:         domain.RoleIndividual,
-			Status:       "active",
-			Version:      1,
-			CreatedAt:    now,
-			UpdatedAt:    now,
+		// P2 修复：同手机号并发首登（连点登录）会双双 miss 再各 Create 一个用户。
+		// 按 uid 加进程内锁，锁内复查一次再创建；后到者复用先建好的用户。
+		unlock := loginLockByKey("uid|" + uid)
+		u, findErr := s.userRepo.FindByID(r.Context(), uid)
+		if findErr != nil {
+			now := time.Now()
+			u = domain.User{
+				ID:           uid,
+				WechatOpenID: "phone:" + body.Phone, // 非微信用户唯一 openid，避免 UNIQUE 冲突
+				Role:         domain.RoleIndividual,
+				Status:       "active",
+				Version:      1,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			}
+			_, findErr = s.userRepo.Create(r.Context(), u)
 		}
-		if _, err := s.userRepo.Create(r.Context(), u); err != nil {
-			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", err))
+		unlock()
+		if findErr != nil {
+			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", findErr))
 			return
 		}
 	}

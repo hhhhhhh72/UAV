@@ -25,6 +25,9 @@ func NewWorkOrderService(o repository.WorkOrderRepository, d repository.DemandRe
 // AcceptIntent 企业确认接单：意向 → contacted，其他意向 → closed，生成订单（pending）。
 // amountFen 为订单金额（企业确认时填写，面议为 0）。
 func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, demandID, intentID string, amountFen int64) (domain.WorkOrder, error) {
+	if amountFen < 0 {
+		return domain.WorkOrder{}, errors.New("amount cannot be negative")
+	}
 	d, err := s.demands.FindByID(ctx, demandID)
 	if err != nil {
 		return domain.WorkOrder{}, fmt.Errorf("demand %s: %w", demandID, err)
@@ -121,7 +124,7 @@ func (s *WorkOrderService) StartWork(ctx context.Context, a domain.Actor, orderI
 	if wo.Status != domain.WorkOrderPending {
 		return domain.WorkOrder{}, errors.New("订单状态不允许开始作业")
 	}
-	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderOngoing)
+	return s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderOngoing)
 }
 
 // CompleteWork 飞手确认作业完成：ongoing → awaiting_accept，可上传成果照片。
@@ -141,7 +144,7 @@ func (s *WorkOrderService) CompleteWork(ctx context.Context, a domain.Actor, ord
 			return domain.WorkOrder{}, err
 		}
 	}
-	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderAwaitingAccept)
+	return s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderAwaitingAccept)
 }
 
 // AcceptCompletion 企业验收通过：awaiting_accept → completed。
@@ -156,7 +159,7 @@ func (s *WorkOrderService) AcceptCompletion(ctx context.Context, a domain.Actor,
 	if wo.Status != domain.WorkOrderAwaitingAccept {
 		return domain.WorkOrder{}, errors.New("订单状态不允许验收")
 	}
-	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderCompleted)
+	return s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderCompleted)
 }
 
 // RequestRework 企业提出整改：awaiting_accept → ongoing，记录整改要求。
@@ -174,7 +177,7 @@ func (s *WorkOrderService) RequestRework(ctx context.Context, a domain.Actor, or
 	if _, err := s.orders.UpdateRework(ctx, orderID, note); err != nil {
 		return domain.WorkOrder{}, err
 	}
-	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderOngoing)
+	return s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderOngoing)
 }
 
 // RequestCancel 任意一方取消订单（填写原因）：→ cancelled。
@@ -192,7 +195,7 @@ func (s *WorkOrderService) RequestCancel(ctx context.Context, a domain.Actor, or
 	if _, err := s.orders.UpdateCancel(ctx, orderID, reason); err != nil {
 		return domain.WorkOrder{}, err
 	}
-	return s.orders.UpdateStatus(ctx, orderID, domain.WorkOrderCancelled)
+	return s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderCancelled)
 }
 
 // FindByID 订单详情：仅订单双方可查看。

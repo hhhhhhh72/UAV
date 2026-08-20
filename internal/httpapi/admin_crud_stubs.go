@@ -319,6 +319,16 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, c)
 }
 func (s *Server) deleteCourse(w http.ResponseWriter, r *http.Request) {
+	// 删除前校验关联报名：已有学员报名的课程拒绝删除（防孤儿报名数据）
+	enrolls, err := s.enrollSvc.ListByCourse(r.Context(), r.PathValue("id"))
+	if err != nil {
+		adminFail(w, r, err)
+		return
+	}
+	if len(enrolls) > 0 {
+		fail(w, r, http.StatusConflict, fmt.Errorf("course has %d enrollment(s), cannot delete", len(enrolls)))
+		return
+	}
 	if err := s.trainingSvc.DeleteCourse(r.Context(), r.PathValue("id")); err != nil {
 		adminFail(w, r, err)
 		return

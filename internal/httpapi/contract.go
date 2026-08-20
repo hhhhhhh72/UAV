@@ -204,11 +204,17 @@ func (s *Server) signingWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check deduplication. Process first, then mark as done — if processing fails
-	// the event_id is not consumed and the sender can safely retry.
-	// 条目存处理完成时间：超过 24h 视为过期（惰性删除），map 内存有界。
-	if t, loaded := webhookDedup.Load(event.EventID); loaded {
-		if time.Since(t.(time.Time)) < 24*time.Hour {
+	// P2 修复：去重必须原子占位——旧实现 Load→处理→Store 存在竞态，
+	// 同一 event_id 的并发重试会双双通过去重并重复处理合同状态。
+	// LoadOrStore 在处理前原子占位，同一 event_id 同时只有一个请求能进入处理流程。
+	// 条目值存占位/完成时间：超过 24h 视为过期（惰性删除），map 内存有界。
+	for {
+		_, loaded := webhookDedup.LoadOrStore(event.EventID, time.Now())
+		if !loaded {
+			break // 本请求占位成功，进入处理
+		}
+		// 已被占用：24h 内视为重复；过期占位删除后重试重新占位（并发下仅一方能赢）。
+		if t, ok := webhookDedup.Load(event.EventID); ok && time.Since(t.(time.Time)) < 24*time.Hour {
 			respond(w, r, http.StatusOK, map[string]string{"received": event.EventID, "status": "duplicate"})
 			return
 		}
@@ -217,15 +223,19 @@ func (s *Server) signingWebhook(w http.ResponseWriter, r *http.Request) {
 
 	newStatus, err := mapContractStatus(event.Status)
 	if err != nil {
+		// 参数错误：事件未消费，删除占位允许修正后重试。
+		webhookDedup.Delete(event.EventID)
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if _, err := s.contracts.UpdateStatus(r.Context(), domain.Actor{ID: "system", Role: domain.RolePlatformAdmin}, event.ContractID, newStatus); err != nil {
 		slog.Warn("signing webhook: failed to update contract status, not deduping", "contract_id", event.ContractID, "event_status", event.Status, "error", err)
+		// 处理失败不消费事件：删除占位，发送方可安全重试（幂等语义）。
+		webhookDedup.Delete(event.EventID)
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	webhookDedup.Store(event.EventID, time.Now())
+	webhookDedup.Store(event.EventID, time.Now()) // 处理完成时间
 	s.audit(r.Context(), "system", "signing_callback", "contract", event.ContractID, event.Status)
 	respond(w, r, http.StatusOK, map[string]string{"received": event.EventID})
 }

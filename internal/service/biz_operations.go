@@ -59,11 +59,31 @@ func (s *CompetitionService) Delete(ctx context.Context, id string) error {
 }
 
 // Register 报名：name/phone/idCard 为参赛人实名信息，photoURL/idCardImage 为证件影像（C13 补字段）。
+// 幂等：同一用户不可重复报名同一赛事；容量：已报名队数达到 max_teams 拒绝；deadline 过后拒绝。
 func (s *CompetitionService) Register(ctx context.Context, competitionID, userID, teamName string, memberCount int, contactInfo, name, phone, idCard, photoURL, idCardImage string) (domain.CompetitionReg, error) {
 	now := time.Now()
 	// Check competition exists
-	if _, err := s.repo.FindByID(ctx, competitionID); err != nil {
+	c, err := s.repo.FindByID(ctx, competitionID)
+	if err != nil {
 		return domain.CompetitionReg{}, err
+	}
+	regs, err := s.repo.ListRegs(ctx, competitionID)
+	if err != nil {
+		return domain.CompetitionReg{}, err
+	}
+	// 幂等：同一用户重复报名拒绝
+	for _, r := range regs {
+		if r.UserID == userID {
+			return domain.CompetitionReg{}, fmt.Errorf("already registered")
+		}
+	}
+	// 容量：max_teams > 0 时已报名队数达到上限拒绝
+	if c.MaxTeams > 0 && len(regs) >= c.MaxTeams {
+		return domain.CompetitionReg{}, fmt.Errorf("competition is full")
+	}
+	// 截止：deadline 已过拒绝
+	if c.Deadline != nil && !c.Deadline.IsZero() && now.After(*c.Deadline) {
+		return domain.CompetitionReg{}, fmt.Errorf("registration deadline passed")
 	}
 	cr := domain.CompetitionReg{
 		ID:            fmt.Sprintf("compreg-%d-%d", now.UnixNano(), nextSeq()),
@@ -153,8 +173,23 @@ func (s *EventService) Delete(ctx context.Context, id string) error { return s.r
 
 func (s *EventService) Register(ctx context.Context, eventID, userID, name, phone, org string) (domain.EventRegistration, error) {
 	now := time.Now()
-	if _, err := s.repo.FindByID(ctx, eventID); err != nil {
+	ev, err := s.repo.FindByID(ctx, eventID)
+	if err != nil {
 		return domain.EventRegistration{}, err
+	}
+	regs, err := s.repo.ListRegs(ctx, eventID)
+	if err != nil {
+		return domain.EventRegistration{}, err
+	}
+	// 幂等：同一用户重复报名拒绝
+	for _, r := range regs {
+		if r.UserID == userID {
+			return domain.EventRegistration{}, fmt.Errorf("already registered")
+		}
+	}
+	// 容量：max_attendees > 0 时已报名人数达到上限拒绝
+	if ev.MaxAttendees > 0 && len(regs) >= ev.MaxAttendees {
+		return domain.EventRegistration{}, fmt.Errorf("event is full")
 	}
 	er := domain.EventRegistration{
 		ID:        nextID("evtreg"),

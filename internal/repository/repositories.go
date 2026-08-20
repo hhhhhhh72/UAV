@@ -208,7 +208,9 @@ type WorkOrderRepository interface {
 	FindByID(ctx context.Context, id string) (domain.WorkOrder, error)
 	ListByPublisher(ctx context.Context, publisherID string) ([]domain.WorkOrder, error)
 	ListByWorker(ctx context.Context, workerID string) ([]domain.WorkOrder, error)
-	UpdateStatus(ctx context.Context, id string, status domain.WorkOrderStatus) (domain.WorkOrder, error)
+	// UpdateStatus CAS 语义：仅当当前状态 == oldStatus 时更新为新状态，
+	// 否则返回错误（并发取消/开始作业防已取消订单复活）。
+	UpdateStatus(ctx context.Context, id string, oldStatus, status domain.WorkOrderStatus) (domain.WorkOrder, error)
 	UpdatePhotos(ctx context.Context, id string, photos []string) (domain.WorkOrder, error)
 	UpdateRework(ctx context.Context, id string, note string) (domain.WorkOrder, error)
 	UpdateCancel(ctx context.Context, id string, reason string) (domain.WorkOrder, error)

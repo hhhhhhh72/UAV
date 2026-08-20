@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -102,10 +103,26 @@ func (s *TrainingService) ListCourses(ctx context.Context) ([]domain.TrainingCou
 	return s.courseRepo.List(ctx)
 }
 
+// validCourseStatus 课程状态白名单（与 domain.TrainingCourse.Status 注释一致，
+// 另含 pending/closed 两个实际使用状态：用户发布待审核、管理端下架）。
+func validCourseStatus(s string) bool {
+	switch s {
+	case "draft", "pending", "published", "recruiting", "full", "upcoming", "urgent", "closed":
+		return true
+	}
+	return false
+}
+
 func (s *TrainingService) UpdateCourse(ctx context.Context, c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	old, err := s.courseRepo.FindByID(ctx, c.ID)
 	if err != nil {
 		return domain.TrainingCourse{}, err
+	}
+	if c.PriceFen < 0 {
+		return domain.TrainingCourse{}, errors.New("price cannot be negative")
+	}
+	if !validCourseStatus(c.Status) {
+		return domain.TrainingCourse{}, fmt.Errorf("invalid course status %q", c.Status)
 	}
 	c.Version = old.Version
 	c.CreatedAt = old.CreatedAt // 保留原创建时间
