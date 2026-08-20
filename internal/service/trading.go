@@ -54,6 +54,16 @@ func (s *TradingService) UpdateProduct(ctx context.Context, p domain.DroneProduc
 	return s.prodRepo.Update(ctx, p)
 }
 
+// MarkProductSold 下单抢占：仅 listed 商品可标记 sold（防一物多卖/超卖）。
+func (s *TradingService) MarkProductSold(ctx context.Context, id string) error {
+	return s.prodRepo.MarkSold(ctx, id)
+}
+
+// RestoreProduct 订单创建失败时回滚：sold → listed。
+func (s *TradingService) RestoreProduct(ctx context.Context, id string) error {
+	return s.prodRepo.Restore(ctx, id)
+}
+
 // DeleteProduct 删除商品（管理后台用）
 func (s *TradingService) DeleteProduct(ctx context.Context, id string) error {
 	return s.prodRepo.Delete(ctx, id)

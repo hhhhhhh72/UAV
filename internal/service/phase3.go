@@ -148,11 +148,12 @@ func (s *ExpiryService) GetExpiringInspections(list []domain.AnnualInspection, w
 // ---- Trade Orders ----
 
 type TradeOrderService struct {
-	repo repository.TradeOrderRepository
+	repo     repository.TradeOrderRepository
+	prodRepo repository.ProductRepository // 订单取消时恢复商品为可售（可空）
 }
 
-func NewTradeOrderService(repo repository.TradeOrderRepository) *TradeOrderService {
-	return &TradeOrderService{repo: repo}
+func NewTradeOrderService(repo repository.TradeOrderRepository, prodRepo repository.ProductRepository) *TradeOrderService {
+	return &TradeOrderService{repo: repo, prodRepo: prodRepo}
 }
 
 func (s *TradeOrderService) Create(ctx context.Context, buyerID, productID, sellerID string, amountFen int64) (domain.TradeOrder, error) {
@@ -212,7 +213,17 @@ func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newSta
 			return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（仅 pending 状态可取消）", o.Status, newStatus)
 		}
 	}
-	return s.repo.UpdateStatus(ctx, id, newStatus)
+	updated, err := s.repo.UpdateStatus(ctx, id, newStatus)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	// 订单取消：商品恢复为可售（sold → listed），重新出现在供给大厅
+	if newStatus == "cancelled" && s.prodRepo != nil && o.ProductID != "" {
+		if rerr := s.prodRepo.Restore(ctx, o.ProductID); rerr != nil {
+			return domain.TradeOrder{}, fmt.Errorf("订单已取消但商品恢复失败: %w", rerr)
+		}
+	}
+	return updated, nil
 }
 
 // ApplyAftersale 买家申请售后：仅买家可申请；一次订单仅一份有效售后单

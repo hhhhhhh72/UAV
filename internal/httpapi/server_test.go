@@ -27,7 +27,7 @@ func newServer(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository()), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
+	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository()), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
 	// Extended services used by public handlers (home endpoint etc.).
 	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
 	// batch2 模块服务：鉴权回归测试（C2）需要
@@ -560,9 +560,24 @@ func TestAftersaleFlow(t *testing.T) {
 		t.Fatalf("re-review should be rejected, got %d", w.Code)
 	}
 
-	// 8. 驳回分支：新订单 → 付款后未发货直接申请（paid → aftersale）→ reject → aftersale_status=rejected
+	// 8. 驳回分支：新商品 + 新订单 → 付款后未发货直接申请（paid → aftersale）→ reject → aftersale_status=rejected
+	// 注：商品下单即标记 sold（防超卖），第二个订单必须用新商品
+	pw2 := requestAs(t, app, http.MethodPost, "/api/v1/admin/products",
+		[]byte(`{"title":"备用无人机","prod_type":"drone","price_fen":500000,"condition":"new"}`),
+		"admin-1", domain.RolePlatformAdmin)
+	if pw2.Code != http.StatusCreated {
+		t.Fatalf("create product2: %d %s", pw2.Code, pw2.Body.String())
+	}
+	var prod2 struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(pw2.Body.Bytes(), &prod2); err != nil {
+		t.Fatalf("parse product2: %v", err)
+	}
 	ow2 := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+product.Data.ID+`","seller_id":"seller-1","amount_fen":500000}`),
+		[]byte(`{"product_id":"`+prod2.Data.ID+`","seller_id":"seller-1","amount_fen":500000}`),
 		"buyer-2", domain.RoleIndividual)
 	var order2 struct {
 		Data struct {

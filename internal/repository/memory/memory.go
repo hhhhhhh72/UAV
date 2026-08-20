@@ -1831,6 +1831,42 @@ func (r *prodRepo) IncrementViews(ctx context.Context, id string) error {
 	return fmt.Errorf("product %s not found", id)
 }
 
+// MarkSold 下单抢占：仅 listed/空状态可标记 sold（锁内校验防超卖）。
+func (r *prodRepo) MarkSold(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			if r.items[i].Status != "" && r.items[i].Status != "listed" {
+				return fmt.Errorf("product %s not available", id)
+			}
+			r.items[i].Status = "sold"
+			r.items[i].Version++
+			r.items[i].UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return fmt.Errorf("product %s not found", id)
+}
+
+// Restore 订单创建失败回滚：sold → listed。
+func (r *prodRepo) Restore(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			if r.items[i].Status != "sold" {
+				return fmt.Errorf("product %s not in sold state", id)
+			}
+			r.items[i].Status = "listed"
+			r.items[i].Version++
+			r.items[i].UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return fmt.Errorf("product %s not found", id)
+}
+
 func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

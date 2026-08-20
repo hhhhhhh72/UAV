@@ -301,7 +301,7 @@ func main() {
 		service.NewMessageService(msgRepo),
 		service.NewEnrollmentService(enrollRepo, courseRepo),
 		service.NewExpiryService(),
-		service.NewTradeOrderService(tradeOrderRepo),
+		service.NewTradeOrderService(tradeOrderRepo, productRepo),
 		service.NewEscrowService(escrowRepo),
 		service.NewNewsService(articleRepo),
 		service.NewReviewService(reviewRepo),

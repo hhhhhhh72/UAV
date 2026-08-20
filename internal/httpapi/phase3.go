@@ -355,8 +355,16 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusConflict, errors.New("product not available"))
 		return
 	}
+	// 下单抢占：先原子标记 sold（仅 listed 可改，防一物多卖/超卖），
+	// 供给大厅公开列表只展示 listed，售出后自动不再显示。
+	if err := s.tradingSvc.MarkProductSold(r.Context(), product.ID); err != nil {
+		fail(w, r, http.StatusConflict, errors.New("product not available"))
+		return
+	}
 	o, err := s.tradeSvc.Create(r.Context(), a.ID, product.ID, product.SellerID, product.PriceFen)
 	if err != nil {
+		// 订单创建失败：回滚商品为 listed，允许继续售卖
+		_ = s.tradingSvc.RestoreProduct(r.Context(), product.ID)
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}

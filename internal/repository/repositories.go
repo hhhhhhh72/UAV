@@ -264,6 +264,11 @@ type ProductRepository interface {
 	Update(ctx context.Context, p domain.DroneProduct) (domain.DroneProduct, error)
 	Delete(ctx context.Context, id string) error
 	IncrementViews(ctx context.Context, id string) error
+	// MarkSold 条件更新：仅 listed/空状态可标记 sold（下单抢占，防一物多卖/超卖）；
+	// 状态非可售返回错误。
+	MarkSold(ctx context.Context, id string) error
+	// Restore 条件更新：sold → listed（订单创建失败回滚用）。
+	Restore(ctx context.Context, id string) error
 }
 
 // ServiceListingRepository manages enterprise service capability listings (PRD ②-2).

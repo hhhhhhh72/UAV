@@ -386,6 +386,32 @@ func (r *prodRepo) IncrementViews(ctx context.Context, id string) error {
 	return nil
 }
 
+// MarkSold 下单抢占：仅 listed/空状态可标记 sold（条件更新防一物多卖/超卖）。
+func (r *prodRepo) MarkSold(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE drone_products SET status='sold', version=version+1, updated_at=NOW() WHERE id=$1 AND status IN ('','listed')`, id)
+	if err != nil {
+		return fmt.Errorf("mark product %s sold: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("product %s not available", id)
+	}
+	return nil
+}
+
+// Restore 订单创建失败回滚：sold → listed（条件更新，仅 sold 可恢复）。
+func (r *prodRepo) Restore(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE drone_products SET status='listed', version=version+1, updated_at=NOW() WHERE id=$1 AND status='sold'`, id)
+	if err != nil {
+		return fmt.Errorf("restore product %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("product %s not in sold state", id)
+	}
+	return nil
+}
+
 func (r *prodRepo) Update(ctx context.Context, p domain.DroneProduct) (domain.DroneProduct, error) {
 	p.UpdatedAt = time.Now()
 	images, err := json.Marshal(p.Images)

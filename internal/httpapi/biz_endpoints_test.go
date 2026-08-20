@@ -41,7 +41,7 @@ func newBizServer(t *testing.T) http.Handler {
 		service.NewMessageService(memory.NewMessageRepository()),
 		service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()),
 		service.NewExpiryService(),
-		service.NewTradeOrderService(memory.NewTradeOrderRepository()),
+		service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository()),
 		service.NewEscrowService(memory.NewEscrowRepository()),
 		service.NewNewsService(memory.NewArticleRepository()),
 		service.NewReviewService(memory.NewReviewRepository()),

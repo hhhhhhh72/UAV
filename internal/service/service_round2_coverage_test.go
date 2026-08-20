@@ -440,7 +440,7 @@ func TestMessageService_GetListAllDelete(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestTradeOrderService_AftersaleFlow(t *testing.T) {
-	svc := service.NewTradeOrderService(memory.NewTradeOrderRepository())
+	svc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository())
 
 	o, err := svc.Create(context.Background(), "buyer-1", "p1", "seller-1", 100000)
 	if err != nil {
@@ -498,7 +498,7 @@ func TestTradeOrderService_AftersaleFlow(t *testing.T) {
 }
 
 func TestTradeOrderService_AdminDeleteListFind(t *testing.T) {
-	svc := service.NewTradeOrderService(memory.NewTradeOrderRepository())
+	svc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository())
 
 	o, _ := svc.Create(context.Background(), "buyer-1", "p1", "seller-1", 100000)
 	// UpdateStatusAdmin：订单不存在

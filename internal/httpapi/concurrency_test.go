@@ -50,7 +50,7 @@ func newFullServer(t *testing.T) *httpapi.Server {
 		service.NewMessageService(nil),
 		service.NewEnrollmentService(nil, nil),
 		service.NewExpiryService(),
-		service.NewTradeOrderService(nil),
+		service.NewTradeOrderService(nil, nil),
 		service.NewEscrowService(nil),
 		service.NewNewsService(nil),
 		service.NewReviewService(nil),
