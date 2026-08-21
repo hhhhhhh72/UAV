@@ -47,14 +47,13 @@ const categories = [
   {
     id: 'policy',
     title: '政策合规',
-    subtitle: '资讯 · 标准 · 申报',
+    subtitle: '资讯 · 标准 · 案例',
     color: '#0A66C2',
     bg: '#EAF3FB',
     items: [
       { name: '政策资讯', icon: iconRoot + 'policy.svg', path: '/pkg-service/pages/compliance/news' },
       { name: '合规知识库', icon: iconRoot + 'policy.svg', path: '/pkg-service/pages/compliance/knowledge' },
       { name: '团体标准', icon: iconRoot + 'policy.svg', path: '/pkg-service/pages/compliance/standards' },
-      { name: '项目申报', icon: iconRoot + 'edit.svg', path: '/pkg-app/pages/applications/index' },
       { name: '企业案例', icon: iconRoot + 'shop.svg', path: '/pkg-eco/pages/cases/index' },
     ],
   },
