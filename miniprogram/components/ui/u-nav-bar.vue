@@ -77,6 +77,8 @@ function onRight() {
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -86,9 +88,11 @@ function onRight() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 标题绝对定位铺满导航栏但不拦截点击：返回/客服按钮必须可点（回归修复） */
+  pointer-events: none;
 }
-.u-nav-bar-side { position: absolute; display: flex; align-items: center; padding: 0 24rpx; height: 100%; top: 0; }
+.u-nav-bar-side { position: absolute; display: flex; align-items: center; padding: 0 24rpx; height: 100%; top: 0; z-index: 2; }
 .u-nav-bar-left { left: 0; gap: 8rpx; }
 .u-nav-bar-right { right: 0; }
-.u-nav-bar-text { font-size: 28rpx; color: var(--color-text, #1a1a1a); }
+.u-nav-bar-text { font-size: 28rpx; color: var(--color-text, #1a1a1a); pointer-events: none; }
 </style>
