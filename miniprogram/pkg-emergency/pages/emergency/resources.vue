@@ -360,6 +360,7 @@
 
 <script>
 import { request } from '../../../utils/request'
+import { safeBack } from '../../../utils/nav'
 
 export default {
   data() {
@@ -811,7 +812,7 @@ export default {
       uni.showToast({ title: '当前仅支持重庆市', icon: 'none' })
     },
     goBack() {
-      uni.navigateBack()
+      safeBack()
     },
     noop() {},
   },

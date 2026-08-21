@@ -242,6 +242,7 @@
 
 <script>
 import { request } from '../../../utils/request'
+import { safeBack } from '../../../utils/nav'
 
 export default {
   data() {
@@ -523,7 +524,7 @@ export default {
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes())
     },
     goBack() {
-      uni.navigateBack()
+      safeBack()
     },
   },
 }

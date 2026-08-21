@@ -322,7 +322,7 @@ export default {
   },
   methods: {
     goBack() {
-      uni.navigateBack()
+      safeBack()
     },
     // ---- 编辑模式：预填已有资料 ----
     async loadEnterprise() {
@@ -589,7 +589,7 @@ export default {
 
         uni.showToast({ title: self.isEdit ? '已重新提交审核' : '已提交审核' })
         self.backTimer = setTimeout(function () {
-          uni.navigateBack()
+          safeBack()
         }, 1200)
       } catch (e) {
         var msg = (e && e.data && e.data.message) || (e && e.message) || '提交失败，请重试'
