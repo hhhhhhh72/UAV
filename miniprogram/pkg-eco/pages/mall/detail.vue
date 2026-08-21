@@ -123,10 +123,9 @@
     <view
       v-if="!isOwnProduct"
       class="bottom-buy"
-      :class="{ 'bottom-buy--disabled': product.prod_type !== 'test_fly' }"
       hover-class="btn-press"
       @tap="buy"
-    >{{ product.prod_type === 'test_fly' ? '预约试飞' : '购买功能即将上线' }}</view>
+    >{{ product.prod_type === 'test_fly' ? '预约试飞' : '立即购买' }}</view>
     <view v-else class="bottom-buy bottom-buy--own" @tap="ownToast">我的商品</view>
   </view>
 </view>
@@ -332,20 +331,45 @@ const onShare = () => {
   setTimeout(() => { shareAnim.value = false }, 450)
   uni.showToast({ title: '分享', icon: 'none' })
 }
-// 主行动按钮：试飞测试供给 → 测试场地列表（预约展示，非交易）；
-// 其余商品购买已下线（真实微信支付接入前不创建订单，仅 toast 提示，保留浏览/联系卖家）
+// 主行动按钮：试飞测试供给 → 测试场地列表（②展示卡 → ③预约入口打通）；其余为立即购买（下单闭环）
 const buy = async () => {
   if (isOwnProduct.value) {
     uni.showToast({ title: '不能购买自己发布的商品', icon: 'none' })
     return
   }
-  // 试飞测试供给：仅跳转测试场地列表浏览/预约，不涉及交易闭环
   if (product.value.prod_type === 'test_fly') {
     uni.navigateTo({ url: '/pkg-service/pages/testsites/list' })
     return
   }
-  // 交易闭环下线：不调用后端下单接口，仅提示
-  uni.showToast({ title: '购买功能即将上线', icon: 'none' })
+  // 面议商品（无定价）不支持下单，引导联系卖家
+  const fen = product.value.price_fen || 0
+  if (fen <= 0) {
+    uni.showToast({ title: '该商品为面议报价，请联系卖家', icon: 'none' })
+    return
+  }
+  // 登录校验（未登录跳登录页）
+  if (!getStoredUser()) {
+    uni.navigateTo({ url: '/pages/login/index' })
+    return
+  }
+  uni.showLoading({ title: '下单中...' })
+  try {
+    const o = await request({
+      url: '/api/v1/trade-orders',
+      method: 'POST',
+      data: { product_id: product.value.id, seller_id: product.value.seller_id || '', amount_fen: fen },
+    })
+    uni.hideLoading()
+    uni.showToast({ title: '下单成功', icon: 'success' })
+    // 跳订单详情：新订单为待付款（支付在订单详情完成）
+    setTimeout(() => {
+      uni.redirectTo({ url: '/pages/orders/detail?id=' + encodeURIComponent(o.id) + '&type=product' })
+    }, 600)
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || '下单失败，请稍后重试'
+    uni.showToast({ title: msg, icon: 'none' })
+  }
 }
 </script>
 

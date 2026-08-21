@@ -219,21 +219,21 @@ function normalizeRealOrder(t, product) {
   }
 }
 
-// 主操作按钮文案：按交易角色区分（买家/卖家视图提示，交易功能上线前为中性文案）。
+// 主操作按钮文案：按交易角色区分（买家付钱收货，卖家发货收钱）。
 // 有售后记录（af 非空）的订单无论当前状态一律「查看售后」——结案单（approved/rejected）状态已回 completed。
 function statusAction(status, role, af) {
   if (af) return '查看售后'
   if (status === 'cancelled') return '已取消'
   if (role === 'seller') {
-    if (status === 'paid') return '已付款'
+    if (status === 'paid') return '发货'
     if (status === 'pending') return '等待付款'
     if (status === 'shipped') return '待确认'
     if (status === 'completed') return '已完成'
     return '查看售后'
   }
-  if (status === 'pending') return '待支付'
-  if (status === 'paid') return '待发货'
-  if (status === 'shipped') return '待收货'
+  if (status === 'pending') return '去支付'
+  if (status === 'paid') return '提醒发货'
+  if (status === 'shipped') return '确认收货'
   if (status === 'completed') return '去评价'
   return '查看售后'
 }

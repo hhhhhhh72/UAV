@@ -118,17 +118,17 @@ const actionNote = computed(() => {
   const o = order.value
   // 卖家视角：发货方文案
   if (o.role === 'seller') {
-    if (o.status === 'pending') return '等待买家完成付款'
-    if (o.status === 'paid') return '买家已付款，发货功能即将上线'
+    if (o.status === 'pending') return '等待买家完成付款，付款后即可发货'
+    if (o.status === 'paid') return '确认发货后订单将标记为已发货'
     if (o.status === 'shipped') return '等待买家确认收货'
     if (o.status === 'completed') return '交易已完成，感谢你的销售'
     return ''
   }
   // 买家视角：付款方文案
   if (o.aftersale) return '退款由平台审核，可在售后详情查看处理进度'
-  if (o.status === 'pending') return '支付功能即将上线，敬请期待'
-  if (o.status === 'paid') return '订单已支付，请留意卖家发货安排'
-  if (o.status === 'shipped') return '订单已发货，确认收货功能即将上线'
+  if (o.status === 'pending') return '确认支付后订单将标记为已支付'
+  if (o.status === 'paid') return '卖家将在 48 小时内发货，请留意物流更新'
+  if (o.status === 'shipped') return '确认收货后订单将完成'
   if (o.status === 'completed') return o.action === '已评价' ? '感谢你的评价，结课凭证已存入「我的报名 / 证书」' : '评价后结课凭证进入「我的报名 / 证书」'
   return ''
 })
@@ -178,11 +178,15 @@ const handlePrimaryAction = () => {
     uni.showToast({ title: '订单已取消', icon: 'none' })
     return
   }
-  // ── 卖家视角：交易闭环下线，发货状态机不开放，仅提示 ──
+  // ── 卖家视角：发货 / 等待流转提示 ──
   if (o.role === 'seller') {
+    if (o.status === 'paid') {
+      // 发货：调后端状态机 paid→shipped
+      shipOrder(o)
+      return
+    }
     const sellerTips = {
       pending: '等待买家完成付款',
-      paid: '发货功能即将上线',
       shipped: '等待买家确认收货',
       completed: '交易已完成',
       aftersale: '售后处理中',
@@ -190,20 +194,20 @@ const handlePrimaryAction = () => {
     uni.showToast({ title: sellerTips[o.status] || '请等待买家操作', icon: 'none' })
     return
   }
-  // ── 买家视角：交易闭环下线，支付/收货状态机不开放，仅提示 ──
+  // ── 买家视角：支付 / 收货 / 评价 ──
   if (o.status === 'pending') {
-    // 支付功能未接入：不调用后端支付接口
-    uni.showToast({ title: '支付功能即将上线', icon: 'none' })
+    // 支付：调后端状态机 pending→paid
+    payOrder(o)
     return
   }
   if (o.status === 'paid') {
-    // 提醒发货：无后端调用，仅中性提示，不制造"已发送提醒"的假动作
-    uni.showToast({ title: '请耐心等待卖家发货', icon: 'none' })
+    // 提醒发货：发送提醒成功反馈，不把状态改为待收货
+    uni.showToast({ title: '已向商家发送发货提醒', icon: 'none' })
     return
   }
   if (o.status === 'shipped') {
-    // 确认收货未开放：不调用后端状态机
-    uni.showToast({ title: '等待确认收货', icon: 'none' })
+    // 确认收货：调后端状态机 shipped→completed
+    receiveOrder(o)
     return
   }
   if (o.status === 'completed') {
@@ -212,6 +216,80 @@ const handlePrimaryAction = () => {
       url: `/pages/orders/review?id=${encodeURIComponent(o.id)}&type=${o.type}`,
     })
     return
+  }
+}
+
+// 支付：POST /api/v1/trade-orders/{id}/pay 置 paid（真实微信支付接入后替换此逻辑）
+const payOrder = async (o) => {
+  const confirmed = await new Promise((resolve) => {
+    uni.showModal({
+      title: '确认支付',
+      content: '确认支付 ¥' + fmtFen(o.amount_fen) + '？支付后订单进入待发货。',
+      confirmText: '确认支付',
+      success: (r) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
+  uni.showLoading({ title: '支付中...' })
+  try {
+    await request({ url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/pay', method: 'POST' })
+    uni.hideLoading()
+    uni.showToast({ title: '支付成功', icon: 'success' })
+    setTimeout(() => { loadData({ id: o.id }) }, 600)
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || '支付失败，请稍后重试'
+    uni.showToast({ title: msg, icon: 'none' })
+  }
+}
+
+// 发货：卖家 PATCH 置 shipped（真实物流接入后替换此逻辑）
+const shipOrder = async (o) => {
+  const confirmed = await new Promise((resolve) => {
+    uni.showModal({
+      title: '确认发货',
+      content: '确认已安排发货？订单将标记为已发货，买家确认收货后完成交易。',
+      confirmText: '确认发货',
+      success: (r) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
+  patchOrderStatus(o, 'shipped', '发货中...', '发货成功', '发货失败，请稍后重试')
+}
+
+// 确认收货：买家 PATCH 置 completed（真实物流接入后替换此逻辑）
+const receiveOrder = async (o) => {
+  const confirmed = await new Promise((resolve) => {
+    uni.showModal({
+      title: '确认收货',
+      content: '确认已收到商品？确认后订单将完成，可进行评价。',
+      confirmText: '确认收货',
+      success: (r) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
+  patchOrderStatus(o, 'completed', '确认中...', '确认收货成功', '操作失败，请稍后重试')
+}
+
+// 状态流转共用：PATCH /api/v1/trade-orders/{id}/status 置新状态，成功即刷新订单
+const patchOrderStatus = async (o, status, loadingText, successText, failText) => {
+  uni.showLoading({ title: loadingText })
+  try {
+    await request({
+      url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/status',
+      method: 'PATCH',
+      data: { status },
+    })
+    uni.hideLoading()
+    uni.showToast({ title: successText, icon: 'success' })
+    setTimeout(() => { loadData({ id: o.id }) }, 600)
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || failText
+    uni.showToast({ title: msg, icon: 'none' })
   }
 }
 
