@@ -44,15 +44,15 @@ onMounted(() => {
   // #endif
 })
 
-// 标题居中但必须避让左右侧内容（返回/客服/筛选），过长省略——
-// 修复「商品订单详情」等长标题与右侧「客服」重叠挤压。
+// 标题居中策略：
+// - 无右侧内容（绝大多数页面）：屏幕正中央（left/right=0），保证短标题不偏移；
+// - 有右侧内容（客服/筛选）：在「返回按钮 ~ 右侧内容」可用区内居中并省略过长，
+//   避免与右侧文字重叠（修复「商品订单详情」撞「客服」）。
 const titleStyle = computed(() => {
-  const hasLeft = props.showBack || !!props.leftText
   const hasRight = !!props.rightText || !!slots.right
-  return {
-    left: (hasLeft ? 96 : 12) + 'px',
-    right: (hasRight ? rightOffset.value + 72 : 12) + 'px',
-  }
+  return hasRight
+    ? { left: '90px', right: (rightOffset.value + 80) + 'px' }
+    : { left: '0px', right: '0px' }
 })
 function onBack() {
   emit('back')
