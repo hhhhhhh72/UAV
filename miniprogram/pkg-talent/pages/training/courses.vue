@@ -226,9 +226,9 @@ const certPills = [
   { label: '人社等级', value: 'gov_level' },
 ]
 
-/* ===== 重庆 38 区县 ===== */
+/* ===== 重庆 全重庆 + 38 区县（首项为全部，选中即不传 region） ===== */
 const chongqingDistricts = [
-  '渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区',
+  '全重庆', '渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区',
   '南岸区', '北碚区', '渝北区', '巴南区', '万州区',
   '涪陵区', '黔江区', '长寿区', '江津区', '合川区',
   '永川区', '南川区', '綦江区', '大足区', '璧山区',
@@ -247,7 +247,8 @@ const statusClass = { recruiting: 'recruiting', published: 'recruiting', full: '
 function onDistrictChange(e) {
   const idx = Number(e.detail.value)
   districtIndex.value = idx
-  selectedDistrict.value = chongqingDistricts[idx]
+  // 首项「全重庆」→ 空串（全部），不传 region 参数
+  selectedDistrict.value = idx === 0 ? '' : chongqingDistricts[idx]
   fetchList(true)
 }
 
