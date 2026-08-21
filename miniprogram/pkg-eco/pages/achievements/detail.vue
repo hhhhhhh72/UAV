@@ -279,14 +279,8 @@ onPageScroll((e) => {
 })
 
 const toggleFav = () => {
-  isFav.value = !isFav.value
-  if (isFav.value) {
-    favPop.value = true
-    favHide.value = false
-    uni.showToast({ title: '已收藏', icon: 'success', duration: 1200 })
-    setTimeout(() => { favHide.value = true }, 600)
-    setTimeout(() => { favPop.value = false; favHide.value = false }, 1000)
-  }
+  // 成果收藏接口未实装：不做本地假成功，如实提示（与活动详情页一致）
+  uni.showToast({ title: '收藏功能即将开放', icon: 'none', duration: 1200 })
 }
 const onContact = () => uni.showToast({ title: '联系对接功能待开放', icon: 'none', duration: 1500 })
 

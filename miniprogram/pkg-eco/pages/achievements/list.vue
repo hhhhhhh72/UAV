@@ -9,9 +9,8 @@
       </view>
 
     </view>
-    <view v-if="sV" class="mask" @tap="sV = false" />
 
-    <!-- 筛选器：类型 / 领域 / 阶段（chip 选项 + 领域二级分组） -->
+    <!-- 筛选器：类型 / 领域 / 阶段（chip 选项 + 领域平铺） -->
     <view class="filter-wrap">
       <view class="fbar">
       <view class="fpill" :class="{ on: panel === 'type' }" @tap="togglePanel('type')">
@@ -27,13 +26,8 @@
       </view>
       <view v-if="panel" class="panel">
       <view class="p-head">{{ panelTitle }}</view>
-      <view v-if="panel === 'field'" class="p-group">整机与硬件</view>
       <view v-if="panel === 'field'" class="p-chips">
-        <text v-for="f in FIELD_HW" :key="f" class="p-chip" :class="{ act: fField === f }" @tap="pickField(f)">{{ f }}</text>
-      </view>
-      <view v-if="panel === 'field'" class="p-group">软件与服务</view>
-      <view v-if="panel === 'field'" class="p-chips">
-        <text v-for="f in FIELD_SW" :key="f" class="p-chip" :class="{ act: fField === f }" @tap="pickField(f)">{{ f }}</text>
+        <text v-for="f in FIELD_OPTS" :key="f" class="p-chip" :class="{ act: fField === f }" @tap="pickField(f)">{{ f }}</text>
       </view>
       <view v-else class="p-chips">
         <text v-for="o in chipOptions" :key="o.v" class="p-chip" :class="{ act: isAct(o.v) }" @tap="pickChip(o.v)">{{ o.l }}</text>
@@ -71,21 +65,7 @@
     <!-- Info Row -->
     <view class="ir">
       <text>共 <text class="irn">{{ shown }}</text> 项成果</text>
-      <view class="irs-wrap">
-        <text class="irs" @tap="toggleSort">{{ sortLabel }} ▼</text>
-        <view v-if="sV" class="spop" @tap.stop>
-          <view
-            v-for="o in sorts"
-            :key="o.k"
-            class="sp-opt"
-            :class="{ active: sort === o.k }"
-            @tap="pickSort(o.k)"
-          >
-            <text v-if="sort === o.k" class="sp-chk">✓</text>
-            <text>{{ o.l }}</text>
-          </view>
-        </view>
-      </view>
+      <text class="ir-hint">按最新发布排序</text>
     </view>
 
     <!-- Skeleton -->
@@ -132,12 +112,6 @@
           </view>
           <view class="cft">
             <text class="cf-date">{{ x.d }}</text>
-            <text v-if="x.v > 0 || x.s > 0" class="cf-stats">
-              <text v-if="x.v > 0" class="cf-eye">👁</text>
-              <text v-if="x.v > 0">{{ fmt(x.v) }}</text>
-              <text v-if="x.s > 0" class="cf-star">★</text>
-              <text v-if="x.s > 0">{{ x.s }}</text>
-            </text>
           </view>
         </view>
       </view>
@@ -158,8 +132,6 @@ const PAGE_SIZE = 100
 const MAX_PAGES = 10
 
 const q = ref('')
-const sort = ref('latest')
-const sV = ref(false)
 const loading = ref(true)
 const err = ref(false)
 const list = ref([])
@@ -181,15 +153,8 @@ const STAGE_OPTS = [
   { v: 'all', l: '全部阶段' }, { v: 'lab', l: '实验室' }, { v: 'pilot', l: '中试' },
   { v: 'industrialized', l: '产业化' }, { v: 'listed', l: '已上市' },
 ]
-const FIELD_HW = ['飞控系统', '动力系统', '载荷设备', '地面站', '遥感测绘']
-const FIELD_SW = ['AI算法', '集群协同', '通信链路', '标准规范']
-
-const sorts = [
-  { k: 'latest', l: '最新发布' },
-  { k: 'views', l: '最多浏览' },
-  { k: 'favs', l: '最多收藏' }
-]
-const SORT_LABEL = { latest: '最新发布', views: '最多浏览', favs: '最多收藏' }
+// 研究领域：平铺展示（原二级分组「整机与硬件/软件与服务」已简化）
+const FIELD_OPTS = ['飞控系统', '动力系统', '载荷设备', '地面站', '遥感测绘', 'AI算法', '集群协同', '通信链路', '标准规范']
 
 const STATUS_MAP = { hot: '热门', transformed: '已转化', new: '新成果' }
 const FIELD_ICON = { '飞控系统': '飞', '遥感测绘': '遥', '动力系统': '动', 'AI算法': '算', '载荷设备': '载', '集群协同': '群', '通信链路': '通', '标准规范': '标', '地面站': '地' }
@@ -208,12 +173,10 @@ const chipOptions = computed(() => (panel.value === 'type' ? TYPE_OPTS : STAGE_O
 const isAct = (v) => (panel.value === 'type' ? (v === 'all' ? fType.value === '全部类型' : fType.value === v) : (v === 'all' ? fStage.value === '全部阶段' : fStage.value === v))
 
 const shown = computed(() => list.value.length)
-const sortLabel = computed(() => SORT_LABEL[sort.value] || '最新发布')
 const hasMore = computed(() => list.value.length < total.value)
 
 const icOf = (f) => FIELD_ICON[f] || (f ? f.charAt(0) : '果')
 const bgOf = (f) => FIELD_BG[f] || '#e8f2fc'
-const fmt = (n) => (n >= 1e4 ? (n / 1e4).toFixed(1) + 'w' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))
 
 const typeLabel = (t) => ACH_TYPE_LABEL[(t || '').toLowerCase()] || t || '其他'
 const statusOf = (s) => {
@@ -252,8 +215,6 @@ const mapItem = (it) => {
     f: it.field || '其他',
     tl: typeLabel(it.achieve_type),
     d: (it.created_at || '').slice(0, 10),
-    v: it.views || 0,
-    s: it.favs || 0,
     st: statusOf(it.status),
     stage: st,
     stageShort: st ? st.short : '',
@@ -269,9 +230,8 @@ const applyFilter = () => {
   if (fType.value !== '全部类型') items = items.filter(x => x.tl === fType.value)
   if (fField.value !== '全部领域') items = items.filter(x => x.f === fField.value)
   if (fStage.value !== '全部阶段') items = items.filter(x => x.stage && x.stage.short === fStage.value)
-  if (sort.value === 'views') items.sort((a, b) => b.v - a.v)
-  else if (sort.value === 'favs') items.sort((a, b) => b.s - a.s)
-  else items.sort((a, b) => ((b.d || '') < (a.d || '') ? 1 : (b.d || '') > (a.d || '') ? -1 : 0))
+  // 固定按最新发布倒序（浏览量/收藏数无数据支撑，已移除对应排序项）
+  items.sort((a, b) => ((b.d || '') < (a.d || '') ? 1 : (b.d || '') > (a.d || '') ? -1 : 0))
   list.value = items
 }
 
@@ -326,11 +286,9 @@ const fetchMore = async () => {
 
 const onSearch = () => { applyFilter() }
 const clearSearch = () => { q.value = ''; applyFilter() }
-const toggleSort = () => { sV.value = !sV.value }
-const pickSort = (k) => { sort.value = k; sV.value = false; applyFilter() }
 
 // ---- 筛选交互 ----
-const togglePanel = (k) => { panel.value = panel.value === k ? '' : k; sV.value = false }
+const togglePanel = (k) => { panel.value = panel.value === k ? '' : k }
 const pickChip = (v) => {
   const opts = panel.value === 'type' ? TYPE_OPTS : STAGE_OPTS
   const o = opts.find(x => x.v === v)
@@ -354,8 +312,7 @@ const resetAll = () => {
   fType.value = '全部类型'
   fField.value = '全部领域'
   fStage.value = '全部阶段'
-  sort.value = 'latest'
-  sV.value = false
+  panel.value = ''
   applyFilter()
 }
 
@@ -399,22 +356,6 @@ onReachBottom(fetchMore)
 .sinp { flex: 1; font-size: 26rpx; color: var(--color-text); }
 .ph { color: var(--color-text-placeholder); }
 .sclr { font-size: 30rpx; color: var(--color-text-placeholder); padding: 4rpx; }
-.irs-wrap { position: relative; z-index: 60; }
-.spop {
-  position: absolute; top: calc(100% + 8rpx); right: 0; z-index: 50;
-  background: var(--color-bg-card); border-radius: var(--radius-md);
-  box-shadow: 0 4px 24px rgba(0,0,0,.12); padding: 12rpx 0; min-width: 264rpx;
-  animation: popIn .18s ease;
-}
-@keyframes popIn { from { opacity: 0; transform: translateY(-8rpx); } to { opacity: 1; transform: translateY(0); } }
-.sp-opt {
-  padding: 20rpx 32rpx; font-size: 26rpx; color: var(--color-text);
-  display: flex; align-items: center; gap: 16rpx; white-space: nowrap;
-}
-.sp-opt.active { color: var(--color-primary); font-weight: 600; }
-.sp-opt:active { background: #f5f7fa; }
-.sp-chk { font-size: 24rpx; }
-.mask { position: fixed; inset: 0; z-index: 40; background: transparent; }
 
 /* ===== 筛选器（新布局，沿用现有令牌） ===== */
 .filter-wrap { position: relative; z-index: 45; }
@@ -436,7 +377,6 @@ onReachBottom(fetchMore)
   animation: popIn .18s ease;
 }
 .p-head { font-size: 22rpx; color: var(--color-text-placeholder); padding: 4rpx 4rpx 12rpx; }
-.p-group { font-size: 22rpx; color: var(--color-text-secondary); font-weight: 600; padding: 8rpx 4rpx 8rpx; }
 .p-chips { display: flex; flex-wrap: wrap; gap: 14rpx; padding: 0 4rpx 10rpx; }
 .p-chip {
   flex: none; padding: 10rpx 24rpx; border-radius: var(--radius-round);
@@ -484,9 +424,6 @@ onReachBottom(fetchMore)
 .c-tag.tag-new { color: var(--color-primary); background: var(--color-primary-light); }
 .cft { font-size: 20rpx; color: var(--color-text-placeholder); display: flex; justify-content: space-between; align-items: center; }
 .cf-date { color: var(--color-text-placeholder); }
-.cf-stats { color: var(--color-text-secondary); font-weight: 600; }
-.cf-eye { font-size: 18rpx; margin-right: 4rpx; }
-.cf-star { font-size: 18rpx; margin: 0 4rpx 0 10rpx; color: var(--color-text-placeholder); }
 
 /* ===== Skeleton（保留） ===== */
 .card-sk .sk-cv { aspect-ratio: 4/3; background: #f0f1f3; animation: shimmer 1.5s infinite; }
@@ -536,8 +473,6 @@ onReachBottom(fetchMore)
 .p-chip:active { transform: scale(.95); opacity: .85; }
 .fpill { transition: transform .2s ease, background .2s ease, border-color .2s ease, color .2s ease; }
 .fpill:active { transform: scale(.97); }
-.irs { transition: transform .2s ease, background .2s ease; }
-.irs:active { transform: scale(.96); }
 .sclr { transition: transform .2s ease, opacity .2s ease; }
 .sclr:active { transform: scale(.9); opacity: .7; }
 
@@ -546,7 +481,6 @@ onReachBottom(fetchMore)
 
 /* 4) 层级加固：浮层/弹层 z-index 显式化，避免内容穿透 */
 .panel { z-index: 45; }
-.spop { z-index: 50; }
 .fbar { z-index: 30; }
 
 /* ===== 【首页风格】同步 pages/home 样式（仅颜色/圆角/阴影/字重；如需回退删除本块即可） ===== */
@@ -562,7 +496,6 @@ onReachBottom(fetchMore)
 .card { border-radius: 16rpx; box-shadow: 0 4rpx 16rpx rgba(16,24,40,.035); }
 /* 面板 / 排序弹层：对齐首页弹层阴影 */
 .panel { border-radius: 16rpx; box-shadow: 0 6rpx 24rpx rgba(16,24,40,.08); }
-.spop { box-shadow: 0 6rpx 24rpx rgba(16,24,40,.08); }
 /* 标签徽章：对齐首页 type-badge / status-badge */
 .c-tag { border-radius: 8rpx; font-weight: 700; color: #074D92; background: #EAF3FB; }
 .c-tag.tag-hot { color: #fff; background: #F04438; }
@@ -584,10 +517,6 @@ onReachBottom(fetchMore)
 /* 筛选面板：更大内边距、更宽松的选项 */
 .panel { padding: 28rpx 28rpx 20rpx; border-radius: 20rpx; }
 .p-head { font-size: 24rpx; padding: 4rpx 4rpx 16rpx; }
-.p-group { font-size: 24rpx; padding: 12rpx 4rpx 10rpx; }
 .p-chips { gap: 20rpx; padding: 4rpx 4rpx 14rpx; }
 .p-chip { padding: 14rpx 32rpx; font-size: 26rpx; border-radius: 12rpx; }
-/* 排序弹层：选项更宽松 */
-.spop { min-width: 320rpx; padding: 16rpx 0; }
-.sp-opt { padding: 26rpx 36rpx; font-size: 28rpx; }
 </style>
