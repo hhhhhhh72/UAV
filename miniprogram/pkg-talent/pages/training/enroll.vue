@@ -222,6 +222,11 @@
 
     <!-- ═══ ③ 底部固定操作栏 ═══ -->
     <view v-if="detail" class="bottom-bar">
+      <!-- 收藏（真实接口，登录后可用） -->
+      <view class="btn-fav" :class="{ on: isFav }" hover-class="btn-fav-press" @click="toggleFav">
+        <text class="fav-heart">{{ isFav ? '♥' : '♡' }}</text>
+        <text class="fav-label">{{ isFav ? '已收藏' : '收藏' }}</text>
+      </view>
       <view class="bottom-left">
         <text class="fee-label">培训参考价</text>
         <view class="fee-price">
@@ -252,7 +257,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { request } from '../../../utils/request'
+import { request, authStorage } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
 const id = ref('')
@@ -402,17 +407,60 @@ async function fetchDetail() {
     if (cached && String(cached.id) === String(id.value)) {
       detail.value = cached
       loading.value = false
+      loadFavState()
       return
     }
     const res = await request({ url: '/api/v1/training-courses/' + encodeURIComponent(id.value) })
     const data = (res && res.data) || res || null
     detail.value = data && data.id ? data : null
     if (!detail.value) errorMsg.value = '机构不存在'
+    else loadFavState()
   } catch (e) {
     errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
+}
+
+/* ===== 课程收藏（真实接口，登录后可用） ===== */
+const isFav = ref(false)
+const favBusy = ref(false)
+
+async function toggleFav() {
+  const item = detail.value
+  if (!item || !item.id) return
+  if (!authStorage.getAccessToken()) {
+    uni.navigateTo({ url: '/pages/login/index' })
+    return
+  }
+  if (favBusy.value) return
+  favBusy.value = true
+  try {
+    const next = !isFav.value
+    await request({
+      url: '/api/v1/training-courses/' + encodeURIComponent(item.id) + '/favorite',
+      method: 'POST',
+      data: { favorite: next },
+    })
+    isFav.value = next
+    showCustomToast(next ? '已收藏，可在「我的收藏」查看' : '已取消收藏')
+  } catch (e) {
+    showCustomToast('操作失败，请重试')
+  } finally {
+    favBusy.value = false
+  }
+}
+
+// 进入页面时回显收藏状态（登录后）
+async function loadFavState() {
+  if (!authStorage.getAccessToken() || !detail.value || !detail.value.id) return
+  try {
+    const res = await request({ url: '/api/v1/training-courses/favorites/mine' })
+    const list = Array.isArray(res) ? res : (res && res.data) || []
+    if (Array.isArray(list)) {
+      isFav.value = list.some((d) => (typeof d === 'string' ? d : d && d.id) === detail.value.id)
+    }
+  } catch (e) { /* 忽略：保持未收藏 */ }
 }
 
 /* ===== 交互 ===== */
@@ -1147,6 +1195,25 @@ onPullDownRefresh(function () {
   z-index: 50;
 }
 .bottom-left { display: flex; align-items: baseline; gap: 8rpx; flex-shrink: 0; }
+
+/* 收藏按钮（底部栏最左，图标+文字纵向） */
+.btn-fav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rpx;
+  padding: 0 12rpx;
+  margin-right: 4rpx;
+  flex-shrink: 0;
+  border-radius: 10rpx;
+  transition: opacity 160ms var(--ease);
+}
+.btn-fav-press { opacity: 0.65; }
+.fav-heart { font-size: 34rpx; line-height: 1.1; color: #667085; }
+.fav-label { font-size: 18rpx; color: #667085; }
+.btn-fav.on .fav-heart { color: #E96012; }
+.btn-fav.on .fav-label { color: #E96012; font-weight: 600; }
 .fee-label { font-size: 20rpx; color: #98A2B3; }
 .fee-price { display: flex; align-items: baseline; }
 .fee-symbol { font-size: 22rpx; font-weight: 700; color: #E96012; }
