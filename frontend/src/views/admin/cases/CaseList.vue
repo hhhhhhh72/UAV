@@ -48,7 +48,9 @@
         <a-form :model="currentCase" layout="vertical" class="dialog-form">
           <a-divider orientation="left">基本信息</a-divider>
           <a-form-item label="分类" required>
-            <a-input ref="categoryRef" v-model="currentCase.category" placeholder="如：物流配送 / 测绘巡检 / 应急救援" allow-clear :aria-required="true" style="width: 100%" />
+            <a-select ref="categoryRef" v-model="currentCase.category" placeholder="请选择分类" allow-clear style="width: 100%">
+              <a-option v-for="c in caseCategories" :key="c" :value="c">{{ c }}</a-option>
+            </a-select>
           </a-form-item>
           <a-form-item label="标题" required>
             <a-input v-model="currentCase.title" placeholder="请输入标题" allow-clear :aria-required="true" style="width: 100%" />
@@ -112,6 +114,9 @@ import { normalizeMediaUrl } from '../composables/useMedia'
 
 const crudRef = ref()
 
+// 案例分类（与小程序端 cases 分类一致，供新增/编辑下拉选择）
+const caseCategories = ['无人机物流', '政务服务', '无人机吊运', '无人机表演', '无人机赛事']
+
 // --- 案例列表（CaseEntry v1 模型：/api/v1/admin/cases） ---
 const fetchCases = async (params) => {
   try {
@@ -134,7 +139,7 @@ const batchActions = [
 ]
 
 const searchFields = computed(() => [
-  { key: 'category', label: '分类', type: 'input', width: 200, placeholder: '输入分类名称（精确匹配）' }
+  { key: 'category', label: '分类', type: 'select', width: 200, placeholder: '全部', options: caseCategories }
 ])
 
 const columns = [
