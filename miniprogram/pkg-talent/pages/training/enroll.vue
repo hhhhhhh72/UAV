@@ -468,7 +468,7 @@ function onImgLoad(key, idx) {
   if (idx !== undefined) imgLoaded.env[idx] = true
   else imgLoaded[key] = true
 }
-function goBack() { uni.navigateBack({ delta: 1 }) }
+function goBack() { safeBack() }
 function openMap() {
   const addr = (detail.value && detail.value.location) || ''
   showCustomToast(addr ? '导航到：' + addr : '暂无地址信息')

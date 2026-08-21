@@ -232,6 +232,7 @@
 </template>
 
 <script>
+import { safeBack } from '../../../utils/nav'
 import { request, authStorage, BASE_URL } from '../../../utils/request'
 import { useSafeTop } from '../../../utils/safeTop'
 

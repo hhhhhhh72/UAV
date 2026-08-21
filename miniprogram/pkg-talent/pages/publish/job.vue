@@ -91,7 +91,7 @@ import { useSafeTop } from '../../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)
 
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 const goRegister = () => uni.navigateTo({ url: '/pkg-eco/pages/enterprise/register' })
 
 const user = getStoredUser()

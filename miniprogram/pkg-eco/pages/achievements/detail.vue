@@ -135,7 +135,7 @@ import { onLoad, onPageScroll } from '@dcloudio/uni-app'
 import { request, BASE_URL } from '@/utils/request'
 import { MOCK_ACHIEVEMENTS, MOCK_TRANSFORMS_BY_ACH, ACH_TYPE_LABEL, STAGE_LABEL, STAGE_RANK } from '@/utils/mockAchievements'
 
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 
 const FIELD_ICON = { '飞控系统': '飞', '遥感测绘': '遥', '动力系统': '动', 'AI算法': '算', '载荷设备': '载', '集群协同': '群', '通信链路': '通', '标准规范': '标', '地面站': '地' }
 const FIELD_BG = {

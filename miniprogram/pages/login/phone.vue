@@ -126,7 +126,7 @@ onUnload(() => {
   if (timer) clearInterval(timer)
 })
 
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 const goRegister = () => uni.navigateTo({ url: '/pages/register/index' })
 const showDoc = (type) => uni.navigateTo({ url: '/pages/agreement/index?type=' + type })
 const forgotPwd = () => uni.showToast({ title: '请联系管理员重置密码', icon: 'none' })

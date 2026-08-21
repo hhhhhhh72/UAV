@@ -62,7 +62,7 @@ const navStyle = computed(() => ({
 const loading = ref(false)
 const agreed = ref(false)
 
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 
 const goPhoneLogin = () => uni.navigateTo({ url: '/pages/login/phone' })
 

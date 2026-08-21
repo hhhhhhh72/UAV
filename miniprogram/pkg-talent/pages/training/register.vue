@@ -387,7 +387,7 @@ function handleConsult() {
   uni.showToast({ title: '请联系客服 ' + HOTLINE, icon: 'none' })
 }
 
-function goBack() { uni.navigateBack({ delta: 1 }) }
+function goBack() { safeBack() }
 
 async function fetchCourse() {
   loading.value = true

@@ -187,7 +187,7 @@ const pickCat = (c) => {
 
 const goDetail = (d) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(d.id))
 const goHall = () => safeNavigateTo('/pages/demands/index')
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 </script>
 
 <style scoped>

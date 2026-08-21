@@ -164,7 +164,7 @@ import { onLoad, onReady } from '@dcloudio/uni-app'
 
 const contentReady = ref(false)
 const tour = ref(null)
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 
 // 自定义导航：返回按钮下沉到状态栏下方（JS 方式）
 const statusBarH = ref(20)

@@ -329,7 +329,7 @@ async function loadDetail() {
   }
 }
 
-function goBack() { uni.navigateBack({ delta: 1 }) }
+function goBack() { safeBack() }
 
 function goRegister() {
   if (detail.value && isClosed(detail.value)) return

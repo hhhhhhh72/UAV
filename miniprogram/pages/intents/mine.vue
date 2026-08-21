@@ -49,7 +49,7 @@ const headStyle = computed(() => ({ paddingTop: statusBarH.value + 'px' }))
 const list = ref([])
 const loading = ref(false)
 
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 const shortId = (id) => (id || '').length > 10 ? id.slice(-8) : (id || '-')
 const statusLabel = (s) => ({ pending: '待联系', contacted: '已洽谈', done: '已成交', closed: '已关闭' }[s] || s || '')
 const formatDate = (iso) => {

@@ -95,6 +95,7 @@
 </template>
 
 <script setup>
+import { safeBack } from '../../utils/nav'
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { loadOrder, getReview, submitReview as submitOrderReview } from '../../utils/orderAdapter'
@@ -210,7 +211,7 @@ const goBack = () => {
     uni.reLaunch({ url: '/pages/orders/index' })
     return
   }
-  uni.navigateBack()
+  safeBack()
 }
 </script>
 

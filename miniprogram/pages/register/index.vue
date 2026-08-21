@@ -124,7 +124,7 @@ const showConfirm = ref(false)
 const agreed = ref(false)
 const loading = ref(false)
 
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 const goLogin = () => uni.navigateTo({ url: '/pages/login/index' })
 const showTerms = () => uni.navigateTo({ url: '/pages/agreement/index?type=terms' })
 const showPrivacy = () => uni.navigateTo({ url: '/pages/agreement/index?type=privacy' })
@@ -161,7 +161,7 @@ const doRegister = async () => {
       uni.showToast({ title: '注册成功', icon: 'success' })
       setTimeout(() => {
         loading.value = false
-        uni.navigateBack()
+        safeBack()
       }, 800)
     } else {
       loading.value = false

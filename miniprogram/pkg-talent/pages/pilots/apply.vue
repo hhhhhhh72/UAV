@@ -136,7 +136,7 @@ import { useSafeTop } from '../../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)
 
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 const form = ref({ real_name: '', id_card: '', flight_hours: '', bio: '', avatar: '', region: '' })
 const submitting = ref(false)
 

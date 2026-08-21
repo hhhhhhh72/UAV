@@ -55,6 +55,13 @@ const titleStyle = computed(() => {
     : { left: '0px', right: '0px' }
 })
 function onBack() {
+  // 冷启动直达（分享链接/扫码进入，页面栈仅 1 层）时 navigateBack 必失败：
+  // 组件直接回首页，不派发页面返回逻辑，避免与页面自身 fail 兜底冲突。
+  const pages = getCurrentPages()
+  if (pages.length <= 1) {
+    uni.switchTab({ url: '/pages/home/index' })
+    return
+  }
   emit('back')
 }
 function onRight() {

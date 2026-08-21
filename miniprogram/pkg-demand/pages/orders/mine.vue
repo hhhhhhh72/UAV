@@ -316,7 +316,7 @@ async function submitCancel() {
   }
 }
 
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 </script>
 
 <style scoped>

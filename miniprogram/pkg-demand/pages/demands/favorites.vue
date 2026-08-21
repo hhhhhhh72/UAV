@@ -248,7 +248,7 @@ const goDetail = (post) => {
   safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(post.id))
 }
 const goHall = () => safeNavigateTo('/pages/demands/index')
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 
 /* ================= 操作 ================= */
 

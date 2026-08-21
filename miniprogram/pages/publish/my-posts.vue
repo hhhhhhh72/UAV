@@ -92,6 +92,7 @@
 </template>
 
 <script setup>
+import { safeBack } from '../../utils/nav'
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import {
@@ -294,7 +295,7 @@ function openDetail(post) {
 }
 
 function goBack() {
-  uni.navigateBack()
+  safeBack()
 }
 
 function showToast(text) {

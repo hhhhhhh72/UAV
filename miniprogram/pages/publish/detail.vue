@@ -203,9 +203,7 @@ function editPost() {
 }
 
 function goBack() {
-  uni.navigateBack({
-    success: () => {},
-  })
+  safeBack()
 }
 
 onLoad((options) => {
@@ -216,7 +214,7 @@ onLoad((options) => {
   const p = getPost(id.value)
   if (!p) {
     // 已被删除
-    uni.navigateBack()
+    safeBack()
     return
   }
   post.value = p

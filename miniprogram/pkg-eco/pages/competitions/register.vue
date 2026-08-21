@@ -404,7 +404,7 @@ async function handleSubmit() {
 
 function handleConsult() { uni.showToast({ title: '咨询功能开发中', icon: 'none' }) }
 
-function goBack() { uni.navigateBack({ delta: 1 }) }
+function goBack() { safeBack() }
 
 /* 数据加载 */
 async function loadCompetition() {

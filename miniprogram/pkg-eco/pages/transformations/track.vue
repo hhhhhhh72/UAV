@@ -185,7 +185,7 @@ const useMock = () => {
 }
 
 const onContact = () => uni.showToast({ title: '联系发布方功能待开放', icon: 'none', duration: 1500 })
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 
 // ===== 推进下一阶段（仅发布方可操作） =====
 // 接口替换点：POST /api/v1/transformations/{id}/advance (body: stage / progress)

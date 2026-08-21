@@ -189,7 +189,7 @@ function rejectIntent(intent) {
 
 const toastClosed = () => uni.showToast({ title: '该意向已关闭', icon: 'none' })
 const toastContacted = () => uni.showToast({ title: '已洽谈，请在线下继续对接', icon: 'none' })
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 </script>
 
 <style scoped>

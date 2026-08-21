@@ -316,7 +316,7 @@ const goDetail = (post) => {
   safeNavigateTo('/pages/publish/detail?id=' + encodeURIComponent(post.id))
 }
 const goIntents = (id) => safeNavigateTo('/pkg-demand/pages/demands/intents?demandId=' + encodeURIComponent(id))
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 
 // 重新发布：后端无按 id 复制接口，原内容不会带入，先确认再进发布页新建
 function republish(post) {

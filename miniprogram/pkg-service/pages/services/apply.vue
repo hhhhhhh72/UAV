@@ -706,7 +706,7 @@ const delImage = (index) => {
 }
 
 const goBack = () => {
-  uni.navigateBack()
+  safeBack()
 }
 
 const handleSubmit = async () => {

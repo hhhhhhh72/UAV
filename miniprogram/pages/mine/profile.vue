@@ -137,6 +137,7 @@
 </template>
 
 <script setup>
+import { safeBack } from '../../utils/nav'
 import { ref, computed, onMounted } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { request, BASE_URL, authStorage } from '../../utils/request'
@@ -250,7 +251,7 @@ const goAuth = () => {
 }
 
 const goBack = () => {
-  uni.navigateBack()
+  safeBack()
 }
 
 const handleSave = async () => {

@@ -278,7 +278,7 @@ function openWebsite() {
   })
 }
 
-function goBack() { uni.navigateBack({ delta: 1 }) }
+function goBack() { safeBack() }
 
 async function loadDetail() {
   loading.value = true

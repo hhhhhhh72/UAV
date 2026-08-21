@@ -273,7 +273,7 @@ onLoad((opts) => {
 const preview = (i) => {
   uni.previewImage({ current: i, urls: images.value })
 }
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 const contactShop = () => uni.showToast({ title: '已复制卖家联系方式', icon: 'none' })
 
 // 收藏：走真实接口（POST /api/v1/products/{id}/favorite），登录后可用；红心切换 + 心跳动画

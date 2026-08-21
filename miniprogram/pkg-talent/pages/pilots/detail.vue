@@ -156,7 +156,7 @@ import { request } from '../../../utils/request'
 
 const contentReady = ref(false)
 const pilot = ref(null)
-const goBack = () => uni.navigateBack()
+const goBack = () => safeBack()
 
 // ── 头像：姓名首字 + 姓名哈希渐变（每人不同）──
 const AVATAR_GRADIENTS = [

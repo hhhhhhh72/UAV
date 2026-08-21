@@ -242,7 +242,7 @@ function loadMore() {
 function goDetail(item) {
   uni.navigateTo({ url: '/pkg-eco/pages/colleges/detail?id=' + encodeURIComponent(item.id) })
 }
-function goBack() { uni.navigateBack({ delta: 1 }) }
+function goBack() { safeBack() }
 
 onLoad(function () { loadData(true) })
 
