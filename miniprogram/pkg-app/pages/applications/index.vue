@@ -16,7 +16,7 @@
         </view>
       </view>
 
-      <!-- Tab 胶囊（需求/合同/订单）：沿用筛选胶囊选中态 -->
+      <!-- Tab 胶囊（需求/合同）：沿用筛选胶囊选中态 -->
       <view class="fbar">
         <view v-for="(t, i) in TAB_OPTS" :key="t" class="fpill" :class="{ on: activeTab === i }" @tap="switchTab(i)">
           <text class="fpv">{{ t }}</text>
@@ -29,7 +29,7 @@
       <view class="banner-icon">业</view>
       <view class="banner-info">
         <text class="banner-title">我的业务，全程可视</text>
-        <text class="banner-sub">需求发布 · 合同履约 · 订单交易 一站式跟踪</text>
+        <text class="banner-sub">需求发布 · 合同履约 一站式跟踪</text>
       </view>
     </view>
 
@@ -51,7 +51,7 @@
       <!-- 未登录引导 -->
       <view v-if="showLogin" class="st">
         <u-empty description="登录后查看我的业务">
-          <text class="sth">需求、合同、订单一览</text>
+          <text class="sth">需求、合同一览</text>
           <view class="stb" @tap="goLogin">去登录</view>
         </u-empty>
       </view>
@@ -78,7 +78,7 @@
       <!-- 空 -->
       <view v-else-if="!shownList.length" class="st">
         <u-empty :description="'暂无' + tabLabel">
-          <text class="sth">{{ searching ? '试试调整搜索关键词' : '发布或交易后，内容自动同步到这里' }}</text>
+          <text class="sth">{{ searching ? '试试调整搜索关键词' : '发布后，内容自动同步到这里' }}</text>
           <view v-if="searching" class="stb" @tap="clearSearch">清除搜索</view>
         </u-empty>
       </view>
@@ -134,14 +134,13 @@ import { useReduceMotion } from '../../../utils/motion'
 const SEARCH_DEBOUNCE_MS = 250 // 搜索防抖：击键停顿 250ms 后筛选，防每键整表重渲染
 const SORT_CLOSE_MS = 170 // 排序弹层退场 150ms + 缓冲
 
-const TAB_OPTS = ['需求', '合同', '订单']
-const TYPE_NAMES = ['demand', 'contract', 'order']
+const TAB_OPTS = ['需求', '合同']
+const TYPE_NAMES = ['demand', 'contract']
 
 /* 类别配色：左缘色条 + 类别 tag（与参考页领域配色同构，对比度 ≥4.5:1） */
 const CAT_TAG = [
   { tagC: '#0d47a1', tagBg: '#E3EDF9' }, // 需求 · 蓝
   { tagC: '#004d40', tagBg: '#E4F2EF' }, // 合同 · 绿
-  { tagC: '#B54708', tagBg: '#FDEEE4' }, // 订单 · 琥珀
 ]
 const SORTS = [
   { v: 'latest', l: '最新发布' },
@@ -166,11 +165,9 @@ let sortT = null // 排序弹层退场定时器（onUnload 清理）
 
 const demands = ref([])
 const contracts = ref([])
-const orders = ref([])
 
 const loadingDemands = ref(false)
 const loadingContracts = ref(false)
-const loadingOrders = ref(false)
 
 // P1 修复：未登录引导 + 加载失败提示
 const showLogin = ref(false)
@@ -238,41 +235,14 @@ const fetchContracts = async () => {
   }
 }
 
-const fetchOrders = async () => {
-  const user = getStoredUser()
-  if (!user) {
-    showLogin.value = true
-    errorMsg.value = ''
-    orders.value = []
-    return
-  }
-  showLogin.value = false
-  loadingOrders.value = true
-  errorMsg.value = ''
-  try {
-    const res = await request({ url: '/api/v1/trade-orders/mine' })
-    const list = res?.data || res || []
-    orders.value = Array.isArray(list) ? list : []
-  } catch (e) {
-    errorMsg.value = '加载失败，请稍后重试'
-    if (orders.value.length > 0) {
-      uni.showToast({ title: '加载失败，请下拉重试', icon: 'none' })
-    }
-  } finally {
-    loadingOrders.value = false
-  }
-}
-
 /* ===== 派生 ===== */
 const activeList = computed(() => {
   if (activeTab.value === 0) return demands.value
-  if (activeTab.value === 1) return contracts.value
-  return orders.value
+  return contracts.value
 })
 const loading = computed(() => {
   if (activeTab.value === 0) return loadingDemands.value
-  if (activeTab.value === 1) return loadingContracts.value
-  return loadingOrders.value
+  return loadingContracts.value
 })
 const err = computed(() => !!errorMsg.value)
 const tabLabel = computed(() => TAB_OPTS[activeTab.value])
@@ -290,10 +260,6 @@ const revealList = () => {
 const fmtWan = (fen) => {
   const wan = Number(fen) / 100 / 10000
   return '¥' + (wan % 1 === 0 ? wan : wan.toFixed(1)) + '万'
-}
-const fmtYuan = (fen) => {
-  const n = Number(fen) / 100
-  return '¥' + n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 const idTail = (id) => {
   const s = String(id || '')
@@ -317,10 +283,6 @@ const mapItem = (ti, it) => {
     // 后端 Contract 无 title/contractNo/partyB 字段，编号缺失时用兜底文案
     t = it.title || it.contractNo || '合同详情'
     d = it.partyB || it.counterparty || ''
-  } else {
-    t = it.product_name || it.productName || it.title || '订单' + it.id
-    const fen = it.amount_fen != null ? it.amount_fen : (it.amountFen != null ? it.amountFen : (it.amount != null ? it.amount : it.price))
-    if (fen != null && Number(fen) > 0) { valLabel = '金额'; valText = fmtYuan(fen) }
   }
   return {
     key: TYPE_NAMES[ti] + ':' + it.id,
@@ -396,13 +358,11 @@ const switchTab = (i) => {
   closeAll()
   // 与原 onTabChange 一致：切换即加载对应 tab 数据
   if (i === 0) fetchDemands()
-  else if (i === 1) fetchContracts()
-  else fetchOrders()
+  else fetchContracts()
 }
 const retry = () => {
   if (activeTab.value === 0) fetchDemands()
-  else if (activeTab.value === 1) fetchContracts()
-  else fetchOrders()
+  else fetchContracts()
 }
 
 const goLogin = () => {
@@ -457,7 +417,7 @@ const getStatusCls = (status) => {
 }
 
 const viewDetail = (type, item) => {
-  const titleMap = { demand: '需求详情', contract: '合同详情', order: '订单详情' }
+  const titleMap = { demand: '需求详情', contract: '合同详情' }
   const lines = []
   if (item.title || item.serviceName) lines.push('标题：' + (item.title || item.serviceName))
   if (item.description || item.content) lines.push('描述：' + (item.description || item.content))
@@ -489,8 +449,7 @@ onLoad(() => {
 onShow(() => {
   // Load active tab data on show
   if (activeTab.value === 0) fetchDemands()
-  else if (activeTab.value === 1) fetchContracts()
-  else if (activeTab.value === 2) fetchOrders()
+  else fetchContracts()
 })
 
 onPageScroll((e) => {
@@ -548,7 +507,7 @@ page {
   background: #fff;
 }
 
-/* ===== Tab 胶囊条（需求/合同/订单，沿用筛选胶囊样式） ===== */
+/* ===== Tab 胶囊条（需求/合同，沿用筛选胶囊样式） ===== */
 .fbar {
   display: flex;
   align-items: center;

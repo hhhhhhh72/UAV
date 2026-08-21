@@ -4,9 +4,6 @@
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">我的发布</text>
-      <view class="head-action" :style="{ marginRight: capsuleGap + 'px' }" @tap="goOrders">
-        <text class="head-action-text">我的订单</text>
-      </view>
     </view>
 
     <!-- 类型筛选 -->
@@ -319,7 +316,6 @@ const goDetail = (post) => {
   safeNavigateTo('/pages/publish/detail?id=' + encodeURIComponent(post.id))
 }
 const goIntents = (id) => safeNavigateTo('/pkg-demand/pages/demands/intents?demandId=' + encodeURIComponent(id))
-const goOrders = () => safeNavigateTo('/pkg-demand/pages/orders/mine')
 const goBack = () => uni.navigateBack()
 
 // 重新发布：后端无按 id 复制接口，原内容不会带入，先确认再进发布页新建

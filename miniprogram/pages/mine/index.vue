@@ -195,7 +195,7 @@ const headerVm = computed(() => {
     avatar: '',
     badge: '',
     badgeClass: '',
-    note: '登录后查看需求、对接意向与商城订单',
+    note: '登录后查看需求、对接意向与业务动态',
     showCertBar: false,
     certIcon: '',
     certMain: '',
@@ -293,7 +293,7 @@ const overviewCells = computed(() => {
     return [
       { value: c.authText || authText.value, label: '实名认证', go: goAuth },
       { value: c.enrolls || '0', label: '培训报名', go: goCourses },
-      { value: c.orders || '0', label: '商城订单', go: goOrders },
+      { value: c.certs || '0', label: '培训证书', go: goCertificates },
     ]
   }
   return []
@@ -325,7 +325,6 @@ const businessItems = computed(() => [
   { icon: '/static/mine-icons/appointment.svg', tone: 'appointment', label: '我的预约', go: goMyBookings },
   { icon: '/static/mine-icons/enroll.svg', tone: 'enroll', label: '我的报名', go: goMyEnrollments },
   { icon: '/static/mine-icons/favorite.svg', tone: 'favorite', label: '我的收藏', go: goFavorites },
-  { icon: '/static/mine-icons/order.svg', tone: 'order', label: '商城订单', go: goOrders },
 ])
 
 const onBusinessSelect = (i) => {
@@ -483,13 +482,6 @@ const fetchOverviewCounts = async () => {
   } catch (e) {
     counts.enrolls = '0'
   }
-  try {
-    const res = await request({ url: '/api/v1/trade-orders/mine' })
-    const list = Array.isArray(res) ? res : ((res && res.data) || [])
-    counts.orders = String(list.length || 0)
-  } catch (e) {
-    counts.orders = '0'
-  }
   overviewCounts.value = counts
   overviewLoading.value = false
 }
@@ -602,11 +594,6 @@ const goCertificates = () => {
 
 const goCourses = () => {
   uni.navigateTo({ url: '/pkg-talent/pages/training/courses' })
-}
-
-const goOrders = () => {
-  if (!requireLogin()) return
-  uni.navigateTo({ url: '/pages/orders/index' })
 }
 
 const goMyBookings = () => {

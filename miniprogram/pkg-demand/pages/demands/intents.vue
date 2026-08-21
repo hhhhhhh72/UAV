@@ -40,7 +40,7 @@
             <view class="intent-btn primary" @tap="openAccept(intent)">确认接单</view>
           </template>
           <template v-else-if="intent.status === 'contacted'">
-            <view class="intent-btn primary" @tap="goOrders">查看订单</view>
+            <view class="intent-btn" @tap="toastContacted">已洽谈</view>
           </template>
           <template v-else>
             <view class="intent-btn" @tap="toastClosed">{{ intent.status === 'done' ? '已成交' : '意向已关闭' }}</view>
@@ -188,7 +188,7 @@ function rejectIntent(intent) {
 }
 
 const toastClosed = () => uni.showToast({ title: '该意向已关闭', icon: 'none' })
-const goOrders = () => safeNavigateTo('/pkg-demand/pages/orders/mine')
+const toastContacted = () => uni.showToast({ title: '已洽谈，请在线下继续对接', icon: 'none' })
 const goBack = () => uni.navigateBack()
 </script>
 
