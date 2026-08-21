@@ -16,10 +16,13 @@
         </view>
       </view>
 
-      <!-- 分类胶囊：点击展开对应分类的文档列表（手风琴） -->
+      <!-- 分类胶囊：全部 + 四类（单选筛选，选中即过滤列表） -->
       <view class="fbar">
-        <view v-for="s in sections" :key="s.key" class="fpill" :class="{ on: activeCollapse === s.key }" @tap="onCollapseChange(s.key)">
-          <text class="fpv">{{ s.title }}</text><text class="farr">▾</text>
+        <view class="fpill" :class="{ on: activeCat === 'all' }" @tap="selectCat('all')">
+          <text class="fpv">全部</text>
+        </view>
+        <view v-for="s in sections" :key="s.key" class="fpill" :class="{ on: activeCat === s.key }" @tap="selectCat(s.key)">
+          <text class="fpv">{{ s.title }}</text>
         </view>
       </view>
     </view>
@@ -74,47 +77,26 @@
         </u-empty>
       </view>
 
-      <!-- 折叠分类列表 -->
-      <view v-else class="cl">
-        <view v-for="s in sections" :key="s.key" class="sec-group">
-          <view class="sec-head" hover-class="tap-scale" hover-start-time="0" hover-stay-time="120" @tap="onCollapseChange(s.key)">
-            <view class="sec-bar" :style="{ background: secColor(s).tagC }" />
-            <view class="sec-head-main">
-              <text class="sec-title">{{ s.title }}</text>
-              <text class="sec-count">{{ visibleDocs(s).length }} 篇</text>
-            </view>
-            <text class="sec-arrow" :class="{ expanded: activeCollapse === s.key }">▾</text>
-          </view>
+      <!-- 当前分类无文档 -->
+      <view v-else-if="matchedTotal === 0" class="st">
+        <u-empty :description="'暂无' + activeLabel + '文档'">
+          <text class="sth">文档收录后即可在此查阅</text>
+        </u-empty>
+      </view>
 
-          <view v-if="activeCollapse === s.key" class="sec-panel">
-            <view v-if="s.loading" class="panel-state">
-              <view class="sk-mini">
-                <view class="sk-l w80"></view>
-                <view class="sk-l w60"></view>
-              </view>
-            </view>
-            <view v-else-if="s.error" class="panel-state">
-              <text class="panel-err-t">加载失败</text>
-              <text class="panel-err-r" @tap="fetchSection(s)">重试</text>
-            </view>
-            <view v-else-if="visibleDocs(s).length === 0" class="panel-state">
-              <text class="panel-err-t">{{ q ? '无匹配文档' : '暂无文档' }}</text>
-            </view>
-            <view v-else class="d-list">
-              <view v-for="doc in visibleDocs(s)" :key="doc.id" class="d-card" hover-class="tap-scale" hover-start-time="0" hover-stay-time="120" @tap="openDoc(doc)">
-                <view class="c-badges">
-                  <text class="c-tag" :style="{ color: secColor(s).tagC, background: secColor(s).tagBg }">{{ doc.category || s.title }}</text>
-                  <text class="c-st" :class="docSt(doc).cls">{{ docSt(doc).label }}</text>
-                </view>
-                <text class="ct">{{ doc.title || '--' }}</text>
-                <text v-if="doc.summary" class="c-desc">{{ doc.summary }}</text>
-                <view class="c-meta">
-                  <text>{{ doc.publisher || '协会发布' }}</text>
-                  <text class="c-dot">·</text>
-                  <text>{{ fmtDate(doc.publish_date || doc.created_at) }}</text>
-                </view>
-              </view>
-            </view>
+      <!-- 文档列表（平铺，按分类筛选） -->
+      <view v-else class="cl">
+        <view v-for="doc in visibleDocs" :key="doc.id" class="d-card" hover-class="tap-scale" hover-start-time="0" hover-stay-time="120" @tap="openDoc(doc)">
+          <view class="c-badges">
+            <text class="c-tag" :style="{ color: secColor(doc._cat).tagC, background: secColor(doc._cat).tagBg }">{{ doc.category || catTitle(doc._cat) }}</text>
+            <text class="c-st" :class="docSt(doc).cls">{{ docSt(doc).label }}</text>
+          </view>
+          <text class="ct">{{ doc.title || '--' }}</text>
+          <text v-if="doc.summary" class="c-desc">{{ doc.summary }}</text>
+          <view class="c-meta">
+            <text>{{ doc.publisher || '协会发布' }}</text>
+            <text class="c-dot">·</text>
+            <text>{{ fmtDate(doc.publish_date || doc.created_at) }}</text>
           </view>
         </view>
       </view>
@@ -161,7 +143,7 @@ const sections = ref(sectionConfigs.map(function (cfg) {
     loaded: false,
   }
 }))
-const activeCollapse = ref('')
+const activeCat = ref('all') // 分类筛选：all / policy / regulation / standard / guide
 const loading = ref(false)
 const errorMsg = ref('')
 const q = ref('')
@@ -174,18 +156,30 @@ let searchT = null // 搜索防抖定时器（onUnload 清理）
 const allEmpty = computed(() => sections.value.every(function (s) {
   return s.loaded && s.list.length === 0 && !s.error
 }))
-/* 搜索关键词（标题/摘要/发布方/分类）；空关键词返回全量 */
-const visibleDocs = (s) => {
-  const kw = (q.value || '').trim().toLowerCase()
-  if (!kw) return s.list
-  return s.list.filter((d) => ((d.title || '') + ' ' + (d.summary || '') + ' ' + (d.publisher || '') + ' ' + (d.category || '')).toLowerCase().includes(kw))
+const catTitle = (key) => {
+  const s = sections.value.find((x) => x.key === key)
+  return s ? s.title : ''
 }
-const matchedTotal = computed(() => sections.value.reduce((n, s) => n + visibleDocs(s).length, 0))
-const activeLabel = computed(() => {
-  const s = sections.value.find((x) => x.key === activeCollapse.value)
-  return s ? s.title + ' · ' + visibleDocs(s).length + ' 篇' : '展开分类查看'
+/* 全量文档（各分类合并，_cat 标记分类键） */
+const allDocs = computed(() => {
+  const out = []
+  sections.value.forEach((s) => {
+    s.list.forEach((d) => out.push(Object.assign({}, d, { _cat: s.key })))
+  })
+  return out
 })
-const secColor = (s) => SEC_COLOR[s.key] || SEC_COLOR_DEFAULT
+/* 可见列表：分类筛选 + 搜索关键词（标题/摘要/发布方/分类）；空关键词返回全量 */
+const visibleDocs = computed(() => {
+  const kw = (q.value || '').trim().toLowerCase()
+  return allDocs.value.filter((d) => {
+    if (activeCat.value !== 'all' && d._cat !== activeCat.value) return false
+    if (!kw) return true
+    return ((d.title || '') + ' ' + (d.summary || '') + ' ' + (d.publisher || '') + ' ' + (d.category || '')).toLowerCase().includes(kw)
+  })
+})
+const matchedTotal = computed(() => visibleDocs.value.length)
+const activeLabel = computed(() => (activeCat.value === 'all' ? '全部' : catTitle(activeCat.value)) || '')
+const secColor = (key) => SEC_COLOR[key] || SEC_COLOR_DEFAULT
 const fmtDate = (d) => (d ? String(d).slice(0, 10) : '')
 const docSt = (doc) => {
   const s = String(doc.status || '').toLowerCase()
@@ -194,7 +188,7 @@ const docSt = (doc) => {
   return { label: doc.status, cls: 'st-closed' }
 }
 
-/* ===== 数据（逻辑保留：并行拉取四分类 / 懒加载 / 弹窗展示） ===== */
+/* ===== 数据（并行拉取四分类 / 懒加载补齐 / 弹窗展示） ===== */
 const fetchAll = async () => {
   loading.value = true
   errorMsg.value = ''
@@ -221,14 +215,14 @@ const fetchSection = async (section) => {
     section.loading = false
   }
 }
-/* 折叠面板（手风琴）：点选即展开；首次展开时懒加载该分类 */
-const onCollapseChange = (name) => {
-  activeCollapse.value = name
-  if (name && name.length > 0) {
-    const section = sections.value.find((s) => s.key === name)
-    if (section && !section.loaded && !section.loading) {
-      fetchSection(section)
-    }
+/* 分类筛选：仅切换选中态，列表由 visibleDocs 即时过滤 */
+const selectCat = (key) => {
+  if (activeCat.value === key) return
+  activeCat.value = key
+  // 首次进入某分类时补齐数据（若之前未加载完）
+  if (key !== 'all') {
+    const section = sections.value.find((s) => s.key === key)
+    if (section && !section.loaded && !section.loading) fetchSection(section)
   }
 }
 const openDoc = (doc) => {
@@ -343,7 +337,6 @@ page {
 }
 .fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
 .fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.farr { font-size: 11px; color: #667085; flex: none; }
 
 /* ===== Banner 渐变卡 ===== */
 .banner {
@@ -406,69 +399,15 @@ page {
 .irn { color: #0A66C2; font-weight: 600; }
 .ir-hint { color: #667085; font-weight: 500; padding: 8px 4px 8px 12px; }
 
-/* ===== 折叠分类列表 ===== */
+/* ===== 文档列表（平铺卡片） ===== */
 .cl {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 0 12px;
 }
-.sec-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.sec-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 13px 14px 13px 18px;
-  background: #fff;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
-}
-.sec-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 10px 0 0 10px;
-}
-.sec-head-main { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.sec-title { font-size: 15px; font-weight: 700; color: #17212B; }
-.sec-count { font-size: 12px; color: #667085; flex: none; }
-.sec-arrow {
-  font-size: 12px;
-  color: #667085;
-  flex: none;
-  transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.sec-arrow.expanded { transform: rotate(180deg); color: #0A66C2; }
 
-/* 展开面板：文档卡片列表 */
-.sec-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  animation: panelIn .28s cubic-bezier(.32, .72, 0, 1);
-}
-.panel-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 18px 0;
-}
-.sk-mini { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 6px 4px; box-sizing: border-box; }
-.panel-err-t { font-size: 12px; color: #667085; }
-.panel-err-r { font-size: 13px; color: #0A66C2; font-weight: 500; padding: 6px 12px; }
-
-/* ===== 文档卡片（参考页卡片体系：顶部徽章 + 标题 + 描述 + 元信息） ===== */
-.d-list { display: flex; flex-direction: column; gap: 8px; }
+/* ===== 文档卡片（顶部徽章 + 标题 + 描述 + 元信息） ===== */
 .d-card {
   display: flex;
   flex-direction: column;
@@ -607,23 +546,7 @@ page {
 .ir { animation: fadeUp .25s ease-out backwards; animation-delay: 60ms; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-/* 分类折叠头入场：前 4 组依次淡入上移（每 30ms 错峰，总 ≤280ms） */
-.sec-group .sec-head { animation: cardIn .22s ease-out backwards; }
-.sec-group:nth-child(1) .sec-head { animation-delay: 60ms; }
-.sec-group:nth-child(2) .sec-head { animation-delay: 90ms; }
-.sec-group:nth-child(3) .sec-head { animation-delay: 120ms; }
-.sec-group:nth-child(4) .sec-head { animation-delay: 150ms; }
-/* 分类色条与头部同拍"点亮"（scaleY 顶部抽出） */
-.sec-group .sec-bar { animation: barIn .2s ease-out backwards; }
-.sec-group:nth-child(1) .sec-bar { animation-delay: 60ms; }
-.sec-group:nth-child(2) .sec-bar { animation-delay: 90ms; }
-.sec-group:nth-child(3) .sec-bar { animation-delay: 120ms; }
-.sec-group:nth-child(4) .sec-bar { animation-delay: 150ms; }
-@keyframes barIn { from { opacity: 0; transform: scaleY(.3); } to { opacity: 1; transform: scaleY(1); } }
-@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes panelIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-
-/* 文档卡片入场：展开面板内前 6 项错峰淡入 */
+/* 文档卡片入场：前 6 项错峰淡入 */
 .d-card { animation: docIn .2s ease-out backwards; }
 .d-card:nth-child(1) { animation-delay: 30ms; }
 .d-card:nth-child(2) { animation-delay: 50ms; }
@@ -638,7 +561,6 @@ page {
 @keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* 交互反馈：可点元素按压反馈（按下 .08s linear 即时到位；松手 .3s ios-pop 弹簧回位） */
-.sec-head { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
 .d-card { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
 .tap-scale { transform: scale(.97); opacity: .92; transition-duration: .1s; transition-timing-function: linear; }
 .b-sclr:active { opacity: .6; }
@@ -646,12 +568,8 @@ page {
 .b-sbtn:active { opacity: .5; }
 .stb { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
 .stb:active { transform: scale(.95); opacity: .85; transition: transform .08s linear; }
-.panel-err-r { transition: opacity .2s ease; }
-.panel-err-r:active { opacity: .6; }
 
 /* ===== 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用 ===== */
-.page.no-motion .sec-head,
-.page.no-motion .sec-bar,
 .page.no-motion .d-card,
 .page.no-motion .banner,
 .page.no-motion .banner-icon,
@@ -660,14 +578,10 @@ page {
 .page.no-motion .banner::before,
 .page.no-motion .banner::after,
 .page.no-motion .ir { animation: none; }
-.page.no-motion .sec-panel { animation: panelFadeIn .22s ease-out; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
 .page.no-motion .tap-scale { transform: none !important; }
-.page.no-motion .sec-arrow { transition: none; }
 .page.no-motion .stb:active,
-.page.no-motion .panel-err-r:active,
 .page.no-motion .bt:active,
 .page.no-motion .b-sclr:active,
 .page.no-motion .b-sbtn:active { transform: none; }
-@keyframes panelFadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
