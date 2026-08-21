@@ -864,7 +864,15 @@ page {
 .close-x::before { transform: translate(-50%, -50%) rotate(45deg); }
 .close-x::after { transform: translate(-50%, -50%) rotate(-45deg); }
 
-.detail-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 24rpx 32rpx 48rpx; }
+/* 小程序 scroll-view 必须显式高度才能滚动：面板 86vh - 头部约 54px */
+.detail-scroll {
+  flex: 1;
+  min-height: 0;
+  height: calc(86vh - 54px);
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 24rpx 32rpx 48rpx;
+}
 
 /* 媒体区：竖排列表 */
 .media-list { display: flex; flex-direction: column; gap: 16rpx; margin-bottom: 24rpx; }
