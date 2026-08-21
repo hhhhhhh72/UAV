@@ -864,7 +864,7 @@ page {
 .close-x::before { transform: translate(-50%, -50%) rotate(45deg); }
 .close-x::after { transform: translate(-50%, -50%) rotate(-45deg); }
 
-.detail-scroll { flex: 1; overflow-y: auto; padding: 24rpx 32rpx 48rpx; }
+.detail-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 24rpx 32rpx 48rpx; }
 
 /* 媒体区：竖排列表 */
 .media-list { display: flex; flex-direction: column; gap: 16rpx; margin-bottom: 24rpx; }
@@ -918,5 +918,7 @@ page {
   color: #475467;
   line-height: 1.8;
   display: block;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 </style>
