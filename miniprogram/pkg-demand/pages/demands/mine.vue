@@ -395,7 +395,7 @@ const toastPending = () => {
 }
 .back-btn { width: 72rpx; height: 72rpx; display: flex; align-items: center; justify-content: center; }
 .back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
-.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; }
+.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; text-align: center; }
 .head-action { padding: 14rpx; }
 .head-action-text { color: #0A66C2; font-size: 26rpx; font-weight: 600; }
 

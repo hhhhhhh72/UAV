@@ -229,7 +229,7 @@ onLoad(() => {
 
 <style scoped>
 /* 与发布中心二级表单（pages/publish/form.vue）同一套视觉体系 */
-.pub-page { min-height: 100vh; background: #F4F6F8; padding-bottom: 140rpx; box-sizing: border-box; }
+.pub-page { min-height: 100vh; background: #F4F6F8; padding-bottom: calc(170rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
 .pub-nav { position: relative; display: flex; align-items: center; height: 88rpx; padding: 0 24rpx; }
 .pub-back { width: 64rpx; height: 64rpx; border-radius: 50%; background: #F5F8FC; display: flex; align-items: center; justify-content: center; font-size: 40rpx; color: #17212B; }
 .pub-nav-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 32rpx; font-weight: 700; color: #17212B; }

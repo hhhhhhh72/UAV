@@ -183,8 +183,7 @@ const doRegister = async () => {
 }
 
 .nav-bar {
-  height: calc(96rpx + var(--status-bar-height));
-  padding-top: var(--status-bar-height);
+  /* 高度/paddingTop 由 JS navStyle 内联注入（状态栏真实值），勿用 var(--status-bar-height) */
   box-sizing: border-box;
   display: flex;
   align-items: center;

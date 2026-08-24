@@ -511,8 +511,8 @@ onShow(() => {
     if (typeof uni.getMenuButtonBoundingClientRect === 'function') {
       mr = uni.getMenuButtonBoundingClientRect()
     }
-    // 只避让到微信胶囊左缘，让右上按钮尽量靠右
-    capsuleGap.value = mr ? Math.max(info.windowWidth - mr.right + 4, 8) : 8
+    // 避让到微信胶囊左缘（用 mr.left：右缘 mr.right 会导致按钮停在胶囊区域内被遮挡）
+    capsuleGap.value = mr ? Math.max(info.windowWidth - mr.left + 4, 8) : 8
   } catch (e) { /* keep defaults */ }
   fetchData()
 })

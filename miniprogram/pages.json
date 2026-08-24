@@ -686,7 +686,8 @@
         {
           "path": "pages/mall/index",
           "style": {
-            "navigationBarTitleText": "服务"
+            "navigationBarTitleText": "服务",
+            "navigationStyle": "custom"
           }
         },
         {

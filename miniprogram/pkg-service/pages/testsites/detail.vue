@@ -328,6 +328,7 @@ onLoad((options) => {
   right: 0;
   bottom: 0;
   padding: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
   background: #fff;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
   display: flex;

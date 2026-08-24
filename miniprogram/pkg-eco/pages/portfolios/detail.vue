@@ -358,7 +358,7 @@ onLoad((options) => {
   padding-bottom: env(safe-area-inset-bottom);
 }
 .tap-fade { opacity: .72; }
-.body { height: calc(100vh - 76px - env(safe-area-inset-bottom)); }
+.body { height: calc(100vh - 96px - env(safe-area-inset-bottom)); }
 
 /* ===== Hero ===== */
 .d-hero { position: relative; height: 432rpx; overflow: hidden; }

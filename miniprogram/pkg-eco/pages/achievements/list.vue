@@ -335,12 +335,16 @@ onReachBottom(fetchMore)
   padding-bottom: 40px;
 }
 
-/* ===== 搜索（保留现有风格） ===== */
+/* ===== 搜索（保留现有风格）===== */
 .sbar {
   display: flex;
   align-items: center;
   gap: 16rpx;
   padding: 20rpx 28rpx 8rpx;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: #F4F6F8;
 }
 .sbox {
   flex: 1;
@@ -357,8 +361,13 @@ onReachBottom(fetchMore)
 .ph { color: var(--color-text-placeholder); }
 .sclr { font-size: 30rpx; color: var(--color-text-placeholder); padding: 4rpx; }
 
-/* ===== 筛选器（新布局，沿用现有令牌） ===== */
-.filter-wrap { position: relative; z-index: 45; }
+/* ===== 筛选器（新布局，沿用现有令牌）= 搜索+筛选吸顶（原生导航下 top:0） ===== */
+.filter-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  background: #F4F6F8;
+}
 .fbar { display: flex; gap: 16rpx; padding: 8rpx 28rpx 4rpx; }
 .freset { flex: none; height: 60rpx; display: flex; align-items: center; padding: 0 12rpx; font-size: 24rpx; color: var(--color-primary); font-weight: 500; transition: transform .2s ease, opacity .2s ease; }
 .freset:active { transform: scale(.95); opacity: .7; }

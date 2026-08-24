@@ -200,7 +200,7 @@ onLoad((options) => {
 .acts-page {
   min-height: 100vh;
   background: #F4F6F8;
-  padding-bottom: 96px;
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
 }
 
 /* ===== 摘要 ===== */

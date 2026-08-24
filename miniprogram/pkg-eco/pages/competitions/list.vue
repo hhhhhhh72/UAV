@@ -360,6 +360,8 @@ onPullDownRefresh(function () {
   min-height: 100vh;
   background: #fff;
   padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  flex-direction: column;
 }
 
 /* ===== 白底头部 ===== */

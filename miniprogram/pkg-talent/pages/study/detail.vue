@@ -346,7 +346,7 @@ onReady(() => {
 .study-detail-page {
   min-height: 100vh;
   background: #F5F8FC;
-  padding-bottom: 140rpx;
+  padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
 }
 
 /* ═══ 一、Hero（蓝色系）═══ */

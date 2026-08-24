@@ -689,7 +689,7 @@ watch(state, (v) => {
   justify-content: center;
 }
 .back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
-.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; }
+.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; text-align: center; }
 
 /* ═══════ 内容区块 ═══════ */
 .detail-body { padding-bottom: 8rpx; }
@@ -980,7 +980,7 @@ watch(state, (v) => {
 }
 
 /* ═══════ 弹层 ═══════ */
-.sheet { padding-bottom: 20rpx; }
+.sheet { padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
 .sheet-head {
   display: flex;
   align-items: center;

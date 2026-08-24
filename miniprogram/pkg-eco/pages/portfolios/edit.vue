@@ -164,7 +164,7 @@ onLoad((options) => {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #F4F6F8; padding-bottom: 140rpx; }
+.page { min-height: 100vh; background: #F4F6F8; padding-bottom: calc(170rpx + env(safe-area-inset-bottom)); }
 
 /* ===== 表单 ===== */
 .form-card { background: #fff; border: 1px solid #EEF1F4; border-radius: 20rpx; margin: 24rpx; padding: 32rpx; }

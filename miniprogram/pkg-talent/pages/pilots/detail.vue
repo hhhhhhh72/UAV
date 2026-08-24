@@ -338,7 +338,7 @@ onReady(() => {
 .pilot-detail-page {
   min-height: 100vh;
   background: #F5F8FC;
-  padding-bottom: 130rpx;
+  padding-bottom: calc(170rpx + env(safe-area-inset-bottom));
 }
 
 /* ═══ 一、Hero（浅色名片风）═══ */

@@ -145,7 +145,7 @@ onLoad((opts) => {
 .page {
   min-height: 100vh;
   background: #fff;
-  padding-bottom: 120rpx;
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
 }
 
 /* ===== 骨架屏 ===== */

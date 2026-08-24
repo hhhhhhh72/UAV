@@ -1,5 +1,5 @@
 <template>
-  <view v-if="visible" class="home-float-btn" :style="{ top: topOffset }" @tap="goHome">
+  <view v-if="visible" class="home-float-btn" :style="{ top: topOffset, right: rightOffset + 'px' }" @tap="goHome">
     <image class="home-icon" src="/static/icons/service.svg" mode="aspectFit" />
   </view>
 </template>
@@ -10,10 +10,17 @@ import { onShow } from '@dcloudio/uni-app'
 
 const currentRoute = ref('')
 const statusBarHeight = ref(20)
+const rightOffset = ref(12)
 
 const refreshRoute = () => {
   try {
-    statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight || 20
+    const info = uni.getSystemInfoSync()
+    statusBarHeight.value = info.statusBarHeight || 20
+    // 避让右上角微信胶囊：按钮停在胶囊左缘左侧，否则被系统胶囊遮挡
+    if (typeof uni.getMenuButtonBoundingClientRect === 'function') {
+      const mr = uni.getMenuButtonBoundingClientRect()
+      rightOffset.value = Math.max(info.windowWidth - mr.left + 6, 12)
+    }
   } catch (e) {
     statusBarHeight.value = 20
   }
@@ -38,7 +45,6 @@ const goHome = () => {
 <style scoped>
 .home-float-btn {
   position: fixed;
-  right: 12px;
   top: 0;
   z-index: 2001; /* 高于页面内容，避免被遮挡 */
   width: 32px;
