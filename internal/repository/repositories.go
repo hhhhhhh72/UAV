@@ -278,6 +278,9 @@ type PilotRepository interface {
 	Create(ctx context.Context, v domain.CertifiedPilot) (domain.CertifiedPilot, error)
 	FindByID(ctx context.Context, id string) (domain.CertifiedPilot, error)
 	List(ctx context.Context) ([]domain.CertifiedPilot, error)
+	// ListApproved 已认证飞手分页列表：keyword 匹配姓名，COUNT + LIMIT/OFFSET 下沉 SQL，
+	// 公开名录不再整表加载后截断 2000 条（更早数据永远不可见的旧行为已修复）。
+	ListApproved(ctx context.Context, keyword string, offset, limit int) ([]domain.CertifiedPilot, int, error)
 	Update(ctx context.Context, v domain.CertifiedPilot) (domain.CertifiedPilot, error) // 被驳回后重新申请（覆盖重提）
 	UpdateStatus(ctx context.Context, id string, status string) (domain.CertifiedPilot, error)
 	UpdateReject(ctx context.Context, id string, reason string) (domain.CertifiedPilot, error) // 驳回并记录理由
@@ -418,7 +421,20 @@ type TradeOrderRepository interface {
 	UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error)
 	ListByUser(ctx context.Context, userID string) ([]domain.TradeOrder, error)
 	ListAll(ctx context.Context, offset, limit int) ([]domain.TradeOrder, int, error)
+	// ListFiltered 管理端列表：状态/关键字/日期过滤 + COUNT + LIMIT/OFFSET 全下沉 SQL，
+	// 替代此前「全量拉 10000 条再内存过滤」（过滤只作用于前 N 条，更早数据永远不可见）。
+	ListFiltered(ctx context.Context, f TradeOrderFilter) ([]domain.TradeOrder, int, error)
 	Delete(ctx context.Context, id string) error
+}
+
+// TradeOrderFilter 管理端订单列表过滤条件（分页下沉）。
+type TradeOrderFilter struct {
+	Status    string
+	Keyword   string     // 订单号 contains 匹配
+	StartDate *time.Time // created_at >= StartDate
+	EndDate   *time.Time // created_at < EndDate（含当日由调用方 +24h 处理）
+	Offset    int
+	Limit     int
 }
 
 // EscrowRepository manages escrow accounts and transactions.
@@ -428,6 +444,9 @@ var (
 	ErrInsufficientBalance       = errors.New("insufficient balance")
 	ErrInsufficientFrozenBalance = errors.New("insufficient frozen balance")
 )
+
+// ErrCertNumberTaken 证书号已被占用（唯一索引兜底，Service 层转友好错误）。
+var ErrCertNumberTaken = errors.New("certificate number already taken")
 
 type EscrowRepository interface {
 	GetAccount(ctx context.Context, userID string) (domain.EscrowAccount, error)

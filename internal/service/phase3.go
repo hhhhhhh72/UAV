@@ -57,6 +57,10 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	// 且付费报名会重复扣冻结金额）。
 	unlock := lockByKey("enroll|" + userID + "|" + courseID)
 	defer unlock()
+	// 防超卖：容量检查（ListByCourse 计数 >= MaxStudents）是 check-then-act，
+	// 不同用户并发报名同一课程会双双通过检查；课程维度锁串行化整个检查+创建。
+	unlockCourse := lockByKey("enroll-course|" + courseID)
+	defer unlockCourse()
 	if _, ok, _ := s.repo.FindByUserAndCourse(ctx, userID, courseID); ok {
 		return domain.Enrollment{}, fmt.Errorf("already enrolled")
 	}
@@ -180,6 +184,17 @@ func NewTradeOrderService(repo repository.TradeOrderRepository, prodRepo reposit
 }
 
 func (s *TradeOrderService) Create(ctx context.Context, buyerID, productID, sellerID string, amountFen int64) (domain.TradeOrder, error) {
+	// P3 修复：管理端建单金额/归属护栏——金额非负、三方必填、防自买自卖
+	// （此前负数金额可建单，空 buyer/seller 可造残缺订单）。
+	if amountFen < 0 {
+		return domain.TradeOrder{}, errors.New("order amount cannot be negative")
+	}
+	if buyerID == "" || sellerID == "" || productID == "" {
+		return domain.TradeOrder{}, errors.New("buyer, seller and product are required")
+	}
+	if buyerID == sellerID {
+		return domain.TradeOrder{}, errors.New("buyer and seller must be different")
+	}
 	now := time.Now()
 	// ID 含随机后缀：同纳秒并发下单会生成相同 UnixNano ID（内存 repo 不去重、PG 主键冲突）
 	o := domain.TradeOrder{ID: fmt.Sprintf("torder-%d-%d", now.UnixNano(), rand.Intn(100000)), ProductID: productID, BuyerID: buyerID, SellerID: sellerID, AmountFen: amountFen, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
@@ -392,6 +407,11 @@ func (s *TradeOrderService) ListMine(ctx context.Context, userID string) ([]doma
 
 func (s *TradeOrderService) ListAll(ctx context.Context, offset, limit int) ([]domain.TradeOrder, int, error) {
 	return s.repo.ListAll(ctx, offset, limit)
+}
+
+// ListAllFiltered 管理端订单列表：过滤 + 分页下沉 SQL（不再全量拉取后内存过滤）。
+func (s *TradeOrderService) ListAllFiltered(ctx context.Context, f repository.TradeOrderFilter) ([]domain.TradeOrder, int, error) {
+	return s.repo.ListFiltered(ctx, f)
 }
 
 func (s *TradeOrderService) FindByID(ctx context.Context, id string) (domain.TradeOrder, error) {

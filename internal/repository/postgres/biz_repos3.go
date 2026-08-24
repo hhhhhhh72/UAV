@@ -130,20 +130,35 @@ func (r *compRepo) decRegPII(reg *domain.CompetitionReg) {
 func (r *compRepo) CreateReg(ctx context.Context, reg domain.CompetitionReg) (domain.CompetitionReg, error) {
 	reg.CreatedAt = time.Now()
 	r.encRegPII(&reg)
-	_, err := r.pool.Exec(ctx,
+	// 事务：报名 + 参赛计数自增（reg_count 与 registrations 行数保持一致）。
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		r.decRegPII(&reg)
+		return domain.CompetitionReg{}, fmt.Errorf("begin reg tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	_, err = tx.Exec(ctx,
 		`INSERT INTO competition_registrations (id,competition_id,user_id,team_name,member_count,contact_info,name,phone,id_card,photo_url,id_card_image,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		reg.ID, reg.CompetitionID, reg.UserID, reg.TeamName, reg.MemberCount, reg.ContactInfo, reg.Name, reg.Phone, reg.IDCard, reg.PhotoURL, reg.IDCardImage, reg.Status, reg.CreatedAt)
-	// P2 修复：并发重复报名由唯一索引（uniq_competition_regs_user_comp，迁移 000071）
-	// 兜底——service 层 ListRegs 预检存在 TOCTOU 窗口，23505 映射为友好错误。
 	if err != nil {
+		// P2 修复：并发重复报名由唯一索引（uniq_competition_regs_user_comp，迁移 000071）
+		// 兜底——service 层 ListRegs 预检存在 TOCTOU 窗口，23505 映射为友好错误。
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			r.decRegPII(&reg)
 			return domain.CompetitionReg{}, fmt.Errorf("已报名过该赛事，请勿重复报名")
 		}
+		r.decRegPII(&reg)
+		return domain.CompetitionReg{}, fmt.Errorf("insert reg: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE competitions SET reg_count = reg_count + 1 WHERE id=$1`, reg.CompetitionID); err != nil {
+		return domain.CompetitionReg{}, fmt.Errorf("bump competition reg_count: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.CompetitionReg{}, fmt.Errorf("commit reg tx: %w", err)
 	}
 	r.decRegPII(&reg)
-	return reg, err
+	return reg, nil
 }
 func (r *compRepo) ListRegs(ctx context.Context, competitionID string) ([]domain.CompetitionReg, error) {
 	rows, err := r.pool.Query(ctx,
@@ -221,10 +236,30 @@ func (r *eventRepo) Delete(ctx context.Context, id string) error {
 
 func (r *eventRepo) CreateReg(ctx context.Context, reg domain.EventRegistration) (domain.EventRegistration, error) {
 	reg.CreatedAt = time.Now()
-	_, err := r.pool.Exec(ctx,
+	// 事务：报名 + 参与计数自增（reg_count 与 registrations 行数保持一致）。
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.EventRegistration{}, fmt.Errorf("begin reg tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	_, err = tx.Exec(ctx,
 		`INSERT INTO event_registrations (id,event_id,user_id,name,phone,org,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
 		reg.ID, reg.EventID, reg.UserID, reg.Name, reg.Phone, reg.Org, reg.Status, reg.CreatedAt)
-	return reg, err
+	if err != nil {
+		// 唯一索引 uniq_event_regs_user_event（迁移 000077）兜底并发重复报名。
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.EventRegistration{}, fmt.Errorf("已报名过该活动，请勿重复报名")
+		}
+		return domain.EventRegistration{}, fmt.Errorf("insert event reg: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE association_events SET reg_count = reg_count + 1 WHERE id=$1`, reg.EventID); err != nil {
+		return domain.EventRegistration{}, fmt.Errorf("bump event reg_count: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.EventRegistration{}, fmt.Errorf("commit reg tx: %w", err)
+	}
+	return reg, nil
 }
 func (r *eventRepo) ListRegs(ctx context.Context, eventID string) ([]domain.EventRegistration, error) {
 	rows, err := r.pool.Query(ctx,

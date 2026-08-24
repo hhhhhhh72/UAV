@@ -835,7 +835,7 @@ func TestTrainingService_PilotLifecycle(t *testing.T) {
 	for i, ct := range types {
 		if _, err := certRepo.Create(context.Background(), domain.Certificate{
 			ID: fmt.Sprintf("cert-%d", i), UserID: actor.ID, CertType: ct,
-			CertNumber: "n", Level: "A", IssuerOrg: "机构", Status: "approved",
+			CertNumber: fmt.Sprintf("n-%d", i), Level: "A", IssuerOrg: "机构", Status: "approved",
 			IssueDate: time.Now(), ExpireDate: time.Now().AddDate(1, 0, 0),
 		}); err != nil {
 			t.Fatalf("seed cert %s: %v", ct, err)

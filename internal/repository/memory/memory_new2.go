@@ -110,8 +110,21 @@ func (r *compRepo) CreateReg(ctx context.Context, reg domain.CompetitionReg) (do
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	reg.CreatedAt = time.Now()
+	// 与 PG 唯一索引（uniq_competition_regs_user_comp）对齐：同用户同赛事只能报名一次。
+	for _, x := range r.regs {
+		if x.CompetitionID == reg.CompetitionID && x.UserID == reg.UserID {
+			return domain.CompetitionReg{}, fmt.Errorf("已报名过该赛事，请勿重复报名")
+		}
+	}
 	r.encryptRegInPlace(&reg)
 	r.regs = append(r.regs, reg)
+	// 与 PG 事务内 reg_count+1 对齐。
+	for i := range r.items {
+		if r.items[i].ID == reg.CompetitionID {
+			r.items[i].RegCount++
+			break
+		}
+	}
 	r.decryptRegInPlace(&reg)
 	return reg, nil
 }
@@ -177,7 +190,20 @@ func (r *eventRepo) CreateReg(ctx context.Context, reg domain.EventRegistration)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	reg.CreatedAt = time.Now()
+	// 与 PG 唯一索引（uniq_event_regs_user_event）对齐：同用户同活动只能报名一次。
+	for _, x := range r.regs {
+		if x.EventID == reg.EventID && x.UserID == reg.UserID {
+			return domain.EventRegistration{}, fmt.Errorf("已报名过该活动，请勿重复报名")
+		}
+	}
 	r.regs = append(r.regs, reg)
+	// 与 PG 事务内 reg_count+1 对齐。
+	for i := range r.items {
+		if r.items[i].ID == reg.EventID {
+			r.items[i].RegCount++
+			break
+		}
+	}
 	return reg, nil
 }
 func (r *eventRepo) ListRegs(ctx context.Context, eventID string) ([]domain.EventRegistration, error) {

@@ -3,10 +3,13 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"drone-platform/internal/crypto"
@@ -30,7 +33,15 @@ func (r *certRepo) Create(ctx context.Context, c domain.Certificate) (domain.Cer
 		`INSERT INTO certificates (id,user_id,cert_type,cert_number,level,issue_date,expire_date,issuer_org,image_url,status,version,created_at,updated_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
 		c.ID, c.UserID, string(c.CertType), c.CertNumber, c.Level, c.IssueDate, c.ExpireDate, c.IssuerOrg, c.ImageURL, c.Status, c.Version, c.CreatedAt, c.UpdatedAt)
-	return c, err
+	if err != nil {
+		// 唯一索引 certificates_cert_number_unique 兜底：撞号映射为哨兵错误。
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.Certificate{}, repository.ErrCertNumberTaken
+		}
+		return domain.Certificate{}, fmt.Errorf("create certificate: %w", err)
+	}
+	return c, nil
 }
 func (r *certRepo) FindByID(ctx context.Context, id string) (domain.Certificate, error) {
 	var c domain.Certificate
@@ -101,7 +112,15 @@ func (r *certRepo) Update(ctx context.Context, c domain.Certificate) (domain.Cer
 	_, err := r.pool.Exec(ctx,
 		`UPDATE certificates SET cert_type=$1,cert_number=$2,level=$3,issue_date=$4,expire_date=$5,issuer_org=$6,image_url=$7,status=$8,version=$9,updated_at=$10 WHERE id=$11`,
 		string(c.CertType), c.CertNumber, c.Level, c.IssueDate, c.ExpireDate, c.IssuerOrg, c.ImageURL, c.Status, c.Version, c.UpdatedAt, c.ID)
-	return c, err
+	if err != nil {
+		// 改号撞号同样映射哨兵（唯一索引覆盖 UPDATE 路径）。
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain.Certificate{}, repository.ErrCertNumberTaken
+		}
+		return domain.Certificate{}, fmt.Errorf("update certificate: %w", err)
+	}
+	return c, nil
 }
 
 func (r *certRepo) Delete(ctx context.Context, id string) error {
@@ -400,6 +419,39 @@ func (r *pilotRepo) List(ctx context.Context) ([]domain.CertifiedPilot, error) {
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// ListApproved 公开名录分页：仅 status='approved'，keyword 匹配姓名，COUNT + LIMIT/OFFSET。
+func (r *pilotRepo) ListApproved(ctx context.Context, keyword string, offset, limit int) ([]domain.CertifiedPilot, int, error) {
+	where := `WHERE status='approved'`
+	args := []any{}
+	if k := strings.TrimSpace(keyword); k != "" {
+		args = append(args, "%"+escapeLike(k)+"%")
+		where += fmt.Sprintf(` AND real_name ILIKE $%d ESCAPE '\'`, len(args))
+	}
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM certified_pilots `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count approved pilots: %w", err)
+	}
+	args = append(args, limit, offset)
+	rows, err := r.pool.Query(ctx, `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots `+where+
+		fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
+	if err != nil {
+		return nil, total, fmt.Errorf("list approved pilots: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.CertifiedPilot
+	for rows.Next() {
+		var p domain.CertifiedPilot
+		var certIDs []byte
+		if err := rows.Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.RejectReason, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, total, fmt.Errorf("scan pilot: %w", err)
+		}
+		json.Unmarshal(certIDs, &p.CertIDs)
+		p.IDCard = r.dec(p.IDCard)
+		out = append(out, p)
+	}
+	return out, total, rows.Err()
 }
 func (r *pilotRepo) UpdateStatus(ctx context.Context, id, status string) (domain.CertifiedPilot, error) {
 	_, err := r.pool.Exec(ctx, `UPDATE certified_pilots SET status=$1,updated_at=$2 WHERE id=$3`, status, time.Now(), id)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"drone-platform/internal/domain"
+	"drone-platform/internal/repository"
 	"drone-platform/internal/service"
 )
 
@@ -73,42 +74,34 @@ func (s *Server) listAdminBookings(w http.ResponseWriter, r *http.Request) {
 }
 
 // ----- Orders (trade_orders) -----
+// P3 修复：过滤 + 分页下沉 SQL（此前全量拉 10000 条再内存过滤，更早数据永远不可见）。
 func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
-	all, _, err := s.tradeSvc.ListAll(r.Context(), 0, 10000)
-	if err != nil {
-		adminFail(w, r, err)
-		return
+	page, pageSize := paginationFromQuery(r)
+	f := repository.TradeOrderFilter{
+		Status: strings.TrimSpace(r.URL.Query().Get("status")),
+		Offset: (page - 1) * pageSize,
+		Limit:  pageSize,
 	}
-	// 状态 + 关键词过滤（复用管理端通用过滤）
-	filtered, total := adminListFilter(all, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
-		func(o domain.TradeOrder) string { return o.ID },
-		func(o domain.TradeOrder) string { return o.Status })
-	// 日期范围过滤（created_at）
+	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
+		f.Keyword = kw
+	}
 	if sd := r.URL.Query().Get("start_date"); sd != "" {
 		if t, err := time.Parse("2006-01-02", sd); err == nil {
-			out := filtered[:0]
-			for _, o := range filtered {
-				if !o.CreatedAt.Before(t) {
-					out = append(out, o)
-				}
-			}
-			filtered = out
+			f.StartDate = &t
 		}
 	}
 	if ed := r.URL.Query().Get("end_date"); ed != "" {
 		if t, err := time.Parse("2006-01-02", ed); err == nil {
 			end := t.Add(24 * time.Hour) // 含当日
-			out := filtered[:0]
-			for _, o := range filtered {
-				if o.CreatedAt.Before(end) {
-					out = append(out, o)
-				}
-			}
-			filtered = out
+			f.EndDate = &end
 		}
 	}
-	total = len(filtered)
-	paginatedRespond(w, r, filtered, total)
+	items, total, err := s.tradeSvc.ListAllFiltered(r.Context(), f)
+	if err != nil {
+		adminFail(w, r, err)
+		return
+	}
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // ----- Reviews -----

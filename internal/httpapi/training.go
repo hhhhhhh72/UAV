@@ -3,12 +3,14 @@ package httpapi
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
+	"drone-platform/internal/service"
 )
 
 // ---- Certificates ----
@@ -266,6 +268,21 @@ func (s *Server) listInstructors(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, out)
 }
 
+// GET /api/v1/admin/instructors
+// 管理端专用列表：含所有状态（pending/rejected 待审导师可见，供审批；
+// 公开 listInstructors 只出 approved 导致后台永远看不到待审名单）。
+func (s *Server) listAdminInstructors(w http.ResponseWriter, r *http.Request) {
+	instructors, err := s.trainingSvc.ListInstructors(r.Context())
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if instructors == nil {
+		instructors = []domain.Instructor{}
+	}
+	respond(w, r, http.StatusOK, instructors)
+}
+
 // ---- Certified Pilots ----
 
 // POST /api/v1/certified-pilots
@@ -318,57 +335,39 @@ func (s *Server) approvePilot(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, p)
 }
 
-// GET /api/v1/certified-pilots — 公开名录：仅已认证（approved）飞手，身份证脱敏，支持 page/page_size 分页
+// GET /api/v1/certified-pilots — 公开名录：仅已认证（approved）飞手，身份证脱敏，
+// 支持 page/page_size 分页（SQL 端 COUNT + LIMIT/OFFSET，不再整表加载后截断 2000 条）。
 func (s *Server) listPilots(w http.ResponseWriter, r *http.Request) {
-	pilots, err := s.trainingSvc.ListPilotsDetailed(r.Context())
+	page, pageSize := paginationFromQuery(r)
+	kw := strings.TrimSpace(r.URL.Query().Get("keyword"))
+	pilots, total, err := s.trainingSvc.ListPilotsDetailedPaged(r.Context(), kw, (page-1)*pageSize, pageSize)
 	if err != nil {
+		slog.Error("list pilots failed", "error", err)
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	// 性能审查：全量上限 2000（ListPilotsDetailed 为整表加载 + 证书关联，
-	// 公开名录不再无界返回；keyword 过滤在截断后进行）。
-	if len(pilots) > 2000 {
-		pilots = pilots[:2000]
-	}
-	// 公开名录只显示已认证（待审/驳回不入名录）
-	approved := make([]domain.CertifiedPilotDetail, 0, len(pilots))
-	for _, p := range pilots {
-		if p.Status == "approved" {
-			approved = append(approved, p)
-		}
-	}
-	pilots = approved
-	// 关键词过滤（姓名）
-	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
-		filtered := make([]domain.CertifiedPilotDetail, 0, len(pilots))
-		for _, p := range pilots {
-			if strings.Contains(p.RealName, kw) {
-				filtered = append(filtered, p)
-			}
-		}
-		pilots = filtered
-	}
-	// 脱敏身份证号 + P1 脱敏用户 ID（手机号注册用户 user_id=user-<手机号>，公开名录不得泄露）
+	// 脱敏身份证号 + 脱敏用户 ID（手机号注册用户 user_id=user-<手机号>，公开名录不得泄露）
 	for i := range pilots {
 		if pilots[i].IDCard != "" {
 			pilots[i].IDCard = crypto.MaskIDCard(pilots[i].IDCard)
 		}
 		pilots[i].UserID = maskUserID(pilots[i].UserID)
 	}
-	// 分页（兼容：显式传 page_size 才分页，否则保持全量返回）
-	// 双重分页修复：不再手工切片——paginatedRespond 内部按 page/page_size 唯一一次分页。
-	if r.URL.Query().Get("page_size") != "" {
-		paginatedRespond(w, r, pilots, len(pilots))
-		return
-	}
-	respond(w, r, http.StatusOK, pilots)
+	respondPage(w, r, pilots, total, page, pageSize)
 }
 
 // GET /api/v1/certified-pilots/{id} — 飞手详情单查：仅 approved 可公开查看，身份证脱敏，返回 certificates 明细
 func (s *Server) getPilot(w http.ResponseWriter, r *http.Request) {
 	p, err := s.trainingSvc.GetPilotDetail(r.Context(), r.PathValue("id"))
-	if err != nil || p.ID == "" {
-		fail(w, r, http.StatusNotFound, errors.New("pilot not found"))
+	if err != nil {
+		// P3 修复：此前 err 与空对象一律 404，DB 故障被伪装成 not found；
+		// 现区分哨兵（404）与真实系统错误（500）。
+		if errors.Is(err, service.ErrResourceNotFound) {
+			fail(w, r, http.StatusNotFound, errors.New("pilot not found"))
+			return
+		}
+		slog.Error("get pilot detail failed", "error", err)
+		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	if p.Status != "approved" {

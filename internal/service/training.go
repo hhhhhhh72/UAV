@@ -43,7 +43,14 @@ func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, ce
 	c := domain.Certificate{ID: nextID("cert"), UserID: a.ID, CertType: certType,
 		CertNumber: certNumber, Level: level, IssueDate: issueDate, ExpireDate: expireDate,
 		IssuerOrg: issuer, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
-	return s.certRepo.Create(ctx, c)
+	if _, err := s.certRepo.Create(ctx, c); err != nil {
+		// 并发撞号：check-then-insert 竞态由唯一索引兜底，转为与原预检一致的友好错误。
+		if errors.Is(err, repository.ErrCertNumberTaken) {
+			return domain.Certificate{}, fmt.Errorf("certificate number %q already exists", certNumber)
+		}
+		return domain.Certificate{}, err
+	}
+	return c, nil
 }
 
 func (s *TrainingService) ApproveCertificate(ctx context.Context, a domain.Actor, id string) (domain.Certificate, error) {
@@ -103,7 +110,13 @@ func (s *TrainingService) UpdateCertificate(ctx context.Context, id, certType, c
 	c.Status = status
 	c.IssueDate = issueDate
 	c.ExpireDate = expireDate
-	return s.certRepo.Update(ctx, c)
+	if _, err := s.certRepo.Update(ctx, c); err != nil {
+		if errors.Is(err, repository.ErrCertNumberTaken) {
+			return domain.Certificate{}, fmt.Errorf("certificate number %q already exists", certNumber)
+		}
+		return domain.Certificate{}, err
+	}
+	return c, nil
 }
 
 func (s *TrainingService) DeleteCertificate(ctx context.Context, id string) error {
@@ -280,10 +293,11 @@ func (s *TrainingService) GetPilot(ctx context.Context, id string) (domain.Certi
 }
 
 // GetPilotDetail 按 ID 单查飞手详情（含 certificates 证书明细，一次性 ListAll 关联防 N+1）。
+// 未找到返回 ErrResourceNotFound（Handler 区分 404/500，不把 DB 故障伪装成 not found）。
 func (s *TrainingService) GetPilotDetail(ctx context.Context, id string) (domain.CertifiedPilotDetail, error) {
 	p, err := s.pilotRepo.FindByID(ctx, id)
 	if err != nil || p.ID == "" {
-		return domain.CertifiedPilotDetail{}, err
+		return domain.CertifiedPilotDetail{}, ErrResourceNotFound
 	}
 	certs, err := s.certRepo.ListAll(ctx)
 	if err != nil {
@@ -309,6 +323,26 @@ func (s *TrainingService) ListPilotsDetailed(ctx context.Context) ([]domain.Cert
 	if err != nil {
 		return nil, err
 	}
+	return s.attachCertificates(ctx, pilots)
+}
+
+// ListPilotsDetailedPaged 公开名录分页（SQL 端 COUNT + LIMIT/OFFSET，不再整表加载）：
+// keyword 匹配姓名；证书关联仅对本页飞手做一次 ListAll 分组（无 N+1）。
+// 返回 total 为过滤后的已认证飞手总数。
+func (s *TrainingService) ListPilotsDetailedPaged(ctx context.Context, keyword string, offset, limit int) ([]domain.CertifiedPilotDetail, int, error) {
+	pilots, total, err := s.pilotRepo.ListApproved(ctx, keyword, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	out, err := s.attachCertificates(ctx, pilots)
+	if err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
+}
+
+// attachCertificates 为一组飞手补充已认证证书明细（证书整表一次加载后按 UserID 分组）。
+func (s *TrainingService) attachCertificates(ctx context.Context, pilots []domain.CertifiedPilot) ([]domain.CertifiedPilotDetail, error) {
 	certs, err := s.certRepo.ListAll(ctx)
 	if err != nil {
 		return nil, err

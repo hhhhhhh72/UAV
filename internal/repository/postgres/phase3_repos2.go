@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -619,6 +620,48 @@ func (r *tradeOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]doma
 	rows, err := r.pool.Query(ctx, "SELECT "+tradeOrderColumns+" FROM trade_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, total, fmt.Errorf("order query failed: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.TradeOrder
+	for rows.Next() {
+		o, err := scanTradeOrder(rows)
+		if err != nil {
+			return nil, total, fmt.Errorf("scan trade order: %w", err)
+		}
+		out = append(out, o)
+	}
+	return out, total, rows.Err()
+}
+
+// ListFiltered 管理端订单列表：过滤 + COUNT + LIMIT/OFFSET 全下沉 SQL。
+func (r *tradeOrderRepo) ListFiltered(ctx context.Context, f repository.TradeOrderFilter) ([]domain.TradeOrder, int, error) {
+	where := "WHERE TRUE"
+	args := []any{}
+	if f.Status != "" {
+		args = append(args, f.Status)
+		where += fmt.Sprintf(" AND status=$%d", len(args))
+	}
+	if k := strings.TrimSpace(f.Keyword); k != "" {
+		args = append(args, "%"+escapeLike(k)+"%")
+		where += fmt.Sprintf(" AND id ILIKE $%d ESCAPE '\\'", len(args))
+	}
+	if f.StartDate != nil {
+		args = append(args, *f.StartDate)
+		where += fmt.Sprintf(" AND created_at >= $%d", len(args))
+	}
+	if f.EndDate != nil {
+		args = append(args, *f.EndDate)
+		where += fmt.Sprintf(" AND created_at < $%d", len(args))
+	}
+	var total int
+	if err := r.pool.QueryRow(ctx, "SELECT count(*) FROM trade_orders "+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count trade orders: %w", err)
+	}
+	args = append(args, f.Limit, f.Offset)
+	rows, err := r.pool.Query(ctx, "SELECT "+tradeOrderColumns+" FROM trade_orders "+where+
+		fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
+	if err != nil {
+		return nil, total, fmt.Errorf("list trade orders filtered: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.TradeOrder

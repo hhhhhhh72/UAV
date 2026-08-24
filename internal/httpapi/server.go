@@ -1203,7 +1203,12 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 func (s *Server) allowedCORSOrigins() []string {
 	raw := os.Getenv("CORS_ORIGINS")
 	if raw == "" {
-		return []string{"http://localhost:3000"}
+		// 开发默认（未配置 CORS_ORIGINS 时）：前端 Vite dev server(5173) + 历史 3000。
+		return []string{
+			"http://localhost:3000",
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+		}
 	}
 	return strings.Split(raw, ",")
 }

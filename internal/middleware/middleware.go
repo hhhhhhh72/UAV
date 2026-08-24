@@ -4,6 +4,7 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -12,6 +13,10 @@ import (
 
 // maxSanitizeBodyBytes 与 httpapi.decode 的 1MiB 上限保持一致。
 const maxSanitizeBodyBytes = 1 << 20
+
+// MaxSanitizeFieldBytes 单字段最大长度（消毒后）。
+// 超限不再静默截断（用户以为数据完整），而是整个请求 400 报错。
+const MaxSanitizeFieldBytes = 10000
 
 // SanitizeBody reads JSON request bodies and recursively strips HTML tags from
 // string values (defense-in-depth against stored XSS), then re-injects the
@@ -56,7 +61,12 @@ func SanitizeBody(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		clean, err := json.Marshal(sanitizeValue(v))
+		cleanV, err := sanitizeValue(v)
+		if err != nil {
+			WriteError(w, http.StatusBadRequest, "FIELD_TOO_LONG", err.Error())
+			return
+		}
+		clean, err := json.Marshal(cleanV)
 		if err != nil {
 			r.Body = io.NopCloser(bytes.NewReader(raw))
 			next.ServeHTTP(w, r)
@@ -68,38 +78,61 @@ func SanitizeBody(next http.Handler) http.Handler {
 }
 
 // sanitizeValue recursively sanitizes string values inside arbitrary JSON.
-func sanitizeValue(v any) any {
+// 字段超长（消毒后 > MaxSanitizeFieldBytes）导致整个请求 400（FIELD_TOO_LONG），
+// 替代旧实现静默截断——用户提交超长内容时数据被悄悄改掉而不知情。
+func sanitizeValue(v any) (any, error) {
 	switch val := v.(type) {
 	case string:
-		return SanitizeString(val)
+		return SanitizeStringStrict(val)
 	case map[string]any:
 		for k, item := range val {
 			if strings.EqualFold(k, "password") {
 				continue
 			}
-			val[k] = sanitizeValue(item)
+			nv, err := sanitizeValue(item)
+			if err != nil {
+				return nil, err
+			}
+			val[k] = nv
 		}
-		return val
+		return val, nil
 	case []any:
 		for i := range val {
-			val[i] = sanitizeValue(val[i])
+			nv, err := sanitizeValue(val[i])
+			if err != nil {
+				return nil, err
+			}
+			val[i] = nv
 		}
-		return val
+		return val, nil
 	default:
-		return v
+		return v, nil
 	}
 }
 
 var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
 
-// SanitizeString removes HTML tags and trims a string.
+// SanitizeString removes HTML tags and trims a string (超长静默截断为
+// MaxSanitizeFieldBytes，仅限文件路径等内部用途；HTTP 请求体请用
+// SanitizeStringStrict——HTTP 字段超长不再静默截断）。
 func SanitizeString(s string) string {
 	s = htmlTagRe.ReplaceAllString(s, "")
 	s = strings.TrimSpace(s)
-	if len(s) > 10000 {
-		s = s[:10000]
+	if len(s) > MaxSanitizeFieldBytes {
+		s = s[:MaxSanitizeFieldBytes]
 	}
 	return s
+}
+
+// SanitizeStringStrict like SanitizeString but errors when the sanitized value
+// exceeds MaxSanitizeFieldBytes instead of silently truncating.
+func SanitizeStringStrict(s string) (string, error) {
+	s = htmlTagRe.ReplaceAllString(s, "")
+	s = strings.TrimSpace(s)
+	if len(s) > MaxSanitizeFieldBytes {
+		return "", fmt.Errorf("field too long: %d chars (max %d)", len(s), MaxSanitizeFieldBytes)
+	}
+	return s, nil
 }
 
 // SanitizeMap recursively sanitizes string values in a map.

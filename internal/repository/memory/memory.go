@@ -307,13 +307,24 @@ func (r *demandRepo) UnfavoriteDemand(ctx context.Context, userID, demandID stri
 func (r *demandRepo) ListFavoriteDemandIDs(ctx context.Context, userID string) ([]string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	out := make([]string, 0)
+	ids := make([]string, 0)
 	for _, f := range r.favorites {
 		if f.UserID == userID {
-			out = append(out, f.DemandID)
+			ids = append(ids, f.DemandID)
 		}
 	}
-	return out, nil
+	// 与 PG 对齐：ORDER BY created_at DESC（最新收藏在前）。
+	sort.SliceStable(ids, func(i, j int) bool { return r.favCreatedAt(userID, ids[i]).After(r.favCreatedAt(userID, ids[j])) })
+	return ids, nil
+}
+
+func (r *demandRepo) favCreatedAt(userID, demandID string) time.Time {
+	for _, f := range r.favorites {
+		if f.UserID == userID && f.DemandID == demandID {
+			return f.CreatedAt
+		}
+	}
+	return time.Time{}
 }
 
 func (r *demandRepo) ListFavoriteDemands(ctx context.Context, userID string) ([]domain.Demand, error) {
@@ -1184,6 +1195,10 @@ func (r *memUserRepo) FindByOpenID(ctx context.Context, openid string) (domain.U
 func (r *memUserRepo) Create(ctx context.Context, u domain.User) (domain.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 与 PG 对齐：role 缺省为 individual（PG users.role 默认值）。
+	if u.Role == "" {
+		u.Role = domain.RoleIndividual
+	}
 	r.items = append(r.items, u)
 	return u, nil
 }
@@ -1375,7 +1390,14 @@ func NewContractTemplateRepository() repository.ContractTemplateRepository {
 func (r *contractTplRepo) List(ctx context.Context) ([]domain.ContractTemplate, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]domain.ContractTemplate(nil), r.items...), nil
+	// 与 PG 对齐：WHERE COALESCE(status,'active')='active'——仅返回启用模板。
+	out := make([]domain.ContractTemplate, 0, len(r.items))
+	for _, t := range r.items {
+		if t.Status == "" || t.Status == "active" {
+			out = append(out, t)
+		}
+	}
+	return out, nil
 }
 
 func (r *contractTplRepo) Create(ctx context.Context, t domain.ContractTemplate) (domain.ContractTemplate, error) {
@@ -1696,6 +1718,13 @@ func NewCertificateRepository() repository.CertificateRepository { return &certR
 func (r *certRepo) Create(ctx context.Context, c domain.Certificate) (domain.Certificate, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if c.CertNumber != "" {
+		for _, x := range r.items {
+			if x.CertNumber == c.CertNumber {
+				return domain.Certificate{}, repository.ErrCertNumberTaken
+			}
+		}
+	}
 	r.items = append(r.items, c)
 	return c, nil
 }
@@ -1745,12 +1774,22 @@ func (r *certRepo) UpdateStatus(ctx context.Context, id string, status string) (
 func (r *certRepo) ListAll(ctx context.Context) ([]domain.Certificate, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]domain.Certificate(nil), r.items...), nil
+	out := append([]domain.Certificate(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
 }
 
 func (r *certRepo) Update(ctx context.Context, c domain.Certificate) (domain.Certificate, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if c.CertNumber != "" {
+		for _, x := range r.items {
+			if x.ID != c.ID && x.CertNumber == c.CertNumber {
+				return domain.Certificate{}, repository.ErrCertNumberTaken
+			}
+		}
+	}
 	for i := range r.items {
 		if r.items[i].ID == c.ID {
 			r.items[i] = c
@@ -1791,7 +1830,10 @@ func (r *courseRepo) Create(ctx context.Context, c domain.TrainingCourse) (domai
 func (r *courseRepo) List(ctx context.Context) ([]domain.TrainingCourse, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]domain.TrainingCourse(nil), r.items...), nil
+	out := append([]domain.TrainingCourse(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC（课程列表最新在前）。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
 }
 func (r *courseRepo) FindByID(ctx context.Context, id string) (domain.TrainingCourse, error) {
 	r.mu.RLock()
@@ -1914,7 +1956,10 @@ func (r *instructorRepo) FindByID(ctx context.Context, id string) (domain.Instru
 func (r *instructorRepo) List(ctx context.Context) ([]domain.Instructor, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]domain.Instructor(nil), r.items...), nil
+	out := append([]domain.Instructor(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
 }
 func (r *instructorRepo) UpdateStatus(ctx context.Context, id string, status string) (domain.Instructor, error) {
 	r.mu.Lock()
@@ -1981,10 +2026,36 @@ func (r *pilotRepo) List(ctx context.Context) ([]domain.CertifiedPilot, error) {
 	defer r.mu.RUnlock()
 	out := make([]domain.CertifiedPilot, len(r.items))
 	copy(out, r.items)
+	// 与 PG 对齐：ORDER BY created_at DESC
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	for i := range out {
 		r.decryptInPlace(&out[i])
 	}
 	return out, nil
+}
+func (r *pilotRepo) ListApproved(ctx context.Context, keyword string, offset, limit int) ([]domain.CertifiedPilot, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	filtered := make([]domain.CertifiedPilot, 0)
+	for _, p := range r.items {
+		if p.Status != "approved" {
+			continue
+		}
+		if keyword != "" && !strings.Contains(p.RealName, keyword) {
+			continue
+		}
+		r.decryptInPlace(&p)
+		filtered = append(filtered, p)
+	}
+	total := len(filtered)
+	if offset > total {
+		return nil, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return filtered[offset:end], total, nil
 }
 func (r *pilotRepo) Update(ctx context.Context, p domain.CertifiedPilot) (domain.CertifiedPilot, error) {
 	r.mu.Lock()
@@ -2182,21 +2253,20 @@ func (r *prodRepo) Restore(ctx context.Context, id string) error {
 func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if prodType == "" {
-		return append([]domain.DroneProduct(nil), r.items...), nil
-	}
-	out := make([]domain.DroneProduct, 0)
+	out := make([]domain.DroneProduct, 0, len(r.items))
 	for _, p := range r.items {
-		if string(p.ProdType) == prodType {
-			out = append(out, p)
+		if prodType != "" && string(p.ProdType) != prodType {
+			continue
 		}
+		out = append(out, p)
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
-// ListTop 按插入序取前 limit 条（内存为开发存储，与 List 顺序一致；
-// PG 版按 created_at 倒序，语义对齐"最新 N 条"）。
-// 仅取已上架商品：待审核/下架/已售商品不得出现在首页公开区（与 listProducts 公开口径一致）。
+// ListTop 仅取已上架商品：待审核/下架/已售商品不得出现在首页公开区（与
+// listProducts 公开口径一致）。与 PG 对齐按 created_at DESC 取最新 N 条。
 func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -2209,9 +2279,10 @@ func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]d
 			continue
 		}
 		out = append(out, p)
-		if len(out) >= limit {
-			break
-		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	if len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
 }
@@ -2921,6 +2992,35 @@ func (r *tradeOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]doma
 		end = total
 	}
 	return append([]domain.TradeOrder(nil), r.items[offset:end]...), total, nil
+}
+func (r *tradeOrderRepo) ListFiltered(ctx context.Context, f repository.TradeOrderFilter) ([]domain.TradeOrder, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.TradeOrder, 0)
+	for _, o := range r.items {
+		if f.Status != "" && o.Status != f.Status {
+			continue
+		}
+		if f.Keyword != "" && !strings.Contains(o.ID, f.Keyword) {
+			continue
+		}
+		if f.StartDate != nil && o.CreatedAt.Before(*f.StartDate) {
+			continue
+		}
+		if f.EndDate != nil && !o.CreatedAt.Before(*f.EndDate) {
+			continue
+		}
+		out = append(out, o)
+	}
+	total := len(out)
+	if f.Offset > total {
+		return nil, total, nil
+	}
+	end := f.Offset + f.Limit
+	if end > total {
+		end = total
+	}
+	return out[f.Offset:end], total, nil
 }
 func (r *tradeOrderRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()

@@ -135,7 +135,8 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 
 	// === 场地/讲师/校企/应急部门/救援案例：复用既有公开列表 handler ===
 	mux.HandleFunc("GET /api/v1/admin/venues", s.listVenues)
-	mux.HandleFunc("GET /api/v1/admin/instructors", s.listInstructors)
+	// 导师列表管理端专用（含 pending/rejected 待审，公开列表只出 approved）
+	mux.HandleFunc("GET /api/v1/admin/instructors", s.listAdminInstructors)
 	mux.HandleFunc("GET /api/v1/admin/cooperations", s.listCooperations)
 	mux.HandleFunc("GET /api/v1/admin/emergency-depts", s.listEmergencyDepts)
 	mux.HandleFunc("GET /api/v1/admin/rescue-cases", s.listRescueCases)

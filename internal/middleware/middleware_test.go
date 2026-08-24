@@ -27,9 +27,33 @@ func TestSanitizeString(t *testing.T) {
 }
 
 func TestSanitizeStringLong(t *testing.T) {
-	long := strings.Repeat("A", 20000)
-	got := middleware.SanitizeString(long)
-	if len(got) > 10000 { t.Fatalf("should truncate: %d", len(got)) }
+	long := strings.Repeat("A", middleware.MaxSanitizeFieldBytes+1)
+	// 超长不再静默截断：strict 版本报错（用户提交超长内容时数据被悄悄改掉的旧行为已修复）
+	if _, err := middleware.SanitizeStringStrict(long); err == nil {
+		t.Fatal("SanitizeStringStrict: expected error for overlong field")
+	}
+	// 合法长度正常通过
+	if _, err := middleware.SanitizeStringStrict(strings.Repeat("A", middleware.MaxSanitizeFieldBytes)); err != nil {
+		t.Fatalf("SanitizeStringStrict: max-length field should pass: %v", err)
+	}
+}
+
+func TestSanitizeBodyFieldTooLong(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	sanitized := middleware.SanitizeBody(next)
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/test",
+		strings.NewReader(`{"title":"`+strings.Repeat("A", middleware.MaxSanitizeFieldBytes+1)+`"}`))
+	r.Header.Set("Content-Type", "application/json")
+	sanitized.ServeHTTP(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("overlong field should be rejected with 400, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "FIELD_TOO_LONG") {
+		t.Fatalf("missing FIELD_TOO_LONG code: %s", w.Body.String())
+	}
 }
 
 func TestSanitizeMap(t *testing.T) {
