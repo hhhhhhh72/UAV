@@ -4,6 +4,7 @@
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">{{ detailTitle }}</text>
+      <view class="head-spacer"></view>
     </view>
 
     <!-- 加载状态 -->
@@ -690,6 +691,8 @@ watch(state, (v) => {
 }
 .back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
 .page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; text-align: center; }
+/* 右侧与返回钮同宽占位：标题区域左右对称，文字真正屏幕居中 */
+.head-spacer { width: 72rpx; flex-shrink: 0; }
 
 /* ═══════ 内容区块 ═══════ */
 .detail-body { padding-bottom: 8rpx; }
