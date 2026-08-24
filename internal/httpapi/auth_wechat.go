@@ -175,8 +175,13 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tokenHash := service.HashToken(req.RefreshToken)
-	userID, expiresAt, revoked, err := s.refreshRepo.Find(r.Context(), tokenHash)
-	if err != nil || revoked || time.Now().After(expiresAt) {
+	// 原子消费旧令牌：并发同一令牌二次刷新时仅一个成功（防 TOCTOU 双签发）
+	found, userID, _, err := s.refreshRepo.Consume(r.Context(), tokenHash)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if !found {
 		fail(w, r, http.StatusUnauthorized, errors.New("invalid or expired refresh token"))
 		return
 	}
@@ -204,15 +209,12 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("generate refresh token: %w", err))
 		return
 	}
-	// 轮转顺序：先落库新令牌、成功后再撤销旧令牌。
-	// 旧实现先 Revoke 后 Store——Store 失败会导致旧令牌已作废、新令牌未落库，
-	// 用户被永久锁死（refresh 不可用）。新顺序下 Store 失败时旧令牌仍有效。
+	// 新令牌落库（旧令牌已在上方原子消费，无需再 Revoke）
 	newHash := service.HashToken(newRefresh)
 	if err := s.refreshRepo.Store(r.Context(), userID, newHash, time.Now().Add(7*24*time.Hour)); err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("store refresh token: %w", err))
 		return
 	}
-	s.refreshRepo.Revoke(r.Context(), tokenHash)
 
 	hasWechat := u.WechatOpenID != "" && !strings.HasPrefix(u.WechatOpenID, "phone:")
 	ui := userInfo{ID: userID, Role: role, Status: ""}

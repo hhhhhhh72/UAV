@@ -94,15 +94,19 @@ func (r *demandRepo) Update(ctx context.Context, d domain.Demand) (domain.Demand
 			if r.items[i].Version != d.Version {
 				return domain.Demand{}, fmt.Errorf("demand %s 已被他人修改，请刷新后重试", d.ID)
 			}
+			// 落库加密、返回明文（与 PG encContact 对齐，不把密文回传给调用方）
+			store := d
 			if r.cipher != nil && d.Contact != "" {
 				enc, err := r.cipher.Encrypt(d.Contact)
 				if err != nil {
 					return domain.Demand{}, fmt.Errorf("encrypt contact: %w", err)
 				}
-				d.Contact = enc
+				store.Contact = enc
 			}
 			d.Version++
-			r.items[i] = d
+			store.Version = d.Version
+			store.UpdatedAt = d.UpdatedAt
+			r.items[i] = store
 			return d, nil
 		}
 	}
@@ -200,7 +204,10 @@ func (r *demandRepo) Count(ctx context.Context, f repository.DemandFilter) (int,
 }
 
 func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, error) {
-	all, _ := r.List(ctx, repository.DemandFilter{})
+	all, err := r.List(ctx, repository.DemandFilter{})
+	if err != nil {
+		return nil, fmt.Errorf("search demands: %w", err)
+	}
 	q = strings.ToLower(q)
 	out := []domain.Demand{}
 	for _, d := range all {
@@ -1326,6 +1333,21 @@ func (r *memRefreshRepo) Revoke(ctx context.Context, tokenHash string) error {
 	}
 	return fmt.Errorf("token not found")
 }
+func (r *memRefreshRepo) Consume(ctx context.Context, tokenHash string) (bool, string, time.Time, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		e := r.items[i]
+		if e.tokenHash == tokenHash {
+			if e.revoked || time.Now().After(e.expiresAt) {
+				return false, "", time.Time{}, nil
+			}
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return true, e.userID, e.expiresAt, nil
+		}
+	}
+	return false, "", time.Time{}, nil
+}
 
 // ---- Contract ----
 
@@ -1866,6 +1888,18 @@ func (r *instructorRepo) Create(ctx context.Context, i domain.Instructor) (domai
 	defer r.mu.Unlock()
 	r.items = append(r.items, i)
 	return i, nil
+}
+func (r *instructorRepo) Update(ctx context.Context, i domain.Instructor) (domain.Instructor, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for idx, ins := range r.items {
+		if ins.ID == i.ID {
+			i.Version = ins.Version + 1
+			r.items[idx] = i
+			return i, nil
+		}
+	}
+	return domain.Instructor{}, fmt.Errorf("instructor %s not found", i.ID)
 }
 func (r *instructorRepo) FindByID(ctx context.Context, id string) (domain.Instructor, error) {
 	r.mu.RLock()
@@ -2608,7 +2642,8 @@ func (r *reviewRepo) ListByTarget(ctx context.Context, targetType, targetID stri
 	defer r.mu.RUnlock()
 	out := make([]domain.Review, 0)
 	for _, rv := range r.items {
-		if rv.TargetType == targetType && rv.TargetID == targetID {
+		// 与 PG 对齐：仅已审核通过评论对外展示（防未审核评论泄漏公开列表）
+		if rv.TargetType == targetType && rv.TargetID == targetID && rv.Status == "approved" {
 			out = append(out, rv)
 		}
 	}
@@ -2827,6 +2862,22 @@ func (r *tradeOrderRepo) UpdateStatus(ctx context.Context, id string, status str
 		}
 	}
 	return domain.TradeOrder{}, fmt.Errorf("order %s not found", id)
+}
+func (r *tradeOrderRepo) CompareAndSetStatus(ctx context.Context, id, oldStatus, newStatus string) (bool, domain.TradeOrder, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, o := range r.items {
+		if o.ID == id {
+			if o.Status != oldStatus {
+				return false, o, nil
+			}
+			r.items[i].Status = newStatus
+			r.items[i].UpdatedAt = time.Now()
+			r.items[i].Version++
+			return true, r.items[i], nil
+		}
+	}
+	return false, domain.TradeOrder{}, fmt.Errorf("order %s not found", id)
 }
 func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error) {
 	r.mu.Lock()

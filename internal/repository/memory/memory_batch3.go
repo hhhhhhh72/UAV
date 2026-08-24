@@ -39,6 +39,10 @@ func (r *rescueCaseRepo) List(ctx context.Context, eventType, q string, offset, 
 	query := strings.ToLower(strings.TrimSpace(q))
 	filtered := make([]domain.RescueCase, 0)
 	for _, rc := range r.items {
+		// 与 PG 对齐：仅已发布案例公开展示
+		if rc.Status != "published" {
+			continue
+		}
 		if eventType != "" && rc.EventType != eventType {
 			continue
 		}

@@ -273,12 +273,19 @@ func (s *Server) createExhibition(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listExhibitions(w http.ResponseWriter, r *http.Request) {
-	list, total, err := s.exhibitionSvc.List(r.Context(), 1, 100000)
+	list, _, err := s.exhibitionSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, list, total)
+	// 公开列表仅展示已发布展会（管理端仍全量，另走 admin 接口）
+	published := make([]domain.Exhibition, 0, len(list))
+	for _, e := range list {
+		if e.Status == "published" {
+			published = append(published, e)
+		}
+	}
+	paginatedRespond(w, r, published, len(published))
 }
 
 func (s *Server) applyBooth(w http.ResponseWriter, r *http.Request) {

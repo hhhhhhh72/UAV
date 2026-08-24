@@ -174,6 +174,28 @@ func (s *TrainingService) DeleteCourse(ctx context.Context, id string) error {
 
 func (s *TrainingService) RegisterInstructor(ctx context.Context, a domain.Actor, name, photo, bio, orgID string, certTypes []string) (domain.Instructor, error) {
 	now := time.Now()
+	// 查重（与 RegisterPilot 对齐）：approved/pending 拒绝重复申请；rejected 覆盖重提
+	if existing, err := s.instructorRepo.List(ctx); err == nil {
+		for _, e := range existing {
+			if e.UserID != a.ID {
+				continue
+			}
+			switch e.Status {
+			case "approved":
+				return domain.Instructor{}, errors.New("你已经通过导师认证，无需重复申请")
+			case "pending":
+				return domain.Instructor{}, errors.New("导师认证审核中，请耐心等待")
+			default: // rejected：覆盖重提
+				e.Name = name
+				e.Photo = photo
+				e.CertTypes = certTypes
+				e.Bio = bio
+				e.OrgID = orgID
+				e.Status = "pending"
+				return s.instructorRepo.Update(ctx, e)
+			}
+		}
+	}
 	i := domain.Instructor{ID: nextID("instructor"), UserID: a.ID, Name: name,
 		Photo: photo, CertTypes: certTypes, Bio: bio, OrgID: orgID, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.instructorRepo.Create(ctx, i)

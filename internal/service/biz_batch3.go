@@ -45,7 +45,8 @@ func (s *RescueCaseService) Create(ctx context.Context, title, eventType, locati
 		Title: title, EventType: normalizeRescueEventType(eventType), Location: location, Date: date,
 		DroneModel: droneModel, TeamName: teamName, Summary: summary,
 		Result: result, Lessons: lessons, Source: source,
-		Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		// 无审核/发布流程：创建即公开（原 draft 状态会被公开列表过滤全部隐藏，语义名存实亡）
+		Status: "published", CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	return s.repo.Create(ctx, rc)
 }
 func (s *RescueCaseService) List(ctx context.Context, eventType, q string, page, pageSize int) ([]domain.RescueCase, int, error) {

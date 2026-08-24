@@ -275,13 +275,16 @@ func (r *emergRepo) ListResources(ctx context.Context, resType, q string, offset
 		args = append(args, resType)
 	}
 	if q = strings.TrimSpace(q); q != "" {
-		args = append(args, "%"+q+"%")
+		if len(q) > 100 {
+			q = q[:100]
+		}
+		args = append(args, "%"+escapeLike(q)+"%")
 		if where == "" {
 			where = "WHERE "
 		} else {
 			where += " AND "
 		}
-		where += fmt.Sprintf(`(name ILIKE $%d OR specs ILIKE $%d OR location ILIKE $%d OR contact_info ILIKE $%d)`,
+		where += fmt.Sprintf(`(name ILIKE $%d ESCAPE '\' OR specs ILIKE $%d ESCAPE '\' OR location ILIKE $%d ESCAPE '\' OR contact_info ILIKE $%d ESCAPE '\')`,
 			len(args), len(args), len(args), len(args))
 	}
 	var total int

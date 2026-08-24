@@ -300,6 +300,20 @@ func (r *instructorRepo) UpdateStatus(ctx context.Context, id, status string) (d
 	}
 	return r.FindByID(ctx, id)
 }
+func (r *instructorRepo) Update(ctx context.Context, i domain.Instructor) (domain.Instructor, error) {
+	i.UpdatedAt = time.Now()
+	ct, err := json.Marshal(i.CertTypes)
+	if err != nil {
+		return domain.Instructor{}, fmt.Errorf("marshal instructor cert types: %w", err)
+	}
+	_, err = r.pool.Exec(ctx,
+		`UPDATE instructors SET name=$1,photo=$2,cert_types=$3,bio=$4,org_id=$5,status=$6,version=version+1,updated_at=$7 WHERE id=$8`,
+		i.Name, i.Photo, ct, i.Bio, i.OrgID, i.Status, i.UpdatedAt, i.ID)
+	if err != nil {
+		return domain.Instructor{}, fmt.Errorf("update instructor %s: %w", i.ID, err)
+	}
+	return i, nil
+}
 
 // ---- Pilot ----
 

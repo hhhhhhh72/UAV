@@ -190,20 +190,23 @@ func (r *pgRescueRepo) FindByID(ctx context.Context, id string) (domain.RescueCa
 }
 
 func (r *pgRescueRepo) List(ctx context.Context, eventType, q string, offset, limit int) ([]domain.RescueCase, int, error) {
-	where := ""
+	where := "WHERE status='published'"
 	args := []any{}
 	if eventType != "" {
-		where = `WHERE event_type=$1`
+		where += " AND event_type=$1"
 		args = append(args, eventType)
 	}
 	if q = strings.TrimSpace(q); q != "" {
-		args = append(args, "%"+q+"%")
+		if len(q) > 100 {
+			q = q[:100]
+		}
+		args = append(args, "%"+escapeLike(q)+"%")
 		if where == "" {
 			where = "WHERE "
 		} else {
 			where += " AND "
 		}
-		where += fmt.Sprintf(`(title ILIKE $%d OR location ILIKE $%d OR summary ILIKE $%d OR team_name ILIKE $%d OR drone_model ILIKE $%d)`,
+		where += fmt.Sprintf(`(title ILIKE $%d ESCAPE '\' OR location ILIKE $%d ESCAPE '\' OR summary ILIKE $%d ESCAPE '\' OR team_name ILIKE $%d ESCAPE '\' OR drone_model ILIKE $%d ESCAPE '\')`,
 			len(args), len(args), len(args), len(args), len(args))
 	}
 	var total int

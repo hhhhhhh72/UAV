@@ -81,6 +81,10 @@ func (s *CompetitionService) Register(ctx context.Context, competitionID, userID
 	if c.MaxTeams > 0 && len(regs) >= c.MaxTeams {
 		return domain.CompetitionReg{}, fmt.Errorf("competition is full")
 	}
+	// 事件状态门禁：已关闭/已满/已结束状态不可报名（与公开列表的 enrolling/open 语义一致）
+	if c.Status != "open" && c.Status != "enrolling" && c.Status != "published" && c.Status != "upcoming" {
+		return domain.CompetitionReg{}, fmt.Errorf("competition is not open for registration (status %s)", c.Status)
+	}
 	// 截止：deadline 已过拒绝
 	if c.Deadline != nil && !c.Deadline.IsZero() && now.After(*c.Deadline) {
 		return domain.CompetitionReg{}, fmt.Errorf("registration deadline passed")
@@ -193,6 +197,14 @@ func (s *EventService) Register(ctx context.Context, eventID, userID, name, phon
 	// 容量：max_attendees > 0 时已报名人数达到上限拒绝
 	if ev.MaxAttendees > 0 && len(regs) >= ev.MaxAttendees {
 		return domain.EventRegistration{}, fmt.Errorf("event is full")
+	}
+	// 状态门禁：已取消/已结束活动不可报名
+	if ev.Status == "cancelled" || ev.Status == "ended" || ev.Status == "finished" {
+		return domain.EventRegistration{}, fmt.Errorf("event is not open for registration (status %s)", ev.Status)
+	}
+	// 时间门禁：活动已结束（end_time 早于当前，且非零值）不可报名
+	if !ev.EndTime.IsZero() && now.After(ev.EndTime) {
+		return domain.EventRegistration{}, fmt.Errorf("registration deadline passed")
 	}
 	er := domain.EventRegistration{
 		ID:        nextID("evtreg"),

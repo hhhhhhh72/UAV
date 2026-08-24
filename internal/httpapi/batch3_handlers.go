@@ -91,6 +91,10 @@ func (s *Server) listEmergencyDepts(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 公开接口脱敏：联系方式不随公开列表外泄（仅管理端/协会成员可见原文）
+	for i := range list {
+		list[i].ContactPhone = maskPhone(list[i].ContactPhone)
+	}
 	respond(w, r, http.StatusOK, list)
 }
 func (s *Server) createEmergencyDrill(w http.ResponseWriter, r *http.Request) {

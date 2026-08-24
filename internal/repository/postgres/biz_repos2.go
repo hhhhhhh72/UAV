@@ -82,9 +82,13 @@ func (r *achieveRepo) Update(ctx context.Context, a domain.Achievement) (domain.
 	if err != nil {
 		return domain.Achievement{}, fmt.Errorf("marshal achievement images: %w", err)
 	}
+	atts, err := json.Marshal(a.Attachments)
+	if err != nil {
+		return domain.Achievement{}, fmt.Errorf("marshal achievement attachments: %w", err)
+	}
 	_, err = r.pool.Exec(ctx,
-		`UPDATE achievements SET title=$1,achieve_type=$2,description=$3,field=$4,stage=$5,images=$6,contact_info=$7,status=$8,updated_at=$9 WHERE id=$10`,
-		a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, a.ContactInfo, a.Status, a.UpdatedAt, a.ID)
+		`UPDATE achievements SET title=$1,achieve_type=$2,description=$3,field=$4,stage=$5,images=$6,attachments=$7,contact_info=$8,status=$9,updated_at=$10 WHERE id=$11`,
+		a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, atts, a.ContactInfo, a.Status, a.UpdatedAt, a.ID)
 	return a, err
 }
 func (r *achieveRepo) Delete(ctx context.Context, id string) error {

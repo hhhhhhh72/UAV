@@ -64,6 +64,9 @@ type RefreshTokenRepository interface {
 	Store(ctx context.Context, userID, tokenHash string, expiresAt time.Time) error
 	Find(ctx context.Context, tokenHash string) (userID string, expiresAt time.Time, revoked bool, err error)
 	Revoke(ctx context.Context, tokenHash string) error
+	// Consume 原子消费一枚有效的刷新令牌：仅当令牌未撤销且未过期时删除该行并
+	// 返回 found=true——两个并发 refresh 用同一令牌时只有一个成功（防 TOCTOU 双签发）。
+	Consume(ctx context.Context, tokenHash string) (found bool, userID string, expiresAt time.Time, err error)
 }
 
 // DemandFilter carries optional query parameters for listing demands.
@@ -266,6 +269,8 @@ type InstructorRepository interface {
 	FindByID(ctx context.Context, id string) (domain.Instructor, error)
 	List(ctx context.Context) ([]domain.Instructor, error)
 	UpdateStatus(ctx context.Context, id string, status string) (domain.Instructor, error)
+	// Update 覆盖更新（驳回后重新提交用，与 PilotRepository 对齐）
+	Update(ctx context.Context, v domain.Instructor) (domain.Instructor, error)
 }
 
 // PilotRepository manages certified pilots.
@@ -406,6 +411,9 @@ type TradeOrderRepository interface {
 	Create(ctx context.Context, v domain.TradeOrder) (domain.TradeOrder, error)
 	FindByID(ctx context.Context, id string) (domain.TradeOrder, error)
 	UpdateStatus(ctx context.Context, id string, status string) (domain.TradeOrder, error)
+	// CompareAndSetStatus 原子状态迁移：仅当前状态等于 oldStatus 时更新为 newStatus，
+	// 返回 bool 表示是否迁移成功（false = 状态已并发变更），防止后写覆盖前写。
+	CompareAndSetStatus(ctx context.Context, id, oldStatus, newStatus string) (bool, domain.TradeOrder, error)
 	// UpdateAftersale 一次性写订单状态 + 售后字段（申请/审核结案共用），只写这两类列
 	UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error)
 	ListByUser(ctx context.Context, userID string) ([]domain.TradeOrder, error)

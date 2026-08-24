@@ -16,3 +16,14 @@ func maskUserID(id string) string {
 	}
 	return id
 }
+
+// phoneMaskRe 手机号脱敏：保留前 3 后 4，中间以 **** 代替（138****8888）。
+var phoneMaskRe = regexp.MustCompile(`^(\d{3})\d{4}(\d{4})$`)
+
+// maskPhone 公开接口手机号脱敏：11 位手机号 → 138****8888；非手机号原样返回。
+func maskPhone(p string) string {
+	if m := phoneMaskRe.FindStringSubmatch(p); m != nil {
+		return m[1] + "****" + m[2]
+	}
+	return p
+}

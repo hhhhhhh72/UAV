@@ -42,12 +42,15 @@ type DemandService struct {
 	repo repository.DemandRepository
 }
 
+// ErrRoleNotAllowed 角色无权执行该操作（如非企业/个人发布需求）。
+var ErrRoleNotAllowed = errors.New("only enterprise or individual users can publish demands")
+
 func NewDemandService(r repository.DemandRepository) *DemandService {
 	return &DemandService{repo: r}
 }
 func (s *DemandService) Create(ctx context.Context, a domain.Actor, in CreateDemandInput) (domain.Demand, error) {
 	if a.Role != domain.RoleEnterprise && a.Role != domain.RoleIndividual {
-		return domain.Demand{}, errors.New("only enterprise or individual users can publish demands")
+		return domain.Demand{}, ErrRoleNotAllowed
 	}
 	if strings.TrimSpace(in.Title) == "" || strings.TrimSpace(in.Contact) == "" {
 		return domain.Demand{}, errors.New("title and contact are required")
@@ -123,7 +126,15 @@ func (s *DemandService) Submit(ctx context.Context, a domain.Actor, id string) (
 	if d.Status != domain.DemandRejected {
 		return domain.Demand{}, fmt.Errorf("only rejected demands can be resubmitted, got %s", d.Status)
 	}
-	return s.repo.SetStatus(ctx, id, domain.DemandPending)
+	ok, _, err := s.repo.CompareAndSetStatus(ctx, id, domain.DemandRejected, domain.DemandPending)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if !ok {
+		return domain.Demand{}, errors.New("需求状态已变更，请刷新后重试")
+	}
+	d.Status = domain.DemandPending
+	return d, nil
 }
 
 // Complete marks a published demand as done (publisher only, no bidding).
@@ -138,7 +149,15 @@ func (s *DemandService) Complete(ctx context.Context, a domain.Actor, id string)
 	if d.Status != domain.DemandPublished {
 		return domain.Demand{}, fmt.Errorf("only published demands can be completed, got %s", d.Status)
 	}
-	return s.repo.SetStatus(ctx, id, domain.DemandCompleted)
+	ok, _, err := s.repo.CompareAndSetStatus(ctx, id, domain.DemandPublished, domain.DemandCompleted)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if !ok {
+		return domain.Demand{}, errors.New("需求状态已变更，请刷新后重试")
+	}
+	d.Status = domain.DemandCompleted
+	return d, nil
 }
 
 // Cancel withdraws a demand (pending or published) by the publisher.
@@ -153,7 +172,22 @@ func (s *DemandService) Cancel(ctx context.Context, a domain.Actor, id string) (
 	if d.Status != domain.DemandPending && d.Status != domain.DemandPublished {
 		return domain.Demand{}, fmt.Errorf("demand in status %s cannot be cancelled", d.Status)
 	}
-	return s.repo.SetStatus(ctx, id, domain.DemandCancelled)
+	// 两个合法前置状态：逐个 CAS，任一成功即完成；两者都失败说明状态竞态已变
+	ok, _, err := s.repo.CompareAndSetStatus(ctx, id, domain.DemandPending, domain.DemandCancelled)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if !ok {
+		ok, _, err = s.repo.CompareAndSetStatus(ctx, id, domain.DemandPublished, domain.DemandCancelled)
+		if err != nil {
+			return domain.Demand{}, err
+		}
+	}
+	if !ok {
+		return domain.Demand{}, errors.New("需求状态已变更，请刷新后重试")
+	}
+	d.Status = domain.DemandCancelled
+	return d, nil
 }
 
 func (s *DemandService) Review(ctx context.Context, a domain.Actor, id, action, reason string) (domain.Demand, error) {
@@ -173,19 +207,34 @@ func (s *DemandService) Review(ctx context.Context, a domain.Actor, id, action, 
 	}
 	switch action {
 	case "approve":
-		return s.repo.SetStatus(ctx, id, domain.DemandPublished)
-	case "reject":
-		// 驳回理由落库（BizFields），供发布者查看
-		d, err := s.repo.FindByID(ctx, id)
+		ok, _, err := s.repo.CompareAndSetStatus(ctx, id, domain.DemandPending, domain.DemandPublished)
 		if err != nil {
 			return domain.Demand{}, err
 		}
-		d.Status = domain.DemandRejected
-		if d.BizFields == nil {
-			d.BizFields = map[string]any{}
+		if !ok {
+			return domain.Demand{}, errors.New("需求状态已变更，请刷新后重试")
 		}
-		d.BizFields["reject_reason"] = reason
-		return s.repo.Update(ctx, d)
+		d.Status = domain.DemandPublished
+		return d, nil
+	case "reject":
+		// 原子迁移 pending → rejected（与 approve/取消并发时后到者失败，防"驳回后被翻回已发布"）
+		ok, _, err := s.repo.CompareAndSetStatus(ctx, id, domain.DemandPending, domain.DemandRejected)
+		if err != nil {
+			return domain.Demand{}, err
+		}
+		if !ok {
+			return domain.Demand{}, errors.New("需求状态已变更，请刷新后重试")
+		}
+		// 驳回理由落库（BizFields），供发布者查看
+		d2, err := s.repo.FindByID(ctx, id)
+		if err != nil {
+			return domain.Demand{}, err
+		}
+		if d2.BizFields == nil {
+			d2.BizFields = map[string]any{}
+		}
+		d2.BizFields["reject_reason"] = reason
+		return s.repo.Update(ctx, d2)
 	case "supplement":
 		// 前端未使用该动作，且 Demand 无"需补充"状态/字段支撑该流转：
 		// 原实现只是把已是 pending 的需求再置 pending（恒 no-op）。
@@ -208,12 +257,23 @@ func (s *DemandService) CloseByAdmin(ctx context.Context, a domain.Actor, id, re
 	if d.Status != domain.DemandPublished {
 		return domain.Demand{}, errors.New("只有已公开的需求可以关闭")
 	}
-	d.Status = domain.DemandCancelled
-	if d.BizFields == nil {
-		d.BizFields = map[string]any{}
+	// 原子迁移 published → cancelled，防止与发布者操作竞态把非在售需求关闭
+	ok, _, err := s.repo.CompareAndSetStatus(ctx, id, domain.DemandPublished, domain.DemandCancelled)
+	if err != nil {
+		return domain.Demand{}, err
 	}
-	d.BizFields["reject_reason"] = reason
-	return s.repo.Update(ctx, d)
+	if !ok {
+		return domain.Demand{}, errors.New("需求状态已变更，请刷新后重试")
+	}
+	d2, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	if d2.BizFields == nil {
+		d2.BizFields = map[string]any{}
+	}
+	d2.BizFields["reject_reason"] = reason
+	return s.repo.Update(ctx, d2)
 }
 
 // Delete 管理端删除需求（仅已取消/已关闭需求可删，防止误删在审/在售数据）。
@@ -233,8 +293,13 @@ func (s *DemandService) Delete(ctx context.Context, a domain.Actor, id string) e
 
 // ToggleFavorite 收藏/取消收藏需求（登录用户可收藏任意公开需求）。
 func (s *DemandService) ToggleFavorite(ctx context.Context, userID, demandID string, favorite bool) error {
-	if _, err := s.repo.FindByID(ctx, demandID); err != nil {
+	d, err := s.repo.FindByID(ctx, demandID)
+	if err != nil {
 		return err
+	}
+	// 门禁：仅在售需求可被收藏（与意向登记的 published 门禁一致，未发布需求不入收藏）
+	if favorite && d.Status != domain.DemandPublished {
+		return fmt.Errorf("only published demands can be favorited, got %s", d.Status)
 	}
 	if favorite {
 		return s.repo.FavoriteDemand(ctx, userID, demandID)

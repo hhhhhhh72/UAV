@@ -42,7 +42,10 @@ func TestConcurrentApplySingle(t *testing.T) {
 	job, _ := jobRepo.Create(context.Background(), domain.Job{
 		ID: "job-x", EnterpriseID: "ent-1", Title: "t", Status: domain.JobPublished, Version: 1,
 	})
-	svc := service.NewJobService(jobRepo, memory.NewResumeRepository(), memory.NewJobApplicationRepository())
+	resumeRepo := memory.NewResumeRepository()
+	// Apply 现校验简历归属：必须先为用户 u-1 创建一份简历 res-1。
+	resumeRepo.Create(context.Background(), domain.Resume{ID: "res-1", UserID: "u-1", Name: "n"})
+	svc := service.NewJobService(jobRepo, resumeRepo, memory.NewJobApplicationRepository())
 	actor := domain.Actor{ID: "u-1", Role: domain.RoleIndividual}
 
 	var wg sync.WaitGroup

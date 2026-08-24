@@ -647,7 +647,17 @@ func (s *Server) toggleDemandFavorite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.demands.ToggleFavorite(r.Context(), a.ID, r.PathValue("id"), in.Favorite); err != nil {
-		fail(w, r, http.StatusNotFound, err)
+		// 区分 404（需求不存在/无权收藏）与 500（DB/加密故障）
+		code := http.StatusNotFound
+		if strings.Contains(err.Error(), "not found") {
+			code = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "only published") {
+			code = http.StatusBadRequest
+		} else {
+			slog.Warn("toggle demand favorite", "error", err)
+			code = http.StatusInternalServerError
+		}
+		fail(w, r, code, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]bool{"favorite": in.Favorite})
@@ -775,10 +785,16 @@ func (s *Server) createDemand(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.demands.Create(r.Context(), a, in)
 	if err != nil {
-		// 参数/校验错误 → 400；角色/权限错误 → 403（区分错误码，避免掩盖真实原因）
+		// 参数/校验错误 → 400；角色/权限错误 → 403；数据库等系统错误 → 500
+		// （此前一律 403 会把 DB 故障伪装成权限拒绝）
 		code := http.StatusForbidden
-		if strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "cannot") {
+		if errors.Is(err, service.ErrRoleNotAllowed) || errors.Is(err, service.ErrNotOwner) || strings.Contains(err.Error(), "permission") {
+			code = http.StatusForbidden
+		} else if strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "cannot") || strings.Contains(err.Error(), "only") {
 			code = http.StatusBadRequest
+		} else {
+			slog.Warn("create demand failed", "error", err)
+			code = http.StatusInternalServerError
 		}
 		fail(w, r, code, err)
 		return

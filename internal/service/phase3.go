@@ -223,6 +223,10 @@ func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newSta
 	switch newStatus {
 	case "paid":
 		return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（paid 仅管理端可设置）", o.Status, newStatus)
+	case "aftersale":
+		// 售后必须走 ApplyAftersale（带售后字段写入）；经状态 PATCH 直达会形成
+		// aftersale_status 为空的死状态且无法审核，一律拒绝
+		return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（售后请走申请售后接口）", o.Status, newStatus)
 	case "shipped":
 		if o.SellerID != userID {
 			return domain.TradeOrder{}, fmt.Errorf("permission denied: 仅卖家可标记发货")
@@ -236,9 +240,13 @@ func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newSta
 			return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（仅 pending 状态可取消）", o.Status, newStatus)
 		}
 	}
-	updated, err := s.repo.UpdateStatus(ctx, id, newStatus)
+	// 原子迁移：WHERE status=当前读到的状态，并发改单时后写方失败（防 completed 被回退等非法覆盖）
+	ok, updated, err := s.repo.CompareAndSetStatus(ctx, id, o.Status, newStatus)
 	if err != nil {
 		return domain.TradeOrder{}, err
+	}
+	if !ok {
+		return domain.TradeOrder{}, fmt.Errorf("订单状态已变更，请刷新后重试")
 	}
 	// 订单取消：商品恢复为可售（sold → listed），重新出现在供给大厅
 	if newStatus == "cancelled" && s.prodRepo != nil && o.ProductID != "" {
@@ -259,8 +267,8 @@ func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID,
 	if o.BuyerID != userID {
 		return domain.TradeOrder{}, fmt.Errorf("permission denied")
 	}
-	if amountFen < 0 || amountFen > o.AmountFen {
-		return domain.TradeOrder{}, fmt.Errorf("售后金额必须在 0~订单金额之间")
+	if amountFen <= 0 || amountFen > o.AmountFen {
+		return domain.TradeOrder{}, fmt.Errorf("售后金额必须在 0~订单金额之间（含 0 不可申请）")
 	}
 	if o.AftersaleStatus != "" {
 		return domain.TradeOrder{}, fmt.Errorf("该订单已存在售后申请")
@@ -330,7 +338,14 @@ func (s *TradeOrderService) PayOrder(ctx context.Context, buyerID, orderID strin
 	if err := checkOrderTransition(o.Status, "paid"); err != nil {
 		return domain.TradeOrder{}, err
 	}
-	return s.repo.UpdateStatus(ctx, orderID, "paid")
+	ok, updated, err := s.repo.CompareAndSetStatus(ctx, orderID, o.Status, "paid")
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if !ok {
+		return domain.TradeOrder{}, fmt.Errorf("订单状态已变更，请刷新后重试")
+	}
+	return updated, nil
 }
 
 // UpdateStatusAdmin 管理端改单：跳过买卖双方校验，仍受状态机约束。
@@ -343,9 +358,12 @@ func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus
 	if err := checkOrderTransition(o.Status, newStatus); err != nil {
 		return domain.TradeOrder{}, err
 	}
-	updated, err := s.repo.UpdateStatus(ctx, id, newStatus)
+	ok, updated, err := s.repo.CompareAndSetStatus(ctx, id, o.Status, newStatus)
 	if err != nil {
 		return domain.TradeOrder{}, err
+	}
+	if !ok {
+		return domain.TradeOrder{}, fmt.Errorf("订单状态已变更，请刷新后重试")
 	}
 	if newStatus == "cancelled" && s.prodRepo != nil && o.ProductID != "" {
 		if rerr := s.prodRepo.Restore(ctx, o.ProductID); rerr != nil {

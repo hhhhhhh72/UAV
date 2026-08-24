@@ -40,6 +40,9 @@ func (s *JobService) CreateJob(ctx context.Context, a domain.Actor, title, desc,
 	if a.Role != domain.RoleEnterprise && a.Role != domain.RolePlatformAdmin {
 		return domain.Job{}, errors.New("only enterprise can post jobs")
 	}
+	if salaryFen < 0 {
+		return domain.Job{}, errors.New("salary cannot be negative")
+	}
 	now := time.Now()
 	// nextSeq 保证同纳秒连续创建时 ID 唯一（Windows 时钟精度约 100ns），
 	// 否则内存/PG 按 ID 更新会错配到前一条记录。
@@ -173,6 +176,16 @@ func (s *JobService) Apply(ctx context.Context, a domain.Actor, jobID, resumeID 
 	}
 	if j.EnterpriseID == a.ID {
 		return domain.JobApplication{}, errors.New("cannot apply to your own job")
+	}
+	// 简历必须存在且属于当前用户：否则可挂他人简历投递，企业端看到他人完整简历 PII
+	if resumeID != "" {
+		r, err := s.resume.FindByID(ctx, resumeID)
+		if err != nil {
+			return domain.JobApplication{}, fmt.Errorf("resume %s not found: %w", resumeID, err)
+		}
+		if r.UserID != a.ID {
+			return domain.JobApplication{}, errors.New("cannot use another user's resume")
+		}
 	}
 	// 并发防重复投递：check-then-insert 加进程内锁。
 	unlock := lockByKey("apply|" + a.ID + "|" + jobID)

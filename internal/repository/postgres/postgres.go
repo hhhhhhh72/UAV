@@ -80,12 +80,15 @@ func (r *demandRepo) Create(ctx context.Context, d domain.Demand) (domain.Demand
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err)
 	}
+	// 只对落库值加密：响应/业务流转保留明文（与 Update 的 encContact 一致），
+	// 此前就地加密后 return d 会把密文 base64 回传给创建接口前端。
+	encContact := d.Contact
 	if r.cipher != nil && d.Contact != "" {
 		enc, err := r.cipher.Encrypt(d.Contact)
 		if err != nil {
 			return domain.Demand{}, fmt.Errorf("encrypt contact: %w", err)
 		}
-		d.Contact = enc
+		encContact = enc
 	}
 	now := time.Now()
 	d.Version = 1
@@ -96,7 +99,7 @@ func (r *demandRepo) Create(ctx context.Context, d domain.Demand) (domain.Demand
 			biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
 			status, version, created_at, updated_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-		d.ID, d.PublisherID, d.PublisherName, d.Contact, d.District, d.CityCode,
+		d.ID, d.PublisherID, d.PublisherName, encContact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
 		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt)
 	if err != nil {
@@ -266,14 +269,26 @@ func (r *demandRepo) Count(ctx context.Context, f repository.DemandFilter) (int,
 	return n, nil
 }
 
+// escapeLike 转义 LIKE 通配符（% _ \），配合 ESCAPE '\' 使用，防止用户输入被当作通配符。
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
+
 func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, error) {
+	if len(q) > 100 {
+		q = q[:100]
+	}
+	kw := "%" + escapeLike(q) + "%"
 	sql := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
 		status, version, created_at, updated_at
 		FROM demands WHERE status = 'published'
-		AND (title ILIKE $1 OR publisher_name ILIKE $1 OR description ILIKE $1 OR district ILIKE $1 OR city_code ILIKE $1)
+		AND (title ILIKE $1 ESCAPE '\' OR publisher_name ILIKE $1 ESCAPE '\' OR description ILIKE $1 ESCAPE '\' OR district ILIKE $1 ESCAPE '\' OR city_code ILIKE $1 ESCAPE '\')
 		ORDER BY created_at DESC LIMIT 50`
-	return scanDemands(ctx, r.pool, r.cipher, sql, []any{"%" + q + "%"})
+	return scanDemands(ctx, r.pool, r.cipher, sql, []any{kw})
 }
 
 // ListByPublisher 返回某发布者的全部需求（全状态），供"我的"页统计/查询。
@@ -591,9 +606,12 @@ func (r *enterpriseRepo) Delete(ctx context.Context, id string) error {
 }
 
 func (r *enterpriseRepo) Search(ctx context.Context, q string) ([]domain.Enterprise, error) {
+	if len(q) > 100 {
+		q = q[:100]
+	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, owner_user_id, name, license_url, account_name, status, is_member, version, created_at, updated_at
-		FROM enterprises WHERE name ILIKE $1 OR address ILIKE $1 OR industry_category ILIKE $1 ORDER BY created_at DESC LIMIT 50`, "%"+q+"%")
+		FROM enterprises WHERE name ILIKE $1 ESCAPE '\' OR address ILIKE $1 ESCAPE '\' OR industry_category ILIKE $1 ESCAPE '\' ORDER BY created_at DESC LIMIT 50`, "%"+escapeLike(q)+"%")
 	if err != nil {
 		return nil, fmt.Errorf("search enterprises: %w", err)
 	}
@@ -1568,6 +1586,24 @@ func (r *refreshTokenRepo) Revoke(ctx context.Context, tokenHash string) error {
 		return fmt.Errorf("revoke refresh token: %w", err)
 	}
 	return nil
+}
+
+// Consume 原子消费：DELETE 成功（影响 1 行）才返回 found=true。并发第二次消费影响 0 行 → 拒绝，
+// 保证同一刷新令牌不会签发两份新会话。
+func (r *refreshTokenRepo) Consume(ctx context.Context, tokenHash string) (bool, string, time.Time, error) {
+	var userID string
+	var expiresAt time.Time
+	err := r.pool.QueryRow(ctx,
+		`DELETE FROM refresh_tokens WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at > NOW()
+		 RETURNING user_id, expires_at`, tokenHash).
+		Scan(&userID, &expiresAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, "", time.Time{}, nil
+		}
+		return false, "", time.Time{}, fmt.Errorf("consume refresh token: %w", err)
+	}
+	return true, userID, expiresAt, nil
 }
 
 // scanContracts removed — replaced by scanContractsPaged

@@ -602,7 +602,7 @@ func TestAftersaleFlow(t *testing.T) {
 	requestAs(t, app, http.MethodPut, "/api/v1/admin/orders/"+oid2,
 		[]byte(`{"status":"paid"}`), "admin-1", domain.RolePlatformAdmin)
 	if w := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid2+"/aftersale",
-		[]byte(`{"aftersale_type":"return","aftersale_reason":"不想要了"}`), "buyer-2", domain.RoleIndividual); w.Code != http.StatusOK {
+		[]byte(`{"aftersale_type":"return","aftersale_reason":"不想要了","aftersale_amount_fen":500000}`), "buyer-2", domain.RoleIndividual); w.Code != http.StatusOK {
 		t.Fatalf("apply aftersale2: %d %s", w.Code, w.Body.String())
 	}
 	rj := requestAs(t, app, http.MethodPut, "/api/v1/admin/orders/"+oid2+"/aftersale",

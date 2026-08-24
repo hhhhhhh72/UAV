@@ -668,6 +668,7 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	uid := "user-" + loginID
 	passwordHash := ""
 	var user map[string]any
+	matchedID := uid
 	found := false // 账号是否存在于用户库（PG 或兼容 users.json）
 	for _, candidate := range []string{uid, loginID} {
 		u, err := s.userRepo.FindByID(r.Context(), candidate)
@@ -676,6 +677,7 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		found = true
 		passwordHash = u.PasswordHash
+		matchedID = u.ID
 		if u.Role != "" {
 			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(u.Role), "status": u.Status}
 		}
@@ -715,6 +717,10 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	s.clearAccountFailures(loginID)
 
 	// Issue Go backend tokens
+	if user == nil {
+		// 账号存在但 role 为空（后台建号/迁移数据）：user 未初始化，补默认身份
+		user = map[string]any{"id": matchedID, "phone": loginID, "role": "individual"}
+	}
 	id, _ := user["id"].(string)
 	if id == "" {
 		id = uid

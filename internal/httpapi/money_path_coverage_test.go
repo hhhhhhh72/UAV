@@ -414,7 +414,7 @@ func TestB3TradeOrderAftersaleReview(t *testing.T) {
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid2+"/pay", nil, "buyer-3", domain.RoleIndividual)
 	assertStatus(t, http.MethodPost, ".../pay2", w, http.StatusOK)
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid2+"/aftersale",
-		[]byte(`{"aftersale_type":"return","aftersale_reason":"不想要了"}`), "buyer-3", domain.RoleIndividual)
+		[]byte(`{"aftersale_type":"return","aftersale_reason":"不想要了","aftersale_amount_fen":500000}`), "buyer-3", domain.RoleIndividual)
 	assertStatus(t, http.MethodPost, ".../aftersale apply2", w, http.StatusOK)
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid2+"/aftersale/review",
 		[]byte(`{"action":"reject"}`), "seller-1", domain.RoleEnterprise)
@@ -429,7 +429,7 @@ func TestB3TradeOrderAftersaleReview(t *testing.T) {
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid3+"/pay", nil, "buyer-4", domain.RoleIndividual)
 	assertStatus(t, http.MethodPost, ".../pay3", w, http.StatusOK)
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid3+"/aftersale",
-		[]byte(`{"aftersale_type":"refund"}`), "buyer-4", domain.RoleIndividual)
+		[]byte(`{"aftersale_type":"refund","aftersale_amount_fen":500000}`), "buyer-4", domain.RoleIndividual)
 	assertStatus(t, http.MethodPost, ".../aftersale apply3", w, http.StatusOK)
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid3+"/aftersale/review",
 		[]byte(`{"action":"hack"}`), "seller-1", domain.RoleEnterprise)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -60,11 +61,16 @@ func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, dem
 	if _, err := s.intents.UpdateStatus(ctx, it.ID, "contacted"); err != nil {
 		return domain.WorkOrder{}, err
 	}
+	// 其余意向关闭失败不阻断接单，但必须记录审计，避免残留多条 pending+已接受意向无提示
 	others, err := s.intents.ListByDemand(ctx, demandID)
-	if err == nil {
+	if err != nil {
+		slog.Warn("accept intent: list remaining intents failed", "demand_id", demandID, "error", err)
+	} else {
 		for _, o := range others {
 			if o.ID != it.ID && o.Status == "pending" {
-				_, _ = s.intents.UpdateStatus(ctx, o.ID, "closed")
+				if _, cerr := s.intents.UpdateStatus(ctx, o.ID, "closed"); cerr != nil {
+					slog.Warn("accept intent: close other intent failed", "intent_id", o.ID, "error", cerr)
+				}
 			}
 		}
 	}

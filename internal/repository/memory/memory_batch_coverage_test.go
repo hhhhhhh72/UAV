@@ -354,9 +354,9 @@ func TestCooperationRepoCoverage(t *testing.T) {
 func TestRescueCaseRepoCoverage(t *testing.T) {
 	r := memory.NewRescueCaseRepository()
 
-	_, err := r.Create(context.Background(), domain.RescueCase{ID: "rc-1", Title: "山火救援", EventType: "mountain_fire", Location: "重庆", DroneModel: "M300", TeamName: "蓝天救援队", Summary: "无人机热成像搜索"})
+	_, err := r.Create(context.Background(), domain.RescueCase{ID: "rc-1", Title: "山火救援", EventType: "mountain_fire", Location: "重庆", DroneModel: "M300", TeamName: "蓝天救援队", Summary: "无人机热成像搜索", Status: "published"})
 	mbErr(t, "Create", err, false)
-	_, err = r.Create(context.Background(), domain.RescueCase{ID: "rc-2", Title: "洪水救援", EventType: "flood", Location: "武汉", DroneModel: "M30", TeamName: "红十字", Summary: "抛投救生圈"})
+	_, err = r.Create(context.Background(), domain.RescueCase{ID: "rc-2", Title: "洪水救援", EventType: "flood", Location: "武汉", DroneModel: "M30", TeamName: "红十字", Summary: "抛投救生圈", Status: "published"})
 	mbErr(t, "Create2", err, false)
 
 	f, err := r.FindByID(context.Background(), "rc-1")

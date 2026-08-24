@@ -564,6 +564,19 @@ func (r *tradeOrderRepo) UpdateStatus(ctx context.Context, id, status string) (d
 	}
 	return r.FindByID(ctx, id)
 }
+func (r *tradeOrderRepo) CompareAndSetStatus(ctx context.Context, id, oldStatus, newStatus string) (bool, domain.TradeOrder, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE trade_orders SET status=$1,updated_at=$2,version=version+1 WHERE id=$3 AND status=$4`,
+		newStatus, time.Now(), id, oldStatus)
+	if err != nil {
+		return false, domain.TradeOrder{}, fmt.Errorf("compare-and-set trade order status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return false, domain.TradeOrder{}, nil
+	}
+	o, err := r.FindByID(ctx, id)
+	return true, o, err
+}
 func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error) {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE trade_orders SET status=$1,aftersale_type=$2,aftersale_reason=$3,aftersale_desc=$4,aftersale_amount_fen=$5,aftersale_status=$6,aftersale_time=$7,updated_at=$8,version=version+1 WHERE id=$9`,
