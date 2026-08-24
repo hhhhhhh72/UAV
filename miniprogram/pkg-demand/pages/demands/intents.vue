@@ -1,7 +1,7 @@
 <template>
   <view class="intents-page">
     <!-- 头部 -->
-    <view class="page-header">
+    <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">收到的对接意向</text>
       <view class="head-spacer"></view>
@@ -76,10 +76,20 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getErrorMessage } from '../../../utils/request'
+import { useSafeTop } from '../../../utils/safeTop'
+
+// 自定义导航：状态栏留白 + 标题居中
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
+const { topPad, initSafeTop } = useSafeTop(true)
+const headerStyle = computed(() => ({
+  paddingTop: (topPad.value || statusBarH.value) + 'px',
+  height: (56 + (topPad.value || statusBarH.value)) + 'px',
+}))
 
 const intents = ref([])
 const loadError = ref(false)
@@ -130,6 +140,7 @@ const fetchSingle = async (demandId) => {
 }
 
 onLoad((options) => {
+  initSafeTop()
   if (options && options.demandId) {
     singleDemand.value = options.demandId
     fetchSingle(options.demandId)
@@ -200,7 +211,7 @@ const goBack = () => safeBack()
 }
 
 .page-header {
-  height: 56px;
+  box-sizing: border-box;
   padding: 0 28rpx;
   display: flex;
   align-items: center;
@@ -213,7 +224,7 @@ const goBack = () => safeBack()
 }
 .back-btn { width: 72rpx; height: 72rpx; display: flex; align-items: center; justify-content: center; }
 .back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
-.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; }
+.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; text-align: center; }
 .head-spacer { width: 72rpx; }
 
 .list-head {

@@ -24,7 +24,7 @@
           <view class="hero-highlight" />
 
           <!-- 顶部导航（毛玻璃） -->
-          <view class="hero-nav">
+          <view class="hero-nav" :style="{ top: (statusBarH + 4) + 'px' }">
             <view class="nav-back" hover-class="nav-press" :hover-stay-time="100" @click="goBack">
               <text class="nav-back-icon">‹</text>
             </view>
@@ -36,7 +36,7 @@
           </view>
 
           <!-- 左上状态徽章 -->
-          <view class="status-badge">
+          <view class="status-badge" :style="{ top: (statusBarH + 44) + 'px' }">
             <view class="status-dot" />
             <text class="status-text">{{ statusText(detail) }}</text>
           </view>
@@ -265,6 +265,9 @@ const id = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
 const detail = ref(null)
+// 状态栏高度（Hero 导航避让：微信端 CSS var(--status-bar-height) 不可靠，改用 JS 值）
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
 const activePriceIndex = ref(0) // 培训参考价选中项（默认第一个热销）
 const imgLoaded = reactive({ banner: false, certificate: false, env: {} })
 
@@ -610,7 +613,6 @@ onPullDownRefresh(function () {
 
 .hero-nav {
   position: absolute;
-  top: var(--status-bar-height);
   left: 0;
   right: 0;
   padding: 8rpx 24rpx;
@@ -654,7 +656,6 @@ onPullDownRefresh(function () {
 
 .status-badge {
   position: absolute;
-  top: calc(var(--status-bar-height) + 80rpx);
   left: 32rpx;
   display: flex;
   align-items: center;

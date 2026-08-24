@@ -838,7 +838,8 @@ export default {
   background: #ffffff;
   /* 顶部内边距由 JS 读取的真实状态栏高度接管（模板 :style），此处归零 */
   padding: 0;
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 5;
   border-bottom: 1rpx solid #EEF1F4;
 }

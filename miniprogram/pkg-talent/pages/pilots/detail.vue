@@ -7,7 +7,7 @@
       <view class="hero-ring hero-ring-inner" />
 
       <!-- 返回按钮（浅色背景用深灰） -->
-      <view class="back-btn" hover-class="back-btn-hover" :hover-stay-time="120" @tap="goBack">
+      <view class="back-btn" :style="{ top: (statusBarH + 10) + 'px' }" hover-class="back-btn-hover" :hover-stay-time="120" @tap="goBack">
         <text class="back-icon">‹</text>
       </view>
 
@@ -157,6 +157,9 @@ import { request } from '../../../utils/request'
 
 const contentReady = ref(false)
 const pilot = ref(null)
+// 状态栏高度（Hero 返回钮避让）
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
 const goBack = () => safeBack()
 
 // ── 头像：姓名首字 + 姓名哈希渐变（每人不同）──
@@ -371,7 +374,6 @@ onReady(() => {
 /* 返回按钮（浅色背景用深灰） */
 .back-btn {
   position: absolute;
-  top: 76rpx;
   left: 24rpx;
   z-index: 5;
   width: 64rpx;

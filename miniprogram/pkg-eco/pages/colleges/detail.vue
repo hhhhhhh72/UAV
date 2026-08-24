@@ -9,7 +9,7 @@
     >
       <template v-if="detail">
         <!-- ① Hero：真实校园全景图 + 三段蒙层 + 校徽半嵌 -->
-        <view class="hero">
+        <view class="hero" :style="{ paddingTop: (statusBarH + 44) + 'px' }">
           <!-- 兜底层（图片缺失时可见） -->
           <view class="hero-fallback">
             <view class="hero-deco">
@@ -146,6 +146,10 @@ import { safeBack } from '../../../utils/nav'
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
+
+// 状态栏高度（Hero 导航避让）
+const statusBarH = ref(20)
+try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
 import StateView from '../../../components/StateView.vue'
 
 const id = ref('')
@@ -316,11 +320,12 @@ onLoad(function (options) {
 /* ① 深空蓝 Hero                                                       */
 /* ================================================================= */
 .hero {
-  height: 260rpx;
+  min-height: 300rpx;
   background: linear-gradient(135deg, #074D92 0%, #0A66C2 100%);
   position: relative;
   overflow: hidden;
-  padding: 88rpx 32rpx 40rpx;
+  padding: 44px 32rpx 40rpx; /* JS 注入真实 paddingTop（状态栏避让） */
+  box-sizing: border-box;
 }
 
 /* 兜底层（图片缺失时显示装饰渐变） */

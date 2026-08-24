@@ -213,7 +213,7 @@
 
   <!-- ═══════ 就地搜索覆盖层（点击搜索框在当前页展开，不跳搜索页） ═══════ -->
   <view v-if="showSearch" class="ov-overlay">
-    <view class="ov-bar">
+    <view class="ov-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="ov-back" hover-class="tap-fade" hover-stay-time="120" @tap="closeSearch">
         <view class="ov-back-arrow"></view>
       </view>
@@ -1065,10 +1065,8 @@ onPullDownRefresh(() => {
   display: flex;
   align-items: center;
   gap: 16rpx;
-  padding: 16rpx 20rpx 16rpx;
-  /* 原生导航页面：视口从导航条下方开始，无需状态栏避让；
-     与页面 .topbar 同款写法，env(safe-area-inset-top) 在本页返回 0 */
-  padding-top: calc(env(safe-area-inset-top) + 16rpx);
+  padding: 16rpx 20rpx;
+  /* paddingTop 由模板 JS 注入（与页面 .topbar 一致，env(safe-area-inset-top) 微信端返回 0） */
   flex-shrink: 0;
 }
 .ov-back {

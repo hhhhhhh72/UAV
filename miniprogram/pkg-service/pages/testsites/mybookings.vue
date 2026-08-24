@@ -1,6 +1,6 @@
 <template>
-  <view class="ts-page">
-    <u-nav-bar title="我的预约" show-back @back="goBack" />
+  <view class="ts-page" :style="{ paddingTop: navPad + 'px' }">
+    <u-nav-bar title="我的预约" show-back :fixed="true" @back="goBack" />
 
     <StateView
       :loading="loading"
@@ -55,6 +55,10 @@ import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
 import { safeBack } from '../../../utils/nav'
 import StateView from '../../../components/StateView.vue'
+
+// navPad = u-nav-bar fixed 预留导航高度（状态栏 + 44px）
+const navPad = ref(64)
+try { navPad.value = (uni.getSystemInfoSync().statusBarHeight || 20) + 44 } catch (e) { /* 默认 64 */ }
 
 const STATUS_MAP = { pending: '待审核', approved: '已通过', rejected: '已驳回', completed: '已完成' }
 

@@ -1,6 +1,6 @@
 <template>
-  <view class="ts-page">
-    <u-nav-bar title="测试场地" show-back @back="goBack" />
+  <view class="ts-page" :style="{ paddingTop: navPad + 'px' }">
+    <u-nav-bar title="测试场地" show-back :fixed="true" @back="goBack" />
 
     <u-search v-model="keyword" placeholder="搜索场地名称或位置" @change="onSearch" />
 
@@ -86,6 +86,9 @@ const activeType = ref('all')
 const loading = ref(false)
 const errorMsg = ref('')
 const sites = ref([])
+// u-nav-bar fixed 时页面根需预留导航高度（状态栏+44px）
+const navPad = ref(64)
+try { navPad.value = (uni.getSystemInfoSync().statusBarHeight || 20) + 44 } catch (e) { /* 默认 64 */ }
 
 const typePills = [
   { label: '全部', value: 'all' },

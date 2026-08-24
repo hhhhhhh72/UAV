@@ -1,8 +1,9 @@
 <template>
-  <view class="resource-detail-page">
+  <view class="resource-detail-page" :style="{ paddingTop: navPad + 'px' }">
     <u-nav-bar
       title="资源详情"
       show-back
+      :fixed="true"
       @back="goBack"
     />
 
@@ -153,6 +154,8 @@ export default {
       loading: false,
       errorMsg: '',
       detail: null,
+      // navPad = u-nav-bar fixed 预留导航高度（状态栏 + 44px）
+      navPad: 64,
       bookingPopupVisible: false,
       bookingSubmitting: false,
       // 预约日期可选择的最小日期（今天），限制不可预约过去日期
@@ -183,6 +186,7 @@ export default {
   },
   onLoad(options) {
     this.id = options.id || ''
+    try { this.navPad = (uni.getSystemInfoSync().statusBarHeight || 20) + 44 } catch (e) { /* 默认 64 */ }
     this.fetchDetail()
   },
   methods: {

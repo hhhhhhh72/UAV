@@ -1,6 +1,6 @@
 <template>
-  <view class="tsd-page">
-    <u-nav-bar title="场地详情" show-back @back="goBack" />
+  <view class="tsd-page" :style="{ paddingTop: navPad + 'px' }">
+    <u-nav-bar title="场地详情" show-back :fixed="true" @back="goBack" />
 
     <!-- 加载中 -->
     <view v-if="loading" class="state-inline">
@@ -82,6 +82,10 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request } from '@/utils/request'
+
+// navPad = u-nav-bar fixed 预留导航高度（状态栏 + 44px）
+const navPad = ref(64)
+try { navPad.value = (uni.getSystemInfoSync().statusBarHeight || 20) + 44 } catch (e) { /* 默认 64 */ }
 
 const SITE_TYPE_MAP = {
   flying_field: '飞行场地',
