@@ -528,6 +528,7 @@
 </template>
 
 <script setup>
+import { safeBack } from '../../../utils/nav'
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import HomeFloatButton from '@/components/HomeFloatButton.vue'

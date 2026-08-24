@@ -107,6 +107,7 @@
 </template>
 
 <script setup>
+import { safeBack } from '../../../utils/nav'
 import { ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'

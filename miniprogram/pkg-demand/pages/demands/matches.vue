@@ -119,7 +119,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { safeNavigateTo } from '../../../utils/nav'
+import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, BASE_URL } from '../../../utils/request'
 import { useSafeTop } from '../../../utils/safeTop'
 

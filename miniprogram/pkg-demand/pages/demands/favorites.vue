@@ -70,7 +70,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { safeNavigateTo } from '../../../utils/nav'
+import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getErrorMessage, authStorage } from '../../../utils/request'
 import { bizTypeLabel } from '../../../utils/enums'
 import { useSafeTop } from '../../../utils/safeTop'

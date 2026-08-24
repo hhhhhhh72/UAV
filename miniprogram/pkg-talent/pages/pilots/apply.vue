@@ -131,7 +131,7 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request, BASE_URL, authStorage } from '../../../utils/request'
-import { requireLogin } from '../../../utils/nav'
+import { requireLogin, safeBack } from '../../../utils/nav'
 import { useSafeTop } from '../../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)

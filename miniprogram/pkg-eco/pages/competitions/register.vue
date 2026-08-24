@@ -212,6 +212,7 @@
 </template>
 
 <script setup>
+import { safeBack } from '../../../utils/nav'
 import { ref, reactive, computed } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { request, authStorage, BASE_URL, getErrorMessage } from '../../../utils/request'

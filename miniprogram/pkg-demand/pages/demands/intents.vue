@@ -78,7 +78,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { safeNavigateTo } from '../../../utils/nav'
+import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getErrorMessage } from '../../../utils/request'
 
 const intents = ref([])

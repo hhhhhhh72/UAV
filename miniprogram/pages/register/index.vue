@@ -104,6 +104,7 @@
 </template>
 
 <script setup>
+import { safeBack } from '../../utils/nav'
 import { ref, computed } from 'vue'
 const statusBarH = ref(20)
 try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }

@@ -219,7 +219,7 @@
 import { ref, computed, watch } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import { request } from '../../utils/request'
-import { safeNavigateTo } from '../../utils/nav'
+import { safeNavigateTo, safeBack } from '../../utils/nav'
 import {
   IMG_SOLAR, IMG_LIFT, IMG_HERO, isEnded, normalizeDemand, normalizeService,
   getKindItems, isLoggedIn, currentUserName, saveSentIntents, getSentIntents,

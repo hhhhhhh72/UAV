@@ -119,7 +119,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { safeNavigateTo } from '../../../utils/nav'
+import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getStoredUser, getErrorMessage } from '../../../utils/request'
 
 // 自定义导航：头部下沉到状态栏下方
