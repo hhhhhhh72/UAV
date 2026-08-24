@@ -278,14 +278,16 @@ func (s *Server) listExhibitions(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	// 公开列表仅展示已发布展会（管理端仍全量，另走 admin 接口）
-	published := make([]domain.Exhibition, 0, len(list))
+	// 公开列表仅展示公开态展会；管理端仍全量，另走 admin 接口。
+	// 展会状态枚举为 recruiting/underway/ended（无 published）——此前仅认
+	// published 导致全部展会被过滤、排期页无数据。
+	public := make([]domain.Exhibition, 0, len(list))
 	for _, e := range list {
-		if e.Status == "published" {
-			published = append(published, e)
+		if e.Status == "recruiting" || e.Status == "underway" || e.Status == "published" {
+			public = append(public, e)
 		}
 	}
-	paginatedRespond(w, r, published, len(published))
+	paginatedRespond(w, r, public, len(public))
 }
 
 func (s *Server) applyBooth(w http.ResponseWriter, r *http.Request) {
