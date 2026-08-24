@@ -1537,14 +1537,23 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		ProductID string `json:"product_id"`
 		BuyerID   string `json:"buyer_id"`
-		SellerID  string `json:"seller_id"`
-		AmountFen int64  `json:"amount_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, 400, err)
 		return
 	}
-	o, err := s.tradeSvc.Create(r.Context(), in.BuyerID, in.ProductID, in.SellerID, in.AmountFen)
+	if in.BuyerID == "" {
+		fail(w, r, 400, errors.New("buyer_id required"))
+		return
+	}
+	// 资金逻辑：金额与卖家一律以服务端商品为准——此前 amount_fen/seller_id 客户端
+	// 自报，管理端可任意改价/伪造卖家。与买家下单路径（P0 修复）同一口径。
+	product, err := s.tradingSvc.GetProduct(r.Context(), in.ProductID)
+	if err != nil {
+		adminFail(w, r, fmt.Errorf("product not found: %w", err))
+		return
+	}
+	o, err := s.tradeSvc.Create(r.Context(), in.BuyerID, in.ProductID, product.SellerID, product.PriceFen)
 	if err != nil {
 		adminFail(w, r, err)
 		return

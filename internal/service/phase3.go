@@ -67,9 +67,17 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	// 容量：course.MaxStudents > 0 时，该课已报名数 >= MaxStudents 拒绝。
 	// 课程不存在/查询失败时跳过容量检查（兼容无课程仓储的测试与历史数据）。
 	if s.courseRepo != nil {
-		if c, err := s.courseRepo.FindByID(ctx, courseID); err == nil && c.MaxStudents > 0 {
-			if enrolls, err := s.repo.ListByCourse(ctx, courseID); err == nil && len(enrolls) >= c.MaxStudents {
-				return domain.Enrollment{}, fmt.Errorf("course is full")
+		if c, err := s.courseRepo.FindByID(ctx, courseID); err == nil {
+			// 资金逻辑：付费课程禁止免费报名——此前 /enroll 不校验 price_fen，
+			// 付费课可 0 元直接报名成功（绕过 pay-and-enroll 的学费冻结）。付费
+			// 报名必须携带与课程价一致的 PaidAmountFen（payAndEnroll 冻结后固化写入）。
+			if c.PriceFen > 0 && form.PaidAmountFen != c.PriceFen {
+				return domain.Enrollment{}, fmt.Errorf("paid course requires payment (free enrollment not allowed)")
+			}
+			if c.MaxStudents > 0 {
+				if enrolls, err := s.repo.ListByCourse(ctx, courseID); err == nil && len(enrolls) >= c.MaxStudents {
+					return domain.Enrollment{}, fmt.Errorf("course is full")
+				}
 			}
 		}
 	}

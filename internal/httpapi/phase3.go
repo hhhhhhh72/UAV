@@ -83,7 +83,13 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 		// 报名失败必须回滚冻结（重复报名/参数错误等），否则用户资金滞留 frozen
 		// 且无法自助解冻——托管金写接口仅管理员可用。
 		if course.PriceFen > 0 {
-			_, _ = s.escrowSvc.Refund(r.Context(), a.ID, course.PriceFen, "training_course", course.ID)
+			// 资金逻辑：回滚退款失败不得静默——无日志则资金滞留无人知晓；
+			// RefundOrphanFreezes 补偿任务会兜底，但此处必须留痕。
+			if _, rerr := s.escrowSvc.Refund(r.Context(), a.ID, course.PriceFen, "training_course", course.ID); rerr != nil {
+				slog.Error("refund rollback after enroll failure failed",
+					"user_id", a.ID, "course_id", course.ID, "amount_fen", course.PriceFen, "error", rerr,
+					"enroll_error", err)
+			}
 		}
 		fail(w, r, http.StatusConflict, err)
 		return
@@ -430,8 +436,12 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	o, err := s.tradeSvc.Create(r.Context(), a.ID, product.ID, product.SellerID, product.PriceFen)
 	if err != nil {
-		// 订单创建失败：回滚商品为 listed，允许继续售卖
-		_ = s.tradingSvc.RestoreProduct(r.Context(), product.ID)
+		// 订单创建失败：回滚商品为 listed，允许继续售卖——
+		// 回滚失败导致商品滞留 sold 无法再售，必须留痕（此前静默吞错）。
+		if rerr := s.tradingSvc.RestoreProduct(r.Context(), product.ID); rerr != nil {
+			slog.Error("restore product after order creation failed failed",
+				"product_id", product.ID, "order_error", err, "restore_error", rerr)
+		}
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
