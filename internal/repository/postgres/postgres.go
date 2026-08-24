@@ -2139,8 +2139,11 @@ func (r *pgCollegeRepo) List(ctx context.Context, region string) ([]domain.Colle
 	q := `SELECT ` + collegeCols + ` FROM colleges`
 	args := []any{}
 	if region != "" {
-		q += ` WHERE region=$1`
+		q += ` WHERE region=$1 AND status='active'`
 		args = append(args, region)
+	} else {
+		// P 批修复：公开列表仅展示 active——此前不过滤 status，下架/无效院校仍公开显示。
+		q += ` WHERE status='active'`
 	}
 	q += ` ORDER BY created_at DESC`
 	rows, err := r.pool.Query(ctx, q, args...)

@@ -254,9 +254,9 @@ func TestTransformationRepoCoverage(t *testing.T) {
 func TestCollegeRepoCoverage(t *testing.T) {
 	r := memory.NewCollegeRepository()
 
-	_, err := r.Create(context.Background(), domain.College{ID: "col-1", Name: "西工大", Region: "陕西"})
+	_, err := r.Create(context.Background(), domain.College{ID: "col-1", Name: "西工大", Region: "陕西", Status: "active"})
 	mbErr(t, "Create", err, false)
-	_, err = r.Create(context.Background(), domain.College{ID: "col-2", Name: "北航", Region: "北京"})
+	_, err = r.Create(context.Background(), domain.College{ID: "col-2", Name: "北航", Region: "北京", Status: "active"})
 	mbErr(t, "Create2", err, false)
 
 	f, err := r.FindByID(context.Background(), "col-1")

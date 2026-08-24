@@ -95,6 +95,10 @@ func (r *collegeRepo) List(ctx context.Context, region string) ([]domain.College
 	defer r.mu.RUnlock()
 	out := make([]domain.College, 0)
 	for _, c := range r.items {
+		// 与 PG 对齐：公开列表仅展示 active。
+		if c.Status != "active" {
+			continue
+		}
 		if region == "" || c.Region == region {
 			out = append(out, c)
 		}
