@@ -557,7 +557,7 @@ onReachBottom(() => {
 .mh-bar { position: relative; display: flex; align-items: center; justify-content: center; height: 88rpx; }
 .mh-back { position: absolute; left: 8rpx; top: 0; width: 88rpx; height: 88rpx; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317212b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 4l-8 8 8 8'/%3E%3C/svg%3E"); background-size: 44rpx; background-repeat: no-repeat; background-position: center; transition: opacity .2s ease; }
 .mh-back:active { opacity: .6; }
-.mh-title { font-family: Georgia, "Songti SC", "STSong", SimSun, serif; font-size: 32rpx; font-weight: 600; letter-spacing: 2rpx; color: #17212B; } /* 白底衬线：34→32rpx 对齐研发难题导航标题字号（字距 4→2rpx 避免报纸头条感） */
+.mh-title { font-size: 32rpx; font-weight: 600; color: #17212B; } /* 对齐 u-nav-bar 标题（系统字体 32rpx/600） */
 .mh-side { position: absolute; right: 0; width: 88rpx; height: 88rpx; }
 
 /* ===== 搜索（白上白：纯白填充 + 灰描边 + 双层投影浮起；宽松热区 88rpx） ===== */

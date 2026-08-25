@@ -377,11 +377,9 @@ export default {
   margin-left: -22rpx;
 }
 .nav-title {
-  font-family: Georgia, 'Songti SC', 'STSong', SimSun, serif;
-  font-size: 34rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: #ffffff;
-  letter-spacing: 4rpx;
 }
 .brand-row {
   display: flex;

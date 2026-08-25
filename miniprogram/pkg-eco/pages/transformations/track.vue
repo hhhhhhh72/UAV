@@ -25,6 +25,7 @@
     <template v-else>
       <!-- 概览 -->
       <view class="t-hero">
+        <view class="t-back" aria-role="button" aria-label="返回上一页" @tap="goBack"></view>
         <view class="t-tag">{{ t.status === 'completed' ? '已完成' : '进行中' }}</view>
         <text class="t-title">{{ t.title }}</text>
         <text class="t-sub">阶段：{{ stageLabel }}<template v-if="rank"> · 已推进至第 {{ rank }}/4 阶段</template></text>
@@ -286,7 +287,9 @@ page { background: var(--color-bg); }
 .page { min-height: 100vh; background: var(--color-bg); padding-bottom: env(safe-area-inset-bottom); }
 
 /* ===== 概览（刊头渐变：Gradient-Lock 唯一深色刊头） ===== */
-.t-hero { padding: 48rpx 40rpx 44rpx; background: linear-gradient(160deg, #0a3a6b, #074d92); color: #fff; }
+.t-hero { position: relative; padding: 48rpx 40rpx 44rpx; background: linear-gradient(160deg, #0a3a6b, #074d92); color: #fff; }
+.t-back { position: absolute; left: 8rpx; top: 12rpx; width: 88rpx; height: 88rpx; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 4l-8 8 8 8'/%3E%3C/svg%3E"); background-size: 44rpx; background-repeat: no-repeat; background-position: center; }
+.t-back:active { opacity: .6; }
 .t-tag { display: inline-block; font-size: 20rpx; padding: 4rpx 16rpx; border-radius: 8rpx; background: rgba(255,255,255,.2); color: #fff; margin-bottom: 16rpx; font-weight: 700; }
 .t-title { font-size: 36rpx; font-weight: 700; line-height: 1.4; display: block; }
 .t-sub { font-size: 24rpx; color: rgba(255,255,255,.82); margin-top: 12rpx; display: block; }
