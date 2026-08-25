@@ -379,6 +379,7 @@ type ReviewRepository interface {
 	Create(ctx context.Context, v domain.Review) (domain.Review, error)
 	ListByTarget(ctx context.Context, targetType, targetID string) ([]domain.Review, error)
 	ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error)
+	FindByID(ctx context.Context, id string) (domain.Review, error)
 	UpdateStatus(ctx context.Context, id string, status string) (domain.Review, error)
 	Delete(ctx context.Context, id string) error
 }

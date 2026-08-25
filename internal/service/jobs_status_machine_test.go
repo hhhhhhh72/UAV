@@ -22,12 +22,12 @@ func TestUpdateJobStatusWhitelist(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, s := range []string{"draft", "published", "closed"} {
-		if _, err := svc.UpdateJob(context.Background(), j.ID, "飞手招聘", "描述", "重庆", "全职", 100000, s); err != nil {
+		if _, err := svc.UpdateJob(context.Background(), j.ID, "飞手招聘", "描述", "重庆", "全职", 100000, s, ""); err != nil {
 			t.Errorf("UpdateJob(%q): %v, want ok", s, err)
 		}
 	}
 	for _, s := range []string{"", "banana", "active", "OPEN"} {
-		if _, err := svc.UpdateJob(context.Background(), j.ID, "飞手招聘", "描述", "重庆", "全职", 100000, s); !errors.Is(err, service.ErrInvalidJobStatus) {
+		if _, err := svc.UpdateJob(context.Background(), j.ID, "飞手招聘", "描述", "重庆", "全职", 100000, s, ""); !errors.Is(err, service.ErrInvalidJobStatus) {
 			t.Errorf("UpdateJob(%q): err=%v, want ErrInvalidJobStatus", s, err)
 		}
 	}

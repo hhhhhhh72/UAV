@@ -92,6 +92,9 @@ func NewRDChallengeService(repo repository.RDChallengeRepository) *RDChallengeSe
 }
 
 func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field, description string, budgetFen int64, deadline time.Time, status string) (domain.RDChallenge, error) {
+	if budgetFen < 0 {
+		return domain.RDChallenge{}, fmt.Errorf("budget cannot be negative")
+	}
 	now := time.Now()
 	if status == "" {
 		status = "published"
@@ -121,6 +124,9 @@ func (s *RDChallengeService) Get(ctx context.Context, id string) (domain.RDChall
 }
 
 func (s *RDChallengeService) Update(ctx context.Context, a domain.Actor, id, title, field, description, status string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
+	if budgetFen < 0 {
+		return domain.RDChallenge{}, fmt.Errorf("budget cannot be negative")
+	}
 	c, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.RDChallenge{}, err
@@ -162,6 +168,9 @@ func NewResearchProjectService(repo repository.ResearchProjectRepository) *Resea
 }
 
 func (s *ResearchProjectService) Create(ctx context.Context, title, field, description, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
+	if budgetFen < 0 {
+		return domain.ResearchProject{}, fmt.Errorf("budget cannot be negative")
+	}
 	now := time.Now()
 	p := domain.ResearchProject{
 		ID:          nextID("proj"),
@@ -191,6 +200,9 @@ func (s *ResearchProjectService) Get(ctx context.Context, id string) (domain.Res
 }
 
 func (s *ResearchProjectService) Update(ctx context.Context, id, title, field, description, status, leadOrg, milestones string, members []string, budgetFen int64, startDate, endDate time.Time) (domain.ResearchProject, error) {
+	if budgetFen < 0 {
+		return domain.ResearchProject{}, fmt.Errorf("budget cannot be negative")
+	}
 	p, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.ResearchProject{}, err
@@ -224,6 +236,9 @@ func NewProjectAppService(repo repository.ProjectAppRepository) *ProjectAppServi
 }
 
 func (s *ProjectAppService) Create(ctx context.Context, applicantID, projectName, category, description string, budgetFen int64, attachments []string) (domain.ProjectApplication, error) {
+	if budgetFen < 0 {
+		return domain.ProjectApplication{}, fmt.Errorf("budget cannot be negative")
+	}
 	now := time.Now()
 	a := domain.ProjectApplication{
 		ID:          nextID("app"),

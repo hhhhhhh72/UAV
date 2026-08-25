@@ -1317,6 +1317,7 @@ func (r *memUserRepo) UpdateAvatar(ctx context.Context, userID, avatarURL string
 	for i := range r.items {
 		if r.items[i].ID == userID {
 			r.items[i].AvatarURL = avatarURL
+			r.items[i].UpdatedAt = time.Now()
 			return nil
 		}
 	}
@@ -1329,6 +1330,7 @@ func (r *memUserRepo) UpdateName(ctx context.Context, userID, name string) error
 	for i := range r.items {
 		if r.items[i].ID == userID {
 			r.items[i].Name = name
+			r.items[i].UpdatedAt = time.Now()
 			return nil
 		}
 	}
@@ -1353,6 +1355,7 @@ func (r *memUserRepo) UpdateProfile(ctx context.Context, id string, p domain.Use
 				}
 				r.items[i].PhoneCipher = enc
 			}
+			r.items[i].UpdatedAt = time.Now()
 			return nil
 		}
 	}
@@ -1408,7 +1411,8 @@ func (r *memRefreshRepo) Revoke(ctx context.Context, tokenHash string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("token not found")
+	// 与 PG 版对齐（UPDATE 无行也成功）：撤销不存在的 token 幂等成功。
+	return nil
 }
 func (r *memRefreshRepo) Consume(ctx context.Context, tokenHash string) (bool, string, time.Time, error) {
 	r.mu.Lock()
@@ -1732,11 +1736,10 @@ func NewCertificateRepository() repository.CertificateRepository { return &certR
 func (r *certRepo) Create(ctx context.Context, c domain.Certificate) (domain.Certificate, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if c.CertNumber != "" {
-		for _, x := range r.items {
-			if x.CertNumber == c.CertNumber {
-				return domain.Certificate{}, repository.ErrCertNumberTaken
-			}
+	// 与 PG 唯一索引对齐（无条件，含空证书号——此前仅非空才查重，行为漂移）。
+	for _, x := range r.items {
+		if x.CertNumber == c.CertNumber {
+			return domain.Certificate{}, repository.ErrCertNumberTaken
 		}
 	}
 	r.items = append(r.items, c)
@@ -2790,6 +2793,16 @@ func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit i
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
+func (r *reviewRepo) FindByID(ctx context.Context, id string) (domain.Review, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, rv := range r.items {
+		if rv.ID == id {
+			return rv, nil
+		}
+	}
+	return domain.Review{}, fmt.Errorf("review %s not found", id)
+}
 func (r *reviewRepo) UpdateStatus(ctx context.Context, id string, status string) (domain.Review, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -3257,10 +3270,36 @@ func (r *escrowRepo) HasReleased(ctx context.Context, fromUser, refType, refID s
 	return false, nil
 }
 
-// ListOrphanFreezes 内存模式无跨进程崩溃窗口（同一进程内 Freeze+Enroll 顺序执行），
-// 且内存存储无法跨仓库判定业务记录存在性，恒返回空——自动补偿仅在 PG 模式生效。
+// ListOrphanFreezes 与 PG 版同语义：返回 refType 下"已冻结但无对应 release 流水"
+// 的孤儿冻结（olderThan 过滤正常窗口），供 RefundOrphanFreezes 补偿。
 func (r *escrowRepo) ListOrphanFreezes(ctx context.Context, refType string, olderThan time.Time, limit int) ([]domain.EscrowTransaction, error) {
-	return nil, nil
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []domain.EscrowTransaction
+	for _, tx := range r.txs {
+		if tx.TxType != "freeze" || tx.ReferenceType != refType {
+			continue
+		}
+		if !tx.CreatedAt.Before(olderThan) {
+			continue
+		}
+		released := false
+		for _, t2 := range r.txs {
+			if t2.TxType == "release" && t2.FromUser == tx.FromUser &&
+				t2.ReferenceType == tx.ReferenceType && t2.ReferenceID == tx.ReferenceID {
+				released = true
+				break
+			}
+		}
+		if released {
+			continue
+		}
+		out = append(out, tx)
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
 }
 
 // ---- Upload（文件上传台账，配额统计用） ----

@@ -71,6 +71,17 @@ func (s *TrainingService) ApproveCertificate(ctx context.Context, a domain.Actor
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Certificate{}, errors.New("admin permission required")
 	}
+	// 状态机前置：approved 幂等；已驳回不得翻转为通过（纠错请重走发证/审核流程）。
+	cur, err := s.certRepo.FindByID(ctx, id)
+	if err != nil {
+		return domain.Certificate{}, err
+	}
+	if cur.Status == "approved" {
+		return cur, nil
+	}
+	if cur.Status == "rejected" {
+		return domain.Certificate{}, errors.New("已驳回的证书不能改为通过")
+	}
 	return s.certRepo.UpdateStatus(ctx, id, "approved")
 }
 
@@ -237,6 +248,17 @@ func (s *TrainingService) ApproveInstructor(ctx context.Context, a domain.Actor,
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Instructor{}, errors.New("admin permission required")
 	}
+	// 状态机前置：approved 幂等；已驳回不得翻转为通过。
+	cur, err := s.instructorRepo.FindByID(ctx, id)
+	if err != nil {
+		return domain.Instructor{}, err
+	}
+	if cur.Status == "approved" {
+		return cur, nil
+	}
+	if cur.Status == "rejected" {
+		return domain.Instructor{}, errors.New("已驳回的培训师不能改为通过")
+	}
 	return s.instructorRepo.UpdateStatus(ctx, id, "approved")
 }
 
@@ -297,13 +319,33 @@ func (s *TrainingService) ApprovePilot(ctx context.Context, a domain.Actor, id s
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.CertifiedPilot{}, errors.New("admin permission required")
 	}
+	// 状态机前置：approved 幂等；已驳回不得翻转为通过（驳回后需重新申请产生新记录）。
+	cur, err := s.pilotRepo.FindByID(ctx, id)
+	if err != nil {
+		return domain.CertifiedPilot{}, err
+	}
+	if cur.Status == "approved" {
+		return cur, nil
+	}
+	if cur.Status == "rejected" {
+		return domain.CertifiedPilot{}, errors.New("已驳回的飞手申请不能改为通过")
+	}
 	return s.pilotRepo.UpdateStatus(ctx, id, "approved")
 }
 
 // RejectPilot 驳回飞手认证申请（管理员），reason 为驳回理由（审核留痕）。
+// 状态机前置：rejected 幂等；approved 可驳回（撤销已通过的认证——纠错需连带
+// 降级身份，因此留痕 reason 必填）；pending/rejected 常规驳回。
 func (s *TrainingService) RejectPilot(ctx context.Context, a domain.Actor, id, reason string) (domain.CertifiedPilot, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.CertifiedPilot{}, errors.New("admin permission required")
+	}
+	cur, err := s.pilotRepo.FindByID(ctx, id)
+	if err != nil {
+		return domain.CertifiedPilot{}, err
+	}
+	if cur.Status == "rejected" {
+		return cur, nil
 	}
 	return s.pilotRepo.UpdateReject(ctx, id, reason)
 }

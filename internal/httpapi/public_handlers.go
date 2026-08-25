@@ -53,6 +53,7 @@ func (s *Server) publicListCerts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
+	page, size := paginationFromQuery(r)
 	all, err := s.studyTourRepo.List(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -66,7 +67,16 @@ func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, t)
 	}
-	respond(w, r, 200, out)
+	// 分页：此前忽略 page/page_size 返回裸数组，前端 hasMore 恒 false（契约断链）。
+	start := (page - 1) * size
+	if start > len(out) {
+		start = len(out)
+	}
+	end := start + size
+	if end > len(out) {
+		end = len(out)
+	}
+	paginatedRespond(w, r, out[start:end], len(out))
 }
 
 func (s *Server) publicListRD(w http.ResponseWriter, r *http.Request) {

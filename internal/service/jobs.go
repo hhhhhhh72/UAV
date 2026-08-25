@@ -103,7 +103,8 @@ func (s *JobService) GetJob(ctx context.Context, id string) (domain.Job, error) 
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *JobService) UpdateJob(ctx context.Context, id, title, desc, location, jobType string, salaryFen int64, status string) (domain.Job, error) {
+// UpdateJob 更新职位；newEnterpriseID 非空时更新归属企业（管理端转移职位）。
+func (s *JobService) UpdateJob(ctx context.Context, id, title, desc, location, jobType string, salaryFen int64, status string, newEnterpriseID string) (domain.Job, error) {
 	// 护栏与 CreateJob 一致：负薪资拒绝（此前管理端入口无校验，发布路径有）。
 	if salaryFen < 0 {
 		return domain.Job{}, ErrInvalidJobStatus
@@ -128,6 +129,9 @@ func (s *JobService) UpdateJob(ctx context.Context, id, title, desc, location, j
 	j.SalaryFen = salaryFen
 	j.Status = domain.JobStatus(status)
 	j.JobType = jobType
+	if newEnterpriseID != "" {
+		j.EnterpriseID = newEnterpriseID
+	}
 	return s.repo.Update(ctx, id, j)
 }
 

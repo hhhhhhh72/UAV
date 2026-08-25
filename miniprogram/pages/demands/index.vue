@@ -528,9 +528,9 @@ const visibleList = computed(() => {
   let out = list.value
   if (typeFilter.value !== '全部') out = out.filter((i) => i.cat === typeFilter.value)
   if (filterRegion.value !== '不限' && !isProductMode.value) out = out.filter((i) => i.region.includes(filterRegion.value))
-  // 预算区间（需求 budgetFen / 服务 priceFen，单位分）
+  // 预算区间（需求 budget_fen / 服务 price_fen，单位分——后端是 snake_case）
   if (filterPrice.value !== '不限' && !isProductMode.value) {
-    const fen = (i) => Number(i.budgetFen || i.priceFen || 0)
+    const fen = (i) => Number(i.budget_fen || i.price_fen || 0)
     const f = filterPrice.value
     if (f === '1 万以下') out = out.filter((i) => fen(i) > 0 && fen(i) < 1000000)
     else if (f === '1-5 万') out = out.filter((i) => fen(i) >= 1000000 && fen(i) <= 5000000)
@@ -539,7 +539,7 @@ const visibleList = computed(() => {
   }
   // 排序：价格优先 = 预算升序（低价优先）；最新发布/匹配度保持列表原序
   if (sortBy.value === 'price' && !isProductMode.value) {
-    out = [...out].sort((a, b) => (Number(a.budgetFen || a.priceFen || 0)) - (Number(b.budgetFen || b.priceFen || 0)))
+    out = [...out].sort((a, b) => (Number(a.budget_fen || a.price_fen || 0)) - (Number(b.budget_fen || b.price_fen || 0)))
   }
   return out
 })

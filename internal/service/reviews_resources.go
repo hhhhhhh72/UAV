@@ -39,6 +39,14 @@ func (s *ReviewService) Submit(ctx context.Context, reviewerID, targetType, targ
 			return domain.Review{}, errors.New("only the publisher or worker can review the work order")
 		}
 	}
+	// 幂等：同一用户对同一目标已评价（pending/approved）则拒绝；被驳回后可重新评价。
+	if existing, err := s.repo.ListByTarget(ctx, targetType, targetID); err == nil {
+		for _, e := range existing {
+			if e.ReviewerID == reviewerID && e.Status != "rejected" {
+				return domain.Review{}, errors.New("您已评价过该目标")
+			}
+		}
+	}
 	r := domain.Review{ID: nextID("review"), ReviewerID: reviewerID,
 		TargetType: targetType, TargetID: targetID, Rating: rating, Content: content, Status: "pending", CreatedAt: time.Now()}
 	return s.repo.Create(ctx, r)
@@ -53,16 +61,36 @@ func (s *ReviewService) ListAll(ctx context.Context, status string, offset, limi
 }
 
 func (s *ReviewService) Approve(ctx context.Context, id string) error {
-	_, err := s.repo.UpdateStatus(ctx, id, "approved")
+	// 状态机前置：当前状态为准（approved 幂等；rejected 已驳回不得再翻转为通过，
+	// 需要重评请让用户重新提交产生新记录）。
+	cur, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		return fmt.Errorf("review %s: %w", id, err)
+	}
+	if cur.Status == "approved" {
+		return nil
+	}
+	if cur.Status == "rejected" {
+		return fmt.Errorf("已驳回的评价不能改为通过")
+	}
+	if _, err := s.repo.UpdateStatus(ctx, id, "approved"); err != nil {
 		return fmt.Errorf("approve review %s: %w", id, err)
 	}
 	return nil
 }
 
 func (s *ReviewService) Reject(ctx context.Context, id string) error {
-	_, err := s.repo.UpdateStatus(ctx, id, "rejected")
+	cur, err := s.repo.FindByID(ctx, id)
 	if err != nil {
+		return fmt.Errorf("review %s: %w", id, err)
+	}
+	if cur.Status == "rejected" {
+		return nil
+	}
+	if cur.Status == "approved" {
+		return fmt.Errorf("已通过的评价不能改为驳回")
+	}
+	if _, err := s.repo.UpdateStatus(ctx, id, "rejected"); err != nil {
 		return fmt.Errorf("reject review %s: %w", id, err)
 	}
 	return nil

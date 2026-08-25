@@ -166,6 +166,12 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 			if ap, aerr := s.trainingSvc.ApproveCertificate(r.Context(), a, cert.ID); aerr == nil {
 				cert = ap
 			}
+		} else if cert.Status != "approved" {
+			// 证书已存在但未获批（初次审批失败被静默忽略的历史半态）：补审批，
+			// 否则证书永久 pending 不构成有效资质。
+			if ap, aerr := s.trainingSvc.ApproveCertificate(r.Context(), a, cert.ID); aerr == nil {
+				cert = ap
+			}
 		}
 		s.audit(r.Context(), a.ID, "complete_enrollment", "enrollment", enrollment.ID, "completed(retry)")
 		respond(w, r, http.StatusOK, map[string]any{

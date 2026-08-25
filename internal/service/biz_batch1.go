@@ -74,6 +74,9 @@ func (s *TestSiteService) Get(ctx context.Context, id string) (domain.TestSite, 
 }
 
 func (s *TestSiteService) UpdateSite(ctx context.Context, id, name, siteType, location, bookingRule, status string, priceFen int64, facilities []string) (domain.TestSite, error) {
+	if priceFen < 0 {
+		return domain.TestSite{}, errors.New("price cannot be negative")
+	}
 	site, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.TestSite{}, err
@@ -169,6 +172,9 @@ func NewExhibitionService(r repository.ExhibitionRepository) *ExhibitionService 
 }
 
 func (s *ExhibitionService) Create(ctx context.Context, title, category, description, location, organizer, coverURL string, startDate, endDate time.Time, boothCount int, boothPrice int64, status string) (domain.Exhibition, error) {
+	if boothPrice < 0 || boothCount < 0 {
+		return domain.Exhibition{}, errors.New("booth count/price cannot be negative")
+	}
 	if status == "" {
 		status = "draft"
 	}
@@ -187,6 +193,9 @@ func (s *ExhibitionService) Get(ctx context.Context, id string) (domain.Exhibiti
 }
 
 func (s *ExhibitionService) Update(ctx context.Context, id, title, category, description, location, organizer, coverURL string, startDate, endDate time.Time, boothCount int, boothPrice int64, status string) (domain.Exhibition, error) {
+	if boothPrice < 0 || boothCount < 0 {
+		return domain.Exhibition{}, errors.New("booth count/price cannot be negative")
+	}
 	e, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Exhibition{}, err

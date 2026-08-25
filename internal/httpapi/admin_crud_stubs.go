@@ -465,18 +465,19 @@ func (s *Server) listAdminJobs(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateJob(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Location    string `json:"location"`
-		JobType     string `json:"job_type"`
-		SalaryFen   int64  `json:"salary_fen"`
-		Status      string `json:"status"`
+		Title        string `json:"title"`
+		Description  string `json:"description"`
+		Location     string `json:"location"`
+		JobType      string `json:"job_type"`
+		SalaryFen    int64  `json:"salary_fen"`
+		Status       string `json:"status"`
+		EnterpriseID string `json:"enterprise_id"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	j, err := s.jobSvc.UpdateJob(r.Context(), id, in.Title, in.Description, in.Location, in.JobType, in.SalaryFen, in.Status)
+	j, err := s.jobSvc.UpdateJob(r.Context(), id, in.Title, in.Description, in.Location, in.JobType, in.SalaryFen, in.Status, in.EnterpriseID)
 	if err != nil {
 		code := http.StatusInternalServerError
 		if errors.Is(err, service.ErrInvalidJobStatus) {

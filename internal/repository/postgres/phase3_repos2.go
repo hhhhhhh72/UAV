@@ -328,6 +328,16 @@ func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit i
 	}
 	return out, total, rows.Err()
 }
+func (r *reviewRepo) FindByID(ctx context.Context, id string) (domain.Review, error) {
+	var rv domain.Review
+	err := r.pool.QueryRow(ctx,
+		`SELECT id,reviewer_id,target_type,target_id,rating,COALESCE(content,''),status,created_at FROM reviews WHERE id=$1`, id).
+		Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt)
+	if err != nil {
+		return domain.Review{}, fmt.Errorf("review %s: %w", id, err)
+	}
+	return rv, nil
+}
 func (r *reviewRepo) UpdateStatus(ctx context.Context, id, status string) (domain.Review, error) {
 	_, err := r.pool.Exec(ctx, `UPDATE reviews SET status=$1 WHERE id=$2`, status, id)
 	if err != nil {

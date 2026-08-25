@@ -238,6 +238,9 @@ func NewResourceService(repo repository.ResourceRepository) *ResourceService {
 }
 
 func (s *ResourceService) Create(ctx context.Context, ownerID, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel, status string) (domain.IndustryResource, error) {
+	if priceFen < 0 {
+		return domain.IndustryResource{}, errors.New("price cannot be negative")
+	}
 	now := time.Now()
 	if visibilityLevel == "" {
 		visibilityLevel = "public"
@@ -273,6 +276,9 @@ func (s *ResourceService) Get(ctx context.Context, id string) (domain.IndustryRe
 }
 
 func (s *ResourceService) Update(ctx context.Context, id, name, resType, model, specs, location, bookingInfo string, priceFen int64, visibilityLevel, status string) (domain.IndustryResource, error) {
+	if priceFen < 0 {
+		return domain.IndustryResource{}, errors.New("price cannot be negative")
+	}
 	r, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.IndustryResource{}, err
