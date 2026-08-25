@@ -41,6 +41,12 @@ type CreateEnterpriseInput struct {
 }
 
 func (s *EnterpriseSvc) Create(ctx context.Context, a domain.Actor, in CreateEnterpriseInput) (domain.Enterprise, error) {
+	// 重复入驻限制：同一用户已有未删除企业档案 → 拒绝再建
+	//（此前可无限创建，一家账号可同时维护多家'已认证'商户档案，
+	//  认证收益 enterprise 角色对全部档案生效，身份重复/资源占用）。
+	if existed, err := s.repo.FindByOwner(ctx, a.ID); err == nil && len(existed) > 0 {
+		return domain.Enterprise{}, fmt.Errorf("您已入驻成功，每用户仅可维护一家企业档案")
+	}
 	now := time.Now()
 	e := domain.Enterprise{
 		ID:               nextID("ent"),
@@ -82,38 +88,78 @@ func (s *EnterpriseSvc) Update(ctx context.Context, a domain.Actor, id string, i
 		return domain.Enterprise{}, errors.New("only the owner can edit")
 	}
 	// 状态限制：
-	// - 企业主（owner）：仅草稿/需补充/已驳回可编辑（编辑后状态不变，走提交流程；
-	//   已驳回可改后重新提交——PRD FR-2.2 驳回重提闭环）
+	// - 企业主（owner）：草稿/需补充/已驳回可编辑（编辑后状态不变，走提交流程；
+	//   已驳回可改后重新提交——PRD FR-2.2 驳回重提闭环）；已认证（approved）也可编辑，
+	//   编辑后自动回待审（自助信息更新闭环——此前 approved 企业主无任何修改送审路径）
 	// - 管理员（platform_admin / association_admin）：任意状态可编辑；编辑已审核/已驳回/审核中企业时，
 	//   状态回退到「待审核」（PRD FR-2.2：信息修改后需重新审核）
 	if existing.OwnerUserID == a.ID && existing.Status != domain.EnterpriseDraft &&
-		existing.Status != domain.EnterpriseSupplementRequired && existing.Status != domain.EnterpriseRejected {
+		existing.Status != domain.EnterpriseSupplementRequired && existing.Status != domain.EnterpriseRejected &&
+		existing.Status != domain.EnterpriseApproved {
 		return domain.Enterprise{}, fmt.Errorf("cannot edit enterprise in %s status", existing.Status)
 	}
 	isAdminEdit := a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
 	wasApprovedOrReviewed := existing.Status == domain.EnterpriseApproved ||
 		existing.Status == domain.EnterpriseRejected ||
 		existing.Status == domain.EnterpriseSubmitted
-	existing.Name = in.Name
-	existing.CreditCode = in.CreditCode
-	existing.LegalPerson = in.LegalPerson
-	existing.ContactPhone = in.ContactPhone
-	existing.IndustryCategory = in.IndustryCategory
-	existing.Scale = in.Scale
-	existing.Address = in.Address
-	existing.Description = in.Description
-	existing.BusinessHours = in.BusinessHours
-	existing.Logo = in.Logo
-	existing.CoverImage = in.CoverImage
-	existing.LicenseURL = in.LicenseURL
-	existing.AccountName = in.AccountName
-	existing.ContactPerson = in.ContactPerson
-	existing.Email = in.Email
-	existing.FoundedAt = in.FoundedAt
-	existing.CapabilityTags = in.CapabilityTags
+	// PATCH 语义防清空：关键字段（识别/资质/联系方式）仅在传入非空时覆盖——
+	// 此前全量替换，客户端局部提交（如仅改名称）会把 account_name/credit_code/
+	// contact_phone 等写成空串（PII 与资质信息被静默抹掉）。
+	if in.Name != "" {
+		existing.Name = in.Name
+	}
+	if in.CreditCode != "" {
+		existing.CreditCode = in.CreditCode
+	}
+	if in.LegalPerson != "" {
+		existing.LegalPerson = in.LegalPerson
+	}
+	if in.ContactPhone != "" {
+		existing.ContactPhone = in.ContactPhone
+	}
+	if in.AccountName != "" {
+		existing.AccountName = in.AccountName
+	}
+	if in.Email != "" {
+		existing.Email = in.Email
+	}
+	if in.ContactPerson != "" {
+		existing.ContactPerson = in.ContactPerson
+	}
+	if in.IndustryCategory != "" {
+		existing.IndustryCategory = in.IndustryCategory
+	}
+	if in.Address != "" {
+		existing.Address = in.Address
+	}
+	if in.Scale != "" {
+		existing.Scale = in.Scale
+	}
+	if in.Description != "" {
+		existing.Description = in.Description
+	}
+	if in.BusinessHours != "" {
+		existing.BusinessHours = in.BusinessHours
+	}
+	if in.Logo != "" {
+		existing.Logo = in.Logo
+	}
+	if in.CoverImage != "" {
+		existing.CoverImage = in.CoverImage
+	}
+	if in.LicenseURL != "" {
+		existing.LicenseURL = in.LicenseURL
+	}
+	if len(in.CapabilityTags) > 0 {
+		existing.CapabilityTags = in.CapabilityTags
+	}
+	if in.FoundedAt != "" {
+		existing.FoundedAt = in.FoundedAt
+	}
 	existing.UpdatedAt = time.Now()
-	if isAdminEdit && wasApprovedOrReviewed {
-		// 管理员编辑已审企业 → 重新进入审核队列（PRD FR-2.2）
+	if (isAdminEdit && wasApprovedOrReviewed) ||
+		(existing.OwnerUserID == a.ID && existing.Status == domain.EnterpriseApproved) {
+		// 管理端编辑已审企业 / 企业主更新已认证档案 → 重新进入审核队列（PRD FR-2.2）
 		existing.Status = domain.EnterpriseSubmitted
 		existing.ReviewComment = ""
 	}

@@ -138,7 +138,7 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 			role = domain.RolePlatformAdmin
 		}
 	}
-	actor := domain.Actor{ID: u.ID, Role: role}
+	actor := domain.Actor{ID: u.ID, Role: role, TokenVersion: u.TokenVersion}
 	accessToken, err := s.tokens.IssueJWT(actor, 15*time.Minute)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -197,8 +197,13 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 	if role == "" {
 		role = domain.RoleIndividual
 	}
+	// status 门禁 + 令牌版本：banned/停用账号的 refresh 不可续签
+	if u.Status != "" && u.Status != "active" {
+		fail(w, r, http.StatusUnauthorized, errors.New("账号已停用"))
+		return
+	}
 	// 与登录路径保持一致：统一签发标准 JWT（此前这里用旧式两段 Issue）。
-	accessToken, err := s.tokens.IssueJWT(domain.Actor{ID: userID, Role: role}, 15*time.Minute)
+	accessToken, err := s.tokens.IssueJWT(domain.Actor{ID: userID, Role: role, TokenVersion: u.TokenVersion}, 15*time.Minute)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

@@ -33,6 +33,9 @@ const (
 type Actor struct {
 	ID   string `json:"id"`
 	Role Role   `json:"role"`
+	// TokenVersion 签发时的用户令牌版本：authenticate 与库中对比，
+	// 不一致/用户被删/被禁 → 立即失效（0 兼容历史 token）。
+	TokenVersion int64 `json:"tv,omitempty"`
 }
 
 // User represents a registered platform user linked to a WeChat identity.
@@ -52,6 +55,8 @@ type User struct {
 	Bio          string     `json:"bio"`      // 个人简介
 	Role         Role       `json:"role"`
 	Status       string     `json:"status"`
+	// TokenVersion 令牌版本：删除/封禁/改角色时自增，使已签发 token 立即失效。
+	TokenVersion int64      `json:"token_version"`
 	Version      int        `json:"version"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
@@ -238,27 +243,15 @@ type Demand struct {
 	Longitude        float64        `json:"longitude"`
 	BudgetFen        int64          `json:"budget_fen"`         // amount in fen (1/100 yuan)
 	OfflineAmountFen int64          `json:"offline_amount_fen"` // 线下成交金额（联系对接模式撮合价值度量）
-	BizFields        map[string]any `json:"biz_fields"`
+	// Deadline 需求有效期截止日（YYYY-MM-DD，服务端校验非过去；空串=长期有效）。
+	// 发布时效管理：过期需求前端不再展示可对接入口。
+	Deadline string         `json:"deadline,omitempty"`
+	BizFields map[string]any `json:"biz_fields"`
 	Status           DemandStatus   `json:"status"`
 	IsMine           bool           `json:"is_mine,omitempty"` // 详情接口标记：当前请求者即发布者（前端据此禁用自登记）
 	Version          int            `json:"version"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
-}
-
-// DemandBid is a quotation or proposal submitted by a bidder in response
-// to a published demand. Bids are persisted and validated before selection.
-type DemandBid struct {
-	ID         string    `json:"id"`
-	DemandID   string    `json:"demand_id"`
-	BidderID   string    `json:"bidder_id"`
-	BidderName string    `json:"bidder_name"`
-	AmountFen  int64     `json:"amount_fen"`
-	Proposal   string    `json:"proposal"`
-	Status     string    `json:"status"` // pending / accepted / rejected
-	Version    int       `json:"version"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // DemandIntent records an intent to contact a demand publisher.

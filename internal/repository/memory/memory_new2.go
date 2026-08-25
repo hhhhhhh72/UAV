@@ -525,6 +525,22 @@ func (r *emergencyRepo) UpdateResource(ctx context.Context, res domain.Emergency
 	}
 	return domain.EmergencyResource{}, fmt.Errorf("emergency resource %s not found", res.ID)
 }
+func (r *emergencyRepo) AdjustResourceQuantity(ctx context.Context, id string, delta int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, v := range r.resources {
+		if v.ID == id {
+			q := v.Quantity + delta
+			if q < 0 {
+				q = 0
+			}
+			r.resources[i].Quantity = q
+			r.resources[i].UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return fmt.Errorf("emergency resource %s not found", id)
+}
 func (r *emergencyRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDispatch) (domain.EmergencyDispatch, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

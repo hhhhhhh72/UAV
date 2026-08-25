@@ -104,12 +104,23 @@ func (s *JobService) GetJob(ctx context.Context, id string) (domain.Job, error) 
 }
 
 func (s *JobService) UpdateJob(ctx context.Context, id, title, desc, location, jobType string, salaryFen int64, status string) (domain.Job, error) {
+	// 护栏与 CreateJob 一致：负薪资拒绝（此前管理端入口无校验，发布路径有）。
+	if salaryFen < 0 {
+		return domain.Job{}, ErrInvalidJobStatus
+	}
 	if !validJobStatus(domain.JobStatus(status)) {
 		return domain.Job{}, fmt.Errorf("%w: %q", ErrInvalidJobStatus, status)
 	}
+	// 状态变化受状态机约束：仅 draft→published（发布）、published→closed（关闭）——
+	// 此前 closed 可被直接改回 published（绕过 Publish/Close 状态机）。
 	j, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Job{}, err
+	}
+	if domain.JobStatus(status) != j.Status {
+		if !jobCanTransition(j.Status, domain.JobStatus(status)) {
+			return domain.Job{}, fmt.Errorf("%w: %s → %s", ErrInvalidJobTransition, j.Status, status)
+		}
 	}
 	j.Title = title
 	j.Description = desc
@@ -118,6 +129,19 @@ func (s *JobService) UpdateJob(ctx context.Context, id, title, desc, location, j
 	j.Status = domain.JobStatus(status)
 	j.JobType = jobType
 	return s.repo.Update(ctx, id, j)
+}
+
+// jobCanTransition 职位状态机合法迁移（与 Publish/Close 路径一致）。
+func jobCanTransition(from, to domain.JobStatus) bool {
+	switch from {
+	case domain.JobDraft:
+		return to == domain.JobPublished
+	case domain.JobPublished:
+		return to == domain.JobClosed
+	case domain.JobClosed:
+		return false // 终态
+	}
+	return false
 }
 
 func (s *JobService) DeleteJob(ctx context.Context, id string) error {
@@ -176,6 +200,11 @@ func (s *JobService) Apply(ctx context.Context, a domain.Actor, jobID, resumeID 
 	}
 	if j.EnterpriseID == a.ID {
 		return domain.JobApplication{}, errors.New("cannot apply to your own job")
+	}
+	// 简历必填：空简历投递会被企业端静默丢弃（展示列表按 ResumeID 关联），
+	// 求职者"投了个寂寞"。
+	if resumeID == "" {
+		return domain.JobApplication{}, errors.New("请选择一份简历后再投递")
 	}
 	// 简历必须存在且属于当前用户：否则可挂他人简历投递，企业端看到他人完整简历 PII
 	if resumeID != "" {
@@ -296,9 +325,21 @@ func (s *JobService) ListApplicantsForJob(ctx context.Context, a domain.Actor, j
 	}
 	out := make([]ApplicantView, 0, len(apps))
 	for _, ap := range apps {
+		// 简历必填后 ResumeID 恒非空；为空的历史数据也跳过（无法展示联系方式）
+		if ap.ResumeID == "" {
+			continue
+		}
 		rs, ok := byID[ap.ResumeID]
 		if !ok {
 			continue // 简历已删：跳过该投递
+		}
+		// 私密简历脱敏：visibility=private 时企业仅见姓名/教育/技能，隐藏联系方式与正文
+		//（此前不校验可见性，private 简历全文暴露给职位发布者）。
+		if rs.Visibility == "private" {
+			rs.Phone = ""
+			rs.Email = ""
+			rs.Content = ""
+			rs.CertificateURL = ""
 		}
 		out = append(out, ApplicantView{Application: ap, Resume: rs})
 	}

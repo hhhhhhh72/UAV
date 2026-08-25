@@ -42,7 +42,7 @@ func TestContentFavoritesProductServiceCourse(t *testing.T) {
 	checkCode(t, http.MethodPost, "/api/v1/products/nope/favorite", w, http.StatusNotFound)
 
 	// 创建商品（企业角色）→ 收藏 → 我的收藏列表包含
-	prodTok := authAs(t, "user-2", domain.RoleEnterprise)
+	prodTok := authAs(t, "seller-1", domain.RoleEnterprise)
 	w = doRaw(app, http.MethodPost, "/api/v1/products",
 		`{"title":"大疆M350","description":"巡检设备","brand":"DJI","model":"M350","price_fen":8800000,"images":[]}`, prodTok)
 	checkCode(t, http.MethodPost, "/api/v1/products", w, http.StatusCreated)

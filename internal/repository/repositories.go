@@ -204,17 +204,9 @@ type LabourOrderRepository interface {
 	ListAssignmentsByWorker(ctx context.Context, workerID string) ([]domain.Assignment, error)
 }
 
-// BidRepository manages demand bids (quotations). Bids are created by bidders,
-// listed per demand, and atomically accepted via UpdateStatus.
-type BidRepository interface {
-	Create(ctx context.Context, v domain.DemandBid) (domain.DemandBid, error)
-	FindByID(ctx context.Context, id string) (domain.DemandBid, error)
-	ListByDemand(ctx context.Context, demandID string) ([]domain.DemandBid, error)
-	ListByBidder(ctx context.Context, bidderID string) ([]domain.DemandBid, error)
-	UpdateStatus(ctx context.Context, id string, status string) (domain.DemandBid, error)
-}
-
 // IntentRepository manages demand contact intents (联系对接模式).
+// 旧报价流（DemandBid/BidRepository + demand_bids 表）已删除：C2 死代码清理，
+// 意向对接接管全部供需撮合。
 type IntentRepository interface {
 	Create(ctx context.Context, v domain.DemandIntent) (domain.DemandIntent, error)
 	ListByDemand(ctx context.Context, demandID string) ([]domain.DemandIntent, error)
@@ -602,6 +594,8 @@ type EmergencyRepository interface {
 	ListResources(ctx context.Context, resType, q string, offset, limit int) ([]domain.EmergencyResource, int, error)
 	UpdateResource(ctx context.Context, v domain.EmergencyResource) (domain.EmergencyResource, error)
 	DeleteResource(ctx context.Context, id string) error
+	// AdjustResourceQuantity 调整资源库存量（delta 可正可负，数量下限 0——下方为 0 不报错）。
+	AdjustResourceQuantity(ctx context.Context, id string, delta int) error
 	FindDispatchByID(ctx context.Context, id string) (domain.EmergencyDispatch, error)
 	UpdateDispatch(ctx context.Context, v domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
 	DeleteDispatch(ctx context.Context, id string) error

@@ -28,9 +28,9 @@ func TestCreateMessageBroadcast(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	// memory repo has no admin users, so only the requester receives it
-	if resp.Data.Broadcast != 1 {
-		t.Fatalf("broadcast count: want 1, got %d", resp.Data.Broadcast)
+	// 广播发给全部平台用户（种子用户全员接收；req_actor 已在种子中）
+	if resp.Data.Broadcast != len(commonUsersSeed) {
+		t.Fatalf("broadcast count: want %d, got %d", len(commonUsersSeed), resp.Data.Broadcast)
 	}
 
 	// requester must see exactly 1 unread message
@@ -50,8 +50,7 @@ func TestCreateMessageBroadcast(t *testing.T) {
 		t.Fatalf("unread count: want 1, got %d", unread.Data.Count)
 	}
 
-	// a different actor must NOT have received the broadcast.
-	// request() always uses actor "user-1", so issue a distinct token manually.
+	// 其他种子用户同样收到广播（全员触达）
 	tokens, err := httpapi.NewTokenManager(testSecret)
 	if err != nil {
 		t.Fatal(err)
@@ -70,8 +69,8 @@ func TestCreateMessageBroadcast(t *testing.T) {
 	if err := json.Unmarshal(otherW.Body.Bytes(), &unread); err != nil {
 		t.Fatalf("decode unread (other): %v", err)
 	}
-	if unread.Data.Count != 0 {
-		t.Fatalf("other user should not receive broadcast, got %d", unread.Data.Count)
+	if unread.Data.Count != 1 {
+		t.Fatalf("other seeded user should receive broadcast, got %d", unread.Data.Count)
 	}
 }
 

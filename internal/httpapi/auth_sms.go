@@ -3,6 +3,7 @@ package httpapi
 import (
 	"crypto/rand"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -223,8 +224,11 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 	if role == "" {
 		role = domain.RoleIndividual
 	}
-
-	accessToken, err := s.tokens.IssueJWT(domain.Actor{ID: u.ID, Role: role}, 15*time.Minute)
+	if u.Status != "" && u.Status != "active" {
+		fail(w, r, http.StatusUnauthorized, errors.New("账号已停用"))
+		return
+	}
+	accessToken, err := s.tokens.IssueJWT(domain.Actor{ID: u.ID, Role: role, TokenVersion: u.TokenVersion}, 15*time.Minute)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

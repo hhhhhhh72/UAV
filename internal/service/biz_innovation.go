@@ -258,6 +258,10 @@ func (s *ProjectAppService) Review(ctx context.Context, id, reviewNote, action s
 	if err != nil {
 		return domain.ProjectApplication{}, err
 	}
+	// 状态机门禁：仅「已提交」可审——获批/驳回后不得再翻转（防重复审核/反复改判）。
+	if a.Status != "submitted" {
+		return domain.ProjectApplication{}, fmt.Errorf("only submitted applications can be reviewed (current status %s)", a.Status)
+	}
 	if action == "approve" {
 		a.Status = "approved"
 	} else if action == "reject" {

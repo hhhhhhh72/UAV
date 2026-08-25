@@ -395,21 +395,6 @@ func TestContractTemplateRepoCoverage(t *testing.T) {
 	mmInt(t, "contractTpl.List(after create).len", len(all2), 3)
 }
 
-// ======================= Bid =======================
-
-func TestBidRepoListByBidderCoverage(t *testing.T) {
-	r := memory.NewBidRepository()
-	_, _ = r.Create(context.Background(), domain.DemandBid{ID: "bid-1", DemandID: "d-1", BidderID: "u-2"})
-	_, _ = r.Create(context.Background(), domain.DemandBid{ID: "bid-2", DemandID: "d-2", BidderID: "u-2"})
-	_, _ = r.Create(context.Background(), domain.DemandBid{ID: "bid-3", DemandID: "d-3", BidderID: "u-3"})
-	got, err := r.ListByBidder(context.Background(), "u-2")
-	mmErr(t, "bid.ListByBidder", err, false)
-	mmInt(t, "bid.ListByBidder.len", len(got), 2)
-	none, err := r.ListByBidder(context.Background(), "nobody")
-	mmErr(t, "bid.ListByBidder(empty)", err, false)
-	mmInt(t, "bid.ListByBidder(empty).len", len(none), 0)
-}
-
 // ======================= Intent =======================
 
 func TestIntentRepoCoverage(t *testing.T) {

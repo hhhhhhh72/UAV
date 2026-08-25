@@ -53,7 +53,15 @@ func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, 200, all)
+	// 公开列表仅展示招募中（active）的研学项目：草稿（draft）/已结束（closed）不外漏。
+	out := make([]domain.StudyTour, 0, len(all))
+	for _, t := range all {
+		if t.Status != "" && t.Status != "active" {
+			continue
+		}
+		out = append(out, t)
+	}
+	respond(w, r, 200, out)
 }
 
 func (s *Server) publicListRD(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +71,14 @@ func (s *Server) publicListRD(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, 200, all)
+	// 仅公开可见状态（draft/pending/closed/resolved 不外漏）
+	visible := make([]domain.RDChallenge, 0, len(all))
+	for _, c := range all {
+		if isPublicRDStatus(c.Status) {
+			visible = append(visible, c)
+		}
+	}
+	respond(w, r, 200, visible)
 }
 
 func (s *Server) publicListResearch(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +88,13 @@ func (s *Server) publicListResearch(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respond(w, r, 200, all)
+	visible := make([]domain.ResearchProject, 0, len(all))
+	for _, p := range all {
+		if p.Status == "active" {
+			visible = append(visible, p)
+		}
+	}
+	respond(w, r, 200, visible)
 }
 
 func (s *Server) publicListTestSites(w http.ResponseWriter, r *http.Request) {

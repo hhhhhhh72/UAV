@@ -702,12 +702,34 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 
 // ---- Achievements ----
 
+// isAdminRoute 报告请求是否命中管理端路由：公开列表/详情与 admin 列表/详情
+// 复用同一 handler，公开侧须做状态可见性过滤（draft/pending 不公开）。
+func isAdminRoute(r *http.Request) bool {
+	return strings.HasPrefix(r.URL.Path, "/api/v1/admin/")
+}
+
+// isPublicRDStatus 研发难题公开可见状态：发布中/开放中/进行中；
+// draft（草稿）/pending（待审）/closed（已结题）/resolved（已解决）不公开。
+func isPublicRDStatus(s string) bool {
+	return s == "published" || s == "open" || s == "in_progress"
+}
+
 // GET /api/v1/achievements?field=智能巡检&page=1&page_size=10
 func (s *Server) listAchievements(w http.ResponseWriter, r *http.Request) {
 	items, _, err := s.achievementSvc.List(r.Context(), r.URL.Query().Get("field"), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	// 公开列表仅展示已发布成果（复用于 admin 列表时不过滤）
+	if !isAdminRoute(r) {
+		tmp := make([]domain.Achievement, 0, len(items))
+		for _, a := range items {
+			if a.Status == "published" {
+				tmp = append(tmp, a)
+			}
+		}
+		items = tmp
 	}
 	// 关键词筛选（成果名称/领域）
 	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
@@ -806,6 +828,16 @@ func (s *Server) listRDChallenges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filtered := items
+	// 公开列表仅展示开放/发布中/进行中的难题（复用于 admin 列表时不过滤）
+	if !isAdminRoute(r) {
+		tmp := make([]domain.RDChallenge, 0, len(filtered))
+		for _, c := range filtered {
+			if isPublicRDStatus(c.Status) {
+				tmp = append(tmp, c)
+			}
+		}
+		filtered = tmp
+	}
 	// 关键词筛选（难题标题/领域）
 	if kw := strings.TrimSpace(r.URL.Query().Get("keyword")); kw != "" {
 		tmp := make([]domain.RDChallenge, 0, len(filtered))
@@ -898,6 +930,16 @@ func (s *Server) listResearchProjects(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	// 公开列表仅展示进行中（active）课题（复用于 admin 列表时不过滤）
+	if !isAdminRoute(r) {
+		tmp := make([]domain.ResearchProject, 0, len(items))
+		for _, p := range items {
+			if p.Status == "active" {
+				tmp = append(tmp, p)
+			}
+		}
+		items = tmp
 	}
 	filtered, total := adminListFilter(items, r.URL.Query().Get("keyword"), r.URL.Query().Get("status"),
 		func(p domain.ResearchProject) string { return p.Title },

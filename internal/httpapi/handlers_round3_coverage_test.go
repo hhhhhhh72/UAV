@@ -24,7 +24,7 @@ func round3PlatformSnapshot(t *testing.T) {
 // 公开名录/详情 → 批量审核闭环。
 func TestRound3Enterprise(t *testing.T) {
 	app := newBizServer(t)
-	ownerTok := authAs(t, "user-1", domain.RoleEnterprise)
+	ownerTok := authAs(t, "enterprise-1", domain.RoleEnterprise)
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
 
 	// 公开名录（匿名）
@@ -72,13 +72,14 @@ func TestRound3Enterprise(t *testing.T) {
 	w = doRaw(app, http.MethodGet, "/api/v1/enterprises/public/detail?id="+entID, "", "")
 	assertStatus(t, http.MethodGet, "/api/v1/enterprises/public/detail?id="+entID, w, http.StatusOK)
 
-	// 批量审核：第二条企业提交后批量通过
+	// 批量审核：第二条企业（另一企业账号）提交后批量通过
+	owner2Tok := authAs(t, "enterprise-2", domain.RoleEnterprise)
 	w = doRaw(app, http.MethodPost, "/api/v1/enterprises",
-		`{"name":"round3企业2"}`, ownerTok)
+		`{"name":"round3企业2"}`, owner2Tok)
 	assertStatus(t, http.MethodPost, "/api/v1/enterprises (2)", w, http.StatusCreated)
 	entID2 := dataID(t, w)
 
-	w = doRaw(app, http.MethodPost, "/api/v1/enterprises/"+entID2+"/submit", "", ownerTok)
+	w = doRaw(app, http.MethodPost, "/api/v1/enterprises/"+entID2+"/submit", "", owner2Tok)
 	assertStatus(t, http.MethodPost, "/api/v1/enterprises/"+entID2+"/submit", w, http.StatusOK)
 
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/enterprises/batch-review",
@@ -196,7 +197,7 @@ func TestRound3Batch3(t *testing.T) {
 // TestRound3News 覆盖 news.go：资讯创建 → 列表 → 编辑 → 发布。
 func TestRound3News(t *testing.T) {
 	app := newBizServer(t)
-	adminTok := authAs(t, "admin-1", domain.RoleAssociationAdmin)
+	adminTok := authAs(t, "admin-2", domain.RoleAssociationAdmin)
 
 	w := doRaw(app, http.MethodPost, "/api/v1/articles",
 		`{"title":"round3政策资讯","content":"低空经济新政发布","category":"policy","source":"协会"}`, adminTok)

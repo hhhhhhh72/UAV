@@ -67,9 +67,10 @@ func (m *TokenManager) IssueJWT(a domain.Actor, ttl time.Duration) (string, erro
 	p := struct {
 		ID   string      `json:"sub"`
 		Role domain.Role `json:"role"`
+		Tv   int64       `json:"tv,omitempty"`
 		Exp  int64       `json:"exp"`
 		Iat  int64       `json:"iat"`
-	}{a.ID, a.Role, time.Now().Add(ttl).Unix(), time.Now().Unix()}
+	}{a.ID, a.Role, a.TokenVersion, time.Now().Add(ttl).Unix(), time.Now().Unix()}
 	b, err := json.Marshal(p)
 	if err != nil {
 		return "", err
@@ -111,12 +112,13 @@ func (m *TokenManager) Verify(token string) (domain.Actor, error) {
 	var p struct {
 		ID   string      `json:"sub"`
 		Role domain.Role `json:"role"`
+		Tv   int64       `json:"tv"`
 		Exp  int64       `json:"exp"`
 	}
 	if err := json.Unmarshal(b, &p); err != nil || p.ID == "" || p.Exp <= time.Now().Unix() {
 		return domain.Actor{}, errors.New("expired or invalid bearer token")
 	}
-	return domain.Actor{ID: p.ID, Role: p.Role}, nil
+	return domain.Actor{ID: p.ID, Role: p.Role, TokenVersion: p.Tv}, nil
 }
 
 type actorKey struct{}
@@ -173,6 +175,29 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		if err != nil {
 			fail(w, r, http.StatusUnauthorized, err)
 			return
+		}
+		// 会话吊销与状态门禁：token 仅验签不含用户状态——查询用户后校验
+		// 存在性 / token_version / status（banned 等）；被删/被禁/改角色 → 401。
+		// 同时以库中角色为准（角色提升降权即时生效）。
+		if s.userRepo != nil {
+			u, uerr := s.userRepo.FindByID(r.Context(), a.ID)
+			if uerr != nil {
+				// dev 影子管理员（admin-dev 不落 users 表，仅 ADMIN_DEV_MODE 环境放行；
+				// 生产 dev mode 关闭，用户必然在库）。
+				if adminDevMode() && (a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin) {
+					next.ServeHTTP(w, r.WithContext(contextWithActor(r, a)))
+					return
+				}
+				fail(w, r, http.StatusUnauthorized, errors.New("账号已失效，请重新登录"))
+				return
+			}
+			if (u.Status != "" && u.Status != "active") || u.TokenVersion != a.TokenVersion {
+				fail(w, r, http.StatusUnauthorized, errors.New("账号已失效，请重新登录"))
+				return
+			}
+			if u.Role != a.Role {
+				a.Role = u.Role
+			}
 		}
 		next.ServeHTTP(w, r.WithContext(contextWithActor(r, a)))
 	})

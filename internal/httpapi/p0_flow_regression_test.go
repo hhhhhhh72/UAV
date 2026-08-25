@@ -146,9 +146,9 @@ func TestEnterpriseDocumentsPersist(t *testing.T) {
 		t.Fatalf("attach missing type: %d, want 400", w.Code)
 	}
 
-	// 非企业主（user-2）挂接 → 403
+	// 非企业主（enterprise-2）挂接 → 403
 	w = requestAs(t, app, http.MethodPost, "/api/v1/enterprises/"+entID+"/documents",
-		[]byte(`{"file_id":"f-x","document_type":"id_card"}`), "user-2", domain.RoleEnterprise)
+		[]byte(`{"file_id":"f-x","document_type":"id_card"}`), "enterprise-2", domain.RoleEnterprise)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("attach by non-owner: %d, want 403", w.Code)
 	}
@@ -169,7 +169,7 @@ func TestEnterpriseDocumentsPersist(t *testing.T) {
 	}
 
 	// 非企业主查询 → 403
-	w = requestAs(t, app, http.MethodGet, "/api/v1/enterprises/"+entID+"/documents", nil, "user-2", domain.RoleEnterprise)
+	w = requestAs(t, app, http.MethodGet, "/api/v1/enterprises/"+entID+"/documents", nil, "enterprise-2", domain.RoleEnterprise)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("list by non-owner: %d, want 403", w.Code)
 	}

@@ -361,6 +361,12 @@ func (r *emergRepo) UpdateResource(ctx context.Context, res domain.EmergencyReso
 		res.Name, res.ResType, res.Specs, res.Quantity, res.Location, res.ContactInfo, res.Status, res.UpdatedAt, res.ID)
 	return res, err
 }
+func (r *emergRepo) AdjustResourceQuantity(ctx context.Context, id string, delta int) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE emergency_resources SET quantity = GREATEST(0, quantity + $2), updated_at = now() WHERE id=$1`,
+		id, delta)
+	return err
+}
 
 // nullableEndTime 把零值时间转为 NULL：进行中/待响应的调度没有结束时间，
 // end_time 列可空，零值应存 NULL 而非 0001-01-01

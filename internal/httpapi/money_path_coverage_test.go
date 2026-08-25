@@ -40,11 +40,11 @@ func escrowBal(t *testing.T, app http.Handler, userID string, role domain.Role) 
 	return resp.Data.BalanceFen, resp.Data.FrozenFen
 }
 
-// fundEscrow 管理员给指定用户充值（托管金入账当前调用者账户 → 用用户 ID 的管理员 token）。
+// fundEscrow 管理员给指定用户充值（deposit 支持 to_user 指定入账对象，管理员专用）。
 func fundEscrow(t *testing.T, app http.Handler, userID string, amountFen int64) {
 	t.Helper()
 	w := requestAs(t, app, http.MethodPost, "/api/v1/escrow/deposit",
-		[]byte(fmt.Sprintf(`{"amount_fen":%d}`, amountFen)), userID, domain.RolePlatformAdmin)
+		[]byte(fmt.Sprintf(`{"amount_fen":%d,"to_user":%q}`, amountFen, userID)), "admin-1", domain.RolePlatformAdmin)
 	if w.Code != http.StatusCreated && w.Code != http.StatusOK {
 		t.Fatalf("deposit %s: %d %s", userID, w.Code, w.Body.String())
 	}
@@ -267,10 +267,11 @@ func TestB1bCompleteEnrollmentRetryAfterPartialFailure(t *testing.T) {
 	w = requestAs(t, app, http.MethodPut, "/api/v1/admin/enrollments/"+enrollID2,
 		[]byte(`{"status":"completed"}`), "admin-1", domain.RolePlatformAdmin)
 	assertStatus(t, http.MethodPut, ".../admin set completed B", w, http.StatusOK)
-	// 手动完成资金释放（模拟旧实现"释放成功、发证失败"）
+	// 手动完成资金释放（模拟旧实现"释放成功、发证失败"；escrow 写接口仅管理员，
+	// from_user 指定学员托管账户为资金源头）
 	w = requestAs(t, app, http.MethodPost, "/api/v1/escrow/release",
-		[]byte(fmt.Sprintf(`{"to_user":"org-2","amount_fen":%d,"reference_type":"training_course","reference_id":%q}`, price, courseID2)),
-		"student-2", domain.RolePlatformAdmin)
+		[]byte(fmt.Sprintf(`{"to_user":"org-2","amount_fen":%d,"reference_type":"training_course","reference_id":%q,"from_user":"student-2"}`, price, courseID2)),
+		"admin-1", domain.RolePlatformAdmin)
 	assertStatus(t, http.MethodPost, ".../manual release", w, http.StatusCreated)
 
 	// 重试 complete → 200：只补发证书，不重复释放（org-2 到账恰为 price）

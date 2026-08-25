@@ -21,9 +21,9 @@ func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, err)
 		return
 	}
-	if d.Status != domain.DemandPublished && d.Status != domain.DemandCompleted && d.Status != domain.DemandCancelled {
+	if d.Status != domain.DemandPublished && d.Status != domain.DemandCompleted && d.Status != domain.DemandCancelled && d.Status != domain.DemandAssigned {
 		a, ok := authenticatedActor(r)
-		if !ok || a.ID != d.PublisherID {
+		if !ok || (a.ID != d.PublisherID && a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
 			fail(w, r, http.StatusNotFound, errors.New("demand not found"))
 			return
 		}

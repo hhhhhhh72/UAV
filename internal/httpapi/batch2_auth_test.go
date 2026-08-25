@@ -44,11 +44,14 @@ func doRaw(app http.Handler, method, path, body, token string) *httptest.Respons
 //   - POST /api/v1/cooperation-programs/{id}/status  仅管理员
 func TestBatch2WritesRequireAuth(t *testing.T) {
 	app := newServer(t)
-	adminTok := authAs(t, "user-1", domain.RolePlatformAdmin)
-	ownerTok := authAs(t, "user-1", domain.RoleIndividual)
+	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
+	// 创建者即转化负责人（OwnerID=admin-1）：管理员建记录，负责人（同 ID）与管理员可推进，
+	// 非负责人（user-2）403——authenticate 以库中角色为准，同一 ID 只能有一种角色。
+	ownerTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
+	indivTok := authAs(t, "user-1", domain.RoleIndividual)
 	strangerTok := authAs(t, "user-2", domain.RoleIndividual)
 
-	// Arrange: 管理员建一条转化记录（OwnerID=user-1）
+	// Arrange: 管理员建一条转化记录（OwnerID=admin-1）
 	w := doRaw(app, http.MethodPost, "/api/v1/admin/transformations",
 		`{"title":"成果A中试","achievement_id":"ach-1","partner_id":"ent-1"}`, adminTok)
 	if w.Code != http.StatusCreated {
@@ -83,10 +86,10 @@ func TestBatch2WritesRequireAuth(t *testing.T) {
 		// 匿名请求在 authenticate 中间件即被 401 拦截（adminGate 同款行为），
 		// 已登录非管理员在 handler 层被 403
 		{"cooperation create anonymous", http.MethodPost, "/api/v1/cooperation-programs", `{"title":"共建"}`, "", http.StatusUnauthorized},
-		{"cooperation create individual", http.MethodPost, "/api/v1/cooperation-programs", `{"title":"共建"}`, ownerTok, http.StatusForbidden},
+		{"cooperation create individual", http.MethodPost, "/api/v1/cooperation-programs", `{"title":"共建"}`, indivTok, http.StatusForbidden},
 		{"cooperation create admin", http.MethodPost, "/api/v1/cooperation-programs", `{"title":"共建","college_id":"c1"}`, adminTok, http.StatusCreated},
 		{"cooperation status anonymous", http.MethodPost, "/api/v1/cooperation-programs/x/status", `{"status":"active"}`, "", http.StatusUnauthorized},
-		{"cooperation status individual", http.MethodPost, "/api/v1/cooperation-programs/x/status", `{"status":"active"}`, ownerTok, http.StatusForbidden},
+		{"cooperation status individual", http.MethodPost, "/api/v1/cooperation-programs/x/status", `{"status":"active"}`, indivTok, http.StatusForbidden},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

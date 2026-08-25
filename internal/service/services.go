@@ -35,6 +35,7 @@ type CreateDemandInput struct {
 	Longitude     float64        `json:"longitude"`
 	BudgetFen     int64          `json:"budget_fen"`
 	Budget        int64          `json:"budget"` // 元（小程序发布表单），Create 时换算为分
+	Deadline      string         `json:"deadline"`
 	BizFields     map[string]any `json:"biz_fields"`
 }
 
@@ -68,9 +69,40 @@ func (s *DemandService) Create(ctx context.Context, a domain.Actor, in CreateDem
 	if budgetFen < 0 {
 		return domain.Demand{}, errors.New("budget cannot be negative")
 	}
-	d := domain.Demand{ID: fmt.Sprintf("demand-%d-%d", now.UnixNano(), nextSeq()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: budgetFen, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
+	// 需求有效期（可选）：格式 YYYY-MM-DD / RFC3339；不得早于今天（发布时效校验）。
+	deadline, err := validateDemandDeadline(in.Deadline)
+	if err != nil {
+		return domain.Demand{}, err
+	}
+	d := domain.Demand{ID: fmt.Sprintf("demand-%d-%d", now.UnixNano(), nextSeq()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: budgetFen, Deadline: deadline, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
 	slog.Info("demand created", "demand_id", d.ID, "publisher_id", a.ID, "biz_type", string(bizType))
 	return s.repo.Create(ctx, d)
+}
+
+// validateDemandDeadline 校验需求截止日期：空串返回 ""（长期有效）；
+// 否则接受 YYYY-MM-DD / "2006-01-02 15:04" / RFC3339，归一为 YYYY-MM-DD，
+// 早于今天的日期拒绝（过期需求不允许发布）。
+func validateDemandDeadline(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", nil
+	}
+	var t time.Time
+	var err error
+	for _, layout := range []string{time.RFC3339, "2006-01-02 15:04", "2006-01-02"} {
+		if t, err = time.Parse(layout, s); err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return "", errors.New("无效的截止日期，格式应为 YYYY-MM-DD")
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	if t.Before(today) {
+		return "", errors.New("需求截止日期不能早于今天")
+	}
+	return t.Format("2006-01-02"), nil
 }
 func (s *DemandService) List(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	return s.repo.List(ctx, f)
@@ -342,17 +374,14 @@ func (s *DemandService) Approve(ctx context.Context, a domain.Actor, id string) 
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.Demand{}, errors.New("admin permission required")
 	}
-	// 状态机前置：仅待审核需求可批量通过（防对已公开/已完成需求重复翻转）
-	d, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return domain.Demand{}, err
-	}
-	if d.Status != domain.DemandPending {
-		return domain.Demand{}, fmt.Errorf("只有待审核的需求可审核（当前状态 %s）", d.Status)
-	}
-	d, err = s.repo.SetStatus(ctx, id, domain.DemandPublished)
+	// CAS 原子迁移：仅 pending → published（与单条 Review 一致）。
+	// 此前先读后 SetStatus（无旧状态谓词），并发取消/驳回会被覆盖回 published（需求"复活"）。
+	ok, d, err := s.repo.CompareAndSetStatus(ctx, id, domain.DemandPending, domain.DemandPublished)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("approve demand %s: %w", id, err)
+	}
+	if !ok {
+		return domain.Demand{}, fmt.Errorf("只有待审核的需求可审核（状态已变更，请刷新后重试）")
 	}
 	return d, nil
 }

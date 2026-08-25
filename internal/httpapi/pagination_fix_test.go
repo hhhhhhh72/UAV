@@ -116,9 +116,9 @@ func TestSystematicDoublePaginationFixed(t *testing.T) {
 	}
 	assertPagination(t, app, "/api/v1/emergency-resources", "user-1", domain.RoleIndividual, n)
 
-	// 5. emergency dispatches（含 status 筛选在分页前的回归）
+	// 5. emergency dispatches（含 status 筛选在分页前的回归；库存联动：下发扣减可用量）
 	resID := createVia(t, app, http.MethodPost, "/api/v1/admin/emergency-resources",
-		[]byte(`{"name":"调度资源","res_type":"drone","specs":"s","location":"l","contact_info":"c","quantity":1}`), admin, adminRole)
+		[]byte(`{"name":"调度资源","res_type":"drone","specs":"s","location":"l","contact_info":"c","quantity":5}`), admin, adminRole)
 	for i := 0; i < n; i++ {
 		createVia(t, app, http.MethodPost, "/api/v1/admin/emergency-dispatches",
 			[]byte(fmt.Sprintf(`{"resource_id":%q,"event_desc":"事件%d","location":"l","commander":"c","result":"r","status":"dispatched"}`, resID, i)),

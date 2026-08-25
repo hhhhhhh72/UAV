@@ -27,13 +27,20 @@ func (s *Server) escrowDeposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		AmountFen int64 `json:"amount_fen"`
+		AmountFen int64  `json:"amount_fen"`
+		ToUser    string `json:"to_user"`
 	}
 	if err := decode(r, &in); err != nil || in.AmountFen <= 0 {
 		fail(w, r, http.StatusBadRequest, errors.New("amount_fen > 0 required"))
 		return
 	}
-	tx, err := s.escrowSvc.Deposit(r.Context(), a.ID, in.AmountFen)
+	// 入账对象：默认管理者本人；可指定 to_user（线下收款对账后为学员/商户充值），
+	// 服务端保证仅管理员可调用。普通用户无法为自己入账（印钞防护不变）。
+	target := in.ToUser
+	if target == "" {
+		target = a.ID
+	}
+	tx, err := s.escrowSvc.Deposit(r.Context(), target, in.AmountFen)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
@@ -84,6 +91,7 @@ func (s *Server) escrowRelease(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		ToUser        string `json:"to_user"`
+		FromUser      string `json:"from_user"`
 		AmountFen     int64  `json:"amount_fen"`
 		ReferenceType string `json:"reference_type"`
 		ReferenceID   string `json:"reference_id"`
@@ -92,7 +100,12 @@ func (s *Server) escrowRelease(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	tx, err := s.escrowSvc.Release(r.Context(), a.ID, in.ToUser, in.AmountFen, in.ReferenceType, in.ReferenceID)
+	// 释放账户：默认管理员本人；可指定 from_user（平台代学员/商户结算给收款方）。
+	src := in.FromUser
+	if src == "" {
+		src = a.ID
+	}
+	tx, err := s.escrowSvc.Release(r.Context(), src, in.ToUser, in.AmountFen, in.ReferenceType, in.ReferenceID)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return

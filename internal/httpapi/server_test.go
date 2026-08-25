@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,11 +16,61 @@ import (
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/httpapi"
+	"drone-platform/internal/repository"
 	"drone-platform/internal/repository/memory"
 	"drone-platform/internal/service"
 )
 
 const testSecret = "01234567890123456789012345678901"
+
+// commonUsersSeed 全站测试常用用户（authenticate 现在校验用户存在性/状态/令牌版本，
+// 且以库中角色为准——同一 ID 不能以不同角色签发 token，故每角色独立用户）。
+// 广播/分页类断言依赖此清单数量（len(commonUsersSeed)）。
+var commonUsersSeed = []struct {
+	id   string
+	role domain.Role
+}{
+	{"user-1", domain.RoleIndividual}, {"user-2", domain.RoleIndividual}, {"user-3", domain.RoleIndividual},
+	{"user-4", domain.RoleIndividual}, {"user-5", domain.RoleIndividual},
+	{"admin-1", domain.RolePlatformAdmin}, {"admin-2", domain.RoleAssociationAdmin},
+	{"enterprise-1", domain.RoleEnterprise}, {"enterprise-2", domain.RoleEnterprise}, {"enterprise-3", domain.RoleEnterprise},
+	{"buyer-1", domain.RoleIndividual}, {"buyer-2", domain.RoleIndividual}, {"buyer-3", domain.RoleIndividual}, {"buyer-4", domain.RoleIndividual},
+	{"seller-1", domain.RoleEnterprise}, {"seller-2", domain.RoleEnterprise},
+	{"worker-0", domain.RoleIndividual}, {"worker-1", domain.RoleIndividual}, {"worker-2", domain.RoleIndividual},
+	{"worker-3", domain.RoleIndividual}, {"worker-4", domain.RoleIndividual}, {"worker-x", domain.RoleIndividual},
+	{"stranger", domain.RoleIndividual}, {"expert-1", domain.RoleIndividual}, {"pilot-1", domain.RoleIndividual},
+	{"client-1", domain.RoleIndividual},
+	// 培训/资金（money_path）、学院、赛事等专用用户
+	{"org-1", domain.RoleEnterprise}, {"org-2", domain.RoleEnterprise}, {"org-3", domain.RoleEnterprise}, {"org-4", domain.RoleEnterprise},
+	{"student-1", domain.RoleIndividual}, {"student-2", domain.RoleIndividual}, {"student-3", domain.RoleIndividual},
+	{"s1", domain.RoleIndividual}, {"s2", domain.RoleIndividual}, {"s3", domain.RoleIndividual}, {"s4", domain.RoleIndividual},
+	{"ent-1", domain.RoleEnterprise}, {"ent-2", domain.RoleEnterprise},
+	{"assoc-1", domain.RoleAssociationAdmin},
+	{"owner-a", domain.RoleIndividual}, {"intruder-b", domain.RoleIndividual},
+	{"owner-ent", domain.RoleEnterprise}, {"intruder-ent", domain.RoleEnterprise},
+	{"other-user", domain.RoleIndividual},
+}
+
+func seedCommonUsers(u repository.UserRepository) {
+	for _, it := range commonUsersSeed {
+		u.Create(context.Background(), domain.User{ID: it.id, Name: it.id, Role: it.role, Status: "active", Version: 1})
+	}
+}
+
+// authRoleUserID 每个角色对应一个已入库的测试用户：authenticate 以库中角色为准，
+// token 里的 role 声明不再具有独立效力。
+func authRoleUserID(role domain.Role) string {
+	switch role {
+	case domain.RolePlatformAdmin:
+		return "admin-1"
+	case domain.RoleAssociationAdmin:
+		return "admin-2"
+	case domain.RoleEnterprise:
+		return "enterprise-1"
+	default:
+		return "user-1"
+	}
+}
 
 func newServer(t *testing.T) http.Handler {
 	t.Helper()
@@ -29,7 +80,9 @@ func newServer(t *testing.T) http.Handler {
 	}
 	// 商品仓库与 TradeOrderService 共享同一实例（同 main.go 装配）：订单取消恢复商品依赖它。
 	productRepo := memory.NewProductRepository()
-	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(productRepo, memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository(), productRepo), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository()), service.NewVenueService(memory.NewVenueRepository()), memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens)
+	userRepo := memory.NewUserRepository(nil)
+	seedCommonUsers(userRepo)
+	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil)), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(productRepo, memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository(), productRepo), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository()), service.NewVenueService(memory.NewVenueRepository()), userRepo, memory.NewRefreshTokenRepository(), tokens)
 	// Extended services used by public handlers (home endpoint etc.).
 	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
 	// batch2 模块服务：鉴权回归测试（C2）需要
@@ -41,7 +94,8 @@ func newServer(t *testing.T) http.Handler {
 func auth(t *testing.T, role domain.Role) string {
 	t.Helper()
 	tokens, _ := httpapi.NewTokenManager(testSecret)
-	token, err := tokens.Issue(domain.Actor{ID: "user-1", Role: role}, time.Hour)
+	// authenticate 以库中角色为准：按角色选固定测试用户，避免 token role 与库角色不一致。
+	token, err := tokens.Issue(domain.Actor{ID: authRoleUserID(role), Role: role}, time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}

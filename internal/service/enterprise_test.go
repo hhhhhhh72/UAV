@@ -127,9 +127,9 @@ func TestRejectedEnterpriseCanEditAndResubmit(t *testing.T) {
 	}
 }
 
-// TestApprovedEnterpriseNotEditableByOwner: 已通过企业 owner 仍不可直接编辑（须走管理员）。
-// 防回归：放开 rejected 不能误伤 approved 的状态机门禁。
-func TestApprovedEnterpriseNotEditableByOwner(t *testing.T) {
+// TestApprovedEnterpriseOwnerEditResubmits: 已通过企业 owner 可编辑（P1：自助更新送审），
+// 编辑后自动回「已提交」进入重新审核；不允许 owner 直接提交已通过的企业。
+func TestApprovedEnterpriseOwnerEditResubmits(t *testing.T) {
 	users := memory.NewUserRepository(nil)
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
 
@@ -149,10 +149,18 @@ func TestApprovedEnterpriseNotEditableByOwner(t *testing.T) {
 	if _, err := svc.Review(context.Background(), admin, e.ID, "approve", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Update(context.Background(), a, e.ID, service.CreateEnterpriseInput{Name: "改" + e.Name}); err == nil {
-		t.Fatal("owner must not edit approved enterprise directly")
+	// 企业主更新已认证档案 → 允许，状态回「已提交」（重新审核闭环）
+	updated, err := svc.Update(context.Background(), a, e.ID, service.CreateEnterpriseInput{Name: "改" + e.Name})
+	if err != nil {
+		t.Fatalf("approved owner edit should succeed (自助更新送审): %v", err)
+	}
+	if updated.Status != domain.EnterpriseSubmitted {
+		t.Fatalf("status after approved owner edit: expected %s, got %s", domain.EnterpriseSubmitted, updated.Status)
+	}
+	if updated.ReviewComment != "" {
+		t.Fatalf("review comment should be cleared on resubmit, got %q", updated.ReviewComment)
 	}
 	if _, err := svc.Submit(context.Background(), a, e.ID); err == nil {
-		t.Fatal("owner must not resubmit approved enterprise")
+		t.Fatal("owner must not resubmit a non-draft enterprise via submit")
 	}
 }

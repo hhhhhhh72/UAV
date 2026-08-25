@@ -889,34 +889,6 @@ func TestCoverage_WorkOrderRepo(t *testing.T) {
 	}
 }
 
-// ── BidRepository.ListByBidder ──
-
-func TestCoverage_BidListByBidder(t *testing.T) {
-	store := setupStore(t)
-	if store == nil {
-		return
-	}
-	demandID := ug("cov-bid-demand")
-	if _, err := store.NewDemandRepository().Create(context.Background(), domain.Demand{
-		ID: demandID, PublisherID: ug("cov-bid-pub"), Title: "需求", Contact: "13800000000", Status: domain.DemandPublished,
-	}); err != nil {
-		t.Fatalf("create parent demand: %v", err)
-	}
-	r := store.NewBidRepository()
-	bidder := ug("cov-bidder")
-	id := ug("cov-bid")
-	if _, err := r.Create(context.Background(), domain.DemandBid{
-		ID: id, DemandID: demandID, BidderID: bidder, BidderName: "投标方", AmountFen: 100, Status: "pending",
-	}); err != nil {
-		t.Fatalf("Create bid: %v", err)
-	}
-	if l, err := r.ListByBidder(context.Background(), bidder); err != nil {
-		t.Fatalf("ListByBidder: %v", err)
-	} else if !containsByID(l, id, func(v domain.DemandBid) string { return v.ID }) {
-		t.Fatalf("ListByBidder: bid %s not found", id)
-	}
-}
-
 // ── CollegeRepository（院校） ──
 
 func TestCoverage_CollegeRepo(t *testing.T) {

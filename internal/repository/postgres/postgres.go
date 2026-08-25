@@ -97,11 +97,11 @@ func (r *demandRepo) Create(ctx context.Context, d domain.Demand) (domain.Demand
 	_, err = r.pool.Exec(ctx, `
 		INSERT INTO demands (id, publisher_id, publisher_name, contact, district, city_code,
 			biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
-			status, version, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+			status, version, created_at, updated_at, deadline)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
 		d.ID, d.PublisherID, d.PublisherName, encContact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt)
+		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt, d.Deadline)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("create demand: %w", err)
 	}
@@ -111,7 +111,7 @@ func (r *demandRepo) Create(ctx context.Context, d domain.Demand) (domain.Demand
 func (r *demandRepo) FindByID(ctx context.Context, id string) (domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
-		status, version, created_at, updated_at
+		status, version, created_at, updated_at, deadline
 		FROM demands WHERE id = $1`
 	demands, err := scanDemands(ctx, r.pool, r.cipher, q, []any{id})
 	if err != nil {
@@ -146,11 +146,12 @@ func (r *demandRepo) Update(ctx context.Context, d domain.Demand) (domain.Demand
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE demands SET publisher_name=$1, contact=$2, district=$3, city_code=$4,
 		biz_type=$5, title=$6, description=$7, images=$8, latitude=$9, longitude=$10,
-		budget_fen=$11, offline_amount_fen=$12, biz_fields=$13, status=$14, version=$15, updated_at=$16
-		WHERE id=$17 AND version=$18`,
+		budget_fen=$11, offline_amount_fen=$12, biz_fields=$13, status=$14, deadline=$15,
+		version=$16, updated_at=$17
+		WHERE id=$18 AND version=$19`,
 		d.PublisherName, encContact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Version, d.UpdatedAt, d.ID, oldVersion)
+		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Deadline, d.Version, d.UpdatedAt, d.ID, oldVersion)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("update demand %s: %w", d.ID, err)
 	}
@@ -163,7 +164,7 @@ func (r *demandRepo) Update(ctx context.Context, d domain.Demand) (domain.Demand
 func (r *demandRepo) List(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
-		status, version, created_at, updated_at
+		status, version, created_at, updated_at, deadline
 		FROM demands WHERE status = 'published'`
 	args := []any{}
 	argIdx := 1
@@ -186,7 +187,7 @@ func (r *demandRepo) List(ctx context.Context, f repository.DemandFilter) ([]dom
 func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
-		status, version, created_at, updated_at
+		status, version, created_at, updated_at, deadline
 		FROM demands`
 	args := []any{}
 	argIdx := 1
@@ -218,7 +219,7 @@ func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]
 func (r *demandRepo) ListTop(ctx context.Context, f repository.DemandFilter, limit int) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
-		status, version, created_at, updated_at
+		status, version, created_at, updated_at, deadline
 		FROM demands WHERE status = 'published'`
 	args := []any{}
 	argIdx := 1
@@ -284,7 +285,7 @@ func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, err
 	kw := "%" + escapeLike(q) + "%"
 	sql := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
-		status, version, created_at, updated_at
+		status, version, created_at, updated_at, deadline
 		FROM demands WHERE status = 'published'
 		AND (title ILIKE $1 ESCAPE '\' OR publisher_name ILIKE $1 ESCAPE '\' OR description ILIKE $1 ESCAPE '\' OR district ILIKE $1 ESCAPE '\' OR city_code ILIKE $1 ESCAPE '\')
 		ORDER BY created_at DESC LIMIT 50`
@@ -295,7 +296,7 @@ func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, err
 func (r *demandRepo) ListByPublisher(ctx context.Context, publisherID string) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
-		status, version, created_at, updated_at
+		status, version, created_at, updated_at, deadline
 		FROM demands WHERE publisher_id = $1
 		ORDER BY created_at DESC`
 	return scanDemands(ctx, r.pool, r.cipher, q, []any{publisherID})
@@ -318,11 +319,11 @@ func (r *demandRepo) SetStatus(ctx context.Context, id string, status domain.Dem
 	err = r.pool.QueryRow(ctx,
 		`SELECT id, publisher_id, publisher_name, contact, district, city_code,
 		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
-		status, version, created_at, updated_at
+		status, version, created_at, updated_at, deadline
 		FROM demands WHERE id = $1`, id).Scan(
 		&d.ID, &d.PublisherID, &d.PublisherName, &d.Contact, &d.District, &d.CityCode,
 		&bizType, &d.Title, &d.Description, &images, &d.Latitude, &d.Longitude,
-		&d.BudgetFen, &d.OfflineAmountFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt)
+		&d.BudgetFen, &d.OfflineAmountFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt, &d.Deadline)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("fetch demand after update: %w", err)
 	}
@@ -354,7 +355,7 @@ func scanDemands(ctx context.Context, pool *pgxpool.Pool, cipher *crypto.Cipher,
 		var status, bizType string
 		if err := rows.Scan(&d.ID, &d.PublisherID, &d.PublisherName, &d.Contact, &d.District,
 			&d.CityCode, &bizType, &d.Title, &d.Description, &images, &d.Latitude, &d.Longitude,
-			&d.BudgetFen, &d.OfflineAmountFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt); err != nil {
+			&d.BudgetFen, &d.OfflineAmountFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt, &d.Deadline); err != nil {
 			return nil, fmt.Errorf("scan demand: %w", err)
 		}
 		json.Unmarshal(images, &d.Images)
@@ -1419,8 +1420,8 @@ func (s *Store) NewUserRepository() repository.UserRepository {
 func (r *userRepo) FindByOpenID(ctx context.Context, openid string) (domain.User, error) {
 	var u domain.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, version, created_at, updated_at FROM users WHERE wechat_openid=$1 AND deleted_at IS NULL`, openid).
-		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
+		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE wechat_openid=$1 AND deleted_at IS NULL`, openid).
+		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
 			u.PhoneCipher = dec
@@ -1438,15 +1439,15 @@ func (r *userRepo) Create(ctx context.Context, u domain.User) (domain.User, erro
 		u.Role = domain.RoleIndividual
 	}
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO users (id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, role, status, version, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-		u.ID, u.WechatOpenID, u.PhoneCipher, u.PasswordHash, u.Name, u.AvatarURL, string(u.Role), u.Status, u.Version, u.CreatedAt, u.UpdatedAt)
+		`INSERT INTO users (id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, role, status, token_version, version, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+		u.ID, u.WechatOpenID, u.PhoneCipher, u.PasswordHash, u.Name, u.AvatarURL, string(u.Role), u.Status, u.TokenVersion, u.Version, u.CreatedAt, u.UpdatedAt)
 	return u, err
 }
 
 func (r *userRepo) FindByID(ctx context.Context, id string) (domain.User, error) {
 	var u domain.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
+		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
 		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
@@ -1457,7 +1458,7 @@ func (r *userRepo) FindByID(ctx context.Context, id string) (domain.User, error)
 }
 
 func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
+	rows, err := r.pool.Query(ctx, `SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}
@@ -1465,7 +1466,7 @@ func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
 	var out []domain.User
 	for rows.Next() {
 		var u domain.User
-		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			continue
 		}
 		if r.cipher != nil && u.PhoneCipher != "" {
@@ -1488,7 +1489,9 @@ func (r *userRepo) Count(ctx context.Context) (int, error) {
 }
 
 func (r *userRepo) UpdateRole(ctx context.Context, id string, role domain.Role) error {
-	_, err := r.pool.Exec(ctx, `UPDATE users SET role=$1, version=version+1, updated_at=NOW() WHERE id=$2`, string(role), id)
+	// 角色变更同时令牌版本+1：已签发 token 立即失效（重登后生效新角色，
+	// 防"降权后旧 token 继续以高权限使用"）。
+	_, err := r.pool.Exec(ctx, `UPDATE users SET role=$1, token_version=token_version+1, version=version+1, updated_at=NOW() WHERE id=$2`, string(role), id)
 	if err != nil {
 		return fmt.Errorf("update role for %s: %w", id, err)
 	}
@@ -1843,92 +1846,6 @@ func (r *pgWorkOrderRepo) UpdateCancel(ctx context.Context, id string, reason st
 	return wo, nil
 }
 
-// ---- DemandBid Repository ----
-
-type pgBidRepo struct{ pool *pgxpool.Pool }
-
-func (s *Store) NewBidRepository() repository.BidRepository {
-	return &pgBidRepo{pool: s.pool}
-}
-
-func (r *pgBidRepo) Create(ctx context.Context, b domain.DemandBid) (domain.DemandBid, error) {
-	now := time.Now()
-	b.Version = 1
-	b.CreatedAt = now
-	b.UpdatedAt = now
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO demand_bids (id, demand_id, bidder_id, bidder_name, amount_fen, proposal, status, version, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		b.ID, b.DemandID, b.BidderID, b.BidderName, b.AmountFen, b.Proposal, b.Status, b.Version, b.CreatedAt, b.UpdatedAt)
-	if err != nil {
-		return domain.DemandBid{}, fmt.Errorf("create bid: %w", err)
-	}
-	return b, nil
-}
-
-func (r *pgBidRepo) FindByID(ctx context.Context, id string) (domain.DemandBid, error) {
-	var b domain.DemandBid
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, demand_id, bidder_id, bidder_name, amount_fen, proposal, status, version, created_at, updated_at
-		FROM demand_bids WHERE id=$1`, id).
-		Scan(&b.ID, &b.DemandID, &b.BidderID, &b.BidderName, &b.AmountFen, &b.Proposal, &b.Status, &b.Version, &b.CreatedAt, &b.UpdatedAt)
-	if err != nil {
-		return domain.DemandBid{}, fmt.Errorf("bid %s: %w", id, err)
-	}
-	return b, nil
-}
-
-func (r *pgBidRepo) ListByDemand(ctx context.Context, demandID string) ([]domain.DemandBid, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, demand_id, bidder_id, bidder_name, amount_fen, proposal, status, version, created_at, updated_at
-		FROM demand_bids WHERE demand_id=$1 ORDER BY created_at DESC`, demandID)
-	if err != nil {
-		return nil, fmt.Errorf("query bids: %w", err)
-	}
-	defer rows.Close()
-	out := []domain.DemandBid{}
-	for rows.Next() {
-		var b domain.DemandBid
-		if err := rows.Scan(&b.ID, &b.DemandID, &b.BidderID, &b.BidderName, &b.AmountFen, &b.Proposal, &b.Status, &b.Version, &b.CreatedAt, &b.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan bid: %w", err)
-		}
-		out = append(out, b)
-	}
-	return out, rows.Err()
-}
-
-func (r *pgBidRepo) ListByBidder(ctx context.Context, bidderID string) ([]domain.DemandBid, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, demand_id, bidder_id, bidder_name, amount_fen, proposal, status, version, created_at, updated_at
-		FROM demand_bids WHERE bidder_id=$1 ORDER BY created_at DESC`, bidderID)
-	if err != nil {
-		return nil, fmt.Errorf("query bids by bidder: %w", err)
-	}
-	defer rows.Close()
-	out := []domain.DemandBid{}
-	for rows.Next() {
-		var b domain.DemandBid
-		if err := rows.Scan(&b.ID, &b.DemandID, &b.BidderID, &b.BidderName, &b.AmountFen, &b.Proposal, &b.Status, &b.Version, &b.CreatedAt, &b.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan bid: %w", err)
-		}
-		out = append(out, b)
-	}
-	return out, rows.Err()
-}
-
-func (r *pgBidRepo) UpdateStatus(ctx context.Context, id string, status string) (domain.DemandBid, error) {
-	tag, err := r.pool.Exec(ctx,
-		`UPDATE demand_bids SET status=$1, version=version+1, updated_at=$2 WHERE id=$3`,
-		status, time.Now(), id)
-	if err != nil {
-		return domain.DemandBid{}, fmt.Errorf("update bid status: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return domain.DemandBid{}, fmt.Errorf("bid %s not found", id)
-	}
-	return r.FindByID(ctx, id)
-}
-
 func (r *contractRepo) FindByID(ctx context.Context, id string) (domain.Contract, error) {
 	var v domain.Contract
 	var status string
@@ -2089,7 +2006,7 @@ func (r *demandRepo) ListFavoriteDemandIDs(ctx context.Context, userID string) (
 func (r *demandRepo) ListFavoriteDemands(ctx context.Context, userID string) ([]domain.Demand, error) {
 	q := `SELECT d.id, d.publisher_id, d.publisher_name, d.contact, d.district, d.city_code,
 		d.biz_type, d.title, d.description, d.images, d.latitude, d.longitude, d.budget_fen, d.offline_amount_fen, d.biz_fields,
-		d.status, d.version, d.created_at, d.updated_at
+		d.status, d.version, d.created_at, d.updated_at, d.deadline
 		FROM demands d
 		JOIN demand_favorites f ON f.demand_id = d.id
 		WHERE f.user_id = $1

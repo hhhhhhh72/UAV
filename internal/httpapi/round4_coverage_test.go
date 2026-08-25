@@ -181,7 +181,7 @@ func TestR4CreateDemandErrors(t *testing.T) {
 	assertStatus(t, http.MethodPost, "/api/v1/demands (empty)", w, http.StatusBadRequest)
 	// 协会管理员不可发布 → 403
 	w = doRaw(app, http.MethodPost, "/api/v1/demands",
-		`{"title":"越权","contact":"13800000000"}`, authAs(t, "admin-1", domain.RoleAssociationAdmin))
+		`{"title":"越权","contact":"13800000000"}`, authAs(t, "admin-2", domain.RoleAssociationAdmin))
 	assertStatus(t, http.MethodPost, "/api/v1/demands (admin)", w, http.StatusForbidden)
 }
 
@@ -466,7 +466,7 @@ func TestR4Phase3Enrollments(t *testing.T) {
 // TestR4BizHandlersZero 覆盖 biz_handlers.go 的 0% 端点。
 func TestR4BizHandlersZero(t *testing.T) {
 	app := newBizServer(t)
-	userTok := authAs(t, "user-1", domain.RoleEnterprise)
+	userTok := authAs(t, "enterprise-1", domain.RoleEnterprise)
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
 
 	// listMyPortfolios → 200

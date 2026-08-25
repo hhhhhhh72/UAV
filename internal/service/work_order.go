@@ -57,6 +57,10 @@ func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, dem
 	if it.Status != "pending" {
 		return domain.WorkOrder{}, errors.New("该意向已处理")
 	}
+	// 金额校验：订单金额不得超过需求预算（预算为 0 表示面议/未填，不设上限）。
+	if amountFen > 0 && d.BudgetFen > 0 && amountFen > d.BudgetFen {
+		return domain.WorkOrder{}, fmt.Errorf("订单金额不能超过需求预算（%.2f 元）", float64(d.BudgetFen)/100)
+	}
 
 	// 接单顺序反转（补偿式"事务"）：先建工单，成功后再落意向状态——
 	// 此前先置 contacted/closed 再建单，建单失败会留下"无工单的 contacted 意向 +

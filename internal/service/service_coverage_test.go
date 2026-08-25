@@ -677,6 +677,11 @@ func TestEmergencyService_FullCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EmergencyService.CreateDispatch: %v", err)
 	}
+	// 库存联动：下发（dispatched 默认）扣减 1 份
+	res, err := svc.GetResource(context.Background(), r.ID)
+	if err != nil || res.Quantity != 4 {
+		t.Fatalf("quantity after dispatch: want 4, got %d (err=%v)", res.Quantity, err)
+	}
 
 	// FindDispatchByID
 	fd, err := svc.FindDispatchByID(context.Background(), d.ID)
@@ -691,9 +696,17 @@ func TestEmergencyService_FullCRUD(t *testing.T) {
 	if _, err := svc.UpdateDispatch(context.Background(), d.ID, r.ID, "新事件", "新地点", "新指挥", "新结果", "ongoing", now, now.Add(2*time.Hour)); err != nil {
 		t.Fatalf("EmergencyService.UpdateDispatch(ongoing): %v", err)
 	}
+	// 占用态内迁移不改变库存
+	if res, _ := svc.GetResource(context.Background(), r.ID); res.Quantity != 4 {
+		t.Fatalf("quantity after ongoing: want 4, got %d", res.Quantity)
+	}
 	ud, err := svc.UpdateDispatch(context.Background(), d.ID, r.ID, "新事件", "新地点", "新指挥", "新结果", "completed", now, now.Add(2*time.Hour))
 	if err != nil || ud.Status != "completed" || ud.EventDesc != "新事件" {
 		t.Fatalf("EmergencyService.UpdateDispatch: status=%q desc=%q err=%v", ud.Status, ud.EventDesc, err)
+	}
+	// 归还：completed 后库存恢复
+	if res, _ := svc.GetResource(context.Background(), r.ID); res.Quantity != 5 {
+		t.Fatalf("quantity after completed: want 5, got %d", res.Quantity)
 	}
 	// 非法迁移（completed 为终态）拒绝
 	if _, err := svc.UpdateDispatch(context.Background(), d.ID, r.ID, "", "", "", "", "ongoing", now, now); err == nil {
@@ -773,13 +786,21 @@ func TestProjectAppService_ReviewBranches(t *testing.T) {
 	if err != nil || ap.Status != "approved" {
 		t.Fatalf("ProjectAppService.Review(approve): status=%q err=%v", ap.Status, err)
 	}
-	// reject
-	rj, err := svc.Review(context.Background(), a.ID, "材料不足", "reject")
+	// 状态机门禁：已获批申报不得再审（防重复审核/反复改判）
+	if _, err := svc.Review(context.Background(), a.ID, "材料不足", "reject"); err == nil {
+		t.Fatal("ProjectAppService.Review: expected error for re-review of approved application")
+	}
+	// reject（新申报）
+	a2, err := svc.Create(context.Background(), "user-1", "示范项目2", "示范", "描述", 1000000, nil)
+	if err != nil {
+		t.Fatalf("ProjectAppService.Create(2): %v", err)
+	}
+	rj, err := svc.Review(context.Background(), a2.ID, "材料不足", "reject")
 	if err != nil || rj.Status != "rejected" {
 		t.Fatalf("ProjectAppService.Review(reject): status=%q err=%v", rj.Status, err)
 	}
 	// invalid action
-	if _, err := svc.Review(context.Background(), a.ID, "", "bogus"); err == nil {
+	if _, err := svc.Review(context.Background(), a2.ID, "", "bogus"); err == nil {
 		t.Fatal("ProjectAppService.Review: expected error for invalid action")
 	}
 	// unknown id

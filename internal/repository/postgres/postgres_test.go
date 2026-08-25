@@ -102,42 +102,6 @@ func TestDemandRepo_CompareAndSetStatus(t *testing.T) {
 	}
 }
 
-func TestBidRepo_CreateAndList(t *testing.T) {
-	store := setupStore(t)
-	if store == nil {
-		return
-	}
-	demandID := ug("dp")
-	store.NewDemandRepository().Create(context.Background(), domain.Demand{ID: demandID, PublisherID: "u-1", Status: domain.DemandPublished, Version: 1, CreatedAt: time.Now(), UpdatedAt: time.Now()})
-	repo := store.NewBidRepository()
-	bidID := ug("tb")
-	b, err := repo.Create(context.Background(), domain.DemandBid{ID: bidID, DemandID: demandID, BidderID: "u-2", AmountFen: 50000, Status: "pending", Version: 1, CreatedAt: time.Now(), UpdatedAt: time.Now()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	list, _ := repo.ListByDemand(context.Background(), demandID)
-	if len(list) == 0 {
-		t.Fatal("list empty")
-	}
-	_ = b
-}
-
-func TestBidRepo_UpdateStatus(t *testing.T) {
-	store := setupStore(t)
-	if store == nil {
-		return
-	}
-	did := ug("dp2")
-	store.NewDemandRepository().Create(context.Background(), domain.Demand{ID: did, PublisherID: "u-1", Status: domain.DemandPublished, Version: 1, CreatedAt: time.Now(), UpdatedAt: time.Now()})
-	repo := store.NewBidRepository()
-	id := ug("tb2")
-	repo.Create(context.Background(), domain.DemandBid{ID: id, DemandID: did, BidderID: "u-3", Status: "pending", Version: 1, CreatedAt: time.Now(), UpdatedAt: time.Now()})
-	b, err := repo.UpdateStatus(context.Background(), id, "accepted")
-	if err != nil || b.Status != "accepted" {
-		t.Fatalf("update: %v", err)
-	}
-}
-
 func TestContractRepo_CreateAndUpdateStatus(t *testing.T) {
 	store := setupStore(t)
 	if store == nil {

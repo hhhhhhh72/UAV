@@ -54,10 +54,12 @@ func newSubmitServer(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ur := memory.NewUserRepository(nil)
+	seedCommonUsers(ur)
 	srv := httpapi.NewServer(
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil,
-		memory.NewUserRepository(nil), memory.NewRefreshTokenRepository(), tokens,
+		ur, memory.NewRefreshTokenRepository(), tokens,
 	)
 	srv.SetApplicationService(service.NewApplicationService(memory.NewApplicationRepository()))
 	return srv.Router()
@@ -173,7 +175,7 @@ func TestH5CompatServicesConfig(t *testing.T) {
 	assertH5Code(t, w, http.MethodGet, "/api/services/config", http.StatusOK)
 
 	// POST 带 platform_admin token → 200
-	adminTok := authAs(t, "user-1", domain.RolePlatformAdmin)
+	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
 	body := `{"config":{"_home":{"banners":[{"image":"/uploads/ban.jpg","link":"/pages/demand/list"}],"notices":["测试公告"]}}}`
 	w = doRaw(app, http.MethodPost, "/api/services/config", body, adminTok)
 	assertH5Code(t, w, http.MethodPost, "/api/services/config", http.StatusOK)

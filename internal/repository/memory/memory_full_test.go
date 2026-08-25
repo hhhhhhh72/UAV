@@ -103,16 +103,6 @@ func TestContractRepoFull(t *testing.T) {
 	r.UpdateStatus(context.Background(), "ctr-1", domain.ContractSent)
 }
 
-// === Bid Repository ===
-func TestBidRepoFull(t *testing.T) {
-	r := memory.NewBidRepository()
-	b := domain.DemandBid{ID: "bid-1", DemandID: "d-1", BidderID: "u-2", AmountFen: 50000, Status: "pending"}
-	r.Create(context.Background(), b)
-	r.FindByID(context.Background(), "bid-1")
-	r.ListByDemand(context.Background(), "d-1")
-	r.UpdateStatus(context.Background(), "bid-1", "accepted")
-}
-
 // === Job Repository ===
 func TestJobRepoFull(t *testing.T) {
 	r := memory.NewJobRepository()

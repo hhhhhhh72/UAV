@@ -93,11 +93,17 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 		birthday = bd
 	}
 	now := time.Now()
+	// 状态语义：付费报名（已冻结学费）→ paid（已缴费）；免费/待支付 → enrolled（已报名）。
+	// 此前付费报名也记为 enrolled，管理端无法区分"已缴费待开班"与"仅占位报名"。
+	status := "enrolled"
+	if form.PaidAmountFen > 0 {
+		status = "paid"
+	}
 	e := domain.Enrollment{ID: nextID("enroll"), CourseID: courseID, UserID: userID,
 		Name: form.Name, Phone: form.Phone, IDCard: form.IDCard, Gender: form.Gender, Birthday: birthday,
 		Email: form.Email, Education: form.Education, Experience: form.Experience,
 		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,
-		Status: "enrolled", PaidAmountFen: form.PaidAmountFen, CreatedAt: now}
+		Status: status, PaidAmountFen: form.PaidAmountFen, CreatedAt: now}
 	// 先占名额（enrolled_count+1），再落报名记录；落库失败补偿 -1（学号不漂移）。
 	// 仅当课程存在（FindByID 成功）才占位——兼容无课程仓储的测试与历史数据。
 	bumpOK := false

@@ -100,7 +100,7 @@ func TestCommunityPostsPublishCommentsReports(t *testing.T) {
 
 func TestCommunityListingsLabour(t *testing.T) {
 	app := newBizServer(t)
-	sellerTok := authAs(t, "user-1", domain.RoleEnterprise)
+	sellerTok := authAs(t, "seller-1", domain.RoleEnterprise)
 	quoterTok := authAs(t, "user-2", domain.RoleIndividual)
 
 	// 发布二手 → 201

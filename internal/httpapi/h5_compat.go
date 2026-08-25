@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -729,6 +730,27 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 	role, _ := user["role"].(string)
 	if role == "" {
 		role = "individual"
+	}
+	// 登录成功但账号仅存在于 legacy users.json（未入库）→ 同步入库。
+	// authenticate 会校验用户存在性/状态/令牌版本：仅存 JSON 的账号签发 token
+	// 后任何业务请求都会 401（"账号已失效"），此处补齐库记录（含 bcrypt 哈希，
+	// 后续登录直接走库路径，不再依赖 users.json）。
+	if _, err := s.userRepo.FindByID(r.Context(), id); err != nil {
+		now := time.Now()
+		legacyUser := domain.User{
+			ID:           id,
+			WechatOpenID: "phone:" + loginID,
+			PasswordHash: passwordHash,
+			Name:         strFromMap(user, "name"),
+			Role:         domain.Role(role),
+			Status:       "active",
+			Version:      1,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		if _, cerr := s.userRepo.Create(r.Context(), legacyUser); cerr != nil {
+			slog.Warn("sync legacy login user into user repo failed", "user_id", id, "error", cerr)
+		}
 	}
 
 	accessToken, err := s.tokens.IssueJWT(actorFromMap(id, role), 15*time.Minute)

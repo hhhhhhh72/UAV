@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -417,7 +418,18 @@ func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, event
 		Status:     status,
 		CreatedAt:  now,
 	}
-	return s.repo.CreateDispatch(ctx, d)
+	created, err := s.repo.CreateDispatch(ctx, d)
+	if err != nil {
+		return domain.EmergencyDispatch{}, err
+	}
+	// 库存联动：下发/出动（dispatched/ongoing）占用 1 份可用量；台账数量与真实占用对齐。
+	// 失败仅记录（调度记录已落库，不因对账失败阻断应急流程）。
+	if dispatchOccupiesQuantity(status) {
+		if err := s.repo.AdjustResourceQuantity(ctx, resourceID, -1); err != nil {
+			slog.Warn("adjust emergency resource quantity failed", "resource_id", resourceID, "delta", -1, "error", err)
+		}
+	}
+	return created, nil
 }
 
 func (s *EmergencyService) ListDispatches(ctx context.Context, resourceID string, page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
@@ -456,9 +468,10 @@ func (s *EmergencyService) UpdateDispatch(ctx context.Context, id, resourceID, e
 	if err != nil {
 		return domain.EmergencyDispatch{}, err
 	}
+	oldStatus := d.Status
 	// 状态机：合法迁移（dispatched→ongoing→completed/cancelled；pending→dispatched/cancelled）
-	if !canDispatchTransition(d.Status, status) {
-		return domain.EmergencyDispatch{}, fmt.Errorf("非法调度状态流转: %s → %s", d.Status, status)
+	if !canDispatchTransition(oldStatus, status) {
+		return domain.EmergencyDispatch{}, fmt.Errorf("非法调度状态流转: %s → %s", oldStatus, status)
 	}
 	// 资源存在校验（此前 Update 不校验，可把调度挂到不存在的资源）
 	if _, err := s.repo.FindResourceByID(ctx, resourceID); err != nil {
@@ -472,7 +485,35 @@ func (s *EmergencyService) UpdateDispatch(ctx context.Context, id, resourceID, e
 	d.Status = status
 	d.StartTime = startTime
 	d.EndTime = endTime
-	return s.repo.UpdateDispatch(ctx, d)
+	updated, err := s.repo.UpdateDispatch(ctx, d)
+	if err != nil {
+		return domain.EmergencyDispatch{}, err
+	}
+	// 库存联动：进入占用态（dispatched/ongoing）扣减，退出占用态（completed/cancelled）归还。
+	// 失败仅记录（调度记录已更新，不因对账失败阻断应急流程）。
+	if delta := dispatchQuantityDelta(oldStatus, status); delta != 0 {
+		if err := s.repo.AdjustResourceQuantity(ctx, resourceID, delta); err != nil {
+			slog.Warn("adjust emergency resource quantity failed", "resource_id", resourceID, "delta", delta, "error", err)
+		}
+	}
+	return updated, nil
+}
+
+// dispatchOccupiesQuantity 调度状态是否占用资源库存。
+func dispatchOccupiesQuantity(s string) bool {
+	return s == "dispatched" || s == "ongoing"
+}
+
+// dispatchQuantityDelta 状态迁移的库存变化：占用→退出 +1（归还），非占用→占用 -1（扣减）。
+func dispatchQuantityDelta(from, to string) int {
+	fromOcc, toOcc := dispatchOccupiesQuantity(from), dispatchOccupiesQuantity(to)
+	if fromOcc && !toOcc {
+		return 1
+	}
+	if !fromOcc && toOcc {
+		return -1
+	}
+	return 0
 }
 
 // validDispatchStatus 调度状态值域（与小程序 pending/ongoing/completed/cancelled 对齐 + dispatched）。

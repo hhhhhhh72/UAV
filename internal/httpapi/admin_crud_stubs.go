@@ -625,6 +625,11 @@ func convStudy(items []domain.StudyTour) []map[string]any {
 	return out
 }
 
+// validStudyTourStatus 研学项目状态白名单（管理后台：draft 草稿 / active 招募中 / closed 已结束）。
+func validStudyTourStatus(s string) bool {
+	return s == "draft" || s == "active" || s == "closed"
+}
+
 func (s *Server) createStudyTour(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Title       string                 `json:"title"`
@@ -642,6 +647,13 @@ func (s *Server) createStudyTour(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if in.Status == "" {
+		in.Status = "draft"
+	}
+	if !validStudyTourStatus(in.Status) {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("invalid study tour status %q (draft/active/closed)", in.Status))
 		return
 	}
 	// P2 修复：严格解析日期——非法日期此前被 ParseTime 静默写成当前时间落库。
@@ -681,6 +693,10 @@ func (s *Server) updateStudyTour(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if in.Status != "" && !validStudyTourStatus(in.Status) {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("invalid study tour status %q (draft/active/closed)", in.Status))
 		return
 	}
 	st, err := s.studyTourRepo.FindByID(r.Context(), id)
@@ -1470,6 +1486,11 @@ func (s *Server) getAchievement(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, err)
 		return
 	}
+	// 公开详情仅展示已发布成果（draft 等未公开状态仅管理端可见）
+	if !isAdminRoute(r) && a.Status != "published" {
+		fail(w, r, 404, errors.New("achievement not found"))
+		return
+	}
 	respond(w, r, 200, a)
 }
 func (s *Server) getRDChallenge(w http.ResponseWriter, r *http.Request) {
@@ -1478,12 +1499,20 @@ func (s *Server) getRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, err)
 		return
 	}
+	if !isAdminRoute(r) && !isPublicRDStatus(c2.Status) {
+		fail(w, r, 404, errors.New("rd challenge not found"))
+		return
+	}
 	respond(w, r, 200, c2)
 }
 func (s *Server) getResearchProject(w http.ResponseWriter, r *http.Request) {
 	rp, err := s.researchSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
+		return
+	}
+	if !isAdminRoute(r) && rp.Status != "active" {
+		fail(w, r, 404, errors.New("research project not found"))
 		return
 	}
 	respond(w, r, 200, rp)

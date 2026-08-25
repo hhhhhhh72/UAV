@@ -72,7 +72,7 @@ func TestOwnershipPortfolioForbiddenForOthers(t *testing.T) {
 
 	w := requestAs(t, app, http.MethodPost, "/api/v1/portfolios",
 		[]byte(`{"name":"A公司品牌","logo_url":"l.png","description":"d","contact_info":"138"}`),
-		"owner-a", domain.RoleEnterprise)
+		"owner-ent", domain.RoleEnterprise)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create portfolio: %d %s", w.Code, w.Body.String())
 	}
@@ -87,13 +87,13 @@ func TestOwnershipPortfolioForbiddenForOthers(t *testing.T) {
 	id := created.Data.ID
 
 	w = requestAs(t, app, http.MethodPut, "/api/v1/portfolios/"+id,
-		[]byte(`{"name":"B篡改品牌"}`), "intruder-b", domain.RoleEnterprise)
+		[]byte(`{"name":"B篡改品牌"}`), "intruder-ent", domain.RoleEnterprise)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("intruder PUT portfolio: want 403, got %d %s", w.Code, w.Body.String())
 	}
 
 	w = requestAs(t, app, http.MethodPut, "/api/v1/portfolios/"+id,
-		[]byte(`{"name":"A公司品牌v2"}`), "owner-a", domain.RoleEnterprise)
+		[]byte(`{"name":"A公司品牌v2"}`), "owner-ent", domain.RoleEnterprise)
 	if w.Code != http.StatusOK {
 		t.Fatalf("owner PUT portfolio: want 200, got %d %s", w.Code, w.Body.String())
 	}
@@ -105,7 +105,7 @@ func TestOwnershipRDChallengeForbiddenForOthers(t *testing.T) {
 
 	w := requestAs(t, app, http.MethodPost, "/api/v1/rd-challenges",
 		[]byte(`{"title":"A的电池难题","field":"电池","description":"d","deadline":"2026-12-31","budget_fen":500000}`),
-		"owner-a", domain.RoleEnterprise)
+		"owner-ent", domain.RoleEnterprise)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create rd-challenge: %d %s", w.Code, w.Body.String())
 	}
@@ -121,14 +121,14 @@ func TestOwnershipRDChallengeForbiddenForOthers(t *testing.T) {
 
 	// 他人修改 → 403
 	w = requestAs(t, app, http.MethodPut, "/api/v1/rd-challenges/"+id,
-		[]byte(`{"title":"B篡改难题","deadline":"2026-12-31"}`), "intruder-b", domain.RoleEnterprise)
+		[]byte(`{"title":"B篡改难题","deadline":"2026-12-31"}`), "intruder-ent", domain.RoleEnterprise)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("intruder PUT rd-challenge: want 403, got %d %s", w.Code, w.Body.String())
 	}
 
 	// 属主修改 → 200
 	w = requestAs(t, app, http.MethodPut, "/api/v1/rd-challenges/"+id,
-		[]byte(`{"title":"A的电池难题v2","deadline":"2026-12-31"}`), "owner-a", domain.RoleEnterprise)
+		[]byte(`{"title":"A的电池难题v2","deadline":"2026-12-31"}`), "owner-ent", domain.RoleEnterprise)
 	if w.Code != http.StatusOK {
 		t.Fatalf("owner PUT rd-challenge: want 200, got %d %s", w.Code, w.Body.String())
 	}

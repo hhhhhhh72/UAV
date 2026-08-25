@@ -1,7 +1,6 @@
 package httpapi_test
 
 import (
-	"context"
 	"net/http"
 	"testing"
 
@@ -22,9 +21,10 @@ func newBizServer(t *testing.T) http.Handler {
 	// 商品仓库必须与 TradeOrderService 共享同一实例（与 main.go 装配一致）：
 	// 订单取消/删除要恢复商品（sold→listed），分实例则 Restore 找不到商品。
 	productRepo := memory.NewProductRepository()
-	// auth() issues tokens for user-1; pre-seed it so /api/v1/me writes resolve.
+	// auth() issues tokens for user-1; pre-seed common test users so authenticate
+	// (存在性/状态/令牌版本校验) resolves.
 	userRepo := memory.NewUserRepository(nil)
-	userRepo.Create(context.Background(), domain.User{ID: "user-1", Name: "测试用户", Role: domain.RoleIndividual, Status: "active"})
+	seedCommonUsers(userRepo)
 	srv := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),
