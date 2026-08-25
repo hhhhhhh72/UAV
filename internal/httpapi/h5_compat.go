@@ -147,16 +147,21 @@ func (s *Server) h5SaveServicesConfig(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errBadRequest("config is required"))
 		return
 	}
-	if err := writeJSON(_servicesFile, &_servicesMu, body.Config); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	// 管理后台「首页配置」→ 平台全局配置：小程序 /api/v1/home 读 platform_config.json，
-	// 后台的 _home 存 services_config.json，不打通则轮播 Banner/公告永远不生效
+	// 串行化读-改-写全流程（readJSON/writeJSON 各自加锁但跨调用不原子，
+	// 并发保存此前互相覆盖字段）；锁粒度=单实例配置写，成本可忽略。
+	s.servicesCfgMu.Lock()
+	defer s.servicesCfgMu.Unlock()
+	// 先同步平台配置再落盘：sync 失败返回 500 且 json 未写（不产生半同步）；
+	// json 写失败时平台已同步，重试幂等自愈（反向半同步方向危害更小）。
 	if err := syncHomeConfigToPlatform(body.Config); err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	if err := writeJSON(_servicesFile, &_servicesMu, body.Config); err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "save_services_config", "config", "services_config", "saved")
 	respond(w, r, http.StatusOK, map[string]string{"status": "saved"})
 }
 
@@ -799,6 +804,23 @@ type regLimitLog struct {
 	windowStart time.Time
 }
 
+// adminOpAllowed 管理端重型操作限频（广播/导出等）：key=clientIP|op，
+// regLimitWindow 窗口内最多 max 次（独立于全局限流，防连环重操作）。
+func (s *Server) adminOpAllowed(r *http.Request, op string, max int) bool {
+	key := op + "|" + clientIP(r)
+	v, _ := s.adminOpLimits.LoadOrStore(key, &regLimitLog{windowStart: time.Now()})
+	log := v.(*regLimitLog)
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	now := time.Now()
+	if now.Sub(log.windowStart) >= regLimitWindow {
+		log.windowStart = now
+		log.count = 0
+	}
+	log.count++
+	return log.count <= max
+}
+
 // regAllowed 报告该维度（"phone:"+手机号 / "ip:"+IP）是否仍允许注册尝试，并累计本次。
 func (s *Server) regAllowed(key string) bool {
 	if s.regLimitEntries.Load() >= regLimitMaxEntries {
@@ -896,6 +918,7 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	users = append(users, jsonUser)
 	writeJSON(_usersFile, &_usersMu, users)
+	s.audit(r.Context(), uid, "register_user", "user", uid, "registered")
 
 	accessToken, err := s.tokens.Issue(domain.Actor{ID: uid, Role: domain.RoleIndividual}, 15*time.Minute)
 	if err != nil {

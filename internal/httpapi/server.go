@@ -114,6 +114,11 @@ type Server struct {
 	accountFailCounts sync.Map // loginID -> *accountFailLog（账号级跨 IP 失败累计，实例级——换 IP 无法绕过账号上限）
 	regLimits         sync.Map // "phone:"+phone / "ip:"+ip -> *regLimitLog（开放注册限频，实例级）
 	regLimitEntries   atomic.Int64
+	// adminOpLimits 管理端重型操作限频（广播/导出等）：key=clientIP -> *regLimitLog。
+	adminOpLimits sync.Map
+	// servicesCfgMu 序列化 services_config.json 的读-改-写（h5SaveServicesConfig 等）：
+	// 并发保存此前会互相覆盖字段（readJSON 与 writeJSON 各自加锁，跨调用不原子）。
+	servicesCfgMu sync.Mutex
 	auditWriter       repository.AuditWriter
 	dbPinger          interface{ Ping(context.Context) error }
 	storage           string
@@ -1091,26 +1096,38 @@ func (s *Server) accessLog(next http.Handler) http.Handler {
 }
 
 // clientIP 提取真实客户端 IP。
-// nginx 反代场景下 RemoteAddr 恒为 127.0.0.1（所有用户共享一个限流桶），
+// nginx 反代场景下 RemoteAddr 恒为 127.0.0.1/网桥（所有用户共享一个限流桶），
 // 须取 X-Forwarded-For：nginx 按 $proxy_add_x_forwarded_for 把远端地址追加在
 // 末尾，取最后一项即最接近真实客户端的一跳（nginx 标准做法）。
-// P2 修复：此前无条件信任 XFF 首个 IP，客户端伪造 X-Forwarded-For 即可
-// 绕过全局限流与短信限频。现取最后一项并校验其为合法 IP，非法/空则回退 RemoteAddr。
+// P2 修复：仅当直连方是受信代理（回环/私网/链路本地）时才采信 XFF——
+// 此前直连公网部署时也信任 XFF，攻击者伪造 X-Forwarded-For 即可绕过
+// 全局限流/短信 5/min/注册 3/10min 限频；直连场景一律用 RemoteAddr。
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// 取最后一项（代理追加的远端在末尾，最接近真实客户端）。
-		if i := strings.LastIndexByte(xff, ','); i >= 0 {
-			xff = xff[i+1:]
-		}
-		if ip := strings.TrimSpace(xff); ip != "" && net.ParseIP(ip) != nil {
-			return ip
-		}
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
+	if err != nil {
+		host = r.RemoteAddr
 	}
-	return r.RemoteAddr
+	if isTrustedProxyIP(host) {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			// 取最后一项（代理追加的远端在末尾，最接近真实客户端）。
+			if i := strings.LastIndexByte(xff, ','); i >= 0 {
+				xff = xff[i+1:]
+			}
+			if ip := strings.TrimSpace(xff); ip != "" && net.ParseIP(ip) != nil {
+				return ip
+			}
+		}
+	}
+	return host
+}
+
+// isTrustedProxyIP 报告直连 IP 是否来自受信代理（回环 / RFC1918 私网 / 链路本地）。
+func isTrustedProxyIP(ip string) bool {
+	p := net.ParseIP(ip)
+	if p == nil {
+		return false
+	}
+	return p.IsLoopback() || p.IsPrivate() || p.IsLinkLocalUnicast()
 }
 
 func (s *Server) rateLimit(next http.Handler) http.Handler {

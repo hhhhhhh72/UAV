@@ -19,9 +19,9 @@ func (s *Store) NewUploadRepository() repository.UploadRepository {
 
 func (r *uploadRepo) Create(ctx context.Context, rec domain.FileRecord) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO uploads (id, owner_id, size_bytes, visibility, created_at)
-		 VALUES ($1,$2,$3,$4,$5)`,
-		rec.ID, rec.OwnerID, rec.SizeBytes, rec.Visibility, rec.CreatedAt)
+		`INSERT INTO uploads (id, owner_id, storage_key, sha256, content_type, size_bytes, visibility, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		rec.ID, rec.OwnerID, rec.StorageKey, rec.SHA256, rec.ContentType, rec.SizeBytes, rec.Visibility, rec.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("record upload %s: %w", rec.ID, err)
 	}
@@ -31,8 +31,8 @@ func (r *uploadRepo) Create(ctx context.Context, rec domain.FileRecord) error {
 func (r *uploadRepo) FindByID(ctx context.Context, id string) (domain.FileRecord, error) {
 	var rec domain.FileRecord
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, owner_id, size_bytes, visibility, created_at FROM uploads WHERE id=$1`,
-		id).Scan(&rec.ID, &rec.OwnerID, &rec.SizeBytes, &rec.Visibility, &rec.CreatedAt)
+		`SELECT id, owner_id, COALESCE(storage_key,''), COALESCE(sha256,''), COALESCE(content_type,''), size_bytes, visibility, created_at FROM uploads WHERE id=$1`,
+		id).Scan(&rec.ID, &rec.OwnerID, &rec.StorageKey, &rec.SHA256, &rec.ContentType, &rec.SizeBytes, &rec.Visibility, &rec.CreatedAt)
 	if err != nil {
 		return domain.FileRecord{}, fmt.Errorf("find upload %s: %w", id, err)
 	}

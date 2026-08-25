@@ -162,6 +162,7 @@
 import { safeBack } from '../../../utils/nav'
 import { ref, computed } from 'vue'
 import { onLoad, onReady } from '@dcloudio/uni-app'
+import { request } from '../../../utils/request'
 
 const contentReady = ref(false)
 const tour = ref(null)
@@ -326,16 +327,49 @@ const onApply = () => {
 }
 
 onLoad((options) => {
+  const id = options && options.id ? decodeURIComponent(options.id) : ''
+  // 冷启动/分享直达：storage 可能为空或为上次浏览的其它活动——
+  // 先按 id 走公开详情接口自取（此前无接口，直达即误判"不存在"并返回）。
+  if (id) {
+    request({ url: '/api/v1/study/tours/' + encodeURIComponent(id) })
+      .then((res) => {
+        const d = (res && res.data) || res
+        if (d && d.id) {
+          tour.value = d
+        } else {
+          showMissing()
+        }
+      })
+      .catch(() => {
+        // 接口失败：回退缓存（仅当缓存 id 匹配），否则按不存在处理
+        const cached = uni.getStorageSync('study_tour_detail')
+        if (cached && cached.id === id) {
+          tour.value = cached
+        } else {
+          showMissing()
+        }
+      })
+      .finally(() => {
+        uni.removeStorageSync('study_tour_detail')
+        uni.setNavigationBarTitle({ title: (tour.value && tour.value.title) || '研学详情' })
+      })
+    return
+  }
+  // 兼容旧入口（无 id 参数时仅用缓存）
   const cached = uni.getStorageSync('study_tour_detail')
   if (cached && cached.id) {
     tour.value = cached
+    uni.removeStorageSync('study_tour_detail')
+    uni.setNavigationBarTitle({ title: cached.title || '研学详情' })
   } else {
-    uni.showToast({ title: '研学活动不存在或已下架', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 1200)
-    return
+    showMissing()
   }
-  uni.setNavigationBarTitle({ title: (tour.value && tour.value.title) || '研学详情' })
 })
+
+const showMissing = () => {
+  uni.showToast({ title: '研学活动不存在或已下架', icon: 'none' })
+  setTimeout(() => uni.navigateBack(), 1200)
+}
 
 onReady(() => {
   setTimeout(() => { contentReady.value = true }, 150)

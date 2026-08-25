@@ -35,5 +35,6 @@ func (s *Server) updateConfig(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	s.audit(r.Context(), a.ID, "update_platform_config", "config", "platform", "saved")
 	respond(w, r, http.StatusOK, map[string]string{"status": "saved"})
 }

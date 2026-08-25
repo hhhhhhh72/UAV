@@ -1,10 +1,12 @@
 package httpapi
 
 import (
-	"drone-platform/internal/domain"
-	"drone-platform/internal/repository"
+	"errors"
 	"net/http"
 	"strings"
+
+	"drone-platform/internal/domain"
+	"drone-platform/internal/repository"
 )
 
 // ── public handlers for mini-program ──
@@ -52,8 +54,7 @@ func (s *Server) publicListCerts(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, out)
 }
 
-func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
-	page, size := paginationFromQuery(r)
+func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {	page, size := paginationFromQuery(r)
 	all, err := s.studyTourRepo.List(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -77,6 +78,21 @@ func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
 		end = len(out)
 	}
 	paginatedRespond(w, r, out[start:end], len(out))
+}
+
+// GET /api/v1/study/tours/{id} 公开研学详情：冷启动/分享直达自取；
+// 草稿/已结束（非 active）一律 404，与列表过滤一致。
+func (s *Server) publicGetStudyTour(w http.ResponseWriter, r *http.Request) {
+	t, err := s.studyTourRepo.FindByID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusNotFound, errors.New("研学项目不存在"))
+		return
+	}
+	if t.Status != "" && t.Status != "active" {
+		fail(w, r, http.StatusNotFound, errors.New("研学项目不存在"))
+		return
+	}
+	respond(w, r, http.StatusOK, t)
 }
 
 func (s *Server) publicListRD(w http.ResponseWriter, r *http.Request) {

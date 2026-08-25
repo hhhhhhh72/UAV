@@ -62,7 +62,20 @@ axios.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
-    if (!originalRequest || error.response?.status !== 401) {
+    const resp = error.response
+    // 统一解包后端错误信封 {error:{code,message}}：调用方 catch 读 error.message
+    // 即可拿到真实原因（此前多数页面读 error?.response?.data?.message 为 undefined，
+    // 统一显示"请求失败"，后端原因丢失）。
+    if (resp?.data && typeof resp.data === 'object') {
+      const backendMsg = (resp.data.error && resp.data.error.message) || resp.data.message
+      if (backendMsg) error.message = backendMsg
+    }
+    if (!originalRequest) {
+      return Promise.reject(error)
+    }
+    if (resp?.status !== 401) {
+      // 403（角色不足等）：路由守卫按页拦不到的由后端兜底；错误消息已在上面解包，
+      // 页面 catch 展示 error.message（如"only platform admin…"/"无权限执行该操作"）。
       return Promise.reject(error)
     }
 
@@ -78,6 +91,14 @@ axios.interceptors.response.use(
     }
 
     if (originalRequest._retry) {
+      // 刷新换新 token 后重试仍 401：登录态已失效（与小程序端对齐），清理并跳登录。
+      if (resp?.status === 401) {
+        localStorage.removeItem(ACCESS_TOKEN_KEY)
+        localStorage.removeItem('user')
+        if (window.location.pathname.startsWith('/admin')) {
+          window.location.href = '/login'
+        }
+      }
       return Promise.reject(error)
     }
     originalRequest._retry = true

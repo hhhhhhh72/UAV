@@ -19,9 +19,9 @@ const routes = [
     children: [
       { path: 'dashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: { title: '数据看板' } },
       { path: 'cases', component: () => import('@/views/admin/cases/CaseList.vue'), meta: { title: '案例管理' } },
-      { path: 'users', component: () => import('@/views/admin/users/UserList.vue'), meta: { title: '用户管理' } },
+      { path: 'users', component: () => import('@/views/admin/users/UserList.vue'), meta: { title: '用户管理', roles: ['platform_admin'] } },
       { path: 'competition', component: () => import('@/views/admin/competition/CompetitionList.vue'), meta: { title: '赛事管理' } },
-      { path: 'config', component: () => import('@/views/admin/config/ServiceConfigList.vue'), meta: { title: '系统配置' } },
+      { path: 'config', component: () => import('@/views/admin/config/ServiceConfigList.vue'), meta: { title: '系统配置', roles: ['platform_admin'] } },
       { path: 'reviews', component: () => import('@/views/admin/reviews/ReviewList.vue'), meta: { title: '评价管理' } },
       { path: 'orders', component: () => import('@/views/admin/orders/OrderList.vue'), meta: { title: '订单管理' } },
       { path: 'products', component: () => import('@/views/admin/products/ProductList.vue'), meta: { title: '商品管理' } },
@@ -58,7 +58,7 @@ const routes = [
       { path: 'innovation', component: () => import('@/views/admin/consolidated/InnovationPage.vue'), meta: { title: '产学研协同' } },
       { path: 'promotion', component: () => import('@/views/admin/consolidated/PromotionPage.vue'), meta: { title: '运营推广' } },
       { path: 'emergency', component: () => import('@/views/admin/consolidated/EmergencyPage.vue'), meta: { title: '应急协同' } },
-      { path: 'settings', component: () => import('@/views/admin/consolidated/SettingsPage.vue'), meta: { title: '系统设置' } },
+      { path: 'settings', component: () => import('@/views/admin/consolidated/SettingsPage.vue'), meta: { title: '系统设置', roles: ['platform_admin'] } },
     ]
   },
 ]
@@ -97,6 +97,14 @@ router.beforeEach(async (to, from, next) => {
     if (!['platform_admin', 'association_admin'].includes(user.role)) {
       showFailToast('无管理权限，请使用管理员账号登录')
       next('/login')
+      return
+    }
+
+    // 按页角色拦截：后端平台专属接口（系统配置/用户管理/系统设置）仅 platform_admin，
+    // association_admin 直达 URL 时在此拦回（此前只挡住登录态，改 URL 可直达）。
+    if (to.meta.roles && !to.meta.roles.includes(user.role)) {
+      showFailToast('该页面仅平台管理员可用')
+      next('/admin/dashboard')
       return
     }
   }

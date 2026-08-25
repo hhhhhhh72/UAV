@@ -1175,6 +1175,11 @@ func (s *Server) listAdminMessages(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, all, total)
 }
 func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var in struct {
 		SenderID     string `json:"sender_id"`
 		ReceiverID   string `json:"receiver_id"`
@@ -1190,11 +1195,18 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 	// 广播：receiver_id 留空 → 发给全部用户（管理员 + 企业 + 个人）
 	// 此前仅发管理员——普通用户小程序消息中心永远收不到通知，流程未打通。
 	if strings.TrimSpace(in.ReceiverID) == "" {
+		// 独立限频：广播为全量写库重操作 + 骚扰面大，每 IP 60s 内限 5 次
+		//（全局限流 100/s 挡不住连环广播）。
+		if !s.adminOpAllowed(r, "broadcast", 5) {
+			fail(w, r, 429, errors.New("广播过于频繁，请稍后再试"))
+			return
+		}
 		sent, err := s.broadcastMessageToAll(r, in.SenderID, in.Title, in.Content, in.ResourceType, in.ResourceID)
 		if err != nil {
 			fail(w, r, 500, fmt.Errorf("broadcast messages: %w", err))
 			return
 		}
+		s.audit(r.Context(), a.ID, "broadcast_message", "message", strings.Join([]string{in.Title, in.Content}, "|"), "broadcast")
 		respond(w, r, 201, map[string]any{"broadcast": len(sent), "messages": sent})
 		return
 	}
@@ -1203,6 +1215,7 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 		adminFail(w, r, err)
 		return
 	}
+	s.audit(r.Context(), a.ID, "create_message", "message", msg.ID, "sent")
 	respond(w, r, 201, msg)
 }
 

@@ -12,6 +12,8 @@ func (s *Server) registerPublicAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/rd/challenges", s.publicListRD)
 	mux.HandleFunc("GET /api/v1/research/projects", s.publicListResearch)
 	mux.HandleFunc("GET /api/v1/test/sites", s.publicListTestSites)
+	// 研学详情：冷启动/分享直达自取（此前仅列表入 storage 传递，直达即误判不存在）
+	mux.HandleFunc("GET /api/v1/study/tours/{id}", s.publicGetStudyTour)
 	// 应急
 	mux.HandleFunc("GET /api/v1/emergency/resources", s.publicListEmergency)
 	// 行业

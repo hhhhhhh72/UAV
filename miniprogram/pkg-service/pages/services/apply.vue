@@ -666,8 +666,11 @@ onLoad((options) => {
     formData.value.traineePhone = user.phone || ''
   }
   // 研学报名：从 storage 读列表传入的研学信息（活动摘要卡）
+  // 读取后立即清理：防止下次从服务大厅直接进入（serviceId=9）时显示陈旧活动摘要，
+  // 若 storage 为空则由用户从研学列表选择活动（摘要卡显示占位引导）。
   if (serviceId.value === '9') {
     const tour = uni.getStorageSync('study_tour_detail')
+    uni.removeStorageSync('study_tour_detail')
     if (tour && tour.id) {
       studyTour.value = tour
       studyPrice.value = calcStudyPrice(tour)

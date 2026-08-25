@@ -339,6 +339,13 @@ function validate() {
    前端提示充值引导（小程序暂无托管金充值入口，toast 引导）。 */
 async function handleSubmit() {
   if (submitting.value) return
+  // 提交前校验登录态：token 过期时先引导登录，否则 401 会被 request.js 清 token 跳登录，
+  // 已填写的姓名/身份证/证件照随页面销毁全部丢失。
+  if (!authStorage.getAccessToken()) {
+    uni.showToast({ title: '登录已过期，请先登录', icon: 'none' })
+    setTimeout(() => uni.navigateTo({ url: '/pages/login/index' }), 600)
+    return
+  }
   const err = validate()
   if (err) {
     uni.showToast({ title: err, icon: 'none' })

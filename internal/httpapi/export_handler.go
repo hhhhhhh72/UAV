@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -33,12 +34,18 @@ func (s *Server) exportDemands(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, fmt.Errorf("platform admin permission required"))
 		return
 	}
+	// 独立限频：全量无界导出 + 敏感字段，每 IP 60s 内限 5 次（防连环抓取/拖库）。
+	if !s.adminOpAllowed(r, "export", 5) {
+		fail(w, r, http.StatusTooManyRequests, errors.New("导出过于频繁，请稍后再试"))
+		return
+	}
 
 	demands, err := s.demands.List(r.Context(), repository.DemandFilter{})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	s.audit(r.Context(), a.ID, "export_demands", "csv", "demands", "exported")
 
 	filename := fmt.Sprintf("demands_export_%s.csv", time.Now().Format("20060102_150405"))
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")

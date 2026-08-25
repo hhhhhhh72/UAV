@@ -92,6 +92,8 @@ func TestPasswordAccountLevelLockoutCrossIP(t *testing.T) {
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/api/auth/login",
 			strings.NewReader(`{"phone":"`+phone+`","password":"WrongPass"}`))
+		// clientIP 仅信任受信代理（回环）的 XFF：模拟 nginx 反代形态
+		req.RemoteAddr = "127.0.0.1:12345"
 		req.Header.Set("X-Forwarded-For", ipFor(i))
 		app.ServeHTTP(w, req)
 		if w.Code != http.StatusUnauthorized {
@@ -103,6 +105,7 @@ func TestPasswordAccountLevelLockoutCrossIP(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/login",
 		strings.NewReader(`{"phone":"`+phone+`","password":"WrongPass"}`))
+	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("X-Forwarded-For", ipFor(49))
 	app.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
@@ -113,6 +116,7 @@ func TestPasswordAccountLevelLockoutCrossIP(t *testing.T) {
 	w = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/auth/login",
 		strings.NewReader(`{"phone":"`+phone+`","password":"Secret123"}`))
+	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("X-Forwarded-For", ipFor(50))
 	app.ServeHTTP(w, req)
 	if w.Code != http.StatusTooManyRequests {
