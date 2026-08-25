@@ -30,6 +30,9 @@ func (s *Store) NewCompetitionRepository(cipher *crypto.Cipher) repository.Compe
 // compCols 与 competitions 表列一一对应（迁移 000044 补齐小程序页面字段，000069 补 original_fee）
 const compCols = `id,title,category,description,location,start_date,end_date,deadline,max_teams,reg_count,sponsor,organizer_sub,fee,min_fee,original_fee,tags,poster,requirements,events,prizes,registration_status,status,created_at,updated_at`
 
+// compSelectCols 与 compCols 列序一致，仅对可空列 start_date/end_date 套 COALESCE（防 NULL 扫描错误）
+const compSelectCols = `id,title,category,description,location,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),deadline,max_teams,reg_count,sponsor,organizer_sub,fee,min_fee,original_fee,tags,poster,requirements,events,prizes,registration_status,status,created_at,updated_at`
+
 func (r *compRepo) Create(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	c.CreatedAt = time.Now()
 	c.UpdatedAt = c.CreatedAt
@@ -47,7 +50,7 @@ func (r *compRepo) Create(ctx context.Context, c domain.Competition) (domain.Com
 func (r *compRepo) FindByID(ctx context.Context, id string) (domain.Competition, error) {
 	var c domain.Competition
 	err := r.pool.QueryRow(ctx,
-		`SELECT `+compCols+` FROM competitions WHERE id=$1`, id).
+		`SELECT `+compSelectCols+` FROM competitions WHERE id=$1`, id).
 		Scan(&c.ID, &c.Title, &c.Category, &c.Description, &c.Location, &c.StartDate, &c.EndDate, &c.Deadline, &c.MaxTeams, &c.RegCount,
 			&c.Sponsor, &c.OrganizerSub, &c.Fee, &c.MinFee, &c.OriginalFee, &c.Tags, &c.Poster, &c.Requirements, &c.Events, &c.Prizes,
 			&c.RegistrationStatus, &c.Status, &c.CreatedAt, &c.UpdatedAt)
@@ -59,7 +62,7 @@ func (r *compRepo) List(ctx context.Context, offset, limit int) ([]domain.Compet
 		return nil, 0, fmt.Errorf("count competitions: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+compCols+` FROM competitions ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT `+compSelectCols+` FROM competitions ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list competitions: %w", err)
 	}
@@ -208,7 +211,7 @@ func (r *eventRepo) Create(ctx context.Context, e domain.AssociationEvent) (doma
 func (r *eventRepo) FindByID(ctx context.Context, id string) (domain.AssociationEvent, error) {
 	var e domain.AssociationEvent
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,title,event_type,description,location,start_time,end_time,max_attendees,reg_count,cover_url,status,created_at,updated_at FROM association_events WHERE id=$1`, id).
+		`SELECT id,title,event_type,description,location,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),max_attendees,reg_count,cover_url,status,created_at,updated_at FROM association_events WHERE id=$1`, id).
 		Scan(&e.ID, &e.Title, &e.EventType, &e.Description, &e.Location, &e.StartTime, &e.EndTime, &e.MaxAttendees, &e.RegCount, &e.CoverURL, &e.Status, &e.CreatedAt, &e.UpdatedAt)
 	return e, err
 }
@@ -218,7 +221,7 @@ func (r *eventRepo) List(ctx context.Context, offset, limit int) ([]domain.Assoc
 		return nil, 0, fmt.Errorf("count events: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,title,event_type,description,location,start_time,end_time,max_attendees,reg_count,cover_url,status,created_at,updated_at FROM association_events ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,title,event_type,description,location,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),max_attendees,reg_count,cover_url,status,created_at,updated_at FROM association_events ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list events: %w", err)
 	}

@@ -120,13 +120,13 @@ func (r *pgCoopRepo) Create(ctx context.Context, c domain.CooperationProgram) (d
 func (r *pgCoopRepo) FindByID(ctx context.Context, id string) (domain.CooperationProgram, error) {
 	var c domain.CooperationProgram
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,title,college_id,enterprise_id,coop_type,description,start_date,end_date,student_quota,status,created_at,updated_at FROM cooperation_programs WHERE id=$1`, id).
+		`SELECT id,title,college_id,enterprise_id,coop_type,description,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),student_quota,status,created_at,updated_at FROM cooperation_programs WHERE id=$1`, id).
 		Scan(&c.ID, &c.Title, &c.CollegeID, &c.EnterpriseID, &c.CoopType, &c.Description, &c.StartDate, &c.EndDate, &c.StudentQuota, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
 
 func (r *pgCoopRepo) List(ctx context.Context, enterpriseID string) ([]domain.CooperationProgram, error) {
-	q := `SELECT id,title,college_id,enterprise_id,coop_type,description,start_date,end_date,student_quota,status,created_at,updated_at FROM cooperation_programs`
+	q := `SELECT id,title,college_id,enterprise_id,coop_type,description,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),student_quota,status,created_at,updated_at FROM cooperation_programs`
 	args := []any{}
 	if enterpriseID != "" {
 		q += ` WHERE enterprise_id=$1`
@@ -152,7 +152,7 @@ func (r *pgCoopRepo) List(ctx context.Context, enterpriseID string) ([]domain.Co
 func (r *pgCoopRepo) UpdateStatus(ctx context.Context, id, status string) (domain.CooperationProgram, error) {
 	var c domain.CooperationProgram
 	err := r.pool.QueryRow(ctx,
-		`UPDATE cooperation_programs SET status=$1,updated_at=$2 WHERE id=$3 RETURNING id,title,college_id,enterprise_id,coop_type,description,start_date,end_date,student_quota,status,created_at,updated_at`,
+		`UPDATE cooperation_programs SET status=$1,updated_at=$2 WHERE id=$3 RETURNING id,title,college_id,enterprise_id,coop_type,description,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),student_quota,status,created_at,updated_at`,
 		status, time.Now(), id).
 		Scan(&c.ID, &c.Title, &c.CollegeID, &c.EnterpriseID, &c.CoopType, &c.Description, &c.StartDate, &c.EndDate, &c.StudentQuota, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
@@ -183,7 +183,7 @@ func (r *pgRescueRepo) FindByID(ctx context.Context, id string) (domain.RescueCa
 	var c domain.RescueCase
 	var media []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,title,event_type,location,date,drone_model,team_name,summary,result,lessons,media_urls,source,status,created_at,updated_at FROM rescue_cases WHERE id=$1`, id).
+		`SELECT id,title,event_type,location,COALESCE(date,'1970-01-01 00:00:00+00'::timestamptz),drone_model,team_name,summary,result,lessons,media_urls,source,status,created_at,updated_at FROM rescue_cases WHERE id=$1`, id).
 		Scan(&c.ID, &c.Title, &c.EventType, &c.Location, &c.Date, &c.DroneModel, &c.TeamName, &c.Summary, &c.Result, &c.Lessons, &media, &c.Source, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	json.Unmarshal(media, &c.MediaURLs)
 	return c, err
@@ -213,7 +213,7 @@ func (r *pgRescueRepo) List(ctx context.Context, eventType, q string, offset, li
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rescue_cases `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count rescue cases: %w", err)
 	}
-	qStr := fmt.Sprintf(`SELECT id,title,event_type,location,date,drone_model,team_name,summary,result,lessons,media_urls,source,status,created_at,updated_at FROM rescue_cases %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	qStr := fmt.Sprintf(`SELECT id,title,event_type,location,COALESCE(date,'1970-01-01 00:00:00+00'::timestamptz),drone_model,team_name,summary,result,lessons,media_urls,source,status,created_at,updated_at FROM rescue_cases %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(ctx, qStr, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
@@ -276,7 +276,7 @@ func (r *pgEmergDeptRepo) CreateDrill(ctx context.Context, d domain.EmergencyDri
 }
 
 func (r *pgEmergDeptRepo) ListDrills(ctx context.Context, deptID string) ([]domain.EmergencyDrill, error) {
-	q := `SELECT id,dept_id,title,scenario,date,participants,drone_count,result,created_at FROM emergency_drills`
+	q := `SELECT id,dept_id,title,scenario,COALESCE(date,'1970-01-01 00:00:00+00'::timestamptz),participants,drone_count,result,created_at FROM emergency_drills`
 	args := []any{}
 	if deptID != "" {
 		q += ` WHERE dept_id=$1`
@@ -322,7 +322,7 @@ func (r *pgAssocMemberRepo) Create(ctx context.Context, m domain.AssociationMemb
 func (r *pgAssocMemberRepo) FindByUserID(ctx context.Context, userID string) (domain.AssociationMember, error) {
 	var m domain.AssociationMember
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,user_id,enterprise_id,role,join_date,expire_date,status,created_at,updated_at FROM association_members WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1`, userID).
+		`SELECT id,user_id,enterprise_id,role,join_date,COALESCE(expire_date,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at FROM association_members WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1`, userID).
 		Scan(&m.ID, &m.UserID, &m.EnterpriseID, &m.Role, &m.JoinDate, &m.ExpireDate, &m.Status, &m.CreatedAt, &m.UpdatedAt)
 	return m, err
 }
@@ -338,7 +338,7 @@ func (r *pgAssocMemberRepo) List(ctx context.Context, role string, offset, limit
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM association_members `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count association members: %w", err)
 	}
-	q := fmt.Sprintf(`SELECT id,user_id,enterprise_id,role,join_date,expire_date,status,created_at,updated_at FROM association_members %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,user_id,enterprise_id,role,join_date,COALESCE(expire_date,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at FROM association_members %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(ctx, q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
@@ -358,7 +358,7 @@ func (r *pgAssocMemberRepo) List(ctx context.Context, role string, offset, limit
 func (r *pgAssocMemberRepo) UpdateRole(ctx context.Context, id string, role domain.AssociationRole) (domain.AssociationMember, error) {
 	var m domain.AssociationMember
 	err := r.pool.QueryRow(ctx,
-		`UPDATE association_members SET role=$1,updated_at=$2 WHERE id=$3 RETURNING id,user_id,enterprise_id,role,join_date,expire_date,status,created_at,updated_at`,
+		`UPDATE association_members SET role=$1,updated_at=$2 WHERE id=$3 RETURNING id,user_id,enterprise_id,role,join_date,COALESCE(expire_date,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at`,
 		string(role), time.Now(), id).
 		Scan(&m.ID, &m.UserID, &m.EnterpriseID, &m.Role, &m.JoinDate, &m.ExpireDate, &m.Status, &m.CreatedAt, &m.UpdatedAt)
 	return m, err

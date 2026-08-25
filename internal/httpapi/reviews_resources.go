@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -129,6 +130,10 @@ func (s *Server) listAllReviews(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	// 排序（前端 Arco 发送 sort_field/sort_order；默认 created_at DESC，升序在此翻转）
+	if r.URL.Query().Get("sort_field") == "created_at" && r.URL.Query().Get("sort_order") == "ascending" {
+		sort.SliceStable(reviews, func(i, j int) bool { return reviews[i].CreatedAt.Before(reviews[j].CreatedAt) })
 	}
 	paginatedRespond(w, r, reviews, total)
 }

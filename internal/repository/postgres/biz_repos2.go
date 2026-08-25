@@ -118,7 +118,7 @@ func (r *rdChallengeRepo) Create(ctx context.Context, c domain.RDChallenge) (dom
 func (r *rdChallengeRepo) FindByID(ctx context.Context, id string) (domain.RDChallenge, error) {
 	var c domain.RDChallenge
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,poster_id,title,field,description,budget_fen,deadline,status,created_at,updated_at FROM rd_challenges WHERE id=$1`, id).
+		`SELECT id,poster_id,title,field,description,budget_fen,COALESCE(deadline,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at FROM rd_challenges WHERE id=$1`, id).
 		Scan(&c.ID, &c.PosterID, &c.Title, &c.Field, &c.Description, &c.BudgetFen, &c.Deadline, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
@@ -133,7 +133,7 @@ func (r *rdChallengeRepo) List(ctx context.Context, field string, offset, limit 
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rd_challenges `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count challenges: %w", err)
 	}
-	q := fmt.Sprintf(`SELECT id,poster_id,title,field,description,budget_fen,deadline,status,created_at,updated_at FROM rd_challenges %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,poster_id,title,field,description,budget_fen,COALESCE(deadline,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at FROM rd_challenges %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(ctx, q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list challenges: %w", err)
@@ -186,7 +186,7 @@ func (r *researchProjRepo) FindByID(ctx context.Context, id string) (domain.Rese
 	var p domain.ResearchProject
 	var members []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,title,field,description,lead_org,members,budget_fen,start_date,end_date,milestones,status,created_at,updated_at FROM research_projects WHERE id=$1`, id).
+		`SELECT id,title,field,description,lead_org,members,budget_fen,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),milestones,status,created_at,updated_at FROM research_projects WHERE id=$1`, id).
 		Scan(&p.ID, &p.Title, &p.Field, &p.Description, &p.LeadOrg, &members, &p.BudgetFen, &p.StartDate, &p.EndDate, &p.Milestones, &p.Status, &p.CreatedAt, &p.UpdatedAt)
 	json.Unmarshal(members, &p.Members)
 	return p, err
@@ -197,7 +197,7 @@ func (r *researchProjRepo) List(ctx context.Context, offset, limit int) ([]domai
 		return nil, 0, fmt.Errorf("count projects: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,title,field,description,lead_org,members,budget_fen,start_date,end_date,milestones,status,created_at,updated_at FROM research_projects ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,title,field,description,lead_org,members,budget_fen,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),milestones,status,created_at,updated_at FROM research_projects ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list projects: %w", err)
 	}

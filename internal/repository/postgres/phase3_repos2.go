@@ -84,7 +84,7 @@ func (r *loanRepo) Create(ctx context.Context, l domain.LoanApplication) (domain
 }
 func (r *loanRepo) ListByUser(ctx context.Context, userID string) ([]domain.LoanApplication, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,user_id,amount_fen,term_months,purpose,status,approved_fen,monthly_pay_fen,version,created_at,updated_at FROM loan_applications WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+		`SELECT id,user_id,amount_fen,term_months,COALESCE(purpose,''),status,approved_fen,monthly_pay_fen,version,created_at,updated_at FROM loan_applications WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list loans: %w", err)
 	}
@@ -105,7 +105,7 @@ func (r *loanRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Loa
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,user_id,amount_fen,term_months,purpose,status,approved_fen,monthly_pay_fen,version,created_at,updated_at FROM loan_applications ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,user_id,amount_fen,term_months,COALESCE(purpose,''),status,approved_fen,monthly_pay_fen,version,created_at,updated_at FROM loan_applications ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -374,9 +374,9 @@ func (r *venueRepo) List(ctx context.Context, venueType string) ([]domain.Venue,
 	var rows pgx.Rows
 	var err error
 	if venueType == "" {
-		rows, err = r.pool.Query(ctx, `SELECT id,owner_id,name,venue_type,location,price_fen,status,created_at FROM venues ORDER BY created_at DESC`)
+		rows, err = r.pool.Query(ctx, `SELECT id,owner_id,name,venue_type,COALESCE(location,''),COALESCE(price_fen,0),status,created_at FROM venues ORDER BY created_at DESC`)
 	} else {
-		rows, err = r.pool.Query(ctx, `SELECT id,owner_id,name,venue_type,location,price_fen,status,created_at FROM venues WHERE venue_type=$1 ORDER BY created_at DESC`, venueType)
+		rows, err = r.pool.Query(ctx, `SELECT id,owner_id,name,venue_type,COALESCE(location,''),COALESCE(price_fen,0),status,created_at FROM venues WHERE venue_type=$1 ORDER BY created_at DESC`, venueType)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list venues: %w", err)
@@ -395,7 +395,7 @@ func (r *venueRepo) List(ctx context.Context, venueType string) ([]domain.Venue,
 func (r *venueRepo) FindByID(ctx context.Context, id string) (domain.Venue, error) {
 	var v domain.Venue
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,owner_id,name,venue_type,location,price_fen,status,created_at FROM venues WHERE id=$1`, id).
+		`SELECT id,owner_id,name,venue_type,COALESCE(location,''),COALESCE(price_fen,0),status,created_at FROM venues WHERE id=$1`, id).
 		Scan(&v.ID, &v.OwnerID, &v.Name, &v.VenueType, &v.Location, &v.PriceFen, &v.Status, &v.CreatedAt)
 	return v, err
 }

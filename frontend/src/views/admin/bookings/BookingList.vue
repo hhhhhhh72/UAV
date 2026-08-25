@@ -36,9 +36,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, h } from 'vue'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
+import Modal from '@arco-design/web-vue/es/modal'
+import '@arco-design/web-vue/es/modal/style/css'
 import axios from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
 
@@ -79,12 +81,47 @@ const columns = [
 
 // 审核：通过 / 驳回 / 完成（专用端点）
 const review = async (row, status) => {
+  let note = ''
+  if (status === 'rejected') {
+    // 驳回必须填写原因（申请方凭 note 了解驳回缘由）；输入框收集，空原因不提交
+    let inputValue = ''
+    try {
+      const ok = await Modal.confirm({
+        title: '驳回预约',
+        content: h('div', { style: 'display:flex;gap:8px;align-items:center' }, [
+          h('span', '原因：'),
+          h('input', {
+            style: 'flex:1;border:1px solid #e5e6eb;border-radius:4px;padding:4px 8px;',
+            value: inputValue,
+            oninput: (e) => { inputValue = e.target.value }
+          })
+        ]),
+        okButtonProps: { status: 'danger' },
+        onOk: () => {
+          if (!inputValue.trim()) {
+            Message.warning('请填写驳回原因')
+            return Promise.reject(new Error('empty'))
+          }
+          note = inputValue.trim()
+          return Promise.resolve()
+        }
+      })
+      if (!ok) return
+    } catch (e) { return }
+  } else {
+    try {
+      await Modal.confirm({
+        title: status === 'approved' ? '通过预约' : '完成预约',
+        content: `确定${status === 'approved' ? '通过' : '完成'}该预约吗？`,
+      })
+    } catch (e) { return }
+  }
   try {
-    await axios.post(`/api/v1/admin/test-sites/bookings/${row.id}/review`, { status, note: '' })
+    await axios.post(`/api/v1/admin/test-sites/bookings/${row.id}/review`, { status, note })
     Message.success({ approved: '已通过', rejected: '已驳回', completed: '已完成' }[status])
     crudRef.value?.reload()
   } catch (e) {
-    Message.error(e?.response?.data?.message || '操作失败')
+    Message.error(e?.message || e?.response?.data?.message || '操作失败')
   }
 }
 </script>

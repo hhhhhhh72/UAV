@@ -10,7 +10,14 @@
 				// #ifdef MP-WEIXIN
 				const token = uni.getStorageSync('accessToken')
 				if (!token) return
-				const cached = JSON.parse(uni.getStorageSync('user') || '{}')
+				// user 缓存被写坏（半截写入/手改）时 JSON.parse 会抛异常中断启动流程——容错回退空对象
+				let cached = {}
+				try {
+					cached = JSON.parse(uni.getStorageSync('user') || '{}')
+				} catch (e) {
+					cached = {}
+					uni.removeStorageSync('user')
+				}
 				// 手机号/密码/历史会话（无 has_wechat 标记）：不做微信账号探测，避免误切换
 				if (!cached.has_wechat) {
 					// 有 token 但 user 缺失（历史遗留/被清）：用 me 恢复用户信息

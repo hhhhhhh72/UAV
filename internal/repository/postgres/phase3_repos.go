@@ -408,14 +408,14 @@ func (r *pilotRepo) Update(ctx context.Context, p domain.CertifiedPilot) (domain
 func (r *pilotRepo) FindByID(ctx context.Context, id string) (domain.CertifiedPilot, error) {
 	var p domain.CertifiedPilot
 	var certIDs []byte
-	err := r.pool.QueryRow(ctx, `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots WHERE id=$1`, id).
+	err := r.pool.QueryRow(ctx, `SELECT id,user_id,real_name,COALESCE(id_card,''),COALESCE(avatar,''),COALESCE(region,''),cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots WHERE id=$1`, id).
 		Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.RejectReason, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 	json.Unmarshal(certIDs, &p.CertIDs)
 	p.IDCard = r.dec(p.IDCard)
 	return p, err
 }
 func (r *pilotRepo) List(ctx context.Context) ([]domain.CertifiedPilot, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(ctx, `SELECT id,user_id,real_name,COALESCE(id_card,''),COALESCE(avatar,''),COALESCE(region,''),cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list pilots: %w", err)
 	}
@@ -447,7 +447,7 @@ func (r *pilotRepo) ListApproved(ctx context.Context, keyword string, offset, li
 		return nil, 0, fmt.Errorf("count approved pilots: %w", err)
 	}
 	args = append(args, limit, offset)
-	rows, err := r.pool.Query(ctx, `SELECT id,user_id,real_name,id_card,avatar,region,cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots `+where+
+	rows, err := r.pool.Query(ctx, `SELECT id,user_id,real_name,COALESCE(id_card,''),COALESCE(avatar,''),COALESCE(region,''),cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots `+where+
 		fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, total, fmt.Errorf("list approved pilots: %w", err)
@@ -506,7 +506,7 @@ func (r *prodRepo) FindByID(ctx context.Context, id string) (domain.DroneProduct
 	var pt string
 	var imgs []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE id=$1`, id).
+		`SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE id=$1`, id).
 		Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return domain.DroneProduct{}, fmt.Errorf("product %s not found: %w", id, err)
@@ -574,9 +574,9 @@ func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DronePro
 	var rows pgx.Rows
 	var err error
 	if prodType == "" {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products ORDER BY created_at DESC`)
+		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products ORDER BY created_at DESC`)
 	} else {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 ORDER BY created_at DESC`, prodType)
+		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 ORDER BY created_at DESC`, prodType)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list products: %w", err)
@@ -603,9 +603,9 @@ func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]d
 	var rows pgx.Rows
 	var err error
 	if prodType == "" {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE status='listed' ORDER BY created_at DESC LIMIT $1`, limit)
+		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE status='listed' ORDER BY created_at DESC LIMIT $1`, limit)
 	} else {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 AND status='listed' ORDER BY created_at DESC LIMIT $2`, prodType, limit)
+		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 AND status='listed' ORDER BY created_at DESC LIMIT $2`, prodType, limit)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list top products: %w", err)
@@ -651,7 +651,7 @@ func (r *prodRepo) UnfavoriteProduct(ctx context.Context, userID, productID stri
 // ListFavoriteProducts 按收藏时间倒序返回完整商品（我的收藏列表）。
 func (r *prodRepo) ListFavoriteProducts(ctx context.Context, userID string) ([]domain.DroneProduct, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT p.id,p.seller_id,p.seller_name,p.prod_type,p.title,p.description,p.price_fen,p.images,p.brand,p.model,p.condition,p.views,p.status,p.version,p.created_at,p.updated_at
+		`SELECT p.id,p.seller_id,p.seller_name,p.prod_type,p.title,COALESCE(p.description,''),p.price_fen,p.images,COALESCE(p.brand,''),COALESCE(p.model,''),p.condition,p.views,p.status,p.version,p.created_at,p.updated_at
 		 FROM drone_products p
 		 JOIN product_favorites f ON f.product_id = p.id
 		 WHERE f.user_id=$1
@@ -680,7 +680,7 @@ func (r *prodRepo) ListByIDs(ctx context.Context, ids []string) ([]domain.DroneP
 	if len(ids) == 0 {
 		return []domain.DroneProduct{}, nil
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at FROM drone_products WHERE id = ANY($1)`, ids)
+	rows, err := r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE id = ANY($1)`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("list products by ids: %w", err)
 	}
@@ -731,7 +731,7 @@ func (r *repairRepo) Create(ctx context.Context, ro domain.RepairOrder) (domain.
 	return ro, err
 }
 func (r *repairRepo) ListByUser(ctx context.Context, userID string) ([]domain.RepairOrder, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,customer_id,product_desc,fault_desc,quote_fen,status,technician,version,created_at,updated_at FROM repair_orders WHERE customer_id=$1 ORDER BY created_at DESC`, userID)
+	rows, err := r.pool.Query(ctx, `SELECT id,customer_id,COALESCE(product_desc,''),COALESCE(fault_desc,''),quote_fen,status,COALESCE(technician,''),version,created_at,updated_at FROM repair_orders WHERE customer_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list repairs: %w", err)
 	}
@@ -751,7 +751,7 @@ func (r *repairRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.R
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM repair_orders`).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id,customer_id,product_desc,fault_desc,quote_fen,status,technician,version,created_at,updated_at FROM repair_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	rows, err := r.pool.Query(ctx, `SELECT id,customer_id,COALESCE(product_desc,''),COALESCE(fault_desc,''),quote_fen,status,COALESCE(technician,''),version,created_at,updated_at FROM repair_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -783,7 +783,7 @@ func (r *policyRepo) Create(ctx context.Context, p domain.InsurancePolicy) (doma
 	return p, err
 }
 func (r *policyRepo) ListByUser(ctx context.Context, userID string) ([]domain.InsurancePolicy, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,user_id,drone_model,drone_sn,policy_type,premium_fen,coverage_fen,start_date,end_date,insurer,status,version,created_at,updated_at FROM insurance_policies WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+	rows, err := r.pool.Query(ctx, `SELECT id,user_id,COALESCE(drone_model,''),COALESCE(drone_sn,''),COALESCE(policy_type,''),premium_fen,coverage_fen,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(insurer,''),status,version,created_at,updated_at FROM insurance_policies WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list policies: %w", err)
 	}
@@ -803,7 +803,7 @@ func (r *policyRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.I
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM insurance_policies`).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id,user_id,drone_model,drone_sn,policy_type,premium_fen,coverage_fen,start_date,end_date,insurer,status,version,created_at,updated_at FROM insurance_policies ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	rows, err := r.pool.Query(ctx, `SELECT id,user_id,COALESCE(drone_model,''),COALESCE(drone_sn,''),COALESCE(policy_type,''),premium_fen,coverage_fen,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(insurer,''),status,version,created_at,updated_at FROM insurance_policies ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}

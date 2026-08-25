@@ -916,7 +916,19 @@ const saveHomeConfig = async () => {
   try {
     showLoadingToast({ message: '保存中...', forbidClick: true })
     const newConfigs = { ...allServiceConfigs.value }
-    newConfigs._home = editingHomeConfig.value
+    // 保存前清理 GET 时后端注入的运行时字段：baseUrl 与完整域名图片 URL
+    // 一旦持久化，BASE_URL 变更后会残留过期域名（P3：GET 注入被原样回写）。
+    const home = JSON.parse(JSON.stringify(editingHomeConfig.value || {}))
+    delete home.baseUrl
+    if (Array.isArray(home.banners)) {
+      home.banners = home.banners.map((b) => {
+        const nb = { ...b }
+        if (nb.image) nb.image = toRelativePath(nb.image)
+        return nb
+      })
+    }
+    if (home.headerImage) home.headerImage = toRelativePath(home.headerImage)
+    newConfigs._home = home
     await axios.post('/api/services/config', { config: newConfigs })
     closeToast()
     showSuccessToast('保存成功')
@@ -926,6 +938,18 @@ const saveHomeConfig = async () => {
   } catch (error) {
     closeToast()
     showFailToast(error?.response?.data?.message || '保存失败')
+  }
+}
+
+// 完整域名（BASE_URL 前缀）→ 相对路径（/uploads/...）
+const toRelativePath = (url) => {
+  if (typeof url !== 'string' || !url) return url
+  try {
+    const u = new URL(url, window.location.origin)
+    if (u.origin !== window.location.origin) return url
+    return u.pathname + u.search
+  } catch (e) {
+    return url
   }
 }
 

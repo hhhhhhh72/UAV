@@ -1306,12 +1306,12 @@ func (r *pgLabourRepo) Create(ctx context.Context, o domain.LabourOrder) (domain
 }
 func (r *pgLabourRepo) FindByID(ctx context.Context, id string) (domain.LabourOrder, error) {
 	var o domain.LabourOrder
-	err := r.pool.QueryRow(ctx, `SELECT id,employer_id,title,description,worker_count,start_date,end_date,budget_fen,status,version,created_at,updated_at FROM labour_orders WHERE id=$1`, id).
+	err := r.pool.QueryRow(ctx, `SELECT id,employer_id,title,description,worker_count,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),budget_fen,status,version,created_at,updated_at FROM labour_orders WHERE id=$1`, id).
 		Scan(&o.ID, &o.EmployerID, &o.Title, &o.Description, &o.WorkerCount, &o.StartDate, &o.EndDate, &o.BudgetFen, &o.Status, &o.Version, &o.CreatedAt, &o.UpdatedAt)
 	return o, err
 }
 func (r *pgLabourRepo) ListByEmployer(ctx context.Context, uid string) ([]domain.LabourOrder, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,employer_id,title,description,worker_count,start_date,end_date,budget_fen,status,version,created_at,updated_at FROM labour_orders WHERE employer_id=$1 ORDER BY created_at DESC`, uid)
+	rows, err := r.pool.Query(ctx, `SELECT id,employer_id,title,description,worker_count,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),budget_fen,status,version,created_at,updated_at FROM labour_orders WHERE employer_id=$1 ORDER BY created_at DESC`, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -1334,7 +1334,7 @@ func (r *pgLabourRepo) ListAll(ctx context.Context, offset, limit int) ([]domain
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM labour_orders`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count labour orders: %w", err)
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id,employer_id,title,description,worker_count,start_date,end_date,budget_fen,status,version,created_at,updated_at FROM labour_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	rows, err := r.pool.Query(ctx, `SELECT id,employer_id,title,description,worker_count,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),budget_fen,status,version,created_at,updated_at FROM labour_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1860,7 +1860,7 @@ func (r *contractRepo) FindByID(ctx context.Context, id string) (domain.Contract
 	var v domain.Contract
 	var status string
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, enterprise_id, template_id, sign_url, status, version, created_at, updated_at
+		`SELECT id, enterprise_id, COALESCE(template_id,''), COALESCE(sign_url,''), status, version, created_at, updated_at
 		FROM contracts WHERE id=$1`, id).
 		Scan(&v.ID, &v.EnterpriseID, &v.TemplateID, &v.SignURL, &status, &v.Version, &v.CreatedAt, &v.UpdatedAt)
 	if err != nil {
@@ -1892,7 +1892,7 @@ func scanEmploymentPaged(ctx context.Context, pool *pgxpool.Pool, where string, 
 		return nil, 0, fmt.Errorf("count employment: %w", err)
 	}
 
-	q := `SELECT id, enterprise_id, position, headcount, start_date, end_date, status, version, created_at, updated_at
+	q := `SELECT id, enterprise_id, position, headcount, COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz), COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz), status, version, created_at, updated_at
 		FROM employment_requests ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
 	rows, err := pool.Query(ctx, q, allArgs...)
@@ -1923,7 +1923,7 @@ func scanContractsPaged(ctx context.Context, pool *pgxpool.Pool, where string, o
 		return nil, 0, fmt.Errorf("count contracts: %w", err)
 	}
 
-	q := `SELECT id, enterprise_id, template_id, sign_url, status, version, created_at, updated_at
+	q := `SELECT id, enterprise_id, COALESCE(template_id,''), COALESCE(sign_url,''), status, version, created_at, updated_at
 		FROM contracts ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
 	rows, err := pool.Query(ctx, q, allArgs...)
@@ -2140,7 +2140,7 @@ func (r *pgStudyTourRepo) Create(ctx context.Context, st domain.StudyTour) (doma
 func (r *pgStudyTourRepo) FindByID(ctx context.Context, id string) (domain.StudyTour, error) {
 	var s domain.StudyTour
 	var schedule []byte
-	err := r.pool.QueryRow(ctx, `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,cover_image,price_fen,schedule,created_at,updated_at FROM study_tours WHERE id=$1`, id).
+	err := r.pool.QueryRow(ctx, `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),cover_image,price_fen,schedule,created_at,updated_at FROM study_tours WHERE id=$1`, id).
 		Scan(&s.ID, &s.Title, &s.Destination, &s.Duration, &s.Capacity, &s.Status,
 			&s.Description, &s.Location, &s.OrganizerID, &s.StartDate, &s.EndDate,
 			&s.CoverImage, &s.PriceFen, &schedule, &s.CreatedAt, &s.UpdatedAt)
@@ -2151,7 +2151,7 @@ func (r *pgStudyTourRepo) FindByID(ctx context.Context, id string) (domain.Study
 }
 
 func (r *pgStudyTourRepo) List(ctx context.Context) ([]domain.StudyTour, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,start_date,end_date,cover_image,price_fen,schedule,created_at,updated_at FROM study_tours ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(ctx, `SELECT id,title,destination,duration,capacity,status,description,location,organizer_id,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),cover_image,price_fen,schedule,created_at,updated_at FROM study_tours ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -2210,7 +2210,7 @@ func (r *pgExhibitionRepo) Create(ctx context.Context, e domain.Exhibition) (dom
 }
 func (r *pgExhibitionRepo) FindByID(ctx context.Context, id string) (domain.Exhibition, error) {
 	var e domain.Exhibition
-	err := r.pool.QueryRow(ctx, "SELECT id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,cover_url,status,created_at,updated_at FROM exhibitions WHERE id=$1", id).
+	err := r.pool.QueryRow(ctx, "SELECT id,title,category,description,location,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),booth_count,booth_price_fen,organizer,cover_url,status,created_at,updated_at FROM exhibitions WHERE id=$1", id).
 		Scan(&e.ID, &e.Title, &e.Category, &e.Description, &e.Location, &e.StartDate, &e.EndDate, &e.BoothCount, &e.BoothPrice, &e.Organizer, &e.CoverURL, &e.Status, &e.CreatedAt, &e.UpdatedAt)
 	return e, err
 }
@@ -2219,7 +2219,7 @@ func (r *pgExhibitionRepo) List(ctx context.Context, offset, limit int) ([]domai
 	if err := r.pool.QueryRow(ctx, "SELECT count(*) FROM exhibitions").Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count exhibitions: %w", err)
 	}
-	rows, err := r.pool.Query(ctx, "SELECT id,title,category,description,location,start_date,end_date,booth_count,booth_price_fen,organizer,cover_url,status,created_at,updated_at FROM exhibitions ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := r.pool.Query(ctx, "SELECT id,title,category,description,location,COALESCE(start_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_date,'1970-01-01 00:00:00+00'::timestamptz),booth_count,booth_price_fen,organizer,cover_url,status,created_at,updated_at FROM exhibitions ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2358,7 +2358,7 @@ func (r *pgTestSiteRepo) CreateBooking(ctx context.Context, b domain.TestSiteBoo
 func (r *pgTestSiteRepo) FindBookingByID(ctx context.Context, id string) (domain.TestSiteBooking, error) {
 	var b domain.TestSiteBooking
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE id=$1`, id).
+		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE id=$1`, id).
 		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.TestSiteBooking{}, fmt.Errorf("booking not found")
@@ -2368,14 +2368,14 @@ func (r *pgTestSiteRepo) FindBookingByID(ctx context.Context, id string) (domain
 func (r *pgTestSiteRepo) UpdateBookingStatus(ctx context.Context, id, status, note string) (domain.TestSiteBooking, error) {
 	var b domain.TestSiteBooking
 	err := r.pool.QueryRow(ctx,
-		`UPDATE test_site_bookings SET status=$1,review_note=$2 WHERE id=$3 RETURNING id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at`,
+		`UPDATE test_site_bookings SET status=$1,review_note=$2 WHERE id=$3 RETURNING id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at`,
 		status, note, id).
 		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt)
 	return b, err
 }
 func (r *pgTestSiteRepo) ListBookings(ctx context.Context, siteID string) ([]domain.TestSiteBooking, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE site_id=$1 ORDER BY created_at DESC`, siteID)
+		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE site_id=$1 ORDER BY created_at DESC`, siteID)
 	if err != nil {
 		return nil, err
 	}
@@ -2394,7 +2394,7 @@ func (r *pgTestSiteRepo) ListBookings(ctx context.Context, siteID string) ([]dom
 // ListBookingsByUser 我的预约：按用户返回全部预约（最新在前）
 func (r *pgTestSiteRepo) ListBookingsByUser(ctx context.Context, userID string) ([]domain.TestSiteBooking, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list bookings by user: %w", err)
 	}
@@ -2415,7 +2415,7 @@ func (r *pgTestSiteRepo) ListAllBookings(ctx context.Context, offset, limit int)
 		return nil, 0, fmt.Errorf("count test site bookings: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list all bookings: %w", err)
 	}

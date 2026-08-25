@@ -777,11 +777,17 @@ const handleSubmit = async () => {
       }
     })
   } catch (error) {
-    // 线上提交暂未开放：不伪造成功，引导线下联系
+    // 展示后端真实错误原因（500/400/401 各有其因），仅 404（接口未上线）才归因"暂未开放"
     uni.hideLoading()
+    const status = (error && error.statusCode) || 0
+    const backendMsg = (error && error.data && error.data.error && error.data.error.message) || ''
+    let content = backendMsg || '提交失败，请稍后重试。'
+    if (status === 404) {
+      content = '线上申请暂未开放，请直接电话联系客服完成服务申请。'
+    }
     uni.showModal({
       title: '提交失败',
-      content: '线上申请暂未开放，请直接电话联系客服完成服务申请。',
+      content: content,
       showCancel: false,
       confirmText: '知道了'
     })

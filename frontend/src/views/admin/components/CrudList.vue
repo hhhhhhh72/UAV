@@ -174,10 +174,15 @@ const resetParams = () => {
   hookReset()
 }
 
-// 加载数据（包装：通知父组件 loaded，供统计条等消费当前页数据）
+// 加载数据（150ms 防抖：页码/每页条数变化时 Arco 可能同时触发 change 与
+// page-size-change，此前双重 loadData 发两次请求）
+let loadTimer = null
 const loadData = async () => {
-  await fetchData()
-  emit('loaded', listData.value, total.value)
+  if (loadTimer) clearTimeout(loadTimer)
+  loadTimer = setTimeout(async () => {
+    await fetchData()
+    emit('loaded', listData.value, total.value)
+  }, 150)
 }
 
 // a-table 排序事件透传（页面可监听 @sorter-change 适配 useListRequest 的 order 语义）
@@ -202,7 +207,8 @@ const selectedRows = computed(() =>
   (listData.value || []).filter(r => selectedIds.value.includes(r[props.rowKey]))
 )
 
-// 切换每页条数：回到第 1 页并重新加载（Arco 的 change 事件只在页码变化时触发）
+// 切换每页条数：回到第 1 页并重新加载（loadData 已防抖，
+// 与 @change 同时触发时只发一次请求）。
 const onPageSizeChange = () => {
   filterParams.page = 1
   loadData()

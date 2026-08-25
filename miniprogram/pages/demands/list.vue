@@ -182,7 +182,9 @@ export default {
         if (this.currentSort) params.sort = this.currentSort
         if (this.searchText) params.q = this.searchText
         params.page = this.page
-        params.page_size = this.pageSize
+        // 预算排序由前端本地完成（后端忽略 sort 参数）：放大每页至 100 条，
+        // 保证排序窗口覆盖大部分数据（小分页下跨页排序不完整）。
+        params.page_size = this.currentSort && this.currentSort.indexOf('budget') === 0 ? 100 : this.pageSize
 
         const res = await request({ url: '/api/v1/demands', data: params })
         const data = Array.isArray(res) ? res : (res && res.data) || res || {}

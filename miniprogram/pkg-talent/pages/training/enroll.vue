@@ -421,26 +421,27 @@ function envImages(item) {
   return []
 }
 
-/* ===== 数据获取（按 id 单查 + storage 缓存，删除 mock 兜底） ===== */
+/* ===== 数据获取（按 id 单查 + storage 仅作首帧缓存，删除 mock 兜底） ===== */
 async function fetchDetail() {
   loading.value = true
   errorMsg.value = ''
   try {
-    // 优先读取列表页经 storage 传入的完整数据
+    // storage 缓存仅作首帧展示；无论是否命中都发起接口刷新（价格/状态以服务端为准，
+    // 此前命中缓存直接返回且永不清除，管理员改价/改状态后本地展示陈旧）。
     var cached = uni.getStorageSync('training_course_detail')
     if (cached && String(cached.id) === String(id.value)) {
       detail.value = cached
-      loading.value = false
       loadFavState()
-      return
     }
+    uni.removeStorageSync('training_course_detail')
     const res = await request({ url: '/api/v1/training-courses/' + encodeURIComponent(id.value) })
     const data = (res && res.data) || res || null
     detail.value = data && data.id ? data : null
     if (!detail.value) errorMsg.value = '机构不存在'
     else loadFavState()
   } catch (e) {
-    errorMsg.value = '加载失败，请稍后重试'
+    // 接口失败且已有缓存首帧时保留展示，不覆盖为错误态
+    if (!detail.value) errorMsg.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }

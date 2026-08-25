@@ -121,13 +121,13 @@ const copyText = computed(() => values.value.description || '暂未填写补充�
 // 课程无大厅分类，发布文案与需求/服务/商品区分
 const isCourse = computed(() => type.value === 'course')
 const confirmText = computed(() => {
-  if (isCourse.value) return typeConfig.value.name + '发布后将公开展示，可在「我的发布」中管理。'
+  if (isCourse.value) return typeConfig.value.name + '提交后由协会审核，通过后才公开展示，可在「我的发布」中管理。'
   if (type.value === 'product') return '提交后由协会审核，通过后才上架到低空商城，可在「我的发布」中查看审核状态。'
   if (type.value === 'demand') return '提交后由协会审核，通过后才公开展示到供需大厅，可在「我的发布」中查看审核状态。'
   return '发布后将立即上架到供需大厅，可在「我的发布」中随时下架或编辑。'
 })
 const successText = computed(() => {
-  if (isCourse.value) return '内容已保存并公开展示，可在「我的发布」中查看状态。'
+  if (isCourse.value) return '课程已提交审核，协会通过后公开展示，可在「我的发布」中查看状态。'
   if (type.value === 'product') return '商品已提交审核，协会通过后上架到低空商城，可在「我的发布」中查看状态。'
   if (type.value === 'demand') return '需求已提交审核，协会通过后公开展示到供需大厅，可在「我的发布」中查看状态。'
   return '内容已上架到供需大厅，可在「我的发布」中管理。'

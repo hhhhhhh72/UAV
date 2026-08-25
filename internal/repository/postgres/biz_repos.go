@@ -183,7 +183,7 @@ func (r *complianceRepo) FindDocByID(ctx context.Context, id string) (domain.Com
 	var d domain.ComplianceDoc
 	var tags []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at FROM compliance_docs WHERE id=$1`, id).
+		`SELECT id,title,category,publisher,COALESCE(publish_date,'1970-01-01 00:00:00+00'::timestamptz),status,summary,file_url,tags,created_at,updated_at FROM compliance_docs WHERE id=$1`, id).
 		Scan(&d.ID, &d.Title, &d.Category, &d.Publisher, &d.PublishDate, &d.Status, &d.Summary, &d.FileURL, &tags, &d.CreatedAt, &d.UpdatedAt)
 	json.Unmarshal(tags, &d.Tags)
 	return d, err
@@ -199,7 +199,7 @@ func (r *complianceRepo) ListDocs(ctx context.Context, category string, offset, 
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM compliance_docs `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count docs: %w", err)
 	}
-	q := fmt.Sprintf(`SELECT id,title,category,publisher,publish_date,status,summary,file_url,tags,created_at,updated_at FROM compliance_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,title,category,publisher,COALESCE(publish_date,'1970-01-01 00:00:00+00'::timestamptz),status,summary,file_url,tags,created_at,updated_at FROM compliance_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(ctx, q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list docs: %w", err)
@@ -246,7 +246,7 @@ func (r *complianceRepo) DeleteStandard(ctx context.Context, id string) error {
 
 func (r *complianceRepo) FindStandardByID(ctx context.Context, id string) (domain.StandardDoc, error) {
 	var s domain.StandardDoc
-	err := r.pool.QueryRow(ctx, "SELECT id,title,category,standard_no,publisher,effective_date,status,scope,summary,file_url FROM standard_docs WHERE id=$1", id).
+	err := r.pool.QueryRow(ctx, "SELECT id,title,category,standard_no,publisher,COALESCE(effective_date,'1970-01-01 00:00:00+00'::timestamptz),status,scope,summary,file_url FROM standard_docs WHERE id=$1", id).
 		Scan(&s.ID, &s.Title, &s.Category, &s.StandardNo, &s.Publisher, &s.EffectiveDate, &s.Status, &s.Scope, &s.Summary, &s.FileURL)
 	return s, err
 }
@@ -278,7 +278,7 @@ func (r *complianceRepo) ListStandards(ctx context.Context, category string, off
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM standard_docs `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count standards: %w", err)
 	}
-	q := fmt.Sprintf(`SELECT id,title,category,standard_no,publisher,effective_date,status,scope,file_url,created_at,updated_at FROM standard_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,title,category,standard_no,publisher,COALESCE(effective_date,'1970-01-01 00:00:00+00'::timestamptz),status,scope,file_url,created_at,updated_at FROM standard_docs %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(ctx, q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list standards: %w", err)
