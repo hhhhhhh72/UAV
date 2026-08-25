@@ -1448,7 +1448,7 @@ func (r *userRepo) FindByID(ctx context.Context, id string) (domain.User, error)
 	var u domain.User
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
-		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.Version, &u.CreatedAt, &u.UpdatedAt)
+		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
 			u.PhoneCipher = dec
