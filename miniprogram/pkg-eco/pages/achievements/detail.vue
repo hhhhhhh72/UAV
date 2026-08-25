@@ -50,8 +50,9 @@
         </view>
       </view>
 
-      <!-- 图位（列表页第一视位层级：领域色底 → 图片终态；坏图 @error 回退单字+刊名；已转化角标同列表 conv-badge） -->
-      <view class="cov" :style="{ background: d.tone.bg }">
+      <!-- 图位（列表页第一视位层级：领域色底 → 图片终态；坏图 @error 回退单字+刊名；已转化角标同列表 conv-badge；
+           无图时压缩为小图位（此前 4/3 大片占位色块观感突兀） -->
+      <view class="cov" :class="{ 'cov--noimg': !d.img || imgFailed }" :style="{ background: d.tone.bg }">
         <image v-if="d.img && !imgFailed" class="cov-img" :src="d.img" mode="aspectFill" @error="imgFailed = true" />
         <block v-else>
           <text class="cov-ic" :style="{ color: d.tone.fg }">{{ d.ic }}</text>
@@ -484,6 +485,10 @@ page { background: var(--color-bg); }
 
 /* ===== 图位（列表页第一视位层级：领域色底 → 图片终态；坏图回退单字+刊名；对齐组卡面） ===== */
 .cov { position: relative; margin: 0 32rpx 24rpx; aspect-ratio: 4/3; min-height: 240rpx; display: flex; align-items: center; justify-content: center; border: 2rpx solid #E4E7EC; border-radius: 20rpx; overflow: hidden; box-shadow: 0 2rpx 6rpx rgba(10,30,60,.04), 0 12rpx 32rpx rgba(10,30,60,.05); }
+/* 无图/坏图回退：压缩为紧凑图位（领域色 + 单字 + 刊名纵向排布），不做 4/3 大片占位 */
+.cov--noimg { aspect-ratio: auto; min-height: 0; padding: 36rpx 0 30rpx; flex-direction: column; gap: 12rpx; }
+.cov--noimg .cov-ic { font-size: 44rpx; }
+.cov--noimg .cov-name { position: static; font-family: Georgia, "Songti SC", "STSong", SimSun, serif; font-size: 20rpx; letter-spacing: 2rpx; }
 .cov-img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; } /* 图片脱离布局：异步加载完成不改变图位高度（同列表页防晃动） */
 .cov-ic { font-size: 40rpx; font-weight: 800; } /* 图位单字：对齐列表页 cov-ic 40rpx 先例 */
 .cov-name { position: absolute; left: 24rpx; bottom: 20rpx; font-family: Georgia, "Songti SC", "STSong", SimSun, serif; font-size: 20rpx; letter-spacing: 2rpx; } /* 领域刊名（衬线微刻字，DESIGN.md 封面例外） */

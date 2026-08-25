@@ -586,6 +586,7 @@
             "navigationBarTitleText": "科技成果库",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom",
             "enablePullDownRefresh": true
           }
         },
@@ -593,8 +594,9 @@
           "path": "pages/achievements/detail",
           "style": {
             "navigationBarTitleText": "成果详情",
-            "navigationBarTextStyle": "black",
-            "navigationBarBackgroundColor": "#ffffff"
+            "navigationBarTextStyle": "white",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
           }
         },
         {
@@ -811,8 +813,9 @@
           "path": "pages/transformations/track",
           "style": {
             "navigationBarTitleText": "成果转化",
-            "navigationBarTextStyle": "black",
-            "navigationBarBackgroundColor": "#ffffff"
+            "navigationBarTextStyle": "white",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
           }
         }
       ]
