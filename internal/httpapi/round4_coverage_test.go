@@ -311,15 +311,16 @@ func TestR4TrainingCoverage(t *testing.T) {
 	assertStatus(t, http.MethodGet, "/api/v1/admin/certified-pilots", w, http.StatusOK)
 }
 
-// TestR4JobsMutationCode 覆盖 jobMutationCode 的 403 分支（发布/关闭不存在职位）。
+// TestR4JobsMutationCode 覆盖 jobMutationCode 的分支：不存在职位 → 404
+//（资源不存在语义；此前默认 403 会把未知错误与越权混淆）。
 func TestR4JobsMutationCode(t *testing.T) {
 	app := newBizServer(t)
 	entTok := authAs(t, "ent-1", domain.RoleEnterprise)
 
 	w := doRaw(app, http.MethodPost, "/api/v1/jobs/zzz/publish", "", entTok)
-	assertStatus(t, http.MethodPost, "/api/v1/jobs/zzz/publish", w, http.StatusForbidden)
+	assertStatus(t, http.MethodPost, "/api/v1/jobs/zzz/publish", w, http.StatusNotFound)
 	w = doRaw(app, http.MethodPost, "/api/v1/jobs/zzz/close", "", entTok)
-	assertStatus(t, http.MethodPost, "/api/v1/jobs/zzz/close", w, http.StatusForbidden)
+	assertStatus(t, http.MethodPost, "/api/v1/jobs/zzz/close", w, http.StatusNotFound)
 }
 
 // TestR4CommunityListings 覆盖 removePost/closeListing/favoriteListing。

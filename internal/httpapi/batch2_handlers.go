@@ -205,12 +205,17 @@ func requireAdmin(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// mutationErrorCode 区分归属拒绝(403)与资源不存在(404)。
+// mutationErrorCode 区分归属拒绝(403)与资源不存在(404)；未识别的错误
+// 一律 500（服务端日志记详情），绝不把 DB/SQL 细节以 403/404 暴露给客户端
+// （此前默认 404 会把 pgx 错误文本原样回传）。
 func mutationErrorCode(err error) int {
 	if strings.Contains(err.Error(), "only the owner") {
 		return http.StatusForbidden
 	}
-	return http.StatusNotFound
+	if strings.Contains(err.Error(), "not found") {
+		return http.StatusNotFound
+	}
+	return http.StatusInternalServerError
 }
 
 func (s *Server) createCooperation(w http.ResponseWriter, r *http.Request) {

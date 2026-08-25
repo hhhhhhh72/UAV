@@ -69,12 +69,19 @@ func (s *Server) closeJob(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, j)
 }
 
-// jobMutationCode 区分状态机流转违规（409）与归属/角色违规（403）。
+// jobMutationCode 区分状态机流转违规（409）与归属/角色违规（403）；
+// 未识别错误一律 500（服务端日志记详情），绝不把内部错误以 403 暴露给客户端。
 func jobMutationCode(err error) int {
 	if errors.Is(err, service.ErrInvalidJobTransition) {
 		return http.StatusConflict
 	}
-	return http.StatusForbidden
+	if strings.Contains(err.Error(), "only the") || strings.Contains(err.Error(), "permission") {
+		return http.StatusForbidden
+	}
+	if strings.Contains(err.Error(), "not found") {
+		return http.StatusNotFound
+	}
+	return http.StatusInternalServerError
 }
 
 // GET /api/v1/jobs?q=关键词&type=全职&page=1&page_size=10

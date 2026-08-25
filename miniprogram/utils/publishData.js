@@ -87,14 +87,14 @@ export const TYPES = {
         title: '价格与库存',
         fields: [
           ['price', '售价', '例如：68000', 'input', true],
-          ['stock', '可售数量', '例如：1', 'input', true],
+          ['stock', '可售数量（选填）', '例如：1；平台按单件售出，不锁库存', 'input', false],
           ['brand', '品牌/型号', '例如：DJI / M350 RTK', 'input', true],
         ],
       },
       {
         title: '交付方式',
         fields: [
-          ['delivery', '交付方式', '选择交付方式', 'select', true, ['自提', '同城配送', '物流发货', '可协商']],
+          ['delivery', '交付方式（选填）', '选择交付方式', 'select', false, ['自提', '同城配送', '物流发货', '可协商']],
           ['description', '商品说明', '配置清单、使用情况、售后承诺等', 'textarea', true],
         ],
       },

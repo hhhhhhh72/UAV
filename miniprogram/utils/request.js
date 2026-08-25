@@ -148,6 +148,14 @@ export function request(options) {
                     header,
                     success: (retryRes) => {
                       if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) r(unwrap(retryRes.data))
+                      else if (retryRes.statusCode === 401) {
+                        // 换了新 token 仍 401（账号被停用/权限变更/接口额外校验）：
+                        // 登录态必须清理并跳登录，否则"假活"——页面显示已登录但所有接口不可用。
+                        authStorage.clearTokens()
+                        uni.removeStorageSync('user')
+                        uni.navigateTo({ url: '/pages/login/index' })
+                        rj(retryRes)
+                      }
                       else rj(retryRes)
                     },
                     fail: rj
@@ -170,6 +178,13 @@ export function request(options) {
               header,
               success: (retryRes) => {
                 if (retryRes.statusCode >= 200 && retryRes.statusCode < 300) resolve(unwrap(retryRes.data))
+                else if (retryRes.statusCode === 401) {
+                  // 同上：换新 token 仍 401 → 清理登录态并跳登录（防"假活"）。
+                  authStorage.clearTokens()
+                  uni.removeStorageSync('user')
+                  uni.navigateTo({ url: '/pages/login/index' })
+                  reject(retryRes)
+                }
                 else reject(retryRes)
               },
               fail: reject

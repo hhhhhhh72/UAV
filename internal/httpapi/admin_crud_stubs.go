@@ -180,15 +180,69 @@ func (s *Server) updateCompetition(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	c, err := s.competitionSvc.Update(r.Context(), domain.Competition{
-		ID: id, Title: in.Title, Category: in.Category, Description: in.Description,
-		Location: in.Location, Sponsor: in.Sponsor, Status: in.Status,
-		StartDate: startDate, EndDate: endDate,
-		MaxTeams: in.MaxTeams, Deadline: deadline, OrganizerSub: in.OrganizerSub,
-		Fee: in.Fee, MinFee: in.MinFee, OriginalFee: in.OriginalFee, Tags: in.Tags, Poster: in.Poster,
-		Requirements: in.Requirements, Events: in.Events, Prizes: in.Prizes,
-		RegistrationStatus: in.RegistrationStatus,
-	})
+	// PATCH 语义防清空（P1）：管理后台编辑表单只回传部分字段，此前全量覆盖会
+	// 清空小程序填写并提交的赛程/奖项/报名费区间/承办方等扩展字段——
+	// 现在先载入现有赛事，仅非空/非零字段覆盖；扩展列表仅 len>0 时覆盖。
+	existing, err := s.competitionSvc.Get(r.Context(), id)
+	if err != nil {
+		adminFail(w, r, err)
+		return
+	}
+	if in.Title != "" {
+		existing.Title = in.Title
+	}
+	if in.Category != "" {
+		existing.Category = in.Category
+	}
+	if in.Description != "" {
+		existing.Description = in.Description
+	}
+	if in.Location != "" {
+		existing.Location = in.Location
+	}
+	if in.Sponsor != "" {
+		existing.Sponsor = in.Sponsor
+	}
+	if in.Status != "" {
+		existing.Status = in.Status
+	}
+	if !startDate.IsZero() {
+		existing.StartDate = startDate
+	}
+	if !endDate.IsZero() {
+		existing.EndDate = endDate
+	}
+	if in.MaxTeams != 0 {
+		existing.MaxTeams = in.MaxTeams
+	}
+	if deadline != nil {
+		existing.Deadline = deadline
+	}
+	if in.OrganizerSub != "" {
+		existing.OrganizerSub = in.OrganizerSub
+	}
+	if in.Fee != 0 || in.MinFee != 0 || in.OriginalFee != 0 {
+		existing.Fee, existing.MinFee, existing.OriginalFee = in.Fee, in.MinFee, in.OriginalFee
+	}
+	if len(in.Tags) > 0 {
+		existing.Tags = in.Tags
+	}
+	if in.Poster != "" {
+		existing.Poster = in.Poster
+	}
+	if len(in.Requirements) > 0 {
+		existing.Requirements = in.Requirements
+	}
+	if len(in.Events) > 0 {
+		existing.Events = in.Events
+	}
+	if len(in.Prizes) > 0 {
+		existing.Prizes = in.Prizes
+	}
+	if in.RegistrationStatus != "" {
+		existing.RegistrationStatus = in.RegistrationStatus
+	}
+	c, err := s.competitionSvc.Update(r.Context(), existing)
 	if err != nil {
 		adminFail(w, r, err)
 		return
