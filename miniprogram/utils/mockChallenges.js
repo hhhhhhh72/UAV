@@ -5,7 +5,7 @@
 //   列表：GET /api/v1/rd-challenges  (params: page / page_size)
 // 页面已在 list.vue 中处理：接口失败时自动回退到本演示数据。
 // 字段遵循后端 snake_case（rd_challenges：title / field /
-// description / budget_fen / deadline / status / created_at）。
+// description / budget_fen / deadline / status / created_at / poster_name）。
 // ============================================================
 
 export const MOCK_CHALLENGES = [
@@ -18,6 +18,7 @@ export const MOCK_CHALLENGES = [
     deadline: '2026-08-22T18:00:00+08:00',
     status: 'open',
     created_at: '2026-08-08T10:00:00+08:00',
+    poster_name: '重庆星辰智能装备有限公司',
   },
   {
     id: 'demo-dianchi',
@@ -28,6 +29,7 @@ export const MOCK_CHALLENGES = [
     deadline: '2026-08-13T18:00:00+08:00',
     status: 'open',
     created_at: '2026-08-06T10:00:00+08:00',
+    poster_name: '重庆新航电源科技有限公司',
   },
   {
     id: 'demo-ai',
@@ -38,6 +40,7 @@ export const MOCK_CHALLENGES = [
     deadline: '2026-08-30T18:00:00+08:00',
     status: 'open',
     created_at: '2026-08-02T10:00:00+08:00',
+    poster_name: '重庆慧眼低空技术有限公司',
   },
   {
     id: 'demo-tongxin',
@@ -48,6 +51,7 @@ export const MOCK_CHALLENGES = [
     deadline: '2026-09-04T18:00:00+08:00',
     status: 'open',
     created_at: '2026-07-28T10:00:00+08:00',
+    poster_name: '重庆通联链路科技有限责任公司',
   },
   {
     id: 'demo-cailiao',
@@ -58,6 +62,7 @@ export const MOCK_CHALLENGES = [
     deadline: '2026-09-09T18:00:00+08:00',
     status: 'open',
     created_at: '2026-07-25T10:00:00+08:00',
+    poster_name: '重庆轻翼复合材料研究院',
   },
   {
     id: 'demo-zaizai',
@@ -68,5 +73,6 @@ export const MOCK_CHALLENGES = [
     deadline: '2026-08-15T18:00:00+08:00',
     status: 'open',
     created_at: '2026-07-22T10:00:00+08:00',
+    poster_name: '重庆观云光电科技有限公司',
   },
 ]

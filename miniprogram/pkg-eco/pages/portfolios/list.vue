@@ -127,7 +127,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh, onReachBottom, onUnload } from '@dcloudio/uni-app'
-import { request, BASE_URL } from '@/utils/request'
+import { request } from '@/utils/request'
 import BrandCard from '../../components/BrandCard.vue'
 import { MOCK_BRANDS, MOCK_FEATURED, CATEGORY_MAP } from '@/utils/mockBrands'
 
@@ -144,7 +144,7 @@ const SORTS = [
 const SORT_LABEL = { views: '最多浏览', latest: '最新入驻', video: '视频优先' }
 const PAGE_SIZE = 100
 const SEARCH_DEBOUNCE_MS = 250 // 搜索防抖：停顿 250ms 后再请求（对齐 challenges）
-const isDev = import.meta.env.DEV // 演示数据仅在开发环境回退
+const isDev = process.env.NODE_ENV === 'development' // 演示数据仅在开发环境回退
 
 // ===== 状态 =====
 const statusBarHeight = ref(20)
@@ -181,31 +181,19 @@ const keyOf = (c) => {
   if (s.includes('检测') || s.includes('机构')) return 'inspector'
   return 'drone'
 }
-// 相对路径（存库格式）→ 完整 URL
-const resolveUrl = (u) => {
-  if (!u) return ''
-  if (u.indexOf('http') === 0) return u
-  return BASE_URL + u
-}
-
-// 后端 MemberPortfolio：id/enterprise_id/name/logo_url/cover_url/description/
-// products/honors/contact_info/status/created_at —— 前端按真实字段映射
 const mapItem = (it) => {
-  const honor = (it.honors && it.honors[0]) || ''
-  const catKey = keyOf(it.category || honor) || 'brand'
+  const catKey = keyOf(it.category || it.industry)
   return {
     id: it.id,
     name: it.name || it.company_name || '',
     catKey,
-    catLabel: CATEGORY_MAP[catKey] || honor || '会员品牌',
-    char: it.name ? String(it.name).charAt(0) : '牌',
-    logo: resolveUrl(it.logo_url || ''),
-    cover: resolveUrl(it.cover_url || ''),
-    logoText: '',
-    verified: it.status === 'published', // 已公示 = 协会已认证
-    hasVideo: false, // 后端暂无视频字段
-    views: 0,
-    videoCount: 0,
+    catLabel: CATEGORY_MAP[catKey] || it.category || '品牌',
+    char: it.char || (it.category ? String(it.category).charAt(0) : '牌'),
+    logoText: it.logo_text || it.char || (it.name ? String(it.name).charAt(0) : '牌'),
+    verified: !!it.verified,
+    hasVideo: !!(it.has_video || (it.video_count && it.video_count > 0)),
+    views: it.views || 0,
+    videoCount: it.video_count || 0,
     grad: 'gd-' + String(it.grad || 'gd1').replace(/^gd-?/, ''),
   }
 }
@@ -270,11 +258,11 @@ const fetchList = async (reset = true) => {
       // 注意：request.js 的分页信封 {data:[...], total} 会丢弃顶层 featured——
       // 契约需后端以对象信封 {data:{items,total,featured}} 返回，或将 featured 挂到数据数组上
       const feats = data && Array.isArray(data.featured) ? data.featured : []
-      featured.value = (feats.length ? feats : (import.meta.env.DEV ? MOCK_FEATURED : [])).map(mapFeatured)
+      featured.value = (feats.length ? feats : (isDev ? MOCK_FEATURED : [])).map(mapFeatured)
       if (items.length) {
         fullList.value = items.map(mapItem)
         totalCount.value = total
-      } else if (import.meta.env.DEV) {
+      } else if (isDev) {
         useMock()
       } else {
         fullList.value = []
@@ -290,7 +278,7 @@ const fetchList = async (reset = true) => {
     if (seq !== fetchSeq) return
     if (reset) {
       // 失败回退仅限开发环境；生产：首次加载走错误态，已有数据保留并提示
-      if (import.meta.env.DEV) {
+      if (isDev) {
         useMock()
       } else if (!fullList.value.length) {
         loadError.value = true
@@ -498,7 +486,7 @@ onUnload(() => { clearTimeout(searchTimer) })
 
 /* ===== 骨架 ===== */
 .sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; padding: 8rpx 24rpx; }
-.sk-card { background: #fff; border: 1px solid #EEF1F4; border-radius: 20rpx; overflow: hidden; }
+.sk-card { box-sizing: border-box; background: #fff; border: 1px solid #EEF1F4; border-radius: 20rpx; overflow: hidden; }
 .sk-cv { padding-top: 75%; background: #f0f1f3; animation: shimmer 1.5s infinite; }
 .sk-bd { padding: 20rpx; }
 .sk-l { height: 24rpx; background: #f0f1f3; border-radius: 12rpx; margin-bottom: 16rpx; animation: shimmer 1.5s infinite; }

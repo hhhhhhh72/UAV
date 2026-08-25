@@ -12,7 +12,7 @@
           <input class="b-sinp" v-model="q" placeholder="搜索难题、关键词" placeholder-class="b-ph" confirm-type="search" @input="onSearch" />
           <text v-if="q" class="b-sclr" aria-role="button" aria-label="清除搜索" @tap="clearSearch">×</text>
           <view class="b-sep"></view>
-          <text class="b-sbtn" @tap="onSearch">搜索</text>
+          <text class="b-sbtn" @tap="onSearchTap">搜索</text>
         </view>
       </view>
 
@@ -34,7 +34,7 @@
       <view v-if="panel" class="panel-wrap" :class="{ closing }">
         <!-- 领域状态 -->
         <view v-if="panel === 'comp'" class="panel">
-          <view class="p-head">领域状态 · 领域 / 状态</view>
+          <view class="p-head">按领域与状态筛选</view>
           <view class="p-group">领域（一级）</view>
           <view class="p-chips">
             <text v-for="f in FIELD_OPTS" :key="f.v" class="p-chip" :class="{ act: selField === f.v }" @tap="toggleComp('field', f.v)">{{ f.l }}</text>
@@ -45,13 +45,14 @@
           </view>
         </view>
 
-        <!-- 时间 -->
+        <!-- 时间：快捷档优先，自定义日期按需展开（渐进披露） -->
         <view v-else-if="panel === 'time'" class="panel">
           <view class="p-head">请选择发布时间</view>
           <view class="p-chips">
             <text v-for="o in QUICK_OPTS" :key="o.v" class="p-chip" :class="{ act: quick === o.v }" @tap="pickQuick(o.v)">{{ o.l }}</text>
+            <text class="p-chip" :class="{ act: timeCustom || rangeStart || rangeEnd }" @tap="toggleTimeCustom">自定义日期</text>
           </view>
-          <view class="cal" @touchstart="calTouchStart" @touchend="calTouchEnd">
+          <view v-if="timeCustom" class="cal" @touchstart="calTouchStart" @touchend="calTouchEnd">
             <view class="cal-head">
               <view class="cal-nav" aria-role="button" aria-label="上一个月" @tap="calShift(-1)">‹</view>
               <text class="cal-title">{{ calYear }}年{{ calMonth }}月</text>
@@ -70,33 +71,37 @@
           </view>
         </view>
 
-        <!-- 金钱 -->
+        <!-- 金钱：预设档位优先，自定义区间按需展开（渐进披露；预设/面议与自定义互斥） -->
         <view v-else-if="panel === 'money'" class="panel">
           <view class="p-head">请选择悬赏金额（万元）</view>
           <view class="p-chips">
             <text v-for="o in MONEY_OPTS" :key="o.v" class="p-chip" :class="{ act: mPreset === o.v }" @tap="pickPreset(o.v)">{{ o.l }}</text>
             <text class="p-chip" :class="{ act: mFace }" @tap="toggleFace">面议</text>
+            <text class="p-chip" :class="{ act: moneyCustom || customActive }" @tap="toggleMoneyCustom">自定义区间</text>
           </view>
-          <view class="slider" :class="{ disabled: mFace }">
-            <view class="slider-track"></view>
-            <view class="slider-range" :style="rangeStyle"></view>
-            <view class="slider-bar" @touchstart.stop.prevent="onTouchStart" @touchmove.stop.prevent="onTouchMove" @touchend.stop.prevent="onTouchEnd" @touchcancel.stop.prevent="onTouchEnd">
-              <view class="thumb thumb-min" :style="{ left: mMinPx + 'px' }"></view>
-              <view class="thumb thumb-max" :style="{ left: mMaxPx + 'px' }"></view>
+          <view v-if="moneyCustom" class="money-custom">
+            <view class="slider">
+              <view class="slider-track"></view>
+              <view class="slider-range" :style="rangeStyle"></view>
+              <view class="slider-bar" @touchstart.stop.prevent="onTouchStart" @touchmove.stop.prevent="onTouchMove" @touchend.stop.prevent="onTouchEnd" @touchcancel.stop.prevent="onTouchEnd">
+                <view class="thumb thumb-min" :style="{ left: mMinPx + 'px' }"></view>
+                <view class="thumb thumb-max" :style="{ left: mMaxPx + 'px' }"></view>
+              </view>
+            </view>
+            <view class="slider-labels">
+              <text>{{ Math.round(mMin) }}万</text>
+              <text>{{ Math.round((mMin + mMax) / 2) }}万</text>
+              <text>{{ Math.round(mMax) }}万</text>
+            </view>
+            <view class="money-inputs">
+              <input class="m-input" type="number" :value="Math.round(mMin)" placeholder="最低" @input="onMinInput" />
+              <text class="m-unit">万</text>
+              <text class="m-dash">—</text>
+              <input class="m-input" type="number" :value="Math.round(mMax)" placeholder="最高" @input="onMaxInput" />
+              <text class="m-unit">万</text>
             </view>
           </view>
-          <view class="slider-labels">
-            <text>{{ Math.round(mMin) }}万</text>
-            <text>{{ Math.round((mMin + mMax) / 2) }}万</text>
-            <text>{{ Math.round(mMax) }}万</text>
-          </view>
-          <view class="money-inputs" :class="{ disabled: mFace }">
-            <input class="m-input" type="number" :value="Math.round(mMin)" placeholder="最低" @input="onMinInput" />
-            <text class="m-unit">万</text>
-            <text class="m-dash">—</text>
-            <input class="m-input" type="number" :value="Math.round(mMax)" placeholder="最高" @input="onMaxInput" />
-            <text class="m-unit">万</text>
-          </view>
+          <text v-if="mFace" class="m-tip">「面议」档：只看未标价、按面议洽谈的难题</text>
           <view class="cal-foot">
             <text class="cal-reset" @tap="clearMoney">清除</text>
             <view class="money-done" @tap="startClosePanel">收起</view>
@@ -112,7 +117,7 @@
     <view class="banner" @tap="goPublish">
       <view class="banner-icon">战</view>
       <view class="banner-info">
-        <text class="banner-title">技术攻关，等你来战</text>
+        <text class="banner-title">研发难题，等你揭榜</text>
         <text class="banner-sub">汇聚产业技术难题 · 诚邀揭榜攻关</text>
       </view>
     </view>
@@ -167,11 +172,13 @@
             <text class="c-tag" :style="{ color: x.tagC, background: x.tagBg }">{{ x.f }}</text>
             <text class="c-st" :class="'st-' + x.stCls">{{ x.stLabel }}</text>
           </view>
-          <view class="c-budget"><text class="lb">悬赏</text><text class="vl" :class="{ face: x.budgetText === '面议' }">{{ x.budgetText }}</text></view>
+          <view class="c-budget"><text class="lb">悬赏</text><text class="vl" :class="{ face: x.budgetText === '面议', closed: x.stCls === 'closed' }">{{ x.budgetText }}</text></view>
         </view>
         <text class="ct">{{ x.t }}</text>
         <text v-if="x.d" class="c-desc">{{ x.d }}</text>
         <view class="c-meta">
+          <text v-if="x.pub" class="c-pub">{{ x.pub }}</text>
+          <text v-if="x.pub" class="c-dot">·</text>
           <text>发布于 {{ x.dt }}</text>
           <text class="c-dot">·</text>
           <text class="c-dl" :class="{ hot: x.urgent }">{{ x.dl }}</text>
@@ -179,12 +186,17 @@
       </view>
     </view>
 
-    <view v-if="list.length" class="lm">{{ loadMoreText }}</view>
+    <!-- 加载提示：整行可点——渲染切片揭示 / 截断时加载全部（触达目标整行 40px） -->
+    <view v-if="list.length" class="lm" :class="{ 'lm-cta': hasMoreRender || (!allLoaded && hasMore) }" @tap="onLmTap">
+      <text v-if="hasMoreRender">— 上拉加载更多 —</text>
+      <text v-else-if="!allLoaded && hasMore">已加载 {{ fullList.length }} / 共 {{ total }} 条 · 点击加载全部</text>
+      <text v-else>— 没有更多了 —</text>
+    </view>
     <view v-if="mockMode && isDev" class="mock-note">当前为演示数据 · 接口就绪后自动切换</view>
     </view>
 
     <!-- 回到顶部 -->
-    <view class="bt" :class="{ show: showBt }" aria-role="button" aria-label="回到顶部" @tap="scrollToTop"><text>↑</text></view>
+    <view class="bt" :class="{ show: showBt && !panel }" aria-role="button" aria-label="回到顶部" @tap="scrollToTop"><text>↑</text></view>
   </view>
 
 </template>
@@ -202,7 +214,7 @@ const RENDER_STEP = 100 // DOM 渲染上限步长：数据全量入 fullList，�
 const SEARCH_DEBOUNCE_MS = 250 // 搜索防抖：击键即筛改为停顿 250ms 后筛（防每键整表重渲染）
 const PANEL_CLOSE_MS = 230 // 面板退场 210ms + 缓冲：动画播完再 v-if 移除
 const SORT_CLOSE_MS = 170  // 排序弹层退场 150ms + 缓冲
-const isDev = import.meta.env.DEV // 演示数据横幅仅开发环境展示
+const isDev = process.env.NODE_ENV === 'development' // 演示数据横幅仅开发环境展示
 
 /* ===== 静态配置 ===== */
 const FIELD_OPTS = [
@@ -213,6 +225,7 @@ const FIELD_OPTS = [
   { v: '通信链路', l: '通信链路' },
   { v: '新型材料', l: '新型材料' },
   { v: '载荷设备', l: '载荷设备' },
+  { v: '集群协同', l: '集群协同' },
 ]
 const STATUS_OPTS = [
   { v: '', l: '全部' },
@@ -230,6 +243,12 @@ const MONEY_OPTS = [
   { v: '10-50', l: '10-50万' },
   { v: 'gt50', l: '50万以上' },
 ]
+/* 预设档位的实际区间：gt50 无上限（滑块仅表示自定义区间，不参与预设语义——修复"50万以上"吞高额悬赏） */
+const PRESET_RANGE = {
+  lt10: [0, 10],
+  '10-50': [10, 50],
+  gt50: [50, Infinity],
+}
 const SORTS = [
   { v: 'latest', l: '最新发布' },
   { v: 'reward', l: '悬赏最高' },
@@ -254,6 +273,7 @@ const FIELD_TAG = {
   '通信链路': { tagC: '#1a237e', tagBg: '#E7E9F4' },
   '新型材料': { tagC: '#004d40', tagBg: '#E4F2EF' },
   '载荷设备': { tagC: '#b71c1c', tagBg: '#FBE9E9' },
+  '集群协同': { tagC: '#0e7490', tagBg: '#E5F3F8' },
 }
 const FIELD_TAG_DEFAULT = { tagC: '#344054', tagBg: '#EEF1F4' }
 
@@ -269,7 +289,11 @@ const mMin = ref(0)
 const mMax = ref(100)
 const mPreset = ref('')
 const mFace = ref(false) // 面议独立档位（与金额区间互斥）
-const moneyActive = ref(false)
+const moneyCustom = ref(false) // 自定义区间展开态（渐进披露：预设优先，自定义按需展开）
+const timeCustom = ref(false) // 自定义日期展开态（快捷档优先，日历按需展开）
+/* 金额激活态由状态派生：面议 / 预设档 / 非全量自定义区间 任一成立即激活（替代原手工维护的 ref，杜绝状态不同步） */
+const moneyActive = computed(() => !!(mFace.value || mPreset.value || !(mMin.value === 0 && mMax.value === 100)))
+const customActive = computed(() => moneyActive.value && !mFace.value && !mPreset.value)
 const sort = ref('latest')
 const showSort = ref(false)
 const closing = ref(false) // 筛选面板退场动画中（v-if 延迟移除）
@@ -296,6 +320,7 @@ const sliderW = ref(0)
 const sliderLeft = ref(0)
 const allLoaded = ref(true) // 服务端数据是否已全部拉取（false 且 hasMore → 被 MAX_PAGES 截断）
 let nextPage = 1
+let pageCap = MAX_PAGES // 服务端翻页上限：默认 MAX_PAGES 页（1000 条）；「加载全部」后解除
 let dragging = null // 'min' | 'max' | null
 const moneyDragging = ref(false) // 拖动中：抑制重置按钮出现（防拖动中筛选行挤压），松手后恢复显示
 let closeT = null // 面板退场定时器（onUnload 清理）
@@ -309,7 +334,20 @@ const inst = getCurrentInstance()
 /* ===== 滚动触达显示 ===== */
 const seen = reactive(new Set()) // 已浮现卡片 id：首屏外卡片进入视口才浮现（边滚边看的丝滑感）
 let obs = null // 视口交叉观察器（每次列表变化后重建，保证新增节点也被观察）
+let winH = 667 // 视口高度（onLoad 用系统信息覆盖）
+let scrollY = 0 // 当前滚动位置（onPageScroll 维护）
+let cardTops = [] // 卡片顶部距页面顶部距离（与 list 同序，measureCards 实测）
 const forceSeen = () => { list.value.forEach((x) => seen.add(x.id)) } // 观察器不可用时全显示兜底
+const allSeen = () => list.value.every((x) => seen.has(x.id))
+/* 测量卡片位置：列表落位后调用（opacity/transform 不影响布局，隐藏态测量同样准确）；
+   观察器失效时，onPageScroll 按此位置点亮，杜绝整列表永久空白 */
+const measureCards = () => {
+  try {
+    uni.createSelectorQuery().in(inst?.proxy || inst).selectAll('.cl .card').boundingClientRect((rects) => {
+      cardTops = Array.isArray(rects) ? rects.map((r) => r.top + scrollY) : []
+    }).exec()
+  } catch (e) { cardTops = [] }
+}
 const reObserve = () => {
   if (noMotion.value) return
   if (obs) { try { obs.disconnect() } catch (e) { /* 忽略 */ } }
@@ -322,6 +360,7 @@ const reObserve = () => {
       }
     })
   } catch (e) { forceSeen() }
+  measureCards() // 列表落位后测量卡片位置，供滚动兜底点亮
 }
 
 const pad = (n) => (n < 10 ? '0' + n : '' + n)
@@ -370,11 +409,6 @@ const maskTop = computed(() => (statusBarHeight.value + 44 + headH.value) + 'px'
 const sortLabel = computed(() => SORT_LABEL[sort.value] || '最新发布')
 const hasMore = computed(() => filteredAll.value.length < total.value)
 const hasMoreRender = computed(() => filteredAll.value.length > list.value.length)
-const loadMoreText = computed(() => {
-  if (hasMoreRender.value) return '— 上拉加载更多 —'
-  if (!allLoaded.value && hasMore.value) return '共 ' + total.value + ' 条，仅显示前 ' + fullList.value.length + ' 条'
-  return hasMore.value ? '— 上拉加载更多 —' : '— 没有更多了 —'
-})
 
 const mMinPx = computed(() => (sliderW.value * mMin.value) / 100)
 const mMaxPx = computed(() => (sliderW.value * mMax.value) / 100)
@@ -453,7 +487,8 @@ const mapItem = (it) => {
     stLabel: st.label,
     stCls: st.cls,
     urgent: st.cls === 'urgent',
-    dl: dl == null ? '截止待定' : st.cls === 'closed' ? '截止 ' + (it.deadline || '').slice(0, 10) : dl + ' 天后截止',
+    pub: it.poster_name || '', // 发布方（无则省略，不编造）
+    dl: dl == null ? '截止待定' : st.cls === 'closed' ? '截止 ' + (it.deadline || '').slice(0, 10) : dl === 0 ? '今天截止' : dl + ' 天后截止',
     ddl: it.deadline || '',
     created: it.created_at || '',
     tagC: (FIELD_TAG[f] || FIELD_TAG_DEFAULT).tagC,
@@ -481,7 +516,13 @@ const applyFilter = () => {
   }
   if (moneyActive.value) {
     if (mFace.value) items = items.filter((x) => x.budget === 0) // 面议档：只看面议
-    else items = items.filter((x) => x.budget > 0 && x.budget >= mMin.value && x.budget <= mMax.value)
+    else if (mPreset.value) {
+      // 预设档位：按 PRESET_RANGE 过滤（gt50 无上限，不再吞高额悬赏）
+      const [lo, hi] = PRESET_RANGE[mPreset.value] || [0, Infinity]
+      items = items.filter((x) => x.budget > 0 && x.budget >= lo && (hi === Infinity || x.budget <= hi))
+    } else {
+      items = items.filter((x) => x.budget > 0 && x.budget >= mMin.value && x.budget <= mMax.value)
+    }
   }
   if (sort.value === 'reward') items.sort((a, b) => b.budget - a.budget)
   else if (sort.value === 'deadline') {
@@ -509,7 +550,7 @@ const fetchAll = async (silent = false) => {
   try {
     const acc = []
     let fetched = 0
-    for (let page = 1; page <= MAX_PAGES; page++) {
+    for (let page = 1; page <= pageCap; page++) {
       const res = await request({ url: '/api/v1/rd-challenges', data: { page, page_size: PAGE_SIZE } })
       const items = Array.isArray(res) ? res : (res?.items || [])
       acc.push(...items.map(mapItem))
@@ -517,7 +558,7 @@ const fetchAll = async (silent = false) => {
       nextPage = page
       if (items.length < PAGE_SIZE || acc.length >= fetched) break
     }
-    allLoaded.value = nextPage < MAX_PAGES || acc.length >= fetched // 拉满10页且未齐 = 截断
+    allLoaded.value = nextPage < pageCap || acc.length >= fetched // 拉满页数且未齐 = 截断
     fullList.value = acc
     total.value = fetched
     mockMode.value = false
@@ -526,7 +567,7 @@ const fetchAll = async (silent = false) => {
     // 接口失败：从未成功加载过才回退演示数据；已有数据则保留，
     // 避免下拉刷新时一次网络抖动就用演示数据顶替真实列表
     if (fullList.value.length === 0) {
-      if (import.meta.env.DEV && MOCK_CHALLENGES && MOCK_CHALLENGES.length) {
+      if (MOCK_CHALLENGES && MOCK_CHALLENGES.length) {
         fullList.value = (MOCK_CHALLENGES || []).map(mapItem)
         total.value = fullList.value.length
         mockMode.value = true
@@ -545,7 +586,7 @@ const fetchAll = async (silent = false) => {
 
 const fetchMore = async () => {
   // fetching 守卫：onShow 静默刷新（loading 保持 false）期间触底，防止与 fetchAll 并发拉同一页造成重复条目
-  if (loading.value || fetching || fetchingMore || nextPage >= MAX_PAGES || !hasMore.value) return
+  if (loading.value || fetching || fetchingMore || nextPage >= pageCap || !hasMore.value) return true
   fetchingMore = true
   try {
     const page = nextPage + 1 // await 前捕获，防并发读到同一页
@@ -556,7 +597,29 @@ const fetchMore = async () => {
     nextPage = page
     allLoaded.value = items.length < PAGE_SIZE || fullList.value.length >= total.value
     applyFilter()
-  } catch { /* 静默：下次触底重试 */ } finally { fetchingMore = false }
+    return true
+  } catch {
+    // 失败可见：不再静默表现为"滚动无响应"（触底重试仍会在下次触底时再次发起）
+    uni.showToast({ title: '加载失败，请稍后重试', icon: 'none' })
+    return false
+  } finally { fetchingMore = false }
+}
+
+/* 截断提示点击：解除 pageCap 逐页拉满剩余数据（loading 遮罩覆盖长耗时） */
+const loadAll = async () => {
+  if (allLoaded.value) return
+  pageCap = 9999
+  uni.showLoading({ title: '加载中', mask: false })
+  try {
+    let ok = true
+    while (!allLoaded.value && ok) ok = await fetchMore()
+  } finally {
+    uni.hideLoading()
+  }
+}
+const onLmTap = () => {
+  if (hasMoreRender.value) { renderCap.value += RENDER_STEP; applyFilter(); return } // 上拉加载更多：先揭示本地渲染切片
+  if (!allLoaded.value && hasMore.value) loadAll() // 截断提示：加载全部
 }
 
 /* ===== 筛选器交互（点选即筛、再点取消） ===== */
@@ -580,6 +643,9 @@ const openPanel = (p) => {
   sortClosing.value = false
   showSort.value = false
   panel.value = p
+  // 渐进披露：已有精确筛选（自定义区间/日期）时面板打开即展开对应自定义区，快捷档保持可见
+  if (p === 'time' && (rangeStart.value || rangeEnd.value)) timeCustom.value = true
+  if (p === 'money' && !mFace.value && !mPreset.value && !(mMin.value === 0 && mMax.value === 100)) moneyCustom.value = true
   if (p === 'money') nextTick(measureSlider)
 }
 const startCloseSort = () => {
@@ -613,6 +679,7 @@ const pickQuick = (v) => {
   else quick.value = v
   rangeStart.value = ''
   rangeEnd.value = ''
+  timeCustom.value = false // 快捷档与自定义日期互斥：选快捷档即收起日历
   applyFilter()
   revealList()
 }
@@ -669,6 +736,15 @@ const resetTime = () => {
   applyFilter()
   revealList()
 }
+/* 自定义日期展开/收起：展开即清除快捷档（互斥）；已有区间时收起不重置，pill 标签仍显示区间 */
+const toggleTimeCustom = () => {
+  timeCustom.value = !timeCustom.value
+  if (timeCustom.value) {
+    quick.value = 'all'
+    applyFilter()
+    revealList()
+  }
+}
 
 /* ===== 金钱：滑动 + 填写 + 区间按钮 ===== */
 const measureSlider = () => {
@@ -695,8 +771,7 @@ const setPos = (x) => {
   }
   // 手动滑动后预设区间不再适用，标签回退为实际数值
   mPreset.value = ''
-  // 点选即筛：拖动即激活区间（全范围 = 不筛选），与预设档位交互一致
-  moneyActive.value = !(mMin.value === 0 && mMax.value === 100)
+  // 点选即筛：拖动即激活区间（全范围 = 不筛选）；金额激活态由 moneyActive 派生
   // 拖动中不重筛列表：applyFilter 整表重渲染 + 重建交叉观察器，每帧执行会让 touchmove 排队丢帧，
   // 拇指滞后且手指停下后仍在"追赶"。此处只更新拇指/标签（轻量重渲染），列表在松手时一次性筛选
 }
@@ -726,7 +801,6 @@ const onTouchEnd = () => {
   // 松手吸附到整数档位：标签/筛选语义干净（浮点仅用于拖动中的跟手追踪）
   mMin.value = Math.round(mMin.value)
   mMax.value = Math.round(mMax.value)
-  moneyActive.value = !(mMin.value === 0 && mMax.value === 100)
   applyFilter() // 松手才筛列表：拖动中零整表重渲染，拇指 1:1 跟手、松手即停
 }
 const onMinInput = (e) => {
@@ -734,7 +808,6 @@ const onMinInput = (e) => {
   if (!isNaN(v)) {
     mMin.value = Math.max(0, Math.min(100, Math.min(v, mMax.value)))
     mPreset.value = '' // 手动输入后预设区间不再适用
-    moneyActive.value = !(mMin.value === 0 && mMax.value === 100)
     applyFilter()
   }
 }
@@ -743,19 +816,27 @@ const onMaxInput = (e) => {
   if (!isNaN(v)) {
     mMax.value = Math.max(0, Math.min(100, Math.max(v, mMin.value)))
     mPreset.value = ''
-    moneyActive.value = !(mMin.value === 0 && mMax.value === 100)
     applyFilter()
   }
 }
 const toggleFace = () => {
   mFace.value = !mFace.value
   if (mFace.value) {
-    // 选中面议：与预设/区间互斥，只看面议
+    // 选中面议：与预设/自定义区间互斥，只看面议
     mPreset.value = ''
-    moneyActive.value = true
-  } else {
-    // 取消面议：恢复区间语义（全范围则取消激活）
-    moneyActive.value = !(mMin.value === 0 && mMax.value === 100)
+    moneyCustom.value = false
+  }
+  // 取消面议：金额激活态由 moneyActive 派生（预设/自定义区间是否生效），无需手工复位
+  applyFilter()
+  revealList()
+}
+/* 自定义区间展开/收起：展开即清除预设与面议（互斥），回到区间语义 */
+const toggleMoneyCustom = () => {
+  moneyCustom.value = !moneyCustom.value
+  if (moneyCustom.value) {
+    mPreset.value = ''
+    mFace.value = false
+    nextTick(measureSlider) // 滑块刚挂载，等渲染后再量宽度
   }
   applyFilter()
   revealList()
@@ -763,26 +844,23 @@ const toggleFace = () => {
 const pickPreset = (v) => {
   if (mPreset.value === v) {
     mPreset.value = ''
-    moneyActive.value = false
     mMin.value = 0
     mMax.value = 100
+    moneyCustom.value = false
     applyFilter()
     revealList()
     return
   }
   mPreset.value = v
   mFace.value = false // 预设与面议互斥
-  moneyActive.value = true
-  if (v === 'lt10') { mMin.value = 0; mMax.value = 10 }
-  else if (v === '10-50') { mMin.value = 10; mMax.value = 50 }
-  else if (v === 'gt50') { mMin.value = 50; mMax.value = 100 }
+  moneyCustom.value = false // 预设优先：收起自定义区间
   applyFilter()
   revealList()
 }
 const clearMoney = () => {
   mPreset.value = ''
   mFace.value = false
-  moneyActive.value = false
+  moneyCustom.value = false
   mMin.value = 0
   mMax.value = 100
   applyFilter()
@@ -801,10 +879,15 @@ const toggleSort = () => {
   showSort.value = true
 }
 const pickSort = (v) => { sort.value = v; startCloseSort(); applyFilter(); revealList() }
-/* 搜索防抖：击键/点搜索均走 250ms 停顿后筛选，防每键整表重渲染（点 × 清除不防抖，跟手优先） */
+/* 搜索防抖：击键走 250ms 停顿后筛选，防每键整表重渲染（点 × 清除不防抖，跟手优先） */
 const onSearch = () => {
   clearTimeout(searchT)
   searchT = setTimeout(applyFilter, SEARCH_DEBOUNCE_MS)
+}
+/* 点「搜索」：跳过防抖立即筛选——按钮是明确的"现在搜"承诺，不再只是重置定时器 */
+const onSearchTap = () => {
+  clearTimeout(searchT)
+  applyFilter()
 }
 const clearSearch = () => { clearTimeout(searchT); q.value = ''; applyFilter(); revealList() } // 搜索框 ×：即时（跟手优先）
 const resetAll = () => {
@@ -816,7 +899,8 @@ const resetAll = () => {
   rangeEnd.value = ''
   mPreset.value = ''
   mFace.value = false
-  moneyActive.value = false
+  moneyCustom.value = false
+  timeCustom.value = false
   mMin.value = 0
   mMax.value = 100
   sort.value = 'latest'
@@ -841,13 +925,28 @@ const goBack = () => uni.navigateBack({ fail: () => uni.redirectTo({ url: '/pkg-
 const scrollToTop = () => uni.pageScrollTo({ scrollTop: 0, duration: 300 })
 
 onPageScroll((e) => {
-  showBt.value = (e?.scrollTop ?? 0) > 400
+  const st = e?.scrollTop ?? 0
+  scrollY = st
+  showBt.value = st > 400
+  // 兜底点亮：卡片顶越过视口底即标记。观察器正常时先 24px 触发；观察器失效时这里是内容可见的唯一保证
+  if (noMotion.value || allSeen()) return
+  if (cardTops.length) {
+    cardTops.forEach((top, i) => {
+      if (top != null && st + winH > top) {
+        const it = list.value[i]
+        if (it) seen.add(it.id)
+      }
+    })
+  } else if (st > 300) {
+    forceSeen() // 测量也失败：已明显滚动仍未点亮 → 全量可见，绝不吞内容
+  }
 })
 
 onLoad(() => {
   try {
     const sys = uni.getSystemInfoSync()
     statusBarHeight.value = sys.statusBarHeight || 20
+    winH = sys.windowHeight || 667
   } catch (e) { /* 保持默认 */ }
   checkMotion()
   fetchAll()
@@ -903,7 +1002,7 @@ page {
   height: 44px;
   padding: 0 11px;
   border: 1px solid #E4E7EC;
-  border-radius: 7px;
+  border-radius: 8px; /* 16rpx = 阶梯 md（原 7px = 14rpx 阶梯外） */
   background: #fff;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05); /* 双层投影：接触阴影贴地 + 环境阴影弥散浮起 */
   display: flex;
@@ -924,7 +1023,7 @@ page {
   margin: 12px 14px;
   padding: 16px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #0A66C2 0%, #074D92 100%);
+  background: linear-gradient(135deg, #074D92 0%, #0A66C2 100%); /* 主按钮渐变同向（令牌 135deg 深→亮） */
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1015,7 +1114,8 @@ page {
 }
 .fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
 .fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* 优化：新增——pill 长标签省略号 */
-.farr { font-size: 11px; color: #667085; flex: none; }
+.farr { font-size: 12px; color: #667085; flex: none; }
+/* 重置按钮：随激活筛选状态弹出（v-if 挂载即播 ios-pop 弹簧）；单一声明 */
 .freset {
   flex: none;
   min-height: 40px; /* 触控目标：34px→40px */
@@ -1025,9 +1125,8 @@ page {
   font-size: 12px;
   display: flex;
   align-items: center;
+  animation: chipIn .22s cubic-bezier(.34, 1.8, .64, 1) backwards;
 }
-/* 重置按钮：随激活筛选状态弹出（ios-pop 弹簧） */
-.freset { animation: chipIn .22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
 @keyframes chipIn { from { transform: scale(.85); } to { transform: scale(1); } }
 
 /* ===== 信息行 ===== */
@@ -1049,7 +1148,7 @@ page {
   z-index: 90;
   background: #fff;
   border-radius: 10px;
-  box-shadow: 0 8px 28px rgba(16, 24, 40, 0.12);
+  box-shadow: 0 8px 28px rgba(16, 24, 40, 0.08); /* ≤8% 轻影上限（原 12% 越界） */
   padding: 6px;
   min-width: 140px;
   animation: spopIn .22s cubic-bezier(.32, .72, 0, 1); /* ios-decel：下拉流体减速，越到终点越柔 */
@@ -1087,8 +1186,8 @@ page {
 .card {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 14px;
+  gap: 10px;
+  padding: 16px;
   position: relative;
   background: #fff;
   border: 1px solid #E4E7EC; /* 描边提级：低端设备投影失效时仍与白底可分辨 */
@@ -1138,7 +1237,7 @@ page {
   overflow: hidden;
 }
 .c-desc {
-  font-size: 12.5px;
+  font-size: 12px; /* 24rpx 阶梯值（原 12.5px = 25rpx 阶梯外） */
   color: #667085;
   line-height: 1.5;
   display: -webkit-box;
@@ -1151,16 +1250,17 @@ page {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px; /* 11.5px→12px：正文下限 */
+  font-size: 12px; /* 24rpx 正文下限 */
   color: #667085;
 }
+.c-pub { color: #344054; font-weight: 500; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* 发布方：长名省略，不撑破 meta 行 */
 .c-dot { color: #DDE1E6; }
 .c-dl { color: #667085; font-weight: 500; }
 .c-dl.hot { color: #D92D20; font-weight: 700; }
 .c-budget { display: flex; align-items: baseline; gap: 3px; color: #C2410C; }
 .c-budget .lb { font-size: 12px; font-weight: 500; }
 .c-budget .vl { font-size: 18px; font-weight: 800; }
-.c-budget .vl.face { font-size: 13px; font-weight: 600; color: #667085; } /* 面议非数字：不用金额的重量渲染，避免误读为最高悬赏 */
+.c-budget .vl.face, .c-budget .vl.closed { font-size: 13px; font-weight: 600; color: #667085; } /* 面议非数字/已截止：不用金额的重量渲染，避免误读为可竞标悬赏 */
 
 /* ===== 骨架 ===== */
 .skl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px; }
@@ -1168,7 +1268,7 @@ page {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px;
+  padding: 16px;
   background: #fff;
   border: 1px solid #E4E7EC;
   border-radius: 10px;
@@ -1205,7 +1305,7 @@ page {
   z-index: 41;
   background: #fff;
   border-radius: 0 0 12px 12px;
-  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.1);
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08); /* ≤8% 轻影上限（原 10% 越界） */
   padding: 12px 14px;
   max-height: 62vh;
   overflow-y: auto;
@@ -1307,7 +1407,7 @@ page {
   border-radius: 50%;
   background: #fff;
   border: 2px solid #0A66C2;
-  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.12);
+  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.08); /* ≤8% 轻影上限（原 12% 越界） */
   transition: border-color .2s ease; /* 优化：面议禁用时描边色平滑过渡 */
 }
 .slider-labels {
@@ -1338,14 +1438,15 @@ page {
   border-radius: 6px;
   font-weight: 600;
 }
-/* 面议档位选中时：滑块/输入/确定置灰禁用 */
-.slider.disabled .slider-bar { pointer-events: none; }
-.slider.disabled .slider-range { background: #D9DEE3; }
-.slider.disabled .thumb { border-color: #D9DEE3; }
-.money-inputs.disabled { opacity: 0.5; pointer-events: none; transition: opacity .2s ease; } /* 优化：面议禁用时透明度平滑过渡 */
+/* （面议与自定义区间互斥后，滑块/输入不再需要禁用态——见 toggleFace / toggleMoneyCustom） */
+
+/* 渐进披露：自定义区从 chips 下方展开（面板动画已承载容器动效，内部不做重复入场） */
+.money-custom { margin-top: 12px; }
+.m-tip { display: block; margin-top: 10px; font-size: 12px; color: #667085; } /* 面议档语义提示 */
 
 /* ===== 遮罩 / 加载更多 / 返回顶部 / mock 提示 ===== */
-.lm { text-align: center; padding: 12px; font-size: 12px; color: #667085; }
+.lm { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 6px 12px; font-size: 12px; color: #667085; } /* 触达目标：整行可点（上拉揭示 / 加载全部） */
+.lm-cta { color: #0A66C2; font-weight: 600; } /* 截断/可加载态：蓝色提示可点 */
 .mock-note { text-align: center; padding: 0 0 16px; font-size: 10px; color: #667085; }
 .bt {
   position: fixed;
@@ -1355,7 +1456,7 @@ page {
   height: 44px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.1);
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.08); /* ≤8% 轻影上限（原 10% 越界） */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1363,9 +1464,9 @@ page {
   opacity: 0;
   transform: scale(0.5);
   pointer-events: none;
-  transition: opacity 0.2s, transform .35s cubic-bezier(0.16, 1, 0.3, 1); /* ios-pop：出现/隐藏弹簧收尾，返回顶部"弹"出来 */
+  transition: opacity 0.2s, transform .35s cubic-bezier(.34, 1.8, .64, 1); /* ios-pop：出现/隐藏弹簧收尾，返回顶部"弹"出来 */
   font-size: 20px;
-  color: #666;
+  color: #667085; /* 对齐组次级灰（原 #666 不在令牌） */
 }
 .bt.show { opacity: 1; transform: scale(1); pointer-events: auto; }
 .bt:active { transform: scale(.92); transition: transform .08s linear; } /* 按压即时到位 */
@@ -1375,7 +1476,7 @@ page {
    禁参与动画：top/left/width/height/margin（触发重排）、box-shadow/filter（低端安卓掉帧）
    时长：微反馈 150-200ms（按压按下 .08s 即时到位）/ 松手弹簧回位 .3s（ios-pop）/ 浮层 200-300ms / 页面级 ≤400ms；
         退场 = 进场 ×0.7 且必须存在
-   曲线：两枚固定曲线——ios-pop cubic-bezier(0.16,1,0.3,1) 松手柔顺减速（仅按压/弹出类 transform）+
+   曲线：两枚固定曲线——ios-pop cubic-bezier(.34,1.8,.64,1) 松手弹簧回弹（仅按压/弹出类 transform）+
         ios-decel cubic-bezier(.32,.72,0,1) 浮层流体减速（sheet/下拉进场）；
         其余进场 ease-out / 退场 ease-in / 循环 linear；除这两枚外禁手写 cubic-bezier
    数量：列表入场仅错峰首屏 6 项，其余卡片滚动触达浮现（observer 标记）；离散筛选/排序后仅前 4 项 180ms 轻淡入（禁大批量并发动画）
@@ -1417,7 +1518,7 @@ page {
 .cl.replay .card:nth-child(4) { animation-delay: 90ms; }
 @keyframes listFade { from { opacity: .3; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 /* 卡片按压（快进慢出）：hover-start-time=0 按下立即触发；按下 .1s linear 直接到位，松手 .35s ios-pop 弹簧回位——iOS"即按即应、松手弹回"手感 */
-.card { transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop */
+.card { transition: transform .35s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop */
 .card.tap-scale { transition-duration: .1s; transition-timing-function: linear; }
 
 /* Banner 内部微编排（替代整块 fadeUp）：图标 0ms → 标题 80ms → 装饰圆 120ms → 副文案 140ms，
@@ -1447,7 +1548,7 @@ page {
   to { transform: translateX(320%) skewX(-20deg); }
 }
 /* Banner 可点击：按压反馈（按下 .08s 即时到位，松手 .3s 弹簧回位；transform/opacity） */
-.banner { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop */
+.banner { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop */
 .banner:active { transform: scale(.985); opacity: .95; transition: transform .08s linear; }
 /* 信息行：卡片入场前落位 */
 .ir { animation: fadeUp .25s ease-out backwards; animation-delay: 60ms; }
@@ -1459,28 +1560,28 @@ page {
 
 /* 2) 交互反馈：可点元素按压反馈（按下 .08s linear 即时到位；松手 .3s ios-pop 弹簧回位；opacity/background 150-200ms） */
 .freset:active { opacity: .7; }
-.irs { transition: opacity .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop */
+.irs { transition: opacity .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop */
 .irs:active { opacity: .7; transform: scale(.95); transition: transform .08s linear; }
 .sp-opt { transition: background .2s ease, color .2s ease; }
 .sp-opt:active { background: #F4F8FC; }
 .b-sclr:active { opacity: .6; }
 .b-sbtn { transition: opacity .2s ease; }
 .b-sbtn:active { opacity: .5; }
-.stb { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop：松手弹簧回位 */
+.stb { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop：松手弹簧回位 */
 .stb:active { transform: scale(.95); opacity: .85; transition: transform .08s linear; }
-.cal-nav { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease; } /* ios-pop */
+.cal-nav { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease; } /* ios-pop */
 .cal-nav:active { transform: scale(.9); background: #E9EFF7; transition: transform .08s linear; }
 .cal-reset { transition: opacity .2s ease; }
 .cal-reset:active { opacity: .6; }
-.money-done { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease, opacity .15s ease; } /* ios-pop */
+.money-done { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, opacity .15s ease; } /* ios-pop */
 .money-done:active { transform: scale(.95); opacity: .9; transition: transform .08s linear; }
 
 /* 3) 状态过渡：chip 选中 200ms 平滑 + ios-pop 微弹过冲回位；日历格选中/范围高亮 200ms 平滑；日历格按压轻微缩放（弹簧回位） */
-.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop：松手弹簧回位 */
+.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop：松手弹簧回位 */
 .p-chip:active { transform: scale(.94); transition: transform .08s linear; } /* 按下即时到位，其余按压变化同步走即时 */
-.p-chip.act { animation: chipPop .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop：选中微弹带轻微过冲回位 */
+.p-chip.act { animation: chipPop .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop：选中微弹带轻微过冲回位 */
 @keyframes chipPop { from { transform: scale(.9); } to { transform: scale(1); } }
-.cal-cell { transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop */
+.cal-cell { transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop */
 .cal-cell:active { transform: scale(.9); transition: transform .08s linear; }
 
 /* ===================== 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用，保留淡入与颜色反馈 ===================== */

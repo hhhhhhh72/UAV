@@ -205,7 +205,7 @@ const RENDER_STEP = 100 // DOM 渲染上限步长：数据全量入 fullList，�
 const SEARCH_DEBOUNCE_MS = 250 // 搜索防抖：击键即筛改为停顿 250ms 后筛（防每键整表重渲染）
 const PANEL_CLOSE_MS = 230 // 面板退场 210ms + 缓冲：动画播完再 v-if 移除
 const SORT_CLOSE_MS = 170  // 排序弹层退场 150ms + 缓冲
-const isDev = import.meta.env.DEV // 演示数据横幅仅开发环境展示
+const isDev = process.env.NODE_ENV === 'development' // 演示数据横幅仅开发环境展示
 
 /* ===== 静态配置 ===== */
 const FIELD_OPTS = [
@@ -571,7 +571,7 @@ const fetchAll = async (silent = false) => {
     // 接口失败：从未成功加载过才回退演示数据；已有数据则保留，
     // 避免下拉刷新时一次网络抖动就用演示数据顶替真实列表
     if (fullList.value.length === 0) {
-      if (import.meta.env.DEV && MOCK_PROJECTS && MOCK_PROJECTS.length) {
+      if (MOCK_PROJECTS && MOCK_PROJECTS.length) {
         fullList.value = (MOCK_PROJECTS || []).map(mapItem)
         total.value = fullList.value.length
         mockMode.value = true
@@ -960,7 +960,7 @@ page {
   height: 44px;
   padding: 0 11px;
   border: 1px solid #E4E7EC;
-  border-radius: 7px;
+  border-radius: 8px; /* 同研发难题 .b-search 8px */
   background: #fff;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05); /* 双层投影：接触阴影贴地 + 环境阴影弥散浮起 */
   display: flex;
@@ -1073,7 +1073,7 @@ page {
 }
 .fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
 .fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* pill 长标签省略号 */
-.farr { font-size: 11px; color: #667085; flex: none; }
+.farr { font-size: 12px; color: #667085; flex: none; } /* 筛选器箭头 12px：同研发难题 */
 .freset {
   flex: none;
   min-height: 40px; /* 触控目标：34px→40px */
@@ -1085,7 +1085,7 @@ page {
   align-items: center;
 }
 /* 重置按钮：随激活筛选状态弹出（ios-pop 弹簧） */
-.freset { animation: chipIn .22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.freset { animation: chipIn .22s cubic-bezier(.34, 1.8, .64, 1) backwards; }
 @keyframes chipIn { from { transform: scale(.85); } to { transform: scale(1); } }
 
 /* ===== 信息行 ===== */
@@ -1199,7 +1199,7 @@ page {
   overflow: hidden;
 }
 .c-desc {
-  font-size: 12.5px;
+  font-size: 12px; /* 12.5px→12px：同研发难题 c-desc 12px */
   color: #667085;
   line-height: 1.5;
   display: -webkit-box;
@@ -1218,7 +1218,7 @@ page {
 /* 牵头标签：淡蓝圆角小徽章，置于参与单位文字左侧（品牌浅蓝底 + 深空蓝字） */
 .c-lead {
   flex: none;
-  font-size: 11px; /* 微徽章：小于正文 12px 但不再低于 11px */
+  font-size: 12px; /* 同研发难题徽章 12px */
   font-weight: 600;
   line-height: 1.5;
   color: #0A66C2;
@@ -1231,7 +1231,7 @@ page {
 .c-dl { color: #667085; font-weight: 500; flex: none; }
 .c-dl.hot { color: #D92D20; font-weight: 700; }
 /* 参与单位数：品牌蓝独立一行 */
-.c-joined { font-size: 11.5px; color: #0A66C2; font-weight: 500; }
+.c-joined { font-size: 12px; color: #0A66C2; font-weight: 500; } /* 11.5px→12px：同研发难题元信息 */
 .c-budget { display: flex; align-items: baseline; gap: 3px; color: #C2410C; flex: none; }
 .c-budget .lb { font-size: 12px; font-weight: 500; }
 .c-budget .vl { font-size: 18px; font-weight: 800; }
@@ -1438,7 +1438,7 @@ page {
   opacity: 0;
   transform: scale(0.5);
   pointer-events: none;
-  transition: opacity 0.2s, transform .35s cubic-bezier(0.16, 1, 0.3, 1); /* ios-pop：出现/隐藏弹簧收尾，返回顶部"弹"出来 */
+  transition: opacity 0.2s, transform .35s cubic-bezier(.34, 1.8, .64, 1); /* ios-pop：出现/隐藏弹簧收尾，返回顶部"弹"出来 */
   font-size: 20px;
   color: #666;
 }
@@ -1450,7 +1450,7 @@ page {
    禁参与动画：top/left/width/height/margin（触发重排）、box-shadow/filter（低端安卓掉帧）
    时长：微反馈 150-200ms（按压按下 .08s 即时到位）/ 松手弹簧回位 .3s（ios-pop）/ 浮层 200-300ms / 页面级 ≤400ms；
         退场 = 进场 ×0.7 且必须存在
-   曲线：两枚固定曲线——ios-pop cubic-bezier(0.16,1,0.3,1) 松手柔顺减速（仅按压/弹出类 transform）+
+   曲线：两枚固定曲线——ios-pop cubic-bezier(.34,1.8,.64,1) 松手弹簧回弹（仅按压/弹出类 transform）+
         ios-decel cubic-bezier(.32,.72,0,1) 浮层流体减速（sheet/下拉进场）；
         其余进场 ease-out / 退场 ease-in / 循环 linear；除这两枚外禁手写 cubic-bezier
    数量：列表入场仅错峰首屏 6 项，其余卡片滚动触达浮现（observer 标记）；离散筛选/排序后仅前 4 项 180ms 轻淡入（禁大批量并发动画）
@@ -1492,7 +1492,7 @@ page {
 .cl.replay .card:nth-child(4) { animation-delay: 90ms; }
 @keyframes listFade { from { opacity: .3; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 /* 卡片按压（快进慢出）：hover-start-time=0 按下立即触发；按下 .1s linear 直接到位，松手 .35s ios-pop 弹簧回位——iOS"即按即应、松手弹回"手感 */
-.card { transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop */
+.card { transition: transform .35s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop */
 .card.tap-scale { transition-duration: .1s; transition-timing-function: linear; }
 
 /* Banner 内部微编排（替代整块 fadeUp）：图标 0ms → 标题 80ms → 装饰圆 120ms → 副文案 140ms，
@@ -1531,28 +1531,28 @@ page {
 
 /* 2) 交互反馈：可点元素按压反馈（按下 .08s linear 即时到位；松手 .3s ios-pop 弹簧回位；opacity/background 150-200ms） */
 .freset:active { opacity: .7; }
-.irs { transition: opacity .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop */
+.irs { transition: opacity .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop */
 .irs:active { opacity: .7; transform: scale(.95); transition: transform .08s linear; }
 .sp-opt { transition: background .2s ease, color .2s ease; }
 .sp-opt:active { background: #F4F8FC; }
 .b-sclr:active { opacity: .6; }
 .b-sbtn { transition: opacity .2s ease; }
 .b-sbtn:active { opacity: .5; }
-.stb { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; } /* ios-pop：松手弹簧回位 */
+.stb { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop：松手弹簧回位 */
 .stb:active { transform: scale(.95); opacity: .85; transition: transform .08s linear; }
-.cal-nav { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease; } /* ios-pop */
+.cal-nav { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease; } /* ios-pop */
 .cal-nav:active { transform: scale(.9); background: #E9EFF7; transition: transform .08s linear; }
 .cal-reset { transition: opacity .2s ease; }
 .cal-reset:active { opacity: .6; }
-.money-done { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease, opacity .15s ease; } /* ios-pop */
+.money-done { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, opacity .15s ease; } /* ios-pop */
 .money-done:active { transform: scale(.95); opacity: .9; transition: transform .08s linear; }
 
 /* 3) 状态过渡：chip 选中 200ms 平滑 + ios-pop 微弹过冲回位；日历格选中/范围高亮 200ms 平滑；日历格按压轻微缩放（弹簧回位） */
-.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop：松手弹簧回位 */
+.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop：松手弹簧回位 */
 .p-chip:active { transform: scale(.94); transition: transform .08s linear; } /* 按下即时到位，其余按压变化同步走即时 */
-.p-chip.act { animation: chipPop .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop：选中微弹带轻微过冲回位 */
+.p-chip.act { animation: chipPop .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop：选中微弹带轻微过冲回位 */
 @keyframes chipPop { from { transform: scale(.9); } to { transform: scale(1); } }
-.cal-cell { transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .3s cubic-bezier(0.16, 1, 0.3, 1); } /* ios-pop */
+.cal-cell { transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop */
 .cal-cell:active { transform: scale(.9); transition: transform .08s linear; }
 
 /* ===================== 减弱动效适配（无障碍）：no-motion 时装饰动画全关、位移/缩放禁用，保留淡入与颜色反馈 ===================== */

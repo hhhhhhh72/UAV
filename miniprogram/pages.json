@@ -933,6 +933,15 @@
           }
         },
         {
+          "path": "pages/reports/detail",
+          "style": {
+            "navigationBarTitleText": "报告详情",
+            "navigationBarTextStyle": "white",
+            "navigationBarBackgroundColor": "#ffffff",
+            "navigationStyle": "custom"
+          }
+        },
+        {
           "path": "pages/publish/product",
           "style": {
             "navigationBarTitleText": "发布商品",

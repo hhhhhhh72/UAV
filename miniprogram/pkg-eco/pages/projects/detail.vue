@@ -147,15 +147,7 @@
       <!-- 底部操作栏（固定）：双方形图标钮 + 全宽品牌渐变主按钮 -->
       <view class="bb">
         <view class="bi" :class="{ fv: isFav }" aria-role="button" :aria-label="isFav ? '取消收藏' : '收藏'" @tap="toggleFav"><view class="heart"></view></view>
-        <button class="bi bo-share" open-type="share" hover-class="bo-hover" hover-start-time="0" hover-stay-time="300" aria-label="转发">
-          <view class="share-g">
-            <view class="sg-d sg-d1"></view>
-            <view class="sg-d sg-d2"></view>
-            <view class="sg-d sg-d3"></view>
-            <view class="sg-l sg-l1"></view>
-            <view class="sg-l sg-l2"></view>
-          </view>
-        </button>
+        <button class="bo" open-type="share" hover-class="bo-hover" hover-start-time="0" hover-stay-time="300" aria-label="转发">转发</button>
         <view class="bp" @tap="onJoin">申请参与攻关</view>
       </view>
     </template>
@@ -330,20 +322,14 @@ const fetchData = async () => {
     const it = (res && res.data) || res
     if (it && it.id) d.value = mapItem(it)
     else {
-      // 接口不可用时回退演示数据（仅开发环境）
-      if (import.meta.env.DEV) {
-        const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
-        d.value = mock ? mapItem(mock) : null
-      } else {
-        err.value = true
-      }
-    }
-  } catch {
-    // 回退演示数据（仅开发环境）
-    if (import.meta.env.DEV) {
+      // 接口不可用时回退演示数据
       const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
       d.value = mock ? mapItem(mock) : null
     }
+  } catch {
+    // 回退演示数据
+    const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
+    d.value = mock ? mapItem(mock) : null
     if (!d.value) err.value = true
   } finally {
     loading.value = false
@@ -646,10 +632,10 @@ page {
 /* 读完提示（设计稿 em-dash 分隔 → 中点分隔，符合可见文案零 em-dash 规范） */
 .end-note { margin: 88rpx 0 0; text-align: center; }
 .end-note text { font-size: 20rpx; color: #5D6B82; letter-spacing: 0.04em; }
-/* 底部操作栏占位：栏高 144rpx（32+80+32），占位 160rpx 留 16rpx 呼吸；安全区由 page padding-bottom 承担 */
+/* 底部操作栏占位：栏高 152rpx（32+88+32），占位 160rpx 留 8rpx 呼吸；安全区由 page padding-bottom 承担 */
 .bb-space { height: 160rpx; }
 
-/* ===== 底部操作栏（固定）：双方形图标钮 80rpx + 全宽渐变主按钮（rx40 胶囊） ===== */
+/* ===== 底部操作栏（固定）：双方形图标钮 88rpx + 转发文字钮 + 全宽渐变主按钮（rx40 胶囊） ===== */
 .bb {
   position: fixed;
   left: 0;
@@ -666,8 +652,8 @@ page {
   padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
 }
 .bi {
-  width: 80rpx;
-  height: 80rpx;
+  width: 88rpx; /* 80→88rpx：同研发难题 .bi */
+  height: 88rpx;
   border-radius: 16rpx;
   background: #F4F6F8;
   display: flex;
@@ -680,8 +666,8 @@ page {
    绘制图标而非 emoji（项目规范）；已收藏整颗实心红 + 浅红底，语义双通道传达；
    描边 #667085 灰底 4.9:1，高于非文本控件 3:1 */
 .heart {
-  width: 42rpx;
-  height: 28rpx;
+  width: 40rpx; /* 心形 20px：同研发难题 .bit（42×28 → 40×40，contain 保持原比例） */
+  height: 40rpx;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 62'%3E%3Cpath d='M32,26C21,15,5,29,14,40C20,47,27,51,32,51C37,51,44,47,50,40C59,29,43,15,32,26Z' fill='none' stroke='%23667085' stroke-width='4.5' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
@@ -690,21 +676,29 @@ page {
 .bi.fv .heart {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 62'%3E%3Cpath d='M32,26C21,15,5,29,14,40C20,47,27,51,32,51C37,51,44,47,50,40C59,29,43,15,32,26Z' fill='%23FF3B30' stroke='%23FF3B30' stroke-width='4.5' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
-/* 转发图形：CSS 绘制节点图（三圆 + 两连线，对应设计稿 share 节点图标） */
-.bo-share { margin: 0; padding: 0; border: none; }
-.bo-share::after { border: none; }
-.bo-hover { transform: scale(.92); }
-.share-g { position: relative; width: 40rpx; height: 40rpx; }
-.sg-d { position: absolute; width: 12rpx; height: 12rpx; border-radius: 50%; background: #667085; }
-.sg-d1 { left: 2rpx; top: 14rpx; }
-.sg-d2 { left: 26rpx; top: 2rpx; }
-.sg-d3 { left: 26rpx; top: 26rpx; }
-.sg-l { position: absolute; height: 4rpx; width: 24rpx; background: #667085; transform-origin: left center; }
-.sg-l1 { left: 12rpx; top: 17rpx; transform: rotate(-14deg); }
-.sg-l2 { left: 12rpx; top: 23rpx; transform: rotate(14deg); }
+/* 「转发」文字按钮（同研发难题 .bo）：白底蓝描边，44px 高 13px/600 */
+.bo {
+  height: 88rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid #0A66C2;
+  background: #fff;
+  color: #0A66C2;
+  font-size: 26rpx;
+  font-weight: 600;
+  padding: 0 32rpx;
+  margin: 0;
+  line-height: 1;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.bo::after { border: none; }
+.bo-hover { transform: scale(.95); background: #F4F8FC; }
 .bp {
   flex: 1;
-  height: 80rpx;
+  height: 88rpx; /* 80→88rpx：同研发难题 .bp */
   border-radius: 40rpx;
   background: linear-gradient(90deg, #0A66C2 0%, #074D92 100%);
   color: #fff;
@@ -742,7 +736,7 @@ page {
    白名单：仅 transform / opacity（小尺寸元素 color/background 过渡允许，仅重绘不重排）
    禁参与动画：top/left/width/height/margin（触发重排）、box-shadow/filter（低端安卓掉帧）
    时长：微反馈 150-200ms（按压按下 .08s 即时到位）/ 松手弹簧回位 .3s（ios-pop）/ 页面级 ≤400ms
-   曲线：两枚固定曲线：ios-pop cubic-bezier(0.16,1,0.3,1) 松手柔顺减速（仅按压/弹出类 transform）+
+   曲线：两枚固定曲线：ios-pop cubic-bezier(.34,1.8,.64,1) 松手弹簧回弹（仅按压/弹出类 transform）+
         ios-decel cubic-bezier(.32,.72,0,1) 浮层流体减速（滚动浮现/操作栏落地）；
         其余进场 ease-out / 退场 ease-in / 循环 linear；除这两枚外禁手写 cubic-bezier
    数量：入场 = 设计稿动效规划（Hero 整块淡入 → 轨道环 scale 收缩落位 → 经费数字 ios-pop 弹出），
@@ -757,7 +751,7 @@ page {
 .orb { animation: ringIn .34s cubic-bezier(.32, .72, 0, 1) 40ms backwards; }
 @keyframes ringIn { from { opacity: 0; transform: scale(1.18); } to { opacity: 1; transform: scale(1); } }
 /* 经费数字：Hero 心脏 ios-pop 弹簧弹出（80ms 起播 .25s，总 330ms ≤ 400ms） */
-.h-vl { animation: popIn .25s cubic-bezier(0.16, 1, 0.3, 1) 80ms backwards; }
+.h-vl { animation: popIn .25s cubic-bezier(.34, 1.8, .64, 1) 80ms backwards; }
 @keyframes popIn { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 /* 规格卡：60ms 起播 .25s */
 .spec-card { animation: fadeUp .25s ease-out 60ms backwards; }
@@ -785,7 +779,7 @@ page {
 .sec.seen .rt-item:nth-child(3) .rt-line { animation-delay: 160ms; }
 .sec.seen .rt-item:nth-child(4) .rt-line { animation-delay: 240ms; }
 @keyframes lineGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-.sec.seen .rt-node { animation: nodeIn .26s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.sec.seen .rt-node { animation: nodeIn .26s cubic-bezier(.34, 1.8, .64, 1) backwards; }
 .sec.seen .rt-item:nth-child(2) .rt-node { animation-delay: 80ms; }
 .sec.seen .rt-item:nth-child(3) .rt-node { animation-delay: 160ms; }
 .sec.seen .rt-item:nth-child(4) .rt-node { animation-delay: 240ms; }
@@ -816,16 +810,18 @@ page {
 @keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* 3) 交互反馈：按压按下 .08s linear 即时到位，松手 .3s ios-pop 弹簧回位 */
-.stb { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
+.stb { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; }
 .stb:active { transform: scale(.94); opacity: .85; transition: transform .08s linear; }
-.bi { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), background .2s ease, color .2s ease; }
+.bi { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, color .2s ease; }
 .bi:active { transform: scale(.9); background: #EAF3FB; transition: transform .08s linear; }
 .bi.fv:active { background: #FDECEC; }
-.bp { transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease; }
+.bo { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, color .2s ease; } /* ios-pop（同研发难题 .bo） */
+.bo:active { transform: scale(.95); background: #F4F8FC; transition: transform .08s linear; }
+.bp { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; }
 .bp:active { transform: scale(.95); opacity: .92; transition: transform .08s linear; }
 
 /* 4) 状态过渡：收藏点亮时心形 ios-pop 弹簧弹出（scale .8→1 自然过冲回位）；取消收藏无反向动画 */
-.bi.fv .heart { animation: heartPop .3s cubic-bezier(0.16, 1, 0.3, 1); }
+.bi.fv .heart { animation: heartPop .3s cubic-bezier(.34, 1.8, .64, 1); }
 @keyframes heartPop { from { transform: scale(.8); } to { transform: scale(1); } }
 
 /* 5) "紧急"状态标签呼吸：全页唯一循环动画（语义反馈：紧急在呼吸）
@@ -852,6 +848,7 @@ page {
 .page.no-motion .bi.fv .heart { animation: none; } /* 收藏心形弹出关 */
 .page.no-motion .stb:active,
 .page.no-motion .bi:active,
+.page.no-motion .bo:active,
 .page.no-motion .bo-hover,
 .page.no-motion .bp:active { transform: none; } /* 按压微缩放关，保留颜色/透明度反馈 */
 </style>
