@@ -1336,6 +1336,10 @@ func (s *Server) getCourse(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, errors.New("course not found"))
 		return
 	}
+	// 公开详情脱敏：org_id 是 user-<手机号>（机构账号），匿名可抓取，换稳定哈希假名。
+	if !isAdminRequest(r) {
+		c.OrgID = maskUserID(c.OrgID)
+	}
 	respond(w, r, 200, c)
 }
 

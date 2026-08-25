@@ -248,9 +248,10 @@ func (r *courseRepo) UnfavoriteCourse(ctx context.Context, userID, courseID stri
 }
 
 // ListFavoriteCourses 按收藏时间倒序返回完整课程（我的收藏列表）。
+// JOIN 查询必须给列加 c. 前缀：favorites 表同样有 id/created_at，未限定会 42702 歧义。
 func (r *courseRepo) ListFavoriteCourses(ctx context.Context, userID string) ([]domain.TrainingCourse, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+courseCols+` FROM training_courses c
+		`SELECT c.id,c.org_id,c.org_name,c.title,c.cert_type,c.description,c.start_date,c.end_date,c.max_students,c.enrolled_count,c.location,c.district,c.price_fen,c.rating,c.review_count,c.duration_days,c.image,c.tags,c.certificate,c.courses,c.prices,c.business_hours,c.phone,c.remain,c.environment,c.course_types,c.status,c.version,c.created_at,c.updated_at FROM training_courses c
 		 JOIN training_course_favorites f ON f.course_id = c.id
 		 WHERE f.user_id=$1
 		 ORDER BY f.created_at DESC`, userID)

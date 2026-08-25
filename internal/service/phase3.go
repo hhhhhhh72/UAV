@@ -52,6 +52,12 @@ func (s *EnrollmentService) FindByID(ctx context.Context, id string) (domain.Enr
 	return s.repo.FindByID(ctx, id)
 }
 
+// UpdateStatusCas 原子状态迁移（completed 终态 CAS）：并发完成报名时只有一方能置
+// completed，另一方看到 false 直接 409——防重复释放学费（与仓储层 UPDATE WHERE 对齐）。
+func (s *EnrollmentService) UpdateStatusCas(ctx context.Context, id, from, to string) (bool, error) {
+	return s.repo.UpdateStatusCas(ctx, id, from, to)
+}
+
 func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string, form EnrollmentForm) (domain.Enrollment, error) {
 	// 并发防重复：check-then-insert 加进程内锁（双请求同时通过查重会重复报名，
 	// 且付费报名会重复扣冻结金额）。

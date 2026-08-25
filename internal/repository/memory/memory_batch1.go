@@ -256,6 +256,16 @@ func (r *exhibitionRepo) Delete(ctx context.Context, id string) error {
 func (r *exhibitionRepo) CreateBooth(ctx context.Context, b domain.ExhibitionBooth) (domain.ExhibitionBooth, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 与 postgres 唯一索引 (exhibition_id, exhibitor_id) / (exhibition_id, booth_number) 对齐：
+	// 重复报展/占同展位号在 dev 也拦截（并发行为一致）；空 exhibitor 为测试/仓储级数据不判定。
+	for _, v := range r.booths {
+		if b.ExhibitorID != "" && v.ExhibitionID == b.ExhibitionID && v.ExhibitorID == b.ExhibitorID {
+			return domain.ExhibitionBooth{}, fmt.Errorf("该参展商已申请过此展会展位")
+		}
+		if v.ExhibitionID == b.ExhibitionID && b.BoothNumber != "" && v.BoothNumber == b.BoothNumber {
+			return domain.ExhibitionBooth{}, fmt.Errorf("展位号已被占用")
+		}
+	}
 	r.booths = append(r.booths, b)
 	return b, nil
 }

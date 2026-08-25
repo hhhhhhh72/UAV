@@ -195,6 +195,11 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, c)
 	}
+	// 公开列表脱敏：org_id 是发布机构账号 ID（手机号注册用户即 user-<手机号>），
+	// 匿名可批量抓取，换成稳定哈希假名（前端展示用 org_name，不受影响）。
+	for i := range out {
+		out[i].OrgID = maskUserID(out[i].OrgID)
+	}
 	paginatedRespond(w, r, out, len(out))
 }
 

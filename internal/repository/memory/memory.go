@@ -779,6 +779,12 @@ func NewJobApplicationRepository() repository.JobApplicationRepository { return 
 func (r *applicationRepo) Create(ctx context.Context, a domain.JobApplication) (domain.JobApplication, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 与 postgres 唯一索引 (job_id, applicant_id) 对齐：重复投递在 dev 也拦截
+	for _, v := range r.items {
+		if v.JobID == a.JobID && v.ApplicantID == a.ApplicantID {
+			return domain.JobApplication{}, fmt.Errorf("已投递过该职位，请勿重复投递")
+		}
+	}
 	r.items = append(r.items, a)
 	return a, nil
 }
@@ -1540,6 +1546,15 @@ func NewWorkOrderRepository() repository.WorkOrderRepository {
 func (r *workOrderRepo) Create(ctx context.Context, wo domain.WorkOrder) (domain.WorkOrder, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 与 postgres 唯一约束 (order_no / intent_id) 对齐：同一意向重复确认在 dev 也拦截
+	for _, v := range r.items {
+		if v.IntentID == wo.IntentID && wo.IntentID != "" {
+			return domain.WorkOrder{}, fmt.Errorf("该意向已生成工单")
+		}
+		if v.OrderNo == wo.OrderNo && wo.OrderNo != "" {
+			return domain.WorkOrder{}, fmt.Errorf("订单号重复：%s", wo.OrderNo)
+		}
+	}
 	r.items = append(r.items, wo)
 	return wo, nil
 }
@@ -2769,6 +2784,13 @@ func NewEnrollmentRepository() repository.EnrollmentRepository { return &enrollR
 func (r *enrollRepo) Create(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 与 postgres 唯一索引 (user_id, course_id) 对齐：重复报名在 dev 也要拦截
+	//（否则并发/重复报名的行为 dev 与生产不一致，并发缺陷本地复现不出）。
+	for _, v := range r.items {
+		if v.UserID == e.UserID && v.CourseID == e.CourseID {
+			return domain.Enrollment{}, fmt.Errorf("已报名过该课程，请勿重复报名")
+		}
+	}
 	r.items = append(r.items, e)
 	return e, nil
 }
@@ -2783,6 +2805,23 @@ func (r *enrollRepo) Update(ctx context.Context, e domain.Enrollment) (domain.En
 		}
 	}
 	return domain.Enrollment{}, fmt.Errorf("enrollment %s not found", e.ID)
+}
+
+// UpdateStatusCas 原子状态迁移：仅当前状态 == from 时改为 to（completed 终态 CAS，
+// 防并发完成报名的双释放学费；与 postgres 的 UPDATE ... WHERE status= 语义一致）。
+func (r *enrollRepo) UpdateStatusCas(ctx context.Context, id, from, to string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			if r.items[i].Status != from {
+				return false, nil
+			}
+			r.items[i].Status = to
+			return true, nil
+		}
+	}
+	return false, nil
 }
 func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domain.Enrollment, error) {
 	r.mu.RLock()

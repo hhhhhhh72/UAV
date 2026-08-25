@@ -425,7 +425,7 @@ func (s *Store) NewEnrollmentRepository() repository.EnrollmentRepository {
 func (r *enrollRepo) Create(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error) {
 	e.CreatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO training_enrollments (id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+		`INSERT INTO training_enrollments (id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
 		e.ID, e.CourseID, e.UserID, e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.NoCrime, e.Status, e.PaidAmountFen, e.CreatedAt)
 	if err != nil {
 		// P1 修复：唯一索引 (user_id, course_id) 并发兜底——重复报名映射为友好错误。
@@ -446,6 +446,17 @@ func (r *enrollRepo) Update(ctx context.Context, e domain.Enrollment) (domain.En
 		return domain.Enrollment{}, fmt.Errorf("update enrollment %s: %w", e.ID, err)
 	}
 	return e, nil
+}
+
+// UpdateStatusCas 原子状态迁移：仅当前状态 == from 时改为 to（completed 终态 CAS，
+// 防并发完成报名的双释放学费——此前盲写 WHERE id= 会让并发双请求都执行 Release）。
+func (r *enrollRepo) UpdateStatusCas(ctx context.Context, id, from, to string) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE training_enrollments SET status=$3 WHERE id=$1 AND status=$2`, id, from, to)
+	if err != nil {
+		return false, fmt.Errorf("update enrollment %s status: %w", id, err)
+	}
+	return tag.RowsAffected() > 0, nil
 }
 func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Enrollment, int, error) {
 	var total int

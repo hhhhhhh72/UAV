@@ -46,6 +46,12 @@ func (s *EscrowService) Release(ctx context.Context, fromUser, toUser string, am
 	if amountFen <= 0 {
 		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
+	// 幂等保护：同 (fromUser, refType, refID) 已完成 release 时不再入账——
+	// 并发完成报名/重试场景防机构双倍入账（此前只校验余额，付款方还有其它
+	// 冻结资金时第二次释放仍会成功）。返回占位流水仅供调用方展示，不落库。
+	if has, err := s.repo.HasReleased(ctx, fromUser, refType, refID); err == nil && has {
+		return newTx(fromUser, toUser, "release", refType, refID, amountFen), nil
+	}
 	tx := newTx(fromUser, toUser, "release", refType, refID, amountFen)
 	return s.repo.Release(ctx, fromUser, toUser, amountFen, tx)
 }

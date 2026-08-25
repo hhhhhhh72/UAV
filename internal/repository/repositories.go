@@ -396,6 +396,9 @@ type VenueRepository interface {
 type EnrollmentRepository interface {
 	Create(ctx context.Context, v domain.Enrollment) (domain.Enrollment, error)
 	Update(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error)
+	// UpdateStatusCas 原子状态迁移：仅当前状态 == from 时改为 to；返回是否成功。
+	// completed 终态写通过 CAS 防并发完成报名的双释放学费。
+	UpdateStatusCas(ctx context.Context, id, from, to string) (bool, error)
 	FindByID(ctx context.Context, id string) (domain.Enrollment, error) // 管理端编辑时取旧状态做防回退校验
 	ListByCourse(ctx context.Context, courseID string) ([]domain.Enrollment, error)
 	// ListByUser 某用户全部报名（"我的报名"一次查询，避免按课程 N+1）。

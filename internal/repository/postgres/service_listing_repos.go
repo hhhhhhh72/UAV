@@ -110,9 +110,10 @@ func (r *slrRepo) UnfavoriteListing(ctx context.Context, userID, listingID strin
 }
 
 // ListFavoriteListings 按收藏时间倒序返回完整服务能力（我的收藏列表）。
+// JOIN 查询必须给列加 s. 前缀：favorites 表同样有 id/created_at，未限定会 42702 歧义。
 func (r *slrRepo) ListFavoriteListings(ctx context.Context, userID string) ([]domain.ServiceListing, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+slrColumns+` FROM service_listings s
+		`SELECT s.id,s.provider_id,s.provider_name,s.title,s.category,s.description,s.region,s.price_fen,s.unit,s.image,s.status,s.created_at,s.updated_at FROM service_listings s
 		 JOIN service_listing_favorites f ON f.listing_id = s.id
 		 WHERE f.user_id=$1
 		 ORDER BY f.created_at DESC`, userID)

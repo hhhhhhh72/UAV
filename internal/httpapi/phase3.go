@@ -182,13 +182,19 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ① 先原子置 completed（CAS：仅 enrolled/paid 可改）——防并发/重试重复释放。
-	//    置完成失败（状态已被他人变更）直接 409，资金不会动。
-	enrollment.Status = "completed"
-	if _, err := s.enrollSvc.Update(r.Context(), domain.Actor{ID: a.ID, Role: a.Role}, enrollment); err != nil {
-		fail(w, r, http.StatusConflict, fmt.Errorf("mark enrollment completed: %w", err))
+	// ① 原子置 completed（CAS：仅 enrolled/paid 可改，WHERE status= 谓词）——并发/重试
+	//    只会有一方成功；置完成失败（状态已被并发变更）直接 409，资金不会动。
+	//    （此前是盲写 Update，两个并发请求都能把状态写成 completed → 双释放学费。）
+	ok, casErr := s.enrollSvc.UpdateStatusCas(r.Context(), enrollment.ID, string(enrollment.Status), "completed")
+	if casErr != nil {
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("mark enrollment completed: %w", casErr))
 		return
 	}
+	if !ok {
+		fail(w, r, http.StatusConflict, errors.New("报名状态已变更，请刷新后重试"))
+		return
+	}
+	enrollment.Status = "completed"
 
 	// ② 按报名时冻结金额释放（与课程实时价格解耦；免费报名 paid_amount_fen=0 不释放）
 	released := false

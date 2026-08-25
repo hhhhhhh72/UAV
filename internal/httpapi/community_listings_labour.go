@@ -71,6 +71,10 @@ func (s *Server) listPosts(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 公开列表脱敏：post.author_id 是 user-<手机号>，匿名可批量抓取，换成稳定哈希假名。
+	for i := range items {
+		items[i].AuthorID = maskUserID(items[i].AuthorID)
+	}
 	respondPage(w, r, items, total, page, pageSize)
 }
 
@@ -133,6 +137,10 @@ func (s *Server) listComments(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
+	}
+	// 公开列表脱敏：comment.author_id 是 user-<手机号>，匿名可批量抓取，换成稳定哈希假名。
+	for i := range items {
+		items[i].AuthorID = maskUserID(items[i].AuthorID)
 	}
 	respond(w, r, http.StatusOK, items)
 }

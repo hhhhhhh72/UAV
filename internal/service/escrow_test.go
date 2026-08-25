@@ -98,13 +98,13 @@ func TestEscrowReleaseAtomicity(t *testing.T) {
 		t.Fatalf("buyer after release: balance=%d frozen=%d", buyer.BalanceFen, buyer.FrozenFen)
 	}
 
-	// 冻结不足的解冻必须被拒绝且账户不变
-	if _, err := svc.Release(context.Background(), "buyer", "seller", 1, "course", "c-1"); !errors.Is(err, repository.ErrInsufficientFrozenBalance) {
-		t.Fatalf("expected ErrInsufficientFrozenBalance, got %v", err)
+	// 幂等：同 (buyer, course, c-1) 已完成 release → 重复调用不再入账（防机构双倍入账）
+	if _, err := svc.Release(context.Background(), "buyer", "seller", 1, "course", "c-1"); err != nil {
+		t.Fatalf("idempotent release should succeed, got %v", err)
 	}
 	seller2, _ := svc.Balance(context.Background(), "seller")
 	if seller2.BalanceFen != 800 {
-		t.Fatalf("seller balance changed after failed release: %d", seller2.BalanceFen)
+		t.Fatalf("seller balance changed after idempotent release: %d", seller2.BalanceFen)
 	}
 
 	// 流水完整：deposit + freeze + release 共 3 条

@@ -48,6 +48,10 @@ func (s *Server) listReviews(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 公开列表脱敏：reviewer_id 是 user-<手机号>，匿名可批量抓取，换成稳定哈希假名。
+	for i := range reviews {
+		reviews[i].ReviewerID = maskUserID(reviews[i].ReviewerID)
+	}
 	respond(w, r, http.StatusOK, reviews)
 }
 
