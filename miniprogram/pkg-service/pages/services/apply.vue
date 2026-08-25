@@ -665,29 +665,20 @@ onLoad((options) => {
     formData.value.traineeName = user.name || ''
     formData.value.traineePhone = user.phone || ''
   }
-  // 研学报名：从 storage 读列表传入的研学信息（活动摘要卡）
-  // 读取后立即清理：防止下次从服务大厅直接进入（serviceId=9）时显示陈旧活动摘要，
-  // 若 storage 为空则由用户从研学列表选择活动（摘要卡显示占位引导）。
+  // 研学报名：优先取列表/详情页经 storage 传入的活动（摘要卡）；读取后立即清理
+  // 防陈旧残留。storage 为空时支持 tourId 参数（详情页/分享直达报名页）走接口自取。
   if (serviceId.value === '9') {
     const tour = uni.getStorageSync('study_tour_detail')
     uni.removeStorageSync('study_tour_detail')
     if (tour && tour.id) {
-      studyTour.value = tour
-      studyPrice.value = calcStudyPrice(tour)
-      // 日期范围（零值降级）
-      const fmt = (v) => {
-        if (!v) return ''
-        const d = new Date(v)
-        if (isNaN(d.getTime()) || d.getFullYear() <= 1) return ''
-        const p = (n) => String(n).padStart(2, '0')
-        return `${d.getFullYear()}年${p(d.getMonth() + 1)}月${p(d.getDate())}日`
-      }
-      const s = fmt(tour.start_date)
-      const e = fmt(tour.end_date)
-      studyDate.value = s && e ? `${s}-${e.replace(/^\d{4}年/, '')}` : (s || '')
-      studyLoc.value = tour.location || tour.destination || ''
-      // 费用预估初始滚动（延迟到视图渲染后）
-      setTimeout(() => animateFee(600), 200)
+      fillStudyTour(tour)
+    } else if (options && options.tourId) {
+      request({ url: '/api/v1/study/tours/' + encodeURIComponent(options.tourId) })
+        .then((res) => {
+          const d = (res && res.data) || res
+          if (d && d.id) fillStudyTour(d)
+        })
+        .catch(() => { /* 活动不可用时不填摘要，提交由后端校验 */ })
     }
   }
 })
@@ -699,6 +690,26 @@ const chooseImage = () => {
       formData.value.fileList = [...formData.value.fileList, ...res.tempFilePaths]
     }
   })
+}
+
+// fillStudyTour 填充研学活动摘要卡（费用/日期/地点 + 首帧滚动动画）
+const fillStudyTour = (tour) => {
+  studyTour.value = tour
+  studyPrice.value = calcStudyPrice(tour)
+  // 日期范围（零值降级）
+  const fmt = (v) => {
+    if (!v) return ''
+    const d = new Date(v)
+    if (isNaN(d.getTime()) || d.getFullYear() <= 1) return ''
+    const p = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}年${p(d.getMonth() + 1)}月${p(d.getDate())}日`
+  }
+  const s = fmt(tour.start_date)
+  const e = fmt(tour.end_date)
+  studyDate.value = s && e ? `${s}-${e.replace(/^\d{4}年/, '')}` : (s || '')
+  studyLoc.value = tour.location || tour.destination || ''
+  // 费用预估初始滚动（延迟到视图渲染后）
+  setTimeout(() => animateFee(600), 200)
 }
 
 const previewImage = (current) => {
