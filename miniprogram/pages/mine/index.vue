@@ -4,7 +4,7 @@
       <!-- ═══════ 顶部身份区 ═══════ -->
       <MineHeader
         :status-bar-h="statusBarH"
-        :capsule-gap="capsuleGap"
+        :nav-h="navH"
         :unread-count="unreadCount"
         :vm="headerVm"
         @messages="goMessages"
@@ -128,7 +128,9 @@ const icons = {
 const user = ref(null)
 const unreadCount = ref(0)
 const statusBarH = ref(20)
-const capsuleGap = ref(0)
+// 微信胶囊高度：头部导航行与胶囊同高，内容行从胶囊下方开始，
+// 右上角消息/设置按钮可安全贴右（不再被胶囊遮挡，也不再被 98px 避让挤到左侧）。
+const navH = ref(32)
 
 // 认证状态：由真实接口得出，不由前端任意切换
 const pilotStatus = ref('')      // '' 未申请 / pending / approved / rejected / sync
@@ -350,7 +352,7 @@ const certMenuText = computed(() => {
 const accountItems = computed(() => [
   { icon: '/static/mine-icons/account.svg', tone: 'primary', label: '账号信息', desc: '手机号、微信绑定与个人资料', go: goProfile },
   { icon: '/static/mine-icons/certification.svg', tone: 'primary', label: '认证信息', desc: certMenuText.value.desc, tail: certMenuText.value.tail, tailClass: certMenuText.value.tailClass, go: goPrimaryCert },
-  { icon: '/static/mine-icons/settings-gray.svg', tone: 'gray', label: '设置', desc: '消息通知、隐私与安全、关于平台', go: goSettings },
+  { icon: '/static/mine-icons/settings-gray.svg', tone: 'gray', label: '设置', desc: '账号、通知与隐私、关于平台', go: goSettings },
 ])
 
 const onAccountSelect = (i) => {
@@ -511,8 +513,8 @@ onShow(() => {
     if (typeof uni.getMenuButtonBoundingClientRect === 'function') {
       mr = uni.getMenuButtonBoundingClientRect()
     }
-    // 避让到微信胶囊左缘（用 mr.left：右缘 mr.right 会导致按钮停在胶囊区域内被遮挡）
-    capsuleGap.value = mr ? Math.max(info.windowWidth - mr.left + 4, 8) : 8
+    // 导航行与胶囊同高（默认 32px），内容行自胶囊下方开始
+    navH.value = mr && mr.height ? mr.height : 32
   } catch (e) { /* keep defaults */ }
   fetchData()
 })
@@ -543,8 +545,7 @@ const goMessages = () => {
 
 const goSettings = () => {
   if (!requireLogin()) return
-  // 无独立设置页（/pages/mine/profile 是个人资料页，路由错位）：保留入口但提示，更友好
-  uni.showToast({ title: '设置功能即将上线', icon: 'none' })
+  uni.navigateTo({ url: '/pages/settings/index' })
 }
 
 // 认证 / 资料聚合入口

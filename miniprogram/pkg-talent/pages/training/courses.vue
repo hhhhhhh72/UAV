@@ -1,5 +1,33 @@
 <template>
   <view class="page" :class="{ 'no-motion': noMotion }">
+    <!-- 培训认证总入口：复用已有报名、证书页，不新增虚构数据或接口 -->
+    <view class="training-hero">
+      <view class="hero-content">
+        <text class="hero-kicker">低空人才服务</text>
+        <text class="hero-title">无人机培训认证</text>
+        <text class="hero-desc">发现规范课程，完成能力提升与专业认证</text>
+        <view class="hero-types">
+          <text>CAAC</text><text>UTC</text><text>人社等级</text>
+        </view>
+      </view>
+      <view class="hero-mark" aria-hidden="true">
+        <image src="/static/home/icons/training.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="training-shortcuts">
+      <view class="shortcut" hover-class="shortcut-press" :hover-stay-time="100" @tap="goMyEnrollments">
+        <view class="shortcut-icon shortcut-icon--green"><image src="/static/mine-icons/enroll.svg" mode="aspectFit" /></view>
+        <view class="shortcut-copy"><text class="shortcut-title">我的报名</text><text class="shortcut-desc">查看课程报名进度</text></view>
+        <text class="shortcut-arrow">›</text>
+      </view>
+      <view class="shortcut" hover-class="shortcut-press" :hover-stay-time="100" @tap="goCertificates">
+        <view class="shortcut-icon shortcut-icon--blue"><image src="/static/mine-icons/certification.svg" mode="aspectFit" /></view>
+        <view class="shortcut-copy"><text class="shortcut-title">我的证书</text><text class="shortcut-desc">查看已获得的认证</text></view>
+        <text class="shortcut-arrow">›</text>
+      </view>
+    </view>
+
     <!-- ① 搜索栏（吸顶，原生导航栏之下） -->
     <view class="sticky-head">
       <view class="search-container">
@@ -53,7 +81,7 @@
     <view class="section">
       <view class="ir">
         <text>共 <text class="irn">{{ list.length }}</text> 家机构</text>
-        <text class="ir-hint">{{ activeCertType ? certTypeLabel(activeCertType) : '全部类型' }}</text>
+        <text class="ir-hint">{{ activeCertType !== 'all' ? certTypeLabel(activeCertType) : '全部类型' }}</text>
       </view>
 
     <!-- ④ 机构列表（水平卡片） -->
@@ -196,6 +224,7 @@ const scrollToTop = () => {
   uni.pageScrollTo({ scrollTop: 0, duration: 200 })
 }
 import { request, authStorage } from '../../../utils/request'
+import { requireLogin } from '../../../utils/nav'
 import StateView from '../../../components/StateView.vue'
 
 // 页面滚动：回到顶部按钮浮现
@@ -420,6 +449,16 @@ function goEnroll(item) {
   uni.navigateTo({ url: '/pkg-talent/pages/training/enroll?id=' + encodeURIComponent(item.id) })
 }
 
+function goMyEnrollments() {
+  if (!requireLogin()) return
+  uni.navigateTo({ url: '/pkg-talent/pages/training/myenrollments' })
+}
+
+function goCertificates() {
+  if (!requireLogin()) return
+  uni.navigateTo({ url: '/pkg-talent/pages/training/certificates' })
+}
+
 /* ===== 课程收藏（真实接口，登录后可用） ===== */
 const favMap = ref({})
 const favBusy = ref(false)
@@ -488,9 +527,62 @@ onReachBottom(() => {
   --anim-slow: 320ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   min-height: 100vh;
-  background: #fff;
+  background: #F5F8FC;
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* ================================================================= */
+/* 培训认证总入口：统一现有课程、报名、证书三个真实页面                 */
+/* ================================================================= */
+.training-hero {
+  position: relative;
+  min-height: 250rpx;
+  overflow: hidden;
+  padding: 38rpx 32rpx 30rpx;
+  box-sizing: border-box;
+  color: #ffffff;
+  background: linear-gradient(135deg, #063B70 0%, #0A66C2 60%, #2889DD 100%);
+}
+.training-hero::before {
+  content: '';
+  position: absolute;
+  right: -108rpx;
+  top: -132rpx;
+  width: 348rpx;
+  height: 348rpx;
+  border: 36rpx solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+}
+.training-hero::after {
+  content: '';
+  position: absolute;
+  right: 58rpx;
+  bottom: -72rpx;
+  width: 152rpx;
+  height: 152rpx;
+  border: 22rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+}
+.hero-content { position: relative; z-index: 1; }
+.hero-kicker { display: block; font-size: 21rpx; color: rgba(255, 255, 255, 0.72); letter-spacing: 1rpx; }
+.hero-title { display: block; margin-top: 10rpx; font-size: 40rpx; line-height: 1.25; font-weight: 700; letter-spacing: 1rpx; }
+.hero-desc { display: block; margin-top: 9rpx; font-size: 23rpx; color: rgba(255, 255, 255, 0.82); }
+.hero-types { display: flex; align-items: center; gap: 12rpx; margin-top: 22rpx; }
+.hero-types text { padding: 5rpx 12rpx; border: 1rpx solid rgba(255, 255, 255, 0.22); border-radius: 999rpx; background: rgba(255, 255, 255, 0.1); font-size: 20rpx; color: rgba(255, 255, 255, 0.94); }
+.hero-mark { position: absolute; z-index: 1; right: 36rpx; top: 53rpx; width: 100rpx; height: 100rpx; display: flex; align-items: center; justify-content: center; border-radius: 30rpx; background: rgba(255, 255, 255, 0.15); transform: rotate(8deg); }
+.hero-mark image { width: 54rpx; height: 54rpx; filter: brightness(0) invert(1); }
+
+.training-shortcuts { display: flex; gap: 16rpx; margin: -16rpx 24rpx 18rpx; position: relative; z-index: 2; }
+.shortcut { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12rpx; padding: 18rpx 14rpx; border: 1rpx solid #E4EAF2; border-radius: 16rpx; background: #ffffff; box-shadow: 0 8rpx 24rpx rgba(16, 24, 40, 0.08); }
+.shortcut-press { transform: scale(0.98); opacity: 0.9; }
+.shortcut-icon { width: 56rpx; height: 56rpx; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 14rpx; }
+.shortcut-icon image { width: 32rpx; height: 32rpx; }
+.shortcut-icon--green { background: #E9F7F0; }
+.shortcut-icon--blue { background: #EAF3FB; }
+.shortcut-copy { flex: 1; min-width: 0; }
+.shortcut-title { display: block; font-size: 25rpx; color: #17212B; font-weight: 700; line-height: 1.3; }
+.shortcut-desc { display: block; margin-top: 4rpx; overflow: hidden; font-size: 19rpx; color: #7A8798; line-height: 1.35; white-space: nowrap; text-overflow: ellipsis; }
+.shortcut-arrow { color: #98A2B3; font-size: 32rpx; line-height: 1; }
 
 /* ================================================================= */
 /* ① 吸顶头部：搜索 + 筛选胶囊                                        */
@@ -499,7 +591,7 @@ onReachBottom(() => {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: #fff;
+  background: #F5F8FC;
   padding-bottom: 4px;
   box-shadow: 0 1px 0 rgba(16, 24, 40, 0.04);
 }
@@ -618,6 +710,7 @@ onReachBottom(() => {
 .page.no-motion .ir,
 .page.no-motion .card { animation: none; transition: opacity 0.15s ease; }
 .page.no-motion .fpill { transition: none; }
+.page.no-motion .shortcut-press { transform: none; }
 
 /* ================================================================= */
 /* ④ 机构列表（水平卡片）                                             */

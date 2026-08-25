@@ -43,15 +43,15 @@
             <view class="hero-action" @click="handleShare"><text class="share-icon">↗</text></view>
           </view>
 
-          <!-- 圆形校徽（半嵌在图片底部边缘） -->
-          <view class="hero-emblem"><text class="hero-emblem-char">{{ initShort(detail) }}</text></view>
-
-          <!-- 标题 + 标签（叠在底部蒙层上） -->
+          <!-- 标题 + 标签（与校徽同行，流式布局防重叠） -->
           <view class="hero-content">
-            <text class="hero-name">{{ detail.name || detail.title || '未知院校' }}</text>
-            <text class="hero-location">{{ detail.city || '' }} · {{ detail.level_tags || detail.levelTags || (detail.tags || ['无人机专业']).join(' · ') }}</text>
-            <view class="hero-tags">
-              <text v-for="t in compTags(detail)" :key="t" class="hero-tag">{{ t }}</text>
+            <view class="hero-emblem"><text class="hero-emblem-char">{{ initShort(detail) }}</text></view>
+            <view class="hero-text">
+              <text class="hero-name">{{ detail.name || detail.title || '未知院校' }}</text>
+              <text class="hero-location">{{ heroLoc(detail) }}</text>
+              <view class="hero-tags">
+                <text v-for="t in compTags(detail)" :key="t" class="hero-tag">{{ t }}</text>
+              </view>
             </view>
           </view>
         </view>
@@ -214,6 +214,16 @@ function initShort(item) {
   return name.charAt(0) || '院'
 }
 
+/* 副标题：城市 · 层次标签（tag 为空时兜底"高校"，不出现孤立"·"） */
+function heroLoc(item) {
+  var parts = []
+  if (item.city) parts.push(item.city)
+  var lv = item.level_tags || item.levelTags || ''
+  if (lv) parts.push(lv)
+  else if (Array.isArray(item.tags) && item.tags.length) parts.push(item.tags.join(' · '))
+  return parts.join(' · ') || '高校'
+}
+
 function statsData(item) {
   // 未填（0/空）显示 "—"，不伪造默认数字；兼容 snake/camel 两种字段名
   const num = (v) => { const n = Number(v); return n > 0 ? n : null }
@@ -320,12 +330,17 @@ onLoad(function (options) {
 /* ① 深空蓝 Hero                                                       */
 /* ================================================================= */
 .hero {
-  min-height: 300rpx;
+  min-height: 320rpx;
   background: linear-gradient(135deg, #074D92 0%, #0A66C2 100%);
   position: relative;
   overflow: hidden;
   padding: 44px 32rpx 40rpx; /* JS 注入真实 paddingTop（状态栏避让） */
   box-sizing: border-box;
+  /* P 批修复：flex 列布局把标题区（hero-content）推到底部而非 absolute 贴底——
+     此前 hero 高度不足（min-height:300rpx 仅 ~153px），absolute 标题区（y≈65~136）
+     与流内导航钮（y≈64~109）完全重叠，标题/城市/标签与返回钮挤成一坨。 */
+  display: flex;
+  flex-direction: column;
 }
 
 /* 兜底层（图片缺失时显示装饰渐变） */
@@ -440,11 +455,9 @@ onLoad(function (options) {
 
 .share-icon { color: #ffffff; font-size: 36rpx; font-weight: 300; }
 
-/* 圆形校徽：半嵌在图片底部边缘 */
+/* 圆形校徽：与标题同行（流式，左徽章右文本），无 overlap */
 .hero-emblem {
-  position: absolute;
-  left: 32rpx;
-  bottom: -24rpx;
+  flex-shrink: 0;
   width: 80rpx;
   height: 80rpx;
   background: #ffffff;
@@ -464,12 +477,15 @@ onLoad(function (options) {
 }
 
 .hero-content {
-  position: absolute;
-  left: 32rpx;
-  right: 32rpx;
-  bottom: 32rpx;
+  position: relative; /* 文档流：跟随 hero-nav，margin-top:auto 推到底部 */
   z-index: 2;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
 }
+
+.hero-text { flex: 1; min-width: 0; }
 
 .hero-name {
   color: #ffffff;

@@ -1,6 +1,10 @@
 <template>
-  <view class="mine-header" :style="{ paddingTop: (statusBarH + 8) + 'px' }">
-    <!-- 用户信息行：左侧资料，右侧消息（唯一入口）+ 设置，避开微信胶囊 -->
+  <view class="mine-header" :style="{ paddingTop: (statusBarH + 4) + 'px' }">
+    <!-- 导航行：页面标题居左，与微信胶囊同高（胶囊区右上，互不遮挡） -->
+    <view class="mh-nav" :style="{ height: navH + 'px' }">
+      <text class="mh-title">我的</text>
+    </view>
+    <!-- 用户信息行：左侧资料，右侧消息 + 设置（已低于胶囊行，可安全贴右） -->
     <view class="mh-head">
       <view class="mh-profile" hover-class="mh-fade" @tap="onProfile">
         <view class="mh-avatar-wrap">
@@ -19,7 +23,7 @@
         <text class="mh-chev">›</text>
       </view>
 
-      <view class="mh-top-group" :style="{ paddingRight: capsuleGap + 'px' }">
+      <view class="mh-top-group">
         <view class="mh-top-btn" hover-class="mh-fade" @tap="onMessages">
           <image class="mh-top-icon" :src="icons.message" mode="aspectFit" />
           <view v-if="unreadCount > 0" class="mh-unread-dot"></view>
@@ -46,7 +50,7 @@
 // 深蓝身份区展示组件：只接收 view model，不请求接口。
 const props = defineProps({
   statusBarH: { type: Number, default: 20 },
-  capsuleGap: { type: Number, default: 0 },
+  navH: { type: Number, default: 32 },
   unreadCount: { type: Number, default: 0 },
   vm: {
     type: Object,
@@ -108,10 +112,22 @@ const onCertTap = () => emit('cert')
   border-color: rgba(123,198,255,.16);
 }
 
+.mh-nav {
+  display: flex;
+  align-items: center;
+}
+.mh-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 1rpx;
+}
+
 .mh-head {
   display: flex;
   align-items: center;
   gap: 16rpx;
+  margin-top: 10px;
   position: relative;
   z-index: 1;
 }

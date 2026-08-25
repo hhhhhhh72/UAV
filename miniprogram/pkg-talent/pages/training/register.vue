@@ -408,7 +408,17 @@ async function fetchCourse() {
 onLoad(function (options) {
   initSafeTop()
   id.value = options.id || ''
-  fetchCourse()
+  // 详情页价格档回填：enroll 页选中档经 storage 传入，匹配课程选项即选中
+  var preset = null
+  try { preset = uni.getStorageSync('training_course_price') } catch (e) { /* 忽略 */ }
+  fetchCourse().then(function () {
+    if (!preset || !preset.name) return
+    const idx = courseOptions.value.findIndex(function (o) { return o.name === preset.name })
+    if (idx >= 0) {
+      selectedIndex.value = idx
+      try { uni.removeStorageSync('training_course_price') } catch (e2) { /* 忽略 */ }
+    }
+  })
 })
 
 onUnload(function () {

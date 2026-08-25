@@ -41,9 +41,10 @@
             <text class="status-text">{{ statusText(detail) }}</text>
           </view>
 
-          <!-- Hero 底部信息区：机构名 + 课程周期 -->
+          <!-- Hero 底部信息区：课程名（主）+ 机构名（副）+ 课程周期 -->
           <view class="hero-bottom">
-            <text class="hero-title">{{ orgNameOf(detail) }}</text>
+            <text class="hero-title">{{ courseTitleOf(detail) }}</text>
+            <text class="hero-org">{{ orgNameOf(detail) }}</text>
             <view class="hero-meta-row">
               <view class="meta-ico meta-ico--cal"><view class="cal-top" /><view class="cal-body"><view class="cal-line l1" /><view class="cal-line l2" /><view class="cal-line l3" /></view></view>
               <text class="hero-meta-text">{{ coursePeriod(detail) }}</text>
@@ -172,18 +173,21 @@
             <text class="section-title">培训资格证</text>
             <view class="cert-card">
               <view class="cert-watermark">资</view>
-              <view class="cert-verified"><view class="cert-check" /><text class="cert-verified-text">已认证</text></view>
+              <!-- 认证徽章：有证书图 → 已认证；无图 → 待上传（不再无图也展示"已认证"） -->
+              <view v-if="certificateImage(detail)" class="cert-verified"><view class="cert-check" /><text class="cert-verified-text">已认证</text></view>
+              <view v-else class="cert-verified cert-verified--pending"><view class="cert-check" /><text class="cert-verified-text">证书待上传</text></view>
               <view class="cert-center">
                 <view class="cert-seal"><text class="cert-seal-char">资</text></view>
                 <text class="cert-name">民用无人机驾驶员训练机构合格证</text>
               </view>
-              <view class="cert-upload" hover-class="cert-upload-press" :hover-stay-time="100" @click="previewCert">
+              <!-- 上传证书图：仅机构/管理员可见（学生端不暴露管理动作） -->
+              <view v-if="isManageRole()" class="cert-upload" hover-class="cert-upload-press" :hover-stay-time="100" @click="previewCert">
                 <view class="cert-upload-ico" />
                 <text class="cert-upload-text">上传证书图</text>
               </view>
               <view class="cert-link" @click="previewCert">
                 <view class="cert-check cert-check--link" />
-                <text class="cert-link-text">点击查看完整证书</text>
+                <text class="cert-link-text">{{ certificateImage(detail) ? '点击查看完整证书' : '证书上传后即可查看' }}</text>
               </view>
             </view>
           </view>
@@ -224,7 +228,7 @@
     <view v-if="detail" class="bottom-bar">
       <!-- 收藏（真实接口，登录后可用） -->
       <view class="btn-fav" :class="{ on: isFav }" hover-class="btn-fav-press" @click="toggleFav">
-        <text class="fav-heart">{{ isFav ? '♥' : '♡' }}</text>
+        <view class="fav-heart" :class="{ 'fav-heart--on': isFav }" />
         <text class="fav-label">{{ isFav ? '已收藏' : '收藏' }}</text>
       </view>
       <view class="bottom-left">
@@ -240,8 +244,14 @@
           <view class="btn-phone-ico" />
           <text class="btn-outline-text">联系咨询</text>
         </view>
-        <view class="btn-primary" hover-class="btn-primary-press" :hover-stay-time="100" @click="handleEnroll">
-          <text class="btn-primary-text">立即报名</text>
+        <view
+          class="btn-primary"
+          :class="{ 'btn-primary--disabled': enrollDisabled() }"
+          hover-class="btn-primary-press"
+          :hover-stay-time="100"
+          @click="enrollDisabled() ? onEnrollBlocked() : handleEnroll()"
+        >
+          <text class="btn-primary-text">{{ enrollLabel() }}</text>
         </view>
       </view>
     </view>
@@ -312,6 +322,16 @@ function initShort(item) {
   const strip = n.replace(/培训中心|飞行学院|分校|服务中心|培训基地|学院|中心|学校/gi, '')
   const base = strip || n
   return base.charAt(0)
+}
+
+/* 管理侧角色（机构/平台/协会管理员）：证书上传等管理动作仅其可见 */
+function isManageRole() {
+  try {
+    const u = uni.getStorageSync('user')
+    if (!u) return false
+    const role = u.role || (u.user && u.user.role)
+    return role === 'enterprise' || role === 'platform_admin' || role === 'association_admin'
+  } catch (e) { return false }
 }
 
 /* 课程周期（Hero 副信息） */
@@ -474,17 +494,68 @@ function onImgLoad(key, idx) {
 }
 function goBack() { safeBack() }
 function openMap() {
-  const addr = (detail.value && detail.value.location) || ''
-  showCustomToast(addr ? '导航到：' + addr : '暂无地址信息')
+  // 地图真动作：有经纬度 → 原生导航；仅地址 → 复制地址（可直接粘贴到导航 App）；两者皆无 → 如实提示
+  const item = detail.value
+  const addr = (item && item.location) || ''
+  const lat = Number(item && (item.latitude != null ? item.latitude : item.lat))
+  const lng = Number(item && (item.longitude != null ? item.longitude : item.lng))
+  if (lat && lng) {
+    uni.openLocation({ latitude: lat, longitude: lng, name: orgNameOf(item), address: addr })
+    return
+  }
+  if (addr) {
+    uni.setClipboardData({
+      data: addr,
+      success: function () { showCustomToast('地址已复制，可在导航 App 中搜索') },
+    })
+    return
+  }
+  showCustomToast('暂无地址信息')
 }
 function callPhone() {
   const phone = (detail.value && (detail.value.phone || detail.value.contact_phone)) || ''
   if (phone) uni.makePhoneCall({ phoneNumber: phone })
   else showCustomToast('暂无联系电话')
 }
-function handleConsult() { showCustomToast('已提交咨询，客服稍后联系') }
+function handleConsult() {
+  // 咨询真化：有电话 → 直接拨打（真实动作）；无电话 → 本地记录咨询意向 + 如实提示
+  const item = detail.value
+  const phone = (item && (item.phone || item.contact_phone)) || ''
+  if (phone) {
+    uni.makePhoneCall({ phoneNumber: phone })
+    return
+  }
+  try {
+    const intents = uni.getStorageSync('consult_intents') || []
+    intents.push({ courseId: id.value, course: (item && courseTitleOf(item)) || '', org: orgNameOf(item), time: Date.now() })
+    uni.setStorageSync('consult_intents', intents)
+  } catch (e) { /* 存储失败不阻断提示 */ }
+  showCustomToast('已记录咨询意向，平台将尽快联系你（也可致电平台热线 400-116-0851）')
+}
 function handleEnroll() {
+  // 价格档传递：选中档随跳转写入 storage，register 回填匹配项（不再重选）
+  try {
+    const list = priceList(detail.value)
+    const p = list[activePriceIndex.value]
+    uni.setStorageSync('training_course_price', p ? { name: p.name, price: p.price, unit: p.unit } : null)
+  } catch (e) { /* 存储失败不阻断跳转 */ }
   uni.navigateTo({ url: '/pkg-talent/pages/training/register?id=' + encodeURIComponent(id.value) })
+}
+/* 报名状态门禁（与列表页 courses 一致）：已满/即将开课不可报名 */
+function enrollDisabled() {
+  const s = detail.value && detail.value.status
+  return s === 'full' || s === 'upcoming'
+}
+function enrollLabel() {
+  const s = detail.value && detail.value.status
+  if (s === 'full') return '本期已满 · 下期可约'
+  if (s === 'upcoming') return '即将开课'
+  return '立即报名'
+}
+function onEnrollBlocked() {
+  const s = detail.value && detail.value.status
+  if (s === 'full') showCustomToast('本期名额已满，可关注下一期开班')
+  else showCustomToast('本课程即将开放报名，敬请期待')
 }
 function handlePriceTap(p, i) {
   // 切换选中项（高亮态带动画过渡）
@@ -702,7 +773,16 @@ onPullDownRefresh(function () {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-.hero-meta-row { display: flex; align-items: center; gap: 8rpx; margin-top: 12rpx; }
+.hero-org {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hero-meta-row { display: flex; align-items: center; gap: 8rpx; margin-top: 10rpx; }
 .hero-meta-text { font-size: 24rpx; color: rgba(255, 255, 255, 0.85); }
 
 .meta-ico { width: 28rpx; height: 28rpx; flex-shrink: 0; position: relative; }
@@ -1064,6 +1144,11 @@ onPullDownRefresh(function () {
   transform: rotate(-45deg) translate(1rpx, -1rpx);
 }
 .cert-verified-text { font-size: 20rpx; font-weight: 600; color: #ffffff; }
+/* 证书未上传：灰色待上传态（澄清：无图不再伪装"已认证"） */
+.cert-verified--pending {
+  background: #98A2B3;
+  box-shadow: 0 4rpx 10rpx rgba(152, 162, 179, 0.28);
+}
 .cert-center { display: flex; flex-direction: column; align-items: center; gap: 12rpx; position: relative; z-index: 1; }
 .cert-seal {
   width: 72rpx;
@@ -1212,7 +1297,34 @@ onPullDownRefresh(function () {
   transition: opacity 160ms var(--ease);
 }
 .btn-fav-press { opacity: 0.65; }
-.fav-heart { font-size: 34rpx; line-height: 1.1; color: #667085; }
+/* CSS 绘制心形（替代 ♥/♡ 字符，符合项目"不用 emoji/Unicode 图标"规范） */
+.fav-heart {
+  position: relative;
+  width: 34rpx;
+  height: 30rpx;
+}
+.fav-heart::before,
+.fav-heart::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 17rpx;
+  height: 26rpx;
+  border-radius: 10rpx 10rpx 0 0;
+  background: #98A2B3;
+}
+.fav-heart::before {
+  left: 1rpx;
+  transform: rotate(-45deg);
+  transform-origin: 0 100%;
+}
+.fav-heart::after {
+  left: 15rpx;
+  transform: rotate(45deg);
+  transform-origin: 100% 100%;
+}
+.fav-heart--on::before,
+.fav-heart--on::after { background: #E96012; }
 .fav-label { font-size: 18rpx; color: #667085; }
 .btn-fav.on .fav-heart { color: #E96012; }
 .btn-fav.on .fav-label { color: #E96012; font-weight: 600; }
@@ -1270,6 +1382,12 @@ onPullDownRefresh(function () {
 .btn-primary:active { background: #E96012; }
 .btn-primary-press { transform: scale(0.97); }
 .btn-primary-text { font-size: 28rpx; font-weight: 700; color: #ffffff; }
+/* 已满/即将开课：置灰不可用（与列表页 courses 状态门禁一致） */
+.btn-primary--disabled {
+  background: #C9CDD4;
+  box-shadow: none;
+}
+.btn-primary--disabled .btn-primary-text { color: #ffffff; }
 
 /* ═══ ④ 自定义 Toast ═══ */
 .custom-toast {
