@@ -388,16 +388,18 @@ func (s *EmergencyService) FindDispatchByID(ctx context.Context, id string) (dom
 
 // Emergency Dispatches
 
-// CreateDispatch 创建调度记录；status 可指定（dispatched/ongoing/completed/cancelled），
-// 空值或非法值回退默认 "dispatched"（补录历史调度时可传实际状态）。
-// 状态值域与管理端/小程序一致：小程序 dispatches.vue 用 pending/ongoing/completed/cancelled，
-// 管理端编辑入口传 cancelled（调度已终止）须原样透传，不能被回退成 dispatched。
+// CreateDispatch 创建调度记录；status 合法值域：pending/dispatched/ongoing/completed/cancelled。
+// 空值默认 dispatched；非法值不再静默改写（此前 pending 被强制改成 dispatched，
+// 与小程序 pending（待响应）语义错位）。
 func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, eventDesc, location, commander, result, status string, startTime, endTime time.Time) (domain.EmergencyDispatch, error) {
 	if !endTime.IsZero() && endTime.Before(startTime) {
 		return domain.EmergencyDispatch{}, errors.New("end time must not be earlier than start time")
 	}
-	if status != "ongoing" && status != "completed" && status != "cancelled" {
+	if status == "" {
 		status = "dispatched"
+	}
+	if !validDispatchStatus(status) {
+		return domain.EmergencyDispatch{}, fmt.Errorf("invalid dispatch status %q", status)
 	}
 	now := time.Now()
 	if _, err := s.repo.FindResourceByID(ctx, resourceID); err != nil {
@@ -454,6 +456,14 @@ func (s *EmergencyService) UpdateDispatch(ctx context.Context, id, resourceID, e
 	if err != nil {
 		return domain.EmergencyDispatch{}, err
 	}
+	// 状态机：合法迁移（dispatched→ongoing→completed/cancelled；pending→dispatched/cancelled）
+	if !canDispatchTransition(d.Status, status) {
+		return domain.EmergencyDispatch{}, fmt.Errorf("非法调度状态流转: %s → %s", d.Status, status)
+	}
+	// 资源存在校验（此前 Update 不校验，可把调度挂到不存在的资源）
+	if _, err := s.repo.FindResourceByID(ctx, resourceID); err != nil {
+		return domain.EmergencyDispatch{}, err
+	}
 	d.ResourceID = resourceID
 	d.EventDesc = eventDesc
 	d.Location = location
@@ -463,4 +473,29 @@ func (s *EmergencyService) UpdateDispatch(ctx context.Context, id, resourceID, e
 	d.StartTime = startTime
 	d.EndTime = endTime
 	return s.repo.UpdateDispatch(ctx, d)
+}
+
+// validDispatchStatus 调度状态值域（与小程序 pending/ongoing/completed/cancelled 对齐 + dispatched）。
+func validDispatchStatus(s string) bool {
+	switch s {
+	case "pending", "dispatched", "ongoing", "completed", "cancelled":
+		return true
+	}
+	return false
+}
+
+// canDispatchTransition 调度状态机合法迁移。
+func canDispatchTransition(from, to string) bool {
+	if from == to {
+		return true
+	}
+	switch from {
+	case "pending":
+		return to == "dispatched" || to == "cancelled"
+	case "dispatched":
+		return to == "ongoing" || to == "cancelled"
+	case "ongoing":
+		return to == "completed" || to == "cancelled"
+	}
+	return false
 }

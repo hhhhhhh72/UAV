@@ -185,6 +185,14 @@ func TestTrainingEndpoints(t *testing.T) {
 	w = doRaw(app, http.MethodPost, "/api/v1/certified-pilots", `{"real_name":"王飞手"}`, userTok)
 	assertStatus(t, http.MethodPost, "/api/v1/certified-pilots (missing id_card)", w, http.StatusBadRequest)
 
+	// 新规则：申请飞手需至少一张已通过且未过期的证书——先为用户签发并批准一张
+	w = doRaw(app, http.MethodPost, "/api/v1/certificates",
+		`{"cert_type":"caac","cert_number":"CAAC-ROUND2-001","level":"III","issuer_org":"民航局","issue_date":"2026-01-01T00:00:00Z","expire_date":"2028-01-01T00:00:00Z"}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/certificates", w, http.StatusCreated)
+	certID := dataID(t, w)
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/certificates/"+certID+"/approve", "", adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/certificates/"+certID+"/approve", w, http.StatusOK)
+
 	w = doRaw(app, http.MethodPost, "/api/v1/certified-pilots",
 		`{"real_name":"王飞手","id_card":"110101199001011234","flight_hours":120}`, userTok)
 	assertStatus(t, http.MethodPost, "/api/v1/certified-pilots", w, http.StatusCreated)
@@ -201,6 +209,14 @@ func TestTrainingEndpoints(t *testing.T) {
 
 	// 驳回分支：另一用户注册飞手 → 管理员驳回
 	user2Tok := authAs(t, "user-2", domain.RoleIndividual)
+	// user-2 同样需要一张已通过证书
+	w = doRaw(app, http.MethodPost, "/api/v1/certificates",
+		`{"cert_type":"caac","cert_number":"CAAC-ROUND2-002","level":"III","issuer_org":"民航局"}`, user2Tok)
+	assertStatus(t, http.MethodPost, "/api/v1/certificates (user-2)", w, http.StatusCreated)
+	cert2ID := dataID(t, w)
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/certificates/"+cert2ID+"/approve", "", adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/certificates/"+cert2ID+"/approve", w, http.StatusOK)
+
 	w = doRaw(app, http.MethodPost, "/api/v1/certified-pilots",
 		`{"real_name":"李飞手","id_card":"110101199002022345"}`, user2Tok)
 	assertStatus(t, http.MethodPost, "/api/v1/certified-pilots (user-2)", w, http.StatusCreated)

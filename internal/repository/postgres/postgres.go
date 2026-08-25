@@ -2428,6 +2428,16 @@ func (r *pgTestSiteRepo) CreateBooking(ctx context.Context, b domain.TestSiteBoo
 		b.ID, b.SiteID, b.UserID, b.Purpose, b.StartTime, b.EndTime, b.ContactName, b.ContactPhone, b.Status, b.ReviewNote, b.CreatedAt)
 	return b, err
 }
+func (r *pgTestSiteRepo) FindBookingByID(ctx context.Context, id string) (domain.TestSiteBooking, error) {
+	var b domain.TestSiteBooking
+	err := r.pool.QueryRow(ctx,
+		`SELECT id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE id=$1`, id).
+		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.TestSiteBooking{}, fmt.Errorf("booking not found")
+	}
+	return b, err
+}
 func (r *pgTestSiteRepo) UpdateBookingStatus(ctx context.Context, id, status, note string) (domain.TestSiteBooking, error) {
 	var b domain.TestSiteBooking
 	err := r.pool.QueryRow(ctx,

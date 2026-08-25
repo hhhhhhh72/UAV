@@ -109,7 +109,12 @@ func (s *IntentService) Create(ctx context.Context, a domain.Actor, demandID str
 	if err != nil {
 		return domain.DemandIntent{}, fmt.Errorf("demand %s: %w", demandID, err)
 	}
+	// assigned 表示已接受意向并生成工单：禁止再登记新意向（此前无此状态，
+	// 已派单需求可无限登记）。
 	if d.Status != domain.DemandPublished {
+		if d.Status == domain.DemandAssigned {
+			return domain.DemandIntent{}, errors.New("该需求已确认接单，暂不开放新意向")
+		}
 		return domain.DemandIntent{}, errors.New("只有已发布的需求可以登记对接意向")
 	}
 	if d.PublisherID == a.ID {

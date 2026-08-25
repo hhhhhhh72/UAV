@@ -1867,6 +1867,20 @@ func (r *courseRepo) Delete(ctx context.Context, id string) error {
 	}
 	return fmt.Errorf("course %s not found", id)
 }
+func (r *courseRepo) BumpEnrolled(ctx context.Context, id string, delta int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items[i].EnrolledCount = max(0, r.items[i].EnrolledCount+delta)
+			if r.items[i].MaxStudents > 0 {
+				r.items[i].Remain = max(0, r.items[i].MaxStudents-r.items[i].EnrolledCount)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("course %s not found", id)
+}
 
 // ---- Course Favorites ----
 

@@ -64,8 +64,9 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	if _, ok, _ := s.repo.FindByUserAndCourse(ctx, userID, courseID); ok {
 		return domain.Enrollment{}, fmt.Errorf("already enrolled")
 	}
-	// 容量：course.MaxStudents > 0 时，该课已报名数 >= MaxStudents 拒绝。
-	// 课程不存在/查询失败时跳过容量检查（兼容无课程仓储的测试与历史数据）。
+	// 容量与状态门禁：full/upcoming 不可报名（与前端禁用一致，API 不再可绕过）；
+	// 容量以 enrolled_count 列为真值（报名成功即 +1，remain 同步）——此前读列不维护，
+	// 前端"仅剩 N/已满"全部是假数据，且 ListByCourse 全量计数把完成/驳回也算占座。
 	if s.courseRepo != nil {
 		if c, err := s.courseRepo.FindByID(ctx, courseID); err == nil {
 			// 资金逻辑：付费课程禁止免费报名——此前 /enroll 不校验 price_fen，
@@ -74,10 +75,11 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 			if c.PriceFen > 0 && form.PaidAmountFen != c.PriceFen {
 				return domain.Enrollment{}, fmt.Errorf("paid course requires payment (free enrollment not allowed)")
 			}
-			if c.MaxStudents > 0 {
-				if enrolls, err := s.repo.ListByCourse(ctx, courseID); err == nil && len(enrolls) >= c.MaxStudents {
-					return domain.Enrollment{}, fmt.Errorf("course is full")
-				}
+			if c.Status == "full" || c.Status == "upcoming" {
+				return domain.Enrollment{}, fmt.Errorf("course is not open for enrollment (status %s)", c.Status)
+			}
+			if c.MaxStudents > 0 && c.EnrolledCount >= c.MaxStudents {
+				return domain.Enrollment{}, fmt.Errorf("course is full")
 			}
 		}
 	}
@@ -96,7 +98,24 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 		Email: form.Email, Education: form.Education, Experience: form.Experience,
 		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,
 		Status: "enrolled", PaidAmountFen: form.PaidAmountFen, CreatedAt: now}
-	return s.repo.Create(ctx, e)
+	// 先占名额（enrolled_count+1），再落报名记录；落库失败补偿 -1（学号不漂移）。
+	// 仅当课程存在（FindByID 成功）才占位——兼容无课程仓储的测试与历史数据。
+	bumpOK := false
+	if s.courseRepo != nil {
+		if c, err := s.courseRepo.FindByID(ctx, courseID); err == nil {
+			_ = c
+			if err := s.courseRepo.BumpEnrolled(ctx, courseID, 1); err == nil {
+				bumpOK = true
+			}
+		}
+	}
+	if _, err := s.repo.Create(ctx, e); err != nil {
+		if bumpOK && s.courseRepo != nil {
+			_ = s.courseRepo.BumpEnrolled(ctx, courseID, -1)
+		}
+		return domain.Enrollment{}, err
+	}
+	return e, nil
 }
 
 // validEnrollmentStatus 报名状态白名单（与前端 statusLabel 对齐；completed 由管理端完成闭环写入）。
@@ -300,6 +319,8 @@ func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID,
 		return domain.TradeOrder{}, err
 	}
 	now := time.Now()
+	// 记录售后前状态：驳回时恢复原状态（未发货已付款订单曾被迫 completed 卡死）。
+	o.AftersaleFrom = o.Status
 	o.Status = "aftersale"
 	o.AftersaleType = aftType
 	o.AftersaleReason = reason
@@ -341,10 +362,17 @@ func (s *TradeOrderService) reviewAftersale(ctx context.Context, orderID string,
 	}
 	if approve {
 		o.AftersaleStatus = "approved"
+		o.Status = "completed"
 	} else {
 		o.AftersaleStatus = "rejected"
+		// 驳回还原：恢复售后前状态（paid/shipped/completed）。
+		// 此前无条件置 completed——已付款未发货订单被驳回后卖家无法发货、买家付钱拿不到货。
+		if o.AftersaleFrom == "paid" || o.AftersaleFrom == "shipped" || o.AftersaleFrom == "completed" {
+			o.Status = o.AftersaleFrom
+		} else {
+			o.Status = "completed"
+		}
 	}
-	o.Status = "completed"
 	return s.repo.UpdateAftersale(ctx, o)
 }
 
@@ -377,6 +405,11 @@ func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus
 	o, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.TradeOrder{}, err
+	}
+	// 售后必须走 ApplyAftersale（带售后字段写入）；管理端直置 aftersale 会形成
+	// 无 aftersale_* 字段的死状态且无法审核（与 UpdateStatus 同款拦截）。
+	if newStatus == "aftersale" {
+		return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转（售后请走申请售后接口）")
 	}
 	if err := checkOrderTransition(o.Status, newStatus); err != nil {
 		return domain.TradeOrder{}, err

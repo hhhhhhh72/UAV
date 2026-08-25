@@ -214,6 +214,7 @@ type DemandStatus string
 const (
 	DemandPending   DemandStatus = "pending"   // awaiting admin review
 	DemandPublished DemandStatus = "published" // publicly visible with contact info
+	DemandAssigned  DemandStatus = "assigned"  // 已接受意向并生成工单（锁新意向/接单）
 	DemandCompleted DemandStatus = "completed" // marked done by publisher
 	DemandCancelled DemandStatus = "cancelled" // withdrawn by publisher
 	DemandRejected  DemandStatus = "rejected"  // declined by admin
@@ -530,7 +531,9 @@ type TradeOrder struct {
 	AftersaleAmountFen int64     `json:"aftersale_amount_fen"`
 	AftersaleStatus    string    `json:"aftersale_status"`
 	AftersaleTime      time.Time `json:"aftersale_time"`
-	Version            int       `json:"version"`
+	// AftersaleFrom 申请售后前的订单状态（paid/shipped/completed）；驳回时恢复原状态。
+	AftersaleFrom string `json:"aftersale_from"`
+	Version       int    `json:"version"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }

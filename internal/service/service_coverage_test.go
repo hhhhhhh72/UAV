@@ -687,10 +687,17 @@ func TestEmergencyService_FullCRUD(t *testing.T) {
 		t.Fatal("EmergencyService.FindDispatchByID: expected error for unknown id")
 	}
 
-	// UpdateDispatch
+	// UpdateDispatch（状态机：dispatched→ongoing→completed）
+	if _, err := svc.UpdateDispatch(context.Background(), d.ID, r.ID, "新事件", "新地点", "新指挥", "新结果", "ongoing", now, now.Add(2*time.Hour)); err != nil {
+		t.Fatalf("EmergencyService.UpdateDispatch(ongoing): %v", err)
+	}
 	ud, err := svc.UpdateDispatch(context.Background(), d.ID, r.ID, "新事件", "新地点", "新指挥", "新结果", "completed", now, now.Add(2*time.Hour))
 	if err != nil || ud.Status != "completed" || ud.EventDesc != "新事件" {
 		t.Fatalf("EmergencyService.UpdateDispatch: status=%q desc=%q err=%v", ud.Status, ud.EventDesc, err)
+	}
+	// 非法迁移（completed 为终态）拒绝
+	if _, err := svc.UpdateDispatch(context.Background(), d.ID, r.ID, "", "", "", "", "ongoing", now, now); err == nil {
+		t.Fatal("EmergencyService.UpdateDispatch: completed→ongoing should be rejected")
 	}
 	if _, err := svc.UpdateDispatch(context.Background(), "nope", r.ID, "", "", "", "", "", now, now); err == nil {
 		t.Fatal("EmergencyService.UpdateDispatch: expected error for unknown id")

@@ -118,9 +118,13 @@ func (r *compRepo) CreateReg(ctx context.Context, reg domain.CompetitionReg) (do
 	}
 	r.encryptRegInPlace(&reg)
 	r.regs = append(r.regs, reg)
-	// 与 PG 事务内 reg_count+1 对齐。
+	// 与 PG 事务内 reg_count+1 对齐（含容量上限：max_teams<=0 不限制）。
 	for i := range r.items {
 		if r.items[i].ID == reg.CompetitionID {
+			if r.items[i].MaxTeams > 0 && r.items[i].RegCount >= r.items[i].MaxTeams {
+				r.decryptRegInPlace(&reg)
+				return domain.CompetitionReg{}, fmt.Errorf("competition is full")
+			}
 			r.items[i].RegCount++
 			break
 		}
@@ -197,9 +201,12 @@ func (r *eventRepo) CreateReg(ctx context.Context, reg domain.EventRegistration)
 		}
 	}
 	r.regs = append(r.regs, reg)
-	// 与 PG 事务内 reg_count+1 对齐。
+	// 与 PG 事务内 reg_count+1 对齐（含容量上限：max_attendees<=0 不限制）。
 	for i := range r.items {
 		if r.items[i].ID == reg.EventID {
+			if r.items[i].MaxAttendees > 0 && r.items[i].RegCount >= r.items[i].MaxAttendees {
+				return domain.EventRegistration{}, fmt.Errorf("event is full")
+			}
 			r.items[i].RegCount++
 			break
 		}

@@ -107,6 +107,16 @@ func (r *testSiteRepo) CreateBooking(ctx context.Context, b domain.TestSiteBooki
 	r.bookings = append(r.bookings, b)
 	return b, nil
 }
+func (r *testSiteRepo) FindBookingByID(ctx context.Context, id string) (domain.TestSiteBooking, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, b := range r.bookings {
+		if b.ID == id {
+			return b, nil
+		}
+	}
+	return domain.TestSiteBooking{}, fmt.Errorf("booking %s not found", id)
+}
 func (r *testSiteRepo) UpdateBookingStatus(ctx context.Context, id, status, note string) (domain.TestSiteBooking, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

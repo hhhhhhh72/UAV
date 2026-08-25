@@ -94,13 +94,20 @@ func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, con
 	if !endTime.After(startTime) {
 		return domain.TestSiteBooking{}, errors.New("结束时间必须晚于开始时间")
 	}
-	// Check conflicts
+	// 站点存在校验：防对幽灵站点造预约
+	if _, err := s.repo.FindByID(ctx, siteID); err != nil {
+		return domain.TestSiteBooking{}, fmt.Errorf("试飞场不存在")
+	}
+	// 冲突判定升级：pending/approved 均占位（此前只认 approved，
+	// 两条 pending 重叠可先后被批准导致双重占用）
+	unlock := lockByKey("testsite-book|" + siteID)
+	defer unlock()
 	bookings, err := s.repo.ListBookings(ctx, siteID)
 	if err != nil {
 		return domain.TestSiteBooking{}, err
 	}
 	for _, b := range bookings {
-		if b.Status == "approved" && !(endTime.Before(b.StartTime) || startTime.After(b.EndTime)) {
+		if (b.Status == "approved" || b.Status == "pending") && !(endTime.Before(b.StartTime) || startTime.After(b.EndTime)) {
 			return domain.TestSiteBooking{}, fmt.Errorf("time slot conflicted")
 		}
 	}
@@ -111,6 +118,26 @@ func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, con
 	return s.repo.CreateBooking(ctx, bk)
 }
 func (s *TestSiteService) ReviewBooking(ctx context.Context, bookingID, status, note string) (domain.TestSiteBooking, error) {
+	// 审批复查冲突：approved 前重跑同站点时段冲突检测——
+	// 此前审批直接改状态，两条重叠 pending 可先后被批准（双重占用）。
+	if status == "approved" {
+		b, err := s.repo.FindBookingByID(ctx, bookingID)
+		if err != nil {
+			return domain.TestSiteBooking{}, err
+		}
+		bookings, err := s.repo.ListBookings(ctx, b.SiteID)
+		if err != nil {
+			return domain.TestSiteBooking{}, err
+		}
+		for _, ob := range bookings {
+			if ob.ID == bookingID || ob.Status == "rejected" || ob.Status == "cancelled" {
+				continue
+			}
+			if !(b.EndTime.Before(ob.StartTime) || b.StartTime.After(ob.EndTime)) {
+				return domain.TestSiteBooking{}, fmt.Errorf("该时段已有预约，审批冲突")
+			}
+		}
+	}
 	return s.repo.UpdateBookingStatus(ctx, bookingID, status, note)
 }
 
@@ -184,6 +211,35 @@ func (s *ExhibitionService) Delete(ctx context.Context, id string) error {
 }
 
 func (s *ExhibitionService) ApplyBooth(ctx context.Context, exhibitionID, exhibitorID, boothNumber, exhibitName, exhibitDesc string) (domain.ExhibitionBooth, error) {
+	// 业务校验：展会存在 + 招募中才可申请 + 展位数未超 + 重复申请/展位号去重。
+	// 此前无任何校验：booth_count 形同虚设、同一企业可重复占位、同一展位号可被多人认领。
+	ex, err := s.repo.FindByID(ctx, exhibitionID)
+	if err != nil {
+		return domain.ExhibitionBooth{}, fmt.Errorf("展会不存在")
+	}
+	if ex.Status != "" && ex.Status != "recruiting" && ex.Status != "published" {
+		return domain.ExhibitionBooth{}, fmt.Errorf("展会未开放展位申请 (status %s)", ex.Status)
+	}
+	// 座位判定：以"有效状态（applied/approved/paid）"展位数对比 booth_count。
+	booths, err := s.repo.ListBooths(ctx, exhibitionID)
+	if err != nil {
+		return domain.ExhibitionBooth{}, err
+	}
+	counted := 0
+	for _, b := range booths {
+		if b.Status == "applied" || b.Status == "approved" || b.Status == "paid" {
+			counted++
+			if b.ExhibitorID == exhibitorID {
+				return domain.ExhibitionBooth{}, fmt.Errorf("您已申请过该展会展位")
+			}
+			if boothNumber != "" && b.BoothNumber == boothNumber {
+				return domain.ExhibitionBooth{}, fmt.Errorf("展位号 %s 已被占用", boothNumber)
+			}
+		}
+	}
+	if ex.BoothCount > 0 && counted >= ex.BoothCount {
+		return domain.ExhibitionBooth{}, fmt.Errorf("展位已满")
+	}
 	b := domain.ExhibitionBooth{ID: nextID("exbk"),
 		ExhibitionID: exhibitionID, ExhibitorID: exhibitorID, BoothNumber: boothNumber,
 		ExhibitName: exhibitName, ExhibitDesc: exhibitDesc, Status: "applied", CreatedAt: time.Now()}

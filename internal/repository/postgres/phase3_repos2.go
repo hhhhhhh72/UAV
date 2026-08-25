@@ -544,13 +544,13 @@ func (r *tradeOrderRepo) Create(ctx context.Context, o domain.TradeOrder) (domai
 }
 
 // tradeOrderColumns trade_orders 查询列（含售后字段），各查询统一复用
-const tradeOrderColumns = `id,product_id,buyer_id,seller_id,amount_fen,status,aftersale_type,aftersale_reason,aftersale_desc,aftersale_amount_fen,aftersale_status,aftersale_time,version,created_at,updated_at`
+const tradeOrderColumns = `id,product_id,buyer_id,seller_id,amount_fen,status,aftersale_type,aftersale_reason,aftersale_desc,aftersale_amount_fen,aftersale_status,aftersale_time,aftersale_from,version,created_at,updated_at`
 
 func scanTradeOrder(row interface{ Scan(...any) error }) (domain.TradeOrder, error) {
 	var o domain.TradeOrder
 	err := row.Scan(&o.ID, &o.ProductID, &o.BuyerID, &o.SellerID, &o.AmountFen, &o.Status,
 		&o.AftersaleType, &o.AftersaleReason, &o.AftersaleDesc, &o.AftersaleAmountFen, &o.AftersaleStatus, &o.AftersaleTime,
-		&o.Version, &o.CreatedAt, &o.UpdatedAt)
+		&o.AftersaleFrom, &o.Version, &o.CreatedAt, &o.UpdatedAt)
 	return o, err
 }
 
@@ -580,8 +580,8 @@ func (r *tradeOrderRepo) CompareAndSetStatus(ctx context.Context, id, oldStatus,
 }
 func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error) {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE trade_orders SET status=$1,aftersale_type=$2,aftersale_reason=$3,aftersale_desc=$4,aftersale_amount_fen=$5,aftersale_status=$6,aftersale_time=$7,updated_at=$8,version=version+1 WHERE id=$9`,
-		o.Status, o.AftersaleType, o.AftersaleReason, o.AftersaleDesc, o.AftersaleAmountFen, o.AftersaleStatus, o.AftersaleTime, time.Now(), o.ID)
+		`UPDATE trade_orders SET status=$1,aftersale_type=$2,aftersale_reason=$3,aftersale_desc=$4,aftersale_amount_fen=$5,aftersale_status=$6,aftersale_time=$7,aftersale_from=$8,updated_at=$9,version=version+1 WHERE id=$10`,
+		o.Status, o.AftersaleType, o.AftersaleReason, o.AftersaleDesc, o.AftersaleAmountFen, o.AftersaleStatus, o.AftersaleTime, o.AftersaleFrom, time.Now(), o.ID)
 	if err != nil {
 		return domain.TradeOrder{}, fmt.Errorf("update trade order aftersale: %w", err)
 	}

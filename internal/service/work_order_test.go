@@ -187,26 +187,25 @@ func TestWorkOrderCancel(t *testing.T) {
 
 func TestListMine(t *testing.T) {
 	orderSvc, intentSvc, pub, worker, d, it := newWorkOrderScenario(t)
-	// 先确认第一单，再投第二个意向并确认，形成两条订单
+	// 业务规则：需求被接单后进入 assigned（一单一主）——锁新意向与再次接单
 	if _, err := orderSvc.AcceptIntent(context.Background(), pub, d.ID, it.ID, 100000); err != nil {
 		t.Fatalf("accept1: %v", err)
 	}
-	it2, err := intentSvc.Create(context.Background(), worker, d.ID, service.CreateIntentInput{
+	if _, err := intentSvc.Create(context.Background(), worker, d.ID, service.CreateIntentInput{
 		IntentorName: "飞手小张", Contact: "13900000000",
-	})
-	if err != nil {
-		t.Fatalf("intent2: %v", err)
+	}); err == nil {
+		t.Fatal("assigned demand should reject new intents")
 	}
-	if _, err := orderSvc.AcceptIntent(context.Background(), pub, d.ID, it2.ID, 200000); err != nil {
-		t.Fatalf("accept2: %v", err)
+	if _, err := orderSvc.AcceptIntent(context.Background(), pub, d.ID, it.ID, 200000); err == nil {
+		t.Fatal("assigned demand should reject re-accept")
 	}
 
 	mine, err := orderSvc.ListMine(context.Background(), pub)
-	if err != nil || len(mine) != 2 {
+	if err != nil || len(mine) != 1 {
 		t.Fatalf("publisher mine: %d %v", len(mine), err)
 	}
 	mine2, err := orderSvc.ListMine(context.Background(), worker)
-	if err != nil || len(mine2) != 2 {
+	if err != nil || len(mine2) != 1 {
 		t.Fatalf("worker mine: %d %v", len(mine2), err)
 	}
 	// 无关用户看不到订单

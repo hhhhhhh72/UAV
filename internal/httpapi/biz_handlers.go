@@ -1097,9 +1097,11 @@ func isAdminRequest(r *http.Request) bool {
 	return ok && (a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin)
 }
 
-// isNonPublicStatus 非公开状态：待审核/草稿/已下架（与各公开列表过滤一致）。
+// isNonPublicStatus 非公开状态：待审核/草稿/已下架。
+// closed（报名已截止）与 full（已满）是"可见但不可报"，不由此处隐藏
+// （此前把 closed 一并隐藏，用户端列表/详情/报名全部 404，前端"报名已截止"分支成为死代码）。
 func isNonPublicStatus(s string) bool {
-	return s == "pending" || s == "draft" || s == "closed"
+	return s == "pending" || s == "draft"
 }
 
 func (s *Server) listCompetitions(w http.ResponseWriter, r *http.Request) {
@@ -1341,13 +1343,21 @@ func (s *Server) registerCompetition(w http.ResponseWriter, r *http.Request) {
 // ---- Events ----
 
 // GET /api/v1/events?page=1&page_size=10
+// listEvents 公开列表：仅 published/ongoing（cancelled/ended/draft 不展示——
+// 此前全量直出，已结束/已取消活动仍出现在公开列表，与报名门禁不一致）。
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.eventSvc.List(r.Context(), 1, 100000)
+	items, _, err := s.eventSvc.List(r.Context(), 1, 100000)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	out := make([]domain.AssociationEvent, 0, len(items))
+	for _, e := range items {
+		if e.Status == "published" || e.Status == "ongoing" {
+			out = append(out, e)
+		}
+	}
+	paginatedRespond(w, r, out, len(out))
 }
 
 // POST /api/v1/admin/events

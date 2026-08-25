@@ -195,10 +195,18 @@ func TestSystematicDoublePaginationFixed(t *testing.T) {
 
 	// 13. certified pilots：个人注册（不同用户）→ 管理员审批 → 公开名录翻页
 	for i := 0; i < n; i++ {
+		// 新规则：申请飞手需至少一张已通过且未过期的证书
+		cid := createVia(t, app, http.MethodPost, "/api/v1/certificates",
+			[]byte(fmt.Sprintf(`{"cert_type":"caac","cert_number":"PAG-CERT-%d","level":"III","issuer_org":"民航局","expire_date":"2028-01-01T00:00:00Z"}`, i)),
+			fmt.Sprintf("worker-%d", i), domain.RoleIndividual)
+		w := requestAs(t, app, http.MethodPost, "/api/v1/admin/certificates/"+cid+"/approve", nil, admin, adminRole)
+		if w.Code != http.StatusOK {
+			t.Fatalf("approve cert %s: %d %s", cid, w.Code, w.Body.String())
+		}
 		id := createVia(t, app, http.MethodPost, "/api/v1/certified-pilots",
 			[]byte(fmt.Sprintf(`{"real_name":"飞手%d","id_card":"51010719900101%04d"}`, i, i)),
 			fmt.Sprintf("worker-%d", i), domain.RoleIndividual)
-		w := requestAs(t, app, http.MethodPost, "/api/v1/admin/certified-pilots/"+id+"/approve", nil, admin, adminRole)
+		w = requestAs(t, app, http.MethodPost, "/api/v1/admin/certified-pilots/"+id+"/approve", nil, admin, adminRole)
 		if w.Code != http.StatusOK {
 			t.Fatalf("approve pilot %s: %d %s", id, w.Code, w.Body.String())
 		}

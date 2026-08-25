@@ -162,6 +162,10 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 				fail(w, r, http.StatusInternalServerError, fmt.Errorf("issue certificate: %w", err))
 				return
 			}
+			// 完成即认可：系统签发的证书直接批准（否则长期 pending 不作为有效资质）
+			if ap, aerr := s.trainingSvc.ApproveCertificate(r.Context(), a, cert.ID); aerr == nil {
+				cert = ap
+			}
 		}
 		s.audit(r.Context(), a.ID, "complete_enrollment", "enrollment", enrollment.ID, "completed(retry)")
 		respond(w, r, http.StatusOK, map[string]any{
@@ -210,6 +214,10 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		s.audit(r.Context(), a.ID, "complete_enrollment_cert_failed", "enrollment", enrollment.ID, err.Error())
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("issue certificate: %w", err))
 		return
+	}
+	// 完成即认可：系统签发的证书直接批准（否则长期 pending 不作为有效资质）
+	if ap, aerr := s.trainingSvc.ApproveCertificate(r.Context(), a, cert.ID); aerr == nil {
+		cert = ap
 	}
 	_ = released
 

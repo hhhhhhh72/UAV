@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -1366,6 +1367,12 @@ func (s *Server) getCollege(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, err)
 		return
 	}
+	// 公开详情不得绕开列表的 active 过滤（此前任意状态可直读，下架/草稿
+	// 院校仅通过 id 即可访问）。
+	if _, isAdmin := authenticatedActor(r); !isAdmin && c.Status != "active" {
+		fail(w, r, 404, errors.New("college not found"))
+		return
+	}
 	respond(w, r, 200, c)
 }
 
@@ -1382,6 +1389,11 @@ func (s *Server) getEvent(w http.ResponseWriter, r *http.Request) {
 	e, err := s.eventSvc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, 404, err)
+		return
+	}
+	// 公开详情与列表一致：仅 published/ongoing（管理端另行列表过滤）。
+	if _, isAdmin := authenticatedActor(r); !isAdmin && e.Status != "published" && e.Status != "ongoing" {
+		fail(w, r, 404, errors.New("event not found"))
 		return
 	}
 	respond(w, r, 200, e)
@@ -1553,8 +1565,18 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 		adminFail(w, r, fmt.Errorf("product not found: %w", err))
 		return
 	}
+	// 下单占位：管理端建单同样标记商品 sold——此前不占位，同一商品可被反复下单（一物多卖）。
+	if product.Status == "" || product.Status == "listed" {
+		if err := s.tradingSvc.MarkProductSold(r.Context(), product.ID); err != nil {
+			adminFail(w, r, fmt.Errorf("product not available: %w", err))
+			return
+		}
+	}
 	o, err := s.tradeSvc.Create(r.Context(), in.BuyerID, in.ProductID, product.SellerID, product.PriceFen)
 	if err != nil {
+		if rerr := s.tradingSvc.RestoreProduct(r.Context(), product.ID); rerr != nil {
+			slog.Error("restore product after admin order failed", "product_id", product.ID, "error", rerr)
+		}
 		adminFail(w, r, err)
 		return
 	}

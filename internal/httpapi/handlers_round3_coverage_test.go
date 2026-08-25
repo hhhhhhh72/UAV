@@ -136,7 +136,7 @@ func TestRound3Batch1(t *testing.T) {
 
 	// 展会
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/exhibitions",
-		`{"title":"round3低空经济博览会","category":"展销","location":"重庆","booth_count":100}`, adminTok)
+		`{"title":"round3低空经济博览会","category":"展销","location":"重庆","booth_count":100,"status":"recruiting"}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/exhibitions", w, http.StatusCreated)
 	expoID := dataID(t, w)
 

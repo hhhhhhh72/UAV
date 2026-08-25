@@ -214,6 +214,16 @@ func (r *courseRepo) Delete(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM training_courses WHERE id=$1`, id)
 	return err
 }
+func (r *courseRepo) BumpEnrolled(ctx context.Context, id string, delta int) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE training_courses SET enrolled_count = GREATEST(0, enrolled_count + $2),
+		 remain = GREATEST(0, max_students - (enrolled_count + $2)), updated_at = NOW() WHERE id=$1`,
+		id, delta)
+	if err != nil {
+		return fmt.Errorf("bump enrolled %s: %w", id, err)
+	}
+	return nil
+}
 
 // ---- Course Favorites ----
 

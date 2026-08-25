@@ -79,14 +79,19 @@ func TestCompetitionEnterpriseReviewFlow(t *testing.T) {
 		t.Fatal("approved competition should be public")
 	}
 
-	// 管理端关闭（closed）→ 不再公开
+	// 管理端关闭（closed）→ 仍公开可见（报名已截止状态展示），但不可报名
 	cl := request(t, app, http.MethodPut, "/api/v1/admin/competitions/"+created.Data.ID,
 		[]byte(`{"title":"2026企业杯无人机大赛","status":"closed"}`), domain.RolePlatformAdmin)
 	if cl.Code != http.StatusOK {
 		t.Fatalf("admin close: %d %s", cl.Code, cl.Body.String())
 	}
 	w = request(t, app, http.MethodGet, "/api/v1/competitions", nil, "")
-	if strings.Contains(w.Body.String(), created.Data.ID) {
-		t.Fatal("closed competition must not be public")
+	if !strings.Contains(w.Body.String(), created.Data.ID) {
+		t.Fatal("closed competition should be visible (报名已截止), but hidden")
+	}
+	rw2 := request(t, app, http.MethodPost, "/api/v1/competitions/"+created.Data.ID+"/register",
+		[]byte(`{"team_name":"测试队","name":"张三","phone":"13800000000"}`), domain.RoleIndividual)
+	if rw2.Code != http.StatusNotFound && rw2.Code != http.StatusConflict {
+		t.Fatalf("register closed competition: want 404/409, got %d", rw2.Code)
 	}
 }

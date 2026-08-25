@@ -100,13 +100,19 @@ func (s *VenueService) Book(ctx context.Context, venueID, userID string, start, 
 	if !end.After(start) {
 		return domain.VenueBooking{}, errors.New("结束时间必须晚于开始时间")
 	}
-	// Check for time-slot conflicts.
+	// 场地存在校验：防对幽灵场地造预约
+	if _, err := s.repo.FindByID(ctx, venueID); err != nil {
+		return domain.VenueBooking{}, fmt.Errorf("场地不存在")
+	}
+	// 冲突判定：未取消预约（booked/pending）均占位 + 站点锁串行化 check-then-insert
+	unlock := lockByKey("venue-book|" + venueID)
+	defer unlock()
 	bookings, err := s.repo.ListBookings(ctx, venueID)
 	if err != nil {
 		return domain.VenueBooking{}, err
 	}
 	for _, b := range bookings {
-		if b.Status == "booked" && !(end.Before(b.StartTime) || start.After(b.EndTime)) {
+		if (b.Status == "booked" || b.Status == "pending") && !(end.Before(b.StartTime) || start.After(b.EndTime)) {
 			return domain.VenueBooking{}, fmt.Errorf("time slot conflicted")
 		}
 	}

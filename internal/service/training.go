@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -15,6 +16,19 @@ type TrainingService struct {
 	courseRepo     repository.CourseRepository
 	instructorRepo repository.InstructorRepository
 	pilotRepo      repository.PilotRepository
+}
+
+// certValid 有效证书：状态 approved，且未过期（expire_date 未设置视为长期有效，
+// 仅显式过期日期判断）——过期证书不参与飞手/导师认证关联与公开名录
+// （此前只判断 status，过期证书被当作有效资质）。
+func certValid(c domain.Certificate) bool {
+	if c.Status != "approved" {
+		return false
+	}
+	if c.ExpireDate.IsZero() {
+		return true
+	}
+	return c.ExpireDate.After(time.Now())
 }
 
 func NewTrainingService(cr repository.CertificateRepository, cor repository.CourseRepository, ir repository.InstructorRepository, pr repository.PilotRepository) *TrainingService {
@@ -102,6 +116,11 @@ func (s *TrainingService) UpdateCertificate(ctx context.Context, id, certType, c
 	c, err := s.certRepo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Certificate{}, err
+	}
+	// 幂等锚点保护：auto- 前缀证书号为系统签发（completeEnrollment 以
+	// auto-<报名ID> 判定"是否已发证"），改号会破坏锚点导致重复发证。
+	if strings.HasPrefix(c.CertNumber, "auto-") && certNumber != c.CertNumber {
+		return domain.Certificate{}, errors.New("系统签发证书号不可修改")
 	}
 	c.CertType = domain.CertType(certType)
 	c.CertNumber = certNumber
@@ -228,14 +247,20 @@ func (s *TrainingService) ListInstructors(ctx context.Context) ([]domain.Instruc
 // ---- Certified Pilots ----
 
 func (s *TrainingService) RegisterPilot(ctx context.Context, a domain.Actor, realName, idCard string, flightHours int, bio, avatar, region string) (domain.CertifiedPilot, error) {
-	// 自动关联已认证证书（审核管线 approved 状态，无手动勾选/造假空间）
+	// 自动关联有效证书：仅"approved 且未过期"计入（此前只看 approved，
+	// 过期证书仍被当作有效资质，持过期证书者可获"已认证飞手"身份）。
 	certIDs := []string{}
 	if certs, err := s.certRepo.ListByUser(ctx, a.ID); err == nil {
 		for _, c := range certs {
-			if c.Status == "approved" {
+			if certValid(c) {
 				certIDs = append(certIDs, c.ID)
 			}
 		}
+	}
+	// 审批门禁：至少持有一张未过期 approved 证书，否则不批准。
+	// 实现为申请校验：无有效证书直接拒绝申请（与"无证不批"同效）。
+	if len(certIDs) == 0 {
+		return domain.CertifiedPilot{}, errors.New("需要至少一张未过期的有效证书才能申请飞手认证")
 	}
 	now := time.Now()
 	// 已有记录：approved/pending 拒绝重复申请；rejected 覆盖重提（重置为 pending）
@@ -305,7 +330,7 @@ func (s *TrainingService) GetPilotDetail(ctx context.Context, id string) (domain
 	}
 	d := domain.CertifiedPilotDetail{CertifiedPilot: p}
 	for _, c := range certs {
-		if c.UserID != p.UserID || c.Status != "approved" {
+		if c.UserID != p.UserID || !certValid(c) {
 			continue
 		}
 		d.Certificates = append(d.Certificates, domain.CertificateBrief{
@@ -355,7 +380,7 @@ func (s *TrainingService) attachCertificates(ctx context.Context, pilots []domai
 	for _, p := range pilots {
 		d := domain.CertifiedPilotDetail{CertifiedPilot: p}
 		for _, c := range byUser[p.UserID] {
-			if c.Status != "approved" {
+			if !certValid(c) {
 				continue
 			}
 			d.Certificates = append(d.Certificates, domain.CertificateBrief{

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -57,9 +58,38 @@ func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, dem
 		return domain.WorkOrder{}, errors.New("该意向已处理")
 	}
 
-	// 确认接单：本意向 → contacted，其余意向 → closed
-	if _, err := s.intents.UpdateStatus(ctx, it.ID, "contacted"); err != nil {
+	// 接单顺序反转（补偿式"事务"）：先建工单，成功后再落意向状态——
+	// 此前先置 contacted/closed 再建单，建单失败会留下"无工单的 contacted 意向 +
+	// 其余意向全关"的卡死状态，且意向无回退路径。
+	now := time.Now()
+	wo := domain.WorkOrder{
+		ID:            fmt.Sprintf("wo-%d-%d", now.UnixNano(), nextSeq()),
+		OrderNo:       fmt.Sprintf("WO%d%06d%04d", now.Year()%100, now.Unix()%1000000, rand.Intn(10000)), // 同秒碰撞修复
+		DemandID:      demandID,
+		IntentID:      it.ID, // B 批：唯一约束防并发双建单
+		PublisherID:   d.PublisherID,
+		PublisherName: d.PublisherName,
+		WorkerID:      it.IntentorID,
+		WorkerName:    it.IntentorName,
+		AmountFen:     amountFen,
+		Status:        domain.WorkOrderPending,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if _, err := s.orders.Create(ctx, wo); err != nil {
 		return domain.WorkOrder{}, err
+	}
+	if _, err := s.intents.UpdateStatus(ctx, it.ID, "contacted"); err != nil {
+		// 补偿：工单无 Delete 接口，终止为 cancelled（防"无工单的 contacted 意向"卡死）。
+		if _, derr := s.orders.UpdateStatus(ctx, wo.ID, domain.WorkOrderPending, domain.WorkOrderCancelled); derr != nil {
+			slog.Warn("accept intent: cancel compensating order failed", "order_id", wo.ID, "error", derr)
+		}
+		return domain.WorkOrder{}, err
+	}
+	// 需求联动：published → assigned（锁新意向/接单——此前永不联动，
+	// 同一需求可被反复接单生成多张工单）。
+	if _, _, cerr := s.demands.CompareAndSetStatus(ctx, demandID, domain.DemandPublished, domain.DemandAssigned); cerr != nil {
+		slog.Warn("accept intent: link demand to assigned failed", "demand_id", demandID, "error", cerr)
 	}
 	// 其余意向关闭失败不阻断接单，但必须记录审计，避免残留多条 pending+已接受意向无提示
 	others, err := s.intents.ListByDemand(ctx, demandID)
@@ -74,23 +104,7 @@ func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, dem
 			}
 		}
 	}
-
-	now := time.Now()
-	wo := domain.WorkOrder{
-		ID:            fmt.Sprintf("wo-%d-%d", now.UnixNano(), nextSeq()),
-		OrderNo:       fmt.Sprintf("WO%d%06d", now.Year()%100, now.Unix()%1000000),
-		DemandID:      demandID,
-		IntentID:      it.ID, // B 批：唯一约束防并发双建单
-		PublisherID:   d.PublisherID,
-		PublisherName: d.PublisherName,
-		WorkerID:      it.IntentorID,
-		WorkerName:    it.IntentorName,
-		AmountFen:     amountFen,
-		Status:        domain.WorkOrderPending,
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	}
-	return s.orders.Create(ctx, wo)
+	return wo, nil
 }
 
 // RejectIntent 企业拒绝接单：意向 → closed。
@@ -165,7 +179,16 @@ func (s *WorkOrderService) AcceptCompletion(ctx context.Context, a domain.Actor,
 	if wo.Status != domain.WorkOrderAwaitingAccept {
 		return domain.WorkOrder{}, errors.New("订单状态不允许验收")
 	}
-	return s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderCompleted)
+	updated, err := s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderCompleted)
+	if err != nil {
+		return domain.WorkOrder{}, err
+	}
+	// 需求联动：assigned → completed（验收通过即需求完结——此前验收不联动，
+	// 需求长期暴露 published 可继续接单）。
+	if _, _, cerr := s.demands.CompareAndSetStatus(ctx, wo.DemandID, domain.DemandAssigned, domain.DemandCompleted); cerr != nil {
+		slog.Warn("accept completion: link demand to completed failed", "demand_id", wo.DemandID, "error", cerr)
+	}
+	return updated, nil
 }
 
 // RequestRework 企业提出整改：awaiting_accept → ongoing，记录整改要求。

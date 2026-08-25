@@ -257,6 +257,9 @@ type CourseRepository interface {
 	FindByID(ctx context.Context, id string) (domain.TrainingCourse, error)
 	Update(ctx context.Context, v domain.TrainingCourse) (domain.TrainingCourse, error)
 	Delete(ctx context.Context, id string) error
+	// BumpEnrolled 报名数增减：同步维护 enrolled_count 与 remain
+	//（remain = GREATEST(0, max_students - enrolled_count)），避免前端名额展示失真。
+	BumpEnrolled(ctx context.Context, id string, delta int) error
 	// FavoriteCourse/UnfavoriteCourse/ListFavoriteCourses 培训课程收藏（我的收藏列表）。
 	FavoriteCourse(ctx context.Context, userID, courseID string) error
 	UnfavoriteCourse(ctx context.Context, userID, courseID string) error
@@ -623,6 +626,8 @@ type TestSiteRepository interface {
 	FindByID(ctx context.Context, id string) (domain.TestSite, error)
 	List(ctx context.Context, siteType string) ([]domain.TestSite, error)
 	CreateBooking(ctx context.Context, v domain.TestSiteBooking) (domain.TestSiteBooking, error)
+	// FindBookingByID 单查预约（审批复查冲突用）。
+	FindBookingByID(ctx context.Context, id string) (domain.TestSiteBooking, error)
 	UpdateBookingStatus(ctx context.Context, id, status, note string) (domain.TestSiteBooking, error)
 	UpdateSite(ctx context.Context, v domain.TestSite) (domain.TestSite, error)
 	DeleteSite(ctx context.Context, id string) error

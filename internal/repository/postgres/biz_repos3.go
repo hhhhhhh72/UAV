@@ -151,8 +151,15 @@ func (r *compRepo) CreateReg(ctx context.Context, reg domain.CompetitionReg) (do
 		r.decRegPII(&reg)
 		return domain.CompetitionReg{}, fmt.Errorf("insert reg: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE competitions SET reg_count = reg_count + 1 WHERE id=$1`, reg.CompetitionID); err != nil {
+	// 容量原子占位：仅当未达上限时 reg_count+1；0 行受影响 = 已满，回滚报名。
+	tag, err := tx.Exec(ctx, `UPDATE competitions SET reg_count = reg_count + 1 WHERE id=$1 AND (max_teams <= 0 OR reg_count < max_teams)`, reg.CompetitionID)
+	if err != nil {
+		r.decRegPII(&reg)
 		return domain.CompetitionReg{}, fmt.Errorf("bump competition reg_count: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		r.decRegPII(&reg)
+		return domain.CompetitionReg{}, fmt.Errorf("competition is full")
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.CompetitionReg{}, fmt.Errorf("commit reg tx: %w", err)
@@ -253,8 +260,13 @@ func (r *eventRepo) CreateReg(ctx context.Context, reg domain.EventRegistration)
 		}
 		return domain.EventRegistration{}, fmt.Errorf("insert event reg: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE association_events SET reg_count = reg_count + 1 WHERE id=$1`, reg.EventID); err != nil {
+	// 容量原子占位：仅当未达上限时 reg_count+1；0 行受影响 = 已满，回滚报名。
+	tag, err := tx.Exec(ctx, `UPDATE association_events SET reg_count = reg_count + 1 WHERE id=$1 AND (max_attendees <= 0 OR reg_count < max_attendees)`, reg.EventID)
+	if err != nil {
 		return domain.EventRegistration{}, fmt.Errorf("bump event reg_count: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.EventRegistration{}, fmt.Errorf("event is full")
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.EventRegistration{}, fmt.Errorf("commit reg tx: %w", err)

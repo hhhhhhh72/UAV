@@ -307,6 +307,12 @@ func (s *Server) applyBooth(w http.ResponseWriter, r *http.Request) {
 	}
 	b, err := s.exhibitionSvc.ApplyBooth(r.Context(), r.PathValue("id"), a.ID, in.BoothNumber, in.ExhibitName, in.ExhibitDesc)
 	if err != nil {
+		// 业务校验错误（展会未开放/展位已满/重复申请/占号）→ 409；其余 500
+		if strings.Contains(err.Error(), "未开放") || strings.Contains(err.Error(), "已满") ||
+			strings.Contains(err.Error(), "已申请") || strings.Contains(err.Error(), "已被占用") {
+			fail(w, r, http.StatusConflict, err)
+			return
+		}
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
