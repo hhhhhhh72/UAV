@@ -45,6 +45,8 @@ func (r *poolRepo) List(ctx context.Context, poolType string) ([]domain.Resource
 			out = append(out, p)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *poolRepo) AddMember(ctx context.Context, m domain.ResourcePoolMember) (domain.ResourcePoolMember, error) {
@@ -62,6 +64,8 @@ func (r *poolRepo) ListMembers(ctx context.Context, poolID string) ([]domain.Res
 			out = append(out, m)
 		}
 	}
+	// 与 PG 对齐：ORDER BY joined_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].JoinedAt.After(out[j].JoinedAt) })
 	return out, nil
 }
 
@@ -99,6 +103,8 @@ func (r *testSiteRepo) List(ctx context.Context, siteType string) ([]domain.Test
 			out = append(out, ts)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *testSiteRepo) CreateBooking(ctx context.Context, b domain.TestSiteBooking) (domain.TestSiteBooking, error) {
@@ -138,6 +144,8 @@ func (r *testSiteRepo) ListBookings(ctx context.Context, siteID string) ([]domai
 			out = append(out, b)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -159,6 +167,8 @@ func (r *testSiteRepo) ListAllBookings(ctx context.Context, offset, limit int) (
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	items := append([]domain.TestSiteBooking(nil), r.bookings...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	total := len(items)
 	if offset > total {
 		return []domain.TestSiteBooking{}, total, nil
@@ -278,6 +288,8 @@ func (r *exhibitionRepo) ListBooths(ctx context.Context, exhibitionID string) ([
 			out = append(out, b)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *exhibitionRepo) UpdateBoothStatus(ctx context.Context, id, status string) (domain.ExhibitionBooth, error) {

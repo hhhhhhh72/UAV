@@ -239,7 +239,11 @@ func (r *demandRepo) SetStatus(ctx context.Context, id string, status domain.Dem
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == id {
+			// 与 PG 版对齐：状态变更同时 version+1、updated_at 刷新（否则旧版本号
+			// 的乐观锁 Update 在 dev 放行、prod 报"已被他人修改"，行为漂移）。
 			r.items[i].Status = status
+			r.items[i].UpdatedAt = time.Now()
+			r.items[i].Version++
 			item := r.items[i] // copy
 			r.decrypt(&item)   // decrypt on copy, do not mutate storage
 			return item, nil
@@ -410,6 +414,8 @@ func (r *enterpriseRepo) Pending(ctx context.Context) ([]domain.Enterprise, erro
 			out = append(out, e)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -444,6 +450,7 @@ func (r *enterpriseRepo) Update(ctx context.Context, id string, e domain.Enterpr
 				return domain.Enterprise{}, err
 			}
 			e.Version++
+			e.UpdatedAt = time.Now()
 			r.items[i] = e
 			return e, nil
 		}
@@ -486,6 +493,8 @@ func (r *enterpriseRepo) ListByStatus(ctx context.Context, status string, offset
 			filtered = append(filtered, e)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	total := len(filtered)
 	if offset > len(filtered) {
 		return nil, total, nil
@@ -583,6 +592,8 @@ func (r *employmentRepo) ListByEnterprise(ctx context.Context, eid string, offse
 			filtered = append(filtered, v)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -590,7 +601,10 @@ func (r *employmentRepo) ListByEnterprise(ctx context.Context, eid string, offse
 func (r *employmentRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.EmploymentRequest, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	page, total, _ := paginateSlice(r.items, offset, limit)
+	items := append([]domain.EmploymentRequest(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	page, total, _ := paginateSlice(items, offset, limit)
 	return append([]domain.EmploymentRequest(nil), page...), total, nil
 }
 
@@ -657,6 +671,8 @@ func (r *jobRepo) ListPublished(ctx context.Context, offset, limit int) ([]domai
 			filtered = append(filtered, j)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	total := len(filtered)
 	if offset > total {
 		return nil, total, nil
@@ -671,6 +687,7 @@ func (r *jobRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Job,
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	items := append([]domain.Job(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	total := len(items)
 	if offset > total {
 		return nil, total, nil
@@ -749,7 +766,9 @@ func (r *resumeRepo) ListByUser(ctx context.Context, userID string) ([]domain.Re
 func (r *resumeRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Resume, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.items, offset, limit)
+	items := append([]domain.Resume(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return paginateSlice(items, offset, limit)
 }
 
 // ListByIDs 批量按 ID 取简历（ListApplicantsForJob 防 N+1）。
@@ -804,6 +823,8 @@ func (r *applicationRepo) UpdateStatus(ctx context.Context, id string, status do
 	for i := range r.items {
 		if r.items[i].ID == id {
 			r.items[i].Status = status
+			r.items[i].UpdatedAt = time.Now()
+			r.items[i].Version++
 			return r.items[i], nil
 		}
 	}
@@ -818,6 +839,8 @@ func (r *applicationRepo) ListByJob(ctx context.Context, jobID string) ([]domain
 			out = append(out, a)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *applicationRepo) ListByApplicant(ctx context.Context, userID string) ([]domain.JobApplication, error) {
@@ -829,6 +852,8 @@ func (r *applicationRepo) ListByApplicant(ctx context.Context, userID string) ([
 			out = append(out, a)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -852,6 +877,8 @@ func (r *postRepo) Update(ctx context.Context, id string, p domain.Post) (domain
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == id {
+			p.UpdatedAt = time.Now()
+			p.Version = r.items[i].Version + 1
 			r.items[i] = p
 			return p, nil
 		}
@@ -877,6 +904,8 @@ func (r *postRepo) ListPublished(ctx context.Context, offset, limit int) ([]doma
 			f = append(f, p)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(f, func(i, j int) bool { return f[i].CreatedAt.After(f[j].CreatedAt) })
 	t := len(f)
 	if offset > t {
 		return nil, t, nil
@@ -940,6 +969,8 @@ func (r *commentRepo) ListByPost(ctx context.Context, postID string) ([]domain.C
 			out = append(out, c)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at ASC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -965,6 +996,8 @@ func (r *reportRepo) ListPending(ctx context.Context, offset, limit int) ([]doma
 			f = append(f, rp)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(f, func(i, j int) bool { return f[i].CreatedAt.After(f[j].CreatedAt) })
 	t := len(f)
 	if offset > t {
 		return nil, t, nil
@@ -999,6 +1032,8 @@ func (r *listingRepo) Update(ctx context.Context, id string, l domain.Listing) (
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == id {
+			l.UpdatedAt = time.Now()
+			l.Version = r.items[i].Version + 1
 			r.items[i] = l
 			return l, nil
 		}
@@ -1024,6 +1059,8 @@ func (r *listingRepo) ListByStatus(ctx context.Context, status string, offset, l
 			f = append(f, l)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(f, func(i, j int) bool { return f[i].CreatedAt.After(f[j].CreatedAt) })
 	t := len(f)
 	if offset > t {
 		return nil, t, nil
@@ -1109,7 +1146,10 @@ func (r *labourOrderRepo) ListByEmployer(ctx context.Context, uid string) ([]dom
 func (r *labourOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.LabourOrder, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	t := len(r.orders)
+	orders := append([]domain.LabourOrder(nil), r.orders...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(orders, func(i, j int) bool { return orders[i].CreatedAt.After(orders[j].CreatedAt) })
+	t := len(orders)
 	if offset > t {
 		return nil, t, nil
 	}
@@ -1117,7 +1157,7 @@ func (r *labourOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]dom
 	if e > t {
 		e = t
 	}
-	return r.orders[offset:e], t, nil
+	return orders[offset:e], t, nil
 }
 func (r *labourOrderRepo) CreateQuote(ctx context.Context, q domain.LabourQuote) (domain.LabourQuote, error) {
 	r.mu.Lock()
@@ -1134,6 +1174,8 @@ func (r *labourOrderRepo) ListQuotes(ctx context.Context, orderID string) ([]dom
 			out = append(out, q)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at ASC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *labourOrderRepo) CreateAssignment(ctx context.Context, a domain.Assignment) (domain.Assignment, error) {
@@ -1152,6 +1194,8 @@ func (r *labourOrderRepo) ListAssignmentsByOrder(ctx context.Context, orderID st
 			out = append(out, a)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -1164,6 +1208,8 @@ func (r *labourOrderRepo) ListAssignmentsByWorker(ctx context.Context, workerID 
 			out = append(out, a)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -1204,6 +1250,16 @@ func (r *memUserRepo) Create(ctx context.Context, u domain.User) (domain.User, e
 	// 与 PG 对齐：role 缺省为 individual（PG users.role 默认值）。
 	if u.Role == "" {
 		u.Role = domain.RoleIndividual
+	}
+	// 与 PG 唯一约束对齐：id/wechat_openid 重复在 dev 也拦截（空 openid 撞唯一索引
+	// 这类问题 CLAUDE.md 有记录——dev 必须同样暴露）。
+	for _, v := range r.items {
+		if v.ID == u.ID {
+			return domain.User{}, fmt.Errorf("用户已存在：%s", u.ID)
+		}
+		if u.WechatOpenID != "" && v.WechatOpenID == u.WechatOpenID {
+			return domain.User{}, fmt.Errorf("微信 openid 已被绑定")
+		}
 	}
 	r.items = append(r.items, u)
 	return u, nil
@@ -1403,6 +1459,8 @@ func (r *contractTplRepo) List(ctx context.Context) ([]domain.ContractTemplate, 
 			out = append(out, t)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at ASC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -1429,6 +1487,8 @@ func (r *contractRepo) ListByEnterprise(ctx context.Context, eid string, offset,
 			filtered = append(filtered, v)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -1436,7 +1496,9 @@ func (r *contractRepo) ListByEnterprise(ctx context.Context, eid string, offset,
 func (r *contractRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Contract, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	page, total, _ := paginateSlice(r.items, offset, limit)
+	items := append([]domain.Contract(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	page, total, _ := paginateSlice(items, offset, limit)
 	return append([]domain.Contract(nil), page...), total, nil
 }
 
@@ -1499,6 +1561,8 @@ func (r *intentRepo) ListByDemand(ctx context.Context, demandID string) ([]domai
 			out = append(out, it)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -1511,6 +1575,8 @@ func (r *intentRepo) ListByIntentor(ctx context.Context, intentorID string) ([]d
 			out = append(out, it)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -1705,6 +1771,8 @@ func (r *certRepo) ListByUser(ctx context.Context, userID string) ([]domain.Cert
 			out = append(out, c)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *certRepo) UpdateStatus(ctx context.Context, id string, status string) (domain.Certificate, error) {
@@ -2003,12 +2071,14 @@ func (r *pilotRepo) ListApproved(ctx context.Context, keyword string, offset, li
 		if p.Status != "approved" {
 			continue
 		}
-		if keyword != "" && !strings.Contains(p.RealName, keyword) {
+		if keyword != "" && !strings.Contains(strings.ToLower(p.RealName), strings.ToLower(strings.TrimSpace(keyword))) {
 			continue
 		}
 		r.decryptInPlace(&p)
 		filtered = append(filtered, p)
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	total := len(filtered)
 	if offset > total {
 		return nil, total, nil
@@ -2234,7 +2304,8 @@ func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]d
 	defer r.mu.RUnlock()
 	out := make([]domain.DroneProduct, 0, limit)
 	for _, p := range r.items {
-		if p.Status != "" && p.Status != "listed" {
+		// 与 PG WHERE status='listed' 对齐：空状态商品不算可售（dev 此前放行空状态）。
+		if p.Status != "listed" {
 			continue
 		}
 		if prodType != "" && string(p.ProdType) != prodType {
@@ -2311,7 +2382,10 @@ func (r *slrRepo) FindByID(ctx context.Context, id string) (domain.ServiceListin
 func (r *slrRepo) List(ctx context.Context) ([]domain.ServiceListing, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]domain.ServiceListing(nil), r.items...), nil
+	out := append([]domain.ServiceListing(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
 }
 
 func (r *slrRepo) Update(ctx context.Context, sl domain.ServiceListing) (domain.ServiceListing, error) {
@@ -2442,12 +2516,16 @@ func (r *policyRepo) ListByUser(ctx context.Context, userID string) ([]domain.In
 			out = append(out, p)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *policyRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.InsurancePolicy, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.items, offset, limit)
+	items := append([]domain.InsurancePolicy(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return paginateSlice(items, offset, limit)
 }
 
 // ---- Inspection ----
@@ -2474,12 +2552,17 @@ func (r *inspectRepo) ListByUser(ctx context.Context, userID string) ([]domain.A
 			out = append(out, i)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *inspectRepo) ListAll(ctx context.Context) ([]domain.AnnualInspection, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]domain.AnnualInspection(nil), r.items...), nil
+	out := append([]domain.AnnualInspection(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
 }
 
 // ---- Loan ----
@@ -2506,12 +2589,16 @@ func (r *loanRepo) ListByUser(ctx context.Context, userID string) ([]domain.Loan
 			out = append(out, l)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *loanRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.LoanApplication, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.items, offset, limit)
+	items := append([]domain.LoanApplication(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return paginateSlice(items, offset, limit)
 }
 
 // ---- Message ----
@@ -2582,7 +2669,10 @@ func (r *msgRepo) UnreadCount(ctx context.Context, userID string) (int, error) {
 func (r *msgRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Message, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	total := len(r.items)
+	items := append([]domain.Message(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	total := len(items)
 	if offset > total {
 		return nil, total, nil
 	}
@@ -2590,7 +2680,7 @@ func (r *msgRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Mess
 	if end > total {
 		end = total
 	}
-	return append([]domain.Message(nil), r.items[offset:end]...), total, nil
+	return append([]domain.Message(nil), items[offset:end]...), total, nil
 }
 
 func (r *msgRepo) Delete(ctx context.Context, id string) error {
@@ -2651,6 +2741,8 @@ func (r *articleRepo) ListByCategory(ctx context.Context, category string, offse
 		}
 		filtered = append(filtered, a)
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -2680,6 +2772,8 @@ func (r *reviewRepo) ListByTarget(ctx context.Context, targetType, targetID stri
 			out = append(out, rv)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error) {
@@ -2691,6 +2785,8 @@ func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit i
 			filtered = append(filtered, rv)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -2742,6 +2838,8 @@ func (r *venueRepo) List(ctx context.Context, venueType string) ([]domain.Venue,
 			out = append(out, v)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *venueRepo) FindByID(ctx context.Context, id string) (domain.Venue, error) {
@@ -2769,6 +2867,8 @@ func (r *venueRepo) ListBookings(ctx context.Context, venueID string) ([]domain.
 			out = append(out, b)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -2832,6 +2932,8 @@ func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domai
 			out = append(out, e)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -2845,12 +2947,16 @@ func (r *enrollRepo) ListByUser(ctx context.Context, userID string) ([]domain.En
 			out = append(out, e)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Enrollment, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	items := append([]domain.Enrollment(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	total := len(items)
 	if offset > total {
 		return []domain.Enrollment{}, total, nil
@@ -2934,7 +3040,9 @@ func (r *tradeOrderRepo) CompareAndSetStatus(ctx context.Context, id, oldStatus,
 			return true, r.items[i], nil
 		}
 	}
-	return false, domain.TradeOrder{}, fmt.Errorf("order %s not found", id)
+	// 与 PG 版对齐：不存在（已删除）返回 (false, nil)——调用方统一按"状态已变更"处理，
+	// 而不是走 error 分支（dev 与 prod 后续处理不一致）。
+	return false, domain.TradeOrder{}, nil
 }
 func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error) {
 	r.mu.Lock()
@@ -2964,12 +3072,17 @@ func (r *tradeOrderRepo) ListByUser(ctx context.Context, userID string) ([]domai
 			out = append(out, o)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *tradeOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.TradeOrder, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	total := len(r.items)
+	items := append([]domain.TradeOrder(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	total := len(items)
 	if offset > total {
 		return nil, total, nil
 	}
@@ -2977,7 +3090,7 @@ func (r *tradeOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]doma
 	if end > total {
 		end = total
 	}
-	return append([]domain.TradeOrder(nil), r.items[offset:end]...), total, nil
+	return append([]domain.TradeOrder(nil), items[offset:end]...), total, nil
 }
 func (r *tradeOrderRepo) ListFiltered(ctx context.Context, f repository.TradeOrderFilter) ([]domain.TradeOrder, int, error) {
 	r.mu.RLock()
@@ -2987,7 +3100,7 @@ func (r *tradeOrderRepo) ListFiltered(ctx context.Context, f repository.TradeOrd
 		if f.Status != "" && o.Status != f.Status {
 			continue
 		}
-		if f.Keyword != "" && !strings.Contains(o.ID, f.Keyword) {
+		if f.Keyword != "" && !strings.Contains(strings.ToLower(o.ID), strings.ToLower(strings.TrimSpace(f.Keyword))) {
 			continue
 		}
 		if f.StartDate != nil && o.CreatedAt.Before(*f.StartDate) {
@@ -2998,6 +3111,8 @@ func (r *tradeOrderRepo) ListFiltered(ctx context.Context, f repository.TradeOrd
 		}
 		out = append(out, o)
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	total := len(out)
 	if f.Offset > total {
 		return nil, total, nil
@@ -3124,6 +3239,8 @@ func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]dom
 			out = append(out, tx)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 

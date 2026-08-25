@@ -112,7 +112,12 @@ func TestConcurrent_BatchApprove(t *testing.T) {
 		t.Skip("skipping concurrency test in short mode")
 	}
 	repo := memory.NewEnterpriseRepository(nil)
-	svc := service.NewEnterpriseSvc(repo, memory.NewUserRepository(nil))
+	users := memory.NewUserRepository(nil)
+	// 审核通过需将属主升级为企业角色（升级失败会回滚审批），预置 200 个属主用户。
+	for i := 0; i < 200; i++ {
+		_, _ = users.Create(context.Background(), domain.User{ID: fmt.Sprintf("user-%d", i), Role: domain.RoleEnterprise, Status: "active"})
+	}
+	svc := service.NewEnterpriseSvc(repo, users)
 	admin := domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}
 
 	// Create and submit 200 enterprises

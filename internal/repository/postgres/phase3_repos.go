@@ -47,7 +47,7 @@ func (r *certRepo) FindByID(ctx context.Context, id string) (domain.Certificate,
 	var c domain.Certificate
 	var ct string
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,user_id,cert_type,cert_number,level,COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),issuer_org,COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE id=$1`, id).
+		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE id=$1`, id).
 		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	c.CertType = domain.CertType(ct)
 	return c, err
@@ -56,14 +56,14 @@ func (r *certRepo) FindByNumber(ctx context.Context, certNumber string) (domain.
 	var c domain.Certificate
 	var ct string
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,user_id,cert_type,cert_number,level,COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),issuer_org,COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE cert_number=$1 LIMIT 1`, certNumber).
+		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE cert_number=$1 LIMIT 1`, certNumber).
 		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	c.CertType = domain.CertType(ct)
 	return c, err
 }
 func (r *certRepo) ListByUser(ctx context.Context, userID string) ([]domain.Certificate, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,user_id,cert_type,cert_number,level,COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),issuer_org,COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list certificates: %w", err)
 	}
@@ -88,7 +88,7 @@ func (r *certRepo) UpdateStatus(ctx context.Context, id, status string) (domain.
 	return r.FindByID(ctx, id)
 }
 func (r *certRepo) ListAll(ctx context.Context) ([]domain.Certificate, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,user_id,cert_type,cert_number,level,COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),issuer_org,COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(ctx, `SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list all certificates: %w", err)
 	}
@@ -369,6 +369,8 @@ func (r *pilotRepo) dec(v string) string {
 		if d, err := r.cipher.Decrypt(v); err == nil {
 			return d
 		}
+		// 解密失败（密钥变更/数据损坏）绝不回传密文——置空而非泄露加密串。
+		return ""
 	}
 	return v
 }

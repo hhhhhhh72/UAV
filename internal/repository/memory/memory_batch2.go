@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -41,6 +42,8 @@ func (r *transRepo) List(ctx context.Context, ownerID string) ([]domain.Transfor
 			out = append(out, t)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *transRepo) Update(ctx context.Context, t domain.Transformation) (domain.Transformation, error) {
@@ -103,6 +106,8 @@ func (r *collegeRepo) List(ctx context.Context, region string) ([]domain.College
 			out = append(out, c)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -157,7 +162,10 @@ func (r *studyTourRepo) FindByID(ctx context.Context, id string) (domain.StudyTo
 func (r *studyTourRepo) List(ctx context.Context) ([]domain.StudyTour, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]domain.StudyTour(nil), r.items...), nil
+	out := append([]domain.StudyTour(nil), r.items...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
 }
 func (r *studyTourRepo) Update(ctx context.Context, s domain.StudyTour) (domain.StudyTour, error) {
 	r.mu.Lock()
@@ -213,6 +221,8 @@ func (r *coopRepo) List(ctx context.Context, enterpriseID string) ([]domain.Coop
 			out = append(out, cp)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *coopRepo) UpdateStatus(ctx context.Context, id, status string) (domain.CooperationProgram, error) {

@@ -119,11 +119,16 @@ func (r *compRepo) decRegPII(reg *domain.CompetitionReg) {
 	if reg.IDCard != "" {
 		if dec, err := r.cipher.Decrypt(reg.IDCard); err == nil {
 			reg.IDCard = dec
+		} else {
+			// 解密失败（密钥变更/数据损坏）绝不回传密文——置空而非泄露加密串。
+			reg.IDCard = ""
 		}
 	}
 	if reg.Phone != "" {
 		if dec, err := r.cipher.Decrypt(reg.Phone); err == nil {
 			reg.Phone = dec
+		} else {
+			reg.Phone = ""
 		}
 	}
 }
@@ -405,7 +410,7 @@ func (r *emergRepo) ListDispatches(ctx context.Context, resourceID string, offse
 	}
 	// LEFT JOIN 资源表：内嵌 related 摘要（资源可能已删除 → 保留调度记录，related 为空）
 	rows, err := r.pool.Query(ctx,
-		`SELECT d.id,d.resource_id,d.event_desc,d.location,d.start_time,d.end_time,d.commander,d.result,d.status,d.created_at,
+		`SELECT d.id,d.resource_id,d.event_desc,d.location,COALESCE(d.start_time,'1970-01-01 00:00:00+00'::timestamptz),d.end_time,d.commander,d.result,d.status,d.created_at,
 		        res.id,res.name,res.res_type,res.status
 		 FROM emergency_dispatches d
 		 LEFT JOIN emergency_resources res ON res.id = d.resource_id`+where+
@@ -440,7 +445,7 @@ func (r *emergRepo) DeleteResource(ctx context.Context, id string) error {
 func (r *emergRepo) FindDispatchByID(ctx context.Context, id string) (domain.EmergencyDispatch, error) {
 	var d domain.EmergencyDispatch
 	var endTime pgtype.Timestamptz
-	err := r.pool.QueryRow(ctx, "SELECT id,resource_id,event_desc,location,start_time,end_time,commander,result,status,created_at FROM emergency_dispatches WHERE id=$1", id).
+	err := r.pool.QueryRow(ctx, "SELECT id,resource_id,event_desc,location,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),end_time,commander,result,status,created_at FROM emergency_dispatches WHERE id=$1", id).
 		Scan(&d.ID, &d.ResourceID, &d.EventDesc, &d.Location, &d.StartTime, &endTime, &d.Commander, &d.Result, &d.Status, &d.CreatedAt)
 	d.EndTime = endTime.Time
 	return d, err

@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -51,6 +52,7 @@ func (r *rescueCaseRepo) List(ctx context.Context, eventType, q string, offset, 
 		}
 		filtered = append(filtered, rc)
 	}
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	return paginateSlice(filtered, offset, limit)
 }
 
@@ -80,7 +82,10 @@ func (r *emergDeptRepo) CreateDept(ctx context.Context, d domain.EmergencyDept) 
 func (r *emergDeptRepo) ListDepts(ctx context.Context) ([]domain.EmergencyDept, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]domain.EmergencyDept(nil), r.depts...), nil
+	out := append([]domain.EmergencyDept(nil), r.depts...)
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
 }
 func (r *emergDeptRepo) CreateDrill(ctx context.Context, d domain.EmergencyDrill) (domain.EmergencyDrill, error) {
 	r.mu.Lock()
@@ -97,6 +102,8 @@ func (r *emergDeptRepo) ListDrills(ctx context.Context, deptID string) ([]domain
 			out = append(out, d)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -133,6 +140,7 @@ func (r *assocMemberRepo) List(ctx context.Context, role string, offset, limit i
 			filtered = append(filtered, m)
 		}
 	}
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	return paginateSlice(filtered, offset, limit)
 }
 func (r *assocMemberRepo) UpdateRole(ctx context.Context, id string, role domain.AssociationRole) (domain.AssociationMember, error) {

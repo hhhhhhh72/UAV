@@ -92,8 +92,18 @@ func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, dem
 	}
 	// 需求联动：published → assigned（锁新意向/接单——此前永不联动，
 	// 同一需求可被反复接单生成多张工单）。
-	if _, _, cerr := s.demands.CompareAndSetStatus(ctx, demandID, domain.DemandPublished, domain.DemandAssigned); cerr != nil {
-		slog.Warn("accept intent: link demand to assigned failed", "demand_id", demandID, "error", cerr)
+	okLink, _, cerr := s.demands.CompareAndSetStatus(ctx, demandID, domain.DemandPublished, domain.DemandAssigned)
+	if cerr != nil || !okLink {
+		// 联动失败（并发接单/取消已发生）：本单不能基于"已变更需求"继续生效——
+		// 取消本单并把本意向回滚 pending，让发布者刷新后重试，防一需求多单。
+		slog.Warn("accept intent: link demand to assigned failed", "demand_id", demandID, "ok", okLink, "error", cerr)
+		if _, derr := s.orders.UpdateStatus(ctx, wo.ID, domain.WorkOrderPending, domain.WorkOrderCancelled); derr != nil {
+			slog.Warn("accept intent: cancel compensating order failed", "order_id", wo.ID, "error", derr)
+		}
+		if _, ierr := s.intents.UpdateStatus(ctx, it.ID, "pending"); ierr != nil {
+			slog.Warn("accept intent: revert intent to pending failed", "intent_id", it.ID, "error", ierr)
+		}
+		return domain.WorkOrder{}, fmt.Errorf("需求状态已变更，接单未生效")
 	}
 	// 其余意向关闭失败不阻断接单，但必须记录审计，避免残留多条 pending+已接受意向无提示
 	others, err := s.intents.ListByDemand(ctx, demandID)
@@ -189,8 +199,12 @@ func (s *WorkOrderService) AcceptCompletion(ctx context.Context, a domain.Actor,
 	}
 	// 需求联动：assigned → completed（验收通过即需求完结——此前验收不联动，
 	// 需求长期暴露 published 可继续接单）。
-	if _, _, cerr := s.demands.CompareAndSetStatus(ctx, wo.DemandID, domain.DemandAssigned, domain.DemandCompleted); cerr != nil {
-		slog.Warn("accept completion: link demand to completed failed", "demand_id", wo.DemandID, "error", cerr)
+	okLink, _, cerr := s.demands.CompareAndSetStatus(ctx, wo.DemandID, domain.DemandAssigned, domain.DemandCompleted)
+	if cerr != nil || !okLink {
+		// 兜底再试一次 published→completed：接单时联动若曾失败，需求会停在 published。
+		if ok2, _, cerr2 := s.demands.CompareAndSetStatus(ctx, wo.DemandID, domain.DemandPublished, domain.DemandCompleted); cerr2 != nil || !ok2 {
+			slog.Warn("accept completion: link demand to completed failed", "demand_id", wo.DemandID, "ok", okLink, "error", cerr)
+		}
 	}
 	return updated, nil
 }

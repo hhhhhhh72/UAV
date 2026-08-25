@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -46,7 +47,9 @@ func (r *compRepo) FindByID(ctx context.Context, id string) (domain.Competition,
 func (r *compRepo) List(ctx context.Context, offset, limit int) ([]domain.Competition, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.items, offset, limit)
+	items := append([]domain.Competition(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return paginateSlice(items, offset, limit)
 }
 func (r *compRepo) Update(ctx context.Context, c domain.Competition) (domain.Competition, error) {
 	r.mu.Lock()
@@ -142,6 +145,8 @@ func (r *compRepo) ListRegs(ctx context.Context, competitionID string) ([]domain
 			out = append(out, reg)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -176,7 +181,9 @@ func (r *eventRepo) FindByID(ctx context.Context, id string) (domain.Association
 func (r *eventRepo) List(ctx context.Context, offset, limit int) ([]domain.AssociationEvent, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.items, offset, limit)
+	items := append([]domain.AssociationEvent(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return paginateSlice(items, offset, limit)
 }
 func (r *eventRepo) Update(ctx context.Context, e domain.AssociationEvent) (domain.AssociationEvent, error) {
 	r.mu.Lock()
@@ -222,6 +229,8 @@ func (r *eventRepo) ListRegs(ctx context.Context, eventID string) ([]domain.Even
 			out = append(out, reg)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -261,6 +270,8 @@ func (r *portfolioRepo) ListByEnterprise(ctx context.Context, eid string) ([]dom
 			out = append(out, p)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *portfolioRepo) ListPublished(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error) {
@@ -272,12 +283,15 @@ func (r *portfolioRepo) ListPublished(ctx context.Context, offset, limit int) ([
 			filtered = append(filtered, p)
 		}
 	}
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	return paginateSlice(filtered, offset, limit)
 }
 func (r *portfolioRepo) List(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(append([]domain.MemberPortfolio(nil), r.items...), offset, limit)
+	items := append([]domain.MemberPortfolio(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return paginateSlice(items, offset, limit)
 }
 func (r *portfolioRepo) Update(ctx context.Context, p domain.MemberPortfolio) (domain.MemberPortfolio, error) {
 	r.mu.Lock()
@@ -346,7 +360,9 @@ func (r *industryReportRepo) FindByID(ctx context.Context, id string) (domain.In
 func (r *industryReportRepo) List(ctx context.Context, offset, limit int) ([]domain.IndustryReport, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.items, offset, limit)
+	items := append([]domain.IndustryReport(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return paginateSlice(items, offset, limit)
 }
 func (r *industryReportRepo) Update(ctx context.Context, rp domain.IndustryReport) (domain.IndustryReport, error) {
 	r.mu.Lock()
@@ -409,6 +425,7 @@ func (r *resourceRepo) List(ctx context.Context, resType string, offset, limit i
 			filtered = append(filtered, res)
 		}
 	}
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	return paginateSlice(filtered, offset, limit)
 }
 func (r *resourceRepo) Update(ctx context.Context, res domain.IndustryResource) (domain.IndustryResource, error) {
@@ -455,6 +472,8 @@ func (r *resourceRepo) ListBookingsByResource(ctx context.Context, resourceID st
 			out = append(out, b)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *resourceRepo) ListBookingsByUser(ctx context.Context, userID string) ([]domain.IndustryResourceBooking, error) {
@@ -466,6 +485,8 @@ func (r *resourceRepo) ListBookingsByUser(ctx context.Context, userID string) ([
 			out = append(out, b)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -511,6 +532,7 @@ func (r *emergencyRepo) ListResources(ctx context.Context, resType, q string, of
 		}
 		filtered = append(filtered, res)
 	}
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	return paginateSlice(filtered, offset, limit)
 }
 func (r *emergencyRepo) UpdateResource(ctx context.Context, res domain.EmergencyResource) (domain.EmergencyResource, error) {
@@ -565,6 +587,7 @@ func (r *emergencyRepo) ListDispatches(ctx context.Context, resourceID string, o
 		}
 		filtered = append(filtered, d)
 	}
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, err := paginateSlice(filtered, offset, limit)
 	return page, total, err
 }

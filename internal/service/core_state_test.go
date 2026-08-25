@@ -120,7 +120,10 @@ func TestContractOwnershipCheck(t *testing.T) {
 // === Enterprise State Machine ===
 
 func TestEnterpriseReviewFlow(t *testing.T) {
-	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
+	users := memory.NewUserRepository(nil)
+	// 审核通过需要将属主升级为企业角色（升级失败会回滚审批），测试需预置属主用户。
+	_, _ = users.Create(context.Background(), domain.User{ID: entActor().ID, Role: domain.RoleEnterprise, Status: "active"})
+	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
 	a := entActor()
 	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业", AccountName: "6222"})
 	if err != nil {

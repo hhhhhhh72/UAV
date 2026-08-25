@@ -34,7 +34,7 @@ func (r *inspectRepo) Create(ctx context.Context, i domain.AnnualInspection) (do
 }
 func (r *inspectRepo) ListByUser(ctx context.Context, userID string) ([]domain.AnnualInspection, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,user_id,drone_model,drone_sn,inspect_date,expire_date,result,report_url,status,version,created_at,updated_at FROM annual_inspections WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+		`SELECT id,user_id,COALESCE(drone_model,''),COALESCE(drone_sn,''),COALESCE(inspect_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(expire_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(result,''),COALESCE(report_url,''),status,version,created_at,updated_at FROM annual_inspections WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list inspections: %w", err)
 	}
@@ -51,7 +51,7 @@ func (r *inspectRepo) ListByUser(ctx context.Context, userID string) ([]domain.A
 }
 func (r *inspectRepo) ListAll(ctx context.Context) ([]domain.AnnualInspection, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,user_id,drone_model,drone_sn,inspect_date,expire_date,result,report_url,status,version,created_at,updated_at FROM annual_inspections ORDER BY created_at DESC`)
+		`SELECT id,user_id,COALESCE(drone_model,''),COALESCE(drone_sn,''),COALESCE(inspect_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(expire_date,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(result,''),COALESCE(report_url,''),status,version,created_at,updated_at FROM annual_inspections ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list all inspections: %w", err)
 	}
@@ -137,7 +137,7 @@ func (r *msgRepo) Create(ctx context.Context, m domain.Message) (domain.Message,
 func (r *msgRepo) FindByID(ctx context.Context, id string) (domain.Message, error) {
 	var m domain.Message
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages WHERE id=$1`, id).
+		`SELECT id,sender_id,receiver_id,title,COALESCE(content,''),COALESCE(resource_type,''),COALESCE(resource_id,''),is_read,created_at FROM messages WHERE id=$1`, id).
 		Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt)
 	if err != nil {
 		return domain.Message{}, fmt.Errorf("find message %s: %w", id, err)
@@ -145,7 +145,7 @@ func (r *msgRepo) FindByID(ctx context.Context, id string) (domain.Message, erro
 	return m, nil
 }
 func (r *msgRepo) ListByUser(ctx context.Context, userID string, unreadOnly bool) ([]domain.Message, error) {
-	q := `SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages WHERE receiver_id=$1`
+	q := `SELECT id,sender_id,receiver_id,title,COALESCE(content,''),COALESCE(resource_type,''),COALESCE(resource_id,''),is_read,created_at FROM messages WHERE receiver_id=$1`
 	if unreadOnly {
 		q += ` AND is_read=false`
 	}
@@ -172,7 +172,7 @@ func (r *msgRepo) MarkRead(ctx context.Context, id string) (domain.Message, erro
 	}
 	var m domain.Message
 	err = r.pool.QueryRow(ctx,
-		`SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages WHERE id=$1`, id).
+		`SELECT id,sender_id,receiver_id,title,COALESCE(content,''),COALESCE(resource_type,''),COALESCE(resource_id,''),is_read,created_at FROM messages WHERE id=$1`, id).
 		Scan(&m.ID, &m.SenderID, &m.ReceiverID, &m.Title, &m.Content, &m.ResourceType, &m.ResourceID, &m.IsRead, &m.CreatedAt)
 	return m, err
 }
@@ -188,7 +188,7 @@ func (r *msgRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Mess
 	if err := r.pool.QueryRow(ctx, "SELECT count(*) FROM messages").Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count messages: %w", err)
 	}
-	rows, err := r.pool.Query(ctx, "SELECT id,sender_id,receiver_id,title,content,resource_type,resource_id,is_read,created_at FROM messages ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := r.pool.Query(ctx, "SELECT id,sender_id,receiver_id,title,COALESCE(content,''),COALESCE(resource_type,''),COALESCE(resource_id,''),is_read,created_at FROM messages ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list all messages: %w", err)
 	}
@@ -229,7 +229,7 @@ func (r *articleRepo) Create(ctx context.Context, a domain.Article) (domain.Arti
 func (r *articleRepo) FindByID(ctx context.Context, id string) (domain.Article, error) {
 	var a domain.Article
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,title,content,summary,category,source,author,is_pinned,status,version,created_at,updated_at FROM articles WHERE id=$1`, id).
+		`SELECT id,title,COALESCE(content,''),COALESCE(summary,''),category,COALESCE(source,''),COALESCE(author,''),COALESCE(is_pinned,false),status,version,created_at,updated_at FROM articles WHERE id=$1`, id).
 		Scan(&a.ID, &a.Title, &a.Content, &a.Summary, &a.Category, &a.Source, &a.Author, &a.IsPinned, &a.Status, &a.Version, &a.CreatedAt, &a.UpdatedAt)
 	return a, err
 }
@@ -252,7 +252,7 @@ func (r *articleRepo) ListByCategory(ctx context.Context, category string, offse
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM articles `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	q := `SELECT id,title,content,summary,category,source,author,is_pinned,status,version,created_at,updated_at FROM articles ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
+	q := `SELECT id,title,COALESCE(content,''),COALESCE(summary,''),category,COALESCE(source,''),COALESCE(author,''),COALESCE(is_pinned,false),status,version,created_at,updated_at FROM articles ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
 	rows, err := r.pool.Query(ctx, q, allArgs...)
 	if err != nil {
@@ -285,7 +285,7 @@ func (r *reviewRepo) Create(ctx context.Context, rv domain.Review) (domain.Revie
 }
 func (r *reviewRepo) ListByTarget(ctx context.Context, targetType, targetID string) ([]domain.Review, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,reviewer_id,target_type,target_id,rating,content,status,created_at FROM reviews WHERE target_type=$1 AND target_id=$2 AND status='approved' ORDER BY created_at DESC`, targetType, targetID)
+		`SELECT id,reviewer_id,target_type,target_id,rating,COALESCE(content,''),status,created_at FROM reviews WHERE target_type=$1 AND target_id=$2 AND status='approved' ORDER BY created_at DESC`, targetType, targetID)
 	if err != nil {
 		return nil, fmt.Errorf("list reviews: %w", err)
 	}
@@ -311,7 +311,7 @@ func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit i
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM reviews `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	q := `SELECT id,reviewer_id,target_type,target_id,rating,content,status,created_at FROM reviews ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
+	q := `SELECT id,reviewer_id,target_type,target_id,rating,COALESCE(content,''),status,created_at FROM reviews ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
 	rows, err := r.pool.Query(ctx, q, allArgs...)
 	if err != nil {
@@ -335,7 +335,7 @@ func (r *reviewRepo) UpdateStatus(ctx context.Context, id, status string) (domai
 	}
 	var rv domain.Review
 	err = r.pool.QueryRow(ctx,
-		`SELECT id,reviewer_id,target_type,target_id,rating,content,status,created_at FROM reviews WHERE id=$1`, id).
+		`SELECT id,reviewer_id,target_type,target_id,rating,COALESCE(content,''),status,created_at FROM reviews WHERE id=$1`, id).
 		Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt)
 	return rv, err
 }
@@ -826,7 +826,7 @@ func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64,
 	return tx, nil
 }
 func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {	rows, err := r.pool.Query(ctx,
-		`SELECT id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,created_at FROM escrow_transactions WHERE from_user=$1 OR to_user=$1 ORDER BY created_at DESC`, userID)
+		`SELECT id,from_user,to_user,amount_fen,tx_type,COALESCE(reference_type,''),COALESCE(reference_id,''),status,created_at FROM escrow_transactions WHERE from_user=$1 OR to_user=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list escrow transactions: %w", err)
 	}
@@ -872,7 +872,7 @@ func (r *escrowRepo) ListOrphanFreezes(ctx context.Context, refType string, olde
 		return nil, nil // 未知引用类型无孤儿判定规则，跳过
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,created_at
+		`SELECT id,from_user,to_user,amount_fen,tx_type,COALESCE(reference_type,''),COALESCE(reference_id,''),status,created_at
 		 FROM escrow_transactions t
 		 WHERE t.tx_type='freeze' AND t.reference_type=$1 AND t.status='completed' AND t.created_at < $2
 		   AND NOT EXISTS (

@@ -220,7 +220,18 @@ func (s *EnterpriseSvc) Review(ctx context.Context, a domain.Actor, id, action, 
 	// 审核通过：owner 用户升级为企业角色，否则用户仍是个体、无法获得企业权益（发招聘/合同等）
 	if newStatus == domain.EnterpriseApproved {
 		if err := s.users.UpdateRole(ctx, e.OwnerUserID, domain.RoleEnterprise); err != nil {
-			slog.Warn("upgrade owner role failed", "user_id", e.OwnerUserID, "error", err)
+			// 升级失败回滚已批准状态（按最新版本 Read-Update 回 submitted），
+			// 防"档案已认证但属主无企业权限"的卡死半态（此前仅 warn 不回滚）。
+			slog.Warn("upgrade owner role failed, reverting approval", "user_id", e.OwnerUserID, "error", err)
+			if latest, ferr := s.repo.FindByID(ctx, id); ferr == nil && latest.Status == domain.EnterpriseApproved {
+				latest.Status = domain.EnterpriseSubmitted
+				latest.ReviewComment = ""
+				latest.UpdatedAt = time.Now()
+				if _, uerr := s.repo.Update(ctx, id, latest); uerr != nil {
+					slog.Warn("revert enterprise approval failed", "id", id, "error", uerr)
+				}
+			}
+			return domain.Enterprise{}, fmt.Errorf("升级企业角色失败：%w", err)
 		}
 	}
 	return ent, nil

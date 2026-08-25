@@ -407,11 +407,16 @@ func (r *enterpriseRepo) Pending(ctx context.Context) ([]domain.Enterprise, erro
 			if e.LicenseURL != "" {
 				if dec, err := r.cipher.Decrypt(e.LicenseURL); err == nil {
 					e.LicenseURL = dec
+				} else {
+					// 解密失败（密钥变更/数据损坏）绝不回传密文——置空而非泄露加密串。
+					e.LicenseURL = ""
 				}
 			}
 			if e.AccountName != "" {
 				if dec, err := r.cipher.Decrypt(e.AccountName); err == nil {
 					e.AccountName = dec
+				} else {
+					e.AccountName = ""
 				}
 			}
 		}
@@ -507,11 +512,16 @@ func (r *enterpriseRepo) FindByID(ctx context.Context, id string) (domain.Enterp
 		if e.LicenseURL != "" {
 			if dec, err := r.cipher.Decrypt(e.LicenseURL); err == nil {
 				e.LicenseURL = dec
+			} else {
+				// 解密失败（密钥变更/数据损坏）绝不回传密文——置空而非泄露加密串。
+				e.LicenseURL = ""
 			}
 		}
 		if e.AccountName != "" {
 			if dec, err := r.cipher.Decrypt(e.AccountName); err == nil {
 				e.AccountName = dec
+			} else {
+				e.AccountName = ""
 			}
 		}
 	}

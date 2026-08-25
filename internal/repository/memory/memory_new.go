@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -46,6 +47,8 @@ func (r *expertRepo) List(ctx context.Context, field string) ([]domain.Expert, e
 			out = append(out, e)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *expertRepo) Update(ctx context.Context, e domain.Expert) (domain.Expert, error) {
@@ -108,6 +111,8 @@ func (r *caseRepo) List(ctx context.Context, category string, offset, limit int)
 			filtered = append(filtered, c)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -172,6 +177,8 @@ func (r *complianceRepo) ListDocs(ctx context.Context, category string, offset, 
 			filtered = append(filtered, d)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -239,6 +246,8 @@ func (r *complianceRepo) ListStandards(ctx context.Context, category string, off
 			filtered = append(filtered, s)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -291,6 +300,8 @@ func (r *achieveRepo) List(ctx context.Context, field string, offset, limit int)
 			filtered = append(filtered, a)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -354,6 +365,8 @@ func (r *rdRepo) List(ctx context.Context, field string, offset, limit int) ([]d
 			filtered = append(filtered, c)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
 }
@@ -412,7 +425,9 @@ func (r *projRepo) FindByID(ctx context.Context, id string) (domain.ResearchProj
 func (r *projRepo) List(ctx context.Context, offset, limit int) ([]domain.ResearchProject, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return paginateSlice(r.items, offset, limit)
+	items := append([]domain.ResearchProject(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return paginateSlice(items, offset, limit)
 }
 func (r *projRepo) Update(ctx context.Context, p domain.ResearchProject) (domain.ResearchProject, error) {
 	r.mu.Lock()
@@ -475,6 +490,8 @@ func (r *projAppRepo) ListByUser(ctx context.Context, userID string) ([]domain.P
 			out = append(out, a)
 		}
 	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 func (r *projAppRepo) ListAll(ctx context.Context, status string, offset, limit int) ([]domain.ProjectApplication, int, error) {
@@ -486,6 +503,7 @@ func (r *projAppRepo) ListAll(ctx context.Context, status string, offset, limit 
 			filtered = append(filtered, a)
 		}
 	}
+	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
 	return paginateSlice(filtered, offset, limit)
 }
 func (r *projAppRepo) Update(ctx context.Context, a domain.ProjectApplication) (domain.ProjectApplication, error) {
@@ -536,12 +554,15 @@ func (r *appRepo) ListByUser(ctx context.Context, userID string, offset, limit i
 			all = append(all, a)
 		}
 	}
+	sort.SliceStable(all, func(i, j int) bool { return all[i].CreatedAt.After(all[j].CreatedAt) })
 	return slicePage(all, offset, limit)
 }
 func (r *appRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Application, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return slicePage(r.items, offset, limit)
+	items := append([]domain.Application(nil), r.items...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	return slicePage(items, offset, limit)
 }
 
 // slicePage returns the offset/limit page of a sorted slice plus its total count.
