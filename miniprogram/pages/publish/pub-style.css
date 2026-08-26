@@ -5,7 +5,8 @@
 .pub-page {
   min-height: 100vh;
   background: #F5F6F8;
-  padding: 14px 12px calc(96px + env(safe-area-inset-bottom));
+  /* 底部预留 = 固定操作栏高度（11+44+11=66px）+ 安全区 + 余量，保证最后一段表单不被遮挡 */
+  padding: 14px 12px calc(118px + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 

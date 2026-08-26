@@ -34,25 +34,19 @@
         indicator-active-color="#0A66C2"
         aria-label="场地图片"
       >
-        <template v-if="site.image_url">
-          <swiper-item>
-            <image class="scene-img" :src="site.image_url" mode="aspectFill" />
-          </swiper-item>
-        </template>
-        <template v-else>
-          <swiper-item v-for="(s, i) in sceneSlots" :key="i">
-            <view class="scene" :class="'scene--' + (i + 1)">
-              <view class="scene-sky"></view>
-              <view class="scene-ground"></view>
-              <view class="scene-horizon"></view>
-              <view v-if="i <= 1" class="scene-runway" :class="{ narrow: i === 1 }"></view>
-              <view v-else class="scene-blocks">
-                <view v-for="j in (i === 2 ? 3 : 2)" :key="j" class="scene-block" :class="{ tall: j === 2 && i === 2 }"></view>
-              </view>
-              <text class="scene-label">{{ s }}</text>
+        <swiper-item v-for="(s, i) in sceneSlots" :key="i">
+          <image v-if="s === '__IMG__'" class="scene-img" :src="site.image_url" mode="aspectFill" />
+          <view v-else class="scene" :class="'scene--' + (i + 1)">
+            <view class="scene-sky"></view>
+            <view class="scene-ground"></view>
+            <view class="scene-horizon"></view>
+            <view v-if="i <= 1" class="scene-runway" :class="{ narrow: i === 1 }"></view>
+            <view v-else class="scene-blocks">
+              <view v-for="j in (i === 2 ? 3 : 2)" :key="j" class="scene-block" :class="{ tall: j === 2 && i === 2 }"></view>
             </view>
-          </swiper-item>
-        </template>
+            <text class="scene-label">{{ s }}</text>
+          </view>
+        </swiper-item>
       </swiper>
 
       <!-- 区 1：摘要 -->
@@ -187,8 +181,10 @@ const SITE_PARAM_FIELDS = [
   ['最大飞行高度', 'max_flight_height'],
   ['适用机型', 'compatible_models'],
 ]
-// 轮播占位场景（后端 image_url 就绪后移除，换真图）
-const sceneSlots = ['飞行区全景', '跑道实景', '设备区', '配套设施']
+// 轮播数据：有真实主图（image_url）→ 单张图（标记 __IMG__）；无图 → 4 个微构图占位
+const sceneSlots = computed(() =>
+  site.value && site.value.image_url ? ['__IMG__'] : ['飞行区全景', '跑道实景', '设备区', '配套设施']
+)
 
 const loading = ref(false)
 const errorMsg = ref('')

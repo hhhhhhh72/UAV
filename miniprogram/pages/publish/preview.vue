@@ -4,7 +4,6 @@
     <view class="pub-nav">
       <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
       <view class="pub-nav-title">发布预览</view>
-      <view class="pub-nav-action" hover-class="pub-fade" :style="{ marginRight: capsuleGap + 'px' }" @tap="goBack">编辑</view>
     </view>
 
     <!-- 预览卡片 -->
@@ -83,7 +82,7 @@ import { TYPES, computePreviewMeta, makePost, upsertPost, loadFormState, clearFo
 import { useSafeTop } from '../../utils/safeTop'
 import { request, authStorage, BASE_URL, getStoredUser } from '../../utils/request'
 
-const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
+const { topPad, initSafeTop } = useSafeTop(true)
 
 const type = ref('')
 const values = ref({})

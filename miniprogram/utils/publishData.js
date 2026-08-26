@@ -6,7 +6,8 @@
 const STORAGE_KEY = 'publish_posts'
 
 // ==================== 类型配置 ====================
-// sections[].fields: [id, label, placeholder, kind(input|select|textarea), required, options?]
+// sections[].fields: [id, label, placeholder, kind(input|select|textarea), required, options?, rule?]
+//   rule: 'phone'（手机号/座机）| 'number'（非负数字，最多两位小数）——为空不校验（选填留空允许）
 export const TYPES = {
   demand: {
     name: '发布需求', short: '需求', color: 'demand',
@@ -30,8 +31,8 @@ export const TYPES = {
       {
         title: '预算与对接',
         fields: [
-          ['budget', '项目预算', '例如：20000', 'input', false],
-          ['contact', '联系人电话', '用于审核通过后的对接', 'input', true],
+          ['budget', '项目预算', '例如：20000', 'input', false, undefined, 'number'],
+          ['contact', '联系人电话', '用于审核通过后的对接', 'input', true, undefined, 'phone'],
           ['description', '需求说明', '作业面积、交付成果、现场限制等', 'textarea', false],
         ],
       },
@@ -86,8 +87,8 @@ export const TYPES = {
       {
         title: '价格与库存',
         fields: [
-          ['price', '售价', '例如：68000', 'input', true],
-          ['stock', '可售数量（选填）', '例如：1；平台按单件售出，不锁库存', 'input', false],
+          ['price', '售价', '例如：68000', 'input', true, undefined, 'number'],
+          ['stock', '可售数量（选填）', '例如：1；平台按单件售出，不锁库存', 'input', false, undefined, 'number'],
           ['brand', '品牌/型号', '例如：DJI / M350 RTK', 'input', true],
         ],
       },
@@ -126,9 +127,9 @@ export const TYPES = {
       {
         title: '招生信息',
         fields: [
-          ['price', '课程价格', '例如：9800', 'input', true],
-          ['duration', '培训天数', '例如：25', 'input', true],
-          ['quota', '招生名额', '例如：20', 'input', true],
+          ['price', '课程价格', '例如：9800', 'input', true, undefined, 'number'],
+          ['duration', '培训天数', '例如：25', 'input', true, undefined, 'number'],
+          ['quota', '招生名额', '例如：20', 'input', true, undefined, 'number'],
           ['description', '课程介绍', '培训内容、适合人群、颁发证书等', 'textarea', true],
         ],
       },

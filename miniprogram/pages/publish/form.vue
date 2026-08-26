@@ -4,7 +4,6 @@
     <view class="pub-nav">
       <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
       <view class="pub-nav-title">{{ typeConfig.name }}</view>
-      <view class="pub-nav-action" hover-class="pub-fade" :style="{ marginRight: capsuleGap + 'px' }" @tap="saveDraft">存草稿</view>
     </view>
 
     <!-- 商品/课程两步进度条 -->
@@ -120,7 +119,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { TYPES, getPost, upsertPost, draftPosts, saveFormState } from '../../utils/publishData'
 import { useSafeTop } from '../../utils/safeTop'
 
-const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
+const { topPad, initSafeTop } = useSafeTop(true)
 
 const props = defineProps({}) // 无 props，页面通过路由参数驱动
 void props
@@ -233,10 +232,34 @@ function requiredMissing() {
   return missing
 }
 
+// 格式校验（手机号/座机、非负数字）：仅校验已填写的带 rule 字段；选填留空不拦截
+const PHONE_RE = /^(?:\+?86)?1[3-9]\d{9}$|^0\d{2,3}-?\d{7,8}$/
+const NUMBER_RE = /^\d+(?:\.\d{1,2})?$/
+function formatInvalid() {
+  const t = typeConfig.value
+  if (!t) return []
+  const bad = []
+  t.sections.forEach((s) => {
+    ;(s.fields || []).forEach((f) => {
+      const v = String(values.value[f[0]] || '').trim()
+      const rule = f[6]
+      if (!v || !rule) return
+      if (rule === 'phone' && !PHONE_RE.test(v)) bad.push(f[1] + '（电话格式）')
+      else if (rule === 'number' && !NUMBER_RE.test(v)) bad.push(f[1] + '（需为数字）')
+    })
+  })
+  return bad
+}
+
 function nextAction() {
   const missing = requiredMissing()
   if (missing.length) {
     showToast('请先填写：' + missing[0])
+    return
+  }
+  const bad = formatInvalid()
+  if (bad.length) {
+    showToast('请检查：' + bad[0])
     return
   }
   const t = typeConfig.value
