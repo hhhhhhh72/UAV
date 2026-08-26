@@ -1,0 +1,9 @@
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS booking_type;
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS model;
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS license_url;
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS team_name;
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS people_count;
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS equipment_list;
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS qualification_url;
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS equipment_note;
+ALTER TABLE test_site_bookings DROP COLUMN IF EXISTS time_slots;

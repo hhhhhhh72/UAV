@@ -25,7 +25,7 @@
     </view>
 
     <template v-else-if="site">
-      <!-- 轮播：微构图占位（天空/地面/地平线/跑道/块体；后端 image_url 就绪后整块换 <image>） -->
+      <!-- 轮播：有真实主图（image_url）显示图片；无图保留微构图占位（天空/地面/地平线/跑道/块体） -->
       <swiper
         class="carousel"
         indicator-dots
@@ -34,18 +34,25 @@
         indicator-active-color="#0A66C2"
         aria-label="场地图片"
       >
-        <swiper-item v-for="(s, i) in sceneSlots" :key="i">
-          <view class="scene" :class="'scene--' + (i + 1)">
-            <view class="scene-sky"></view>
-            <view class="scene-ground"></view>
-            <view class="scene-horizon"></view>
-            <view v-if="i <= 1" class="scene-runway" :class="{ narrow: i === 1 }"></view>
-            <view v-else class="scene-blocks">
-              <view v-for="j in (i === 2 ? 3 : 2)" :key="j" class="scene-block" :class="{ tall: j === 2 && i === 2 }"></view>
+        <template v-if="site.image_url">
+          <swiper-item>
+            <image class="scene-img" :src="site.image_url" mode="aspectFill" />
+          </swiper-item>
+        </template>
+        <template v-else>
+          <swiper-item v-for="(s, i) in sceneSlots" :key="i">
+            <view class="scene" :class="'scene--' + (i + 1)">
+              <view class="scene-sky"></view>
+              <view class="scene-ground"></view>
+              <view class="scene-horizon"></view>
+              <view v-if="i <= 1" class="scene-runway" :class="{ narrow: i === 1 }"></view>
+              <view v-else class="scene-blocks">
+                <view v-for="j in (i === 2 ? 3 : 2)" :key="j" class="scene-block" :class="{ tall: j === 2 && i === 2 }"></view>
+              </view>
+              <text class="scene-label">{{ s }}</text>
             </view>
-            <text class="scene-label">{{ s }}</text>
-          </view>
-        </swiper-item>
+          </swiper-item>
+        </template>
       </swiper>
 
       <!-- 区 1：摘要 -->
@@ -379,6 +386,7 @@ onShow(() => {
   animation: fade-in 0.22s ease-out backwards;
 }
 .scene { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.scene-img { width: 100%; height: 100%; background: #EEF1F4; }
 .scene-sky { position: absolute; top: 0; left: 0; right: 0; height: 58%; }
 .scene-ground { position: absolute; bottom: 0; left: 0; right: 0; height: 42%; }
 .scene-horizon { position: absolute; top: 58%; left: 0; right: 0; height: 4rpx; background: rgba(255,255,255,.55); }

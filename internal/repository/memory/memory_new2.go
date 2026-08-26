@@ -306,6 +306,19 @@ func (r *portfolioRepo) Update(ctx context.Context, p domain.MemberPortfolio) (d
 	return domain.MemberPortfolio{}, fmt.Errorf("portfolio %s not found", p.ID)
 }
 
+func (r *portfolioRepo) IncrementViews(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items[i].Views++
+			r.items[i].UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return fmt.Errorf("portfolio %s not found", id)
+}
+
 func (r *portfolioRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

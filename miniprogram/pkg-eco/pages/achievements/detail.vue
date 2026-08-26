@@ -149,7 +149,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onUnload, onShareAppMessage } from '@dcloudio/uni-app'
-import { request, BASE_URL } from '@/utils/request'
+import { request, authStorage, BASE_URL } from '@/utils/request'
 import { maskContact, revealContactCopy } from '@/utils/contactMask'
 import { useReduceMotion } from '@/utils/motion'
 import { MOCK_ACHIEVEMENTS, MOCK_TRANSFORMS_BY_ACH, ACH_TYPE_LABEL, STAGE_SHORT, STAGE_RANK, FIELD_TONE, TONE_DEFAULT, FIELD_ICON } from '@/utils/mockAchievements'
@@ -294,9 +294,9 @@ const useMock = () => {
   }
 }
 
-// ===== 收藏统一：本地单键增量过渡（与列表页共享 fav_ach_set） =====
-// 接口替换点：POST/DELETE /api/v1/favorites/{achievement_id} + GET /api/v1/favorites/mine
-// 落地后切换为后端计数（《科技成果库-后端改动清单》§1），删除本段
+// ===== 收藏统一：本地单键增量（列表页共享 fav_ach_set）+ 后端计数联动 =====
+// POST /api/v1/achievements/{id}/favorite { favorite }：后端 favs 计数 ±1（「最多收藏」排序数据源）；
+// 静默失败不影响本地交互（未登录/网络差仅本地生效，下次详情拉取后计数对齐）。
 const favSet = ref(new Set())
 const loadFavs = () => {
   try {
@@ -312,6 +312,13 @@ const toggleFav = () => {
   else favSet.value.add(id.value)
   saveFavs()
   isFav.value = favSet.value.has(id.value)
+  if (authStorage.getAccessToken()) {
+    request({
+      url: '/api/v1/achievements/' + encodeURIComponent(id.value) + '/favorite',
+      method: 'POST',
+      data: { favorite: isFav.value },
+    }).catch(() => { /* 计数联动尽力而为：失败不阻断收藏体验 */ })
+  }
   if (isFav.value) {
     favPop.value = true
     favHide.value = false

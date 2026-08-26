@@ -1,0 +1,7 @@
+-- 测试场地参数（detail 页「场地参数」卡 5 行 + 轮播真实图）
+ALTER TABLE test_sites ADD COLUMN IF NOT EXISTS airspace_range TEXT NOT NULL DEFAULT '';
+ALTER TABLE test_sites ADD COLUMN IF NOT EXISTS max_takeoff_weight TEXT NOT NULL DEFAULT '';
+ALTER TABLE test_sites ADD COLUMN IF NOT EXISTS runway_length TEXT NOT NULL DEFAULT '';
+ALTER TABLE test_sites ADD COLUMN IF NOT EXISTS max_flight_height TEXT NOT NULL DEFAULT '';
+ALTER TABLE test_sites ADD COLUMN IF NOT EXISTS compatible_models TEXT NOT NULL DEFAULT '';
+ALTER TABLE test_sites ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT '';

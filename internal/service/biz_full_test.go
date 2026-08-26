@@ -98,13 +98,13 @@ func TestReportFullCRUD(t *testing.T) {
 // === Portfolio full CRUD ===
 func TestPortfolioFullCRUD(t *testing.T) {
 	svc := service.NewPortfolioService(memory.NewPortfolioRepository())
-	p, _ := svc.Create(context.Background(), "ent-1", "品牌A", "logo.png", "cover.png", "无人机方案", "138", []string{"巡检"}, []string{"优秀"}, "")
+	p, _ := svc.Create(context.Background(), "ent-1", "品牌A", "logo.png", "cover.png", "无人机方案", "138", "整机", "无人机", "video.mp4", []string{"巡检"}, []string{"优秀"}, "", false, false)
 	got, _ := svc.Get(context.Background(), p.ID)
 	if got.Name != "品牌A" {
 		t.Fatal("Get failed")
 	}
 	owner := domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}
-	svc.Update(context.Background(), owner, p.ID, "品牌A2", "logo2.png", "cover2.png", "方案2", "139", "active", []string{"物流"}, []string{"十佳"})
+	svc.Update(context.Background(), owner, p.ID, "品牌A2", "logo2.png", "cover2.png", "方案2", "139", "整机", "无人机", "video.mp4", "active", []string{"物流"}, []string{"十佳"}, true, true)
 	// ListByEnterprise
 	mine, _ := svc.ListByEnterprise(context.Background(), "ent-1")
 	if len(mine) != 1 {
@@ -119,12 +119,12 @@ func TestPortfolioFullCRUD(t *testing.T) {
 // === Achievement full CRUD ===
 func TestAchievementFullCRUD(t *testing.T) {
 	svc := service.NewAchievementService(memory.NewAchievementRepository())
-	a, _ := svc.Create(context.Background(), "user-1", "AI算法", "patent", "自动避障", "无人机", "lab", "138", []string{"d.jpg"}, nil)
+	a, _ := svc.Create(context.Background(), "user-1", "AI算法", "patent", "自动避障", "无人机", "lab", "138", []string{"d.jpg"}, nil, "published")
 	got, _ := svc.Get(context.Background(), a.ID)
 	if got.AchieveType != "patent" {
 		t.Fatal("Get failed")
 	}
-	svc.Update(context.Background(), domain.Actor{ID: "user-1", Role: domain.RoleIndividual}, a.ID, "AI算法v2", "software", "避障v2", "低空", "pilot", "139", []string{"d2.jpg"}, nil)
+	svc.Update(context.Background(), domain.Actor{ID: "user-1", Role: domain.RoleIndividual}, a.ID, "AI算法v2", "software", "避障v2", "低空", "pilot", "139", []string{"d2.jpg"}, nil, "transformed")
 	// List by field
 	_, total, _ := svc.List(context.Background(), "低空", 1, 20)
 	if total != 1 {
@@ -136,12 +136,12 @@ func TestAchievementFullCRUD(t *testing.T) {
 // === RDChallenge full CRUD ===
 func TestRDChallengeFullCRUD(t *testing.T) {
 	svc := service.NewRDChallengeService(memory.NewRDChallengeRepository())
-	c, _ := svc.Create(context.Background(), "ent-1", "电池技术", "电池", ">2h续航", 500000, time.Now().AddDate(0, 3, 0), "")
+	c, _ := svc.Create(context.Background(), "ent-1", "电池技术", "电池", ">2h续航", "续航≥2h；循环≥500次", 500000, time.Now().AddDate(0, 3, 0), "")
 	got, _ := svc.Get(context.Background(), c.ID)
 	if got.BudgetFen != 500000 {
 		t.Fatal("Get failed")
 	}
-	svc.Update(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, c.ID, "电池v2", "电池", ">3h", "open", 800000, time.Now().AddDate(0, 6, 0))
+	svc.Update(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, c.ID, "电池v2", "电池", ">3h", "续航≥3h", "open", 800000, time.Now().AddDate(0, 6, 0))
 }
 
 // === ResearchProject full CRUD ===

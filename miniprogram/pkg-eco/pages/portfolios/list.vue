@@ -190,8 +190,10 @@ const mapItem = (it) => {
     catLabel: CATEGORY_MAP[catKey] || it.category || '品牌',
     char: it.char || (it.category ? String(it.category).charAt(0) : '牌'),
     logoText: it.logo_text || it.char || (it.name ? String(it.name).charAt(0) : '牌'),
+    logo: resolveUrl(it.logo_url || ''), // 品牌 Logo（BrandCard 展示；空走首字占位）
+    cover: resolveUrl(it.cover_url || ''), // 品牌封面（BrandCard 展示；空走渐变占位）
     verified: !!it.verified,
-    hasVideo: !!(it.has_video || (it.video_count && it.video_count > 0)),
+    hasVideo: !!(it.has_video || it.video_url || (it.video_count && it.video_count > 0)),
     views: it.views || 0,
     videoCount: it.video_count || 0,
     grad: 'gd-' + String(it.grad || 'gd1').replace(/^gd-?/, ''),
@@ -254,11 +256,14 @@ const fetchList = async (reset = true) => {
     const total = (data && data.total) != null ? data.total : items.length
     items.forEach((it) => rawById.set(it.id, it))
     if (reset) {
-      // 精选位只在首屏请求刷新；接口未返回时生产留空（整块隐藏），开发回退演示精选
-      // 注意：request.js 的分页信封 {data:[...], total} 会丢弃顶层 featured——
-      // 契约需后端以对象信封 {data:{items,total,featured}} 返回，或将 featured 挂到数据数组上
-      const feats = data && Array.isArray(data.featured) ? data.featured : []
-      featured.value = (feats.length ? feats : (isDev ? MOCK_FEATURED : [])).map(mapFeatured)
+      // 精选位：独立接口 GET /api/v1/portfolios/featured；失败时生产留空（整块隐藏），开发回退演示精选
+      try {
+        const feats = await request({ url: '/api/v1/portfolios/featured' })
+        const arr = Array.isArray(feats) ? feats : []
+        featured.value = (arr.length ? arr : (isDev ? MOCK_FEATURED : [])).map(mapFeatured)
+      } catch (e) {
+        featured.value = isDev ? MOCK_FEATURED.map(mapFeatured) : []
+      }
       if (items.length) {
         fullList.value = items.map(mapItem)
         totalCount.value = total

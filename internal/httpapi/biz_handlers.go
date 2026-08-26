@@ -52,6 +52,8 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 	// ---- Portfolio ----
 	mux.HandleFunc("GET /api/v1/portfolios", s.listPortfolios)
+	mux.HandleFunc("GET /api/v1/portfolios/featured", s.listFeaturedPortfolios)
+	mux.HandleFunc("GET /api/v1/portfolios/{id}", s.getPortfolio)
 	mux.HandleFunc("GET /api/v1/portfolios/mine", s.listMyPortfolios)
 	mux.HandleFunc("POST /api/v1/portfolios", s.createPortfolio)
 	mux.HandleFunc("PUT /api/v1/portfolios/{id}", s.updatePortfolio)
@@ -62,10 +64,13 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/achievements", s.createAchievement)
 	mux.HandleFunc("PUT /api/v1/achievements/{id}", s.updateAchievement)
 	mux.HandleFunc("DELETE /api/v1/achievements/{id}", s.deleteAchievement)
+	mux.HandleFunc("POST /api/v1/achievements/{id}/favorite", s.toggleAchievementFavorite)
 
 	// ---- RD Challenges (研发难题) ----
 	mux.HandleFunc("GET /api/v1/challenges", s.listRDChallenges)
 	mux.HandleFunc("GET /api/v1/challenges/{id}", s.getRDChallenge)
+	mux.HandleFunc("GET /api/v1/challenges/{id}/claims", s.getChallengeClaims)
+	mux.HandleFunc("POST /api/v1/challenges/{id}/claims", s.createChallengeClaim)
 
 	// ---- Research Projects (课题攻关) ----
 	mux.HandleFunc("GET /api/v1/projects", s.listResearchProjects)
@@ -581,8 +586,7 @@ func (s *Server) deleteIndustryReport(w http.ResponseWriter, r *http.Request) {
 
 // ---- Portfolio ----
 
-// GET /api/v1/portfolios?q=关键词&sort=created_at&page=1&page_size=10
-// 模型无 Views/category 字段：不支持热度排序与分类筛选（前端筛选保留 UI 但不生效）。
+// GET /api/v1/portfolios?q=关键词&category=整机&sort=latest|views|video&page=1&page_size=10
 func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
 	// 性能审查：repo 不支持 q 过滤（名称/描述包含），保持全量上限 2000 +
 	// 内存过滤；TODO 下沉：PortfolioRepository.ListPublished 增加 q 参数后改
@@ -604,11 +608,49 @@ func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
 		}
 		items = filtered
 	}
-	// sort：created_at desc 为默认（唯一支持的值）；其余值忽略（无 views 字段，不支持热度排序）
-	if sortBy := r.URL.Query().Get("sort"); sortBy == "" || sortBy == "created_at" {
+	// category：品牌分类筛选（前端分类 pills；空/全部忽略）
+	if cat := strings.TrimSpace(r.URL.Query().Get("category")); cat != "" {
+		filtered := make([]domain.MemberPortfolio, 0, len(items))
+		for _, p := range items {
+			if p.Category == cat || p.Industry == cat {
+				filtered = append(filtered, p)
+			}
+		}
+		items = filtered
+	}
+	// sort：latest（created_at desc 默认）/ views（浏览降序）/ video（视频优先再按浏览）
+	switch r.URL.Query().Get("sort") {
+	case "views":
+		sort.SliceStable(items, func(i, j int) bool { return items[i].Views > items[j].Views })
+	case "video":
+		sort.SliceStable(items, func(i, j int) bool {
+			vi, vj := items[i].VideoCount > 0 || items[i].VideoURL != "", items[j].VideoCount > 0 || items[j].VideoURL != ""
+			if vi != vj {
+				return vi
+			}
+			return items[i].Views > items[j].Views
+		})
+	default:
 		sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	}
 	paginatedRespond(w, r, items, len(items))
+}
+
+// GET /api/v1/portfolios/featured — 精选品牌（轮播横幅数据源；仅 published + featured）
+func (s *Server) listFeaturedPortfolios(w http.ResponseWriter, r *http.Request) {
+	items, _, err := s.portfolioSvc.ListPublished(r.Context(), 1, 2000)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	featured := make([]domain.MemberPortfolio, 0)
+	for _, p := range items {
+		if p.Featured {
+			featured = append(featured, p)
+		}
+	}
+	sort.SliceStable(featured, func(i, j int) bool { return featured[i].CreatedAt.After(featured[j].CreatedAt) })
+	respond(w, r, http.StatusOK, featured)
 }
 
 // GET /api/v1/admin/portfolios — 管理端全量（含草稿/待审），公开端仅 published
@@ -654,6 +696,11 @@ func (s *Server) createPortfolio(w http.ResponseWriter, r *http.Request) {
 		ContactInfo string   `json:"contact_info"`
 		Products    []string `json:"products"`
 		Honors      []string `json:"honors"`
+		Category    string   `json:"category"`
+		Industry    string   `json:"industry"`
+		VideoURL    string   `json:"video_url"`
+		Featured    bool     `json:"featured"`
+		Verified    bool     `json:"verified"`
 		// 前端表单可选状态（草稿/待审核），透传 service；非法值回退默认 draft
 		Status string `json:"status"`
 	}
@@ -661,8 +708,8 @@ func (s *Server) createPortfolio(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.portfolioSvc.Create(r.Context(), a.ID, in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Products, in.Honors,
-		normalizeCreateStatus(in.Status, "draft", "published", "pending", "rejected"))
+	p, err := s.portfolioSvc.Create(r.Context(), a.ID, in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Category, in.Industry, in.VideoURL, in.Products, in.Honors,
+		normalizeCreateStatus(in.Status, "draft", "published", "pending", "rejected"), in.Featured, in.Verified)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -687,12 +734,41 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 		Status      string   `json:"status"`
 		Products    []string `json:"products"`
 		Honors      []string `json:"honors"`
+		Category    string   `json:"category"`
+		Industry    string   `json:"industry"`
+		VideoURL    string   `json:"video_url"`
+		Featured    *bool    `json:"featured"`
+		Verified    *bool    `json:"verified"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	p, err := s.portfolioSvc.Update(r.Context(), a, r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Status, in.Products, in.Honors)
+	// 合并语义：新字段在老表单（edit.vue 不提交 category/video/featured）未传时
+	// 保留旧值，避免编辑一次把分类/精选/认证清洗为空（A/B 客户端差异防护）。
+	cur, err := s.portfolioSvc.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeMutationErr(w, r, err)
+		return
+	}
+	if in.Category == "" {
+		in.Category = cur.Category
+	}
+	if in.Industry == "" {
+		in.Industry = cur.Industry
+	}
+	if in.VideoURL == "" {
+		in.VideoURL = cur.VideoURL
+	}
+	featured := cur.Featured
+	if in.Featured != nil {
+		featured = *in.Featured
+	}
+	verified := cur.Verified
+	if in.Verified != nil {
+		verified = *in.Verified
+	}
+	p, err := s.portfolioSvc.Update(r.Context(), a, r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Category, in.Industry, in.VideoURL, in.Status, in.Products, in.Honors, featured, verified)
 	if err != nil {
 		writeMutationErr(w, r, err)
 		return
@@ -714,6 +790,16 @@ func isPublicRDStatus(s string) bool {
 	return s == "published" || s == "open" || s == "in_progress"
 }
 
+// isPublicAchievementStatus 成果公开可见状态：published 及展示型状态
+// （hot 热门 / new 新品 / transformed 已转化）；draft/pending/rejected 不公开。
+func isPublicAchievementStatus(s string) bool {
+	switch s {
+	case "published", "hot", "new", "transformed":
+		return true
+	}
+	return false
+}
+
 // GET /api/v1/achievements?field=智能巡检&page=1&page_size=10
 func (s *Server) listAchievements(w http.ResponseWriter, r *http.Request) {
 	items, _, err := s.achievementSvc.List(r.Context(), r.URL.Query().Get("field"), 1, 100000)
@@ -721,11 +807,11 @@ func (s *Server) listAchievements(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	// 公开列表仅展示已发布成果（复用于 admin 列表时不过滤）
+	// 公开列表仅展示公开可见成果（published/hot/new/transformed；复用于 admin 列表时不过滤）
 	if !isAdminRoute(r) {
 		tmp := make([]domain.Achievement, 0, len(items))
 		for _, a := range items {
-			if a.Status == "published" {
+			if isPublicAchievementStatus(a.Status) {
 				tmp = append(tmp, a)
 			}
 		}
@@ -740,6 +826,15 @@ func (s *Server) listAchievements(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		items = tmp
+	}
+	// 发布方展示名填充（map 缓存去重）
+	owners := make([]string, 0, len(items))
+	for _, a := range items {
+		owners = append(owners, a.OwnerID)
+	}
+	names := s.fillPosterNames(r.Context(), owners)
+	for i := range items {
+		items[i].PosterName = names[items[i].OwnerID]
 	}
 	paginatedRespond(w, r, items, len(items))
 }
@@ -760,12 +855,14 @@ func (s *Server) createAchievement(w http.ResponseWriter, r *http.Request) {
 		ContactInfo string              `json:"contact_info"`
 		Images      []string            `json:"images"`
 		Attachments []domain.Attachment `json:"attachments"`
+		Status      string              `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ach, err := s.achievementSvc.Create(r.Context(), a.ID, in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
+	ach, err := s.achievementSvc.Create(r.Context(), a.ID, in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments,
+		normalizeCreateStatus(in.Status, "published", "draft", "pending", "rejected", "hot", "new", "transformed"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -790,12 +887,14 @@ func (s *Server) updateAchievement(w http.ResponseWriter, r *http.Request) {
 		ContactInfo string              `json:"contact_info"`
 		Images      []string            `json:"images"`
 		Attachments []domain.Attachment `json:"attachments"`
+		Status      string              `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ach, err := s.achievementSvc.Update(r.Context(), a, r.PathValue("id"), in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments)
+	ach, err := s.achievementSvc.Update(r.Context(), a, r.PathValue("id"), in.Title, in.AchieveType, in.Description, in.Field, in.Stage, in.ContactInfo, in.Images, in.Attachments,
+		normalizeCreateStatus(in.Status, "published", "draft", "pending", "rejected", "hot", "new", "transformed"))
 	if err != nil {
 		writeMutationErr(w, r, err)
 		return
@@ -858,6 +957,15 @@ func (s *Server) listRDChallenges(w http.ResponseWriter, r *http.Request) {
 		}
 		filtered = tmp
 	}
+	// 发布方展示名填充（map 缓存去重）
+	posters := make([]string, 0, len(filtered))
+	for _, c := range filtered {
+		posters = append(posters, c.PosterID)
+	}
+	names := s.fillPosterNames(r.Context(), posters)
+	for i := range filtered {
+		filtered[i].PosterName = names[filtered[i].PosterID]
+	}
 	paginatedRespond(w, r, filtered, len(filtered))
 }
 
@@ -870,7 +978,8 @@ func (s *Server) createRDChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, Field, Description, Status, Deadline string
-		BudgetFen                                   int64 `json:"budget_fen"`
+		Requirements                                string `json:"requirements"`
+		BudgetFen                                   int64  `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -883,7 +992,7 @@ func (s *Server) createRDChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 	// createRDChallenge 的 in.Status 此前已 decode 但未透传（服务端恒 published），
 	// 现在校验白名单后透传；非法值回退默认 published。
-	ch, err := s.rdService.Create(r.Context(), a.ID, in.Title, in.Field, in.Description, in.BudgetFen, deadline,
+	ch, err := s.rdService.Create(r.Context(), a.ID, in.Title, in.Field, in.Description, in.Requirements, in.BudgetFen, deadline,
 		normalizeCreateStatus(in.Status, "open", "closed", "resolved", "in_progress", "published", "pending", "draft"))
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -902,7 +1011,8 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Title, Field, Description, Status, Deadline string
-		BudgetFen                                   int64 `json:"budget_fen"`
+		Requirements                                string `json:"requirements"`
+		BudgetFen                                   int64  `json:"budget_fen"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -913,7 +1023,7 @@ func (s *Server) updateRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, fmt.Errorf("无效的截止日期格式: %w", err))
 		return
 	}
-	ch, err := s.rdService.Update(r.Context(), a, r.PathValue("id"), in.Title, in.Field, in.Description, in.Status, in.BudgetFen, deadline)
+	ch, err := s.rdService.Update(r.Context(), a, r.PathValue("id"), in.Title, in.Field, in.Description, in.Requirements, in.Status, in.BudgetFen, deadline)
 	if err != nil {
 		writeMutationErr(w, r, err)
 		return

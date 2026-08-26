@@ -58,7 +58,7 @@ func TestComplianceService_FindAndDelete(t *testing.T) {
 func TestPortfolioService_ListAndDelete(t *testing.T) {
 	svc := service.NewPortfolioService(memory.NewPortfolioRepository())
 
-	p, err := svc.Create(context.Background(), "ent-1", "品牌", "logo", "cover", "描述", "联系人", nil, nil, "")
+	p, err := svc.Create(context.Background(), "ent-1", "品牌", "logo", "cover", "描述", "联系人", "", "", "", nil, nil, "", false, false)
 	if err != nil {
 		t.Fatalf("PortfolioService.Create: %v", err)
 	}

@@ -53,7 +53,7 @@ func TestNegativeAmountsRejected(t *testing.T) {
 
 	// 测试场地价格
 	tsSvc := service.NewTestSiteService(memory.NewTestSiteRepository())
-	if _, err := tsSvc.Create(context.Background(), "n", "t", "l", "r", "o", -1, nil, ""); err == nil {
+	if _, err := tsSvc.Create(context.Background(), "n", "t", "l", "r", "o", -1, nil, "", "", "", "", "", "", ""); err == nil {
 		t.Fatal("negative test site price accepted")
 	}
 

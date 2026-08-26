@@ -24,9 +24,11 @@ type Transformation struct {
 	Progress      string              `json:"progress"`   // 当前进度描述
 	Milestones    []TransMilestone    `json:"milestones"`
 	PartnerID     string              `json:"partner_id"` // 合作产业化伙伴
-	Status        string              `json:"status"`     // active / completed
-	CreatedAt     time.Time           `json:"created_at"`
-	UpdatedAt     time.Time           `json:"updated_at"`
+	// ContactInfo 对接联系方式（track 页「联系发布方」复制门的数据源）
+	ContactInfo string    `json:"contact_info"`
+	Status      string    `json:"status"` // active / completed
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // TransMilestone is a checkpoint in the transformation process.

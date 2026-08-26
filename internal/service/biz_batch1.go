@@ -53,7 +53,7 @@ func NewTestSiteService(r repository.TestSiteRepository) *TestSiteService {
 	return &TestSiteService{repo: r}
 }
 
-func (s *TestSiteService) Create(ctx context.Context, name, siteType, location, bookingRule, ownerID string, priceFen int64, facilities []string, status string) (domain.TestSite, error) {
+func (s *TestSiteService) Create(ctx context.Context, name, siteType, location, bookingRule, ownerID string, priceFen int64, facilities []string, status, airspaceRange, maxTakeoffWeight, runwayLength, maxFlightHeight, compatibleModels, imageURL string) (domain.TestSite, error) {
 	if priceFen < 0 {
 		return domain.TestSite{}, errors.New("price cannot be negative")
 	}
@@ -63,7 +63,10 @@ func (s *TestSiteService) Create(ctx context.Context, name, siteType, location, 
 	ts := domain.TestSite{ID: nextID("tst"),
 		Name: name, SiteType: siteType, OwnerID: ownerID, Location: location,
 		Facilities: facilities, PriceFen: priceFen, BookingRule: bookingRule,
-		Status: status, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		Status: status, AirspaceRange: airspaceRange, MaxTakeoffWeight: maxTakeoffWeight,
+		RunwayLength: runwayLength, MaxFlightHeight: maxFlightHeight,
+		CompatibleModels: compatibleModels, ImageURL: imageURL,
+		CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	return s.repo.Create(ctx, ts)
 }
 func (s *TestSiteService) List(ctx context.Context, siteType string) ([]domain.TestSite, error) {
@@ -73,7 +76,7 @@ func (s *TestSiteService) Get(ctx context.Context, id string) (domain.TestSite, 
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *TestSiteService) UpdateSite(ctx context.Context, id, name, siteType, location, bookingRule, status string, priceFen int64, facilities []string) (domain.TestSite, error) {
+func (s *TestSiteService) UpdateSite(ctx context.Context, id, name, siteType, location, bookingRule, status string, priceFen int64, facilities []string, airspaceRange, maxTakeoffWeight, runwayLength, maxFlightHeight, compatibleModels, imageURL string) (domain.TestSite, error) {
 	if priceFen < 0 {
 		return domain.TestSite{}, errors.New("price cannot be negative")
 	}
@@ -88,11 +91,17 @@ func (s *TestSiteService) UpdateSite(ctx context.Context, id, name, siteType, lo
 	site.Status = status
 	site.PriceFen = priceFen
 	site.Facilities = facilities
+	site.AirspaceRange = airspaceRange
+	site.MaxTakeoffWeight = maxTakeoffWeight
+	site.RunwayLength = runwayLength
+	site.MaxFlightHeight = maxFlightHeight
+	site.CompatibleModels = compatibleModels
+	site.ImageURL = imageURL
 	site.UpdatedAt = time.Now()
 	return s.repo.UpdateSite(ctx, site)
 }
 
-func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, contactName, contactPhone string, startTime, endTime time.Time) (domain.TestSiteBooking, error) {
+func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, contactName, contactPhone string, startTime, endTime time.Time, bookingType, model, licenseURL, teamName string, peopleCount int, equipmentList, qualificationURL, equipmentNote, timeSlots string) (domain.TestSiteBooking, error) {
 	// 时间范围校验：结束时间必须晚于开始时间（与 EventService 同款校验）
 	if !endTime.After(startTime) {
 		return domain.TestSiteBooking{}, errors.New("结束时间必须晚于开始时间")
@@ -117,7 +126,11 @@ func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, con
 	bk := domain.TestSiteBooking{ID: nextID("tsbk"),
 		SiteID: siteID, UserID: userID, Purpose: purpose,
 		ContactName: contactName, ContactPhone: contactPhone,
-		StartTime: startTime, EndTime: endTime, Status: "pending", CreatedAt: time.Now()}
+		StartTime: startTime, EndTime: endTime, Status: "pending", CreatedAt: time.Now(),
+		BookingType: bookingType, Model: model, LicenseURL: licenseURL,
+		TeamName: teamName, PeopleCount: peopleCount,
+		EquipmentList: equipmentList, QualificationURL: qualificationURL,
+		EquipmentNote: equipmentNote, TimeSlots: timeSlots}
 	return s.repo.CreateBooking(ctx, bk)
 }
 func (s *TestSiteService) ReviewBooking(ctx context.Context, bookingID, status, note string) (domain.TestSiteBooking, error) {

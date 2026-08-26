@@ -507,6 +507,16 @@ type AchievementRepository interface {
 	List(ctx context.Context, field string, offset, limit int) ([]domain.Achievement, int, error)
 	Update(ctx context.Context, v domain.Achievement) (domain.Achievement, error)
 	Delete(ctx context.Context, id string) error
+	// AdjustStats 浏览/收藏计数增量（delta 可正可负，下限 0）。
+	AdjustStats(ctx context.Context, id string, viewsDelta, favsDelta int) error
+}
+
+// ChallengeClaimRepository manages 揭榜意向 (RD challenge claims).
+type ChallengeClaimRepository interface {
+	Create(ctx context.Context, v domain.ChallengeClaim) (domain.ChallengeClaim, error)
+	// FindByChallengeAndUser 按难题+用户查（幂等判定）；未找到返回 found=false。
+	FindByChallengeAndUser(ctx context.Context, challengeID, userID string) (domain.ChallengeClaim, bool, error)
+	ListByChallenge(ctx context.Context, challengeID string) ([]domain.ChallengeClaim, error)
 }
 
 // RDChallengeRepository manages enterprise R&D challenges.
@@ -567,6 +577,8 @@ type PortfolioRepository interface {
 	ListPublished(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error)
 	Update(ctx context.Context, v domain.MemberPortfolio) (domain.MemberPortfolio, error)
 	Delete(ctx context.Context, id string) error
+	// IncrementViews 品牌浏览计数 +1（公开详情访问）。
+	IncrementViews(ctx context.Context, id string) error
 }
 
 // IndustryReportRepository manages industry reports.

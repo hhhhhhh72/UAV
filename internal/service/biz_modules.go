@@ -371,7 +371,7 @@ func NewPortfolioService(repo repository.PortfolioRepository) *PortfolioService 
 	return &PortfolioService{repo: repo}
 }
 
-func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoURL, coverURL, description, contactInfo string, products, honors []string, status string) (domain.MemberPortfolio, error) {
+func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoURL, coverURL, description, contactInfo, category, industry, videoURL string, products, honors []string, status string, featured, verified bool) (domain.MemberPortfolio, error) {
 	now := time.Now()
 	if status == "" {
 		status = "draft"
@@ -386,6 +386,11 @@ func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoU
 		Products:     products,
 		Honors:       honors,
 		ContactInfo:  contactInfo,
+		Category:     category,
+		Industry:     industry,
+		VideoURL:     videoURL,
+		Featured:     featured,
+		Verified:     verified,
 		Status:       status,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -408,7 +413,7 @@ func (s *PortfolioService) Get(ctx context.Context, id string) (domain.MemberPor
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *PortfolioService) Update(ctx context.Context, a domain.Actor, id, name, logoURL, coverURL, description, contactInfo, status string, products, honors []string) (domain.MemberPortfolio, error) {
+func (s *PortfolioService) Update(ctx context.Context, a domain.Actor, id, name, logoURL, coverURL, description, contactInfo, category, industry, videoURL, status string, products, honors []string, featured, verified bool) (domain.MemberPortfolio, error) {
 	p, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.MemberPortfolio{}, err
@@ -424,9 +429,19 @@ func (s *PortfolioService) Update(ctx context.Context, a domain.Actor, id, name,
 	p.Products = products
 	p.Honors = honors
 	p.ContactInfo = contactInfo
+	p.Category = category
+	p.Industry = industry
+	p.VideoURL = videoURL
+	p.Featured = featured
+	p.Verified = verified
 	p.Status = status
 	p.UpdatedAt = time.Now()
 	return s.repo.Update(ctx, p)
+}
+
+// UpdateStats 计数（浏览 +1；无对应行时静默忽略——用于公开详情访问）。
+func (s *PortfolioService) IncrementViews(ctx context.Context, id string) error {
+	return s.repo.IncrementViews(ctx, id)
 }
 
 func (s *PortfolioService) Delete(ctx context.Context, a domain.Actor, id string) error {

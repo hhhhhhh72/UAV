@@ -374,23 +374,23 @@ func (r *portfolioRepo) Create(ctx context.Context, p domain.MemberPortfolio) (d
 		return domain.MemberPortfolio{}, fmt.Errorf("marshal honors: %w", err)
 	}
 	_, err = r.pool.Exec(ctx,
-		`INSERT INTO member_portfolios (id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		p.ID, p.EnterpriseID, p.Name, p.LogoURL, p.CoverURL, p.Description, products, honors, p.ContactInfo, p.Status, p.CreatedAt, p.UpdatedAt)
+		`INSERT INTO member_portfolios (id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,category,industry,verified,video_url,video_count,views,featured,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+		p.ID, p.EnterpriseID, p.Name, p.LogoURL, p.CoverURL, p.Description, products, honors, p.ContactInfo, p.Category, p.Industry, p.Verified, p.VideoURL, p.VideoCount, p.Views, p.Featured, p.Status, p.CreatedAt, p.UpdatedAt)
 	return p, err
 }
 func (r *portfolioRepo) FindByID(ctx context.Context, id string) (domain.MemberPortfolio, error) {
 	var p domain.MemberPortfolio
 	var prod, hon []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios WHERE id=$1`, id).
-		Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt)
+		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,category,industry,verified,video_url,video_count,views,featured,status,created_at,updated_at FROM member_portfolios WHERE id=$1`, id).
+		Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Category, &p.Industry, &p.Verified, &p.VideoURL, &p.VideoCount, &p.Views, &p.Featured, &p.Status, &p.CreatedAt, &p.UpdatedAt)
 	json.Unmarshal(prod, &p.Products)
 	json.Unmarshal(hon, &p.Honors)
 	return p, err
 }
 func (r *portfolioRepo) ListByEnterprise(ctx context.Context, eid string) ([]domain.MemberPortfolio, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios WHERE enterprise_id=$1 ORDER BY created_at DESC`, eid)
+		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,category,industry,verified,video_url,video_count,views,featured,status,created_at,updated_at FROM member_portfolios WHERE enterprise_id=$1 ORDER BY created_at DESC`, eid)
 	if err != nil {
 		return nil, fmt.Errorf("list portfolios: %w", err)
 	}
@@ -399,7 +399,7 @@ func (r *portfolioRepo) ListByEnterprise(ctx context.Context, eid string) ([]dom
 	for rows.Next() {
 		var p domain.MemberPortfolio
 		var prod, hon []byte
-		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Category, &p.Industry, &p.Verified, &p.VideoURL, &p.VideoCount, &p.Views, &p.Featured, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan portfolio: %w", err)
 		}
 		json.Unmarshal(prod, &p.Products)
@@ -414,7 +414,7 @@ func (r *portfolioRepo) ListPublished(ctx context.Context, offset, limit int) ([
 		return nil, 0, fmt.Errorf("count published portfolios: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,category,industry,verified,video_url,video_count,views,featured,status,created_at,updated_at FROM member_portfolios WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list published portfolios: %w", err)
 	}
@@ -423,7 +423,7 @@ func (r *portfolioRepo) ListPublished(ctx context.Context, offset, limit int) ([
 	for rows.Next() {
 		var p domain.MemberPortfolio
 		var prod, hon []byte
-		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Category, &p.Industry, &p.Verified, &p.VideoURL, &p.VideoCount, &p.Views, &p.Featured, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan portfolio: %w", err)
 		}
 		json.Unmarshal(prod, &p.Products)
@@ -438,7 +438,7 @@ func (r *portfolioRepo) List(ctx context.Context, offset, limit int) ([]domain.M
 		return nil, 0, fmt.Errorf("count portfolios: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,status,created_at,updated_at FROM member_portfolios ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,category,industry,verified,video_url,video_count,views,featured,status,created_at,updated_at FROM member_portfolios ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list portfolios: %w", err)
 	}
@@ -447,7 +447,7 @@ func (r *portfolioRepo) List(ctx context.Context, offset, limit int) ([]domain.M
 	for rows.Next() {
 		var p domain.MemberPortfolio
 		var prod, hon []byte
-		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.EnterpriseID, &p.Name, &p.LogoURL, &p.CoverURL, &p.Description, &prod, &hon, &p.ContactInfo, &p.Category, &p.Industry, &p.Verified, &p.VideoURL, &p.VideoCount, &p.Views, &p.Featured, &p.Status, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan portfolio: %w", err)
 		}
 		json.Unmarshal(prod, &p.Products)
@@ -467,9 +467,17 @@ func (r *portfolioRepo) Update(ctx context.Context, p domain.MemberPortfolio) (d
 		return domain.MemberPortfolio{}, fmt.Errorf("marshal honors: %w", err)
 	}
 	_, err = r.pool.Exec(ctx,
-		`UPDATE member_portfolios SET name=$1,logo_url=$2,cover_url=$3,description=$4,products=$5,honors=$6,contact_info=$7,status=$8,updated_at=$9 WHERE id=$10`,
-		p.Name, p.LogoURL, p.CoverURL, p.Description, prod, hon, p.ContactInfo, p.Status, p.UpdatedAt, p.ID)
+		`UPDATE member_portfolios SET name=$1,logo_url=$2,cover_url=$3,description=$4,products=$5,honors=$6,contact_info=$7,category=$8,industry=$9,verified=$10,video_url=$11,video_count=$12,featured=$13,status=$14,updated_at=$15 WHERE id=$16`,
+		p.Name, p.LogoURL, p.CoverURL, p.Description, prod, hon, p.ContactInfo, p.Category, p.Industry, p.Verified, p.VideoURL, p.VideoCount, p.Featured, p.Status, p.UpdatedAt, p.ID)
 	return p, err
+}
+
+func (r *portfolioRepo) IncrementViews(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE member_portfolios SET views=views+1, updated_at=now() WHERE id=$1`, id)
+	if err != nil {
+		return fmt.Errorf("increment portfolio views %s: %w", id, err)
+	}
+	return nil
 }
 
 func (r *portfolioRepo) Delete(ctx context.Context, id string) error {

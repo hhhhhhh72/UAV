@@ -81,6 +81,7 @@ type Server struct {
 	portfolioSvc      *service.PortfolioService
 	achievementSvc    *service.AchievementService
 	rdService         *service.RDChallengeService
+	claimSvc          *service.ChallengeClaimService
 	researchSvc       *service.ResearchProjectService
 	projectAppSvc     *service.ProjectAppService
 	competitionSvc    *service.CompetitionService
@@ -287,6 +288,7 @@ func (s *Server) SetReportService(svc *service.ReportService)                   
 func (s *Server) SetPortfolioService(svc *service.PortfolioService)             { s.portfolioSvc = svc }
 func (s *Server) SetAchievementService(svc *service.AchievementService)         { s.achievementSvc = svc }
 func (s *Server) SetRDChallengeService(svc *service.RDChallengeService)         { s.rdService = svc }
+func (s *Server) SetChallengeClaimService(svc *service.ChallengeClaimService)   { s.claimSvc = svc }
 func (s *Server) SetResearchProjectService(svc *service.ResearchProjectService) { s.researchSvc = svc }
 func (s *Server) SetProjectAppService(svc *service.ProjectAppService)           { s.projectAppSvc = svc }
 func (s *Server) SetCompetitionService(svc *service.CompetitionService)         { s.competitionSvc = svc }

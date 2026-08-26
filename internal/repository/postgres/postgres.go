@@ -2291,8 +2291,8 @@ func (r *pgTestSiteRepo) Create(ctx context.Context, t domain.TestSite) (domain.
 	t.UpdatedAt = t.CreatedAt
 	facJSON, _ := json.Marshal(t.Facilities)
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO test_sites (id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-		t.ID, t.Name, t.SiteType, t.OwnerID, t.Location, t.BookingRule, t.Status, t.PriceFen, facJSON, t.CreatedAt, t.UpdatedAt)
+		`INSERT INTO test_sites (id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,airspace_range,max_takeoff_weight,runway_length,max_flight_height,compatible_models,image_url,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+		t.ID, t.Name, t.SiteType, t.OwnerID, t.Location, t.BookingRule, t.Status, t.PriceFen, facJSON, t.AirspaceRange, t.MaxTakeoffWeight, t.RunwayLength, t.MaxFlightHeight, t.CompatibleModels, t.ImageURL, t.CreatedAt, t.UpdatedAt)
 	return t, err
 }
 
@@ -2300,8 +2300,8 @@ func (r *pgTestSiteRepo) FindByID(ctx context.Context, id string) (domain.TestSi
 	var t domain.TestSite
 	var fj []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,created_at,updated_at FROM test_sites WHERE id=$1`, id).
-		Scan(&t.ID, &t.Name, &t.SiteType, &t.OwnerID, &t.Location, &t.BookingRule, &t.Status, &t.PriceFen, &fj, &t.CreatedAt, &t.UpdatedAt)
+		`SELECT id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,airspace_range,max_takeoff_weight,runway_length,max_flight_height,compatible_models,image_url,created_at,updated_at FROM test_sites WHERE id=$1`, id).
+		Scan(&t.ID, &t.Name, &t.SiteType, &t.OwnerID, &t.Location, &t.BookingRule, &t.Status, &t.PriceFen, &fj, &t.AirspaceRange, &t.MaxTakeoffWeight, &t.RunwayLength, &t.MaxFlightHeight, &t.CompatibleModels, &t.ImageURL, &t.CreatedAt, &t.UpdatedAt)
 	if err == nil {
 		json.Unmarshal(fj, &t.Facilities)
 	}
@@ -2309,7 +2309,7 @@ func (r *pgTestSiteRepo) FindByID(ctx context.Context, id string) (domain.TestSi
 }
 
 func (r *pgTestSiteRepo) List(ctx context.Context, siteType string) ([]domain.TestSite, error) {
-	q := `SELECT id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,created_at,updated_at FROM test_sites`
+	q := `SELECT id,name,site_type,owner_id,location,booking_rule,status,price_fen,facilities,airspace_range,max_takeoff_weight,runway_length,max_flight_height,compatible_models,image_url,created_at,updated_at FROM test_sites`
 	args := []any{}
 	if siteType != "" {
 		q += ` WHERE site_type=$1`
@@ -2325,7 +2325,7 @@ func (r *pgTestSiteRepo) List(ctx context.Context, siteType string) ([]domain.Te
 	for rows.Next() {
 		var t domain.TestSite
 		var fj []byte
-		if err := rows.Scan(&t.ID, &t.Name, &t.SiteType, &t.OwnerID, &t.Location, &t.BookingRule, &t.Status, &t.PriceFen, &fj, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.SiteType, &t.OwnerID, &t.Location, &t.BookingRule, &t.Status, &t.PriceFen, &fj, &t.AirspaceRange, &t.MaxTakeoffWeight, &t.RunwayLength, &t.MaxFlightHeight, &t.CompatibleModels, &t.ImageURL, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		json.Unmarshal(fj, &t.Facilities)
@@ -2338,8 +2338,8 @@ func (r *pgTestSiteRepo) UpdateSite(ctx context.Context, t domain.TestSite) (dom
 	t.UpdatedAt = time.Now()
 	facJSON, _ := json.Marshal(t.Facilities)
 	_, err := r.pool.Exec(ctx,
-		`UPDATE test_sites SET name=$1,site_type=$2,location=$3,booking_rule=$4,status=$5,price_fen=$6,facilities=$7,updated_at=$8 WHERE id=$9`,
-		t.Name, t.SiteType, t.Location, t.BookingRule, t.Status, t.PriceFen, facJSON, t.UpdatedAt, t.ID)
+		`UPDATE test_sites SET name=$1,site_type=$2,location=$3,booking_rule=$4,status=$5,price_fen=$6,facilities=$7,airspace_range=$8,max_takeoff_weight=$9,runway_length=$10,max_flight_height=$11,compatible_models=$12,image_url=$13,updated_at=$14 WHERE id=$15`,
+		t.Name, t.SiteType, t.Location, t.BookingRule, t.Status, t.PriceFen, facJSON, t.AirspaceRange, t.MaxTakeoffWeight, t.RunwayLength, t.MaxFlightHeight, t.CompatibleModels, t.ImageURL, t.UpdatedAt, t.ID)
 	return t, err
 }
 
@@ -2351,15 +2351,15 @@ func (r *pgTestSiteRepo) DeleteSite(ctx context.Context, id string) error {
 func (r *pgTestSiteRepo) CreateBooking(ctx context.Context, b domain.TestSiteBooking) (domain.TestSiteBooking, error) {
 	b.CreatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO test_site_bookings (id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-		b.ID, b.SiteID, b.UserID, b.Purpose, b.StartTime, b.EndTime, b.ContactName, b.ContactPhone, b.Status, b.ReviewNote, b.CreatedAt)
+		`INSERT INTO test_site_bookings (id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,booking_type,model,license_url,team_name,people_count,equipment_list,qualification_url,equipment_note,time_slots,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+		b.ID, b.SiteID, b.UserID, b.Purpose, b.StartTime, b.EndTime, b.ContactName, b.ContactPhone, b.Status, b.ReviewNote, b.BookingType, b.Model, b.LicenseURL, b.TeamName, b.PeopleCount, b.EquipmentList, b.QualificationURL, b.EquipmentNote, b.TimeSlots, b.CreatedAt)
 	return b, err
 }
 func (r *pgTestSiteRepo) FindBookingByID(ctx context.Context, id string) (domain.TestSiteBooking, error) {
 	var b domain.TestSiteBooking
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE id=$1`, id).
-		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt)
+		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,booking_type,model,license_url,team_name,people_count,equipment_list,qualification_url,equipment_note,time_slots,created_at FROM test_site_bookings WHERE id=$1`, id).
+		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.BookingType, &b.Model, &b.LicenseURL, &b.TeamName, &b.PeopleCount, &b.EquipmentList, &b.QualificationURL, &b.EquipmentNote, &b.TimeSlots, &b.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.TestSiteBooking{}, fmt.Errorf("booking not found")
 	}
@@ -2368,14 +2368,14 @@ func (r *pgTestSiteRepo) FindBookingByID(ctx context.Context, id string) (domain
 func (r *pgTestSiteRepo) UpdateBookingStatus(ctx context.Context, id, status, note string) (domain.TestSiteBooking, error) {
 	var b domain.TestSiteBooking
 	err := r.pool.QueryRow(ctx,
-		`UPDATE test_site_bookings SET status=$1,review_note=$2 WHERE id=$3 RETURNING id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at`,
+		`UPDATE test_site_bookings SET status=$1,review_note=$2 WHERE id=$3 RETURNING id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,booking_type,model,license_url,team_name,people_count,equipment_list,qualification_url,equipment_note,time_slots,created_at`,
 		status, note, id).
-		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt)
+		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.BookingType, &b.Model, &b.LicenseURL, &b.TeamName, &b.PeopleCount, &b.EquipmentList, &b.QualificationURL, &b.EquipmentNote, &b.TimeSlots, &b.CreatedAt)
 	return b, err
 }
 func (r *pgTestSiteRepo) ListBookings(ctx context.Context, siteID string) ([]domain.TestSiteBooking, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE site_id=$1 ORDER BY created_at DESC`, siteID)
+		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,booking_type,model,license_url,team_name,people_count,equipment_list,qualification_url,equipment_note,time_slots,created_at FROM test_site_bookings WHERE site_id=$1 ORDER BY created_at DESC`, siteID)
 	if err != nil {
 		return nil, err
 	}
@@ -2383,7 +2383,7 @@ func (r *pgTestSiteRepo) ListBookings(ctx context.Context, siteID string) ([]dom
 	var out []domain.TestSiteBooking
 	for rows.Next() {
 		var b domain.TestSiteBooking
-		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.BookingType, &b.Model, &b.LicenseURL, &b.TeamName, &b.PeopleCount, &b.EquipmentList, &b.QualificationURL, &b.EquipmentNote, &b.TimeSlots, &b.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, b)
@@ -2394,7 +2394,7 @@ func (r *pgTestSiteRepo) ListBookings(ctx context.Context, siteID string) ([]dom
 // ListBookingsByUser 我的预约：按用户返回全部预约（最新在前）
 func (r *pgTestSiteRepo) ListBookingsByUser(ctx context.Context, userID string) ([]domain.TestSiteBooking, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,booking_type,model,license_url,team_name,people_count,equipment_list,qualification_url,equipment_note,time_slots,created_at FROM test_site_bookings WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list bookings by user: %w", err)
 	}
@@ -2402,7 +2402,7 @@ func (r *pgTestSiteRepo) ListBookingsByUser(ctx context.Context, userID string) 
 	var out []domain.TestSiteBooking
 	for rows.Next() {
 		var b domain.TestSiteBooking
-		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.BookingType, &b.Model, &b.LicenseURL, &b.TeamName, &b.PeopleCount, &b.EquipmentList, &b.QualificationURL, &b.EquipmentNote, &b.TimeSlots, &b.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, b)
@@ -2415,7 +2415,7 @@ func (r *pgTestSiteRepo) ListAllBookings(ctx context.Context, offset, limit int)
 		return nil, 0, fmt.Errorf("count test site bookings: %w", err)
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,created_at FROM test_site_bookings ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,booking_type,model,license_url,team_name,people_count,equipment_list,qualification_url,equipment_note,time_slots,created_at FROM test_site_bookings ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list all bookings: %w", err)
 	}
@@ -2423,7 +2423,7 @@ func (r *pgTestSiteRepo) ListAllBookings(ctx context.Context, offset, limit int)
 	var out []domain.TestSiteBooking
 	for rows.Next() {
 		var b domain.TestSiteBooking
-		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.BookingType, &b.Model, &b.LicenseURL, &b.TeamName, &b.PeopleCount, &b.EquipmentList, &b.QualificationURL, &b.EquipmentNote, &b.TimeSlots, &b.CreatedAt); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, b)
@@ -2443,21 +2443,21 @@ func (r *pgTransRepo) Create(ctx context.Context, t domain.Transformation) (doma
 	t.CreatedAt = time.Now()
 	t.UpdatedAt = t.CreatedAt
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO transformations (id,title,achievement_id,owner_id,progress,partner_id,status,stage,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		t.ID, t.Title, t.AchievementID, t.OwnerID, t.Progress, t.PartnerID, t.Status, t.Stage, t.CreatedAt, t.UpdatedAt)
+		`INSERT INTO transformations (id,title,achievement_id,owner_id,progress,partner_id,status,stage,contact_info,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		t.ID, t.Title, t.AchievementID, t.OwnerID, t.Progress, t.PartnerID, t.Status, t.Stage, t.ContactInfo, t.CreatedAt, t.UpdatedAt)
 	return t, err
 }
 
 func (r *pgTransRepo) FindByID(ctx context.Context, id string) (domain.Transformation, error) {
 	var t domain.Transformation
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,title,achievement_id,owner_id,progress,partner_id,status,stage,created_at,updated_at FROM transformations WHERE id=$1`, id).
-		Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.Stage, &t.CreatedAt, &t.UpdatedAt)
+		`SELECT id,title,achievement_id,owner_id,progress,partner_id,status,stage,contact_info,created_at,updated_at FROM transformations WHERE id=$1`, id).
+		Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.Stage, &t.ContactInfo, &t.CreatedAt, &t.UpdatedAt)
 	return t, err
 }
 
 func (r *pgTransRepo) List(ctx context.Context, ownerID string) ([]domain.Transformation, error) {
-	q := `SELECT id,title,achievement_id,owner_id,progress,partner_id,status,stage,created_at,updated_at FROM transformations`
+	q := `SELECT id,title,achievement_id,owner_id,progress,partner_id,status,stage,contact_info,created_at,updated_at FROM transformations`
 	args := []any{}
 	if ownerID != "" {
 		q += ` WHERE owner_id=$1`
@@ -2472,7 +2472,7 @@ func (r *pgTransRepo) List(ctx context.Context, ownerID string) ([]domain.Transf
 	var out []domain.Transformation
 	for rows.Next() {
 		var t domain.Transformation
-		if err := rows.Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.Stage, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &t.AchievementID, &t.OwnerID, &t.Progress, &t.PartnerID, &t.Status, &t.Stage, &t.ContactInfo, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -2483,8 +2483,8 @@ func (r *pgTransRepo) List(ctx context.Context, ownerID string) ([]domain.Transf
 func (r *pgTransRepo) Update(ctx context.Context, t domain.Transformation) (domain.Transformation, error) {
 	t.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
-		`UPDATE transformations SET title=$1,achievement_id=$2,progress=$3,partner_id=$4,status=$5,stage=$6,updated_at=$7 WHERE id=$8`,
-		t.Title, t.AchievementID, t.Progress, t.PartnerID, t.Status, t.Stage, t.UpdatedAt, t.ID)
+		`UPDATE transformations SET title=$1,achievement_id=$2,progress=$3,partner_id=$4,status=$5,stage=$6,contact_info=$7,updated_at=$8 WHERE id=$9`,
+		t.Title, t.AchievementID, t.Progress, t.PartnerID, t.Status, t.Stage, t.ContactInfo, t.UpdatedAt, t.ID)
 	return t, err
 }
 

@@ -114,19 +114,26 @@ func (s *Server) createTestSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name        string   `json:"name"`
-		SiteType    string   `json:"site_type"`
-		Location    string   `json:"location"`
-		BookingRule string   `json:"booking_rule"`
-		PriceFen    int64    `json:"price_fen"`
-		Facilities  []string `json:"facilities"`
-		Status      string   `json:"status"`
+		Name              string   `json:"name"`
+		SiteType          string   `json:"site_type"`
+		Location          string   `json:"location"`
+		BookingRule       string   `json:"booking_rule"`
+		PriceFen          int64    `json:"price_fen"`
+		Facilities        []string `json:"facilities"`
+		Status            string   `json:"status"`
+		AirspaceRange     string   `json:"airspace_range"`
+		MaxTakeoffWeight  string   `json:"max_takeoff_weight"`
+		RunwayLength      string   `json:"runway_length"`
+		MaxFlightHeight   string   `json:"max_flight_height"`
+		CompatibleModels  string   `json:"compatible_models"`
+		ImageURL          string   `json:"image_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	ts, err := s.testSiteSvc.Create(r.Context(), in.Name, in.SiteType, in.Location, in.BookingRule, a.ID, in.PriceFen, in.Facilities, in.Status)
+	ts, err := s.testSiteSvc.Create(r.Context(), in.Name, in.SiteType, in.Location, in.BookingRule, a.ID, in.PriceFen, in.Facilities, in.Status,
+		in.AirspaceRange, in.MaxTakeoffWeight, in.RunwayLength, in.MaxFlightHeight, in.CompatibleModels, in.ImageURL)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -157,6 +164,16 @@ func (s *Server) bookTestSite(w http.ResponseWriter, r *http.Request) {
 		TimeSlot     string `json:"time_slot"` // 兼容小程序：时段 HH:MM-HH:MM
 		ContactName  string `json:"contact_name"`
 		ContactPhone string `json:"contact_phone"`
+		// 预约扩展字段（booking 页提交；000093 迁移后完整落库）
+		BookingType      string `json:"booking_type"`
+		Model            string `json:"model"`
+		LicenseURL       string `json:"license_url"`
+		TeamName         string `json:"team_name"`
+		PeopleCount      int    `json:"people_count"`
+		EquipmentList    string `json:"equipment_list"`
+		QualificationURL string `json:"qualification_url"`
+		EquipmentNote    string `json:"equipment_note"`
+		TimeSlots        string `json:"time_slots"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -185,7 +202,8 @@ func (s *Server) bookTestSite(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("start_time/end_time (或 date+time_slot) 必填"))
 		return
 	}
-	bk, err := s.testSiteSvc.Book(r.Context(), r.PathValue("id"), a.ID, in.Purpose, in.ContactName, in.ContactPhone, st, et)
+	bk, err := s.testSiteSvc.Book(r.Context(), r.PathValue("id"), a.ID, in.Purpose, in.ContactName, in.ContactPhone, st, et,
+		in.BookingType, in.Model, in.LicenseURL, in.TeamName, in.PeopleCount, in.EquipmentList, in.QualificationURL, in.EquipmentNote, in.TimeSlots)
 	if err != nil {
 		fail(w, r, http.StatusConflict, err)
 		return

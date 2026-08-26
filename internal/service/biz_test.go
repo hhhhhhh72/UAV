@@ -62,7 +62,7 @@ func TestReportCRUD(t *testing.T) {
 
 func TestPortfolioCRUD(t *testing.T) {
 	svc := service.NewPortfolioService(memory.NewPortfolioRepository())
-	p, err := svc.Create(context.Background(), "ent-001", "巡航科技", "logo.png", "cover.png", "无人机方案商", "138", []string{"巡检"}, []string{"优秀"}, "")
+	p, err := svc.Create(context.Background(), "ent-001", "巡航科技", "logo.png", "cover.png", "无人机方案商", "138", "整机", "无人机", "", []string{"巡检"}, []string{"优秀"}, "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestPortfolioCRUD(t *testing.T) {
 
 func TestAchievementCRUD(t *testing.T) {
 	svc := service.NewAchievementService(memory.NewAchievementRepository())
-	a, err := svc.Create(context.Background(), "user-1", "AI避障算法", "patent", "自动避障", "无人机", "lab", "138", []string{"diagram.jpg"}, nil)
+	a, err := svc.Create(context.Background(), "user-1", "AI避障算法", "patent", "自动避障", "无人机", "lab", "138", []string{"diagram.jpg"}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestAchievementCRUD(t *testing.T) {
 
 func TestRDChallengeCRUD(t *testing.T) {
 	svc := service.NewRDChallengeService(memory.NewRDChallengeRepository())
-	c, err := svc.Create(context.Background(), "ent-001", "长续航电池", "电池", ">2小时轻量方案", 500000, time.Now().AddDate(0, 3, 0), "")
+	c, err := svc.Create(context.Background(), "ent-001", "长续航电池", "电池", ">2小时轻量方案", "续航≥2h", 500000, time.Now().AddDate(0, 3, 0), "")
 	if err != nil {
 		t.Fatal(err)
 	}

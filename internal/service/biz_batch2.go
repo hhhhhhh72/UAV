@@ -19,10 +19,10 @@ func NewTransformationService(r repository.TransformationRepository) *Transforma
 	return &TransformationService{repo: r}
 }
 
-func (s *TransformationService) Create(ctx context.Context, title, achievementID, ownerID, partnerID string) (domain.Transformation, error) {
+func (s *TransformationService) Create(ctx context.Context, title, achievementID, ownerID, partnerID, contactInfo string) (domain.Transformation, error) {
 	t := domain.Transformation{ID: nextID("tran"),
 		Title: title, AchievementID: achievementID, OwnerID: ownerID, PartnerID: partnerID,
-		Stage: domain.StageLab, Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		ContactInfo: contactInfo, Stage: domain.StageLab, Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	return s.repo.Create(ctx, t)
 }
 
@@ -34,7 +34,7 @@ func (s *TransformationService) DeleteTrans(ctx context.Context, id string) erro
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *TransformationService) UpdateTrans(ctx context.Context, id, title, achievementID, stage, progress, partnerID, status string) (domain.Transformation, error) {
+func (s *TransformationService) UpdateTrans(ctx context.Context, id, title, achievementID, stage, progress, partnerID, contactInfo, status string) (domain.Transformation, error) {
 	t, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Transformation{}, err
@@ -45,6 +45,7 @@ func (s *TransformationService) UpdateTrans(ctx context.Context, id, title, achi
 	t.Progress = progress
 	t.Status = status
 	t.PartnerID = partnerID
+	t.ContactInfo = contactInfo
 	t.UpdatedAt = time.Now()
 	return s.repo.Update(ctx, t)
 }

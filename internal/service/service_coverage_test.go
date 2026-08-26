@@ -185,7 +185,7 @@ func TestResourcePoolService_CRUD(t *testing.T) {
 func TestTestSiteService_CRUD_BookingConflict(t *testing.T) {
 	svc := service.NewTestSiteService(memory.NewTestSiteRepository())
 
-	site, err := svc.Create(context.Background(), "试飞场", "flying_field", "重庆", "工作日9-18点", "owner-1", 10000, []string{"5G", "RTK"}, "")
+	site, err := svc.Create(context.Background(), "试飞场", "flying_field", "重庆", "工作日9-18点", "owner-1", 10000, []string{"5G", "RTK"}, "", "10km", "25kg", "800m", "500m", "多旋翼", "")
 	if err != nil {
 		t.Fatalf("TestSiteService.Create: %v", err)
 	}
@@ -203,11 +203,11 @@ func TestTestSiteService_CRUD_BookingConflict(t *testing.T) {
 		t.Fatal("TestSiteService.Get: expected error for unknown id")
 	}
 
-	upd, err := svc.UpdateSite(context.Background(), site.ID, "试飞场2", "lab", "南岸", "提前3天", "maintenance", 20000, []string{"RTK"})
+	upd, err := svc.UpdateSite(context.Background(), site.ID, "试飞场2", "lab", "南岸", "提前3天", "maintenance", 20000, []string{"RTK"}, "5km", "10kg", "400m", "300m", "固定翼", "img.png")
 	if err != nil || upd.Name != "试飞场2" || upd.Status != "maintenance" {
 		t.Fatalf("TestSiteService.UpdateSite: name=%q status=%q err=%v", upd.Name, upd.Status, err)
 	}
-	if _, err := svc.UpdateSite(context.Background(), "nope", "", "", "", "", "", 0, nil); err == nil {
+	if _, err := svc.UpdateSite(context.Background(), "nope", "", "", "", "", "", 0, nil, "", "", "", "", "", ""); err == nil {
 		t.Fatal("TestSiteService.UpdateSite: expected error for unknown id")
 	}
 
@@ -216,7 +216,7 @@ func TestTestSiteService_CRUD_BookingConflict(t *testing.T) {
 	start := base
 	end := base.Add(2 * time.Hour)
 
-	bk, err := svc.Book(context.Background(), site.ID, "user-1", "R&D", "张三", "138", start, end)
+	bk, err := svc.Book(context.Background(), site.ID, "user-1", "R&D", "张三", "138", start, end, "personal", "M300", "lic.png", "", 1, "", "quali.png", "双机", "09:00-11:00,14:00-16:00")
 	if err != nil {
 		t.Fatalf("TestSiteService.Book: %v", err)
 	}
@@ -228,11 +228,11 @@ func TestTestSiteService_CRUD_BookingConflict(t *testing.T) {
 	}
 
 	// 与已批准预约重叠 → 冲突报错
-	if _, err := svc.Book(context.Background(), site.ID, "user-2", "demo", "李四", "139", start.Add(time.Hour), end.Add(time.Hour)); err == nil {
+	if _, err := svc.Book(context.Background(), site.ID, "user-2", "demo", "李四", "139", start.Add(time.Hour), end.Add(time.Hour), "personal", "", "", "", 0, "", "", "", ""); err == nil {
 		t.Fatal("TestSiteService.Book: expected time slot conflict error")
 	}
 	// 不重叠 → 成功
-	if _, err := svc.Book(context.Background(), site.ID, "user-2", "demo", "李四", "139", start.Add(3*time.Hour), end.Add(4*time.Hour)); err != nil {
+	if _, err := svc.Book(context.Background(), site.ID, "user-2", "demo", "李四", "139", start.Add(3*time.Hour), end.Add(4*time.Hour), "group", "M600", "", "飞鹰队", 3, "M300两台", "", "外场测试", "08:00-10:00"); err != nil {
 		t.Fatalf("TestSiteService.Book (non-overlap): %v", err)
 	}
 
@@ -323,7 +323,7 @@ func TestTransformationService_CRUD_StageMilestone(t *testing.T) {
 	owner := domain.Actor{ID: "owner-1", Role: domain.RoleEnterprise}
 	admin := domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}
 
-	tr, err := svc.Create(context.Background(), "成果转化", "ach-1", "owner-1", "partner-1")
+	tr, err := svc.Create(context.Background(), "成果转化", "ach-1", "owner-1", "partner-1", "138****1234")
 	if err != nil {
 		t.Fatalf("TransformationService.Create: %v", err)
 	}
@@ -347,11 +347,11 @@ func TestTransformationService_CRUD_StageMilestone(t *testing.T) {
 		t.Fatalf("TransformationService.ListByAchievement(nope): len=%d, want 0", len(byAch))
 	}
 
-	upd, err := svc.UpdateTrans(context.Background(), tr.ID, "新标题", "ach-1", "pilot", "50%", "partner-2", "active")
+	upd, err := svc.UpdateTrans(context.Background(), tr.ID, "新标题", "ach-1", "pilot", "50%", "partner-2", "139****5678", "active")
 	if err != nil || upd.Title != "新标题" || upd.Stage != domain.StagePilot {
 		t.Fatalf("TransformationService.UpdateTrans: title=%q stage=%q err=%v", upd.Title, upd.Stage, err)
 	}
-	if _, err := svc.UpdateTrans(context.Background(), "nope", "", "", "", "", "", ""); err == nil {
+	if _, err := svc.UpdateTrans(context.Background(), "nope", "", "", "", "", "", "", ""); err == nil {
 		t.Fatal("TransformationService.UpdateTrans: expected error for unknown id")
 	}
 
@@ -736,18 +736,18 @@ func TestEmergencyService_FullCRUD(t *testing.T) {
 
 func TestAchievementService_UpdateError(t *testing.T) {
 	svc := service.NewAchievementService(memory.NewAchievementRepository())
-	if _, err := svc.Update(context.Background(), domain.Actor{ID: "u-x", Role: domain.RoleIndividual}, "nope", "t", "", "", "", "", "", nil, nil); err == nil {
+	if _, err := svc.Update(context.Background(), domain.Actor{ID: "u-x", Role: domain.RoleIndividual}, "nope", "t", "", "", "", "", "", nil, nil, ""); err == nil {
 		t.Fatal("AchievementService.Update: expected error for unknown id")
 	}
 }
 
 func TestRDChallengeService_DeleteUpdate(t *testing.T) {
 	svc := service.NewRDChallengeService(memory.NewRDChallengeRepository())
-	c, err := svc.Create(context.Background(), "ent-1", "长续航电池", "电池", "描述", 500000, time.Now().AddDate(0, 3, 0), "")
+	c, err := svc.Create(context.Background(), "ent-1", "长续航电池", "电池", "描述", "", 500000, time.Now().AddDate(0, 3, 0), "")
 	if err != nil {
 		t.Fatalf("RDChallengeService.Create: %v", err)
 	}
-	if _, err := svc.Update(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, "nope", "", "", "", "", 0, time.Now()); err == nil {
+	if _, err := svc.Update(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, "nope", "", "", "", "", "", 0, time.Now()); err == nil {
 		t.Fatal("RDChallengeService.Update: expected error for unknown id")
 	}
 	if err := svc.Delete(context.Background(), domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, c.ID); err != nil {

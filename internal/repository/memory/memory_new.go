@@ -328,6 +328,73 @@ func (r *achieveRepo) Delete(ctx context.Context, id string) error {
 	}
 	return fmt.Errorf("achievement %s not found", id)
 }
+func (r *achieveRepo) AdjustStats(ctx context.Context, id string, viewsDelta, favsDelta int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, v := range r.items {
+		if v.ID == id {
+			nv := v.Views + viewsDelta
+			if nv < 0 {
+				nv = 0
+			}
+			nf := v.Favs + favsDelta
+			if nf < 0 {
+				nf = 0
+			}
+			r.items[i].Views = nv
+			r.items[i].Favs = nf
+			r.items[i].UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return fmt.Errorf("achievement %s not found", id)
+}
+
+// ---- ChallengeClaim (揭榜意向) ----
+
+type claimRepo struct {
+	mu    sync.RWMutex
+	items []domain.ChallengeClaim
+}
+
+func NewChallengeClaimRepository() repository.ChallengeClaimRepository { return &claimRepo{} }
+
+func (r *claimRepo) Create(ctx context.Context, c domain.ChallengeClaim) (domain.ChallengeClaim, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, v := range r.items {
+		if v.ChallengeID == c.ChallengeID && v.UserID == c.UserID {
+			return v, nil // 幂等：同人同难题已有记录，原样返回
+		}
+	}
+	c.CreatedAt = time.Now()
+	r.items = append(r.items, c)
+	return c, nil
+}
+
+func (r *claimRepo) FindByChallengeAndUser(ctx context.Context, challengeID, userID string) (domain.ChallengeClaim, bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, v := range r.items {
+		if v.ChallengeID == challengeID && v.UserID == userID {
+			return v, true, nil
+		}
+	}
+	return domain.ChallengeClaim{}, false, nil
+}
+
+func (r *claimRepo) ListByChallenge(ctx context.Context, challengeID string) ([]domain.ChallengeClaim, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.ChallengeClaim, 0)
+	for _, v := range r.items {
+		if v.ChallengeID == challengeID {
+			out = append(out, v)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
 
 // ---- RDChallenge ----
 

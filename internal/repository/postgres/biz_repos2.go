@@ -32,16 +32,16 @@ func (r *achieveRepo) Create(ctx context.Context, a domain.Achievement) (domain.
 		return domain.Achievement{}, fmt.Errorf("marshal attachments: %w", err)
 	}
 	_, err = r.pool.Exec(ctx,
-		`INSERT INTO achievements (id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-		a.ID, a.OwnerID, a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, atts, a.ContactInfo, a.Status, a.CreatedAt, a.UpdatedAt)
+		`INSERT INTO achievements (id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,views,favs,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		a.ID, a.OwnerID, a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, atts, a.ContactInfo, a.Status, a.Views, a.Favs, a.CreatedAt, a.UpdatedAt)
 	return a, err
 }
 func (r *achieveRepo) FindByID(ctx context.Context, id string) (domain.Achievement, error) {
 	var a domain.Achievement
 	var imgs, atts []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,created_at,updated_at FROM achievements WHERE id=$1`, id).
-		Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.CreatedAt, &a.UpdatedAt)
+		`SELECT id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,views,favs,created_at,updated_at FROM achievements WHERE id=$1`, id).
+		Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.Views, &a.Favs, &a.CreatedAt, &a.UpdatedAt)
 	json.Unmarshal(imgs, &a.Images)
 	json.Unmarshal(atts, &a.Attachments)
 	return a, err
@@ -57,7 +57,7 @@ func (r *achieveRepo) List(ctx context.Context, field string, offset, limit int)
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM achievements `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count achievements: %w", err)
 	}
-	q := fmt.Sprintf(`SELECT id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,created_at,updated_at FROM achievements %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,owner_id,title,achieve_type,description,field,stage,images,attachments,contact_info,status,views,favs,created_at,updated_at FROM achievements %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(ctx, q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list achievements: %w", err)
@@ -67,7 +67,7 @@ func (r *achieveRepo) List(ctx context.Context, field string, offset, limit int)
 	for rows.Next() {
 		var a domain.Achievement
 		var imgs, atts []byte
-		if err := rows.Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.Views, &a.Favs, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan achievement: %w", err)
 		}
 		json.Unmarshal(imgs, &a.Images)
@@ -91,6 +91,21 @@ func (r *achieveRepo) Update(ctx context.Context, a domain.Achievement) (domain.
 		a.Title, a.AchieveType, a.Description, a.Field, a.Stage, imgs, atts, a.ContactInfo, a.Status, a.UpdatedAt, a.ID)
 	return a, err
 }
+func (r *achieveRepo) AdjustStats(ctx context.Context, id string, viewsDelta, favsDelta int) error {
+	if viewsDelta == 0 && favsDelta == 0 {
+		return nil
+	}
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE achievements SET views=GREATEST(views+$2,0), favs=GREATEST(favs+$3,0), updated_at=now() WHERE id=$1`,
+		id, viewsDelta, favsDelta)
+	if err != nil {
+		return fmt.Errorf("adjust achievement stats %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("achievement %s not found", id)
+	}
+	return nil
+}
 func (r *achieveRepo) Delete(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM achievements WHERE id=$1`, id)
 	if err != nil {
@@ -111,15 +126,15 @@ func (r *rdChallengeRepo) Create(ctx context.Context, c domain.RDChallenge) (dom
 	c.CreatedAt = time.Now()
 	c.UpdatedAt = c.CreatedAt
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO rd_challenges (id,poster_id,title,field,description,budget_fen,deadline,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		c.ID, c.PosterID, c.Title, c.Field, c.Description, c.BudgetFen, c.Deadline, c.Status, c.CreatedAt, c.UpdatedAt)
+		`INSERT INTO rd_challenges (id,poster_id,title,field,description,requirements,budget_fen,deadline,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		c.ID, c.PosterID, c.Title, c.Field, c.Description, c.Requirements, c.BudgetFen, c.Deadline, c.Status, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
 func (r *rdChallengeRepo) FindByID(ctx context.Context, id string) (domain.RDChallenge, error) {
 	var c domain.RDChallenge
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,poster_id,title,field,description,budget_fen,COALESCE(deadline,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at FROM rd_challenges WHERE id=$1`, id).
-		Scan(&c.ID, &c.PosterID, &c.Title, &c.Field, &c.Description, &c.BudgetFen, &c.Deadline, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+		`SELECT id,poster_id,title,field,description,requirements,budget_fen,COALESCE(deadline,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at FROM rd_challenges WHERE id=$1`, id).
+		Scan(&c.ID, &c.PosterID, &c.Title, &c.Field, &c.Description, &c.Requirements, &c.BudgetFen, &c.Deadline, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
 func (r *rdChallengeRepo) List(ctx context.Context, field string, offset, limit int) ([]domain.RDChallenge, int, error) {
@@ -133,7 +148,7 @@ func (r *rdChallengeRepo) List(ctx context.Context, field string, offset, limit 
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM rd_challenges `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count challenges: %w", err)
 	}
-	q := fmt.Sprintf(`SELECT id,poster_id,title,field,description,budget_fen,COALESCE(deadline,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at FROM rd_challenges %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,poster_id,title,field,description,requirements,budget_fen,COALESCE(deadline,'1970-01-01 00:00:00+00'::timestamptz),status,created_at,updated_at FROM rd_challenges %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(ctx, q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list challenges: %w", err)
@@ -142,7 +157,7 @@ func (r *rdChallengeRepo) List(ctx context.Context, field string, offset, limit 
 	var out []domain.RDChallenge
 	for rows.Next() {
 		var c domain.RDChallenge
-		if err := rows.Scan(&c.ID, &c.PosterID, &c.Title, &c.Field, &c.Description, &c.BudgetFen, &c.Deadline, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.PosterID, &c.Title, &c.Field, &c.Description, &c.Requirements, &c.BudgetFen, &c.Deadline, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan challenge: %w", err)
 		}
 		out = append(out, c)
@@ -152,8 +167,8 @@ func (r *rdChallengeRepo) List(ctx context.Context, field string, offset, limit 
 func (r *rdChallengeRepo) Update(ctx context.Context, c domain.RDChallenge) (domain.RDChallenge, error) {
 	c.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
-		`UPDATE rd_challenges SET title=$1,field=$2,description=$3,budget_fen=$4,deadline=$5,status=$6,updated_at=$7 WHERE id=$8`,
-		c.Title, c.Field, c.Description, c.BudgetFen, c.Deadline, c.Status, c.UpdatedAt, c.ID)
+		`UPDATE rd_challenges SET title=$1,field=$2,description=$3,requirements=$4,budget_fen=$5,deadline=$6,status=$7,updated_at=$8 WHERE id=$9`,
+		c.Title, c.Field, c.Description, c.Requirements, c.BudgetFen, c.Deadline, c.Status, c.UpdatedAt, c.ID)
 	return c, err
 }
 

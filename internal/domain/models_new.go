@@ -106,8 +106,13 @@ type Achievement struct {
 	Attachments []Attachment `json:"attachments"`
 	ContactInfo string       `json:"contact_info"`
 	Status      string       `json:"status"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
+	// Views/Favs 浏览与收藏计数（列表「最多浏览/最多收藏」排序依据；非持久化链路外零值）
+	Views int `json:"views"`
+	Favs  int `json:"favs"`
+	// PosterName 发布方展示名（响应层由 owner_id 关联填充，非数据库列）
+	PosterName string    `json:"poster_name,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // Attachment 成果附件（detail_pd.html 原型：名称/大小/URL）
@@ -124,11 +129,26 @@ type RDChallenge struct {
 	Title       string    `json:"title"`
 	Field       string    `json:"field"`
 	Description string    `json:"description"`
-	BudgetFen   int64     `json:"budget_fen"`
-	Deadline    time.Time `json:"deadline"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	// Requirements 攻关要求（一行一条或分号分隔；前端兼容数组/字符串两种形态）
+	Requirements string    `json:"requirements"`
+	BudgetFen    int64     `json:"budget_fen"`
+	Deadline     time.Time `json:"deadline"`
+	Status       string    `json:"status"`
+	// PosterName 发布方展示名（响应层由 poster_id 关联填充，非数据库列）
+	PosterName string    `json:"poster_name,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// ChallengeClaim 研发难题揭榜意向（challenges/{id}/claims）
+type ChallengeClaim struct {
+	ID          string    `json:"id"`
+	ChallengeID string    `json:"challenge_id"`
+	UserID      string    `json:"user_id"`
+	// Claimer 揭榜方展示名（响应层由 user_id 关联填充，非数据库列）
+	Claimer   string    `json:"claimer"`
+	Status    string    `json:"status"` // submitted 待审核 / reviewing 审核中 / matched 已对接
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // ResearchProject is a joint research project between industry and academia.
@@ -258,9 +278,17 @@ type MemberPortfolio struct {
 	Products     []string  `json:"products"`
 	Honors       []string  `json:"honors"`
 	ContactInfo  string    `json:"contact_info"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	// Category/Industry 品牌分类与所属行业（列表分类筛选依据）
+	Category  string `json:"category"`
+	Industry  string `json:"industry"`
+	Verified  bool   `json:"verified"`   // 认证会员标识
+	VideoURL  string `json:"video_url"`  // 品牌宣传视频
+	VideoCount int   `json:"video_count"`
+	Views     int    `json:"views"`      // 品牌浏览计数
+	Featured  bool   `json:"featured"`   // 精选位（首页轮播）
+	Status    string `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // IndustryReport is a periodic industry analysis report.

@@ -33,12 +33,13 @@ func (s *Server) createTransformation(w http.ResponseWriter, r *http.Request) {
 		Title         string `json:"title"`
 		AchievementID string `json:"achievement_id"`
 		PartnerID     string `json:"partner_id"`
+		ContactInfo   string `json:"contact_info"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	t, err := s.transSvc.Create(r.Context(), in.Title, in.AchievementID, a.ID, in.PartnerID)
+	t, err := s.transSvc.Create(r.Context(), in.Title, in.AchievementID, a.ID, in.PartnerID, in.ContactInfo)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return

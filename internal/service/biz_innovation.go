@@ -19,8 +19,11 @@ func NewAchievementService(repo repository.AchievementRepository) *AchievementSe
 	return &AchievementService{repo: repo}
 }
 
-func (s *AchievementService) Create(ctx context.Context, ownerID, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
+func (s *AchievementService) Create(ctx context.Context, ownerID, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment, status string) (domain.Achievement, error) {
 	now := time.Now()
+	if status == "" {
+		status = "published"
+	}
 	a := domain.Achievement{
 		ID:          nextID("achieve"),
 		OwnerID:     ownerID,
@@ -32,7 +35,7 @@ func (s *AchievementService) Create(ctx context.Context, ownerID, title, achieve
 		Images:      images,
 		Attachments: attachments,
 		ContactInfo: contactInfo,
-		Status:      "published",
+		Status:      status,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -48,7 +51,7 @@ func (s *AchievementService) Get(ctx context.Context, id string) (domain.Achieve
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *AchievementService) Update(ctx context.Context, a domain.Actor, id, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment) (domain.Achievement, error) {
+func (s *AchievementService) Update(ctx context.Context, a domain.Actor, id, title, achieveType, description, field, stage, contactInfo string, images []string, attachments []domain.Attachment, status string) (domain.Achievement, error) {
 	ach, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Achievement{}, err
@@ -65,8 +68,16 @@ func (s *AchievementService) Update(ctx context.Context, a domain.Actor, id, tit
 	ach.Images = images
 	ach.Attachments = attachments
 	ach.ContactInfo = contactInfo
+	if status != "" {
+		ach.Status = status
+	}
 	ach.UpdatedAt = time.Now()
 	return s.repo.Update(ctx, ach)
+}
+
+// AdjustStats 浏览/收藏计数增量（负值下限 0）。
+func (s *AchievementService) AdjustStats(ctx context.Context, id string, viewsDelta, favsDelta int) error {
+	return s.repo.AdjustStats(ctx, id, viewsDelta, favsDelta)
 }
 
 func (s *AchievementService) Delete(ctx context.Context, a domain.Actor, id string) error {
@@ -91,7 +102,7 @@ func NewRDChallengeService(repo repository.RDChallengeRepository) *RDChallengeSe
 	return &RDChallengeService{repo: repo}
 }
 
-func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field, description string, budgetFen int64, deadline time.Time, status string) (domain.RDChallenge, error) {
+func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field, description, requirements string, budgetFen int64, deadline time.Time, status string) (domain.RDChallenge, error) {
 	if budgetFen < 0 {
 		return domain.RDChallenge{}, fmt.Errorf("budget cannot be negative")
 	}
@@ -100,16 +111,17 @@ func (s *RDChallengeService) Create(ctx context.Context, posterID, title, field,
 		status = "published"
 	}
 	c := domain.RDChallenge{
-		ID:          nextID("challenge"),
-		PosterID:    posterID,
-		Title:       title,
-		Field:       field,
-		Description: description,
-		BudgetFen:   budgetFen,
-		Deadline:    deadline,
-		Status:      status,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           nextID("challenge"),
+		PosterID:     posterID,
+		Title:        title,
+		Field:        field,
+		Description:  description,
+		Requirements: requirements,
+		BudgetFen:    budgetFen,
+		Deadline:     deadline,
+		Status:       status,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	return s.repo.Create(ctx, c)
 }
@@ -123,7 +135,7 @@ func (s *RDChallengeService) Get(ctx context.Context, id string) (domain.RDChall
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *RDChallengeService) Update(ctx context.Context, a domain.Actor, id, title, field, description, status string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
+func (s *RDChallengeService) Update(ctx context.Context, a domain.Actor, id, title, field, description, requirements, status string, budgetFen int64, deadline time.Time) (domain.RDChallenge, error) {
 	if budgetFen < 0 {
 		return domain.RDChallenge{}, fmt.Errorf("budget cannot be negative")
 	}
@@ -138,6 +150,7 @@ func (s *RDChallengeService) Update(ctx context.Context, a domain.Actor, id, tit
 	c.Title = title
 	c.Field = field
 	c.Description = description
+	c.Requirements = requirements
 	c.Status = status
 	c.BudgetFen = budgetFen
 	c.Deadline = deadline

@@ -251,6 +251,7 @@ func main() {
 		complianceRepo  repository.ComplianceRepository
 		achieveRepo     repository.AchievementRepository
 		rdChallengeRepo repository.RDChallengeRepository
+		claimRepo       repository.ChallengeClaimRepository
 		researchRepo    repository.ResearchProjectRepository
 		projAppRepo     repository.ProjectAppRepository
 		competitionRepo repository.CompetitionRepository
@@ -320,6 +321,7 @@ func main() {
 		complianceRepo = pgStore.NewComplianceRepository()
 		achieveRepo = pgStore.NewAchievementRepository()
 		rdChallengeRepo = pgStore.NewRDChallengeRepository()
+		claimRepo = pgStore.NewChallengeClaimRepository()
 		researchRepo = pgStore.NewResearchProjectRepository()
 		projAppRepo = pgStore.NewProjectAppRepository()
 		competitionRepo = pgStore.NewCompetitionRepository(cipher)
@@ -393,6 +395,7 @@ func main() {
 		complianceRepo = memory.NewComplianceRepository()
 		achieveRepo = memory.NewAchievementRepository()
 		rdChallengeRepo = memory.NewRDChallengeRepository()
+		claimRepo = memory.NewChallengeClaimRepository()
 		researchRepo = memory.NewResearchProjectRepository()
 		projAppRepo = memory.NewProjectAppRepository()
 		competitionRepo = memory.NewCompetitionRepository(cipher)
@@ -445,6 +448,7 @@ func main() {
 	app.SetPortfolioService(service.NewPortfolioService(portfolioRepo))
 	app.SetAchievementService(service.NewAchievementService(achieveRepo))
 	app.SetRDChallengeService(service.NewRDChallengeService(rdChallengeRepo))
+	app.SetChallengeClaimService(service.NewChallengeClaimService(claimRepo, rdChallengeRepo))
 	app.SetResearchProjectService(service.NewResearchProjectService(researchRepo))
 	app.SetProjectAppService(service.NewProjectAppService(projAppRepo))
 	app.SetCompetitionService(service.NewCompetitionService(competitionRepo))

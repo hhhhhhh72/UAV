@@ -44,8 +44,15 @@ type TestSite struct {
 	PriceFen    int64     `json:"price_fen"`
 	BookingRule string    `json:"booking_rule"` // "工作日9-18点,需提前3天"
 	Status      string    `json:"status"`       // available / maintenance / reserved
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	// 场地参数（detail 页「场地参数」卡；文本值，空即折叠）
+	AirspaceRange     string `json:"airspace_range"`
+	MaxTakeoffWeight  string `json:"max_takeoff_weight"`
+	RunwayLength      string `json:"runway_length"`
+	MaxFlightHeight   string `json:"max_flight_height"`
+	CompatibleModels  string `json:"compatible_models"`
+	ImageURL          string `json:"image_url"` // 轮播主图（空时前端保留占位）
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 // TestSiteBooking is a reservation for a test site time slot.
@@ -61,6 +68,16 @@ type TestSiteBooking struct {
 	Status       string    `json:"status"`        // pending / approved / rejected / completed
 	ReviewNote   string    `json:"review_note"`
 	CreatedAt    time.Time `json:"created_at"`
+	// 预约扩展字段（booking 页提交；此前被静默丢弃，随 000093 迁移落库）
+	BookingType      string `json:"booking_type"`      // personal / group
+	Model            string `json:"model"`             // 无人机型号
+	LicenseURL       string `json:"license_url"`       // 执照/资质上传
+	TeamName         string `json:"team_name"`         // 团体名称
+	PeopleCount      int    `json:"people_count"`      // 人数
+	EquipmentList    string `json:"equipment_list"`    // 设备清单
+	QualificationURL string `json:"qualification_url"` // 资质上传
+	EquipmentNote    string `json:"equipment_note"`    // 设备备注
+	TimeSlots        string `json:"time_slots"`        // 多时段（逗号/顿号分隔）
 }
 
 // ── 产业展会管理 (per .doc ⑥-3) ──

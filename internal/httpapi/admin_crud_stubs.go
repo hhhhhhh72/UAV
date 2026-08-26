@@ -814,19 +814,25 @@ func (s *Server) listAdminTestSites(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateTestSite(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
-		Name        string   `json:"name"`
-		SiteType    string   `json:"site_type"`
-		Location    string   `json:"location"`
-		BookingRule string   `json:"booking_rule"`
-		Status      string   `json:"status"`
-		PriceFen    int64    `json:"price_fen"`
-		Facilities  []string `json:"facilities"`
+		Name              string   `json:"name"`
+		SiteType          string   `json:"site_type"`
+		Location          string   `json:"location"`
+		BookingRule       string   `json:"booking_rule"`
+		Status            string   `json:"status"`
+		PriceFen          int64    `json:"price_fen"`
+		Facilities        []string `json:"facilities"`
+		AirspaceRange     string   `json:"airspace_range"`
+		MaxTakeoffWeight  string   `json:"max_takeoff_weight"`
+		RunwayLength      string   `json:"runway_length"`
+		MaxFlightHeight   string   `json:"max_flight_height"`
+		CompatibleModels  string   `json:"compatible_models"`
+		ImageURL          string   `json:"image_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, 400, err)
 		return
 	}
-	site, err := s.testSiteSvc.UpdateSite(r.Context(), id, in.Name, in.SiteType, in.Location, in.BookingRule, in.Status, in.PriceFen, in.Facilities)
+	site, err := s.testSiteSvc.UpdateSite(r.Context(), id, in.Name, in.SiteType, in.Location, in.BookingRule, in.Status, in.PriceFen, in.Facilities, in.AirspaceRange, in.MaxTakeoffWeight, in.RunwayLength, in.MaxFlightHeight, in.CompatibleModels, in.ImageURL)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -872,13 +878,14 @@ func (s *Server) updateTransformation(w http.ResponseWriter, r *http.Request) {
 		Stage         string `json:"stage"` // lab/pilot/industrialized/listed
 		Progress      string `json:"progress"`
 		PartnerID     string `json:"partner_id"`
+		ContactInfo   string `json:"contact_info"`
 		Status        string `json:"status"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, 400, err)
 		return
 	}
-	t, err := s.transSvc.UpdateTrans(r.Context(), id, in.Title, in.AchievementID, in.Stage, in.Progress, in.PartnerID, in.Status)
+	t, err := s.transSvc.UpdateTrans(r.Context(), id, in.Title, in.AchievementID, in.Stage, in.Progress, in.PartnerID, in.ContactInfo, in.Status)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1534,6 +1541,11 @@ func (s *Server) getPortfolio(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusNotFound, errors.New("portfolio not found"))
 		return
 	}
+	// 公开访问计数（品牌浏览 +1；失败不阻断详情展示；响应值同步计数，与库一致）
+	if !isAdminRequest(r) {
+		_ = s.portfolioSvc.IncrementViews(r.Context(), p.ID)
+		p.Views++
+	}
 	respond(w, r, 200, p)
 }
 func (s *Server) getExpert(w http.ResponseWriter, r *http.Request) {
@@ -1558,11 +1570,17 @@ func (s *Server) getAchievement(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, err)
 		return
 	}
-	// 公开详情仅展示已发布成果（draft 等未公开状态仅管理端可见）
-	if !isAdminRoute(r) && a.Status != "published" {
+	// 公开详情仅展示公开可见成果（published/hot/new/transformed；draft 等仅管理端可见）
+	if !isAdminRoute(r) && !isPublicAchievementStatus(a.Status) {
 		fail(w, r, 404, errors.New("achievement not found"))
 		return
 	}
+	// 公开访问计数（浏览 +1；失败不阻断详情展示）
+	if !isAdminRoute(r) {
+		_ = s.achievementSvc.AdjustStats(r.Context(), a.ID, 1, 0)
+		a.Views++
+	}
+	a.PosterName = s.fillPosterName(r.Context(), a.OwnerID)
 	respond(w, r, 200, a)
 }
 func (s *Server) getRDChallenge(w http.ResponseWriter, r *http.Request) {
@@ -1575,6 +1593,7 @@ func (s *Server) getRDChallenge(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, errors.New("rd challenge not found"))
 		return
 	}
+	c2.PosterName = s.fillPosterName(r.Context(), c2.PosterID)
 	respond(w, r, 200, c2)
 }
 func (s *Server) getResearchProject(w http.ResponseWriter, r *http.Request) {

@@ -252,10 +252,10 @@ const buildDetail = (it) => {
     logo: resolveUrl(it.logo_url || ''),
     cover: resolveUrl(it.cover_url || ''),
     logoText: it.logo_text || (it.name ? String(it.name).charAt(0) : '牌'),
-    verified: it.status === 'published', // 已公示 = 协会已认证
+    verified: !!it.verified || it.status === 'published', // 后端 verified 字段优先，兼容旧数据已公示语义
     isVip: !!it.is_vip,
     featured: !!it.featured,
-    views: 0, // 后端暂无统计字段
+    views: it.views || 0, // 后端统计字段（GET /portfolios/{id} 浏览计数）
     videoCount: videos.length,
     caseCount: cases.length,
     grad: gradCls(it.grad),

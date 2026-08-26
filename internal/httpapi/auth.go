@@ -252,6 +252,11 @@ func isPublicPath(path string) bool {
 	if path == "/api/v1/certified-pilots/mine" {
 		return false
 	}
+	// 揭榜动态（GET /api/v1/challenges/{id}/claims）：公开只读——条目已脱敏、
+	// claimed 仅在携带有效 token 时计算，嵌套子路径在此显式放行。
+	if strings.HasPrefix(path, "/api/v1/challenges/") && strings.HasSuffix(path, "/claims") {
+		return true
+	}
 	publicPrefixes := []string{
 		"/api/v1/home",
 		"/api/v1/search",
@@ -276,6 +281,7 @@ func isPublicPath(path string) bool {
 		"/api/v1/industry-reports",
 		"/api/v1/portfolios",
 		"/api/v1/achievements",
+		"/api/v1/challenges",
 		"/api/v1/rd-challenges",
 		"/api/v1/research-projects",
 		"/api/v1/competitions",
