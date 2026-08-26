@@ -130,7 +130,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request, BASE_URL, authStorage } from '../../../utils/request'
+import { request, BASE_URL, authStorage, getErrorMessage } from '../../../utils/request'
 import { requireLogin, safeBack } from '../../../utils/nav'
 import { useSafeTop } from '../../../utils/safeTop'
 
@@ -210,6 +210,10 @@ const submit = async () => {
   if (!form.value.real_name.trim()) return uni.showToast({ title: '请输入真实姓名', icon: 'none' })
   if (!form.value.id_card.trim()) return uni.showToast({ title: '请输入身份证号', icon: 'none' })
   if (!/^\d{17}[\dXx]$/.test(form.value.id_card.trim())) return uni.showToast({ title: '身份证号格式不正确', icon: 'none' })
+  // 预检：至少一张已审核通过的证书（后端同规则含未过期校验；此处先给可读提示，避免提交后 403 兜底文案）
+  if (!approvedCerts.value.length) {
+    return uni.showToast({ title: '需至少一张已审核通过的证书（如 CAAC/AOPA/UTC）才能申请飞手认证', icon: 'none', duration: 2500 })
+  }
   submitting.value = true
   try {
     await request({
@@ -232,7 +236,8 @@ const submit = async () => {
       success: () => uni.navigateBack(),
     })
   } catch (e) {
-    uni.showToast({ title: (e && e.message) || '申请失败，请重试', icon: 'none' })
+    // 提取后端 403/400 的明确提示（如"需要至少一张未过期的有效证书"），避免只显示"申请失败"
+    uni.showToast({ title: getErrorMessage(e) || '申请失败，请重试', icon: 'none', duration: 2500 })
   } finally {
     submitting.value = false
   }
