@@ -66,7 +66,7 @@ func TestAcceptIntentAmountWithinBudget(t *testing.T) {
 	intentRepo := memory.NewIntentRepository()
 	orderRepo := memory.NewWorkOrderRepository()
 	demandSvc := service.NewDemandService(demandRepo)
-	intentSvc := service.NewIntentService(intentRepo, demandRepo)
+	intentSvc := service.NewIntentService(intentRepo, demandRepo, newCertifiedEntRepo(t, "worker-budget"), memory.NewPilotRepository(nil))
 	orderSvc := service.NewWorkOrderService(orderRepo, demandRepo, intentRepo)
 
 	pub := domain.Actor{ID: "pub-budget", Role: domain.RoleEnterprise}

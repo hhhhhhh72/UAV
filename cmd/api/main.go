@@ -456,7 +456,7 @@ func main() {
 	app.SetResourceService(service.NewResourceService(resourceRepo))
 	app.SetEmergencyService(service.NewEmergencyService(emergencyRepo))
 	app.SetMatchingService(service.NewMatchingService(demandRepo))
-	app.SetIntentService(service.NewIntentService(intentRepo, demandRepo))
+	app.SetIntentService(service.NewIntentService(intentRepo, demandRepo, enterpriseRepo, pilotRepo))
 	app.SetWorkOrderService(service.NewWorkOrderService(workOrderRepo, demandRepo, intentRepo))
 	app.SetServiceListingService(service.NewServiceListingService(serviceListingRepo))
 	app.SetContractTemplateService(service.NewContractTemplateService(contractTplRepo))

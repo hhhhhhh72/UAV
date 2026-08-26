@@ -819,7 +819,7 @@ func newWOScenario(t *testing.T) (*service.WorkOrderService, *service.IntentServ
 	intentRepo := memory.NewIntentRepository()
 	orderRepo := memory.NewWorkOrderRepository()
 	demandSvc := service.NewDemandService(demandRepo)
-	intentSvc := service.NewIntentService(intentRepo, demandRepo)
+	intentSvc := service.NewIntentService(intentRepo, demandRepo, newCertifiedEntRepo(t, "worker-1"), memory.NewPilotRepository(nil))
 	orderSvc := service.NewWorkOrderService(orderRepo, demandRepo, intentRepo)
 	pub := domain.Actor{ID: "pub-1", Role: domain.RoleEnterprise}
 	worker := domain.Actor{ID: "worker-1", Role: domain.RoleIndividual}
@@ -965,7 +965,7 @@ func TestIntentService_CreateErrors(t *testing.T) {
 	demandRepo := memory.NewDemandRepository(nil)
 	intentRepo := memory.NewIntentRepository()
 	demandSvc := service.NewDemandService(demandRepo)
-	intentSvc := service.NewIntentService(intentRepo, demandRepo)
+	intentSvc := service.NewIntentService(intentRepo, demandRepo, newCertifiedEntRepo(t, "worker-1"), memory.NewPilotRepository(nil))
 	pub := domain.Actor{ID: "pub-1", Role: domain.RoleEnterprise}
 	worker := domain.Actor{ID: "worker-1", Role: domain.RoleIndividual}
 
@@ -1009,7 +1009,7 @@ func TestIntentService_ListByDemandListMine(t *testing.T) {
 	demandRepo := memory.NewDemandRepository(nil)
 	intentRepo := memory.NewIntentRepository()
 	demandSvc := service.NewDemandService(demandRepo)
-	intentSvc := service.NewIntentService(intentRepo, demandRepo)
+	intentSvc := service.NewIntentService(intentRepo, demandRepo, newCertifiedEntRepo(t, "worker-1"), memory.NewPilotRepository(nil))
 	pub := domain.Actor{ID: "pub-1", Role: domain.RoleEnterprise}
 	worker := domain.Actor{ID: "worker-1", Role: domain.RoleIndividual}
 

@@ -20,7 +20,10 @@ func newWorkOrderScenario(t *testing.T) (*service.WorkOrderService, *service.Int
 	orderRepo := memory.NewWorkOrderRepository()
 
 	demandSvc := service.NewDemandService(demandRepo)
-	intentSvc := service.NewIntentService(intentRepo, demandRepo)
+	entRepo := memory.NewEnterpriseRepository(nil)
+	seedEntCertRepo(t, entRepo, "worker-1")
+	seedEntCertRepo(t, entRepo, "worker-2")
+	intentSvc := service.NewIntentService(intentRepo, demandRepo, entRepo, memory.NewPilotRepository(nil))
 	orderSvc := service.NewWorkOrderService(orderRepo, demandRepo, intentRepo)
 
 	pub := domain.Actor{ID: "pub-1", Role: domain.RoleEnterprise}

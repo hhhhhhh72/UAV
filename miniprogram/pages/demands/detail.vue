@@ -170,7 +170,7 @@
         <view class="sheet-body">
           <!-- 登录引导 -->
           <template v-if="sheet.kind === 'login'">
-            <text class="sheet-desc">发布、收藏和登记对接需要登录，登录后仍需完成企业认证才能建立正式对接。</text>
+            <text class="sheet-desc">发布、收藏和登记对接需要登录，登录后完成企业认证或飞手认证（任一）即可建立正式对接。</text>
             <view class="sheet-actions">
               <view class="ghost-btn" @tap="closeSheet">暂不登录</view>
               <view class="primary-btn" @tap="goLogin">去登录</view>
@@ -179,17 +179,20 @@
 
           <!-- 认证引导 -->
           <template v-else-if="sheet.kind === 'cert'">
-            <text class="sheet-desc">为保障供需双方信息真实，登记对接前需完成企业认证。</text>
+            <text class="sheet-desc">为保障供需双方信息真实，登记对接前需完成企业认证或飞手认证（任一即可）。</text>
             <view class="sheet-actions">
               <view class="ghost-btn" @tap="closeSheet">稍后认证</view>
-              <view class="primary-btn" @tap="goCert">去认证</view>
+            </view>
+            <view class="sheet-actions">
+              <view class="primary-btn" @tap="goPilotCert">我是个人飞手 · 去飞手认证</view>
+              <view class="secondary-btn" @tap="goCert">我是企业 · 去企业认证</view>
             </view>
           </template>
 
           <!-- 登记意向 -->
           <template v-else-if="sheet.kind === 'intent'">
-            <text class="sheet-desc">发布方将看到企业名称、联系人和对接说明，联系方式不会在公开页面展示。</text>
-            <text class="field-label">企业名称</text>
+            <text class="sheet-desc">发布方将看到对接主体、联系人和对接说明，联系方式不会在公开页面展示。</text>
+            <text class="field-label">对接主体</text>
             <view class="field-static">{{ enterpriseName }}</view>
             <text class="field-label">联系人 <text class="req">*</text></text>
             <input v-model="intentForm.name" class="field" placeholder="请输入联系人" />
@@ -496,7 +499,7 @@ const onIntent = async () => {
     uni.showToast({ title: '已登记过该需求的对接意向', icon: 'none' })
     return
   }
-  if (!(await isEnterpriseCertified())) {
+  if (!(await isAnyCertified())) {
     openSheet('cert')
     return
   }
@@ -535,6 +538,20 @@ const isEnterpriseCertified = async () => {
   }
 }
 
+// 飞手认证：真实检查（/api/v1/certified-pilots/mine status=approved，个人飞手走此通道）
+const isPilotCertified = async () => {
+  try {
+    const res = await request({ url: '/api/v1/certified-pilots/mine' })
+    const p = res || {}
+    return p.status === 'approved'
+  } catch (e) {
+    return false
+  }
+}
+
+// 对接认证门槛：企业认证或飞手认证任一通过即可登记对接（个人飞手不强制企业主体）
+const isAnyCertified = async () => (await isEnterpriseCertified()) || (await isPilotCertified())
+
 /* ================= 会话弹层 ================= */
 const sheet = ref({ show: false, kind: '', title: '' })
 const intentForm = ref({ name: '', phone: '', note: '', agree: false })
@@ -544,7 +561,7 @@ const enterpriseName = computed(() => currentUserName())
 function openSheet(kind) {
   const titles = {
     login: '登录后继续',
-    cert: '完成企业认证',
+    cert: '完成认证',
     intent: '登记对接意向',
   }
   if (kind === 'intent') {
@@ -568,6 +585,11 @@ const goLogin = () => {
 const goCert = () => {
   closeSheet()
   uni.navigateTo({ url: '/pkg-eco/pages/enterprise/register' })
+}
+
+const goPilotCert = () => {
+  closeSheet()
+  uni.navigateTo({ url: '/pkg-talent/pages/pilots/apply' })
 }
 
 const submitIntent = async () => {
@@ -1017,6 +1039,7 @@ watch(state, (v) => {
 }
 .ghost-btn { border: 1px solid #E4E7EC; background: #fff; color: #344054; }
 .primary-btn { background: #0A66C2; color: #fff; }
+.secondary-btn { border: 1px solid #0A66C2; background: #fff; color: #0A66C2; }
 .primary-btn.disabled { opacity: 0.6; }
 
 .field-label {

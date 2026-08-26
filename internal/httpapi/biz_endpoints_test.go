@@ -1,14 +1,31 @@
 package httpapi_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/httpapi"
+	"drone-platform/internal/repository"
 	"drone-platform/internal/repository/memory"
 	"drone-platform/internal/service"
 )
+
+// httpIntentEntRepo 新建内存企业仓库并给 userID 预置一条 approved 企业认证：
+// 登记对接的认证门槛（企业认证或飞手认证任一）——httpapi 工单/意向测试登记者白名单。
+func httpIntentEntRepo(t *testing.T, userID string) repository.EnterpriseRepository {
+	t.Helper()
+	entRepo := memory.NewEnterpriseRepository(nil)
+	if _, err := entRepo.Create(context.Background(), domain.Enterprise{
+		ID: "ent-cert-" + userID, OwnerUserID: userID, Name: "认证企业-" + userID,
+		Status: domain.EnterpriseApproved, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("seed enterprise cert: %v", err)
+	}
+	return entRepo
+}
 
 func newBizServer(t *testing.T) http.Handler {
 	t.Helper()
@@ -79,7 +96,7 @@ func newBizServer(t *testing.T) http.Handler {
 	srv.SetStudyTourRepo(memory.NewStudyTourRepository())
 	srv.SetEmergencyService(service.NewEmergencyService(memory.NewEmergencyRepository()))
 	srv.SetMatchingService(service.NewMatchingService(demandRepo))
-	srv.SetIntentService(service.NewIntentService(intentRepo, demandRepo))
+	srv.SetIntentService(service.NewIntentService(intentRepo, demandRepo, httpIntentEntRepo(t, "worker-1"), memory.NewPilotRepository(nil)))
 	srv.SetWorkOrderService(service.NewWorkOrderService(memory.NewWorkOrderRepository(), demandRepo, intentRepo))
 	srv.SetServiceListingService(service.NewServiceListingService(memory.NewServiceListingRepository()))
 	srv.SetStorage("memory")

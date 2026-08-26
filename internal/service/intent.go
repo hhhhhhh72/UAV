@@ -83,18 +83,43 @@ func lockByKey(key string) func() {
 // 简版范围（V1）：登记意向 + 发布方查看意向列表 + 意向方查看自己的意向记录。
 // 状态流转（contacted / done / closed）与管理端成交标记留待 V2。
 type IntentService struct {
-	repo    repository.IntentRepository
-	demands repository.DemandRepository
+	repo       repository.IntentRepository
+	demands    repository.DemandRepository
+	enterprises repository.EnterpriseRepository
+	pilots     repository.PilotRepository
 }
 
-func NewIntentService(r repository.IntentRepository, d repository.DemandRepository) *IntentService {
-	return &IntentService{repo: r, demands: d}
+func NewIntentService(r repository.IntentRepository, d repository.DemandRepository, e repository.EnterpriseRepository, p repository.PilotRepository) *IntentService {
+	return &IntentService{repo: r, demands: d, enterprises: e, pilots: p}
 }
 
 type CreateIntentInput struct {
 	IntentorName string `json:"intentor_name"`
 	Contact      string `json:"contact"`
 	Remark       string `json:"remark"`
+}
+
+// hasApprovedCert 用户是否已有任一通过认证（企业 approved / 飞手 approved）。
+func (s *IntentService) hasApprovedCert(ctx context.Context, userID string) (bool, error) {
+	ents, err := s.enterprises.FindByOwner(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	for _, e := range ents {
+		if e.Status == domain.EnterpriseApproved {
+			return true, nil
+		}
+	}
+	pilots, err := s.pilots.List(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, p := range pilots {
+		if p.UserID == userID && p.Status == "approved" {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Create registers an intent to contact the publisher of a published demand.
@@ -119,6 +144,15 @@ func (s *IntentService) Create(ctx context.Context, a domain.Actor, demandID str
 	}
 	if d.PublisherID == a.ID {
 		return domain.DemandIntent{}, errors.New("不能登记自己发布的需求")
+	}
+	// 对接认证门槛（产品规则 2026-08-26）：企业认证（approved）或飞手认证（approved）
+	// 任一即可登记对接——个人飞手不强制企业主体，但必须为平台核实的身份，保障供需双方信息真实。
+	certified, err := s.hasApprovedCert(ctx, a.ID)
+	if err != nil {
+		return domain.DemandIntent{}, fmt.Errorf("check certification: %w", err)
+	}
+	if !certified {
+		return domain.DemandIntent{}, errors.New("请先完成企业认证或飞手认证后再登记对接")
 	}
 	// P1 修复：同一用户对同一需求只允许一条"待处理"意向（防重复提交）。
 	// 已被确认/关闭（contacted/closed 等）的旧意向不阻塞再次登记；
