@@ -322,7 +322,7 @@ func TestTrainingCertCourseFlow(t *testing.T) {
 		memory.NewInstructorRepository(), memory.NewPilotRepository(nil),
 	)
 	// Certificate
-	cert, _ := svc.AddCertificate(context.Background(), indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", time.Now(), time.Now().AddDate(2, 0, 0))
+	cert, _ := svc.AddCertificate(context.Background(), indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", "", time.Now(), time.Now().AddDate(2, 0, 0))
 	if cert.Status != "pending" {
 		t.Fatal("should be pending")
 	}
@@ -376,9 +376,9 @@ func TestPilotDetailFields(t *testing.T) {
 		memory.NewInstructorRepository(), memory.NewPilotRepository(nil),
 	)
 	// 证书：一张 approved，一张 pending（后者不应出现在名录关联里）
-	caac, _ := svc.AddCertificate(context.Background(), indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", time.Now(), time.Now().AddDate(2, 0, 0))
+	caac, _ := svc.AddCertificate(context.Background(), indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", "", time.Now(), time.Now().AddDate(2, 0, 0))
 	svc.ApproveCertificate(context.Background(), admActor(), caac.ID)
-	svc.AddCertificate(context.Background(), indActor(), domain.CertUTCDJI, "UTC-001", "", "大疆", time.Now(), time.Now().AddDate(2, 0, 0))
+	svc.AddCertificate(context.Background(), indActor(), domain.CertUTCDJI, "UTC-001", "", "大疆", "", time.Now(), time.Now().AddDate(2, 0, 0))
 
 	// 注册带 avatar/region
 	pilot, err := svc.RegisterPilot(context.Background(), indActor(), "王飞", "500101199001011234", 120, "电力巡检", "/uploads/a.jpg", "重庆渝北")

@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
 	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
@@ -15,7 +14,8 @@ import (
 
 // ---- Certificates ----
 
-// POST /api/v1/certificates
+// POST /api/v1/certificates — 用户提交证书归档申请（管理员审核后 approved 方可
+// 计入飞手/导师认证；已驳回的证书允许覆盖重提）
 func (s *Server) addCertificate(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
@@ -23,20 +23,29 @@ func (s *Server) addCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		CertType   string    `json:"cert_type"`
-		CertNumber string    `json:"cert_number"`
-		Level      string    `json:"level"`
-		IssuerOrg  string    `json:"issuer_org"`
-		IssueDate  time.Time `json:"issue_date"`
-		ExpireDate time.Time `json:"expire_date"`
+		CertType   string `json:"cert_type"`
+		CertNumber string `json:"cert_number"`
+		Level      string `json:"level"`
+		IssuerOrg  string `json:"issuer_org"`
+		ImageURL   string `json:"image_url"`
+		IssueDate  string `json:"issue_date"`  // YYYY-MM-DD
+		ExpireDate string `json:"expire_date"` // YYYY-MM-DD（空=长期有效）
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.trainingSvc.AddCertificate(r.Context(), a, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.IssueDate, in.ExpireDate)
+	issueDate, ok1 := strictDate(w, r, in.IssueDate)
+	if !ok1 {
+		return
+	}
+	expireDate, ok2 := strictDate(w, r, in.ExpireDate)
+	if !ok2 {
+		return
+	}
+	c, err := s.trainingSvc.AddCertificate(r.Context(), a, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.ImageURL, issueDate, expireDate)
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		fail(w, r, http.StatusConflict, err)
 		return
 	}
 	s.audit(r.Context(), a.ID, "add_cert", "certificate", c.ID, "created")
@@ -56,6 +65,22 @@ func (s *Server) approveCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "approve_certificate", "certificate", c.ID, "approved")
+	respond(w, r, http.StatusOK, c)
+}
+
+// POST /api/v1/admin/certificates/{id}/reject — 管理端驳回证书（用户可覆盖重提）
+func (s *Server) rejectCertificate(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	c, err := s.trainingSvc.RejectCertificate(r.Context(), a, r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "reject_certificate", "certificate", c.ID, "rejected")
 	respond(w, r, http.StatusOK, c)
 }
 

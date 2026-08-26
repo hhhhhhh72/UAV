@@ -154,7 +154,7 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		if !certFound {
 			cert, err = s.trainingSvc.AddCertificate(r.Context(),
 				domain.Actor{ID: enrollment.UserID, Role: domain.RoleIndividual},
-				course.CertType, "auto-"+enrollment.ID, "passed", course.OrgID,
+				course.CertType, "auto-"+enrollment.ID, "passed", course.OrgID, "",
 				time.Now(), time.Now().AddDate(3, 0, 0),
 			)
 			if err != nil {
@@ -219,7 +219,7 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 	// ③ 发证（幂等：同报名已发过则跳过，防重试重复发证）
 	cert, err := s.trainingSvc.AddCertificate(r.Context(),
 		domain.Actor{ID: enrollment.UserID, Role: domain.RoleIndividual},
-		course.CertType, "auto-"+enrollment.ID, "passed", course.OrgID,
+		course.CertType, "auto-"+enrollment.ID, "passed", course.OrgID, "",
 		time.Now(), time.Now().AddDate(3, 0, 0),
 	)
 	if err != nil {

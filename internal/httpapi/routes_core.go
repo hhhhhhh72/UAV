@@ -188,6 +188,7 @@ func (s *Server) registerLabourRoutes(mux *http.ServeMux) {
 func (s *Server) registerTrainingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/certificates", s.addCertificate)
 	mux.HandleFunc("POST /api/v1/admin/certificates/{id}/approve", s.approveCertificate)
+	mux.HandleFunc("POST /api/v1/admin/certificates/{id}/reject", s.rejectCertificate)
 	mux.HandleFunc("GET /api/v1/certificates/mine", s.listMyCertificates)
 	mux.HandleFunc("POST /api/v1/training-courses", s.createCourse)
 	mux.HandleFunc("GET /api/v1/training-courses", s.listCourses)

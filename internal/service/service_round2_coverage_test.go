@@ -765,7 +765,7 @@ func TestTrainingService_CourseCertCRUD(t *testing.T) {
 	)
 	actor := individualActor()
 
-	c, err := svc.AddCertificate(context.Background(), actor, domain.CertCAAC, "编号", "等级", "机构", time.Now(), time.Now().AddDate(1, 0, 0))
+	c, err := svc.AddCertificate(context.Background(), actor, domain.CertCAAC, "编号", "等级", "机构", "", time.Now(), time.Now().AddDate(1, 0, 0))
 	if err != nil {
 		t.Fatalf("AddCertificate: %v", err)
 	}

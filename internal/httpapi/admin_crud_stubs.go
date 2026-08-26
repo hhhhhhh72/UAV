@@ -471,6 +471,7 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 		CertNumber string `json:"cert_number"`
 		Level      string `json:"level"`
 		IssuerOrg  string `json:"issuer_org"`
+		ImageURL   string `json:"image_url"`
 		// 前端 a-date-picker value-format="YYYY-MM-DD" 提交日期字符串（可空），
 		// 用 string 承接再解析，避免 time.Time 只认 RFC3339 导致 'YYYY-MM-DD' 400。
 		IssueDate  string `json:"issue_date"`
@@ -496,7 +497,7 @@ func (s *Server) adminCreateCertificate(w http.ResponseWriter, r *http.Request) 
 		fail(w, r, http.StatusUnauthorized, fmt.Errorf("auth required"))
 		return
 	}
-	c, err := s.trainingSvc.AddCertificate(r.Context(), domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, issueDate, expireDate)
+	c, err := s.trainingSvc.AddCertificate(r.Context(), domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, domain.CertType(in.CertType), in.CertNumber, in.Level, in.IssuerOrg, in.ImageURL, issueDate, expireDate)
 	if err != nil {
 		adminFail(w, r, err)
 		return

@@ -28,6 +28,37 @@ func unmarshalData(t *testing.T, w *httptest.ResponseRecorder, v any) {
 	}
 }
 
+// TestR5CertificateToPilotFullLoop 证书归档闭环：提交(含图片)→驳回→覆盖重提→通过→飞手认证申请成功。
+func TestR5CertificateToPilotFullLoop(t *testing.T) {
+	app := newBizServer(t)
+	userTok := authAs(t, "user-1", domain.RoleIndividual)
+	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
+
+	// 1. 用户提交证书（含 image_url）
+	w := doRaw(app, http.MethodPost, "/api/v1/certificates",
+		`{"cert_type":"caac","cert_number":"CAAC-T-88888","level":"III","issuer_org":"民航局","image_url":"/uploads/cert1.jpg","issue_date":"2026-01-01","expire_date":"2029-01-01"}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/certificates", w, http.StatusCreated)
+	certID := dataID(t, w)
+
+	// 2. 管理端驳回
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/certificates/"+certID+"/reject", "", adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/certificates/"+certID+"/reject", w, http.StatusOK)
+
+	// 3. 同证书号覆盖重提（rejected → pending）
+	w = doRaw(app, http.MethodPost, "/api/v1/certificates",
+		`{"cert_type":"caac","cert_number":"CAAC-T-88888","level":"III","issuer_org":"民航局","image_url":"/uploads/cert1b.jpg","issue_date":"2026-01-01","expire_date":"2029-01-01"}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/certificates", w, http.StatusCreated)
+
+	// 4. 审批通过
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/certificates/"+certID+"/approve", "", adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/certificates/"+certID+"/approve", w, http.StatusOK)
+
+	// 5. 飞手认证申请成功（有有效证书 → 不再 403）
+	w = doRaw(app, http.MethodPost, "/api/v1/certified-pilots",
+		`{"real_name":"张三","id_card":"500101199001011234","flight_hours":120,"bio":"测试","region":"渝北区"}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/certified-pilots", w, http.StatusCreated)
+}
+
 // dataListLen 解析列表信封 {data:[...]} 的长度。
 func dataListLen(t *testing.T, w *httptest.ResponseRecorder) int {
 	t.Helper()

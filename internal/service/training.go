@@ -42,12 +42,25 @@ func NewTrainingService(cr repository.CertificateRepository, cor repository.Cour
 
 // ---- Certificates ----
 
-func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, certType domain.CertType, certNumber, level, issuer string, issueDate, expireDate time.Time) (domain.Certificate, error) {
-	// 幂等/防撞号：cert_number 已存在时——本人持有则幂等返回已有证书（completeEnrollment 重试），
+func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, certType domain.CertType, certNumber, level, issuer, imageURL string, issueDate, expireDate time.Time) (domain.Certificate, error) {
+	// 幂等/防撞号：cert_number 已存在时——本人持有则幂等返回已有证书（completeEnrollment 重试）；
+	// 本人持有但已驳回 → 允许重新提交（覆盖回 pending，信息以本次为准）；
 	// 他人持有则报错（防用户提交他人已占用的证书号静默返回错误结果）。
 	if certNumber != "" {
 		if existing, err := s.certRepo.FindByNumber(ctx, certNumber); err == nil {
 			if existing.UserID == a.ID {
+				if existing.Status == "rejected" {
+					existing.CertType = certType
+					existing.Level = level
+					existing.IssuerOrg = issuer
+					existing.ImageURL = imageURL
+					existing.IssueDate = issueDate
+					existing.ExpireDate = expireDate
+					existing.Status = "pending"
+					existing.Version++
+					existing.UpdatedAt = time.Now()
+					return s.certRepo.Update(ctx, existing)
+				}
 				return existing, nil
 			}
 			return domain.Certificate{}, fmt.Errorf("certificate number %q already exists", certNumber)
@@ -56,7 +69,7 @@ func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, ce
 	now := time.Now()
 	c := domain.Certificate{ID: nextID("cert"), UserID: a.ID, CertType: certType,
 		CertNumber: certNumber, Level: level, IssueDate: issueDate, ExpireDate: expireDate,
-		IssuerOrg: issuer, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
+		IssuerOrg: issuer, ImageURL: imageURL, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	if _, err := s.certRepo.Create(ctx, c); err != nil {
 		// 并发撞号：check-then-insert 竞态由唯一索引兜底，转为与原预检一致的友好错误。
 		if errors.Is(err, repository.ErrCertNumberTaken) {
@@ -87,6 +100,24 @@ func (s *TrainingService) ApproveCertificate(ctx context.Context, a domain.Actor
 
 func (s *TrainingService) ListMyCertificates(ctx context.Context, a domain.Actor) ([]domain.Certificate, error) {
 	return s.certRepo.ListByUser(ctx, a.ID)
+}
+
+// RejectCertificate 管理端驳回证书（用户可重新提交覆盖为 pending）。
+func (s *TrainingService) RejectCertificate(ctx context.Context, a domain.Actor, id string) (domain.Certificate, error) {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return domain.Certificate{}, errors.New("admin permission required")
+	}
+	cur, err := s.certRepo.FindByID(ctx, id)
+	if err != nil {
+		return domain.Certificate{}, err
+	}
+	if cur.Status == "approved" {
+		return domain.Certificate{}, errors.New("已通过的证书不能驳回，请走吊销流程")
+	}
+	if cur.Status == "rejected" {
+		return cur, nil
+	}
+	return s.certRepo.UpdateStatus(ctx, id, "rejected")
 }
 
 func (s *TrainingService) ListAllCertificates(ctx context.Context) ([]domain.Certificate, error) {

@@ -4,9 +4,10 @@
 
     <!-- 白色板块：信息行 + 列表 -->
     <view class="section">
-      <!-- 信息行：共 N 项 -->
+      <!-- 信息行：共 N 项 + 申请证书入口 -->
       <view class="ir">
         <text>共 <text class="irn">{{ list.length }}</text> 项证书</text>
+        <view class="ir-btn" hover-class="ir-btn--hover" @tap="openApply">＋ 申请证书</view>
       </view>
 
       <!-- 骨架 -->
@@ -31,7 +32,7 @@
       <!-- 空 -->
       <view v-else-if="!list.length" class="st">
         <u-empty description="暂无证书">
-          <text class="sth">证书为线下考核后由协会颁发，完成培训课程后请联系管理员</text>
+          <text class="sth">证书为线下考核后由协会颁发，完成培训课程后请联系管理员；已有纸质证书（CAAC/AOPA/UTC 等）可点击上方「申请证书」归档</text>
           <view class="stb" @tap="goCourses">去逛逛培训课程</view>
         </u-empty>
       </view>
@@ -67,13 +68,69 @@
 
     <!-- 回到顶部 -->
     <view class="bt" :class="{ show: showBt }" aria-role="button" aria-label="回到顶部" @tap="scrollToTop"><text>↑</text></view>
+
+    <!-- 申请证书 弹层 -->
+    <view v-if="applyShow" class="l-mask" @tap="closeApply">
+      <view class="l-sheet" @tap.stop>
+        <view class="l-head">
+          <text class="l-title">申请归档证书</text>
+          <text class="l-x" @tap="closeApply">×</text>
+        </view>
+        <view class="l-body">
+          <view class="l-field">
+            <text class="l-label">证书类型 <text class="l-req">*</text></text>
+            <picker mode="selector" :range="certTypeLabels" :value="certTypeIdx" @change="onCertType">
+              <view class="l-input" :class="{ empty: !af.cert_type }">{{ certTypeIdx >= 0 ? certTypeLabels[certTypeIdx] : '选择类型（CAAC / AOPA / UTC / ASFC / 人社）' }}</view>
+            </picker>
+          </view>
+          <view class="l-field">
+            <text class="l-label">证书编号 <text class="l-req">*</text></text>
+            <input v-model="af.cert_number" class="l-input" placeholder="证书上的编号（用于查重）" />
+          </view>
+          <view class="l-field">
+            <text class="l-label">证书等级（选填）</text>
+            <input v-model="af.level" class="l-input" placeholder="如 III / 初级 / 高级" />
+          </view>
+          <view class="l-field">
+            <text class="l-label">发证机构（选填）</text>
+            <input v-model="af.issuer_org" class="l-input" placeholder="如 中国民用航空局" />
+          </view>
+          <view class="l-field-row">
+            <view class="l-field half">
+              <text class="l-label">发证日期 <text class="l-req">*</text></text>
+              <picker mode="date" :value="af.issue_date" start="2000-01-01" :end="todayStr" @change="onIssueDate">
+                <view class="l-input" :class="{ empty: !af.issue_date }">{{ af.issue_date || '选择日期' }}</view>
+              </picker>
+            </view>
+            <view class="l-field half">
+              <text class="l-label">有效期至（选填）</text>
+              <picker mode="date" :value="af.expire_date" start="2000-01-01" @change="onExpireDate">
+                <view class="l-input" :class="{ empty: !af.expire_date }">{{ af.expire_date || '长期有效' }}</view>
+              </picker>
+            </view>
+          </view>
+          <view class="l-field">
+            <text class="l-label">证书照片（选填，建议上传）</text>
+            <view class="l-upload" hover-class="l-upload--hover" @tap="chooseCertImg">
+              <image v-if="af.image_url" :src="af.image_url" mode="aspectFill" class="l-upload-img" />
+              <template v-else>
+                <text class="l-upload-plus">＋</text>
+                <text class="l-upload-tip">上传证书照片</text>
+              </template>
+            </view>
+          </view>
+          <text class="l-note">提交后由协会审核，审核通过且未过期即计入飞手/导师认证的有效证书。</text>
+        </view>
+        <view class="l-btn" hover-class="l-btn--hover" @tap="submitCert">{{ submittingCert ? '提交中...' : '提交申请' }}</view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { onLoad, onPullDownRefresh, onPageScroll } from '@dcloudio/uni-app'
-import { request } from '../../../utils/request'
+import { request, BASE_URL, authStorage, getErrorMessage } from '../../../utils/request'
 import { requireLogin } from '../../../utils/nav'
 import { useReduceMotion } from '../../../utils/motion'
 
@@ -152,6 +209,96 @@ function viewCert(item) {
 }
 
 function goBack() { uni.navigateBack() }
+
+/* ================= 申请归档证书 ================= */
+const CERT_TYPE_OPTS = [
+  { key: 'caac', label: 'CAAC 民航局执照' },
+  { key: 'utc_dji', label: '大疆 UTC 认证' },
+  { key: 'aopa', label: 'AOPA 执照' },
+  { key: 'asfc', label: 'ASFC 执照' },
+  { key: 'gov_level', label: '人社等级证书' },
+]
+const certTypeLabels = CERT_TYPE_OPTS.map((o) => o.label)
+const applyShow = ref(false)
+const submittingCert = ref(false)
+const certTypeIdx = ref(-1)
+const af = ref({ cert_type: '', cert_number: '', level: '', issuer_org: '', image_url: '', issue_date: '', expire_date: '' })
+const todayStr = new Date().toISOString().slice(0, 10)
+
+function openApply() {
+  if (!requireLogin()) return
+  applyShow.value = true
+}
+function closeApply() { applyShow.value = false }
+function onCertType(e) {
+  certTypeIdx.value = Number(e.detail.value)
+  af.value.cert_type = CERT_TYPE_OPTS[certTypeIdx.value] ? CERT_TYPE_OPTS[certTypeIdx.value].key : ''
+}
+function onIssueDate(e) { af.value.issue_date = e.detail.value }
+function onExpireDate(e) { af.value.expire_date = e.detail.value }
+
+// 证书照片上传：uni.uploadFile → /api/v1/files/upload → /uploads/{file_id}
+function chooseCertImg() {
+  uni.chooseImage({
+    count: 1,
+    sourceType: ['album', 'camera'],
+    success: (res) => uploadCertImg(res.tempFilePaths[0]),
+  })
+}
+const uploadCertImg = async (filePath) => {
+  const token = authStorage.getAccessToken()
+  uni.showLoading({ title: '上传中...' })
+  try {
+    const data = await new Promise((resolve, reject) => {
+      uni.uploadFile({
+        url: BASE_URL + '/api/v1/files/upload',
+        filePath,
+        name: 'file',
+        header: { Authorization: 'Bearer ' + token },
+        success: (r) => {
+          if (r.statusCode >= 200 && r.statusCode < 300) {
+            try { resolve(JSON.parse(r.data)) } catch (e) { reject(e) }
+          } else {
+            reject(new Error('upload failed ' + r.statusCode))
+          }
+        },
+        fail: reject,
+      })
+    })
+    const fid = data && (data.file_id || (data.data && data.data.file_id))
+    if (!fid) {
+      uni.showToast({ title: '上传失败，请重试', icon: 'none' })
+      return
+    }
+    af.value.image_url = '/uploads/' + fid
+  } catch (e) {
+    uni.showToast({ title: '上传失败，请重试', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
+}
+
+async function submitCert() {
+  if (submittingCert.value) return
+  if (!af.value.cert_type) return uni.showToast({ title: '请选择证书类型', icon: 'none' })
+  if (!af.value.cert_number.trim()) return uni.showToast({ title: '请填写证书编号', icon: 'none' })
+  if (!af.value.issue_date) return uni.showToast({ title: '请选择发证日期', icon: 'none' })
+  submittingCert.value = true
+  try {
+    await request({ url: '/api/v1/certificates', method: 'POST', data: { ...af.value } })
+    uni.showModal({
+      title: '已提交',
+      content: '证书归档申请已提交，协会审核通过后将计入有效证书',
+      showCancel: false,
+      confirmText: '知道了',
+      success: () => { closeApply(); fetchList() },
+    })
+  } catch (e) {
+    uni.showToast({ title: getErrorMessage(e) || '提交失败，请重试', icon: 'none', duration: 2500 })
+  } finally {
+    submittingCert.value = false
+  }
+}
 function goCourses() { uni.navigateTo({ url: '/pkg-talent/pages/training/courses' }) }
 function scrollToTop() { uni.pageScrollTo({ scrollTop: 0, duration: 300 }) }
 
@@ -372,4 +519,79 @@ page {
 .page.no-motion .tap-scale { transform: none !important; }
 .page.no-motion .stb:active,
 .page.no-motion .bt:active { transform: none; }
+
+/* ===== 申请证书入口 ===== */
+.ir { display: flex; align-items: center; justify-content: space-between; }
+.ir-btn {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #0A66C2;
+  padding: 10rpx 20rpx;
+  border: 2rpx solid #BFD8F2;
+  border-radius: 999rpx;
+  background: #F0F7FE;
+}
+.ir-btn--hover { transform: scale(.96); opacity: .85; }
+
+/* ===== 申请证书弹层 ===== */
+.l-mask {
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(16, 24, 40, 0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.l-sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 28rpx 28rpx 0 0;
+  padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+  max-height: 82vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  animation: lUp .22s cubic-bezier(.32, .72, 0, 1);
+}
+@keyframes lUp { from { transform: translateY(24rpx); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.l-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
+.l-title { font-size: 32rpx; font-weight: 700; color: #17212B; }
+.l-x { font-size: 40rpx; color: #667085; padding: 0 8rpx; }
+.l-body { display: flex; flex-direction: column; gap: 20rpx; }
+.l-field-row { display: flex; gap: 16rpx; }
+.l-field.half { flex: 1; min-width: 0; }
+.l-label { display: block; font-size: 24rpx; font-weight: 600; color: #344054; margin-bottom: 10rpx; }
+.l-req { color: #D92D20; }
+.l-input {
+  height: 84rpx;
+  line-height: 84rpx;
+  padding: 0 20rpx;
+  font-size: 28rpx;
+  color: #17212B;
+  background: #FAFAFA;
+  border: 2rpx solid #E4E7EC;
+  border-radius: 14rpx;
+  box-sizing: border-box;
+}
+.l-input.empty { color: #98A2B3; }
+.l-upload {
+  width: 220rpx; height: 160rpx;
+  border: 2rpx dashed #D0D5DD;
+  border-radius: 14rpx;
+  background: #FAFAFA;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8rpx;
+  overflow: hidden;
+}
+.l-upload--hover { opacity: .8; }
+.l-upload-plus { font-size: 44rpx; color: #0A66C2; line-height: 1; }
+.l-upload-tip { font-size: 22rpx; color: #98A2B3; }
+.l-upload-img { width: 100%; height: 100%; }
+.l-note { font-size: 22rpx; color: #98A2B3; line-height: 1.6; }
+.l-btn {
+  margin-top: 28rpx;
+  height: 88rpx;
+  border-radius: 999rpx;
+  background: #0A66C2;
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.l-btn--hover { opacity: .9; }
 </style>

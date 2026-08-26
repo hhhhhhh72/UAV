@@ -227,7 +227,7 @@ func TestTrainingListAllCertificates(t *testing.T) {
 		memory.NewCertificateRepository(), memory.NewCourseRepository(),
 		memory.NewInstructorRepository(), memory.NewPilotRepository(nil),
 	)
-	svc.AddCertificate(context.Background(), indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", time.Now(), time.Now().AddDate(2, 0, 0))
+	svc.AddCertificate(context.Background(), indActor(), domain.CertCAAC, "CAAC-001", "III", "民航局", "", time.Now(), time.Now().AddDate(2, 0, 0))
 	certs, _ := svc.ListAllCertificates(context.Background())
 	_ = certs
 }
