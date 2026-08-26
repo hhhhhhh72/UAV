@@ -2,11 +2,22 @@
   <view class="page" :class="{ 'no-motion': noMotion }" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
     <u-nav-bar title="我的报名" show-back :fixed="true" @back="goBack" />
 
-    <!-- 白色板块：信息行 + 列表 -->
+    <!-- 白色板块：类型切换 + 信息行 + 列表 -->
     <view class="section">
+      <!-- 分类 tab：培训 / 赛事 / 活动 -->
+      <view class="tabs">
+        <view
+          v-for="t in TABS"
+          :key="t.key"
+          class="tab"
+          :class="{ on: tab === t.key }"
+          @tap="switchTab(t.key)"
+        >{{ t.label }}</view>
+      </view>
+
       <!-- 信息行：共 N 项 -->
       <view class="ir">
-        <text>共 <text class="irn">{{ enrollments.length }}</text> 项报名</text>
+        <text>{{ activeLabel }}共 <text class="irn">{{ cardItems.length }}</text> 项</text>
       </view>
 
       <!-- 骨架 -->
@@ -22,34 +33,33 @@
       </view>
 
       <!-- 错误 -->
-      <view v-else-if="errorMsg && !enrollments.length" class="st">
+      <view v-else-if="errorMsg && !cardItems.length" class="st">
         <u-empty :description="errorMsg">
           <view class="stb" @tap="fetchList">重新加载</view>
         </u-empty>
       </view>
 
       <!-- 空 -->
-      <view v-else-if="!enrollments.length" class="st">
-        <u-empty description="还没有报名记录">
-          <text class="sth">完成培训课程报名后，报名记录将展示在这里</text>
-          <view class="stb" @tap="goCourses">去逛逛培训课程</view>
+      <view v-else-if="!cardItems.length" class="st">
+        <u-empty :description="emptyTitle">
+          <text class="sth">{{ emptyHint }}</text>
+          <view class="stb" @tap="goRelevant">{{ emptyAction }}</view>
         </u-empty>
       </view>
 
       <!-- 列表：状态徽章 + 标题 + 元信息 -->
       <view v-else class="cl">
-        <view v-for="e in enrollments" :key="e.id" class="card">
+        <view v-for="c in cardItems" :key="c.id" class="card" hover-class="tap-scale" hover-start-time="0" hover-stay-time="120">
           <view class="c-badges">
-            <text class="c-st" :class="statusCls(e.status)">{{ statusLabel(e.status) }}</text>
+            <text class="c-tag" :class="c.tagCls">{{ c.tag }}</text>
+            <text class="c-st" :class="statusCls(c.status)">{{ statusLabel(c.status) }}</text>
           </view>
-          <text class="ct">{{ e.course_title || '培训课程' }}</text>
+          <text class="ct">{{ c.title }}</text>
           <view class="c-meta">
-            <text>报名时间 {{ dateText(e.created_at) }}</text>
+            <text v-if="c.meta1">{{ c.meta1 }}</text>
           </view>
           <view class="c-meta">
-            <text>报名人 {{ e.name || '—' }}</text>
-            <text v-if="e.phone" class="c-dot">·</text>
-            <text v-if="e.phone">{{ e.phone }}</text>
+            <text v-if="c.meta2">{{ c.meta2 }}</text>
           </view>
         </view>
       </view>
@@ -61,11 +71,90 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad, onShow, onPullDownRefresh, onPageScroll } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
 import { safeBack, requireLogin } from '../../../utils/nav'
 import { useReduceMotion } from '../../../utils/motion'
+
+// ===== 分类 tab =====
+const TABS = [
+  { key: 'training', label: '培训' },
+  { key: 'competition', label: '赛事' },
+  { key: 'activity', label: '活动' },
+]
+const tab = ref('training')
+
+const enrollments = ref([]) // 培训报名
+const competitions = ref([]) // 赛事报名
+const activities = ref([]) // 协会活动报名
+
+const activeList = computed(() => {
+  if (tab.value === 'competition') return competitions.value
+  if (tab.value === 'activity') return activities.value
+  return enrollments.value
+})
+const activeLabel = computed(() => (TABS.find((t) => t.key === tab.value) || TABS[0]).label)
+const emptyTitle = computed(() => ({
+  training: '还没有培训报名',
+  competition: '还没有赛事报名',
+  activity: '还没有活动报名',
+}[tab.value] || '还没有报名记录'))
+const emptyHint = computed(() => ({
+  training: '完成培训课程报名后，记录将展示在这里',
+  competition: '报名赛事后，记录将展示在这里',
+  activity: '报名协会活动后，记录将展示在这里',
+}[tab.value] || ''))
+const emptyAction = computed(() => ({
+  training: '去逛逛培训课程',
+  competition: '去看看赛事',
+  activity: '去看看活动',
+}[tab.value] || '去逛逛'))
+function goRelevant() {
+  if (tab.value === 'competition') { uni.navigateTo({ url: '/pkg-eco/pages/competitions/list' }); return }
+  if (tab.value === 'activity') { uni.navigateTo({ url: '/pkg-eco/pages/activities/list' }); return }
+  uni.navigateTo({ url: '/pkg-talent/pages/training/courses' })
+}
+function switchTab(k) { tab.value = k }
+
+// 统一卡片视图（三类报名 → 状态/标题/元信息）
+const STATUS_TAG = { training: '培训', competition: '赛事', activity: '活动' }
+const cardItems = computed(() => {
+  const src = activeList.value || []
+  return src.map((it) => {
+    if (tab.value === 'competition') {
+      return {
+        id: it.id,
+        tag: '赛事报名',
+        tagCls: 'tag-comp',
+        title: it.title || '赛事报名',
+        status: it.status,
+        meta1: '报名时间 ' + dateText(it.created_at),
+        meta2: (it.team_name ? it.team_name + ' · ' : '') + (it.name || '') + (it.member_count ? ' · ' + it.member_count + ' 人' : ''),
+      }
+    }
+    if (tab.value === 'activity') {
+      return {
+        id: it.id,
+        tag: '活动报名',
+        tagCls: 'tag-act',
+        title: it.title || '协会活动',
+        status: it.status,
+        meta1: (it.start_time ? dateText(it.start_time) + ' · ' : '') + (it.location || '地址待定'),
+        meta2: '报名时间 ' + dateText(it.created_at),
+      }
+    }
+    return {
+      id: it.id,
+      tag: '培训报名',
+      tagCls: 'tag-train',
+      title: it.course_title || '培训课程',
+      status: it.status,
+      meta1: '报名时间 ' + dateText(it.created_at),
+      meta2: '报名人 ' + (it.name || '—') + (it.phone ? ' · ' + it.phone : ''),
+    }
+  })
+})
 
 // 与后端 validEnrollmentStatus / 管理后台状态语义对齐（用户视角文案）
 const STATUS_MAP = {
@@ -88,7 +177,6 @@ const STATUS_CLS = {
 
 const loading = ref(false)
 const errorMsg = ref('')
-const enrollments = ref([])
 const statusBarHeight = ref(20)
 const showBt = ref(false)
 const { noMotion, checkMotion } = useReduceMotion()
@@ -100,24 +188,30 @@ function dateText(iso) { return iso ? String(iso).slice(0, 10) : '—' }
 async function fetchList() {
   loading.value = true
   errorMsg.value = ''
+  const targets = [
+    { url: '/api/v1/enrollments/mine', key: 'enrollments' },
+    { url: '/api/v1/competitions/registrations/mine', key: 'competitions' },
+    { url: '/api/v1/events/registrations/mine', key: 'activities' },
+  ]
   try {
-    const res = await request({ url: '/api/v1/enrollments/mine' })
-    const list = Array.isArray(res) ? res : (res && res.data) || []
-    enrollments.value = Array.isArray(list) ? list : []
+    // 三类并行拉取：任一类失败不阻塞其他（空数组如实展示）
+    const results = await Promise.allSettled(targets.map((t) => request({ url: t.url })))
+    results.forEach((r, i) => {
+      const list = r.status === 'fulfilled' ? (Array.isArray(r.value) ? r.value : (r.value && r.value.data) || []) : []
+      if (targets[i].key === 'enrollments') enrollments.value = list
+      else if (targets[i].key === 'competitions') competitions.value = list
+      else activities.value = list
+    })
   } catch (e) {
-    // 401 未登录/登录过期：由 request 自动跳登录，文案明确提示登录而非网络异常
+    // 竞态兜底：全部失败时给出提示
     if (e && e.statusCode === 401) {
       errorMsg.value = '登录已过期，请重新登录'
-      return
+    } else {
+      errorMsg.value = '网络异常，请稍后重试'
     }
-    errorMsg.value = '网络异常，请稍后重试'
   } finally {
     loading.value = false
   }
-}
-
-function goCourses() {
-  uni.navigateTo({ url: '/pkg-talent/pages/training/courses' })
 }
 
 function goBack() {
@@ -126,12 +220,16 @@ function goBack() {
 
 function scrollToTop() { uni.pageScrollTo({ scrollTop: 0, duration: 300 }) }
 
-onLoad(() => {
+onLoad((options) => {
   try {
     const sys = uni.getSystemInfoSync()
     statusBarHeight.value = sys.statusBarHeight || 20
   } catch (e) { /* 保持默认 */ }
   checkMotion()
+  // 深链定位：活动/赛事报名成功页跳转时可指定分类（tab=activity|competition|training）
+  if (options && options.tab && TABS.some((t) => t.key === options.tab)) {
+    tab.value = options.tab
+  }
 })
 
 // onShow 而非 onLoad：报名提交返回后立即看到最新记录
@@ -177,6 +275,29 @@ page {
 }
 .irn { color: #0A66C2; font-weight: 600; }
 
+/* ===== 分类 tab（培训/赛事/活动） ===== */
+.tabs {
+  display: flex;
+  gap: 24rpx;
+  padding: 8rpx 28rpx 20rpx;
+  border-bottom: 1px solid #F2F4F7;
+}
+.tab {
+  font-size: 28rpx;
+  color: #667085;
+  padding: 6rpx 2rpx;
+  position: relative;
+}
+.tab.on { color: #0A66C2; font-weight: 700; }
+.tab.on::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -14rpx;
+  height: 6rpx;
+  border-radius: 3rpx;
+  background: #0A66C2;
+}
+
 /* ===== 列表卡片（白上白：灰描边 + 极淡灰投影浮起；无左缘色条） ===== */
 .cl {
   display: flex;
@@ -208,6 +329,18 @@ page {
 .c-st.st-open { color: #0B6B41; background: #E9F7F0; }
 .c-st.st-pending { color: #0A66C2; background: #EAF3FB; }
 .c-st.st-closed { color: #5D6B82; background: #EEF1F4; }
+.c-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tag-train { color: #0A66C2; background: #EAF3FB; }
+.tag-comp { color: #7A3E9D; background: #F4EBF9; }
+.tag-act { color: #B54708; background: #FDEEE4; }
 .ct {
   font-size: 15px;
   font-weight: 700;

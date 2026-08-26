@@ -112,6 +112,21 @@ func (s *CompetitionService) ListRegs(ctx context.Context, competitionID string)
 	return s.repo.ListRegs(ctx, competitionID)
 }
 
+// ListMyRegs 我的赛事报名（附赛事标题；"我的报名"列表数据源）。
+func (s *CompetitionService) ListMyRegs(ctx context.Context, userID string) ([]domain.CompetitionReg, error) {
+	regs, err := s.repo.ListRegsByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range regs {
+		c, err := s.repo.FindByID(ctx, regs[i].CompetitionID)
+		if err == nil {
+			regs[i].Title = c.Title
+		}
+	}
+	return regs, nil
+}
+
 // ---- EventService (协会活动) ----
 
 type EventService struct {
@@ -222,6 +237,23 @@ func (s *EventService) Register(ctx context.Context, eventID, userID, name, phon
 
 func (s *EventService) ListRegs(ctx context.Context, eventID string) ([]domain.EventRegistration, error) {
 	return s.repo.ListRegs(ctx, eventID)
+}
+
+// ListMyRegs 我的活动报名（附活动标题/地点/时间；"我的报名"列表数据源）。
+func (s *EventService) ListMyRegs(ctx context.Context, userID string) ([]domain.EventRegistration, error) {
+	regs, err := s.repo.ListRegsByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range regs {
+		e, err := s.repo.FindByID(ctx, regs[i].EventID)
+		if err == nil {
+			regs[i].Title = e.Title
+			regs[i].Location = e.Location
+			regs[i].StartTime = e.StartTime
+		}
+	}
+	return regs, nil
 }
 
 // ---- ResourceService (产业资源共享) ----

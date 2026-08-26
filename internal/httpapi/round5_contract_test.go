@@ -59,6 +59,47 @@ func TestR5CertificateToPilotFullLoop(t *testing.T) {
 	assertStatus(t, http.MethodPost, "/api/v1/certified-pilots", w, http.StatusCreated)
 }
 
+// TestR5MyRegistrations 赛事/活动报名闭环：报名 → 我的报名接口返回（含标题摘要）。
+func TestR5MyRegistrations(t *testing.T) {
+	app := newBizServer(t)
+	userTok := authAs(t, "user-1", domain.RoleIndividual)
+	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
+
+	// 赛事：admin 建赛 → 用户报名 → mine
+	w := doRaw(app, http.MethodPost, "/api/v1/admin/competitions",
+		`{"title":"低空竞速赛","category":"竞速","description":"d","location":"渝北","start_date":"2026-10-01","end_date":"2026-10-02","max_teams":20,"status":"published"}`, adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/competitions", w, http.StatusCreated)
+	compID := dataID(t, w)
+	w = doRaw(app, http.MethodPost, "/api/v1/competitions/"+compID+"/register",
+		`{"team_name":"飞鹰队","member_count":1,"name":"张三","phone":"13800000000","contact_info":"13800000000"}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/competitions/"+compID+"/register", w, http.StatusCreated)
+
+	w = doRaw(app, http.MethodGet, "/api/v1/competitions/registrations/mine", "", userTok)
+	assertStatus(t, http.MethodGet, "/api/v1/competitions/registrations/mine", w, http.StatusOK)
+	var comps []domain.CompetitionReg
+	unmarshalData(t, w, &comps)
+	if len(comps) != 1 || comps[0].Title != "低空竞速赛" {
+		t.Fatalf("my competition regs: %+v", comps)
+	}
+
+	// 活动：admin 建活动 → 用户报名 → mine
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/events",
+		`{"title":"协会交流会","event_type":"meeting","description":"d","location":"协会大厦","start_time":"2026-09-01T10:00:00+08:00","end_time":"2026-09-01T12:00:00+08:00","max_attendees":50,"status":"published"}`, adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/events", w, http.StatusCreated)
+	eventID := dataID(t, w)
+	w = doRaw(app, http.MethodPost, "/api/v1/events/"+eventID+"/register",
+		`{"name":"张三","phone":"13800000000"}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/events/"+eventID+"/register", w, http.StatusCreated)
+
+	w = doRaw(app, http.MethodGet, "/api/v1/events/registrations/mine", "", userTok)
+	assertStatus(t, http.MethodGet, "/api/v1/events/registrations/mine", w, http.StatusOK)
+	var evs []domain.EventRegistration
+	unmarshalData(t, w, &evs)
+	if len(evs) != 1 || evs[0].Title != "协会交流会" || evs[0].Location != "协会大厦" {
+		t.Fatalf("my event regs: %+v", evs)
+	}
+}
+
 // dataListLen 解析列表信封 {data:[...]} 的长度。
 func dataListLen(t *testing.T, w *httptest.ResponseRecorder) int {
 	t.Helper()

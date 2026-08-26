@@ -393,8 +393,19 @@ async function handleSubmit() {
         id_card_image: idCardUrl,
       },
     })
-    uni.showToast({ title: '报名成功', icon: 'success' })
-    backTimer = setTimeout(function () { uni.navigateBack() }, 1500)
+    uni.showModal({
+      title: '报名成功',
+      content: '可在「我的报名」查看报名记录',
+      confirmText: '查看我的报名',
+      cancelText: '返回',
+      success: (r) => {
+        if (r.confirm) {
+          uni.navigateTo({ url: '/pkg-talent/pages/training/myenrollments?tab=competition' })
+        } else {
+          uni.navigateBack()
+        }
+      },
+    })
   } catch (e) {
     var msg = getErrorMessage(e) || '报名失败，请重试'
     uni.showToast({ title: msg, icon: 'none' })

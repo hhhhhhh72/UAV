@@ -555,6 +555,8 @@ type CompetitionRepository interface {
 	Delete(ctx context.Context, id string) error
 	CreateReg(ctx context.Context, v domain.CompetitionReg) (domain.CompetitionReg, error)
 	ListRegs(ctx context.Context, competitionID string) ([]domain.CompetitionReg, error)
+	// ListRegsByUser 我的赛事报名（"我的报名"列表，最新在前）。
+	ListRegsByUser(ctx context.Context, userID string) ([]domain.CompetitionReg, error)
 }
 
 // EventRepository manages association events and registrations.
@@ -566,6 +568,8 @@ type EventRepository interface {
 	Delete(ctx context.Context, id string) error
 	CreateReg(ctx context.Context, v domain.EventRegistration) (domain.EventRegistration, error)
 	ListRegs(ctx context.Context, eventID string) ([]domain.EventRegistration, error)
+	// ListRegsByUser 我的活动报名（"我的报名"列表，最新在前）。
+	ListRegsByUser(ctx context.Context, userID string) ([]domain.EventRegistration, error)
 }
 
 // PortfolioRepository manages member brand portfolios.

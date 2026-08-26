@@ -193,6 +193,24 @@ func (r *compRepo) ListRegs(ctx context.Context, competitionID string) ([]domain
 	}
 	return out, rows.Err()
 }
+func (r *compRepo) ListRegsByUser(ctx context.Context, userID string) ([]domain.CompetitionReg, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id,competition_id,user_id,team_name,member_count,contact_info,name,phone,id_card,photo_url,id_card_image,status,created_at FROM competition_registrations WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list regs by user: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.CompetitionReg
+	for rows.Next() {
+		var reg domain.CompetitionReg
+		if err := rows.Scan(&reg.ID, &reg.CompetitionID, &reg.UserID, &reg.TeamName, &reg.MemberCount, &reg.ContactInfo, &reg.Name, &reg.Phone, &reg.IDCard, &reg.PhotoURL, &reg.IDCardImage, &reg.Status, &reg.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan reg: %w", err)
+		}
+		r.decRegPII(&reg)
+		out = append(out, reg)
+	}
+	return out, rows.Err()
+}
 
 // ---- Event ----
 
@@ -286,6 +304,23 @@ func (r *eventRepo) ListRegs(ctx context.Context, eventID string) ([]domain.Even
 		`SELECT id,event_id,user_id,name,phone,org,status,created_at FROM event_registrations WHERE event_id=$1 ORDER BY created_at DESC`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("list event regs: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.EventRegistration
+	for rows.Next() {
+		var reg domain.EventRegistration
+		if err := rows.Scan(&reg.ID, &reg.EventID, &reg.UserID, &reg.Name, &reg.Phone, &reg.Org, &reg.Status, &reg.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan event reg: %w", err)
+		}
+		out = append(out, reg)
+	}
+	return out, rows.Err()
+}
+func (r *eventRepo) ListRegsByUser(ctx context.Context, userID string) ([]domain.EventRegistration, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id,event_id,user_id,name,phone,org,status,created_at FROM event_registrations WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list event regs by user: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.EventRegistration

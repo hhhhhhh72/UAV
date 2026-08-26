@@ -236,6 +236,8 @@ type CompetitionReg struct {
 	IDCardImage   string    `json:"id_card_image"` // 身份证正面影像（C13 补列）
 	Status        string    `json:"status"`
 	CreatedAt     time.Time `json:"created_at"`
+	// Title 赛事标题（"我的报名"列表展示；响应层填充，非数据库列）
+	Title string `json:"title,omitempty"`
 }
 
 // AssociationEvent is an event organized by the drone association.
@@ -265,6 +267,10 @@ type EventRegistration struct {
 	Org       string    `json:"org"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
+	// Title/Location/StartTime 活动摘要（"我的报名"列表展示；响应层填充，非数据库列）
+	Title     string    `json:"title,omitempty"`
+	Location  string    `json:"location,omitempty"`
+	StartTime time.Time `json:"start_time,omitempty"`
 }
 
 // MemberPortfolio is a member enterprise's brand showcase page.

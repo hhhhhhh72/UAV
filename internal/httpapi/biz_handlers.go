@@ -95,6 +95,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 	// ---- Competitions ----
 	mux.HandleFunc("GET /api/v1/competitions", s.listCompetitions)
+	mux.HandleFunc("GET /api/v1/competitions/registrations/mine", s.listMyCompetitionRegs)
 	mux.HandleFunc("POST /api/v1/competitions", s.createCompetitionByEnterprise) // 企业自助发布（待审核）
 	mux.HandleFunc("POST /api/v1/admin/competitions", s.createCompetition)
 	mux.HandleFunc("GET /api/v1/competitions/{id}/registrations", s.listCompetitionRegs)
@@ -103,6 +104,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 	// ---- Events ----
 	mux.HandleFunc("GET /api/v1/events", s.listEvents)
 	mux.HandleFunc("GET /api/v1/events/{id}", s.getEvent)
+	mux.HandleFunc("GET /api/v1/events/registrations/mine", s.listMyEventRegs)
 	mux.HandleFunc("POST /api/v1/admin/events", s.createEvent)
 	mux.HandleFunc("GET /api/v1/events/{id}/registrations", s.listEventRegistrations)
 	mux.HandleFunc("POST /api/v1/events/{id}/register", s.registerEvent)
@@ -1447,6 +1449,21 @@ func (s *Server) listCompetitionRegs(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, regs)
 }
 
+// GET /api/v1/competitions/registrations/mine — 我的赛事报名（"我的报名"列表数据源）
+func (s *Server) listMyCompetitionRegs(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	regs, err := s.competitionSvc.ListMyRegs(r.Context(), a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, regs)
+}
+
 // POST /api/v1/competitions/{id}/register
 func (s *Server) registerCompetition(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
@@ -1573,6 +1590,21 @@ func (s *Server) listEventRegistrations(w http.ResponseWriter, r *http.Request) 
 	regs, err := s.eventSvc.ListRegs(r.Context(), r.PathValue("id"))
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	respond(w, r, http.StatusOK, regs)
+}
+
+// GET /api/v1/events/registrations/mine — 我的活动报名（"我的报名"列表数据源）
+func (s *Server) listMyEventRegs(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	regs, err := s.eventSvc.ListMyRegs(r.Context(), a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	respond(w, r, http.StatusOK, regs)

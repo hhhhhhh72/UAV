@@ -149,6 +149,19 @@ func (r *compRepo) ListRegs(ctx context.Context, competitionID string) ([]domain
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
+func (r *compRepo) ListRegsByUser(ctx context.Context, userID string) ([]domain.CompetitionReg, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.CompetitionReg, 0)
+	for _, reg := range r.regs {
+		if reg.UserID == userID {
+			r.decryptRegInPlace(&reg)
+			out = append(out, reg)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
 
 // ---- Event ----
 
@@ -230,6 +243,18 @@ func (r *eventRepo) ListRegs(ctx context.Context, eventID string) ([]domain.Even
 		}
 	}
 	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+func (r *eventRepo) ListRegsByUser(ctx context.Context, userID string) ([]domain.EventRegistration, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.EventRegistration, 0)
+	for _, reg := range r.regs {
+		if reg.UserID == userID {
+			out = append(out, reg)
+		}
+	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }

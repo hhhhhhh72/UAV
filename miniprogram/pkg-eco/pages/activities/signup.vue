@@ -167,7 +167,7 @@ async function handleSubmit() {
 }
 
 const onViewMine = () => {
-  uni.showToast({ title: '可在「我的报名」中查看', icon: 'none', duration: 1500 })
+  uni.navigateTo({ url: '/pkg-talent/pages/training/myenrollments?tab=activity' })
 }
 const goList = () => {
   uni.redirectTo({ url: '/pkg-eco/pages/activities/list' })
