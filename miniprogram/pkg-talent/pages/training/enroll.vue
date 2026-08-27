@@ -1494,7 +1494,15 @@ onPullDownRefresh(function () {
 
 /* ═══ 减少动态效果支持 ═══ */
 @media (prefers-reduced-motion: reduce) {
-  .page * {
+  .price-item,
+  .contact-item,
+  .cert-upload,
+  .env-cell-img,
+  .btn-fav,
+  .btn-outline,
+  .btn-primary,
+  .custom-toast,
+  .custom-toast--out {
     animation: none !important;
     transition: none !important;
   }
