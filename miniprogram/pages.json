@@ -670,7 +670,8 @@
             "navigationBarTitleText": "院校展示",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
-            "enablePullDownRefresh": true
+            "enablePullDownRefresh": true,
+            "backgroundColor": "#E8F2FC"
           }
         },
         {
@@ -722,7 +723,8 @@
             "navigationBarTitleText": "院校详情",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
-            "navigationStyle": "custom"
+            "navigationStyle": "custom",
+            "backgroundColor": "#E8F2FC"
           }
         },
         {
