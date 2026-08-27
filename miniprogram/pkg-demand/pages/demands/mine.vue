@@ -1,40 +1,34 @@
 <template>
-  <view class="mine-page">
+  <view class="mine-page" :class="{ 'no-motion': noMotion }">
     <!-- 头部 -->
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">我的发布</text>
     </view>
 
-    <!-- 类型筛选 -->
-    <view class="mine-filters">
-      <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
-        <view class="filter-inner">
-          <view
-            v-for="t in kindOptions"
-            :key="t.value"
-            class="filter-chip"
-            :class="{ active: mineType === t.value }"
-            @tap="mineType = t.value"
-          >{{ t.label }}</view>
+    <!-- 筛选：一级下划线 tab（类型）+ ▾ 面板（状态 chips，对齐成果库方案 A） -->
+    <view class="stage-wrap">
+      <view class="stages">
+        <view
+          v-for="t in mineKindTabs"
+          :key="t.value"
+          class="stg"
+          :class="{ on: mineType === t.value }"
+          @tap="pickStageTab(t.value)"
+        >
+          <text>{{ t.label }}</text>
+          <text v-if="t.value === ''" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
         </view>
-      </scroll-view>
-    </view>
-
-    <!-- 状态筛选 -->
-    <view class="mine-filters status">
-      <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
-        <view class="filter-inner">
-          <view
-            v-for="s in statusOptions"
-            :key="s"
-            class="filter-chip"
-            :class="{ active: mineStatus === s }"
-            @tap="mineStatus = s"
-          >{{ s }}</view>
+      </view>
+      <view v-if="panel === 'all'" class="field-panel" :class="{ closing }">
+        <view class="p-group">状态</view>
+        <view class="p-chips">
+          <text v-for="s in statusOptions" :key="s" class="p-chip" :class="{ act: mineStatus === s }" @tap="pickStatus(s)">{{ s }}</text>
         </view>
-      </scroll-view>
+      </view>
     </view>
+    <!-- 蒙层：从筛选条底部开始置灰，点击外部退场收起 -->
+    <view v-if="panel" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
 
     <!-- 列表标题 -->
     <view class="list-head">
@@ -85,12 +79,13 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
+import { onLoad, onReady, onPullDownRefresh, onPageScroll } from '@dcloudio/uni-app'
 import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getErrorMessage, authStorage } from '../../../utils/request'
 import { getPosts, upsertPost, KIND_ORDER, KIND_LABEL } from '../../../utils/publishData'
 import { bizTypeLabel } from '../../../utils/enums'
 import { useSafeTop } from '../../../utils/safeTop'
+import { useReduceMotion } from '../../../utils/motion'
 
 const mineType = ref('')
 const mineStatus = ref('全部')
@@ -105,9 +100,13 @@ const headerStyle = computed(() => ({
   paddingTop: (topPad.value || statusBarH.value) + 'px',
   height: (56 + (topPad.value || statusBarH.value)) + 'px',
 }))
+const { noMotion, checkMotion } = useReduceMotion() // 减弱动效检测（无障碍）
 
-// 类型筛选：全部 + 四类发布内容
-const kindOptions = KIND_ORDER.map((k) => ({ value: k === 'all' ? '' : k, label: KIND_LABEL[k] }))
+// 类型筛选（一级 tab）：全部 + 四类发布内容；「全部」对成果库「全部」短名（▾ 独立面板开关）
+const mineKindTabs = [
+  { value: '', label: '全部' },
+  ...KIND_ORDER.filter((k) => k !== 'all').map((k) => ({ value: k, label: KIND_LABEL[k] })),
+]
 
 // 通用状态筛选（跨 需求/服务/商品/课程 归一化分组）
 const statusOptions = ['全部', '已发布', '审核中', '草稿', '已下架', '已结束', '未通过']
@@ -119,6 +118,49 @@ const STATUS_GROUP = {
 }
 const PRODUCT_STATUS = { pending: '待审核', listed: '在售', sold: '已售', removed: '已下架' }
 const DEMAND_STATUS = { pending: '待审核', published: '已上架', completed: '已结束', cancelled: '已下架', rejected: '未通过' }
+
+/* ===== 面板开合（成果库方案 A）+ 二级维度 chips ===== */
+const panel = ref('') // 'all' 时展开状态面板
+const closing = ref(false)
+const maskTop = ref(200) // 蒙层起点（onReady 实测修正）：筛选条底部
+let panelCloseT = null
+const PANEL_CLOSE_MS = 210
+
+const measureMaskTop = () => {
+  uni.createSelectorQuery().select('.stage-wrap').boundingClientRect((rect) => {
+    if (rect && rect.bottom) maskTop.value = Math.round(rect.bottom)
+  }).exec()
+}
+const startClosePanel = () => {
+  if (closing.value) return
+  closing.value = true
+  clearTimeout(panelCloseT)
+  panelCloseT = setTimeout(() => { panel.value = ''; closing.value = false; panelCloseT = null }, PANEL_CLOSE_MS)
+}
+const togglePanel = () => {
+  if (panel.value === 'all') { startClosePanel(); return }
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false
+  panel.value = 'all'
+  uni.nextTick(measureMaskTop) // 实测蒙层起点（头部/筛选条高度自适应）
+}
+// 方案 A：非全部 tab 再点取消；「全部」tab 未停先清 type、停下再开面板；▾ 独立开关
+const pickStageTab = (k) => {
+  if (k !== '') {
+    if (panel.value) startClosePanel()
+    mineType.value = mineType.value === k ? '' : k
+    return
+  }
+  if (mineType.value !== '') {
+    startClosePanel()
+    mineType.value = ''
+    return
+  }
+  togglePanel()
+}
+// 状态 chips：点选即筛、再点取消 → 回「全部」
+const pickStatus = (s) => {
+  mineStatus.value = mineStatus.value === s ? '全部' : s
+}
 
 const filteredPosts = computed(() => {
   return posts.value.filter(
@@ -271,6 +313,7 @@ const fetchMine = async () => {
 }
 
 onLoad((options) => {
+  checkMotion()
   initSafeTop()
   if (options && options.status && statusOptions.includes(options.status)) {
     mineStatus.value = options.status
@@ -282,6 +325,10 @@ onLoad((options) => {
   }
   fetchMine()
 })
+onReady(() => { measureMaskTop() }) // 实测蒙层起点（头部/筛选条高度自适应，防展开首帧全屏闪）
+onPageScroll(() => {
+  if (panel.value) startClosePanel() // 筛选条非吸顶：滚动即关，防面板/蒙层错位
+})
 onPullDownRefresh(() => {
   fetchMine().finally(() => uni.stopPullDownRefresh())
 })
@@ -289,6 +336,7 @@ onPullDownRefresh(() => {
 const resetMineFilter = () => {
   mineType.value = ''
   mineStatus.value = '全部'
+  startClosePanel() // 空态「清除筛选」出口：同步收起状态面板
 }
 
 /* ================= 跳转 ================= */
@@ -399,33 +447,73 @@ const toastPending = () => {
 .head-action { padding: 14rpx; }
 .head-action-text { color: #0A66C2; font-size: 26rpx; font-weight: 600; }
 
-/* 筛选 */
-.mine-filters {
-  background: #fff;
-  border-bottom: 1px solid #EEF1F4;
-  padding: 20rpx 24rpx;
+/* 筛选：一级下划线 tab（类型）+ ▾ 面板（状态 chips，对齐成果库 L634-711；页无吸顶故 relative 非 sticky） */
+.stage-wrap { position: relative; background: #fff; border-bottom: 1px solid #EEF1F4; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.mine-filters.status { border-bottom: 0; padding-top: 4rpx; }
-.filter-scroll { white-space: nowrap; }
-.filter-inner { display: inline-flex; gap: 12rpx; }
-.filter-chip {
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.stg-arr { font-size: 24rpx; color: #667085; transition: transform .2s ease, color .2s ease; padding: 20rpx 16rpx; margin: -20rpx -16rpx; }
+.stg-arr.up { transform: rotate(180deg); color: #074D92; }
+
+/* ===== 状态面板：absolute 浮层（展开不挤动内容） + 蒙层 ===== */
+.field-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 43;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+  padding: 12px 14px 14px;
+  max-height: 62vh;
+  overflow-y: auto;
+  animation: panelIn .3s cubic-bezier(.32, .72, 0, 1);
+}
+.field-panel.closing { animation: panelOut .21s ease-in forwards; }
+@keyframes panelOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+@keyframes panelIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.field-panel .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
+.field-panel .p-group:first-child { margin-top: 0; }
+.p-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-chip {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #E4E7EC;
+  border-radius: 6px;
+  background: #fff;
+  color: #667085;
+  font-size: 13px;
   display: inline-flex;
   align-items: center;
-  height: 56rpx;
-  padding: 0 20rpx;
-  border: 1px solid #E4E7EC;
-  border-radius: 12rpx;
-  background: #fff;
-  color: #344054;
-  font-size: 24rpx;
-  box-sizing: border-box;
 }
-.filter-chip.active {
-  color: #0A66C2;
-  border-color: #B9D6EF;
-  background: #EAF3FB;
-  font-weight: 650;
+.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
+.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); }
+.p-chip:active { transform: scale(.94); transition: transform .08s linear; }
+.p-chip.act { animation: chipPop .3s cubic-bezier(.34, 1.8, .64, 1); }
+@keyframes chipPop { 0% { transform: scale(1); } 40% { transform: scale(.94); } 100% { transform: scale(1); } }
+.panel-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  background: rgba(16, 24, 40, 0.2);
+  animation: maskIn .22s ease-out;
 }
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* 列表 */
 .list-head {
@@ -518,5 +606,24 @@ const toastPending = () => {
   color: #fff;
   font-size: 24rpx;
   line-height: 72rpx;
+}
+
+/* ===== 减弱动效适配（无障碍）：no-motion 时筛选装饰动画/位移缩放关闭，保留淡入与颜色反馈（对齐成果库 L810-830） ===== */
+.mine-page.no-motion .stg.on::after { animation: none; }
+.mine-page.no-motion .stg-arr { transition: none; }
+.mine-page.no-motion .p-chip { transition: none; }
+.mine-page.no-motion .p-chip.act { animation: none; }
+.mine-page.no-motion .field-panel { animation: panelFadeIn .22s ease-out; }
+.mine-page.no-motion .field-panel.closing { animation: panelFadeOut .16s ease-in forwards; }
+.mine-page.no-motion .panel-mask { animation: maskIn .22s ease-out; }
+.mine-page.no-motion .p-chip:active { transform: none; }
+@keyframes panelFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes panelFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* prefers-reduced-motion：系统减弱动态效果时全关 */
+@media (prefers-reduced-motion: reduce) {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask { animation: none !important; transition: none !important; }
+  .stg.on::after { animation: none !important; }
+  .p-chip.act { animation: none !important; }
 }
 </style>

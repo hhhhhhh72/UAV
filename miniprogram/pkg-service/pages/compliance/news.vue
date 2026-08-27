@@ -24,20 +24,20 @@
         </view>
       </view>
 
-      <!-- 分类筛选（胶囊条，覆盖全部分类，选中态对齐参考页 fpill） -->
-      <scroll-view scroll-x class="fbar-scroll" :show-scrollbar="false">
-        <view class="fbar">
+      <!-- 分类分段：下划线 tab（对齐科技成果库） -->
+      <view class="stage-wrap">
+        <view class="stages">
           <view
             v-for="chip in categoryChips"
             :key="chip.value"
-            class="fpill"
+            class="stg"
             :class="{ on: activeCategory === chip.value }"
             @tap="onCategoryChange(chip.value)"
           >
-            <text class="fpv">{{ chip.label }}</text>
+            <text>{{ chip.label }}</text>
           </view>
         </view>
-      </scroll-view>
+      </view>
     </view>
 
     <!-- Banner 渐变卡（参考页同款深蓝系） -->
@@ -335,7 +335,8 @@ export default {
     },
 
     onCategoryChange(value) {
-      this.activeCategory = value
+      // 方案 A：非「全部」(首项空串) 再点取消回全部
+      this.activeCategory = value === '' ? '' : (this.activeCategory === value ? '' : value)
       this.fetchList(true)
     },
 
@@ -419,32 +420,33 @@ page {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 分类筛选胶囊（参考页 fpill：白底灰描边淡投影，选中蓝） ===== */
-.fbar-scroll { white-space: nowrap; }
-.fbar {
-  display: inline-flex;
+/* ===== 分类分段（对齐科技成果库：下划线 tab） ===== */
+.stage-wrap { position: relative; z-index: 42; }
+.stages { display: flex; flex-wrap: wrap; gap: 32rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 12px;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.fpill {
-  flex: none;
-  min-height: 40px; /* 触控目标：微信 44px 建议值附近 */
-  padding: 0 13px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in 0.22s ease-out;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill:active { transform: scale(.96); transition: transform .08s linear; }
-.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ===== Banner（参考页同款：深蓝渐变 + 图标 + 标题/副标题） ===== */
 .banner {
@@ -765,7 +767,11 @@ page {
 .page.no-motion .banner::after { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
 .page.no-motion .tap-scale { transform: none !important; }
-.page.no-motion .fpill:active,
+.page.no-motion .stg.on::after { animation: none; }
 .page.no-motion .stb:active,
 .page.no-motion .bt:active { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
+}
 </style>

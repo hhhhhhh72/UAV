@@ -1,5 +1,5 @@
 <template>
-  <view class="orders-page">
+  <view class="orders-page" :class="{ 'no-motion': noMotion }">
     <!-- 头部（custom 导航：状态栏避让） -->
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
@@ -7,19 +7,17 @@
       <view class="head-spacer"></view>
     </view>
 
-    <!-- 状态筛选 -->
-    <view class="orders-filters">
-      <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
-        <view class="filter-inner">
-          <view
-            v-for="s in statusOptions"
-            :key="s.value"
-            class="filter-chip"
-            :class="{ active: currentStatus === s.value }"
-            @tap="currentStatus = s.value"
-          >{{ s.label }}</view>
-        </view>
-      </scroll-view>
+    <!-- 状态筛选：一级下划线 tab（单维度 → tab 即维度，无 ▾ 面板） -->
+    <view class="stage-wrap">
+      <view class="stages">
+        <view
+          v-for="s in statusOptions"
+          :key="s.value"
+          class="stg"
+          :class="{ on: currentStatus === s.value }"
+          @tap="pickFilter(s.value)"
+        >{{ s.label }}</view>
+      </view>
     </view>
 
     <!-- 列表标题 -->
@@ -121,6 +119,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getStoredUser, getErrorMessage } from '../../../utils/request'
+import { useReduceMotion } from '../../../utils/motion'
 
 // 自定义导航：头部下沉到状态栏下方
 const statusBarH = ref(20)
@@ -129,6 +128,7 @@ const headerStyle = computed(() => ({
   paddingTop: statusBarH.value + 'px',
   height: (56 + statusBarH.value) + 'px',
 }))
+const { noMotion, checkMotion } = useReduceMotion() // 减弱动效检测（无障碍）
 
 const orders = ref([])
 const currentStatus = ref('')
@@ -164,6 +164,12 @@ const filteredOrders = computed(() =>
   currentStatus.value === '' ? orders.value : orders.value.filter((o) => o.status === currentStatus.value)
 )
 
+// 单维度 tab（无面板）：点非全部 tab 再点一次取消回「全部」；每项即时筛（filteredOrders 为 computed）
+const pickFilter = (k) => {
+  if (k !== '') currentStatus.value = currentStatus.value === k ? '' : k
+  else currentStatus.value = ''
+}
+
 const me = getStoredUser() || {}
 const isWorker = (o) => o.worker_id && me.id && o.worker_id === me.id
 const isPublisher = (o) => o.publisher_id && me.id && o.publisher_id === me.id
@@ -190,7 +196,10 @@ const fetchOrders = async () => {
   }
 }
 
-onLoad(fetchOrders)
+onLoad(() => {
+  checkMotion()
+  fetchOrders()
+})
 onPullDownRefresh(() => {
   fetchOrders().finally(() => uni.stopPullDownRefresh())
 })
@@ -343,32 +352,23 @@ const goBack = () => safeBack()
 .page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; text-align: center; }
 .head-spacer { width: 72rpx; }
 
-/* 筛选 */
-.orders-filters {
-  background: #fff;
-  border-bottom: 1px solid #EEF1F4;
-  padding: 20rpx 24rpx;
-}
-.filter-scroll { white-space: nowrap; }
-.filter-inner { display: inline-flex; gap: 12rpx; }
-.filter-chip {
-  display: inline-flex;
+/* 状态筛选：一级下划线 tab（对齐成果库 L634-654，页无吸顶故 relative 非 sticky） */
+.stage-wrap { position: relative; background: #fff; border-bottom: 1px solid #EEF1F4; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
+  display: flex;
   align-items: center;
-  height: 56rpx;
-  padding: 0 20rpx;
-  border: 1px solid #E4E7EC;
-  border-radius: 12rpx;
-  background: #fff;
-  color: #344054;
+  gap: 4rpx;
+  padding: 0 8rpx;
   font-size: 24rpx;
-  box-sizing: border-box;
+  color: #667085;
 }
-.filter-chip.active {
-  color: #0A66C2;
-  border-color: #B9D6EF;
-  background: #EAF3FB;
-  font-weight: 650;
-}
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* 列表 */
 .list-head {
@@ -499,5 +499,14 @@ const goBack = () => safeBack()
   color: #fff;
   font-size: 24rpx;
   line-height: 72rpx;
+}
+
+/* ===== 减弱动效适配（无障碍）：no-motion 时筛选 tab 下划线动画关闭 ===== */
+.orders-page.no-motion .stg.on::after { animation: none; }
+
+/* prefers-reduced-motion：系统减弱动态效果时全关 */
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
+  .stg.on::after { animation: none !important; }
 }
 </style>

@@ -16,22 +16,21 @@
         </view>
       </view>
 
-      <!-- 筛选器（搜索框下、banner 上） -->
-      <view class="fbar">
-        <view class="fpill" :class="{ on: panel === 'comp' }" @tap="togglePanel('comp')">
-          <text class="fpv">{{ compLabel }}</text><text class="farr">▾</text>
+      <!-- 一级筛选：下划线 tab 分段（对齐成果库：全部▾ / 领域 / 时间 / 金额），面板 absolute 浮层 -->
+      <view class="stage-wrap">
+        <view class="stages">
+          <view class="stg" :class="{ on: tabOn('all') }" @tap="pickTab('all')">
+            <text>全部</text>
+            <text class="stg-arr" :class="{ up: panel === 'comp' }" @tap.stop="togglePanel('comp')">▾</text>
+          </view>
+          <view class="stg" :class="{ on: tabOn('comp') }" @tap="pickTab('comp')"><text>领域</text></view>
+          <view class="stg" :class="{ on: tabOn('time') }" @tap="pickTab('time')"><text>时间</text></view>
+          <view class="stg" :class="{ on: tabOn('money') }" @tap="pickTab('money')"><text>金额</text></view>
+          <view v-if="hasActiveFilters" class="freset" @tap="resetAll">重置</view>
         </view>
-        <view class="fpill" :class="{ on: panel === 'time' }" @tap="togglePanel('time')">
-          <text class="fpv">{{ timeLabel }}</text><text class="farr">▾</text>
-        </view>
-        <view class="fpill" :class="{ on: panel === 'money' }" @tap="togglePanel('money')">
-          <text class="fpv">{{ moneyLabel }}</text><text class="farr">▾</text>
-        </view>
-        <view v-if="hasActiveFilters" class="freset" @tap="resetAll">重置</view>
-      </view>
 
-      <!-- 展开面板：从筛选器下方平滑展开、全宽、与搜索/筛选一体 -->
-      <view v-if="panel" class="panel-wrap" :class="{ closing }">
+        <!-- 展开面板：从 tab 分段下方浮层展开（absolute，不挤动内容） -->
+        <view v-if="panel" class="field-panel" :class="{ closing }">
         <!-- 领域状态 -->
         <view v-if="panel === 'comp'" class="panel">
           <view class="p-head">按领域与状态筛选</view>
@@ -108,10 +107,11 @@
           </view>
         </view>
       </view>
+      </view>
     </view>
 
-    <!-- 蒙层：面板展开时置灰下方内容，点击外部收起 -->
-    <view v-if="panel" class="panel-catcher" :class="{ closing }" :style="{ top: maskTop }" @tap="startClosePanel"></view>
+    <!-- 蒙层：面板展开时置灰 tab 分段下方内容，点击外部收起（z 低于 sticky-head，吸顶区不被蒙） -->
+    <view v-if="panel" class="panel-mask" :class="{ closing }" :style="{ top: maskTop + 'px' }" @tap="startClosePanel"></view>
 
     <!-- Banner（可点击 → 发布难题；内部微编排 + 单次扫光） -->
     <view class="banner" @tap="goPublish">
@@ -405,7 +405,20 @@ const hasActiveFilters = computed(() => !!(
   quick.value !== 'all' || rangeStart.value ||
   (moneyActive.value && !moneyDragging.value)
 ))
-const maskTop = computed(() => (statusBarHeight.value + 44 + headH.value) + 'px')
+/* ---- 一级 tab 分段激活态（对齐成果库：单一下划线；面板打开优先于筛选态） ---- */
+const compActive = computed(() => !!(selField.value || selStatus.value))
+const timeActive = computed(() => !!(quick.value !== 'all' || rangeStart.value))
+const tabOn = (k) => {
+  if (panel.value === 'comp') return k === 'comp'
+  if (panel.value === 'time') return k === 'time'
+  if (panel.value === 'money') return k === 'money'
+  if (k === 'all') return !compActive.value && !timeActive.value && !moneyActive.value
+  if (k === 'comp') return compActive.value
+  if (k === 'time') return timeActive.value
+  if (k === 'money') return moneyActive.value
+  return false
+}
+const maskTop = ref(192) // 蒙层起点：tab 分段底部（onReady/面板打开时实测修正）；z 低于 sticky-head
 const sortLabel = computed(() => SORT_LABEL[sort.value] || '最新发布')
 const hasMore = computed(() => filteredAll.value.length < total.value)
 const hasMoreRender = computed(() => filteredAll.value.length > list.value.length)
@@ -647,6 +660,7 @@ const openPanel = (p) => {
   if (p === 'time' && (rangeStart.value || rangeEnd.value)) timeCustom.value = true
   if (p === 'money' && !mFace.value && !mPreset.value && !(mMin.value === 0 && mMax.value === 100)) moneyCustom.value = true
   if (p === 'money') nextTick(measureSlider)
+  nextTick(measureMaskTop) // 实测蒙层起点（tab 分段底部），浮层与蒙层同源对齐
 }
 const startCloseSort = () => {
   if (sortClosing.value) return
@@ -666,6 +680,30 @@ const closeAll = () => {
 const togglePanel = (p) => {
   if (panel.value === p) { startClosePanel(); return } // 再点当前 pill → 退场收起
   openPanel(p)
+}
+/* 一级 tab 分段开合（对齐成果库 pickStageTab）：
+   - 「全部」tab：清空领域/状态/时间/金额维度筛选（保留搜索与排序），面板收起
+   - 非「全部」tab：其面板未开则打开（选中态下划线）；已开则收起（保留该维度筛选态） */
+const clearFilters = () => {
+  selField.value = ''
+  selStatus.value = ''
+  quick.value = 'all'
+  rangeStart.value = ''
+  rangeEnd.value = ''
+  mPreset.value = ''
+  mFace.value = false
+  moneyCustom.value = false
+  timeCustom.value = false
+  mMin.value = 0
+  mMax.value = 100
+  startClosePanel()
+  applyFilter()
+  revealList()
+}
+const pickTab = (k) => {
+  if (k === 'all') { clearFilters(); return }
+  if (panel.value === k) { startClosePanel(); return }
+  openPanel(k)
 }
 const toggleComp = (key, v) => {
   if (key === 'field') selField.value = selField.value === v ? '' : v
@@ -758,6 +796,12 @@ const measureSlider = () => {
 const measureHead = () => {
   uni.createSelectorQuery().in(inst?.proxy || inst).select('.sticky-head').boundingClientRect((rect) => {
     if (rect && rect.height) headH.value = rect.height
+  }).exec()
+}
+const measureMaskTop = () => {
+  // 蒙层起点 = tab 分段容器底部（浮层面板下方），实测使头部不被蒙、起点不错位
+  uni.createSelectorQuery().in(inst?.proxy || inst).select('.stage-wrap').boundingClientRect((rect) => {
+    if (rect && rect.bottom) maskTop.value = Math.round(rect.bottom)
   }).exec()
 }
 const setPos = (x) => {
@@ -964,7 +1008,7 @@ onUnload(() => {
   clearTimeout(sortT)
   clearTimeout(searchT)
 })
-onReady(() => { measureHead(); reObserve() })
+onReady(() => { measureHead(); measureMaskTop(); reObserve() })
 onPullDownRefresh(async () => {
   // silent：原生下拉动画本身已提供刷新反馈，静默刷新避免列表被骨架屏顶替闪烁
   await fetchAll(true)
@@ -1061,7 +1105,7 @@ page {
 .banner-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: block; line-height: 1.3; color: #fff; }
 .banner-sub { font-size: 12px; color: rgba(255, 255, 255, 0.95); display: block; } /* 白 95%：蓝底上 ≥4.5:1 达标（原 90% 约 4.8:1，字号 11→12 更稳） */
 /* ===== 固定头部：Banner + 筛选器 ===== */
-.panel-catcher {
+.panel-mask {
   position: fixed;
   left: 0;
   right: 0;
@@ -1070,7 +1114,7 @@ page {
   background: rgba(16, 24, 40, 0.2); /* 真变暗：面板展开时置灰下方内容（蓝灰黑 20%） */
   animation: maskIn .22s ease-out; /* 遮罩与面板同步淡入 */
 }
-.panel-catcher.closing {
+.panel-mask.closing {
   animation: maskOut .16s ease-in forwards; /* 同步淡出 */
 }
 @keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
@@ -1087,37 +1131,40 @@ page {
   padding: 0;
 }
 
-/* ===== 三个筛选器 ===== */
-.fbar {
+/* ===== 一级筛选：下划线 tab 分段（对齐成果库，筛选器置底） ===== */
+.stage-wrap { position: relative; z-index: 42; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; align-items: center; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx; /* 触控目标：44px（微信建议值），筛选高频操作 */
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 12px;
-  background: #fff;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx; /* 筛选器 12px，同成果库 */
+  color: #667085;
 }
-.fpill {
-  flex: 1;
-  min-width: 0; /* 优化：允许收缩，配合 .fpv 省略号防长标签溢出 */
-  min-height: 40px; /* 触控目标：34px→40px（接近微信 44px 建议值，筛选高频操作） */
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff; /* 白上白：纯白填充 + 灰描边 + 极淡灰投影 */
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  overflow: hidden; /* 优化：溢出裁剪，长组合标签（如"飞控系统 · 紧急"）不再撑破 pill */
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease; /* 优化：transition:all → 仅过渡实际变化的属性 */
+.stg.on { color: #074D92; font-weight: 600; } /* 激活用 AA 暗变体（#0A66C2 白底 ≈4.5:1 边缘，深档 ≈6.9:1） */
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in .22s ease-out; /* 注线画出：ios-decel（同成果库） */
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* 优化：新增——pill 长标签省略号 */
-.farr { font-size: 12px; color: #667085; flex: none; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* ▾ 独立面板开关（方案 A）：负 margin 抵消位移，独立热区（同成果库） */
+.stg-arr { font-size: 24rpx; color: #667085; transition: transform .2s ease, color .2s ease; padding: 20rpx 16rpx; margin: -20rpx -16rpx; }
+.stg-arr.up { transform: rotate(180deg); color: #074D92; }
 /* 重置按钮：随激活筛选状态弹出（v-if 挂载即播 ios-pop 弹簧）；单一声明 */
 .freset {
   flex: none;
+  margin-left: auto; /* 在 tab 分段行右端（对齐成果库重置出口） */
   min-height: 40px; /* 触控目标：34px→40px */
   padding: 0 10px;
   border-radius: 8px;
@@ -1287,29 +1334,26 @@ page {
 .sth { font-size: 12px; color: #667085; display: block; margin-bottom: 16px; }
 .stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
 
-/* ===== 面板（通用） ===== */
-.panel-wrap {
-  position: relative;
-  background: #fff;
-  /* 浮层档 200-300ms：进场 ios-decel .3s（iOS sheet 流体减速）；退场 .21s ease-in（= 进场 ×0.7，必须存在） */
-  animation: panelIn .3s cubic-bezier(.32, .72, 0, 1);
-}
-.panel-wrap.closing {
-  animation: panelOut .21s ease-in forwards; /* forwards：退场结束态保持到 v-if 移除，防闪跳 */
-}
-.panel {
+/* ===== 面板（通用）：absolute 浮层，从 tab 分段下方展开（不挤动内容，同成果库 field-panel） ===== */
+.field-panel {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  z-index: 41;
+  top: 100%;
+  z-index: 43;
   background: #fff;
   border-radius: 0 0 12px 12px;
   box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08); /* ≤8% 轻影上限（原 10% 越界） */
-  padding: 12px 14px;
+  padding: 12px 14px 14px;
   max-height: 62vh;
   overflow-y: auto;
+  /* 浮层档 200-300ms：进场 ios-decel .3s（iOS sheet 流体减速）；退场 .21s ease-in（= 进场 ×0.7，必须存在） */
+  animation: panelIn .3s cubic-bezier(.32, .72, 0, 1);
 }
+.field-panel.closing {
+  animation: panelOut .21s ease-in forwards; /* forwards：退场结束态保持到 v-if 移除，防闪跳 */
+}
+.panel { padding: 0; } /* 内容容器（浮层 chrome 与滚动由 .field-panel 承接，内部不再重复 padding） */
 @keyframes panelIn {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1597,13 +1641,16 @@ page {
 .page.no-motion .banner::before,
 .page.no-motion .banner::after { animation: none; } /* banner 内部微编排/扫光/装饰圆全关 */
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; } /* 循环呼吸关 */
-.page.no-motion .panel-wrap { animation: panelFadeIn .22s ease-out; } /* 面板降级为纯淡入 */
-.page.no-motion .panel-wrap.closing { animation: panelFadeOut .16s ease-in forwards; }
+.page.no-motion .field-panel { animation: panelFadeIn .22s ease-out; } /* 面板降级为纯淡入 */
+.page.no-motion .field-panel.closing { animation: panelFadeOut .16s ease-in forwards; }
 .page.no-motion .spop { animation: spopFadeIn .2s ease-out; }
 .page.no-motion .spop.closing { animation: spopFadeOut .15s ease-in forwards; }
-.page.no-motion .panel-catcher { animation: maskIn .22s ease-out; }
-.page.no-motion .panel-catcher.closing { animation: maskOut .16s ease-in forwards; }
+.page.no-motion .panel-mask { animation: maskIn .22s ease-out; }
+.page.no-motion .panel-mask.closing { animation: maskOut .16s ease-in forwards; }
+.page.no-motion .p-chip { transition: none; } /* 状态过渡关闭，保留选中色 */
 .page.no-motion .p-chip.act { animation: none; } /* 选中微弹属缩放，关闭；选中色保留 */
+.page.no-motion .stg-arr { transition: none; } /* ▾ 箭头旋转关闭 */
+.page.no-motion .stg.on::after { animation: none; } /* 注线画出属位移，关闭 */
 .page.no-motion .freset { animation: none; } /* 重置弹出属缩放，关闭 */
 .page.no-motion .tap-scale { transform: none !important; } /* 按压缩放关闭，保留 opacity 反馈 */
 .page.no-motion .p-chip:active,
@@ -1613,9 +1660,21 @@ page {
 .page.no-motion .cal-nav:active,
 .page.no-motion .cal-cell:active,
 .page.no-motion .bt:active,
-.page.no-motion .banner:active { transform: none; } /* 按压微缩放关闭，保留颜色/透明度反馈 */
+.page.no-motion .banner:active,
+.page.no-motion .stg:active { transform: none; } /* 按压微缩放关闭，保留颜色/透明度反馈 */
 @keyframes panelFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes panelFadeOut { from { opacity: 1; } to { opacity: 0; } }
 @keyframes spopFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes spopFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ===================== 系统级减弱动效（prefers-reduced-motion）：显式关闭筛选条/面板的过渡与动画 ===================== */
+@media (prefers-reduced-motion: reduce) {
+  .stg,
+  .stg-arr,
+  .p-chip,
+  .field-panel,
+  .panel-mask,
+  .spop,
+  .freset { animation: none !important; transition: none !important; }
+}
 </style>

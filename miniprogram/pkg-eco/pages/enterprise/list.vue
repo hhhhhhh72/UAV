@@ -21,22 +21,20 @@
         </view>
       </view>
 
-      <!-- 筛选胶囊：全部 + 各行业分类（横向滚动，选中态蓝描边浅蓝底） -->
-      <scroll-view v-if="cats.length > 1" class="fscroll" scroll-x :show-scrollbar="false">
-        <view class="fbar">
+      <!-- 筛选分段：行业（下划线 tab 分段，对齐科技成果库；动态分类超过一行自动换行） -->
+      <view v-if="cats.length > 1" class="stage-wrap">
+        <view class="stages">
           <view
             v-for="c in cats"
             :key="c"
-            class="fpill"
+            class="stg"
             :class="{ on: activeCat === c }"
-            hover-class="fpill-press"
-            :hover-stay-time="100"
-            @tap="activeCat = c"
+            @tap="pickStageTab(c)"
           >
-            <text class="fpv">{{ c === '' ? '全部' : c }}</text>
+            <text>{{ c === '' ? '全部' : c }}</text>
           </view>
         </view>
-      </scroll-view>
+      </view>
     </view>
 
     <!-- ② 信息行：共 N 家 + 统计提示 -->
@@ -166,6 +164,11 @@ const goRegister = () => uni.navigateTo({ url: '/pkg-eco/pages/enterprise/regist
 const resetFilter = () => {
   keyword.value = ''
   activeCat.value = ''
+}
+
+// 行业分段 tab（方案 A：非全部再点取消回全部）
+const pickStageTab = (c) => {
+  activeCat.value = activeCat.value === c && c !== '' ? '' : c
 }
 
 const openDetail = (e) => {
@@ -317,28 +320,33 @@ page {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 筛选胶囊：白上白，选中态蓝描边 + 浅蓝底 ===== */
-.fscroll { width: 100%; white-space: nowrap; }
-.fbar { display: inline-flex; gap: 8px; padding: 10px 12px 4px; }
-.fpill {
-  flex: none;
-  min-height: 40px;
-  padding: 0 16px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
-  display: inline-flex;
+/* ===== 行业筛选分段（对齐科技成果库：下划线 tab；动态分类超宽自动换行） ===== */
+.stage-wrap { position: relative; z-index: 42; }
+.stages { display: flex; flex-wrap: wrap; gap: 32rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill-press { transform: scale(0.95); opacity: 0.85; }
-.fpv { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in 0.22s ease-out;
+}
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ===== 信息行 ===== */
 .ir {
@@ -538,4 +546,9 @@ page {
 .page.no-motion .card,
 .page.no-motion .ir { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
+.page.no-motion .stg.on::after { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
+}
 </style>

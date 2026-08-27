@@ -1,5 +1,5 @@
 <template>
-  <view class="ts-page" :class="{ 'no-motion': noMotion }" @tap="closeSort">
+  <view class="ts-page" :class="{ 'no-motion': noMotion }" @tap="closeAll">
     <u-nav-bar title="测试场地" show-back @back="goBack" />
 
     <!-- 搜索（与 challenges/projects 同款：白上白描边 + 双层投影 + 搜索按钮） -->
@@ -13,28 +13,33 @@
       </view>
     </view>
 
-    <!-- 类型筛选：TOC 注线签名（本页差异点：轻量类型 tab，非下拉 pill） -->
-    <view class="fbar">
-      <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
-        <view class="toc">
-          <view
-            v-for="p in typePills"
-            :key="p.value"
-            class="toc-item"
-            :class="{ active: activeType === p.value }"
-            aria-role="button"
-            @tap.stop="selectType(p.value)"
-          >{{ p.label }}</view>
+    <!-- 类型筛选：一级下划线 tab 分段（对齐科技成果库）+ ▾ 浮层面板（可约状态 chips） -->
+    <view class="stage-wrap">
+      <view class="stages">
+        <view
+          v-for="p in typePills"
+          :key="p.value"
+          class="stg"
+          :class="{ on: activeType === p.value }"
+          aria-role="button"
+          @tap.stop="pickTypeTab(p.value)"
+        >
+          <text>{{ p.label }}</text>
+          <!-- ▾ 独立面板开关：未停在「全部」时点「全部」先清类型；停在「全部」时再点开面板 -->
+          <text v-if="p.value === 'all'" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
         </view>
-      </scroll-view>
+      </view>
+      <!-- 可约状态面板：absolute 浮层（对齐科技成果库），展开时不挤动下方内容 -->
+      <view v-if="panel === 'all'" class="field-panel" :class="{ closing }" @tap.stop>
+        <view class="p-group">可约状态</view>
+        <view class="p-chips">
+          <text class="p-chip" :class="{ act: avail === '' }" @tap="pickAvail('')">全部</text>
+          <text class="p-chip" :class="{ act: avail === 'avail' }" @tap="pickAvail('avail')">仅看可预约</text>
+        </view>
+      </view>
     </view>
-
-    <!-- 仅看可预约：独立开关行（本页差异点：可约性提为筛选维度） -->
-    <view class="orow">
-      <text class="olab">仅看可预约</text>
-      <view class="oflex"></view>
-      <switch :checked="onlyAvailable" color="#0A66C2" @change="onToggleOnly" aria-label="仅看可预约" />
-    </view>
+    <!-- 蒙层：从 tab 分段底部开始置灰，点击外部退场收起 -->
+    <view v-if="panel" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
 
     <!-- 信息行：共 N 项 + 排序（与 challenges/projects 同构；骨架/错误/空态时不显示，防"共 0"闪现） -->
     <view v-if="!loading && !errorMsg && filteredSites.length > 0" class="ir">
@@ -153,7 +158,7 @@ const SORT_LABEL = { default: '默认排序', priceAsc: '价格从低到高', pr
 
 const keyword = ref('')
 const activeType = ref('all')
-const onlyAvailable = ref(false)
+const avail = ref('') // 可约状态：'' = 全部（不限）；'avail' = 仅看可预约
 const loading = ref(false)
 const errorMsg = ref('')
 const sites = ref([])
@@ -161,6 +166,12 @@ const sort = ref('default')
 const showSort = ref(false)
 const sortClosing = ref(false) // 排序弹层退场动画中（定时器到点再 v-if 移除，规范：退场必须存在）
 let sortT = null
+/* ===== 筛选面板（对齐科技成果库：tab 分段 + ▾ 浮层面板 + 蒙层） ===== */
+const panel = ref('')       // '' = 收起；'all' = 可约状态面板展开
+const closing = ref(false)  // 面板退场中（先播退场动画再 v-if 移除）
+const maskTop = ref(0)      // 蒙层起点（面板打开时实测：tab 分段底部）
+let panelCloseT = null
+const PANEL_CLOSE_MS = 210 // 退场动画 .21s ease-in
 const { noMotion, checkMotion } = useReduceMotion()
 
 // 请求序号：防竞态，旧响应晚到即丢弃
@@ -183,7 +194,7 @@ const sortLabel = computed(() => SORT_LABEL[sort.value] || '默认排序')
 const filteredSites = computed(() => {
   const q = keyword.value.trim().toLowerCase()
   return sites.value.filter((s) => {
-    if (onlyAvailable.value && s.status !== 'available') return false
+    if (avail.value === 'avail' && s.status !== 'available') return false
     if (activeType.value !== 'all' && s.site_type !== activeType.value) return false
     if (!q) return true
     // 搜索范围含类型中文名，避免"风洞"搜不到
@@ -213,17 +224,17 @@ const sortedSites = computed(() => {
 // 空态三分：真空 / 筛选空 / 仅看可约空，动作各不相同（诊断顺序：关键词/类型优先于开关——真实原因优先展示）
 const emptyText = computed(() => {
   if (keyword.value.trim() || activeType.value !== 'all') return '未找到匹配的场地'
-  if (onlyAvailable.value) return '没有可预约的场地'
+  if (avail.value === 'avail') return '没有可预约的场地'
   return '暂无测试场地'
 })
 const emptySub = computed(() => {
   if (keyword.value.trim() || activeType.value !== 'all') return '试试更换关键词或筛选条件'
-  if (onlyAvailable.value) return '当前没有可预约的测试场地'
+  if (avail.value === 'avail') return '当前没有可预约的测试场地'
   return ''
 })
 const createText = computed(() => {
   if (keyword.value.trim() || activeType.value !== 'all') return '清除筛选'
-  if (onlyAvailable.value) return '查看全部场地'
+  if (avail.value === 'avail') return '查看全部场地'
   return ''
 })
 
@@ -269,14 +280,45 @@ async function fetchList(opts = {}) {
   }
 }
 
-function selectType(value) {
-  if (activeType.value === value) return
-  activeType.value = value
-  closeSortImmediately() // 切类型时收起排序弹层，防弹层悬留
+/* 面板开合规范：退场必须存在且可打断——先加 closing 类播退场动画，定时器到点再 v-if 移除 */
+function startClosePanel() {
+  if (closing.value) return // 已在退场中，防重复触发叠加定时器
+  closing.value = true
+  clearTimeout(panelCloseT)
+  panelCloseT = setTimeout(() => { panel.value = ''; closing.value = false; panelCloseT = null }, PANEL_CLOSE_MS)
 }
-
-function onToggleOnly(e) {
-  onlyAvailable.value = !!(e && e.detail && e.detail.value)
+function togglePanel() {
+  if (panel.value === 'all') { startClosePanel(); return } // 再点「全部」→ 退场收起
+  // 打开面板：取消未完成的退场；排序弹层直接收起，避免同帧两个浮层同时动
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false
+  clearTimeout(sortT); sortT = null; sortClosing.value = false; showSort.value = false
+  panel.value = 'all'
+  // 蒙层起点 = 分段容器底部（实测，头部不蒙）
+  uni.nextTick(() => {
+    uni.createSelectorQuery().select('.stage-wrap').boundingClientRect((rect) => {
+      if (rect && rect.bottom) maskTop.value = Math.round(rect.bottom)
+    }).exec()
+  })
+}
+// 方案 A（同科技成果库）：非「全部」tab 再点取消；「全部」未停时先清类型、已停时开面板；▾ 独立开关
+function pickTypeTab(k) {
+  if (k !== 'all') {
+    startClosePanel()
+    activeType.value = activeType.value === k ? 'all' : k
+    closeSortImmediately() // 切类型时收起排序弹层，防弹层悬留
+    return
+  }
+  if (activeType.value !== 'all') {
+    startClosePanel()
+    activeType.value = 'all'
+    closeSortImmediately()
+    return
+  }
+  togglePanel()
+}
+// 面板 chip 点选即筛、不关面板：chip 蓝底高亮即时可见，再点取消；点外部/「全部」/▾ 收起
+function pickAvail(v) {
+  avail.value = avail.value === v ? '' : v
 }
 
 function onCreateAction() {
@@ -286,7 +328,7 @@ function onCreateAction() {
     activeType.value = 'all'
     return
   }
-  if (onlyAvailable.value) onlyAvailable.value = false
+  if (avail.value === 'avail') avail.value = ''
 }
 
 function clearSearch() {
@@ -316,12 +358,15 @@ function startCloseSort() {
 
 function toggleSort() {
   if (showSort.value) { startCloseSort(); return }
+  // 打开排序：筛选面板若展开则直接收起（不播动画，避免面板+弹层同帧动画）
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false; panel.value = ''
   closeSortImmediately() // 清残留退场态，防同帧双动画
   showSort.value = true
 }
 
-function closeSort() {
+function closeAll() {
   if (showSort.value) startCloseSort()
+  if (panel.value) startClosePanel()
 }
 
 function pickSort(v) {
@@ -330,12 +375,12 @@ function pickSort(v) {
 }
 
 // 任一筛选激活（关键词/类型/仅看可约）且结果非空 → 信息行提供「重置」出口（评审 P2）
-const hasFilter = computed(() => !!(keyword.value.trim() || activeType.value !== 'all' || onlyAvailable.value))
+const hasFilter = computed(() => !!(keyword.value.trim() || activeType.value !== 'all' || avail.value === 'avail'))
 
 function resetFilters() {
   keyword.value = ''
   activeType.value = 'all'
-  onlyAvailable.value = false
+  avail.value = ''
 }
 
 // 已约满与维护中分开呈现（评审 P3：原同一灰字压平两个状态，保留色+文本双通道）
@@ -367,6 +412,7 @@ onLoad(() => {
 })
 onUnload(() => {
   clearTimeout(sortT) // 规范：页面卸载清除退场定时器，防回调泄漏
+  clearTimeout(panelCloseT)
 })
 // onShow 静默刷新：预约提交返回后立即看到最新状态（首次 onShow 与 onLoad 重复，用 flag 去重）
 onShow(() => {
@@ -414,60 +460,81 @@ onPullDownRefresh(() => {
 .b-sbtn:active { opacity: 0.5; }
 .b-sclr:active { opacity: 0.6; }
 
-/* ===== 类型筛选：TOC 注线签名（本页差异点） ===== */
-.fbar {
-  background: #fff;
-  padding: 8rpx 24rpx 0;
-}
-.filter-scroll {
-  white-space: nowrap;
-}
-.toc {
-  display: inline-flex;
-  gap: 40rpx;
-}
-.toc-item {
+/* ===== 类型筛选：一级下划线 tab 分段（对齐科技成果库）+ ▾ 浮层面板 ===== */
+.stage-wrap { position: relative; z-index: 42; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
   position: relative;
   flex-shrink: 0;
   min-height: 88rpx;
   display: flex;
   align-items: center;
+  gap: 4rpx;
   padding: 0 8rpx;
-  font-size: 24rpx; /* 筛选器字体同研发难题 12px（注线样式保留） */
+  font-size: 24rpx; /* 筛选器字体同研发难题 12px */
   color: #667085;
 }
-.toc-item.active {
-  color: #0A66C2;
-  font-weight: 600;
-}
-.toc-item.active::after {
-  content: '';
-  position: absolute;
-  left: 8rpx;
-  right: 8rpx;
-  bottom: 16rpx;
-  height: 3rpx;
-  border-radius: 2rpx;
-  background: #0A66C2;
-  animation: toc-in 0.22s ease-out; /* 规范：非浮层动画用 ease-out（第三枚手写曲线已撤） */
-}
-@keyframes toc-in {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
+.stg.on { color: #074D92; font-weight: 600; } /* 激活态用 AA 暗变体 */
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+.stg-arr { font-size: 24rpx; color: #667085; transition: transform .2s ease, color .2s ease; padding: 20rpx 16rpx; margin: -20rpx -16rpx; } /* 独立热区（面板开关）；负 margin 抵消位移 */
+.stg-arr.up { transform: rotate(180deg); color: #074D92; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
-/* ===== 仅看可预约开关行（本页差异点） ===== */
-.orow {
-  display: flex;
+/* ===== 可约状态浮层面板：absolute 浮层（对齐科技成果库），展开时不挤动下方内容 ===== */
+.field-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 43;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+  padding: 12px 14px 14px;
+  max-height: 62vh;
+  overflow-y: auto;
+  animation: panelIn .3s cubic-bezier(.32, .72, 0, 1);
+}
+.field-panel.closing { animation: panelOut .21s ease-in forwards; }
+@keyframes panelOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.field-panel .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
+.field-panel .p-group:first-child { margin-top: 0; }
+.p-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-chip {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #E4E7EC;
+  border-radius: 6px;
+  background: #fff;
+  color: #667085;
+  font-size: 13px;
+  display: inline-flex;
   align-items: center;
-  gap: 12rpx;
-  padding: 0 24rpx 16rpx;
 }
-.olab {
-  font-size: 24rpx; /* 同研发难题元信息 12px */
-  color: #17212B;
+.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
+.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); }
+.p-chip:active { transform: scale(.94); transition: transform .08s linear; }
+.p-chip.act { animation: chipPop .3s cubic-bezier(.34, 1.8, .64, 1); }
+@keyframes chipPop { 0% { transform: scale(1); } 40% { transform: scale(.94); } 100% { transform: scale(1); } }
+
+/* ===== 蒙层：从 tab 分段底部开始置灰（top 由 maskTop 实测），低于面板(43) ===== */
+.panel-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  background: rgba(16, 24, 40, 0.2);
+  animation: maskIn .22s ease-out;
 }
-.oflex { flex: 1; }
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* ===== 信息行：共 N 项 + 排序（与 challenges/projects 同构） ===== */
 .ir {
@@ -795,8 +862,20 @@ onPullDownRefresh(() => {
 .no-motion .c-thumb,
 .no-motion .sk-tag,
 .no-motion .sk-l,
-.no-motion .toc-item.active::after,
+.no-motion .stg.on::after,
 .no-motion .spop { animation: none; }
+.no-motion .stg-arr { transition: none; }
+.no-motion .p-chip { transition: none; }
+.no-motion .p-chip.act { animation: none; }
+.no-motion .field-panel { animation: panelIn .3s ease-out; }
+.no-motion .field-panel.closing { animation: panelOut .16s ease-in forwards; }
+.no-motion .panel-mask { animation: maskIn .22s ease-out; }
+.no-motion .p-chip:active { transform: none; }
 .no-motion .tap-scale,
 .no-motion .cta-hover { transform: none !important; }
+
+/* prefers-reduced-motion（无障碍）：装饰动画/位移缩放全关，保留颜色反馈 */
+@media (prefers-reduced-motion: reduce) {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask { animation: none !important; transition: none !important; }
+}
 </style>

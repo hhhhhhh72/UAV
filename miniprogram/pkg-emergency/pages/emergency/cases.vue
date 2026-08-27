@@ -22,18 +22,18 @@
         </view>
       </view>
 
-      <!-- 筛选胶囊：全部 / 山火 / 洪水 / 地震 / 搜救 / 其他 -->
-      <view class="fbar">
-        <view
-          v-for="(t, i) in typeTabs"
-          :key="t.value"
-          class="fpill"
-          :class="{ on: activeType === t.value }"
-          hover-class="fpill-press"
-          :hover-stay-time="100"
-          @tap="onTypeChange(i)"
-        >
-          <text class="fpv">{{ t.label }}</text>
+      <!-- 筛选分段：事件类型（下划线 tab 分段，对齐科技成果库） -->
+      <view class="stage-wrap">
+        <view class="stages">
+          <view
+            v-for="(t, i) in typeTabs"
+            :key="t.value"
+            class="stg"
+            :class="{ on: activeType === t.value }"
+            @tap="pickStageTab(i)"
+          >
+            <text>{{ t.label }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -206,10 +206,12 @@ export default {
       this.searchText = ''
       this.fetchList(true)
     },
-    onTypeChange(index) {
+    // 分段 tab（方案 A：非「全部」再点取消回全部）
+    pickStageTab(index) {
       var t = this.typeTabs[index]
-      if (!t || this.activeType === t.value) return
-      this.activeType = t.value
+      if (!t) return
+      // 全部(首项)恒为全部；非全部再点取消
+      this.activeType = index === 0 ? '' : (this.activeType === t.value ? '' : t.value)
       this.fetchList(true)
     },
 
@@ -325,28 +327,33 @@ export default {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 筛选胶囊 ===== */
-.fbar { display: flex; gap: 8px; padding: 10px 12px 4px; background: #fff; }
-.fpill {
-  flex: 1;
-  min-width: 0;
-  min-height: 40px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
+/* ===== 事件类型筛选分段（对齐科技成果库：下划线 tab） ===== */
+.stage-wrap { position: relative; z-index: 42; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  overflow: hidden;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill-press { transform: scale(0.95); opacity: 0.85; }
-.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in 0.22s ease-out;
+}
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ===== 信息行 ===== */
 .ir {
@@ -484,4 +491,9 @@ export default {
 .page.no-motion .card,
 .page.no-motion .ir { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
+.page.no-motion .stg.on::after { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
+}
 </style>

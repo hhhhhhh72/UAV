@@ -20,35 +20,42 @@
         </view>
       </view>
 
-      <!-- 筛选胶囊：全部赛事 / 报名中 + 发布入口（仅企业可见） -->
-      <view class="fbar">
-        <view
-          class="fpill"
-          :class="{ on: currentTab === 'all' }"
-          hover-class="fpill-press"
-          :hover-stay-time="100"
-          @tap="switchTab('all')"
-        >
-          <text class="fpv">全部赛事</text>
+      <!-- 筛选分段（对齐成果库：下划线 tab + ▾ 状态浮层面板） -->
+      <view class="stage-wrap">
+        <view class="stages">
+          <view
+            v-for="t in STATUS_TABS"
+            :key="t.value"
+            class="stg"
+            :class="{ on: currentTab === t.value }"
+            @tap="pickStageTab(t.value)"
+          >
+            <text>{{ t.label }}</text>
+            <!-- ▾ 独立面板开关（方案 A）：未停在「全部」时点「全部」先清筛；已停时再点开面板 -->
+            <text v-if="t.value === 'all'" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
+          </view>
         </view>
-        <view
-          class="fpill"
-          :class="{ on: currentTab === 'enrolling' }"
-          hover-class="fpill-press"
-          :hover-stay-time="100"
-          @tap="switchTab('enrolling')"
-        >
-          <text class="fpv">报名中</text>
+        <!-- 状态面板：absolute 浮层（同成果库），展开时不挤动下方内容 -->
+        <view v-if="panel === 'all'" class="field-panel" :class="{ closing }">
+          <view class="p-group">状态</view>
+          <view class="p-chips">
+            <text
+              v-for="t in STATUS_OPTS"
+              :key="t.value"
+              class="p-chip"
+              :class="{ act: currentTab === t.value }"
+              @tap="pickStatus(t.value)"
+            >{{ t.label }}</text>
+          </view>
         </view>
-        <view
-          v-if="canPublish"
-          class="publish-entry"
-          hover-class="publish-press"
-          :hover-stay-time="100"
-          @tap="goPublish"
-        >＋ 发布赛事</view>
+      </view>
+      <!-- 发布入口（仅企业可见）：右上对齐，独立于 tab 分段 -->
+      <view v-if="canPublish" class="publish-row">
+        <view class="publish-entry" hover-class="publish-press" :hover-stay-time="100" @tap="goPublish">＋ 发布赛事</view>
       </view>
     </view>
+    <!-- 蒙层：从 tab 分段底部开始置灰（top 由 maskTop 实测），点击外部退场收起 -->
+    <view v-if="panel" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
 
     <!-- ② 信息行 -->
     <view class="ir">
@@ -170,6 +177,18 @@ const imgLoaded = ref({})
 const page = ref(1)
 const pageSize = 20
 const hasMore = ref(true)
+
+/* ===== 筛选状态（对齐成果库：tab 分段 + ▾ 状态浮层面板 + 蒙层） ===== */
+const panel = ref('')       // '' = 收起；'all' = 状态面板展开
+const closing = ref(false)  // 面板退场中（先播退场动画再 v-if 移除）
+const maskTop = ref(0)      // 蒙层起点（面板打开时实测：tab 分段底部）
+let panelCloseT = null
+const PANEL_CLOSE_MS = 210 // 退场动画 .21s ease-in（= 进场 ×0.7）
+const STATUS_TABS = [
+  { label: '全部赛事', value: 'all' },
+  { label: '报名中', value: 'enrolling' },
+]
+const STATUS_OPTS = STATUS_TABS // 面板 chips 与一级 tab 同维（状态维度，两组即全部）
 
 /* ===== 发布入口（仅企业账号） ===== */
 const canPublish = computed(() => {
@@ -315,9 +334,44 @@ function loadMore() {
 
 /* ===== 筛选 & 搜索 ===== */
 
-function switchTab(tab) {
-  if (currentTab.value === tab) return
-  currentTab.value = tab
+// ---- 筛选交互（tab 分段 + 「全部」状态面板，方案 A，同成果库） ----
+function measureMaskTop() {
+  uni.createSelectorQuery().select('.stage-wrap').boundingClientRect(function (rect) {
+    if (rect && rect.bottom) maskTop.value = Math.round(rect.bottom)
+  }).exec()
+}
+function startClosePanel() {
+  if (closing.value) return // 已在退场中，防重复触发叠加定时器
+  closing.value = true
+  clearTimeout(panelCloseT)
+  panelCloseT = setTimeout(function () { panel.value = ''; closing.value = false; panelCloseT = null }, PANEL_CLOSE_MS)
+}
+function togglePanel() {
+  if (panel.value === 'all') { startClosePanel(); return } // 再点「全部」→ 退场收起
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false
+  panel.value = 'all'
+  measureMaskTop()
+}
+// 方案 A（同成果库）：非全部 tab 再点取消；「全部」未停时先清筛、已停时开面板；▾ 独立开关
+function pickStageTab(k) {
+  if (k !== 'all') {
+    startClosePanel()
+    currentTab.value = currentTab.value === k ? 'all' : k
+    loadData(true)
+    return
+  }
+  if (currentTab.value !== 'all') {
+    startClosePanel()
+    currentTab.value = 'all'
+    loadData(true)
+    return
+  }
+  togglePanel()
+}
+// 面板 chip 点选即筛（选中即时高亮），再点一次取消；「全部」chip 恒为全部
+function pickStatus(v) {
+  currentTab.value = (v === 'all' || currentTab.value !== v) ? v : 'all'
+  startClosePanel()
   loadData(true)
 }
 
@@ -400,29 +454,115 @@ onPullDownRefresh(function () {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 筛选胶囊 + 发布入口 ===== */
-.fbar { display: flex; gap: 8px; padding: 10px 12px 4px; background: #fff; }
-.fpill {
-  flex: 1;
-  min-width: 0;
-  min-height: 40px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
+/* ===== 筛选分段（对齐成果库：下划线 tab + ▾ 状态面板 + 蒙层）+ 发布入口 ===== */
+.stage-wrap {
+  position: relative;
+  z-index: 42;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
+  padding: 2px 12px 0;
+}
+.stages {
+  display: flex;
+  gap: 40rpx;
+  padding: 4rpx 16rpx 16rpx;
+  white-space: nowrap;
+}
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  overflow: hidden;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill-press { transform: scale(0.95); opacity: 0.85; }
-.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in .22s ease-out;
+}
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.stg-arr {
+  font-size: 24rpx;
+  color: #667085;
+  transition: transform .2s ease, color .2s ease;
+  padding: 20rpx 16rpx;
+  margin: -20rpx -16rpx;
+}
+.stg-arr.up { transform: rotate(180deg); color: #074D92; }
 
+/* 状态面板：absolute 浮层（同成果库），展开时不挤动下方内容 */
+.field-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 43;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+  padding: 12px 14px 14px;
+  max-height: 62vh;
+  overflow-y: auto;
+  animation: panelIn .3s cubic-bezier(.32, .72, 0, 1);
+}
+.field-panel.closing { animation: panelOut .21s ease-in forwards; }
+@keyframes panelOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.field-panel .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
+.field-panel .p-group:first-child { margin-top: 0; }
+.p-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-chip {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #E4E7EC;
+  border-radius: 6px;
+  background: #fff;
+  color: #667085;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+}
+.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
+.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); }
+.p-chip:active { transform: scale(.94); transition: transform .08s linear; }
+.p-chip.act { animation: chipPop .3s cubic-bezier(.34, 1.8, .64, 1); }
+@keyframes chipPop { 0% { transform: scale(1); } 40% { transform: scale(.94); } 100% { transform: scale(1); } }
+
+/* 蒙层：从 tab 分段底部开始置灰（top 由 maskTop 实测）；低于分段(41<42)，面板(43)在上不被遮（同成果库） */
+.panel-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  background: rgba(16, 24, 40, 0.2);
+  animation: maskIn .22s ease-out;
+}
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* 发布入口：右上对齐，独立于 tab 分段（仅企业可见） */
+.publish-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 12px 10px;
+  background: #fff;
+}
 .publish-entry {
   flex: none;
   min-height: 40px;
@@ -714,4 +854,22 @@ onPullDownRefresh(function () {
 /* ===== 减弱动效（无障碍） ===== */
 .page.no-motion .card,
 .page.no-motion .ir { animation: none; }
+/* 筛选分段/面板（对齐成果库 no-motion 适配） */
+.page.no-motion .stg-arr { transition: none; }
+.page.no-motion .p-chip { transition: none; }
+.page.no-motion .p-chip.act { animation: none; }
+.page.no-motion .stg.on::after { animation: none; }
+.page.no-motion .field-panel { animation: panelIn .3s ease-out; }
+.page.no-motion .field-panel.closing { animation: panelOut .16s ease-in forwards; }
+.page.no-motion .panel-mask { animation: maskIn .22s ease-out; }
+.page.no-motion .p-chip:active,
+.page.no-motion .stg:active { transform: none; }
+
+/* ===== prefers-reduced-motion（系统级减弱动效）：筛选分段/面板动画与过渡全关 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 </style>

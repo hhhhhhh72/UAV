@@ -16,10 +16,10 @@
         </view>
       </view>
 
-      <!-- Tab 胶囊（需求/合同）：沿用筛选胶囊选中态 -->
-      <view class="fbar">
-        <view v-for="(t, i) in TAB_OPTS" :key="t" class="fpill" :class="{ on: activeTab === i }" @tap="switchTab(i)">
-          <text class="fpv">{{ t }}</text>
+      <!-- Tab 分段（需求/合同）：对齐科技成果库下划线分段（单维度=tab 即维度，无二级面板） -->
+      <view class="stages">
+        <view v-for="(t, i) in TAB_OPTS" :key="t" class="stg" :class="{ on: activeTab === i }" @tap="pickStageTab(i)">
+          <text>{{ t }}</text>
         </view>
       </view>
     </view>
@@ -352,11 +352,11 @@ const onSearch = () => {
   searchT = setTimeout(() => { kw.value = q.value.trim(); revealList() }, SEARCH_DEBOUNCE_MS)
 }
 const clearSearch = () => { clearTimeout(searchT); q.value = ''; kw.value = ''; revealList() }
-const switchTab = (i) => {
+/* Tab 分段：切换即加载对应 tab 数据（对齐科技成果库 pickStageTab 语义；单维度=tab 即维度，无面板） */
+const pickStageTab = (i) => {
   if (activeTab.value === i) return
   activeTab.value = i
   closeAll()
-  // 与原 onTabChange 一致：切换即加载对应 tab 数据
   if (i === 0) fetchDemands()
   else fetchContracts()
 }
@@ -507,34 +507,28 @@ page {
   background: #fff;
 }
 
-/* ===== Tab 胶囊条（需求/合同，沿用筛选胶囊样式） ===== */
-.fbar {
+/* ===== Tab 分段（需求/合同）：对齐科技成果库下划线分段（TOC 注线式，无框无计数） ===== */
+.stages {
+  display: flex;
+  gap: 40rpx;
+  padding: 4rpx 28rpx 16rpx;
+  white-space: nowrap;
+  background: #fff; /* 粘性头内白底（同 sticky-head），注线式自然宽不晃 */
+}
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 12px;
-  background: #fff;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx; /* 筛选器字体同成果库 12px */
+  color: #667085;
 }
-.fpill {
-  flex: 1;
-  min-width: 0;
-  min-height: 40px; /* 触控目标：34px→40px（Tab 切换高频操作） */
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 13px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease, opacity .2s ease;
-}
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill:active { opacity: .75; }
-.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stg.on { color: #074D92; font-weight: 600; } /* 激活态用 AA 暗变体 */
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ===== Banner（参考页 projects 风格） ===== */
 .banner {
@@ -866,6 +860,13 @@ page {
 .page.no-motion .irs:active,
 .page.no-motion .stb:active,
 .page.no-motion .bt:active { transform: none; } /* 按压微缩放关闭，保留颜色/透明度反馈 */
+.page.no-motion .stg.on::after { animation: none; } /* 注线画出属位移，关闭 */
+.page.no-motion .stg:active { transform: none; }
 @keyframes spopFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes spopFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ===================== prefers-reduced-motion（H5/浏览器降级）：与 no-motion 同义，全关动画/过渡 ===================== */
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
+}
 </style>

@@ -6,19 +6,17 @@
       <text class="page-title">我的收藏</text>
     </view>
 
-    <!-- 类型筛选 -->
-    <view class="mine-filters">
-      <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
-        <view class="filter-inner">
-          <view
-            v-for="t in kindTabs"
-            :key="t.value"
-            class="filter-chip"
-            :class="{ active: favType === t.value }"
-            @tap="favType = t.value"
-          >{{ t.label }}</view>
-        </view>
-      </scroll-view>
+    <!-- 类型筛选：一级下划线 tab（单维度 → tab 即维度，无 ▾ 面板） -->
+    <view class="stage-wrap">
+      <view class="stages">
+        <view
+          v-for="t in kindTabs"
+          :key="t.value"
+          class="stg"
+          :class="{ on: favType === t.value }"
+          @tap="pickFilter(t.value)"
+        >{{ t.label }}</view>
+      </view>
     </view>
 
     <!-- 列表标题 -->
@@ -106,6 +104,12 @@ const kindTabs = [
   { label: '服务', value: 'service' },
   { label: '课程', value: 'course' },
 ]
+
+// 单维度 tab（无面板）：点非全部 tab 再点一次取消回「全部」；每项即时筛（visibleCards 为 computed）
+const pickFilter = (k) => {
+  if (k !== 'all') favType.value = favType.value === k ? 'all' : k
+  else favType.value = 'all'
+}
 
 const visibleCards = computed(() =>
   favType.value === 'all' ? cards.value : cards.value.filter((c) => c.type === favType.value)
@@ -258,6 +262,8 @@ const goDetail = (post) => {
   safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(post.id))
 }
 const goBack = () => safeBack()
+/* 空态「去逛逛」：回需求大厅列表 */
+const goHall = () => safeNavigateTo('/pages/demands/list')
 
 /* ================= 操作 ================= */
 
@@ -322,32 +328,23 @@ async function unfavorite(post) {
 .head-action { padding: 14rpx; }
 .head-action-text { color: #0A66C2; font-size: 26rpx; font-weight: 600; }
 
-/* 筛选 */
-.mine-filters {
-  background: #fff;
-  border-bottom: 1px solid #EEF1F4;
-  padding: 20rpx 24rpx;
-}
-.filter-scroll { white-space: nowrap; }
-.filter-inner { display: inline-flex; gap: 12rpx; }
-.filter-chip {
-  display: inline-flex;
+/* 类型筛选：一级下划线 tab（对齐成果库 L634-654，页无吸顶故 relative 非 sticky） */
+.stage-wrap { position: relative; background: #fff; border-bottom: 1px solid #EEF1F4; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
+  display: flex;
   align-items: center;
-  height: 56rpx;
-  padding: 0 20rpx;
-  border: 1px solid #E4E7EC;
-  border-radius: 12rpx;
-  background: #fff;
-  color: #344054;
+  gap: 4rpx;
+  padding: 0 8rpx;
   font-size: 24rpx;
-  box-sizing: border-box;
+  color: #667085;
 }
-.filter-chip.active {
-  color: #0A66C2;
-  border-color: #B9D6EF;
-  background: #EAF3FB;
-  font-weight: 650;
-}
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* 列表 */
 .list-head {
@@ -374,8 +371,15 @@ async function unfavorite(post) {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.page.no-motion .mine-card { animation: none; }
-.page.no-motion .tap-scale { transform: none !important; opacity: 1; }
+.fav-page.no-motion .mine-card { animation: none; }
+.fav-page.no-motion .tap-scale { transform: none !important; opacity: 1; }
+.fav-page.no-motion .stg.on::after { animation: none; }
+
+/* 无障碍：系统减弱动态效果时关闭筛选 tab 下划线动画（对齐成果库） */
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
+  .stg.on::after { animation: none !important; }
+}
 
 .tag-row { display: flex; gap: 10rpx; }
 .tag {

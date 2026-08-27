@@ -42,18 +42,18 @@
         </view>
       </view>
 
-      <!-- 筛选胶囊：全部 / 全职 / 兼职 / 实习 / 项目制 -->
-      <view class="fbar">
-        <view
-          v-for="t in typeTabs"
-          :key="t.value"
-          class="fpill"
-          :class="{ on: activeType === t.value }"
-          hover-class="fpill-press"
-          :hover-stay-time="100"
-          @tap="onTabChange(t)"
-        >
-          <text class="fpv">{{ t.label }}</text>
+      <!-- 类型一级筛选：下划线 tab 分段（对齐科技成果库；单维度 → tab 即维度） -->
+      <view class="stage-wrap">
+        <view class="stages">
+          <view
+            v-for="t in typeTabs"
+            :key="t.value"
+            class="stg"
+            :class="{ on: activeType === t.value }"
+            @tap="pickStageTab(t.value)"
+          >
+            <text>{{ t.label }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -229,9 +229,14 @@ export default {
       this.searchText = ''
       this.fetchList(true)
     },
-    onTabChange(t) {
-      if (this.activeType === t.value) return
-      this.activeType = t.value
+    // 方案 A（对齐成果库）：非「全部」tab 再点取消；「全部」tab 清筛；单维度无 ▾ 面板，已在全部再点不动作
+    pickStageTab(value) {
+      if (value === '') {
+        if (this.activeType === '') return // 已在全部，单维度无面板可开
+        this.activeType = ''
+      } else {
+        this.activeType = this.activeType === value ? '' : value // 再点取消
+      }
       this.fetchList(true)
     },
 
@@ -382,28 +387,33 @@ export default {
 .entry-sub { font-size: 11px; color: #98A2B3; margin-top: 2px; }
 .entry-arrow { font-size: 15px; color: #98A2B3; flex: none; }
 
-/* ===== 筛选胶囊 ===== */
-.fbar { display: flex; gap: 8px; padding: 10px 12px 4px; background: #fff; }
-.fpill {
-  flex: 1;
-  min-width: 0;
-  min-height: 40px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
+/* ===== 类型一级筛选：下划线 tab 分段（对齐科技成果库） ===== */
+.stage-wrap { position: relative; z-index: 42; background: #fff; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; } /* 5 个类型 tab 自然宽 < 750rpx，单行放下 */
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  overflow: hidden;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill-press { transform: scale(0.95); opacity: 0.85; }
-.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in .22s ease-out;
+}
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ===== 信息行 ===== */
 .ir {
@@ -517,4 +527,13 @@ export default {
 .page.no-motion .card,
 .page.no-motion .ir { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
+.page.no-motion .stg.on::after { animation: none; } /* 注线画出属位移，关闭 */
+
+/* prefers-reduced-motion：装饰动画/过渡全关（对齐科技成果库） */
+@media (prefers-reduced-motion: reduce) {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 </style>

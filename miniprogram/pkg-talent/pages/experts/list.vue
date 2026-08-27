@@ -22,22 +22,20 @@
         </view>
       </view>
 
-      <!-- 筛选胶囊：全部 / 低空管控 / 适航认证 / 无人机研发 / 应急救援 / 政策法规 / 投融资 -->
-      <scroll-view class="fscroll" scroll-x :show-scrollbar="false">
-        <view class="fbar">
+      <!-- 领域一级筛选：下划线 tab 分段（对齐科技成果库；单维度 → tab 即维度） -->
+      <view class="stage-wrap">
+        <view class="stages">
           <view
             v-for="tab in fieldTabs"
             :key="tab.value"
-            class="fpill"
+            class="stg"
             :class="{ on: activeField === tab.value }"
-            hover-class="fpill-press"
-            :hover-stay-time="100"
-            @tap="switchField(tab.value)"
+            @tap="pickStageTab(tab.value)"
           >
-            <text class="fpv">{{ tab.label }}</text>
+            <text>{{ tab.label }}</text>
           </view>
         </view>
-      </scroll-view>
+      </view>
     </view>
 
     <!-- ② 信息行 -->
@@ -197,9 +195,14 @@ export default {
       this.searchText = ''
       this.fetchList(true)
     },
-    switchField(value) {
-      if (this.activeField === value) return
-      this.activeField = value
+    // 方案 A（对齐成果库）：非「全部」tab 再点取消；「全部」tab 清筛；单维度无 ▾ 面板，已在全部再点不动作
+    pickStageTab(value) {
+      if (value === '') {
+        if (this.activeField === '') return // 已在全部，单维度无面板可开
+        this.activeField = ''
+      } else {
+        this.activeField = this.activeField === value ? '' : value // 再点取消
+      }
       this.fetchList(true)
     },
     goDetail(item) {
@@ -263,28 +266,33 @@ export default {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 筛选胶囊（横向滚动） ===== */
-.fscroll { width: 100%; }
-.fscroll ::-webkit-scrollbar { display: none; }
-.fbar { display: inline-flex; gap: 8px; padding: 10px 12px 4px; background: #fff; white-space: nowrap; }
-.fpill {
-  display: inline-flex;
+/* ===== 领域一级筛选：下划线 tab 分段（对齐科技成果库） ===== */
+.stage-wrap { position: relative; z-index: 42; background: #fff; }
+.stages { display: flex; flex-wrap: wrap; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; } /* flex-wrap：7 个领域 tab 自然宽超 750rpx 时换行，保留全部选项可点（不用 scroll-x 防手势联动） */
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
-  overflow: hidden;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill-press { transform: scale(0.95); opacity: 0.85; }
-.fpv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in .22s ease-out;
+}
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ===== 信息行 ===== */
 .ir {
@@ -371,4 +379,13 @@ export default {
 .page.no-motion .card,
 .page.no-motion .ir { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
+.page.no-motion .stg.on::after { animation: none; } /* 注线画出属位移，关闭 */
+
+/* prefers-reduced-motion：装饰动画/过渡全关（对齐科技成果库） */
+@media (prefers-reduced-motion: reduce) {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 </style>

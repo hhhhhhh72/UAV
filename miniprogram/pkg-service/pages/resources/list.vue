@@ -36,22 +36,20 @@
       </view>
     </view>
 
-    <!-- ③ 筛选胶囊：全部 / 无人机 / 无人机机场 / 试飞场地 / 测试基地 -->
-    <scroll-view class="fscroll" scroll-x :show-scrollbar="false">
-      <view class="fbar">
+    <!-- ③ 筛选条：一级下划线 tab 分段（对齐科技成果库；资源类型单维度 → tab 即维度，无二级面板） -->
+    <view class="stage-wrap">
+      <view class="stages">
         <view
           v-for="item in typeTabs"
           :key="item.value"
-          class="fpill"
+          class="stg"
           :class="{ on: activeType === item.value }"
-          hover-class="fpill-press"
-          :hover-stay-time="100"
-          @tap="switchType(item.value)"
+          @tap="pickStageTab(item.value)"
         >
-          <text class="fpv">{{ item.label }}</text>
+          <text>{{ item.label }}</text>
         </view>
       </view>
-    </scroll-view>
+    </view>
 
     <!-- ④ 信息行 -->
     <view class="ir">
@@ -219,9 +217,13 @@ export default {
     clearSearch() {
       this.searchText = ''
     },
-    switchType(value) {
-      if (this.activeType === value) return
-      this.activeType = value
+    // 方案 A（单维度，无面板）：非「全部」tab 再点取消 → 回「全部」；「全部」清为全部
+    pickStageTab(value) {
+      if (value === '') {
+        if (this.activeType !== '') { this.activeType = ''; this.fetchList(true) }
+        return
+      }
+      this.activeType = this.activeType === value ? '' : value
       this.fetchList(true)
     },
     goDetail(item) {
@@ -343,28 +345,23 @@ export default {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 筛选胶囊（横向滚动） ===== */
-.fscroll { width: 100%; margin: 4px 0; white-space: nowrap; }
-.fscroll ::-webkit-scrollbar { display: none; }
-.fbar { display: inline-flex; gap: 8px; padding-right: 12px; }
-.fpill {
-  display: inline-flex;
+/* ===== 筛选条：一级下划线 tab 分段（对齐科技成果库） ===== */
+.stage-wrap { position: relative; z-index: 42; }
+.stages { display: flex; gap: 24rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; } /* gap 40→24rpx：资源类型含「无人机机场」5 字 tab，收窄让 5 项单行放得下（成果库 gap 40rpx 仅够 2-3 字 tab） */
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
-  overflow: hidden;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx; /* 筛选器字体同研发难题 12px */
+  color: #667085;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill-press { transform: scale(0.95); opacity: 0.85; }
-.fpv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stg.on { color: #074D92; font-weight: 600; } /* 激活态用 AA 暗变体 */
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ===== 信息行 ===== */
 .ir {
@@ -489,4 +486,11 @@ export default {
 .page.no-motion .card,
 .page.no-motion .ir { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
+.page.no-motion .stg.on::after { animation: none; } /* 注线画出属位移，关闭 */
+
+/* prefers-reduced-motion（无障碍）：装饰动画/位移缩放全关，保留颜色反馈 */
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
+  .stg.on::after { animation: none !important; }
+}
 </style>

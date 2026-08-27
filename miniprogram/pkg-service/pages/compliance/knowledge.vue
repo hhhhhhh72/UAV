@@ -16,13 +16,15 @@
         </view>
       </view>
 
-      <!-- 分类胶囊：全部 + 四类（单选筛选，选中即过滤列表） -->
-      <view class="fbar">
-        <view class="fpill" :class="{ on: activeCat === 'all' }" @tap="selectCat('all')">
-          <text class="fpv">全部</text>
-        </view>
-        <view v-for="s in sections" :key="s.key" class="fpill" :class="{ on: activeCat === s.key }" @tap="selectCat(s.key)">
-          <text class="fpv">{{ s.title }}</text>
+      <!-- 分类分段：下划线 tab（对齐科技成果库） -->
+      <view class="stage-wrap">
+        <view class="stages">
+          <view class="stg" :class="{ on: activeCat === 'all' }" @tap="pickStageTab('all')">
+            <text>全部</text>
+          </view>
+          <view v-for="s in sections" :key="s.key" class="stg" :class="{ on: activeCat === s.key }" @tap="pickStageTab(s.key)">
+            <text>{{ s.title }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -215,13 +217,14 @@ const fetchSection = async (section) => {
     section.loading = false
   }
 }
-/* 分类筛选：仅切换选中态，列表由 visibleDocs 即时过滤 */
-const selectCat = (key) => {
-  if (activeCat.value === key) return
-  activeCat.value = key
+/* 分类分段：仅切换选中态，列表由 visibleDocs 即时过滤；非「全部」再点取消回全部（方案 A） */
+const pickStageTab = (key) => {
+  const next = key === 'all' ? 'all' : (activeCat.value === key ? 'all' : key)
+  if (activeCat.value === next) return
+  activeCat.value = next
   // 首次进入某分类时补齐数据（若之前未加载完）
-  if (key !== 'all') {
-    const section = sections.value.find((s) => s.key === key)
+  if (next !== 'all') {
+    const section = sections.value.find((s) => s.key === next)
     if (section && !section.loaded && !section.loading) fetchSection(section)
   }
 }
@@ -310,33 +313,33 @@ page {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 分类胶囊 ===== */
-.fbar {
+/* ===== 分类分段（对齐科技成果库：下划线 tab） ===== */
+.stage-wrap { position: relative; z-index: 42; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 12px;
-  background: #fff;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.fpill {
-  flex: 1;
-  min-width: 0;
-  min-height: 40px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  overflow: hidden;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in 0.22s ease-out;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ===== Banner 渐变卡 ===== */
 .banner {
@@ -584,4 +587,9 @@ page {
 .page.no-motion .bt:active,
 .page.no-motion .b-sclr:active,
 .page.no-motion .b-sbtn:active { transform: none; }
+.page.no-motion .stg.on::after { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
+}
 </style>

@@ -23,22 +23,17 @@
       </view>
     </view>
 
-    <!-- ② Tab 筛选条 -->
-    <view class="filter-area">
-      <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
-        <view class="filter-inner">
-          <view
-            v-for="(tab, i) in tabTitles"
-            :key="i"
-            class="filter-pill"
-            :class="{ on: activeTabIndex === i }"
-            @click="onTabChange(i)"
-          >
-            <text class="pill-text">{{ tab }}</text>
-            <view v-if="i === 0" class="pill-count">{{ allList.length }}</view>
-          </view>
-        </view>
-      </scroll-view>
+    <!-- ② 一级筛选：状态分段（对齐科技成果库下划线分段；单维度=tab 即维度，无二级面板） -->
+    <view class="stages">
+      <view
+        v-for="(tab, i) in tabTitles"
+        :key="i"
+        class="stg"
+        :class="{ on: activeTabIndex === i }"
+        @tap="pickStageTab(i)"
+      >
+        <text>{{ tab }}</text>
+      </view>
     </view>
 
     <!-- ③ 时间轴卡片列表 -->
@@ -340,8 +335,14 @@ export default {
         this.allResources = []
       }
     },
-    onTabChange(index) {
-      this.activeTabIndex = index
+    /* 状态分段（方案 A）：非「全部」tab 再点取消回「全部」；「全部」tab 未停先清筛、已停无需面板（单维度） */
+    pickStageTab(index) {
+      if (index === 0) {
+        if (this.activeTabIndex === 0) return
+        this.activeTabIndex = 0
+      } else {
+        this.activeTabIndex = this.activeTabIndex === index ? 0 : index
+      }
       this.listFadeKey++
     },
     openDetail(item) {
@@ -604,47 +605,28 @@ export default {
 .city-text { font-size: 20rpx; color: #17212B; font-weight: 600; }
 .city-arrow { font-size: 18rpx; color: #98A2B3; }
 
-/* ═══ ② Tab 筛选 ═══ */
-.filter-area {
+/* ═══ ② 一级筛选：状态分段（对齐科技成果库下划线分段；单维度无二级面板 → 无 ▾/chips/蒙层）═══ */
+.stages {
+  display: flex;
+  gap: 40rpx;
+  padding: 4rpx 28rpx 16rpx;
+  white-space: nowrap;
   background: #ffffff;
-  padding: 16rpx 24rpx 20rpx;
 }
-.filter-scroll { width: 100%; white-space: nowrap; }
-.filter-inner { display: inline-flex; gap: 12rpx; }
-.filter-pill {
-  display: inline-flex;
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
+  display: flex;
   align-items: center;
-  gap: 8rpx;
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid #E4E7EC;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx; /* 筛选器字体同成果库 12px */
+  color: #667085;
 }
-.filter-pill.on {
-  border-color: #0A66C2;
-  color: #0A66C2;
-  font-weight: 600;
-  background: #F4F8FC;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-}
-.pill-text { font-size: 12px; font-weight: 600; }
-.pill-count {
-  display: inline-flex;
-  align-items: center;
-  min-width: 18px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: #F4F8FC;
-  color: #0A66C2;
-  font-size: 10px;
-  font-weight: 600;
-}
-.filter-pill.on .pill-count { background: rgba(10, 102, 194, 0.12); color: #0A66C2; }
+.stg.on { color: #074D92; font-weight: 600; } /* 激活态用 AA 暗变体 */
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ═══ 状态视图 ═══ */
 .loading-state { display: flex; justify-content: center; padding: 100rpx 0; }
@@ -1271,5 +1253,11 @@ export default {
 .page.no-motion .custom-toast {
   animation: none !important;
   transition: none !important;
+}
+.page.no-motion .stg.on::after { animation: none !important; } /* 注线画出属位移，关闭 */
+
+/* ═══ prefers-reduced-motion（H5/浏览器降级）：与 no-motion 同义，全关动画/过渡 ═══ */
+@media (prefers-reduced-motion: reduce) {
+  .stg { animation: none !important; transition: none !important; }
 }
 </style>

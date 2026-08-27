@@ -16,24 +16,17 @@
         </view>
       </view>
 
-      <!-- 筛选器（搜索框下、banner 上） -->
-      <view class="fbar">
-        <view class="fpill" :class="{ on: panel === 'comp' }" @tap="togglePanel('comp')">
-          <text class="fpv">{{ compLabel }}</text><text class="farr">▾</text>
+      <!-- 一级筛选：下划线 tab 分段（对齐成果库）；tab 与面板绑定，全部清筛 -->
+      <view class="stage-wrap">
+        <view class="stages">
+          <view class="stg" :class="{ on: panel === '' }" @tap="pickStageTab('all')"><text>全部</text></view>
+          <view class="stg" :class="{ on: panel === 'comp' }" @tap="pickStageTab('comp')"><text>领域状态</text><view v-if="compDot" class="stg-dot"></view><text class="stg-arr" :class="{ up: panel === 'comp' }">▾</text></view>
+          <view class="stg" :class="{ on: panel === 'time' }" @tap="pickStageTab('time')"><text>时间</text><view v-if="timeDot" class="stg-dot"></view><text class="stg-arr" :class="{ up: panel === 'time' }">▾</text></view>
+          <view class="stg" :class="{ on: panel === 'money' }" @tap="pickStageTab('money')"><text>金额</text><view v-if="moneyDot" class="stg-dot"></view><text class="stg-arr" :class="{ up: panel === 'money' }">▾</text></view>
         </view>
-        <view class="fpill" :class="{ on: panel === 'time' }" @tap="togglePanel('time')">
-          <text class="fpv">{{ timeLabel }}</text><text class="farr">▾</text>
-        </view>
-        <view class="fpill" :class="{ on: panel === 'money' }" @tap="togglePanel('money')">
-          <text class="fpv">{{ moneyLabel }}</text><text class="farr">▾</text>
-        </view>
-        <view v-if="hasActiveFilters" class="freset" @tap="resetAll">重置</view>
-      </view>
 
-      <!-- 展开面板：从筛选器下方平滑展开、全宽、与搜索/筛选一体 -->
-      <view v-if="panel" class="panel-wrap" :class="{ closing }">
-        <!-- 课题状态 -->
-        <view v-if="panel === 'comp'" class="panel">
+        <!-- 领域状态面板：absolute 浮层（同成果库），展开不挤动下方内容 -->
+        <view v-if="panel === 'comp'" class="field-panel" :class="{ closing }">
           <view class="p-head">课题状态 · 领域 / 状态</view>
           <view class="p-group">领域（一级）</view>
           <view class="p-chips">
@@ -45,8 +38,8 @@
           </view>
         </view>
 
-        <!-- 时间 -->
-        <view v-else-if="panel === 'time'" class="panel">
+        <!-- 时间面板 -->
+        <view v-else-if="panel === 'time'" class="field-panel" :class="{ closing }">
           <view class="p-head">请选择发布时间</view>
           <view class="p-chips">
             <text v-for="o in QUICK_OPTS" :key="o.v" class="p-chip" :class="{ act: quick === o.v }" @tap="pickQuick(o.v)">{{ o.l }}</text>
@@ -70,8 +63,8 @@
           </view>
         </view>
 
-        <!-- 经费 -->
-        <view v-else-if="panel === 'money'" class="panel">
+        <!-- 金额面板 -->
+        <view v-else-if="panel === 'money'" class="field-panel" :class="{ closing }">
           <view class="p-head">请选择经费预算（万元）</view>
           <view class="p-chips">
             <text v-for="o in MONEY_OPTS" :key="o.v" class="p-chip" :class="{ act: mPreset === o.v }" @tap="pickPreset(o.v)">{{ o.l }}</text>
@@ -106,7 +99,7 @@
     </view>
 
     <!-- 蒙层：面板展开时置灰下方内容，点击外部收起 -->
-    <view v-if="panel" class="panel-catcher" :class="{ closing }" :style="{ top: maskTop }" @tap="startClosePanel"></view>
+    <view v-if="panel" class="panel-mask" :class="{ closing }" :style="{ top: maskTop }" @tap="startClosePanel"></view>
 
     <!-- Banner（品牌深空蓝；内部微编排 + 单次扫光与 challenges 同套；发布课题页开发后接入 goPublish） -->
     <view class="banner">
@@ -187,7 +180,7 @@
     </view>
 
     <!-- 回到顶部 -->
-    <view class="bt" :class="{ show: showBt }" aria-role="button" aria-label="回到顶部" @tap="scrollToTop"><text>↑</text></view>
+    <view class="bt" :class="{ show: showBt && !panel }" aria-role="button" aria-label="回到顶部" @tap="scrollToTop"><text>↑</text></view>
   </view>
 
 </template>
@@ -371,33 +364,10 @@ const addDays = (n) => {
 }
 
 /* ===== 派生 ===== */
-const compLabel = computed(() => {
-  const f = selField.value
-  const s = STATUS_OPTS.find((o) => o.v === selStatus.value)?.l || ''
-  if (f && s) return f + ' · ' + s
-  return f || s || '领域状态'
-})
-const timeLabel = computed(() => {
-  if (rangeStart.value && rangeEnd.value) return fmt(rangeStart.value) + ' ~ ' + fmt(rangeEnd.value)
-  if (rangeStart.value) return fmt(rangeStart.value) + ' 起'
-  if (quick.value === '7d') return '一周内'
-  if (quick.value === '30d') return '一个月内'
-  return '发布时间'
-})
-const moneyLabel = computed(() => {
-  if (!moneyActive.value) return '经费预算'
-  if (mFace.value) return '面议'
-  if (mPreset.value) return MONEY_OPTS.find((o) => o.v === mPreset.value)?.l || '经费'
-  if (mMin.value === 0) return '≤' + Math.round(mMax.value) + '万'
-  if (mMax.value === 100) return '≥' + Math.round(mMin.value) + '万'
-  return Math.round(mMin.value) + '-' + Math.round(mMax.value) + '万'
-})
-/* 是否有激活筛选：控制重置按钮显隐（经费拖动中不显示，松手后再出现） */
-const hasActiveFilters = computed(() => !!(
-  q.value || selField.value || selStatus.value ||
-  quick.value !== 'all' || rangeStart.value ||
-  (moneyActive.value && !moneyDragging.value)
-))
+/* 一级 tab 筛选激活点：维度下有生效筛选时在 tab 上标小圆点（面板收起后仍能识别"过滤中"） */
+const compDot = computed(() => !!(selField.value || selStatus.value))
+const timeDot = computed(() => quick.value !== 'all' || !!rangeStart.value)
+const moneyDot = computed(() => moneyActive.value)
 const maskTop = computed(() => (statusBarHeight.value + 44 + headH.value) + 'px')
 const sortLabel = computed(() => SORT_LABEL[sort.value] || '最新发布')
 const hasMore = computed(() => filteredAll.value.length < total.value)
@@ -646,6 +616,11 @@ const togglePanel = (p) => {
   if (panel.value === p) { startClosePanel(); return } // 再点当前 pill → 退场收起
   openPanel(p)
 }
+/* 一级 tab 分段：非全部 tab → 开合对应维度面板；全部 tab → 清筛（只清筛选维度，保留搜索词与排序），tab 与面板经 panel 状态机绑定 */
+const pickStageTab = (k) => {
+  if (k === 'all') { clearFilters(); return }
+  togglePanel(k)
+}
 const toggleComp = (key, v) => {
   if (key === 'field') selField.value = selField.value === v ? '' : v
   else selStatus.value = selStatus.value === v ? '' : v
@@ -852,6 +827,25 @@ const onSearch = () => {
   searchT = setTimeout(applyFilter, SEARCH_DEBOUNCE_MS)
 }
 const clearSearch = () => { clearTimeout(searchT); q.value = ''; applyFilter(); revealList() } // 搜索框 ×：即时（跟手优先）
+/* 「全部」tab 清筛：只清筛选维度（领域/状态/时间/金额），保留搜索词与排序——筛选场景的重置口径；
+   与 resetAll（空态"清除筛选"全清含搜索/排序）互补 */
+const clearFilters = () => {
+  selField.value = ''
+  selStatus.value = ''
+  quick.value = 'all'
+  rangeStart.value = ''
+  rangeEnd.value = ''
+  mPreset.value = ''
+  mFace.value = false
+  moneyActive.value = false
+  mMin.value = 0
+  mMax.value = 100
+  clearTimeout(closeT); closeT = null
+  closing.value = false
+  panel.value = ''
+  applyFilter()
+  revealList()
+}
 const resetAll = () => {
   q.value = ''
   selField.value = ''
@@ -1020,16 +1014,16 @@ page {
 .banner-sub { font-size: 12px; color: rgba(255, 255, 255, 0.95); display: block; } /* 白 95%：蓝底上 ≥4.5:1 达标（原 90% 约 4.8:1，字号 11→12 更稳） */
 
 /* ===== 固定头部：Banner + 筛选器 ===== */
-.panel-catcher {
+.panel-mask {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 30; /* 低于 sticky-head(40)：否则蒙层盖住筛选面板，面板上点击/滑动全被拦截 */
+  z-index: 30; /* 低于 sticky-head(40)：蒙层不盖住筛选面板，面板上点击/滑动不被拦截 */
   background: rgba(16, 24, 40, 0.2); /* 真变暗：面板展开时置灰下方内容（蓝灰黑 20%） */
   animation: maskIn .22s ease-out; /* 遮罩与面板同步淡入 */
 }
-.panel-catcher.closing {
+.panel-mask.closing {
   animation: maskOut .16s ease-in forwards; /* 同步淡出 */
 }
 @keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
@@ -1046,47 +1040,27 @@ page {
   padding: 0;
 }
 
-/* ===== 三个筛选器 ===== */
-.fbar {
+/* ===== 一级筛选：下划线 tab 分段（对齐成果库 stage-wrap/stages/stg） ===== */
+.stage-wrap { position: relative; z-index: 42; } /* 承载浮层面板定位；sticky 由外层 .sticky-head 承担 */
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px 12px;
-  background: #fff;
-}
-.fpill {
-  flex: 1;
-  min-width: 0; /* 允许收缩，配合 .fpv 省略号防长标签溢出 */
-  min-height: 40px; /* 触控目标：34px→40px（接近微信 44px 建议值，筛选高频操作） */
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff; /* 白上白：纯白填充 + 灰描边 + 极淡灰投影 */
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  overflow: hidden; /* 溢出裁剪，长组合标签（如"飞控系统 · 招募中"）不再撑破 pill */
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease; /* transition:all → 仅过渡实际变化的属性 */
-}
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpv { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* pill 长标签省略号 */
-.farr { font-size: 12px; color: #667085; flex: none; } /* 筛选器箭头 12px：同研发难题 */
-.freset {
-  flex: none;
-  min-height: 40px; /* 触控目标：34px→40px */
-  padding: 0 10px;
-  border-radius: 8px;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx; /* 筛选器字体同研发难题 12px */
   color: #667085;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
 }
-/* 重置按钮：随激活筛选状态弹出（ios-pop 弹簧） */
-.freset { animation: chipIn .22s cubic-bezier(.34, 1.8, .64, 1) backwards; }
-@keyframes chipIn { from { transform: scale(.85); } to { transform: scale(1); } }
+.stg.on { color: #074D92; font-weight: 600; } /* 激活态用 AA 暗变体（#0A66C2 白底 ≈4.5:1 边缘，深档 ≈6.9:1） */
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* 筛选激活小圆点：维度下有生效筛选时标于 tab 上（面板收起后仍可识别"过滤中"） */
+.stg-dot { width: 8rpx; height: 8rpx; border-radius: 50%; background: #074D92; flex: none; }
+.stg-arr { font-size: 24rpx; color: #667085; transition: transform .2s ease, color .2s ease; padding: 20rpx 16rpx; margin: -20rpx -16rpx; } /* 独立热区；负 margin 抵消位移；箭头同筛选器 12px */
+.stg-arr.up { transform: rotate(180deg); color: #074D92; } /* 面板展开：朝上 + AA 暗变体 */
 
 /* ===== 信息行 ===== */
 .ir {
@@ -1262,36 +1236,29 @@ page {
 .sth { font-size: 12px; color: #667085; display: block; margin-bottom: 16px; }
 .stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
 
-/* ===== 面板（通用） ===== */
-.panel-wrap {
-  position: relative;
-  background: #fff;
-  /* 浮层档 200-300ms：进场 ios-decel .3s（iOS sheet 流体减速）；退场 .21s ease-in（= 进场 ×0.7，必须存在） */
-  animation: panelIn .3s cubic-bezier(.32, .72, 0, 1);
-}
-.panel-wrap.closing {
-  animation: panelOut .21s ease-in forwards; /* forwards：退场结束态保持到 v-if 移除，防闪跳 */
-}
-.panel {
+/* ===== 浮层面板（通用）：absolute 于 .stage-wrap 之下，展开不挤动下方内容（对齐成果库 field-panel） ===== */
+.field-panel {
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  z-index: 41;
+  top: 100%;
+  z-index: 43;
   background: #fff;
   border-radius: 0 0 12px 12px;
-  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.1);
-  padding: 12px 14px;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+  padding: 12px 14px 14px;
   max-height: 62vh;
   overflow-y: auto;
+  animation: panelIn .3s cubic-bezier(.32, .72, 0, 1); /* 浮层档：进场 ios-decel（同挑战页） */
+}
+.field-panel.closing { animation: panelOut .21s ease-in forwards; } /* 退场 = 进场 ×0.7，forwards 保持到 v-if 移除防闪跳 */
+@keyframes panelOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
 }
 @keyframes panelIn {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-@keyframes panelOut {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-10px); }
 }
 .p-head { font-size: 12px; color: #667085; margin-bottom: 8px; }
 .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
@@ -1308,7 +1275,7 @@ page {
   display: inline-flex;
   align-items: center;
 }
-.p-chip.act { color: #fff; border-color: #0A66C2; background: #0A66C2; font-weight: 600; }
+.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
 
 /* ===== 日历 ===== */
 .cal { margin-top: 12px; border-top: 1px solid #F0F1F3; padding-top: 10px; }
@@ -1530,7 +1497,6 @@ page {
 @keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* 2) 交互反馈：可点元素按压反馈（按下 .08s linear 即时到位；松手 .3s ios-pop 弹簧回位；opacity/background 150-200ms） */
-.freset:active { opacity: .7; }
 .irs { transition: opacity .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); } /* ios-pop */
 .irs:active { opacity: .7; transform: scale(.95); transition: transform .08s linear; }
 .sp-opt { transition: background .2s ease, color .2s ease; }
@@ -1568,14 +1534,16 @@ page {
 .page.no-motion .banner::before,
 .page.no-motion .banner::after { animation: none; } /* banner 内部微编排/扫光/装饰圆全关 */
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; } /* 循环呼吸关 */
-.page.no-motion .panel-wrap { animation: panelFadeIn .22s ease-out; } /* 面板降级为纯淡入 */
-.page.no-motion .panel-wrap.closing { animation: panelFadeOut .16s ease-in forwards; }
+.page.no-motion .field-panel { animation: panelFadeIn .22s ease-out; } /* 面板降级为纯淡入 */
+.page.no-motion .field-panel.closing { animation: panelFadeOut .16s ease-in forwards; }
 .page.no-motion .spop { animation: spopFadeIn .2s ease-out; }
 .page.no-motion .spop.closing { animation: spopFadeOut .15s ease-in forwards; }
-.page.no-motion .panel-catcher { animation: maskIn .22s ease-out; }
-.page.no-motion .panel-catcher.closing { animation: maskOut .16s ease-in forwards; }
+.page.no-motion .panel-mask { animation: maskIn .22s ease-out; }
+.page.no-motion .panel-mask.closing { animation: maskOut .16s ease-in forwards; }
+.page.no-motion .stg.on::after { animation: none; } /* 注线画出属位移，关闭；激活色保留 */
+.page.no-motion .stg-arr { transition: none; }
+.page.no-motion .p-chip { transition: none; } /* chip 颜色过渡关闭，保留选中色 */
 .page.no-motion .p-chip.act { animation: none; } /* 选中微弹属缩放，关闭；选中色保留 */
-.page.no-motion .freset { animation: none; } /* 重置弹出属缩放，关闭 */
 .page.no-motion .tap-scale { transform: none !important; } /* 按压缩放关闭，保留 opacity 反馈 */
 .page.no-motion .p-chip:active,
 .page.no-motion .irs:active,

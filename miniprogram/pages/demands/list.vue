@@ -1,5 +1,5 @@
 <template>
-  <view class="demand-list-page">
+  <view class="demand-list-page" :class="{ 'no-motion': noMotion }">
     <!-- 搜索 -->
     <u-sticky>
       <u-search
@@ -9,26 +9,31 @@
       />
     </u-sticky>
 
-    <!-- 筛选 + 排序 -->
-    <view class="filter-bar">
-      <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
-        <view class="filter-tabs">
-          <view
-            v-for="(tab, index) in bizTypeTabs"
-            :key="index"
-            class="filter-tab"
-            :class="{ active: activeBizType === tab.value }"
-            @tap="switchBizType(tab.value)"
-          >
-            {{ tab.label }}
-          </view>
+    <!-- 筛选：业务类型一级分段（「全部」带 ▾ 独立开关；对齐科技成果库）+ ▾ 排序面板 -->
+    <view class="stage-wrap">
+      <view class="stages">
+        <view
+          v-for="(tab, index) in bizTypeTabs"
+          :key="tab.value"
+          class="stg"
+          :class="{ on: activeBizType === tab.value }"
+          @tap="pickStageTab(tab.value)"
+        >
+          <text>{{ tab.label }}</text>
+          <!-- ▾ 独立面板开关：未停在「全部」时点「全部」先清类型；停在「全部」时再点开面板 -->
+          <text v-if="tab.value === ''" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
         </view>
-      </scroll-view>
-      <view class="sort-trigger" @tap="showSortPicker">
-        <text class="sort-label">{{ currentSortLabel }}</text>
-        <text class="sort-arrow">▾</text>
+      </view>
+      <!-- 二级筛选面板：排序 chips（absolute 浮层，展开不挤动下方内容） -->
+      <view v-if="panel === 'all'" class="field-panel" :class="{ closing }">
+        <view class="p-group">排序方式</view>
+        <view class="p-chips">
+          <text v-for="a in sortActions" :key="a.value" class="p-chip" :class="{ act: currentSort === a.value }" @tap="pickSort(a)">{{ a.name }}</text>
+        </view>
       </view>
     </view>
+    <!-- 蒙层：从分段底部开始置灰，点外部退场收起 -->
+    <view v-if="panel" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
 
     <!-- 加载状态 -->
     <view v-if="loading && list.length === 0" class="state-wrap">
@@ -94,29 +99,6 @@
         <text v-else-if="!hasMore" class="no-more">没有更多了</text>
       </view>
     </view>
-
-    <!-- 排序弹层 -->
-    <u-popup
-      :show="sortPickerVisible"
-      position="bottom"
-      round
-      @close="sortPickerVisible = false"
-    >
-      <view class="sheet">
-        <view class="sheet-title">排序方式</view>
-        <view
-          v-for="a in sortActions"
-          :key="a.value"
-          class="sheet-item"
-          :class="{ on: a.value === currentSort }"
-          @tap="onSortSelect(a)"
-        >
-          <text class="sheet-name">{{ a.name }}</text>
-          <text v-if="a.value === currentSort" class="sheet-check">✓</text>
-        </view>
-        <view class="sheet-cancel" @tap="sortPickerVisible = false">取消</view>
-      </view>
-    </u-popup>
   </view>
 </template>
 
@@ -124,13 +106,20 @@
 import { request, getStoredUser, BASE_URL } from '../../utils/request'
 import { BIZ_TYPE_TABS, bizTypeLabel as bizTypeLabelOf } from '../../utils/enums'
 
+// 筛选面板退场定时器（模块级，非响应式）
+let panelCloseT = null
+const PANEL_CLOSE_MS = 210 // 退场动画 .21s ease-in
+
 export default {
   data() {
     return {
       searchText: '',
       activeBizType: '',
       currentSort: 'newest',
-      sortPickerVisible: false,
+      noMotion: false, // 减弱动效（无障碍）：Options API 直存，避免 setup() 混合触发微信端 props 解析异常
+      panel: '', // '' = 收起；'all' = 「全部」段的面板展开
+      closing: false, // 面板退场中（先播退场动画再 v-if 移除）
+      maskTop: 0, // 蒙层起点（面板打开时实测：tab 分段底部）
       loading: false,
       loadingMore: false,
       errorMsg: '',
@@ -146,14 +135,13 @@ export default {
       ],
     }
   },
-  computed: {
-    currentSortLabel() {
-      const found = this.sortActions.find(function (a) { return a.value === this.currentSort }.bind(this))
-      return found ? found.name : '最新发布'
-    },
-  },
   onLoad() {
+    this.checkMotion() // 减弱动效检测（无障碍）
     this.fetchList(true)
+  },
+  onReady() {
+    // 实测蒙层起点（tab 分段底部；面板打开时 togglePanel 会再实测一遍）
+    this.measureMaskTop()
   },
   onPullDownRefresh() {
     this.fetchList(true).then(function () {
@@ -166,6 +154,18 @@ export default {
     }
   },
   methods: {
+    // 减弱动效检测（无障碍）：逻辑同 utils/motion.js，Options API 直实现（避免 setup() 混合）
+    checkMotion() {
+      try {
+        const sys = uni.getSystemInfoSync()
+        if (sys && sys.reduceMotion) this.noMotion = true
+      } catch (e) { /* 忽略 */ }
+      try {
+        if (typeof uni.onAccessibilityInfoChange === 'function') {
+          uni.onAccessibilityInfoChange((res) => { this.noMotion = !!(res && res.reduceMotion) })
+        }
+      } catch (e) { /* 旧基础库无此 API */ }
+    },
     async fetchList(reset) {
       if (reset) {
         this.page = 1
@@ -224,21 +224,50 @@ export default {
     onSearch() {
       this.fetchList(true)
     },
-    switchBizType(value) {
-      this.activeBizType = value
+    // ---- 筛选交互（对齐科技成果库方案 A：tab 分段 + ▾ 面板 + 蒙层） ----
+    startClosePanel() {
+      if (this.closing) return // 已在退场中，防重复触发叠加定时器
+      this.closing = true
+      clearTimeout(panelCloseT)
+      panelCloseT = setTimeout(() => { this.panel = ''; this.closing = false; panelCloseT = null }, PANEL_CLOSE_MS)
+    },
+    togglePanel() {
+      if (this.panel === 'all') { this.startClosePanel(); return } // 再点「全部」→ 退场收起
+      clearTimeout(panelCloseT); panelCloseT = null; this.closing = false
+      this.panel = 'all'
+      uni.nextTick(() => { this.measureMaskTop() })
+    },
+    measureMaskTop() {
+      // 蒙层起点 = 分段容器底部（实测，头部不蒙）
+      uni.createSelectorQuery().select('.stage-wrap').boundingClientRect((rect) => {
+        if (rect && rect.bottom) this.maskTop = Math.round(rect.bottom)
+      }).exec()
+    },
+    // 方案 A：非「全部」tab 再点取消回全部；「全部」未停先清筛、停下再点开面板；▾ 独立开关
+    pickStageTab(value) {
+      if (value !== '') {
+        this.startClosePanel()
+        this.activeBizType = this.activeBizType === value ? '' : value
+        this.fetchList(true)
+        return
+      }
+      if (this.activeBizType !== '') {
+        this.startClosePanel()
+        this.activeBizType = ''
+        this.fetchList(true)
+        return
+      }
+      this.togglePanel()
+    },
+    pickSort(action) {
+      this.currentSort = action.value
+      this.startClosePanel()
       this.fetchList(true)
     },
     resetFilter() {
       this.activeBizType = ''
       this.searchText = ''
-      this.fetchList(true)
-    },
-    showSortPicker() {
-      this.sortPickerVisible = true
-    },
-    onSortSelect(action) {
-      this.currentSort = action.value
-      this.sortPickerVisible = false
+      this.startClosePanel()
       this.fetchList(true)
     },
     goDetail(item) {
@@ -283,59 +312,103 @@ export default {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* 筛选 + 排序 */
-.filter-bar {
+/* 一级筛选：下划线 tab 分段（对齐科技成果库）+ ▾ 浮层面板 + 蒙层 */
+.stage-wrap { position: relative; z-index: 42; background: #fff; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
+}
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in 0.22s ease-out;
+}
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.stg-arr {
+  font-size: 24rpx;
+  color: #667085;
+  transition: transform 0.2s ease, color 0.2s ease;
+  padding: 20rpx 16rpx;
+  margin: -20rpx -16rpx;
+}
+.stg-arr.up { transform: rotate(180deg); color: #074D92; }
+.field-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 43;
   background: #fff;
-  padding: 8px 12px;
-  gap: 8px;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+  padding: 12px 14px 14px;
+  max-height: 62vh;
+  overflow-y: auto;
+  animation: panelIn 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
-
-.filter-scroll {
-  flex: 1;
-  white-space: nowrap;
+.field-panel.closing { animation: panelOut 0.21s ease-in forwards; }
+@keyframes panelOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
 }
-
-.filter-tabs {
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.field-panel .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
+.field-panel .p-group:first-child { margin-top: 0; }
+.p-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-chip {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #E4E7EC;
+  border-radius: 6px;
+  background: #fff;
+  color: #667085;
+  font-size: 13px;
   display: inline-flex;
-  gap: 8px;
-}
-
-.filter-tab {
-  flex-shrink: 0;
-  padding: 6px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #344054;
-  background: #F4F6F8;
-  border: 1px solid #EEF1F4;
-  transition: all 0.2s;
-}
-
-.filter-tab.active {
-  color: #fff;
-  background: #0A66C2;
-  border-color: #0A66C2;
-}
-
-.sort-trigger {
-  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  flex-shrink: 0;
 }
-
-.sort-label {
-  font-size: 13px;
-  color: #344054;
+.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
+.p-chip { transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.8, 0.64, 1); }
+.p-chip:active { transform: scale(0.94); transition: transform 0.08s linear; }
+.p-chip.act { animation: chipPop 0.3s cubic-bezier(0.34, 1.8, 0.64, 1); }
+@keyframes chipPop { 0% { transform: scale(1); } 40% { transform: scale(0.94); } 100% { transform: scale(1); } }
+/* 蒙层：从分段底部开始置灰（top 由 maskTop 实测）；u-sticky 吸顶 z-index 99，蒙层降到其下（同训练课程页先例） */
+.panel-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  background: rgba(16, 24, 40, 0.2);
+  animation: maskIn 0.22s ease-out;
 }
-
-.sort-arrow {
-  font-size: 10px;
-  color: #98A2B3;
-}
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
+/* 减弱动效（无障碍）：装饰动画/位移缩放关闭，保留淡入与颜色反馈 */
+.demand-list-page.no-motion .stg-arr { transition: none; }
+.demand-list-page.no-motion .p-chip { transition: none; }
+.demand-list-page.no-motion .p-chip.act { animation: none; }
+.demand-list-page.no-motion .stg.on::after { animation: none; }
+.demand-list-page.no-motion .field-panel { animation: panelIn 0.3s ease-out; }
+.demand-list-page.no-motion .field-panel.closing { animation: panelOut 0.16s ease-in forwards; }
+.demand-list-page.no-motion .panel-mask { animation: maskIn 0.22s ease-out; }
+.demand-list-page.no-motion .p-chip:active { transform: none; }
 
 /* 状态 */
 .state-wrap {
@@ -493,45 +566,12 @@ export default {
   font-size: 12px;
 }
 
-/* 排序弹层 */
-.sheet {
-  background: #fff;
-  border-radius: 16rpx 16rpx 0 0;
-  padding-bottom: env(safe-area-inset-bottom);
-}
+/* 排序弹层已移除（排序维度移入 ▾ field-panel），此段样式随 u-popup 一并删除 */
 
-.sheet-title {
-  text-align: center;
-  font-size: 15px;
-  font-weight: 600;
-  color: #17212B;
-  padding: 16px 0 8px;
-}
-
-.sheet-item {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 24px;
-  font-size: 14px;
-  color: #17212B;
-}
-
-.sheet-item.on {
-  color: #0A66C2;
-  font-weight: 600;
-}
-
-.sheet-check {
-  font-size: 14px;
-}
-
-.sheet-cancel {
-  text-align: center;
-  padding: 14px;
-  font-size: 14px;
-  color: #667085;
-  border-top: 1px solid #EEF1F4;
+@media (prefers-reduced-motion: reduce) {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 </style>

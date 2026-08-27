@@ -1,6 +1,6 @@
 <template>
   <Layout :current="1">
-    <view class="hall-page">
+    <view class="hall-page" :class="{ 'no-motion': noMotion }">
       <!-- ═══════ 深蓝顶部 ═══════ -->
       <view class="topbar" :style="{ paddingTop: statusBarHeight + 'px' }">
         <view class="topbar-row">
@@ -40,24 +40,41 @@
         >服务能力</view>
       </view>
 
-      <!-- ═══════ 分类横滑 + 筛选 ═══════ -->
-      <view class="filter-row">
-        <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
-          <view class="filter-inner">
-            <view
-              v-for="c in categories"
-              :key="c"
-              class="filter-chip"
-              :class="{ active: typeFilter === c }"
-              @tap="switchTypeFilter(c)"
-            >{{ c }}</view>
+      <!-- ═══════ 一级筛选：分类下划线 tab 分段（「全部」带 ▾ 独立开关；对齐科技成果库） ═══════ -->
+      <view class="stage-wrap">
+        <view class="stages">
+          <view
+            v-for="t in stageTabs"
+            :key="t.value"
+            class="stg"
+            :class="{ on: activeStage === t.value }"
+            @tap="pickStageTab(t.value)"
+          >
+            <text>{{ t.label }}</text>
+            <!-- ▾ 独立面板开关：未停在「全部」时点「全部」先清分类；停在「全部」时再点开面板 -->
+            <text v-if="t.value === 'all' && !isProductMode" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
           </view>
-        </scroll-view>
-        <view v-if="!isProductMode" class="filter-chip filter" :class="{ on: hasActiveFilter }" @tap="openFilters">
-          <text>筛选</text>
-          <text class="filter-caret">▾</text>
+        </view>
+        <!-- 二级筛选面板：地区 / 预算 / 排序 chips（absolute 浮层，展开不挤动下方内容） -->
+        <view v-if="panel === 'all' && !isProductMode" class="field-panel" :class="{ closing }">
+          <view class="p-group">所在地区</view>
+          <view class="p-chips">
+            <text class="p-chip" :class="{ act: filterRegion === '不限' }" @tap="pickRegion('不限')">全部地区</text>
+            <text v-for="r in regionOptions.slice(1)" :key="r" class="p-chip" :class="{ act: filterRegion === r }" @tap="pickRegion(r)">{{ r }}</text>
+          </view>
+          <view class="p-group">{{ primary === 'demand' ? '预算金额' : '价格范围' }}</view>
+          <view class="p-chips">
+            <text class="p-chip" :class="{ act: filterPrice === '不限' }" @tap="pickPrice('不限')">全部</text>
+            <text v-for="p in priceOptions.slice(1)" :key="p" class="p-chip" :class="{ act: filterPrice === p }" @tap="pickPrice(p)">{{ p }}</text>
+          </view>
+          <view class="p-group">排序方式</view>
+          <view class="p-chips">
+            <text v-for="s in sortOptions" :key="s.value" class="p-chip" :class="{ act: sortBy === s.value }" @tap="pickSort(s.value)">{{ s.label }}</text>
+          </view>
         </view>
       </view>
+      <!-- 蒙层：从分段底部开始置灰，点外部退场收起 -->
+      <view v-if="panel && !isProductMode" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
 
       <!-- ═══════ 匹配条（商品模式为电商页，不展示匹配引导） ═══════ -->
       <view v-if="listState === 'ready' && visibleList.length > 0 && !isProductMode" class="match-strip">
@@ -161,54 +178,6 @@
 
     </view>
 
-    <!-- ═══════ 筛选弹层 ═══════ -->
-    <u-popup :show="showFilter" position="bottom" round @close="showFilter = false">
-      <view class="sheet">
-        <view class="sheet-head">
-          <text class="sheet-title">筛选条件</text>
-          <view class="sheet-close" @tap="showFilter = false"><text class="sheet-x">×</text></view>
-        </view>
-        <view class="sheet-body">
-          <text class="field-label">所在地区</text>
-          <view class="pick-row">
-            <view
-              v-for="r in regionOptions"
-              :key="r"
-              class="pick"
-              :class="{ active: filterRegion === r }"
-              @tap="filterRegion = r"
-            >{{ r }}</view>
-          </view>
-
-          <text class="field-label">{{ primary === 'demand' ? '预算金额' : '价格范围' }}</text>
-          <view class="pick-row">
-            <view
-              v-for="(r, i) in priceOptions"
-              :key="i"
-              class="pick"
-              :class="{ active: filterPrice === r }"
-              @tap="filterPrice = r"
-            >{{ r }}</view>
-          </view>
-
-          <text class="field-label">排序方式</text>
-          <view class="pick-row">
-            <view
-              v-for="s in sortOptions"
-              :key="s.value"
-              class="pick"
-              :class="{ active: sortBy === s.value }"
-              @tap="sortBy = s.value"
-            >{{ s.label }}</view>
-          </view>
-        </view>
-        <view class="sheet-footer">
-          <view class="ghost-btn" @tap="resetFilters">重置</view>
-          <view class="primary-btn" @tap="applyFilter">应用筛选</view>
-        </view>
-      </view>
-    </u-popup>
-
   </Layout>
 
   <!-- ═══════ 就地搜索覆盖层（点击搜索框在当前页展开，不跳搜索页） ═══════ -->
@@ -297,6 +266,7 @@ import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
 import { request } from '../../utils/request'
 import { safeNavigateTo } from '../../utils/nav'
+import { useReduceMotion } from '@/utils/motion'
 import {
   HALL_CATEGORIES, kindTypeLabel, isEnded, normalizeDemand,
   IMG_SOLAR, IMG_LIFT, IMG_HERO,
@@ -308,7 +278,8 @@ const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
 
 const primary = ref('demand') // demand | supply
 const supplyKind = ref('product') // product | service
-const typeFilter = ref('全部')
+const activeStage = ref('all') // 分类分段：all=全部（对齐成果库阶段分段）
+const { noMotion, checkMotion } = useReduceMotion() // 减弱动效（无障碍）
 
 // 重庆市 38 个区县（筛选地区选项完整）
 const regionOptions = [
@@ -325,18 +296,25 @@ const sortOptions = [
   { label: '价格优先', value: 'price' },
 ]
 
-const showFilter = ref(false)
 const filterRegion = ref('不限')
 const filterPrice = ref('不限')
 const sortBy = ref('newest')
 
-const hasActiveFilter = computed(() => filterRegion.value !== '不限' || filterPrice.value !== '不限' || sortBy.value !== 'newest' || typeFilter.value !== '全部')
+// ---- 筛选面板（对齐科技成果库：tab 分段 + ▾ 浮层面板 + 蒙层） ----
+const panel = ref('') // '' = 收起；'all' = 「全部」段的面板展开
+const closing = ref(false) // 面板退场中（先播退场动画再 v-if 移除）
+const maskTop = ref(0) // 蒙层起点（面板打开时实测：tab 分段底部）
+let panelCloseT = null
+const PANEL_CLOSE_MS = 210 // 退场动画 .21s ease-in
 
 const categories = computed(() => {
   if (isProductMode.value) return PRODUCT_CATEGORIES
   const kind = primary.value === 'demand' ? 'demand' : supplyKind.value
   return HALL_CATEGORIES[kind]
 })
+
+// 分类 → 一级分段 tab（首项「全部」映射为 all，带 ▾）
+const stageTabs = computed(() => categories.value.map(c => c === '全部' ? { label: c, value: 'all' } : { label: c, value: c }))
 
 const kindLabel = computed(() => kindTypeLabel(primary.value, supplyKind.value))
 const sectionTitle = computed(() => {
@@ -417,34 +395,62 @@ const reload = () => { fetchList(true) }
 /* ================= 交互 ================= */
 function switchPrimary(value) {
   if (primary.value === value) return
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false; panel.value = '' // 切量即收起面板（防蒙层滞留）
   primary.value = value
-  typeFilter.value = '全部'
+  activeStage.value = 'all'
   fetchList(true)
 }
 
 function switchSupplyKind(value) {
   if (supplyKind.value === value) return
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false; panel.value = '' // 切量即收起面板（防蒙层滞留）
   supplyKind.value = value
-  typeFilter.value = '全部'
+  activeStage.value = 'all'
   fetchList(true)
 }
 
-function switchTypeFilter(value) {
-  typeFilter.value = value
+// ---- 筛选交互（对齐科技成果库方案 A：tab 分段 + ▾ 面板 + 蒙层） ----
+const startClosePanel = () => {
+  if (closing.value) return // 已在退场中，防重复触发叠加定时器
+  closing.value = true
+  clearTimeout(panelCloseT)
+  panelCloseT = setTimeout(() => { panel.value = ''; closing.value = false; panelCloseT = null }, PANEL_CLOSE_MS)
 }
-
-const openFilters = () => { showFilter.value = true }
-const applyFilter = () => {
-  showFilter.value = false
-  uni.showToast({ title: '筛选已应用', icon: 'none' })
+const togglePanel = () => {
+  if (panel.value === 'all') { startClosePanel(); return } // 再点「全部」→ 退场收起
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false
+  panel.value = 'all'
+  // 蒙层起点 = 分段容器底部（实测，头部不蒙）
+  uni.nextTick(() => {
+    uni.createSelectorQuery().select('.stage-wrap').boundingClientRect((rect) => {
+      if (rect && rect.bottom) maskTop.value = Math.round(rect.bottom)
+    }).exec()
+  })
 }
+// 方案 A：非「全部」tab 再点取消回全部；「全部」未停先清筛、停下再点开面板；▾ 独立开关
+const pickStageTab = (k) => {
+  if (k !== 'all') {
+    startClosePanel()
+    activeStage.value = activeStage.value === k ? 'all' : k
+    return
+  }
+  if (activeStage.value !== 'all') {
+    startClosePanel()
+    activeStage.value = 'all'
+    return
+  }
+  togglePanel()
+}
+// 面板 chips 点选即筛（client 端可见，多组并行），再点取消；不关面板（可继续调其他维度）
+const pickRegion = (r) => { filterRegion.value = filterRegion.value === r ? '不限' : r }
+const pickPrice = (p) => { filterPrice.value = filterPrice.value === p ? '不限' : p }
+const pickSort = (v) => { sortBy.value = v }
 const resetFilters = () => {
-  typeFilter.value = '全部'
+  activeStage.value = 'all'
   filterRegion.value = '不限'
   filterPrice.value = '不限'
   sortBy.value = 'newest'
-  showFilter.value = false
-  fetchList(true)
+  startClosePanel()
 }
 
 const goSearch = () => openSearch()
@@ -526,7 +532,7 @@ function onImageError(item) {
 /* ================= 过滤展示 ================= */
 const visibleList = computed(() => {
   let out = list.value
-  if (typeFilter.value !== '全部') out = out.filter((i) => i.cat === typeFilter.value)
+  if (activeStage.value !== 'all') out = out.filter((i) => i.cat === activeStage.value)
   if (filterRegion.value !== '不限' && !isProductMode.value) out = out.filter((i) => i.region.includes(filterRegion.value))
   // 预算区间（需求 budget_fen / 服务 price_fen，单位分——后端是 snake_case）
   if (filterPrice.value !== '不限' && !isProductMode.value) {
@@ -546,6 +552,7 @@ const visibleList = computed(() => {
 
 /* ================= 生命周期 ================= */
 onLoad(() => {
+  checkMotion() // 减弱动效检测（无障碍）
   fetchList(true)
 })
 
@@ -671,53 +678,102 @@ onPullDownRefresh(() => {
   font-weight: 650;
 }
 
-/* ═══════ 分类横滑 ═══════ */
-.filter-row {
-  padding: 20rpx 24rpx;
+/* ═══════ 一级筛选：下划线 tab 分段（对齐科技成果库）+ ▾ 浮层面板 + 蒙层 ═══════ */
+.stage-wrap { position: relative; z-index: 42; background: #fff; border-bottom: 1px solid #EEF1F4; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
+}
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in 0.22s ease-out;
+}
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.stg-arr {
+  font-size: 24rpx;
+  color: #667085;
+  transition: transform 0.2s ease, color 0.2s ease;
+  padding: 20rpx 16rpx;
+  margin: -20rpx -16rpx;
+}
+.stg-arr.up { transform: rotate(180deg); color: #074D92; }
+.field-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 43;
   background: #fff;
-  border-bottom: 1px solid #EEF1F4;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+  padding: 12px 14px 14px;
+  max-height: 62vh;
+  overflow-y: auto;
+  animation: panelIn 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
-.filter-scroll {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
+.field-panel.closing { animation: panelOut 0.21s ease-in forwards; }
+@keyframes panelOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
 }
-.filter-inner {
-  display: inline-flex;
-  gap: 12rpx;
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.filter-chip {
+.field-panel .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
+.field-panel .p-group:first-child { margin-top: 0; }
+.p-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-chip {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #E4E7EC;
+  border-radius: 6px;
+  background: #fff;
+  color: #667085;
+  font-size: 13px;
   display: inline-flex;
   align-items: center;
-  height: 60rpx;
-  padding: 0 20rpx;
-  border: 1px solid #E4E7EC;
-  border-radius: 12rpx;
-  background: #fff;
-  color: #344054;
-  font-size: 24rpx;
-  box-sizing: border-box;
-  white-space: nowrap;
 }
-.filter-chip.active {
-  color: #0A66C2;
-  border-color: #B9D6EF;
-  background: #EAF3FB;
+.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
+.p-chip { transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.8, 0.64, 1); }
+.p-chip:active { transform: scale(0.94); transition: transform 0.08s linear; }
+.p-chip.act { animation: chipPop 0.3s cubic-bezier(0.34, 1.8, 0.64, 1); }
+@keyframes chipPop { 0% { transform: scale(1); } 40% { transform: scale(0.94); } 100% { transform: scale(1); } }
+.panel-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  background: rgba(16, 24, 40, 0.2);
+  animation: maskIn 0.22s ease-out;
 }
-.filter-chip.filter {
-  flex-shrink: 0;
-  color: #0A66C2;
-  gap: 4rpx;
-}
-.filter-chip.filter.on {
-  color: #fff;
-  background: #0A66C2;
-  border-color: #0A66C2;
-}
-.filter-caret { font-size: 20rpx; }
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
+/* 减弱动效（无障碍）：装饰动画/位移缩放关闭，保留淡入与颜色反馈 */
+.hall-page.no-motion .stg-arr { transition: none; }
+.hall-page.no-motion .p-chip { transition: none; }
+.hall-page.no-motion .p-chip.act { animation: none; }
+.hall-page.no-motion .stg.on::after { animation: none; }
+.hall-page.no-motion .field-panel { animation: panelIn 0.3s ease-out; }
+.hall-page.no-motion .field-panel.closing { animation: panelOut 0.16s ease-in forwards; }
+.hall-page.no-motion .panel-mask { animation: maskIn 0.22s ease-out; }
+.hall-page.no-motion .p-chip:active { transform: none; }
 
 /* ═══════ 匹配条 ═══════ */
 .match-strip {
@@ -896,60 +952,6 @@ onPullDownRefresh(() => {
   color: #fff;
   font-size: 24rpx;
   line-height: 72rpx;
-}
-
-/* ═══════ 弹层 ═══════ */
-.sheet {
-  padding-bottom: 20rpx;
-}
-.sheet-head {
-  display: flex;
-  align-items: center;
-  padding: 28rpx 32rpx 20rpx;
-}
-.sheet-title { flex: 1; font-size: 32rpx; font-weight: 700; color: #17212B; }
-.sheet-close { width: 56rpx; height: 56rpx; display: flex; align-items: center; justify-content: center; }
-.sheet-x { font-size: 40rpx; color: #98A2B3; line-height: 1; }
-.sheet-body { padding: 0 32rpx 24rpx; }
-.sheet-footer {
-  display: flex;
-  gap: 20rpx;
-  padding: 16rpx 32rpx calc(24rpx + env(safe-area-inset-bottom));
-}
-.sheet-footer > view {
-  flex: 1;
-  height: 84rpx;
-  border-radius: 12rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28rpx;
-  font-weight: 700;
-}
-.ghost-btn { border: 1px solid #E4E7EC; background: #fff; color: #344054; }
-.primary-btn { background: #0A66C2; color: #fff; }
-
-.field-label {
-  display: block;
-  color: #344054;
-  font-size: 24rpx;
-  font-weight: 650;
-  margin: 24rpx 0 14rpx;
-}
-.pick-row { display: flex; flex-wrap: wrap; gap: 14rpx; }
-.pick {
-  padding: 14rpx 20rpx;
-  border: 1px solid #E4E7EC;
-  border-radius: 10rpx;
-  background: #fff;
-  color: #667085;
-  font-size: 24rpx;
-}
-.pick.active {
-  background: #EAF3FB;
-  border-color: #B9D6EF;
-  color: #0A66C2;
-  font-weight: 650;
 }
 
 /* 响应式：375px 微调 */
@@ -1236,5 +1238,12 @@ onPullDownRefresh(() => {
 
 @media (max-width: 380px) {
   .ov-trade-visual { width: 150rpx; height: 150rpx; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 </style>

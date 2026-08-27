@@ -19,44 +19,34 @@
       </view>
     </view>
 
-    <!-- ② 位置筛选（原生 picker：重庆市 + 区县，CSS 箭头，无定位图标） -->
-    <picker
-      mode="selector"
-      :range="chongqingDistricts"
-      :value="districtIndex"
-      @change="onDistrictChange"
-      class="dist-picker"
-    >
-      <view class="dist-bar">
-        <view class="dist-left">
-          <text class="dist-city">重庆市</text>
-          <view class="dist-divider" />
-          <text class="dist-value" :class="{ placeholder: !selectedDistrict }">{{ selectedDistrict || '全部区县' }}</text>
-          <view class="dist-arr" />
+    <!-- ② 主题分段（一级筛选，对齐科技成果库：下划线 tab 分段）+ ▾ 区县面板 -->
+    <view class="stage-wrap">
+      <view class="stages">
+        <view
+          v-for="t in THEME_TABS"
+          :key="t.value"
+          class="stg"
+          :class="{ on: stageKey === t.value }"
+          @tap="pickStageTab(t.value)"
+        >
+          <text>{{ t.label }}</text>
+          <!-- ▾ 独立面板开关（方案 A）：未停在「全部」时点「全部」先清筛选；停在「全部」时再点开面板 -->
+          <text v-if="t.value === 'all'" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
         </view>
       </view>
-    </picker>
-
-    <!-- ③ 主题分类胶囊（fpill） -->
-    <view class="fbar">
-      <scroll-view scroll-x :show-scrollbar="false" class="fscroll">
-        <view class="finner">
-          <view
-            v-for="pill in themePills"
-            :key="pill.value"
-            class="fpill"
-            :class="{ on: activeTheme === pill.value }"
-            hover-class="fpill-press"
-            :hover-stay-time="100"
-            @click="switchTheme(pill.value)"
-          >
-            <text class="fpv">{{ pill.label }}</text>
-          </view>
+      <!-- 区县面板：absolute 浮层（对齐科技成果库），展开时不挤动下方内容 -->
+      <view v-if="panel === 'all'" class="field-panel" :class="{ closing }">
+        <view class="p-group">区县</view>
+        <view class="p-chips">
+          <text class="p-chip" :class="{ act: fDistrict === '全部区县' }" @tap="pickDistrict('全部区县')">全部区县</text>
+          <text v-for="d in chongqingDistricts.slice(1)" :key="d" class="p-chip" :class="{ act: fDistrict === d }" @tap="pickDistrict(d)">{{ d }}</text>
         </view>
-      </scroll-view>
+      </view>
     </view>
+    <!-- 蒙层：从 tab 分段底部开始置灰，点击外部退场收起 -->
+    <view v-if="panel" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
 
-    <!-- ④ 信息行：共 N 个活动 + 当前筛选 -->
+    <!-- ③ 信息行：共 N 个活动 + 当前筛选 -->
     <view class="ir">
       <text>共 <text class="irn">{{ displayList.length }}</text> 个活动</text>
       <text class="ir-hint">{{ filterHint }}</text>
@@ -165,22 +155,58 @@ const page = ref(1)
 const pageSize = 50
 const hasMore = ref(true)
 
-// ── 地区筛选（重庆 38 个区县） ──────────────────────────
+// ── 区县筛选（面板 chips，对齐科技成果库：芯片点选即筛、再点取消） ──────────────────────────
 const chongqingDistricts = ['全部区县', '渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区', '南岸区', '北碚区', '渝北区', '巴南区', '两江新区', '长寿区', '江津区', '合川区', '永川区', '南川区', '綦江区', '大足区', '璧山区', '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区', '武隆区', '万州区', '黔江区', '涪陵区', '奉节县', '云阳县', '忠县', '垫江县', '丰都县', '城口县', '巫山县', '巫溪县', '石柱县', '秀山县', '酉阳县', '彭水县']
-const districtIndex = ref(0)
-const selectedDistrict = computed(() => chongqingDistricts[districtIndex.value])
-const onDistrictChange = (e) => { districtIndex.value = Number(e.detail.value); page.value = 1; loadData(true) }
+const fDistrict = ref('全部区县')
+const pickDistrict = (f) => { fDistrict.value = fDistrict.value === f ? '全部区县' : f }
 
-// ── 主题分类 Pills ────────────────────
-const themePills = [
+// ── 主题分类一级分段（对齐科技成果库：下划线 tab 分段） ────────────────────
+const THEME_TABS = [
   { label: '全部', value: 'all' },
   { label: '科普研学', value: 'science' },
   { label: '产业研学', value: 'industry' },
   { label: '实践研学', value: 'practice' },
   { label: '职业研学', value: 'career' },
 ]
-const activeTheme = ref('all')
-const switchTheme = (v) => { activeTheme.value = v; page.value = 1; loadData(true) }
+const stageKey = ref('all')
+
+// ── 筛选面板（对齐科技成果库：tab 分段 + ▾ 浮层面板 + 蒙层） ────────────────────
+const panel = ref('')       // '' = 收起；'all' = 主题段面板展开
+const closing = ref(false)  // 面板退场中（先播退场动画再 v-if 移除）
+const maskTop = ref(0)      // 蒙层起点（面板打开时实测：tab 分段底部）
+let panelCloseT = null
+const PANEL_CLOSE_MS = 210 // 退场动画 .21s ease-in
+const startClosePanel = () => {
+  if (closing.value) return // 已在退场中，防重复触发叠加定时器
+  closing.value = true
+  clearTimeout(panelCloseT)
+  panelCloseT = setTimeout(() => { panel.value = ''; closing.value = false; panelCloseT = null }, PANEL_CLOSE_MS)
+}
+const togglePanel = () => {
+  if (panel.value === 'all') { startClosePanel(); return } // 再点「全部」→ 退场收起
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false
+  panel.value = 'all'
+  // 蒙层起点 = 分段容器底部（实测，头部不蒙）
+  uni.nextTick(() => {
+    uni.createSelectorQuery().select('.stage-wrap').boundingClientRect((rect) => {
+      if (rect && rect.bottom) maskTop.value = Math.round(rect.bottom)
+    }).exec()
+  })
+}
+// 方案 A（同科技成果库）：非全部 tab 再点取消；「全部」未停时先清筛、已停时开面板；▾ 独立开关
+const pickStageTab = (k) => {
+  if (k !== 'all') {
+    startClosePanel()
+    stageKey.value = stageKey.value === k ? 'all' : k
+    return
+  }
+  if (stageKey.value !== 'all') {
+    startClosePanel()
+    stageKey.value = 'all'
+    return
+  }
+  togglePanel()
+}
 
 // ── 主题推断（title/description 关键词）──
 const THEMES = [
@@ -217,13 +243,13 @@ const statusStyle = (item) => {
 // ── 列表：过滤 + 筛选 ──────────────────
 const baseList = computed(() => list.value.filter((it) => it.status === 'active' || it.status === ''))
 const filteredByTheme = computed(() => {
-  if (activeTheme.value === 'all') return baseList.value
-  return baseList.value.filter((it) => themeInfo(it).value === activeTheme.value)
+  if (stageKey.value === 'all') return baseList.value
+  return baseList.value.filter((it) => themeInfo(it).value === stageKey.value)
 })
 const displayList = computed(() => {
   let items = filteredByTheme.value
-  if (selectedDistrict.value && selectedDistrict.value !== '全部区县') {
-    items = items.filter((it) => (it.location || '').includes(selectedDistrict.value.slice(0, 2)))
+  if (fDistrict.value && fDistrict.value !== '全部区县') {
+    items = items.filter((it) => (it.location || '').includes(fDistrict.value.slice(0, 2)))
   }
   // 搜索：后端 /api/v1/study/tours 不识别 keyword 参数，改为前端本地过滤 title/name
   const k = keyword.value.trim().toLowerCase()
@@ -237,8 +263,8 @@ const displayList = computed(() => {
 
 // ── 信息行右侧提示（仅展示当前筛选状态，不改任何筛选逻辑）──
 const filterHint = computed(() => {
-  const d = selectedDistrict.value === '全部区县' ? '' : selectedDistrict.value
-  const t = activeTheme.value === 'all' ? '' : (themePills.find((p) => p.value === activeTheme.value) || {}).label
+  const d = fDistrict.value === '全部区县' ? '' : fDistrict.value
+  const t = stageKey.value === 'all' ? '' : (THEME_TABS.find((p) => p.value === stageKey.value) || {}).label
   return [d, t].filter(Boolean).join(' · ') || '全部研学'
 })
 
@@ -320,6 +346,7 @@ page {
   min-height: 100vh;
   background: #fff;
   padding-bottom: 40rpx;
+  overflow-x: hidden; /* 保险：筛选 tab 普通 view（非 scroll-view），杜绝残余横向溢出传导为页面级左右滚动 */
 }
 
 /* ═══ ① 搜索框：白上白——纯白填充 + 灰描边 + 双层投影 ═══ */
@@ -355,55 +382,83 @@ page {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ═══ ② 位置筛选条：fpill 同款白底胶囊条 ═══ */
-.dist-picker { display: block; margin: 0 12px 8px; }
-.dist-bar {
+/* ═══ ② 主题分段（对齐科技成果库：下划线 tab 分段 + ▾ 区县面板 + 蒙层） ═══ */
+.stage-wrap { position: relative; z-index: 42; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  box-sizing: border-box;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
 }
-.dist-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-.dist-city { font-size: 13px; font-weight: 600; color: #0A66C2; flex: none; }
-.dist-divider { width: 1px; height: 14px; background: #DDE1E6; flex: none; }
-.dist-value { font-size: 13px; color: #344054; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dist-value.placeholder { color: #98A2B3; }
-.dist-arr {
-  width: 7px; height: 7px;
-  border-right: 1.5px solid #667085;
-  border-bottom: 1.5px solid #667085;
-  transform: rotate(45deg);
-  flex: none; margin-left: auto;
-}
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after { content: ''; position: absolute; left: 8rpx; right: 8rpx; bottom: 16rpx; height: 3rpx; border-radius: 2rpx; background: #074D92; animation: toc-in .22s ease-out; }
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.stg-arr { font-size: 24rpx; color: #667085; transition: transform .2s ease, color .2s ease; padding: 20rpx 16rpx; margin: -20rpx -16rpx; }
+.stg-arr.up { transform: rotate(180deg); color: #074D92; }
 
-/* ═══ ③ 主题分类胶囊（fpill） ═══ */
-.fbar { padding: 0 12px 8px; background: #fff; }
-.fscroll { width: 100%; white-space: nowrap; }
-.finner { display: inline-flex; gap: 8px; padding-bottom: 4px; }
-.fpill {
+/* 区县面板：absolute 浮层（对齐科技成果库），展开时不挤动下方内容 */
+.field-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 43;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+  padding: 12px 14px 14px;
+  max-height: 62vh;
+  overflow-y: auto;
+  animation: panelIn .3s cubic-bezier(.32, .72, 0, 1);
+}
+.field-panel.closing { animation: panelOut .21s ease-in forwards; }
+@keyframes panelOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.field-panel .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
+.field-panel .p-group:first-child { margin-top: 0; }
+.p-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-chip {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #E4E7EC;
+  border-radius: 6px;
+  background: #fff;
+  color: #667085;
+  font-size: 13px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 18px;
-  border: 1px solid #E4E7EC;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  color: #344054;
-  font-size: 12px;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
 }
-.fpill.on { border-color: #0A66C2; color: #0A66C2; font-weight: 600; background: #F4F8FC; }
-.fpill-press { transform: scale(0.95); opacity: 0.85; }
-.fpv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
+.p-chip { transition: background .2s ease, border-color .2s ease, color .2s ease, transform .3s cubic-bezier(.34, 1.8, .64, 1); }
+.p-chip:active { transform: scale(.94); transition: transform .08s linear; }
+.p-chip.act { animation: chipPop .3s cubic-bezier(.34, 1.8, .64, 1); }
+@keyframes chipPop { 0% { transform: scale(1); } 40% { transform: scale(.94); } 100% { transform: scale(1); } }
 
-/* ═══ ④ 信息行 ═══ */
+/* 蒙层：从分段底部开始置灰（top 由 maskTop 实测），低于分段(42)/面板(43) */
+.panel-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  background: rgba(16, 24, 40, 0.2);
+  animation: maskIn .22s ease-out;
+}
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ═══ ③ 信息行 ═══ */
 .ir {
   display: flex;
   justify-content: space-between;
@@ -526,4 +581,20 @@ page {
 .page.no-motion .card,
 .page.no-motion .ir { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
+.page.no-motion .stg-arr { transition: none; }
+.page.no-motion .p-chip { transition: none; }
+.page.no-motion .p-chip.act { animation: none; }
+.page.no-motion .stg.on::after { animation: none; }
+.page.no-motion .field-panel { animation: panelIn .3s ease-out; }
+.page.no-motion .field-panel.closing { animation: panelOut .16s ease-in forwards; }
+.page.no-motion .panel-mask { animation: maskIn .22s ease-out; }
+.page.no-motion .p-chip:active { transform: none; }
+
+/* ═══ prefers-reduced-motion（无障碍：系统减弱动效） ═══ */
+@media (prefers-reduced-motion: reduce) {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 </style>
