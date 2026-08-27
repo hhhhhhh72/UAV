@@ -24,20 +24,22 @@
         </view>
       </view>
 
-      <!-- 分类分段：下划线 tab（对齐科技成果库） -->
-      <view class="stage-wrap">
-        <view class="stages">
-          <view
-            v-for="chip in categoryChips"
-            :key="chip.value"
-            class="stg"
-            :class="{ on: activeCategory === chip.value }"
-            @tap="onCategoryChange(chip.value)"
-          >
-            <text>{{ chip.label }}</text>
+      <!-- 分类分段：下划线 tab（对齐科技成果库；7 类超宽 → 单行横向滚动，溢出不换行） -->
+      <scroll-view scroll-x :show-scrollbar="false" class="stages-scroll">
+        <view class="stage-wrap">
+          <view class="stages">
+            <view
+              v-for="chip in categoryChips"
+              :key="chip.value"
+              class="stg"
+              :class="{ on: activeCategory === chip.value }"
+              @tap="onCategoryChange(chip.value)"
+            >
+              <text>{{ chip.label }}</text>
+            </view>
           </view>
         </view>
-      </view>
+      </scroll-view>
     </view>
 
     <!-- Banner 渐变卡（参考页同款深蓝系） -->
@@ -420,9 +422,10 @@ page {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 分类分段（对齐科技成果库：下划线 tab） ===== */
+/* ===== 分类分段（对齐科技成果库：下划线 tab；7 类超宽单行横滑，不换行） ===== */
+.stages-scroll { white-space: nowrap; width: 100%; }
 .stage-wrap { position: relative; z-index: 42; }
-.stages { display: flex; flex-wrap: wrap; gap: 32rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
 .stg {
   position: relative;
   flex-shrink: 0;

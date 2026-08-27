@@ -21,20 +21,22 @@
         </view>
       </view>
 
-      <!-- 筛选分段：行业（下划线 tab 分段，对齐科技成果库；动态分类超过一行自动换行） -->
-      <view v-if="cats.length > 1" class="stage-wrap">
-        <view class="stages">
-          <view
-            v-for="c in cats"
-            :key="c"
-            class="stg"
-            :class="{ on: activeCat === c }"
-            @tap="pickStageTab(c)"
-          >
-            <text>{{ c === '' ? '全部' : c }}</text>
+      <!-- 筛选分段：行业（下划线 tab，对齐科技成果库；动态分类超宽 → 单行横向滚动） -->
+      <scroll-view v-if="cats.length > 1" scroll-x :show-scrollbar="false" class="stages-scroll">
+        <view class="stage-wrap">
+          <view class="stages">
+            <view
+              v-for="c in cats"
+              :key="c"
+              class="stg"
+              :class="{ on: activeCat === c }"
+              @tap="pickStageTab(c)"
+            >
+              <text>{{ c === '' ? '全部' : c }}</text>
+            </view>
           </view>
         </view>
-      </view>
+      </scroll-view>
     </view>
 
     <!-- ② 信息行：共 N 家 + 统计提示 -->
@@ -320,9 +322,10 @@ page {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 行业筛选分段（对齐科技成果库：下划线 tab；动态分类超宽自动换行） ===== */
+/* ===== 行业筛选分段（对齐科技成果库：下划线 tab；动态分类超宽单行横滑，不换行） ===== */
+.stages-scroll { white-space: nowrap; width: 100%; }
 .stage-wrap { position: relative; z-index: 42; }
-.stages { display: flex; flex-wrap: wrap; gap: 32rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
 .stg {
   position: relative;
   flex-shrink: 0;

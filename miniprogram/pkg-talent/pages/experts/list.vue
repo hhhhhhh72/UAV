@@ -22,20 +22,22 @@
         </view>
       </view>
 
-      <!-- 领域一级筛选：下划线 tab 分段（对齐科技成果库；单维度 → tab 即维度） -->
-      <view class="stage-wrap">
-        <view class="stages">
-          <view
-            v-for="tab in fieldTabs"
-            :key="tab.value"
-            class="stg"
-            :class="{ on: activeField === tab.value }"
-            @tap="pickStageTab(tab.value)"
-          >
-            <text>{{ tab.label }}</text>
+      <!-- 领域一级筛选：下划线 tab 分段（对齐科技成果库；7 类超宽 → 单行横向滚动） -->
+      <scroll-view scroll-x :show-scrollbar="false" class="stages-scroll">
+        <view class="stage-wrap">
+          <view class="stages">
+            <view
+              v-for="tab in fieldTabs"
+              :key="tab.value"
+              class="stg"
+              :class="{ on: activeField === tab.value }"
+              @tap="pickStageTab(tab.value)"
+            >
+              <text>{{ tab.label }}</text>
+            </view>
           </view>
         </view>
-      </view>
+      </scroll-view>
     </view>
 
     <!-- ② 信息行 -->
@@ -266,9 +268,10 @@ export default {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 领域一级筛选：下划线 tab 分段（对齐科技成果库） ===== */
+/* ===== 领域一级筛选：下划线 tab 分段（对齐科技成果库；7 类超宽单行横滑，不换行） ===== */
+.stages-scroll { white-space: nowrap; width: 100%; }
 .stage-wrap { position: relative; z-index: 42; background: #fff; }
-.stages { display: flex; flex-wrap: wrap; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; } /* flex-wrap：7 个领域 tab 自然宽超 750rpx 时换行，保留全部选项可点（不用 scroll-x 防手势联动） */
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
 .stg {
   position: relative;
   flex-shrink: 0;
