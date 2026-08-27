@@ -48,34 +48,33 @@
         </view>
       </view>
 
-      <!-- ② 位置筛选 + 证书类型（胶囊条一体） -->
-      <view class="fbar">
-        <picker
-          mode="selector"
-          :range="chongqingDistricts"
-          :value="districtIndex"
-          @change="onDistrictChange"
-          class="district-picker"
-        >
-          <view class="fpill">
-            <text class="fpv">{{ selectedDistrict || '全部区县' }}</text><text class="farr">▾</text>
+      <!-- ② 证书类型一级筛选（对齐科技成果库：下划线 tab 分段）+ ▾ 浮层面板（区县 chips） -->
+      <view class="stage-wrap">
+        <view class="stages">
+          <view
+            v-for="pill in certPills"
+            :key="pill.value"
+            class="stg"
+            :class="{ on: activeCertType === pill.value }"
+            @tap="pickCertTab(pill.value)"
+          >
+            <text>{{ pill.label }}</text>
+            <!-- ▾ 独立面板开关：未停在「全部」时点「全部」先清证书类型；停在「全部」时再点开面板 -->
+            <text v-if="pill.value === 'all'" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
           </view>
-        </picker>
-        <scroll-view scroll-x :show-scrollbar="false" class="filter-scroll">
-          <view class="filter-inner">
-            <view
-              v-for="pill in certPills"
-              :key="pill.value"
-              class="fpill"
-              :class="{ on: activeCertType === pill.value }"
-              @click="selectCertType(pill.value)"
-            >
-              <text class="fpv">{{ pill.label }}</text>
-            </view>
+        </view>
+        <!-- 区县面板：absolute 浮层（对齐科技成果库），展开时不挤动下方内容 -->
+        <view v-if="panel === 'all'" class="field-panel" :class="{ closing }">
+          <view class="p-group">区县</view>
+          <view class="p-chips">
+            <text class="p-chip" :class="{ act: selectedDistrict === '' }" @tap="pickDistrict('')">全部区县</text>
+            <text v-for="d in chongqingDistricts.slice(1)" :key="d" class="p-chip" :class="{ act: selectedDistrict === d }" @tap="pickDistrict(d)">{{ d }}</text>
           </view>
-        </scroll-view>
+        </view>
       </view>
     </view>
+    <!-- 蒙层：从 tab 分段底部开始置灰，点击外部退场收起 -->
+    <view v-if="panel" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
 
     <!-- 白色板块：信息行 + 列表 -->
     <view class="section">
@@ -235,7 +234,6 @@ onPageScroll((e) => {
 /* ===== 状态 ===== */
 const keyword = ref('')
 const selectedDistrict = ref('')   // 空 = 全部区县
-const districtIndex = ref(0)
 const activeCertType = ref('all')  // 证书类型筛选（all=全部）
 const loading = ref(false)
 const initialLoading = ref(true)
@@ -247,7 +245,53 @@ const page = ref(1)
 const pageSize = 20
 const hasMore = ref(true)
 
-/* ===== 证书类型筛选 Pills ===== */
+/* ===== 筛选面板（对齐科技成果库：tab 分段 + ▾ 浮层面板 + 蒙层） ===== */
+const panel = ref('')       // '' = 收起；'all' = 证书类型段的面板展开
+const closing = ref(false)  // 面板退场中（先播退场动画再 v-if 移除）
+const maskTop = ref(0)      // 蒙层起点（面板打开时实测：tab 分段底部）
+let panelCloseT = null
+const PANEL_CLOSE_MS = 210 // 退场动画 .21s ease-in
+
+const startClosePanel = () => {
+  if (closing.value) return // 已在退场中，防重复触发叠加定时器
+  closing.value = true
+  clearTimeout(panelCloseT)
+  panelCloseT = setTimeout(() => { panel.value = ''; closing.value = false; panelCloseT = null }, PANEL_CLOSE_MS)
+}
+const togglePanel = () => {
+  if (panel.value === 'all') { startClosePanel(); return } // 再点「全部」→ 退场收起
+  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false
+  panel.value = 'all'
+  // 蒙层起点 = 分段容器底部（实测，头部不蒙）
+  uni.nextTick(() => {
+    uni.createSelectorQuery().select('.stage-wrap').boundingClientRect((rect) => {
+      if (rect && rect.bottom) maskTop.value = Math.round(rect.bottom)
+    }).exec()
+  })
+}
+// 方案 A（同科技成果库）：非全部 tab 再点取消；「全部」未停时先清筛、已停时开面板；▾ 独立开关
+const pickCertTab = (k) => {
+  if (k !== 'all') {
+    startClosePanel()
+    activeCertType.value = activeCertType.value === k ? 'all' : k
+    fetchList(true)
+    return
+  }
+  if (activeCertType.value !== 'all') {
+    startClosePanel()
+    activeCertType.value = 'all'
+    fetchList(true)
+    return
+  }
+  togglePanel()
+}
+const pickDistrict = (d) => {
+  selectedDistrict.value = d
+  startClosePanel()
+  fetchList(true)
+}
+
+/* ===== 证书类型筛选 tab（一级，对齐科技成果库分段） ===== */
 const certPills = [
   { label: '全部', value: 'all' },
   { label: 'CAAC', value: 'caac' },
@@ -255,7 +299,7 @@ const certPills = [
   { label: '人社等级', value: 'gov_level' },
 ]
 
-/* ===== 重庆 全重庆 + 38 区县（首项为全部，选中即不传 region） ===== */
+/* ===== 重庆 38 区县（面板切片展示；首项占位「全重庆」保留切片起点，不做 chip） ===== */
 const chongqingDistricts = [
   '全重庆', '渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区',
   '南岸区', '北碚区', '渝北区', '巴南区', '万州区',
@@ -272,21 +316,7 @@ const chongqingDistricts = [
 const statusText = { recruiting: '招生中', published: '招生中', full: '已满', upcoming: '即将开课', urgent: '名额紧张' }
 const statusClass = { recruiting: 'recruiting', published: 'recruiting', full: 'full', upcoming: 'upcoming', urgent: 'urgent' }
 
-/* ===== 地区筛选 ===== */
-function onDistrictChange(e) {
-  const idx = Number(e.detail.value)
-  districtIndex.value = idx
-  // 首项「全重庆」→ 空串（全部），不传 region 参数
-  selectedDistrict.value = idx === 0 ? '' : chongqingDistricts[idx]
-  fetchList(true)
-}
-
-/* 证书类型筛选 */
-function selectCertType(value) {
-  if (activeCertType.value === value) return
-  activeCertType.value = value
-  fetchList(true)
-}
+/* 证书类型筛选（pickCertTab 已在面板控制段处理） */
 
 /* ===== 数据获取 ===== */
 async function fetchList(reset) {
@@ -585,7 +615,7 @@ onReachBottom(() => {
 .shortcut-arrow { color: #98A2B3; font-size: 32rpx; line-height: 1; }
 
 /* ================================================================= */
-/* ① 吸顶头部：搜索 + 筛选胶囊                                        */
+/* ① 吸顶头部：搜索 */
 /* ================================================================= */
 .sticky-head {
   position: sticky;
@@ -625,41 +655,105 @@ onReachBottom(() => {
 .b-sep { width: 1px; height: 14px; background: #E5E8EC; }
 .b-sbtn { font-size: 13px; color: #0A66C2; font-weight: 600; }
 
-/* 筛选胶囊条 */
-.fbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px 6px;
+/* 筛选分段（对齐科技成果库：下划线 tab + ▾ 面板 + 蒙层）；白底衔接下方卡片区 */
+.stage-wrap {
+  position: relative;
+  z-index: 42;
+  margin: 8px 12px 0;
+  background: #ffffff;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.04);
 }
-.district-picker { display: block; flex-shrink: 0; }
-.filter-scroll { flex: 1; min-width: 0; }
-.filter-inner { display: flex; gap: 8px; padding-right: 4px; }
 
-.fpill {
+.stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
+.stg {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  gap: 3px;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 999rpx;
+  gap: 4rpx;
+  padding: 0 8rpx;
+  font-size: 24rpx;
+  color: #667085;
+}
+.stg.on { color: #074D92; font-weight: 600; }
+.stg.on::after {
+  content: '';
+  position: absolute;
+  left: 8rpx;
+  right: 8rpx;
+  bottom: 16rpx;
+  height: 3rpx;
+  border-radius: 2rpx;
+  background: #074D92;
+  animation: toc-in 0.22s ease-out;
+}
+@keyframes toc-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.stg-arr {
+  font-size: 24rpx;
+  color: #667085;
+  transition: transform 0.2s ease, color 0.2s ease;
+  padding: 20rpx 16rpx;
+  margin: -20rpx -16rpx;
+}
+.stg-arr.up { transform: rotate(180deg); color: #074D92; }
+
+/* 区县面板：absolute 浮层（同科技成果库），展开时挤动下方内容 */
+.field-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 43;
   background: #fff;
-  border: 1px solid #E5E8EC;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.08);
+  padding: 12px 14px 14px;
+  max-height: 62vh;
+  overflow-y: auto;
+  animation: panelIn 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.field-panel.closing { animation: panelOut 0.21s ease-in forwards; }
+@keyframes panelOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.field-panel .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
+.field-panel .p-group:first-child { margin-top: 0; }
+.p-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.p-chip {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #E4E7EC;
+  border-radius: 6px;
+  background: #fff;
+  color: #667085;
   font-size: 13px;
-  color: #344054;
-  white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 3px 10px rgba(16, 24, 40, 0.04);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
 }
-.fpill.on {
-  border-color: #0A66C2;
-  color: #0A66C2;
-  font-weight: 600;
-  background: #F4F8FC;
+.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
+.p-chip { transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.8, 0.64, 1); }
+.p-chip:active { transform: scale(0.94); transition: transform 0.08s linear; }
+.p-chip.act { animation: chipPop 0.3s cubic-bezier(0.34, 1.8, 0.64, 1); }
+@keyframes chipPop { 0% { transform: scale(1); } 40% { transform: scale(0.94); } 100% { transform: scale(1); } }
+
+/* 蒙层：从分段底部开始置灰（top 由 maskTop 实测）；z 低于吸顶头部(20)，面板在头部内不被遮 */
+.panel-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  background: rgba(16, 24, 40, 0.2);
+  animation: maskIn 0.22s ease-out;
 }
-.fpill:active { transform: scale(0.95); opacity: 0.85; }
-.fpv { line-height: 1; }
-.farr { font-size: 10px; color: #98A2B3; }
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* 白色板块：信息行 */
 .section { padding: 12px 12px 0; }
@@ -709,7 +803,14 @@ onReachBottom(() => {
 /* no-motion：装饰动画关闭 */
 .page.no-motion .ir,
 .page.no-motion .card { animation: none; transition: opacity 0.15s ease; }
-.page.no-motion .fpill { transition: none; }
+.page.no-motion .stg-arr { transition: none; }
+.page.no-motion .p-chip { transition: none; }
+.page.no-motion .p-chip.act { animation: none; }
+.page.no-motion .stg.on::after { animation: none; }
+.page.no-motion .field-panel { animation: panelIn 0.3s ease-out; }
+.page.no-motion .field-panel.closing { animation: panelOut 0.16s ease-in forwards; }
+.page.no-motion .panel-mask { animation: maskIn 0.22s ease-out; }
+.page.no-motion .p-chip:active { transform: none; }
 .page.no-motion .shortcut-press { transform: none; }
 
 /* ================================================================= */
@@ -1020,7 +1121,7 @@ onReachBottom(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card, .btn-primary {
+  .card, .btn-primary, .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
     animation: none !important;
     transition: none !important;
   }
