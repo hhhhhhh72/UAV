@@ -4,9 +4,6 @@
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">我的收藏</text>
-      <view class="head-action" :style="{ marginRight: capsuleGap + 'px' }" @tap="goHall">
-        <text class="head-action-text">需求大厅</text>
-      </view>
     </view>
 
     <!-- 类型筛选 -->
@@ -83,7 +80,7 @@ const loadError = ref(false)
 // 自定义导航：状态栏留白 + 右上角避让微信胶囊
 const statusBarH = ref(20)
 try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
-const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
+const { topPad, initSafeTop } = useSafeTop(true)
 const headerStyle = computed(() => ({
   paddingTop: (topPad.value || statusBarH.value) + 'px',
   height: (56 + (topPad.value || statusBarH.value)) + 'px',
@@ -247,7 +244,6 @@ const goDetail = (post) => {
   // 需求 / 服务 共用详情页（按 id 分流）
   safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(post.id))
 }
-const goHall = () => safeNavigateTo('/pages/demands/index')
 const goBack = () => safeBack()
 
 /* ================= 操作 ================= */
@@ -288,6 +284,7 @@ async function unfavorite(post) {
 /* 头部 */
 .page-header {
   box-sizing: border-box;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8rpx;
@@ -299,7 +296,16 @@ async function unfavorite(post) {
 }
 .back-btn { width: 72rpx; height: 72rpx; display: flex; align-items: center; justify-content: center; }
 .back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
-.page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; text-align: center; }
+.page-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #17212B;
+  text-align: center;
+  white-space: nowrap;
+}
 .head-action { padding: 14rpx; }
 .head-action-text { color: #0A66C2; font-size: 26rpx; font-weight: 600; }
 
