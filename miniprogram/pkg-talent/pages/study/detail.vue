@@ -392,7 +392,7 @@ onReady(() => {
 /* ═══ 一、Hero（蓝色系）═══ */
 .hero {
   position: relative;
-  height: 440rpx;
+  height: 600rpx;
   overflow: hidden;
   background: linear-gradient(135deg, #0A1F44 0%, #1E5EFF 100%);
 }
@@ -440,7 +440,7 @@ onReady(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 180rpx;
+  height: 300rpx;
   background: linear-gradient(180deg, transparent, rgba(10,31,68,0.85));
 }
 
@@ -478,12 +478,12 @@ onReady(() => {
   font-weight: 700;
 }
 
-/* 标题区 */
+/* 标题区（贴底：避开内容卡 -40rpx 上浮，底部留 88rpx 空间） */
 .hero-title-wrap {
   position: absolute;
   left: 32rpx;
   right: 32rpx;
-  bottom: 48rpx;
+  bottom: 88rpx;
   z-index: 4;
   display: flex;
   flex-direction: column;
