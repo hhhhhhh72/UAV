@@ -10,14 +10,14 @@
       <template v-if="detail">
         <!-- 顶部导航与课程封面分层，避免文字与系统控件压在同一张图上 -->
         <view class="detail-nav" :style="{ paddingTop: statusBarH + 'px' }">
-          <view class="detail-nav-back" hover-class="detail-nav-back--press" :hover-stay-time="100" @click="goBack">
+          <view class="detail-nav-back" hover-class="detail-nav-back--press" :hover-stay-time="100" aria-role="button" aria-label="返回" @click="goBack">
             <text>‹</text>
           </view>
           <text class="detail-nav-title">培训详情</text>
           <view class="detail-nav-balance" />
         </view>
 
-        <!-- ① 课程封面 -->
+        <!-- 课程封面 -->
         <view class="hero">
           <image v-if="heroImage(detail)" :src="heroImage(detail)" mode="aspectFill" class="hero-img" lazy-load />
           <view v-else class="hero-fallback">
@@ -25,8 +25,8 @@
           </view>
 
           <view class="hero-mask" />
-          <!-- 课程状态 -->
-          <view class="status-badge">
+          <!-- 课程状态：紧缺/已满用警示色与"招生中"区分 -->
+          <view class="status-badge" :class="'status-badge--' + (detail && detail.status)">
             <text class="status-text">{{ statusText(detail) }}</text>
           </view>
 
@@ -126,14 +126,17 @@
               <text class="section-title">培训参考价</text>
               <text class="section-sub">元 / 人 · 仅供参考</text>
             </view>
+            <text class="price-note">报名后 24 小时内可联系协会取消；实际费用以机构确认档位为准</text>
             <view class="price-list" v-if="priceList(detail).length > 0">
               <view
-                v-for="(p, i) in priceList(detail)"
+                v-for="(p, i) in visiblePriceList"
                 :key="i"
                 class="price-item"
                 :class="{ 'price-item--hot': i === 0, 'price-item--active': activePriceIndex === i }"
                 hover-class="price-press"
                 :hover-stay-time="100"
+                aria-role="button"
+                :aria-label="'选择价格档 ' + p.name + ' ' + p.price + ' 元'"
                 @click="handlePriceTap(p, i)"
               >
                 <view v-if="i === 0" class="price-hot-badge">热销</view>
@@ -146,6 +149,9 @@
                   <text class="price-value" :class="{ 'price-value--hot': i === 0 }">{{ p.price }}</text>
                   <text class="price-unit">/{{ p.unit || '人' }}</text>
                 </view>
+              </view>
+              <view v-if="priceList(detail).length > 4" class="price-more" aria-role="button" :aria-label="priceExpanded ? '收起更多档位' : '展开更多档位'" @click="priceExpanded = !priceExpanded">
+                <text>{{ priceExpanded ? '收起档位' : '更多档位（' + (priceList(detail).length - 4) + '）' }}</text>
               </view>
             </view>
             <view v-else class="price-empty">费用面议</view>
@@ -163,7 +169,7 @@
           <view class="section">
             <text class="section-title">联系信息</text>
             <view class="contact-card">
-              <view class="contact-item" hover-class="contact-press" :hover-stay-time="100" @click="openMap">
+              <view class="contact-item" hover-class="contact-press" :hover-stay-time="100" aria-role="button" aria-label="打开地图导航" @click="openMap">
                 <view class="contact-icon contact-icon--blue"><view class="ci-pin" /></view>
                 <view class="contact-body">
                   <text class="contact-key">地址</text>
@@ -171,7 +177,7 @@
                 </view>
                 <view class="contact-arrow">›</view>
               </view>
-              <view class="contact-item" hover-class="contact-press" :hover-stay-time="100" @click="callPhone">
+              <view class="contact-item" hover-class="contact-press" :hover-stay-time="100" aria-role="button" :aria-label="'拨打电话 ' + displayPhone" @click="callPhone">
                 <view class="contact-icon contact-icon--green"><view class="ci-phone" /></view>
                 <view class="contact-body">
                   <text class="contact-key">电话</text>
@@ -248,7 +254,7 @@
     <!-- ═══ ③ 底部固定操作栏 ═══ -->
     <view v-if="detail" class="bottom-bar">
       <!-- 收藏（真实接口，登录后可用） -->
-      <view class="btn-fav" :class="{ on: isFav }" hover-class="btn-fav-press" @click="toggleFav">
+      <view class="btn-fav" :class="{ on: isFav }" hover-class="btn-fav-press" aria-role="button" :aria-label="isFav ? '取消收藏' : '收藏'" @click="toggleFav">
         <view class="fav-heart" :class="{ 'fav-heart--on': isFav }" />
         <text class="fav-label">{{ isFav ? '已收藏' : '收藏' }}</text>
       </view>
@@ -261,7 +267,7 @@
         </view>
       </view>
       <view class="bottom-actions">
-        <view class="btn-outline" hover-class="btn-outline-press" :hover-stay-time="100" @click="handleConsult">
+        <view class="btn-outline" hover-class="btn-outline-press" :hover-stay-time="100" aria-role="button" aria-label="联系咨询（拨打）" @click="handleConsult">
           <view class="btn-phone-ico" />
           <text class="btn-outline-text">联系咨询</text>
         </view>
@@ -270,6 +276,8 @@
           :class="{ 'btn-primary--disabled': enrollDisabled() }"
           hover-class="btn-primary-press"
           :hover-stay-time="100"
+          aria-role="button"
+          :aria-label="enrollLabel()"
           @click="enrollDisabled() ? onEnrollBlocked() : handleEnroll()"
         >
           <text class="btn-primary-text">{{ enrollLabel() }}</text>
@@ -277,8 +285,8 @@
       </view>
     </view>
 
-    <!-- ═══ ④ 自定义 Toast ═══ -->
-    <view v-if="toast.show" class="custom-toast" :class="{ 'custom-toast--out': toast.hide }">
+    <!-- ═══ ④ 自定义 Toast（成功/中性/错误三态图标） ═══ -->
+    <view v-if="toast.show" class="custom-toast" :class="{ 'custom-toast--out': toast.hide, 'custom-toast--' + (toast.type || 'success') }">
       <view class="toast-icon"><view class="toast-check" /></view>
       <text class="toast-text">{{ toast.msg }}</text>
     </view>
@@ -300,6 +308,7 @@ const detail = ref(null)
 const statusBarH = ref(20)
 try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
 const activePriceIndex = ref(0) // 培训参考价选中项（默认第一个热销）
+const priceExpanded = ref(false) // 价格档折叠：首屏最多 4 档，超出收起
 const imgLoaded = reactive({ banner: false, certificate: false, env: {} })
 
 /* Toast */
@@ -508,7 +517,7 @@ async function toggleFav() {
     isFav.value = next
     showCustomToast(next ? '已收藏，可在「我的收藏」查看' : '已取消收藏')
   } catch (e) {
-    showCustomToast('操作失败，请重试')
+    showCustomToast('操作失败，请重试', 'error')
   } finally {
     favBusy.value = false
   }
@@ -545,7 +554,7 @@ function openMap() {
   if (addr) {
     uni.setClipboardData({
       data: addr,
-      success: function () { showCustomToast('地址已复制，可在导航 App 中搜索') },
+      success: function () { showCustomToast('地址已复制，可在导航 App 中搜索', 'info') },
     })
     return
   }
@@ -567,6 +576,11 @@ const bottomPrice = computed(() => {
   if (!list.length) return '面议'
   const p = list[activePriceIndex.value]
   return p ? String(p.price) : String((list[0] && list[0].price) || '面议')
+})
+// 价格档渐进披露：未展开仅显示前 4 档，避免决策点 >4 个选项
+const visiblePriceList = computed(() => {
+  const list = priceList(detail.value)
+  return priceExpanded.value || list.length <= 4 ? list : list.slice(0, 4)
 })
 function handleConsult() {
   // 咨询真化：统一拨 displayPhone（机构号或平台热线，与联系卡展示一致）
@@ -593,35 +607,45 @@ function enrollLabel() {
   return '立即报名'
 }
 function onEnrollBlocked() {
+  // 已满/即将开课不再只是 Toast 死胡同：给出「联系机构咨询」真出口（同底部咨询拨号）
   const s = detail.value && detail.value.status
-  if (s === 'full') showCustomToast('本期名额已满，可关注下一期开班')
-  else showCustomToast('本课程即将开放报名，敬请期待')
+  const tone = s === 'full' ? '本期名额已满，可关注下一期开班，或直接咨询机构详询候补' : '本课程即将开放报名，可先咨询机构了解安排'
+  uni.showModal({
+    title: s === 'full' ? '本期已满' : '即将开课',
+    content: tone,
+    confirmText: '联系机构咨询',
+    cancelText: '我知道了',
+    success: (r) => {
+      if (r.confirm) uni.makePhoneCall({ phoneNumber: displayPhone.value })
+    },
+  })
 }
 function handlePriceTap(p, i) {
   // 切换选中项（高亮态带动画过渡）
   if (activePriceIndex.value !== i) activePriceIndex.value = i
-  showCustomToast(p.name + ' · ¥' + p.price)
+  showCustomToast(p.name + ' · ¥' + p.price, 'info')
 }
 function previewCert() {
   const url = certificateImage(detail.value)
   if (url) uni.previewImage({ urls: [url], current: url })
-  else showCustomToast('证书图待上传')
+  else showCustomToast('证书图待上传', 'info')
 }
 function previewEnv(idx) {
   const imgs = envImages(detail.value)
   if (imgs.length > 0) uni.previewImage({ urls: imgs, current: imgs[idx] || imgs[0] })
 }
 
-function showCustomToast(msg) {
+function showCustomToast(msg, type) {
+  // type: success（默认）/ info（中性）/ error（失败）——提示语义不再一律"绿色对勾"
   clearTimeout(toastTimer)
   clearTimeout(toastOutTimer)
-  toast.value = { show: true, hide: false, msg: msg }
+  toast.value = { show: true, hide: false, msg: msg, type: type || 'success' }
   toastTimer = setTimeout(function () {
     toast.value.hide = true
     toastOutTimer = setTimeout(function () {
       toast.value.show = false
     }, 200)
-  }, 2000)
+  }, 2200)
 }
 
 onLoad(function (options) {
@@ -673,40 +697,6 @@ onPullDownRefresh(function () {
   inset: 0;
   background: linear-gradient(180deg, rgba(7, 77, 146, 0.35) 0%, rgba(7, 77, 146, 0.10) 30%, rgba(7, 77, 146, 0.65) 100%);
 }
-.hero-highlight {
-  position: absolute;
-  left: 80%;
-  top: 10%;
-  width: 900rpx;
-  height: 400rpx;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, transparent 70%);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.hero-nav {
-  position: absolute;
-  left: 0;
-  right: 0;
-  padding: 8rpx 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 5;
-}
-.nav-back {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1rpx solid rgba(255, 255, 255, 0.24);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 180ms var(--ease);
-}
-.nav-press { background: rgba(255, 255, 255, 0.32); }
-.nav-back-icon { font-size: 40rpx; color: #ffffff; font-weight: 300; line-height: 1; }
 .status-badge {
   position: absolute;
   left: 32rpx;
@@ -730,7 +720,7 @@ onPullDownRefresh(function () {
 .hero-title {
   display: block;
   font-size: 40rpx;
-  font-weight: 760;
+  font-weight: 700;
   color: #ffffff;
   line-height: 1.35;
   text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.32);
@@ -798,7 +788,7 @@ onPullDownRefresh(function () {
 .section-title {
   display: block;
   font-size: 30rpx;
-  font-weight: 760;
+  font-weight: 700;
   color: #17212B;
   margin-bottom: 14rpx;
   padding-left: 16rpx;
@@ -813,7 +803,7 @@ onPullDownRefresh(function () {
   border-left: 6rpx solid #0A66C2;
 }
 .section-head .section-title { margin-bottom: 0; padding-left: 0; border-left: none; }
-.section-sub { font-size: 20rpx; color: #98A2B3; }
+.section-sub { font-size: 20rpx; color: #667085; }
 
 /* 课程信息：将日期、时长、地点、报名情况前置，避免详情首屏出现无数据评分 */
 .course-info-card {
@@ -825,7 +815,7 @@ onPullDownRefresh(function () {
   box-shadow: 0 6rpx 18rpx rgba(16, 24, 40, 0.06);
 }
 .course-info-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18rpx; }
-.course-info-title { font-size: 30rpx; font-weight: 760; color: #17212B; }
+.course-info-title { font-size: 30rpx; font-weight: 700; color: #17212B; }
 .course-info-status { padding: 5rpx 12rpx; border-radius: 999rpx; background: #FFF0E6; color: #E96012; font-size: 20rpx; font-weight: 600; }
 .course-info-grid { display: flex; flex-wrap: wrap; overflow: hidden; border: 1rpx solid #EEF1F4; border-radius: 14rpx; }
 .course-info-item { width: 50%; min-width: 0; min-height: 102rpx; display: flex; flex-direction: column; justify-content: center; gap: 8rpx; padding: 14rpx 16rpx; box-sizing: border-box; }
@@ -851,8 +841,8 @@ onPullDownRefresh(function () {
   padding-right: 28rpx;
   flex-shrink: 0;
 }
-.rating-score { font-size: 48rpx; font-weight: 760; color: #E96012; line-height: 1; }
-.rating-total { font-size: 22rpx; font-weight: 500; color: #98A2B3; }
+.rating-score { font-size: 48rpx; font-weight: 700; color: #0A66C2; line-height: 1; }
+.rating-total { font-size: 22rpx; font-weight: 500; color: #667085; }
 .rating-stars { display: flex; gap: 2rpx; }
 .star {
   width: 28rpx;
@@ -874,7 +864,7 @@ onPullDownRefresh(function () {
 .rating-right { flex: 1; display: flex; flex-direction: column; gap: 12rpx; }
 .r-stat { display: flex; align-items: center; justify-content: space-between; }
 .r-key { font-size: 22rpx; color: #667085; }
-.r-val { font-size: 22rpx; font-weight: 760; color: #0A66C2; }
+.r-val { font-size: 22rpx; font-weight: 700; color: #0A66C2; }
 
 /* 标签分组卡 */
 .group-card {
@@ -971,20 +961,12 @@ onPullDownRefresh(function () {
   font-weight: 600;
 }
 .price-left { flex: 1; min-width: 0; }
-.price-name { display: block; font-size: 28rpx; font-weight: 720; color: #17212B; }
-.price-desc { display: flex; flex-wrap: wrap; gap: 4rpx 12rpx; margin-top: 10rpx; }
-.inc-item { font-size: 20rpx; color: #667085; position: relative; }
-.inc-item + .inc-item::before {
-  content: '·';
-  position: absolute;
-  left: -8rpx;
-  color: #98A2B3;
-}
+.price-name { display: block; font-size: 28rpx; font-weight: 700; color: #17212B; }
 .price-right { display: flex; align-items: baseline; flex-shrink: 0; }
 .price-symbol { font-size: 22rpx; font-weight: 700; color: #E96012; }
-.price-value { font-size: 36rpx; font-weight: 760; color: #17212B; line-height: 1; }
+.price-value { font-size: 36rpx; font-weight: 700; color: #17212B; line-height: 1; }
 .price-value--hot { color: #E96012; }
-.price-unit { font-size: 20rpx; color: #98A2B3; margin-left: 4rpx; }
+.price-unit { font-size: 20rpx; color: #667085; margin-left: 4rpx; }
 
 /* 机构简介卡 */
 .intro-card {
@@ -1066,7 +1048,7 @@ onPullDownRefresh(function () {
   margin-left: -1.5rpx;
 }
 .contact-body { flex: 1; min-width: 0; }
-.contact-key { display: block; font-size: 20rpx; color: #98A2B3; }
+.contact-key { display: block; font-size: 20rpx; color: #667085; }
 .contact-val {
   display: block;
   font-size: 26rpx;
@@ -1078,13 +1060,13 @@ onPullDownRefresh(function () {
   white-space: nowrap;
 }
 .contact-val--link { color: #0A66C2; }
-.contact-arrow { font-size: 32rpx; color: #98A2B3; }
+.contact-arrow { font-size: 32rpx; color: #667085; }
 
 /* 培训资格证卡 */
 .cert-card {
   position: relative;
-  background: linear-gradient(135deg, #FEF6E7 0%, #fff7ed 50%, #FEF6E7 100%);
-  border: 1rpx dashed #B54708;
+  background: linear-gradient(135deg, #EAF3FB 0%, #F4F9FE 50%, #EAF3FB 100%);
+  border: 1rpx dashed #9CC3EA;
   border-radius: 20rpx;
   padding: 36rpx;
   overflow: hidden;
@@ -1096,13 +1078,13 @@ onPullDownRefresh(function () {
   width: 160rpx;
   height: 160rpx;
   border-radius: 50%;
-  background: rgba(181, 71, 8, 0.08);
+  background: rgba(10, 102, 194, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 72rpx;
-  font-weight: 760;
-  color: rgba(181, 71, 8, 0.2);
+  font-weight: 700;
+  color: rgba(10, 102, 194, 0.2);
 }
 .cert-verified {
   position: absolute;
@@ -1127,7 +1109,7 @@ onPullDownRefresh(function () {
 .cert-verified-text { font-size: 20rpx; font-weight: 600; color: #ffffff; }
 /* 证书未上传：灰色待上传态（澄清：无图不再伪装"已认证"） */
 .cert-verified--pending {
-  background: #98A2B3;
+  background: #667085;
   box-shadow: 0 4rpx 10rpx rgba(152, 162, 179, 0.28);
 }
 .cert-center { display: flex; flex-direction: column; align-items: center; gap: 12rpx; position: relative; z-index: 1; }
@@ -1159,7 +1141,7 @@ onPullDownRefresh(function () {
   gap: 8rpx;
   transition: background 180ms var(--ease);
 }
-.cert-upload-press { background: rgba(181, 71, 8, 0.06); }
+.cert-upload-press { background: rgba(10, 102, 194, 0.08); }
 .cert-upload-ico {
   width: 20rpx; height: 20rpx;
   border: 2rpx solid #B54708;
@@ -1293,16 +1275,16 @@ onPullDownRefresh(function () {
 .fav-label { font-size: 18rpx; color: #667085; }
 .btn-fav.on .fav-heart { color: #E96012; }
 .btn-fav.on .fav-label { color: #E96012; font-weight: 600; }
-.fee-label { font-size: 20rpx; color: #98A2B3; }
+.fee-label { font-size: 20rpx; color: #667085; }
 .fee-price { display: flex; align-items: baseline; }
 .fee-symbol { font-size: 22rpx; font-weight: 700; color: #E96012; }
 .fee-value {
   font-size: 44rpx;
-  font-weight: 760;
+  font-weight: 700;
   color: #E96012;
   line-height: 1;
 }
-.fee-unit { font-size: 20rpx; color: #98A2B3; margin-left: 4rpx; }
+.fee-unit { font-size: 20rpx; color: #667085; margin-left: 4rpx; }
 .bottom-actions { display: flex; gap: 12rpx; flex: 1; justify-content: flex-end; }
 .btn-outline {
   display: flex;
@@ -1392,6 +1374,26 @@ onPullDownRefresh(function () {
 .hero-mask { background: linear-gradient(180deg, rgba(4, 30, 68, 0.08) 0%, rgba(4, 30, 68, 0.05) 34%, rgba(4, 30, 68, 0.8) 100%); }
 .status-badge { top: 18rpx; left: 18rpx; padding: 7rpx 14rpx; border-radius: 999rpx; background: rgba(255, 255, 255, 0.92); box-shadow: none; }
 .status-text { color: #0A66C2; font-size: 20rpx; font-weight: 650; }
+/* 稀缺状态与招生中区分：已满=红系、名额紧张=橙系、即将开课=灰蓝系 */
+.status-badge--full { background: #FDECEC !important; }
+.status-badge--full .status-text { color: #D92D20; }
+.status-badge--urgent { background: #FFF3E4 !important; }
+.status-badge--urgent .status-text { color: #E96012; }
+.status-badge--upcoming { background: #EEF1F4 !important; }
+.status-badge--upcoming .status-text { color: #5D6B82; }
+.price-note { display: block; margin: -6rpx 0 16rpx; font-size: 22rpx; color: #667085; line-height: 1.6; }
+.price-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18rpx;
+  border: 2rpx dashed #C9DFF5;
+  border-radius: 16rpx;
+  color: #0A66C2;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+.price-more:active { background: #EAF3FB; }
 .hero-bottom { left: 24rpx; right: 24rpx; bottom: 24rpx; }
 .hero-title { font-size: 36rpx; line-height: 1.3; text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.18); }
 .hero-org { margin-top: 8rpx; color: rgba(255, 255, 255, 0.84); }
@@ -1459,6 +1461,25 @@ onPullDownRefresh(function () {
   border-bottom: 3rpx solid #5BFFB0;
   transform: rotate(-45deg) translate(1rpx, -1rpx);
 }
+
+/* Toast 三态：success 绿勾（默认）/ info 蓝点 / error 红叉 */
+.custom-toast--info .toast-icon { background: rgba(104, 176, 255, 0.18); }
+.custom-toast--info .toast-check {
+  width: 10rpx; height: 10rpx;
+  border: none;
+  border-radius: 50%;
+  background: #7EC0FF;
+  transform: none;
+}
+.custom-toast--error .toast-icon { background: rgba(255, 107, 107, 0.18); }
+.custom-toast--error .toast-check {
+  width: 18rpx; height: 18rpx;
+  border: none;
+  border-radius: 0;
+  background: #FF8A8A;
+  transform: none;
+  clip-path: polygon(50% 26%, 82% 6%, 94% 18%, 64% 50%, 94% 82%, 82% 94%, 50% 64%, 18% 94%, 6% 82%, 36% 50%, 6% 18%, 18% 6%);
+}
 .toast-text { font-size: 26rpx; color: #ffffff; font-weight: 500; line-height: 1.4; }
 
 /* ═══ 动画 ═══ */
@@ -1473,7 +1494,7 @@ onPullDownRefresh(function () {
 
 /* ═══ 减少动态效果支持 ═══ */
 @media (prefers-reduced-motion: reduce) {
-  .custom-toast {
+  .page * {
     animation: none !important;
     transition: none !important;
   }
