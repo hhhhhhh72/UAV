@@ -43,15 +43,17 @@
             </button>
           </view>
 
-          <!-- 左下角赛事首字徽章（半嵌在 Hero 底部，与内容层同排对齐） -->
-          <view class="hero-emblem"><text class="emblem-char">{{ emblemChar(detail) }}</text></view>
+          <!-- 状态徽章（对齐培训页：Hero 左上，absolute 定位） -->
+          <view class="status-badge" :class="statusClass(derivedStatus(detail))">{{ statusTextOf(detail) }}</view>
 
-          <!-- 内容层（对齐培训详情页 hero-bottom：徽章 + 标题 + 标签贴底） -->
+          <!-- 内容层（对齐培训页 hero-bottom：徽章 + 标题贴底；首字徽章与标题同行流式防重叠） -->
           <view class="hero-content">
-            <view class="status-badge" :class="statusClass(derivedStatus(detail))">{{ statusTextOf(detail) }}</view>
-            <text class="hero-title">{{ detail.title || detail.name || '未知赛事' }}</text>
-            <view class="hero-tags">
-              <text v-for="tag in compTags(detail)" :key="tag" class="hero-tag">{{ tag }}</text>
+            <view class="hero-emblem"><text class="emblem-char">{{ emblemChar(detail) }}</text></view>
+            <view class="hero-text">
+              <text class="hero-title">{{ detail.title || detail.name || '未知赛事' }}</text>
+              <view class="hero-tags">
+                <text v-for="tag in compTags(detail)" :key="tag" class="hero-tag">{{ tag }}</text>
+              </view>
             </view>
           </view>
         </view>
@@ -389,10 +391,10 @@ onPullDownRefresh(function () {
 .hero {
   position: relative;
   width: 100%;
-  min-height: 500rpx;
+  min-height: 520rpx;
   overflow: hidden;
   background: linear-gradient(160deg, #0a5897 0%, #074D92 100%);
-  padding: 40px 32rpx 96rpx;
+  padding: 40px 32rpx 40rpx;
   box-sizing: border-box;
 }
 
@@ -426,28 +428,6 @@ onPullDownRefresh(function () {
   background: linear-gradient(180deg, rgba(7, 77, 146, 0) 0%, rgba(7, 77, 146, 0.65) 100%);
   pointer-events: none;
   z-index: 1;
-}
-
-/* 左下角首字徽章：完整收纳在 Hero 内，与内容层同排（对齐培训页 hero-bottom 底布局） */
-.hero-emblem {
-  position: absolute;
-  left: 32rpx;
-  bottom: 112rpx;
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 22rpx;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3;
-  box-shadow: 0 6rpx 16rpx rgba(7, 77, 146, 0.25);
-}
-
-.emblem-char {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: #0A66C2;
 }
 
 /* ===== 兜底装饰层（仅无海报时渲染，静态无动画） ===== */
@@ -547,8 +527,11 @@ onPullDownRefresh(function () {
 .share-btn::after { border: none; }
 .share-text { color: #fff; font-weight: 500; }
 
-/* 状态徽章（对齐培训页 status-badge：实底 tint + 小圆角，置 Hero 顶部） */
+/* 状态徽章（Hero 左上，导航行下方；实底白字清晰） */
 .status-badge {
+  position: absolute;
+  left: 32rpx;
+  top: 120rpx;
   display: inline-flex;
   align-items: center;
   padding: 6rpx 16rpx;
@@ -556,7 +539,6 @@ onPullDownRefresh(function () {
   font-size: 20rpx;
   font-weight: 600;
   z-index: 4;
-  margin-bottom: 12rpx;
   box-shadow: 0 4rpx 10rpx rgba(16, 24, 40, 0.18);
 }
 
@@ -564,16 +546,41 @@ onPullDownRefresh(function () {
 .badge--ongoing { background: #0A66C2; color: #ffffff; }
 .badge--closed { background: #5D6B82; color: #ffffff; }
 
-/* ===== Hero 内容层（对齐培训页 hero-bottom：徽章 + 标题 + 标签贴底） ===== */
+/* ===== Hero 内容层（对齐培训页 hero-bottom：贴底，徽章与标题同行流式） ===== */
 .hero-content {
   position: absolute;
   left: 32rpx;
   right: 32rpx;
-  bottom: 88rpx;
+  bottom: 24rpx;
   z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
   animation: fadeUp .25s ease-out backwards;
   animation-delay: 60ms;
 }
+
+/* 首字徽章：圆圈白底小徽章（与标题同行） */
+.hero-emblem {
+  flex-shrink: 0;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  box-shadow: 0 6rpx 16rpx rgba(7, 77, 146, 0.25);
+}
+
+.emblem-char {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #0A66C2;
+}
+
+.hero-text { flex: 1; min-width: 0; }
 
 .hero-title {
   font-size: 40rpx;
