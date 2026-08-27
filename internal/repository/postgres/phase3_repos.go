@@ -137,6 +137,24 @@ func (s *Store) NewCourseRepository() repository.CourseRepository { return &cour
 // courseCols 与 training_courses 表列一一对应（迁移 000044/000045 补齐小程序页面字段）
 const courseCols = `id,org_id,org_name,title,cert_type,description,start_date,end_date,max_students,enrolled_count,location,district,price_fen,rating,review_count,duration_days,image,tags,certificate,courses,prices,business_hours,phone,remain,environment,course_types,pass_rate,years,status,version,created_at,updated_at`
 
+// courseColsCount SELECT 目标数（与扫描目标一一对应；改表结构时必须同步更新）
+const courseColsCount = 32
+
+// VerifyCourseCols 启动自检：查询列定义并校验数量——新增列（如 pass_rate/years）漏补
+// Scan 目标时，Select 列数与 Scan 目标不匹配会在该处暴露（LIMIT 0 空表同样校验）。
+func (s *Store) VerifyCourseCols(ctx context.Context) error {
+	rows, err := s.Pool().Query(ctx, `SELECT `+courseCols+` FROM training_courses LIMIT 0`)
+	if err != nil {
+		return fmt.Errorf("verify course cols: %w", err)
+	}
+	defer rows.Close()
+	n := len(rows.FieldDescriptions())
+	if n != courseColsCount {
+		return fmt.Errorf("training_courses columns mismatch: got %d, want %d (courseCols/Scan 未同步?)", n, courseColsCount)
+	}
+	return nil
+}
+
 func (r *courseRepo) Create(ctx context.Context, c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	c.Version = 1
 	c.CreatedAt = time.Now()

@@ -482,6 +482,13 @@ func main() {
 		app.SetAuditWriter(postgres.NewAuditAdapter(pgStore))
 		app.SetDBPinger(pgStore.Pool())
 		app.SetStorage("postgres")
+		// 启动自检（不阻断启动）：training_courses 列映射一致性——
+		// 新增列漏补 Scan 目标会导致详情 404；此处告警便于部署后第一时间发现。
+		checkCtx, checkCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := pgStore.VerifyCourseCols(checkCtx); err != nil {
+			slog.Warn("course cols self-check failed (training detail may 404)", "error", err)
+		}
+		checkCancel()
 	} else {
 		app.SetStorage("memory")
 	}
