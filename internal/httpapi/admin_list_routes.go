@@ -47,6 +47,9 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/study-tours", s.createStudyTour)
 	mux.HandleFunc("PUT /api/v1/admin/study-tours/{id}", s.updateStudyTour)
 	mux.HandleFunc("DELETE /api/v1/admin/study-tours/{id}", s.deleteStudyTour)
+	// 研学报名（管理端审核闭环）
+	mux.HandleFunc("GET /api/v1/admin/study-tours/{id}/enrollments", s.listStudyTourEnrollments)
+	mux.HandleFunc("POST /api/v1/admin/study-tours/enrollments/{id}/review", s.reviewStudyTourEnrollment)
 
 	// === 成果 === (POST: POST /api/v1/achievements in biz_handlers.go — public path, so admin POST is new)
 	mux.HandleFunc("GET /api/v1/admin/achievements", s.listAchievements)

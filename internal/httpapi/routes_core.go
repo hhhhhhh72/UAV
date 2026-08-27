@@ -193,6 +193,7 @@ func (s *Server) registerTrainingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/training-courses", s.createCourse)
 	mux.HandleFunc("GET /api/v1/training-courses", s.listCourses)
 	mux.HandleFunc("GET /api/v1/training-courses/{id}", s.getCourse)
+	mux.HandleFunc("GET /api/v1/study-tours/enrollments/mine", s.listMyStudyTourEnrollments)
 	mux.HandleFunc("POST /api/v1/training-courses/{id}/favorite", s.toggleTrainingCourseFavorite)
 	mux.HandleFunc("GET /api/v1/training-courses/favorites/mine", s.listMyTrainingCourseFavorites)
 	mux.HandleFunc("POST /api/v1/instructors", s.registerInstructor)

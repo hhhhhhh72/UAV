@@ -497,6 +497,14 @@
           }
         },
         {
+          "path": "pages/study/enroll",
+          "style": {
+            "navigationBarTitleText": "研学报名",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
+        },
+        {
           "path": "pages/pilots/list",
           "style": {
             "navigationBarTitleText": "认证飞手",

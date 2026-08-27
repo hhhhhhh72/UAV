@@ -98,6 +98,7 @@ type Server struct {
 	transSvc          *service.TransformationService
 	collegeSvc        *service.CollegeService
 	studyTourRepo     repository.StudyTourRepository
+	studyEnrollSvc    *service.StudyTourEnrollmentService
 	coopSvc           *service.CooperationService
 	rescueCaseSvc     *service.RescueCaseService
 	emergDeptSvc      *service.EmergencyDeptService
@@ -307,6 +308,7 @@ func (s *Server) SetExhibitionService(svc *service.ExhibitionService)         { 
 func (s *Server) SetTransformationService(svc *service.TransformationService) { s.transSvc = svc }
 func (s *Server) SetCollegeService(svc *service.CollegeService)               { s.collegeSvc = svc }
 func (s *Server) SetStudyTourRepo(r repository.StudyTourRepository)           { s.studyTourRepo = r }
+func (s *Server) SetStudyTourEnrollmentService(svc *service.StudyTourEnrollmentService) { s.studyEnrollSvc = svc }
 func (s *Server) SetCooperationService(svc *service.CooperationService)       { s.coopSvc = svc }
 func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)         { s.rescueCaseSvc = svc }
 func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)   { s.emergDeptSvc = svc }

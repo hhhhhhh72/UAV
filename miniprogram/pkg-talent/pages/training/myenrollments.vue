@@ -82,16 +82,19 @@ const TABS = [
   { key: 'training', label: '培训' },
   { key: 'competition', label: '赛事' },
   { key: 'activity', label: '活动' },
+  { key: 'study', label: '研学' },
 ]
 const tab = ref('training')
 
 const enrollments = ref([]) // 培训报名
 const competitions = ref([]) // 赛事报名
 const activities = ref([]) // 协会活动报名
+const studies = ref([]) // 研学报名
 
 const activeList = computed(() => {
   if (tab.value === 'competition') return competitions.value
   if (tab.value === 'activity') return activities.value
+  if (tab.value === 'study') return studies.value
   return enrollments.value
 })
 const activeLabel = computed(() => (TABS.find((t) => t.key === tab.value) || TABS[0]).label)
@@ -99,26 +102,29 @@ const emptyTitle = computed(() => ({
   training: '还没有培训报名',
   competition: '还没有赛事报名',
   activity: '还没有活动报名',
+  study: '还没有研学报名',
 }[tab.value] || '还没有报名记录'))
 const emptyHint = computed(() => ({
   training: '完成培训课程报名后，记录将展示在这里',
   competition: '报名赛事后，记录将展示在这里',
   activity: '报名协会活动后，记录将展示在这里',
+  study: '报名低空研学后，记录将展示在这里',
 }[tab.value] || ''))
 const emptyAction = computed(() => ({
   training: '去逛逛培训课程',
   competition: '去看看赛事',
   activity: '去看看活动',
+  study: '去看看研学',
 }[tab.value] || '去逛逛'))
 function goRelevant() {
   if (tab.value === 'competition') { uni.navigateTo({ url: '/pkg-eco/pages/competitions/list' }); return }
   if (tab.value === 'activity') { uni.navigateTo({ url: '/pkg-eco/pages/activities/list' }); return }
+  if (tab.value === 'study') { uni.navigateTo({ url: '/pkg-talent/pages/study/index' }); return }
   uni.navigateTo({ url: '/pkg-talent/pages/training/courses' })
 }
 function switchTab(k) { tab.value = k }
 
-// 统一卡片视图（三类报名 → 状态/标题/元信息）
-const STATUS_TAG = { training: '培训', competition: '赛事', activity: '活动' }
+// 统一卡片视图（四类报名 → 状态/标题/元信息）
 const cardItems = computed(() => {
   const src = activeList.value || []
   return src.map((it) => {
@@ -142,6 +148,17 @@ const cardItems = computed(() => {
         status: it.status,
         meta1: (it.start_time ? dateText(it.start_time) + ' · ' : '') + (it.location || '地址待定'),
         meta2: '报名时间 ' + dateText(it.created_at),
+      }
+    }
+    if (tab.value === 'study') {
+      return {
+        id: it.id,
+        tag: '研学报名',
+        tagCls: 'tag-study',
+        title: it.tour_title || '低空研学',
+        status: it.status,
+        meta1: (it.start_date ? '出发 ' + dateText(it.start_date) : ''),
+        meta2: '成 ' + (it.adult_count || 1) + ' · 儿 ' + (it.child_count || 0) + ' · 报名 ' + dateText(it.created_at),
       }
     }
     return {
@@ -192,6 +209,7 @@ async function fetchList() {
     { url: '/api/v1/enrollments/mine', key: 'enrollments' },
     { url: '/api/v1/competitions/registrations/mine', key: 'competitions' },
     { url: '/api/v1/events/registrations/mine', key: 'activities' },
+    { url: '/api/v1/study-tours/enrollments/mine', key: 'studies' },
   ]
   try {
     // 三类并行拉取：任一类失败不阻塞其他（空数组如实展示）
@@ -200,7 +218,8 @@ async function fetchList() {
       const list = r.status === 'fulfilled' ? (Array.isArray(r.value) ? r.value : (r.value && r.value.data) || []) : []
       if (targets[i].key === 'enrollments') enrollments.value = list
       else if (targets[i].key === 'competitions') competitions.value = list
-      else activities.value = list
+      else if (targets[i].key === 'activities') activities.value = list
+      else studies.value = list
     })
   } catch (e) {
     // 竞态兜底：全部失败时给出提示
@@ -341,6 +360,7 @@ page {
 .tag-train { color: #0A66C2; background: #EAF3FB; }
 .tag-comp { color: #7A3E9D; background: #F4EBF9; }
 .tag-act { color: #B54708; background: #FDEEE4; }
+.tag-study { color: #1F7A48; background: #E9F7F0; }
 .ct {
   font-size: 15px;
   font-weight: 700;

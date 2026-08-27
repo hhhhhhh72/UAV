@@ -688,6 +688,15 @@ type StudyTourRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// StudyTourEnrollmentRepository 低空研学报名。
+type StudyTourEnrollmentRepository interface {
+	Create(ctx context.Context, v domain.StudyTourEnrollment) (domain.StudyTourEnrollment, error)
+	FindByID(ctx context.Context, id string) (domain.StudyTourEnrollment, error)
+	ListByUser(ctx context.Context, userID string) ([]domain.StudyTourEnrollment, error)
+	ListByTour(ctx context.Context, tourID string) ([]domain.StudyTourEnrollment, error)
+	UpdateStatus(ctx context.Context, id, status string) (domain.StudyTourEnrollment, error)
+}
+
 type CooperationRepository interface {
 	Create(ctx context.Context, v domain.CooperationProgram) (domain.CooperationProgram, error)
 	FindByID(ctx context.Context, id string) (domain.CooperationProgram, error)

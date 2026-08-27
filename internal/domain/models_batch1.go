@@ -181,3 +181,21 @@ type StudySchedule struct {
 	Title string   `json:"title"`
 	Items []string `json:"items"`
 }
+
+// StudyTourEnrollment 低空研学报名（详情→报名→我的报名→管理端审核）
+type StudyTourEnrollment struct {
+	ID         string    `json:"id"`
+	TourID     string    `json:"tour_id"`
+	UserID     string    `json:"user_id"`
+	Name       string    `json:"name"`        // 报名人姓名
+	Phone      string    `json:"phone"`       // 联系电话
+	AdultCount int       `json:"adult_count"` // 成人数（默认 1）
+	ChildCount int       `json:"child_count"` // 儿童数
+	Remark     string    `json:"remark"`      // 备注
+	Status     string    `json:"status"`      // pending / approved / rejected / completed
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	// TourTitle/StartDate 研学摘要（"我的报名"列表展示；响应层填充，非数据库列）
+	TourTitle string    `json:"tour_title,omitempty"`
+	StartDate time.Time `json:"start_date,omitempty"`
+}

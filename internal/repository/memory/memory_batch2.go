@@ -190,6 +190,71 @@ func (r *studyTourRepo) Delete(ctx context.Context, id string) error {
 	return fmt.Errorf("study %s not found", id)
 }
 
+// ---- StudyTourEnrollment (低空研学报名) ----
+
+type studyTourEnrollRepo struct {
+	mu    sync.RWMutex
+	items []domain.StudyTourEnrollment
+}
+
+func NewStudyTourEnrollmentRepository() repository.StudyTourEnrollmentRepository {
+	return &studyTourEnrollRepo{}
+}
+func (r *studyTourEnrollRepo) Create(ctx context.Context, e domain.StudyTourEnrollment) (domain.StudyTourEnrollment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e.CreatedAt = time.Now()
+	e.UpdatedAt = e.CreatedAt
+	r.items = append(r.items, e)
+	return e, nil
+}
+func (r *studyTourEnrollRepo) FindByID(ctx context.Context, id string) (domain.StudyTourEnrollment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, e := range r.items {
+		if e.ID == id {
+			return e, nil
+		}
+	}
+	return domain.StudyTourEnrollment{}, fmt.Errorf("enrollment %s not found", id)
+}
+func (r *studyTourEnrollRepo) ListByUser(ctx context.Context, userID string) ([]domain.StudyTourEnrollment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.StudyTourEnrollment, 0)
+	for _, e := range r.items {
+		if e.UserID == userID {
+			out = append(out, e)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+func (r *studyTourEnrollRepo) ListByTour(ctx context.Context, tourID string) ([]domain.StudyTourEnrollment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.StudyTourEnrollment, 0)
+	for _, e := range r.items {
+		if e.TourID == tourID {
+			out = append(out, e)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+func (r *studyTourEnrollRepo) UpdateStatus(ctx context.Context, id, status string) (domain.StudyTourEnrollment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, e := range r.items {
+		if e.ID == id {
+			r.items[i].Status = status
+			r.items[i].UpdatedAt = time.Now()
+			return r.items[i], nil
+		}
+	}
+	return domain.StudyTourEnrollment{}, fmt.Errorf("enrollment %s not found", id)
+}
+
 type coopRepo struct {
 	mu    sync.RWMutex
 	items []domain.CooperationProgram

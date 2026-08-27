@@ -100,6 +100,51 @@ func TestR5MyRegistrations(t *testing.T) {
 	}
 }
 
+// TestR5StudyTourEnrollLoop 研学报名闭环：报名(校验) → mine → 管理端审核通过 → mine 状态更新。
+func TestR5StudyTourEnrollLoop(t *testing.T) {
+	app := newBizServer(t)
+	userTok := authAs(t, "user-1", domain.RoleIndividual)
+	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
+
+	// admin 建研学（active）
+	w := doRaw(app, http.MethodPost, "/api/v1/admin/study-tours",
+		`{"title":"低空研学·航拍营","description":"d","location":"重庆","destination":"南山","start_date":"2026-10-01","end_date":"2026-10-03","capacity":30,"status":"active"}`, adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/study-tours", w, http.StatusCreated)
+	tourID := dataID(t, w)
+
+	// 规则校验：错误手机号 → 409
+	w = doRaw(app, http.MethodPost, "/api/v1/study/tours/"+tourID+"/enroll",
+		`{"name":"张三","phone":"123","adult_count":2,"child_count":1}`, userTok)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("bad phone: got %d, want 409 (%s)", w.Code, w.Body.String())
+	}
+
+	// 正常报名 → 201
+	w = doRaw(app, http.MethodPost, "/api/v1/study/tours/"+tourID+"/enroll",
+		`{"name":"张三","phone":"13800000000","adult_count":2,"child_count":1,"remark":"两大一小"}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/study/tours/"+tourID+"/enroll", w, http.StatusCreated)
+	enrollID := dataID(t, w)
+
+	// mine：含标题摘要
+	w = doRaw(app, http.MethodGet, "/api/v1/study-tours/enrollments/mine", "", userTok)
+	assertStatus(t, http.MethodGet, "/api/v1/study-tours/enrollments/mine", w, http.StatusOK)
+	var mine []domain.StudyTourEnrollment
+	unmarshalData(t, w, &mine)
+	if len(mine) != 1 || mine[0].TourTitle != "低空研学·航拍营" || mine[0].AdultCount != 2 {
+		t.Fatalf("my study enrolls: %+v", mine)
+	}
+
+	// 管理端审核通过 → mine 状态 approved
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/study-tours/enrollments/"+enrollID+"/review",
+		`{"status":"approved"}`, adminTok)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/study-tours/enrollments/"+enrollID+"/review", w, http.StatusOK)
+	w = doRaw(app, http.MethodGet, "/api/v1/study-tours/enrollments/mine", "", userTok)
+	unmarshalData(t, w, &mine)
+	if len(mine) != 1 || mine[0].Status != "approved" {
+		t.Fatalf("status after review: %+v", mine)
+	}
+}
+
 // dataListLen 解析列表信封 {data:[...]} 的长度。
 func dataListLen(t *testing.T, w *httptest.ResponseRecorder) int {
 	t.Helper()

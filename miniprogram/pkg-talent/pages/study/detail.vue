@@ -320,7 +320,7 @@ const tips = [
   '报名后 24 小时内可申请全额退款',
 ]
 
-// ── 交互：跳研学报名页（服务 id=9，后端提交接口真实可用）──
+// ── 交互：跳研学报名页（专用报名页，提交 POST /api/v1/study/tours/{id}/enroll）──
 const onApply = () => {
   if (!recruiting.value) return
   const t = tour.value
@@ -328,10 +328,7 @@ const onApply = () => {
     uni.showToast({ title: '活动信息缺失，请返回列表重新进入', icon: 'none' })
     return
   }
-  // 活动信息经 storage 传入报名页摘要卡（报名页读取后清理，不残留）；
-  // tourId 参数兜底：storage 被清/分享直达报名页时报名页按 id 自取。
-  uni.setStorageSync('study_tour_detail', t)
-  uni.navigateTo({ url: '/pkg-service/pages/services/apply?id=9&tourId=' + encodeURIComponent(t.id) })
+  uni.navigateTo({ url: '/pkg-talent/pages/study/enroll?id=' + encodeURIComponent(t.id) })
 }
 
 onLoad((options) => {

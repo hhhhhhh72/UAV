@@ -244,6 +244,7 @@ func main() {
 		exhibitionRepo  repository.ExhibitionRepository
 		collegeRepo     repository.CollegeRepository
 		studyTourRepo   repository.StudyTourRepository
+		studyEnrollRepo repository.StudyTourEnrollmentRepository
 		assocMemberRepo = memory.NewAssociationMemberRepository()
 		expertRepo      repository.ExpertRepository
 		caseRepo        repository.CaseRepository
@@ -334,6 +335,7 @@ func main() {
 		exhibitionRepo = pgStore.NewExhibitionRepository()
 		collegeRepo = pgStore.NewCollegeRepository()
 		studyTourRepo = pgStore.NewStudyTourRepository()
+		studyEnrollRepo = pgStore.NewStudyTourEnrollmentRepository()
 		poolRepo = pgStore.NewResourcePoolRepository()
 		coopRepo = pgStore.NewCooperationRepository()
 		rescueCaseRepo = pgStore.NewRescueCaseRepository()
@@ -389,6 +391,7 @@ func main() {
 		exhibitionRepo = memory.NewExhibitionRepository()
 		collegeRepo = memory.NewCollegeRepository()
 		studyTourRepo = memory.NewStudyTourRepository()
+		studyEnrollRepo = memory.NewStudyTourEnrollmentRepository()
 		expertRepo = memory.NewExpertRepository()
 		caseRepo = memory.NewCaseRepository()
 		svcAppRepo = memory.NewApplicationRepository()
@@ -468,6 +471,7 @@ func main() {
 	app.SetTransformationService(service.NewTransformationService(transRepo))
 	app.SetCollegeService(service.NewCollegeService(collegeRepo))
 	app.SetStudyTourRepo(studyTourRepo)
+	app.SetStudyTourEnrollmentService(service.NewStudyTourEnrollmentService(studyEnrollRepo, studyTourRepo))
 	app.SetCooperationService(service.NewCooperationService(coopRepo))
 	app.SetPoolService(service.NewResourcePoolService(poolRepo))
 	app.SetTestSiteService(service.NewTestSiteService(testSiteRepo))
