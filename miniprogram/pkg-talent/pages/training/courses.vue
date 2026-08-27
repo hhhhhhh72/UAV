@@ -76,12 +76,8 @@
     <!-- 蒙层：从 tab 分段底部开始置灰，点击外部退场收起 -->
     <view v-if="panel" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
 
-    <!-- 白色板块：信息行 + 列表 -->
+    <!-- 白色板块：机构列表 -->
     <view class="section">
-      <view class="ir">
-        <text>共 <text class="irn">{{ list.length }}</text> 家机构</text>
-        <text class="ir-hint">{{ activeCertType !== 'all' ? certTypeLabel(activeCertType) : '全部类型' }}</text>
-      </view>
 
     <!-- ④ 机构列表（水平卡片） -->
     <!-- 骨架屏：首次加载时显示 3 条 shimmer 卡片 -->
@@ -197,7 +193,8 @@
               <u-loading size="12px" />
               <text>加载中...</text>
             </view>
-            <text v-else-if="!hasMore" class="no-more">— 没有更多了 —</text>
+            <text v-else-if="!hasMore" class="no-more">— 没有更多了 · 共 <text class="no-more-n">{{ list.length }}</text> 家机构 —</text>
+            <text v-else class="no-more">上拉加载更多</text>
           </view>
 
           <view style="height:24px" />
@@ -755,23 +752,8 @@ onReachBottom(() => {
 }
 @keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* 白色板块：信息行 */
+/* 白色板块：机构列表 */
 .section { padding: 12px 12px 0; }
-.ir {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #fff;
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 10px;
-  font-size: 13px;
-  color: #344054;
-  box-shadow: 0 8px 28px rgba(16, 24, 40, 0.12);
-  animation: fadeUp 0.25s ease-out backwards;
-}
-.irn { color: #0A66C2; font-weight: 700; }
-.ir-hint { font-size: 12px; color: #98A2B3; }
 
 /* 回到顶部 */
 .bt {
@@ -797,11 +779,9 @@ onReachBottom(() => {
 .bt:active { transform: scale(0.92); }
 
 /* 动效 */
-@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 /* no-motion：装饰动画关闭 */
-.page.no-motion .ir,
 .page.no-motion .card { animation: none; transition: opacity 0.15s ease; }
 .page.no-motion .stg-arr { transition: none; }
 .page.no-motion .p-chip { transition: none; }
@@ -1097,9 +1077,10 @@ onReachBottom(() => {
   border-radius: 999rpx;
 }
 
-/* 加载更多 */
+/* 加载更多 + 底部计数 */
 .load-more-wrap { text-align: center; padding: 10px 0; }
 .no-more { font-size: 11px; color: #c8c9cc; }
+.no-more-n { color: #667085; font-weight: 600; }
 .loading-inline { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; color: #c8c9cc; }
 
 /* ================================================================= */
