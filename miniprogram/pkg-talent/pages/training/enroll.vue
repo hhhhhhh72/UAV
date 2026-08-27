@@ -1293,32 +1293,16 @@ onPullDownRefresh(function () {
 .btn-fav-press { opacity: 0.65; }
 /* CSS 绘制心形（替代 ♥/♡ 字符，符合项目"不用 emoji/Unicode 图标"规范） */
 .fav-heart {
-  position: relative;
   width: 34rpx;
-  height: 30rpx;
+  height: 32rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2398A2B3'%3E%3Cpath d='M12 21s-7.5-4.9-9.7-9.2C.6 8.4 2.6 4.5 6.3 4.5c2.2 0 3.9 1.2 4.7 3h2c.8-1.8 2.5-3 4.7-3 3.7 0 5.7 3.9 4 7.3C19.5 16.1 12 21 12 21z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
-.fav-heart::before,
-.fav-heart::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  width: 17rpx;
-  height: 26rpx;
-  border-radius: 10rpx 10rpx 0 0;
-  background: #98A2B3;
+.fav-heart--on {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23E96012'%3E%3Cpath d='M12 21s-7.5-4.9-9.7-9.2C.6 8.4 2.6 4.5 6.3 4.5c2.2 0 3.9 1.2 4.7 3h2c.8-1.8 2.5-3 4.7-3 3.7 0 5.7 3.9 4 7.3C19.5 16.1 12 21 12 21z'/%3E%3C/svg%3E");
 }
-.fav-heart::before {
-  left: 1rpx;
-  transform: rotate(-45deg);
-  transform-origin: 0 100%;
-}
-.fav-heart::after {
-  left: 15rpx;
-  transform: rotate(45deg);
-  transform-origin: 100% 100%;
-}
-.fav-heart--on::before,
-.fav-heart--on::after { background: #E96012; }
 .fav-label { font-size: 18rpx; color: #667085; }
 .btn-fav.on .fav-heart { color: #E96012; }
 .btn-fav.on .fav-label { color: #E96012; font-weight: 600; }
@@ -1346,19 +1330,12 @@ onPullDownRefresh(function () {
 }
 .btn-outline-press { background: #EAF3FB; }
 .btn-phone-ico {
-  width: 20rpx;
-  height: 20rpx;
-  border: 2rpx solid #0A66C2;
-  border-radius: 4rpx;
-  position: relative;
-}
-.btn-phone-ico::before {
-  content: '';
-  position: absolute;
-  left: 50%; top: -3rpx;
-  width: 6rpx; height: 3rpx;
-  background: #0A66C2;
-  margin-left: -3rpx;
+  width: 28rpx;
+  height: 28rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230A66C2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7A2 2 0 0 1 22 16.9z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 .btn-outline-text { font-size: 24rpx; font-weight: 700; color: #0A66C2; }
 .btn-primary {
