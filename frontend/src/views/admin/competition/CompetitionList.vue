@@ -64,6 +64,7 @@
 
     <!-- 新增/编辑弹窗 -->
     <a-modal v-model:visible="formVisible" :title="formEdit ? '编辑赛事' : '新建赛事'" :width="'min(600px, 94vw)'" :mask-closable="false" :on-before-cancel="guardClose">
+      <div style="max-height: 68vh; overflow-y: auto; padding-right: 4px">
       <a-form :model="form" layout="vertical">
         <a-form-item label="赛事名称" required><a-input v-model="form.title" style="width: 100%" :aria-required="true" /></a-form-item>
         <a-form-item label="海报图">
@@ -75,6 +76,10 @@
         <a-form-item label="类别"><a-input v-model="form.category" style="width: 100%" /></a-form-item>
         <a-form-item label="地点"><a-input v-model="form.location" style="width: 100%" /></a-form-item>
         <a-form-item label="主办方"><a-input v-model="form.sponsor" style="width: 100%" /></a-form-item>
+        <a-form-item label="承办方"><a-input v-model="form.organizer_sub" style="width: 100%" placeholder="选填，小程序详情页「主办单位」副标" /></a-form-item>
+        <a-form-item label="标签">
+          <a-input v-model="form.tagsText" style="width: 100%" placeholder="逗号分隔，如：FPV竞速,多旋翼,国家级（显示在标题下）" />
+        </a-form-item>
         <a-form-item label="开始日期">
           <a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择开始日期" style="width: 100%" />
         </a-form-item>
@@ -87,6 +92,14 @@
         <a-form-item label="报名费(元)">
           <a-input-number v-model="form.feeYuan" :min="0" hide-button style="width: 100%" placeholder="单位：元，0 表示免费" />
         </a-form-item>
+        <div style="display:flex; gap:12px">
+          <a-form-item label="起价(元)" style="flex:1">
+            <a-input-number v-model="form.min_fee" :min="0" hide-button style="width: 100%" placeholder="选填，显示「¥xx 起/人」" />
+          </a-form-item>
+          <a-form-item label="划线原价(元)" style="flex:1">
+            <a-input-number v-model="form.original_fee" :min="0" hide-button style="width: 100%" placeholder="选填，大于报名费时显示划线" />
+          </a-form-item>
+        </div>
         <a-form-item label="队伍名额">
           <a-input-number v-model="form.max_teams" :min="0" hide-button style="width: 100%" />
         </a-form-item>
@@ -96,7 +109,53 @@
           </a-select>
         </a-form-item>
         <a-form-item label="赛事简介"><a-input v-model="form.description" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
+
+        <a-divider style="margin: 4px 0 12px">报名条件（选填，详情页「报名条件」块）</a-divider>
+        <div v-for="(req, ri) in form.requirements" :key="ri" style="border:1px solid var(--color-border); border-radius:8px; padding:12px; margin-bottom:12px">
+          <div style="display:flex; gap:8px; margin-bottom:8px">
+            <a-input v-model="req.name" placeholder="条件名（如：年龄）" style="flex:2" />
+            <a-select v-model="req.level" placeholder="级别" style="flex:1">
+              <a-option v-for="lv in reqLevels" :key="lv" :value="lv">{{ lv }}</a-option>
+            </a-select>
+            <a-button type="outline" status="danger" @click="form.requirements.splice(ri, 1)">删除</a-button>
+          </div>
+          <a-input v-model="req.desc" placeholder="条件说明（如：年满 16 周岁）" style="width:100%" />
+        </div>
+        <a-button type="outline" long @click="addRequirement">＋ 添加报名条件</a-button>
+
+        <a-divider style="margin: 16px 0 12px">参赛项目（选填，详情页「参赛项目」块）</a-divider>
+        <div v-for="(ev, ei) in form.events" :key="ei" style="border:1px solid var(--color-border); border-radius:8px; padding:12px; margin-bottom:12px">
+          <div style="display:flex; gap:8px; margin-bottom:8px">
+            <a-input v-model="ev.name" placeholder="项目名（如：FPV竞速穿越）" style="flex:2" />
+            <a-input-number v-model="ev.fee" :min="0" hide-button placeholder="费用(元)" style="flex:1" />
+            <a-button type="outline" status="danger" @click="form.events.splice(ei, 1)">删除</a-button>
+          </div>
+          <div style="display:flex; gap:8px">
+            <a-input v-model="ev.type" placeholder="类型（如：个人赛）" style="flex:1" />
+            <a-input v-model="ev.format" placeholder="赛制（如：计时排名）" style="flex:1" />
+          </div>
+        </div>
+        <a-button type="outline" long @click="addEvent">＋ 添加参赛项目</a-button>
+
+        <a-divider style="margin: 16px 0 12px">奖项设置（选填，详情页「奖项设置」块）</a-divider>
+        <div v-for="(pz, pi) in form.prizes" :key="pi" style="border:1px solid var(--color-border); border-radius:8px; padding:12px; margin-bottom:12px">
+          <div style="display:flex; gap:8px; margin-bottom:8px">
+            <a-input v-model="pz.level" placeholder="级别（如：冠军）" style="flex:2" />
+            <a-input-number v-model="pz.amount" :min="0" hide-button placeholder="奖金(元)" style="flex:1" />
+            <a-button type="outline" status="danger" @click="form.prizes.splice(pi, 1)">删除</a-button>
+          </div>
+          <div style="display:flex; gap:8px">
+            <a-select v-model="pz.metal" placeholder="金属色" style="flex:1">
+              <a-option value="gold">金</a-option>
+              <a-option value="silver">银</a-option>
+              <a-option value="bronze">铜</a-option>
+            </a-select>
+            <a-input v-model="pz.medal" placeholder="勋章字（如：金 / 银 / 铜）" style="flex:2" />
+          </div>
+        </div>
+        <a-button type="outline" long @click="addPrize">＋ 添加奖项</a-button>
       </a-form>
+      </div>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
         <a-button type="primary" :loading="formLoading" @click="submitForm">保存</a-button>
@@ -202,9 +261,24 @@ const showCreate = () => {
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', title: '', category: '', poster: '', location: '', sponsor: '', start_date: '', end_date: '', deadline: '', feeYuan: null, max_teams: null, status: 'draft', description: '' })
+const reqLevels = ['必满足', '建议', '初级', '中级', '高级']
+const form = reactive({
+  id: '', title: '', category: '', poster: '', location: '', sponsor: '', organizer_sub: '',
+  tagsText: '', start_date: '', end_date: '', deadline: '', feeYuan: null, min_fee: null, original_fee: null,
+  max_teams: null, status: 'draft', description: '',
+  requirements: [], events: [], prizes: []
+})
 
-const resetForm = () => Object.assign(form, { id: '', title: '', category: '', poster: '', location: '', sponsor: '', start_date: '', end_date: '', deadline: '', feeYuan: null, max_teams: null, status: 'draft', description: '' })
+const resetForm = () => Object.assign(form, {
+  id: '', title: '', category: '', poster: '', location: '', sponsor: '', organizer_sub: '',
+  tagsText: '', start_date: '', end_date: '', deadline: '', feeYuan: null, min_fee: null, original_fee: null,
+  max_teams: null, status: 'draft', description: '',
+  requirements: [], events: [], prizes: []
+})
+
+const addRequirement = () => form.requirements.push({ name: '', desc: '', level: '必满足', icon: '' })
+const addEvent = () => form.events.push({ name: '', type: '', format: '', fee: null })
+const addPrize = () => form.prizes.push({ level: '', amount: null, metal: 'gold', medal: '金' })
 
 const openForm = (row) => {
   resetForm()
@@ -212,13 +286,19 @@ const openForm = (row) => {
     formEdit.value = true
     Object.assign(form, {
       id: row.id, title: row.title || '', category: row.category || '', poster: row.poster || '',
-      location: row.location || '', sponsor: row.sponsor || '',
+      location: row.location || '', sponsor: row.sponsor || '', organizer_sub: row.organizer_sub || '',
+      tagsText: Array.isArray(row.tags) ? row.tags.join(',') : '',
       start_date: row.start_date ? String(row.start_date).slice(0, 10) : '',
       end_date: row.end_date ? String(row.end_date).slice(0, 10) : '',
       deadline: row.deadline ? String(row.deadline).slice(0, 10) : '',
       feeYuan: row.fee ?? null,
+      min_fee: row.min_fee ?? null,
+      original_fee: row.original_fee ?? null,
       max_teams: row.max_teams ?? null,
-      status: row.status || 'draft', description: row.description || ''
+      status: row.status || 'draft', description: row.description || '',
+      requirements: Array.isArray(row.requirements) ? row.requirements.map(x => ({ ...x })) : [],
+      events: Array.isArray(row.events) ? row.events.map(x => ({ ...x })) : [],
+      prizes: Array.isArray(row.prizes) ? row.prizes.map(x => ({ ...x })) : []
     })
   } else {
     formEdit.value = false
@@ -236,9 +316,15 @@ const submitForm = async () => {
   try {
     const p = {
       title: form.title, category: form.category, poster: form.poster, location: form.location,
-      sponsor: form.sponsor, start_date: form.start_date, end_date: form.end_date, deadline: form.deadline,
-      fee: form.feeYuan ?? 0, max_teams: form.max_teams ?? 0,
-      status: form.status, description: form.description
+      sponsor: form.sponsor, organizer_sub: form.organizer_sub,
+      tags: form.tagsText ? form.tagsText.split(',').map(t => t.trim()).filter(Boolean) : [],
+      start_date: form.start_date, end_date: form.end_date, deadline: form.deadline,
+      fee: form.feeYuan ?? 0, min_fee: form.min_fee ?? 0, original_fee: form.original_fee ?? 0,
+      max_teams: form.max_teams ?? 0,
+      status: form.status, description: form.description,
+      requirements: form.requirements.filter(r => r.name),
+      events: form.events.filter(e => e.name),
+      prizes: form.prizes.filter(p => p.level)
     }
     if (formEdit.value) {
       await api.update(form.id, p)

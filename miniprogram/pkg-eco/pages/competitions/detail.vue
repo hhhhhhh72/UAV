@@ -106,7 +106,7 @@
                 <text class="req-name">{{ req.name }}</text>
                 <text class="req-desc">{{ req.desc }}</text>
               </view>
-              <view class="req-badge" :class="req.level === '必满足' ? 'req-badge--must' : 'req-badge--advise'">{{ req.level }}</view>
+              <view class="req-badge" :class="reqBadgeClass(req.level)">{{ req.level }}</view>
             </view>
           </view>
         </view>
@@ -295,6 +295,13 @@ function compTags(item) {
 function requirements(item) {
   if (Array.isArray(item.requirements) && item.requirements.length > 0) return item.requirements
   return []
+}
+
+/* 报名条件 badge 三态：必满足(红) / 建议(蓝) / 等级(灰蓝-初/中/高级) */
+function reqBadgeClass(level) {
+  if (level === '必满足') return 'req-badge--must'
+  if (level === '建议') return 'req-badge--advise'
+  return 'req-badge--level'
 }
 
 function eventList(item) {
@@ -748,6 +755,7 @@ onPullDownRefresh(function () {
 
 .req-badge--must { background: #FDECEC; color: #B42318; }
 .req-badge--advise { background: #EAF3FB; color: #0A66C2; }
+.req-badge--level { background: #EEF2F7; color: #5D6B82; }
 
 .req-empty {
   padding: 28rpx 8rpx;
