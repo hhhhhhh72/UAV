@@ -103,7 +103,7 @@
                 <text class="group-title">证书类型</text>
                 <view class="group-tags">
                   <view v-for="ct in certTypeTags(detail)" :key="ct" class="g-tag g-tag--cert">
-                    <view class="g-tag-ico g-tag-ico--cert"><view class="tag-drone" /></view>
+                    <view class="g-tag-ico g-tag-ico--cert" />
                     <text class="g-tag-text">{{ ct }}</text>
                   </view>
                 </view>
@@ -908,24 +908,11 @@ onPullDownRefresh(function () {
 .g-tag--c3 { background: #FFF0E6; color: #E96012; }
 .g-tag--c4 { background: #EAF3FB; color: #0A66C2; }
 .g-tag-ico { width: 26rpx; height: 26rpx; position: relative; }
-.tag-drone {
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 12rpx; height: 12rpx;
-  margin: -6rpx 0 0 -6rpx;
-  border: 2rpx solid currentColor;
-  border-radius: 3rpx;
-  box-sizing: border-box;
-}
-.g-tag-ico--cert::before {
-  content: '';
-  position: absolute;
-  left: -4rpx; top: 50%;
-  width: 8rpx; height: 8rpx;
-  margin-top: -4rpx;
-  border: 2rpx solid currentColor;
-  border-radius: 50%;
-  box-sizing: border-box;
+.g-tag-ico--cert {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233B82C4' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='8.5' y='9.5' width='7' height='5' rx='1.5'/%3E%3Cpath d='M9 10l-3.2-3M15 10l3.2-3M9 14l-3.2 3M15 14l3.2 3'/%3E%3Ccircle cx='5' cy='6.4' r='1.3'/%3E%3Ccircle cx='19' cy='6.4' r='1.3'/%3E%3Ccircle cx='5' cy='17.6' r='1.3'/%3E%3Ccircle cx='19' cy='17.6' r='1.3'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 .group-divider { height: 1rpx; background: #EEF1F4; margin: 20rpx 0; }
 
