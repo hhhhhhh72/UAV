@@ -9,7 +9,7 @@
     >
       <template v-if="detail">
         <!-- ① Hero：真实校园全景图 + 三段蒙层 + 校徽半嵌 -->
-        <view class="hero" :style="{ paddingTop: (statusBarH + 44) + 'px' }">
+        <view class="hero" :style="{ paddingTop: (statusBarH + 10) + 'px' }">
           <!-- 兜底层（图片缺失时可见） -->
           <view class="hero-fallback">
             <view class="hero-deco">
@@ -334,7 +334,7 @@ onLoad(function (options) {
   background: linear-gradient(135deg, #074D92 0%, #0A66C2 100%);
   position: relative;
   overflow: hidden;
-  padding: 44px 32rpx 40rpx; /* JS 注入真实 paddingTop（状态栏避让） */
+  padding: 10px 32rpx 40rpx; /* JS 注入真实 paddingTop（状态栏避让） */
   box-sizing: border-box;
   /* P 批修复：flex 列布局把标题区（hero-content）推到底部而非 absolute 贴底——
      此前 hero 高度不足（min-height:300rpx 仅 ~153px），absolute 标题区（y≈65~136）
