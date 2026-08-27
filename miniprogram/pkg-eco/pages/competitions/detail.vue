@@ -391,11 +391,14 @@ onPullDownRefresh(function () {
 .hero {
   position: relative;
   width: 100%;
-  min-height: 520rpx;
+  min-height: 640rpx;
   overflow: hidden;
   background: linear-gradient(160deg, #0a5897 0%, #074D92 100%);
   padding: 40px 32rpx 40rpx;
   box-sizing: border-box;
+  /* 流式列布局（同院校详情页）：导航 → 状态徽章；内容区 margin-top:auto 推到底部，天然不重叠 */
+  display: flex;
+  flex-direction: column;
 }
 
 /* 真实海报图 */
@@ -527,11 +530,11 @@ onPullDownRefresh(function () {
 .share-btn::after { border: none; }
 .share-text { color: #fff; font-weight: 500; }
 
-/* 状态徽章（Hero 左上，导航行下方；实底白字清晰） */
+/* 状态徽章（流式：导航行下方，随布局自然错开；实底白字清晰） */
 .status-badge {
-  position: absolute;
-  left: 32rpx;
-  top: 120rpx;
+  position: relative;
+  align-self: flex-start;
+  margin-top: 20rpx;
   display: inline-flex;
   align-items: center;
   padding: 6rpx 16rpx;
@@ -546,12 +549,12 @@ onPullDownRefresh(function () {
 .badge--ongoing { background: #0A66C2; color: #ffffff; }
 .badge--closed { background: #5D6B82; color: #ffffff; }
 
-/* ===== Hero 内容层（对齐培训页 hero-bottom：贴底，徽章与标题同行流式） ===== */
+/* ===== Hero 内容层（absolute 贴底在 hero 底部区域内，徽章与标题同行流式） ===== */
 .hero-content {
   position: absolute;
   left: 32rpx;
   right: 32rpx;
-  bottom: 24rpx;
+  bottom: 96rpx;
   z-index: 3;
   display: flex;
   align-items: center;
@@ -607,14 +610,14 @@ onPullDownRefresh(function () {
   border: 1rpx solid rgba(255, 255, 255, 0.3);
 }
 
-/* ===== 内容区：上圆角卡片浮起 Hero（对齐培训详情页 content：-28rpx 上移 + 上投影） ===== */
+/* ===== 内容区：正常衔接 Hero（不遮图；圆角+阴影保持白卡质感） ===== */
 .content {
   position: relative;
   background: #F4F6F8;
   border-radius: 28rpx 28rpx 0 0;
-  margin-top: -28rpx;
+  margin-top: 0;
   padding: 8rpx 0 0;
-  box-shadow: 0 -16rpx 48rpx rgba(7, 77, 146, 0.12);
+  box-shadow: none;
 }
 
 /* ===== 信息时间轴 ===== */
