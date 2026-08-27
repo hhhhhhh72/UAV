@@ -1,6 +1,6 @@
 <template>
   <view class="page" :class="{ 'no-motion': noMotion }" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
-    <u-nav-bar title="部门对接" show-back :fixed="true" @back="goBack" />
+    <u-nav-bar :title="pageTitle" show-back :fixed="true" @back="goBack" />
 
     <!-- ① 骨架屏：首次加载 -->
     <view v-if="loading" class="skl">
@@ -20,13 +20,13 @@
       </u-empty>
     </view>
     <view v-else-if="!loading && depts.length === 0 && drills.length === 0" class="st">
-      <u-empty description="暂无数据" />
+      <u-empty :description="emptyText" />
     </view>
 
     <!-- ③ 正常内容 -->
     <template v-else>
-      <!-- 对接部门 -->
-      <view v-if="depts.length > 0" class="section">
+      <!-- 对接部门（tab=dept 或未指定时显示） -->
+      <view v-if="showDept" class="section">
         <view class="section-header">
           <text class="section-title">对接部门</text>
           <text class="section-count">{{ depts.length }} 个</text>
@@ -55,8 +55,8 @@
         </view>
       </view>
 
-      <!-- 演练记录 -->
-      <view v-if="drills.length > 0" class="section">
+      <!-- 演练记录（tab=drill 时显示） -->
+      <view v-if="showDrill && drills.length > 0" class="section">
         <view class="section-header">
           <text class="section-title">演练记录</text>
           <text class="section-count">{{ drills.length }} 条</text>
@@ -95,9 +95,26 @@ export default {
       errorMsg: '',
       depts: [],
       drills: [],
+      // 入口分流：dept=部门对接 / drill=联合演练 / 空=两模块都展示（兼容旧入口）
+      tab: 'dept',
     }
   },
-  onLoad() {
+  computed: {
+    pageTitle() {
+      return this.tab === 'drill' ? '联合演练' : '部门对接'
+    },
+    showDept() {
+      return this.tab !== 'drill'
+    },
+    showDrill() {
+      return this.tab === 'drill'
+    },
+    emptyText() {
+      return this.tab === 'drill' ? '暂无演练记录' : '暂无对接部门'
+    },
+  },
+  onLoad(options) {
+    if (options && (options.tab === 'drill' || options.tab === 'dept')) this.tab = options.tab
     this.checkMotion()
     this.fetchData()
   },
@@ -121,13 +138,14 @@ export default {
       this.errorMsg = ''
 
       try {
-        var results = await Promise.all([
-          request({ url: '/api/v1/emergency-depts' }),
-          request({ url: '/api/v1/emergency-drills' }),
-        ])
+        // 入口分流：只拉当前 tab 对应的接口，避免无效请求
+        var urls = this.tab === 'drill'
+          ? ['/api/v1/emergency-drills']
+          : ['/api/v1/emergency-depts']
+        var results = await Promise.all(urls.map(function (u) { return request({ url: u }) }))
 
         var deptRes = results[0]
-        var drillRes = results[1]
+        var drillRes = this.tab === 'drill' ? results[0] : null
 
         var deptData = Array.isArray(deptRes) ? deptRes : (deptRes && deptRes.data) || deptRes || {}
         var drillData = Array.isArray(drillRes) ? drillRes : (drillRes && drillRes.data) || drillRes || {}
@@ -135,8 +153,8 @@ export default {
         var deptItems = Array.isArray(deptData) ? deptData : (deptData && deptData.items) || (deptData && deptData.list) || []
         var drillItems = Array.isArray(drillData) ? drillData : (drillData && drillData.items) || (drillData && drillData.list) || []
 
-        this.depts = deptItems
-        this.drills = drillItems
+        this.depts = this.tab === 'drill' ? [] : deptItems
+        this.drills = this.tab === 'drill' ? drillItems : []
       } catch (e) {
         this.errorMsg = '网络异常，请稍后重试'
       } finally {

@@ -107,8 +107,8 @@ const categories = [
       { name: '应急资源', icon: iconRoot + 'trade.svg', path: '/pkg-emergency/pages/emergency/resources' },
       { name: '调度记录', icon: iconRoot + 'trade.svg', path: '/pkg-emergency/pages/emergency/dispatches' },
       { name: '救援案例', icon: iconRoot + 'ecoservice.svg', path: '/pkg-emergency/pages/emergency/cases' },
-      { name: '部门对接', icon: iconRoot + 'policy.svg', path: '/pkg-emergency/pages/emergency/depts' },
-      { name: '联合演练', icon: iconRoot + 'pilot.svg', path: '/pkg-emergency/pages/emergency/depts' },
+      { name: '部门对接', icon: iconRoot + 'policy.svg', path: '/pkg-emergency/pages/emergency/depts?tab=dept' },
+      { name: '联合演练', icon: iconRoot + 'pilot.svg', path: '/pkg-emergency/pages/emergency/depts?tab=drill' },
     ],
   },
   {
