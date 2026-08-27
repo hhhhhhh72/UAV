@@ -187,7 +187,7 @@ func (r *courseRepo) FindByID(ctx context.Context, id string) (domain.TrainingCo
 		Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
 			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
 			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
-			&c.Remain, &c.Environment, &c.CourseTypes,
+			&c.Remain, &c.Environment, &c.CourseTypes, &c.PassRate, &c.Years,
 			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	c.CertType = domain.CertType(ct)
 	return c, err
