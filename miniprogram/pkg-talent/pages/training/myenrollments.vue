@@ -4,8 +4,8 @@
 
     <!-- 白色板块：类型切换 + 信息行 + 列表 -->
     <view class="section">
-      <!-- 分类 tab：培训 / 赛事 / 活动 -->
-      <view class="tabs">
+      <!-- 分类 tab：培训 / 赛事 / 活动 / 研学（胶囊分段控件，对齐挑战广场筛选 pill） -->
+      <view class="tab-shell">
         <view
           v-for="t in TABS"
           :key="t.key"
@@ -47,9 +47,18 @@
         </u-empty>
       </view>
 
-      <!-- 列表：状态徽章 + 标题 + 元信息 -->
+      <!-- 列表：状态徽章 + 标题 + 元信息（可点跳对应详情） -->
       <view v-else class="cl">
-        <view v-for="c in cardItems" :key="c.id" class="card" hover-class="tap-scale" hover-start-time="0" hover-stay-time="120">
+        <view
+          v-for="(c, i) in cardItems"
+          :key="c.id"
+          class="card"
+          :style="{ animationDelay: Math.min(i * 40, 240) + 'ms' }"
+          hover-class="tap-scale"
+          hover-start-time="0"
+          hover-stay-time="120"
+          @tap="openItem(c)"
+        >
           <view class="c-badges">
             <text class="c-tag" :class="c.tagCls">{{ c.tag }}</text>
             <text class="c-st" :class="statusCls(c.status)">{{ statusLabel(c.status) }}</text>
@@ -61,6 +70,7 @@
           <view class="c-meta">
             <text v-if="c.meta2">{{ c.meta2 }}</text>
           </view>
+          <view class="c-arrow"></view>
         </view>
       </view>
     </view>
@@ -123,6 +133,30 @@ function goRelevant() {
   uni.navigateTo({ url: '/pkg-talent/pages/training/courses' })
 }
 function switchTab(k) { tab.value = k }
+
+// 卡片点击：跳对应详情（培训/赛事/活动/研学均按 id 直达；缺 id 时兜底对应列表）
+function openItem(c) {
+  const src = activeList.value || []
+  const it = src.find((x) => x.id === c.id)
+  if (!it) return
+  if (tab.value === 'competition' && it.competition_id) {
+    uni.navigateTo({ url: '/pkg-eco/pages/competitions/detail?id=' + encodeURIComponent(it.competition_id) })
+    return
+  }
+  if (tab.value === 'activity' && it.event_id) {
+    uni.navigateTo({ url: '/pkg-eco/pages/activities/detail?id=' + encodeURIComponent(it.event_id) })
+    return
+  }
+  if (tab.value === 'study' && it.tour_id) {
+    uni.navigateTo({ url: '/pkg-talent/pages/study/detail?id=' + encodeURIComponent(it.tour_id) })
+    return
+  }
+  if (tab.value === 'training' && it.course_id) {
+    uni.navigateTo({ url: '/pkg-talent/pages/training/enroll?id=' + encodeURIComponent(it.course_id) })
+    return
+  }
+  uni.navigateTo({ url: '/pkg-talent/pages/training/courses' })
+}
 
 // 统一卡片视图（四类报名 → 状态/标题/元信息）
 const cardItems = computed(() => {
@@ -294,27 +328,29 @@ page {
 }
 .irn { color: #0A66C2; font-weight: 600; }
 
-/* ===== 分类 tab（培训/赛事/活动） ===== */
-.tabs {
+/* ===== 分类 tab（胶囊分段控件，对齐挑战广场筛选 pill） ===== */
+.tab-shell {
   display: flex;
-  gap: 24rpx;
-  padding: 8rpx 28rpx 20rpx;
-  border-bottom: 1px solid #F2F4F7;
+  gap: 10rpx;
+  margin: 8rpx 28rpx 20rpx;
+  padding: 8rpx;
+  background: #F2F4F7;
+  border-radius: 18rpx;
 }
 .tab {
-  font-size: 28rpx;
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
   color: #667085;
-  padding: 6rpx 2rpx;
-  position: relative;
+  padding: 14rpx 0;
+  border-radius: 12rpx;
+  transition: background .2s ease, color .2s ease, box-shadow .2s ease;
 }
-.tab.on { color: #0A66C2; font-weight: 700; }
-.tab.on::after {
-  content: '';
-  position: absolute;
-  left: 0; right: 0; bottom: -14rpx;
-  height: 6rpx;
-  border-radius: 3rpx;
+.tab.on {
+  color: #fff;
+  font-weight: 700;
   background: #0A66C2;
+  box-shadow: 0 4rpx 12rpx rgba(10, 102, 194, 0.28);
 }
 
 /* ===== 列表卡片（白上白：灰描边 + 极淡灰投影浮起；无左缘色条） ===== */
@@ -336,6 +372,30 @@ page {
   box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
 }
 .c-badges { display: flex; gap: 6px; }
+.c-arrow {
+  position: absolute;
+  right: 20rpx;
+  top: 50%;
+  width: 32rpx;
+  height: 32rpx;
+  transform: translateY(-50%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C6CFDA' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+}
+.card {
+  animation: fadeUp .28s cubic-bezier(.16, 1, .3, 1) backwards;
+}
+.tap-scale { transform: scale(.985); opacity: .92; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page.no-motion .card { animation: none; }
+.page.no-motion .tab { transition: none; }
+.page.no-motion .tap-scale { transform: none !important; opacity: 1; }
 .c-st {
   display: inline-flex;
   align-items: center;
