@@ -154,7 +154,7 @@ onLoad((options) => {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #F5F6F8;
+  background: #F4F6F8;
   padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }

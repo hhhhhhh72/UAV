@@ -490,7 +490,7 @@
         {
           "path": "pages/study/detail",
           "style": {
-            "navigationBarTitleText": "课程详情",
+            "navigationBarTitleText": "研学详情",
             "navigationStyle": "custom",
             "navigationBarTextStyle": "white",
             "navigationBarBackgroundColor": "#ffffff"
@@ -500,6 +500,7 @@
           "path": "pages/study/enroll",
           "style": {
             "navigationBarTitleText": "研学报名",
+            "navigationStyle": "custom",
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff"
           }
