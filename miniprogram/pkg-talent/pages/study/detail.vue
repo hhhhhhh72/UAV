@@ -384,7 +384,7 @@ onReady(() => {
 <style scoped>
 .study-detail-page {
   min-height: 100vh;
-  background: #F5F8FC;
+  background: #F4F6F8;
   padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
 }
 
@@ -786,7 +786,7 @@ onReady(() => {
   flex: 1;
 }
 
-/* ═══ 八、底部 CTA ═══ */
+/* ═══ 八、底部 CTA（对齐培训详情页：毛白底 + 橙色大按钮 + 44rpx 价格） ═══ */
 .action-bar {
   position: fixed;
   bottom: 0;
@@ -797,14 +797,14 @@ onReady(() => {
   align-items: center;
   gap: 20rpx;
   padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
-  background: #ffffff;
-  border-top: 1rpx solid #E8EEF7;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1rpx solid #EEF1F4;
   box-shadow: 0 -2rpx 8rpx rgba(0,0,0,0.04);
 }
 .price-area { flex-shrink: 0; }
 .price-label {
   font-size: 20rpx;
-  color: #6B7B95;
+  color: #667085;
   display: block;
 }
 .price-row {
@@ -812,27 +812,26 @@ onReady(() => {
   align-items: baseline;
   gap: 4rpx;
 }
-.price-symbol { font-size: 24rpx; color: #FF8E3C; font-weight: 700; }
-.price-num { font-size: 44rpx; color: #FF8E3C; font-weight: 800; line-height: 1; }
-.price-unit { font-size: 22rpx; color: #ADB8C7; }
+.price-symbol { font-size: 22rpx; color: #E96012; font-weight: 700; }
+.price-num { font-size: 44rpx; color: #E96012; font-weight: 700; line-height: 1; }
+.price-unit { font-size: 20rpx; color: #667085; }
 .apply-btn {
   flex: 1;
-  height: 88rpx;
-  line-height: 88rpx;
-  border-radius: 999rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  border-radius: 10rpx;
   font-weight: 700;
-  font-size: 30rpx;
+  font-size: 28rpx;
   color: #fff;
-  background: linear-gradient(135deg, #1E5EFF, #0A66C2);
+  background: #F97316;
   border: none;
   padding: 0;
-  box-shadow: 0 8rpx 24rpx rgba(30,94,255,0.35);
-  animation: ctaGlow 2.5s ease-in-out infinite;
+  box-shadow: 0 4rpx 10rpx rgba(249, 115, 22, 0.32);
 }
+.apply-btn:active { background: #E96012; }
 .apply-btn[disabled] {
-  background: #C8C9CC !important;
+  background: #C9CDD4 !important;
   box-shadow: none;
-  animation: none;
 }
 
 /* ═══ 骨架屏 ═══ */
@@ -936,10 +935,6 @@ onReady(() => {
     transform: scale(1);
     opacity: 1;
   }
-}
-@keyframes ctaGlow {
-  0%, 100% { box-shadow: 0 8rpx 24rpx rgba(30,94,255,0.35); }
-  50% { box-shadow: 0 8rpx 32rpx rgba(30,94,255,0.55); }
 }
 @keyframes blink {
   0% { opacity: 0.5; }
