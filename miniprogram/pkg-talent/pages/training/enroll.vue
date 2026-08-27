@@ -286,7 +286,7 @@
     </view>
 
     <!-- ═══ ④ 自定义 Toast（成功/中性/错误三态图标） ═══ -->
-    <view v-if="toast.show" class="custom-toast" :class="{ 'custom-toast--out': toast.hide, 'custom-toast--' + (toast.type || 'success') }">
+    <view v-if="toast.show" class="custom-toast" :class="[{ 'custom-toast--out': toast.hide }, 'custom-toast--' + (toast.type || 'success')]">
       <view class="toast-icon"><view class="toast-check" /></view>
       <text class="toast-text">{{ toast.msg }}</text>
     </view>

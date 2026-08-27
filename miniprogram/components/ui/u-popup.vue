@@ -9,8 +9,6 @@
 </template>
 
 <script setup>
-import { defineEmits } from 'vue'
-
 const props = defineProps({
   show: { type: Boolean, default: false },
   position: { type: String, default: 'bottom' },

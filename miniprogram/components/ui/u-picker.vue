@@ -16,7 +16,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, defineEmits } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 const props = defineProps({
   show: { type: Boolean, default: false },

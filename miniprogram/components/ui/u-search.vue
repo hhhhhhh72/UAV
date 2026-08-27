@@ -18,8 +18,6 @@
 </template>
 
 <script setup>
-import { defineEmits } from 'vue'
-
 const props = defineProps({
   modelValue: { type: String, default: '' },
   placeholder: { type: String, default: '搜索' },

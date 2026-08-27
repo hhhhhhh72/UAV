@@ -16,7 +16,6 @@
 
 <script setup>
 import { ref, computed, onMounted, useSlots } from 'vue'
-import { defineEmits } from 'vue'
 
 const props = defineProps({
   title: { type: String, default: '' },

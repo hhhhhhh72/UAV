@@ -11,8 +11,6 @@
 </template>
 
 <script setup>
-import { defineEmits } from 'vue'
-
 defineProps({
   type: { type: String, default: 'primary' },
   size: { type: String, default: 'normal' },

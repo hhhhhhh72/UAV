@@ -25,8 +25,6 @@
 </template>
 
 <script setup>
-import { defineEmits } from 'vue'
-
 const props = defineProps({
   label: { type: String, default: '' },
   modelValue: { type: [String, Number], default: '' },
