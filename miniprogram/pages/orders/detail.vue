@@ -1,6 +1,6 @@
 <template>
   <view class="order-detail-page">
-    <u-nav-bar :title="navTitle" show-back right-text="客服" @back="goBack" @right="openCustomerService" />
+    <u-nav-bar :title="navTitle" show-back @back="goBack" />
 
     <view v-if="loading" class="state-panel">
       <view class="loading-inline">
@@ -91,7 +91,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { loadOrder, fmtFen, toastCustomerService } from '../../utils/orderAdapter'
+import { loadOrder, fmtFen } from '../../utils/orderAdapter'
 
 const order = ref(null)
 const loading = ref(true)
@@ -306,10 +306,6 @@ const goLogistics = () => {
   uni.navigateTo({
     url: `/pages/orders/logistics?id=${encodeURIComponent(order.value.id)}&type=${order.value.type}`,
   })
-}
-
-const openCustomerService = () => {
-  toastCustomerService()
 }
 
 const goBack = () => {
