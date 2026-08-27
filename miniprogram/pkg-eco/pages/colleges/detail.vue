@@ -322,7 +322,7 @@ onLoad(function (options) {
   --anim-slow: 320ms;
   --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   min-height: 100vh;
-  background: linear-gradient(180deg, #f5f6f8 0%, #E8F2FC 100%);
+  background: #ffffff;
   padding-bottom: env(safe-area-inset-bottom);
 }
 

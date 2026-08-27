@@ -671,7 +671,7 @@
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
             "enablePullDownRefresh": true,
-            "backgroundColor": "#E8F2FC"
+            "backgroundColor": "#ffffff"
           }
         },
         {
@@ -724,7 +724,7 @@
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
             "navigationStyle": "custom",
-            "backgroundColor": "#E8F2FC"
+            "backgroundColor": "#ffffff"
           }
         },
         {

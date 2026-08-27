@@ -261,7 +261,7 @@ onPullDownRefresh(function () {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #f5f6f8 0%, #E8F2FC 100%);
+  background: #ffffff;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
