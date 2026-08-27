@@ -20,20 +20,24 @@
         </view>
       </view>
 
-      <!-- 筛选分段（对齐成果库：下划线 tab + ▾ 状态浮层面板） -->
+      <!-- 筛选分段（对齐成果库：下划线 tab + ▾ 状态浮层面板）+ 发布入口同排（tab 左 / 按钮右） -->
       <view class="stage-wrap">
-        <view class="stages">
-          <view
-            v-for="t in STATUS_TABS"
-            :key="t.value"
-            class="stg"
-            :class="{ on: currentTab === t.value }"
-            @tap="pickStageTab(t.value)"
-          >
-            <text>{{ t.label }}</text>
-            <!-- ▾ 独立面板开关（方案 A）：未停在「全部」时点「全部」先清筛；已停时再点开面板 -->
-            <text v-if="t.value === 'all'" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
+        <view class="stage-line">
+          <view class="stages">
+            <view
+              v-for="t in STATUS_TABS"
+              :key="t.value"
+              class="stg"
+              :class="{ on: currentTab === t.value }"
+              @tap="pickStageTab(t.value)"
+            >
+              <text>{{ t.label }}</text>
+              <!-- ▾ 独立面板开关（方案 A）：未停在「全部」时点「全部」先清筛；已停时再点开面板 -->
+              <text v-if="t.value === 'all'" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
+            </view>
           </view>
+          <!-- 发布入口（仅企业可见）：与筛选分段同一行，右端 -->
+          <view v-if="canPublish" class="publish-entry" hover-class="publish-press" :hover-stay-time="100" @tap="goPublish">＋ 发布赛事</view>
         </view>
         <!-- 状态面板：absolute 浮层（同成果库），展开时不挤动下方内容 -->
         <view v-if="panel === 'all'" class="field-panel" :class="{ closing }">
@@ -48,10 +52,6 @@
             >{{ t.label }}</text>
           </view>
         </view>
-      </view>
-      <!-- 发布入口（仅企业可见）：右上对齐，独立于 tab 分段 -->
-      <view v-if="canPublish" class="publish-row">
-        <view class="publish-entry" hover-class="publish-press" :hover-stay-time="100" @tap="goPublish">＋ 发布赛事</view>
       </view>
     </view>
     <!-- 蒙层：从 tab 分段底部开始置灰（top 由 maskTop 实测），点击外部退场收起 -->
@@ -454,18 +454,26 @@ onPullDownRefresh(function () {
 .b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
 .b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
 
-/* ===== 筛选分段（对齐成果库：下划线 tab + ▾ 状态面板 + 蒙层）+ 发布入口 ===== */
+/* ===== 筛选分段（对齐成果库：下划线 tab + ▾ 状态面板 + 蒙层）+ 发布入口同排 ===== */
 .stage-wrap {
   position: relative;
   z-index: 42;
   background: #fff;
   padding: 2px 12px 0;
 }
+/* 同排行：tab 左（仅 2 个 tab 单行放得下），发布按钮右 */
+.stage-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .stages {
   display: flex;
   gap: 40rpx;
-  padding: 4rpx 16rpx 16rpx;
+  padding: 4rpx 16rpx 16rpx 4rpx;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 .stg {
   position: relative;
@@ -556,17 +564,11 @@ onPullDownRefresh(function () {
 }
 @keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* 发布入口：右上对齐，独立于 tab 分段（仅企业可见） */
-.publish-row {
-  display: flex;
-  justify-content: flex-end;
-  padding: 4px 12px 10px;
-  background: #fff;
-}
+/* 发布入口（仅企业可见）：与筛选分段同排右端，紧凑高度 */
 .publish-entry {
   flex: none;
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 36px;
+  padding: 0 12px;
   border-radius: 8px;
   background: #0A66C2;
   color: #fff;
@@ -574,6 +576,7 @@ onPullDownRefresh(function () {
   font-weight: 600;
   display: flex;
   align-items: center;
+  margin-bottom: 8px; /* 与 tab 底部注线留白(16rpx)对齐，视觉同水平线 */
   box-shadow: 0 2px 8px rgba(10, 102, 194, 0.24);
 }
 .publish-press { transform: scale(0.95); opacity: 0.9; }
