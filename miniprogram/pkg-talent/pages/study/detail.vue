@@ -14,11 +14,11 @@
         <text class="back-icon">‹</text>
       </view>
 
-      <!-- 状态徽章（左上角下方） -->
-      <view class="status-pill" :style="statusPillStyle">{{ statusLabel[tour.status] || '招募中' }}</view>
-
-      <!-- 主标题 -->
+      <!-- 状态徽章（标题区顶部，流式贴底不与返回栏重叠） -->
       <view class="hero-title-wrap">
+        <view class="status-pill" :style="statusPillStyle">{{ statusLabel[tour.status] || '招募中' }}</view>
+
+        <!-- 主标题 -->
         <text class="hero-title">{{ tour.title || '研学活动' }}</text>
         <!-- 主题胶囊（左下角白底） -->
         <view class="theme-pill" :style="{ color: themeInfo.color, background: themeInfo.bg }">{{ themeInfo.label }}</view>
@@ -37,7 +37,7 @@
     </view>
 
     <view class="content" v-if="contentReady">
-      <!-- ═══ 二、活动信息卡（四列）═══ -->
+      <!-- ═══ 二、活动信息卡（四列 + 报名状态提示）═══ -->
       <view class="section-card card-float">
         <view class="section-title"><view class="title-bar" />活动信息</view>
         <view class="info-grid">
@@ -64,6 +64,11 @@
             <text class="info-num info-num-price">{{ priceNum }}</text>
             <text class="info-label">{{ priceNum !== '面议' ? '/人' : '' }}</text>
           </view>
+        </view>
+        <!-- 报名情况提示（名额/截止，随活动信息卡；CSS 时钟图标非 emoji） -->
+        <view class="deadline-pill" v-if="deadlineText">
+          <view class="deadline-clock"><view class="clock-hand" /></view>
+          <text class="deadline-text">{{ deadlineText }}</text>
         </view>
       </view>
 
@@ -100,10 +105,6 @@
             <text class="time-label">结束</text>
             <text class="time-value">{{ fullDate(tour.end_date) }}</text>
           </view>
-        </view>
-        <view class="deadline-pill" v-if="deadlineText">
-          <text class="deadline-clock">⏰</text>
-          <text class="deadline-text">{{ deadlineText }}</text>
         </view>
       </view>
 
@@ -466,11 +467,10 @@ onReady(() => {
   line-height: 1;
 }
 
-/* 状态徽章 */
+/* 状态徽章（标题区顶部流式，随 Hero 内容贴底，不与返回按钮重叠） */
 .status-pill {
-  position: absolute;
-  top: 92rpx;
-  left: 104rpx;
+  position: relative;
+  align-self: flex-start;
   z-index: 5;
   padding: 6rpx 18rpx;
   border-radius: 999rpx;
@@ -691,7 +691,34 @@ onReady(() => {
   color: #EF4444;
   font-weight: 600;
 }
-.deadline-clock { font-size: 24rpx; }
+.deadline-clock {
+  width: 24rpx;
+  height: 24rpx;
+  border: 2rpx solid #EF4444;
+  border-radius: 50%;
+  position: relative;
+  box-sizing: border-box;
+}
+.deadline-clock::before {
+  content: '';
+  position: absolute;
+  top: -4rpx;
+  left: 4rpx;
+  right: 4rpx;
+  height: 2rpx;
+  background: #EF4444;
+  border-radius: 2rpx;
+}
+.clock-hand {
+  position: absolute;
+  left: 50%;
+  top: 4rpx;
+  bottom: 4rpx;
+  width: 2rpx;
+  background: #EF4444;
+  transform-origin: bottom;
+  transform: rotate(45deg);
+}
 
 /* ═══ 六、费用说明 ═══ */
 .fee-section { padding-bottom: 8rpx; }
