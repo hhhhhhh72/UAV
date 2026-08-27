@@ -133,6 +133,8 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		Remain        int                  `json:"remain"`
 		Environment   []string             `json:"environment"`
 		CourseTypes   []string             `json:"course_types"`
+		PassRate      string               `json:"pass_rate"`
+		Years         int                  `json:"years"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -156,6 +158,7 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
+		PassRate: in.PassRate, Years: in.Years,
 		// 用户发布课程待审核（pending），管理端审核（status 改 published）后进入公开列表——
 		// 与需求/服务/商品发布一致；此前课程即时上架，无需审核。
 		Status: "pending",

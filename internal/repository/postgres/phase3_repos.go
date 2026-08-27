@@ -135,7 +135,7 @@ type courseRepo struct{ pool *pgxpool.Pool }
 func (s *Store) NewCourseRepository() repository.CourseRepository { return &courseRepo{pool: s.Pool()} }
 
 // courseCols 与 training_courses 表列一一对应（迁移 000044/000045 补齐小程序页面字段）
-const courseCols = `id,org_id,org_name,title,cert_type,description,start_date,end_date,max_students,enrolled_count,location,district,price_fen,rating,review_count,duration_days,image,tags,certificate,courses,prices,business_hours,phone,remain,environment,course_types,status,version,created_at,updated_at`
+const courseCols = `id,org_id,org_name,title,cert_type,description,start_date,end_date,max_students,enrolled_count,location,district,price_fen,rating,review_count,duration_days,image,tags,certificate,courses,prices,business_hours,phone,remain,environment,course_types,pass_rate,years,status,version,created_at,updated_at`
 
 func (r *courseRepo) Create(ctx context.Context, c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	c.Version = 1
@@ -148,11 +148,11 @@ func (r *courseRepo) Create(ctx context.Context, c domain.TrainingCourse) (domai
 	c.CourseTypes = jsonbSlice(c.CourseTypes)
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO training_courses (`+courseCols+`)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)`,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)`,
 		c.ID, c.OrgID, c.OrgName, c.Title, string(c.CertType), c.Description, c.StartDate, c.EndDate,
 		c.MaxStudents, c.EnrolledCount, c.Location, c.District, c.PriceFen, c.Rating, c.ReviewCount,
 		c.DurationDays, c.Image, c.Tags, c.Certificate, c.Courses, c.Prices, c.BusinessHours, c.Phone,
-		c.Remain, c.Environment, c.CourseTypes,
+		c.Remain, c.Environment, c.CourseTypes, c.PassRate, c.Years,
 		c.Status, c.Version, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
@@ -169,7 +169,7 @@ func (r *courseRepo) List(ctx context.Context) ([]domain.TrainingCourse, error) 
 		if err := rows.Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
 			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
 			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
-			&c.Remain, &c.Environment, &c.CourseTypes,
+			&c.Remain, &c.Environment, &c.CourseTypes, &c.PassRate, &c.Years,
 			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan course: %w", err)
 		}
@@ -202,11 +202,11 @@ func (r *courseRepo) Update(ctx context.Context, c domain.TrainingCourse) (domai
 	c.Environment = jsonbSlice(c.Environment)
 	c.CourseTypes = jsonbSlice(c.CourseTypes)
 	_, err := r.pool.Exec(ctx,
-		`UPDATE training_courses SET title=$1,cert_type=$2,description=$3,start_date=$4,end_date=$5,max_students=$6,location=$7,district=$8,price_fen=$9,rating=$10,review_count=$11,duration_days=$12,image=$13,tags=$14,certificate=$15,courses=$16,prices=$17,business_hours=$18,phone=$19,org_name=$20,remain=$21,environment=$22,course_types=$23,status=$24,version=$25,updated_at=$26 WHERE id=$27`,
+		`UPDATE training_courses SET title=$1,cert_type=$2,description=$3,start_date=$4,end_date=$5,max_students=$6,location=$7,district=$8,price_fen=$9,rating=$10,review_count=$11,duration_days=$12,image=$13,tags=$14,certificate=$15,courses=$16,prices=$17,business_hours=$18,phone=$19,org_name=$20,remain=$21,environment=$22,course_types=$23,pass_rate=$24,years=$25,status=$26,version=$27,updated_at=$28 WHERE id=$29`,
 		c.Title, string(c.CertType), c.Description, c.StartDate, c.EndDate, c.MaxStudents, c.Location,
 		c.District, c.PriceFen, c.Rating, c.ReviewCount, c.DurationDays, c.Image, c.Tags, c.Certificate,
 		c.Courses, c.Prices, c.BusinessHours, c.Phone, c.OrgName, c.Remain, c.Environment, c.CourseTypes,
-		c.Status, c.Version, c.UpdatedAt, c.ID)
+		c.PassRate, c.Years, c.Status, c.Version, c.UpdatedAt, c.ID)
 	return c, err
 }
 
@@ -251,7 +251,7 @@ func (r *courseRepo) UnfavoriteCourse(ctx context.Context, userID, courseID stri
 // JOIN 查询必须给列加 c. 前缀：favorites 表同样有 id/created_at，未限定会 42702 歧义。
 func (r *courseRepo) ListFavoriteCourses(ctx context.Context, userID string) ([]domain.TrainingCourse, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT c.id,c.org_id,c.org_name,c.title,c.cert_type,c.description,c.start_date,c.end_date,c.max_students,c.enrolled_count,c.location,c.district,c.price_fen,c.rating,c.review_count,c.duration_days,c.image,c.tags,c.certificate,c.courses,c.prices,c.business_hours,c.phone,c.remain,c.environment,c.course_types,c.status,c.version,c.created_at,c.updated_at FROM training_courses c
+		`SELECT c.id,c.org_id,c.org_name,c.title,c.cert_type,c.description,c.start_date,c.end_date,c.max_students,c.enrolled_count,c.location,c.district,c.price_fen,c.rating,c.review_count,c.duration_days,c.image,c.tags,c.certificate,c.courses,c.prices,c.business_hours,c.phone,c.remain,c.environment,c.course_types,c.pass_rate,c.years,c.status,c.version,c.created_at,c.updated_at FROM training_courses c
 		 JOIN training_course_favorites f ON f.course_id = c.id
 		 WHERE f.user_id=$1
 		 ORDER BY f.created_at DESC`, userID)
@@ -266,7 +266,7 @@ func (r *courseRepo) ListFavoriteCourses(ctx context.Context, userID string) ([]
 		if err := rows.Scan(&c.ID, &c.OrgID, &c.OrgName, &c.Title, &ct, &c.Description, &c.StartDate, &c.EndDate,
 			&c.MaxStudents, &c.EnrolledCount, &c.Location, &c.District, &c.PriceFen, &c.Rating, &c.ReviewCount,
 			&c.DurationDays, &c.Image, &c.Tags, &c.Certificate, &c.Courses, &c.Prices, &c.BusinessHours, &c.Phone,
-			&c.Remain, &c.Environment, &c.CourseTypes,
+			&c.Remain, &c.Environment, &c.CourseTypes, &c.PassRate, &c.Years,
 			&c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan favorite course: %w", err)
 		}

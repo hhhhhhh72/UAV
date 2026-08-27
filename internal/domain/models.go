@@ -368,9 +368,13 @@ type TrainingCourse struct {
 	Environment   []string      `json:"environment"`  // 培训环境图集（页面 environment || env_images）
 	CourseTypes   []string      `json:"course_types"` // 课程类型列表（页面 course_types）
 	Status        string        `json:"status"`       // draft / published / recruiting / full / upcoming / urgent
-	Version       int           `json:"version"`
-	CreatedAt     time.Time     `json:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at"`
+	// PassRate 通过考试率（页面"通过考试"统计，如 "92"；空为"—"）
+	PassRate string `json:"pass_rate"`
+	// Years 机构年限（页面"机构年限"统计；0 为"—"）
+	Years     int       `json:"years"`
+	Version   int       `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Instructor is a certified training instructor registered on the platform.

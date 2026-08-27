@@ -106,6 +106,68 @@
           <a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择结课日期" style="width: 100%" />
         </a-form-item>
         <a-form-item label="课程描述"><a-input v-model="form.description" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
+        <a-divider style="margin: 8px 0 16px">机构与展示信息（小程序详情页）</a-divider>
+        <a-form-item label="机构名称">
+          <a-input v-model="form.org_name" style="width: 100%" placeholder="培训机构全称（小程序详情页显示）" />
+        </a-form-item>
+        <a-form-item label="区县">
+          <a-input v-model="form.district" style="width: 100%" placeholder="如 渝北区" />
+        </a-form-item>
+        <a-form-item label="培训周期（天）">
+          <a-input-number v-model="form.duration_days" :min="0" hide-button style="width: 100%" placeholder="培训天数" />
+        </a-form-item>
+        <a-form-item label="评分">
+          <a-input v-model="form.rating" style="width: 100%" placeholder="如 4.9" />
+        </a-form-item>
+        <a-form-item label="评价数">
+          <a-input-number v-model="form.review_count" :min="0" hide-button style="width: 100%" placeholder="累计评价条数" />
+        </a-form-item>
+        <a-form-item label="通过率（%）">
+          <a-input v-model="form.pass_rate" style="width: 100%" placeholder="如 92（小程序'通过考试'统计）" />
+        </a-form-item>
+        <a-form-item label="机构年限（年）">
+          <a-input-number v-model="form.years" :min="0" hide-button style="width: 100%" placeholder="成立年限（小程序'机构年限'统计）" />
+        </a-form-item>
+        <a-form-item label="标签">
+          <a-select v-model="form.tags" mode="tags" placeholder="输入后回车，如 实操教学、小班授课" style="width: 100%" allow-clear />
+        </a-form-item>
+        <a-form-item label="课程类型">
+          <a-select v-model="form.course_types" mode="tags" placeholder="输入后回车，如 飞行执照、行业应用" style="width: 100%" allow-clear />
+        </a-form-item>
+        <a-form-item label="证书图">
+          <a-upload class="avatar-upload" :show-file-list="false" :custom-request="certUploadRequest" accept="image/*" :before-upload="beforeUpload">
+            <a-avatar v-if="form.certificate" :image-url="form.certificate" :size="80" shape="square" />
+            <a-button v-else type="outline">点击上传</a-button>
+          </a-upload>
+        </a-form-item>
+        <a-divider style="margin: 8px 0 16px">联系信息</a-divider>
+        <a-form-item label="报名电话">
+          <a-input v-model="form.phone" style="width: 100%" placeholder="机构报名电话（小程序拨打/展示）" />
+        </a-form-item>
+        <a-form-item label="营业时间">
+          <a-input v-model="form.business_hours" style="width: 100%" placeholder="如 周一至周日 09:00-18:00" />
+        </a-form-item>
+        <a-divider style="margin: 8px 0 16px">价格方案（小程序「培训参考价」档位）</a-divider>
+        <a-form-item label="各档位价格（元/人）">
+          <div v-for="(row, i) in form.prices" :key="'p' + i" class="price-row">
+            <a-input v-model="row.name" placeholder="档位名（如 标准班）" style="flex: 1" />
+            <a-input-number v-model="row.price" :min="0" hide-button style="width: 120px" placeholder="价格" />
+            <a-button type="text" status="danger" size="small" @click="form.prices.splice(i, 1)">删除</a-button>
+          </div>
+          <div class="price-row">
+            <a-button size="small" type="outline" @click="form.prices.push({ name: '', price: null })">＋ 添加档位</a-button>
+          </div>
+        </a-form-item>
+        <a-form-item label="课程方案（可选）">
+          <div v-for="(row, i) in form.courses" :key="'c' + i" class="price-row">
+            <a-input v-model="row.name" placeholder="方案名" style="flex: 1" />
+            <a-input-number v-model="row.price" :min="0" hide-button style="width: 120px" placeholder="价格" />
+            <a-button type="text" status="danger" size="small" @click="form.courses.splice(i, 1)">删除</a-button>
+          </div>
+          <div class="price-row">
+            <a-button size="small" type="outline" @click="form.courses.push({ name: '', price: null })">＋ 添加方案</a-button>
+          </div>
+        </a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
@@ -145,6 +207,23 @@ const uploadRequest = async ({ fileItem, onSuccess, onError }) => {
     const url = res?.data?.url || res?.url
     if (!url) throw new Error('上传失败')
     form.image = url
+    Message.success('上传成功')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  }
+}
+
+// 证书图上传：与封面图同源（写入 form.certificate）
+const certUploadRequest = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    form.certificate = url
     Message.success('上传成功')
     onSuccess && onSuccess(res)
   } catch (e) {
@@ -200,9 +279,19 @@ const showDetail = (d) => { currentItem.value = d; detailVisible.value = true }
 const formVisible = ref(false)
 const formEdit = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '', end_date: '', status: 'draft', description: '', image: '' })
+const form = reactive({
+  id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '',
+  end_date: '', status: 'draft', description: '', image: '',
+  org_name: '', district: '', duration_days: null, rating: '', review_count: null, pass_rate: '', years: null,
+  tags: [], course_types: [], certificate: '', phone: '', business_hours: '', prices: [], courses: [],
+})
 
-const resetForm = () => Object.assign(form, { id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '', end_date: '', status: 'draft', description: '', image: '' })
+const resetForm = () => Object.assign(form, {
+  id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '',
+  end_date: '', status: 'draft', description: '', image: '',
+  org_name: '', district: '', duration_days: null, rating: '', review_count: null, pass_rate: '', years: null,
+  tags: [], course_types: [], certificate: '', phone: '', business_hours: '', prices: [], courses: [],
+})
 
 const openForm = (row) => {
   resetForm()
@@ -211,7 +300,14 @@ const openForm = (row) => {
     Object.assign(form, {
       ...row,
       priceYuan: row.price_fen ? Math.round(row.price_fen / 100 * 100) / 100 : null,
-      max_students: row.max_students ?? null
+      max_students: row.max_students ?? null,
+      duration_days: row.duration_days ?? null,
+      review_count: row.review_count ?? null,
+      years: row.years ?? null,
+      tags: Array.isArray(row.tags) ? row.tags.slice() : (row.tags ? String(row.tags).split(',') : []),
+      course_types: Array.isArray(row.course_types) ? row.course_types.slice() : [],
+      prices: (Array.isArray(row.prices) ? row.prices : []).map((p) => ({ name: p.name || '', price: p.price ?? null })),
+      courses: (Array.isArray(row.courses) ? row.courses : []).map((p) => ({ name: p.name || '', price: p.price ?? null })),
     })
   } else {
     formEdit.value = false
@@ -219,6 +315,11 @@ const openForm = (row) => {
   formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
+
+// 价格档位/方案数组序列化（{name, price}）；空行丢弃，价格转数字
+const planRows = (rows) => (Array.isArray(rows) ? rows : [])
+  .filter((r) => String(r.name || '').trim())
+  .map((r) => ({ name: String(r.name).trim(), price: Number(r.price) || 0 }))
 
 const submitForm = async () => {
   if (!form.title) { Message.warning('请输入课程名称'); return }
@@ -228,6 +329,11 @@ const submitForm = async () => {
     // 空值提交 null：价格/名额未填时不再写 0 假数据（用户显式输入 0 仍保留 0）
     payload.price_fen = form.priceYuan == null ? null : Math.round(form.priceYuan * 100)
     payload.max_students = form.max_students ?? null
+    payload.duration_days = form.duration_days ?? null
+    payload.review_count = form.review_count ?? null
+    payload.years = form.years ?? null
+    payload.prices = planRows(form.prices)
+    payload.courses = planRows(form.courses)
     delete payload.priceYuan
     if (formEdit.value) {
       await api.update(form.id, payload)
@@ -289,4 +395,11 @@ const handleDelete = (row) => {
   display: block;
   max-width: 300px;
 }
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.price-row .arco-btn { flex: none; }
 </style>

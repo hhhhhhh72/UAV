@@ -287,6 +287,8 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 		Remain        int                  `json:"remain"`
 		Environment   []string             `json:"environment"`
 		CourseTypes   []string             `json:"course_types"`
+		PassRate      string               `json:"pass_rate"`
+		Years         int                  `json:"years"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -355,6 +357,8 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 		Remain        int                  `json:"remain"`
 		Environment   []string             `json:"environment"`
 		CourseTypes   []string             `json:"course_types"`
+		PassRate      string               `json:"pass_rate"`
+		Years         int                  `json:"years"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -386,6 +390,7 @@ func (s *Server) updateCourse(w http.ResponseWriter, r *http.Request) {
 		Tags: in.Tags, Certificate: in.Certificate, Courses: in.Courses,
 		Prices: in.Prices, BusinessHours: in.BusinessHours, Phone: in.Phone,
 		Remain: in.Remain, Environment: in.Environment, CourseTypes: in.CourseTypes,
+		PassRate: in.PassRate, Years: in.Years,
 	})
 	if err != nil {
 		adminFail(w, r, err)
