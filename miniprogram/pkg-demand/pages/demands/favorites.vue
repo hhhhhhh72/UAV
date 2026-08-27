@@ -1,5 +1,5 @@
 <template>
-  <view class="fav-page">
+  <view class="fav-page" :class="{ 'no-motion': noMotion }">
     <!-- 头部 -->
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
@@ -38,15 +38,24 @@
 
     <!-- 空状态 -->
     <view v-else-if="visibleCards.length === 0" class="state-panel">
-      <view class="state-mark">♡</view>
-      <text class="state-title">{{ loadError ? '加载失败' : emptyTitle }}</text>
-      <text class="state-desc">{{ loadError ? '网络异常，请稍后重试' : emptyDesc }}</text>
-      <view class="state-btn" @tap="loadError ? fetchAll() : goHall">{{ loadError ? '重新加载' : '去逛逛' }}</view>
+      <u-empty :description="loadError ? '加载失败' : emptyTitle">
+        <text class="sth">{{ loadError ? '网络异常，请稍后重试' : emptyDesc }}</text>
+        <view class="state-btn" @tap="loadError ? fetchAll() : goHall">{{ loadError ? '重新加载' : '去逛逛' }}</view>
+      </u-empty>
     </view>
 
     <!-- 收藏列表 -->
     <view v-else class="post-list">
-      <view v-for="post in visibleCards" :key="post.type + '-' + post.id" class="mine-card" hover-class="mine-card--active" @tap="goDetail(post)">
+      <view
+        v-for="(post, i) in visibleCards"
+        :key="post.type + '-' + post.id"
+        class="mine-card"
+        :style="{ animationDelay: Math.min(i * 40, 280) + 'ms' }"
+        hover-class="tap-scale"
+        hover-start-time="0"
+        hover-stay-time="120"
+        @tap="goDetail(post)"
+      >
         <view class="tag-row">
           <text class="tag" :class="typeTagClass(post.type)">{{ post.label }}</text>
           <text class="tag" :class="statusTagClass(post.statusKey)">{{ post.status }}</text>
@@ -71,6 +80,9 @@ import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getErrorMessage, authStorage } from '../../../utils/request'
 import { bizTypeLabel } from '../../../utils/enums'
 import { useSafeTop } from '../../../utils/safeTop'
+import { useReduceMotion } from '../../../utils/motion'
+
+const { noMotion, checkMotion } = useReduceMotion()
 
 const favType = ref('all')
 const cards = ref([])
@@ -219,6 +231,7 @@ const fetchAll = async () => {
 
 onLoad(() => {
   initSafeTop()
+  checkMotion()
   // 未登录不进收藏页：引导登录
   if (!authStorage.getAccessToken()) {
     uni.navigateTo({ url: '/pages/login/index' })
@@ -349,19 +362,30 @@ async function unfavorite(post) {
 .post-list { padding: 0 32rpx 32rpx; }
 .mine-card {
   background: #fff;
-  border-radius: 16rpx;
-  padding: 26rpx;
-  border: 1px solid #EEF1F4;
-  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
+  border-radius: 20rpx;
+  padding: 26rpx 28rpx;
+  border: 1px solid #E4E7EC;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  animation: fadeUp .28s cubic-bezier(.16, 1, .3, 1) backwards;
 }
 .mine-card + .mine-card { margin-top: 20rpx; }
-.mine-card--active { opacity: .8; }
+.tap-scale { transform: scale(.985); opacity: .92; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page.no-motion .mine-card { animation: none; }
+.page.no-motion .tap-scale { transform: none !important; opacity: 1; }
 
 .tag-row { display: flex; gap: 10rpx; }
 .tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44rpx;
   border-radius: 8rpx;
-  padding: 6rpx 12rpx;
-  font-size: 20rpx;
+  padding: 0 14rpx;
+  font-size: 24rpx;
+  font-weight: 700;
   line-height: 1;
 }
 .tag.blue { color: #0A66C2; background: #EAF3FB; }
@@ -373,7 +397,7 @@ async function unfavorite(post) {
 
 .post-title {
   display: block;
-  font-size: 28rpx;
+  font-size: 30rpx;
   line-height: 1.45;
   color: #17212B;
   font-weight: 700;
@@ -417,20 +441,13 @@ async function unfavorite(post) {
   padding: 56rpx;
   text-align: center;
 }
-.state-mark {
-  width: 124rpx;
-  height: 124rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 24rpx;
-  border-radius: 50%;
-  background: #EAF3FB;
-  color: #0A66C2;
-  font-size: 54rpx;
+.sth {
+  display: block;
+  margin: 12rpx 0 32rpx;
+  font-size: 24rpx;
+  color: #667085;
+  line-height: 1.7;
 }
-.state-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
-.state-desc { margin: 12rpx 0 32rpx; font-size: 22rpx; color: #98A2B3; }
 .state-btn {
   height: 72rpx;
   padding: 0 30rpx;
