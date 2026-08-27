@@ -4,7 +4,7 @@
       :loading="loading"
       :error="!!errorMsg"
       :empty="!loading && !errorMsg && !detail"
-      empty-text="机构不存在"
+      empty-text="课程不存在或已下架"
       @retry="fetchDetail"
     >
       <template v-if="detail">
@@ -69,13 +69,22 @@
             </view>
           </view>
 
+          <!-- 平台背书（首屏信任）：协会平台审核 · 机构资质已核验 -->
+          <view class="platform-endorse">
+            <view class="pe-mark"><view class="pe-check" /></view>
+            <view class="pe-body">
+              <text class="pe-title">协会平台审核 · 机构资质已核验</text>
+              <text class="pe-sub">平台认证机构 · 报名费用公开透明</text>
+            </view>
+          </view>
+
           <!-- 评价数据为空时不渲染，避免以“—”占据首屏 -->
           <view v-if="hasRatingInfo(detail)" class="section">
             <view class="rating-card">
               <view class="rating-left">
                 <text class="rating-score">{{ ratingOf(detail) }}<text class="rating-total">/5.0</text></text>
                 <view class="rating-stars">
-                  <text v-for="n in 5" :key="n" class="star" :class="{ 'star--on': n <= starCount(detail) }">★</text>
+                  <view v-for="n in 5" :key="n" class="star" :class="{ 'star--on': n <= starCount(detail) }" />
                 </view>
               </view>
               <view class="rating-divider" />
@@ -166,7 +175,7 @@
                 <view class="contact-icon contact-icon--green"><view class="ci-phone" /></view>
                 <view class="contact-body">
                   <text class="contact-key">电话</text>
-                  <text class="contact-val contact-val--link">{{ detail.phone || detail.contact_phone || '400-116-0851' }}</text>
+                  <text class="contact-val contact-val--link">{{ displayPhone }}</text>
                 </view>
                 <view class="contact-arrow">›</view>
               </view>
@@ -244,11 +253,11 @@
         <text class="fav-label">{{ isFav ? '已收藏' : '收藏' }}</text>
       </view>
       <view class="bottom-left">
-        <text class="fee-label">培训参考价</text>
+        <text class="fee-label">当前选择</text>
         <view class="fee-price">
-          <text v-if="minPrice(detail) !== '面议'" class="fee-symbol">¥</text>
-          <text class="fee-value">{{ minPrice(detail) }}</text>
-          <text v-if="minPrice(detail) !== '面议'" class="fee-unit">起/人</text>
+          <text v-if="bottomPrice !== '面议'" class="fee-symbol">¥</text>
+          <text class="fee-value">{{ bottomPrice }}</text>
+          <text v-if="bottomPrice !== '面议'" class="fee-unit">/人</text>
         </view>
       </view>
       <view class="bottom-actions">
@@ -466,7 +475,7 @@ async function fetchDetail() {
     const res = await request({ url: '/api/v1/training-courses/' + encodeURIComponent(id.value) })
     const data = (res && res.data) || res || null
     detail.value = data && data.id ? data : null
-    if (!detail.value) errorMsg.value = '机构不存在'
+    if (!detail.value) errorMsg.value = '课程不存在或已下架'
     else loadFavState()
   } catch (e) {
     // 接口失败且已有缓存首帧时保留展示，不覆盖为错误态
@@ -543,24 +552,25 @@ function openMap() {
   showCustomToast('暂无地址信息')
 }
 function callPhone() {
-  const phone = (detail.value && (detail.value.phone || detail.value.contact_phone)) || ''
-  if (phone) uni.makePhoneCall({ phoneNumber: phone })
-  else showCustomToast('暂无联系电话')
+  // 显示与拨打同源：卡上展示什么号码就拨什么（无机构号码时拨平台热线，绝不"显示却拨不了"）
+  uni.makePhoneCall({ phoneNumber: displayPhone.value })
 }
-function handleConsult() {
-  // 咨询真化：有电话 → 直接拨打（真实动作）；无电话 → 本地记录咨询意向 + 如实提示
+// 展示/拨打统一口径：机构电话优先，缺失时平台热线 400-116-0851
+const displayPhone = computed(() => {
   const item = detail.value
-  const phone = (item && (item.phone || item.contact_phone)) || ''
-  if (phone) {
-    uni.makePhoneCall({ phoneNumber: phone })
-    return
-  }
-  try {
-    const intents = uni.getStorageSync('consult_intents') || []
-    intents.push({ courseId: id.value, course: (item && courseTitleOf(item)) || '', org: orgNameOf(item), time: Date.now() })
-    uni.setStorageSync('consult_intents', intents)
-  } catch (e) { /* 存储失败不阻断提示 */ }
-  showCustomToast('已记录咨询意向，平台将尽快联系你（也可致电平台热线 400-116-0851）')
+  const p = item && (item.phone || item.contact_phone)
+  return String(p || '400-116-0851')
+})
+// 底栏价格 = 当前选中的档位（选高档不再显示最低价"起"；无档位显示面议）
+const bottomPrice = computed(() => {
+  const list = priceList(detail.value)
+  if (!list.length) return '面议'
+  const p = list[activePriceIndex.value]
+  return p ? String(p.price) : String((list[0] && list[0].price) || '面议')
+})
+function handleConsult() {
+  // 咨询真化：统一拨 displayPhone（机构号或平台热线，与联系卡展示一致）
+  uni.makePhoneCall({ phoneNumber: displayPhone.value })
 }
 function handleEnroll() {
   // 价格档传递：选中档随跳转写入 storage，register 回填匹配项（不再重选）
@@ -844,8 +854,17 @@ onPullDownRefresh(function () {
 .rating-score { font-size: 48rpx; font-weight: 760; color: #E96012; line-height: 1; }
 .rating-total { font-size: 22rpx; font-weight: 500; color: #98A2B3; }
 .rating-stars { display: flex; gap: 2rpx; }
-.star { font-size: 22rpx; color: #E4E7EC; }
-.star--on { color: #F5B301; }
+.star {
+  width: 28rpx;
+  height: 28rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23D8DCE3'%3E%3Cpath d='M12 2.4l2.94 6.04 6.66.92-4.85 4.66 1.18 6.6L12 17.42l-5.93 3.2 1.18-6.6L2.4 9.36l6.66-.92z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.star--on {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23F5B301'%3E%3Cpath d='M12 2.4l2.94 6.04 6.66.92-4.85 4.66 1.18 6.6L12 17.42l-5.93 3.2 1.18-6.6L2.4 9.36l6.66-.92z'/%3E%3C/svg%3E");
+}
 .rating-divider {
   width: 1rpx;
   height: 96rpx;
@@ -1365,6 +1384,37 @@ onPullDownRefresh(function () {
 
 /* ═══ 视觉重整：对齐小程序现有的浅蓝底 + 高饱和蓝色卡片语言 ═══ */
 .page { background: #EAF4FF; }
+/* 平台背书（首屏信任条：协会平台审核） */
+.platform-endorse {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin: 0 24rpx 20rpx;
+  padding: 20rpx 24rpx;
+  background: #E7F1FC;
+  border: 2rpx solid #C9DFF5;
+  border-radius: 20rpx;
+}
+.pe-mark {
+  width: 48rpx;
+  height: 48rpx;
+  flex: 0 0 48rpx;
+  border-radius: 50%;
+  background: #0A66C2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pe-check {
+  width: 24rpx;
+  height: 14rpx;
+  border-left: 4rpx solid #fff;
+  border-bottom: 4rpx solid #fff;
+  transform: rotate(-45deg) translate(1rpx, -2rpx);
+}
+.pe-body { display: flex; flex-direction: column; gap: 4rpx; }
+.pe-title { font-size: 26rpx; font-weight: 700; color: #0A66C2; }
+.pe-sub { font-size: 22rpx; color: #4A6E94; }
 .detail-nav { position: relative; height: 88rpx; display: flex; align-items: center; justify-content: space-between; padding-left: 24rpx; padding-right: 24rpx; box-sizing: content-box; background: #EAF4FF; }
 .detail-nav-back, .detail-nav-balance { width: 60rpx; height: 60rpx; flex: 0 0 60rpx; }
 .detail-nav-back { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #ffffff; box-shadow: 0 6rpx 16rpx rgba(31, 89, 169, 0.13); }
