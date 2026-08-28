@@ -57,9 +57,9 @@ func Init(env string) {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
 	slog.SetDefault(slog.New(handler))
-	// Ensure log directory exists
+	// Ensure log directory exists (0700: 日志含业务内容，仅进程账号可读——同机他用户不可读)
 	if logDir != "" {
-		os.MkdirAll(logDir, 0755)
+		os.MkdirAll(logDir, 0700)
 	}
 }
 
@@ -72,7 +72,7 @@ func writeFile(level, msg string) {
 	defer mu.Unlock()
 	dateStr := time.Now().Format("2006-01-02")
 	logPath := filepath.Join(logDir, dateStr+".log")
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return
 	}
@@ -139,14 +139,10 @@ func RequestLog(method, path, ip string, statusCode int, duration time.Duration)
 }
 
 // ErrorWithContext logs an error with request context (like JS errorWithContext).
+// 安全加固：不落请求 body 到文件——body 可能含密码/验证码等 PII
+// （无业务调用，保留仅防未来误用；如需正文请先白名单脱敏）。
 func ErrorWithContext(err error, method, path, ip, body string) {
 	msg := fmt.Sprintf("ERROR %s %s ip=%s err=%v", method, path, ip, err)
-	if len(body) > 500 {
-		body = body[:500]
-	}
-	if body != "" {
-		msg += " body=" + body
-	}
 	slog.Error("request_error", "method", method, "path", path, "ip", ip, "error", err)
 	writeFile("ERROR", msg)
 }

@@ -11,9 +11,12 @@ KEEP=${KEEP:-14}
 DIR="$HOME/UAV-db-backups"
 STAMP=$(date +%Y%m%d-%H%M%S)
 LOG="$DIR/backup.log"
+# 安全加固（审计 M4）：备份含全量 PII，目录 0700、备份文件 0600——仅备份账号可读
 mkdir -p "$DIR"
+chmod 700 "$DIR"
 
 sudo docker exec "$CONTAINER" pg_dump -U drone -d drone_platform | gzip > "$DIR/uav-db-$STAMP.sql.gz"
+chmod 600 "$DIR/uav-db-$STAMP.sql.gz"
 
 # 空文件视为失败（防 pg_dump 静默失败留下空档备份）
 if [ ! -s "$DIR/uav-db-$STAMP.sql.gz" ]; then

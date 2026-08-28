@@ -8,8 +8,8 @@ services:
     container_name: uav-db-1
     environment:
       POSTGRES_USER: drone
-      # 密码从 .env 读取（不再硬编码进 git）；本地开发默认值仅限 loopback 访问
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-drone_secret}"
+      # 密码从 .env 读取（安全审计：撤掉 :-drone_secret 弱默认回退，强制必填防生产误用弱口令）
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}"
       POSTGRES_DB: drone_platform
       # 与 api 一致使用东八区：备份脚本时间戳、日志时间与服务器本地时间对齐
       TZ: Asia/Shanghai
@@ -47,7 +47,7 @@ services:
       # 密钥一律从 compose 同目录 .env 读取，禁止硬编码进 git
       AUTH_SECRET: "${AUTH_SECRET:?AUTH_SECRET must be set in .env}"
       # DB 连接串固定为 compose 网络内地址（.env 中的 DATABASE_URL 是宿主机视角，不能用于容器）
-      DATABASE_URL: "postgres://drone:${POSTGRES_PASSWORD:-drone_secret}@db:5432/drone_platform?sslmode=disable"
+      DATABASE_URL: "postgres://drone:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@db:5432/drone_platform?sslmode=disable"
       # ENCRYPTION_KEY = openssl rand -base64 32（32 字节）
       ENCRYPTION_KEY: "${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env}"
       # 合同 webhook 签名密钥（生产 config 硬校验必填）
@@ -62,6 +62,14 @@ services:
     volumes:
       - uploads:/uploads
       - logs:/logs
+    # 安全加固（审计 H1）：只读根文件系统 + 裁剪全部能力 + 禁止提权——RCE 后容器隔离层最小暴露
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
       interval: 15s

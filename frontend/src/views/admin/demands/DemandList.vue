@@ -89,7 +89,10 @@
           <a-descriptions-item label="预算">{{ currentItem.budget_fen ? '¥' + (currentItem.budget_fen / 100).toLocaleString() : '面议' }}</a-descriptions-item>
           <a-descriptions-item label="成交金额">{{ currentItem.offline_amount_fen ? '¥' + (currentItem.offline_amount_fen / 100).toLocaleString() : '-' }}</a-descriptions-item>
           <a-descriptions-item label="地区" :span="2">{{ currentItem.district || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="联系人">{{ currentItem.contact || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="联系人">{{ revealPII ? (currentItem.contact || '-') : maskContact(currentItem.contact) }}</a-descriptions-item>
+          <a-descriptions-item label="敏感信息" :span="2">
+            <a-checkbox v-model="revealPII" :disabled="!currentItem">显示完整联系人（谨慎操作）</a-checkbox>
+          </a-descriptions-item>
           <a-descriptions-item label="提交时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
           <a-descriptions-item label="发布者">{{ currentItem.publisher_name || currentItem.publisher_id || '-' }}</a-descriptions-item>
           <a-descriptions-item label="更新时间">{{ formatDate(currentItem.updated_at) }}</a-descriptions-item>
@@ -128,6 +131,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { maskContact } from '@/utils/mask'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
@@ -221,7 +225,8 @@ const columns = [
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
-const showDetail = (d) => { currentItem.value = d; detailVisible.value = true }
+const revealPII = ref(false)
+const showDetail = (d) => { revealPII.value = false; currentItem.value = d; detailVisible.value = true }
 
 // 输入弹窗（驳回/关闭/金额共用）
 const inputModal = reactive({ visible: false, type: '', title: '', placeholder: '', value: '', record: null })

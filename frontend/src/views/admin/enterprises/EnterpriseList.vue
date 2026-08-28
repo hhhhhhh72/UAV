@@ -44,11 +44,14 @@
           <a-descriptions-item label="企业名称" :span="2">{{ currentEnterprise.name || '-' }}</a-descriptions-item>
           <a-descriptions-item label="对公账户">{{ currentEnterprise.account_name || '-' }}</a-descriptions-item>
           <a-descriptions-item label="法定代表人">{{ currentEnterprise.legal_person || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="联系电话">{{ currentEnterprise.contact_phone || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="信用代码" :span="2">{{ currentEnterprise.credit_code || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="联系电话">{{ revealPII ? (currentEnterprise.contact_phone || '-') : maskPhone(currentEnterprise.contact_phone) }}</a-descriptions-item>
+          <a-descriptions-item label="信用代码" :span="2">{{ revealPII ? (currentEnterprise.credit_code || '-') : maskCode(currentEnterprise.credit_code) }}</a-descriptions-item>
           <a-descriptions-item label="产业分类">{{ currentEnterprise.industry_category || '-' }}</a-descriptions-item>
           <a-descriptions-item label="企业规模">{{ currentEnterprise.scale || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="地址" :span="2">{{ currentEnterprise.address || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="地址" :span="2">{{ revealPII ? (currentEnterprise.address || '-') : (currentEnterprise.address ? String(currentEnterprise.address).slice(0,4) + '****' : '-') }}</a-descriptions-item>
+          <a-descriptions-item label="敏感信息" :span="2">
+            <a-checkbox v-model="revealPII" :disabled="!currentEnterprise">显示完整联系方式/税号（谨慎操作）</a-checkbox>
+          </a-descriptions-item>
           <a-descriptions-item label="企业简介" :span="2">{{ currentEnterprise.description || '-' }}</a-descriptions-item>
           <a-descriptions-item label="审核状态">
             <a-tag :color="statusTagType(currentEnterprise.status)" size="small">{{ statusLabel(currentEnterprise.status) }}</a-tag>
@@ -213,12 +216,18 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// 敏感信息展示：列表联系电话脱敏（详情/编辑保留完整号码，供管理员联系/核对）
+// 敏感信息展示（安全审计 P1）：列表联系电话脱敏；详情/编辑默认脱敏 + 显式"显示完整"开关
 const maskPhone = (p) => {
   if (!p) return '-'
   const s = String(p).trim()
   return s.length < 7 ? s : `${s.slice(0, 3)}****${s.slice(-4)}`
 }
+const maskCode = (c) => {
+  if (!c) return '-'
+  const s = String(c).trim()
+  return s.length <= 10 ? s : `${s.slice(0, 4)}********${s.slice(-2)}`
+}
+const revealPII = ref(false)
 
 // 批量动作：仅批量通过（无需理由）；驳回必须逐条填写理由，避免无说明驳回
 const batchActions = [
@@ -252,6 +261,7 @@ const detailVisible = ref(false)
 const currentEnterprise = ref(null)
 
 const showDetail = (ent) => {
+  revealPII.value = false
   currentEnterprise.value = { ...ent }
   detailVisible.value = true
 }

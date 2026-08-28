@@ -81,7 +81,10 @@
           <a-descriptions-item label="在读学生">{{ currentItem.student_count ?? '-' }}</a-descriptions-item>
           <a-descriptions-item label="硕博导师数">{{ currentItem.teacher_count ?? '-' }}</a-descriptions-item>
           <a-descriptions-item label="就业率">{{ currentItem.graduate_rate || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="联系电话">{{ currentItem.phone || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="联系电话">{{ revealPII ? (currentItem.phone || '-') : maskPhone(currentItem.phone) }}</a-descriptions-item>
+          <a-descriptions-item label="敏感信息" :span="2">
+            <a-checkbox v-model="revealPII" :disabled="!currentItem">显示完整联系方式（谨慎操作）</a-checkbox>
+          </a-descriptions-item>
           <a-descriptions-item label="官网" :span="2">
             <a-link v-if="currentItem.website" :href="currentItem.website" target="_blank">{{ currentItem.website }}</a-link>
             <span v-else>-</span>
@@ -249,6 +252,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { maskPhone } from '@/utils/mask'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
@@ -380,7 +384,8 @@ const columns = [
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
-const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+const revealPII = ref(false)
+const showDetail = (row) => { revealPII.value = false; currentItem.value = row; detailVisible.value = true }
 
 const formVisible = ref(false)
 const formEdit = ref(false)

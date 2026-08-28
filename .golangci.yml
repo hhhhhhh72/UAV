@@ -15,6 +15,7 @@ linters:
     - gocyclo
     - nilerr
     - goimports
+    - gosec
 
 linters-settings:
   gocyclo:

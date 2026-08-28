@@ -44,7 +44,10 @@
           <a-descriptions-item label="所处阶段">
             <a-tag :color="stageTag(currentItem.stage)" size="small">{{ stageLabel(currentItem.stage) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="联系信息">{{ currentItem.contact_info || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="联系信息">{{ revealPII ? (currentItem.contact_info || '-') : maskContact(currentItem.contact_info) }}</a-descriptions-item>
+          <a-descriptions-item label="敏感信息" :span="2">
+            <a-checkbox v-model="revealPII" :disabled="!currentItem">显示完整联系信息（谨慎操作）</a-checkbox>
+          </a-descriptions-item>
           <a-descriptions-item label="成果描述" :span="2">{{ currentItem.description || '-' }}</a-descriptions-item>
           <a-descriptions-item label="附件" :span="2">{{ (currentItem.attachments || []).length }} 份</a-descriptions-item>
         </a-descriptions>
@@ -98,6 +101,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { maskContact } from '@/utils/mask'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
@@ -151,7 +155,8 @@ const columns = [
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
-const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+const revealPII = ref(false)
+const showDetail = (row) => { revealPII.value = false; currentItem.value = row; detailVisible.value = true }
 
 const formVisible = ref(false)
 const formEdit = ref(false)

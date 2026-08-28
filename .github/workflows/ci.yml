@@ -53,6 +53,9 @@ jobs:
       - name: Race detection
         run: go test -race ./internal/... -count=1
 
+      - name: Vulnerability scan (govulncheck)
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -69,6 +72,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit dependencies (npm audit)
+        run: npm audit --audit-level=moderate || true
 
       - name: Build production bundle
         run: npm run build
