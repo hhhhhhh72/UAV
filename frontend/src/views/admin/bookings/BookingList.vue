@@ -14,6 +14,9 @@
       <template #purpose="{ record }">
         <span>{{ record.purpose || '-' }}</span>
       </template>
+      <template #phone="{ record }">
+        <span>{{ maskPhone(record.contact_phone) || '-' }}</span>
+      </template>
       <template #status="{ record }">
         <a-tag :color="statusTag(record.status)" size="small">{{ statusLabel[record.status] || record.status || '-' }}</a-tag>
       </template>
@@ -46,6 +49,13 @@ import CrudList from '../components/CrudList.vue'
 
 const crudRef = ref()
 
+// 电话脱敏（列表默认，安全审计 P1；详情如有需再显式展开）
+const maskPhone = (p) => {
+  if (!p) return ''
+  if (p.length < 7) return p
+  return p.slice(0, 3) + '****' + p.slice(-4)
+}
+
 const formatTime = (d) => {
   if (!d) return '-'
   const dt = new Date(d)
@@ -73,7 +83,7 @@ const columns = [
   { title: '场地ID', dataIndex: 'site_id', minWidth: 180 },
   { title: '预约时间', dataIndex: 'start_time', slotName: 'time', width: 170 },
   { title: '联系人', dataIndex: 'contact_name', width: 100 },
-  { title: '联系电话', dataIndex: 'contact_phone', width: 130 },
+  { title: '联系电话', dataIndex: 'contact_phone', slotName: 'phone', width: 130 },
   { title: '用途', dataIndex: 'purpose', slotName: 'purpose', minWidth: 120 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
   { title: '操作', slotName: 'actions', width: 120, fixed: 'right' },

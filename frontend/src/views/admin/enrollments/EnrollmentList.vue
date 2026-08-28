@@ -45,8 +45,11 @@
       <template v-if="currentItem">
         <a-descriptions :column="2" bordered size="medium">
           <a-descriptions-item label="姓名" :span="2">{{ currentItem.name || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="电话">{{ currentItem.phone || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="身份证号">{{ currentItem.id_card || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="电话">{{ revealPII ? (currentItem.phone || '-') : (maskPhone(currentItem.phone) || '-') }}</a-descriptions-item>
+          <a-descriptions-item label="身份证号">{{ revealPII ? (currentItem.id_card || '-') : (maskIdCard(currentItem.id_card) || '-') }}</a-descriptions-item>
+          <a-descriptions-item label="敏感信息" :span="2">
+            <a-checkbox v-model="revealPII" :disabled="!currentItem">显示完整证件信息（谨慎操作）</a-checkbox>
+          </a-descriptions-item>
           <a-descriptions-item label="性别">{{ currentItem.gender || '-' }}</a-descriptions-item>
           <a-descriptions-item label="生日">{{ currentItem.birthday || '-' }}</a-descriptions-item>
           <a-descriptions-item label="邮箱">{{ currentItem.email || '-' }}</a-descriptions-item>
@@ -113,12 +116,19 @@ const api = useAdminApi('enrollments')
 // 早期版本回退拼接 localhost:8080 会在生产环境指向管理员本机导致图片加载失败
 const fullUrl = (u) => (u && u.startsWith('http') ? u : u || '')
 
-// 身份证脱敏：仅显示前6后4，中间打码（列表展示）
+// 身份证/电话脱敏：列表与详情默认脱敏（安全审计 P1——详情默认不显完整身份证）
 const maskIdCard = (c) => {
   if (!c) return ''
   if (c.length <= 10) return c
   return c.slice(0, 6) + '********' + c.slice(-4)
 }
+const maskPhone = (p) => {
+  if (!p) return ''
+  if (p.length < 7) return p
+  return p.slice(0, 3) + '****' + p.slice(-4)
+}
+// 详情"显示完整"开关：默认脱敏，显式点击才展开（敏感凭证最小暴露）
+const revealPII = ref(false)
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -162,7 +172,7 @@ const columns = [
 
 const detailVisible = ref(false)
 const currentItem = ref(null)
-const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+const showDetail = (row) => { revealPII.value = false; currentItem.value = row; detailVisible.value = true }
 
 // 完成结业：POST /api/v1/enrollments/{id}/complete（后端释放托管学费 + 发放结业证书，
 // enrolled/paid → completed；completed 幂等重试可补齐缺失的释放/发证步骤）

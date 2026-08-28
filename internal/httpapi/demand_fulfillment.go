@@ -41,10 +41,14 @@ func (s *Server) demandDetail(w http.ResponseWriter, r *http.Request) {
 	if a, ok := authenticatedActor(r); ok && a.ID == d.PublisherID {
 		d.IsMine = true
 	}
-	// 公开完整联系方式（公告目的），隐藏发布者 ID 与坐标
+	// 公开完整联系方式（公告目的，仅已登录用户；未认证只给脱敏号码），隐藏发布者 ID 与坐标
 	d.PublisherID = ""
 	d.Latitude = 0
 	d.Longitude = 0
+	if _, ok := authenticatedActor(r); !ok {
+		// 未认证：脱敏，防爬取 PII（安全审计 P1）
+		d.Contact = crypto.MaskPhone(d.Contact)
+	}
 	respond(w, r, http.StatusOK, d)
 }
 

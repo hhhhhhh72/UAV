@@ -20,9 +20,36 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"drone-platform/internal/config"
+	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
 	"drone-platform/internal/service"
 )
+
+// encryptPhone lazily encrypts a phone with ENCRYPTION_KEY (same source as
+// main.go); returns plaintext when key is unset (dev compat) or encryption fails.
+var (
+	phoneCipherOnce sync.Once
+	phoneCipher     *crypto.Cipher
+)
+
+func encryptPhone(plain string) string {
+	if plain == "" {
+		return ""
+	}
+	phoneCipherOnce.Do(func() {
+		if ek := os.Getenv("ENCRYPTION_KEY"); ek != "" {
+			if c, err := crypto.NewCipher(ek); err == nil {
+				phoneCipher = c
+			}
+		}
+	})
+	if phoneCipher != nil {
+		if enc, err := phoneCipher.Encrypt(plain); err == nil {
+			return enc
+		}
+	}
+	return plain // 无密钥/加密失败保留明文（兼容无 ENCRYPTION_KEY 的 dev 环境）
+}
 
 // ============================================================================
 // H5 Compatibility Layer
@@ -888,10 +915,13 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Save to PG users table — the bcrypt hash is persisted here so password
 	// login works from the database (no reliance on the JSON compat file).
+	// PhoneCipher: 注册时 AES-256-GCM 加密落库（密钥同 main.go 的 ENCRYPTION_KEY；
+	// 未设密钥时留明文兼容 dev）。FindByID 读回自动解密。
 	now := time.Now()
 	user := domain.User{
 		ID:           uid,
 		WechatOpenID: "phone:" + body.Phone, // non-WeChat users get unique openid to avoid UNIQUE violation
+		PhoneCipher:  encryptPhone(body.Phone),
 		PasswordHash: string(hashedPassword),
 		Role:         domain.RoleIndividual,
 		Status:       "active",
@@ -904,12 +934,13 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Also keep in users.json for legacy compatibility
+	// Also keep in users.json for legacy compatibility（security: keep JSON compat file
+	// but never store plaintext phone there — lookup is by id on the PG side; the JSON
+	// file is a legacy artifact and should be removed once all consumers are off it。）
 	var users []map[string]any
 	readJSON(_usersFile, &_usersMu, &users)
 	jsonUser := map[string]any{
 		"id":           uid,
-		"phone":        body.Phone,
 		"passwordHash": string(hashedPassword),
 		"name":         name,
 		"role":         "individual",
@@ -938,6 +969,8 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 			safeUser[k] = v
 		}
 	}
+	// 登录响应回传脱敏手机号（完整号仅存 PG phone_ciphertext 加密列）
+	safeUser["phone"] = crypto.MaskPhone(body.Phone)
 
 	respond(w, r, http.StatusOK, map[string]any{
 		"success":      true,

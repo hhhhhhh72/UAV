@@ -78,6 +78,17 @@ func (c *Config) Validate() ValidationResult {
 			r.Errors = append(r.Errors, "SIGNING_SECRET is required in production (contract webhook signature)")
 		}
 	}
+	// fail-closed 双保险（安全审计 P1）：无论 ENV 值，ADMIN_DEV_MODE=true 且环境标签
+	// 未显式声明 dev/test/development 时拒绝启动——防漏设 ENV 误配导致 dev 令牌生产可用。
+	if os.Getenv("ADMIN_DEV_MODE") == "true" {
+		env := strings.ToLower(os.Getenv("APP_ENV"))
+		if env == "" {
+			env = strings.ToLower(os.Getenv("ENV"))
+		}
+		if env != "dev" && env != "test" && env != "development" {
+			r.Errors = append(r.Errors, "ADMIN_DEV_MODE requires APP_ENV/ENV=dev|test|development (fail-closed)")
+		}
+	}
 	if c.Database.UsePostgres {
 		if !strings.Contains(c.Database.DatabaseURL, "sslmode=require") && c.Server.Env == "production" {
 			r.Warnings = append(r.Warnings, "PostgreSQL connection should use SSL in production")

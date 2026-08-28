@@ -4,13 +4,26 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
 )
 
 // adminDevMode returns true when the admin panel is enabled (dev/test only).
-func adminDevMode() bool { return os.Getenv("ADMIN_DEV_MODE") == "true" }
+// fail-closed 双保险（安全审计 P1）：仅显式设置 APP_ENV=dev|test 且 ADMIN_DEV_MODE=true
+// 才启用——生产（含漏设 APP_ENV 的误配置）一律拒绝，杜绝误带 ADMIN_DEV_MODE 导致任意签发 admin 令牌。
+func adminDevMode() bool {
+	if os.Getenv("ADMIN_DEV_MODE") != "true" {
+		return false
+	}
+	env := strings.ToLower(os.Getenv("APP_ENV"))
+	// 兼容旧变量 ENV；默认视为 production（fail-closed）
+	if env == "" {
+		env = strings.ToLower(os.Getenv("ENV"))
+	}
+	return env == "dev" || env == "test" || env == "development"
+}
 
 // POST /api/v1/admin/token — dev login, issues an admin token without WeChat.
 // Protected by ADMIN_DEV_MODE: must NOT be enabled in production.

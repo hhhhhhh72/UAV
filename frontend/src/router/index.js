@@ -68,12 +68,14 @@ const router = createRouter({
   routes
 })
 
+import { authStorage } from '@/utils/http'
+
 router.beforeEach(async (to, from, next) => {
   document.title = to.meta.title || '无人机产业综合服务平台'
 
   // RequiresAuth route protection
   if (to.meta.requiresAuth) {
-    const token = localStorage.getItem('accessToken')
+    const token = authStorage.getAccessToken()
     if (!token) {
       next('/login')
       return
@@ -83,7 +85,7 @@ router.beforeEach(async (to, from, next) => {
   // Admin route protection
   if (to.path.startsWith('/admin')) {
     let userStr = localStorage.getItem('user')
-    const token = localStorage.getItem('accessToken')
+    const token = authStorage.getAccessToken()
 
     // 无会话 → 登录页（生产环境禁用了 dev 自动登录）
     if (!token || !userStr) {

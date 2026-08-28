@@ -1,7 +1,45 @@
 import axios from 'axios'
 
+// 安全加固（P1）：会话令牌从 localStorage 降级为 sessionStorage + 内存态——
+// localStorage 持久到浏览器整个生命周期，任何同源 XSS 可长期窃取（含 7 天 refreshToken）；
+// sessionStorage 随标签页关闭即清，令牌窗口收窄为单次会话。生产可进一步将 refresh
+// 移到 httpOnly+Secure+SameSite Cookie（后端改造），此处为前端纵深防御下限。
+
+// 内存态：页面内最快读取，不依赖存储（登录后即写，刷新页面前从 sessionStorage 恢复）
+let memAccessToken = ''
+let memRefreshToken = ''
+
 const ACCESS_TOKEN_KEY = 'accessToken'
 const REFRESH_TOKEN_KEY = 'refreshToken'
+
+const MEM_SESSION = '__uav_session__'
+
+// 一键读存储：sessionStorage 优先，降级 localStorage（老版本已登录用户过渡）
+function readToken(key) {
+  try {
+    const v = sessionStorage.getItem(key)
+    if (v != null) return v
+  } catch (e) { /* storage 不可用 */ }
+  try {
+    return localStorage.getItem(key)
+  } catch (e) { return '' }
+}
+
+function writeToken(key, value) {
+  if (value == null || value === '') return
+  try {
+    sessionStorage.setItem(key, value)
+  } catch (e) { /* storage 不可用 */ }
+}
+
+function removeToken(key) {
+  try {
+    sessionStorage.removeItem(key)
+  } catch (e) { /* storage 不可用 */ }
+  try {
+    localStorage.removeItem(key)
+  } catch (e) { /* storage 不可用 */ }
+}
 
 // 确定性幂等键：POST/PATCH 自动附带，同 URL+body 的重试复用同 key，
 // 服务端 24h 去重（防双击/网络重试重复创建）。用户修改内容 → 新 key。
@@ -28,7 +66,7 @@ const rejectQueue = (error) => {
 }
 
 axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const token = memAccessToken || readToken(ACCESS_TOKEN_KEY)
   if (token) {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`
@@ -81,9 +119,7 @@ axios.interceptors.response.use(
 
     // refresh 请求本身返回 401 时，不再重试，直接清除登录态
     if (originalRequest.url === '/api/auth/refresh') {
-      localStorage.removeItem(ACCESS_TOKEN_KEY)
-      localStorage.removeItem(REFRESH_TOKEN_KEY)
-      localStorage.removeItem('user')
+      clearTokens()
       if (window.location.pathname.startsWith('/admin')) {
         window.location.href = '/login'
       }
@@ -93,8 +129,7 @@ axios.interceptors.response.use(
     if (originalRequest._retry) {
       // 刷新换新 token 后重试仍 401：登录态已失效（与小程序端对齐），清理并跳登录。
       if (resp?.status === 401) {
-        localStorage.removeItem(ACCESS_TOKEN_KEY)
-        localStorage.removeItem('user')
+        clearTokens()
         if (window.location.pathname.startsWith('/admin')) {
           window.location.href = '/login'
         }
@@ -103,10 +138,9 @@ axios.interceptors.response.use(
     }
     originalRequest._retry = true
 
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+    const refreshToken = memRefreshToken || readToken(REFRESH_TOKEN_KEY)
     if (!refreshToken) {
-      localStorage.removeItem(ACCESS_TOKEN_KEY)
-      localStorage.removeItem('user')
+      clearTokens()
       return Promise.reject(error)
     }
 
@@ -133,10 +167,12 @@ axios.interceptors.response.use(
       if (!newAccessToken) {
         throw new Error('No access token returned')
       }
-      localStorage.setItem(ACCESS_TOKEN_KEY, newAccessToken)
+      memAccessToken = newAccessToken
+      writeToken(ACCESS_TOKEN_KEY, newAccessToken)
       const newRefreshToken = data.refresh_token
       if (newRefreshToken) {
-        localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken)
+        memRefreshToken = newRefreshToken
+        writeToken(REFRESH_TOKEN_KEY, newRefreshToken)
       }
       resolveQueue(newAccessToken)
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
@@ -148,9 +184,7 @@ axios.interceptors.response.use(
       // 仅当 refresh 明确返回 401（后端对无效/过期 refresh_token 返回 401）才清除登录态；
       // 网络错误 / 5xx 保留 token，避免误登出。
       if (refreshError?.response?.status === 401) {
-        localStorage.removeItem(ACCESS_TOKEN_KEY)
-        localStorage.removeItem(REFRESH_TOKEN_KEY)
-        localStorage.removeItem('user')
+        clearTokens()
         if (window.location.pathname.startsWith('/admin')) {
           window.location.href = '/login'
         }
@@ -164,31 +198,60 @@ axios.interceptors.response.use(
   }
 )
 
+function clearTokens() {
+  memAccessToken = ''
+  memRefreshToken = ''
+  removeToken(ACCESS_TOKEN_KEY)
+  removeToken(REFRESH_TOKEN_KEY)
+  try {
+    localStorage.removeItem('user')
+    sessionStorage.removeItem('user')
+  } catch (e) { /* storage 不可用 */ }
+}
+
 export const authStorage = {
   getAccessToken() {
-    return localStorage.getItem(ACCESS_TOKEN_KEY)
+    return memAccessToken || readToken(ACCESS_TOKEN_KEY)
   },
   getRefreshToken() {
-    return localStorage.getItem(REFRESH_TOKEN_KEY)
+    return memRefreshToken || readToken(REFRESH_TOKEN_KEY)
   },
   setTokens(accessToken, refreshToken) {
-    if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
-    if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+    if (accessToken) {
+      memAccessToken = accessToken
+      writeToken(ACCESS_TOKEN_KEY, accessToken)
+    }
+    if (refreshToken) {
+      memRefreshToken = refreshToken
+      writeToken(REFRESH_TOKEN_KEY, refreshToken)
+    }
   },
-  clearTokens() {
+  clearTokens
+}
+
+// 页面加载时从 sessionStorage 恢复内存态（一次读，后续拦截器走内存）
+try {
+  memAccessToken = sessionStorage.getItem(ACCESS_TOKEN_KEY) || ''
+  memRefreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY) || ''
+  // 老版本 localStorage 过渡：检测到则迁移到 sessionStorage 后清除（只迁一次）
+  if (!memAccessToken && localStorage.getItem(ACCESS_TOKEN_KEY)) {
+    memAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY) || ''
+    if (localStorage.getItem(REFRESH_TOKEN_KEY)) memRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY) || ''
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
+    localStorage.removeItem(MEM_SESSION)
+    if (memAccessToken) writeToken(ACCESS_TOKEN_KEY, memAccessToken)
+    if (memRefreshToken) writeToken(REFRESH_TOKEN_KEY, memRefreshToken)
   }
-}
+} catch (e) { /* storage 不可用 */ }
 
 /**
  * 上传等非 axios 拦截器场景下，动态构造带最新 accessToken 的 Authorization 头。
- * 在调用时刻读取 localStorage，避免组件创建时快照导致 token 轮转/过期后仍用旧值。
+ * 在调用时刻读取（内存优先），避免组件创建时快照导致 token 轮转/过期后仍用旧值。
  */
 export function getAuthHeader() {
-  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const token = memAccessToken || readToken(ACCESS_TOKEN_KEY)
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export default axios
-
