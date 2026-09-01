@@ -27,6 +27,7 @@
         <span v-else class="cell-muted">—</span>
       </template>
       <template #actions="{ record }">
+        <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
         <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
         <a-button
           v-if="PUBLISHABLE_STATUSES.includes(record.status)"
@@ -41,12 +42,37 @@
       </template>
     </CrudList>
 
+    <!-- 资讯详情（与其他管理模块同款：a-descriptions 两列边框表） -->
+    <a-modal v-model:visible="detailVisible" title="资讯详情" :width="'min(640px, 94vw)'" :footer="false">
+      <a-descriptions :column="2" bordered size="medium">
+        <a-descriptions-item label="标题" :span="2">{{ currentItem.title || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="分类">
+          <a-tag size="small" color="arcoblue">{{ categoryLabel(currentItem.category) }}</a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="置顶">
+          <a-tag v-if="currentItem.is_pinned" size="small" color="arcoblue">置顶</a-tag>
+          <span v-else class="cell-muted">-</span>
+        </a-descriptions-item>
+        <a-descriptions-item label="来源">{{ currentItem.source || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="作者">{{ currentItem.author || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="状态">
+          <a-tag size="small" :color="statusTag(currentItem.status)">
+            {{ statusLabel[currentItem.status] || currentItem.status || '-' }}
+          </a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="发布时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
+        <a-descriptions-item label="摘要" :span="2">{{ currentItem.summary || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="正文" :span="2">
+          <div class="detail-content" v-html="currentItem.content"></div>
+        </a-descriptions-item>
+      </a-descriptions>
+    </a-modal>
+
     <!-- 发布资讯弹窗 -->
     <a-modal
       v-model:visible="showPopup"
       :title="editingId ? '编辑资讯' : '发布资讯'"
       :width="'min(640px, 94vw)'"
-      :footer="false"
       :on-before-cancel="guardClose"
     >
       <a-form :model="form" layout="vertical" class="dialog-form">
@@ -82,13 +108,11 @@
         </a-form-item>
       </a-form>
 
-      <div class="modal-footer">
-        <a-space>
-          <a-button @click="handleCancel">取消</a-button>
-          <a-button type="primary" @click="onSave">保存草稿</a-button>
-          <a-button type="primary" status="success" @click="onSaveAndPublish">保存并发布</a-button>
-        </a-space>
-      </div>
+      <template #footer>
+        <a-button @click="handleCancel">取消</a-button>
+        <a-button type="primary" :loading="formLoading" @click="onSave">保存草稿</a-button>
+        <a-button type="primary" status="success" :loading="formLoading" @click="onSaveAndPublish">保存并发布</a-button>
+      </template>
     </a-modal>
   </div>
 </template>
@@ -104,6 +128,17 @@ import CrudList from '../components/CrudList.vue'
 import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
+
+const detailVisible = ref(false)
+const currentItem = ref({})
+const showDetail = (row) => { currentItem.value = row; detailVisible.value = true }
+const formatDate = (d) => {
+  if (!d) return '-'
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return '-'
+  const p = (n) => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
+}
 
 /* 分类与小程序政策资讯页保持一致（GET /api/v1/articles?category=） */
 const CATEGORY_OPTIONS = [
@@ -150,11 +185,12 @@ const columns = [
   { title: '作者', dataIndex: 'author', width: 120, ellipsis: true },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
   { title: '发布时间', dataIndex: 'created_at', width: 170 },
-  { title: '操作', slotName: 'actions', width: 150, fixed: 'right' },
+  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' },
 ]
 
 // --- 发布 ---
 const showPopup = ref(false)
+const formLoading = ref(false)
 const form = ref(createEmptyForm())
 
 function createEmptyForm() {
@@ -202,6 +238,7 @@ const buildPayload = () => ({
 
 const onSave = async () => {
   if (!validate()) return
+  formLoading.value = true
   Message.loading('保存中...', 0)
   try {
     if (editingId.value) {
@@ -218,11 +255,14 @@ const onSave = async () => {
   } catch (error) {
     Message.clear()
     Message.error(error?.response?.data?.message || '保存失败')
+  } finally {
+    formLoading.value = false
   }
 }
 
 const onSaveAndPublish = async () => {
   if (!validate()) return
+  formLoading.value = true
   Message.loading('发布中...', 0)
   try {
     if (editingId.value) {
@@ -244,6 +284,8 @@ const onSaveAndPublish = async () => {
   } catch (error) {
     Message.clear()
     Message.error(error?.response?.data?.message || error?.message || '发布失败')
+  } finally {
+    formLoading.value = false
   }
 }
 
@@ -311,10 +353,6 @@ const publishArticle = (item) => {
 .cell-title { font-weight: 500; }
 .cell-muted { color: var(--color-text-4); }
 .dialog-form :deep(.arco-form-item-label-col) { min-width: 88px; }
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-  border-top: 1px solid #EEF1F4;
-}
+.detail-content { max-height: 320px; overflow: auto; line-height: 1.7; }
+.detail-content p { margin: 0 0 6px; }
 </style>
