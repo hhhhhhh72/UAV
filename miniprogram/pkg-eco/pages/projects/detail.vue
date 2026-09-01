@@ -73,7 +73,8 @@
             <view class="rule"></view>
           </view>
         </view>
-        <text class="sec-bd">{{ d.desc || '暂无简介' }}</text>
+        <rich-text v-if="(d.desc || '').indexOf('<') >= 0" class="sec-bd" :nodes="d.desc"></rich-text>
+        <text v-else class="sec-bd">{{ d.desc || '暂无简介' }}</text>
       </view>
 
       <!-- ===== 02 · 攻关要求（里程碑交付指标，青绿菱形标记） ===== -->
@@ -148,7 +149,7 @@
       <view class="bb">
         <view class="bi" :class="{ fv: isFav }" aria-role="button" :aria-label="isFav ? '取消收藏' : '收藏'" @tap="toggleFav"><view class="heart"></view></view>
         <button class="bo" open-type="share" hover-class="bo-hover" hover-start-time="0" hover-stay-time="300" aria-label="转发">转发</button>
-        <view class="bp" @tap="onJoin">申请参与攻关</view>
+        <view class="bp" :class="{ disabled: joined, adding: joining }" aria-role="button" :aria-label="joined ? '已提交申请' : '申请参与攻关'" @tap="onJoin">{{ joined ? '已提交申请' : (joining ? '提交中…' : '申请参与攻关') }}</view>
       </view>
     </template>
   </view>
@@ -157,7 +158,7 @@
 <script setup>
 import { ref, reactive, computed, nextTick, getCurrentInstance } from 'vue'
 import { onLoad, onReady, onUnload, onPageScroll, onShareAppMessage } from '@dcloudio/uni-app'
-import { request } from '@/utils/request'
+import { request, authStorage } from '@/utils/request'
 import { MOCK_PROJECTS } from '@/utils/mockProjects'
 import { useReduceMotion } from '@/utils/motion'
 
@@ -165,6 +166,8 @@ const loading = ref(true)
 const err = ref(false)
 const d = ref(null)
 const isFav = ref(false)
+const joined = ref(false)   // 已提交参与申请（pending/contacted 时按钮置灰）
+const joining = ref(false)  // 提交中防重复
 const statusBarHeight = ref(20)
 const { noMotion, checkMotion } = useReduceMotion() // 减弱动效（无障碍）：装饰动画/位移缩放全关
 const inst = getCurrentInstance()
@@ -351,8 +354,46 @@ onShareAppMessage(() => ({
   title: d.value ? '课题攻关：' + d.value.t : '低空经济生态服务平台 · 课题攻关',
   path: '/pkg-eco/pages/projects/detail?id=' + encodeURIComponent(id),
 }))
+// 申请参与攻关：真实提交（带 token），重复提交幂等；已申请（非 closed）置灰
 const onJoin = () => {
-  uni.showToast({ title: '申请已提交，协会将评估后与您对接', icon: 'none' })
+  if (joining.value || joined.value) return
+  if (!authStorage.getAccessToken()) {
+    uni.navigateTo({ url: '/pages/login/index' })
+    return
+  }
+  uni.showModal({
+    title: '参与攻关申请',
+    content: '填写你的单位/团队名称（选填，直接点确定即以个人身份提交）：',
+    editable: true,
+    placeholderText: '如：天航科技',
+    success: async (res) => {
+      if (!res.confirm) return
+      joining.value = true
+      try {
+        await request({
+          url: '/api/v1/projects/' + encodeURIComponent(id) + '/join',
+          method: 'POST',
+          data: { org_name: (res.content || '').trim() },
+        })
+        joined.value = true
+        uni.showToast({ title: '申请已提交，协会将评估后与您对接', icon: 'none' })
+      } catch (e) {
+        uni.showToast({ title: '提交失败，请重试', icon: 'none' })
+      } finally {
+        joining.value = false
+      }
+    },
+  })
+}
+// 进入页面查询本人申请状态（未登录不查；closed 后可再次申请 → 保持可点）
+const checkJoined = async () => {
+  if (!authStorage.getAccessToken() || !id) return
+  try {
+    const res = await request({ url: '/api/v1/projects/' + encodeURIComponent(id) + '/join/mine' })
+    if (res && res.applied && res.join) {
+      joined.value = res.join.status !== 'closed'
+    }
+  } catch (e) { /* 忽略：保持未申请 */ }
 }
 /* 返回：分享直达/冷启动进入时无页面栈，回退列表兜底（与 list.vue 同款） */
 const goBack = () => uni.navigateBack({ fail: () => uni.redirectTo({ url: '/pkg-eco/pages/projects/list' }) })
@@ -378,6 +419,7 @@ onLoad((options) => {
   id = options?.id || ''
   isFav.value = favs.has(id)
   fetchData()
+  checkJoined()
 })
 onReady(reObserve)
 onUnload(() => {
@@ -819,6 +861,8 @@ page {
 .bo:active { transform: scale(.95); background: #F4F8FC; transition: transform .08s linear; }
 .bp { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; }
 .bp:active { transform: scale(.95); opacity: .92; transition: transform .08s linear; }
+.bp.disabled { background: #98A2B3; color: rgba(255,255,255,.9); }
+.bp.adding { opacity: .75; }
 
 /* 4) 状态过渡：收藏点亮时心形 ios-pop 弹簧弹出（scale .8→1 自然过冲回位）；取消收藏无反向动画 */
 .bi.fv .heart { animation: heartPop .3s cubic-bezier(.34, 1.8, .64, 1); }

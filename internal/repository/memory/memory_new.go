@@ -467,6 +467,7 @@ func (r *rdRepo) Delete(ctx context.Context, id string) error {
 type projRepo struct {
 	mu    sync.RWMutex
 	items []domain.ResearchProject
+	joins []domain.ProjectJoinRequest
 }
 
 func NewResearchProjectRepository() repository.ResearchProjectRepository { return &projRepo{} }
@@ -519,6 +520,70 @@ func (r *projRepo) Delete(ctx context.Context, id string) error {
 		}
 	}
 	return fmt.Errorf("project %s not found", id)
+}
+
+// ---- 参与申请（课题攻关） ----
+
+func (r *projRepo) CreateJoinRequest(ctx context.Context, v domain.ProjectJoinRequest) (domain.ProjectJoinRequest, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	v.CreatedAt = time.Now()
+	v.UpdatedAt = v.CreatedAt
+	for i := range r.joins {
+		if r.joins[i].ProjectID == v.ProjectID && r.joins[i].UserID == v.UserID {
+			return domain.ProjectJoinRequest{}, fmt.Errorf("join request already exists for project %s user %s", v.ProjectID, v.UserID)
+		}
+	}
+	r.joins = append(r.joins, v)
+	return v, nil
+}
+
+func (r *projRepo) FindJoinByID(ctx context.Context, id string) (domain.ProjectJoinRequest, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, v := range r.joins {
+		if v.ID == id {
+			return v, nil
+		}
+	}
+	return domain.ProjectJoinRequest{}, fmt.Errorf("project join request %s not found", id)
+}
+
+func (r *projRepo) FindJoinByProjectUser(ctx context.Context, projectID, userID string) (domain.ProjectJoinRequest, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, v := range r.joins {
+		if v.ProjectID == projectID && v.UserID == userID {
+			return v, nil
+		}
+	}
+	return domain.ProjectJoinRequest{}, fmt.Errorf("project join request for project %s user %s not found", projectID, userID)
+}
+
+func (r *projRepo) ListJoinRequests(ctx context.Context, projectID string) ([]domain.ProjectJoinRequest, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []domain.ProjectJoinRequest
+	for _, v := range r.joins {
+		if v.ProjectID == projectID {
+			out = append(out, v)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+
+func (r *projRepo) UpdateJoinRequest(ctx context.Context, v domain.ProjectJoinRequest) (domain.ProjectJoinRequest, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.joins {
+		if r.joins[i].ID == v.ID {
+			v.UpdatedAt = time.Now()
+			r.joins[i] = v
+			return v, nil
+		}
+	}
+	return domain.ProjectJoinRequest{}, fmt.Errorf("project join request %s not found", v.ID)
 }
 
 // ---- ProjectApp ----

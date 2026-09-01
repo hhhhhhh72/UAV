@@ -535,6 +535,13 @@ type ResearchProjectRepository interface {
 	List(ctx context.Context, offset, limit int) ([]domain.ResearchProject, int, error)
 	Update(ctx context.Context, v domain.ResearchProject) (domain.ResearchProject, error)
 	Delete(ctx context.Context, id string) error
+
+	// 参与申请（课题攻关）：每用户每课题一条记录，closed 后可重提（同一记录更新）
+	CreateJoinRequest(ctx context.Context, v domain.ProjectJoinRequest) (domain.ProjectJoinRequest, error)
+	FindJoinByID(ctx context.Context, id string) (domain.ProjectJoinRequest, error)
+	FindJoinByProjectUser(ctx context.Context, projectID, userID string) (domain.ProjectJoinRequest, error)
+	ListJoinRequests(ctx context.Context, projectID string) ([]domain.ProjectJoinRequest, error)
+	UpdateJoinRequest(ctx context.Context, v domain.ProjectJoinRequest) (domain.ProjectJoinRequest, error)
 }
 
 // ProjectAppRepository manages project subsidy applications.

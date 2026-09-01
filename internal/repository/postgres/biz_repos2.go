@@ -3,9 +3,11 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"drone-platform/internal/domain"
@@ -244,6 +246,69 @@ func (r *researchProjRepo) Update(ctx context.Context, p domain.ResearchProject)
 func (r *researchProjRepo) Delete(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, "DELETE FROM research_projects WHERE id=$1", id)
 	return err
+}
+
+// ---- 参与申请（课题攻关） ----
+
+func (r *researchProjRepo) CreateJoinRequest(ctx context.Context, v domain.ProjectJoinRequest) (domain.ProjectJoinRequest, error) {
+	v.CreatedAt = time.Now()
+	v.UpdatedAt = v.CreatedAt
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO project_join_requests (id,project_id,user_id,org_name,message,status,created_at,updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		v.ID, v.ProjectID, v.UserID, v.OrgName, v.Message, v.Status, v.CreatedAt, v.UpdatedAt)
+	return v, err
+}
+
+func (r *researchProjRepo) FindJoinByID(ctx context.Context, id string) (domain.ProjectJoinRequest, error) {
+	var v domain.ProjectJoinRequest
+	err := r.pool.QueryRow(ctx,
+		`SELECT id,project_id,user_id,org_name,message,status,created_at,updated_at
+		 FROM project_join_requests WHERE id=$1`, id).
+		Scan(&v.ID, &v.ProjectID, &v.UserID, &v.OrgName, &v.Message, &v.Status, &v.CreatedAt, &v.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ProjectJoinRequest{}, fmt.Errorf("project join request %s not found", id)
+	}
+	return v, err
+}
+
+func (r *researchProjRepo) FindJoinByProjectUser(ctx context.Context, projectID, userID string) (domain.ProjectJoinRequest, error) {
+	var v domain.ProjectJoinRequest
+	err := r.pool.QueryRow(ctx,
+		`SELECT id,project_id,user_id,org_name,message,status,created_at,updated_at
+		 FROM project_join_requests WHERE project_id=$1 AND user_id=$2`, projectID, userID).
+		Scan(&v.ID, &v.ProjectID, &v.UserID, &v.OrgName, &v.Message, &v.Status, &v.CreatedAt, &v.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ProjectJoinRequest{}, fmt.Errorf("project join request for project %s user %s not found", projectID, userID)
+	}
+	return v, err
+}
+
+func (r *researchProjRepo) ListJoinRequests(ctx context.Context, projectID string) ([]domain.ProjectJoinRequest, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id,project_id,user_id,org_name,message,status,created_at,updated_at
+		 FROM project_join_requests WHERE project_id=$1 ORDER BY created_at DESC`, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list project join requests: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.ProjectJoinRequest
+	for rows.Next() {
+		var v domain.ProjectJoinRequest
+		if err := rows.Scan(&v.ID, &v.ProjectID, &v.UserID, &v.OrgName, &v.Message, &v.Status, &v.CreatedAt, &v.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan project join request: %w", err)
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+func (r *researchProjRepo) UpdateJoinRequest(ctx context.Context, v domain.ProjectJoinRequest) (domain.ProjectJoinRequest, error) {
+	v.UpdatedAt = time.Now()
+	_, err := r.pool.Exec(ctx,
+		`UPDATE project_join_requests SET org_name=$1,message=$2,status=$3,updated_at=$4 WHERE id=$5`,
+		v.OrgName, v.Message, v.Status, v.UpdatedAt, v.ID)
+	return v, err
 }
 
 // ---- ProjectApp ----

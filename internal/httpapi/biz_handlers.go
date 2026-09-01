@@ -76,6 +76,10 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/projects", s.listResearchProjects)
 	mux.HandleFunc("GET /api/v1/projects/search", s.listResearchProjects)
 	mux.HandleFunc("GET /api/v1/projects/{id}", s.getResearchProject)
+	mux.HandleFunc("POST /api/v1/projects/{id}/join", s.joinResearchProject)
+	mux.HandleFunc("GET /api/v1/projects/{id}/join/mine", s.getMyProjectJoin)
+	mux.HandleFunc("GET /api/v1/admin/projects/{id}/joins", s.listProjectJoins)
+	mux.HandleFunc("POST /api/v1/admin/projects/{id}/joins/{joinID}/status", s.updateProjectJoinStatus)
 
 	// ---- R&D Challenges ----
 	mux.HandleFunc("GET /api/v1/rd-challenges", s.listRDChallenges)

@@ -26,6 +26,7 @@
       <template #actions="{ record }">
         <a-space :size="4">
           <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
+          <a-button type="text" size="small" @click="openJoins(record)">申请</a-button>
           <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
           <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
         </a-space>
@@ -50,9 +51,29 @@
           <a-descriptions-item label="结束日期">{{ formatDate(currentItem.end_date) }}</a-descriptions-item>
           <a-descriptions-item label="参与单位" :span="2">{{ Array.isArray(currentItem.members) ? currentItem.members.join('、') : (currentItem.members || '-') }}</a-descriptions-item>
           <a-descriptions-item label="里程碑" :span="2">{{ currentItem.milestones || '-' }}</a-descriptions-item>
-          <a-descriptions-item v-if="currentItem.description" label="描述" :span="2">{{ currentItem.description }}</a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.description" label="描述" :span="2"><span v-html="currentItem.description"></span></a-descriptions-item>
         </a-descriptions>
       </template>
+    </a-modal>
+
+    <!-- 参与申请弹窗（课题详情页「申请参与攻关」提交的记录） -->
+    <a-modal v-model:visible="joinsVisible" :title="'参与申请 · ' + (currentProject ? currentProject.title : '')" :width="'min(760px, 96vw)'" :footer="false">
+      <a-spin :loading="joinsLoading" style="display: block; min-height: 140px">
+        <a-empty v-if="!joinsLoading && joins.length === 0" description="暂无参与申请，等待小程序用户提交" />
+        <a-table v-else :data="joins" :columns="joinColumns" :pagination="false" size="small" row-key="id">
+          <template #status="{ record }">
+            <a-tag :color="joinStatusTag(record.status)" size="small">{{ joinStatusLabel(record.status) }}</a-tag>
+          </template>
+          <template #time="{ record }">{{ record.created_at_text }}</template>
+          <template #actions="{ record }">
+            <a-space :size="4">
+              <a-button v-if="record.status === 'pending'" type="text" size="small" @click="setJoinStatus(record, 'contacted')">标记已对接</a-button>
+              <a-button v-if="record.status !== 'closed'" type="text" size="small" @click="setJoinStatus(record, 'closed')">关闭</a-button>
+              <a-button v-if="record.status === 'closed'" type="text" size="small" @click="setJoinStatus(record, 'pending')">恢复待评估</a-button>
+            </a-space>
+          </template>
+        </a-table>
+      </a-spin>
     </a-modal>
 
     <!-- 新增/编辑弹窗 -->
@@ -66,7 +87,7 @@
         <a-form-item label="开始日期"><a-date-picker v-model="form.start_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
         <a-form-item label="结束日期"><a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
         <a-form-item label="里程碑"><a-input v-model="form.milestones" placeholder="阶段目标，如：方案设计→样机测试" style="width: 100%" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><RichEditor v-model="form.description" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
             <a-option value="active">进行中</a-option>
@@ -89,7 +110,9 @@ import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
+import axios from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('research-projects')
@@ -216,6 +239,44 @@ const handleDelete = (r) => {
       catch (e) { Message.error(e?.response?.data?.message || '删除失败') }
     }
   })
+}
+
+// ===== 参与申请（课题详情页「申请参与攻关」提交的记录） =====
+const joinsVisible = ref(false)
+const currentProject = ref(null)
+const joins = ref([])
+const joinsLoading = ref(false)
+
+const joinStatusLabel = (s) => ({ pending: '待评估', contacted: '已对接', closed: '已关闭' }[s] || s || '-')
+const joinStatusTag = (s) => ({ pending: 'orangered', contacted: 'green', closed: 'gray' }[s] || 'gray')
+const joinColumns = [
+  { title: '单位/团队', dataIndex: 'org_name', minWidth: 150, ellipsis: true },
+  { title: '申请说明', dataIndex: 'message', minWidth: 220, ellipsis: true },
+  { title: '申请人', dataIndex: 'user_id', width: 150, ellipsis: true },
+  { title: '提交时间', slotName: 'time', width: 150 },
+  { title: '状态', slotName: 'status', width: 90 },
+  { title: '操作', slotName: 'actions', width: 200, fixed: 'right' },
+]
+const fmtTime = (iso) => (iso ? String(iso).replace('T', ' ').slice(0, 16) : '-')
+
+const openJoins = async (row) => {
+  currentProject.value = row
+  joinsVisible.value = true
+  joinsLoading.value = true
+  joins.value = []
+  try {
+    const res = await axios.get(`/api/v1/admin/projects/${row.id}/joins`)
+    joins.value = (res.data?.items || []).map((it) => ({ ...it, created_at_text: fmtTime(it.created_at) }))
+  } catch (e) { Message.error(e?.response?.data?.message || '加载申请失败') }
+  finally { joinsLoading.value = false }
+}
+
+const setJoinStatus = async (row, status) => {
+  try {
+    await axios.post(`/api/v1/admin/projects/${currentProject.value.id}/joins/${row.id}/status`, { status })
+    Message.success('已更新')
+    openJoins(currentProject.value)
+  } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
 }
 </script>
 

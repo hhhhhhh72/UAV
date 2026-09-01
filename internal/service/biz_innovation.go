@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -236,6 +238,86 @@ func (s *ResearchProjectService) Update(ctx context.Context, id, title, field, d
 
 func (s *ResearchProjectService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
+}
+
+// ---- 参与申请（课题攻关） ----
+
+// ErrProjectNotFound 课题不存在（handler 映射 404）。
+var ErrProjectNotFound = errors.New("research project not found")
+
+// ErrJoinStatusInvalid 后台流转状态非法。
+var ErrJoinStatusInvalid = errors.New("invalid join status")
+
+// JoinProject 用户申请参与课题：每用户每课题一条记录，幂等——
+// 已存在且未关闭时原样返回（重复点击不重复提交）；已关闭的记录允许同一用户重新申请（更新原记录）。
+// 返回 (申请记录, 是否新建, error)。
+func (s *ResearchProjectService) JoinProject(ctx context.Context, userID, projectID, orgName, message string) (domain.ProjectJoinRequest, bool, error) {
+	if _, err := s.repo.FindByID(ctx, projectID); err != nil {
+		return domain.ProjectJoinRequest{}, false, ErrProjectNotFound
+	}
+	orgName = strings.TrimSpace(orgName)
+	message = strings.TrimSpace(message)
+	existing, err := s.repo.FindJoinByProjectUser(ctx, projectID, userID)
+	if err == nil {
+		if existing.Status != "closed" {
+			return existing, false, nil // 重复申请：幂等返回
+		}
+		// closed 后重新申请：同一记录重置为 pending，更新内容
+		existing.OrgName = orgName
+		existing.Message = message
+		existing.Status = "pending"
+		upd, uerr := s.repo.UpdateJoinRequest(ctx, existing)
+		if uerr != nil {
+			return domain.ProjectJoinRequest{}, false, fmt.Errorf("renew join request: %w", uerr)
+		}
+		return upd, false, nil
+	}
+	now := time.Now()
+	v := domain.ProjectJoinRequest{
+		ID:        nextID("pjreq"),
+		ProjectID: projectID,
+		UserID:    userID,
+		OrgName:   orgName,
+		Message:   message,
+		Status:    "pending",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	created, cerr := s.repo.CreateJoinRequest(ctx, v)
+	if cerr != nil {
+		return domain.ProjectJoinRequest{}, false, fmt.Errorf("create join request: %w", cerr)
+	}
+	return created, true, nil
+}
+
+// GetMyJoin 查询当前用户在某课题下的申请（applied=false 表示未申请过）。
+func (s *ResearchProjectService) GetMyJoin(ctx context.Context, projectID, userID string) (domain.ProjectJoinRequest, bool, error) {
+	v, err := s.repo.FindJoinByProjectUser(ctx, projectID, userID)
+	if err != nil {
+		return domain.ProjectJoinRequest{}, false, nil
+	}
+	return v, true, nil
+}
+
+// ListJoins 后台查看课题全部申请（新→旧）。
+func (s *ResearchProjectService) ListJoins(ctx context.Context, projectID string) ([]domain.ProjectJoinRequest, error) {
+	if _, err := s.repo.FindByID(ctx, projectID); err != nil {
+		return nil, ErrProjectNotFound
+	}
+	return s.repo.ListJoinRequests(ctx, projectID)
+}
+
+// UpdateJoinStatus 后台流转申请状态：pending 待评估 / contacted 已对接 / closed 已关闭。
+func (s *ResearchProjectService) UpdateJoinStatus(ctx context.Context, joinID, status string) (domain.ProjectJoinRequest, error) {
+	if status != "pending" && status != "contacted" && status != "closed" {
+		return domain.ProjectJoinRequest{}, ErrJoinStatusInvalid
+	}
+	v, err := s.repo.FindJoinByID(ctx, joinID)
+	if err != nil {
+		return domain.ProjectJoinRequest{}, err
+	}
+	v.Status = status
+	return s.repo.UpdateJoinRequest(ctx, v)
 }
 
 // ---- ProjectAppService (项目申报) ----

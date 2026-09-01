@@ -168,6 +168,19 @@ type ResearchProject struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// ProjectJoinRequest is a user's application to join a research project
+// (课题攻关参与申请). Status: pending 待评估 / contacted 已对接 / closed 已关闭
+type ProjectJoinRequest struct {
+	ID        string    `json:"id"`
+	ProjectID string    `json:"project_id"`
+	UserID    string    `json:"user_id"`
+	OrgName   string    `json:"org_name"`
+	Message   string    `json:"message"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // CompetitionEvent is an event category inside a competition (register page selection).
 type CompetitionEvent struct {
 	Name   string `json:"name"`
