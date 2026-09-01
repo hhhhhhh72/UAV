@@ -252,7 +252,7 @@ func (r *articleRepo) ListByCategory(ctx context.Context, category string, offse
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM articles `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	q := `SELECT id,title,COALESCE(content,''),COALESCE(summary,''),category,COALESCE(source,''),COALESCE(author,''),COALESCE(is_pinned,false),status,version,created_at,updated_at FROM articles ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
+	q := `SELECT id,title,COALESCE(content,''),COALESCE(summary,''),category,COALESCE(source,''),COALESCE(author,''),COALESCE(is_pinned,false),status,version,created_at,updated_at FROM articles ` + where + ` ORDER BY is_pinned DESC, created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	allArgs := append(args, limit, offset)
 	rows, err := r.pool.Query(ctx, q, allArgs...)
 	if err != nil {
@@ -268,6 +268,14 @@ func (r *articleRepo) ListByCategory(ctx context.Context, category string, offse
 		out = append(out, a)
 	}
 	return out, total, rows.Err()
+}
+
+func (r *articleRepo) Delete(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM articles WHERE id=$1`, id)
+	if err != nil {
+		return fmt.Errorf("delete article %s: %w", id, err)
+	}
+	return nil
 }
 
 // ---- Review ----

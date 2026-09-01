@@ -40,7 +40,7 @@
 | **交易** | `GET/POST /products` `GET/POST /repairs` | 商品/维修 |
 | **保险** | `GET/POST /policies` `GET/POST /inspections` | 保单/年审 |
 | **金融** | `GET/POST /loans` | 贷款 |
-| **资讯** | `GET/POST /articles` `POST /articles/{id}/publish` | 发布/列表 |
+| **资讯** | `GET/POST /articles` `PUT/DELETE /articles/{id}` `POST /articles/{id}/publish` | 发布/编辑/删除/列表（支持 author/is_pinned，置顶优先排序） |
 | **评价** | `GET/POST /reviews` `POST /admin/reviews/{id}/approve` | 提交/审核 |
 | **场地** | `GET/POST /venues` `POST /venues/{id}/book` | 场地/预约 |
 | **消息** | `GET /messages` `POST /messages/{id}/read` `GET /messages/unread-count` | 列表/已读 |

@@ -2744,10 +2744,27 @@ func (r *articleRepo) ListByCategory(ctx context.Context, category string, offse
 		}
 		filtered = append(filtered, a)
 	}
-	// 与 PG 对齐：ORDER BY created_at DESC。
-	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
+	// 与 PG 对齐：ORDER BY is_pinned DESC, created_at DESC（置顶优先，同级新→旧）。
+	sort.SliceStable(filtered, func(i, j int) bool {
+		if filtered[i].IsPinned != filtered[j].IsPinned {
+			return filtered[i].IsPinned
+		}
+		return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
+	})
 	page, total, _ := paginateSlice(filtered, offset, limit)
 	return page, total, nil
+}
+
+func (r *articleRepo) Delete(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items = append(r.items[:i], r.items[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("article %s not found", id)
 }
 
 // ---- Review ----

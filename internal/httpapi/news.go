@@ -19,13 +19,18 @@ func (s *Server) createArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Content, Category, Source string
+		Title    string `json:"title"`
+		Content  string `json:"content"`
+		Category string `json:"category"`
+		Source   string `json:"source"`
+		Author   string `json:"author"`
+		IsPinned bool   `json:"is_pinned"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	art, err := s.newsSvc.Create(r.Context(), in.Title, in.Content, in.Category, in.Source)
+	art, err := s.newsSvc.Create(r.Context(), in.Title, in.Content, in.Category, in.Source, in.Author, in.IsPinned)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -46,13 +51,18 @@ func (s *Server) updateArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title, Content, Category, Source string
+		Title    string `json:"title"`
+		Content  string `json:"content"`
+		Category string `json:"category"`
+		Source   string `json:"source"`
+		Author   string `json:"author"`
+		IsPinned bool   `json:"is_pinned"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	art, err := s.newsSvc.Update(r.Context(), r.PathValue("id"), in.Title, in.Content, in.Category, in.Source)
+	art, err := s.newsSvc.Update(r.Context(), r.PathValue("id"), in.Title, in.Content, in.Category, in.Source, in.Author, in.IsPinned)
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return
@@ -78,6 +88,25 @@ func (s *Server) publishArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond(w, r, http.StatusOK, art)
+}
+
+// DELETE /api/v1/articles/{id} — 删除资讯（草稿/已发布均可；发布后删除即下线）。
+func (s *Server) deleteArticle(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
+	if err := s.newsSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
+		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "delete_article", "article", r.PathValue("id"), "deleted")
+	respond(w, r, http.StatusOK, map[string]any{"deleted": true, "id": r.PathValue("id")})
 }
 
 // GET /api/v1/articles?category=policy&page=1&page_size=10

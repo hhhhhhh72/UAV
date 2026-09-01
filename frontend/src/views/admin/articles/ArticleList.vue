@@ -22,6 +22,10 @@
           {{ statusLabel[record.status] || record.status || '-' }}
         </a-tag>
       </template>
+      <template #pinned="{ record }">
+        <a-tag v-if="record.is_pinned" size="small" color="arcoblue">置顶</a-tag>
+        <span v-else class="cell-muted">—</span>
+      </template>
       <template #actions="{ record }">
         <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
         <a-button
@@ -30,6 +34,7 @@
           size="small"
           @click="publishArticle(record)"
         >发布</a-button>
+        <a-button type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
       </template>
       <template #empty>
         <a-empty description="暂无资讯，点击右上角「发布资讯」添加" />
@@ -53,8 +58,24 @@
         <a-form-item label="标题" required>
           <a-input v-model="form.title" placeholder="请输入资讯标题" maxlength="100" allow-clear style="width: 100%" :aria-required="true" />
         </a-form-item>
-        <a-form-item label="来源">
-          <a-input v-model="form.source" placeholder="如：重庆市无人机产业协会" allow-clear style="width: 100%" />
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="来源">
+              <a-input v-model="form.source" placeholder="如：重庆市无人机产业协会" allow-clear style="width: 100%" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="作者">
+              <a-input v-model="form.author" placeholder="如：产业发展部" allow-clear style="width: 100%" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-form-item label="置顶">
+          <a-switch v-model="form.is_pinned">
+            <template #checked>置顶展示</template>
+            <template #unchecked>常规</template>
+          </a-switch>
+          <div class="form-tip">置顶资讯在小程序政策资讯列表优先展示（is_pinned 排序）</div>
         </a-form-item>
         <a-form-item label="正文" required>
           <RichEditor v-model="form.content" placeholder="请输入资讯正文（支持加粗/斜体/列表/标题/链接；样式/事件属性由服务端白名单过滤）" />
@@ -124,10 +145,12 @@ const searchFields = computed(() => [
 const columns = [
   { title: '标题', dataIndex: 'title', slotName: 'title', minWidth: 240 },
   { title: '分类', dataIndex: 'category', slotName: 'category', width: 110 },
-  { title: '来源', dataIndex: 'source', width: 180, ellipsis: true },
+  { title: '置顶', dataIndex: 'is_pinned', slotName: 'pinned', width: 80 },
+  { title: '来源', dataIndex: 'source', width: 160, ellipsis: true },
+  { title: '作者', dataIndex: 'author', width: 120, ellipsis: true },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
   { title: '发布时间', dataIndex: 'created_at', width: 170 },
-  { title: '操作', slotName: 'actions', width: 90, fixed: 'right' },
+  { title: '操作', slotName: 'actions', width: 150, fixed: 'right' },
 ]
 
 // --- 发布 ---
@@ -135,7 +158,7 @@ const showPopup = ref(false)
 const form = ref(createEmptyForm())
 
 function createEmptyForm() {
-  return { title: '', content: '', category: '', source: '' }
+  return { title: '', content: '', category: '', source: '', author: '', is_pinned: false }
 }
 
 const editingId = ref('')
@@ -153,7 +176,9 @@ const openEdit = (item) => {
     title: item.title || '',
     content: item.content || '',
     category: item.category || '',
-    source: item.source || ''
+    source: item.source || '',
+    author: item.author || '',
+    is_pinned: !!item.is_pinned
   }
   takeSnapshot()
   showPopup.value = true
@@ -170,7 +195,9 @@ const buildPayload = () => ({
   title: form.value.title.trim(),
   content: form.value.content,
   category: form.value.category,
-  source: form.value.source?.trim() || ''
+  source: form.value.source?.trim() || '',
+  author: form.value.author?.trim() || '',
+  is_pinned: !!form.value.is_pinned
 })
 
 const onSave = async () => {
@@ -239,6 +266,26 @@ const handleCancel = () => {
   if (guardClose()) showPopup.value = false
 }
 
+// 删除（草稿/已发布均可；发布后删除即下线）
+const handleDelete = (item) => {
+  Modal.confirm({
+    title: '删除资讯',
+    content: `确定要删除「${item.title}」吗？删除后不可恢复，小程序端将不再展示。`,
+    okText: '删除',
+    okButtonProps: { status: 'danger' },
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await axios.delete(`/api/v1/articles/${item.id}`)
+        Message.success('已删除')
+        crudRef.value?.reload()
+      } catch (error) {
+        Message.error(error?.response?.data?.message || '删除失败')
+      }
+    }
+  })
+}
+
 // 草稿 → 发布
 const publishArticle = (item) => {
   Modal.confirm({
@@ -262,6 +309,7 @@ const publishArticle = (item) => {
 <style scoped>
 .page { max-width: 1400px; margin: 0 auto; }
 .cell-title { font-weight: 500; }
+.cell-muted { color: var(--color-text-4); }
 .dialog-form :deep(.arco-form-item-label-col) { min-width: 88px; }
 .modal-footer {
   display: flex;

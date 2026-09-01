@@ -371,6 +371,8 @@ type ArticleRepository interface {
 	Create(ctx context.Context, v domain.Article) (domain.Article, error)
 	FindByID(ctx context.Context, id string) (domain.Article, error)
 	Update(ctx context.Context, v domain.Article) (domain.Article, error)
+	Delete(ctx context.Context, id string) error
+	// ListByCategory 与 PG 对齐：置顶优先（is_pinned DESC），同级按创建时间倒序。
 	ListByCategory(ctx context.Context, category string, offset, limit int) ([]domain.Article, int, error)
 }
 

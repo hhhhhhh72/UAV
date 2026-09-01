@@ -281,7 +281,7 @@ func TestMessageSendMarkRead(t *testing.T) {
 // === News ===
 func TestNewsCreatePublish(t *testing.T) {
 	svc := service.NewNewsService(memory.NewArticleRepository())
-	a, _ := svc.Create(context.Background(), "新闻", "内容...", "policy", "来源")
+	a, _ := svc.Create(context.Background(), "新闻", "内容...", "policy", "来源", "", false)
 	if a.Status != "draft" {
 		t.Fatal("should be draft")
 	}
@@ -297,9 +297,9 @@ func TestNewsCreatePublish(t *testing.T) {
 
 func TestNewsUpdate(t *testing.T) {
 	svc := service.NewNewsService(memory.NewArticleRepository())
-	a, _ := svc.Create(context.Background(), "原标题", "原内容", "policy", "来源")
+	a, _ := svc.Create(context.Background(), "原标题", "原内容", "policy", "来源", "", false)
 	// 编辑：保留 ID 与状态，内容更新，摘要重算
-	u, err := svc.Update(context.Background(), a.ID, "新标题", strings.Repeat("新内容", 60), "uav_regulation", "新来源")
+	u, err := svc.Update(context.Background(), a.ID, "新标题", strings.Repeat("新内容", 60), "uav_regulation", "新来源", "", false)
 	if err != nil {
 		t.Fatal("update should succeed")
 	}
@@ -310,7 +310,7 @@ func TestNewsUpdate(t *testing.T) {
 		t.Fatal("summary should be truncated to 100 chars")
 	}
 	// 编辑不存在的文章应报错
-	if _, err := svc.Update(context.Background(), "article-missing", "x", "y", "", ""); err == nil {
+	if _, err := svc.Update(context.Background(), "article-missing", "x", "y", "", "", "", false); err == nil {
 		t.Fatal("update missing article should error")
 	}
 }
