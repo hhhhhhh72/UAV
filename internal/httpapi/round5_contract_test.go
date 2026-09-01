@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"drone-platform/internal/domain"
 )
@@ -82,9 +83,10 @@ func TestR5MyRegistrations(t *testing.T) {
 		t.Fatalf("my competition regs: %+v", comps)
 	}
 
-	// 活动：admin 建活动 → 用户报名 → mine
+	// 活动：admin 建活动 → 用户报名 → mine（时间为动态明天，硬编码日期过期后该用例恒挂）
+	tomorrow := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/events",
-		`{"title":"协会交流会","event_type":"meeting","description":"d","location":"协会大厦","start_time":"2026-09-01T10:00:00+08:00","end_time":"2026-09-01T12:00:00+08:00","max_attendees":50,"status":"published"}`, adminTok)
+		`{"title":"协会交流会","event_type":"meeting","description":"d","location":"协会大厦","start_time":"`+tomorrow+`T10:00:00+08:00","end_time":"`+tomorrow+`T12:00:00+08:00","max_attendees":50,"status":"published"}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/events", w, http.StatusCreated)
 	eventID := dataID(t, w)
 	w = doRaw(app, http.MethodPost, "/api/v1/events/"+eventID+"/register",
@@ -223,6 +225,8 @@ func TestR5TestSiteBookingExtFields(t *testing.T) {
 	app := newBizServer(t)
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
 	userTok := authAs(t, "user-1", domain.RoleIndividual)
+	// 预约日期用动态明天：硬编码日期过期后该用例恒挂（与 TestR5MyRegistrations 同口径）
+	siteDate := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
 
 	// 管理员建场地（带场地参数）
 	w := doRaw(app, http.MethodPost, "/api/v1/admin/test-sites",
@@ -242,7 +246,7 @@ func TestR5TestSiteBookingExtFields(t *testing.T) {
 
 	// 预约提交 9 扩展字段
 	w = doRaw(app, http.MethodPost, "/api/v1/test-sites/"+siteID+"/book",
-		`{"purpose":"R&D","date":"2026-09-01","time_slot":"09:00-11:00","time_slots":"09:00-11:00,14:00-16:00","booking_type":"group","model":"M300","license_url":"/uploads/lic.pdf","team_name":"飞鹰队","people_count":3,"equipment_list":"M300两台","qualification_url":"/uploads/quali.pdf","equipment_note":"外场测试","contact_name":"张三","contact_phone":"13800000000"}`, userTok)
+		`{"purpose":"R&D","date":"`+siteDate+`","time_slot":"09:00-11:00","time_slots":"09:00-11:00,14:00-16:00","booking_type":"group","model":"M300","license_url":"/uploads/lic.pdf","team_name":"飞鹰队","people_count":3,"equipment_list":"M300两台","qualification_url":"/uploads/quali.pdf","equipment_note":"外场测试","contact_name":"张三","contact_phone":"13800000000"}`, userTok)
 	assertStatus(t, http.MethodPost, "/api/v1/test-sites/"+siteID+"/book", w, http.StatusCreated)
 
 	// 我的预约回读：9 字段与 2 个基础字段一致
