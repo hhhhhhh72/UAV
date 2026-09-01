@@ -70,7 +70,9 @@ type RefreshTokenRepository interface {
 }
 
 // DemandFilter carries optional query parameters for listing demands.
-type DemandFilter struct{ District, BizType, Sort, Status string }
+// DemandFilter 需求查询过滤：District/BizType/Status（排序固定 created_at DESC；
+// 曾有过 Sort 字段但无任何消费方，属死参数，审计后移除）。
+type DemandFilter struct{ District, BizType, Status string }
 
 // DemandRepository manages demand lifecycle: create, list, search, and status transitions.
 // The CompareAndSetStatus method provides atomic CAS for concurrent bid selection safety.

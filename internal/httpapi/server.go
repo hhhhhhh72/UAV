@@ -612,7 +612,7 @@ func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		filter := repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type"), Sort: r.URL.Query().Get("sort")}
+		filter := repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type")}
 		if q == "" {
 			// 高频路径：SQL 端分页（LIMIT/OFFSET + COUNT），不再全表拉取后内存分页。
 			page, pageSize := paginationFromQuery(r)
@@ -1147,13 +1147,38 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-// isTrustedProxyIP 报告直连 IP 是否来自受信代理（回环 / RFC1918 私网 / 链路本地）。
+// 受信代理列表：TRUSTED_PROXIES（逗号分隔 IP，如 "127.0.0.1,10.0.0.5"）。
+// 未配置时安全收敛为仅回环（nginx 与 API 同机反代场景 127.0.0.1 即足够；
+// 此前信任全部 RFC1918 私网/链路本地，多主机内网环境中任一私网客户端可伪造 XFF
+// 绕过限流/短信 5min/注册 3/10min 限频）。
+var trustedProxies = loadTrustedProxies()
+
+func loadTrustedProxies() []string {
+	raw := os.Getenv("TRUSTED_PROXIES")
+	if raw == "" {
+		return []string{"127.0.0.1", "::1"}
+	}
+	var out []string
+	for _, s := range strings.Split(raw, ",") {
+		if ip := net.ParseIP(strings.TrimSpace(s)); ip != nil && !ip.IsUnspecified() {
+			out = append(out, ip.String())
+		}
+	}
+	return out
+}
+
+// isTrustedProxyIP 报告直连 IP 是否来自受信代理（TRUSTED_PROXIES 白名单；未配置→仅回环）。
 func isTrustedProxyIP(ip string) bool {
 	p := net.ParseIP(ip)
 	if p == nil {
 		return false
 	}
-	return p.IsLoopback() || p.IsPrivate() || p.IsLinkLocalUnicast()
+	for _, tp := range trustedProxies {
+		if p.Equal(net.ParseIP(tp)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) rateLimit(next http.Handler) http.Handler {
