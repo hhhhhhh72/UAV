@@ -140,7 +140,7 @@
           </a-select>
         </a-form-item>
         <a-form-item label="摘要">
-          <a-input v-model="docForm.summary" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" style="width: 100%" />
+          <RichEditor v-model="docForm.summary" />
         </a-form-item>
         <a-form-item label="附件文件">
           <a-upload
@@ -219,6 +219,7 @@ import '@arco-design/web-vue/es/modal/style/css'
 import axios, { getAuthHeader } from '@/utils/http'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const activeTab = ref('docs')

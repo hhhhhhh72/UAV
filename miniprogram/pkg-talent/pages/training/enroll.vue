@@ -161,7 +161,8 @@
           <view v-if="courseDescription(detail)" class="section">
             <text class="section-title">课程介绍</text>
             <view class="intro-card">
-              <text class="intro-text">{{ courseDescription(detail) }}</text>
+              <rich-text v-if="courseDescription(detail).indexOf('<') >= 0" class="intro-text" :nodes="courseDescription(detail)"></rich-text>
+              <text v-else class="intro-text">{{ courseDescription(detail) }}</text>
             </view>
           </view>
 

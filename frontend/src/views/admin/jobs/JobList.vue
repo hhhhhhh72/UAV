@@ -76,7 +76,7 @@
         <a-form-item label="薪资(元)">
           <a-input-number v-model="form.salary" :min="0" :max="1000000" hide-button style="width: 100%" placeholder="单位：元" />
         </a-form-item>
-        <a-form-item label="职位描述"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
+        <a-form-item label="职位描述"><RichEditor v-model="form.description" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
@@ -94,6 +94,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('jobs')

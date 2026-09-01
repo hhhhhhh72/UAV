@@ -46,7 +46,8 @@
               </view>
             </view>
           </view>
-          <text class="d-desc">{{ d.desc || '暂无品牌简介' }}</text>
+          <rich-text v-if="(d.desc || '').indexOf('<') >= 0" class="d-desc" :nodes="d.desc"></rich-text>
+          <text v-else class="d-desc">{{ d.desc || '暂无品牌简介' }}</text>
           <view v-if="d.caseCount > 0 || d.videoCount > 0 || d.views > 0" class="d-stat">
             <view class="d-si"><text class="d-sv">{{ d.caseCount }}</text><text class="d-sl">品牌案例</text></view>
             <view class="d-si"><text class="d-sv">{{ d.videoCount }}</text><text class="d-sl">宣传视频</text></view>

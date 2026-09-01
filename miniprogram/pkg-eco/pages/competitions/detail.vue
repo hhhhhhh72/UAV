@@ -38,9 +38,6 @@
             <view class="back-btn" hover-class="press-feedback" :hover-stay-time="120" @click="goBack">
               <view class="back-arrow" />
             </view>
-            <button class="share-btn" open-type="share" hover-class="press-feedback" :hover-stay-time="120">
-              <text class="share-text">分享</text>
-            </button>
           </view>
 
           <!-- 状态徽章（对齐培训页：Hero 左上，absolute 定位） -->
@@ -90,7 +87,8 @@
         <!-- ③ 赛事简介 -->
         <view v-if="detail.intro || detail.description" class="section-block">
           <view class="section-title">赛事简介</view>
-          <view class="card intro-text">{{ detail.intro || detail.description }}</view>
+          <rich-text v-if="((detail.intro || detail.description) || '').indexOf('<') >= 0" class="card intro-text" :nodes="detail.intro || detail.description"></rich-text>
+          <view v-else class="card intro-text">{{ detail.intro || detail.description }}</view>
         </view>
 
         <!-- ④ 报名条件 -->
@@ -504,38 +502,26 @@ onPullDownRefresh(function () {
 .back-btn {
   width: 88rpx;
   height: 88rpx;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1rpx solid rgba(255, 255, 255, 0.25);
+  background: rgba(16, 24, 40, 0.42);
+  border: 1rpx solid rgba(255, 255, 255, 0.28);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2rpx 12rpx rgba(16, 24, 40, 0.22);
 }
 
 /* CSS 绘制返回箭头（左向 V 形） */
 .back-arrow {
-  width: 20rpx;
-  height: 20rpx;
-  border-left: 3rpx solid #fff;
-  border-bottom: 3rpx solid #fff;
+  width: 22rpx;
+  height: 22rpx;
+  border-left: 4rpx solid #fff;
+  border-bottom: 4rpx solid #fff;
   transform: rotate(45deg);
   margin-left: 8rpx;
 }
-
-/* 分享：文字标签按钮（button 去默认样式） */
-.share-btn {
-  height: 64rpx;
-  margin: 0;
-  padding: 0 28rpx;
-  line-height: 64rpx;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1rpx solid rgba(255, 255, 255, 0.25);
-  border-radius: 999rpx;
-  font-size: 24rpx;
-}
-.share-btn::after { border: none; }
-.share-text { color: #fff; font-weight: 500; }
 
 /* 状态徽章（流式：导航行下方，随布局自然错开；实底白字清晰） */
 .status-badge {

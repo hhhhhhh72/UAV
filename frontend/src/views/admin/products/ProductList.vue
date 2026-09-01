@@ -104,7 +104,7 @@
           <a-input v-model="form.seller_name" placeholder="默认平台自营" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="描述">
-          <a-input v-model="form.description" type="textarea" :auto-size="{ minRows: 3, maxRows: 6 }" placeholder="商品说明" style="width: 100%" />
+          <RichEditor v-model="form.description" />
         </a-form-item>
       </a-form>
       <template #footer>
@@ -124,6 +124,7 @@ import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import axios from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('products')

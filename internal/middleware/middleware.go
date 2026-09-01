@@ -112,6 +112,91 @@ func sanitizeValue(v any) (any, error) {
 
 var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
 
+// 富文本白名单（内容字段允许保留的标签）；危险容器标签连同内容整体移除；
+// a 仅保留 http/https/相对路径 href；img 仅保留 http/https/相对路径 src。其余标签剥掉但保留文本。
+var (
+	sanitizeAllowTags = map[string]bool{
+		"p": true, "br": true, "strong": true, "b": true, "em": true, "i": true,
+		"u": true, "s": true, "h1": true, "h2": true, "h3": true, "h4": true,
+		"ul": true, "ol": true, "li": true, "blockquote": true, "span": true,
+		"a": true, "img": true, "hr": true,
+	}
+	sanitizeDangerBlock = regexp.MustCompile(`(?is)<(script|style|iframe|object|embed|form|textarea|select|button)\b[^>]*>.*?<\s*/\s*(?:script|style|iframe|object|embed|form|textarea|select|button)\s*>`)
+	sanitizeDangerSelf  = regexp.MustCompile(`(?is)<(script|style|iframe|object|embed|form|textarea|select|button)\b[^>]*?>`)
+	sanitizeTag         = regexp.MustCompile(`(?is)<\s*(/?)([a-z0-9]+)([^>]*?)(\s*/?)\s*>`)
+	sanitizeHref        = regexp.MustCompile(`(?i)^\s*(https?://|/|\./|#)`)
+)
+
+// sanitizeRichText 白名单消毒：危险标签连内容删；允许标签仅保留安全属性；其余剥标签保文本；
+// 结尾做闭标签配对平衡（起始标签被剥时，孤立的闭合标签一并移除）。
+func sanitizeRichText(s string) string {
+	s = sanitizeDangerBlock.ReplaceAllString(s, "")
+	s = sanitizeDangerSelf.ReplaceAllString(s, "")
+	opened := map[string]int{}
+	s = sanitizeTag.ReplaceAllStringFunc(s, func(m string) string {
+		p := sanitizeTag.FindStringSubmatch(m)
+		name := strings.ToLower(p[2])
+		if !sanitizeAllowTags[name] {
+			return "" // 剥标签，保留内部文本
+		}
+		closing := p[1] == "/"
+		if closing {
+			if opened[name] > 0 {
+				opened[name]--
+				return "</" + name + ">"
+			}
+			return "" // 孤立闭合标签（起始被剥/不匹配）
+		}
+		switch name {
+		case "a":
+			href := ""
+			for _, attr := range strings.Fields(p[3]) {
+				kv := strings.SplitN(attr, "=", 2)
+				if len(kv) != 2 {
+					continue
+				}
+				if !strings.EqualFold(strings.Trim(kv[0], `"' `), "href") {
+					continue
+				}
+				v := strings.Trim(strings.Trim(kv[1], `"'`), " ")
+				if sanitizeHref.MatchString(v) {
+					href = v
+				}
+			}
+			if href == "" {
+				return "" // href 非法：整标签剥除（配对闭合由 opened 计数吸收）
+			}
+			opened[name]++
+			return `<a href="` + href + `">`
+		case "img":
+			src := ""
+			for _, attr := range strings.Fields(p[3]) {
+				kv := strings.SplitN(attr, "=", 2)
+				if len(kv) != 2 {
+					continue
+				}
+				if !strings.EqualFold(strings.Trim(kv[0], `"' `), "src") {
+					continue
+				}
+				v := strings.Trim(strings.Trim(kv[1], `"'`), " ")
+				if sanitizeHref.MatchString(v) {
+					src = v
+				}
+			}
+			if src == "" {
+				return ""
+			}
+			return `<img src="` + src + `">`
+		case "br", "hr":
+			return "<" + name + ">"
+		default:
+			opened[name]++
+			return "<" + name + ">"
+		}
+	})
+	return s
+}
+
 // SanitizeString removes HTML tags and trims a string (超长静默截断为
 // MaxSanitizeFieldBytes，仅限文件路径等内部用途；HTTP 请求体请用
 // SanitizeStringStrict——HTTP 字段超长不再静默截断）。
@@ -127,7 +212,7 @@ func SanitizeString(s string) string {
 // SanitizeStringStrict like SanitizeString but errors when the sanitized value
 // exceeds MaxSanitizeFieldBytes instead of silently truncating.
 func SanitizeStringStrict(s string) (string, error) {
-	s = htmlTagRe.ReplaceAllString(s, "")
+	s = sanitizeRichText(s)
 	s = strings.TrimSpace(s)
 	if len(s) > MaxSanitizeFieldBytes {
 		return "", fmt.Errorf("field too long: %d chars (max %d)", len(s), MaxSanitizeFieldBytes)

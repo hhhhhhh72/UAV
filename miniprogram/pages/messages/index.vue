@@ -19,7 +19,7 @@
         <u-cell
           v-for="msg in messages"
           :key="msg.id"
-          :label="msg.content"
+          :label="stripHtml(msg.content)"
           :value="formatTime(msg.created_at || msg.createdAt)"
           is-link
           @click="onMessageClick(msg)"
@@ -43,6 +43,7 @@
 import { ref } from 'vue'
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request, getStoredUser } from '../../utils/request'
+import { stripHtml } from '../../utils/html'
 
 const messages = ref([])
 const loading = ref(false)

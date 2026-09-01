@@ -59,7 +59,7 @@
       <a-form :model="form" layout="vertical">
         <a-form-item label="难题名称" required><a-input v-model="form.title" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="领域"><a-input v-model="form.field" placeholder="如：飞控系统" style="width: 100%" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><RichEditor v-model="form.description" /></a-form-item>
         <a-form-item label="悬赏金额(分)"><a-input-number v-model="form.budget_fen" :min="0" style="width: 100%" placeholder="单位：分" /></a-form-item>
         <a-form-item label="截止日期"><a-date-picker v-model="form.deadline" value-format="YYYY-MM-DD" placeholder="选择日期" style="width: 100%" /></a-form-item>
         <a-form-item v-if="formEdit" label="状态" :extra="formEdit ? '' : '新建默认征集中，创建后可在编辑中调整'">
@@ -86,6 +86,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('rd-challenges')

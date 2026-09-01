@@ -81,7 +81,7 @@
             </view>
           </view>
           <text class="ct">{{ item.title || '--' }}</text>
-          <text v-if="item.summary || item.scope" class="c-desc">{{ item.summary || item.scope }}</text>
+          <text v-if="item.summary || item.scope" class="c-desc">{{ stripHtml(item.summary) || item.scope }}</text>
           <view class="c-meta">
             <text>{{ (item.effective_date ? '实施于' : '发布于') + ' ' + formatDate(item.effective_date || item.created_at) }}</text>
             <text class="c-dot">·</text>
@@ -110,7 +110,8 @@
 </template>
 
 <script>
-import { request } from '../../../utils/request'
+import { request, BASE_URL } from '../../../utils/request'
+import { stripHtml } from '../../../utils/html'
 
 export default {
   data() {
@@ -249,7 +250,7 @@ export default {
     downloadStandard(item) {
       if (item.file_url) {
         uni.downloadFile({
-          url: item.file_url,
+          url: this.resolveUrl(item.file_url),
           success: function (res) {
             if (res.statusCode === 200) {
               uni.openDocument({
@@ -264,7 +265,7 @@ export default {
         })
       } else if (item.url) {
         uni.setClipboardData({
-          data: item.url,
+          data: this.resolveUrl(item.url),
           success: function () {
             uni.showToast({ title: '链接已复制，请在浏览器打开下载', icon: 'none' })
           },
@@ -272,6 +273,12 @@ export default {
       } else {
         uni.showToast({ title: '暂无下载资源', icon: 'none' })
       }
+    },
+    // 存库为相对路径 /uploads/xxx，下载/复制前必须补全域名（uni.downloadFile 不认相对地址）
+    resolveUrl(u) {
+      if (!u) return ''
+      if (u.indexOf('http') === 0) return u
+      return BASE_URL + u
     },
     // 标准类型 → 配色类名（纯样式映射，用于左缘色条与分类 tag）
     stdClass(cat) {

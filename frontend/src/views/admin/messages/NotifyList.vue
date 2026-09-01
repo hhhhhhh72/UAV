@@ -56,7 +56,7 @@
       <a-form :model="form" layout="vertical">
         <a-form-item label="消息标题" required><a-input v-model="form.title" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="接收者"><a-input v-model="form.receiver_id" placeholder="留空 = 广播给全部用户" style="width: 100%" /></a-form-item>
-        <a-form-item label="消息内容" required><a-input v-model="form.content" :aria-required="true" type="textarea" :rows="5" style="width: 100%" /></a-form-item>
+        <a-form-item label="消息内容" required><RichEditor v-model="form.content" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="beforeCancel">取消</a-button>
@@ -74,6 +74,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('messages')

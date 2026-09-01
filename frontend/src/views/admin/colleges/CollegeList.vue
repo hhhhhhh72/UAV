@@ -203,10 +203,10 @@
         <a-form-item label="就业率"><a-input ref="rateRef" v-model="form.graduate_rate" placeholder="如：98%" :maxlength="10" style="width: 100%" /></a-form-item>
 
         <div class="form-group-title">院校介绍</div>
-        <a-form-item label="院校介绍"><a-input v-model="form.intro" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" :maxlength="500" style="width: 100%" />
+        <a-form-item label="院校介绍"><RichEditor v-model="form.intro" placeholder="小程序院校详情页主展示文案（支持加粗/列表/链接等格式）" />
           <div class="form-tip">小程序院校详情页主展示文案</div>
         </a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :rows="2" :maxlength="500" style="width: 100%" />
+        <a-form-item label="描述"><RichEditor v-model="form.description" placeholder="备用描述（支持加粗/列表/链接等格式）" />
           <div class="form-tip">备用描述，仅当院校介绍为空时展示</div>
         </a-form-item>
 
@@ -261,6 +261,7 @@ import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import axios, { getAuthHeader } from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const uploadUrl = '/api/v1/upload'
 

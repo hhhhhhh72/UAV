@@ -48,7 +48,7 @@
           <a-descriptions-item v-if="currentItem.poster" label="海报" :span="2">
             <a-image :src="currentItem.poster" :width="160" alt="赛事海报" :preview-props="{ src: currentItem.poster }" />
           </a-descriptions-item>
-          <a-descriptions-item v-if="currentItem.description" label="简介" :span="2">{{ currentItem.description }}</a-descriptions-item>
+          <a-descriptions-item v-if="currentItem.description" label="简介" :span="2"><span v-html="currentItem.description"></span></a-descriptions-item>
         </a-descriptions>
 
         <div class="review-actions">
@@ -108,7 +108,7 @@
             <a-option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</a-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="赛事简介"><a-input v-model="form.description" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
+        <a-form-item label="赛事简介"><RichEditor v-model="form.description" /></a-form-item>
 
         <a-divider style="margin: 4px 0 12px">报名条件（选填，详情页「报名条件」块）</a-divider>
         <div v-for="(req, ri) in form.requirements" :key="ri" style="border:1px solid var(--color-border); border-radius:8px; padding:12px; margin-bottom:12px">
@@ -173,6 +173,7 @@ import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import axios, { getAuthHeader } from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('competitions')

@@ -67,7 +67,8 @@
 
           <!-- ③ 院校简介 -->
           <view class="section-title">院校简介</view>
-          <view class="intro-text">{{ detail.intro || detail.description || '暂无简介' }}</view>
+          <rich-text v-if="((detail.intro || detail.description) || '').indexOf('<') >= 0" class="intro-text" :nodes="detail.intro || detail.description"></rich-text>
+          <view v-else class="intro-text">{{ detail.intro || detail.description || '暂无简介' }}</view>
 
           <!-- ④ 无人机相关专业 -->
           <view v-if="majorsList(detail).length > 0" class="section-block">

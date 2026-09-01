@@ -83,7 +83,7 @@
               </view>
 
               <!-- 简介（最多 2 行） -->
-              <text class="college-intro">{{ item.intro || item.description || '暂无简介' }}</text>
+              <text class="college-intro">{{ stripHtml(item.intro || item.description) || '暂无简介' }}</text>
 
               <!-- 标签（配色统一） -->
               <view v-if="specTags(item).length > 0" class="tag-row">
@@ -111,6 +111,7 @@ import { safeBack } from '../../../utils/nav'
 import { ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
+import { stripHtml } from '../../../utils/html'
 import StateView from '../../../components/StateView.vue'
 
 const currentTab = ref('all')

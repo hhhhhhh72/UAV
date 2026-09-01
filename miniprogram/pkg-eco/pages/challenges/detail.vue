@@ -67,7 +67,8 @@
       <!-- 难题描述 -->
       <view class="sec">
         <view class="sh"><view class="sd"></view><text class="sht">难题描述</text></view>
-        <text class="p">{{ d.desc || '暂无描述' }}</text>
+        <rich-text v-if="(d.desc || '').indexOf('<') >= 0" class="p" :nodes="d.desc"></rich-text>
+        <text v-else class="p">{{ d.desc || '暂无描述' }}</text>
       </view>
 
       <!-- 攻关要求 -->

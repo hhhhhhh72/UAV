@@ -56,13 +56,13 @@
             <a-input v-model="currentCase.title" placeholder="请输入标题" allow-clear :aria-required="true" style="width: 100%" />
           </a-form-item>
           <a-form-item label="简介">
-            <a-input v-model="currentCase.description" type="textarea" :auto-size="{ minRows: 2, maxRows: 6 }" :maxlength="500" placeholder="请输入简介" style="width: 100%" />
+            <RichEditor v-model="currentCase.description" />
           </a-form-item>
           <a-form-item label="客户名称">
             <a-input v-model="currentCase.client_name" :maxlength="100" placeholder="如：重庆市某区应急管理局" allow-clear style="width: 100%" />
           </a-form-item>
           <a-form-item label="成果">
-            <a-input v-model="currentCase.result" type="textarea" :auto-size="{ minRows: 2, maxRows: 4 }" :maxlength="500" placeholder="项目成果/数据（可选）" style="width: 100%" />
+            <RichEditor v-model="currentCase.result" />
           </a-form-item>
 
           <a-divider orientation="left">封面图片</a-divider>
@@ -111,6 +111,7 @@ import '@arco-design/web-vue/es/modal/style/css'
 import axios from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
 import { normalizeMediaUrl } from '../composables/useMedia'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 

@@ -71,7 +71,8 @@
       <!-- Description -->
       <view class="sec" :class="{ vis: vis }">
         <view class="sh"><view class="sd"></view><text class="sht">成果描述</text></view>
-        <text class="sb">{{ d.description || '暂无描述' }}</text>
+        <rich-text v-if="(d.description || '').indexOf('<') >= 0" class="sb" :nodes="d.description"></rich-text>
+        <text v-else class="sb">{{ d.description || '暂无描述' }}</text>
       </view>
 
       <!-- Basic Info -->

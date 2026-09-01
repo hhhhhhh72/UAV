@@ -69,7 +69,7 @@
           </a-select>
         </a-form-item>
         <a-form-item label="联系信息"><a-input v-model="form.contact_info" placeholder="如：电话 / 邮箱" style="width: 100%" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><RichEditor v-model="form.description" /></a-form-item>
         <a-form-item label="成果图片">
           <div style="width: 100%">
             <div v-for="(img, i) in form.images" :key="i" style="display: flex; gap: 6px; margin-bottom: 6px">
@@ -108,6 +108,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('achievements')

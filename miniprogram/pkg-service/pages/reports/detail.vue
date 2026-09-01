@@ -146,6 +146,7 @@
 import { typeOf, formatDate, prepareContent, fileName, getReportCache, ICON_BACK, ICON_DOWNLOAD_NAVY, ICON_FILE } from './report-common.js'
 import { request, BASE_URL } from '../../../utils/request'
 import { MOCK_REPORTS } from '../../../utils/mockReports'
+import { stripHtml } from '../../../utils/html'
 
 // 文件 URL 统一为可下载绝对地址：绝对/协议相对直接可用，其余补 BASE_URL（裸相对 downloadFile 必失败）
 function resolveFileUrl(raw) {
@@ -190,11 +191,11 @@ export default {
       return fileName(this.report)
     },
     summaryHead() {
-      var s = ((this.report && this.report.summary) || '').trim()
+      var s = stripHtml((this.report && this.report.summary) || '')
       return s.slice(0, 1)
     },
     summaryRest() {
-      var s = ((this.report && this.report.summary) || '').trim()
+      var s = stripHtml((this.report && this.report.summary) || '')
       return s.slice(1)
     },
   },

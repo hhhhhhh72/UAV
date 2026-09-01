@@ -55,7 +55,8 @@
         <!-- 展会介绍 -->
         <view class="sec">
           <view class="sh"><view class="sd"></view><text class="sht">展会介绍</text></view>
-          <text class="sb">{{ d.description || '暂无介绍' }}</text>
+          <rich-text v-if="(d.description || '').indexOf('<') >= 0" class="sb" :nodes="d.description"></rich-text>
+          <text v-else class="sb">{{ d.description || '暂无介绍' }}</text>
         </view>
 
         <!-- 展位平面示意图 -->

@@ -77,14 +77,7 @@
       <div class="dialog-body" v-if="editingService">
         <div class="config-section">
           <div class="section-title">服务介绍</div>
-          <a-input
-            v-model="editingService.intro"
-            type="textarea"
-            :auto-size="{ minRows: 3 }"
-            placeholder="请输入服务介绍，建议50-100字"
-            :max-length="200"
-            show-word-limit
-          />
+          <RichEditor v-model="editingService.intro" />
         </div>
 
         <div class="config-section">
@@ -237,7 +230,7 @@
 
               <div class="field-row">
                 <span class="field-label">介绍</span>
-                <a-input v-model="activeStudyPkg.intro" type="textarea" :auto-size="{ minRows: 3 }" placeholder="课程介绍" />
+                <RichEditor v-model="activeStudyPkg.intro" />
               </div>
             </div>
 
@@ -347,7 +340,7 @@
                 </div>
                 <div class="field-row">
                   <span class="field-label">具体内容</span>
-                  <a-input v-model="goal.content" type="textarea" :auto-size="{ minRows: 3 }" placeholder="掌握无人机基本原理" />
+                  <RichEditor v-model="goal.content" />
                 </div>
               </div>
               <div class="list-add">
@@ -698,6 +691,7 @@ import ImageCropper from './ImageCropper.vue'
 import DataToolbar from '../components/DataToolbar.vue'
 import { normalizeMediaUrl, uploadFile } from '../composables/useMedia'
 import { useAuth } from '../composables/useAuth'
+import RichEditor from '@/components/RichEditor.vue'
 
 const { userRole, isPlatformAdmin, isAssociationAdmin } = useAuth()
 

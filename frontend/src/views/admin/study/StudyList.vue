@@ -62,7 +62,7 @@
         <a-form-item label="目的地"><a-input v-model="form.destination" style="width: 100%" /></a-form-item>
         <a-form-item label="时长"><a-input v-model="form.duration" placeholder="如: 3天2晚" style="width: 100%" /></a-form-item>
         <a-form-item label="名额"><a-input-number v-model="form.capacity" :min="0" hide-button style="width: 100%" /></a-form-item>
-        <a-form-item label="项目介绍"><a-input v-model="form.description" type="textarea" :rows="2" style="width: 100%" /></a-form-item>
+        <a-form-item label="项目介绍"><RichEditor v-model="form.description" /></a-form-item>
       </a-form>
       <template #footer>
         <a-button @click="handleCancel">取消</a-button>
@@ -80,6 +80,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('study-tours')

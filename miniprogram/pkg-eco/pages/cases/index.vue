@@ -140,7 +140,7 @@
               <text class="c-tag" :style="{ color: catColor(caseItem.category).tagC, background: catColor(caseItem.category).tagBg }">{{ caseItem.category }}</text>
             </view>
             <text class="ct">{{ caseItem.title || '未命名案例' }}</text>
-            <text v-if="caseItem.description" class="c-desc">{{ caseItem.description }}</text>
+            <text v-if="caseItem.description" class="c-desc">{{ stripHtml(caseItem.description) }}</text>
             <view class="c-meta">
               <text v-if="caseItem.client_name" class="c-client">{{ caseItem.client_name }}</text>
               <text v-if="caseItem.client_name" class="c-dot">·</text>
@@ -208,7 +208,8 @@
               <view class="head-bar" />
               <text class="section-label">案例介绍</text>
             </view>
-            <text class="section-body">{{ currentCase.description || '暂无介绍' }}</text>
+            <rich-text v-if="(currentCase.description || '').indexOf('<') >= 0" class="section-body" :nodes="currentCase.description"></rich-text>
+            <text v-else class="section-body">{{ currentCase.description || '暂无介绍' }}</text>
           </view>
 
           <!-- 项目成果 -->
@@ -217,7 +218,8 @@
               <view class="head-bar head-bar-teal" />
               <text class="section-label">项目成果</text>
             </view>
-            <text class="section-body">{{ currentCase.result }}</text>
+            <rich-text v-if="(currentCase.result || '').indexOf('<') >= 0" class="section-body" :nodes="currentCase.result"></rich-text>
+            <text v-else class="section-body">{{ currentCase.result }}</text>
           </view>
         </scroll-view>
       </view>
@@ -230,6 +232,7 @@ import { ref, computed, onMounted } from 'vue'
 import { onPullDownRefresh, onReachBottom, onPageScroll } from '@dcloudio/uni-app'
 import { request, BASE_URL } from '../../../utils/request'
 import { useReduceMotion } from '../../../utils/motion'
+import { stripHtml } from '../../../utils/html'
 
 const categories = [
   { id: 'all', name: '全部' },

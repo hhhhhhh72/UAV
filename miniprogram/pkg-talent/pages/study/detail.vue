@@ -75,7 +75,8 @@
       <!-- ═══ 三、研学介绍卡 ═══ -->
       <view class="section-card" v-if="tour.description">
         <view class="section-title"><view class="title-bar" />研学介绍</view>
-        <text class="section-text">{{ tour.description }}</text>
+        <rich-text v-if="(tour.description || '').indexOf('<') >= 0" class="section-text" :nodes="tour.description"></rich-text>
+        <text v-else class="section-text">{{ tour.description }}</text>
       </view>
 
       <!-- ═══ 四、行程安排卡 ═══ -->

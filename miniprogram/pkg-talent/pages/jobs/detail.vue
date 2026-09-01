@@ -39,7 +39,8 @@
       <!-- 职位描述 -->
       <view class="card section-card">
         <text class="section-title">职位描述</text>
-        <text class="job-desc">{{ job.description || '暂无描述' }}</text>
+        <rich-text v-if="(job.description || '').indexOf('<') >= 0" class="job-desc" :nodes="job.description"></rich-text>
+        <text v-else class="job-desc">{{ job.description || '暂无描述' }}</text>
       </view>
 
       <!-- 底部操作 -->

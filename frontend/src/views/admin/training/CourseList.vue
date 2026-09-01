@@ -105,7 +105,7 @@
         <a-form-item label="结束日期">
           <a-date-picker v-model="form.end_date" value-format="YYYY-MM-DD" placeholder="选择结课日期" style="width: 100%" />
         </a-form-item>
-        <a-form-item label="课程描述"><a-input v-model="form.description" type="textarea" :rows="3" style="width: 100%" /></a-form-item>
+        <a-form-item label="课程描述"><RichEditor v-model="form.description" /></a-form-item>
         <a-divider style="margin: 8px 0 16px">机构与展示信息（小程序详情页）</a-divider>
         <a-form-item label="机构名称">
           <a-input v-model="form.org_name" style="width: 100%" placeholder="培训机构全称（小程序详情页显示）" />
@@ -186,6 +186,7 @@ import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import axios, { getAuthHeader } from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const uploadUrl = '/api/v1/upload'
 

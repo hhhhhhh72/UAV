@@ -51,7 +51,7 @@
         <a-form-item label="品牌名称" required><a-input v-model="form.name" :aria-required="true" style="width: 100%" /></a-form-item>
         <a-form-item label="Logo URL"><a-input v-model="form.logo_url" style="width: 100%" /></a-form-item>
         <a-form-item label="封面图 URL"><a-input v-model="form.cover_url" style="width: 100%" /></a-form-item>
-        <a-form-item label="描述"><a-input v-model="form.description" type="textarea" :autosize="{ minRows: 2 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="描述"><RichEditor v-model="form.description" /></a-form-item>
         <a-form-item label="荣誉"><a-input v-model="form.honorsText" type="textarea" :autosize="{ minRows: 2 }" placeholder="多个荣誉用逗号分隔" style="width: 100%" /></a-form-item>
         <a-form-item label="审核状态">
           <a-select v-model="form.status" style="width: 100%">
@@ -77,6 +77,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('portfolios')

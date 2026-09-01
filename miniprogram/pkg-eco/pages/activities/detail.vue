@@ -1,7 +1,6 @@
 <template>
   <view class="actd-page" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
     <u-nav-bar title="活动详情" show-back :fixed="true" @back="goBack" />
-
     <!-- 加载骨架 -->
     <view v-if="loading" class="skw">
       <view class="sk-h"></view>
@@ -78,7 +77,8 @@
         <!-- 活动简介 -->
         <view class="sec">
           <view class="sh"><view class="sd"></view><text class="sht">活动简介</text></view>
-          <text class="sb">{{ d.description || '暂无简介' }}</text>
+          <rich-text v-if="(d.description || '').indexOf('<') >= 0" class="sb" :nodes="d.description"></rich-text>
+          <text v-else class="sb">{{ d.description || '暂无简介' }}</text>
         </view>
 
         <!-- 议程安排 -->
@@ -263,12 +263,13 @@ page { background: #F4F6F8; }
 }
 
 /* ===== Hero ===== */
-.hero { position: relative; height: 216px; overflow: hidden; }
+.hero { position: relative; height: 240px; overflow: hidden; }
 .hero-glow { position: absolute; inset: 0; }
 .hero-glow::after { content: ''; position: absolute; top: -30%; right: -10%; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 70%); }
-.hero-ic { position: absolute; right: 28px; bottom: 36px; font-size: 88px; font-weight: 700; color: rgba(255,255,255,.92); text-shadow: 0 6px 18px rgba(0,0,0,.22); animation: float 3.2s ease-in-out infinite; }
+/* 装饰大字固定在右上角：标题区在底部左对齐，长标题顶不到字（此前右下角会压住两行标题） */
+.hero-ic { position: absolute; right: 24px; top: 32px; font-size: 76px; font-weight: 700; color: rgba(255,255,255,.92); text-shadow: 0 6px 18px rgba(0,0,0,.22); animation: float 3.2s ease-in-out infinite; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-.hero-foot { position: absolute; left: 16px; right: 16px; bottom: 14px; z-index: 3; }
+.hero-foot { position: absolute; left: 16px; right: 16px; bottom: 38px; z-index: 3; }
 .hero-badge { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 4px; font-weight: 600; background: rgba(255,255,255,.92); color: #0A66C2; margin-bottom: 8px; }
 .hero-title { font-size: 19px; font-weight: 700; color: #fff; line-height: 1.35; text-shadow: 0 2px 8px rgba(0,0,0,.25); }
 
@@ -318,7 +319,7 @@ page { background: #F4F6F8; }
 
 /* ===== 骨架 ===== */
 .skw { padding-top: 10px; }
-.sk-h { height: 216px; background: #f0f1f3; animation: shimmer 1.5s infinite; }
+.sk-h { height: 240px; background: #f0f1f3; animation: shimmer 1.5s infinite; }
 .sk-sec { margin: 12px; padding: 16px; background: #fff; border-radius: 10px; }
 .sk-l { height: 28rpx; background: #f0f1f3; border-radius: 8rpx; margin-bottom: 16rpx; animation: shimmer 1.5s infinite; }
 .sk-l.w80 { width: 80%; }

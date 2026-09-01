@@ -94,7 +94,7 @@
             <text class="c-st" :class="docSt(doc).cls">{{ docSt(doc).label }}</text>
           </view>
           <text class="ct">{{ doc.title || '--' }}</text>
-          <text v-if="doc.summary" class="c-desc">{{ doc.summary }}</text>
+          <text v-if="doc.summary" class="c-desc">{{ stripHtml(doc.summary) }}</text>
           <view class="c-meta">
             <text>{{ doc.publisher || '协会发布' }}</text>
             <text class="c-dot">·</text>
@@ -114,6 +114,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onPageScroll, onUnload } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
 import { useReduceMotion } from '../../../utils/motion'
+import { stripHtml } from '../../../utils/html'
 
 const SEARCH_DEBOUNCE_MS = 250 // 搜索防抖：停顿 250ms 后再过滤（防每键整表重渲染）
 

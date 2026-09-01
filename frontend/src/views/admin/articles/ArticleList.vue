@@ -57,7 +57,7 @@
           <a-input v-model="form.source" placeholder="如：重庆市无人机产业协会" allow-clear style="width: 100%" />
         </a-form-item>
         <a-form-item label="正文" required>
-          <a-textarea v-model="form.content" :auto-size="{ minRows: 6, maxRows: 14 }" maxlength="5000" placeholder="请输入资讯正文（列表摘要将自动截取前 100 字）" style="width: 100%" :aria-required="true" />
+          <RichEditor v-model="form.content" placeholder="请输入资讯正文（支持加粗/斜体/列表/标题/链接；样式/事件属性由服务端白名单过滤）" />
         </a-form-item>
       </a-form>
 
@@ -80,6 +80,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import axios from '@/utils/http'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 

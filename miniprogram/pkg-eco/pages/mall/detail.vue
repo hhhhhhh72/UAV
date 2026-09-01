@@ -42,7 +42,8 @@
       <text class="price-tag" :class="tagClass">{{ product.condition === 'used' ? '二手' : (product.condition === 'new' ? '全新' : '商家发布') }}</text>
     </view>
     <text class="price-title">{{ product.title }}</text>
-    <text class="price-desc" v-if="product.description">{{ product.description }}</text>
+    <rich-text v-if="(product.description || '').indexOf('<') >= 0" class="price-desc" :nodes="product.description"></rich-text>
+    <text v-else class="price-desc">{{ product.description }}</text>
     <view class="price-meta">
       <text class="meta-item">已浏览 {{ product.views || 0 }} 次</text>
       <text class="meta-dot">·</text>
@@ -103,7 +104,8 @@
     <view class="card-head">商品详情</view>
     <view>
       <text class="detail-text">该商品由{{ product.seller_name || '认证商家' }}发布，{{ product.condition === 'new' ? '全新未拆封，支持平台检测。' : (product.condition === 'used' ? '二手设备，成色如描述所述。' : '商品信息以页面展示为准。') }}</text>
-      <text class="detail-text" v-if="product.description">{{ product.description }}</text>
+      <rich-text v-if="(product.description || '').indexOf('<') >= 0" class="detail-text" :nodes="product.description"></rich-text>
+      <text v-else class="detail-text">{{ product.description }}</text>
     </view>
   </view>
 

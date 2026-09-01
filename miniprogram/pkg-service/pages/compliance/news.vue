@@ -164,7 +164,8 @@
             <text class="detail-text">{{ selectedItem.author || '' }}</text>
             <text class="detail-text">{{ formatDate(selectedItem.created_at) }}</text>
           </view>
-          <text class="detail-content">{{ selectedItem.content || selectedItem.summary || '暂无详细内容' }}</text>
+          <rich-text v-if="(selectedItem.content || '').indexOf('<') >= 0" :nodes="selectedItem.content"></rich-text>
+          <text v-else class="detail-content">{{ selectedItem.content || selectedItem.summary || '暂无详细内容' }}</text>
         </scroll-view>
       </view>
     </u-popup>

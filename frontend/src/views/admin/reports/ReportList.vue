@@ -68,7 +68,7 @@
         </a-form-item>
         <a-form-item label="报告期"><a-input v-model="form.period" placeholder="如 2026-Q2" style="width: 100%" /></a-form-item>
         <a-form-item label="作者"><a-input v-model="form.author" style="width: 100%" /></a-form-item>
-        <a-form-item label="摘要"><a-input v-model="form.summary" type="textarea" :autosize="{ minRows: 3 }" style="width: 100%" /></a-form-item>
+        <a-form-item label="摘要"><RichEditor v-model="form.summary" /></a-form-item>
         <a-form-item label="文件URL"><a-input v-model="form.file_url" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
@@ -93,6 +93,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
 import CrudList from '../components/CrudList.vue'
+import RichEditor from '@/components/RichEditor.vue'
 
 const crudRef = ref()
 const api = useAdminApi('industry-reports')
