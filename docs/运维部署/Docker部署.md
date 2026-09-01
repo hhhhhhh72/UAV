@@ -14,6 +14,20 @@ docker-compose.yml
 docker-compose up -d
 ```
 
+## 部署后必做：修复 .sh 行尾与执行位
+
+Windows 工作区打包的 tar 会把 `.sh` 带成 CRLF 且丢失执行位——
+线上曾因此导致**每日备份 cron 连续失败**（`Permission denied` + shebang `#!/bin/bash\r` 无法执行）。
+同步源码后必须执行：
+
+```bash
+find ~/UAV -name '*.sh' -exec sed -i 's/\r$//' {} +
+sudo chmod +x ~/UAV/deploy/*.sh
+crontab -l | grep -q 'bash /home/ubuntu/UAV/deploy/db-backup.sh' || echo '请确认 cron 用 bash 显式执行'
+```
+
+（备份 cron 已改为 `bash .../db-backup.sh` 显式执行，不再依赖执行位。）
+
 ## 镜像构建
 
 ```dockerfile
@@ -33,6 +47,26 @@ CMD ["/api"]
 > 注意：docker-compose 生产部署**未设置 `ADMIN_DEV_MODE`**（正确行为）。小程序/后台登录走
 > 生产路由 `/api/v1/auth/*` 与 `/api/auth/*`（auth 兼容路由已无条件注册，bcrypt 校验）。
 > 需配置 `WECHAT_APPID`/`WECHAT_APPSECRET` 启用微信登录，否则密码注册/登录可用、微信静默登录不可用。
+
+## 上传/日志/配置卷所有权（新环境首次部署必做）
+
+api 以非 root 用户（uid=100, gid=101）运行，业务上传写入命名卷 `uploads`、日志写入 `logs`、
+平台配置（banner/公告，`PLATFORM_CONFIG_PATH`）写入 `config`。
+**命名卷首次创建为 root:root 755，会覆盖镜像内 chown 好的目录**——不初始化所有权会导致
+`POST /api/v1/files/upload` 报 500 `create file: ... permission denied`（图片上传/发布全部失败），
+以及管理端保存首页 banner/公告配置失败（始终回退代码默认值）。
+
+首次部署（或重建卷后）执行一次：
+
+```bash
+docker run --rm \
+  -v uav_uploads:/uploads -v uav_logs:/logs -v uav_config:/config \
+  alpine chown -R 100:101 /uploads /logs /config
+docker restart uav-api-1
+docker exec uav-api-1 touch /uploads/write-test && echo WRITE_OK   # 验证
+```
+
+卷持久化，执行一次即可；`docker compose down -v` 重建卷后须重新执行。
 
 ## 密钥管理（2026-08 起）
 

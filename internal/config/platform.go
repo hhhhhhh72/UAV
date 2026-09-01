@@ -26,8 +26,10 @@ var (
 	platformMu  sync.RWMutex
 	platformCfg = PlatformConfig{
 		Banners: []domain.Banner{
-			{ID: "banner-1", ImageURL: "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=800&q=80", LinkURL: "/pages/demand/list", SortOrder: 1},
-			{ID: "banner-2", ImageURL: "https://images.unsplash.com/photo-1506947411487-a56738267384?w=800&q=80", LinkURL: "/pages/training/courses", SortOrder: 2},
+			// 轮播定位为纯展示位：默认不配置跳转链接（空白则小程序端点击不跳转）。
+			// 如后续需要轮播点击跳转，由管理端在「首页配置」中给对应 banner 填链接。
+			{ID: "banner-1", ImageURL: "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=800&q=80", LinkURL: "", SortOrder: 1},
+			{ID: "banner-2", ImageURL: "https://images.unsplash.com/photo-1506947411487-a56738267384?w=800&q=80", LinkURL: "", SortOrder: 2},
 		},
 		Notices: []string{
 			"供需对接请通过「联系对接」登记意向，平台不参与资金流转",
@@ -45,10 +47,21 @@ var (
 		MatchFeeRate: 0,
 		MatchFeeNote: defaultMatchFeeNote,
 	}
+	// 持久化路径：容器内由 PLATFORM_CONFIG_PATH 指向可写卷（/config），
+	// 本地开发默认相对路径。只读根文件系统的容器里默认位置不可写——
+	// 线上曾因此导致管理端 banner/公告保存 500、首页始终显示代码默认值。
+	platformConfigPath = platformConfigFilePath()
 )
 
+func platformConfigFilePath() string {
+	if p := os.Getenv("PLATFORM_CONFIG_PATH"); p != "" {
+		return p
+	}
+	return "platform_config.json"
+}
+
 func init() {
-	if data, err := os.ReadFile("platform_config.json"); err == nil {
+	if data, err := os.ReadFile(platformConfigPath); err == nil {
 		var cfg PlatformConfig
 		if json.Unmarshal(data, &cfg) == nil {
 			// 旧配置文件可能缺少新版费率字段：回填默认说明，避免空文案
@@ -80,11 +93,11 @@ func SavePlatformConfig(cfg PlatformConfig) error {
 	}
 	// 原子写：先写临时文件再 rename，崩溃/断电不产生半写文件
 	// （此前直接 WriteFile，写一半崩溃会损坏配置，重启回退默认 banner/费率）
-	tmp := "platform_config.json.tmp"
+	tmp := platformConfigPath + ".tmp"
 	if err := os.WriteFile(tmp, data, 0644); err != nil {
 		return fmt.Errorf("write platform config tmp: %w", err)
 	}
-	if err := os.Rename(tmp, "platform_config.json"); err != nil {
+	if err := os.Rename(tmp, platformConfigPath); err != nil {
 		return fmt.Errorf("rename platform config: %w", err)
 	}
 	return nil

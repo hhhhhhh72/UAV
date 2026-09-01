@@ -100,3 +100,38 @@ func TestBatch2WritesRequireAuth(t *testing.T) {
 		})
 	}
 }
+
+// TestBatch2TransformationListMasksContact 安全回归：
+// 公开列表匿名访问必须脱敏 contact_info（防爬取 PII），已登录/负责人可见完整值。
+func TestBatch2TransformationListMasksContact(t *testing.T) {
+	app := newServer(t)
+	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
+	ownerTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
+
+	w := doRaw(app, http.MethodPost, "/api/v1/admin/transformations",
+		`{"title":"成果B中试","achievement_id":"ach-9","partner_id":"ent-9","contact_info":"13812345678"}`, adminTok)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create transformation: %d %s", w.Code, w.Body.String())
+	}
+
+	// 匿名：脱敏（保留前3后4），绝不出现完整号码
+	an := doRaw(app, http.MethodGet, "/api/v1/transformations", "", "")
+	if an.Code != http.StatusOK {
+		t.Fatalf("anonymous list: %d %s", an.Code, an.Body.String())
+	}
+	if bytes.Contains(an.Body.Bytes(), []byte("13812345678")) {
+		t.Fatalf("anonymous list leaked full contact: %s", an.Body.String())
+	}
+	if !bytes.Contains(an.Body.Bytes(), []byte("138****5678")) {
+		t.Fatalf("anonymous list should contain masked contact: %s", an.Body.String())
+	}
+
+	// 已登录负责人：完整值可见
+	au := doRaw(app, http.MethodGet, "/api/v1/transformations", "", ownerTok)
+	if au.Code != http.StatusOK {
+		t.Fatalf("owner list: %d", au.Code)
+	}
+	if !bytes.Contains(au.Body.Bytes(), []byte("13812345678")) {
+		t.Fatalf("owner list should contain full contact: %s", au.Body.String())
+	}
+}

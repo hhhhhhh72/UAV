@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
 )
 
@@ -63,6 +64,12 @@ func (s *Server) listTransformations(w http.ResponseWriter, r *http.Request) {
 	}
 	if list == nil {
 		list = []domain.Transformation{}
+	}
+	// 安全审计：公开列表对未登录访问脱敏 contact_info（防爬取 PII，与需求公开详情同约定）
+	if _, ok := authenticatedActor(r); !ok {
+		for i := range list {
+			list[i].ContactInfo = crypto.MaskPhone(list[i].ContactInfo)
+		}
 	}
 	respond(w, r, http.StatusOK, list)
 }

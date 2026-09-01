@@ -59,9 +59,18 @@ services:
       WECHAT_APPSECRET: "${WECHAT_APPSECRET:-}"
       # banner 图片 URL 补全域名用（如 https://api.cqnarc.cn）；缺省时回退 nginx X-Forwarded-Proto
       BASE_URL: "${BASE_URL:-}"
+      # 平台配置（banner/公告等）持久化到可写卷；容器根文件系统只读，默认相对路径不可写
+      PLATFORM_CONFIG_PATH: "/config/platform_config.json"
     volumes:
+      # 命名卷首次创建为 root:root 755，会覆盖镜像内 chown 好的目录 →
+      # 非 root 应用无法写文件（线上曾致上传 500 permission denied、banner 配置保存失败）。
+      # 新环境首次部署须一次性初始化所有权（卷持久化，仅需执行一次）：
+      #   docker run --rm \
+      #     -v uav_uploads:/uploads -v uav_logs:/logs -v uav_config:/config \
+      #     alpine chown -R 100:101 /uploads /logs /config
       - uploads:/uploads
       - logs:/logs
+      - config:/config
     # 安全加固（审计 H1）：只读根文件系统 + 裁剪全部能力 + 禁止提权——RCE 后容器隔离层最小暴露
     read_only: true
     tmpfs:
@@ -98,3 +107,4 @@ volumes:
   pgdata:
   uploads:
   logs:
+  config:
