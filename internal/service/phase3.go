@@ -67,7 +67,9 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	// 不同用户并发报名同一课程会双双通过检查；课程维度锁串行化整个检查+创建。
 	unlockCourse := lockByKey("enroll-course|" + courseID)
 	defer unlockCourse()
-	if _, ok, _ := s.repo.FindByUserAndCourse(ctx, userID, courseID); ok {
+	if _, ok, err := s.repo.FindByUserAndCourse(ctx, userID, courseID); err != nil {
+		return domain.Enrollment{}, fmt.Errorf("check existing enrollment: %w", err)
+	} else if ok {
 		return domain.Enrollment{}, fmt.Errorf("already enrolled")
 	}
 	// 容量与状态门禁：full/upcoming 不可报名（与前端禁用一致，API 不再可绕过）；
@@ -449,7 +451,9 @@ func (s *TradeOrderService) Delete(ctx context.Context, id string) error {
 	}
 	// 未完成订单（pending/paid）删除后商品恢复；已完成/售后单不恢复（交易已终结）
 	if o.ProductID != "" && (o.Status == "pending" || o.Status == "paid") && s.prodRepo != nil {
-		_ = s.prodRepo.Restore(ctx, o.ProductID)
+		if err := s.prodRepo.Restore(ctx, o.ProductID); err != nil {
+			return fmt.Errorf("delete order: restore product %s: %w", o.ProductID, err)
+		}
 	}
 	return s.repo.Delete(ctx, id)
 }

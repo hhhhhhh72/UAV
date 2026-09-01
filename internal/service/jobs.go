@@ -223,13 +223,15 @@ func (s *JobService) Apply(ctx context.Context, a domain.Actor, jobID, resumeID 
 	// 并发防重复投递：check-then-insert 加进程内锁。
 	unlock := lockByKey("apply|" + a.ID + "|" + jobID)
 	defer unlock()
-	// 防重复投递：同一职位已有有效投递（未撤回）则拒绝
+	// 防重复投递：同一职位已有有效投递（未撤回）则拒绝；查询出错必须上抛
+	//（此前 _ 吞错，DB 故障时误判"未投递"继续创建 → 重复投递）。
 	existing, err := s.app.ListByJob(ctx, jobID)
-	if err == nil {
-		for _, e := range existing {
-			if e.ApplicantID == a.ID && e.Status != domain.AppWithdrawn {
-				return domain.JobApplication{}, errors.New("you have already applied to this job")
-			}
+	if err != nil {
+		return domain.JobApplication{}, fmt.Errorf("list applications for duplicate check: %w", err)
+	}
+	for _, e := range existing {
+		if e.ApplicantID == a.ID && e.Status != domain.AppWithdrawn {
+			return domain.JobApplication{}, errors.New("you have already applied to this job")
 		}
 	}
 	now := time.Now()

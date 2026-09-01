@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -47,7 +48,10 @@ func (r *pgClaimRepo) FindByChallengeAndUser(ctx context.Context, challengeID, u
 		challengeID, userID).
 		Scan(&c.ID, &c.ChallengeID, &c.UserID, &c.Status, &c.CreatedAt)
 	if err != nil {
-		return domain.ChallengeClaim{}, false, nil // 未找到：非错误
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ChallengeClaim{}, false, nil // 未找到：非错误
+		}
+		return domain.ChallengeClaim{}, false, fmt.Errorf("find claim by challenge and user: %w", err)
 	}
 	return c, true, nil
 }

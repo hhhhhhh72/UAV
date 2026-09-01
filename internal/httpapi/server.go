@@ -1017,9 +1017,15 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 		s.idempotency.mu.Unlock()
 
 		// 用 defer 保证 panic 时也会关闭 flight，等待者不会永久挂起。
-		rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+		// statusCode 初始为 0（未写响应头）：此前默认 200，handler panic 时 defer 会把
+		// 一个不存在的 200 空响应缓存为"成功"，同 key 重放得到假成功（评审 P2）。
+		rec := &responseRecorder{ResponseWriter: w, statusCode: 0}
 		defer func() {
 			s.idempotency.mu.Lock()
+			if rec.statusCode == 0 {
+				// panic 且未写响应头：以 500 记账，等待者不误以为成功。
+				rec.statusCode = http.StatusInternalServerError
+			}
 			f.status, f.body = rec.statusCode, rec.body.String()
 			delete(s.idempotency.flights, key)
 			s.idempotency.mu.Unlock()
@@ -1030,7 +1036,7 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 		// Store the result for future idempotent requests.
 		// P2 修复：仅缓存 2xx（200-299）与 4xx 校验类错误（400/409/422 等确定性结果）；
 		// 5xx 不缓存——服务端错误重试须重新执行写操作，而非回放错误响应。
-		if rec.statusCode < http.StatusInternalServerError {
+		if rec.statusCode >= http.StatusOK && rec.statusCode < http.StatusInternalServerError {
 			s.idempotency.set(key, rec.statusCode, rec.body.String())
 		}
 		// Write the actual response (already written to rec.wrapped).
@@ -1251,6 +1257,15 @@ func decode(r *http.Request, v any) error {
 	if len(bytes.TrimSpace(body)) == 0 {
 		return io.EOF
 	}
+	// XSS 兜底：无论 Content-Type 声明是什么，只要是可解析的 JSON 一律过白名单消毒
+	// （攻击者可伪造 text/plain 等绕过 SanitizeBody 中间件，此处为最后防线）。
+	clean, serr := middleware.SanitizeJSONBody(body)
+	if serr != nil {
+		return serr
+	}
+	if clean != nil {
+		body = clean
+	}
 	return json.Unmarshal(body, v)
 }
 
@@ -1386,8 +1401,10 @@ func fail(w http.ResponseWriter, r *http.Request, status int, err error) {
 	}
 	// B 批加固：生产环境 5xx 不再向客户端回显内部错误细节（可能含 SQL/实现信息），
 	// 统一文案，原始错误只留在服务端日志；4xx 保留业务提示语。
+	// 生产判定与 config 一致：ENV=production 或 DATABASE_URL 已设（此前仅认 ENV 字符串，
+	// go run/二进制直连 PG 部署漏设 ENV 时 500 会裸奔内部细节）。
 	message := strings.TrimSpace(err.Error())
-	if status >= http.StatusInternalServerError && os.Getenv("ENV") == "production" {
+	if status >= http.StatusInternalServerError && (os.Getenv("ENV") == "production" || os.Getenv("DATABASE_URL") != "") {
 		message = "internal server error"
 	}
 	w.WriteHeader(status)

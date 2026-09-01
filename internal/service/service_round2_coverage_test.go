@@ -498,7 +498,15 @@ func TestTradeOrderService_AftersaleFlow(t *testing.T) {
 }
 
 func TestTradeOrderService_AdminDeleteListFind(t *testing.T) {
-	svc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository())
+	// 真实场景：商品必须存在——删除未完成订单会 Restore 商品，商品缺失属数据不一致，
+	// 修复后上抛（此前吞错，商品滞留 sold 静默发生）。
+	prodRepo := memory.NewProductRepository()
+	if _, err := prodRepo.Create(context.Background(), domain.DroneProduct{
+		ID: "p1", Title: "无人机", PriceFen: 100000, Status: "sold", // 已被订单抢占（Restore 要求 sold → listed）
+	}); err != nil {
+		t.Fatalf("create product: %v", err)
+	}
+	svc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), prodRepo)
 
 	o, _ := svc.Create(context.Background(), "buyer-1", "p1", "seller-1", 100000)
 	// UpdateStatusAdmin：订单不存在

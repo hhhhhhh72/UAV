@@ -1470,7 +1470,7 @@ func (s *Server) getCollege(w http.ResponseWriter, r *http.Request) {
 	}
 	// 公开详情不得绕开列表的 active 过滤（此前任意状态可直读，下架/草稿
 	// 院校仅通过 id 即可访问）。
-	if _, isAdmin := authenticatedActor(r); !isAdmin && c.Status != "active" {
+	if !isAdminRequest(r) && c.Status != "active" {
 		fail(w, r, 404, errors.New("college not found"))
 		return
 	}
@@ -1493,7 +1493,7 @@ func (s *Server) getEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 公开详情与列表一致：仅 published/ongoing（管理端另行列表过滤）。
-	if _, isAdmin := authenticatedActor(r); !isAdmin && e.Status != "published" && e.Status != "ongoing" {
+	if !isAdminRequest(r) && e.Status != "published" && e.Status != "ongoing" {
 		fail(w, r, 404, errors.New("event not found"))
 		return
 	}

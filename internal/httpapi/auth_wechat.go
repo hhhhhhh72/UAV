@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -175,13 +176,13 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tokenHash := service.HashToken(req.RefreshToken)
-	// 原子消费旧令牌：并发同一令牌二次刷新时仅一个成功（防 TOCTOU 双签发）
-	found, userID, _, err := s.refreshRepo.Consume(r.Context(), tokenHash)
+	// 校验旧令牌有效（不消费）：存在、未撤销、未过期——仅校验，允许后续 Store 失败时重试。
+	userID, expiresAt, revoked, err := s.refreshRepo.Find(r.Context(), tokenHash)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	if !found {
+	if userID == "" || revoked || expiresAt.Before(time.Now()) {
 		fail(w, r, http.StatusUnauthorized, errors.New("invalid or expired refresh token"))
 		return
 	}
@@ -214,10 +215,29 @@ func (s *Server) refreshToken(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("generate refresh token: %w", err))
 		return
 	}
-	// 新令牌落库（旧令牌已在上方原子消费，无需再 Revoke）
+	// 先落库新令牌、成功后再原子消费旧令牌（此前先 Consume 后 Store，Store 失败即
+	// 旧令牌已亡、新令牌未存 → 会话锁死需重新登录；README 踩坑表声明"先落库后撤旧"，
+	// 重构引入 Consume 时顺序被回归）。消费失败一律回滚新令牌（Revoke 置已撤销），
+	// 避免并发双签发或悬空有效令牌。
 	newHash := service.HashToken(newRefresh)
 	if err := s.refreshRepo.Store(r.Context(), userID, newHash, time.Now().Add(7*24*time.Hour)); err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("store refresh token: %w", err))
+		return
+	}
+	rollback := func() {
+		if rerr := s.refreshRepo.Revoke(r.Context(), newHash); rerr != nil {
+			slog.Error("rollback new refresh token failed", "err", rerr)
+		}
+	}
+	found, _, _, cerr := s.refreshRepo.Consume(r.Context(), tokenHash)
+	if cerr != nil {
+		rollback()
+		fail(w, r, http.StatusInternalServerError, fmt.Errorf("consume old refresh token: %w", cerr))
+		return
+	}
+	if !found {
+		rollback()
+		fail(w, r, http.StatusUnauthorized, errors.New("invalid or expired refresh token"))
 		return
 	}
 

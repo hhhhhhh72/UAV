@@ -18,6 +18,32 @@ const maxSanitizeBodyBytes = 1 << 20
 // 超限不再静默截断（用户以为数据完整），而是整个请求 400 报错。
 const MaxSanitizeFieldBytes = 10000
 
+// SanitizeJSONBody 对任意字节流做 JSON 消毒（白名单富文本）：可解析为 JSON 时
+// 递归消毒字符串值并重新序列化（password 保留）；不可解析时原样返回（nil, nil）。
+// 该函数同时供 SanitizeBody 中间件与 httpapi.decode 使用——decode 侧兜底可关闭
+// "Content-Type 声明为非 JSON 而 body 是 JSON" 的绕过路径（此前 text/plain 携带
+// JSON 可跳过唯一一层服务端消毒，构成存储型 XSS 绕过）。
+func SanitizeJSONBody(raw []byte) ([]byte, error) {
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return raw, nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber() // 保留大整数精度（budget_fen 等 int64 字段）
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, nil // 非 JSON（multipart 等）：原样处理，由 decode 层判定
+	}
+	cleanV, err := sanitizeValue(v)
+	if err != nil {
+		return nil, err
+	}
+	clean, err := json.Marshal(cleanV)
+	if err != nil {
+		return nil, err
+	}
+	return clean, nil
+}
+
 // SanitizeBody reads JSON request bodies and recursively strips HTML tags from
 // string values (defense-in-depth against stored XSS), then re-injects the
 // sanitized body for downstream handlers. Non-JSON content types (multipart
@@ -47,27 +73,13 @@ func SanitizeBody(next http.Handler) http.Handler {
 			WriteError(w, http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", "request body too large")
 			return
 		}
-		if len(bytes.TrimSpace(raw)) == 0 {
-			r.Body = io.NopCloser(bytes.NewReader(raw))
-			next.ServeHTTP(w, r)
-			return
-		}
-		dec := json.NewDecoder(bytes.NewReader(raw))
-		dec.UseNumber() // 保留大整数精度（budget_fen 等 int64 字段）
-		var v any
-		if err := dec.Decode(&v); err != nil {
-			// 非法 JSON 原样放行，由下游 decode 层返回统一校验错误。
-			r.Body = io.NopCloser(bytes.NewReader(raw))
-			next.ServeHTTP(w, r)
-			return
-		}
-		cleanV, err := sanitizeValue(v)
+		clean, err := SanitizeJSONBody(raw)
 		if err != nil {
 			WriteError(w, http.StatusBadRequest, "FIELD_TOO_LONG", err.Error())
 			return
 		}
-		clean, err := json.Marshal(cleanV)
-		if err != nil {
+		if clean == nil {
+			// 非法 JSON 原样放行，由下游 decode 层返回统一校验错误。
 			r.Body = io.NopCloser(bytes.NewReader(raw))
 			next.ServeHTTP(w, r)
 			return

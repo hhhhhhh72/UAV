@@ -539,7 +539,10 @@ func (r *enrollRepo) FindByUserAndCourse(ctx context.Context, userID, courseID s
 		`SELECT id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,no_crime,status,paid_amount_fen,created_at FROM training_enrollments WHERE user_id=$1 AND course_id=$2`, userID, courseID).
 		Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.CreatedAt)
 	if err != nil {
-		return domain.Enrollment{}, false, nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Enrollment{}, false, nil
+		}
+		return domain.Enrollment{}, false, fmt.Errorf("find enrollment by user and course: %w", err)
 	}
 	return e, true, nil
 }

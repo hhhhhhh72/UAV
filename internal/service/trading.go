@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -76,7 +77,10 @@ func (s *TradingService) GetProductAndCountView(ctx context.Context, id string) 
 		return domain.DroneProduct{}, err
 	}
 	p.Views++
-	_ = s.prodRepo.IncrementViews(ctx, id)
+	if err := s.prodRepo.IncrementViews(ctx, id); err != nil {
+		// 浏览量 +1 失败不阻断详情读取（返回陈旧计数），但必须记录，避免静默吞错。
+		slog.Warn("increment product views failed", "product_id", id, "err", err)
+	}
 	return p, nil
 }
 

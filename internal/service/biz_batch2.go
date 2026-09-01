@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -77,6 +78,15 @@ func canMutateTransformation(a domain.Actor, t domain.Transformation) bool {
 	return a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
 }
 
+// 成果转化阶段顺序（与 domain/models_batch2.go 注释的 pipeline 一致）：
+// lab(实验室) → pilot(中试) → industrialized(产业化) → listed(上市)。
+var stageOrder = map[domain.TransformationStage]int{
+	domain.StageLab:            1,
+	domain.StagePilot:          2,
+	domain.StageIndustrialized: 3,
+	domain.StageListed:         4,
+}
+
 func (s *TransformationService) AdvanceStage(ctx context.Context, a domain.Actor, id string, nextStage domain.TransformationStage, progress string) (domain.Transformation, error) {
 	t, err := s.repo.FindByID(ctx, id)
 	if err != nil {
@@ -84,6 +94,15 @@ func (s *TransformationService) AdvanceStage(ctx context.Context, a domain.Actor
 	}
 	if !canMutateTransformation(a, t) {
 		return domain.Transformation{}, errors.New("only the owner or admin can advance stage")
+	}
+	// 前向状态机校验：禁止跳级（lab→listed）与倒退（industrialized→lab）。
+	cur, curOK := stageOrder[t.Stage]
+	nxt, nxtOK := stageOrder[nextStage]
+	if !nxtOK {
+		return domain.Transformation{}, fmt.Errorf("unknown stage %q", nextStage)
+	}
+	if curOK && nxt != cur+1 {
+		return domain.Transformation{}, fmt.Errorf("invalid stage transition %q to %q (must advance exactly one step)", t.Stage, nextStage)
 	}
 	t.Stage = nextStage
 	t.Progress = progress

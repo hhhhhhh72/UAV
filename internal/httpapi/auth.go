@@ -159,8 +159,12 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		if r.Method == http.MethodGet && isPublicPath(r.URL.Path) {
 			if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 				if a, err := s.tokens.Verify(strings.TrimPrefix(h, "Bearer ")); err == nil {
-					next.ServeHTTP(w, r.WithContext(contextWithActor(r, a)))
-					return
+					// 复验用户（status/token_version/角色刷新）：被封禁/降权后其旧 token
+					// 不再被信任。复验失败按匿名放行（公开页不 401，仅失去登录态身份）。
+					if ra, rerr := s.revalidateActor(r.Context(), a); rerr == nil {
+						next.ServeHTTP(w, r.WithContext(contextWithActor(r, ra)))
+						return
+					}
 				}
 			}
 			next.ServeHTTP(w, r)
@@ -179,29 +183,43 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		// 会话吊销与状态门禁：token 仅验签不含用户状态——查询用户后校验
 		// 存在性 / token_version / status（banned 等）；被删/被禁/改角色 → 401。
 		// 同时以库中角色为准（角色提升降权即时生效）。
-		if s.userRepo != nil {
-			u, uerr := s.userRepo.FindByID(r.Context(), a.ID)
-			if uerr != nil {
-				// dev 影子管理员（admin-dev 不落 users 表，仅 ADMIN_DEV_MODE 环境放行；
-				// 生产 dev mode 关闭，用户必然在库）。
-				if adminDevMode() && (a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin) {
-					next.ServeHTTP(w, r.WithContext(contextWithActor(r, a)))
-					return
-				}
-				fail(w, r, http.StatusUnauthorized, errors.New("账号已失效，请重新登录"))
-				return
-			}
-			if (u.Status != "" && u.Status != "active") || u.TokenVersion != a.TokenVersion {
-				fail(w, r, http.StatusUnauthorized, errors.New("账号已失效，请重新登录"))
-				return
-			}
-			if u.Role != a.Role {
-				a.Role = u.Role
-			}
+		ra, rerr := s.revalidateActor(r.Context(), a)
+		if rerr != nil {
+			fail(w, r, http.StatusUnauthorized, errors.New("账号已失效，请重新登录"))
+			return
 		}
-		next.ServeHTTP(w, r.WithContext(contextWithActor(r, a)))
+		next.ServeHTTP(w, r.WithContext(contextWithActor(r, ra)))
 	})
 }
+// revalidateActor 查询用户库校验 token 声明：存在性 / status（banned 等非 active
+// 一律拒绝）/ token_version（吊销即时生效）/ 角色以库中为准（提升降权即时生效）。
+// dev 影子管理员（admin-dev 不落 users 表，仅 ADMIN_DEV_MODE 环境放行；生产 dev
+// mode fail-closed，用户必然在库）例外返回原 actor。
+func (s *Server) revalidateActor(ctx context.Context, a domain.Actor) (domain.Actor, error) {
+	if s.userRepo == nil {
+		return a, nil
+	}
+	// dev 模式（ADMIN_DEV_MODE + ENV 显式 dev/test/development，生产 fail-closed 必为 false）
+	// 信任内存影子用户（authAs/dev-fixed 不落 users 表），与既有 dev 例外语义一致；
+	// 生产环境严格复验 status/token_version/角色。
+	if adminDevMode() {
+		return a, nil
+	}
+	u, uerr := s.userRepo.FindByID(ctx, a.ID)
+	if uerr != nil {
+		return domain.Actor{}, uerr
+	}
+	if (u.Status != "" && u.Status != "active") || u.TokenVersion != a.TokenVersion {
+		return domain.Actor{}, errors.New("account disabled or token version mismatch")
+	}
+	// 角色刷新仅对携带明确 role 声明的 token 生效：role="" 的占位/异常 token
+	// 保持匿名语义（authenticatedActor 要求 Role 非空），不得由复验升级为登录态。
+	if a.Role != "" && u.Role != a.Role {
+		a.Role = u.Role
+	}
+	return a, nil
+}
+
 func contextWithActor(r *http.Request, a domain.Actor) context.Context {
 	return context.WithValue(r.Context(), actorKey{}, a)
 }
@@ -251,6 +269,17 @@ func isPublicPath(path string) bool {
 	// 名录公开，但「我的飞手状态」需要认证（前缀匹配会误放行 /mine）
 	if path == "/api/v1/certified-pilots/mine" {
 		return false
+	}
+	// me/mine 类路径显式排除：前缀单层匹配会误放行（handler 自防是兜底，
+	// 边界统一在中间件一处说清——与 certified-pilots/mine 同款约定）
+	for _, mine := range []string{
+		"/api/v1/association-members/me",
+		"/api/v1/portfolios/mine",
+		"/api/v1/jobs/mine",
+	} {
+		if path == mine {
+			return false
+		}
 	}
 	// 揭榜动态（GET /api/v1/challenges/{id}/claims）：公开只读——条目已脱敏、
 	// claimed 仅在携带有效 token 时计算，嵌套子路径在此显式放行。

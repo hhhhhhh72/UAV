@@ -62,6 +62,10 @@ func (s *CompetitionService) Delete(ctx context.Context, id string) error {
 // Register 报名：name/phone/idCard 为参赛人实名信息，photoURL/idCardImage 为证件影像（C13 补字段）。
 // 幂等：同一用户不可重复报名同一赛事；容量：已报名队数达到 max_teams 拒绝；deadline 过后拒绝。
 func (s *CompetitionService) Register(ctx context.Context, competitionID, userID, teamName string, memberCount int, contactInfo, name, phone, idCard, photoURL, idCardImage string) (domain.CompetitionReg, error) {
+	// 并发防超容量/防重复：check-then-insert 加赛事维度进程内锁（不同用户并发报名
+	// 会双双通过 ListRegs 检查；与 EnrollmentService.Enroll 的课程锁同型）。
+	unlock := lockByKey("competition-reg|" + competitionID)
+	defer unlock()
 	now := time.Now()
 	// Check competition exists
 	c, err := s.repo.FindByID(ctx, competitionID)
@@ -195,6 +199,9 @@ func (s *EventService) Update(ctx context.Context, id, title, eventType, descrip
 func (s *EventService) Delete(ctx context.Context, id string) error { return s.repo.Delete(ctx, id) }
 
 func (s *EventService) Register(ctx context.Context, eventID, userID, name, phone, org string) (domain.EventRegistration, error) {
+	// 并发防超容量/防重复：check-then-insert 加活动维度进程内锁（与赛事报名同型）。
+	unlock := lockByKey("event-reg|" + eventID)
+	defer unlock()
 	now := time.Now()
 	ev, err := s.repo.FindByID(ctx, eventID)
 	if err != nil {

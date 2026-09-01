@@ -40,11 +40,14 @@ func (s *ReviewService) Submit(ctx context.Context, reviewerID, targetType, targ
 		}
 	}
 	// 幂等：同一用户对同一目标已评价（pending/approved）则拒绝；被驳回后可重新评价。
-	if existing, err := s.repo.ListByTarget(ctx, targetType, targetID); err == nil {
-		for _, e := range existing {
-			if e.ReviewerID == reviewerID && e.Status != "rejected" {
-				return domain.Review{}, errors.New("您已评价过该目标")
-			}
+	// 查询出错必须上抛（此前 _ 吞错，DB 故障时误判"未评价"继续创建 → 重复评价）。
+	existing, err := s.repo.ListByTarget(ctx, targetType, targetID)
+	if err != nil {
+		return domain.Review{}, fmt.Errorf("list reviews for duplicate check: %w", err)
+	}
+	for _, e := range existing {
+		if e.ReviewerID == reviewerID && e.Status != "rejected" {
+			return domain.Review{}, errors.New("您已评价过该目标")
 		}
 	}
 	r := domain.Review{ID: nextID("review"), ReviewerID: reviewerID,
