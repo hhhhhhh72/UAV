@@ -1483,6 +1483,12 @@ func (s *Server) getStudyTour(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, 404, err)
 		return
 	}
+	// 公开详情与列表一致：仅 active 可见；draft/closed 只对管理端放行
+	//（此前无状态门禁，草稿研学可绕过列表被匿名直读——与 getCollege/getEvent 同款修复）。
+	if !isAdminRequest(r) && s2.Status != "" && s2.Status != "active" {
+		fail(w, r, 404, errors.New("study tour not found"))
+		return
+	}
 	respond(w, r, 200, s2)
 }
 

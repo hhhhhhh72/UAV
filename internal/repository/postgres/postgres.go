@@ -183,6 +183,45 @@ func (r *demandRepo) List(ctx context.Context, f repository.DemandFilter) ([]dom
 	return scanDemands(ctx, r.pool, r.cipher, q, args)
 }
 
+// ListPage 公开语义 + SQL 分页：WHERE 条件与 List 一致（published + district/biz_type），
+// 追加 LIMIT/OFFSET 与独立 COUNT，替代 handler 全表拉取后内存分页。
+func (r *demandRepo) ListPage(ctx context.Context, f repository.DemandFilter, offset, limit int) ([]domain.Demand, int, error) {
+	if limit < 1 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	conds := []string{"status = 'published'"}
+	args := []any{}
+	argIdx := 1
+	if f.District != "" {
+		conds = append(conds, fmt.Sprintf("district = $%d", argIdx))
+		args = append(args, f.District)
+		argIdx++
+	}
+	if f.BizType != "" {
+		conds = append(conds, fmt.Sprintf("biz_type = $%d", argIdx))
+		args = append(args, f.BizType)
+		argIdx++
+	}
+	where := strings.Join(conds, " AND ")
+	// 总数（条件同列表，COUNT 不物化行）
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM demands WHERE `+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count demands: %w", err)
+	}
+	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		status, version, created_at, updated_at, deadline
+		FROM demands WHERE ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
+	items, err := scanDemands(ctx, r.pool, r.cipher, q, append(args, limit, offset))
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
 // ListAll 管理端全量（含待审核等全部状态），status 过滤由 f.Status 控制。
 func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,

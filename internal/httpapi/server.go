@@ -612,8 +612,24 @@ func (s *Server) listDemands(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
+		filter := repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type"), Sort: r.URL.Query().Get("sort")}
+		if q == "" {
+			// 高频路径：SQL 端分页（LIMIT/OFFSET + COUNT），不再全表拉取后内存分页。
+			page, pageSize := paginationFromQuery(r)
+			items, total, err := s.demands.ListPage(r.Context(), filter, (page-1)*pageSize, pageSize)
+			if err != nil {
+				fail(w, r, http.StatusInternalServerError, err)
+				return
+			}
+			public := make([]domain.Demand, len(items))
+			for i, d := range items {
+				public[i] = publicDemand(d)
+			}
+			respondPage(w, r, public, total, page, pageSize)
+			return
+		}
 		var err error
-		result, err = s.demands.List(r.Context(), repository.DemandFilter{District: r.URL.Query().Get("district"), BizType: r.URL.Query().Get("biz_type"), Sort: r.URL.Query().Get("sort")})
+		result, err = s.demands.List(r.Context(), filter)
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, err)
 			return
@@ -1330,16 +1346,7 @@ func paginatedRespond(w http.ResponseWriter, r *http.Request, items any, total i
 	page, pageSize := paginationFromQuery(r)
 	// Slice items for the requested page
 	sliced := slicePage(items, page, pageSize)
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]any{
-		"data":       sliced,
-		"page":       page,
-		"page_size":  pageSize,
-		"total":      total,
-		"request_id": requestIDFromCtx(r),
-	}); err != nil {
-		slog.Warn("encode paginated response", "error", err)
-	}
+	respondPage(w, r, sliced, total, page, pageSize)
 }
 
 // respondPage 输出「已由 service/repo 按真实 offset/limit 分页好」的数据：

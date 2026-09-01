@@ -147,6 +147,16 @@ func (r *demandRepo) List(ctx context.Context, f repository.DemandFilter) ([]dom
 	return out, nil
 }
 
+// ListPage 公开语义 + 分页：复用 List 的全量过滤与排序（内存为开发存储，无整表成本），
+// 与 PG 语义对齐（返回当前页与总数）。
+func (r *demandRepo) ListPage(ctx context.Context, f repository.DemandFilter, offset, limit int) ([]domain.Demand, int, error) {
+	all, err := r.List(ctx, f)
+	if err != nil {
+		return nil, 0, err
+	}
+	return paginateSlice(all, offset, limit)
+}
+
 // ListAll 管理端全量（含待审核/已驳回等），按 filter 过滤状态/地区/类型。
 func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	r.mu.RLock()

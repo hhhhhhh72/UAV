@@ -79,6 +79,9 @@ type DemandRepository interface {
 	Update(ctx context.Context, d domain.Demand) (domain.Demand, error)
 	FindByID(ctx context.Context, id string) (domain.Demand, error)
 	List(ctx context.Context, v DemandFilter) ([]domain.Demand, error)    // 公开语义：仅已发布
+	// ListPage 公开语义 + SQL 分页：返回当前页与总数（需求大厅高频路径，替代
+	// List+内存分页的全表拉取；keyword 搜索 q 路径仍走 List 内存过滤）。
+	ListPage(ctx context.Context, v DemandFilter, offset, limit int) ([]domain.Demand, int, error)
 	ListAll(ctx context.Context, v DemandFilter) ([]domain.Demand, error) // 管理端全量（含待审核等）
 	// ListTop 公开语义（仅已发布）按 created_at 倒序取前 limit 条（首页 Top-N，
 	// SQL 端 LIMIT，避免整表拉取）。

@@ -242,7 +242,19 @@ func (s *WorkOrderService) RequestCancel(ctx context.Context, a domain.Actor, or
 	if _, err := s.orders.UpdateCancel(ctx, orderID, reason); err != nil {
 		return domain.WorkOrder{}, err
 	}
-	return s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderCancelled)
+	updated, err := s.orders.UpdateStatus(ctx, orderID, wo.Status, domain.WorkOrderCancelled)
+	if err != nil {
+		return domain.WorkOrder{}, err
+	}
+	// 需求联动回滚：工单取消后需求从 assigned 释放回 published，可重新接单/接收新意向
+	//（此前无回滚路径，需求永久卡死 assigned——新意向被拒、发布者/管理员都无法撤销）。
+	// CAS 保证并发安全：失败仅当需求已非 assigned（如并发完成），记录即可，不阻断取消。
+	if ok, _, cerr := s.demands.CompareAndSetStatus(ctx, wo.DemandID, domain.DemandAssigned, domain.DemandPublished); cerr != nil {
+		slog.Warn("cancel order: rollback demand to published failed", "demand_id", wo.DemandID, "order_id", orderID, "error", cerr)
+	} else if !ok {
+		slog.Warn("cancel order: demand not in assigned state (concurrent transition), keep as-is", "demand_id", wo.DemandID, "order_id", orderID)
+	}
+	return updated, nil
 }
 
 // FindByID 订单详情：仅订单双方可查看。

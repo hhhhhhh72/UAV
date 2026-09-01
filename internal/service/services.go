@@ -108,6 +108,11 @@ func (s *DemandService) List(ctx context.Context, f repository.DemandFilter) ([]
 	return s.repo.List(ctx, f)
 }
 
+// ListPage 公开语义 + 分页：透传 repo.ListPage（需求大厅高频路径 SQL 分页）。
+func (s *DemandService) ListPage(ctx context.Context, f repository.DemandFilter, offset, limit int) ([]domain.Demand, int, error) {
+	return s.repo.ListPage(ctx, f, offset, limit)
+}
+
 // ListAll 管理端全量（含待审核等全部状态）。
 func (s *DemandService) ListAll(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	return s.repo.ListAll(ctx, f)
