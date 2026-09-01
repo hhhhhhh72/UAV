@@ -6,8 +6,8 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 API | Go 1.25+，标准库 net/http，443 条路由注册（生产 403，dev-only 40），154 个 Go 文件（100 源码 + 54 测试） |
-| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），85 张表（63 组迁移） |
+| 后端 API | Go 1.25+，标准库 net/http，440+ 条路由注册（mux.HandleFunc 注册点 481 处，含循环注册；生产为主，dev-only 文件路由 40 条），154 个 Go 文件（100 源码 + 54 测试） |
+| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），91 张表（97 组迁移，194 个 SQL 文件） |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
 
@@ -36,7 +36,7 @@
 │   ├── cache/cache.go             # 内存 TTL 缓存（60s 默认，5min 自动清理）
 │   ├── middleware/middleware.go    # 输入消毒 + 统一错误格式
 │   └── crypto/                    # AES-256-GCM 加密 + 脱敏函数
-├── migrations/                    # 63 组迁移（126 个 SQL 文件，85 表）
+├── migrations/                    # 97 组迁移（194 个 SQL 文件，91 表）
 ├── docs/                          # 项目文档（27 份 Markdown，中文）
 ├── icons/                         # 15 个 SVG 图标
 └── docker-compose.yml
@@ -205,7 +205,21 @@ cd frontend && npm run dev   # → :5173
 | 架构 + 分层 + 中间件 | [docs/系统架构/架构总览.md](docs/系统架构/架构总览.md) |
 | 7大业务系统详情 | [docs/业务系统/](docs/业务系统/) |
 | 全部 API 契约 | [docs/接口文档/API契约.md](docs/接口文档/API契约.md) |
-| 85 张表结构 | [docs/数据设计/数据模型.md](docs/数据设计/数据模型.md) |
+| 91 张表结构 | [docs/数据设计/数据模型.md](docs/数据设计/数据模型.md) |
 | 编码规范 | [docs/开发规范/编码规范.md](docs/开发规范/编码规范.md) |
 | Docker + CI | [docs/运维部署/Docker部署.md](docs/运维部署/Docker部署.md) |
 | 开发计划 | [PRD-四人并行开发方案.md](docs/项目管理/PRD-四人并行开发方案.md) |
+
+## 前端任务技能规则（必守）
+
+**凡是涉及前端设计/界面/布局/样式的工作（小程序页面、管理后台 UI、原型、组件），动手前必须先加载对应 skill，不得跳过：**
+
+| 任务类型 | 必须加载的 skill | 触发词 |
+|---|---|---|
+| 界面设计/改版/打磨/审查（小程序、Admin、原型） | `impeccable` | 设计、页面、布局、样式、UI、好看、乱、丑、排版、配色 |
+| 做可视化/图表/模拟器/交互原型 | `visualize` | 画图、架构图、图表、模拟器、地图、原型 |
+| 生成图片素材（海报/配图/图标背景） | `imagegen` | 海报、配图、生成图、封面图 |
+| 前端改动完成后的独立复查 | `review-agent`（或 `code-review`） | 复查、审查、检查改动 |
+| 浏览/点击/截图验证本地页面 | `control-in-app-browser` | 打开 localhost、验证页面、网页操作 |
+
+加载方式：在动手前调用 `skill` 工具加载对应技能（如 `skill(name: "impeccable")`），按其规范执行；多类任务重叠时按主要任务类型加载 1 个即可，其余按需补充。

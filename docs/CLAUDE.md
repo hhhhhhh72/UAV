@@ -9,8 +9,8 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 API | Go 1.25+，标准库 net/http，443 条路由注册（生产 403，dev-only 40） |
-| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），85 张表（63 组迁移） |
+| 后端 API | Go 1.25+，标准库 net/http，440+ 条路由注册（mux.HandleFunc 注册点 481 处，含循环注册；生产为主，dev-only 文件路由 40 条） |
+| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），91 张表（97 组迁移，194 个 SQL 文件） |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
 
@@ -35,7 +35,7 @@
 │   ├── cache/cache.go             # 内存 TTL 缓存（single-flight）
 │   ├── middleware/middleware.go    # 输入消毒（已挂载）+ 统一错误格式
 │   └── crypto/                    # AES-256-GCM 加密 + 脱敏函数
-├── migrations/                    # 数据库迁移脚本 (85 表, 63 组)
+├── migrations/                    # 数据库迁移脚本 (91 表, 97 组)
 ├── docs/                           # 项目文档
 ├── prototypes/                     # HTML 原型 (首页+商家页)
 └── docker-compose.yml
@@ -145,8 +145,8 @@ return fmt.Errorf("delete expert %s: %w", id, err)
 | 四人协作分工 + Git策略 + AI规范 | [docs/项目管理/PRD-四人并行开发方案.md](项目管理/PRD-四人并行开发方案.md) |
 | 架构 + 分层 + 中间件链 | [docs/系统架构/架构总览.md](系统架构/架构总览.md) |
 | 7大业务系统详情 | [docs/业务系统/](业务系统/) |
-| 全部 API 概览 | [docs/接口文档/API契约.md](接口文档/API契约.md)（443 条注册，生产 403；swagger 仅 dev 可用） |
-| 85 张表结构 | [docs/数据设计/数据模型.md](数据设计/数据模型.md) |
+| 全部 API 概览 | [docs/接口文档/API契约.md](接口文档/API契约.md)（440+ 条注册，生产为主；swagger 仅 dev 可用） |
+| 91 张表结构 | [docs/数据设计/数据模型.md](数据设计/数据模型.md) |
 | Code Review 检查清单 | [docs/开发规范/Code-Review-Checklist.md](开发规范/Code-Review-Checklist.md) |
 | 编码规范 | [docs/开发规范/编码规范.md](开发规范/编码规范.md) |
 | Docker 部署 | [docs/运维部署/Docker部署.md](运维部署/Docker部署.md) |

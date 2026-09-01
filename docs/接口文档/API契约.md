@@ -52,7 +52,7 @@
 | **品牌** | `GET /portfolios` `GET /portfolios/mine` `POST/PUT /portfolios` | 会员品牌 |
 | **成果** | `GET /achievements` `POST/PUT/DELETE /achievements` | 科研成果 |
 | **难题** | `GET /rd-challenges` `POST/PUT /rd-challenges` | 研发难题 |
-| **攻关** | `GET /research-projects` `POST/PUT /admin/research-projects` | 联合攻关 |
+| **攻关** | `GET /research-projects` `POST/PUT /admin/research-projects` `GET /projects/{id}` `POST /projects/{id}/join` `GET /projects/{id}/join/mine` `GET /admin/projects/{id}/joins` `POST /admin/projects/{id}/joins/{joinID}/status` | 联合攻关/参与申请（pending→contacted→closed） |
 | **申报** | `GET /project-applications/mine` `GET/POST /admin/project-applications` `POST /admin/project-applications/{id}/review` | 项目申报 |
 | **赛事** | `GET /competitions` `POST /admin/competitions` `POST /competitions/{id}/register` | 赛事/报名 |
 | **活动** | `GET /events` `POST /admin/events` `POST /events/{id}/register` | 活动/报名 |
