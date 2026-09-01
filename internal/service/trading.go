@@ -84,8 +84,11 @@ func (s *TradingService) GetProductAndCountView(ctx context.Context, id string) 
 	return p, nil
 }
 
-// UpdateProduct 更新商品（管理后台用）
+// UpdateProduct 更新商品（管理后台用）：与 CreateProduct 一致，拒绝负数价格。
 func (s *TradingService) UpdateProduct(ctx context.Context, p domain.DroneProduct) (domain.DroneProduct, error) {
+	if p.PriceFen < 0 {
+		return domain.DroneProduct{}, errors.New("price cannot be negative")
+	}
 	return s.prodRepo.Update(ctx, p)
 }
 

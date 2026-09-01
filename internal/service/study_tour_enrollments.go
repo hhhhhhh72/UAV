@@ -64,7 +64,7 @@ func (s *StudyTourEnrollmentService) Create(ctx context.Context, userID, tourID,
 	}
 	now := time.Now()
 	e := domain.StudyTourEnrollment{
-		ID:         fmt.Sprintf("study-enroll-%d", now.UnixNano()),
+		ID:         fmt.Sprintf("study-enroll-%d-%d", now.UnixNano(), nextSeq()),
 		TourID:     tourID,
 		UserID:     userID,
 		Name:       name,

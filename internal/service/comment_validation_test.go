@@ -22,10 +22,18 @@ func TestCommentValidation(t *testing.T) {
 	if _, err := svc.CreateComment(context.Background(), actor, "post-nope", "内容"); err == nil {
 		t.Fatal("comment on missing post must be rejected")
 	}
-	// 正常评论 → 成功
+	// 正常评论 → 成功：帖子须先经管理端发布（评论仅限已发布帖——审计 P3 修复）
 	p, err := svc.CreatePost(context.Background(), actor, "标题", "内容", nil)
 	if err != nil {
 		t.Fatalf("create post: %v", err)
+	}
+	admin := domain.Actor{ID: "admin-1", Role: domain.RolePlatformAdmin}
+	// 未发布的帖子禁止评论（审计 P3：仅允许对已发布帖评论）
+	if _, err := svc.CreateComment(context.Background(), actor, p.ID, "评论未发布帖"); err == nil {
+		t.Fatal("comment on pending post must be rejected")
+	}
+	if _, err := svc.PublishPost(context.Background(), admin, p.ID); err != nil {
+		t.Fatalf("publish post: %v", err)
 	}
 	c, err := svc.CreateComment(context.Background(), actor, p.ID, "正常评论")
 	if err != nil {

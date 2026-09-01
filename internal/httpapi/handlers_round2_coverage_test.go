@@ -222,7 +222,8 @@ func TestTrainingEndpoints(t *testing.T) {
 	assertStatus(t, http.MethodPost, "/api/v1/certified-pilots (user-2)", w, http.StatusCreated)
 	pilot2ID := dataID(t, w)
 
-	w = doRaw(app, http.MethodPost, "/api/v1/admin/certified-pilots/"+pilot2ID+"/reject", "", adminTok)
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/certified-pilots/"+pilot2ID+"/reject",
+		`{"reason":"证书信息不完整"}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/certified-pilots/"+pilot2ID+"/reject", w, http.StatusOK)
 }
 

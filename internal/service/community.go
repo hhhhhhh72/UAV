@@ -80,9 +80,14 @@ func (s *CommunityService) CreateComment(ctx context.Context, a domain.Actor, po
 	if strings.TrimSpace(content) == "" {
 		return domain.Comment{}, errors.New("comment content is required")
 	}
-	// 帖子存在性校验：防孤儿评论（此前任意 post_id 均可创建成功）
-	if _, err := s.post.FindByID(ctx, postID); err != nil {
+	// 帖子存在性与发布状态校验：防孤儿评论（此前任意 post_id 均可创建成功）
+	// 且可评 pending/removed 帖；现仅允许对已发布帖评论。
+	post, err := s.post.FindByID(ctx, postID)
+	if err != nil {
 		return domain.Comment{}, fmt.Errorf("post %s: %w", postID, err)
+	}
+	if post.Status != "" && post.Status != "published" {
+		return domain.Comment{}, errors.New("cannot comment on a non-published post")
 	}
 	c := domain.Comment{ID: nextID("comment"), PostID: postID, AuthorID: a.ID, Content: content, Status: "active", CreatedAt: time.Now()}
 	return s.comment.Create(ctx, c)

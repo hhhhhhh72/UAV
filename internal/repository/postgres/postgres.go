@@ -1469,7 +1469,7 @@ func (s *Store) NewUserRepository() repository.UserRepository {
 func (r *userRepo) FindByOpenID(ctx context.Context, openid string) (domain.User, error) {
 	var u domain.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE wechat_openid=$1 AND deleted_at IS NULL`, openid).
+		`SELECT id, wechat_openid, COALESCE(phone_ciphertext,''), password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE wechat_openid=$1 AND deleted_at IS NULL`, openid).
 		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
@@ -1496,7 +1496,7 @@ func (r *userRepo) Create(ctx context.Context, u domain.User) (domain.User, erro
 func (r *userRepo) FindByID(ctx context.Context, id string) (domain.User, error) {
 	var u domain.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
+		`SELECT id, wechat_openid, COALESCE(phone_ciphertext,''), password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
 		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt)
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
@@ -1507,7 +1507,7 @@ func (r *userRepo) FindByID(ctx context.Context, id string) (domain.User, error)
 }
 
 func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, wechat_openid, phone_ciphertext, password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
+	rows, err := r.pool.Query(ctx, `SELECT id, wechat_openid, COALESCE(phone_ciphertext,''), password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}
@@ -1516,7 +1516,7 @@ func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
 	for rows.Next() {
 		var u domain.User
 		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt); err != nil {
-			continue
+			return nil, fmt.Errorf("scan user: %w", err) // 不再 continue 静默丢行（审计 P3）
 		}
 		if r.cipher != nil && u.PhoneCipher != "" {
 			if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {

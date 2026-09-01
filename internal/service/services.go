@@ -61,13 +61,17 @@ func (s *DemandService) Create(ctx context.Context, a domain.Actor, in CreateDem
 	if bizType == "" {
 		bizType = domain.BizOther
 	}
-	// 兼容小程序发布表单：提交 budget（元）时换算为分；显式 budget_fen 优先
+	// 兼容小程序发布表单：提交 budget（元）时换算为分；显式 budget_fen 优先。
+	// 上界 1e13 分（100 亿元）：防 *100 溢出（int64 max≈9.2e18）与不合理金额入库。
 	budgetFen := in.BudgetFen
 	if budgetFen == 0 && in.Budget > 0 {
 		budgetFen = in.Budget * 100
 	}
 	if budgetFen < 0 {
 		return domain.Demand{}, errors.New("budget cannot be negative")
+	}
+	if budgetFen > 1e13 {
+		return domain.Demand{}, errors.New("budget is unreasonably large (max 1e13 fen)")
 	}
 	// 需求有效期（可选）：格式 YYYY-MM-DD / RFC3339；不得早于今天（发布时效校验）。
 	deadline, err := validateDemandDeadline(in.Deadline)

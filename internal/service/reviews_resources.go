@@ -22,6 +22,10 @@ func NewReviewService(repo repository.ReviewRepository, orderRepo repository.Wor
 }
 
 func (s *ReviewService) Submit(ctx context.Context, reviewerID, targetType, targetID string, rating int, content string) (domain.Review, error) {
+	// 评分范围校验：1-5，越界（999/-5）拒绝入库（此前零校验）。
+	if rating < 1 || rating > 5 {
+		return domain.Review{}, errors.New("rating must be between 1 and 5")
+	}
 	// 工单评价闭环：仅已完成工单的双方（需求方/接单方）可评价（P0 死链修复——
 	// 此前 POST /api/v1/reviews 零校验，任意登录用户可对任意目标刷评价）。
 	if targetType == "work_order" {

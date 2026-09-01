@@ -371,6 +371,9 @@ func (s *TrainingService) RejectPilot(ctx context.Context, a domain.Actor, id, r
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
 		return domain.CertifiedPilot{}, errors.New("admin permission required")
 	}
+	if strings.TrimSpace(reason) == "" {
+		return domain.CertifiedPilot{}, errors.New("reject reason is required")
+	}
 	cur, err := s.pilotRepo.FindByID(ctx, id)
 	if err != nil {
 		return domain.CertifiedPilot{}, err
