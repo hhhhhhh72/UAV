@@ -641,6 +641,14 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	totalPosts := len(posts)
 
+	// articles 全量保留：trends_detail.article 按创建时间做月度桶 + 状态/置顶计数。
+	articles, _, err := s.newsSvc.ListByCategory(r.Context(), "", 1, 100000)
+	if err != nil {
+		slog.Warn("admin dashboard: load articles", "err", err)
+		articles = nil
+	}
+	totalArticles := len(articles)
+
 	// pending_reports：社区举报待处理数（Report.status=pending）。
 	// 此前误用 ReviewService.ListAll（企业评价审核）且 status="" 全量，字段名与实体不符。
 	// 性能审查：只取 total，不物化行。
@@ -670,6 +678,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		"post":    buildMonthlyTrends(posts, func(p domain.Post) time.Time { return p.CreatedAt }),
 		"user":    buildMonthlyTrends(users, func(u domain.User) time.Time { return u.CreatedAt }),
 		"message": buildMonthlyTrends(msgs, func(m domain.Message) time.Time { return m.CreatedAt }),
+		"article": buildMonthlyTrends(articles, func(a domain.Article) time.Time { return a.CreatedAt }),
 	}
 
 	// 线下成交金额汇总（联系对接模式撮合价值）
@@ -784,6 +793,23 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("admin dashboard: load test sites", "err", err)
 	}
 	modules["industry"]["test_sites"] = len(sites)
+
+	// Articles（资讯中心聚合页指标：全量/已发布/草稿/置顶）
+	modules["industry"]["articles"] = totalArticles
+	modules["industry"]["articles_published"] = 0
+	modules["industry"]["articles_draft"] = 0
+	modules["industry"]["articles_pinned"] = 0
+	for _, a := range articles {
+		switch a.Status {
+		case "published":
+			modules["industry"]["articles_published"]++
+		case "draft":
+			modules["industry"]["articles_draft"]++
+		}
+		if a.IsPinned {
+			modules["industry"]["articles_pinned"]++
+		}
+	}
 
 	// Status distribution
 	statusDist := buildStatusDist(dem)
