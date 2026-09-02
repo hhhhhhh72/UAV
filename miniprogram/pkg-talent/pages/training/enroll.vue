@@ -161,8 +161,7 @@
           <view v-if="courseDescription(detail)" class="section">
             <text class="section-title">课程介绍</text>
             <view class="intro-card">
-              <rich-text v-if="courseDescription(detail).indexOf('<') >= 0" class="intro-text" :nodes="courseDescription(detail)"></rich-text>
-              <text v-else class="intro-text">{{ courseDescription(detail) }}</text>
+              <text class="intro-text">{{ courseDescription(detail) }}</text>
             </view>
           </view>
 
@@ -663,7 +662,7 @@ onPullDownRefresh(function () {
 .page {
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   min-height: 100vh;
-  background: #F4F6F8;
+  background: #F5F8FC;
   padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
   padding-left: constant(safe-area-inset-left);
   padding-left: env(safe-area-inset-left);
@@ -779,7 +778,7 @@ onPullDownRefresh(function () {
 /* ═══ ② 白色内容区 ═══ */
 .content {
   position: relative;
-  background: #F4F6F8;
+  background: #F5F8FC;
   border-radius: 28rpx 28rpx 0 0;
   margin-top: -28rpx;
   padding: 28rpx 24rpx 0;
@@ -1330,7 +1329,7 @@ onPullDownRefresh(function () {
 .btn-primary--disabled .btn-primary-text { color: #ffffff; }
 
 /* ═══ 视觉重整：对齐小程序现有的浅蓝底 + 高饱和蓝色卡片语言 ═══ */
-.page { background: #EAF4FF; }
+.page { background: #F5F8FC; }
 /* 平台背书（首屏信任条：协会平台审核） */
 .platform-endorse {
   display: flex;
@@ -1362,7 +1361,7 @@ onPullDownRefresh(function () {
 .pe-body { display: flex; flex-direction: column; gap: 4rpx; }
 .pe-title { font-size: 26rpx; font-weight: 700; color: #0A66C2; }
 .pe-sub { font-size: 22rpx; color: #4A6E94; }
-.detail-nav { position: relative; height: 88rpx; display: flex; align-items: center; justify-content: space-between; padding-left: 24rpx; padding-right: 24rpx; box-sizing: content-box; background: #EAF4FF; }
+.detail-nav { position: relative; height: 88rpx; display: flex; align-items: center; justify-content: space-between; padding-left: 24rpx; padding-right: 24rpx; box-sizing: content-box; background: #F5F8FC; }
 .detail-nav-back, .detail-nav-balance { width: 60rpx; height: 60rpx; flex: 0 0 60rpx; }
 .detail-nav-back { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #ffffff; box-shadow: 0 6rpx 16rpx rgba(31, 89, 169, 0.13); }
 .detail-nav-back--press { transform: scale(0.94); opacity: 0.86; }
@@ -1414,17 +1413,17 @@ onPullDownRefresh(function () {
 .rating-card { background: #F8FAFC; }
 .group-card, .intro-card, .contact-card { background: #ffffff; }
 .price-item { border-color: #E8EDF3; border-radius: 16rpx; padding: 22rpx; box-shadow: none; }
-.price-item--active { border-color: #0A66C2; background: #F4F8FC; box-shadow: none; }
-.price-hot-badge { background: #0A66C2; }
-.price-check { border-color: #0A66C2; }
-.price-value, .price-value--hot { color: #0A66C2; }
-.price-symbol { color: #0A66C2; }
+.price-item--active { border-color: #F97316; background: #FFF0E6; box-shadow: none; }
+.price-hot-badge { background: #F97316; }
+.price-check { border-color: #E96012; }
+.price-value, .price-value--hot { color: #E96012; }
+.price-symbol { color: #E96012; }
 .price-empty { border-radius: 16rpx; background: #F8FAFC; }
 .contact-item { padding: 22rpx 24rpx; }
 .cert-card { border-radius: 16rpx; box-shadow: none; }
 .env-cell { border-radius: 12rpx; }
 .bottom-bar { border-top: 1rpx solid #E8EDF3; box-shadow: 0 -6rpx 18rpx rgba(16, 24, 40, 0.06); }
-.fee-symbol, .fee-value { color: #0A66C2; animation: none; }
+.fee-symbol, .fee-value { color: #E96012; animation: none; }
 .btn-primary { border-radius: 12rpx; background: #0A66C2; box-shadow: none; }
 .btn-primary:active { background: #0759AA; }
 .btn-outline { border-radius: 12rpx; }

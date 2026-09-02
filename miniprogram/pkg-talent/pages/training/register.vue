@@ -27,13 +27,14 @@
 
     <!-- 报名表单 -->
     <template v-else>
-      <!-- 表单头部：课程摘要（真实课程数据）⭐ 类型色条 + 证书胶囊 -->
-      <view class="pub-form-intro">
-        <view class="course-bar" :class="'course-bar--' + certTypeKey" />
-        <view class="course-head">
-          <view class="pub-form-intro-h2">{{ courseTitle }}</view>
-          <view v-if="certLabel" class="cert-pill">{{ certLabel }}</view>
+      <!-- 课程摘要卡：呼应详情页，承接 enroll → 报名流程 -->
+      <view class="summary-card">
+        <view class="summary-accent" :class="'accent--' + certTypeKey" />
+        <view class="summary-head">
+          <text class="summary-title">{{ courseTitle }}</text>
+          <text v-if="certLabel" class="cert-pill">{{ certLabel }}</text>
         </view>
+        <text v-if="summaryOrg" class="summary-org">{{ summaryOrg }}</text>
       </view>
 
       <!-- 课程信息（多课程选择 + 真实价格） -->
@@ -208,6 +209,13 @@ const certLabel = computed(function () {
   if (!c) return ''
   if (c.cert_type && CERT_LABELS[c.cert_type]) return CERT_LABELS[c.cert_type]
   return c.cert_type || ''
+})
+
+/* 机构名（课程摘要卡副标题，呼应详情页） */
+const summaryOrg = computed(function () {
+  const c = course.value
+  if (!c) return ''
+  return c.org_name || c.enterprise_name || c.name || '培训机构'
 })
 
 /* 课程卡色条类型：caac=蓝 / utc_dji=紫 / gov_level=橙 */
@@ -436,58 +444,38 @@ onUnload(function () {
 <style scoped>
 @import '../../../pages/publish/pub-style.css';
 
+/* 页面底色与培训模块统一为浅蓝灰（其余 4 页同 #F5F8FC） */
+.pub-page { background: #F5F8FC; }
+
 .pub-fade { opacity: 0.6; }
-.pub-form-intro-h2 {
-  font-size: 20px;
-  margin: 0 0 4px;
-  color: #17212B;
-}
-.pub-photo-img {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+.pub-photo-img { width: 100%; height: 100%; display: block; }
 
-/* 加载中 */
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 80px 0;
-  color: #667085;
-  font-size: 13px;
-}
+/* 加载中 / 重试 */
+.loading-state { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 100px 0; color: #667085; font-size: 13px; }
+.retry-btn { flex: none; margin: 12px auto 0; padding: 0 22px; }
 
-/* 错误重试按钮 */
-.retry-btn {
-  flex: none;
-  margin: 12px auto 0;
-  padding: 0 22px;
+/* ═══ 课程摘要卡：呼应 enroll 详情，承接 → 报名流程 ═══ */
+.summary-card {
+  position: relative;
+  margin: 0 0 18px;
+  padding: 20px 18px;
+  background: linear-gradient(135deg, #ffffff 0%, #F2F9FF 100%);
+  border: 1px solid #E8EDF3;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(10, 102, 194, 0.08);
+  overflow: hidden;
 }
-
-/* ===== 课程摘要：类型色条 + 证书胶囊（配色锚定 pub 色板） ===== */
-.course-bar {
-  width: 34px;
-  height: 4px;
-  border-radius: 3px;
-  margin-bottom: 8px;
+.summary-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
+.accent--caac { background: linear-gradient(180deg, #0A66C2, rgba(10, 102, 194, 0.4)); }
+.accent--utc_dji { background: linear-gradient(180deg, #7056D6, rgba(112, 86, 214, 0.4)); }
+.accent--gov_level { background: linear-gradient(180deg, #F97316, rgba(249, 115, 22, 0.4)); }
+.summary-head { display: flex; align-items: flex-start; gap: 10px; padding-left: 8px; }
+.summary-title {
+  flex: 1; min-width: 0;
+  font-size: 20px; font-weight: 700; color: #17212B; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.course-bar--caac { background: linear-gradient(90deg, #0A66C2, rgba(10, 102, 194, 0.35)); }
-.course-bar--utc_dji { background: linear-gradient(90deg, #7056D6, rgba(112, 86, 214, 0.35)); }
-.course-bar--gov_level { background: linear-gradient(90deg, #F97316, rgba(249, 115, 22, 0.35)); }
-
-.course-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-.course-head .pub-form-intro-h2 {
-  flex: 1;
-  min-width: 0;
-}
-
+.summary-org { display: block; margin: 7px 0 0; padding-left: 8px; font-size: 13px; color: #667085; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cert-pill {
   flex-shrink: 0;
   padding: 3px 10px;
@@ -499,82 +487,61 @@ onUnload(function () {
   background: #E8F2FC;
 }
 
-/* ===== 课程费用（真实价格，橙强化） ===== */
-.fee-price {
-  display: flex;
-  align-items: baseline;
+/* ═══ 表单卡：对齐模块卡片质感（16px 圆角 + 柔和投影） ═══ */
+.pub-section { margin: 0 0 18px; }
+.pub-section-title { font-size: 15px; font-weight: 750; color: #17212B; margin: 0 0 10px; }
+.pub-section-note { color: #98A2B3; margin: -3px 0 10px; font-size: 11px; }
+.pub-form-card {
+  background: #ffffff;
+  border: 1px solid #E8EDF3;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
+  overflow: hidden;
 }
-.fee-price-symbol {
-  font-size: 13px;
-  color: #F97316;
-  font-weight: 700;
-}
-.fee-price-value {
-  font-size: 22px;
-  font-weight: 800;
-  color: #F97316;
-  margin: 0 2px;
-  line-height: 1.2;
-}
-.fee-price-unit {
-  font-size: 12px;
-  color: #98A2B3;
-}
+.pub-field { position: relative; padding: 14px 16px; border-top: 1px solid #EEF1F4; }
+.pub-field:first-child { border-top: 0; }
+.pub-field-label { display: block; font-size: 13px; font-weight: 650; margin-bottom: 8px; color: #17212B; }
+.pub-required { color: #FF3B30; margin-left: 2px; }
+.pub-input { border: 0; outline: 0; width: 100%; color: #17212B; background: transparent; font-size: 14px; padding: 0; margin: 0; }
+.pub-placeholder { color: #C8C9CC; }
+.pub-select-field { width: 100%; text-align: left; border: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
+.pub-select-value { color: #17212B; }
+.pub-arrow { color: #98A2B3; font-size: 22px; font-weight: 300; }
 
-/* ===== 无犯罪记录声明（pub 蓝勾选） ===== */
-.no-crime-box {
-  width: 18px;
-  height: 18px;
-  border: 1px solid #C4CBD3;
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: #FFFFFF;
-}
-.no-crime-box--checked {
-  background: #0A66C2;
-  border-color: #0A66C2;
-}
-.no-crime-mark {
-  color: #FFFFFF;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-}
+/* 课程费用（真实价格，橙强化） */
+.fee-price { display: flex; align-items: baseline; }
+.fee-price-symbol { font-size: 13px; color: #F97316; font-weight: 700; }
+.fee-price-value { font-size: 22px; font-weight: 800; color: #F97316; margin: 0 2px; line-height: 1.2; }
+.fee-price-unit { font-size: 12px; color: #98A2B3; }
 
-/* ===== 底部双 CTA（保持原比例 1:2，脉冲动画对齐 pub 蓝） ===== */
-.cta-consult { flex: 1; }
-.cta-submit {
-  flex: 2;
-  letter-spacing: 0.08em;
-  animation: ctaPulse 2s ease-in-out infinite;
-}
-.cta-submit--busy {
-  opacity: 0.6;
-  animation: none;
-}
+/* 证件上传 */
+.pub-upload-row { padding: 14px 16px; display: flex; gap: 10px; align-items: center; }
+.pub-photo { width: 64px; height: 64px; border-radius: 12px; background: linear-gradient(135deg, #D3E7FA, #EAF3FB 55%, #C1D8EE); position: relative; overflow: hidden; flex-shrink: 0; }
+.pub-photo::after { content: ""; position: absolute; width: 42px; height: 20px; border-radius: 50% 50% 0 0; background: rgba(10, 102, 194, 0.16); bottom: 0; left: 10px; }
+.pub-add-photo { width: 64px; height: 64px; border-radius: 12px; border: 1px dashed #A9B9C9; background: #FAFCFE; color: #0A66C2; font-size: 27px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pub-upload-tip { color: #98A2B3; font-size: 11px; line-height: 1.45; margin: 0 16px 12px; }
 
+/* 无犯罪记录声明 */
+.pub-check-row { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-top: 1px solid #EEF1F4; font-size: 13px; color: #17212B; }
+.no-crime-box { width: 18px; height: 18px; border: 1px solid #C4CBD3; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #FFFFFF; }
+.no-crime-box--checked { background: #0A66C2; border-color: #0A66C2; }
+.no-crime-mark { color: #FFFFFF; font-size: 12px; font-weight: 700; line-height: 1; }
+
+/* 隐私提示 */
+.privacy-text { display: block; text-align: center; font-size: 11px; color: #98A2B3; margin-top: 6px; }
+.consult-text { display: block; text-align: center; font-size: 12px; color: #0A66C2; margin-top: 6px; }
+
+/* ═══ 底部固定 CTA（对齐模块底部栏质感） ═══ */
+.pub-sticky {
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #E8EDF3;
+  box-shadow: 0 -6px 18px rgba(16, 24, 40, 0.06);
+}
+.cta-consult { flex: 1; border-radius: 12px; }
+.cta-submit { flex: 2; letter-spacing: 0.08em; border-radius: 12px; animation: ctaPulse 2s ease-in-out infinite; }
+.cta-submit--busy { opacity: 0.6; animation: none; }
 @keyframes ctaPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(10, 102, 194, 0.3); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(10, 102, 194, 0.28); }
   50% { box-shadow: 0 0 0 8px rgba(10, 102, 194, 0); }
-}
-
-/* ===== 底部隐私提示 ===== */
-.privacy-text {
-  display: block;
-  text-align: center;
-  font-size: 11px;
-  color: #98A2B3;
-  margin-top: 14px;
-}
-
-.consult-text {
-  display: block;
-  text-align: center;
-  font-size: 12px;
-  color: #0A66C2;
-  margin-top: 6px;
 }
 </style>

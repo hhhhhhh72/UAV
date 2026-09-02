@@ -8,8 +8,19 @@
       @retry="loadDetail"
     >
       <template v-if="detail">
-        <!-- ① Hero 区（海报优先，装饰仅在无图时兜底） -->
-        <view class="hero" :style="{ paddingTop: (statusBarHeight + 10) + 'px' }">
+        <!-- 顶部导航（对齐培训详情：独立导航条，白圆钮返回 + 居中标题 + 右侧分享） -->
+        <view class="detail-nav" :style="{ paddingTop: statusBarHeight + 'px' }">
+          <view class="detail-nav-back" hover-class="detail-nav-back--press" :hover-stay-time="120" aria-role="button" aria-label="返回" @click="goBack">
+            <text>‹</text>
+          </view>
+          <text class="detail-nav-title">赛事详情</text>
+          <button class="share-btn" open-type="share" hover-class="detail-nav-back--press" :hover-stay-time="120">
+            <text class="share-text">分享</text>
+          </button>
+        </view>
+
+        <!-- ① Hero（对齐培训详情：内嵌圆角卡片，封面 + 蒙层 + 状态徽章 + 标题贴底） -->
+        <view class="hero">
           <!-- 真实赛事海报图（有则覆盖兜底；加载失败回退兜底） -->
           <image
             v-if="heroPoster(detail) && !imgError"
@@ -29,37 +40,34 @@
             <view class="deco-trail" />
           </view>
 
-          <!-- 三段渐变蒙层：顶暗→中透→底暗 -->
-          <view class="hero-mask-top" />
-          <view class="hero-mask-bottom" />
+          <view class="hero-mask" />
 
-          <!-- 导航层 -->
-          <view class="hero-nav">
-            <view class="back-btn" hover-class="press-feedback" :hover-stay-time="120" @click="goBack">
-              <view class="back-arrow" />
-            </view>
-          </view>
-
-          <!-- 状态徽章（对齐培训页：Hero 左上，absolute 定位） -->
+          <!-- 状态徽章（对齐培训页：Hero 左上，白底胶囊 + 彩色文字） -->
           <view class="status-badge" :class="statusClass(derivedStatus(detail))">{{ statusTextOf(detail) }}</view>
 
-          <!-- 内容层（对齐培训页 hero-bottom：徽章 + 标题贴底；首字徽章与标题同行流式防重叠） -->
-          <view class="hero-content">
-            <view class="hero-emblem"><text class="emblem-char">{{ emblemChar(detail) }}</text></view>
-            <view class="hero-text">
-              <text class="hero-title">{{ detail.title || detail.name || '未知赛事' }}</text>
-              <view class="hero-tags">
-                <text v-for="tag in compTags(detail)" :key="tag" class="hero-tag">{{ tag }}</text>
-              </view>
+          <!-- Hero 底部信息区（对齐培训页 hero-bottom：标题 + 机构副标 + 周期 meta 行 + 标签） -->
+          <view class="hero-bottom">
+            <text class="hero-title">{{ detail.title || detail.name || '未知赛事' }}</text>
+            <text class="hero-org">{{ detail.organizer || detail.sponsor || '待定' }}</text>
+            <view class="hero-meta-row">
+              <view class="meta-ico meta-ico--cal"><view class="cal-top" /><view class="cal-body"><view class="cal-line l1" /><view class="cal-line l2" /><view class="cal-line l3" /></view></view>
+              <text class="hero-meta-text">{{ compPeriod(detail) }}</text>
+            </view>
+            <view class="hero-tags">
+              <text v-for="tag in compTags(detail)" :key="tag" class="hero-tag">{{ tag }}</text>
             </view>
           </view>
         </view>
 
-        <!-- ② 内容区（对齐培训详情页：上圆角白卡浮起 Hero，负边距叠加 + 上投影） -->
+        <!-- ② 内容区（对齐培训详情页：直接在页面底色上排布卡片） -->
         <view class="content">
 
         <!-- ② 基本信息：时间轴 -->
         <view class="card info-timeline">
+          <view class="info-head">
+            <text class="info-head-title">赛事信息</text>
+            <text class="info-head-status" :class="statusClass(derivedStatus(detail))">{{ statusTextOf(detail) }}</text>
+          </view>
           <view class="tl-item">
             <view class="tl-dot" />
             <view class="tl-content">
@@ -97,9 +105,7 @@
           <view class="card requirements-card">
             <view v-if="requirements(detail).length === 0" class="req-empty">以主办方公布为准</view>
             <view v-for="req in requirements(detail)" :key="req.name" class="req-item">
-              <view class="req-icon">
-                <text class="req-icon-text">{{ (req.name || '条').charAt(0) }}</text>
-              </view>
+              <view class="req-icon" />
               <view class="req-body">
                 <text class="req-name">{{ req.name }}</text>
                 <text class="req-desc">{{ req.desc }}</text>
@@ -118,6 +124,7 @@
               v-for="(ev, i) in eventList(detail)"
               :key="ev.name"
               class="card event-item"
+              :class="i === 0 ? 'event-item--hot' : ''"
             >
               <view class="event-info">
                 <view class="event-name-row">
@@ -137,7 +144,7 @@
           <view class="section-title">奖项设置</view>
           <view class="prize-row">
             <view v-for="p in prizes(detail)" :key="p.level" class="prize-card" :class="'prize-card--' + p.metal">
-              <view class="prize-medal">{{ p.medal }}</view>
+              <view class="prize-medal" />
               <text class="prize-level">{{ p.level }}</text>
               <view v-if="p.amount != null" class="prize-amount-row">
                 <text class="prize-symbol">¥</text>
@@ -151,7 +158,7 @@
         <view class="section-block">
           <view class="section-title">主办单位</view>
           <view class="card organizer-row">
-            <view class="org-avatar">{{ orgInitial(detail) }}</view>
+            <view class="org-avatar" />
             <view class="org-info">
               <text class="org-name">{{ detail.organizer || detail.sponsor || '待定' }}</text>
               <text class="org-sub">{{ detail.organizer_sub || '主办单位' }}</text>
@@ -267,21 +274,17 @@ function onHeroImgError() {
 }
 
 /** Hero 左下角首字徽章 */
-function emblemChar(item) {
-  const t = item.title || ''
-  if (t.indexOf('FPV') >= 0 || t.indexOf('竞速') >= 0) return '竞'
-  if (t.indexOf('创新') >= 0 || t.indexOf('应用') >= 0) return '创'
-  if (t.indexOf('青少年') >= 0) return '青'
-  if (t.indexOf('国际') >= 0) return '际'
-  if (t.indexOf('全国') >= 0) return '国'
-  if (t.indexOf('贵州') >= 0) return '贵'
-  return '赛'
-}
-
 function fmtDate(d) {
   if (!d) return '待定'
   if (String(d).indexOf('.') >= 0 || String(d).indexOf('年') >= 0) return String(d)
   return String(d).slice(0, 10)
+}
+
+function compPeriod(item) {
+  var s = fmtDate(item.start_date)
+  var e = fmtDate(item.end_date)
+  if (s === '待定' && e === '待定') return '赛期待定'
+  return e && e !== s ? s + ' ~ ' + e : s
 }
 
 function compTags(item) {
@@ -321,11 +324,6 @@ function compMinFee(item) {
     if (fees.length > 0) return Math.min.apply(null, fees)
   }
   return null
-}
-
-function orgInitial(item) {
-  var name = item.organizer || item.sponsor || '中'
-  return name.charAt(0)
 }
 
 async function loadDetail() {
@@ -378,34 +376,33 @@ onPullDownRefresh(function () {
 .page {
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   min-height: 100vh;
-  background: #F4F6F8;
+  background: #F5F8FC;
   padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
   overflow-x: hidden;
 }
 
-/* ===== 通用卡片（对齐培训详情页：白卡 + 20rpx 圆角 + 1rpx 边框 + 柔和投影） ===== */
+/* ===== 通用卡片（对齐培训详情页：白卡 + 16px 圆角 + 1rpx 边框 + 柔和投影） ===== */
 .card {
   position: relative;
   background: #ffffff;
   border: 1rpx solid #EEF1F4;
-  border-radius: 20rpx;
+  border-radius: 16px;
   box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
 }
 
 /* ================================================================= */
-/* ① Hero 区（对齐培训详情页：全屏 500rpx 图 + 三段蓝蒙层）              */
+/* ① Hero 区（对齐培训详情页：内嵌圆角卡片 + 单层蓝蒙层） */
 /* ================================================================= */
 .hero {
   position: relative;
-  width: 100%;
-  min-height: 640rpx;
+  width: auto;
+  height: 348rpx;
+  margin: 0 24rpx;
+  border-radius: 24rpx;
   overflow: hidden;
   background: linear-gradient(160deg, #0a5897 0%, #074D92 100%);
-  padding: 40px 32rpx 40rpx;
+  box-shadow: 0 14rpx 34rpx rgba(31, 89, 169, 0.2);
   box-sizing: border-box;
-  /* 流式列布局（同院校详情页）：导航 → 状态徽章；内容区 margin-top:auto 推到底部，天然不重叠 */
-  display: flex;
-  flex-direction: column;
 }
 
 /* 真实海报图 */
@@ -417,27 +414,12 @@ onPullDownRefresh(function () {
   transition: opacity .25s ease-out;
 }
 
-/* 三段渐变蒙层（对齐培训页 hero-mask：上淡蓝 → 中透 → 底深蓝） */
-.hero-mask-top {
+/* 单层渐变蒙层（对齐培训页 hero-mask：上淡 → 中透 → 底深蓝） */
+.hero-mask {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 90rpx;
-  background: linear-gradient(180deg, rgba(7, 77, 146, 0.35) 0%, rgba(7, 77, 146, 0) 100%);
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 30, 68, 0.08) 0%, rgba(4, 30, 68, 0.05) 34%, rgba(4, 30, 68, 0.8) 100%);
   pointer-events: none;
-  z-index: 1;
-}
-
-.hero-mask-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 220rpx;
-  background: linear-gradient(180deg, rgba(7, 77, 146, 0) 0%, rgba(7, 77, 146, 0.65) 100%);
-  pointer-events: none;
-  z-index: 1;
 }
 
 /* ===== 兜底装饰层（仅无海报时渲染，静态无动画） ===== */
@@ -493,95 +475,121 @@ onPullDownRefresh(function () {
   opacity: 0.5;
 }
 
-.hero-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* ===== 顶部导航（对齐培训详情页：白圆钮返回 + 居中标题 + 右侧分享） ===== */
+.detail-nav {
   position: relative;
-  z-index: 2;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 24rpx;
+  padding-right: 24rpx;
+  box-sizing: content-box;
+  background: #F5F8FC;
 }
 
-.back-btn {
-  width: 88rpx;
-  height: 88rpx;
-  background: rgba(16, 24, 40, 0.42);
-  border: 1rpx solid rgba(255, 255, 255, 0.28);
-  border-radius: 50%;
+.detail-nav-back {
+  width: 60rpx;
+  height: 60rpx;
+  flex: 0 0 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2rpx 12rpx rgba(16, 24, 40, 0.22);
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 6rpx 16rpx rgba(31, 89, 169, 0.13);
 }
+.detail-nav-back--press { transform: scale(0.94); opacity: 0.86; }
+.detail-nav-back text { margin-top: -4rpx; color: #1A3353; font-size: 42rpx; line-height: 1; }
 
-/* CSS 绘制返回箭头（左向 V 形） */
-.back-arrow {
-  width: 22rpx;
-  height: 22rpx;
-  border-left: 4rpx solid #fff;
-  border-bottom: 4rpx solid #fff;
-  transform: rotate(45deg);
-  margin-left: 8rpx;
-}
-
-/* 状态徽章（流式：导航行下方，随布局自然错开；实底白字清晰） */
-.status-badge {
-  position: relative;
-  align-self: flex-start;
-  margin-top: 20rpx;
-  display: inline-flex;
-  align-items: center;
-  padding: 6rpx 16rpx;
-  border-radius: 6rpx;
-  font-size: 20rpx;
-  font-weight: 600;
-  z-index: 4;
-  box-shadow: 0 4rpx 10rpx rgba(16, 24, 40, 0.18);
-}
-
-.badge--enrolling { background: #0B6B41; color: #ffffff; }
-.badge--ongoing { background: #0A66C2; color: #ffffff; }
-.badge--closed { background: #5D6B82; color: #ffffff; }
-
-/* ===== Hero 内容层（absolute 贴底在 hero 底部区域内，徽章与标题同行流式） ===== */
-.hero-content {
+.detail-nav-title {
   position: absolute;
-  left: 32rpx;
-  right: 32rpx;
-  bottom: 96rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 56%;
+  display: block;
+  color: #17212B;
+  font-size: 34rpx;
+  font-weight: 700;
+  text-align: center;
+  line-height: 88rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 右侧分享（button 去默认样式） */
+.share-btn {
+  height: 60rpx;
+  margin: 0;
+  padding: 0 8rpx;
+  line-height: 60rpx;
+  text-align: center;
+  background: transparent;
+  border: none;
+  font-size: 24rpx;
+}
+.share-btn::after { border: none; }
+.share-text { color: #0A66C2; font-weight: 600; }
+
+/* 状态徽章（对齐培训页：Hero 左上，白底胶囊 + 彩色文字） */
+.status-badge {
+  position: absolute;
+  top: 18rpx;
+  left: 18rpx;
+  padding: 7rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: none;
+  z-index: 4;
+  font-size: 20rpx;
+  font-weight: 650;
+  color: #0A66C2;
+}
+
+.badge--enrolling { background: #E9F7F0 !important; color: #0B6B41; }
+.badge--ongoing { background: #EAF3FB !important; color: #0A66C2; }
+.badge--closed { background: #EEF1F4 !important; color: #5D6B82; }
+
+/* ===== Hero 底部信息区（对齐培训页 hero-bottom：标题 + 标签列贴底） ===== */
+.hero-bottom {
+  position: absolute;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: 24rpx;
   z-index: 3;
   display: flex;
-  align-items: center;
-  gap: 20rpx;
+  flex-direction: column;
+  gap: 6rpx;
   animation: fadeUp .25s ease-out backwards;
   animation-delay: 60ms;
 }
 
-/* 首字徽章：圆圈白底小徽章（与标题同行） */
-.hero-emblem {
-  flex-shrink: 0;
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3;
-  box-shadow: 0 6rpx 16rpx rgba(7, 77, 146, 0.25);
+.hero-org {
+  display: block;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.emblem-char {
-  font-size: 34rpx;
-  font-weight: 700;
-  color: #0A66C2;
-}
+.hero-meta-row { display: flex; align-items: center; gap: 8rpx; }
+.hero-meta-text { font-size: 22rpx; color: rgba(255, 255, 255, 0.85); }
 
-.hero-text { flex: 1; min-width: 0; }
+.meta-ico { width: 26rpx; height: 26rpx; flex-shrink: 0; position: relative; }
+.meta-ico--cal { border: 2rpx solid rgba(255, 255, 255, 0.9); border-radius: 4rpx; box-sizing: border-box; }
+.meta-ico--cal::before, .meta-ico--cal::after { content: ''; position: absolute; top: 4rpx; width: 2rpx; height: 5rpx; background: rgba(255, 255, 255, 0.9); }
+.meta-ico--cal::before { left: 6rpx; }
+.meta-ico--cal::after { right: 6rpx; }
+.meta-ico--cal .cal-top { position: absolute; left: 3rpx; right: 3rpx; top: 8rpx; height: 2rpx; background: rgba(255, 255, 255, 0.9); }
+.meta-ico--cal .cal-line { position: absolute; left: 5rpx; right: 5rpx; height: 2rpx; background: rgba(255, 255, 255, 0.9); opacity: 0.6; }
+.meta-ico--cal .cal-line.l1 { top: 14rpx; }
+.meta-ico--cal .cal-line.l2 { top: 18rpx; }
+.meta-ico--cal .cal-line.l3 { top: 22rpx; }
 
 .hero-title {
-  font-size: 40rpx;
+  font-size: 36rpx;
   font-weight: 700;
   color: #ffffff;
   line-height: 1.35;
@@ -590,28 +598,27 @@ onPullDownRefresh(function () {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin-bottom: 12rpx;
 }
 
 .hero-tags { display: flex; flex-wrap: wrap; gap: 10rpx; }
 
 .hero-tag {
-  padding: 6rpx 14rpx;
-  border-radius: 6rpx;
-  font-size: 22rpx;
+  padding: 5rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
   font-weight: 500;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
   border: 1rpx solid rgba(255, 255, 255, 0.3);
 }
 
-/* ===== 内容区：正常衔接 Hero（不遮图；圆角+阴影保持白卡质感） ===== */
+/* ===== 内容区：对齐培训详情页，直接在页面底色上排布卡片 ===== */
 .content {
   position: relative;
-  background: #F4F6F8;
-  border-radius: 28rpx 28rpx 0 0;
-  margin-top: 0;
-  padding: 8rpx 0 0;
+  background: transparent;
+  border-radius: 0;
+  margin-top: 8rpx;
+  padding: 0;
   box-shadow: none;
 }
 
@@ -627,12 +634,23 @@ onPullDownRefresh(function () {
   content: '';
   position: absolute;
   left: 32rpx;
-  top: 16rpx;
+  top: 88rpx;
   bottom: 16rpx;
   width: 2rpx;
   background: #0A66C2;
   opacity: 0.35;
 }
+
+/* 标题行：赛事信息 + 状态 pill（对齐培训详情页 course-info-head） */
+.info-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
+  padding: 6rpx 0 10rpx;
+}
+.info-head-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
+.info-head-status { flex-shrink: 0; padding: 5rpx 14rpx; border-radius: 999rpx; font-size: 20rpx; font-weight: 650; background: #EEF1F4; color: #5D6B82; }
 
 .tl-item {
   display: flex;
@@ -690,8 +708,6 @@ onPullDownRefresh(function () {
   color: #17212B;
   line-height: 1.3;
   margin-bottom: 14rpx;
-  padding-left: 16rpx;
-  border-left: 6rpx solid #0A66C2;
 }
 
 /* 简介 */
@@ -717,17 +733,25 @@ onPullDownRefresh(function () {
 .req-item:last-child { border-bottom: none; }
 
 .req-icon {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 16rpx;
-  background: #0A66C2;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, #0A66C2, #2889DD);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(10, 102, 194, 0.22);
 }
-
-.req-icon-text { font-size: 26rpx; color: #ffffff; font-weight: 600; }
+.req-icon::before {
+  content: '';
+  width: 26rpx;
+  height: 26rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
 
 .req-body { flex: 1; }
 .req-name { font-size: 26rpx; font-weight: 600; color: #17212B; display: block; margin-bottom: 4rpx; }
@@ -762,11 +786,14 @@ onPullDownRefresh(function () {
   padding: 24rpx;
 }
 
+/* 热门项（首项）：淡橙强调，突出推荐 */
+.event-item--hot { border-color: #F5D3B3; background: linear-gradient(180deg, #FFF7EF 0%, #ffffff 100%); }
+
 .event-info { min-width: 0; }
 .event-name-row { display: flex; align-items: center; gap: 10rpx; }
 .event-name { font-size: 28rpx; font-weight: 600; color: #17212B; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .event-meta { font-size: 22rpx; color: #667085; margin-top: 4rpx; display: block; }
-.event-price { font-size: 32rpx; font-weight: 700; color: #C2410C; flex-shrink: 0; }
+.event-price { font-size: 32rpx; font-weight: 700; color: #E96012; flex-shrink: 0; }
 .event-price--pending { font-size: 22rpx; font-weight: 500; color: #98A2B3; }
 
 .event-empty {
@@ -791,7 +818,7 @@ onPullDownRefresh(function () {
 .prize-card {
   flex: 1;
   padding: 24rpx 12rpx;
-  border-radius: 20rpx;
+  border-radius: 16px;
   text-align: center;
   border: 1rpx solid #EEF1F4;
   background: #fff;
@@ -810,9 +837,15 @@ onPullDownRefresh(function () {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #fff;
+}
+.prize-medal::before {
+  content: '';
+  width: 30rpx;
+  height: 30rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 4h10v5a5 5 0 0 1-10 0z'/%3E%3Cpath d='M7 5H4a2.5 2.5 0 0 0 0 5h3M17 5h3a2.5 2.5 0 0 1 0 5h-3'/%3E%3Cpath d='M12 14v3M8.5 17h7M8.5 20h7'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 .prize-card--gold .prize-medal { background: #92400E; }
@@ -834,31 +867,39 @@ onPullDownRefresh(function () {
 }
 
 .org-avatar {
-  width: 96rpx;
-  height: 96rpx;
-  background: #0A66C2;
-  border-radius: 24rpx;
+  width: 88rpx;
+  height: 88rpx;
+  background: linear-gradient(135deg, #0A66C2, #2889DD);
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  font-size: 40rpx;
-  font-weight: 600;
   flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(10, 102, 194, 0.22);
+}
+.org-avatar::before {
+  content: '';
+  width: 40rpx;
+  height: 40rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 21h18M5 21V8l7-4 7 4v13M9 21v-4h6v4'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 .org-info { flex: 1; min-width: 0; }
 .org-name { font-size: 28rpx; font-weight: 600; color: #17212B; display: block; margin-bottom: 4rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .org-sub { font-size: 22rpx; color: #98A2B3; }
 
-/* ===== 底部 CTA（对齐培训详情页：毛白底 + 大价格 + 大按钮 76rpx 高） ===== */
+/* ===== 底部 CTA（对齐培训详情页：毛白底 + 上投影 + 大价格 + 大按钮 76rpx 高） ===== */
 .bottom-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   background: rgba(255, 255, 255, 0.96);
-  border-top: 1rpx solid #EEF1F4;
+  border-top: 1rpx solid #E8EDF3;
+  box-shadow: 0 -6rpx 18rpx rgba(16, 24, 40, 0.06);
   padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
   display: flex;
   justify-content: space-between;
@@ -890,19 +931,19 @@ onPullDownRefresh(function () {
 .btn-primary {
   height: 76rpx;
   padding: 0 40rpx;
-  border-radius: 10rpx;
-  background: #F97316;
+  border-radius: 12rpx;
+  background: #0A66C2;
   color: #ffffff;
   font-size: 28rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4rpx 10rpx rgba(249, 115, 22, 0.32);
+  box-shadow: 0 4rpx 10rpx rgba(10, 102, 194, 0.28);
   transition: transform 300ms var(--ease), opacity .15s ease;
 }
 
-.btn-primary:active { background: #E96012; }
+.btn-primary:active { background: #0759AA; }
 
 .btn-primary.disabled {
   background: #C9CDD4;
@@ -920,7 +961,7 @@ onPullDownRefresh(function () {
 .press-feedback { transform: scale(0.98); opacity: 0.92; }
 
 /* ===== 减弱动效（无障碍）：装饰动画全关，保留淡入 ===== */
-.page.no-motion .hero-content,
+.page.no-motion .hero-bottom,
 .page.no-motion .card,
 .page.no-motion .section-block { animation: none; }
 </style>

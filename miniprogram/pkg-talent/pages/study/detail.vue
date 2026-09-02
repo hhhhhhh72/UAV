@@ -1,37 +1,33 @@
 <template>
   <view class="study-detail-page" v-if="tour">
-    <!-- ═══ 一、Hero 区：有真实图用图，无图兜底蓝色渐变 ═══ -->
-    <view class="hero">
-      <!-- 真实封面图（有则显示，作为背景） -->
-      <image v-if="tour.cover_image" :src="tour.cover_image" mode="aspectFill" class="hero-bg" />
-      <!-- 无图兜底：本地封面图 -->
-      <image v-else src="/static/images/study/cover-1.jpg" mode="aspectFill" class="hero-bg" />
-      <view class="hero-mask-top" />
-      <view class="hero-mask-bottom" />
+    <!-- ═══ 顶部导航（对齐课程详情：独立导航条，白圆钮返回 + 居中标题） ═══ -->
+    <view class="detail-nav" :style="{ paddingTop: statusBarH + 'px' }">
+      <view class="detail-nav-back" hover-class="detail-nav-back--press" :hover-stay-time="120" aria-role="button" aria-label="返回" @click="goBack">
+        <text>‹</text>
+      </view>
+      <text class="detail-nav-title">研学详情</text>
+      <view class="detail-nav-balance" />
+    </view>
 
-      <!-- 返回按钮 -->
-      <view class="back-btn" :style="backStyle" hover-class="back-btn-hover" :hover-stay-time="120" @tap="goBack">
-        <text class="back-icon">‹</text>
+    <!-- ═══ 一、Hero（对齐课程详情：内嵌圆角卡片，封面 + 蒙层 + 状态徽章 + 信息贴底） ═══ -->
+    <view class="hero">
+      <image v-if="tour.cover_image" :src="tour.cover_image" mode="aspectFill" class="hero-img" lazy-load />
+      <view v-else class="hero-fallback">
+        <image src="/static/images/study/cover-1.jpg" mode="aspectFill" class="hero-fallback-img" />
       </view>
 
-      <!-- 状态徽章（标题区顶部，流式贴底不与返回栏重叠） -->
-      <view class="hero-title-wrap">
-        <view class="status-pill" :style="statusPillStyle">{{ statusLabel[tour.status] || '招募中' }}</view>
+      <view class="hero-mask" />
 
-        <!-- 主标题 -->
+      <!-- 状态徽章（对齐课程：白底胶囊 + 彩色文字） -->
+      <view class="status-pill" :style="statusPillStyle">{{ statusLabel[tour.status] || '招募中' }}</view>
+
+      <!-- Hero 底部信息（对齐课程：标题 + 主题 + 周期 meta 行） -->
+      <view class="hero-bottom">
         <text class="hero-title">{{ tour.title || '研学活动' }}</text>
-        <!-- 主题胶囊（左下角白底） -->
-        <view class="theme-pill" :style="{ color: themeInfo.color, background: themeInfo.bg }">{{ themeInfo.label }}</view>
-        <!-- 信息行 -->
-        <view class="hero-meta">
-          <view class="meta-item">
-            <text class="meta-ico">日</text>
-            <text class="meta-text">{{ dateRange }}</text>
-          </view>
-          <view class="meta-item">
-            <text class="meta-ico">点</text>
-            <text class="meta-text">{{ locationText }}</text>
-          </view>
+        <text class="hero-org">{{ themeInfo.label }}</text>
+        <view class="hero-meta-row">
+          <view class="meta-ico meta-ico--cal"><view class="cal-top" /><view class="cal-body"><view class="cal-line l1" /><view class="cal-line l2" /><view class="cal-line l3" /></view></view>
+          <text class="hero-meta-text">{{ dateRange }}</text>
         </view>
       </view>
     </view>
@@ -39,28 +35,31 @@
     <view class="content" v-if="contentReady">
       <!-- ═══ 二、活动信息卡（四列 + 报名状态提示）═══ -->
       <view class="section-card card-float">
-        <view class="section-title"><view class="title-bar" />活动信息</view>
+        <view class="info-head">
+          <text class="section-title">活动信息</text>
+          <text class="info-status-pill" :style="statusPillStyle">{{ statusLabel[tour.status] || '招募中' }}</text>
+        </view>
         <view class="info-grid">
           <view class="info-cell">
-            <view class="info-icon info-icon-purple"><view class="icon-clock" /></view>
+            <view class="info-tile info-tile--purple"><view class="info-ico info-ico--clock" /></view>
             <text class="info-num">{{ tour.duration || '-' }}</text>
             <text class="info-label">研学时长</text>
           </view>
           <view class="info-divider" />
           <view class="info-cell">
-            <view class="info-icon info-icon-green"><view class="icon-users" /></view>
+            <view class="info-tile info-tile--green"><view class="info-ico info-ico--users" /></view>
             <text class="info-num info-num-green">{{ capacityText }}</text>
             <text class="info-label">招募名额</text>
           </view>
           <view class="info-divider" />
           <view class="info-cell">
-            <view class="info-icon info-icon-orange"><view class="icon-loc" /></view>
+            <view class="info-tile info-tile--orange"><view class="info-ico info-ico--loc" /></view>
             <text class="info-num">{{ shortLoc }}</text>
             <text class="info-label">研学地点</text>
           </view>
           <view class="info-divider" />
           <view class="info-cell">
-            <view class="info-icon info-icon-gold"><text v-if="priceNum !== '面议'" class="icon-rmb">¥</text></view>
+            <view class="info-tile info-tile--gold"><view class="info-ico info-ico--rmb" /></view>
             <text class="info-num info-num-price">{{ priceNum }}</text>
             <text class="info-label">{{ priceNum !== '面议' ? '/人' : '' }}</text>
           </view>
@@ -74,14 +73,13 @@
 
       <!-- ═══ 三、研学介绍卡 ═══ -->
       <view class="section-card" v-if="tour.description">
-        <view class="section-title"><view class="title-bar" />研学介绍</view>
-        <rich-text v-if="(tour.description || '').indexOf('<') >= 0" class="section-text" :nodes="tour.description"></rich-text>
-        <text v-else class="section-text">{{ tour.description }}</text>
+        <text class="section-title">研学介绍</text>
+        <text class="section-text">{{ tour.description }}</text>
       </view>
 
       <!-- ═══ 四、行程安排卡 ═══ -->
       <view class="section-card" v-if="schedule.length > 0">
-        <view class="section-title"><view class="title-bar" />行程安排</view>
+        <text class="section-title">行程安排</text>
         <view class="timeline">
           <view class="tl-item" v-for="(d, i) in schedule" :key="i">
             <view class="tl-node" :style="{ background: nodeColors[i % nodeColors.length] }" />
@@ -96,14 +94,20 @@
 
       <!-- ═══ 五、活动时间卡 ═══ -->
       <view class="section-card">
-        <view class="section-title"><view class="title-bar" />活动时间</view>
+        <text class="section-title">活动时间</text>
         <view class="time-block">
           <view class="time-item">
-            <text class="time-label">开始</text>
+            <view class="time-row-label">
+              <view class="time-ico time-ico--start" />
+              <text class="time-label">开始</text>
+            </view>
             <text class="time-value">{{ fullDate(tour.start_date) }}</text>
           </view>
           <view class="time-item">
-            <text class="time-label">结束</text>
+            <view class="time-row-label">
+              <view class="time-ico time-ico--end" />
+              <text class="time-label">结束</text>
+            </view>
             <text class="time-value">{{ fullDate(tour.end_date) }}</text>
           </view>
         </view>
@@ -111,7 +115,7 @@
 
       <!-- ═══ 六、费用说明卡 ═══ -->
       <view class="section-card">
-        <view class="section-title"><view class="title-bar" />费用说明</view>
+        <text class="section-title">费用说明</text>
         <view class="fee-section">
           <text class="fee-subtitle">费用包含</text>
           <view class="fee-row" v-for="(f, i) in feeInclude" :key="'in'+i">
@@ -130,7 +134,7 @@
 
       <!-- ═══ 七、温馨提示卡 ═══ -->
       <view class="section-card">
-        <view class="section-title"><view class="title-bar" />温馨提示</view>
+        <text class="section-title">温馨提示</text>
         <view class="tips-box">
           <view class="tip-row" v-for="(t, i) in tips" :key="i">
             <text class="tip-index">{{ i + 1 }}</text>
@@ -145,16 +149,12 @@
       <view class="skeleton-block" />
     </view>
 
-    <!-- ═══ 八、底部 CTA 栏（蓝色）═══ -->
+    <!-- ═══ 八、底部 CTA（分享 + 立即报名，平分） ═══ -->
     <view class="action-bar">
-      <view class="price-area">
-        <text class="price-label">研学费用</text>
-        <view class="price-row">
-          <text v-if="priceNum !== '面议'" class="price-symbol">¥</text>
-          <text class="price-num">{{ priceNum }}</text>
-          <text v-if="priceNum !== '面议'" class="price-unit">/人</text>
-        </view>
-      </view>
+      <button class="share-btn" open-type="share" hover-class="share-btn--hover" :hover-stay-time="120">
+        <view class="share-ico" />
+        <text class="share-btn-text">分享</text>
+      </button>
       <button class="apply-btn" :disabled="!recruiting" @tap="onApply">{{ recruiting ? '立即报名' : (statusLabel[tour.status] || '未开放报名') }}</button>
     </view>
   </view>
@@ -163,7 +163,7 @@
 <script setup>
 import { safeBack } from '../../../utils/nav'
 import { ref, computed } from 'vue'
-import { onLoad, onReady } from '@dcloudio/uni-app'
+import { onLoad, onReady, onShareAppMessage } from '@dcloudio/uni-app'
 import { request } from '../../../utils/request'
 
 const contentReady = ref(false)
@@ -173,14 +173,14 @@ const goBack = () => safeBack()
 // 自定义导航：返回按钮下沉到状态栏下方（JS 方式）
 const statusBarH = ref(20)
 try { statusBarH.value = uni.getSystemInfoSync().statusBarHeight || 20 } catch (e) { /* 默认 20 */ }
-const backStyle = computed(() => ({ top: (38 + statusBarH.value) + 'px' })) // 原 76rpx = 38px
 
 const statusLabel = { active: '招募中', draft: '即将开始', closed: '已结束' }
+/* 状态徽章（对齐课程详情：浅底胶囊 + 彩色文字） */
 const statusPillStyle = computed(() => {
   const s = (tour.value && tour.value.status) || 'active'
-  if (s === 'closed') return { background: 'rgba(255,255,255,0.2)', color: '#fff' }
-  if (s === 'draft') return { background: 'rgba(239,68,68,0.9)', color: '#fff' }
-  return { background: '#FF8E3C', color: '#fff' }
+  if (s === 'closed') return { background: '#EEF1F4', color: '#5D6B82' }
+  if (s === 'draft') return { background: '#FFF3E4', color: '#E96012' }
+  return { background: '#E9F7F0', color: '#0B6B41' }
 })
 
 // ── 主题推断（与列表页一致）──
@@ -264,7 +264,7 @@ const priceNum = computed(() => {
 })
 
 // ── 行程安排（后端 schedule 字段，数组或 JSON 字符串都容错；缺失则隐藏行程区块）──
-const nodeColors = ['#1E5EFF', '#8B5CF6', '#00C896', '#FF8E3C']
+const nodeColors = ['#0A66C2', '#7C3AED', '#0B6B41', '#E96012']
 const schedule = computed(() => {
   const t = tour.value
   if (!t || t.schedule == null) return []
@@ -381,198 +381,200 @@ const showMissing = () => {
 onReady(() => {
   setTimeout(() => { contentReady.value = true }, 150)
 })
+
+/* 分享（底部"分享"按钮 / 右上角菜单） */
+onShareAppMessage(() => {
+  const t = tour.value || {}
+  return {
+    title: '研学活动：' + (t.title || '低空研学'),
+    path: '/pkg-talent/pages/study/detail?id=' + encodeURIComponent(t.id || ''),
+  }
+})
 </script>
 
 <style scoped>
 .study-detail-page {
   min-height: 100vh;
-  background: #F4F6F8;
+  background: #F5F8FC;
   padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
 }
 
-/* ═══ 一、Hero（蓝色系）═══ */
+/* ═══ 顶部导航（对齐课程详情：白圆钮返回 + 居中标题） ═══ */
+.detail-nav {
+  position: relative;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 24rpx;
+  padding-right: 24rpx;
+  box-sizing: content-box;
+  background: #F5F8FC;
+}
+.detail-nav-back {
+  width: 60rpx;
+  height: 60rpx;
+  flex: 0 0 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 6rpx 16rpx rgba(31, 89, 169, 0.13);
+}
+.detail-nav-back--press { transform: scale(0.94); opacity: 0.86; }
+.detail-nav-back text { margin-top: -4rpx; color: #1A3353; font-size: 42rpx; line-height: 1; }
+.detail-nav-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 56%;
+  display: block;
+  color: #17212B;
+  font-size: 34rpx;
+  font-weight: 700;
+  text-align: center;
+  line-height: 88rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.detail-nav-balance { width: 60rpx; height: 60rpx; flex: 0 0 60rpx; }
+
+/* ═══ 一、Hero（对齐课程详情：内嵌圆角卡片） ═══ */
 .hero {
   position: relative;
-  height: 600rpx;
+  width: auto;
+  height: 348rpx;
+  margin: 0 24rpx;
+  border-radius: 24rpx;
   overflow: hidden;
-  background: linear-gradient(135deg, #0A1F44 0%, #1E5EFF 100%);
+  background: linear-gradient(145deg, #163C66 0%, #0A66C2 100%);
+  box-shadow: 0 14rpx 34rpx rgba(31, 89, 169, 0.2);
 }
-.hero-bg {
+.hero-img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
 }
-.hero-grid {
+.hero-fallback { position: absolute; inset: 0; }
+.hero-fallback-img { width: 100%; height: 100%; }
+.hero-mask {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.08) 2rpx, transparent 2rpx);
-  background-size: 40rpx 40rpx;
+  background: linear-gradient(180deg, rgba(4, 30, 68, 0.08) 0%, rgba(4, 30, 68, 0.05) 34%, rgba(4, 30, 68, 0.8) 100%);
+  pointer-events: none;
 }
-.hero-radar {
-  position: absolute;
-  top: 60rpx;
-  right: -60rpx;
-  width: 320rpx;
-  height: 320rpx;
-  border-radius: 50%;
-  border: 1rpx solid rgba(255,255,255,0.12);
-}
-.hero-radar::after {
-  content: '';
+
+/* 状态徽章（白底胶囊 + 彩色文字，颜色由 statusPillStyle 内联控制） */
+.status-pill {
   position: absolute;
   top: 18rpx;
   left: 18rpx;
-  right: 18rpx;
-  bottom: 18rpx;
-  border-radius: 50%;
-  border: 1rpx solid rgba(255,255,255,0.08);
-}
-.hero-mask-top {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 80rpx;
-  background: linear-gradient(180deg, rgba(10,31,68,0.55), transparent);
-}
-.hero-mask-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 300rpx;
-  background: linear-gradient(180deg, transparent, rgba(10,31,68,0.85));
+  padding: 7rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: none;
+  z-index: 4;
+  font-size: 20rpx;
+  font-weight: 650;
+  color: #0A66C2;
 }
 
-/* 返回按钮 */
-.back-btn {
+/* Hero 底部信息（标题 + 主题 + 周期 meta 行） */
+.hero-bottom {
   position: absolute;
   left: 24rpx;
-  z-index: 5;
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.15);
-  border: 1rpx solid rgba(255,255,255,0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-.back-btn-hover { background: rgba(255,255,255,0.3); }
-.back-icon {
-  font-size: 44rpx;
-  color: #fff;
-  font-weight: 300;
-  line-height: 1;
-}
-
-/* 状态徽章（标题区顶部流式，随 Hero 内容贴底，不与返回按钮重叠） */
-.status-pill {
-  position: relative;
-  align-self: flex-start;
-  z-index: 5;
-  padding: 6rpx 18rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  font-weight: 700;
-}
-
-/* 标题区（贴底：避开内容卡 -40rpx 上浮，底部留 88rpx 空间） */
-.hero-title-wrap {
-  position: absolute;
-  left: 32rpx;
-  right: 32rpx;
-  bottom: 88rpx;
-  z-index: 4;
+  right: 24rpx;
+  bottom: 24rpx;
+  z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
+  gap: 6rpx;
 }
 .hero-title {
-  font-size: 44rpx;
+  font-size: 36rpx;
   font-weight: 700;
   color: #ffffff;
-  text-shadow: 0 2rpx 8rpx rgba(0,0,0,0.25);
-  line-height: 1.3;
+  line-height: 1.35;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.32);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.theme-pill {
-  display: inline-block;
-  align-self: flex-start;
-  padding: 4rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 20rpx;
-  font-weight: 600;
-}
-.hero-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-  margin-top: 4rpx;
-}
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-}
-.meta-ico {
-  width: 28rpx;
-  height: 28rpx;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.18);
-  font-size: 20rpx;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.meta-text {
+.hero-org {
+  display: block;
   font-size: 24rpx;
-  color: rgba(255,255,255,0.85);
+  color: rgba(255, 255, 255, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.hero-meta-row { display: flex; align-items: center; gap: 8rpx; }
+.hero-meta-text { font-size: 22rpx; color: rgba(255, 255, 255, 0.85); }
+.meta-ico { width: 26rpx; height: 26rpx; flex-shrink: 0; position: relative; }
+.meta-ico--cal { border: 2rpx solid rgba(255, 255, 255, 0.9); border-radius: 4rpx; box-sizing: border-box; }
+.meta-ico--cal::before, .meta-ico--cal::after { content: ''; position: absolute; top: 4rpx; width: 2rpx; height: 5rpx; background: rgba(255, 255, 255, 0.9); }
+.meta-ico--cal::before { left: 6rpx; }
+.meta-ico--cal::after { right: 6rpx; }
+.meta-ico--cal .cal-top { position: absolute; left: 3rpx; right: 3rpx; top: 8rpx; height: 2rpx; background: rgba(255, 255, 255, 0.9); }
+.meta-ico--cal .cal-line { position: absolute; left: 5rpx; right: 5rpx; height: 2rpx; background: rgba(255, 255, 255, 0.9); opacity: 0.6; }
+.meta-ico--cal .cal-line.l1 { top: 14rpx; }
+.meta-ico--cal .cal-line.l2 { top: 18rpx; }
+.meta-ico--cal .cal-line.l3 { top: 22rpx; }
 
-/* ═══ 内容区 ═══ */
+/* ═══ 内容区（直接在页面底色排布，卡片语言对齐课程） ═══ */
 .content {
   position: relative;
-  margin-top: -40rpx;
+  margin-top: 20rpx;
   z-index: 2;
 }
 .section-card {
   background: #ffffff;
-  margin: 16rpx 20rpx;
+  margin: 0 24rpx 20rpx;
   padding: 24rpx;
-  border-radius: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(10, 31, 68, 0.06);
+  border-radius: 16px;
+  border: 1rpx solid #E8EDF3;
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
   animation: cardIn 0.4s ease both;
 }
-/* 卡片依次入场（stagger 60ms） */
-.section-card:nth-child(1) { animation-delay: 0.1s; }
-.section-card:nth-child(2) { animation-delay: 0.16s; }
-.section-card:nth-child(3) { animation-delay: 0.22s; }
-.section-card:nth-child(4) { animation-delay: 0.28s; }
-.section-card:nth-child(5) { animation-delay: 0.34s; }
-.section-card:nth-child(6) { animation-delay: 0.4s; }
-.section-card:nth-child(7) { animation-delay: 0.46s; }
-.card-float {
-  margin-top: 0;
-  border-radius: 16rpx 16rpx 8rpx 8rpx;
-}
-.section-title {
+/* 卡片依次入场（stagger） */
+.section-card:nth-child(1) { animation-delay: 0.08s; }
+.section-card:nth-child(2) { animation-delay: 0.14s; }
+.section-card:nth-child(3) { animation-delay: 0.2s; }
+.section-card:nth-child(4) { animation-delay: 0.26s; }
+.section-card:nth-child(5) { animation-delay: 0.32s; }
+.section-card:nth-child(6) { animation-delay: 0.38s; }
+.card-float { margin-top: 0; }
+
+/* 卡片头部：标题 + 状态 pill（对齐课程信息卡） */
+.info-head {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  justify-content: space-between;
+  gap: 14rpx;
+  margin-bottom: 18rpx;
+}
+.info-head .section-title { margin-bottom: 0; }
+.info-status-pill {
+  flex-shrink: 0;
+  padding: 5rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 650;
+  background: #EEF1F4;
+  color: #5D6B82;
+}
+
+.section-title {
+  display: block;
   font-size: 30rpx;
   font-weight: 700;
-  color: #0A1F44;
-  margin-bottom: 20rpx;
-}
-.title-bar {
-  width: 6rpx;
-  height: 28rpx;
-  border-radius: 3rpx;
-  background: linear-gradient(180deg, #1E5EFF, #0A66C2);
+  color: #17212B;
+  line-height: 1.3;
+  margin-bottom: 16rpx;
 }
 
 /* ═══ 二、活动信息 ═══ */
@@ -583,33 +585,38 @@ onReady(() => {
   padding: 8rpx 0;
 }
 .info-cell { flex: 1; }
-.info-icon {
-  width: 44rpx;
-  height: 44rpx;
-  border-radius: 50%;
+.info-tile {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 16rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 10rpx;
 }
-.info-icon-purple { background: #F3E8FF; }
-.info-icon-green { background: #D1FAE5; }
-.info-icon-orange { background: #FED7AA; }
-.info-icon-gold { background: #FEF3C7; }
+.info-tile--purple { background: #F3F0FF; }
+.info-tile--green { background: #E9F7F0; }
+.info-tile--orange { background: #FFF0E6; }
+.info-tile--gold { background: #FEF6E7; }
+.info-ico { width: 30rpx; height: 30rpx; background-size: contain; background-repeat: no-repeat; background-position: center; }
+.info-ico--clock { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C3AED' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3.5 2'/%3E%3C/svg%3E"); }
+.info-ico--users { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230B6B41' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='3.5'/%3E%3Cpath d='M3 20a6 6 0 0 1 12 0'/%3E%3Ccircle cx='17' cy='9' r='2.5'/%3E%3Cpath d='M14.5 20a5.5 5.5 0 0 1 6-5.4'/%3E%3C/svg%3E"); }
+.info-ico--loc { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E96012' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z'/%3E%3Ccircle cx='12' cy='10' r='2.5'/%3E%3C/svg%3E"); }
+.info-ico--rmb { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23D97706' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v16M7 8l5 4 5-4M7 13h10M7 16h10'/%3E%3C/svg%3E"); }
 .info-num {
   font-size: 30rpx;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
   display: block;
   animation: numPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.info-num-green { color: #00C896; }
-.info-num-price { color: #FF8E3C; }
-.info-label { font-size: 20rpx; color: #6B7B95; margin-top: 4rpx; display: block; }
+.info-num-green { color: #0B6B41; }
+.info-num-price { color: #E96012; }
+.info-label { font-size: 20rpx; color: #7A8798; margin-top: 4rpx; display: block; }
 .info-divider {
   width: 1rpx;
   height: 56rpx;
-  background: linear-gradient(180deg, rgba(30,94,255,0), rgba(30,94,255,0.12) 50%, rgba(30,94,255,0));
+  background: linear-gradient(180deg, rgba(10, 102, 194, 0), rgba(10, 102, 194, 0.12) 50%, rgba(10, 102, 194, 0));
 }
 
 /* ═══ 三、研学介绍 ═══ */
@@ -655,7 +662,7 @@ onReady(() => {
   top: 26rpx;
   bottom: 0;
   width: 2rpx;
-  background: linear-gradient(180deg, #1E5EFF, #00E5FF);
+  background: linear-gradient(180deg, #0A66C2, #00E0FF);
   opacity: 0.3;
 }
 .tl-content {
@@ -667,19 +674,19 @@ onReady(() => {
 .tl-day {
   font-size: 28rpx;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
 }
 .tl-text {
   font-size: 24rpx;
-  color: #6B7B95;
+  color: #667085;
   line-height: 1.6;
 }
 
 /* ═══ 五、活动时间 ═══ */
 .time-block { display: flex; flex-direction: column; gap: 16rpx; }
 .time-item { display: flex; align-items: center; justify-content: space-between; }
-.time-label { font-size: 26rpx; color: #6B7B95; }
-.time-value { font-size: 26rpx; font-weight: 600; color: #0A1F44; }
+.time-label { font-size: 26rpx; color: #7A8798; }
+.time-value { font-size: 26rpx; font-weight: 600; color: #17212B; }
 .deadline-pill {
   margin-top: 16rpx;
   display: inline-flex;
@@ -687,9 +694,9 @@ onReady(() => {
   gap: 8rpx;
   padding: 8rpx 18rpx;
   border-radius: 999rpx;
-  background: #FEE2E2;
+  background: #FDECEC;
   font-size: 22rpx;
-  color: #EF4444;
+  color: #D92D20;
   font-weight: 600;
 }
 .deadline-clock {
@@ -726,12 +733,12 @@ onReady(() => {
 .fee-exclude {
   margin-top: 8rpx;
   padding-top: 16rpx;
-  border-top: 1rpx solid #E8EEF7;
+  border-top: 1rpx solid #E8EDF3;
 }
 .fee-subtitle {
   font-size: 26rpx;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
   margin-bottom: 14rpx;
   display: block;
 }
@@ -748,7 +755,7 @@ onReady(() => {
   flex-shrink: 0;
 }
 .fee-mark-ok {
-  background: #00C896;
+  background: #0B6B41;
   position: relative;
 }
 .fee-mark-ok::after {
@@ -778,13 +785,13 @@ onReady(() => {
 }
 .fee-mark-no::before { transform: rotate(45deg); }
 .fee-mark-no::after { transform: rotate(-45deg); }
-.fee-text { font-size: 24rpx; color: #2C3E50; }
-.fee-text-muted { color: #ADB8C7; }
+.fee-text { font-size: 24rpx; color: #344054; }
+.fee-text-muted { color: #98A2B3; }
 
 /* ═══ 七、温馨提示 ═══ */
 .tips-box {
-  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
-  border-radius: 12rpx;
+  background: linear-gradient(135deg, #FFF9EC, #FFF3DD);
+  border-radius: 12px;
   padding: 20rpx;
 }
 .tip-row {
@@ -814,7 +821,7 @@ onReady(() => {
   flex: 1;
 }
 
-/* ═══ 八、底部 CTA（对齐培训详情页：毛白底 + 橙色大按钮 + 44rpx 价格） ═══ */
+/* ═══ 八、底部 CTA（对齐课程详情：毛白底 + 上投影 + 橙价 + 蓝按钮） ═══ */
 .action-bar {
   position: fixed;
   bottom: 0;
@@ -826,37 +833,50 @@ onReady(() => {
   gap: 20rpx;
   padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.96);
-  border-top: 1rpx solid #EEF1F4;
-  box-shadow: 0 -2rpx 8rpx rgba(0,0,0,0.04);
+  border-top: 1rpx solid #E8EDF3;
+  box-shadow: 0 -6rpx 18rpx rgba(16, 24, 40, 0.06);
 }
-.price-area { flex-shrink: 0; }
-.price-label {
-  font-size: 20rpx;
-  color: #667085;
-  display: block;
-}
-.price-row {
+.share-btn {
+  flex: 1;
+  height: 76rpx;
+  border-radius: 12px;
+  border: 2rpx solid #A6C9EE;
+  background: #fff;
+  color: #0A66C2;
+  font-size: 28rpx;
+  font-weight: 700;
   display: flex;
-  align-items: baseline;
-  gap: 4rpx;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 0;
+  box-sizing: border-box;
 }
-.price-symbol { font-size: 22rpx; color: #E96012; font-weight: 700; }
-.price-num { font-size: 44rpx; color: #E96012; font-weight: 700; line-height: 1; }
-.price-unit { font-size: 20rpx; color: #667085; }
+.share-btn::after { border: none; }
+.share-btn--hover { background: #EAF3FB; }
+.share-ico {
+  width: 30rpx;
+  height: 30rpx;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230A66C2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7'/%3E%3Cpath d='M12 15V3M8 7l4-4 4 4'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.share-btn-text { color: #0A66C2; }
 .apply-btn {
   flex: 1;
   height: 76rpx;
   line-height: 76rpx;
-  border-radius: 10rpx;
+  border-radius: 12px;
   font-weight: 700;
   font-size: 28rpx;
   color: #fff;
-  background: #F97316;
+  background: #0A66C2;
   border: none;
   padding: 0;
-  box-shadow: 0 4rpx 10rpx rgba(249, 115, 22, 0.32);
+  box-shadow: 0 4rpx 10rpx rgba(10, 102, 194, 0.28);
 }
-.apply-btn:active { background: #E96012; }
+.apply-btn:active { background: #0759AA; }
 .apply-btn[disabled] {
   background: #C9CDD4 !important;
   box-shadow: none;
@@ -866,58 +886,17 @@ onReady(() => {
 .skeleton-wrap { padding: 20px; }
 .skeleton-block {
   height: 120px;
-  background: #eee;
+  background: #EDF0F3;
   border-radius: 8px;
   margin-bottom: 16px;
   animation: blink 1.5s infinite;
 }
 
-/* ═══ CSS 图标 ═══ */
-.icon-clock {
-  width: 20rpx;
-  height: 20rpx;
-  border-radius: 50%;
-  border: 4rpx solid #8B5CF6;
-  position: relative;
-}
-.icon-clock::before {
-  content: '';
-  position: absolute;
-  left: 7rpx;
-  top: -2rpx;
-  width: 4rpx;
-  height: 10rpx;
-  background: #8B5CF6;
-}
-.icon-clock::after {
-  content: '';
-  position: absolute;
-  left: 2rpx;
-  top: 7rpx;
-  width: 10rpx;
-  height: 4rpx;
-  background: #8B5CF6;
-}
-.icon-users {
-  width: 24rpx;
-  height: 16rpx;
-  border: 4rpx solid #00C896;
-  border-radius: 50% 50% 4rpx 4rpx;
-  margin-top: -6rpx;
-}
-.icon-loc {
-  width: 14rpx;
-  height: 20rpx;
-  border: 4rpx solid #FF8E3C;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  margin-top: 4rpx;
-}
-.icon-rmb {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #F59E0B;
-}
+/* ═══ 时间行图标 ═══ */
+.time-row-label { display: flex; align-items: center; gap: 10rpx; }
+.time-ico { width: 26rpx; height: 26rpx; flex-shrink: 0; background-size: contain; background-repeat: no-repeat; background-position: center; }
+.time-ico--start { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230A66C2' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M8 3v4M16 3v4M3 10h18'/%3E%3C/svg%3E"); }
+.time-ico--end { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230A66C2' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M8 3v4M16 3v4M3 10h18'/%3E%3Cpath d='M9 16l2 2 4-4'/%3E%3C/svg%3E"); }
 
 /* ═══ 微动效 ═══ */
 @keyframes cardIn {

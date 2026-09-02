@@ -301,13 +301,13 @@ onPageScroll((e) => {
 
 <style>
 page {
-  background: #fff;
+  background: #F5F8FC;
 }
 </style>
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #fff;
+  background: #F5F8FC;
   padding-bottom: 40px;
 }
 

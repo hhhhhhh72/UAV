@@ -154,25 +154,38 @@ onLoad((options) => {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #F4F6F8;
+  background: #F5F8FC;
   padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 .summary {
+  position: relative;
   margin: 20rpx 28rpx;
   background: #fff;
-  border-radius: 20rpx;
-  padding: 28rpx;
-  box-shadow: 0 4rpx 16rpx rgba(16, 24, 40, 0.06);
+  border: 1rpx solid #E8EDF3;
+  border-radius: 16px;
+  padding: 28rpx 28rpx 28rpx 32rpx;
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
+  overflow: hidden;
+}
+.summary::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6rpx;
+  background: linear-gradient(180deg, #0A66C2, rgba(10, 102, 194, 0.4));
 }
 .sum-title { display: block; font-size: 34rpx; font-weight: 700; color: #17212B; }
 .sum-meta { display: flex; flex-wrap: wrap; gap: 24rpx; margin-top: 14rpx; font-size: 26rpx; color: #667085; }
 .form-card {
   margin: 0 28rpx;
   background: #fff;
-  border-radius: 20rpx;
+  border: 1rpx solid #E8EDF3;
+  border-radius: 16px;
   padding: 8rpx 28rpx 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(16, 24, 40, 0.06);
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
 }
 .form-group { padding-top: 24rpx; }
 .form-row { display: flex; gap: 24rpx; }
@@ -228,7 +241,7 @@ onLoad((options) => {
 }
 .btn-primary {
   height: 92rpx;
-  border-radius: 999rpx;
+  border-radius: 12px;
   background: #0A66C2;
   color: #fff;
   font-size: 30rpx;
@@ -272,7 +285,7 @@ onLoad((options) => {
   margin-top: 60rpx;
   width: 100%;
   height: 92rpx;
-  border-radius: 999rpx;
+  border-radius: 12px;
   background: #0A66C2;
   color: #fff;
   font-size: 30rpx;
@@ -285,7 +298,7 @@ onLoad((options) => {
   margin-top: 20rpx;
   width: 100%;
   height: 88rpx;
-  border-radius: 999rpx;
+  border-radius: 12px;
   border: 2rpx solid #C6CFDA;
   background: #fff;
   color: #344054;

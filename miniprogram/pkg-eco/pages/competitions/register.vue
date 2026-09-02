@@ -192,8 +192,8 @@
       </view>
     </view>
 
-    <!-- 参赛项目选择弹层（picker-view，外壳对齐 pub-sheet） -->
-    <view v-if="showEventPicker" class="pub-overlay" @tap="showEventPicker = false">
+    <!-- 参赛项目选择弹层（picker-view，外壳对齐 pub-sheet；mask 用 catchtouchmove 拦截穿透，避免选完回不了顶） -->
+    <view v-if="showEventPicker" class="pub-overlay" catchtouchmove="noop" @tap="showEventPicker = false">
       <view class="pub-sheet pub-sheet--picker" @tap.stop>
         <view class="pub-grab"></view>
         <view class="picker-bar">
@@ -219,6 +219,9 @@ import { request, authStorage, BASE_URL, getErrorMessage } from '../../../utils/
 import { useSafeTop } from '../../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)
+
+/* catchtouchmove 的 noop 处理器（阻止弹层打开时页面穿透滚动） */
+const noop = () => {}
 
 const id = ref('')
 const loading = ref(false)
@@ -769,5 +772,36 @@ onUnload(function () {
   justify-content: center;
   font-size: 14px;
   color: #17212B;
+}
+
+/* ===== 对齐培训模块质感 ===== */
+/* 页面底色：往培训模块浅蓝灰对齐 */
+.pub-page { background: #F5F8FC; }
+
+/* 表单卡：16px 圆角 + 柔和投影（对齐培训报名页卡片语言） */
+.pub-form-card {
+  background: #ffffff;
+  border: 1px solid #E8EDF3;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.06);
+}
+
+.pub-section-title { font-size: 15px; font-weight: 750; color: #17212B; margin: 0 0 10px; }
+.pub-section-note { color: #98A2B3; margin: -3px 0 10px; font-size: 11px; }
+
+/* 双 CTA：12px 圆角（对齐培训模块按钮） */
+.pub-btn--primary, .pub-btn--secondary { border-radius: 12px; }
+
+/* 底部固定栏：毛白底 + 上投影 */
+.pub-sticky {
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #E8EDF3;
+  box-shadow: 0 -6px 18px rgba(16, 24, 40, 0.06);
+}
+
+/* 赛事摘要卡：16px 圆角 + 更饱满投影（呼应培训报名页摘要卡） */
+.event-card {
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(10, 102, 194, 0.08);
 }
 </style>
