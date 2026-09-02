@@ -458,7 +458,9 @@ func main() {
 	app.SetEventService(service.NewEventService(eventRepo))
 	app.SetResourceService(service.NewResourceService(resourceRepo))
 	app.SetEmergencyService(service.NewEmergencyService(emergencyRepo))
-	app.SetMatchingService(service.NewMatchingService(demandRepo))
+	ms := service.NewMatchingService(demandRepo)
+	ms.SetIntentRepo(intentRepo) // 画像数据源：历史意向（收藏走 demandRepo 同接口）
+	app.SetMatchingService(ms)
 	app.SetIntentService(service.NewIntentService(intentRepo, demandRepo, enterpriseRepo, pilotRepo))
 	app.SetWorkOrderService(service.NewWorkOrderService(workOrderRepo, demandRepo, intentRepo))
 	app.SetServiceListingService(service.NewServiceListingService(serviceListingRepo))

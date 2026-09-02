@@ -1072,8 +1072,9 @@ func TestMatchingService_ScoreBranches(t *testing.T) {
 	if len(results) != 3 {
 		t.Fatalf("Recommend: expected 3 results (score 0 filtered), got %d", len(results))
 	}
-	if results[0].Demand.ID != "d-near" || !closeScore(results[0].Score, 0.925) {
-		t.Fatalf("Recommend[0]: id=%q score=%v, want d-near 0.925", results[0].Demand.ID, results[0].Score)
+	// 新权重（阶段1）：0.15 类型 + 0.15 区域 + 0.20 距离(近) + 0.20 时间(新发布) = 0.70
+	if results[0].Demand.ID != "d-near" || !closeScore(results[0].Score, 0.70) {
+		t.Fatalf("Recommend[0]: id=%q score=%v, want d-near 0.70", results[0].Demand.ID, results[0].Score)
 	}
 	if !hasReason(results[0].Reasons, "业务类型匹配") || !hasReason(results[0].Reasons, "区域匹配") || !hasReason(results[0].Reasons, "距离近(<10km)") {
 		t.Fatalf("Recommend[0]: reasons=%v, want biz/district/distance reasons", results[0].Reasons)
