@@ -69,8 +69,8 @@
     <!-- 回到顶部 -->
     <view class="bt" :class="{ show: showBt }" aria-role="button" aria-label="回到顶部" @tap="scrollToTop"><text>↑</text></view>
 
-    <!-- 申请证书 弹层 -->
-    <view v-if="applyShow" class="l-mask" @tap="closeApply">
+    <!-- 申请证书 弹层（标准 u-popup：遮罩/圆角/上滑动画与全局弹层一致） -->
+    <u-popup :show="applyShow" round position="bottom" @close="closeApply">
       <view class="l-sheet" @tap.stop>
         <view class="l-head">
           <text class="l-title">申请归档证书</text>
@@ -123,7 +123,7 @@
         </view>
         <view class="l-btn" hover-class="l-btn--hover" @tap="submitCert">{{ submittingCert ? '提交中...' : '提交申请' }}</view>
       </view>
-    </view>
+    </u-popup>
   </view>
 </template>
 
@@ -331,7 +331,7 @@ page {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #F5F8FC;
+  background: #fff; /* 整体设计统一：白底页 + 描边卡（与政策资讯/成果案例列表一致，此前 #F5F8FC 偏离） */
   padding-bottom: 40px;
 }
 
@@ -533,23 +533,15 @@ page {
 }
 .ir-btn--hover { transform: scale(.96); opacity: .85; }
 
-/* ===== 申请证书弹层 ===== */
-.l-mask {
-  position: fixed; inset: 0; z-index: 999;
-  background: rgba(16, 24, 40, 0.45);
-  display: flex; align-items: flex-end; justify-content: center;
-}
+/* ===== 申请证书弹层（容器为 u-popup：遮罩/圆角/动画由组件提供，此处只管内容与间距） ===== */
 .l-sheet {
   width: 100%;
   background: #fff;
-  border-radius: 28rpx 28rpx 0 0;
   padding: 28rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
   max-height: 82vh;
   overflow-y: auto;
   box-sizing: border-box;
-  animation: lUp .22s cubic-bezier(.32, .72, 0, 1);
 }
-@keyframes lUp { from { transform: translateY(24rpx); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .l-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
 .l-title { font-size: 32rpx; font-weight: 700; color: #17212B; }
 .l-x { font-size: 40rpx; color: #667085; padding: 0 8rpx; }
