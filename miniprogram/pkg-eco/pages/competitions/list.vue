@@ -163,7 +163,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { useReduceMotion } from '../../../utils/motion'
-import { request, getStoredUser } from '../../../utils/request'
+import { request, getStoredUser, requireLogin } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
 const { noMotion, checkMotion } = useReduceMotion()
@@ -396,6 +396,8 @@ function goDetail(item) {
 }
 
 function goRegister(item) {
+  // 登录拦截：未登录点「立即报名」→ 跳登录页（列表与详情行为一致）
+  if (!requireLogin('请先登录后再报名')) return
   uni.navigateTo({ url: '/pkg-eco/pages/competitions/register?id=' + encodeURIComponent(item.id) })
 }
 

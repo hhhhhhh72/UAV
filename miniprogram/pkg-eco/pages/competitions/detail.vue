@@ -198,7 +198,7 @@ import { safeBack } from '../../../utils/nav'
 import { ref } from 'vue'
 import { onLoad, onPullDownRefresh, onShareAppMessage } from '@dcloudio/uni-app'
 import { useReduceMotion } from '../../../utils/motion'
-import { request } from '../../../utils/request'
+import { request, requireLogin } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
 const { noMotion, checkMotion } = useReduceMotion()
@@ -346,6 +346,8 @@ function goBack() { safeBack() }
 
 function goRegister() {
   if (detail.value && isClosed(detail.value)) return
+  // 登录拦截：未登录点「立即报名」→ 跳登录页（与其他详情页报名按钮一致）
+  if (!requireLogin('请先登录后再报名')) return
   uni.navigateTo({ url: '/pkg-eco/pages/competitions/register?id=' + encodeURIComponent(id.value) })
 }
 
