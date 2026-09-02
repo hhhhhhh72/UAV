@@ -26,6 +26,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"reflect"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -1002,12 +1003,13 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 			return
 		}
 		// Namespace the key by the authenticated actor so one user's key
-		// cannot replay another user's response. 未认证请求同样加固定前缀，
-		// 避免匿名写路径（如登录/注册）的响应被跨请求回放（B 批加固）。
+		// cannot replay another user's response. 未认证请求按「客户端IP+路径」隔离
+		// 命名空间——此前所有匿名请求共享 anon: 前缀，不同用户/接口复用同一
+		// Idempotency-Key 时可能跨请求回放响应（如登录返回的 token）。
 		if a, ok := authenticatedActor(r); ok {
 			key = a.ID + ":" + key
 		} else {
-			key = "anon:" + key
+			key = "anon:" + clientIP(r) + ":" + r.URL.Path + ":" + key
 		}
 		// Check for previously completed request.
 		replay := func(status int, body string) {
@@ -1204,9 +1206,16 @@ func (s *Server) rateLimit(next http.Handler) http.Handler {
 	})
 }
 
+// requestIDRe 合法请求 ID：字母/数字/._- 且 ≤64（防止注入日志/响应头，
+// 此前未校验直接透传攻击者可控内容）。
+var requestIDRe = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+
 func (s *Server) requestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rid := r.Header.Get("X-Request-ID")
+		if !requestIDRe.MatchString(rid) {
+			rid = ""
+		}
 		if rid == "" {
 			rid = fmt.Sprintf("req_%s%d", strings.ReplaceAll(time.Now().UTC().Format("20060102T150405"), "", ""), rand.Intn(10000))
 		}
