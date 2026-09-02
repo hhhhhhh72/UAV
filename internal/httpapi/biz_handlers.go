@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"sort"
@@ -1990,10 +1991,22 @@ func (s *Server) recommendDemands(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	logRecommendShown(r, userID, "", results) // 展示埋点（阶段2 行为数据）
 	respond(w, r, http.StatusOK, results)
 }
 
 // GET /api/v1/match?q=巡检&biz_type=cable_inspection&lat=29.5&lng=106.5
+// logRecommendShown 推荐展示埋点（阶段2 行为数据源）：记录 user_id 与当次展示的
+// 需求 ID 列表（点击信号由意向创建 audit 提供，两路合并可算展示点击率/意向转化）。
+// 只入日志结构化字段，不落库、不阻塞响应。
+func logRecommendShown(r *http.Request, userID, q string, results []service.MatchResult) {
+	ids := make([]string, 0, len(results))
+	for _, m := range results {
+		ids = append(ids, m.Demand.ID)
+	}
+	slog.Info("recommend_shown", "user_id", userID, "q", q, "count", len(ids), "demand_ids", strings.Join(ids, ","))
+}
+
 func (s *Server) searchAndMatch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	if q == "" {
@@ -2016,5 +2029,6 @@ func (s *Server) searchAndMatch(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	logRecommendShown(r, "", q, results) // 展示埋点（搜索路径；q 为空串不影响）
 	respond(w, r, http.StatusOK, results)
 }
