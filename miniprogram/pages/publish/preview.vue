@@ -77,7 +77,7 @@
 <script setup>
 import { safeBack } from '../../utils/nav'
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { TYPES, computePreviewMeta, makePost, upsertPost, loadFormState, clearFormState } from '../../utils/publishData'
 import { useSafeTop } from '../../utils/safeTop'
 import { request, authStorage, requireLogin, BASE_URL, getStoredUser } from '../../utils/request'
@@ -401,9 +401,12 @@ function goMyPosts() {
   uni.navigateTo({ url: '/pages/publish/my-posts?tab=live' })
 }
 
-onLoad((options) => {
-  // 页面级登录守卫：未登录不允许进入预览/发布（分享直达/深链场景兜底）
+onShow(() => {
+  // 未登录每次进入都拦截（分享直达/深链/从登录页返回均继续跳转）
   requireLogin('请先登录后再发布')
+})
+
+onLoad((options) => {
   initSafeTop()
   // 从表单页带入的临时状态
   const state = options && options.state

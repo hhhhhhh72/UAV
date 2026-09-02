@@ -115,10 +115,9 @@
 <script setup>
 import { safeBack } from '../../utils/nav'
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { TYPES, getPost, upsertPost, draftPosts, saveFormState } from '../../utils/publishData'
 import { useSafeTop } from '../../utils/safeTop'
-import { requireLogin } from '../../utils/request'
 import { requireLogin } from '../../utils/request'
 
 const { topPad, initSafeTop } = useSafeTop(true)
@@ -317,8 +316,6 @@ function goBack() {
 }
 
 onLoad((options) => {
-  // 页面级登录守卫：进入发布表单即要求登录（未登录跳登录页；提交时仍有终局拦截）
-  requireLogin('请先登录后再发布')
   initSafeTop()
   const t = options && options.type
   if (t && TYPES[t]) {
@@ -345,6 +342,11 @@ onLoad((options) => {
     }
   }
   if (type.value && !typeConfig.value) type.value = ''
+})
+
+onShow(() => {
+  // 未登录每次进入都拦截（从登录页返回会继续跳转，必须登录后才能使用发布表单）
+  requireLogin('请先登录后再发布')
 })
 </script>
 

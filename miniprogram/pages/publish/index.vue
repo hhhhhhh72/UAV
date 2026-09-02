@@ -117,15 +117,10 @@ function goMyPosts(kind, tab) {
   uni.navigateTo({ url: '/pages/publish/my-posts?kind=' + kind + '&tab=' + tab })
 }
 
-// 模块级守卫标记：仅首次进入拦截一次，取消登录返回后不再重复跳转（提交时仍拦截）
-let publishGuardOnce = false
 onShow(() => {
   initSafeTop()
-  if (!publishGuardOnce && !authStorage.getAccessToken()) {
-    publishGuardOnce = true
-    requireLogin('请先登录后再发布')
-    return
-  }
+  // 未登录每次进入都拦截（登录页返回仍会再次跳转，必须登录后才能使用发布功能）
+  if (!requireLogin('请先登录后再发布')) return
   refresh()
 })
 </script>

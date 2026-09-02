@@ -305,8 +305,6 @@ function showToast(text) {
 }
 
 onLoad((options) => {
-  // 页面级登录守卫：「我的发布」为登录态页面（未登录跳登录页，无本地记录可看）
-  requireLogin('请先登录后查看我的发布')
   initSafeTop()
   if (options && options.tab && TAB_LABEL[options.tab]) postsTab.value = options.tab
   if (options && options.kind && KIND_LABEL[options.kind]) postKind.value = options.kind
@@ -314,6 +312,8 @@ onLoad((options) => {
 })
 
 onShow(() => {
+  // 未登录每次进入都拦截（从登录页返回继续跳转，必须登录后查看）
+  if (!requireLogin('请先登录后查看我的发布')) return
   // 从详情页返回后刷新（撤回/下架/删除后列表状态变化）
   refresh()
 })
