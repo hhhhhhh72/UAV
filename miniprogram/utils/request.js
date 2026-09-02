@@ -209,6 +209,28 @@ export function request(options) {
   })
 }
 
+// requireLogin 页面级登录守卫（发布类页面 onShow 调用）：
+// 1) 已登录：清除网关标记，正常放行（返回 true）。
+// 2) 未登录且未跳转过：提示 + 跳转登录页（打网关标记 publish_login_gate）。
+// 3) 未登录且已跳转过（用户从登录页取消返回）：不再跳登录、不停留在发布页——
+//    直接退回首页（switchTab），避免反复跳转；下次再点发布会重新走流程。
+export function requireLogin(tip = '请先登录后再操作', fallbackTab = '/pages/home/index') {
+  if (authStorage.getAccessToken()) {
+    uni.removeStorageSync('publish_login_gate')
+    return true
+  }
+  if (uni.getStorageSync('publish_login_gate') === '1') {
+    // 用户从登录页取消返回：安静退场——直接回首页，不再提示（提示只在跳登录页时给）
+    uni.removeStorageSync('publish_login_gate')
+    uni.switchTab({ url: fallbackTab })
+    return false
+  }
+  uni.setStorageSync('publish_login_gate', '1')
+  // 立即跳登录页；提示由登录页自身显示（带 from 参数），不依赖 toast 与跳转时序
+  uni.navigateTo({ url: '/pages/login/index?from=publish' })
+  return false
+}
+
 export function getStoredUser() {
   try {
     const userStr = uni.getStorageSync('user')

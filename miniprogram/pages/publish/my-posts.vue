@@ -98,7 +98,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import {
   getPosts, TAB_ORDER, TAB_LABEL, KIND_ORDER, KIND_LABEL,
 } from '../../utils/publishData'
-import { request } from '../../utils/request'
+import { request, requireLogin } from '../../utils/request'
 import { useSafeTop } from '../../utils/safeTop'
 
 const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
@@ -305,6 +305,8 @@ function showToast(text) {
 }
 
 onLoad((options) => {
+  // 页面级登录守卫：「我的发布」为登录态页面（未登录跳登录页，无本地记录可看）
+  requireLogin('请先登录后查看我的发布')
   initSafeTop()
   if (options && options.tab && TAB_LABEL[options.tab]) postsTab.value = options.tab
   if (options && options.kind && KIND_LABEL[options.kind]) postKind.value = options.kind

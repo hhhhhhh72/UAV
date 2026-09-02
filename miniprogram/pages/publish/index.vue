@@ -68,7 +68,7 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import Layout from '../../components/Layout.vue'
 import { TYPES, getPosts, draftPosts } from '../../utils/publishData'
-import { request } from '../../utils/request'
+import { request, authStorage, requireLogin } from '../../utils/request'
 import { useSafeTop } from '../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop()
@@ -117,8 +117,15 @@ function goMyPosts(kind, tab) {
   uni.navigateTo({ url: '/pages/publish/my-posts?kind=' + kind + '&tab=' + tab })
 }
 
+// 模块级守卫标记：仅首次进入拦截一次，取消登录返回后不再重复跳转（提交时仍拦截）
+let publishGuardOnce = false
 onShow(() => {
   initSafeTop()
+  if (!publishGuardOnce && !authStorage.getAccessToken()) {
+    publishGuardOnce = true
+    requireLogin('请先登录后再发布')
+    return
+  }
   refresh()
 })
 </script>

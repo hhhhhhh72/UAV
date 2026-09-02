@@ -50,6 +50,7 @@
 <script setup>
 import { safeBack } from '../../utils/nav'
 import { ref, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { request, authStorage, getErrorMessage } from '@/utils/request'
 
 const statusBarH = ref(20)
@@ -62,6 +63,13 @@ const navStyle = computed(() => ({
 
 const loading = ref(false)
 const agreed = ref(false)
+
+// 来自发布类页面（?from=publish）：登录页自身显示提示——不依赖 toast 与跳转时序
+onLoad((options) => {
+  if (options && options.from === 'publish') {
+    uni.showToast({ title: '请先登录后再使用发布功能', icon: 'none', duration: 1500 })
+  }
+})
 
 const goBack = () => safeBack()
 

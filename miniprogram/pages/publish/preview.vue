@@ -80,7 +80,7 @@ import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { TYPES, computePreviewMeta, makePost, upsertPost, loadFormState, clearFormState } from '../../utils/publishData'
 import { useSafeTop } from '../../utils/safeTop'
-import { request, authStorage, BASE_URL, getStoredUser } from '../../utils/request'
+import { request, authStorage, requireLogin, BASE_URL, getStoredUser } from '../../utils/request'
 
 const { topPad, initSafeTop } = useSafeTop(true)
 
@@ -402,6 +402,8 @@ function goMyPosts() {
 }
 
 onLoad((options) => {
+  // 页面级登录守卫：未登录不允许进入预览/发布（分享直达/深链场景兜底）
+  requireLogin('请先登录后再发布')
   initSafeTop()
   // 从表单页带入的临时状态
   const state = options && options.state
