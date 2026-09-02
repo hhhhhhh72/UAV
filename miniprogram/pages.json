@@ -332,16 +332,6 @@
             "navigationBarBackgroundColor": "#ffffff",
             "navigationStyle": "custom"
           }
-        },
-        {
-          "path": "pages/orders/mine",
-          "style": {
-            "navigationBarTitleText": "我的订单",
-            "navigationBarTextStyle": "black",
-            "navigationBarBackgroundColor": "#ffffff",
-            "enablePullDownRefresh": true,
-            "navigationStyle": "custom"
-          }
         }
       ]
     },
