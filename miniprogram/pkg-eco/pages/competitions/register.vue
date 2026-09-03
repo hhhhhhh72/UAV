@@ -295,8 +295,8 @@ function onEventConfirm() {
   var opt = eventOptions.value[eventIdx.value]
   if (!opt) { showEventPicker.value = false; return }
   selectedEvent.value = opt.label
-  // 项目未标费用时回退赛事级费用（与列表/详情一致），避免报成占位
-  currentPrice.value = opt.fee != null ? opt.fee : compFallbackFee.value
+  // 项目费用未标(0/null)时回退赛事级费用（与列表/详情一致），避免默认选中显示 ¥0
+  currentPrice.value = resolveFee(opt.fee)
   currentEventType.value = opt.type || ''
   if (currentEventType.value !== '团体赛') {
     form.member_count = 1
@@ -448,6 +448,16 @@ const compFallbackFee = computed(function () {
   return null
 })
 
+/* 费用解析：赛事级已配置(>0) → 显示赛事费（整个赛事统一价，与列表/详情一致）；
+   赛事级未配置(0) → 用所选项目费(>0)；两者都没有 → null（占位）。
+   避免管理后台给预选赛等填了默认 0，导致报名页首屏显示 ¥0 与赛事费 380 不一致 */
+function resolveFee(eventFee) {
+  var f = compFallbackFee.value
+  if (f != null && f > 0) return f
+  if (eventFee != null && eventFee > 0) return eventFee
+  return null
+}
+
 /* 费用文案：费用缺失时不编造价格，统一显示占位 */
 const priceText = computed(function () {
   if (currentPrice.value == null) return '以主办方公布为准'
@@ -463,8 +473,7 @@ function loadEvents(item) {
   var first = eventOptions.value[0]
   // 无参赛项目明细（小程序发布/后台未配 events）或项目未标费用时：
   // 回退赛事级 fee（与列表/详情顶部一致），不再显示「以主办方公布为准」造成金额不齐
-  var fee = first ? first.fee : null
-  if (fee == null) fee = compFallbackFee.value
+  var fee = resolveFee(first ? first.fee : null)
   selectedEvent.value = first ? first.label : ''
   currentPrice.value = fee
   currentEventType.value = first ? (first.type || '') : ''
