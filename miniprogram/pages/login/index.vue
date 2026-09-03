@@ -64,16 +64,20 @@ const navStyle = computed(() => ({
 const loading = ref(false)
 const agreed = ref(false)
 
-// 来自发布类页面（?from=publish）：登录页自身显示提示——不依赖 toast 与跳转时序
+// 来自发布类页面（?from=publish）/ 企业入驻（?from=enterprise）：登录页自身显示提示——不依赖 toast 与跳转时序
+const routeFrom = ref('')
 onLoad((options) => {
-  if (options && options.from === 'publish') {
+  routeFrom.value = (options && options.from) || ''
+  if (routeFrom.value === 'publish') {
     uni.showToast({ title: '请先登录后再使用发布功能', icon: 'none', duration: 1500 })
+  } else if (routeFrom.value === 'enterprise') {
+    uni.showToast({ title: '请先登录后再申请企业入驻', icon: 'none', duration: 1500 })
   }
 })
 
 const goBack = () => safeBack()
 
-const goPhoneLogin = () => uni.navigateTo({ url: '/pages/login/phone' })
+const goPhoneLogin = () => uni.navigateTo({ url: '/pages/login/phone' + (routeFrom.value ? '?from=' + routeFrom.value : '') })
 
 const showDoc = (type) => uni.navigateTo({ url: '/pages/agreement/index?type=' + type })
 
@@ -99,7 +103,9 @@ const doWxLogin = () => {
           uni.showToast({ title: '登录成功', icon: 'success' })
           setTimeout(() => {
             loading.value = false
-            uni.switchTab({ url: '/pages/home/index' })
+            // 带来源的流程（如企业入驻）：登录成功回到来源页（表单在页面栈中），不回首页丢流程
+            if (routeFrom.value === 'enterprise') uni.navigateBack({ delta: 1 })
+            else uni.switchTab({ url: '/pages/home/index' })
           }, 600)
         } else {
           loading.value = false

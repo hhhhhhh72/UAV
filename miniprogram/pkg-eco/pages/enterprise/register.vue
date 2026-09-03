@@ -270,6 +270,8 @@ export default {
     return {
       topPad: 24,
       currentStep: 0,
+      backFromLogin: false, // 登录引导后是否已返回（区分首次 onShow 与从登录页返回）
+      entLoaded: false, // 编辑模式资料是否已加载（防止登录返回后重复请求）
       steps: ['基本信息', '分类能力', '联系资质'],
       submitting: false,
       backTimer: null,
@@ -306,16 +308,39 @@ export default {
     // 顶栏安全区（pub-nav 自定义顶栏）
     initSafeTop()
     this.topPad = safeTopPad.value
-    // 登录守卫：入驻表单提交需要 token，未登录先引导登录
-    if (!authStorage.getAccessToken()) {
-      uni.navigateTo({ url: '/pages/login/index' })
-      return
-    }
     if (options && options.entId) {
       this.editEntId = options.entId
       uni.setNavigationBarTitle({ title: '编辑企业资料' })
+    }
+    // 登录守卫（对齐发布页 gate 语义）：未登录且本会话未引导过 → 立即引导登录，
+    // onLoad 阶段跳转可避免空白表单先行闪现；已引导过（从登录页取消返回）→ 由 onShow 安静退场。
+    if (!authStorage.getAccessToken()) {
+      if (uni.getStorageSync('enterprise_login_gate') !== '1') {
+        uni.setStorageSync('enterprise_login_gate', '1')
+        uni.navigateTo({ url: '/pages/login/index?from=enterprise' })
+      }
+    } else if (this.editEntId) {
+      this.entLoaded = true
       this.loadEnterprise()
     }
+  },
+  onShow() {
+    if (authStorage.getAccessToken()) {
+      // 登录成功返回（或本就已登录）：清除引导标记，编辑模式补齐资料加载
+      uni.removeStorageSync('enterprise_login_gate')
+      if (this.editEntId && !this.entLoaded) {
+        this.entLoaded = true
+        this.loadEnterprise()
+      }
+      return
+    }
+    // 从登录页取消返回（本实例已引导过）：安静退回来源页，不反复弹、不留空白表单
+    if (uni.getStorageSync('enterprise_login_gate') === '1' && this.backFromLogin) {
+      uni.removeStorageSync('enterprise_login_gate')
+      uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/home/index' }) })
+      return
+    }
+    this.backFromLogin = true
   },
   onUnload() {
     if (this.backTimer) clearTimeout(this.backTimer)

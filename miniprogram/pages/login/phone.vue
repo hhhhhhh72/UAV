@@ -110,7 +110,7 @@ const navStyle = computed(() => ({
   height: (48 + statusBarH.value) + 'px', // 原 96rpx = 48px + 状态栏
 }))
 
-import { onUnload } from '@dcloudio/uni-app'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { request, authStorage, getErrorMessage } from '@/utils/request'
 
 const mode = ref('password') // password | code
@@ -122,6 +122,11 @@ const agreed = ref(false)
 const loading = ref(false)
 const countdown = ref(0)
 let timer = null
+// 来源标记（由登录页透传 ?from=enterprise），登录成功后返回原流程而非回首页
+const routeFrom = ref('')
+onLoad((options) => {
+  routeFrom.value = (options && options.from) || ''
+})
 
 onUnload(() => {
   if (timer) clearInterval(timer)
@@ -168,7 +173,9 @@ const finishLogin = (res) => {
   uni.showToast({ title: '登录成功', icon: 'success' })
   setTimeout(() => {
     loading.value = false
-    uni.switchTab({ url: '/pages/home/index' })
+    // 企业入驻流程：直接回来源页（栈：…注册页→登录页→手机号页），不回首页丢流程
+    if (routeFrom.value === 'enterprise') uni.navigateBack({ delta: 2 })
+    else uni.switchTab({ url: '/pages/home/index' })
   }, 600)
 }
 
