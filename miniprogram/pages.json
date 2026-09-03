@@ -980,13 +980,6 @@
             "navigationBarBackgroundColor": "#ffffff",
             "navigationStyle": "custom"
           }
-        },
-        {
-          "path": "pages/services/apply",
-          "style": {
-            "navigationBarTitleText": "申请提交",
-            "navigationStyle": "custom"
-          }
         }
       ]
     },
