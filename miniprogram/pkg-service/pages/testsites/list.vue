@@ -2,19 +2,21 @@
   <view class="ts-page" :class="{ 'no-motion': noMotion }" @tap="closeAll">
     <u-nav-bar title="测试场地" show-back @back="goBack" />
 
-    <!-- 搜索（与 challenges/projects 同款：白上白描边 + 双层投影 + 搜索按钮） -->
-    <view class="sbar">
-      <view class="b-search">
-        <image class="b-search-ic" src="/static/home/icons/search.svg" mode="aspectFit" />
-        <input class="b-sinp" v-model="keyword" placeholder="搜索场地名称或位置" placeholder-class="b-ph" confirm-type="search" aria-label="搜索场地名称或位置" />
-        <text v-if="keyword" class="b-sclr" aria-role="button" aria-label="清除搜索" @tap="clearSearch">×</text>
-        <view class="b-sep"></view>
-        <text class="b-sbtn" aria-role="button" aria-label="搜索" @tap="dismissSearch">搜索</text>
+    <!-- 吸顶头（对齐成果案例：搜索+筛选 tab 吸顶，长列表切换无需滚回顶部） -->
+    <view class="sticky-head">
+      <!-- 搜索（与 challenges/projects 同款：白上白描边 + 双层投影 + 搜索按钮） -->
+      <view class="sbar">
+        <view class="b-search">
+          <image class="b-search-ic" src="/static/home/icons/search.svg" mode="aspectFit" />
+          <input class="b-sinp" v-model="keyword" placeholder="搜索场地名称或位置" placeholder-class="b-ph" confirm-type="search" aria-label="搜索场地名称或位置" />
+          <text v-if="keyword" class="b-sclr" aria-role="button" aria-label="清除搜索" @tap="clearSearch">×</text>
+          <view class="b-sep"></view>
+          <text class="b-sbtn" aria-role="button" aria-label="搜索" @tap="dismissSearch">搜索</text>
+        </view>
       </view>
-    </view>
 
-    <!-- 类型筛选：一级下划线 tab 分段（对齐科技成果库）+ ▾ 浮层面板（可约状态 chips） -->
-    <view class="stage-wrap">
+      <!-- 类型筛选：一级下划线 tab 分段（对齐科技成果库）+ ▾ 浮层面板（可约状态 chips） -->
+      <view class="stage-wrap">
       <view class="stages">
         <view
           v-for="p in typePills"
@@ -37,6 +39,7 @@
           <text class="p-chip" :class="{ act: avail === 'avail' }" @tap="pickAvail('avail')">仅看可预约</text>
         </view>
       </view>
+    </view>
     </view>
     <!-- 蒙层：从 tab 分段底部开始置灰，点击外部退场收起 -->
     <view v-if="panel" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
@@ -460,8 +463,10 @@ onPullDownRefresh(() => {
 .b-sbtn:active { opacity: 0.5; }
 .b-sclr:active { opacity: 0.6; }
 
+/* ===== 吸顶头（对齐成果案例：搜索+筛选 tab 吸顶，底色隔离滚动内容） ===== */
+.sticky-head { position: sticky; top: 0; z-index: 40; background: #fff; }
 /* ===== 类型筛选：一级下划线 tab 分段（对齐科技成果库）+ ▾ 浮层面板 ===== */
-.stage-wrap { position: relative; z-index: 42; }
+.stage-wrap { position: relative; z-index: 42; background: #fff; }
 .stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
 .stg {
   position: relative;
