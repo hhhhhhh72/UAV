@@ -201,7 +201,7 @@ const allSeen = () => seen.has('0') && seen.has('1') && seen.has('2') &&
 /* 测量章节位置：数据落位后调用；opacity/transform 不影响布局，隐藏态测量同样准确 */
 const measureSecs = () => {
   try {
-    uni.createSelectorQuery().in(inst?.proxy || inst).selectAll('.sec').boundingClientRect((rects) => {
+    uni.createSelectorQuery().selectAll('.sec').boundingClientRect((rects) => {
       secTops = Array.isArray(rects) ? rects.map((r) => r.top + scrollY) : []
     }).exec()
   } catch (e) { secTops = [] }

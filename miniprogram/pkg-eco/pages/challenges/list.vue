@@ -343,7 +343,7 @@ const allSeen = () => list.value.every((x) => seen.has(x.id))
    观察器失效时，onPageScroll 按此位置点亮，杜绝整列表永久空白 */
 const measureCards = () => {
   try {
-    uni.createSelectorQuery().in(inst?.proxy || inst).selectAll('.cl .card').boundingClientRect((rects) => {
+    uni.createSelectorQuery().selectAll('.cl .card').boundingClientRect((rects) => {
       cardTops = Array.isArray(rects) ? rects.map((r) => r.top + scrollY) : []
     }).exec()
   } catch (e) { cardTops = [] }
@@ -786,7 +786,7 @@ const toggleTimeCustom = () => {
 
 /* ===== 金钱：滑动 + 填写 + 区间按钮 ===== */
 const measureSlider = () => {
-  uni.createSelectorQuery().in(inst?.proxy || inst).select('.slider-bar').boundingClientRect((rect) => {
+  uni.createSelectorQuery().select('.slider-bar').boundingClientRect((rect) => {
     if (rect) {
       sliderW.value = rect.width
       sliderLeft.value = rect.left
@@ -794,13 +794,13 @@ const measureSlider = () => {
   }).exec()
 }
 const measureHead = () => {
-  uni.createSelectorQuery().in(inst?.proxy || inst).select('.sticky-head').boundingClientRect((rect) => {
+  uni.createSelectorQuery().select('.sticky-head').boundingClientRect((rect) => {
     if (rect && rect.height) headH.value = rect.height
   }).exec()
 }
 const measureMaskTop = () => {
   // 蒙层起点 = tab 分段容器底部（浮层面板下方），实测使头部不被蒙、起点不错位
-  uni.createSelectorQuery().in(inst?.proxy || inst).select('.stage-wrap').boundingClientRect((rect) => {
+  uni.createSelectorQuery().select('.stage-wrap').boundingClientRect((rect) => {
     if (rect && rect.bottom) maskTop.value = Math.round(rect.bottom)
   }).exec()
 }

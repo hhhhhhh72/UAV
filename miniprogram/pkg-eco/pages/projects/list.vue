@@ -327,7 +327,7 @@ const allSeen = () => list.value.every((x) => seen.has(x.id))
 /* 测量卡片位置：列表落位后调用（opacity/transform 不影响布局，隐藏态测量同样准确） */
 const measureCards = () => {
   try {
-    uni.createSelectorQuery().in(inst?.proxy || inst).selectAll('.cl .card').boundingClientRect((rects) => {
+    uni.createSelectorQuery().selectAll('.cl .card').boundingClientRect((rects) => {
       cardTops = Array.isArray(rects) ? rects.map((r) => r.top + scrollY) : []
     }).exec()
   } catch (e) { cardTops = [] }
@@ -692,7 +692,7 @@ const resetTime = () => {
 
 /* ===== 经费：滑动 + 填写 + 区间按钮 ===== */
 const measureSlider = () => {
-  uni.createSelectorQuery().in(inst?.proxy || inst).select('.slider-bar').boundingClientRect((rect) => {
+  uni.createSelectorQuery().select('.slider-bar').boundingClientRect((rect) => {
     if (rect) {
       sliderW.value = rect.width
       sliderLeft.value = rect.left
@@ -700,7 +700,7 @@ const measureSlider = () => {
   }).exec()
 }
 const measureHead = () => {
-  uni.createSelectorQuery().in(inst?.proxy || inst).select('.sticky-head').boundingClientRect((rect) => {
+  uni.createSelectorQuery().select('.sticky-head').boundingClientRect((rect) => {
     if (rect && rect.height) headH.value = rect.height
   }).exec()
 }
