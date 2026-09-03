@@ -316,7 +316,8 @@ function prizes(item) {
 }
 
 function compMinFee(item) {
-  if (item.min_fee != null) return item.min_fee
+  // min_fee 为 int 零值=未配置，视为未填（否则后台未配置时显示 ¥0 起/人与列表不一致）
+  if (item.min_fee != null && item.min_fee > 0) return item.min_fee
   if (item.fee != null) return item.fee
   var evts = eventList(item)
   if (evts.length > 0) {

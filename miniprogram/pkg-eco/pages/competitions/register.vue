@@ -295,7 +295,8 @@ function onEventConfirm() {
   var opt = eventOptions.value[eventIdx.value]
   if (!opt) { showEventPicker.value = false; return }
   selectedEvent.value = opt.label
-  currentPrice.value = opt.fee
+  // 项目未标费用时回退赛事级费用（与列表/详情一致），避免报成占位
+  currentPrice.value = opt.fee != null ? opt.fee : compFallbackFee.value
   currentEventType.value = opt.type || ''
   if (currentEventType.value !== '团体赛') {
     form.member_count = 1
@@ -438,6 +439,15 @@ async function loadCompetition() {
   }
 }
 
+/* 赛事级费用兜底：优先赛事 fee，其次 min_fee>0（与列表/详情顶部取值一致）；均无 → null */
+const compFallbackFee = computed(function () {
+  const it = competition.value
+  if (!it) return null
+  if (it.fee != null) return it.fee
+  if (it.min_fee != null && it.min_fee > 0) return it.min_fee
+  return null
+})
+
 /* 费用文案：费用缺失时不编造价格，统一显示占位 */
 const priceText = computed(function () {
   if (currentPrice.value == null) return '以主办方公布为准'
@@ -451,8 +461,12 @@ function loadEvents(item) {
     return { label: e.name + ' · ' + (e.type || '个人赛'), fee: e.fee != null ? e.fee : null, type: e.type || '个人赛' }
   })
   var first = eventOptions.value[0]
+  // 无参赛项目明细（小程序发布/后台未配 events）或项目未标费用时：
+  // 回退赛事级 fee（与列表/详情顶部一致），不再显示「以主办方公布为准」造成金额不齐
+  var fee = first ? first.fee : null
+  if (fee == null) fee = compFallbackFee.value
   selectedEvent.value = first ? first.label : ''
-  currentPrice.value = first ? first.fee : null
+  currentPrice.value = fee
   currentEventType.value = first ? (first.type || '') : ''
   if (currentEventType.value !== '团体赛') {
     form.member_count = 1
