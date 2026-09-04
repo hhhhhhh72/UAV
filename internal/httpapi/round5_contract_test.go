@@ -384,6 +384,59 @@ func TestR5AchievementStatsAndStatus(t *testing.T) {
 	}
 }
 
+// TestR5AchievementFavoritePersistence 成果收藏用户级落库：重复收藏幂等（计数不重复）、
+// 我的收藏列表返回、取消后列表移除。
+func TestR5AchievementFavoritePersistence(t *testing.T) {
+	app := newBizServer(t)
+	entTok := authAs(t, "user-1", domain.RoleEnterprise)
+	userTok := authAs(t, "user-2", domain.RoleIndividual)
+
+	w := doRaw(app, http.MethodPost, "/api/v1/achievements",
+		`{"title":"收藏测试成果","achieve_type":"patent","description":"持久化","field":"无人机","stage":"pilot","contact_info":"138","images":["a.jpg"],"status":"published"}`, entTok)
+	assertStatus(t, http.MethodPost, "/api/v1/achievements", w, http.StatusCreated)
+	achID := dataID(t, w)
+
+	// 重复收藏两次 → 计数只 +1
+	for i := 0; i < 2; i++ {
+		w = doRaw(app, http.MethodPost, "/api/v1/achievements/"+achID+"/favorite", `{"favorite":true}`, userTok)
+		assertStatus(t, http.MethodPost, "/api/v1/achievements/"+achID+"/favorite", w, http.StatusOK)
+	}
+	w = doRaw(app, http.MethodGet, "/api/v1/achievements/"+achID, "", userTok)
+	var a domain.Achievement
+	unmarshalData(t, w, &a)
+	if a.Favs != 1 {
+		t.Fatalf("favs after duplicate favorite: %d, want 1", a.Favs)
+	}
+
+	// 我的收藏列表返回该成果
+	w = doRaw(app, http.MethodGet, "/api/v1/achievements/favorites/mine", "", userTok)
+	assertStatus(t, http.MethodGet, "/api/v1/achievements/favorites/mine", w, http.StatusOK)
+	var mine []domain.Achievement
+	unmarshalData(t, w, &mine)
+	if len(mine) != 1 || mine[0].ID != achID {
+		t.Fatalf("favorites mine: %+v, want [%s]", mine, achID)
+	}
+
+	// 取消收藏 → 列表移除、计数归零
+	w = doRaw(app, http.MethodPost, "/api/v1/achievements/"+achID+"/favorite", `{"favorite":false}`, userTok)
+	assertStatus(t, http.MethodPost, "/api/v1/achievements/"+achID+"/favorite", w, http.StatusOK)
+	w = doRaw(app, http.MethodGet, "/api/v1/achievements/favorites/mine", "", userTok)
+	unmarshalData(t, w, &mine)
+	if len(mine) != 0 {
+		t.Fatalf("favorites mine after unfavorite: %d, want 0", len(mine))
+	}
+	w = doRaw(app, http.MethodGet, "/api/v1/achievements/"+achID, "", userTok)
+	unmarshalData(t, w, &a)
+	if a.Favs != 0 {
+		t.Fatalf("favs after unfavorite: %d, want 0", a.Favs)
+	}
+
+	// 未登录查看我的收藏 → 401
+	w = doRaw(app, http.MethodGet, "/api/v1/achievements/favorites/mine", "", "")
+	assertStatus(t, http.MethodGet, "/api/v1/achievements/favorites/mine", w, http.StatusUnauthorized)
+}
+
+
 // TestR5ChallengeRequirementsAndPoster requirements 落库回显。
 func TestR5ChallengeRequirementsAndPoster(t *testing.T) {
 	app := newBizServer(t)

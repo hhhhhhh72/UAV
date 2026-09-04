@@ -56,9 +56,9 @@ func (s *Server) createChallengeClaim(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusCreated, claim)
 }
 
-// POST /api/v1/achievements/{id}/favorite — 收藏/取消收藏成果（计数联动：收藏 +1 / 取消 -1）
+// POST /api/v1/achievements/{id}/favorite — 收藏/取消收藏成果（用户级落库 + 计数联动，幂等）
 func (s *Server) toggleAchievementFavorite(w http.ResponseWriter, r *http.Request) {
-	_, ok := authenticatedActor(r)
+	a, ok := authenticatedActor(r)
 	if !ok {
 		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
 		return
@@ -74,15 +74,26 @@ func (s *Server) toggleAchievementFavorite(w http.ResponseWriter, r *http.Reques
 		fail(w, r, http.StatusBadRequest, errors.New("favorite 必填"))
 		return
 	}
-	delta := 1
-	if !*in.Favorite {
-		delta = -1
-	}
-	if err := s.achievementSvc.AdjustStats(r.Context(), r.PathValue("id"), 0, delta); err != nil {
+	if err := s.achievementSvc.ToggleFavorite(r.Context(), a.ID, r.PathValue("id"), *in.Favorite); err != nil {
 		writeMutationErr(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]bool{"favorite": *in.Favorite})
+}
+
+// GET /api/v1/achievements/favorites/mine — 当前用户收藏的成果列表（按收藏时间倒序）
+func (s *Server) listAchievementFavorites(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
+		return
+	}
+	items, err := s.achievementSvc.ListFavorites(r.Context(), a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, items)
 }
 
 // fillPosterName 响应层填充发布方展示名（userRepo 查询；失败返回空串，前端已有兜底文案）。

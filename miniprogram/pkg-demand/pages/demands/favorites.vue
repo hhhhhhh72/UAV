@@ -103,6 +103,7 @@ const kindTabs = [
   { label: '商品', value: 'product' },
   { label: '服务', value: 'service' },
   { label: '课程', value: 'course' },
+  { label: '成果', value: 'achievement' },
 ]
 
 // 单维度 tab（无面板）：点非全部 tab 再点一次取消回「全部」；每项即时筛（visibleCards 为 computed）
@@ -116,7 +117,7 @@ const visibleCards = computed(() =>
 )
 
 const emptyTitle = computed(() => {
-  const map = { all: '还没有收藏', demand: '还没有收藏需求', product: '还没有收藏商品', service: '还没有收藏服务', course: '还没有收藏课程' }
+  const map = { all: '还没有收藏', demand: '还没有收藏需求', product: '还没有收藏商品', service: '还没有收藏服务', course: '还没有收藏课程', achievement: '还没有收藏成果' }
   return map[favType.value] || '还没有收藏'
 })
 const emptyDesc = computed(() => {
@@ -126,6 +127,7 @@ const emptyDesc = computed(() => {
     product: '在商城看到感兴趣的设备，点「收藏」就能在这里找到',
     service: '在需求大厅的服务能力里点「收藏」就能在这里找到',
     course: '在培训课程里点「收藏」就能在这里找到',
+    achievement: '在科技成果库点「收藏」就能在这里找到',
   }
   return map[favType.value] || ''
 })
@@ -134,6 +136,7 @@ function typeTagClass(t) {
   if (t === 'demand') return 'blue'
   if (t === 'product') return 'orange'
   if (t === 'service') return 'green'
+  if (t === 'achievement') return 'blue'
   return 'purple' // course
 }
 function statusTagClass(key) {
@@ -205,23 +208,38 @@ function courseToCard(c) {
     raw: c,
   }
 }
+const ACH_STATUS = { published: '已发布', transformed: '已转化', unpublished: '未发布' }
+function achievementToCard(a) {
+  return {
+    id: a.id,
+    type: 'achievement',
+    label: '科技成果',
+    title: a.title || '未命名成果',
+    status: ACH_STATUS[a.status] || (a.status === 'published' ? '已发布' : '已入库'),
+    statusKey: a.status === 'published' ? 'published' : 'pending',
+    meta: [a.field || '', a.achieve_type || '', a.favs != null ? '收藏 ' + a.favs : ''].filter(Boolean).slice(0, 2),
+    raw: a,
+  }
+}
 
 /* ===== 数据加载 ===== */
 const fetchAll = async () => {
   loading.value = true
   loadError.value = false
   try {
-    const [demandsRes, productsRes, servicesRes, coursesRes] = await Promise.all([
+    const [demandsRes, productsRes, servicesRes, coursesRes, achievementsRes] = await Promise.all([
       request({ url: '/api/v1/demands/favorites/mine' }).catch(() => []),
       request({ url: '/api/v1/products/favorites/mine' }).catch(() => []),
       request({ url: '/api/v1/service-listings/favorites/mine' }).catch(() => []),
       request({ url: '/api/v1/training-courses/favorites/mine' }).catch(() => []),
+      request({ url: '/api/v1/achievements/favorites/mine' }).catch(() => []),
     ])
     const out = []
     normalizeList(demandsRes).forEach((d) => out.push(demandToCard(d)))
     normalizeList(productsRes).forEach((p) => out.push(productToCard(p)))
     normalizeList(servicesRes).forEach((s) => out.push(serviceToCard(s)))
     normalizeList(coursesRes).forEach((c) => out.push(courseToCard(c)))
+    normalizeList(achievementsRes).forEach((a) => out.push(achievementToCard(a)))
     // 按收藏时间倒序：各接口本身按收藏时间倒序返回，合并后按日期粗略排序
     out.sort((a, b) => String(b.raw.created_at || '').localeCompare(String(a.raw.created_at || '')))
     cards.value = out
@@ -258,6 +276,10 @@ const goDetail = (post) => {
     safeNavigateTo('/pkg-talent/pages/training/enroll?id=' + encodeURIComponent(post.id))
     return
   }
+  if (post.type === 'achievement') {
+    safeNavigateTo('/pkg-eco/pages/achievements/detail?id=' + encodeURIComponent(post.id))
+    return
+  }
   // 需求 / 服务 共用详情页（按 id 分流）
   safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(post.id))
 }
@@ -277,6 +299,7 @@ async function unfavorite(post) {
     product: '/api/v1/products/',
     service: '/api/v1/service-listings/',
     course: '/api/v1/training-courses/',
+    achievement: '/api/v1/achievements/',
   }[post.type]
   if (!base) return
   try {

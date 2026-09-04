@@ -516,6 +516,12 @@ type AchievementRepository interface {
 	Delete(ctx context.Context, id string) error
 	// AdjustStats 浏览/收藏计数增量（delta 可正可负，下限 0）。
 	AdjustStats(ctx context.Context, id string, viewsDelta, favsDelta int) error
+	// AddAchievementFavorite 收藏成果（幂等；返回是否实际新增，重复收藏为 false）。
+	AddAchievementFavorite(ctx context.Context, userID, achievementID string) (bool, error)
+	// RemoveAchievementFavorite 取消收藏（幂等；返回是否实际删除，重复取消为 false）。
+	RemoveAchievementFavorite(ctx context.Context, userID, achievementID string) (bool, error)
+	// ListAchievementFavorites 当前用户收藏的成果列表（按收藏时间倒序）。
+	ListAchievementFavorites(ctx context.Context, userID string) ([]domain.Achievement, error)
 }
 
 // ChallengeClaimRepository manages 揭榜意向 (RD challenge claims).

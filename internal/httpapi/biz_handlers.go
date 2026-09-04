@@ -66,6 +66,7 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/achievements/{id}", s.updateAchievement)
 	mux.HandleFunc("DELETE /api/v1/achievements/{id}", s.deleteAchievement)
 	mux.HandleFunc("POST /api/v1/achievements/{id}/favorite", s.toggleAchievementFavorite)
+	mux.HandleFunc("GET /api/v1/achievements/favorites/mine", s.listAchievementFavorites)
 
 	// ---- RD Challenges (研发难题) ----
 	mux.HandleFunc("GET /api/v1/challenges", s.listRDChallenges)

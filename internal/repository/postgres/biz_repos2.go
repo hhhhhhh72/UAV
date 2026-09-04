@@ -108,6 +108,46 @@ func (r *achieveRepo) AdjustStats(ctx context.Context, id string, viewsDelta, fa
 	}
 	return nil
 }
+func (r *achieveRepo) AddAchievementFavorite(ctx context.Context, userID, achievementID string) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`INSERT INTO achievement_favorites (id, user_id, achievement_id) VALUES ($1,$2,$3)
+		 ON CONFLICT (user_id, achievement_id) DO NOTHING`,
+		"achfav-"+userID+"-"+achievementID, userID, achievementID)
+	if err != nil {
+		return false, fmt.Errorf("favorite achievement %s: %w", achievementID, err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+func (r *achieveRepo) RemoveAchievementFavorite(ctx context.Context, userID, achievementID string) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM achievement_favorites WHERE user_id=$1 AND achievement_id=$2`, userID, achievementID)
+	if err != nil {
+		return false, fmt.Errorf("unfavorite achievement %s: %w", achievementID, err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+func (r *achieveRepo) ListAchievementFavorites(ctx context.Context, userID string) ([]domain.Achievement, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id,a.owner_id,a.title,a.achieve_type,a.description,a.field,a.stage,a.images,a.attachments,a.contact_info,a.status,a.views,a.favs,a.created_at,a.updated_at
+		 FROM achievements a JOIN achievement_favorites f ON f.achievement_id=a.id
+		 WHERE f.user_id=$1 ORDER BY f.created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list achievement favorites: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Achievement
+	for rows.Next() {
+		var a domain.Achievement
+		var imgs, atts []byte
+		if err := rows.Scan(&a.ID, &a.OwnerID, &a.Title, &a.AchieveType, &a.Description, &a.Field, &a.Stage, &imgs, &atts, &a.ContactInfo, &a.Status, &a.Views, &a.Favs, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan achievement favorite: %w", err)
+		}
+		json.Unmarshal(imgs, &a.Images)
+		json.Unmarshal(atts, &a.Attachments)
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
 func (r *achieveRepo) Delete(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM achievements WHERE id=$1`, id)
 	if err != nil {

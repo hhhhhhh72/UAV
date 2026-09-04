@@ -162,7 +162,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onReady, onShow, onPageScroll, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { useReduceMotion } from '@/utils/motion'
-import { request, BASE_URL } from '@/utils/request'
+import { request, BASE_URL, authStorage } from '@/utils/request'
 import { MOCK_ACHIEVEMENTS, ACH_TYPE_LABEL, ACH_STATUS_LABEL, STAGE_SHORT, STAGE_RANK, FIELD_TONE, TONE_DEFAULT, FIELD_ICON } from '@/utils/mockAchievements'
 
 const PAGE_SIZE = 100
@@ -502,14 +502,22 @@ const goDetail = (x) => {
 
 const goBack = () => uni.navigateBack()
 
-// ===== 收藏统一：本地单键增量过渡 =====
-// 接口替换点：GET /api/v1/favorites/mine 落地后，favSet 以接口返回为准（《科技成果库-后端改动清单》§1）；
-// 收藏时 POST /api/v1/favorites/{achievement_id}、取消 DELETE；列表/详情增量改由后端计数后删除本段
-const loadFavs = () => {
+// ===== 收藏统一：服务端持久化（achievement_favorites）+ 本地缓存兜底 =====
+// GET /api/v1/achievements/favorites/mine：跨端一致（详情收藏后回列表、换设备不丢）；
+// 接口失败时保留 fav_ach_set 缓存，列表/详情的「收藏数+1」展示不受影响
+const loadFavs = async () => {
   try {
     const raw = uni.getStorageSync('fav_ach_set')
     favSet.value = new Set(Array.isArray(raw) ? raw : [])
   } catch (e) { favSet.value = new Set() }
+  if (authStorage.getAccessToken()) {
+    try {
+      const res = await request({ url: '/api/v1/achievements/favorites/mine' })
+      const list = Array.isArray(res) ? res : ((res && res.data) || [])
+      favSet.value = new Set(list.map((x) => x.id))
+      uni.setStorageSync('fav_ach_set', Array.from(favSet.value))
+    } catch (e) { /* 保持缓存兜底 */ }
+  }
 }
 
 onLoad(() => {

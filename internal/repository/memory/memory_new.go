@@ -266,9 +266,16 @@ func (r *complianceRepo) UpdateStandard(ctx context.Context, s domain.StandardDo
 
 // ---- Achievement ----
 
+type achFavorite struct {
+	UserID        string
+	AchievementID string
+	CreatedAt     time.Time
+}
+
 type achieveRepo struct {
-	mu    sync.RWMutex
-	items []domain.Achievement
+	mu        sync.RWMutex
+	items     []domain.Achievement
+	favorites []achFavorite
 }
 
 func NewAchievementRepository() repository.AchievementRepository { return &achieveRepo{} }
@@ -348,6 +355,50 @@ func (r *achieveRepo) AdjustStats(ctx context.Context, id string, viewsDelta, fa
 		}
 	}
 	return fmt.Errorf("achievement %s not found", id)
+}
+func (r *achieveRepo) AddAchievementFavorite(ctx context.Context, userID, achievementID string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, f := range r.favorites {
+		if f.UserID == userID && f.AchievementID == achievementID {
+			return false, nil // 已收藏，幂等
+		}
+	}
+	r.favorites = append(r.favorites, achFavorite{UserID: userID, AchievementID: achievementID, CreatedAt: time.Now()})
+	return true, nil
+}
+func (r *achieveRepo) RemoveAchievementFavorite(ctx context.Context, userID, achievementID string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, f := range r.favorites {
+		if f.UserID == userID && f.AchievementID == achievementID {
+			r.favorites = append(r.favorites[:i], r.favorites[i+1:]...)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+func (r *achieveRepo) ListAchievementFavorites(ctx context.Context, userID string) ([]domain.Achievement, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []domain.Achievement
+	byID := make(map[string]domain.Achievement, len(r.items))
+	for _, a := range r.items {
+		byID[a.ID] = a
+	}
+	favs := make([]achFavorite, 0)
+	for _, f := range r.favorites {
+		if f.UserID == userID {
+			favs = append(favs, f)
+		}
+	}
+	sort.SliceStable(favs, func(i, j int) bool { return favs[i].CreatedAt.After(favs[j].CreatedAt) })
+	for _, f := range favs {
+		if a, ok := byID[f.AchievementID]; ok {
+			out = append(out, a)
+		}
+	}
+	return out, nil
 }
 
 // ---- ChallengeClaim (揭榜意向) ----

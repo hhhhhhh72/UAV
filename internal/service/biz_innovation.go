@@ -82,6 +82,36 @@ func (s *AchievementService) AdjustStats(ctx context.Context, id string, viewsDe
 	return s.repo.AdjustStats(ctx, id, viewsDelta, favsDelta)
 }
 
+// ToggleFavorite 收藏/取消收藏成果：成果须存在；仅在状态实际变化时联动计数（重复请求幂等）。
+func (s *AchievementService) ToggleFavorite(ctx context.Context, userID, id string, favorite bool) error {
+	if _, err := s.repo.FindByID(ctx, id); err != nil {
+		return err
+	}
+	if favorite {
+		changed, err := s.repo.AddAchievementFavorite(ctx, userID, id)
+		if err != nil {
+			return err
+		}
+		if changed {
+			return s.repo.AdjustStats(ctx, id, 0, 1)
+		}
+		return nil
+	}
+	changed, err := s.repo.RemoveAchievementFavorite(ctx, userID, id)
+	if err != nil {
+		return err
+	}
+	if changed {
+		return s.repo.AdjustStats(ctx, id, 0, -1)
+	}
+	return nil
+}
+
+// ListFavorites 当前用户收藏的成果（按收藏时间倒序）。
+func (s *AchievementService) ListFavorites(ctx context.Context, userID string) ([]domain.Achievement, error) {
+	return s.repo.ListAchievementFavorites(ctx, userID)
+}
+
 func (s *AchievementService) Delete(ctx context.Context, a domain.Actor, id string) error {
 	ach, err := s.repo.FindByID(ctx, id)
 	if err != nil {

@@ -295,15 +295,24 @@ const useMock = () => {
   }
 }
 
-// ===== 收藏统一：本地单键增量（列表页共享 fav_ach_set）+ 后端计数联动 =====
-// POST /api/v1/achievements/{id}/favorite { favorite }：后端 favs 计数 ±1（「最多收藏」排序数据源）；
-// 静默失败不影响本地交互（未登录/网络差仅本地生效，下次详情拉取后计数对齐）。
+// ===== 收藏统一：服务端持久化（achievement_favorites）+ 本地缓存兜底 =====
+// GET /api/v1/achievements/favorites/mine：跨端一致（换设备不丢）；POST {id}/favorite 幂等（重复收藏不重复计数）；
+// 接口失败时保留 fav_ach_set 缓存，收藏交互不受影响。
 const favSet = ref(new Set())
-const loadFavs = () => {
+const loadFavs = async () => {
   try {
     const raw = uni.getStorageSync('fav_ach_set')
     favSet.value = new Set(Array.isArray(raw) ? raw : [])
   } catch (e) { favSet.value = new Set() }
+  if (authStorage.getAccessToken()) {
+    try {
+      const res = await request({ url: '/api/v1/achievements/favorites/mine' })
+      const list = Array.isArray(res) ? res : ((res && res.data) || [])
+      favSet.value = new Set(list.map((x) => x.id))
+      uni.setStorageSync('fav_ach_set', Array.from(favSet.value))
+    } catch (e) { /* 保持缓存兜底 */ }
+  }
+  isFav.value = favSet.value.has(id.value)
 }
 const saveFavs = () => {
   uni.setStorageSync('fav_ach_set', Array.from(favSet.value))
