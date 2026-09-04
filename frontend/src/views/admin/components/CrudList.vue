@@ -41,6 +41,7 @@
           <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
           <a-button @click="resetParams">重置</a-button>
           <a-button @click="loadData"><template #icon><icon-refresh /></template>刷新</a-button>
+        <a-button @click="handleExport" :disabled="!listData || listData.length === 0">导出 CSV</a-button>
           <slot name="search-extra" />
           <a-button v-if="creatable" class="crud-add-btn" type="primary" status="success" @click="$emit('add')">
             <template #icon><icon-plus /></template>{{ addLabel }}
@@ -128,6 +129,29 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['add', 'sorter-change', 'loaded'])
+
+// 导出 CSV：导出当前列表已加载的行（列 = columns 中声明了 dataIndex 的）；BOM 前缀保证 Excel 中文不乱码
+const csvEscape = (v) => {
+  if (v == null) return ''
+  const s = String(v)
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+}
+const handleExport = () => {
+  const cols = (props.columns || []).filter((c) => c.dataIndex)
+  if (!cols.length || !listData.value.length) return
+  const header = cols.map((c) => c.title || c.dataIndex)
+  const lines = [header].concat(listData.value.map((r) => cols.map((c) => csvEscape(r[c.dataIndex]))))
+  const csv = '\ufeff' + lines.map((a) => a.join(',')).join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = (props.resource || 'export') + '-' + new Date().toISOString().slice(0, 10) + '.csv'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 const api = props.apiFunction ? null : useAdminApi(props.resource)
 

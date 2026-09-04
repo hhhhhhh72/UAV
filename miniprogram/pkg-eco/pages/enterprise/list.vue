@@ -462,12 +462,12 @@ page {
 .verified-dot { width: 6px; height: 6px; border-radius: 50%; background: #0B6B41; }
 .verified-text { font-size: 11px; color: #0B6B41; font-weight: 500; }
 
-/* 标签行：最多 2 个 + 溢出计数（分类蓝 / 能力灰，扁平 tint） */
-.tag-row { display: flex; flex-wrap: wrap; gap: 4px; }
-.type-tag { padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-.tag--blue { background: #EAF3FB; color: #0A66C2; }
-.tag--gray { background: #EEF1F4; color: #5D6B82; }
-.tag-more { padding: 1px 4px; font-size: 11px; color: #98A2B3; }
+/* 标签行：最多 2 个 + 溢出计数（分类蓝 / 能力灰，与详情页 chip 同规格：22rpx/8rpx 18rpx/8rpx 圆角/同色 token） */
+.tag-row { display: flex; flex-wrap: wrap; gap: 14rpx; align-items: center; }
+.type-tag { padding: 8rpx 18rpx; border-radius: 8rpx; font-size: 22rpx; line-height: 1.4; }
+.tag--blue { background: #EAF3FB; color: #0A66C2; border: 1rpx solid rgba(10, 102, 194, 0.12); }
+.tag--gray { background: #F1F3F5; color: #667085; border: 1rpx solid rgba(102, 112, 133, 0.1); }
+.tag-more { padding: 8rpx 0 8rpx 8rpx; font-size: 22rpx; color: #98A2B3; }
 
 /* 描述：两行截断 */
 .c-desc {
