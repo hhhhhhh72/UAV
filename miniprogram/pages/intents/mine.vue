@@ -2,7 +2,7 @@
   <view class="intents-page">
     <view class="page-head" :style="headStyle">
       <text class="back-btn" @tap="goBack">‹</text>
-      <text class="page-title">我的对接意向</text>
+      <text class="page-title">我的接单申请</text>
       <text class="head-space"></text>
     </view>
 
@@ -11,8 +11,8 @@
       <text class="state-text">加载中...</text>
     </view>
     <view v-else-if="list.length === 0" class="state-wrap">
-      <u-empty description="暂无对接意向记录" />
-      <text class="state-hint">在需求详情页点击「联系对接」即可登记意向</text>
+      <u-empty description="暂无接单申请记录" />
+      <text class="state-hint">在需求详情页点击「申请接单」即可提交申请</text>
     </view>
     <view v-else class="list-body">
       <view v-for="it in list" :key="it.id" class="intent-card" @tap="goDemand(it)">
@@ -25,10 +25,10 @@
           <text class="meta-date">{{ formatDate(it.created_at) }}</text>
         </view>
         <text v-if="it.remark" class="intent-remark">{{ it.remark }}</text>
-        <!-- 待处理意向可取消登记 -->
+        <!-- 待处理申请可取消 -->
         <view v-if="it.status === 'pending'" class="intent-foot">
           <view class="cancel-btn" hover-class="tap-fade" @tap.stop="cancelIntent(it)">
-            <text>取消登记</text>
+            <text>取消申请</text>
           </view>
         </view>
       </view>
@@ -52,7 +52,7 @@ const loading = ref(false)
 
 const goBack = () => safeBack()
 const shortId = (id) => (id || '').length > 10 ? id.slice(-8) : (id || '-')
-const statusLabel = (s) => ({ pending: '待联系', contacted: '已洽谈', done: '已成交', closed: '已关闭' }[s] || s || '')
+const statusLabel = (s) => ({ pending: '待确认', contacted: '已确认', done: '已确认接单', closed: '已关闭' }[s] || s || '')
 const formatDate = (iso) => {
   if (!iso) return ''
   try {
@@ -64,18 +64,18 @@ const formatDate = (iso) => {
 }
 const goDemand = (it) => uni.navigateTo({ url: '/pages/demands/detail?id=' + encodeURIComponent(it.demand_id) })
 
-// 取消登记：仅待处理意向可取消
+// 取消申请：仅待处理申请可取消
 const cancelIntent = (it) => {
   uni.showModal({
-    title: '取消登记',
-    content: '确定取消这条对接意向吗？取消后发布方将不再看到你的登记。',
-    confirmText: '取消登记',
+    title: '取消申请',
+    content: '确定取消这条接单申请吗？取消后发布方将不再看到你的申请。',
+    confirmText: '取消申请',
     confirmColor: '#D92D20',
     success: async (res) => {
       if (!res.confirm) return
       try {
         await request({ url: '/api/v1/intents/' + encodeURIComponent(it.id) + '/cancel', method: 'POST' })
-        uni.showToast({ title: '已取消登记', icon: 'success' })
+        uni.showToast({ title: '已取消申请', icon: 'success' })
         fetchList()
       } catch (e) {
         let msg = ''

@@ -1,6 +1,22 @@
 {
   "pages": [
     {
+      "path": "pages/work-orders/list",
+      "style": {
+        "navigationBarTitleText": "接单工单",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
+      "path": "pages/work-orders/detail",
+      "style": {
+        "navigationBarTitleText": "工单详情",
+        "navigationBarTextStyle": "black",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    },
+    {
       "path": "pages/home/index",
       "style": {
         "navigationBarTextStyle": "white",

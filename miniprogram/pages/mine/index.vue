@@ -323,7 +323,8 @@ const showDeviceCard = computed(() => identity.value === 'enterprise' || identit
 // ── 我的业务（固定顺序不可改） ──
 const businessItems = computed(() => [
   { icon: '/static/mine-icons/publish.svg', tone: 'publish', label: '我的发布', go: goMyDemands },
-  { icon: '/static/mine-icons/intent.svg', tone: 'intent', label: '合作意向', go: goIntents },
+  { icon: '/static/mine-icons/intent.svg', tone: 'intent', label: '接单申请', go: goIntents },
+  { icon: '/static/mine-icons/order.svg', tone: 'order', label: '接单工单', go: goWorkOrders },
   { icon: '/static/mine-icons/appointment.svg', tone: 'appointment', label: '我的预约', go: goMyBookings },
   { icon: '/static/mine-icons/enroll.svg', tone: 'enroll', label: '我的报名', go: goMyEnrollments },
   { icon: '/static/mine-icons/favorite.svg', tone: 'favorite', label: '我的收藏', go: goFavorites },
@@ -594,6 +595,10 @@ const goMyDemands = () => {
 const goIntents = () => {
   if (!requireLogin()) return
   uni.navigateTo({ url: '/pages/intents/mine' })
+}
+const goWorkOrders = () => {
+  if (!requireLogin()) return
+  uni.navigateTo({ url: '/pages/work-orders/list' })
 }
 
 const goCertificates = () => {

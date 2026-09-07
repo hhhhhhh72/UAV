@@ -3,25 +3,25 @@
     <!-- 头部 -->
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
-      <text class="page-title">收到的对接意向</text>
+      <text class="page-title">收到的接单申请</text>
       <view class="head-spacer"></view>
     </view>
 
     <!-- 列表标题 -->
     <view class="list-head">
-      <text class="list-title">{{ singleDemand ? '需求意向' : '全部意向' }}</text>
+      <text class="list-title">{{ singleDemand ? '需求接单申请' : '全部接单申请' }}</text>
       <text class="list-count">共 {{ intents.length }} 条</text>
     </view>
 
     <!-- 空状态 -->
     <view v-if="intents.length === 0" class="state-panel">
       <view class="state-mark">⌁</view>
-      <text class="state-title">{{ loadError ? '加载失败' : '暂无对接意向' }}</text>
-      <text class="state-desc">{{ loadError ? '网络异常，请稍后重试' : '发布的需求收到登记后，会第一时间展示在这里' }}</text>
+      <text class="state-title">{{ loadError ? '加载失败' : '暂无接单申请' }}</text>
+      <text class="state-desc">{{ loadError ? '网络异常，请稍后重试' : '发布的需求收到接单申请后，会第一时间展示在这里' }}</text>
       <view v-if="loadError" class="state-btn" @tap="fetchIntents">重新加载</view>
     </view>
 
-    <!-- 意向列表 -->
+    <!-- 接单申请列表 -->
     <view v-else class="intent-list">
       <view v-for="intent in intents" :key="intent.id" class="intent-card">
         <view class="intent-head">
@@ -31,9 +31,9 @@
             <text class="tag" :class="intentStatusClass(intent.status)">{{ intentStatusLabel(intent.status) }}</text>
           </view>
         </view>
-        <text v-if="!singleDemand" class="intent-detail">对接项目：{{ intent.demand_title }}</text>
+        <text v-if="!singleDemand" class="intent-detail">申请项目：{{ intent.demand_title }}</text>
         <text v-if="intent.contact" class="intent-detail">联系方式：{{ intent.contact }}</text>
-        <text class="intent-note">对方说明：{{ intent.remark || '未填写说明' }}</text>
+        <text class="intent-note">接单备注：{{ intent.remark || '未填写说明' }}</text>
         <view class="intent-actions">
           <template v-if="intent.status === 'pending'">
             <view class="intent-btn" @tap="rejectIntent(intent)">拒绝</view>
@@ -43,7 +43,7 @@
             <view class="intent-btn" @tap="toastContacted">已洽谈</view>
           </template>
           <template v-else>
-            <view class="intent-btn" @tap="toastClosed">{{ intent.status === 'done' ? '已成交' : '意向已关闭' }}</view>
+            <view class="intent-btn" @tap="toastClosed">{{ intent.status === 'done' ? '已确认接单' : '申请已关闭' }}</view>
           </template>
         </view>
       </view>
@@ -99,12 +99,12 @@ const acceptTarget = ref(null)
 const acceptAmount = ref('')
 const acceptSubmitting = ref(false)
 
-const STATUS_LABEL = { pending: '待处理', contacted: '已确认', closed: '已关闭', done: '已成交' }
+const STATUS_LABEL = { pending: '待处理', contacted: '已确认', closed: '已关闭', done: '已确认接单' }
 const intentStatusLabel = (s) => STATUS_LABEL[s] || s || ''
 const intentStatusClass = (s) => (s === 'contacted' || s === 'done' ? 'green' : s === 'closed' ? 'gray' : 'orange')
 const initialOf = (it) => (it.intentor_name || '?').slice(0, 1)
 
-// 拉取我的需求（mine=1），再逐个取意向
+// 拉取我的需求（mine=1），再逐个取接单申请
 const fetchIntents = async () => {
   loadError.value = false
   try {
@@ -170,7 +170,7 @@ async function submitAccept() {
     })
     acceptShow.value = false
     intent.status = 'contacted'
-    uni.showToast({ title: '已确认接单，订单已生成', icon: 'success' })
+    uni.showToast({ title: '已确认接单，工单已生成（我的-接单工单查看）', icon: 'success', duration: 2500 })
   } catch (e) {
     uni.showToast({ title: getErrorMessage(e) || '操作失败，请重试', icon: 'none' })
   } finally {
@@ -180,8 +180,8 @@ async function submitAccept() {
 
 function rejectIntent(intent) {
   uni.showModal({
-    title: '拒绝意向',
-    content: '确定拒绝该意向？拒绝后不可恢复。',
+    title: '拒绝申请',
+    content: '确定拒绝该申请？拒绝后不可恢复。',
     success: async (r) => {
       if (!r.confirm) return
       try {
@@ -190,7 +190,7 @@ function rejectIntent(intent) {
           method: 'POST',
         })
         intent.status = 'closed'
-        uni.showToast({ title: '已拒绝该意向', icon: 'none' })
+        uni.showToast({ title: '已拒绝该申请', icon: 'none' })
       } catch (e) {
         uni.showToast({ title: getErrorMessage(e) || '操作失败，请重试', icon: 'none' })
       }
@@ -198,8 +198,8 @@ function rejectIntent(intent) {
   })
 }
 
-const toastClosed = () => uni.showToast({ title: '该意向已关闭', icon: 'none' })
-const toastContacted = () => uni.showToast({ title: '已洽谈，请在线下继续对接', icon: 'none' })
+const toastClosed = () => uni.showToast({ title: '该申请已关闭', icon: 'none' })
+const toastContacted = () => uni.showToast({ title: '已确认，请与对方线下对接', icon: 'none' })
 const goBack = () => safeBack()
 </script>
 

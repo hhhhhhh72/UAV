@@ -151,15 +151,15 @@
           <text>这是您发布的需求</text>
         </view>
         <view v-else-if="intented" class="action-primary disabled" @tap="onIntent">
-          <text>已登记</text>
+          <text>已申请</text>
         </view>
         <view v-else class="action-primary" @tap="onIntent">
-          <text>登记对接</text>
+          <text>申请接单</text>
         </view>
       </view>
     </view>
 
-    <!-- ═══════ 登录 / 认证 / 登记意向 弹层 ═══════ -->
+    <!-- ═══════ 登录 / 认证 / 申请接单 弹层 ═══════ -->
     <u-popup :show="sheet.show" position="bottom" round @close="closeSheet">
       <view class="sheet">
         <view class="sheet-head">
@@ -170,7 +170,7 @@
         <view class="sheet-body">
           <!-- 登录引导 -->
           <template v-if="sheet.kind === 'login'">
-            <text class="sheet-desc">发布、收藏和登记对接需要登录，登录后完成企业认证或飞手认证（任一）即可建立正式对接。</text>
+            <text class="sheet-desc">发布、收藏和申请接单需要登录，登录后完成企业认证或飞手认证（任一）即可正式承接订单。</text>
             <view class="sheet-actions">
               <view class="ghost-btn" @tap="closeSheet">暂不登录</view>
               <view class="primary-btn" @tap="goLogin">去登录</view>
@@ -179,7 +179,7 @@
 
           <!-- 认证引导 -->
           <template v-else-if="sheet.kind === 'cert'">
-            <text class="sheet-desc">为保障供需双方信息真实，登记对接前需完成企业认证或飞手认证（任一即可）。</text>
+            <text class="sheet-desc">为保障供需双方信息真实，申请接单前需完成企业认证或飞手认证（任一即可）。</text>
             <view class="sheet-actions">
               <view class="ghost-btn" @tap="closeSheet">稍后认证</view>
             </view>
@@ -189,27 +189,27 @@
             </view>
           </template>
 
-          <!-- 登记意向 -->
+          <!-- 申请接单 -->
           <template v-else-if="sheet.kind === 'intent'">
-            <text class="sheet-desc">发布方将看到对接主体、联系人和对接说明，联系方式不会在公开页面展示。</text>
-            <text class="field-label">对接主体</text>
+            <text class="sheet-desc">发布方将看到申请主体与接单说明，联系方式不会在公开页面展示。</text>
+            <text class="field-label">申请主体</text>
             <view class="field-static">{{ enterpriseName }}</view>
             <text class="field-label">联系人 <text class="req">*</text></text>
             <input v-model="intentForm.name" class="field" placeholder="请输入联系人" />
             <text class="field-label">联系电话 <text class="req">*</text></text>
             <input v-model="intentForm.phone" class="field" type="number" placeholder="请输入联系电话" />
             <text class="field-label">能力说明 / 备注 <text class="req">*</text></text>
-            <textarea v-model="intentForm.note" class="textarea" placeholder="简要说明可提供的能力、档期或合作意向"></textarea>
+            <textarea v-model="intentForm.note" class="textarea" placeholder="简要说明可作业时间、相关经验或报价意向"></textarea>
             <view class="agree-row" @tap="intentForm.agree = !intentForm.agree">
               <view class="agree-box" :class="{ on: intentForm.agree }">
                 <text v-if="intentForm.agree" class="agree-check">✓</text>
               </view>
-              <text class="agree-text">我已阅读并同意向发布方提供以上对接信息。</text>
+              <text class="agree-text">我已阅读并同意向发布方提供以上接单信息。</text>
             </view>
             <view class="sheet-actions">
               <view class="ghost-btn" @tap="closeSheet">取消</view>
               <view class="primary-btn" :class="{ disabled: submitting }" @tap="submitIntent">
-                <text>{{ submitting ? '提交中...' : '提交意向' }}</text>
+                <text>{{ submitting ? '提交中...' : '提交接单申请' }}</text>
               </view>
             </view>
           </template>
@@ -434,7 +434,7 @@ const toastCompany = () => {
   }
 }
 
-/* ================= 收藏 / 登记对接 ================= */
+/* ================= 收藏 / 申请接单 ================= */
 // 收藏走真实接口，按内容类型选端点：需求 / 服务能力 / 商品（登录后可用）
 const favBaseUrls = {
   '需求': '/api/v1/demands/',
@@ -491,12 +491,12 @@ const onIntent = async () => {
   }
   // 自己发布的需求不可登记对接（本地记录/后端 is_mine 双路径拦截）
   if (isMyDemand.value) {
-    uni.showToast({ title: '不能登记自己发布的需求', icon: 'none' })
+    uni.showToast({ title: '不能申请自己发布的需求', icon: 'none' })
     return
   }
-  // 已登记过该需求（历史任意状态）→ 不再开放重复登记
+  // 已申请过该需求（历史任意状态）→ 不再开放重复申请
   if (intented.value) {
-    uni.showToast({ title: '已登记过该需求的对接意向', icon: 'none' })
+    uni.showToast({ title: '已申请过该需求，请勿重复提交', icon: 'none' })
     return
   }
   if (!(await isAnyCertified())) {
@@ -512,8 +512,8 @@ const isMyDemand = computed(() => {
   return !!(postId && (postId.indexOf('post-') === 0 || postId.indexOf('local-') === 0))
 })
 
-// 我的意向记录里该需求是否存在"待处理"意向——存在则隐藏登记入口；
-// 已关闭（含取消登记）/已洽谈的不阻塞再次登记，与后端防重复规则一致
+// 我的意向记录里该需求是否存在"待处理"申请——存在则隐藏申请入口；
+// 已关闭（含取消申请）/已洽谈的不阻塞再次申请，与后端防重复规则一致
 const intented = ref(false)
 const checkIntented = async () => {
   if (!isLoggedIn()) return
@@ -549,7 +549,7 @@ const isPilotCertified = async () => {
   }
 }
 
-// 对接认证门槛：企业认证或飞手认证任一通过即可登记对接（个人飞手不强制企业主体）
+// 接单认证门槛：企业认证或飞手认证任一通过即可申请接单（个人飞手不强制企业主体）
 const isAnyCertified = async () => (await isEnterpriseCertified()) || (await isPilotCertified())
 
 /* ================= 会话弹层 ================= */
@@ -562,7 +562,7 @@ function openSheet(kind) {
   const titles = {
     login: '登录后继续',
     cert: '完成认证',
-    intent: '登记对接意向',
+    intent: '申请接单',
   }
   if (kind === 'intent') {
     const u = currentUserName()
@@ -610,14 +610,14 @@ const submitIntent = async () => {
     uni.showToast({ title: '请确认信息授权', icon: 'none' })
     return
   }
-  // 兜底：自己发布的需求（本地记录）不可自登记，直接阻断不落本地
+  // 兜底：自己发布的需求（本地记录）不可自申请，直接阻断不落本地
   if (isMyDemand.value) {
-    uni.showToast({ title: '不能登记自己发布的需求', icon: 'none' })
+    uni.showToast({ title: '不能申请自己发布的需求', icon: 'none' })
     return
   }
   submitting.value = true
   try {
-    // 登记后端意向。真实后端需求 id 是数字字符串（normalizeDemand 的 String(d.id)），
+    // 提交后端接单申请。真实后端需求 id 是数字字符串（normalizeDemand 的 String(d.id)），
     // 非本地前缀（post-*/local-* 与 hallData mock d1/s1/p1）一律走后端 POST，
     // 提交失败明确提示；仅本地演示内容落本地存储兜底
     const isLocalDemo = !postId ||
@@ -663,7 +663,7 @@ const submitIntent = async () => {
       })
       saveSentIntents(sent)
     }
-    uni.showToast({ title: backendOk ? '对接意向已提交' : '意向已保存到本地', icon: 'success' })
+    uni.showToast({ title: backendOk ? '接单申请已提交，等待发布方确认' : '申请已保存到本地', icon: 'success' })
     closeSheet()
   } finally {
     submitting.value = false
