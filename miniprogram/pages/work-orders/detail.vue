@@ -38,7 +38,28 @@
         <view v-for="(a, i) in actions" :key="i" class="wod-btn" :class="{ primary: a.primary, danger: a.danger }" hover-class="wod-btn-hover" @tap="a.run">{{ a.label }}</view>
       </view>
 
-      <view v-if="w.status === 'completed'" class="wod-done">订单已完成 · 互评功能 V1.1 开放</view>
+      <!-- 订单互评（完成后双方各评一次；后端幂等防重复） -->
+      <view v-if="w.status === 'completed'" class="wod-card">
+        <text class="wod-card-title">订单互评</text>
+        <view v-if="reviews.length" class="rev-list">
+          <view v-for="(rv, i) in reviews" :key="i" class="rev-item">
+            <view class="rev-stars"><text v-for="n in 5" :key="n" class="rev-star" :class="{ on: n <= rv.rating }">★</text></view>
+            <text class="rev-content">{{ rv.content || '（未填写文字）' }}</text>
+            <text class="rev-meta">{{ shortId(rv.reviewer_id) }} · {{ rv.status === 'approved' ? '已展示' : '待审核' }}</text>
+          </view>
+        </view>
+        <view v-else class="rev-empty">暂无评价，完成后的双方可互相评分</view>
+        <view v-if="!reviewing" class="wod-btn" hover-class="wod-btn-hover" @tap="reviewing = true">提交评价</view>
+        <template v-else>
+          <view class="rev-input-stars">
+            <text v-for="n in 5" :key="n" class="rev-star rev-star--big" :class="{ on: n <= revRating }" @tap="revRating = n">{{ revRating >= n ? '★' : '☆' }}</text>
+            <text class="rev-rate-label">{{ revRating }} 分</text>
+          </view>
+          <textarea class="rev-textarea" v-model="revContent" placeholder="请填写评价内容（质量/服务/沟通）" maxlength="200" />
+          <view class="wod-btn primary" hover-class="wod-btn-hover" @tap="submitReview">提交评价</view>
+          <view class="wod-btn" hover-class="wod-btn-hover" @tap="reviewing = false">取消</view>
+        </template>
+      </view>
     </template>
 
     <view v-else class="wod-state">工单不存在或无权查看</view>
@@ -57,6 +78,43 @@ const needRefresh = ref(false)
 
 const user = getStoredUser()
 const myId = user && (user.id || user.user_id)
+
+// ── 订单互评（完成后双方互评，后端幂等防重复） ──
+const reviews = ref([])
+const reviewing = ref(false)
+const revRating = ref(5)
+const revContent = ref('')
+
+const loadReviews = async () => {
+  if (!w.value || w.value.status !== 'completed') return
+  try {
+    const res = await request({ url: '/api/v1/reviews?target_type=work_order&target_id=' + encodeURIComponent(w.value.id) })
+    reviews.value = Array.isArray(res) ? res : ((res && res.data) || [])
+  } catch (e) {
+    reviews.value = []
+  }
+}
+
+const submitReview = async () => {
+  if (revRating.value < 1) { toast('请选择评分'); return }
+  const content = revContent.value.trim()
+  if (!content) { toast('请填写评价内容'); return }
+  try {
+    await request({
+      url: '/api/v1/reviews',
+      method: 'POST',
+      data: { target_type: 'work_order', target_id: w.value.id, rating: revRating.value, content }
+    })
+    toast('评价已提交，感谢反馈')
+    reviewing.value = false
+    revContent.value = ''
+    loadReviews()
+  } catch (e) {
+    const msg = getErrorMessage(e) || '提交失败，请重试'
+    toast(msg)
+    if (msg.indexOf('已评价') >= 0) { reviewing.value = false; loadReviews() }
+  }
+}
 const isPub = computed(() => w.value && myId && w.value.publisher_id === myId)
 const isWorker = computed(() => w.value && myId && w.value.worker_id === myId)
 
@@ -180,6 +238,7 @@ async function load() {
   try {
     const res = await request({ url: '/api/v1/work-orders/' + encodeURIComponent(id.value) })
     w.value = res || null
+    loadReviews()
   } catch (e) {
     w.value = null
   } finally {
@@ -217,4 +276,16 @@ page { background: var(--color-bg); }
 .wod-btn.danger { background: #FEF3F2; color: #D92D20; }
 .wod-btn-hover { opacity: .85; }
 .wod-done { text-align: center; font-size: 24rpx; color: #98A2B3; margin-top: 24rpx; }
+.rev-list { margin-bottom: 12rpx; }
+.rev-item { background: #F8FAFC; border: 1rpx solid #EEF1F4; border-radius: 8rpx; padding: 16rpx 20rpx; margin-bottom: 12rpx; }
+.rev-stars { font-size: 26rpx; }
+.rev-star { color: #D0D5DD; margin-right: 4rpx; }
+.rev-star.on { color: #F79009; }
+.rev-star--big { font-size: 48rpx; margin-right: 12rpx; }
+.rev-rate-label { font-size: 24rpx; color: #667085; }
+.rev-content { display: block; font-size: 24rpx; color: #344054; margin-top: 8rpx; }
+.rev-meta { display: block; font-size: 22rpx; color: #98A2B3; margin-top: 6rpx; }
+.rev-empty { font-size: 24rpx; color: #98A2B3; padding: 8rpx 0 16rpx; }
+.rev-input-stars { display: flex; align-items: center; margin-bottom: 12rpx; }
+.rev-textarea { width: 100%; box-sizing: border-box; background: #FAFAFA; border-radius: 24rpx; padding: 16rpx 20rpx; font-size: 26rpx; min-height: 140rpx; margin-bottom: 16rpx; }
 </style>

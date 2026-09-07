@@ -266,6 +266,7 @@ func (s *WorkOrderService) FindByID(ctx context.Context, a domain.Actor, orderID
 	if wo.PublisherID != a.ID && wo.WorkerID != a.ID {
 		return domain.WorkOrder{}, errors.New("只有订单双方可以查看")
 	}
+	s.fillDemandTitle(ctx, &wo)
 	return wo, nil
 }
 
@@ -284,8 +285,19 @@ func (s *WorkOrderService) ListMine(ctx context.Context, a domain.Actor) ([]doma
 	for _, wo := range append(pub, wk...) {
 		if !seen[wo.ID] {
 			seen[wo.ID] = true
+			s.fillDemandTitle(ctx, &wo)
 			out = append(out, wo)
 		}
 	}
 	return out, nil
+}
+
+// fillDemandTitle 补全需求标题（FindByID 失败保留空串，前端已有 demand_id 兜底）。
+func (s *WorkOrderService) fillDemandTitle(ctx context.Context, wo *domain.WorkOrder) {
+	if wo.DemandTitle != "" {
+		return
+	}
+	if d, err := s.demands.FindByID(ctx, wo.DemandID); err == nil {
+		wo.DemandTitle = d.Title
+	}
 }
