@@ -209,6 +209,56 @@ export function request(options) {
   })
 }
 
+// uploadFileWithAuth 带鉴权上传（uni.uploadFile 不走 request 拦截器，需手动处理 401）：
+// token 过期时自动刷新一次并重试；刷新失败抛「登录已过期，请重新登录」错误。
+export async function uploadFileWithAuth(localPath, formData = {}) {
+  const doUpload = (token) => new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: BASE_URL + '/api/v1/files/upload',
+      filePath: localPath,
+      name: 'file',
+      formData: Object.assign({ private: 'false' }, formData),
+      header: { Authorization: 'Bearer ' + token },
+      success: (r) => {
+        if (r.statusCode === 401) { reject(new Error('AUTH')); return }
+        let data = null
+        try { data = JSON.parse(r.data) } catch (e) { /* ignore */ }
+        if (r.statusCode >= 400 || !data || (!data.file_id && !(data.data && data.data.file_id))) {
+          const msg = (data && ((data.error && (data.error.message || data.error.code)) || data.message)) || ('HTTP ' + r.statusCode)
+          reject(new Error(msg))
+          return
+        }
+        const fid = data.file_id || (data.data && data.data.file_id)
+        const url = data.url || (data.data && data.data.url) || ('/uploads/' + fid)
+        resolve(url)
+      },
+      fail: () => reject(new Error('网络错误，上传失败'))
+    })
+  })
+  try {
+    return await doUpload(authStorage.getAccessToken())
+  } catch (e) {
+    if (e && e.message === 'AUTH' && authStorage.getRefreshToken()) {
+      const res = await new Promise((resolve, reject) => {
+        uni.request({
+          url: BASE_URL + '/api/v1/auth/refresh',
+          method: 'POST',
+          data: { refresh_token: authStorage.getRefreshToken() },
+          success: (r) => resolve(r),
+          fail: reject
+        })
+      })
+      const body = (res && res.data && (res.data.data || res.data)) || {}
+      const na = body.access_token || body.accessToken
+      if (!na) throw new Error('登录已过期，请重新登录')
+      authStorage.setTokens(na, body.refresh_token || body.refreshToken)
+      return await doUpload(na)
+    }
+    if (e && e.message === 'AUTH') throw new Error('登录已过期，请重新登录')
+    throw e
+  }
+}
+
 // requireLogin 页面级登录守卫（发布类页面 onShow 调用）：
 // 1) 已登录：清除网关标记，正常放行（返回 true）。
 // 2) 未登录且未跳转过：提示 + 跳转登录页（打网关标记 publish_login_gate）。

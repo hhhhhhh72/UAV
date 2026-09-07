@@ -80,7 +80,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { TYPES, computePreviewMeta, makePost, upsertPost, loadFormState, clearFormState } from '../../utils/publishData'
 import { useSafeTop } from '../../utils/safeTop'
-import { request, authStorage, requireLogin, BASE_URL, getStoredUser, getErrorMessage } from '../../utils/request'
+import { request, authStorage, requireLogin, BASE_URL, getStoredUser, getErrorMessage, uploadFileWithAuth } from '../../utils/request'
 
 const { topPad, initSafeTop } = useSafeTop(true)
 
@@ -298,28 +298,10 @@ async function submitPublish() {
 
 // 逐张上传本地图片到服务器，返回 /uploads/{file_id} 可访问路径（与证件上传同模式）
 async function uploadImages(paths) {
-  const token = authStorage.getAccessToken()
+  // 带鉴权上传：401 自动刷新 token 重试（raw uploadFile 不走 request 拦截器）
   const urls = []
   for (const p of paths) {
-    const data = await new Promise((resolve, reject) => {
-      uni.uploadFile({
-        url: BASE_URL + '/api/v1/files/upload',
-        filePath: p,
-        name: 'file',
-        header: { Authorization: 'Bearer ' + token },
-        success: (r) => {
-          if (r.statusCode >= 200 && r.statusCode < 300) {
-            try { resolve(JSON.parse(r.data)) } catch (e) { reject(e) }
-          } else {
-            reject(new Error('upload failed ' + r.statusCode))
-          }
-        },
-        fail: reject,
-      })
-    })
-    const fid = data && (data.file_id || (data.data && data.data.file_id))
-    if (!fid) throw new Error('upload response missing file_id')
-    urls.push('/uploads/' + fid)
+    urls.push(await uploadFileWithAuth(p))
   }
   return urls
 }
