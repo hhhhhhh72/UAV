@@ -147,6 +147,9 @@
         <view v-if="isEndedItem" class="action-primary disabled">
           <text>该信息已结束</text>
         </view>
+        <view v-else-if="isAssigned" class="action-primary disabled">
+          <text>该需求已接单</text>
+        </view>
         <view v-else-if="isMyDemand" class="action-primary disabled">
           <text>这是您发布的需求</text>
         </view>
@@ -249,6 +252,8 @@ const headerStyle = computed(() => ({
 let postId = ''
 
 const isEndedItem = computed(() => (item.value ? isEnded(item.value) : false))
+// 已被确认接单（后端 DemandAssigned）→ 关闭申请入口，与后端「已确认接单暂不开放新申请」一致
+const isAssigned = computed(() => !!(item.value && item.value.statusKey === 'assigned'))
 
 const detailTitle = computed(() => {
   if (!item.value) return '详情'

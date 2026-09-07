@@ -36,7 +36,9 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { request, getStoredUser, requireLogin } from '../../utils/request'
 
-const role = ref('pub')
+// 默认视角按身份：企业→我发出的；个人/飞手→我接到的（避免默认空 tab）
+const u0 = getStoredUser()
+const role = ref((u0 && (u0.role === 'enterprise' || u0.user_type === 'enterprise')) ? 'pub' : 'worker')
 const loading = ref(true)
 const orders = ref([])
 

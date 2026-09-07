@@ -109,11 +109,11 @@ const chooseAndUpload = async () => {
     uni.showLoading({ title: '上传中...', mask: true })
     chosenPhotos = []
     for (const p of paths) chosenPhotos.push(await uploadPhoto(p))
-    return true
+    return chosenPhotos
   } catch (e) {
     uni.hideLoading()
     toast((e && e.message) || '上传失败，请重试')
-    return false
+    return null
   } finally {
     uni.hideLoading()
   }
@@ -126,11 +126,19 @@ const actions = computed(() => {
   // 飞手：待开始 → 开始作业；进行中 → 完成作业（可上传成果照片）
   if (isWorker.value && st === 'pending') acts.push({ label: '开始作业', primary: true, run: () => act(() => request({ url: '/api/v1/work-orders/' + w.value.id + '/start', method: 'POST' }), '已开始作业') })
   if (isWorker.value && st === 'ongoing') acts.push({
-    label: '完成作业（可上传成果）', primary: true,
+    label: '完成作业', primary: true,
     run: async () => {
-      const ok = await chooseAndUpload()
-      if (!ok && chosenPhotos.length === 0) return
-      await act(() => request({ url: '/api/v1/work-orders/' + w.value.id + '/complete', method: 'POST', data: { result_photos: chosenPhotos } }), '作业已提交，等待验收')
+      const pick = await new Promise((resolve) => {
+        uni.showActionSheet({ itemList: ['上传成果照片后完成', '直接完成（无照片）'], success: (r) => resolve(r.tapIndex === 0), fail: () => resolve(null) })
+      })
+      if (pick === null) return
+      let photos = []
+      if (pick) {
+        const uploaded = await chooseAndUpload()
+        if (!uploaded) return // 取消选择或上传失败
+        photos = uploaded
+      }
+      await act(() => request({ url: '/api/v1/work-orders/' + w.value.id + '/complete', method: 'POST', data: { result_photos: photos } }), '作业已提交，等待验收')
     }
   })
   // 需求方：待验收 → 验收通过 / 要求整改
