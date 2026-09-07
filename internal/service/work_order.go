@@ -57,7 +57,10 @@ func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, dem
 	if it.Status != "pending" {
 		return domain.WorkOrder{}, errors.New("该意向已处理")
 	}
-	// 金额校验：订单金额不得超过需求预算（预算为 0 表示面议/未填，不设上限）。
+	// 金额校验（上下限，预算为 0 表示面议/未填，不设该侧上限）：
+	if d.BudgetMinFen > 0 && amountFen > 0 && amountFen < d.BudgetMinFen {
+		return domain.WorkOrder{}, fmt.Errorf("订单金额不能低于需求预算下限（%.2f 元）", float64(d.BudgetMinFen)/100)
+	}
 	if amountFen > 0 && d.BudgetFen > 0 && amountFen > d.BudgetFen {
 		return domain.WorkOrder{}, fmt.Errorf("订单金额不能超过需求预算（%.2f 元）", float64(d.BudgetFen)/100)
 	}

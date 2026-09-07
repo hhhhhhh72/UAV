@@ -31,10 +31,15 @@ type CreateDemandInput struct {
 	Title         string         `json:"title"`
 	Description   string         `json:"description"`
 	Images        []string       `json:"images"`
+	Attachments   []string       `json:"attachments"`
+	Aircraft      []string       `json:"aircraft"`
+	PilotCount    int            `json:"pilot_count"`
 	Latitude      float64        `json:"latitude"`
 	Longitude     float64        `json:"longitude"`
 	BudgetFen     int64          `json:"budget_fen"`
-	Budget        int64          `json:"budget"` // 元（小程序发布表单），Create 时换算为分
+	Budget        int64          `json:"budget"` // 预算上限（元，小程序发布表单），Create 时换算为分
+	BudgetMin     int64          `json:"budget_min"` // 预算下限（元，选填 0=不限）
+	BudgetMinFen  int64          `json:"budget_min_fen"`
 	Deadline      string         `json:"deadline"`
 	BizFields     map[string]any `json:"biz_fields"`
 }
@@ -73,12 +78,26 @@ func (s *DemandService) Create(ctx context.Context, a domain.Actor, in CreateDem
 	if budgetFen > 1e13 {
 		return domain.Demand{}, errors.New("budget is unreasonably large (max 1e13 fen)")
 	}
+	// 预算下限（元选填→分）：仅在填写时生效；下限不得大于上限（上限 0=面议 时下限无效）。
+	budgetMinFen := in.BudgetMinFen
+	if budgetMinFen == 0 && in.BudgetMin > 0 {
+		budgetMinFen = in.BudgetMin * 100
+	}
+	if budgetMinFen < 0 || budgetMinFen > 1e13 {
+		return domain.Demand{}, errors.New("budget_min is invalid")
+	}
+	if budgetFen > 0 && budgetMinFen > budgetFen {
+		return domain.Demand{}, errors.New("budget_min cannot exceed budget max")
+	}
+	if in.PilotCount < 0 || in.PilotCount > 999 {
+		return domain.Demand{}, errors.New("pilot_count is invalid")
+	}
 	// 需求有效期（可选）：格式 YYYY-MM-DD / RFC3339；不得早于今天（发布时效校验）。
 	deadline, err := validateDemandDeadline(in.Deadline)
 	if err != nil {
 		return domain.Demand{}, err
 	}
-	d := domain.Demand{ID: fmt.Sprintf("demand-%d-%d", now.UnixNano(), nextSeq()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: budgetFen, Deadline: deadline, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
+	d := domain.Demand{ID: fmt.Sprintf("demand-%d-%d", now.UnixNano(), nextSeq()), PublisherID: a.ID, PublisherName: in.PublisherName, Contact: in.Contact, District: in.District, BizType: bizType, Title: in.Title, Description: in.Description, Images: in.Images, Attachments: in.Attachments, Aircraft: in.Aircraft, PilotCount: in.PilotCount, Latitude: in.Latitude, Longitude: in.Longitude, BudgetFen: budgetFen, BudgetMinFen: budgetMinFen, Deadline: deadline, BizFields: in.BizFields, Status: domain.DemandPending, Version: 1, CreatedAt: now, UpdatedAt: now}
 	slog.Info("demand created", "demand_id", d.ID, "publisher_id", a.ID, "biz_type", string(bizType))
 	return s.repo.Create(ctx, d)
 }

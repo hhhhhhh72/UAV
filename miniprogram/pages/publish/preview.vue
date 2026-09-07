@@ -90,6 +90,8 @@ const photoCount = ref(0)
 const resumeId = ref('')
 // 已选图片的真实临时路径（预览展示 + 发布时上传到服务器）
 const photoList = ref([])
+// 需求附件临时路径（发布时上传）
+const fileList = ref([])
 const showConfirm = ref(false)
 const showSuccess = ref(false)
 const toast = ref('')
@@ -186,7 +188,8 @@ async function submitPublish() {
   if (type.value === 'demand') {
     try {
       const images = photoList.value.length ? await uploadImages(photoList.value) : []
-      const created = await createBackendDemand(values.value, images)
+      const attachments = fileList.value.length ? await uploadImages(fileList.value) : []
+      const created = await createBackendDemand(values.value, images, attachments)
       if (!created || !created.id) throw new Error('create demand failed')
       backendDemandId.value = created.id
     } catch (e) {
@@ -347,7 +350,7 @@ function mapProdType(t) {
 }
 
 // POST /api/v1/demands，返回创建的后端需求
-async function createBackendDemand(v, images) {
+async function createBackendDemand(v, images, attachments) {
   const u = getStoredUser() || {}
   return request({
     url: '/api/v1/demands',
@@ -360,7 +363,11 @@ async function createBackendDemand(v, images) {
       title: String(v.title || '').trim(),
       description: String(v.description || '').trim(),
       images: images || [],
-      budget: Number(v.budget) || 0, // 元，后端自动换算为 budget_fen（分）
+      budget: Number(v.budget_max) || 0, // 预算上限（元，后端换算为 budget_fen；0=面议）
+      budget_min: Number(v.budget_min) || 0, // 预算下限（元，后端换算为 budget_min_fen；0=不限）
+      aircraft: String(v.aircraft || '').split(/[，,]/).map((x) => x.trim()).filter(Boolean),
+      pilot_count: Number(v.pilot_count) || 0,
+      attachments: attachments || [],
     },
   })
 }
@@ -418,6 +425,7 @@ onLoad((options) => {
       photoCount.value = parsed.photoCount || 0
       resumeId.value = parsed.resumeId || ''
       photoList.value = Array.isArray(parsed.photos) ? parsed.photos : []
+      fileList.value = Array.isArray(parsed.files) ? parsed.files.filter(Boolean) : []
       return
     } catch (e) { /* fallthrough */ }
   }

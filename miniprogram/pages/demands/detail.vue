@@ -83,10 +83,11 @@
             />
           </view>
         </scroll-view>
-        <view v-if="attachmentNames.length" class="attach-list">
-          <view v-for="(a, i) in attachmentNames" :key="i" class="attach-item">
+        <view v-if="attachmentItems.length" class="attach-list">
+          <view v-for="(a, i) in attachmentItems" :key="i" class="attach-item" hover-class="attach-item-hover" @tap="downloadAttachment(a)">
             <view class="attach-icon">▣</view>
-            <text class="attach-name">{{ a }}</text>
+            <text class="attach-name">{{ a.name }}</text>
+            <text class="attach-dl">下载</text>
           </view>
         </view>
       </view>
@@ -225,7 +226,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
-import { request } from '../../utils/request'
+import { request, BASE_URL } from '../../utils/request'
 import { safeNavigateTo, safeBack } from '../../utils/nav'
 import {
   IMG_SOLAR, IMG_LIFT, IMG_HERO, isEnded, normalizeDemand, normalizeService,
@@ -310,7 +311,31 @@ const mediaImages = computed(() => {
 })
 // 附件名列表：原为写死的模拟文件名（作业技术要求.pdf 等），实际从未真实上传，
 // 属误导性死数据，已移除；模板 v-if="attachmentNames.length" 保证空时不渲染
-const attachmentNames = computed(() => [])
+// 真实附件（发布时上传的 /uploads/{fid} 数组）：展示文件名的下载项
+const attachmentItems = computed(() => {
+  const list = (item.value && Array.isArray(item.value.attachments)) ? item.value.attachments : []
+  return list.map((u) => ({ url: u, name: decodeURIComponent(String(u).split('/').pop() || '附件') }))
+})
+const attachmentNames = computed(() => attachmentItems.value.map((a) => a.name))
+const downloadAttachment = (a) => {
+  const url = a.url.indexOf('http') === 0 ? a.url : BASE_URL + a.url
+  uni.downloadFile({
+    url,
+    success: (r) => {
+      if (r.statusCode === 200) {
+        const fs = uni.getFileSystemManager ? (typeof uni.getFileSystemManager === 'function' ? uni.getFileSystemManager() : null) : null
+        if (fs && r.tempFilePath) {
+          uni.saveFile({ tempFilePath: r.tempFilePath, success: (sv) => uni.openDocument({ filePath: sv.savedFilePath, showMenu: true }) })
+        } else {
+          uni.openDocument({ filePath: r.tempFilePath, showMenu: true })
+        }
+      } else {
+        uni.showToast({ title: '下载失败', icon: 'none' })
+      }
+    },
+    fail: () => uni.showToast({ title: '下载失败', icon: 'none' })
+  })
+}
 
 const recommendItems = computed(() => {
   if (!item.value) return []

@@ -80,6 +80,14 @@ func (r *demandRepo) Create(ctx context.Context, d domain.Demand) (domain.Demand
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err)
 	}
+	atts, err := json.Marshal(d.Attachments)
+	if err != nil {
+		return domain.Demand{}, fmt.Errorf("marshal attachments: %w", err)
+	}
+	air, err := json.Marshal(d.Aircraft)
+	if err != nil {
+		return domain.Demand{}, fmt.Errorf("marshal aircraft: %w", err)
+	}
 	// 只对落库值加密：响应/业务流转保留明文（与 Update 的 encContact 一致），
 	// 此前就地加密后 return d 会把密文 base64 回传给创建接口前端。
 	encContact := d.Contact
@@ -96,12 +104,12 @@ func (r *demandRepo) Create(ctx context.Context, d domain.Demand) (domain.Demand
 	d.UpdatedAt = now
 	_, err = r.pool.Exec(ctx, `
 		INSERT INTO demands (id, publisher_id, publisher_name, contact, district, city_code,
-			biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+			biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 			status, version, created_at, updated_at, deadline)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
 		d.ID, d.PublisherID, d.PublisherName, encContact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt, d.Deadline)
+		d.BudgetFen, d.OfflineAmountFen, bizFields, d.BudgetMinFen, atts, air, d.PilotCount, string(d.Status), d.Version, d.CreatedAt, d.UpdatedAt, d.Deadline)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("create demand: %w", err)
 	}
@@ -110,7 +118,7 @@ func (r *demandRepo) Create(ctx context.Context, d domain.Demand) (domain.Demand
 
 func (r *demandRepo) FindByID(ctx context.Context, id string) (domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 		status, version, created_at, updated_at, deadline
 		FROM demands WHERE id = $1`
 	demands, err := scanDemands(ctx, r.pool, r.cipher, q, []any{id})
@@ -132,6 +140,14 @@ func (r *demandRepo) Update(ctx context.Context, d domain.Demand) (domain.Demand
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("marshal bizFields: %w", err)
 	}
+	atts, err := json.Marshal(d.Attachments)
+	if err != nil {
+		return domain.Demand{}, fmt.Errorf("marshal attachments: %w", err)
+	}
+	air, err := json.Marshal(d.Aircraft)
+	if err != nil {
+		return domain.Demand{}, fmt.Errorf("marshal aircraft: %w", err)
+	}
 	encContact := d.Contact
 	if r.cipher != nil && d.Contact != "" {
 		enc, err := r.cipher.Encrypt(d.Contact)
@@ -147,11 +163,11 @@ func (r *demandRepo) Update(ctx context.Context, d domain.Demand) (domain.Demand
 		`UPDATE demands SET publisher_name=$1, contact=$2, district=$3, city_code=$4,
 		biz_type=$5, title=$6, description=$7, images=$8, latitude=$9, longitude=$10,
 		budget_fen=$11, offline_amount_fen=$12, biz_fields=$13, status=$14, deadline=$15,
-		version=$16, updated_at=$17
-		WHERE id=$18 AND version=$19`,
+		version=$16, updated_at=$17, budget_min_fen=$18, attachments=$19, aircraft=$20, pilot_count=$21
+		WHERE id=$22 AND version=$23`,
 		d.PublisherName, encContact, d.District, d.CityCode,
 		string(d.BizType), d.Title, d.Description, images, d.Latitude, d.Longitude,
-		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Deadline, d.Version, d.UpdatedAt, d.ID, oldVersion)
+		d.BudgetFen, d.OfflineAmountFen, bizFields, string(d.Status), d.Deadline, d.Version, d.UpdatedAt, d.BudgetMinFen, atts, air, d.PilotCount, d.ID, oldVersion)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("update demand %s: %w", d.ID, err)
 	}
@@ -163,7 +179,7 @@ func (r *demandRepo) Update(ctx context.Context, d domain.Demand) (domain.Demand
 
 func (r *demandRepo) List(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 		status, version, created_at, updated_at, deadline
 		FROM demands WHERE status = 'published'`
 	args := []any{}
@@ -212,7 +228,7 @@ func (r *demandRepo) ListPage(ctx context.Context, f repository.DemandFilter, of
 		return nil, 0, fmt.Errorf("count demands: %w", err)
 	}
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 		status, version, created_at, updated_at, deadline
 		FROM demands WHERE ` + where + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", argIdx) + ` OFFSET $` + fmt.Sprintf("%d", argIdx+1)
 	items, err := scanDemands(ctx, r.pool, r.cipher, q, append(args, limit, offset))
@@ -225,7 +241,7 @@ func (r *demandRepo) ListPage(ctx context.Context, f repository.DemandFilter, of
 // ListAll 管理端全量（含待审核等全部状态），status 过滤由 f.Status 控制。
 func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 		status, version, created_at, updated_at, deadline
 		FROM demands`
 	args := []any{}
@@ -257,7 +273,7 @@ func (r *demandRepo) ListAll(ctx context.Context, f repository.DemandFilter) ([]
 // 首页 Top-N 不再整表拉取。
 func (r *demandRepo) ListTop(ctx context.Context, f repository.DemandFilter, limit int) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 		status, version, created_at, updated_at, deadline
 		FROM demands WHERE status = 'published'`
 	args := []any{}
@@ -323,7 +339,7 @@ func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, err
 	}
 	kw := "%" + escapeLike(q) + "%"
 	sql := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 		status, version, created_at, updated_at, deadline
 		FROM demands WHERE status = 'published'
 		AND (title ILIKE $1 ESCAPE '\' OR publisher_name ILIKE $1 ESCAPE '\' OR description ILIKE $1 ESCAPE '\' OR district ILIKE $1 ESCAPE '\' OR city_code ILIKE $1 ESCAPE '\')
@@ -334,7 +350,7 @@ func (r *demandRepo) Search(ctx context.Context, q string) ([]domain.Demand, err
 // ListByPublisher 返回某发布者的全部需求（全状态），供"我的"页统计/查询。
 func (r *demandRepo) ListByPublisher(ctx context.Context, publisherID string) ([]domain.Demand, error) {
 	q := `SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 		status, version, created_at, updated_at, deadline
 		FROM demands WHERE publisher_id = $1
 		ORDER BY created_at DESC`
@@ -353,21 +369,23 @@ func (r *demandRepo) SetStatus(ctx context.Context, id string, status domain.Dem
 	}
 	// Fetch the updated row.
 	var d domain.Demand
-	var images, bizFields []byte
+	var images, bizFields, atts, air []byte
 	var bizType string
 	err = r.pool.QueryRow(ctx,
 		`SELECT id, publisher_id, publisher_name, contact, district, city_code,
-		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields,
+		biz_type, title, description, images, latitude, longitude, budget_fen, offline_amount_fen, biz_fields, budget_min_fen, attachments, aircraft, pilot_count,
 		status, version, created_at, updated_at, deadline
 		FROM demands WHERE id = $1`, id).Scan(
 		&d.ID, &d.PublisherID, &d.PublisherName, &d.Contact, &d.District, &d.CityCode,
 		&bizType, &d.Title, &d.Description, &images, &d.Latitude, &d.Longitude,
-		&d.BudgetFen, &d.OfflineAmountFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt, &d.Deadline)
+		&d.BudgetFen, &d.OfflineAmountFen, &bizFields, &d.BudgetMinFen, &atts, &air, &d.PilotCount, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt, &d.Deadline)
 	if err != nil {
 		return domain.Demand{}, fmt.Errorf("fetch demand after update: %w", err)
 	}
 	json.Unmarshal(images, &d.Images)
 	json.Unmarshal(bizFields, &d.BizFields)
+	json.Unmarshal(atts, &d.Attachments)
+	json.Unmarshal(air, &d.Aircraft)
 	d.BizType = domain.BizType(bizType)
 	d.Status = domain.DemandStatus(status)
 	if r.cipher != nil && d.Contact != "" {
@@ -390,15 +408,17 @@ func scanDemands(ctx context.Context, pool *pgxpool.Pool, cipher *crypto.Cipher,
 	out := []domain.Demand{}
 	for rows.Next() {
 		var d domain.Demand
-		var images, bizFields []byte
+		var images, bizFields, atts, air []byte
 		var status, bizType string
 		if err := rows.Scan(&d.ID, &d.PublisherID, &d.PublisherName, &d.Contact, &d.District,
 			&d.CityCode, &bizType, &d.Title, &d.Description, &images, &d.Latitude, &d.Longitude,
-			&d.BudgetFen, &d.OfflineAmountFen, &bizFields, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt, &d.Deadline); err != nil {
+			&d.BudgetFen, &d.OfflineAmountFen, &bizFields, &d.BudgetMinFen, &atts, &air, &d.PilotCount, &status, &d.Version, &d.CreatedAt, &d.UpdatedAt, &d.Deadline); err != nil {
 			return nil, fmt.Errorf("scan demand: %w", err)
 		}
 		json.Unmarshal(images, &d.Images)
 		json.Unmarshal(bizFields, &d.BizFields)
+		json.Unmarshal(atts, &d.Attachments)
+		json.Unmarshal(air, &d.Aircraft)
 		d.BizType = domain.BizType(bizType)
 		d.Status = domain.DemandStatus(status)
 		if cipher != nil && d.Contact != "" {

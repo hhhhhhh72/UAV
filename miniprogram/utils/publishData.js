@@ -29,9 +29,12 @@ export const TYPES = {
         ],
       },
       {
-        title: '预算与对接',
+        title: '预算与要求',
         fields: [
-          ['budget', '项目预算', '例如：20000', 'input', false, undefined, 'number'],
+          ['budget_min', '预算下限（元，选填）', '例如：5000；不填或与上限都空 = 面议', 'input', false, undefined, 'number'],
+          ['budget_max', '预算上限（元，选填）', '例如：20000；0 或与下限同空 = 面议', 'input', false, undefined, 'number'],
+          ['aircraft', '机型要求（选填）', '如：多旋翼、固定翼（逗号分隔）', 'input', false],
+          ['pilot_count', '飞手数量（选填）', '如：3；0 或空 = 不限', 'input', false, undefined, 'number'],
           ['contact', '联系人电话', '用于审核通过后的对接', 'input', true, undefined, 'phone'],
           ['description', '需求说明', '作业面积、交付成果、现场限制等', 'textarea', false],
         ],

@@ -239,9 +239,13 @@ type Demand struct {
 	Title            string         `json:"title"`
 	Description      string         `json:"description"`
 	Images           []string       `json:"images"`
+	Attachments      []string       `json:"attachments"`       // 附件（图片/PDF，≤10MB，公开详情可下载）
+	Aircraft         []string       `json:"aircraft"`          // 机型要求（多旋翼/固定翼/垂直起降/直升机）
+	PilotCount       int            `json:"pilot_count"`       // 需要飞手数量（0=不限）
 	Latitude         float64        `json:"latitude"`
 	Longitude        float64        `json:"longitude"`
-	BudgetFen        int64          `json:"budget_fen"`         // amount in fen (1/100 yuan)
+	BudgetFen        int64          `json:"budget_fen"`         // 预算上限（分，0=面议）
+	BudgetMinFen     int64          `json:"budget_min_fen"`     // 预算下限（分，0=不限）
 	OfflineAmountFen int64          `json:"offline_amount_fen"` // 线下成交金额（联系对接模式撮合价值度量）
 	// Deadline 需求有效期截止日（YYYY-MM-DD，服务端校验非过去；空串=长期有效）。
 	// 发布时效管理：过期需求前端不再展示可对接入口。

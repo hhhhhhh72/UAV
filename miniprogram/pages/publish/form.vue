@@ -67,6 +67,21 @@
           <text v-if="unitOf(field[0])" class="pub-field-hint">{{ unitOf(field[0]) }}</text>
         </view>
 
+        <!-- 需求附件（PDF/图片 ≤10MB，发布需求专属） -->
+        <view v-if="type === 'demand'" class="pub-section">
+          <view class="pub-section-title">附件材料</view>
+          <view class="pub-section-note">选填，PDF/图片，单个 ≤10MB（公开详情可下载）</view>
+          <view class="pub-form-card">
+            <view v-for="(f, i) in files" :key="i" class="pub-field">
+              <view class="pub-select-field">
+                <text class="pub-select-value">{{ f.name }}</text>
+                <text class="pub-select-clear" @tap="removeFile(i)">×</text>
+              </view>
+            </view>
+            <view v-if="files.length < 3" class="pub-add-photo" hover-class="pub-fade" @tap="addFile">＋</view>
+          </view>
+        </view>
+
         <!-- 上传区 -->
         <view v-if="section.upload">
           <view class="pub-upload-row">
@@ -167,11 +182,12 @@ const primaryText = computed(() => {
 
 // 数值型输入
 function inputType(id) {
-  const numeric = ['budget', 'price', 'stock', 'quota', 'duration', 'contact']
+  const numeric = ['budget', 'budget_min', 'budget_max', 'pilot_count', 'price', 'stock', 'quota', 'duration', 'contact']
   return numeric.includes(id) ? 'number' : 'text'
 }
 function unitOf(id) {
-  if (id === 'budget' || id === 'price') return '元'
+  if (id === 'budget' || id === 'budget_min' || id === 'budget_max' || id === 'price') return '元'
+  if (id === 'pilot_count') return '人'
   if (id === 'stock') return '件'
   if (id === 'quota') return '人'
   return ''
@@ -190,6 +206,21 @@ function pickOption(id, val) {
   values.value[id] = val
   sheetId.value = ''
 }
+/* 需求附件：选文件（PDF/图片）→ 存临时路径，预览页发布时上传 */
+const files = ref([])
+function addFile() {
+  if (files.value.length >= 3) return
+  uni.chooseMessageFile({
+    count: 3 - files.value.length,
+    type: 'file',
+    success: (res) => {
+      const picked = (res.tempFiles || []).map((f) => ({ name: (f.name || f.path || '').split('/').pop(), path: f.path })).filter((f) => f.path)
+      files.value.push(...picked)
+    },
+  })
+}
+function removeFile(i) { files.value.splice(i, 1) }
+
 function addPhoto() {
   if (photos.value.length >= 5) return
   const pick = (paths) => {
@@ -279,6 +310,8 @@ function saveDraft() {
   // 记住草稿 id：继续「预览发布」时携带该 id，发布时 upsert 覆盖草稿，
   // 避免同内容"草稿 + 发布"两条并存（曾现：存草稿后发布，my-posts 显示两条）
   resumeId.value = id
+  // 草稿同时记录附件临时路径（恢复草稿时回填）
+  values.value.__files = files.value.map((f) => ({ name: f.name, path: f.path }))
   const post = {
     id,
     type: type.value,
@@ -304,6 +337,8 @@ function goPreview() {
     photoCount: photos.value.length,
     // 图片真实临时路径（发布时上传到服务器；历史数据只有数量无路径，过滤为空）
     photos: photos.value.map((p) => p && p.src).filter(Boolean),
+    // 需求附件临时路径（发布时上传，历史草稿无此字段为空）
+    files: files.value.map((f) => f.path).filter(Boolean),
     resumeId: resumeId.value || '',
   }
   saveFormState(state)
@@ -328,6 +363,8 @@ onLoad((options) => {
       resumeId.value = post.id
       values.value = Object.assign({}, post.values || {})
       photos.value = Array.from({ length: post.photoCount || 0 }, () => ({}))
+      const savedFiles = (post.values && post.values.__files) || []
+      files.value = savedFiles.map((f) => ({ name: f.name, path: f.path })).filter((f) => f.path)
     }
   }
   // 恢复发布首页“继续编辑”的草稿（原型 resumeDraft 行为）
