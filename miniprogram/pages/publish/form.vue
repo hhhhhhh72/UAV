@@ -67,21 +67,6 @@
           <text v-if="unitOf(field[0])" class="pub-field-hint">{{ unitOf(field[0]) }}</text>
         </view>
 
-        <!-- 需求附件（PDF/图片 ≤10MB，发布需求专属） -->
-        <view v-if="type === 'demand'" class="pub-section">
-          <view class="pub-section-title">附件材料</view>
-          <view class="pub-section-note">选填，PDF/图片，单个 ≤10MB（公开详情可下载）</view>
-          <view class="pub-form-card">
-            <view v-for="(f, i) in files" :key="i" class="pub-field">
-              <view class="pub-select-field">
-                <text class="pub-select-value">{{ f.name }}</text>
-                <text class="pub-select-clear" @tap="removeFile(i)">×</text>
-              </view>
-            </view>
-            <view v-if="files.length < 3" class="pub-add-photo" hover-class="pub-fade" @tap="addFile">＋</view>
-          </view>
-        </view>
-
         <!-- 上传区 -->
         <view v-if="section.upload">
           <view class="pub-upload-row">
@@ -92,6 +77,21 @@
           </view>
           <view class="pub-upload-tip">建议上传清晰实拍图，首图将作为列表封面</view>
         </view>
+      </view>
+    </view>
+
+    <!-- 需求附件（独立分区：与表单分区平级，仅发布需求展示） -->
+    <view v-if="type === 'demand'" class="pub-section">
+      <view class="pub-section-title">附件材料</view>
+      <view class="pub-section-note">选填，PDF/图片，单个 ≤10MB（公开详情可下载）</view>
+      <view class="pub-form-card">
+        <view v-for="(f, i) in files" :key="i" class="pub-field">
+          <view class="pub-select-field">
+            <text class="pub-select-value">{{ f.name }}</text>
+            <text class="pub-select-clear" @tap="removeFile(i)">×</text>
+          </view>
+        </view>
+        <view v-if="files.length < 3" class="pub-add-photo" hover-class="pub-fade" @tap="addFile">＋</view>
       </view>
     </view>
 
