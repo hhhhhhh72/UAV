@@ -130,7 +130,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { request, BASE_URL, authStorage, getErrorMessage } from '../../../utils/request'
+import { request, BASE_URL, authStorage, getErrorMessage, uploadFileWithAuth } from '../../../utils/request'
 import { requireLogin, safeBack } from '../../../utils/nav'
 import { useSafeTop } from '../../../utils/safeTop'
 
@@ -155,34 +155,14 @@ const chooseAvatar = () => {
 }
 const uploadAvatar = async (filePath) => {
   if (!requireLogin()) return
-  const token = authStorage.getAccessToken()
   uni.showLoading({ title: '上传中...' })
   try {
-    const data = await new Promise((resolve, reject) => {
-      uni.uploadFile({
-        url: BASE_URL + '/api/v1/files/upload',
-        filePath,
-        name: 'file',
-        header: { Authorization: 'Bearer ' + token },
-        success: (r) => {
-          if (r.statusCode >= 200 && r.statusCode < 300) {
-            try { resolve(JSON.parse(r.data)) } catch (e) { reject(e) }
-          } else {
-            reject(new Error('upload failed ' + r.statusCode))
-          }
-        },
-        fail: reject,
-      })
-    })
-    const fid = data && (data.file_id || (data.data && data.data.file_id))
-    if (!fid) {
-      uni.showToast({ title: '上传失败，请重试', icon: 'none' })
-      return
-    }
-    form.value.avatar = '/uploads/' + fid
+    // 带鉴权上传（401 自动刷新重试）
+    const url = await uploadFileWithAuth(filePath)
+    form.value.avatar = url.startsWith('/uploads/') ? url : ('/uploads/' + url.split('/').pop())
     avatarPreview.value = filePath
   } catch (e) {
-    uni.showToast({ title: '上传失败，请重试', icon: 'none' })
+    uni.showToast({ title: (e && e.message) || '上传失败，请重试', icon: 'none' })
   } finally {
     uni.hideLoading()
   }

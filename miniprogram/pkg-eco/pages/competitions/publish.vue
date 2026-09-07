@@ -115,7 +115,7 @@
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useSafeTop } from '../../../utils/safeTop'
-import { request, authStorage, BASE_URL, getStoredUser } from '../../../utils/request'
+import { request, authStorage, BASE_URL, getStoredUser, uploadFileWithAuth } from '../../../utils/request'
 
 const { topPad, capsuleGap, initSafeTop } = useSafeTop(true)
 
@@ -148,29 +148,10 @@ const choosePoster = () => {
   })
 }
 
-// 上传海报到服务器，返回 /uploads/{file_id}
+// 上传海报到服务器，返回 /uploads/{file_id}（带鉴权：401 自动刷新重试）
 async function uploadPoster() {
-  const token = authStorage.getAccessToken()
   if (!poster.value) return ''
-  const data = await new Promise((resolve, reject) => {
-    uni.uploadFile({
-      url: BASE_URL + '/api/v1/files/upload',
-      filePath: poster.value,
-      name: 'file',
-      header: { Authorization: 'Bearer ' + token },
-      success: (r) => {
-        if (r.statusCode >= 200 && r.statusCode < 300) {
-          try { resolve(JSON.parse(r.data)) } catch (e) { reject(e) }
-        } else {
-          reject(new Error('upload failed ' + r.statusCode))
-        }
-      },
-      fail: reject,
-    })
-  })
-  const fid = data && (data.file_id || (data.data && data.data.file_id))
-  if (!fid) throw new Error('upload response missing file_id')
-  return '/uploads/' + fid
+  return uploadFileWithAuth(poster.value)
 }
 
 async function submit() {

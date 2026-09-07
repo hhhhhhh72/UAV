@@ -233,7 +233,7 @@
 
 <script>
 import { safeBack } from '../../../utils/nav'
-import { request, authStorage, BASE_URL } from '../../../utils/request'
+import { request, authStorage, BASE_URL, uploadFileWithAuth } from '../../../utils/request'
 import { useSafeTop } from '../../../utils/safeTop'
 
 // 自定义顶栏安全区（与发布页同款 pub-nav）
@@ -485,46 +485,20 @@ export default {
         count: 1,
         sizeType: ['compressed'],
         sourceType: ['album', 'camera'],
-        success: function (res) {
+        success: async function (res) {
           var localPath = res.tempFilePaths[0]
           uni.showLoading({ title: '上传中...' })
-          uni.uploadFile({
-            url: BASE_URL + '/api/v1/files/upload',
-            filePath: localPath,
-            name: 'file',
-            // P0 修复：营业执照等敏感证件走私有上传（后端 FormValue("private")=="true" → /uploads/private/）
-            formData: { private: isPrivate ? 'true' : 'false' },
-            header: { Authorization: 'Bearer ' + authStorage.getAccessToken() },
-            success: function (r) {
-              uni.hideLoading()
-              var data = null
-              try { data = JSON.parse(r.data) } catch (e) {}
-              if (r.statusCode >= 400 || !data || (!data.file_id && !(data.data && data.data.file_id))) {
-                var msg = ''
-                if (data && data.error) msg = data.error.message || data.error.code || ''
-                if (data && data.message) msg = data.message
-                var reason = msg || ('HTTP ' + r.statusCode)
-                var tip = reason.indexOf('401') >= 0 || reason.indexOf('登录') >= 0 || reason.indexOf('token') >= 0
-                  ? '登录已过期，请重新登录后重试'
-                  : ('上传失败：' + reason)
-                uni.showToast({ title: tip, icon: 'none', duration: 2500 })
-                return
-              }
-              var fid = data.file_id || (data.data && data.data.file_id)
-              if (!fid) {
-                uni.showToast({ title: '上传失败，请重试', icon: 'none' })
-                return
-              }
-              // 优先用后端返回的 url（私有上传为 /uploads/private/{fid}），缺失时按私有标记拼路径
-              var url = data.url || (data.data && data.data.url)
-              var rel = url || ('/uploads/' + (isPrivate ? 'private/' : '') + fid)
-              onSuccess(rel, isPrivate ? localPath : '')
-            },
-            fail: function () {
-              uni.hideLoading()
-              uni.showToast({ title: '上传失败，请重试', icon: 'none' })
-            },
-          })
+          try {
+            // 带鉴权上传（401 自动刷新重试）；私有标记照旧（营业执照 /uploads/private/）
+            var url = await uploadFileWithAuth(localPath, { private: isPrivate ? 'true' : 'false' })
+            uni.hideLoading()
+            var rel = url.replace(/^https?:\/\/[^/]+/, '')
+            if (!/^\/uploads\//.test(rel)) rel = '/uploads/' + (isPrivate ? 'private/' : '') + (rel.split('/').pop() || '')
+            onSuccess(rel, isPrivate ? localPath : '')
+          } catch (e) {
+            uni.hideLoading()
+            uni.showToast({ title: (e && e.message) || '上传失败，请重试', icon: 'none', duration: 2500 })
+          }
         },
         fail: function () {
           uni.showToast({ title: '选择图片失败', icon: 'none' })
