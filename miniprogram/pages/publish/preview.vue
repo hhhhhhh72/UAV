@@ -80,7 +80,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { TYPES, computePreviewMeta, makePost, upsertPost, loadFormState, clearFormState } from '../../utils/publishData'
 import { useSafeTop } from '../../utils/safeTop'
-import { request, authStorage, requireLogin, BASE_URL, getStoredUser } from '../../utils/request'
+import { request, authStorage, requireLogin, BASE_URL, getStoredUser, getErrorMessage } from '../../utils/request'
 
 const { topPad, initSafeTop } = useSafeTop(true)
 
@@ -194,7 +194,8 @@ async function submitPublish() {
       backendDemandId.value = created.id
     } catch (e) {
       submitting.value = false
-      showToast('发布失败，请稍后重试')
+      // 透出后端真实拒绝原因（如预算下限>上限），不再吞成通用提示
+      showToast(getErrorMessage(e) || '发布失败，请稍后重试')
       return
     }
   }

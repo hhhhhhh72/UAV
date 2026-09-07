@@ -280,6 +280,15 @@ function formatInvalid() {
 }
 
 function nextAction() {
+  // 需求预算区间自检：下限 > 上限直接拦截（与后端 VALIDATION_ERROR 一致，提交前提示）
+  if (type.value === 'demand') {
+    const mn = Number(values.value.budget_min) || 0
+    const mx = Number(values.value.budget_max) || 0
+    if (mn > 0 && mx > 0 && mn > mx) {
+      showToast('预算下限不能大于上限')
+      return
+    }
+  }
   const missing = requiredMissing()
   if (missing.length) {
     showToast('请先填写：' + missing[0])
