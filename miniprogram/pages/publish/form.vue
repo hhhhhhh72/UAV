@@ -76,22 +76,18 @@
             <view class="pub-add-photo" hover-class="pub-fade" @tap="addPhoto">＋</view>
           </view>
           <view class="pub-upload-tip">建议上传清晰实拍图，首图将作为列表封面</view>
+          <!-- 需求附件材料：与现场资料同分区（图片下方，仅需求展示；PDF/图片 ≤10MB，最多 3 份） -->
+          <template v-if="type === 'demand'">
+            <view class="pub-upload-tip pub-upload-tip--files">附件材料（选填，PDF/图片，单个 ≤10MB，详情可下载）</view>
+            <view class="pub-upload-row">
+              <view v-for="(f, i) in files" :key="i" class="pub-photo pub-file">
+                <text class="pub-file-name">{{ f.name }}</text>
+                <text class="pub-file-del" @tap.stop="removeFile(i)">×</text>
+              </view>
+              <view v-if="files.length < 3" class="pub-add-photo" hover-class="pub-fade" @tap="addFile">＋</view>
+            </view>
+          </template>
         </view>
-      </view>
-    </view>
-
-    <!-- 需求附件（独立分区：与表单分区平级，仅发布需求展示） -->
-    <view v-if="type === 'demand'" class="pub-section">
-      <view class="pub-section-title">附件材料</view>
-      <view class="pub-section-note">选填，PDF/图片，单个 ≤10MB（公开详情可下载）</view>
-      <view class="pub-form-card">
-        <view v-for="(f, i) in files" :key="i" class="pub-field">
-          <view class="pub-select-field">
-            <text class="pub-select-value">{{ f.name }}</text>
-            <text class="pub-select-clear" @tap="removeFile(i)">×</text>
-          </view>
-        </view>
-        <view v-if="files.length < 3" class="pub-add-photo" hover-class="pub-fade" @tap="addFile">＋</view>
       </view>
     </view>
 
@@ -394,6 +390,28 @@ onShow(() => {
   width: 100%;
   height: 100%;
   display: block;
+}
+/* 需求附件：与现场资料图片同排的文案盒（复用 pub-photo 尺寸） */
+.pub-file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 0 14rpx;
+  box-sizing: border-box;
+}
+.pub-file-name {
+  max-width: 150rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 22rpx;
+  color: #344054;
+}
+.pub-file-del {
+  font-size: 30rpx;
+  color: #D92D20;
+  line-height: 1;
 }
 .pub-form-intro-h2 {
   font-size: 20px;
