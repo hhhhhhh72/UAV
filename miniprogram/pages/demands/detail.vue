@@ -340,21 +340,33 @@ const downloadAttachment = (a) => {
 // ── 为你推荐：真实智能匹配（/api/v1/recommendations 画像加权+推荐理由）；
 // 替换此前本地 getKindItems mock 池（假推荐无画像无排序）。样式/卡片字段不变。
 const recommendItems = ref([])
+const mapRec = (arr) => arr.filter((x) => x && x.demand && x.demand.id).map((x) => {
+  const d = x.demand
+  const max = d.budget_fen || 0
+  const min = d.budget_min_fen || 0
+  return {
+    id: d.id,
+    title: d.title || '未命名需求',
+    region: d.district || '重庆',
+    price: max > 0 ? '¥' + Math.round(max / 10000) + '万' : (min > 0 ? '¥' + Math.round(min / 10000) + '万起' : '面议'),
+  }
+})
 const loadRecommend = async () => {
   try {
-    const res = await request({ url: '/api/v1/recommendations?limit=6' })
+    // 带当前需求上下文（类型/区域）→ 推荐相似需求（画像为空时也冷启动命中）
+    const it = item.value || {}
+    const qs = []
+    if (it.biz_type) qs.push('biz_type=' + encodeURIComponent(String(it.biz_type)))
+    if (it.district) qs.push('district=' + encodeURIComponent(String(it.district)))
+    const res = await request({ url: '/api/v1/recommendations?limit=6' + (qs.length ? '&' + qs.join('&') : '') })
     const arr = Array.isArray(res) ? res : ((res && res.data) || [])
-    recommendItems.value = arr.filter((x) => x && x.demand && x.demand.id).map((x) => {
-      const d = x.demand
-      const max = d.budget_fen || 0
-      const min = d.budget_min_fen || 0
-      return {
-        id: d.id,
-        title: d.title || '未命名需求',
-        region: d.district || '重庆',
-        price: max > 0 ? '¥' + Math.round(max / 10000) + '万' : (min > 0 ? '¥' + Math.round(min / 10000) + '万起' : '面议'),
-      }
-    })
+    recommendItems.value = mapRec(arr)
+    // 保底：无画像/无命中时回退真实最新需求列表，保证推荐区有内容（不再空白）
+    if (!recommendItems.value.length) {
+      const fb = await request({ url: '/api/v1/demands?page=1&page_size=6' })
+      const fbArr = Array.isArray(fb) ? fb : ((fb && fb.data) || [])
+      recommendItems.value = mapRec(fbArr.map((d) => ({ demand: d })))
+    }
   } catch (e) {
     recommendItems.value = []
   }
@@ -726,7 +738,10 @@ onLoad((options) => {
   // 收藏状态依赖内容类型（需求/服务/商品），内容就绪后自动加载
 })
 watch(state, (v) => {
-  if (v === 'ready') loadFavoriteState()
+  if (v === 'ready') {
+    loadFavoriteState()
+    loadRecommend() // 内容就绪后带当前需求上下文推荐（画像加权 + 冷启动 + 最新列表保底）
+  }
 })
 </script>
 
