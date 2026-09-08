@@ -31,9 +31,9 @@ func (s *Server) escrowDeposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 自充值（模拟托管通道）：登录用户仅可为自己入账；管理员可指定 to_user 代充。
-	// 单笔上限 1_000_000 分（¥10000）：模拟通道限额定闸，防灌水；真实支付接入后由校验替代。
-	if in.AmountFen > 1000000 {
-		fail(w, r, http.StatusBadRequest, errors.New("单笔充值上限 10000 元"))
+	// 单笔上限 20_000_000 分（¥200000）：覆盖高单价课程/商品；模拟通道限额定闸，真实支付接入后由支付校验替代。
+	if in.AmountFen > 20000000 {
+		fail(w, r, http.StatusBadRequest, errors.New("单笔充值上限 200000 元"))
 		return
 	}
 	target := in.ToUser

@@ -392,7 +392,7 @@ async function handleSubmit() {
     if (e && e.statusCode === 402) {
       uni.showModal({
         title: '托管金余额不足',
-        content: '付费课程报名需在托管金中冻结学费，请先充值（模拟通道，单笔上限 1 万元）',
+        content: '付费课程报名需在托管金中冻结学费，请先充值（模拟通道，单笔上限 20 万元）',
         confirmText: '去充值',
         cancelText: '返回',
         success: (r) => { if (r.confirm) uni.navigateTo({ url: '/pages/escrow/index' }) }

@@ -178,7 +178,7 @@ func TestEscrowDepositFlow(t *testing.T) {
 	}
 	// 超单笔上限 → 400
 	w = request(t, app, http.MethodPost, "/api/v1/escrow/deposit",
-		[]byte(`{"amount_fen":1200000}`), domain.RoleIndividual)
+		[]byte(`{"amount_fen":21000000}`), domain.RoleIndividual)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("over-limit deposit: want 400, got %d %s", w.Code, w.Body.String())
 	}

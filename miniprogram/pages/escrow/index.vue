@@ -11,7 +11,7 @@
       <view class="es-form">
         <view class="es-row">
           <text class="es-row-label">金额（元）</text>
-          <input class="es-input" v-model="amountYuan" type="digit" placeholder="单笔上限 10000" placeholder-class="es-ph" />
+          <input class="es-input" v-model="amountYuan" type="digit" placeholder="单笔上限 200000" placeholder-class="es-ph" />
           <view class="es-btn" hover-class="es-btn-hover" @tap="deposit">充值</view>
         </view>
         <text class="es-tip">模拟托管通道：充值即入账（无真实资金流；真实微信支付接入后由支付校验替代）。冻结/退款按订单流程自动处理。</text>
@@ -62,7 +62,7 @@ async function load() {
 async function deposit() {
   const yuan = Number(amountYuan.value) || 0
   if (yuan <= 0) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
-  if (yuan > 10000) { uni.showToast({ title: '单笔上限 10000 元', icon: 'none' }); return }
+  if (yuan > 200000) { uni.showToast({ title: '单笔上限 200000 元', icon: 'none' }); return }
   try {
     await request({
       url: '/api/v1/escrow/deposit',
