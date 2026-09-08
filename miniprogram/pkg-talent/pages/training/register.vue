@@ -95,6 +95,26 @@
               placeholder-class="pub-placeholder"
             />
           </view>
+          <!-- 出生日期：日期选择器，身份证合法时自动识别（可点击修改） -->
+          <picker mode="date" :value="birthdayPickerValue" start="1900-01-01" :end="todayStr()" @change="onBirthdayChange">
+            <view class="pub-field">
+              <view class="pub-field-label">出生日期</view>
+              <view class="pub-select-field">
+                <text :class="form.birthday ? 'pub-select-value' : 'pub-select-placeholder'">{{ form.birthday || '请选择出生日期' }}</text>
+                <text class="pub-arrow">›</text>
+              </view>
+              <text v-if="idCardDerivedBirth" class="derived-tip">已从身份证识别 · 点击可修改</text>
+            </view>
+          </picker>
+          <!-- 性别：身份证合法时自动识别，可手动切换 -->
+          <view class="pub-field">
+            <view class="pub-field-label">性别</view>
+            <view class="gender-row">
+              <view class="gender-chip" :class="{ 'gender-chip--on': form.gender === '男' }" @tap="pickGender('男')">男</view>
+              <view class="gender-chip" :class="{ 'gender-chip--on': form.gender === '女' }" @tap="pickGender('女')">女</view>
+            </view>
+            <text v-if="idCardDerivedGender" class="derived-tip">已从身份证识别 · 可手动切换</text>
+          </view>
         </view>
       </view>
 
@@ -259,7 +279,30 @@ const feeText = computed(function () {
   return '面议'
 })
 
-/* 身份证号 18 位时自动推导生日与性别（仅当出生日期段真实合法——测试/占位号码不推导，避免后端 invalid birthday format 409） */
+/* 身份证号 18 位时自动推导生日与性别（仅当出生日期段真实合法——测试/占位号码不推导，避免后端 invalid birthday format 409）。
+   推导值可见可改：生日以日期选择器、性别以单选呈现，自动填入时显示"已从身份证识别"标注，用户可随时手动修改（手动值不被后续非法身份证清掉）。 */
+const idCardDerivedBirth = ref(false)
+const idCardDerivedGender = ref(false)
+
+function todayStr() {
+  const d = new Date()
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
+
+const birthdayPickerValue = computed(function () {
+  return form.birthday || todayStr()
+})
+
+function onBirthdayChange(e) {
+  form.birthday = e.detail.value
+  idCardDerivedBirth.value = false
+}
+
+function pickGender(g) {
+  form.gender = g
+  idCardDerivedGender.value = false
+}
+
 watch(function () { return form.idCard }, function (val) {
   if (val && val.length === 18) {
     const birth = val.substring(6, 14)
@@ -269,9 +312,14 @@ watch(function () { return form.idCard }, function (val) {
     if (y >= 1900 && y <= 2099 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
       form.birthday = birth.substring(0, 4) + '-' + birth.substring(4, 6) + '-' + birth.substring(6, 8)
       form.gender = parseInt(val.charAt(16), 10) % 2 === 0 ? '女' : '男'
+      idCardDerivedBirth.value = true
+      idCardDerivedGender.value = true
     } else {
-      form.birthday = ''
-      form.gender = ''
+      // 身份证非法/占位：仅清掉当前"来自身份证"的值，用户手选的值保留
+      if (idCardDerivedBirth.value) form.birthday = ''
+      if (idCardDerivedGender.value) form.gender = ''
+      idCardDerivedBirth.value = false
+      idCardDerivedGender.value = false
     }
   }
 })
@@ -520,7 +568,17 @@ onUnload(function () {
 .pub-placeholder { color: #C8C9CC; }
 .pub-select-field { width: 100%; text-align: left; border: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
 .pub-select-value { color: #17212B; }
+.pub-select-placeholder { color: #C8C9CC; }
 .pub-arrow { color: #98A2B3; font-size: 22px; font-weight: 300; }
+.derived-tip { display: block; margin-top: 6px; font-size: 11px; color: #0A66C2; }
+
+/* 性别单选 chips：与模块品牌色一致 */
+.gender-row { display: flex; gap: 12px; }
+.gender-chip {
+  flex: 1; height: 40px; border-radius: 10px; border: 1px solid #E1E6EC; background: #FAFAFA;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; color: #475467;
+}
+.gender-chip--on { border-color: #0A66C2; background: #E8F2FC; color: #0A66C2; font-weight: 650; }
 
 /* 课程费用（真实价格，橙强化） */
 .fee-price { display: flex; align-items: baseline; }
