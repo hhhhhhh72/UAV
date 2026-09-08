@@ -39,6 +39,11 @@
 
       <!-- 列表：状态徽章 + 标题 + 描述 + 元信息 + 证书缩略图 -->
       <view v-else class="cl">
+        <!-- 到期提醒条：30 天内到期/已过证书一屏提示，引导续证（纯站内，无推送依赖） -->
+        <view v-if="expiringHint" class="cert-hint" :class="{ 'cert-hint--expired': expiredCount > 0 }">
+          <text class="cert-hint-mark">!</text>
+          <text class="cert-hint-text">{{ expiringHint }}</text>
+        </view>
         <view
           v-for="item in list"
           :key="item.id"
@@ -52,6 +57,9 @@
             <view class="c-badges">
               <text class="c-tag" :style="typeStyle(item.cert_type)">{{ typeLabel(item.cert_type) }}</text>
               <text class="c-st" :class="statusCls(item.status)">{{ statusLabel(item.status) }}</text>
+<template v-if="warnBadge(item)">
+<text class="c-st" :class="warnBadge(item).cls">{{ warnBadge(item).tag }}</text>
+</template>
             </view>
             <text class="ct">{{ typeFull(item.cert_type) }}</text>
             <text v-if="item.cert_number" class="c-desc">编号：{{ item.cert_number }}</text>
@@ -128,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad, onPullDownRefresh, onPageScroll } from '@dcloudio/uni-app'
 import { request, BASE_URL, authStorage, getErrorMessage } from '../../../utils/request'
 import { requireLogin } from '../../../utils/nav'
@@ -179,6 +187,32 @@ const typeStyle = (t) => CERT_TYPE_STYLE[norm(t)] || CERT_TYPE_STYLE_DEFAULT
 const statusLabel = (s) => STATUS_LABEL[s] || s || '未知'
 const statusCls = (s) => STATUS_CLS[s] || 'st-closed'
 const dateText = (iso) => (iso ? String(iso).slice(0, 10) : '—')
+
+/* 到期提醒（站内）：到期日期 30 天内 → 即将到期（橙），已过 → 已过期（红）。
+   以日期为准而非 status——后端审核态不随日期自动流转，日期提醒才不失效。 */
+const EXPIRING_DAYS = 30
+const daysToExpire = (item) => {
+  const d = item && (item.expire_date || item.expiry_date || '')
+  if (!d) return null
+  const t = new Date(String(d).slice(0, 10).replace(/-/g, '/'))
+  if (isNaN(t.getTime())) return null
+  return Math.ceil((t.getTime() - Date.now()) / 86400000)
+}
+const warnBadge = (item) => {
+  const n = daysToExpire(item)
+  if (n === null || n === undefined) return null
+  if (n < 0) return { tag: '已过期', cls: 'st-err' }
+  if (n <= EXPIRING_DAYS) return { tag: n === 0 ? '今天到期' : '即将到期', cls: 'st-warn' }
+  return null
+}
+const expiredCount = computed(() => list.value.filter((it) => { const n = daysToExpire(it); return n !== null && n < 0 }).length)
+const expiringCount = computed(() => list.value.filter((it) => { const n = daysToExpire(it); return n !== null && n >= 0 && n <= EXPIRING_DAYS }).length)
+const expiringHint = computed(() => {
+  if (expiredCount.value > 0 && expiringCount.value > 0) return `您的 ${expiredCount.value} 本证书已过期、${expiringCount.value} 本将在 30 天内到期，请尽快联系协会续证`
+  if (expiredCount.value > 0) return `您的 ${expiredCount.value} 本证书已过期，请尽快联系协会续证`
+  if (expiringCount.value > 0) return `您的 ${expiringCount.value} 本证书将在 30 天内到期，请注意续证`
+  return ''
+})
 
 /* 证书图：兼容 image_url / certificate_url / image / certificate 四类字段 */
 const certImage = (item) => item && (item.image_url || item.certificate_url || item.image || item.certificate)
@@ -393,6 +427,15 @@ page {
 .c-st.st-pending { color: #0A66C2; background: #EAF3FB; }
 .c-st.st-closed { color: #5D6B82; background: #EEF1F4; }
 .c-st.st-err { color: #B42318; background: #FDECEC; }
+.c-st.st-warn { color: #B54708; background: #FFF4E5; }
+
+/* 到期提醒条 */
+.cert-hint { display: flex; align-items: flex-start; gap: 12rpx; padding: 20rpx 24rpx; margin-bottom: 20rpx; border-radius: 12rpx; background: #FFF6E5; border: 1rpx solid #F5CD8A; }
+.cert-hint--expired { background: #FEF3F2; border-color: #F0A99F; }
+.cert-hint-mark { flex-shrink: 0; width: 36rpx; height: 36rpx; border-radius: 50%; background: #B54708; color: #fff; font-size: 24rpx; font-weight: 700; text-align: center; line-height: 36rpx; }
+.cert-hint--expired .cert-hint-mark { background: #D92D20; }
+.cert-hint-text { flex: 1; font-size: 24rpx; color: #7A3E0D; line-height: 1.6; }
+.cert-hint--expired .cert-hint-text { color: #B42318; }
 .ct {
   font-size: 15px;
   font-weight: 700;
