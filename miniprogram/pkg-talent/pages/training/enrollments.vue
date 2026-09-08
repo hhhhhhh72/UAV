@@ -47,6 +47,11 @@
           <text class="er-meta-item">电话 {{ it.phone || '—' }}</text>
           <text v-if="it.id_card" class="er-meta-item">身份证 {{ it.id_card }}</text>
         </view>
+        <view v-if="it.photo_url || it.id_card_image || it.id_card_back" class="er-photos">
+          <image v-if="it.photo_url" class="er-photo" :src="BASE_URL + it.photo_url" mode="aspectFill" @tap="preview(it)" />
+          <image v-if="it.id_card_image" class="er-photo" :src="BASE_URL + it.id_card_image" mode="aspectFill" @tap="preview(it)" />
+          <image v-if="it.id_card_back" class="er-photo" :src="BASE_URL + it.id_card_back" mode="aspectFill" @tap="preview(it)" />
+        </view>
         <text v-if="it.review_note" class="er-note">审核备注：{{ it.review_note }}</text>
         <view v-if="it.status === 'enrolled' || it.status === 'paid'" class="er-actions">
           <view class="er-btn er-btn--ok" @tap="review(it, 'approve')">通过</view>
@@ -60,7 +65,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { request, getStoredUser, getErrorMessage, requireLogin } from '../../../utils/request'
+import { request, getStoredUser, getErrorMessage, requireLogin, BASE_URL } from '../../../utils/request'
 
 const statusText = { enrolled: '已报名', paid: '已缴费', approved: '已通过', rejected: '已拒绝', completed: '已结业' }
 const myCourses = ref([])
@@ -94,6 +99,11 @@ const loadList = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const preview = (it) => {
+  const urls = ['photo_url', 'id_card_image', 'id_card_back'].map((k) => it[k]).filter(Boolean).map((p) => BASE_URL + p)
+  if (urls.length) uni.previewImage({ urls })
 }
 
 const pickCourse = (c) => {
@@ -158,6 +168,8 @@ page { background: var(--color-bg); }
 .er-meta { margin-top: 12rpx; }
 .er-meta-item { font-size: 24rpx; color: #475467; margin-right: 24rpx; }
 .er-note { display: block; margin-top: 10rpx; font-size: 24rpx; color: #D92D20; }
+.er-photos { display: flex; gap: 14rpx; margin-top: 14rpx; }
+.er-photo { width: 104rpx; height: 104rpx; border-radius: 8rpx; background: #F4F6F8; }
 .er-actions { display: flex; gap: 16rpx; margin-top: 18rpx; }
 .er-btn { flex: 1; height: 76rpx; border-radius: 38rpx; display: flex; align-items: center; justify-content: center; font-size: 26rpx; font-weight: 600; }
 .er-btn--ok { background: #0A66C2; color: #fff; }

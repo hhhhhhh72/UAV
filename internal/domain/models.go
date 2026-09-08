@@ -506,7 +506,8 @@ type Enrollment struct {
 	Education   string    `json:"education"`     // 学历
 	Experience  string    `json:"experience"`    // 从业经验
 	PhotoURL    string    `json:"photo_url"`     // 证件照
-	IDCardImage string    `json:"id_card_image"` // 身份证照片
+	IDCardImage string    `json:"id_card_image"` // 身份证正面照片
+	IDCardBack  string    `json:"id_card_back"`  // 身份证反面照片（正反面 3 张材料闭环）
 	NoCrime     string    `json:"no_crime"`      // 无犯罪证明
 	Status      string    `json:"status"`
 	ReviewNote  string    `json:"review_note"` // 机构审核备注（通过可留空/拒绝需原因）

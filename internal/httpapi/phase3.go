@@ -259,6 +259,7 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 		Experience  string `json:"experience"`
 		PhotoURL    string `json:"photo_url"`
 		IDCardImage string `json:"id_card_image"`
+		IDCardBack  string `json:"id_card_back"`
 		NoCrime     string `json:"no_crime"`
 		Status      string `json:"status"`
 	}
@@ -291,6 +292,7 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 	found.Experience = in.Experience
 	found.PhotoURL = in.PhotoURL
 	found.IDCardImage = in.IDCardImage
+	found.IDCardBack = in.IDCardBack
 	found.NoCrime = in.NoCrime
 	found.Status = in.Status
 	updated, err := s.enrollSvc.Update(r.Context(), a, found)

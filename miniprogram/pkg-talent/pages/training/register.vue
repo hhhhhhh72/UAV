@@ -121,7 +121,7 @@
       <!-- 证件上传（上传至 /api/v1/files/upload，提交服务端路径） -->
       <view class="pub-section">
         <view class="pub-section-title">证件上传</view>
-        <view class="pub-section-note">必传 2 张：白底免冠证件照、身份证正面</view>
+        <view class="pub-section-note">必传 3 张：白底免冠证件照、身份证正反面</view>
         <view class="pub-form-card">
           <view class="pub-upload-row">
             <view v-if="photoPreview" class="pub-photo" @tap="chooseImage('photo')">
@@ -133,8 +133,13 @@
               <image :src="idCardPreview" mode="aspectFill" class="pub-photo-img" />
             </view>
             <view v-else class="pub-add-photo" hover-class="pub-fade" @tap="chooseImage('idCard')">＋</view>
+
+            <view v-if="idCardBackPreview" class="pub-photo" @tap="chooseImage('idCardBack')">
+              <image :src="idCardBackPreview" mode="aspectFill" class="pub-photo-img" />
+            </view>
+            <view v-else class="pub-add-photo" hover-class="pub-fade" @tap="chooseImage('idCardBack')">＋</view>
           </view>
-          <view class="pub-upload-tip">左侧白底免冠证件照，右侧身份证正面，点击可重新上传</view>
+          <view class="pub-upload-tip">从左到右：白底免冠证件照、身份证正面、身份证反面，点击可重新上传</view>
 
           <view class="pub-check-row" @tap="form.noCrime = !form.noCrime">
             <view class="no-crime-box" :class="{ 'no-crime-box--checked': form.noCrime }">
@@ -200,9 +205,10 @@ const selectedIndex = ref(0)
 const submitting = ref(false)
 const photoPreview = ref('')
 const idCardPreview = ref('')
+const idCardBackPreview = ref('')
 let backTimer = null
 
-/* 与后端 EnrollmentForm 契约一致：name/phone/idCard/gender/birthday/email/education/experience/photo/idCardImage/noCrime */
+/* 与后端 EnrollmentForm 契约一致：name/phone/idCard/gender/birthday/email/education/experience/photo/idCardImage/idCardBack/noCrime */
 const form = reactive({
   name: '',
   phone: '',
@@ -214,6 +220,7 @@ const form = reactive({
   experience: '',
   photo: '',        // 服务端文件路径（/uploads/xxx）
   idCardImage: '',  // 服务端文件路径（/uploads/xxx）
+  idCardBack: '',   // 服务端文件路径（/uploads/xxx）
   noCrime: false,
 })
 
@@ -377,6 +384,9 @@ async function uploadFile(key, filePath) {
     if (key === 'photo') {
       form.photo = '/uploads/' + fid
       photoPreview.value = filePath
+    } else if (key === 'idCardBack') {
+      form.idCardBack = '/uploads/' + fid
+      idCardBackPreview.value = filePath
     } else {
       form.idCardImage = '/uploads/' + fid
       idCardPreview.value = filePath
@@ -394,6 +404,7 @@ function validate() {
   if (!/^\d{17}[\dXx]$/.test(form.idCard)) return '请输入正确的身份证号'
   if (!form.photo) return '请上传白底免冠证件照'
   if (!form.idCardImage) return '请上传身份证正面'
+  if (!form.idCardBack) return '请上传身份证反面'
   if (!form.noCrime) return '请勾选无犯罪记录声明'
   return null
 }

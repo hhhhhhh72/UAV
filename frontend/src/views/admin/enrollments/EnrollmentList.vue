@@ -64,6 +64,10 @@
             <a-image v-if="currentItem.id_card_image" :src="fullUrl(currentItem.id_card_image)" alt="身份证照片" :preview="true" width="64" height="64" fit="cover" style="border-radius: 4px; cursor: pointer;" />
             <span v-else>-</span>
           </a-descriptions-item>
+          <a-descriptions-item label="身份证反面">
+            <a-image v-if="currentItem.id_card_back" :src="fullUrl(currentItem.id_card_back)" alt="身份证反面" :preview="true" width="64" height="64" fit="cover" style="border-radius: 4px; cursor: pointer;" />
+            <span v-else>-</span>
+          </a-descriptions-item>
           <a-descriptions-item label="无犯罪证明" :span="2">{{ currentItem.no_crime || '-' }}</a-descriptions-item>
         </a-descriptions>
       </template>
@@ -198,8 +202,8 @@ const completeEnrollment = (row) => {
 // —— 后端 PUT 为全字段覆盖，不提交会清空原值（课程ID不可改，后端忽略）
 const formVisible = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', name: '', phone: '', id_card: '', gender: '', birthday: '', email: '', education: '', experience: '', photo_url: '', id_card_image: '', no_crime: '', status: 'pending' })
-const resetForm = () => Object.assign(form, { id: '', name: '', phone: '', id_card: '', gender: '', birthday: '', email: '', education: '', experience: '', photo_url: '', id_card_image: '', no_crime: '', status: 'pending' })
+const form = reactive({ id: '', name: '', phone: '', id_card: '', gender: '', birthday: '', email: '', education: '', experience: '', photo_url: '', id_card_image: '', id_card_back: '', no_crime: '', status: 'pending' })
+const resetForm = () => Object.assign(form, { id: '', name: '', phone: '', id_card: '', gender: '', birthday: '', email: '', education: '', experience: '', photo_url: '', id_card_image: '', id_card_back: '', no_crime: '', status: 'pending' })
 
 // 记录中 birthday 为 ISO 时间串或空，归一化为 YYYY-MM-DD 供 a-date-picker 显示
 const toDateInput = (d) => (d ? String(d).slice(0, 10) : '')
@@ -210,7 +214,7 @@ const openForm = (row) => {
     id: row.id, name: row.name || '', phone: row.phone || '', id_card: row.id_card || '',
     gender: row.gender || '', birthday: toDateInput(row.birthday), email: row.email || '',
     education: row.education || '', experience: row.experience || '',
-    photo_url: row.photo_url || '', id_card_image: row.id_card_image || '',
+    photo_url: row.photo_url || '', id_card_image: row.id_card_image || '', id_card_back: row.id_card_back || '',
     no_crime: row.no_crime || '', status: row.status || 'pending'
   })
   formSnapshot = JSON.stringify(form)
@@ -224,7 +228,7 @@ const submitForm = async () => {
     await api.update(form.id, {
       name: form.name, phone: form.phone, id_card: form.id_card, gender: form.gender,
       birthday: form.birthday, email: form.email, education: form.education,
-      experience: form.experience, photo_url: form.photo_url, id_card_image: form.id_card_image,
+      experience: form.experience, photo_url: form.photo_url, id_card_image: form.id_card_image, id_card_back: form.id_card_back,
       no_crime: form.no_crime, status: form.status
     })
     Message.success('更新成功')

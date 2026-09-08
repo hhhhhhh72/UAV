@@ -36,6 +36,7 @@ type EnrollmentForm struct {
 	Experience  string `json:"experience"`
 	Photo       string `json:"photo"`
 	IDCardImage string `json:"idCardImage"`
+	IDCardBack  string `json:"idCardBack"`
 	NoCrime     string `json:"noCrime"`
 
 	// PaidAmountFen 报名时冻结的学费（分）。仅 payAndEnroll 在冻结成功后填充；
@@ -171,7 +172,7 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	e := domain.Enrollment{ID: nextID("enroll"), CourseID: courseID, UserID: userID,
 		Name: form.Name, Phone: form.Phone, IDCard: form.IDCard, Gender: form.Gender, Birthday: birthday,
 		Email: form.Email, Education: form.Education, Experience: form.Experience,
-		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, NoCrime: form.NoCrime,
+		PhotoURL: form.Photo, IDCardImage: form.IDCardImage, IDCardBack: form.IDCardBack, NoCrime: form.NoCrime,
 		Status: status, PaidAmountFen: form.PaidAmountFen, CreatedAt: now}
 	// 先占名额（enrolled_count+1），再落报名记录；落库失败补偿 -1（学号不漂移）。
 	// 仅当课程存在（FindByID 成功）才占位——兼容无课程仓储的测试与历史数据。
