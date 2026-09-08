@@ -1,1 +1,1 @@
-ALTER TABLE enrollments DROP COLUMN IF EXISTS review_note;
+ALTER TABLE training_enrollments DROP COLUMN IF EXISTS review_note;
