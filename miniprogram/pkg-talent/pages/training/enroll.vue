@@ -297,10 +297,16 @@
 import { safeBack } from '../../../utils/nav'
 import { ref, reactive, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { request, authStorage } from '../../../utils/request'
+import { request, authStorage, getStoredUser } from '../../../utils/request'
 import StateView from '../../../components/StateView.vue'
 
 const id = ref('')
+const me = getStoredUser()
+const myId = me && (me.id || me.user_id)
+const isSelfOwned = () => {
+  const org = detail.value && detail.value.org_id
+  return !!myId && !!org && String(org) === String(myId)
+}
 const loading = ref(false)
 const errorMsg = ref('')
 const detail = ref(null)
@@ -587,6 +593,7 @@ function handleConsult() {
   uni.makePhoneCall({ phoneNumber: displayPhone.value })
 }
 function handleEnroll() {
+  if (enrollDisabled()) { onEnrollBlocked(); return }
   // 价格档传递：选中档随跳转写入 storage，register 回填匹配项（不再重选）
   try {
     const list = priceList(detail.value)
@@ -595,18 +602,29 @@ function handleEnroll() {
   } catch (e) { /* 存储失败不阻断跳转 */ }
   uni.navigateTo({ url: '/pkg-talent/pages/training/register?id=' + encodeURIComponent(id.value) })
 }
-/* 报名状态门禁（与列表页 courses 一致）：已满/即将开课不可报名 */
+/* 报名状态门禁（与列表页 courses 一致）：已满/即将开课不可报名；发布者不可报名自己的课程（防自购自卖） */
 function enrollDisabled() {
   const s = detail.value && detail.value.status
-  return s === 'full' || s === 'upcoming'
+  return s === 'full' || s === 'upcoming' || isSelfOwned()
 }
 function enrollLabel() {
   const s = detail.value && detail.value.status
   if (s === 'full') return '本期已满 · 下期可约'
   if (s === 'upcoming') return '即将开课'
+  if (isSelfOwned()) return '自己的课程不可报名'
   return '立即报名'
 }
 function onEnrollBlocked() {
+  // 自营课程：明确告知规则（发布者不能报名自己课程，防数据污染与学费闭环回流）
+  if (isSelfOwned()) {
+    uni.showModal({
+      title: '不能报名自己发布的课程',
+      content: '您是该课程的发布者，平台规则不允许报名自己发布的课程。请使用学员账号报名，或由其他学员报名本课程。',
+      showCancel: false,
+      confirmText: '我知道了',
+    })
+    return
+  }
   // 已满/即将开课不再只是 Toast 死胡同：给出「联系机构咨询」真出口（同底部咨询拨号）
   const s = detail.value && detail.value.status
   const tone = s === 'full' ? '本期名额已满，可关注下一期开班，或直接咨询机构详询候补' : '本课程即将开放报名，可先咨询机构了解安排'

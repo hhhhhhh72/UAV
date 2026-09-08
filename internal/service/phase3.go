@@ -139,6 +139,11 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	// 前端"仅剩 N/已满"全部是假数据，且 ListByCourse 全量计数把完成/驳回也算占座。
 	if s.courseRepo != nil {
 		if c, err := s.courseRepo.FindByID(ctx, courseID); err == nil {
+			// 防自购自卖：课程发布者（OrgID=本人）不可报名自己的课程——机构自导自演报名会
+			// 污染学员数据（刷报名数），且学费结算方向闭环（自己冻结-自己回收），违背托管金语义。
+			if c.OrgID != "" && c.OrgID == userID {
+				return domain.Enrollment{}, fmt.Errorf("不能报名自己发布的课程")
+			}
 			// 资金逻辑：付费课程禁止免费报名——此前 /enroll 不校验 price_fen，
 			// 付费课可 0 元直接报名成功（绕过 pay-and-enroll 的学费冻结）。付费
 			// 报名必须携带与课程价一致的 PaidAmountFen（payAndEnroll 冻结后固化写入）。

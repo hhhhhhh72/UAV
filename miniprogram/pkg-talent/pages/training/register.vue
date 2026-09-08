@@ -25,6 +25,13 @@
       <view class="pub-empty-title">课程不存在</view>
     </view>
 
+    <!-- 自营课程：发布者不可报名自己的课程（后端同样拦截，防自购自卖） -->
+    <view v-else-if="selfOwned" class="pub-empty">
+      <view class="pub-empty-mark">!</view>
+      <view class="pub-empty-title">不能报名自己发布的课程</view>
+      <view class="pub-empty-desc">您是该课程的发布者，平台规则不允许自报自售；请使用学员账号报名。</view>
+    </view>
+
     <!-- 报名表单 -->
     <template v-else>
       <!-- 课程摘要卡：呼应详情页，承接 enroll → 报名流程 -->
@@ -156,7 +163,7 @@
     </template>
 
     <!-- 底部固定 CTA 栏（联系咨询 + 确认报名，主蓝 + 次白描边） -->
-    <view v-if="course" class="pub-sticky">
+    <view v-if="course && !selfOwned" class="pub-sticky">
       <view class="pub-btn pub-btn--secondary cta-consult" hover-class="pub-btn--active" @tap="handleConsult">
         <text>联系咨询</text>
       </view>
@@ -188,7 +195,7 @@
 import { safeBack } from '../../../utils/nav'
 import { ref, reactive, computed, watch } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
-import { request, BASE_URL, authStorage } from '../../../utils/request'
+import { request, BASE_URL, authStorage, getStoredUser } from '../../../utils/request'
 import { useSafeTop } from '../../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)
@@ -201,6 +208,9 @@ const errorMsg = ref('')
 const course = ref(null)
 
 const showPicker = ref(false)
+const me = getStoredUser()
+const myId = me && (me.id || me.user_id)
+const selfOwned = ref(false)
 const selectedIndex = ref(0)
 const submitting = ref(false)
 const photoPreview = ref('')
@@ -486,6 +496,7 @@ async function fetchCourse() {
     const res = await request({ url: '/api/v1/training-courses/' + encodeURIComponent(id.value) })
     course.value = res
     if (!res) errorMsg.value = '课程不存在'
+    else selfOwned.value = !!myId && !!res.org_id && String(res.org_id) === String(myId)
   } catch (e) {
     errorMsg.value = '加载失败，请稍后重试'
   } finally {

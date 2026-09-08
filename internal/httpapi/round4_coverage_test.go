@@ -412,6 +412,7 @@ func TestR4Phase3Enrollments(t *testing.T) {
 	app := newBizServer(t)
 	userTok := authAs(t, "user-1", domain.RoleIndividual)
 	user2Tok := authAs(t, "user-2", domain.RoleIndividual)
+	user3Tok := authAs(t, "user-3", domain.RoleIndividual)
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
 
 	// 免费课程（price_fen=0，payAndEnroll 走免托管分支）
@@ -425,9 +426,9 @@ func TestR4Phase3Enrollments(t *testing.T) {
 		`{"title":"无人机执照培训","status":"published"}`, adminTok)
 	assertStatus(t, http.MethodPut, "/api/v1/admin/training-courses/"+courseID, w, http.StatusOK)
 
-	// enrollCourse → 201
+	// enrollCourse → 201（学员账号报名；发布者 userTok 不可自报——防自购自卖规则）
 	w = doRaw(app, http.MethodPost, "/api/v1/training-courses/"+courseID+"/enroll",
-		`{"name":"学员A","phone":"13800000001","gender":"男"}`, userTok)
+		`{"name":"学员A","phone":"13800000001","gender":"男"}`, user3Tok)
 	assertStatus(t, http.MethodPost, ".../enroll", w, http.StatusCreated)
 	enrollID := dataID(t, w)
 
