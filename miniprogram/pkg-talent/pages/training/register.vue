@@ -259,12 +259,20 @@ const feeText = computed(function () {
   return '面议'
 })
 
-/* 身份证号 18 位时自动推导生日与性别 */
+/* 身份证号 18 位时自动推导生日与性别（仅当出生日期段真实合法——测试/占位号码不推导，避免后端 invalid birthday format 409） */
 watch(function () { return form.idCard }, function (val) {
   if (val && val.length === 18) {
     const birth = val.substring(6, 14)
-    form.birthday = birth.substring(0, 4) + '-' + birth.substring(4, 6) + '-' + birth.substring(6, 8)
-    form.gender = parseInt(val.charAt(16), 10) % 2 === 0 ? '女' : '男'
+    const y = Number(birth.substring(0, 4))
+    const m = Number(birth.substring(4, 6))
+    const d = Number(birth.substring(6, 8))
+    if (y >= 1900 && y <= 2099 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      form.birthday = birth.substring(0, 4) + '-' + birth.substring(4, 6) + '-' + birth.substring(6, 8)
+      form.gender = parseInt(val.charAt(16), 10) % 2 === 0 ? '女' : '男'
+    } else {
+      form.birthday = ''
+      form.gender = ''
+    }
   }
 })
 
