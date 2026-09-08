@@ -136,16 +136,16 @@ func TestEscrowFullCycle(t *testing.T) {
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
 	userTok := authAs(t, "user-1", domain.RoleIndividual)
 
-	// 普通用户不可操作托管金（P0 印钞修复：写接口仅管理员）
-	for _, tc := range []struct{ method, path, body string }{
-		{http.MethodPost, "/api/v1/escrow/deposit", `{"amount_fen":100000}`},
-		{http.MethodPost, "/api/v1/escrow/freeze", `{"amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`},
-		{http.MethodPost, "/api/v1/escrow/release", `{"to_user":"user-2","amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`},
-		{http.MethodPost, "/api/v1/escrow/refund", `{"amount_fen":30000,"reference_type":"work_order","reference_id":"wo-2"}`},
+	// 托管金写接口门禁：deposit 已放开用户自充值（单笔上限防印钞）；freeze/release/refund 仍仅管理员
+	for _, tc := range []struct{ method, path, body string; wantCode int }{
+		{http.MethodPost, "/api/v1/escrow/deposit", `{"amount_fen":100000}`, http.StatusCreated},
+		{http.MethodPost, "/api/v1/escrow/freeze", `{"amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`, http.StatusForbidden},
+		{http.MethodPost, "/api/v1/escrow/release", `{"to_user":"user-2","amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`, http.StatusForbidden},
+		{http.MethodPost, "/api/v1/escrow/refund", `{"amount_fen":30000,"reference_type":"work_order","reference_id":"wo-2"}`, http.StatusForbidden},
 	} {
 		w := doRaw(app, tc.method, tc.path, tc.body, userTok)
-		if w.Code != http.StatusForbidden {
-			t.Fatalf("individual %s %s: want 403, got %d", tc.method, tc.path, w.Code)
+		if w.Code != tc.wantCode {
+			t.Fatalf("individual %s %s: want %d, got %d", tc.method, tc.path, tc.wantCode, w.Code)
 		}
 	}
 

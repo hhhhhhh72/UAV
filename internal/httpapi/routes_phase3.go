@@ -26,6 +26,7 @@ func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/escrow/refund", s.escrowRefund)
 	mux.HandleFunc("GET /api/v1/escrow/balance", s.escrowBalance)
 	mux.HandleFunc("GET /api/v1/escrow/transactions", s.escrowTransactions)
+	mux.HandleFunc("GET /api/v1/escrow/mine", s.escrowMine)
 	// News (行业资讯)
 	mux.HandleFunc("POST /api/v1/articles", s.createArticle)
 	mux.HandleFunc("GET /api/v1/articles", s.listArticles)

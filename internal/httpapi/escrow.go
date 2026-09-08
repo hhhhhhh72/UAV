@@ -22,10 +22,6 @@ func (s *Server) escrowDeposit(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if !requireEscrowAdmin(a) {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
-		return
-	}
 	var in struct {
 		AmountFen int64  `json:"amount_fen"`
 		ToUser    string `json:"to_user"`
@@ -34,11 +30,18 @@ func (s *Server) escrowDeposit(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("amount_fen > 0 required"))
 		return
 	}
-	// 入账对象：默认管理者本人；可指定 to_user（线下收款对账后为学员/商户充值），
-	// 服务端保证仅管理员可调用。普通用户无法为自己入账（印钞防护不变）。
+	// 自充值（模拟托管通道）：登录用户仅可为自己入账；管理员可指定 to_user 代充。
+	// 单笔上限 1_000_000 分（¥10000）：模拟通道限额定闸，防灌水；真实支付接入后由校验替代。
+	if in.AmountFen > 1000000 {
+		fail(w, r, http.StatusBadRequest, errors.New("单笔充值上限 10000 元"))
+		return
+	}
 	target := in.ToUser
 	if target == "" {
 		target = a.ID
+	} else if target != a.ID && !requireEscrowAdmin(a) {
+		fail(w, r, http.StatusForbidden, errors.New("仅管理员可为他人的托管金入账"))
+		return
 	}
 	tx, err := s.escrowSvc.Deposit(r.Context(), target, in.AmountFen)
 	if err != nil {
@@ -47,6 +50,26 @@ func (s *Server) escrowDeposit(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r.Context(), a.ID, "escrow_deposit", "escrow", tx.ID, "deposited")
 	respond(w, r, http.StatusCreated, tx)
+}
+
+// GET /api/v1/escrow/mine — 我的托管金：余额 + 近期流水（用户自查，admin 版 balance/transactions 保留）
+func (s *Server) escrowMine(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	acc, err := s.escrowSvc.Balance(r.Context(), a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	txs, err := s.escrowSvc.Transactions(r.Context(), a.ID)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, map[string]any{"account": acc, "transactions": txs})
 }
 
 // POST /api/v1/escrow/freeze

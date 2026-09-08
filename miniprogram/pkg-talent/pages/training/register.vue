@@ -388,9 +388,15 @@ async function handleSubmit() {
   } catch (e) {
     // 后端统一错误信封 {error:{code,message}}，409 重复报名等场景展示真实原因
     const msg = (e && e.data && e.data.error && e.data.error.message) || ''
-    // 402 托管金余额不足：报名即冻结学费，余额不足后端拒绝——小程序暂无充值入口，toast 引导
+    // 402 托管金余额不足：弹窗引导去充值（模拟托管通道），充值后返回重新报名
     if (e && e.statusCode === 402) {
-      uni.showToast({ title: '托管金余额不足，请先充值', icon: 'none', duration: 2500 })
+      uni.showModal({
+        title: '托管金余额不足',
+        content: '付费课程报名需在托管金中冻结学费，请先充值（模拟通道，单笔上限 1 万元）',
+        confirmText: '去充值',
+        cancelText: '返回',
+        success: (r) => { if (r.confirm) uni.navigateTo({ url: '/pages/escrow/index' }) }
+      })
       return
     }
     uni.showToast({ title: msg || '报名失败，请重试', icon: 'none', duration: 2500 })

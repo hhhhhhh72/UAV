@@ -166,15 +166,27 @@ func TestBizAllNonAdminBlocked(t *testing.T) {
 	}
 }
 
-// 托管金写接口仅管理员可操作（P0 印钞修复）：普通用户 deposit → 403，
-// 管理员可正常充值，用户可查自己的余额。
+// 托管金自充值（模拟通道，P0 印钞修复后的定闸方案）：普通用户可为自己充值（单笔上限 5000 元，
+// 不可为他人入账）；管理员可代充；用户可查自己的余额。
 func TestEscrowDepositFlow(t *testing.T) {
 	app := newBizServer(t)
-	// 普通用户（RoleIndividual）不可充值
+	// 普通用户自充值成功（模拟托管：无外部网关上限定闸）
 	w := request(t, app, http.MethodPost, "/api/v1/escrow/deposit",
 		[]byte(`{"amount_fen":100000}`), domain.RoleIndividual)
+	if w.Code != http.StatusCreated && w.Code != http.StatusOK {
+		t.Fatalf("individual self deposit: want 201, got %d %s", w.Code, w.Body.String())
+	}
+	// 超单笔上限 → 400
+	w = request(t, app, http.MethodPost, "/api/v1/escrow/deposit",
+		[]byte(`{"amount_fen":1200000}`), domain.RoleIndividual)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("over-limit deposit: want 400, got %d %s", w.Code, w.Body.String())
+	}
+	// 普通用户给他人入账 → 403（印钞防护保留：只充自己不转账）
+	w = request(t, app, http.MethodPost, "/api/v1/escrow/deposit",
+		[]byte(`{"amount_fen":100000,"to_user":"user-2"}`), domain.RoleIndividual)
 	if w.Code != http.StatusForbidden {
-		t.Fatalf("individual deposit: want 403, got %d %s", w.Code, w.Body.String())
+		t.Fatalf("deposit to other: want 403, got %d %s", w.Code, w.Body.String())
 	}
 	// 管理员充值成功
 	w = requestAs(t, app, http.MethodPost, "/api/v1/escrow/deposit",
