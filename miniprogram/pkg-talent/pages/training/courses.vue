@@ -23,7 +23,10 @@
       </view>
       <view class="shortcut" hover-class="shortcut-press" :hover-stay-time="100" @tap="goCertificates">
         <view class="shortcut-icon shortcut-icon--blue"><image src="/static/mine-icons/certification.svg" mode="aspectFit" /></view>
-        <view class="shortcut-copy"><text class="shortcut-title">我的证书</text><text class="shortcut-desc">查看已获得的认证</text></view>
+        <view class="shortcut-copy">
+          <text class="shortcut-title">我的证书</text>
+          <text class="shortcut-desc" :class="{ 'shortcut-desc--warn': certWarn }">{{ certBadge || '查看已获得的认证' }}</text>
+        </view>
         <text class="shortcut-arrow">›</text>
       </view>
     </view>
@@ -205,7 +208,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { onLoad, onPageScroll, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { onLoad, onShow, onPageScroll, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { useReduceMotion } from '../../../utils/motion'
 
 // 减弱动效（无障碍）+ 回到顶部
@@ -476,6 +479,33 @@ function goMyEnrollments() {
   uni.navigateTo({ url: '/pkg-talent/pages/training/myenrollments' })
 }
 
+/* 我的证书快捷卡到期提醒（与证书页同一口径：30 天内/已过期，按日期计算不依赖 status） */
+const certBadge = ref('')
+const certWarn = ref(false)
+async function loadCertBadge() {
+  try {
+    const res = await request({ url: '/api/v1/certificates/mine' })
+    const data = (res && res.data) || res || []
+    const arr = Array.isArray(data) ? data : (data && data.items) || []
+    let expired = 0
+    let expiring = 0
+    arr.forEach((it) => {
+      const d = it && (it.expire_date || it.expiry_date || '')
+      if (!d) return
+      const t = new Date(String(d).slice(0, 10).replace(/-/g, '/'))
+      if (isNaN(t.getTime())) return
+      const n = Math.ceil((t.getTime() - Date.now()) / 86400000)
+      if (n < 0) expired++
+      else if (n <= 30) expiring++
+    })
+    if (expired > 0 && expiring > 0) certBadge.value = `${expired} 本已过期 · ${expiring} 本即将到期`
+    else if (expired > 0) certBadge.value = `${expired} 本证书已过期`
+    else if (expiring > 0) certBadge.value = `${expiring} 本即将到期`
+    else certBadge.value = ''
+    certWarn.value = !!certBadge.value
+  } catch (e) { certBadge.value = ''; certWarn.value = false }
+}
+
 function goCertificates() {
   if (!requireLogin()) return
   uni.navigateTo({ url: '/pkg-talent/pages/training/certificates' })
@@ -485,6 +515,10 @@ function goCertificates() {
 onLoad(() => {
   checkMotion()
   fetchList(true)
+  loadCertBadge()
+})
+onShow(() => {
+  loadCertBadge()  // 每次进入刷新提醒（证书审核/结业发证后即时可见）
 })
 
 onPullDownRefresh(() => {
@@ -560,6 +594,7 @@ onReachBottom(() => {
 .shortcut-copy { flex: 1; min-width: 0; }
 .shortcut-title { display: block; font-size: 25rpx; color: #17212B; font-weight: 700; line-height: 1.3; }
 .shortcut-desc { display: block; margin-top: 4rpx; overflow: hidden; font-size: 19rpx; color: #7A8798; line-height: 1.35; white-space: nowrap; text-overflow: ellipsis; }
+.shortcut-desc--warn { color: #D92D20; font-weight: 600; }
 .shortcut-arrow { color: #98A2B3; font-size: 32rpx; line-height: 1; }
 
 /* ================================================================= */

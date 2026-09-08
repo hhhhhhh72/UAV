@@ -78,7 +78,6 @@ const categories = [
     bg: '#FFF0E6',
     items: [
       { name: '培训课程', icon: iconRoot + 'training.svg', path: '/pkg-talent/pages/training/courses' },
-      { name: '考证管理', icon: iconRoot + 'training.svg', path: '/pkg-talent/pages/training/certificates' },
       { name: '招聘求职', icon: iconRoot + 'pilot.svg', path: '/pkg-talent/pages/jobs/list' },
       { name: '院校展示', icon: iconRoot + 'training.svg', path: '/pkg-eco/pages/colleges/list' },
     ],
