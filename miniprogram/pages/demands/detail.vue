@@ -337,11 +337,28 @@ const downloadAttachment = (a) => {
   })
 }
 
-const recommendItems = computed(() => {
-  if (!item.value) return []
-  const pool = item.value.type === '需求' ? getKindItems('supply', 'service') : getKindItems('demand')
-  return pool.slice(0, 2)
-})
+// ── 为你推荐：真实智能匹配（/api/v1/recommendations 画像加权+推荐理由）；
+// 替换此前本地 getKindItems mock 池（假推荐无画像无排序）。样式/卡片字段不变。
+const recommendItems = ref([])
+const loadRecommend = async () => {
+  try {
+    const res = await request({ url: '/api/v1/recommendations?limit=6' })
+    const arr = Array.isArray(res) ? res : ((res && res.data) || [])
+    recommendItems.value = arr.filter((x) => x && x.demand && x.demand.id).map((x) => {
+      const d = x.demand
+      const max = d.budget_fen || 0
+      const min = d.budget_min_fen || 0
+      return {
+        id: d.id,
+        title: d.title || '未命名需求',
+        region: d.district || '重庆',
+        price: max > 0 ? '¥' + Math.round(max / 10000) + '万' : (min > 0 ? '¥' + Math.round(min / 10000) + '万起' : '面议'),
+      }
+    })
+  } catch (e) {
+    recommendItems.value = []
+  }
+}
 
 /* ================= 数据加载 ================= */
 async function loadDetail() {
