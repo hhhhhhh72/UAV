@@ -378,6 +378,10 @@ type TrainingCourse struct {
 	// Years 机构年限（页面"机构年限"统计；0 为"—"）
 	Years     int       `json:"years"`
 	Version   int       `json:"version"`
+
+	// MyEnrollmentStatus 当前请求者的报名状态（""=未报名；enrolled/paid/approved/rejected/completed）。
+	// 运行时按认证用户填充（详情页按钮态：已报名显示进度而非"立即报名"），不入库。
+	MyEnrollmentStatus string `json:"my_enrollment_status,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

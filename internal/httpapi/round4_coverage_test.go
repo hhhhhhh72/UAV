@@ -437,6 +437,33 @@ func TestR4Phase3Enrollments(t *testing.T) {
 		`{"name":"学员B","phone":"13800000002"}`, user2Tok)
 	assertStatus(t, http.MethodPost, ".../pay-and-enroll", w, http.StatusCreated)
 
+	// 详情按钮态：已报名用户看到 my_enrollment_status=enrolled，未报名为空
+	w = doRaw(app, http.MethodGet, "/api/v1/training-courses/"+courseID, "", user3Tok)
+	var detailResp struct {
+		Data struct {
+			MyEnrollmentStatus string `json:"my_enrollment_status"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &detailResp); err != nil {
+		t.Fatalf("parse detail: %v (body=%.200s)", err, w.Body.String())
+	}
+	if detailResp.Data.MyEnrollmentStatus != "enrolled" {
+		t.Fatalf("enrolled user detail should carry my_enrollment_status=enrolled, got %q", detailResp.Data.MyEnrollmentStatus)
+	}
+	w = doRaw(app, http.MethodGet, "/api/v1/training-courses/"+courseID, "", userTok)
+	// 未报名时后端 omitempty 不返回该字段——独立结构体避免复用残留
+	var plainResp struct {
+		Data struct {
+			MyEnrollmentStatus string `json:"my_enrollment_status"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &plainResp); err != nil {
+		t.Fatalf("parse detail: %v (body=%.200s)", err, w.Body.String())
+	}
+	if plainResp.Data.MyEnrollmentStatus != "" {
+		t.Fatalf("non-enrolled user detail should not carry my_enrollment_status, got %q", plainResp.Data.MyEnrollmentStatus)
+	}
+
 	// listEnrollments：课程归属者(发布机构)或管理员可查（含 PII）；无关用户 403
 	w = doRaw(app, http.MethodGet, "/api/v1/training-courses/"+courseID+"/enrollments", "", userTok)
 	assertStatus(t, http.MethodGet, ".../enrollments owner", w, http.StatusOK)

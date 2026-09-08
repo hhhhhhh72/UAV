@@ -602,16 +602,23 @@ function handleEnroll() {
   } catch (e) { /* 存储失败不阻断跳转 */ }
   uni.navigateTo({ url: '/pkg-talent/pages/training/register?id=' + encodeURIComponent(id.value) })
 }
-/* 报名状态门禁（与列表页 courses 一致）：已满/即将开课不可报名；发布者不可报名自己的课程（防自购自卖） */
+/* 报名按钮态：详情带 my_enrollment_status（''=未报名 | enrolled/paid/approved/rejected/completed）——
+   已报名用户显示进度而非"立即报名"，点击不再进报名表单 */
+const MY_ENROLL_LABEL = { enrolled: '已报名', paid: '已缴费', approved: '已通过', rejected: '已拒绝', completed: '已结业' }
+const myEnrollStatus = computed(() => (detail.value && detail.value.my_enrollment_status) || '')
+const isMyEnrolled = computed(() => !!myEnrollStatus.value)
+
+/* 报名状态门禁（与列表页 courses 一致）：已满/即将开课不可报名；发布者不可报名自己的课程（防自购自卖）；已报名显示进度 */
 function enrollDisabled() {
   const s = detail.value && detail.value.status
-  return s === 'full' || s === 'upcoming' || isSelfOwned()
+  return s === 'full' || s === 'upcoming' || isSelfOwned() || isMyEnrolled.value
 }
 function enrollLabel() {
   const s = detail.value && detail.value.status
   if (s === 'full') return '本期已满 · 下期可约'
   if (s === 'upcoming') return '即将开课'
   if (isSelfOwned()) return '自己的课程不可报名'
+  if (isMyEnrolled.value) return MY_ENROLL_LABEL[myEnrollStatus.value] || '已报名'
   return '立即报名'
 }
 function onEnrollBlocked() {
@@ -622,6 +629,17 @@ function onEnrollBlocked() {
       content: '您是该课程的发布者，平台规则不允许报名自己发布的课程。请使用学员账号报名，或由其他学员报名本课程。',
       showCancel: false,
       confirmText: '我知道了',
+    })
+    return
+  }
+  // 已报名：显示进度，可直接跳转「我的报名」
+  if (isMyEnrolled.value) {
+    uni.showModal({
+      title: '您已报名该课程',
+      content: '报名状态：' + (MY_ENROLL_LABEL[myEnrollStatus.value] || myEnrollStatus.value) + '。进度可在「我的报名」查看。',
+      confirmText: '查看我的报名',
+      cancelText: '知道了',
+      success: (r) => { if (r.confirm) uni.navigateTo({ url: '/pkg-talent/pages/training/myenrollments' }) },
     })
     return
   }

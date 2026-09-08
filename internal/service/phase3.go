@@ -120,6 +120,11 @@ func (s *EnrollmentService) UpdateStatusCas(ctx context.Context, id, from, to st
 	return s.repo.UpdateStatusCas(ctx, id, from, to)
 }
 
+// FindByUserAndCourse 查询用户对某课程是否已报名（课程详情"我的报名状态"标记用）。
+func (s *EnrollmentService) FindByUserAndCourse(ctx context.Context, userID, courseID string) (domain.Enrollment, bool, error) {
+	return s.repo.FindByUserAndCourse(ctx, userID, courseID)
+}
+
 func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string, form EnrollmentForm) (domain.Enrollment, error) {
 	// 并发防重复：check-then-insert 加进程内锁（双请求同时通过查重会重复报名，
 	// 且付费报名会重复扣冻结金额）。

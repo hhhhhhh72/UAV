@@ -1421,6 +1421,12 @@ func (s *Server) getCourse(w http.ResponseWriter, r *http.Request) {
 	if !isAdminRequest(r) {
 		c.OrgID = maskUserID(c.OrgID)
 	}
+	// 当前用户报名状态（详情按钮态：已报名 → 前端显示进度而非"立即报名"）
+	if a, ok := authenticatedActor(r); ok {
+		if enr, found, err := s.enrollSvc.FindByUserAndCourse(r.Context(), a.ID, c.ID); err == nil && found {
+			c.MyEnrollmentStatus = enr.Status
+		}
+	}
 	respond(w, r, 200, c)
 }
 
