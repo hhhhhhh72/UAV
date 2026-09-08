@@ -86,24 +86,6 @@
         <view class="match-link" @tap="goMatches">查看匹配</view>
       </view>
 
-      <!-- ═══════ 智能推荐：基于画像/类型的为你推荐（横滑卡，点击进详情） ═══════ -->
-      <view v-if="primary === 'demand' && listState === 'ready' && recList.length" class="rec-section">
-        <view class="rec-head">
-          <text class="rec-title">为你推荐</text>
-          <text class="rec-sub">基于业务类型与区域画像匹配</text>
-        </view>
-        <scroll-view scroll-x :show-scrollbar="false" class="rec-scroll">
-          <view class="rec-row">
-            <view v-for="(item, i) in recList" :key="item.demand.id" class="rec-card" hover-class="rec-card-hover" @tap="goRecDetail(item)">
-              <text class="rec-type">{{ bizLabel(item.demand.biz_type) }}</text>
-              <text class="rec-title-text">{{ item.demand.title }}</text>
-              <text class="rec-meta">{{ item.demand.district || '重庆' }} · {{ recMoney(item.demand) }}</text>
-              <text v-if="item.reasons && item.reasons.length" class="rec-reason">{{ item.reasons[0] }}</text>
-            </view>
-          </view>
-        </scroll-view>
-      </view>
-
       <!-- ═══════ 列表标题 ═══════ -->
       <view class="section-head">
         <text class="section-title">{{ sectionTitle }}</text>
@@ -514,27 +496,6 @@ async function onSearch() {
 
 const goSearchResult = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
 const goMatches = () => safeNavigateTo('/pkg-demand/pages/demands/matches')
-// ── 智能推荐（/api/v1/recommendations：匿名可用，基于画像/类型/区域） ──
-const recList = ref([])
-const BIZ_LABEL_MAP = { inspection: '巡检', mapping: '测绘', plant_protection: '植保', aerial_photo: '航拍', lifting: '吊运', emergency: '应急', logistics: '物流', culture_tourism: '文旅', detection: '检测', other: '其他' }
-const bizLabel = (b) => BIZ_LABEL_MAP[b] || bizTypeLabel(b) || '需求'
-const recMoney = (d) => {
-  if (d && d.budget_min_fen && d.budget_min_fen > 0) return '¥' + Math.round(d.budget_min_fen / 10000) + '万起'
-  if (d && d.budget_fen && d.budget_fen > 0) return '¥' + Math.round(d.budget_fen / 10000) + '万'
-  return '面议'
-}
-const loadRecs = async () => {
-  try {
-    const res = await request({ url: '/api/v1/recommendations?limit=6' })
-    const arr = Array.isArray(res) ? res : ((res && res.data) || [])
-    recList.value = arr.filter((x) => x && x.demand && x.demand.id)
-  } catch (e) {
-    recList.value = []
-  }
-}
-const goRecDetail = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.demand.id))
-// 品牌文案兜底（未导入 enums 时直接给中文）
-const bizTypeLabel = () => ''
 const goDetail = (item) => safeNavigateTo('/pages/demands/detail?id=' + encodeURIComponent(item.id))
 // 商品模式：跳电商商品详情页。
 // 本地发布的商品已接后端（backendId 非空）→ 用后端 id 进真商品详情；仅旧版未接
@@ -593,7 +554,6 @@ const visibleList = computed(() => {
 onLoad(() => {
   checkMotion() // 减弱动效检测（无障碍）
   fetchList(true)
-  loadRecs() // 左上智能推荐（匿名可展示，登录后按画像加权）
 })
 
 onPullDownRefresh(() => {
@@ -1286,18 +1246,4 @@ onPullDownRefresh(() => {
     transition: none !important;
   }
 }
-
-/* ═══ 智能推荐横滑卡 ═══ */
-.rec-section { background: #fff; border-bottom: 1rpx solid #EEF1F4; padding: 24rpx 0 20rpx; }
-.rec-head { display: flex; align-items: baseline; gap: 12rpx; padding: 0 24rpx; }
-.rec-title { font-size: 30rpx; font-weight: 700; color: #17212B; }
-.rec-sub { font-size: 22rpx; color: #98A2B3; }
-.rec-scroll { margin-top: 16rpx; }
-.rec-row { display: inline-flex; gap: 16rpx; padding: 0 24rpx; }
-.rec-card { width: 320rpx; flex-shrink: 0; background: #fff; border: 1rpx solid #E4E7EC; border-radius: 10px; padding: 20rpx; box-sizing: border-box; box-shadow: 0 4px 16px rgba(16,24,40,.05); }
-.rec-card-hover { opacity: .9; transform: scale(.98); }
-.rec-type { display: inline-block; font-size: 20rpx; color: #0A66C2; background: #EAF3FB; border-radius: 6rpx; padding: 4rpx 12rpx; }
-.rec-title-text { display: block; font-size: 26rpx; font-weight: 600; color: #17212B; margin-top: 10rpx; line-height: 1.4; max-height: 72rpx; overflow: hidden; }
-.rec-meta { display: block; font-size: 22rpx; color: #667085; margin-top: 8rpx; }
-.rec-reason { display: block; font-size: 20rpx; color: #1DD4A8; margin-top: 6rpx; }
 </style>
