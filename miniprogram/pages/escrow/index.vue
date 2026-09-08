@@ -64,7 +64,13 @@ async function deposit() {
   if (yuan <= 0) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
   if (yuan > 10000) { uni.showToast({ title: '单笔上限 10000 元', icon: 'none' }); return }
   try {
-    await request({ url: '/api/v1/escrow/deposit', method: 'POST', data: { amount_fen: Math.round(yuan * 100) } })
+    await request({
+      url: '/api/v1/escrow/deposit',
+      method: 'POST',
+      data: { amount_fen: Math.round(yuan * 100) },
+      // 充值是可重复同参操作：必须唯一幂等键，否则相同金额二次充值被服务端 24h 幂等去重拦截（余额不变）
+      header: { 'Idempotency-Key': 'esc-dep-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }
+    })
     uni.showToast({ title: '充值成功', icon: 'success' })
     amountYuan.value = ''
     load()
