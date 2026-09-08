@@ -332,17 +332,17 @@ func TestB2PayAndEnrollFundFlow(t *testing.T) {
 		t.Fatalf("insufficient freeze must not move funds: balance=%d frozen=%d", b, f)
 	}
 
-	// 报名失败回滚：先普通报名同一课程，再付费报名 → 409 且冻结已退回（余额复原）
+	// 付费课程禁止普通报名（免费报名会被拒），必须 pay-and-enroll（冻结学费）
 	c3 := createPublishedCourse(t, app, "org-3", "付费课程D", price)
 	fundEscrow(t, app, "s3", 300000)
 	w = requestAs(t, app, http.MethodPost, "/api/v1/training-courses/"+c3+"/enroll",
 		[]byte(`{"name":"学员3","phone":"13800000033"}`), "s3", domain.RoleIndividual)
-	assertStatus(t, http.MethodPost, ".../enroll", w, http.StatusCreated)
+	assertStatus(t, http.MethodPost, ".../enroll paid-free", w, http.StatusConflict)
 	w = requestAs(t, app, http.MethodPost, "/api/v1/training-courses/"+c3+"/pay-and-enroll",
 		[]byte(`{"name":"学员3","phone":"13800000033"}`), "s3", domain.RoleIndividual)
-	assertStatus(t, http.MethodPost, ".../pay-and-enroll dup", w, http.StatusConflict)
-	if b, f := escrowBal(t, app, "s3", domain.RoleIndividual); b != 300000 || f != 0 {
-		t.Fatalf("rollback should refund freeze: balance=%d frozen=%d want 300000/0", b, f)
+	assertStatus(t, http.MethodPost, ".../pay-and-enroll", w, http.StatusCreated)
+	if b, f := escrowBal(t, app, "s3", domain.RoleIndividual); b != 0 || f != 300000 {
+		t.Fatalf("freeze after pay: balance=%d frozen=%d want 0/300000", b, f)
 	}
 
 	// 重复 payAndEnroll → 409，且第二次冻结退回（首次报名冻结保留）

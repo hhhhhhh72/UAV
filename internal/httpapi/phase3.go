@@ -182,8 +182,8 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 状态校验：仅 enrolled/paid 可完成；pending/rejected 不可完成
-	if enrollment.Status != "enrolled" && enrollment.Status != "paid" {
+	// 状态校验：仅 enrolled/paid/approved 可完成；rejected 不可完成
+	if enrollment.Status != "enrolled" && enrollment.Status != "paid" && enrollment.Status != "approved" {
 		fail(w, r, http.StatusConflict, fmt.Errorf("enrollment status %q cannot be completed", enrollment.Status))
 		return
 	}
@@ -354,16 +354,40 @@ func (s *Server) listEnrollments(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
-		return
-	}
-	enrolls, err := s.enrollSvc.ListByCourse(r.Context(), r.PathValue("id"))
+	enrolls, err := s.enrollSvc.ListByCourseForActor(r.Context(), a, r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		fail(w, r, http.StatusForbidden, err)
 		return
 	}
 	respond(w, r, http.StatusOK, enrolls)
+}
+
+// POST /api/v1/enrollments/{id}/review — 机构/管理员审核报名（approve/reject，拒绝需原因）
+func (s *Server) reviewEnrollment(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		Action string `json:"action"`
+		Reason string `json:"reason"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	e, err := s.enrollSvc.Review(r.Context(), a, r.PathValue("id"), in.Action, in.Reason)
+	if err != nil {
+		if strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "invalid") {
+			fail(w, r, http.StatusBadRequest, err)
+		} else {
+			fail(w, r, http.StatusForbidden, err)
+		}
+		return
+	}
+	s.audit(r.Context(), a.ID, "review_enrollment", "enrollment", e.ID, in.Action)
+	respond(w, r, http.StatusOK, e)
 }
 
 // ---- Expiry Alerts ----

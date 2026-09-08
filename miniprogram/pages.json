@@ -486,6 +486,14 @@
           }
         },
         {
+          "path": "pages/training/enrollments",
+          "style": {
+            "navigationBarTitleText": "课程报名管理",
+            "navigationBarTextStyle": "black",
+            "navigationBarBackgroundColor": "#ffffff"
+          }
+        },
+        {
           "path": "pages/study/index",
           "style": {
             "navigationBarTitleText": "低空研学",

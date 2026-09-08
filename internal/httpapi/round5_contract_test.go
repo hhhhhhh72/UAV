@@ -329,6 +329,59 @@ func TestR5PortfolioPublicDetailAndStats(t *testing.T) {
 }
 
 // TestR5AchievementStatsAndStatus 浏览量/收藏量/状态值域（transformed 透传）。
+
+// 机构报名审核闭环：课程归属者查看报名并审核；非归属者 403；拒绝需原因。
+func TestR5EnrollmentOwnerReview(t *testing.T) {
+	app := newBizServer(t)
+	ownerTok := authAs(t, "user-1", domain.RoleEnterprise)
+	otherTok := authAs(t, "user-2", domain.RoleIndividual)
+
+	// 机构发布课程（用户端创建默认 draft），管理端置 published 后才可报名
+	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
+	w := doRaw(app, http.MethodPost, "/api/v1/training-courses",
+		`{"title":"机构课","org_name":"测试机构","cert_type":"caac","description":"d","price_fen":0,"max_students":10}`, ownerTok)
+	assertStatus(t, http.MethodPost, "/api/v1/training-courses", w, http.StatusCreated)
+	courseID := dataID(t, w)
+	w = doRaw(app, http.MethodPut, "/api/v1/admin/training-courses/"+courseID, `{"status":"published"}`, adminTok)
+	assertStatus(t, http.MethodPut, "/api/v1/admin/training-courses/"+courseID, w, http.StatusOK)
+
+	// 学员报名（免费 → enrolled）
+	w = doRaw(app, http.MethodPost, "/api/v1/training-courses/"+courseID+"/enroll",
+		`{"name":"学员","phone":"13900000001"}`, otherTok)
+	assertStatus(t, http.MethodPost, "/api/v1/training-courses/"+courseID+"/enroll", w, http.StatusCreated)
+	enrollID := dataID(t, w)
+
+	// 非归属者查看 → 403
+	w = doRaw(app, http.MethodGet, "/api/v1/training-courses/"+courseID+"/enrollments", "", otherTok)
+	assertStatus(t, http.MethodGet, "/api/v1/training-courses/"+courseID+"/enrollments", w, http.StatusForbidden)
+
+	// 归属者查看 → 200 且含报名
+	w = doRaw(app, http.MethodGet, "/api/v1/training-courses/"+courseID+"/enrollments", "", ownerTok)
+	assertStatus(t, http.MethodGet, "/api/v1/training-courses/"+courseID+"/enrollments", w, http.StatusOK)
+	var list []domain.Enrollment
+	unmarshalData(t, w, &list)
+	if len(list) != 1 || list[0].ID != enrollID {
+		t.Fatalf("owner enrollments: %+v", list)
+	}
+
+	// 拒绝必须填原因 → 400
+	w = doRaw(app, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/review", `{"action":"reject","reason":""}`, ownerTok)
+	assertStatus(t, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/review", w, http.StatusBadRequest)
+
+	// 非归属者审核 → 403
+	w = doRaw(app, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/review", `{"action":"approve"}`, otherTok)
+	assertStatus(t, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/review", w, http.StatusForbidden)
+
+	// 归属者拒绝（有原因）→ 200 rejected
+	w = doRaw(app, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/review", `{"action":"reject","reason":"资料不全"}`, ownerTok)
+	assertStatus(t, http.MethodPost, "/api/v1/enrollments/"+enrollID+"/review", w, http.StatusOK)
+	var e domain.Enrollment
+	unmarshalData(t, w, &e)
+	if e.Status != "rejected" || e.ReviewNote != "资料不全" {
+		t.Fatalf("rejected enrollment: %+v", e)
+	}
+}
+
 func TestR5AchievementStatsAndStatus(t *testing.T) {
 	app := newBizServer(t)
 	entTok := authAs(t, "user-1", domain.RoleEnterprise)

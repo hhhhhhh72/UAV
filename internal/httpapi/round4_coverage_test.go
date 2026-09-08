@@ -436,9 +436,11 @@ func TestR4Phase3Enrollments(t *testing.T) {
 		`{"name":"学员B","phone":"13800000002"}`, user2Tok)
 	assertStatus(t, http.MethodPost, ".../pay-and-enroll", w, http.StatusCreated)
 
-	// listEnrollments 限管理员（含 PII）；普通用户 403 / listMyEnrollments 本人可查
+	// listEnrollments：课程归属者(发布机构)或管理员可查（含 PII）；无关用户 403
 	w = doRaw(app, http.MethodGet, "/api/v1/training-courses/"+courseID+"/enrollments", "", userTok)
-	assertStatus(t, http.MethodGet, ".../enrollments", w, http.StatusForbidden)
+	assertStatus(t, http.MethodGet, ".../enrollments owner", w, http.StatusOK)
+	w = doRaw(app, http.MethodGet, "/api/v1/training-courses/"+courseID+"/enrollments", "", user2Tok)
+	assertStatus(t, http.MethodGet, ".../enrollments non-owner", w, http.StatusForbidden)
 	w = doRaw(app, http.MethodGet, "/api/v1/training-courses/"+courseID+"/enrollments", "", adminTok)
 	assertStatus(t, http.MethodGet, ".../enrollments", w, http.StatusOK)
 	w = doRaw(app, http.MethodGet, "/api/v1/enrollments/mine", "", userTok)

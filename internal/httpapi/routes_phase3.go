@@ -9,6 +9,7 @@ func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/enrollments/mine", s.listMyEnrollments)
 	mux.HandleFunc("PUT /api/v1/admin/enrollments/{id}", s.updateEnrollment)
 	mux.HandleFunc("POST /api/v1/enrollments/{id}/complete", s.completeEnrollment)
+	mux.HandleFunc("POST /api/v1/enrollments/{id}/review", s.reviewEnrollment)
 	mux.HandleFunc("GET /api/v1/certificates/expiring", s.listExpiringCerts)
 	mux.HandleFunc("GET /api/v1/inspections/expiring", s.listExpiringInspections)
 	mux.HandleFunc("POST /api/v1/trade-orders", s.createTradeOrder)

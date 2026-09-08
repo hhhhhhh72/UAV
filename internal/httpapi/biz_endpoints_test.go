@@ -42,6 +42,8 @@ func newBizServer(t *testing.T) http.Handler {
 	// (存在性/状态/令牌版本校验) resolves.
 	userRepo := memory.NewUserRepository(nil)
 	seedCommonUsers(userRepo)
+	// 课程仓库共享：训练服务与报名服务必须读同一存储（与生产 PG 一致）
+	courseRepo := memory.NewCourseRepository()
 	srv := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),
@@ -52,14 +54,14 @@ func newBizServer(t *testing.T) http.Handler {
 		service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()),
 		service.NewListingService(memory.NewListingRepository()),
 		service.NewLabourService(memory.NewLabourOrderRepository()),
-		service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)),
+		service.NewTrainingService(memory.NewCertificateRepository(), courseRepo, memory.NewInstructorRepository(), memory.NewPilotRepository(nil)),
 		service.NewTradingService(productRepo, memory.NewRepairRepository()),
 		service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()),
 		service.NewFinanceService(memory.NewLoanRepository()),
 		service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)),
 		service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)),
 		service.NewMessageService(memory.NewMessageRepository()),
-		service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()),
+		service.NewEnrollmentService(memory.NewEnrollmentRepository(), courseRepo),
 		service.NewExpiryService(),
 		service.NewTradeOrderService(memory.NewTradeOrderRepository(), productRepo),
 		service.NewEscrowService(memory.NewEscrowRepository()),

@@ -327,6 +327,7 @@ const businessItems = computed(() => [
   { icon: '/static/mine-icons/order.svg', tone: 'order', label: '接单工单', go: goWorkOrders },
   { icon: '/static/mine-icons/appointment.svg', tone: 'appointment', label: '我的预约', go: goMyBookings },
   { icon: '/static/mine-icons/enroll.svg', tone: 'enroll', label: '我的报名', go: goMyEnrollments },
+  { icon: '/static/mine-icons/order.svg', tone: 'order', label: '课程报名管理', go: goCourseEnrollments },
   { icon: '/static/mine-icons/favorite.svg', tone: 'favorite', label: '我的收藏', go: goFavorites },
   { icon: '/static/mine-icons/order.svg', tone: 'order', label: '商城订单', go: goOrders },
 ])
@@ -599,6 +600,10 @@ const goIntents = () => {
 const goWorkOrders = () => {
   if (!requireLogin()) return
   uni.navigateTo({ url: '/pages/work-orders/list' })
+}
+const goCourseEnrollments = () => {
+  if (!requireLogin()) return
+  uni.navigateTo({ url: '/pkg-talent/pages/training/enrollments' })
 }
 
 const goCertificates = () => {

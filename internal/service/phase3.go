@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -45,6 +46,66 @@ type EnrollmentForm struct {
 // All 管理端全量报名记录（分页）。
 func (s *EnrollmentService) All(ctx context.Context, offset, limit int) ([]domain.Enrollment, int, error) {
 	return s.repo.ListAll(ctx, offset, limit)
+}
+
+// ListByCourseForActor 按课程查报名（含 PII）：课程归属者或管理员可查。
+func (s *EnrollmentService) ListByCourseForActor(ctx context.Context, a domain.Actor, courseID string) ([]domain.Enrollment, error) {
+	if s.courseRepo == nil {
+		return nil, errors.New("course repository not available")
+	}
+	c, err := s.courseRepo.FindByID(ctx, courseID)
+	if err != nil {
+		return nil, fmt.Errorf("course %s: %w", courseID, err)
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin && c.OrgID != a.ID {
+		return nil, errors.New("only course owner or admin can view enrollments")
+	}
+	return s.repo.ListByCourse(ctx, courseID)
+}
+
+// Review 机构/管理员审核报名：enrolled/paid → approved / rejected（拒绝需原因）。
+func (s *EnrollmentService) Review(ctx context.Context, a domain.Actor, id, action, reason string) (domain.Enrollment, error) {
+	if s.courseRepo == nil {
+		return domain.Enrollment{}, errors.New("course repository not available")
+	}
+	e, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return domain.Enrollment{}, fmt.Errorf("enrollment %s: %w", id, err)
+	}
+	c, err := s.courseRepo.FindByID(ctx, e.CourseID)
+	if err != nil {
+		return domain.Enrollment{}, fmt.Errorf("course %s: %w", e.CourseID, err)
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin && c.OrgID != a.ID {
+		return domain.Enrollment{}, errors.New("only course owner or admin can review enrollments")
+	}
+	if e.Status != "enrolled" && e.Status != "paid" {
+		return domain.Enrollment{}, fmt.Errorf("only enrolled/paid enrollments can be reviewed (current %s)", e.Status)
+	}
+	if action != "approve" && action != "reject" {
+		return domain.Enrollment{}, errors.New("invalid review action (approve/reject)")
+	}
+	if action == "reject" && strings.TrimSpace(reason) == "" {
+		return domain.Enrollment{}, errors.New("reject reason is required")
+	}
+	to := "approved"
+	if action == "reject" {
+		to = "rejected"
+	}
+	ok, err := s.repo.UpdateStatusCas(ctx, id, e.Status, to)
+	if err != nil {
+		return domain.Enrollment{}, fmt.Errorf("update enrollment status: %w", err)
+	}
+	if !ok {
+		return domain.Enrollment{}, errors.New("报名状态已变更，请刷新后重试")
+	}
+	e.Status = to
+	e.ReviewNote = reason
+	updated, err := s.repo.Update(ctx, e)
+	if err != nil {
+		return domain.Enrollment{}, fmt.Errorf("save review note: %w", err)
+	}
+	return updated, nil
 }
 
 // FindByID 按报名 ID 定位单条记录（管理端完成报名/编辑用，替代全表扫描）。
