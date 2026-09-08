@@ -26,8 +26,9 @@
           <view class="es-tx-main">
             <text class="es-tx-type">{{ txTypeLabel(tx) }}</text>
             <text class="es-tx-time">{{ (tx.created_at || '').slice(0, 16).replace('T', ' ') }}</text>
+            <text class="es-tx-sub">{{ txSub(tx) }}</text>
           </view>
-          <text class="es-tx-amount" :class="{ minus: tx.tx_type === 'freeze' || tx.tx_type === 'release' || tx.tx_type === 'refund' }">
+          <text class="es-tx-amount" :class="{ minus: tx.tx_type === 'freeze' || tx.tx_type === 'release' }">
             {{ (tx.amount_fen / 100).toFixed(2) }} 元
           </text>
         </view>
@@ -45,7 +46,9 @@ const frozenFen = ref(0)
 const txs = ref([])
 const amountYuan = ref('')
 
-const txTypeLabel = (tx) => ({ deposit: '充值', freeze: '冻结', release: '释放', refund: '退款' }[tx.tx_type] || tx.tx_type || '-')
+const txTypeLabel = (tx) => ({ deposit: '充值', freeze: '冻结', release: '学费结算', refund: '退款' }[tx.tx_type] || tx.tx_type || '-')
+/* 流水副说明：让每笔钱的去向一目了然（结算=转给课程机构，退款=钱已回账） */
+const txSub = (tx) => ({ deposit: '模拟充值入账', freeze: '报名时冻结学费', release: '结业结算，已划转至课程机构', refund: '订单取消或报名失败，已退回余额' }[tx.tx_type] || '')
 
 async function load() {
   try {
@@ -103,6 +106,7 @@ page { background: var(--color-bg); }
 .es-tx:last-child { border-bottom: none; }
 .es-tx-type { display: block; font-size: 26rpx; color: #17212B; }
 .es-tx-time { display: block; font-size: 22rpx; color: #98A2B3; margin-top: 4rpx; }
+.es-tx-sub { display: block; font-size: 20rpx; color: #98A2B3; margin-top: 2rpx; }
 .es-tx-amount { font-size: 28rpx; font-weight: 700; color: #0B6B41; }
 .es-tx-amount.minus { color: #D92D20; }
 </style>
