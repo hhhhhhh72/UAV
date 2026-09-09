@@ -102,7 +102,7 @@
             auto-open-selected
           >
             <a-menu-item v-for="item in visibleMenus" :key="item.path">
-              <template #icon><component :is="item.icon" /></template>
+              <template #icon><component :is="MENU_ICONS[item.icon]" /></template>
               {{ item.label }}
             </a-menu-item>
           </a-menu>
@@ -170,6 +170,27 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios, { authStorage } from '@/utils/http'
 import { useAuth } from './composables/useAuth'
+// 菜单图标必须显式导入：模板里的 <component :is="item.icon"> 传的是字符串，
+// 按需自动导入只处理静态标签（<icon-xxx />），字符串会被当成原生标签渲染成空元素
+// ——此前侧栏图标全部不显示。这里做字符串 → 组件的映射。
+import {
+  IconDashboard, IconCheckCircle, IconHistory, IconUserGroup, IconList,
+  IconFile, IconBook, IconExperiment, IconBulb, IconFire, IconSettings
+} from '@arco-design/web-vue/es/icon'
+
+const MENU_ICONS = {
+  'icon-dashboard': IconDashboard,
+  'icon-check-circle': IconCheckCircle,
+  'icon-history': IconHistory,
+  'icon-user-group': IconUserGroup,
+  'icon-list': IconList,
+  'icon-file': IconFile,
+  'icon-book': IconBook,
+  'icon-experiment': IconExperiment,
+  'icon-bulb': IconBulb,
+  'icon-fire': IconFire,
+  'icon-settings': IconSettings
+}
 
 const { isPlatformAdmin, isAssociationAdmin, refreshCurrentUser } = useAuth()
 
