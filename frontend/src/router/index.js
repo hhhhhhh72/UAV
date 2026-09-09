@@ -18,10 +18,9 @@ const routes = [
     redirect: '/admin/dashboard',
     children: [
       { path: 'dashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: { title: '数据看板' } },
-      // 审核待办 + 操作审计合并为一个模块（页内下拉切换，URL ?tab= 可深链）
-      { path: 'governance', component: () => import('@/views/admin/governance/GovernancePage.vue'), meta: { title: '审核与审计' } },
-      { path: 'workbench', redirect: '/admin/governance?tab=workbench' },
-      { path: 'audit-logs', redirect: '/admin/governance?tab=audit' },
+      // 审核待办 / 操作审计：侧栏「审核与审计」分组下的两项
+      { path: 'workbench', component: () => import('@/views/admin/workbench/ReviewWorkbench.vue'), meta: { title: '审核待办' } },
+      { path: 'audit-logs', component: () => import('@/views/admin/audit/AuditLogList.vue'), meta: { title: '操作审计', roles: ['platform_admin'] } },
       { path: 'cases', component: () => import('@/views/admin/cases/CaseList.vue'), meta: { title: '案例管理' } },
       { path: 'users', component: () => import('@/views/admin/users/UserList.vue'), meta: { title: '用户管理', roles: ['platform_admin'] } },
       { path: 'competition', component: () => import('@/views/admin/competition/CompetitionList.vue'), meta: { title: '赛事管理' } },

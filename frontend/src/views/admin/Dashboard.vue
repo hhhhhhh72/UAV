@@ -39,41 +39,43 @@
     </a-row>
 
     <a-row :gutter="16" class="main-row">
-      <a-col :span="16">
-        <a-card class="general-card" :bordered="false" style="height: 100%;">
+      <a-col :span="16" class="main-col">
+        <a-card class="general-card main-card" :bordered="false">
           <template #title>运营趋势</template>
           <template #extra>
-            <span class="card-extra">{{ rangeStart }} → {{ rangeEnd }} · 按{{ bucketUnit }} · 各指标独立刻度</span>
+            <span class="card-extra">{{ rangeStart }} → {{ rangeEnd }} · 按{{ bucketUnit }}统计</span>
           </template>
-          <!-- 小多图：每个指标一张独立刻度的迷你趋势图。
-               四条线画在同一张图上时，量级差异（成交 10 / 工单 1）会把小指标压成贴着零轴的直线，
-               各自独立刻度后形状可比、量级由标题上的窗口合计给出 -->
-          <a-spin :loading="loading" style="display: block;">
-            <div class="trend-grid">
-              <div v-for="m in TREND_SERIES" :key="m.key" class="trend-cell">
-                <div class="trend-cell-head">
-                  <span class="dot" :style="{ background: m.color }"></span>
-                  <span class="trend-cell-name">{{ m.name }}</span>
-                  <span class="trend-cell-total">{{ totals[m.key] }}</span>
-                </div>
-                <div class="trend-cell-chart">
-                  <v-chart :option="miniOption(m)" autoresize />
-                </div>
-              </div>
-            </div>
-          </a-spin>
+
+          <!-- 指标切换：一次只看一条曲线，避免量级差把曲线压扁；四个窗口合计并排可比 -->
+          <div class="metric-tabs">
+            <button
+              v-for="m in TREND_SERIES"
+              :key="m.key"
+              type="button"
+              class="metric-tab"
+              :class="{ 'metric-tab--active': m.key === activeMetric }"
+              :style="m.key === activeMetric ? { color: m.color, borderColor: m.color, background: tint(m.color) } : {}"
+              @click="activeMetric = m.key"
+            >
+              <span class="dot" :style="{ background: m.color }"></span>
+              <span class="metric-tab-name">{{ m.name }}</span>
+              <span class="metric-tab-total">{{ totals[m.key] }}</span>
+            </button>
+          </div>
+
+          <div class="trend-chart">
+            <a-spin :loading="loading" style="display: block; height: 100%;">
+              <v-chart :option="trendOption" autoresize />
+            </a-spin>
+          </div>
         </a-card>
       </a-col>
       <a-col :span="8" class="side-col">
-        <a-card class="general-card" title="模块数据" :bordered="false" style="flex: 1;">
-          <div style="height: 180px;">
-            <v-chart :option="barChartOption" autoresize />
-          </div>
+        <a-card class="general-card side-card" title="模块数据" :bordered="false">
+          <div class="side-chart"><v-chart :option="barChartOption" autoresize /></div>
         </a-card>
-        <a-card class="general-card" title="需求类型分布" :bordered="false" style="flex: 1;">
-          <div style="height: 180px;">
-            <v-chart :option="radarChartOption" autoresize />
-          </div>
+        <a-card class="general-card side-card" title="需求类型分布" :bordered="false">
+          <div class="side-chart"><v-chart :option="radarChartOption" autoresize /></div>
         </a-card>
       </a-col>
     </a-row>
@@ -135,6 +137,7 @@ const TREND_SERIES = [
   { key: 'order', name: '成交', color: '#F6903D' },
   { key: 'work_order', name: '工单', color: '#61DDAA' }
 ]
+const activeMetric = ref('demand')
 
 const formatBucket = (date, bucket) => {
   if (!date) return ''
@@ -146,7 +149,6 @@ const bucketLabels = computed(() => (trendsDetail.value.demand || []).map(d => f
 const rangeStart = computed(() => bucketLabels.value[0] || '')
 const rangeEnd = computed(() => bucketLabels.value[bucketLabels.value.length - 1] || '')
 
-/* 窗口内合计：形状看走势，数字看总量 */
 const totals = computed(() => {
   const out = {}
   for (const s of TREND_SERIES) {
@@ -155,32 +157,57 @@ const totals = computed(() => {
   return out
 })
 
-/* 迷你趋势图：单指标、独立刻度、无坐标轴文字，靠悬浮提示读数 */
-const miniOption = (m) => {
+/* hex → rgba：面积渐变用同一品牌色，只调透明度 */
+const tint = (hex, alpha = 0.08) => {
+  const h = String(hex).replace('#', '')
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')'
+}
+
+/* 单指标面积折线：一次一条曲线，纵轴按当前指标自适应，读得清 */
+const trendOption = computed(() => {
+  const m = TREND_SERIES.find(s => s.key === activeMetric.value) || TREND_SERIES[0]
   const data = (trendsDetail.value[m.key] || []).map(d => d.count || 0)
-  const max = Math.max(1, ...data)
   return {
-    tooltip: { trigger: 'axis', formatter: (ps) => (ps && ps[0] ? ps[0].axisValue + '：' + ps[0].data : '') },
-    grid: { left: 2, right: 6, top: 6, bottom: 2, containLabel: false },
-    xAxis: { type: 'category', boundaryGap: false, data: bucketLabels.value, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false } },
-    yAxis: { type: 'value', max, min: 0, minInterval: 1, splitLine: { show: false }, axisLabel: { show: false }, axisLine: { show: false }, axisTick: { show: false } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: '#D0D5DD' } } },
+    grid: { left: 4, right: 16, top: 18, bottom: 4, containLabel: true },
+    xAxis: {
+      type: 'category', boundaryGap: false, data: bucketLabels.value,
+      axisLine: { lineStyle: { color: '#E4E7EC' } }, axisTick: { show: false },
+      axisLabel: { color: '#667085', fontSize: 11, hideOverlap: true }
+    },
+    yAxis: {
+      type: 'value', minInterval: 1, min: 0,
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { color: '#667085', fontSize: 11 },
+      splitLine: { lineStyle: { color: '#F2F3F5' } }
+    },
     series: [{
+      name: m.name,
       type: 'line',
-      smooth: false,
-      symbol: 'none',
       data,
-      lineStyle: { width: 2, color: m.color },
-      areaStyle: { color: m.color, opacity: 0.12 }
+      smooth: false,
+      symbol: 'circle',
+      symbolSize: 6,
+      showSymbol: data.length <= 31,
+      itemStyle: { color: m.color, borderColor: '#fff', borderWidth: 2 },
+      lineStyle: { width: 2.5, color: m.color },
+      areaStyle: {
+        color: {
+          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [{ offset: 0, color: tint(m.color, 0.3) }, { offset: 1, color: tint(m.color, 0.02) }]
+        }
+      }
     }]
   }
-}
+})
 
 // 模块数据：横向圆角柱
 const barChartOption = computed(() => ({
   tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-  grid: { left: '3%', right: '4%', bottom: '3%', top: 10, containLabel: true },
-  xAxis: { type: 'value' },
-  yAxis: { type: 'category', data: ['平台用户', '内容帖子', '待审企业', '需求总数'] },
+  grid: { left: '3%', right: '6%', bottom: '3%', top: 10, containLabel: true },
+  xAxis: { type: 'value', splitLine: { lineStyle: { color: '#F2F3F5' } }, axisLabel: { color: '#667085', fontSize: 11 } },
+  yAxis: { type: 'category', data: ['平台用户', '内容帖子', '待审企业', '需求总数'], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#667085', fontSize: 11 } },
   series: [
     {
       type: 'bar',
@@ -207,7 +234,13 @@ const radarChartOption = computed(() => {
   const indicator = top.length ? top.map(([name]) => ({ name: BIZ_LABEL[name] || name, max: Math.max(...top.map(([, v]) => Number(v) || 1), 1) })) : [{ name: '暂无数据', max: 1 }]
   return {
     tooltip: {},
-    radar: { indicator, radius: '60%' },
+    radar: {
+      indicator, radius: '62%',
+      axisName: { color: '#667085', fontSize: 11 },
+      splitLine: { lineStyle: { color: '#F2F3F5' } },
+      splitArea: { show: false },
+      axisLine: { lineStyle: { color: '#F2F3F5' } }
+    },
     series: [
       {
         type: 'radar',
@@ -216,7 +249,7 @@ const radarChartOption = computed(() => {
             value: top.length ? top.map(([, v]) => Number(v) || 0) : [0],
             name: '需求类型',
             itemStyle: { color: '#5B8FF9' },
-            areaStyle: { opacity: 0.1, color: '#5B8FF9' }
+            areaStyle: { opacity: 0.12, color: '#5B8FF9' }
           }
         ]
       }
@@ -235,11 +268,11 @@ const statusPieData = computed(() => {
 
 const statusPieOption = computed(() => ({
   tooltip: { trigger: 'item' },
-  legend: { bottom: 0, icon: 'circle' },
+  legend: { bottom: 0, icon: 'circle', textStyle: { color: '#667085', fontSize: 11 } },
   series: [{
     type: 'pie',
     radius: ['60%', '80%'],
-    label: { show: true, formatter: '{d}%' },
+    label: { show: true, formatter: '{d}%', color: '#344054', fontSize: 11 },
     data: statusPieData.value
   }]
 }))
@@ -283,7 +316,6 @@ onMounted(fetchStats)
 </script>
 
 <style scoped>
-/* Arco Pro multi-dimension 版式 */
 .multi-dimension-container {
   display: flex;
   flex-direction: column;
@@ -317,6 +349,10 @@ onMounted(fetchStats)
 .main-row {
   margin: 0;
 }
+/* 主区高度 = 右栏两卡自然高度之和（2×224 + 16 间距），主卡图表再吃掉剩余空间 */
+.main-row {
+  min-height: 464px;
+}
 .kpi-card :deep(.arco-card-body) {
   padding: 16px;
 }
@@ -337,45 +373,75 @@ onMounted(fetchStats)
 .general-card {
   border-radius: 4px;
 }
-.side-col {
+.main-col {
+  display: flex;
+}
+.main-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  width: 100%;
+}
+.main-card :deep(.arco-card-body) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
 }
 .card-extra {
   font-size: 12px;
   color: var(--color-text-3);
 }
-/* 小多图：2×2 网格，每格一个指标 */
-.trend-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 24px;
-}
-.trend-cell-head {
+/* 指标切换 */
+.metric-tabs {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.metric-tab {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-}
-.trend-cell-name {
+  padding: 4px 12px;
+  border: 1px solid var(--color-border-2);
+  border-radius: 999px;
+  background: var(--color-bg-2);
+  color: var(--color-text-2);
   font-size: 13px;
-  color: var(--color-text-3);
+  line-height: 20px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
 }
-.trend-cell-total {
-  margin-left: auto;
-  font-size: 18px;
+.metric-tab:hover {
+  border-color: var(--color-border-3);
+}
+.metric-tab-name {
+  font-weight: 500;
+}
+.metric-tab-total {
   font-weight: 600;
-  color: var(--color-text-1);
   font-variant-numeric: tabular-nums;
-  line-height: 1;
 }
-.trend-cell-chart {
-  height: 108px;
-  margin-top: 4px;
+.trend-chart {
+  flex: 1;
+  min-height: 320px;
+}
+.side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.side-card :deep(.arco-card-body) {
+  padding: 12px 16px 16px;
+}
+/* 固定高度：百分比高度在 flex 容器里可能在挂载时解析为 0，导致 ECharts 初始化出 0 高画布 */
+.side-chart {
+  height: 150px;
 }
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 </style>

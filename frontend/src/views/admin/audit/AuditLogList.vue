@@ -1,17 +1,26 @@
 <template>
-  <CrudList
-    resource="audit-logs"
-    :columns="columns"
-    :search-fields="searchFields"
-    :creatable="false"
-    :batch-delete="false"
-    :selectable="true"
-    :show-export="false"
-    :api-function="listAudit"
-    size="small"
-    :scroll="{ x: 940 }"
-    :expandable="expandable"
-  >
+  <div class="admin-page">
+    <div class="page-header">
+      <div class="page-header-main">
+        <h2>操作审计</h2>
+        <span class="page-sub">谁、在什么时候、对什么对象、做了什么</span>
+      </div>
+      <span class="page-hint">勾选记录可导出，点行首箭头查看请求ID与元数据</span>
+    </div>
+
+    <CrudList
+      resource="audit-logs"
+      :columns="columns"
+      :search-fields="searchFields"
+      :creatable="false"
+      :batch-delete="false"
+      :selectable="true"
+      :show-export="false"
+      :api-function="listAudit"
+      size="small"
+      :scroll="{ x: 940 }"
+      :expandable="expandable"
+    >
       <!-- 时间：等宽数字，逐行对齐不抖动 -->
       <template #time="{ record }">
         <span class="cell-time">{{ formatTime(record.created_at) }}</span>
@@ -64,14 +73,15 @@
           </div>
         </div>
       </template>
-    <!-- 多选后的批量动作：导出选中记录（审计留痕只读，导出是唯一有意义的批量操作） -->
-    <template #batch="{ rows }">
-      <a-button type="primary" size="small" @click="exportSelected(rows)">
-        <template #icon><icon-download /></template>
-        导出选中 CSV
-      </a-button>
-    </template>
-  </CrudList>
+      <!-- 多选后的批量动作：导出选中记录（审计留痕只读，导出是唯一有意义的批量操作） -->
+      <template #batch="{ rows }">
+        <a-button type="primary" size="small" @click="exportSelected(rows)">
+          <template #icon><icon-download /></template>
+          导出选中 CSV
+        </a-button>
+      </template>
+    </CrudList>
+  </div>
 </template>
 
 <script setup>
@@ -355,6 +365,39 @@ const exportSelected = (rows) => {
 </script>
 
 <style scoped>
+.admin-page {
+  padding: 20px;
+}
+
+.page-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.page-header-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+.page-sub {
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+.page-hint {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
 /* 单元格：等宽数字/标识 + 层级 + 省略 */
 .cell-time {
   font-variant-numeric: tabular-nums;

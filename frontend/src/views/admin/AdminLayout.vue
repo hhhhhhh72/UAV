@@ -101,10 +101,18 @@
             :collapsed="collapsed"
             auto-open-selected
           >
-            <a-menu-item v-for="item in visibleMenus" :key="item.path">
-              <template #icon><component :is="MENU_ICONS[item.icon]" /></template>
-              {{ item.label }}
-            </a-menu-item>
+            <template v-for="item in visibleMenus" :key="item.path">
+              <!-- 有子项 → 侧栏下拉分组；无子项 → 普通菜单项 -->
+              <a-sub-menu v-if="item.children && item.children.length">
+                <template #icon><component :is="MENU_ICONS[item.icon]" /></template>
+                <template #title>{{ item.label }}</template>
+                <a-menu-item v-for="child in item.children" :key="child.path">{{ child.label }}</a-menu-item>
+              </a-sub-menu>
+              <a-menu-item v-else>
+                <template #icon><component :is="MENU_ICONS[item.icon]" /></template>
+                {{ item.label }}
+              </a-menu-item>
+            </template>
           </a-menu>
         </div>
         <div class="collapse-btn" @click="collapsed = !collapsed">
@@ -200,7 +208,15 @@ const route = useRoute()
 /* 菜单（照抄 Arco Pro 结构：图标 + 名称；权限过滤） */
 const allMenus = [
   { path: '/admin/dashboard', label: '数据看板', icon: 'icon-dashboard', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/governance', label: '审核与审计', icon: 'icon-check-circle', roles: ['platform_admin', 'association_admin'] },
+  {
+    path: '/admin/governance', label: '审核与审计', icon: 'icon-check-circle',
+    roles: ['platform_admin', 'association_admin'],
+    // 侧栏下拉分组：审核待办 + 操作审计（操作审计仅平台管理员可见）
+    children: [
+      { path: '/admin/workbench', label: '审核待办', roles: ['platform_admin', 'association_admin'] },
+      { path: '/admin/audit-logs', label: '操作审计', roles: ['platform_admin'] }
+    ]
+  },
   { path: '/admin/members', label: '会员管理', icon: 'icon-user-group', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/trading', label: '交易管理', icon: 'icon-list', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/content', label: '内容管理', icon: 'icon-file', roles: ['platform_admin', 'association_admin'] },
@@ -213,11 +229,15 @@ const allMenus = [
 ]
 
 const visibleMenus = computed(() => {
-  return allMenus.filter(m => {
-    if (isPlatformAdmin.value) return true
-    if (isAssociationAdmin.value) return m.roles.includes('association_admin')
-    return false
-  })
+  return allMenus
+    // 先按角色过滤子项，再按角色过滤父项（子项被过滤光的父项不显示）
+    .map(m => (m.children ? { ...m, children: m.children.filter(c => isPlatformAdmin.value || (c.roles || []).includes('association_admin')) } : m))
+    .filter(m => {
+      if (m.children && !m.children.length) return false
+      if (isPlatformAdmin.value) return true
+      if (isAssociationAdmin.value) return (m.roles || []).includes('association_admin')
+      return false
+    })
 })
 
 /* 顶栏状态 */
@@ -301,7 +321,8 @@ const openKeys = ref([])
 
 watch(() => route.path, () => {
   const path = route.path
-  const menu = allMenus.find(m => m.path === path)
+  // 子项也要展开其父分组（如 /admin/audit-logs → 审核与审计）
+  const menu = allMenus.find(m => m.path === path || (m.children || []).some(c => c.path === path))
   if (menu) openKeys.value = [menu.path]
 }, { immediate: true })
 
@@ -319,7 +340,20 @@ const onSubMenuClick = (key) => {
 const searchResults = computed(() => {
   if (!searchKeyword.value) return []
   const kw = searchKeyword.value.toLowerCase()
-  return visibleMenus.value.filter(m => m.label.toLowerCase().includes(kw))
+  const out = []
+  for (const m of visibleMenus.value) {
+    const kids = m.children || []
+    if (kids.length) {
+      // 分组：标题命中就落到第一项，子项命中就落到子项
+      if (m.label.toLowerCase().includes(kw)) out.push({ path: kids[0].path, label: m.label + ' / ' + kids[0].label })
+      for (const c of kids) {
+        if (c.label.toLowerCase().includes(kw)) out.push({ path: c.path, label: m.label + ' / ' + c.label })
+      }
+    } else if (m.label.toLowerCase().includes(kw)) {
+      out.push({ path: m.path, label: m.label })
+    }
+  }
+  return out
 })
 
 const onSearch = () => {

@@ -1,16 +1,23 @@
 <template>
-  <div>
-    <!-- 汇总条（页面标题与模块切换由 GovernancePage 提供） -->
+  <div class="admin-page">
+    <div class="page-header">
+      <div>
+        <h2>审核待办</h2>
+        <p class="page-sub">平台各业务模块的待处理审核事项，点击卡片进入对应管理页处理</p>
+      </div>
+      <a-button :loading="loading" @click="loadAll">
+        <template #icon><icon-refresh /></template>
+        刷新
+      </a-button>
+    </div>
+
+    <!-- 汇总条 -->
     <div class="wb-summary" :class="{ 'wb-summary--zero': !loading && totalPending === 0 }">
       <div class="wb-summary-main">
         <span class="wb-summary-num">{{ loading ? '—' : totalPending }}</span>
         <span class="wb-summary-unit">项待处理</span>
       </div>
       <span class="wb-summary-hint">{{ summaryHint }}</span>
-      <a-button class="wb-refresh" size="small" :loading="loading" @click="loadAll">
-        <template #icon><icon-refresh /></template>
-        刷新
-      </a-button>
     </div>
 
     <!-- 待办卡片 -->
@@ -99,6 +106,28 @@ onMounted(loadAll)
 </script>
 
 <style scoped>
+.admin-page {
+  padding: 20px;
+}
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.page-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+.page-sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+
 /* 汇总条 */
 .wb-summary {
   display: flex;
@@ -139,10 +168,7 @@ onMounted(loadAll)
   color: var(--color-text-3);
   line-height: 1.6;
 }
-.wb-refresh {
-  margin-left: auto;
-  flex-shrink: 0;
-}
+
 
 /* 待办卡片 */
 .wb-card {
