@@ -19,6 +19,7 @@ const routes = [
     children: [
       { path: 'dashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: { title: '数据看板' } },
       { path: 'workbench', component: () => import('@/views/admin/workbench/ReviewWorkbench.vue'), meta: { title: '审核待办' } },
+      { path: 'audit-logs', component: () => import('@/views/admin/audit/AuditLogList.vue'), meta: { title: '操作审计', roles: ['platform_admin'] } },
       { path: 'cases', component: () => import('@/views/admin/cases/CaseList.vue'), meta: { title: '案例管理' } },
       { path: 'users', component: () => import('@/views/admin/users/UserList.vue'), meta: { title: '用户管理', roles: ['platform_admin'] } },
       { path: 'competition', component: () => import('@/views/admin/competition/CompetitionList.vue'), meta: { title: '赛事管理' } },

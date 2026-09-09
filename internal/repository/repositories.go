@@ -19,6 +19,7 @@ import (
 // Audit entries are written by the HTTP server's audit() method after every
 // significant action (create, approve, reject, void, etc.).
 type AuditEntry struct {
+	ID           string
 	ActorID      string
 	Action       string
 	ResourceType string
@@ -26,11 +27,27 @@ type AuditEntry struct {
 	Result       string
 	RequestID    string
 	Metadata     map[string]any
+	CreatedAt    time.Time
 }
 
 // AuditWriter is implemented by storage backends that persist audit logs.
 type AuditWriter interface {
 	WriteAudit(ctx context.Context, entry AuditEntry) error
+}
+
+// AuditFilter 审计日志查询条件（零值字段表示不过滤）。
+type AuditFilter struct {
+	ActorID      string
+	Action       string
+	ResourceType string
+	Start        time.Time
+	End          time.Time
+}
+
+// AuditReader 审计日志查询：管理端「操作审计」页用（谁在何时对什么做了什么）。
+// 与 AuditWriter 分离：写入是每个请求的旁路，查询仅平台管理员使用。
+type AuditReader interface {
+	ListAudit(ctx context.Context, f AuditFilter, offset, limit int) ([]AuditEntry, int, error)
 }
 
 // UploadRepository 记录每次文件上传（台账 + 按用户配额统计）。

@@ -280,6 +280,8 @@ func (s *Server) registerAdminRoutes(mux *http.ServeMux) {
 	// 通用全量导出：/api/v1/admin/export/{resource}（企业/需求/课程/证书/飞手/报名/赛事）
 	mux.HandleFunc("GET /api/v1/admin/export/{resource}", s.exportResource)
 	mux.HandleFunc("POST /api/v1/admin/demands/batch-approve", s.batchApproveDemands)
+	// 操作审计查询（仅平台管理员）
+	mux.HandleFunc("GET /api/v1/admin/audit-logs", s.listAuditLogs)
 	mux.HandleFunc("GET /api/v1/image", s.serveImage)
 }
 

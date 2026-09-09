@@ -180,6 +180,7 @@ const route = useRoute()
 const allMenus = [
   { path: '/admin/dashboard', label: '数据看板', icon: 'icon-dashboard', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/workbench', label: '审核待办', icon: 'icon-check-circle', roles: ['platform_admin', 'association_admin'] },
+  { path: '/admin/audit-logs', label: '操作审计', icon: 'icon-history', roles: ['platform_admin'] },
   { path: '/admin/members', label: '会员管理', icon: 'icon-user-group', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/trading', label: '交易管理', icon: 'icon-list', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/content', label: '内容管理', icon: 'icon-file', roles: ['platform_admin', 'association_admin'] },
