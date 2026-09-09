@@ -46,7 +46,7 @@
             <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
             <a-button @click="resetParams">重置</a-button>
             <a-button @click="loadData"><template #icon><icon-refresh /></template>刷新</a-button>
-            <a-button :loading="exporting" @click="handleExport" :disabled="!listData || listData.length === 0">导出 CSV</a-button>
+            <a-button v-if="showExport" :loading="exporting" @click="handleExport" :disabled="!listData || listData.length === 0">导出 CSV</a-button>
             <slot name="search-extra" />
             <a-button v-if="creatable" class="crud-add-btn" type="primary" status="success" @click="$emit('add')">
               <template #icon><icon-plus /></template>{{ addLabel }}
@@ -146,7 +146,9 @@ const props = defineProps({
   // 横向滚动宽度（列多时开启，避免挤压）；如 { x: 1000 }
   scroll: { type: Object, default: undefined },
   // 展开行配置：{ title, width } —— 配合 #expand 插槽展示行详情（详情不占列，保持主表清爽）
-  expandable: { type: Object, default: undefined }
+  expandable: { type: Object, default: undefined },
+  // 是否显示「导出 CSV」按钮（后端未覆盖该资源的全量导出时，页面可关掉它，改用批量导出选中）
+  showExport: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['add', 'sorter-change', 'loaded'])

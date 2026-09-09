@@ -1,25 +1,17 @@
 <template>
-  <div class="admin-page">
-    <div class="page-header">
-      <div class="page-header-main">
-        <h2>操作审计</h2>
-        <span class="page-sub">谁、在什么时候、对什么对象、做了什么</span>
-      </div>
-      <span class="page-hint">点开行首箭头可查看请求ID与元数据</span>
-    </div>
-
-    <CrudList
-      resource="audit-logs"
-      :columns="columns"
-      :search-fields="searchFields"
-      :creatable="false"
-      :batch-delete="false"
-      :selectable="false"
-      :api-function="listAudit"
-      size="small"
-      :scroll="{ x: 900 }"
-      :expandable="expandable"
-    >
+  <CrudList
+    resource="audit-logs"
+    :columns="columns"
+    :search-fields="searchFields"
+    :creatable="false"
+    :batch-delete="false"
+    :selectable="true"
+    :show-export="false"
+    :api-function="listAudit"
+    size="small"
+    :scroll="{ x: 940 }"
+    :expandable="expandable"
+  >
       <!-- 时间：等宽数字，逐行对齐不抖动 -->
       <template #time="{ record }">
         <span class="cell-time">{{ formatTime(record.created_at) }}</span>
@@ -72,8 +64,14 @@
           </div>
         </div>
       </template>
-    </CrudList>
-  </div>
+    <!-- 多选后的批量动作：导出选中记录（审计留痕只读，导出是唯一有意义的批量操作） -->
+    <template #batch="{ rows }">
+      <a-button type="primary" size="small" @click="exportSelected(rows)">
+        <template #icon><icon-download /></template>
+        导出选中 CSV
+      </a-button>
+    </template>
+  </CrudList>
 </template>
 
 <script setup>
@@ -325,42 +323,38 @@ const searchFields = [
 ]
 
 const listAudit = (params) => axios.get('/api/v1/admin/audit-logs', { params }).then((r) => r.data)
+
+/* 导出选中记录：客户端生成 CSV（带 BOM，Excel 中文不乱码），列与表格同口径但用中文 */
+const csvCell = (v) => {
+  const s = v == null ? '' : String(v)
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+}
+
+const exportSelected = (rows) => {
+  if (!rows || !rows.length) return
+  const header = ['时间', '操作人', '操作', '对象类型', '资源ID', '结果', '请求ID']
+  const lines = [header].concat(rows.map((r) => [
+    formatTime(r.created_at),
+    r.actor_id || '',
+    actionLabel(r.action),
+    resourceLabel(r.resource_type),
+    r.resource_id || '',
+    resultLabel(r.result),
+    r.request_id || ''
+  ]))
+  const csv = '\ufeff' + lines.map((cells) => cells.map(csvCell).join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = '操作审计-选中-' + new Date().toISOString().slice(0, 10) + '.csv'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <style scoped>
-.admin-page {
-  padding: 20px;
-}
-
-.page-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-.page-header-main {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.page-header h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-.page-sub {
-  font-size: 13px;
-  color: var(--color-text-3);
-}
-.page-hint {
-  font-size: 12px;
-  color: var(--color-text-3);
-}
-
 /* 单元格：等宽数字/标识 + 层级 + 省略 */
 .cell-time {
   font-variant-numeric: tabular-nums;
