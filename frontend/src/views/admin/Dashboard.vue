@@ -43,19 +43,23 @@
         <a-card class="general-card" :bordered="false" style="height: 100%;">
           <template #title>运营趋势</template>
           <template #extra>
-            <span class="card-extra">按{{ bucketUnit }}统计 · 单位：条/单</span>
+            <span class="card-extra">{{ rangeStart }} → {{ rangeEnd }} · 按{{ bucketUnit }} · 各指标独立刻度</span>
           </template>
-          <!-- 窗口内合计：图例之外给一眼可读的总量 -->
-          <div class="trend-summary">
-            <div v-for="s in trendSummary" :key="s.key" class="trend-summary-item">
-              <span class="dot" :style="{ background: s.color }"></span>
-              <span class="trend-summary-label">{{ s.name }}</span>
-              <span class="trend-summary-value">{{ s.total }}</span>
-            </div>
-          </div>
+          <!-- 小多图：每个指标一张独立刻度的迷你趋势图。
+               四条线画在同一张图上时，量级差异（成交 10 / 工单 1）会把小指标压成贴着零轴的直线，
+               各自独立刻度后形状可比、量级由标题上的窗口合计给出 -->
           <a-spin :loading="loading" style="display: block;">
-            <div style="height: 300px;">
-              <v-chart :option="trendOption" autoresize />
+            <div class="trend-grid">
+              <div v-for="m in TREND_SERIES" :key="m.key" class="trend-cell">
+                <div class="trend-cell-head">
+                  <span class="dot" :style="{ background: m.color }"></span>
+                  <span class="trend-cell-name">{{ m.name }}</span>
+                  <span class="trend-cell-total">{{ totals[m.key] }}</span>
+                </div>
+                <div class="trend-cell-chart">
+                  <v-chart :option="miniOption(m)" autoresize />
+                </div>
+              </div>
             </div>
           </a-spin>
         </a-card>
@@ -138,36 +142,38 @@ const formatBucket = (date, bucket) => {
   return String(date).slice(5)
 }
 
-const trendOption = computed(() => {
-  const detail = trendsDetail.value || {}
-  const base = detail.demand || []
-  const x = base.map(d => formatBucket(d.date, stats.value.bucket))
-  return {
-    tooltip: { trigger: 'axis' },
-    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
-    grid: { left: '3%', right: '4%', top: 16, bottom: 48, containLabel: true },
-    xAxis: { type: 'category', boundaryGap: false, data: x, axisLabel: { hideOverlap: true } },
-    yAxis: { type: 'value', minInterval: 1 },
-    series: TREND_SERIES.map(s => ({
-      name: s.name,
-      type: 'line',
-      symbol: 'circle',
-      symbolSize: 5,
-      showSymbol: x.length <= 31,
-      data: (detail[s.key] || []).map(d => d.count || 0),
-      itemStyle: { color: s.color },
-      lineStyle: { width: 2, color: s.color }
-    }))
+const bucketLabels = computed(() => (trendsDetail.value.demand || []).map(d => formatBucket(d.date, stats.value.bucket)))
+const rangeStart = computed(() => bucketLabels.value[0] || '')
+const rangeEnd = computed(() => bucketLabels.value[bucketLabels.value.length - 1] || '')
+
+/* 窗口内合计：形状看走势，数字看总量 */
+const totals = computed(() => {
+  const out = {}
+  for (const s of TREND_SERIES) {
+    out[s.key] = (trendsDetail.value[s.key] || []).reduce((sum, d) => sum + (d.count || 0), 0)
   }
+  return out
 })
 
-/* 窗口内合计：图形看走势，数字看总量 */
-const trendSummary = computed(() => TREND_SERIES.map(s => ({
-  key: s.key,
-  name: s.name,
-  color: s.color,
-  total: (trendsDetail.value[s.key] || []).reduce((sum, d) => sum + (d.count || 0), 0)
-})))
+/* 迷你趋势图：单指标、独立刻度、无坐标轴文字，靠悬浮提示读数 */
+const miniOption = (m) => {
+  const data = (trendsDetail.value[m.key] || []).map(d => d.count || 0)
+  const max = Math.max(1, ...data)
+  return {
+    tooltip: { trigger: 'axis', formatter: (ps) => (ps && ps[0] ? ps[0].axisValue + '：' + ps[0].data : '') },
+    grid: { left: 2, right: 6, top: 6, bottom: 2, containLabel: false },
+    xAxis: { type: 'category', boundaryGap: false, data: bucketLabels.value, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false } },
+    yAxis: { type: 'value', max, min: 0, minInterval: 1, splitLine: { show: false }, axisLabel: { show: false }, axisLine: { show: false }, axisTick: { show: false } },
+    series: [{
+      type: 'line',
+      smooth: false,
+      symbol: 'none',
+      data,
+      lineStyle: { width: 2, color: m.color },
+      areaStyle: { color: m.color, opacity: 0.12 }
+    }]
+  }
+}
 
 // 模块数据：横向圆角柱
 const barChartOption = computed(() => ({
@@ -340,26 +346,32 @@ onMounted(fetchStats)
   font-size: 12px;
   color: var(--color-text-3);
 }
-.trend-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  margin-bottom: 8px;
+/* 小多图：2×2 网格，每格一个指标 */
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
 }
-.trend-summary-item {
+.trend-cell-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
 }
-.trend-summary-label {
+.trend-cell-name {
   font-size: 13px;
   color: var(--color-text-3);
 }
-.trend-summary-value {
-  font-size: 16px;
+.trend-cell-total {
+  margin-left: auto;
+  font-size: 18px;
   font-weight: 600;
   color: var(--color-text-1);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.trend-cell-chart {
+  height: 108px;
+  margin-top: 4px;
 }
 .dot {
   width: 8px;
