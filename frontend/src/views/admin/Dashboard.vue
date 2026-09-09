@@ -349,9 +349,11 @@ onMounted(fetchStats)
 .main-row {
   margin: 0;
 }
-/* 主区高度 = 右栏两卡自然高度之和（2×224 + 16 间距），主卡图表再吃掉剩余空间 */
+/* 主区行高固定 = 右栏两卡高度之和（2×224 + 16 间距）：
+   行高确定后 height:100% 才能逐级解析，主卡与右栏底边对齐，图表吃掉剩余空间 */
 .main-row {
-  min-height: 464px;
+  height: 464px;
+  margin: 0;
 }
 .kpi-card :deep(.arco-card-body) {
   padding: 16px;
@@ -375,11 +377,14 @@ onMounted(fetchStats)
 }
 .main-col {
   display: flex;
+  height: 100%;
 }
 .main-card {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
 }
 .main-card :deep(.arco-card-body) {
   display: flex;
@@ -424,19 +429,32 @@ onMounted(fetchStats)
 }
 .trend-chart {
   flex: 1;
-  min-height: 320px;
+  min-height: 200px;
 }
 .side-col {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: 100%;
+}
+.side-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 .side-card :deep(.arco-card-body) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   padding: 12px 16px 16px;
 }
-/* 固定高度：百分比高度在 flex 容器里可能在挂载时解析为 0，导致 ECharts 初始化出 0 高画布 */
+/* 必须让父级成为 flex 容器：否则 .side-chart 的高度是 auto，
+   内部 v-chart 的 height:100% 会解析成 0（画布 0 高、图表不显示） */
 .side-chart {
-  height: 150px;
+  flex: 1;
+  min-height: 120px;
 }
 .dot {
   width: 8px;
