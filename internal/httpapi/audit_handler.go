@@ -50,5 +50,7 @@ func (s *Server) listAuditLogs(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	// 分页已下沉到 SQL（COUNT + LIMIT/OFFSET）：必须用 respondPage 原样输出，
+	// 若用 paginatedRespond 会按 page 再切一次片 → 第 2 页起恒为空。
+	respondPage(w, r, items, total, page, pageSize)
 }
