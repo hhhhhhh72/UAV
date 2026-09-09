@@ -277,6 +277,8 @@ func (s *Server) registerAdminRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/config", s.updateConfig)
 	mux.HandleFunc("GET /api/v1/admin/export/demands", s.exportDemands)
 	mux.HandleFunc("GET /api/v1/admin/export/enterprises", s.exportEnterprises)
+	// 通用全量导出：/api/v1/admin/export/{resource}（企业/需求/课程/证书/飞手/报名/赛事）
+	mux.HandleFunc("GET /api/v1/admin/export/{resource}", s.exportResource)
 	mux.HandleFunc("POST /api/v1/admin/demands/batch-approve", s.batchApproveDemands)
 	mux.HandleFunc("GET /api/v1/image", s.serveImage)
 }

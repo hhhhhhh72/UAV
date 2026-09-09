@@ -162,3 +162,160 @@ func (s *Server) batchApproveDemands(w http.ResponseWriter, r *http.Request) {
 		"approved": approved, "failed": failed, "total": len(req.IDs),
 	})
 }
+// GET /api/v1/admin/export/{resource} — 通用全量导出（CSV）。
+// 覆盖企业/需求/课程/证书/飞手/报名/赛事等模块：一次请求导出全量数据（不受分页
+// page_size≤100 限制），统一平台管理员鉴权、独立限频（防拖库）、CSV 公式注入防护与审计。
+func (s *Server) exportResource(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok || a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, fmt.Errorf("platform admin permission required"))
+		return
+	}
+	// 独立限频：全量无界导出 + 敏感字段，每 IP 60s 内限 5 次。
+	if !s.adminOpAllowed(r, "export", 5) {
+		fail(w, r, http.StatusTooManyRequests, errors.New("导出过于频繁，请稍后再试"))
+		return
+	}
+
+	resource := r.PathValue("resource")
+	var header []string
+	var rows [][]string
+
+	switch resource {
+	case "enterprises":
+		header = []string{"ID", "企业名称", "开户账号", "状态", "协会成员", "创建时间"}
+		items, _, err := s.enterpriseSvc.ListByStatus(r.Context(), a, "", 0, 10000)
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		labels := map[string]string{"draft": "草稿", "submitted": "待审核", "approved": "已通过", "rejected": "已驳回", "supplement_required": "需补件"}
+		for _, e := range items {
+			st := labels[string(e.Status)]
+			if st == "" {
+				st = string(e.Status)
+			}
+			member := "否"
+			if e.IsMember {
+				member = "是"
+			}
+			acct := crypto.MaskPhone(e.AccountName)
+			if acct == "" {
+				acct = "-"
+			}
+			rows = append(rows, []string{csvCell(e.ID), csvCell(e.Name), csvCell(acct), csvCell(st), csvCell(member), csvCell(e.CreatedAt.Format("2006-01-02 15:04"))})
+		}
+
+	case "demands":
+		header = []string{"ID", "标题", "业务类型", "区域", "预算下限(元)", "预算上限(元)", "状态", "发布者", "创建时间"}
+		items, err := s.demands.List(r.Context(), repository.DemandFilter{})
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		for _, d := range items {
+			rows = append(rows, []string{
+				csvCell(d.ID), csvCell(d.Title), csvCell(string(d.BizType)), csvCell(d.District),
+				csvCell(fmt.Sprintf("%.2f", float64(d.BudgetMinFen)/100)),
+				csvCell(fmt.Sprintf("%.2f", float64(d.BudgetFen)/100)),
+				csvCell(string(d.Status)), csvCell(d.PublisherName), csvCell(d.CreatedAt.Format("2006-01-02 15:04")),
+			})
+		}
+
+	case "training-courses":
+		header = []string{"ID", "课程名称", "机构", "证书类型", "价格(元)", "名额", "已报名", "状态", "创建时间"}
+		items, err := s.trainingSvc.ListCourses(r.Context())
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		for _, c := range items {
+			rows = append(rows, []string{
+				csvCell(c.ID), csvCell(c.Title), csvCell(c.OrgName), csvCell(string(c.CertType)),
+				csvCell(fmt.Sprintf("%.2f", float64(c.PriceFen)/100)),
+				csvCell(fmt.Sprintf("%d", c.MaxStudents)), csvCell(fmt.Sprintf("%d", c.EnrolledCount)),
+				csvCell(c.Status), csvCell(c.CreatedAt.Format("2006-01-02 15:04")),
+			})
+		}
+
+	case "certificates":
+		header = []string{"ID", "用户ID", "证书类型", "证书编号", "等级", "状态", "发证日期", "到期日期"}
+		items, err := s.trainingSvc.ListAllCertificates(r.Context())
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		for _, c := range items {
+			rows = append(rows, []string{
+				csvCell(c.ID), csvCell(c.UserID), csvCell(string(c.CertType)), csvCell(c.CertNumber),
+				csvCell(c.Level), csvCell(c.Status),
+				csvCell(c.IssueDate.Format("2006-01-02")), csvCell(c.ExpireDate.Format("2006-01-02")),
+			})
+		}
+
+	case "certified-pilots":
+		header = []string{"ID", "真实姓名", "所在地区", "飞行小时", "完成工单", "状态", "驳回理由", "创建时间"}
+		items, err := s.trainingSvc.ListPilots(r.Context())
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		for _, p := range items {
+			rows = append(rows, []string{
+				csvCell(p.ID), csvCell(p.RealName), csvCell(p.Region),
+				csvCell(fmt.Sprintf("%d", p.FlightHours)), csvCell(fmt.Sprintf("%d", p.CompletedJobs)),
+				csvCell(p.Status), csvCell(p.RejectReason), csvCell(p.CreatedAt.Format("2006-01-02 15:04")),
+			})
+		}
+
+	case "enrollments":
+		header = []string{"ID", "课程ID", "学员", "电话", "状态", "缴费(元)", "创建时间"}
+		items, _, err := s.enrollSvc.All(r.Context(), 0, 10000)
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		for _, e := range items {
+			rows = append(rows, []string{
+				csvCell(e.ID), csvCell(e.CourseID), csvCell(e.Name), csvCell(crypto.MaskPhone(e.Phone)),
+				csvCell(e.Status), csvCell(fmt.Sprintf("%.2f", float64(e.PaidAmountFen)/100)),
+				csvCell(e.CreatedAt.Format("2006-01-02 15:04")),
+			})
+		}
+
+	case "competitions":
+		header = []string{"ID", "赛事名称", "分类", "地点", "报名费(元)", "报名人数", "状态", "开始日期", "结束日期"}
+		items, _, err := s.competitionSvc.List(r.Context(), 1, 10000)
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		for _, c := range items {
+			rows = append(rows, []string{
+				csvCell(c.ID), csvCell(c.Title), csvCell(c.Category), csvCell(c.Location),
+				csvCell(fmt.Sprintf("%d", c.Fee)), csvCell(fmt.Sprintf("%d", c.RegCount)),
+				csvCell(c.Status),
+				csvCell(c.StartDate.Format("2006-01-02")), csvCell(c.EndDate.Format("2006-01-02")),
+			})
+		}
+
+	default:
+		fail(w, r, http.StatusNotFound, fmt.Errorf("resource %s export not supported", resource))
+		return
+	}
+
+	s.audit(r.Context(), a.ID, "export_resource", "csv", resource, fmt.Sprintf("rows=%d", len(rows)))
+
+	filename := fmt.Sprintf("%s_export_%s.csv", strings.ReplaceAll(resource, "/", "-"), time.Now().Format("20060102_150405"))
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Write([]byte{0xEF, 0xBB, 0xBF}) // Excel UTF-8 BOM
+
+	writer := csv.NewWriter(w)
+	writer.Write(header)
+	for _, row := range rows {
+		writer.Write(row)
+	}
+	writer.Flush()
+}
+

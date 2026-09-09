@@ -41,7 +41,7 @@
           <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
           <a-button @click="resetParams">重置</a-button>
           <a-button @click="loadData"><template #icon><icon-refresh /></template>刷新</a-button>
-        <a-button @click="handleExport" :disabled="!listData || listData.length === 0">导出 CSV</a-button>
+        <a-button :loading="exporting" @click="handleExport" :disabled="!listData || listData.length === 0">导出 CSV</a-button>
           <slot name="search-extra" />
           <a-button v-if="creatable" class="crud-add-btn" type="primary" status="success" @click="$emit('add')">
             <template #icon><icon-plus /></template>{{ addLabel }}
@@ -111,6 +111,7 @@ import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useListRequest } from '@/hooks/useListRequest'
 import { useAdminApi } from '@/api/admin/common'
+import axios from '@/utils/http'
 
 const props = defineProps({
   resource: { type: String, required: true },      // API 资源名，如 'study-tours'
@@ -136,21 +137,47 @@ const csvEscape = (v) => {
   const s = String(v)
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
 }
-const handleExport = () => {
+/* 当前页导出（回退路径：后端不支持该资源全量导出时使用） */
+const exportCurrentPage = () => {
   const cols = (props.columns || []).filter((c) => c.dataIndex)
   if (!cols.length || !listData.value.length) return
   const header = cols.map((c) => c.title || c.dataIndex)
   const lines = [header].concat(listData.value.map((r) => cols.map((c) => csvEscape(r[c.dataIndex]))))
   const csv = '\ufeff' + lines.map((a) => a.join(',')).join('\r\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), (props.resource || 'export') + '-' + new Date().toISOString().slice(0, 10) + '.csv')
+}
+
+const downloadBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = (props.resource || 'export') + '-' + new Date().toISOString().slice(0, 10) + '.csv'
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+/* 导出：优先调后端全量导出（不受分页 page_size<=100 限制，含全量数据）；
+   后端未覆盖该资源（404）或无权限（403）时，回退到"导出当前页"。 */
+const exporting = ref(false)
+const handleExport = async () => {
+  if (exporting.value) return
+  exporting.value = true
+  try {
+    const res = await axios.get('/api/v1/admin/export/' + props.resource, { responseType: 'blob' })
+    downloadBlob(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }), (props.resource || 'export') + '-' + new Date().toISOString().slice(0, 10) + '.csv')
+    Message.success('已导出全量数据')
+    return
+  } catch (e) {
+    // 403：非平台管理员；404：该资源暂不支持后端全量导出 -> 回退当前页
+    if (e && e.response && e.response.status === 403) {
+      Message.warning('全量导出仅平台管理员可用，已导出当前页')
+    }
+  } finally {
+    exporting.value = false
+  }
+  exportCurrentPage()
 }
 
 const api = props.apiFunction ? null : useAdminApi(props.resource)
