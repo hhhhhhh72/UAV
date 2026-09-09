@@ -102,13 +102,15 @@
             auto-open-selected
           >
             <template v-for="item in visibleMenus" :key="item.path">
-              <!-- 有子项 → 侧栏下拉分组；无子项 → 普通菜单项 -->
-              <a-sub-menu v-if="item.children && item.children.length">
+              <!-- 有子项 → 侧栏下拉分组；无子项 → 普通菜单项。
+                   注意：Arco 菜单项的 key 取自 vnode.key（useMenu: instance.vnode.key），
+                   必须写在本组件上——缺 key 会退回自动生成的随机串，点击时路由跳转失效。 -->
+              <a-sub-menu v-if="item.children && item.children.length" :key="item.path">
                 <template #icon><component :is="MENU_ICONS[item.icon]" /></template>
                 <template #title>{{ item.label }}</template>
                 <a-menu-item v-for="child in item.children" :key="child.path">{{ child.label }}</a-menu-item>
               </a-sub-menu>
-              <a-menu-item v-else>
+              <a-menu-item v-else :key="item.path">
                 <template #icon><component :is="MENU_ICONS[item.icon]" /></template>
                 {{ item.label }}
               </a-menu-item>
