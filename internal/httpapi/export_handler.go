@@ -208,7 +208,9 @@ func (s *Server) exportResource(w http.ResponseWriter, r *http.Request) {
 
 	case "demands":
 		header = []string{"ID", "标题", "业务类型", "区域", "预算下限(元)", "预算上限(元)", "状态", "发布者", "创建时间"}
-		items, err := s.demands.List(r.Context(), repository.DemandFilter{})
+		// ListAll：管理端全量（含 pending/rejected 等所有状态）；List 只返回 published，
+		// 会导致导出遗漏待审/已驳回数据。
+		items, err := s.demands.ListAll(r.Context(), repository.DemandFilter{})
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, err)
 			return
