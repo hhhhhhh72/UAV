@@ -19,15 +19,15 @@ import (
 // Audit entries are written by the HTTP server's audit() method after every
 // significant action (create, approve, reject, void, etc.).
 type AuditEntry struct {
-	ID           string
-	ActorID      string
-	Action       string
-	ResourceType string
-	ResourceID   string
-	Result       string
-	RequestID    string
-	Metadata     map[string]any
-	CreatedAt    time.Time
+	ID           string         `json:"id"`
+	ActorID      string         `json:"actor_id"`
+	Action       string         `json:"action"`
+	ResourceType string         `json:"resource_type"`
+	ResourceID   string         `json:"resource_id"`
+	Result       string         `json:"result"`
+	RequestID    string         `json:"request_id"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
 }
 
 // AuditWriter is implemented by storage backends that persist audit logs.
