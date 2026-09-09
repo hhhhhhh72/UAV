@@ -2,8 +2,9 @@
   <div class="crud-page">
     <!-- 搜索卡 -->
     <a-card v-if="searchFields.length || $slots.search || creatable" :bordered="false" class="search-card">
-      <a-form layout="horizontal" :model="filterParams" class="search-form">
-        <a-space wrap>
+      <a-form layout="horizontal" label-align="left" :model="filterParams" class="search-form">
+        <!-- align="end"：标签在上/控件在下时，右侧按钮组与控件行底部齐平 -->
+        <a-space wrap align="end">
           <a-form-item v-for="f in searchFields" :key="f.key" :label="f.label" class="form-item">
             <a-input
               v-if="!f.type || f.type === 'input'"
@@ -18,10 +19,12 @@
               v-else-if="f.type === 'select'"
               v-model="filterParams[f.key]"
               :style="{ width: (f.width || 140) + 'px' }"
+              :allow-search="f.searchable === true"
+              :filter-option="f.searchable ? filterOption : undefined"
               allow-clear
               @change="onSearchSubmit"
             >
-              <a-option v-for="o in f.options" :key="o.value" :value="o.value">{{ o.label }}</a-option>
+              <a-option v-for="o in f.options" :key="o.value" :value="o.value" :label="o.label">{{ o.label }}</a-option>
             </a-select>
             <a-date-picker
               v-else-if="f.type === 'date'"
@@ -38,14 +41,17 @@
               @change="onSearchSubmit"
             />
           </a-form-item>
-          <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
-          <a-button @click="resetParams">重置</a-button>
-          <a-button @click="loadData"><template #icon><icon-refresh /></template>刷新</a-button>
-        <a-button :loading="exporting" @click="handleExport" :disabled="!listData || listData.length === 0">导出 CSV</a-button>
-          <slot name="search-extra" />
-          <a-button v-if="creatable" class="crud-add-btn" type="primary" status="success" @click="$emit('add')">
-            <template #icon><icon-plus /></template>{{ addLabel }}
-          </a-button>
+          <!-- 操作按钮成组：靠右对齐，窄屏整体换行——不再与筛选字段逐项交错 -->
+          <div class="search-actions">
+            <a-button type="primary" @click="onSearchSubmit"><template #icon><icon-search /></template>查询</a-button>
+            <a-button @click="resetParams">重置</a-button>
+            <a-button @click="loadData"><template #icon><icon-refresh /></template>刷新</a-button>
+            <a-button :loading="exporting" @click="handleExport" :disabled="!listData || listData.length === 0">导出 CSV</a-button>
+            <slot name="search-extra" />
+            <a-button v-if="creatable" class="crud-add-btn" type="primary" status="success" @click="$emit('add')">
+              <template #icon><icon-plus /></template>{{ addLabel }}
+            </a-button>
+          </div>
         </a-space>
       </a-form>
       <!-- 批量操作（选中时显示） -->
@@ -74,6 +80,9 @@
         :loading="loading"
         :row-key="rowKey"
         :pagination="false"
+        :size="size"
+        :scroll="scroll"
+        :expandable="expandable"
         :row-selection="selectable ? rowSelection : undefined"
         @selection-change="onSelectionChange"
         @sorter-change="onSorterChange"
@@ -84,6 +93,11 @@
         </template>
         <template #empty>
           <slot name="empty"><a-empty description="暂无数据" /></slot>
+        </template>
+        <!-- 展开行内容：Arco Table 的展开行插槽名为 expand-row（接收 { record }），
+             页面侧仍声明为 #expand，这里做一次转接 -->
+        <template v-if="$slots.expand" #expand-row="scope">
+          <slot name="expand" v-bind="scope" />
         </template>
       </a-table>
 
@@ -126,7 +140,13 @@ const props = defineProps({
   addLabel: { type: String, default: '新增' },
   defaultParams: { type: Object, default: () => ({}) },
   // 可选：自定义列表请求 (params) => Promise<{ data, total }>，覆盖 resource 的默认 CRUD list（如 JSON 文件后端）
-  apiFunction: { type: Function, default: null }
+  apiFunction: { type: Function, default: null },
+  // 表格密度：'small' 更紧凑（列多时首选）；默认 undefined = Arco 标准
+  size: { type: String, default: undefined },
+  // 横向滚动宽度（列多时开启，避免挤压）；如 { x: 1000 }
+  scroll: { type: Object, default: undefined },
+  // 展开行配置：{ title, width } —— 配合 #expand 插槽展示行详情（详情不占列，保持主表清爽）
+  expandable: { type: Object, default: undefined }
 })
 
 const emit = defineEmits(['add', 'sorter-change', 'loaded'])
@@ -181,6 +201,14 @@ const handleExport = async () => {
 }
 
 const api = props.apiFunction ? null : useAdminApi(props.resource)
+
+/* 可搜索下拉的过滤规则：中文标签与英文值都能命中
+   （操作类筛选 value 是 approve_demand 这类英文码，用户可能记得英文） */
+const filterOption = (input, option) => {
+  const v = String(input || '').trim().toLowerCase()
+  if (!v) return true
+  return String(option.value || '').toLowerCase().includes(v) || String(option.label || '').toLowerCase().includes(v)
+}
 
 // 需要透传给 a-table 的列插槽（columns 里声明了 slotName 的）
 const slotColumns = computed(() => (props.columns || []).filter(c => c.slotName))
@@ -359,14 +387,35 @@ onMounted(loadData)
 /* 搜索字段不收缩：a-space 的 flex 子项是 .arco-space-item 包裹层，须在其上禁止收缩，
    否则 form-item 被压缩导致 label 文字溢出压到右侧控件上（如"资源类型"56px 文字挤进 32px 容器） */
 .search-form :deep(.arco-space-item) { flex: 0 0 auto; }
-/* 覆盖 Arco 默认 .arco-col-5（20.8333% 固定宽度）：label 列按内容宽度，
-   避免"资源类型"等长 label 文字溢出压到控件上 */
-.search-form :deep(.arco-form-item-label-col) { flex: 0 0 auto; width: auto; }
-.search-form :deep(.arco-form-item-label) { white-space: nowrap; }
 
-/* 新增按钮靠右：a-space 会把子元素包一层 .arco-space-item，auto margin 须作用于包裹层 */
-.search-form :deep(.arco-space-item:has(.crud-add-btn)) {
+/* 搜索字段位置统一：标签在上、控件在下。
+   Arco 的 .arco-form-item 是 flex + 自动换行，同一行里宽度不够的字段会把标签折到控件上方、
+   够的字段仍留在左侧（"操作人"折了、"操作"没折），导致同一排字段的标签位置参差不齐。
+   这里统一成块级排布，所有字段的标签和控件都落在同一行位置上。 */
+.search-form :deep(.arco-form-item) { display: block; }
+.search-form :deep(.arco-form-item-label-col) {
+  width: auto;
+  padding-right: 0;
+  margin-bottom: 6px;
+  line-height: 1.5715;
+  /* Arco 默认 justify-content: flex-end（标签右对齐），与下方控件的左边缘错开；
+     这里左对齐，标签文字与输入框起始位置对齐 */
+  justify-content: flex-start;
+}
+.search-form :deep(.arco-form-item-label) { white-space: nowrap; }
+.search-form :deep(.arco-form-item-wrapper-col) { width: auto; }
+
+/* 按钮组靠右：a-space 会把子元素包一层 .arco-space-item，auto margin 须作用于包裹层；
+   整组作为一个 flex 容器，窄屏时整体换到下一行，不会散落在筛选字段之间 */
+.search-form :deep(.arco-space-item:has(.search-actions)) {
   margin-left: auto;
+}
+
+.search-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .batch-bar {
