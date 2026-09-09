@@ -1,40 +1,66 @@
 <template>
-  <div class="multi-dimension-container">
-    <a-row :gutter="16" style="margin-bottom: 16px; display: flex; align-items: stretch;">
-      <a-col :span="16">
-        <a-card class="general-card" title="平台用户增长" :bordered="false" style="height: 100%;">
-          <a-row :gutter="16" style="margin-bottom: 24px;">
-            <a-col :span="6">
-              <div class="overview-item">
-                <div class="overview-title">需求总数</div>
-                <div class="overview-value"><icon-list style="color: #5B8FF9;" /> {{ stats.totalDemands.toLocaleString() }}</div>
-              </div>
-            </a-col>
-            <a-col :span="6">
-              <div class="overview-item">
-                <div class="overview-title">待审企业</div>
-                <div class="overview-value"><icon-edit style="color: #F6903D;" /> {{ stats.pendingEnterprises.toLocaleString() }}</div>
-              </div>
-            </a-col>
-            <a-col :span="6">
-              <div class="overview-item">
-                <div class="overview-title">内容帖子</div>
-                <div class="overview-value"><icon-eye style="color: #78D3F8;" /> {{ stats.totalPosts.toLocaleString() }}</div>
-              </div>
-            </a-col>
-            <a-col :span="6">
-              <div class="overview-item">
-                <div class="overview-title">平台用户</div>
-                <div class="overview-value"><icon-user style="color: #9270CA;" /> {{ stats.totalUsers.toLocaleString() }}</div>
-              </div>
-            </a-col>
-          </a-row>
-          <div style="height: 320px;">
-            <v-chart :option="overviewLineOption" autoresize />
-          </div>
+  <div class="admin-page multi-dimension-container">
+    <div class="page-header">
+      <div class="page-header-main">
+        <h2>数据看板</h2>
+        <span class="page-sub">平台运营总览 · 统计窗口：{{ rangeLabel }}</span>
+      </div>
+      <a-radio-group v-model="range" type="button" size="small" @change="fetchStats">
+        <a-radio v-for="opt in RANGE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</a-radio>
+      </a-radio-group>
+    </div>
+
+    <!-- KPI 行 -->
+    <a-row :gutter="16" class="kpi-row">
+      <a-col :span="6">
+        <a-card class="general-card kpi-card" :bordered="false">
+          <div class="kpi-label"><icon-list style="color: #5B8FF9;" /> 需求总数</div>
+          <div class="kpi-value">{{ stats.totalDemands.toLocaleString() }}</div>
         </a-card>
       </a-col>
-      <a-col :span="8" style="display: flex; flex-direction: column; gap: 16px;">
+      <a-col :span="6">
+        <a-card class="general-card kpi-card" :bordered="false">
+          <div class="kpi-label"><icon-edit style="color: #F6903D;" /> 待审企业</div>
+          <div class="kpi-value">{{ stats.pendingEnterprises.toLocaleString() }}</div>
+        </a-card>
+      </a-col>
+      <a-col :span="6">
+        <a-card class="general-card kpi-card" :bordered="false">
+          <div class="kpi-label"><icon-eye style="color: #78D3F8;" /> 内容帖子</div>
+          <div class="kpi-value">{{ stats.totalPosts.toLocaleString() }}</div>
+        </a-card>
+      </a-col>
+      <a-col :span="6">
+        <a-card class="general-card kpi-card" :bordered="false">
+          <div class="kpi-label"><icon-user style="color: #9270CA;" /> 平台用户</div>
+          <div class="kpi-value">{{ stats.totalUsers.toLocaleString() }}</div>
+        </a-card>
+      </a-col>
+    </a-row>
+
+    <a-row :gutter="16" class="main-row">
+      <a-col :span="16">
+        <a-card class="general-card" :bordered="false" style="height: 100%;">
+          <template #title>运营趋势</template>
+          <template #extra>
+            <span class="card-extra">按{{ bucketUnit }}统计 · 单位：条/单</span>
+          </template>
+          <!-- 窗口内合计：图例之外给一眼可读的总量 -->
+          <div class="trend-summary">
+            <div v-for="s in trendSummary" :key="s.key" class="trend-summary-item">
+              <span class="dot" :style="{ background: s.color }"></span>
+              <span class="trend-summary-label">{{ s.name }}</span>
+              <span class="trend-summary-value">{{ s.total }}</span>
+            </div>
+          </div>
+          <a-spin :loading="loading" style="display: block;">
+            <div style="height: 300px;">
+              <v-chart :option="trendOption" autoresize />
+            </div>
+          </a-spin>
+        </a-card>
+      </a-col>
+      <a-col :span="8" class="side-col">
         <a-card class="general-card" title="模块数据" :bordered="false" style="flex: 1;">
           <div style="height: 180px;">
             <v-chart :option="barChartOption" autoresize />
@@ -79,29 +105,71 @@ import { showFailToast } from '@/utils/feedback';
 
 use([CanvasRenderer, LineChart, BarChart, RadarChart, PieChart, GridComponent, TooltipComponent, LegendComponent]);
 
+/* 时间窗口：与后端 ?range= 取值一致（7d/30d/90d 按日分桶，12m 按月分桶） */
+const RANGE_OPTIONS = [
+  { value: '7d', label: '近 7 天' },
+  { value: '30d', label: '近 30 天' },
+  { value: '90d', label: '近 90 天' },
+  { value: '12m', label: '近 12 个月' }
+]
+const range = ref('30d')
+const loading = ref(false)
+const rangeLabel = computed(() => (RANGE_OPTIONS.find(o => o.value === range.value) || {}).label || '')
+const bucketUnit = computed(() => (stats.value.bucket === 'month' ? '月' : '日'))
+
 const stats = ref({
   totalDemands: 0, pendingEnterprises: 0, totalPosts: 0,
-  totalUsers: 0, pendingReports: 0,
-  orderTrend: [], competitionByRole: [], userGrowth: [], statusDist: {}
+  totalUsers: 0, pendingReports: 0, bucket: 'day',
+  orderTrend: [], competitionByRole: [], statusDist: {}
 })
-const trendsDetail = ref({ demand: [], post: [], user: [], message: [] })
+const trendsDetail = ref({ demand: [], post: [], user: [], message: [], article: [], enrollment: [], order: [], work_order: [] })
 
-// 平台用户增长月度柱状图（与需求状态饼图不重复，数据用 trends_detail.user）
-const overviewLineOption = computed(() => ({
-  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-  xAxis: { type: 'category', data: (stats.value.orderTrend || []).map(d => (d.date || '').slice(5)) },
-  yAxis: { type: 'value', minInterval: 1 },
-  series: [{
-    name: '平台用户',
-    type: 'bar',
-    barWidth: '40%',
-    data: (trendsDetail.value.user || []).map(d => d.count || 0),
-    itemStyle: { color: '#9270CA', borderRadius: [4, 4, 0, 0] }
-  }]
-}));
+/* 业务趋势四条线：需求 / 报名 / 成交 / 工单（与后端 trends_detail 键一致） */
+const TREND_SERIES = [
+  { key: 'demand', name: '需求', color: '#5B8FF9' },
+  { key: 'enrollment', name: '报名', color: '#9270CA' },
+  { key: 'order', name: '成交', color: '#F6903D' },
+  { key: 'work_order', name: '工单', color: '#61DDAA' }
+]
 
-// 照抄 Arco Pro barChartOption：横向圆角柱
+const formatBucket = (date, bucket) => {
+  if (!date) return ''
+  if (bucket === 'month') return String(date).slice(5) + '月'
+  return String(date).slice(5)
+}
+
+const trendOption = computed(() => {
+  const detail = trendsDetail.value || {}
+  const base = detail.demand || []
+  const x = base.map(d => formatBucket(d.date, stats.value.bucket))
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
+    grid: { left: '3%', right: '4%', top: 16, bottom: 48, containLabel: true },
+    xAxis: { type: 'category', boundaryGap: false, data: x, axisLabel: { hideOverlap: true } },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: TREND_SERIES.map(s => ({
+      name: s.name,
+      type: 'line',
+      symbol: 'circle',
+      symbolSize: 5,
+      showSymbol: x.length <= 31,
+      data: (detail[s.key] || []).map(d => d.count || 0),
+      itemStyle: { color: s.color },
+      lineStyle: { width: 2, color: s.color }
+    }))
+  }
+})
+
+/* 窗口内合计：图形看走势，数字看总量 */
+const trendSummary = computed(() => TREND_SERIES.map(s => ({
+  key: s.key,
+  name: s.name,
+  color: s.color,
+  total: (trendsDetail.value[s.key] || []).reduce((sum, d) => sum + (d.count || 0), 0)
+})))
+
+// 模块数据：横向圆角柱
 const barChartOption = computed(() => ({
   tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
   grid: { left: '3%', right: '4%', bottom: '3%', top: 10, containLabel: true },
@@ -127,7 +195,6 @@ const BIZ_LABEL = {
   trade_lease: '租赁', clean_paint: '清洗', other: '其他'
 }
 
-// 照抄 Arco Pro radarChartOption：雷达图
 const radarChartOption = computed(() => {
   const cats = Array.isArray(stats.value.competitionByRole) ? stats.value.competitionByRole : Object.entries(stats.value.competitionByRole || {})
   const top = cats.slice(0, 6)
@@ -151,7 +218,6 @@ const radarChartOption = computed(() => {
   }
 });
 
-// 需求状态分布：多段环形饼（照抄 Arco Pro 环形饼样式：60-80% 半径 + {d}% 标签）
 const PIE_COLORS = ['#5B8FF9', '#9270CA', '#78D3F8', '#F6903D', '#61DDAA']
 const statusPieData = computed(() => {
   const dist = stats.value.statusDist || {}
@@ -182,8 +248,9 @@ const statusTableData = computed(() => {
 })
 
 const fetchStats = async () => {
+  loading.value = true
   try {
-    const res = await axios.get('/api/v1/admin/dashboard')
+    const res = await axios.get('/api/v1/admin/dashboard', { params: { range: range.value } })
     const d = res.data
     if (d) {
       stats.value = {
@@ -192,15 +259,17 @@ const fetchStats = async () => {
         totalPosts: d.total_posts ?? 0,
         totalUsers: d.total_users ?? 0,
         pendingReports: d.pending_reports ?? 0,
+        bucket: d.bucket || 'day',
         orderTrend: d.trends || [],
         competitionByRole: d.category_dist || [],
-        userGrowth: d.trends || [],
         statusDist: d.status_dist || {}
       }
-      trendsDetail.value = d.trends_detail || { demand: [], post: [], user: [], message: [] }
+      trendsDetail.value = d.trends_detail || {}
     }
   } catch (err) {
     showFailToast('获取统计数据失败')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -208,53 +277,91 @@ onMounted(fetchStats)
 </script>
 
 <style scoped>
-/* 照抄 Arco Pro multi-dimension 全部样式 */
+/* Arco Pro multi-dimension 版式 */
 .multi-dimension-container {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+.page-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.page-header-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+.page-sub {
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+.kpi-row,
+.main-row {
+  margin: 0;
+}
+.kpi-card :deep(.arco-card-body) {
+  padding: 16px;
+}
+.kpi-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-3);
+  font-size: 13px;
+}
+.kpi-value {
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  font-variant-numeric: tabular-nums;
 }
 .general-card {
   border-radius: 4px;
 }
-.overview-item {
+.side-col {
   display: flex;
   flex-direction: column;
+  gap: 16px;
 }
-.overview-title {
+.card-extra {
+  font-size: 12px;
   color: var(--color-text-3);
-  font-size: 14px;
 }
-.overview-value {
-  color: var(--color-text-1);
-  font-size: 24px;
-  font-weight: 600;
+.trend-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+.trend-summary-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 6px;
 }
-.kpi-card .kpi-value {
-  font-size: 24px;
+.trend-summary-label {
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+.trend-summary-value {
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text-1);
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  font-variant-numeric: tabular-nums;
 }
-.legend-box {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin-top: 16px;
-}
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--color-text-2);
-}
-.legend-item .dot {
+.dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;

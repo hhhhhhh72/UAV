@@ -1650,6 +1650,24 @@ func (r *workOrderRepo) FindByID(ctx context.Context, id string) (domain.WorkOrd
 	return domain.WorkOrder{}, fmt.Errorf("work order %s not found", id)
 }
 
+// ListAll 管理端全量工单（仪表盘趋势/运营统计）：与 PG 版一致，创建时间倒序分页。
+func (r *workOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.WorkOrder, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.WorkOrder, 0, len(r.items))
+	out = append(out, r.items...)
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	total := len(out)
+	if offset >= total {
+		return []domain.WorkOrder{}, total, nil
+	}
+	end := offset + limit
+	if limit <= 0 || end > total {
+		end = total
+	}
+	return out[offset:end], total, nil
+}
+
 func (r *workOrderRepo) ListByPublisher(ctx context.Context, publisherID string) ([]domain.WorkOrder, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

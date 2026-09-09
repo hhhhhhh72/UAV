@@ -24,6 +24,14 @@ func NewWorkOrderService(o repository.WorkOrderRepository, d repository.DemandRe
 	return &WorkOrderService{orders: o, demands: d, intents: i}
 }
 
+// ListAll 管理端全量工单（平台/协会管理员）：仪表盘业务趋势与运营统计用。
+func (s *WorkOrderService) ListAll(ctx context.Context, a domain.Actor, offset, limit int) ([]domain.WorkOrder, int, error) {
+	if a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin {
+		return nil, 0, errors.New("admin permission required")
+	}
+	return s.orders.ListAll(ctx, offset, limit)
+}
+
 // AcceptIntent 企业确认接单：意向 → contacted，其他意向 → closed，生成订单（pending）。
 // amountFen 为订单金额（企业确认时填写，面议为 0）。
 func (s *WorkOrderService) AcceptIntent(ctx context.Context, a domain.Actor, demandID, intentID string, amountFen int64) (domain.WorkOrder, error) {

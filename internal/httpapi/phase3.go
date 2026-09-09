@@ -643,6 +643,9 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 时间窗口：?range=7d|30d|90d|12m（缺省/非法值 → 12m，保持既有行为）
+	rng := parseDashboardRange(r.URL.Query().Get("range"))
+
 	ent, err := s.enterprises.Pending(r.Context(), a)
 	if err != nil {
 		slog.Warn("admin dashboard: load pending enterprises", "err", err)
@@ -697,14 +700,37 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	totalMessages := len(msgs)
 
-	// Trends: monthly counts (last 12 months) — 4 维趋势（需求/帖子/用户/消息）
+	// 业务维度趋势数据源（报名/成交/工单）：与内容维度同口径，按所选窗口分桶。
+	// 订单按窗口下推到 SQL（TradeOrderFilter.StartDate），避免全表加载。
+	enrolls, _, err := s.enrollSvc.All(r.Context(), 0, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load enrollments", "err", err)
+		enrolls = nil
+	}
+	since := rng.Since
+	orders, _, err := s.tradeSvc.ListAllFiltered(r.Context(), repository.TradeOrderFilter{StartDate: &since, Limit: 10000})
+	if err != nil {
+		slog.Warn("admin dashboard: load trade orders", "err", err)
+		orders = nil
+	}
+	workOrders, _, err := s.workOrderSvc.ListAll(r.Context(), a, 0, 10000)
+	if err != nil {
+		slog.Warn("admin dashboard: load work orders", "err", err)
+		workOrders = nil
+	}
+
+	// Trends: 需求 12 个月月度（保留旧字段，兼容既有图表）
 	trends := buildDemandTrends(dem)
+	// trends_detail：按所选窗口 + 粒度（日/月）分桶，供前端时间范围筛选与多维度趋势图
 	trendsDetail := map[string][]map[string]any{
-		"demand":  trends,
-		"post":    buildMonthlyTrends(posts, func(p domain.Post) time.Time { return p.CreatedAt }),
-		"user":    buildMonthlyTrends(users, func(u domain.User) time.Time { return u.CreatedAt }),
-		"message": buildMonthlyTrends(msgs, func(m domain.Message) time.Time { return m.CreatedAt }),
-		"article": buildMonthlyTrends(articles, func(a domain.Article) time.Time { return a.CreatedAt }),
+		"demand":     buildWindowTrends(dem, func(d domain.Demand) time.Time { return d.CreatedAt }, rng),
+		"post":       buildWindowTrends(posts, func(p domain.Post) time.Time { return p.CreatedAt }, rng),
+		"user":       buildWindowTrends(users, func(u domain.User) time.Time { return u.CreatedAt }, rng),
+		"message":    buildWindowTrends(msgs, func(m domain.Message) time.Time { return m.CreatedAt }, rng),
+		"article":    buildWindowTrends(articles, func(a domain.Article) time.Time { return a.CreatedAt }, rng),
+		"enrollment": buildWindowTrends(enrolls, func(e domain.Enrollment) time.Time { return e.CreatedAt }, rng),
+		"order":      buildWindowTrends(orders, func(o domain.TradeOrder) time.Time { return o.CreatedAt }, rng),
+		"work_order": buildWindowTrends(workOrders, func(w domain.WorkOrder) time.Time { return w.CreatedAt }, rng),
 	}
 
 	// 线下成交金额汇总（联系对接模式撮合价值）
@@ -853,6 +879,9 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		"category_dist":        categoryDist,
 		"status_dist":          statusDist,
 		"modules":              modules,
+		"range":                rng.Key,
+		"bucket":               rng.Bucket,
+		"range_start":          rng.Since.Format(time.RFC3339),
 		"server_time":          time.Now().UTC().Format(time.RFC3339),
 	})
 }
@@ -879,6 +908,67 @@ func buildMonthlyTrends[T any](items []T, getTime func(T) time.Time) []map[strin
 	for i := 0; i < 12; i++ {
 		m := now.AddDate(0, -11+i, 0).Format("2006-01")
 		out[i] = map[string]any{"date": m, "count": counts[m]}
+	}
+	return out
+}
+
+// dashboardRange 仪表盘时间窗口：由 ?range= 解析而来。
+type dashboardRange struct {
+	Key    string    // 回显给前端的值：7d/30d/90d/12m
+	Since  time.Time // 窗口起点（日粒度对齐到当天 0 点，月粒度对齐到当月 1 日 0 点）
+	Bucket string    // day | month
+	Points int       // 分桶数（7/30/90 或 12）
+}
+
+// parseDashboardRange 解析时间范围参数；缺省或非法值回落到 12 个月（保持既有行为）。
+func parseDashboardRange(raw string) dashboardRange {
+	now := time.Now()
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	switch raw {
+	case "7d":
+		return dashboardRange{Key: "7d", Since: dayStart.AddDate(0, 0, -6), Bucket: "day", Points: 7}
+	case "30d":
+		return dashboardRange{Key: "30d", Since: dayStart.AddDate(0, 0, -29), Bucket: "day", Points: 30}
+	case "90d":
+		return dashboardRange{Key: "90d", Since: dayStart.AddDate(0, 0, -89), Bucket: "day", Points: 90}
+	default:
+		monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		return dashboardRange{Key: "12m", Since: monthStart.AddDate(0, -11, 0), Bucket: "month", Points: 12}
+	}
+}
+
+// buildWindowTrends 按窗口与粒度统计计数（泛型：任意带 CreatedAt 的实体）。
+// 返回定长序列，窗口内无数据的桶补 0，前端可直接按 x 轴铺满。
+func buildWindowTrends[T any](items []T, getTime func(T) time.Time, rng dashboardRange) []map[string]any {
+	layout := "2006-01-02"
+	if rng.Bucket == "month" {
+		layout = "2006-01"
+	}
+	keys := make([]string, 0, rng.Points)
+	counts := make(map[string]int, rng.Points)
+	for i := 0; i < rng.Points; i++ {
+		var key string
+		if rng.Bucket == "month" {
+			key = rng.Since.AddDate(0, i, 0).Format(layout)
+		} else {
+			key = rng.Since.AddDate(0, 0, i).Format(layout)
+		}
+		keys = append(keys, key)
+		counts[key] = 0
+	}
+	for _, it := range items {
+		t := getTime(it)
+		if t.Before(rng.Since) {
+			continue
+		}
+		key := t.Format(layout)
+		if _, ok := counts[key]; ok {
+			counts[key]++
+		}
+	}
+	out := make([]map[string]any, len(keys))
+	for i, key := range keys {
+		out[i] = map[string]any{"date": key, "count": counts[key]}
 	}
 	return out
 }

@@ -1829,6 +1829,29 @@ func (r *pgWorkOrderRepo) FindByID(ctx context.Context, id string) (domain.WorkO
 	return wo, nil
 }
 
+// ListAll 管理端全量工单（仪表盘趋势/运营统计）：COUNT + 创建时间倒序分页。
+func (r *pgWorkOrderRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.WorkOrder, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM work_orders`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count work orders: %w", err)
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+workOrderSelectCols+` FROM work_orders ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query work orders: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.WorkOrder{}
+	for rows.Next() {
+		wo, err := scanWorkOrder(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("scan work order: %w", err)
+		}
+		out = append(out, wo)
+	}
+	return out, total, rows.Err()
+}
+
 func (r *pgWorkOrderRepo) ListByPublisher(ctx context.Context, publisherID string) ([]domain.WorkOrder, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT `+workOrderSelectCols+` FROM work_orders WHERE publisher_id=$1 ORDER BY created_at DESC`, publisherID)
