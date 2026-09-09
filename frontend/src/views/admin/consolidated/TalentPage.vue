@@ -16,6 +16,7 @@
 </template>
 <script setup>
 import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 import CourseList from '../training/CourseList.vue'
 import CertList from '../training/CertList.vue'
 import CompetitionList from '../competition/CompetitionList.vue'
@@ -26,7 +27,11 @@ import PilotList from '../pilots/PilotList.vue'
 import EnrollmentList from '../enrollments/EnrollmentList.vue'
 import BizOverview from '../components/BizOverview.vue'
 
-const tab = ref('training')
+// 支持 /admin/talent?tab=pilots 直达对应标签页（工作台等入口跳转用）
+const route = useRoute()
+const VALID_TABS = ['training', 'certs', 'competition', 'jobs', 'colleges', 'study', 'pilots', 'enrollments']
+const initialTab = String(route.query.tab || '')
+const tab = ref(VALID_TABS.includes(initialTab) ? initialTab : 'training')
 
 /* 业务概览：数据来自 GET /api/v1/admin/dashboard */
 const overview = {

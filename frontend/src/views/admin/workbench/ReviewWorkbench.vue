@@ -57,12 +57,11 @@ const router = useRouter()
 const SOURCES = [
   { key: 'enterprises', title: '企业认证', desc: '企业实名认证申请', resource: 'enterprises', status: 'submitted', link: '/admin/enterprises' },
   { key: 'demands', title: '需求审核', desc: '需求大厅发布审核', resource: 'demands', status: 'pending', link: '/admin/demands' },
-  { key: 'courses', title: '课程审核', desc: '培训课程上架审核', resource: 'training-courses', status: 'draft', link: '/admin/training' },
+  { key: 'courses', title: '课程审核', desc: '培训课程上架审核', resource: 'training-courses', status: 'pending', link: '/admin/training' },
   { key: 'certificates', title: '证书审核', desc: '资质证书申请审核', resource: 'certificates', status: 'pending', link: '/admin/certs' },
-  { key: 'pilots', title: '飞手认证', desc: '认证飞手申请审核', resource: 'certified-pilots', status: 'pending', link: '/admin/talent' },
+  { key: 'pilots', title: '飞手认证', desc: '认证飞手申请审核', resource: 'certified-pilots', status: 'pending', link: '/admin/talent?tab=pilots' },
   { key: 'competitions', title: '赛事审核', desc: '企业发布赛事审核', resource: 'competitions', status: 'pending', link: '/admin/competition' },
-  { key: 'projects', title: '项目申报', desc: '课题项目申报审核', resource: 'project-applications', status: 'submitted', link: '/admin/projects' },
-  { key: 'achievements', title: '成果审核', desc: '科技成果入库审核', resource: 'achievements', status: 'pending', link: '/admin/achievements' }
+  { key: 'projects', title: '项目申报', desc: '课题项目申报审核', resource: 'project-applications', status: 'submitted', link: '/admin/projects' }
 ]
 
 const items = ref(SOURCES.map((s) => ({ ...s, count: 0, error: '' })))
