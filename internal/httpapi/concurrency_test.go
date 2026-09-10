@@ -126,7 +126,15 @@ func TestConcurrent_BatchApprove(t *testing.T) {
 		time.Sleep(time.Microsecond) // ensure unique ID
 		actor := domain.Actor{ID: fmt.Sprintf("user-%d", i), Role: domain.RoleEnterprise}
 		ent, _ := svc.Create(context.Background(), actor, service.CreateEnterpriseInput{
-			Name: fmt.Sprintf("批量企业-%d", i), AccountName: fmt.Sprintf("138%08d", i),
+			Name:             fmt.Sprintf("批量企业-%d", i),
+			AccountName:      fmt.Sprintf("138%08d", i),
+			CreditCode:       fmt.Sprintf("91500108MA5U%05dX", i), // 18 位
+			LegalPerson:      "张三",
+			ContactPerson:    "李四",
+			ContactPhone:     fmt.Sprintf("1380000%04d", i),
+			IndustryCategory: "测绘",
+			Scale:            "20-50人",
+			LicenseURL:       "/uploads/private/lic-batch",
 		})
 		svc.Submit(context.Background(), actor, ent.ID)
 		ids[i] = ent.ID

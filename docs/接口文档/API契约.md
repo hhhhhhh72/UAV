@@ -30,7 +30,7 @@
 | **认证** | `POST /auth/wechat/login` `POST /auth/refresh` `POST /auth/logout` `GET /me` | 微信登录/令牌刷新/登出 |
 | **企业** | `GET/POST/PATCH /enterprises` `POST /enterprises/{id}/submit` `POST /admin/enterprises/{id}/review` `POST /admin/enterprises/batch-review` | 入驻/审核/批量 |
 | **需求** | `GET/POST /demands` `POST /demands/{id}/intents` `GET /intents/mine` `POST /demands/{id}/complete` `POST /demands/{id}/cancel` | 发布/意向登记/完成/取消 |
-| **招聘** | `GET/POST /jobs` `GET/POST /resumes` `POST /applications` `PATCH /applications/{id}/status` | 职位/简历/投递 |
+| **招聘** | `GET/POST /jobs` `GET /jobs/mine` `POST /jobs/{id}/publish|close` `GET/POST /resumes` `GET/POST /applications` `PATCH /applications/{id}/status` | 职位/简历/投递。求职者的 `GET /applications` 内联 `job` 快照（标题/地点/薪资/状态，职位已删为 null）与 `enterprise_name`；带 `?job_id=` 时返回该职位的投递者（含简历快照，企业侧） |
 | **社区** | `GET/POST /posts` `POST /posts/{id}/comments` `POST /reports` | 帖子/评论/举报 |
 | **二手** | `GET/POST /listings` `POST /listings/{id}/favorites` | 商品/收藏 |
 | **用工** | `GET/POST /labour-orders` `POST /labour-orders/{id}/quote` | 订单/报价 |

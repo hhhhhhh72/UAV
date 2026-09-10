@@ -8,7 +8,7 @@
 
       <!-- 返回按钮（浅色背景用深灰） -->
       <view class="back-btn" :style="{ top: (statusBarH + 10) + 'px' }" hover-class="back-btn-hover" :hover-stay-time="120" @tap="goBack">
-        <text class="back-icon">‹</text>
+        <u-icon name="back" size="36rpx" color="#17212B" />
       </view>
 
       <!-- 头像区（居中） -->
@@ -28,32 +28,25 @@
       <view class="hero-info">
         <view class="hero-name-row">
           <text class="hero-name">{{ pilot.real_name || '认证飞手' }}</text>
-          <view class="status-pill"><text class="status-dot" />可接单</view>
+          <view v-if="certPill" class="status-pill" :class="'status-pill-' + certPill.tone">
+            <text class="status-dot" />
+            <text>{{ certPill.text }}</text>
+          </view>
         </view>
         <text class="hero-id">{{ idText }}</text>
       </view>
 
-      <!-- 数据横排（4 项） -->
+      <!-- 数据横排（2 项：只放后端真实字段） -->
       <view class="hero-stats">
         <view class="hero-stat">
-          <text class="hero-stat-icon hero-stat-icon-orange">★</text>
-          <text class="hero-stat-num">{{ ratingText }}</text>
-          <text class="hero-stat-label">评分</text>
-        </view>
-        <view class="hero-stat">
-          <text class="hero-stat-icon hero-stat-icon-blue">飞</text>
+          <image class="hero-stat-img" src="/static/mine-icons/drone.svg" mode="aspectFit" />
           <text class="hero-stat-num">{{ displayNums.hours }}</text>
           <text class="hero-stat-label">飞行小时</text>
         </view>
         <view class="hero-stat">
-          <text class="hero-stat-icon hero-stat-icon-purple">证</text>
+          <image class="hero-stat-img" src="/static/mine-icons/certification-green.svg" mode="aspectFit" />
           <text class="hero-stat-num">{{ displayNums.certs }}</text>
           <text class="hero-stat-label">证书</text>
-        </view>
-        <view class="hero-stat">
-          <text class="hero-stat-icon hero-stat-icon-green">✓</text>
-          <text class="hero-stat-num">{{ displayNums.jobs }}</text>
-          <text class="hero-stat-label">作业</text>
         </view>
       </view>
     </view>
@@ -64,21 +57,15 @@
         <view class="section-title"><view class="title-bar" />飞行数据</view>
         <view class="data-grid">
           <view class="data-cell">
-            <view class="data-icon data-icon-blue"><view class="icon-plane" /></view>
+            <view class="data-icon data-icon-blue"><image class="data-img" src="/static/mine-icons/drone.svg" mode="aspectFit" /></view>
             <text class="data-num">{{ displayNums.hours }}</text>
             <text class="data-label">飞行小时</text>
           </view>
           <view class="data-divider" />
           <view class="data-cell">
-            <view class="data-icon data-icon-purple"><view class="icon-cert" /></view>
+            <view class="data-icon data-icon-green"><image class="data-img" src="/static/mine-icons/certification-green.svg" mode="aspectFit" /></view>
             <text class="data-num">{{ displayNums.certs }}</text>
             <text class="data-label">证书认证</text>
-          </view>
-          <view class="data-divider" />
-          <view class="data-cell">
-            <view class="data-icon data-icon-green"><view class="icon-check" /></view>
-            <text class="data-num">{{ displayNums.jobs }}</text>
-            <text class="data-label">完成作业</text>
           </view>
         </view>
       </view>
@@ -96,7 +83,7 @@
         <view class="section-title"><view class="title-bar" />认证证书</view>
         <view v-if="certCount > 0" class="cert-list">
           <view class="cert-item" v-for="(c, i) in certItems" :key="i">
-            <view class="cert-ico"><view class="icon-cert" /></view>
+            <view class="cert-ico"><image class="cert-img" src="/static/mine-icons/certification-green.svg" mode="aspectFit" /></view>
             <view class="cert-info">
               <text class="cert-name">{{ c.name }}</text>
               <text class="cert-desc">{{ c.desc }}</text>
@@ -164,11 +151,11 @@ const goBack = () => safeBack()
 
 // ── 头像：姓名首字 + 姓名哈希渐变（每人不同）──
 const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg,#0A1F44,#1E5EFF)',
+  'linear-gradient(135deg,#17212B,#0A66C2)',
   'linear-gradient(135deg,#6D28D9,#DB2777)',
   'linear-gradient(135deg,#0EA5E9,#06B6D4)',
   'linear-gradient(135deg,#FF8E3C,#F97316)',
-  'linear-gradient(135deg,#00C896,#34c759)',
+  'linear-gradient(135deg,#25915A,#34c759)',
 ]
 const firstChar = (name) => String(name || '飞').charAt(0)
 const avatarBg = (name) => {
@@ -181,11 +168,15 @@ const avatarBg = (name) => {
 
 // ── 核心信息 ──────────────────────────
 const certCount = computed(() => (pilot.value && (pilot.value.cert_ids || []).length) || 0)
-const ratingText = computed(() => (pilot.value && pilot.value.rating > 0 ? pilot.value.rating.toFixed(1) : '—'))
-// 评价数弱化：≥10 显示"XX 人评价"，否则"暂无评价"
-const ratingSub = computed(() => {
-  const n = (pilot.value && pilot.value.completed_jobs) || 0
-  return n >= 10 ? `${n} 人评价` : '暂无评价'
+// 认证状态标签：证据取自后端 certificates —— service 侧只返回"审核通过且在有效期内"的证书，
+// 因此 certificates.length > 0 是可验证事实；无有效证书的历史记录不冒充"可接单"，退回中性表述。
+const validCertCount = computed(() => ((pilot.value && pilot.value.certificates) || []).length)
+const certPill = computed(() => {
+  const p = pilot.value
+  if (!p) return null
+  if (validCertCount.value > 0) return { text: '证书有效', tone: 'green' }
+  if (p.status === 'approved') return { text: '协会已核验', tone: 'blue' }
+  return null
 })
 // 编号：后端无编号，用"协会认证 · N 项证书"
 const idText = computed(() => {
@@ -197,9 +188,9 @@ const regionText = computed(() => pilot.value.region || '重庆·协会名录')
 
 // ── 擅长领域标签（7 类分色）─────────────
 const JOB_TAG_MAP = [
-  { key: ['电力巡检', '巡检'], color: '#1E5EFF', bg: 'rgba(30,94,255,.08)' },
-  { key: ['测绘', '航拍', '拍摄'], color: '#8B5CF6', bg: 'rgba(139,92,246,.08)' },
-  { key: ['植保', '喷洒'], color: '#00C896', bg: 'rgba(0,200,150,.08)' },
+  { key: ['电力巡检', '巡检'], color: '#0A66C2', bg: 'rgba(10,102,194,.08)' },
+  { key: ['测绘', '航拍', '拍摄'], color: '#7056D6', bg: 'rgba(139,92,246,.08)' },
+  { key: ['植保', '喷洒'], color: '#25915A', bg: 'rgba(37,145,90,.08)' },
   { key: ['应急', '救援', '侦察'], color: '#EF4444', bg: 'rgba(239,68,68,.08)' },
   { key: ['吊运', '吊装', '实操'], color: '#FF8E3C', bg: 'rgba(255,142,60,.08)' },
   { key: ['物流', '运输', '投送'], color: '#06B6D4', bg: 'rgba(6,182,212,.08)' },
@@ -211,7 +202,7 @@ const matchTag = (tag) => {
   for (const m of JOB_TAG_MAP) {
     if (m.key.some((k) => tag.includes(k))) return m
   }
-  return { color: '#6B7B95', bg: 'rgba(107,123,149,.08)' }
+  return { color: '#667085', bg: 'rgba(102,112,133,.08)' }
 }
 const tagStyle = (t) => {
   const m = matchTag(t)
@@ -246,9 +237,12 @@ const bioText = computed(() => {
   if (p.bio) {
     const skills = bioList(p.bio)
     const hours = p.flight_hours || 0
-    const jobs = p.completed_jobs || 0
-    // 生成一段真实可读的简介（避免与标签重复感）
-    return `从事无人机飞行多年，累计飞行 ${hours} 小时，擅长${skills.join('、')}等作业方向。持有协会认证资质，累计完成 ${jobs} 项作业，作业质量稳定可靠。`
+    // 只陈述有数据来源的事实：飞行小时为飞手申请时填报值，证书为协会审核通过且在有效期内的记录
+    const parts = []
+    if (hours > 0) parts.push(`累计飞行 ${hours} 小时`)
+    if (skills.length) parts.push(`擅长${skills.join('、')}等作业方向`)
+    if (validCertCount.value > 0) parts.push('持有协会核验且在有效期内的证书')
+    return parts.length ? parts.join('，') + '。' : '该飞手暂未填写简介'
   }
   return '该飞手暂未填写简介'
 })
@@ -262,9 +256,9 @@ const invitePilot = () => {
 }
 
 // ── 数据滚动计数 ───────────────────────
-const displayNums = ref({ hours: 0, certs: 0, jobs: 0 })
+const displayNums = ref({ hours: 0, certs: 0 })
 const countUpNums = (target, duration = 800) => {
-  const from = { hours: 0, certs: 0, jobs: 0 }
+  const from = { hours: 0, certs: 0 }
   const start = Date.now()
   // 微信小程序无 requestAnimationFrame，用 setTimeout 模拟帧（16ms）
   const tick = () => {
@@ -273,7 +267,6 @@ const countUpNums = (target, duration = 800) => {
     displayNums.value = {
       hours: Math.round(from.hours + (target.hours - from.hours) * ease),
       certs: Math.round(from.certs + (target.certs - from.certs) * ease),
-      jobs: Math.round(from.jobs + (target.jobs - from.jobs) * ease),
     }
     if (p < 1) setTimeout(tick, 16)
   }
@@ -297,13 +290,15 @@ function fullDate(v) {
 }
 
 onLoad(async (options) => {
-  // 优先读列表页缓存（含完整字段），无缓存且有 id 时回源单查接口
+  const wantID = options && options.id ? decodeURIComponent(options.id) : ''
   const cached = uni.getStorageSync('pilot_detail')
-  if (cached && cached.id) {
+  // 入参 id 优先：缓存只是"同一个人"时的加速，不能盖掉 id。
+  // （此前无论入参是什么都优先用缓存，从消息通知/分享进入详情会打开上一次看过的人）
+  if (wantID && cached && cached.id === wantID) {
     pilot.value = cached
-  } else if (options && options.id) {
+  } else if (wantID) {
     try {
-      const res = await request({ url: '/api/v1/certified-pilots/' + encodeURIComponent(options.id) })
+      const res = await request({ url: '/api/v1/certified-pilots/' + encodeURIComponent(wantID) })
       pilot.value = res && res.data ? res.data : res
     } catch (e) { pilot.value = null }
     if (!pilot.value || !pilot.value.id) {
@@ -311,6 +306,8 @@ onLoad(async (options) => {
       setTimeout(() => uni.navigateBack(), 1200)
       return
     }
+  } else if (cached && cached.id) {
+    pilot.value = cached
   } else {
     uni.showToast({ title: '飞手信息不存在', icon: 'none' })
     setTimeout(() => uni.navigateBack(), 1200)
@@ -327,7 +324,6 @@ onReady(() => {
       countUpNums({
         hours: pilot.value.flight_hours || 0,
         certs: (pilot.value.cert_ids || []).length,
-        jobs: pilot.value.completed_jobs || 0,
       })
     }
   }, 150)
@@ -337,7 +333,7 @@ onReady(() => {
 <style scoped>
 .pilot-detail-page {
   min-height: 100vh;
-  background: #F5F8FC;
+  background: #F5F6F8;
   padding-bottom: calc(170rpx + env(safe-area-inset-bottom));
 }
 
@@ -355,7 +351,7 @@ onReady(() => {
 .hero-ring {
   position: absolute;
   border-radius: 50%;
-  background: rgba(30,94,255,0.05);
+  background: rgba(10,102,194,0.05);
   pointer-events: none;
 }
 .hero-ring-outer {
@@ -390,12 +386,6 @@ onReady(() => {
 .back-btn-hover {
   background: #E8EEF7;
 }
-.back-icon {
-  font-size: 44rpx;
-  color: #6B7B95;
-  font-weight: 300;
-  line-height: 1;
-}
 
 /* 头像区（居中） */
 .hero-avatar-zone {
@@ -409,7 +399,7 @@ onReady(() => {
   height: 128rpx;
   border-radius: 50%;
   padding: 4rpx;
-  background: linear-gradient(135deg, #1E5EFF, #00E5FF);
+  background: linear-gradient(135deg, #0A66C2, #1DD4A8);
 }
 .avatar-holder {
   width: 120rpx;
@@ -421,7 +411,7 @@ onReady(() => {
   width: 120rpx;
   height: 120rpx;
   border-radius: 50%;
-  background: #DCE9FF;
+  background: #EAF3FB;
   animation: avatarIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .avatar-fallback {
@@ -434,6 +424,8 @@ onReady(() => {
   font-weight: 700;
   color: #ffffff;
 }
+/* 头像认证徽章：36rpx 绿圆 + 白描边；对勾为 in-flow ::after，靠 flex 居中，
+   不用绝对定位 + 手调 left/top（旋转后仍落在圆心） */
 .cert-badge {
   position: absolute;
   right: 2rpx;
@@ -441,21 +433,21 @@ onReady(() => {
   width: 36rpx;
   height: 36rpx;
   border-radius: 50%;
-  background: #00C896;
-  border: 3rpx solid #fff;
+  background: #25915A;
+  border: 3rpx solid #ffffff;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .cert-badge::after {
   content: '';
-  position: absolute;
-  left: 9rpx;
-  top: 8rpx;
-  width: 12rpx;
-  height: 16rpx;
-  border: solid #fff;
+  width: 9rpx;
+  height: 15rpx;
+  border: solid #ffffff;
   border-width: 0 3rpx 3rpx 0;
+  /* 对勾旋转后墨迹重心偏下（+3rpx），用 margin 上提归中：墨迹中心 = 圆心 */
+  margin-bottom: 6rpx;
   transform: rotate(45deg);
 }
 
@@ -476,7 +468,7 @@ onReady(() => {
 .hero-name {
   font-size: 44rpx;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
 }
 .status-pill {
   display: flex;
@@ -484,24 +476,34 @@ onReady(() => {
   gap: 6rpx;
   padding: 4rpx 16rpx;
   border-radius: 999rpx;
-  background: #D1FAE5;
-  font-size: 20rpx;
-  color: #00C896;
+  font-size: 24rpx;
   font-weight: 600;
 }
+/* 有在有效期内的已核验证书 → 绿；无有效证书的历史名录记录 → 品牌蓝中性表述 */
+.status-pill-green {
+  background: #E9F7F0;
+  color: #25915A;
+}
+.status-pill-blue {
+  background: #EAF3FB;
+  color: #0A66C2;
+}
+/* 静态圆点：该标签描述的是核验事实，不是实时在线状态，不做脉动 */
 .status-dot {
   width: 10rpx;
   height: 10rpx;
   border-radius: 50%;
-  background: #00C896;
-  animation: pulse 2s infinite;
+  background: #25915A;
+}
+.status-pill-blue .status-dot {
+  background: #0A66C2;
 }
 .hero-id {
   font-size: 24rpx;
-  color: #6B7B95;
+  color: #667085;
 }
 
-/* 数据横排（4 项） */
+/* 数据横排（2 项） */
 .hero-stats {
   display: flex;
   align-items: center;
@@ -509,7 +511,7 @@ onReady(() => {
   width: 100%;
   margin-top: 24rpx;
   padding-top: 20rpx;
-  border-top: 1rpx solid rgba(30,94,255,0.08);
+  border-top: 1rpx solid rgba(10,102,194,0.08);
   z-index: 3;
 }
 .hero-stat {
@@ -519,24 +521,15 @@ onReady(() => {
   align-items: center;
   gap: 4rpx;
 }
-.hero-stat-icon {
-  font-size: 26rpx;
-  font-weight: 700;
-  line-height: 1;
-}
-.hero-stat-icon-orange { color: #F59E0B; }
-.hero-stat-icon-blue { color: #1E5EFF; }
-.hero-stat-icon-purple { color: #8B5CF6; }
-.hero-stat-icon-green { color: #00C896; }
 .hero-stat-num {
   font-size: 32rpx;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
   line-height: 1.2;
 }
 .hero-stat-label {
-  font-size: 20rpx;
-  color: #6B7B95;
+  font-size: 24rpx;
+  color: #667085;
 }
 
 /* ═══ 内容区 ═══ */
@@ -571,14 +564,14 @@ onReady(() => {
   gap: 12rpx;
   font-size: 30rpx;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
   margin-bottom: 20rpx;
 }
 .title-bar {
   width: 6rpx;
   height: 28rpx;
   border-radius: 3rpx;
-  background: linear-gradient(180deg, #1E5EFF, #0A66C2);
+  background: linear-gradient(180deg, #0A66C2, #0A66C2);
 }
 
 /* ═══ 二、飞行数据 ═══ */
@@ -598,27 +591,26 @@ onReady(() => {
   justify-content: center;
   margin: 0 auto 10rpx;
 }
-.data-icon-blue { background: #DCE9FF; }
-.data-icon-purple { background: #F3E8FF; }
-.data-icon-green { background: #D1FAE5; }
+.data-icon-blue { background: #EAF3FB; }
+.data-icon-green { background: #E9F7F0; }
 .data-num {
   font-size: 36rpx;
   font-weight: 700;
-  color: #0A1F44;
+  color: #17212B;
   display: block;
   animation: numPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.data-label { font-size: 22rpx; color: #6B7B95; margin-top: 4rpx; display: block; }
+.data-label { font-size: 24rpx; color: #667085; margin-top: 4rpx; display: block; }
 .data-divider {
   width: 1rpx;
   height: 56rpx;
-  background: linear-gradient(180deg, rgba(30,94,255,0), rgba(30,94,255,0.12) 50%, rgba(30,94,255,0));
+  background: linear-gradient(180deg, rgba(10,102,194,0), rgba(10,102,194,0.12) 50%, rgba(10,102,194,0));
 }
 
 /* ═══ 三、擅长领域 ═══ */
 .bio-tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .bio-tag {
-  font-size: 22rpx;
+  font-size: 24rpx;
   padding: 8rpx 24rpx;
   border-radius: 8rpx;
   border: 1rpx solid;
@@ -632,24 +624,24 @@ onReady(() => {
   width: 48rpx;
   height: 48rpx;
   border-radius: 50%;
-  background: #DCE9FF;
+  background: #E9F7F0;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 .cert-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4rpx; }
-.cert-name { font-size: 28rpx; font-weight: 600; color: #0A1F44; }
-.cert-desc { font-size: 22rpx; color: #6B7B95; }
+.cert-name { font-size: 28rpx; font-weight: 600; color: #17212B; }
+.cert-desc { font-size: 24rpx; color: #667085; }
 .cert-badge-tag {
   display: flex;
   align-items: center;
   gap: 6rpx;
   padding: 4rpx 14rpx;
   border-radius: 999rpx;
-  background: rgba(0,200,150,0.1);
-  border: 1rpx solid rgba(0,200,150,0.3);
-  font-size: 20rpx;
+  background: rgba(37,145,90,0.1);
+  border: 1rpx solid rgba(37,145,90,0.3);
+  font-size: 24rpx;
   color: #00B87F;
   flex-shrink: 0;
 }
@@ -657,9 +649,9 @@ onReady(() => {
   width: 10rpx;
   height: 10rpx;
   border-radius: 50%;
-  background: #00C896;
+  background: #25915A;
 }
-.cert-empty { font-size: 24rpx; color: #ADB8C7; }
+.cert-empty { font-size: 24rpx; color: #667085; }
 
 /* ═══ 五、个人信息 ═══ */
 .profile-row {
@@ -670,15 +662,15 @@ onReady(() => {
   border-bottom: 1rpx solid #E8EEF7;
 }
 .profile-row:last-child { border-bottom: none; }
-.profile-label { font-size: 26rpx; color: #6B7B95; }
-.profile-value { font-size: 28rpx; font-weight: 600; color: #0A1F44; }
+.profile-label { font-size: 26rpx; color: #667085; }
+.profile-value { font-size: 28rpx; font-weight: 600; color: #17212B; }
 .profile-id {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 4rpx;
 }
-.profile-id-hint { font-size: 20rpx; color: #ADB8C7; }
+.profile-id-hint { font-size: 24rpx; color: #667085; }
 
 /* ═══ 六、飞手简介 ═══ */
 .section-text {
@@ -708,8 +700,8 @@ onReady(() => {
   line-height: 80rpx;
   border-radius: 999rpx;
   background: #ffffff;
-  border: 2rpx solid #1E5EFF;
-  color: #1E5EFF;
+  border: 2rpx solid #0A66C2;
+  color: #0A66C2;
   font-size: 28rpx;
   font-weight: 600;
   padding: 0;
@@ -719,13 +711,13 @@ onReady(() => {
   height: 80rpx;
   line-height: 80rpx;
   border-radius: 999rpx;
-  background: linear-gradient(135deg, #1E5EFF, #0A66C2);
+  background: linear-gradient(135deg, #0A66C2, #0A66C2);
   border: none;
   color: #ffffff;
   font-size: 28rpx;
   font-weight: 700;
   padding: 0;
-  box-shadow: 0 8rpx 24rpx rgba(30,94,255,0.35);
+  box-shadow: 0 8rpx 24rpx rgba(10,102,194,0.35);
   animation: ctaGlow 2.5s ease-in-out infinite;
 }
 
@@ -739,52 +731,12 @@ onReady(() => {
   animation: blink 1.5s infinite;
 }
 
-/* ═══ CSS 图标 ═══ */
-.icon-plane {
-  width: 0;
-  height: 0;
-  border-top: 6rpx solid transparent;
-  border-bottom: 6rpx solid transparent;
-  border-right: 20rpx solid #8B5CF6;
-  position: relative;
-  transform: rotate(-8deg);
-}
-.icon-plane::after {
-  content: '';
-  position: absolute;
-  right: -18rpx;
-  top: -5rpx;
-  width: 0;
-  height: 0;
-  border-left: 4rpx solid transparent;
-  border-right: 4rpx solid transparent;
-  border-bottom: 10rpx solid #8B5CF6;
-}
-.icon-cert {
-  width: 18rpx;
-  height: 22rpx;
-  border-radius: 4rpx;
-  background: #1E5EFF;
-  position: relative;
-}
-.icon-cert::after {
-  content: '';
-  position: absolute;
-  left: 4rpx;
-  right: 4rpx;
-  top: 9rpx;
-  height: 2rpx;
-  background: #DCE9FF;
-  box-shadow: 0 4rpx 0 #DCE9FF;
-}
-.icon-check {
-  width: 14rpx;
-  height: 24rpx;
-  border: solid #00C896;
-  border-width: 0 4rpx 4rpx 0;
-  transform: rotate(45deg);
-  margin-top: -6rpx;
-}
+
+
+/* 图标体系：控件用 u-icon，领域标识用 static/mine-icons 下 SVG（禁 emoji/Unicode 字符） */
+.hero-stat-img,
+.data-img { width: 28rpx; height: 28rpx; }
+.cert-img { width: 32rpx; height: 32rpx; }
 
 /* ═══ 微动效 ═══ */
 @keyframes avatarIn {
@@ -818,12 +770,8 @@ onReady(() => {
   }
 }
 @keyframes ctaGlow {
-  0%, 100% { box-shadow: 0 8rpx 24rpx rgba(30,94,255,0.35); }
-  50% { box-shadow: 0 8rpx 32rpx rgba(30,94,255,0.55); }
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%, 100% { box-shadow: 0 8rpx 24rpx rgba(10,102,194,0.35); }
+  50% { box-shadow: 0 8rpx 32rpx rgba(10,102,194,0.55); }
 }
 @keyframes blink {
   0% { opacity: 0.5; }

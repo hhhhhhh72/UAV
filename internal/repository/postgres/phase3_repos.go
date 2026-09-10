@@ -25,6 +25,30 @@ func (s *Store) NewCertificateRepository() repository.CertificateRepository {
 	return &certRepo{pool: s.Pool()}
 }
 
+// certTimeOrNull 把"没有有效期"（Go 零值时间）写成 SQL NULL。
+//
+// 直接写零值时间会落成 0001-01-01 08:05:43+08:05（+08:05:43 是当年的 LMT 偏移），
+// 它**不是 NULL**，所以读侧的 COALESCE 兜不住；前端拿到这个假日期就会判"已过期"
+// 并在卡片上显示"至 0001-01-01"。历史遗留的 1970/0001 哨兵值一并按"无有效期"处理。
+func certTimeOrNull(t time.Time) *time.Time {
+	if t.IsZero() || t.Before(certTimeFloor) {
+		return nil
+	}
+	return &t
+}
+
+// certTimeFromNull 读侧映射：NULL 与历史哨兵值一律还原成 Go 零值时间，
+// 语义 = "长期有效"（与 service 侧 validExpireDate 的下界判断同口径）。
+func certTimeFromNull(t *time.Time) time.Time {
+	if t == nil || t.Before(certTimeFloor) {
+		return time.Time{}
+	}
+	return *t
+}
+
+// certTimeFloor 有效期下限：早于 2000-01-01 的值一律视为"没有填"。
+var certTimeFloor = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
 func (r *certRepo) Create(ctx context.Context, c domain.Certificate) (domain.Certificate, error) {
 	c.Version = 1
 	c.CreatedAt = time.Now()
@@ -32,7 +56,7 @@ func (r *certRepo) Create(ctx context.Context, c domain.Certificate) (domain.Cer
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO certificates (id,user_id,cert_type,cert_number,level,issue_date,expire_date,issuer_org,image_url,status,version,created_at,updated_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-		c.ID, c.UserID, string(c.CertType), c.CertNumber, c.Level, c.IssueDate, c.ExpireDate, c.IssuerOrg, c.ImageURL, c.Status, c.Version, c.CreatedAt, c.UpdatedAt)
+		c.ID, c.UserID, string(c.CertType), c.CertNumber, c.Level, certTimeOrNull(c.IssueDate), certTimeOrNull(c.ExpireDate), c.IssuerOrg, c.ImageURL, c.Status, c.Version, c.CreatedAt, c.UpdatedAt)
 	if err != nil {
 		// 唯一索引 certificates_cert_number_unique 兜底：撞号映射为哨兵错误。
 		var pgErr *pgconn.PgError
@@ -46,24 +70,28 @@ func (r *certRepo) Create(ctx context.Context, c domain.Certificate) (domain.Cer
 func (r *certRepo) FindByID(ctx context.Context, id string) (domain.Certificate, error) {
 	var c domain.Certificate
 	var ct string
+	var issueAt, expireAt *time.Time
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE id=$1`, id).
-		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),issue_date,expire_date,COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE id=$1`, id).
+		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &issueAt, &expireAt, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	c.CertType = domain.CertType(ct)
+	c.IssueDate, c.ExpireDate = certTimeFromNull(issueAt), certTimeFromNull(expireAt)
 	return c, err
 }
 func (r *certRepo) FindByNumber(ctx context.Context, certNumber string) (domain.Certificate, error) {
 	var c domain.Certificate
 	var ct string
+	var issueAt, expireAt *time.Time
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE cert_number=$1 LIMIT 1`, certNumber).
-		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),issue_date,expire_date,COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE cert_number=$1 LIMIT 1`, certNumber).
+		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &issueAt, &expireAt, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
 	c.CertType = domain.CertType(ct)
+	c.IssueDate, c.ExpireDate = certTimeFromNull(issueAt), certTimeFromNull(expireAt)
 	return c, err
 }
 func (r *certRepo) ListByUser(ctx context.Context, userID string) ([]domain.Certificate, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE user_id=$1 ORDER BY created_at DESC`, userID)
+		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),issue_date,expire_date,COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE user_id=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list certificates: %w", err)
 	}
@@ -72,10 +100,12 @@ func (r *certRepo) ListByUser(ctx context.Context, userID string) ([]domain.Cert
 	for rows.Next() {
 		var c domain.Certificate
 		var ct string
-		if err := rows.Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		var issueAt, expireAt *time.Time
+		if err := rows.Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &issueAt, &expireAt, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan certificate: %w", err)
 		}
 		c.CertType = domain.CertType(ct)
+		c.IssueDate, c.ExpireDate = certTimeFromNull(issueAt), certTimeFromNull(expireAt)
 		out = append(out, c)
 	}
 	return out, rows.Err()
@@ -88,7 +118,7 @@ func (r *certRepo) UpdateStatus(ctx context.Context, id, status string) (domain.
 	return r.FindByID(ctx, id)
 }
 func (r *certRepo) ListAll(ctx context.Context) ([]domain.Certificate, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),COALESCE(issue_date,'1970-01-01'::timestamptz),COALESCE(expire_date,'1970-01-01'::timestamptz),COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates ORDER BY created_at DESC`)
+	rows, err := r.pool.Query(ctx, `SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),issue_date,expire_date,COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list all certificates: %w", err)
 	}
@@ -97,10 +127,12 @@ func (r *certRepo) ListAll(ctx context.Context) ([]domain.Certificate, error) {
 	for rows.Next() {
 		var c domain.Certificate
 		var ct string
-		if err := rows.Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &c.IssueDate, &c.ExpireDate, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		var issueAt, expireAt *time.Time
+		if err := rows.Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &issueAt, &expireAt, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan certificate: %w", err)
 		}
 		c.CertType = domain.CertType(ct)
+		c.IssueDate, c.ExpireDate = certTimeFromNull(issueAt), certTimeFromNull(expireAt)
 		out = append(out, c)
 	}
 	return out, rows.Err()
@@ -111,7 +143,7 @@ func (r *certRepo) Update(ctx context.Context, c domain.Certificate) (domain.Cer
 	c.UpdatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
 		`UPDATE certificates SET cert_type=$1,cert_number=$2,level=$3,issue_date=$4,expire_date=$5,issuer_org=$6,image_url=$7,status=$8,version=$9,updated_at=$10 WHERE id=$11`,
-		string(c.CertType), c.CertNumber, c.Level, c.IssueDate, c.ExpireDate, c.IssuerOrg, c.ImageURL, c.Status, c.Version, c.UpdatedAt, c.ID)
+		string(c.CertType), c.CertNumber, c.Level, certTimeOrNull(c.IssueDate), certTimeOrNull(c.ExpireDate), c.IssuerOrg, c.ImageURL, c.Status, c.Version, c.UpdatedAt, c.ID)
 	if err != nil {
 		// 改号撞号同样映射哨兵（唯一索引覆盖 UPDATE 路径）。
 		var pgErr *pgconn.PgError

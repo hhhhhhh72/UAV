@@ -37,7 +37,7 @@
             </view>
             <view class="message-button" hover-class="tap-fade" hover-stay-time="120" @tap="goMessages">
               <image class="head-icon head-icon-msg" :src="HOME_ICONS.message" mode="aspectFit" />
-              <view v-if="unreadCount > 0" class="msg-dot"></view>
+              <view v-if="unreadCount > 0" class="msg-badge">{{ unreadBadge }}</view>
             </view>
           </view>
         </view>
@@ -340,7 +340,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
+import { onLoad, onShow, onPullDownRefresh } from '@dcloudio/uni-app'
 import Layout from '@/components/Layout.vue'
 import DemandLoop from './components/DemandLoop.vue'
 import { safeNavigateTo, safeSwitchTab } from '../../utils/nav'
@@ -767,8 +767,9 @@ const loadAll = async (opts = {}) => {
 
 const reloadDemands = () => { loadAll() }
 
-/* ================= 消息红点（仅真实未读数驱动） ================= */
+/* ================= 消息未读角标（仅真实未读数驱动；>99 显示 99+） ================= */
 const unreadCount = ref(0)
+const unreadBadge = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 const loadUnreadCount = async () => {
   try {
     if (!uni.getStorageSync('accessToken')) {
@@ -958,6 +959,10 @@ onLoad(() => {
   loadAll()
   loadUnreadCount()
 })
+
+// 切回首页时重新取未读数：角标显示的是具体条数，是断言，不能停在旧值
+// （原来只在 onLoad 取一次，读完消息回首页角标不会掉）
+onShow(() => { loadUnreadCount() })
 
 onPullDownRefresh(() => {
   loadAll({ refresh: true }).finally(() => {
@@ -1231,15 +1236,27 @@ onPullDownRefresh(() => {
   width: 17px;
   height: 17px;
 }
-.msg-dot {
+/* 未读角标：数字而非红点——红点只说"有"，说不出"几条"；中心锚在铃铛右上角，位数变化不跑位。
+   底色用 #D92D20 而不是原来的 #F97316/#ff3b30：白字对比 4.83:1，10px 小字才读得清 */
+.msg-badge {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #F97316;
+  top: 9px;
+  right: 9px;
+  transform: translate(50%, -50%);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #D92D20;
   border: 1px solid #074D92;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ================= 双行动入口（白底紧凑卡） ================= */

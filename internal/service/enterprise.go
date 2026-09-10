@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
@@ -40,7 +43,113 @@ type CreateEnterpriseInput struct {
 	CapabilityTags   string `json:"capability_tags"`
 }
 
+// —— 企业资料字段合法性 ——
+// 权威校验放在 Service 层：前端校验只影响体验，绕过前端（直连接口/改包）不得写入脏数据。
+// 规则分两档：保存草稿宽松（填了就必须合法），提交审核严格（必填项必须齐全）。
+const (
+	entNameMinRunes = 2
+	entNameMaxRunes = 50
+	entDescMaxRunes = 500
+)
+
+var (
+	entCreditCodeRe = regexp.MustCompile(`^[0-9A-Z]{18}$`)
+	entPhoneRe      = regexp.MustCompile(`^1[3-9]\d{9}$`)
+	entEmailRe      = regexp.MustCompile(`^[\w.+-]+@[\w-]+(\.[\w-]+)+$`)
+	entDateRe       = regexp.MustCompile(`^\d{4}-\d{2}(-\d{2})?$`)
+)
+
+// NormalizeEnterpriseInput 规范化入参：去首尾空白、信用代码统一大写。
+// 前端已自动转大写，但接口可能被直接调用，服务端必须自己兜底。
+func NormalizeEnterpriseInput(in *CreateEnterpriseInput) {
+	in.Name = strings.TrimSpace(in.Name)
+	in.CreditCode = strings.ToUpper(strings.TrimSpace(in.CreditCode))
+	in.LegalPerson = strings.TrimSpace(in.LegalPerson)
+	in.ContactPerson = strings.TrimSpace(in.ContactPerson)
+	in.ContactPhone = strings.TrimSpace(in.ContactPhone)
+	in.Email = strings.TrimSpace(in.Email)
+	in.Scale = strings.TrimSpace(in.Scale)
+	in.Address = strings.TrimSpace(in.Address)
+	in.Description = strings.TrimSpace(in.Description)
+	in.FoundedAt = strings.TrimSpace(in.FoundedAt)
+}
+
+// validateEnterprise 校验（合并后的）企业实体；strict=true 为提审档，必填项必须齐全。
+func validateEnterprise(e domain.Enterprise, strict bool) error {
+	name := strings.TrimSpace(e.Name)
+	switch {
+	case name == "":
+		// 名称任何阶段都必填：没有名字的企业档案没有意义（草稿也不行）
+		return errors.New("请填写企业名称")
+	case utf8.RuneCountInString(name) < entNameMinRunes || utf8.RuneCountInString(name) > entNameMaxRunes:
+		return fmt.Errorf("企业名称应为 %d-%d 字", entNameMinRunes, entNameMaxRunes)
+	}
+
+	code := strings.ToUpper(strings.TrimSpace(e.CreditCode))
+	switch {
+	case code == "":
+		if strict {
+			return errors.New("请填写统一社会信用代码")
+		}
+	case !entCreditCodeRe.MatchString(code):
+		return errors.New("统一社会信用代码应为 18 位数字或大写字母")
+	}
+
+	phone := strings.TrimSpace(e.ContactPhone)
+	switch {
+	case phone == "":
+		if strict {
+			return errors.New("请填写联系电话")
+		}
+	case !entPhoneRe.MatchString(phone):
+		return errors.New("请输入正确的 11 位手机号")
+	}
+
+	if email := strings.TrimSpace(e.Email); email != "" && !entEmailRe.MatchString(email) {
+		return errors.New("请输入正确的邮箱格式")
+	}
+
+	if n := utf8.RuneCountInString(strings.TrimSpace(e.Description)); n > entDescMaxRunes {
+		return fmt.Errorf("企业简介不能超过 %d 字", entDescMaxRunes)
+	}
+
+	if founded := strings.TrimSpace(e.FoundedAt); founded != "" {
+		val := founded
+		if len(founded) == 7 { // picker fields="month" 只给到月份
+			val = founded + "-01"
+		}
+		t, err := time.Parse("2006-01-02", val)
+		if err != nil {
+			return errors.New("成立时间格式应为 YYYY-MM 或 YYYY-MM-DD")
+		}
+		if t.After(time.Now()) {
+			return errors.New("成立时间不能晚于今天")
+		}
+	}
+
+	if !strict {
+		return nil
+	}
+	if strings.TrimSpace(e.LegalPerson) == "" {
+		return errors.New("请填写法人代表")
+	}
+	if strings.TrimSpace(e.ContactPerson) == "" {
+		return errors.New("请填写联系人")
+	}
+	if strings.TrimSpace(e.IndustryCategory) == "" {
+		return errors.New("请至少选择一个企业分类")
+	}
+	if strings.TrimSpace(e.Scale) == "" {
+		return errors.New("请选择企业规模")
+	}
+	if strings.TrimSpace(e.LicenseURL) == "" {
+		return errors.New("请上传营业执照")
+	}
+	return nil
+}
+
 func (s *EnterpriseSvc) Create(ctx context.Context, a domain.Actor, in CreateEnterpriseInput) (domain.Enterprise, error) {
+	NormalizeEnterpriseInput(&in)
 	// 重复入驻限制：同一用户已有未删除企业档案 → 拒绝再建
 	//（此前可无限创建，一家账号可同时维护多家'已认证'商户档案，
 	//  认证收益 enterprise 角色对全部档案生效，身份重复/资源占用）。
@@ -73,11 +182,16 @@ func (s *EnterpriseSvc) Create(ctx context.Context, a domain.Actor, in CreateEnt
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
+	// 字段合法性（草稿档：填了就必须合法，必填项留到提审再卡）
+	if err := validateEnterprise(e, false); err != nil {
+		return domain.Enterprise{}, err
+	}
 	slog.Info("enterprise created", "enterprise_id", e.ID, "name", e.Name)
 	return s.repo.Create(ctx, e)
 }
 
 func (s *EnterpriseSvc) Update(ctx context.Context, a domain.Actor, id string, in CreateEnterpriseInput) (domain.Enterprise, error) {
+	NormalizeEnterpriseInput(&in)
 	existing, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return domain.Enterprise{}, err
@@ -163,6 +277,9 @@ func (s *EnterpriseSvc) Update(ctx context.Context, a domain.Actor, id string, i
 		existing.Status = domain.EnterpriseSubmitted
 		existing.ReviewComment = ""
 	}
+	if err := validateEnterprise(existing, false); err != nil {
+		return domain.Enterprise{}, err
+	}
 	return s.repo.Update(ctx, id, existing)
 }
 
@@ -176,6 +293,10 @@ func (s *EnterpriseSvc) Submit(ctx context.Context, a domain.Actor, id string) (
 	}
 	if e.Status != domain.EnterpriseDraft && e.Status != domain.EnterpriseSupplementRequired && e.Status != domain.EnterpriseRejected {
 		return domain.Enterprise{}, fmt.Errorf("cannot submit enterprise in %s status", e.Status)
+	}
+	// 提审前严格校验：资料不齐不得进入审核队列（营业执照/法人/联系人/电话/分类/规模必填）
+	if err := validateEnterprise(e, true); err != nil {
+		return domain.Enterprise{}, err
 	}
 	e.Status = domain.EnterpriseSubmitted
 	e.UpdatedAt = time.Now()

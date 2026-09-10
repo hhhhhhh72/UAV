@@ -31,6 +31,30 @@ func certValid(c domain.Certificate) bool {
 	return c.ExpireDate.After(time.Now())
 }
 
+// ownerHasValidCert 核验飞手档案所关联的证书中，是否仍有"approved 且未过期"的。
+// 审批时复核用：覆盖"申请时有效、审批时已过期/被撤销"的空档——认证飞手身份
+// 必须始终有有效证书支撑，无证不批（产品口径：不允许先审核后补证）。
+func (s *TrainingService) ownerHasValidCert(ctx context.Context, p domain.CertifiedPilot) bool {
+	if len(p.CertIDs) == 0 {
+		return false
+	}
+	certs, err := s.certRepo.ListByUser(ctx, p.UserID)
+	if err != nil {
+		return false // 取不到证书时不放行：门禁宁可保守
+	}
+	for _, c := range certs {
+		if !certValid(c) {
+			continue
+		}
+		for _, id := range p.CertIDs {
+			if c.ID == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func NewTrainingService(cr repository.CertificateRepository, cor repository.CourseRepository, ir repository.InstructorRepository, pr repository.PilotRepository) *TrainingService {
 	return &TrainingService{
 		certRepo:       cr,
@@ -360,6 +384,11 @@ func (s *TrainingService) ApprovePilot(ctx context.Context, a domain.Actor, id s
 	}
 	if cur.Status == "rejected" {
 		return domain.CertifiedPilot{}, errors.New("已驳回的飞手申请不能改为通过")
+	}
+	// 审批门禁（与申请同规则）：批准时复核申请人仍持有至少一张未过期的 approved 证书。
+	// 产品决策：不允许"先审核后补证"——申请时无证已被拒，审批时证书若已过期/被撤销也不得放行。
+	if !s.ownerHasValidCert(ctx, cur) {
+		return domain.CertifiedPilot{}, errors.New("申请人当前没有有效的证书，不能通过飞手认证")
 	}
 	return s.pilotRepo.UpdateStatus(ctx, id, "approved")
 }

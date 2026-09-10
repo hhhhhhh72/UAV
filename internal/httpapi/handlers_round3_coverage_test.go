@@ -37,7 +37,7 @@ func TestRound3Enterprise(t *testing.T) {
 
 	// 创建企业
 	w = doRaw(app, http.MethodPost, "/api/v1/enterprises",
-		`{"name":"round3企业","industry_category":"测绘","description":"测试企业"}`, ownerTok)
+		`{"name":"round3企业","credit_code":"91500108MA5U1234XY","legal_person":"张三","contact_person":"李四","contact_phone":"13800138000","industry_category":"测绘","scale":"20-50人","license_url":"/uploads/private/lic-round3","description":"测试企业"}`, ownerTok)
 	assertStatus(t, http.MethodPost, "/api/v1/enterprises", w, http.StatusCreated)
 	entID := dataID(t, w)
 
@@ -75,7 +75,7 @@ func TestRound3Enterprise(t *testing.T) {
 	// 批量审核：第二条企业（另一企业账号）提交后批量通过
 	owner2Tok := authAs(t, "enterprise-2", domain.RoleEnterprise)
 	w = doRaw(app, http.MethodPost, "/api/v1/enterprises",
-		`{"name":"round3企业2"}`, owner2Tok)
+		`{"name":"round3企业2","credit_code":"91500108MA5U5678AB","legal_person":"张三","contact_person":"李四","contact_phone":"13900139000","industry_category":"测绘","scale":"20-50人","license_url":"/uploads/private/lic-round3b"}`, owner2Tok)
 	assertStatus(t, http.MethodPost, "/api/v1/enterprises (2)", w, http.StatusCreated)
 	entID2 := dataID(t, w)
 

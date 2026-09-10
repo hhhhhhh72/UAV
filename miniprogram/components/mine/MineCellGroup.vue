@@ -59,6 +59,7 @@ const onItem = (i) => emit('select', i)
 .mcg-icon--gray { background: #EEF2F6; }
 .mcg-icon--orange { background: #FFF0E6; }
 .mcg-icon--violet { background: #F0EDFF; }
+.mcg-icon--green { background: #E9F7F0; } /* 证书/已核验语义色 */
 .mcg-icon-img {
   width: 32rpx;
   height: 32rpx;
@@ -70,16 +71,17 @@ const onItem = (i) => emit('select', i)
   font-weight: 600;
   color: #17212B;
 }
+/* 说明文字 #667085：原来用的 #98A2B3 只有 2.58:1，20rpx 小字读不清 */
 .mcg-desc {
   display: block;
   margin-top: 4rpx;
   font-size: 20rpx;
-  color: #98A2B3;
+  color: #667085;
 }
 .mcg-tail {
   flex-shrink: 0;
   font-size: 22rpx;
-  color: #98A2B3;
+  color: #667085;
 }
 .mcg-tail.ok { color: #168A55; }
 .mcg-tail.wait { color: #B54708; }

@@ -26,7 +26,7 @@
       <view class="mh-top-group">
         <view class="mh-top-btn" hover-class="mh-fade" @tap="onMessages">
           <image class="mh-top-icon" :src="icons.message" mode="aspectFit" />
-          <view v-if="unreadCount > 0" class="mh-unread-dot"></view>
+          <view v-if="unreadCount > 0" class="mh-unread-badge">{{ unreadBadge }}</view>
         </view>
         <view class="mh-top-btn" hover-class="mh-fade" @tap="onSettings">
           <image class="mh-top-icon" :src="icons.settings" mode="aspectFit" />
@@ -47,6 +47,8 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 // 深蓝身份区展示组件：只接收 view model，不请求接口。
 const props = defineProps({
   statusBarH: { type: Number, default: 20 },
@@ -71,6 +73,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['messages', 'settings', 'profile', 'cert'])
+
+// 未读角标：>99 收敛成 99+（与 TabBar 角标同一口径）
+const unreadBadge = computed(() => (props.unreadCount > 99 ? '99+' : String(props.unreadCount)))
 
 const icons = {
   message: '/static/mine-icons/message.svg',
@@ -152,15 +157,27 @@ const onCertTap = () => emit('cert')
   width: 34rpx;
   height: 34rpx;
 }
-.mh-unread-dot {
+/* 未读角标：显示条数而不是一个点；中心锚在铃铛右上角，1 位/2 位/99+ 都不跑位。
+   底色 #D92D20 保证白字对比 4.83:1（#F97316 只有 2.8:1，放数字读不清） */
+.mh-unread-badge {
   position: absolute;
   top: 12rpx;
-  right: 14rpx;
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: 50%;
-  background: #F97316;
-  border: 3rpx solid #074D92;
+  right: 12rpx;
+  transform: translate(50%, -50%);
+  min-width: 28rpx;
+  height: 28rpx;
+  padding: 0 6rpx;
+  box-sizing: border-box;
+  border-radius: 999rpx;
+  background: #D92D20;
+  border: 2rpx solid #074D92;
+  color: #ffffff;
+  font-size: 18rpx;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mh-profile {

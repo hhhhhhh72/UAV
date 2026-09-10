@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"drone-platform/internal/domain"
+	"drone-platform/internal/service"
 )
 
 // ---- Reviews ----
@@ -30,6 +31,12 @@ func (s *Server) submitReview(w http.ResponseWriter, r *http.Request) {
 	}
 	rev, err := s.reviewSvc.Submit(r.Context(), a.ID, in.TargetType, in.TargetID, in.Rating, in.Content)
 	if err != nil {
+		// 重复评价是业务冲突（409），不是服务故障：此前统一 500，
+		// 前端只能提示"操作失败"，用户看不出"你已经评价过了"。
+		if errors.Is(err, service.ErrReviewAlreadyExists) {
+			fail(w, r, http.StatusConflict, err)
+			return
+		}
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}

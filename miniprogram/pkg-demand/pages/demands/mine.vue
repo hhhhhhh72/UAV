@@ -4,6 +4,8 @@
     <view class="page-header" :style="headerStyle">
       <view class="back-btn" @tap="goBack"><text class="back-sym">‹</text></view>
       <text class="page-title">我的发布</text>
+      <!-- 右侧配重：与返回键等宽，否则标题的居中基准会右移半个返回键 -->
+      <view class="head-spacer" />
     </view>
 
     <!-- 筛选：一级下划线 tab（类型）+ ▾ 面板（状态 chips，对齐成果库方案 A） -->
@@ -58,11 +60,16 @@
         <view class="mine-action-row" v-if="post.source === 'backend' && post.type === 'demand'">
           <template v-if="post.statusKey === 'rejected'">
             <view class="action-link" @tap.stop="republish(post)">重新发布</view>
+            <view class="action-link danger" @tap.stop="deletePost(post)">删除</view>
           </template>
           <template v-else-if="post.statusKey === 'published'">
             <view class="action-link" @tap.stop="goIntents(post.id)">查看意向</view>
             <view class="action-link" @tap.stop="completePost(post)">标记完成</view>
             <view class="action-link danger" @tap.stop="closePost(post)">下架</view>
+          </template>
+          <!-- 已下架：可删除。硬删会连带清掉该需求下的对接意向，所以只在这个"下游已关闭"的状态开放 -->
+          <template v-else-if="post.statusKey === 'cancelled'">
+            <view class="action-link danger" @tap.stop="deletePost(post)">删除</view>
           </template>
           <template v-else-if="post.statusKey === 'pending'">
             <view class="action-link" @tap.stop="toastPending">查看审核进度</view>
@@ -71,6 +78,10 @@
         <view class="mine-action-row" v-else-if="post.source === 'local' && post.statusKey === 'live'">
           <view class="action-link" @tap.stop="goDetail(post)">查看详情</view>
           <view class="action-link danger" @tap.stop="localOffShelf(post)">下架</view>
+        </view>
+        <view class="mine-action-row" v-else-if="post.source === 'local' && post.statusKey === 'removed'">
+          <view class="action-link" @tap.stop="goDetail(post)">查看详情</view>
+          <view class="action-link danger" @tap.stop="deletePost(post)">删除</view>
         </view>
       </view>
     </view>
@@ -82,7 +93,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onReady, onPullDownRefresh, onPageScroll } from '@dcloudio/uni-app'
 import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getErrorMessage, authStorage } from '../../../utils/request'
-import { getPosts, upsertPost, KIND_ORDER, KIND_LABEL } from '../../../utils/publishData'
+import { getPosts, upsertPost, removePost, KIND_ORDER, KIND_LABEL } from '../../../utils/publishData'
 import { bizTypeLabel } from '../../../utils/enums'
 import { useSafeTop } from '../../../utils/safeTop'
 import { useReduceMotion } from '../../../utils/motion'
@@ -417,6 +428,42 @@ async function closePost(post) {
   }
 }
 
+// 删除发布：与服务端状态门槛同口径（只有已下架/未通过可删）。
+// 在架状态服务端返回 409，这里直接引导去「下架」，不让人白点一次二次确认。
+async function deletePost(post) {
+  const isLocal = post.source === 'local'
+  const ok = await new Promise((resolve) => {
+    uni.showModal({
+      title: '删除这条发布？',
+      content: isLocal
+        ? '删除后本地记录不再保留。'
+        : '删除后不可恢复；该需求下已有的对接意向记录会一并清除。',
+      confirmText: '删除',
+      confirmColor: '#D92D20',
+      success: (r) => resolve(!!r.confirm),
+    })
+  })
+  if (!ok) return
+  if (isLocal) {
+    removePost(post.id)
+    posts.value = posts.value.filter((p) => p.id !== post.id)
+    uni.showToast({ title: '已删除', icon: 'none' })
+    return
+  }
+  try {
+    await request({ url: '/api/v1/demands/' + encodeURIComponent(post.id), method: 'DELETE' })
+    posts.value = posts.value.filter((p) => p.id !== post.id)
+    uni.showToast({ title: '已删除', icon: 'none' })
+  } catch (e) {
+    const code = e && (e.statusCode || e.status)
+    if (code === 409) {
+      uni.showModal({ title: '需要先下架', content: '在架需求不能直接删除：请先点「下架」，再删除。', showCancel: false, confirmText: '知道了' })
+      return
+    }
+    uni.showToast({ title: getErrorMessage(e) || '删除失败，请重试', icon: 'none' })
+  }
+}
+
 const toastPending = () => {
   uni.showToast({ title: '审核进度：等待协会审核', icon: 'none' })
 }
@@ -432,6 +479,7 @@ const toastPending = () => {
 /* 头部 */
 .page-header {
   box-sizing: border-box;
+  padding: 0 28rpx; /* 与接单申请/收藏页同款内边距：返回键不再贴屏幕边缘 */
   display: flex;
   align-items: center;
   gap: 8rpx;
@@ -444,6 +492,7 @@ const toastPending = () => {
 .back-btn { width: 72rpx; height: 72rpx; display: flex; align-items: center; justify-content: center; }
 .back-sym { font-size: 52rpx; color: #17212B; line-height: 1; }
 .page-title { flex: 1; font-size: 34rpx; font-weight: 700; color: #17212B; text-align: center; }
+.head-spacer { width: 72rpx; flex-shrink: 0; } /* 与 .back-btn 等宽 */
 .head-action { padding: 14rpx; }
 .head-action-text { color: #0A66C2; font-size: 26rpx; font-weight: 600; }
 

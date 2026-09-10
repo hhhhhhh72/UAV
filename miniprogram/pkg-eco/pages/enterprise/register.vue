@@ -50,11 +50,13 @@
             <input
               v-model="form.credit_code"
               class="pub-input"
-              placeholder="统一社会信用代码"
+              maxlength="18"
+              placeholder="18位统一社会信用代码（自动转大写）"
               placeholder-class="pub-placeholder"
+              @input="onCreditInput"
             />
           </view>
-          <picker mode="date" fields="month" :value="form.founded_at" @change="onDateChange">
+          <picker mode="date" fields="month" :value="form.founded_at" :end="today" @change="onDateChange">
             <view class="pub-field pub-field--pick">
               <view class="pub-field-label">成立时间</view>
               <view class="pub-select-field">
@@ -80,9 +82,11 @@
               v-model="form.description"
               class="pub-input pub-input--textarea"
               auto-height
-              placeholder="简要介绍企业经营范围与能力（将公开展示）"
+              maxlength="500"
+              placeholder="简要介绍企业经营范围与能力（将公开展示，500字内）"
               placeholder-class="pub-placeholder"
             />
+            <view class="pub-counter">{{ (form.description || '').length }}/500</view>
           </view>
         </view>
       </view>
@@ -125,15 +129,17 @@
       <view class="pub-section">
         <view class="pub-section-title">企业规模</view>
         <view class="pub-form-card">
-          <view class="pub-field">
-            <view class="pub-field-label">企业规模</view>
-            <input
-              v-model="form.scale"
-              class="pub-input"
-              placeholder="如：50-100人"
-              placeholder-class="pub-placeholder"
-            />
-          </view>
+          <picker :range="scaleOptions" :value="scaleIndex" @change="onScaleChange">
+            <view class="pub-field pub-field--pick">
+              <view class="pub-field-label">企业规模<text class="pub-required">*</text></view>
+              <view class="pub-select-field">
+                <text :class="form.scale ? 'pub-select-value' : 'pub-placeholder'">
+                  {{ form.scale || '请选择企业规模' }}
+                </text>
+                <text class="pub-arrow">›</text>
+              </view>
+            </view>
+          </picker>
         </view>
       </view>
     </view>
@@ -144,31 +150,35 @@
         <view class="pub-section-title">联系信息</view>
         <view class="pub-form-card">
           <view class="pub-field">
-            <view class="pub-field-label">法人代表</view>
+            <view class="pub-field-label">法人代表<text class="pub-required">*</text></view>
             <input
               v-model="form.legal_person"
               class="pub-input"
+              maxlength="20"
               placeholder="请输入法人代表姓名"
               placeholder-class="pub-placeholder"
             />
           </view>
           <view class="pub-field">
-            <view class="pub-field-label">联系人</view>
+            <view class="pub-field-label">联系人<text class="pub-required">*</text></view>
             <input
               v-model="form.contact_person"
               class="pub-input"
+              maxlength="20"
               placeholder="请输入联系人姓名"
               placeholder-class="pub-placeholder"
             />
           </view>
           <view class="pub-field">
-            <view class="pub-field-label">联系电话</view>
+            <view class="pub-field-label">联系电话<text class="pub-required">*</text></view>
             <input
               v-model="form.contact_phone"
               class="pub-input"
               type="number"
-              placeholder="请输入联系电话"
+              maxlength="11"
+              placeholder="11位手机号"
               placeholder-class="pub-placeholder"
+              @input="onPhoneInput"
             />
           </view>
           <view class="pub-field">
@@ -186,7 +196,7 @@
         <view class="pub-section-title">企业资质</view>
         <view class="pub-form-card">
           <view class="pub-field">
-            <view class="pub-field-label">营业执照</view>
+            <view class="pub-field-label">营业执照<text class="pub-required">*</text></view>
             <view class="pub-upload-row pub-upload-inline">
               <view v-if="licenseUrl" class="pub-photo" @tap="previewLicense">
                 <image :src="licenseUrl" mode="aspectFill" class="pub-photo-img" />
@@ -195,7 +205,7 @@
               <view v-else class="pub-add-photo" hover-class="pub-fade" @tap="chooseLicense">＋</view>
             </view>
           </view>
-          <view class="pub-upload-tip">营业执照用于审核，审核通过后仅管理员可见</view>
+          <view class="pub-upload-tip">营业执照用于审核（必传），审核通过后仅管理员可见</view>
         </view>
       </view>
     </view>
@@ -269,6 +279,9 @@ export default {
   data() {
     return {
       topPad: 24,
+      today: '', // 成立时间上限（不得晚于今天）
+      scaleOptions: ['1-20人', '20-50人', '50-100人', '100-500人', '500人以上'],
+      scaleIndex: 0,
       currentStep: 0,
       backFromLogin: false, // 登录引导后是否已返回（区分首次 onShow 与从登录页返回）
       entLoaded: false, // 编辑模式资料是否已加载（防止登录返回后重复请求）
@@ -308,6 +321,9 @@ export default {
     // 顶栏安全区（pub-nav 自定义顶栏）
     initSafeTop()
     this.topPad = safeTopPad.value
+    // 成立时间上限：今天（本地时区）
+    var d = new Date()
+    this.today = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2)
     if (options && options.entId) {
       this.editEntId = options.entId
       uni.setNavigationBarTitle({ title: '编辑企业资料' })
@@ -375,6 +391,8 @@ export default {
         this.form.industry_categories = this.splitTags(ent.industry_category)
         this.form.capability_tags = this.splitTags(ent.capability_tags)
         this.form.scale = ent.scale || ''
+        var si = this.scaleOptions.indexOf(this.form.scale)
+        this.scaleIndex = si >= 0 ? si : 0
         this.form.address = ent.address || ''
         this.form.founded_at = ent.founded_at || ''
         this.form.description = ent.description || ''
@@ -410,29 +428,9 @@ export default {
       }
     },
     nextStep() {
-      if (this.currentStep === 0) {
-        if (!this.form.name) {
-          return uni.showToast({ title: '请填写企业名称', icon: 'none' })
-        }
-        if (!this.form.credit_code) {
-          return uni.showToast({ title: '请填写信用代码', icon: 'none' })
-        }
-        if (!/^[0-9A-Z]{18}$/.test(String(this.form.credit_code).trim())) {
-          return uni.showToast({ title: '信用代码应为18位字母或数字', icon: 'none' })
-        }
-      }
-      if (this.currentStep === 1 && this.form.industry_categories.length === 0) {
-        return uni.showToast({ title: '请至少选择一个企业分类', icon: 'none' })
-      }
-      if (this.currentStep === 2) {
-        var phone = String(this.form.contact_phone || '').trim()
-        if (phone && !/^1[3-9]\d{9}$/.test(phone)) {
-          return uni.showToast({ title: '请输入正确的11位手机号', icon: 'none' })
-        }
-        var email = String(this.form.email || '').trim()
-        if (email && !/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) {
-          return uni.showToast({ title: '请输入正确的邮箱格式', icon: 'none' })
-        }
+      var err = this.validateStep(this.currentStep)
+      if (err) {
+        return uni.showToast({ title: err, icon: 'none' })
       }
       this.currentStep++
     },
@@ -460,6 +458,26 @@ export default {
     // ---- 成立时间 ----
     onDateChange(e) {
       this.form.founded_at = e.detail.value
+    },
+    // 信用代码：只允许数字/大写字母，自动转大写并截到 18 位
+    // （小程序 input 的 @input 返回字符串会强制回写输入框内容）
+    onCreditInput(e) {
+      var v = String((e && e.detail && e.detail.value) || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 18)
+      this.form.credit_code = v
+      return v
+    },
+    // 联系电话：只保留数字并截到 11 位
+    // （type="number" 只影响弹出的键盘，粘贴/部分输入法仍能打入文字，必须过滤）
+    onPhoneInput(e) {
+      var v = String((e && e.detail && e.detail.value) || '').replace(/\D/g, '').slice(0, 11)
+      this.form.contact_phone = v
+      return v
+    },
+    // 企业规模：下拉选择
+    onScaleChange(e) {
+      var idx = Number((e && e.detail && e.detail.value) || 0)
+      this.scaleIndex = idx
+      this.form.scale = this.scaleOptions[idx] || ''
     },
     // ---- 图片上传（logo / 营业执照 共用） ----
     // 注意：预览必须用完整 URL（BASE_URL + 相对路径），
@@ -520,15 +538,41 @@ export default {
     },
     // ---- 提交 ----
     // 全表单校验：逐字段返回首个错误文案，空串表示通过
-    validateAll() {
-      if (!this.form.name) return '请填写企业名称'
-      if (!this.form.credit_code) return '请填写信用代码'
-      if (!/^[0-9A-Z]{18}$/.test(String(this.form.credit_code).trim())) return '信用代码应为18位字母或数字'
-      if (this.form.industry_categories.length === 0) return '请至少选择一个企业分类'
+    // 分步校验：返回首个错误文案（空串=通过）。步骤与字段一一对应，避免"下一步"与"提交"两套规则漂移。
+    validateStep(step) {
+      if (step === 0) {
+        var name = String(this.form.name || '').trim()
+        if (!name) return '请填写企业名称'
+        if (name.length < 2 || name.length > 50) return '企业名称应为2-50字'
+        var code = String(this.form.credit_code || '').trim().toUpperCase()
+        if (!code) return '请填写信用代码'
+        if (!/^[0-9A-Z]{18}$/.test(code)) return '信用代码应为18位数字或大写字母'
+        if (this.today && this.form.founded_at && this.form.founded_at > this.today) return '成立时间不能晚于今天'
+        return ''
+      }
+      if (step === 1) {
+        if (this.form.industry_categories.length === 0) return '请至少选择一个企业分类'
+        if (!this.form.scale) return '请选择企业规模'
+        return ''
+      }
+      // 联系与资质
+      if (!String(this.form.legal_person || '').trim()) return '请填写法人代表'
+      if (!String(this.form.contact_person || '').trim()) return '请填写联系人'
       var phone = String(this.form.contact_phone || '').trim()
-      if (phone && !/^1[3-9]\d{9}$/.test(phone)) return '请输入正确的11位手机号'
+      if (!phone) return '请填写联系电话'
+      if (!/^1[3-9]\d{9}$/.test(phone)) return '请输入正确的11位手机号'
       var email = String(this.form.email || '').trim()
       if (email && !/^[\w.+-]+@[\w-]+(\.[\w-]+)+$/.test(email)) return '请输入正确的邮箱格式'
+      if (!this.licensePath && !this.licenseUrl) return '请上传营业执照'
+      return ''
+    },
+    // 全表单校验（提交时调用，覆盖三步全部字段）
+    validateAll() {
+      for (var s = 0; s < 3; s++) {
+        var err = this.validateStep(s)
+        if (err) return err
+      }
+      if (String(this.form.description || '').length > 500) return '企业简介不能超过500字'
       return ''
     },
     async handleSubmit() {
@@ -605,6 +649,12 @@ export default {
 @import '../../../pages/publish/pub-style.css';
 
 .pub-fade { opacity: 0.6; }
+.pub-counter {
+  text-align: right;
+  font-size: 12px;
+  color: #98A2B3;
+  padding-top: 6px;
+}
 .pub-photo-img {
   width: 100%;
   height: 100%;

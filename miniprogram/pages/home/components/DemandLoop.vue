@@ -14,7 +14,7 @@
       v-for="slot in slots"
       :key="slot.poolIndex"
       class="dl-card"
-      :class="{ 'is-anchor': slot.progress > 0.5 }"
+      :class="{ 'is-anchor': slot.progress > 0.5, 'is-out': slot.outOfWindow }"
       :style="slot.style"
       @tap="onCardTap(slot)"
     >
@@ -105,6 +105,11 @@ const DRAG_TAP_LIMIT = 7
 /* ================= 工具函数 ================= */
 const modulo = (value, length) => ((value % length) + length) % length
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
+// 对称取整（吸附落点用）：JS 的 Math.round 对负数向 +∞ 取整，
+// Math.round(-0.5) === -0 而 Math.round(0.5) === 1 —— 于是"刚好半张"时
+// 上滑会前进、下滑却回弹，两个方向的吸附门槛不在同一条线上。
+// 改成"离零方向取整"，上下阈值才一致（只影响恰好半张这一帧）。
+const snapIndex = (value) => (value < 0 ? -Math.round(-value) : Math.round(value))
 const lerp = (from, to, progress) => from + (to - from) * progress
 const smoothstep = (from, to, value) => {
   const p = clamp((value - from) / (to - from), 0, 1)
@@ -112,17 +117,32 @@ const smoothstep = (from, to, value) => {
 }
 const cardHeightFor = (progress) =>
   lerp(COMPACT_HEIGHT, EXPANDED_HEIGHT, smoothstep(0.42, 0.88, progress))
+// 样式数值格式化：沿用优化前的 toFixed 精度（同一舍入结果，逐像素一致），
+// 再用 String 去掉尾随 0："12.50" → "12.5"，"0.000" → "0"。
+// 每帧要过 setData 的字符串更短，且端点值严格等于 0/1，
+// 静止槽位逐帧产生完全相同的串，渲染层直接跳过写入。
+const num = (value) => String(Number(value.toFixed(2)))
+const num3 = (value) => String(Number(value.toFixed(3)))
 // 统一的动画时钟：rAF 时间戳与 performance.now 同为页面时间原点，避免 Date.now 混用
 const perfNow = () =>
   typeof performance !== 'undefined' && typeof performance.now === 'function'
     ? performance.now()
     : Date.now()
 
-/* ================= 动画帧：全局优先，失败回退 16ms 定时器 ================= */
+/* ================= 动画帧：全局优先，失败回退定时器 ================= */
+// 小程序逻辑层通常没有 requestAnimationFrame（rAF 只在渲染层/WXS 可用），
+// 实际跑的是定时器回退：固定 60Hz 锚点 + 漂移补偿，避免"每帧耗时累加"
+// 导致间隔忽长忽短（吸附曲线按 elapsed 计算，节奏不变，只是更匀）。
+const FRAME_MS = 1000 / 60
+let frameAnchor = 0
+const fallbackRaf = (cb) => {
+  const now = perfNow()
+  if (!frameAnchor || now - frameAnchor > 1000) frameAnchor = now
+  frameAnchor += FRAME_MS
+  return setTimeout(() => cb(perfNow()), Math.max(0, frameAnchor - now))
+}
 let raf =
-  typeof requestAnimationFrame === 'function'
-    ? requestAnimationFrame
-    : (cb) => setTimeout(() => cb(perfNow()), 16)
+  typeof requestAnimationFrame === 'function' ? requestAnimationFrame : fallbackRaf
 let caf =
   typeof cancelAnimationFrame === 'function'
     ? cancelAnimationFrame
@@ -146,6 +166,9 @@ let snapDisplacement = 0
 let snapVelocity = 0
 let frameHandle = 0
 let frameActive = false
+// 帧间样式串缓存（非响应式）：窗口外的卡片看不见，其几何串直接复用上一帧，
+// 渲染层因字符串一致而完全不写入，每帧少发 4 张窗口外卡片的 transform。
+const styleCache = new Map()
 
 // 手势
 let dragStartY = 0
@@ -210,6 +233,26 @@ const buildSlots = () => {
     const geometry = geometryFor(virtualIndex, base, fraction)
     const p = clamp(geometry.progress, 0, 1)
 
+    // 窗口外的卡片看不见：直接复用上一帧的样式串（字符串相同 → 渲染层零写入），
+    // 省掉每帧为窗口外卡片重算并下发不可见 transform 的开销。
+    const outOfWindow = geometry.y < -EXPANDED_HEIGHT || geometry.y > 470
+    const cached = styleCache.get(poolIndex)
+    if (outOfWindow && cached) {
+      slots.push({
+        poolIndex,
+        virtualIndex,
+        item,
+        progress: p,
+        outOfWindow: true,
+        style: cached.style,
+        compactStyle: cached.compactStyle,
+        expandedStyle: cached.expandedStyle,
+        mediaStyle: cached.mediaStyle,
+        mediaImgStyle: cached.mediaImgStyle,
+      })
+      continue
+    }
+
     const mediaWidth = lerp(COMPACT_IMAGE_WIDTH, EXPANDED_IMAGE_WIDTH, p)
     const mediaHeight = lerp(COMPACT_HEIGHT, EXPANDED_IMAGE_HEIGHT, p)
     const cardHeight = cardHeightFor(p)
@@ -222,35 +265,44 @@ const buildSlots = () => {
     // 窗口固定在卡片左上角 (left:0, top:0)，宽高随 progress 从 96×112 连续
     // 展开到 144×168；图片固定为展开尺寸，通过双轴位移始终显示中心区域。
     const mediaStyle = [
-      `width:${mediaWidth.toFixed(2)}px`,
-      `height:${mediaHeight.toFixed(2)}px`,
+      'width:' + num(mediaWidth) + 'px',
+      'height:' + num(mediaHeight) + 'px',
       'left:0',
       'top:0',
       'overflow:hidden',
     ].join(';')
     const mediaImgStyle = [
-      `width:${EXPANDED_IMAGE_WIDTH}px`,
-      `height:${EXPANDED_IMAGE_HEIGHT}px`,
-      `transform:translate3d(${(-mediaInsetX).toFixed(2)}px,${(-mediaInsetY).toFixed(2)}px,0)`,
+      'width:' + EXPANDED_IMAGE_WIDTH + 'px',
+      'height:' + EXPANDED_IMAGE_HEIGHT + 'px',
+      'transform:translate3d(' + num(-mediaInsetX) + 'px,' + num(-mediaInsetY) + 'px,0)',
       'max-width:none',
     ].join(';')
 
-    // 卡片仅允许 translate3d 移动 + 高度变化；越界槽位隐藏
-    const hidden = geometry.y < -EXPANDED_HEIGHT || geometry.y > 470
+    // 卡片只改 translate3d 与高度；可见性交给 class（is-out），
+    // 不再把 visibility 逐帧写进样式串。
     const cardStyle = [
-      `transform:translate3d(0,${geometry.y.toFixed(2)}px,0)`,
-      `height:${cardHeight.toFixed(2)}px`,
-      `visibility:${hidden ? 'hidden' : 'visible'}`,
+      'transform:translate3d(0,' + num(geometry.y) + 'px,0)',
+      'height:' + num(cardHeight) + 'px',
     ].join(';')
 
-    const compactStyle = `opacity:${compactOpacity.toFixed(3)};transform:translate3d(${lerp(0, -5, p).toFixed(2)}px,0,0)`
-    const expandedStyle = `opacity:${expandedOpacity.toFixed(3)};transform:translate3d(0,${lerp(6, 0, expandedOpacity).toFixed(2)}px,0)`
+    const compactStyle = 'opacity:' + num3(compactOpacity) + ';transform:translate3d(' + num(lerp(0, -5, p)) + 'px,0,0)'
+    const expandedStyle = 'opacity:' + num3(expandedOpacity) + ';transform:translate3d(0,' + num(lerp(6, 0, expandedOpacity)) + 'px,0)'
+
+    styleCache.set(poolIndex, {
+      style: cardStyle,
+      compactStyle,
+      expandedStyle,
+      mediaStyle,
+      mediaImgStyle,
+    })
 
     slots.push({
       poolIndex,
       virtualIndex,
       item,
       progress: p,
+      // 首帧/无缓存时也要如实标注越界：visible 的卡片才会被 is-out 跳过绘制
+      outOfWindow,
       style: cardStyle,
       compactStyle,
       expandedStyle,
@@ -436,7 +488,7 @@ function onTouchEnd() {
   if (!dragging) return
   const velocity = inputVelocity
   dragging = false
-  startSnap(Math.round(targetPosition.value), velocity)
+  startSnap(snapIndex(targetPosition.value), velocity)
 }
 
 /* ================= 点击详情 / 图片预览 ================= */
@@ -505,8 +557,16 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
-  will-change: transform, height;
+  /* 只提示 transform：will-change 里带 height 会让引擎按"每帧都要重排"常驻图层，
+     实测每帧样式下发量反而更高。contain 把重排/重绘范围限制在卡片内部。 */
+  will-change: transform;
+  contain: layout paint;
+  backface-visibility: hidden;
   box-sizing: border-box;
+}
+/* 越界槽位：由 class 控制可见性，不再逐帧写进 style 串 */
+.dl-card.is-out {
+  visibility: hidden;
 }
 .dl-card.is-anchor {
   z-index: 4;

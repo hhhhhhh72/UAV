@@ -419,7 +419,7 @@ func main() {
 		service.NewEnterpriseSvc(enterpriseRepo, userRepo),
 		service.NewEmploymentService(employmentRepo),
 		service.NewContractService(contractRepo),
-		service.NewJobService(jobRepo, resumeRepo, appRepo),
+		service.NewJobService(jobRepo, resumeRepo, appRepo, enterpriseRepo),
 		service.NewCommunityService(postRepo, commentRepo, reportRepo),
 		service.NewListingService(listingRepo),
 		service.NewLabourService(labourRepo),
@@ -513,6 +513,9 @@ func main() {
 	server := &http.Server{Addr: addr, Handler: app.Router(),
 		ReadHeaderTimeout: 10 * time.Second, // 慢速头攻击防护（批3 P1）
 		ReadTimeout:       30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+
+	// 证书到期提醒：每天扫一遍，给持证人本人发站内消息（幂等，同一张证书只提醒一次）
+	app.StartCertExpiryReminder()
 
 	// 孤儿冻结自动补偿：培训报名"先冻结后落库"的崩溃窗口可能导致资金滞留，
 	// 每 10 分钟扫描一次 10 分钟前的冻结流水，业务记录不存在则自动退回余额。

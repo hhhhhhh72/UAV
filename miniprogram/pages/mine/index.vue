@@ -352,9 +352,18 @@ const certMenuText = computed(() => {
   return { desc: '登录后查看认证状态', tail: '', tailClass: '' }
 })
 
+// 证书数量（概览卡同一份数据；0 项时不显示尾巴，避免"0 项"占位）
+const certCountText = computed(() => {
+  const n = Number(overviewCounts.value.certs)
+  return n > 0 ? n + ' 项' : ''
+})
+
 const accountItems = computed(() => [
   { icon: '/static/mine-icons/account.svg', tone: 'primary', label: '账号信息', desc: '手机号、微信绑定与个人资料', go: goProfile },
   { icon: '/static/mine-icons/certification.svg', tone: 'primary', label: '认证信息', desc: certMenuText.value.desc, tail: certMenuText.value.tail, tailClass: certMenuText.value.tailClass, go: goPrimaryCert },
+  /* 我的证书：证书是按人归档的资产，企业/个人身份同样有（此前只有飞手身份能从概览卡第三格进），
+     放在「认证信息」下面语义最近；tail 直接给持有数量，和"我的证书"这个说法对得上 */
+  { icon: '/static/mine-icons/certification-green.svg', tone: 'green', label: '我的证书', desc: '证书归档、审核状态与到期提醒', tail: certCountText.value, go: goCertificates },
   { icon: '/static/mine-icons/settings-gray.svg', tone: 'gray', label: '设置', desc: '账号、通知与隐私、关于平台', go: goSettings },
 ])
 

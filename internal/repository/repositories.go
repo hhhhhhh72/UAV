@@ -404,6 +404,10 @@ type ArticleRepository interface {
 type ReviewRepository interface {
 	Create(ctx context.Context, v domain.Review) (domain.Review, error)
 	ListByTarget(ctx context.Context, targetType, targetID string) ([]domain.Review, error)
+	// ListByReviewerTarget 取"某评价人对某目标"的全部评价，**不过滤 status**。
+	// 与 ListByTarget（仅 approved，对外展示口径）分开：提交幂等必须看全量，
+	// 否则新评价处于 pending 时查重为空，同一人可以反复提交（BUG-004）。
+	ListByReviewerTarget(ctx context.Context, reviewerID, targetType, targetID string) ([]domain.Review, error)
 	ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error)
 	FindByID(ctx context.Context, id string) (domain.Review, error)
 	UpdateStatus(ctx context.Context, id string, status string) (domain.Review, error)
@@ -697,6 +701,10 @@ type ExhibitionRepository interface {
 	Delete(ctx context.Context, id string) error
 	CreateBooth(ctx context.Context, v domain.ExhibitionBooth) (domain.ExhibitionBooth, error)
 	ListBooths(ctx context.Context, exhibitionID string) ([]domain.ExhibitionBooth, error)
+	// ListAllBooths 全平台展位申请（管理端审核口径）；status 为空表示全部。
+	ListAllBooths(ctx context.Context, status string) ([]domain.ExhibitionBooth, error)
+	// ListBoothsByExhibitor 某参展商的全部展位申请（小程序"我的申请"用）。
+	ListBoothsByExhibitor(ctx context.Context, exhibitorID string) ([]domain.ExhibitionBooth, error)
 	UpdateBoothStatus(ctx context.Context, id, status string) (domain.ExhibitionBooth, error)
 }
 

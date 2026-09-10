@@ -273,3 +273,37 @@ func (s *ExhibitionService) ListBooths(ctx context.Context, exhibitionID string)
 func (s *ExhibitionService) ReviewBooth(ctx context.Context, boothID, status string) (domain.ExhibitionBooth, error) {
 	return s.repo.UpdateBoothStatus(ctx, boothID, status)
 }
+
+// ListMyBooths 我在各展会的展位申请（小程序"我的申请"用；按时间倒序）。
+func (s *ExhibitionService) ListMyBooths(ctx context.Context, a domain.Actor) ([]domain.ExhibitionBooth, error) {
+	if a.ID == "" {
+		return nil, errors.New("authentication required")
+	}
+	return s.repo.ListBoothsByExhibitor(ctx, a.ID)
+}
+
+// ListBoothApplications 管理端：全平台展位申请（可按状态过滤）。
+func (s *ExhibitionService) ListBoothApplications(ctx context.Context, a domain.Actor, status string) ([]domain.ExhibitionBooth, error) {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return nil, errors.New("admin permission required")
+	}
+	return s.repo.ListAllBooths(ctx, status)
+}
+
+// ReviewBoothApplication 管理端审核展位申请：approve→approved / reject→rejected。
+// 只放这两个动作，避免把内部状态（paid 等）从后台直接写进去。
+func (s *ExhibitionService) ReviewBoothApplication(ctx context.Context, a domain.Actor, boothID, action string) (domain.ExhibitionBooth, error) {
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		return domain.ExhibitionBooth{}, errors.New("admin permission required")
+	}
+	status := ""
+	switch action {
+	case "approve", "approved":
+		status = "approved"
+	case "reject", "rejected":
+		status = "rejected"
+	default:
+		return domain.ExhibitionBooth{}, errors.New("invalid action")
+	}
+	return s.ReviewBooth(ctx, boothID, status)
+}

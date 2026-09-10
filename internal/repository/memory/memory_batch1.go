@@ -292,6 +292,33 @@ func (r *exhibitionRepo) ListBooths(ctx context.Context, exhibitionID string) ([
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
+// ListAllBooths 全平台展位申请（与 PG 语义对齐：可选状态过滤 + created_at DESC）。
+func (r *exhibitionRepo) ListAllBooths(ctx context.Context, status string) ([]domain.ExhibitionBooth, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.ExhibitionBooth, 0)
+	for _, b := range r.booths {
+		if status != "" && b.Status != status {
+			continue
+		}
+		out = append(out, b)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+// ListBoothsByExhibitor 我的展位申请（与 PG 语义对齐）。
+func (r *exhibitionRepo) ListBoothsByExhibitor(ctx context.Context, exhibitorID string) ([]domain.ExhibitionBooth, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.ExhibitionBooth, 0)
+	for _, b := range r.booths {
+		if b.ExhibitorID == exhibitorID {
+			out = append(out, b)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
 func (r *exhibitionRepo) UpdateBoothStatus(ctx context.Context, id, status string) (domain.ExhibitionBooth, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

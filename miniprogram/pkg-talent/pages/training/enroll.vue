@@ -400,27 +400,35 @@ function fmtDate(d) {
   return String(d).slice(0, 10)
 }
 
-/* 评分（缺失显示 —，不编造默认分） */
+/* 评分（缺失显示 —，不编造默认分）
+   注意：后端空的 rating 是空字符串而不是 null，只判 != null 会让详情页渲染出"/5.0"这种空分 */
 function ratingOf(item) {
-  return item.rating != null ? item.rating : '—'
+  return Number(item && item.rating) > 0 ? item.rating : '—'
 }
 function starCount(item) {
   var r = Number(item.rating)
   return isNaN(r) ? 0 : Math.round(r)
 }
+/* 后端这些字段"没有数据"时给的是空字符串/0，不是 null —— 统一按缺失判定，
+   否则详情页会渲染出「/5.0」「%」「0 年」这种空值碎片 */
+function hasVal(v) {
+  return v !== null && v !== undefined && String(v).trim() !== '' && Number(v) > 0
+}
 /* 通过率（缺失显示 —） */
 function passRateOf(item) {
-  return item.pass_rate != null ? item.pass_rate : '—'
+  return hasVal(item && item.pass_rate) ? item.pass_rate : '—'
 }
 /* 机构年限（缺失显示 —） */
 function yearsOf(item) {
-  if (item.years != null) return item.years
-  if (item.establish_year) return Math.max(1, new Date().getFullYear() - Number(item.establish_year))
+  if (hasVal(item && item.years)) return item.years
+  if (item && item.establish_year) return Math.max(1, new Date().getFullYear() - Number(item.establish_year))
   return '—'
 }
+/* 四项全空 → 整张评价卡不渲染（卡片首行注释即此意） */
 function hasRatingInfo(item) {
-  return Number(item && item.rating) > 0 || Number(item && item.review_count) > 0 ||
-    (item && item.pass_rate != null) || (item && (item.years != null || item.establish_year))
+  if (!item) return false
+  return hasVal(item.rating) || hasVal(item.review_count) ||
+    hasVal(item.pass_rate) || hasVal(item.years) || hasVal(item.establish_year)
 }
 
 /* 证书类型标签 */

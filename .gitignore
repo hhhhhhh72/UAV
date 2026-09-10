@@ -47,3 +47,13 @@ internal/httpapi/test_uploads/
 *.sql.gz
 debug.log
 *.log
+
+# 本地密钥与临时工作区（防误提交私钥/工具残留，2026-09-10）
+.ssh/
+.ssh_known_hosts
+.tools/
+.migrate/
+.pnpm-store/
+.npm-cache-audit/
+.tmp-session.jsonl
+miniprogram/.hbuilderx/

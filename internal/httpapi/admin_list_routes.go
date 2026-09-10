@@ -98,6 +98,9 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 
 	// === 展会 === (POST: POST /api/v1/admin/exhibitions in batch1_handlers.go — DUPLICATE, SKIP)
 	mux.HandleFunc("GET /api/v1/admin/exhibitions", s.listAdminExhibitions)
+	mux.HandleFunc("GET /api/v1/exhibitions/booths/mine", s.listMyBooths)             // 我的展位申请（小程序）
+	mux.HandleFunc("GET /api/v1/admin/exhibitions/booths", s.listAdminBooths)          // 展位申请审核列表
+	mux.HandleFunc("POST /api/v1/admin/exhibitions/booths/{id}/review", s.reviewBooth) // 展位申请审核
 	mux.HandleFunc("GET /api/v1/admin/exhibitions/{id}", s.getExhibition)
 	mux.HandleFunc("PUT /api/v1/admin/exhibitions/{id}", s.updateExhibition)
 	mux.HandleFunc("DELETE /api/v1/admin/exhibitions/{id}", s.deleteExhibition)

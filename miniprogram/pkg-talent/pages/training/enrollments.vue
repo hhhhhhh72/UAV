@@ -85,6 +85,10 @@ const loadCourses = async () => {
     myCourses.value = all.filter((c) => c.org_id === myId)
   } catch (e) {
     myCourses.value = []
+  } finally {
+    // 必须在这里收掉 loading：此前只有 loadList() 置 false，而 loadList() 首行是
+    // if (!courseId) return —— 没选课程时页面会永久停在"加载中..."（BUG-003）。
+    loading.value = false
   }
 }
 

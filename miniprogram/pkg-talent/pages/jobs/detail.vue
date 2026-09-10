@@ -27,12 +27,15 @@
         <text class="job-title">{{ job.title }}</text>
         <view class="job-meta">
           <text v-if="job.salary_fen" class="salary">¥{{ (job.salary_fen / 100).toLocaleString() }}/月</text>
-          <text v-if="job.job_type" class="type-tag">{{ job.job_type }}</text>
-          <text v-if="job.status === 'published'" class="st-tag">招聘中</text>
+          <text v-if="job.job_type" class="tag tag-blue">{{ job.job_type }}</text>
+          <text v-if="job.status === 'published'" class="tag tag-green">招聘中</text>
         </view>
         <view class="job-sub">
-          <view v-if="job.location" class="job-loc"><text>{{ job.location }}</text></view>
-          <text>{{ formatDate(job.created_at) }} 发布</text>
+          <view v-if="job.location" class="job-loc">
+            <u-icon name="location" size="24rpx" color="#667085" />
+            <text>{{ job.location }}</text>
+          </view>
+          <text class="job-date">{{ formatDate(job.created_at) }} 发布</text>
         </view>
       </view>
 
@@ -73,7 +76,7 @@ const formatDate = (d) => {
   if (!d) return ''
   const dt = new Date(d)
   const p = (n) => String(n).padStart(2, '0')
-  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`
+  return dt.getFullYear() + '-' + p(dt.getMonth() + 1) + '-' + p(dt.getDate())
 }
 
 const load = async (pid) => {
@@ -145,25 +148,25 @@ onLoad((opts) => {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #fff;
-  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+  background: #F4F6F8;
+  padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
 }
 
 /* ===== 骨架屏 ===== */
-.skl { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.skl { display: flex; flex-direction: column; gap: 20rpx; padding: 24rpx 32rpx 0; }
 .skc {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 20rpx;
+  padding: 26rpx;
   background: #fff;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
+  border: 1px solid #EEF1F4;
+  border-radius: 16rpx;
 }
-.sk-row { display: flex; align-items: center; gap: 8px; }
-.sk-tag { width: 56px; height: 18px; border-radius: 4px; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
-.sk-bd { display: flex; flex-direction: column; gap: 8px; }
-.sk-l { height: 12px; background: #EDF0F3; border-radius: 4px; animation: skPulse 1.4s linear infinite; }
+.sk-row { display: flex; align-items: center; gap: 16rpx; }
+.sk-tag { width: 112rpx; height: 36rpx; border-radius: 8rpx; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-bd { display: flex; flex-direction: column; gap: 16rpx; }
+.sk-l { height: 24rpx; background: #EDF0F3; border-radius: 8rpx; animation: skPulse 1.4s linear infinite; }
 .sk-l.w40 { width: 40%; }
 .sk-l.w60 { width: 60%; }
 .sk-l.w80 { width: 80%; }
@@ -171,46 +174,34 @@ onLoad((opts) => {
 @keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* ===== 空 / 错误 ===== */
-.st { display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
-.stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
+.st { display: flex; flex-direction: column; align-items: center; padding: 120rpx 40rpx; }
+.stb { height: 72rpx; padding: 0 40rpx; border-radius: 12rpx; background: #0A66C2; color: #fff; font-size: 24rpx; line-height: 72rpx; }
 
-/* ===== 卡片：白上白 ===== */
+/* ===== 卡片：对齐「我的发布/职位列表」卡片规范（16rpx 圆角 + 细描边 + 轻投影） ===== */
 .card {
   position: relative;
   background: #fff;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  border: 1px solid #EEF1F4;
+  border-radius: 16rpx;
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
   transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
 }
-.head-card { margin: 12px; padding: 16px; animation: cardIn .22s ease-out backwards; animation-delay: 60ms; }
-.section-card { margin: 0 12px 12px; padding: 16px; animation: cardIn .22s ease-out backwards; animation-delay: 120ms; }
+.head-card { margin: 24rpx 32rpx 0; padding: 26rpx; animation: cardIn .22s ease-out backwards; animation-delay: 60ms; }
+.section-card { margin: 20rpx 32rpx 0; padding: 26rpx; animation: cardIn .22s ease-out backwards; animation-delay: 120ms; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-.job-title { font-size: 18px; font-weight: 700; color: #17212B; display: block; line-height: 1.4; }
-.job-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-.salary { font-size: 16px; font-weight: 700; color: #C2410C; }
-.type-tag {
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 4px;
-  background: #EAF3FB;
-  color: #0A66C2;
-  font-weight: 600;
-}
-.st-tag {
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 4px;
-  background: #E9F7F0;
-  color: #0B6B41;
-  font-weight: 600;
-}
-.job-sub { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #667085; margin-top: 10px; }
-.job-loc { font-size: 12px; color: #667085; }
+.job-title { font-size: 36rpx; font-weight: 700; color: #17212B; display: block; line-height: 1.4; }
+.job-meta { display: flex; align-items: center; gap: 12rpx; margin-top: 16rpx; flex-wrap: wrap; }
+.salary { font-size: 32rpx; font-weight: 700; color: #E96012; }
+.tag { border-radius: 8rpx; padding: 6rpx 12rpx; font-size: 20rpx; line-height: 1; font-weight: 600; }
+.tag-blue { color: #0A66C2; background: #EAF3FB; }
+.tag-green { color: #168A55; background: #E9F7F0; }
+.job-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx 24rpx; margin-top: 16rpx; padding-top: 18rpx; border-top: 1px solid #EEF1F4; }
+.job-loc { display: flex; align-items: center; gap: 6rpx; font-size: 24rpx; color: #667085; }
+.job-date { font-size: 22rpx; color: #667085; }
 
-.section-title { font-size: 14px; font-weight: 700; color: #17212B; display: block; margin-bottom: 10px; }
-.job-desc { font-size: 13px; color: #344054; line-height: 1.7; white-space: pre-wrap; }
+.section-title { font-size: 30rpx; font-weight: 700; color: #17212B; display: block; margin-bottom: 16rpx; }
+.job-desc { font-size: 28rpx; color: #344054; line-height: 1.7; white-space: pre-wrap; }
 
 /* ===== 底部操作栏 ===== */
 .bottom-bar {
@@ -218,28 +209,32 @@ onLoad((opts) => {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
   background: #fff;
   border-top: 1px solid #EEF1F4;
   box-shadow: 0 -2px 12px rgba(16, 24, 40, 0.04);
 }
 .bottom-btn {
-  height: 46px;
-  border-radius: 23px;
+  height: 88rpx;
+  border-radius: 999rpx;
   background: #0A66C2;
   color: #fff;
-  font-size: 15px;
+  font-size: 30rpx;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 14px rgba(10, 102, 194, 0.28);
 }
-.bottom-btn.applied { background: #EEF1F4; color: #667085; box-shadow: none; }
-.bottom-btn--disabled { background: #EEF1F4; color: #667085; box-shadow: none; }
+.bottom-btn.applied { background: #F1F3F5; color: #667085; box-shadow: none; }
+.bottom-btn--disabled { background: #F1F3F5; color: #667085; box-shadow: none; }
 .bottom-press { transform: scale(0.98); opacity: 0.9; }
 
 /* ===== 减弱动效（无障碍） ===== */
 .page.no-motion .card { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card { animation: none !important; transition: none !important; }
+}
 </style>

@@ -82,7 +82,7 @@ func TestEnterpriseSvc_AttachDocument(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	owner := domain.Actor{ID: "ent-owner", Role: domain.RoleEnterprise}
 
-	e, err := svc.Create(context.Background(), owner, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, err := svc.Create(context.Background(), owner, validEntInput("测试企业"))
 	if err != nil {
 		t.Fatalf("EnterpriseSvc.Create: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestEnterpriseSvc_ListDocuments(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	owner := domain.Actor{ID: "ent-owner", Role: domain.RoleEnterprise}
 
-	e, _ := svc.Create(context.Background(), owner, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, _ := svc.Create(context.Background(), owner, validEntInput("测试企业"))
 	if _, err := svc.AttachDocument(context.Background(), owner, e.ID, "f1", "license"); err != nil {
 		t.Fatalf("AttachDocument: %v", err)
 	}
@@ -913,5 +913,58 @@ func TestTrainingService_PilotLifecycle(t *testing.T) {
 	}
 	if _, err := svc.GetPilotDetail(context.Background(), "nope"); err == nil {
 		t.Fatal("GetPilotDetail: expected error for unknown id")
+	}
+}
+
+// TestApprovePilotRequiresValidCertificate: 审批门禁与申请同规则——申请时有效、
+// 审批时已过期（或被撤销）的证书不得放行。产品口径：必须持有有效证书才能成为认证飞手，
+// 不允许"先审核后补证"。
+func TestApprovePilotRequiresValidCertificate(t *testing.T) {
+	certRepo := memory.NewCertificateRepository()
+	pilotRepo := memory.NewPilotRepository(nil)
+	svc := service.NewTrainingService(certRepo, memory.NewCourseRepository(), memory.NewInstructorRepository(), pilotRepo)
+
+	actor := domain.Actor{ID: "pilot-exp", Role: domain.RoleIndividual}
+	admin := domain.Actor{ID: "admin-exp", Role: domain.RolePlatformAdmin}
+
+	seed := func(status string, expire time.Time) {
+		if _, err := certRepo.Update(context.Background(), domain.Certificate{
+			ID: "cert-exp", UserID: actor.ID, CertType: domain.CertCAAC, CertNumber: "n-exp",
+			Level: "A", IssuerOrg: "机构", Status: status,
+			IssueDate: time.Now().AddDate(-1, 0, 0), ExpireDate: expire,
+		}); err != nil {
+			t.Fatalf("seed cert: %v", err)
+		}
+	}
+	// 申请时：30 天后过期的 approved 证书 → 可提交
+	if _, err := certRepo.Create(context.Background(), domain.Certificate{
+		ID: "cert-exp", UserID: actor.ID, CertType: domain.CertCAAC, CertNumber: "n-exp",
+		Level: "A", IssuerOrg: "机构", Status: "approved",
+		IssueDate: time.Now().AddDate(-1, 0, 0), ExpireDate: time.Now().AddDate(0, 0, 30),
+	}); err != nil {
+		t.Fatalf("seed cert: %v", err)
+	}
+	p, err := svc.RegisterPilot(context.Background(), actor, "李四", "id", 50, "bio", "avatar", "重庆")
+	if err != nil {
+		t.Fatalf("RegisterPilot(持有效证书) 应通过: %v", err)
+	}
+
+	// 审批前证书已过期 → 不得通过
+	seed("approved", time.Now().AddDate(0, 0, -1))
+	if _, err := svc.ApprovePilot(context.Background(), admin, p.ID); err == nil {
+		t.Fatal("ApprovePilot: 证书已过期仍被通过，期望被拒绝")
+	}
+
+	// 证书被撤销（未审核通过）→ 不得通过
+	seed("pending", time.Now().AddDate(1, 0, 0))
+	if _, err := svc.ApprovePilot(context.Background(), admin, p.ID); err == nil {
+		t.Fatal("ApprovePilot: 证书未审核通过仍被放行，期望被拒绝")
+	}
+
+	// 恢复有效证书 → 正常通过
+	seed("approved", time.Now().AddDate(1, 0, 0))
+	got, err := svc.ApprovePilot(context.Background(), admin, p.ID)
+	if err != nil || got.Status != "approved" {
+		t.Fatalf("ApprovePilot(有效证书): status=%q err=%v", got.Status, err)
 	}
 }

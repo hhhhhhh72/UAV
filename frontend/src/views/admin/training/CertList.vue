@@ -114,6 +114,9 @@ const fullUrl = (u) => (u && u.startsWith('http') ? u : u || '')
 const formatDate = (d) => {
   if (!d) return '-'
   const dt = new Date(d)
+  if (isNaN(dt.getTime())) return '-'
+  // "没有有效期"后端会下发零值时间（0001-01-01），直接渲染会显示成 0001-01-01 的假日期
+  if (dt.getFullYear() < 2000) return '长期有效'
   const p = n => String(n).padStart(2, '0')
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}`
 }

@@ -345,3 +345,68 @@ func (s *Server) listBooths(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, r, http.StatusOK, booths)
 }
+
+// GET /api/v1/exhibitions/booths/mine — 我的展位申请（小程序侧，登录即可看自己的）。
+func (s *Server) listMyBooths(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
+		return
+	}
+	booths, err := s.exhibitionSvc.ListMyBooths(r.Context(), a)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, booths)
+}
+
+// GET /api/v1/admin/exhibitions/booths?status=applied — 全平台展位申请（后台审核列表）。
+// 此前管理端没有任何展位申请入口：申请落库了但没人能审（BUG-010）。
+func (s *Server) listAdminBooths(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
+		return
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
+	booths, err := s.exhibitionSvc.ListBoothApplications(r.Context(), a, r.URL.Query().Get("status"))
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, booths)
+}
+
+// POST /api/v1/admin/exhibitions/booths/{id}/review — 审核展位申请（approve / reject）
+func (s *Server) reviewBooth(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
+		return
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
+	var in struct {
+		Action string `json:"action"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if in.Action != "approve" && in.Action != "reject" {
+		fail(w, r, http.StatusBadRequest, errors.New("action must be approve or reject"))
+		return
+	}
+	b, err := s.exhibitionSvc.ReviewBoothApplication(r.Context(), a, r.PathValue("id"), in.Action)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	respond(w, r, http.StatusOK, b)
+}

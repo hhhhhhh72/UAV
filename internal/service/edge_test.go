@@ -70,7 +70,7 @@ func TestJobServiceAll(t *testing.T) {
 // === Enterprise ===
 func TestEnterpriseSvcAll(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
-	e, _ := svc.Create(context.Background(), entActor(), service.CreateEnterpriseInput{Name: "企业"})
+	e, _ := svc.Create(context.Background(), entActor(), validEntInput("企业"))
 	// Update
 	svc.Update(context.Background(), entActor(), e.ID, service.CreateEnterpriseInput{Name: "更新企业"})
 	// FindByID

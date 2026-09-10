@@ -2,12 +2,29 @@ package service_test
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"testing"
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository/memory"
 	"drone-platform/internal/service"
 )
+
+// validEntInput 资料齐全的入驻入参（提审档要求全部必填项，缺失会被 Submit 拒绝）。
+func validEntInput(name string) service.CreateEnterpriseInput {
+	return service.CreateEnterpriseInput{
+		Name:             name,
+		CreditCode:       "91500108MA5U1234XY",
+		LegalPerson:      "张三",
+		ContactPerson:    "李四",
+		ContactPhone:     "13800138000",
+		Email:            "contact@example.com",
+		IndustryCategory: "整机研发",
+		Scale:            "50-100人",
+		LicenseURL:       "/uploads/private/lic-test-file",
+	}
+}
 
 // TestReviewApprovedUpgradesOwnerRole: 入驻审核通过后，owner 用户角色必须升级为 enterprise。
 // 回归：此前 Review 只改企业状态不升角色，导致已通过企业用户无法发招聘、身份永远是个体。
@@ -21,7 +38,7 @@ func TestReviewApprovedUpgradesOwnerRole(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := domain.Actor{ID: owner.ID, Role: domain.RoleIndividual}
-	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, err := svc.Create(context.Background(), a, validEntInput("测试企业"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +73,7 @@ func TestReviewStoresReason(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := domain.Actor{ID: owner.ID, Role: domain.RoleIndividual}
-	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, err := svc.Create(context.Background(), a, validEntInput("测试企业"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +109,7 @@ func TestRejectedEnterpriseCanEditAndResubmit(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := domain.Actor{ID: owner.ID, Role: domain.RoleIndividual}
-	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, err := svc.Create(context.Background(), a, validEntInput("测试企业"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +155,7 @@ func TestApprovedEnterpriseOwnerEditResubmits(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := domain.Actor{ID: owner.ID, Role: domain.RoleIndividual}
-	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, err := svc.Create(context.Background(), a, validEntInput("测试企业"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,5 +179,117 @@ func TestApprovedEnterpriseOwnerEditResubmits(t *testing.T) {
 	}
 	if _, err := svc.Submit(context.Background(), a, e.ID); err == nil {
 		t.Fatal("owner must not resubmit a non-draft enterprise via submit")
+	}
+}
+
+// —— 字段合法性（权威校验在 Service 层：前端校验只影响体验，绕过前端不得写入脏数据）——
+
+// TestEnterpriseCreateRejectsMalformedFields: 格式非法的字段必须在 Create 就被拒。
+func TestEnterpriseCreateRejectsMalformedFields(t *testing.T) {
+	cases := []struct {
+		label string
+		mut   func(*service.CreateEnterpriseInput)
+	}{
+		{"企业名称全是空格", func(in *service.CreateEnterpriseInput) { in.Name = "   " }},
+		{"企业名称过短", func(in *service.CreateEnterpriseInput) { in.Name = "甲" }},
+		{"信用代码不足18位", func(in *service.CreateEnterpriseInput) { in.CreditCode = "12345" }},
+		{"信用代码含非法字符", func(in *service.CreateEnterpriseInput) { in.CreditCode = "9150-0108MA5U1234X" }},
+		{"手机号非法", func(in *service.CreateEnterpriseInput) { in.ContactPhone = "12345" }},
+		{"邮箱非法", func(in *service.CreateEnterpriseInput) { in.Email = "not-an-email" }},
+		{"成立时间晚于今天", func(in *service.CreateEnterpriseInput) { in.FoundedAt = "2099-01-01" }},
+		{"成立时间格式非法", func(in *service.CreateEnterpriseInput) { in.FoundedAt = "去年" }},
+		{"企业简介超长", func(in *service.CreateEnterpriseInput) { in.Description = strings.Repeat("长", 501) }},
+	}
+	for i, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			users := memory.NewUserRepository(nil)
+			svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
+			uid := "user-bad-" + strconv.Itoa(i)
+			if _, err := users.Create(context.Background(), domain.User{ID: uid, Role: domain.RoleIndividual, Status: "active"}); err != nil {
+				t.Fatal(err)
+			}
+			in := validEntInput("测试企业")
+			c.mut(&in)
+			if _, err := svc.Create(context.Background(), domain.Actor{ID: uid, Role: domain.RoleIndividual}, in); err == nil {
+				t.Fatalf("%s: 期望被拒绝，实际通过", c.label)
+			}
+		})
+	}
+}
+
+// TestEnterpriseCreditCodeNormalized: 小写信用代码自动转大写后应被接受（不能因大小写误拒）。
+func TestEnterpriseCreditCodeNormalized(t *testing.T) {
+	users := memory.NewUserRepository(nil)
+	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
+	if _, err := users.Create(context.Background(), domain.User{ID: "user-lower", Role: domain.RoleIndividual, Status: "active"}); err != nil {
+		t.Fatal(err)
+	}
+	in := validEntInput("  测试企业  ")
+	in.CreditCode = "91500108ma5u1234xy"
+	e, err := svc.Create(context.Background(), domain.Actor{ID: "user-lower", Role: domain.RoleIndividual}, in)
+	if err != nil {
+		t.Fatalf("小写信用代码应被规范化后接受: %v", err)
+	}
+	if e.CreditCode != "91500108MA5U1234XY" {
+		t.Fatalf("credit_code: expected 大写, got %q", e.CreditCode)
+	}
+	if strings.TrimSpace(e.Name) != "测试企业" {
+		t.Fatalf("name 未去首尾空白: %q", e.Name)
+	}
+}
+
+// TestEnterpriseSubmitRequiresCompleteProfile: 资料不全（缺营业执照等）不得进入审核队列。
+func TestEnterpriseSubmitRequiresCompleteProfile(t *testing.T) {
+	cases := []struct {
+		label string
+		mut   func(*service.CreateEnterpriseInput)
+	}{
+		{"缺营业执照", func(in *service.CreateEnterpriseInput) { in.LicenseURL = "" }},
+		{"缺法人代表", func(in *service.CreateEnterpriseInput) { in.LegalPerson = "" }},
+		{"缺联系人", func(in *service.CreateEnterpriseInput) { in.ContactPerson = "" }},
+		{"缺联系电话", func(in *service.CreateEnterpriseInput) { in.ContactPhone = "" }},
+		{"缺企业分类", func(in *service.CreateEnterpriseInput) { in.IndustryCategory = "" }},
+		{"缺企业规模", func(in *service.CreateEnterpriseInput) { in.Scale = "" }},
+	}
+	for i, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			users := memory.NewUserRepository(nil)
+			svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
+			uid := "user-inc-" + strconv.Itoa(i)
+			if _, err := users.Create(context.Background(), domain.User{ID: uid, Role: domain.RoleIndividual, Status: "active"}); err != nil {
+				t.Fatal(err)
+			}
+			a := domain.Actor{ID: uid, Role: domain.RoleIndividual}
+			in := validEntInput("测试企业")
+			c.mut(&in)
+			e, err := svc.Create(context.Background(), a, in)
+			if err != nil {
+				t.Fatalf("Create(草稿档) 不应因必填项缺失而失败: %v", err)
+			}
+			if _, err := svc.Submit(context.Background(), a, e.ID); err == nil {
+				t.Fatalf("%s: 提审应被拒绝，实际通过", c.label)
+			}
+		})
+	}
+}
+
+// TestEnterpriseSubmitAcceptsCompleteProfile: 资料齐全可正常提审。
+func TestEnterpriseSubmitAcceptsCompleteProfile(t *testing.T) {
+	users := memory.NewUserRepository(nil)
+	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
+	if _, err := users.Create(context.Background(), domain.User{ID: "user-full", Role: domain.RoleIndividual, Status: "active"}); err != nil {
+		t.Fatal(err)
+	}
+	a := domain.Actor{ID: "user-full", Role: domain.RoleIndividual}
+	e, err := svc.Create(context.Background(), a, validEntInput("重庆测试无人机有限公司"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.Submit(context.Background(), a, e.ID)
+	if err != nil {
+		t.Fatalf("资料齐全应可提审: %v", err)
+	}
+	if got.Status != domain.EnterpriseSubmitted {
+		t.Fatalf("status: expected %s, got %s", domain.EnterpriseSubmitted, got.Status)
 	}
 }

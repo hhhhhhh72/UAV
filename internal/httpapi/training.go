@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -365,6 +366,10 @@ func (s *Server) approvePilot(w http.ResponseWriter, r *http.Request) {
 		p.IDCard = crypto.MaskIDCard(p.IDCard)
 	}
 	s.audit(r.Context(), a.ID, "approve_pilot", "certified_pilot", p.ID, "approved")
+	// 审核结果通知申请人本人（企业入驻审核已有此通知，飞手认证此前漏了）
+	s.notify(p.UserID, "飞手认证结果",
+		fmt.Sprintf("恭喜，「%s」的飞手认证已通过，已收录进协会认证飞手名录", p.RealName),
+		"pilot", p.ID)
 	respond(w, r, http.StatusOK, p)
 }
 
@@ -461,6 +466,13 @@ func (s *Server) rejectPilot(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
+	reason := ""
+	if strings.TrimSpace(in.Reason) != "" {
+		reason = "，原因：" + strings.TrimSpace(in.Reason)
+	}
+	s.notify(p.UserID, "飞手认证结果",
+		fmt.Sprintf("很遗憾，「%s」的飞手认证未通过%s，可补充材料后重新提交", p.RealName, reason),
+		"pilot", p.ID)
 	respond(w, r, http.StatusOK, p)
 }
 

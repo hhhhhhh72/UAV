@@ -15,6 +15,8 @@ type JobService struct {
 	repo   repository.JobRepository
 	resume repository.ResumeRepository
 	app    repository.JobApplicationRepository
+	// ents 可选：为「我的投递」回填发布单位名称（缺省时该字段留空，不影响其余功能）。
+	ents repository.EnterpriseRepository
 }
 
 var (
@@ -29,8 +31,14 @@ func validJobStatus(s domain.JobStatus) bool {
 	return s == domain.JobDraft || s == domain.JobPublished || s == domain.JobClosed
 }
 
-func NewJobService(j repository.JobRepository, r repository.ResumeRepository, a repository.JobApplicationRepository) *JobService {
-	return &JobService{repo: j, resume: r, app: a}
+// NewJobService ents 为可选参数（变参避免改动既有测试/调用点签名）：
+// 传入后「我的投递」可回填发布单位名称，不传则该字段恒为空串。
+func NewJobService(j repository.JobRepository, r repository.ResumeRepository, a repository.JobApplicationRepository, ents ...repository.EnterpriseRepository) *JobService {
+	s := &JobService{repo: j, resume: r, app: a}
+	if len(ents) > 0 {
+		s.ents = ents[0]
+	}
+	return s
 }
 
 // ---- Jobs ----
@@ -353,4 +361,95 @@ func (s *JobService) ListApplicantsForJob(ctx context.Context, a domain.Actor, j
 }
 func (s *JobService) ListMyApplications(ctx context.Context, a domain.Actor) ([]domain.JobApplication, error) {
 	return s.app.ListByApplicant(ctx, a.ID)
+}
+
+// JobBrief 投递记录内嵌的职位快照（求职者判断"投的是什么岗"所需的最小字段）。
+type JobBrief struct {
+	ID           string           `json:"id"`
+	Title        string           `json:"title"`
+	Location     string           `json:"location"`
+	JobType      string           `json:"job_type"`
+	SalaryFen    int64            `json:"salary_fen"`
+	Status       domain.JobStatus `json:"status"`
+	EnterpriseID string           `json:"enterprise_id"`
+	CreatedAt    time.Time        `json:"created_at"`
+	UpdatedAt    time.Time        `json:"updated_at"`
+}
+
+// MyApplicationView 求职者视角的投递记录：投递本体字段保持在顶层
+// （job_id/status/created_at 等与改造前一致，既有调用方无需调整），另附
+// job（职位已删除时为 null）与 enterprise_name（查不到单位时为空串，前端据此不展示，不编造）。
+type MyApplicationView struct {
+	domain.JobApplication
+	Job            *JobBrief `json:"job"`
+	EnterpriseName string    `json:"enterprise_name"`
+}
+
+// ListMyApplicationViews 我的投递（附职位与发布单位）。
+// 投递记录本身只存 job_id：求职者靠公开职位列表只能回填"仍在招聘"的职位，
+// 已关闭/已删除的职位会退化成裸 ID，故在服务端一次补齐。
+// 性能：仅本人投递（条数天然有限），职位与单位按 ID 去重后各查一次，避免 N+1。
+func (s *JobService) ListMyApplicationViews(ctx context.Context, a domain.Actor) ([]MyApplicationView, error) {
+	apps, err := s.ListMyApplications(ctx, a)
+	if err != nil {
+		return nil, fmt.Errorf("list my applications: %w", err)
+	}
+	out := make([]MyApplicationView, 0, len(apps)) // 空列表用 [] 而非 null，前端无需再兜底
+	jobCache := make(map[string]*JobBrief, len(apps))
+	nameCache := make(map[string]string)
+	for _, ap := range apps {
+		brief, cached := jobCache[ap.JobID]
+		if !cached {
+			brief = s.jobBrief(ctx, ap.JobID)
+			jobCache[ap.JobID] = brief
+		}
+		v := MyApplicationView{JobApplication: ap, Job: brief}
+		if brief != nil && brief.EnterpriseID != "" {
+			name, ok := nameCache[brief.EnterpriseID]
+			if !ok {
+				name = s.enterpriseName(ctx, brief.EnterpriseID)
+				nameCache[brief.EnterpriseID] = name
+			}
+			v.EnterpriseName = name
+		}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+// jobBrief 取职位快照；职位已被删除（或 ID 为空）时返回 nil，调用方据此提示"职位已删除"。
+func (s *JobService) jobBrief(ctx context.Context, id string) *JobBrief {
+	if id == "" {
+		return nil
+	}
+	j, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil
+	}
+	return &JobBrief{
+		ID: j.ID, Title: j.Title, Location: j.Location, JobType: j.JobType,
+		SalaryFen: j.SalaryFen, Status: j.Status, EnterpriseID: j.EnterpriseID,
+		CreatedAt: j.CreatedAt, UpdatedAt: j.UpdatedAt,
+	}
+}
+
+// enterpriseName 发布单位名称。job.EnterpriseID 有两种来源：企业实体 ID（管理端指定），
+// 或发布者用户 ID（CreateJob 以 actor.ID 作为归属）——两种各查一次，都查不到返回空串。
+func (s *JobService) enterpriseName(ctx context.Context, ownerID string) string {
+	if s.ents == nil || ownerID == "" {
+		return ""
+	}
+	if e, err := s.ents.FindByID(ctx, ownerID); err == nil && e.Name != "" {
+		return e.Name
+	}
+	list, err := s.ents.FindByOwner(ctx, ownerID)
+	if err != nil {
+		return ""
+	}
+	for _, e := range list {
+		if e.Name != "" {
+			return e.Name
+		}
+	}
+	return ""
 }

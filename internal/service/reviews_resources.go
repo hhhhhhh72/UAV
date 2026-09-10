@@ -12,6 +12,10 @@ import (
 
 // ---- Reviews ----
 
+// ErrReviewAlreadyExists 同一评价人对同一目标已有评价（待审或已通过）。
+// 单独成哨兵错误是为了让 Handler 能映射成 409 而不是 500——这是业务冲突，不是服务故障。
+var ErrReviewAlreadyExists = errors.New("您已评价过该目标")
+
 type ReviewService struct {
 	repo      repository.ReviewRepository
 	orderRepo repository.WorkOrderRepository // 工单评价校验（target_type=work_order）用
@@ -44,14 +48,17 @@ func (s *ReviewService) Submit(ctx context.Context, reviewerID, targetType, targ
 		}
 	}
 	// 幂等：同一用户对同一目标已评价（pending/approved）则拒绝；被驳回后可重新评价。
-	// 查询出错必须上抛（此前 _ 吞错，DB 故障时误判"未评价"继续创建 → 重复评价）。
-	existing, err := s.repo.ListByTarget(ctx, targetType, targetID)
+	//
+	// 必须走 ListByReviewerTarget（不按 status 过滤）而不是 ListByTarget：
+	// 后者是"对外展示口径"仅返回 approved，而新评价是 pending —— 用它会查空，
+	// 同一人就能反复提交同一目标的评价（实测连发 3 次全部 201）。
+	existing, err := s.repo.ListByReviewerTarget(ctx, reviewerID, targetType, targetID)
 	if err != nil {
 		return domain.Review{}, fmt.Errorf("list reviews for duplicate check: %w", err)
 	}
 	for _, e := range existing {
-		if e.ReviewerID == reviewerID && e.Status != "rejected" {
-			return domain.Review{}, errors.New("您已评价过该目标")
+		if e.Status != "rejected" {
+			return domain.Review{}, ErrReviewAlreadyExists
 		}
 	}
 	r := domain.Review{ID: nextID("review"), ReviewerID: reviewerID,

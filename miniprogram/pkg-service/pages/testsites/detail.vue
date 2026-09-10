@@ -108,17 +108,30 @@
       <!-- 区 5：预约安排（近 7 天可约条——点选日期带该日期直达预约表单；规则 / 确认流程；占用以场地方确认为准） -->
       <view class="detail-section">
         <text class="section-title">预约安排</text>
+
+        <!-- 已预约提示：场地可多次预约，所以只提示不拦截；数据来自「我的预约」同一接口 -->
+        <view v-if="mySiteBookings.length" class="bk-hint">
+          <text class="bk-hint-mark">✓</text>
+          <view class="bk-hint-main">
+            <text class="bk-hint-title">你已预约过该场地 {{ mySiteBookings.length }} 次</text>
+            <text class="bk-hint-sub">{{ hintSub }}</text>
+          </view>
+          <text class="bk-hint-link" @tap="goMyBookings">查看 ›</text>
+        </view>
+
         <view class="day-block">
           <view class="day-title-row">
             <text class="day-title">意向日期（近 7 天）</text>
             <text class="day-more" @tap="goBooking()">去预约 ›</text>
           </view>
           <view class="day-strip">
-            <view v-for="(d, i) in nextDays()" :key="i" class="day-cell" :class="{ today: d.today }" hover-class="day-press" @tap="goBooking(d.dateKey)">
+            <view v-for="(d, i) in nextDays()" :key="i" class="day-cell" :class="{ booked: bookedDateKeys[d.dateKey], today: d.today }" hover-class="day-press" @tap="goBooking(d.dateKey)">
               <text class="day-text">{{ d.label }}</text>
+              <text v-if="bookedDateKeys[d.dateKey]" class="day-dot" />
             </view>
           </view>
           <text class="day-hint">点选日期带该日期去预约；当天是否可约以场地方确认为准</text>
+          <text v-if="bookedDayCount" class="day-legend"><text class="day-legend-dot" />绿点 = 你已预约的日期</text>
         </view>
         <view class="param-row">
           <text class="param-label">预约规则</text>
@@ -189,6 +202,8 @@ const sceneSlots = computed(() =>
 const loading = ref(false)
 const errorMsg = ref('')
 const site = ref(null)
+// 我在本场地的预约（只留待确认/已通过且未过期）：场地可多次预约，这里只用于提示，不拦截下单
+const mySiteBookings = ref([])
 const { noMotion, checkMotion } = useReduceMotion()
 
 let siteId = ''
@@ -198,7 +213,8 @@ const bookLabel = computed(() => {
   if (!site.value) return ''
   if (site.value.status === 'maintenance') return '维护中暂不可约'
   if (site.value.status === 'reserved') return '该时段已约满，请选择其他场地'
-  return '立即预约'
+  // 已预约过 → 按钮改成「再次预约」：不阻止（场地可多次预约），但别让人以为系统不知道
+  return mySiteBookings.value.length ? '再次预约' : '立即预约'
 })
 
 // 是否可预约：驱动 CTA 禁用态与按压反馈（disabled 时 hover 置 none，禁用按钮不再缩放）
@@ -236,6 +252,71 @@ function nextDays() {
   }
   return out
 }
+// ── 已预约提示（与「我的预约」同接口 /api/v1/test-sites/bookings/mine）──
+const BK_STATUS_TEXT = { pending: '待确认', approved: '已通过', rejected: '已拒绝' }
+// 预约时间口语化：8月20日 09:00-11:00（与「我的预约」卡片同款格式）
+function bkTimeText(b) {
+  const raw = b && b.start_time
+  if (!raw) return '时间待定'
+  const d = new Date(raw)
+  if (isNaN(d.getTime())) return String(raw).slice(0, 16).replace('T', ' ')
+  const p = (n) => (n < 10 ? '0' + n : '' + n)
+  const day = (d.getMonth() + 1) + '月' + d.getDate() + '日'
+  const start = p(d.getHours()) + ':' + p(d.getMinutes())
+  const e = b.end_time ? new Date(b.end_time) : null
+  const end = e && !isNaN(e.getTime()) ? '-' + p(e.getHours()) + ':' + p(e.getMinutes()) : ''
+  return day + ' ' + start + end
+}
+function dateKeyOf(t) {
+  const p = (n) => (n < 10 ? '0' + n : '' + n)
+  return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate())
+}
+// 还"算数"的预约（未到期）与历史预约分开：前者说"下次预约"，后者说"最近一次"
+// —— 从「我的预约」点进来的人，看到的往往正是历史那一条，不能因为过期就当没约过
+const upcomingBookings = computed(() => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return mySiteBookings.value
+    .filter((b) => {
+      const t = b && b.start_time ? new Date(b.start_time) : null
+      return !t || isNaN(t.getTime()) || t >= today
+    })
+    .slice()
+    .sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0))
+})
+const hintSub = computed(() => {
+  const up = upcomingBookings.value[0]
+  if (up) return '下次预约：' + bkTimeText(up) + ' · ' + (BK_STATUS_TEXT[up.status] || up.status)
+  const last = mySiteBookings.value[0] // 已按时间倒序，第一条即最近一次
+  if (last) return '最近一次：' + bkTimeText(last) + ' · ' + (BK_STATUS_TEXT[last.status] || last.status)
+  return ''
+})
+// 近 7 天里哪些日子我已经约过（日期格上打点）
+const bookedDateKeys = computed(() => {
+  const map = {}
+  upcomingBookings.value.forEach((b) => {
+    const t = b && b.start_time ? new Date(b.start_time) : null
+    if (t && !isNaN(t.getTime())) map[dateKeyOf(t)] = true
+  })
+  return map
+})
+const bookedDayCount = computed(() => Object.keys(bookedDateKeys.value).length)
+function goMyBookings() { safeNavigateTo('/pkg-service/pages/testsites/mybookings') }
+async function loadMyBookings() {
+  if (!siteId || !uni.getStorageSync('accessToken')) { mySiteBookings.value = []; return }
+  try {
+    const res = await request({ url: '/api/v1/test-sites/bookings/mine' })
+    const list = Array.isArray(res) ? res : (res && res.data) || []
+    // 保留历史预约：从「我的预约」点进来的多半就是历史那条，按时间倒序给"最近一次"用
+    mySiteBookings.value = (Array.isArray(list) ? list : [])
+      .filter((b) => b && b.site_id === siteId)
+      .filter((b) => b.status === 'pending' || b.status === 'approved')
+      .sort((a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0))
+  } catch (e) {
+    mySiteBookings.value = [] // 提示取不到不影响主流程
+  }
+}
+
 function isSense(f) { return !!SENSE_FACILITIES[f] }
 // 面议判定：供模板 :class 使用（与 list 同款；重构时曾遗漏，模板调用致白屏）
 function isFace(fen) { return fen == null || fen <= 0 }
@@ -314,12 +395,16 @@ onLoad((options) => {
   checkMotion()
   siteId = (options && options.id) || ''
   fetchDetail()
+  loadMyBookings()
 })
 
 onShow(() => {
   checkMotion()
   // 评审 P2：预约往返后静默重拉（已有数据不清骨架；首次 onShow 早于 fetchDetail 返回时跳过）
-  if (siteId && site.value) fetchDetail(false)
+  if (siteId && site.value) {
+    fetchDetail(false)
+    loadMyBookings() // 预约返回后立刻把提示与"已约日期"刷新出来
+  }
 })
 </script>
 
@@ -574,6 +659,33 @@ onShow(() => {
   display: flex;
   gap: 12rpx;
 }
+/* 已预约提示条（蓝底信息块：只告知，不拦单） */
+.bk-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 20rpx;
+  border-radius: 12rpx;
+  background: #EAF3FB;
+}
+.bk-hint-mark {
+  flex-shrink: 0;
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  background: #0A66C2;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 700;
+  text-align: center;
+  line-height: 32rpx;
+}
+.bk-hint-main { flex: 1; min-width: 0; }
+.bk-hint-title { display: block; font-size: 26rpx; font-weight: 600; color: #17212B; }
+.bk-hint-sub { display: block; margin-top: 4rpx; font-size: 24rpx; color: #667085; }
+.bk-hint-link { flex-shrink: 0; font-size: 24rpx; font-weight: 600; color: #0A66C2; padding: 4rpx 0 4rpx 12rpx; }
+
 .day-cell {
   flex: 1;
   display: flex;
@@ -590,6 +702,18 @@ onShow(() => {
 .day-press {
   opacity: 0.7;
 }
+/* 已约日期：绿色描边 + 圆点（.today 规则在其后，两者同时命中时以"今天"的蓝为主） */
+.day-cell.booked { border-color: #A8DCC4; background: #F3FBF7; }
+.day-dot { width: 10rpx; height: 10rpx; border-radius: 50%; background: #25915A; }
+.day-legend {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 12rpx;
+  font-size: 20rpx;
+  color: #667085;
+}
+.day-legend-dot { width: 10rpx; height: 10rpx; border-radius: 50%; background: #25915A; }
 .day-cell.today {
   border-color: #0A66C2;
   background: #EAF3FB;

@@ -190,7 +190,7 @@ func TestEnterprisePublicDetailOnlyApproved(t *testing.T) {
 
 	// user-1 创建企业（draft，带完整展示字段 + 敏感字段）
 	w := request(t, app, http.MethodPost, "/api/v1/enterprises",
-		[]byte(`{"name":"公开详情测试企业","credit_code":"91110108MA01TESTX","contact_phone":"13800001234","industry_category":"测绘","scale":"20-99人","address":"深圳市南山区科技园","description":"专注无人机测绘","business_hours":"9:00-18:00","founded_at":"2019-06-01","capability_tags":"测绘,巡检"}`), domain.RoleEnterprise)
+		[]byte(`{"name":"公开详情测试企业","credit_code":"91110108MA01TESTXY","legal_person":"张三","contact_person":"李四","contact_phone":"13800001234","industry_category":"测绘","scale":"20-50人","license_url":"/uploads/private/lic-p0","address":"深圳市南山区科技园","description":"专注无人机测绘","business_hours":"9:00-18:00","founded_at":"2019-06-01","capability_tags":"测绘,巡检"}`), domain.RoleEnterprise)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create enterprise: %d %s", w.Code, w.Body.String())
 	}

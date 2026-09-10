@@ -6,7 +6,7 @@
     <view v-else-if="name === 'check'" class="u-icon-check" :style="{ borderColor: color }" />
     <view v-else-if="name === 'search'" class="u-icon-search" :style="{ borderColor: color }" />
     <view v-else-if="name === 'back'" class="u-icon-arrow u-icon-arrow--left" :style="{ borderColor: color }" />
-    <view v-else-if="name === 'location'" class="u-icon-location" :style="{ borderColor: color, background: color }" />
+    <view v-else-if="name === 'location'" class="u-icon-location" :style="{ borderColor: color }" />
     <view v-else-if="name === 'success'" class="u-icon-success" :style="{ borderColor: color }"><text class="u-icon-success-mark">✓</text></view>
     <text v-else class="u-icon-char" :style="{ color, fontSize: size }">{{ name }}</text>
   </view>
@@ -31,7 +31,7 @@ defineProps({
 .u-icon-check { width: 24rpx; height: 14rpx; border-left: 4rpx solid; border-bottom: 4rpx solid; transform: rotate(-45deg); border-radius: 2rpx; }
 .u-icon-search { width: 20rpx; height: 20rpx; border: 4rpx solid; border-radius: 50%; }
 .u-icon-search::after { content: ''; position: absolute; right: -10rpx; bottom: -6rpx; width: 14rpx; height: 4rpx; border-radius: 4rpx; border-bottom: 4rpx solid; border-bottom-color: inherit; transform: rotate(45deg); }
-.u-icon-location { width: 20rpx; height: 20rpx; border: 4rpx solid; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); }
+.u-icon-location { width: 20rpx; height: 20rpx; border: 3rpx solid; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-sizing: border-box; }
 .u-icon-success { width: 28rpx; height: 28rpx; border: 4rpx solid; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .u-icon-success-mark { font-size: 18rpx; line-height: 1; }
 .u-icon-char { line-height: 1; }

@@ -2351,6 +2351,48 @@ func (r *pgExhibitionRepo) ListBooths(ctx context.Context, exhibitionID string) 
 	}
 	return out, rows.Err()
 }
+// ListAllBooths 全平台展位申请（管理端审核列表用）：单查询 + 可选状态过滤。
+func (r *pgExhibitionRepo) ListAllBooths(ctx context.Context, status string) ([]domain.ExhibitionBooth, error) {
+	q := "SELECT id,exhibition_id,exhibitor_id,booth_number,exhibit_name,exhibit_desc,status,created_at FROM exhibition_booths"
+	args := []any{}
+	if status != "" {
+		q += " WHERE status=$1"
+		args = append(args, status)
+	}
+	q += " ORDER BY created_at DESC"
+	rows, err := r.pool.Query(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.ExhibitionBooth
+	for rows.Next() {
+		var b domain.ExhibitionBooth
+		if err := rows.Scan(&b.ID, &b.ExhibitionID, &b.ExhibitorID, &b.BoothNumber, &b.ExhibitName, &b.ExhibitDesc, &b.Status, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+// ListBoothsByExhibitor 我的展位申请（跨展会，时间倒序）。
+func (r *pgExhibitionRepo) ListBoothsByExhibitor(ctx context.Context, exhibitorID string) ([]domain.ExhibitionBooth, error) {
+	rows, err := r.pool.Query(ctx,
+		"SELECT id,exhibition_id,exhibitor_id,booth_number,exhibit_name,exhibit_desc,status,created_at FROM exhibition_booths WHERE exhibitor_id=$1 ORDER BY created_at DESC", exhibitorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.ExhibitionBooth
+	for rows.Next() {
+		var b domain.ExhibitionBooth
+		if err := rows.Scan(&b.ID, &b.ExhibitionID, &b.ExhibitorID, &b.BoothNumber, &b.ExhibitName, &b.ExhibitDesc, &b.Status, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
 func (r *pgExhibitionRepo) UpdateBoothStatus(ctx context.Context, id, status string) (domain.ExhibitionBooth, error) {
 	var b domain.ExhibitionBooth
 	err := r.pool.QueryRow(ctx,

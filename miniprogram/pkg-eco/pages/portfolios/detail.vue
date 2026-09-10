@@ -378,7 +378,8 @@ onLoad((options) => {
 .pulse { position: absolute; inset: -4rpx; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); animation: pulse 2s ease-out infinite; }
 @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.55); opacity: 0; } }
 .hero-badge {
-  position: absolute; left: 32rpx; bottom: 28rpx; z-index: 3;
+  /* bottom 必须大于信息卡上提量（.d-info margin-top: -68rpx），否则徽章被白卡整个盖住 */
+  position: absolute; left: 32rpx; bottom: 84rpx; z-index: 3;
   display: inline-block; font-size: 22rpx; padding: 6rpx 20rpx; border-radius: 8rpx;
   font-weight: 600; background: rgba(255,255,255,.92); color: #0A66C2;
 }

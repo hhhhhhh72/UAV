@@ -156,9 +156,10 @@
             <view class="card-info">
               <view class="info-top">
                 <text class="card-title">{{ orgName(item) }}</text>
-                <view class="rating-box">
+                <!-- 只有真有评分才出评分块：此前 item.rating 为空时兜 '5.0'，等于给无评分课程编了个满分 -->
+                <view v-if="hasRating(item)" class="rating-box">
                   <text class="rating-star">★</text>
-                  <text class="rating-num">{{ item.rating || '5.0' }}</text>
+                  <text class="rating-num">{{ item.rating }}</text>
                 </view>
               </view>
 
@@ -166,7 +167,7 @@
 
               <view class="card-meta">
                 <text class="meta-text">{{ shortRegion(item) }}</text>
-                <text v-if="item.review_count" class="meta-reviews">{{ item.review_count }} 人评价</text>
+                <text v-if="hasRating(item) && item.review_count" class="meta-reviews">{{ item.review_count }} 人评价</text>
               </view>
 
               <view class="card-tags">
@@ -382,6 +383,11 @@ function onImgLoad(id) {
 /* ===== 数据映射 ===== */
 
 /** 机构名（卡片主标题） */
+// 评分：training_courses.rating 是管理端手填字段，空值 = 没有评分。
+// 缺数据就不展示（详情页 enroll.vue 同口径），绝不兜默认分。
+function hasRating(item) {
+  return Number(item && item.rating) > 0
+}
 function orgName(item) {
   return item.org_name || item.enterprise_name || item.name || item.title || '未知机构'
 }

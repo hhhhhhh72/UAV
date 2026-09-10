@@ -18,7 +18,7 @@
             :key="s.name"
             class="cat-item"
             hover-class="tap-fade"
-            @tap="go(s.path)"
+            @tap="go(s)"
           >
             <view class="cat-icon" :style="{ background: cat.bg }">
               <image class="cat-icon-img" :src="s.icon" mode="aspectFit" />
@@ -38,9 +38,16 @@ import Layout from '@/components/Layout.vue'
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
 
 const iconRoot = '/static/home/icons/'
-const go = (path) => {
-  if (path === 'tab-services') return uni.switchTab({ url: '/pages/services/index' })
-  if (path) uni.navigateTo({ url: path })
+// 入参兼容：老写法传 path 字符串，新写法传整个 entry（用于识别"暂未开放"的入口）
+const go = (entry) => {
+  const item = entry && typeof entry === 'object' ? entry : { path: entry }
+  if (item.soon) {
+    // 暂未开放的模块不跳页：如实提示，避免点进半成品页面
+    uni.showToast({ title: item.soon, icon: 'none' })
+    return
+  }
+  if (item.path === 'tab-services') return uni.switchTab({ url: '/pages/services/index' })
+  if (item.path) uni.navigateTo({ url: item.path })
 }
 
 const categories = [
@@ -91,7 +98,8 @@ const categories = [
     items: [
       { name: '协会活动', icon: iconRoot + 'message-blue.svg', path: '/pkg-eco/pages/activities/list' },
       { name: '赛事活动', icon: iconRoot + 'pilot.svg', path: '/pkg-eco/pages/competitions/list' },
-      { name: '品牌展示', icon: iconRoot + 'shop.svg', path: '/pkg-eco/pages/portfolios/list' },
+      // 品牌展示暂未开放：入口保留（别让人以为漏做了），点进去只提示"敬请期待"，暂不跳页
+      { name: '品牌展示', icon: iconRoot + 'shop.svg', path: '', soon: '敬请期待' },
       { name: '展会排期', icon: iconRoot + 'ecoservice.svg', path: '/pkg-eco/pages/exhibitions/list' },
       { name: '行业报告', icon: iconRoot + 'policy.svg', path: '/pkg-service/pages/reports/list' },
     ],

@@ -1,5 +1,5 @@
 <template>
-  <view class="page" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
+  <view class="page" :class="{ 'no-motion': noMotion }" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
     <u-nav-bar title="展会详情" show-back :fixed="true" @back="goBack" />
 
     <!-- 加载骨架 -->
@@ -22,9 +22,12 @@
         <!-- Hero -->
         <view class="hero" :class="d.grad">
           <view class="hero-glow"></view>
-          <text class="hero-badge">{{ d.catLabel }} · {{ d.statusLabel }}</text>
           <text class="hero-char">{{ d.char }}</text>
-          <text class="hero-title">{{ d.title }}</text>
+          <!-- 徽章 + 标题合成一个底部块（与活动详情页同构）：整块抬到信息卡上沿之上，不被卡片压住 -->
+          <view class="hero-foot">
+            <text class="hero-badge">{{ d.catLabel }} · {{ d.statusLabel }}</text>
+            <text class="hero-title">{{ d.title }}</text>
+          </view>
         </view>
 
         <!-- 信息卡 -->
@@ -50,6 +53,19 @@
             <view class="info-ic ic-purple"><text>价</text></view>
             <view class="info-txt"><text class="info-label">展位价格</text><text class="info-value">{{ d.priceText || '待定' }}</text></view>
           </view>
+        </view>
+
+        <!-- 我的展位申请：提交后回到本页能看到进度（此前小程序侧完全看不到申请结果） -->
+        <view v-if="myBooth" class="sec my-booth">
+          <view class="sh"><view class="sd"></view><text class="sht">我的展位申请</text></view>
+          <view class="mb-row"><text class="mb-k">展位号</text><text class="mb-v">{{ myBooth.booth_number || '待分配' }}</text></view>
+          <view class="mb-row"><text class="mb-k">展品名称</text><text class="mb-v">{{ myBooth.exhibit_name || '—' }}</text></view>
+          <view class="mb-row"><text class="mb-k">申请时间</text><text class="mb-v">{{ fullDate(myBooth.created_at) }}</text></view>
+          <view class="mb-row">
+            <text class="mb-k">审核状态</text>
+            <text class="mb-v mb-st" :class="'mb-st--' + myBooth.status">{{ boothStatusText }}</text>
+          </view>
+          <text class="mb-note">{{ boothStatusNote }}</text>
         </view>
 
         <!-- 展会介绍 -->
@@ -95,7 +111,7 @@
         </view>
         <view class="bo" @tap="onContact">联系主办</view>
         <view class="bp" :class="{ disabled: !canApply }" @tap="goBooth">
-          {{ d.status === 'ended' ? '已结束' : (d.status === 'underway' ? '进行中' : '申请展位') }}
+          {{ bootCtaText }}
         </view>
       </view>
     </template>
@@ -104,8 +120,9 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { request } from '@/utils/request'
+import { useReduceMotion } from '@/utils/motion'
 import { MOCK_EXHIBITIONS, MOCK_BOOTHS_BY_EXPO, EXPO_CATEGORY_LABEL, EXPO_STATUS_LABEL, fmtRange, fmtFen, gradOfCategory, buildBoothCells } from '@/utils/mockExhibitions'
 
 const id = ref('')
@@ -114,9 +131,31 @@ const loading = ref(true)
 const err = ref(false)
 const isFav = ref(false)
 const statusBarHeight = ref(20)
+// 我在本展会的展位申请（登录且已申请时才有值）
+const myBooth = ref(null)
+const { noMotion, checkMotion } = useReduceMotion()
 let toastTimer = null
 
-const canApply = computed(() => !!d.value && (d.value.status === 'recruiting' || d.value.status === 'draft'))
+// 已申请过就不再放行"申请展位"：后端 applyBooth 对同展会同参展商本来就拒（409），
+// 前端不拦只会让人白填一遍表单
+const canApply = computed(() => !!d.value && (d.value.status === 'recruiting' || d.value.status === 'draft') && !myBooth.value)
+
+const BOOTH_STATUS_TEXT = { applied: '待审核', approved: '已通过', rejected: '已驳回', paid: '已缴费' }
+const boothStatusText = computed(() => (myBooth.value ? (BOOTH_STATUS_TEXT[myBooth.value.status] || myBooth.value.status) : ''))
+const boothStatusNote = computed(() => {
+  const s = myBooth.value && myBooth.value.status
+  if (s === 'approved') return '展位已确认，请留意主办方的后续对接通知。'
+  if (s === 'paid') return '展位费已缴纳，展位已锁定。'
+  if (s === 'rejected') return '本次申请未通过；如需再次申请，请联系主办方。'
+  return '申请已提交，结果以主办方通知为准（本页实时显示最新状态）。'
+})
+const bootCtaText = computed(() => {
+  if (myBooth.value) return '已申请 · ' + boothStatusText.value
+  if (!d.value) return ''
+  if (d.value.status === 'ended') return '已结束'
+  if (d.value.status === 'underway') return '进行中'
+  return '申请展位'
+})
 
 // ===== 数据映射 =====
 const buildDetail = (it, booths = []) => {
@@ -188,6 +227,30 @@ const fetchData = async () => {
   }
 }
 
+// ===== 我的展位申请（登录才请求；失败静默，不挡主流程）=====
+async function loadMyBooth() {
+  if (!id.value || !uni.getStorageSync('accessToken')) {
+    myBooth.value = null
+    return
+  }
+  try {
+    const res = await request({ url: '/api/v1/exhibitions/booths/mine' })
+    const list = Array.isArray(res) ? res : (res && res.data) || []
+    myBooth.value = (Array.isArray(list) ? list : []).find((b) => b && b.exhibition_id === id.value) || null
+  } catch (e) {
+    myBooth.value = null
+  }
+}
+
+// 时间格式化（申请时间）
+function fullDate(v) {
+  if (!v) return '—'
+  const t = new Date(v)
+  if (isNaN(t.getTime())) return String(v).slice(0, 10)
+  const p = (n) => (n < 10 ? '0' + n : '' + n)
+  return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate())
+}
+
 // ===== 交互 =====
 const toggleFav = () => {
   isFav.value = !isFav.value
@@ -209,7 +272,14 @@ onLoad((options) => {
     const sys = uni.getSystemInfoSync()
     statusBarHeight.value = sys.statusBarHeight || 20
   } catch (e) { /* 保持默认 */ }
+  checkMotion()
   fetchData()
+  loadMyBooth()
+})
+
+onShow(() => {
+  // 从申请表单返回后立刻刷新"我的申请"，不用退出去重进
+  if (id.value) loadMyBooth()
 })
 </script>
 
@@ -217,11 +287,38 @@ onLoad((options) => {
 .page { min-height: 100vh; background: #F4F6F8; padding-bottom: 120rpx; }
 
 /* ===== Hero ===== */
-.hero { position: relative; height: 460rpx; overflow: hidden; display: flex; align-items: flex-end; }
+.hero { position: relative; height: 460rpx; overflow: hidden; }
 .hero-glow { position: absolute; inset: 0; background: radial-gradient(120% 90% at 78% 12%, rgba(255,255,255,.28), transparent 46%); }
-.hero-badge { position: absolute; left: 32rpx; top: 32rpx; font-size: 22rpx; padding: 6rpx 20rpx; border-radius: 8rpx; font-weight: 600; background: rgba(255,255,255,.92); color: #0A66C2; }
-.hero-char { position: absolute; left: 48rpx; bottom: 28rpx; font-size: 160rpx; font-weight: 800; color: rgba(255,255,255,.9); text-shadow: 0 3px 12px rgba(0,0,0,.28); line-height: 1; }
-.hero-title { position: absolute; left: 32rpx; right: 32rpx; bottom: 32rpx; font-size: 38rpx; font-weight: 700; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.3); line-height: 1.35; z-index: 3; }
+/* 装饰大字：靠左 + 垂直居中（top:50% 配半个行盒的负 margin 归中；不把 calc 塞进 transform，
+   小程序 transform 对 calc/rpx 支持不稳）。它和底部标题在同一竖线上，所以按"水印"处理：
+   降到 .32 透明度并压在标题下层（.hero-foot 是 z-index:3），大字的体量保留、标题照样读得清。 */
+.hero-char {
+  position: absolute;
+  left: 32rpx;
+  top: 50%;
+  margin-top: -80rpx; /* 行盒 160rpx 的一半 */
+  z-index: 1;
+  font-size: 160rpx;
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(255, 255, 255, .32);
+  text-shadow: 0 6rpx 24rpx rgba(0, 0, 0, .16);
+  animation: charFloat 3.2s ease-in-out infinite;
+}
+/* 漂浮动效：与活动详情页 .hero-ic 的 float 同规格（3.2s / 7px 幅度），全站动感语言一致 */
+@keyframes charFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14rpx); }
+}
+/* 减弱动效：系统偏好 + 页内判定 双保险（漂浮是装饰性循环，直接停掉） */
+.page.no-motion .hero-char { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-char { animation: none; }
+}
+/* 徽章 + 标题整块贴底：bottom 必须大于信息卡的上提量（-60rpx），否则被白卡压住 */
+.hero-foot { position: absolute; left: 32rpx; right: 32rpx; bottom: 76rpx; z-index: 3; }
+.hero-badge { display: inline-block; font-size: 22rpx; padding: 6rpx 20rpx; border-radius: 8rpx; font-weight: 600; background: rgba(255,255,255,.92); color: #0A66C2; margin-bottom: 12rpx; }
+.hero-title { font-size: 38rpx; font-weight: 700; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.3); line-height: 1.35; display: block; }
 
 /* ===== 信息卡 ===== */
 .info-card { position: relative; z-index: 5; margin: -60rpx 24rpx 0; background: #fff; border: 1px solid #EEF1F4; border-radius: 20rpx; padding: 28rpx 32rpx 12rpx; box-shadow: 0 8rpx 32rpx rgba(0,0,0,.05); }
@@ -247,6 +344,17 @@ onLoad((options) => {
 .sht { font-size: 30rpx; font-weight: 700; color: #17212B; }
 .sb { font-size: 26rpx; color: #667085; line-height: 1.75; white-space: pre-wrap; display: block; }
 .sb.dim { color: #98A2B3; }
+
+/* ===== 我的展位申请 ===== */
+.mb-row { display: flex; align-items: flex-start; gap: 24rpx; padding: 16rpx 0; border-bottom: 1rpx solid #F0F1F3; }
+.mb-row:last-of-type { border-bottom: none; }
+.mb-k { flex: none; width: 140rpx; font-size: 26rpx; color: #667085; }
+.mb-v { flex: 1; min-width: 0; font-size: 28rpx; color: #17212B; font-weight: 500; word-break: break-all; }
+.mb-st { font-weight: 700; }
+.mb-st--applied { color: #B54708; }
+.mb-st--approved, .mb-st--paid { color: #25915A; }
+.mb-st--rejected { color: #D92D20; }
+.mb-note { display: block; margin-top: 16rpx; font-size: 24rpx; color: #667085; line-height: 1.6; }
 
 /* ===== 展位平面示意图 ===== */
 .fp-map { margin-top: 4rpx; border: 1px solid #EEF1F4; border-radius: 20rpx; padding: 24rpx; background: #FBFCFE; }

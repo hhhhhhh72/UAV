@@ -143,7 +143,7 @@
         <!-- ⑦ 底部固定栏（联系电话 + 访问官网） -->
         <view class="bottom-bar">
           <view class="btn-outline" v-if="detail.phone" hover-class="press-feedback" :hover-stay-time="120" @click="callPhone">联系电话</view>
-          <view v-if="detail.website" class="btn-primary" hover-class="press-feedback" :hover-stay-time="120" @click="openWebsite">访问官网</view>
+          <view v-if="detail.website" class="btn-primary" hover-class="press-feedback" :hover-stay-time="120" @click="openWebsite">复制官网链接</view>
         </view>
       </template>
     </StateView>
@@ -276,28 +276,22 @@ onShareAppMessage(function () {
   }
 })
 
-function websiteHost(u) {
-  if (typeof u !== 'string') return ''
-  var m = /^https?:\/\/([^\/?#]+)/.exec(u)
-  return m ? m[1].replace(/:\d+$/, '').toLowerCase() : ''
-}
-
-/** 官网跳转白名单：固定列表，仅放行 .edu.cn 后缀的教育机构官网域名（不由 URL 自行推导） */
-const WEBSITE_ALLOW_SUFFIXES = ['.edu.cn']
-
+/** 官网链接：复制到剪贴板由用户自行在浏览器打开。
+ *
+ * 为什么不用 web-view：微信要求 web-view 的目标域名必须是本小程序在后台登记过的「业务域名」，
+ * 而登记需要在对方站点根目录放校验文件——第三方院校官网（北航/南航等）不可能配合，
+ * 所以原来那套"白名单 + web-view"必然点不动（白名单只放 .edu.cn，非 edu 域名直接提示不支持）。
+ * 复制链接是唯一在任何域名上都成立的做法。
+ */
 function openWebsite() {
-  var w = detail.value && detail.value.website
+  var w = (detail.value && detail.value.website) || ''
   if (!w) return
-  var host = websiteHost(w)
-  var allowed = !!host && WEBSITE_ALLOW_SUFFIXES.some(function (suffix) {
-    return host.indexOf(suffix) === host.length - suffix.length
-  })
-  if (!allowed) {
-    uni.showToast({ title: '该官网暂不支持跳转', icon: 'none' })
-    return
-  }
-  uni.navigateTo({
-    url: '/pages/webview/index?url=' + encodeURIComponent(w) + '&allowed_domains=' + encodeURIComponent(host),
+  var url = /^https?:\/\//i.test(w) ? w : 'https://' + w
+  uni.setClipboardData({
+    data: url,
+    success: function () {
+      uni.showToast({ title: '官网地址已复制，请在浏览器中打开', icon: 'none', duration: 2400 })
+    },
   })
 }
 

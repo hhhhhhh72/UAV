@@ -1,10 +1,7 @@
 <template>
-  <view class="pub-page" :style="{ paddingTop: topPad + 'px' }">
-    <!-- 顶栏（与发布页同款） -->
-    <view class="pub-nav">
-      <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
-      <view class="pub-nav-title">申请认证飞手</view>
-    </view>
+  <view class="pub-page" :style="{ paddingTop: (statusBarHeight + 44) + 'px' }">
+    <!-- 顶栏：与名录/详情同款 u-nav-bar（内建胶囊避让与冷启动回首页兜底） -->
+    <u-nav-bar title="申请认证飞手" show-back :fixed="true" @back="goBack" />
 
     <!-- 表单头部 -->
     <view class="pub-form-intro">
@@ -107,7 +104,11 @@
           </view>
         </template>
         <template v-else>
-          <text class="cert-empty">暂无可关联的已认证证书，提交后仍可审核（证书可后续补充）</text>
+          <view class="cert-empty-block">
+            <text class="cert-empty-title">还没有可用于认证的证书</text>
+            <text class="cert-empty-desc">飞手认证要求至少 1 张已审核通过且未过期的证书（如 CAAC / AOPA / 大疆 UTC）。请先提交证书，协会审核通过后再回来申请。</text>
+            <view class="cert-empty-btn" hover-class="pub-btn--active" :hover-stay-time="80" @tap="goMyCerts">去提交证书</view>
+          </view>
         </template>
       </view>
     </view>
@@ -132,9 +133,9 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request, BASE_URL, authStorage, getErrorMessage, uploadFileWithAuth } from '../../../utils/request'
 import { requireLogin, safeBack } from '../../../utils/nav'
-import { useSafeTop } from '../../../utils/safeTop'
 
-const { topPad, initSafeTop } = useSafeTop(true)
+// 顶栏改用 u-nav-bar（与名录/详情同一套）：页面只需让出「状态栏 + 44px 导航高度」
+const statusBarHeight = ref(20)
 
 const goBack = () => safeBack()
 const form = ref({ real_name: '', id_card: '', flight_hours: '', bio: '', avatar: '', region: '' })
@@ -184,15 +185,27 @@ const loadCerts = async () => {
   }
 }
 
+// 去「我的证书」提交证书归档：飞手认证的前置条件（无证不能申请，不允许先审核后补证）
+const goMyCerts = () => {
+  uni.navigateTo({ url: '/pkg-talent/pages/training/certificates' })
+}
+
 const submit = async () => {
   if (!requireLogin()) return
   if (submitting.value) return
   if (!form.value.real_name.trim()) return uni.showToast({ title: '请输入真实姓名', icon: 'none' })
   if (!form.value.id_card.trim()) return uni.showToast({ title: '请输入身份证号', icon: 'none' })
   if (!/^\d{17}[\dXx]$/.test(form.value.id_card.trim())) return uni.showToast({ title: '身份证号格式不正确', icon: 'none' })
-  // 预检：至少一张已审核通过的证书（后端同规则含未过期校验；此处先给可读提示，避免提交后 403 兜底文案）
+  // 门禁：飞手认证必须持有至少一张"已审核通过且未过期"的证书（后端同规则）。
+  // 产品决策：不允许"先审核后补证"——没有证书就不能提交申请，因此这里给出口而不是只报错。
   if (!approvedCerts.value.length) {
-    return uni.showToast({ title: '需至少一张已审核通过的证书（如 CAAC/AOPA/UTC）才能申请飞手认证', icon: 'none', duration: 2500 })
+    return uni.showModal({
+      title: '还不能提交申请',
+      content: '飞手认证要求至少 1 张已审核通过且未过期的证书（如 CAAC / AOPA / 大疆 UTC）。请先提交证书，协会审核通过后再回来申请。',
+      confirmText: '去提交证书',
+      cancelText: '知道了',
+      success: (r) => { if (r.confirm) goMyCerts() },
+    })
   }
   submitting.value = true
   try {
@@ -225,7 +238,10 @@ const submit = async () => {
 
 // 已认证 / 审核中直接提示（驳回状态放行，可重提）；已认证给「查看档案」入口
 onLoad(async () => {
-  initSafeTop()
+  try {
+    const sys = uni.getSystemInfoSync()
+    if (sys && sys.statusBarHeight) statusBarHeight.value = sys.statusBarHeight
+  } catch (e) { /* 保持默认 20 */ }
   loadCerts()
   try {
     const res = await request({ url: '/api/v1/certified-pilots/mine' })
@@ -286,7 +302,7 @@ onLoad(async () => {
 
 /* 证书自动关联卡（浅蓝底蓝字，对齐 pub 色板） */
 .cert-card {
-  background: #E8F2FC;
+  background: #EAF3FB;
   border-radius: 9px;
   padding: 13px;
   display: flex;
@@ -297,7 +313,7 @@ onLoad(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #315776;
+  color: #17212B;
   font-size: 12px;
 }
 .cert-head {
@@ -312,7 +328,7 @@ onLoad(async () => {
 }
 .cert-desc {
   font-size: 12px;
-  color: #315776;
+  color: #17212B;
   line-height: 1.6;
   flex: 1;
 }
@@ -329,10 +345,32 @@ onLoad(async () => {
   color: #0A66C2;
   font-weight: 700;
 }
-.cert-empty {
+.cert-empty-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cert-empty-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #17212B;
+}
+.cert-empty-desc {
   font-size: 12px;
-  color: #315776;
+  color: #17212B;
   line-height: 1.6;
+}
+.cert-empty-btn {
+  align-self: flex-start;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: #0A66C2;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 /* 隐私说明 */
@@ -346,7 +384,7 @@ onLoad(async () => {
   font-size: 10px;
   padding: 2px 8px;
   border-radius: 5px;
-  background: #E8F2FC;
+  background: #EAF3FB;
   color: #0A66C2;
   font-weight: 700;
   flex-shrink: 0;

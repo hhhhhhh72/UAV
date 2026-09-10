@@ -51,6 +51,11 @@ type DemandService struct {
 // ErrRoleNotAllowed 角色无权执行该操作（如非企业/个人发布需求）。
 var ErrRoleNotAllowed = errors.New("only enterprise or individual users can publish demands")
 
+// ErrDemandNotDeletable 需求当前状态不允许删除（只允许删已取消/已驳回）。
+// 硬删会级联删除该需求下的对接意向（demand_intents ON DELETE CASCADE），
+// 所以删除只在"下游已关闭"的状态下开放：先下架，再删除。
+var ErrDemandNotDeletable = errors.New("只有已下架或未通过的需求可以删除")
+
 func NewDemandService(r repository.DemandRepository) *DemandService {
 	return &DemandService{repo: r}
 }
@@ -336,17 +341,22 @@ func (s *DemandService) CloseByAdmin(ctx context.Context, a domain.Actor, id, re
 	return s.repo.Update(ctx, d2)
 }
 
-// Delete 管理端删除需求（仅已取消/已关闭需求可删，防止误删在审/在售数据）。
+// Delete 删除需求：管理员可删任意"已取消/已驳回"需求，发布者本人可删自己的同类需求。
+//
+// 状态门槛不可放宽：需求下挂着对接意向（demand_intents ON DELETE CASCADE）与工单
+// （work_orders 外键 RESTRICT），只有已取消/已驳回这种"下游已关闭"的状态才允许硬删，
+// 其余状态一律走"下架"（cancel）。
 func (s *DemandService) Delete(ctx context.Context, a domain.Actor, id string) error {
-	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		return errors.New("admin permission required")
-	}
 	d, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return err
 	}
+	isAdmin := a.Role == domain.RoleAssociationAdmin || a.Role == domain.RolePlatformAdmin
+	if !isAdmin && d.PublisherID != a.ID {
+		return ErrNotOwner
+	}
 	if d.Status != domain.DemandCancelled && d.Status != domain.DemandRejected {
-		return errors.New("只有已取消或已驳回的需求可以删除")
+		return ErrDemandNotDeletable
 	}
 	return s.repo.Delete(ctx, id)
 }

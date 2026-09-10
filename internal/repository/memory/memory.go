@@ -2824,6 +2824,20 @@ func (r *reviewRepo) ListByTarget(ctx context.Context, targetType, targetID stri
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
+// ListByReviewerTarget 查重专用：不过滤 status（与 PG 实现对齐）。
+func (r *reviewRepo) ListByReviewerTarget(ctx context.Context, reviewerID, targetType, targetID string) ([]domain.Review, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.Review, 0)
+	for _, rv := range r.items {
+		if rv.ReviewerID == reviewerID && rv.TargetType == targetType && rv.TargetID == targetID {
+			out = append(out, rv)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+
 func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

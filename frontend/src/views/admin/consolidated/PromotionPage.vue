@@ -6,6 +6,7 @@
       <a-tab-pane title="活动管理" key="events"><EventList v-if="tab === 'events'" /></a-tab-pane>
       <a-tab-pane title="品牌管理" key="portfolios"><PortfolioList v-if="tab === 'portfolios'" /></a-tab-pane>
       <a-tab-pane title="展会管理" key="exhibitions"><ExhibitionList v-if="tab === 'exhibitions'" /></a-tab-pane>
+      <a-tab-pane title="展位申请" key="booths"><BoothApplicationList v-if="tab === 'booths'" /></a-tab-pane>
       <a-tab-pane title="报告管理" key="reports"><ReportList v-if="tab === 'reports'" /></a-tab-pane>
     </a-tabs>
   </div>
@@ -15,6 +16,7 @@ import { ref } from 'vue'
 import EventList from '../events/EventList.vue'
 import PortfolioList from '../portfolios/PortfolioList.vue'
 import ExhibitionList from '../exhibitions/ExhibitionList.vue'
+import BoothApplicationList from '../exhibitions/BoothApplicationList.vue'
 import ReportList from '../reports/ReportList.vue'
 import BizOverview from '../components/BizOverview.vue'
 

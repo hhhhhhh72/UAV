@@ -125,7 +125,9 @@ func TestEnterpriseReviewFlow(t *testing.T) {
 	_, _ = users.Create(context.Background(), domain.User{ID: entActor().ID, Role: domain.RoleEnterprise, Status: "active"})
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
 	a := entActor()
-	e, err := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业", AccountName: "6222"})
+	entIn := validEntInput("测试企业")
+	entIn.AccountName = "6222"
+	e, err := svc.Create(context.Background(), a, entIn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +155,7 @@ func TestEnterpriseReviewFlow(t *testing.T) {
 func TestEnterpriseReviewReject(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	a := entActor()
-	e, _ := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, _ := svc.Create(context.Background(), a, validEntInput("测试企业"))
 	svc.Submit(context.Background(), a, e.ID)
 	// Admin reject
 	e2, err := svc.Review(context.Background(), admActor(), e.ID, "reject", "资料不全")
@@ -168,7 +170,7 @@ func TestEnterpriseReviewReject(t *testing.T) {
 func TestEnterpriseNonAdminCannotReview(t *testing.T) {
 	svc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), memory.NewUserRepository(nil))
 	a := entActor()
-	e, _ := svc.Create(context.Background(), a, service.CreateEnterpriseInput{Name: "测试企业"})
+	e, _ := svc.Create(context.Background(), a, validEntInput("测试企业"))
 	svc.Submit(context.Background(), a, e.ID)
 	if _, err := svc.Review(context.Background(), indActor(), e.ID, "approve", ""); err == nil {
 		t.Fatal("individual should not review")

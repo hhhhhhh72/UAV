@@ -466,7 +466,7 @@ onUnload(() => {
   font-weight: 700;
 }
 .skill-tag-x {
-  color: #98A2B3;
+  color: #667085;
   font-size: 13px;
   line-height: 1;
 }

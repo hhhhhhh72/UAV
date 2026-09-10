@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 // POST /api/v1/demands/{id}/intents/{intentID}/accept — 企业确认接单，生成订单
@@ -27,6 +29,9 @@ func (s *Server) acceptIntent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "accept_intent", "work_order", wo.ID, "created")
+	s.notify(wo.WorkerID, "接单成功",
+		fmt.Sprintf("企业已确认您的接单，工单 %s 已生成，请及时开始作业", wo.OrderNo),
+		"work_order", wo.ID)
 	respond(w, r, http.StatusCreated, wo)
 }
 
@@ -88,6 +93,9 @@ func (s *Server) startWorkOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "start_work_order", "work_order", wo.ID, "started")
+	s.notify(wo.PublisherID, "作业已开始",
+		fmt.Sprintf("飞手已开始作业（工单 %s），完成后会提交验收", wo.OrderNo),
+		"work_order", wo.ID)
 	respond(w, r, http.StatusOK, wo)
 }
 
@@ -112,6 +120,9 @@ func (s *Server) completeWorkOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "complete_work_order", "work_order", wo.ID, "completed")
+	s.notify(wo.PublisherID, "作业待验收",
+		fmt.Sprintf("飞手已提交作业成果（工单 %s），请及时验收", wo.OrderNo),
+		"work_order", wo.ID)
 	respond(w, r, http.StatusOK, wo)
 }
 
@@ -128,6 +139,9 @@ func (s *Server) acceptWorkOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "accept_work_order", "work_order", wo.ID, "accepted")
+	s.notify(wo.WorkerID, "验收通过",
+		fmt.Sprintf("企业已验收通过（工单 %s），本次作业闭环", wo.OrderNo),
+		"work_order", wo.ID)
 	respond(w, r, http.StatusOK, wo)
 }
 
@@ -151,6 +165,13 @@ func (s *Server) reworkWorkOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "rework_work_order", "work_order", wo.ID, "reworked")
+	note := ""
+	if strings.TrimSpace(req.Note) != "" {
+		note = "：" + strings.TrimSpace(req.Note)
+	}
+	s.notify(wo.WorkerID, "整改通知",
+		fmt.Sprintf("企业要求整改（工单 %s）%s", wo.OrderNo, note),
+		"work_order", wo.ID)
 	respond(w, r, http.StatusOK, wo)
 }
 
@@ -174,5 +195,17 @@ func (s *Server) cancelWorkOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "cancel_work_order", "work_order", wo.ID, "cancelled")
+	// 通知"另一方"：取消人自己不需要再收到一条
+	other := wo.PublisherID
+	if a.ID == wo.PublisherID {
+		other = wo.WorkerID
+	}
+	reason := ""
+	if strings.TrimSpace(req.Reason) != "" {
+		reason = "，原因：" + strings.TrimSpace(req.Reason)
+	}
+	s.notify(other, "订单已取消",
+		fmt.Sprintf("工单 %s 已被对方取消%s", wo.OrderNo, reason),
+		"work_order", wo.ID)
 	respond(w, r, http.StatusOK, wo)
 }

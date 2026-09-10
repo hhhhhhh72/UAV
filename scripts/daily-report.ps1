@@ -1,4 +1,13 @@
 ﻿# 每日日报生成器 —— 按日报规则自动汇总当日 git 提交
+#
+# 汇报要求（2026-09-10 更新，发群前逐条核对）：
+#   1) 发布时间：每日 20:00 以前（脚本会在超时后提示）；
+#   2) 字数：全文不超过 300 字（脚本超限即提示，去掉 -Detail 再精简）；
+#   3) 表达：语音输入豆包 → 直接发豆包产出内容；
+#      进度推进类要写进度节点（已部署/已复验/待验收…），
+#      持续优化类多用量词、少用形容词；
+#   4) 发送样式：不发 Word/文档，群里直接发文字。
+#
 # 用法: powershell -ExecutionPolicy Bypass -File scripts\daily-report.ps1
 #       powershell -ExecutionPolicy Bypass -File scripts\daily-report.ps1 -Day "2026-09-03"  # 指定日期
 #       powershell ... -File scripts\daily-report.ps1 -Detail   # 输出逐条明细(超300字,仅自用)
@@ -78,3 +87,7 @@ $text = $lines -join [char]10
 $text
 Write-Host ''
 if ($text.Length -gt 300) { Write-Host ('[提示] ' + $text.Length + ' 字>300，请精简(或去掉明细)。') } else { Write-Host ('[提示] ' + $text.Length + ' 字，可直接发群。') }
+# 发布时限：每日 20:00 以前（超时只提示，不阻断生成）
+$now = Get-Date
+if ($now.Hour -ge 20) { Write-Host ('[提示] 当前 ' + $now.ToString('HH:mm') + ' 已过 20:00 发布时限，尽快发群。') }
+Write-Host '[提示] 群里直接发上面这段文字，不要发 Word/文档。'

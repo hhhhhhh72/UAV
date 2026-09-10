@@ -280,7 +280,9 @@ func (s *Server) listApplications(w http.ResponseWriter, r *http.Request) {
 	}
 	jobID := r.URL.Query().Get("job_id")
 	if jobID == "" {
-		items, err := s.jobSvc.ListMyApplications(r.Context(), a)
+		// 求职者视角：投递记录只存 job_id，这里附上职位快照与发布单位名称，
+		// 前端才能显示「职位名 / 地点 / 薪资 / 公司」，而不是一串裸 ID。
+		items, err := s.jobSvc.ListMyApplicationViews(r.Context(), a)
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, err)
 			return

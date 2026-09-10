@@ -4,19 +4,21 @@
 
     <!-- ① 白底头部：搜索 + 双入口 + 筛选 -->
     <view class="head-zone">
-      <!-- 搜索框（白上白：双层投影浮起） -->
+      <!-- 搜索框（全站 b-search 同款：白上白双层投影） -->
       <view class="sbar">
         <view class="b-search">
-          <view class="b-search-ic"><view class="ic-ring" /><view class="ic-bar" /></view>
+          <u-icon name="search" size="30rpx" color="#667085" />
           <input
             class="b-sinp"
             v-model="searchText"
-            placeholder="搜索职位名称 / 公司"
+            placeholder="搜索职位名称 / 工作地点"
             placeholder-class="b-ph"
             confirm-type="search"
             @confirm="onSearch"
           />
-          <text v-if="searchText" class="b-sclr" @tap="clearSearch">×</text>
+          <view v-if="searchText" class="b-sclr" @tap="clearSearch">
+            <u-icon name="close" size="24rpx" color="#667085" />
+          </view>
           <view class="b-sep" />
           <text class="b-sbtn" @tap="onSearch">搜索</text>
         </view>
@@ -28,9 +30,9 @@
           <view class="entry-ico entry-ico-jobs">聘</view>
           <view class="entry-text">
             <text class="entry-title">我的招聘</text>
-            <text class="entry-sub">企业发布与管理职位</text>
+            <text class="entry-sub">发布与管理职位</text>
           </view>
-          <text class="entry-arrow">›</text>
+          <u-icon name="arrow" size="28rpx" color="#667085" />
         </view>
         <view class="entry-item" hover-class="tap-scale" :hover-stay-time="100" @tap="goApplications">
           <view class="entry-ico entry-ico-apps">投</view>
@@ -38,7 +40,7 @@
             <text class="entry-title">我的投递</text>
             <text class="entry-sub">跟踪投递进展</text>
           </view>
-          <text class="entry-arrow">›</text>
+          <u-icon name="arrow" size="28rpx" color="#667085" />
         </view>
       </view>
 
@@ -87,7 +89,7 @@
       <view
         v-for="item in list"
         :key="item.id"
-        class="card job-card"
+        class="job-card"
         hover-class="tap-scale"
         :hover-stay-time="100"
         @tap="goDetail(item)"
@@ -97,8 +99,11 @@
           <text class="job-salary">{{ salaryText(item) }}</text>
         </view>
         <view class="job-tags">
-          <text v-if="item.job_type" class="job-type">{{ item.job_type }}</text>
-          <view v-if="item.location" class="job-loc"><text>{{ item.location }}</text></view>
+          <text v-if="item.job_type" class="tag tag-blue">{{ item.job_type }}</text>
+          <view v-if="item.location" class="job-loc">
+            <u-icon name="location" size="24rpx" color="#667085" />
+            <text>{{ item.location }}</text>
+          </view>
         </view>
         <view class="job-foot">
           <text class="job-date">{{ formatDate(item.created_at) }} 发布</text>
@@ -316,79 +321,65 @@ export default {
 <style scoped>
 .page {
   min-height: 100vh;
-  background: #fff;
-  padding-bottom: env(safe-area-inset-bottom);
+  background: #F4F6F8;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
 }
 
 /* ===== 白底头部 ===== */
 .head-zone { background: #fff; }
 
-/* ===== 搜索框：白上白——纯白填充 + 灰描边 + 双层投影 ===== */
-.sbar { padding: 12px 12px 8px; background: #fff; }
+/* ===== 搜索框：白上白——纯白填充 + 灰描边 + 双层投影（全站 b-search 同款） ===== */
+.sbar { padding: 20rpx 28rpx 12rpx; background: #fff; }
 .b-search {
-  height: 44px;
-  padding: 0 11px;
+  height: 88rpx;
+  padding: 0 24rpx;
   border: 1px solid #E4E7EC;
-  border-radius: 7px;
+  border-radius: 16rpx;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
+  box-shadow: 0 2rpx 4rpx rgba(16, 24, 40, 0.06), 0 8rpx 24rpx rgba(16, 24, 40, 0.05);
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 16rpx;
   box-sizing: border-box;
 }
-.b-search-ic { position: relative; width: 15px; height: 15px; flex: none; }
-.ic-ring {
-  width: 9px; height: 9px;
-  border: 1.5px solid #98A2B3;
-  border-radius: 50%;
-  position: absolute; top: 0; left: 0;
-}
-.ic-bar {
-  position: absolute; right: 0; bottom: 1px;
-  width: 5px; height: 1.5px;
-  background: #98A2B3;
-  transform: rotate(45deg);
-}
-.b-sinp { flex: 1; min-width: 0; background: transparent; font-size: 13px; color: #17212B; }
-.b-ph { color: #667085; }
-.b-sclr { color: #667085; font-size: 15px; padding: 10px; margin: -10px; }
-.b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
-.b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
+.b-sinp { flex: 1; min-width: 0; height: 88rpx; background: transparent; font-size: 28rpx; color: #17212B; }
+.b-ph { color: #667085; font-size: 28rpx; }
+.b-sclr { padding: 16rpx; margin: -16rpx; display: flex; align-items: center; }
+.b-sep { width: 1px; height: 30rpx; background: #E4E7EC; margin: 0 20rpx 0 8rpx; flex: none; }
+.b-sbtn { flex: none; color: #0A66C2; font-size: 28rpx; font-weight: 600; line-height: 1; padding: 24rpx 0; }
 
 /* ===== 双入口条：白卡片 ===== */
-.entry-bar { display: flex; gap: 10px; padding: 4px 12px 0; }
+.entry-bar { display: flex; gap: 20rpx; padding: 4rpx 28rpx 0; }
 .entry-item {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 20rpx;
   background: #fff;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
-  padding: 12px;
-  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  border: 1px solid #EEF1F4;
+  border-radius: 16rpx;
+  padding: 24rpx;
 }
 .entry-ico {
-  width: 36px;
-  height: 36px;
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 30rpx;
   font-weight: 700;
-  flex-shrink: 0;
+  flex: none;
 }
 .entry-ico-jobs { background: #EAF3FB; color: #0A66C2; }
-.entry-ico-apps { background: #FFF4EC; color: #E96012; }
-.entry-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.entry-title { font-size: 14px; font-weight: 700; color: #17212B; }
-.entry-sub { font-size: 11px; color: #98A2B3; margin-top: 2px; }
-.entry-arrow { font-size: 15px; color: #98A2B3; flex: none; }
+.entry-ico-apps { background: #FFF0E6; color: #E96012; }
+.entry-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6rpx; }
+.entry-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
+.entry-sub { font-size: 22rpx; color: #667085; }
 
 /* ===== 类型一级筛选：下划线 tab 分段（对齐科技成果库） ===== */
-.stage-wrap { position: relative; z-index: 42; background: #fff; }
+.stage-wrap { position: relative; z-index: 42; background: #fff; border-bottom: 1px solid #EEF1F4; }
 .stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; } /* 5 个类型 tab 自然宽 < 750rpx，单行放下 */
 .stg {
   position: relative;
@@ -420,120 +411,116 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 14px 4px;
-  font-size: 12px;
+  padding: 24rpx 32rpx 8rpx;
+  font-size: 24rpx;
   color: #667085;
   animation: fadeUp .25s ease-out backwards;
   animation-delay: 60ms;
 }
-.irn { color: #0A66C2; font-weight: 600; }
-.ir-hint { font-size: 12px; color: #98A2B3; }
+.irn { color: #0A66C2; font-weight: 700; }
+.ir-hint { font-size: 20rpx; line-height: 1; padding: 6rpx 12rpx; border-radius: 8rpx; background: #EAF3FB; color: #0A66C2; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ===== 骨架屏 ===== */
-.skl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px; }
+.skl { display: flex; flex-direction: column; gap: 20rpx; padding: 8rpx 32rpx 0; }
 .skc {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 20rpx;
+  padding: 26rpx;
   background: #fff;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
+  border: 1px solid #EEF1F4;
+  border-radius: 16rpx;
 }
-.sk-row { display: flex; align-items: center; gap: 8px; }
-.sk-tag { width: 56px; height: 18px; border-radius: 4px; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
-.sk-bd { display: flex; flex-direction: column; gap: 8px; }
-.sk-l { height: 12px; background: #EDF0F3; border-radius: 4px; animation: skPulse 1.4s linear infinite; }
+.sk-row { display: flex; align-items: center; gap: 16rpx; }
+.sk-tag { width: 112rpx; height: 36rpx; border-radius: 8rpx; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-bd { display: flex; flex-direction: column; gap: 16rpx; }
+.sk-l { height: 24rpx; background: #EDF0F3; border-radius: 8rpx; animation: skPulse 1.4s linear infinite; }
 .sk-l.w60 { width: 60%; }
 .sk-l.w80 { width: 80%; }
 .sk-l.w90 { width: 90%; }
 @keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* ===== 空 / 错误 ===== */
-.st { display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
-.stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
+.st { display: flex; flex-direction: column; align-items: center; padding: 120rpx 40rpx; }
+.stb { height: 72rpx; padding: 0 40rpx; border-radius: 12rpx; background: #0A66C2; color: #fff; font-size: 24rpx; line-height: 72rpx; }
 
-/* ===== 职位卡片 ===== */
-.cl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
-.card {
+/* ===== 职位卡片（对齐「我的发布」卡片规范：16rpx 圆角 + 细描边 + 轻投影） ===== */
+.cl { display: flex; flex-direction: column; gap: 20rpx; padding: 8rpx 32rpx 32rpx; }
+.job-card {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 14px;
+  gap: 16rpx;
+  padding: 26rpx;
   position: relative;
   background: #fff;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  border: 1px solid #EEF1F4;
+  border-radius: 16rpx;
+  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
   transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), opacity .15s ease;
 }
-.card:nth-child(-n+6) { animation: cardIn .22s ease-out backwards; }
-.card:nth-child(1) { animation-delay: 80ms; }
-.card:nth-child(2) { animation-delay: 100ms; }
-.card:nth-child(3) { animation-delay: 120ms; }
-.card:nth-child(4) { animation-delay: 140ms; }
-.card:nth-child(5) { animation-delay: 160ms; }
-.card:nth-child(6) { animation-delay: 180ms; }
+.job-card:nth-child(-n+6) { animation: cardIn .22s ease-out backwards; }
+.job-card:nth-child(1) { animation-delay: 80ms; }
+.job-card:nth-child(2) { animation-delay: 100ms; }
+.job-card:nth-child(3) { animation-delay: 120ms; }
+.job-card:nth-child(4) { animation-delay: 140ms; }
+.job-card:nth-child(5) { animation-delay: 160ms; }
+.job-card:nth-child(6) { animation-delay: 180ms; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .tap-scale { transform: scale(0.97); opacity: 0.9; }
 
-.job-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.job-title { font-size: 15px; font-weight: 700; color: #17212B; line-height: 1.4; flex: 1; min-width: 0; }
-.job-salary { font-size: 14px; font-weight: 700; color: #C2410C; flex-shrink: 0; }
-.job-tags { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-.job-type {
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 4px;
-  background: #EAF3FB;
-  color: #0A66C2;
-  font-weight: 600;
-}
-.job-loc { font-size: 12px; color: #667085; }
+.job-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; }
+.job-title { font-size: 30rpx; font-weight: 700; color: #17212B; line-height: 1.4; flex: 1; min-width: 0; }
+.job-salary { font-size: 28rpx; font-weight: 700; color: #E96012; flex: none; }
+.job-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 12rpx 20rpx; }
+.tag { border-radius: 8rpx; padding: 6rpx 12rpx; font-size: 20rpx; line-height: 1; }
+.tag-blue { color: #0A66C2; background: #EAF3FB; }
+.job-loc { display: flex; align-items: center; gap: 6rpx; font-size: 24rpx; color: #667085; }
 .job-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 4px;
-  padding-top: 10px;
-  border-top: 1px solid #F0F1F3;
+  gap: 20rpx;
+  margin-top: 4rpx;
+  padding-top: 20rpx;
+  border-top: 1px solid #EEF1F4;
 }
-.job-date { font-size: 11px; color: #98A2B3; }
+.job-date { font-size: 22rpx; color: #667085; }
 .apply-btn {
-  padding: 5px 18px;
-  border-radius: 6px;
+  min-height: 72rpx;
+  padding: 0 32rpx;
+  border-radius: 999rpx;
   background: #0A66C2;
   color: #fff;
-  font-size: 12px;
+  font-size: 24rpx;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.apply-btn.applied { background: #EEF1F4; color: #667085; }
+.apply-btn.applied { background: #F1F3F5; color: #667085; }
 .apply-press { transform: scale(0.95); opacity: 0.85; }
 
 /* ===== 加载更多 ===== */
-.load-more { text-align: center; padding: 12px 0; }
+.load-more { text-align: center; padding: 24rpx 0 8rpx; }
 .loading-inline {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 16rpx;
+  font-size: 24rpx;
   color: #667085;
 }
-.no-more { color: #98A2B3; font-size: 12px; }
+.no-more { color: #667085; font-size: 22rpx; }
 
 /* ===== 减弱动效（无障碍） ===== */
-.page.no-motion .card,
+.page.no-motion .job-card,
 .page.no-motion .ir { animation: none; }
 .page.no-motion .sk-tag, .page.no-motion .sk-l { animation: none; }
 .page.no-motion .stg.on::after { animation: none; } /* 注线画出属位移，关闭 */
 
 /* prefers-reduced-motion：装饰动画/过渡全关（对齐科技成果库） */
 @media (prefers-reduced-motion: reduce) {
-  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
-    animation: none !important;
-    transition: none !important;
-  }
+  .stg, .job-card { animation: none !important; transition: none !important; }
 }
 </style>

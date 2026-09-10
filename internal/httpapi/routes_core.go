@@ -80,6 +80,7 @@ func (s *Server) registerDemandRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/demands/{id}/submit", s.submitDemand)
 	mux.HandleFunc("POST /api/v1/demands/{id}/complete", s.completeDemand)
 	mux.HandleFunc("POST /api/v1/demands/{id}/cancel", s.cancelDemand)
+	mux.HandleFunc("DELETE /api/v1/demands/{id}", s.deleteMyDemand) // 发布者删除自己的需求（仅已下架/未通过）
 	mux.HandleFunc("POST /api/v1/demands/{id}/favorite", s.toggleDemandFavorite)
 	mux.HandleFunc("GET /api/v1/demands/favorites/mine", s.listMyDemandFavorites)
 	mux.HandleFunc("GET /api/v1/admin/demands", s.listAdminDemands)

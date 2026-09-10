@@ -7,7 +7,7 @@
 | 依赖 | 用途 | 备注 |
 |------|------|------|
 | PostgreSQL 16 | 生产存储 | docker-compose 端口 **5433:5432**，用户 drone |
-| 微信开放平台 | 小程序登录 code2Session | WECHAT_APPID/APPSECRET（manifest AppID `wx10842887836afd68`） |
+| 微信开放平台 | 小程序登录 code2Session | WECHAT_APPID/APPSECRET（manifest AppID `wxc0a19ede34871045`；换 AppID 必须同步换 AppSecret） |
 | 电子签服务 | 合同 webhook 回调 | SIGNING_SECRET HMAC 校验 + event_id 去重（对接方未实指） |
 | 文件存储 | 上传文件 /uploads/{file_id} | 本地磁盘，10MB 限制；OSS/COS 待接入（PRD Q-5） |
 | 短信通道 | 验证码 | 未接入（PRD Q-4，待签名模板） |

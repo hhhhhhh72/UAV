@@ -4,10 +4,10 @@
 
     <!-- 白色板块：信息行 + 列表 -->
     <view class="section">
-      <!-- 信息行：共 N 项 + 申请证书入口 -->
+      <!-- 信息行：共 N 项 + 归档证书入口 -->
       <view class="ir">
         <text>共 <text class="irn">{{ list.length }}</text> 项证书</text>
-        <view class="ir-btn" hover-class="ir-btn--hover" @tap="openApply">＋ 申请证书</view>
+        <view class="ir-btn" hover-class="ir-btn--hover" @tap="openApply">＋ 归档证书</view>
       </view>
 
       <!-- 骨架 -->
@@ -32,7 +32,7 @@
       <!-- 空 -->
       <view v-else-if="!list.length" class="st">
         <u-empty description="暂无证书">
-          <text class="sth">证书为线下考核后由协会颁发，完成培训课程后请联系管理员；已有纸质证书（CAAC/AOPA/UTC 等）可点击上方「申请证书」归档</text>
+          <text class="sth">证书由协会在线下考核后颁发，完成培训课程后可联系管理员；已有纸质证书（CAAC/AOPA/UTC 等）可点上方「归档证书」提交登记，协会审核通过后计入档案</text>
           <view class="stb" @tap="goCourses">去逛逛培训课程</view>
         </u-empty>
       </view>
@@ -77,11 +77,11 @@
     <!-- 回到顶部 -->
     <view class="bt" :class="{ show: showBt }" aria-role="button" aria-label="回到顶部" @tap="scrollToTop"><text>↑</text></view>
 
-    <!-- 申请证书 弹层（标准 u-popup：遮罩/圆角/上滑动画与全局弹层一致） -->
+    <!-- 归档证书 弹层（标准 u-popup：遮罩/圆角/上滑动画与全局弹层一致） -->
     <u-popup :show="applyShow" round position="bottom" @close="closeApply">
       <view class="l-sheet" @tap.stop>
         <view class="l-head">
-          <text class="l-title">申请归档证书</text>
+          <text class="l-title">归档证书</text>
           <text class="l-x" @tap="closeApply">×</text>
         </view>
         <view class="l-body">
@@ -132,6 +132,27 @@
         <view class="l-btn" hover-class="l-btn--hover" @tap="submitCert">{{ submittingCert ? '提交中...' : '提交申请' }}</view>
       </view>
     </u-popup>
+
+    <!-- 证书文字详情（无证书图时的兜底：此前只弹一句"暂无证书图片"，等于点不开） -->
+    <u-popup :show="detailShow" round position="bottom" @close="closeDetail">
+      <view class="d-sheet" @tap.stop>
+        <view class="d-head">
+          <text class="d-title">证书详情</text>
+          <text class="d-x" @tap="closeDetail">×</text>
+        </view>
+        <view class="d-body" v-if="activeCert">
+          <view class="d-row"><text class="d-k">证书类型</text><text class="d-v">{{ typeFull(activeCert.cert_type) }}</text></view>
+          <view class="d-row"><text class="d-k">证书编号</text><text class="d-v">{{ activeCert.cert_number || '未填写' }}</text></view>
+          <view class="d-row" v-if="activeCert.level"><text class="d-k">等级</text><text class="d-v">{{ activeCert.level }}</text></view>
+          <view class="d-row" v-if="activeCert.issuer_org"><text class="d-k">发证机构</text><text class="d-v">{{ activeCert.issuer_org }}</text></view>
+          <view class="d-row"><text class="d-k">发证日期</text><text class="d-v">{{ activeCert.issue_date ? dateText(activeCert.issue_date) : '未填写' }}</text></view>
+          <view class="d-row"><text class="d-k">有效期</text><text class="d-v">{{ activeCert.expire_date ? '至 ' + dateText(activeCert.expire_date) : '长期有效' }}</text></view>
+          <view class="d-row"><text class="d-k">状态</text><text class="d-v">{{ statusLabel(activeCert.status) }}</text></view>
+          <view class="d-row" v-if="activeCert.review_note"><text class="d-k">审核备注</text><text class="d-v">{{ activeCert.review_note }}</text></view>
+          <text class="d-tip">该证书未上传照片，以上为登记信息；需补图请联系协会。</text>
+        </view>
+      </view>
+    </u-popup>
   </view>
 </template>
 
@@ -176,6 +197,8 @@ const STATUS_CLS = {
 const loading = ref(false)
 const errorMsg = ref('')
 const list = ref([])
+const detailShow = ref(false)   // 无图证书的文字详情弹层（BUG-002）
+const activeCert = ref(null)
 const statusBarHeight = ref(20)
 const showBt = ref(false)
 const { noMotion, checkMotion } = useReduceMotion()
@@ -187,6 +210,15 @@ const typeStyle = (t) => CERT_TYPE_STYLE[norm(t)] || CERT_TYPE_STYLE_DEFAULT
 const statusLabel = (s) => STATUS_LABEL[s] || s || '未知'
 const statusCls = (s) => STATUS_CLS[s] || 'st-closed'
 const dateText = (iso) => (iso ? String(iso).slice(0, 10) : '—')
+
+/* 后端对"没填有效期"会下发哨兵日期（NULL 落成 Go 零值时间 → 0001-01-01T…）。
+   直接拿它算天数会判成"已过期"，卡片还会显示"至 0001-01-01"（BUG-001）。
+   这里统一按"早于 2000-01-01 = 没填"清空，展示与到期提醒都按"长期有效"处理。 */
+const realDate = (v) => {
+  const s = String(v || '').slice(0, 10)
+  const y = Number(s.slice(0, 4))
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) && y >= 2000 ? v : ''
+}
 
 /* 到期提醒（站内）：到期日期 30 天内 → 即将到期（橙），已过 → 已过期（红）。
    以日期为准而非 status——后端审核态不随日期自动流转，日期提醒才不失效。 */
@@ -224,7 +256,11 @@ async function fetchList() {
     const res = await request({ url: '/api/v1/certificates/mine' })
     const data = Array.isArray(res) ? res : (res && res.data) || res || {}
     const items = Array.isArray(data) ? data : (data && data.items) || []
-    list.value = items
+    list.value = items.map((it) => Object.assign({}, it, {
+      issue_date: realDate(it.issue_date),
+      expire_date: realDate(it.expire_date || it.expiry_date),
+      expiry_date: '',
+    }))
   } catch (e) {
     errorMsg.value = '网络异常，请稍后重试'
   } finally {
@@ -233,18 +269,24 @@ async function fetchList() {
 }
 
 function viewCert(item) {
-  // 有证书图则全屏预览；无图如实提示
+  // 有证书图 → 全屏预览；无图 → 弹文字详情（BUG-002：此前只弹一句"暂无证书图片"，等于点不开）
   const url = certImage(item)
   if (url) {
     uni.previewImage({ urls: [url], current: url })
-  } else {
-    uni.showToast({ title: '暂无证书图片', icon: 'none' })
+    return
   }
+  activeCert.value = item
+  detailShow.value = true
+}
+
+function closeDetail() {
+  detailShow.value = false
+  activeCert.value = null
 }
 
 function goBack() { uni.navigateBack() }
 
-/* ================= 申请归档证书 ================= */
+/* ================= 归档证书 ================= */
 const CERT_TYPE_OPTS = [
   { key: 'caac', label: 'CAAC 民航局执照' },
   { key: 'utc_dji', label: '大疆 UTC 认证' },
@@ -322,7 +364,7 @@ async function submitCert() {
     await request({ url: '/api/v1/certificates', method: 'POST', data: { ...af.value } })
     uni.showModal({
       title: '已提交',
-      content: '证书归档申请已提交，协会审核通过后将计入有效证书',
+      content: '证书已提交归档，协会审核通过后计入有效证书',
       showCancel: false,
       confirmText: '知道了',
       success: () => { closeApply(); fetchList() },
@@ -563,7 +605,19 @@ page {
 .page.no-motion .stb:active,
 .page.no-motion .bt:active { transform: none; }
 
-/* ===== 申请证书入口 ===== */
+/* ===== 证书文字详情弹层（无图兜底） ===== */
+.d-sheet { width: 100%; background: #fff; border-radius: 24rpx 24rpx 0 0; padding-bottom: calc(24rpx + env(safe-area-inset-bottom)); }
+.d-head { display: flex; align-items: center; justify-content: space-between; padding: 32rpx 32rpx 16rpx; }
+.d-title { font-size: 32rpx; font-weight: 700; color: #17212B; }
+.d-x { font-size: 40rpx; color: #667085; line-height: 1; padding: 0 8rpx; }
+.d-body { padding: 0 32rpx 8rpx; }
+.d-row { display: flex; align-items: flex-start; gap: 24rpx; padding: 20rpx 0; border-bottom: 1rpx solid #F0F1F3; }
+.d-row:last-of-type { border-bottom: none; }
+.d-k { flex: none; width: 140rpx; font-size: 26rpx; color: #667085; }
+.d-v { flex: 1; min-width: 0; font-size: 28rpx; color: #17212B; font-weight: 500; word-break: break-all; }
+.d-tip { display: block; margin-top: 16rpx; font-size: 24rpx; color: #667085; line-height: 1.6; }
+
+/* ===== 归档证书入口 ===== */
 .ir { display: flex; align-items: center; justify-content: space-between; }
 .ir-btn {
   font-size: 26rpx;
@@ -576,7 +630,7 @@ page {
 }
 .ir-btn--hover { transform: scale(.96); opacity: .85; }
 
-/* ===== 申请证书弹层（容器为 u-popup：遮罩/圆角/动画由组件提供，此处只管内容与间距） ===== */
+/* ===== 归档证书弹层（容器为 u-popup：遮罩/圆角/动画由组件提供，此处只管内容与间距） ===== */
 .l-sheet {
   width: 100%;
   background: #fff;

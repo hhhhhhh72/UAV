@@ -115,9 +115,10 @@
       </view>
       <view style="height: 100px"></view>
 
-      <!-- 底部操作栏（布局对齐 achievements/detail：底部吸附 + safe-area + 44px 按钮） -->
+      <!-- 底部操作栏（布局对齐 achievements/detail：底部吸附 + safe-area + 44px 按钮）
+           收藏入口已下线：课题攻关没有后端收藏接口，"收下了却哪儿都查不到"（我的收藏无该分类），
+           与其留一个假闭环，不如先只给「转发 / 揭榜」两个真动作 -->
       <view class="bb">
-        <view class="bi" :class="{ fv: isFav }" aria-role="button" :aria-label="isFav ? '取消收藏' : '收藏'" @tap="toggleFav"><view class="bit"></view></view>
         <button class="bo" open-type="share" hover-class="bo-hover" hover-start-time="0" hover-stay-time="300">转发</button>
         <view class="bp" :class="{ 'bp-off': d.stCls === 'closed' || claimed || submitting }" @tap="submitClaim">{{ submitLabel }}</view>
       </view>
@@ -138,22 +139,9 @@ const isProduction = typeof process !== 'undefined' && process.env.NODE_ENV === 
 const loading = ref(true)
 const err = ref(false)
 const d = ref(null)
-const isFav = ref(false)
 const statusBarHeight = ref(20)
 const { noMotion, checkMotion } = useReduceMotion() // 减弱动效（无障碍）：装饰动画/位移缩放全关
 let id = ''
-/* 收藏持久化：本地存储兜底（后端收藏接口就绪前的纯前端实现），按难题 id 去重 */
-const FAV_KEY = 'challenge_favs'
-const loadFavs = () => {
-  try {
-    const v = uni.getStorageSync(FAV_KEY)
-    return Array.isArray(v) ? new Set(v) : new Set()
-  } catch (e) { return new Set() }
-}
-const favs = loadFavs()
-const saveFavs = () => {
-  try { uni.setStorageSync(FAV_KEY, [...favs]) } catch (e) { /* 忽略 */ }
-}
 
 const pad = (n) => (n < 10 ? '0' + n : '' + n)
 const daysLeft = (dt) => {
@@ -300,16 +288,6 @@ const fetchData = async () => {
   loading.value = false
 }
 
-const toggleFav = () => {
-  isFav.value = !isFav.value
-  if (isFav.value) {
-    favs.add(id)
-  } else {
-    favs.delete(id)
-  }
-  saveFavs()
-  uni.showToast({ title: isFav.value ? '已收藏' : '已取消收藏', icon: 'none' })
-}
 onShareAppMessage(() => ({
   title: d.value ? '研发难题：' + d.value.t : '低空经济生态服务平台 · 研发难题广场',
   path: '/pkg-eco/pages/challenges/detail?id=' + encodeURIComponent(id),
@@ -378,7 +356,6 @@ onLoad((options) => {
   checkMotion()
   // decode：列表页传入的 id 经 encodeURIComponent 编码，此处须解码一次再用于请求
   id = options?.id ? decodeURIComponent(options.id) : ''
-  isFav.value = favs.has(id)
   fetchData()
 })
 </script>
@@ -588,30 +565,6 @@ page {
   padding-bottom: calc(10px + env(safe-area-inset-bottom));
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
 }
-.bi {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  background: #F4F6F8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: #667085; /* 未收藏心形：原 #98A2B3 2.6:1 低于非文本控件 3:1，升 #667085（4.9:1） */
-}
-.bi.fv { color: #ff3b30; }
-/* 心形：SVG data-URI（No-Emoji 规范——♥/♡ 字符属 emoji 区，绘制渲染一致且可随状态换色） */
-.bit {
-  width: 20px;
-  height: 20px;
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCcgZmlsbD0nbm9uZScgc3Ryb2tlPScjNjY3MDg1JyBzdHJva2Utd2lkdGg9JzInIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J00yMC44NCA0LjYxYTUuNSA1LjUgMCAwIDAtNy43OCAwTDEyIDUuNjdsLTEuMDYtMS4wNmE1LjUgNS41IDAgMCAwLTcuNzggNy43OGwxLjA2IDEuMDZMMTIgMjEuMjNsNy43OC03Ljc4IDEuMDYtMS4wNmE1LjUgNS41IDAgMCAwIDAtNy43OHonLz48L3N2Zz4=");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-}
-.bi.fv .bit {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNCAyNCcgZmlsbD0nI2ZmM2IzMCc+PHBhdGggZD0nTTIwLjg0IDQuNjFhNS41IDUuNSAwIDAgMC03Ljc4IDBMMTIgNS42N2wtMS4wNi0xLjA2YTUuNSA1LjUgMCAwIDAtNy43OCA3Ljc4bDEuMDYgMS4wNkwxMiAyMS4yM2w3Ljc4LTcuNzggMS4wNi0xLjA2YTUuNSA1LjUgMCAwIDAgMC03Ljc4eicvPjwvc3ZnPg==");
-}
 .bo {
   height: 44px;
   border-radius: 8px;
@@ -736,17 +689,13 @@ page {
 /* 3) 交互反馈：按压反馈（按下 .08s linear 即时到位；松手 .3s ios-pop 弹簧回位——与 list 同套手感） */
 .stb { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop */
 .stb:active { transform: scale(.94); opacity: .85; transition: transform .08s linear; }
-.bi { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, color .2s ease; } /* ios-pop */
-.bi:active { transform: scale(.9); background: #EAF3FB; transition: transform .08s linear; }
-.bi.fv:active { background: #FDECEC; } /* 已收藏时按压给红色系反馈 */
+
 .bo { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), background .2s ease, color .2s ease; } /* ios-pop */
 .bo:active { transform: scale(.95); background: #F4F8FC; transition: transform .08s linear; }
 .bp { transition: transform .3s cubic-bezier(.34, 1.8, .64, 1), opacity .15s ease; } /* ios-pop */
 .bp:active { transform: scale(.95); opacity: .92; transition: transform .08s linear; }
 
-/* 4) 状态过渡：收藏点亮时心形 ios-pop 弹簧弹出（scale .8→1 自然过冲回位，iOS 收藏手感）；取消收藏无反向动画 */
-.bi.fv .bit { animation: heartPop .3s cubic-bezier(.34, 1.8, .64, 1); }
-@keyframes heartPop { from { transform: scale(.8); } to { transform: scale(1); } }
+/* 4) 状态过渡：揭榜按钮由禁用转可用时的按压反馈（原收藏心形 pop 已随入口移除） */
 
 /* 5) 视觉层级：信息卡与 Hero 重叠处补柔和投影，强化"卡片浮在 Hero 上"的层次（纯视觉，无布局影响） */
 .info { box-shadow: 0 4px 12px rgba(16, 24, 40, 0.05); }
@@ -769,12 +718,10 @@ page {
 .page.no-motion .h-vl,
 .page.no-motion .sd,
 .page.no-motion .step .no,
-.page.no-motion .step::after,
-.page.no-motion .bi.fv .bit { animation: none; } /* 装饰入场/状态弹出全关 */
+.page.no-motion .step::after { animation: none; } /* 装饰入场/状态弹出全关 */
 .page.no-motion .sk-h, .page.no-motion .sk-sec, .page.no-motion .sk-l { animation: none; } /* 骨架呼吸关 */
 .page.no-motion .h-tag.st-urgent { animation: none; } /* 紧急呼吸关（语义靠颜色传达，静态可见） */
 .page.no-motion .stb:active,
-.page.no-motion .bi:active,
 .page.no-motion .bo:active,
 .page.no-motion .bp:active { transform: none; } /* 按压微缩放关，保留颜色/透明度反馈 */
 </style>

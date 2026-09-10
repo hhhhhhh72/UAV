@@ -4,64 +4,73 @@
 
     <!-- 右下角浮动申请按钮（避开微信胶囊，单次弹性入场） -->
     <view class="apply-fab" hover-class="apply-fab-hover" :hover-stay-time="80" @tap="applyPilot">
-      <view class="fab-icon"><text class="fab-icon-char">飞</text></view>
+      <view class="fab-icon"><image class="fab-img" src="/static/mine-icons/drone.svg" mode="aspectFit" /></view>
       <text class="fab-text">{{ applyText }}</text>
     </view>
 
-    <!-- ① 统计横幅（真实聚合） -->
-    <view class="stats-banner">
-      <view class="stat-cell">
-        <view class="stat-icon"><view class="icon-cert" /></view>
-        <text class="stat-num" :class="{ 'stat-anim': loaded }">{{ displayStats.totalCerts }}</text>
-        <text class="stat-label">证书</text>
+    <!-- ① 名录概览（仅当整份名录已加载时展示，避免"只统计首页"的失实口径） -->
+    <view v-if="showOverview" class="overview">
+      <view class="ov-cell">
+        <text class="ov-num">{{ ovNums.rosters }}</text>
+        <text class="ov-label">飞手</text>
       </view>
-      <view class="stat-divider" />
-      <view class="stat-cell">
-        <view class="stat-icon"><view class="icon-plane" /></view>
-        <text class="stat-num" :class="{ 'stat-anim': loaded }">{{ displayStats.totalHours }}</text>
-        <text class="stat-label">飞行小时</text>
+      <view class="ov-divider" />
+      <view class="ov-cell">
+        <text class="ov-num">{{ ovNums.certs }}</text>
+        <text class="ov-label">认证证书</text>
       </view>
-      <template v-if="displayStats.hasRating">
-        <view class="stat-divider" />
-        <view class="stat-cell">
-          <view class="stat-icon"><view class="star-shape" /></view>
-          <text class="stat-num" :class="{ 'stat-anim': loaded }">{{ displayStats.avgRating }}</text>
-          <text class="stat-label">平均评分</text>
-        </view>
-      </template>
+      <view class="ov-divider" />
+      <view class="ov-cell">
+        <text class="ov-num">{{ ovNums.hours }}</text>
+        <text class="ov-label">累计飞行小时</text>
+      </view>
     </view>
 
-    <!-- ② 搜索框（白上白：描边 + 双层投影；CSS 画放大镜；右侧"搜索"文字按钮） -->
+    <!-- ② 搜索框 -->
     <view class="sbar">
       <view class="b-search">
-        <view class="b-search-ic"><view class="ic-ring" /><view class="ic-bar" /></view>
+        <u-icon name="search" size="34rpx" color="#667085" />
         <input
           class="b-sinp"
           v-model="searchText"
-          placeholder="搜索认证飞手姓名/编号"
+          placeholder="搜索认证飞手姓名"
           placeholder-class="b-ph"
           confirm-type="search"
           @confirm="onSearch"
         />
-        <text v-if="searchText" class="b-sclr" @tap="clearSearch">×</text>
+        <view v-if="searchText" class="b-sclr" hover-class="b-sclr-hover" :hover-stay-time="80" @tap="clearSearch">
+          <u-icon name="close" size="28rpx" color="#667085" />
+        </view>
         <view class="b-sep" />
-        <text class="b-sbtn" @tap="onSearch">搜索</text>
+        <text class="b-sbtn" hover-class="b-sbtn-hover" :hover-stay-time="80" @tap="onSearch">搜索</text>
       </view>
     </view>
 
     <!-- ③ 信息行 -->
     <view class="ir">
-      <text>共 <text class="irn">{{ list.length }}</text> 位飞手</text>
-      <text class="ir-hint">{{ searchText ? '搜索结果' : '协会认证' }}</text>
+      <text>共 <text class="irn">{{ total }}</text> 位飞手</text>
+      <text class="ir-hint">{{ keyword ? '搜索结果' : '协会认证' }}</text>
     </view>
 
-    <!-- ④ 骨架屏：首次加载 -->
+    <!-- ④ 骨架屏：与真实卡片 1:1（头像圆 + 姓名/副行 + 两格数据 + 标签行） -->
     <view v-if="loading && !list.length" class="skl">
       <view v-for="i in 3" :key="'sk' + i" class="skc">
-        <view class="sk-row"><view class="sk-tag"></view><view class="sk-l w60"></view></view>
-        <view class="sk-bd">
-          <view class="sk-l w90"></view>
-          <view class="sk-l w40"></view>
+        <view class="sk-head">
+          <view class="sk-avatar" />
+          <view class="sk-head-main">
+            <view class="sk-l w50" />
+            <view class="sk-l w30 sk-l--sm" />
+          </view>
+        </view>
+        <view class="sk-grid">
+          <view v-for="j in 2" :key="'skg' + j" class="sk-cell">
+            <view class="sk-dot" />
+            <view class="sk-l w40 sk-l--sm" />
+          </view>
+        </view>
+        <view class="sk-tags">
+          <view class="sk-tag" />
+          <view class="sk-tag sk-tag--w" />
         </view>
       </view>
     </view>
@@ -69,15 +78,16 @@
     <!-- ⑤ 错误态 -->
     <view v-else-if="!loading && errorMsg" class="st">
       <u-empty :description="errorMsg">
-        <view class="stb" @tap="fetchData">重新加载</view>
+        <view class="stb" hover-class="stb-hover" :hover-stay-time="80" @tap="fetchData">重新加载</view>
       </u-empty>
     </view>
 
     <!-- ⑥ 空态 -->
     <view v-else-if="!loading && !list.length" class="st">
-      <u-empty description="暂无认证飞手">
-        <text class="sth">成为协会认证飞手，即可展示在此名录</text>
-        <view class="stb" @tap="applyPilot">申请认证</view>
+      <u-empty :description="keyword ? '没有匹配的认证飞手' : '暂无认证飞手'">
+        <text class="sth">{{ keyword ? '换个姓名关键词试试' : '成为协会认证飞手，即可展示在此名录' }}</text>
+        <view v-if="!keyword" class="stb" hover-class="stb-hover" :hover-stay-time="80" @tap="applyPilot">申请认证</view>
+        <view v-else class="stb" hover-class="stb-hover" :hover-stay-time="80" @tap="clearSearch">清除搜索</view>
       </u-empty>
     </view>
 
@@ -91,7 +101,7 @@
         :hover-stay-time="100"
         @tap="goDetail(item)"
       >
-        <!-- 卡片头部：头像 + 认证徽章 + 名字/编号 + 评分 -->
+        <!-- 卡片头部：头像 + 认证徽章 + 姓名/区域 -->
         <view class="card-head">
           <view class="avatar-wrap">
             <image
@@ -107,60 +117,38 @@
             <view class="cert-badge" />
           </view>
           <view class="head-main">
-            <view class="name-row">
-              <text class="name">{{ item.real_name || '认证飞手' }}</text>
-              <text class="pilot-id">{{ idLabel(item) }}</text>
-            </view>
+            <text class="name">{{ item.real_name || '认证飞手' }}</text>
             <view class="sub-row">
-              <text class="cert-count">{{ (item.cert_ids || []).length }} 项认证</text>
+              <text class="pilot-sub">{{ item.region || '地区未填写' }}</text>
             </view>
-          </view>
-          <view class="rating-wrap">
-            <view class="star"><view class="star-shape" /></view>
-            <text class="rating-num">{{ ratingText(item) }}</text>
-            <text class="rating-sub">{{ ratingSub(item) }}</text>
           </view>
         </view>
 
-        <!-- 数据行（两行四列） -->
+        <!-- 数据行（两格：只放后端真实字段，无数据来源的指标不占位） -->
         <view class="data-grid">
           <view class="data-item">
-            <view class="data-icon data-icon-blue"><view class="icon-cert" /></view>
-            <view class="data-body">
-              <text class="data-label">证书</text>
-              <text class="data-value">{{ (item.cert_ids || []).length }}</text>
-            </view>
-          </view>
-          <view class="data-item">
-            <view class="data-icon data-icon-purple"><view class="icon-plane" /></view>
+            <view class="data-icon data-icon-blue"><image class="data-img" src="/static/mine-icons/drone.svg" mode="aspectFit" /></view>
             <view class="data-body">
               <text class="data-label">飞行</text>
-              <text class="data-value">{{ item.flight_hours || 0 }} 小时</text>
+              <text class="data-value">{{ hoursText(item) }}</text>
             </view>
           </view>
           <view class="data-item">
-            <view class="data-icon data-icon-green"><view class="icon-check" /></view>
+            <view class="data-icon data-icon-green"><image class="data-img" src="/static/mine-icons/certification-green.svg" mode="aspectFit" /></view>
             <view class="data-body">
-              <text class="data-label">作业</text>
-              <text class="data-value">{{ item.completed_jobs || 0 }}</text>
-            </view>
-          </view>
-          <view class="data-item">
-            <view class="data-icon data-icon-orange"><view class="icon-target" /></view>
-            <view class="data-body">
-              <text class="data-label">擅长</text>
-              <text class="data-value ellipsis">{{ mainSkill(item) }}</text>
+              <text class="data-label">证书</text>
+              <text class="data-value">{{ certsText(item) }}</text>
             </view>
           </view>
         </view>
 
-        <!-- 作业类型标签（扁平 tint） -->
+        <!-- 作业类型标签（沿用全站四色板：蓝/橙/绿/紫 + 中性） -->
         <view v-if="jobTags(item).length > 0" class="tag-row">
           <text
             v-for="(t, ti) in shownTags(item)"
             :key="ti"
             class="job-tag"
-            :style="tagStyle(t)"
+            :class="tagClass(t)"
           >{{ t }}</text>
           <text v-if="jobTags(item).length > 3" class="more-tag">+{{ jobTags(item).length - 3 }}</text>
         </view>
@@ -168,34 +156,47 @@
         <!-- 底部：查看飞手档案（整行可点击） -->
         <view class="card-footer" hover-class="footer-hover" :hover-stay-time="100" @tap.stop="goDetail(item)">
           <text class="card-hint">查看飞手档案</text>
-          <view class="footer-chev" />
+          <u-icon name="arrow" size="22rpx" color="#0A66C2" />
         </view>
       </view>
 
-      <!-- 列表底部 -->
-      <view class="list-footer">
+      <!-- 列表底部：仅在确实取完整份名录时出现 -->
+      <view v-if="!hasMore" class="list-footer">
         <text class="footer-line" />
-        <text class="footer-text">没有更多了</text>
+        <text class="footer-text">{{ keyword ? '已显示全部匹配结果' : '已显示全部认证飞手' }}</text>
         <text class="footer-line" />
+      </view>
+      <view v-else class="list-more">
+        <!-- 槽位常驻：loader 出现/消失不推动文字，避免底部跳动 -->
+        <view class="list-more-slot">
+          <u-loading v-if="loadingMore" size="28rpx" color="#0A66C2" />
+        </view>
+        <text class="list-more-text">{{ loadingMore ? '加载中…' : '上拉加载更多' }}</text>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import { request } from '../../../utils/request'
+import { ref, computed, watch } from 'vue'
+import { onLoad, onReachBottom } from '@dcloudio/uni-app'
+import { request, getErrorMessage } from '../../../utils/request'
 import { requireLogin } from '../../../utils/nav'
 import { useReduceMotion } from '../../../utils/motion'
 
+const PAGE_SIZE = 20
+
 const searchText = ref('')
+const keyword = ref('') // 已提交的关键词（与输入框解耦：输入中不改变列表口径文案）
 const list = ref([])
+const total = ref(0)
+const page = ref(1)
+const hasMore = ref(false)
 const loading = ref(false)
-const loaded = ref(false)
+const loadingMore = ref(false)
 const errorMsg = ref('')
 const statusBarHeight = ref(20)
-const { noMotion, checkMotion } = useReduceMotion() // 减弱动效（无障碍）：装饰动画全关
+const { noMotion, checkMotion } = useReduceMotion()
 const goBack = () => uni.navigateBack()
 
 // 右上按钮文案：随我的认证状态变化，入口永远存在
@@ -212,125 +213,126 @@ const refreshMineLabel = async () => {
   } catch (e) { applyText.value = '申请认证' }
 }
 
-// ── 统计数字滚动计数 ─────────────────────
-const displayStats = ref({ totalCerts: 0, totalHours: 0, avgRating: '—', hasRating: false })
-const countUp = (target, duration = 800) => {
-  const from = { totalCerts: 0, totalHours: 0 }
-  const to = { totalCerts: target.totalCerts, totalHours: target.totalHours }
-  const start = Date.now()
-  // 微信小程序无 requestAnimationFrame，用 setTimeout 模拟帧（16ms）
-  const tick = () => {
-    const p = Math.min(1, (Date.now() - start) / duration)
-    const ease = 1 - Math.pow(1 - p, 3) // easeOutCubic
-    displayStats.value = {
-      totalCerts: Math.round(from.totalCerts + (to.totalCerts - from.totalCerts) * ease),
-      totalHours: Math.round(from.totalHours + (to.totalHours - from.totalHours) * ease),
-      avgRating: target.avgRating,
-      hasRating: target.hasRating,
-    }
-    if (p < 1) setTimeout(tick, 16)
-  }
-  tick()
-}
-
-// ── 统计横幅（真实聚合）──────────────────────
+// ── 名录概览：只统计"已加载"的条目；仅当整份名录一次取完时展示，避免失实口径 ──
 const stats = computed(() => {
   const totalCerts = list.value.reduce((s, p) => s + (p.cert_ids || []).length, 0)
   const totalHours = list.value.reduce((s, p) => s + (p.flight_hours || 0), 0)
-  const rated = list.value.filter((p) => p.rating > 0)
-  const avg = rated.length ? (rated.reduce((s, p) => s + p.rating, 0) / rated.length) : 0
-  const hasRating = avg > 0
-  return {
-    totalCerts,
-    totalHours,
-    hasRating,
-    // 无真实评分时不展示评分项（横幅由 hasRating 控制显隐）
-    avgRating: hasRating ? avg.toFixed(1) : '—',
-  }
+  // 不展示"平均评分"：certified_pilots.rating 全流程无写入点（无 API 产出），展示即为死数据
+  return { totalCerts, totalHours }
 })
+const showOverview = computed(() => list.value.length > 0 && !hasMore.value && total.value === list.value.length)
 
-// ── 头像兜底：姓名首字 + 姓名哈希选渐变（每人不同）──
-const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg,#0A1F44,#1E5EFF)',
-  'linear-gradient(135deg,#6D28D9,#DB2777)',
-  'linear-gradient(135deg,#0EA5E9,#06B6D4)',
-  'linear-gradient(135deg,#FF8E3C,#F97316)',
-  'linear-gradient(135deg,#00C896,#34c759)',
-]
+// ── 概览数字滚动：名录"落位"的署名动效，只在整份名录取完时演一次 ──
+// 滚动值只做呈现，终值永远等于真实统计（reduced-motion 直接落终值，中间态不承担信息）
+const ovNums = ref({ rosters: 0, certs: 0, hours: 0 })
+let ovTimer = null
+const runOvCountUp = () => {
+  const target = { rosters: list.value.length, certs: stats.value.totalCerts, hours: stats.value.totalHours }
+  if (ovTimer) { clearTimeout(ovTimer); ovTimer = null }
+  if (noMotion.value) { ovNums.value = target; return }
+  const from = { ...ovNums.value }
+  const start = Date.now()
+  const duration = 520
+  const tick = () => {
+    if (noMotion.value) { ovNums.value = target; ovTimer = null; return }
+    const p = Math.min(1, (Date.now() - start) / duration)
+    const ease = 1 - Math.pow(1 - p, 3) // 指数减速收尾，不弹跳
+    ovNums.value = {
+      rosters: Math.round(from.rosters + (target.rosters - from.rosters) * ease),
+      certs: Math.round(from.certs + (target.certs - from.certs) * ease),
+      hours: Math.round(from.hours + (target.hours - from.hours) * ease),
+    }
+    if (p < 1) ovTimer = setTimeout(tick, 16)
+    else ovTimer = null
+  }
+  tick()
+}
+watch(showOverview, (on) => { if (on) runOvCountUp() })
+
+// ── 头像兜底：姓名首字 + 姓名哈希在"品牌蓝同色阶"内取一档（不再自造彩色渐变）──
+const AVATAR_TINTS = ['#0A66C2', '#0B5AA8', '#0C4F94', '#0D4480', '#0E3A6C']
 const firstChar = (name) => String(name || '飞').charAt(0)
 const avatarBg = (name) => {
   const n = String(name || '')
-  if (!n) return AVATAR_GRADIENTS[0]
+  if (!n) return AVATAR_TINTS[0]
   let h = 0
   for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0
-  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length]
+  return AVATAR_TINTS[h % AVATAR_TINTS.length]
 }
 
-// ── 卡片字段映射 ──────────────────────────
-// 编号：后端无编号字段，展示"协会认证 · N 项证书"
-const idLabel = (item) => {
+// ── 卡片字段映射（缺什么显示什么，不编造、不补零）──────────────
+const hoursText = (item) => (item.flight_hours > 0 ? item.flight_hours + ' 小时' : '—')
+const certsText = (item) => {
   const n = (item.cert_ids || []).length
-  return `协会认证 · ${n} 项证书`
+  return n > 0 ? String(n) : '—'
 }
-// 评分：rating>0 显示实际评分；无评分显示"—"（不伪造满分）
-const ratingText = (item) => (item.rating > 0 ? item.rating.toFixed(1) : '—')
-// 评价数：≥10 才显示"XX 人评价"，否则显示"暂无评价"（弱化）
-const ratingSub = (item) => {
-  const n = item.completed_jobs || 0
-  return n >= 10 ? `${n} 人评价` : '暂无评价'
-}
-// 擅长（替代地址）：bio 拆出的第一个标签
 const bioList = (bio) => String(bio || '').split(/[/，,、\s]+/).filter(Boolean)
-const mainSkill = (item) => bioList(item.bio)[0] || '综合'
-
-// ── 作业类型标签（扁平 tint：浅底深字，无描边）──────────────
-const JOB_TAG_MAP = [
-  { key: ['电力巡检', '巡检'], color: '#0A66C2', bg: '#EAF3FB' },
-  { key: ['测绘', '航拍', '拍摄'], color: '#6941C6', bg: '#F0E9F7' },
-  { key: ['植保', '喷洒'], color: '#0B6B41', bg: '#E9F7F0' },
-  { key: ['应急', '救援', '侦察'], color: '#B42318', bg: '#FDECEC' },
-  { key: ['吊运', '吊装', '实操'], color: '#C2410C', bg: '#FFF4EC' },
-  { key: ['物流', '运输', '投送'], color: '#0E7090', bg: '#E6F4F7' },
-  { key: ['航拍', '宣传'], color: '#C11574', bg: '#FCE7F3' },
-]
-const matchTag = (tag) => {
-  for (const m of JOB_TAG_MAP) {
-    if (m.key.some((k) => tag.includes(k))) return m
-  }
-  return { color: '#5D6B82', bg: '#EEF1F4' }
-}
 const jobTags = (item) => bioList(item.bio)
 const shownTags = (item) => jobTags(item).slice(0, 3)
-const tagStyle = (t) => {
-  const m = matchTag(t)
-  return { color: m.color, background: m.bg }
+
+// 作业类型标签直接用全站四色板（pub-style.css 的 demand/service/product/course），
+// 术语含义由文字承担，颜色只做分组，不再自建 7 色映射表。
+const TAG_TONES = [
+  { key: ['电力巡检', '巡检', '测绘', '航拍', '拍摄'], cls: 'tag-blue' },
+  { key: ['应急', '救援', '侦察', '吊运', '吊装', '实操'], cls: 'tag-orange' },
+  { key: ['植保', '喷洒', '物流', '运输', '投送'], cls: 'tag-green' },
+  { key: ['培训', '教学', '宣讲'], cls: 'tag-purple' },
+]
+const tagClass = (tag) => {
+  for (const t of TAG_TONES) {
+    if (t.key.some((k) => String(tag).includes(k))) return t.cls
+  }
+  return 'tag-neutral'
 }
 
-// ── 数据加载 ────────────────────────────
+// ── 数据加载（真分页：下拉刷新 + 上拉加载，footer 只在取完后宣告结束）──
 const goDetail = (item) => {
   uni.setStorageSync('pilot_detail', item)
   uni.navigateTo({ url: '/pkg-talent/pages/pilots/detail?id=' + encodeURIComponent(item.id) })
 }
-const onSearch = () => fetchData()
-const clearSearch = () => { searchText.value = ''; fetchData() }
+const onSearch = () => {
+  keyword.value = searchText.value.trim()
+  fetchData(true)
+}
+const clearSearch = () => {
+  searchText.value = ''
+  keyword.value = ''
+  fetchData(true)
+}
 
-const fetchData = async () => {
-  loading.value = true
+const fetchData = async (reset = true) => {
+  if (reset) {
+    loading.value = true
+    page.value = 1
+  } else {
+    if (loadingMore.value || !hasMore.value) return
+    loadingMore.value = true
+  }
   errorMsg.value = ''
   try {
-    const kw = searchText.value.trim()
-    const res = await request({ url: '/api/v1/certified-pilots', data: { page: 1, page_size: 100, keyword: kw } })
-    list.value = (Array.isArray(res) ? res : (res.data || []))
-  } catch {
-    list.value = []
-    errorMsg.value = '加载失败，请稍后重试'
+    const res = await request({
+      url: '/api/v1/certified-pilots',
+      data: { page: page.value, page_size: PAGE_SIZE, keyword: keyword.value },
+    })
+    const rows = Array.isArray(res) ? res : (res.data || [])
+    const t = typeof res.total === 'number' ? res.total : rows.length
+    list.value = reset ? rows : list.value.concat(rows)
+    total.value = reset ? t : total.value
+    hasMore.value = list.value.length < total.value && rows.length > 0
+  } catch (e) {
+    if (reset) {
+      list.value = []
+      total.value = 0
+      hasMore.value = false
+    }
+    errorMsg.value = getErrorMessage(e) || '加载失败，请检查网络后重试'
   } finally {
     loading.value = false
-    loaded.value = true
-    // 统计数字滚动动画（数据就绪后触发）
-    countUp(stats.value)
+    loadingMore.value = false
   }
 }
+
+onReachBottom(() => fetchData(false))
 
 // ---- 申请认证 / 我的状态 ----
 const applyPilot = async () => {
@@ -342,7 +344,6 @@ const applyPilot = async () => {
   } catch (e) {}
   if (mine && mine.id) {
     const label = { pending: '待审核', approved: '已认证', rejected: '未通过' }[mine.status] || mine.status
-    // 已认证 → 查看我的档案（detail 页按 id 回源）；驳回 → 重新提交（后端支持覆盖重提）；待审核 → 仅提示
     if (mine.status === 'approved') {
       uni.showModal({
         title: '我的飞手认证',
@@ -378,31 +379,35 @@ onLoad(() => {
     if (sys && sys.statusBarHeight) statusBarHeight.value = sys.statusBarHeight
   } catch (e) { /* 保持默认 */ }
   checkMotion()
-  fetchData()
+  fetchData(true)
   refreshMineLabel()
 })
 </script>
 
 <style scoped>
+/* 设计口径：与 App.vue 令牌阶梯 / pub-style.css / courses.vue 同一体系
+   —— 单位一律 rpx（1px = 2rpx），正文最小 24rpx，可点元素最小 88rpx，
+      中性色只用 #17212B / #667085 两级（#98A2B3 对比度 2.58:1 已弃用）。 */
 .page {
   min-height: 100vh;
-  background: #fff;
-  padding-bottom: 80px; /* 给右下角浮动按钮留空间 */
+  background: #F5F6F8;
+  padding-bottom: 160rpx; /* 给右下角浮动按钮留空间 */
 }
 
 /* ═══ 右下角浮动申请按钮 ═══ */
 .apply-fab {
   position: fixed;
-  right: 16px;
-  bottom: calc(24px + env(safe-area-inset-bottom));
+  right: 32rpx;
+  bottom: calc(48rpx + env(safe-area-inset-bottom));
   z-index: 60;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 16px 7px 7px;
+  gap: 12rpx;
+  min-height: 88rpx;
+  padding: 12rpx 32rpx 12rpx 12rpx;
   background: #0A66C2;
-  border-radius: 999px;
-  box-shadow: 0 6px 18px rgba(10, 102, 194, 0.28);
+  border-radius: 999rpx;
+  box-shadow: 0 12rpx 36rpx rgba(10, 102, 194, 0.28);
   animation: fab-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .apply-fab-hover {
@@ -410,293 +415,260 @@ onLoad(() => {
   opacity: 0.92;
 }
 .fab-icon {
-  width: 28px;
-  height: 28px;
+  width: 56rpx;
+  height: 56rpx;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.fab-icon-char {
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
+.fab-img {
+  width: 32rpx;
+  height: 32rpx;
 }
 .fab-text {
-  font-size: 14px;
+  font-size: 28rpx;
   font-weight: 600;
   color: #fff;
 }
-/* 单次弹性入场：上浮 + 缩放回弹（无循环装饰动画） */
 @keyframes fab-in {
-  from { opacity: 0; transform: translateY(30px) scale(0.6); }
+  from { opacity: 0; transform: translateY(60rpx) scale(0.6); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ═══ ① 统计横幅 ═══ */
-.stats-banner {
+/* ═══ ① 名录概览 ═══ */
+.overview {
   display: flex;
   align-items: center;
-  margin: 10px 12px 2px;
-  background: #F4F8FC;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
-  padding: 14px 10px;
+  margin: 20rpx 24rpx 4rpx;
+  padding: 24rpx 16rpx;
+  background: #FFFFFF;
+  border: 2rpx solid #EEF1F4;
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  /* 落位：面板先于数字成形，数字滚动在同一拍里跟上 */
+  animation: ovIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
-.stat-cell {
+@keyframes ovIn { from { opacity: 0; transform: translateY(12rpx); } to { opacity: 1; transform: translateY(0); } }
+.ov-cell {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6rpx;
 }
-.stat-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #EAF3FB;
+.ov-num {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #17212B;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.ov-label {
+  font-size: 24rpx;
+  color: #667085;
+}
+.ov-divider {
+  width: 2rpx;
+  height: 64rpx;
+  background: #EEF1F4;
+}
+
+/* ═══ ② 搜索框 ═══ */
+.sbar { padding: 16rpx 24rpx 12rpx; }
+.b-search {
+  min-height: 88rpx;
+  padding: 0 12rpx 0 22rpx;
+  border: 2rpx solid #E4E7EC;
+  border-radius: 16rpx;
+  background: #fff;
+  box-shadow: 0 2rpx 4rpx rgba(16, 24, 40, 0.06), 0 8rpx 24rpx rgba(16, 24, 40, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  box-sizing: border-box;
+}
+.b-sinp { flex: 1; min-width: 0; background: transparent; font-size: 28rpx; color: #17212B; }
+.b-ph { color: #667085; }
+/* 清除按钮：视觉 24rpx，触控面 88rpx（负 margin 抵消占位） */
+.b-sclr {
+  flex: none;
+  width: 88rpx;
+  height: 88rpx;
+  margin: -22rpx -12rpx -22rpx 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.stat-num {
-  font-size: 20px;
-  font-weight: 700;
-  color: #17212B;
-  line-height: 1.2;
-}
-.stat-anim {
-  animation: statPop 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.stat-label {
-  font-size: 11px;
-  color: #667085;
-}
-.stat-divider {
-  width: 1px;
-  height: 36px;
-  background: #E4E7EC;
-}
-
-/* ═══ ② 搜索框：白上白——纯白填充 + 灰描边 + 双层投影 ═══ */
-.sbar { padding: 8px 12px 6px; background: #fff; }
-.b-search {
-  height: 44px;
-  padding: 0 11px;
-  border: 1px solid #E4E7EC;
-  border-radius: 7px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.05);
+.b-sclr-hover { opacity: 0.55; }
+.b-sep { width: 2rpx; height: 30rpx; background: #EEF1F4; flex: none; }
+.b-sbtn {
+  flex: none;
+  min-height: 88rpx;
   display: flex;
   align-items: center;
-  gap: 7px;
-  box-sizing: border-box;
+  padding: 0 12rpx 0 4rpx;
+  color: #0A66C2;
+  font-size: 28rpx;
+  font-weight: 600;
 }
-.b-search-ic { position: relative; width: 15px; height: 15px; flex: none; }
-.ic-ring {
-  width: 9px; height: 9px;
-  border: 1.5px solid #98A2B3;
-  border-radius: 50%;
-  position: absolute; top: 0; left: 0;
-}
-.ic-bar {
-  position: absolute; right: 0; bottom: 1px;
-  width: 5px; height: 1.5px;
-  background: #98A2B3;
-  transform: rotate(45deg);
-}
-.b-sinp { flex: 1; min-width: 0; background: transparent; font-size: 13px; color: #17212B; }
-.b-ph { color: #667085; }
-.b-sclr { color: #667085; font-size: 15px; padding: 10px; margin: -10px; }
-.b-sep { width: 1px; height: 15px; background: #DDE1E6; margin: 0 9px 0 6px; flex: none; }
-.b-sbtn { flex: none; color: #344054; font-size: 13px; line-height: 1; padding: 6px 2px 6px 0; }
+.b-sbtn-hover { opacity: 0.6; }
 
 /* ═══ ③ 信息行 ═══ */
 .ir {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 14px 4px;
-  font-size: 12px;
+  padding: 0 28rpx 8rpx;
+  font-size: 24rpx;
   color: #667085;
-  animation: fadeUp 0.25s ease-out backwards;
-  animation-delay: 60ms;
 }
-.irn { color: #0A66C2; font-weight: 600; }
-.ir-hint { font-size: 12px; color: #98A2B3; }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.irn { color: #0A66C2; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ir-hint { font-size: 24rpx; color: #667085; }
 
-/* ═══ ④ 骨架屏 ═══ */
-.skl { display: flex; flex-direction: column; gap: 8px; padding: 4px 12px 12px; }
+/* ═══ ④ 骨架屏（1:1 复刻真实卡片）═══ */
+.skl { display: flex; flex-direction: column; gap: 16rpx; padding: 8rpx 24rpx 24rpx; }
 .skc {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 20rpx;
+  padding: 28rpx;
   background: #fff;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
+  border: 2rpx solid #EEF1F4;
+  border-radius: 24rpx;
 }
-.sk-row { display: flex; align-items: center; gap: 8px; }
-.sk-tag { width: 40px; height: 40px; border-radius: 8px; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
-.sk-bd { display: flex; flex-direction: column; gap: 8px; }
-.sk-l { height: 12px; background: #EDF0F3; border-radius: 4px; animation: skPulse 1.4s linear infinite; }
+.sk-head { display: flex; align-items: center; gap: 20rpx; }
+.sk-avatar { width: 88rpx; height: 88rpx; border-radius: 50%; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-head-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12rpx; }
+.sk-grid {
+  display: flex;
+  gap: 16rpx;
+  padding: 20rpx;
+  background: #F5F6F8;
+  border-radius: 16rpx;
+}
+.sk-cell { flex: 1; display: flex; align-items: center; gap: 12rpx; }
+.sk-dot { width: 36rpx; height: 36rpx; border-radius: 50%; background: #EDF0F3; flex: none; animation: skPulse 1.4s linear infinite; }
+.sk-tags { display: flex; gap: 12rpx; }
+.sk-tag { width: 120rpx; height: 36rpx; border-radius: 8rpx; background: #EDF0F3; animation: skPulse 1.4s linear infinite; }
+.sk-tag--w { width: 160rpx; }
+.sk-l { height: 24rpx; background: #EDF0F3; border-radius: 8rpx; animation: skPulse 1.4s linear infinite; }
+.sk-l--sm { height: 20rpx; }
+.sk-l.w30 { width: 30%; }
 .sk-l.w40 { width: 40%; }
-.sk-l.w60 { width: 60%; }
-.sk-l.w90 { width: 90%; }
+.sk-l.w50 { width: 50%; }
 @keyframes skPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 /* ═══ ⑤⑥ 空 / 错误 ═══ */
-.st { display: flex; flex-direction: column; align-items: center; padding: 60px 20px; }
-.sth { font-size: 12px; color: #667085; display: block; margin-bottom: 16px; }
-.stb { padding: 8px 24px; border-radius: 8px; background: #0A66C2; color: #fff; font-size: 13px; font-weight: 500; }
+.st { display: flex; flex-direction: column; align-items: center; padding: 120rpx 40rpx; }
+.sth { font-size: 24rpx; color: #667085; display: block; margin-bottom: 32rpx; }
+.stb {
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 48rpx;
+  border-radius: 50rpx;
+  background: #0A66C2;
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.stb-hover { opacity: 0.85; transform: scale(0.985); }
 
 /* ═══ ⑦ 飞手卡片 ═══ */
-.cl { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
+.cl { display: flex; flex-direction: column; gap: 16rpx; padding: 0 24rpx 24rpx; }
 .card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 20rpx;
+  padding: 28rpx;
   position: relative;
   background: #fff;
-  border: 1px solid #E4E7EC;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.06);
+  border: 2rpx solid #EEF1F4;
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+  /* 入场对所有卡片生效（含上拉加载追加的那几屏，此前只有前 6 张会动、其余硬弹出）；
+     错峰只给前 5 张，第 6 张起封顶 88ms——总延迟不随列表长度增长 */
+  animation: cardIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
-.card:nth-child(-n+6) { animation: cardIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
-.card:nth-child(1) { animation-delay: 80ms; }
-.card:nth-child(2) { animation-delay: 100ms; }
-.card:nth-child(3) { animation-delay: 120ms; }
-.card:nth-child(4) { animation-delay: 140ms; }
-.card:nth-child(5) { animation-delay: 160ms; }
-.card:nth-child(6) { animation-delay: 180ms; }
-@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.card:nth-child(2) { animation-delay: 22ms; }
+.card:nth-child(3) { animation-delay: 44ms; }
+.card:nth-child(4) { animation-delay: 66ms; }
+.card:nth-child(5) { animation-delay: 88ms; }
+.card:nth-child(n+6) { animation-delay: 88ms; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(16rpx); } to { opacity: 1; transform: translateY(0); } }
 .tap-scale { transform: scale(0.97); opacity: 0.9; }
 
 /* 7.1 卡片头部 */
-.card-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.avatar-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-.avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-}
-.avatar-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.avatar-char {
-  font-size: 18px;
-  font-weight: 700;
-  color: #ffffff;
-}
+.card-head { display: flex; align-items: center; gap: 20rpx; }
+.avatar-wrap { position: relative; flex-shrink: 0; }
+.avatar { width: 88rpx; height: 88rpx; border-radius: 50%; }
+.avatar-fallback { display: flex; align-items: center; justify-content: center; }
+.avatar-char { font-size: 36rpx; font-weight: 700; color: #ffffff; }
+/* 头像右下角认证徽章：36rpx 绿圆 + 白描边；对勾为 in-flow ::after，靠 flex 居中，
+   不用绝对定位 + 手调 left/top（旋转后仍落在圆心，不会被白圈或圆边切掉） */
 .cert-badge {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 16px;
-  height: 16px;
+  right: 2rpx;
+  bottom: 2rpx;
+  width: 36rpx;
+  height: 36rpx;
   border-radius: 50%;
-  background: #00C896;
-  border: 2px solid #ffffff;
+  background: #25915A;
+  border: 3rpx solid #ffffff;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .cert-badge::after {
   content: '';
-  position: absolute;
-  left: 4.5px;
-  top: 3.5px;
-  width: 5px;
-  height: 8px;
-  border: solid #fff;
-  border-width: 0 1.5px 1.5px 0;
+  width: 9rpx;
+  height: 15rpx;
+  border: solid #ffffff;
+  border-width: 0 3rpx 3rpx 0;
+  /* 对勾旋转后墨迹重心偏下（+3rpx），用 margin 上提归中：墨迹中心 = 圆心 */
+  margin-bottom: 6rpx;
   transform: rotate(45deg);
 }
-.head-main {
-  flex: 1;
-  min-width: 0;
-}
-.name-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
+.head-main { flex: 1; min-width: 0; }
 .name {
-  font-size: 15px;
+  font-size: 32rpx;
   font-weight: 700;
   color: #17212B;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  display: block;
 }
-.pilot-id {
-  font-size: 11px;
-  color: #98A2B3;
-  flex-shrink: 0;
-}
-.sub-row {
-  margin-top: 4px;
-}
-.cert-count {
-  font-size: 11px;
+.sub-row { display: flex; align-items: center; gap: 8rpx; margin-top: 8rpx; }
+.pilot-sub {
+  font-size: 24rpx;
   color: #667085;
-}
-.rating-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-}
-.star {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.rating-num {
-  font-size: 15px;
-  font-weight: 700;
-  color: #17212B;
-  margin-top: 2px;
-}
-.rating-sub {
-  font-size: 10px;
-  color: #98A2B3;
-  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* 7.2 数据行 */
+/* 7.2 数据行（两格，数值列 tabular） */
 .data-grid {
   display: flex;
-  flex-wrap: wrap;
-  background: #F7F8FA;
-  border-radius: 8px;
-  padding: 8px 10px;
-  gap: 4px 0;
+  background: #F5F6F8;
+  border-radius: 16rpx;
+  padding: 20rpx 12rpx;
 }
 .data-item {
-  width: 50%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 4px;
-  box-sizing: border-box;
+  gap: 12rpx;
 }
 .data-icon {
-  width: 18px;
-  height: 18px;
+  width: 36rpx;
+  height: 36rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -704,197 +676,92 @@ onLoad(() => {
   flex-shrink: 0;
 }
 .data-icon-blue { background: #EAF3FB; }
-.data-icon-purple { background: #F0E9F7; }
 .data-icon-green { background: #E9F7F0; }
-.data-icon-orange { background: #FFF4EC; }
-.data-body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.data-img {
+  width: 28rpx;
+  height: 28rpx;
 }
-.data-label {
-  font-size: 10px;
-  color: #667085;
-}
+.data-body { display: flex; flex-direction: column; min-width: 0; }
+.data-label { font-size: 24rpx; color: #667085; }
 .data-value {
-  font-size: 13px;
+  font-size: 28rpx;
   font-weight: 700;
   color: #17212B;
-}
-.data-value.ellipsis {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  max-width: 90px;
-}
-
-/* ═══ CSS 绘制的符号图标（禁 emoji 规范）═══ */
-
-/* 证书：圆角方块 + 中缝 */
-.icon-cert {
-  width: 8px;
-  height: 10px;
-  border-radius: 2px;
-  background: #0A66C2;
-  position: relative;
-}
-.icon-cert::after {
-  content: '';
-  position: absolute;
-  left: 1.5px;
-  right: 1.5px;
-  top: 4px;
-  height: 1px;
-  background: #EAF3FB;
-  box-shadow: 0 2px 0 #EAF3FB;
-}
-
-/* 纸飞机：clip-path 三角翼 + 尾翼（非 emoji） */
-.icon-plane {
-  width: 9px;
-  height: 5px;
-  background: #6941C6;
-  clip-path: polygon(100% 0, 0 50%, 100% 100%);
-  position: relative;
-  transform: rotate(-8deg);
-}
-.icon-plane::after {
-  content: '';
-  position: absolute;
-  right: -2px;
-  top: 2px;
-  width: 4px;
-  height: 4px;
-  background: #6941C6;
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-}
-
-/* 对勾：作业完成 */
-.icon-check {
-  width: 7px;
-  height: 12px;
-  border: solid #0B6B41;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-  margin-top: -3px;
-}
-
-/* 目标：圆环 + 中心点 */
-.icon-target {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid #C2410C;
-  position: relative;
-}
-.icon-target::after {
-  content: '';
-  position: absolute;
-  left: 2px;
-  top: 2px;
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: #C2410C;
-}
-
-/* 星星：clip-path 五角（评分/统计横幅共用） */
-.star-shape {
-  width: 11px;
-  height: 11px;
-  background: #F79009;
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-}
-
-/* 7.3 作业标签（扁平 tint：浅底深字，无描边无动画） */
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
-}
-.job-tag {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: none;
-  max-width: 140px;
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+
+/* 图标体系：界面控件用 u-icon 组件，领域标识用 static/mine-icons 下的 SVG（禁 emoji/Unicode 字符） */
+
+/* 7.3 作业标签（沿用全站四色板，颜色只做分组，含义由文字承担） */
+.tag-row { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.job-tag,
 .more-tag {
-  font-size: 11px;
+  font-size: 24rpx;
   font-weight: 600;
-  color: #5D6B82;
-  background: #EEF1F4;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  max-width: 280rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
+.tag-blue { background: #EAF3FB; color: #0A66C2; }
+.tag-orange { background: #FFF0E6; color: #E96012; }
+.tag-green { background: #E9F7F0; color: #25915A; }
+.tag-purple { background: #F0EDFF; color: #7056D6; }
+.tag-neutral,
+.more-tag { background: #EEF1F4; color: #667085; }
 
 /* 7.4 卡片底部：整行可点击 */
 .card-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
-  margin-top: 2px;
-  padding-top: 10px;
-  border-top: 1px solid #F0F1F3;
+  gap: 8rpx;
+  min-height: 88rpx;
+  margin-top: -4rpx;
+  border-top: 2rpx solid #F0F1F3;
 }
-.footer-hover {
-  opacity: 0.7;
-}
-.card-hint {
-  font-size: 13px;
-  color: #0A66C2;
-  font-weight: 600;
-}
-.footer-chev {
-  width: 6px;
-  height: 6px;
-  border-top: 1.5px solid #0A66C2;
-  border-right: 1.5px solid #0A66C2;
-  transform: rotate(45deg);
-}
+.footer-hover { opacity: 0.7; }
+.card-hint { font-size: 28rpx; color: #0A66C2; font-weight: 600; }
 
-/* ═══ 列表底部 ═══ */
+/* ═══ 列表底部 / 加载更多 ═══ */
 .list-footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 20px 0 8px;
+  gap: 20rpx;
+  padding: 40rpx 0 16rpx;
 }
-.footer-line {
-  width: 48px;
-  height: 1px;
-  background: #EDF0F3;
-}
-.footer-text {
-  font-size: 12px;
-  color: #98A2B3;
-}
+.footer-line { width: 96rpx; height: 2rpx; background: #EBEDF0; }
+.footer-text { font-size: 24rpx; color: #667085; }
+.list-more { display: flex; align-items: center; justify-content: center; gap: 12rpx; padding: 32rpx 0 16rpx; }
+.list-more-slot { width: 28rpx; height: 28rpx; display: flex; align-items: center; justify-content: center; }
+.list-more-text { font-size: 24rpx; color: #667085; }
 
-/* ═══ 微动效（单次入场，无循环装饰动画）═══ */
-@keyframes statPop {
-  from {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* ═══ 减弱动效（无障碍） ═══ */
+/* ═══ 减弱动效（无障碍）：系统偏好 + 页内开关 双保险 ═══ */
 .page.no-motion .card,
-.page.no-motion .ir,
-.page.no-motion .stats-banner,
-.page.no-motion .stat-num { animation: none; }
-.page.no-motion .sk-tag,
-.page.no-motion .sk-l { animation: none; }
+.page.no-motion .overview,
 .page.no-motion .apply-fab { animation: none; }
+.page.no-motion .sk-avatar,
+.page.no-motion .sk-dot,
+.page.no-motion .sk-l,
+.page.no-motion .sk-tag { animation: none; }
+.page.no-motion .card { transition: opacity 0.15s ease; }
+.page.no-motion .tap-scale { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card:nth-child(n+1),
+  .overview,
+  .apply-fab { animation: none !important; transition: none !important; }
+  .sk-avatar,
+  .sk-dot,
+  .sk-l,
+  .sk-tag { animation: none !important; }
+  .tap-scale { transform: none !important; }
+}
 </style>

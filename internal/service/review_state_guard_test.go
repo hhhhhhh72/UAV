@@ -57,7 +57,7 @@ func TestReviewStateGuard(t *testing.T) {
 	// 审核通过需将属主升级为企业角色（升级失败会回滚审批），测试需预置属主用户。
 	_, _ = users.Create(context.Background(), domain.User{ID: entActor.ID, Role: domain.RoleEnterprise, Status: "active"})
 	eSvc := service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), users)
-	ent, err := eSvc.Create(context.Background(), entActor, service.CreateEnterpriseInput{Name: "企业A"})
+	ent, err := eSvc.Create(context.Background(), entActor, validEntInput("企业A"))
 	if err != nil {
 		t.Fatalf("create enterprise: %v", err)
 	}

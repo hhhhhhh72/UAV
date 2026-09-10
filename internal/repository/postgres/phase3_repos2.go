@@ -308,6 +308,25 @@ func (r *reviewRepo) ListByTarget(ctx context.Context, targetType, targetID stri
 	}
 	return out, rows.Err()
 }
+// ListByReviewerTarget 查重专用：**不按 status 过滤**（含 pending/rejected）。
+func (r *reviewRepo) ListByReviewerTarget(ctx context.Context, reviewerID, targetType, targetID string) ([]domain.Review, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id,reviewer_id,target_type,target_id,rating,COALESCE(content,''),status,created_at FROM reviews WHERE reviewer_id=$1 AND target_type=$2 AND target_id=$3 ORDER BY created_at DESC`, reviewerID, targetType, targetID)
+	if err != nil {
+		return nil, fmt.Errorf("list reviews by reviewer: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Review
+	for rows.Next() {
+		var rv domain.Review
+		if err := rows.Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan review: %w", err)
+		}
+		out = append(out, rv)
+	}
+	return out, rows.Err()
+}
+
 func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error) {
 	where := ""
 	args := []any{}

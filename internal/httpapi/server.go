@@ -741,6 +741,29 @@ func (s *Server) deleteDemand(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
 }
 
+// DELETE /api/v1/demands/{id} — 发布者删除自己的需求。
+// 规则与 /admin 同名接口完全一致（只允许已取消/已驳回）；差异只有授权主体：
+// 这里是"属主本人"，服务层同一份校验，避免两套状态规则漂移。
+func (s *Server) deleteMyDemand(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	err := s.demands.Delete(r.Context(), a, r.PathValue("id"))
+	switch {
+	case err == nil:
+		respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
+	case errors.Is(err, service.ErrNotOwner):
+		fail(w, r, http.StatusForbidden, err)
+	case errors.Is(err, service.ErrDemandNotDeletable):
+		// 409：请求本身合法，是资源当前状态不允许（前端据此引导"先下架"）
+		fail(w, r, http.StatusConflict, err)
+	default:
+		fail(w, r, http.StatusBadRequest, err)
+	}
+}
+
 // GET /api/v1/admin/demands/stats — 需求全量统计（独立于列表分页，
 // 管理端统计条不随翻页变化：状态分布基于全量数据）
 func (s *Server) adminDemandStats(w http.ResponseWriter, r *http.Request) {
