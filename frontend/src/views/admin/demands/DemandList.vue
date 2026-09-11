@@ -199,15 +199,22 @@ const searchFields = [
   ]}
 ]
 
-// 批量动作：批量通过/批量驳回（传完整行数据，逐行调用审核接口；完成后同步刷新统计条）。
+// 批量动作：批量通过 / 批量驳回 / 批量删除（逐行调用接口，完成后同步刷新统计条）。
 // 批量驳回必须留理由（后端 reject 语义要求审核留痕）：通过 prompt 弹窗先收集一次理由，
 // 再对选中行逐条提交；无理由不执行。
+// 批量删除沿用单条删除的状态门槛（后端 DemandService.Delete）：只允许删「已取消 / 已驳回」，
+// 在架（已公开/待审核）的需求会逐条失败并在提示里报出原因——避免误删公开数据。
 const batchActions = [
   { key: 'approve', label: '批量通过', status: 'success', api: async (row) => { await approveDemand(row.id); loadStats() } },
   {
     key: 'reject', label: '批量驳回', status: 'danger',
     prompt: { title: '批量驳回需求', placeholder: '请填写驳回理由（发布者可见，可据此修改后重提）' },
     api: async (row, reason) => { await rejectDemand(row.id, reason); loadStats() }
+  },
+  {
+    key: 'delete', label: '批量删除', status: 'danger',
+    confirm: '只能删除「已取消 / 已驳回」的需求（在架需求会逐条失败并提示，请先下架）。删除不可恢复，且需求下的对接意向会一并删除。确定删除选中的需求吗？',
+    api: async (row) => { await deleteDemand(row.id); loadStats() }
   }
 ]
 
