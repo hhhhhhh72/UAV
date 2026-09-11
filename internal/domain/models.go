@@ -10,7 +10,10 @@
 // in docs/business-flows.md.
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Role is a user role in the 4-level RBAC hierarchy.
 // Roles are ordered: platform_admin > association_admin > enterprise > individual.
@@ -54,15 +57,15 @@ type User struct {
 	WechatOpenID string `json:"wechat_openid"`
 	PhoneCipher  string `json:"-"` // AES-256-GCM encrypted, never serialized
 	// PasswordHash is the bcrypt hash for password login. Never serialized.
-	PasswordHash string     `json:"-"`
-	Name         string     `json:"name"` // 昵称（users.name）
-	AvatarURL    string     `json:"avatar_url"`
-	Gender       string     `json:"gender"`   // 性别（男/女）
-	Birthday     string     `json:"birthday"` // 生日 YYYY-MM-DD
-	Region       string     `json:"region"`   // 所在地区
-	Bio          string     `json:"bio"`      // 个人简介
-	Role         Role       `json:"role"`
-	Status       string     `json:"status"`
+	PasswordHash string `json:"-"`
+	Name         string `json:"name"` // 昵称（users.name）
+	AvatarURL    string `json:"avatar_url"`
+	Gender       string `json:"gender"`   // 性别（男/女）
+	Birthday     string `json:"birthday"` // 生日 YYYY-MM-DD
+	Region       string `json:"region"`   // 所在地区
+	Bio          string `json:"bio"`      // 个人简介
+	Role         Role   `json:"role"`
+	Status       string `json:"status"`
 	// TokenVersion 令牌版本：删除/封禁/改角色时自增，使已签发 token 立即失效。
 	TokenVersion int64      `json:"token_version"`
 	Version      int        `json:"version"`
@@ -122,10 +125,10 @@ type Enterprise struct {
 	CoverImage       string           `json:"cover_image"`       // 机构封面图
 	LicenseURL       string           `json:"license_url"`
 	AccountName      string           `json:"account_name"`
-	ContactPerson    string           `json:"contact_person"`   // 联系人（PRD FR-2.1）
-	Email            string           `json:"email"`            // 邮箱
-	FoundedAt        string           `json:"founded_at"`       // 成立时间（YYYY-MM）
-	CapabilityTags   string           `json:"capability_tags"`  // 能力标签，逗号分隔（预设标签库多选）
+	ContactPerson    string           `json:"contact_person"`  // 联系人（PRD FR-2.1）
+	Email            string           `json:"email"`           // 邮箱
+	FoundedAt        string           `json:"founded_at"`      // 成立时间（YYYY-MM）
+	CapabilityTags   string           `json:"capability_tags"` // 能力标签，逗号分隔（预设标签库多选）
 	Status           EnterpriseStatus `json:"status"`
 	ReviewComment    string           `json:"review_comment"` // 审核意见：驳回/需补充原因，用户端展示
 	IsMember         bool             `json:"is_member"`
@@ -236,34 +239,34 @@ const (
 // Demand is a job request posted by a publisher (enterprise or individual)
 // that other users can bid on. It is the core entity of the platform.
 type Demand struct {
-	ID               string         `json:"id"`
-	PublisherID      string         `json:"publisher_id"`
-	PublisherName    string         `json:"publisher_name"`
+	ID                  string           `json:"id"`
+	PublisherID         string           `json:"publisher_id"`
+	PublisherName       string           `json:"publisher_name"`
 	PublisherEnterprise *EnterpriseBrief `json:"publisher_enterprise,omitempty"` // 发布者已认证企业摘要（无则省略）
-	Contact          string         `json:"contact"` // encrypted at rest, masked in public responses
-	BizType          BizType        `json:"biz_type"`
-	District         string         `json:"district"`
-	CityCode         string         `json:"city_code"`
-	Title            string         `json:"title"`
-	Description      string         `json:"description"`
-	Images           []string       `json:"images"`
-	Attachments      []string       `json:"attachments"`       // 附件（图片/PDF，≤10MB，公开详情可下载）
-	Aircraft         []string       `json:"aircraft"`          // 机型要求（多旋翼/固定翼/垂直起降/直升机）
-	PilotCount       int            `json:"pilot_count"`       // 需要飞手数量（0=不限）
-	Latitude         float64        `json:"latitude"`
-	Longitude        float64        `json:"longitude"`
-	BudgetFen        int64          `json:"budget_fen"`         // 预算上限（分，0=面议）
-	BudgetMinFen     int64          `json:"budget_min_fen"`     // 预算下限（分，0=不限）
-	OfflineAmountFen int64          `json:"offline_amount_fen"` // 线下成交金额（联系对接模式撮合价值度量）
+	Contact             string           `json:"contact"`                        // encrypted at rest, masked in public responses
+	BizType             BizType          `json:"biz_type"`
+	District            string           `json:"district"`
+	CityCode            string           `json:"city_code"`
+	Title               string           `json:"title"`
+	Description         string           `json:"description"`
+	Images              []string         `json:"images"`
+	Attachments         []string         `json:"attachments"` // 附件（图片/PDF，≤10MB，公开详情可下载）
+	Aircraft            []string         `json:"aircraft"`    // 机型要求（多旋翼/固定翼/垂直起降/直升机）
+	PilotCount          int              `json:"pilot_count"` // 需要飞手数量（0=不限）
+	Latitude            float64          `json:"latitude"`
+	Longitude           float64          `json:"longitude"`
+	BudgetFen           int64            `json:"budget_fen"`         // 预算上限（分，0=面议）
+	BudgetMinFen        int64            `json:"budget_min_fen"`     // 预算下限（分，0=不限）
+	OfflineAmountFen    int64            `json:"offline_amount_fen"` // 线下成交金额（联系对接模式撮合价值度量）
 	// Deadline 需求有效期截止日（YYYY-MM-DD，服务端校验非过去；空串=长期有效）。
 	// 发布时效管理：过期需求前端不再展示可对接入口。
-	Deadline string         `json:"deadline,omitempty"`
+	Deadline  string         `json:"deadline,omitempty"`
 	BizFields map[string]any `json:"biz_fields"`
-	Status           DemandStatus   `json:"status"`
-	IsMine           bool           `json:"is_mine,omitempty"` // 详情接口标记：当前请求者即发布者（前端据此禁用自登记）
-	Version          int            `json:"version"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
+	Status    DemandStatus   `json:"status"`
+	IsMine    bool           `json:"is_mine,omitempty"` // 详情接口标记：当前请求者即发布者（前端据此禁用自登记）
+	Version   int            `json:"version"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 // DemandIntent records an intent to contact a demand publisher.
@@ -303,7 +306,7 @@ type WorkOrder struct {
 	OrderNo       string          `json:"order_no"`
 	DemandID      string          `json:"demand_id"`
 	DemandTitle   string          `json:"demand_title"` // 需求标题（服务层填充，便于列表/详情展示）
-	IntentID      string          `json:"intent_id"` // 来源意向（B 批：唯一约束防并发双建单）
+	IntentID      string          `json:"intent_id"`    // 来源意向（B 批：唯一约束防并发双建单）
 	PublisherID   string          `json:"publisher_id"` // 需求方（企业）
 	PublisherName string          `json:"publisher_name"`
 	WorkerID      string          `json:"worker_id"` // 接单飞手
@@ -384,14 +387,14 @@ type TrainingCourse struct {
 	// PassRate 通过考试率（页面"通过考试"统计，如 "92"；空为"—"）
 	PassRate string `json:"pass_rate"`
 	// Years 机构年限（页面"机构年限"统计；0 为"—"）
-	Years     int       `json:"years"`
-	Version   int       `json:"version"`
+	Years   int `json:"years"`
+	Version int `json:"version"`
 
 	// MyEnrollmentStatus 当前请求者的报名状态（""=未报名；enrolled/paid/approved/rejected/completed）。
 	// 运行时按认证用户填充（详情页按钮态：已报名显示进度而非"立即报名"），不入库。
-	MyEnrollmentStatus string `json:"my_enrollment_status,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	MyEnrollmentStatus string    `json:"my_enrollment_status,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // Instructor is a certified training instructor registered on the platform.
@@ -506,25 +509,25 @@ type Message struct {
 
 // Enrollment records a user's registration for a training course.
 type Enrollment struct {
-	ID          string    `json:"id"`
-	CourseID    string    `json:"course_id"`
-	UserID      string    `json:"user_id"`
-	Name        string    `json:"name"`          // 报名人姓名
-	Phone       string    `json:"phone"`         // 联系电话
-	IDCard      string    `json:"id_card"`       // 身份证号
-	Gender      string    `json:"gender"`        // 性别
-	Birthday    time.Time `json:"birthday"`      // 生日（DATE）
-	Email       string    `json:"email"`         // 邮箱
-	Education   string    `json:"education"`     // 学历
-	Experience  string    `json:"experience"`    // 从业经验
-	PhotoURL    string    `json:"photo_url"`     // 证件照
-	IDCardImage string    `json:"id_card_image"` // 身份证正面照片
-	IDCardBack  string    `json:"id_card_back"`  // 身份证反面照片（正反面 3 张材料闭环）
-	NoCrime     string    `json:"no_crime"`      // 无犯罪证明
-	Status      string    `json:"status"`
-	ReviewNote  string    `json:"review_note"` // 机构审核备注（通过可留空/拒绝需原因）
-	PaidAmountFen int64   `json:"paid_amount_fen"` // 报名时冻结的学费（分），完成时按此金额释放——与课程实时价格解耦
-	CreatedAt   time.Time `json:"created_at"`
+	ID            string    `json:"id"`
+	CourseID      string    `json:"course_id"`
+	UserID        string    `json:"user_id"`
+	Name          string    `json:"name"`          // 报名人姓名
+	Phone         string    `json:"phone"`         // 联系电话
+	IDCard        string    `json:"id_card"`       // 身份证号
+	Gender        string    `json:"gender"`        // 性别
+	Birthday      time.Time `json:"birthday"`      // 生日（DATE）
+	Email         string    `json:"email"`         // 邮箱
+	Education     string    `json:"education"`     // 学历
+	Experience    string    `json:"experience"`    // 从业经验
+	PhotoURL      string    `json:"photo_url"`     // 证件照
+	IDCardImage   string    `json:"id_card_image"` // 身份证正面照片
+	IDCardBack    string    `json:"id_card_back"`  // 身份证反面照片（正反面 3 张材料闭环）
+	NoCrime       string    `json:"no_crime"`      // 无犯罪证明
+	Status        string    `json:"status"`
+	ReviewNote    string    `json:"review_note"`     // 机构审核备注（通过可留空/拒绝需原因）
+	PaidAmountFen int64     `json:"paid_amount_fen"` // 报名时冻结的学费（分），完成时按此金额释放——与课程实时价格解耦
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // TradeOrder is a purchase order in the drone marketplace.
@@ -548,10 +551,10 @@ type TradeOrder struct {
 	AftersaleStatus    string    `json:"aftersale_status"`
 	AftersaleTime      time.Time `json:"aftersale_time"`
 	// AftersaleFrom 申请售后前的订单状态（paid/shipped/completed）；驳回时恢复原状态。
-	AftersaleFrom string `json:"aftersale_from"`
-	Version       int    `json:"version"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	AftersaleFrom string    `json:"aftersale_from"`
+	Version       int       `json:"version"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // EscrowAccount holds a user's balance and frozen funds in the escrow system.
@@ -562,17 +565,53 @@ type EscrowAccount struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
+// 托管金流水渠道（escrow_transactions.channel）：区分真实资金与平台内部记账，
+// 对账/报表只有按渠道过滤才能答出「这个月真实收了多少、账上多出来的钱是哪来的」。
+const (
+	ChannelInternal = "internal" // 平台内部业务记账（默认值）
+	// ChannelInternalAdmin 管理员手工入账：线下对公转账/现金收款后补记，无线上支付凭证。
+	ChannelInternalAdmin = "internal_admin"
+	// ChannelInternalSelf 用户自助充值（模拟通道：没有真实资金进平台，仅用于联调/演示）。
+	ChannelInternalSelf = "internal_self"
+	// ChannelWeChat 微信支付：真实资金，入账必须带微信支付单号（external_txn_id）。
+	ChannelWeChat = "wechat"
+)
+
+// IsRealChannel 报告渠道是否为真实资金渠道。内部记账渠道（internal 与 internal_* 前缀）
+// 返回 false——它们代表平台自己记出来的余额，不对应任何外部资金流。
+func IsRealChannel(channel string) bool {
+	return channel != "" && !strings.HasPrefix(channel, "internal")
+}
+
 // EscrowTransaction records a single escrow operation (deposit/freeze/release/refund).
 type EscrowTransaction struct {
-	ID            string    `json:"id"`
-	FromUser      string    `json:"from_user"`
-	ToUser        string    `json:"to_user"`
-	AmountFen     int64     `json:"amount_fen"`
-	TxType        string    `json:"tx_type"`
-	ReferenceType string    `json:"reference_type"`
-	ReferenceID   string    `json:"reference_id"`
-	Status        string    `json:"status"`
+	ID            string `json:"id"`
+	FromUser      string `json:"from_user"`
+	ToUser        string `json:"to_user"`
+	AmountFen     int64  `json:"amount_fen"`
+	TxType        string `json:"tx_type"`
+	ReferenceType string `json:"reference_type"`
+	ReferenceID   string `json:"reference_id"`
+	Status        string `json:"status"`
+	// Channel 资金渠道（domain.Channel*）：internal* = 平台内部记账，wechat = 真实微信支付。
+	Channel string `json:"channel"`
+	// ExternalTxnID 外部支付单号（微信支付 transaction_id）。真实渠道入账的幂等键：
+	// 同一 (channel, external_txn_id) 只能入账一次，微信回调重试不会重复加钱。
+	ExternalTxnID string    `json:"external_txn_id"`
 	CreatedAt     time.Time `json:"created_at"`
+}
+
+// EscrowReconcile 托管金对账结果：某个渠道在 [From, To) 区间内的入金合计 + 全量流水明细。
+// DepositFen 只统计 tx_type=deposit 的入金（真实资金对账关心的就是"钱进来多少"），
+// Transactions 同时给出冻结/放款/退款等资金动作，便于逐笔核对。
+type EscrowReconcile struct {
+	Channel      string              `json:"channel"`
+	RealFunds    bool                `json:"real_funds"`
+	From         time.Time           `json:"from"`
+	To           time.Time           `json:"to"`
+	DepositCount int                 `json:"deposit_count"`
+	DepositFen   int64               `json:"deposit_fen"`
+	Transactions []EscrowTransaction `json:"transactions"`
 }
 
 // Article is a news article published by an admin on the platform.
@@ -660,7 +699,7 @@ type CertifiedPilot struct {
 	Bio           string    `json:"bio"` // 擅长领域/简介
 	Rating        float64   `json:"rating"`
 	CompletedJobs int       `json:"completed_jobs"`
-	Status        string    `json:"status"` // pending / approved / rejected
+	Status        string    `json:"status"`        // pending / approved / rejected
 	RejectReason  string    `json:"reject_reason"` // 驳回理由（管理端审核留痕）
 	Version       int       `json:"version"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -682,7 +721,6 @@ type CertificateBrief struct {
 	Level     string `json:"level"`
 	Status    string `json:"status"`
 }
-
 
 // ReviewRecord is an immutable audit entry for an admin review action.
 type ReviewRecord struct {

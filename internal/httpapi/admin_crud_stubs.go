@@ -1705,12 +1705,12 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 		adminFail(w, r, fmt.Errorf("product not found: %w", err))
 		return
 	}
-	// 下单占位：管理端建单同样标记商品 sold——此前不占位，同一商品可被反复下单（一物多卖）。
-	if product.Status == "" || product.Status == "listed" {
-		if err := s.tradingSvc.MarkProductSold(r.Context(), product.ID); err != nil {
-			adminFail(w, r, fmt.Errorf("product not available: %w", err))
-			return
-		}
+	// 下单占位：管理端建单**无条件**标记商品 sold（与买家下单路径同口径）。
+	// 此前只在商品为 listed 时才占位，已是 sold 的就跳过校验直接建单 → 同一商品可被反复下单
+	// （一物多卖）。MarkSold 本身是 CAS（仅 listed/空 可改），商品已售出时会直接失败。
+	if err := s.tradingSvc.MarkProductSold(r.Context(), product.ID); err != nil {
+		adminFail(w, r, fmt.Errorf("product not available: %w", err))
+		return
 	}
 	o, err := s.tradeSvc.Create(r.Context(), in.BuyerID, in.ProductID, product.SellerID, product.PriceFen)
 	if err != nil {
@@ -1719,6 +1719,10 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		adminFail(w, r, err)
 		return
+	}
+	// 管理端建单补审计：此前该路径完全没有留痕（买家下单路径有），出问题查不到是谁建的
+	if a, ok := authenticatedActor(r); ok {
+		s.audit(r.Context(), a.ID, "create_trade_order", "trade_order", o.ID, "created by admin")
 	}
 	respond(w, r, 201, o)
 }

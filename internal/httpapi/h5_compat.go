@@ -566,7 +566,7 @@ func (s *Server) h5UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 const (
 	pwMaxFailures        = 10
 	pwLockDuration       = 15 * time.Minute
-	pwAccountMaxFailures = 50              // 账号级跨 IP 累计上限
+	pwAccountMaxFailures = 50               // 账号级跨 IP 累计上限
 	pwAccountWindow      = 15 * time.Minute // 账号级计数窗口（超窗重置）
 )
 
@@ -716,9 +716,14 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 			// 改过/重置过密码的账号（tv 会自增）若签发时不带，登录成功也立刻被判"账号已失效"。
 			// name/avatar_url 也一并带回：登录响应是客户端首屏的数据来源，缺了昵称
 			// 前端就只能显示手机号（随后虽然会拉 /api/auth/me，但那一层也可能拿不到）。
+			name := u.Name
+			if name == "" {
+				// 老账号兜底：昵称只在 users.json 里（注册时未落库的那批）
+				name = legacyUserName(u.ID)
+			}
 			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(u.Role),
 				"status": u.Status, "token_version": u.TokenVersion, "created_at": u.CreatedAt,
-				"name": u.Name, "avatar_url": u.AvatarURL}
+				"name": name, "avatar_url": u.AvatarURL}
 		}
 		break
 	}
@@ -933,6 +938,7 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	user := domain.User{
 		ID:           uid,
+		Name:         name,                  // 昵称必须落库：登录/me 以库为准，只写 users.json 会让前端拿到空昵称（退化成显示手机号）
 		WechatOpenID: "phone:" + body.Phone, // non-WeChat users get unique openid to avoid UNIQUE violation
 		PhoneCipher:  encryptPhone(body.Phone),
 		PasswordHash: string(hashedPassword),
@@ -993,6 +999,22 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// legacyUserName 从历史 users.json 里取昵称：只用于数据库 name 为空的老账号
+// （注册于"昵称只写 JSON"的年代；后台建号/改名/提权的账号根本不在 JSON 里）。
+func legacyUserName(id string) string {
+	var users []map[string]any
+	readJSON(_usersFile, &_usersMu, &users)
+	for _, ju := range users {
+		if ju["id"] == id {
+			if n, ok := ju["name"].(string); ok {
+				return n
+			}
+			return ""
+		}
+	}
+	return ""
+}
+
 func (s *Server) h5AuthMe(w http.ResponseWriter, r *http.Request) {
 	// Parse token manually: /api/auth/* paths skip auth middleware.
 	h := r.Header.Get("Authorization")
@@ -1015,16 +1037,7 @@ func (s *Server) h5AuthMe(w http.ResponseWriter, r *http.Request) {
 		name := u.Name
 		if name == "" {
 			// 兼容老账号：注册于 users.json 时代、昵称只写在 JSON 里的
-			var users []map[string]any
-			readJSON(_usersFile, &_usersMu, &users)
-			for _, ju := range users {
-				if ju["id"] == u.ID {
-					if n, ok := ju["name"].(string); ok {
-						name = n
-					}
-					break
-				}
-			}
+			name = legacyUserName(u.ID)
 		}
 		phone := ""
 		if strings.HasPrefix(u.WechatOpenID, "phone:") {

@@ -118,7 +118,7 @@ type DemandRepository interface {
 	Create(ctx context.Context, v domain.Demand) (domain.Demand, error)
 	Update(ctx context.Context, d domain.Demand) (domain.Demand, error)
 	FindByID(ctx context.Context, id string) (domain.Demand, error)
-	List(ctx context.Context, v DemandFilter) ([]domain.Demand, error)    // 公开语义：仅已发布
+	List(ctx context.Context, v DemandFilter) ([]domain.Demand, error) // 公开语义：仅已发布
 	// ListPage 公开语义 + SQL 分页：返回当前页与总数（需求大厅高频路径，替代
 	// List+内存分页的全表拉取；keyword 搜索 q 路径仍走 List 内存过滤）。
 	ListPage(ctx context.Context, v DemandFilter, offset, limit int) ([]domain.Demand, int, error)
@@ -493,6 +493,10 @@ type TradeOrderFilter struct {
 var (
 	ErrInsufficientBalance       = errors.New("insufficient balance")
 	ErrInsufficientFrozenBalance = errors.New("insufficient frozen balance")
+	// ErrDuplicateExternalTxn 同一 (channel, external_txn_id) 已入账过：真实支付回调重复入金的最终防线
+	// （PG 由唯一索引 idx_escrow_external 触发，内存实现按同样规则拒绝）。
+	// Service 层收到它应重查该支付单号并按幂等成功返回，而不是报错给调用方。
+	ErrDuplicateExternalTxn = errors.New("duplicate external transaction")
 )
 
 // ErrCertNumberTaken 证书号已被占用（唯一索引兜底，Service 层转友好错误）。
@@ -562,13 +566,30 @@ type EscrowRepository interface {
 	Release(ctx context.Context, fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	Refund(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error)
+	// Transfer 收付款双方都在余额内转账（不涉及冻结）：卖家余额 → 买家余额，
+	// 用于"货款已放给卖家之后才通过的售后退款"（钱已不在冻结里，只能从卖家余额扣回）。
+	// 余额不足返回 ErrInsufficientBalance（调用方据此拒绝本次操作并要求人工介入）。
+	Transfer(ctx context.Context, fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	// HasReleased 报告 fromUser 对 (reference_type, reference_id) 是否已有完成（status='completed'）的
 	// release 流水——completeEnrollment 幂等重试判断"学费是否已释放"用（避免重复释放）。
 	HasReleased(ctx context.Context, fromUser, refType, refID string) (bool, error)
+	// HasFrozen 报告 userID 对 (reference_type, reference_id) 是否已有完成的 freeze 流水
+	// ——订单/报名判断"这笔业务的钱是否已进入冻结"用（决定取消时该解冻退款还是无钱可退）。
+	HasFrozen(ctx context.Context, userID, refType, refID string) (bool, error)
+	// HasRefunded 报告 userID 对 (reference_type, reference_id) 是否已有完成的 refund 流水
+	// ——取消订单/售后退款幂等：重复触发不重复退钱。
+	HasRefunded(ctx context.Context, userID, refType, refID string) (bool, error)
 	// ListOrphanFreezes 列出"冻结但无对应业务记录"的孤儿冻结流水
 	// （ref_type/ref_id 指定的业务记录不存在，且冻结时间早于 olderThan），
 	// 供自动补偿解冻（如培训报名冻结后进程崩溃，报名未落库）。
 	ListOrphanFreezes(ctx context.Context, refType string, olderThan time.Time, limit int) ([]domain.EscrowTransaction, error)
+	// FindByExternalTxn 按 (渠道, 外部支付单号) 查流水——真实支付（微信）回调入账的幂等键：
+	// 微信对同一笔支付会重复回调，同一 (channel, external_txn_id) 只能入账一次。
+	// 未找到返回 (零值, false, nil)；查询本身失败返回 error。
+	FindByExternalTxn(ctx context.Context, channel, externalTxnID string) (domain.EscrowTransaction, bool, error)
+	// ListByChannel 按渠道 + 时间区间列流水（对账明细，按 created_at 升序）。
+	// channel 为空串表示不限渠道；from/to 为零值时该端不限。
+	ListByChannel(ctx context.Context, channel string, from, to time.Time, limit int) ([]domain.EscrowTransaction, error)
 }
 
 // ---- New Business Module Repositories ----

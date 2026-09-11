@@ -504,6 +504,11 @@ func (s *Server) payTradeOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	o, err := s.tradeSvc.PayOrder(r.Context(), a.ID, r.PathValue("id"))
 	if err != nil {
+		// 余额不足 → 402：前端据此引导去「我的托管金」充值（与课程报名同一口径）
+		if errors.Is(err, repository.ErrInsufficientBalance) {
+			fail(w, r, http.StatusPaymentRequired, errors.New("托管金余额不足，请先充值后再支付"))
+			return
+		}
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}

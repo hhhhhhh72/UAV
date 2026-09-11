@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"strings"
 	"time"
@@ -287,13 +288,73 @@ func (s *ExpiryService) GetExpiringInspections(list []domain.AnnualInspection, w
 
 // ---- Trade Orders ----
 
+// tradeRefType 订单资金的流水引用类型：冻结/放款/退款/转账统一用它，
+// 幂等查询（HasFrozen/HasReleased/HasRefunded）与孤儿冻结补偿都按它匹配。
+const tradeRefType = "trade_order"
+
 type TradeOrderService struct {
 	repo     repository.TradeOrderRepository
 	prodRepo repository.ProductRepository // 订单取消时恢复商品为可售（可空）
+	escrow   *EscrowService               // 资金托管（可空：未注入时退化为纯状态机，供 dev/测试）
 }
 
 func NewTradeOrderService(repo repository.TradeOrderRepository, prodRepo repository.ProductRepository) *TradeOrderService {
 	return &TradeOrderService{repo: repo, prodRepo: prodRepo}
+}
+
+// SetEscrow 注入托管金服务：注入后商城订单具备真实资金闭环
+// （付款冻结 → 确认收货放款 → 取消/售后退款），未注入则只走状态机。
+func (s *TradeOrderService) SetEscrow(e *EscrowService) { s.escrow = e }
+
+// freezeForOrder 付款冻结买家余额（订单金额）。余额不足返回 repository.ErrInsufficientBalance，
+// Handler 映射 402 引导充值。已冻结过（重试）则跳过，不重复冻结。
+func (s *TradeOrderService) freezeForOrder(ctx context.Context, o domain.TradeOrder) error {
+	if s.escrow == nil || o.AmountFen <= 0 {
+		return nil
+	}
+	if has, err := s.escrow.HasFrozen(ctx, o.BuyerID, tradeRefType, o.ID); err == nil && has {
+		return nil
+	}
+	_, err := s.escrow.Freeze(ctx, o.BuyerID, o.AmountFen, tradeRefType, o.ID)
+	return err
+}
+
+// settleToSeller 确认收货放款：买家冻结 → 卖家余额。
+// EscrowService.Release 内部按 (买家, trade_order, 订单号) 幂等，重复调用不会双倍入账。
+func (s *TradeOrderService) settleToSeller(ctx context.Context, o domain.TradeOrder) error {
+	if s.escrow == nil || o.AmountFen <= 0 {
+		return nil
+	}
+	if _, err := s.escrow.Release(ctx, o.BuyerID, o.SellerID, o.AmountFen, tradeRefType, o.ID); err != nil {
+		return fmt.Errorf("订单 %s 放款失败: %w", o.ID, err)
+	}
+	return nil
+}
+
+// refundBuyerIfAny 退款给买家（幂等）：仅当这笔订单确实冻结过、且尚未退过款时执行。
+// 无冻结（未付款订单）直接跳过——不需要也不应该产生退款流水。
+func (s *TradeOrderService) refundBuyerIfAny(ctx context.Context, o domain.TradeOrder, amountFen int64) error {
+	if s.escrow == nil || amountFen <= 0 {
+		return nil
+	}
+	frozen, err := s.escrow.HasFrozen(ctx, o.BuyerID, tradeRefType, o.ID)
+	if err != nil {
+		return fmt.Errorf("查询订单冻结流水失败: %w", err)
+	}
+	if !frozen {
+		return nil
+	}
+	refunded, err := s.escrow.HasRefunded(ctx, o.BuyerID, tradeRefType, o.ID)
+	if err != nil {
+		return fmt.Errorf("查询订单退款流水失败: %w", err)
+	}
+	if refunded {
+		return nil
+	}
+	if _, err := s.escrow.Refund(ctx, o.BuyerID, amountFen, tradeRefType, o.ID); err != nil {
+		return fmt.Errorf("订单 %s 退款失败: %w", o.ID, err)
+	}
+	return nil
 }
 
 func (s *TradeOrderService) Create(ctx context.Context, buyerID, productID, sellerID string, amountFen int64) (domain.TradeOrder, error) {
@@ -376,13 +437,41 @@ func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newSta
 	if !ok {
 		return domain.TradeOrder{}, fmt.Errorf("订单状态已变更，请刷新后重试")
 	}
-	// 订单取消：商品恢复为可售（sold → listed），重新出现在供给大厅
+	// 资金钩子：确认收货放款给卖家 / 取消订单退款给买家（都幂等）。
+	// 状态已落定后才动钱——失败时钱仍留在托管里，最坏是延迟到账，不会丢；
+	// 因此这里记 Error 日志并返回错误，由人工/补偿处理。
+	if err := s.settleMoney(ctx, updated, newStatus); err != nil {
+		return domain.TradeOrder{}, err
+	}
+	// 订单取消：商品恢复为可售（sold → listed），重新出现在供给大厅。
+	// 失败不再让接口报错——订单与资金都已落定，此时报错反而会让运营以为"取消失败"
+	// 而重复操作（此前正是这个坑：商品被别的流程改过就返回错误，订单其实已取消）。
 	if newStatus == "cancelled" && s.prodRepo != nil && o.ProductID != "" {
 		if rerr := s.prodRepo.Restore(ctx, o.ProductID); rerr != nil {
-			return domain.TradeOrder{}, fmt.Errorf("订单已取消但商品恢复失败: %w", rerr)
+			slog.Warn("订单已取消但商品状态未恢复，需人工确认", "order", o.ID, "product", o.ProductID, "error", rerr)
 		}
 	}
 	return updated, nil
+}
+
+// settleMoney 按目标状态执行资金动作（completed 放款 / cancelled 退款），两者都幂等。
+func (s *TradeOrderService) settleMoney(ctx context.Context, o domain.TradeOrder, newStatus string) error {
+	if s.escrow == nil {
+		return nil
+	}
+	switch newStatus {
+	case "completed":
+		if err := s.settleToSeller(ctx, o); err != nil {
+			slog.Error("订单已完成但放款失败（资金仍在托管，需人工处理）", "order", o.ID, "error", err)
+			return err
+		}
+	case "cancelled":
+		if err := s.refundBuyerIfAny(ctx, o, o.AmountFen); err != nil {
+			slog.Error("订单已取消但退款失败（资金仍在托管，需人工处理）", "order", o.ID, "error", err)
+			return err
+		}
+	}
+	return nil
 }
 
 // ApplyAftersale 买家申请售后：仅买家可申请；一次订单仅一份有效售后单
@@ -398,7 +487,10 @@ func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID,
 	if amountFen <= 0 || amountFen > o.AmountFen {
 		return domain.TradeOrder{}, fmt.Errorf("售后金额必须在 0~订单金额之间（含 0 不可申请）")
 	}
-	if o.AftersaleStatus != "" {
+	// 判重口径：只有「待审核 / 已通过」才算已有有效售后。
+	// 被驳回的（rejected）允许重新申请——此前用 AftersaleStatus != "" 一票否决，
+	// 买家被驳回一次就永久失去售后权利（订单已回到 paid/shipped，却再也提不了）。
+	if o.AftersaleStatus == "pending" || o.AftersaleStatus == "approved" {
 		return domain.TradeOrder{}, fmt.Errorf("该订单已存在售后申请")
 	}
 	if err := checkOrderTransition(o.Status, "aftersale"); err != nil {
@@ -415,6 +507,63 @@ func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID,
 	o.AftersaleStatus = "pending"
 	o.AftersaleTime = now
 	return s.repo.UpdateAftersale(ctx, o)
+}
+
+// refundForAftersale 售后同意后的资金处置（两种情形）：
+//
+//	A. 货款还在买家冻结里（订单 paid/shipped，尚未确认收货）：
+//	   从冻结里退售后金额给买家，剩余部分放给卖家（部分退款 = 买卖双方达成降价成交）；
+//	B. 货款已放给卖家（订单 completed）：钱已不在冻结里，只能从卖家余额扣回买家余额
+//	   （Transfer）；卖家余额不足则返回错误，由平台人工介入，绝不静默吞掉。
+//
+//
+//	C. 这笔订单从未冻结过资金（管理端建单/线下成交）：无钱可动，仅记 Warn 后结案。
+//
+// 幂等/可重试：A 分支的退款与放款各自幂等（refundBuyerIfAny / Release 内部查重），
+// 因此「退了款但放款失败」重试时不会重复退款；B 由 AftersaleStatus 的
+// pending→approved 单向流转保证只执行一次。
+func (s *TradeOrderService) refundForAftersale(ctx context.Context, o domain.TradeOrder) error {
+	if s.escrow == nil {
+		return nil
+	}
+	refundAmt := o.AftersaleAmountFen
+	if refundAmt <= 0 {
+		return fmt.Errorf("售后金额异常: %d", refundAmt)
+	}
+	frozen, err := s.escrow.HasFrozen(ctx, o.BuyerID, tradeRefType, o.ID)
+	if err != nil {
+		return fmt.Errorf("查询订单冻结流水失败: %w", err)
+	}
+	if !frozen {
+		// C：这笔订单从未冻结过资金（管理端建单/线下成交）：没有钱可动，
+		// 记 Warn 后按状态结案，绝不凭空造一笔退款流水。
+		slog.Warn("订单无托管资金，售后按状态结案（不产生退款流水）", "order", o.ID, "amount", refundAmt)
+		return nil
+	}
+	released, err := s.escrow.HasReleased(ctx, o.BuyerID, tradeRefType, o.ID)
+	if err != nil {
+		return fmt.Errorf("查询订单放款流水失败: %w", err)
+	}
+	if released {
+		// B：钱已放给卖家 → 卖家余额 → 买家余额
+		if _, err := s.escrow.Transfer(ctx, o.SellerID, o.BuyerID, refundAmt, tradeRefType, o.ID); err != nil {
+			if errors.Is(err, repository.ErrInsufficientBalance) {
+				return fmt.Errorf("售后退款失败：卖家托管金余额不足，请联系平台处理（订单 %s）", o.ID)
+			}
+			return fmt.Errorf("售后退款失败: %w", err)
+		}
+		return nil
+	}
+	// A：钱还在冻结里 → 先退买家，再把剩余放给卖家
+	if err := s.refundBuyerIfAny(ctx, o, refundAmt); err != nil {
+		return err
+	}
+	if rest := o.AmountFen - refundAmt; rest > 0 {
+		if _, err := s.escrow.Release(ctx, o.BuyerID, o.SellerID, rest, tradeRefType, o.ID); err != nil {
+			return fmt.Errorf("售后部分退款后放款给卖家失败: %w", err)
+		}
+	}
+	return nil
 }
 
 // ReviewAftersale 管理端审核售后单：同意 → aftersale_status=approved（退款完成）；
@@ -447,6 +596,12 @@ func (s *TradeOrderService) reviewAftersale(ctx context.Context, orderID string,
 		return domain.TradeOrder{}, fmt.Errorf("该订单不在售后待审核状态")
 	}
 	if approve {
+		// 先退款再改状态：钱动不了（卖家余额不足等）就拒绝本次审批，状态保持待审核可重试，
+		// 绝不允许出现"售后已批准、钱却没退"的账实不符。
+		if err := s.refundForAftersale(ctx, o); err != nil {
+			slog.Error("售后审批通过但退款失败", "order", o.ID, "error", err)
+			return domain.TradeOrder{}, err
+		}
 		o.AftersaleStatus = "approved"
 		o.Status = "completed"
 	} else {
@@ -475,11 +630,20 @@ func (s *TradeOrderService) PayOrder(ctx context.Context, buyerID, orderID strin
 	if err := checkOrderTransition(o.Status, "paid"); err != nil {
 		return domain.TradeOrder{}, err
 	}
-	ok, updated, err := s.repo.CompareAndSetStatus(ctx, orderID, o.Status, "paid")
-	if err != nil {
+	// 先冻结再改状态：钱不到位就不改状态。余额不足返回 ErrInsufficientBalance
+	// （Handler 映射 402，前端引导去「我的托管金」充值）。
+	if err := s.freezeForOrder(ctx, o); err != nil {
 		return domain.TradeOrder{}, err
 	}
-	if !ok {
+	ok, updated, err := s.repo.CompareAndSetStatus(ctx, orderID, o.Status, "paid")
+	if err != nil || !ok {
+		// 状态没改成（并发改单/DB 错误）：把刚冻结的钱退回买家，避免资金滞留托管
+		if rerr := s.refundBuyerIfAny(ctx, o, o.AmountFen); rerr != nil {
+			slog.Error("订单支付状态迁移失败且退款失败（资金滞留，需人工处理）", "order", o.ID, "error", rerr)
+		}
+		if err != nil {
+			return domain.TradeOrder{}, err
+		}
 		return domain.TradeOrder{}, fmt.Errorf("订单状态已变更，请刷新后重试")
 	}
 	return updated, nil
@@ -507,9 +671,13 @@ func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus
 	if !ok {
 		return domain.TradeOrder{}, fmt.Errorf("订单状态已变更，请刷新后重试")
 	}
+	// 管理端改单同样走资金钩子（取消 → 退款给买家；完成 → 放款给卖家）
+	if err := s.settleMoney(ctx, updated, newStatus); err != nil {
+		return domain.TradeOrder{}, err
+	}
 	if newStatus == "cancelled" && s.prodRepo != nil && o.ProductID != "" {
 		if rerr := s.prodRepo.Restore(ctx, o.ProductID); rerr != nil {
-			return domain.TradeOrder{}, fmt.Errorf("订单已取消但商品恢复失败: %w", rerr)
+			slog.Warn("管理端取消订单后商品状态未恢复，需人工确认", "order", o.ID, "product", o.ProductID, "error", rerr)
 		}
 	}
 	return updated, nil
@@ -521,10 +689,16 @@ func (s *TradeOrderService) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return s.repo.Delete(ctx, id)
 	}
-	// 未完成订单（pending/paid）删除后商品恢复；已完成/售后单不恢复（交易已终结）
-	if o.ProductID != "" && (o.Status == "pending" || o.Status == "paid") && s.prodRepo != nil {
-		if err := s.prodRepo.Restore(ctx, o.ProductID); err != nil {
-			return fmt.Errorf("delete order: restore product %s: %w", o.ProductID, err)
+	// 未完成订单（pending/paid）：先把买家的钱退回去，再删单；
+	// 退款失败则不删（钱不能因为删单而丢失）；商品恢复失败不阻塞删除（可人工确认）。
+	if o.Status == "pending" || o.Status == "paid" {
+		if err := s.refundBuyerIfAny(ctx, o, o.AmountFen); err != nil {
+			return fmt.Errorf("删除订单前退款失败: %w", err)
+		}
+		if o.ProductID != "" && s.prodRepo != nil {
+			if err := s.prodRepo.Restore(ctx, o.ProductID); err != nil {
+				slog.Warn("删除订单后商品状态未恢复，需人工确认", "order", o.ID, "product", o.ProductID, "error", err)
+			}
 		}
 	}
 	return s.repo.Delete(ctx, id)

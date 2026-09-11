@@ -8,16 +8,17 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	JWT      JWTConfig
-	Admin    AdminConfig
-	WeChat   WeChatConfig
-	Database DatabaseConfig
+	Server    ServerConfig
+	JWT       JWTConfig
+	Admin     AdminConfig
+	WeChat    WeChatConfig
+	WeChatPay WeChatPayConfig
+	Database  DatabaseConfig
 }
 
 type ServerConfig struct {
 	Port, Env, CORSOrigin, BaseURL string
-	UploadDailyQuotaBytes           int64 // 每用户每日上传字节上限（0 = 不限）
+	UploadDailyQuotaBytes          int64 // 每用户每日上传字节上限（0 = 不限）
 }
 type JWTConfig struct {
 	Secret          string
@@ -26,6 +27,23 @@ type JWTConfig struct {
 }
 type AdminConfig struct{ SuperAdminPhone string }
 type WeChatConfig struct{ AppID, AppSecret string }
+
+// WeChatPayConfig 微信支付（真实资金）配置。全部来自环境变量，未配置＝真实支付未开通：
+// 入金仍走平台内部记账（internal_*），绝不假装收到过钱。
+// 商户号/APIv3 密钥/商户私钥/证书序列号/回调地址必须在微信商户平台申请后填写。
+type WeChatPayConfig struct {
+	MchID          string // WECHAT_PAY_MCHID 商户号
+	APIv3Key       string // WECHAT_PAY_API_V3_KEY APIv3 密钥（32 字节，回调解密用）
+	CertSerial     string // WECHAT_PAY_CERT_SERIAL 商户 API 证书序列号（请求签名用）
+	PrivateKeyPath string // WECHAT_PAY_PRIVATE_KEY_PATH 商户私钥 apiclient_key.pem 路径
+	NotifyURL      string // WECHAT_PAY_NOTIFY_URL 支付结果回调地址（必须是 https 公网地址）
+}
+
+// Configured 报告微信支付是否已完整配置（五项齐全才可用）。
+func (w WeChatPayConfig) Configured() bool {
+	return w.MchID != "" && w.APIv3Key != "" && w.CertSerial != "" && w.PrivateKeyPath != "" && w.NotifyURL != ""
+}
+
 type DatabaseConfig struct {
 	UsePostgres bool
 	DatabaseURL string
@@ -38,19 +56,26 @@ type ValidationResult struct {
 func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port:                    envOrDefault("HTTP_ADDR", ":8080"),
-			Env:                     envOrDefault("ENV", "development"),
-			CORSOrigin:              envOrDefault("CORS_ORIGINS", "http://localhost:3000"),
-			BaseURL:                 envOrDefault("BASE_URL", "http://localhost:8080"),
-			UploadDailyQuotaBytes:   envOrDefaultInt64("UPLOAD_DAILY_QUOTA_BYTES", 50<<20),
+			Port:                  envOrDefault("HTTP_ADDR", ":8080"),
+			Env:                   envOrDefault("ENV", "development"),
+			CORSOrigin:            envOrDefault("CORS_ORIGINS", "http://localhost:3000"),
+			BaseURL:               envOrDefault("BASE_URL", "http://localhost:8080"),
+			UploadDailyQuotaBytes: envOrDefaultInt64("UPLOAD_DAILY_QUOTA_BYTES", 50<<20),
 		},
 		JWT: JWTConfig{
 			Secret:          os.Getenv("AUTH_SECRET"),
 			AccessTokenTTL:  envOrDefaultInt("ACCESS_TOKEN_TTL", 900),
 			RefreshTokenTTL: envOrDefaultInt("REFRESH_TOKEN_TTL", 604800),
 		},
-		Admin:    AdminConfig{SuperAdminPhone: envOrDefault("SUPER_ADMIN_PHONE", "")},
-		WeChat:   WeChatConfig{AppID: os.Getenv("WECHAT_APPID"), AppSecret: os.Getenv("WECHAT_APPSECRET")},
+		Admin:  AdminConfig{SuperAdminPhone: envOrDefault("SUPER_ADMIN_PHONE", "")},
+		WeChat: WeChatConfig{AppID: os.Getenv("WECHAT_APPID"), AppSecret: os.Getenv("WECHAT_APPSECRET")},
+		WeChatPay: WeChatPayConfig{
+			MchID:          os.Getenv("WECHAT_PAY_MCHID"),
+			APIv3Key:       os.Getenv("WECHAT_PAY_API_V3_KEY"),
+			CertSerial:     os.Getenv("WECHAT_PAY_CERT_SERIAL"),
+			PrivateKeyPath: os.Getenv("WECHAT_PAY_PRIVATE_KEY_PATH"),
+			NotifyURL:      os.Getenv("WECHAT_PAY_NOTIFY_URL"),
+		},
 		Database: DatabaseConfig{UsePostgres: os.Getenv("DATABASE_URL") != "", DatabaseURL: os.Getenv("DATABASE_URL")},
 	}
 }
@@ -61,8 +86,12 @@ func (c *Config) Validate() ValidationResult {
 		r.Errors = append(r.Errors, "AUTH_SECRET is required and must be at least 32 bytes")
 	}
 	if c.Server.Env == "production" {
-		if c.WeChat.AppID == "" { r.Errors = append(r.Errors, "WECHAT_APPID is required in production") }
-		if c.WeChat.AppSecret == "" { r.Errors = append(r.Errors, "WECHAT_APPSECRET is required in production") }
+		if c.WeChat.AppID == "" {
+			r.Errors = append(r.Errors, "WECHAT_APPID is required in production")
+		}
+		if c.WeChat.AppSecret == "" {
+			r.Errors = append(r.Errors, "WECHAT_APPSECRET is required in production")
+		}
 		// P0 修复：生产环境硬校验——此前这些项缺失仅告警/静默，
 		// 一次误配即可导致管理员令牌任意签发、敏感字段明文落库、数据存内存重启即丢。
 		if !c.Database.UsePostgres || c.Database.DatabaseURL == "" {
@@ -77,6 +106,22 @@ func (c *Config) Validate() ValidationResult {
 		if os.Getenv("SIGNING_SECRET") == "" {
 			r.Errors = append(r.Errors, "SIGNING_SECRET is required in production (contract webhook signature)")
 		}
+	}
+	// 微信支付配置：要么五项齐全，要么一项都不填。
+	// 半配置（比如有商户号但没私钥）会在真实支付时才失败——那时钱可能已经在路上，
+	// 因此启动即拒绝，逼运维把配置补全或全部清空（清空＝继续用内部记账）。
+	if wp := c.WeChatPay; !wp.Configured() {
+		var set []string
+		for _, kv := range []struct{ k, v string }{{"WECHAT_PAY_MCHID", wp.MchID}, {"WECHAT_PAY_API_V3_KEY", wp.APIv3Key}, {"WECHAT_PAY_CERT_SERIAL", wp.CertSerial}, {"WECHAT_PAY_PRIVATE_KEY_PATH", wp.PrivateKeyPath}, {"WECHAT_PAY_NOTIFY_URL", wp.NotifyURL}} {
+			if kv.v != "" {
+				set = append(set, kv.k)
+			}
+		}
+		if len(set) > 0 {
+			r.Errors = append(r.Errors, "微信支付配置不完整，已设置的项: "+strings.Join(set, ", ")+"（五项必须齐全，或全部留空）")
+		}
+	} else if c.Server.Env == "production" && !strings.HasPrefix(c.WeChatPay.NotifyURL, "https://") {
+		r.Errors = append(r.Errors, "WECHAT_PAY_NOTIFY_URL must be https in production")
 	}
 	// fail-closed 双保险（安全审计 P1）：无论 ENV 值，ADMIN_DEV_MODE=true 且环境标签
 	// 未显式声明 dev/test/development 时拒绝启动——防漏设 ENV 误配导致 dev 令牌生产可用。
@@ -101,34 +146,52 @@ func (c *Config) Validate() ValidationResult {
 
 func (c *Config) Print() {
 	mask := func(s string) string {
-		if len(s) > 8 { return s[:4] + "****" + s[len(s)-4:] }
+		if len(s) > 8 {
+			return s[:4] + "****" + s[len(s)-4:]
+		}
 		return "****"
 	}
 	fmt.Println("=== Configuration ===")
 	fmt.Printf("  Server Port:     %s\n", c.Server.Port)
 	fmt.Printf("  Environment:     %s\n", c.Server.Env)
 	fmt.Printf("  Database:        %s\n", map[bool]string{true: "PostgreSQL", false: "JSON/Memory"}[c.Database.UsePostgres])
-	if c.WeChat.AppID != "" { fmt.Printf("  WeChat AppID:    %s\n", c.WeChat.AppID) }
-	if c.WeChat.AppSecret != "" { fmt.Printf("  WeChat Secret:   %s\n", mask(c.WeChat.AppSecret)) }
+	if c.WeChat.AppID != "" {
+		fmt.Printf("  WeChat AppID:    %s\n", c.WeChat.AppID)
+	}
+	if c.WeChat.AppSecret != "" {
+		fmt.Printf("  WeChat Secret:   %s\n", mask(c.WeChat.AppSecret))
+	}
+	if c.WeChatPay.Configured() {
+		fmt.Printf("  WeChat Pay Mch:  %s (APIv3 %s, 证书序列号 %s)\n", c.WeChatPay.MchID, mask(c.WeChatPay.APIv3Key), mask(c.WeChatPay.CertSerial))
+		fmt.Printf("  WeChat Pay 回调: %s\n", c.WeChatPay.NotifyURL)
+	} else {
+		fmt.Println("  WeChat Pay:      未配置（资金走平台内部记账 internal_*）")
+	}
 	fmt.Printf("  JWT Secret:      %s\n", mask(c.JWT.Secret))
 	fmt.Println("======================")
 }
 
 func envOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" { return v }
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
 	return fallback
 }
 
 func envOrDefaultInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil { return n }
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
 	}
 	return fallback
 }
 
 func envOrDefaultInt64(key string, fallback int64) int64 {
 	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 64); err == nil { return n }
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return n
+		}
 	}
 	return fallback
 }

@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"drone-platform/internal/domain"
@@ -12,6 +13,43 @@ import (
 //
 // 回归：h5AuthMe 此前把 name 取自 legacy users.json 文件，后台建号 / 改名 / 提权的账号
 // 不在那个文件里 → name 恒为空 → 小程序「我的」页只能退化成显示手机号。
+// 自助注册（小程序手机号注册）也必须把昵称落库：
+// 此前 h5AuthRegister 只把 name 写进 users.json、没写 users.name 列，
+// 而登录/me 都以库为准 —— 用户填了昵称，界面照样显示手机号（线上实测复现）。
+func TestRegisterPersistsName(t *testing.T) {
+	app := newBizServer(t)
+	reg := doRaw(app, http.MethodPost, "/api/auth/register",
+		`{"phone":"13700009999","password":"RegPass123","name":"李四"}`, "")
+	if reg.Code != http.StatusOK && reg.Code != http.StatusCreated {
+		t.Fatalf("注册: %d %s", reg.Code, reg.Body.String())
+	}
+	login := doRaw(app, http.MethodPost, "/api/auth/login", `{"phone":"13700009999","password":"RegPass123"}`, "")
+	if login.Code != http.StatusOK {
+		t.Fatalf("登录: %d %s", login.Code, login.Body.String())
+	}
+	var lr struct {
+		Data struct {
+			AccessToken string `json:"accessToken"`
+			User        struct {
+				Name string `json:"name"`
+			} `json:"user"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(login.Body.Bytes(), &lr); err != nil {
+		t.Fatalf("parse login: %v", err)
+	}
+	if lr.Data.User.Name != "李四" {
+		t.Fatalf("注册用户登录应带昵称，实际 name=%q（响应 %s）", lr.Data.User.Name, login.Body.String())
+	}
+	me := doRaw(app, http.MethodGet, "/api/auth/me", "", "Bearer "+lr.Data.AccessToken)
+	if me.Code != http.StatusOK {
+		t.Fatalf("me: %d %s", me.Code, me.Body.String())
+	}
+	if !strings.Contains(me.Body.String(), `"name":"李四"`) {
+		t.Fatalf("me 应返回注册时填写的昵称，实际 %s", me.Body.String())
+	}
+}
+
 func TestAuthMeAndLoginReturnName(t *testing.T) {
 	app := newBizServer(t)
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)

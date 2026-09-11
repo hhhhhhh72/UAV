@@ -1285,6 +1285,7 @@ func (r *memUserRepo) FindByID(ctx context.Context, id string) (domain.User, err
 	}
 	return domain.User{}, fmt.Errorf("user %s: %w", id, repository.ErrUserNotFound)
 }
+
 // All 仅未注销账号（与 PG 的 deleted_at IS NULL 过滤对齐）。
 func (r *memUserRepo) All(ctx context.Context) ([]domain.User, error) {
 	return r.listUsers(false)
@@ -2908,6 +2909,7 @@ func (r *reviewRepo) ListByTarget(ctx context.Context, targetType, targetID stri
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
+
 // ListByReviewerTarget 查重专用：不过滤 status（与 PG 实现对齐）。
 func (r *reviewRepo) ListByReviewerTarget(ctx context.Context, reviewerID, targetType, targetID string) ([]domain.Review, error) {
 	r.mu.RLock()
@@ -3212,6 +3214,7 @@ func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrde
 			r.items[i].AftersaleAmountFen = o.AftersaleAmountFen
 			r.items[i].AftersaleStatus = o.AftersaleStatus
 			r.items[i].AftersaleTime = o.AftersaleTime
+			r.items[i].AftersaleFrom = o.AftersaleFrom
 			r.items[i].UpdatedAt = time.Now()
 			r.items[i].Version++
 			return r.items[i], nil
@@ -3319,6 +3322,14 @@ func (r *escrowRepo) GetAccount(ctx context.Context, userID string) (domain.Escr
 func (r *escrowRepo) Deposit(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 与 PG 的唯一索引 idx_escrow_external 同规则：同一笔外部支付只能入账一次。
+	if tx.ExternalTxnID != "" {
+		for _, prev := range r.txs {
+			if prev.Channel == tx.Channel && prev.ExternalTxnID == tx.ExternalTxnID {
+				return domain.EscrowTransaction{}, repository.ErrDuplicateExternalTxn
+			}
+		}
+	}
 	acct, ok := r.accts[userID]
 	if !ok {
 		acct = &domain.EscrowAccount{UserID: userID}
@@ -3398,6 +3409,100 @@ func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]dom
 	// 与 PG 对齐：ORDER BY created_at DESC。
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
+}
+
+// FindByExternalTxn 遍历流水：(channel, externalTxnID) 是否已有完成的入账（真实支付回调幂等）。
+func (r *escrowRepo) FindByExternalTxn(ctx context.Context, channel, externalTxnID string) (domain.EscrowTransaction, bool, error) {
+	if externalTxnID == "" {
+		return domain.EscrowTransaction{}, false, nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, tx := range r.txs {
+		if tx.Channel == channel && tx.ExternalTxnID == externalTxnID && tx.Status == "completed" {
+			return tx, true, nil
+		}
+	}
+	return domain.EscrowTransaction{}, false, nil
+}
+
+// ListByChannel 按渠道 + 时间区间列流水（对账明细，created_at 升序），与 PG 同语义。
+func (r *escrowRepo) ListByChannel(ctx context.Context, channel string, from, to time.Time, limit int) ([]domain.EscrowTransaction, error) {
+	if limit <= 0 || limit > 5000 {
+		limit = 500
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.EscrowTransaction, 0)
+	for _, tx := range r.txs {
+		if channel != "" && tx.Channel != channel {
+			continue
+		}
+		if !from.IsZero() && tx.CreatedAt.Before(from) {
+			continue
+		}
+		if !to.IsZero() && !tx.CreatedAt.Before(to) {
+			continue
+		}
+		out = append(out, tx)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+// HasFrozen 遍历流水：userID 对 (refType, refID) 是否存在完成的 freeze（取消订单判断有没有钱可退）。
+func (r *escrowRepo) HasFrozen(ctx context.Context, userID, refType, refID string) (bool, error) {
+	return r.hasTx(userID, refType, refID, "freeze")
+}
+
+// HasRefunded 遍历流水：userID 对 (refType, refID) 是否已退款（取消/售后退款幂等）。
+func (r *escrowRepo) HasRefunded(ctx context.Context, userID, refType, refID string) (bool, error) {
+	return r.hasTx(userID, refType, refID, "refund")
+}
+
+// hasTx 通用判定：fromUser + (refType, refID) + txType 是否已有完成流水。
+func (r *escrowRepo) hasTx(userID, refType, refID, txType string) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, tx := range r.txs {
+		if tx.FromUser == userID && tx.ReferenceType == refType && tx.ReferenceID == refID &&
+			tx.TxType == txType && tx.Status == "completed" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Transfer 双方余额内转账（不涉及冻结）：from 余额扣减、to 余额增加。
+// 与 PG 同语义：from 余额不足返回 ErrInsufficientBalance，用于已放款订单的售后退款。
+func (r *escrowRepo) Transfer(ctx context.Context, fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	if fromUser == toUser {
+		return domain.EscrowTransaction{}, fmt.Errorf("transfer to self")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	from, ok := r.accts[fromUser]
+	if !ok {
+		from = &domain.EscrowAccount{UserID: fromUser}
+		r.accts[fromUser] = from
+	}
+	if from.BalanceFen < amountFen {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientBalance
+	}
+	to, ok := r.accts[toUser]
+	if !ok {
+		to = &domain.EscrowAccount{UserID: toUser}
+		r.accts[toUser] = to
+	}
+	from.BalanceFen -= amountFen
+	from.UpdatedAt = time.Now()
+	to.BalanceFen += amountFen
+	to.UpdatedAt = time.Now()
+	r.txs = append(r.txs, tx)
+	return tx, nil
 }
 
 // HasReleased 遍历流水：fromUser 对 (refType, refID) 是否存在完成的 release。

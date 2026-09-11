@@ -308,6 +308,7 @@ func (r *reviewRepo) ListByTarget(ctx context.Context, targetType, targetID stri
 	}
 	return out, rows.Err()
 }
+
 // ListByReviewerTarget 查重专用：**不按 status 过滤**（含 pending/rejected）。
 func (r *reviewRepo) ListByReviewerTarget(ctx context.Context, reviewerID, targetType, targetID string) ([]domain.Review, error) {
 	rows, err := r.pool.Query(ctx,
@@ -761,10 +762,16 @@ func (r *escrowRepo) GetAccount(ctx context.Context, userID string) (domain.Escr
 }
 
 // insertEscrowTx 在同一事务中写入流水。
+// channel/external_txn_id 一并落库：channel 标明资金来自哪里（内部记账 / 微信支付），
+// external_txn_id 存外部支付单号，是真实资金入账的幂等键（唯一索引 idx_escrow_external）。
 func insertEscrowTx(ctx context.Context, q pgx.Tx, tx domain.EscrowTransaction) error {
+	channel := tx.Channel
+	if channel == "" {
+		channel = domain.ChannelInternal
+	}
 	_, err := q.Exec(ctx,
-		`INSERT INTO escrow_transactions (id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		tx.ID, tx.FromUser, tx.ToUser, tx.AmountFen, tx.TxType, tx.ReferenceType, tx.ReferenceID, tx.Status, tx.CreatedAt)
+		`INSERT INTO escrow_transactions (id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,channel,external_txn_id,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		tx.ID, tx.FromUser, tx.ToUser, tx.AmountFen, tx.TxType, tx.ReferenceType, tx.ReferenceID, tx.Status, channel, tx.ExternalTxnID, tx.CreatedAt)
 	return err
 }
 
@@ -876,21 +883,154 @@ func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64,
 	}
 	return tx, nil
 }
-func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {	rows, err := r.pool.Query(ctx,
-		`SELECT id,from_user,to_user,amount_fen,tx_type,COALESCE(reference_type,''),COALESCE(reference_id,''),status,created_at FROM escrow_transactions WHERE from_user=$1 OR to_user=$1 ORDER BY created_at DESC`, userID)
+
+// escrowTxColumns 流水查询列（各查询共用，避免漏列导致 channel 静默丢失）。
+const escrowTxColumns = `id,from_user,to_user,amount_fen,tx_type,COALESCE(reference_type,''),COALESCE(reference_id,''),status,COALESCE(channel,''),COALESCE(external_txn_id,''),created_at`
+
+// scanEscrowTx 按 escrowTxColumns 的顺序映射一行流水。
+func scanEscrowTx(rows pgx.Rows) (domain.EscrowTransaction, error) {
+	var tx domain.EscrowTransaction
+	err := rows.Scan(&tx.ID, &tx.FromUser, &tx.ToUser, &tx.AmountFen, &tx.TxType, &tx.ReferenceType, &tx.ReferenceID, &tx.Status, &tx.Channel, &tx.ExternalTxnID, &tx.CreatedAt)
+	return tx, err
+}
+
+func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+escrowTxColumns+` FROM escrow_transactions WHERE from_user=$1 OR to_user=$1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list escrow transactions: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.EscrowTransaction
 	for rows.Next() {
-		var tx domain.EscrowTransaction
-		if err := rows.Scan(&tx.ID, &tx.FromUser, &tx.ToUser, &tx.AmountFen, &tx.TxType, &tx.ReferenceType, &tx.ReferenceID, &tx.Status, &tx.CreatedAt); err != nil {
+		tx, err := scanEscrowTx(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan escrow transaction: %w", err)
 		}
 		out = append(out, tx)
 	}
 	return out, rows.Err()
+}
+
+// FindByExternalTxn 按 (渠道, 外部支付单号) 精确查流水——真实支付回调入账幂等用。
+// 只认已完成（status=completed）的流水：未完成的入账不算"钱已到账"。
+func (r *escrowRepo) FindByExternalTxn(ctx context.Context, channel, externalTxnID string) (domain.EscrowTransaction, bool, error) {
+	if externalTxnID == "" {
+		return domain.EscrowTransaction{}, false, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+escrowTxColumns+` FROM escrow_transactions
+		 WHERE channel=$1 AND external_txn_id=$2 AND status='completed' ORDER BY created_at LIMIT 1`, channel, externalTxnID)
+	if err != nil {
+		return domain.EscrowTransaction{}, false, fmt.Errorf("find escrow tx by external id: %w", err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return domain.EscrowTransaction{}, false, rows.Err()
+	}
+	tx, err := scanEscrowTx(rows)
+	if err != nil {
+		return domain.EscrowTransaction{}, false, fmt.Errorf("scan escrow tx by external id: %w", err)
+	}
+	return tx, true, rows.Err()
+}
+
+// ListByChannel 按渠道 + 时间区间列流水（对账明细，created_at 升序）。
+// channel 为空串表示不限渠道；from/to 为零值时该端不限。
+func (r *escrowRepo) ListByChannel(ctx context.Context, channel string, from, to time.Time, limit int) ([]domain.EscrowTransaction, error) {
+	if limit <= 0 || limit > 5000 {
+		limit = 500
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+escrowTxColumns+` FROM escrow_transactions
+		 WHERE ($1 = '' OR channel = $1)
+		   AND ($2::timestamptz IS NULL OR created_at >= $2)
+		   AND ($3::timestamptz IS NULL OR created_at < $3)
+		 ORDER BY created_at LIMIT $4`, channel, nullTime(from), nullTime(to), limit)
+	if err != nil {
+		return nil, fmt.Errorf("list escrow tx by channel: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.EscrowTransaction
+	for rows.Next() {
+		tx, err := scanEscrowTx(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan escrow tx by channel: %w", err)
+		}
+		out = append(out, tx)
+	}
+	return out, rows.Err()
+}
+
+// nullTime 把零值时间转成 SQL NULL（"该端不限"），非零值原样传给 pgx。
+func nullTime(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
+}
+
+// hasEscrowTx 报告 (userID, refType, refID, txType) 是否已有完成流水。
+// HasReleased / HasFrozen / HasRefunded 共用同一查询，只差 tx_type。
+func (r *escrowRepo) hasEscrowTx(ctx context.Context, userID, refType, refID, txType string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM escrow_transactions
+			WHERE from_user=$1 AND reference_type=$2 AND reference_id=$3
+			  AND tx_type=$4 AND status='completed'
+		)`, userID, refType, refID, txType).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check escrow %s: %w", txType, err)
+	}
+	return exists, nil
+}
+
+// HasFrozen 查 userID 对 (refType, refID) 是否冻结过资金（取消订单判断"是否有钱可退"）。
+func (r *escrowRepo) HasFrozen(ctx context.Context, userID, refType, refID string) (bool, error) {
+	return r.hasEscrowTx(ctx, userID, refType, refID, "freeze")
+}
+
+// HasRefunded 查 userID 对 (refType, refID) 是否已退款（取消/售后退款幂等）。
+func (r *escrowRepo) HasRefunded(ctx context.Context, userID, refType, refID string) (bool, error) {
+	return r.hasEscrowTx(ctx, userID, refType, refID, "refund")
+}
+
+// Transfer 双方余额内转账（不涉及冻结）：from 余额扣减、to 余额增加，同一事务写流水。
+// 用于"货款已放给卖家后通过的售后退款"——钱已不在冻结里，只能从卖家余额扣回买家。
+func (r *escrowRepo) Transfer(ctx context.Context, fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	if fromUser == toUser {
+		return domain.EscrowTransaction{}, fmt.Errorf("transfer to self")
+	}
+	now := time.Now()
+	btx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("begin escrow transfer: %w", err)
+	}
+	defer btx.Rollback(ctx)
+	tag, err := btx.Exec(ctx,
+		`UPDATE escrow_accounts SET balance_fen=balance_fen-$1, updated_at=$3
+		 WHERE user_id=$2 AND balance_fen>=$1`,
+		amountFen, fromUser, now)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("transfer from %s: %w", fromUser, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientBalance
+	}
+	if _, err := btx.Exec(ctx,
+		`INSERT INTO escrow_accounts (user_id,balance_fen,frozen_fen,updated_at) VALUES ($1,$2,0,$3)
+		 ON CONFLICT (user_id) DO UPDATE SET balance_fen=escrow_accounts.balance_fen+$2, updated_at=$3`,
+		toUser, amountFen, now); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("transfer to %s: %w", toUser, err)
+	}
+	if err := insertEscrowTx(ctx, btx, tx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("insert transfer tx: %w", err)
+	}
+	if err := btx.Commit(ctx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow transfer: %w", err)
+	}
+	return tx, nil
 }
 
 // HasReleased 查 fromUser 对 (refType, refID) 是否已有完成的 release 流水。
@@ -914,20 +1054,23 @@ func (r *escrowRepo) ListOrphanFreezes(ctx context.Context, refType string, olde
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	// refType → 业务表/关联列映射（目前仅培训报名；新增引用类型需同步扩展）
-	table, keyCol := "", ""
+	// refType → 业务表 / 属主列 / 关联业务 ID 列（新增引用类型需同步扩展）
+	table, userCol, keyCol := "", "", ""
 	switch refType {
 	case "training_course":
-		table, keyCol = "training_enrollments", "course_id"
+		table, userCol, keyCol = "training_enrollments", "user_id", "course_id"
+	case "trade_order":
+		// 商城订单：买家即冻结方；订单行存在即"业务已落库"，不存在才算孤儿冻结
+		table, userCol, keyCol = "trade_orders", "buyer_id", "id"
 	default:
 		return nil, nil // 未知引用类型无孤儿判定规则，跳过
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,from_user,to_user,amount_fen,tx_type,COALESCE(reference_type,''),COALESCE(reference_id,''),status,created_at
+		`SELECT `+escrowTxColumns+`
 		 FROM escrow_transactions t
 		 WHERE t.tx_type='freeze' AND t.reference_type=$1 AND t.status='completed' AND t.created_at < $2
 		   AND NOT EXISTS (
-		     SELECT 1 FROM `+table+` e WHERE e.user_id = t.from_user AND e.`+keyCol+` = t.reference_id
+		     SELECT 1 FROM `+table+` e WHERE e.`+userCol+` = t.from_user AND e.`+keyCol+` = t.reference_id
 		   )
 		 ORDER BY t.created_at LIMIT $3`, refType, olderThan, limit)
 	if err != nil {
@@ -936,8 +1079,8 @@ func (r *escrowRepo) ListOrphanFreezes(ctx context.Context, refType string, olde
 	defer rows.Close()
 	var out []domain.EscrowTransaction
 	for rows.Next() {
-		var tx domain.EscrowTransaction
-		if err := rows.Scan(&tx.ID, &tx.FromUser, &tx.ToUser, &tx.AmountFen, &tx.TxType, &tx.ReferenceType, &tx.ReferenceID, &tx.Status, &tx.CreatedAt); err != nil {
+		tx, err := scanEscrowTx(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan orphan freeze: %w", err)
 		}
 		out = append(out, tx)

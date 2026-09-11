@@ -382,7 +382,8 @@ func TestB3TradeOrderPay(t *testing.T) {
 	assertStatus(t, http.MethodPost, ".../pay stranger", w, http.StatusForbidden)
 }
 
-// 卖家售后审核：approve → aftersale_status=approved + 订单 completed；reject → rejected；
+// 卖家售后审核：approve → aftersale_status=approved + 订单 completed；
+// reject → aftersale_status=rejected 且订单回到售后前状态（paid，卖家可继续发货，不再被迫 completed）；
 // 非卖家（买家）审核 → 403；action 非法 → 400。
 func TestB3TradeOrderAftersaleReview(t *testing.T) {
 	app := newBizServer(t)
@@ -409,7 +410,7 @@ func TestB3TradeOrderAftersaleReview(t *testing.T) {
 		t.Fatalf("approve should complete order: %s", w.Body.String())
 	}
 
-	// 卖家 reject → aftersale_status=rejected + completed
+	// 卖家 reject → aftersale_status=rejected + 订单回到 paid（售前状态）
 	pid2 := createListedProduct(t, app, "seller-1", "交易无人机C", 500000)
 	oid2 := createOrder(t, app, "buyer-3", pid2)
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid2+"/pay", nil, "buyer-3", domain.RoleIndividual)
@@ -420,8 +421,8 @@ func TestB3TradeOrderAftersaleReview(t *testing.T) {
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid2+"/aftersale/review",
 		[]byte(`{"action":"reject"}`), "seller-1", domain.RoleEnterprise)
 	assertStatus(t, http.MethodPost, ".../review reject", w, http.StatusOK)
-	if !strings.Contains(w.Body.String(), `"aftersale_status":"rejected"`) || !strings.Contains(w.Body.String(), `"status":"completed"`) {
-		t.Fatalf("reject should complete order: %s", w.Body.String())
+	if !strings.Contains(w.Body.String(), `"aftersale_status":"rejected"`) || !strings.Contains(w.Body.String(), `"status":"paid"`) {
+		t.Fatalf("reject should restore pre-aftersale status paid: %s", w.Body.String())
 	}
 
 	// action 非法 → 400

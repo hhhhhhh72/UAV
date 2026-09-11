@@ -3,16 +3,75 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
 	"drone-platform/internal/domain"
 )
 
-// requireEscrowAdmin 托管金写操作门禁：托管金为内部记账（无外部支付网关），
-// 充值/冻结/释放/退款仅管理员可操作；业务侧由服务端状态机内部调用
-// （pay-and-enroll / completeEnrollment），前端无公开调用。
+// requireEscrowAdmin 托管金写操作门禁：充值/冻结/释放/退款仅管理员可操作；
+// 业务侧由服务端状态机内部调用（pay-and-enroll / completeEnrollment / 订单资金钩子），前端无公开调用。
 // 此前任意登录用户可无限充值（deposit 无资金来源校验）再转账，属 P0 印钞漏洞。
+// 注：入账渠道由服务端判定（internal_self / internal_admin），真实资金渠道只能由支付回调写入。
 func requireEscrowAdmin(a domain.Actor) bool {
 	return a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
+}
+
+// isPlatformAdmin 平台管理员判定：资金对账等平台级财务数据不对协会管理员开放。
+func isPlatformAdmin(a domain.Actor) bool { return a.Role == domain.RolePlatformAdmin }
+
+// GET /api/v1/admin/escrow/reconciliation — 托管金对账：按渠道汇总入金 + 全量流水明细。
+// 查询参数 channel（默认 internal，all=不限渠道）、from/to（RFC3339 或 2006-01-02 日期）、limit。
+// 真实资金渠道（wechat）的入金带外部支付单号，可与微信商户平台账单逐笔核对。
+func (s *Server) escrowReconciliation(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok || !isPlatformAdmin(a) {
+		fail(w, r, http.StatusForbidden, errors.New("仅平台管理员可查看资金对账"))
+		return
+	}
+	q := r.URL.Query()
+	channel := q.Get("channel")
+	if channel == "all" {
+		channel = ""
+	} else if channel == "" {
+		channel = domain.ChannelInternal
+	}
+	from, err := parseReconcileTime(q.Get("from"), false)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, errors.New("from 格式应为 RFC3339 或 2006-01-02"))
+		return
+	}
+	to, err := parseReconcileTime(q.Get("to"), true)
+	if err != nil {
+		fail(w, r, http.StatusBadRequest, errors.New("to 格式应为 RFC3339 或 2006-01-02"))
+		return
+	}
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	res, err := s.escrowSvc.Reconcile(r.Context(), channel, from, to, limit)
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	respond(w, r, http.StatusOK, res)
+}
+
+// parseReconcileTime 解析对账区间参数：空串＝该端不限；支持 RFC3339 与 2006-01-02。
+// 日期形式按自然日处理：起始取当天 00:00，结束取次日 00:00（左闭右开，含当天全天）。
+func parseReconcileTime(raw string, isEnd bool) (time.Time, error) {
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t, nil
+	}
+	d, err := time.ParseInLocation("2006-01-02", raw, time.Local)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if isEnd {
+		return d.AddDate(0, 0, 1), nil
+	}
+	return d, nil
 }
 
 // POST /api/v1/escrow/deposit
@@ -43,12 +102,21 @@ func (s *Server) escrowDeposit(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("仅管理员可为他人的托管金入账"))
 		return
 	}
-	tx, err := s.escrowSvc.Deposit(r.Context(), target, in.AmountFen)
+	// 渠道由服务端判定，不接受前端传入：管理员代充记 internal_admin（线下来款后补记），
+	// 用户自助充值记 internal_self（模拟通道）。真实资金渠道（wechat）只能由支付回调入账，
+	// 否则任何登录用户都能自己造一笔"微信已收款"的余额。
+	channel := domain.ChannelInternalSelf
+	if requireEscrowAdmin(a) {
+		channel = domain.ChannelInternalAdmin
+	}
+	tx, created, err := s.escrowSvc.DepositFromChannel(r.Context(), target, in.AmountFen, channel, "")
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	s.audit(r.Context(), a.ID, "escrow_deposit", "escrow", tx.ID, "deposited")
+	if created {
+		s.audit(r.Context(), a.ID, "escrow_deposit", "escrow", tx.ID, channel)
+	}
 	respond(w, r, http.StatusCreated, tx)
 }
 

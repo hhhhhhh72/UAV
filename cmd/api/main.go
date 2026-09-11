@@ -413,6 +413,11 @@ func main() {
 	// 托管金服务（独立变量：后台孤儿冻结补偿任务复用）
 	escrowSvc := service.NewEscrowService(escrowRepo)
 
+	// 商城订单接入托管金：付款冻结买家余额 → 确认收货放款给卖家 → 取消/售后退款。
+	// 未注入时订单退化为纯状态机（供 dev/测试），注入后才有真实资金闭环。
+	tradeOrderSvc := service.NewTradeOrderService(tradeOrderRepo, productRepo)
+	tradeOrderSvc.SetEscrow(escrowSvc)
+
 	app := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(enterpriseRepo),
@@ -432,7 +437,7 @@ func main() {
 		service.NewMessageService(msgRepo),
 		service.NewEnrollmentService(enrollRepo, courseRepo),
 		service.NewExpiryService(),
-		service.NewTradeOrderService(tradeOrderRepo, productRepo),
+		tradeOrderSvc,
 		escrowSvc,
 		service.NewNewsService(articleRepo),
 		service.NewReviewService(reviewRepo, workOrderRepo),
@@ -545,15 +550,18 @@ func main() {
 			ticker := time.NewTicker(10 * time.Minute)
 			defer ticker.Stop()
 			for range ticker.C {
-				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				n, err := escrowSvc.RefundOrphanFreezes(ctx, "training_course", time.Now().Add(-10*time.Minute), 50)
-				cancel()
-				if err != nil {
-					slog.Warn("orphan freeze scan failed", "error", err)
-					continue
-				}
-				if n > 0 {
-					slog.Info("orphan freezes refunded", "count", n)
+				// 覆盖两类资金引用：培训报名（先冻结后报名）与商城订单（先冻结后落单）
+				for _, refType := range []string{"training_course", "trade_order"} {
+					ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+					n, err := escrowSvc.RefundOrphanFreezes(ctx, refType, time.Now().Add(-10*time.Minute), 50)
+					cancel()
+					if err != nil {
+						slog.Warn("orphan freeze scan failed", "ref_type", refType, "error", err)
+						continue
+					}
+					if n > 0 {
+						slog.Info("orphan freezes refunded", "ref_type", refType, "count", n)
+					}
 				}
 			}
 		}()
