@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -24,6 +25,23 @@ func csvCell(s string) string {
 		return "'" + s
 	}
 	return s
+}
+
+// exportChineseName 导出文件的「中文表名」。
+//
+// 后台页面的「导出 CSV」由前端自己定名（取路由标题，如「需求管理」），这里给
+// 直接调 API 的场景兜底：Content-Disposition 同时给 ASCII 名（老客户端）与
+// RFC 5987 的 filename*（中文名，浏览器/Excel 优先用它）。
+var exportChineseName = map[string]string{
+	"demands": "需求管理", "enterprises": "企业管理", "training-courses": "培训课程",
+	"certificates": "证书管理", "certified-pilots": "飞手认证", "enrollments": "报名记录",
+	"competitions": "赛事管理",
+}
+
+// attachmentHeader 生成附件下载头：filename 是 ASCII 兜底名，filename* 是中文表名。
+func attachmentHeader(asciiName, base string, ts time.Time) string {
+	cn := fmt.Sprintf("%s_%s.csv", base, ts.Format("20060102_150405"))
+	return fmt.Sprintf("attachment; filename=%q; filename*=UTF-8''%s", asciiName, url.PathEscape(cn))
 }
 
 // GET /api/v1/admin/export — exports demands as CSV (browser-compatible).
@@ -47,9 +65,10 @@ func (s *Server) exportDemands(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r.Context(), a.ID, "export_demands", "csv", "demands", "exported")
 
-	filename := fmt.Sprintf("demands_export_%s.csv", time.Now().Format("20060102_150405"))
+	now := time.Now()
+	filename := fmt.Sprintf("demands_export_%s.csv", now.Format("20060102_150405"))
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Disposition", attachmentHeader(filename, "需求管理", now))
 	// BOM for Excel UTF-8 compatibility
 	w.Write([]byte{0xEF, 0xBB, 0xBF})
 
@@ -100,9 +119,10 @@ func (s *Server) exportEnterprises(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := fmt.Sprintf("enterprises_export_%s.csv", time.Now().Format("20060102_150405"))
+	now := time.Now()
+	filename := fmt.Sprintf("enterprises_export_%s.csv", now.Format("20060102_150405"))
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Disposition", attachmentHeader(filename, "企业管理", now))
 	w.Write([]byte{0xEF, 0xBB, 0xBF})
 
 	writer := csv.NewWriter(w)
@@ -308,9 +328,14 @@ func (s *Server) exportResource(w http.ResponseWriter, r *http.Request) {
 
 	s.audit(r.Context(), a.ID, "export_resource", "csv", resource, fmt.Sprintf("rows=%d", len(rows)))
 
-	filename := fmt.Sprintf("%s_export_%s.csv", strings.ReplaceAll(resource, "/", "-"), time.Now().Format("20060102_150405"))
+	now := time.Now()
+	filename := fmt.Sprintf("%s_export_%s.csv", strings.ReplaceAll(resource, "/", "-"), now.Format("20060102_150405"))
+	cnBase := exportChineseName[resource]
+	if cnBase == "" {
+		cnBase = resource // 未收录的资源：中文名退回资源名，不编造
+	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Disposition", attachmentHeader(filename, cnBase, now))
 	w.Write([]byte{0xEF, 0xBB, 0xBF}) // Excel UTF-8 BOM
 
 	writer := csv.NewWriter(w)

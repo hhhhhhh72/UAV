@@ -119,6 +119,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, h } from 'vue'
+import { useRoute } from 'vue-router'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
@@ -153,6 +154,23 @@ const props = defineProps({
 
 const emit = defineEmits(['add', 'sorter-change', 'loaded'])
 
+// 导出文件名用中文「表名」：优先取当前页面的路由标题（如「需求管理」），
+// 取不到再查兜底表，最后退回资源名。后端按资源名给的英文名（demands_export_*.csv）
+// 前端一律不用——下载下来的文件名由这里决定。
+const route = useRoute()
+// 资源名 → 中文表名：嵌在聚合页里的列表（飞手/报名/研学/测试预约在「人才教育」
+// 「产学研协同」页内）取不到自己的路由标题，必须靠这张表，否则会导出成父模块名。
+// 表里已收录的资源名与同名路由标题一致，不会互相打架。
+const EXPORT_NAME = {
+  demands: '需求管理', enterprises: '企业管理',
+  'training-courses': '培训课程', certificates: '证书管理',
+  'certified-pilots': '飞手认证', enrollments: '报名记录',
+  'study-tours': '研学管理', 'test-sites/bookings': '测试预约',
+  competitions: '赛事管理', users: '用户管理', 'audit-logs': '操作审计',
+}
+const exportBaseName = computed(() => EXPORT_NAME[props.resource] || (route.meta && route.meta.title) || props.resource || '导出')
+const exportFilename = () => exportBaseName.value + '-' + new Date().toISOString().slice(0, 10) + '.csv'
+
 // 导出 CSV：导出当前列表已加载的行（列 = columns 中声明了 dataIndex 的）；BOM 前缀保证 Excel 中文不乱码
 const csvEscape = (v) => {
   if (v == null) return ''
@@ -166,7 +184,7 @@ const exportCurrentPage = () => {
   const header = cols.map((c) => c.title || c.dataIndex)
   const lines = [header].concat(listData.value.map((r) => cols.map((c) => csvEscape(r[c.dataIndex]))))
   const csv = '\ufeff' + lines.map((a) => a.join(',')).join('\r\n')
-  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), (props.resource || 'export') + '-' + new Date().toISOString().slice(0, 10) + '.csv')
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), exportFilename())
 }
 
 const downloadBlob = (blob, filename) => {
@@ -188,7 +206,7 @@ const handleExport = async () => {
   exporting.value = true
   try {
     const res = await axios.get('/api/v1/admin/export/' + props.resource, { responseType: 'blob' })
-    downloadBlob(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }), (props.resource || 'export') + '-' + new Date().toISOString().slice(0, 10) + '.csv')
+    downloadBlob(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }), exportFilename())
     Message.success('已导出全量数据')
     return
   } catch (e) {
