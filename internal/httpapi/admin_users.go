@@ -2,15 +2,31 @@ package httpapi
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"time"
+	"regexp"
 
-	"golang.org/x/crypto/bcrypt"
-
+	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
 	"drone-platform/internal/service"
 )
+
+// listPhoneIDRe 匹配"登录名=手机号"约定下由系统生成的账号 ID（user-1xxxxxxxxxx）。
+var listPhoneIDRe = regexp.MustCompile(`^user-(1[3-9][0-9]{9})$`)
+
+// listPhoneMasked 列表回显的手机号（脱敏）。
+//
+// 优先取库里的手机号（PhoneCipher 在读库时已解密为明文）；早于"登录名=手机号"约定
+// 建立的账号（后台旧表单让运营手填用户 ID，如 user-18623249541）没有手机号密文，
+// 但 ID 里就是手机号——直接按 ID 回显，免得列表显示"未绑定"而实际能用该号码登录。
+func listPhoneMasked(u domain.User) string {
+	if u.PhoneCipher != "" {
+		return crypto.MaskPhone(u.PhoneCipher)
+	}
+	if m := listPhoneIDRe.FindStringSubmatch(u.ID); m != nil {
+		return crypto.MaskPhone(m[1])
+	}
+	return ""
+}
 
 // GET /api/v1/admin/users — list users with pagination (admin only).
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +66,7 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 				"avatar_url":   u.AvatarURL,
 				"created_at":   u.CreatedAt.Format("2006-01-02 15:04"),
 				"has_password": hasPassword,
+				"phone_masked": listPhoneMasked(u),
 				"deleted_at":   deletedAt,
 				"purge_after":  purgeAfter,
 			})
@@ -59,60 +76,48 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, out, len(out))
 }
 
-// POST /api/v1/admin/users — create a new user.
+// POST /api/v1/admin/users — 管理员建号。
+//
+// 以**手机号作为登录名**（与用户端注册同一套约定）：id 由系统生成 user-<手机号>，
+// 不再让运营自己填 ID；密码必填（≥8 位）；填手机号同时写加密手机号与占位 openid，
+// 使账号能手机号登录/找回。策略与权限判定在 service.UserService.CreateUser。
 func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
 	var req struct {
-		ID       string `json:"id"`
-		Role     string `json:"role"`
-		Password string `json:"password"` // optional: sets a login password (bcrypt)
+		Phone    string `json:"phone"`    // 登录名（必填，11 位手机号）
+		Name     string `json:"name"`     // 昵称（可选，缺省按手机号后四位生成）
+		Role     string `json:"role"`     // 缺省 individual
+		Password string `json:"password"` // 初始密码（必填，≥8 位）
 	}
-	if err := decode(r, &req); err != nil || req.ID == "" {
-		fail(w, r, http.StatusBadRequest, errors.New("user id required"))
+	if err := decode(r, &req); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if req.Role == "" {
-		req.Role = "individual"
+		req.Role = string(domain.RoleIndividual)
 	}
-	// 角色白名单：与 updateUserRole 一致，拒绝任意字符串
-	allowed := map[string]bool{"individual": true, "enterprise": true, "association_admin": true, "platform_admin": true}
-	if !allowed[req.Role] {
-		fail(w, r, http.StatusBadRequest, errors.New("invalid role"))
-		return
+	u, err := s.userSvc.CreateUser(r.Context(), a, req.Phone, encryptPhone(req.Phone), req.Name, domain.Role(req.Role), req.Password)
+	switch {
+	case err == nil:
+		s.audit(r.Context(), a.ID, "create_user", "user", u.ID, string(u.Role))
+		respond(w, r, http.StatusCreated, map[string]any{
+			"id": u.ID, "role": string(u.Role), "status": "created",
+			"name": u.Name, "phone_masked": crypto.MaskPhone(req.Phone),
+			"note": "登录名就是手机号；已设置初始密码，请把账号与密码告知本人并提醒其尽快修改",
+		})
+	case errors.Is(err, service.ErrAdminOnly):
+		fail(w, r, http.StatusForbidden, err)
+	case errors.Is(err, service.ErrInvalidPhone), errors.Is(err, service.ErrInvalidRole), errors.Is(err, service.ErrWeakPassword):
+		fail(w, r, http.StatusBadRequest, err)
+	case errors.Is(err, service.ErrUserExists):
+		fail(w, r, http.StatusConflict, err)
+	default:
+		fail(w, r, http.StatusInternalServerError, err)
 	}
-	// 防提权：协会管理员只能创建 individual/enterprise 账号，
-	// 不得创建 association_admin / platform_admin（C1 修复）
-	if a.Role == domain.RoleAssociationAdmin && (req.Role == "association_admin" || req.Role == "platform_admin") {
-		fail(w, r, http.StatusForbidden, errors.New("association admin cannot create admin accounts"))
-		return
-	}
-	now := time.Now()
-	u := domain.User{
-		ID:        req.ID,
-		Role:      domain.Role(req.Role),
-		Status:    "active",
-		Version:   1,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	if req.Password != "" {
-		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-		if err != nil {
-			fail(w, r, http.StatusInternalServerError, fmt.Errorf("hash password: %w", err))
-			return
-		}
-		u.PasswordHash = string(hash)
-	}
-	_, err := s.userRepo.Create(r.Context(), u)
-	if err != nil {
-		fail(w, r, http.StatusConflict, fmt.Errorf("user '%s' already exists or create failed", req.ID))
-		return
-	}
-	respond(w, r, http.StatusCreated, map[string]string{"id": req.ID, "role": req.Role, "status": "created"})
 }
 
 // POST /api/v1/admin/users/{id}/role — change user role.

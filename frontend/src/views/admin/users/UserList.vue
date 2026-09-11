@@ -17,6 +17,10 @@
           <span class="cell-name">{{ record.name || '-' }}</span>
         </div>
       </template>
+      <template #phone="{ record }">
+        <span v-if="record.phone_masked" class="cell-phone">{{ record.phone_masked }}</span>
+        <span v-else class="cell-phone-empty">未绑定</span>
+      </template>
       <template #role="{ record }">
         <a-tag :color="roleTagType(record.role)" size="small">{{ record.roleLabel }}</a-tag>
       </template>
@@ -64,7 +68,12 @@
     <!-- 新增用户弹窗 -->
     <a-modal v-model:visible="formVisible" title="新增用户" :width="'min(420px, 94vw)'" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeCancel">
       <a-form :model="form" layout="vertical">
-        <a-form-item label="用户ID" required><a-input v-model="form.id" :aria-required="true" placeholder="输入唯一用户ID" style="width: 100%" /></a-form-item>
+        <a-form-item label="手机号（登录名）" required>
+          <a-input v-model="form.phone" :aria-required="true" placeholder="11 位手机号，也是登录账号" :max-length="11" style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="昵称">
+          <a-input v-model="form.name" placeholder="可选，留空按手机号后四位生成" style="width: 100%" />
+        </a-form-item>
         <a-form-item label="角色">
           <a-select v-model="form.role" style="width: 100%">
             <a-option value="individual">个人用户</a-option>
@@ -73,9 +82,10 @@
             <a-option v-if="isSuperAdmin" value="platform_admin">平台管理员</a-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="密码">
-          <a-input-password v-model="form.password" placeholder="可选：设置后可用于密码登录" style="width: 100%" />
+        <a-form-item label="初始密码" required>
+          <a-input-password v-model="form.password" :aria-required="true" placeholder="至少 8 位，创建后告知本人" style="width: 100%" />
         </a-form-item>
+        <div class="pwd-tip">账号 ID 由系统生成为 user-手机号；请把手机号与初始密码告知本人，并提醒其登录后自行修改。</div>
       </a-form>
       <template #footer>
         <a-button @click="beforeCancel">取消</a-button>
@@ -109,7 +119,7 @@ const searchFields = []
 
 const columns = [
   { title: '用户名', dataIndex: 'name', slotName: 'name', minWidth: 160 },
-  { title: '用户ID', dataIndex: 'id', minWidth: 220 },
+  { title: '手机号', dataIndex: 'phone_masked', slotName: 'phone', width: 140 },
   { title: '角色', dataIndex: 'role', slotName: 'role', width: 120 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 90 },
   { title: '密码', dataIndex: 'has_password', slotName: 'password', width: 110 },
@@ -119,10 +129,11 @@ const columns = [
 
 const formVisible = ref(false)
 const formLoading = ref(false)
-const form = reactive({ id: '', role: 'individual', password: '' })
+const form = reactive({ phone: '', name: '', role: 'individual', password: '' })
+const phoneRe = /^1[3-9]\d{9}$/
 
 const openForm = () => {
-  form.id = ''; form.role = 'individual'; form.password = ''
+  form.phone = ''; form.name = ''; form.role = 'individual'; form.password = ''
   formSnapshot = JSON.stringify(form)
   formVisible.value = true
 }
@@ -144,10 +155,11 @@ const beforeCancel = () => {
 const errMsg = (e) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '操作失败'
 
 const submitForm = async () => {
-  if (!form.id) { Message.warning('请输入用户ID'); return }
+  if (!phoneRe.test(form.phone)) { Message.warning('请输入正确的 11 位手机号'); return }
+  if ((form.password || '').length < 8) { Message.warning('初始密码至少 8 位'); return }
   formLoading.value = true
   try {
-    await api.create({ id: form.id, role: form.role, password: form.password || undefined })
+    await api.create({ phone: form.phone, name: form.name || undefined, role: form.role, password: form.password })
     Message.success('创建成功')
     formSnapshot = JSON.stringify(form)
     formVisible.value = false
@@ -239,6 +251,10 @@ const handleDelete = (row) => {
 .cell-user { display: flex; align-items: center; gap: 8px; }
 
 .cell-name { font-weight: 500; color: var(--color-text-1); }
+
+.cell-phone { font-variant-numeric: tabular-nums; color: var(--color-text-1); }
+
+.cell-phone-empty { color: var(--color-text-3); font-size: 12px; }
 
 .cell-avatar-fallback { background: #C9CDD4; color: #fff; font-size: 13px; }
 </style>

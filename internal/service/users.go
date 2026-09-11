@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -77,6 +78,81 @@ var (
 	// ErrUserNotFound 账号不存在（含已注销：注销对普通读取不可见）。
 	ErrUserNotFound = errors.New("用户不存在")
 )
+
+var (
+	// ErrInvalidPhone 手机号格式不合法（管理员建号以手机号为登录名）。
+	ErrInvalidPhone = errors.New("手机号格式不正确（11 位，1 开头）")
+	// ErrUserExists 该手机号已注册。
+	ErrUserExists = errors.New("该手机号已被注册")
+	// ErrInvalidRole 角色不在白名单内。
+	ErrInvalidRole = errors.New("角色不合法")
+)
+
+// 登录名即手机号：与注册接口 /api/auth/register 同一套约定。
+var phonePattern = regexp.MustCompile("^1[3-9][0-9]{9}$")
+
+// validUserRole 可创建的角色白名单。
+func validUserRole(r domain.Role) bool {
+	return r == domain.RoleIndividual || r == domain.RoleEnterprise ||
+		r == domain.RoleAssociationAdmin || r == domain.RolePlatformAdmin
+}
+
+// CreateUser 管理员建号：**以手机号作为登录名**（与用户端注册同一套约定）。
+//
+// 设计要点（此前后台让运营自己"发明"一个用户 ID，还会建出三无账号）：
+//   - id 由系统生成 user-<手机号>，不再由人填写；
+//   - 写入加密手机号与 wechat_openid="phone:<手机号>"，使该账号能用手机号登录/找回、后续可绑微信；
+//   - 密码必填且满足强度规则——不填密码又没手机号的账号三种登录方式都用不了，等于废号；
+//   - 权限：终端管理员可建任意角色；协会管理员只能建 individual/enterprise（防提权）。
+//
+// phoneCipher 由 Handler 用与注册路径一致的函数加密后传入（无 ENCRYPTION_KEY 时回退明文，dev 语义）。
+func (s *UserService) CreateUser(ctx context.Context, a domain.Actor, phone, phoneCipher, name string, role domain.Role, password string) (domain.User, error) {
+	if a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin {
+		return domain.User{}, ErrAdminOnly
+	}
+	if !validUserRole(role) {
+		return domain.User{}, fmt.Errorf("%w: %s", ErrInvalidRole, role)
+	}
+	if a.Role == domain.RoleAssociationAdmin && (role == domain.RoleAssociationAdmin || role == domain.RolePlatformAdmin) {
+		return domain.User{}, fmt.Errorf("%w: 协会管理员不得创建管理员账号", ErrAdminOnly)
+	}
+	if !phonePattern.MatchString(phone) {
+		return domain.User{}, ErrInvalidPhone
+	}
+	if err := validateNewPassword("", password); err != nil {
+		return domain.User{}, err
+	}
+	id := "user-" + phone
+	if _, err := s.users.FindByID(ctx, id); err == nil {
+		return domain.User{}, fmt.Errorf("%w: %s", ErrUserExists, phone)
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("hash password: %w", err)
+	}
+	if name == "" {
+		name = "用户" + phone[len(phone)-4:]
+	}
+	now := time.Now()
+	u := domain.User{
+		ID:           id,
+		WechatOpenID: "phone:" + phone, // 与注册同一做法：非微信用户用唯一占位 openid
+		PhoneCipher:  phoneCipher,
+		PasswordHash: string(hash),
+		Name:         name,
+		Role:         role,
+		Status:       domain.UserActive,
+		Version:      1,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	created, err := s.users.Create(ctx, u)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("%w: %v", ErrUserExists, err)
+	}
+	slog.Info("user created by admin", "id", id, "role", role, "admin", a.ID)
+	return created, nil
+}
 
 var (
 	// ErrOldPasswordWrong 原密码不正确。

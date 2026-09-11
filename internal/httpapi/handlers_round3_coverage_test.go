@@ -235,18 +235,18 @@ func TestRound3AdminUsers(t *testing.T) {
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
 
 	w := doRaw(app, http.MethodPost, "/api/v1/admin/users",
-		`{"id":"user-round3","role":"individual"}`, adminTok)
+		`{"phone":"13700000003","role":"individual","password":"InitPass123"}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/users", w, http.StatusCreated)
 
 	w = doRaw(app, http.MethodGet, "/api/v1/admin/users", "", adminTok)
 	assertStatus(t, http.MethodGet, "/api/v1/admin/users", w, http.StatusOK)
 
-	w = doRaw(app, http.MethodPost, "/api/v1/admin/users/user-round3/role",
+	w = doRaw(app, http.MethodPost, "/api/v1/admin/users/user-13700000003/role",
 		`{"role":"enterprise"}`, adminTok)
-	assertStatus(t, http.MethodPost, "/api/v1/admin/users/user-round3/role", w, http.StatusOK)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/users/user-13700000003/role", w, http.StatusOK)
 
-	w = doRaw(app, http.MethodDelete, "/api/v1/admin/users/user-round3", "", adminTok)
-	assertStatus(t, http.MethodDelete, "/api/v1/admin/users/user-round3", w, http.StatusOK)
+	w = doRaw(app, http.MethodDelete, "/api/v1/admin/users/user-13700000003", "", adminTok)
+	assertStatus(t, http.MethodDelete, "/api/v1/admin/users/user-13700000003", w, http.StatusOK)
 }
 
 // TestRound3Messages 覆盖 messages.go：定向消息标记已读 → 广播 → 列表 → 未读数。

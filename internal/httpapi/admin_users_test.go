@@ -30,7 +30,7 @@ func TestAdminUsersPagination(t *testing.T) {
 
 	// Arrange: 创建 5 个用户
 	for i := 0; i < 5; i++ {
-		body := []byte(fmt.Sprintf(`{"id":"user-p%d","role":"individual"}`, i))
+		body := []byte(fmt.Sprintf(`{"phone":"1380000000%d","role":"individual","password":"InitPass123"}`, i+1))
 		w := request(t, app, http.MethodPost, "/api/v1/admin/users", body, domain.RolePlatformAdmin)
 		if w.Code != http.StatusCreated {
 			t.Fatalf("create user-p%d: %d %s", i, w.Code, w.Body.String())
@@ -102,9 +102,10 @@ func TestCreateUserRoleRestrictions(t *testing.T) {
 		{"platform admin can create platform_admin", domain.RolePlatformAdmin, "platform_admin", http.StatusCreated},
 		{"invalid role rejected", domain.RolePlatformAdmin, "superuser", http.StatusBadRequest},
 	}
-	for _, tc := range cases {
+	for i, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			body := []byte(fmt.Sprintf(`{"id":"u-%s","role":"%s"}`, tc.target, tc.target))
+			// 登录名=手机号，逐个用例用不同号码避免 409
+			body := []byte(fmt.Sprintf(`{"phone":"1390000000%d","role":"%s","password":"InitPass123"}`, i+1, tc.target))
 			w := request(t, app, http.MethodPost, "/api/v1/admin/users", body, tc.actor)
 			if w.Code != tc.wantCode {
 				t.Fatalf("code: expected %d, got %d (%s)", tc.wantCode, w.Code, w.Body.String())
