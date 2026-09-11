@@ -29,6 +29,35 @@ func listPhoneMasked(u domain.User) string {
 	return ""
 }
 
+// isAdminRole 管理员角色（平台管理员 / 协会管理员）：列表里这群人要置顶。
+func isAdminRole(r domain.Role) bool {
+	return r == domain.RolePlatformAdmin || r == domain.RoleAssociationAdmin
+}
+
+// adminSortLess 用户列表的置顶规则：超管 → 管理员（按成为管理员的时间升序）→ 普通账号（原顺序）。
+//
+// 「成为管理员的时间」用 UpdatedAt 代理——改角色（UpdateRole）会刷新它，所以
+// 「我设置为管理员」这个动作发生得越晚，排序就越靠下，正好是"排在上一个置顶的下面"。
+// 已知误差：管理员之后自己改了昵称/资料也会刷新 UpdatedAt，可能把自己往后挪；
+// 要彻底精确需要单开一列 admin_since（涉及迁移 + PG 扫描列，另行处理）。
+//
+// 普通账号一律返回 false：配合 sort.SliceStable 保持仓储给出的原始顺序。
+func (s *Server) adminSortLess(a, b domain.User) bool {
+	sa := service.IsSuperAdminAccount(s.superAdminPhone, a)
+	sb := service.IsSuperAdminAccount(s.superAdminPhone, b)
+	if sa != sb {
+		return sa
+	}
+	aa, ab := isAdminRole(a.Role), isAdminRole(b.Role)
+	if aa != ab {
+		return aa
+	}
+	if aa && ab {
+		return a.UpdatedAt.Before(b.UpdatedAt)
+	}
+	return false
+}
+
 // GET /api/v1/admin/users — list users with pagination (admin only).
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
@@ -58,6 +87,12 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
+	// 置顶排序在转成响应之前做（对 domain 对象排，免得把 admin_since 这类内部字段塞进 JSON）：
+	//   1. 超级管理员恒在第 1 行；
+	//   2. 其余管理员紧随其后，按「成为管理员的时间」升序 —— 运营每新设一个管理员，
+	//      它就排在上一个置顶的下面；
+	//   3. 普通账号保持仓储顺序（注册时间）不变。
+	sort.SliceStable(users, func(i, j int) bool { return s.adminSortLess(users[i], users[j]) })
 	out := make([]map[string]any, 0, len(users))
 	for _, u := range users {
 		rl := roleLabel(string(u.Role))
@@ -84,13 +119,6 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 			"purge_after":    purgeAfter,
 		})
 	}
-	// 超级管理员置顶：它是平台唯一的最高权限账号，而列表按注册时间排序时它常落在中间，
-	// 运营每次都要往下翻。稳定排序保证其余账号的相对顺序不变。
-	sort.SliceStable(out, func(i, j int) bool {
-		si, _ := out[i]["is_super_admin"].(bool)
-		sj, _ := out[j]["is_super_admin"].(bool)
-		return si && !sj
-	})
 	// paginatedRespond 内部会按 query 的 page/page_size 自动切片，此处传全量
 	paginatedRespond(w, r, out, len(out))
 }

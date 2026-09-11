@@ -14,15 +14,23 @@ import (
 	"drone-platform/internal/service"
 )
 
-// 超级管理员必须排在列表最前面（其余账号仍按仓储给出的注册时间顺序）。
-// 场景：超管账号往往建得最晚，按时间排序会落在中间，运营每次都要往下翻。
-func TestListUsersPutsSuperAdminFirst(t *testing.T) {
+// 列表置顶规则：超管第 1 行 → 管理员按「成为管理员的时间」升序（新设的排在上一个置顶的
+// 下面）→ 普通账号保持仓储顺序。
+//
+// 「成为管理员的时间」由 UpdatedAt 代理：改角色会刷新它，所以越晚设为管理员、排序越靠下。
+func TestListUsersPinsSuperAdminThenAdminsInOrder(t *testing.T) {
 	repo := memory.NewUserRepository(nil)
 	now := time.Now()
 	seed := []domain.User{
-		{ID: "user-13800000001", Name: "个人一", Role: domain.RoleIndividual, Status: "active", CreatedAt: now.Add(-72 * time.Hour)},
-		{ID: "user-13800000002", Name: "个人二", Role: domain.RoleIndividual, Status: "active", CreatedAt: now.Add(-48 * time.Hour)},
-		{ID: "user-19800000000", Name: "超级管理员", Role: domain.RolePlatformAdmin, Status: "active", CreatedAt: now.Add(-24 * time.Hour)},
+		// 普通账号：注册顺序 01 → 02
+		{ID: "user-13800000001", Name: "个人一", Role: domain.RoleIndividual, Status: "active", CreatedAt: now.Add(-100 * time.Hour), UpdatedAt: now.Add(-100 * time.Hour)},
+		{ID: "user-13800000002", Name: "个人二", Role: domain.RoleIndividual, Status: "active", CreatedAt: now.Add(-90 * time.Hour), UpdatedAt: now.Add(-90 * time.Hour)},
+		// 管理员 A：先设的（UpdatedAt 更早）→ 应排在管理员 B 上面
+		{ID: "user-13900000001", Name: "管理员A", Role: domain.RoleAssociationAdmin, Status: "active", CreatedAt: now.Add(-80 * time.Hour), UpdatedAt: now.Add(-30 * time.Hour)},
+		// 管理员 B：后设的 → 应紧跟在 A 下面
+		{ID: "user-13900000002", Name: "管理员B", Role: domain.RolePlatformAdmin, Status: "active", CreatedAt: now.Add(-70 * time.Hour), UpdatedAt: now.Add(-10 * time.Hour)},
+		// 超级管理员：UpdatedAt 最新（刚被改过资料），仍必须第 1 行
+		{ID: "user-19800000000", Name: "超级管理员", Role: domain.RolePlatformAdmin, Status: "active", CreatedAt: now.Add(-60 * time.Hour), UpdatedAt: now},
 	}
 	for i, u := range seed {
 		if _, err := repo.Create(context.Background(), u); err != nil {
@@ -30,11 +38,7 @@ func TestListUsersPutsSuperAdminFirst(t *testing.T) {
 		}
 	}
 
-	srv := &Server{
-		userRepo:        repo,
-		userSvc:         service.NewUserService(repo),
-		superAdminPhone: "19800000000",
-	}
+	srv := &Server{userRepo: repo, userSvc: service.NewUserService(repo), superAdminPhone: "19800000000"}
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/users", nil)
 	req = req.WithContext(contextWithActor(req, domain.Actor{ID: "admin-1", Role: domain.RolePlatformAdmin}))
 	w := httptest.NewRecorder()
@@ -48,33 +52,31 @@ func TestListUsersPutsSuperAdminFirst(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if len(resp.Data) != 3 {
-		t.Fatalf("应返回 3 行，实际 %d", len(resp.Data))
+	got := make([]string, 0, len(resp.Data))
+	for _, row := range resp.Data {
+		id, _ := row["id"].(string)
+		got = append(got, id)
 	}
-	if id, _ := resp.Data[0]["id"].(string); id != "user-19800000000" {
-		t.Fatalf("第一行应是超级管理员，实际 %v", resp.Data[0]["id"])
-	}
-	if v, _ := resp.Data[0]["is_super_admin"].(bool); !v {
-		t.Fatalf("第一行应带 is_super_admin 标记：%v", resp.Data[0])
-	}
-	// 其余行的相对顺序必须与仓储返回的一致（稳定排序，只把超管提到最前）
+	// 期望顺序 = 超管 + 管理员（按 UpdatedAt 升序）+ 普通账号（保持仓储原始顺序）
 	raw, err := repo.AllWithDeleted(context.Background())
 	if err != nil {
 		t.Fatalf("AllWithDeleted: %v", err)
 	}
-	wantRest := make([]string, 0, len(raw))
+	want := []string{"user-19800000000", "user-13900000001", "user-13900000002"}
 	for _, u := range raw {
-		if u.ID == "user-19800000000" {
+		if u.ID == "user-19800000000" || isAdminRoleTest(u.Role) {
 			continue
 		}
-		wantRest = append(wantRest, u.ID)
+		want = append(want, u.ID)
 	}
-	gotRest := make([]string, 0, len(resp.Data)-1)
-	for _, row := range resp.Data[1:] {
-		id, _ := row["id"].(string)
-		gotRest = append(gotRest, id)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("置顶顺序不对\n  want %v\n  got  %v", want, got)
 	}
-	if strings.Join(gotRest, ",") != strings.Join(wantRest, ",") {
-		t.Fatalf("其余行顺序应保持仓储顺序：want %v got %v", wantRest, gotRest)
+	if v, _ := resp.Data[0]["is_super_admin"].(bool); !v {
+		t.Fatalf("第一行应带 is_super_admin 标记：%v", resp.Data[0])
 	}
+}
+
+func isAdminRoleTest(r domain.Role) bool {
+	return r == domain.RolePlatformAdmin || r == domain.RoleAssociationAdmin
 }
