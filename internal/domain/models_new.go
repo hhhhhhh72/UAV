@@ -35,16 +35,37 @@ type Application struct {
 
 // CaseEntry is a successful project case or industry best-practice.
 type CaseEntry struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Category    string    `json:"category"`
-	Description string    `json:"description"`
-	Images      []string  `json:"images"`
-	ClientName  string    `json:"client_name"`
-	Result      string    `json:"result"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Category    string   `json:"category"`
+	Description string   `json:"description"`
+	Images      []string `json:"images"`
+	// VideoURL 案例视频地址（/uploads/xxx.mp4，小程序详情卡片据此渲染播放器）；
+	// VideoPosterURL 视频封面（可选，留空时前端用 Images[0] 当封面）。
+	VideoURL       string `json:"video_url"`
+	VideoPosterURL string `json:"video_poster_url"`
+	ClientName     string `json:"client_name"`
+	Result         string `json:"result"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// CaseInput 案例新建/更新的入参。
+//
+// 原先 Create/Update 是 7 个位置参数（title, category, description, images, clientName,
+// result[, status]），加视频后继续加位置参数极易错位，故收成结构体。
+// Status 仅更新路径使用；创建路径忽略（服务层默认 published）。
+type CaseInput struct {
+	Title          string
+	Category       string
+	Description    string
+	Images         []string
+	VideoURL       string
+	VideoPosterURL string
+	ClientName     string
+	Result         string
+	Status         string
 }
 
 // ComplianceDoc is a regulatory guidance document.

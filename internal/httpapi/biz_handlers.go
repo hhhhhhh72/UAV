@@ -295,18 +295,24 @@ func (s *Server) createCase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title       string   `json:"title"`
-		Category    string   `json:"category"`
-		Description string   `json:"description"`
-		ClientName  string   `json:"client_name"`
-		Result      string   `json:"result"`
-		Images      []string `json:"images"`
+		Title          string   `json:"title"`
+		Category       string   `json:"category"`
+		Description    string   `json:"description"`
+		ClientName     string   `json:"client_name"`
+		Result         string   `json:"result"`
+		Images         []string `json:"images"`
+		VideoURL       string   `json:"video_url"`
+		VideoPosterURL string   `json:"video_poster_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.caseSvc.Create(r.Context(), in.Title, in.Category, in.Description, in.Images, in.ClientName, in.Result)
+	c, err := s.caseSvc.Create(r.Context(), domain.CaseInput{
+		Title: in.Title, Category: in.Category, Description: in.Description,
+		Images: in.Images, VideoURL: in.VideoURL, VideoPosterURL: in.VideoPosterURL,
+		ClientName: in.ClientName, Result: in.Result,
+	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -346,19 +352,25 @@ func (s *Server) updateCase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title       string   `json:"title"`
-		Category    string   `json:"category"`
-		Description string   `json:"description"`
-		ClientName  string   `json:"client_name"`
-		Result      string   `json:"result"`
-		Status      string   `json:"status"`
-		Images      []string `json:"images"`
+		Title          string   `json:"title"`
+		Category       string   `json:"category"`
+		Description    string   `json:"description"`
+		ClientName     string   `json:"client_name"`
+		Result         string   `json:"result"`
+		Status         string   `json:"status"`
+		Images         []string `json:"images"`
+		VideoURL       string   `json:"video_url"`
+		VideoPosterURL string   `json:"video_poster_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	c, err := s.caseSvc.Update(r.Context(), r.PathValue("id"), in.Title, in.Category, in.Description, in.Status, in.Images, in.ClientName, in.Result)
+	c, err := s.caseSvc.Update(r.Context(), r.PathValue("id"), domain.CaseInput{
+		Title: in.Title, Category: in.Category, Description: in.Description,
+		Images: in.Images, VideoURL: in.VideoURL, VideoPosterURL: in.VideoPosterURL,
+		ClientName: in.ClientName, Result: in.Result, Status: in.Status,
+	})
 	if err != nil {
 		fail(w, r, http.StatusNotFound, err)
 		return

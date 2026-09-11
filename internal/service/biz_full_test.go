@@ -39,12 +39,24 @@ func TestExpertFullCRUD(t *testing.T) {
 // === Case full CRUD ===
 func TestCaseFullCRUD(t *testing.T) {
 	svc := service.NewCaseService(memory.NewCaseRepository())
-	c, _ := svc.Create(context.Background(), "案例1", "logistics", "desc", []string{"a.jpg"}, "客户A", "成果")
+	c, _ := svc.Create(context.Background(), domain.CaseInput{
+		Title: "案例1", Category: "logistics", Description: "desc",
+		Images: []string{"a.jpg"}, ClientName: "客户A", Result: "成果",
+		VideoURL: "/uploads/case.mp4",
+	})
 	got, _ := svc.Get(context.Background(), c.ID)
 	if got.ClientName != "客户A" {
 		t.Fatal("Get failed")
 	}
-	_, err := svc.Update(context.Background(), c.ID, "案例1v2", "agriculture", "desc2", "published", []string{"b.jpg"}, "客户B", "成果2")
+	// 视频字段走更新路径也不能丢
+	if got.VideoURL != "/uploads/case.mp4" {
+		t.Fatalf("建案例时 video_url 丢了: %q", got.VideoURL)
+	}
+	_, err := svc.Update(context.Background(), c.ID, domain.CaseInput{
+		Title: "案例1v2", Category: "agriculture", Description: "desc2", Status: "published",
+		Images: []string{"b.jpg"}, ClientName: "客户B", Result: "成果2",
+		VideoURL: "/uploads/case2.mp4",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

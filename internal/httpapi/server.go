@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -437,7 +438,35 @@ func (s *Server) serveUploads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Del("Content-Type")
+	setVideoContentType(w, r)
 	http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))).ServeHTTP(w, r)
+}
+
+// setVideoContentType 给「无扩展名的上传文件」补 Content-Type。
+//
+// 上传落盘的文件名就是文件 ID（file-<hex>，没有扩展名），http.FileServer 只能靠嗅探猜类型，
+// 而 Go 的嗅探对 mp4 只认少数 brand（isom/mp41/avc1…），国产剪辑工具导出的 mp4 会被判成
+// application/octet-stream —— 部分播放器据此拒绝播放或改成下载。这里按 ISO BMFF 的结构
+// （box 长度 + "ftyp"）判定，命中就显式写 video/mp4；其余文件仍交给 FileServer 自己嗅探。
+func setVideoContentType(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return
+	}
+	rel := strings.TrimPrefix(r.URL.Path, "/uploads/")
+	// 只处理上传目录根下的无扩展名文件：带扩展名的按扩展名走，子目录（private 等）不碰
+	if rel == "" || strings.ContainsAny(rel, "./") {
+		return
+	}
+	f, err := os.Open(filepath.Join("uploads", rel))
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	head := make([]byte, 12)
+	n, _ := io.ReadFull(f, head)
+	if looksLikeISOBMFF(head[:n]) {
+		w.Header().Set("Content-Type", "video/mp4")
+	}
 }
 
 // isPrivateUploadsPath 报告路径是否指向 uploads/private 子树（大小写不敏感）。

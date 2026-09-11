@@ -16,6 +16,7 @@
       <template #cover="{ record }">
         <div class="case-thumb">
           <img v-if="(record.images || [])[0]" :src="normalizeMediaUrl(record.images[0])" :alt="record.title" />
+          <span v-if="record.video_url" class="video-badge">视频</span>
         </div>
       </template>
       <template #title="{ record }">
@@ -78,6 +79,35 @@
               <a-button v-else type="primary">点击上传</a-button>
             </a-upload>
             <a-button v-if="(currentCase.images || [])[0]" size="small" style="margin-top: 8px" @click="currentCase.images = []">清除</a-button>
+          </a-form-item>
+
+          <a-divider orientation="left">案例视频</a-divider>
+          <a-form-item label="视频（mp4，≤40MB）">
+            <a-upload
+              :show-file-list="false"
+              :custom-request="uploadVideo"
+              :before-upload="beforeVideoUpload"
+              accept="video/mp4,video/quicktime"
+            >
+              <a-button type="primary">{{ currentCase.video_url ? '重新上传视频' : '上传案例视频' }}</a-button>
+            </a-upload>
+            <div v-if="currentCase.video_url" class="video-tip">
+              <span class="video-name">{{ currentCase.video_url }}</span>
+              <a-button size="mini" type="text" @click="currentCase.video_url = ''">清除</a-button>
+            </div>
+            <div v-else class="video-tip muted">上传后小程序「企业案例 → 案例详情」卡片里会显示播放器</div>
+          </a-form-item>
+          <a-form-item label="视频封面（可选）">
+            <a-upload
+              :show-file-list="false"
+              :custom-request="uploadPoster"
+              :before-upload="beforeUpload"
+              accept="image/*"
+            >
+              <img v-if="currentCase.video_poster_url" :src="normalizeMediaUrl(currentCase.video_poster_url)" class="cover-preview" alt="视频封面预览" />
+              <a-button v-else>上传视频封面</a-button>
+            </a-upload>
+            <div class="video-tip muted">留空则用上面的封面图当视频封面</div>
           </a-form-item>
 
           <a-divider orientation="left">审核状态</a-divider>
@@ -191,9 +221,53 @@ const uploadCover = async ({ fileItem, onSuccess, onError }) => {
   }
 }
 
+// 案例视频：mp4/mov，≤40MB（后端 /api/v1/upload 的上限也是 40MB，与 nginx 的 50m 留余量）。
+// 视频地址存 case.video_url，小程序「企业案例 → 案例详情」据此渲染 <video>。
+const beforeVideoUpload = (file) => {
+  const okType = file.type === 'video/mp4' || file.type === 'video/quicktime' || /\.(mp4|mov|m4v)$/i.test(file.name || '')
+  if (!okType) { Message.error('只能上传 mp4 / mov 视频'); return false }
+  if (file.size / 1024 / 1024 >= 40) { Message.error('视频不能超过 40MB（建议先压缩）'); return false }
+  return true
+}
+
+const uploadVideo = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post('/api/v1/upload', fd)
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    if (currentCase.value) currentCase.value.video_url = url
+    Message.success('视频已上传，保存后小程序即可播放')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    // 后端会回具体原因（格式不支持 / 超过 40MB / 配额），不要吞掉
+    Message.error(errMsg(e, '视频上传失败'))
+  }
+}
+
+// 视频封面（可选）：留空时小程序用封面图当 poster
+const uploadPoster = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post('/api/v1/upload', fd)
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    if (currentCase.value) currentCase.value.video_poster_url = url
+    Message.success('上传成功')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error('上传失败')
+  }
+}
+
 const createCase = () => {
   currentCase.value = {
-    title: '', category: '', description: '', images: [], client_name: '', result: '', status: 'pending'
+    title: '', category: '', description: '', images: [], client_name: '', result: '', status: 'pending',
+    video_url: '', video_poster_url: ''
   }
   caseSnapshot = JSON.stringify(currentCase.value)
   showCaseEditPopup.value = true
@@ -205,6 +279,9 @@ const editCase = (caseItem) => {
   caseSnapshot = JSON.stringify(currentCase.value)
   showCaseEditPopup.value = true
 }
+
+// 后端失败原因（类型不支持 / 超过 40MB / 配额超限）原样透出，不要吞成"上传失败"
+const errMsg = (e, fallback) => e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || fallback
 
 const onSaveCase = async () => {
   if (!currentCase.value) return
@@ -231,7 +308,7 @@ const onSaveCase = async () => {
     crudRef.value?.reload()
   } catch (error) {
     Message.clear()
-    Message.error(error?.response?.data?.message || '保存失败')
+    Message.error(errMsg(error, '保存失败'))
   }
 }
 
@@ -296,4 +373,25 @@ const onDeleteCase = (caseItem) => {
 
 .cover-upload { display: inline-block; margin-right: 8px; }
 .cover-preview { width: 160px; height: 100px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+
+.case-thumb { position: relative; display: inline-block; }
+
+/* 有视频的案例在封面右下角标一下，列表里一眼能看出来 */
+.video-badge {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  padding: 0 4px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #fff;
+  background: rgba(10, 102, 194, 0.85);
+  border-radius: 3px;
+}
+
+.video-tip { margin-top: 6px; font-size: 12px; color: var(--color-text-2); display: flex; align-items: center; gap: 6px; }
+
+.video-tip.muted { color: var(--color-text-3); }
+
+.video-name { word-break: break-all; }
 </style>

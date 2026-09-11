@@ -29,7 +29,10 @@ func TestExpertCRUD(t *testing.T) {
 
 func TestCaseCRUD(t *testing.T) {
 	svc := service.NewCaseService(memory.NewCaseRepository())
-	c, err := svc.Create(context.Background(), "无人机物流案例", "logistics", "配送方案", []string{"img.jpg"}, "XX物流", "降本30%")
+	c, err := svc.Create(context.Background(), domain.CaseInput{
+		Title: "无人机物流案例", Category: "logistics", Description: "配送方案",
+		Images: []string{"img.jpg"}, ClientName: "XX物流", Result: "降本30%",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

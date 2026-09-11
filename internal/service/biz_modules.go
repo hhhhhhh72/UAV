@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -73,6 +74,9 @@ func (s *ExpertService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
 
+// ErrCaseNotFound 案例不存在（Handler 映射 404）。
+var ErrCaseNotFound = errors.New("案例不存在")
+
 // ---- CaseService (项目案例) ----
 
 type CaseService struct {
@@ -83,19 +87,21 @@ func NewCaseService(repo repository.CaseRepository) *CaseService {
 	return &CaseService{repo: repo}
 }
 
-func (s *CaseService) Create(ctx context.Context, title, category, description string, images []string, clientName, result string) (domain.CaseEntry, error) {
+func (s *CaseService) Create(ctx context.Context, in domain.CaseInput) (domain.CaseEntry, error) {
 	now := time.Now()
 	c := domain.CaseEntry{
-		ID:          nextID("case"),
-		Title:       title,
-		Category:    category,
-		Description: description,
-		Images:      images,
-		ClientName:  clientName,
-		Result:      result,
-		Status:      "published",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:             nextID("case"),
+		Title:          in.Title,
+		Category:       in.Category,
+		Description:    in.Description,
+		Images:         in.Images,
+		VideoURL:       in.VideoURL,
+		VideoPosterURL: in.VideoPosterURL,
+		ClientName:     in.ClientName,
+		Result:         in.Result,
+		Status:         "published",
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	return s.repo.Create(ctx, c)
 }
@@ -109,18 +115,20 @@ func (s *CaseService) Get(ctx context.Context, id string) (domain.CaseEntry, err
 	return s.repo.FindByID(ctx, id)
 }
 
-func (s *CaseService) Update(ctx context.Context, id, title, category, description, status string, images []string, clientName, result string) (domain.CaseEntry, error) {
+func (s *CaseService) Update(ctx context.Context, id string, in domain.CaseInput) (domain.CaseEntry, error) {
 	c, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return domain.CaseEntry{}, err
+		return domain.CaseEntry{}, notFoundErr(ErrCaseNotFound, "case", id, err)
 	}
-	c.Title = title
-	c.Category = category
-	c.Description = description
-	c.Status = status
-	c.Images = images
-	c.ClientName = clientName
-	c.Result = result
+	c.Title = in.Title
+	c.Category = in.Category
+	c.Description = in.Description
+	c.Status = in.Status
+	c.Images = in.Images
+	c.VideoURL = in.VideoURL
+	c.VideoPosterURL = in.VideoPosterURL
+	c.ClientName = in.ClientName
+	c.Result = in.Result
 	c.UpdatedAt = time.Now()
 	return s.repo.Update(ctx, c)
 }

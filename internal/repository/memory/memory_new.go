@@ -100,7 +100,7 @@ func (r *caseRepo) FindByID(ctx context.Context, id string) (domain.CaseEntry, e
 			return c, nil
 		}
 	}
-	return domain.CaseEntry{}, fmt.Errorf("case %s not found", id)
+	return domain.CaseEntry{}, fmt.Errorf("case %s: %w", id, repository.ErrNotFound)
 }
 func (r *caseRepo) List(ctx context.Context, category string, offset, limit int) ([]domain.CaseEntry, int, error) {
 	r.mu.RLock()
@@ -126,7 +126,7 @@ func (r *caseRepo) Update(ctx context.Context, c domain.CaseEntry) (domain.CaseE
 			return c, nil
 		}
 	}
-	return domain.CaseEntry{}, fmt.Errorf("case %s not found", c.ID)
+	return domain.CaseEntry{}, fmt.Errorf("case %s: %w", c.ID, repository.ErrNotFound)
 }
 func (r *caseRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()

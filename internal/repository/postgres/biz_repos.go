@@ -98,16 +98,16 @@ func (r *caseRepo) Create(ctx context.Context, c domain.CaseEntry) (domain.CaseE
 		return domain.CaseEntry{}, fmt.Errorf("marshal case images: %w", err)
 	}
 	_, err = r.pool.Exec(ctx,
-		`INSERT INTO case_entries (id,title,category,description,images,client_name,result,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		c.ID, c.Title, c.Category, c.Description, imgs, c.ClientName, c.Result, c.Status, c.CreatedAt, c.UpdatedAt)
+		`INSERT INTO case_entries (id,title,category,description,images,video_url,video_poster_url,client_name,result,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+		c.ID, c.Title, c.Category, c.Description, imgs, c.VideoURL, c.VideoPosterURL, c.ClientName, c.Result, c.Status, c.CreatedAt, c.UpdatedAt)
 	return c, err
 }
 func (r *caseRepo) FindByID(ctx context.Context, id string) (domain.CaseEntry, error) {
 	var c domain.CaseEntry
 	var imgs []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id,title,category,description,images,client_name,result,status,created_at,updated_at FROM case_entries WHERE id=$1`, id).
-		Scan(&c.ID, &c.Title, &c.Category, &c.Description, &imgs, &c.ClientName, &c.Result, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+		`SELECT id,title,category,description,images,video_url,video_poster_url,client_name,result,status,created_at,updated_at FROM case_entries WHERE id=$1`, id).
+		Scan(&c.ID, &c.Title, &c.Category, &c.Description, &imgs, &c.VideoURL, &c.VideoPosterURL, &c.ClientName, &c.Result, &c.Status, &c.CreatedAt, &c.UpdatedAt)
 	json.Unmarshal(imgs, &c.Images)
 	return c, err
 }
@@ -122,7 +122,7 @@ func (r *caseRepo) List(ctx context.Context, category string, offset, limit int)
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM case_entries `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count cases: %w", err)
 	}
-	q := fmt.Sprintf(`SELECT id,title,category,description,images,client_name,result,status,created_at,updated_at FROM case_entries %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
+	q := fmt.Sprintf(`SELECT id,title,category,description,images,video_url,video_poster_url,client_name,result,status,created_at,updated_at FROM case_entries %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, len(args)+1, len(args)+2)
 	rows, err := r.pool.Query(ctx, q, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list cases: %w", err)
@@ -132,7 +132,7 @@ func (r *caseRepo) List(ctx context.Context, category string, offset, limit int)
 	for rows.Next() {
 		var c domain.CaseEntry
 		var imgs []byte
-		if err := rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &imgs, &c.ClientName, &c.Result, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Title, &c.Category, &c.Description, &imgs, &c.VideoURL, &c.VideoPosterURL, &c.ClientName, &c.Result, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan case: %w", err)
 		}
 		json.Unmarshal(imgs, &c.Images)
@@ -147,8 +147,8 @@ func (r *caseRepo) Update(ctx context.Context, c domain.CaseEntry) (domain.CaseE
 		return domain.CaseEntry{}, fmt.Errorf("marshal case images: %w", err)
 	}
 	_, err = r.pool.Exec(ctx,
-		`UPDATE case_entries SET title=$1,category=$2,description=$3,images=$4,client_name=$5,result=$6,status=$7,updated_at=$8 WHERE id=$9`,
-		c.Title, c.Category, c.Description, imgs, c.ClientName, c.Result, c.Status, c.UpdatedAt, c.ID)
+		`UPDATE case_entries SET title=$1,category=$2,description=$3,images=$4,video_url=$5,video_poster_url=$6,client_name=$7,result=$8,status=$9,updated_at=$10 WHERE id=$11`,
+		c.Title, c.Category, c.Description, imgs, c.VideoURL, c.VideoPosterURL, c.ClientName, c.Result, c.Status, c.UpdatedAt, c.ID)
 	return c, err
 }
 func (r *caseRepo) Delete(ctx context.Context, id string) error {

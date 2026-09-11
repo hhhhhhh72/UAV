@@ -11,7 +11,7 @@ import (
 )
 
 // POST /api/v1/upload — 上传文件，返回文件 URL
-// Requires authentication and restricts content types (jpeg/png/webp/pdf),
+// Requires authentication and restricts content types (jpeg/png/webp/pdf/mp4),
 // mirroring the rules of /api/v1/files/upload.
 // 统一走 fileSvc：魔数检测 + 随机 ID（不可枚举）+ 每日上传配额记账
 // （此前独立落盘：可预测 UnixNano 文件名、绕过配额）。
@@ -21,9 +21,9 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
-	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max
-		fail(w, r, http.StatusBadRequest, fmt.Errorf("parse multipart: %w", err))
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
+	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+		fail(w, r, http.StatusBadRequest, fmt.Errorf("parse multipart (max %dMB): %w", maxUploadBytes>>20, err))
 		return
 	}
 	file, _, err := r.FormFile("file")
@@ -42,7 +42,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	reader := io.MultiReader(bytes.NewReader(head), file)
 
-	rec, err := s.fileSvc.Upload(r.Context(), a.ID, "upload", detected, io.LimitReader(reader, 10<<20))
+	rec, err := s.fileSvc.Upload(r.Context(), a.ID, "upload", detected, io.LimitReader(reader, maxUploadBytes))
 	if err != nil {
 		if errors.Is(err, service.ErrUploadQuotaExceeded) {
 			fail(w, r, http.StatusRequestEntityTooLarge, err)

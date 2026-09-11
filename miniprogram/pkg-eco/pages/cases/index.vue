@@ -172,6 +172,18 @@
         </view>
 
         <scroll-view scroll-y class="detail-scroll">
+          <!-- 案例视频：优先后端 video_url 字段（2026-09-11 起后台可上传 mp4）；
+               老数据（视频 URL 混在 images 里）仍按扩展名兜底识别 -->
+          <view v-if="videoUrl(currentCase)" class="media-item">
+            <video
+              :src="videoUrl(currentCase)"
+              :poster="posterUrl(currentCase)"
+              controls
+              object-fit="contain"
+              class="media-video"
+            />
+          </view>
+
           <!-- 媒体区：竖排（图片可预览、视频可播放） -->
           <view class="media-list" v-if="mediaList(currentCase).length">
             <view v-for="(m, idx) in mediaList(currentCase)" :key="idx" class="media-item">
@@ -294,7 +306,20 @@ const coverUrl = (c) => {
   const first = (c.images && c.images[0]) || ''
   return resolveUrl(first)
 }
-const coverType = (c) => (coverUrl(c) ? (isVideoUrl(coverUrl(c)) ? 'video' : 'image') : 'none')
+
+// 案例视频地址：优先用后端独立字段 video_url（后台「案例视频」上传位写入）；
+// 老数据把视频 URL 混在 images 里的，按扩展名兜底认出来。
+const videoUrl = (c) => {
+  const direct = resolveUrl((c && c.video_url) || '')
+  if (direct) return direct
+  const fromImages = ((c && c.images) || []).map(resolveUrl).find(isVideoUrl)
+  return fromImages || ''
+}
+
+// 视频封面：video_poster_url 优先，留空用封面图
+const posterUrl = (c) => resolveUrl((c && c.video_poster_url) || ((c && c.images && c.images[0]) || ''))
+
+const coverType = (c) => (videoUrl(c) ? 'video' : (coverUrl(c) ? (isVideoUrl(coverUrl(c)) ? 'video' : 'image') : 'none'))
 const coverTypeLabel = (c) => {
   const t = coverType(c)
   if (t === 'video') return '视频'
