@@ -47,7 +47,7 @@
 | **管理** | `GET /admin/dashboard` `GET /admin/export/demands` `GET /admin/export/enterprises` `POST /admin/demands/batch-approve` `DELETE /admin/users/{id}` | 看板/导出/批量。账号处置：**删除即注销、不可恢复**——立即失效（status=deleted + 令牌作废 + 角色回收）并从列表/平台消失，账号行保留 **7 天缓冲期**（响应含 `purge_after`，到期由后台任务自动物理清除）；该用户发布的需求/动态/证书等内容按账号处置策略清理，交易/工单/合同等履约记录保留 |
 | **账号** | `POST /admin/users` `POST /admin/users/{id}/role` `POST /admin/users/{id}/password` `POST /auth/password` | 建号：**登录名=手机号**（`phone` 必填 11 位，无 `id` 入参——id 由系统生成为 `user-<手机号>`，昵称缺省为「用户+手机号后四位」，初始密码必填 ≥8 位，响应只回 `phone_masked`）；手机号缺失/非法/弱口令 400，同号重复 409，协会管理员建管理员账号 403。改密：本人 `POST /auth/password` 校验旧密码并作废旧令牌；管理员 `POST /admin/users/{id}/password` 仅平台管理员可重置 |
 | **专家** | `GET /experts` `POST/PUT/DELETE /admin/experts` | 智库 |
-| **案例** | `GET /cases` `POST/PUT/DELETE /admin/cases` | 案例库。媒体：视频案例传 `video_url`（mp4，≤40MB，小程序详情卡片直接播），图文案例传 `images`（多张，详情里排在视频之后）；两者可并存，展示时视频优先。公开列表 `GET /cases` 只返回 `status=published`（下架/待审不对外可见），管理端可用 `?status=` 筛选 |
+| **案例** | `GET /cases` `POST/PUT/DELETE /admin/cases` | 案例库。媒体：当前只做视频案例——传 `video_url`（mp4，≤40MB），小程序列表用视频首帧当封面、详情直接播；`images` 字段保留但后台暂不提供上传入口（仅兼容历史数据）。公开列表 `GET /cases` 只返回 `status=published`（下架/待审不对外可见），管理端可用 `?status=` 筛选 |
 | **合规** | `GET /compliance-docs` `GET /compliance-standards` `POST /admin/compliance-*` | 法规/标准 |
 | **报告** | `GET /industry-reports` `POST/DELETE /admin/industry-reports` | 行业报告 |
 | **品牌** | `GET /portfolios` `GET /portfolios/mine` `POST/PUT /portfolios` | 会员品牌 |
