@@ -103,14 +103,19 @@
           @tap="showCaseDetail(caseItem)"
         >
 
-          <!-- 封面：视频自动播放 / 图片 / 渐变占位 -->
+          <!-- 封面 = 案例视频本身（产品口径：视频就是封面，不单独传封面图）。
+               不自动播放：列表里只显示首帧 + 中间播放按钮，点开卡片才真播，
+               避免一屏多个 video 同时解码（真机容易掉帧/报错）。
+               老数据若只有图片、没有视频，仍按图片兜底。 -->
           <view class="case-cover">
             <video
-              v-if="coverUrl(caseItem) && isVideoUrl(coverUrl(caseItem))"
-              :src="coverUrl(caseItem)"
-              autoplay
+              v-if="videoUrl(caseItem)"
+              :src="videoUrl(caseItem)"
+              :controls="false"
+              :show-center-play-btn="true"
+              :show-progress="false"
+              :enable-progress-gesture="false"
               muted
-              loop
               object-fit="cover"
               class="cover-video"
             ></video>

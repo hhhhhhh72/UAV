@@ -14,9 +14,16 @@
       @sorter-change="handleSorterChange"
     >
       <template #cover="{ record }">
+        <!-- 视频即封面：列表直接放一个小播放器（只取首帧/元数据，不自动播放） -->
         <div class="case-thumb">
-          <img v-if="(record.images || [])[0]" :src="normalizeMediaUrl(record.images[0])" :alt="record.title" />
-          <span v-if="record.video_url" class="video-badge">视频</span>
+          <video
+            v-if="record.video_url"
+            :src="normalizeMediaUrl(record.video_url)"
+            class="thumb-video"
+            preload="metadata"
+            muted
+          />
+          <span v-else class="no-video">无视频</span>
         </div>
       </template>
       <template #title="{ record }">
@@ -66,21 +73,7 @@
             <RichEditor v-model="currentCase.result" />
           </a-form-item>
 
-          <a-divider orientation="left">封面图片</a-divider>
-          <a-form-item label="封面">
-            <a-upload
-              class="cover-upload"
-              :show-file-list="false"
-              :custom-request="uploadCover"
-              :before-upload="beforeUpload"
-              accept="image/*"
-            >
-              <img v-if="(currentCase.images || [])[0]" :src="normalizeMediaUrl(currentCase.images[0])" class="cover-preview" alt="案例封面预览" />
-              <a-button v-else type="primary">点击上传</a-button>
-            </a-upload>
-            <a-button v-if="(currentCase.images || [])[0]" size="small" style="margin-top: 8px" @click="currentCase.images = []">清除</a-button>
-          </a-form-item>
-
+          <!-- 只传视频：产品口径「视频就是封面」，不单独传封面图 -->
           <a-divider orientation="left">案例视频</a-divider>
           <a-form-item label="视频（mp4，≤40MB）">
             <a-upload
@@ -183,7 +176,7 @@ const searchFields = computed(() => [
 ])
 
 const columns = [
-  { title: '封面', dataIndex: 'images', slotName: 'cover', width: 90 },
+  { title: '视频', dataIndex: 'video_url', slotName: 'cover', width: 120 },
   { title: '标题', dataIndex: 'title', slotName: 'title', minWidth: 180, sortable: true },
   { title: '分类', dataIndex: 'category', width: 110 },
   { title: '客户', dataIndex: 'client_name', width: 140 },
@@ -204,31 +197,7 @@ const currentCase = ref(null)
 const caseStatusColor = { pending: 'orange', published: 'green', archived: 'gray' }
 const caseStatusLabel = { pending: '待审核', published: '已发布', archived: '已下架' }
 
-const beforeUpload = (file) => {
-  const isImage = file.type.startsWith('image/')
-  const isLt5M = file.size / 1024 / 1024 < 5
-  if (!isImage) { Message.error('只能上传图片文件'); return false }
-  if (!isLt5M) { Message.error('图片不能超过 5MB'); return false }
-  return true
-}
-
-// 封面图片上传（/api/v1/upload 返回 { url }）
-// 注意：Arco custom-request 的参数是 fileItem，原生 File 在 fileItem.file 上
-const uploadCover = async ({ fileItem, onSuccess, onError }) => {
-  const fd = new FormData()
-  fd.append('file', fileItem.file)
-  try {
-    const res = await axios.post('/api/v1/upload', fd)
-    const url = res?.data?.url || res?.url
-    if (!url) throw new Error('上传失败')
-    if (currentCase.value) currentCase.value.images = [url]
-    Message.success('上传成功')
-    onSuccess && onSuccess(res)
-  } catch (e) {
-    onError && onError(e)
-    Message.error('上传失败')
-  }
-}
+// 封面图已取消：案例只上传视频，视频本身就是封面（列表/详情都用它）。
 
 // 案例视频：mp4/mov，≤40MB（后端 /api/v1/upload 的上限也是 40MB，与 nginx 的 50m 留余量）。
 // 视频地址存 case.video_url，小程序「企业案例 → 案例详情」据此渲染 <video>。
@@ -259,7 +228,7 @@ const uploadVideo = async ({ fileItem, onSuccess, onError }) => {
 
 const createCase = () => {
   currentCase.value = {
-    title: '', category: '', description: '', images: [], client_name: '', result: '', status: 'pending',
+    title: '', category: '', description: '', client_name: '', result: '', status: 'pending',
     video_url: ''
   }
   caseSnapshot = JSON.stringify(currentCase.value)
@@ -268,7 +237,7 @@ const createCase = () => {
 
 const editCase = (caseItem) => {
   currentCase.value = JSON.parse(JSON.stringify(caseItem))
-  if (!Array.isArray(currentCase.value.images)) currentCase.value.images = []
+  // 历史案例可能带封面图（images），保留原值不动；新建不再产生
   caseSnapshot = JSON.stringify(currentCase.value)
   showCaseEditPopup.value = true
 }
@@ -364,23 +333,14 @@ const onDeleteCase = (caseItem) => {
   border-top: 1px solid #EEF1F4;
 }
 
-.cover-upload { display: inline-block; margin-right: 8px; }
-.cover-preview { width: 160px; height: 100px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+
 
 .case-thumb { position: relative; display: inline-block; }
 
-/* 有视频的案例在封面右下角标一下，列表里一眼能看出来 */
-.video-badge {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  padding: 0 4px;
-  font-size: 11px;
-  line-height: 16px;
-  color: #fff;
-  background: rgba(10, 102, 194, 0.85);
-  border-radius: 3px;
-}
+/* 列表里的视频缩略：只加载元数据取首帧，不自动播放（一屏多个视频同时解码会拖慢表格） */
+.thumb-video { width: 96px; height: 56px; object-fit: cover; border-radius: 4px; background: #000; display: block; }
+
+.no-video { color: var(--color-text-3); font-size: 12px; }
 
 .video-tip { margin-top: 6px; font-size: 12px; color: var(--color-text-2); display: flex; align-items: center; gap: 6px; }
 
