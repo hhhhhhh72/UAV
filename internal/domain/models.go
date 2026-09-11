@@ -38,6 +38,14 @@ type Actor struct {
 	TokenVersion int64 `json:"tv,omitempty"`
 }
 
+// 用户账号状态（users.status）。鉴权中间件按"非 active 即失效"处理
+// （见 httpapi.revalidateActor）：注销/封禁后已签发 token 立即 401。
+const (
+	UserActive  = "active"  // 正常
+	UserBanned  = "banned"  // 封禁
+	UserDeleted = "deleted" // 已注销（软删：账号不可登录，发布内容保留）
+)
+
 // User represents a registered platform user linked to a WeChat identity.
 // Phone numbers are stored as AES-256-GCM ciphertext and excluded from JSON
 // serialization (json:"-"). Use crypto.Decrypt or MaskPhone for display.

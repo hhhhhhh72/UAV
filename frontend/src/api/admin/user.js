@@ -7,3 +7,9 @@ export function getUserList(params) {
 export function updateUserRole(id, role) {
   return axios.post(`/api/v1/admin/users/${id}/role`, { role }).then(res => res.data)
 }
+
+// 删除账号（唯一动作，不可恢复）：账号立即失效并从平台消失，账号行保留 7 天缓冲期，
+// 到期由后台任务自动物理清除；其发布的内容一律保留（后端口径见 service.UserService.DeleteUser）。
+export function deleteUser(id) {
+  return axios.delete(`/api/v1/admin/users/${encodeURIComponent(id)}`).then(res => res.data)
+}

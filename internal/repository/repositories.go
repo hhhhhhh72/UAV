@@ -53,6 +53,8 @@ type AuditReader interface {
 // UploadRepository 记录每次文件上传（台账 + 按用户配额统计）。
 type UploadRepository interface {
 	Create(ctx context.Context, rec domain.FileRecord) error
+	// ListByOwner 某用户的上传台账（注销账号时用于删除磁盘上的物理文件）。
+	ListByOwner(ctx context.Context, ownerID string) ([]domain.FileRecord, error)
 	// FindByID 按 ID 查上传台账（私有文件归属校验用）。
 	FindByID(ctx context.Context, id string) (domain.FileRecord, error)
 	// SumBytesSince 统计 owner 自 since 起的累计上传字节数。
@@ -73,6 +75,22 @@ type UserRepository interface {
 	// UpdateProfile 更新个人资料扩展字段（性别/生日/地区/简介/手机号）。
 	// Phone 为明文，由实现加密后落库；空 Phone 表示不修改手机号。
 	UpdateProfile(ctx context.Context, id string, p domain.UserProfile) error
+	// SoftDelete 注销（软删）：status=deleted + token_version 自增（已签发 token 立即失效）
+	// + 回收 user_roles/refresh_tokens，但**保留 users 行**——
+	// 46 张业务表以文本列（publisher_id/author_id/user_id…）记录用户 ID 且无外键，
+	// 物理删除会把这些内容留成无法解析作者的孤儿数据（生产已有 12 条需求 + 3 条动态）。
+	SoftDelete(ctx context.Context, id string) error
+	// CleanupUserContent 注销时的内容处置（计划由 Service 决定，仓储只执行）：
+	// 下架在架内容 / 擦除个人信息列 / 删除纯个人信息行。返回实际影响行数。
+	CleanupUserContent(ctx context.Context, userID string, plan ContentCleanupPlan) (ContentCleanupReport, error)
+	// ListDeletedBefore 缓冲期已到（deleted_at < cutoff）的已注销账号 ID，
+	// 供 Service 逐个"清物理文件 → 兜底内容处置 → 删账号行"（编排在 Service，SQL 在仓储）。
+	ListDeletedBefore(ctx context.Context, cutoff time.Time) ([]string, error)
+	// AllWithDeleted 后台用户列表专用：含已注销账号（缓冲期内，等待自动清除），
+	// 供管理员确认；业务统计/选择器仍用 All（仅未注销）。
+	AllWithDeleted(ctx context.Context) ([]domain.User, error)
+	// Delete 物理删除（不可逆）：仅删 users/user_roles/refresh_tokens；
+	// 存在外键引用（work_orders.publisher_id/worker_id）时返回 ErrUserInUse，业务内容一律不动。
 	Delete(ctx context.Context, id string) error
 }
 
@@ -476,6 +494,52 @@ var (
 
 // ErrCertNumberTaken 证书号已被占用（唯一索引兜底，Service 层转友好错误）。
 var ErrCertNumberTaken = errors.New("certificate number already taken")
+
+// ContentCleanupPlan 注销账号时的内容处置计划。
+// 策略（哪些表、下架成什么状态、擦哪些列）由 Service 决定并构造，
+// 仓储只负责按计划执行 SQL —— 避免 SQL 出现在 Service、策略散落在仓储。
+type ContentCleanupPlan struct {
+	TakeDown []TakeDownRule // 下架：在架内容置为下架状态（内容保留，仅不再公开）
+	Wipe     []WipeRule     // 擦除：清空个人信息列（保留业务事实行）
+	Drop     []DropRule     // 删除：纯个人信息行（简历/投递/站内信/文件等）
+}
+
+// TakeDownRule 下架规则：table.ownerColumn = userID 且 status=OnValue 时置为 OffValue。
+type TakeDownRule struct {
+	Table        string
+	OwnerColumn  string
+	StatusColumn string
+	OnValue      string // 仅处理该状态（空串=不限），避免重复改动已完成/已下架的行
+	OffValue     string
+}
+
+// WipeRule 擦除规则：table.ownerColumn = userID 的行把这些列清空。
+type WipeRule struct {
+	Table       string
+	OwnerColumn string
+	Columns     []string
+}
+
+// DropRule 删除规则：table.ownerColumn = userID 的行整行删除。
+type DropRule struct {
+	Table       string
+	OwnerColumn string
+}
+
+// ContentCleanupReport 内容处置结果（后台据此如实提示，也便于日志追溯）。
+type ContentCleanupReport struct {
+	TakenDown int `json:"taken_down"` // 下架条数
+	Wiped     int `json:"wiped"`      // 擦除个人信息的行数
+	Dropped   int `json:"dropped"`    // 删除的个人信息行数
+}
+
+// ErrUserInUse 用户被业务记录外键引用（work_orders.publisher_id/worker_id），无法物理删除。
+// Service 层用 errors.Is 判断并转 409，避免 Handler 依赖 PG 错误码。
+var ErrUserInUse = errors.New("user is referenced by work orders")
+
+// ErrUserNotFound 账号不存在（或已注销：users.deleted_at 非空的行对 FindByID/All 不可见）。
+// 删除路径据此返回 404，而不是"删了个不存在的 id 却回 200"。
+var ErrUserNotFound = errors.New("user not found")
 
 type EscrowRepository interface {
 	GetAccount(ctx context.Context, userID string) (domain.EscrowAccount, error)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -1526,8 +1527,120 @@ func (r *userRepo) FindByID(ctx context.Context, id string) (domain.User, error)
 	return u, err
 }
 
-func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, wechat_openid, COALESCE(phone_ciphertext,''), password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`)
+// sqlIdentifierRe 标识符白名单：计划里的表名/列名是 Service 构造的编译期常量，
+// 仍然先校验再拼接，杜绝拼接注入。
+var sqlIdentifierRe = regexp.MustCompile("^[a-z_][a-z0-9_]*$")
+
+func safeSQLIdentifier(name string) bool { return sqlIdentifierRe.MatchString(name) }
+
+// CleanupUserContent 按 Service 给定的计划处置注销用户的内容，单事务执行：
+// TakeDown 下架（UPDATE status）、Wipe 擦列（UPDATE col=''）、Drop 删行（DELETE）。
+//
+// 表/列不存在（开发库或历史库结构滞后，SQLSTATE 42P01/42703）时跳过该条规则、其余照常执行——
+// 绝不能因为某张表的差异让"删除账号"整体失败。
+func (r *userRepo) CleanupUserContent(ctx context.Context, userID string, plan repository.ContentCleanupPlan) (repository.ContentCleanupReport, error) {
+	var rep repository.ContentCleanupReport
+	if userID == "" {
+		return rep, fmt.Errorf("cleanup user content: empty user id")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return rep, fmt.Errorf("begin user content cleanup: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	exec := func(label, q string, args ...any) (int, error) {
+		tag, err := tx.Exec(ctx, q, args...)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && (pgErr.Code == "42P01" || pgErr.Code == "42703") {
+				return 0, nil // 表/列不存在：跳过
+			}
+			return 0, fmt.Errorf("%s: %w", label, err)
+		}
+		return int(tag.RowsAffected()), nil
+	}
+
+	for _, rule := range plan.TakeDown {
+		if !safeSQLIdentifier(rule.Table) || !safeSQLIdentifier(rule.OwnerColumn) || !safeSQLIdentifier(rule.StatusColumn) {
+			return rep, fmt.Errorf("invalid take-down rule: %+v", rule)
+		}
+		q := "UPDATE " + rule.Table + " SET " + rule.StatusColumn + "=$1 WHERE " + rule.OwnerColumn + "=$2"
+		args := []any{rule.OffValue, userID}
+		if rule.OnValue != "" {
+			q += " AND " + rule.StatusColumn + "=$3"
+			args = append(args, rule.OnValue)
+		}
+		n, err := exec("take down "+rule.Table, q, args...)
+		if err != nil {
+			return rep, err
+		}
+		rep.TakenDown += n
+	}
+
+	for _, rule := range plan.Wipe {
+		if !safeSQLIdentifier(rule.Table) || !safeSQLIdentifier(rule.OwnerColumn) || len(rule.Columns) == 0 {
+			return rep, fmt.Errorf("invalid wipe rule: %+v", rule)
+		}
+		sets := make([]string, 0, len(rule.Columns))
+		for _, col := range rule.Columns {
+			if !safeSQLIdentifier(col) {
+				return rep, fmt.Errorf("invalid wipe column %q in %s", col, rule.Table)
+			}
+			sets = append(sets, col+"=''")
+		}
+		q := "UPDATE " + rule.Table + " SET " + strings.Join(sets, ", ") + " WHERE " + rule.OwnerColumn + "=$1"
+		n, err := exec("wipe "+rule.Table, q, userID)
+		if err != nil {
+			return rep, err
+		}
+		rep.Wiped += n
+	}
+
+	for _, rule := range plan.Drop {
+		if !safeSQLIdentifier(rule.Table) || !safeSQLIdentifier(rule.OwnerColumn) {
+			return rep, fmt.Errorf("invalid drop rule: %+v", rule)
+		}
+		n, err := exec("drop "+rule.Table, "DELETE FROM "+rule.Table+" WHERE "+rule.OwnerColumn+"=$1", userID)
+		if err != nil {
+			return rep, err
+		}
+		rep.Dropped += n
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return rep, fmt.Errorf("commit user content cleanup: %w", err)
+	}
+	return rep, nil
+}
+// AllWithDeleted 管理端用户列表：不过滤 deleted_at，注销账号也返回（便于恢复）。
+func (r *userRepo) AllWithDeleted(ctx context.Context) ([]domain.User, error) {
+	return r.listUsers(ctx, "")
+}
+
+// ListDeletedBefore 缓冲期已到（deleted_at < cutoff）的已注销账号 ID。
+// 清物理文件、兜底内容处置、删账号行的编排放在 Service（仓储只做查询与单行删除）。
+func (r *userRepo) ListDeletedBefore(ctx context.Context, cutoff time.Time) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id FROM users WHERE deleted_at IS NOT NULL AND deleted_at <= $1 ORDER BY deleted_at LIMIT 200`, cutoff)
+	if err != nil {
+		return nil, fmt.Errorf("list purgeable users: %w", err)
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan purgeable user: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// listUsers 内部共用：filterDeleted 为额外 WHERE 片段（空串=不过滤）。
+func (r *userRepo) listUsers(ctx context.Context, filterDeleted string) ([]domain.User, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id, wechat_openid, COALESCE(phone_ciphertext,''), password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at, deleted_at FROM users`+filterDeleted+` ORDER BY created_at DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}
@@ -1535,8 +1648,8 @@ func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
 	var out []domain.User
 	for rows.Next() {
 		var u domain.User
-		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan user: %w", err) // 不再 continue 静默丢行（审计 P3）
+		if err := rows.Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt); err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
 		}
 		if r.cipher != nil && u.PhoneCipher != "" {
 			if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
@@ -1546,6 +1659,10 @@ func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
 		out = append(out, u)
 	}
 	return out, rows.Err()
+}
+
+func (r *userRepo) All(ctx context.Context) ([]domain.User, error) {
+	return r.listUsers(ctx, " WHERE deleted_at IS NULL")
 }
 
 // Count 统计未删除用户总数（首页 stats 计数，聚合查询不物化行）。
@@ -1603,9 +1720,46 @@ func (r *userRepo) UpdateProfile(ctx context.Context, id string, p domain.UserPr
 	return nil
 }
 
+// SoftDelete 注销（软删）：status=deleted + token_version 自增 + 回收角色与刷新令牌，
+// 保留 users 行本身。业务内容（demands/posts/certificates…46 张以文本列记用户 ID 的表）
+// 一律不动，内容里的作者 ID 仍能解析到"已注销"账号，不产生孤儿数据。
+func (r *userRepo) SoftDelete(ctx context.Context, id string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin soft delete user: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	// token_version 自增：已签发的 access token 复验即失败（httpapi.revalidateActor）
+	// 状态置 deleted + token_version 自增 + 写入 deleted_at；同时**匿名化账号行里的个人信息**
+	// （昵称/头像/手机号密文/微信绑定/密码/资料），缓冲期内也不再持有可识别信息。
+	// 已注销（deleted_at 非空）的行不再匹配：重复删除返回 404，而不是假装成功。
+	// wechat_openid 可空且唯一：置 NULL 后同一微信可重新注册成新账号。
+	tag, err := tx.Exec(ctx, `UPDATE users SET status=$2, token_version=token_version+1, deleted_at=now(), updated_at=now(),
+		name='已注销用户', avatar_url='', phone_ciphertext='', wechat_openid=NULL, password_hash='',
+		gender='', birthday='', region='', bio=''
+		WHERE id=$1 AND deleted_at IS NULL`, id, domain.UserDeleted)
+	if err != nil {
+		return fmt.Errorf("soft delete user %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %s", repository.ErrUserNotFound, id)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM refresh_tokens WHERE user_id=$1`, id); err != nil {
+		return fmt.Errorf("delete refresh tokens for %s: %w", id, err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM user_roles WHERE user_id=$1`, id); err != nil {
+		return fmt.Errorf("delete user roles for %s: %w", id, err)
+	}
+	return tx.Commit(ctx)
+}
+
 // Delete removes a user together with its session and role rows in one
 // transaction — the refresh_tokens/user_roles foreign keys otherwise block
 // deletion of any user that has logged in.
+//
+// 注意：只删这三张表。业务内容（demands/posts/…）无外键指向 users，
+// 物理删除后这些内容的作者 ID 会指向不存在的用户（孤儿数据）；
+// 有工单引用时（work_orders 两个外键为 NO ACTION）返回 ErrUserInUse，由 Service 转 409。
 func (r *userRepo) Delete(ctx context.Context, id string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -1618,8 +1772,17 @@ func (r *userRepo) Delete(ctx context.Context, id string) error {
 	if _, err := tx.Exec(ctx, `DELETE FROM user_roles WHERE user_id=$1`, id); err != nil {
 		return fmt.Errorf("delete user roles for %s: %w", id, err)
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM users WHERE id=$1`, id); err != nil {
+	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE id=$1`, id)
+	if err != nil {
+		// 外键引用（工单等）→ 哨兵错误，Service/Handler 层转 409，不把 PG 错误码暴露出去
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return fmt.Errorf("%w: %s", repository.ErrUserInUse, id)
+		}
 		return fmt.Errorf("delete user %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %s", repository.ErrUserNotFound, id)
 	}
 	return tx.Commit(ctx)
 }

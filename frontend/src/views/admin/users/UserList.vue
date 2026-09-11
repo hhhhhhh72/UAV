@@ -21,7 +21,8 @@
         <a-tag :color="roleTagType(record.role)" size="small">{{ record.roleLabel }}</a-tag>
       </template>
       <template #status="{ record }">
-        <a-tag :color="record.status === 'active' ? 'green' : 'gray'" size="small">{{ record.status === 'active' ? '正常' : record.status }}</a-tag>
+        <a-tag :color="statusMeta(record.status).color" size="small">{{ statusMeta(record.status).label }}</a-tag>
+        <div v-if="record.purge_after" class="purge-tip">{{ record.purge_after }} 自动清除</div>
       </template>
       <template #password="{ record }">
         <a-tag v-if="record.has_password" color="green" size="small">已设置</a-tag>
@@ -33,7 +34,8 @@
             {{ record.role === 'platform_admin' ? '取消管理员' : '设为管理员' }}
           </a-button>
           <span v-else-if="record.id === 'admin'" class="super-admin-tip">超级管理员</span>
-          <a-button v-if="isSuperAdmin && record.id !== 'admin'" type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
+          <a-button v-if="isSuperAdmin && record.id !== 'admin' && record.status === 'active'" type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
+          <span v-else-if="record.status === 'deleted'" class="purge-tip">缓冲期内不可恢复</span>
         </a-space>
       </template>
       <template #empty>
@@ -72,7 +74,7 @@ import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
-import { updateUserRole } from '@/api/admin/user'
+import { updateUserRole, deleteUser } from '@/api/admin/user'
 import { useAuth } from '../composables/useAuth'
 import CrudList from '../components/CrudList.vue'
 
@@ -158,16 +160,26 @@ const toggleRole = (user) => {
   })
 }
 
+const statusMeta = (s) => ({
+  active: { label: '正常', color: 'green' },
+  deleted: { label: '已删除', color: 'gray' },
+  banned: { label: '已封禁', color: 'red' },
+}[s] || { label: s || '-', color: 'gray' })
+
+// 删除账号（唯一动作，不可恢复）：立即失效 + 7 天缓冲期后自动清除账号行。
+// 不删其发布内容：46 张业务表以文本列记用户 ID 且无外键，删账号行不会连带删内容，
+// 只会让内容失去作者（生产现存 12 条孤儿需求 + 3 条动态就是这么来的）。
 const handleDelete = (row) => {
   Modal.confirm({
-    title: '提示',
-    content: `确认删除用户「${row.name || row.id}」吗？删除后不可恢复`,
+    title: '删除账号',
+    content: `确定删除「${row.name || row.id}」吗？① 该用户立即无法登录并从平台消失，账号行保留 7 天缓冲期后自动清除，期间不可恢复；② 其在架的发布（需求/职位/商品/课程/动态）会下架；③ 简历、投递、站内信、上传文件、收藏等个人信息会被删除，报名/预约/企业联系人里的联系方式会被清空；④ 工单、合同、资金等履约记录保留。`,
     okText: '删除',
+    okButtonProps: { status: 'danger' },
     cancelText: '取消',
     onOk: async () => {
       try {
-        await api.delete(row.id)
-        Message.success('已删除')
+        const res = await deleteUser(row.id)
+        Message.success(res?.data?.note || '已删除')
         crudRef.value?.reload()
       } catch (e) { Message.error(errMsg(e)) }
     }
@@ -179,6 +191,8 @@ const handleDelete = (row) => {
 .page { max-width: 1200px; margin: 0 auto; }
 
 .super-admin-tip { color: var(--color-text-2); font-size: 12px; }
+
+.purge-tip { color: var(--color-text-3); font-size: 11px; line-height: 1.4; margin-top: 2px; }
 
 .cell-user { display: flex; align-items: center; gap: 8px; }
 

@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"drone-platform/internal/domain"
+	"drone-platform/internal/service"
 )
 
 // GET /api/v1/admin/users — list users with pagination (admin only).
@@ -27,12 +28,19 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out := []map[string]any{{"id": "admin", "role": "platform_admin", "status": "active", "roleLabel": "平台管理员", "created_at": "—", "has_password": true}}
-	users, err := s.userRepo.All(r.Context())
+	// 管理端列表含已注销账号（All 会过滤 deleted_at，注销后管理员就再也看不到、也就无法恢复）
+	users, err := s.userRepo.AllWithDeleted(r.Context())
 	if err == nil {
 		for _, u := range users {
 			rl := roleLabel(string(u.Role))
 			// 密码状态：仅暴露"是否设置过密码"，绝不返回 hash 本身
 			hasPassword := u.PasswordHash != ""
+			// 已删除账号在缓冲期内：给出到期自动清除的日期，后台据此提示（注销不可恢复）
+			deletedAt, purgeAfter := "", ""
+			if u.DeletedAt != nil {
+				deletedAt = u.DeletedAt.Format("2006-01-02 15:04")
+				purgeAfter = u.DeletedAt.Add(service.UserPurgeRetention).Format("2006-01-02")
+			}
 			out = append(out, map[string]any{
 				"id":           u.ID,
 				"role":         string(u.Role),
@@ -42,6 +50,8 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 				"avatar_url":   u.AvatarURL,
 				"created_at":   u.CreatedAt.Format("2006-01-02 15:04"),
 				"has_password": hasPassword,
+				"deleted_at":   deletedAt,
+				"purge_after":  purgeAfter,
 			})
 		}
 	}
@@ -130,22 +140,28 @@ func (s *Server) updateUserRole(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, map[string]string{"status": "updated", "role": req.Role})
 }
 
-// DELETE /api/v1/admin/users/{id} — delete a user (admin only).
+// DELETE /api/v1/admin/users/{id} — 删除用户账号（仅平台管理员，唯一动作、不可恢复）。
+//
+// 语义：账号立即失效（令牌作废 + 角色回收）并从平台消失；账号行保留 7 天缓冲期，
+// 到期由后台任务自动物理清除；期间**不可恢复**；其发布的内容一律保留（无外键级联）。
+// 策略与权限判定在 service.UserService（Handler 只做参数解析与状态码映射）。
 func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
-	if !ok || a.Role != domain.RolePlatformAdmin {
-		fail(w, r, http.StatusForbidden, errors.New("only platform admin can delete users"))
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
 	id := r.PathValue("id")
-	if id == "admin" {
-		fail(w, r, http.StatusForbidden, errors.New("cannot delete super admin"))
-		return
-	}
-	if err := s.userRepo.Delete(r.Context(), id); err != nil {
+	res, err := s.userSvc.DeleteUser(r.Context(), a, id)
+	switch {
+	case err == nil:
+		s.audit(r.Context(), a.ID, "delete_user", "user", id, res.Mode)
+		respond(w, r, http.StatusOK, res)
+	case errors.Is(err, service.ErrAdminOnly), errors.Is(err, service.ErrSuperAdminProtected):
+		fail(w, r, http.StatusForbidden, err)
+	case errors.Is(err, service.ErrUserNotFound):
+		fail(w, r, http.StatusNotFound, err)
+	default:
 		fail(w, r, http.StatusInternalServerError, err)
-		return
 	}
-	s.audit(r.Context(), a.ID, "delete_user", "user", id, "deleted")
-	respond(w, r, http.StatusOK, map[string]string{"id": id, "deleted": "ok"})
 }

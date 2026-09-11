@@ -1285,29 +1285,62 @@ func (r *memUserRepo) FindByID(ctx context.Context, id string) (domain.User, err
 	}
 	return domain.User{}, fmt.Errorf("user not found")
 }
+// All 仅未注销账号（与 PG 的 deleted_at IS NULL 过滤对齐）。
 func (r *memUserRepo) All(ctx context.Context) ([]domain.User, error) {
+	return r.listUsers(false)
+}
+
+// AllWithDeleted 管理端用户列表：含已注销账号，供管理员恢复。
+func (r *memUserRepo) AllWithDeleted(ctx context.Context) ([]domain.User, error) {
+	return r.listUsers(true)
+}
+
+// listUsers 共用排序/截断逻辑（与 PG 的 ORDER BY created_at DESC LIMIT 200 对齐）。
+func (r *memUserRepo) listUsers(includeDeleted bool) ([]domain.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	// P2 修复：与 PG 版（ORDER BY created_at DESC LIMIT 200）对齐——
-	// 先按 CreatedAt 倒序再取前 200 条，保证两存储返回的计数一致。
-	sorted := append([]domain.User(nil), r.items...)
+	sorted := make([]domain.User, 0, len(r.items))
+	for _, u := range r.items {
+		if !includeDeleted && u.DeletedAt != nil {
+			continue
+		}
+		sorted = append(sorted, u)
+	}
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].CreatedAt.After(sorted[j].CreatedAt) })
 	if len(sorted) > 200 {
 		sorted = sorted[:200]
 	}
-	out := make([]domain.User, len(sorted))
-	copy(out, sorted)
-	for i := range out {
-		r.decrypt(&out[i])
+	for i := range sorted {
+		r.decrypt(&sorted[i])
 	}
-	return out, nil
+	return sorted, nil
 }
 
-// Count 统计用户总数（首页 stats 计数，只计数不解密）。
+// ListDeletedBefore 缓冲期已到（deleted_at < cutoff）的已注销账号 ID（与 PG 同语义）。
+func (r *memUserRepo) ListDeletedBefore(ctx context.Context, cutoff time.Time) ([]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ids := []string{}
+	for _, u := range r.items {
+		// 边界取等：缓冲期设为 0 时"刚删除的账号"也应被扫到（避免同刻时钟竞态）
+		if u.DeletedAt != nil && !u.DeletedAt.After(cutoff) {
+			ids = append(ids, u.ID)
+		}
+	}
+	return ids, nil
+}
+
+// Count 统计用户总数（首页 stats 计数，只计数不解密；已注销不计入，与 PG 对齐）。
 func (r *memUserRepo) Count(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return len(r.items), nil
+	n := 0
+	for _, u := range r.items {
+		if u.DeletedAt == nil {
+			n++
+		}
+	}
+	return n, nil
 }
 func (r *memUserRepo) UpdateRole(ctx context.Context, id string, role domain.Role) error {
 	r.mu.Lock()
@@ -1372,6 +1405,41 @@ func (r *memUserRepo) UpdateProfile(ctx context.Context, id string, p domain.Use
 	return fmt.Errorf("user not found")
 }
 
+// SoftDelete 注销（软删）：与 PG 版同语义——状态置 deleted、token_version 自增、
+// 保留 users 行（业务内容在内存实现里同样不级联）。
+func (r *memUserRepo) SoftDelete(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id && r.items[i].DeletedAt == nil {
+			now := time.Now()
+			u := &r.items[i]
+			u.Status = domain.UserDeleted
+			u.TokenVersion++
+			u.DeletedAt = &now
+			u.UpdatedAt = now
+			// 与 PG 对齐：注销同时匿名化账号行里的个人信息
+			u.Name = "已注销用户"
+			u.AvatarURL = ""
+			u.PhoneCipher = ""
+			u.WechatOpenID = ""
+			u.PasswordHash = ""
+			u.Gender = ""
+			u.Birthday = ""
+			u.Region = ""
+			u.Bio = ""
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s", repository.ErrUserNotFound, id)
+}
+
+// CleanupUserContent 内存实现：dev 模式下各业务实体分散在不同仓储实例里，
+// 用户仓储无法跨仓储清理；返回空报告（生产走 PG 的计划驱动实现）。
+func (r *memUserRepo) CleanupUserContent(ctx context.Context, userID string, plan repository.ContentCleanupPlan) (repository.ContentCleanupReport, error) {
+	return repository.ContentCleanupReport{}, nil
+}
+
 func (r *memUserRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -1381,7 +1449,7 @@ func (r *memUserRepo) Delete(ctx context.Context, id string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("user not found")
+	return fmt.Errorf("%w: %s", repository.ErrUserNotFound, id)
 }
 
 type memRefreshRepo struct {
@@ -3388,6 +3456,19 @@ func (r *uploadRepo) FindByID(ctx context.Context, id string) (domain.FileRecord
 		}
 	}
 	return domain.FileRecord{}, fmt.Errorf("upload %s not found", id)
+}
+
+// ListByOwner 某用户的上传台账（与 PG 同语义）。
+func (r *uploadRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.FileRecord, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := []domain.FileRecord{}
+	for _, rec := range r.records {
+		if rec.OwnerID == ownerID {
+			out = append(out, rec)
+		}
+	}
+	return out, nil
 }
 
 func (r *uploadRepo) SumBytesSince(ctx context.Context, ownerID string, since time.Time) (int64, error) {

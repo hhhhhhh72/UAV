@@ -107,6 +107,7 @@ type Server struct {
 	contractTplSvc    *service.ContractTemplateService
 	appSvc            *service.ApplicationService
 	userRepo          repository.UserRepository
+	userSvc           *service.UserService
 	refreshRepo       repository.RefreshTokenRepository
 	tokens            *TokenManager
 	rateLimiter       *rateLimiter
@@ -270,7 +271,7 @@ func (rl *rateLimiter) allow(key string) bool {
 }
 
 func NewServer(d *service.DemandService, e *service.EnterpriseService, es *service.EnterpriseSvc, h *service.EmploymentService, c *service.ContractService, js *service.JobService, cs *service.CommunityService, ls *service.ListingService, lbs *service.LabourService, ts *service.TrainingService, trs *service.TradingService, ins *service.InsuranceService, fin *service.FinanceService, hs *service.HomeService, fs *service.FileService, ms *service.MessageService, ens *service.EnrollmentService, exps *service.ExpiryService, trds *service.TradeOrderService, esc *service.EscrowService, nws *service.NewsService, rvs *service.ReviewService, vns *service.VenueService, ur repository.UserRepository, rr repository.RefreshTokenRepository, tokens *TokenManager) *Server {
-	return &Server{demands: d, enterprises: e, enterpriseSvc: es, employment: h, contracts: c, jobSvc: js, communitySvc: cs, listingSvc: ls, labourSvc: lbs, trainingSvc: ts, tradingSvc: trs, insuranceSvc: ins, financeSvc: fin, homeSvc: hs, fileSvc: fs, msgSvc: ms, enrollSvc: ens, expirySvc: exps, tradeSvc: trds, escrowSvc: esc, newsSvc: nws, reviewSvc: rvs, venueSvc: vns, userRepo: ur, refreshRepo: rr, tokens: tokens, rateLimiter: newRateLimiter(100, 200), idempotency: newIdempotencyStore(), homeCache: cache.New(60 * time.Second)}
+	return &Server{demands: d, enterprises: e, enterpriseSvc: es, employment: h, contracts: c, jobSvc: js, communitySvc: cs, listingSvc: ls, labourSvc: lbs, trainingSvc: ts, tradingSvc: trs, insuranceSvc: ins, financeSvc: fin, homeSvc: hs, fileSvc: fs, msgSvc: ms, enrollSvc: ens, expirySvc: exps, tradeSvc: trds, escrowSvc: esc, newsSvc: nws, reviewSvc: rvs, venueSvc: vns, userRepo: ur, userSvc: service.NewUserService(ur, service.WithUserFileCleaner(fs)), refreshRepo: rr, tokens: tokens, rateLimiter: newRateLimiter(100, 200), idempotency: newIdempotencyStore(), homeCache: cache.New(60 * time.Second)}
 }
 
 // SetAuditWriter injects an audit log writer (typically the PG store).

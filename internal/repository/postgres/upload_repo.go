@@ -39,6 +39,25 @@ func (r *uploadRepo) FindByID(ctx context.Context, id string) (domain.FileRecord
 	return rec, nil
 }
 
+// ListByOwner 某用户的上传台账（注销账号时用于删除磁盘上的物理文件）。
+func (r *uploadRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.FileRecord, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, owner_id, COALESCE(storage_key,''), COALESCE(sha256,''), COALESCE(content_type,''), size_bytes, visibility, created_at FROM uploads WHERE owner_id=$1 ORDER BY created_at`,
+		ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("list uploads for %s: %w", ownerID, err)
+	}
+	defer rows.Close()
+	out := []domain.FileRecord{}
+	for rows.Next() {
+		var rec domain.FileRecord
+		if err := rows.Scan(&rec.ID, &rec.OwnerID, &rec.StorageKey, &rec.SHA256, &rec.ContentType, &rec.SizeBytes, &rec.Visibility, &rec.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan upload: %w", err)
+		}
+		out = append(out, rec)
+	}
+	return out, rows.Err()
+}
 func (r *uploadRepo) SumBytesSince(ctx context.Context, ownerID string, since time.Time) (int64, error) {
 	var sum int64
 	if err := r.pool.QueryRow(ctx,

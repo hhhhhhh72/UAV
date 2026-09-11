@@ -44,7 +44,7 @@
 | **评价** | `GET/POST /reviews` `POST /admin/reviews/{id}/approve` | 提交/审核 |
 | **场地** | `GET/POST /venues` `POST /venues/{id}/book` | 场地/预约 |
 | **消息** | `GET /messages` `POST /messages/{id}/read` `GET /messages/unread-count` | 列表/已读 |
-| **管理** | `GET /admin/dashboard` `GET /admin/export/demands` `GET /admin/export/enterprises` `POST /admin/demands/batch-approve` | 看板/导出/批量 |
+| **管理** | `GET /admin/dashboard` `GET /admin/export/demands` `GET /admin/export/enterprises` `POST /admin/demands/batch-approve` `DELETE /admin/users/{id}` | 看板/导出/批量。账号处置：**删除即注销、不可恢复**——立即失效（status=deleted + 令牌作废 + 角色回收）并从列表/平台消失，账号行保留 **7 天缓冲期**（响应含 `purge_after`，到期由后台任务自动物理清除）；该用户发布的需求/动态/证书等内容**一律不删**（46 张业务表以文本列记用户 ID，无外键级联） |
 | **专家** | `GET /experts` `POST/PUT/DELETE /admin/experts` | 智库 |
 | **案例** | `GET /cases` `POST/PUT/DELETE /admin/cases` | 案例库 |
 | **合规** | `GET /compliance-docs` `GET /compliance-standards` `POST /admin/compliance-*` | 法规/标准 |

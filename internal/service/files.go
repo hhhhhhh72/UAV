@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +71,44 @@ func (s *FileService) FindUpload(ctx context.Context, id string) (domain.FileRec
 	return s.uploads.FindByID(ctx, id)
 }
 
+// RemoveByStorageKey 删除一个上传文件（按台账里的 StorageKey）。
+// 幂等：文件已不存在视为成功；路径越界（不在 uploadDir 内）拒绝执行——
+// 台账里的 key 是历史数据，不能被用来删上传目录以外的文件。
+func (s *FileService) RemoveByStorageKey(key string) error {
+	if key == "" {
+		return nil
+	}
+	clean := filepath.Clean(key)
+	base := filepath.Clean(s.uploadDir)
+	if clean != base && !strings.HasPrefix(clean, base+string(os.PathSeparator)) {
+		return fmt.Errorf("refuse to remove file outside upload dir: %s", key)
+	}
+	if err := os.Remove(clean); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove file %s: %w", clean, err)
+	}
+	return nil
+}
+
+// RemoveFilesForOwner 删除某用户上传的全部物理文件（磁盘），返回删除个数。
+// 注销账号时调用：台账行由内容处置计划删除，这里负责把磁盘上的副本也真删掉
+//（个人信息注销后不应留副本）。单个文件删除失败即返回，由调用方记日志、缓冲期任务兜底重试。
+func (s *FileService) RemoveFilesForOwner(ctx context.Context, ownerID string) (int, error) {
+	if s.uploads == nil || ownerID == "" {
+		return 0, nil
+	}
+	recs, err := s.uploads.ListByOwner(ctx, ownerID)
+	if err != nil {
+		return 0, fmt.Errorf("list uploads of %s: %w", ownerID, err)
+	}
+	removed := 0
+	for _, rec := range recs {
+		if err := s.RemoveByStorageKey(rec.StorageKey); err != nil {
+			return removed, err
+		}
+		removed++
+	}
+	return removed, nil
+}
 func (s *FileService) uploadTo(ctx context.Context, ownerID string, filename, contentType string, reader io.Reader, dir, visibility string) (domain.FileRecord, error) {
 	now := time.Now()
 	// P2 修复：启用配额时整个"检查配额→写盘→记账"串行化（全局互斥），
