@@ -714,8 +714,11 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		if u.Role != "" {
 			// token_version 必须带上：中间件每次请求都拿库里的 token_version 与令牌比对，
 			// 改过/重置过密码的账号（tv 会自增）若签发时不带，登录成功也立刻被判"账号已失效"。
+			// name/avatar_url 也一并带回：登录响应是客户端首屏的数据来源，缺了昵称
+			// 前端就只能显示手机号（随后虽然会拉 /api/auth/me，但那一层也可能拿不到）。
 			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(u.Role),
-				"status": u.Status, "token_version": u.TokenVersion, "created_at": u.CreatedAt}
+				"status": u.Status, "token_version": u.TokenVersion, "created_at": u.CreatedAt,
+				"name": u.Name, "avatar_url": u.AvatarURL}
 		}
 		break
 	}
@@ -1006,17 +1009,21 @@ func (s *Server) h5AuthMe(w http.ResponseWriter, r *http.Request) {
 	// Try real user repo first, fall back to users.json.
 	u, repoErr := s.userRepo.FindByID(r.Context(), actor.ID)
 	if repoErr == nil {
-		// name/phone live in the legacy users.json for password accounts;
-		// phone is derivable from the "phone:" openid prefix.
-		name := ""
-		var users []map[string]any
-		readJSON(_usersFile, &_usersMu, &users)
-		for _, ju := range users {
-			if ju["id"] == u.ID {
-				if n, ok := ju["name"].(string); ok {
-					name = n
+		// 昵称以数据库为准：users.json 只是历史兼容文件，后台建号 / 改名 / 提权的账号
+		// 根本不在里面，只查 JSON 会让这类账号的 name 恒为空 —— 前端拿不到昵称就退化成
+		// 把手机号当用户名显示（"我明明有昵称，界面却显示电话号码"）。
+		name := u.Name
+		if name == "" {
+			// 兼容老账号：注册于 users.json 时代、昵称只写在 JSON 里的
+			var users []map[string]any
+			readJSON(_usersFile, &_usersMu, &users)
+			for _, ju := range users {
+				if ju["id"] == u.ID {
+					if n, ok := ju["name"].(string); ok {
+						name = n
+					}
+					break
 				}
-				break
 			}
 		}
 		phone := ""
