@@ -23,7 +23,8 @@
             preload="metadata"
             muted
           />
-          <span v-else class="no-video">无视频</span>
+          <img v-else-if="(record.images || [])[0]" :src="normalizeMediaUrl(record.images[0])" class="thumb-img" :alt="record.title" />
+          <span v-else class="no-video">无媒体</span>
         </div>
       </template>
       <template #title="{ record }">
@@ -73,8 +74,9 @@
             <RichEditor v-model="currentCase.result" />
           </a-form-item>
 
-          <!-- 只传视频：产品口径「视频就是封面」，不单独传封面图 -->
-          <a-divider orientation="left">案例视频</a-divider>
+          <!-- 媒体：视频案例传视频、图文案例传图片，两者都可以传。
+               展示优先级：有视频先展示视频（视频即封面）；没有视频就用图片。 -->
+          <a-divider orientation="left">案例视频（视频案例）</a-divider>
           <a-form-item label="视频（mp4，≤40MB）">
             <a-upload
               :show-file-list="false"
@@ -88,7 +90,26 @@
               <span class="video-name">{{ currentCase.video_url }}</span>
               <a-button size="mini" type="text" @click="currentCase.video_url = ''">清除</a-button>
             </div>
-            <div v-else class="video-tip muted">上传后小程序「企业案例 → 案例详情」卡片里会显示播放器</div>
+            <div v-else class="video-tip muted">不传视频也行——纯图文案例只传下面的图片即可</div>
+          </a-form-item>
+
+          <a-divider orientation="left">案例图片（图文案例）</a-divider>
+          <a-form-item label="图片（可多张，每张 ≤5MB）">
+            <div class="img-grid">
+              <div v-for="(img, idx) in (currentCase.images || [])" :key="idx" class="img-cell">
+                <img :src="normalizeMediaUrl(img)" :alt="'案例图片' + (idx + 1)" />
+                <a-button class="img-del" size="mini" status="danger" @click="removeImage(idx)">删</a-button>
+              </div>
+              <a-upload
+                :show-file-list="false"
+                :custom-request="uploadImage"
+                :before-upload="beforeImageUpload"
+                accept="image/*"
+              >
+                <a-button>+ 添加图片</a-button>
+              </a-upload>
+            </div>
+            <div class="video-tip muted">图文案例的配图（小程序详情里按顺序展示）；有视频时视频排在图片前面</div>
           </a-form-item>
 
           <!-- 状态只在编辑时出现：新建即发布（案例由协会运营代发，没有审核流）。
@@ -176,7 +197,7 @@ const searchFields = computed(() => [
 ])
 
 const columns = [
-  { title: '视频', dataIndex: 'video_url', slotName: 'cover', width: 120 },
+  { title: '媒体', dataIndex: 'video_url', slotName: 'cover', width: 120 },
   { title: '标题', dataIndex: 'title', slotName: 'title', minWidth: 180, sortable: true },
   { title: '分类', dataIndex: 'category', width: 110 },
   { title: '客户', dataIndex: 'client_name', width: 140 },
@@ -197,7 +218,38 @@ const currentCase = ref(null)
 const caseStatusColor = { pending: 'orange', published: 'green', archived: 'gray' }
 const caseStatusLabel = { pending: '待审核', published: '已发布', archived: '已下架' }
 
-// 封面图已取消：案例只上传视频，视频本身就是封面（列表/详情都用它）。
+// 图文案例的配图：最多 9 张、每张 ≤5MB（后端上传接口同样限制类型与体积）。
+// 与视频并存：有视频时小程序先播/展示视频，图片排在后面。
+const beforeImageUpload = (file) => {
+  if (!file.type.startsWith('image/')) { Message.error('只能上传图片文件'); return false }
+  if (file.size / 1024 / 1024 >= 5) { Message.error('单张图片不能超过 5MB'); return false }
+  if ((currentCase.value?.images || []).length >= 9) { Message.warning('最多 9 张图片'); return false }
+  return true
+}
+
+const uploadImage = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post('/api/v1/upload', fd)
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    if (currentCase.value) {
+      if (!Array.isArray(currentCase.value.images)) currentCase.value.images = []
+      currentCase.value.images.push(url)
+    }
+    Message.success('图片已添加')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error(errMsg(e, '图片上传失败'))
+  }
+}
+
+const removeImage = (idx) => {
+  if (!currentCase.value?.images) return
+  currentCase.value.images.splice(idx, 1)
+}
 
 // 案例视频：mp4/mov，≤40MB（后端 /api/v1/upload 的上限也是 40MB，与 nginx 的 50m 留余量）。
 // 视频地址存 case.video_url，小程序「企业案例 → 案例详情」据此渲染 <video>。
@@ -228,7 +280,7 @@ const uploadVideo = async ({ fileItem, onSuccess, onError }) => {
 
 const createCase = () => {
   currentCase.value = {
-    title: '', category: '', description: '', client_name: '', result: '', status: 'pending',
+    title: '', category: '', description: '', images: [], client_name: '', result: '', status: 'pending',
     video_url: ''
   }
   caseSnapshot = JSON.stringify(currentCase.value)
@@ -237,7 +289,7 @@ const createCase = () => {
 
 const editCase = (caseItem) => {
   currentCase.value = JSON.parse(JSON.stringify(caseItem))
-  // 历史案例可能带封面图（images），保留原值不动；新建不再产生
+  if (!Array.isArray(currentCase.value.images)) currentCase.value.images = []
   caseSnapshot = JSON.stringify(currentCase.value)
   showCaseEditPopup.value = true
 }
@@ -339,6 +391,17 @@ const onDeleteCase = (caseItem) => {
 
 /* 列表里的视频缩略：只加载元数据取首帧，不自动播放（一屏多个视频同时解码会拖慢表格） */
 .thumb-video { width: 96px; height: 56px; object-fit: cover; border-radius: 4px; background: #000; display: block; }
+
+.thumb-img { width: 96px; height: 56px; object-fit: cover; border-radius: 4px; display: block; border: 1px solid var(--color-border-2); }
+
+/* 图文案例的多图上传：缩略图网格 + 删除按钮 */
+.img-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.img-cell { position: relative; width: 96px; height: 72px; }
+
+.img-cell img { width: 100%; height: 100%; object-fit: cover; border: 1px solid var(--color-border-2); border-radius: 4px; }
+
+.img-del { position: absolute; right: -6px; top: -6px; }
 
 .no-video { color: var(--color-text-3); font-size: 12px; }
 
