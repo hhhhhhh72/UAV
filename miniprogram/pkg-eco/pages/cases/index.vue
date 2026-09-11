@@ -316,8 +316,8 @@ const videoUrl = (c) => {
   return fromImages || ''
 }
 
-// 视频封面：video_poster_url 优先，留空用封面图
-const posterUrl = (c) => resolveUrl((c && c.video_poster_url) || ((c && c.images && c.images[0]) || ''))
+// 视频封面：直接用案例封面图（不做独立的视频封面上传位）
+const posterUrl = (c) => resolveUrl((c && c.images && c.images[0]) || '')
 
 const coverType = (c) => (videoUrl(c) ? 'video' : (coverUrl(c) ? (isVideoUrl(coverUrl(c)) ? 'video' : 'image') : 'none'))
 const coverTypeLabel = (c) => {

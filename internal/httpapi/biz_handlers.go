@@ -303,7 +303,6 @@ func (s *Server) createCase(w http.ResponseWriter, r *http.Request) {
 		Result         string   `json:"result"`
 		Images         []string `json:"images"`
 		VideoURL       string   `json:"video_url"`
-		VideoPosterURL string   `json:"video_poster_url"`
 		Status         string   `json:"status"` // 可选：留空默认已发布
 	}
 	if err := decode(r, &in); err != nil {
@@ -316,7 +315,7 @@ func (s *Server) createCase(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.caseSvc.Create(r.Context(), domain.CaseInput{
 		Title: in.Title, Category: in.Category, Description: in.Description,
-		Images: in.Images, VideoURL: in.VideoURL, VideoPosterURL: in.VideoPosterURL,
+		Images: in.Images, VideoURL: in.VideoURL,
 		ClientName: in.ClientName, Result: in.Result, Status: in.Status,
 	})
 	if err != nil {
@@ -366,7 +365,6 @@ func (s *Server) updateCase(w http.ResponseWriter, r *http.Request) {
 		Status         string   `json:"status"`
 		Images         []string `json:"images"`
 		VideoURL       string   `json:"video_url"`
-		VideoPosterURL string   `json:"video_poster_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -378,7 +376,7 @@ func (s *Server) updateCase(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.caseSvc.Update(r.Context(), r.PathValue("id"), domain.CaseInput{
 		Title: in.Title, Category: in.Category, Description: in.Description,
-		Images: in.Images, VideoURL: in.VideoURL, VideoPosterURL: in.VideoPosterURL,
+		Images: in.Images, VideoURL: in.VideoURL,
 		ClientName: in.ClientName, Result: in.Result, Status: in.Status,
 	})
 	if err != nil {

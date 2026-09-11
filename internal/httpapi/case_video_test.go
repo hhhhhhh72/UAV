@@ -85,8 +85,9 @@ func TestUploadAcceptsMP4(t *testing.T) {
 	}
 }
 
-// 案例带视频：建 → 读 → 改，video_url / video_poster_url 三个环节都不丢。
+// 案例带视频：建 → 读 → 改，video_url 三个环节都不丢。
 // 回归背景：案例模型原本只有 images，视频字段是 2026-09-11 补的（迁移 000102）。
+// 视频封面不做独立字段——直接用 images[0] 当封面（产品确认不需要单独上传）。
 func TestCaseVideoRoundTrip(t *testing.T) {
 	app := newBizServer(t)
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
@@ -94,15 +95,14 @@ func TestCaseVideoRoundTrip(t *testing.T) {
 	w := doRaw(app, http.MethodPost, "/api/v1/admin/cases",
 		`{"title":"带视频的案例","category":"电力巡检","description":"说明","client_name":"甲方",`+
 			`"result":"成效","images":["/uploads/cover.jpg"],`+
-			`"video_url":"/uploads/case-video.mp4","video_poster_url":"/uploads/poster.jpg"}`, adminTok)
+			`"video_url":"/uploads/case-video.mp4"}`, adminTok)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("建案例: %d %s", w.Code, w.Body.String())
 	}
 	var created struct {
 		Data struct {
-			ID             string `json:"id"`
-			VideoURL       string `json:"video_url"`
-			VideoPosterURL string `json:"video_poster_url"`
+			ID       string `json:"id"`
+			VideoURL string `json:"video_url"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
@@ -111,8 +111,8 @@ func TestCaseVideoRoundTrip(t *testing.T) {
 	if created.Data.VideoURL != "/uploads/case-video.mp4" {
 		t.Fatalf("建案例时 video_url 丢了：%+v", created.Data)
 	}
-	if created.Data.VideoPosterURL != "/uploads/poster.jpg" {
-		t.Fatalf("建案例时 video_poster_url 丢了：%+v", created.Data)
+	if strings.Contains(w.Body.String(), "video_poster_url") {
+		t.Fatalf("视频封面字段已删除（改用封面图当 poster），不应再出现在响应里：%s", w.Body.String())
 	}
 
 	// 公开列表接口（小程序读的就是它）必须带出视频字段

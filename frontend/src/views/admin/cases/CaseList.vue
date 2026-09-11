@@ -97,18 +97,6 @@
             </div>
             <div v-else class="video-tip muted">上传后小程序「企业案例 → 案例详情」卡片里会显示播放器</div>
           </a-form-item>
-          <a-form-item label="视频封面（可选）">
-            <a-upload
-              :show-file-list="false"
-              :custom-request="uploadPoster"
-              :before-upload="beforeUpload"
-              accept="image/*"
-            >
-              <img v-if="currentCase.video_poster_url" :src="normalizeMediaUrl(currentCase.video_poster_url)" class="cover-preview" alt="视频封面预览" />
-              <a-button v-else>上传视频封面</a-button>
-            </a-upload>
-            <div class="video-tip muted">留空则用上面的封面图当视频封面</div>
-          </a-form-item>
 
           <!-- 状态只在编辑时出现：新建即发布（案例由协会运营代发，没有审核流）。
                此前新建也显示状态下拉，但后端写死 published——选了什么都被丢掉，
@@ -268,27 +256,11 @@ const uploadVideo = async ({ fileItem, onSuccess, onError }) => {
   }
 }
 
-// 视频封面（可选）：留空时小程序用封面图当 poster
-const uploadPoster = async ({ fileItem, onSuccess, onError }) => {
-  const fd = new FormData()
-  fd.append('file', fileItem.file)
-  try {
-    const res = await axios.post('/api/v1/upload', fd)
-    const url = res?.data?.url || res?.url
-    if (!url) throw new Error('上传失败')
-    if (currentCase.value) currentCase.value.video_poster_url = url
-    Message.success('上传成功')
-    onSuccess && onSuccess(res)
-  } catch (e) {
-    onError && onError(e)
-    Message.error('上传失败')
-  }
-}
 
 const createCase = () => {
   currentCase.value = {
     title: '', category: '', description: '', images: [], client_name: '', result: '', status: 'pending',
-    video_url: '', video_poster_url: ''
+    video_url: ''
   }
   caseSnapshot = JSON.stringify(currentCase.value)
   showCaseEditPopup.value = true

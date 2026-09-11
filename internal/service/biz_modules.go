@@ -118,7 +118,6 @@ func (s *CaseService) Create(ctx context.Context, in domain.CaseInput) (domain.C
 		Description:    in.Description,
 		Images:         in.Images,
 		VideoURL:       in.VideoURL,
-		VideoPosterURL: in.VideoPosterURL,
 		ClientName:     in.ClientName,
 		Result:         in.Result,
 		Status:         caseCreateStatus(in.Status),
@@ -149,7 +148,6 @@ func (s *CaseService) Update(ctx context.Context, id string, in domain.CaseInput
 	c.Status = in.Status
 	c.Images = in.Images
 	c.VideoURL = in.VideoURL
-	c.VideoPosterURL = in.VideoPosterURL
 	c.ClientName = in.ClientName
 	c.Result = in.Result
 	c.UpdatedAt = time.Now()

@@ -40,10 +40,9 @@ type CaseEntry struct {
 	Category    string   `json:"category"`
 	Description string   `json:"description"`
 	Images      []string `json:"images"`
-	// VideoURL 案例视频地址（/uploads/xxx.mp4，小程序详情卡片据此渲染播放器）；
-	// VideoPosterURL 视频封面（可选，留空时前端用 Images[0] 当封面）。
-	VideoURL       string `json:"video_url"`
-	VideoPosterURL string `json:"video_poster_url"`
+	// VideoURL 案例视频地址（/uploads/xxx.mp4，小程序详情卡片据此渲染播放器）。
+	// 视频封面不做独立字段：直接用 Images[0] 当封面（产品确认不需要单独上传）。
+	VideoURL string `json:"video_url"`
 	ClientName     string `json:"client_name"`
 	Result         string `json:"result"`
 	Status         string    `json:"status"`
@@ -72,7 +71,6 @@ type CaseInput struct {
 	Description    string
 	Images         []string
 	VideoURL       string
-	VideoPosterURL string
 	ClientName     string
 	Result         string
 	Status         string
