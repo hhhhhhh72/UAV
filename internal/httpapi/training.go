@@ -13,6 +13,24 @@ import (
 	"drone-platform/internal/service"
 )
 
+// failTrainingErr 审核类接口的统一错误码映射：
+// 记录不存在 404 / 状态冲突 409 / 非管理员 403 / 入参不合法 400 / 其余 500。
+// 此前一律 403——"资源不存在"被报成"没权限"，权限排查时最容易误导。
+func failTrainingErr(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, service.ErrTrainingNotFound):
+		fail(w, r, http.StatusNotFound, err)
+	case errors.Is(err, service.ErrTrainingStateConflict):
+		fail(w, r, http.StatusConflict, err)
+	case errors.Is(err, service.ErrAdminRequired):
+		fail(w, r, http.StatusForbidden, err)
+	case errors.Is(err, service.ErrInvalidInput):
+		fail(w, r, http.StatusBadRequest, err)
+	default:
+		fail(w, r, http.StatusInternalServerError, err)
+	}
+}
+
 // ---- Certificates ----
 
 // POST /api/v1/certificates — 用户提交证书归档申请（管理员审核后 approved 方可
@@ -62,7 +80,7 @@ func (s *Server) approveCertificate(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.trainingSvc.ApproveCertificate(r.Context(), a, r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		failTrainingErr(w, r, err)
 		return
 	}
 	s.audit(r.Context(), a.ID, "approve_certificate", "certificate", c.ID, "approved")
@@ -78,7 +96,7 @@ func (s *Server) rejectCertificate(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.trainingSvc.RejectCertificate(r.Context(), a, r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		failTrainingErr(w, r, err)
 		return
 	}
 	s.audit(r.Context(), a.ID, "reject_certificate", "certificate", c.ID, "rejected")
@@ -276,7 +294,7 @@ func (s *Server) approveInstructor(w http.ResponseWriter, r *http.Request) {
 	}
 	i, err := s.trainingSvc.ApproveInstructor(r.Context(), a, r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		failTrainingErr(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, i)
@@ -359,7 +377,7 @@ func (s *Server) approvePilot(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := s.trainingSvc.ApprovePilot(r.Context(), a, r.PathValue("id"))
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		failTrainingErr(w, r, err)
 		return
 	}
 	if p.IDCard != "" {
@@ -463,7 +481,7 @@ func (s *Server) rejectPilot(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := s.trainingSvc.RejectPilot(r.Context(), a, r.PathValue("id"), in.Reason)
 	if err != nil {
-		fail(w, r, http.StatusForbidden, err)
+		failTrainingErr(w, r, err)
 		return
 	}
 	reason := ""

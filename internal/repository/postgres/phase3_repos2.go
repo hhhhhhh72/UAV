@@ -1,4 +1,4 @@
-﻿package postgres
+package postgres
 
 import (
 	"context"
@@ -360,6 +360,9 @@ func (r *reviewRepo) FindByID(ctx context.Context, id string) (domain.Review, er
 	err := r.pool.QueryRow(ctx,
 		`SELECT id,reviewer_id,target_type,target_id,rating,COALESCE(content,''),status,created_at FROM reviews WHERE id=$1`, id).
 		Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Review{}, fmt.Errorf("review %s: %w", id, repository.ErrNotFound)
+	}
 	if err != nil {
 		return domain.Review{}, fmt.Errorf("review %s: %w", id, err)
 	}
@@ -374,12 +377,20 @@ func (r *reviewRepo) UpdateStatus(ctx context.Context, id, status string) (domai
 	err = r.pool.QueryRow(ctx,
 		`SELECT id,reviewer_id,target_type,target_id,rating,COALESCE(content,''),status,created_at FROM reviews WHERE id=$1`, id).
 		Scan(&rv.ID, &rv.ReviewerID, &rv.TargetType, &rv.TargetID, &rv.Rating, &rv.Content, &rv.Status, &rv.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// UPDATE 影响 0 行（记录不存在）后复查也会落到这里
+		return domain.Review{}, fmt.Errorf("review %s: %w", id, repository.ErrNotFound)
+	}
 	return rv, err
 }
 func (r *reviewRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM reviews WHERE id=$1`, id)
+	tag, err := r.pool.Exec(ctx, `DELETE FROM reviews WHERE id=$1`, id)
 	if err != nil {
 		return fmt.Errorf("delete review %s: %w", id, err)
+	}
+	// 删了 0 行 = 记录不存在：返回哨兵让上层回 404，而不是"删了个不存在的 id 却回 200"
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("review %s: %w", id, repository.ErrNotFound)
 	}
 	return nil
 }

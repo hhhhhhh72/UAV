@@ -163,14 +163,14 @@ func TestR4DemandAdminLifecycle(t *testing.T) {
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/demands/"+nonexistentID+"/amount", `{"offline_amount_fen":1}`, adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/demands/zzz/amount", w, http.StatusNotFound)
 
-	// deleteDemand：取消后可删 → 200；不存在 → 400（Delete 统一 400）
+	// deleteDemand：取消后可删 → 200；不存在 → 404（记录不存在不再混成 400）
 	d3 := r4CreateDemand(t, app, entTok, "待删除需求")
 	w = doRaw(app, http.MethodPost, "/api/v1/demands/"+d3+"/cancel", "", entTok)
 	assertStatus(t, http.MethodPost, "/api/v1/demands/"+d3+"/cancel", w, http.StatusOK)
 	w = doRaw(app, http.MethodDelete, "/api/v1/admin/demands/"+d3, "", adminTok)
 	assertStatus(t, http.MethodDelete, "/api/v1/admin/demands/"+d3, w, http.StatusOK)
 	w = doRaw(app, http.MethodDelete, "/api/v1/admin/demands/"+nonexistentID, "", adminTok)
-	assertStatus(t, http.MethodDelete, "/api/v1/admin/demands/zzz", w, http.StatusBadRequest)
+	assertStatus(t, http.MethodDelete, "/api/v1/admin/demands/zzz", w, http.StatusNotFound)
 }
 
 // TestR4CreateDemandErrors 覆盖 createDemand 的 400（缺字段）与 403（角色不符）分支。
@@ -282,9 +282,9 @@ func TestR4TrainingCoverage(t *testing.T) {
 	certID := dataID(t, w)
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/certificates/"+certID+"/approve", "", adminTok)
 	assertStatus(t, http.MethodPost, "/api/v1/admin/certificates/"+certID+"/approve", w, http.StatusOK)
-	// 不存在证书 → 403（ApproveCertificate 错误统一 403）
+	// 不存在证书 → 404（此前一律 403，把"没这个记录"说成"你没权限"）
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/certificates/zzz/approve", "", adminTok)
-	assertStatus(t, http.MethodPost, "/api/v1/admin/certificates/zzz/approve", w, http.StatusForbidden)
+	assertStatus(t, http.MethodPost, "/api/v1/admin/certificates/zzz/approve", w, http.StatusNotFound)
 
 	// 飞手：注册 → 批准 → 名录/详情（脱敏）
 	w = doRaw(app, http.MethodPost, "/api/v1/certified-pilots",
@@ -563,7 +563,7 @@ func TestR4ReviewsVenues(t *testing.T) {
 	w = doRaw(app, http.MethodDelete, "/api/v1/admin/reviews/"+reviewID, "", adminTok)
 	assertStatus(t, http.MethodDelete, ".../delete", w, http.StatusOK)
 
-	// rejectReview：提交新评价 → 驳回 → 200；不存在 → 403（错误非精确 "not found"）
+	// rejectReview：提交新评价 → 驳回 → 200；不存在 → 404（此前靠 err.Error()=="not found" 比对失败，一律 403）
 	w = doRaw(app, http.MethodPost, "/api/v1/reviews",
 		`{"target_type":"enterprise","target_id":"ent-1","rating":3,"content":"一般"}`, userTok)
 	assertStatus(t, http.MethodPost, "/api/v1/reviews (2)", w, http.StatusCreated)
@@ -571,7 +571,7 @@ func TestR4ReviewsVenues(t *testing.T) {
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/reviews/"+review2ID+"/reject", "", adminTok)
 	assertStatus(t, http.MethodPost, ".../reject", w, http.StatusOK)
 	w = doRaw(app, http.MethodPost, "/api/v1/admin/reviews/zzz/reject", "", adminTok)
-	assertStatus(t, http.MethodPost, ".../reject zzz", w, http.StatusForbidden)
+	assertStatus(t, http.MethodPost, ".../reject zzz", w, http.StatusNotFound)
 
 	// 场地：创建 → 预约 → 201
 	w = doRaw(app, http.MethodPost, "/api/v1/venues",

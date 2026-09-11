@@ -74,6 +74,9 @@ func (r *certRepo) FindByID(ctx context.Context, id string) (domain.Certificate,
 	err := r.pool.QueryRow(ctx,
 		`SELECT id,user_id,cert_type,COALESCE(cert_number,''),COALESCE(level,''),issue_date,expire_date,COALESCE(issuer_org,''),COALESCE(image_url,''),status,version,created_at,updated_at FROM certificates WHERE id=$1`, id).
 		Scan(&c.ID, &c.UserID, &ct, &c.CertNumber, &c.Level, &issueAt, &expireAt, &c.IssuerOrg, &c.ImageURL, &c.Status, &c.Version, &c.CreatedAt, &c.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Certificate{}, fmt.Errorf("certificate %s: %w", id, repository.ErrNotFound)
+	}
 	c.CertType = domain.CertType(ct)
 	c.IssueDate, c.ExpireDate = certTimeFromNull(issueAt), certTimeFromNull(expireAt)
 	return c, err
@@ -352,6 +355,9 @@ func (r *instructorRepo) FindByID(ctx context.Context, id string) (domain.Instru
 	var ct []byte
 	err := r.pool.QueryRow(ctx, `SELECT id,user_id,name,photo,cert_types,bio,org_id,status,version,created_at,updated_at FROM instructors WHERE id=$1`, id).
 		Scan(&i.ID, &i.UserID, &i.Name, &i.Photo, &ct, &i.Bio, &i.OrgID, &i.Status, &i.Version, &i.CreatedAt, &i.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Instructor{}, fmt.Errorf("instructor %s: %w", id, repository.ErrNotFound)
+	}
 	json.Unmarshal(ct, &i.CertTypes)
 	return i, err
 }
@@ -460,6 +466,9 @@ func (r *pilotRepo) FindByID(ctx context.Context, id string) (domain.CertifiedPi
 	var certIDs []byte
 	err := r.pool.QueryRow(ctx, `SELECT id,user_id,real_name,COALESCE(id_card,''),COALESCE(avatar,''),COALESCE(region,''),cert_ids,flight_hours,bio,rating,completed_jobs,status,reject_reason,version,created_at,updated_at FROM certified_pilots WHERE id=$1`, id).
 		Scan(&p.ID, &p.UserID, &p.RealName, &p.IDCard, &p.Avatar, &p.Region, &certIDs, &p.FlightHours, &p.Bio, &p.Rating, &p.CompletedJobs, &p.Status, &p.RejectReason, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.CertifiedPilot{}, fmt.Errorf("pilot %s: %w", id, repository.ErrNotFound)
+	}
 	json.Unmarshal(certIDs, &p.CertIDs)
 	p.IDCard = r.dec(p.IDCard)
 	return p, err

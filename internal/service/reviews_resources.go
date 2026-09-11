@@ -74,21 +74,28 @@ func (s *ReviewService) ListAll(ctx context.Context, status string, offset, limi
 	return s.repo.ListAll(ctx, status, offset, limit)
 }
 
+var (
+	// ErrReviewNotFound 评价不存在（Handler → 404）。
+	ErrReviewNotFound = errors.New("评价不存在")
+	// ErrReviewStateConflict 评价当前状态不允许该操作（Handler → 409）。
+	ErrReviewStateConflict = errors.New("评价当前状态不允许该操作")
+)
+
 func (s *ReviewService) Approve(ctx context.Context, id string) error {
 	// 状态机前置：当前状态为准（approved 幂等；rejected 已驳回不得再翻转为通过，
 	// 需要重评请让用户重新提交产生新记录）。
 	cur, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("review %s: %w", id, err)
+		return notFoundErr(ErrReviewNotFound, "review", id, err)
 	}
 	if cur.Status == "approved" {
 		return nil
 	}
 	if cur.Status == "rejected" {
-		return fmt.Errorf("已驳回的评价不能改为通过")
+		return fmt.Errorf("%w：已驳回的评价不能改为通过", ErrReviewStateConflict)
 	}
 	if _, err := s.repo.UpdateStatus(ctx, id, "approved"); err != nil {
-		return fmt.Errorf("approve review %s: %w", id, err)
+		return notFoundErr(ErrReviewNotFound, "review", id, err)
 	}
 	return nil
 }
@@ -96,22 +103,25 @@ func (s *ReviewService) Approve(ctx context.Context, id string) error {
 func (s *ReviewService) Reject(ctx context.Context, id string) error {
 	cur, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("review %s: %w", id, err)
+		return notFoundErr(ErrReviewNotFound, "review", id, err)
 	}
 	if cur.Status == "rejected" {
 		return nil
 	}
 	if cur.Status == "approved" {
-		return fmt.Errorf("已通过的评价不能改为驳回")
+		return fmt.Errorf("%w：已通过的评价不能改为驳回", ErrReviewStateConflict)
 	}
 	if _, err := s.repo.UpdateStatus(ctx, id, "rejected"); err != nil {
-		return fmt.Errorf("reject review %s: %w", id, err)
+		return notFoundErr(ErrReviewNotFound, "review", id, err)
 	}
 	return nil
 }
 
 func (s *ReviewService) Delete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return notFoundErr(ErrReviewNotFound, "review", id, err)
+	}
+	return nil
 }
 
 // ---- Venues ----

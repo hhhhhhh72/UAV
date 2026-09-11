@@ -736,7 +736,7 @@ func (s *Server) deleteDemand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.demands.Delete(r.Context(), a, r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusBadRequest, err)
+		failDemandDelete(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
@@ -752,9 +752,19 @@ func (s *Server) deleteMyDemand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := s.demands.Delete(r.Context(), a, r.PathValue("id"))
-	switch {
-	case err == nil:
+	if err == nil {
 		respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
+		return
+	}
+	failDemandDelete(w, r, err)
+}
+
+// failDemandDelete 需求删除的统一错误码映射（管理端与本人端共用同一套语义）：
+// 不存在 404 / 非本人 403 / 状态不允许 409 / 其余 400（保持既有 400 口径）。
+func failDemandDelete(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, service.ErrDemandNotFound):
+		fail(w, r, http.StatusNotFound, err)
 	case errors.Is(err, service.ErrNotOwner):
 		fail(w, r, http.StatusForbidden, err)
 	case errors.Is(err, service.ErrDemandNotDeletable):

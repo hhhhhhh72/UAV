@@ -88,9 +88,11 @@ func TestAdminDemandDeleteUnchanged(t *testing.T) {
 		t.Fatalf("review: %d %s", w.Code, w.Body.String())
 	}
 
-	// 在架 → 管理员也删不了（状态门槛对管理员同样生效）
-	if w := requestAs(t, app, http.MethodDelete, "/api/v1/admin/demands/"+id, nil, "admin-1", domain.RolePlatformAdmin); w.Code != http.StatusBadRequest {
-		t.Fatalf("在架需求管理员通道应 400，实际 %d %s", w.Code, w.Body.String())
+	// 在架 → 管理员也删不了（状态门槛对管理员同样生效）。
+	// 409 而非 400：请求本身合法，是资源当前状态不允许——与本人端同一口径
+	// （此前管理端 400、本人端 409，同一个业务拒绝两套码）。
+	if w := requestAs(t, app, http.MethodDelete, "/api/v1/admin/demands/"+id, nil, "admin-1", domain.RolePlatformAdmin); w.Code != http.StatusConflict {
+		t.Fatalf("在架需求管理员通道应 409，实际 %d %s", w.Code, w.Body.String())
 	}
 
 	// 下架后 → 管理员可删

@@ -540,6 +540,14 @@ type ContentCleanupReport struct {
 // Service 层用 errors.Is 判断并转 409，避免 Handler 依赖 PG 错误码。
 var ErrUserInUse = errors.New("user is referenced by work orders")
 
+// ErrNotFound 记录不存在：仓储层「按 id 找不到」一律用它（可用 %w 带上 "review x:" 这类上下文）。
+//
+// 为什么要有这个哨兵：此前各仓储返回的是各自拼的字符串（"review x not found" / pgx.ErrNoRows /
+// 干脆不报错），Service 层无从判断，Handler 只能猜——于是同一个「资源不存在」在评价审批上成了
+// 403（看着像没权限）、删评价成了 200（PG）或 500（内存）、删需求成了 400。统一哨兵后
+// Service 转成自己的 not-found 哨兵，Handler 稳定映射 404。
+var ErrNotFound = errors.New("record not found")
+
 // ErrUserNotFound 账号不存在（或已注销：users.deleted_at 非空的行对 FindByID/All 不可见）。
 // 删除路径据此返回 404，而不是"删了个不存在的 id 却回 200"。
 var ErrUserNotFound = errors.New("user not found")

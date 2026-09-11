@@ -104,22 +104,37 @@ func (s *TrainingService) AddCertificate(ctx context.Context, a domain.Actor, ce
 	return c, nil
 }
 
+var (
+	// ErrTrainingNotFound 培训/认证类记录不存在（Handler → 404）。
+	ErrTrainingNotFound = errors.New("记录不存在")
+	// ErrTrainingStateConflict 当前状态不允许该操作（Handler → 409）。
+	ErrTrainingStateConflict = errors.New("当前状态不允许该操作")
+	// ErrAdminRequired 需要管理员权限（Handler → 403）。
+	ErrAdminRequired = errors.New("admin permission required")
+	// ErrInvalidInput 入参不合法（Handler → 400）。
+	ErrInvalidInput = errors.New("参数不合法")
+)
+
 func (s *TrainingService) ApproveCertificate(ctx context.Context, a domain.Actor, id string) (domain.Certificate, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		return domain.Certificate{}, errors.New("admin permission required")
+		return domain.Certificate{}, ErrAdminRequired
 	}
 	// 状态机前置：approved 幂等；已驳回不得翻转为通过（纠错请重走发证/审核流程）。
 	cur, err := s.certRepo.FindByID(ctx, id)
 	if err != nil {
-		return domain.Certificate{}, err
+		return domain.Certificate{}, notFoundErr(ErrTrainingNotFound, "certificate", id, err)
 	}
 	if cur.Status == "approved" {
 		return cur, nil
 	}
 	if cur.Status == "rejected" {
-		return domain.Certificate{}, errors.New("已驳回的证书不能改为通过")
+		return domain.Certificate{}, fmt.Errorf("%w：已驳回的证书不能改为通过", ErrTrainingStateConflict)
 	}
-	return s.certRepo.UpdateStatus(ctx, id, "approved")
+	c, err := s.certRepo.UpdateStatus(ctx, id, "approved")
+	if err != nil {
+		return domain.Certificate{}, notFoundErr(ErrTrainingNotFound, "certificate", id, err)
+	}
+	return c, nil
 }
 
 func (s *TrainingService) ListMyCertificates(ctx context.Context, a domain.Actor) ([]domain.Certificate, error) {
@@ -129,19 +144,23 @@ func (s *TrainingService) ListMyCertificates(ctx context.Context, a domain.Actor
 // RejectCertificate 管理端驳回证书（用户可重新提交覆盖为 pending）。
 func (s *TrainingService) RejectCertificate(ctx context.Context, a domain.Actor, id string) (domain.Certificate, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		return domain.Certificate{}, errors.New("admin permission required")
+		return domain.Certificate{}, ErrAdminRequired
 	}
 	cur, err := s.certRepo.FindByID(ctx, id)
 	if err != nil {
-		return domain.Certificate{}, err
+		return domain.Certificate{}, notFoundErr(ErrTrainingNotFound, "certificate", id, err)
 	}
 	if cur.Status == "approved" {
-		return domain.Certificate{}, errors.New("已通过的证书不能驳回，请走吊销流程")
+		return domain.Certificate{}, fmt.Errorf("%w：已通过的证书不能驳回，请走吊销流程", ErrTrainingStateConflict)
 	}
 	if cur.Status == "rejected" {
 		return cur, nil
 	}
-	return s.certRepo.UpdateStatus(ctx, id, "rejected")
+	c, err := s.certRepo.UpdateStatus(ctx, id, "rejected")
+	if err != nil {
+		return domain.Certificate{}, notFoundErr(ErrTrainingNotFound, "certificate", id, err)
+	}
+	return c, nil
 }
 
 func (s *TrainingService) ListAllCertificates(ctx context.Context) ([]domain.Certificate, error) {
@@ -301,20 +320,24 @@ func (s *TrainingService) RegisterInstructor(ctx context.Context, a domain.Actor
 
 func (s *TrainingService) ApproveInstructor(ctx context.Context, a domain.Actor, id string) (domain.Instructor, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		return domain.Instructor{}, errors.New("admin permission required")
+		return domain.Instructor{}, ErrAdminRequired
 	}
 	// 状态机前置：approved 幂等；已驳回不得翻转为通过。
 	cur, err := s.instructorRepo.FindByID(ctx, id)
 	if err != nil {
-		return domain.Instructor{}, err
+		return domain.Instructor{}, notFoundErr(ErrTrainingNotFound, "instructor", id, err)
 	}
 	if cur.Status == "approved" {
 		return cur, nil
 	}
 	if cur.Status == "rejected" {
-		return domain.Instructor{}, errors.New("已驳回的培训师不能改为通过")
+		return domain.Instructor{}, fmt.Errorf("%w：已驳回的培训师不能改为通过", ErrTrainingStateConflict)
 	}
-	return s.instructorRepo.UpdateStatus(ctx, id, "approved")
+	i, err := s.instructorRepo.UpdateStatus(ctx, id, "approved")
+	if err != nil {
+		return domain.Instructor{}, notFoundErr(ErrTrainingNotFound, "instructor", id, err)
+	}
+	return i, nil
 }
 
 func (s *TrainingService) ListInstructors(ctx context.Context) ([]domain.Instructor, error) {
@@ -372,25 +395,29 @@ func (s *TrainingService) RegisterPilot(ctx context.Context, a domain.Actor, rea
 
 func (s *TrainingService) ApprovePilot(ctx context.Context, a domain.Actor, id string) (domain.CertifiedPilot, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		return domain.CertifiedPilot{}, errors.New("admin permission required")
+		return domain.CertifiedPilot{}, ErrAdminRequired
 	}
 	// 状态机前置：approved 幂等；已驳回不得翻转为通过（驳回后需重新申请产生新记录）。
 	cur, err := s.pilotRepo.FindByID(ctx, id)
 	if err != nil {
-		return domain.CertifiedPilot{}, err
+		return domain.CertifiedPilot{}, notFoundErr(ErrTrainingNotFound, "pilot", id, err)
 	}
 	if cur.Status == "approved" {
 		return cur, nil
 	}
 	if cur.Status == "rejected" {
-		return domain.CertifiedPilot{}, errors.New("已驳回的飞手申请不能改为通过")
+		return domain.CertifiedPilot{}, fmt.Errorf("%w：已驳回的飞手申请不能改为通过", ErrTrainingStateConflict)
 	}
 	// 审批门禁（与申请同规则）：批准时复核申请人仍持有至少一张未过期的 approved 证书。
 	// 产品决策：不允许"先审核后补证"——申请时无证已被拒，审批时证书若已过期/被撤销也不得放行。
 	if !s.ownerHasValidCert(ctx, cur) {
-		return domain.CertifiedPilot{}, errors.New("申请人当前没有有效的证书，不能通过飞手认证")
+		return domain.CertifiedPilot{}, fmt.Errorf("%w：申请人当前没有有效的证书，不能通过飞手认证", ErrTrainingStateConflict)
 	}
-	return s.pilotRepo.UpdateStatus(ctx, id, "approved")
+	p, err := s.pilotRepo.UpdateStatus(ctx, id, "approved")
+	if err != nil {
+		return domain.CertifiedPilot{}, notFoundErr(ErrTrainingNotFound, "pilot", id, err)
+	}
+	return p, nil
 }
 
 // RejectPilot 驳回飞手认证申请（管理员），reason 为驳回理由（审核留痕）。
@@ -398,19 +425,23 @@ func (s *TrainingService) ApprovePilot(ctx context.Context, a domain.Actor, id s
 // 降级身份，因此留痕 reason 必填）；pending/rejected 常规驳回。
 func (s *TrainingService) RejectPilot(ctx context.Context, a domain.Actor, id, reason string) (domain.CertifiedPilot, error) {
 	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		return domain.CertifiedPilot{}, errors.New("admin permission required")
+		return domain.CertifiedPilot{}, ErrAdminRequired
 	}
 	if strings.TrimSpace(reason) == "" {
-		return domain.CertifiedPilot{}, errors.New("reject reason is required")
+		return domain.CertifiedPilot{}, fmt.Errorf("%w：驳回理由必填", ErrInvalidInput)
 	}
 	cur, err := s.pilotRepo.FindByID(ctx, id)
 	if err != nil {
-		return domain.CertifiedPilot{}, err
+		return domain.CertifiedPilot{}, notFoundErr(ErrTrainingNotFound, "pilot", id, err)
 	}
 	if cur.Status == "rejected" {
 		return cur, nil
 	}
-	return s.pilotRepo.UpdateReject(ctx, id, reason)
+	p, err := s.pilotRepo.UpdateReject(ctx, id, reason)
+	if err != nil {
+		return domain.CertifiedPilot{}, notFoundErr(ErrTrainingNotFound, "pilot", id, err)
+	}
+	return p, nil
 }
 
 func (s *TrainingService) ListPilots(ctx context.Context) ([]domain.CertifiedPilot, error) {

@@ -127,7 +127,7 @@ func (r *demandRepo) FindByID(ctx context.Context, id string) (domain.Demand, er
 		return domain.Demand{}, err
 	}
 	if len(demands) == 0 {
-		return domain.Demand{}, fmt.Errorf("demand %s not found", id)
+		return domain.Demand{}, fmt.Errorf("demand %s: %w", id, repository.ErrNotFound)
 	}
 	return demands[0], nil
 }
@@ -2236,7 +2236,7 @@ func (r *demandRepo) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("delete demand %s: %w", id, err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("demand %s not found", id)
+		return fmt.Errorf("demand %s: %w", id, repository.ErrNotFound)
 	}
 	return nil
 }

@@ -51,6 +51,18 @@ type DemandService struct {
 // ErrRoleNotAllowed 角色无权执行该操作（如非企业/个人发布需求）。
 var ErrRoleNotAllowed = errors.New("only enterprise or individual users can publish demands")
 
+// ErrDemandNotFound 需求不存在（Handler → 404）。
+var ErrDemandNotFound = errors.New("需求不存在")
+
+// notFoundErr 把仓储层的「记录不存在」（repository.ErrNotFound）翻译成服务层哨兵，
+// Handler 据此回 404；其它错误原样包装上抛（走 500）——绝不把数据库故障伪装成 404。
+func notFoundErr(sentinel error, what, id string, err error) error {
+	if errors.Is(err, repository.ErrNotFound) {
+		return fmt.Errorf("%w: %s %s", sentinel, what, id)
+	}
+	return fmt.Errorf("%s %s: %w", what, id, err)
+}
+
 // ErrDemandNotDeletable 需求当前状态不允许删除（只允许删已取消/已驳回）。
 // 硬删会级联删除该需求下的对接意向（demand_intents ON DELETE CASCADE），
 // 所以删除只在"下游已关闭"的状态下开放：先下架，再删除。
@@ -349,7 +361,7 @@ func (s *DemandService) CloseByAdmin(ctx context.Context, a domain.Actor, id, re
 func (s *DemandService) Delete(ctx context.Context, a domain.Actor, id string) error {
 	d, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return err
+		return notFoundErr(ErrDemandNotFound, "demand", id, err)
 	}
 	isAdmin := a.Role == domain.RoleAssociationAdmin || a.Role == domain.RolePlatformAdmin
 	if !isAdmin && d.PublisherID != a.ID {
@@ -358,7 +370,10 @@ func (s *DemandService) Delete(ctx context.Context, a domain.Actor, id string) e
 	if d.Status != domain.DemandCancelled && d.Status != domain.DemandRejected {
 		return ErrDemandNotDeletable
 	}
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return notFoundErr(ErrDemandNotFound, "demand", id, err)
+	}
+	return nil
 }
 
 // ToggleFavorite 收藏/取消收藏需求（登录用户可收藏任意公开需求）。

@@ -122,7 +122,7 @@ func (r *demandRepo) FindByID(ctx context.Context, id string) (domain.Demand, er
 			return d, nil
 		}
 	}
-	return domain.Demand{}, fmt.Errorf("demand %s not found", id)
+	return domain.Demand{}, fmt.Errorf("demand %s: %w", id, repository.ErrNotFound)
 }
 
 func (r *demandRepo) List(ctx context.Context, f repository.DemandFilter) ([]domain.Demand, error) {
@@ -259,7 +259,7 @@ func (r *demandRepo) SetStatus(ctx context.Context, id string, status domain.Dem
 			return item, nil
 		}
 	}
-	return domain.Demand{}, fmt.Errorf("demand %s not found", id)
+	return domain.Demand{}, fmt.Errorf("demand %s: %w", id, repository.ErrNotFound)
 }
 
 func (r *demandRepo) CompareAndSetStatus(ctx context.Context, id string, oldStatus, newStatus domain.DemandStatus) (bool, domain.Demand, error) {
@@ -278,7 +278,7 @@ func (r *demandRepo) CompareAndSetStatus(ctx context.Context, id string, oldStat
 			return true, item, nil
 		}
 	}
-	return false, domain.Demand{}, fmt.Errorf("demand %s not found", id)
+	return false, domain.Demand{}, fmt.Errorf("demand %s: %w", id, repository.ErrNotFound)
 }
 
 func (r *demandRepo) Delete(ctx context.Context, id string) error {
@@ -290,7 +290,7 @@ func (r *demandRepo) Delete(ctx context.Context, id string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("demand %s not found", id)
+	return fmt.Errorf("demand %s: %w", id, repository.ErrNotFound)
 }
 
 // 需求收藏：按 (user_id, demand_id) 去重
@@ -1864,7 +1864,7 @@ func (r *certRepo) FindByID(ctx context.Context, id string) (domain.Certificate,
 			return c, nil
 		}
 	}
-	return domain.Certificate{}, fmt.Errorf("certificate %s not found", id)
+	return domain.Certificate{}, fmt.Errorf("certificate %s: %w", id, repository.ErrNotFound)
 }
 func (r *certRepo) FindByNumber(ctx context.Context, certNumber string) (domain.Certificate, error) {
 	r.mu.RLock()
@@ -1899,7 +1899,7 @@ func (r *certRepo) UpdateStatus(ctx context.Context, id string, status string) (
 			return r.items[i], nil
 		}
 	}
-	return domain.Certificate{}, fmt.Errorf("certificate %s not found", id)
+	return domain.Certificate{}, fmt.Errorf("certificate %s: %w", id, repository.ErrNotFound)
 }
 func (r *certRepo) ListAll(ctx context.Context) ([]domain.Certificate, error) {
 	r.mu.RLock()
@@ -1938,7 +1938,7 @@ func (r *certRepo) Delete(ctx context.Context, id string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("cert %s not found", id)
+	return fmt.Errorf("cert %s: %w", id, repository.ErrNotFound)
 }
 
 // ---- Course ----
@@ -2095,7 +2095,7 @@ func (r *instructorRepo) FindByID(ctx context.Context, id string) (domain.Instru
 			return i, nil
 		}
 	}
-	return domain.Instructor{}, fmt.Errorf("instructor %s not found", id)
+	return domain.Instructor{}, fmt.Errorf("instructor %s: %w", id, repository.ErrNotFound)
 }
 func (r *instructorRepo) List(ctx context.Context) ([]domain.Instructor, error) {
 	r.mu.RLock()
@@ -2115,7 +2115,7 @@ func (r *instructorRepo) UpdateStatus(ctx context.Context, id string, status str
 			return r.items[i], nil
 		}
 	}
-	return domain.Instructor{}, fmt.Errorf("instructor %s not found", id)
+	return domain.Instructor{}, fmt.Errorf("instructor %s: %w", id, repository.ErrNotFound)
 }
 
 // ---- Pilot ----
@@ -2163,7 +2163,7 @@ func (r *pilotRepo) FindByID(ctx context.Context, id string) (domain.CertifiedPi
 			return p, nil
 		}
 	}
-	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s not found", id)
+	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s: %w", id, repository.ErrNotFound)
 }
 func (r *pilotRepo) List(ctx context.Context) ([]domain.CertifiedPilot, error) {
 	r.mu.RLock()
@@ -2230,7 +2230,7 @@ func (r *pilotRepo) UpdateStatus(ctx context.Context, id string, status string) 
 			return result, nil
 		}
 	}
-	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s not found", id)
+	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s: %w", id, repository.ErrNotFound)
 }
 
 func (r *pilotRepo) UpdateReject(ctx context.Context, id string, reason string) (domain.CertifiedPilot, error) {
@@ -2246,7 +2246,7 @@ func (r *pilotRepo) UpdateReject(ctx context.Context, id string, reason string) 
 			return result, nil
 		}
 	}
-	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s not found", id)
+	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s: %w", id, repository.ErrNotFound)
 }
 
 // ---- Product ----
@@ -2943,7 +2943,7 @@ func (r *reviewRepo) FindByID(ctx context.Context, id string) (domain.Review, er
 			return rv, nil
 		}
 	}
-	return domain.Review{}, fmt.Errorf("review %s not found", id)
+	return domain.Review{}, fmt.Errorf("review %s: %w", id, repository.ErrNotFound)
 }
 func (r *reviewRepo) UpdateStatus(ctx context.Context, id string, status string) (domain.Review, error) {
 	r.mu.Lock()
@@ -2954,7 +2954,7 @@ func (r *reviewRepo) UpdateStatus(ctx context.Context, id string, status string)
 			return r.items[i], nil
 		}
 	}
-	return domain.Review{}, fmt.Errorf("review %s not found", id)
+	return domain.Review{}, fmt.Errorf("review %s: %w", id, repository.ErrNotFound)
 }
 func (r *reviewRepo) Delete(ctx context.Context, id string) error {
 	r.mu.Lock()
@@ -2965,7 +2965,7 @@ func (r *reviewRepo) Delete(ctx context.Context, id string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("review %s not found", id)
+	return fmt.Errorf("review %s: %w", id, repository.ErrNotFound)
 }
 
 // ---- Venue ----

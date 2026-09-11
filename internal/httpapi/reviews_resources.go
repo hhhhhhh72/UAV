@@ -145,6 +145,18 @@ func (s *Server) listAllReviews(w http.ResponseWriter, r *http.Request) {
 	paginatedRespond(w, r, reviews, total)
 }
 
+// failReviewErr 评价审核类接口的错误码映射：不存在 404 / 状态冲突 409 / 其余 500。
+func failReviewErr(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, service.ErrReviewNotFound):
+		fail(w, r, http.StatusNotFound, err)
+	case errors.Is(err, service.ErrReviewStateConflict):
+		fail(w, r, http.StatusConflict, err)
+	default:
+		fail(w, r, http.StatusInternalServerError, err)
+	}
+}
+
 // POST /api/v1/admin/reviews/{id}/approve
 func (s *Server) approveReview(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
@@ -153,11 +165,7 @@ func (s *Server) approveReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.reviewSvc.Approve(r.Context(), r.PathValue("id")); err != nil {
-		code := http.StatusForbidden
-		if err.Error() == "not found" {
-			code = http.StatusNotFound
-		}
-		fail(w, r, code, err)
+		failReviewErr(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"status": "approved"})
@@ -171,11 +179,7 @@ func (s *Server) rejectReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.reviewSvc.Reject(r.Context(), r.PathValue("id")); err != nil {
-		code := http.StatusForbidden
-		if err.Error() == "not found" {
-			code = http.StatusNotFound
-		}
-		fail(w, r, code, err)
+		failReviewErr(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"status": "rejected"})
@@ -189,7 +193,7 @@ func (s *Server) deleteReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.reviewSvc.Delete(r.Context(), r.PathValue("id")); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
+		failReviewErr(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]string{"status": "deleted"})
