@@ -65,6 +65,11 @@ services:
       BASE_URL: "${BASE_URL:-}"
       # 平台配置（banner/公告等）持久化到可写卷；容器根文件系统只读，默认相对路径不可写
       PLATFORM_CONFIG_PATH: "/config/platform_config.json"
+      # 受信反代白名单：只有来自这里的请求才采信 X-Forwarded-For 取真实客户端 IP。
+      # nginx 与 API 同机，但容器内看到的对端是 compose 网桥网关（uav_default → 172.18.0.1），
+      # 不是 127.0.0.1；漏配这一项 → XFF 被忽略 → 所有请求的 clientIP 都成了网关 IP，
+      # 于是「注册 3 次/10 分钟」「密码登录失败锁定」「按 IP 限流」全部退化成全平台共用一个桶。
+      TRUSTED_PROXIES: "${TRUSTED_PROXIES:-127.0.0.1,::1,172.18.0.1}"
     volumes:
       # 命名卷首次创建为 root:root 755，会覆盖镜像内 chown 好的目录 →
       # 非 root 应用无法写文件（线上曾致上传 500 permission denied、banner 配置保存失败）。
