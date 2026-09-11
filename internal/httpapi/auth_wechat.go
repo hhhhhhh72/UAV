@@ -354,7 +354,9 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	region := ""
 	bio := ""
 	status := "active"
+	hasPassword := false
 	if u, err := s.userRepo.FindByID(r.Context(), a.ID); err == nil {
+		hasPassword = u.PasswordHash != "" // 是否设置过密码（"我的"页据此提示改密入口是否可用）
 		name = u.Name
 		avatarURL = u.AvatarURL
 		// PhoneCipher holds the decrypted plaintext after FindByID (see repository)
@@ -374,6 +376,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		"name":         name,
 		"avatar_url":   avatarURL,
 		"phone":        phone,
+		"has_password": hasPassword,
 		"gender":       gender,
 		"birthday":     birthday,
 		"region":       region,

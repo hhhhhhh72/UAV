@@ -73,6 +73,7 @@
         <a-dropdown trigger="click">
           <a-avatar :size="32" :style="{ backgroundColor: '#165DFF', cursor: 'pointer', marginLeft: '8px' }">{{ userInitial }}</a-avatar>
           <template #content>
+            <a-doption @click="goAccount"><icon-user /> 账号设置</a-doption>
             <a-doption @click="goHome"><icon-home /> 返回首页</a-doption>
             <a-divider :margin="4" />
             <a-doption @click="handleLogout"><icon-export /> 退出登录</a-doption>
@@ -432,6 +433,8 @@ const restoreTheme = () => {
 
 /* 导航 */
 const goHome = () => router.push('/')
+// 账号设置：改资料 / 改密码 / 查看自己的权限（原来下拉里只有返回首页和退出登录）
+const goAccount = () => router.push('/admin/account')
 
 const handleLogout = () => {
   // 登出时先吊销 refresh token（后端 revoke 落库），再清本地登录态；

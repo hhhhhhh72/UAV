@@ -1613,6 +1613,27 @@ func (r *userRepo) CleanupUserContent(ctx context.Context, userID string, plan r
 	}
 	return rep, nil
 }
+// UpdatePassword 改密：哈希 + token_version 自增 + 撤销全部刷新令牌（同一事务）。
+// token_version 自增让此前签发的 access token 复验即失效（httpapi.revalidateActor），
+// 刷新令牌一并删除——改密后所有设备都必须重新登录。
+func (r *userRepo) UpdatePassword(ctx context.Context, id, passwordHash string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin update password: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	tag, err := tx.Exec(ctx, `UPDATE users SET password_hash=$2, token_version=token_version+1, updated_at=now() WHERE id=$1`, id, passwordHash)
+	if err != nil {
+		return fmt.Errorf("update password for %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %s", repository.ErrUserNotFound, id)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM refresh_tokens WHERE user_id=$1`, id); err != nil {
+		return fmt.Errorf("revoke refresh tokens for %s: %w", id, err)
+	}
+	return tx.Commit(ctx)
+}
 // AllWithDeleted 管理端用户列表：不过滤 deleted_at，注销账号也返回（便于恢复）。
 func (r *userRepo) AllWithDeleted(ctx context.Context) ([]domain.User, error) {
 	return r.listUsers(ctx, "")

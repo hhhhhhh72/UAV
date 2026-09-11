@@ -294,4 +294,6 @@ func (s *Server) registerAuthRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
 	mux.HandleFunc("GET /api/v1/me", s.me)
 	mux.HandleFunc("PATCH /api/v1/me", s.updateMe)
+	// 本人改密（任何已登录账号）：旧密码校验 + 成功后令牌全失效
+	mux.HandleFunc("POST /api/v1/auth/password", s.changePassword)
 }

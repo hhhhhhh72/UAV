@@ -1316,6 +1316,21 @@ func (r *memUserRepo) listUsers(includeDeleted bool) ([]domain.User, error) {
 	return sorted, nil
 }
 
+// UpdatePassword 改密：写入哈希 + token_version 自增（与 PG 同语义；刷新令牌在另一个仓储）。
+func (r *memUserRepo) UpdatePassword(ctx context.Context, id, passwordHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items[i].PasswordHash = passwordHash
+			r.items[i].TokenVersion++
+			r.items[i].UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s", repository.ErrUserNotFound, id)
+}
+
 // ListDeletedBefore 缓冲期已到（deleted_at < cutoff）的已注销账号 ID（与 PG 同语义）。
 func (r *memUserRepo) ListDeletedBefore(ctx context.Context, cutoff time.Time) ([]string, error) {
 	r.mu.RLock()

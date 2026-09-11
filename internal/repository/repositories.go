@@ -80,6 +80,9 @@ type UserRepository interface {
 	// 46 张业务表以文本列（publisher_id/author_id/user_id…）记录用户 ID 且无外键，
 	// 物理删除会把这些内容留成无法解析作者的孤儿数据（生产已有 12 条需求 + 3 条动态）。
 	SoftDelete(ctx context.Context, id string) error
+	// UpdatePassword 改密：写入新哈希 + token_version 自增（已签发令牌立即失效）
+	// + 撤销该用户全部刷新令牌，同事务完成。账号不存在返回 ErrUserNotFound。
+	UpdatePassword(ctx context.Context, id, passwordHash string) error
 	// CleanupUserContent 注销时的内容处置（计划由 Service 决定，仓储只执行）：
 	// 下架在架内容 / 擦除个人信息列 / 删除纯个人信息行。返回实际影响行数。
 	CleanupUserContent(ctx context.Context, userID string, plan ContentCleanupPlan) (ContentCleanupReport, error)

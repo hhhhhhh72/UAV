@@ -23,6 +23,7 @@ const routes = [
       { path: 'audit-logs', component: () => import('@/views/admin/audit/AuditLogList.vue'), meta: { title: '操作审计', roles: ['platform_admin'] } },
       { path: 'cases', component: () => import('@/views/admin/cases/CaseList.vue'), meta: { title: '案例管理' } },
       { path: 'users', component: () => import('@/views/admin/users/UserList.vue'), meta: { title: '用户管理', roles: ['platform_admin'] } },
+      { path: 'account', component: () => import('@/views/admin/account/AccountSettings.vue'), meta: { title: '账号设置' } },
       { path: 'competition', component: () => import('@/views/admin/competition/CompetitionList.vue'), meta: { title: '赛事管理' } },
       { path: 'config', component: () => import('@/views/admin/config/ServiceConfigList.vue'), meta: { title: '系统配置', roles: ['platform_admin'] } },
       { path: 'reviews', component: () => import('@/views/admin/reviews/ReviewList.vue'), meta: { title: '评价管理' } },

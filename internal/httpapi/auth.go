@@ -125,7 +125,10 @@ type actorKey struct{}
 
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/healthz" || r.URL.Path == "/" ||
+		// 注意：/api/v1/auth/password（本人改密）必须带 token —— /api/v1/auth/ 整体是公开前缀，
+		// 这里显式排除，否则中间件不解析 actor，handler 只能拿到匿名请求（401）。
+		// 与 isPublicPath 里 me/mine 类路径的显式排除同一套约定。
+		if r.URL.Path != "/api/v1/auth/password" && (r.URL.Path == "/healthz" || r.URL.Path == "/" ||
 			r.URL.Path == "/admin" || r.URL.Path == "/favicon.ico" ||
 			// /uploads/ 公开，但 /uploads/private/（身份证影像等）必须走 token 校验。
 			// P2 修复：大小写不敏感按路径段匹配 "private"——/uploads/Private/xx
@@ -135,7 +138,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			r.URL.Path == "/api/v1/admin/token" ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/auth/") ||
-			strings.HasPrefix(r.URL.Path, "/api/v1/webhooks/") {
+			strings.HasPrefix(r.URL.Path, "/api/v1/webhooks/")) {
 			next.ServeHTTP(w, r)
 			return
 		}

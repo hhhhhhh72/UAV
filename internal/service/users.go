@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
 )
@@ -75,6 +77,98 @@ var (
 	// ErrUserNotFound 账号不存在（含已注销：注销对普通读取不可见）。
 	ErrUserNotFound = errors.New("用户不存在")
 )
+
+var (
+	// ErrOldPasswordWrong 原密码不正确。
+	ErrOldPasswordWrong = errors.New("原密码不正确")
+	// ErrWeakPassword 新密码不符合强度要求。
+	ErrWeakPassword = errors.New("新密码至少 8 位，且不能与原密码相同")
+	// ErrPasswordNotSet 账号从未设置过密码（只能用微信/验证码登录），需管理员重置后再改。
+	ErrPasswordNotSet = errors.New("该账号未设置密码，请先由平台管理员重置")
+)
+
+const (
+	userPasswordMinLen = 8  // 下限：管理员账号不能用弱口令
+	userPasswordMaxLen = 72 // bcrypt 只处理前 72 字节，超长直接拒绝而不是静默截断
+)
+
+// validateNewPassword 新密码校验：长度 8–72、不与原密码相同、不接受全同字符这类弱口令。
+func validateNewPassword(oldPassword, newPassword string) error {
+	if len(newPassword) < userPasswordMinLen || len(newPassword) > userPasswordMaxLen {
+		return ErrWeakPassword
+	}
+	if newPassword == oldPassword {
+		return ErrWeakPassword
+	}
+	same := true
+	for i := 1; i < len(newPassword); i++ {
+		if newPassword[i] != newPassword[0] {
+			same = false
+			break
+		}
+	}
+	if same {
+		return ErrWeakPassword
+	}
+	return nil
+}
+
+// ChangePassword 本人修改密码：校验旧密码 → 写新哈希。
+// 仓储在同一事务里自增 token_version 并撤销全部刷新令牌，因此改完必须重新登录。
+func (s *UserService) ChangePassword(ctx context.Context, a domain.Actor, oldPassword, newPassword string) error {
+	if a.ID == "" {
+		return fmt.Errorf("%w: 空 ID", ErrUserNotFound)
+	}
+	u, err := s.users.FindByID(ctx, a.ID)
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrUserNotFound, a.ID)
+	}
+	if u.PasswordHash == "" {
+		return ErrPasswordNotSet
+	}
+	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(oldPassword)) != nil {
+		return ErrOldPasswordWrong
+	}
+	if err := validateNewPassword(oldPassword, newPassword); err != nil {
+		return err
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+	if err := s.users.UpdatePassword(ctx, a.ID, string(hash)); err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+	slog.Info("password changed", "user", a.ID)
+	return nil
+}
+
+// ResetPassword 平台管理员给其他账号重置密码（无需旧密码；用户随后可用新密码登录）。
+func (s *UserService) ResetPassword(ctx context.Context, a domain.Actor, targetID, newPassword string) error {
+	if a.Role != domain.RolePlatformAdmin {
+		return ErrAdminOnly
+	}
+	if targetID == "" {
+		return fmt.Errorf("%w: 空 ID", ErrUserNotFound)
+	}
+	if err := validateNewPassword("", newPassword); err != nil {
+		return err
+	}
+	u, err := s.users.FindByID(ctx, targetID)
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrUserNotFound, targetID)
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+	if err := s.users.UpdatePassword(ctx, targetID, string(hash)); err != nil {
+		return fmt.Errorf("reset password: %w", err)
+	}
+	// 审计线索：谁重置了谁、此前有没有密码（不记录任何密码内容）
+	slog.Info("password reset by admin", "target", targetID, "admin", a.ID, "had_password", u.PasswordHash != "")
+	return nil
+}
 
 // UserDeleteResult 删除结果：后台据此如实提示（含缓冲期到期时间与内容处置结果）。
 type UserDeleteResult struct {

@@ -34,6 +34,7 @@
             {{ record.role === 'platform_admin' ? '取消管理员' : '设为管理员' }}
           </a-button>
           <span v-else-if="record.id === 'admin'" class="super-admin-tip">超级管理员</span>
+          <a-button v-if="isSuperAdmin && record.id !== 'admin'" type="text" size="small" @click="openResetPwd(record)">重置密码</a-button>
           <a-button v-if="isSuperAdmin && record.id !== 'admin' && record.status === 'active'" type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
           <span v-else-if="record.status === 'deleted'" class="purge-tip">缓冲期内不可恢复</span>
         </a-space>
@@ -42,6 +43,23 @@
         <a-empty description="暂无用户数据" />
       </template>
     </CrudList>
+
+    <!-- 重置密码（平台管理员；此前只有建号时能设一次密码，之后谁都改不了） -->
+    <a-modal v-model:visible="pwdVisible" title="重置密码" :width="'min(420px, 94vw)'" :mask-closable="false" :unmount-on-close="true">
+      <a-form :model="pwdForm" layout="vertical">
+        <a-form-item label="账号">
+          <a-input :model-value="pwdForm.id" disabled />
+        </a-form-item>
+        <a-form-item label="新密码" required>
+          <a-input-password v-model="pwdForm.password" placeholder="至少 8 位" />
+        </a-form-item>
+        <div class="pwd-tip">重置后该账号此前的登录全部失效，请把新密码告知本人。</div>
+      </a-form>
+      <template #footer>
+        <a-button @click="pwdVisible = false">取消</a-button>
+        <a-button type="primary" :loading="pwdLoading" @click="submitResetPwd">重置</a-button>
+      </template>
+    </a-modal>
 
     <!-- 新增用户弹窗 -->
     <a-modal v-model:visible="formVisible" title="新增用户" :width="'min(420px, 94vw)'" :mask-closable="false" :unmount-on-close="true" :on-before-cancel="beforeCancel">
@@ -74,7 +92,7 @@ import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
 import { useAdminApi } from '@/api/admin/common'
-import { updateUserRole, deleteUser } from '@/api/admin/user'
+import { updateUserRole, deleteUser, resetUserPassword } from '@/api/admin/user'
 import { useAuth } from '../composables/useAuth'
 import CrudList from '../components/CrudList.vue'
 
@@ -160,6 +178,28 @@ const toggleRole = (user) => {
   })
 }
 
+// 重置密码：平台管理员给账号设新密码（改完该账号所有端需重新登录）
+const pwdVisible = ref(false)
+const pwdLoading = ref(false)
+const pwdForm = reactive({ id: '', password: '' })
+const openResetPwd = (row) => {
+  pwdForm.id = row.id
+  pwdForm.password = ''
+  pwdVisible.value = true
+}
+const submitResetPwd = async () => {
+  if ((pwdForm.password || '').length < 8) { Message.warning('新密码至少 8 位'); return }
+  pwdLoading.value = true
+  try {
+    const res = await resetUserPassword(pwdForm.id, pwdForm.password)
+    Message.success(res?.data?.note || '已重置密码')
+    pwdVisible.value = false
+    pwdForm.password = ''
+    crudRef.value?.reload()
+  } catch (e) { Message.error(errMsg(e)) }
+  finally { pwdLoading.value = false }
+}
+
 const statusMeta = (s) => ({
   active: { label: '正常', color: 'green' },
   deleted: { label: '已删除', color: 'gray' },
@@ -193,6 +233,8 @@ const handleDelete = (row) => {
 .super-admin-tip { color: var(--color-text-2); font-size: 12px; }
 
 .purge-tip { color: var(--color-text-3); font-size: 11px; line-height: 1.4; margin-top: 2px; }
+
+.pwd-tip { color: var(--color-text-3); font-size: 12px; }
 
 .cell-user { display: flex; align-items: center; gap: 8px; }
 
