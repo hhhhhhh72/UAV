@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"sort"
 
 	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
@@ -83,6 +84,13 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 			"purge_after":    purgeAfter,
 		})
 	}
+	// 超级管理员置顶：它是平台唯一的最高权限账号，而列表按注册时间排序时它常落在中间，
+	// 运营每次都要往下翻。稳定排序保证其余账号的相对顺序不变。
+	sort.SliceStable(out, func(i, j int) bool {
+		si, _ := out[i]["is_super_admin"].(bool)
+		sj, _ := out[j]["is_super_admin"].(bool)
+		return si && !sj
+	})
 	// paginatedRespond 内部会按 query 的 page/page_size 自动切片，此处传全量
 	paginatedRespond(w, r, out, len(out))
 }

@@ -746,6 +746,13 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 			s.recordPasswordFailure(lockKey)
 			s.recordAccountFailure(loginID) // 账号级跨 IP 累计（仅真实存在账号，防锁任意手机号）
 		}
+		// 排查用日志：对外一律 401（防账号枚举），但"账号不存在"与"口令不匹配"必须能分开——
+		// 否则用户报"密码错误"时无从判断是账号问题还是口令问题。
+		// 手机号只记脱敏形态；login_id_len 记**字节长度**，能暴露全角输入/误粘空格
+		// （正常 11 位手机号应恰好 11）。口令本身永不落盘。
+		slog.Warn("password login rejected",
+			"login_id", crypto.MaskPhone(loginID), "login_id_len", len(loginID),
+			"ip", clientIP(r), "account_found", found, "account_has_password", passwordHash != "")
 		fail(w, r, http.StatusUnauthorized, errBadRequest("账号或密码错误"))
 		return
 	}
