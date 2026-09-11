@@ -63,7 +63,7 @@ func TestPG_CaseRepo(t *testing.T) {
 	id := uid("case")
 	r.Create(context.Background(), domain.CaseEntry{ID: id, Title: "案例", Category: "logistics", Status: "draft"})
 	r.FindByID(context.Background(), id)
-	r.List(context.Background(), "", 0, 20)
+	r.List(context.Background(), "", "", 0, 20)
 	r.Delete(context.Background(), id)
 }
 

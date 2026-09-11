@@ -74,6 +74,28 @@ func (s *ExpertService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
 
+// caseCreateStatus 新建案例的落地状态：入参留空默认「已发布」。
+//
+// 此前这里写死 published，运营在新建时选的状态被静默丢弃（前端还默认显示"待审核"，
+// 于是界面上看着在待审、实际已经对外发布）。现在传入合法状态就照办，非法值一律 400。
+func caseCreateStatus(s string) string {
+	switch s {
+	case domain.CaseStatusPending, domain.CaseStatusPublished, domain.CaseStatusArchived:
+		return s
+	default:
+		return domain.CaseStatusPublished
+	}
+}
+
+// CaseStatusValid 案例状态是否合法（Handler 用它把非法状态挡成 400）。
+func CaseStatusValid(s string) bool {
+	switch s {
+	case domain.CaseStatusPending, domain.CaseStatusPublished, domain.CaseStatusArchived:
+		return true
+	}
+	return false
+}
+
 // ErrCaseNotFound 案例不存在（Handler 映射 404）。
 var ErrCaseNotFound = errors.New("案例不存在")
 
@@ -99,16 +121,17 @@ func (s *CaseService) Create(ctx context.Context, in domain.CaseInput) (domain.C
 		VideoPosterURL: in.VideoPosterURL,
 		ClientName:     in.ClientName,
 		Result:         in.Result,
-		Status:         "published",
+		Status:         caseCreateStatus(in.Status),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 	return s.repo.Create(ctx, c)
 }
 
-func (s *CaseService) List(ctx context.Context, category string, page, pageSize int) ([]domain.CaseEntry, int, error) {
+// List 案例列表。status 为空表示全部状态（管理端）；公开列表必须传 published。
+func (s *CaseService) List(ctx context.Context, category, status string, page, pageSize int) ([]domain.CaseEntry, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.List(ctx, category, offset, pageSize)
+	return s.repo.List(ctx, category, status, offset, pageSize)
 }
 
 func (s *CaseService) Get(ctx context.Context, id string) (domain.CaseEntry, error) {

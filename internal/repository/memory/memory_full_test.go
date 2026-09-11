@@ -328,7 +328,7 @@ func TestNewBizReposFull(t *testing.T) {
 	caseR := memory.NewCaseRepository()
 	caseR.Create(context.Background(), domain.CaseEntry{ID: "case-1", Title: "案例", Category: "logistics"})
 	caseR.FindByID(context.Background(), "case-1")
-	caseR.List(context.Background(), "", 0, 20)
+	caseR.List(context.Background(), "", "", 0, 20)
 	caseR.Update(context.Background(), domain.CaseEntry{ID: "case-1", Title: "updated"})
 	caseR.Delete(context.Background(), "case-1")
 

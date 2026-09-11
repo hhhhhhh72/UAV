@@ -51,6 +51,16 @@ type CaseEntry struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+// 案例（CaseEntry.Status）的发布状态取值。
+//
+// pending 仅在"企业自助提交 + 运营审核"模式下才有意义；当前是运营代发模式，
+// 新建即 published，archived 表示已下架（不再对外展示）。
+const (
+	CaseStatusPending   = "pending"
+	CaseStatusPublished = "published"
+	CaseStatusArchived  = "archived"
+)
+
 // CaseInput 案例新建/更新的入参。
 //
 // 原先 Create/Update 是 7 个位置参数（title, category, description, images, clientName,

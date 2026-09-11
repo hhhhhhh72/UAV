@@ -102,12 +102,12 @@ func (r *caseRepo) FindByID(ctx context.Context, id string) (domain.CaseEntry, e
 	}
 	return domain.CaseEntry{}, fmt.Errorf("case %s: %w", id, repository.ErrNotFound)
 }
-func (r *caseRepo) List(ctx context.Context, category string, offset, limit int) ([]domain.CaseEntry, int, error) {
+func (r *caseRepo) List(ctx context.Context, category, status string, offset, limit int) ([]domain.CaseEntry, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	filtered := make([]domain.CaseEntry, 0)
 	for _, c := range r.items {
-		if category == "" || c.Category == category {
+		if (category == "" || c.Category == category) && (status == "" || c.Status == status) {
 			filtered = append(filtered, c)
 		}
 	}

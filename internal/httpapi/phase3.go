@@ -805,7 +805,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("admin dashboard: count achievements", "err", err)
 	}
 	modules["industry"]["achievements"] = achsTotal
-	_, casesTotal, err := s.caseSvc.List(r.Context(), "", 1, 1)
+	_, casesTotal, err := s.caseSvc.List(r.Context(), "", "", 1, 1) // 看板计数含全部状态
 	if err != nil {
 		slog.Warn("admin dashboard: count cases", "err", err)
 	}

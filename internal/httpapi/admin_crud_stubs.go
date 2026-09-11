@@ -111,7 +111,9 @@ func (s *Server) listAdminOrders(w http.ResponseWriter, r *http.Request) {
 // ----- Case entries -----
 func (s *Server) listAdminCaseEntries(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
-	items, total, err := s.caseSvc.List(r.Context(), category, 1, 100000)
+	// 管理端看全部状态（含已下架/待审），并支持按状态筛选
+	status := r.URL.Query().Get("status")
+	items, total, err := s.caseSvc.List(r.Context(), category, status, 1, 100000)
 	if err != nil {
 		adminFail(w, r, err)
 		return

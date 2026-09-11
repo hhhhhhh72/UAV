@@ -275,7 +275,8 @@ func (s *Server) deleteExpert(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
 	// 性能审查：分页下沉 SQL（repo COUNT+LIMIT/OFFSET），respondPage 不再二次切片。
 	page, pageSize := paginationFromQuery(r)
-	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), page, pageSize)
+	// 只出「已发布」：此前不过滤状态，已下架/待审核的案例照样对外可见（下架按钮等于没点）。
+	items, total, err := s.caseSvc.List(r.Context(), r.URL.Query().Get("category"), domain.CaseStatusPublished, page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -303,15 +304,20 @@ func (s *Server) createCase(w http.ResponseWriter, r *http.Request) {
 		Images         []string `json:"images"`
 		VideoURL       string   `json:"video_url"`
 		VideoPosterURL string   `json:"video_poster_url"`
+		Status         string   `json:"status"` // 可选：留空默认已发布
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
+	if in.Status != "" && !service.CaseStatusValid(in.Status) {
+		fail(w, r, http.StatusBadRequest, errors.New("invalid status: pending/published/archived"))
+		return
+	}
 	c, err := s.caseSvc.Create(r.Context(), domain.CaseInput{
 		Title: in.Title, Category: in.Category, Description: in.Description,
 		Images: in.Images, VideoURL: in.VideoURL, VideoPosterURL: in.VideoPosterURL,
-		ClientName: in.ClientName, Result: in.Result,
+		ClientName: in.ClientName, Result: in.Result, Status: in.Status,
 	})
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
@@ -364,6 +370,10 @@ func (s *Server) updateCase(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if in.Status != "" && !service.CaseStatusValid(in.Status) {
+		fail(w, r, http.StatusBadRequest, errors.New("invalid status: pending/published/archived"))
 		return
 	}
 	c, err := s.caseSvc.Update(r.Context(), r.PathValue("id"), domain.CaseInput{

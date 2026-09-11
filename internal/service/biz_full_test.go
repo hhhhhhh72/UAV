@@ -61,12 +61,12 @@ func TestCaseFullCRUD(t *testing.T) {
 		t.Fatal(err)
 	}
 	// List all
-	_, total, _ := svc.List(context.Background(), "", 1, 20)
+	_, total, _ := svc.List(context.Background(), "", "", 1, 20)
 	if total != 1 {
 		t.Fatal("list all")
 	}
 	// List by category
-	_, total2, _ := svc.List(context.Background(), "agriculture", 1, 20)
+	_, total2, _ := svc.List(context.Background(), "agriculture", "", 1, 20)
 	if total2 != 1 {
 		t.Fatal("list by cat")
 	}

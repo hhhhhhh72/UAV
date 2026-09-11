@@ -110,14 +110,22 @@
             <div class="video-tip muted">留空则用上面的封面图当视频封面</div>
           </a-form-item>
 
-          <a-divider orientation="left">审核状态</a-divider>
-          <a-form-item label="状态">
-            <a-select v-model="currentCase.status" style="width: 100%">
-              <a-option label="待审核" value="pending" />
-              <a-option label="已发布" value="published" />
-              <a-option label="已下架" value="archived" />
-            </a-select>
-          </a-form-item>
+          <!-- 状态只在编辑时出现：新建即发布（案例由协会运营代发，没有审核流）。
+               此前新建也显示状态下拉，但后端写死 published——选了什么都被丢掉，
+               默认还显示"待审核"，看着像在等审、其实已经对外发布了。 -->
+          <template v-if="currentCase?.id">
+            <a-divider orientation="left">发布状态</a-divider>
+            <a-form-item label="状态">
+              <a-select v-model="currentCase.status" style="width: 100%">
+                <a-option label="待审核（不对外展示）" value="pending" />
+                <a-option label="已发布（小程序可见）" value="published" />
+                <a-option label="已下架（小程序隐藏）" value="archived" />
+              </a-select>
+            </a-form-item>
+          </template>
+          <a-alert v-else type="info" style="margin-top: 8px">
+            保存后案例直接发布（小程序立即可见）；需要先不上线，可在列表里用「批量下架」。
+          </a-alert>
         </a-form>
 
         <div class="modal-footer">
@@ -170,7 +178,20 @@ const batchActions = [
 ]
 
 const searchFields = computed(() => [
-  { key: 'category', label: '分类', type: 'select', width: 200, placeholder: '全部', options: caseCategories }
+  { key: 'category', label: '分类', type: 'select', width: 200, placeholder: '全部', options: caseCategories },
+  // 状态筛选：已下架/待审的案例只在这里能看到（公开列表只出已发布）
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    width: 160,
+    placeholder: '全部状态',
+    options: [
+      { label: '已发布（小程序可见）', value: 'published' },
+      { label: '已下架（小程序隐藏）', value: 'archived' },
+      { label: '待审核（不对外展示）', value: 'pending' }
+    ]
+  }
 ])
 
 const columns = [

@@ -586,7 +586,9 @@ type ExpertRepository interface {
 type CaseRepository interface {
 	Create(ctx context.Context, v domain.CaseEntry) (domain.CaseEntry, error)
 	FindByID(ctx context.Context, id string) (domain.CaseEntry, error)
-	List(ctx context.Context, category string, offset, limit int) ([]domain.CaseEntry, int, error)
+	// List 按分类 + 状态过滤；status 为空表示"全部状态"（管理端用），
+	// 公开列表必须传 "published" —— 否则已下架/待审核的案例会照常对外曝光（曾经的线上缺陷）。
+	List(ctx context.Context, category, status string, offset, limit int) ([]domain.CaseEntry, int, error)
 	Update(ctx context.Context, v domain.CaseEntry) (domain.CaseEntry, error)
 	Delete(ctx context.Context, id string) error
 }

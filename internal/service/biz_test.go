@@ -36,7 +36,7 @@ func TestCaseCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, total, err := svc.List(context.Background(), "logistics", 1, 20); err != nil || total != 1 {
+	if _, total, err := svc.List(context.Background(), "logistics", "", 1, 20); err != nil || total != 1 {
 		t.Fatalf("list fail")
 	}
 	_ = c

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -111,12 +112,20 @@ func (r *caseRepo) FindByID(ctx context.Context, id string) (domain.CaseEntry, e
 	json.Unmarshal(imgs, &c.Images)
 	return c, err
 }
-func (r *caseRepo) List(ctx context.Context, category string, offset, limit int) ([]domain.CaseEntry, int, error) {
-	where := ""
+func (r *caseRepo) List(ctx context.Context, category, status string, offset, limit int) ([]domain.CaseEntry, int, error) {
+	conds := []string{}
 	args := []any{}
 	if category != "" {
-		where = `WHERE category=$1`
 		args = append(args, category)
+		conds = append(conds, fmt.Sprintf("category=$%d", len(args)))
+	}
+	if status != "" {
+		args = append(args, status)
+		conds = append(conds, fmt.Sprintf("status=$%d", len(args)))
+	}
+	where := ""
+	if len(conds) > 0 {
+		where = "WHERE " + strings.Join(conds, " AND ")
 	}
 	var total int
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM case_entries `+where, args...).Scan(&total); err != nil {
