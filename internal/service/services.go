@@ -57,7 +57,9 @@ var ErrDemandNotFound = errors.New("需求不存在")
 // notFoundErr 把仓储层的「记录不存在」（repository.ErrNotFound）翻译成服务层哨兵，
 // Handler 据此回 404；其它错误原样包装上抛（走 500）——绝不把数据库故障伪装成 404。
 func notFoundErr(sentinel error, what, id string, err error) error {
-	if errors.Is(err, repository.ErrNotFound) {
+	// 两种仓储哨兵都算"记录不存在"：通用 ErrNotFound，以及账号专用的 ErrUserNotFound
+	// （账号仓储在 SoftDelete/FindByID/UpdateRole 等处返回后者）。
+	if errors.Is(err, repository.ErrNotFound) || errors.Is(err, repository.ErrUserNotFound) {
 		return fmt.Errorf("%w: %s %s", sentinel, what, id)
 	}
 	return fmt.Errorf("%s %s: %w", what, id, err)

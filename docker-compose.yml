@@ -57,6 +57,10 @@ services:
       # 微信登录（值来自服务器 .env，密钥不进 git；生产 config 硬校验必填）
       WECHAT_APPID: "${WECHAT_APPID:-}"
       WECHAT_APPSECRET: "${WECHAT_APPSECRET:-}"
+      # 超级管理员手机号（SUPER_ADMIN_PHONE）：该账号受保护（不可删除/降级），后台列表标记它。
+      # 必须在 environment 里声明——compose 只把 .env 用作 ${VAR} 插值，未声明的变量不会进容器。
+      # 此前 .env 里明明写了这个变量，容器里却读不到，整套超管机制等于失效。
+      SUPER_ADMIN_PHONE: "${SUPER_ADMIN_PHONE:-}"
       # banner 图片 URL 补全域名用（如 https://api.cqnarc.cn）；缺省时回退 nginx X-Forwarded-Proto
       BASE_URL: "${BASE_URL:-}"
       # 平台配置（banner/公告等）持久化到可写卷；容器根文件系统只读，默认相对路径不可写

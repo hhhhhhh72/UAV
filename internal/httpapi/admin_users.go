@@ -37,40 +37,51 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	roleLabel := func(s string) string {
 		switch s {
-		case "platform_admin": return "平台管理员"
-		case "association_admin": return "协会管理员"
-		case "enterprise": return "企业"
-		default: return "个人"
+		case "platform_admin":
+			return "平台管理员"
+		case "association_admin":
+			return "协会管理员"
+		case "enterprise":
+			return "企业"
+		default:
+			return "个人"
 		}
 	}
-	out := []map[string]any{{"id": "admin", "role": "platform_admin", "status": "active", "roleLabel": "平台管理员", "created_at": "—", "has_password": true}}
+	// 列表只含真实账号：此前这里硬编码了一行 {id:"admin"} 的「超级管理员」占位——库里并不存在
+	// 这个账号、也永远登录不了，还让「删除」保护逻辑去保护一个幽灵 id。真实的超级管理员
+	// 由 SUPER_ADMIN_PHONE 指定，用 is_super_admin 标记（前端据此显示标签并禁止改它）。
+	//
 	// 管理端列表含已注销账号（All 会过滤 deleted_at，注销后管理员就再也看不到、也就无法恢复）
 	users, err := s.userRepo.AllWithDeleted(r.Context())
-	if err == nil {
-		for _, u := range users {
-			rl := roleLabel(string(u.Role))
-			// 密码状态：仅暴露"是否设置过密码"，绝不返回 hash 本身
-			hasPassword := u.PasswordHash != ""
-			// 已删除账号在缓冲期内：给出到期自动清除的日期，后台据此提示（注销不可恢复）
-			deletedAt, purgeAfter := "", ""
-			if u.DeletedAt != nil {
-				deletedAt = u.DeletedAt.Format("2006-01-02 15:04")
-				purgeAfter = u.DeletedAt.Add(service.UserPurgeRetention).Format("2006-01-02")
-			}
-			out = append(out, map[string]any{
-				"id":           u.ID,
-				"role":         string(u.Role),
-				"status":       u.Status,
-				"roleLabel":    rl,
-				"name":         u.Name,
-				"avatar_url":   u.AvatarURL,
-				"created_at":   u.CreatedAt.Format("2006-01-02 15:04"),
-				"has_password": hasPassword,
-				"phone_masked": listPhoneMasked(u),
-				"deleted_at":   deletedAt,
-				"purge_after":  purgeAfter,
-			})
+	if err != nil {
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	out := make([]map[string]any, 0, len(users))
+	for _, u := range users {
+		rl := roleLabel(string(u.Role))
+		// 密码状态：仅暴露"是否设置过密码"，绝不返回 hash 本身
+		hasPassword := u.PasswordHash != ""
+		// 已删除账号在缓冲期内：给出到期自动清除的日期，后台据此提示（注销不可恢复）
+		deletedAt, purgeAfter := "", ""
+		if u.DeletedAt != nil {
+			deletedAt = u.DeletedAt.Format("2006-01-02 15:04")
+			purgeAfter = u.DeletedAt.Add(service.UserPurgeRetention).Format("2006-01-02")
 		}
+		out = append(out, map[string]any{
+			"id":             u.ID,
+			"role":           string(u.Role),
+			"status":         u.Status,
+			"roleLabel":      rl,
+			"name":           u.Name,
+			"avatar_url":     u.AvatarURL,
+			"created_at":     u.CreatedAt.Format("2006-01-02 15:04"),
+			"has_password":   hasPassword,
+			"phone_masked":   listPhoneMasked(u),
+			"is_super_admin": service.IsSuperAdminAccount(s.superAdminPhone, u),
+			"deleted_at":     deletedAt,
+			"purge_after":    purgeAfter,
+		})
 	}
 	// paginatedRespond 内部会按 query 的 page/page_size 自动切片，此处传全量
 	paginatedRespond(w, r, out, len(out))
@@ -122,26 +133,37 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/v1/admin/users/{id}/role — change user role.
 func (s *Server) updateUserRole(w http.ResponseWriter, r *http.Request) {
-	act, ok := authenticatedActor(r)
-	if !ok || act.Role != domain.RolePlatformAdmin {
-		fail(w, r, http.StatusForbidden, errors.New("only platform admin can change roles"))
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	var req struct{ Role string `json:"role"` }
+	var req struct {
+		Role string `json:"role"`
+	}
 	if err := decode(r, &req); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	allowed := map[string]bool{"individual": true, "enterprise": true, "association_admin": true, "platform_admin": true}
-	if !allowed[req.Role] {
-		fail(w, r, http.StatusBadRequest, errors.New("invalid role"))
+	id := r.PathValue("id")
+	// 业务规则（角色白名单、不能改自己、超管受保护、目标必须存在）都在 Service 里，
+	// Handler 只做参数解析与状态码映射——此前这里直接调仓储，且没有自锁保护。
+	if err := s.userSvc.ChangeRole(r.Context(), a, id, domain.Role(req.Role)); err != nil {
+		switch {
+		case errors.Is(err, service.ErrAdminOnly),
+			errors.Is(err, service.ErrSuperAdminProtected),
+			errors.Is(err, service.ErrCannotModifySelf):
+			fail(w, r, http.StatusForbidden, err)
+		case errors.Is(err, service.ErrInvalidRole):
+			fail(w, r, http.StatusBadRequest, err)
+		case errors.Is(err, service.ErrUserNotFound):
+			fail(w, r, http.StatusNotFound, err)
+		default:
+			fail(w, r, http.StatusInternalServerError, err)
+		}
 		return
 	}
-	if err := s.userRepo.UpdateRole(r.Context(), r.PathValue("id"), domain.Role(req.Role)); err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	s.audit(r.Context(), act.ID, "update_user_role", "user", r.PathValue("id"), req.Role)
+	s.audit(r.Context(), a.ID, "update_user_role", "user", id, req.Role)
 	respond(w, r, http.StatusOK, map[string]string{"status": "updated", "role": req.Role})
 }
 
@@ -162,7 +184,9 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		s.audit(r.Context(), a.ID, "delete_user", "user", id, res.Mode)
 		respond(w, r, http.StatusOK, res)
-	case errors.Is(err, service.ErrAdminOnly), errors.Is(err, service.ErrSuperAdminProtected):
+	case errors.Is(err, service.ErrAdminOnly),
+		errors.Is(err, service.ErrSuperAdminProtected),
+		errors.Is(err, service.ErrCannotModifySelf):
 		fail(w, r, http.StatusForbidden, err)
 	case errors.Is(err, service.ErrUserNotFound):
 		fail(w, r, http.StatusNotFound, err)

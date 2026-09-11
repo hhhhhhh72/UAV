@@ -57,8 +57,15 @@ func TestAdminDeleteUserSemantics(t *testing.T) {
 	}
 
 	// 保护与权限
-	if w := requestAs(t, app, http.MethodDelete, "/api/v1/admin/users/admin", nil, "admin-1", domain.RolePlatformAdmin); w.Code != http.StatusForbidden {
-		t.Fatalf("内置超管应 403，实际 %d %s", w.Code, w.Body.String())
+	// 自锁保护：管理员不能删自己（此前这条路径没有任何保护——唯一的平台管理员
+	// 把自己删掉，后台就再没人能登录）。
+	if w := requestAs(t, app, http.MethodDelete, "/api/v1/admin/users/admin-1", nil, "admin-1", domain.RolePlatformAdmin); w.Code != http.StatusForbidden {
+		t.Fatalf("删自己应 403，实际 %d %s", w.Code, w.Body.String())
+	}
+	// 幽灵 id "admin" 不再是"受保护的内置超管"，它只是个不存在的账号 → 404
+	// （真正的超管保护按 SUPER_ADMIN_PHONE 命中真实账号，见 service.TestDeleteUserGuards）。
+	if w := requestAs(t, app, http.MethodDelete, "/api/v1/admin/users/admin", nil, "admin-1", domain.RolePlatformAdmin); w.Code != http.StatusNotFound {
+		t.Fatalf("幽灵 id admin 应 404，实际 %d %s", w.Code, w.Body.String())
 	}
 	if w := requestAs(t, app, http.MethodDelete, "/api/v1/admin/users/worker-4", nil, "admin-2", domain.RoleAssociationAdmin); w.Code != http.StatusForbidden {
 		t.Fatalf("非平台管理员应 403，实际 %d %s", w.Code, w.Body.String())

@@ -1519,6 +1519,9 @@ func (r *userRepo) FindByID(ctx context.Context, id string) (domain.User, error)
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, wechat_openid, COALESCE(phone_ciphertext,''), password_hash, name, avatar_url, gender, birthday, region, bio, role, status, token_version, version, created_at, updated_at FROM users WHERE id=$1 AND deleted_at IS NULL`, id).
 		Scan(&u.ID, &u.WechatOpenID, &u.PhoneCipher, &u.PasswordHash, &u.Name, &u.AvatarURL, &u.Gender, &u.Birthday, &u.Region, &u.Bio, &u.Role, &u.Status, &u.TokenVersion, &u.Version, &u.CreatedAt, &u.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.User{}, fmt.Errorf("user %s: %w", id, repository.ErrUserNotFound)
+	}
 	if r.cipher != nil && u.PhoneCipher != "" {
 		if dec, err := r.cipher.Decrypt(u.PhoneCipher); err == nil {
 			u.PhoneCipher = dec
@@ -1698,9 +1701,13 @@ func (r *userRepo) Count(ctx context.Context) (int, error) {
 func (r *userRepo) UpdateRole(ctx context.Context, id string, role domain.Role) error {
 	// 角色变更同时令牌版本+1：已签发 token 立即失效（重登后生效新角色，
 	// 防"降权后旧 token 继续以高权限使用"）。
-	_, err := r.pool.Exec(ctx, `UPDATE users SET role=$1, token_version=token_version+1, version=version+1, updated_at=NOW() WHERE id=$2`, string(role), id)
+	tag, err := r.pool.Exec(ctx, `UPDATE users SET role=$1, token_version=token_version+1, version=version+1, updated_at=NOW() WHERE id=$2 AND deleted_at IS NULL`, string(role), id)
 	if err != nil {
 		return fmt.Errorf("update role for %s: %w", id, err)
+	}
+	// 账号不存在（或已注销）时不能回"改成功了"
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("update role for %s: %w", id, repository.ErrUserNotFound)
 	}
 	return nil
 }

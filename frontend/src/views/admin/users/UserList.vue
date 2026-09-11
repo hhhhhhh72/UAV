@@ -34,13 +34,18 @@
       </template>
       <template #actions="{ record }">
         <a-space :size="4">
-          <a-button v-if="isSuperAdmin && record.id !== 'admin'" type="text" size="small" @click="toggleRole(record)">
-            {{ record.role === 'platform_admin' ? '取消管理员' : '设为管理员' }}
-          </a-button>
-          <span v-else-if="record.id === 'admin'" class="super-admin-tip">超级管理员</span>
-          <a-button v-if="isSuperAdmin && record.id !== 'admin'" type="text" size="small" @click="openResetPwd(record)">重置密码</a-button>
-          <a-button v-if="isSuperAdmin && record.id !== 'admin' && record.status === 'active'" type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
-          <span v-else-if="record.status === 'deleted'" class="purge-tip">缓冲期内不可恢复</span>
+          <!-- 超级管理员（后端按 SUPER_ADMIN_PHONE 标记）与「我自己」都不给操作入口：
+               前者受保护，后者是防自锁（把自己降级/删除，平台就没人能管了）。 -->
+          <span v-if="record.is_super_admin" class="super-admin-tip">超级管理员</span>
+          <template v-else-if="record.id !== currentUserId">
+            <a-button v-if="isPlatformAdmin" type="text" size="small" @click="toggleRole(record)">
+              {{ record.role === 'platform_admin' ? '取消管理员' : '设为管理员' }}
+            </a-button>
+            <a-button v-if="isPlatformAdmin" type="text" size="small" @click="openResetPwd(record)">重置密码</a-button>
+            <a-button v-if="isPlatformAdmin && record.status === 'active'" type="text" status="danger" size="small" @click="handleDelete(record)">删除</a-button>
+            <span v-else-if="record.status === 'deleted'" class="purge-tip">缓冲期内不可恢复</span>
+          </template>
+          <span v-else class="self-tip">当前账号</span>
         </a-space>
       </template>
       <template #empty>
@@ -79,7 +84,7 @@
             <a-option value="individual">个人用户</a-option>
             <a-option value="enterprise">企业用户</a-option>
             <a-option value="association_admin">协会管理员</a-option>
-            <a-option v-if="isSuperAdmin" value="platform_admin">平台管理员</a-option>
+            <a-option v-if="isPlatformAdmin" value="platform_admin">平台管理员</a-option>
           </a-select>
         </a-form-item>
         <a-form-item label="初始密码" required>
@@ -110,7 +115,9 @@ const crudRef = ref()
 const api = useAdminApi('users')
 const defaultParams = { role: '' }
 
-const { isSuperAdmin } = useAuth()
+// isPlatformAdmin：当前登录人是不是平台管理员（决定能不能改别人的角色/密码）；
+// currentUserId：当前登录人自己的账号 ID（列表里对自己不给操作入口，防自锁）。
+const { isPlatformAdmin, currentUserId } = useAuth()
 
 const roleTagType = (r) => ({ platform_admin: 'green', association_admin: 'orange', enterprise: 'arcoblue', individual: 'gray' }[r] || 'gray')
 
@@ -242,7 +249,9 @@ const handleDelete = (row) => {
 <style scoped>
 .page { max-width: 1200px; margin: 0 auto; }
 
-.super-admin-tip { color: var(--color-text-2); font-size: 12px; }
+.super-admin-tip { color: #0A66C2; font-size: 12px; font-weight: 500; }
+
+.self-tip { color: var(--color-text-3); font-size: 12px; }
 
 .purge-tip { color: var(--color-text-3); font-size: 11px; line-height: 1.4; margin-top: 2px; }
 

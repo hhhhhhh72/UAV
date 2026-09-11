@@ -495,18 +495,36 @@ func main() {
 		app.SetStorage("memory")
 	}
 
-	// Seed super admin user from SUPER_ADMIN_PHONE env var.
-	superPhone := os.Getenv("SUPER_ADMIN_PHONE")
+	// 超级管理员（SUPER_ADMIN_PHONE）：
+	//   1) 注入服务端——后台用户列表用它标记超管行，账号处置用它做"不可删除/不可降级"保护，
+	//      微信登录用它给对应账号发 platform_admin；
+	//   2) 账号不存在时按「登录名=手机号」约定补建 user-<手机号>（不再建裸手机号 id 的重复账号）。
+	// 已存在则什么都不做——绝不因为环境变量改动而静默给某个账号提权。
+	superPhone := cfg.Admin.SuperAdminPhone
+	app.SetSuperAdminPhone(superPhone)
 	if superPhone != "" {
 		seedCtx, seedCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer seedCancel()
-		if _, err := userRepo.FindByID(seedCtx, superPhone); err != nil {
+		existingID := ""
+		for _, candidate := range []string{"user-" + superPhone, superPhone} {
+			if u, err := userRepo.FindByID(seedCtx, candidate); err == nil {
+				existingID = u.ID
+				break
+			}
+		}
+		if existingID != "" {
+			slog.Info("super admin already exists", "id", existingID)
+		} else {
 			now := time.Now()
-			userRepo.Create(seedCtx, domain.User{
-				ID: superPhone, WechatOpenID: superPhone, Role: domain.RolePlatformAdmin,
+			if _, err := userRepo.Create(seedCtx, domain.User{
+				ID: "user-" + superPhone, WechatOpenID: "phone:" + superPhone,
+				Role: domain.RolePlatformAdmin, Name: "超级管理员",
 				Status: "active", Version: 1, CreatedAt: now, UpdatedAt: now,
-			})
-			slog.Info("seeded super admin", "phone", superPhone)
+			}); err != nil {
+				slog.Warn("seed super admin failed", "phone", superPhone, "error", err)
+			} else {
+				slog.Info("seeded super admin", "id", "user-"+superPhone)
+			}
 		}
 	}
 

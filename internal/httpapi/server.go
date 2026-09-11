@@ -108,6 +108,9 @@ type Server struct {
 	appSvc            *service.ApplicationService
 	userRepo          repository.UserRepository
 	userSvc           *service.UserService
+	// superAdminPhone 超级管理员手机号（SUPER_ADMIN_PHONE）：列表用它标记超管行，
+	// 微信登录用它给对应账号发 platform_admin 角色。由 main.go 装配注入。
+	superAdminPhone string
 	refreshRepo       repository.RefreshTokenRepository
 	tokens            *TokenManager
 	rateLimiter       *rateLimiter
@@ -282,6 +285,21 @@ func (s *Server) SetDBPinger(p interface{ Ping(context.Context) error }) { s.dbP
 
 // SetStorage sets the storage backend name shown in health checks.
 func (s *Server) SetStorage(name string) { s.storage = name }
+
+// SetSuperAdminPhone 注入超级管理员手机号（来自 SUPER_ADMIN_PHONE，由 main.go 装配）。
+//
+// 同时透传给 UserService：注入的账号受保护（不可删除、不可降级）。
+// 传空串时回退读一次环境变量，避免非 main.go 的装配路径静默失去超管语义。
+func (s *Server) SetSuperAdminPhone(phone string) {
+	phone = strings.TrimSpace(phone)
+	if phone == "" {
+		phone = strings.TrimSpace(os.Getenv("SUPER_ADMIN_PHONE"))
+	}
+	s.superAdminPhone = phone
+	if s.userSvc != nil {
+		s.userSvc.SetSuperAdminPhone(phone)
+	}
+}
 
 // New business module service setters.
 func (s *Server) SetExpertService(svc *service.ExpertService)                   { s.expertSvc = svc }

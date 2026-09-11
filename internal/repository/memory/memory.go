@@ -1283,7 +1283,7 @@ func (r *memUserRepo) FindByID(ctx context.Context, id string) (domain.User, err
 			return u, nil
 		}
 	}
-	return domain.User{}, fmt.Errorf("user not found")
+	return domain.User{}, fmt.Errorf("user %s: %w", id, repository.ErrUserNotFound)
 }
 // All 仅未注销账号（与 PG 的 deleted_at IS NULL 过滤对齐）。
 func (r *memUserRepo) All(ctx context.Context) ([]domain.User, error) {
@@ -1363,10 +1363,11 @@ func (r *memUserRepo) UpdateRole(ctx context.Context, id string, role domain.Rol
 	for i := range r.items {
 		if r.items[i].ID == id {
 			r.items[i].Role = role
+			r.items[i].TokenVersion++
 			return nil
 		}
 	}
-	return fmt.Errorf("user not found")
+	return fmt.Errorf("user %s: %w", id, repository.ErrUserNotFound)
 }
 
 func (r *memUserRepo) UpdateAvatar(ctx context.Context, userID, avatarURL string) error {

@@ -205,18 +205,28 @@ func TestUserContentCleanupPlanInvariants(t *testing.T) {
 	}
 }
 
-// 权限与保护：非管理员 / 内置超管 / 不存在的账号；被拒路径不得改动账号。
+// 权限与保护：非管理员 / 超级管理员（SUPER_ADMIN_PHONE 指定）/ 不能删自己 / 不存在的账号；
+// 被拒路径不得改动任何账号。
+//
+// 语义变更（2026-09-11）：此前保护的是字面 id "admin"——库里根本不存在的幽灵账号；
+// 现在保护的是真实的超管（按手机号命中），并新增"不能删自己"的自锁保护。
 func TestDeleteUserGuards(t *testing.T) {
 	ctx := context.Background()
 	userRepo := memory.NewUserRepository(nil)
 	seedUser(t, userRepo, "user-1", domain.RoleIndividual)
-	svc := service.NewUserService(userRepo)
+	seedUser(t, userRepo, "user-19800000000", domain.RolePlatformAdmin)
+	svc := service.NewUserService(userRepo, service.WithSuperAdminPhone("19800000000"))
 
 	if _, err := svc.DeleteUser(ctx, domain.Actor{ID: "ent-1", Role: domain.RoleEnterprise}, "user-1"); !errors.Is(err, service.ErrAdminOnly) {
 		t.Fatalf("非管理员应被拒，实际 %v", err)
 	}
-	if _, err := svc.DeleteUser(ctx, adminUserActor(), "admin"); !errors.Is(err, service.ErrSuperAdminProtected) {
-		t.Fatalf("内置超管应受保护，实际 %v", err)
+	// 超级管理员（配置里的手机号命中 user-19800000000）不可删除
+	if _, err := svc.DeleteUser(ctx, adminUserActor(), "user-19800000000"); !errors.Is(err, service.ErrSuperAdminProtected) {
+		t.Fatalf("超级管理员应受保护，实际 %v", err)
+	}
+	// 不能删自己（防自锁：唯一管理员删了自己，后台就没人能进）
+	if _, err := svc.DeleteUser(ctx, adminUserActor(), adminUserActor().ID); !errors.Is(err, service.ErrCannotModifySelf) {
+		t.Fatalf("删自己应被拒，实际 %v", err)
 	}
 	if _, err := svc.DeleteUser(ctx, adminUserActor(), "ghost"); !errors.Is(err, service.ErrUserNotFound) {
 		t.Fatalf("不存在应报 ErrUserNotFound，实际 %v", err)
@@ -224,5 +234,46 @@ func TestDeleteUserGuards(t *testing.T) {
 	u, _ := userRepo.FindByID(ctx, "user-1")
 	if u.Status != domain.UserActive || u.TokenVersion != 0 || u.DeletedAt != nil {
 		t.Fatalf("拒绝路径不应改动账号: %+v", u)
+	}
+	admin, _ := userRepo.FindByID(ctx, "user-19800000000")
+	if admin.Status != domain.UserActive || admin.DeletedAt != nil {
+		t.Fatalf("超管拒绝路径不应改动账号: %+v", admin)
+	}
+}
+
+// ChangeRole 的三道闸：非平台管理员 / 改自己 / 改超管 / 非法角色 / 目标不存在；
+// 合法变更要真的改掉角色。
+func TestChangeRoleGuards(t *testing.T) {
+	ctx := context.Background()
+	userRepo := memory.NewUserRepository(nil)
+	seedUser(t, userRepo, "user-1", domain.RoleIndividual)
+	seedUser(t, userRepo, "user-19800000000", domain.RolePlatformAdmin)
+	svc := service.NewUserService(userRepo, service.WithSuperAdminPhone("19800000000"))
+
+	if err := svc.ChangeRole(ctx, domain.Actor{ID: "admin-2", Role: domain.RoleAssociationAdmin}, "user-1", domain.RoleEnterprise); !errors.Is(err, service.ErrAdminOnly) {
+		t.Fatalf("协会管理员改角色应被拒，实际 %v", err)
+	}
+	if err := svc.ChangeRole(ctx, adminUserActor(), adminUserActor().ID, domain.RoleIndividual); !errors.Is(err, service.ErrCannotModifySelf) {
+		t.Fatalf("改自己应被拒，实际 %v", err)
+	}
+	if err := svc.ChangeRole(ctx, adminUserActor(), "user-19800000000", domain.RoleIndividual); !errors.Is(err, service.ErrSuperAdminProtected) {
+		t.Fatalf("改超管应被拒，实际 %v", err)
+	}
+	if err := svc.ChangeRole(ctx, adminUserActor(), "user-1", domain.Role("superuser")); !errors.Is(err, service.ErrInvalidRole) {
+		t.Fatalf("非法角色应被拒，实际 %v", err)
+	}
+	if err := svc.ChangeRole(ctx, adminUserActor(), "ghost", domain.RoleEnterprise); !errors.Is(err, service.ErrUserNotFound) {
+		t.Fatalf("目标不存在应 404 语义，实际 %v", err)
+	}
+	if err := svc.ChangeRole(ctx, adminUserActor(), "user-1", domain.RoleEnterprise); err != nil {
+		t.Fatalf("合法变更应成功，实际 %v", err)
+	}
+	u, _ := userRepo.FindByID(ctx, "user-1")
+	if u.Role != domain.RoleEnterprise {
+		t.Fatalf("角色未生效: %+v", u.Role)
+	}
+	// 降权/升级都要作废旧令牌（token_version 自增）
+	if u.TokenVersion == 0 {
+		t.Fatalf("角色变更应自增 token_version 使旧令牌失效，实际 %d", u.TokenVersion)
 	}
 }

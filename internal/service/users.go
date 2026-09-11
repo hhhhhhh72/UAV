@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -31,6 +32,10 @@ type UserService struct {
 	files        UserFileCleaner // 可选：注销时把磁盘上的上传文件也真删掉
 	retention    time.Duration   // 缓冲期（默认 UserPurgeRetention，测试可覆盖）
 	retentionSet bool
+	// superAdminPhone 超级管理员手机号（来自 SUPER_ADMIN_PHONE）：该账号受保护，
+	// 不可删除、不可降级。空串 = 未配置，则只保留"不能改自己"的基础保护。
+	// 由装配点（main.go）注入——Service 层不读环境变量（分层铁律）。
+	superAdminPhone string
 }
 
 // UserFileCleaner 清理某用户上传的物理文件（由 service.FileService 实现）。
@@ -54,6 +59,27 @@ func WithPurgeRetention(d time.Duration) UserServiceOption {
 	}
 }
 
+// WithSuperAdminPhone 注入超级管理员手机号（空串表示未配置）。
+func WithSuperAdminPhone(phone string) UserServiceOption {
+	return func(s *UserService) { s.superAdminPhone = strings.TrimSpace(phone) }
+}
+
+// SetSuperAdminPhone 装配点后置注入（httpapi.NewServer 内部自建 UserService 时使用）。
+func (s *UserService) SetSuperAdminPhone(phone string) { s.superAdminPhone = strings.TrimSpace(phone) }
+
+// IsSuperAdminAccount 判断账号是否就是配置里的超级管理员。
+//
+// 三种形态任一命中即可：id 就是手机号（早期 seed 形态）、id 是 user-<手机号>（现行建号约定）、
+// 或 openid 是 phone:<手机号>（微信首登后绑定手机号）。phone 为空时恒为 false——
+// 没配 SUPER_ADMIN_PHONE 就退化成"只保护自己"，不虚构一个超管出来。
+func IsSuperAdminAccount(phone string, u domain.User) bool {
+	phone = strings.TrimSpace(phone)
+	if phone == "" {
+		return false
+	}
+	return u.ID == phone || u.ID == "user-"+phone || u.WechatOpenID == "phone:"+phone
+}
+
 func NewUserService(users repository.UserRepository, opts ...UserServiceOption) *UserService {
 	s := &UserService{users: users}
 	for _, o := range opts {
@@ -73,8 +99,13 @@ func (s *UserService) purgeRetention() time.Duration {
 var (
 	// ErrAdminOnly 仅平台管理员可处置账号。
 	ErrAdminOnly = errors.New("仅平台管理员可管理用户账号")
-	// ErrSuperAdminProtected 内置超管账号不可删除。
-	ErrSuperAdminProtected = errors.New("内置超级管理员账号不可删除")
+	// ErrSuperAdminProtected 超级管理员账号（SUPER_ADMIN_PHONE 指定的那个）受保护：
+	// 不可删除、不可变更角色。此前保护的是字面 id "admin"——一个数据库里根本不存在的
+	// 幽灵账号，而真正的管理员反而能被删掉/降级。
+	ErrSuperAdminProtected = errors.New("超级管理员账号受保护，不能删除或变更角色")
+	// ErrCannotModifySelf 不能对自己执行该操作：管理员把自己删了或降级了，
+	// 而平台又只有这一个管理员时，后台就再没人能登录（自锁）。
+	ErrCannotModifySelf = errors.New("不能对自己执行该操作，请让其他管理员操作")
 	// ErrUserNotFound 账号不存在（含已注销：注销对普通读取不可见）。
 	ErrUserNotFound = errors.New("用户不存在")
 )
@@ -259,6 +290,41 @@ type UserDeleteResult struct {
 	Note         string                      `json:"note"`
 }
 
+// ChangeRole 变更某个账号的角色（仅平台管理员）。
+//
+// 三道闸：
+//  1. 只有平台管理员能改（协会管理员即使拿到接口也改不了）；
+//  2. 不能改自己——防自锁（把自己从平台管理员降成个人，后台就没人能管了）；
+//  3. 超级管理员账号（SUPER_ADMIN_PHONE 指定）的角色不可变更，防止把唯一超管降权。
+//
+// 目标账号不存在 → ErrUserNotFound（改不存在的 id 不能回"改成功了"）。
+func (s *UserService) ChangeRole(ctx context.Context, a domain.Actor, targetID string, role domain.Role) error {
+	if a.Role != domain.RolePlatformAdmin {
+		return ErrAdminOnly
+	}
+	if !validUserRole(role) {
+		return fmt.Errorf("%w: %s", ErrInvalidRole, role)
+	}
+	if targetID == "" {
+		return fmt.Errorf("%w: 空 ID", ErrUserNotFound)
+	}
+	if targetID == a.ID {
+		return ErrCannotModifySelf
+	}
+	u, err := s.users.FindByID(ctx, targetID)
+	if err != nil {
+		return notFoundErr(ErrUserNotFound, "user", targetID, err)
+	}
+	if IsSuperAdminAccount(s.superAdminPhone, u) {
+		return ErrSuperAdminProtected
+	}
+	if err := s.users.UpdateRole(ctx, targetID, role); err != nil {
+		return notFoundErr(ErrUserNotFound, "user", targetID, err)
+	}
+	slog.Info("user role changed by admin", "target", targetID, "role", role, "admin", a.ID)
+	return nil
+}
+
 // DeleteUser 删除账号（唯一动作，不可恢复）：
 //
 //   - 立即失效：status=deleted + token_version 自增 + 回收 refresh_tokens / user_roles；
@@ -272,7 +338,13 @@ func (s *UserService) DeleteUser(ctx context.Context, a domain.Actor, id string)
 	if id == "" {
 		return UserDeleteResult{}, fmt.Errorf("%w: 空 ID", ErrUserNotFound)
 	}
-	if id == "admin" {
+	// 自锁保护：管理员不能删自己（平台只有一名管理员时会直接把后台锁死）。
+	if id == a.ID {
+		return UserDeleteResult{}, ErrCannotModifySelf
+	}
+	// 超级管理员保护：SUPER_ADMIN_PHONE 指定的账号不可删除。
+	// 找不到账号时不算超管，继续走下面的删除路径由仓储判 404（不改变 not-found 语义）。
+	if u, err := s.users.FindByID(ctx, id); err == nil && IsSuperAdminAccount(s.superAdminPhone, u) {
 		return UserDeleteResult{}, ErrSuperAdminProtected
 	}
 	// 不做 FindByID 预检：它带 deleted_at IS NULL 过滤，会把"重复删除"误判成其他错误；

@@ -712,7 +712,10 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		passwordHash = u.PasswordHash
 		matchedID = u.ID
 		if u.Role != "" {
-			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(u.Role), "status": u.Status}
+			// token_version 必须带上：中间件每次请求都拿库里的 token_version 与令牌比对，
+			// 改过/重置过密码的账号（tv 会自增）若签发时不带，登录成功也立刻被判"账号已失效"。
+			user = map[string]any{"id": u.ID, "phone": loginID, "role": string(u.Role),
+				"status": u.Status, "token_version": u.TokenVersion, "created_at": u.CreatedAt}
 		}
 		break
 	}
@@ -785,7 +788,7 @@ func (s *Server) h5AuthLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	accessToken, err := s.tokens.IssueJWT(actorFromMap(id, role), 15*time.Minute)
+	accessToken, err := s.tokens.IssueJWT(actorFromLoginUser(user, id, role), 15*time.Minute)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, fmt.Errorf("issue access token: %w", err))
 		return
@@ -1529,6 +1532,27 @@ func hashString(s string) uint32 {
 
 func actorFromMap(id, role string) domain.Actor {
 	return domain.Actor{ID: id, Role: domain.Role(role)}
+}
+
+// actorFromLoginUser 由登录查到的用户信息构造 Actor（含 token_version）。
+//
+// 为什么单独有这个函数：h5 密码登录此前用 actorFromMap 丢掉了 TokenVersion，签发出来的
+// 令牌 tv 恒为 0，而中间件会用库里的 token_version 复验——于是**任何改过或重置过密码的
+// 账号**（tv 已经 >0）登录都表现为"登录成功、下一个请求就 401 账号已失效"，
+// 管理后台会陷入"登录→被踢回登录页"的死循环。
+func actorFromLoginUser(user map[string]any, id, role string) domain.Actor {
+	a := domain.Actor{ID: id, Role: domain.Role(role)}
+	if user != nil {
+		switch tv := user["token_version"].(type) {
+		case int64:
+			a.TokenVersion = tv
+		case int:
+			a.TokenVersion = int64(tv)
+		case float64: // JSON 反序列化路径（users.json 兼容层）拿到的是 float64
+			a.TokenVersion = int64(tv)
+		}
+	}
+	return a
 }
 
 func randomSuffix(n int) string {
