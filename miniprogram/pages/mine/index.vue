@@ -259,6 +259,7 @@ const overviewTitle = computed(() => {
   if (identity.value === 'enterprise') return '企业服务概览'
   if (identity.value === 'pilot') return '飞手服务概览'
   if (identity.value === 'individual') return '我的参与'
+  if (identity.value === 'admin') return '平台概览'
   return '服务概览'
 })
 
@@ -298,6 +299,15 @@ const overviewCells = computed(() => {
       { value: c.orders || '0', label: '商城订单', go: goOrders },
     ]
   }
+  // 平台/协会管理账号：看平台总量与待办（数据来自 /api/v1/admin/dashboard）。
+  // 此前这里直接 return []，管理员登录后整张概览卡是空白的。
+  if (identity.value === 'admin') {
+    return [
+      { value: c.pendingEnterprises || '0', label: '待审企业', go: goAdminHint },
+      { value: c.totalDemands || '0', label: '平台需求', go: goAdminHint },
+      { value: c.totalUsers || '0', label: '平台用户', go: goAdminHint },
+    ]
+  }
   return []
 })
 
@@ -313,6 +323,9 @@ const overviewNote = computed(() => {
     return certified
       ? { lead: '认证已通过', rest: '· 可申请飞手认证或企业入驻' }
       : { lead: '尚未实名认证', rest: '· 完成认证后可申请飞手' }
+  }
+  if (identity.value === 'admin') {
+    return { lead: '平台管理账号', rest: '· 用户/配置/审核在网页后台操作' }
   }
   return null
 })
@@ -457,6 +470,23 @@ const fetchPilotStatus = async () => {
 const fetchOverviewCounts = async () => {
   overviewLoading.value = true
   const counts = {}
+  // 平台/协会管理账号：概览展示平台总量与待办（其余 mine 接口对管理员没有意义）
+  if (identity.value === 'admin') {
+    try {
+      const res = await request({ url: '/api/v1/admin/dashboard', data: { range: '30d' } })
+      const d = (res && (res.data || res)) || {}
+      counts.pendingEnterprises = String(d.pending_enterprises ?? 0)
+      counts.totalDemands = String(d.total_demands ?? 0)
+      counts.totalUsers = String(d.total_users ?? 0)
+    } catch (e) {
+      counts.pendingEnterprises = '—'
+      counts.totalDemands = '—'
+      counts.totalUsers = '—'
+    }
+    overviewCounts.value = counts
+    overviewLoading.value = false
+    return
+  }
   // 我的发布数：需求 + 服务 + 商品 + 课程 四类 mine 接口汇总（各自独立失败回退 0）
   const mineCount = async (url) => {
     try {
@@ -660,6 +690,11 @@ const goDeviceManage = () => {
 
 const goComingSoon = () => {
   uni.showToast({ title: '功能即将开放', icon: 'none' })
+}
+
+// 管理账号点概览格：小程序端没有管理页，提示去网页后台，避免点了没反应
+const goAdminHint = () => {
+  uni.showToast({ title: '请在网页后台查看', icon: 'none' })
 }
 
 const doLogout = () => {
