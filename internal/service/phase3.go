@@ -327,6 +327,13 @@ func (s *TradeOrderService) freezeForOrder(ctx context.Context, o domain.TradeOr
 	if s.escrow == nil || o.AmountFen <= 0 {
 		return nil
 	}
+	// 卖家必须先存在：订单是「先冻结买家、确认收货才放款给卖家」，卖家不存在时
+	// 放款侧会 fail-closed 拒付——买家既拿不到货也拿不回钱，钱卡死在冻结里。
+	// 生产上确有演示商品的 seller_id 是不存在的种子 ID，下单后必然走到这个死局。
+	// 宁可下单就失败，也不要把买家的钱冻进去。
+	if cerr := s.escrow.CheckRecipient(ctx, o.SellerID); cerr != nil {
+		return fmt.Errorf("商品卖家不存在，无法下单: %w", cerr)
+	}
 	// fail-closed：查询失败必须中止，否则重复冻结买家余额（同 Release 的 fail-open 缺陷）。
 	has, err := s.escrow.HasFrozen(ctx, o.BuyerID, tradeRefType, o.ID)
 	if err != nil {

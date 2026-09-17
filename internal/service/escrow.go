@@ -120,6 +120,25 @@ func (s *EscrowService) Freeze(ctx context.Context, userID string, amountFen int
 	return s.repo.Freeze(ctx, userID, amountFen, tx)
 }
 
+// CheckRecipient 用装配好的守卫校验收款人是否存在；未装配守卫时恒为 nil。
+//
+// 除了 Release 自己用，**先冻结后放款**的流程也必须在冻结前调用它：卖家不存在时
+// 放款侧会 fail-closed 拒付，于是买家的钱冻在托管金里——既拿不到货也拿不回钱。
+// 宁可下单就失败，也不要把钱冻进去。
+func (s *EscrowService) CheckRecipient(ctx context.Context, userID string) error {
+	if s.recipientExists == nil {
+		return nil
+	}
+	exists, err := s.recipientExists(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("check recipient %s: %w", userID, err)
+	}
+	if !exists {
+		return fmt.Errorf("recipient %q does not exist", userID)
+	}
+	return nil
+}
+
 func (s *EscrowService) Release(ctx context.Context, fromUser, toUser string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
 	if amountFen <= 0 {
 		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
@@ -145,14 +164,8 @@ func (s *EscrowService) Release(ctx context.Context, fromUser, toUser string, am
 	}
 	// 收款人必须真实存在（放在幂等短路之后：已放款的重试是无副作用的空操作，
 	// 不该因为收款人后来被删掉而报错）。
-	if s.recipientExists != nil {
-		exists, gerr := s.recipientExists(ctx, toUser)
-		if gerr != nil {
-			return domain.EscrowTransaction{}, fmt.Errorf("check release recipient %s: %w", toUser, gerr)
-		}
-		if !exists {
-			return domain.EscrowTransaction{}, fmt.Errorf("release recipient %q does not exist", toUser)
-		}
+	if cerr := s.CheckRecipient(ctx, toUser); cerr != nil {
+		return domain.EscrowTransaction{}, cerr
 	}
 	tx := newTx(fromUser, toUser, "release", refType, refID, amountFen)
 	return s.repo.Release(ctx, fromUser, toUser, amountFen, tx)
