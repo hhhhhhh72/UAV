@@ -1,3 +1,33 @@
-*.bat text eol=crlf
-# 服务器直接执行 .sh（bash 对 CRLF 敏感：set -o pipefail 会因 \r 报错）
+# 统一行尾：仓库内一律 LF，检出到 Windows 也不要变 CRLF。
+#
+# 2026-09-17 事故：deploy/db-backup.sh 在工作区是 CRLF，被打包上服务器后
+# `set -euo pipefail` 被读成 `pipefail\r` → invalid option name，
+# 定时备份从 9/16 起静默失败两天（cron 只留 Permission denied，无人知晓）。
+# 根因是 core.autocrlf=true 会把检出的文件改成 CRLF，而部署包打的是工作区。
+# 因此：* 一律 LF，Windows 脚本单独声明 CRLF。
+* text=auto eol=lf
+
+# Shell 脚本对 CRLF 零容忍（bash/dash 都会把 \r 当成命令的一部分）
 *.sh text eol=lf
+
+# Windows 专用脚本必须 CRLF，否则 cmd 解析异常
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制：不做任何行尾或编码转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.gz binary
+*.zip binary
+*.tar binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.exe binary
+*.so binary
+*.dll binary
