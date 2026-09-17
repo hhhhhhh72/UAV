@@ -2,8 +2,8 @@
   <view class="wo-page">
     <!-- 视角 tab -->
     <view class="wo-tabs">
-      <view class="wo-tab" :class="{ on: role === 'pub' }" @tap="role = 'pub'">我发出的</view>
-      <view class="wo-tab" :class="{ on: role === 'worker' }" @tap="role = 'worker'">我接到的</view>
+      <view class="wo-tab" :class="{ on: role === 'pub' }" @tap="pickTab('pub')">我发出的</view>
+      <view class="wo-tab" :class="{ on: role === 'worker' }" @tap="pickTab('worker')">我接到的</view>
     </view>
 
     <view v-if="loading" class="wo-state">加载中...</view>
@@ -36,9 +36,15 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { request, getStoredUser, requireLogin } from '../../utils/request'
 
-// 默认视角按身份：企业→我发出的；个人/飞手→我接到的（避免默认空 tab）
 const u0 = getStoredUser()
-const role = ref((u0 && (u0.role === 'enterprise' || u0.user_type === 'enterprise')) ? 'pub' : 'worker')
+// 视角默认值：**按实际有没有单决定**，不按角色猜，所以先留空，等 fetchAll 拿到数据再定
+// （见 defaultTabFor）。用户手动切过 tab 就不再自动改。
+//
+// 为什么不能按角色猜：协会账号是「运营方 + 市场主体」二合一，既会发单也会接单；
+// 旧逻辑只认 'enterprise'，会把协会账号当成接单方，登进来先看到空的「我接到的」。
+const role = ref('')
+let roleTouched = false
+const pickTab = (v) => { roleTouched = true; role.value = v }
 const loading = ref(true)
 const orders = ref([])
 
@@ -50,6 +56,22 @@ const formatTime = (iso) => (iso || '').slice(0, 16).replace('T', ' ')
 const user = getStoredUser()
 const myId = user && (user.id || user.user_id)
 
+// 发布型身份：企业、协会（运营方 + 市场主体）、平台
+const PUBLISHER_ROLES = ['enterprise', 'association_admin', 'platform_admin']
+const isPublisherIdentity = (u) => !!u && (PUBLISHER_ROLES.includes(String(u.role || '')) || u.user_type === 'enterprise')
+
+// 视角默认值：只有一边有单 → 就选那边；两边都有 → 先看自己发出的；
+// 一单都没有 → 退回身份倾向，这样空态文案才给得对。
+// 关键是不按角色**硬猜**——协会账号既能发单也能接单，按角色猜必然错一半。
+const defaultTabFor = (list) => {
+  if (!myId) return 'worker'
+  const hasPub = list.some((w) => w && w.publisher_id === myId)
+  const hasWorker = list.some((w) => w && w.worker_id === myId)
+  if (hasPub !== hasWorker) return hasPub ? 'pub' : 'worker'
+  if (hasPub) return 'pub'
+  return isPublisherIdentity(u0) ? 'pub' : 'worker'
+}
+
 const roleList = computed(() => {
   if (!myId) return []
   return orders.value.filter((w) => (role.value === 'pub' ? w.publisher_id === myId : w.worker_id === myId))
@@ -60,6 +82,8 @@ const fetchAll = async () => {
   try {
     const res = await request({ url: '/api/v1/work-orders/mine' })
     orders.value = Array.isArray(res) ? res : ((res && res.data) || [])
+    // 拿到真实数据后才定默认视角；用户已经手动切过就不覆盖
+    if (!roleTouched) role.value = defaultTabFor(orders.value)
   } catch (e) {
     orders.value = []
   } finally {

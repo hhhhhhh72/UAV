@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"drone-platform/internal/domain"
 	"drone-platform/internal/repository"
@@ -107,51 +106,5 @@ func (r *emergDeptRepo) ListDrills(ctx context.Context, deptID string) ([]domain
 	return out, nil
 }
 
-type assocMemberRepo struct {
-	mu    sync.RWMutex
-	items []domain.AssociationMember
-}
-
-func NewAssociationMemberRepository() repository.AssociationMemberRepository {
-	return &assocMemberRepo{}
-}
-func (r *assocMemberRepo) Create(ctx context.Context, m domain.AssociationMember) (domain.AssociationMember, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.items = append(r.items, m)
-	return m, nil
-}
-func (r *assocMemberRepo) FindByUserID(ctx context.Context, userID string) (domain.AssociationMember, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, m := range r.items {
-		if m.UserID == userID {
-			return m, nil
-		}
-	}
-	return domain.AssociationMember{}, fmt.Errorf("not found")
-}
-func (r *assocMemberRepo) List(ctx context.Context, role string, offset, limit int) ([]domain.AssociationMember, int, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	filtered := make([]domain.AssociationMember, 0)
-	for _, m := range r.items {
-		if role == "" || string(m.Role) == role {
-			filtered = append(filtered, m)
-		}
-	}
-	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
-	return paginateSlice(filtered, offset, limit)
-}
-func (r *assocMemberRepo) UpdateRole(ctx context.Context, id string, role domain.AssociationRole) (domain.AssociationMember, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i, m := range r.items {
-		if m.ID == id {
-			r.items[i].Role = role
-			r.items[i].UpdatedAt = time.Now()
-			return r.items[i], nil
-		}
-	}
-	return domain.AssociationMember{}, fmt.Errorf("not found")
-}
+// assocMemberRepo 已移除：协会 8 级角色从未在生产使用（0 行数据、前端零调用）。
+// 见 internal/domain/models_batch3.go 顶部说明与迁移 000113。

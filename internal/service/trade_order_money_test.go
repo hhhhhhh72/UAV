@@ -56,7 +56,7 @@ func TestTradeOrderMoneyHappyPath(t *testing.T) {
 		t.Fatalf("充值: %v", err)
 	}
 
-	o, err := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 10000)
+	o, err := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 10000, service.OrderReceiver{}, false)
 	if err != nil {
 		t.Fatalf("下单: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestTradeOrderMoneyHappyPath(t *testing.T) {
 		t.Fatalf("付款阶段卖家不应到账，实际 %d", b)
 	}
 
-	if _, err := tradeSvc.UpdateStatus(ctx, o.ID, "seller-1", "shipped"); err != nil {
+	if _, err := tradeSvc.ShipOrder(ctx, domain.Actor{ID: "seller-1", Role: domain.RoleEnterprise}, o.ID, "顺丰速运", "SF-TEST-1"); err != nil {
 		t.Fatalf("发货: %v", err)
 	}
 	if _, err := tradeSvc.UpdateStatus(ctx, o.ID, "buyer-1", "completed"); err != nil {
@@ -100,7 +100,7 @@ func TestTradeOrderMoneyHappyPath(t *testing.T) {
 func TestTradeOrderPayInsufficientBalance(t *testing.T) {
 	tradeSvc, prodRepo, escrowSvc, ctx := newMoneyFlow(t)
 	productID := seedProduct(t, ctx, prodRepo, "seller-1", 50000)
-	o, err := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 50000)
+	o, err := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 50000, service.OrderReceiver{}, false)
 	if err != nil {
 		t.Fatalf("下单: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestTradeOrderCancelRefunds(t *testing.T) {
 	if _, err := escrowSvc.Deposit(ctx, "buyer-1", 20000); err != nil {
 		t.Fatalf("充值: %v", err)
 	}
-	o, _ := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 20000)
+	o, _ := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 20000, service.OrderReceiver{}, false)
 	if _, err := tradeSvc.PayOrder(ctx, "buyer-1", o.ID); err != nil {
 		t.Fatalf("付款: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestTradeOrderAftersaleBeforeSettle(t *testing.T) {
 	if _, err := escrowSvc.Deposit(ctx, "buyer-1", 10000); err != nil {
 		t.Fatalf("充值: %v", err)
 	}
-	o, _ := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 10000)
+	o, _ := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 10000, service.OrderReceiver{}, false)
 	if _, err := tradeSvc.PayOrder(ctx, "buyer-1", o.ID); err != nil {
 		t.Fatalf("付款: %v", err)
 	}
@@ -175,11 +175,11 @@ func TestTradeOrderAftersaleAfterSettle(t *testing.T) {
 	if _, err := escrowSvc.Deposit(ctx, "buyer-1", 10000); err != nil {
 		t.Fatalf("充值: %v", err)
 	}
-	o, _ := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 10000)
+	o, _ := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 10000, service.OrderReceiver{}, false)
 	if _, err := tradeSvc.PayOrder(ctx, "buyer-1", o.ID); err != nil {
 		t.Fatalf("付款: %v", err)
 	}
-	if _, err := tradeSvc.UpdateStatus(ctx, o.ID, "seller-1", "shipped"); err != nil {
+	if _, err := tradeSvc.ShipOrder(ctx, domain.Actor{ID: "seller-1", Role: domain.RoleEnterprise}, o.ID, "顺丰速运", "SF-TEST-1"); err != nil {
 		t.Fatalf("发货: %v", err)
 	}
 	if _, err := tradeSvc.UpdateStatus(ctx, o.ID, "buyer-1", "completed"); err != nil {
@@ -206,7 +206,7 @@ func TestTradeOrderAftersaleRejectedCanReapply(t *testing.T) {
 	if _, err := escrowSvc.Deposit(ctx, "buyer-1", 10000); err != nil {
 		t.Fatalf("充值: %v", err)
 	}
-	o, _ := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 10000)
+	o, _ := tradeSvc.Create(ctx, "buyer-1", productID, "seller-1", 10000, service.OrderReceiver{}, false)
 	if _, err := tradeSvc.PayOrder(ctx, "buyer-1", o.ID); err != nil {
 		t.Fatalf("付款: %v", err)
 	}

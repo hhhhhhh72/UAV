@@ -14,12 +14,12 @@ import (
 func TestPaidCourseFreeEnrollRejected(t *testing.T) {
 	courseRepo := memory.NewCourseRepository()
 	if _, err := courseRepo.Create(context.Background(), domain.TrainingCourse{
-		ID: "c-paid", Title: "付费课", PriceFen: 50000,
+		ID: "c-paid", Title: "付费课", PriceFen: 50000, OrgID: "org-1",
 	}); err != nil {
 		t.Fatalf("seed course: %v", err)
 	}
 	if _, err := courseRepo.Create(context.Background(), domain.TrainingCourse{
-		ID: "c-free", Title: "免费课", PriceFen: 0,
+		ID: "c-free", Title: "免费课", PriceFen: 0, OrgID: "org-1",
 	}); err != nil {
 		t.Fatalf("seed free course: %v", err)
 	}

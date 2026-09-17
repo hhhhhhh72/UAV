@@ -112,17 +112,17 @@ func NewCaseService(repo repository.CaseRepository) *CaseService {
 func (s *CaseService) Create(ctx context.Context, in domain.CaseInput) (domain.CaseEntry, error) {
 	now := time.Now()
 	c := domain.CaseEntry{
-		ID:             nextID("case"),
-		Title:          in.Title,
-		Category:       in.Category,
-		Description:    in.Description,
-		Images:         in.Images,
-		VideoURL:       in.VideoURL,
-		ClientName:     in.ClientName,
-		Result:         in.Result,
-		Status:         caseCreateStatus(in.Status),
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:          nextID("case"),
+		Title:       in.Title,
+		Category:    in.Category,
+		Description: in.Description,
+		Images:      in.Images,
+		VideoURL:    in.VideoURL,
+		ClientName:  in.ClientName,
+		Result:      in.Result,
+		Status:      caseCreateStatus(in.Status),
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	return s.repo.Create(ctx, c)
 }

@@ -25,8 +25,8 @@ func TestNegativeAmountsRejected(t *testing.T) {
 	}
 
 	// 商品价格
-	tSvc := service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository())
-	if _, err := tSvc.CreateProduct(context.Background(), actor, domain.ProductDrone, "t", "", "", "", "", -1, nil); err == nil {
+	tSvc := service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository(), nil, nil)
+	if _, err := tSvc.CreateProduct(context.Background(), actor, domain.ProductDrone, "t", "", "", "", "", "", "", -1, nil, nil); err == nil {
 		t.Fatal("negative product price accepted")
 	}
 
@@ -46,7 +46,7 @@ func TestNegativeAmountsRejected(t *testing.T) {
 	}
 
 	// 服务供给价格
-	slSvc := service.NewServiceListingService(memory.NewServiceListingRepository())
+	slSvc := service.NewServiceListingService(memory.NewProductRepository())
 	if _, err := slSvc.CreateListing(context.Background(), "p", "n", "t", "c", "d", "r", -1, "u", "", ""); err == nil {
 		t.Fatal("negative service listing price accepted")
 	}

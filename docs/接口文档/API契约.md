@@ -29,7 +29,7 @@
 |------|------|------|
 | **认证** | `POST /auth/wechat/login` `POST /auth/refresh` `POST /auth/logout` `GET /me` | 微信登录/令牌刷新/登出 |
 | **企业** | `GET/POST/PATCH /enterprises` `POST /enterprises/{id}/submit` `POST /admin/enterprises/{id}/review` `POST /admin/enterprises/batch-review` | 入驻/审核/批量 |
-| **需求** | `GET/POST /demands` `POST /demands/{id}/intents` `GET /intents/mine` `POST /demands/{id}/complete` `POST /demands/{id}/cancel` | 发布/意向登记/完成/取消 |
+| **需求** | `GET/POST /demands` `POST /demands/{id}/intents` `GET /demands/{id}/intents` `GET /intents/mine` `GET /intents/received` `POST /demands/{id}/intents/{intentID}/accept\|reject` `POST /demands/{id}/complete` `POST /demands/{id}/cancel` | 发布/意向登记/发布方查看收到的意向/同意或拒绝接单/完成/取消。`GET /intents/received` 跨该发布者名下全部需求一次返回，带 `demand_title`；供小程序消息页在「仅一条待处理申请」时直接一键同意（金额=面议） |
 | **招聘** | `GET/POST /jobs` `GET /jobs/mine` `POST /jobs/{id}/publish|close` `GET/POST /resumes` `GET/POST /applications` `PATCH /applications/{id}/status` | 职位/简历/投递。求职者的 `GET /applications` 内联 `job` 快照（标题/地点/薪资/状态，职位已删为 null）与 `enterprise_name`；带 `?job_id=` 时返回该职位的投递者（含简历快照，企业侧） |
 | **社区** | `GET/POST /posts` `POST /posts/{id}/comments` `POST /reports` | 帖子/评论/举报 |
 | **二手** | `GET/POST /listings` `POST /listings/{id}/favorites` | 商品/收藏 |
@@ -65,5 +65,4 @@
 | **院校** | `GET /colleges` `POST /admin/colleges` | 院校展示 |
 | **校企** | `GET /cooperation-programs` `POST /cooperation-programs` | 校企共建 |
 | **院校** | `GET /resource-pools` `POST /admin/resource-pools` | 资源池 |
-| **协会** | `GET /association-members` `GET /association-members/me` `POST /admin/association-members` | 协会权限 |
 | **匹配** | `GET /recommendations` `GET /match` | 智能匹配 |

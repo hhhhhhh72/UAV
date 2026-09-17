@@ -3,7 +3,47 @@
 // 后端接口未接入前，发布内容以本地 storage 持久化，状态转换在本模块内可运行；
 // 接入后端后仅需替换 getPosts/savePosts 与提交动作，页面结构与视觉不变。
 
+import { SERVICE_PROD_TYPES } from './enums'
+
 const STORAGE_KEY = 'publish_posts'
+
+// ==================== 商品或服务类型映射 ====================
+// 发布页选项（中文，见 TYPES.product 的 productType 字段）→ 后端 domain.ProductType 枚举（7 类）。
+// 这是**唯一**一份中文 → 枚举映射：pages/publish/preview.vue 曾自带 PROD_TYPE_MAP，
+// utils/hallData.js 又自带一份中文 → 大厅分类表，三份各改各的，
+// 于是「维修服务」在一处算服务、在另一处落进「配件」页签。新增类型只改这里。
+export const PROD_TYPE_MAP = {
+  整机: 'drone',
+  零部件: 'part',
+  载荷设备: 'part',
+  租赁设备: 'part',
+  维修服务: 'repair',
+  航拍服务: 'aerial',
+  试飞测试: 'test_fly',
+  检测标定: 'calibration',
+  空域协调: 'airspace',
+}
+
+// 当前选中的「商品或服务类型」选项是否属于服务类。
+// 服务没有"成色"概念：后端 internal/service/trading.go:159-167 对空成色直接归一为 'new'，
+// 本就不要求填写；前端却把它标成必填（f[4]=true），等于逼着卖航拍服务的人选一个"二手 95 新"。
+export function isServiceTypeOption(label) {
+  const prodType = PROD_TYPE_MAP[String(label || '').trim()] || ''
+  return SERVICE_PROD_TYPES.indexOf(prodType) >= 0
+}
+
+// prod_type → 发布页选项（PROD_TYPE_MAP 的反查）。编辑已发布商品回填时用。
+// 注意：part 反查只会得到「零部件」——后端把 零部件/载荷设备/租赁设备 都存成 part，
+// 三者在库里不可区分（信息丢失），回填只能取其一。
+export function prodTypeToOption(prodType) {
+  const t = String(prodType || '').trim()
+  for (const k of Object.keys(PROD_TYPE_MAP)) {
+    if (PROD_TYPE_MAP[k] === t) return k
+  }
+  return ''
+}
+
+// ==================== 类型配置 ====================
 
 // ==================== 类型配置 ====================
 // sections[].fields: [id, label, placeholder, kind(input|select|textarea), required, options?, rule?]
@@ -73,34 +113,76 @@ export const TYPES = {
     ],
   },
   product: {
-    name: '发布商品设备', short: '商品设备', color: 'product',
-    desc: '按商品逻辑补齐型号、成色、价格和交付方式',
-    steps: ['商品信息', '价格与交付'],
+    // name 是 form.vue:6/22 的导航标题与表单大标题，short 是 preview.vue:11 的「… · 发布预览」。
+    // 发布入口卡片（pages/publish/index.vue:82）早已叫「发布商品与服务」，这里不改就会出现
+    // 「从『发布商品与服务』点进去、页面标题写着『发布商品设备』」的自我矛盾。
+    name: '发布商品与服务', short: '商品与服务', color: 'product',
+    desc: '先选发布类型，表单只显示该类型要填的字段',
+    steps: ['基本信息', '价格与交付'],
     stepped: true,
+    // 字段数组第 8 位（f[7]）是 scope：'goods' 只在「商品」下出现，
+    // 'service' 只在「服务能力」下出现，留空则两分支共用。
+    // 实物商品与服务能力是两种业务对象，字段集几乎不重叠（商品有成色/型号/物流，
+    // 服务有类目/覆盖区域/计价单位）。此前硬塞进一个表单，只能靠一堆条件显隐打补丁，
+    // 结果每个人都看到一半用不上的字段 —— 改为第一步显式分流。
+    //
+    // 注意：**后端仍是同一张 drone_products 表**（服务并入商品，migration 000110），
+    // 分流只发生在表单层，两个分支都提交 POST /api/v1/products。
     sections: [
       {
-        title: '商品信息', note: '商品标题、类型和实拍图决定买家是否继续查看',
+        title: '基本信息', note: '发布类型决定下面出现哪些字段',
         fields: [
-          ['title', '商品标题', '例如：DJI M350 RTK 行业套装', 'input', true],
-          ['productType', '商品类型', '选择整机、零件或服务', 'select', true, ['整机', '零部件', '载荷设备', '租赁设备', '维修服务']],
-          ['condition', '成色', '选择商品状态', 'select', true, ['全新未拆封', '全新', '二手 95 新', '二手 90 新']],
+          ['bizKind', '发布类型', '', 'segment', true, ['商品', '服务能力']],
+          ['title', '标题', '商品：DJI M350 RTK 行业套装 / 服务：电力线路巡检', 'input', true],
+          // 商品：后端 prod_type ∈ {drone, part}。
+          // 载荷设备 / 租赁设备同样落 part（见 preview.vue 的 PROD_TYPE_MAP）——
+          // 后端只到这一粒度，三者在库里不可区分。
+          ['productType', '商品类型', '选择商品类型', 'select', true,
+            ['整机', '零部件', '载荷设备', '租赁设备'], undefined, 'goods'],
+          // 服务：后端 prod_type ∈ {repair, aerial, test_fly, calibration, airspace}。
+          // 此前小程序只能产出 drone/part/repair 三类，航拍/试飞/检测/空域**根本发不出来**。
+          ['serviceType', '服务类型', '选择服务类型', 'select', true,
+            ['维修服务', '航拍服务', '试飞测试', '检测标定', '空域协调'], undefined, 'service'],
+          ['condition', '成色', '选择商品状态', 'select', true,
+            ['全新未拆封', '全新', '二手 95 新', '二手 90 新'], undefined, 'goods'],
+          ['brand', '品牌/型号', '例如：DJI / M350 RTK', 'input', true, undefined, undefined, 'goods'],
+          ['category', '服务类目（选填）', '如：巡检 / 测绘 / 应急', 'input', false, undefined, undefined, 'service'],
         ],
         upload: true,
       },
       {
-        title: '价格与库存',
+        title: '价格',
         fields: [
-          ['price', '售价', '例如：68000', 'input', true, undefined, 'number'],
-          ['stock', '可售数量（选填）', '例如：1；平台按单件售出，不锁库存', 'input', false, undefined, 'number'],
-          ['brand', '品牌/型号', '例如：DJI / M350 RTK', 'input', true],
+          // 价格方式必须显式选择：此前靠"售价留空 = 面议"隐式表达，
+          // 后端无法区分"卖家选了面议"和"卖家填了 0 元"，设备区卡片还把它显示成 ¥0。
+          ['priceMode', '价格方式', '选择报价方式', 'select', true, ['明码标价', '面议']],
+          ['price', '售价 / 报价', '例如：68000；选择面议时留空', 'input', false, undefined, 'number'],
+          // 报价单位只对服务有意义：没有它"¥800"不知道是每次还是每天。
+          ['unit', '报价单位（选填）', '如：次 / 天 / 公里', 'input', false, undefined, undefined, 'service'],
         ],
       },
       {
         title: '交付方式',
         fields: [
-          ['delivery', '交付方式（选填）', '选择交付方式', 'select', false, ['自提', '同城配送', '物流发货', '可协商']],
-          ['description', '商品说明', '配置清单、使用情况、售后承诺等', 'textarea', true],
+          // 交付方式只对实物商品有意义：它决定下单时是否强制收货地址
+          //（OrderNeedsReceiver，internal/service/trading.go:81）。
+          // 服务类的兜底是 prod_type 不属于 drone/part → 本就不需要地址。
+          ['delivery', '交付方式（选填）', '选择交付方式', 'select', false,
+            ['自提', '同城配送', '物流发货', '可协商'], undefined, 'goods'],
+          // 服务区域：语义是"服务能覆盖到哪"，不是精确区县。
+          // 生产数据里覆盖范围式取值占多数（重庆及西南 / 川渝地区 / 重庆及周边 / 重庆全域），
+          // 单选区县表达不了；需求/课程那两个区县选择器写的是**另一列**（district）——那边要规范
+          // 区县是因为需求大厅按区县筛，而供给大厅没有地区筛选。
+          // 所以做预置范围 +「其他」手填：主流取值规范化，同时不丢表达能力。
+          ['region', '服务区域（选填）', '选择服务覆盖范围', 'select', false,
+            ['重庆全域', '重庆主城', '渝东北', '渝东南', '川渝地区', '全国', '其他'], undefined, 'service'],
+          // 选「其他」时才出现。required=true 只在字段可见时生效（见 form.vue fieldVisible）：
+          // 没选「其他」时它根本不渲染，requiredMissing 也就不会拿它拦人。
+          ['regionOther', '自定义服务区域', '如：渝东北 + 渝东南', 'input', true, undefined, undefined, 'service'],
+          ['description', '说明', '商品填配置清单、使用情况；服务填服务内容、交付成果', 'textarea', true],
         ],
+        // 详情图上传位：与「商品与服务」分区的顶部图集是两组独立的图
+        uploadDetail: true,
       },
     ],
   },
@@ -204,7 +286,47 @@ export function draftPosts() {
   return getPosts().filter((p) => p.statusKey === 'draft')
 }
 
+// 「我的发布」三个接口统一下拉 100 条。分页是否被截断靠它判断（见 pruneStalePointers）。
+export const MINE_PAGE_SIZE = 100
+
+// pruneStalePointers 清掉"指向已不存在后端实体"的本地死指针，返回清理条数。
+//
+// 为什么需要：本地记录里带 backendId 的只是后端实体的**指针**，后端那份才是真值。
+// 用户删掉需求/商品后指针就成了死链——所有"后端已有的就不重复展示/计数"的判据都是
+// id 比对，id 不在后端集合里就会被当成"后端没有"而漏出来，变成幽灵条目。
+//
+// complete 必须由调用方明确传 true，且只在**拿到完整权威列表**时才传：
+//   - 某个接口失败时会返回空数组，此时把"空"当成"实体已删"会把有效指针一起清掉；
+//   - 分页被截断（返回条数 == page_size）时，第 101 条之后的实体只是没返回，
+//     不是不存在，同样会误清。
+// 拿不准就别清：展示层已经能把死指针挡在外面，物理清理只是锦上添花。
+//
+// 只清"带 backendId 且非草稿"的记录。不带 backendId 的是纯本地记录（后端看不到，
+// 删了就真没了），草稿同理一律不碰。
+export function pruneStalePointers(liveIds, options) {
+  if (!options || options.complete !== true) return 0
+  const live = new Set((liveIds || []).map((v) => String(v)))
+  const list = getPosts()
+  const kept = list.filter(
+    (p) => !(p.backendId && p.statusKey !== 'draft' && !live.has(String(p.backendId)))
+  )
+  const removed = list.length - kept.length
+  if (removed > 0) savePosts(kept)
+  return removed
+}
+
 // ==================== 元数据/文案 ====================
+// 商品/服务共用的 meta 分支：发布类型决定读哪个 key
+//（商品 productType / 服务能力 serviceType）。
+// computeMeta 与 computePreviewMeta 两个函数都要用，抽出来免得两份各改各的。
+function productMeta(v) {
+  const t = v.productType || v.serviceType || '类型待定'
+  // 服务没有"成色"这个概念，第二个标签改用服务类目，
+  // 否则卖航拍服务的人会看到"商品状态待定"。
+  const mid = v.bizKind === '服务能力' ? (v.category || '类目待定') : (v.condition || '商品状态待定')
+  return [t, mid, v.price ? v.price + ' 元' : '价格待定']
+}
+
 // 列表/详情 meta：三个关键信息标签
 export function computeMeta(type, values) {
   const v = values || {}
@@ -214,7 +336,7 @@ export function computeMeta(type, values) {
     case 'service':
       return [v.category || '未选服务', v.range || '服务范围待定', v.quote || '报价待定']
     case 'product':
-      return [v.productType || '商品类型待定', v.condition || '商品状态待定', v.price ? v.price + ' 元' : '价格待定']
+      return productMeta(v)
     case 'course':
       return [v.certType || '课程类型待定', v.district || '所属区县待定', v.price ? v.price + ' 元' : '价格待定']
   }
@@ -230,7 +352,7 @@ export function computePreviewMeta(type, values) {
     case 'service':
       return [v.category || '未选服务', v.range || '服务范围待定', v.quote || '报价待定']
     case 'product':
-      return [v.productType || '商品类型待定', v.condition || '商品状态待定', v.price ? v.price + ' 元' : '价格待定']
+      return productMeta(v)
     case 'course':
       return [v.certType || '课程类型待定', v.district || '所属区县待定', v.price ? v.price + ' 元' : '价格待定']
   }

@@ -101,9 +101,10 @@ func (s *EnrollmentService) Review(ctx context.Context, a domain.Actor, id, acti
 	if !ok {
 		return domain.Enrollment{}, errors.New("报名状态已变更，请刷新后重试")
 	}
-	e.Status = to
-	e.ReviewNote = reason
-	updated, err := s.repo.Update(ctx, e)
+	// P0 修复：CAS 成功后只用"只写备注"的方法收尾。此前是 e.Status = to;
+	// e.ReviewNote = reason; s.repo.Update(ctx, e) —— e 是 CAS 之前的整行快照，
+	// 全列回写会把并发 completeEnrollment 已置的 completed 与已释放金额覆盖回去。
+	updated, err := s.repo.UpdateReviewNote(ctx, id, reason)
 	if err != nil {
 		return domain.Enrollment{}, fmt.Errorf("save review note: %w", err)
 	}
@@ -145,6 +146,13 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 	// 前端"仅剩 N/已满"全部是假数据，且 ListByCourse 全量计数把完成/驳回也算占座。
 	if s.courseRepo != nil {
 		if c, err := s.courseRepo.FindByID(ctx, courseID); err == nil {
+			// 无主课程不可报名：course.OrgID 决定学费结算方向（completeEnrollment 用
+			// Release(学员, course.OrgID, 学费)）。为空时 Release 直接 fail-closed，机构侧
+			// 「新的报名待审核」也无人可发——学员交了钱却永远毕不了业、学费永久冻结。
+			// 管理端建课路径历史上不写 org_id，生产上确实存在这样的 published 带价课程。
+			if c.OrgID == "" {
+				return domain.Enrollment{}, fmt.Errorf("该课程尚未指定开课机构，暂不能报名，请联系平台管理员")
+			}
 			// 防自购自卖：课程发布者（OrgID=本人）不可报名自己的课程——机构自导自演报名会
 			// 污染学员数据（刷报名数），且学费结算方向闭环（自己冻结-自己回收），违背托管金语义。
 			if c.OrgID != "" && c.OrgID == userID {
@@ -237,6 +245,13 @@ func (s *EnrollmentService) Update(ctx context.Context, a domain.Actor, e domain
 	if old.Status == "completed" && e.Status != "completed" {
 		return domain.Enrollment{}, fmt.Errorf("cannot change completed enrollment status")
 	}
+	// rejected 同样按终态处理：驳回时学费**已退回学员余额**（reviewEnrollment 驳回即退款），
+	// 再改回 approved/paid 会得到「钱退了却通过审核」的自相矛盾状态——随后
+	// completeEnrollment 想释放学费时，冻结里已经没有这笔钱（仓储层 frozen_fen >= amount
+	// 会拒），结业永远 500。要重新录取请让学员重新报名（会重新冻结）。
+	if old.Status == "rejected" && e.Status != "rejected" {
+		return domain.Enrollment{}, fmt.Errorf("cannot change rejected enrollment status (tuition already refunded)")
+	}
 	return s.repo.Update(ctx, e)
 }
 
@@ -312,10 +327,15 @@ func (s *TradeOrderService) freezeForOrder(ctx context.Context, o domain.TradeOr
 	if s.escrow == nil || o.AmountFen <= 0 {
 		return nil
 	}
-	if has, err := s.escrow.HasFrozen(ctx, o.BuyerID, tradeRefType, o.ID); err == nil && has {
+	// fail-closed：查询失败必须中止，否则重复冻结买家余额（同 Release 的 fail-open 缺陷）。
+	has, err := s.escrow.HasFrozen(ctx, o.BuyerID, tradeRefType, o.ID)
+	if err != nil {
+		return fmt.Errorf("check frozen %s: %w", o.ID, err)
+	}
+	if has {
 		return nil
 	}
-	_, err := s.escrow.Freeze(ctx, o.BuyerID, o.AmountFen, tradeRefType, o.ID)
+	_, err = s.escrow.Freeze(ctx, o.BuyerID, o.AmountFen, tradeRefType, o.ID)
 	return err
 }
 
@@ -357,7 +377,43 @@ func (s *TradeOrderService) refundBuyerIfAny(ctx context.Context, o domain.Trade
 	return nil
 }
 
-func (s *TradeOrderService) Create(ctx context.Context, buyerID, productID, sellerID string, amountFen int64) (domain.TradeOrder, error) {
+// ErrReceiverRequired 收货信息不完整（Handler 映射 400）。
+var ErrReceiverRequired = errors.New("收货信息不完整")
+
+// ErrShippingInvalid 发货参数不合法（单号缺失 / 订单状态不允许发货）。
+var ErrShippingInvalid = errors.New("发货信息不合法")
+
+// isPickupOrder 该订单对应的商品是否为「自提」交付。
+// 取不到商品时返回 false（按"需要单号"处理，宁可多要一个单号也不放过物流留痕）。
+func (s *TradeOrderService) isPickupOrder(ctx context.Context, productID string) bool {
+	if s.prodRepo == nil || productID == "" {
+		return false
+	}
+	p, err := s.prodRepo.FindByID(ctx, productID)
+	if err != nil {
+		return false
+	}
+	return p.Delivery == domain.DeliveryPickup
+}
+
+// OrderReceiver 收货信息（下单时快照到订单，不建地址簿）。
+type OrderReceiver struct {
+	Name    string
+	Phone   string
+	Region  string // 省市区，选填
+	Address string // 详细地址
+}
+
+// Complete 收货信息是否完整：收货人 / 手机号 / 详细地址三项必填，省市区选填。
+func (r OrderReceiver) Complete() bool {
+	return strings.TrimSpace(r.Name) != "" && strings.TrimSpace(r.Phone) != "" && strings.TrimSpace(r.Address) != ""
+}
+
+// Create 创建订单。
+//
+// requireReceiver 为 true 时必须给出完整收货信息——实物商品（整机/配件）走物流发货，
+// 没有地址卖家根本发不出去；预约/服务类商品不需要寄送，允许留空。
+func (s *TradeOrderService) Create(ctx context.Context, buyerID, productID, sellerID string, amountFen int64, rcvr OrderReceiver, requireReceiver bool) (domain.TradeOrder, error) {
 	// P3 修复：管理端建单金额/归属护栏——金额非负、三方必填、防自买自卖
 	// （此前负数金额可建单，空 buyer/seller 可造残缺订单）。
 	if amountFen < 0 {
@@ -369,14 +425,56 @@ func (s *TradeOrderService) Create(ctx context.Context, buyerID, productID, sell
 	if buyerID == sellerID {
 		return domain.TradeOrder{}, errors.New("buyer and seller must be different")
 	}
+	if requireReceiver && !rcvr.Complete() {
+		return domain.TradeOrder{}, fmt.Errorf("%w：请填写收货人、手机号和详细地址", ErrReceiverRequired)
+	}
 	now := time.Now()
 	// ID 含随机后缀：同纳秒并发下单会生成相同 UnixNano ID（内存 repo 不去重、PG 主键冲突）
-	o := domain.TradeOrder{ID: fmt.Sprintf("torder-%d-%d", now.UnixNano(), rand.Intn(100000)), ProductID: productID, BuyerID: buyerID, SellerID: sellerID, AmountFen: amountFen, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
+	o := domain.TradeOrder{
+		ID: fmt.Sprintf("torder-%d-%d", now.UnixNano(), rand.Intn(100000)),
+		ProductID: productID, BuyerID: buyerID, SellerID: sellerID,
+		AmountFen: amountFen, Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now,
+		ReceiverName:    strings.TrimSpace(rcvr.Name),
+		ReceiverPhone:   strings.TrimSpace(rcvr.Phone),
+		ReceiverRegion:  strings.TrimSpace(rcvr.Region),
+		ReceiverAddress: strings.TrimSpace(rcvr.Address),
+	}
 	return s.repo.Create(ctx, o)
+}
+
+// ShipOrder 卖家发货：写入快递公司/单号并把订单从 paid 迁到 shipped。
+//
+// 归属校验在这里：只有该订单的卖家能发货。**单号必填**——"已发货"却没有单号，
+// 买家既查不到物流、出问题也无从举证；旧路径（直接 PATCH 状态为 shipped）
+// 已被 actorAllowedTransition 封掉，就是为了逼出这个字段。
+//
+// 例外：**自提订单没有快递单号可言**（买家上门取货），此时允许留空。
+// 判据取商品上卖家选定的交付方式，与下单时是否需要地址同源（OrderNeedsReceiver）。
+func (s *TradeOrderService) ShipOrder(ctx context.Context, a domain.Actor, id, company, tracking string) (domain.TradeOrder, error) {
+	tracking = strings.TrimSpace(tracking)
+	company = strings.TrimSpace(company)
+	o, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if tracking == "" && !s.isPickupOrder(ctx, o.ProductID) {
+		return domain.TradeOrder{}, fmt.Errorf("%w：请填写快递单号", ErrShippingInvalid)
+	}
+	if o.SellerID != a.ID {
+		return domain.TradeOrder{}, ErrNotOwner
+	}
+	if o.Status != "paid" {
+		return domain.TradeOrder{}, fmt.Errorf("%w：只有已付款待发货的订单可以发货", ErrShippingInvalid)
+	}
+	return s.repo.Ship(ctx, id, company, tracking)
 }
 
 // orderFlow 订单合法状态流转（交易管理一期：pending → paid → shipped → completed / cancelled；
 // 售后：paid/shipped/completed → aftersale（买家申请，paid=付款后未发货退款）→ completed（审核结案，售后记录留在 aftersale_* 字段））
+//
+// 注意这是「状态机允许哪些边」，不是「谁能走」——管理端（UpdateStatusAdmin）也受本表约束，
+// 而买卖双方的额外角色限制在 actorAllowedTransition 里。因此本表中的
+// paid→cancelled 与 shipped→cancelled 实际只有管理端可走：买家付款后要退款应走售后申请。
 var orderFlow = map[string][]string{
 	"pending":   {"paid", "cancelled"},
 	"paid":      {"shipped", "cancelled", "aftersale"},
@@ -396,6 +494,41 @@ func checkOrderTransition(current, next string) error {
 	return fmt.Errorf("非法订单状态流转: %s → %s", current, next)
 }
 
+// actorAllowedTransition 判定买卖双方（非管理端）在「角色」维度是否有权发起 current → next。
+//
+// 与 orderFlow 是两层不同的约束，必须分清（此前两者混在一个 switch 里，读起来像是自相矛盾）：
+//   - orderFlow：状态机允许存在哪些边，管理端也受它约束；
+//   - 本函数：买卖双方各自能走哪些边，管理端走 UpdateStatusAdmin、不经此处。
+func actorAllowedTransition(o domain.TradeOrder, userID, next string) error {
+	switch next {
+	case "paid":
+		return fmt.Errorf("非法订单状态流转: %s → %s（paid 仅管理端可设置）", o.Status, next)
+	case "aftersale":
+		// 售后必须走 ApplyAftersale（带售后字段写入）；经状态 PATCH 直达会形成
+		// aftersale_status 为空的死状态且无法审核，一律拒绝
+		return fmt.Errorf("非法订单状态流转: %s → %s（售后请走申请售后接口）", o.Status, next)
+	case "shipped":
+		if o.SellerID != userID {
+			return fmt.Errorf("permission denied: 仅卖家可标记发货")
+		}
+		// 发货必须走 ShipOrder：那里要填快递单号，并把单号与状态在同一条条件更新里落库。
+		// 经状态 PATCH 直达会造出"已发货但没有单号"的订单——买家查不到物流，也无从申诉。
+		// 管理端不受此限（走 UpdateStatusAdmin，可强制改状态）。
+		return fmt.Errorf("非法订单状态流转: %s → %s（发货请走发货接口并填写快递单号）", o.Status, next)
+	case "completed":
+		if o.BuyerID != userID {
+			return fmt.Errorf("permission denied: 仅买家可确认收货")
+		}
+	case "cancelled":
+		// 买卖双方只能取消未付款订单（此时还没动过钱）；
+		// 已付款订单（paid/shipped）的退款走售后，管理端可直接取消并退款。
+		if o.Status != "pending" {
+			return fmt.Errorf("非法订单状态流转: %s → %s（仅 pending 状态可取消）", o.Status, next)
+		}
+	}
+	return nil
+}
+
 func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newStatus string) (domain.TradeOrder, error) {
 	o, err := s.repo.FindByID(ctx, id)
 	if err != nil {
@@ -407,27 +540,10 @@ func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newSta
 	if err := checkOrderTransition(o.Status, newStatus); err != nil {
 		return domain.TradeOrder{}, err
 	}
-	// 角色限定迁移：paid 仅管理端可设（UpdateStatusAdmin）；shipped 仅卖家可设；
-	// completed 仅买家可设；cancelled 仅 pending 状态可取消（买卖双方在 pending 均可取消）。
-	switch newStatus {
-	case "paid":
-		return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（paid 仅管理端可设置）", o.Status, newStatus)
-	case "aftersale":
-		// 售后必须走 ApplyAftersale（带售后字段写入）；经状态 PATCH 直达会形成
-		// aftersale_status 为空的死状态且无法审核，一律拒绝
-		return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（售后请走申请售后接口）", o.Status, newStatus)
-	case "shipped":
-		if o.SellerID != userID {
-			return domain.TradeOrder{}, fmt.Errorf("permission denied: 仅卖家可标记发货")
-		}
-	case "completed":
-		if o.BuyerID != userID {
-			return domain.TradeOrder{}, fmt.Errorf("permission denied: 仅买家可确认收货")
-		}
-	case "cancelled":
-		if o.Status != "pending" {
-			return domain.TradeOrder{}, fmt.Errorf("非法订单状态流转: %s → %s（仅 pending 状态可取消）", o.Status, newStatus)
-		}
+	// 角色限定迁移（买卖双方视角）：paid 仅管理端、shipped 仅卖家、completed 仅买家、
+	// cancelled 仅 pending。规则集中在 actorAllowedTransition 里，与 orderFlow 分工明确。
+	if err := actorAllowedTransition(o, userID, newStatus); err != nil {
+		return domain.TradeOrder{}, err
 	}
 	// 原子迁移：WHERE status=当前读到的状态，并发改单时后写方失败（防 completed 被回退等非法覆盖）
 	ok, updated, err := s.repo.CompareAndSetStatus(ctx, id, o.Status, newStatus)
@@ -448,7 +564,10 @@ func (s *TradeOrderService) UpdateStatus(ctx context.Context, id, userID, newSta
 	// 而重复操作（此前正是这个坑：商品被别的流程改过就返回错误，订单其实已取消）。
 	if newStatus == "cancelled" && s.prodRepo != nil && o.ProductID != "" {
 		if rerr := s.prodRepo.Restore(ctx, o.ProductID); rerr != nil {
-			slog.Warn("订单已取消但商品状态未恢复，需人工确认", "order", o.ID, "product", o.ProductID, "error", rerr)
+			// 失败即"商品仍不可售"，用户会认为商品消失了——必须是 Error 级并带全上下文，
+			// 否则只有一条 Warn 淹没在日志里，运营完全无从察觉。
+			slog.Error("订单已取消但商品未重新上架，需人工在「商品管理」改状态为在售",
+				"order", o.ID, "product", o.ProductID, "buyer", o.BuyerID, "seller", o.SellerID, "error", rerr)
 		}
 	}
 	return updated, nil
@@ -487,16 +606,24 @@ func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID,
 	if amountFen <= 0 || amountFen > o.AmountFen {
 		return domain.TradeOrder{}, fmt.Errorf("售后金额必须在 0~订单金额之间（含 0 不可申请）")
 	}
-	// 判重口径：只有「待审核 / 已通过」才算已有有效售后。
+	// 类型白名单：refund(仅退款) 与 return(退货退款) 从"只存不用"变成真实分支，
+	// 此后不得再落库任意字符串（否则退货流程会静默走成仅退款）。
+	if aftType != "refund" && aftType != "return" {
+		return domain.TradeOrder{}, fmt.Errorf("售后类型仅支持 refund(仅退款) / return(退货退款)")
+	}
+	// 判重口径：只有「推进中 / 已结案」才算已有有效售后。
 	// 被驳回的（rejected）允许重新申请——此前用 AftersaleStatus != "" 一票否决，
 	// 买家被驳回一次就永久失去售后权利（订单已回到 paid/shipped，却再也提不了）。
-	if o.AftersaleStatus == "pending" || o.AftersaleStatus == "approved" {
+	switch o.AftersaleStatus {
+	case "pending", "returning", "returned", "approved":
 		return domain.TradeOrder{}, fmt.Errorf("该订单已存在售后申请")
 	}
 	if err := checkOrderTransition(o.Status, "aftersale"); err != nil {
 		return domain.TradeOrder{}, err
 	}
 	now := time.Now()
+	// CAS 期望值 = 申请前的售后状态（"" 或 "rejected"）：两个并发申请只有一个能落库。
+	prevAftersaleStatus := o.AftersaleStatus
 	// 记录售后前状态：驳回时恢复原状态（未发货已付款订单曾被迫 completed 卡死）。
 	o.AftersaleFrom = o.Status
 	o.Status = "aftersale"
@@ -506,7 +633,7 @@ func (s *TradeOrderService) ApplyAftersale(ctx context.Context, userID, orderID,
 	o.AftersaleAmountFen = amountFen
 	o.AftersaleStatus = "pending"
 	o.AftersaleTime = now
-	return s.repo.UpdateAftersale(ctx, o)
+	return s.repo.UpdateAftersale(ctx, o, prevAftersaleStatus)
 }
 
 // refundForAftersale 售后同意后的资金处置（两种情形）：
@@ -566,6 +693,35 @@ func (s *TradeOrderService) refundForAftersale(ctx context.Context, o domain.Tra
 	return nil
 }
 
+// relistAfterAftersale 售后结案后把商品放回货架。
+//
+// 为什么必须做：下单时商品就被置为 sold（支付前占位，防一物多卖），而两个售后结案
+// 出口（reviewAftersale 同意、ConfirmReturnReceived）此前只动钱、不碰商品，
+// 商品就永久停在 sold——孤儿回收任务也救不了它，因为 HasLiveOrderForProduct 把
+// status<>'cancelled' 一律视为"仍在交易中"，而结案订单是 completed。
+// 结果：钱退了、货没发、商品再也买不到，且没有任何提示。
+//
+// 判据是"货有没有离开卖家"：
+//   - aftersale_from=paid（从未发货，货一直在卖家手里）→ 恢复在售；
+//   - 退货退款结案（货已退回卖家）→ 恢复在售，卖家嫌货况不佳可自行改回下架；
+//   - 仅退款且已发货（货在买家手上）→ 不恢复。
+//
+// 失败只记 Error 日志：订单与资金都已落定，此时报错会让运营误以为"售后没成功"而重复操作。
+func (s *TradeOrderService) relistAfterAftersale(ctx context.Context, o domain.TradeOrder) {
+	if s.prodRepo == nil || o.ProductID == "" {
+		return
+	}
+	if o.AftersaleType != "return" && o.AftersaleFrom != "paid" {
+		return // 货已发出且不退货：商品确实归买家了，不该回到货架
+	}
+	if err := s.prodRepo.Restore(ctx, o.ProductID); err != nil {
+		slog.Error("售后结案后商品未恢复在售，需人工在「商品管理」改状态为在售",
+			"order", o.ID, "product", o.ProductID, "error", err)
+		return
+	}
+	slog.Info("售后结案，商品已恢复在售", "order", o.ID, "product", o.ProductID)
+}
+
 // ReviewAftersale 管理端审核售后单：同意 → aftersale_status=approved（退款完成）；
 // 驳回 → aftersale_status=rejected。结案后订单状态回到 completed（交易结束态），
 // 售后记录保留在 aftersale_* 字段供买家/后台查看。
@@ -596,8 +752,15 @@ func (s *TradeOrderService) reviewAftersale(ctx context.Context, orderID string,
 		return domain.TradeOrder{}, fmt.Errorf("该订单不在售后待审核状态")
 	}
 	if approve {
-		// 先退款再改状态：钱动不了（卖家余额不足等）就拒绝本次审批，状态保持待审核可重试，
-		// 绝不允许出现"售后已批准、钱却没退"的账实不符。
+		// 退货退款（return）：卖家同意的是"退货"而**不是**退款——先把状态推进到
+		// returning（待买家寄回），钱一分不动；等买家提交物流、卖家确认收到货，
+		// 才由 ConfirmReturnReceived 执行退款。这样"货没寄回就先拿钱"不会发生。
+		if o.AftersaleType == "return" {
+			o.AftersaleStatus = "returning"
+			return s.repo.UpdateAftersale(ctx, o, "pending")
+		}
+		// 仅退款（refund）：先退款再改状态：钱动不了（卖家余额不足等）就拒绝本次审批，
+		// 状态保持待审核可重试，绝不允许出现"售后已批准、钱却没退"的账实不符。
 		if err := s.refundForAftersale(ctx, o); err != nil {
 			slog.Error("售后审批通过但退款失败", "order", o.ID, "error", err)
 			return domain.TradeOrder{}, err
@@ -614,7 +777,184 @@ func (s *TradeOrderService) reviewAftersale(ctx context.Context, orderID string,
 			o.Status = "completed"
 		}
 	}
-	return s.repo.UpdateAftersale(ctx, o)
+	// CAS 期望值 "pending"：两个并发 approve 只有一个能落库，另一个收到"状态已变更"，
+	// 从而不会各自调用 refundForAftersale（B 分支的 Transfer）把卖家余额扣两次。
+	updated, err := s.repo.UpdateAftersale(ctx, o, "pending")
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if approve {
+		// 状态落定后才动商品：没结案就上架，会让"已售"商品被别人抢先下单。
+		s.relistAfterAftersale(ctx, updated)
+	}
+	return updated, nil
+}
+
+// SubmitReturnShipment 买家提交退货物流（退货退款流程第二步）：
+// 仅 aftersale_type=return 且卖家已同意退货（aftersale_status=returning）时可提交，
+// 提交后进入 returned（待卖家确认收到）。CAS 期望值 "returning" 防重复提交。
+func (s *TradeOrderService) SubmitReturnShipment(ctx context.Context, buyerID, orderID, tracking, note string) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	if o.BuyerID != buyerID {
+		return domain.TradeOrder{}, fmt.Errorf("permission denied: 仅买家可提交退货物流")
+	}
+	if o.AftersaleType != "return" {
+		return domain.TradeOrder{}, fmt.Errorf("该售后单是仅退款，无需寄回商品")
+	}
+	if o.AftersaleStatus != "returning" {
+		return domain.TradeOrder{}, fmt.Errorf("当前售后状态不允许提交退货物流（需卖家先同意退货）")
+	}
+	tracking = strings.TrimSpace(tracking)
+	if tracking == "" {
+		return domain.TradeOrder{}, fmt.Errorf("请填写退货物流单号")
+	}
+	now := time.Now()
+	o.ReturnTracking = tracking
+	o.ReturnNote = strings.TrimSpace(note)
+	o.ReturnedAt = &now
+	o.AftersaleStatus = "returned"
+	return s.repo.UpdateAftersale(ctx, o, "returning")
+}
+
+// ConfirmReturnReceived 卖家/管理员确认收到退货（退货退款流程第三步）：
+// 到这一步才真正退款并结案。仅 aftersale_status=returned 可确认；
+// 先退款再改状态，钱动不了就保持 returned 供重试（与审核结案同口径）。
+func (s *TradeOrderService) ConfirmReturnReceived(ctx context.Context, a domain.Actor, orderID string) (domain.TradeOrder, error) {
+	o, err := s.repo.FindByID(ctx, orderID)
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	isAdmin := a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
+	if !isAdmin && o.SellerID != a.ID {
+		return domain.TradeOrder{}, fmt.Errorf("permission denied: 仅订单卖家或管理员可确认收到退货")
+	}
+	if o.AftersaleType != "return" {
+		return domain.TradeOrder{}, fmt.Errorf("该售后单是仅退款，无需确认收货")
+	}
+	if o.AftersaleStatus != "returned" {
+		return domain.TradeOrder{}, fmt.Errorf("买家尚未提交退货物流，无法确认收到退货")
+	}
+	if err := s.refundForAftersale(ctx, o); err != nil {
+		slog.Error("确认收到退货但退款失败", "order", o.ID, "error", err)
+		return domain.TradeOrder{}, err
+	}
+	o.AftersaleStatus = "approved"
+	o.Status = "completed"
+	updated, err := s.repo.UpdateAftersale(ctx, o, "returned")
+	if err != nil {
+		return domain.TradeOrder{}, err
+	}
+	// 货已退回卖家，商品必须回到可售——否则永久停在 sold 且无人察觉。
+	s.relistAfterAftersale(ctx, updated)
+	return updated, nil
+}
+
+// AutoCancelUnpaid 支付超时自动取消：下单后超过 cutoff 仍未付款的订单关闭，并恢复商品为可售。
+//
+// 必要性：下单时就把商品置为 sold（支付前占位，防一物多卖），若买家一直不付款，
+// 商品会永远停在下架状态；同时也能抑制"批量下单占用他人商品"的骚扰行为。
+// 单条失败只记日志，不阻断其余订单；返回成功关闭的订单数。
+func (s *TradeOrderService) AutoCancelUnpaid(ctx context.Context, cutoff time.Time, limit int) (int, error) {
+	orders, err := s.repo.ListPendingBefore(ctx, cutoff, limit)
+	if err != nil {
+		return 0, fmt.Errorf("扫描超时未付款订单: %w", err)
+	}
+	closed := 0
+	for _, o := range orders {
+		ok, updated, casErr := s.repo.CompareAndSetStatus(ctx, o.ID, "pending", "cancelled")
+		if casErr != nil {
+			slog.Error("自动取消未付款订单：状态迁移失败", "order", o.ID, "error", casErr)
+			continue
+		}
+		if !ok {
+			continue // 并发下买家已付款或已被取消
+		}
+		// pending 订单通常没有冻结；管理端建单/历史数据可能已有冻结，settleMoney 会安全处理。
+		if mErr := s.settleMoney(ctx, updated, "cancelled"); mErr != nil {
+			slog.Error("自动取消未付款订单：退款失败（资金仍在托管，需人工处理）", "order", o.ID, "error", mErr)
+			continue
+		}
+		if s.prodRepo != nil && o.ProductID != "" {
+			if rerr := s.prodRepo.Restore(ctx, o.ProductID); rerr != nil {
+				slog.Error("自动取消后商品未重新上架，需人工在「商品管理」改状态为在售",
+					"order", o.ID, "product", o.ProductID, "seller", o.SellerID, "error", rerr)
+			}
+		}
+		slog.Info("超时未付款订单已自动取消", "order", o.ID, "buyer", o.BuyerID)
+		closed++
+	}
+	return closed, nil
+}
+
+// RelistOrphanSoldProducts 回收"孤儿已售商品"：把处于 sold 但已无任何有效订单的商品重新上架。
+//
+// 为什么需要商品侧兜底：下单占位（MarkSold）与订单落库是两个动作，恢复（Restore）只写在
+// 订单侧。只要订单侧那条路没走成——订单创建失败后补偿也失败、进程在两步之间崩溃、
+// 或订单行被人工删除——商品就会永远停在下架状态：大厅不展示、详情 404、卖家"我的商品"里
+// 也看不到，用户看到的现象就是"取消订单后商品消失了"。这里按商品侧兜底修复。
+//
+// 安全性：单条失败只记 Error 不阻断；cutoff 应由调用方给出宽限期，避免与
+// "下单占位 → 创建订单"的正常时序（毫秒级）竞争。
+func (s *TradeOrderService) RelistOrphanSoldProducts(ctx context.Context, cutoff time.Time, limit int) (int, error) {
+	if s.prodRepo == nil {
+		return 0, nil
+	}
+	items, err := s.prodRepo.ListSoldBefore(ctx, cutoff, limit)
+	if err != nil {
+		return 0, fmt.Errorf("扫描待回收的已售商品: %w", err)
+	}
+	relisted := 0
+	for _, p := range items {
+		live, lerr := s.repo.HasLiveOrderForProduct(ctx, p.ID)
+		if lerr != nil {
+			slog.Error("孤儿已售商品：查询有效订单失败，跳过", "product", p.ID, "error", lerr)
+			continue
+		}
+		if live {
+			continue // 有未取消的订单：该商品确实处于交易中，不能上架
+		}
+		if rerr := s.prodRepo.Restore(ctx, p.ID); rerr != nil {
+			slog.Error("孤儿已售商品恢复失败，需人工在「商品管理」里把状态改为在售",
+				"product", p.ID, "seller", p.SellerID, "title", p.Title, "error", rerr)
+			continue
+		}
+		slog.Info("孤儿已售商品已重新上架", "product", p.ID, "seller", p.SellerID, "title", p.Title)
+		relisted++
+	}
+	return relisted, nil
+}
+
+// AutoConfirmShipped 自动确认收货：发货后超过 cutoff 仍未被买家确认的订单视为已收货并放款。
+//
+// 必要性：shipped→completed 只有买家（或管理端）能触发，买家不点确认，货款就永久停在
+// 冻结里、卖家永远收不到钱；孤儿冻结补偿也救不了——它的判据是"业务行不存在"，
+// 而这类订单行是存在的。单条失败只记日志；返回成功完成的订单数。
+func (s *TradeOrderService) AutoConfirmShipped(ctx context.Context, cutoff time.Time, limit int) (int, error) {
+	orders, err := s.repo.ListShippedBefore(ctx, cutoff, limit)
+	if err != nil {
+		return 0, fmt.Errorf("扫描待自动确认收货订单: %w", err)
+	}
+	done := 0
+	for _, o := range orders {
+		ok, updated, casErr := s.repo.CompareAndSetStatus(ctx, o.ID, "shipped", "completed")
+		if casErr != nil {
+			slog.Error("自动确认收货：状态迁移失败", "order", o.ID, "error", casErr)
+			continue
+		}
+		if !ok {
+			continue // 并发下已被买家确认或已进入售后
+		}
+		if mErr := s.settleMoney(ctx, updated, "completed"); mErr != nil {
+			slog.Error("自动确认收货：放款失败（资金仍在托管，需人工处理）", "order", o.ID, "error", mErr)
+			continue
+		}
+		slog.Info("订单已自动确认收货并放款", "order", o.ID, "buyer", o.BuyerID, "seller", o.SellerID, "amount_fen", o.AmountFen)
+		done++
+	}
+	return done, nil
 }
 
 // PayOrder 买家模拟支付：仅订单买家可调，仅 pending → paid 迁移
@@ -677,7 +1017,8 @@ func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus
 	}
 	if newStatus == "cancelled" && s.prodRepo != nil && o.ProductID != "" {
 		if rerr := s.prodRepo.Restore(ctx, o.ProductID); rerr != nil {
-			slog.Warn("管理端取消订单后商品状态未恢复，需人工确认", "order", o.ID, "product", o.ProductID, "error", rerr)
+			slog.Error("管理端取消订单后商品未重新上架，需人工在「商品管理」改状态为在售",
+				"order", o.ID, "product", o.ProductID, "seller", o.SellerID, "error", rerr)
 		}
 	}
 	return updated, nil
@@ -687,7 +1028,13 @@ func (s *TradeOrderService) UpdateStatusAdmin(ctx context.Context, id, newStatus
 func (s *TradeOrderService) Delete(ctx context.Context, id string) error {
 	o, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return s.repo.Delete(ctx, id)
+		// P0 修复：只有"确实不存在"才允许直接删。此前任何读取错误（DB 抖动/超时/
+		// 连接失败）都走这里 → 跳过下面的退款逻辑把未完成订单硬删掉，
+		// 买家已冻结的资金永久滞留托管账户。
+		if errors.Is(err, repository.ErrNotFound) {
+			return s.repo.Delete(ctx, id)
+		}
+		return fmt.Errorf("find trade order %s before delete: %w", id, err)
 	}
 	// 未完成订单（pending/paid）：先把买家的钱退回去，再删单；
 	// 退款失败则不删（钱不能因为删单而丢失）；商品恢复失败不阻塞删除（可人工确认）。

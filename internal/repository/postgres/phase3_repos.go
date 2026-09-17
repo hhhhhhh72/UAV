@@ -526,7 +526,10 @@ func (r *pilotRepo) ListApproved(ctx context.Context, keyword string, offset, li
 	return out, total, rows.Err()
 }
 func (r *pilotRepo) UpdateStatus(ctx context.Context, id, status string) (domain.CertifiedPilot, error) {
-	_, err := r.pool.Exec(ctx, `UPDATE certified_pilots SET status=$1,updated_at=$2 WHERE id=$3`, status, time.Now(), id)
+	// 一并清掉 reject_reason：本方法唯一调用方是 ApprovePilot（改为 approved）。
+	// 此前这里不清、RegisterPilot 的"驳回后重提"也不清，于是 reject_reason 只写不删——
+	// 一条 pending/approved 记录会一直挂着上一轮的驳回理由。
+	_, err := r.pool.Exec(ctx, `UPDATE certified_pilots SET status=$1,reject_reason='',updated_at=$2 WHERE id=$3`, status, time.Now(), id)
 	if err != nil {
 		return domain.CertifiedPilot{}, fmt.Errorf("update pilot status: %w", err)
 	}
@@ -547,6 +550,46 @@ type prodRepo struct{ pool *pgxpool.Pool }
 
 func (s *Store) NewProductRepository() repository.ProductRepository { return &prodRepo{pool: s.Pool()} }
 
+// productColumns 商品查询列的**唯一来源**。
+//
+// 此前这段列清单在 7 个查询里各写一份，列数与扫描目标极易漂移——同一类事故已经发生过
+// （ListFavoriteDemands 的 SELECT 是 20 列、scanDemands 要 24 个目标，只在生产 PG 下 500）。
+// 新增列时只改这里和 scanProduct（以及 Create/Update 的列名列表），
+// 两处对不上会立刻扫描报错，而不是静默错位。
+const productColumns = `id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,price_mode,delivery,images,COALESCE(detail_images,'[]'),COALESCE(brand,''),COALESCE(model,''),condition,COALESCE(category,''),COALESCE(region,''),COALESCE(unit,''),views,status,check_status,COALESCE(check_reason,''),reviewed_at,reviewed_by,version,created_at,updated_at`
+
+// productColumnsAliased 与 productColumns **同序同义**，只给列名加 p. 前缀，
+// 供需要 JOIN 的查询使用（ListFavoriteProducts 要按收藏时间排序，不能用子查询改写）。
+// 两者必须一起改——所以紧挨着放。
+const productColumnsAliased = `p.id,p.seller_id,p.seller_name,p.prod_type,p.title,COALESCE(p.description,''),p.price_fen,p.price_mode,p.delivery,p.images,COALESCE(p.detail_images,'[]'),COALESCE(p.brand,''),COALESCE(p.model,''),p.condition,COALESCE(p.category,''),COALESCE(p.region,''),COALESCE(p.unit,''),p.views,p.status,p.check_status,COALESCE(p.check_reason,''),p.reviewed_at,p.reviewed_by,p.version,p.created_at,p.updated_at`
+
+// rowScanner 同时覆盖 pgx.Row 与 pgx.Rows。
+type rowScanner interface{ Scan(dest ...any) error }
+
+// scanProduct 按 productColumns 的顺序扫描一行商品。
+func scanProduct(row rowScanner) (domain.DroneProduct, error) {
+	var (
+		p          domain.DroneProduct
+		pt         string
+		imgs       []byte
+		detailImgs []byte
+		reviewedAt *time.Time
+		reviewedBy string
+	)
+	if err := row.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &p.PriceMode, &p.Delivery, &imgs,
+		&detailImgs, &p.Brand, &p.Model, &p.Condition, &p.Category, &p.Region, &p.Unit,
+		&p.Views, &p.Status, &p.CheckStatus, &p.CheckReason,
+		&reviewedAt, &reviewedBy, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		return domain.DroneProduct{}, err
+	}
+	p.ProdType = domain.ProductType(pt)
+	p.ReviewedAt = reviewedAt
+	p.ReviewedBy = reviewedBy
+	json.Unmarshal(imgs, &p.Images)
+	json.Unmarshal(detailImgs, &p.DetailImages)
+	return p, nil
+}
+
 func (r *prodRepo) Create(ctx context.Context, p domain.DroneProduct) (domain.DroneProduct, error) {
 	p.Version = 1
 	p.CreatedAt = time.Now()
@@ -555,28 +598,90 @@ func (r *prodRepo) Create(ctx context.Context, p domain.DroneProduct) (domain.Dr
 	if err != nil {
 		return domain.DroneProduct{}, fmt.Errorf("marshal product images: %w", err)
 	}
+	detailImages, err := json.Marshal(p.DetailImages)
+	if err != nil {
+		return domain.DroneProduct{}, fmt.Errorf("marshal product detail images: %w", err)
+	}
+	if p.CheckStatus == "" {
+		p.CheckStatus = domain.ProductCheckPending
+	}
 	_, err = r.pool.Exec(ctx,
-		`INSERT INTO drone_products (id,seller_id,seller_name,prod_type,title,description,price_fen,images,brand,model,condition,views,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-		p.ID, p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, images, p.Brand, p.Model, p.Condition, p.Views, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
+		`INSERT INTO drone_products (id,seller_id,seller_name,prod_type,title,description,price_fen,price_mode,delivery,images,detail_images,brand,model,condition,category,region,unit,views,status,check_status,check_reason,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
+		p.ID, p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, p.PriceMode, p.Delivery, images, detailImages, p.Brand, p.Model, p.Condition, p.Category, p.Region, p.Unit, p.Views, p.Status, p.CheckStatus, p.CheckReason, p.Version, p.CreatedAt, p.UpdatedAt)
 	return p, err
 }
 func (r *prodRepo) FindByID(ctx context.Context, id string) (domain.DroneProduct, error) {
-	var p domain.DroneProduct
-	var pt string
-	var imgs []byte
-	err := r.pool.QueryRow(ctx,
-		`SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE id=$1`, id).
-		Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+	p, err := scanProduct(r.pool.QueryRow(ctx,
+		`SELECT `+productColumns+` FROM drone_products WHERE id=$1 AND deleted_at IS NULL`, id))
 	if err != nil {
 		return domain.DroneProduct{}, fmt.Errorf("product %s not found: %w", id, err)
 	}
-	p.ProdType = domain.ProductType(pt)
-	json.Unmarshal(imgs, &p.Images)
 	return p, nil
 }
 
+// SetStatusBulk 批量改上架状态（管理端）：单条 UPDATE，条件全部在 WHERE 里。
+func (r *prodRepo) SetStatusBulk(ctx context.Context, ids []string, status string) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE drone_products SET status=$2, version=version+1, updated_at=NOW()
+		  WHERE id = ANY($1) AND deleted_at IS NULL
+		    AND status <> 'sold'
+		    AND ($2 <> 'listed' OR check_status = $3)`,
+		ids, status, domain.ProductCheckPassed)
+	if err != nil {
+		return 0, fmt.Errorf("bulk set product status: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+// SetProductStatus 卖家自助上下架。条件全部写进 WHERE，避免"先查后改"的竞态：
+// 归属（seller_id）+ 未删除 + 非已售 + 上架时必须已过审。
+func (r *prodRepo) SetProductStatus(ctx context.Context, id, sellerID, status string) (domain.DroneProduct, error) {
+	p, err := scanProduct(r.pool.QueryRow(ctx,
+		`UPDATE drone_products SET status=$4, version=version+1, updated_at=NOW()
+		  WHERE id=$1 AND seller_id=$2 AND deleted_at IS NULL
+		    AND status <> 'sold'
+		    AND ($4 <> 'listed' OR check_status = $3)
+		 RETURNING `+productColumns,
+		id, sellerID, domain.ProductCheckPassed, status))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.DroneProduct{}, fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
+		}
+		return domain.DroneProduct{}, fmt.Errorf("set product %s status: %w", id, err)
+	}
+	return p, nil
+}
+
+// ReviewProduct 审核商品（条件更新：仅待审/已驳回的行可被审）。
+//
+// 审核通过同时把 status 置为 listed（与旧的"通过即上架"行为一致）；
+// 驳回**不动 status**——驳回 ≠ 下架，这正是把审核维度拆出来的目的。
+func (r *prodRepo) ReviewProduct(ctx context.Context, id, checkStatus, reason, reviewerID string) (domain.DroneProduct, error) {
+	newStatus := "pending"
+	if checkStatus == domain.ProductCheckPassed {
+		newStatus = "listed"
+	}
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE drone_products
+		    SET check_status=$2, check_reason=$3, reviewed_at=NOW(), reviewed_by=$4,
+		        status=$5, version=version+1, updated_at=NOW()
+		  WHERE id=$1 AND deleted_at IS NULL AND check_status IN ('pending','rejected')`,
+		id, checkStatus, reason, reviewerID, newStatus)
+	if err != nil {
+		return domain.DroneProduct{}, fmt.Errorf("review product %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		// 不存在 / 已进回收站 / 已终审（含并发重复审核）
+		return domain.DroneProduct{}, fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
+	}
+	return r.FindByID(ctx, id)
+}
+
 func (r *prodRepo) IncrementViews(ctx context.Context, id string) error {
-	_, err := r.pool.Exec(ctx, `UPDATE drone_products SET views = views + 1 WHERE id=$1`, id)
+	_, err := r.pool.Exec(ctx, `UPDATE drone_products SET views = views + 1 WHERE id=$1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		return fmt.Errorf("increment views for %s: %w", id, err)
 	}
@@ -586,7 +691,7 @@ func (r *prodRepo) IncrementViews(ctx context.Context, id string) error {
 // MarkSold 下单抢占：仅 listed/空状态可标记 sold（条件更新防一物多卖/超卖）。
 func (r *prodRepo) MarkSold(ctx context.Context, id string) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE drone_products SET status='sold', version=version+1, updated_at=NOW() WHERE id=$1 AND status IN ('','listed')`, id)
+		`UPDATE drone_products SET status='sold', version=version+1, updated_at=NOW() WHERE id=$1 AND status IN ('','listed') AND deleted_at IS NULL`, id)
 	if err != nil {
 		return fmt.Errorf("mark product %s sold: %w", id, err)
 	}
@@ -599,7 +704,7 @@ func (r *prodRepo) MarkSold(ctx context.Context, id string) error {
 // Restore 订单创建失败回滚：sold → listed（条件更新，仅 sold 可恢复）。
 func (r *prodRepo) Restore(ctx context.Context, id string) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE drone_products SET status='listed', version=version+1, updated_at=NOW() WHERE id=$1 AND status='sold'`, id)
+		`UPDATE drone_products SET status='listed', version=version+1, updated_at=NOW() WHERE id=$1 AND status='sold' AND deleted_at IS NULL`, id)
 	if err != nil {
 		return fmt.Errorf("restore product %s: %w", id, err)
 	}
@@ -615,27 +720,77 @@ func (r *prodRepo) Update(ctx context.Context, p domain.DroneProduct) (domain.Dr
 	if err != nil {
 		return domain.DroneProduct{}, fmt.Errorf("marshal product images: %w", err)
 	}
-	_, err = r.pool.Exec(ctx,
-		`UPDATE drone_products SET seller_id=$1,seller_name=$2,prod_type=$3,title=$4,description=$5,price_fen=$6,images=$7,brand=$8,model=$9,condition=$10,status=$11,version=version+1,updated_at=$12 WHERE id=$13`,
-		p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, images, p.Brand, p.Model, p.Condition, p.Status, p.UpdatedAt, p.ID)
-	return p, err
+	detailImages, err := json.Marshal(p.DetailImages)
+	if err != nil {
+		return domain.DroneProduct{}, fmt.Errorf("marshal product detail images: %w", err)
+	}
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE drone_products SET seller_id=$1,seller_name=$2,prod_type=$3,title=$4,description=$5,price_fen=$6,price_mode=$7,delivery=$8,images=$9,detail_images=$10,brand=$11,model=$12,condition=$13,category=$14,region=$15,unit=$16,status=$17,check_status=$18,check_reason=$19,version=version+1,updated_at=$20 WHERE id=$21 AND deleted_at IS NULL`,
+		p.SellerID, p.SellerName, string(p.ProdType), p.Title, p.Description, p.PriceFen, p.PriceMode, p.Delivery, images, detailImages, p.Brand, p.Model, p.Condition, p.Category, p.Region, p.Unit, p.Status, p.CheckStatus, p.CheckReason, p.UpdatedAt, p.ID)
+	if err != nil {
+		return domain.DroneProduct{}, fmt.Errorf("update product %s: %w", p.ID, err)
+	}
+	// 0 行 = 不存在或已在回收站。此前不检查 RowsAffected，管理端改回收站商品会静默"成功"。
+	if tag.RowsAffected() == 0 {
+		return domain.DroneProduct{}, fmt.Errorf("product %s: %w", p.ID, repository.ErrNotFound)
+	}
+	return p, nil
 }
 
-func (r *prodRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM drone_products WHERE id=$1`, id)
+// SoftDelete 软删除（回收站）：只写 deleted_at，不物理删除。
+// 物理删除会让 trade_orders.product_id 变成指向不存在行的孤儿（该列无外键），
+// 历史订单的商品名与详情链接一并丢失——用户侧现象就是"商品消失了"。
+// "AND deleted_at IS NULL" 让重复删除返回 ErrNotFound，而不是假装成功。
+func (r *prodRepo) SoftDelete(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE drone_products SET deleted_at=NOW(), version=version+1, updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, id)
 	if err != nil {
-		return fmt.Errorf("delete product %s: %w", id, err)
+		return fmt.Errorf("soft delete product %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
 	}
 	return nil
+}
+
+// Undelete 回收站还原：清空 deleted_at（仅对已在回收站的行生效）。
+func (r *prodRepo) Undelete(ctx context.Context, id string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE drone_products SET deleted_at=NULL, version=version+1, updated_at=NOW() WHERE id=$1 AND deleted_at IS NOT NULL`, id)
+	if err != nil {
+		return fmt.Errorf("undelete product %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
+	}
+	return nil
+}
+
+// ListDeleted 回收站列表：仅 deleted_at 非空的行，按删除时间倒序。
+func (r *prodRepo) ListDeleted(ctx context.Context) ([]domain.DroneProduct, error) {
+	rows, err := r.pool.Query(ctx, `SELECT `+productColumns+` FROM drone_products WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("list deleted products: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.DroneProduct
+	for rows.Next() {
+		p, err := scanProduct(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan deleted product: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DroneProduct, error) {
 	var rows pgx.Rows
 	var err error
 	if prodType == "" {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products ORDER BY created_at DESC`)
+		rows, err = r.pool.Query(ctx, `SELECT `+productColumns+` FROM drone_products WHERE deleted_at IS NULL ORDER BY created_at DESC`)
 	} else {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 ORDER BY created_at DESC`, prodType)
+		rows, err = r.pool.Query(ctx, `SELECT `+productColumns+` FROM drone_products WHERE prod_type=$1 AND deleted_at IS NULL ORDER BY created_at DESC`, prodType)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list products: %w", err)
@@ -643,14 +798,32 @@ func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DronePro
 	defer rows.Close()
 	var out []domain.DroneProduct
 	for rows.Next() {
-		var p domain.DroneProduct
-		var pt string
-		var imgs []byte
-		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		p, err := scanProduct(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
 		}
-		p.ProdType = domain.ProductType(pt)
-		json.Unmarshal(imgs, &p.Images)
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// ListSoldBefore 列出 status='sold' 且 updated_at 早于 cutoff 的商品（孤儿已售商品回收用）。
+func (r *prodRepo) ListSoldBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.DroneProduct, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := r.pool.Query(ctx, `SELECT `+productColumns+`
+		FROM drone_products WHERE status='sold' AND check_status='passed' AND updated_at < $1 AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT $2`, cutoff, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list sold products before cutoff: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.DroneProduct{}
+	for rows.Next() {
+		p, err := scanProduct(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan sold product: %w", err)
+		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
@@ -662,9 +835,9 @@ func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]d
 	var rows pgx.Rows
 	var err error
 	if prodType == "" {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE status='listed' ORDER BY created_at DESC LIMIT $1`, limit)
+		rows, err = r.pool.Query(ctx, `SELECT `+productColumns+` FROM drone_products WHERE status='listed' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT $1`, limit)
 	} else {
-		rows, err = r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE prod_type=$1 AND status='listed' ORDER BY created_at DESC LIMIT $2`, prodType, limit)
+		rows, err = r.pool.Query(ctx, `SELECT `+productColumns+` FROM drone_products WHERE prod_type=$1 AND status='listed' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT $2`, prodType, limit)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list top products: %w", err)
@@ -672,14 +845,10 @@ func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]d
 	defer rows.Close()
 	var out []domain.DroneProduct
 	for rows.Next() {
-		var p domain.DroneProduct
-		var pt string
-		var imgs []byte
-		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		p, err := scanProduct(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
 		}
-		p.ProdType = domain.ProductType(pt)
-		json.Unmarshal(imgs, &p.Images)
 		out = append(out, p)
 	}
 	return out, rows.Err()
@@ -710,10 +879,10 @@ func (r *prodRepo) UnfavoriteProduct(ctx context.Context, userID, productID stri
 // ListFavoriteProducts 按收藏时间倒序返回完整商品（我的收藏列表）。
 func (r *prodRepo) ListFavoriteProducts(ctx context.Context, userID string) ([]domain.DroneProduct, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT p.id,p.seller_id,p.seller_name,p.prod_type,p.title,COALESCE(p.description,''),p.price_fen,p.images,COALESCE(p.brand,''),COALESCE(p.model,''),p.condition,p.views,p.status,p.version,p.created_at,p.updated_at
+		`SELECT `+productColumnsAliased+`
 		 FROM drone_products p
 		 JOIN product_favorites f ON f.product_id = p.id
-		 WHERE f.user_id=$1
+		 WHERE f.user_id=$1 AND p.deleted_at IS NULL
 		 ORDER BY f.created_at DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list favorite products: %w", err)
@@ -721,39 +890,34 @@ func (r *prodRepo) ListFavoriteProducts(ctx context.Context, userID string) ([]d
 	defer rows.Close()
 	var out []domain.DroneProduct
 	for rows.Next() {
-		var p domain.DroneProduct
-		var pt string
-		var imgs []byte
-		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		p, err := scanProduct(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan favorite product: %w", err)
 		}
-		p.ProdType = domain.ProductType(pt)
-		json.Unmarshal(imgs, &p.Images)
 		out = append(out, p)
 	}
 	return out, rows.Err()
 }
 
 // ListByIDs 批量按 ID 取商品（订单列表补商品名防 N+1）。
+//
+// 这里**故意不过滤 deleted_at**：商品进回收站后，历史订单仍要显示出商品名。
+// 软删除的全部意义就在于保住这条关联——过滤掉它等于退回物理删除的老毛病。
 func (r *prodRepo) ListByIDs(ctx context.Context, ids []string) ([]domain.DroneProduct, error) {
 	if len(ids) == 0 {
 		return []domain.DroneProduct{}, nil
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id,seller_id,seller_name,prod_type,title,COALESCE(description,''),price_fen,images,COALESCE(brand,''),COALESCE(model,''),condition,views,status,version,created_at,updated_at FROM drone_products WHERE id = ANY($1)`, ids)
+	rows, err := r.pool.Query(ctx, `SELECT `+productColumns+` FROM drone_products WHERE id = ANY($1)`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("list products by ids: %w", err)
 	}
 	defer rows.Close()
 	var out []domain.DroneProduct
 	for rows.Next() {
-		var p domain.DroneProduct
-		var pt string
-		var imgs []byte
-		if err := rows.Scan(&p.ID, &p.SellerID, &p.SellerName, &pt, &p.Title, &p.Description, &p.PriceFen, &imgs, &p.Brand, &p.Model, &p.Condition, &p.Views, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		p, err := scanProduct(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
 		}
-		p.ProdType = domain.ProductType(pt)
-		json.Unmarshal(imgs, &p.Images)
 		out = append(out, p)
 	}
 	return out, rows.Err()
@@ -761,10 +925,10 @@ func (r *prodRepo) ListByIDs(ctx context.Context, ids []string) ([]domain.DroneP
 
 // SumViews 商品浏览量总和（可选按类型；首页 stats.views 聚合查询）。
 func (r *prodRepo) SumViews(ctx context.Context, prodType string) (int, error) {
-	q := `SELECT COALESCE(SUM(views),0) FROM drone_products`
+	q := `SELECT COALESCE(SUM(views),0) FROM drone_products WHERE deleted_at IS NULL`
 	args := []any{}
 	if prodType != "" {
-		q += ` WHERE prod_type=$1`
+		q += ` AND prod_type=$1`
 		args = append(args, prodType)
 	}
 	var n int

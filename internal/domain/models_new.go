@@ -42,12 +42,12 @@ type CaseEntry struct {
 	Images      []string `json:"images"`
 	// VideoURL 案例视频地址（/uploads/xxx.mp4，小程序详情卡片据此渲染播放器）。
 	// 视频封面不做独立字段：直接用 Images[0] 当封面（产品确认不需要单独上传）。
-	VideoURL string `json:"video_url"`
-	ClientName     string `json:"client_name"`
-	Result         string `json:"result"`
-	Status         string    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	VideoURL   string    `json:"video_url"`
+	ClientName string    `json:"client_name"`
+	Result     string    `json:"result"`
+	Status     string    `json:"status"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // 案例（CaseEntry.Status）的发布状态取值。
@@ -66,14 +66,14 @@ const (
 // result[, status]），加视频后继续加位置参数极易错位，故收成结构体。
 // Status 仅更新路径使用；创建路径忽略（服务层默认 published）。
 type CaseInput struct {
-	Title          string
-	Category       string
-	Description    string
-	Images         []string
-	VideoURL       string
-	ClientName     string
-	Result         string
-	Status         string
+	Title       string
+	Category    string
+	Description string
+	Images      []string
+	VideoURL    string
+	ClientName  string
+	Result      string
+	Status      string
 }
 
 // ComplianceDoc is a regulatory guidance document.
@@ -153,11 +153,11 @@ type Attachment struct {
 
 // RDChallenge is an enterprise R&D challenge posted for collaboration.
 type RDChallenge struct {
-	ID          string    `json:"id"`
-	PosterID    string    `json:"poster_id"`
-	Title       string    `json:"title"`
-	Field       string    `json:"field"`
-	Description string    `json:"description"`
+	ID          string `json:"id"`
+	PosterID    string `json:"poster_id"`
+	Title       string `json:"title"`
+	Field       string `json:"field"`
+	Description string `json:"description"`
 	// Requirements 攻关要求（一行一条或分号分隔；前端兼容数组/字符串两种形态）
 	Requirements string    `json:"requirements"`
 	BudgetFen    int64     `json:"budget_fen"`
@@ -171,9 +171,9 @@ type RDChallenge struct {
 
 // ChallengeClaim 研发难题揭榜意向（challenges/{id}/claims）
 type ChallengeClaim struct {
-	ID          string    `json:"id"`
-	ChallengeID string    `json:"challenge_id"`
-	UserID      string    `json:"user_id"`
+	ID          string `json:"id"`
+	ChallengeID string `json:"challenge_id"`
+	UserID      string `json:"user_id"`
 	// Claimer 揭榜方展示名（响应层由 user_id 关联填充，非数据库列）
 	Claimer   string    `json:"claimer"`
 	Status    string    `json:"status"` // submitted 待审核 / reviewing 审核中 / matched 已对接
@@ -317,26 +317,26 @@ type EventRegistration struct {
 
 // MemberPortfolio is a member enterprise's brand showcase page.
 type MemberPortfolio struct {
-	ID           string    `json:"id"`
-	EnterpriseID string    `json:"enterprise_id"`
-	Name         string    `json:"name"`
-	LogoURL      string    `json:"logo_url"`
-	CoverURL     string    `json:"cover_url"`
-	Description  string    `json:"description"`
-	Products     []string  `json:"products"`
-	Honors       []string  `json:"honors"`
-	ContactInfo  string    `json:"contact_info"`
+	ID           string   `json:"id"`
+	EnterpriseID string   `json:"enterprise_id"`
+	Name         string   `json:"name"`
+	LogoURL      string   `json:"logo_url"`
+	CoverURL     string   `json:"cover_url"`
+	Description  string   `json:"description"`
+	Products     []string `json:"products"`
+	Honors       []string `json:"honors"`
+	ContactInfo  string   `json:"contact_info"`
 	// Category/Industry 品牌分类与所属行业（列表分类筛选依据）
-	Category  string `json:"category"`
-	Industry  string `json:"industry"`
-	Verified  bool   `json:"verified"`   // 认证会员标识
-	VideoURL  string `json:"video_url"`  // 品牌宣传视频
-	VideoCount int   `json:"video_count"`
-	Views     int    `json:"views"`      // 品牌浏览计数
-	Featured  bool   `json:"featured"`   // 精选位（首页轮播）
-	Status    string `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Category   string    `json:"category"`
+	Industry   string    `json:"industry"`
+	Verified   bool      `json:"verified"`  // 认证会员标识
+	VideoURL   string    `json:"video_url"` // 品牌宣传视频
+	VideoCount int       `json:"video_count"`
+	Views      int       `json:"views"`    // 品牌浏览计数
+	Featured   bool      `json:"featured"` // 精选位（首页轮播）
+	Status     string    `json:"status"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // IndustryReport is a periodic industry analysis report.
@@ -403,10 +403,10 @@ type EmergencyResource struct {
 
 // EmergencyResourceBrief 调度关联资源摘要（列表展示用，避免全量字段）
 type EmergencyResourceBrief struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
 	ResType string `json:"res_type"`
-	Status string `json:"status"`
+	Status  string `json:"status"`
 }
 
 // EmergencyDispatch records an emergency resource dispatch event.

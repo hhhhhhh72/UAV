@@ -3,6 +3,7 @@
 // 请求统一仍走 utils/request.js，这里仅提供本地兜底数据与展示层归一化。
 import { authStorage, getStoredUser, BASE_URL } from './request'
 import { getPosts as getPublishedPosts } from './publishData'
+import { SERVICE_PROD_TYPES } from './enums'
 
 /* ================= 图片资源（复用首页静态图，保持稳定降级） ================= */
 export const IMG_SOLAR = '/static/home/demand-solar.jpg'
@@ -126,7 +127,22 @@ export function getKindItems(primary, supplyKind) {
 /* ================= 发布页本地内容 → 大厅卡片 ================= */
 // 后端未接入期间，发布页内容存于本地 publish_posts（utils/publishData.js）。
 // 已上架（live）内容由这里转换成大厅卡片结构，并入大厅列表展示；课程无大厅分类，不在此展示。
-const PRODUCT_CAT_MAP = { 整机: '整机', 零部件: '配件', 载荷设备: '载荷', 租赁设备: '配件', 维修服务: '配件' }
+// 发布页「商品或服务类型」中文 → 大厅分类（全部/整机/配件/载荷/服务）。
+// 必须与 pages/publish/preview.vue 的 PROD_TYPE_MAP 口径一致：那里把 维修/航拍/试飞/
+// 检测标定/空域协调 五类都映射成服务类 prod_type，这里若仍把「维修服务」归到「配件」，
+// 同一条本地发布在大厅会落进错误的分类页签；且原先只列了 5 项，新增的 4 类服务没有条目，
+// 会全部掉进 '配件' 兜底。
+const PRODUCT_CAT_MAP = {
+  整机: '整机',
+  零部件: '配件',
+  载荷设备: '载荷',
+  租赁设备: '配件',
+  维修服务: '服务',
+  航拍服务: '服务',
+  试飞测试: '服务',
+  检测标定: '服务',
+  空域协调: '服务',
+}
 
 export function publishPostToCard(post) {
   const v = post.values || {}
@@ -185,7 +201,8 @@ export function publishPostToCard(post) {
       seller: '平台商家',
       company: '平台商家',
       desc: v.description || '',
-      cat: PRODUCT_CAT_MAP[v.productType] || '配件',
+      // 发布类型决定读哪个 key：商品 productType / 服务能力 serviceType
+      cat: PRODUCT_CAT_MAP[v.productType || v.serviceType] || '配件',
       views: 0,
       status: '在售',
       fields: [['品牌型号', v.brand || '—'], ['成色', condition || '—'], ['交付方式', v.delivery || '—'], ['可售数量', v.stock ? v.stock + ' 件' : '—']],
@@ -344,12 +361,17 @@ export function fullImgUrl(u) {
   return BASE_URL + u
 }
 
-export const PRODUCT_CATEGORIES = ['全部', '整机', '配件', '载荷']
+// 服务类 prod_type 见 utils/enums.js（与后端 service_listing.go:35-41 对应），此处直接引用，不再本地复制。
+
+export const PRODUCT_CATEGORIES = ['全部', '整机', '配件', '载荷', '服务']
 
 const PRODUCT_CONDITION_MAP = { new: '全新', used: '二手' }
 
-// 电商分类：整机 / 配件 / 载荷（标题关键词兜底）
+// 电商分类：服务 / 整机 / 配件 / 载荷（标题关键词兜底）
 export function classifyProduct(p) {
+  // 服务类目优先判：航拍/巡检/测绘/植保/应急这些标题**一个都不匹配**下面的实物关键词，
+  // 落到最后的兜底会被统统归成"配件"。服务并入商品后（migration 000110）必须在这里先分流。
+  if (SERVICE_PROD_TYPES.includes(p.prod_type)) return '服务'
   const text = `${p.title || ''} ${p.brand || ''}`
   if (p.prod_type === 'drone' || /无人机|植保机|行业机|套机/.test(text)) return '整机'
   if (/云台|载荷|热成像|喊话|探照/.test(text)) return '载荷'
@@ -389,6 +411,17 @@ export function normalizeProduct(p) {
     cat: classifyProduct(p),
     views: p.views || 0,
     status: p.status || 'listed',
+    // ── 原始字段：供给大厅筛选面板要用 ──
+    // 上面的 condition 已被映射成展示文案（"全新"/"二手"），筛选不能拿展示文案去比；
+    // prod_type / category 此前根本没带下来，筛选会在 undefined 上比 → 一选就空列表。
+    prodType: p.prod_type || '',
+    serviceCategory: String(p.category || '').trim(),
+    // 服务区域：表单选/填的覆盖范围（如"重庆全域"）。此前没带下来，
+    // 于是商品的服务区域填了也没有任何消费方，成了只写不读的字段。
+    region: String(p.region || '').trim(),
+    rawCondition: p.condition === 'used' ? 'used' : 'new',
+    // 原始价格（分）。上面的 price 是格式化后的展示字符串，价格筛选/排序不能用它。
+    priceFen: Number(p.price_fen || 0),
   }
 }
 

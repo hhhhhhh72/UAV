@@ -95,8 +95,12 @@ const review = async (row, status) => {
   if (status === 'rejected') {
     // 驳回必须填写原因（申请方凭 note 了解驳回缘由）；输入框收集，空原因不提交
     let inputValue = ''
-    try {
-      const ok = await Modal.confirm({
+    // Arco 的 Modal.confirm() 返回 { close, update } 普通对象、没有 then，
+    // 直接 await 会立即拿到真值对象 → 下面的"未确认"分支永远不成立，
+    // 于是点"驳回"的瞬间就以空理由提交了，弹窗还开着等用户填字。
+    // 必须用 Promise 包一层，由 onOk/onCancel 决定继续还是中止。
+    const ok = await new Promise((resolve) => {
+      Modal.confirm({
         title: '驳回预约',
         content: h('div', { style: 'display:flex;gap:8px;align-items:center' }, [
           h('span', '原因：'),
@@ -110,21 +114,26 @@ const review = async (row, status) => {
         onOk: () => {
           if (!inputValue.trim()) {
             Message.warning('请填写驳回原因')
-            return Promise.reject(new Error('empty'))
+            return Promise.reject(new Error('empty')) // 拒绝 → 弹窗保持打开
           }
           note = inputValue.trim()
-          return Promise.resolve()
-        }
+          resolve(true)
+        },
+        onCancel: () => resolve(false)
       })
-      if (!ok) return
-    } catch (e) { return }
+    })
+    if (!ok) return
   } else {
-    try {
-      await Modal.confirm({
+    // 同上：Modal.confirm 不是 Promise，必须包一层等用户真正点确定。
+    const ok = await new Promise((resolve) => {
+      Modal.confirm({
         title: status === 'approved' ? '通过预约' : '完成预约',
         content: `确定${status === 'approved' ? '通过' : '完成'}该预约吗？`,
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false)
       })
-    } catch (e) { return }
+    })
+    if (!ok) return
   }
   try {
     await axios.post(`/api/v1/admin/test-sites/bookings/${row.id}/review`, { status, note })

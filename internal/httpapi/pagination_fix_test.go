@@ -171,13 +171,7 @@ func TestSystematicDoublePaginationFixed(t *testing.T) {
 	}
 	assertPagination(t, app, "/api/v1/portfolios", "user-1", domain.RoleIndividual, n)
 
-	// 10. association members
-	for i := 0; i < n; i++ {
-		createVia(t, app, http.MethodPost, "/api/v1/admin/association-members",
-			[]byte(fmt.Sprintf(`{"user_id":"member-%d","enterprise_id":"ent-%d","role":"member"}`, i, i)),
-			admin, adminRole)
-	}
-	assertPagination(t, app, "/api/v1/association-members", "user-1", domain.RoleIndividual, n)
+	// association members 分页已移除：该端点随协会 8 级角色一起删除。
 
 	// 11. employment-requests：企业创建 → 本人列表翻页（非管理员走 ListByEnterprise）
 	for i := 0; i < n; i++ {

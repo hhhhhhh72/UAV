@@ -96,7 +96,8 @@ const goBack = () => safeBack()
 const goRegister = () => uni.navigateTo({ url: '/pkg-eco/pages/enterprise/register' })
 
 const user = getStoredUser()
-const canPost = computed(() => user && (user.role === 'enterprise' || user.role === 'platform_admin'))
+// 协会账号是「运营方 + 市场主体」二合一：协会自己也要招人、也要替会员单位代发。
+const canPost = computed(() => user && (user.role === 'enterprise' || user.role === 'platform_admin' || user.role === 'association_admin'))
 
 const jobTypeOptions = ['全职', '兼职', '实习', '项目制']
 const jobTypeIndex = ref(0)

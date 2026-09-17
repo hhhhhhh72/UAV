@@ -15,8 +15,8 @@ import (
 // 闭环：研学详情报名 → 我的报名(研学 tab) → 管理端审核（pending/approved/rejected/completed）
 
 type StudyTourEnrollmentService struct {
-	repo   repository.StudyTourEnrollmentRepository
-	tours  repository.StudyTourRepository
+	repo  repository.StudyTourEnrollmentRepository
+	tours repository.StudyTourRepository
 }
 
 func NewStudyTourEnrollmentService(repo repository.StudyTourEnrollmentRepository, tours repository.StudyTourRepository) *StudyTourEnrollmentService {

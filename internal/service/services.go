@@ -37,7 +37,7 @@ type CreateDemandInput struct {
 	Latitude      float64        `json:"latitude"`
 	Longitude     float64        `json:"longitude"`
 	BudgetFen     int64          `json:"budget_fen"`
-	Budget        int64          `json:"budget"` // 预算上限（元，小程序发布表单），Create 时换算为分
+	Budget        int64          `json:"budget"`     // 预算上限（元，小程序发布表单），Create 时换算为分
 	BudgetMin     int64          `json:"budget_min"` // 预算下限（元，选填 0=不限）
 	BudgetMinFen  int64          `json:"budget_min_fen"`
 	Deadline      string         `json:"deadline"`
@@ -48,8 +48,11 @@ type DemandService struct {
 	repo repository.DemandRepository
 }
 
-// ErrRoleNotAllowed 角色无权执行该操作（如非企业/个人发布需求）。
-var ErrRoleNotAllowed = errors.New("only enterprise or individual users can publish demands")
+// ErrRoleNotAllowed 角色无权发布需求（仅企业/个人/平台管理员可发）。
+//
+// 文案必须是中文：小程序发布预览页刻意透出后端的真实拒绝原因
+// （pages/publish/preview.vue 不再吞成通用提示），英文句子会原样落到用户眼前。
+var ErrRoleNotAllowed = errors.New("当前账号类型不能发布需求，请使用企业或个人账号发布")
 
 // ErrDemandNotFound 需求不存在（Handler → 404）。
 var ErrDemandNotFound = errors.New("需求不存在")
@@ -74,7 +77,14 @@ func NewDemandService(r repository.DemandRepository) *DemandService {
 	return &DemandService{repo: r}
 }
 func (s *DemandService) Create(ctx context.Context, a domain.Actor, in CreateDemandInput) (domain.Demand, error) {
-	if a.Role != domain.RoleEnterprise && a.Role != domain.RoleIndividual {
+	// 四种角色都能发需求：企业/个人是市场主体，平台管理员是运营方，
+	// 协会管理员是「运营方 + 市场主体」二合一——协会账号只有一个，它登后台是审核方、
+	// 登小程序就是协会这个机构本身（办培训、发需求、发职位）。
+	//
+	// 这条判断现在是**默认拒绝**的兜底：已知角色全部放行，只挡住将来新增
+	// 但没想清楚发布权的未知角色。
+	if a.Role != domain.RoleEnterprise && a.Role != domain.RoleIndividual &&
+		a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin {
 		return domain.Demand{}, ErrRoleNotAllowed
 	}
 	if strings.TrimSpace(in.Title) == "" || strings.TrimSpace(in.Contact) == "" {

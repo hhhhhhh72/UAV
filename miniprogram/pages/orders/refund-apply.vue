@@ -3,7 +3,7 @@
     <!-- 顶栏（与发布页同款） -->
     <view class="pub-nav">
       <view class="pub-back" hover-class="pub-fade" @tap="goBack">‹</view>
-      <view class="pub-nav-title">{{ submitted ? '退款申请已提交' : '申请退款' }}</view>
+      <view class="pub-nav-title">{{ submitted ? '售后申请已提交' : '申请售后' }}</view>
     </view>
 
     <!-- 加载中 -->
@@ -25,8 +25,8 @@
       <view v-if="submitted" class="pub-form-card">
         <view class="pub-success">
           <view class="pub-success-mark">✓</view>
-          <view class="pub-success-title">退款申请已提交</view>
-          <view class="pub-success-desc">平台将在 1 个工作日内完成审核并同步处理进度</view>
+          <view class="pub-success-title">售后申请已提交</view>
+          <view class="pub-success-desc">{{ aftType === 'return' ? '卖家同意退货后请寄回商品并填写物流单号，卖家确认收到后才退款' : '卖家/平台将在 1 个工作日内完成审核并同步处理进度' }}</view>
         </view>
       </view>
 
@@ -40,11 +40,27 @@
 
         <!-- 退款信息（只读） -->
         <view class="pub-section">
-          <view class="pub-section-title">退款信息</view>
+          <view class="pub-section-title">售后信息</view>
           <view class="pub-form-card">
+            <!-- 售后类型：此前本页写死 aftersale_type='refund'，小程序端无法发起退货退款，
+                 后端已支持 return（同意退货 → 买家寄回 → 卖家确认收到 → 才退款） -->
             <view class="pub-field">
-              <view class="pub-field-label">退款类型</view>
-              <view class="pub-field-value">{{ as ? as.type : '仅退款' }}</view>
+              <view class="pub-field-label">售后类型</view>
+              <view class="type-picker">
+                <view
+                  class="type-chip"
+                  :class="{ 'type-chip--active': aftType === 'refund' }"
+                  @tap="aftType = 'refund'"
+                >仅退款</view>
+                <view
+                  class="type-chip"
+                  :class="{ 'type-chip--active': aftType === 'return' }"
+                  @tap="aftType = 'return'"
+                >退货退款</view>
+              </view>
+            </view>
+            <view v-if="aftType === 'return'" class="type-hint">
+              退货退款流程：卖家同意退货 → 你寄回商品并填写物流单号 → 卖家确认收到后才退款（寄回前不会打款）
             </view>
             <view class="pub-field">
               <view class="pub-field-label">退款金额</view>
@@ -75,7 +91,7 @@
         </view>
 
         <!-- 审核提示 -->
-        <view class="pub-review-note">提交后由平台审核，审核通过后按原路退款；可在「售后详情」查看处理进度。</view>
+        <view class="pub-review-note">{{ aftType === 'return' ? '提交后由卖家审核；同意退货后请寄回商品并填写物流单号，卖家确认收到才退款。可在「售后详情」查看进度。' : '提交后由卖家/平台审核，审核通过后按原路退款；可在「售后详情」查看处理进度。' }}</view>
       </template>
     </template>
 
@@ -85,7 +101,7 @@
         查看售后进度
       </view>
       <view v-else class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="submitRefund">
-        {{ submitting ? '提交中...' : '提交退款申请' }}
+        {{ submitting ? '提交中...' : (aftType === 'return' ? '提交退货退款申请' : '提交仅退款申请') }}
       </view>
     </view>
   </view>
@@ -107,6 +123,8 @@ const error = ref(false)
 const submitted = ref(false)
 const submitting = ref(false)
 const reason = ref('')
+// 售后类型：默认仅退款（打款快），选退货退款则需寄回后由卖家确认才退款
+const aftType = ref('refund')
 let orderId = ''
 
 // 售后信息在订单顶层（orderAdapter normalizeRealOrder 的 aftersale 字段），detail 里没有
@@ -150,12 +168,13 @@ const submitRefund = async () => {
   submitting.value = true
   try {
     // 真实提交售后单：POST /api/v1/trade-orders/{id}/aftersale
-    // 仅退款（退货退款后续扩展），金额默认整单金额；后端状态机 shipped/completed → aftersale
+    // 类型由用户选择（refund 仅退款 / return 退货退款），金额默认整单金额；
+    // 后端状态机 paid/shipped/completed → aftersale
     await request({
       url: '/api/v1/trade-orders/' + encodeURIComponent(order.value.id) + '/aftersale',
       method: 'POST',
       data: {
-        aftersale_type: 'refund',
+        aftersale_type: aftType.value,
         aftersale_reason: reason.value.trim() || '商品问题申请退款',
         aftersale_desc: reason.value.trim(),
         aftersale_amount_fen: order.value.amount_fen || 0,
@@ -211,6 +230,37 @@ const goBack = () => {
 .pub-field-value--accent {
   color: #0A66C2;
   font-weight: 700;
+}
+
+/* 售后类型选择：两个 chip，选中态用品牌色描边 + 浅底（与全局选中语义一致） */
+.type-picker {
+  display: flex;
+  gap: 10px;
+}
+.type-chip {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid #E4E7EC;
+  background: #fff;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.type-chip--active {
+  border-color: #0A66C2;
+  background: #E8F2FC;
+  color: #0A66C2;
+  font-weight: 600;
+}
+/* 退货退款流程说明：提示钱在卖家确认收货后才退，避免误解为"申请即退款" */
+.type-hint {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #FFF7ED;
+  color: #B45309;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 /* 字数计数 */

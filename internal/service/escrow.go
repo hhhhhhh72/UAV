@@ -12,10 +12,24 @@ import (
 
 type EscrowService struct {
 	repo repository.EscrowRepository
+	// recipientExists 可选的收款人存在性校验（生产装配，见 SetRecipientGuard）。
+	// 为 nil 时不做校验，dev/测试沿用旧行为。
+	recipientExists func(ctx context.Context, userID string) (bool, error)
 }
 
 func NewEscrowService(repo repository.EscrowRepository) *EscrowService {
 	return &EscrowService{repo: repo}
+}
+
+// SetRecipientGuard 装配 Release 的收款人存在性校验（校验的是**用户**是否存在，
+// 不是收款方有没有托管账户——真实用户首次收款自动开户的语义不受影响）。
+//
+// 为什么要它：仓储层 Release 是 upsert（INSERT ... ON CONFLICT DO UPDATE），
+// 收款 ID 非空但用户不存在时会凭空建出一个谁也登不上的账户——钱等于蒸发，
+// 对账时却只看到一笔「正常」的 release 流水。空串已由 Release 自身 fail-closed，
+// 这里补的是「非空但悬空」那一类（如历史课程 org_id 指向已删除账号）。
+func (s *EscrowService) SetRecipientGuard(fn func(ctx context.Context, userID string) (bool, error)) {
+	s.recipientExists = fn
 }
 
 // newTx 构造一条资金流水（状态恒为 completed，写入与余额调整同事务原子提交）。
@@ -110,11 +124,35 @@ func (s *EscrowService) Release(ctx context.Context, fromUser, toUser string, am
 	if amountFen <= 0 {
 		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
 	}
+	// 收款方必须真实存在：toUser 为空串时钱会从付款方冻结里扣掉却没有任何人入账
+	//（管理端建课曾写空 OrgID，学费就被释放给了 ""）。此处 fail-closed。
+	if fromUser == "" || toUser == "" {
+		return domain.EscrowTransaction{}, fmt.Errorf("release requires non-empty from(to) user, got from=%q to=%q", fromUser, toUser)
+	}
 	// 幂等保护：同 (fromUser, refType, refID) 已完成 release 时不再入账——
 	// 并发完成报名/重试场景防机构双倍入账（此前只校验余额，付款方还有其它
 	// 冻结资金时第二次释放仍会成功）。返回占位流水仅供调用方展示，不落库。
-	if has, err := s.repo.HasReleased(ctx, fromUser, refType, refID); err == nil && has {
+	//
+	// fail-closed：查询失败必须中止，不能带着"未知是否已放款"继续入账——
+	// PG 的 Release 只校验 frozen_fen 足够、没有 (from,ref) 去重，本次查询是唯一防线，
+	// 此前写成 err == nil && has，瞬时查询失败会直接落到下面的真实放款（双倍入账）。
+	has, err := s.repo.HasReleased(ctx, fromUser, refType, refID)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("check released %s/%s: %w", refType, refID, err)
+	}
+	if has {
 		return newTx(fromUser, toUser, "release", refType, refID, amountFen), nil
+	}
+	// 收款人必须真实存在（放在幂等短路之后：已放款的重试是无副作用的空操作，
+	// 不该因为收款人后来被删掉而报错）。
+	if s.recipientExists != nil {
+		exists, gerr := s.recipientExists(ctx, toUser)
+		if gerr != nil {
+			return domain.EscrowTransaction{}, fmt.Errorf("check release recipient %s: %w", toUser, gerr)
+		}
+		if !exists {
+			return domain.EscrowTransaction{}, fmt.Errorf("release recipient %q does not exist", toUser)
+		}
 	}
 	tx := newTx(fromUser, toUser, "release", refType, refID, amountFen)
 	return s.repo.Release(ctx, fromUser, toUser, amountFen, tx)
@@ -133,6 +171,19 @@ func (s *EscrowService) Refund(ctx context.Context, userID string, amountFen int
 func (s *EscrowService) Transfer(ctx context.Context, fromUser, toUser string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
 	if amountFen <= 0 {
 		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
+	}
+	if fromUser == "" || toUser == "" {
+		return domain.EscrowTransaction{}, fmt.Errorf("transfer requires non-empty from(to) user, got from=%q to=%q", fromUser, toUser)
+	}
+	// 幂等（fail-closed）：Repo.Transfer 是"余额条件 UPDATE + 写流水"，没有任何
+	// (refType, refID) 去重——重放会把付款方余额扣两次（售后退款场景即卖家被扣两次）。
+	// 与 Release 同款：查询失败必须中止，不能当作"没转过"继续扣。
+	has, err := s.repo.HasTransferred(ctx, fromUser, refType, refID)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("check transferred %s/%s: %w", refType, refID, err)
+	}
+	if has {
+		return newTx(fromUser, toUser, "transfer", refType, refID, amountFen), nil
 	}
 	tx := newTx(fromUser, toUser, "transfer", refType, refID, amountFen)
 	return s.repo.Transfer(ctx, fromUser, toUser, amountFen, tx)

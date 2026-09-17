@@ -1,6 +1,6 @@
 package httpapi_test
 
-// 由 .tools/scan-perm-matrix.cjs 生成的 /api/v1/admin/* 全量路由清单（198 条注册点）。
+// 由 .tools/scan-perm-matrix.cjs 生成的 /api/v1/admin/* 全量路由清单（201 条注册点）。
 // 生成方式：扫描 internal/httpapi/*.go 里 mux.HandleFunc("METHOD /path", handler)。
 var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"GET", "/api/v1/admin/achievements", "listAchievements"},
@@ -9,7 +9,6 @@ var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"GET", "/api/v1/admin/achievements/{id}", "getAchievement"},
 	{"PUT", "/api/v1/admin/achievements/{id}", "updateAchievement"},
 	{"GET", "/api/v1/admin/articles", "listAdminArticles"},
-	{"POST", "/api/v1/admin/association-members", "addAssociationMember"},
 	{"GET", "/api/v1/admin/audit-logs", "listAuditLogs"},
 	{"GET", "/api/v1/admin/cases", "listAdminCaseEntries"},
 	{"POST", "/api/v1/admin/cases", "createCase"},
@@ -24,6 +23,7 @@ var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"POST", "/api/v1/admin/certificates/{id}/approve", "approveCertificate"},
 	{"POST", "/api/v1/admin/certificates/{id}/reject", "rejectCertificate"},
 	{"GET", "/api/v1/admin/certified-pilots", "listAdminPilots"},
+	{"GET", "/api/v1/admin/certified-pilots/{id}", "getAdminPilot"},
 	{"POST", "/api/v1/admin/certified-pilots/{id}/approve", "approvePilot"},
 	{"POST", "/api/v1/admin/certified-pilots/{id}/reject", "rejectPilot"},
 	{"GET", "/api/v1/admin/colleges", "listAdminColleges"},
@@ -118,7 +118,6 @@ var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"GET", "/api/v1/admin/jobs/{id}", "getJob"},
 	{"PUT", "/api/v1/admin/jobs/{id}", "updateJob"},
 	{"GET", "/api/v1/admin/loans", "listAdminLoans"},
-	{"POST", "/api/v1/admin/members/import", "importMembers"},
 	{"GET", "/api/v1/admin/messages", "listAdminMessages"},
 	{"POST", "/api/v1/admin/messages", "createMessage"},
 	{"DELETE", "/api/v1/admin/messages/{id}", "deleteMessage"},
@@ -130,6 +129,7 @@ var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"GET", "/api/v1/admin/orders/{id}", "getOrder"},
 	{"PUT", "/api/v1/admin/orders/{id}", "updateOrder"},
 	{"PUT", "/api/v1/admin/orders/{id}/aftersale", "reviewAftersale"},
+	{"PUT", "/api/v1/admin/orders/{id}/aftersale/confirm-return", "adminConfirmReturnReceived"},
 	{"GET", "/api/v1/admin/policies", "listAdminPolicies"},
 	{"GET", "/api/v1/admin/portfolios", "listAdminPortfolios"},
 	{"POST", "/api/v1/admin/portfolios", "createPortfolio"},
@@ -142,6 +142,9 @@ var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"DELETE", "/api/v1/admin/products/{id}", "adminDeleteProduct"},
 	{"GET", "/api/v1/admin/products/{id}", "getProductDetail"},
 	{"PUT", "/api/v1/admin/products/{id}", "adminUpdateProduct"},
+	{"POST", "/api/v1/admin/products/{id}/restore", "adminRestoreProduct"},
+	{"POST", "/api/v1/admin/products/{id}/review", "adminReviewProduct"},
+	{"POST", "/api/v1/admin/products/batch-status", "batchSetProductStatus"},
 	{"GET", "/api/v1/admin/project-applications", "listAllProjectApps"},
 	{"POST", "/api/v1/admin/project-applications/{id}/review", "reviewProjectApp"},
 	{"GET", "/api/v1/admin/projects/{id}/joins", "listProjectJoins"},
@@ -185,7 +188,7 @@ var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"GET", "/api/v1/admin/test-sites/bookings", "listAdminBookings"},
 	{"POST", "/api/v1/admin/test-sites/bookings/{id}/review", "reviewTestSiteBooking"},
 	{"POST", "/api/v1/admin/token", "adminDevLogin"},
-	{"GET", "/api/v1/admin/training-courses", "listCourses"},
+	{"GET", "/api/v1/admin/training-courses", "adminListCourses"},
 	{"POST", "/api/v1/admin/training-courses", "adminCreateCourse"},
 	{"DELETE", "/api/v1/admin/training-courses/{id}", "deleteCourse"},
 	{"GET", "/api/v1/admin/training-courses/{id}", "getCourse"},

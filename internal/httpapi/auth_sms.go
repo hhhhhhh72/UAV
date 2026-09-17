@@ -19,7 +19,7 @@ import (
 // 接入短信服务商（腾讯云/阿里云 SMS）后，在 sendSMSCode 中发送真实短信并移除 dev_code。
 
 type smsRecord struct {
-	mu sync.Mutex // 串行化同号并发校验的读-改-写，防错误计数丢更新（爆破防护）
+	mu        sync.Mutex // 串行化同号并发校验的读-改-写，防错误计数丢更新（爆破防护）
 	Code      string
 	ExpiresAt time.Time
 	// Attempts 记录错误校验次数：达到 maxSMSCodeAttempts 即作废验证码，
@@ -200,10 +200,12 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 		// P2 修复：同手机号并发首登（连点登录）会双双 miss 再各 Create 一个用户。
 		// 按 uid 加进程内锁，锁内复查一次再创建；后到者复用先建好的用户。
 		unlock := loginLockByKey("uid|" + uid)
-		u, findErr := s.userRepo.FindByID(r.Context(), uid)
+		// P0 修复：同 auth_wechat 的首登遮蔽缺陷——内层 u 遮蔽外层，导致首登签发的
+		// 令牌 sub="" 不可用（且 refreshRepo.Store 会被挂到空 userID 上）。
+		locked, findErr := s.userRepo.FindByID(r.Context(), uid)
 		if findErr != nil {
 			now := time.Now()
-			u = domain.User{
+			locked = domain.User{
 				ID:           uid,
 				WechatOpenID: "phone:" + body.Phone, // 非微信用户唯一 openid，避免 UNIQUE 冲突
 				Role:         domain.RoleIndividual,
@@ -212,13 +214,14 @@ func (s *Server) loginWithSMS(w http.ResponseWriter, r *http.Request) {
 				CreatedAt:    now,
 				UpdatedAt:    now,
 			}
-			_, findErr = s.userRepo.Create(r.Context(), u)
+			_, findErr = s.userRepo.Create(r.Context(), locked)
 		}
 		unlock()
 		if findErr != nil {
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", findErr))
 			return
 		}
+		u = locked
 	}
 	role := u.Role
 	if role == "" {

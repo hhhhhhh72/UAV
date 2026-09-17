@@ -50,7 +50,8 @@ POST /api/v1/demands → createDemand(handler) → DemandService.Create
 
 - 标准 JWT (HS256, IssueJWT) 为主、兼容旧式两段格式，Access 15min / Refresh 7d 轮转（先存新再撤旧防锁号），refresh 只存 SHA-256 哈希
 - RBAC 4 级主角色（platform_admin > association_admin > enterprise > individual，写入 token）
-- 协会内部 8 级（association_members 表：president/vice_president/secretary/dept_head/member/partner/college/guest），与主角色分层叠加（admin=3 > partner=2 > member=1 > public=0 的可见性模型）
+- ~~协会内部 8 级（association_members 表）~~ **已下线**（迁移 000113）：该表从未有数据、前端零调用，
+  8 个角色里只有 partner 参与过判定。资源可见性只剩三档（admin=3 > 登录用户=1 > 未登录=0，原 partner=2 > member=1 > public=0 的可见性模型）
 
 ## 关键文件索引
 

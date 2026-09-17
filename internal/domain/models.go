@@ -281,6 +281,10 @@ type DemandIntent struct {
 	Contact      string    `json:"contact"`
 	Remark       string    `json:"remark"`
 	Status       string    `json:"status"` // pending / contacted / done / closed
+	// DemandTitle 是跨需求聚合查询（ListByPublisher）带出的展示字段，
+	// 让发布方的「接单申请」聚合页不必再逐条回查需求标题。
+	// omitempty：单需求查询不填，其余接口的 JSON 契约保持不变。
+	DemandTitle string `json:"demand_title,omitempty"`
 	Version      int       `json:"version"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -541,20 +545,39 @@ type TradeOrder struct {
 	SellerID    string `json:"seller_id"`
 	AmountFen   int64  `json:"amount_fen"`
 	Status      string `json:"status"`
-	// 售后契约（一期）：aftersale_type=refund(仅退款)/return(退货退款)；
-	// aftersale_status=pending(待审核)/approved(已同意退款)/rejected(已驳回)。
-	// aftersale_status 为空串表示该订单从未申请过售后。
+	// 售后契约：aftersale_type=refund(仅退款)/return(退货退款)；
+	// aftersale_status 为空串表示该订单从未申请过售后，其余取值：
+	//   refund 单：pending(待审核) → approved(已退款) / rejected(已驳回)
+	//   return 单：pending → returning(已同意退货，待买家寄回)
+	//                     → returned(买家已寄回，待卖家确认收到)
+	//                     → approved(确认收货后退款) / rejected(驳回)
+	// 退款只在 approved 那一步发生：退货单在买家寄回、卖家确认之前不动钱。
 	AftersaleType      string    `json:"aftersale_type"`
 	AftersaleReason    string    `json:"aftersale_reason"`
 	AftersaleDesc      string    `json:"aftersale_desc"`
 	AftersaleAmountFen int64     `json:"aftersale_amount_fen"`
 	AftersaleStatus    string    `json:"aftersale_status"`
 	AftersaleTime      time.Time `json:"aftersale_time"`
+	// 收货信息（下单时快照到订单）。此前订单表完全没有地址——发布表单里却有
+	// 「物流发货」这个交付方式，卖家选它卖出去之后不知道寄给谁。
+	ReceiverName    string `json:"receiver_name"`
+	ReceiverPhone   string `json:"receiver_phone"`
+	ReceiverRegion  string `json:"receiver_region"`  // 省市区
+	ReceiverAddress string `json:"receiver_address"` // 详细地址
+	// 发货信息（卖家发货时写入）。shipping_tracking 是**出库**单号，
+	// 与 ReturnTracking（买家退货寄回的单号）方向相反，不要混用。
+	ShippingCompany  string     `json:"shipping_company"`
+	ShippingTracking string     `json:"shipping_tracking"`
+	ShippedAt        *time.Time `json:"shipped_at,omitempty"`
 	// AftersaleFrom 申请售后前的订单状态（paid/shipped/completed）；驳回时恢复原状态。
-	AftersaleFrom string    `json:"aftersale_from"`
-	Version       int       `json:"version"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	AftersaleFrom string `json:"aftersale_from"`
+	// 退货物流（一期）：仅 aftersale_type=return 且有值；买家在 returning 状态下提交。
+	ReturnTracking string     `json:"return_tracking"`
+	ReturnNote     string     `json:"return_note"`
+	ReturnedAt     *time.Time `json:"returned_at,omitempty"`
+	Version        int        `json:"version"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // EscrowAccount holds a user's balance and frozen funds in the escrow system.
@@ -712,6 +735,17 @@ type CertifiedPilotDetail struct {
 	Certificates []CertificateBrief `json:"certificates"`
 }
 
+// PilotReviewDetail 管理端审核飞手申请所需的完整资料。
+//
+// 与 CertifiedPilotDetail（公开档案展示用）刻意分开：
+//   - 公开档案只给"已通过且未过期"的证书摘要，身份证脱敏；
+//   - 审核必须看到**全部**随附证书（含 pending/rejected），且要看得到证书编号与照片
+//     才能核对真伪——CertificateBrief 既没有 cert_number 也没有 image_url。
+type PilotReviewDetail struct {
+	CertifiedPilot
+	Certificates []Certificate `json:"certificates"`
+}
+
 // CertificateBrief 飞手展示用证书摘要（不含用户隐私字段）
 type CertificateBrief struct {
 	ID        string `json:"id"`
@@ -758,6 +792,27 @@ const (
 	ProductAirspace    ProductType = "airspace"    // 空域协调
 )
 
+// 商品审核状态（drone_products.check_status），与上架状态 status 正交。
+const (
+	ProductCheckPending  = "pending"  // 待审核（用户刚发布）
+	ProductCheckPassed   = "passed"   // 审核通过
+	ProductCheckRejected = "rejected" // 审核驳回（必须带 check_reason）
+)
+
+// 交付方式（drone_products.delivery）。
+const (
+	DeliveryPickup     = "pickup"     // 自提
+	DeliveryCity       = "city"       // 同城配送
+	DeliveryLogistics  = "logistics"  // 物流发货
+	DeliveryNegotiable = "negotiable" // 可协商
+)
+
+// 价格模式（drone_products.price_mode）。
+const (
+	PriceModeFixed      = "fixed"      // 明码标价：PriceFen 必须 > 0
+	PriceModeNegotiable = "negotiable" // 面议：PriceFen 必须 = 0
+)
+
 // DroneProduct is a marketplace listing for a drone, part, or repair service.
 type DroneProduct struct {
 	ID          string      `json:"id"`
@@ -767,15 +822,48 @@ type DroneProduct struct {
 	Title       string      `json:"title"`
 	Description string      `json:"description"`
 	PriceFen    int64       `json:"price_fen"`
+	// Category/Region/Unit 三个服务类字段：从 service_listings 并入（migration 000110）。
+	// Category 比 ProdType 更细——ProdType 只到"航拍服务"，而"测绘/巡检/应急"是更细的类目；
+	// Unit 是报价单位（次/天/公里），没有它"¥800"不知道是每次还是每天。
+	Category string `json:"category"`
+	Region   string `json:"region"`
+	Unit     string `json:"unit"`
+	// Delivery 交付方式：pickup(自提) / city(同城配送) / logistics(物流发货) / negotiable(可协商)。
+	// 空串表示卖家未选——下单时按商品类型兜底判断是否需要收货地址
+	//（此前表单采集了这个字段但提交时丢弃，见 migration 000109）。
+	Delivery string `json:"delivery"`
+	// PriceMode 价格模式：fixed(明码标价) / negotiable(面议)。
+	// 此前靠 price_fen==0 隐式表达面议，与"卖家填了 0 元"不可区分——见 migration 000107。
+	PriceMode string `json:"price_mode"`
 	Images      []string    `json:"images"`
+	// DetailImages 详情图（详情区长图）。与 Images 分工不同：Images 是顶部图集（封面，
+	// 买家第一眼看到的），DetailImages 是往下翻时铺在详情区的细节图（内部结构/铭牌/检测报告/实拍）。
+	// 参考 Tigshop 的图文详情（descArr），先做轻量版：纯图数组，不含图文块混排。
+	DetailImages []string `json:"detail_images"`
 	Brand       string      `json:"brand"`
 	Model       string      `json:"model"`
 	Condition   string      `json:"condition"` // new / used
 	Views       int         `json:"views"`     // detail view counter
-	Status      string      `json:"status"`    // listed / sold / removed
-	Version     int         `json:"version"`
+	// Status 只表达**上架维度**：pending(未上架，刚发布) / listed(在售) / sold(已售) / removed(已下架)。
+	// 审核维度见 CheckStatus——两者正交；此前混在一个字段里，"驳回"只能写成 removed，
+	// 与"卖家主动下架"同值，卖家分不清自己是被驳回还是自己下的。
+	Status string `json:"status"`
+	// CheckStatus 审核维度：pending / passed / rejected。公开商城要求
+	// CheckStatus=passed 且 Status=listed，缺一不可（service.ProductVisibleInHall）。
+	CheckStatus string `json:"check_status"`
+	// CheckReason 驳回原因（CheckStatus=rejected 时有意义，审核驳回必填）。
+	CheckReason string `json:"check_reason"`
+	// ReviewedAt/ReviewedBy 审核留痕。配套地，管理端审核动作会写 s.audit——
+	// 此前商品路径完全没有审计，而订单路径有。
+	ReviewedAt *time.Time `json:"reviewed_at,omitempty"`
+	ReviewedBy string     `json:"reviewed_by,omitempty"`
+	Version    int        `json:"version"`
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`
+	// DeletedAt 软删除时间（回收站）。非空表示已进回收站：公开列表/详情/我的商品
+	// 一律不可见，订单仍能按 ID 取到商品名（ListByIDs 不过滤），避免"删商品丢订单上下文"。
+	// 此前是物理 DELETE，订单里的 product_id 会变成指向不存在行的孤儿。
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
 // ServiceListing is an enterprise service capability showcase (PRD ②-2 供给能力展示).

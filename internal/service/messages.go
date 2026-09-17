@@ -26,6 +26,20 @@ func (s *MessageService) Send(ctx context.Context, senderID, receiverID, title, 
 	return s.repo.Create(ctx, m)
 }
 
+// DeleteByReference 清理引用某个业务对象的站内通知。
+//
+// 为什么需要：业务对象（如需求）被删除后，指向它的通知仍在收件箱里，点进去打不开
+// 任何东西。与「需求删除时其对接意向一并清除」同一口径——通知是行为提醒，不是凭证。
+//
+// resourceID 为空时直接拒绝：空条件会命中管理端广播（resource_type='' 且 resource_id=''），
+// 把全站公告删光。
+func (s *MessageService) DeleteByReference(ctx context.Context, resourceID string, resourceTypes []string) (int, error) {
+	if resourceID == "" {
+		return 0, errors.New("resource id required")
+	}
+	return s.repo.DeleteByReference(ctx, resourceID, resourceTypes)
+}
+
 func (s *MessageService) ListForUser(ctx context.Context, userID string, unreadOnly bool) ([]domain.Message, error) {
 	return s.repo.ListByUser(ctx, userID, unreadOnly)
 }

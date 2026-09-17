@@ -35,13 +35,20 @@ func adminListFilter[T any](items []T, kw, status string, kwField func(T) string
 	return out, len(out)
 }
 
-// adminFail 管理端写操作错误映射：资源不存在 → 404，越权 → 403，其余 → 500。
-// 修复前 update/delete 一律 500，前端无法区分"资源不存在"与真实服务故障。
+// adminFail 管理端写操作错误映射：字段不合法 → 400，越权 → 403，资源不存在 → 404，
+// 状态冲突（仍有进行中的关联业务）→ 409，其余 → 500。
+// 修复前 update/delete 一律 500，前端无法区分"填错了"、"资源不存在"与真实服务故障。
 func adminFail(w http.ResponseWriter, r *http.Request, err error) {
 	code := http.StatusInternalServerError
 	switch {
+	case errors.Is(err, service.ErrProductInvalid), errors.Is(err, service.ErrProductReviewInvalid):
+		// 400：用户/管理员可以改的输入问题，不是服务故障。
+		code = http.StatusBadRequest
 	case errors.Is(err, service.ErrNotOwner):
 		code = http.StatusForbidden
+	case errors.Is(err, service.ErrProductInTrade):
+		// 409：商品仍在交易中，不是参数错误也不是服务故障，前端要提示"先去处理订单"。
+		code = http.StatusConflict
 	case strings.Contains(strings.ToLower(err.Error()), "not found"):
 		code = http.StatusNotFound
 	}
@@ -261,6 +268,15 @@ func (s *Server) deleteCompetition(w http.ResponseWriter, r *http.Request) {
 
 // --- Training Courses (missing update/delete) ---
 func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
+	// P0 修复：此前传 domain.Actor{Role: ...}（ID 为空），而 service.CreateCourse
+	// 无条件执行 c.OrgID = a.ID，导致管理端建的课程 org_id 落成空串：
+	//   ① completeEnrollment 释放学费时 Release(学员, "", 金额) 把钱打进空账户；
+	//   ② 课程的"机构归属"判定全部失效；③ 机构自报名拦截失效。
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var in struct {
 		Title       string `json:"title"`
 		CertType    string `json:"cert_type"`
@@ -313,7 +329,7 @@ func (s *Server) adminCreateCourse(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	c, err := s.trainingSvc.CreateCourse(r.Context(), domain.Actor{Role: domain.RolePlatformAdmin}, domain.TrainingCourse{
+	c, err := s.trainingSvc.CreateCourse(r.Context(), domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, domain.TrainingCourse{
 		Title: in.Title, CertType: domain.CertType(ct), Description: in.Description,
 		Location: in.Location, StartDate: startDate, EndDate: endDate,
 		MaxStudents: ms, PriceFen: in.PriceFen, Status: in.Status,
@@ -559,6 +575,15 @@ func (s *Server) deleteJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
+	// P0 修复：此前硬编码 domain.Actor{ID: "admin"}——"admin" 是库里并不存在的
+	// 幽灵账号（见 admin_users.go 的注释），导致职位 enterprise_id 落成 "admin"：
+	// 企业端「我的职位」看不到、公开职位详情把它暴露给前端、PublishJob 的属主校验
+	// 退化成"只有同一个硬编码 ID 才能通过"。
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
 	var in struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -571,15 +596,15 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	j, err := s.jobSvc.CreateJob(r.Context(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, in.Title, in.Description, in.Location, in.SalaryFen, in.JobType)
+	j, err := s.jobSvc.CreateJob(r.Context(), domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, in.Title, in.Description, in.Location, in.SalaryFen, in.JobType)
 	if err != nil {
 		adminFail(w, r, err)
 		return
 	}
 	if in.Status == "published" {
 		var err error
-		// 与 CreateJob 使用同一 actor（ID:"admin"），否则 owner 校验失败
-		j, err = s.jobSvc.PublishJob(r.Context(), domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}, j.ID)
+		// 与 CreateJob 使用同一个真实 actor，否则 owner 校验失败
+		j, err = s.jobSvc.PublishJob(r.Context(), domain.Actor{ID: a.ID, Role: domain.RolePlatformAdmin}, j.ID)
 		if err != nil {
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("publish job: %w", err))
 			return
@@ -822,19 +847,19 @@ func (s *Server) listAdminTestSites(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateTestSite(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var in struct {
-		Name              string   `json:"name"`
-		SiteType          string   `json:"site_type"`
-		Location          string   `json:"location"`
-		BookingRule       string   `json:"booking_rule"`
-		Status            string   `json:"status"`
-		PriceFen          int64    `json:"price_fen"`
-		Facilities        []string `json:"facilities"`
-		AirspaceRange     string   `json:"airspace_range"`
-		MaxTakeoffWeight  string   `json:"max_takeoff_weight"`
-		RunwayLength      string   `json:"runway_length"`
-		MaxFlightHeight   string   `json:"max_flight_height"`
-		CompatibleModels  string   `json:"compatible_models"`
-		ImageURL          string   `json:"image_url"`
+		Name             string   `json:"name"`
+		SiteType         string   `json:"site_type"`
+		Location         string   `json:"location"`
+		BookingRule      string   `json:"booking_rule"`
+		Status           string   `json:"status"`
+		PriceFen         int64    `json:"price_fen"`
+		Facilities       []string `json:"facilities"`
+		AirspaceRange    string   `json:"airspace_range"`
+		MaxTakeoffWeight string   `json:"max_takeoff_weight"`
+		RunwayLength     string   `json:"runway_length"`
+		MaxFlightHeight  string   `json:"max_flight_height"`
+		CompatibleModels string   `json:"compatible_models"`
+		ImageURL         string   `json:"image_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, 400, err)
@@ -1216,7 +1241,10 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 			fail(w, r, 429, errors.New("广播过于频繁，请稍后再试"))
 			return
 		}
-		sent, err := s.broadcastMessageToAll(r, in.SenderID, in.Title, in.Content, in.ResourceType, in.ResourceID)
+		// P0 修复：发信人一律取当前登录管理员，不接受客户端 in.SenderID——
+		// 此前可冒用任意用户身份（如某企业 ID）发信，而审计记的是 a.ID，
+		// 审计日志与实际发信人不一致。
+		sent, err := s.broadcastMessageToAll(r, a.ID, in.Title, in.Content, in.ResourceType, in.ResourceID)
 		if err != nil {
 			fail(w, r, 500, fmt.Errorf("broadcast messages: %w", err))
 			return
@@ -1225,7 +1253,7 @@ func (s *Server) createMessage(w http.ResponseWriter, r *http.Request) {
 		respond(w, r, 201, map[string]any{"broadcast": len(sent), "messages": sent})
 		return
 	}
-	msg, err := s.msgSvc.Send(r.Context(), in.SenderID, in.ReceiverID, in.Title, in.Content, in.ResourceType, in.ResourceID)
+	msg, err := s.msgSvc.Send(r.Context(), a.ID, in.ReceiverID, in.Title, in.Content, in.ResourceType, in.ResourceID)
 	if err != nil {
 		adminFail(w, r, err)
 		return
@@ -1712,7 +1740,9 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 		adminFail(w, r, fmt.Errorf("product not available: %w", err))
 		return
 	}
-	o, err := s.tradeSvc.Create(r.Context(), in.BuyerID, in.ProductID, product.SellerID, product.PriceFen)
+	// 管理端建单（多为线下成交补录）：不强制收货信息——线下交付本就没有寄送环节，
+	// 由管理端按实际情况决定是否填。买家自助下单路径则按商品类型强制（见 createTradeOrder）。
+	o, err := s.tradeSvc.Create(r.Context(), in.BuyerID, in.ProductID, product.SellerID, product.PriceFen, service.OrderReceiver{}, false)
 	if err != nil {
 		if rerr := s.tradingSvc.RestoreProduct(r.Context(), product.ID); rerr != nil {
 			slog.Error("restore product after admin order failed", "product_id", product.ID, "error", rerr)
@@ -1767,6 +1797,23 @@ func (s *Server) reviewAftersale(w http.ResponseWriter, r *http.Request) {
 		adminID = a.ID
 	}
 	s.audit(r.Context(), adminID, "review_aftersale", "trade_order", o.ID, o.AftersaleStatus)
+	respond(w, r, 200, o)
+}
+
+// PUT /api/v1/admin/orders/{id}/aftersale/confirm-return
+// 管理端确认收到退货并发起退款（退货退款流程第三步；卖家侧走 trade-orders 同名端点）
+func (s *Server) adminConfirmReturnReceived(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, fmt.Errorf("auth required"))
+		return
+	}
+	o, err := s.tradeSvc.ConfirmReturnReceived(r.Context(), a, r.PathValue("id"))
+	if err != nil {
+		fail(w, r, 400, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "confirm_return_received", "trade_order", o.ID, o.AftersaleStatus)
 	respond(w, r, 200, o)
 }
 func (s *Server) deleteOrder(w http.ResponseWriter, r *http.Request) {

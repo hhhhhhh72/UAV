@@ -41,10 +41,10 @@ func TestBuildWindowTrendsDaily(t *testing.T) {
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	rng := dashboardRange{Key: "7d", Since: dayStart.AddDate(0, 0, -6), Bucket: "day", Points: 7}
 	items := []time.Time{
-		dayStart,                     // 今天
-		dayStart.AddDate(0, 0, -1),   // 昨天
-		dayStart.AddDate(0, 0, -1),   // 昨天（第 2 条）
-		dayStart.AddDate(0, 0, -10),  // 窗口外，应忽略
+		dayStart,                    // 今天
+		dayStart.AddDate(0, 0, -1),  // 昨天
+		dayStart.AddDate(0, 0, -1),  // 昨天（第 2 条）
+		dayStart.AddDate(0, 0, -10), // 窗口外，应忽略
 	}
 	out := buildWindowTrends(items, func(v time.Time) time.Time { return v }, rng)
 	if len(out) != 7 {

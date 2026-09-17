@@ -217,6 +217,7 @@ func (s *Server) escrowRefund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
+		UserID        string `json:"user_id"`
 		AmountFen     int64  `json:"amount_fen"`
 		ReferenceType string `json:"reference_type"`
 		ReferenceID   string `json:"reference_id"`
@@ -225,12 +226,19 @@ func (s *Server) escrowRefund(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	tx, err := s.escrowSvc.Refund(r.Context(), a.ID, in.AmountFen, in.ReferenceType, in.ReferenceID)
+	// 默认解冻操作者自己的资金；带 user_id 时解冻指定用户的——这是「驳回报名自动退款失败」
+	// 唯一的人工补救入口（escrow_release 本就允许管理员任意指定 from/to，权限级别一致）。
+	// 天然防超额：仓储层是 frozen_fen >= amount 的条件 UPDATE，退不出去就报错，不会凭空造钱。
+	target := in.UserID
+	if target == "" {
+		target = a.ID
+	}
+	tx, err := s.escrowSvc.Refund(r.Context(), target, in.AmountFen, in.ReferenceType, in.ReferenceID)
 	if err != nil {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	s.audit(r.Context(), a.ID, "escrow_refund", in.ReferenceType, in.ReferenceID, "refunded")
+	s.audit(r.Context(), a.ID, "escrow_refund", in.ReferenceType, in.ReferenceID, "refunded:"+target)
 	respond(w, r, http.StatusCreated, tx)
 }
 

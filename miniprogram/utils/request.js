@@ -14,6 +14,27 @@ function idempotencyKey(url, data) {
   return 'idem-' + hash + '-' + String(s.length).slice(0, 60)
 }
 
+// 认证类接口：它们的 401 是**业务语义**，不是"登录态失效"。
+//
+// 后端对"账号或密码错误"返回的就是 401（h5_compat.go 的 h5AuthLogin），
+// 而下面的 401 分支会清 token + 跳 /pages/login/index（微信一键登录页）。
+// 两者撞在一起的结果是：密码输错 → 直接被甩到一键登录页，
+// 连"账号或密码错误"的提示都看不到——调用方自己的 catch 才是正确处理者。
+// 所以这些路径一律不进 401 兜底，原样 reject 给调用方。
+const AUTH_ENDPOINTS = [
+  '/api/auth/login',
+  '/api/auth/login-code',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/v1/auth/wechat/login',
+  '/api/auth/wechat/login', // compat_routes.go 注册的旧版兼容路径，同样是登录接口
+  '/api/sso/login',
+]
+function isAuthEndpoint(url) {
+  const path = String(url || '').split('?')[0]
+  return AUTH_ENDPOINTS.some((p) => path === p || path.indexOf(p + '/') === 0)
+}
+
 // 补全后端返回的图片相对路径（/uploads/xxx → 完整域名）：培训/赛事/服务等
 // 列表接口存的 image/poster 都是相对路径，小程序 <image> 直接渲染相对路径会
 // 当本地资源 → 白图。仅在响应侧统一补全，提交给后端的数据保持相对路径不变。
@@ -127,7 +148,8 @@ export function request(options) {
       success: async (res) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(unwrap(res.data))
-        } else if (res.statusCode === 401) {
+        } else if (res.statusCode === 401 && !isAuthEndpoint(options.url)) {
+          // 认证接口的 401 不走这里：它表示"账号或密码错"，由调用方 toast 提示。
           const refreshToken = authStorage.getRefreshToken()
           if (!refreshToken) {
             authStorage.clearTokens()

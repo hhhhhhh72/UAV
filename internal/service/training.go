@@ -31,6 +31,17 @@ func certValid(c domain.Certificate) bool {
 	return c.ExpireDate.After(time.Now())
 }
 
+// containsID 证书 ID 去重：本次随申请提交的证书若因查重命中已有记录，
+// 会与"已备案的有效证书"列表重叠，直接用会重复关联。
+func containsID(ids []string, id string) bool {
+	for _, v := range ids {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
 // ownerHasValidCert 核验飞手档案所关联的证书中，是否仍有"approved 且未过期"的。
 // 审批时复核用：覆盖"申请时有效、审批时已过期/被撤销"的空档——认证飞手身份
 // 必须始终有有效证书支撑，无证不批（产品口径：不允许先审核后补证）。
@@ -229,6 +240,23 @@ func (s *TrainingService) DeleteCertificate(ctx context.Context, id string) erro
 
 // ---- Courses ----
 
+// remainOf 剩余名额 = max(0, 总名额 - 已报)。总名额为 0 表示不限额，剩余无意义，返回 0。
+//
+// remain 是**派生值**，不是独立字段：建课/改课时按此公式算，报名时由仓储的 BumpEnrolled 重算。
+// 此前建课直接采信表单里手填的 remain——它与 max_students 是两个独立输入框，
+// 于是 max=11 / remain=10 这种不一致从建课那一刻就存在；而 BumpEnrolled 只在
+// **有人报名时**才纠正，没人报名就永远是错的（生产上已实际出现，列表页据此
+// 显示「仅剩 10 个」，详情页却按容量算出「已报 0 / 11」，同一门课两个答案）。
+func remainOf(maxStudents, enrolledCount int) int {
+	if maxStudents <= 0 {
+		return 0
+	}
+	if left := maxStudents - enrolledCount; left > 0 {
+		return left
+	}
+	return 0
+}
+
 // CreateCourse 接收完整领域对象（含小程序页面字段 org_name/rating/district/courses 等）。
 func (s *TrainingService) CreateCourse(ctx context.Context, a domain.Actor, c domain.TrainingCourse) (domain.TrainingCourse, error) {
 	if c.PriceFen < 0 {
@@ -238,10 +266,22 @@ func (s *TrainingService) CreateCourse(ctx context.Context, a domain.Actor, c do
 	if c.ID == "" {
 		c.ID = nextID("course")
 	}
-	c.OrgID = a.ID
+	// 课程归属决定学费结算方向（completeEnrollment 用 Release(学员, course.OrgID, 学费)）。
+	//
+	// 默认挂发布者本人——个人/企业发布必须如此：若能指定任意 OrgID，
+	// 就能把别人的学费结算指向自己或第三方账户。
+	// 平台/协会管理员例外：他们要代机构建课（协会的课挂协会、协会替商家建课），
+	// 需要能显式指定归属；未指定时同样回落到本人，语义不变。
+	//
+	// 此前是无条件 c.OrgID = a.ID，谁都指定不了机构归属。
+	if c.OrgID == "" || (a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
+		c.OrgID = a.ID
+	}
 	if c.Status == "" {
 		c.Status = "draft"
 	}
+	// 派生值，不采信表单：建课时已报数为 0，所以剩余名额等于总名额。
+	c.Remain = remainOf(c.MaxStudents, c.EnrolledCount)
 	c.Version = 1
 	c.CreatedAt = now
 	c.UpdatedAt = now
@@ -279,6 +319,11 @@ func (s *TrainingService) UpdateCourse(ctx context.Context, c domain.TrainingCou
 	c.OrgID = old.OrgID
 	c.Version = old.Version
 	c.CreatedAt = old.CreatedAt // 保留原创建时间
+	// 已报数与剩余名额是累计/派生值，一律**不接受表单传入**：
+	//   - 管理端表单不带 enrolled_count，采信它会把已报数清零（内存实现是整条替换，尤其明显）；
+	//   - remain 由总名额与已报数推出，此前直接写表单里的 remain，与 max_students 无约束。
+	c.EnrolledCount = old.EnrolledCount
+	c.Remain = remainOf(c.MaxStudents, old.EnrolledCount)
 	c.UpdatedAt = time.Now()
 	return s.courseRepo.Update(ctx, c)
 }
@@ -346,21 +391,79 @@ func (s *TrainingService) ListInstructors(ctx context.Context) ([]domain.Instruc
 
 // ---- Certified Pilots ----
 
+// PilotCertInput 随飞手认证申请一并提交的证书。
+// 字段与 AddCertificate 一致；ExpireDate 为零值表示长期有效。
+type PilotCertInput struct {
+	CertType   domain.CertType
+	CertNumber string
+	Level      string
+	IssuerOrg  string
+	ImageURL   string
+	IssueDate  time.Time
+	ExpireDate time.Time
+}
+
+// RegisterPilot 申请飞手认证（不随附证书）：证书已在平台备案的用户走这里。
+// 需要随申请一并提交证书的用 RegisterPilotWithCerts。
 func (s *TrainingService) RegisterPilot(ctx context.Context, a domain.Actor, realName, idCard string, flightHours int, bio, avatar, region string) (domain.CertifiedPilot, error) {
-	// 自动关联有效证书：仅"approved 且未过期"计入（此前只看 approved，
-	// 过期证书仍被当作有效资质，持过期证书者可获"已认证飞手"身份）。
+	return s.RegisterPilotWithCerts(ctx, a, realName, idCard, flightHours, bio, avatar, region, nil)
+}
+
+// RegisterPilotWithCerts 申请飞手认证，可随申请一并提交证书（合并审核）。
+//
+// 合并之前：用户必须先把证书**单独**提交给管理端、审核通过后才允许申请飞手认证——
+// 同一批证据走两道人工审核，且申请页只能提示"请先提交证书"（没有填写位置）。
+// 现在证书随申请一并落 pending 并关联进档案，管理端审一次飞手申请即同时裁定这批证书
+// （ApprovePilot / RejectPilot 会联动它们的状态）。
+//
+// 门禁口径不变，仍是"无证不批"：有已备案的有效证书、或本次提交了证书，二者其一即可。
+func (s *TrainingService) RegisterPilotWithCerts(ctx context.Context, a domain.Actor, realName, idCard string, flightHours int, bio, avatar, region string, certs []PilotCertInput) (domain.CertifiedPilot, error) {
+	// 0) 无副作用的重复申请预检，必须放在建证书**之前**：
+	//    否则已认证/审核中的用户再提交一次，证书会被建出来而申请被拒，
+	//    留下永远没人审的孤儿 pending 证书。
+	if existing, err := s.pilotRepo.List(ctx); err == nil {
+		for _, e := range existing {
+			if e.UserID != a.ID {
+				continue
+			}
+			switch e.Status {
+			case "approved":
+				return domain.CertifiedPilot{}, errors.New("你已经通过飞手认证，无需重复申请")
+			case "pending":
+				return domain.CertifiedPilot{}, errors.New("飞手认证审核中，请耐心等待")
+			}
+		}
+	}
+
+	// 1) 随申请提交的证书先落库（pending，等本次审核一并裁定）。
+	//    AddCertificate 自带查重：撞号或他人已占用直接报错，不静默吞掉。
+	submitted := make([]string, 0, len(certs))
+	for _, in := range certs {
+		c, err := s.AddCertificate(ctx, a, in.CertType, in.CertNumber, in.Level, in.IssuerOrg, in.ImageURL, in.IssueDate, in.ExpireDate)
+		if err != nil {
+			return domain.CertifiedPilot{}, err
+		}
+		submitted = append(submitted, c.ID)
+	}
+
+	// 2) 已备案的有效证书（approved 且未过期）+ 本次提交的证书，共同构成申请关联的证书集。
+	//    本次提交的是 pending，certValid 不认，所以必须显式并入。
 	certIDs := []string{}
-	if certs, err := s.certRepo.ListByUser(ctx, a.ID); err == nil {
-		for _, c := range certs {
+	if existing, err := s.certRepo.ListByUser(ctx, a.ID); err == nil {
+		for _, c := range existing {
 			if certValid(c) {
 				certIDs = append(certIDs, c.ID)
 			}
 		}
 	}
-	// 审批门禁：至少持有一张未过期 approved 证书，否则不批准。
-	// 实现为申请校验：无有效证书直接拒绝申请（与"无证不批"同效）。
+	for _, id := range submitted {
+		if !containsID(certIDs, id) {
+			certIDs = append(certIDs, id)
+		}
+	}
+	// 无证不批：既没有已备案的有效证书，本次也没提交任何证书 → 拒绝申请
 	if len(certIDs) == 0 {
-		return domain.CertifiedPilot{}, errors.New("需要至少一张未过期的有效证书才能申请飞手认证")
+		return domain.CertifiedPilot{}, errors.New("请至少提交一张证书（如 CAAC / AOPA / 大疆 UTC）后再申请飞手认证")
 	}
 	now := time.Now()
 	// 已有记录：approved/pending 拒绝重复申请；rejected 覆盖重提（重置为 pending）
@@ -383,6 +486,9 @@ func (s *TrainingService) RegisterPilot(ctx context.Context, a domain.Actor, rea
 				e.FlightHours = flightHours
 				e.Bio = bio
 				e.Status = "pending"
+				// 重提即清掉上一轮的驳回理由，否则待审核记录会一直挂着它
+				//（管理端列表与用户端"审核中"卡片都会显示这条过期理由）。
+				e.RejectReason = ""
 				return s.pilotRepo.Update(ctx, e)
 			}
 		}
@@ -391,6 +497,31 @@ func (s *TrainingService) RegisterPilot(ctx context.Context, a domain.Actor, rea
 		IDCard: idCard, Avatar: avatar, Region: region, CertIDs: certIDs, FlightHours: flightHours, Bio: bio,
 		Status: "pending", Version: 1, CreatedAt: now, UpdatedAt: now}
 	return s.pilotRepo.Create(ctx, p)
+}
+
+// syncAttachedCerts 把档案所关联的证书从 fromStatus 批量改为 toStatus（合并审核联动）。
+//
+// 只处理 p.CertIDs 名单内的证书：用户后来**单独**提交、尚未随申请进入档案的证书不受影响，
+// 避免"审一次飞手申请"把无关的待审证书也一并放行/驳回。
+// 某一类证书没有状态机前置校验（证书本身只有 pending/approved/rejected），
+// 因此这里只做状态过滤，不引入新的业务判断。
+func (s *TrainingService) syncAttachedCerts(ctx context.Context, p domain.CertifiedPilot, fromStatus, toStatus string) error {
+	if len(p.CertIDs) == 0 {
+		return nil
+	}
+	certs, err := s.certRepo.ListByUser(ctx, p.UserID)
+	if err != nil {
+		return fmt.Errorf("list certificates for pilot %s: %w", p.ID, err)
+	}
+	for _, c := range certs {
+		if c.Status != fromStatus || !containsID(p.CertIDs, c.ID) {
+			continue
+		}
+		if _, err := s.certRepo.UpdateStatus(ctx, c.ID, toStatus); err != nil {
+			return fmt.Errorf("set certificate %s to %s: %w", c.ID, toStatus, err)
+		}
+	}
+	return nil
 }
 
 func (s *TrainingService) ApprovePilot(ctx context.Context, a domain.Actor, id string) (domain.CertifiedPilot, error) {
@@ -407,6 +538,12 @@ func (s *TrainingService) ApprovePilot(ctx context.Context, a domain.Actor, id s
 	}
 	if cur.Status == "rejected" {
 		return domain.CertifiedPilot{}, fmt.Errorf("%w：已驳回的飞手申请不能改为通过", ErrTrainingStateConflict)
+	}
+	// 合并审核：随申请提交的证书此刻还是 pending——先把**档案关联的 pending 证书**
+	// 置为 approved（管理端这次审的就是这批证据），再做下面的"仍有有效证书"复核。
+	// 若先复核再放行证书，pending 永远过不了 certValid，合并审核就死在这里了。
+	if err := s.syncAttachedCerts(ctx, cur, "pending", "approved"); err != nil {
+		return domain.CertifiedPilot{}, err
 	}
 	// 审批门禁（与申请同规则）：批准时复核申请人仍持有至少一张未过期的 approved 证书。
 	// 产品决策：不允许"先审核后补证"——申请时无证已被拒，审批时证书若已过期/被撤销也不得放行。
@@ -436,6 +573,13 @@ func (s *TrainingService) RejectPilot(ctx context.Context, a domain.Actor, id, r
 	}
 	if cur.Status == "rejected" {
 		return cur, nil
+	}
+	// 联同驳回：档案关联的 pending 证书一并置为 rejected。
+	// 否则会出现"飞手申请被驳回、随附证书还挂在管理端待审列表"的不一致。
+	// 只动 pending 的：已 approved 的证书不因飞手身份被撤销而作废——
+	// 撤销认证属于纠错，不等于证书本身造假。
+	if err := s.syncAttachedCerts(ctx, cur, "pending", "rejected"); err != nil {
+		return domain.CertifiedPilot{}, err
 	}
 	p, err := s.pilotRepo.UpdateReject(ctx, id, reason)
 	if err != nil {
@@ -475,6 +619,23 @@ func (s *TrainingService) GetPilotDetail(ctx context.Context, id string) (domain
 		})
 	}
 	return d, nil
+}
+
+// GetPilotReviewDetail 管理端审核用：返回档案 + 该用户的**全部**证书。
+//
+// 与 GetPilotDetail 的区别是刻意的：后者按 certValid 过滤（只给已通过且未过期的），
+// 那是"展示已认证飞手"的口径；审核要看的是"申请人提交了什么"——
+// 待审的、被驳回的、已过期的都必须能看到，否则审核人无从核对。
+func (s *TrainingService) GetPilotReviewDetail(ctx context.Context, id string) (domain.PilotReviewDetail, error) {
+	p, err := s.pilotRepo.FindByID(ctx, id)
+	if err != nil || p.ID == "" {
+		return domain.PilotReviewDetail{}, ErrResourceNotFound
+	}
+	certs, err := s.certRepo.ListByUser(ctx, p.UserID)
+	if err != nil {
+		return domain.PilotReviewDetail{}, fmt.Errorf("list certificates for pilot %s: %w", p.ID, err)
+	}
+	return domain.PilotReviewDetail{CertifiedPilot: p, Certificates: certs}, nil
 }
 
 // ListPilotsDetailed 名录输出：把 cert_ids 扩展为证书对象数组（certificates）。

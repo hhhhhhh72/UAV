@@ -6,10 +6,16 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 API | Go 1.25+，标准库 net/http，440+ 条路由注册（mux.HandleFunc 注册点 481 处，含循环注册；生产为主，dev-only 文件路由 40 条），154 个 Go 文件（100 源码 + 54 测试） |
-| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），91 张表（97 组迁移，194 个 SQL 文件） |
+| 后端 API | Go 1.25+，标准库 net/http，`mux.HandleFunc` 注册点 **501 处**（只数源码、不数测试；循环体里的按 1 处计），管理端路由探针 201 条（见 `perm_routes_test.go`），273 个 Go 文件（**117 源码 + 156 测试**） |
+| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），**91 张存活表**（95 次 CREATE TABLE 减去被 drop 的 shops/demand_bids/association_members；**113 组迁移，226 个 SQL 文件**） |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
+
+> 上表数字是快照，会随开发漂移。复核方式：
+> `(Get-ChildItem migrations -Filter *.up.sql).Count`（迁移组数）；
+> `node .tools/gen-perm-routes.cjs`（管理端路由探针数，过期时 `perm_routes_test.go` 会直接报错）；
+> `(Get-ChildItem internal\httpapi -Recurse -Filter *.go | Where-Object { $_.Name -notlike '*_test.go' } | Select-String -SimpleMatch 'mux.HandleFunc(').Count`（路由注册点）；
+> `(Get-ChildItem internal,cmd -Recurse -Filter *.go)`（Go 文件数）。
 
 ## 项目结构
 
@@ -27,17 +33,17 @@
 │   │   └── *.go                   # 各业务 Handler（batch1-3 + biz + phase3）
 │   ├── service/                   # 业务规则、权限校验、状态机流转
 │   ├── repository/                # 数据持久化
-│   │   ├── repositories.go        # Repository 接口定义（59 interface）
+│   │   ├── repositories.go        # Repository 接口定义（61 interface）
 │   │   ├── postgres/              # PostgreSQL 实现（pgxpool）
 │   │   └── memory/                # 内存实现（开发用，sync.RWMutex）
-│   ├── domain/models.go           # 业务实体与常量（90 个 struct，含 models_batch*/models_new）
+│   ├── domain/                    # 业务实体与常量（96 个 struct，含 models_batch*/models_new）
 │   ├── config/config.go           # 集中配置 + 验证 + 脱敏打印
 │   ├── logger/logger.go           # 结构化日志（slog + 每日文件轮转）
 │   ├── cache/cache.go             # 内存 TTL 缓存（60s 默认，5min 自动清理）
 │   ├── middleware/middleware.go    # 输入消毒 + 统一错误格式
 │   └── crypto/                    # AES-256-GCM 加密 + 脱敏函数
-├── migrations/                    # 97 组迁移（194 个 SQL 文件，91 表）
-├── docs/                          # 项目文档（27 份 Markdown，中文）
+├── migrations/                    # 113 组迁移（226 个 SQL 文件，91 张存活表）
+├── docs/                          # 项目文档（33 份 Markdown，中文）
 ├── icons/                         # 15 个 SVG 图标
 └── docker-compose.yml
 ```
@@ -103,13 +109,16 @@ fail(w, r, statusCode, err)
 | `enterprise` | 发布需求/招聘/合同 |
 | `individual` | 接单/求职/交易 |
 
-协会内部细分(8级): 会长/副会长/秘书长/部门负责人/普通会员/副会长单位/合作院校/访客
+> **协会内部 8 级角色已下线**（原 `association_members` 表：会长/副会长/秘书长/部门负责人/
+> 普通会员/副会长单位/合作院校/访客）。它源自一份 .doc 需求但从未启用：生产 0 行数据、
+> 前端零调用、8 个角色里只有 `partner` 参与过一次判定（会长与访客权限完全等价）。
+> 实体/仓储/服务/handler 已删除，表由迁移 `000113` 删除。
 
 ## 7 大业务系统
 
 | 系统 | 核心子模块 |
 |------|------|
-| ①会员生态资源管控 | 会员注册/专家智库/产业资源台账/人才资源库/协会8级权限 |
+| ①会员生态资源管控 | 会员注册/专家智库/产业资源台账/人才资源库 |
 | ②产业供需智能对接 | 需求大厅/供应展示/意向对接/工单闭环/智能匹配/资源池 |
 | ③产学研协同创新 | 科技成果库/研发难题广场/课题攻关/测试预约/成果转化追踪 |
 | ④合规政策服务 | 政策资讯/合规知识库/团体标准库/项目申报/企业案例库 |
@@ -150,8 +159,8 @@ go test ./internal/...  # 全部 PASS
 
 | 项目 | 位置 | 技术栈 | 规模 |
 |------|------|--------|------|
-| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + 自研 u- 组件库 | 103 页，5 Tab，6 分包 |
-| Web 管理后台 | `frontend/` | Vue 3 + Arco Design Vue + ECharts | Admin SPA（40 后台路由 + 8 聚合页） |
+| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + 自研 u- 组件库 | **110 页**（主包 31 + 分包 79），5 Tab，6 分包 |
+| Web 管理后台 | `frontend/` | Vue 3 + Arco Design Vue + ECharts | Admin SPA（**46 条路由** + 聚合页） |
 
 **小程序设计规范**:
 - 品牌色 `#0A66C2`（深空蓝），辅色 `#1DD4A8`（青绿）

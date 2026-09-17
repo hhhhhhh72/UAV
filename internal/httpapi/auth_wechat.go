@@ -107,10 +107,16 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 		// P2 修复：同 openid 并发首登会双双 miss 再各 Create 一个用户（重复账号）。
 		// 按 openid 加进程内锁，锁内复查一次再创建；后到者复用先建好的用户。
 		unlock := loginLockByKey("openid|" + sess.OpenID)
-		u, findErr := s.userRepo.FindByOpenID(r.Context(), sess.OpenID)
+		// P0 修复：此前这里写的是 u, findErr := ...，在 if 块内**重新声明**了一个内层 u，
+		// 遮蔽了外层变量——创建成功后内层 u 被丢弃，出块后 role := u.Role / Actor{ID: u.ID}
+		// 读到的仍是 FindByOpenID 失败返回的零值（ID 为空），签发出的首登令牌 sub=""，
+		// 被 TokenManager.Verify 判为非法（auth.go 校验 p.ID == ""）。表现是
+		// "新用户首次微信登录返回 200 但令牌不可用、重试一次才正常"。
+		// 改用独立的 locked 变量，并在成功路径回填外层 u。
+		locked, findErr := s.userRepo.FindByOpenID(r.Context(), sess.OpenID)
 		if findErr != nil {
 			now := time.Now()
-			u = domain.User{
+			locked = domain.User{
 				ID:           fmt.Sprintf("user-%d", now.UnixNano()),
 				WechatOpenID: sess.OpenID,
 				Role:         domain.RoleIndividual,
@@ -119,13 +125,14 @@ func (s *Server) wechatLogin(w http.ResponseWriter, r *http.Request) {
 				CreatedAt:    now,
 				UpdatedAt:    now,
 			}
-			u, findErr = s.userRepo.Create(r.Context(), u)
+			locked, findErr = s.userRepo.Create(r.Context(), locked)
 		}
 		unlock()
 		if findErr != nil {
 			fail(w, r, http.StatusInternalServerError, fmt.Errorf("create user: %w", findErr))
 			return
 		}
+		u = locked
 	}
 
 	role := u.Role

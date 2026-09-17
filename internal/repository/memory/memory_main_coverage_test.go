@@ -398,7 +398,7 @@ func TestContractTemplateRepoCoverage(t *testing.T) {
 // ======================= Intent =======================
 
 func TestIntentRepoCoverage(t *testing.T) {
-	r := memory.NewIntentRepository()
+	r := memory.NewIntentRepository(memory.NewDemandRepository(nil))
 	_, err := r.Create(context.Background(), domain.DemandIntent{ID: "int-1", DemandID: "d-1", IntentorID: "u-1", Status: "pending"})
 	mmErr(t, "intent.Create", err, false)
 	// 同 (demand, intentor) 已存在 pending 时重复登记报错
@@ -543,40 +543,43 @@ func TestProductRepoCoverage(t *testing.T) {
 	err = r.IncrementViews(context.Background(), "missing")
 	mmErr(t, "product.IncrementViews(miss)", err, true)
 
-	err = r.Delete(context.Background(), "prod-1")
-	mmErr(t, "product.Delete(hit)", err, false)
+	// 软删除：行还在（回收站），但对 FindByID 不可见。
+	err = r.SoftDelete(context.Background(), "prod-1")
+	mmErr(t, "product.SoftDelete(hit)", err, false)
 	_, err = r.FindByID(context.Background(), "prod-1")
-	mmErr(t, "product.FindByID(after delete)", err, true)
-	err = r.Delete(context.Background(), "missing")
-	mmErr(t, "product.Delete(miss)", err, true)
+	mmErr(t, "product.FindByID(after soft delete)", err, true)
+	// 重复软删除必须报错，而不是假装成功。
+	mmErr(t, "product.SoftDelete(again)", r.SoftDelete(context.Background(), "prod-1"), true)
+	mmErr(t, "product.SoftDelete(miss)", r.SoftDelete(context.Background(), "missing"), true)
+
+	// 回收站能看到它，还原后重新可见。
+	deleted, derr := r.ListDeleted(context.Background())
+	mmErr(t, "product.ListDeleted", derr, false)
+	if len(deleted) != 1 || deleted[0].ID != "prod-1" {
+		t.Fatalf("ListDeleted: got %+v, want [prod-1]", deleted)
+	}
+	mmErr(t, "product.Undelete", r.Undelete(context.Background(), "prod-1"), false)
+	if _, err := r.FindByID(context.Background(), "prod-1"); err != nil {
+		t.Fatalf("FindByID after Undelete: %v", err)
+	}
+	mmErr(t, "product.Undelete(not deleted)", r.Undelete(context.Background(), "prod-1"), true)
+	if list, _ := r.ListDeleted(context.Background()); len(list) != 0 {
+		t.Fatalf("ListDeleted after Undelete: got %d, want 0", len(list))
+	}
+	// 软删除的商品不得出现在公开列表与统计里。
+	mmErr(t, "product.SoftDelete(hit2)", r.SoftDelete(context.Background(), "prod-1"), false)
+	if list, _ := r.List(context.Background(), ""); len(list) != 0 {
+		t.Fatalf("List after soft delete: got %d, want 0", len(list))
+	}
+	// ListByIDs 故意不过滤 deleted_at：订单要靠它显示商品名。
+	if byIDs, _ := r.ListByIDs(context.Background(), []string{"prod-1"}); len(byIDs) != 1 {
+		t.Fatalf("ListByIDs after soft delete: got %d, want 1", len(byIDs))
+	}
 }
 
-// ======================= Service Listing =======================
-
-func TestServiceListingRepoCoverage(t *testing.T) {
-	r := memory.NewServiceListingRepository()
-	_, err := r.Create(context.Background(), domain.ServiceListing{ID: "sl-1", ProviderID: "p-1", Title: "巡检服务", Status: "published"})
-	mmErr(t, "serviceListing.Create", err, false)
-	f, err := r.FindByID(context.Background(), "sl-1")
-	mmErr(t, "serviceListing.FindByID", err, false)
-	mmStr(t, "serviceListing.FindByID.Title", f.Title, "巡检服务")
-	_, err = r.FindByID(context.Background(), "missing")
-	mmErr(t, "serviceListing.FindByID(miss)", err, true)
-	all, err := r.List(context.Background())
-	mmErr(t, "serviceListing.List", err, false)
-	mmInt(t, "serviceListing.List.len", len(all), 1)
-	u, err := r.Update(context.Background(), domain.ServiceListing{ID: "sl-1", Title: "updated"})
-	mmErr(t, "serviceListing.Update", err, false)
-	mmStr(t, "serviceListing.Update.Title", u.Title, "updated")
-	_, err = r.Update(context.Background(), domain.ServiceListing{ID: "missing"})
-	mmErr(t, "serviceListing.Update(miss)", err, true)
-	err = r.Delete(context.Background(), "sl-1")
-	mmErr(t, "serviceListing.Delete(hit)", err, false)
-	_, err = r.FindByID(context.Background(), "sl-1")
-	mmErr(t, "serviceListing.FindByID(after delete)", err, true)
-	err = r.Delete(context.Background(), "missing")
-	mmErr(t, "serviceListing.Delete(miss)", err, true)
-}
+// Service Listing 独立仓储已删除（migration 000110/000111）：
+// 服务能力现在是 prod_type 为服务类目的商品，读写都走商品仓储与
+// service.ServiceListingService 适配层，覆盖见 service_listing_merge_test.go。
 
 // ======================= Repair / Policy / Loan =======================
 
@@ -683,14 +686,18 @@ func TestTradeOrderRepoCoverage(t *testing.T) {
 	r := memory.NewTradeOrderRepository()
 	_, _ = r.Create(context.Background(), domain.TradeOrder{ID: "to-1", BuyerID: "u-1", SellerID: "u-2", Status: "paid"})
 	_, _ = r.Create(context.Background(), domain.TradeOrder{ID: "to-2", BuyerID: "u-3", SellerID: "u-4", Status: "paid"})
+	// CAS 期望值 = 申请前的售后状态（新建订单为 ""）
 	u, err := r.UpdateAftersale(context.Background(), domain.TradeOrder{
 		ID: "to-1", Status: "aftersale", AftersaleType: "refund", AftersaleReason: "不想要了",
 		AftersaleDesc: "desc", AftersaleAmountFen: 100, AftersaleStatus: "pending",
-	})
+	}, "")
 	mmErr(t, "tradeOrder.UpdateAftersale", err, false)
 	mmStr(t, "tradeOrder.UpdateAftersale.Status", u.Status, "aftersale")
 	mmStr(t, "tradeOrder.UpdateAftersale.AftersaleType", u.AftersaleType, "refund")
-	_, err = r.UpdateAftersale(context.Background(), domain.TradeOrder{ID: "missing"})
+	// CAS 语义：库中已是 pending，再以期望值 "" 写入必须被拒（防并发重复申请）
+	_, err = r.UpdateAftersale(context.Background(), domain.TradeOrder{ID: "to-1", Status: "aftersale", AftersaleStatus: "pending"}, "")
+	mmErr(t, "tradeOrder.UpdateAftersale(CAS mismatch)", err, true)
+	_, err = r.UpdateAftersale(context.Background(), domain.TradeOrder{ID: "missing"}, "")
 	mmErr(t, "tradeOrder.UpdateAftersale(miss)", err, true)
 
 	all, total, err := r.ListAll(context.Background(), 0, 10)

@@ -298,6 +298,7 @@ import { safeBack } from '../../../utils/nav'
 import { ref, reactive, computed } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { request, authStorage, getStoredUser } from '../../../utils/request'
+import { remainSeats } from '../../../utils/courseSeats'
 import StateView from '../../../components/StateView.vue'
 
 const id = ref('')
@@ -387,17 +388,29 @@ function courseLocation(item) {
   if (district && location) return String(district) + ' · ' + String(location)
   return district || location || '地点待定'
 }
+// 名额口径与课程列表统一（utils/courseSeats）：有总名额时按"已报 X / Y"展示，
+// 无总名额（不限额）才退回后端 remain 列。此前两个页面各写一套，同一门课会给出两个答案。
 function seatText(item) {
   var capacity = Number(item && item.max_students)
-  var enrolled = Number(item && item.enrolled_count)
-  if (capacity > 0) return '已报 ' + (enrolled > 0 ? enrolled : 0) + ' / ' + capacity
-  if (item && item.remain != null && Number(item.remain) >= 0) return '剩余 ' + item.remain + ' 个名额'
-  return '名额待定'
+  if (capacity > 0) {
+    var enrolled = Number(item && item.enrolled_count)
+    return '已报 ' + (enrolled > 0 ? enrolled : 0) + ' / ' + capacity
+  }
+  var left = remainSeats(item)
+  return left > 0 ? '剩余 ' + left + ' 个名额' : '名额待定'
 }
+// 后端返回 RFC3339 时间戳（2026-08-07T14:57:12.234123+08:00）。
+// 此前的判据是"字符串含小数点或「年」就原样返回"，本意是放行已经写好的中文日期，
+// 但 ISO 的**小数秒里正好有小数点**，于是整串时间戳被当成"已格式化"直接渲染出来——
+// 同一页里没有小数秒的日期正常显示，有小数秒的显示成 2026-08-07T14:57:12.234123+08:00。
+// 改成按形态判断：以 YYYY-MM-DD 开头的截日期段；其余原样保留（中文/点分格式不丢信息）。
 function fmtDate(d) {
   if (!d) return '待定'
-  if (String(d).indexOf('.') >= 0 || String(d).indexOf('年') >= 0) return String(d)
-  return String(d).slice(0, 10)
+  const s = String(d).trim()
+  if (!s) return '待定'
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return m[1] + '-' + m[2] + '-' + m[3]
+  return s
 }
 
 /* 评分（缺失显示 —，不编造默认分）
@@ -1379,32 +1392,47 @@ onPullDownRefresh(function () {
   display: flex;
   align-items: center;
   gap: 18rpx;
-  margin: 0 24rpx 20rpx;
+  /* 左右不能再缩：.content 已经有 24rpx 内边距，这里再 margin 0 24rpx
+     会让本条比同级卡片（.course-info-card / .rating-card / .group-card 均无左右 margin）
+     每侧窄 24rpx，外沿对不齐。 */
+  margin: 0 0 20rpx;
   padding: 20rpx 24rpx;
   background: #E7F1FC;
   border: 2rpx solid #C9DFF5;
-  border-radius: 20rpx;
+  /* 圆角与同级卡片同档（.course-info-card / .rating-card / .group-card 覆盖块均为 16rpx）。
+     边框保留 2rpx：它比卡片的 1rpx 略重，是这条"信任背书"的强调手段，且不影响外沿对齐。 */
+  border-radius: 16rpx;
 }
+/* 图标与文字块等高：文字块 = 标题 30×1.3 + gap 4 + 副 20×1.3 = 69rpx，
+   原先的 48rpx 只占 70%，标题提到 30rpx 之后圆显得更小、条里空出一截。 */
 .pe-mark {
-  width: 48rpx;
-  height: 48rpx;
-  flex: 0 0 48rpx;
+  width: 68rpx;
+  height: 68rpx;
+  flex: 0 0 68rpx;
   border-radius: 50%;
   background: #0A66C2;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+/* 对勾按 68/48 放大，但描边只从 4rpx 加到 5rpx——
+   描边按比例放大到 5.7rpx 会显得钝，视觉上反而更重。 */
 .pe-check {
-  width: 24rpx;
-  height: 14rpx;
-  border-left: 4rpx solid #fff;
-  border-bottom: 4rpx solid #fff;
-  transform: rotate(-45deg) translate(1rpx, -2rpx);
+  width: 34rpx;
+  height: 18rpx;
+  border-left: 5rpx solid #fff;
+  border-bottom: 5rpx solid #fff;
+  transform: rotate(-45deg) translate(1rpx, -3rpx);
 }
 .pe-body { display: flex; flex-direction: column; gap: 4rpx; }
-.pe-title { font-size: 26rpx; font-weight: 700; color: #0A66C2; }
-.pe-sub { font-size: 22rpx; color: #4A6E94; }
+/* 背书条按**标题档**对齐，与页面既有标题同一节奏：
+   本页标题档是 30rpx（.section-title ×5：培训参考价/课程介绍/联系信息/培训资格证/培训环境），
+   紧邻其上的「课程信息」是 29rpx。原先的 26rpx 两头不靠——
+   既低于标题档、又高于 22rpx 的键值档，所以夹在中间显得突兀。
+   .pe-title 提到 30rpx 与标题档齐平；.pe-sub 用 20rpx，对齐 .section-sub（副标题档），
+   保持"标题 + 副文案"的 10rpx 落差，不再自成一档。 */
+.pe-title { font-size: 30rpx; font-weight: 700; color: #0A66C2; line-height: 1.3; }
+.pe-sub { font-size: 20rpx; color: #4A6E94; line-height: 1.3; }
 .detail-nav { position: relative; height: 88rpx; display: flex; align-items: center; justify-content: space-between; padding-left: 24rpx; padding-right: 24rpx; box-sizing: content-box; background: #F5F8FC; }
 .detail-nav-back, .detail-nav-balance { width: 60rpx; height: 60rpx; flex: 0 0 60rpx; }
 .detail-nav-back { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #ffffff; box-shadow: 0 6rpx 16rpx rgba(31, 89, 169, 0.13); }

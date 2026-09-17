@@ -27,6 +27,29 @@ func httpIntentEntRepo(t *testing.T, userID string) repository.EnterpriseReposit
 	return entRepo
 }
 
+// productSellerEntRepo 商品测试卖家的企业认证仓库。
+//
+// 商品发布现在要求**企业认证（approved）**——商品详情页对买家承诺「平台认证商家」，
+// 发布必须同等门槛（见 createProduct）。这批用例关注的是交易/售后/收藏，不关心认证
+// 流程，所以统一在这里补齐前置条件，而不是让每个用例各自造企业。
+func productSellerEntRepo(t *testing.T) repository.EnterpriseRepository {
+	t.Helper()
+	repo := memory.NewEnterpriseRepository(nil)
+	// 只补 seller-1：它是 requestAs/authAs 直接指定的商品卖家。
+	// **不要**给 enterprise-1 补——那是 request(..., RoleEnterprise) 的角色映射用户，
+	// 企业入驻流程测试（biz_flow / p0_flow_regression / round3）要靠它从零建企业档案，
+	// 预置一条 approved 会让它们撞上「每用户仅可维护一家企业档案」。
+	for _, uid := range []string{"seller-1"} {
+		if _, err := repo.Create(context.Background(), domain.Enterprise{
+			ID: "ent-cert-" + uid, OwnerUserID: uid, Name: "认证商家-" + uid,
+			Status: domain.EnterpriseApproved, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		}); err != nil {
+			t.Fatalf("seed enterprise cert for %s: %v", uid, err)
+		}
+	}
+	return repo
+}
+
 func newBizServer(t *testing.T) http.Handler {
 	t.Helper()
 	tokens, err := httpapi.NewTokenManager(testSecret)
@@ -34,7 +57,7 @@ func newBizServer(t *testing.T) http.Handler {
 		t.Fatal(err)
 	}
 	demandRepo := memory.NewDemandRepository(nil)
-	intentRepo := memory.NewIntentRepository()
+	intentRepo := memory.NewIntentRepository(demandRepo)
 	// 商品仓库必须与 TradeOrderService 共享同一实例（与 main.go 装配一致）：
 	// 订单取消/删除要恢复商品（sold→listed），分实例则 Restore 找不到商品。
 	productRepo := memory.NewProductRepository()
@@ -47,7 +70,7 @@ func newBizServer(t *testing.T) http.Handler {
 	srv := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),
-		service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), userRepo),
+		service.NewEnterpriseSvc(productSellerEntRepo(t), userRepo),
 		service.NewEmploymentService(memory.NewEmploymentRepository()),
 		service.NewContractService(memory.NewContractRepository()),
 		service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()),
@@ -55,7 +78,7 @@ func newBizServer(t *testing.T) http.Handler {
 		service.NewListingService(memory.NewListingRepository()),
 		service.NewLabourService(memory.NewLabourOrderRepository()),
 		service.NewTrainingService(memory.NewCertificateRepository(), courseRepo, memory.NewInstructorRepository(), memory.NewPilotRepository(nil)),
-		service.NewTradingService(productRepo, memory.NewRepairRepository()),
+		service.NewTradingService(productRepo, memory.NewRepairRepository(), nil, nil),
 		service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()),
 		service.NewFinanceService(memory.NewLoanRepository()),
 		service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)),
@@ -93,7 +116,6 @@ func newBizServer(t *testing.T) http.Handler {
 	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
 	srv.SetPoolService(service.NewResourcePoolService(memory.NewResourcePoolRepository()))
 	srv.SetTransformationService(service.NewTransformationService(memory.NewTransformationRepository()))
-	srv.SetAssociationMemberService(service.NewAssociationMemberService(memory.NewAssociationMemberRepository()))
 	srv.SetContractTemplateService(service.NewContractTemplateService(memory.NewContractTemplateRepository()))
 	studyTourTestRepo := memory.NewStudyTourRepository()
 	srv.SetStudyTourRepo(studyTourTestRepo)
@@ -102,7 +124,7 @@ func newBizServer(t *testing.T) http.Handler {
 	srv.SetMatchingService(service.NewMatchingService(demandRepo))
 	srv.SetIntentService(service.NewIntentService(intentRepo, demandRepo, httpIntentEntRepo(t, "worker-1"), memory.NewPilotRepository(nil)))
 	srv.SetWorkOrderService(service.NewWorkOrderService(memory.NewWorkOrderRepository(), demandRepo, intentRepo))
-	srv.SetServiceListingService(service.NewServiceListingService(memory.NewServiceListingRepository()))
+	srv.SetServiceListingService(service.NewServiceListingService(memory.NewProductRepository()))
 	srv.SetStorage("memory")
 	return srv.Router()
 }

@@ -9,6 +9,15 @@
         <text class="wod-amount">{{ amountText(w) }}</text>
       </view>
 
+      <!-- 接单进度：工单是"需求 → 意向 → 工单"链路的最后一环，
+           这里把需求侧的状态一起拉过来，双方都能看到整条链路走到哪了。
+           映射与需求详情页共用 utils/flowSteps.js。 -->
+      <view class="wod-card">
+        <text class="wod-card-title">接单进度</text>
+        <u-steps v-if="flow.tone === 'active'" :steps="flow.steps" :active-index="flow.activeIndex" />
+        <view v-else class="wod-flow-terminal" :class="'wod-flow-terminal--' + flow.tone">{{ flow.note }}</view>
+      </view>
+
       <view class="wod-card">
         <view class="wod-row"><text class="wod-k">作业需求</text><text class="wod-v">{{ w.demand_title || w.demand_id || '-' }}</text></view>
         <view class="wod-row"><text class="wod-k">需求方</text><text class="wod-v">{{ w.publisher_name || w.publisher_id }}</text></view>
@@ -70,6 +79,7 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { request, getStoredUser, getErrorMessage, authStorage, BASE_URL } from '../../utils/request'
+import { demandFlow } from '../../utils/flowSteps'
 
 const id = ref('')
 const w = ref(null)
@@ -233,12 +243,28 @@ const actions = computed(() => {
   return acts
 })
 
+// 需求侧状态：工单只带 demand_id，进度条要展示"审核通过 → 已接单"这两步就得回查需求。
+// 拉不到时退化为只用工单状态（FlowSteps 对空需求状态是安全的）。
+const demandStatus = ref('')
+const flow = computed(() => demandFlow(demandStatus.value, w.value && w.value.status))
+
+async function loadDemandStatus() {
+  const did = w.value && w.value.demand_id
+  if (!did) return
+  try {
+    const d = await request({ url: '/api/v1/demands/' + encodeURIComponent(did) })
+    const rec = (d && d.data) || d
+    demandStatus.value = (rec && rec.status) || ''
+  } catch (e) { /* 静默：进度退化为工单自身状态 */ }
+}
+
 async function load() {
   loading.value = true
   try {
     const res = await request({ url: '/api/v1/work-orders/' + encodeURIComponent(id.value) })
     w.value = res || null
     loadReviews()
+    loadDemandStatus()
   } catch (e) {
     w.value = null
   } finally {
@@ -267,6 +293,11 @@ page { background: var(--color-bg); }
 .wod-row { display: flex; justify-content: space-between; gap: 20rpx; padding: 10rpx 0; }
 .wod-k { flex-shrink: 0; font-size: 24rpx; color: #667085; }
 .wod-v { font-size: 24rpx; color: #17212B; text-align: right; word-break: break-all; }
+/* 进度条卡片：给步骤条留出上下呼吸，标题与步骤之间多空一点 */
+.wod-card .u-steps { margin: 16rpx 0 6rpx; }
+.wod-flow-terminal { padding: 12rpx 0 4rpx; font-size: 26rpx; text-align: center; }
+.wod-flow-terminal--danger { color: #D92D20; }
+.wod-flow-terminal--muted { color: #98A2B3; }
 .wod-v--warn { color: #B54708; }
 .wod-v--danger { color: #D92D20; }
 .wod-photos { display: flex; flex-wrap: wrap; gap: 12rpx; }

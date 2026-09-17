@@ -536,49 +536,7 @@ func TestEmergencyDeptService_CRUD(t *testing.T) {
 	_ = drill
 }
 
-func TestAssociationMemberService_Roles(t *testing.T) {
-	svc := service.NewAssociationMemberService(memory.NewAssociationMemberRepository())
-
-	m, err := svc.AddMember(context.Background(), "user-1", "ent-1", domain.AssocMember)
-	if err != nil {
-		t.Fatalf("AssociationMemberService.AddMember: %v", err)
-	}
-	if m.Role != domain.AssocMember {
-		t.Fatalf("AssociationMemberService.AddMember: role=%q, want member", m.Role)
-	}
-
-	if _, total, err := svc.ListMembers(context.Background(), "member", 1, 10); err != nil || total != 1 {
-		t.Fatalf("AssociationMemberService.ListMembers: total=%d err=%v", total, err)
-	}
-	got, err := svc.GetByUserID(context.Background(), "user-1")
-	if err != nil || got.ID != m.ID {
-		t.Fatalf("AssociationMemberService.GetByUserID: id=%q err=%v", got.ID, err)
-	}
-	if _, err := svc.GetByUserID(context.Background(), "nope"); err == nil {
-		t.Fatal("AssociationMemberService.GetByUserID: expected error for unknown user")
-	}
-
-	// 8 级角色逐一 UpdateRole 校验
-	roles := []domain.AssociationRole{
-		domain.AssocPresident, domain.AssocVicePresident, domain.AssocSecretary,
-		domain.AssocDeptHead, domain.AssocMember, domain.AssocPartner,
-		domain.AssocCollege, domain.AssocGuest,
-	}
-	for _, r := range roles {
-		up, err := svc.UpdateRole(context.Background(), m.ID, r)
-		if err != nil || up.Role != r {
-			t.Fatalf("AssociationMemberService.UpdateRole(%q): role=%q err=%v", r, up.Role, err)
-		}
-	}
-	if _, err := svc.UpdateRole(context.Background(), "nope", domain.AssocMember); err == nil {
-		t.Fatal("AssociationMemberService.UpdateRole: expected error for unknown id")
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// biz_operations.go — Competition / Event / Resource / Emergency 补充分支
-// ─────────────────────────────────────────────────────────────────────────────
-
+// TestAssociationMemberService_Roles 已移除：协会 8 级角色未启用（见迁移 000113）。
 func TestCompetitionService_DeleteUpdateRegister(t *testing.T) {
 	svc := service.NewCompetitionService(memory.NewCompetitionRepository(nil))
 
@@ -816,7 +774,7 @@ func TestProjectAppService_ReviewBranches(t *testing.T) {
 func newWOScenario(t *testing.T) (*service.WorkOrderService, *service.IntentService, *service.DemandService, domain.Actor, domain.Actor) {
 	t.Helper()
 	demandRepo := memory.NewDemandRepository(nil)
-	intentRepo := memory.NewIntentRepository()
+	intentRepo := memory.NewIntentRepository(demandRepo)
 	orderRepo := memory.NewWorkOrderRepository()
 	demandSvc := service.NewDemandService(demandRepo)
 	intentSvc := service.NewIntentService(intentRepo, demandRepo, newCertifiedEntRepo(t, "worker-1"), memory.NewPilotRepository(nil))
@@ -963,7 +921,7 @@ func TestWorkOrder_FindByID(t *testing.T) {
 
 func TestIntentService_CreateErrors(t *testing.T) {
 	demandRepo := memory.NewDemandRepository(nil)
-	intentRepo := memory.NewIntentRepository()
+	intentRepo := memory.NewIntentRepository(demandRepo)
 	demandSvc := service.NewDemandService(demandRepo)
 	intentSvc := service.NewIntentService(intentRepo, demandRepo, newCertifiedEntRepo(t, "worker-1"), memory.NewPilotRepository(nil))
 	pub := domain.Actor{ID: "pub-1", Role: domain.RoleEnterprise}
@@ -1007,7 +965,7 @@ func TestIntentService_CreateErrors(t *testing.T) {
 
 func TestIntentService_ListByDemandListMine(t *testing.T) {
 	demandRepo := memory.NewDemandRepository(nil)
-	intentRepo := memory.NewIntentRepository()
+	intentRepo := memory.NewIntentRepository(demandRepo)
 	demandSvc := service.NewDemandService(demandRepo)
 	intentSvc := service.NewIntentService(intentRepo, demandRepo, newCertifiedEntRepo(t, "worker-1"), memory.NewPilotRepository(nil))
 	pub := domain.Actor{ID: "pub-1", Role: domain.RoleEnterprise}

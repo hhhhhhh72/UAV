@@ -83,10 +83,10 @@ func lockByKey(key string) func() {
 // 简版范围（V1）：登记意向 + 发布方查看意向列表 + 意向方查看自己的意向记录。
 // 状态流转（contacted / done / closed）与管理端成交标记留待 V2。
 type IntentService struct {
-	repo       repository.IntentRepository
-	demands    repository.DemandRepository
+	repo        repository.IntentRepository
+	demands     repository.DemandRepository
 	enterprises repository.EnterpriseRepository
-	pilots     repository.PilotRepository
+	pilots      repository.PilotRepository
 }
 
 func NewIntentService(r repository.IntentRepository, d repository.DemandRepository, e repository.EnterpriseRepository, p repository.PilotRepository) *IntentService {
@@ -196,6 +196,21 @@ func (s *IntentService) ListByDemand(ctx context.Context, a domain.Actor, demand
 		return nil, errors.New("只有需求发布者或管理员可以查看对接意向")
 	}
 	return s.repo.ListByDemand(ctx, demandID)
+}
+
+// ListReceived 返回当前用户**作为发布方**收到的全部接单意向（跨其名下所有需求，一次查完）。
+//
+// 两个用途：
+//  1. 发布方消息列表要判断"某条需求是不是只有唯一一条待处理申请"——是才允许在通知上
+//     一键同意（多条时必须先选人，不能替他决定）；
+//  2. 接单申请聚合页原先走 mine=1 + 逐需求查询的 N+1，改为一次取回。
+//
+// 只返回本人的，不开放管理员代查：这是"我收到的"语义，与 ListByDemand 的管理员可见不同。
+func (s *IntentService) ListReceived(ctx context.Context, a domain.Actor) ([]domain.DemandIntent, error) {
+	if a.ID == "" {
+		return nil, errors.New("authentication required")
+	}
+	return s.repo.ListByPublisher(ctx, a.ID)
 }
 
 // ListMine returns intents registered by the current user.

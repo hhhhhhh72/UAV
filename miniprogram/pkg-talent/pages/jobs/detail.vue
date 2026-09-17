@@ -32,7 +32,6 @@
         </view>
         <view class="job-sub">
           <view v-if="job.location" class="job-loc">
-            <u-icon name="location" size="24rpx" color="#667085" />
             <text>{{ job.location }}</text>
           </view>
           <text class="job-date">{{ formatDate(job.created_at) }} 发布</text>
@@ -197,7 +196,7 @@ onLoad((opts) => {
 .tag-blue { color: #0A66C2; background: #EAF3FB; }
 .tag-green { color: #168A55; background: #E9F7F0; }
 .job-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx 24rpx; margin-top: 16rpx; padding-top: 18rpx; border-top: 1px solid #EEF1F4; }
-.job-loc { display: flex; align-items: center; gap: 6rpx; font-size: 24rpx; color: #667085; }
+.job-loc { display: flex; align-items: center; font-size: 24rpx; color: #667085; }
 .job-date { font-size: 22rpx; color: #667085; }
 
 .section-title { font-size: 30rpx; font-weight: 700; color: #17212B; display: block; margin-bottom: 16rpx; }

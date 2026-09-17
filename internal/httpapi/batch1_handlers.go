@@ -114,19 +114,19 @@ func (s *Server) createTestSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Name              string   `json:"name"`
-		SiteType          string   `json:"site_type"`
-		Location          string   `json:"location"`
-		BookingRule       string   `json:"booking_rule"`
-		PriceFen          int64    `json:"price_fen"`
-		Facilities        []string `json:"facilities"`
-		Status            string   `json:"status"`
-		AirspaceRange     string   `json:"airspace_range"`
-		MaxTakeoffWeight  string   `json:"max_takeoff_weight"`
-		RunwayLength      string   `json:"runway_length"`
-		MaxFlightHeight   string   `json:"max_flight_height"`
-		CompatibleModels  string   `json:"compatible_models"`
-		ImageURL          string   `json:"image_url"`
+		Name             string   `json:"name"`
+		SiteType         string   `json:"site_type"`
+		Location         string   `json:"location"`
+		BookingRule      string   `json:"booking_rule"`
+		PriceFen         int64    `json:"price_fen"`
+		Facilities       []string `json:"facilities"`
+		Status           string   `json:"status"`
+		AirspaceRange    string   `json:"airspace_range"`
+		MaxTakeoffWeight string   `json:"max_takeoff_weight"`
+		RunwayLength     string   `json:"runway_length"`
+		MaxFlightHeight  string   `json:"max_flight_height"`
+		CompatibleModels string   `json:"compatible_models"`
+		ImageURL         string   `json:"image_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -315,9 +315,9 @@ func (s *Server) applyBooth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		BoothNumber  string `json:"booth_number"`
-		ExhibitName  string `json:"exhibit_name"`
-		ExhibitDesc  string `json:"exhibit_desc"`
+		BoothNumber string `json:"booth_number"`
+		ExhibitName string `json:"exhibit_name"`
+		ExhibitDesc string `json:"exhibit_desc"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)

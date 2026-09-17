@@ -16,7 +16,7 @@ func fakeMP4() []byte {
 	b := make([]byte, 0, 64)
 	b = append(b, 0x00, 0x00, 0x00, 0x18) // box size
 	b = append(b, []byte("ftyp")...)
-	b = append(b, []byte("isom")...)     // major brand
+	b = append(b, []byte("isom")...)      // major brand
 	b = append(b, 0x00, 0x00, 0x02, 0x00) // minor version
 	b = append(b, []byte("isomiso2avc1mp41")...)
 	return b

@@ -900,6 +900,13 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errBadRequest("phone and password required"))
 		return
 	}
+	// P0 修复：手机号必须校验格式——此前只判非空，下面 name 兜底使用
+	// body.Phone[len(body.Phone)-4:]，长度 <4 的输入（如 "1"）直接触发切片越界 panic，
+	// 被 recoverPanic 兜成 500（本接口在生产无条件注册，任意匿名请求即可触发）。
+	if !phoneRe.MatchString(body.Phone) {
+		fail(w, r, http.StatusBadRequest, errBadRequest("手机号格式不正确"))
+		return
+	}
 	// P2 修复：弱密码拒绝（长度下限），防批量注册占号。
 	if len(body.Password) < 6 {
 		fail(w, r, http.StatusBadRequest, errBadRequest("密码长度不能少于 6 位"))
@@ -928,7 +935,12 @@ func (s *Server) h5AuthRegister(w http.ResponseWriter, r *http.Request) {
 
 	name := body.Name
 	if name == "" {
-		name = "User" + body.Phone[len(body.Phone)-4:]
+		// 双保险：即便上面的格式校验将来被改动，这里也不再对长度做无保护的切片。
+		suffix := body.Phone
+		if len(suffix) > 4 {
+			suffix = suffix[len(suffix)-4:]
+		}
+		name = "User" + suffix
 	}
 
 	// Save to PG users table — the bcrypt hash is persisted here so password

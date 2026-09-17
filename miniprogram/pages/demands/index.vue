@@ -26,22 +26,13 @@
         >供给大厅</view>
       </view>
 
-      <!-- 供给分段：商品设备 / 服务能力 -->
-      <view v-if="primary === 'supply'" class="subtabs">
-        <view
-          class="subtab"
-          :class="{ active: supplyKind === 'product' }"
-          @tap="switchSupplyKind('product')"
-        >商品设备</view>
-        <view
-          class="subtab"
-          :class="{ active: supplyKind === 'service' }"
-          @tap="switchSupplyKind('service')"
-        >服务能力</view>
-      </view>
+      <!-- 供给分段已取消：服务能力已并入商品（migration 000110），
+           同一个列表里既有设备也有服务，靠下面的筛选区分，不再分两个入口。 -->
 
       <!-- ═══════ 一级筛选：分类下划线 tab 分段（「全部」带 ▾ 独立开关；对齐科技成果库） ═══════ -->
-      <view class="stage-wrap">
+      <!-- dimmed 与蒙层同步淡出（panel 在退场期间仍是 'all'，必须叠加 !closing，
+           否则筛选栏会比蒙层早亮 210ms，又是一次亮度不同步） -->
+      <view class="stage-wrap" :class="{ dimmed: panel === 'all' && !closing }">
         <view class="stages">
           <view
             v-for="t in stageTabs"
@@ -52,7 +43,7 @@
           >
             <text>{{ t.label }}</text>
             <!-- ▾ 独立面板开关：未停在「全部」时点「全部」先清分类；停在「全部」时再点开面板 -->
-            <text v-if="t.value === 'all' && !isProductMode" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
+            <text v-if="t.value === 'all'" class="stg-arr" :class="{ up: panel === 'all' }" @tap.stop="togglePanel">▾</text>
           </view>
         </view>
         <!-- 二级筛选面板：地区 / 预算 / 排序 chips（absolute 浮层，展开不挤动下方内容） -->
@@ -72,9 +63,47 @@
             <text v-for="s in sortOptions" :key="s.value" class="p-chip" :class="{ act: sortBy === s.value }" @tap="pickSort(s.value)">{{ s.label }}</text>
           </view>
         </view>
+        <!-- 供给筛选面板：类型 / 服务类目 / 成色 / 价格 / 排序
+             服务并入商品后，设备与服务在同一个列表里，靠这里的下拉区分 -->
+        <view v-if="panel === 'all' && isProductMode" class="field-panel" :class="{ closing }">
+          <view class="p-group">类型</view>
+          <view class="p-chips">
+            <text class="p-chip" :class="{ act: filterProdType === '' }" @tap="pickProdType('')">全部</text>
+            <text v-for="t in prodTypeOptions" :key="t.value" class="p-chip" :class="{ act: filterProdType === t.value }" @tap="pickProdType(t.value)">{{ t.label }}</text>
+          </view>
+          <view v-if="categoryOptions.length" class="p-group">服务类目</view>
+          <view v-if="categoryOptions.length" class="p-chips">
+            <text class="p-chip" :class="{ act: filterCategory === '' }" @tap="pickCategory('')">全部</text>
+            <text v-for="c in categoryOptions" :key="c" class="p-chip" :class="{ act: filterCategory === c }" @tap="pickCategory(c)">{{ c }}</text>
+          </view>
+          <view class="p-group">成色</view>
+          <view class="p-chips">
+            <text class="p-chip" :class="{ act: filterCondition === '' }" @tap="pickCondition('')">全部</text>
+            <text class="p-chip" :class="{ act: filterCondition === 'new' }" @tap="pickCondition('new')">全新</text>
+            <text class="p-chip" :class="{ act: filterCondition === 'used' }" @tap="pickCondition('used')">二手</text>
+          </view>
+          <view class="p-group">价格范围</view>
+          <view class="p-chips">
+            <text class="p-chip" :class="{ act: filterPrice === '不限' }" @tap="pickPrice('不限')">全部</text>
+            <text v-for="p in priceOptions.slice(1)" :key="p" class="p-chip" :class="{ act: filterPrice === p }" @tap="pickPrice(p)">{{ p }}</text>
+          </view>
+          <view class="p-group">排序方式</view>
+          <view class="p-chips">
+            <text v-for="s in sortOptions" :key="s.value" class="p-chip" :class="{ act: sortBy === s.value }" @tap="pickSort(s.value)">{{ s.label }}</text>
+          </view>
+        </view>
       </view>
       <!-- 蒙层：从分段底部开始置灰，点外部退场收起 -->
-      <view v-if="panel && !isProductMode" class="panel-mask" :style="{ top: maskTop + 'px' }" @tap="startClosePanel" />
+      <!-- closing 与 .field-panel 共用同一个退场状态：面板有 210ms 延迟卸载 + panelOut 动画，
+         蒙层此前只有淡入（maskIn）没有淡出，关闭时 v-if 直接卸载 → 瞬间跳变。
+         点「分类 tab」正是触发关闭的动作，所以表现为"一点 tab 整片区域突然变亮"。 -->
+    <view
+      v-if="panel"
+      class="panel-mask"
+      :class="{ closing }"
+      :style="{ top: maskTop + 'px' }"
+      @tap="startClosePanel"
+    />
 
       <!-- ═══════ 匹配条（商品模式为电商页，不展示匹配引导） ═══════ -->
       <view v-if="listState === 'ready' && visibleList.length > 0 && !isProductMode" class="match-strip">
@@ -277,7 +306,12 @@ import {
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
 
 const primary = ref('demand') // demand | supply
-const supplyKind = ref('product') // product | service
+
+// 供给列表 = **全部商品**（设备 + 服务）。服务能力已并入商品表（migration 000110），
+// 不再分「商品设备 / 服务能力」两个分段——同一个列表里两类内容都有，靠下面的筛选区分。
+const filterProdType = ref('')  // 商品类型；'' = 全部
+const filterCategory = ref('')  // 服务类目（巡检/测绘/植保/…）；'' = 全部
+const filterCondition = ref('') // 成色 new / used；'' = 全部
 const activeStage = ref('all') // 分类分段：all=全部（对齐成果库阶段分段）
 const { noMotion, checkMotion } = useReduceMotion() // 减弱动效（无障碍）
 
@@ -309,21 +343,17 @@ const PANEL_CLOSE_MS = 210 // 退场动画 .21s ease-in
 
 const categories = computed(() => {
   if (isProductMode.value) return PRODUCT_CATEGORIES
-  const kind = primary.value === 'demand' ? 'demand' : supplyKind.value
-  return HALL_CATEGORIES[kind]
+  return HALL_CATEGORIES['demand']
 })
 
 // 分类 → 一级分段 tab（首项「全部」映射为 all，带 ▾）
 const stageTabs = computed(() => categories.value.map(c => c === '全部' ? { label: c, value: 'all' } : { label: c, value: c }))
 
-const kindLabel = computed(() => kindTypeLabel(primary.value, supplyKind.value))
-const sectionTitle = computed(() => {
-  if (primary.value === 'demand') return '最新需求'
-  return supplyKind.value === 'service' ? '可对接服务' : '优选商品设备'
-})
+const kindLabel = computed(() => kindTypeLabel(primary.value, 'product'))
+const sectionTitle = computed(() => (primary.value === 'demand' ? '最新需求' : '优选商品与服务'))
 
-// 商品设备模式：电商两列宫格展示（独立于需求/服务列表）
-const isProductMode = computed(() => primary.value === 'supply' && supplyKind.value === 'product')
+// 供给模式：电商两列宫格展示（设备与服务同列，不再分两个分段）
+const isProductMode = computed(() => primary.value === 'supply')
 
 /* ================= 列表状态 ================= */
 const listState = ref('loading') // loading | ready | empty | error
@@ -337,7 +367,7 @@ async function fetchList(showLoading = true) {
   const local = () => {
     if (!import.meta.env.DEV) return []
     if (primary.value === 'demand') return getLocalLiveCards('demand')
-    return supplyKind.value === 'product' ? getLocalLiveCards('product') : getLocalLiveCards('service')
+    return getLocalLiveCards('product')
   }
   const merge = (remote) => {
     list.value = [...local(), ...remote]
@@ -361,8 +391,10 @@ async function fetchList(showLoading = true) {
     } catch (e) {
       fallback()
     }
-  } else if (supplyKind.value === 'product') {
-    // 商品设备：电商模式走真实商品接口
+  } else {
+    // 供给：取**全部商品**，设备与服务同列展示。
+    // 服务能力已并入商品表（migration 000110），不再另开分段——同一个列表，
+    // 用筛选面板的「类型 / 服务类目」区分，从根本上消除两条分段重复显示的可能。
     try {
       const res = await request({
         url: '/api/v1/products',
@@ -371,19 +403,6 @@ async function fetchList(showLoading = true) {
       const data = Array.isArray(res) ? res : (res && res.data) || res || {}
       const items = Array.isArray(data) ? data : (data && data.items) || []
       merge(items.map(normalizeProduct).filter(Boolean))
-    } catch (e) {
-      fallback()
-    }
-  } else {
-    // 服务能力：真实服务接口（/api/v1/service-listings 公开列表）
-    try {
-      const res = await request({
-        url: '/api/v1/service-listings',
-        data: { page: 1, page_size: 20 },
-      })
-      const data = Array.isArray(res) ? res : (res && res.data) || res || {}
-      const items = Array.isArray(data) ? data : (data && data.items) || []
-      merge(items.map(normalizeService).filter(Boolean))
     } catch (e) {
       fallback()
     }
@@ -397,14 +416,6 @@ function switchPrimary(value) {
   if (primary.value === value) return
   clearTimeout(panelCloseT); panelCloseT = null; closing.value = false; panel.value = '' // 切量即收起面板（防蒙层滞留）
   primary.value = value
-  activeStage.value = 'all'
-  fetchList(true)
-}
-
-function switchSupplyKind(value) {
-  if (supplyKind.value === value) return
-  clearTimeout(panelCloseT); panelCloseT = null; closing.value = false; panel.value = '' // 切量即收起面板（防蒙层滞留）
-  supplyKind.value = value
   activeStage.value = 'all'
   fetchList(true)
 }
@@ -445,10 +456,40 @@ const pickStageTab = (k) => {
 const pickRegion = (r) => { filterRegion.value = filterRegion.value === r ? '不限' : r }
 const pickPrice = (p) => { filterPrice.value = filterPrice.value === p ? '不限' : p }
 const pickSort = (v) => { sortBy.value = v }
+// 供给筛选：类型 / 服务类目 / 成色（三个都是单选取值，点已选项即取消）
+const pickProdType = (v) => { filterProdType.value = filterProdType.value === v ? '' : v }
+const pickCategory = (v) => { filterCategory.value = filterCategory.value === v ? '' : v }
+const pickCondition = (v) => { filterCondition.value = filterCondition.value === v ? '' : v }
+
+// 商品类型选项：与 domain.ProductType 的 7 个枚举一一对应
+const prodTypeOptions = [
+  { value: 'drone', label: '整机' },
+  { value: 'part', label: '配件' },
+  { value: 'repair', label: '维修服务' },
+  { value: 'aerial', label: '航拍服务' },
+  { value: 'test_fly', label: '试飞测试' },
+  { value: 'calibration', label: '检测标定' },
+  { value: 'airspace', label: '空域协调' },
+]
+
+// 服务类目选项：从**已加载的数据**里取（巡检/测绘/植保/应急… 由卖家填写，不该写死在代码里）
+const categoryOptions = computed(() => {
+  const set = new Set()
+  // list.value 里是 normalizeProduct 归一化后的卡片，原始类目在 serviceCategory 上
+  for (const p of list.value) {
+    const c = String(p.serviceCategory || '').trim()
+    if (c) set.add(c)
+  }
+  return Array.from(set)
+})
+
 const resetFilters = () => {
   activeStage.value = 'all'
   filterRegion.value = '不限'
   filterPrice.value = '不限'
+  filterProdType.value = ''
+  filterCategory.value = ''
+  filterCondition.value = ''
   sortBy.value = 'newest'
   startClosePanel()
 }
@@ -534,9 +575,18 @@ const visibleList = computed(() => {
   let out = list.value
   if (activeStage.value !== 'all') out = out.filter((i) => i.cat === activeStage.value)
   if (filterRegion.value !== '不限' && !isProductMode.value) out = out.filter((i) => i.region.includes(filterRegion.value))
-  // 预算区间（需求 budget_fen / 服务 price_fen，单位分——后端是 snake_case）
-  if (filterPrice.value !== '不限' && !isProductMode.value) {
-    const fen = (i) => Number(i.budget_fen || i.price_fen || 0)
+  // 供给筛选：类型 / 服务类目 / 成色（只作用于商品列表）。
+  // 用的是 normalizeProduct 带下来的**原始字段**（prodType / serviceCategory / rawCondition），
+  // 不是卡片上的展示文案——用展示文案比会永远不匹配。
+  if (isProductMode.value) {
+    if (filterProdType.value) out = out.filter((i) => i.prodType === filterProdType.value)
+    if (filterCategory.value) out = out.filter((i) => i.serviceCategory === filterCategory.value)
+    if (filterCondition.value) out = out.filter((i) => i.rawCondition === filterCondition.value)
+  }
+  // 预算/价格区间（需求 budget_fen / 商品的 priceFen，单位分）。
+  // 商品的原始金额在归一化时存进了 priceFen——卡片的 price 是格式化字符串，不能拿来比。
+  if (filterPrice.value !== '不限') {
+    const fen = (i) => Number(i.budget_fen || i.priceFen || 0)
     const f = filterPrice.value
     if (f === '1 万以下') out = out.filter((i) => fen(i) > 0 && fen(i) < 1000000)
     else if (f === '1-5 万') out = out.filter((i) => fen(i) >= 1000000 && fen(i) <= 5000000)
@@ -544,8 +594,8 @@ const visibleList = computed(() => {
     else if (f === '面议') out = out.filter((i) => fen(i) === 0)
   }
   // 排序：价格优先 = 预算升序（低价优先）；最新发布/匹配度保持列表原序
-  if (sortBy.value === 'price' && !isProductMode.value) {
-    out = [...out].sort((a, b) => (Number(a.budget_fen || a.price_fen || 0)) - (Number(b.budget_fen || b.price_fen || 0)))
+  if (sortBy.value === 'price') {
+    out = [...out].sort((a, b) => (Number(a.budget_fen || a.priceFen || 0)) - (Number(b.budget_fen || b.priceFen || 0)))
   }
   return out
 })
@@ -654,32 +704,22 @@ onPullDownRefresh(() => {
   border-radius: 3rpx;
 }
 
-/* 供给分段 */
-.subtabs {
-  display: flex;
-  gap: 8rpx;
-  margin: 20rpx 32rpx 16rpx;
-  padding: 8rpx;
-  background: #F2F5F8;
-  border-radius: 16rpx;
-}
-.subtab {
-  flex: 1;
-  height: 68rpx;
-  line-height: 68rpx;
-  text-align: center;
-  border-radius: 12rpx;
-  color: #667085;
-  font-size: 24rpx;
-}
-.subtab.active {
-  color: #fff;
-  background: #0A66C2;
-  font-weight: 650;
-}
-
 /* ═══════ 一级筛选：下划线 tab 分段（对齐科技成果库）+ ▾ 浮层面板 + 蒙层 ═══════ */
 .stage-wrap { position: relative; z-index: 42; background: #fff; border-bottom: 1px solid #EEF1F4; }
+/* 面板打开时，触发条自己也要跟着压暗。
+   否则页面同时出现三个亮度层：顶部导航（不蒙）→ 白底筛选栏（不蒙）→ 下方列表（蒙 20%），
+   筛选栏夹在中间会出现一道亮度接缝，看起来"跟整体不一致"。
+   遮罩色与 .panel-mask 保持一致；浮出的 .field-panel（z-index 43）仍在其上，不受影响。 */
+.stage-wrap::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(16, 24, 40, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease-out;
+}
+.stage-wrap.dimmed::after { opacity: 1; }
 .stages { display: flex; gap: 40rpx; padding: 4rpx 28rpx 16rpx; white-space: nowrap; }
 .stg {
   position: relative;
@@ -739,6 +779,9 @@ onPullDownRefresh(() => {
 .field-panel .p-group { font-size: 13px; font-weight: 700; color: #344054; margin: 12px 0 6px; }
 .field-panel .p-group:first-child { margin-top: 0; }
 .p-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 合并前这里是 4 条规则、其中 .p-chip 与 .p-chip.act 各写了**两遍**
+   （后一条覆盖前一条的 transition / animation）。合并成一组，计算后的样式完全等价——
+   留着两份只会让下次改样式时改到不生效的那一份。 */
 .p-chip {
   min-height: 40px;
   padding: 0 13px;
@@ -749,11 +792,16 @@ onPullDownRefresh(() => {
   font-size: 13px;
   display: inline-flex;
   align-items: center;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.8, 0.64, 1);
 }
-.p-chip.act { color: #fff; border-color: #074D92; background: #074D92; font-weight: 600; }
-.p-chip { transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.8, 0.64, 1); }
 .p-chip:active { transform: scale(0.94); transition: transform 0.08s linear; }
-.p-chip.act { animation: chipPop 0.3s cubic-bezier(0.34, 1.8, 0.64, 1); }
+.p-chip.act {
+  color: #fff;
+  border-color: #074D92;
+  background: #074D92;
+  font-weight: 600;
+  animation: chipPop 0.3s cubic-bezier(0.34, 1.8, 0.64, 1);
+}
 @keyframes chipPop { 0% { transform: scale(1); } 40% { transform: scale(0.94); } 100% { transform: scale(1); } }
 .panel-mask {
   position: fixed;
@@ -765,6 +813,10 @@ onPullDownRefresh(() => {
   animation: maskIn 0.22s ease-out;
 }
 @keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
+/* 退场必须与 .field-panel 同步：否则面板还在淡出，蒙层已经消失，亮度跳变。
+   时长与 PANEL_CLOSE_MS(210ms) 对齐。 */
+.panel-mask.closing { animation: maskOut 0.21s ease-in forwards; }
+@keyframes maskOut { from { opacity: 1; } to { opacity: 0; } }
 /* 减弱动效（无障碍）：装饰动画/位移缩放关闭，保留淡入与颜色反馈 */
 .hall-page.no-motion .stg-arr { transition: none; }
 .hall-page.no-motion .p-chip { transition: none; }
@@ -773,6 +825,7 @@ onPullDownRefresh(() => {
 .hall-page.no-motion .field-panel { animation: panelIn 0.3s ease-out; }
 .hall-page.no-motion .field-panel.closing { animation: panelOut 0.16s ease-in forwards; }
 .hall-page.no-motion .panel-mask { animation: maskIn 0.22s ease-out; }
+.hall-page.no-motion .panel-mask.closing { animation: maskOut 0.16s ease-in forwards; }
 .hall-page.no-motion .p-chip:active { transform: none; }
 
 /* ═══════ 匹配条 ═══════ */

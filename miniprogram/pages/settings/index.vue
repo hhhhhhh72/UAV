@@ -47,7 +47,7 @@ const goBack = () => uni.navigateBack()
 // 导航目标：全部为真实页面（无"未开放"占位）
 const accountItems = computed(() => [
   { icon: '/static/mine-icons/account.svg', tone: 'primary', label: '账号信息', desc: '手机号、微信绑定与个人资料', go: goProfile },
-  { icon: '/static/mine-icons/certification.svg', tone: 'primary', label: '实名认证', desc: '实名信息与认证状态', go: goAuth },
+  { icon: '/static/mine-icons/certification.svg', tone: 'primary', label: '飞手认证', desc: '飞手资质与认证状态', go: goAuth },
 ])
 
 const privacyItems = computed(() => [

@@ -1616,6 +1616,7 @@ func (r *userRepo) CleanupUserContent(ctx context.Context, userID string, plan r
 	}
 	return rep, nil
 }
+
 // UpdatePassword 改密：哈希 + token_version 自增 + 撤销全部刷新令牌（同一事务）。
 // token_version 自增让此前签发的 access token 复验即失效（httpapi.revalidateActor），
 // 刷新令牌一并删除——改密后所有设备都必须重新登录。
@@ -1637,6 +1638,7 @@ func (r *userRepo) UpdatePassword(ctx context.Context, id, passwordHash string) 
 	}
 	return tx.Commit(ctx)
 }
+
 // AllWithDeleted 管理端用户列表：不过滤 deleted_at，注销账号也返回（便于恢复）。
 func (r *userRepo) AllWithDeleted(ctx context.Context) ([]domain.User, error) {
 	return r.listUsers(ctx, "")
@@ -1930,6 +1932,28 @@ func (r *pgIntentRepo) ListByIntentor(ctx context.Context, intentorID string) ([
 	for rows.Next() {
 		var it domain.DemandIntent
 		if err := rows.Scan(&it.ID, &it.DemandID, &it.IntentorID, &it.IntentorName, &it.Contact, &it.Remark, &it.Status, &it.Version, &it.CreatedAt, &it.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan intent: %w", err)
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// ListByPublisher 一条 JOIN 取回发布者名下所有需求收到的意向；
+// 与 ListByDemand 保持同一排序口径（created_at DESC）。
+func (r *pgIntentRepo) ListByPublisher(ctx context.Context, publisherID string) ([]domain.DemandIntent, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT i.id, i.demand_id, i.intentor_id, i.intentor_name, i.contact, i.remark, i.status, i.version, i.created_at, i.updated_at, d.title
+		FROM demand_intents i JOIN demands d ON d.id = i.demand_id
+		WHERE d.publisher_id=$1 ORDER BY i.created_at DESC`, publisherID)
+	if err != nil {
+		return nil, fmt.Errorf("query intents by publisher: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.DemandIntent{}
+	for rows.Next() {
+		var it domain.DemandIntent
+		if err := rows.Scan(&it.ID, &it.DemandID, &it.IntentorID, &it.IntentorName, &it.Contact, &it.Remark, &it.Status, &it.Version, &it.CreatedAt, &it.UpdatedAt, &it.DemandTitle); err != nil {
 			return nil, fmt.Errorf("scan intent: %w", err)
 		}
 		out = append(out, it)
@@ -2287,8 +2311,13 @@ func (r *demandRepo) ListFavoriteDemandIDs(ctx context.Context, userID string) (
 }
 
 func (r *demandRepo) ListFavoriteDemands(ctx context.Context, userID string) ([]domain.Demand, error) {
+	// 列清单必须与 scanDemands 的 24 个 Scan 目标严格同序同数：
+	// 此前漏了 budget_min_fen/attachments/aircraft/pilot_count 四列，
+	// pgx 在 Scan 时报 "number of field descriptions must equal number of destinations"，
+	// 导致 PG 模式下 GET /api/v1/demands/favorites/mine 对任何有收藏的用户恒定 500。
 	q := `SELECT d.id, d.publisher_id, d.publisher_name, d.contact, d.district, d.city_code,
 		d.biz_type, d.title, d.description, d.images, d.latitude, d.longitude, d.budget_fen, d.offline_amount_fen, d.biz_fields,
+		d.budget_min_fen, d.attachments, d.aircraft, d.pilot_count,
 		d.status, d.version, d.created_at, d.updated_at, d.deadline
 		FROM demands d
 		JOIN demand_favorites f ON f.demand_id = d.id
@@ -2542,6 +2571,7 @@ func (r *pgExhibitionRepo) ListBooths(ctx context.Context, exhibitionID string) 
 	}
 	return out, rows.Err()
 }
+
 // ListAllBooths 全平台展位申请（管理端审核列表用）：单查询 + 可选状态过滤。
 func (r *pgExhibitionRepo) ListAllBooths(ctx context.Context, status string) ([]domain.ExhibitionBooth, error) {
 	q := "SELECT id,exhibition_id,exhibitor_id,booth_number,exhibit_name,exhibit_desc,status,created_at FROM exhibition_booths"
@@ -2566,6 +2596,7 @@ func (r *pgExhibitionRepo) ListAllBooths(ctx context.Context, status string) ([]
 	}
 	return out, rows.Err()
 }
+
 // ListBoothsByExhibitor 我的展位申请（跨展会，时间倒序）。
 func (r *pgExhibitionRepo) ListBoothsByExhibitor(ctx context.Context, exhibitorID string) ([]domain.ExhibitionBooth, error) {
 	rows, err := r.pool.Query(ctx,

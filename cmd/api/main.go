@@ -23,6 +23,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -222,7 +223,6 @@ func main() {
 		instructorRepo     repository.InstructorRepository
 		pilotRepo          repository.PilotRepository
 		productRepo        repository.ProductRepository
-		serviceListingRepo repository.ServiceListingRepository
 		repairRepo         repository.RepairRepository
 		policyRepo         repository.PolicyRepository
 		inspectRepo        repository.InspectionRepository
@@ -245,7 +245,6 @@ func main() {
 		collegeRepo     repository.CollegeRepository
 		studyTourRepo   repository.StudyTourRepository
 		studyEnrollRepo repository.StudyTourEnrollmentRepository
-		assocMemberRepo = memory.NewAssociationMemberRepository()
 		expertRepo      repository.ExpertRepository
 		caseRepo        repository.CaseRepository
 		svcAppRepo      repository.ApplicationRepository
@@ -303,7 +302,7 @@ func main() {
 		instructorRepo = pgStore.NewInstructorRepository()
 		pilotRepo = pgStore.NewPilotRepository(cipher)
 		productRepo = pgStore.NewProductRepository()
-		serviceListingRepo = pgStore.NewServiceListingRepository()
+		// service_listings 已并入商品表（migration 000110），不再单独建仓储
 		repairRepo = pgStore.NewRepairRepository()
 		policyRepo = pgStore.NewPolicyRepository()
 		inspectRepo = pgStore.NewInspectionRepository()
@@ -340,7 +339,6 @@ func main() {
 		coopRepo = pgStore.NewCooperationRepository()
 		rescueCaseRepo = pgStore.NewRescueCaseRepository()
 		emergDeptRepo = pgStore.NewEmergencyDeptRepository()
-		assocMemberRepo = pgStore.NewAssociationMemberRepository()
 		intentRepo = pgStore.NewIntentRepository()
 		workOrderRepo = pgStore.NewWorkOrderRepository()
 		uploadRepo = pgStore.NewUploadRepository()
@@ -349,7 +347,7 @@ func main() {
 		// 系统静默退回内存存储，重启即丢数据。此处醒目告警，运维排障第一眼可见。
 		slog.Warn("running with IN-MEMORY storage, data will be lost on restart (DATABASE_URL not set; NOT FOR PRODUCTION)")
 		demandRepo = memory.NewDemandRepository(cipher)
-		intentRepo = memory.NewIntentRepository()
+		intentRepo = memory.NewIntentRepository(demandRepo)
 		workOrderRepo = memory.NewWorkOrderRepository()
 		enterpriseRepo = memory.NewEnterpriseRepository(cipher)
 		employmentRepo = memory.NewEmploymentRepository()
@@ -370,7 +368,7 @@ func main() {
 		instructorRepo = memory.NewInstructorRepository()
 		pilotRepo = memory.NewPilotRepository(cipher)
 		productRepo = memory.NewProductRepository()
-		serviceListingRepo = memory.NewServiceListingRepository()
+		// service_listings 已并入商品表（migration 000110），不再单独建仓储
 		repairRepo = memory.NewRepairRepository()
 		policyRepo = memory.NewPolicyRepository()
 		inspectRepo = memory.NewInspectionRepository()
@@ -385,7 +383,6 @@ func main() {
 		coopRepo = memory.NewCooperationRepository()
 		rescueCaseRepo = memory.NewRescueCaseRepository()
 		emergDeptRepo = memory.NewEmergencyDeptRepository()
-		assocMemberRepo = memory.NewAssociationMemberRepository()
 		testSiteRepo = memory.NewTestSiteRepository()
 		transRepo = memory.NewTransformationRepository()
 		exhibitionRepo = memory.NewExhibitionRepository()
@@ -412,6 +409,18 @@ func main() {
 
 	// 托管金服务（独立变量：后台孤儿冻结补偿任务复用）
 	escrowSvc := service.NewEscrowService(escrowRepo)
+	// 收款人守卫（生产必装）：Release 是 upsert，收款 ID 非空但用户不存在时会凭空
+	// 建出一个谁也登不上的账户——钱等于蒸发，对账时只看到一笔「正常」的放款流水。
+	// 查询失败 fail-closed（宁可拒绝放款，也不能把钱打给一个查不实的人）。
+	escrowSvc.SetRecipientGuard(func(ctx context.Context, id string) (bool, error) {
+		if _, err := userRepo.FindByID(ctx, id); err != nil {
+			if errors.Is(err, repository.ErrUserNotFound) {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
 
 	// 商城订单接入托管金：付款冻结买家余额 → 确认收货放款给卖家 → 取消/售后退款。
 	// 未注入时订单退化为纯状态机（供 dev/测试），注入后才有真实资金闭环。
@@ -429,7 +438,7 @@ func main() {
 		service.NewListingService(listingRepo),
 		service.NewLabourService(labourRepo),
 		service.NewTrainingService(certRepo, courseRepo, instructorRepo, pilotRepo),
-		service.NewTradingService(productRepo, repairRepo),
+		service.NewTradingService(productRepo, repairRepo, tradeOrderRepo, userRepo),
 		service.NewInsuranceService(policyRepo, inspectRepo),
 		service.NewFinanceService(loanRepo),
 		service.NewHomeService(demandRepo, enterpriseRepo),
@@ -468,13 +477,14 @@ func main() {
 	app.SetMatchingService(ms)
 	app.SetIntentService(service.NewIntentService(intentRepo, demandRepo, enterpriseRepo, pilotRepo))
 	app.SetWorkOrderService(service.NewWorkOrderService(workOrderRepo, demandRepo, intentRepo))
-	app.SetServiceListingService(service.NewServiceListingService(serviceListingRepo))
+	// 服务能力已并入商品表（migration 000110）：这里的仓储换成商品仓储，
+	// HTTP 层与路由不变，前端零改动切到新数据。
+	app.SetServiceListingService(service.NewServiceListingService(productRepo))
 	app.SetContractTemplateService(service.NewContractTemplateService(contractTplRepo))
 
 	// Batch2/3 与扩展服务：PG 与内存双实现均已齐备，按 DATABASE_URL 分支注入。
 	app.SetRescueCaseService(service.NewRescueCaseService(rescueCaseRepo))
 	app.SetEmergencyDeptService(service.NewEmergencyDeptService(emergDeptRepo))
-	app.SetAssociationMemberService(service.NewAssociationMemberService(assocMemberRepo))
 	app.SetTransformationService(service.NewTransformationService(transRepo))
 	app.SetCollegeService(service.NewCollegeService(collegeRepo))
 	app.SetStudyTourRepo(studyTourRepo)
@@ -541,6 +551,9 @@ func main() {
 	app.StartCertExpiryReminder()
 	// 注销账号缓冲期到期自动清除（默认 7 天；只清账号行，内容不动）
 	app.StartUserPurge()
+	// 商城订单超时维护：未付款 20 分钟自动取消（恢复商品为可售）；
+	// 已发货 7 天未确认收货则自动完成并放款给卖家（否则卖家永远收不到钱）。
+	app.StartTradeOrderMaintenance()
 
 	// 孤儿冻结自动补偿：培训报名"先冻结后落库"的崩溃窗口可能导致资金滞留，
 	// 每 10 分钟扫描一次 10 分钟前的冻结流水，业务记录不存在则自动退回余额。

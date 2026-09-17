@@ -74,11 +74,16 @@
         <text class="action-note" v-if="actionNote">{{ actionNote }}</text>
       </view>
 
+      <!-- 取消订单（未付款订单：买卖双方均可取消；取消后商品自动重新上架） -->
+      <view v-if="showCancelEntry" class="ghost-action" hover-class="ghost-action--active" @tap="cancelOrder()">
+        <text>取消订单</text>
+      </view>
+
       <!-- 申请售后（买家：已发货/已完成且无售后记录时） -->
       <view v-if="showAftersaleEntry" class="aftersale-entry" hover-class="aftersale-entry--active" @tap="goRefundApply">
         <view class="aftersale-entry-copy">
-          <text class="aftersale-entry-title">申请售后</text>
-          <text class="aftersale-entry-hint">商品有问题可申请退款，由平台审核处理</text>
+          <text class="aftersale-entry-title">{{ order.aftersale ? '重新申请售后' : '申请售后' }}</text>
+          <text class="aftersale-entry-hint">{{ order.aftersale ? '上次申请已被驳回，可修改说明后重新提交' : '商品有问题可申请仅退款或退货退款，由卖家审核处理' }}</text>
         </view>
         <text class="aftersale-entry-arrow">›</text>
       </view>
@@ -86,11 +91,35 @@
 
     <view class="bottom-spacer"></view>
   </view>
+
+  <!-- 发货：卖家填快递公司 + 单号。单号必填——没有单号的"已发货"买家查不到物流，
+       出问题也无从举证；服务端同样强制（POST /trade-orders/{id}/ship）。 -->
+  <view v-if="shipVisible" class="ship-mask" @tap="shipVisible = false">
+    <view class="ship-sheet" @tap.stop>
+      <view class="ship-title">填写发货信息</view>
+      <view class="ship-row">
+        <text class="ship-label">快递公司</text>
+        <input v-model="shipForm.company" class="ship-input" placeholder="如：顺丰速运（选填）" :maxlength="30" />
+      </view>
+      <view class="ship-row">
+        <text class="ship-label">快递单号</text>
+        <input v-model="shipForm.tracking" class="ship-input" placeholder="物流/同城必填；自提可留空" :maxlength="60" />
+      </view>
+      <view class="ship-actions">
+        <view class="ship-btn ship-btn--ghost" hover-class="btn-press" @tap="shipVisible = false">取消</view>
+        <view class="ship-btn ship-btn--primary" hover-class="btn-press" @tap="submitShip">确认发货</view>
+      </view>
+    </view>
+  </view>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
+// request 必须显式引入：此前本文件用到 request（支付 / 状态流转）却没有 import，
+// 三个核心动作（确认支付、发货、确认收货）全部抛 ReferenceError 被 catch 吞成
+// "失败，请稍后重试"，前端根本发不出请求。
+import { request } from '../../utils/request'
 import { loadOrder, fmtFen } from '../../utils/orderAdapter'
 
 const order = ref(null)
@@ -105,28 +134,39 @@ const navTitle = computed(() => {
   return '商品订单详情'
 })
 
-// 申请售后入口：仅买家、已付款（未发货退款）/已发货/已完成且从未申请过售后（aftersale 记录存在时不再显示）
+// 申请售后入口：仅买家、已付款（未发货退款）/已发货/已完成。
+// 已有售后记录时不再显示入口，但**被驳回（rejected）的除外**——后端允许驳回后重新申请
+//（ApplyAftersale 的判重只拦 pending/returning/returned/approved），
+// 此前前端一律 return false，买家被驳回一次就再也点不到入口，与后端契约不一致。
 const showAftersaleEntry = computed(() => {
   const o = order.value
   if (!o || o.role === 'seller') return false
-  if (o.aftersale) return false
+  if (o.aftersale && o.aftersale.status_key !== 'rejected') return false
   return o.status === 'paid' || o.status === 'shipped' || o.status === 'completed'
 })
+
+// 取消订单入口：仅未付款（pending）——后端只允许 pending 由买卖双方取消；
+// 已付款订单的退款必须走「申请售后」（支付后未发货退货），保持单一退款口径。
+const showCancelEntry = computed(() => !!(order.value && order.value.status === 'pending'))
 
 const actionNote = computed(() => {
   if (!order.value) return ''
   const o = order.value
   // 卖家视角：发货方文案
   if (o.role === 'seller') {
-    if (o.status === 'pending') return '等待买家完成付款，付款后即可发货'
+    if (o.status === 'pending') return '等待买家完成付款，付款后即可发货（超时未付将自动取消）'
     if (o.status === 'paid') return '确认发货后订单将标记为已发货'
     if (o.status === 'shipped') return '等待买家确认收货'
     if (o.status === 'completed') return '交易已完成，感谢你的销售'
     return ''
   }
   // 买家视角：付款方文案
-  if (o.aftersale) return '退款由平台审核，可在售后详情查看处理进度'
-  if (o.status === 'pending') return '确认支付后订单将标记为已支付'
+  if (o.aftersale) {
+    return o.aftersale.status_key === 'rejected'
+      ? '售后申请已被驳回，可重新申请或联系客服'
+      : '退款由卖家审核，可在售后详情查看处理进度'
+  }
+  if (o.status === 'pending') return '确认支付后订单将标记为已支付；暂不购买可直接取消'
   if (o.status === 'paid') return '卖家将在 48 小时内发货，请留意物流更新'
   if (o.status === 'shipped') return '确认收货后订单将完成'
   if (o.status === 'completed') return o.action === '已评价' ? '感谢你的评价，结课凭证已存入「我的报名 / 证书」' : '评价后结课凭证进入「我的报名 / 证书」'
@@ -239,24 +279,61 @@ const payOrder = async (o) => {
     setTimeout(() => { loadData({ id: o.id }) }, 600)
   } catch (e) {
     uni.hideLoading()
+    // 402 = 托管金余额不足（后端 phase3.go 把 ErrInsufficientBalance 映射成 402）。
+    // 与课程报名页（register.vue 的 402 分支）同一口径：弹窗说明并直接带去充值，
+    // 否则买家只看到一句干巴巴的"余额不足"，不知道去哪儿充。
+    if (e && e.statusCode === 402) {
+      uni.showModal({
+        title: '托管金余额不足',
+        content: '商城下单走平台担保交易，支付时会从托管金冻结货款。请先充值（模拟通道，单笔上限 20 万元），再回来支付。',
+        confirmText: '去充值',
+        success: (r) => { if (r.confirm) uni.navigateTo({ url: '/pages/escrow/index' }) },
+      })
+      return
+    }
     const msg = (e && e.data && e.data.error && e.data.error.message) || '支付失败，请稍后重试'
     uni.showToast({ title: msg, icon: 'none' })
   }
 }
 
-// 发货：卖家 PATCH 置 shipped（真实物流接入后替换此逻辑）
-const shipOrder = async (o) => {
-  const confirmed = await new Promise((resolve) => {
-    uni.showModal({
-      title: '确认发货',
-      content: '确认已安排发货？订单将标记为已发货，买家确认收货后完成交易。',
-      confirmText: '确认发货',
-      success: (r) => resolve(!!r.confirm),
-      fail: () => resolve(false),
+// 发货：卖家填写快递公司 + 单号，走 POST /trade-orders/{id}/ship。
+//
+// 不再用 PATCH status=shipped：那条路没有单号可填，会造出"已发货但查不到物流"的订单，
+// 服务层也已封掉（actorAllowedTransition）。单号必填。
+const shipVisible = ref(false)
+const shipTarget = ref(null)
+const shipForm = reactive({ company: '', tracking: '' })
+const shipSubmitting = ref(false)
+const shipOrder = (o) => {
+  shipTarget.value = o
+  shipForm.company = ''
+  shipForm.tracking = ''
+  shipVisible.value = true
+}
+const submitShip = async () => {
+  // 单号不在这里强制：自提订单本来就没有快递单号，服务端会按商品的交付方式判断。
+  const tracking = String(shipForm.tracking || '').trim()
+  const o = shipTarget.value
+  if (!o) return
+  shipSubmitting.value = true
+  uni.showLoading({ title: '发货中...' })
+  try {
+    await request({
+      url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/ship',
+      method: 'POST',
+      data: { shipping_company: String(shipForm.company || '').trim(), shipping_tracking: tracking },
     })
-  })
-  if (!confirmed) return
-  patchOrderStatus(o, 'shipped', '发货中...', '发货成功', '发货失败，请稍后重试')
+    uni.hideLoading()
+    uni.showToast({ title: '发货成功', icon: 'success' })
+    shipVisible.value = false
+    await loadData()
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || '发货失败，请稍后重试'
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    shipSubmitting.value = false
+  }
 }
 
 // 确认收货：买家 PATCH 置 completed（真实物流接入后替换此逻辑）
@@ -272,6 +349,23 @@ const receiveOrder = async (o) => {
   })
   if (!confirmed) return
   patchOrderStatus(o, 'completed', '确认中...', '确认收货成功', '操作失败，请稍后重试')
+}
+
+// 取消订单：PATCH /api/v1/trade-orders/{id}/status 置 cancelled。
+// 仅未付款订单可取消（后端 pending→cancelled），取消后商品恢复为可售。
+const cancelOrder = async (o = order.value) => {
+  if (!o) return
+  const confirmed = await new Promise((resolve) => {
+    uni.showModal({
+      title: '取消订单',
+      content: '确认取消这笔未付款订单？取消后商品会重新上架。',
+      confirmText: '确认取消',
+      success: (r) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
+  patchOrderStatus(o, 'cancelled', '取消中...', '订单已取消', '取消失败，请稍后重试')
 }
 
 // 状态流转共用：PATCH /api/v1/trade-orders/{id}/status 置新状态，成功即刷新订单
@@ -323,6 +417,24 @@ const rowClass = (status) => {
 </script>
 
 <style scoped>
+/* 发货弹层（卖家填写快递单号） */
+.ship-mask {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.45); z-index: 999;
+  display: flex; align-items: flex-end;
+}
+.ship-sheet {
+  width: 100%; background: #fff;
+  border-radius: 28rpx 28rpx 0 0; padding: 36rpx 32rpx calc(36rpx + env(safe-area-inset-bottom));
+}
+.ship-title { font-size: 32rpx; font-weight: 600; color: #1d2129; margin-bottom: 24rpx; }
+.ship-row { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #f2f3f5; }
+.ship-label { width: 160rpx; font-size: 28rpx; color: #4e5969; }
+.ship-input { flex: 1; font-size: 28rpx; color: #1d2129; background: #fafafa; border-radius: 16rpx; padding: 14rpx 20rpx; }
+.ship-actions { display: flex; gap: 20rpx; margin-top: 32rpx; }
+.ship-btn { flex: 1; height: 84rpx; line-height: 84rpx; text-align: center; border-radius: 42rpx; font-size: 30rpx; }
+.ship-btn--ghost { background: #f2f3f5; color: #4e5969; }
+.ship-btn--primary { background: var(--color-primary, #0A66C2); color: #fff; }
 .order-detail-page {
   min-height: 100vh;
   background: var(--color-bg);
@@ -560,6 +672,24 @@ const rowClass = (status) => {
   color: var(--color-text-placeholder);
   text-align: center;
 }
+
+/* 次要操作（取消订单）：描边样式，与主按钮区分层级；不使用危险红——
+   取消未付款订单是常规操作，且此时还没有资金往来。 */
+.ghost-action {
+  margin: 20rpx 24rpx 0;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid var(--color-border);
+  border-radius: 12rpx;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: 28rpx;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+.ghost-action--active { opacity: 0.7; }
 
 /* 申请售后入口 */
 .aftersale-entry {

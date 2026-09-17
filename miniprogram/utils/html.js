@@ -10,6 +10,8 @@ export function stripHtml(input) {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/s+/g, ' ')
+    // 注意是 \s+（空白符）而不是 s+：此前少了反斜杠，会把所有字母 s 替换成空格，
+    // 例如 "https://x" → "http ://x"，8 处调用（消息/标准库/知识库/案例/院校/报告摘要）全受影响。
+    .replace(/\s+/g, ' ')
     .trim()
 }

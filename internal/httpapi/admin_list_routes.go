@@ -7,7 +7,8 @@ import "net/http"
 // because Go 1.22+ mux panics on duplicate METHOD+PATH patterns.
 func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	// === 培训课程 === (POST: POST /api/v1/training-courses in training.go)
-	mux.HandleFunc("GET /api/v1/admin/training-courses", s.listCourses)
+	// 管理端用独立的 adminListCourses：公开的 listCourses 不再按角色放行非公开课程
+	mux.HandleFunc("GET /api/v1/admin/training-courses", s.adminListCourses)
 	mux.HandleFunc("GET /api/v1/admin/training-courses/{id}", s.getCourse)
 	mux.HandleFunc("POST /api/v1/admin/training-courses", s.adminCreateCourse)
 	mux.HandleFunc("PUT /api/v1/admin/training-courses/{id}", s.updateCourse)
@@ -98,7 +99,7 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 
 	// === 展会 === (POST: POST /api/v1/admin/exhibitions in batch1_handlers.go — DUPLICATE, SKIP)
 	mux.HandleFunc("GET /api/v1/admin/exhibitions", s.listAdminExhibitions)
-	mux.HandleFunc("GET /api/v1/exhibitions/booths/mine", s.listMyBooths)             // 我的展位申请（小程序）
+	mux.HandleFunc("GET /api/v1/exhibitions/booths/mine", s.listMyBooths)              // 我的展位申请（小程序）
 	mux.HandleFunc("GET /api/v1/admin/exhibitions/booths", s.listAdminBooths)          // 展位申请审核列表
 	mux.HandleFunc("POST /api/v1/admin/exhibitions/booths/{id}/review", s.reviewBooth) // 展位申请审核
 	mux.HandleFunc("GET /api/v1/admin/exhibitions/{id}", s.getExhibition)
@@ -170,6 +171,8 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/orders", s.createOrder)
 	mux.HandleFunc("PUT /api/v1/admin/orders/{id}", s.updateOrder)
 	mux.HandleFunc("PUT /api/v1/admin/orders/{id}/aftersale", s.reviewAftersale)
+	// 退货退款流程：管理端确认收到退货 → 此刻才发起退款（与卖家侧同语义）
+	mux.HandleFunc("PUT /api/v1/admin/orders/{id}/aftersale/confirm-return", s.adminConfirmReturnReceived)
 	mux.HandleFunc("DELETE /api/v1/admin/orders/{id}", s.deleteOrder)
 
 	// === 商品管理 === (商城上架)
@@ -178,6 +181,9 @@ func (s *Server) registerAdminListRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/products", s.adminCreateProduct)
 	mux.HandleFunc("PUT /api/v1/admin/products/{id}", s.adminUpdateProduct)
 	mux.HandleFunc("DELETE /api/v1/admin/products/{id}", s.adminDeleteProduct)
+	mux.HandleFunc("POST /api/v1/admin/products/batch-status", s.batchSetProductStatus)
+	mux.HandleFunc("POST /api/v1/admin/products/{id}/review", s.adminReviewProduct)
+	mux.HandleFunc("POST /api/v1/admin/products/{id}/restore", s.adminRestoreProduct)
 
 	// === 案例管理 === (fill gap)
 	mux.HandleFunc("GET /api/v1/admin/cases", s.listAdminCaseEntries)

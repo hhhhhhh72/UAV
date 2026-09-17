@@ -191,7 +191,27 @@ func (s *Server) createCourse(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/training-courses
 // 支持小程序 training/courses.vue 筛选：cert_type / region(district) / keyword / status / page / page_size
+//
+// 公开列表**永远**只下发已公开课程，不看请求方是谁。
 func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
+	s.listCoursesImpl(w, r, false)
+}
+
+// GET /api/v1/admin/training-courses
+// 管理端列表：含待审核/草稿/已关闭，供后台管理与审核。
+func (s *Server) adminListCourses(w http.ResponseWriter, r *http.Request) {
+	s.listCoursesImpl(w, r, true)
+}
+
+// listCoursesImpl 公开列表与管理端列表的共用实现。
+//
+// includeNonPublic 只由**路由**决定，不再按请求方角色推断。
+// 此前公开路由与管理端路由共用同一个 handler，靠 authenticatedActor 的角色放行非公开课程，
+// 于是 platform_admin / association_admin 在小程序里打开培训课程列表，会看到全部
+// 待审核/草稿/已下架课程——与普通用户看到的列表不一致（实测：后台设成
+// 待审核/已下架/草稿的三门课，管理员登录的小程序里一门不落地全在）。
+// 管理端要全量走自己的路由，公开路由就该只有公开内容。
+func (s *Server) listCoursesImpl(w http.ResponseWriter, r *http.Request, includeNonPublic bool) {
 	keyword := r.URL.Query().Get("keyword")
 	status := r.URL.Query().Get("status")
 	certType := r.URL.Query().Get("cert_type")
@@ -217,15 +237,10 @@ func (s *Server) listCourses(w http.ResponseWriter, r *http.Request) {
 		paginatedRespond(w, r, mine, len(mine))
 		return
 	}
-	// filter（公开列表仅已上架：待审核/草稿/已关闭不公开；管理端请求可见全部）
-	adminReq := false
-	if a, ok := authenticatedActor(r); ok &&
-		(a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin) {
-		adminReq = true
-	}
+	// filter（待审核/草稿/已关闭不公开；仅管理端路由能看到全部）
 	var out []domain.TrainingCourse
 	for _, c := range courses {
-		if !adminReq && isNonPublicCourseStatus(c.Status) {
+		if !includeNonPublic && isNonPublicCourseStatus(c.Status) {
 			continue
 		}
 		if keyword != "" && !strings.Contains(c.Title, keyword) && !strings.Contains(c.OrgName, keyword) {
@@ -351,6 +366,17 @@ func (s *Server) registerPilot(w http.ResponseWriter, r *http.Request) {
 		Region      string `json:"region"`
 		FlightHours int    `json:"flight_hours"`
 		Bio         string `json:"bio"`
+		// Certs 随申请一并提交的证书（合并审核，字段与 POST /api/v1/certificates 一致）。
+		// 可选：已有备案有效证书的用户不传即可。
+		Certs []struct {
+			CertType   string `json:"cert_type"`
+			CertNumber string `json:"cert_number"`
+			Level      string `json:"level"`
+			IssuerOrg  string `json:"issuer_org"`
+			ImageURL   string `json:"image_url"`
+			IssueDate  string `json:"issue_date"`  // YYYY-MM-DD
+			ExpireDate string `json:"expire_date"` // YYYY-MM-DD（空=长期有效）
+		} `json:"certs"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -360,7 +386,23 @@ func (s *Server) registerPilot(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("real_name and id_card are required"))
 		return
 	}
-	p, err := s.trainingSvc.RegisterPilot(r.Context(), a, in.RealName, in.IDCard, in.FlightHours, in.Bio, in.Avatar, in.Region)
+	// 日期走 strictDate：非法日期直接 400，不静默写成当前时间
+	certs := make([]service.PilotCertInput, 0, len(in.Certs))
+	for _, c := range in.Certs {
+		issueDate, ok := strictDate(w, r, c.IssueDate)
+		if !ok {
+			return
+		}
+		expireDate, ok := strictDate(w, r, c.ExpireDate)
+		if !ok {
+			return
+		}
+		certs = append(certs, service.PilotCertInput{
+			CertType: domain.CertType(c.CertType), CertNumber: c.CertNumber, Level: c.Level,
+			IssuerOrg: c.IssuerOrg, ImageURL: c.ImageURL, IssueDate: issueDate, ExpireDate: expireDate,
+		})
+	}
+	p, err := s.trainingSvc.RegisterPilotWithCerts(r.Context(), a, in.RealName, in.IDCard, in.FlightHours, in.Bio, in.Avatar, in.Region, certs)
 	if err != nil {
 		fail(w, r, http.StatusForbidden, err)
 		return
@@ -438,7 +480,72 @@ func (s *Server) getPilot(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, p)
 }
 
-// GET /api/v1/admin/certified-pilots — 管理端全量（含待审，身份证完整可见供审核核对）
+// canViewPilotPII 完整身份证号只下发给**平台管理员**。
+//
+// 两级管理员在业务上都要审飞手，但核对"这个人是谁"不需要拿到可用于他用的完整证号。
+// 协会管理员一律拿脱敏值——这条规则此前不存在：管理端列表接口本来就整表下发完整证号，
+// 任何 association_admin 都能一次性批量导出全平台飞手的身份证号。
+func canViewPilotPII(a domain.Actor) bool {
+	return a.Role == domain.RolePlatformAdmin
+}
+
+// maskPilotPIIFor 非平台管理员时把切片里的身份证就地脱敏。
+// 调用方传进来的都是仓储返回的**新切片**（PG 每次查询新建、memory 是 copy 出来的），
+// 且 adminListFilter 也是新建切片，所以这里改元素不会污染存储。
+func maskPilotPIIFor(pilots []domain.CertifiedPilot, a domain.Actor) {
+	if canViewPilotPII(a) {
+		return
+	}
+	for i := range pilots {
+		if pilots[i].IDCard != "" {
+			pilots[i].IDCard = crypto.MaskIDCard(pilots[i].IDCard)
+		}
+	}
+}
+
+// GET /api/v1/admin/certified-pilots/{id} — 管理端审核详情。
+//
+// 列表接口只返回 CertifiedPilot（证书仅 cert_ids 一串 ID），审核人看不到
+// "申请人提交了什么"——证书类型/编号/发证机构/有效期/照片全都拿不到，没法核对。
+// 这里返回完整档案 + 该用户的全部证书；身份证**不脱敏**（管理端审核需要核对，
+// 与列表接口的口径一致——列表本就是完整下发，只是前端展示时打了码）。
+func (s *Server) getAdminPilot(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
+		return
+	}
+	d, err := s.trainingSvc.GetPilotReviewDetail(r.Context(), r.PathValue("id"))
+	if err != nil {
+		if errors.Is(err, service.ErrResourceNotFound) {
+			fail(w, r, http.StatusNotFound, errors.New("pilot not found"))
+			return
+		}
+		slog.Error("get pilot review detail failed", "error", err)
+		fail(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	// 身份证分级：只有平台管理员拿完整值，协会管理员拿脱敏值。
+	fullPII := canViewPilotPII(a)
+	if !fullPII && d.IDCard != "" {
+		d.IDCard = crypto.MaskIDCard(d.IDCard)
+	}
+	// 读取敏感资料留痕（approve/reject 一直有审计，读取此前没有）。
+	// result 区分本次是否真的下发了完整证号，便于事后追查"谁看过完整身份信息"。
+	detail := "review_detail_masked"
+	if fullPII {
+		detail = "review_detail_pii"
+	}
+	s.audit(r.Context(), a.ID, "view_pilot_pii", "certified_pilot", d.ID, detail)
+	respond(w, r, http.StatusOK, d)
+}
+
+// GET /api/v1/admin/certified-pilots — 管理端全量（含待审）。
+// 身份证按角色分级：平台管理员拿完整值供核对，协会管理员拿脱敏值（见 canViewPilotPII）。
 func (s *Server) listAdminPilots(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
@@ -461,6 +568,9 @@ func (s *Server) listAdminPilots(w http.ResponseWriter, r *http.Request) {
 	filtered, total := adminListFilter(pilots, r.URL.Query().Get("keyword"), status,
 		func(p domain.CertifiedPilot) string { return p.RealName },
 		func(p domain.CertifiedPilot) string { return p.Status })
+	// 与详情接口同规则：非平台管理员只拿脱敏证号。
+	// 列表是**批量**下发面，这里不锁的话单锁详情没有意义。
+	maskPilotPIIFor(filtered, a)
 	paginatedRespond(w, r, filtered, total)
 }
 

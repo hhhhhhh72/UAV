@@ -8,6 +8,31 @@
     <meta name="description" content="重庆无人机产业协会 — 产业综合服务平台">
     <script>
       // Global Error Handler for White Screen Debugging
+      //
+      // 安全（P0）：错误内容一律用 textContent 写入 DOM，绝不做字符串拼 HTML。
+      // msg/url/event.reason 都可能携带后端返回的文案（utils/http.js 会把
+      // resp.data.error.message 提升到 error.message），历史上这里是
+      // insertAdjacentHTML 拼接 —— 一个可被后端 4xx 文案触发的 DOM XSS 汇聚点。
+      function showErrorBar(title, lines, bg) {
+        try {
+          var box = document.createElement('div');
+          box.style.cssText = 'position:fixed;top:0;left:0;right:0;background:' + bg +
+            ';color:white;padding:20px;z-index:99999;word-break:break-all;';
+          var h3 = document.createElement('h3');
+          h3.textContent = title;
+          box.appendChild(h3);
+          (lines || []).forEach(function (t) {
+            var p = document.createElement('p');
+            p.textContent = String(t);
+            box.appendChild(p);
+          });
+          var btn = document.createElement('button');
+          btn.textContent = 'Close';
+          btn.onclick = function () { box.remove(); };
+          box.appendChild(btn);
+          document.body.appendChild(box);
+        } catch (e) { /* 展示失败不影响主流程 */ }
+      }
       window.onerror = function(msg, url, line, col, error) {
         // 良性警告过滤：ResizeObserver loop 是浏览器规范行为（容器尺寸单帧多次变化时
         // 由浏览器异步报告），Chrome 官方明确该错误无法通过代码消除、建议忽略，
@@ -15,23 +40,13 @@
         if (msg && (msg.indexOf('ResizeObserver loop') === 0 || msg.indexOf('Script error.') === 0)) {
           return false;
         }
-        var errorHtml = '<div style="position:fixed;top:0;left:0;right:0;background:red;color:white;padding:20px;z-index:99999;word-break:break-all;">' +
-          '<h3>JS Error:</h3>' +
-          '<p>' + msg + '</p>' +
-          '<p>URL: ' + url + '</p>' +
-          '<p>Line: ' + line + '</p>' +
-          '<button onclick="this.parentNode.remove()">Close</button>' +
-          '</div>';
-        document.body.insertAdjacentHTML('beforeend', errorHtml);
+        showErrorBar('JS Error:', [msg, 'URL: ' + url, 'Line: ' + line], 'red');
         return false;
       };
       window.addEventListener('unhandledrejection', function(event) {
-        var errorHtml = '<div style="position:fixed;top:0;left:0;right:0;background:orange;color:white;padding:20px;z-index:99999;word-break:break-all;">' +
-          '<h3>Promise Error:</h3>' +
-          '<p>' + event.reason + '</p>' +
-          '<button onclick="this.parentNode.remove()">Close</button>' +
-          '</div>';
-        document.body.insertAdjacentHTML('beforeend', errorHtml);
+        var reason = event && event.reason;
+        var text = reason && reason.message ? reason.message : reason;
+        showErrorBar('Promise Error:', [text], 'orange');
       });
     </script>
   </head>

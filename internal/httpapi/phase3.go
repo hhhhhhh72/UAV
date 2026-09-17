@@ -16,6 +16,46 @@ import (
 // ---- Enrollments ----
 
 // POST /api/v1/training-courses/{id}/enroll
+// notifyEnrollmentCreated 报名成功后通知双方。
+//
+// 培训线此前**一处通知都没有**——报名成功、审核结果、管理端改状态、结业全静默，
+// 而企业入驻/需求/接单/求职/证书到期都有。学员只能自己反复去「我的报名」看进度。
+//
+// 课程机构那一侧：course.OrgID 在历史无主课程上是空串，s.notify 对空收件人直接跳过，
+// 不会生成没人能看到的孤儿消息（MessageService.Send 本身没有收件人校验）。
+func (s *Server) notifyEnrollmentCreated(course domain.TrainingCourse, studentID string, paidFen int64) {
+	content := "您已成功报名《" + course.Title + "》，等待机构确认后开课。"
+	if paidFen > 0 {
+		content = "您已成功报名《" + course.Title + "》，学费 ¥" +
+			fmt.Sprintf("%.2f", float64(paidFen)/100) + " 已冻结在平台托管金，机构确认后开课。"
+	}
+	s.notify(studentID, "报名成功", content, "training_course", course.ID)
+	s.notify(course.OrgID, "新的报名待审核",
+		"《"+course.Title+"》收到一条新的报名，审核通过后学员即可开课。", "course_enrollment", course.ID)
+}
+
+// enrollmentStatusLabel 报名状态的中文标签，口径以**管理后台**为准（该页下拉与状态列同源）。
+// 小程序两处用词更短且彼此不同（「我的报名」用 已报名/已驳回，机构审核页用 已结业），
+// 此处不追平——真要统一得三处一起改，只改一处反而更乱。
+// enrolled/paid 都是**待审核**态——Review 的守卫正是「只有 enrolled/paid 可以被审核」。
+func enrollmentStatusLabel(s string) string {
+	switch s {
+	case "pending":
+		return "待审核"
+	case "enrolled":
+		return "已报名（待审核）"
+	case "paid":
+		return "已缴费（待审核）"
+	case "approved":
+		return "已通过"
+	case "rejected":
+		return "已拒绝"
+	case "completed":
+		return "已完成"
+	}
+	return s
+}
+
 func (s *Server) enrollCourse(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
@@ -38,6 +78,10 @@ func (s *Server) enrollCourse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fail(w, r, http.StatusConflict, err)
 		return
+	}
+	// 报名成功即通知双方（取课程标题用于文案；取不到只是少一条通知，不影响报名结果）
+	if c, cerr := s.trainingSvc.GetCourse(r.Context(), e.CourseID); cerr == nil {
+		s.notifyEnrollmentCreated(c, a.ID, e.PaidAmountFen)
 	}
 	respond(w, r, http.StatusCreated, e)
 }
@@ -95,6 +139,8 @@ func (s *Server) payAndEnroll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "pay_and_enroll", "enrollment", e.ID, "enrolled")
+	// 付费报名冻结了学费，学员更需要一条凭证（此前整条线静默）
+	s.notifyEnrollmentCreated(course, a.ID, e.PaidAmountFen)
 	respond(w, r, http.StatusCreated, e)
 }
 
@@ -234,6 +280,11 @@ func (s *Server) completeEnrollment(w http.ResponseWriter, r *http.Request) {
 	_ = released
 
 	s.audit(r.Context(), a.ID, "complete_enrollment", "enrollment", enrollment.ID, "completed+cert_issued")
+	// 结业闭环：学费已释放给机构 + 证书已发。只发主路径——completed 幂等补齐分支
+	// 是管理员对失败重试的补偿，不该重复打扰学员。
+	s.notify(enrollment.UserID, "培训结业",
+		"恭喜！您已完成《"+course.Title+"》的培训，结业证书已发放，可在「我的证书」查看。",
+		"certificate", cert.ID)
 	respond(w, r, http.StatusOK, map[string]any{
 		"enrollment":  enrollment,
 		"certificate": cert,
@@ -294,6 +345,7 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 	found.IDCardImage = in.IDCardImage
 	found.IDCardBack = in.IDCardBack
 	found.NoCrime = in.NoCrime
+	oldStatus := found.Status // 改状态前留底：只有真变了才通知学员
 	found.Status = in.Status
 	updated, err := s.enrollSvc.Update(r.Context(), a, found)
 	if err != nil {
@@ -306,6 +358,13 @@ func (s *Server) updateEnrollment(w http.ResponseWriter, r *http.Request) {
 			fail(w, r, http.StatusBadRequest, err) // 非法状态 / 防回退
 		}
 		return
+	}
+	// 运营在后台改了报名状态，学员应当知道。只在**状态真变化**时发，
+	// 免得每次编辑身份证/学历这类资料都打扰一次。
+	if updated.Status != oldStatus {
+		s.notify(updated.UserID, "报名状态更新",
+			"您报名的课程状态已更新为「"+enrollmentStatusLabel(updated.Status)+"」。",
+			"training_course", updated.CourseID)
 	}
 	respond(w, r, http.StatusOK, updated)
 }
@@ -389,6 +448,52 @@ func (s *Server) reviewEnrollment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r.Context(), a.ID, "review_enrollment", "enrollment", e.ID, in.Action)
+	// 学员在等结果：不通知就不知道还要不要继续等（取不到课程标题只是文案退化）
+	courseTitle := e.CourseID
+	if c, cerr := s.trainingSvc.GetCourse(r.Context(), e.CourseID); cerr == nil {
+		courseTitle = c.Title
+	}
+	if e.Status == "rejected" {
+		// —— 驳回即退款 ——
+		// 此前 Review 全程不碰 escrow，而学员那份冻结**没有任何入口**能解开：
+		// 驳回的报名不能再结业（completeEnrollment 只收 enrolled/paid/approved），
+		// 孤儿冻结补偿要求业务行不存在（这里行还在），POST /api/v1/escrow/refund
+		// 退的又是操作者自己的冻结。结果是学员看到「未通过审核」，学费永久冻结。
+		//
+		// 幂等由 CAS 保证：enrolled/paid → rejected 只可能成功一次，重试会被 Review
+		// 的守卫挡回，所以这里不会重复退款。**不能**改用 HasRefunded 守卫——
+		// (user, refType, refID) 并非每次冻结唯一，同一人可对同一课程反复冻结/解冻，
+		// 加了全局守卫反而会让上面 payAndEnroll 的报名失败回滚被误跳过、钱滞留在冻结里。
+		refunded := false
+		if e.PaidAmountFen > 0 {
+			if _, rerr := s.escrowSvc.Refund(r.Context(), e.UserID, e.PaidAmountFen, "training_course", e.CourseID); rerr != nil {
+				// 退款失败不得静默：状态已 rejected、钱还冻着，
+				// 只能由管理员带 user_id 调 POST /api/v1/escrow/refund 手工补退。
+				slog.Error("refund frozen tuition after enrollment rejection failed",
+					"enrollment_id", e.ID, "user_id", e.UserID, "course_id", e.CourseID,
+					"amount_fen", e.PaidAmountFen, "error", rerr)
+				s.audit(r.Context(), a.ID, "review_enrollment_refund_failed", "enrollment", e.ID, rerr.Error())
+			} else {
+				refunded = true
+			}
+		}
+		content := "很遗憾，《" + courseTitle + "》的报名未通过审核。"
+		if reason := strings.TrimSpace(e.ReviewNote); reason != "" {
+			content += "原因：" + reason
+		}
+		if e.PaidAmountFen > 0 {
+			money := "¥" + fmt.Sprintf("%.2f", float64(e.PaidAmountFen)/100)
+			if refunded {
+				content += "您已支付的学费 " + money + " 已退回平台账户余额，可在「托管金」中查看。"
+			} else {
+				content += "您已支付的学费 " + money + " 仍冻结在平台托管金，请联系协会办理退款。"
+			}
+		}
+		s.notify(e.UserID, "报名审核结果", content, "training_course", e.CourseID)
+	} else {
+		s.notify(e.UserID, "报名审核结果",
+			"恭喜！《"+courseTitle+"》的报名已通过审核，请留意开课安排。", "training_course", e.CourseID)
+	}
 	respond(w, r, http.StatusOK, e)
 }
 
@@ -453,9 +558,21 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		ProductID string `json:"product_id"`
+		// 收货信息（实物商品必填）：此前订单表完全没有地址，卖家选"物流发货"
+		// 卖出去之后不知道寄给谁。
+		ReceiverName    string `json:"receiver_name"`
+		ReceiverPhone   string `json:"receiver_phone"`
+		ReceiverRegion  string `json:"receiver_region"`
+		ReceiverAddress string `json:"receiver_address"`
 	}
 	if err := decode(r, &in); err != nil || in.ProductID == "" {
 		fail(w, r, http.StatusBadRequest, errors.New("product_id required"))
+		return
+	}
+	// 下单限频（按买家，20 分钟 10 单）：下单即把商品置 sold，
+	// 无约束时可用批量下单锁死他人商品（拒绝供给）。
+	if !s.orderCreateAllowed(a.ID) {
+		fail(w, r, http.StatusTooManyRequests, errors.New("下单过于频繁，请稍后再试"))
 		return
 	}
 	// P0 修复：订单金额与卖家一律以服务端商品为准——此前 amount_fen/seller_id
@@ -480,7 +597,18 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusConflict, errors.New("product not available"))
 		return
 	}
-	o, err := s.tradeSvc.Create(r.Context(), a.ID, product.ID, product.SellerID, product.PriceFen)
+	// 实物商品（整机/配件）走物流发货，没有收货地址卖家发不出去；
+	// 维修/航拍/试飞/检测/空域这类服务不需要寄送，允许留空。
+	// 是否需要收货地址**优先看卖家选定的交付方式**（自提不需要；物流/同城需要），
+	// 未选时按商品类型兜底。规则集中在 service.OrderNeedsReceiver，前后端共用同一判定。
+	needsShipping := service.OrderNeedsReceiver(product)
+	o, err := s.tradeSvc.Create(r.Context(), a.ID, product.ID, product.SellerID, product.PriceFen,
+		service.OrderReceiver{
+			Name:    in.ReceiverName,
+			Phone:   in.ReceiverPhone,
+			Region:  in.ReceiverRegion,
+			Address: in.ReceiverAddress,
+		}, needsShipping)
 	if err != nil {
 		// 订单创建失败：回滚商品为 listed，允许继续售卖——
 		// 回滚失败导致商品滞留 sold 无法再售，必须留痕（此前静默吞错）。
@@ -488,11 +616,52 @@ func (s *Server) createTradeOrder(w http.ResponseWriter, r *http.Request) {
 			slog.Error("restore product after order creation failed failed",
 				"product_id", product.ID, "order_error", err, "restore_error", rerr)
 		}
+		// 收货信息不完整是买家可以改的输入问题 → 400；其余才是服务故障 → 500。
+		if errors.Is(err, service.ErrReceiverRequired) {
+			fail(w, r, http.StatusBadRequest, err)
+			return
+		}
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	s.audit(r.Context(), a.ID, "create_trade_order", "trade_order", o.ID, "created")
 	respond(w, r, http.StatusCreated, o)
+}
+
+// POST /api/v1/trade-orders/{id}/ship — 卖家发货（填写快递公司 + 单号）
+//
+// 独立端点而不是复用 PATCH status：发货必须带单号，且单号与状态要在同一条条件更新里落库。
+// 旧路径（PATCH status=shipped）已被 service.actorAllowedTransition 封掉。
+func (s *Server) shipTradeOrder(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		ShippingCompany  string `json:"shipping_company"`
+		ShippingTracking string `json:"shipping_tracking"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	o, err := s.tradeSvc.ShipOrder(r.Context(), a, r.PathValue("id"), in.ShippingCompany, in.ShippingTracking)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrShippingInvalid):
+			fail(w, r, http.StatusBadRequest, err)
+		case errors.Is(err, service.ErrNotOwner):
+			fail(w, r, http.StatusForbidden, err)
+		case errors.Is(err, repository.ErrNotFound):
+			fail(w, r, http.StatusNotFound, errors.New("order not found"))
+		default:
+			fail(w, r, http.StatusInternalServerError, err)
+		}
+		return
+	}
+	s.audit(r.Context(), a.ID, "ship_trade_order", "trade_order", o.ID, o.ShippingTracking)
+	respond(w, r, http.StatusOK, o)
 }
 
 // POST /api/v1/trade-orders/{id}/pay — 买家支付（模拟：pending → paid；真实支付接入后由回调替代）
@@ -564,6 +733,47 @@ func (s *Server) reviewAftersaleBySeller(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.audit(r.Context(), a.ID, "review_aftersale", "trade_order", o.ID, o.AftersaleStatus)
+	respond(w, r, http.StatusOK, o)
+}
+
+// POST /api/v1/trade-orders/{id}/aftersale/return — 买家提交退货物流（退货退款流程第二步）
+func (s *Server) submitReturnShipment(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	var in struct {
+		TrackingNo string `json:"tracking_no"`
+		Note       string `json:"note"`
+	}
+	if err := decode(r, &in); err != nil {
+		fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	o, err := s.tradeSvc.SubmitReturnShipment(r.Context(), a.ID, r.PathValue("id"), in.TrackingNo, in.Note)
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "submit_return_shipment", "trade_order", o.ID, o.ReturnTracking)
+	respond(w, r, http.StatusOK, o)
+}
+
+// POST /api/v1/trade-orders/{id}/aftersale/confirm-return — 卖家/管理员确认收到退货并发起退款
+// （退货退款流程第三步：到这一步才真正动钱）
+func (s *Server) confirmReturnReceived(w http.ResponseWriter, r *http.Request) {
+	a, ok := authenticatedActor(r)
+	if !ok {
+		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
+		return
+	}
+	o, err := s.tradeSvc.ConfirmReturnReceived(r.Context(), a, r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusForbidden, err)
+		return
+	}
+	s.audit(r.Context(), a.ID, "confirm_return_received", "trade_order", o.ID, o.AftersaleStatus)
 	respond(w, r, http.StatusOK, o)
 }
 

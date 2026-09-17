@@ -65,7 +65,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { request, getStoredUser, getErrorMessage, requireLogin, BASE_URL } from '../../../utils/request'
+import { request, getErrorMessage, requireLogin, BASE_URL } from '../../../utils/request'
 
 const statusText = { enrolled: '已报名', paid: '已缴费', approved: '已通过', rejected: '已拒绝', completed: '已结业' }
 const myCourses = ref([])
@@ -74,15 +74,17 @@ const list = ref([])
 const loading = ref(true)
 const showPicker = ref(false)
 
-const user = getStoredUser()
-const myId = user && (user.id || user.user_id)
 const currentCourse = computed(() => myCourses.value.find((c) => c.id === courseId.value) || null)
 
 const loadCourses = async () => {
   try {
-    const res = await request({ url: '/api/v1/training-courses' })
-    const all = Array.isArray(res) ? res : ((res && res.data) || [])
-    myCourses.value = all.filter((c) => c.org_id === myId)
+    // 必须走 ?mine=1：服务端在**脱敏之前**就按 actor.ID 过滤并提前 return（training.go:225-238）。
+    // 此前拉公开列表再用 org_id === 自己的 ID 客户端过滤，而公开列表会把
+    // user-<11位手机号> 形态的 org_id 换成哈希假名（training.go:263 + mask.go:20）——
+    // 手机号注册的机构拿到的是假名，恒筛不出自己的课，页面永远「暂无机构课程」、
+    // 从通知点进来也永远审不到报名。小程序别处（我的发布/我的需求）已统一用 mine=1。
+    const res = await request({ url: '/api/v1/training-courses?mine=1&page_size=100' })
+    myCourses.value = Array.isArray(res) ? res : ((res && res.data) || [])
   } catch (e) {
     myCourses.value = []
   } finally {

@@ -12,8 +12,12 @@ func TestLoadDefaults(t *testing.T) {
 	os.Unsetenv("AUTH_SECRET")
 	os.Unsetenv("HTTP_ADDR")
 	cfg := config.Load()
-	if cfg.Server.Port != ":8080" { t.Fatalf("default port: %s", cfg.Server.Port) }
-	if cfg.Server.Env != "development" { t.Fatalf("default env: %s", cfg.Server.Env) }
+	if cfg.Server.Port != ":8080" {
+		t.Fatalf("default port: %s", cfg.Server.Port)
+	}
+	if cfg.Server.Env != "development" {
+		t.Fatalf("default env: %s", cfg.Server.Env)
+	}
 }
 
 func TestLoadWithEnv(t *testing.T) {
@@ -22,14 +26,18 @@ func TestLoadWithEnv(t *testing.T) {
 	defer os.Unsetenv("HTTP_ADDR")
 	defer os.Unsetenv("AUTH_SECRET")
 	cfg := config.Load()
-	if cfg.Server.Port != ":9090" { t.Fatalf("custom port: %s", cfg.Server.Port) }
+	if cfg.Server.Port != ":9090" {
+		t.Fatalf("custom port: %s", cfg.Server.Port)
+	}
 }
 
 func TestValidateMissingSecret(t *testing.T) {
 	os.Unsetenv("AUTH_SECRET")
 	cfg := config.Load()
 	result := cfg.Validate()
-	if len(result.Errors) == 0 { t.Fatal("should have errors for missing AUTH_SECRET") }
+	if len(result.Errors) == 0 {
+		t.Fatal("should have errors for missing AUTH_SECRET")
+	}
 }
 
 func TestValidateWithSecret(t *testing.T) {
@@ -37,7 +45,9 @@ func TestValidateWithSecret(t *testing.T) {
 	defer os.Unsetenv("AUTH_SECRET")
 	cfg := config.Load()
 	result := cfg.Validate()
-	if len(result.Errors) > 0 { t.Fatalf("should not have errors: %v", result.Errors) }
+	if len(result.Errors) > 0 {
+		t.Fatalf("should not have errors: %v", result.Errors)
+	}
 }
 
 func TestValidateShortSecret(t *testing.T) {
@@ -45,7 +55,9 @@ func TestValidateShortSecret(t *testing.T) {
 	defer os.Unsetenv("AUTH_SECRET")
 	cfg := config.Load()
 	result := cfg.Validate()
-	if len(result.Errors) == 0 { t.Fatal("should have error for short AUTH_SECRET") }
+	if len(result.Errors) == 0 {
+		t.Fatal("should have error for short AUTH_SECRET")
+	}
 }
 
 // TestValidateProductionHardChecks: P0 回归——生产环境必须硬校验

@@ -14,7 +14,7 @@ import (
 // 权限：仅平台/协会管理员；分页与排序：创建时间倒序。
 func TestWorkOrderListAllPermissionsAndPaging(t *testing.T) {
 	orderRepo := memory.NewWorkOrderRepository()
-	svc := service.NewWorkOrderService(orderRepo, memory.NewDemandRepository(nil), memory.NewIntentRepository())
+	svc := service.NewWorkOrderService(orderRepo, memory.NewDemandRepository(nil), memory.NewIntentRepository(memory.NewDemandRepository(nil)))
 	ctx := context.Background()
 
 	// 非管理员一律拒绝

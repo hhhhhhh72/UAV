@@ -76,7 +76,13 @@ axios.interceptors.request.use((config) => {
   // 会导致同一用户所有上传共用一个 key——24h 内第 2 次上传被服务端回放第 1 次的结果。
   const method = (config.method || 'get').toLowerCase()
   const isMultipart = typeof FormData !== 'undefined' && config.data instanceof FormData
-  if ((method === 'post' || method === 'patch') && !isMultipart && !config.headers['Idempotency-Key']) {
+  // 认证接口永不携带幂等键（P0）：本键由 url+body 确定性生成，而服务端会按
+  // anon:<ip>:<path>:<key> 把 2xx 响应缓存 24h —— 同一账号 24h 内二次登录会命中
+  // 回放，拿到上一次的 accessToken 与【已被登出吊销的】refreshToken（表现为
+  // "登录成功却马上掉线"）；/api/auth/refresh 同理会被回放出一组"有效"新令牌，
+  // 绕过刷新轮转与吊销语义。
+  const isAuthPath = /^\/api\/(v1\/)?auth\//.test(config.url || '')
+  if ((method === 'post' || method === 'patch') && !isMultipart && !isAuthPath && !config.headers['Idempotency-Key']) {
     config.headers['Idempotency-Key'] = idempotencyKey(config.url || '', config.data)
   }
   return config

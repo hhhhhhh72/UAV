@@ -16,7 +16,6 @@ func TestMineEndpointsRequireAuth(t *testing.T) {
 	anonCases := []struct {
 		path string
 	}{
-		{"/api/v1/association-members/me"},
 		{"/api/v1/portfolios/mine"},
 		{"/api/v1/jobs/mine"},
 		{"/api/v1/certified-pilots/mine"},

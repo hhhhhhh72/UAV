@@ -14,9 +14,14 @@ func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/inspections/expiring", s.listExpiringInspections)
 	mux.HandleFunc("POST /api/v1/trade-orders", s.createTradeOrder)
 	mux.HandleFunc("POST /api/v1/trade-orders/{id}/pay", s.payTradeOrder)
+	// 卖家发货独立端点：必须带快递单号（旧路径 PATCH status=shipped 已被服务层封掉）
+	mux.HandleFunc("POST /api/v1/trade-orders/{id}/ship", s.shipTradeOrder)
 	mux.HandleFunc("PATCH /api/v1/trade-orders/{id}/status", s.updateTradeOrderStatus)
 	mux.HandleFunc("POST /api/v1/trade-orders/{id}/aftersale", s.applyAftersale)
 	mux.HandleFunc("POST /api/v1/trade-orders/{id}/aftersale/review", s.reviewAftersaleBySeller)
+	// 退货退款流程：买家提交退货物流 → 卖家/管理员确认收到 → 退款
+	mux.HandleFunc("POST /api/v1/trade-orders/{id}/aftersale/return", s.submitReturnShipment)
+	mux.HandleFunc("POST /api/v1/trade-orders/{id}/aftersale/confirm-return", s.confirmReturnReceived)
 	mux.HandleFunc("GET /api/v1/trade-orders/mine", s.listMyTradeOrders)
 	mux.HandleFunc("GET /api/v1/admin/dashboard", s.adminDashboard)
 	// Escrow (资金托管)

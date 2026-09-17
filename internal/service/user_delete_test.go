@@ -9,11 +9,15 @@ import (
 	"time"
 
 	"drone-platform/internal/domain"
+	"drone-platform/internal/repository"
 	"drone-platform/internal/repository/memory"
 	"drone-platform/internal/service"
 )
 
-func adminUserActor() domain.Actor { return domain.Actor{ID: "admin-1", Role: domain.RolePlatformAdmin} }
+func adminUserActor() domain.Actor {
+	return domain.Actor{ID: "admin-1", Role: domain.RolePlatformAdmin}
+}
+
 // 注销要把磁盘上的上传文件真删掉（不只是删台账行）：个人信息注销后不应留副本。
 func TestDeleteUserRemovesUploadedFiles(t *testing.T) {
 	ctx := context.Background()
@@ -63,7 +67,6 @@ func TestDeleteUserRemovesUploadedFiles(t *testing.T) {
 	}
 }
 
-
 func seedUser(t *testing.T, repo interface {
 	Create(ctx context.Context, u domain.User) (domain.User, error)
 }, id string, role domain.Role) {
@@ -101,12 +104,31 @@ func TestDeleteUserMarksPurgeWindowKeepsContents(t *testing.T) {
 		t.Fatalf("缓冲期应约 %v，实际 %v", service.UserPurgeRetention, d)
 	}
 
-	u, err := userRepo.FindByID(ctx, "user-1")
-	if err != nil {
-		t.Fatalf("缓冲期内账号行应保留（内容里的作者 ID 要能解析）: %v", err)
+	// 缓冲期内账号行必须保留（内容里的作者 ID 要能解析）。
+	// 注意：FindByID 与 PG 一致带 deleted_at IS NULL 过滤（postgres.go 的
+	// "WHERE id=$1 AND deleted_at IS NULL"），注销后按 id 查不到；验证"行还在"
+	// 必须走 AllWithDeleted——这正是管理端用户列表的口径。
+	all, aerr := userRepo.AllWithDeleted(ctx)
+	if aerr != nil {
+		t.Fatalf("list users incl deleted: %v", aerr)
+	}
+	var u domain.User
+	found := false
+	for _, x := range all {
+		if x.ID == "user-1" {
+			u, found = x, true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("缓冲期内账号行应保留（内容里的作者 ID 要能解析）")
 	}
 	if u.Status != domain.UserDeleted || u.DeletedAt == nil || u.TokenVersion == 0 {
 		t.Fatalf("删除标记不完整: status=%s deleted_at=%v tv=%d", u.Status, u.DeletedAt, u.TokenVersion)
+	}
+	// 且注销后按 id 查不到（与 PG 的 404 语义一致）
+	if _, err := userRepo.FindByID(ctx, "user-1"); !errors.Is(err, repository.ErrUserNotFound) {
+		t.Fatalf("注销后 FindByID 应为 ErrUserNotFound，实际 %v", err)
 	}
 	items, err := demandRepo.ListByPublisher(ctx, "user-1")
 	if err != nil || len(items) != 1 {
@@ -132,7 +154,19 @@ func TestPurgeRespectsRetentionWindow(t *testing.T) {
 	if n, err := svc.PurgeExpired(ctx); err != nil || n != 0 {
 		t.Fatalf("缓冲期内不应清除: n=%d err=%v", n, err)
 	}
-	if _, err := userRepo.FindByID(ctx, "user-p1"); err != nil {
+	// 同 T1：FindByID 过滤 deleted_at，验证"行未被物理删除"要用 AllWithDeleted。
+	purgeAll, perr := userRepo.AllWithDeleted(ctx)
+	if perr != nil {
+		t.Fatalf("list users incl deleted: %v", perr)
+	}
+	kept := false
+	for _, x := range purgeAll {
+		if x.ID == "user-p1" {
+			kept = true
+			break
+		}
+	}
+	if !kept {
 		t.Fatal("缓冲期内账号行被误删")
 	}
 

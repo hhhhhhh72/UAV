@@ -34,7 +34,9 @@ func (s *Server) registerBizRoutes(mux *http.ServeMux) {
 
 	// ---- Cases ----
 	mux.HandleFunc("GET /api/v1/cases", s.listCases)
-	mux.HandleFunc("GET /api/v1/cases/{id}", s.getCase)
+	// 公开详情必须走公开 handler：此前复用管理端 getCase（要求管理员角色），
+	// 而 /api/v1/cases 在 isPublicPath 白名单内 → 匿名 401、普通登录用户 403。
+	mux.HandleFunc("GET /api/v1/cases/{id}", s.getCasePublic)
 	mux.HandleFunc("POST /api/v1/admin/cases", s.createCase)
 	mux.HandleFunc("GET /api/v1/admin/cases/{id}", s.getCase)
 	mux.HandleFunc("PUT /api/v1/admin/cases/{id}", s.updateCase)
@@ -284,6 +286,24 @@ func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
 	respondPage(w, r, items, total, page, pageSize)
 }
 
+// GET /api/v1/cases/{id} — 公开详情：只出已发布（pending/archived 仅管理员可见，
+// 与公开列表 listCases 的过滤口径一致）。
+func (s *Server) getCasePublic(w http.ResponseWriter, r *http.Request) {
+	c, err := s.caseSvc.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		fail(w, r, http.StatusNotFound, err)
+		return
+	}
+	if c.Status != domain.CaseStatusPublished {
+		if a, ok := authenticatedActor(r); !ok ||
+			(a.Role != domain.RolePlatformAdmin && a.Role != domain.RoleAssociationAdmin) {
+			fail(w, r, http.StatusNotFound, errors.New("case not found"))
+			return
+		}
+	}
+	respond(w, r, http.StatusOK, c)
+}
+
 // POST /api/v1/admin/cases
 func (s *Server) createCase(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
@@ -296,14 +316,14 @@ func (s *Server) createCase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title          string   `json:"title"`
-		Category       string   `json:"category"`
-		Description    string   `json:"description"`
-		ClientName     string   `json:"client_name"`
-		Result         string   `json:"result"`
-		Images         []string `json:"images"`
-		VideoURL       string   `json:"video_url"`
-		Status         string   `json:"status"` // 可选：留空默认已发布
+		Title       string   `json:"title"`
+		Category    string   `json:"category"`
+		Description string   `json:"description"`
+		ClientName  string   `json:"client_name"`
+		Result      string   `json:"result"`
+		Images      []string `json:"images"`
+		VideoURL    string   `json:"video_url"`
+		Status      string   `json:"status"` // 可选：留空默认已发布
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -357,14 +377,14 @@ func (s *Server) updateCase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Title          string   `json:"title"`
-		Category       string   `json:"category"`
-		Description    string   `json:"description"`
-		ClientName     string   `json:"client_name"`
-		Result         string   `json:"result"`
-		Status         string   `json:"status"`
-		Images         []string `json:"images"`
-		VideoURL       string   `json:"video_url"`
+		Title       string   `json:"title"`
+		Category    string   `json:"category"`
+		Description string   `json:"description"`
+		ClientName  string   `json:"client_name"`
+		Result      string   `json:"result"`
+		Status      string   `json:"status"`
+		Images      []string `json:"images"`
+		VideoURL    string   `json:"video_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -736,8 +756,16 @@ func (s *Server) createPortfolio(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, err)
 		return
 	}
+	// 精选/认证（verified）是平台授予的标识，驱动公开列表的"精选"横幅：
+	// 非管理端不得自报，此前任意登录用户都能把自己标成认证/精选。
+	// 状态沿用原有白名单——企业自助发布自己的品牌页是既有且被回归测试覆盖的流程。
+	status := normalizeCreateStatus(in.Status, "draft", "published", "pending", "rejected")
+	featured, verified := false, false
+	if isAdminRequest(r) {
+		featured, verified = in.Featured, in.Verified
+	}
 	p, err := s.portfolioSvc.Create(r.Context(), a.ID, in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Category, in.Industry, in.VideoURL, in.Products, in.Honors,
-		normalizeCreateStatus(in.Status, "draft", "published", "pending", "rejected"), in.Featured, in.Verified)
+		status, featured, verified)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -788,15 +816,24 @@ func (s *Server) updatePortfolio(w http.ResponseWriter, r *http.Request) {
 	if in.VideoURL == "" {
 		in.VideoURL = cur.VideoURL
 	}
+	// 精选/认证：仅管理端可变更（此前非管理员也能自标认证/精选）。
 	featured := cur.Featured
-	if in.Featured != nil {
-		featured = *in.Featured
-	}
 	verified := cur.Verified
-	if in.Verified != nil {
-		verified = *in.Verified
+	if isAdminRequest(r) {
+		if in.Featured != nil {
+			featured = *in.Featured
+		}
+		if in.Verified != nil {
+			verified = *in.Verified
+		}
 	}
-	p, err := s.portfolioSvc.Update(r.Context(), a, r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Category, in.Industry, in.VideoURL, in.Status, in.Products, in.Honors, featured, verified)
+	// 状态：空串保留原状态（service.Update 会无条件覆盖 Status，
+	// 空串会把状态静默清空）；非空值沿用原有透传口径。
+	status := cur.Status
+	if in.Status != "" {
+		status = in.Status
+	}
+	p, err := s.portfolioSvc.Update(r.Context(), a, r.PathValue("id"), in.Name, in.LogoURL, in.CoverURL, in.Description, in.ContactInfo, in.Category, in.Industry, in.VideoURL, status, in.Products, in.Honors, featured, verified)
 	if err != nil {
 		writeMutationErr(w, r, err)
 		return
@@ -1316,22 +1353,25 @@ func (s *Server) createCompetitionByEnterprise(w http.ResponseWriter, r *http.Re
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	if a.Role != domain.RoleEnterprise {
-		fail(w, r, http.StatusForbidden, errors.New("仅企业账号可发布赛事"))
+	// 企业自助发布赛事；协会是办赛的天然主体（协会账号是「运营方 + 市场主体」二合一），
+	// 平台管理员同样放行。三者发布后都进待审核，由管理端审核通过才公开。
+	if a.Role != domain.RoleEnterprise && a.Role != domain.RoleAssociationAdmin &&
+		a.Role != domain.RolePlatformAdmin {
+		fail(w, r, http.StatusForbidden, errors.New("仅企业或协会账号可发布赛事"))
 		return
 	}
 	var in struct {
-		Title       string `json:"title"`
-		Category    string `json:"category"`
-		Description string `json:"description"`
-		Location    string `json:"location"`
-		Sponsor     string `json:"sponsor"`
-		StartDate   string `json:"start_date"`
-		EndDate     string `json:"end_date"`
-		Deadline    string `json:"deadline"`
-		MaxTeams    int    `json:"max_teams"`
-		Fee         int    `json:"fee"`
-		Poster      string `json:"poster"`
+		Title       string   `json:"title"`
+		Category    string   `json:"category"`
+		Description string   `json:"description"`
+		Location    string   `json:"location"`
+		Sponsor     string   `json:"sponsor"`
+		StartDate   string   `json:"start_date"`
+		EndDate     string   `json:"end_date"`
+		Deadline    string   `json:"deadline"`
+		MaxTeams    int      `json:"max_teams"`
+		Fee         int      `json:"fee"`
+		Poster      string   `json:"poster"`
 		Tags        []string `json:"tags"`
 	}
 	if err := decode(r, &in); err != nil {
@@ -1675,9 +1715,16 @@ func resourceLevelRank(lv string) int {
 	}
 }
 
-// visitorResourceLevel 判定访问者的资源可见级别
-// 协会管理员 > 副会长单位(partner) > 合作院校/普通会员(member) > 政府访客(public)
-// 注意：公开 GET 路径上 authenticate 不注入 actor，需手动解析 token
+// visitorResourceLevel 判定访问者的资源可见级别。
+//
+// 注意：公开 GET 路径上 authenticate 不注入 actor，需手动解析 token。
+//
+// 这里原本还有一档"副会长单位(partner) → 2"，判据是 association_members.role。
+// 协会 8 级角色整块删除后该档已不可达——8 个角色里本就只有 partner 生效过，
+// 而 association_members 表 0 行、industry_resources 也 0 行，从未有数据落在这条路径上。
+// 现在只剩三档：未登录 0 / 登录用户 1 / 管理员 3。
+// 若将来要恢复"按单位身份分级"，需要一个仍然存在的判据（例如企业认证等级），
+// 而不是重建那套没有数据支撑的角色表。
 func (s *Server) visitorResourceLevel(r *http.Request) int {
 	h := r.Header.Get("Authorization")
 	if !strings.HasPrefix(h, "Bearer ") {
@@ -1688,20 +1735,9 @@ func (s *Server) visitorResourceLevel(r *http.Request) int {
 		return 0
 	}
 	if a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin {
-		return 3 // 协会管理员
+		return 3 // 管理员
 	}
-	// 查单位身份（association_members.role: partner 副会长单位 / college 合作院校）
-	if s.assocMemberSvc != nil {
-		if m, err := s.assocMemberSvc.GetByUserID(r.Context(), a.ID); err == nil {
-			if m.Role == domain.AssocPartner {
-				return 2
-			}
-			if m.Role == domain.AssocCollege {
-				return 1
-			}
-		}
-	}
-	return 1 // 普通会员
+	return 1 // 已登录普通用户
 }
 
 // GET /api/v1/industry-resources/{id} — 公开详情（分级校验：资源级别 ≤ 访问者级别）

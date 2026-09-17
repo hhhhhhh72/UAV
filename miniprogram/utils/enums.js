@@ -16,6 +16,14 @@ export const PRODUCT_TYPE_SHORT = { drone: '整机', part: '零件', test_fly: '
 export const productTypeLabel = (t) => PRODUCT_TYPE_LABEL[t] || t || ''
 export const productTypeShort = (t) => PRODUCT_TYPE_SHORT[t] || PRODUCT_TYPE_LABEL[t] || t || ''
 
+// --- 服务类 prod_type ---
+// 服务能力并入商品表（migration 000110）后，这 5 类承载的仍是"服务"，不是实物商品。
+// 与后端 internal/service/service_listing.go:35-41 的 serviceProdTypes 一一对应。
+// 此前 utils/hallData.js 与 pages/publish/my-posts.vue 各自抄了一份字面量数组，
+// 多份拷贝正是本次「维修服务」在一处算服务、在另一处算配件的成因。
+export const SERVICE_PROD_TYPES = ['repair', 'aerial', 'test_fly', 'calibration', 'airspace']
+export const isServiceProdType = (t) => SERVICE_PROD_TYPES.indexOf(t) >= 0
+
 // --- 需求类型（BizType）筛选 Tab + 标签 ---
 export const BIZ_TYPE_TABS = [
   { label: '全部', value: '' },

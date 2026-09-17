@@ -94,9 +94,9 @@ var adminListOnly = []adminResource{
 // 其余（decode 失败等）为 400/409/422。500 已从 update/delete 集合移除——
 // 若再出现 500 即回归（此前 update/delete 对 not-found 一律 500）。
 var (
-	okGetCodes    = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict}                              // 400/404/409
+	okGetCodes    = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict}                                 // 400/404/409
 	okUpdateCodes = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity} // 400/404/409/422
-	okDeleteCodes = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict}                               // 400/404/409
+	okDeleteCodes = []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict}                                 // 400/404/409
 )
 
 // checkStatus 断言响应状态码等于 want，失败时输出 method/path/code/body 前 200 字符。

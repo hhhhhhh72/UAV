@@ -32,6 +32,31 @@
       <view class="pub-empty-desc">您是该课程的发布者，平台规则不允许自报自售；请使用学员账号报名。</view>
     </view>
 
+    <!-- 报名成功态（同页两态，与活动/研学报名一致） -->
+    <!-- 此前提交成功只弹一个 toast，1.5 秒后自动 navigateBack：用户看不到报名编号、
+         不知道学费被冻结了多少、也不知道接下来等谁审。后端返回的 Enrollment
+         （id / status / paid_amount_fen）本来就有这些信息，只是被丢掉了。 -->
+    <view v-else-if="done" class="pub-success">
+      <view class="pub-success-mark">✓</view>
+      <view class="succ-title">报名成功</view>
+      <view class="succ-desc">{{ succDesc }}</view>
+
+      <view class="receipt">
+        <view class="rt">报名回执 <text class="rt-no">{{ receiptNo }}</text></view>
+        <view class="rrow"><text class="rk">课程</text><text class="rv">{{ courseTitle }}</text></view>
+        <view v-if="receiptTime" class="rrow"><text class="rk">时间</text><text class="rv">{{ receiptTime }}</text></view>
+        <view v-if="receiptLoc" class="rrow"><text class="rk">地点</text><text class="rv">{{ receiptLoc }}</text></view>
+        <view class="rrow"><text class="rk">状态</text><text class="rv cl-su">{{ succStatus }}</text></view>
+        <!-- 只有真冻了钱才显示这行：免费课显示「已冻结学费 ¥0」会让人以为扣了钱 -->
+        <view v-if="paidFen > 0" class="rrow"><text class="rk">已冻结学费</text><text class="rv cl-fee">¥{{ paidText }}</text></view>
+      </view>
+
+      <view class="succ-actions">
+        <view v-if="paidFen > 0" class="pub-btn pub-btn--ghost" hover-class="pub-btn--active" @tap="goEscrow">托管金明细</view>
+        <view class="pub-btn pub-btn--primary" hover-class="pub-btn--active" @tap="goMine">查看我的报名</view>
+      </view>
+    </view>
+
     <!-- 报名表单 -->
     <template v-else>
       <!-- 课程摘要卡：呼应详情页，承接 enroll → 报名流程 -->
@@ -163,7 +188,7 @@
     </template>
 
     <!-- 底部固定 CTA 栏（联系咨询 + 确认报名，主蓝 + 次白描边） -->
-    <view v-if="course && !selfOwned" class="pub-sticky">
+    <view v-if="course && !selfOwned && !done" class="pub-sticky">
       <view class="pub-btn pub-btn--secondary cta-consult" hover-class="pub-btn--active" @tap="handleConsult">
         <text>联系咨询</text>
       </view>
@@ -295,6 +320,50 @@ const feeText = computed(function () {
   if (o && o.price > 0) return Number(o.price).toLocaleString()
   return '面议'
 })
+
+/* ==================== 报名成功态 ==================== */
+// 提交成功后切到同页成功态，不再 toast + 自动返回。
+// 付费报名会**冻结学费**（payAndEnroll 先 Freeze 再 Enroll）、提交的是实名材料
+// （身份证/证件照/无犯罪证明）、之后还要等机构审核——这三件事都必须让用户看见。
+const done = ref(false)
+const receipt = ref(null) // 后端返回的 Enrollment：id / status / paid_amount_fen
+
+// 报名编号直接用后端真实记录 id（活动报名页那个 NO.日期-随机数是客户端编的，不学它）
+const receiptNo = computed(function () {
+  return (receipt.value && receipt.value.id) || ''
+})
+const paidFen = computed(function () {
+  return Number((receipt.value && receipt.value.paid_amount_fen) || 0)
+})
+const paidText = computed(function () {
+  return (paidFen.value / 100).toLocaleString()
+})
+// 状态语义与后端一致：付费报名 → paid（已缴）；免费 → enrolled（已报名）
+const succStatus = computed(function () {
+  return (receipt.value && receipt.value.status === 'paid') ? '已缴费 · 待机构开班' : '已报名 · 待机构确认'
+})
+const succDesc = computed(function () {
+  return paidFen.value > 0
+    ? '报名已提交，机构确认后开课。学费已冻结在平台托管金，结业时放款给机构；未能成班可申请退回。'
+    : '报名已提交，机构确认后会通知你开课安排，请留意站内消息。'
+})
+const receiptTime = computed(function () {
+  const c = course.value
+  if (!c) return ''
+  const s = c.start_date ? String(c.start_date).slice(0, 10) : ''
+  const e = c.end_date ? String(c.end_date).slice(0, 10) : ''
+  if (s && e && s !== e) return s + ' ~ ' + e
+  return s || e || ''
+})
+const receiptLoc = computed(function () {
+  const c = course.value
+  if (!c) return ''
+  return [c.district, c.location].filter(Boolean).join(' · ') || ''
+})
+// 离开报名流程 → 替换当前页，避免返回时又回到已提交的表单
+const goMine = function () { uni.redirectTo({ url: '/pkg-talent/pages/training/myenrollments' }) }
+// 看冻结明细 → 保留返回路径，用户能退回来继续看回执
+const goEscrow = function () { uni.navigateTo({ url: '/pages/escrow/index' }) }
 
 /* 身份证号 18 位时自动推导生日与性别（仅当出生日期段真实合法——测试/占位号码不推导，避免后端 invalid birthday format 409）。
    推导值可见可改：生日以日期选择器、性别以单选呈现，自动填入时显示"已从身份证识别"标注，用户可随时手动修改（手动值不被后续非法身份证清掉）。 */
@@ -455,13 +524,16 @@ async function handleSubmit() {
     const payload = Object.assign({}, form, {
       noCrime: form.noCrime ? '无犯罪记录' : '',
     })
-    await request({
+    const res = await request({
       url: '/api/v1/training-courses/' + encodeURIComponent(id.value) + '/pay-and-enroll',
       method: 'POST',
       data: payload,
     })
-    uni.showToast({ title: '报名成功' })
-    backTimer = setTimeout(function () { uni.navigateBack() }, 1500)
+    // 后端返回的 Enrollment 直接喂给回执（request 已 unwrap 掉 data 包）。
+    // 此前这个返回值被整个丢掉，用户只能看一个 toast 然后被弹走。
+    receipt.value = (res && res.id) ? res : ((res && res.data) || null)
+    done.value = true
+    uni.pageScrollTo({ scrollTop: 0, duration: 0 })
   } catch (e) {
     // 后端统一错误信封 {error:{code,message}}，409 重复报名等场景展示真实原因
     const msg = (e && e.data && e.data.error && e.data.error.message) || ''
@@ -638,4 +710,26 @@ onUnload(function () {
   0%, 100% { box-shadow: 0 0 0 0 rgba(10, 102, 194, 0.28); }
   50% { box-shadow: 0 0 0 8px rgba(10, 102, 194, 0); }
 }
+/* ═══ 报名成功态（报名回执） ═══ */
+.succ-title { display: block; font-size: 19px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; }
+.succ-desc { display: block; font-size: 12.5px; line-height: 1.65; color: #667085; padding: 0 6px 18px; }
+.receipt {
+  background: #fff;
+  border: 1px solid #EEF1F4;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: left;
+}
+.rt {
+  font-size: 13px; font-weight: 750; color: #1a1a1a;
+  padding-bottom: 10px; margin-bottom: 8px;
+  border-bottom: 1px dashed #EEF1F4;
+}
+.rt-no { font-size: 11.5px; font-weight: 600; color: #98A2B3; margin-left: 6px; }
+.rrow { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; font-size: 12.5px; }
+.rk { flex-shrink: 0; width: 76px; color: #98A2B3; }
+.rv { flex: 1; color: #1a1a1a; word-break: break-all; }
+.cl-su { color: #0A66C2; font-weight: 700; }
+.cl-fee { color: #D97706; font-weight: 700; }
+.succ-actions { display: flex; gap: 10px; margin-top: 18px; }
 </style>

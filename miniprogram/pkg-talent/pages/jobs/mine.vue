@@ -107,7 +107,8 @@ const goPublish = () => uni.navigateTo({ url: '/pkg-talent/pages/publish/job' })
 const goApplicants = (item) => uni.navigateTo({ url: '/pkg-talent/pages/jobs/applicants?job_id=' + encodeURIComponent(item.id) })
 
 const user = getStoredUser()
-const isEnterprise = !!(user && (user.role === 'enterprise' || user.role === 'platform_admin'))
+// 协会账号是「运营方 + 市场主体」二合一：协会自己也要招人、也要替会员单位代发。
+const isEnterprise = !!(user && (user.role === 'enterprise' || user.role === 'platform_admin' || user.role === 'association_admin'))
 
 const list = ref([])
 const loading = ref(false)

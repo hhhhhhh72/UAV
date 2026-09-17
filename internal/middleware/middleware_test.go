@@ -63,24 +63,40 @@ func TestSanitizeMap(t *testing.T) {
 		"count": 42,
 	}
 	got := middleware.SanitizeMap(input)
-	if got["name"] != "张三" { t.Fatalf("name not sanitized: %v", got["name"]) }
-	if got["bio"] != "正常文本" { t.Fatalf("bio changed: %v", got["bio"]) }
-	if got["count"] != 42 { t.Fatalf("non-string changed: %v", got["count"]) }
+	if got["name"] != "张三" {
+		t.Fatalf("name not sanitized: %v", got["name"])
+	}
+	if got["bio"] != "正常文本" {
+		t.Fatalf("bio changed: %v", got["bio"])
+	}
+	if got["count"] != 42 {
+		t.Fatalf("non-string changed: %v", got["count"])
+	}
 }
 
 func TestWriteJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 	middleware.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	if w.Code != http.StatusOK { t.Fatalf("status: %d", w.Code) }
-	if w.Body.Len() == 0 { t.Fatal("empty body") }
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: %d", w.Code)
+	}
+	if w.Body.Len() == 0 {
+		t.Fatal("empty body")
+	}
 }
 
 func TestWriteError(t *testing.T) {
 	w := httptest.NewRecorder()
 	middleware.WriteError(w, http.StatusBadRequest, "BAD_INPUT", "参数错误")
-	if w.Code != http.StatusBadRequest { t.Fatalf("status: %d", w.Code) }
-	if w.Body.Len() == 0 { t.Fatal("empty body") }
-	if !strings.Contains(w.Body.String(), "BAD_INPUT") { t.Fatal("missing code") }
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status: %d", w.Code)
+	}
+	if w.Body.Len() == 0 {
+		t.Fatal("empty body")
+	}
+	if !strings.Contains(w.Body.String(), "BAD_INPUT") {
+		t.Fatal("missing code")
+	}
 }
 
 func TestSanitizeBodyGETPassthrough(t *testing.T) {
@@ -91,7 +107,9 @@ func TestSanitizeBodyGETPassthrough(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/test", nil)
 	sanitized.ServeHTTP(w, r)
-	if w.Code != http.StatusOK { t.Fatalf("status: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: %d", w.Code)
+	}
 }
 
 func TestSanitizeBodyNonJSONPassthrough(t *testing.T) {
@@ -103,7 +121,9 @@ func TestSanitizeBodyNonJSONPassthrough(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/test", nil)
 	r.Header.Set("Content-Type", "text/plain")
 	sanitized.ServeHTTP(w, r)
-	if w.Code != http.StatusOK { t.Fatalf("status: %d", w.Code) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: %d", w.Code)
+	}
 }
 
 // TestSanitizeBodyJSON verifies the middleware actually sanitizes JSON string

@@ -82,7 +82,7 @@ func newServer(t *testing.T) http.Handler {
 	productRepo := memory.NewProductRepository()
 	userRepo := memory.NewUserRepository(nil)
 	seedCommonUsers(userRepo)
-	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(memory.NewEnterpriseRepository(nil), userRepo), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(productRepo, memory.NewRepairRepository()), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository(), productRepo), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository()), service.NewVenueService(memory.NewVenueRepository()), userRepo, memory.NewRefreshTokenRepository(), tokens)
+	srv := httpapi.NewServer(service.NewDemandService(memory.NewDemandRepository(nil)), service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)), service.NewEnterpriseSvc(productSellerEntRepo(t), userRepo), service.NewEmploymentService(memory.NewEmploymentRepository()), service.NewContractService(memory.NewContractRepository()), service.NewJobService(memory.NewJobRepository(), memory.NewResumeRepository(), memory.NewJobApplicationRepository()), service.NewCommunityService(memory.NewPostRepository(), memory.NewCommentRepository(), memory.NewReportRepository()), service.NewListingService(memory.NewListingRepository()), service.NewLabourService(memory.NewLabourOrderRepository()), service.NewTrainingService(memory.NewCertificateRepository(), memory.NewCourseRepository(), memory.NewInstructorRepository(), memory.NewPilotRepository(nil)), service.NewTradingService(productRepo, memory.NewRepairRepository(), nil, nil), service.NewInsuranceService(memory.NewPolicyRepository(), memory.NewInspectionRepository()), service.NewFinanceService(memory.NewLoanRepository()), service.NewHomeService(memory.NewDemandRepository(nil), memory.NewEnterpriseRepository(nil)), service.NewFileService("test_uploads/", service.WithUploadQuota(memory.NewUploadRepository(), 1<<40)), service.NewMessageService(memory.NewMessageRepository()), service.NewEnrollmentService(memory.NewEnrollmentRepository(), memory.NewCourseRepository()), service.NewExpiryService(), service.NewTradeOrderService(memory.NewTradeOrderRepository(), productRepo), service.NewEscrowService(memory.NewEscrowRepository()), service.NewNewsService(memory.NewArticleRepository()), service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository()), service.NewVenueService(memory.NewVenueRepository()), userRepo, memory.NewRefreshTokenRepository(), tokens)
 	// Extended services used by public handlers (home endpoint etc.).
 	srv.SetTestSiteService(service.NewTestSiteService(memory.NewTestSiteRepository()))
 	// batch2 模块服务：鉴权回归测试（C2）需要
@@ -140,6 +140,7 @@ func TestDemandRequiresApproval(t *testing.T) {
 		t.Fatal("empty id unexpectedly approved")
 	}
 }
+
 // 我的发布（mine=1）必须只返回当前用户的需求：未登录时返回空列表，
 // 绝不回退为"全部需求"（防止未登录泄露他人/种子数据）。
 func TestDemandMineUnauthenticatedReturnsEmpty(t *testing.T) {
@@ -192,6 +193,7 @@ func TestDemandMineUnauthenticatedReturnsEmpty(t *testing.T) {
 		t.Fatalf("other user must not see someone else's demand: %d %s", other.Code, other.Body.String())
 	}
 }
+
 // TestDemandListPagination: 回归 C8——listDemands 曾手工切片后再经
 // paginatedRespond 二次切片，导致 page≥2 恒为空。
 func TestDemandListPagination(t *testing.T) {
@@ -482,11 +484,24 @@ func TestProductRequiresApproval(t *testing.T) {
 		t.Fatalf("owner mine=1 should see own pending product: %d %s", mine.Code, mine.Body.String())
 	}
 
-	// 管理后台通过 → listed → 公开可见
+	// 关键不变式：只把上架状态改成 listed、没走审核，**不得**公开。
+	// 审核维度拆分前，PUT status=listed 就等于"审核通过"；拆开后必须两者都满足，
+	// 否则任何能改 status 的路径都会绕过审核。
 	apw := requestAs(t, app, http.MethodPut, "/api/v1/admin/products/"+created.Data.ID,
 		[]byte(`{"status":"listed"}`), "admin-1", domain.RolePlatformAdmin)
 	if apw.Code != http.StatusOK {
-		t.Fatalf("admin approve product: %d %s", apw.Code, apw.Body.String())
+		t.Fatalf("admin update product status: %d %s", apw.Code, apw.Body.String())
+	}
+	pub = requestAs(t, app, http.MethodGet, "/api/v1/products", nil, "buyer-1", domain.RoleIndividual)
+	if bytes.Contains(pub.Body.Bytes(), []byte("待审无人机")) {
+		t.Fatalf("未审核通过的商品不得因 status=listed 而公开: %s", pub.Body.String())
+	}
+
+	// 走审核端点通过 → 公开可见
+	rev := requestAs(t, app, http.MethodPost, "/api/v1/admin/products/"+created.Data.ID+"/review",
+		[]byte(`{"check_status":"passed"}`), "admin-1", domain.RolePlatformAdmin)
+	if rev.Code != http.StatusOK {
+		t.Fatalf("admin review product: %d %s", rev.Code, rev.Body.String())
 	}
 	pub = requestAs(t, app, http.MethodGet, "/api/v1/products", nil, "buyer-1", domain.RoleIndividual)
 	if !bytes.Contains(pub.Body.Bytes(), []byte("待审无人机")) {
@@ -532,7 +547,7 @@ func TestAftersaleFlow(t *testing.T) {
 
 	// 1.5 卖家不能买自己发布的商品（防自买自卖）
 	selfBuy := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+product.Data.ID+`"}`),
+		orderBody(product.Data.ID),
 		"seller-1", domain.RoleEnterprise)
 	if selfBuy.Code != http.StatusConflict {
 		t.Fatalf("seller buying own product should be rejected, got %d %s", selfBuy.Code, selfBuy.Body.String())
@@ -540,7 +555,7 @@ func TestAftersaleFlow(t *testing.T) {
 
 	// 2. 买家下单 → pending；金额/卖家以服务端商品为准（客户端传 1 分钱+假卖家被忽略）
 	ow := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+product.Data.ID+`","seller_id":"hacker-x","amount_fen":1}`),
+		orderBody(product.Data.ID, `,"seller_id":"hacker-x","amount_fen":1`),
 		"buyer-1", domain.RoleIndividual)
 	if ow.Code != http.StatusCreated {
 		t.Fatalf("create order: %d %s", ow.Code, ow.Body.String())
@@ -567,10 +582,18 @@ func TestAftersaleFlow(t *testing.T) {
 	if aw.Code != http.StatusOK {
 		t.Fatalf("admin mark paid: %d %s", aw.Code, aw.Body.String())
 	}
-	sw := requestAs(t, app, http.MethodPatch, "/api/v1/trade-orders/"+oid+"/status",
-		[]byte(`{"status":"shipped"}`), "seller-1", domain.RoleEnterprise)
+	// 发货必须走 /ship 并带快递单号：经 PATCH status=shipped 直达已服务层封掉
+	//（否则会造出"已发货但没有单号"的订单，买家查不到物流也无从申诉）。
+	sw := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders/"+oid+"/ship",
+		[]byte(`{"shipping_company":"顺丰速运","shipping_tracking":"SF1234567890"}`), "seller-1", domain.RoleEnterprise)
 	if sw.Code != http.StatusOK {
-		t.Fatalf("seller mark shipped: %d %s", sw.Code, sw.Body.String())
+		t.Fatalf("seller ship order: %d %s", sw.Code, sw.Body.String())
+	}
+	// 旧路径必须被拒（回归：防有人把发货改回 PATCH）
+	patchShip := requestAs(t, app, http.MethodPatch, "/api/v1/trade-orders/"+oid+"/status",
+		[]byte(`{"status":"shipped"}`), "seller-1", domain.RoleEnterprise)
+	if patchShip.Code == http.StatusOK {
+		t.Fatalf("经 PATCH 状态直接发货必须被拒，实际 %d %s", patchShip.Code, patchShip.Body.String())
 	}
 	// 买家不能伪造支付：PATCH paid 应被拒
 	fw := requestAs(t, app, http.MethodPatch, "/api/v1/trade-orders/"+oid+"/status",
@@ -641,7 +664,7 @@ func TestAftersaleFlow(t *testing.T) {
 		t.Fatalf("parse product2: %v", err)
 	}
 	ow2 := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+prod2.Data.ID+`","seller_id":"seller-1","amount_fen":500000}`),
+		orderBody(prod2.Data.ID, `,"seller_id":"seller-1","amount_fen":500000`),
 		"buyer-2", domain.RoleIndividual)
 	var order2 struct {
 		Data struct {

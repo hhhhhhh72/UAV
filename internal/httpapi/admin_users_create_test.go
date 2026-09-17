@@ -47,10 +47,10 @@ func TestCreateUserByPhone(t *testing.T) {
 	}
 	var resp struct {
 		Data struct {
-			ID          string `json:"id"`
-			Name        string `json:"name"`
-			PhoneMasked string `json:"phone_masked"`
-			Password    string `json:"password"`
+			ID           string `json:"id"`
+			Name         string `json:"name"`
+			PhoneMasked  string `json:"phone_masked"`
+			Password     string `json:"password"`
 			PasswordHash string `json:"password_hash"`
 		} `json:"data"`
 	}

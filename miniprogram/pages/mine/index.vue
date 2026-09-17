@@ -137,7 +137,8 @@ const pilotStatus = ref('')      // '' 未申请 / pending / approved / rejected
 const pilotId = ref('')          // 飞手认证记录 ID（已认证跳档案用）
 const enterpriseStatus = ref('') // '' 无企业 / draft / submitted / supplement_required / approved / rejected / sync
 
-// 实名认证状态：从真实认证数据派生（飞手认证 / 企业认证均视为实名认证），不写死、不由前端切换
+// 认证状态：从真实认证数据派生（飞手认证 / 企业认证），不写死、不由前端切换。
+// 注意这不叫"实名认证"——平台没有账号级实名（见 pages/mine/auth.vue 顶部说明）。
 const authStatus = computed(() => {
   const pilotOk = pilotStatus.value === 'approved'
   const entOk = enterpriseStatus.value === 'approved'
@@ -180,7 +181,7 @@ const pilotStatusText = computed(() => {
   return map[pilotStatus.value] || (pilotStatus.value ? pilotStatus.value : '去申请')
 })
 
-// 实名认证短标签（概览格 / 认证信息 tail）
+// 认证短标签（概览格 / 认证信息 tail）
 const authText = computed(() => {
   const map = { both: '已认证', pilot: '已认证（飞手）', enterprise: '企业已认证' }
   return map[authStatus.value] || '未认证'
@@ -231,14 +232,14 @@ const headerVm = computed(() => {
     g.certState = '已认证'
     g.certStateClass = 'ok'
   } else if (identity.value === 'individual') {
-    // 实名认证状态：由企业认证数据派生（飞手已认证时身份已是 pilot，不会进入此分支）
+    // 认证状态：由企业认证数据派生（飞手已认证时身份已是 pilot，不会进入此分支）
     const certified = authStatus.value === 'enterprise'
     g.badge = '个人用户'
     g.badgeClass = 'plain'
     g.showCertBar = true
     g.certIcon = '/static/mine-icons/certification.svg'
-    g.note = certified ? '企业认证已通过 · 可申请升级飞手' : '尚未实名认证 · 可申请飞手认证'
-    g.certMain = certified ? '企业认证已通过' : '实名认证未完成'
+    g.note = certified ? '企业认证已通过 · 可申请升级飞手' : '尚未认证 · 可申请飞手认证或企业入驻'
+    g.certMain = certified ? '企业认证已通过' : '认证未完成'
     g.certState = certified ? '企业已认证' : '未认证'
     g.certStateClass = certified ? 'ok' : 'wait'
   } else {
@@ -294,7 +295,7 @@ const overviewCells = computed(() => {
   }
   if (identity.value === 'individual') {
     return [
-      { value: c.authText || authText.value, label: '实名认证', go: goAuth },
+      { value: pilotStatusText.value, label: '飞手认证', go: goAuth },
       { value: c.enrolls || '0', label: '培训报名', go: goCourses },
       { value: c.orders || '0', label: '商城订单', go: goOrders },
     ]
@@ -322,7 +323,7 @@ const overviewNote = computed(() => {
     const certified = !!authStatus.value
     return certified
       ? { lead: '认证已通过', rest: '· 可申请飞手认证或企业入驻' }
-      : { lead: '尚未实名认证', rest: '· 完成认证后可申请飞手' }
+      : { lead: '尚未完成认证', rest: '· 可申请飞手认证或企业入驻' }
   }
   if (identity.value === 'admin') {
     return { lead: '平台管理账号', rest: '· 用户/配置/审核在网页后台操作' }
@@ -436,7 +437,7 @@ const fetchData = async () => {
       unreadCount.value = msgRes?.data?.count || msgRes?.count || 0
     } catch (e) { unreadCount.value = 0 }
 
-    // 并行读取认证状态（企业 / 飞手），互不连坐；实名认证由两者派生
+    // 并行读取认证状态（企业 / 飞手），互不连坐；认证状态由两者派生
     await Promise.allSettled([fetchEnterpriseStatus(), fetchPilotStatus()])
     // 概览统计：真实可用则取，失败回退 0/暂无数据
     await fetchOverviewCounts()
@@ -487,7 +488,13 @@ const fetchOverviewCounts = async () => {
     overviewLoading.value = false
     return
   }
-  // 我的发布数：需求 + 服务 + 商品 + 课程 四类 mine 接口汇总（各自独立失败回退 0）
+  // 我的发布数：需求 + 商品 + 课程 三类 mine 接口汇总（各自独立失败回退 0）。
+  //
+  // **不要加 /api/v1/service-listings**：服务能力已并入商品表（migration 000110），
+  // /api/v1/products 返回的已经包含服务类目，而那个接口是同一批商品上的适配层
+  // （ListAdmin → listServiceProducts 取的就是全部商品再筛服务类目，toListing 沿用商品 ID）。
+  // 两个都数，等于把每条服务商品数两遍——发 1 条服务、这里显示 2 条。
+  // pages/publish/my-posts.vue 与 pages/publish/index.vue 都已按同一口径去掉，这里对齐。
   const mineCount = async (url) => {
     try {
       const res = await request({ url, data: { mine: 1, page_size: 1 } })
@@ -497,13 +504,12 @@ const fetchOverviewCounts = async () => {
       return 0
     }
   }
-  const [demands, services, products, courses] = await Promise.all([
+  const [demands, products, courses] = await Promise.all([
     mineCount('/api/v1/demands'),
-    mineCount('/api/v1/service-listings'),
     mineCount('/api/v1/products'),
     mineCount('/api/v1/training-courses'),
   ])
-  counts.publish = String(demands + services + products + courses)
+  counts.publish = String(demands + products + courses)
   // 洽谈会话：我的意向登记数（真实接口）
   try {
     const res = await request({ url: '/api/v1/intents/mine' })
@@ -596,7 +602,7 @@ const goPrimaryCert = () => {
   if (identity.value === 'enterprise') return goEnterpriseCert()
   if (identity.value === 'pilot') return goPilotCert()
   if (identity.value === 'individual') {
-    // 飞手申请中/被驳回：先进飞手入口（审核中提示、驳回重提），无申请才走实名认证
+    // 飞手申请中/被驳回：先进飞手入口（审核中提示、驳回重提），无申请才走飞手认证状态页
     if (pilotStatus.value && pilotStatus.value !== 'sync') return goPilotCert()
     return goAuth()
   }
@@ -610,7 +616,7 @@ const goAuth = () => {
 
 const goPilotCert = () => {
   if (!requireLogin()) return
-  // 已认证 → 查看我的档案；未认证/待审/驳回 → 飞手申请页（不能导到普通实名认证）
+  // 已认证 → 查看我的档案；未认证/待审/驳回 → 飞手申请页（不能导到飞手认证状态页）
   if (pilotStatus.value === 'approved' && pilotId.value) {
     uni.removeStorageSync('pilot_detail')
     uni.navigateTo({ url: '/pkg-talent/pages/pilots/detail?id=' + encodeURIComponent(pilotId.value) })

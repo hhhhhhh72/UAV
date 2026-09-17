@@ -209,6 +209,20 @@ func (r *msgRepo) Delete(ctx context.Context, id string) error {
 	return err
 }
 
+// DeleteByReference 按业务对象批量删消息。resource_type = ANY($2) 与 resource_id
+// 同时限定：只按 resource_id 删，万一别的类型复用了同一个 id 会误删。
+func (r *msgRepo) DeleteByReference(ctx context.Context, resourceID string, resourceTypes []string) (int, error) {
+	if resourceID == "" || len(resourceTypes) == 0 {
+		return 0, nil // 不给空条件：那会删掉管理端广播（resource_type='' 且 resource_id=''）
+	}
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM messages WHERE resource_id=$1 AND resource_type = ANY($2)`, resourceID, resourceTypes)
+	if err != nil {
+		return 0, fmt.Errorf("delete messages by reference %s: %w", resourceID, err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 // ---- Article ----
 
 type articleRepo struct{ pool *pgxpool.Pool }
@@ -507,6 +521,17 @@ func (r *enrollRepo) UpdateStatusCas(ctx context.Context, id, from, to string) (
 	}
 	return tag.RowsAffected() > 0, nil
 }
+
+// UpdateReviewNote 只写审核备注列。审核必须先 CAS 改状态、再用本方法补备注，
+// 绝不能用全列 Update 回写审核前的整行快照——那会把并发完成报名写入的
+// status=completed 与 paid_amount_fen 覆盖回 approved/rejected，绕过 completed 终态保护。
+func (r *enrollRepo) UpdateReviewNote(ctx context.Context, id, note string) (domain.Enrollment, error) {
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE training_enrollments SET review_note=$2 WHERE id=$1`, id, note); err != nil {
+		return domain.Enrollment{}, fmt.Errorf("update enrollment %s review note: %w", id, err)
+	}
+	return r.FindByID(ctx, id)
+}
 func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Enrollment, int, error) {
 	var total int
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM training_enrollments`).Scan(&total); err != nil {
@@ -601,19 +626,35 @@ func (r *tradeOrderRepo) Create(ctx context.Context, o domain.TradeOrder) (domai
 	o.CreatedAt = time.Now()
 	o.UpdatedAt = o.CreatedAt
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO trade_orders (id,product_id,buyer_id,seller_id,amount_fen,status,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		o.ID, o.ProductID, o.BuyerID, o.SellerID, o.AmountFen, o.Status, o.Version, o.CreatedAt, o.UpdatedAt)
+		`INSERT INTO trade_orders (id,product_id,buyer_id,seller_id,amount_fen,status,receiver_name,receiver_phone,receiver_region,receiver_address,version,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		o.ID, o.ProductID, o.BuyerID, o.SellerID, o.AmountFen, o.Status,
+		o.ReceiverName, o.ReceiverPhone, o.ReceiverRegion, o.ReceiverAddress,
+		o.Version, o.CreatedAt, o.UpdatedAt)
 	return o, err
 }
 
-// tradeOrderColumns trade_orders 查询列（含售后字段），各查询统一复用
-const tradeOrderColumns = `id,product_id,buyer_id,seller_id,amount_fen,status,aftersale_type,aftersale_reason,aftersale_desc,aftersale_amount_fen,aftersale_status,aftersale_time,aftersale_from,version,created_at,updated_at`
+// tradeOrderColumns trade_orders 查询列（含收货/发货/售后字段），各查询统一复用。
+// tradeOrderColumns 必须与 scanTradeOrder 的 Scan 目标严格同序同数（当前各 26 个）。
+// 二者是手工维护的同一份契约——历史上 demands 的收藏查询就因少写 4 列导致生产必 500。
+const tradeOrderColumns = `id,product_id,buyer_id,seller_id,amount_fen,status,receiver_name,receiver_phone,receiver_region,receiver_address,shipping_company,shipping_tracking,shipped_at,aftersale_type,aftersale_reason,aftersale_desc,aftersale_amount_fen,aftersale_status,aftersale_time,aftersale_from,return_tracking,return_note,returned_at,version,created_at,updated_at`
 
 func scanTradeOrder(row interface{ Scan(...any) error }) (domain.TradeOrder, error) {
 	var o domain.TradeOrder
+	var returnedAt *time.Time // returned_at 可空（未寄回退货时为 NULL）
+	var shippedAt *time.Time  // shipped_at 可空（未发货时为 NULL）
 	err := row.Scan(&o.ID, &o.ProductID, &o.BuyerID, &o.SellerID, &o.AmountFen, &o.Status,
+		&o.ReceiverName, &o.ReceiverPhone, &o.ReceiverRegion, &o.ReceiverAddress,
+		&o.ShippingCompany, &o.ShippingTracking, &shippedAt,
 		&o.AftersaleType, &o.AftersaleReason, &o.AftersaleDesc, &o.AftersaleAmountFen, &o.AftersaleStatus, &o.AftersaleTime,
-		&o.AftersaleFrom, &o.Version, &o.CreatedAt, &o.UpdatedAt)
+		&o.AftersaleFrom, &o.ReturnTracking, &o.ReturnNote, &returnedAt, &o.Version, &o.CreatedAt, &o.UpdatedAt)
+	o.ReturnedAt = returnedAt
+	o.ShippedAt = shippedAt
+	// 按 id 找不到一律返回 repository.ErrNotFound（接口契约 repositories.go），
+	// 此前直接外抛 pgx.ErrNoRows，导致 Service 层 notFoundErr 无法翻译、调用方
+	// 区分不出"订单不存在"与"DB 故障"（会误把故障当不存在）。
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.TradeOrder{}, repository.ErrNotFound
+	}
 	return o, err
 }
 
@@ -641,12 +682,99 @@ func (r *tradeOrderRepo) CompareAndSetStatus(ctx context.Context, id, oldStatus,
 	o, err := r.FindByID(ctx, id)
 	return true, o, err
 }
-func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error) {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE trade_orders SET status=$1,aftersale_type=$2,aftersale_reason=$3,aftersale_desc=$4,aftersale_amount_fen=$5,aftersale_status=$6,aftersale_time=$7,aftersale_from=$8,updated_at=$9,version=version+1 WHERE id=$10`,
-		o.Status, o.AftersaleType, o.AftersaleReason, o.AftersaleDesc, o.AftersaleAmountFen, o.AftersaleStatus, o.AftersaleTime, o.AftersaleFrom, time.Now(), o.ID)
+
+// Ship 卖家发货：写入快递公司/单号并把状态从 paid 迁到 shipped（条件更新，防重复发货）。
+// 两条约束放 WHERE：状态必须是 paid、且尚未写过单号（shipping_tracking=''）。
+func (r *tradeOrderRepo) Ship(ctx context.Context, id, company, tracking string) (domain.TradeOrder, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE trade_orders
+		    SET status='shipped', shipping_company=$2, shipping_tracking=$3, shipped_at=NOW(),
+		        updated_at=NOW(), version=version+1
+		  WHERE id=$1 AND status='paid' AND shipping_tracking=''`,
+		id, company, tracking)
+	if err != nil {
+		return domain.TradeOrder{}, fmt.Errorf("ship trade order %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		// 不存在 / 状态不是 paid / 已发过货 —— 统一按 ErrNotFound 上报，由 Service 决定提示。
+		return domain.TradeOrder{}, fmt.Errorf("trade order %s: %w", id, repository.ErrNotFound)
+	}
+	return r.FindByID(ctx, id)
+}
+
+// ListPendingBefore 支付超时扫描：status='pending' 且 created_at 早于 cutoff。
+// 下单即把商品标 sold（支付前就占位），无人取消就会一直锁货；后台任务据此自动关单并恢复商品。
+func (r *tradeOrderRepo) ListPendingBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.TradeOrder, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+tradeOrderColumns+` FROM trade_orders WHERE status='pending' AND created_at < $1 ORDER BY created_at ASC LIMIT $2`,
+		cutoff, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list pending trade orders: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.TradeOrder{}
+	for rows.Next() {
+		o, scanErr := scanTradeOrder(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan pending trade order: %w", scanErr)
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// ListShippedBefore 自动确认收货扫描：status='shipped' 且 updated_at 早于 cutoff。
+// 买家长期不点"确认收货"时，卖家永远收不到钱——后台任务据此自动完成并放款。
+func (r *tradeOrderRepo) ListShippedBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.TradeOrder, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+tradeOrderColumns+` FROM trade_orders WHERE status='shipped' AND updated_at < $1 ORDER BY updated_at ASC LIMIT $2`,
+		cutoff, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list shipped trade orders: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.TradeOrder{}
+	for rows.Next() {
+		o, scanErr := scanTradeOrder(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan shipped trade order: %w", scanErr)
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// HasLiveOrderForProduct 报告该商品是否还有有效订单（未取消即视为有效）。
+func (r *tradeOrderRepo) HasLiveOrderForProduct(ctx context.Context, productID string) (bool, error) {
+	var exists bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM trade_orders WHERE product_id=$1 AND status <> 'cancelled')`, productID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check live order for product %s: %w", productID, err)
+	}
+	return exists, nil
+}
+
+func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder, expectAftersaleStatus string) (domain.TradeOrder, error) {
+	// CAS：COALESCE(aftersale_status,'') 与期望值比较，0 行即"售后状态已被并发改动"。
+	// 此前是 WHERE id=$10 盲写，两个并发 approve 都能通过 Service 层的内存判断，
+	// 各自调用 Transfer 把卖家余额扣两次（Transfer 本身没有幂等键）。
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE trade_orders SET status=$1,aftersale_type=$2,aftersale_reason=$3,aftersale_desc=$4,aftersale_amount_fen=$5,aftersale_status=$6,aftersale_time=$7,aftersale_from=$8,
+			return_tracking=$9,return_note=$10,returned_at=$11,updated_at=$12,version=version+1
+		 WHERE id=$13 AND COALESCE(aftersale_status,'')=$14`,
+		o.Status, o.AftersaleType, o.AftersaleReason, o.AftersaleDesc, o.AftersaleAmountFen, o.AftersaleStatus, o.AftersaleTime, o.AftersaleFrom,
+		o.ReturnTracking, o.ReturnNote, o.ReturnedAt, time.Now(), o.ID, expectAftersaleStatus)
 	if err != nil {
 		return domain.TradeOrder{}, fmt.Errorf("update trade order aftersale: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.TradeOrder{}, fmt.Errorf("订单 %s 售后状态已变更，请刷新后重试", o.ID)
 	}
 	return r.FindByID(ctx, o.ID)
 }
@@ -994,6 +1122,11 @@ func (r *escrowRepo) HasFrozen(ctx context.Context, userID, refType, refID strin
 // HasRefunded 查 userID 对 (refType, refID) 是否已退款（取消/售后退款幂等）。
 func (r *escrowRepo) HasRefunded(ctx context.Context, userID, refType, refID string) (bool, error) {
 	return r.hasEscrowTx(ctx, userID, refType, refID, "refund")
+}
+
+// HasTransferred 查 fromUser 对 (refType, refID) 是否已有完成的 transfer 流水（售后退款幂等）。
+func (r *escrowRepo) HasTransferred(ctx context.Context, fromUser, refType, refID string) (bool, error) {
+	return r.hasEscrowTx(ctx, fromUser, refType, refID, "transfer")
 }
 
 // Transfer 双方余额内转账（不涉及冻结）：from 余额扣减、to 余额增加，同一事务写流水。

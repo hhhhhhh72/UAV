@@ -71,7 +71,11 @@ func createPublishedCourse(t *testing.T, app http.Handler, orgID, title string, 
 	return id
 }
 
-// createListedProduct 卖家发布商品 → 管理端上架（listed）。返回商品 id。
+// createListedProduct 卖家发布商品 → 管理端**审核通过**（check_status=passed → status=listed）。
+// 返回商品 id。
+//
+// 必须走审核端点：拆分审核维度后，单纯 PUT status=listed 不再等于"审核通过"，
+// 商品不会出现在公开商城（见 TestProductRequiresApproval 的断言）。
 func createListedProduct(t *testing.T, app http.Handler, sellerID, title string, priceFen int64) string {
 	t.Helper()
 	w := requestAs(t, app, http.MethodPost, "/api/v1/products",
@@ -81,19 +85,29 @@ func createListedProduct(t *testing.T, app http.Handler, sellerID, title string,
 		t.Fatalf("create product: %d %s", w.Code, w.Body.String())
 	}
 	pid := dataID(t, w)
-	w = requestAs(t, app, http.MethodPut, "/api/v1/admin/products/"+pid,
-		[]byte(`{"status":"listed"}`), "admin-1", domain.RolePlatformAdmin)
+	w = requestAs(t, app, http.MethodPost, "/api/v1/admin/products/"+pid+"/review",
+		[]byte(`{"check_status":"passed"}`), "admin-1", domain.RolePlatformAdmin)
 	if w.Code != http.StatusOK {
 		t.Fatalf("approve product: %d %s", w.Code, w.Body.String())
 	}
 	return pid
 }
 
+// orderReceiverJSON 下单必填的收货信息。
+// 实物商品（整机/配件）走物流发货，没有地址卖家发不出去，服务端返回 400；
+// 服务类商品（维修/航拍/试飞/检测/空域）不需要寄送，可留空。
+const orderReceiverJSON = `,"receiver_name":"张三","receiver_phone":"13800000000","receiver_region":"重庆市渝北区","receiver_address":"龙兴镇某某路 1 号"`
+
+// orderBody 构造下单请求体；extra 用于附加字段（如故意伪造的 amount_fen/seller_id）。
+func orderBody(productID string, extra ...string) []byte {
+	return []byte(`{"product_id":"` + productID + `"` + strings.Join(extra, "") + orderReceiverJSON + `}`)
+}
+
 // createOrder 买家对商品下单，返回订单 id。
 func createOrder(t *testing.T, app http.Handler, buyerID, productID string) string {
 	t.Helper()
 	w := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+productID+`"}`), buyerID, domain.RoleIndividual)
+		orderBody(productID), buyerID, domain.RoleIndividual)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create order: %d %s", w.Code, w.Body.String())
 	}

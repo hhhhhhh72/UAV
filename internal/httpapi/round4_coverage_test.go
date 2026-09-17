@@ -173,16 +173,29 @@ func TestR4DemandAdminLifecycle(t *testing.T) {
 	assertStatus(t, http.MethodDelete, "/api/v1/admin/demands/zzz", w, http.StatusNotFound)
 }
 
-// TestR4CreateDemandErrors 覆盖 createDemand 的 400（缺字段）与 403（角色不符）分支。
+// TestR4CreateDemandErrors 覆盖 createDemand 的 400（缺字段）、403（未知角色默认拒绝）
+// 与两种管理员角色可以发布。
+//
+// 2026-09 策略变更：协会账号只有一个，是「运营方 + 市场主体」二合一——登后台是审核方，
+// 登小程序就是协会这个机构本身（办培训、发需求、发职位）。此前这里断言的是
+// 「协会管理员不可发布 → 403」，随策略一并更新；保留断言的目的是防止将来有人
+// 把协会账号的市场主体身份又关掉。
 func TestR4CreateDemandErrors(t *testing.T) {
 	app := newBizServer(t)
 	// 缺 title/contact → 400（"required"）
 	w := doRaw(app, http.MethodPost, "/api/v1/demands", `{}`, authAs(t, "ent-1", domain.RoleEnterprise))
 	assertStatus(t, http.MethodPost, "/api/v1/demands (empty)", w, http.StatusBadRequest)
-	// 协会管理员不可发布 → 403
+	// 注：未知角色在 HTTP 层拿不到 403——authenticate 中间件先以 401 拒掉
+	//（"账号已失效，请重新登录"），请求到不了 Service。服务层那条
+	//「默认拒绝」兜底由 service 包的单测覆盖（TestDemandCreateRejectsUnknownRole）。
+	// 协会管理员可以发布 → 201（运营方 + 市场主体二合一）
 	w = doRaw(app, http.MethodPost, "/api/v1/demands",
-		`{"title":"越权","contact":"13800000000"}`, authAs(t, "admin-2", domain.RoleAssociationAdmin))
-	assertStatus(t, http.MethodPost, "/api/v1/demands (admin)", w, http.StatusForbidden)
+		`{"title":"协会发布","contact":"13800000000"}`, authAs(t, "admin-2", domain.RoleAssociationAdmin))
+	assertStatus(t, http.MethodPost, "/api/v1/demands (association_admin)", w, http.StatusCreated)
+	// 平台管理员可以发布 → 201
+	w = doRaw(app, http.MethodPost, "/api/v1/demands",
+		`{"title":"管理员发布","contact":"13800000000"}`, authAs(t, "admin-1", domain.RolePlatformAdmin))
+	assertStatus(t, http.MethodPost, "/api/v1/demands (platform_admin)", w, http.StatusCreated)
 }
 
 // TestR4IdempotencyMiddleware 覆盖 idempotencyStore 的 get/set + 幂等重放 + 短 key 校验。
@@ -584,25 +597,8 @@ func TestR4ReviewsVenues(t *testing.T) {
 }
 
 // TestR4ImportMembers 覆盖 importMembers 的逐行失败明细（空 user_id / 非法 role / 成功行）。
-func TestR4ImportMembers(t *testing.T) {
-	app := newBizServer(t)
-	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
-
-	body := `{"members":[
-		{"user_id":"m1","enterprise_id":"e1","role":"member"},
-		{"user_id":"","enterprise_id":"e1","role":"member"},
-		{"user_id":"m2","enterprise_id":"e1","role":"superhero"}
-	]}`
-	w := doRaw(app, http.MethodPost, "/api/v1/admin/members/import", body, adminTok)
-	assertStatus(t, http.MethodPost, "/api/v1/admin/members/import", w, http.StatusOK)
-	if !strings.Contains(w.Body.String(), "imported") || !strings.Contains(w.Body.String(), "failed") {
-		t.Fatalf("import response missing imported/failed: %s", w.Body.String())
-	}
-
-	// 空 members → 400
-	w = doRaw(app, http.MethodPost, "/api/v1/admin/members/import", `{"members":[]}`, adminTok)
-	assertStatus(t, http.MethodPost, "/api/v1/admin/members/import (empty)", w, http.StatusBadRequest)
-}
+// TestR4ImportMembers 已移除：/api/v1/admin/members/import 随协会 8 级角色一起删除
+//（association_members 0 行、前端零调用，见迁移 000113）。
 
 // TestR4BatchApproveErrors 覆盖 batchApproveDemands 的空 ids 400 与逐条失败计数。
 func TestR4BatchApproveErrors(t *testing.T) {

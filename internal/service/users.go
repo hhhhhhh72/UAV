@@ -279,15 +279,15 @@ func (s *UserService) ResetPassword(ctx context.Context, a domain.Actor, targetI
 
 // UserDeleteResult 删除结果：后台据此如实提示（含缓冲期到期时间与内容处置结果）。
 type UserDeleteResult struct {
-	ID           string                      `json:"id"`
-	Mode         string                      `json:"mode"`          // deleted（唯一动作）
-	Status       string                      `json:"status"`        // 删除后的 users.status = deleted
-	PurgeAfter   string                      `json:"purge_after"`   // 缓冲期结束时间（到期自动物理清除账号行）
-	FilesRemoved int                         `json:"files_removed"` // 磁盘上删除的上传文件数
-	KeptContents bool                        `json:"kept_contents"` // 交易/合规记录是否保留（始终保留）
-	Cleanup      repository.ContentCleanupReport `json:"cleanup"`  // 内容处置结果（下架/擦除/删除行数）
-	CleanupError string                      `json:"cleanup_error,omitempty"` // 清理失败时的原因（账号已失效，内容由缓冲期任务兜底重试）
-	Note         string                      `json:"note"`
+	ID           string                          `json:"id"`
+	Mode         string                          `json:"mode"`                    // deleted（唯一动作）
+	Status       string                          `json:"status"`                  // 删除后的 users.status = deleted
+	PurgeAfter   string                          `json:"purge_after"`             // 缓冲期结束时间（到期自动物理清除账号行）
+	FilesRemoved int                             `json:"files_removed"`           // 磁盘上删除的上传文件数
+	KeptContents bool                            `json:"kept_contents"`           // 交易/合规记录是否保留（始终保留）
+	Cleanup      repository.ContentCleanupReport `json:"cleanup"`                 // 内容处置结果（下架/擦除/删除行数）
+	CleanupError string                          `json:"cleanup_error,omitempty"` // 清理失败时的原因（账号已失效，内容由缓冲期任务兜底重试）
+	Note         string                          `json:"note"`
 }
 
 // ChangeRole 变更某个账号的角色（仅平台管理员）。

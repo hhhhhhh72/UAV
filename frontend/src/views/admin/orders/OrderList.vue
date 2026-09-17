@@ -54,6 +54,27 @@
           <a-descriptions-item label="下单时间">{{ formatDate(currentItem.created_at) }}</a-descriptions-item>
         </a-descriptions>
 
+        <!-- 收货信息：下单时快照到订单。运营靠它核对/协助发货——此前订单表根本没有地址。 -->
+        <template v-if="currentItem.receiver_name || currentItem.receiver_address">
+          <a-divider>收货信息</a-divider>
+          <a-descriptions :column="2" bordered size="medium">
+            <a-descriptions-item label="收货人">{{ currentItem.receiver_name || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="联系电话">{{ currentItem.receiver_phone || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="所在地区">{{ currentItem.receiver_region || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="详细地址">{{ currentItem.receiver_address || '-' }}</a-descriptions-item>
+          </a-descriptions>
+        </template>
+
+        <!-- 发货信息：出库方向的物流留痕（与售后里的"退货单号"方向相反） -->
+        <template v-if="currentItem.shipping_tracking || currentItem.shipped_at">
+          <a-divider>发货信息</a-divider>
+          <a-descriptions :column="2" bordered size="medium">
+            <a-descriptions-item label="快递公司">{{ currentItem.shipping_company || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="快递单号">{{ currentItem.shipping_tracking || '（自提订单无单号）' }}</a-descriptions-item>
+            <a-descriptions-item label="发货时间">{{ currentItem.shipped_at ? formatDate(currentItem.shipped_at) : '-' }}</a-descriptions-item>
+          </a-descriptions>
+        </template>
+
         <!-- 售后单（aftersale 记录） -->
         <template v-if="currentItem.aftersale_status">
           <a-divider>售后单</a-divider>
@@ -66,6 +87,9 @@
             <a-descriptions-item label="申请时间">{{ formatDate(currentItem.aftersale_time) }}</a-descriptions-item>
             <a-descriptions-item label="原因">{{ currentItem.aftersale_reason || '-' }}</a-descriptions-item>
             <a-descriptions-item label="说明">{{ currentItem.aftersale_desc || '-' }}</a-descriptions-item>
+            <!-- 退货退款专属：物流单号与寄回时间（仅 return 单且买家已寄回时才有值） -->
+            <a-descriptions-item v-if="currentItem.return_tracking" label="退货单号">{{ currentItem.return_tracking }}</a-descriptions-item>
+            <a-descriptions-item v-if="currentItem.returned_at" label="寄回时间">{{ formatDate(currentItem.returned_at) }}</a-descriptions-item>
           </a-descriptions>
         </template>
 
@@ -73,8 +97,20 @@
           <a-divider />
           <template v-if="currentItem.aftersale_status === 'pending'">
             <span class="review-label">售后审核：</span>
-            <a-button type="primary" status="success" @click="onReviewAftersale('approve')">同意退款</a-button>
+            <!-- 退货退款的「同意」只代表同意退货，买家寄回并由卖家确认收到后才退款 -->
+            <a-button type="primary" status="success" @click="onReviewAftersale('approve')">
+              {{ currentItem.aftersale_type === 'return' ? '同意退货' : '同意退款' }}
+            </a-button>
             <a-button status="danger" @click="onReviewAftersale('reject')">驳回申请</a-button>
+          </template>
+          <!-- 退货退款：买家已寄回 → 确认收到货才发起退款 -->
+          <template v-else-if="currentItem.aftersale_status === 'returned'">
+            <span class="review-label">退货已寄回：</span>
+            <a-button type="primary" status="success" :loading="confirmReturning" @click="onConfirmReturn">确认收到退货并发起退款</a-button>
+          </template>
+          <!-- 退货退款：已同意退货，等待买家寄回（此阶段无管理端操作） -->
+          <template v-else-if="currentItem.aftersale_status === 'returning'">
+            <span class="review-label review-closed">已同意退货，等待买家寄回商品</span>
           </template>
           <!-- 售后已结案（approved/rejected）：只读展示，不再提供状态修改，防止对已退款完成订单重复操作 -->
           <template v-else-if="currentItem.aftersale_status">
@@ -82,8 +118,10 @@
           </template>
           <template v-else>
             <span class="review-label">修改状态：</span>
+            <!-- 改单下拉不含 aftersale：后端 UpdateStatusAdmin 明确拒绝直达该状态
+                 （必须走"申请售后"接口，否则会留下 aftersale_status 为空的死状态） -->
             <a-select v-model="newStatus" style="width: 140px;">
-              <a-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
+              <a-option v-for="s in updateStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
             </a-select>
             <a-button type="primary" @click="onUpdateStatus">更新</a-button>
           </template>
@@ -99,7 +137,7 @@ import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
 import '@arco-design/web-vue/es/modal/style/css'
-import { updateOrderStatus, reviewAftersale } from '@/api/admin/order'
+import { updateOrderStatus, reviewAftersale, confirmReturnReceived } from '@/api/admin/order'
 import CrudList from '../components/CrudList.vue'
 
 const crudRef = ref()
@@ -113,11 +151,28 @@ const statusOptions = [
   { label: '已取消', value: 'cancelled' }
 ]
 const statusLabel = (s) => statusOptions.find(o => o.value === s)?.label || s || '-'
+// 改单可选状态：排除 aftersale（后端只接受经"申请售后"进入该状态）
+const updateStatusOptions = statusOptions.filter(o => o.value !== 'aftersale')
 const statusTagColor = (s) => ({ completed: 'green', shipped: 'arcoblue', paid: 'orange', aftersale: 'purple', pending: 'gray', cancelled: 'gray' }[s] || 'gray')
 
-// 售后单审核状态：pending=待审核 / approved=已同意退款 / rejected=已驳回
-const aftersaleStatusLabel = (s) => ({ pending: '待审核', approved: '已同意退款', rejected: '已驳回' }[s] || s || '-')
-const aftersaleTagColor = (s) => ({ pending: 'orange', approved: 'green', rejected: 'red' }[s] || 'gray')
+// 售后单审核状态：
+//   仅退款 refund ：pending 待审核 → approved 已退款 / rejected 已驳回
+//   退货退款 return：pending 待审核 → returning 待买家寄回 → returned 待卖家确认收货 → approved 已退款
+// 退货单的退款发生在最后一环，中间的 returning/returned 都还没动钱，文案必须区分开
+const aftersaleStatusLabel = (s) => ({
+  pending: '待审核',
+  returning: '待买家寄回',
+  returned: '待确认收货',
+  approved: '已退款',
+  rejected: '已驳回',
+}[s] || s || '-')
+const aftersaleTagColor = (s) => ({
+  pending: 'orange',
+  returning: 'arcoblue',
+  returned: 'arcoblue',
+  approved: 'green',
+  rejected: 'red',
+}[s] || 'gray')
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -141,6 +196,8 @@ const searchFields = [
 const columns = [
   { title: '订单号', dataIndex: 'id', width: 180 },
   { title: '商品 ID', dataIndex: 'product_id', minWidth: 120 },
+  { title: '收货人', dataIndex: 'receiver_name', width: 100 },
+  { title: '快递单号', dataIndex: 'shipping_tracking', width: 140 },
   { title: '买家', dataIndex: 'buyer_id', width: 130 },
   { title: '卖家', dataIndex: 'seller_id', width: 130 },
   { title: '金额(元)', dataIndex: 'amount_fen', slotName: 'amount', width: 110, align: 'right' },
@@ -184,23 +241,50 @@ const onUpdateStatus = async () => {
   } catch (e) { Message.error('更新失败') }
 }
 
-// 售后审核：同意退款（approve）/ 驳回（reject）——仅 aftersale+pending 可审
+// 退货退款收尾：确认收到买家寄回的商品 → 此刻才发起退款（仅 aftersale_status=returned 可用）
+const confirmReturning = ref(false)
+const onConfirmReturn = () => {
+  if (!currentItem.value || confirmReturning.value) return
+  Modal.confirm({
+    title: '确认收到退货',
+    content: `确认已收到买家寄回的商品？确认后将退款 ¥${((currentItem.value.aftersale_amount_fen || 0) / 100).toFixed(2)} 并结案。`,
+    okText: '确认收到',
+    cancelText: '取消',
+    onOk: async () => {
+      confirmReturning.value = true
+      try {
+        await confirmReturnReceived(currentItem.value.id)
+        // 无托管资金的订单（管理端建单/线下成交）后端只结案、不产生退款流水，
+        // 因此这里不能断言"退款已完成"（service.refundForAftersale 的 C 分支）。
+        Message.success('已确认收到退货，售后已结案')
+        crudRef.value?.reload()
+      } catch (e) { Message.error(e?.message || '操作失败') }
+      finally { confirmReturning.value = false }
+    }
+  })
+}
+
+// 售后审核：同意退款（approve）/ 驳回（reject）——仅 aftersale_status=pending 可审
 const onReviewAftersale = (action) => {
   if (!currentItem.value) return
   const approve = action === 'approve'
+  const isReturn = currentItem.value.aftersale_type === 'return'
   Modal.confirm({
-    title: approve ? '同意退款' : '驳回售后申请',
+    title: approve ? (isReturn ? '同意退货' : '同意退款') : '驳回售后申请',
     content: approve
-      ? `确认同意退款 ¥${((currentItem.value.aftersale_amount_fen || 0) / 100).toFixed(2)}？结案后订单回到已完成状态。`
+      ? (isReturn
+        ? `同意退货 ¥${((currentItem.value.aftersale_amount_fen || 0) / 100).toFixed(2)}？买家寄回后由你确认收到，届时才发起退款。`
+        : `确认同意退款 ¥${((currentItem.value.aftersale_amount_fen || 0) / 100).toFixed(2)}？结案后订单回到已完成状态。`)
       : '确认驳回该售后申请？驳回后订单回到已完成状态。',
     okText: '确认',
     cancelText: '取消',
     onOk: async () => {
       try {
         await reviewAftersale(currentItem.value.id, action)
-        Message.success(approve ? '已同意退款' : '已驳回')
+        // 退货退款的 approve 只是"同意退货"，钱要等卖家确认收到货才退，不能提示"已同意退款"
+        Message.success(approve ? (isReturn ? '已同意退货，等待买家寄回' : '已同意退款') : '已驳回')
         crudRef.value?.reload()
-      } catch (e) { Message.error(e?.response?.data?.message || '操作失败') }
+      } catch (e) { Message.error(e?.message || '操作失败') }
     }
   })
 }

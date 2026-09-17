@@ -6,8 +6,10 @@
       <a-tab-pane title="需求管理" key="demands"><DemandList v-if="tab === 'demands'" /></a-tab-pane>
       <a-tab-pane title="订单管理" key="orders"><OrderList v-if="tab === 'orders'" /></a-tab-pane>
       <a-tab-pane title="评价管理" key="reviews"><ReviewList v-if="tab === 'reviews'" /></a-tab-pane>
-      <a-tab-pane title="商品管理" key="products"><ProductList v-if="tab === 'products'" /></a-tab-pane>
-      <a-tab-pane title="服务能力" key="serviceListings"><ServiceListingList v-if="tab === 'serviceListings'" /></a-tab-pane>
+      <!-- 服务能力已并入商品表（migration 000110）：它就是 prod_type 为服务类目的商品，
+           再单开一个 tab 会让同一件服务在两个 tab 里各出现一次。
+           按类型筛选「维修服务/航拍服务/试飞测试/检测标定/空域协调」即得到原「服务能力」视图。 -->
+      <a-tab-pane title="商品与服务" key="products"><ProductList v-if="tab === 'products'" /></a-tab-pane>
     </a-tabs>
   </div>
 </template>
@@ -18,7 +20,6 @@ import DemandList from '../demands/DemandList.vue'
 import OrderList from '../orders/OrderList.vue'
 import ReviewList from '../reviews/ReviewList.vue'
 import ProductList from '../products/ProductList.vue'
-import ServiceListingList from '../serviceListings/ServiceListingList.vue'
 import BizOverview from '../components/BizOverview.vue'
 
 const tab = ref('demands')

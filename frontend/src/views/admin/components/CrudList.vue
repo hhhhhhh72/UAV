@@ -167,6 +167,7 @@ const EXPORT_NAME = {
   'certified-pilots': '飞手认证', enrollments: '报名记录',
   'study-tours': '研学管理', 'test-sites/bookings': '测试预约',
   competitions: '赛事管理', users: '用户管理', 'audit-logs': '操作审计',
+  products: '商品管理',
 }
 const exportBaseName = computed(() => EXPORT_NAME[props.resource] || (route.meta && route.meta.title) || props.resource || '导出')
 const exportFilename = () => exportBaseName.value + '-' + new Date().toISOString().slice(0, 10) + '.csv'
@@ -324,6 +325,26 @@ const firstRejectReason = (results) => {
 // 再逐行执行 act.api(row, promptValue)——供"批量驳回必须留理由"类操作使用。
 const handleBatchAction = (act) => {
   const execute = async (promptValue) => {
+    // 单次批量：一次请求处理全部选中行（act.bulkApi(ids, promptValue)）。
+    // 优先走这条——逐行执行要求前端把**整行**传回后端，只改一个字段却覆盖所有列，
+    // 并发编辑时后写覆盖先写（见下面那行注释，那是接口契约缺单字段更新打的补丁）。
+    if (act.bulkApi) {
+      try {
+        const res = await act.bulkApi(selectedIds.value, promptValue)
+        const d = (res && res.data) || {}
+        // 后端会跳过已售/回收站的行，用"实际改动数"提示才诚实
+        if (typeof d.updated === 'number' && typeof d.requested === 'number' && d.updated < d.requested) {
+          Message.warning(`${act.label}：${d.updated}/${d.requested} 条已处理（已售或已删除的行被跳过）`)
+        } else {
+          Message.success(`${act.label}成功`)
+        }
+      } catch (e) {
+        Message.error(e?.response?.data?.message || `${act.label}失败`)
+      }
+      selectedIds.value = []
+      loadData()
+      return
+    }
     // 传选中行的完整数据（后端 Update 是全字段覆盖，只传 status 会清空其他字段）
     const results = await Promise.allSettled(selectedRows.value.map(row => act.api(row, promptValue)))
     const succeeded = results.filter(r => r.status === 'fulfilled').length

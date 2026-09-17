@@ -1,5 +1,13 @@
 <template>
   <view class="es-page">
+    <!-- 加载失败必须显式报错：此前只在 catch 里清空流水，余额停留在初始 0，
+         资金页会显示"余额 ¥0.00"，用户会以为钱没了。 -->
+    <view v-if="loadError" class="es-error">
+      <text class="es-error-title">账户信息加载失败</text>
+      <text class="es-error-tip">当前余额不可信，请勿据此判断账户金额；点击下方按钮重试。</text>
+      <view class="es-btn es-error-btn" hover-class="es-btn-hover" @tap="load">重新加载</view>
+    </view>
+    <template v-else>
     <view class="es-balance">
       <text class="es-balance-label">托管金余额（元）</text>
       <text class="es-balance-num">{{ (balanceFen / 100).toFixed(2) }}</text>
@@ -34,6 +42,7 @@
         </view>
       </view>
     </view>
+    </template>
   </view>
 </template>
 
@@ -45,6 +54,8 @@ const balanceFen = ref(0)
 const frozenFen = ref(0)
 const txs = ref([])
 const amountYuan = ref('')
+// loadError：加载失败时进入显式错误态，而不是把"没加载出来"渲染成余额 0。
+const loadError = ref(false)
 
 const txTypeLabel = (tx) => ({ deposit: '充值', freeze: '冻结', release: '学费结算', refund: '退款' }[tx.tx_type] || tx.tx_type || '-')
 /* 流水副说明：让每笔钱的去向一目了然（结算=转给课程机构，退款=钱已回账） */
@@ -57,8 +68,13 @@ async function load() {
     balanceFen.value = acc.balance_fen || 0
     frozenFen.value = acc.frozen_fen || 0
     txs.value = Array.isArray(res && res.transactions) ? res.transactions : []
+    loadError.value = false
   } catch (e) {
+    // 失败时不再静默把余额留成 0（资金页显示"¥0.00"会误导用户以为钱丢了），
+    // 而是进入错误态并给出重试入口。
+    loadError.value = true
     txs.value = []
+    uni.showToast({ title: getErrorMessage(e) || '账户信息加载失败', icon: 'none' })
   }
 }
 
@@ -109,4 +125,8 @@ page { background: var(--color-bg); }
 .es-tx-sub { display: block; font-size: 20rpx; color: #98A2B3; margin-top: 2rpx; }
 .es-tx-amount { font-size: 28rpx; font-weight: 700; color: #0B6B41; }
 .es-tx-amount.minus { color: #D92D20; }
+.es-error { background: #fff; border: 1rpx solid #FECACA; border-radius: 10px; padding: 32rpx; box-shadow: 0 4px 20px rgba(16,24,40,.06); }
+.es-error-title { display: block; font-size: 30rpx; font-weight: 700; color: #B42318; }
+.es-error-tip { display: block; font-size: 24rpx; color: #667085; line-height: 1.6; margin-top: 12rpx; }
+.es-error-btn { display: inline-flex; margin-top: 20rpx; }
 </style>

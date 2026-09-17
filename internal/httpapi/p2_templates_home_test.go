@@ -78,10 +78,12 @@ func TestHomeViewsFromProducts(t *testing.T) {
 
 	base := homeViews()
 
-	// 发布商品 → 待审核
-	pw := request(t, app, http.MethodPost, "/api/v1/products",
+	// 发布商品 → 待审核。
+	// 用 seller-1 而不是 request(..., RoleEnterprise)：后者映射到 enterprise-1，
+	// 而商品发布现在要求企业认证，seller-1 才是测试环境里预置了认证的商品卖家。
+	pw := requestAs(t, app, http.MethodPost, "/api/v1/products",
 		[]byte(`{"title":"浏览量测试机","prod_type":"drone","price_fen":100000,"brand":"DJI","model":"M350"}`),
-		domain.RoleEnterprise)
+		"seller-1", domain.RoleEnterprise)
 	if pw.Code != http.StatusCreated {
 		t.Fatalf("create product: %d %s", pw.Code, pw.Body.String())
 	}
@@ -98,9 +100,9 @@ func TestHomeViewsFromProducts(t *testing.T) {
 		t.Fatal("empty product id")
 	}
 
-	// 管理后台通过 → listed
-	aw := request(t, app, http.MethodPut, "/api/v1/admin/products/"+id,
-		[]byte(`{"status":"listed"}`), domain.RolePlatformAdmin)
+	// 管理后台审核通过 → check_status=passed + status=listed，才公开可见
+	aw := request(t, app, http.MethodPost, "/api/v1/admin/products/"+id+"/review",
+		[]byte(`{"check_status":"passed"}`), domain.RolePlatformAdmin)
 	if aw.Code != http.StatusOK {
 		t.Fatalf("approve product: %d %s", aw.Code, aw.Body.String())
 	}

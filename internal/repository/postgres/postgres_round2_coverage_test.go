@@ -484,11 +484,31 @@ func TestRound2_ProductRepo(t *testing.T) {
 	if upd.Title != "更新商品" || upd.Status != "sold" {
 		t.Fatalf("Update: product mismatch: %+v", upd)
 	}
-	if err := r.Delete(context.Background(), id); err != nil {
-		t.Fatalf("Delete product: %v", err)
+	if err := r.SoftDelete(context.Background(), id); err != nil {
+		t.Fatalf("SoftDelete product: %v", err)
 	}
 	if _, err := r.FindByID(context.Background(), id); err == nil {
-		t.Fatalf("Delete: expected not-found after delete")
+		t.Fatalf("SoftDelete: expected not-found after soft delete")
+	}
+	// 行必须还在（回收站）—— 这是"订单还能显示商品名"的前提。
+	deleted, err := r.ListDeleted(context.Background())
+	if err != nil {
+		t.Fatalf("ListDeleted: %v", err)
+	}
+	found := false
+	for _, d := range deleted {
+		if d.ID == id {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("ListDeleted: product %s not in recycle bin (got %d rows)", id, len(deleted))
+	}
+	if err := r.Undelete(context.Background(), id); err != nil {
+		t.Fatalf("Undelete product: %v", err)
+	}
+	if _, err := r.FindByID(context.Background(), id); err != nil {
+		t.Fatalf("FindByID after Undelete: %v", err)
 	}
 }
 
@@ -586,7 +606,8 @@ func TestRound2_TradeOrderRepo(t *testing.T) {
 	got.AftersaleAmountFen = 200000
 	got.AftersaleStatus = "pending"
 	got.AftersaleTime = time.Now()
-	aft, err := r.UpdateAftersale(context.Background(), got)
+	// CAS 期望值 = 更新前的售后状态（本用例此前从未设置过，为 ""）
+	aft, err := r.UpdateAftersale(context.Background(), got, "")
 	if err != nil {
 		t.Fatalf("UpdateAftersale: %v", err)
 	}

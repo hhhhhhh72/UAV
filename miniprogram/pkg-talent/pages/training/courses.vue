@@ -220,6 +220,7 @@ const scrollToTop = () => {
 }
 import { request } from '../../../utils/request'
 import { requireLogin } from '../../../utils/nav'
+import { remainSeats, isSeatsUrgent } from '../../../utils/courseSeats'
 import StateView from '../../../components/StateView.vue'
 
 // 页面滚动：回到顶部按钮浮现
@@ -453,24 +454,19 @@ function shortRegion(item) {
   return loc.length > 8 ? loc.substring(0, 8) + '...' : loc
 }
 
-/** 剩余名额：优先用后端 remain，否则用 max_students - enrolled_count 计算 */
-function remainCount(item) {
-  if (item.remain != null) return item.remain
-  if (item.max_students != null && item.enrolled_count != null) {
-    return item.max_students - item.enrolled_count
-  }
-  return 0
-}
-
-/** 状态按钮：enroll=立即报名 / urgent=名额紧张（有剩余数字才展示）/ disabled=已满/即将开课 */
+/** 状态按钮：enroll=立即报名 / urgent=名额紧张（仅剩 ≤3 个）/ disabled=已满、即将开课 */
 function statusBtn(item) {
   var s = item.status
   if (s === 'full') return { type: 'disabled', text: '已报满' }
   if (s === 'upcoming') return { type: 'disabled', text: '即将开课' }
-  var remain = remainCount(item)
-  if (s === 'urgent' || remain > 0) {
-    // 无真实剩余名额时只显示"名额紧张"，不编造数字
-    return remain > 0 ? { type: 'urgent', count: remain } : { type: 'urgent' }
+  // 名额口径与详情页统一走 utils/courseSeats，避免同一门课两个页面给两个答案。
+  // 「紧张」有真阈值（URGENT_SEATS），不再是"只要还有名额就紧张"——后者会让
+  // 一门 30 个名额、0 人报名的课显示「仅剩 30 个」，属于制造假稀缺。
+  var remain = remainSeats(item)
+  if (s === 'urgent' || isSeatsUrgent(item)) {
+    // 只有真的"剩得少"才显示数字。手工把状态标成 urgent、但名额还剩一大把时，
+    // 显示「仅剩 30 个」同样是假稀缺——退化成不带数字的「名额紧张」，不编造数字。
+    return isSeatsUrgent(item) && remain > 0 ? { type: 'urgent', count: remain } : { type: 'urgent' }
   }
   return { type: 'enroll' }
 }

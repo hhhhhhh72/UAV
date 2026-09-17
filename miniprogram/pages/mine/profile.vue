@@ -120,9 +120,9 @@
           </view>
         </view>
         <view class="pub-field" hover-class="pub-fade" @tap="goAuth">
-          <view class="pub-field-label">实名认证</view>
+          <view class="pub-field-label">飞手认证</view>
           <view class="pub-select-field">
-            <text :class="form.isAuth ? 'status-live' : 'status-pending'">{{ form.isAuth ? '已认证' : '未认证' }}</text>
+            <text :class="pilotCertOk ? 'status-live' : 'status-pending'">{{ pilotCertText }}</text>
             <text class="pub-arrow">›</text>
           </view>
         </view>
@@ -145,7 +145,17 @@ import { useSafeTop } from '../../utils/safeTop'
 
 const { topPad, initSafeTop } = useSafeTop(true)
 
-const form = ref({ name: '', avatar: '', isAuth: false, phone: '', gender: '', birthday: '', region: '', bio: '' })
+const form = ref({ name: '', avatar: '', phone: '', gender: '', birthday: '', region: '', bio: '' })
+
+// 飞手认证状态：来自 GET /api/v1/certified-pilots/mine。
+// 此前这里读 user.isAuth —— 后端**从不返回该字段**（它只存在于 utils/mineFixture.js
+// 的开发夹具里），所以真实用户无论认证与否，这一行永远显示"未认证"。
+const pilotCert = ref('')
+const pilotCertText = computed(() => {
+  const map = { approved: '已认证', pending: '审核中', rejected: '未通过' }
+  return map[pilotCert.value] || '去申请'
+})
+const pilotCertOk = computed(() => pilotCert.value === 'approved')
 const wechatBound = ref(false)
 const genderOptions = ['男', '女']
 let backTimer = null
@@ -171,7 +181,6 @@ onMounted(async () => {
   form.value = {
     name: user.name || '',
     avatar: user.avatar || user.avatar_url || '',
-    isAuth: !!user.isAuth,
     phone: user.phone || '',
     gender: user.gender || '',
     birthday: user.birthday || '',
@@ -192,6 +201,14 @@ onMounted(async () => {
     }
   } catch (e) {
     // 拉取失败时沿用本地缓存
+  }
+  // 飞手认证状态（独立请求，失败不影响资料展示）
+  try {
+    const p = await request({ url: '/api/v1/certified-pilots/mine' })
+    const rec = p && p.data ? p.data : p
+    pilotCert.value = (rec && rec.status) || ''
+  } catch (e) {
+    pilotCert.value = ''
   }
 })
 

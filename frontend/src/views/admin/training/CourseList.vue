@@ -139,6 +139,24 @@
             <a-avatar v-if="form.certificate" :image-url="form.certificate" :size="80" shape="square" />
             <a-button v-else type="outline">点击上传</a-button>
           </a-upload>
+          <template #extra>
+            <span class="form-extra">显示在小程序课程详情页「培训资格证」卡片。传了 → 显示"已认证"，没传 → 显示"证书待上传"。</span>
+          </template>
+        </a-form-item>
+        <!-- 培训环境：小程序详情页固定 3 格，按**位置**对应，所以这里限 3 张并写明顺序 -->
+        <a-form-item label="培训环境">
+          <a-upload
+            :file-list="envImageList"
+            list-type="picture-card"
+            :limit="3"
+            accept="image/*"
+            :before-upload="beforeUpload"
+            :custom-request="uploadEnvImage"
+            @change="onEnvImageChange"
+          />
+          <template #extra>
+            <span class="form-extra">选填，最多 3 张，顺序即展示位置：第 1 张 = 实操场地，第 2 张 = 理论教室，第 3 张 = 模拟训练。缺的位置在小程序里显示占位图标。</span>
+          </template>
         </a-form-item>
         <a-divider style="margin: 8px 0 16px">联系信息</a-divider>
         <a-form-item label="报名电话">
@@ -233,6 +251,35 @@ const certUploadRequest = async ({ fileItem, onSuccess, onError }) => {
   }
 }
 
+// 培训环境图上传：与封面图/证书图同一个接口，但**不直接写 form**——
+// 多图统一由 a-upload 的 @change 同步（见 onEnvImageChange），否则删掉一张后
+// form.environment 不会跟着变，会出现"界面删了、提交还在"。
+const uploadEnvImage = async ({ fileItem, onSuccess, onError }) => {
+  const fd = new FormData()
+  fd.append('file', fileItem.file)
+  try {
+    const res = await axios.post(uploadUrl, fd, { headers: getAuthHeader() })
+    const url = res?.data?.url || res?.url
+    if (!url) throw new Error('上传失败')
+    onSuccess && onSuccess(res)
+  } catch (e) {
+    onError && onError(e)
+    Message.error(e?.response?.data?.error?.message || e?.response?.data?.message || '上传失败')
+  }
+}
+
+// a-upload 列表变化时同步 form.environment。
+// 新增项的 f.url 是本地 blob 预览地址，**不能入库**，真实地址在响应里；
+// 编辑态的旧图没有 response，但 url 本身就是服务端地址，必须保留——
+// 所以只排除仍处于 uploading 的项。
+const onEnvImageChange = (fileList) => {
+  envImageList.length = 0
+  envImageList.push(...fileList)
+  form.environment = fileList
+    .map((f) => f.response?.data?.url || f.response?.url || (f.status === 'uploading' ? '' : f.url))
+    .filter(Boolean)
+}
+
 const crudRef = ref()
 const api = useAdminApi('training-courses')
 
@@ -285,14 +332,24 @@ const form = reactive({
   end_date: '', status: 'draft', description: '', image: '',
   org_name: '', district: '', duration_days: null, rating: '', review_count: null, pass_rate: '', years: null,
   tags: [], course_types: [], certificate: '', phone: '', business_hours: '', prices: [], courses: [],
+  // 培训环境图集（training_courses.environment）。此前表单里**根本没有这个字段**，
+  // 所以后台永远传不了环境图——全库 7 门课 environment 全是 []。
+  environment: [],
 })
+// 培训环境专属的受控列表（a-upload 的 file-list）
+const envImageList = reactive([])
 
-const resetForm = () => Object.assign(form, {
-  id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '',
-  end_date: '', status: 'draft', description: '', image: '',
-  org_name: '', district: '', duration_days: null, rating: '', review_count: null, pass_rate: '', years: null,
-  tags: [], course_types: [], certificate: '', phone: '', business_hours: '', prices: [], courses: [],
-})
+const resetForm = () => {
+  Object.assign(form, {
+    id: '', title: '', cert_type: 'caac', priceYuan: null, max_students: null, location: '', start_date: '',
+    end_date: '', status: 'draft', description: '', image: '',
+    org_name: '', district: '', duration_days: null, rating: '', review_count: null, pass_rate: '', years: null,
+    tags: [], course_types: [], certificate: '', phone: '', business_hours: '', prices: [], courses: [],
+    environment: [],
+  })
+  // 受控列表必须一起清空，否则上一门课的环境图会残留到下一门
+  envImageList.length = 0
+}
 
 const openForm = (row) => {
   resetForm()
@@ -309,6 +366,10 @@ const openForm = (row) => {
       course_types: Array.isArray(row.course_types) ? row.course_types.slice() : [],
       prices: (Array.isArray(row.prices) ? row.prices : []).map((p) => ({ name: p.name || '', price: p.price ?? null })),
       courses: (Array.isArray(row.courses) ? row.courses : []).map((p) => ({ name: p.name || '', price: p.price ?? null })),
+    })
+    // 培训环境回填：form.environment 已由 ...row 带进来，这里同步给 a-upload 的受控列表
+    ;(Array.isArray(row.environment) ? row.environment : []).forEach((u) => {
+      envImageList.push({ name: String(u).split('/').pop(), url: u })
     })
   } else {
     formEdit.value = false

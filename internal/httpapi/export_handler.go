@@ -35,7 +35,7 @@ func csvCell(s string) string {
 var exportChineseName = map[string]string{
 	"demands": "需求管理", "enterprises": "企业管理", "training-courses": "培训课程",
 	"certificates": "证书管理", "certified-pilots": "飞手认证", "enrollments": "报名记录",
-	"competitions": "赛事管理",
+	"competitions": "赛事管理", "products": "商品管理",
 }
 
 // attachmentHeader 生成附件下载头：filename 是 ASCII 兜底名，filename* 是中文表名。
@@ -318,6 +318,48 @@ func (s *Server) exportResource(w http.ResponseWriter, r *http.Request) {
 				csvCell(fmt.Sprintf("%d", c.Fee)), csvCell(fmt.Sprintf("%d", c.RegCount)),
 				csvCell(c.Status),
 				csvCell(c.StartDate.Format("2006-01-02")), csvCell(c.EndDate.Format("2006-01-02")),
+			})
+		}
+
+	case "products":
+		// 商品全量导出。此前 switch 里没有 products → 404 → 前端回退"导出当前页"，
+		// 最多只能拿到 100 行，也拿不到全量导出的平台管理员门槛与限频保护。
+		//
+		// 导出的是**全貌**：待审核/已驳回/已下架/已售全部包含（运营对账要的是全貌）；
+		// 回收站的行由仓储层过滤掉。审核维度与上架维度分两列，不再合并成"状态"。
+		header = []string{"ID", "标题", "类型", "成色", "价格方式", "价格(元)", "交付方式",
+			"审核状态", "驳回原因", "上架状态", "卖家", "品牌", "型号", "浏览量", "创建时间"}
+		prodItems, err := s.tradingSvc.ListProducts(r.Context(), "")
+		if err != nil {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
+		prodTypeCN := map[domain.ProductType]string{
+			domain.ProductDrone: "整机", domain.ProductPart: "配件", domain.ProductRepair: "维修服务",
+			domain.ProductAerial: "航拍服务", domain.ProductTestFly: "试飞测试",
+			domain.ProductCalibration: "检测标定", domain.ProductAirspace: "空域协调",
+		}
+		checkCN := map[string]string{"pending": "待审核", "passed": "已通过", "rejected": "已驳回"}
+		statusCN := map[string]string{"pending": "未上架", "listed": "在售", "sold": "已售", "removed": "已下架"}
+		deliveryCN := map[string]string{"pickup": "自提", "city": "同城配送", "logistics": "物流发货", "negotiable": "可协商"}
+		for _, p := range prodItems {
+			price := "-"
+			if p.PriceMode == domain.PriceModeNegotiable {
+				price = "面议"
+			} else if p.PriceFen > 0 {
+				price = fmt.Sprintf("%.2f", float64(p.PriceFen)/100)
+			}
+			cond := "全新"
+			if p.Condition == "used" {
+				cond = "二手"
+			}
+			rows = append(rows, []string{
+				csvCell(p.ID), csvCell(p.Title), csvCell(prodTypeCN[p.ProdType]), csvCell(cond),
+				csvCell(map[string]string{domain.PriceModeFixed: "明码标价", domain.PriceModeNegotiable: "面议"}[p.PriceMode]),
+				csvCell(price), csvCell(deliveryCN[p.Delivery]),
+				csvCell(checkCN[p.CheckStatus]), csvCell(p.CheckReason), csvCell(statusCN[p.Status]),
+				csvCell(p.SellerName), csvCell(p.Brand), csvCell(p.Model),
+				csvCell(fmt.Sprintf("%d", p.Views)), csvCell(p.CreatedAt.Format("2006-01-02 15:04")),
 			})
 		}
 

@@ -71,8 +71,16 @@
           <template v-else-if="post.statusKey === 'cancelled'">
             <view class="action-link danger" @tap.stop="deletePost(post)">删除</view>
           </template>
+          <!-- 已接单：需求已锁定（不再收新意向），进度在详情页看 -->
+          <template v-else-if="post.statusKey === 'assigned'">
+            <view class="action-link" @tap.stop="goDetail(post)">查看进度</view>
+          </template>
+          <!-- 审核中：进详情页看进度。
+               此前这里是 toastPending()，只弹一句"审核进度：等待协会审核"——一个假的进度入口。
+               发布者本来就有权查看自己 pending 的需求（demand_fulfillment.go:24-30），
+               详情页现在也会画出进度条。 -->
           <template v-else-if="post.statusKey === 'pending'">
-            <view class="action-link" @tap.stop="toastPending">查看审核进度</view>
+            <view class="action-link" @tap.stop="goDetail(post)">查看进度</view>
           </template>
         </view>
         <view class="mine-action-row" v-else-if="post.source === 'local' && post.statusKey === 'live'">
@@ -93,8 +101,8 @@ import { ref, computed } from 'vue'
 import { onLoad, onReady, onPullDownRefresh, onPageScroll } from '@dcloudio/uni-app'
 import { safeNavigateTo, safeBack } from '../../../utils/nav'
 import { request, getErrorMessage, authStorage } from '../../../utils/request'
-import { getPosts, upsertPost, removePost, KIND_ORDER, KIND_LABEL } from '../../../utils/publishData'
-import { bizTypeLabel } from '../../../utils/enums'
+import { getPosts, upsertPost, removePost, KIND_ORDER, KIND_LABEL, pruneStalePointers, MINE_PAGE_SIZE } from '../../../utils/publishData'
+import { bizTypeLabel, SERVICE_PROD_TYPES } from '../../../utils/enums'
 import { useSafeTop } from '../../../utils/safeTop'
 import { useReduceMotion } from '../../../utils/motion'
 
@@ -126,9 +134,13 @@ const STATUS_GROUP = {
   pending: '审核中', draft: '草稿',
   removed: '已下架', cancelled: '已下架',
   completed: '已结束', rejected: '未通过',
+  // 已接单仍是"已发布"的一种：需求已公开且正在推进，归到这一组才筛得出来
+  assigned: '已发布',
 }
 const PRODUCT_STATUS = { pending: '待审核', listed: '在售', sold: '已售', removed: '已下架' }
-const DEMAND_STATUS = { pending: '待审核', published: '已上架', completed: '已结束', cancelled: '已下架', rejected: '未通过' }
+// 需求 6 态（domain/models.go:231-236）。此前漏了 assigned —— 需求被接单后，
+// 卡片状态会回落到英文原文 "assigned"，且下面没有任何一个操作分支命中，变成一张点不动的死卡。
+const DEMAND_STATUS = { pending: '待审核', published: '已上架', assigned: '已接单', completed: '已结束', cancelled: '已下架', rejected: '未通过' }
 
 /* ===== 面板开合（成果库方案 A）+ 二级维度 chips ===== */
 const panel = ref('') // 'all' 时展开状态面板
@@ -230,8 +242,33 @@ function demandToCard(d) {
   }
 }
 
-// 后端商品 → 统一卡片
+// 服务类目商品按「服务能力」展示：类目/区域/报价，而不是"品牌待定·型号待定"。
+// 判据用 utils/enums.js 的 SERVICE_PROD_TYPES（对应后端 service_listing.go:35-41），不在页面里另立一份。
+const isServiceProduct = (p) => SERVICE_PROD_TYPES.indexOf(String(p.prod_type || '')) >= 0
+
+// 后端商品 → 统一卡片。
+//
+// 服务类目与服务能力是**同一条记录**（服务已并入商品表，migration 000110），
+// 所以这里按 prod_type 分派展示形态，而不是让调用方再拉一次旧接口——
+// 之前正是那样做的：额外请求 /api/v1/service-listings（它的 ListAdmin 就是取同一批商品，
+// service_listing.go:138-150，且 toListing 原样沿用商品 ID，:88），
+// 于是同一个服务商品被推两次，用户发 1 条、"全部"里出现 2 条。
+// pages/publish/my-posts.vue 早已只拉 3 个接口（见其 :239-240 注释），这里对齐。
 function productToCard(p) {
+  if (isServiceProduct(p)) {
+    return {
+      id: p.id,
+      type: 'product',
+      source: 'backend',
+      label: '服务能力',
+      title: p.title || '未命名服务',
+      status: PRODUCT_STATUS[p.status] || '在售',
+      statusKey: p.status || 'listed',
+      meta: [p.category || '类目待定', p.region || '区域待定', p.price_fen ? fmtMoney(p.price_fen) + ' 元' : '面议'],
+      date: formatDate(p.created_at),
+      raw: p,
+    }
+  }
   return {
     id: p.id,
     type: 'product',
@@ -243,22 +280,6 @@ function productToCard(p) {
     meta: [p.brand || '品牌待定', p.model || '型号待定', p.price_fen ? fmtMoney(p.price_fen) + ' 元' : '面议'],
     date: formatDate(p.created_at),
     raw: p,
-  }
-}
-
-// 后端服务能力 → 统一卡片
-function serviceToCard(s) {
-  return {
-    id: s.id,
-    type: 'service',
-    source: 'backend',
-    label: '服务能力',
-    title: s.title || '未命名服务',
-    status: s.status === 'published' ? '已发布' : (s.status === 'off' ? '已下架' : '审核中'),
-    statusKey: s.status === 'published' ? 'published' : (s.status === 'off' ? 'removed' : 'pending'),
-    meta: [s.category || '', s.region || ''].filter(Boolean),
-    date: formatDate(s.created_at),
-    raw: s,
   }
 }
 
@@ -298,22 +319,48 @@ function localToCard(p) {
 const fetchMine = async () => {
   loadError.value = false
   try {
-    const [demandsRes, productsRes, servicesRes, coursesRes] = await Promise.all([
-      request({ url: '/api/v1/demands?mine=1&page_size=100' }).catch(() => []),
-      request({ url: '/api/v1/products?mine=1&page_size=100' }).catch(() => []),
-      request({ url: '/api/v1/service-listings?mine=1&page_size=100' }).catch(() => []),
-      request({ url: '/api/v1/training-courses?mine=1&page_size=100' }).catch(() => []),
+    // 只拉 3 个接口。**不要再拉 /api/v1/service-listings**：
+    // /api/v1/products 返回的已经包含服务类目，那个接口是同一批商品上的适配层，
+    // 拉了会让每条服务商品在列表里出现两次。
+    // okCount 记录真正成功的接口数：下面顺手清理本地死指针时必须拿到完整权威列表，
+    // 而 .catch(() => []) 把"请求失败"和"结果为空"抹成了同一个值——不加这个计数，
+    // 一次网络抖动就会被当成"这些实体都不存在了"，把有效指针全清掉。
+    let okCount = 0
+    const track = (p) => p.then((r) => { okCount++; return r }).catch(() => [])
+    const [demandsRes, productsRes, coursesRes] = await Promise.all([
+      track(request({ url: '/api/v1/demands?mine=1&page_size=100' })),
+      track(request({ url: '/api/v1/products?mine=1&page_size=100' })),
+      track(request({ url: '/api/v1/training-courses?mine=1&page_size=100' })),
     ])
+    // 后端记录（权威，含本地缓存被清后的记录；四类全部走后端）。
+    // 按 id 去重兜底：同一个 id 只保留先到的第一条，防止将来再有来源重叠时静默重复。
+    const seen = new Set()
     const cards = []
-    // 后端记录（权威，含本地缓存被清后的记录；四类全部走后端）
-    normalizeList(productsRes).forEach((p) => cards.push(productToCard(p)))
-    normalizeList(demandsRes).forEach((d) => cards.push(demandToCard(d)))
-    normalizeList(servicesRes).forEach((s) => cards.push(serviceToCard(s)))
-    normalizeList(coursesRes).forEach((c) => cards.push(courseToCard(c)))
-    // 本地发布：有 backendId 且后端已返回的跳过（需求/服务/课程同商品规则，防同一发布重复展示）
-    const backendIds = new Set(cards.map((c) => String(c.id)))
+    const push = (card) => {
+      if (!card || card.id == null) return
+      const k = String(card.id)
+      if (seen.has(k)) return
+      seen.add(k)
+      cards.push(card)
+    }
+    normalizeList(productsRes).forEach((p) => push(productToCard(p)))
+    normalizeList(demandsRes).forEach((d) => push(demandToCard(d)))
+    normalizeList(coursesRes).forEach((c) => push(courseToCard(c)))
+    // 本地发布：带 backendId 的是"后端实体的本地指针"，后端那份已经进了 cards，
+    // 一律跳过。早先按 backendIds.has(backendId) 判断，只能防"同一条重复展示"，
+    // 防不住"实体已被删除"——那时 id 不在集合里，死指针会被留下变成幽灵卡片。
+    // 本函数只在后端拉取成功时走到这里，所以无需再判后端可用性。
+    // 后端已确认不存在的实体：本地死指针顺手清掉。三个接口都成功、且都没被分页
+    // 截断时才清（见 pruneStalePointers 的 complete 语义）。
+    const dLen = normalizeList(demandsRes).length
+    const pLen = normalizeList(productsRes).length
+    const cLen = normalizeList(coursesRes).length
+    pruneStalePointers(
+      cards.map((c) => String(c.id)),
+      { complete: okCount === 3 && dLen < MINE_PAGE_SIZE && pLen < MINE_PAGE_SIZE && cLen < MINE_PAGE_SIZE }
+    )
     getPosts().forEach((p) => {
-      if (p.backendId && backendIds.has(String(p.backendId))) return
+      if (p.backendId) return
       cards.push(localToCard(p))
     })
     posts.value = cards
@@ -464,9 +511,6 @@ async function deletePost(post) {
   }
 }
 
-const toastPending = () => {
-  uni.showToast({ title: '审核进度：等待协会审核', icon: 'none' })
-}
 </script>
 
 <style scoped>

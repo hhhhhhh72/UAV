@@ -442,7 +442,7 @@ func TestMessageService_GetListAllDelete(t *testing.T) {
 func TestTradeOrderService_AftersaleFlow(t *testing.T) {
 	svc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository())
 
-	o, err := svc.Create(context.Background(), "buyer-1", "p1", "seller-1", 100000)
+	o, err := svc.Create(context.Background(), "buyer-1", "p1", "seller-1", 100000, service.OrderReceiver{}, false)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -486,7 +486,7 @@ func TestTradeOrderService_AftersaleFlow(t *testing.T) {
 	}
 
 	// 驳回分支
-	o2, _ := svc.Create(context.Background(), "buyer-2", "p2", "seller-2", 200000)
+	o2, _ := svc.Create(context.Background(), "buyer-2", "p2", "seller-2", 200000, service.OrderReceiver{}, false)
 	svc.UpdateStatusAdmin(context.Background(), o2.ID, "paid")
 	if _, err := svc.ApplyAftersale(context.Background(), "buyer-2", o2.ID, "return", "理由", "描述", 200000); err != nil {
 		t.Fatalf("ApplyAftersale(2nd): %v", err)
@@ -508,7 +508,7 @@ func TestTradeOrderService_AdminDeleteListFind(t *testing.T) {
 	}
 	svc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), prodRepo)
 
-	o, _ := svc.Create(context.Background(), "buyer-1", "p1", "seller-1", 100000)
+	o, _ := svc.Create(context.Background(), "buyer-1", "p1", "seller-1", 100000, service.OrderReceiver{}, false)
 	// UpdateStatusAdmin：订单不存在
 	if _, err := svc.UpdateStatusAdmin(context.Background(), "nope", "paid"); err == nil {
 		t.Fatal("UpdateStatusAdmin: expected error for unknown order")
@@ -547,18 +547,32 @@ func TestTradeOrderService_AdminDeleteListFind(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestServiceListingService_CRUD(t *testing.T) {
-	repo := memory.NewServiceListingRepository()
+	repo := memory.NewProductRepository()
 	svc := service.NewServiceListingService(repo)
 
 	sl, err := svc.CreateListing(context.Background(), "prov-1", "服务商", "巡检服务", "巡检", "描述", "重庆", 10000, "次", "img", "")
 	if err != nil || sl.Status != "published" {
 		t.Fatalf("CreateListing: status=%q err=%v", sl.Status, err)
 	}
-	// 空状态（视为上架）+ 下架 用于 ListPublished 过滤
-	if _, err := repo.Create(context.Background(), domain.ServiceListing{ID: "sl-empty", Title: "空状态", Status: ""}); err != nil {
+	// 服务能力已并入商品表：直接落两条服务类商品，验证 ListPublished 的过滤口径
+	//（审核通过 + 在售 才算公开——这是拆分审核维度后收紧的那条不变式）。
+	if _, err := repo.Create(context.Background(), domain.DroneProduct{
+		ID: "sl-empty", Title: "在售服务", ProdType: domain.ProductRepair,
+		CheckStatus: domain.ProductCheckPassed, Status: "listed",
+	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.Create(context.Background(), domain.ServiceListing{ID: "sl-offline", Title: "下架", Status: "offline"}); err != nil {
+	if _, err := repo.Create(context.Background(), domain.DroneProduct{
+		ID: "sl-offline", Title: "下架", ProdType: domain.ProductRepair,
+		CheckStatus: domain.ProductCheckPassed, Status: "removed",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// 实物商品绝不能混进服务能力列表
+	if _, err := repo.Create(context.Background(), domain.DroneProduct{
+		ID: "p-physical", Title: "整机不是服务", ProdType: domain.ProductDrone,
+		CheckStatus: domain.ProductCheckPassed, Status: "listed",
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -716,9 +730,9 @@ func TestContractTemplateService_List(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestTradingService_ProductCRUD(t *testing.T) {
-	svc := service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository())
+	svc := service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository(), nil, nil)
 
-	p, err := svc.CreateProduct(context.Background(), individualActor(), domain.ProductDrone, "无人机", "描述", "品牌", "型号", "new", 100000, nil)
+	p, err := svc.CreateProduct(context.Background(), individualActor(), domain.ProductDrone, "无人机", "描述", "品牌", "型号", "new", "", "", 100000, nil, nil)
 	if err != nil {
 		t.Fatalf("CreateProduct: %v", err)
 	}
@@ -829,6 +843,60 @@ func TestTrainingService_CourseCertCRUD(t *testing.T) {
 	}
 }
 
+// 审核通过要清掉"修复前落库的脏数据"：pending 记录上挂着上一轮驳回理由。
+//
+// 为什么不能靠 PilotLifecycle 覆盖：状态机保证 approved 只能从 pending 来
+//（ApprovePilot 明确拒绝 rejected→approved），而重提路径 RegisterPilot 已经把理由清掉了，
+// 所以那条路径永远走不到 UpdateStatus 的清空分支——撤掉它测试也不会红。
+// 真正需要这条清空的是**本次修复之前**写进库的记录，因此这里直接种一条脏记录。
+func TestApprovePilotClearsStaleRejectReason(t *testing.T) {
+	certRepo := memory.NewCertificateRepository()
+	pilotRepo := memory.NewPilotRepository(nil)
+	svc := service.NewTrainingService(certRepo, memory.NewCourseRepository(), memory.NewInstructorRepository(), pilotRepo)
+
+	owner := "stale-user"
+	admin := domain.Actor{ID: "admin", Role: domain.RolePlatformAdmin}
+	// 有效证书：ApprovePilot 会复核申请人当前仍持有未过期的 approved 证书
+	if _, err := certRepo.Create(context.Background(), domain.Certificate{
+		ID: "cert-stale", UserID: owner, CertType: domain.CertCAAC,
+		CertNumber: "n-stale", Level: "A", IssuerOrg: "机构", Status: "approved",
+		IssueDate: time.Now(), ExpireDate: time.Now().AddDate(1, 0, 0),
+	}); err != nil {
+		t.Fatalf("seed cert: %v", err)
+	}
+	// 直接种一条 pending + 旧驳回理由（模拟修复前的数据形态）
+	seeded, err := pilotRepo.Create(context.Background(), domain.CertifiedPilot{
+		ID: "pilot-stale", UserID: owner, RealName: "李四", Status: "pending",
+		RejectReason: "上一轮的驳回理由", CertIDs: []string{"cert-stale"},
+		Version: 1, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("seed pilot: %v", err)
+	}
+	if seeded.RejectReason == "" {
+		t.Fatal("seed must carry a stale reject reason")
+	}
+
+	approved, err := svc.ApprovePilot(context.Background(), admin, seeded.ID)
+	if err != nil {
+		t.Fatalf("ApprovePilot: %v", err)
+	}
+	if approved.Status != "approved" {
+		t.Fatalf("status = %q, want approved", approved.Status)
+	}
+	if approved.RejectReason != "" {
+		t.Fatalf("approve must clear stale reject_reason, got %q", approved.RejectReason)
+	}
+	// 必须真的落库，不能只改返回值
+	got, err := pilotRepo.FindByID(context.Background(), seeded.ID)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	if got.RejectReason != "" {
+		t.Fatalf("stale reject_reason persisted in store: %q", got.RejectReason)
+	}
+}
+
 func TestTrainingService_PilotLifecycle(t *testing.T) {
 	certRepo := memory.NewCertificateRepository()
 	pilotRepo := memory.NewPilotRepository(nil)
@@ -887,6 +955,25 @@ func TestTrainingService_PilotLifecycle(t *testing.T) {
 	r2, err := svc.RegisterPilot(context.Background(), actor, "张三2", "id2", 200, "bio2", "avatar2", "北京")
 	if err != nil || r2.Status != "pending" || r2.RealName != "张三2" {
 		t.Fatalf("RegisterPilot(resubmit): status=%q name=%q err=%v", r2.Status, r2.RealName, err)
+	}
+	// 回归：重提必须清掉上一轮的驳回理由。
+	// reject_reason 此前只写不删——RejectPilot 写它，而重提走的 Update、通过走的
+	// UpdateStatus 都不清，于是待审核甚至已通过的记录会一直挂着过期理由，
+	// 用户端"审核中"卡片与管理端列表都会把它显示出来。
+	if r2.RejectReason != "" {
+		t.Fatalf("resubmit must clear reject_reason, got %q", r2.RejectReason)
+	}
+
+	// 审核通过同样要清空（UpdateStatus 路径）
+	ap, err := svc.ApprovePilot(context.Background(), admin, r2.ID)
+	if err != nil {
+		t.Fatalf("ApprovePilot(after resubmit): %v", err)
+	}
+	if ap.Status != "approved" {
+		t.Fatalf("approve status = %q, want approved", ap.Status)
+	}
+	if ap.RejectReason != "" {
+		t.Fatalf("approve must clear reject_reason, got %q", ap.RejectReason)
 	}
 
 	// GetPilotByOwner：命中 + 未申请返回零值
@@ -955,10 +1042,19 @@ func TestApprovePilotRequiresValidCertificate(t *testing.T) {
 		t.Fatal("ApprovePilot: 证书已过期仍被通过，期望被拒绝")
 	}
 
-	// 证书被撤销（未审核通过）→ 不得通过
-	seed("pending", time.Now().AddDate(1, 0, 0))
+	// 被驳回的证书不得顺带放行。
+	//
+	// ⚠️ 规则变更：原断言是"证书 pending → 飞手不得通过"，那是**证书与飞手分别审核**的
+	// 旧模型。按产品要求已合并为"申请飞手认证时一并提交证书，一次审核"——
+	// pending 属于"待审核"，审飞手申请就是审它，因此 pending 不再是拒绝理由
+	//（合并流程由 TestPilotMergedCertReview 覆盖）。
+	// 但 rejected 是**已有结论**：审核飞手申请不应把别人已经驳回的证书翻回来。
+	seed("rejected", time.Now().AddDate(1, 0, 0))
 	if _, err := svc.ApprovePilot(context.Background(), admin, p.ID); err == nil {
-		t.Fatal("ApprovePilot: 证书未审核通过仍被放行，期望被拒绝")
+		t.Fatal("ApprovePilot: 关联证书已被驳回，不得顺带放行")
+	}
+	if c, err := certRepo.FindByID(context.Background(), "cert-exp"); err != nil || c.Status != "rejected" {
+		t.Fatalf("被驳回的证书状态被改写: status=%q err=%v", c.Status, err)
 	}
 
 	// 恢复有效证书 → 正常通过
@@ -966,5 +1062,109 @@ func TestApprovePilotRequiresValidCertificate(t *testing.T) {
 	got, err := svc.ApprovePilot(context.Background(), admin, p.ID)
 	if err != nil || got.Status != "approved" {
 		t.Fatalf("ApprovePilot(有效证书): status=%q err=%v", got.Status, err)
+	}
+}
+
+// TestPilotMergedCertReview：合并审核——证书随飞手认证申请一并提交，管理端审一次申请
+// 即同时裁定这批证书。
+//
+// 背景：此前用户必须先把证书**单独**提交给管理端、审核通过后才允许申请飞手认证，
+// 同一批证据走两道人工审核，且申请页只能提示"请先提交证书"、没有填写位置。
+func TestPilotMergedCertReview(t *testing.T) {
+	certRepo := memory.NewCertificateRepository()
+	pilotRepo := memory.NewPilotRepository(nil)
+	svc := service.NewTrainingService(certRepo, memory.NewCourseRepository(), memory.NewInstructorRepository(), pilotRepo)
+
+	actor := domain.Actor{ID: "merged-u", Role: domain.RoleIndividual}
+	admin := domain.Actor{ID: "merged-admin", Role: domain.RolePlatformAdmin}
+	expire := time.Now().AddDate(2, 0, 0)
+
+	// 1) 无证、本次也没提交 → 仍然"无证不批"，口径不放宽
+	if _, err := svc.RegisterPilot(context.Background(), actor, "张三", "id-1", 20, "", "", "重庆"); err == nil {
+		t.Fatal("无证申请应被拒绝（无证不批口径不变）")
+	}
+
+	// 2) 随申请提交一张证书 → 申请落 pending，证书也落 pending 并关联进档案
+	p, err := svc.RegisterPilotWithCerts(context.Background(), actor, "张三", "id-1", 20, "巡检", "", "重庆",
+		[]service.PilotCertInput{{
+			CertType: domain.CertCAAC, CertNumber: "CAAC-MERGED-1", Level: "III", IssuerOrg: "民航局",
+			IssueDate: time.Now().AddDate(-1, 0, 0), ExpireDate: expire,
+		}})
+	if err != nil {
+		t.Fatalf("RegisterPilotWithCerts: %v", err)
+	}
+	if p.Status != "pending" {
+		t.Fatalf("申请状态 = %q, want pending", p.Status)
+	}
+	certs, err := certRepo.ListByUser(context.Background(), actor.ID)
+	if err != nil || len(certs) != 1 {
+		t.Fatalf("随申请提交的证书未落库: n=%d err=%v", len(certs), err)
+	}
+	if certs[0].Status != "pending" {
+		t.Fatalf("随申请证书应为 pending（等本次审核一并裁定）, got %q", certs[0].Status)
+	}
+	if len(p.CertIDs) != 1 || p.CertIDs[0] != certs[0].ID {
+		t.Fatalf("证书未关联进档案: CertIDs=%v certID=%s", p.CertIDs, certs[0].ID)
+	}
+
+	// 3) 管理端审一次飞手申请 → 飞手 approved，随附证书一并 approved
+	got, err := svc.ApprovePilot(context.Background(), admin, p.ID)
+	if err != nil || got.Status != "approved" {
+		t.Fatalf("ApprovePilot: status=%q err=%v", got.Status, err)
+	}
+	after, err := certRepo.FindByID(context.Background(), certs[0].ID)
+	if err != nil || after.Status != "approved" {
+		t.Fatalf("合并审核后证书应随之一并 approved: status=%q err=%v", after.Status, err)
+	}
+
+	// 4) 驳回路径：申请被驳回时随附证书一并 rejected，不留"待审孤儿"
+	actor2 := domain.Actor{ID: "merged-u2", Role: domain.RoleIndividual}
+	p2, err := svc.RegisterPilotWithCerts(context.Background(), actor2, "李四", "id-2", 30, "", "", "重庆",
+		[]service.PilotCertInput{{
+			CertType: domain.CertUTCDJI, CertNumber: "UTC-MERGED-1", IssuerOrg: "大疆",
+			IssueDate: time.Now().AddDate(-1, 0, 0), ExpireDate: expire,
+		}})
+	if err != nil {
+		t.Fatalf("RegisterPilotWithCerts(u2): %v", err)
+	}
+	if _, err := svc.RejectPilot(context.Background(), admin, p2.ID, "证件照片不清晰"); err != nil {
+		t.Fatalf("RejectPilot: %v", err)
+	}
+	certs2, _ := certRepo.ListByUser(context.Background(), actor2.ID)
+	if len(certs2) != 1 || certs2[0].Status != "rejected" {
+		t.Fatalf("驳回飞手申请后随附证书应一并 rejected: %+v", certs2)
+	}
+
+	// 5) 撞号保护：提交他人已占用的证书号必须报错，不静默关联
+	actor3 := domain.Actor{ID: "merged-u3", Role: domain.RoleIndividual}
+	if _, err := svc.RegisterPilotWithCerts(context.Background(), actor3, "王五", "id-3", 10, "", "", "重庆",
+		[]service.PilotCertInput{{
+			CertType: domain.CertCAAC, CertNumber: "CAAC-MERGED-1", Level: "III", IssuerOrg: "民航局",
+			IssueDate: time.Now(), ExpireDate: expire,
+		}}); err == nil {
+		t.Fatal("提交他人已占用的证书号应报错")
+	}
+	if cs, _ := certRepo.ListByUser(context.Background(), actor3.ID); len(cs) != 0 {
+		t.Fatalf("撞号失败后不该产生证书: %+v", cs)
+	}
+
+	// 6) 无孤儿：已认证用户再提交一次带证书的申请 → 报错，且**不得留下孤儿待审证书**
+	actor4 := domain.Actor{ID: "merged-u4", Role: domain.RoleIndividual}
+	if _, err := svc.RegisterPilotWithCerts(context.Background(), actor4, "赵六", "id-4", 10, "", "", "重庆",
+		[]service.PilotCertInput{{
+			CertType: domain.CertCAAC, CertNumber: "CAAC-MERGED-2", Level: "III", IssuerOrg: "民航局",
+			IssueDate: time.Now(), ExpireDate: expire,
+		}}); err != nil {
+		t.Fatalf("首次申请应通过: %v", err)
+	}
+	if _, err := svc.RegisterPilotWithCerts(context.Background(), actor4, "赵六", "id-4", 10, "", "", "重庆",
+		[]service.PilotCertInput{{
+			CertType: domain.CertCAAC, CertNumber: "CAAC-MERGED-3", Level: "III", IssuerOrg: "民航局",
+			IssueDate: time.Now(), ExpireDate: expire,
+		}}); err == nil {
+		t.Fatal("审核中重复申请应被拒绝")
+	}
+	if cs, _ := certRepo.ListByUser(context.Background(), actor4.ID); len(cs) != 1 {
+		t.Fatalf("重复申请被拒后不应留下孤儿证书: n=%d %+v", len(cs), cs)
 	}
 }

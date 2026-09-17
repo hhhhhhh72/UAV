@@ -134,30 +134,57 @@ async function fetchRealOrders() {
   }
 }
 
-// 售后单 → 展示区块（aftersale 状态字段来自后端售后契约：
-// aftersale_status = pending 待审核 / approved 已同意退款 / rejected 已驳回）
+// 售后单 → 展示区块（aftersale 状态字段来自后端售后契约）：
+//   仅退款 refund ：pending 待审核 → approved 售后已完成 / rejected 已驳回
+//   退货退款 return：pending 待审核 → returning 待买家寄回 → returned 待卖家确认收货
+//                    → approved 售后已完成 / rejected 已驳回
+// 关键差异：退货退款的**退款发生在最后一步**（卖家确认收到货），
+// 中间两步钱都还没动，因此文案不能出现"已退款"。
 function aftersaleInfo(t) {
   if (!t.aftersale_status) return null
-  const type = t.aftersale_type === 'return' ? '退货退款' : '仅退款'
+  const isReturn = t.aftersale_type === 'return'
+  const type = isReturn ? '退货退款' : '仅退款'
   const time = fmtDate(t.aftersale_time)
-  const statusMap = { pending: '待审核', approved: '售后已完成', rejected: '已驳回' }
+  const statusMap = {
+    pending: '待审核',
+    returning: '待寄回商品',
+    returned: '待卖家确认收货',
+    approved: '售后已完成',
+    rejected: '已驳回',
+  }
+  const returnTracking = t.return_tracking || ''
   // 进度按申请状态推导（不臆造节点：时间缺省用申请时间/占位）
   const progress = []
   // 第一步：申请提交。待审核单才提示「等待平台审核」；已结案单只陈述已提交，
   // 避免退款完成后仍显示「等待审核」的误导。
   progress.push({ time: time || '-', text: t.aftersale_status === 'pending' ? '已提交售后申请，等待平台审核' : '已提交售后申请' })
+  // 退货退款专属：卖家同意后才进入寄回环节
+  if (isReturn && ['returning', 'returned', 'approved'].includes(t.aftersale_status)) {
+    progress.push({ time: '-', text: '卖家已同意退货，请寄回商品并在此提交物流单号' })
+  }
+  if (isReturn && ['returned', 'approved'].includes(t.aftersale_status)) {
+    progress.push({
+      time: fmtDate(t.returned_at) || '-',
+      text: returnTracking ? '已寄回商品（物流单号 ' + returnTracking + '），等待卖家确认收货' : '已寄回商品，等待卖家确认收货',
+    })
+  }
   // 模拟支付体系下无真实资金动作：不承诺「款项原路退回」，只描述平台流程处理
   if (t.aftersale_status === 'approved') {
-    progress.push({ time: '-', text: '已同意退款，退款按平台流程处理' })
+    progress.push({ time: '-', text: isReturn ? '卖家已确认收到退货，退款按平台流程处理' : '已同意退款，退款按平台流程处理' })
     progress.push({ time: '-', text: '售后已完成，退款处理结束' })
   }
   if (t.aftersale_status === 'rejected') progress.push({ time: '-', text: '平台已驳回申请，订单已结案' })
   return {
     type,
+    is_return: isReturn,
     status: statusMap[t.aftersale_status] || t.aftersale_status,
+    // status_key 供页面做按钮显隐（中文 status 不适合当判断依据）
+    status_key: t.aftersale_status,
     amount_fen: t.aftersale_amount_fen || 0,
     created_at: time,
     description: t.aftersale_desc || t.aftersale_reason || '',
+    return_tracking: returnTracking,
+    returned_at: fmtDate(t.returned_at),
     progress,
   }
 }
@@ -183,6 +210,34 @@ function normalizeRealOrder(t, product) {
       ],
     },
   ]
+
+  // 收货信息：下单时快照到订单。买卖双方都要看得到——卖家靠它发货，买家靠它核对。
+  // 此前订单表根本没有地址，卖家选了「物流发货」却不知道寄给谁。
+  if (t.receiver_name || t.receiver_address) {
+    sections.push({
+      title: '收货信息',
+      rows: [
+        { label: '收货人', value: t.receiver_name || '-' },
+        { label: '联系电话', value: t.receiver_phone || '-' },
+        { label: '所在地区', value: t.receiver_region || '-' },
+        { label: '详细地址', value: t.receiver_address || '-' },
+      ],
+    })
+  }
+
+  // 发货信息：卖家发货时写入。shipping_tracking 是**出库**单号，
+  // 与退货流程里买家寄回的单号（return_tracking）方向相反，不要混为一谈。
+  if (t.shipping_tracking || t.shipped_at) {
+    sections.push({
+      title: '发货信息',
+      rows: [
+        { label: '快递公司', value: t.shipping_company || '-' },
+        { label: '快递单号', value: t.shipping_tracking || '-' },
+        { label: '发货时间', value: t.shipped_at ? fmtDate(t.shipped_at) : '-' },
+      ],
+    })
+  }
+
   if (af) {
     sections.push({
       title: '售后信息',
@@ -220,9 +275,11 @@ function normalizeRealOrder(t, product) {
 }
 
 // 主操作按钮文案：按交易角色区分（买家付钱收货，卖家发货收钱）。
-// 有售后记录（af 非空）的订单无论当前状态一律「查看售后」——结案单（approved/rejected）状态已回 completed。
+// 有售后记录（af 非空）的订单一律「查看售后」——结案单（approved/rejected）状态已回 completed。
+// 例外：被驳回（rejected）的售后单后端允许重新申请（service.ApplyAftersale 的判重只拦
+// pending/returning/returned/approved），因此文案要引导买家回去重提，而不是"查看售后"后无路可走。
 function statusAction(status, role, af) {
-  if (af) return '查看售后'
+  if (af) return af.status_key === 'rejected' ? '重新申请售后' : '查看售后'
   if (status === 'cancelled') return '已取消'
   if (role === 'seller') {
     if (status === 'paid') return '发货'
@@ -267,16 +324,24 @@ export async function loadOrders({ status = 'all', order_type = 'all' } = {}) {
 // 按状态统计各入口角标数（含类型筛选），用于订单中心五状态角标。混合语义：
 // ① pending/paid/shipped = 待办数量：状态流转（付款/发货/收货）后移出，查看不消失；
 // ② completed（待评价）= 提醒：查看即消（已读时间），评价完也消；
-// ③ aftersale（退款/售后）= 提醒：查看即消，仅统计待审核单，审核结案后消失；
+// ③ aftersale（退款/售后）= 提醒：查看即消。除"待审核"外，退货退款流程里
+//    「待买家寄回(returning)」与「待卖家确认收货(returned)」都是**必须有人动手**的待办，
+//    此前只认 pending，这两个阶段角标恒 0，买家看不到"该去寄回了"。
+//    按角色区分：returning 是买家待办，returned 是卖家待办。
 // ④ 售后结案单（approved/rejected，状态回 completed）不进任何角标。
 export async function loadStatusCounts(order_type = 'all') {
   const real = await fetchRealOrders()
+  const me = getStoredUser()
+  const myId = me && me.id
   const all = real.map((t) => {
     const asPending = t.aftersale_status === 'pending'
+    const needBuyerAction = t.aftersale_status === 'returning' && !!myId && t.buyer_id === myId
+    const needSellerAction = t.aftersale_status === 'returned' && !!myId && t.seller_id === myId
+    const actionable = asPending || needBuyerAction || needSellerAction
     const reviewed = !t.aftersale_status && t.status === 'completed' && isReviewed(t.id)
-    const closed = !!t.aftersale_status && !asPending
+    const closed = !!t.aftersale_status && !actionable
     return {
-      status: asPending ? 'aftersale' : (reviewed ? 'reviewed' : (closed ? 'closed' : (t.status || 'pending'))),
+      status: actionable ? 'aftersale' : (reviewed ? 'reviewed' : (closed ? 'closed' : (t.status || 'pending'))),
       type: 'product',
       created_at: parseTs(t.created_at),
     }

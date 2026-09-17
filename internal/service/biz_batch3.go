@@ -85,28 +85,6 @@ func (s *EmergencyDeptService) ListDrills(ctx context.Context, deptID string) ([
 	return s.repo.ListDrills(ctx, deptID)
 }
 
-// ── AssociationMember Service ──
-
-type AssociationMemberService struct {
-	repo repository.AssociationMemberRepository
-}
-
-func NewAssociationMemberService(r repository.AssociationMemberRepository) *AssociationMemberService {
-	return &AssociationMemberService{repo: r}
-}
-func (s *AssociationMemberService) AddMember(ctx context.Context, userID, enterpriseID string, role domain.AssociationRole) (domain.AssociationMember, error) {
-	m := domain.AssociationMember{ID: nextID("am"),
-		UserID: userID, EnterpriseID: enterpriseID, Role: role,
-		JoinDate: time.Now(), ExpireDate: time.Now().AddDate(1, 0, 0),
-		Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	return s.repo.Create(ctx, m)
-}
-func (s *AssociationMemberService) ListMembers(ctx context.Context, role string, page, pageSize int) ([]domain.AssociationMember, int, error) {
-	return s.repo.List(ctx, role, (page-1)*pageSize, pageSize)
-}
-func (s *AssociationMemberService) GetByUserID(ctx context.Context, userID string) (domain.AssociationMember, error) {
-	return s.repo.FindByUserID(ctx, userID)
-}
-func (s *AssociationMemberService) UpdateRole(ctx context.Context, id string, role domain.AssociationRole) (domain.AssociationMember, error) {
-	return s.repo.UpdateRole(ctx, id, role)
-}
+// ── AssociationMember Service 已移除 ──
+// 协会 8 级角色从未在生产使用：association_members 0 行、前端零调用、
+// 8 个角色里只有 partner 参与过判定（且该判定依赖的表同样是空的）。

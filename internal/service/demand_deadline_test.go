@@ -63,7 +63,7 @@ func TestDemandDeadlineValidation(t *testing.T) {
 func TestAcceptIntentAmountWithinBudget(t *testing.T) {
 	ctx := context.Background()
 	demandRepo := memory.NewDemandRepository(nil)
-	intentRepo := memory.NewIntentRepository()
+	intentRepo := memory.NewIntentRepository(demandRepo)
 	orderRepo := memory.NewWorkOrderRepository()
 	demandSvc := service.NewDemandService(demandRepo)
 	intentSvc := service.NewIntentService(intentRepo, demandRepo, newCertifiedEntRepo(t, "worker-budget"), memory.NewPilotRepository(nil))

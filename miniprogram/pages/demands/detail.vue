@@ -110,6 +110,24 @@
         </view>
       </view>
 
+      <!-- 接单进度：把「需求 / 意向 / 工单」三个实体的状态串成一条线。
+           只对发布者展示——需求方此前在详情页只能看到一句禁用的「该需求已接单」，
+           完全不知道走到哪一步；进度数据仍来自同一批接口，不新增后端契约。 -->
+      <view v-if="isMyDemand && item" class="detail-section">
+        <view class="flow-card">
+          <view class="flow-head">
+            <text class="flow-title">接单进度</text>
+            <text v-if="flow.tone === 'active'" class="flow-current">{{ flowNote }}</text>
+          </view>
+          <u-steps v-if="flow.tone === 'active'" :steps="flow.steps" :active-index="flow.activeIndex" />
+          <view v-else class="flow-terminal" :class="'flow-terminal--' + flow.tone">{{ flow.note }}</view>
+          <view v-if="workOrderId" class="flow-link" hover-class="tap-fade" @tap="goWorkOrder">
+            <text>查看工单详情</text>
+            <text class="flow-link-arrow">›</text>
+          </view>
+        </view>
+      </view>
+
       <!-- 推荐 -->
       <view class="detail-section">
         <view class="recommend-head">
@@ -148,8 +166,21 @@
         <view v-if="isEndedItem" class="action-primary disabled">
           <text>该信息已结束</text>
         </view>
-        <view v-else-if="isAssigned" class="action-primary disabled">
-          <text>该需求已接单</text>
+        <!-- assigned 是公开状态，任何人都能打开本页；但工单只有双方可见，
+             所以"查看工单"只给发布者，其他人保持原来的禁用提示。 -->
+        <view
+          v-else-if="isAssigned"
+          class="action-primary"
+          :class="{ disabled: !canOpenWorkOrder }"
+          @tap="goWorkOrder"
+        >
+          <text>{{ canOpenWorkOrder ? '查看工单 ›' : '该需求已接单' }}</text>
+        </view>
+        <!-- 发布方本人：必须给"看接单申请"的入口。此前这里是一句不可点的
+             "这是您发布的需求"，而消息里的「新的对接意向」正是落到本页，
+             发布方只能自己绕回 我的 → 我的发布 → 查看意向 才能同意接单。 -->
+        <view v-else-if="isMyDemand && pendingIntentCount > 0" class="action-primary" @tap="goIntents">
+          <text>查看接单申请 ({{ pendingIntentCount }}) ›</text>
         </view>
         <view v-else-if="isMyDemand" class="action-primary disabled">
           <text>这是您发布的需求</text>
@@ -225,15 +256,17 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
+import { onLoad, onShow, onShareAppMessage } from '@dcloudio/uni-app'
 import { request, BASE_URL } from '../../utils/request'
 import { safeNavigateTo, safeBack } from '../../utils/nav'
+import { isAnyCertified } from '../../utils/cert'
 import {
   IMG_SOLAR, IMG_LIFT, IMG_HERO, isEnded, normalizeDemand, normalizeService,
   getKindItems, isLoggedIn, currentUserName, saveSentIntents, getSentIntents,
   publishPostToCard,
 } from '../../utils/hallData'
 import { getPosts } from '../../utils/publishData'
+import { demandFlow } from '../../utils/flowSteps'
 import { useSafeTop } from '../../utils/safeTop'
 
 const item = ref(null)
@@ -255,6 +288,36 @@ let postId = ''
 const isEndedItem = computed(() => (item.value ? isEnded(item.value) : false))
 // 已被确认接单（后端 DemandAssigned）→ 关闭申请入口，与后端「已确认接单暂不开放新申请」一致
 const isAssigned = computed(() => !!(item.value && item.value.statusKey === 'assigned'))
+
+/* ===== 接单进度 =====
+   后端是一条跨三张表的链路（需求 → 意向 → 工单），此前前端只显示各表自己的状态字符串，
+   没有任何一处把它们串起来。进度映射统一在 utils/flowSteps.js，工单详情页共用同一份。 */
+const workOrderId = ref('')
+const workOrderStatus = ref('')
+const flow = computed(() => demandFlow(item.value && item.value.statusKey, workOrderStatus.value))
+const flowNote = computed(() => (flow.value.currentLabel ? '当前：' + flow.value.currentLabel : ''))
+const canOpenWorkOrder = computed(() => !!(isMyDemand.value && workOrderId.value))
+
+// 只在"可能已经有工单"的状态下拉一次，避免每次打开需求都多打一个请求。
+// 取不到就只画到"已接单"，不影响详情展示。
+const loadWorkOrder = async () => {
+  const st = item.value && item.value.statusKey
+  if (st !== 'assigned' && st !== 'completed') return
+  try {
+    const res = await request({ url: '/api/v1/work-orders/mine' })
+    const list = Array.isArray(res) ? res : ((res && res.data) || [])
+    const wo = (list || []).find((x) => x && String(x.demand_id) === String(postId))
+    if (wo) {
+      workOrderId.value = wo.id || ''
+      workOrderStatus.value = wo.status || ''
+    }
+  } catch (e) { /* 静默：进度退化为"已接单" */ }
+}
+
+const goWorkOrder = () => {
+  if (!canOpenWorkOrder.value) return
+  uni.navigateTo({ url: '/pages/work-orders/detail?id=' + encodeURIComponent(workOrderId.value) })
+}
 
 const detailTitle = computed(() => {
   if (!item.value) return '详情'
@@ -411,6 +474,7 @@ async function loadDetail() {
     if (normalized) {
       item.value = normalized
       state.value = 'ready'
+      loadWorkOrder()
       return
     }
     // 详情接口无此 id（服务/商品）：先试服务详情接口，再列表匹配兜底
@@ -579,37 +643,31 @@ const checkIntented = async () => {
   try {
     const res = await request({ url: '/api/v1/intents/mine' })
     const data = Array.isArray(res) ? res : (res && res.data) || []
-    intented.value = data.some((it) => it.demand_id === postId && it.status === 'pending')
+    // String() 两侧对齐：与下方工单匹配（String(x.demand_id) === String(postId)）保持同一口径，
+    // 避免 id 一边是数字一边是字符串时静默不匹配、按钮永远不变灰。
+    intented.value = data.some((it) => String(it.demand_id) === String(postId) && it.status === 'pending')
   } catch (e) {
     /* 拉取失败不阻塞页面 */
   }
 }
 
-// 企业认证：真实检查（/api/v1/enterprises 是否存在 approved 记录），不再读 mock hall_certified
-const isEnterpriseCertified = async () => {
+// 发布方本人：该需求收到的「待处理」接单申请数量。
+// 有申请时把底部那句不可点的"这是您发布的需求"升级为可点的处理入口；
+// 非发布方调该接口会被后端 403，所以只在 isMyDemand 时请求。
+const pendingIntentCount = ref(0)
+const loadOwnerIntents = async () => {
+  if (!isLoggedIn() || !isMyDemand.value) return
   try {
-    const res = await request({ url: '/api/v1/enterprises' })
-    const data = (res && res.data) || res || {}
-    const items = Array.isArray(data) ? data : (data && data.items) || []
-    return items.some((e) => e.status === 'approved')
+    const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(postId) + '/intents' })
+    const list = Array.isArray(res) ? res : (res && res.data) || []
+    pendingIntentCount.value = list.filter((it) => it && it.status === 'pending').length
   } catch (e) {
-    return false
+    /* 拉取失败不阻塞页面：入口退回"这是您发布的需求" */
   }
 }
+const goIntents = () => safeNavigateTo('/pkg-demand/pages/demands/intents?demandId=' + encodeURIComponent(postId))
 
-// 飞手认证：真实检查（/api/v1/certified-pilots/mine status=approved，个人飞手走此通道）
-const isPilotCertified = async () => {
-  try {
-    const res = await request({ url: '/api/v1/certified-pilots/mine' })
-    const p = res || {}
-    return p.status === 'approved'
-  } catch (e) {
-    return false
-  }
-}
-
-// 接单认证门槛：企业认证或飞手认证任一通过即可申请接单（个人飞手不强制企业主体）
-const isAnyCertified = async () => (await isEnterpriseCertified()) || (await isPilotCertified())
+// 认证判定已抽到 utils/cert.js —— 商品发布也要查企业认证，页内各写一份必然漂移
 
 /* ================= 会话弹层 ================= */
 const sheet = ref({ show: false, kind: '', title: '' })
@@ -722,6 +780,9 @@ const submitIntent = async () => {
       })
       saveSentIntents(sent)
     }
+    // 提交成功必须立刻把 intented 置真。此前只 toast + 关弹层，intented 一直停在 false，
+    // 按钮不变灰、还能再点开表单填一遍（后端会以"已登记过"拒绝，但用户看到的是"能重复申请"）。
+    intented.value = true
     uni.showToast({ title: backendOk ? '接单申请已提交，等待发布方确认' : '申请已保存到本地', icon: 'success' })
     closeSheet()
   } finally {
@@ -734,12 +795,17 @@ onLoad((options) => {
   initSafeTop()
   postId = (options && options.id) || ''
   loadDetail()
-  checkIntented()
   // 收藏状态依赖内容类型（需求/服务/商品），内容就绪后自动加载
+})
+// "是否已申请"放 onShow 而不是 onLoad：onLoad 一个页面实例只跑一次，
+// 从意向列表/其他页返回时不会重新触发，按钮状态就会停在旧值。
+onShow(() => {
+  checkIntented()
 })
 watch(state, (v) => {
   if (v === 'ready') {
     loadFavoriteState()
+    loadOwnerIntents() // 发布方入口：内容就绪后才知道 is_mine
     loadRecommend() // 内容就绪后带当前需求上下文推荐（画像加权 + 冷启动 + 最新列表保底）
   }
 })
@@ -842,6 +908,38 @@ watch(state, (v) => {
   font-size: 20rpx;
   color: #667085;
 }
+
+/* ═══════ 接单进度 ═══════ */
+.flow-card {
+  padding: 28rpx 24rpx 24rpx;
+  border: 1rpx solid #E8EDF3;
+  border-radius: 16rpx;
+  background: #F8FAFC;
+}
+.flow-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+.flow-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
+.flow-current { font-size: 22rpx; color: #0A66C2; font-weight: 600; }
+/* 驳回/取消这类负面终止态画不了进度条，改用一句话说明 */
+.flow-terminal { padding: 16rpx 0 4rpx; font-size: 26rpx; text-align: center; }
+.flow-terminal--danger { color: #D92D20; }
+.flow-terminal--muted { color: #98A2B3; }
+.flow-link {
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #E8EDF3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 26rpx;
+  color: #0A66C2;
+  font-weight: 600;
+}
+.flow-link-arrow { font-size: 28rpx; }
 
 /* ═══════ 分段区块 ═══════ */
 .detail-section {

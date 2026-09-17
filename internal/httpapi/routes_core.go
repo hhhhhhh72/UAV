@@ -93,6 +93,7 @@ func (s *Server) registerDemandRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/demands/{id}/intents", s.createIntent)
 	mux.HandleFunc("GET /api/v1/demands/{id}/intents", s.listDemandIntents)
 	mux.HandleFunc("GET /api/v1/intents/mine", s.listMyIntents)
+	mux.HandleFunc("GET /api/v1/intents/received", s.listReceivedIntents)
 	mux.HandleFunc("POST /api/v1/intents/{id}/cancel", s.cancelIntent)
 	mux.HandleFunc("POST /api/v1/demands/{id}/intents/{intentID}/accept", s.acceptIntent)
 	mux.HandleFunc("POST /api/v1/demands/{id}/intents/{intentID}/reject", s.rejectIntent)
@@ -202,6 +203,8 @@ func (s *Server) registerTrainingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/instructors", s.listInstructors)
 	mux.HandleFunc("POST /api/v1/certified-pilots", s.registerPilot)
 	mux.HandleFunc("GET /api/v1/admin/certified-pilots", s.listAdminPilots)
+	// 审核详情：完整档案 + 全部随附证书（列表只给 cert_ids，审不了）
+	mux.HandleFunc("GET /api/v1/admin/certified-pilots/{id}", s.getAdminPilot)
 	mux.HandleFunc("POST /api/v1/admin/certified-pilots/{id}/approve", s.approvePilot)
 	mux.HandleFunc("POST /api/v1/admin/certified-pilots/{id}/reject", s.rejectPilot)
 	mux.HandleFunc("GET /api/v1/certified-pilots", s.listPilots)
@@ -215,6 +218,9 @@ func (s *Server) registerTradingRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/products", s.createProduct)
 	mux.HandleFunc("GET /api/v1/products", s.listProducts)
 	mux.HandleFunc("GET /api/v1/products/{id}", s.getProductDetail)
+	// 卖家自助：编辑（退回待审核）/ 上下架。归属校验在服务层。
+	mux.HandleFunc("PATCH /api/v1/products/{id}", s.updateMyProduct)
+	mux.HandleFunc("POST /api/v1/products/{id}/status", s.setMyProductStatus)
 	mux.HandleFunc("POST /api/v1/products/{id}/favorite", s.toggleProductFavorite)
 	mux.HandleFunc("GET /api/v1/products/favorites/mine", s.listMyProductFavorites)
 	mux.HandleFunc("GET /api/v1/service-listings", s.listServiceListings)
@@ -254,7 +260,6 @@ func (s *Server) registerMessageRoutes(mux *http.ServeMux) {
 
 func (s *Server) registerMiscRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/contract-templates", s.listContractTemplates)
-	mux.HandleFunc("POST /api/v1/admin/members/import", s.importMembers)
 	mux.HandleFunc("POST /api/v1/assignments", s.createAssignment)
 }
 

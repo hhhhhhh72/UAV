@@ -29,13 +29,16 @@ const FIXTURES = {
   },
   // 认证飞手：张航 / individual + pilot approved
   pilot: {
-    user: { name: '张航', role: 'individual', phone: '138****5621', isAuth: true },
+    user: { name: '张航', role: 'individual', phone: '138****5621' },
     enterpriseStatus: '',
     pilotStatus: 'approved',
     overview: { certText: '已通过', flights: '12', certs: '2' },
     device: { bound: '2', online: '1', flights: '12' },
   },
-  // 普通个人：张航 / individual（实名认证为演示写死状态，无需 fixture 字段）
+  // 普通个人：张航 / individual
+  // 注：这里曾有个 user.isAuth 演示字段——后端从不返回它，个人资料页却据此渲染
+  // "已认证/未认证"，导致真实用户永远显示"未认证"。现已改为读
+  // GET /api/v1/certified-pilots/mine 的真实状态，该字段一并移除。
   individual: {
     user: { name: '张航', role: 'individual', phone: '138****5621' },
     enterpriseStatus: '',

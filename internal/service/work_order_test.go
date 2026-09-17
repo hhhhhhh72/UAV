@@ -16,7 +16,7 @@ import (
 func newWorkOrderScenario(t *testing.T) (*service.WorkOrderService, *service.IntentService, domain.Actor, domain.Actor, domain.Demand, domain.DemandIntent) {
 	t.Helper()
 	demandRepo := memory.NewDemandRepository(nil)
-	intentRepo := memory.NewIntentRepository()
+	intentRepo := memory.NewIntentRepository(demandRepo)
 	orderRepo := memory.NewWorkOrderRepository()
 
 	demandSvc := service.NewDemandService(demandRepo)

@@ -26,15 +26,20 @@ type AuditEntry struct {
 // WriteAudit inserts an audit log entry.
 func (s *Store) WriteAudit(ctx context.Context, e AuditEntry) error {
 	meta, err := json.Marshal(e.Metadata)
-	if err != nil { return fmt.Errorf("marshal audit metadata: %w", err) }
+	if err != nil {
+		return fmt.Errorf("marshal audit metadata: %w", err)
+	}
 	id := fmt.Sprintf("audit-%d", time.Now().UnixNano())
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO audit_logs (id, actor_id, action, resource_type, resource_id, result, request_id, metadata, created_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		id, e.ActorID, e.Action, e.ResourceType, e.ResourceID, e.Result, e.RequestID, meta, time.Now())
-	if err != nil { return fmt.Errorf("write audit log: %w", err) }
+	if err != nil {
+		return fmt.Errorf("write audit log: %w", err)
+	}
 	return nil
 }
+
 // ListAudit 分页查询审计日志（管理端「操作审计」页）：按时间倒序，支持操作人/动作/
 // 资源类型/时间范围过滤。返回 (记录, 总数)。
 func (s *Store) ListAudit(ctx context.Context, f repository.AuditFilter, offset, limit int) ([]AuditEntry, int, error) {
@@ -97,4 +102,3 @@ func (s *Store) ListAudit(ctx context.Context, f repository.AuditFilter, offset,
 	}
 	return out, total, rows.Err()
 }
-

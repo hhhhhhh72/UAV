@@ -10,6 +10,10 @@
       <text v-if="label" class="u-cell-label">{{ label }}</text>
     </view>
     <view v-if="value || $slots.value" class="u-cell-value"><slot name="value">{{ value }}</slot></view>
+    <!-- 行内动作插槽（如消息页的"同意接单"）：置于 value 之后、箭头之前。
+         不做包装层：调用方用 v-if 控制内容时，微信端直接不渲染节点，
+         不会留下空节点多占一个 flex gap；点击穿透由调用方的 @click.stop 拦住。 -->
+    <slot name="action" />
     <u-icon v-if="isLink" name="arrow" size="26rpx" color="#c8c9cc" />
   </view>
 </template>

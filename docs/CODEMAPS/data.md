@@ -22,7 +22,9 @@
 | 运营 | competitions, competition_registrations, association_events, event_registrations, industry_reports |
 | 应急 | emergency_resources, emergency_dispatches, emergency_depts, emergency_drills, rescue_cases |
 | 资源池/展会/测试/转化 | resource_pools, resource_pool_members / exhibitions, exhibition_booths / test_sites, test_site_bookings / transformations |
-| 院校/校企/店铺/协会 | colleges, study_tours / cooperation_programs / shops / association_members |
+| 院校/校企/店铺 | colleges, study_tours / cooperation_programs / shops |
+
+> `association_members` 已删除（迁移 000113）：协会 8 级角色未启用，生产 0 行、前端零调用。
 | 基建 | audit_logs, outbox_events, files |
 
 ## 迁移历史（63 组）

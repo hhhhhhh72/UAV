@@ -100,7 +100,8 @@
                     <text v-if="p.views" class="prod-views">{{ p.views }} 次浏览</text>
                   </view>
                   <view class="prod-foot">
-                    <text class="prod-price">¥{{ fmt(p.price_fen) }}</text>
+                    <!-- 面议商品不能显示 ¥0：与下方卡片（hcard-price）同一口径 -->
+                    <text class="prod-price">{{ isNegotiable(p) ? '面议' : '¥' + fmt(p.price_fen) }}</text>
                     <text v-if="condLabel(p)" class="prod-cert">{{ condLabel(p) }}</text>
                   </view>
                 </view>
@@ -127,9 +128,11 @@
                     </view>
                     <view class="hcard-info">
                       <text class="hcard-title">{{ p.title }}</text>
-                      <text class="hcard-type">{{ typeLabel(p.prod_type) }}</text>
+                      <!-- 类型标签优先用 category：prod_type 枚举没有"巡检/测绘/植保/应急"，
+                     直接显示它会把这四类误标成"维修服务" -->
+                <text class="hcard-type">{{ (p.category || '').trim() || typeLabel(p.prod_type) }}</text>
                       <view class="hcard-foot">
-                        <text class="hcard-price">{{ p.price_fen ? '¥' + fmt(p.price_fen) : '面议' }}</text>
+                        <text class="hcard-price">{{ isNegotiable(p) ? '面议' : '¥' + fmt(p.price_fen) }}</text>
                         <text class="hcard-cta">联系对接 ›</text>
                       </view>
                     </view>
@@ -152,7 +155,7 @@
                         <text v-if="condLabel(p)">{{ condLabel(p) }}</text>
                       </view>
                       <view class="hcard-foot">
-                        <text class="hcard-price">{{ p.price_fen ? '¥' + fmt(p.price_fen) + ' /小时' : '面议' }}</text>
+                        <text class="hcard-price">{{ isNegotiable(p) ? '面议' : '¥' + fmt(p.price_fen) + ' /小时' }}</text>
                         <text class="hcard-btn" @tap.stop="goBooking">预约 ›</text>
                       </view>
                     </view>
@@ -219,13 +222,33 @@ const deviceItems = computed(() => {
 })
 const deviceEmpty = computed(() => deviceItems.value.length === 0)
 
-// 服务/场地分区：各子类型分组（关键词即时过滤，空组隐藏）
+// 服务分区分组：**优先按 category**，而不是 prod_type。
+//
+// prod_type 枚举只有 7 个粗类目，"巡检/测绘/植保/应急"根本不在其中——按 prod_type
+// 分组会把这四类统统塞进「维修服务」，用户看到"电力线路巡检"被标成"维修服务"，
+// 像是数据错了（实为选错了分类维度）。category 保留了真实类目，且卖家居时填什么就显示什么。
+// category 为空时回退到 prod_type 的展示名。
+const SERVICE_TYPE_TITLE = {
+  aerial: '航拍服务', calibration: '检测标定', airspace: '空域协调', repair: '维修服务',
+}
+
 const zoneGroups = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  const defs = groupDefs[activeZone.value] || []
-  return defs
-    .map((g) => ({ ...g, items: products.value.filter((p) => g.types.includes(p.prod_type) && kwMatch(p, kw)) }))
-    .filter((g) => g.items.length)
+  // 场地分区仍按 prod_type（试飞场地是物理资源，没有 category 概念）
+  if (activeZone.value === 'site') {
+    return (groupDefs.site || [])
+      .map((g) => ({ ...g, items: products.value.filter((p) => g.types.includes(p.prod_type) && kwMatch(p, kw)) }))
+      .filter((g) => g.items.length)
+  }
+  const byCat = new Map()
+  for (const p of products.value) {
+    if (!SERVICE_TYPE_TITLE[p.prod_type]) continue
+    if (!kwMatch(p, kw)) continue
+    const title = String(p.category || '').trim() || SERVICE_TYPE_TITLE[p.prod_type]
+    if (!byCat.has(title)) byCat.set(title, [])
+    byCat.get(title).push(p)
+  }
+  return Array.from(byCat, ([title, items]) => ({ key: title, title, items }))
 })
 
 const typeCount = (types) => products.value.filter((p) => types.includes(p.prod_type)).length
@@ -279,6 +302,8 @@ const imgSrc = (p) => {
   return ''
 }
 const fmt = (f) => (f ? (f / 100).toLocaleString('en-US') : '0')
+// 面议商品：price_fen=0。判定优先用 price_mode，兼容尚未带该字段的历史数据。
+const isNegotiable = (p) => p.price_mode === 'negotiable' || !p.price_fen
 
 const goDetail = (id) => {
   uni.navigateTo({ url: '/pkg-eco/pages/mall/detail?id=' + encodeURIComponent(id) })

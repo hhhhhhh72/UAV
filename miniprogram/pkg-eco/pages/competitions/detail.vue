@@ -274,10 +274,18 @@ function onHeroImgError() {
 }
 
 /** Hero 左下角首字徽章 */
+// 后端返回 RFC3339 时间戳（2026-08-07T14:57:12.234123+08:00）。
+// 此前的判据是"字符串含小数点或「年」就原样返回"，本意是放行已经写好的中文日期，
+// 但 ISO 的**小数秒里正好有小数点**，于是整串时间戳被当成"已格式化"直接渲染出来——
+// 同一页里没有小数秒的日期正常显示，有小数秒的显示成 2026-08-07T14:57:12.234123+08:00。
+// 改成按形态判断：以 YYYY-MM-DD 开头的截日期段；其余原样保留（中文/点分格式不丢信息）。
 function fmtDate(d) {
   if (!d) return '待定'
-  if (String(d).indexOf('.') >= 0 || String(d).indexOf('年') >= 0) return String(d)
-  return String(d).slice(0, 10)
+  const s = String(d).trim()
+  if (!s) return '待定'
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return m[1] + '-' + m[2] + '-' + m[3]
+  return s
 }
 
 function compPeriod(item) {

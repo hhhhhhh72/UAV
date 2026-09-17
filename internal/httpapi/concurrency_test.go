@@ -42,7 +42,7 @@ func newFullServer(t *testing.T) *httpapi.Server {
 		service.NewListingService(memory.NewListingRepository()),
 		service.NewLabourService(memory.NewLabourOrderRepository()),
 		service.NewTrainingService(nil, nil, nil, nil),
-		service.NewTradingService(nil, nil),
+		service.NewTradingService(nil, nil, nil, nil),
 		service.NewInsuranceService(nil, nil),
 		service.NewFinanceService(nil),
 		service.NewHomeService(demandRepo, memory.NewEnterpriseRepository(nil)),

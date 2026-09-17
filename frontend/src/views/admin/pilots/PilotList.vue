@@ -25,6 +25,7 @@
       </template>
       <template #actions="{ record }">
         <a-space :size="4">
+          <a-button type="text" size="small" @click="openDetail(record)">查看资料</a-button>
           <template v-if="record.status === 'pending'">
             <a-button type="text" status="success" size="small" @click="handleApprove(record)">通过</a-button>
             <a-button type="text" status="danger" size="small" @click="openReject(record)">驳回</a-button>
@@ -39,6 +40,65 @@
         <a-empty description="暂无飞手申请" />
       </template>
     </CrudList>
+
+    <!-- 审核资料抽屉：列表只给 cert_ids（一串 ID），审核人看不到申请人到底提交了什么。
+         这里展示完整档案 + 全部随附证书（含编号、发证机构、有效期、证书照片原图）。 -->
+    <a-drawer
+      :visible="detailVisible"
+      :width="560"
+      title="审核资料"
+      :footer="false"
+      unmount-on-close
+      @cancel="detailVisible = false"
+    >
+      <a-spin :loading="detailLoading" style="width: 100%">
+        <template v-if="detail">
+          <a-descriptions :column="1" bordered size="small" title="申请人">
+            <a-descriptions-item label="姓名">{{ detail.real_name || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="身份证号">
+              <span class="mono">{{ detail.id_card || '-' }}</span>
+              <span class="hint">{{ isIdMasked ? '（完整证号仅平台管理员可见）' : '（审核用，请勿外传）' }}</span>
+            </a-descriptions-item>
+            <a-descriptions-item label="所在地区">{{ detail.region || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="飞行时长">{{ detail.flight_hours || 0 }} 小时</a-descriptions-item>
+            <a-descriptions-item label="擅长领域">{{ detail.bio || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="状态">
+              <a-tag :color="statusTag(detail.status)" size="small">{{ statusLabel[detail.status] || detail.status || '-' }}</a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="申请时间">{{ formatDate(detail.created_at) }}</a-descriptions-item>
+          </a-descriptions>
+
+          <div class="cert-block">
+            <div class="cert-block-title">
+              证书材料
+              <span class="cert-block-count">{{ (detail.certificates || []).length }} 张</span>
+            </div>
+            <a-empty v-if="!(detail.certificates || []).length" description="该申请没有随附证书" />
+            <div v-for="c in detail.certificates" :key="c.id" class="cert-item">
+              <div class="cert-item-head">
+                <a-tag :color="certStatusTag(c.status)" size="small">{{ certStatusLabel[c.status] || c.status }}</a-tag>
+                <span class="cert-item-type">{{ certTypeName(c.cert_type) }}</span>
+              </div>
+              <a-descriptions :column="1" size="small">
+                <a-descriptions-item label="证书编号">{{ c.cert_number || '未填写' }}</a-descriptions-item>
+                <a-descriptions-item label="发证机构">{{ c.issuer_org || '-' }}</a-descriptions-item>
+                <a-descriptions-item label="等级">{{ c.level || '-' }}</a-descriptions-item>
+                <a-descriptions-item label="发证日期">{{ dateOnly(c.issue_date) }}</a-descriptions-item>
+                <a-descriptions-item label="有效期至">{{ dateOnly(c.expire_date) || '长期有效' }}</a-descriptions-item>
+              </a-descriptions>
+              <a-image
+                v-if="c.image_url"
+                :src="c.image_url"
+                :width="120"
+                class="cert-item-img"
+                :preview-props="{ srcList: [c.image_url] }"
+              />
+              <span v-else class="hint">未上传证书照片</span>
+            </div>
+          </div>
+        </template>
+      </a-spin>
+    </a-drawer>
 
     <!-- 驳回理由弹窗 -->
     <a-modal v-model:visible="rejectVisible" title="驳回申请" :width="'min(480px, 94vw)'" :footer="false" @cancel="rejectVisible = false">
@@ -56,7 +116,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Message from '@arco-design/web-vue/es/message'
 import '@arco-design/web-vue/es/message/style/css'
 import Modal from '@arco-design/web-vue/es/modal'
@@ -82,6 +142,51 @@ const formatDate = (d) => {
 
 const statusLabel = { pending: '待审核', approved: '已认证', rejected: '已驳回' }
 const statusTag = (s) => ({ pending: 'orangered', approved: 'green', rejected: 'red' }[s] || 'gray')
+
+/* ===== 审核资料抽屉 =====
+   列表接口只返回 CertifiedPilot（证书仅 cert_ids 一串 ID），审核人看不到申请人
+   到底提交了什么。抽屉改调管理端详情接口，拿到完整档案 + 全部随附证书。 */
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detail = ref(null)
+
+const openDetail = async (row) => {
+  detailVisible.value = true
+  detailLoading.value = true
+  detail.value = null
+  try {
+    const res = await axios.get('/api/v1/admin/certified-pilots/' + row.id)
+    detail.value = (res && res.data) || res || null
+  } catch (e) {
+    Message.error(e?.response?.data?.message || '加载审核资料失败')
+    detailVisible.value = false
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+// 后端按角色分级下发：平台管理员拿完整证号，协会管理员拿脱敏值（含 *）。
+// 前端据此换提示文案，避免协会管理员误以为系统漏了数据。
+const isIdMasked = computed(() => String((detail.value && detail.value.id_card) || '').indexOf('*') >= 0)
+
+// 证书类型展示名：与小程序 enums / 后端 certTypeName 保持同一套口径
+const CERT_TYPE_NAME = {
+  caac: 'CAAC 民航局执照',
+  utc_dji: '大疆 UTC 认证',
+  aopa: 'AOPA 执照',
+  asfc: 'ASFC 执照',
+  gov_level: '人社等级证书',
+}
+const certTypeName = (t) => CERT_TYPE_NAME[t] || t || '证书'
+const certStatusLabel = { pending: '待审核', approved: '已通过', rejected: '已驳回' }
+const certStatusTag = (s) => ({ pending: 'orangered', approved: 'green', rejected: 'red' }[s] || 'gray')
+
+// 后端日期是 RFC3339；空值/零值时间（0001-01-01）按"未填"处理
+const dateOnly = (d) => {
+  if (!d) return ''
+  const s = String(d).slice(0, 10)
+  return s.startsWith('0001') ? '' : s
+}
 
 // 批量动作：批量通过 / 批量驳回——走专用审核端点
 const batchActions = [
@@ -158,4 +263,18 @@ const confirmReject = async () => {
 
 <style scoped>
 .time-text { color: var(--color-text-2); font-size: 12px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.5px; }
+.hint { color: var(--color-text-3); font-size: 12px; margin-left: 6px; }
+.cert-block { margin-top: 20px; }
+.cert-block-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.cert-block-count { color: var(--color-text-3); font-weight: 400; font-size: 12px; margin-left: 6px; }
+.cert-item {
+  border: 1px solid var(--color-border-2);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.cert-item-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cert-item-type { font-weight: 600; font-size: 13px; }
+.cert-item-img { margin-top: 8px; border-radius: 4px; }
 </style>

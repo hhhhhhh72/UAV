@@ -43,6 +43,14 @@
           <text class="data-label">申请时间</text>
           <text class="data-value">{{ as.created_at }}</text>
         </view>
+        <view v-if="as.return_tracking" class="data-row">
+          <text class="data-label">退货单号</text>
+          <text class="data-value">{{ as.return_tracking }}</text>
+        </view>
+        <view v-if="as.returned_at" class="data-row">
+          <text class="data-label">寄回时间</text>
+          <text class="data-value">{{ as.returned_at }}</text>
+        </view>
       </view>
 
       <!-- 售后进度 -->
@@ -67,17 +75,43 @@
       </view>
 
       <!-- 操作 -->
-      <!-- 卖家视角：仅「售后处理中 + 待审核」显示审核按钮（同意退款 / 驳回）。
-           已退款完成/已驳回的结案单（订单状态已回 completed）绝不显示操作按钮 -->
-      <view v-if="isSeller && order.status === 'aftersale' && as && as.status === '待审核'" class="action-wrap">
+      <!-- 卖家视角①：待审核 → 驳回 / 同意。
+           退货退款的「同意」只是同意退货，买家还需寄回、卖家确认收到后才退款，
+           因此按钮文案必须区分，不能让卖家以为一按就退钱 -->
+      <view v-if="isSeller && as && as.status_key === 'pending'" class="action-wrap">
         <view class="action-btn action-btn--danger" @tap="review(false)">
           <text>驳回申请</text>
         </view>
         <view class="action-btn action-btn--primary" @tap="review(true)">
-          <text>同意退款</text>
+          <text>{{ as.is_return ? '同意退货' : '同意退款' }}</text>
         </view>
       </view>
-      <!-- 买家视角：售后待审核时无操作（后端无补充说明接口，重复提交会被拒绝），查看进度即可 -->
+      <!-- 卖家视角②：买家已寄回 → 确认收到退货（此刻才发起退款） -->
+      <view v-if="isSeller && as && as.status_key === 'returned'" class="action-wrap">
+        <view class="action-btn action-btn--primary" @tap="confirmReturn">
+          <text>确认收到退货并发起退款</text>
+        </view>
+      </view>
+      <!-- 买家视角①：退货退款经卖家同意后需要寄回并提交物流单号 -->
+      <view v-if="!isSeller && as && as.status_key === 'returning'" class="action-wrap">
+        <view class="action-btn action-btn--primary" @tap="submitReturn">
+          <text>填写退货物流单号</text>
+        </view>
+      </view>
+      <!-- 买家视角②：已寄回，等待卖家确认（退款尚未发生） -->
+      <view v-if="!isSeller && as && as.status_key === 'returned'" class="action-hint">
+        <text>已提交退货物流，卖家确认收到后退款按平台流程处理</text>
+      </view>
+      <!-- 买家视角③：被驳回 → 后端允许重新申请，给出回去重提的入口 -->
+      <view v-if="!isSeller && as && as.status_key === 'rejected'" class="action-wrap">
+        <view class="action-btn action-btn--primary" @tap="reapply">
+          <text>重新申请售后</text>
+        </view>
+      </view>
+      <!-- 卖家视角③：已同意退货，等待买家寄回（此阶段卖家无需操作） -->
+      <view v-if="isSeller && as && as.status_key === 'returning'" class="action-hint">
+        <text>已同意退货，等待买家寄回商品并填写物流单号</text>
+      </view>
     </template>
 
     <view class="bottom-spacer"></view>
@@ -104,12 +138,17 @@ const reviewing = ref(false)
 const review = async (approve) => {
   const o = order.value
   if (!o || reviewing.value) return
+  const isReturn = !!(as.value && as.value.is_return)
   const action = approve ? 'approve' : 'reject'
-  const tip = approve ? '确认同意退款？' : '确认驳回该售后申请？'
+  const tip = approve ? (isReturn ? '确认同意退货？' : '确认同意退款？') : '确认驳回该售后申请？'
   const confirmed = await new Promise((resolve) => {
     uni.showModal({
       title: tip,
-      content: approve ? '同意后售后单结案，订单完成' : '驳回后订单结案，买家可联系客服',
+      content: approve
+        ? (isReturn
+          ? '同意后请等待买家寄回商品，你确认收到货后才发起退款'
+          : '同意后售后单结案，订单完成')
+        : '驳回后订单结案，买家可联系客服',
       success: (r) => resolve(!!r.confirm),
       fail: () => resolve(false),
     })
@@ -124,7 +163,10 @@ const review = async (approve) => {
       data: { action },
     })
     uni.hideLoading()
-    uni.showToast({ title: approve ? '已同意退款' : '已驳回申请', icon: 'success' })
+    uni.showToast({
+      title: approve ? (isReturn ? '已同意退货，等待买家寄回' : '已同意退款') : '已驳回申请',
+      icon: 'success',
+    })
     setTimeout(() => { loadData({ id: o.id }) }, 600)
   } catch (e) {
     uni.hideLoading()
@@ -133,6 +175,88 @@ const review = async (approve) => {
   } finally {
     reviewing.value = false
   }
+}
+
+// 买家提交退货物流单号：POST /api/v1/trade-orders/{id}/aftersale/return
+//（退货退款流程第二步；后端要求状态为「已同意退货」且单号非空）
+const submitReturn = () => {
+  const o = order.value
+  if (!o || reviewing.value) return
+  uni.showModal({
+    title: '填写退货物流单号',
+    editable: true,
+    placeholderText: '请输入快递单号，如 SF123456789',
+    success: async (r) => {
+      if (!r.confirm) return
+      const tracking = (r.content || '').trim()
+      // 静默返回会让用户以为"点了没反应"；后端要求单号非空，这里必须先提示
+      if (!tracking) {
+        uni.showToast({ title: '请填写退货物流单号', icon: 'none' })
+        return
+      }
+      reviewing.value = true
+      uni.showLoading({ title: '提交中...' })
+      try {
+        await request({
+          url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/aftersale/return',
+          method: 'POST',
+          data: { tracking_no: tracking },
+        })
+        uni.hideLoading()
+        uni.showToast({ title: '已提交，等待卖家确认收货', icon: 'none' })
+        setTimeout(() => { loadData({ id: o.id }) }, 600)
+      } catch (e) {
+        uni.hideLoading()
+        const msg = (e && e.data && e.data.error && e.data.error.message) || '提交失败，请重试'
+        uni.showToast({ title: msg, icon: 'none' })
+      } finally {
+        reviewing.value = false
+      }
+    },
+  })
+}
+
+// 卖家/管理员确认收到退货：POST /api/v1/trade-orders/{id}/aftersale/confirm-return
+//（退货退款流程第三步——到这一步才真正退款并结案）
+const confirmReturn = async () => {
+  const o = order.value
+  if (!o || reviewing.value) return
+  const confirmed = await new Promise((resolve) => {
+    uni.showModal({
+      title: '确认收到退货',
+      content: '确认已收到买家寄回的商品？确认后将发起退款并结案。',
+      confirmText: '确认收到',
+      success: (r) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    })
+  })
+  if (!confirmed) return
+  reviewing.value = true
+  uni.showLoading({ title: '处理中...' })
+  try {
+    await request({
+      url: '/api/v1/trade-orders/' + encodeURIComponent(o.id) + '/aftersale/confirm-return',
+      method: 'POST',
+    })
+    uni.hideLoading()
+    uni.showToast({ title: '已确认收到退货，退款已发起', icon: 'success' })
+    setTimeout(() => { loadData({ id: o.id }) }, 600)
+  } catch (e) {
+    uni.hideLoading()
+    const msg = (e && e.data && e.data.error && e.data.error.message) || '操作失败，请重试'
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    reviewing.value = false
+  }
+}
+
+// 被驳回后重新申请：回退款申请页（后端允许 rejected → 再次提交）
+const reapply = () => {
+  const o = order.value
+  if (!o) return
+  uni.navigateTo({
+    url: `/pages/orders/refund-apply?id=${encodeURIComponent(o.id)}&type=${o.type}`,
+  })
 }
 
 const loadData = async (query = {}) => {
@@ -340,6 +464,17 @@ const kindClass = (type) => (type === 'service' ? 'service' : type === 'course' 
   color: #B42318;
   border: 1rpx solid #FDECEC;
   box-shadow: none;
+}
+
+.action-hint {
+  margin: 32rpx 24rpx 0;
+  padding: 24rpx 28rpx;
+  background: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
 }
 
 .bottom-spacer { height: 24rpx; }

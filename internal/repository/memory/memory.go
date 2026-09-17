@@ -1247,7 +1247,8 @@ func (r *memUserRepo) FindByOpenID(ctx context.Context, openid string) (domain.U
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, u := range r.items {
-		if u.WechatOpenID == openid {
+		// 与 PG 的 deleted_at IS NULL 过滤对齐：已注销账号不可登录/不可被选中。
+		if u.WechatOpenID == openid && u.DeletedAt == nil {
 			r.decrypt(&u)
 			return u, nil
 		}
@@ -1278,7 +1279,11 @@ func (r *memUserRepo) FindByID(ctx context.Context, id string) (domain.User, err
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, u := range r.items {
-		if u.ID == id {
+		// P1 修复：必须与 PG 的 WHERE id=$1 AND deleted_at IS NULL 对齐。
+		// 此前不过滤软删账号，导致 dev 下 ChangeRole/ResetPassword/DeleteUser 对
+		// 已注销账号不再返回 ErrUserNotFound，与生产 404 语义分叉
+		//（service/users.go 明文写下的不变式：FindByID/All 都带 deleted_at 过滤）。
+		if u.ID == id && u.DeletedAt == nil {
 			r.decrypt(&u)
 			return u, nil
 		}
@@ -1631,10 +1636,14 @@ func (r *contractRepo) UpdateStatus(ctx context.Context, id string, status domai
 type intentRepo struct {
 	mu    sync.RWMutex
 	items []domain.DemandIntent
+	// demands 用于 ListByPublisher：意向行本身只有 demand_id，
+	// "谁发布的"这一归属信息在 demands 上，内存实现没有 JOIN 可用。
+	demands repository.DemandRepository
 }
 
-func NewIntentRepository() repository.IntentRepository {
-	return &intentRepo{}
+// NewIntentRepository 需注入需求仓储以支持 ListByPublisher（按发布者聚合意向）。
+func NewIntentRepository(demands repository.DemandRepository) repository.IntentRepository {
+	return &intentRepo{demands: demands}
 }
 
 func (r *intentRepo) Create(ctx context.Context, it domain.DemandIntent) (domain.DemandIntent, error) {
@@ -1671,6 +1680,34 @@ func (r *intentRepo) ListByIntentor(ctx context.Context, intentorID string) ([]d
 	out := make([]domain.DemandIntent, 0)
 	for _, it := range r.items {
 		if it.IntentorID == intentorID {
+			out = append(out, it)
+		}
+	}
+	// 与 PG 对齐：ORDER BY created_at DESC。
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out, nil
+}
+
+// ListByPublisher 与 PG 的 JOIN 语义对齐：先取发布者名下的需求，再筛出挂在这些需求上的意向。
+// 未注入需求仓储时明确报错，而不是静默返回空（空结果会让"一键同意"按钮该出而不出）。
+func (r *intentRepo) ListByPublisher(ctx context.Context, publisherID string) ([]domain.DemandIntent, error) {
+	if r.demands == nil {
+		return nil, fmt.Errorf("intent repository: demand repository not wired, cannot list by publisher")
+	}
+	dems, err := r.demands.ListByPublisher(ctx, publisherID)
+	if err != nil {
+		return nil, err
+	}
+	titles := make(map[string]string, len(dems))
+	for _, d := range dems {
+		titles[d.ID] = d.Title
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.DemandIntent, 0)
+	for _, it := range r.items {
+		if title, ok := titles[it.DemandID]; ok {
+			it.DemandTitle = title // 与 PG 的 JOIN d.title 对齐
 			out = append(out, it)
 		}
 	}
@@ -1849,10 +1886,15 @@ func NewCertificateRepository() repository.CertificateRepository { return &certR
 func (r *certRepo) Create(ctx context.Context, c domain.Certificate) (domain.Certificate, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	// 与 PG 唯一索引对齐（无条件，含空证书号——此前仅非空才查重，行为漂移）。
-	for _, x := range r.items {
-		if x.CertNumber == c.CertNumber {
-			return domain.Certificate{}, repository.ErrCertNumberTaken
+	// 与 PG 的部分唯一索引对齐（migrations/000076：
+	// CREATE UNIQUE INDEX ... ON certificates (cert_number) WHERE cert_number <> ''）。
+	// 此前写成"无条件查重（含空证书号）"——方向反了：第二张没有证书号的证书会被拒，
+	// 而 prod 允许；且同文件 Update 又是按非空判断，Create/Update 自相矛盾。
+	if c.CertNumber != "" {
+		for _, x := range r.items {
+			if x.CertNumber == c.CertNumber {
+				return domain.Certificate{}, repository.ErrCertNumberTaken
+			}
 		}
 	}
 	r.items = append(r.items, c)
@@ -2211,13 +2253,17 @@ func (r *pilotRepo) Update(ctx context.Context, p domain.CertifiedPilot) (domain
 	for i, v := range r.items {
 		if v.ID == p.ID {
 			p.UpdatedAt = time.Now()
+			// P1 修复：落库前必须加密身份证。此前直接整体覆盖，把明文写进"库内"，
+			// 而 PG 的 Update 会重新加密——触发路径就是 service 的"驳回后重提"：
+			// List() 解密出明文 → 赋回 → Update()，于是 dev 内存里 id_card 变明文。
+			r.encryptInPlace(&p)
 			r.items[i] = p
 			result := p
 			r.decryptInPlace(&result)
 			return result, nil
 		}
 	}
-	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s not found", p.ID)
+	return domain.CertifiedPilot{}, fmt.Errorf("pilot %s not found: %w", p.ID, repository.ErrNotFound)
 }
 
 func (r *pilotRepo) UpdateStatus(ctx context.Context, id string, status string) (domain.CertifiedPilot, error) {
@@ -2226,6 +2272,10 @@ func (r *pilotRepo) UpdateStatus(ctx context.Context, id string, status string) 
 	for i, p := range r.items {
 		if p.ID == id {
 			r.items[i].Status = status
+			// 与 PG 实现一致：状态更新即清掉旧驳回理由。
+			// 重提路径（RegisterPilot）已清过，这里针对的是**修复前落库的脏数据**
+			//（pending 记录上挂着上一轮驳回理由），审核通过时一并清掉。
+			r.items[i].RejectReason = ""
 			r.items[i].UpdatedAt = time.Now()
 			result := r.items[i]
 			r.decryptInPlace(&result)
@@ -2264,14 +2314,97 @@ func NewProductRepository() repository.ProductRepository { return &prodRepo{} }
 func (r *prodRepo) Create(ctx context.Context, p domain.DroneProduct) (domain.DroneProduct, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// 与 PG 的列默认值对齐：未指定审核状态一律待审，不允许"未审即可见"。
+	if p.CheckStatus == "" {
+		p.CheckStatus = domain.ProductCheckPending
+	}
 	r.items = append(r.items, p)
 	return p, nil
+}
+
+// SetStatusBulk 批量改上架状态（与 PG 同语义）：跳过已售与回收站；上架须已过审。
+func (r *prodRepo) SetStatusBulk(ctx context.Context, ids []string, status string) (int, error) {
+	want := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		want[id] = true
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	n := 0
+	for i := range r.items {
+		it := &r.items[i]
+		if !want[it.ID] || it.DeletedAt != nil || it.Status == "sold" {
+			continue
+		}
+		if status == "listed" && it.CheckStatus != domain.ProductCheckPassed {
+			continue
+		}
+		it.Status = status
+		it.Version++
+		it.UpdatedAt = time.Now()
+		n++
+	}
+	return n, nil
+}
+
+// SetProductStatus 卖家自助上下架（与 PG 同语义）：归属 + 未删除 + 非已售 + 上架须已过审。
+func (r *prodRepo) SetProductStatus(ctx context.Context, id, sellerID, status string) (domain.DroneProduct, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		it := &r.items[i]
+		if it.ID != id || it.DeletedAt != nil || it.SellerID != sellerID {
+			continue
+		}
+		// 条件不满足时跳出，统一落到下面的 ErrNotFound（与 PG 的 WHERE 未命中同语义）。
+		if it.Status == "sold" {
+			break
+		}
+		if status == "listed" && it.CheckStatus != domain.ProductCheckPassed {
+			break
+		}
+		it.Status = status
+		it.Version++
+		it.UpdatedAt = time.Now()
+		return *it, nil
+	}
+	return domain.DroneProduct{}, fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
+}
+
+// ReviewProduct 审核商品（与 PG 同语义）：仅待审/已驳回的行可被审；
+// 通过即上架（status=listed），驳回**不动 status**——驳回 ≠ 下架。
+func (r *prodRepo) ReviewProduct(ctx context.Context, id, checkStatus, reason, reviewerID string) (domain.DroneProduct, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		it := &r.items[i]
+		if it.ID != id || it.DeletedAt != nil {
+			continue
+		}
+		// 条件更新语义：已终审（passed）的行不可重复审，防并发重复审核。
+		if it.CheckStatus != domain.ProductCheckPending && it.CheckStatus != domain.ProductCheckRejected {
+			return domain.DroneProduct{}, fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
+		}
+		now := time.Now()
+		it.CheckStatus = checkStatus
+		it.CheckReason = reason
+		it.ReviewedAt = &now
+		it.ReviewedBy = reviewerID
+		if checkStatus == domain.ProductCheckPassed {
+			it.Status = "listed"
+		}
+		it.Version++
+		it.UpdatedAt = now
+		return *it, nil
+	}
+	return domain.DroneProduct{}, fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
 }
 func (r *prodRepo) FindByID(ctx context.Context, id string) (domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	for _, p := range r.items {
-		if p.ID == id {
+		// 与 PG 的 "WHERE id=$1 AND deleted_at IS NULL" 对齐：回收站商品按 id 查不到。
+		if p.ID == id && p.DeletedAt == nil {
 			return p, nil
 		}
 	}
@@ -2282,7 +2415,8 @@ func (r *prodRepo) Update(ctx context.Context, p domain.DroneProduct) (domain.Dr
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.items {
-		if r.items[i].ID == p.ID {
+		// 与 PG 的 "WHERE id=$13 AND deleted_at IS NULL" 对齐：回收站商品不可改。
+		if r.items[i].ID == p.ID && r.items[i].DeletedAt == nil {
 			r.items[i] = p
 			return p, nil
 		}
@@ -2290,16 +2424,52 @@ func (r *prodRepo) Update(ctx context.Context, p domain.DroneProduct) (domain.Dr
 	return domain.DroneProduct{}, fmt.Errorf("product %s not found", p.ID)
 }
 
-func (r *prodRepo) Delete(ctx context.Context, id string) error {
+// SoftDelete 软删除（回收站）：只置 deleted_at，不摘除切片元素。
+// 与 PG 同语义（物理删除会打断 trade_orders.product_id 的关联）。
+func (r *prodRepo) SoftDelete(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.items {
-		if r.items[i].ID == id {
-			r.items = append(r.items[:i], r.items[i+1:]...)
+		if r.items[i].ID == id && r.items[i].DeletedAt == nil {
+			now := time.Now()
+			r.items[i].DeletedAt = &now
+			r.items[i].Version++
+			r.items[i].UpdatedAt = now
 			return nil
 		}
 	}
-	return fmt.Errorf("product %s not found", id)
+	return fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
+}
+
+// Undelete 回收站还原（与 PG 同语义）。
+func (r *prodRepo) Undelete(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id && r.items[i].DeletedAt != nil {
+			r.items[i].DeletedAt = nil
+			r.items[i].Version++
+			r.items[i].UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return fmt.Errorf("product %s: %w", id, repository.ErrNotFound)
+}
+
+// ListDeleted 回收站列表：仅已软删除的行，按删除时间倒序（与 PG 同语义）。
+func (r *prodRepo) ListDeleted(ctx context.Context) ([]domain.DroneProduct, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.DroneProduct, 0)
+	for _, p := range r.items {
+		if p.DeletedAt != nil {
+			out = append(out, p)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].DeletedAt.After(*out[j].DeletedAt)
+	})
+	return out, nil
 }
 
 // ---- Product Favorites ----
@@ -2337,7 +2507,8 @@ func (r *prodRepo) ListFavoriteProducts(ctx context.Context, userID string) ([]d
 			continue
 		}
 		for _, p := range r.items {
-			if p.ID == f.ItemID {
+			// 与 PG 对齐：JOIN 上 p.deleted_at IS NULL —— 回收站商品不出现在"我的收藏"。
+			if p.ID == f.ItemID && p.DeletedAt == nil {
 				out = append(out, p)
 				break
 			}
@@ -2354,7 +2525,8 @@ func (r *prodRepo) IncrementViews(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.items {
-		if r.items[i].ID == id {
+		// 与 PG 的 "WHERE id=$1 AND deleted_at IS NULL" 对齐：不给回收站商品涨浏览量。
+		if r.items[i].ID == id && r.items[i].DeletedAt == nil {
 			r.items[i].Views++
 			return nil
 		}
@@ -2368,6 +2540,10 @@ func (r *prodRepo) MarkSold(ctx context.Context, id string) error {
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == id {
+			// 与 PG 对齐：回收站商品不可被下单占用（deleted_at IS NULL 条件）。
+			if r.items[i].DeletedAt != nil {
+				return fmt.Errorf("product %s not available", id)
+			}
 			if r.items[i].Status != "" && r.items[i].Status != "listed" {
 				return fmt.Errorf("product %s not available", id)
 			}
@@ -2386,7 +2562,8 @@ func (r *prodRepo) Restore(ctx context.Context, id string) error {
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == id {
-			if r.items[i].Status != "sold" {
+			// 与 PG 对齐：孤儿回收不得复活回收站商品。
+			if r.items[i].DeletedAt != nil || r.items[i].Status != "sold" {
 				return fmt.Errorf("product %s not in sold state", id)
 			}
 			r.items[i].Status = "listed"
@@ -2398,11 +2575,36 @@ func (r *prodRepo) Restore(ctx context.Context, id string) error {
 	return fmt.Errorf("product %s not found", id)
 }
 
+// ListSoldBefore 列出"已售且超过 cutoff 未变动"的商品（孤儿已售商品回收用，与 PG 同语义）。
+func (r *prodRepo) ListSoldBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.DroneProduct, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]domain.DroneProduct, 0)
+	for _, p := range r.items {
+		// 与 PG 对齐：回收站商品不参与孤儿回收扫描。
+		if p.Status == "sold" && p.DeletedAt == nil && p.UpdatedAt.Before(cutoff) {
+			out = append(out, p)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].UpdatedAt.Before(out[j].UpdatedAt) })
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
 func (r *prodRepo) List(ctx context.Context, prodType string) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]domain.DroneProduct, 0, len(r.items))
 	for _, p := range r.items {
+		// 与 PG 对齐：deleted_at IS NULL —— 大厅/mine/管理端列表都看不到回收站商品。
+		if p.DeletedAt != nil {
+			continue
+		}
 		if prodType != "" && string(p.ProdType) != prodType {
 			continue
 		}
@@ -2420,8 +2622,9 @@ func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]d
 	defer r.mu.RUnlock()
 	out := make([]domain.DroneProduct, 0, limit)
 	for _, p := range r.items {
-		// 与 PG WHERE status='listed' 对齐：空状态商品不算可售（dev 此前放行空状态）。
-		if p.Status != "listed" {
+		// 与 PG WHERE status='listed' AND deleted_at IS NULL 对齐：
+		// 空状态商品不算可售（dev 此前放行空状态），回收站商品也不上首页。
+		if p.Status != "listed" || p.DeletedAt != nil {
 			continue
 		}
 		if prodType != "" && string(p.ProdType) != prodType {
@@ -2437,6 +2640,8 @@ func (r *prodRepo) ListTop(ctx context.Context, prodType string, limit int) ([]d
 }
 
 // ListByIDs 批量按 ID 取商品（订单列表补商品名防 N+1）。
+//
+// 与 PG 同语义：**故意不过滤 deleted_at**——商品进回收站后历史订单仍要显示商品名。
 func (r *prodRepo) ListByIDs(ctx context.Context, ids []string) ([]domain.DroneProduct, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -2459,121 +2664,16 @@ func (r *prodRepo) SumViews(ctx context.Context, prodType string) (int, error) {
 	defer r.mu.RUnlock()
 	sum := 0
 	for _, p := range r.items {
+		// 与 PG 对齐：WHERE deleted_at IS NULL，统计不含回收站。
+		if p.DeletedAt != nil {
+			continue
+		}
 		if prodType != "" && string(p.ProdType) != prodType {
 			continue
 		}
 		sum += p.Views
 	}
 	return sum, nil
-}
-
-// ---- Service Listings ----
-
-type slrRepo struct {
-	mu        sync.RWMutex
-	items     []domain.ServiceListing
-	favorites []contentFavorite
-}
-
-func NewServiceListingRepository() repository.ServiceListingRepository { return &slrRepo{} }
-
-func (r *slrRepo) Create(ctx context.Context, sl domain.ServiceListing) (domain.ServiceListing, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.items = append(r.items, sl)
-	return sl, nil
-}
-
-func (r *slrRepo) FindByID(ctx context.Context, id string) (domain.ServiceListing, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, sl := range r.items {
-		if sl.ID == id {
-			return sl, nil
-		}
-	}
-	return domain.ServiceListing{}, fmt.Errorf("service listing %s not found", id)
-}
-
-func (r *slrRepo) List(ctx context.Context) ([]domain.ServiceListing, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	out := append([]domain.ServiceListing(nil), r.items...)
-	// 与 PG 对齐：ORDER BY created_at DESC。
-	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
-	return out, nil
-}
-
-func (r *slrRepo) Update(ctx context.Context, sl domain.ServiceListing) (domain.ServiceListing, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i := range r.items {
-		if r.items[i].ID == sl.ID {
-			r.items[i] = sl
-			return sl, nil
-		}
-	}
-	return domain.ServiceListing{}, fmt.Errorf("service listing %s not found", sl.ID)
-}
-
-func (r *slrRepo) Delete(ctx context.Context, id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i := range r.items {
-		if r.items[i].ID == id {
-			r.items = append(r.items[:i], r.items[i+1:]...)
-			return nil
-		}
-	}
-	return fmt.Errorf("service listing %s not found", id)
-}
-
-// ---- Service Listing Favorites ----
-
-func (r *slrRepo) FavoriteListing(ctx context.Context, userID, listingID string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for _, f := range r.favorites {
-		if f.UserID == userID && f.ItemID == listingID {
-			return nil // 已收藏，幂等
-		}
-	}
-	r.favorites = append(r.favorites, contentFavorite{UserID: userID, ItemID: listingID, CreatedAt: time.Now()})
-	return nil
-}
-
-func (r *slrRepo) UnfavoriteListing(ctx context.Context, userID, listingID string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i, f := range r.favorites {
-		if f.UserID == userID && f.ItemID == listingID {
-			r.favorites = append(r.favorites[:i], r.favorites[i+1:]...)
-			return nil
-		}
-	}
-	return nil
-}
-
-func (r *slrRepo) ListFavoriteListings(ctx context.Context, userID string) ([]domain.ServiceListing, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	out := make([]domain.ServiceListing, 0)
-	for _, f := range r.favorites {
-		if f.UserID != userID {
-			continue
-		}
-		for _, sl := range r.items {
-			if sl.ID == f.ItemID {
-				out = append(out, sl)
-				break
-			}
-		}
-	}
-	// 与 PG 对齐：按收藏时间倒序
-	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
-		out[i], out[j] = out[j], out[i]
-	}
-	return out, nil
 }
 
 // ---- Repair ----
@@ -2809,6 +2909,32 @@ func (r *msgRepo) Delete(ctx context.Context, id string) error {
 		}
 	}
 	return fmt.Errorf("message %s not found", id)
+}
+
+// DeleteByReference 与 PG 同语义：resource_id 与 resource_type 双条件，删掉引用该对象的通知。
+func (r *msgRepo) DeleteByReference(ctx context.Context, resourceID string, resourceTypes []string) (int, error) {
+	if resourceID == "" || len(resourceTypes) == 0 {
+		return 0, nil
+	}
+	want := make(map[string]struct{}, len(resourceTypes))
+	for _, t := range resourceTypes {
+		want[t] = struct{}{}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	kept := r.items[:0]
+	removed := 0
+	for _, m := range r.items {
+		if m.ResourceID == resourceID {
+			if _, ok := want[m.ResourceType]; ok {
+				removed++
+				continue
+			}
+		}
+		kept = append(kept, m)
+	}
+	r.items = kept
+	return removed, nil
 }
 
 // ---- Article ----
@@ -3081,6 +3207,20 @@ func (r *enrollRepo) UpdateStatusCas(ctx context.Context, id, from, to string) (
 	}
 	return false, nil
 }
+
+// UpdateReviewNote 只写审核备注（与 PG 实现对齐）：审核走 CAS 后用本方法补备注，
+// 避免全列回写把并发 completeEnrollment 的 completed 状态覆盖回 approved/rejected。
+func (r *enrollRepo) UpdateReviewNote(ctx context.Context, id, note string) (domain.Enrollment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			r.items[i].ReviewNote = note
+			return r.items[i], nil
+		}
+	}
+	return domain.Enrollment{}, fmt.Errorf("enrollment %s: %w", id, repository.ErrNotFound)
+}
 func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domain.Enrollment, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -3169,7 +3309,8 @@ func (r *tradeOrderRepo) FindByID(ctx context.Context, id string) (domain.TradeO
 			return o, nil
 		}
 	}
-	return domain.TradeOrder{}, fmt.Errorf("order %s not found", id)
+	// 与 PG 实现对齐：一律返回哨兵，供 Service 层 notFoundErr 翻译成 404。
+	return domain.TradeOrder{}, fmt.Errorf("order %s: %w", id, repository.ErrNotFound)
 }
 func (r *tradeOrderRepo) UpdateStatus(ctx context.Context, id string, status string) (domain.TradeOrder, error) {
 	r.mu.Lock()
@@ -3184,6 +3325,30 @@ func (r *tradeOrderRepo) UpdateStatus(ctx context.Context, id string, status str
 	}
 	return domain.TradeOrder{}, fmt.Errorf("order %s not found", id)
 }
+// Ship 卖家发货（与 PG 同语义）：条件更新——仅 paid 且未发过货的订单可发货。
+func (r *tradeOrderRepo) Ship(ctx context.Context, id, company, tracking string) (domain.TradeOrder, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		o := &r.items[i]
+		if o.ID != id {
+			continue
+		}
+		if o.Status != "paid" || o.ShippingTracking != "" {
+			return domain.TradeOrder{}, fmt.Errorf("trade order %s: %w", id, repository.ErrNotFound)
+		}
+		now := time.Now()
+		o.Status = "shipped"
+		o.ShippingCompany = company
+		o.ShippingTracking = tracking
+		o.ShippedAt = &now
+		o.UpdatedAt = now
+		o.Version++
+		return *o, nil
+	}
+	return domain.TradeOrder{}, fmt.Errorf("trade order %s: %w", id, repository.ErrNotFound)
+}
+
 func (r *tradeOrderRepo) CompareAndSetStatus(ctx context.Context, id, oldStatus, newStatus string) (bool, domain.TradeOrder, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -3202,11 +3367,15 @@ func (r *tradeOrderRepo) CompareAndSetStatus(ctx context.Context, id, oldStatus,
 	// 而不是走 error 分支（dev 与 prod 后续处理不一致）。
 	return false, domain.TradeOrder{}, nil
 }
-func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error) {
+func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrder, expectAftersaleStatus string) (domain.TradeOrder, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.items {
 		if r.items[i].ID == o.ID {
+			// 与 PG 的 CAS 对齐：售后状态不等于期望值即视为并发改动，拒绝写入。
+			if r.items[i].AftersaleStatus != expectAftersaleStatus {
+				return domain.TradeOrder{}, fmt.Errorf("订单 %s 售后状态已变更，请刷新后重试", o.ID)
+			}
 			r.items[i].Status = o.Status
 			r.items[i].AftersaleType = o.AftersaleType
 			r.items[i].AftersaleReason = o.AftersaleReason
@@ -3215,12 +3384,68 @@ func (r *tradeOrderRepo) UpdateAftersale(ctx context.Context, o domain.TradeOrde
 			r.items[i].AftersaleStatus = o.AftersaleStatus
 			r.items[i].AftersaleTime = o.AftersaleTime
 			r.items[i].AftersaleFrom = o.AftersaleFrom
+			// 退货物流（一期）：与 PG 的列清单保持一致
+			r.items[i].ReturnTracking = o.ReturnTracking
+			r.items[i].ReturnNote = o.ReturnNote
+			r.items[i].ReturnedAt = o.ReturnedAt
 			r.items[i].UpdatedAt = time.Now()
 			r.items[i].Version++
 			return r.items[i], nil
 		}
 	}
-	return domain.TradeOrder{}, fmt.Errorf("order %s not found", o.ID)
+	return domain.TradeOrder{}, fmt.Errorf("order %s: %w", o.ID, repository.ErrNotFound)
+}
+
+// HasLiveOrderForProduct 报告该商品是否还有有效订单（未取消即视为有效，与 PG 同语义）。
+func (r *tradeOrderRepo) HasLiveOrderForProduct(ctx context.Context, productID string) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, o := range r.items {
+		if o.ProductID == productID && o.Status != "cancelled" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ListPendingBefore 支付超时扫描（与 PG 同语义）：status='pending' 且 created_at 早于 cutoff。
+func (r *tradeOrderRepo) ListPendingBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.TradeOrder, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	matched := make([]domain.TradeOrder, 0)
+	for _, o := range r.items {
+		if o.Status == "pending" && o.CreatedAt.Before(cutoff) {
+			matched = append(matched, o)
+		}
+	}
+	sort.SliceStable(matched, func(i, j int) bool { return matched[i].CreatedAt.Before(matched[j].CreatedAt) })
+	if len(matched) > limit {
+		matched = matched[:limit]
+	}
+	return matched, nil
+}
+
+// ListShippedBefore 自动确认收货扫描（与 PG 同语义）：status='shipped' 且 updated_at 早于 cutoff。
+func (r *tradeOrderRepo) ListShippedBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.TradeOrder, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	matched := make([]domain.TradeOrder, 0)
+	for _, o := range r.items {
+		if o.Status == "shipped" && o.UpdatedAt.Before(cutoff) {
+			matched = append(matched, o)
+		}
+	}
+	sort.SliceStable(matched, func(i, j int) bool { return matched[i].UpdatedAt.Before(matched[j].UpdatedAt) })
+	if len(matched) > limit {
+		matched = matched[:limit]
+	}
+	return matched, nil
 }
 func (r *tradeOrderRepo) ListByUser(ctx context.Context, userID string) ([]domain.TradeOrder, error) {
 	r.mu.RLock()
@@ -3463,6 +3688,11 @@ func (r *escrowRepo) HasRefunded(ctx context.Context, userID, refType, refID str
 	return r.hasTx(userID, refType, refID, "refund")
 }
 
+// HasTransferred 遍历流水：fromUser 对 (refType, refID) 是否已转账（售后退款幂等）。
+func (r *escrowRepo) HasTransferred(ctx context.Context, fromUser, refType, refID string) (bool, error) {
+	return r.hasTx(fromUser, refType, refID, "transfer")
+}
+
 // hasTx 通用判定：fromUser + (refType, refID) + txType 是否已有完成流水。
 func (r *escrowRepo) hasTx(userID, refType, refID, txType string) (bool, error) {
 	r.mu.RLock()
@@ -3518,36 +3748,20 @@ func (r *escrowRepo) HasReleased(ctx context.Context, fromUser, refType, refID s
 	return false, nil
 }
 
-// ListOrphanFreezes 与 PG 版同语义：返回 refType 下"已冻结但无对应 release 流水"
-// 的孤儿冻结（olderThan 过滤正常窗口），供 RefundOrphanFreezes 补偿。
+// ListOrphanFreezes 在内存实现里 fail-safe 地返回"无孤儿"。
+//
+// 为什么不再猜：PG 的判据是"**业务行不存在**"（phase3_repos2.go 按 refType 映射到
+// training_enrollments / trade_orders 做 NOT EXISTS 子查询）。内存实现此前用的是
+// "有 freeze 但还没有 release 流水"——语义完全不同：任何"已冻结、业务已落库、
+// 但尚未结课/确认收货"的正常单，只要冻结超过 10 分钟就会被判成孤儿，
+// 被 RefundOrphanFreezes 真退回余额；随后业务完成时的 Release 会因 frozen 不足失败，
+// 收款方永远收不到钱（dev 下资金账被污染）。
+//
+// 内存仓储与报名/订单仓储是彼此独立的实例，跨仓储判不了"业务行是否存在"，
+// 因此这里选择"不报告任何孤儿"——补偿任务在 dev 下退化为空操作（无害），
+// 而不是基于错误判据去动钱。该自动补偿能力仅在 PG（生产）路径生效。
 func (r *escrowRepo) ListOrphanFreezes(ctx context.Context, refType string, olderThan time.Time, limit int) ([]domain.EscrowTransaction, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var out []domain.EscrowTransaction
-	for _, tx := range r.txs {
-		if tx.TxType != "freeze" || tx.ReferenceType != refType {
-			continue
-		}
-		if !tx.CreatedAt.Before(olderThan) {
-			continue
-		}
-		released := false
-		for _, t2 := range r.txs {
-			if t2.TxType == "release" && t2.FromUser == tx.FromUser &&
-				t2.ReferenceType == tx.ReferenceType && t2.ReferenceID == tx.ReferenceID {
-				released = true
-				break
-			}
-		}
-		if released {
-			continue
-		}
-		out = append(out, tx)
-		if limit > 0 && len(out) >= limit {
-			break
-		}
-	}
-	return out, nil
+	return nil, nil
 }
 
 // ---- Upload（文件上传台账，配额统计用） ----

@@ -200,8 +200,10 @@ onLoad(() => {
     return
   }
   const u = getStoredUser()
-  if (!(u && (u.role === 'enterprise' || u.user_type === 'enterprise'))) {
-    uni.showToast({ title: '仅企业账号可发布赛事', icon: 'none' })
+  // 协会账号是「运营方 + 市场主体」二合一，办赛事是协会的天然业务，一并放行
+  const PUBLISHER_ROLES = ['enterprise', 'association_admin', 'platform_admin']
+  if (!(u && (PUBLISHER_ROLES.includes(String(u.role || '')) || u.user_type === 'enterprise'))) {
+    uni.showToast({ title: '仅企业或协会账号可发布赛事', icon: 'none' })
     setTimeout(() => goBack(), 800)
     return
   }

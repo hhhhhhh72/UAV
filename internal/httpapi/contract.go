@@ -39,87 +39,12 @@ func (s *Server) listContractTemplates(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, domain.DefaultContractTemplates)
 }
 
-// POST /api/v1/admin/members/import
-// 同步批量导入：{"members":[{"user_id","enterprise_id","role"}]}，逐条落库。
-// role 为空默认 member；行级校验失败不影响其余行，返回导入数与逐行失败明细。
-func (s *Server) importMembers(w http.ResponseWriter, r *http.Request) {
-	a, ok := authenticatedActor(r)
-	if !ok {
-		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
-		return
-	}
-	if a.Role != domain.RoleAssociationAdmin && a.Role != domain.RolePlatformAdmin {
-		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
-		return
-	}
-	var in struct {
-		Members []struct {
-			UserID       string `json:"user_id"`
-			EnterpriseID string `json:"enterprise_id"`
-			Role         string `json:"role"`
-		} `json:"members"`
-	}
-	if err := decode(r, &in); err != nil {
-		fail(w, r, http.StatusBadRequest, err)
-		return
-	}
-	if len(in.Members) == 0 {
-		fail(w, r, http.StatusBadRequest, errors.New("members is required"))
-		return
-	}
-	if len(in.Members) > 1000 {
-		fail(w, r, http.StatusBadRequest, errors.New("members 数量不能超过 1000"))
-		return
-	}
-	if s.assocMemberSvc == nil {
-		fail(w, r, http.StatusInternalServerError, errors.New("member service unavailable"))
-		return
-	}
-
-	type failedRow struct {
-		Index  int    `json:"index"`
-		UserID string `json:"user_id"`
-		Error  string `json:"error"`
-	}
-	imported := 0
-	var failed []failedRow
-	for i, m := range in.Members {
-		if m.UserID == "" {
-			failed = append(failed, failedRow{Index: i, Error: "user_id is required"})
-			continue
-		}
-		role := domain.AssociationRole(m.Role)
-		if m.Role == "" {
-			role = domain.AssocMember
-		}
-		if !validAssociationRole(role) {
-			failed = append(failed, failedRow{Index: i, UserID: m.UserID, Error: "invalid role: " + m.Role})
-			continue
-		}
-		if _, err := s.assocMemberSvc.AddMember(r.Context(), m.UserID, m.EnterpriseID, role); err != nil {
-			failed = append(failed, failedRow{Index: i, UserID: m.UserID, Error: err.Error()})
-			continue
-		}
-		imported++
-	}
-	s.audit(r.Context(), a.ID, "import_members", "association_member", "", fmt.Sprintf("imported=%d failed=%d", imported, len(failed)))
-	respond(w, r, http.StatusOK, map[string]any{
-		"imported": imported,
-		"failed":   failed,
-		"total":    len(in.Members),
-	})
-}
-
-func validAssociationRole(role domain.AssociationRole) bool {
-	switch role {
-	case domain.AssocPresident, domain.AssocVicePresident, domain.AssocSecretary,
-		domain.AssocDeptHead, domain.AssocMember, domain.AssocPartner,
-		domain.AssocCollege, domain.AssocGuest:
-		return true
-	}
-	return false
-}
-
+// POST /api/v1/admin/members/import 与 validAssociationRole 已移除。
+//
+// 它们服务于协会 8 级角色（association_members），而那套东西从未在生产使用：
+// 表 0 行、前端零调用、8 个角色里只有 partner 参与过判定。
+// 顺带记一笔：这个接口曾是**唯一**校验角色合法性的地方，
+// 单条的 POST /api/v1/admin/association-members 从不校验，可写入任意字符串。
 // POST /api/v1/assignments
 func (s *Server) createAssignment(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)

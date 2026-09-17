@@ -9,7 +9,7 @@ registerCoreRoutes       需求/企业/就业/合同/职位/社区/二手/用工
 registerPhase3Routes     报名/到期提醒/交易订单/托管/资讯/评价/场地/管理端用户
 registerBatch1Routes     产业资源池/测试场地预约/展会与展位
 registerBatch2Routes     成果转化/院校展示/校企共建
-registerBatch3Routes     救援案例/应急部门演练/协会成员(8级)
+registerBatch3Routes     救援案例/应急部门演练
 registerBizRoutes        专家智库/合规/报告/品牌/成果/难题/攻关/申报/赛事/活动/资源/应急调度/智能匹配
 registerAdminListRoutes  18 模块管理端 CRUD (/api/v1/admin/*)
 registerPublicAPIRoutes  小程序公开聚合别名

@@ -104,14 +104,13 @@ type Server struct {
 	coopSvc           *service.CooperationService
 	rescueCaseSvc     *service.RescueCaseService
 	emergDeptSvc      *service.EmergencyDeptService
-	assocMemberSvc    *service.AssociationMemberService
 	contractTplSvc    *service.ContractTemplateService
 	appSvc            *service.ApplicationService
 	userRepo          repository.UserRepository
 	userSvc           *service.UserService
 	// superAdminPhone 超级管理员手机号（SUPER_ADMIN_PHONE）：列表用它标记超管行，
 	// 微信登录用它给对应账号发 platform_admin 角色。由 main.go 装配注入。
-	superAdminPhone string
+	superAdminPhone   string
 	refreshRepo       repository.RefreshTokenRepository
 	tokens            *TokenManager
 	rateLimiter       *rateLimiter
@@ -124,12 +123,15 @@ type Server struct {
 	regLimitEntries   atomic.Int64
 	// adminOpLimits 管理端重型操作限频（广播/导出等）：key=clientIP -> *regLimitLog。
 	adminOpLimits sync.Map
+	// orderLimits 下单限频：key=买家 userID -> *regLimitLog（见 trade_order_maintenance.go）。
+	orderLimits       sync.Map
+	orderLimitEntries atomic.Int64
 	// servicesCfgMu 序列化 services_config.json 的读-改-写（h5SaveServicesConfig 等）：
 	// 并发保存此前会互相覆盖字段（readJSON 与 writeJSON 各自加锁，跨调用不原子）。
 	servicesCfgMu sync.Mutex
-	auditWriter       repository.AuditWriter
-	dbPinger          interface{ Ping(context.Context) error }
-	storage           string
+	auditWriter   repository.AuditWriter
+	dbPinger      interface{ Ping(context.Context) error }
+	storage       string
 	// homeCache 首页数据 60s 缓存（实例级：测试各自隔离，生产单实例内共享）。
 	homeCache *cache.Cache
 }
@@ -329,13 +331,12 @@ func (s *Server) SetExhibitionService(svc *service.ExhibitionService)         { 
 func (s *Server) SetTransformationService(svc *service.TransformationService) { s.transSvc = svc }
 func (s *Server) SetCollegeService(svc *service.CollegeService)               { s.collegeSvc = svc }
 func (s *Server) SetStudyTourRepo(r repository.StudyTourRepository)           { s.studyTourRepo = r }
-func (s *Server) SetStudyTourEnrollmentService(svc *service.StudyTourEnrollmentService) { s.studyEnrollSvc = svc }
-func (s *Server) SetCooperationService(svc *service.CooperationService)       { s.coopSvc = svc }
-func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)         { s.rescueCaseSvc = svc }
-func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService)   { s.emergDeptSvc = svc }
-func (s *Server) SetAssociationMemberService(svc *service.AssociationMemberService) {
-	s.assocMemberSvc = svc
+func (s *Server) SetStudyTourEnrollmentService(svc *service.StudyTourEnrollmentService) {
+	s.studyEnrollSvc = svc
 }
+func (s *Server) SetCooperationService(svc *service.CooperationService)     { s.coopSvc = svc }
+func (s *Server) SetRescueCaseService(svc *service.RescueCaseService)       { s.rescueCaseSvc = svc }
+func (s *Server) SetEmergencyDeptService(svc *service.EmergencyDeptService) { s.emergDeptSvc = svc }
 func (s *Server) SetApplicationService(svc *service.ApplicationService) { s.appSvc = svc }
 func (s *Server) SetContractTemplateService(svc *service.ContractTemplateService) {
 	s.contractTplSvc = svc
@@ -405,7 +406,9 @@ func (s *Server) Router() http.Handler {
 	}
 
 	// ── C 批：性能观测 ─────────────────────────────────────────────
-	// pprof 仅 dev 暴露（生产如需再经网关/内网注入）；/metrics 轻量公开。
+	// pprof 与 /metrics 都仅 dev 暴露：/metrics 不在 authenticate 的公开白名单、
+	// 也不在 isPublicPath 内，因此生产访问需要 Bearer 令牌（此前注释误写成"轻量公开"）。
+	// 生产接入抓取需在 isPublicPath 显式放行，或经内网/网关注入。
 	mux.HandleFunc("/metrics", s.metricsHandler)
 	if adminDevMode() {
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -415,7 +418,11 @@ func (s *Server) Router() http.Handler {
 		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 
-	return s.rateLimit(s.accessLog(s.requestID(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.idempotencyCheck(s.adminGate(middleware.SanitizeBody(mux))))))))))
+	// requestID 必须在最外层：它通过 r.WithContext 把 request_id 交给内层，
+	// 而 rateLimit 的 429 响应体与 accessLog 的日志都读这个 context 值。
+	// 此前它在两者内侧，导致 429 的 request_id 恒为空、缺 X-Request-ID 响应头，
+	// 访问日志的 request_id 字段也恒为空（日志与响应失去关联能力）。
+	return s.requestID(s.rateLimit(s.accessLog(s.recoverPanic(s.securityHeaders(s.withCORS(s.authenticate(s.idempotencyCheck(s.adminGate(middleware.SanitizeBody(mux))))))))))
 }
 
 func (s *Server) favicon(w http.ResponseWriter, r *http.Request) {
@@ -782,11 +789,35 @@ func (s *Server) deleteDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusForbidden, errors.New("admin permission required"))
 		return
 	}
-	if err := s.demands.Delete(r.Context(), a, r.PathValue("id")); err != nil {
+	id := r.PathValue("id")
+	if err := s.demands.Delete(r.Context(), a, id); err != nil {
 		failDemandDelete(w, r, err)
 		return
 	}
+	s.purgeDemandNotifications(r.Context(), id)
 	respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
+}
+
+// purgeDemandNotifications 需求删除后清掉指向它的站内通知。
+//
+// 不清会留死链：收件箱里还挂着「您的需求《X》收到新的对接意向」，点进去需求已不存在。
+// 与「需求删除时其对接意向一并清除」同一口径。
+//
+// 失败只记 Error 日志、不改变响应：需求确实已经删掉了，此时报错会让运营以为删除失败
+// 而反复操作。（与订单取消后商品回架失败同一处理原则。）
+func (s *Server) purgeDemandNotifications(ctx context.Context, demandID string) {
+	if s.msgSvc == nil {
+		return
+	}
+	// 意向通知的 resource_type 有历史两代取值：老的 demand、新的 demand_intent，两个都要清。
+	n, err := s.msgSvc.DeleteByReference(ctx, demandID, []string{"demand", "demand_intent"})
+	if err != nil {
+		slog.Error("需求已删除但相关站内通知清理失败", "demand", demandID, "error", err)
+		return
+	}
+	if n > 0 {
+		slog.Info("需求删除，相关站内通知已清理", "demand", demandID, "count", n)
+	}
 }
 
 // DELETE /api/v1/demands/{id} — 发布者删除自己的需求。
@@ -798,8 +829,10 @@ func (s *Server) deleteMyDemand(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
-	err := s.demands.Delete(r.Context(), a, r.PathValue("id"))
+	id := r.PathValue("id")
+	err := s.demands.Delete(r.Context(), a, id)
 	if err == nil {
+		s.purgeDemandNotifications(r.Context(), id)
 		respond(w, r, http.StatusOK, map[string]string{"deleted": "ok"})
 		return
 	}
@@ -1078,6 +1111,14 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// P0 修复：登录/刷新/登出等认证接口永不参与幂等回放。
+		// 客户端（管理后台 http.js）会按 url+body 生成**确定性**幂等键，同一手机号
+		// +密码 24h 内第二次登录会命中回放，拿到上一次的 access_token 与**已被吊销的**
+		// refresh_token；/api/auth/refresh 同理可回放出一组"有效"新令牌，绕过轮转与吊销。
+		if strings.HasPrefix(r.URL.Path, "/api/auth/") || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
+			next.ServeHTTP(w, r)
+			return
+		}
 		// Validate the client-supplied key length.
 		if len(key) < 8 || len(key) > 128 {
 			fail(w, r, http.StatusBadRequest, errors.New("Idempotency-Key must be 8-128 characters"))
@@ -1133,9 +1174,15 @@ func (s *Server) idempotencyCheck(next http.Handler) http.Handler {
 		// Capture the response via a response recorder.
 		next.ServeHTTP(rec, r)
 		// Store the result for future idempotent requests.
-		// P2 修复：仅缓存 2xx（200-299）与 4xx 校验类错误（400/409/422 等确定性结果）；
-		// 5xx 不缓存——服务端错误重试须重新执行写操作，而非回放错误响应。
-		if rec.statusCode >= http.StatusOK && rec.statusCode < http.StatusInternalServerError {
+		// 只缓存"确定性结果"：2xx 与 400/409/422（重试可安全复用同一响应）。
+		// 此前条件是 200 <= code < 500，把 401/403/404/429 也缓存 24 小时——
+		// 429 的语义恰恰是"稍后重试"，401 会随令牌刷新而失效，
+		// 缓存它们会让客户端在 24h 内收到过期的错误响应。
+		switch {
+		case rec.statusCode >= 200 && rec.statusCode < 300,
+			rec.statusCode == http.StatusBadRequest,
+			rec.statusCode == http.StatusConflict,
+			rec.statusCode == http.StatusUnprocessableEntity:
 			s.idempotency.set(key, rec.statusCode, rec.body.String())
 		}
 		// Write the actual response (already written to rec.wrapped).
@@ -1368,7 +1415,17 @@ func (s *Server) allowedCORSOrigins() []string {
 			"http://127.0.0.1:5173",
 		}
 	}
-	return strings.Split(raw, ",")
+	// 逐项 TrimSpace（与 loadTrustedProxies 的解析风格一致）：
+	// 此前直接切分，CORS_ORIGINS="a, b" 的第二项带前导空格，与 Origin 精确比较
+	// 永不匹配 → 该来源被静默拒绝（前端表现为跨域失败且无任何日志）。
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // maxBodyBytes JSON 请求体上限（与 SanitizeBody 一致）。

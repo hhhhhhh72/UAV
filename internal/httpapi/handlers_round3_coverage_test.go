@@ -152,11 +152,11 @@ func TestRound3Batch1(t *testing.T) {
 	assertStatus(t, http.MethodGet, "/api/v1/exhibitions/"+expoID+"/booths", w, http.StatusOK)
 }
 
-// TestRound3Batch3 覆盖 batch3_handlers.go：救援案例 / 应急部门 / 演练 / 协会会员。
+// TestRound3Batch3 覆盖 batch3_handlers.go：救援案例 / 应急部门 / 演练。
+// （协会会员一节已随 8 级角色删除，见迁移 000113。）
 func TestRound3Batch3(t *testing.T) {
 	app := newBizServer(t)
 	adminTok := authAs(t, "admin-1", domain.RolePlatformAdmin)
-	userTok := authAs(t, "user-1", domain.RoleIndividual)
 
 	// 救援案例
 	w := doRaw(app, http.MethodPost, "/api/v1/admin/rescue-cases",
@@ -182,16 +182,7 @@ func TestRound3Batch3(t *testing.T) {
 	w = doRaw(app, http.MethodGet, "/api/v1/emergency-drills", "", "")
 	assertStatus(t, http.MethodGet, "/api/v1/emergency-drills", w, http.StatusOK)
 
-	// 协会会员：添加 user-1 → 列表 → 我的身份
-	w = doRaw(app, http.MethodPost, "/api/v1/admin/association-members",
-		`{"user_id":"user-1","enterprise_id":"ent-1","role":"member"}`, adminTok)
-	assertStatus(t, http.MethodPost, "/api/v1/admin/association-members", w, http.StatusCreated)
-
-	w = doRaw(app, http.MethodGet, "/api/v1/association-members", "", "")
-	assertStatus(t, http.MethodGet, "/api/v1/association-members", w, http.StatusOK)
-
-	w = doRaw(app, http.MethodGet, "/api/v1/association-members/me", "", userTok)
-	assertStatus(t, http.MethodGet, "/api/v1/association-members/me", w, http.StatusOK)
+	// 协会会员（/api/v1/admin/association-members 等）已移除：协会 8 级角色未启用。
 }
 
 // TestRound3News 覆盖 news.go：资讯创建 → 列表 → 编辑 → 发布。

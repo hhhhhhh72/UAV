@@ -29,7 +29,8 @@ const routes = [
       { path: 'reviews', component: () => import('@/views/admin/reviews/ReviewList.vue'), meta: { title: '评价管理' } },
       { path: 'orders', component: () => import('@/views/admin/orders/OrderList.vue'), meta: { title: '订单管理' } },
       { path: 'products', component: () => import('@/views/admin/products/ProductList.vue'), meta: { title: '商品管理' } },
-      { path: 'service-listings', component: () => import('@/views/admin/serviceListings/ServiceListingList.vue'), meta: { title: '服务能力管理' } },
+      // 「服务能力管理」已并入「商品与服务」：服务能力就是 prod_type 为服务类目的商品，
+  // 保留独立页面会让同一件内容在两个菜单里各出现一次（数据早已统一在商品表）。
       { path: 'enterprises', component: () => import('@/views/admin/enterprises/EnterpriseList.vue'), meta: { title: '企业管理' } },
       { path: 'demands', component: () => import('@/views/admin/demands/DemandList.vue'), meta: { title: '需求管理' } },
       // --- Sprint 0: 20 new modules ---

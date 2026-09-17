@@ -25,14 +25,24 @@
         <a-space :size="4">
           <a-button type="text" size="small" @click="showDetail(record)">详情</a-button>
           <a-button type="text" size="small" @click="openForm(record)">编辑</a-button>
-          <!-- 完成结业：仅 enrolled/paid 可结（释放托管学费 + 发证；pending/approved/rejected 不可） -->
+          <!-- 完成结业：后端 completeEnrollment 放行 enrolled/paid/approved 三者（释放托管学费 + 发证）。
+               approved 必须在内——运营刚能把报名标成「已通过」，这里若不给按钮，流程就在 UI 上断头
+               （只能先把状态倒回 enrolled 才能结业）。此前注释写的「approved 不可」与后端不符。
+               completed 走的是幂等补齐分支（释放/发证曾失败时补做，两件都好了则 200 无副作用）；
+               该分支此前从界面完全够不到，半完成的报名（钱冻结、证书缺失）只能改库修。 -->
           <a-button
-            v-if="record.status === 'enrolled' || record.status === 'paid'"
+            v-if="record.status === 'enrolled' || record.status === 'paid' || record.status === 'approved'"
             type="text"
             size="small"
             status="success"
             @click="completeEnrollment(record)"
           >完成结业</a-button>
+          <a-button
+            v-else-if="record.status === 'completed'"
+            type="text"
+            size="small"
+            @click="completeEnrollment(record)"
+          >补齐结业</a-button>
         </a-space>
       </template>
       <template #empty>
@@ -86,11 +96,26 @@
         <a-form-item label="从业经验"><a-input v-model="form.experience" style="width: 100%" /></a-form-item>
         <a-form-item label="状态">
           <a-select v-model="form.status" style="width: 100%">
-            <!-- 无 approved：与后端状态机冲突（approved 既不能结业也不能回退，edit 置 approved 即卡死），
-                 结业走专用按钮 POST /enrollments/{id}/complete（enrolled/paid → completed） -->
-            <a-option value="pending">待审核</a-option>
-            <a-option value="paid">已缴费</a-option>
-            <a-option value="enrolled">已入学</a-option>
+            <!-- 状态语义与后端状态机对齐（internal/service/phase3.go）：
+                 enrolled  = **已报名·待审核**（Enroll 对免费/待支付报名写的就是它；
+                             Review 的守卫是「只有 enrolled/paid 可以被审核」，所以它不是「已入学」）；
+                 paid      = 已缴费·待审核（付费报名 Enroll 写入，学费已冻结）；
+                 approved  = 审核通过（Review(approve) 写入）；
+                 rejected  = 已拒绝（Review(reject) 写入，需原因）；
+                 completed = 已完成，走专用按钮 POST /enrollments/{id}/complete，不在此手改。
+
+                 此前这个下拉删掉了 approved，理由是「approved 既不能结业也不能回退」——
+                 两条都与代码不符：completeEnrollment 明确允许 enrolled/paid/approved 三者结业；
+                 Update 的防回退只挡 paid/enrolled → pending/rejected。
+                 结果是运营没有任何办法把报名标成「审核通过」。
+
+                 pending 同样移出可写集合：Enroll 从不写它（免费/待支付写 enrolled，付费写 paid），
+                 Review 只审 enrolled/paid，结业只认 enrolled/paid/approved——手工改成 pending 的报名
+                 没有任何人有按钮可处理，学员却会收到「状态已更新为『待审核』」。
+                 筛选下拉里仍保留 pending，仅用于把历史脏数据捞出来。 -->
+            <a-option value="enrolled">已报名（待审核）</a-option>
+            <a-option value="paid">已缴费（待审核）</a-option>
+            <a-option value="approved">已通过</a-option>
             <a-option value="rejected">已拒绝</a-option>
           </a-select>
         </a-form-item>
@@ -144,21 +169,25 @@ const formatDate = (d) => {
 // 报名记录为纯查看型数据，无批量动作（selectable/batch-delete 已关闭）
 const batchActions = []
 
+// 与后端状态语义对齐：enrolled 是「已报名·待审核」，不是「已入学」（详见上方下拉里的注释）。
+// 此前它标成「已入学」+ green，会让运营误以为已通过审核——而后端 Review 的守卫恰恰要求
+// 状态是 enrolled/paid 才可审核，即它本身就是**待审核**态。
 const statusLabel = {
-  enrolled: '已入学', approved: '已通过', rejected: '已拒绝',
-  pending: '待审核', paid: '已缴费', completed: '已完成'
+  enrolled: '已报名（待审核）', paid: '已缴费（待审核）', approved: '已通过',
+  pending: '待审核', rejected: '已拒绝', completed: '已完成'
 }
-const statusTag = (s) => ({ enrolled: 'green', approved: 'green', paid: 'arcoblue', pending: 'orangered', rejected: 'red', completed: 'gray' }[s] || 'gray')
+const statusTag = (s) => ({ enrolled: 'arcoblue', paid: 'arcoblue', approved: 'green', pending: 'orangered', rejected: 'red', completed: 'green' }[s] || 'gray')
 
 const searchFields = [
   { key: 'keyword', label: '关键词', placeholder: '搜索姓名/电话...', width: 200 },
   { key: 'status', label: '状态', type: 'select', options: [
     { value: '', label: '全部' },
     { value: 'pending', label: '待审核' },
+    { value: 'enrolled', label: '已报名（待审核）' },
+    { value: 'paid', label: '已缴费（待审核）' },
     { value: 'approved', label: '已通过' },
-    { value: 'paid', label: '已缴费' },
-    { value: 'enrolled', label: '已入学' },
-    { value: 'rejected', label: '已拒绝' }
+    { value: 'rejected', label: '已拒绝' },
+    { value: 'completed', label: '已完成' }
   ]}
 ]
 

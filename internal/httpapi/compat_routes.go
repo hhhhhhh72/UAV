@@ -60,8 +60,13 @@ func (s *Server) wxPhone(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Code != "" {
 		// WeChat phone code — in production, exchange via WeChat API
+		// P0 修复：code 长度 <4 时 in.Code[len-4:] 会切片越界 panic，先做长度保护。
+		masked := in.Code
+		if len(masked) > 4 {
+			masked = masked[len(masked)-4:]
+		}
 		respond(w, r, http.StatusOK, map[string]any{
-			"phone": "138****" + in.Code[len(in.Code)-4:],
+			"phone": "138****" + masked,
 			"msg":   "phone bound (wx code)",
 		})
 		return

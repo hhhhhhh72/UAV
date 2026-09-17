@@ -21,6 +21,7 @@ import (
 // 硬断言（越权即漏洞）：
 //   - 匿名 → 必须 401/403（不能进 handler）
 //   - individual / enterprise → 必须 401/403（adminGate 拦非管理员）
+//
 // 只做输出、供人工核对的：
 //   - association_admin 被 403 而 platform_admin 能过的路由（= 代码里显式限定平台管理员的清单）
 //   - platform_admin 也被 403 的路由（可能是业务规则 403，需要看具体语义）
@@ -73,36 +74,48 @@ func TestAdminPermissionMatrix(t *testing.T) {
 	summary := map[string]map[int]int{}
 	for _, id := range ids {
 		summary[id.name] = map[int]int{}
-		for _, r := range rows { summary[id.name][r.Status[id.name]]++ }
+		for _, r := range rows {
+			summary[id.name][r.Status[id.name]]++
+		}
 	}
 	report := map[string]any{
-		"total": len(rows),
-		"summary": summary,
+		"total":         len(rows),
+		"summary":       summary,
 		"platform_only": permPlatformOnly(rows),
-		"plat_403": permStatusList(rows, "platform_admin", http.StatusForbidden),
-		"assoc_403": permStatusList(rows, "association_admin", http.StatusForbidden),
-		"violations": violations,
-		"rows": rows,
+		"plat_403":      permStatusList(rows, "platform_admin", http.StatusForbidden),
+		"assoc_403":     permStatusList(rows, "association_admin", http.StatusForbidden),
+		"violations":    violations,
+		"rows":          rows,
 	}
 	if out := os.Getenv("PERM_PROBE_OUT"); out != "" {
 		b, _ := json.MarshalIndent(report, "", " ")
-		if err := os.WriteFile(out, b, 0o644); err != nil { t.Fatalf("写报告失败: %v", err) }
+		if err := os.WriteFile(out, b, 0o644); err != nil {
+			t.Fatalf("写报告失败: %v", err)
+		}
 		t.Logf("报告已写入 %s", out)
 	}
 
 	for _, id := range ids {
 		codes := make([]string, 0, len(summary[id.name]))
-		for c, n := range summary[id.name] { codes = append(codes, fmt.Sprintf("%d×%d", c, n)) }
+		for c, n := range summary[id.name] {
+			codes = append(codes, fmt.Sprintf("%d×%d", c, n))
+		}
 		sort.Strings(codes)
 		t.Logf("身份 %-18s → %s", id.name, strings.Join(codes, "  "))
 	}
 	t.Logf("association_admin 被 403 的路由 %d 条：", len(report["assoc_403"].([]string)))
-	for _, s := range report["assoc_403"].([]string) { t.Logf("    %s", s) }
+	for _, s := range report["assoc_403"].([]string) {
+		t.Logf("    %s", s)
+	}
 	t.Logf("platform_admin 也被 403 的路由 %d 条：", len(report["plat_403"].([]string)))
-	for _, s := range report["plat_403"].([]string) { t.Logf("    %s", s) }
+	for _, s := range report["plat_403"].([]string) {
+		t.Logf("    %s", s)
+	}
 
 	if len(violations) > 0 {
-		for _, v := range violations { t.Errorf("越权：%s", v) }
+		for _, v := range violations {
+			t.Errorf("越权：%s", v)
+		}
 	}
 }
 
@@ -171,6 +184,7 @@ func permStatusList(rows []permRow, who string, code int) []string {
 	sort.Strings(out)
 	return out
 }
+
 // TestAdminRouteProbeListFreshness 保证路由清单不会悄悄过期：
 // 权限矩阵的价值取决于「清单 = 真实注册的路由」。任何人新增 /api/v1/admin/* 路由
 // 都必须重新生成清单，否则新路由不会进入权限回归覆盖（绿灯是假的）。

@@ -104,23 +104,14 @@ const intentStatusLabel = (s) => STATUS_LABEL[s] || s || ''
 const intentStatusClass = (s) => (s === 'contacted' || s === 'done' ? 'green' : s === 'closed' ? 'gray' : 'orange')
 const initialOf = (it) => (it.intentor_name || '?').slice(0, 1)
 
-// 拉取我的需求（mine=1），再逐个取接单申请
+// 一次取回发布方名下所有需求收到的接单申请。
+// 此前是 mine=1 拿到 N 个需求再逐个查（N+1 次往返，需求越多越慢）。
 const fetchIntents = async () => {
   loadError.value = false
   try {
-    const demandRes = await request({ url: '/api/v1/demands?mine=1&page_size=100' })
-    const demands = Array.isArray(demandRes) ? demandRes : (demandRes && demandRes.data) || []
-    const all = []
-    await Promise.all(
-      demands.map(async (d) => {
-        try {
-          const res = await request({ url: '/api/v1/demands/' + encodeURIComponent(d.id) + '/intents' })
-          const its = Array.isArray(res) ? res : (res && res.data) || []
-          its.forEach((it) => all.push(Object.assign({}, it, { demand_title: d.title })))
-        } catch { /* 单个需求失败不阻塞聚合 */ }
-      })
-    )
-    intents.value = all
+    const res = await request({ url: '/api/v1/intents/received' })
+    const its = Array.isArray(res) ? res : (res && res.data) || []
+    intents.value = its
   } catch {
     loadError.value = true
     intents.value = []

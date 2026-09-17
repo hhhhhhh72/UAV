@@ -33,7 +33,7 @@ func TestTradeOrderServerSidePricing(t *testing.T) {
 
 	// 1) 未上架（pending）不可下单 → 409
 	w := requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+pid+`","amount_fen":1}`), "buyer-1", domain.RoleIndividual)
+		orderBody(pid, `,"amount_fen":1`), "buyer-1", domain.RoleIndividual)
 	if w.Code != http.StatusConflict {
 		t.Fatalf("order on pending product: want 409, got %d %s", w.Code, w.Body.String())
 	}
@@ -47,7 +47,7 @@ func TestTradeOrderServerSidePricing(t *testing.T) {
 
 	// 2) 客户端传 1 分钱 + 假卖家 → 订单金额/卖家为服务端商品值
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+pid+`","seller_id":"hacker-x","amount_fen":1}`),
+		orderBody(pid, `,"seller_id":"hacker-x","amount_fen":1`),
 		"buyer-1", domain.RoleIndividual)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create order: %d %s", w.Code, w.Body.String())
@@ -61,7 +61,7 @@ func TestTradeOrderServerSidePricing(t *testing.T) {
 
 	// 3) 不存在的商品 → 404
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"product-nope"}`), "buyer-1", domain.RoleIndividual)
+		orderBody("product-nope"), "buyer-1", domain.RoleIndividual)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("order on missing product: want 404, got %d %s", w.Code, w.Body.String())
 	}
@@ -73,7 +73,7 @@ func TestTradeOrderServerSidePricing(t *testing.T) {
 		t.Fatalf("remove product: %d %s", rm.Code, rm.Body.String())
 	}
 	w = requestAs(t, app, http.MethodPost, "/api/v1/trade-orders",
-		[]byte(`{"product_id":"`+pid+`"}`), "buyer-2", domain.RoleIndividual)
+		orderBody(pid), "buyer-2", domain.RoleIndividual)
 	if w.Code != http.StatusConflict {
 		t.Fatalf("order on removed product: want 409, got %d %s", w.Code, w.Body.String())
 	}

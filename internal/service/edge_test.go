@@ -116,8 +116,8 @@ func TestInsuranceFinanceAll(t *testing.T) {
 
 // === Trading ===
 func TestTradingAll(t *testing.T) {
-	svc := service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository())
-	svc.CreateProduct(context.Background(), indActor(), domain.ProductDrone, "M300", "RTK版", "DJI", "M300", "new", 5000000, nil)
+	svc := service.NewTradingService(memory.NewProductRepository(), memory.NewRepairRepository(), nil, nil)
+	svc.CreateProduct(context.Background(), indActor(), domain.ProductDrone, "M300", "RTK版", "DJI", "M300", "new", "", "", 5000000, nil, nil)
 	svc.ListProducts(context.Background(), "")
 	svc.CreateRepair(context.Background(), indActor(), "M300", "云台故障")
 	svc.ListMyRepairs(context.Background(), indActor())
@@ -136,7 +136,7 @@ func TestPhase3All(t *testing.T) {
 	exp.GetExpiringInspections(inspections, 30)
 
 	to := service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository())
-	o, _ := to.Create(context.Background(), "u-1", "prod-1", "u-2", 100000)
+	o, _ := to.Create(context.Background(), "u-1", "prod-1", "u-2", 100000, service.OrderReceiver{}, false)
 	// paid 仅管理端可设（UpdateStatusAdmin）；买家直接改 paid 应被拒
 	if _, err := to.UpdateStatus(context.Background(), o.ID, "u-1", "paid"); err == nil {
 		t.Fatal("buyer must not mark order paid")

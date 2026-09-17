@@ -119,19 +119,26 @@ func (r *compRepo) CreateReg(ctx context.Context, reg domain.CompetitionReg) (do
 			return domain.CompetitionReg{}, fmt.Errorf("已报名过该赛事，请勿重复报名")
 		}
 	}
-	r.encryptRegInPlace(&reg)
-	r.regs = append(r.regs, reg)
-	// 与 PG 事务内 reg_count+1 对齐（含容量上限：max_teams<=0 不限制）。
+	// 容量校验必须在 append 之前：PG 把 INSERT 与 reg_count 原子占位放在同一事务，
+	// 满员时 UPDATE 0 行即整体回滚。此前先 append 再判容量，满员时只报错不回滚 →
+	// dev 留下"幽灵报名"（接口报失败但 ListRegsByUser 能看到）、RegCount 与行数
+	// 永久不一致，且该用户随后被上面的去重检查永久拦死（有空位也报不了名）。
 	for i := range r.items {
 		if r.items[i].ID == reg.CompetitionID {
 			if r.items[i].MaxTeams > 0 && r.items[i].RegCount >= r.items[i].MaxTeams {
-				r.decryptRegInPlace(&reg)
 				return domain.CompetitionReg{}, fmt.Errorf("competition is full")
 			}
+			r.encryptRegInPlace(&reg)
+			r.regs = append(r.regs, reg)
 			r.items[i].RegCount++
-			break
+			r.decryptRegInPlace(&reg)
+			return reg, nil
 		}
 	}
+	// 赛事不存在：保持内存实现原有的宽容语义（PG 侧会因 UPDATE 0 行报"已满"），
+	// 内存仓储在测试中常以未播种的 ID 直接调用。
+	r.encryptRegInPlace(&reg)
+	r.regs = append(r.regs, reg)
 	r.decryptRegInPlace(&reg)
 	return reg, nil
 }
@@ -220,17 +227,18 @@ func (r *eventRepo) CreateReg(ctx context.Context, reg domain.EventRegistration)
 			return domain.EventRegistration{}, fmt.Errorf("已报名过该活动，请勿重复报名")
 		}
 	}
-	r.regs = append(r.regs, reg)
-	// 与 PG 事务内 reg_count+1 对齐（含容量上限：max_attendees<=0 不限制）。
+	// 同 competition：容量校验必须在落库之前，否则 dev 留下幽灵报名且 RegCount 永久偏移。
 	for i := range r.items {
 		if r.items[i].ID == reg.EventID {
 			if r.items[i].MaxAttendees > 0 && r.items[i].RegCount >= r.items[i].MaxAttendees {
 				return domain.EventRegistration{}, fmt.Errorf("event is full")
 			}
+			r.regs = append(r.regs, reg)
 			r.items[i].RegCount++
-			break
+			return reg, nil
 		}
 	}
+	r.regs = append(r.regs, reg)
 	return reg, nil
 }
 func (r *eventRepo) ListRegs(ctx context.Context, eventID string) ([]domain.EventRegistration, error) {

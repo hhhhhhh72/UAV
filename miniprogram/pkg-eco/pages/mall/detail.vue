@@ -83,6 +83,9 @@
       <view class="spec-row">
         <text class="spec-label">类型</text><text class="spec-val">{{ typeLabel(product.prod_type) }}</text>
       </view>
+      <view class="spec-row" v-if="product.region">
+        <text class="spec-label">服务区域</text><text class="spec-val">{{ product.region }}</text>
+      </view>
       <view class="spec-row" v-if="product.seller_name">
         <text class="spec-label">卖家</text><text class="spec-val">{{ product.seller_name }}</text>
       </view>
@@ -107,6 +110,20 @@
       <rich-text v-if="(product.description || '').indexOf('<') >= 0" class="detail-text" :nodes="product.description"></rich-text>
       <text v-else class="detail-text">{{ product.description }}</text>
     </view>
+
+    <!-- 详情图：与顶部图集分工不同——顶部是封面（第一眼看到的），
+         这里是往下翻时的细节图（内部结构/铭牌/检测报告/实拍）。
+         用 widthFix 按原图比例铺满，点开可看大图。 -->
+    <view v-if="detailImages.length" class="detail-imgs">
+      <image
+        v-for="(img, i) in detailImages"
+        :key="i"
+        :src="img"
+        mode="widthFix"
+        class="detail-img"
+        @tap="previewDetail(i)"
+      />
+    </view>
   </view>
 
   <!-- ═══════ 底部操作栏 ═══════ -->
@@ -130,12 +147,41 @@
     >{{ product.prod_type === 'test_fly' ? '预约试飞' : '立即购买' }}</view>
     <view v-else class="bottom-buy bottom-buy--own" @tap="ownToast">我的商品</view>
   </view>
+
+  <!-- 收货信息：实物商品下单必填。
+       此前订单表完全没有地址——发布表单里却有「物流发货」这个交付方式，
+       卖家卖出去之后不知道寄给谁。字段与订单表一一对应，下单时快照到订单。 -->
+  <view v-if="showAddress" class="addr-mask" @tap="showAddress = false">
+    <view class="addr-sheet" @tap.stop>
+      <view class="addr-title">填写收货信息</view>
+      <view class="addr-row">
+        <text class="addr-label">收货人</text>
+        <input v-model="addr.name" class="addr-input" placeholder="姓名" :maxlength="30" />
+      </view>
+      <view class="addr-row">
+        <text class="addr-label">手机号</text>
+        <input v-model="addr.phone" class="addr-input" type="number" placeholder="11 位手机号" :maxlength="11" />
+      </view>
+      <view class="addr-row">
+        <text class="addr-label">所在地区</text>
+        <input v-model="addr.region" class="addr-input" placeholder="省 / 市 / 区（选填）" :maxlength="60" />
+      </view>
+      <view class="addr-row">
+        <text class="addr-label">详细地址</text>
+        <input v-model="addr.address" class="addr-input" placeholder="街道、门牌号" :maxlength="120" />
+      </view>
+      <view class="addr-actions">
+        <view class="addr-btn addr-btn--ghost" hover-class="btn-press" @tap="showAddress = false">取消</view>
+        <view class="addr-btn addr-btn--primary" hover-class="btn-press" @tap="submitOrder">提交订单</view>
+      </view>
+    </view>
+  </view>
 </view>
 </template>
 
 <script setup>
 import { safeBack } from '../../../utils/nav'
-import { ref, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { onLoad, onPageScroll } from '@dcloudio/uni-app'
 import { productTypeLabel } from '@/utils/enums'
 import { request, getStoredUser } from '../../../utils/request'
@@ -143,6 +189,8 @@ import { fullImgUrl } from '../../../utils/hallData'
 
 const product = ref({})
 const images = ref([])
+// 详情图（详情区长图）。与顶部图集的 images 分工不同，见模板注释。
+const detailImages = ref([])
 const curImg = ref(0)
 const loadedImgs = ref([])
 
@@ -264,6 +312,11 @@ onLoad((opts) => {
           const arr = typeof p.images === 'string' ? JSON.parse(p.images) : (p.images || [])
           images.value = arr.map(fullImgUrl).filter(Boolean)
         } catch { images.value = [] }
+        // 详情图（详情区长图）：与顶部 images 分开解析，空数组时不渲染这一块
+        try {
+          const dArr = typeof p.detail_images === 'string' ? JSON.parse(p.detail_images) : (p.detail_images || [])
+          detailImages.value = dArr.map(fullImgUrl).filter(Boolean)
+        } catch { detailImages.value = [] }
         loadedImgs.value = images.value.map(() => false)
         animatePrice(priceInt.value)
         measureAnchors()
@@ -276,8 +329,19 @@ onLoad((opts) => {
 const preview = (i) => {
   uni.previewImage({ current: i, urls: images.value })
 }
+const previewDetail = (i) => {
+  uni.previewImage({ current: i, urls: detailImages.value })
+}
 const goBack = () => safeBack()
-const contactShop = () => uni.showToast({ title: '已复制卖家联系方式', icon: 'none' })
+// 此前这里弹的是"已复制卖家联系方式"——但商品模型没有联系方式字段，也没有任何复制动作，
+// 是一句假提示（买家以为拿到了联系方式，其实什么都没有）。
+// 商城主线是平台担保交易（托管金 → 发货 → 确认收货），买卖双方不走私下联系，
+// 所以这里如实说明交易方式，而不是假装给了联系方式。
+const contactShop = () => uni.showToast({
+  title: '平台担保交易，下单后由平台跟进交付',
+  icon: 'none',
+  duration: 2200,
+})
 
 // 收藏：走真实接口（POST /api/v1/products/{id}/favorite），登录后可用；红心切换 + 心跳动画
 const isFav = ref(false)
@@ -323,8 +387,47 @@ const isOwnProduct = computed(() => {
   const u = getStoredUser()
   return !!(u && product.value.seller_id && product.value.seller_id === u.id)
 })
+// 卖家自助管理。此前这里只弹一句"这是你发布的商品"——卖家改个价、下个架都得找管理端
+// （pages/publish/detail.vue 的注释就写着"后端记录需在管理端处理"）。
+// 现在给三个真操作，全部走已有接口：
+//   编辑   → 复用统一发布表单（PATCH /api/v1/products/{id}，保存后退回待审核）
+//   上/下架 → POST /api/v1/products/{id}/status
+const statusBusy = ref(false)
 const ownToast = () => {
-  uni.showToast({ title: '这是你发布的商品', icon: 'none' })
+  const p = product.value || {}
+  const canSelfList = p.check_status === 'passed' && p.status !== 'sold'
+  const itemList = ['编辑商品']
+  if (canSelfList) itemList.push(p.status === 'listed' ? '下架商品' : '重新上架')
+  uni.showActionSheet({
+    itemList,
+    success: ({ tapIndex }) => {
+      if (tapIndex === 0) {
+        uni.navigateTo({ url: '/pages/publish/form?type=product&editId=' + encodeURIComponent(p.id) })
+        return
+      }
+      const next = p.status === 'listed' ? 'removed' : 'listed'
+      changeStatus(next)
+    },
+  })
+}
+
+// 上下架：服务端会再校验一遍（归属、未删除、非已售、上架必须已过审），失败按 404 统一处理
+async function changeStatus(status) {
+  if (statusBusy.value) return
+  statusBusy.value = true
+  try {
+    const updated = await request({
+      url: '/api/v1/products/' + encodeURIComponent(product.value.id) + '/status',
+      method: 'POST',
+      data: { status },
+    })
+    if (updated && updated.status) product.value.status = updated.status
+    uni.showToast({ title: status === 'listed' ? '已重新上架' : '已下架', icon: 'none' })
+  } catch (e) {
+    uni.showToast({ title: '操作失败，请稍后重试', icon: 'none' })
+  } finally {
+    statusBusy.value = false
+  }
 }
 
 // 分享：弹跳反馈
@@ -335,6 +438,19 @@ const onShare = () => {
   uni.showToast({ title: '分享', icon: 'none' })
 }
 // 主行动按钮：试飞测试供给 → 测试场地列表（②展示卡 → ③预约入口打通）；其余为立即购买（下单闭环）
+// 收货信息（下单时快照到订单，不做地址簿）。
+//
+// ⚠ 判定必须与后端 service.OrderNeedsReceiver 保持一致，否则前端多收/少收地址：
+//   自提 → 不需要；物流/同城 → 需要；未选/可协商 → 按商品类型兜底（实物需要，服务类不需要）。
+const showAddress = ref(false)
+const addr = reactive({ name: '', phone: '', region: '', address: '' })
+const needsShipping = computed(() => {
+  const d = product.value.delivery
+  if (d === 'pickup') return false
+  if (d === 'city' || d === 'logistics') return true
+  return ['drone', 'part'].indexOf(product.value.prod_type) >= 0
+})
+
 const buy = async () => {
   if (isOwnProduct.value) {
     uni.showToast({ title: '不能购买自己发布的商品', icon: 'none' })
@@ -346,7 +462,7 @@ const buy = async () => {
   }
   // 面议商品（无定价）不支持下单，引导联系卖家
   const fen = product.value.price_fen || 0
-  if (fen <= 0) {
+  if (product.value.price_mode === 'negotiable' || fen <= 0) {
     uni.showToast({ title: '该商品为面议报价，请联系卖家', icon: 'none' })
     return
   }
@@ -355,12 +471,39 @@ const buy = async () => {
     uni.navigateTo({ url: '/pages/login/index' })
     return
   }
+  // 实物商品先收收货信息：没有地址卖家发不出去，服务端同样会拒（400）
+  if (needsShipping.value) {
+    showAddress.value = true
+    return
+  }
+  doCreateOrder({})
+}
+
+// 提交订单（实物商品会带上收货信息）
+async function submitOrder() {
+  const name = String(addr.name || '').trim()
+  const phone = String(addr.phone || '').trim()
+  const address = String(addr.address || '').trim()
+  if (!name) return uni.showToast({ title: '请填写收货人', icon: 'none' })
+  if (!/^1[3-9]\d{9}$/.test(phone)) return uni.showToast({ title: '请填写正确的手机号', icon: 'none' })
+  if (!address) return uni.showToast({ title: '请填写详细地址', icon: 'none' })
+  showAddress.value = false
+  doCreateOrder({
+    receiver_name: name,
+    receiver_phone: phone,
+    receiver_region: String(addr.region || '').trim(),
+    receiver_address: address,
+  })
+}
+
+async function doCreateOrder(receiver) {
+  const fen = product.value.price_fen || 0
   uni.showLoading({ title: '下单中...' })
   try {
     const o = await request({
       url: '/api/v1/trade-orders',
       method: 'POST',
-      data: { product_id: product.value.id, seller_id: product.value.seller_id || '', amount_fen: fen },
+      data: Object.assign({ product_id: product.value.id }, receiver),
     })
     uni.hideLoading()
     uni.showToast({ title: '下单成功', icon: 'success' })
@@ -377,6 +520,27 @@ const buy = async () => {
 </script>
 
 <style scoped>
+/* 详情图：宽度铺满、高度按原图比例（widthFix），保持长图不变形 */
+.detail-imgs { margin-top: 20rpx; display: flex; flex-direction: column; }
+.detail-img { width: 100%; display: block; border-radius: 12rpx; margin-bottom: 12rpx; }
+/* 收货信息弹层（实物商品下单必填） */
+.addr-mask {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.45); z-index: 999;
+  display: flex; align-items: flex-end;
+}
+.addr-sheet {
+  width: 100%; background: #fff;
+  border-radius: 28rpx 28rpx 0 0; padding: 36rpx 32rpx calc(36rpx + env(safe-area-inset-bottom));
+}
+.addr-title { font-size: 32rpx; font-weight: 600; color: #1d2129; margin-bottom: 24rpx; }
+.addr-row { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #f2f3f5; }
+.addr-label { width: 150rpx; font-size: 28rpx; color: #4e5969; }
+.addr-input { flex: 1; font-size: 28rpx; color: #1d2129; background: #fafafa; border-radius: 16rpx; padding: 14rpx 20rpx; }
+.addr-actions { display: flex; gap: 20rpx; margin-top: 32rpx; }
+.addr-btn { flex: 1; height: 84rpx; line-height: 84rpx; text-align: center; border-radius: 42rpx; font-size: 30rpx; }
+.addr-btn--ghost { background: #f2f3f5; color: #4e5969; }
+.addr-btn--primary { background: var(--color-primary, #0A66C2); color: #fff; }
 .page {
   min-height: 100vh;
   background: #F4F6F8;

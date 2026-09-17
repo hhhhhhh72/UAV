@@ -78,10 +78,12 @@
         </a-form-item>
         <a-form-item label="可见级别">
           <a-select v-model="form.visibility_level" style="width: 100%">
+            <!-- 「副会长单位可见(partner)」已移除：它依赖协会 8 级角色里的 partner，
+                 而那套角色整块下线（association_members 0 行、前端零调用、迁移 000113）。
+                 保留这个选项只会让人设一个永远没人够得着的级别。 -->
             <a-option value="public">公开（政府访客可见）</a-option>
-            <a-option value="member">会员可见</a-option>
-            <a-option value="partner">副会长单位可见</a-option>
-            <a-option value="admin">仅协会管理员</a-option>
+            <a-option value="member">登录用户可见</a-option>
+            <a-option value="admin">仅管理员</a-option>
           </a-select>
         </a-form-item>
         <a-form-item label="状态">

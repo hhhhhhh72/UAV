@@ -11,6 +11,16 @@
 .superpowers
 .vscode
 .idea
+# 工具缓存/中间产物：此前漏了这几项，docker build 会把数 GB 当构建上下文上传
+.tools
+.impeccable
+.migrate
+.npm-cache-audit
+.pnpm-store
+.gocache
+.qoder
+node_modules
+frontend/node_modules
 work
 outputs
 logs
@@ -26,3 +36,8 @@ docs/*.docx
 Test
 Image
 *.bat
+*.tar.gz
+*.zip
+coverage
+coverage.out
+prototypes

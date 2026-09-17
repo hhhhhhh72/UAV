@@ -276,7 +276,6 @@ func isPublicPath(path string) bool {
 	// me/mine 类路径显式排除：前缀单层匹配会误放行（handler 自防是兜底，
 	// 边界统一在中间件一处说清——与 certified-pilots/mine 同款约定）
 	for _, mine := range []string{
-		"/api/v1/association-members/me",
 		"/api/v1/portfolios/mine",
 		"/api/v1/jobs/mine",
 	} {

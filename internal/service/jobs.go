@@ -45,8 +45,11 @@ func NewJobService(j repository.JobRepository, r repository.ResumeRepository, a 
 
 // CreateJob jobTypes 为可选参数：第 1 个即 job_type（变参避免改动既有测试/调用点签名）。
 func (s *JobService) CreateJob(ctx context.Context, a domain.Actor, title, desc, location string, salaryFen int64, jobTypes ...string) (domain.Job, error) {
-	if a.Role != domain.RoleEnterprise && a.Role != domain.RolePlatformAdmin {
-		return domain.Job{}, errors.New("only enterprise can post jobs")
+	// 企业是招聘主体；平台/协会管理员同样放行——协会账号是「运营方 + 市场主体」二合一，
+	// 协会自己也要招人、也要替会员单位代发。
+	if a.Role != domain.RoleEnterprise && a.Role != domain.RolePlatformAdmin &&
+		a.Role != domain.RoleAssociationAdmin {
+		return domain.Job{}, errors.New("当前账号类型不能发布职位，请使用企业或协会账号")
 	}
 	if salaryFen < 0 {
 		return domain.Job{}, errors.New("salary cannot be negative")

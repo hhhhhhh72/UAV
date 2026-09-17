@@ -38,14 +38,14 @@ func UserContentCleanupPlan() repository.ContentCleanupPlan {
 			{Table: "training_courses", OwnerColumn: "org_id", Columns: []string{"phone", "certificate_url"}},
 		},
 		Drop: []repository.DropRule{
-			{Table: "resumes", OwnerColumn: "user_id"},                  // 简历整份都是个人信息
-			{Table: "job_applications", OwnerColumn: "applicant_id"},    // 投递记录指向简历
-			{Table: "messages", OwnerColumn: "sender_id"},               // 站内信正文可能含联系方式
+			{Table: "resumes", OwnerColumn: "user_id"},               // 简历整份都是个人信息
+			{Table: "job_applications", OwnerColumn: "applicant_id"}, // 投递记录指向简历
+			{Table: "messages", OwnerColumn: "sender_id"},            // 站内信正文可能含联系方式
 			{Table: "messages", OwnerColumn: "receiver_id"},
-			{Table: "files", OwnerColumn: "owner_id"},                   // 上传文件台账（含私有影像）
+			{Table: "files", OwnerColumn: "owner_id"}, // 上传文件台账（含私有影像）
 			{Table: "uploads", OwnerColumn: "owner_id"},
-			{Table: "certified_pilots", OwnerColumn: "user_id"},         // 飞手名录档案（公开名录里的个人资料）
-			{Table: "demand_favorites", OwnerColumn: "user_id"},         // 以下为纯偏好数据，无留存价值
+			{Table: "certified_pilots", OwnerColumn: "user_id"}, // 飞手名录档案（公开名录里的个人资料）
+			{Table: "demand_favorites", OwnerColumn: "user_id"}, // 以下为纯偏好数据，无留存价值
 			{Table: "product_favorites", OwnerColumn: "user_id"},
 			{Table: "listing_favorites", OwnerColumn: "user_id"},
 			{Table: "service_listing_favorites", OwnerColumn: "user_id"},

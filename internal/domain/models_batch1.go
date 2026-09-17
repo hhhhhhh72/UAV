@@ -35,24 +35,24 @@ type ResourcePoolMember struct {
 
 // TestSite is a specialized testing facility (flying field, lab, etc.).
 type TestSite struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	SiteType    string    `json:"site_type"` // flying_field / lab / anechoic_chamber / wind_tunnel
-	OwnerID     string    `json:"owner_id"`
-	Location    string    `json:"location"`
-	Facilities  []string  `json:"facilities"` // 5G / RTK / radar / spectrum_analyzer
-	PriceFen    int64     `json:"price_fen"`
-	BookingRule string    `json:"booking_rule"` // "工作日9-18点,需提前3天"
-	Status      string    `json:"status"`       // available / maintenance / reserved
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	SiteType    string   `json:"site_type"` // flying_field / lab / anechoic_chamber / wind_tunnel
+	OwnerID     string   `json:"owner_id"`
+	Location    string   `json:"location"`
+	Facilities  []string `json:"facilities"` // 5G / RTK / radar / spectrum_analyzer
+	PriceFen    int64    `json:"price_fen"`
+	BookingRule string   `json:"booking_rule"` // "工作日9-18点,需提前3天"
+	Status      string   `json:"status"`       // available / maintenance / reserved
 	// 场地参数（detail 页「场地参数」卡；文本值，空即折叠）
-	AirspaceRange     string `json:"airspace_range"`
-	MaxTakeoffWeight  string `json:"max_takeoff_weight"`
-	RunwayLength      string `json:"runway_length"`
-	MaxFlightHeight   string `json:"max_flight_height"`
-	CompatibleModels  string `json:"compatible_models"`
-	ImageURL          string `json:"image_url"` // 轮播主图（空时前端保留占位）
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	AirspaceRange    string    `json:"airspace_range"`
+	MaxTakeoffWeight string    `json:"max_takeoff_weight"`
+	RunwayLength     string    `json:"runway_length"`
+	MaxFlightHeight  string    `json:"max_flight_height"`
+	CompatibleModels string    `json:"compatible_models"`
+	ImageURL         string    `json:"image_url"` // 轮播主图（空时前端保留占位）
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // TestSiteBooking is a reservation for a test site time slot.
@@ -157,22 +157,22 @@ type Shop struct {
 
 // StudyTour is a study tour / research trip event.
 type StudyTour struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Location    string    `json:"location"`
-	Destination string    `json:"destination"`
-	OrganizerID string    `json:"organizer_id"`
-	CoverImage  string    `json:"cover_image"` // 封面图 URL（/uploads/...）
-	PriceFen    int64     `json:"price_fen"`   // 价格（分），0 表示免费/面议
-	Schedule    []StudySchedule `json:"schedule"` // 行程安排（JSONB）
-	StartDate   time.Time `json:"start_date"`
-	EndDate     time.Time `json:"end_date"`
-	Duration    string    `json:"duration"`
-	Capacity    int       `json:"capacity"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string          `json:"id"`
+	Title       string          `json:"title"`
+	Description string          `json:"description"`
+	Location    string          `json:"location"`
+	Destination string          `json:"destination"`
+	OrganizerID string          `json:"organizer_id"`
+	CoverImage  string          `json:"cover_image"` // 封面图 URL（/uploads/...）
+	PriceFen    int64           `json:"price_fen"`   // 价格（分），0 表示免费/面议
+	Schedule    []StudySchedule `json:"schedule"`    // 行程安排（JSONB）
+	StartDate   time.Time       `json:"start_date"`
+	EndDate     time.Time       `json:"end_date"`
+	Duration    string          `json:"duration"`
+	Capacity    int             `json:"capacity"`
+	Status      string          `json:"status"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 // StudySchedule 研学行程中的一天安排

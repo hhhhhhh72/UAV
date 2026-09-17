@@ -254,6 +254,10 @@ type IntentRepository interface {
 	Create(ctx context.Context, v domain.DemandIntent) (domain.DemandIntent, error)
 	ListByDemand(ctx context.Context, demandID string) ([]domain.DemandIntent, error)
 	ListByIntentor(ctx context.Context, intentorID string) ([]domain.DemandIntent, error)
+	// ListByPublisher 返回某发布者名下**全部**需求收到的对接意向（跨需求一条 SQL 查完）。
+	// 用途：发布方消息列表要判断"这条需求是不是只有唯一一条待处理申请"（是则允许一键同意），
+	// 以及接单申请聚合页——此前是 mine=1 拿到 N 个需求再逐个查，N+1 次往返。
+	ListByPublisher(ctx context.Context, publisherID string) ([]domain.DemandIntent, error)
 	UpdateStatus(ctx context.Context, id string, status string) (domain.DemandIntent, error)
 }
 
@@ -338,30 +342,42 @@ type ProductRepository interface {
 	// SumViews 商品浏览量总和（可选按类型；首页 stats.views 聚合查询）。
 	SumViews(ctx context.Context, prodType string) (int, error)
 	Update(ctx context.Context, p domain.DroneProduct) (domain.DroneProduct, error)
-	Delete(ctx context.Context, id string) error
+	// SetStatusBulk 批量改上架状态（管理端）。单条条件更新，不是"N 次整行回写"：
+	// 逐行 PUT 会把整行写回去，并发编辑时后写覆盖先写，只改一个 status 却动了所有列。
+	// 跳过已售（status='sold'）与回收站的行；置为 listed 时要求 check_status=passed。
+	// 返回实际改动行数。
+	SetStatusBulk(ctx context.Context, ids []string, status string) (int, error)
+	// SetProductStatus 卖家自助上下架（条件更新）：只能改**自己的**、未删除、非已售的商品；
+	// 置为 listed 时额外要求 check_status=passed（未过审不得上架）。
+	// 任一条件不满足返回 ErrNotFound——含越权：不向调用方泄露"这商品存在但不是你的"。
+	SetProductStatus(ctx context.Context, id, sellerID, status string) (domain.DroneProduct, error)
+	// ReviewProduct 审核商品：写入 check_status/check_reason/reviewed_at/reviewed_by。
+	// 仅 pending/rejected 的行可被审（条件更新，防并发重复审核）；审核通过同时把
+	// status 置为 listed，驳回则**不动 status**——驳回 ≠ 下架，这正是拆分两个维度的目的。
+	// 行不存在 / 已在回收站 / 已是终审态时返回 ErrNotFound。
+	ReviewProduct(ctx context.Context, id, checkStatus, reason, reviewerID string) (domain.DroneProduct, error)
+	// SoftDelete 软删除（回收站）：写 deleted_at，不物理删行。
+	// 商品行要留给订单关联（trade_orders.product_id 无外键），物理删除会把历史订单
+	// 的商品名与详情链接留成孤儿。已删除的行对 FindByID/List/ListTop/SumViews 不可见。
+	SoftDelete(ctx context.Context, id string) error
+	// Undelete 回收站还原：清空 deleted_at。
+	Undelete(ctx context.Context, id string) error
+	// ListDeleted 回收站列表（仅 deleted_at 非空的行）。
+	ListDeleted(ctx context.Context) ([]domain.DroneProduct, error)
 	IncrementViews(ctx context.Context, id string) error
 	// MarkSold 条件更新：仅 listed/空状态可标记 sold（下单抢占，防一物多卖/超卖）；
 	// 状态非可售返回错误。
 	MarkSold(ctx context.Context, id string) error
 	// Restore 条件更新：sold → listed（订单创建失败回滚用）。
 	Restore(ctx context.Context, id string) error
+	// ListSoldBefore 列出 status='sold' 且 updated_at 早于 cutoff 的商品。
+	// 供"孤儿已售商品"回收：商品被下单占位成 sold 后，若订单创建失败、进程崩溃或订单行被删除，
+	// 它会永久停在下架状态且公开列表不可见（用户侧表现为"取消订单后商品消失了"）。
+	ListSoldBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.DroneProduct, error)
 	// FavoriteProduct/UnfavoriteProduct/ListFavoriteProducts 商品收藏（我的收藏列表）。
 	FavoriteProduct(ctx context.Context, userID, productID string) error
 	UnfavoriteProduct(ctx context.Context, userID, productID string) error
 	ListFavoriteProducts(ctx context.Context, userID string) ([]domain.DroneProduct, error)
-}
-
-// ServiceListingRepository manages enterprise service capability listings (PRD ②-2).
-type ServiceListingRepository interface {
-	Create(ctx context.Context, v domain.ServiceListing) (domain.ServiceListing, error)
-	FindByID(ctx context.Context, id string) (domain.ServiceListing, error)
-	List(ctx context.Context) ([]domain.ServiceListing, error)
-	Update(ctx context.Context, sl domain.ServiceListing) (domain.ServiceListing, error)
-	Delete(ctx context.Context, id string) error
-	// FavoriteListing/UnfavoriteListing/ListFavoriteListings 服务能力收藏（我的收藏列表）。
-	FavoriteListing(ctx context.Context, userID, listingID string) error
-	UnfavoriteListing(ctx context.Context, userID, listingID string) error
-	ListFavoriteListings(ctx context.Context, userID string) ([]domain.ServiceListing, error)
 }
 
 // RepairRepository manages repair orders.
@@ -401,6 +417,10 @@ type MessageRepository interface {
 	UnreadCount(ctx context.Context, userID string) (int, error)
 	ListAll(ctx context.Context, offset, limit int) ([]domain.Message, int, error)
 	Delete(ctx context.Context, id string) error
+	// DeleteByReference 删除引用某个业务对象的全部站内消息（返回删除条数）。
+	// 用途：业务对象被删除后，指向它的通知就变成死链——点进去打不开任何东西。
+	// resourceTypes 显式列出，避免不同表复用同一 id 字符串时误删别类通知。
+	DeleteByReference(ctx context.Context, resourceID string, resourceTypes []string) (int, error)
 }
 
 // ApplicationRepository manages service applications (miniprogram /api/submit).
@@ -451,6 +471,10 @@ type EnrollmentRepository interface {
 	// UpdateStatusCas 原子状态迁移：仅当前状态 == from 时改为 to；返回是否成功。
 	// completed 终态写通过 CAS 防并发完成报名的双释放学费。
 	UpdateStatusCas(ctx context.Context, id, from, to string) (bool, error)
+	// UpdateReviewNote 只更新审核备注（不触碰 status / paid_amount_fen 等列）。
+	// 审核必须用它收尾而不是全列 Update：CAS 之后再全列回写审核前的快照，
+	// 会把并发 completeEnrollment 写入的 completed 与已释放金额覆盖回去。
+	UpdateReviewNote(ctx context.Context, id, note string) (domain.Enrollment, error)
 	FindByID(ctx context.Context, id string) (domain.Enrollment, error) // 管理端编辑时取旧状态做防回退校验
 	ListByCourse(ctx context.Context, courseID string) ([]domain.Enrollment, error)
 	// ListByUser 某用户全部报名（"我的报名"一次查询，避免按课程 N+1）。
@@ -467,8 +491,26 @@ type TradeOrderRepository interface {
 	// CompareAndSetStatus 原子状态迁移：仅当前状态等于 oldStatus 时更新为 newStatus，
 	// 返回 bool 表示是否迁移成功（false = 状态已并发变更），防止后写覆盖前写。
 	CompareAndSetStatus(ctx context.Context, id, oldStatus, newStatus string) (bool, domain.TradeOrder, error)
-	// UpdateAftersale 一次性写订单状态 + 售后字段（申请/审核结案共用），只写这两类列
-	UpdateAftersale(ctx context.Context, o domain.TradeOrder) (domain.TradeOrder, error)
+	// Ship 卖家发货：写入快递公司/单号并把状态从 paid 迁到 shipped（条件更新，防重复发货）。
+	// 不存在 / 状态不是 paid / 已经发过货（shipping_tracking 非空）→ ErrNotFound。
+	Ship(ctx context.Context, id, company, tracking string) (domain.TradeOrder, error)
+	// ListPendingBefore 后台任务扫描用：status='pending' 且 created_at 早于 cutoff 的订单。
+	// 支付超时自动取消据此关闭订单并恢复商品为可售（下单占位在支付前，无人取消就会一直锁货）。
+	ListPendingBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.TradeOrder, error)
+	// HasLiveOrderForProduct 报告该商品是否存在"有效订单"
+	//（pending/paid/shipped/completed/aftersale 任一）。全部订单都已取消或不存在时返回 false
+	// —— 此时商品的 sold 状态已无业务依据，应当重新上架。
+	HasLiveOrderForProduct(ctx context.Context, productID string) (bool, error)
+	// ListShippedBefore 后台任务扫描用：status='shipped' 且 updated_at 早于 cutoff 的订单。
+	// 自动确认收货据此把"买家长期不确认"的订单置为 completed 并放款——否则卖家永远收不到钱。
+	ListShippedBefore(ctx context.Context, cutoff time.Time, limit int) ([]domain.TradeOrder, error)
+	// UpdateAftersale 一次性写订单状态 + 售后字段 + 退货物流字段，只写这几类列。
+	//
+	// expectAftersaleStatus 是 CAS 谓词：仅当库中当前的 aftersale_status 等于它时才写入，
+	// 否则返回错误（状态已变更）。售后申请用「申请前的值」（"" 或 "rejected"），
+	// 审核结案用 "pending"——两个并发审批只能有一个成功，
+	// 避免"两次 approve 各自调用 Transfer 把卖家余额扣两次"。
+	UpdateAftersale(ctx context.Context, o domain.TradeOrder, expectAftersaleStatus string) (domain.TradeOrder, error)
 	ListByUser(ctx context.Context, userID string) ([]domain.TradeOrder, error)
 	ListAll(ctx context.Context, offset, limit int) ([]domain.TradeOrder, int, error)
 	// ListFiltered 管理端列表：状态/关键字/日期过滤 + COUNT + LIMIT/OFFSET 全下沉 SQL，
@@ -579,6 +621,10 @@ type EscrowRepository interface {
 	// HasRefunded 报告 userID 对 (reference_type, reference_id) 是否已有完成的 refund 流水
 	// ——取消订单/售后退款幂等：重复触发不重复退钱。
 	HasRefunded(ctx context.Context, userID, refType, refID string) (bool, error)
+	// HasTransferred 报告 fromUser 对 (reference_type, reference_id) 是否已有完成的 transfer 流水
+	// ——"货款已放给卖家再售后退款"（卖家余额 → 买家余额）的幂等键。
+	// Transfer 是条件扣款、不带任何去重，重放会把卖家余额扣两次，必须由调用方先查这里。
+	HasTransferred(ctx context.Context, fromUser, refType, refID string) (bool, error)
 	// ListOrphanFreezes 列出"冻结但无对应业务记录"的孤儿冻结流水
 	// （ref_type/ref_id 指定的业务记录不存在，且冻结时间早于 olderThan），
 	// 供自动补偿解冻（如培训报名冻结后进程崩溃，报名未落库）。
@@ -864,9 +910,3 @@ type EmergencyDeptRepository interface {
 	ListDrills(ctx context.Context, deptID string) ([]domain.EmergencyDrill, error)
 }
 
-type AssociationMemberRepository interface {
-	Create(ctx context.Context, v domain.AssociationMember) (domain.AssociationMember, error)
-	FindByUserID(ctx context.Context, userID string) (domain.AssociationMember, error)
-	List(ctx context.Context, role string, offset, limit int) ([]domain.AssociationMember, int, error)
-	UpdateRole(ctx context.Context, id string, role domain.AssociationRole) (domain.AssociationMember, error)
-}

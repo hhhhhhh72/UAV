@@ -54,7 +54,8 @@ func (s *Server) publicListCerts(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, out)
 }
 
-func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {	page, size := paginationFromQuery(r)
+func (s *Server) publicListStudyTours(w http.ResponseWriter, r *http.Request) {
+	page, size := paginationFromQuery(r)
 	all, err := s.studyTourRepo.List(r.Context())
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)

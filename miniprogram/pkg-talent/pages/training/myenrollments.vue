@@ -279,7 +279,8 @@ onLoad((options) => {
     statusBarHeight.value = sys.statusBarHeight || 20
   } catch (e) { /* 保持默认 */ }
   checkMotion()
-  // 深链定位：活动/赛事报名成功页跳转时可指定分类（tab=activity|competition|training）
+  // 深链定位：活动/赛事报名成功页跳转时可指定分类（tab=activity|competition|training|study）。
+  // study 由站内通知「研学报名成功」等消息跳转使用（pages/messages/index.vue 的 TARGETS）。
   if (options && options.tab && TABS.some((t) => t.key === options.tab)) {
     tab.value = options.tab
   }

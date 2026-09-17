@@ -416,35 +416,4 @@ func TestEmergencyDeptRepoCoverage(t *testing.T) {
 	mbStr(t, "ListDrills(dept-1)[0].DeptID", byDept[0].DeptID, "dept-1")
 }
 
-func TestAssociationMemberRepoCoverage(t *testing.T) {
-	r := memory.NewAssociationMemberRepository()
-
-	_, err := r.Create(context.Background(), domain.AssociationMember{ID: "am-1", UserID: "u-1", Role: domain.AssocMember})
-	mbErr(t, "Create", err, false)
-	_, err = r.Create(context.Background(), domain.AssociationMember{ID: "am-2", UserID: "u-2", Role: domain.AssocPresident})
-	mbErr(t, "Create2", err, false)
-
-	f, err := r.FindByUserID(context.Background(), "u-1")
-	mbErr(t, "FindByUserID", err, false)
-	mbStr(t, "FindByUserID.ID", f.ID, "am-1")
-	_, err = r.FindByUserID(context.Background(), "u-missing")
-	mbErr(t, "FindByUserID(missing)", err, true)
-
-	all, total, err := r.List(context.Background(), "", 0, 10)
-	mbErr(t, "List(all)", err, false)
-	mbInt(t, "List(all).total", total, 2)
-	mbInt(t, "List(all).len", len(all), 2)
-
-	byRole, total2, err := r.List(context.Background(), string(domain.AssocPresident), 0, 10)
-	mbErr(t, "List(president)", err, false)
-	mbInt(t, "List(president).total", total2, 1)
-	mbInt(t, "List(president).len", len(byRole), 1)
-	mbStr(t, "List(president)[0].Role", string(byRole[0].Role), string(domain.AssocPresident))
-
-	ur, err := r.UpdateRole(context.Background(), "am-1", domain.AssocVicePresident)
-	mbErr(t, "UpdateRole", err, false)
-	mbStr(t, "UpdateRole.Role", string(ur.Role), string(domain.AssocVicePresident))
-	mbBool(t, "UpdateRole.UpdatedAt set", ur.UpdatedAt.IsZero(), false)
-	_, err = r.UpdateRole(context.Background(), "am-missing", domain.AssocPresident)
-	mbErr(t, "UpdateRole(missing)", err, true)
-}
+// TestAssociationMemberRepoCoverage 已移除：协会 8 级角色未启用（见迁移 000113）。

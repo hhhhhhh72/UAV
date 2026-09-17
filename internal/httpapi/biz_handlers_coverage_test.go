@@ -137,7 +137,10 @@ func TestEscrowFullCycle(t *testing.T) {
 	userTok := authAs(t, "user-1", domain.RoleIndividual)
 
 	// 托管金写接口门禁：deposit 已放开用户自充值（单笔上限防印钞）；freeze/release/refund 仍仅管理员
-	for _, tc := range []struct{ method, path, body string; wantCode int }{
+	for _, tc := range []struct {
+		method, path, body string
+		wantCode           int
+	}{
 		{http.MethodPost, "/api/v1/escrow/deposit", `{"amount_fen":100000}`, http.StatusCreated},
 		{http.MethodPost, "/api/v1/escrow/freeze", `{"amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`, http.StatusForbidden},
 		{http.MethodPost, "/api/v1/escrow/release", `{"to_user":"user-2","amount_fen":50000,"reference_type":"work_order","reference_id":"wo-1"}`, http.StatusForbidden},

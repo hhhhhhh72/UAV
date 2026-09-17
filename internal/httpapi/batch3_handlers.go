@@ -1,10 +1,7 @@
 package httpapi
 
 import (
-	"errors"
 	"net/http"
-
-	"drone-platform/internal/domain"
 )
 
 func (s *Server) registerBatch3Routes(mux *http.ServeMux) {
@@ -16,10 +13,6 @@ func (s *Server) registerBatch3Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/emergency-depts", s.listEmergencyDepts)
 	mux.HandleFunc("POST /api/v1/admin/emergency-drills", s.createEmergencyDrill)
 	mux.HandleFunc("GET /api/v1/emergency-drills", s.listEmergencyDrills)
-	// Association Members
-	mux.HandleFunc("POST /api/v1/admin/association-members", s.addAssociationMember)
-	mux.HandleFunc("GET /api/v1/association-members", s.listAssociationMembers)
-	mux.HandleFunc("GET /api/v1/association-members/me", s.getMyAssociationRole)
 }
 
 // ── RescueCase ──
@@ -67,12 +60,12 @@ func (s *Server) listRescueCases(w http.ResponseWriter, r *http.Request) {
 // ── EmergencyDept ──
 func (s *Server) createEmergencyDept(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Name        string `json:"name"`
-		DeptType    string `json:"dept_type"`
-		Region      string `json:"region"`
-		ContactName string `json:"contact_name"`
+		Name         string `json:"name"`
+		DeptType     string `json:"dept_type"`
+		Region       string `json:"region"`
+		ContactName  string `json:"contact_name"`
 		ContactPhone string `json:"contact_phone"`
-		ProtocolURL string `json:"protocol_url"`
+		ProtocolURL  string `json:"protocol_url"`
 	}
 	if err := decode(r, &in); err != nil {
 		fail(w, r, http.StatusBadRequest, err)
@@ -132,50 +125,8 @@ func (s *Server) listEmergencyDrills(w http.ResponseWriter, r *http.Request) {
 	respond(w, r, http.StatusOK, list)
 }
 
-// ── AssociationMember ──
-func (s *Server) addAssociationMember(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		UserID       string `json:"user_id"`
-		EnterpriseID string `json:"enterprise_id"`
-		Role         string `json:"role"`
-	}
-	if err := decode(r, &in); err != nil {
-		fail(w, r, http.StatusBadRequest, err)
-		return
-	}
-	m, err := s.assocMemberSvc.AddMember(r.Context(), in.UserID, in.EnterpriseID, domain.AssociationRole(in.Role))
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	respond(w, r, http.StatusCreated, m)
-}
-func (s *Server) listAssociationMembers(w http.ResponseWriter, r *http.Request) {
-	// 性能审查：repo 支持 role 过滤 → 分页下沉 SQL，respondPage 不再二次切片。
-	page, pageSize := paginationFromQuery(r)
-	list, total, err := s.assocMemberSvc.ListMembers(r.Context(), r.URL.Query().Get("role"), page, pageSize)
-	if err != nil {
-		fail(w, r, http.StatusInternalServerError, err)
-		return
-	}
-	// P1 脱敏：公开响应返回前替换手机号注册用户的 user_id/enterprise_id，
-	// 防止手机号被批量抓取（协会成员名录可匿名访问）。
-	for i := range list {
-		list[i].UserID = maskUserID(list[i].UserID)
-		list[i].EnterpriseID = maskUserID(list[i].EnterpriseID)
-	}
-	respondPage(w, r, list, total, page, pageSize)
-}
-func (s *Server) getMyAssociationRole(w http.ResponseWriter, r *http.Request) {
-	a, ok := authenticatedActor(r)
-	if !ok {
-		fail(w, r, http.StatusUnauthorized, errors.New("auth required"))
-		return
-	}
-	m, err := s.assocMemberSvc.GetByUserID(r.Context(), a.ID)
-	if err != nil {
-		fail(w, r, http.StatusNotFound, err)
-		return
-	}
-	respond(w, r, http.StatusOK, m)
-}
+// ── AssociationMember 已移除 ──
+// addAssociationMember / listAssociationMembers / getMyAssociationRole 三个 handler
+// 随协会 8 级角色一起删除：association_members 表 0 行、前端零调用。
+// 顺带记一笔：addAssociationMember 从不校验 role 合法性（唯一校验在批量导入里），
+// 而表列是裸 TEXT，可写入任意字符串。
