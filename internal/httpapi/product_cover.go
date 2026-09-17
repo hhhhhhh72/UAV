@@ -22,7 +22,7 @@ func (s *Server) fillCoverDimensions(ctx context.Context, items []domain.DronePr
 	}
 	ids := make([]string, 0, len(items))
 	for i := range items {
-		if id := uploadIDFromURL(firstImage(items[i].Images)); id != "" {
+		if id := imageLedgerKey(firstImage(items[i].Images)); id != "" {
 			ids = append(ids, id)
 		}
 	}
@@ -32,7 +32,7 @@ func (s *Server) fillCoverDimensions(ctx context.Context, items []domain.DronePr
 	sizes := s.fileSvc.ImageSizes(ctx, ids)
 	for i := range items {
 		u := firstImage(items[i].Images)
-		id := uploadIDFromURL(u)
+		id := imageLedgerKey(u)
 		if id == "" {
 			continue
 		}
@@ -54,26 +54,44 @@ func firstImage(images []string) string {
 	return ""
 }
 
-// uploadIDFromURL 从 /uploads/<id> 形式的图片地址取出上传 ID（文件名就是台账主键）。
-// 非本站上传的地址（外链、/static/ 种子图）返回空串，调用方按「尺寸未知」处理。
-// 收得比「以 file- 开头」更紧：必须是 /uploads/ 路径下、文件名以 file- 开头，
-// 否则一个外链 https://evil/file-xxx 也会被当成自家台账去查。
-func uploadIDFromURL(raw string) string {
+// imageLedgerKey 把图片地址映射成 uploads 台账的主键。
+//
+// 台账主键就是**磁盘上的文件名**（自家上传是 file-<32hex>，种子图沿用自己的名字
+// sl-hero.jpg / demand-lift.jpg 之类），所以取路径最后一段即可。
+//
+// 只接受**站点相对路径**（单个前导 /）：外链（https://…、协议相对的 //…）一律返回空串。
+// 这条限制是必要的——否则 https://evil.example/file-abc 会被拿去查我们的台账。
+// 查询只用于取宽高，不涉及任何授权，但仍不该让外部地址进到自家索引里。
+// imagePaths 是本站图片的两个根：自家上传在 /uploads/，随包种子图在 /static/。
+// 只有落在这两个路径下的地址才查台账——外部地址即使文件名撞上也不查。
+func imageLedgerKey(raw string) string {
 	u := strings.TrimSpace(raw)
-	if u == "" || !strings.Contains(u, "/uploads/") {
+	if u == "" {
 		return ""
 	}
-	// 去掉查询串/锚点，再取路径最后一段
+	// 兼容绝对地址（https://host/uploads/x → /uploads/x）；无路径部分则放弃
+	if i := strings.Index(u, "://"); i >= 0 {
+		rest := u[i+3:]
+		j := strings.IndexByte(rest, '/')
+		if j < 0 {
+			return ""
+		}
+		u = rest[j:]
+	}
+	// 去掉查询串/锚点
 	if i := strings.IndexAny(u, "?#"); i >= 0 {
 		u = u[:i]
 	}
-	u = strings.TrimSuffix(u, "/")
+	if !strings.HasPrefix(u, "/uploads/") && !strings.HasPrefix(u, "/static/") {
+		return ""
+	}
+	// 以 / 结尾是目录形态（如 "/uploads/"），不是文件
+	if strings.HasSuffix(u, "/") {
+		return ""
+	}
 	id := u
 	if i := strings.LastIndex(u, "/"); i >= 0 {
 		id = u[i+1:]
-	}
-	if !strings.HasPrefix(id, "file-") || len(id) <= len("file-") {
-		return ""
 	}
 	return id
 }

@@ -388,20 +388,24 @@ export function fmtPriceFen(fen) {
 }
 
 // 后端 DroneProduct → 电商卡片
-// coverRatio 封面显示比例，钳制在 1:1 ~ 3:4 两档（照抄淘宝的主图比例集合）。
+// coverRatio 封面显示比例：**按图自己的比例显示**，只对离谱比例兜底。
 //
-// 为什么钳制：我们实测的商品图从 0.75(3:4) 到 2.17(宽横幅) 都有。完全放开的话，
-// 一张 2.17 的横幅在 341rpx 宽的列里只有 157rpx 高、成一条细带，而 0.75 竖图有
-// 455rpx，两者差近 3 倍，列表会失去节奏。淘宝之所以不失控，正是因为它的主图只有
-// 1:1（搜索场景）和 3:4（推荐流）两种。钳制后图片高度只有两档：341 / 455rpx。
+// 为什么不再钉成 1:1 / 3:4：淘宝的图片本来就不一样大——它并存 1:1（搜索场景）与
+// 3:4（推荐流）两种主图，图片按各自比例显示，这本身就是信息流错落的来源。把它统一
+// 钳到那两档，等于把自己的图全裁成方图。
 //
-// 缺尺寸（外链、/static 种子图、存量未回填）退化为 1:1。
+// 兜底边界取 1:2 ~ 2:1：只挡真正离谱的（全景图 5:1 在 341rpx 宽的列里会只剩 68rpx，
+// 成一条线）。商品图正常落在 0.75~2.2 之间，基本不受这个兜底影响。
+//
+// 缺尺寸（外链、或台账尚未回填）退化为 1:1。
+const MIN_RATIO = 0.5
+const MAX_RATIO = 2
 function coverRatio(p) {
   const cw = Number(p.cover_width || 0)
   const ch = Number(p.cover_height || 0)
   let ratio = cw > 0 && ch > 0 ? cw / ch : 1
-  if (ratio > 1) ratio = 1
-  if (ratio < 0.75) ratio = 0.75
+  if (ratio > MAX_RATIO) ratio = MAX_RATIO
+  if (ratio < MIN_RATIO) ratio = MIN_RATIO
   return ratio
 }
 
