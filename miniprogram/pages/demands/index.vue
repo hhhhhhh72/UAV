@@ -1030,13 +1030,24 @@ onPullDownRefresh(() => {
   margin-bottom: 20rpx;
   box-shadow: 0 4rpx 16rpx rgba(7, 77, 146, 0.06);
 }
+/* 图片框：正 1:1，高度由宽度推导（padding-top 的百分比是相对**宽度**算的）。
+   此前是写死的 height: 320rpx，而卡片宽 = calc(50% - 10rpx)，在 750rpx 设计宽度下
+   实际是 341rpx —— 框成了 1.07 的扁方形，配合 aspectFill 每张图都被裁：
+   800×800 方形图裁 6%，1280×1706 竖图裁 30% 高度，750×346 横幅裁 51% 宽度。
+   改成正 1:1 后，占我们商品图 52% 的方形主图零裁剪；同时高度随屏宽自适应，
+   不再是一个写死的尺寸（响应式规范：容器尺寸不用固定 px/rpx 钉死）。
+   后续治本的一步是像淘宝那样在发布时把主图裁成 1:1（淘宝主图规范即 1:1 正方形）。 */
 .ecom-img-wrap {
   position: relative;
   width: 100%;
-  height: 320rpx;
+  height: 0;
+  padding-top: 100%;
   background: #F0F3F6;
 }
 .ecom-img {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 100%;
   height: 100%;
 }
