@@ -123,7 +123,10 @@ func TestStress_2000MixedOperations(t *testing.T) {
 	t.Logf("Throughput: %.0f ops/sec", opsPerSec)
 	t.Logf("P50: %v, P95: %v, P99: %v", time.Duration(p50), time.Duration(p95), time.Duration(p99))
 
-	if ops < 2000 {
+	// 吞吐阈值只在非 race 构建下断言（见 race_on_test.go）：-race 拖慢约一个数量级。
+	if raceEnabled {
+		t.Logf("race 构建：跳过吞吐阈值断言（本次 %d ops）", ops)
+	} else if ops < 2000 {
 		t.Errorf("only %d ops in %v (target >=2000)", ops, duration)
 	}
 	if errs > int64(float64(ops)*0.05) {
@@ -317,8 +320,11 @@ func TestStress_AdminDashboardLoad(t *testing.T) {
 	t.Logf("20 admins × 100 refreshes: %d ops in %v", ops, elapsed)
 	t.Logf("Avg P50: %v, Avg P95: %v, Avg P99: %v", avg(p50s), avg(p95s), avg(p99s))
 
-	if ops < 3000 {
-		t.Errorf("only %d ops (target >=4000)", ops)
+	// 同上：race 构建跳过吞吐阈值（顺带修掉这里 target 与实际阈值 3000 不一致的文案）。
+	if raceEnabled {
+		t.Logf("race 构建：跳过吞吐阈值断言（本次 %d ops）", ops)
+	} else if ops < 3000 {
+		t.Errorf("only %d ops (target >=3000)", ops)
 	}
 	maxP99 := avg(p99s)
 

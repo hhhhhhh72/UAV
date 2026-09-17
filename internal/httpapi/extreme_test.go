@@ -107,6 +107,15 @@ func TestExtreme_1000GoroutineSustained(t *testing.T) {
 	}
 	t.Logf("╚══════════════════════════════════════╝")
 
+	if raceEnabled {
+		// -race 下吞吐无参考意义（竞态检测拖慢约一个数量级，CI runner 算力也低）。
+		// 只保留正确性断言：并发下不该出现错误。
+		t.Logf("race 构建：跳过吞吐阈值断言（本次 %d ops）；仅校验错误数", ops)
+		if errs != 0 {
+			t.Errorf("并发压测出现 %d 次错误", errs)
+		}
+		return
+	}
 	if ops < 10000 {
 		t.Errorf("throughput too low: %d ops in 5s (target >=10000)", ops)
 	}
