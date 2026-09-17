@@ -146,26 +146,31 @@
       </view>
 
       <!-- 正常列表 -->
-      <!-- 商品模式：电商两列宫格（大图 + 价格 + 品牌型号 + 成色/浏览） -->
+      <!-- 商品模式：电商双列瀑布流（大图 + 价格 + 品牌型号 + 成色/浏览）。
+           两列各自独立堆叠，而不是 flex-wrap 自动换行——换行的布局里同一行两张卡
+           底边必须对齐，标题只有 1 行的卡片下方就必然留出缺口，下一行也不会顶上来。
+           拆成两列后，每张卡的高度完全跟内容走，下面的卡直接嵌进缺口。 -->
       <view v-if="isProductMode && visibleList.length > 0" class="ecom-grid">
-        <view
-          v-for="item in visibleList"
-          :key="item.id"
-          class="ecom-card"
-          hover-class="tap-fade"
-          @tap="goProductDetail(item)"
-        >
-          <view class="ecom-img-wrap">
-            <image :src="item.image" mode="aspectFill" class="ecom-img" @error="onProductImgError(item)" />
-            <text v-if="item.isUsed" class="ecom-used-tag">二手</text>
-          </view>
-          <view class="ecom-body">
-            <text class="ecom-price">¥<text class="ecom-price-num">{{ item.price }}</text></text>
-            <text class="ecom-title">{{ item.title }}</text>
-            <text class="ecom-spec">{{ item.spec }}</text>
-            <view class="ecom-foot">
-              <text class="ecom-cat">{{ item.cat }}</text>
-              <text class="ecom-views">{{ item.views ? '已浏览 ' + item.views + ' 次' : '平台商品' }}</text>
+        <view v-for="(col, ci) in productColumns" :key="ci" class="ecom-col">
+          <view
+            v-for="item in col"
+            :key="item.id"
+            class="ecom-card"
+            hover-class="tap-fade"
+            @tap="goProductDetail(item)"
+          >
+            <view class="ecom-img-wrap">
+              <image :src="item.image" mode="aspectFill" class="ecom-img" @error="onProductImgError(item)" />
+              <text v-if="item.isUsed" class="ecom-used-tag">二手</text>
+            </view>
+            <view class="ecom-body">
+              <text class="ecom-price">¥<text class="ecom-price-num">{{ item.price }}</text></text>
+              <text class="ecom-title">{{ item.title }}</text>
+              <text class="ecom-spec">{{ item.spec }}</text>
+              <view class="ecom-foot">
+                <text class="ecom-cat">{{ item.cat }}</text>
+                <text class="ecom-views">{{ item.views ? '已浏览 ' + item.views + ' 次' : '平台商品' }}</text>
+              </view>
             </view>
           </view>
         </view>
@@ -600,6 +605,30 @@ const visibleList = computed(() => {
   return out
 })
 
+// 瀑布流两列分配：把每张卡投放到当前较矮的一列。
+//
+// 为什么不测量真实 DOM：图片已统一成正 1:1（高度＝列宽，两列相同），价格/型号/页脚
+// 也是每张等高，**唯一会变的是标题占 1 行还是 2 行**。所以只需按标题行数估算即可，
+// 不必等渲染完再去量——也就没有首屏跳动（CLS）。
+const productColumns = computed(() => {
+  const cols = [[], []]
+  const heights = [0, 0]
+  // 卡片除标题外的等高部分，按「行」为单位粗略折算，让分配以张数为主、标题行数为辅
+  const CARD_BASE = 12
+  for (const item of visibleList.value) {
+    // 标题每行约 11 个全角字（卡片内容宽 ≈301rpx ÷ 26rpx 字号）；半角字符按 0.5 折算
+    const text = String(item.title || '')
+    let units = 0
+    for (const ch of text) units += ch.charCodeAt(0) < 128 ? 0.5 : 1
+    const lines = Math.min(2, Math.max(1, Math.ceil(units / 11)))
+    const h = CARD_BASE + lines
+    const target = heights[0] <= heights[1] ? 0 : 1
+    cols[target].push(item)
+    heights[target] += h
+  }
+  return cols
+})
+
 /* ================= 生命周期 ================= */
 onLoad(() => {
   checkMotion() // 减弱动效检测（无障碍）
@@ -1016,23 +1045,26 @@ onPullDownRefresh(() => {
 }
 
 /* ═══════ 商品设备：电商两列宫格 ═══════ */
+/* 双列瀑布流：两列各自是一个纵向 flex，互不影响，所以每张卡的高度完全跟内容走，
+   下一张卡会直接嵌进上一张下方的缺口（不再是 flex-wrap 换行那种「同行必须等高」）。 */
 .ecom-grid {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  /* 卡片高度跟内容走，不要被拉伸到与同行另一张等高。
-     flex 默认 align-items: stretch，会把同一行较矮的卡片（标题只有 1 行）
-     撑到和较高那张一样高 —— 白色卡片底部就多出一块空白「填充」。
-     改为 flex-start 后，文字少的卡片自然短一截。 */
   align-items: flex-start;
+  gap: 20rpx;
   padding: 0 24rpx 20rpx;
 }
+.ecom-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
 .ecom-card {
-  width: calc(50% - 10rpx);
+  width: 100%;
   background: #fff;
   border-radius: 20rpx;
   overflow: hidden;
-  margin-bottom: 20rpx;
   box-shadow: 0 4rpx 16rpx rgba(7, 77, 146, 0.06);
 }
 /* 图片框：正 1:1，高度由宽度推导（padding-top 的百分比是相对**宽度**算的）。
