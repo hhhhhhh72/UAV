@@ -1020,6 +1020,11 @@ onPullDownRefresh(() => {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
+  /* 卡片高度跟内容走，不要被拉伸到与同行另一张等高。
+     flex 默认 align-items: stretch，会把同一行较矮的卡片（标题只有 1 行）
+     撑到和较高那张一样高 —— 白色卡片底部就多出一块空白「填充」。
+     改为 flex-start 后，文字少的卡片自然短一截。 */
+  align-items: flex-start;
   padding: 0 24rpx 20rpx;
 }
 .ecom-card {
@@ -1084,7 +1089,9 @@ onPullDownRefresh(() => {
   font-size: 26rpx;
   font-weight: 600;
   line-height: 1.4;
-  min-height: 73rpx;
+  /* 此前是 min-height: 73rpx —— 无论标题 1 行还是 2 行都占满两行高度，
+     短标题的卡片因此空出一整行。line-clamp: 2 已经限了上限（最长两行），
+     下限交给内容自己决定。 */
 }
 .ecom-spec {
   display: block;
