@@ -17,6 +17,7 @@ CERT=${CERT:-/etc/nginx/certs/api.cqnarc.cn.fullchain.crt}
 DISK_MAX_PERCENT=${DISK_MAX_PERCENT:-85}
 BACKUP_MAX_AGE_HOURS=${BACKUP_MAX_AGE_HOURS:-30}
 CERT_MIN_DAYS=${CERT_MIN_DAYS:-21}
+DRILL_MAX_AGE_DAYS=${DRILL_MAX_AGE_DAYS:-8}
 
 now_epoch=$(date +%s)
 generated_at=$(date -Iseconds)
@@ -41,6 +42,27 @@ if [ -n "$latest" ]; then
   fi
 fi
 
+# ---- 恢复演练结果（deploy/restore-drill.sh 每周写入）----
+# 「文件存在」不等于「能恢复」：pg_dump 半途失败、磁盘写满、gzip 截断都会留下
+# 一份看起来正常却还原不出来的备份。演练结果不达标同样要报警。
+DRILL=${DRILL:-$BACKUP_DIR/restore-drill.json}
+drill_ok=false; drill_age_days=-1; drill_note=missing; drill_tables=-1
+if [ -f "$DRILL" ]; then
+  drill_epoch=$(sed -n 's/.*"epoch": *\([0-9]*\).*/\1/p' "$DRILL" | head -1)
+  drill_tables=$(sed -n 's/.*"tables": *\(-*[0-9]*\).*/\1/p' "$DRILL" | head -1)
+  drill_note=$(sed -n 's/.*"note": *"\([^"]*\)".*/\1/p' "$DRILL" | head -1)
+  grep -q '"ok": true' "$DRILL" && drill_ok=true
+  if [ -n "$drill_epoch" ]; then
+    drill_age_days=$(awk -v s="$(( now_epoch - drill_epoch ))" 'BEGIN{printf "%.1f", s/86400}')
+    # 演练是周任务：超过 $DRILL_MAX_AGE_DAYS 天没有成功记录即视为异常
+    awk -v d="$drill_age_days" -v m="$DRILL_MAX_AGE_DAYS" 'BEGIN{exit !(d < m)}' || drill_ok=false
+  else
+    drill_ok=false
+  fi
+fi
+drill_tables=${drill_tables:--1}
+drill_note=${drill_note:-missing}
+
 # ---- 容器 ----
 api_state=$(docker inspect -f '{{.State.Status}}' uav-api-1 2>/dev/null || echo missing)
 db_state=$(docker inspect -f '{{.State.Status}}' uav-db-1 2>/dev/null || echo missing)
@@ -64,7 +86,7 @@ schema=${schema:-unknown}
 
 # ---- 汇总 ----
 ok=false
-if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ]; then
+if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ]; then
   ok=true
 fi
 
@@ -77,6 +99,7 @@ cat > "$tmp" <<JSON
   "ok": $ok,
   "disk": {"used_percent": $disk_used, "max_percent": $DISK_MAX_PERCENT, "ok": $disk_ok},
   "backup": {"file": "$backup_file", "age_hours": $backup_age_hours, "size_bytes": $backup_size, "integrity": "$backup_integrity", "max_age_hours": $BACKUP_MAX_AGE_HOURS, "ok": $backup_ok},
+  "restore_drill": {"age_days": $drill_age_days, "max_age_days": $DRILL_MAX_AGE_DAYS, "tables": $drill_tables, "note": "$drill_note", "ok": $drill_ok},
   "containers": {"api": "$api_state", "db": "$db_state", "ok": $containers_ok},
   "cert": {"days_left": $cert_days, "min_days": $CERT_MIN_DAYS, "ok": $cert_ok},
   "schema_version": "$schema"

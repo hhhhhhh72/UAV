@@ -190,6 +190,7 @@ go test ./internal/...  # 全部 PASS
 | 短信验证码可在线爆破 | 错误码无尝试次数限制、比较非常量时间 | **已修复**：5 次错误作废验证码 + `subtle.ConstantTimeCompare` |
 | h5ImageProxy 开放重定向 | 任意 http/https URL 直接 302 跳转 | **已修复**：白名单（localhost/127.0.0.1/BASE_URL 域名）外一律 403 |
 | `middleware.SanitizeBody` 是空壳 | 只查 Method/Content-Type 就放行，且未挂载 | **已修复**：实现真实 JSON 消毒（去 HTML 标签、password 保真、1MiB 上限）并挂载进中间件链 |
+| **定时备份静默失败两天**（2026-09-17 发现） | 从 Windows 打包 tar 部署时 `deploy/*.sh` 丢了可执行位；且 `core.autocrlf=true` 让工作区里的 `deploy/db-backup.sh` 是 CRLF，覆盖服务器上正常的 LF 版本后 `set -euo pipefail` 被读成 `pipefail\r`，cron 只留两行 Permission denied | **已修复**：① 仓库 `.gitattributes` 统一 `* text=auto eol=lf`、`git config core.autocrlf false` 并把工作区重新规范化；② 每次部署后必须 `chmod +x deploy/*.sh *.sh` —— Windows 打包会丢可执行位，**这一步不能省**；③ 新增 `deploy/ops-status.sh`（每 10 分钟快照）+ 探活覆盖备份新鲜度/磁盘/证书/容器；④ 新增 `deploy/restore-drill.sh`（每周把最新备份还原到临时库验证），因为「文件存在」不等于「能恢复」 |
 
 ## 本地开发
 
