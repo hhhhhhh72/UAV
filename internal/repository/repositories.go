@@ -598,6 +598,22 @@ var ErrNotFound = errors.New("record not found")
 // 删除路径据此返回 404，而不是"删了个不存在的 id 却回 200"。
 var ErrUserNotFound = errors.New("user not found")
 
+// PaymentOrderRepository 线上支付订单（微信支付等真实资金渠道）。
+//
+// 与 EscrowRepository 的分工：本仓储只记录「用户下单 → 是否到账」；
+// 真正加钱由 EscrowRepository.Deposit 完成。两层都要幂等：
+// 第一层是 MarkPaid 的 CAS（并发回调只有一个赢家），
+// 第二层是 DepositByChannel 的 (channel, external_txn_id) 查重（微信会重试回调）。
+type PaymentOrderRepository interface {
+	Create(ctx context.Context, o domain.PaymentOrder) (domain.PaymentOrder, error)
+	// FindByOutTradeNo 按商户订单号查单。第二个返回值为是否存在。
+	FindByOutTradeNo(ctx context.Context, outTradeNo string) (domain.PaymentOrder, bool, error)
+	// MarkPaid 原子置 paid：仅当当前状态为 created 时成功并返回 true。
+	// 并发回调/重放只有一个能拿到 true，其余拿到 false——这是防重复入账的第一道防线。
+	MarkPaid(ctx context.Context, outTradeNo, transactionID string, paidAt time.Time) (bool, error)
+	ListByUser(ctx context.Context, userID string, limit int) ([]domain.PaymentOrder, error)
+}
+
 type EscrowRepository interface {
 	GetAccount(ctx context.Context, userID string) (domain.EscrowAccount, error)
 	// 以下四个资金方法必须原子：调整余额并写入流水，全成或全败。
