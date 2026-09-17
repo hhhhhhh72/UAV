@@ -159,7 +159,7 @@
             hover-class="tap-fade"
             @tap="goProductDetail(item)"
           >
-            <view class="ecom-img-wrap">
+            <view class="ecom-img-wrap" :style="'padding-top:' + item.imgPad">
               <image :src="item.image" mode="aspectFill" class="ecom-img" @error="onProductImgError(item)" />
               <text v-if="item.isUsed" class="ecom-used-tag">二手</text>
             </view>
@@ -607,21 +607,25 @@ const visibleList = computed(() => {
 
 // 瀑布流两列分配：把每张卡投放到当前较矮的一列。
 //
-// 为什么不测量真实 DOM：图片已统一成正 1:1（高度＝列宽，两列相同），价格/型号/页脚
-// 也是每张等高，**唯一会变的是标题占 1 行还是 2 行**。所以只需按标题行数估算即可，
-// 不必等渲染完再去量——也就没有首屏跳动（CLS）。
+// 为什么不测量真实 DOM：卡片高度是**算得出来的**——图片高度＝列宽÷比例（比例由后端
+// 给的像素宽高得出），文字区高度＝固定部分＋标题行数。全部在渲染前可算，所以不必等
+// 渲染完再量，也就没有首屏跳动（CLS）。
 const productColumns = computed(() => {
   const cols = [[], []]
   const heights = [0, 0]
-  // 卡片除标题外的等高部分，按「行」为单位粗略折算，让分配以张数为主、标题行数为辅
-  const CARD_BASE = 12
+  // 参考列宽（rpx）：(750 − 左右各 24 − 列间距 20) ÷ 2。两列等宽，所以只用于比较。
+  const COL_W = 341
+  // 卡片文字区固定部分（内边距＋价格＋型号＋页脚），估算值；标题按行数另计。
+  const TEXT_BASE = 150
+  const LINE_H = 36 // 标题一行的高度（26rpx × line-height 1.4）
   for (const item of visibleList.value) {
-    // 标题每行约 11 个全角字（卡片内容宽 ≈301rpx ÷ 26rpx 字号）；半角字符按 0.5 折算
+    const ratio = Number(item.imgRatio) || 1
+    // 标题每行约 11 个全角字（内容宽 ≈301rpx ÷ 26rpx 字号）；半角字符按 0.5 折算
     const text = String(item.title || '')
     let units = 0
     for (const ch of text) units += ch.charCodeAt(0) < 128 ? 0.5 : 1
     const lines = Math.min(2, Math.max(1, Math.ceil(units / 11)))
-    const h = CARD_BASE + lines
+    const h = COL_W / ratio + TEXT_BASE + lines * LINE_H
     const target = heights[0] <= heights[1] ? 0 : 1
     cols[target].push(item)
     heights[target] += h
@@ -1073,7 +1077,11 @@ onPullDownRefresh(() => {
    800×800 方形图裁 6%，1280×1706 竖图裁 30% 高度，750×346 横幅裁 51% 宽度。
    改成正 1:1 后，占我们商品图 52% 的方形主图零裁剪；同时高度随屏宽自适应，
    不再是一个写死的尺寸（响应式规范：容器尺寸不用固定 px/rpx 钉死）。
-   后续治本的一步是像淘宝那样在发布时把主图裁成 1:1（淘宝主图规范即 1:1 正方形）。 */
+   2026-09-17 二次修正：图片**不该都一样大**——淘宝的主图规范本身就并存 1:1 与 3:4 两种
+   （搜索场景用 1:1，推荐流用 3:4），图片按各自比例显示，高度天然不等，这也是它错落的来源。
+   现在改为：后端返回每张图的像素宽高（uploads 台账，迁移 000115），前端把比例钳制在
+   1:1 ~ 3:4 两档后，用内联 padding-top 为每张图预留自己的位置——不裁图，也不跳动。
+   这里的 100% 只是缺尺寸时的兜底（退化为 1:1）。 */
 .ecom-img-wrap {
   position: relative;
   width: 100%;

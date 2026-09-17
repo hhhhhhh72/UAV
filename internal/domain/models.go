@@ -496,6 +496,11 @@ type FileRecord struct {
 	Visibility  string    `json:"visibility"`
 	OwnerID     string    `json:"owner_id"`
 	CreatedAt   time.Time `json:"created_at"`
+	// Width/Height 图片像素尺寸，上传时从文件头解出。0 表示未知（非图片，或迁移前的存量数据）。
+	// 消费方：商品卡片要按每张图自己的比例预留空间——只知道 URL 无法预留，
+	// 加载完再撑开会造成列表跳动（CLS），写死比例又会裁图。
+	Width  int `json:"width"`
+	Height int `json:"height"`
 }
 
 // Message is an in-app notification sent between users or from the system.
@@ -840,6 +845,14 @@ type DroneProduct struct {
 	// 买家第一眼看到的），DetailImages 是往下翻时铺在详情区的细节图（内部结构/铭牌/检测报告/实拍）。
 	// 参考 Tigshop 的图文详情（descArr），先做轻量版：纯图数组，不含图文块混排。
 	DetailImages []string `json:"detail_images"`
+	// CoverWidth/CoverHeight 封面图（Images[0]）的像素宽高，**仅供响应**，不落商品表。
+	// 来源是 uploads 台账（迁移 000115）。用途：供给大厅的卡片在渲染前按每张图自己的
+	// 比例预留位置——只知道 URL 无法预留（加载完再撑开会跳动），写死比例又会裁图。
+	// 0 表示未知（封面不是本站上传、或存量数据尚未回填），前端退化为 1:1。
+	CoverWidth  int `json:"cover_width,omitempty"`
+	CoverHeight int `json:"cover_height,omitempty"`
+	// CoverURL 封面原图地址（与 Images[0] 同值）。前端请求裁剪尺寸时作为路径参数用。
+	CoverURL string `json:"cover_url,omitempty"`
 	Brand       string      `json:"brand"`
 	Model       string      `json:"model"`
 	Condition   string      `json:"condition"` // new / used

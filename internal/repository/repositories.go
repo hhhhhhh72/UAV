@@ -59,6 +59,9 @@ type UploadRepository interface {
 	FindByID(ctx context.Context, id string) (domain.FileRecord, error)
 	// SumBytesSince 统计 owner 自 since 起的累计上传字节数。
 	SumBytesSince(ctx context.Context, ownerID string, since time.Time) (int64, error)
+	// FindByIDs 按 ID 批量查台账（商品卡片要拿每张图的宽高来预留位置）。
+	// 找不到的 ID 直接不出现在结果里——调用方按缺省（比例未知）处理，不报错。
+	FindByIDs(ctx context.Context, ids []string) ([]domain.FileRecord, error)
 }
 
 // UserRepository manages platform user accounts and their role assignments.

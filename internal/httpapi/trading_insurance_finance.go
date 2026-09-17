@@ -179,6 +179,7 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 				mine = append(mine, p)
 			}
 		}
+		s.fillCoverDimensions(r.Context(), mine)
 		paginatedRespond(w, r, mine, len(mine))
 		return
 	}
@@ -209,6 +210,7 @@ func (s *Server) listProducts(w http.ResponseWriter, r *http.Request) {
 	for i := range listed {
 		listed[i].SellerID = maskUserID(listed[i].SellerID)
 	}
+	s.fillCoverDimensions(r.Context(), listed)
 	paginatedRespond(w, r, listed, len(listed))
 }
 
@@ -241,6 +243,10 @@ func (s *Server) getProductDetail(w http.ResponseWriter, r *http.Request) {
 			p.SellerID = maskUserID(p.SellerID)
 		}
 	}
+	// 详情页同样需要封面比例（顶部大图按原比例显示，不裁）
+	one := []domain.DroneProduct{p}
+	s.fillCoverDimensions(r.Context(), one)
+	p = one[0]
 	respond(w, r, http.StatusOK, p)
 }
 

@@ -3793,6 +3793,26 @@ func (r *uploadRepo) FindByID(ctx context.Context, id string) (domain.FileRecord
 	return domain.FileRecord{}, fmt.Errorf("upload %s not found", id)
 }
 
+// FindByIDs 按 ID 批量查（与 PG 同语义：找不到的 ID 不出现在结果里，不报错）。
+func (r *uploadRepo) FindByIDs(ctx context.Context, ids []string) ([]domain.FileRecord, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	want := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		want[id] = true
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []domain.FileRecord
+	for _, rec := range r.records {
+		if want[rec.ID] {
+			out = append(out, rec)
+		}
+	}
+	return out, nil
+}
+
 // ListByOwner 某用户的上传台账（与 PG 同语义）。
 func (r *uploadRepo) ListByOwner(ctx context.Context, ownerID string) ([]domain.FileRecord, error) {
 	r.mu.RLock()

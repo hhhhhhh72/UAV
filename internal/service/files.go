@@ -7,7 +7,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"image"
+	// 只注册解码器：imageDimension 靠 DecodeConfig 读文件头，不解码像素。
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,6 +57,48 @@ func NewFileService(uploadDir string, opts ...FileServiceOption) *FileService {
 		o(s)
 	}
 	return s
+}
+
+// imageDimension 从文件头读出图片的像素宽高。
+//
+// DecodeConfig 只解析文件头（PNG 的 IHDR / JPEG 的 SOF / GIF 的 LSD），不解码像素——
+// 对一张 5MB 的图也只是一次几十字节的读，放在上传链路上开销可忽略。
+// 解不出（非图片、格式未注册、文件损坏）返回错误，调用方保持宽高为 0。
+func imageDimension(path string) (int, int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return 0, 0, err
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 {
+		return 0, 0, fmt.Errorf("invalid image dimension %dx%d", cfg.Width, cfg.Height)
+	}
+	return cfg.Width, cfg.Height, nil
+}
+
+// ImageSizes 批量取图片尺寸，key 为上传 ID（即 /uploads/<id> 里的文件名）。
+// 查不到的 ID 不出现在结果里，调用方按「比例未知」处理。
+func (s *FileService) ImageSizes(ctx context.Context, ids []string) map[string][2]int {
+	out := make(map[string][2]int, len(ids))
+	if s.uploads == nil || len(ids) == 0 {
+		return out
+	}
+	recs, err := s.uploads.FindByIDs(ctx, ids)
+	if err != nil {
+		// 取不到尺寸只是让卡片比例退化，不该让整个列表接口失败。
+		slog.Warn("lookup upload sizes failed", "count", len(ids), "error", err)
+		return out
+	}
+	for _, rec := range recs {
+		if rec.Width > 0 && rec.Height > 0 {
+			out[rec.ID] = [2]int{rec.Width, rec.Height}
+		}
+	}
+	return out
 }
 
 func (s *FileService) Upload(ctx context.Context, ownerID string, filename, contentType string, reader io.Reader) (domain.FileRecord, error) {
@@ -159,6 +207,13 @@ func (s *FileService) uploadTo(ctx context.Context, ownerID string, filename, co
 		Visibility:  visibility,
 		OwnerID:     ownerID,
 		CreatedAt:   now,
+	}
+	// 图片尺寸：从已落盘的文件头解出（DecodeConfig 只读文件头，不解码整张图）。
+	// 解不出（非图片/损坏）就保持 0——消费方按「比例未知」处理，不影响上传本身。
+	// 必须放在落盘之后：此前只知道 URL 无法为图片预留空间，前端只能写死比例（裁图）
+	// 或等加载完再撑开（列表跳动）。
+	if w, h, derr := imageDimension(destPath); derr == nil {
+		rec.Width, rec.Height = w, h
 	}
 
 	// 收尾批次：按用户每日配额记账（uploads 台账）。

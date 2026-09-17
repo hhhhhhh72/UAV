@@ -388,6 +388,23 @@ export function fmtPriceFen(fen) {
 }
 
 // 后端 DroneProduct → 电商卡片
+// coverRatio 封面显示比例，钳制在 1:1 ~ 3:4 两档（照抄淘宝的主图比例集合）。
+//
+// 为什么钳制：我们实测的商品图从 0.75(3:4) 到 2.17(宽横幅) 都有。完全放开的话，
+// 一张 2.17 的横幅在 341rpx 宽的列里只有 157rpx 高、成一条细带，而 0.75 竖图有
+// 455rpx，两者差近 3 倍，列表会失去节奏。淘宝之所以不失控，正是因为它的主图只有
+// 1:1（搜索场景）和 3:4（推荐流）两种。钳制后图片高度只有两档：341 / 455rpx。
+//
+// 缺尺寸（外链、/static 种子图、存量未回填）退化为 1:1。
+function coverRatio(p) {
+  const cw = Number(p.cover_width || 0)
+  const ch = Number(p.cover_height || 0)
+  let ratio = cw > 0 && ch > 0 ? cw / ch : 1
+  if (ratio > 1) ratio = 1
+  if (ratio < 0.75) ratio = 0.75
+  return ratio
+}
+
 export function normalizeProduct(p) {
   if (!p || !p.id) return null
   const title = String(p.title || '').trim()
@@ -406,6 +423,12 @@ export function normalizeProduct(p) {
     price: fmtPriceFen(p.price_fen),
     image: fullImgUrl(imgs[0] || ''),
     images: imgs.map(fullImgUrl),
+    // 封面比例：由后端返回的像素宽高算出，**钳制在 1:1 ~ 3:4 两档**——照抄淘宝的主图
+    // 规范（淘宝只有 1:1 和 3:4 两种）。不钳制的话，我们实测的 2.17 宽横幅在 341rpx
+    // 宽的列里只有 157rpx 高、成一条细带，而 0.75 竖图有 455rpx，两者差近 3 倍。
+    // 钳制后图片高度只有两档（341 / 455rpx），错落感有了，又不至于失控。
+    imgRatio: coverRatio(p),
+    imgPad: (100 / coverRatio(p)).toFixed(2) + '%',
     seller: p.seller_name || '平台商家',
     desc: p.description || '',
     cat: classifyProduct(p),
