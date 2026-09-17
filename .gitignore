@@ -43,6 +43,9 @@ internal/httpapi/test_uploads/
 .gopath/
 .impeccable/
 
+# 日报生成产物（scripts/daily-report.ps1 的输出，不入库）
+日报/
+
 # 部署产物与数据文件（工作区卫生，防误提交 PII/镜像）
 *.tar.gz
 *.sql.gz
