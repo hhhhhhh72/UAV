@@ -1,6 +1,9 @@
 name: prod-healthcheck
 
-# 生产探活：每 10 分钟探测 API /healthz 与管理后台首页。
+# 生产探活：每 10 分钟探测 API /healthz、管理后台首页、TLS 证书剩余有效期。
+#
+# 为什么加证书检查（2026-09-17）：证书是手工签发的，服务器上没有任何续期任务，
+# 到期当天全站 HTTPS 会直接下线而无人知晓。此项让它在到期前 21 天就报警。
 # 失败 → 开 issue（label: prod-alert，故障期间不重复开，只追加评论）；
 # 恢复 → 自动评论并关闭告警 issue。
 on:
@@ -15,12 +18,34 @@ jobs:
       - name: Probe production
         run: |
           fail=0
+
+          # 1) API 健康检查：不只看 200，还要看返回体里确实是 ok
+          #    （此前只判状态码，反向代理活着但后端挂了也会误判为健康）
+          body=$(curl -s --max-time 15 https://api.cqnarc.cn/healthz || echo '')
           code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://api.cqnarc.cn/healthz || echo 000)
           echo "API /healthz => $code"
+          echo "  body: $body"
           [ "$code" = "200" ] || fail=1
+          echo "$body" | grep -q '"status":"ok"' || { echo '  ✗ /healthz 返回体不含 status:ok'; fail=1; }
+
+          # 2) 管理后台首页
           code2=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://api.cqnarc.cn/ || echo 000)
           echo "Admin SPA / => $code2"
           [ "$code2" = "200" ] || fail=1
+
+          # 3) TLS 证书剩余有效期
+          enddate=$(echo | openssl s_client -servername api.cqnarc.cn -connect api.cqnarc.cn:443 2>/dev/null \
+                    | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+          if [ -z "$enddate" ]; then
+            echo 'TLS 证书 => ✗ 取不到到期时间（握手失败或证书异常）'
+            fail=1
+          else
+            end=$(date -u -d "$enddate" +%s 2>/dev/null || echo 0)
+            days=$(( (end - $(date -u +%s)) / 86400 ))
+            echo "TLS 证书 => 剩余 $days 天（到期 $enddate）"
+            [ "$days" -gt 21 ] || { echo '  ✗ 证书将在 21 天内到期，请尽快续期'; fail=1; }
+          fi
+
           exit $fail
 
       - name: Notify on failure
