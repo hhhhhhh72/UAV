@@ -69,7 +69,21 @@ jobs:
           path: coverage.out
 
       - name: Race detection
-        run: go test -race ./internal/... -count=1
+        # 同 Test with coverage：失败时把竞态点写进 annotation（日志需管理员权限，注解可匿名读）
+        run: |
+          set +e
+          go test -race ./internal/... -count=1 2>&1 | tee /tmp/race.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            echo '===== 失败用例 / 竞态点 ====='
+            grep -E '^--- FAIL|WARNING: DATA RACE' /tmp/race.log | head -20 || true
+            echo '===== 竞态详情 ====='
+            grep -A 25 'WARNING: DATA RACE' /tmp/race.log | head -80 || true
+            grep -A 12 '^--- FAIL' /tmp/race.log | head -60 || true
+            msg=$(grep -E '^--- FAIL|WARNING: DATA RACE|^ +[a-z_/]+\.go:[0-9]+' /tmp/race.log | head -35 | tr '\n' '~' | tr -d '%')
+            echo "::error title=RaceFailure::${msg:0:1800}"
+          fi
+          exit $rc
 
       - name: Vulnerability scan (govulncheck)
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
