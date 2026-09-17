@@ -1205,8 +1205,14 @@ func TestCoverage_UploadRepo(t *testing.T) {
 			t.Fatalf("Create(%s): %v", rec.ID, err)
 		}
 	}
-	// 今日累计：owner 自己的两条（100+250），不含他人。
-	total, err := r.SumBytesSince(context.Background(), owner, time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()))
+	// 累计：owner 自己的两条（100+250），不含他人。
+	//
+	// 这里刻意用「3 小时前」而不是「今天零点」：后者让测试结果取决于跑测时刻。
+	// GitHub runner 的时区是 UTC——CI 在 00:00–02:00 UTC（北京时间 08:00–10:00）跑时，
+	// now-2h 会落到前一天 23:30，被零点过滤掉，断言 350 实际只得到 250；
+	// 而本地与服务器都是 CST，永远复现不出来。CI 因此红了近一个月。
+	// 仓储契约里的 since 就是调用方给的任意时刻，与「今天」无关。
+	total, err := r.SumBytesSince(context.Background(), owner, now.Add(-3*time.Hour))
 	if err != nil {
 		t.Fatalf("SumBytesSince: %v", err)
 	}
