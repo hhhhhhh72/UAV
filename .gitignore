@@ -40,6 +40,7 @@ internal/httpapi/test_uploads/
 
 # Go 构建缓存与本地临时目录（不入库）
 .gocache/
+.gopath/
 .impeccable/
 
 # 部署产物与数据文件（工作区卫生，防误提交 PII/镜像）
