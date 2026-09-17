@@ -39,7 +39,25 @@ jobs:
       - name: Test with coverage
         env:
           DATABASE_URL: postgres://drone:drone_secret@localhost:5432/drone_platform?sslmode=disable
-        run: go test ./internal/... -count=1 -coverprofile=coverage.out
+        # 失败时把「哪个用例挂了」写成 check annotation：Actions 的原始日志需要仓库
+        # 管理员权限才能下载，而 annotation 可以匿名读取——CI 红了一个月却无人能
+        # 从外部看到原因，就是卡在这里。
+        run: |
+          set +e
+          go test ./internal/... -count=1 -coverprofile=coverage.out 2>&1 | tee /tmp/gotest.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            echo '===== 失败用例 ====='
+            grep -E '^--- FAIL|^    --- FAIL' /tmp/gotest.log || true
+            echo '===== 失败详情 ====='
+            grep -B 1 -A 20 '^--- FAIL' /tmp/gotest.log | head -120 || true
+            echo '===== 编译/panic ====='
+            grep -E 'cannot use|undefined:|too many arguments|not enough arguments|panic:' /tmp/gotest.log | head -20 || true
+            # 转义后塞进 annotation（% 要转义，换行用 ~ 以保持可读）
+            msg=$(grep -E '^--- FAIL|^    --- FAIL|^ +[a-z_]+_test\.go:[0-9]+:' /tmp/gotest.log | head -40 | tr '\n' '~' | tr -d '%')
+            echo "::error title=GoTestFailure::${msg:0:1800}"
+          fi
+          exit $rc
 
       - name: Coverage summary
         run: go tool cover -func=coverage.out | tail -1
