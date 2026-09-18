@@ -157,6 +157,8 @@ fi
 # 只给**没有结果产物**的任务做心跳：
 #   - disk-hygiene：跑完只写日志，没有可检查的产物
 #   - alert：健康时完全静默，更是什么都不留（另盖一个心跳文件）
+#   - daily-report：有产物，但检查的是 json 里的 delivered_epoch（**送达**时间，
+#     见下面的说明）——比文件时间更强，所以同样归在这里。
 # 有结果产物的任务不加：备份看 backup.file 的年龄、还原演练看 drill 的年龄、
 # 快照自己看 generated_epoch —— 那些检查更强（证明**结果产出了**，不只是脚本跑了）。
 # 而且**日志年龄对它们不可靠**：db-backup.sh 成功时不产出任何 stdout/stderr，
@@ -164,8 +166,13 @@ fi
 # （这条假阳性是变异测试时抓到的：cron.log 停在 9/17，但当天 03:00 的备份产物明明在。）
 JOB_HYGIENE_LOG=${JOB_HYGIENE_LOG:-$HOME/UAV-db-backups/disk-hygiene.log}
 JOB_ALERT_HB=${JOB_ALERT_HB:-$HOME/UAV-db-backups/.alert-heartbeat}
+JOB_REPORT_JSON=${JOB_REPORT_JSON:-$HOME/UAV-db-backups/daily-report.json}
 HYGIENE_MAX_HOURS=${HYGIENE_MAX_HOURS:-26}
 ALERT_MAX_MINUTES=${ALERT_MAX_MINUTES:-60}
+# 日报是**日**任务：两次运行之间正好隔 24 小时，阈值必须留出余量，否则每天都会
+# 在「上一次跑完」到「下一次该跑」之间出现一段假告警窗口。30 小时 = 24 小时 + 6 小时
+# 抖动余量（首次手工补跑、cron 延迟都不会误报）。
+REPORT_MAX_HOURS=${REPORT_MAX_HOURS:-30}
 
 # age_hours_of 输出文件年龄（小时，一位小数）；不存在输出 -1。
 age_hours_of() {
@@ -174,11 +181,27 @@ age_hours_of() {
 }
 within() { awk -v a="$1" -v m="$2" 'BEGIN{exit !(a >= 0 && a < m)}'; }
 
+# age_hours_from_epoch <epoch>：没有值或 0 都输出 -1（视为「从没送达过」）。
+age_hours_from_epoch() {
+  case "${1:-}" in ''|*[!0-9]*) echo -1; return ;; esac
+  [ "$1" -gt 0 ] || { echo -1; return; }
+  awk -v s="$(( now_epoch - $1 ))" 'BEGIN{printf "%.1f", s/3600}'
+}
+
 job_hygiene=$(age_hours_of "$JOB_HYGIENE_LOG")
 job_alerthb=$(age_hours_of "$JOB_ALERT_HB")
 alert_max_hours=$(awk -v m="$ALERT_MAX_MINUTES" 'BEGIN{printf "%.2f", m/60}')
+
+# 日报**不看文件时间，看投递时间**（daily-report.json 里的 delivered_epoch，只在推送
+# 成功后更新）。这是有意选更强的那一项：文件时间只能证明「脚本跑了」，而 webhook 被
+# 停用/换 key 时脚本照样天天生成、文件天天新鲜，群里却一条都收不到 —— 那正是
+# 「设置好了但没人确认它真的在跑」。只在**送达**时前移的时间戳才挡得住这种假绿。
+report_epoch=''
+[ -f "$JOB_REPORT_JSON" ] && report_epoch=$(sed -n 's/.*"delivered_epoch": *\([0-9][0-9]*\).*/\1/p' "$JOB_REPORT_JSON" | head -1)
+job_report=$(age_hours_from_epoch "$report_epoch")
+
 jobs_ok=false
-if within "$job_hygiene" "$HYGIENE_MAX_HOURS" && within "$job_alerthb" "$alert_max_hours"; then
+if within "$job_hygiene" "$HYGIENE_MAX_HOURS" && within "$job_alerthb" "$alert_max_hours" && within "$job_report" "$REPORT_MAX_HOURS"; then
   jobs_ok=true
 fi
 
@@ -206,7 +229,7 @@ cat > "$tmp" <<JSON
   "containers": {"api": "$api_state", "db": "$db_state", "ok": $containers_ok},
   "cert": {"days_left": $cert_days, "min_days": $CERT_MIN_DAYS, "ok": $cert_ok},
   "escrow": {"indexes": $esc_idx, "dup_keys": $esc_dup, "ledger_mismatch": $esc_mismatch, "unknown_tx_types": $esc_unknown, "accounts": $esc_accounts, "frozen_fen": $esc_frozen, "ok": $escrow_ok},
-  "jobs": {"hygiene_log_age_hours": $job_hygiene, "hygiene_max_hours": $HYGIENE_MAX_HOURS, "alert_heartbeat_age_hours": $job_alerthb, "alert_max_minutes": $ALERT_MAX_MINUTES, "ok": $jobs_ok},
+  "jobs": {"hygiene_log_age_hours": $job_hygiene, "hygiene_max_hours": $HYGIENE_MAX_HOURS, "alert_heartbeat_age_hours": $job_alerthb, "alert_max_minutes": $ALERT_MAX_MINUTES, "report_delivered_age_hours": $job_report, "report_max_hours": $REPORT_MAX_HOURS, "ok": $jobs_ok},
   "schema_version": "$schema"
 }
 JSON

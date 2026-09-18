@@ -78,6 +78,7 @@ mk "$T/backup_bad.json"     'backup.ok=False' 'backup.age_hours=52.0'
 mk "$T/disk_bad.json"       'disk.ok=False' 'disk.used_percent=93'
 mk "$T/escrow_bad.json"     'escrow.ok=False' 'escrow.dup_keys=3'
 mk "$T/jobs_bad.json"       'jobs.ok=False' 'jobs.hygiene_log_age_hours=99.0'
+mk "$T/report_bad.json"     'jobs.ok=False' 'jobs.report_delivered_age_hours=99.0'
 mk "$T/cert_bad.json"       'cert.ok=False' 'cert.days_left=3'
 mk "$T/containers_bad.json" 'containers.ok=False' 'containers.api="exited"'
 
@@ -101,11 +102,39 @@ reset; run "$T/backup_bad.json";     check '备份过期' backup
 reset; run "$T/disk_bad.json";       check '磁盘将满' disk
 reset; run "$T/escrow_bad.json";     check '资金不变量失守' escrow
 reset; run "$T/jobs_bad.json";       check '定时任务停摆' jobs
+reset; run "$T/report_bad.json";     check '日报停发（心跳过期）' jobs
 reset; run "$T/cert_bad.json";       check '证书将到期' cert
 reset; run "$T/containers_bad.json"; check '容器异常' containers
 reset; run "$T/stale.json";          check '快照超过 60 分钟未更新' snapshot_stale
 # 文件缺失时消息是人类可读句子，不含签名串（签名只存在 STATE 里）——断言要按文本写
 reset; run "$T/missing.json";        check '快照文件不存在' '运维快照文件不存在'
+
+echo
+echo "== 清单同步（防漏项）=="
+# 这一项是**元检查**：告警与日报判定「哪一项失守」都靠 lib-notify.sh 里的
+# NOTIFY_STATUS_SECTIONS。清单一旦漏项，失守的分项只会兜成没有指向性的
+# 「运维快照异常：top_level」—— 正是 9/18 那条假警报暴露出来的形态。
+# 所以拿生产快照**实际输出的分项**与清单逐项比对：把「记得同步两份列表」
+# 交给机器去记，而不是交给下一次的记性。
+sections=$(sed -n 's/^NOTIFY_STATUS_SECTIONS="\(.*\)"$/\1/p' /root/UAV/deploy/lib-notify.sh)
+if [ -z "$sections" ]; then
+  echo "  FAIL 读不到 NOTIFY_STATUS_SECTIONS（lib-notify.sh 里的变量名改了？）"; fail=$((fail+1))
+else
+  missing=$(python3 - "$PROD_SNAPSHOT" "$sections" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+have = set(sys.argv[2].split())
+produced = {k for k, v in d.items() if isinstance(v, dict)}
+print(' '.join(sorted(produced - have)))
+PY
+)
+  n=$(printf '%s' "$sections" | wc -w)
+  if [ -z "$missing" ]; then
+    echo "  ok   分项清单覆盖生产快照的全部 $n 个分项"; pass=$((pass+1))
+  else
+    echo "  FAIL 分项清单遗漏：$missing（快照里有、告警/日报不认 → 只会兜成 top_level）"; fail=$((fail+1))
+  fi
+fi
 
 echo
 if [ "$SEND_REAL" = 1 ]; then

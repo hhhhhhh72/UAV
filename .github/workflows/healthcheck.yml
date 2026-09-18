@@ -45,11 +45,13 @@ jobs:
           else
             echo "ops-status => $ops"
             # 顶层 ok 是七个分项的汇总（磁盘/备份/还原演练/容器/证书/托管金不变量/任务心跳），
-            # 任一项不达标即为 false。列表要与 deploy/ops-status.sh 的 JSON 保持同步。
+            # 任一项不达标即为 false。列表要与 deploy/ops-status.sh 的 JSON 保持同步；
+            # 告警与日报判定「哪一项失守」用的是 deploy/lib-notify.sh 里的同一份清单，
+            # deploy/verify-alerts.sh 会拿快照实际分项与它比对，漏项即演练失败。
             top=$(echo "$ops" | grep -oE '"ok": *(true|false)' | head -1)
             case "$top" in
               *true) echo '  ✓ 磁盘/备份/还原演练/容器/证书/资金不变量/任务心跳 均达标' ;;
-              *) echo '  ✗ 快照 ok != true（磁盘将满/备份过期/还原演练过期/容器异常/证书将到期/资金不变量失守/定时任务停摆）'; fail=1 ;;
+              *) echo '  ✗ 快照 ok != true（磁盘将满/备份过期/还原演练过期/容器异常/证书将到期/资金不变量失守/定时任务停摆/日报停发）'; fail=1 ;;
             esac
             gen=$(echo "$ops" | sed -n 's/.*"generated_epoch": *\([0-9]*\).*/\1/p')
             if [ -z "$gen" ]; then

@@ -26,35 +26,35 @@ ALERT_FORMAT=${ALERT_FORMAT:-wecom}
 HB=${HB:-$HOME/UAV-db-backups/.alert-heartbeat}
 
 [ -f "$ENVFILE" ] && . "$ENVFILE"
+# 通知通道的实现（形状校验 / errcode 校验 / 打码 / 分项清单）与日报共用一份，
+# 见 deploy/lib-notify.sh —— 那里写了为什么不能各写一份。
+# shellcheck source=deploy/lib-notify.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib-notify.sh"
 mkdir -p "$(dirname "$STATE")" 2>/dev/null || true
 
 log() { echo "$(date -Iseconds) $*" >> "$LOG"; }
 
-# mask_url 打日志用：webhook 地址里的 key 等同于"往群里发消息的钥匙"，
-# 日志文件可能被备份/上传，不能原样落盘。只留域名与 key 的前 6 位。
 # finish 正常收尾：盖心跳再退出。只有走到这里的运行才算"跑完了"。
 finish() {
   echo "$(date +%s)" > "$HB" 2>/dev/null || true
   exit "${1:-0}"
 }
 
-mask_url() {
-  printf '%s' "$1" | sed -E 's#(key=)([A-Za-z0-9_-]{0,6})[A-Za-z0-9_-]*#\1\2...#'
-}
-
 # ---- 判定（用 python3 读 JSON：比 sed/grep 可靠，且能把「哪几项不达标」逐条列出来）----
-eval "$(python3 - "$SNAPSHOT" "$SNAPSHOT_MAX_AGE_MIN" <<'PY'
+eval "$(python3 - "$SNAPSHOT" "$SNAPSHOT_MAX_AGE_MIN" "$NOTIFY_STATUS_SECTIONS" <<'PY'
 import json, shlex, sys, time
-path, max_age = sys.argv[1], float(sys.argv[2])
+path, max_age, sections = sys.argv[1], float(sys.argv[2]), sys.argv[3].split()
 healthy, sig, text = True, '', ''
 try:
     with open(path) as f:
         d = json.load(f)
     bad = []
-    # 这份列表必须与 ops-status.sh 输出的分项**保持同步**：漏掉一项时，该分项失守
-    # 会让下面 `not bad` 的分支兜成 'top_level'——告警照发，但消息完全没有指向性
-    # （"运维快照异常：top_level" 等于没说）。新增分项时两边都要改。
-    for k in ('disk', 'backup', 'restore_drill', 'containers', 'cert', 'escrow', 'jobs'):
+    # 分项清单来自 deploy/lib-notify.sh 的 NOTIFY_STATUS_SECTIONS —— **只此一份**，
+    # 日报用的是同一份。此前它硬编码在这里、与 ops-status.sh 各写一套：漏掉一项时，
+    # 该分项失守会让下面 `not bad` 的分支兜成 'top_level'——告警照发，但消息完全没有
+    # 指向性（"运维快照异常：top_level" 等于没说）。
+    # deploy/verify-alerts.sh 会拿生产快照里实际的顶层分项与这份清单逐项比对，漏项直接失败。
+    for k in sections:
         v = d.get(k) or {}
         if v.get('ok') is not True:
             bad.append(k)
@@ -86,47 +86,13 @@ if [ -z "${ALERT_SIG+x}" ]; then
 fi
 
 # ---- 发送 ----
+# 实现（形状校验、errcode 校验、打码、报文编码）全在 deploy/lib-notify.sh，
+# 与日报共用；这里只负责记一行 SEND 日志，好让演练脚本能从日志里断言「报了什么」。
 send() {
   local text="$1"
   log "SEND $text"
-  if [ -z "${ALERT_WEBHOOK:-}" ]; then
-    log "告警通道未配置：在 $ENVFILE 写入 ALERT_WEBHOOK=<群机器人 webhook> 即可启用推送"
-    return 0
-  fi
-  local payload
-  if [ "$ALERT_FORMAT" = feishu ]; then
-    payload=$(python3 -c 'import json,sys;print(json.dumps({"msg_type":"text","content":{"text":sys.argv[1]}},ensure_ascii=False))' "$text")
-  else
-    payload=$(python3 -c 'import json,sys;print(json.dumps({"msgtype":"text","text":{"content":sys.argv[1]}},ensure_ascii=False))' "$text")
-  fi
-  # 形状校验：群机器人 webhook 有固定的域名与路径前缀。
-  # 为什么必须有这一步：填错的后果不是报错，而是**假绿** —— 比如误把管理后台的
-  # 机器人资料页链接（work.weixin.qq.com/wework_admin/common/openBotProfile/...）
-  # 填进来，那个页面同样返回 HTTP 200，脚本会记一条「推送 HTTP 200」就以为发出去了，
-  # 群里却什么都没有。与备份静默失败同一类问题：通道坏了但没人知道。
-  case "$ALERT_WEBHOOK" in
-    *qyapi.weixin.qq.com/cgi-bin/webhook/send*|*oapi.dingtalk.com/robot/send*|*open.feishu.cn/open-apis/bot*) ;;
-    *)
-      log "ALERT_WEBHOOK 形状不对（不是群机器人 webhook 地址，已跳过推送）：$(mask_url "$ALERT_WEBHOOK")"
-      log "  正确形态应为 https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=... （企业微信）；钉钉/飞书见 alert.env 里的说明"
-      return 1
-      ;;
-  esac
-  # 只看 HTTP 码不够：必须看返回体里的 errcode —— 通道类错误（key 失效、机器人被移除、
-  # 触达频率超限）通常都是 HTTP 200 + errcode != 0。
-  local resp code body
-  resp=$(curl -s --max-time 10 -X POST -H 'Content-Type: application/json' -d "$payload" -w '\n%{http_code}' "$ALERT_WEBHOOK" 2>/dev/null || true)
-  code=$(printf '%s' "$resp" | tail -n 1)
-  body=$(printf '%s' "$resp" | sed '$d')
-  case "$body" in
-    *'"errcode":0'*|*'"errcode": 0'*|*'"code":0'*|*'"code": 0'*)
-      log "推送成功 HTTP $code"
-      ;;
-    *)
-      log "推送**可能没送到**：HTTP $code 返回体 $(printf '%s' "$body" | head -c 200)"
-      return 1
-      ;;
-  esac
+  notify_send "$text"
+  return 0
 }
 
 # ---- 冷却与恢复 ----
