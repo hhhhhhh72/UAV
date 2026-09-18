@@ -20,6 +20,10 @@ ENVFILE=${ENVFILE:-/root/UAV/alert.env}
 SNAPSHOT_MAX_AGE_MIN=${SNAPSHOT_MAX_AGE_MIN:-60}
 COOLDOWN_SEC=${COOLDOWN_SEC:-21600}
 ALERT_FORMAT=${ALERT_FORMAT:-wecom}
+# HB 心跳文件：每次**正常跑完**覆盖写一次时间戳（覆盖而非追加，不增长）。
+# ops-status 会检查它是否新鲜 —— 用来发现「告警脚本自己被停掉/没被 cron 调起」。
+# 注意写"正常跑完"而不是任何退出：脚本自己挂了就不该盖心跳，否则故障被自己掩盖。
+HB=${HB:-$HOME/UAV-db-backups/.alert-heartbeat}
 
 [ -f "$ENVFILE" ] && . "$ENVFILE"
 mkdir -p "$(dirname "$STATE")" 2>/dev/null || true
@@ -28,6 +32,12 @@ log() { echo "$(date -Iseconds) $*" >> "$LOG"; }
 
 # mask_url 打日志用：webhook 地址里的 key 等同于"往群里发消息的钥匙"，
 # 日志文件可能被备份/上传，不能原样落盘。只留域名与 key 的前 6 位。
+# finish 正常收尾：盖心跳再退出。只有走到这里的运行才算"跑完了"。
+finish() {
+  echo "$(date +%s)" > "$HB" 2>/dev/null || true
+  exit "${1:-0}"
+}
+
 mask_url() {
   printf '%s' "$1" | sed -E 's#(key=)([A-Za-z0-9_-]{0,6})[A-Za-z0-9_-]*#\1\2...#'
 }
@@ -41,7 +51,10 @@ try:
     with open(path) as f:
         d = json.load(f)
     bad = []
-    for k in ('disk', 'backup', 'restore_drill', 'containers', 'cert', 'escrow'):
+    # 这份列表必须与 ops-status.sh 输出的分项**保持同步**：漏掉一项时，该分项失守
+    # 会让下面 `not bad` 的分支兜成 'top_level'——告警照发，但消息完全没有指向性
+    # （"运维快照异常：top_level" 等于没说）。新增分项时两边都要改。
+    for k in ('disk', 'backup', 'restore_drill', 'containers', 'cert', 'escrow', 'jobs'):
         v = d.get(k) or {}
         if v.get('ok') is not True:
             bad.append(k)
@@ -130,13 +143,14 @@ if [ "$ALERT_HEALTHY" = yes ]; then
     send "[恢复] $prev_sig 已恢复正常"
   fi
   printf '|%s\n' "$now" > "$STATE"
-  exit 0
+  finish 0
 fi
 
 if [ "$ALERT_SIG" = "$prev_sig" ] && [ $(( now - prev_epoch )) -lt "$COOLDOWN_SEC" ]; then
   log "同一故障在冷却期内，跳过提醒：$ALERT_SIG"
-  exit 0
+  finish 0
 fi
 
 send "[告警] $ALERT_TEXT（$(date '+%m-%d %H:%M')）"
 printf '%s|%s\n' "$ALERT_SIG" "$now" > "$STATE"
+finish 0

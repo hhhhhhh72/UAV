@@ -7,6 +7,11 @@
 # 它一概看不见。此脚本把这些指标暴露成一个可被外部读取的快照。
 #
 # 只输出**粗粒度**的运维指标（百分比/小时数/状态名），不含任何业务数据或凭据。
+#
+# 检查分两类，缺一不可：
+#   - **结果类**：备份文件在不在、新不新鲜、能不能还原；磁盘够不够；证书还有几天
+#   - **过程类**（jobs 一节）：那些定时任务**本身**有没有在跑 —— 结果类检查看不出
+#     "任务从没跑过"，因为根本没有结果可看
 set -uo pipefail
 
 OUT=${OUT:-/var/www/ops-status.json}
@@ -143,6 +148,40 @@ if [ "$esc_idx" = 2 ] && [ "$esc_dup" = 0 ] && [ "$esc_mismatch" = 0 ] && [ "$es
   escrow_ok=true
 fi
 
+# ---- 定时任务心跳（"设置好了但没人确认它真的在跑"）----
+#
+# 与上面几节的区别：那些看的是**结果**（备份文件在不在、新不新鲜），这一节看的是
+# **任务本身有没有在跑**。9/17 装好的 disk-hygiene 是周任务，到 9/18 一次都没跑过 ——
+# 结果类检查完全看不出来，因为根本没有结果可看。依据是日志/心跳文件的 mtime：
+# 任务每跑一次就该前移一次。
+# 只给**没有结果产物**的任务做心跳：
+#   - disk-hygiene：跑完只写日志，没有可检查的产物
+#   - alert：健康时完全静默，更是什么都不留（另盖一个心跳文件）
+# 有结果产物的任务不加：备份看 backup.file 的年龄、还原演练看 drill 的年龄、
+# 快照自己看 generated_epoch —— 那些检查更强（证明**结果产出了**，不只是脚本跑了）。
+# 而且**日志年龄对它们不可靠**：db-backup.sh 成功时不产出任何 stdout/stderr，
+# 而 `>>` 打开文件不写入不会更新 mtime，于是日志停在几天前、看起来像"没跑"。
+# （这条假阳性是变异测试时抓到的：cron.log 停在 9/17，但当天 03:00 的备份产物明明在。）
+JOB_HYGIENE_LOG=${JOB_HYGIENE_LOG:-$HOME/UAV-db-backups/disk-hygiene.log}
+JOB_ALERT_HB=${JOB_ALERT_HB:-$HOME/UAV-db-backups/.alert-heartbeat}
+HYGIENE_MAX_HOURS=${HYGIENE_MAX_HOURS:-26}
+ALERT_MAX_MINUTES=${ALERT_MAX_MINUTES:-60}
+
+# age_hours_of 输出文件年龄（小时，一位小数）；不存在输出 -1。
+age_hours_of() {
+  if [ ! -f "$1" ]; then echo -1; return; fi
+  awk -v s="$(( now_epoch - $(stat -c %Y "$1" 2>/dev/null || echo 0) ))" 'BEGIN{printf "%.1f", s/3600}'
+}
+within() { awk -v a="$1" -v m="$2" 'BEGIN{exit !(a >= 0 && a < m)}'; }
+
+job_hygiene=$(age_hours_of "$JOB_HYGIENE_LOG")
+job_alerthb=$(age_hours_of "$JOB_ALERT_HB")
+alert_max_hours=$(awk -v m="$ALERT_MAX_MINUTES" 'BEGIN{printf "%.2f", m/60}')
+jobs_ok=false
+if within "$job_hygiene" "$HYGIENE_MAX_HOURS" && within "$job_alerthb" "$alert_max_hours"; then
+  jobs_ok=true
+fi
+
 # ---- 数据库 schema 版本（失败不影响整体判定，仅留空）----
 schema=$(docker exec uav-db-1 psql -U drone -d drone_platform -t -A \
   -c 'SELECT max(version) FROM schema_migrations' 2>/dev/null | tr -d '[:space:]')
@@ -150,7 +189,7 @@ schema=${schema:-unknown}
 
 # ---- 汇总 ----
 ok=false
-if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ] && [ "$escrow_ok" = true ]; then
+if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ] && [ "$escrow_ok" = true ] && [ "$jobs_ok" = true ]; then
   ok=true
 fi
 
@@ -167,6 +206,7 @@ cat > "$tmp" <<JSON
   "containers": {"api": "$api_state", "db": "$db_state", "ok": $containers_ok},
   "cert": {"days_left": $cert_days, "min_days": $CERT_MIN_DAYS, "ok": $cert_ok},
   "escrow": {"indexes": $esc_idx, "dup_keys": $esc_dup, "ledger_mismatch": $esc_mismatch, "unknown_tx_types": $esc_unknown, "accounts": $esc_accounts, "frozen_fen": $esc_frozen, "ok": $escrow_ok},
+  "jobs": {"hygiene_log_age_hours": $job_hygiene, "hygiene_max_hours": $HYGIENE_MAX_HOURS, "alert_heartbeat_age_hours": $job_alerthb, "alert_max_minutes": $ALERT_MAX_MINUTES, "ok": $jobs_ok},
   "schema_version": "$schema"
 }
 JSON
