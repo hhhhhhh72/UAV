@@ -1049,13 +1049,9 @@ func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64,
 	if tag.RowsAffected() == 0 {
 		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
 	}
-	if err := insertEscrowTx(ctx, btx, tx); err != nil {
-		return domain.EscrowTransaction{}, fmt.Errorf("insert refund tx: %w", err)
-	}
-	if err := btx.Commit(ctx); err != nil {
-		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow refund: %w", err)
-	}
-	return tx, nil
+	// 走统一的收尾：被 idx_escrow_refund_once_per_order（migration 000117）挡下时
+	// 整体回滚并按幂等成功返回——付款方不会被重复退回同一笔冻结款。
+	return r.commitFundMove(ctx, btx, tx, "refund")
 }
 
 // escrowTxColumns 流水查询列（各查询共用，避免漏列导致 channel 静默丢失）。
