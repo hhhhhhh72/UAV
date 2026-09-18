@@ -90,11 +90,19 @@
                  只能整条放弃重发。 -->
             <view v-for="(photo, i) in photos" :key="i" class="pub-photo">
               <image v-if="photo && photo.src" :src="photo.src" mode="aspectFill" class="pub-photo-img" />
+              <!-- 首图即列表封面：给它一个角标，用户才知道"哪一张会被别人第一眼看到"，
+                   否则顺序调整没有任何可见反馈（列表里哪张在前全靠猜）。 -->
+              <text v-if="i === 0" class="pub-photo-cover">封面</text>
               <text class="pub-file-del" @tap.stop="removePhoto(i)">×</text>
             </view>
             <view class="pub-add-photo" hover-class="pub-fade" @tap="addPhoto">＋</view>
           </view>
-          <view class="pub-upload-tip">建议上传清晰实拍图，首图将作为列表封面</view>
+          <view class="pub-upload-tip">建议上传清晰实拍图。首图将作为列表封面——<text class="pub-upload-tip-strong">推荐 1:1（方图）或 3:4（竖图）</text>，横长图在列表里会被压扁、标题容易被挤没</view>
+          <!-- 比例提示：只提示不拦截。供给大厅是按图片自身比例做瀑布流的，
+               横长图仍能正常显示，只是卡片会变得很矮——拦下来反而挡住了正常的横构图实拍图。 -->
+          <view v-if="coverHints.length" class="pub-upload-warn">
+            <text v-for="(h, i) in coverHints" :key="i" class="pub-upload-warn-line">{{ h }}</text>
+          </view>
           <!-- 需求附件材料：与现场资料同分区（图片下方，仅需求展示；PDF/图片 ≤10MB，最多 3 份） -->
           <template v-if="type === 'demand'">
             <view class="pub-upload-tip pub-upload-tip--files">附件材料（选填，PDF/图片，单个 ≤10MB，详情可下载）</view>
@@ -320,11 +328,49 @@ function addFile() {
 }
 function removeFile(i) { files.value.splice(i, 1) }
 
+/* 主图比例建议：1:1（方图）～3:4（竖图）。
+   为什么是这两个：供给大厅是推荐流，按图片自身比例瀑布流展示（见 utils/hallData.js
+   的 coverRatio）。横长图会把卡片压得很矮、标题被挤没；过于窄长的竖图会占掉一整屏。
+   阈值比大厅的裁剪区间 [0.5, 2.0] 略紧，是"建议"而非"限制"——超出只是不理想，
+   仍然能发布、也仍然按它自己的比例正常渲染。 */
+const COVER_RATIO_MIN = 0.72
+const COVER_RATIO_MAX = 1.08
+function ratioHint(photo) {
+  const w = photo && photo.w
+  const h = photo && photo.h
+  if (!w || !h) return ''
+  const r = w / h
+  if (r > COVER_RATIO_MAX) {
+    return '第 ' + (photos.value.indexOf(photo) + 1) + ' 张是横图（' + w + '×' + h + '），列表里会显得很矮，建议裁成 1:1 或 3:4'
+  }
+  if (r < COVER_RATIO_MIN) {
+    return '第 ' + (photos.value.indexOf(photo) + 1) + ' 张偏高窄（' + w + '×' + h + '），列表里会占掉很高一屏，建议裁成 3:4'
+  }
+  return ''
+}
+/* coverHints 只对已经读到尺寸的图给提示；读不到（格式不支持等）就当作合规，不打扰用户。 */
+const coverHints = computed(() => photos.value.map(ratioHint).filter(Boolean))
+
 function addPhoto() {
   if (photos.value.length >= 5) return
   const pick = (paths) => {
-    photos.value.push(...paths.map((p) => ({ src: p })))
+    const start = photos.value.length
+    photos.value.push(...paths.map((p) => ({ src: p, w: 0, h: 0 })))
     showToast('已添加 ' + paths.length + ' 张图片')
+    // 读原图尺寸用于比例提示。失败静默跳过——提示是锦上添花，不能因此挡住发布。
+    paths.forEach((src, i) => {
+      if (typeof uni.getImageInfo !== 'function') return
+      uni.getImageInfo({
+        src,
+        success: (info) => {
+          const photo = photos.value[start + i]
+          if (photo) {
+            photo.w = info.width || 0
+            photo.h = info.height || 0
+          }
+        },
+      })
+    })
   }
   if (typeof uni.chooseMedia === 'function') {
     uni.chooseMedia({
@@ -665,6 +711,35 @@ onShow(() => {
   height: 100%;
   display: block;
 }
+/* 封面角标：复用品牌深空蓝，不引入新色；圆角沿用紧凑控件尺度。
+   样式写在**本页**而不是 pub-style.css —— 后者被 16 个页面 @import，
+   改它会波及需求/服务等所有发布页。 */
+.pub-photo-cover {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  padding: 2rpx 10rpx;
+  font-size: 20rpx;
+  line-height: 1.6;
+  color: #fff;
+  background: rgba(10, 102, 194, 0.92);
+  border-radius: 0 10rpx 0 12rpx;
+}
+/* 比例提示：橙色系＝"需要注意但不阻塞"，与安全橙语义一致（绿色只代表成功）。 */
+.pub-upload-tip-strong { color: #B54708; font-weight: 600; }
+.pub-upload-warn {
+  margin-top: 8rpx;
+  padding: 12rpx 16rpx;
+  background: #FFFAEB;
+  border: 1rpx solid #FEDF89;
+  border-radius: 12rpx;
+}
+.pub-upload-warn-line {
+  display: block;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #B54708;
+}
 /* 需求附件：与现场资料图片同排的文案盒（复用 pub-photo 尺寸） */
 .pub-file {
   display: flex;
@@ -686,6 +761,23 @@ onShow(() => {
   font-size: 30rpx;
   color: #D92D20;
   line-height: 1;
+}
+/* 缩略图上的删除按钮必须绝对定位。
+   根因：.pub-photo 是 62×62 + overflow:hidden，而 .pub-photo-img 用 width/height:100%
+   占满整格；删除按钮若留在正常流里会被排到格子**下方**并被裁掉——编译产物侧证：
+   form.wxss 里 .pub-file-del 只有 font-size/color/line-height，没有任何 position。
+   结果是"存在但看不见的按钮"：注释说补上了删除，用户实际依然删不掉选错的封面。
+   需求附件那排（.pub-file）是 flex 居中容器，删除按钮在流内正常显示，不受本规则影响。 */
+.pub-photo .pub-file-del {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  padding: 0 10rpx 6rpx;
+  font-size: 26rpx;
+  color: #fff;
+  background: rgba(23, 33, 43, 0.55);
+  border-radius: 0 7px 0 12rpx;
 }
 .pub-form-intro-h2 {
   font-size: 20px;
