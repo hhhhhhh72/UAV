@@ -43,3 +43,13 @@ for f in index.html assets static/home/home-bg.jpg images/training/practice-fiel
   if [ -e "$WEB_ROOT/$f" ]; then echo "    ok   $f"; else echo "    ✗ 缺失 $f"; exit 1; fi
 done
 echo "完成：$(find "$WEB_ROOT" -type f | wc -l) 个文件，$(du -sh "$WEB_ROOT" | cut -f1)"
+
+# 自清理：解包目录用完即删（默认只删 /tmp 下的，避免误删运维自己准备好的目录）。
+# 与 deploy-api.sh 同理——发布流程要自己收拾，不能指望事后保洁：
+# 历史上 /tmp 里堆了十几份 admin-dist*.tgz，每份 34MB，就是这么攒出来的。
+if [ "${KEEP_SRC:-0}" != "1" ]; then
+  case "$SRC" in
+    /tmp/*) rm -rf "$SRC"; echo "==> 已清理解包目录 $SRC" ;;
+    *) echo "==> 解包目录不在 /tmp 下，保留：$SRC" ;;
+  esac
+fi
