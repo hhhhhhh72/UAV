@@ -6,8 +6,8 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 API | Go 1.25+，标准库 net/http，`mux.HandleFunc` 注册点 **504 处**（只数源码、不数测试；循环体里的按 1 处计），管理端路由探针 201 条（见 `perm_routes_test.go`），303 个 Go 文件（**125 源码 + 178 测试**） |
-| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），**91 张存活表**（95 次 CREATE TABLE 减去被 drop 的 shops/demand_bids/association_members；**113 组迁移，226 个 SQL 文件**） |
+| 后端 API | Go 1.25+，标准库 net/http，`mux.HandleFunc` 注册点 **508 处**（只数源码、不数测试；循环体里的按 1 处计），管理端路由探针 204 条（见 `perm_routes_test.go`），311 个 Go 文件（**128 源码 + 183 测试**） |
+| 数据库 | PostgreSQL 16（生产） / 内存存储（开发），**92 张存活表**（96 次 CREATE TABLE 减去被 drop 的 shops/demand_bids/association_members；**119 组迁移，238 个 SQL 文件**） |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
 
@@ -42,7 +42,7 @@
 │   ├── cache/cache.go             # 内存 TTL 缓存（60s 默认，5min 自动清理）
 │   ├── middleware/middleware.go    # 输入消毒 + 统一错误格式
 │   └── crypto/                    # AES-256-GCM 加密 + 脱敏函数
-├── migrations/                    # 113 组迁移（226 个 SQL 文件，91 张存活表）
+├── migrations/                    # 119 组迁移（238 个 SQL 文件，92 张存活表）
 ├── docs/                          # 项目文档（33 份 Markdown，中文）
 ├── icons/                         # 15 个 SVG 图标
 └── docker-compose.yml
