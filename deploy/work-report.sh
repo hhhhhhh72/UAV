@@ -41,10 +41,32 @@ if [ ! -d "$REPO" ]; then
   exit 1
 fi
 
-# 先取最新提交。取不到就**直接退出**，绝不用旧数据发一份看起来正常的日报 ——
+# 先取最新提交。**取不到就绝不发**，也绝不用旧数据发一份看起来正常的日报 ——
 # 那正是「假绿」：数字都在，却少了一整天的活，谁看得出来。
-if ! timeout 90 git -C "$REPO" fetch --quiet origin '+refs/heads/*:refs/heads/*' >>"$LOG" 2>&1; then
-  log "git fetch 失败（GitHub 不通或超时）—— 不发旧数据，等下一次"
+#
+# 为什么要重试（2026-09-18 实测）：这台机器到 GitHub 的线路**不稳**。连着测三次 fetch，
+# 两次是 2-3 秒，一次跑了 **133 秒后失败**（exit=128）；同一时刻 curl github.com 也超时。
+# 只试一次的话，这种偶发就会被记成「今天没有日报」，而且要到 30 小时后心跳告警才暴露。
+# 所以按 60/120/180 秒递进重试三次：偶发抖动基本都能自愈。
+fetch_ok=0
+for attempt in 1 2 3; do
+  fetch_timeout=$(( attempt * 60 ))
+  if timeout "$fetch_timeout" git -C "$REPO" fetch --quiet origin '+refs/heads/*:refs/heads/*' >>"$LOG" 2>&1; then
+    fetch_ok=1
+    [ "$attempt" -gt 1 ] && log "git fetch 第 $attempt 次才成功（前 $(( attempt - 1 )) 次失败）"
+    break
+  fi
+  log "git fetch 第 $attempt 次失败（超时 ${fetch_timeout}s）"
+  sleep 5
+done
+
+if [ "$fetch_ok" != 1 ]; then
+  log "git fetch 三次都失败 —— 不发旧数据"
+  # 立刻让人知道，而不是等 30 小时后由心跳告警兜出来（那时已经隔了一天）。
+  # 注意**不动心跳**：心跳的含义是「今天的日报送到了」，这条不是日报。
+  if [ "$MODE" != "--dry-run" ]; then
+    notify_send "【日报异常】$(date +%m-%d) 的工作日报没能生成：服务器连不上 GitHub，已重试 3 次。历史提交还在，只是今天这份取不到数据。" || true
+  fi
   exit 1
 fi
 
@@ -75,16 +97,17 @@ if [ -z "$text" ]; then
   exit 1
 fi
 
+# 正文写一份到文件，同时打到 stdout —— **两种模式都要打**：
+#   cron 日志里留一份存档；本机预览走的正是 --dry-run，靠 stdout 拿正文。
+#   （这个 printf 一度只放在发送分支里，结果 --dry-run 什么都不输出，本机预览直接空手而归。）
 chars=${#text}
 printf '%s\n' "$text" > "$OUT"
+printf '%s\n' "$text"
 
 if [ "$MODE" = "--dry-run" ]; then
   log "干跑（$chars 字），未推送、心跳未动"
   exit 0
 fi
-
-# 正文也打到 stdout：cron 日志里留一份存档，本机只读预览时直接拿这段
-printf '%s\n' "$text"
 
 log "SEND 工作日报（$chars 字，$DAY）"
 if notify_send "$text"; then
