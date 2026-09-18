@@ -7,6 +7,7 @@ import (
 
 	"drone-platform/internal/crypto"
 	"drone-platform/internal/domain"
+	"drone-platform/internal/repository"
 )
 
 func (s *Server) registerBatch2Routes(mux *http.ServeMux) {
@@ -216,11 +217,29 @@ func requireAdmin(w http.ResponseWriter, r *http.Request) bool {
 // mutationErrorCode 区分归属拒绝(403)与资源不存在(404)；未识别的错误
 // 一律 500（服务端日志记详情），绝不把 DB/SQL 细节以 403/404 暴露给客户端
 // （此前默认 404 会把 pgx 错误文本原样回传）。
+//
+// 注意 "no rows in result set" 这一支：仓储层没把 pgx.ErrNoRows 翻译成
+// repository.ErrNotFound 时，not-found 就是这个字面串。漏掉它会让"资源不存在"
+// 被判成 500——反过来，把任何错误都硬编码成 403（工单详情曾经如此）则会让
+// **数据库故障显示成"无权限"**，排障时严重误导。
 func mutationErrorCode(err error) int {
-	if strings.Contains(err.Error(), "only the owner") {
-		return http.StatusForbidden
+	if err == nil {
+		return http.StatusInternalServerError
 	}
-	if strings.Contains(err.Error(), "not found") {
+	if errors.Is(err, repository.ErrNotFound) {
+		return http.StatusNotFound
+	}
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "only the owner"),
+		strings.Contains(msg, "permission"),
+		strings.Contains(msg, "只有"),
+		strings.Contains(msg, "无权"),
+		strings.Contains(msg, "not allowed"):
+		return http.StatusForbidden
+	case strings.Contains(msg, "not found"),
+		strings.Contains(msg, "no rows in result set"),
+		strings.Contains(msg, "不存在"):
 		return http.StatusNotFound
 	}
 	return http.StatusInternalServerError

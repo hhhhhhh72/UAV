@@ -1568,6 +1568,48 @@ func slicePage(items any, page, pageSize int) any {
 	return v.Slice(start, end).Interface()
 }
 
+// storageErrorMarkers 存储/驱动层错误文本的特征词。命中即说明这条消息来自
+// pgx/pg 等驱动，而不是业务规则——这类文本会带上 "no rows in result set"、
+// 约束名、列名甚至 SQL 片段，属于实现细节，不得出现在任何响应里。
+//
+// 词表来自生产实测（2026-09-18 全量详情端点扫描）：42 个端点把
+// "no rows in result set" 原样回给了客户端，因为 fail() 的脱敏当时只覆盖 5xx。
+// 一并纳入 context/网络类错误文本：它们同样只对排障有用、对客户端只有误导。
+var storageErrorMarkers = []string{
+	"no rows in result set",
+	"sqlstate",
+	"duplicate key value violates",
+	"violates unique constraint",
+	"violates foreign key constraint",
+	"violates check constraint",
+	"relation \"",
+	"column \"",
+	"constraint \"",
+	"pgx:",
+	"pq: ",
+	"sql: ",
+	"connection refused",
+	"connection reset by peer",
+	"i/o timeout",
+	"context deadline exceeded",
+	"context canceled",
+}
+
+// sanitizeErrorMessage 把存储/驱动层错误文本换成中性文案，其余原样返回。
+//
+// 这是响应边界上的兜底网，不是唯一防线：更彻底的做法是各仓储把 pgx.ErrNoRows
+// 统一翻译成 repository.ErrNotFound。但在那之前——以及在那之后新增的 handler
+// 上——这道网保证「实现细节不会因为某个 handler 忘了包装而漏出去」。
+func sanitizeErrorMessage(msg string) string {
+	low := strings.ToLower(msg)
+	for _, m := range storageErrorMarkers {
+		if strings.Contains(low, m) {
+			return "记录不存在或操作无法完成"
+		}
+	}
+	return msg
+}
+
 func requestIDFromCtx(r *http.Request) string {
 	if rid, ok := r.Context().Value(requestIDKey{}).(string); ok {
 		return rid
@@ -1594,7 +1636,9 @@ func fail(w http.ResponseWriter, r *http.Request, status int, err error) {
 	// 统一文案，原始错误只留在服务端日志；4xx 保留业务提示语。
 	// 生产判定与 config 一致：ENV=production 或 DATABASE_URL 已设（此前仅认 ENV 字符串，
 	// go run/二进制直连 PG 部署漏设 ENV 时 500 会裸奔内部细节）。
-	message := strings.TrimSpace(err.Error())
+	// 先过存储层脱敏网（覆盖**所有**状态码），再做 5xx 统一文案。
+	// 顺序刻意如此：4xx 分支此前完全没有脱敏，是这次漏的来源。
+	message := sanitizeErrorMessage(strings.TrimSpace(err.Error()))
 	if status >= http.StatusInternalServerError && (os.Getenv("ENV") == "production" || os.Getenv("DATABASE_URL") != "") {
 		message = "internal server error"
 	}

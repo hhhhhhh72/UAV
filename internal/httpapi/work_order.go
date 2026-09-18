@@ -74,6 +74,18 @@ func (s *Server) workOrderDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	wo, err := s.workOrderSvc.FindByID(r.Context(), a, r.PathValue("id"))
 	if err != nil {
+		// 「不是订单双方」与「订单不存在」**统一回 403**是有意的：状态码不区分二者，
+		// 否则可以用 403/404 的差别逐个探测订单号是否存在
+		// （TestR4WorkOrderDetailReworkCancel 对此有显式断言）。
+		//
+		// 但**基础设施故障必须区分出来**：此前这里硬编码 403，数据库故障也会
+		// 显示成「无权限」，排障时方向完全被带偏；实测不存在的工单还会返回
+		// 403 {"message":"find work order ...: no rows in result set"}，
+		// 把 pgx 原文一起漏了出去（原文脱敏已在 fail() 里统一兜住）。
+		if mutationErrorCode(err) == http.StatusInternalServerError {
+			fail(w, r, http.StatusInternalServerError, err)
+			return
+		}
 		fail(w, r, http.StatusForbidden, err)
 		return
 	}
