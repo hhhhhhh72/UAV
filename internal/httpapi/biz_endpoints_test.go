@@ -50,7 +50,12 @@ func productSellerEntRepo(t *testing.T) repository.EnterpriseRepository {
 	return repo
 }
 
-func newBizServer(t *testing.T) http.Handler {
+// newBizServer 装配一个覆盖全部业务服务的内存后端，供 httpapi 层端到端用例使用。
+func newBizServer(t *testing.T) http.Handler { return newBizServerWith(t, nil) }
+
+// newBizServerWith 同上，并在返回前把 srv / 托管金服务 / 用户仓储交给 tune，
+// 让用例能追加「main.go 里才有」的装配（如线上充值服务），而不必复制这 70 行装配代码。
+func newBizServerWith(t *testing.T, tune func(srv *httpapi.Server, escrow *service.EscrowService, users repository.UserRepository)) http.Handler {
 	t.Helper()
 	tokens, err := httpapi.NewTokenManager(testSecret)
 	if err != nil {
@@ -67,6 +72,8 @@ func newBizServer(t *testing.T) http.Handler {
 	seedCommonUsers(userRepo)
 	// 课程仓库共享：训练服务与报名服务必须读同一存储（与生产 PG 一致）
 	courseRepo := memory.NewCourseRepository()
+	// 托管金服务单独持有：线上充值用例要用同一个实例断言「钱真的进了托管账户」。
+	escrowSvc := service.NewEscrowService(memory.NewEscrowRepository())
 	srv := httpapi.NewServer(
 		service.NewDemandService(demandRepo),
 		service.NewEnterpriseService(memory.NewEnterpriseRepository(nil)),
@@ -87,7 +94,7 @@ func newBizServer(t *testing.T) http.Handler {
 		service.NewEnrollmentService(memory.NewEnrollmentRepository(), courseRepo),
 		service.NewExpiryService(),
 		service.NewTradeOrderService(memory.NewTradeOrderRepository(), productRepo),
-		service.NewEscrowService(memory.NewEscrowRepository()),
+		escrowSvc,
 		service.NewNewsService(memory.NewArticleRepository()),
 		service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository()),
 		service.NewVenueService(memory.NewVenueRepository()),
@@ -126,6 +133,9 @@ func newBizServer(t *testing.T) http.Handler {
 	srv.SetWorkOrderService(service.NewWorkOrderService(memory.NewWorkOrderRepository(), demandRepo, intentRepo))
 	srv.SetServiceListingService(service.NewServiceListingService(memory.NewProductRepository()))
 	srv.SetStorage("memory")
+	if tune != nil {
+		tune(srv, escrowSvc, userRepo)
+	}
 	return srv.Router()
 }
 

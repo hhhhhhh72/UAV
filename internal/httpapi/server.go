@@ -129,7 +129,10 @@ type Server struct {
 	// servicesCfgMu 序列化 services_config.json 的读-改-写（h5SaveServicesConfig 等）：
 	// 并发保存此前会互相覆盖字段（readJSON 与 writeJSON 各自加锁，跨调用不原子）。
 	servicesCfgMu sync.Mutex
-	auditWriter   repository.AuditWriter
+	auditWriter repository.AuditWriter
+	// paymentSvc 线上充值（微信支付）。未装配时 Enabled() 为 false，
+	// 充值端点统一回 503「微信支付未开通」——不是故障，是尚未开通。
+	paymentSvc    *service.PaymentService
 	dbPinger      interface{ Ping(context.Context) error }
 	storage       string
 	// homeCache 首页数据 60s 缓存（实例级：测试各自隔离，生产单实例内共享）。
@@ -282,6 +285,10 @@ func NewServer(d *service.DemandService, e *service.EnterpriseService, es *servi
 
 // SetAuditWriter injects an audit log writer (typically the PG store).
 func (s *Server) SetAuditWriter(w repository.AuditWriter) { s.auditWriter = w }
+
+// SetPaymentService 注入线上充值服务（main.go 在微信支付五项配置齐全时才装配）。
+// 不装配 = 真实支付未开通，充值端点回 503，其余业务不受影响。
+func (s *Server) SetPaymentService(svc *service.PaymentService) { s.paymentSvc = svc }
 
 // SetDBPinger injects a database prober for /healthz (typically the pgx pool).
 func (s *Server) SetDBPinger(p interface{ Ping(context.Context) error }) { s.dbPinger = p }

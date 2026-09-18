@@ -136,6 +136,10 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			(strings.HasPrefix(r.URL.Path, "/uploads/") && !pathHasPrivateSegment(r.URL.Path)) ||
 			strings.HasPrefix(r.URL.Path, "/swagger/") ||
 			r.URL.Path == "/api/v1/admin/token" ||
+			// 微信支付结果通知：由微信服务器发起，不可能带我们的 Bearer 令牌。
+			// 用**精确匹配**而不是前缀——前缀匹配会让
+			// /api/v1/payments/wechat/notify/任意后缀 也变成匿名可达。
+			r.URL.Path == "/api/v1/payments/wechat/notify" ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/webhooks/")) {

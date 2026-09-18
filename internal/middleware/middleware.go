@@ -59,6 +59,14 @@ func SanitizeBody(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// 微信支付回调：报文是第三方协议的密文信封，不是用户输入。
+		// 对它做「解析→去标签→重新序列化」既无 XSS 意义，又平白多一层
+		// 「单字段超 10000 字符就 400」的风险——回调一旦被拒，微信会持续重试，
+		// 而钱其实已经收了。原样透传最安全。
+		if r.URL.Path == "/api/v1/payments/wechat/notify" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if r.Body == nil {
 			next.ServeHTTP(w, r)
 			return

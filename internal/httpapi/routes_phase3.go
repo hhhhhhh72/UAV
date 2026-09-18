@@ -33,6 +33,11 @@ func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/escrow/transactions", s.escrowTransactions)
 	mux.HandleFunc("GET /api/v1/escrow/mine", s.escrowMine)
 	mux.HandleFunc("GET /api/v1/admin/escrow/reconciliation", s.escrowReconciliation)
+	// 线上充值（微信支付）。notify 是微信服务器回调：无 Bearer 令牌，
+	// 已在 auth.go 的公开路径白名单里显式放行（见该处注释）。
+	mux.HandleFunc("POST /api/v1/payments/wechat/prepay", s.wechatPayPrepay)
+	mux.HandleFunc("POST /api/v1/payments/wechat/notify", s.wechatPayNotify)
+	mux.HandleFunc("GET /api/v1/payments/mine", s.paymentMine)
 	// News (行业资讯)
 	mux.HandleFunc("POST /api/v1/articles", s.createArticle)
 	mux.HandleFunc("GET /api/v1/articles", s.listArticles)

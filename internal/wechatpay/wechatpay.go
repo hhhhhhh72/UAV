@@ -36,7 +36,11 @@ import (
 	"time"
 )
 
-const defaultAPIBase = "`https://api.mch.weixin.qq.com`"
+// defaultAPIBase 微信支付 APIv3 正式域名。注意这里**不能**带反引号：
+// 之前写成 "`https://api.mch.weixin.qq.com`"，字符串里真的多出两个反引号，
+// 而 Config.APIBase 只有测试会覆盖 → 生产每一笔下单一律 DNS 解析失败。
+// 由 TestDefaultAPIBaseIsCleanURL 守住。
+const defaultAPIBase = "https://api.mch.weixin.qq.com"
 
 // Config 客户端配置。五项齐全才可 New（与 config.WeChatPayConfig 对齐）。
 type Config struct {

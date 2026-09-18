@@ -39,6 +39,20 @@ func (r *paymentOrderRepo) FindByOutTradeNo(ctx context.Context, outTradeNo stri
 	return o, ok, nil
 }
 
+// SetPrepayID 回填预支付会话标识（与 PG 版同语义）。
+func (r *paymentOrderRepo) SetPrepayID(ctx context.Context, outTradeNo, prepayID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	o, ok := r.orders[outTradeNo]
+	if !ok {
+		return fmt.Errorf("payment order %s not found", outTradeNo)
+	}
+	o.PrepayID = prepayID
+	o.UpdatedAt = time.Now()
+	r.orders[outTradeNo] = o
+	return nil
+}
+
 // MarkPaid 条件更新：只有 created 能变 paid，重放/并发只有一个返回 true。
 // 与 PG 版同款 CAS（WHERE status='created'），内存实现也照搬以免测试放过并发缺陷。
 func (r *paymentOrderRepo) MarkPaid(ctx context.Context, outTradeNo, transactionID string, paidAt time.Time) (bool, error) {

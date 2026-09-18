@@ -19,10 +19,11 @@
       <view class="es-form">
         <view class="es-row">
           <text class="es-row-label">金额（元）</text>
-          <input class="es-input" v-model="amountYuan" type="digit" placeholder="单笔上限 200000" placeholder-class="es-ph" />
-          <view class="es-btn" hover-class="es-btn-hover" @tap="deposit">充值</view>
+          <input class="es-input" v-model="amountYuan" type="digit" :placeholder="'单笔上限 ' + maxYuan" placeholder-class="es-ph" />
+          <view class="es-btn" hover-class="es-btn-hover" :class="{ 'es-btn-loading': paying }" @tap="deposit">{{ paying ? '支付中…' : '充值' }}</view>
         </view>
-        <text class="es-tip">模拟托管通道：充值即入账（无真实资金流；真实微信支付接入后由支付校验替代）。冻结/退款按订单流程自动处理。</text>
+        <text class="es-tip" v-if="realPayEnabled">微信支付：付款成功由微信通知服务端入账，余额稍后自动刷新（以服务端到账为准）。冻结/退款按订单流程自动处理。</text>
+        <text class="es-tip" v-else>模拟托管通道：充值即入账（无真实资金流；微信支付商户号配置后自动切换为真实支付）。冻结/退款按订单流程自动处理。</text>
       </view>
     </view>
 
@@ -47,7 +48,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { request, getErrorMessage } from '../../utils/request'
 
 const balanceFen = ref(0)
@@ -56,10 +57,33 @@ const txs = ref([])
 const amountYuan = ref('')
 // loadError：加载失败时进入显式错误态，而不是把"没加载出来"渲染成余额 0。
 const loadError = ref(false)
+// realPayEnabled：后端是否已开通真实微信支付。由 GET /api/v1/payments/mine 探得：
+// 未开通时该接口回 503，这是「未配置商户号」的确定信号，比在页面上写死文案可靠
+// ——商户号一旦配上，页面无需改动即自动切成真实支付。
+const realPayEnabled = ref(false)
+const paying = ref(false)
+// 真实支付单笔上限 ¥50,000（服务端 service.MaxRechargeFen）；模拟通道沿用旧的 ¥200,000。
+const maxYuan = computed(() => (realPayEnabled.value ? 50000 : 200000))
 
 const txTypeLabel = (tx) => ({ deposit: '充值', freeze: '冻结', release: '学费结算', refund: '退款' }[tx.tx_type] || tx.tx_type || '-')
 /* 流水副说明：让每笔钱的去向一目了然（结算=转给课程机构，退款=钱已回账） */
-const txSub = (tx) => ({ deposit: '模拟充值入账', freeze: '报名时冻结学费', release: '结业结算，已划转至课程机构', refund: '订单取消或报名失败，已退回余额' }[tx.tx_type] || '')
+const txSub = (tx) => {
+  if (tx.tx_type === 'deposit') {
+    // 真实资金与平台内部记账必须能一眼分开，否则对账时说不清钱从哪来。
+    return tx.channel === 'wechat' ? '微信支付到账' : '模拟充值入账'
+  }
+  return ({ freeze: '报名时冻结学费', release: '结业结算，已划转至课程机构', refund: '订单取消或报名失败，已退回余额' }[tx.tx_type] || '')
+}
+
+/* probeRealPay 探测后端是否已开通微信支付（503 = 未开通）。失败不当错误：探测不到就按未开通处理。 */
+async function probeRealPay() {
+  try {
+    await request({ url: '/api/v1/payments/mine' })
+    realPayEnabled.value = true
+  } catch (e) {
+    realPayEnabled.value = false
+  }
+}
 
 async function load() {
   try {
@@ -78,15 +102,76 @@ async function load() {
   }
 }
 
+/* requestPayment 调起微信收银台（Promise 化：uni 的 API 是回调式的）。 */
+function requestPayment(params) {
+  return new Promise((resolve, reject) => {
+    uni.requestPayment({
+      provider: 'wxpay',
+      timeStamp: params.timeStamp,
+      nonceStr: params.nonceStr,
+      package: params.package,
+      signType: params.signType,
+      paySign: params.paySign,
+      success: resolve,
+      // 用户主动取消也走 fail（errMsg 含 cancel）：不算失败，不弹报错。
+      fail: reject
+    })
+  })
+}
+
+/* refreshAfterPay 付款成功后刷新余额。
+   注意：**入账不在这里做**，由微信回调打到服务端完成，前端只负责稍后取一次真相。
+   微信通知可能比 requestPayment 的 success 晚几十毫秒，故重试几次而不是只查一次。 */
+async function refreshAfterPay() {
+  for (let i = 0; i < 5; i++) {
+    await load()
+    if (balanceFen.value > 0) return
+    await new Promise((r) => setTimeout(r, 800))
+  }
+}
+
+/* payWithWeChat 走真实微信支付。返回 true=已处理，false=后端未开通，需回退模拟通道。 */
+async function payWithWeChat(amountFen) {
+  let prepay
+  try {
+    prepay = await request({
+      url: '/api/v1/payments/wechat/prepay',
+      method: 'POST',
+      data: { amount_fen: amountFen },
+      header: { 'Idempotency-Key': 'wx-pay-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }
+    })
+  } catch (e) {
+    if (e && e.statusCode === 503) return false
+    throw e
+  }
+  try {
+    await requestPayment((prepay && prepay.pay_params) || {})
+  } catch (e) {
+    const msg = (e && (e.errMsg || e.message)) || ''
+    // 用户取消：静默返回，订单会由微信侧在有效期内自动关闭，不需要额外处理。
+    if (msg.indexOf('cancel') >= 0) { uni.showToast({ title: '已取消支付', icon: 'none' }); return true }
+    throw new Error(msg || '支付未完成')
+  }
+  uni.showToast({ title: '支付成功', icon: 'success' })
+  amountYuan.value = ''
+  await refreshAfterPay()
+  return true
+}
+
 async function deposit() {
   const yuan = Number(amountYuan.value) || 0
   if (yuan <= 0) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
-  if (yuan > 200000) { uni.showToast({ title: '单笔上限 200000 元', icon: 'none' }); return }
+  if (yuan > maxYuan.value) { uni.showToast({ title: '单笔上限 ' + maxYuan.value + ' 元', icon: 'none' }); return }
+  const amountFen = Math.round(yuan * 100)
+  if (paying.value) return
+  paying.value = true
   try {
+    if (realPayEnabled.value && await payWithWeChat(amountFen)) return
+    // 回退：模拟托管通道（后端未开通微信支付时）
     await request({
       url: '/api/v1/escrow/deposit',
       method: 'POST',
-      data: { amount_fen: Math.round(yuan * 100) },
+      data: { amount_fen: amountFen },
       // 充值是可重复同参操作：必须唯一幂等键，否则相同金额二次充值被服务端 24h 幂等去重拦截（余额不变）
       header: { 'Idempotency-Key': 'esc-dep-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }
     })
@@ -95,10 +180,15 @@ async function deposit() {
     load()
   } catch (e) {
     uni.showToast({ title: getErrorMessage(e) || '充值失败，请重试', icon: 'none' })
+  } finally {
+    paying.value = false
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await probeRealPay()
+  load()
+})
 </script>
 
 <style>
@@ -116,6 +206,8 @@ page { background: var(--color-bg); }
 .es-ph { color: #98A2B3; }
 .es-btn { flex-shrink: 0; height: 72rpx; border-radius: 36rpx; background: #0A66C2; color: #fff; font-size: 26rpx; font-weight: 600; display: flex; align-items: center; padding: 0 32rpx; }
 .es-btn-hover { opacity: .9; }
+/* 支付中：置灰并禁用点击（防重复拉起收银台，同一笔钱不能被发起两次） */
+.es-btn-loading { background: #9aa7b5; }
 .es-tip { display: block; font-size: 22rpx; color: #98A2B3; line-height: 1.6; margin-top: 16rpx; }
 .es-empty { text-align: center; color: #98A2B3; font-size: 24rpx; padding: 40rpx 0; }
 .es-tx { display: flex; justify-content: space-between; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid #F0F2F5; }

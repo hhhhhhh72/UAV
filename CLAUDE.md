@@ -6,7 +6,7 @@
 
 | 层 | 技术 |
 |------|------|
-| 后端 API | Go 1.25+，标准库 net/http，`mux.HandleFunc` 注册点 **501 处**（只数源码、不数测试；循环体里的按 1 处计），管理端路由探针 201 条（见 `perm_routes_test.go`），273 个 Go 文件（**117 源码 + 156 测试**） |
+| 后端 API | Go 1.25+，标准库 net/http，`mux.HandleFunc` 注册点 **504 处**（只数源码、不数测试；循环体里的按 1 处计），管理端路由探针 201 条（见 `perm_routes_test.go`），303 个 Go 文件（**125 源码 + 178 测试**） |
 | 数据库 | PostgreSQL 16（生产） / 内存存储（开发），**91 张存活表**（95 次 CREATE TABLE 减去被 drop 的 shops/demand_bids/association_members；**113 组迁移，226 个 SQL 文件**） |
 | 部署 | Docker 多阶段构建 + docker-compose（PG + API 双容器） |
 | CI/CD | GitHub Actions（build + vet + test + integration） |
@@ -150,6 +150,11 @@ go test ./internal/...  # 全部 PASS
 | `DATABASE_URL` | — | PostgreSQL 连接串（不设则用内存存储） |
 | `WECHAT_APPID` | — | 小程序 AppID |
 | `WECHAT_APPSECRET` | — | 小程序 AppSecret |
+| `WECHAT_PAY_MCHID` | — | 微信支付商户号（与下面四项**同生共死**：缺一项＝真实支付未开通） |
+| `WECHAT_PAY_API_V3_KEY` | — | APIv3 密钥，**必须正好 32 字节**，用于回调解密 |
+| `WECHAT_PAY_CERT_SERIAL` | — | 商户 API 证书序列号（请求签名用） |
+| `WECHAT_PAY_PRIVATE_KEY_PATH` | — | 商户私钥 apiclient_key.pem 路径 |
+| `WECHAT_PAY_NOTIFY_URL` | — | 支付结果回调地址，生产必须是 https 公网地址 |
 | `ADMIN_DEV_MODE` | — | 设为 `true` 启用开发令牌 |
 | `ENCRYPTION_KEY` | — | AES-256-GCM 加密密钥 |
 | `CORS_ORIGINS` | — | CORS 允许来源，逗号分隔 |
@@ -191,6 +196,7 @@ go test ./internal/...  # 全部 PASS
 | h5ImageProxy 开放重定向 | 任意 http/https URL 直接 302 跳转 | **已修复**：白名单（localhost/127.0.0.1/BASE_URL 域名）外一律 403 |
 | `middleware.SanitizeBody` 是空壳 | 只查 Method/Content-Type 就放行，且未挂载 | **已修复**：实现真实 JSON 消毒（去 HTML 标签、password 保真、1MiB 上限）并挂载进中间件链 |
 | **定时备份静默失败两天**（2026-09-17 发现） | 从 Windows 打包 tar 部署时 `deploy/*.sh` 丢了可执行位；且 `core.autocrlf=true` 让工作区里的 `deploy/db-backup.sh` 是 CRLF，覆盖服务器上正常的 LF 版本后 `set -euo pipefail` 被读成 `pipefail\r`，cron 只留两行 Permission denied | **已修复**：① 仓库 `.gitattributes` 统一 `* text=auto eol=lf`、`git config core.autocrlf false` 并把工作区重新规范化；② 每次部署后必须 `chmod +x deploy/*.sh *.sh` —— Windows 打包会丢可执行位，**这一步不能省**；③ 新增 `deploy/ops-status.sh`（每 10 分钟快照）+ 探活覆盖备份新鲜度/磁盘/证书/容器；④ 新增 `deploy/restore-drill.sh`（每周把最新备份还原到临时库验证），因为「文件存在」不等于「能恢复」 |
+| **微信支付默认域名带反引号**（2026-09-18 发现，未上线） | `internal/wechatpay/wechatpay.go` 的 `defaultAPIBase` 写成了 `"`https://api.mch.weixin.qq.com`"`——字符串里真的多了两个反引号。`Config.APIBase` 只有测试会覆盖，所以单测全绿，生产每一笔下单都会去解析一个带反引号的域名 → DNS 直接失败 | **已修复**：改为干净的 https 字面量，并加 `TestDefaultAPIBaseIsCleanURL` + `TestNewFallsBackToDefaultBase` 守住「默认基址必须是合法 https URL 且不含引号/空格」。已做变异验证：改回带反引号 → 测试 RED；还原 → SHA-256 一致且 PASS |
 | **前端发布差点清空站点根**（2026-09-18 排查） | `/var/www/admin` 下除了构建产物，还躺着 `frontend/public/` 之外的历史媒体（`static/home/*.jpg` 被 10 个商品封面引用）；此前的前端发布习惯是 `rm -rf /var/www/admin/*` 再解包，一旦沿用就会把这些文件连根删掉 → 商品图全部 404 | **已修复**：① 新增 `deploy/deploy-web.sh` —— 先 `cp -a` 备份到 `admin.bak.<ts>`（保留最近 3 份），再**覆盖写入 + 只清理新构建里已不存在的 `assets/*`**，绝不整目录清空；发布后强制校验 `index.html`/`assets`/`static/home/home-bg.jpg`/`images`/`video` 五处；② 把仅存在于服务器的 `home-bg.jpg` 补进 `frontend/public/static/home/`，让站点根内容重新全部由构建产物决定 |
 
 ## 本地开发

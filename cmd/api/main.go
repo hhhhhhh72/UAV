@@ -45,6 +45,7 @@ import (
 	"drone-platform/internal/repository/memory"
 	"drone-platform/internal/repository/postgres"
 	"drone-platform/internal/service"
+	"drone-platform/internal/wechatpay"
 )
 
 // rotateWriter 大小轮转的文件 writer：日志同时落盘时使用。
@@ -234,6 +235,7 @@ func main() {
 		enrollRepo         repository.EnrollmentRepository
 		tradeOrderRepo     repository.TradeOrderRepository
 		escrowRepo         repository.EscrowRepository
+		paymentOrderRepo   repository.PaymentOrderRepository
 		// 资源池/校企/救援案例/应急部门/协会成员：PG 实现位于 batch3_repos.go，DATABASE_URL 分支下会替换为 PG 实现。
 		poolRepo        = memory.NewResourcePoolRepository()
 		coopRepo        = memory.NewCooperationRepository()
@@ -314,6 +316,7 @@ func main() {
 		enrollRepo = pgStore.NewEnrollmentRepository()
 		tradeOrderRepo = pgStore.NewTradeOrderRepository()
 		escrowRepo = pgStore.NewEscrowRepository()
+		paymentOrderRepo = pgStore.NewPaymentOrderRepository()
 		refreshTokenRepo = pgStore.NewRefreshTokenRepository()
 		expertRepo = pgStore.NewExpertRepository()
 		caseRepo = pgStore.NewCaseRepository()
@@ -380,6 +383,7 @@ func main() {
 		enrollRepo = memory.NewEnrollmentRepository()
 		tradeOrderRepo = memory.NewTradeOrderRepository()
 		escrowRepo = memory.NewEscrowRepository()
+		paymentOrderRepo = memory.NewPaymentOrderRepository()
 		coopRepo = memory.NewCooperationRepository()
 		rescueCaseRepo = memory.NewRescueCaseRepository()
 		emergDeptRepo = memory.NewEmergencyDeptRepository()
@@ -494,6 +498,30 @@ func main() {
 	app.SetTestSiteService(service.NewTestSiteService(testSiteRepo))
 	app.SetExhibitionService(service.NewExhibitionService(exhibitionRepo))
 	app.SetApplicationService(service.NewApplicationService(svcAppRepo))
+
+	// 线上充值（微信支付）。
+	//
+	// 五项配置齐全才装配：缺一项时 New 会直接失败。这里选择「记一条日志、不装配」而不是
+	// os.Exit——真实支付没开通不该拦住整个平台启动（报名/交易/托管都在跑）。
+	// 未装配时 /api/v1/payments/wechat/* 统一回 503「微信支付未开通」。
+	if cfg.WeChatPay.Configured() {
+		wpClient, err := wechatpay.New(wechatpay.Config{
+			AppID:          cfg.WeChat.AppID,
+			MchID:          cfg.WeChatPay.MchID,
+			APIv3Key:       cfg.WeChatPay.APIv3Key,
+			CertSerial:     cfg.WeChatPay.CertSerial,
+			PrivateKeyPath: cfg.WeChatPay.PrivateKeyPath,
+			NotifyURL:      cfg.WeChatPay.NotifyURL,
+		})
+		if err != nil {
+			slog.Error("微信支付客户端初始化失败，线上充值未开通", "error", err)
+		} else {
+			app.SetPaymentService(service.NewPaymentService(paymentOrderRepo, escrowSvc, newWeChatPayGateway(wpClient)))
+			slog.Info("线上充值已开通", "渠道", domain.ChannelWeChat, "回调", cfg.WeChatPay.NotifyURL)
+		}
+	} else {
+		slog.Info("线上充值未开通（WECHAT_PAY_* 未配置），/api/v1/payments/wechat/* 返回 503")
+	}
 
 	if pgStore != nil {
 		app.SetAuditWriter(postgres.NewAuditAdapter(pgStore))

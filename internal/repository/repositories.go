@@ -611,6 +611,9 @@ type PaymentOrderRepository interface {
 	Create(ctx context.Context, o domain.PaymentOrder) (domain.PaymentOrder, error)
 	// FindByOutTradeNo 按商户订单号查单。第二个返回值为是否存在。
 	FindByOutTradeNo(ctx context.Context, outTradeNo string) (domain.PaymentOrder, bool, error)
+	// SetPrepayID 回填微信下单返回的 prepay_id。它只用于前端调起支付，
+	// **不构成到账凭证**——到账一律以 MarkPaid 后的 status=paid + transaction_id 为准。
+	SetPrepayID(ctx context.Context, outTradeNo, prepayID string) error
 	// MarkPaid 原子置 paid：仅当当前状态为 created 时成功并返回 true。
 	// 并发回调/重放只有一个能拿到 true，其余拿到 false——这是防重复入账的第一道防线。
 	MarkPaid(ctx context.Context, outTradeNo, transactionID string, paidAt time.Time) (bool, error)

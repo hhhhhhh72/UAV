@@ -65,6 +65,18 @@ func (r *paymentOrderRepo) FindByOutTradeNo(ctx context.Context, outTradeNo stri
 	return o, true, nil
 }
 
+// SetPrepayID 回填预支付会话标识。写失败不影响资金安全（它只是前端调起支付的凭据），
+// 但调用方仍应记日志——否则线上出现「下单成功、前端调不起来」时无从查起。
+func (r *paymentOrderRepo) SetPrepayID(ctx context.Context, outTradeNo, prepayID string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE payment_orders SET prepay_id=$1, updated_at=$2 WHERE out_trade_no=$3`,
+		prepayID, time.Now(), outTradeNo)
+	if err != nil {
+		return fmt.Errorf("set prepay id for %s: %w", outTradeNo, err)
+	}
+	return nil
+}
+
 // MarkPaid 原子置 paid：WHERE status='created' 是防重复入账的第一道防线。
 // 并发回调/微信重试/人为重放都只有一个能把 created 改成 paid，其余 RowsAffected=0。
 // transaction_id 上另有唯一索引兜底（同一微信支付单号不可能挂到两个订单）。
