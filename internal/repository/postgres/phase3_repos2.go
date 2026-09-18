@@ -892,6 +892,58 @@ func (r *escrowRepo) GetAccount(ctx context.Context, userID string) (domain.Escr
 // insertEscrowTx 在同一事务中写入流水。
 // channel/external_txn_id 一并落库：channel 标明资金来自哪里（内部记账 / 微信支付），
 // external_txn_id 存外部支付单号，是真实资金入账的幂等键（唯一索引 idx_escrow_external）。
+// isUniqueViolation 报告错误是否为唯一约束冲突（SQLSTATE 23505）。
+// 放款侧就是被 idx_escrow_once_per_ref（migration 000116）挡下时命中。
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// findEscrowTxByRef 按 (from_user, tx_type, ref_type, ref_id) 取已存在的那条流水。
+// 并发放款被库级唯一索引挡下时，用它把「已放款」的真实记录还给调用方，
+// 而不是回一个凭空构造的占位对象。
+func (r *escrowRepo) findEscrowTxByRef(ctx context.Context, fromUser, txType, refType, refID string) (domain.EscrowTransaction, bool, error) {
+	var tx domain.EscrowTransaction
+	err := r.pool.QueryRow(ctx,
+		`SELECT id,from_user,to_user,amount_fen,tx_type,reference_type,reference_id,status,channel,external_txn_id,created_at
+		 FROM escrow_transactions
+		 WHERE from_user=$1 AND tx_type=$2 AND reference_type=$3 AND reference_id=$4
+		 LIMIT 1`, fromUser, txType, refType, refID).
+		Scan(&tx.ID, &tx.FromUser, &tx.ToUser, &tx.AmountFen, &tx.TxType, &tx.ReferenceType, &tx.ReferenceID,
+			&tx.Status, &tx.Channel, &tx.ExternalTxnID, &tx.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.EscrowTransaction{}, false, nil
+		}
+		return domain.EscrowTransaction{}, false, err
+	}
+	return tx, true, nil
+}
+
+// commitFundMove 放款/转账的收尾：写流水 + 提交。
+//
+// 若被 idx_escrow_once_per_ref 挡下（说明另一个并发请求已经放过款），
+// 本次事务整体回滚——**付款方的冻结额/余额不会被扣减**——并按幂等成功返回。
+// 这是把「同一付款方对同一业务单只放款一次」从应用层的 check-then-act
+// 升级为数据库保证的关键一步：应用层的 HasReleased 查询再快也只是查询，
+// 两个并发请求可以同时通过它；唯一索引不可能被同时通过。
+func (r *escrowRepo) commitFundMove(ctx context.Context, btx pgx.Tx, tx domain.EscrowTransaction, op string) (domain.EscrowTransaction, error) {
+	if err := insertEscrowTx(ctx, btx, tx); err != nil {
+		if isUniqueViolation(err) {
+			_ = btx.Rollback(ctx)
+			if existing, found, ferr := r.findEscrowTxByRef(ctx, tx.FromUser, tx.TxType, tx.ReferenceType, tx.ReferenceID); ferr == nil && found {
+				return existing, nil
+			}
+			return tx, nil
+		}
+		return domain.EscrowTransaction{}, fmt.Errorf("insert %s tx: %w", op, err)
+	}
+	if err := btx.Commit(ctx); err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow %s: %w", op, err)
+	}
+	return tx, nil
+}
+
 func insertEscrowTx(ctx context.Context, q pgx.Tx, tx domain.EscrowTransaction) error {
 	channel := tx.Channel
 	if channel == "" {
@@ -978,13 +1030,7 @@ func (r *escrowRepo) Release(ctx context.Context, fromUser, toUser string, amoun
 		toUser, amountFen, now); err != nil {
 		return domain.EscrowTransaction{}, fmt.Errorf("release to %s: %w", toUser, err)
 	}
-	if err := insertEscrowTx(ctx, btx, tx); err != nil {
-		return domain.EscrowTransaction{}, fmt.Errorf("insert release tx: %w", err)
-	}
-	if err := btx.Commit(ctx); err != nil {
-		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow release: %w", err)
-	}
-	return tx, nil
+	return r.commitFundMove(ctx, btx, tx, "release")
 }
 
 func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
@@ -1157,13 +1203,7 @@ func (r *escrowRepo) Transfer(ctx context.Context, fromUser, toUser string, amou
 		toUser, amountFen, now); err != nil {
 		return domain.EscrowTransaction{}, fmt.Errorf("transfer to %s: %w", toUser, err)
 	}
-	if err := insertEscrowTx(ctx, btx, tx); err != nil {
-		return domain.EscrowTransaction{}, fmt.Errorf("insert transfer tx: %w", err)
-	}
-	if err := btx.Commit(ctx); err != nil {
-		return domain.EscrowTransaction{}, fmt.Errorf("commit escrow transfer: %w", err)
-	}
-	return tx, nil
+	return r.commitFundMove(ctx, btx, tx, "transfer")
 }
 
 // HasReleased 查 fromUser 对 (refType, refID) 是否已有完成的 release 流水。
