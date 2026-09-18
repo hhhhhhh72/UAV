@@ -477,9 +477,10 @@ func (s *EmergencyService) CreateDispatch(ctx context.Context, resourceID, event
 	return created, nil
 }
 
-func (s *EmergencyService) ListDispatches(ctx context.Context, resourceID string, page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
+// ListDispatches 调度记录列表：resourceID/status 为空即不过滤，过滤与分页都在 SQL 里做。
+func (s *EmergencyService) ListDispatches(ctx context.Context, resourceID, status string, page, pageSize int) ([]domain.EmergencyDispatch, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListDispatches(ctx, resourceID, offset, pageSize)
+	return s.repo.ListDispatches(ctx, resourceID, status, offset, pageSize)
 }
 
 func (s *EmergencyService) UpdateResource(ctx context.Context, id, name, resType, specs, location, contactInfo, status string, quantity int) (domain.EmergencyResource, error) {

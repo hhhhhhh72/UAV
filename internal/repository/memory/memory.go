@@ -672,14 +672,23 @@ func (r *jobRepo) ListByEnterprise(ctx context.Context, eid string) ([]domain.Jo
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
-func (r *jobRepo) ListPublished(ctx context.Context, offset, limit int) ([]domain.Job, int, error) {
+func (r *jobRepo) ListPublished(ctx context.Context, q, jobType string, offset, limit int) ([]domain.Job, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	filtered := []domain.Job{}
+	ql := strings.ToLower(q)
 	for _, j := range r.items {
-		if j.Status == domain.JobPublished {
-			filtered = append(filtered, j)
+		if j.Status != domain.JobPublished {
+			continue
 		}
+		// 过滤语义必须与 PG 实现逐条对齐（lower(title)/lower(location) 包含 + job_type 精确）
+		if jobType != "" && j.JobType != jobType {
+			continue
+		}
+		if ql != "" && !strings.Contains(strings.ToLower(j.Title), ql) && !strings.Contains(strings.ToLower(j.Location), ql) {
+			continue
+		}
+		filtered = append(filtered, j)
 	}
 	// 与 PG 对齐：ORDER BY created_at DESC。
 	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
@@ -2973,12 +2982,16 @@ func (r *articleRepo) Update(ctx context.Context, a domain.Article) (domain.Arti
 	}
 	return domain.Article{}, fmt.Errorf("article %s not found", a.ID)
 }
-func (r *articleRepo) ListByCategory(ctx context.Context, category string, offset, limit int) ([]domain.Article, int, error) {
+func (r *articleRepo) ListByCategory(ctx context.Context, category, status string, offset, limit int) ([]domain.Article, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	filtered := make([]domain.Article, 0)
 	for _, a := range r.items {
 		if category != "" && a.Category != category {
+			continue
+		}
+		// 与 PG 实现语义对齐：status 非空即精确匹配
+		if status != "" && a.Status != status {
 			continue
 		}
 		filtered = append(filtered, a)

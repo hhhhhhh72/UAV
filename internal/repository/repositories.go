@@ -187,7 +187,10 @@ type JobRepository interface {
 	FindByID(ctx context.Context, id string) (domain.Job, error)
 	ListByEnterprise(ctx context.Context, eid string) ([]domain.Job, error)
 	ListAll(ctx context.Context, offset, limit int) ([]domain.Job, int, error) // 管理端全量（含草稿）
-	ListPublished(ctx context.Context, offset, limit int) ([]domain.Job, int, error)
+	// ListPublished 公开职位列表。q 匹配标题/地点（大小写不敏感）、jobType 精确匹配 job_type，
+	// 空串即不过滤 —— **过滤必须在 SQL 里做**：此前 handler 拉全量再内存筛，
+	// 数据一多就是慢查询 + 内存放大，而且 total 报的是当前批条数，深分页会漏数据。
+	ListPublished(ctx context.Context, q, jobType string, offset, limit int) ([]domain.Job, int, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -441,7 +444,10 @@ type ArticleRepository interface {
 	Update(ctx context.Context, v domain.Article) (domain.Article, error)
 	Delete(ctx context.Context, id string) error
 	// ListByCategory 与 PG 对齐：置顶优先（is_pinned DESC），同级按创建时间倒序。
-	ListByCategory(ctx context.Context, category string, offset, limit int) ([]domain.Article, int, error)
+	// status 非空时只返回该状态的文章（公开端要 published，管理端传空看全部）。
+	// **过滤必须在 SQL 里做**：此前公开端拉全量 2000 行再内存筛 published，
+	// total 报的是当前批条数，超过上限还会被静默截断。
+	ListByCategory(ctx context.Context, category, status string, offset, limit int) ([]domain.Article, int, error)
 }
 
 // ReviewRepository manages user reviews.
@@ -814,7 +820,12 @@ type PortfolioRepository interface {
 	FindByID(ctx context.Context, id string) (domain.MemberPortfolio, error)
 	ListByEnterprise(ctx context.Context, eid string) ([]domain.MemberPortfolio, error)
 	List(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error) // 管理端全量（含草稿/待审）
-	ListPublished(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error)
+	// ListPublished 公开品牌列表。q 匹配名称/描述（大小写不敏感）、category 同时匹配
+	// category 与 industry、featuredOnly 只看精选、sortBy 支持 latest|views|video。
+	// **过滤与排序都必须在 SQL 里做，而且排序必须在分页之前** —— 此前 handler 拉全量
+	// 2000 行后内存过滤、内存排序、再切片：慢查询 + 内存放大，且排序只作用于当前这一批，
+	// 翻页顺序会乱，total 报的还是当前批条数。
+	ListPublished(ctx context.Context, q, category, sortBy string, featuredOnly bool, offset, limit int) ([]domain.MemberPortfolio, int, error)
 	Update(ctx context.Context, v domain.MemberPortfolio) (domain.MemberPortfolio, error)
 	Delete(ctx context.Context, id string) error
 	// IncrementViews 品牌浏览计数 +1（公开详情访问）。
@@ -856,9 +867,12 @@ type EmergencyRepository interface {
 	UpdateDispatch(ctx context.Context, v domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
 	DeleteDispatch(ctx context.Context, id string) error
 	CreateDispatch(ctx context.Context, v domain.EmergencyDispatch) (domain.EmergencyDispatch, error)
-	// ListDispatches 分页列出调度记录；resourceID 非空时仅返回该资源的调度；
+	// ListDispatches 分页列出调度记录；resourceID 非空时仅返回该资源的调度，
+	// status 非空时仅返回该状态的调度（两者都为空即全量）。
+	// **过滤必须在 SQL 里做**：此前 handler 拉全量 2000 行再内存筛，
+	// total 报的是当前批条数，深分页还会漏数据。
 	// 返回项内嵌 related 资源摘要（名称/类型/状态）。
-	ListDispatches(ctx context.Context, resourceID string, offset, limit int) ([]domain.EmergencyDispatch, int, error)
+	ListDispatches(ctx context.Context, resourceID, status string, offset, limit int) ([]domain.EmergencyDispatch, int, error)
 }
 
 // ── Batch1: 产业资源池 + 测试预约 + 展会 (per .doc) ──

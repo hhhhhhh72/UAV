@@ -863,12 +863,25 @@ func (r *jobRepo) FindByID(ctx context.Context, id string) (domain.Job, error) {
 func (r *jobRepo) ListByEnterprise(ctx context.Context, eid string) ([]domain.Job, error) {
 	return scanJobs(ctx, r.pool, "WHERE enterprise_id=$1 ORDER BY created_at DESC", eid)
 }
-func (r *jobRepo) ListPublished(ctx context.Context, offset, limit int) ([]domain.Job, int, error) {
+func (r *jobRepo) ListPublished(ctx context.Context, q, jobType string, offset, limit int) ([]domain.Job, int, error) {
+	// 过滤下沉到 SQL（全文见 Repository 接口注释）：空串不过滤，参数一律走占位符防注入。
+	where := "WHERE status='published'"
+	args := []any{}
+	if jobType != "" {
+		args = append(args, jobType)
+		where += fmt.Sprintf(" AND job_type=$%d", len(args))
+	}
+	if q != "" {
+		args = append(args, "%"+strings.ToLower(q)+"%")
+		where += fmt.Sprintf(" AND (lower(title) LIKE $%d OR lower(location) LIKE $%d)", len(args), len(args))
+	}
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE status='published'`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM jobs `+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count published jobs: %w", err)
 	}
-	items, err := scanJobs(ctx, r.pool, "WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2", limit, offset)
+	pageArgs := append(append([]any{}, args...), limit, offset)
+	items, err := scanJobs(ctx, r.pool,
+		where+fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2), pageArgs...)
 	return items, total, err
 }
 func (r *jobRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.Job, int, error) {

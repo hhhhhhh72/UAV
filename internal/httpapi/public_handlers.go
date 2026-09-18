@@ -179,7 +179,7 @@ func (s *Server) publicListIndustryResources(w http.ResponseWriter, r *http.Requ
 
 func (s *Server) publicListServices(w http.ResponseWriter, r *http.Request) {
 	// services = jobs + demands summary
-	jobs, _, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 100)
+	jobs, _, err := s.jobSvc.ListPublishedJobs(r.Context(), "", "", 0, 100)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
@@ -203,7 +203,7 @@ func (s *Server) publicMatch(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if jobs, _, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 100); err == nil {
+	if jobs, _, err := s.jobSvc.ListPublishedJobs(r.Context(), "", "", 0, 100); err == nil {
 		for _, j := range jobs {
 			if q == "" || contains(j.Title, q) {
 				results = append(results, map[string]any{"type": "job", "id": j.ID, "title": j.Title})

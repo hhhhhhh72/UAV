@@ -103,8 +103,9 @@ func (s *JobService) ListAllJobs(ctx context.Context, offset, limit int) ([]doma
 	return s.repo.ListAll(ctx, offset, limit)
 }
 
-func (s *JobService) ListPublishedJobs(ctx context.Context, offset, limit int) ([]domain.Job, int, error) {
-	return s.repo.ListPublished(ctx, offset, limit)
+// ListPublishedJobs 公开职位列表：q/jobType 为空即不过滤，过滤与分页都在 SQL 里做。
+func (s *JobService) ListPublishedJobs(ctx context.Context, q, jobType string, offset, limit int) ([]domain.Job, int, error) {
+	return s.repo.ListPublished(ctx, q, jobType, offset, limit)
 }
 func (s *JobService) ListMyJobs(ctx context.Context, a domain.Actor) ([]domain.Job, error) {
 	return s.repo.ListByEnterprise(ctx, a.ID)

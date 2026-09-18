@@ -123,7 +123,7 @@ func TestPortfolioFullCRUD(t *testing.T) {
 		t.Fatal("list by enterprise")
 	}
 	// ListPublished (draft status = not published)
-	pub, total, _ := svc.ListPublished(context.Background(), 1, 20)
+	pub, total, _ := svc.ListPublished(context.Background(), "", "", "", false, 1, 20)
 	_ = pub
 	_ = total
 }
@@ -274,7 +274,7 @@ func TestEmergencyFullCRUD(t *testing.T) {
 		t.Fatal("list resources")
 	}
 	// List dispatches
-	_, total2, _ := svc.ListDispatches(context.Background(), "", 1, 20)
+	_, total2, _ := svc.ListDispatches(context.Background(), "", "", 1, 20)
 	if total2 != 1 {
 		t.Fatal("list dispatches")
 	}

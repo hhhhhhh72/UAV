@@ -151,7 +151,7 @@ func TestPG_PortfolioRepo(t *testing.T) {
 	r.Create(context.Background(), domain.MemberPortfolio{ID: id, EnterpriseID: "ent-1", Name: "品牌", Status: "draft"})
 	r.FindByID(context.Background(), id)
 	r.ListByEnterprise(context.Background(), "ent-1")
-	r.ListPublished(context.Background(), 0, 20)
+	r.ListPublished(context.Background(), "", "", "", false, 0, 20)
 	r.Update(context.Background(), domain.MemberPortfolio{ID: id, Name: "updated", Status: "published"})
 }
 
@@ -351,7 +351,7 @@ func TestPG_EmergencyRepo(t *testing.T) {
 	r.ListResources(context.Background(), "", "", 0, 20)
 	r.UpdateResource(context.Background(), domain.EmergencyResource{ID: id, Name: "updated", Status: "deployed"})
 	r.CreateDispatch(context.Background(), domain.EmergencyDispatch{ID: uid("ed"), ResourceID: id, Status: "active"})
-	r.ListDispatches(context.Background(), "", 0, 20)
+	r.ListDispatches(context.Background(), "", "", 0, 20)
 }
 
 // 回归：end_time 为 NULL（进行中/待响应调度）时 List/FindByID 不能崩溃
@@ -374,7 +374,7 @@ func TestPG_EmergencyRepo_NullEndTime(t *testing.T) {
 	}
 
 	// List 不崩溃且该条 EndTime 为零值
-	got, _, err := r.ListDispatches(context.Background(), "", 0, 100)
+	got, _, err := r.ListDispatches(context.Background(), "", "", 0, 100)
 	if err != nil {
 		t.Fatalf("list dispatches with NULL end_time: %v", err)
 	}
@@ -434,7 +434,7 @@ func TestPG_ArticleRepo(t *testing.T) {
 	id := uid("art")
 	r.Create(context.Background(), domain.Article{ID: id, Title: "新闻", Category: "policy", Status: "draft"})
 	r.FindByID(context.Background(), id)
-	r.ListByCategory(context.Background(), "", 0, 20)
+	r.ListByCategory(context.Background(), "", "", 0, 20)
 	r.Update(context.Background(), domain.Article{ID: id, Title: "updated", Status: "published"})
 }
 

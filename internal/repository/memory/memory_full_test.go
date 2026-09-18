@@ -110,7 +110,7 @@ func TestJobRepoFull(t *testing.T) {
 	r.Create(context.Background(), j)
 	r.FindByID(context.Background(), "job-1")
 	r.ListByEnterprise(context.Background(), "ent-1")
-	r.ListPublished(context.Background(), 0, 20)
+	r.ListPublished(context.Background(), "", "", 0, 20)
 	r.Update(context.Background(), "job-1", domain.Job{ID: "job-1", EnterpriseID: "ent-1", Title: "updated", Status: domain.JobClosed})
 }
 
@@ -278,7 +278,7 @@ func TestContentReposFull(t *testing.T) {
 	artR := memory.NewArticleRepository()
 	artR.Create(context.Background(), domain.Article{ID: "art-1", Title: "新闻", Category: "policy", Status: "draft"})
 	artR.FindByID(context.Background(), "art-1")
-	artR.ListByCategory(context.Background(), "", 0, 20)
+	artR.ListByCategory(context.Background(), "", "", 0, 20)
 	artR.Update(context.Background(), domain.Article{ID: "art-1", Title: "updated", Status: "published"})
 
 	revR := memory.NewReviewRepository()
@@ -387,7 +387,7 @@ func TestNewBizReposFull(t *testing.T) {
 	portR.Create(context.Background(), domain.MemberPortfolio{ID: "port-1", EnterpriseID: "ent-1", Name: "品牌"})
 	portR.FindByID(context.Background(), "port-1")
 	portR.ListByEnterprise(context.Background(), "ent-1")
-	portR.ListPublished(context.Background(), 0, 20)
+	portR.ListPublished(context.Background(), "", "", "", false, 0, 20)
 	portR.Update(context.Background(), domain.MemberPortfolio{ID: "port-1", Name: "updated"})
 
 	irR := memory.NewIndustryReportRepository()
@@ -409,5 +409,5 @@ func TestNewBizReposFull(t *testing.T) {
 	emR.ListResources(context.Background(), "", "", 0, 20)
 	emR.UpdateResource(context.Background(), domain.EmergencyResource{ID: "er-1", Name: "updated"})
 	emR.CreateDispatch(context.Background(), domain.EmergencyDispatch{ID: "ed-1", ResourceID: "er-1"})
-	emR.ListDispatches(context.Background(), "", 0, 20)
+	emR.ListDispatches(context.Background(), "", "", 0, 20)
 }

@@ -417,13 +417,39 @@ func (r *portfolioRepo) ListByEnterprise(ctx context.Context, eid string) ([]dom
 	}
 	return out, rows.Err()
 }
-func (r *portfolioRepo) ListPublished(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error) {
+func (r *portfolioRepo) ListPublished(ctx context.Context, q, category, sortBy string, featuredOnly bool, offset, limit int) ([]domain.MemberPortfolio, int, error) {
+	// 条件与排序全部下沉到 SQL（全部走占位符）；COUNT 与列表共用同一组条件，
+	// 于是 total 是**过滤后的真实总数**，而不是当前这一批的条数。
+	conds := []string{"status='published'"}
+	args := []any{}
+	if featuredOnly {
+		conds = append(conds, "featured = true")
+	}
+	if category != "" {
+		args = append(args, category)
+		conds = append(conds, fmt.Sprintf("(category = $%d OR industry = $%d)", len(args), len(args)))
+	}
+	if q != "" {
+		args = append(args, "%"+strings.ToLower(q)+"%")
+		conds = append(conds, fmt.Sprintf("(lower(name) LIKE $%d OR lower(COALESCE(description,'')) LIKE $%d)", len(args), len(args)))
+	}
+	where := " WHERE " + strings.Join(conds, " AND ")
+	// 排序必须在 LIMIT 之前：内存排序只能让「当前这一批」有序，翻页后整体顺序就乱了。
+	order := "created_at DESC"
+	switch sortBy {
+	case "views":
+		order = "views DESC, created_at DESC"
+	case "video":
+		order = "(video_count > 0 OR COALESCE(video_url,'') <> '') DESC, views DESC, created_at DESC"
+	}
 	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM member_portfolios WHERE status='published'`).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM member_portfolios`+where, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count published portfolios: %w", err)
 	}
+	pageArgs := append(append([]any{}, args...), limit, offset)
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,category,industry,verified,video_url,video_count,views,featured,status,created_at,updated_at FROM member_portfolios WHERE status='published' ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		`SELECT id,enterprise_id,name,logo_url,cover_url,description,products,honors,contact_info,category,industry,verified,video_url,video_count,views,featured,status,created_at,updated_at FROM member_portfolios`+where+
+			" ORDER BY "+order+fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2), pageArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list published portfolios: %w", err)
 	}

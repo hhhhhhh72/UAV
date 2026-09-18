@@ -43,7 +43,7 @@ func TestJobServiceAll(t *testing.T) {
 	// PublishJob
 	svc.PublishJob(context.Background(), entActor(), j.ID)
 	// ListPublishedJobs
-	svc.ListPublishedJobs(context.Background(), 0, 20)
+	svc.ListPublishedJobs(context.Background(), "", "", 0, 20)
 	// ListMyJobs
 	svc.ListMyJobs(context.Background(), entActor())
 	// CreateResume

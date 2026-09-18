@@ -255,20 +255,31 @@ func (r *articleRepo) Update(ctx context.Context, a domain.Article) (domain.Arti
 		a.Title, a.Content, a.Summary, a.Category, a.Source, a.Author, a.IsPinned, a.Status, a.Version, a.UpdatedAt, a.ID)
 	return a, err
 }
-func (r *articleRepo) ListByCategory(ctx context.Context, category string, offset, limit int) ([]domain.Article, int, error) {
-	where := ""
+func (r *articleRepo) ListByCategory(ctx context.Context, category, status string, offset, limit int) ([]domain.Article, int, error) {
+	// category / status 非空时按此过滤（全部走占位符）；条件编号随参数走，
+	// COUNT 与列表共用同一组条件 → total 是**过滤后的真实总数**。
+	conds := []string{}
 	args := []any{}
 	if category != "" {
-		where = `WHERE category=$1`
 		args = append(args, category)
+		conds = append(conds, fmt.Sprintf("category=$%d", len(args)))
+	}
+	if status != "" {
+		args = append(args, status)
+		conds = append(conds, fmt.Sprintf("status=$%d", len(args)))
+	}
+	where := ""
+	if len(conds) > 0 {
+		where = "WHERE " + strings.Join(conds, " AND ")
 	}
 	var total int
 	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM articles `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	q := `SELECT id,title,COALESCE(content,''),COALESCE(summary,''),category,COALESCE(source,''),COALESCE(author,''),COALESCE(is_pinned,false),status,version,created_at,updated_at FROM articles ` + where + ` ORDER BY is_pinned DESC, created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
-	allArgs := append(args, limit, offset)
-	rows, err := r.pool.Query(ctx, q, allArgs...)
+	q := `SELECT id,title,COALESCE(content,''),COALESCE(summary,''),category,COALESCE(source,''),COALESCE(author,''),COALESCE(is_pinned,false),status,version,created_at,updated_at FROM articles ` + where +
+		fmt.Sprintf(" ORDER BY is_pinned DESC, created_at DESC LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
+	pageArgs := append(append([]any{}, args...), limit, offset)
+	rows, err := r.pool.Query(ctx, q, pageArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list articles: %w", err)
 	}

@@ -420,7 +420,7 @@ func TestCoverage_JobRepo(t *testing.T) {
 		t.Fatalf("job %s not in ListByEnterprise", id)
 	}
 	// ListPublished / ListAll
-	if l, _, _ := repo.ListPublished(context.Background(), 0, 20); !containsJobID(l, id) {
+	if l, _, _ := repo.ListPublished(context.Background(), "", "", 0, 20); !containsJobID(l, id) {
 		t.Fatalf("job %s not in ListPublished", id)
 	}
 	if l, _, _ := repo.ListAll(context.Background(), 0, 20); !containsJobID(l, id) {

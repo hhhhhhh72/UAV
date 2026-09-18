@@ -427,9 +427,10 @@ func (s *PortfolioService) Create(ctx context.Context, enterpriseID, name, logoU
 	return s.repo.Create(ctx, p)
 }
 
-func (s *PortfolioService) ListPublished(ctx context.Context, page, pageSize int) ([]domain.MemberPortfolio, int, error) {
+// ListPublished 公开品牌列表：q/category/sortBy 为空即不过滤，全部与分页一起下沉到 SQL。
+func (s *PortfolioService) ListPublished(ctx context.Context, q, category, sortBy string, featuredOnly bool, page, pageSize int) ([]domain.MemberPortfolio, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListPublished(ctx, offset, pageSize)
+	return s.repo.ListPublished(ctx, q, category, sortBy, featuredOnly, offset, pageSize)
 }
 
 // List 管理端全量列表（含草稿/待审），供 admin 列表页使用。

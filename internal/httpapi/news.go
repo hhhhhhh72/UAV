@@ -113,29 +113,26 @@ func (s *Server) deleteArticle(w http.ResponseWriter, r *http.Request) {
 // 公开路由（匿名可读）：只返回已发布（published）资讯——草稿不得对公众可见。
 // 管理端列表走 GET /api/v1/admin/articles（listAdminArticles，不过滤）。
 func (s *Server) listArticles(w http.ResponseWriter, r *http.Request) {
-	// 性能审查：repo 支持 category 过滤，但公开路由的 status=published 过滤在内存
-	// （ListByCategory 需同时服务管理端全量）——保持全量上限 2000 + 内存过滤；
-	// TODO 下沉：ListByCategory 增加 status 参数后改分页下沉 SQL + respondPage。
-	items, _, err := s.newsSvc.ListByCategory(r.Context(), r.URL.Query().Get("category"), 1, 2000)
+	// status=published 已下沉到 SQL，与分页一起做。此前的写法是「拉全量 2000 行 →
+	// 内存筛 published → 再切片」：total 报的是**当前这一批**的条数（前端分页器因此算错），
+	// 而且文章超过 2000 条之后，第一页之后的内容永远看不到。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.newsSvc.ListByCategory(r.Context(), r.URL.Query().Get("category"), "published", page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	filtered := make([]domain.Article, 0, len(items))
-	for _, a := range items {
-		if a.Status == "published" {
-			filtered = append(filtered, a)
-		}
-	}
-	paginatedRespond(w, r, filtered, len(filtered))
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // GET /api/v1/admin/articles — 管理端全量列表（含草稿），与 listArticles 共用分页逻辑。
+// status 传空 = 不过滤；分页同样下沉到 SQL（此前是拉 100000 行再由 respond 切片）。
 func (s *Server) listAdminArticles(w http.ResponseWriter, r *http.Request) {
-	items, total, err := s.newsSvc.ListByCategory(r.Context(), r.URL.Query().Get("category"), 1, 100000)
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.newsSvc.ListByCategory(r.Context(), r.URL.Query().Get("category"), "", page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	paginatedRespond(w, r, items, total)
+	respondPage(w, r, items, total, page, pageSize)
 }

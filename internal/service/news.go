@@ -81,9 +81,10 @@ func (s *NewsService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *NewsService) ListByCategory(ctx context.Context, category string, page, pageSize int) ([]domain.Article, int, error) {
+// ListByCategory 文章列表：category/status 为空即不过滤，过滤与分页都在 SQL 里做。
+func (s *NewsService) ListByCategory(ctx context.Context, category, status string, page, pageSize int) ([]domain.Article, int, error) {
 	offset := (page - 1) * pageSize
-	return s.repo.ListByCategory(ctx, category, offset, pageSize)
+	return s.repo.ListByCategory(ctx, category, status, offset, pageSize)
 }
 
 func truncate(s string, n int) string {

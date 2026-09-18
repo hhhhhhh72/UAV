@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -636,69 +635,31 @@ func (s *Server) deleteIndustryReport(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/v1/portfolios?q=关键词&category=整机&sort=latest|views|video&page=1&page_size=10
 func (s *Server) listPortfolios(w http.ResponseWriter, r *http.Request) {
-	// 性能审查：repo 不支持 q 过滤（名称/描述包含），保持全量上限 2000 +
-	// 内存过滤；TODO 下沉：PortfolioRepository.ListPublished 增加 q 参数后改
-	// 分页下沉 SQL + respondPage。
-	items, _, err := s.portfolioSvc.ListPublished(r.Context(), 1, 2000)
+	// q / category / sort 与分页全部下沉到 SQL。此前的写法是「拉全量 2000 行 → 内存过滤
+	// → 内存排序 → 再切片」，三个后果：慢查询 + 内存放大；**排序只作用于当前这一批**，
+	// 翻到第二页顺序就乱了（sort=views/video 尤其明显）；total 报的是当前批条数。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.portfolioSvc.ListPublished(r.Context(),
+		strings.TrimSpace(r.URL.Query().Get("q")),
+		strings.TrimSpace(r.URL.Query().Get("category")),
+		r.URL.Query().Get("sort"), false, page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	// q：名称/描述包含（大小写不敏感）
-	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
-		qs := strings.ToLower(q)
-		filtered := make([]domain.MemberPortfolio, 0, len(items))
-		for _, p := range items {
-			if strings.Contains(strings.ToLower(p.Name), qs) ||
-				strings.Contains(strings.ToLower(p.Description), qs) {
-				filtered = append(filtered, p)
-			}
-		}
-		items = filtered
-	}
-	// category：品牌分类筛选（前端分类 pills；空/全部忽略）
-	if cat := strings.TrimSpace(r.URL.Query().Get("category")); cat != "" {
-		filtered := make([]domain.MemberPortfolio, 0, len(items))
-		for _, p := range items {
-			if p.Category == cat || p.Industry == cat {
-				filtered = append(filtered, p)
-			}
-		}
-		items = filtered
-	}
-	// sort：latest（created_at desc 默认）/ views（浏览降序）/ video（视频优先再按浏览）
-	switch r.URL.Query().Get("sort") {
-	case "views":
-		sort.SliceStable(items, func(i, j int) bool { return items[i].Views > items[j].Views })
-	case "video":
-		sort.SliceStable(items, func(i, j int) bool {
-			vi, vj := items[i].VideoCount > 0 || items[i].VideoURL != "", items[j].VideoCount > 0 || items[j].VideoURL != ""
-			if vi != vj {
-				return vi
-			}
-			return items[i].Views > items[j].Views
-		})
-	default:
-		sort.SliceStable(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
-	}
-	paginatedRespond(w, r, items, len(items))
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // GET /api/v1/portfolios/featured — 精选品牌（轮播横幅数据源；仅 published + featured）
 func (s *Server) listFeaturedPortfolios(w http.ResponseWriter, r *http.Request) {
-	items, _, err := s.portfolioSvc.ListPublished(r.Context(), 1, 2000)
+	// featured 过滤下沉到 SQL（原来拉 2000 行再在内存里挑 featured）。
+	// 轮播横幅是策展位，200 条足够；顺序由 repo 的 created_at DESC 保证。
+	items, _, err := s.portfolioSvc.ListPublished(r.Context(), "", "", "", true, 1, 200)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	featured := make([]domain.MemberPortfolio, 0)
-	for _, p := range items {
-		if p.Featured {
-			featured = append(featured, p)
-		}
-	}
-	sort.SliceStable(featured, func(i, j int) bool { return featured[i].CreatedAt.After(featured[j].CreatedAt) })
-	respond(w, r, http.StatusOK, featured)
+	respond(w, r, http.StatusOK, items)
 }
 
 // GET /api/v1/admin/portfolios — 管理端全量（含草稿/待审），公开端仅 published
@@ -1958,25 +1919,17 @@ func (s *Server) createEmergencyResource(w http.ResponseWriter, r *http.Request)
 // status 筛选支持页面 dispatches.vue 值域：pending / dispatched / completed / ongoing / done / cancelled
 // resource_id 筛选：只看某资源的调度记录
 func (s *Server) listEmergencyDispatches(w http.ResponseWriter, r *http.Request) {
-	// 性能审查：service ListDispatches 暂无 status 参数（上轮仅加了 resourceID），
-	// status 仍走内存过滤——全量上限 2000；TODO 下沉：给 EmergencyService.
-	// ListDispatches 加 status 参数后改分页下沉 SQL + respondPage。
-	items, _, err := s.emergencySvc.ListDispatches(r.Context(), r.URL.Query().Get("resource_id"), 1, 2000)
+	// resource_id 与 status 都下沉到 SQL，与分页一起做。此前的写法是「拉全量 2000 行 →
+	// 内存筛 status → 再切片」，两个后果：total 报的是过滤后的当前批条数（前端分页器会算错），
+	// 且数据超过 2000 行后被静默截断。
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.emergencySvc.ListDispatches(r.Context(),
+		r.URL.Query().Get("resource_id"), r.URL.Query().Get("status"), page, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	if status := r.URL.Query().Get("status"); status != "" {
-		var out []domain.EmergencyDispatch
-		for _, d := range items {
-			if d.Status == status {
-				out = append(out, d)
-			}
-		}
-		paginatedRespond(w, r, out, len(out))
-		return
-	}
-	paginatedRespond(w, r, items, len(items))
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // POST /api/v1/admin/emergency-dispatches

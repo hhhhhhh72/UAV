@@ -85,32 +85,18 @@ func jobMutationCode(err error) int {
 }
 
 // GET /api/v1/jobs?q=关键词&type=全职&page=1&page_size=10
+// 过滤与分页一并下沉到 SQL（q 匹配标题/地点，type 精确匹配 job_type）。
+// 此前是「拉全量 2000 行 → 内存过滤 → 再切片」：数据一多就是慢查询 + 内存放大，
+// 而且 total 报的是当前批条数，深分页还会漏数据。分页上界由 paginationFromQuery 卡住。
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
-	// 性能审查：repo 不支持 q/type 过滤，保持全量上限 2000 + 内存过滤；
-	// TODO 下沉：JobRepository.ListPublished 增加 q/type 参数后改分页下沉 SQL + respondPage。
-	items, _, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 2000)
+	page, pageSize := paginationFromQuery(r)
+	items, total, err := s.jobSvc.ListPublishedJobs(r.Context(),
+		strings.TrimSpace(r.URL.Query().Get("q")), r.URL.Query().Get("type"), (page-1)*pageSize, pageSize)
 	if err != nil {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	// q：标题/地点包含（大小写不敏感）；type：job_type 精确匹配
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	typ := r.URL.Query().Get("type")
-	if q != "" || typ != "" {
-		qs := strings.ToLower(q)
-		filtered := make([]domain.Job, 0, len(items))
-		for _, j := range items {
-			if typ != "" && j.JobType != typ {
-				continue
-			}
-			if q != "" && !strings.Contains(strings.ToLower(j.Title), qs) && !strings.Contains(strings.ToLower(j.Location), qs) {
-				continue
-			}
-			filtered = append(filtered, j)
-		}
-		items = filtered
-	}
-	paginatedRespond(w, r, items, len(items))
+	respondPage(w, r, items, total, page, pageSize)
 }
 
 // GET /api/v1/jobs/mine

@@ -427,32 +427,36 @@ func (r *emergRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDispat
 		d.ID, d.ResourceID, d.EventDesc, d.Location, d.StartTime, nullableEndTime(d.EndTime), d.Commander, d.Result, d.Status, d.CreatedAt)
 	return d, err
 }
-func (r *emergRepo) ListDispatches(ctx context.Context, resourceID string, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
-	// resourceID 非空时按资源过滤（防注入：参数化）
-	where := ""
-	args := []any{limit, offset}
+func (r *emergRepo) ListDispatches(ctx context.Context, resourceID, status string, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
+	// resourceID / status 非空时按此过滤（防注入：全部走占位符）。
+	// 条件按需拼装、编号跟着走，COUNT 与列表共用同一组条件——
+	// 这样 total 是**过滤后的真实总数**，而不是当前这一批的条数。
+	conds := []string{}
+	args := []any{}
 	if resourceID != "" {
-		where = " WHERE d.resource_id = $3"
 		args = append(args, resourceID)
+		conds = append(conds, fmt.Sprintf("d.resource_id = $%d", len(args)))
+	}
+	if status != "" {
+		args = append(args, status)
+		conds = append(conds, fmt.Sprintf("d.status = $%d", len(args)))
+	}
+	where := ""
+	if len(conds) > 0 {
+		where = " WHERE " + strings.Join(conds, " AND ")
 	}
 	var total int
-	if resourceID != "" {
-		// COUNT 独立查询：占位符从 $1 起（避免 $3 单独出现类型无法推断）
-		if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches d WHERE d.resource_id = $1`, resourceID).Scan(&total); err != nil {
-			return nil, 0, fmt.Errorf("count dispatches: %w", err)
-		}
-	} else {
-		if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches d`).Scan(&total); err != nil {
-			return nil, 0, fmt.Errorf("count dispatches: %w", err)
-		}
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM emergency_dispatches d`+where, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count dispatches: %w", err)
 	}
 	// LEFT JOIN 资源表：内嵌 related 摘要（资源可能已删除 → 保留调度记录，related 为空）
+	pageArgs := append(append([]any{}, args...), limit, offset)
 	rows, err := r.pool.Query(ctx,
 		`SELECT d.id,d.resource_id,d.event_desc,d.location,COALESCE(d.start_time,'1970-01-01 00:00:00+00'::timestamptz),d.end_time,d.commander,d.result,d.status,d.created_at,
 		        res.id,res.name,res.res_type,res.status
 		 FROM emergency_dispatches d
 		 LEFT JOIN emergency_resources res ON res.id = d.resource_id`+where+
-			` ORDER BY d.created_at DESC LIMIT $1 OFFSET $2`, args...)
+			fmt.Sprintf(" ORDER BY d.created_at DESC LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2), pageArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list dispatches: %w", err)
 	}

@@ -291,7 +291,7 @@ func TestNewsCreatePublish(t *testing.T) {
 	if a2.Status != "published" {
 		t.Fatal("should be published")
 	}
-	_, total, _ := svc.ListByCategory(context.Background(), "policy", 1, 20)
+	_, total, _ := svc.ListByCategory(context.Background(), "policy", "", 1, 20)
 	if total != 1 {
 		t.Fatal("list by category")
 	}

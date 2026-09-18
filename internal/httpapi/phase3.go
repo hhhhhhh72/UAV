@@ -886,7 +886,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	totalPosts := len(posts)
 
 	// articles 全量保留：trends_detail.article 按创建时间做月度桶 + 状态/置顶计数。
-	articles, _, err := s.newsSvc.ListByCategory(r.Context(), "", 1, 100000)
+	articles, _, err := s.newsSvc.ListByCategory(r.Context(), "", "", 1, 100000)
 	if err != nil {
 		slog.Warn("admin dashboard: load articles", "err", err)
 		articles = nil
@@ -971,7 +971,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	modules["talent"]["colleges"] = len(cols)
 	// 性能审查：以下计数只取 total（List 的 COUNT 返回值），不再物化行。
-	_, jobsTotal, err := s.jobSvc.ListPublishedJobs(r.Context(), 0, 1)
+	_, jobsTotal, err := s.jobSvc.ListPublishedJobs(r.Context(), "", "", 0, 1)
 	if err != nil {
 		slog.Warn("admin dashboard: count jobs", "err", err)
 	}
@@ -1008,7 +1008,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("admin dashboard: count emergency resources", "err", err)
 	}
 	modules["events"]["emergency_resources"] = emgResTotal
-	_, dispTotal, err := s.emergencySvc.ListDispatches(r.Context(), "", 1, 1)
+	_, dispTotal, err := s.emergencySvc.ListDispatches(r.Context(), "", "", 1, 1)
 	if err != nil {
 		slog.Warn("admin dashboard: count emergency dispatches", "err", err)
 	}
@@ -1040,7 +1040,7 @@ func (s *Server) adminDashboard(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("admin dashboard: count industry resources", "err", err)
 	}
 	modules["industry"]["industry_resources"] = resTotal
-	_, portsTotal, err := s.portfolioSvc.ListPublished(r.Context(), 1, 1)
+	_, portsTotal, err := s.portfolioSvc.ListPublished(r.Context(), "", "", "", false, 1, 1)
 	if err != nil {
 		slog.Warn("admin dashboard: count portfolios", "err", err)
 	}

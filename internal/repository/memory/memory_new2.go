@@ -307,16 +307,41 @@ func (r *portfolioRepo) ListByEnterprise(ctx context.Context, eid string) ([]dom
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
-func (r *portfolioRepo) ListPublished(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error) {
+func (r *portfolioRepo) ListPublished(ctx context.Context, q, category, sortBy string, featuredOnly bool, offset, limit int) ([]domain.MemberPortfolio, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	// 过滤/排序语义必须与 PG 实现逐条对齐（category 同时匹配 category 与 industry）
+	ql := strings.ToLower(q)
 	filtered := make([]domain.MemberPortfolio, 0)
 	for _, p := range r.items {
-		if p.Status == "published" {
-			filtered = append(filtered, p)
+		if p.Status != "published" {
+			continue
 		}
+		if featuredOnly && !p.Featured {
+			continue
+		}
+		if category != "" && p.Category != category && p.Industry != category {
+			continue
+		}
+		if ql != "" && !strings.Contains(strings.ToLower(p.Name), ql) && !strings.Contains(strings.ToLower(p.Description), ql) {
+			continue
+		}
+		filtered = append(filtered, p)
 	}
-	sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
+	switch sortBy {
+	case "views":
+		sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].Views > filtered[j].Views })
+	case "video":
+		sort.SliceStable(filtered, func(i, j int) bool {
+			vi, vj := filtered[i].VideoCount > 0 || filtered[i].VideoURL != "", filtered[j].VideoCount > 0 || filtered[j].VideoURL != ""
+			if vi != vj {
+				return vi
+			}
+			return filtered[i].Views > filtered[j].Views
+		})
+	default:
+		sort.SliceStable(filtered, func(i, j int) bool { return filtered[i].CreatedAt.After(filtered[j].CreatedAt) })
+	}
 	return paginateSlice(filtered, offset, limit)
 }
 func (r *portfolioRepo) List(ctx context.Context, offset, limit int) ([]domain.MemberPortfolio, int, error) {
@@ -616,13 +641,16 @@ func (r *emergencyRepo) CreateDispatch(ctx context.Context, d domain.EmergencyDi
 	r.dispatches = append(r.dispatches, d)
 	return d, nil
 }
-func (r *emergencyRepo) ListDispatches(ctx context.Context, resourceID string, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
+func (r *emergencyRepo) ListDispatches(ctx context.Context, resourceID, status string, offset, limit int) ([]domain.EmergencyDispatch, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	// 按资源过滤 + 内嵌 related 资源摘要（与 PG 实现语义一致；锁内直接查 resources，避免读锁重入）
+	// 按资源/状态过滤 + 内嵌 related 资源摘要（与 PG 实现语义一致；锁内直接查 resources，避免读锁重入）
 	var filtered []domain.EmergencyDispatch
 	for _, d := range r.dispatches {
 		if resourceID != "" && d.ResourceID != resourceID {
+			continue
+		}
+		if status != "" && d.Status != status {
 			continue
 		}
 		for _, res := range r.resources {
