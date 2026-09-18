@@ -100,7 +100,7 @@ esc_idx=${esc_idx:-0}
 esc_dup=$(esc_q "SELECT count(*) FROM (
   SELECT 1 FROM escrow_transactions
   WHERE reference_id <> '' AND (
-    tx_type IN ('release','transfer')
+    tx_type IN ('release','transfer','withdraw')
     OR (tx_type = 'refund' AND reference_type = 'trade_order'))
   GROUP BY from_user, tx_type, reference_type, reference_id HAVING count(*) > 1) t")
 esc_dup=${esc_dup:-0}
@@ -112,6 +112,7 @@ esc_dup=${esc_dup:-0}
 #      release  → from_user.frozen  -= 额, to_user.balance   += 额
 #      refund   → to_user.frozen    -= 额, to_user.balance   += 额   ← 动的是 to_user
 #      transfer → from_user.balance -= 额, to_user.balance   += 额
+#      withdraw → from_user.frozen  -= 额（钱离开平台，两边余额都不动）
 #    该式已用生产数据验证过与实际完全一致（不是恒真的空检查）。
 esc_mismatch=$(esc_q "
 WITH ledger AS (
@@ -120,7 +121,8 @@ WITH ledger AS (
   - COALESCE(SUM(CASE WHEN t.from_user = a.user_id AND t.tx_type IN ('freeze','transfer') THEN t.amount_fen ELSE 0 END), 0) AS exp_balance,
     COALESCE(SUM(CASE WHEN t.from_user = a.user_id AND t.tx_type = 'freeze' THEN t.amount_fen ELSE 0 END), 0)
   - COALESCE(SUM(CASE WHEN t.from_user = a.user_id AND t.tx_type = 'release' THEN t.amount_fen ELSE 0 END), 0)
-  - COALESCE(SUM(CASE WHEN t.to_user = a.user_id AND t.tx_type = 'refund' THEN t.amount_fen ELSE 0 END), 0) AS exp_frozen
+  - COALESCE(SUM(CASE WHEN t.to_user = a.user_id AND t.tx_type = 'refund' THEN t.amount_fen ELSE 0 END), 0)
+  - COALESCE(SUM(CASE WHEN t.from_user = a.user_id AND t.tx_type = 'withdraw' THEN t.amount_fen ELSE 0 END), 0) AS exp_frozen
   FROM escrow_accounts a
   LEFT JOIN escrow_transactions t ON (t.to_user = a.user_id OR t.from_user = a.user_id)
   GROUP BY a.user_id)
@@ -130,7 +132,7 @@ esc_mismatch=${esc_mismatch:-0}
 
 # 4) 出现未知的资金动作类型时恒等式不再成立：必须报出来让人复核公式，
 #    而不是让它悄悄算出一堆假偏差（这是"检查检查器本身"的信号）。
-esc_unknown=$(esc_q "SELECT count(*) FROM escrow_transactions WHERE tx_type NOT IN ('deposit','freeze','release','refund','transfer')")
+esc_unknown=$(esc_q "SELECT count(*) FROM escrow_transactions WHERE tx_type NOT IN ('deposit','freeze','release','refund','transfer','withdraw')")
 esc_unknown=${esc_unknown:-0}
 
 esc_accounts=$(esc_q "SELECT count(*) FROM escrow_accounts"); esc_accounts=${esc_accounts:-0}

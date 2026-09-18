@@ -37,6 +37,10 @@ type WeChatPayConfig struct {
 	CertSerial     string // WECHAT_PAY_CERT_SERIAL 商户 API 证书序列号（请求签名用）
 	PrivateKeyPath string // WECHAT_PAY_PRIVATE_KEY_PATH 商户私钥 apiclient_key.pem 路径
 	NotifyURL      string // WECHAT_PAY_NOTIFY_URL 支付结果回调地址（必须是 https 公网地址）
+	// RefundNotifyURL 退款结果回调地址（WECHAT_PAY_REFUND_NOTIFY_URL），**可选**：
+	// 留空时由 NotifyURL 推导（.../wechat/notify → .../wechat/refund-notify），
+	// 便于只配一个域名就把支付与退款两条回调链路都接上。
+	RefundNotifyURL string
 }
 
 // Configured 报告微信支付是否已完整配置（五项齐全才可用）。
@@ -75,6 +79,7 @@ func Load() *Config {
 			CertSerial:     os.Getenv("WECHAT_PAY_CERT_SERIAL"),
 			PrivateKeyPath: os.Getenv("WECHAT_PAY_PRIVATE_KEY_PATH"),
 			NotifyURL:      os.Getenv("WECHAT_PAY_NOTIFY_URL"),
+			RefundNotifyURL: os.Getenv("WECHAT_PAY_REFUND_NOTIFY_URL"),
 		},
 		Database: DatabaseConfig{UsePostgres: os.Getenv("DATABASE_URL") != "", DatabaseURL: os.Getenv("DATABASE_URL")},
 	}

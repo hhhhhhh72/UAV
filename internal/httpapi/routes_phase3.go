@@ -38,6 +38,12 @@ func (s *Server) registerPhase3Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/payments/wechat/prepay", s.wechatPayPrepay)
 	mux.HandleFunc("POST /api/v1/payments/wechat/notify", s.wechatPayNotify)
 	mux.HandleFunc("GET /api/v1/payments/mine", s.paymentMine)
+	// 线上退款：发起/查询仅平台管理员（adminGate + handler 内显式角色判定两道）。
+	mux.HandleFunc("POST /api/v1/admin/payments/refunds", s.adminCreateRefund)
+	mux.HandleFunc("GET /api/v1/admin/payments/refunds", s.adminListRefunds)
+	mux.HandleFunc("GET /api/v1/admin/payments/paid-orders", s.adminListPaidOrders)
+	// refund-notify 是微信服务器回调：无 Bearer 令牌，已在 auth.go 公开路径白名单里显式放行。
+	mux.HandleFunc("POST /api/v1/payments/wechat/refund-notify", s.wechatRefundNotify)
 	// News (行业资讯)
 	mux.HandleFunc("POST /api/v1/articles", s.createArticle)
 	mux.HandleFunc("GET /api/v1/articles", s.listArticles)

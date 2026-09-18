@@ -136,8 +136,10 @@ type Server struct {
 	servicesCfgMu sync.Mutex
 	auditWriter repository.AuditWriter
 	// paymentSvc 线上充值（微信支付）。未装配时 Enabled() 为 false，
-	// 充值端点统一回 503「微信支付未开通」——不是故障，是尚未开通。
-	paymentSvc    *service.PaymentService
+	// 充值端点统一回 4xx「微信支付未开通」——不是故障，是尚未开通。
+	paymentSvc *service.PaymentService
+	// refundSvc 线上退款（针对某一笔已支付的充值单，仅平台管理员发起）。
+	refundSvc     *service.PaymentRefundService
 	dbPinger      interface{ Ping(context.Context) error }
 	storage       string
 	// homeCache 首页数据 60s 缓存（实例级：测试各自隔离，生产单实例内共享）。
@@ -294,6 +296,10 @@ func (s *Server) SetAuditWriter(w repository.AuditWriter) { s.auditWriter = w }
 // SetPaymentService 注入线上充值服务（main.go 在微信支付五项配置齐全时才装配）。
 // 不装配 = 真实支付未开通，充值端点回 503，其余业务不受影响。
 func (s *Server) SetPaymentService(svc *service.PaymentService) { s.paymentSvc = svc }
+
+// SetPaymentRefundService 注入线上退款服务（main.go 在微信支付配置齐全时才装配）。
+// 不装配 = 退款能力未开通，管理端端点回 4xx，其余业务不受影响。
+func (s *Server) SetPaymentRefundService(svc *service.PaymentRefundService) { s.refundSvc = svc }
 
 // SetDBPinger injects a database prober for /healthz (typically the pgx pool).
 func (s *Server) SetDBPinger(p interface{ Ping(context.Context) error }) { s.dbPinger = p }

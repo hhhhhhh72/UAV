@@ -236,6 +236,7 @@ func main() {
 		tradeOrderRepo     repository.TradeOrderRepository
 		escrowRepo         repository.EscrowRepository
 		paymentOrderRepo   repository.PaymentOrderRepository
+		paymentRefundRepo  repository.PaymentRefundRepository
 		// 资源池/校企/救援案例/应急部门/协会成员：PG 实现位于 batch3_repos.go，DATABASE_URL 分支下会替换为 PG 实现。
 		poolRepo        = memory.NewResourcePoolRepository()
 		coopRepo        = memory.NewCooperationRepository()
@@ -317,6 +318,7 @@ func main() {
 		tradeOrderRepo = pgStore.NewTradeOrderRepository()
 		escrowRepo = pgStore.NewEscrowRepository()
 		paymentOrderRepo = pgStore.NewPaymentOrderRepository()
+		paymentRefundRepo = pgStore.NewPaymentRefundRepository()
 		refreshTokenRepo = pgStore.NewRefreshTokenRepository()
 		expertRepo = pgStore.NewExpertRepository()
 		caseRepo = pgStore.NewCaseRepository()
@@ -384,6 +386,7 @@ func main() {
 		tradeOrderRepo = memory.NewTradeOrderRepository()
 		escrowRepo = memory.NewEscrowRepository()
 		paymentOrderRepo = memory.NewPaymentOrderRepository()
+		paymentRefundRepo = memory.NewPaymentRefundRepository()
 		coopRepo = memory.NewCooperationRepository()
 		rescueCaseRepo = memory.NewRescueCaseRepository()
 		emergDeptRepo = memory.NewEmergencyDeptRepository()
@@ -516,8 +519,12 @@ func main() {
 		if err != nil {
 			slog.Error("微信支付客户端初始化失败，线上充值未开通", "error", err)
 		} else {
-			app.SetPaymentService(service.NewPaymentService(paymentOrderRepo, escrowSvc, newWeChatPayGateway(wpClient)))
-			slog.Info("线上充值已开通", "渠道", domain.ChannelWeChat, "回调", cfg.WeChatPay.NotifyURL)
+			gw := newWeChatPayGateway(wpClient)
+			app.SetPaymentService(service.NewPaymentService(paymentOrderRepo, escrowSvc, gw))
+			// 退款服务与充值共用同一个网关实例（适配器同时实现两个端口）。
+			app.SetPaymentRefundService(service.NewPaymentRefundService(paymentOrderRepo, paymentRefundRepo, escrowSvc, gw))
+			slog.Info("线上充值已开通", "渠道", domain.ChannelWeChat, "回调", cfg.WeChatPay.NotifyURL,
+				"退款回调", cfg.WeChatPay.RefundNotifyURL)
 		}
 	} else {
 		slog.Info("线上充值未开通（WECHAT_PAY_* 未配置），/api/v1/payments/wechat/* 返回 503")

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -18,7 +19,9 @@ import (
 // 由装配处把它们接起来——测试里换一个桩就能整条链路跑通，不必打真实微信。
 type weChatPayGateway struct{ c *wechatpay.Client }
 
-func newWeChatPayGateway(c *wechatpay.Client) service.PaymentGateway { return &weChatPayGateway{c: c} }
+// newWeChatPayGateway 返回**具体类型**而不是某个接口：同一个适配器同时实现
+// service.PaymentGateway（充值）与 service.RefundGateway（退款），调用方按需传。
+func newWeChatPayGateway(c *wechatpay.Client) *weChatPayGateway { return &weChatPayGateway{c: c} }
 
 func (g *weChatPayGateway) Prepay(ctx context.Context, in service.PrepayInput) (string, error) {
 	return g.c.CreateJSAPIOrder(ctx, in.OutTradeNo, in.Description, in.AmountFen, in.PayerOpenID)
@@ -72,4 +75,63 @@ func (g *weChatPayGateway) DecodeNotify(body []byte) (string, error) {
 		return "", fmt.Errorf("wechatpay: 回调缺少 out_trade_no")
 	}
 	return payload.OutTradeNo, nil
+}
+// ── 退款（service.RefundGateway）──
+
+// CreateRefund 发起退款。
+//
+// 关键区分：微信返回**业务错误码**（APIError）= 明确拒绝，可以安全回滚；
+// 其它错误（超时/连接中断）= 结果未知，**绝不能回滚**——微信可能已经受理。
+// 这个区分由 service.RefundRejectedError 承载，见其注释。
+func (g *weChatPayGateway) CreateRefund(ctx context.Context, in service.RefundRequest) (service.RefundResult, error) {
+	ref, err := g.c.CreateRefund(ctx, wechatpay.RefundRequest{
+		OutTradeNo: in.OutTradeNo, OutRefundNo: in.OutRefundNo,
+		RefundFen: in.RefundFen, TotalFen: in.TotalFen, Reason: in.Reason,
+	})
+	if err != nil {
+		var apiErr *wechatpay.APIError
+		if errors.As(err, &apiErr) {
+			return service.RefundResult{}, &service.RefundRejectedError{
+				Reason: fmt.Sprintf("微信返回 %d %s: %s", apiErr.StatusCode, apiErr.Code, apiErr.Message),
+			}
+		}
+		return service.RefundResult{}, err
+	}
+	return toRefundResult(ref), nil
+}
+
+// QueryRefund 查退款单——退款是否真到账的唯一可信依据。
+func (g *weChatPayGateway) QueryRefund(ctx context.Context, outRefundNo string) (service.RefundResult, error) {
+	ref, err := g.c.QueryRefund(ctx, outRefundNo)
+	if err != nil {
+		return service.RefundResult{}, err
+	}
+	return toRefundResult(ref), nil
+}
+
+func toRefundResult(ref *wechatpay.Refund) service.RefundResult {
+	return service.RefundResult{RefundID: ref.RefundID, Status: ref.Status, RefundFen: ref.Amount.Refund}
+}
+
+// DecodeRefundNotify 解密退款回调，只取退款单号。
+// 与支付回调同理：调用方拿不到金额与状态，就不可能误用它们。
+func (g *weChatPayGateway) DecodeRefundNotify(body []byte) (string, error) {
+	var env wechatpay.NotifyEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return "", fmt.Errorf("wechatpay: 退款回调不是合法 JSON: %w", err)
+	}
+	plain, err := g.c.DecryptResource(env)
+	if err != nil {
+		return "", err
+	}
+	var payload struct {
+		OutRefundNo string `json:"out_refund_no"`
+	}
+	if err := json.Unmarshal(plain, &payload); err != nil {
+		return "", fmt.Errorf("wechatpay: 退款回调明文不是合法 JSON: %w", err)
+	}
+	if strings.TrimSpace(payload.OutRefundNo) == "" {
+		return "", fmt.Errorf("wechatpay: 退款回调缺少 out_refund_no")
+	}
+	return payload.OutRefundNo, nil
 }

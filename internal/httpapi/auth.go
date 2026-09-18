@@ -140,6 +140,8 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			// 用**精确匹配**而不是前缀——前缀匹配会让
 			// /api/v1/payments/wechat/notify/任意后缀 也变成匿名可达。
 			r.URL.Path == "/api/v1/payments/wechat/notify" ||
+			// 微信退款结果通知：同样是微信服务器发起，用**精确匹配**（理由同上）。
+			r.URL.Path == "/api/v1/payments/wechat/refund-notify" ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/auth/") ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/webhooks/")) {

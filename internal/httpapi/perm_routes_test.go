@@ -1,6 +1,6 @@
 package httpapi_test
 
-// 由 .tools/scan-perm-matrix.cjs 生成的 /api/v1/admin/* 全量路由清单（201 条注册点）。
+// 由 .tools/scan-perm-matrix.cjs 生成的 /api/v1/admin/* 全量路由清单（204 条注册点）。
 // 生成方式：扫描 internal/httpapi/*.go 里 mux.HandleFunc("METHOD /path", handler)。
 var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"GET", "/api/v1/admin/achievements", "listAchievements"},
@@ -130,6 +130,9 @@ var adminRouteProbes = []struct{ Method, Path, Handler string }{
 	{"PUT", "/api/v1/admin/orders/{id}", "updateOrder"},
 	{"PUT", "/api/v1/admin/orders/{id}/aftersale", "reviewAftersale"},
 	{"PUT", "/api/v1/admin/orders/{id}/aftersale/confirm-return", "adminConfirmReturnReceived"},
+	{"GET", "/api/v1/admin/payments/paid-orders", "adminListPaidOrders"},
+	{"GET", "/api/v1/admin/payments/refunds", "adminListRefunds"},
+	{"POST", "/api/v1/admin/payments/refunds", "adminCreateRefund"},
 	{"GET", "/api/v1/admin/policies", "listAdminPolicies"},
 	{"GET", "/api/v1/admin/portfolios", "listAdminPortfolios"},
 	{"POST", "/api/v1/admin/portfolios", "createPortfolio"},

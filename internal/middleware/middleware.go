@@ -63,7 +63,7 @@ func SanitizeBody(next http.Handler) http.Handler {
 		// 对它做「解析→去标签→重新序列化」既无 XSS 意义，又平白多一层
 		// 「单字段超 10000 字符就 400」的风险——回调一旦被拒，微信会持续重试，
 		// 而钱其实已经收了。原样透传最安全。
-		if r.URL.Path == "/api/v1/payments/wechat/notify" {
+		if r.URL.Path == "/api/v1/payments/wechat/notify" || r.URL.Path == "/api/v1/payments/wechat/refund-notify" {
 			next.ServeHTTP(w, r)
 			return
 		}
