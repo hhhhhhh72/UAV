@@ -78,7 +78,7 @@ mk "$T/backup_bad.json"     'backup.ok=False' 'backup.age_hours=52.0'
 mk "$T/disk_bad.json"       'disk.ok=False' 'disk.used_percent=93'
 mk "$T/escrow_bad.json"     'escrow.ok=False' 'escrow.dup_keys=3'
 mk "$T/jobs_bad.json"       'jobs.ok=False' 'jobs.hygiene_log_age_hours=99.0'
-mk "$T/report_bad.json"     'jobs.ok=False' 'jobs.report_delivered_age_hours=99.0'
+mk "$T/report_bad.json"     'jobs.ok=False' 'jobs.work_report_age_hours=99.0'
 mk "$T/cert_bad.json"       'cert.ok=False' 'cert.days_left=3'
 mk "$T/containers_bad.json" 'containers.ok=False' 'containers.api="exited"'
 
