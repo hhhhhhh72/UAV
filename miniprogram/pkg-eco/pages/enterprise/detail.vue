@@ -3,7 +3,10 @@
     <!-- 统一导航（与课题/活动/难题详情同款 u-nav-bar：状态栏避让 + 44px 栏高 + 标题 32rpx） -->
     <u-nav-bar title="企业详情" show-back :fixed="true" @back="goBack" />
 
-    <!-- ① Hero（对齐培训详情：全宽封面 + 三层蒙层 + 认证徽章 + 底部信息区） -->
+    <!-- ① Hero：封面 + **统一半透明纯色遮罩** + 身份区。
+         规范要求图片叠字只用纯色遮罩、禁止装饰性渐变（visual-foundations.md:68），
+         所以这里不再用三层渐变，改成品牌深蓝 #074D92 的单层压暗。
+         身份信息（Logo/名称/地址）只在这里出现一次，避免与下方区块重复。 -->
     <view class="hero">
       <image
         v-if="ent.cover_image && !heroImgError"
@@ -14,17 +17,21 @@
         @error="heroImgError = true"
       />
       <view v-else class="hero-fallback">
-        <view class="hero-fallback-icon">
-          <text class="hero-fallback-char">{{ ent.name ? ent.name.charAt(0) : '企' }}</text>
-        </view>
+        <text class="hero-fallback-char">{{ ent.name ? ent.name.charAt(0) : '企' }}</text>
       </view>
-      <view class="hero-mask" />
-      <view class="status-badge"><text class="status-text">协会认证</text></view>
-      <view v-if="ent && ent.name" class="hero-bottom">
-        <text class="hero-title">{{ ent.name }}</text>
-        <text class="hero-org">{{ firstCategory() }}</text>
-        <view class="hero-meta-row">
-          <text class="hero-meta-text">{{ ent.address || '地区待公开' }}</text>
+      <view class="hero-scrim" />
+      <view class="hero-bottom">
+        <view class="hero-logo">
+          <image v-if="ent.logo" :src="resolveUrl(ent.logo)" mode="aspectFill" class="hero-logo-img" @error="ent.logo = ''" />
+          <text v-else class="hero-logo-char">{{ ent.name ? ent.name.charAt(0) : '企' }}</text>
+        </view>
+        <view class="hero-id">
+          <text class="hero-title">{{ ent.name || '企业' }}</text>
+          <view class="hero-chips">
+            <text class="chip chip-verified">协会认证</text>
+            <text v-if="ent.is_member" class="chip chip-member">协会会员</text>
+          </view>
+          <text class="hero-addr">{{ ent.address || '地区待公开' }}</text>
         </view>
       </view>
     </view>
@@ -38,11 +45,9 @@
     <!-- 404 空态 -->
     <view v-else-if="notFound" class="state-panel">
       <view class="state-mark">
-        <view class="state-mark-inner">
-          <view class="state-building">
-            <view class="state-win state-win-1" />
-            <view class="state-win state-win-2" />
-          </view>
+        <view class="state-building">
+          <view class="state-win state-win-1" />
+          <view class="state-win state-win-2" />
         </view>
       </view>
       <text class="state-title">企业不存在或暂未公开</text>
@@ -55,11 +60,9 @@
     <!-- 错误态 -->
     <view v-else-if="err" class="state-panel">
       <view class="state-mark">
-        <view class="state-mark-inner">
-          <view class="state-building">
-            <view class="state-win state-win-1" />
-            <view class="state-win state-win-2" />
-          </view>
+        <view class="state-building">
+          <view class="state-win state-win-1" />
+          <view class="state-win state-win-2" />
         </view>
       </view>
       <text class="state-title">加载失败</text>
@@ -69,93 +72,58 @@
       </view>
     </view>
 
-    <!-- ② 白色内容区（浮起：28rpx 上圆角 + 上投影） -->
+    <!-- ② 内容区：**一整块白色业务表面 + 分隔线**，不给每个 section 加阴影
+         （visual-foundations.md:59）。此前是 5 张各自带阴影的浮起卡片。 -->
     <template v-else>
-      <view class="content">
-        <!-- 品牌卡：Logo + 名称 + 会员/认证 -->
-        <view class="brand-card">
-          <view class="brand-logo">
-            <image v-if="ent.logo" :src="resolveUrl(ent.logo)" mode="aspectFill" class="brand-logo-img" @error="ent.logo = ''" />
-            <view v-else class="brand-logo-fallback">{{ ent.name ? ent.name.charAt(0) : '企' }}</view>
-          </view>
-          <view class="brand-info">
-            <view class="brand-name-row">
-              <text class="brand-name">{{ ent.name }}</text>
-              <text v-if="ent.is_member" class="member-badge">会员</text>
+      <view class="surface">
+        <!-- 企业信息前置：详情页先给决策信息（SKILL.md:50），
+             此前规模/成立/入驻被压在页面最底部的「基本信息」里。 -->
+        <view class="sec sec-first">
+          <view class="sec-head"><view class="sec-bar" /><text class="sec-title">企业信息</text></view>
+          <view class="fact-grid">
+            <view class="fact">
+              <text class="fact-label">企业规模</text>
+              <text class="fact-value">{{ ent.scale || '—' }}</text>
             </view>
-            <view class="ent-verified">
-              <view class="verified-dot" />
-              <text class="verified-text">协会已认证企业</text>
+            <view class="fact">
+              <text class="fact-label">成立时间</text>
+              <text class="fact-value">{{ ent.founded_at || '—' }}</text>
+            </view>
+            <view class="fact">
+              <text class="fact-label">营业时间</text>
+              <text class="fact-value">{{ ent.business_hours || '—' }}</text>
+            </view>
+            <view class="fact">
+              <text class="fact-label">入驻时间</text>
+              <text class="fact-value">{{ formatDate(ent.created_at) }}</text>
             </view>
           </view>
         </view>
 
-        <!-- ═══════ 行业分类 ═══════ -->
-        <view class="section-card">
-          <view class="section-head">
-            <view class="head-bar" />
-            <text class="section-title">行业分类</text>
-          </view>
+        <view class="sec">
+          <view class="sec-head"><view class="sec-bar" /><text class="sec-title">行业分类</text></view>
           <view class="tag-wrap">
             <text v-for="c in categoryList(ent)" :key="c" class="tag tag-blue">{{ c }}</text>
             <text v-if="categoryList(ent).length === 0" class="tag-empty">未填写</text>
           </view>
         </view>
 
-        <!-- ═══════ 企业简介 ═══════ -->
-        <view class="section-card">
-          <view class="section-head">
-            <view class="head-bar head-bar-teal" />
-            <text class="section-title">企业简介</text>
-          </view>
+        <view class="sec">
+          <view class="sec-head"><view class="sec-bar" /><text class="sec-title">企业简介</text></view>
           <text class="desc-text">{{ ent.description || '该企业暂未填写简介' }}</text>
         </view>
 
-        <!-- ═══════ 核心能力 ═══════ -->
-        <view v-if="tagList(ent).length" class="section-card">
-          <view class="section-head">
-            <view class="head-bar head-bar-teal" />
-            <text class="section-title">核心能力</text>
-          </view>
+        <view v-if="tagList(ent).length" class="sec sec-last">
+          <view class="sec-head"><view class="sec-bar" /><text class="sec-title">核心能力</text></view>
           <view class="tag-wrap">
-            <text v-for="t in tagList(ent)" :key="t" class="tag tag-gray">{{ t }}</text>
+            <text v-for="t in tagList(ent)" :key="t" class="tag tag-plain">{{ t }}</text>
           </view>
         </view>
-
-        <!-- ═══════ 基本信息 ═══════ -->
-        <view class="section-card">
-          <view class="section-head">
-            <view class="head-bar" />
-            <text class="section-title">基本信息</text>
-          </view>
-          <view class="info-rows">
-            <view class="info-row">
-              <text class="info-label">企业规模</text>
-              <text class="info-value">{{ ent.scale || '-' }}</text>
-            </view>
-            <view class="info-row">
-              <text class="info-label">所在地区</text>
-              <text class="info-value">{{ ent.address || '-' }}</text>
-            </view>
-            <view class="info-row">
-              <text class="info-label">营业时间</text>
-              <text class="info-value">{{ ent.business_hours || '-' }}</text>
-            </view>
-            <view class="info-row">
-              <text class="info-label">成立时间</text>
-              <text class="info-value">{{ ent.founded_at || '-' }}</text>
-            </view>
-            <view class="info-row info-row-last">
-              <text class="info-label">入驻时间</text>
-              <text class="info-value">{{ formatDate(ent.created_at) }}</text>
-            </view>
-          </view>
-        </view>
-
-        <text class="foot-note">信息由企业提交，经协会审核后公示</text>
       </view>
 
-      <!-- 底部操作栏：收藏 + 分享 + 联系企业 -->
+      <text class="foot-note">信息由企业提交，经协会审核后公示</text>
+
+      <!-- 底部操作栏：收藏 + 分享 + 主操作（主按钮用品牌蓝，橙只留给发布/预算/价值） -->
       <view class="bb-space"></view>
       <view class="bb">
         <view class="bi" :class="{ fv: isFav }" aria-role="button" :aria-label="isFav ? '取消收藏' : '收藏'" @tap="toggleFav">
@@ -167,7 +135,6 @@
     </template>
   </view>
 </template>
-
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
@@ -237,10 +204,6 @@ const resolveUrl = (u) => {
 }
 const categoryList = (e) => splitTags(e.industry_category)
 const tagList = (e) => splitTags(e.capability_tags)
-const firstCategory = () => {
-  const arr = categoryList(ent.value || {})
-  return arr[0] || '入驻企业'
-}
 
 const formatDate = (d) => {
   if (!d) return '-'
@@ -290,280 +253,142 @@ onLoad(async (query) => {
 </script>
 
 <style scoped>
+/* 全部数值取自 .claude/skills/design-uav-miniprogram-prototypes/references/tokens.json：
+   圆角上限 8px(16rpx)、标签 4px(8rpx)、图标底与紧凑控件 6px(12rpx)；
+   板块标题 17px(34rpx)、正文 11–13px、辅助 9–11px；页面左右边距 12px(24rpx)；
+   卡片阴影只有可点击业务实体才用 0 3px 12px rgba(16,24,40,.05)。 */
 .ent-detail-page {
   min-height: 100vh;
   background: #F4F6F8;
-  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(150rpx + env(safe-area-inset-bottom));
   overflow-x: hidden;
 }
 
 .tap-fade { opacity: 0.85; }
 
-/* ═══════ ① Hero（全宽 500rpx + 三层蒙层 + 底部信息区） ═══════ */
+/* ═══════ ① Hero：封面 + 纯色遮罩 + 身份区 ═══════ */
 .hero {
   position: relative;
   width: 100%;
-  height: 500rpx;
+  height: 420rpx;
   overflow: hidden;
+  background: #074D92;
 }
-.hero-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
+.hero-img { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hero-fallback {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, #0a5897 0%, #074D92 100%);
+  background: #074D92;
 }
-.hero-fallback-icon {
+.hero-fallback-char { font-size: 96rpx; font-weight: 760; color: rgba(255, 255, 255, 0.22); }
+/* 统一半透明纯色遮罩：图片叠字只用纯色，不用装饰性渐变 */
+.hero-scrim { position: absolute; inset: 0; background: rgba(7, 77, 146, 0.58); }
+.hero-bottom {
+  position: absolute;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: 36rpx;
+  display: flex;
+  align-items: flex-end;
+  gap: 20rpx;
+}
+.hero-logo {
   width: 112rpx;
   height: 112rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+  overflow: hidden;
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 30rpx;
-  background: rgba(255, 255, 255, 0.14);
 }
-.hero-fallback-char {
-  font-size: 56rpx;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
-}
-.hero-mask {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(4, 30, 68, 0.08) 0%, rgba(4, 30, 68, 0.05) 34%, rgba(4, 30, 68, 0.8) 100%);
-}
-.status-badge {
-  position: absolute;
-  top: 18rpx;
-  left: 18rpx;
-  padding: 7rpx 14rpx;
-  border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.92);
-  z-index: 4;
-}
-.status-text { color: #0A66C2; font-size: 20rpx; font-weight: 650; }
-.hero-bottom {
-  position: absolute;
-  left: 32rpx;
-  right: 32rpx;
-  bottom: 56rpx;
-  z-index: 3;
-}
+.hero-logo-img { width: 100%; height: 100%; }
+.hero-logo-char { font-size: 44rpx; font-weight: 760; color: #0A66C2; }
+.hero-id { flex: 1; min-width: 0; }
 .hero-title {
-  display: block;
-  font-size: 40rpx;
-  font-weight: 700;
+  font-size: 34rpx;
+  font-weight: 760;
   color: #ffffff;
-  line-height: 1.35;
-  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.32);
+  line-height: 1.28;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.3);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-.hero-org {
+.hero-chips { display: flex; align-items: center; gap: 8rpx; margin-top: 10rpx; }
+.chip {
+  font-size: 20rpx;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 3rpx 10rpx;
+  border-radius: 8rpx;
+}
+.chip-verified { background: #E9F7F0; color: #168A55; }
+.chip-member { background: #EAF3FB; color: #0A66C2; }
+.hero-addr {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.82);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ═══════ ② 内容：一整块白色表面 + 分隔线（不给每个 section 加阴影） ═══════ */
+.surface {
+  position: relative;
+  margin-top: -20rpx;
+  background: #fff;
+  border-radius: 16rpx 16rpx 0 0;
+  padding: 0 24rpx;
+}
+.sec { padding: 24rpx 0; border-bottom: 1rpx solid #EEF1F4; }
+.sec-first { padding-top: 28rpx; }
+.sec-last { border-bottom: none; }
+.sec-head { display: flex; align-items: center; gap: 10rpx; margin-bottom: 16rpx; }
+.sec-bar { width: 6rpx; height: 28rpx; border-radius: 3rpx; background: #0A66C2; }
+.sec-title { font-size: 34rpx; font-weight: 760; color: #17212B; }
+
+/* 关键事实 2×2：详情页先给决策信息 */
+.fact-grid { display: flex; flex-wrap: wrap; }
+.fact { width: 50%; padding: 10rpx 0; box-sizing: border-box; }
+.fact-label { display: block; font-size: 22rpx; color: #98A2B3; line-height: 1.4; }
+.fact-value {
   display: block;
   margin-top: 6rpx;
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.78);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.hero-meta-row { display: flex; align-items: center; gap: 8rpx; margin-top: 10rpx; }
-.hero-meta-text { font-size: 24rpx; color: rgba(255, 255, 255, 0.85); }
-
-/* ═══════ ② 白色内容区（浮起：28rpx 上圆角 + 上投影） ═══════ */
-.content {
-  position: relative;
-  background: #F4F6F8;
-  border-radius: 28rpx 28rpx 0 0;
-  margin-top: -28rpx;
-  padding: 28rpx 24rpx 0;
-  box-shadow: 0 -16rpx 48rpx rgba(7, 77, 146, 0.12);
-}
-
-/* 品牌卡 */
-.brand-card {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-  background: #fff;
-  border: 1rpx solid #E4EAF2;
-  border-radius: 20rpx;
-  padding: 24rpx;
-  margin-bottom: 24rpx;
-  box-shadow: 0 6rpx 18rpx rgba(16, 24, 40, 0.06);
-}
-.brand-logo {
-  width: 96rpx;
-  height: 96rpx;
-  flex-shrink: 0;
-  border-radius: 20rpx;
-  overflow: hidden;
-  background: #fff;
-  border: 2rpx solid #EAF1F8;
-}
-.brand-logo-img { width: 100%; height: 100%; }
-.brand-logo-fallback {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 40rpx;
-  font-weight: 700;
-  color: #0A66C2;
-  background: linear-gradient(150deg, #EAF3FB, #DCEBFA);
-}
-.brand-info { flex: 1; min-width: 0; }
-.brand-name-row { display: flex; align-items: center; gap: 12rpx; }
-.brand-name {
-  max-width: 340rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #17212B;
-}
-.member-badge {
-  flex-shrink: 0;
-  font-size: 18rpx;
+  font-size: 26rpx;
   font-weight: 600;
-  color: #fff;
-  background: linear-gradient(135deg, #0FC293, #1DD4A8);
-  border-radius: 999rpx;
-  padding: 4rpx 14rpx;
-  line-height: 1.3;
-  box-shadow: 0 4rpx 10rpx rgba(29, 212, 168, 0.32);
-}
-.ent-verified {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  margin-top: 10rpx;
-}
-.verified-dot {
-  width: 10rpx;
-  height: 10rpx;
-  border-radius: 50%;
-  background: #0FC293;
-}
-.verified-text {
-  font-size: 22rpx;
-  color: #0B8A63;
-  font-weight: 500;
-}
-
-/* ═══════ 内容卡片 ═══════ */
-.section-card {
-  margin: 0 0 24rpx;
-  padding: 26rpx 28rpx;
-  background: #fff;
-  border-radius: 20rpx;
-  box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
-}
-.section-head {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-bottom: 20rpx;
-}
-.head-bar {
-  width: 8rpx;
-  height: 28rpx;
-  border-radius: 4rpx;
-  background: linear-gradient(180deg, #0D7AE0, #0A66C2);
-}
-.head-bar-teal {
-  background: linear-gradient(180deg, #2EE0B2, #1DD4A8);
-}
-.section-title {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #17212B;
-}
-
-.tag-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14rpx;
-}
-.tag {
-  border-radius: 8rpx;
-  padding: 8rpx 18rpx;
-  font-size: 22rpx;
-  line-height: 1.4;
-}
-.tag-blue {
-  color: #0A66C2;
-  background: #EAF3FB;
-  border: 1rpx solid rgba(10, 102, 194, 0.12);
-}
-.tag-gray {
-  color: #667085;
-  background: #F1F3F5;
-  border: 1rpx solid rgba(102, 112, 133, 0.1);
-}
-.tag-empty {
-  font-size: 22rpx;
-  color: #98A2B3;
-}
-
-.desc-text {
-  display: block;
-  font-size: 24rpx;
-  color: #475467;
-  line-height: 1.7;
-}
-
-.info-rows {
-  display: flex;
-  flex-direction: column;
-}
-.info-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24rpx;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #F0F2F5;
-}
-.info-row-last {
-  border-bottom: none;
-}
-.info-label {
-  flex-shrink: 0;
-  font-size: 24rpx;
-  color: #98A2B3;
-}
-.info-value {
-  font-size: 24rpx;
   color: #344054;
-  font-weight: 500;
-  text-align: right;
+  line-height: 1.4;
   word-break: break-all;
 }
 
+.tag-wrap { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.tag { border-radius: 8rpx; padding: 6rpx 14rpx; font-size: 22rpx; line-height: 1.4; }
+.tag-blue { color: #0A66C2; background: #EAF3FB; border: 1rpx solid #E4E7EC; }
+.tag-plain { color: #667085; background: #F4F6F8; border: 1rpx solid #EEF1F4; }
+.tag-empty { font-size: 22rpx; color: #98A2B3; }
+
+.desc-text { display: block; font-size: 26rpx; color: #344054; line-height: 1.7; }
+
 .foot-note {
   display: block;
-  margin-top: 32rpx;
+  margin: 20rpx 0 0;
+  padding: 0 24rpx;
   text-align: center;
   font-size: 20rpx;
-  color: #B0B9C4;
+  color: #98A2B3;
 }
 
-/* ═══════ 底部操作栏（训练详情同款：收藏 + 分享 + 橙色主 CTA） ═══════ */
-.bb-space { height: 140rpx; }
+/* ═══════ 底部操作栏 ═══════ */
+.bb-space { height: 150rpx; }
 .bb {
   position: fixed;
   left: 0;
@@ -571,30 +396,28 @@ onLoad(async (query) => {
   bottom: 0;
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: 12rpx;
   padding: 16rpx 24rpx;
   padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
   background: #fff;
-  border-top: 1rpx solid #EEF1F4;
-  box-shadow: 0 -8rpx 24rpx rgba(16, 24, 40, 0.05);
+  border-top: 1rpx solid #E4E7EC;
+  box-shadow: 0 -5px 16px rgba(16, 24, 40, 0.04);
   z-index: 60;
 }
+/* 纯图标按钮：视觉 42px、触控 ≥40px */
 .bi {
-  width: 88rpx;
-  height: 76rpx;
-  border-radius: 999rpx;
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 12rpx;
   background: #fff;
-  border: 1rpx solid #EEF1F4;
+  border: 1rpx solid #E4E7EC;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.heart {
-  position: relative;
-  width: 36rpx;
-  height: 32rpx;
-}
+/* 线性心形（2px 描边，非实心填充）：选中态用品牌蓝 —— 蓝色代表「选择」 */
+.heart { position: relative; width: 36rpx; height: 32rpx; }
 .heart::before,
 .heart::after {
   content: '';
@@ -602,30 +425,25 @@ onLoad(async (query) => {
   top: 0;
   width: 18rpx;
   height: 28rpx;
+  box-sizing: border-box;
+  border: 4rpx solid #667085;
+  border-bottom: none;
   border-radius: 9rpx 9rpx 0 0;
-  background: #98A2B3;
+  background: transparent;
 }
-.heart::before {
-  left: 18rpx;
-  transform: rotate(-45deg);
-  transform-origin: 0 100%;
-}
-.heart::after {
-  left: 0;
-  transform: rotate(45deg);
-  transform-origin: 100% 100%;
-}
+.heart::before { left: 18rpx; transform: rotate(-45deg); transform-origin: 0 100%; }
+.heart::after { left: 0; transform: rotate(45deg); transform-origin: 100% 100%; }
 .bi.fv .heart::before,
-.bi.fv .heart::after { background: #ff3b30; }
+.bi.fv .heart::after { border-color: #0A66C2; }
 .bo {
-  height: 76rpx;
-  border-radius: 999rpx;
+  height: 84rpx;
+  border-radius: 14rpx;
   border: 2rpx solid #0A66C2;
   background: #fff;
   color: #0A66C2;
   font-size: 26rpx;
   font-weight: 600;
-  padding: 0 36rpx;
+  padding: 0 34rpx;
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -635,30 +453,29 @@ onLoad(async (query) => {
 .bo-hover { opacity: 0.8; }
 .bp {
   flex: 1;
-  height: 76rpx;
-  border-radius: 999rpx;
-  background: #F97316;
+  height: 84rpx;
+  border-radius: 14rpx;
+  background: #0A66C2;
   color: #fff;
   font-size: 28rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6rpx 16rpx rgba(249, 115, 22, 0.3);
 }
-.bp.disabled { background: #98A2B3; box-shadow: none; }
+.bp.disabled { background: #98A2B3; }
 
-/* ═══════ 骨架屏 ═══════ */
+/* ═══════ 骨架屏（shimmer 仅作加载反馈） ═══════ */
 .skeleton-wrap {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: 16rpx;
   padding: 24rpx;
-  margin-top: -28rpx;
+  margin-top: -20rpx;
 }
 .skeleton-card {
   height: 200rpx;
-  border-radius: 20rpx;
+  border-radius: 16rpx;
   background: linear-gradient(90deg, #E9EDF1 25%, #F5F7F9 37%, #E9EDF1 63%);
   background-size: 400% 100%;
   animation: shimmer 1.3s infinite;
@@ -668,43 +485,33 @@ onLoad(async (query) => {
   100% { background-position: 0 0; }
 }
 
-/* ═══════ 404 空态 ═══════ */
+/* ═══════ 空态 / 错误态 ═══════ */
 .state-panel {
   min-height: 640rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 56rpx;
+  padding: 56rpx 48rpx;
   text-align: center;
 }
 .state-mark {
-  width: 132rpx;
-  height: 132rpx;
+  width: 120rpx;
+  height: 120rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 24rpx;
-  border-radius: 50%;
-  background: linear-gradient(160deg, #EAF3FB, #F0FAF6);
+  border-radius: 16rpx;
+  background: #EAF3FB;
 }
-.state-mark-inner {
-  width: 92rpx;
-  height: 92rpx;
-  border-radius: 24rpx;
-  background: #fff;
-  box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* CSS 楼宇图标（非 emoji） */
+/* CSS 楼宇图标（非 emoji），纯色不渐变 */
 .state-building {
   width: 52rpx;
   height: 44rpx;
   position: relative;
-  background: linear-gradient(180deg, #0D7AE0, #0A66C2);
-  border-radius: 6rpx 6rpx 2rpx 2rpx;
+  background: #0A66C2;
+  border-radius: 4rpx 4rpx 2rpx 2rpx;
 }
 .state-building::after {
   content: '';
@@ -713,7 +520,7 @@ onLoad(async (query) => {
   bottom: -8rpx;
   width: 24rpx;
   height: 8rpx;
-  background: #1DD4A8;
+  background: #0A66C2;
   border-radius: 0 0 4rpx 4rpx;
 }
 .state-win {
@@ -723,18 +530,16 @@ onLoad(async (query) => {
   height: 12rpx;
   background: #fff;
   border-radius: 2rpx;
-  opacity: 0.85;
 }
 .state-win-1 { left: 12rpx; }
 .state-win-2 { right: 12rpx; }
-.state-title { font-size: 28rpx; font-weight: 700; color: #17212B; }
-.state-desc { margin: 12rpx 0 0; font-size: 22rpx; color: #98A2B3; }
+.state-title { font-size: 30rpx; font-weight: 700; color: #17212B; }
+.state-desc { margin: 12rpx 0 0; font-size: 22rpx; color: #98A2B3; line-height: 1.5; }
 .state-btn {
-  margin-top: 36rpx;
-  padding: 16rpx 64rpx;
-  border-radius: 50rpx;
-  background: linear-gradient(135deg, #0A66C2, #0D7AE0);
-  box-shadow: 0 8rpx 20rpx rgba(10, 102, 194, 0.28);
+  margin-top: 32rpx;
+  padding: 18rpx 56rpx;
+  border-radius: 14rpx;
+  background: #0A66C2;
   font-size: 26rpx;
   font-weight: 600;
   color: #fff;
