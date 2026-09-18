@@ -179,6 +179,23 @@ func (s *EscrowService) Refund(ctx context.Context, userID string, amountFen int
 	return s.repo.Refund(ctx, userID, amountFen, tx)
 }
 
+// Withdraw 把钱送出平台：从用户的**冻结**里扣掉，余额不动。
+//
+// 用途：微信退款成功时。钱已经真的退回用户微信钱包，平台这边必须同步减掉——
+// 否则真钱退出去、平台余额还留着，就是直接的双花。
+// 调用方（PaymentRefundService）在退款成功那一刻做状态 CAS，保证只调一次；
+// 库级唯一索引 idx_escrow_once_per_ref 再兜一层（并发重试时第二次插入回滚）。
+func (s *EscrowService) Withdraw(ctx context.Context, userID string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {
+	if amountFen <= 0 {
+		return domain.EscrowTransaction{}, fmt.Errorf("amount must be positive")
+	}
+	if userID == "" {
+		return domain.EscrowTransaction{}, errors.New("出账用户不能为空")
+	}
+	tx := newTx(userID, "escrow", "withdraw", refType, refID, amountFen)
+	return s.repo.Withdraw(ctx, userID, amountFen, tx)
+}
+
 // Transfer 双方余额内转账（不涉及冻结）：货款已放给卖家后通过售后退款时，
 // 只能从卖家余额扣回买家——余额不足返回 ErrInsufficientBalance，由调用方拒绝本次操作。
 func (s *EscrowService) Transfer(ctx context.Context, fromUser, toUser string, amountFen int64, refType, refID string) (domain.EscrowTransaction, error) {

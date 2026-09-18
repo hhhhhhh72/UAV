@@ -614,10 +614,32 @@ type PaymentOrderRepository interface {
 	// SetPrepayID 回填微信下单返回的 prepay_id。它只用于前端调起支付，
 	// **不构成到账凭证**——到账一律以 MarkPaid 后的 status=paid + transaction_id 为准。
 	SetPrepayID(ctx context.Context, outTradeNo, prepayID string) error
+	// ReserveRefund 原子占用退款额度：仅当 refunded_fen + amountFen <= amount_fen 时
+	// 成功并返回 true。这是「累计退款不超过原单金额」的**库级**保证——
+	// 微信支持多次部分退款，先查后写在并发下必然穿透。
+	ReserveRefund(ctx context.Context, outTradeNo string, amountFen int64) (bool, error)
+	// ReleaseRefund 归还已占用的退款额度（微信侧明确拒绝退款时回退）。
+	ReleaseRefund(ctx context.Context, outTradeNo string, amountFen int64) error
+	// ListPaid 列出已支付的充值单（管理端退款页的选择列表）。
+	ListPaid(ctx context.Context, limit int) ([]domain.PaymentOrder, error)
 	// MarkPaid 原子置 paid：仅当当前状态为 created 时成功并返回 true。
 	// 并发回调/重放只有一个能拿到 true，其余拿到 false——这是防重复入账的第一道防线。
 	MarkPaid(ctx context.Context, outTradeNo, transactionID string, paidAt time.Time) (bool, error)
 	ListByUser(ctx context.Context, userID string, limit int) ([]domain.PaymentOrder, error)
+}
+
+// PaymentRefundRepository 线上退款单（针对某一笔充值单的部分/全额退款）。
+//
+// 与 PaymentOrderRepository 的分工：本仓储只管「微信侧退了多少、退成功了没有」；
+// 用户托管余额的冻结/扣减由 EscrowRepository 完成，两者在 Service 层衔接。
+type PaymentRefundRepository interface {
+	Create(ctx context.Context, r domain.PaymentRefund) (domain.PaymentRefund, error)
+	FindByOutRefundNo(ctx context.Context, outRefundNo string) (domain.PaymentRefund, bool, error)
+	// MarkStatus 原子推进状态：仅当当前状态在 from 中时成功并返回 true。
+	// 退款回调会重试，这是防重复处理的锚点（与 PaymentOrder.MarkPaid 同一手法）。
+	MarkStatus(ctx context.Context, outRefundNo, from, to, refundID string) (bool, error)
+	ListByOrder(ctx context.Context, outTradeNo string) ([]domain.PaymentRefund, error)
+	ListRecent(ctx context.Context, limit int) ([]domain.PaymentRefund, error)
 }
 
 type EscrowRepository interface {
@@ -629,6 +651,11 @@ type EscrowRepository interface {
 	Freeze(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	Release(ctx context.Context, fromUser, toUser string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	Refund(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
+	// Withdraw 把钱送出平台：从用户的**冻结**里扣掉，余额不动。
+	// 用途：微信退款成功时——钱已真的退回用户微信钱包，平台这边必须同步减掉，
+	// 否则真钱退出去、平台余额还留着（双花）。
+	// 幂等由库级唯一索引 idx_escrow_once_per_ref（000119 起覆盖 withdraw）保证。
+	Withdraw(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error)
 	ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error)
 	// Transfer 收付款双方都在余额内转账（不涉及冻结）：卖家余额 → 买家余额，
 	// 用于"货款已放给卖家之后才通过的售后退款"（钱已不在冻结里，只能从卖家余额扣回）。

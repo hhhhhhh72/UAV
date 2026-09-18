@@ -1053,6 +1053,26 @@ func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64,
 	// 整体回滚并按幂等成功返回——付款方不会被重复退回同一笔冻结款。
 	return r.commitFundMove(ctx, btx, tx, "refund")
 }
+// Withdraw 出账：从冻结里扣掉、余额不动（钱离开平台）。
+// 冻结额条件更新防并发超扣；流水与余额调整同事务，重复出账由
+// idx_escrow_once_per_ref（000119 起覆盖 withdraw）挡下并整体回滚。
+func (r *escrowRepo) Withdraw(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	btx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("begin escrow withdraw: %w", err)
+	}
+	defer btx.Rollback(ctx)
+	tag, err := btx.Exec(ctx,
+		`UPDATE escrow_accounts SET frozen_fen=frozen_fen-$1, updated_at=$3 WHERE user_id=$2 AND frozen_fen>=$1`,
+		amountFen, userID, time.Now())
+	if err != nil {
+		return domain.EscrowTransaction{}, fmt.Errorf("withdraw %s: %w", userID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
+	}
+	return r.commitFundMove(ctx, btx, tx, "withdraw")
+}
 
 // escrowTxColumns 流水查询列（各查询共用，避免漏列导致 channel 静默丢失）。
 const escrowTxColumns = `id,from_user,to_user,amount_fen,tx_type,COALESCE(reference_type,''),COALESCE(reference_id,''),status,COALESCE(channel,''),COALESCE(external_txn_id,''),created_at`

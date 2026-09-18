@@ -3593,6 +3593,11 @@ func (r *escrowRepo) Release(ctx context.Context, fromUser, toUser string, amoun
 	if from.FrozenFen < amountFen {
 		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
 	}
+	// 顺序与 PG 对齐：**先**余额/冻结条件更新（不足即报错），**再**插入流水——
+	// 重复出账只在余额充足时才会被唯一索引挡下。反过来放会把「钱不够」也吞成幂等成功。
+	if r.oncePerRefLocked(tx) {
+		return tx, nil
+	}
 	to, ok := r.accts[toUser]
 	if !ok {
 		to = &domain.EscrowAccount{UserID: toUser}
@@ -3616,12 +3621,63 @@ func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64,
 	if acct.FrozenFen < amountFen {
 		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
 	}
+	if r.oncePerRefLocked(tx) {
+		return tx, nil
+	}
 	acct.FrozenFen -= amountFen
 	acct.BalanceFen += amountFen
 	acct.UpdatedAt = time.Now()
 	r.txs = append(r.txs, tx)
 	return tx, nil
 }
+// oncePerRefLocked 实现与 PG 部分唯一索引同款的一次性出账约束（调用方须已持锁）：
+//   - release / transfer / withdraw：同一 (from_user, tx_type, ref_type, ref_id) 只允许一条
+//     （对应 idx_escrow_once_per_ref，migration 000116 + 000119）
+//   - refund：只对 reference_type='trade_order' 限制一次（对应 idx_escrow_refund_once_per_order，
+//     migration 000117）；培训课程那条按设计可反复冻结/退款，不加限制
+// 返回 true 表示已经出过账，调用方应按**幂等成功**返回、不再扣减。
+//
+// 为什么内存实现也要有：绝大多数 service/httpapi 测试跑的是本仓储。它缺了这层约束，
+// 上层测试就会在「重复出账」这个缺陷上全绿，而生产（PG）才拦得住。
+func (r *escrowRepo) oncePerRefLocked(tx domain.EscrowTransaction) bool {
+	switch tx.TxType {
+	case "release", "transfer", "withdraw":
+	case "refund":
+		if tx.ReferenceType != "trade_order" {
+			return false
+		}
+	default:
+		return false
+	}
+	if tx.ReferenceID == "" {
+		return false
+	}
+	for _, t := range r.txs {
+		if t.FromUser == tx.FromUser && t.TxType == tx.TxType &&
+			t.ReferenceType == tx.ReferenceType && t.ReferenceID == tx.ReferenceID {
+			return true
+		}
+	}
+	return false
+}
+
+// Withdraw 出账：从冻结里扣掉、余额不动（钱离开平台）。与 PG 版同语义。
+func (r *escrowRepo) Withdraw(ctx context.Context, userID string, amountFen int64, tx domain.EscrowTransaction) (domain.EscrowTransaction, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	acct, ok := r.accts[userID]
+	if !ok || acct.FrozenFen < amountFen {
+		return domain.EscrowTransaction{}, repository.ErrInsufficientFrozenBalance
+	}
+	if r.oncePerRefLocked(tx) {
+		return tx, nil
+	}
+	acct.FrozenFen -= amountFen
+	acct.UpdatedAt = time.Now()
+	r.txs = append(r.txs, tx)
+	return tx, nil
+}
+
 func (r *escrowRepo) ListTransactions(ctx context.Context, userID string) ([]domain.EscrowTransaction, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -3721,6 +3777,9 @@ func (r *escrowRepo) Transfer(ctx context.Context, fromUser, toUser string, amou
 	}
 	if from.BalanceFen < amountFen {
 		return domain.EscrowTransaction{}, repository.ErrInsufficientBalance
+	}
+	if r.oncePerRefLocked(tx) {
+		return tx, nil
 	}
 	to, ok := r.accts[toUser]
 	if !ok {
