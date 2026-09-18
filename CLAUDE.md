@@ -191,6 +191,7 @@ go test ./internal/...  # 全部 PASS
 | h5ImageProxy 开放重定向 | 任意 http/https URL 直接 302 跳转 | **已修复**：白名单（localhost/127.0.0.1/BASE_URL 域名）外一律 403 |
 | `middleware.SanitizeBody` 是空壳 | 只查 Method/Content-Type 就放行，且未挂载 | **已修复**：实现真实 JSON 消毒（去 HTML 标签、password 保真、1MiB 上限）并挂载进中间件链 |
 | **定时备份静默失败两天**（2026-09-17 发现） | 从 Windows 打包 tar 部署时 `deploy/*.sh` 丢了可执行位；且 `core.autocrlf=true` 让工作区里的 `deploy/db-backup.sh` 是 CRLF，覆盖服务器上正常的 LF 版本后 `set -euo pipefail` 被读成 `pipefail\r`，cron 只留两行 Permission denied | **已修复**：① 仓库 `.gitattributes` 统一 `* text=auto eol=lf`、`git config core.autocrlf false` 并把工作区重新规范化；② 每次部署后必须 `chmod +x deploy/*.sh *.sh` —— Windows 打包会丢可执行位，**这一步不能省**；③ 新增 `deploy/ops-status.sh`（每 10 分钟快照）+ 探活覆盖备份新鲜度/磁盘/证书/容器；④ 新增 `deploy/restore-drill.sh`（每周把最新备份还原到临时库验证），因为「文件存在」不等于「能恢复」 |
+| **前端发布差点清空站点根**（2026-09-18 排查） | `/var/www/admin` 下除了构建产物，还躺着 `frontend/public/` 之外的历史媒体（`static/home/*.jpg` 被 10 个商品封面引用）；此前的前端发布习惯是 `rm -rf /var/www/admin/*` 再解包，一旦沿用就会把这些文件连根删掉 → 商品图全部 404 | **已修复**：① 新增 `deploy/deploy-web.sh` —— 先 `cp -a` 备份到 `admin.bak.<ts>`（保留最近 3 份），再**覆盖写入 + 只清理新构建里已不存在的 `assets/*`**，绝不整目录清空；发布后强制校验 `index.html`/`assets`/`static/home/home-bg.jpg`/`images`/`video` 五处；② 把仅存在于服务器的 `home-bg.jpg` 补进 `frontend/public/static/home/`，让站点根内容重新全部由构建产物决定 |
 
 ## 本地开发
 

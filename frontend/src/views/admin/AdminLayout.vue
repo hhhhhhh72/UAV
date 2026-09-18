@@ -228,7 +228,10 @@ const allMenus = [
   { path: '/admin/innovation', label: '产学研', icon: 'icon-experiment', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/promotion', label: '运营推广', icon: 'icon-bulb', roles: ['platform_admin', 'association_admin'] },
   { path: '/admin/emergency', label: '应急协同', icon: 'icon-fire', roles: ['platform_admin', 'association_admin'] },
-  { path: '/admin/settings', label: '系统设置', icon: 'icon-settings', roles: ['platform_admin', 'association_admin'] }
+  // 系统设置页默认标签是「服务配置」（/api/v1/admin/config 仅平台管理员），
+  // router/index.js 的 meta.roles 也只放 platform_admin。侧栏这里必须与之一致，
+  // 否则协会管理员能看到菜单、点进去却被路由守卫弹回看板并提示「该页面仅平台管理员可用」。
+  { path: '/admin/settings', label: '系统设置', icon: 'icon-settings', roles: ['platform_admin'] }
 ]
 
 const visibleMenus = computed(() => {
