@@ -36,6 +36,21 @@ import (
 	"time"
 )
 
+// effectiveRefundNotifyURL 返回退款回调地址：显式配置优先，否则由 NotifyURL 推导
+// （/wechat/notify → /wechat/refund-notify）。
+func (c Config) effectiveRefundNotifyURL() string {
+	if c.RefundNotifyURL != "" {
+		return c.RefundNotifyURL
+	}
+	if c.NotifyURL == "" {
+		return ""
+	}
+	if strings.HasSuffix(c.NotifyURL, "/notify") {
+		return strings.TrimSuffix(c.NotifyURL, "/notify") + "/refund-notify"
+	}
+	return c.NotifyURL
+}
+
 // defaultAPIBase 微信支付 APIv3 正式域名。注意这里**不能**带反引号：
 // 之前写成 "`https://api.mch.weixin.qq.com`"，字符串里真的多出两个反引号，
 // 而 Config.APIBase 只有测试会覆盖 → 生产每一笔下单一律 DNS 解析失败。
@@ -49,7 +64,11 @@ type Config struct {
 	APIv3Key       string // 32 字节，回调解密用
 	CertSerial     string // 商户 API 证书序列号
 	PrivateKeyPath string // apiclient_key.pem
-	NotifyURL      string
+	// NotifyURL 支付结果回调地址。
+	NotifyURL string
+	// RefundNotifyURL 退款结果回调地址。留空时由 NotifyURL 推导（.../notify →
+	// .../refund-notify），便于只配一个域名就把两条链路都接上。
+	RefundNotifyURL string
 	// APIBase 仅测试用：指向本地 httptest 服务器。留空走线上域名。
 	APIBase string
 	// HTTPClient 留空用带 10s 超时的默认客户端。
@@ -367,4 +386,95 @@ func (c *Client) DecryptResource(env NotifyEnvelope) ([]byte, error) {
 		return nil, fmt.Errorf("wechatpay: 回调解密失败（APIv3 密钥不符或报文被篡改）: %w", err)
 	}
 	return plain, nil
+}
+// ── 退款（APIv3 /v3/refund/domestic/refunds）──
+//
+// 退款的对象是**某一笔充值单**，不是某个订单：平台的钱是以「充值进托管余额」的形式进来的
+// （见 domain.PaymentOrder），用户微信付的那笔钱对应一条 payment_orders 记录。
+// 微信要求带 out_trade_no、且累计退款不超过原单金额，并支持多次部分退款——
+// 所以「累计不超额」必须由调用方保证（仓库层用 CAS 更新 refunded_fen）。
+
+// RefundRequest 发起一次退款。
+type RefundRequest struct {
+	OutTradeNo  string // 原充值单号（payment_orders.out_trade_no）
+	OutRefundNo string // 本次退款单号（我们自己生成，全局唯一）
+	RefundFen   int64  // 本次退款金额
+	TotalFen    int64  // 原单总金额（微信要求一并带上）
+	Reason      string // 退款原因（可选）
+}
+
+// Refund 微信侧退款单。
+type Refund struct {
+	RefundID    string `json:"refund_id"`
+	OutRefundNo string `json:"out_refund_no"`
+	OutTradeNo  string `json:"out_trade_no"`
+	Status      string `json:"status"`
+	CreateTime  string `json:"create_time"`
+	SuccessTime string `json:"success_time"`
+	Amount      struct {
+		Total       int64 `json:"total"`
+		Refund      int64 `json:"refund"`
+		PayerTotal  int64 `json:"payer_total"`
+		PayerRefund int64 `json:"payer_refund"`
+	} `json:"amount"`
+}
+
+// 微信退款状态。只有 RefundStatusSuccess 代表钱真的退回去了。
+const (
+	RefundStatusSuccess    = "SUCCESS"
+	RefundStatusProcessing = "PROCESSING" // 已受理、处理中（银行侧未完成）
+	RefundStatusClosed     = "CLOSED"     // 已关闭（退款失败/被撤销）
+	RefundStatusAbnormal   = "ABNORMAL"   // 异常，需人工介入
+)
+
+// CreateRefund 发起退款。返回成功**只代表微信受理了**，钱是否真退到账要以
+// QueryRefund（或退款回调）的 status 为准——与下单只拿 prepay_id 同理。
+func (c *Client) CreateRefund(ctx context.Context, in RefundRequest) (*Refund, error) {
+	if in.OutTradeNo == "" || in.OutRefundNo == "" {
+		return nil, errors.New("wechatpay: 原单号与退款单号必填")
+	}
+	if in.RefundFen <= 0 {
+		return nil, fmt.Errorf("wechatpay: 退款金额必须为正，当前 %d", in.RefundFen)
+	}
+	if in.TotalFen < in.RefundFen {
+		return nil, fmt.Errorf("wechatpay: 退款金额 %d 不得超过原单金额 %d", in.RefundFen, in.TotalFen)
+	}
+	var body struct {
+		OutTradeNo  string `json:"out_trade_no"`
+		OutRefundNo string `json:"out_refund_no"`
+		Reason      string `json:"reason,omitempty"`
+		NotifyURL   string `json:"notify_url,omitempty"`
+		Amount      struct {
+			Refund   int64  `json:"refund"`
+			Total    int64  `json:"total"`
+			Currency string `json:"currency"`
+		} `json:"amount"`
+	}
+	body.OutTradeNo = in.OutTradeNo
+	body.OutRefundNo = in.OutRefundNo
+	body.Reason = in.Reason
+	body.NotifyURL = c.cfg.effectiveRefundNotifyURL()
+	body.Amount.Refund = in.RefundFen
+	body.Amount.Total = in.TotalFen
+	body.Amount.Currency = "CNY"
+	var out Refund
+	if err := c.do(ctx, http.MethodPost, "/v3/refund/domestic/refunds", body, &out); err != nil {
+		return nil, err
+	}
+	if out.RefundID == "" {
+		return nil, errors.New("wechatpay: 退款受理成功但未返回 refund_id")
+	}
+	return &out, nil
+}
+
+// QueryRefund 主动查退款单——与查支付单同理，**这是唯一可信的退款到账依据**。
+func (c *Client) QueryRefund(ctx context.Context, outRefundNo string) (*Refund, error) {
+	if outRefundNo == "" {
+		return nil, errors.New("wechatpay: 退款单号必填")
+	}
+	var out Refund
+	if err := c.do(ctx, http.MethodGet, "/v3/refund/domestic/refunds/"+url.PathEscape(outRefundNo), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
