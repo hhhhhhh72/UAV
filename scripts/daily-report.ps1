@@ -228,14 +228,24 @@ if ($Detail) {
 $text = Render $body
 
 # ---------- 6. 输出 ----------
+$outDir = Join-Path (Get-Location).Path '日报'
+$null = New-Item -ItemType Directory -Force -Path $outDir
+$runLog = Join-Path $outDir 'run.log'
+
+# 计划任务是 -WindowStyle Hidden 跑的：**它的输出没人看得到**，成败一闪而过。
+# 所以每次运行都往 run.log 追一行结果 —— 出了问题至少有地方可查，
+# 而不是「昨天到底跑没跑」只能靠猜。日报/ 整个目录已 gitignore。
+function Write-RunLog([string]$verdict) {
+    $line = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + '  ' + $verdict + " （$($text.Length) 字）"
+    Add-Content -Path $runLog -Value $line -Encoding UTF8
+    Write-Output ('[记录] ' + $line)
+}
+
 Write-Output $text
 Write-Output ''
 Write-Output ('[字数] ' + $text.Length + ' / ' + $BUDGET + $(if ($text.Length -le $BUDGET) { '（符合要求）' } else { '（超了，需手工精简）' }))
-$now = Get-Date
-if ($now.Hour -ge 20) { Write-Output '[提示] 现在已过 20:00，尽快发群。' }
+if ((Get-Date).Hour -ge 20) { Write-Output '[提示] 现在已过 20:00，尽快发群。' }
 
-$outDir = Join-Path (Get-Location).Path '日报'
-$null = New-Item -ItemType Directory -Force -Path $outDir
 $outFile = Join-Path $outDir ($date.ToString('yyyy-MM-dd') + '.txt')
 Set-Content -Path $outFile -Value $text -Encoding UTF8
 Write-Output ('[文件] ' + $outFile)
@@ -245,8 +255,19 @@ if (-not $NoClipboard) {
 }
 
 # ---------- 7. 投递 ----------
+# 先确认三个外部命令找得到：计划任务里的 PATH 与交互式会话不一定一样，
+# 缺了就直接记下来，免得窗口一闪而过什么都没留下。
+$missing = @()
+foreach ($exe in @('git', 'ssh', 'scp')) {
+    if (-not (Get-Command $exe -ErrorAction SilentlyContinue)) { $missing += $exe }
+}
+if ($missing.Count -gt 0) {
+    Write-RunLog ('发送失败：PATH 里找不到 ' + ($missing -join '、') + '（计划任务的环境与交互式会话不同？）')
+    exit 1
+}
+
 if ($NoSend) {
-    Write-Output '[发送] 已跳过（-NoSend）'
+    Write-RunLog '干跑（-NoSend，未发送）'
     exit 0
 }
 
@@ -256,13 +277,13 @@ $tmp = Join-Path $env:TEMP 'work-report.txt'
 [IO.File]::WriteAllText($tmp, $text, (New-Object Text.UTF8Encoding($false)))
 & scp -o ConnectTimeout=10 $tmp root@api.cqnarc.cn:/tmp/work-report.txt 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    Write-Output '[发送] 失败：scp 传文件不成功（网络或免密登录的问题）'
+    Write-RunLog '发送失败：scp 没传上去（网络或免密登录的问题）'
     exit 1
 }
 $out = & ssh -o ConnectTimeout=10 root@api.cqnarc.cn 'bash /root/UAV/deploy/post-work-report.sh /tmp/work-report.txt' 2>&1
 if ($LASTEXITCODE -eq 0) {
-    Write-Output '[发送] 已推送（服务器已记录送达心跳）'
+    Write-RunLog '已推送'
     exit 0
 }
-Write-Output ('[发送] 失败：' + ($out -join ' '))
+Write-RunLog ('发送失败：' + ($out -join ' '))
 exit 1
