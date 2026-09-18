@@ -44,11 +44,11 @@ jobs:
             fail=1
           else
             echo "ops-status => $ops"
-            # 顶层 ok 是四项的汇总（磁盘/备份/容器/证书），任一项不达标即为 false
+            # 顶层 ok 是五项汇总（磁盘/备份/容器/证书 + 托管金不变量），任一项不达标即为 false
             top=$(echo "$ops" | grep -oE '"ok": *(true|false)' | head -1)
             case "$top" in
-              *true) echo '  ✓ 备份/磁盘/容器/证书 均达标' ;;
-              *) echo '  ✗ 快照 ok != true（备份过期/磁盘将满/容器异常/证书将到期）'; fail=1 ;;
+              *true) echo '  ✓ 备份/磁盘/容器/证书/托管金不变量 均达标' ;;
+              *) echo '  ✗ 快照 ok != true（备份过期/磁盘将满/容器异常/证书将到期/资金不变量失守）'; fail=1 ;;
             esac
             gen=$(echo "$ops" | sed -n 's/.*"generated_epoch": *\([0-9]*\).*/\1/p')
             if [ -z "$gen" ]; then

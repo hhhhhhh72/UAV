@@ -79,6 +79,68 @@ if [ -f "$CERT" ]; then
   fi
 fi
 
+# ---- 托管金（资金）不变量 ----
+#
+# 为什么需要（2026-09-18）：资金侧的三条不变量此前只靠应用层的 check-then-act，
+# 库层面没有约束；补上唯一索引（migration 000116/000117）之后，还得有人**定期确认
+# 它们还在**——索引可能被误删、数据可能被手工改动、将来可能有人新增一种资金动作
+# 让下面的账目恒等式失效。这一节就是那个"定期确认"。
+#
+# 只输出计数与状态名，不含任何用户 ID 或金额明细（与文件顶部约定一致）。
+# ESCROW_DB 可覆盖：只为让这套检查**本身**能被演练/变异测试（在临时库上造出
+# 索引缺失、账目不平、未知资金动作三种故障，确认它真的会报警）。
+ESCROW_DB=${ESCROW_DB:-drone_platform}
+esc_q() { docker exec uav-db-1 psql -U drone -d "$ESCROW_DB" -t -A -c "$1" 2>/dev/null | tr -d '[:space:]'; }
+
+# 1) 两条防重复资金的唯一索引必须都在
+esc_idx=$(esc_q "SELECT count(*) FROM pg_indexes WHERE indexname IN ('idx_escrow_once_per_ref','idx_escrow_refund_once_per_order')")
+esc_idx=${esc_idx:-0}
+
+# 2) 不允许存在重复的放款/转账键，也不允许 trade_order 维度的重复退款键
+esc_dup=$(esc_q "SELECT count(*) FROM (
+  SELECT 1 FROM escrow_transactions
+  WHERE reference_id <> '' AND (
+    tx_type IN ('release','transfer')
+    OR (tx_type = 'refund' AND reference_type = 'trade_order'))
+  GROUP BY from_user, tx_type, reference_type, reference_id HAVING count(*) > 1) t")
+esc_dup=${esc_dup:-0}
+
+# 3) 账目恒等式：每个托管账户的余额与冻结额，必须等于流水推算出来的值。
+#    推导依据（按每笔流水的真实资金方向）：
+#      deposit  → to_user.balance   += 额
+#      freeze   → from_user.balance -= 额, from_user.frozen += 额
+#      release  → from_user.frozen  -= 额, to_user.balance   += 额
+#      refund   → to_user.frozen    -= 额, to_user.balance   += 额   ← 动的是 to_user
+#      transfer → from_user.balance -= 额, to_user.balance   += 额
+#    该式已用生产数据验证过与实际完全一致（不是恒真的空检查）。
+esc_mismatch=$(esc_q "
+WITH ledger AS (
+  SELECT a.user_id AS uid,
+    COALESCE(SUM(CASE WHEN t.to_user = a.user_id AND t.tx_type IN ('deposit','release','refund','transfer') THEN t.amount_fen ELSE 0 END), 0)
+  - COALESCE(SUM(CASE WHEN t.from_user = a.user_id AND t.tx_type IN ('freeze','transfer') THEN t.amount_fen ELSE 0 END), 0) AS exp_balance,
+    COALESCE(SUM(CASE WHEN t.from_user = a.user_id AND t.tx_type = 'freeze' THEN t.amount_fen ELSE 0 END), 0)
+  - COALESCE(SUM(CASE WHEN t.from_user = a.user_id AND t.tx_type = 'release' THEN t.amount_fen ELSE 0 END), 0)
+  - COALESCE(SUM(CASE WHEN t.to_user = a.user_id AND t.tx_type = 'refund' THEN t.amount_fen ELSE 0 END), 0) AS exp_frozen
+  FROM escrow_accounts a
+  LEFT JOIN escrow_transactions t ON (t.to_user = a.user_id OR t.from_user = a.user_id)
+  GROUP BY a.user_id)
+SELECT count(*) FROM escrow_accounts a JOIN ledger l ON l.uid = a.user_id
+WHERE a.balance_fen <> l.exp_balance OR a.frozen_fen <> l.exp_frozen")
+esc_mismatch=${esc_mismatch:-0}
+
+# 4) 出现未知的资金动作类型时恒等式不再成立：必须报出来让人复核公式，
+#    而不是让它悄悄算出一堆假偏差（这是"检查检查器本身"的信号）。
+esc_unknown=$(esc_q "SELECT count(*) FROM escrow_transactions WHERE tx_type NOT IN ('deposit','freeze','release','refund','transfer')")
+esc_unknown=${esc_unknown:-0}
+
+esc_accounts=$(esc_q "SELECT count(*) FROM escrow_accounts"); esc_accounts=${esc_accounts:-0}
+esc_frozen=$(esc_q "SELECT COALESCE(sum(frozen_fen),0) FROM escrow_accounts"); esc_frozen=${esc_frozen:-0}
+
+escrow_ok=false
+if [ "$esc_idx" = 2 ] && [ "$esc_dup" = 0 ] && [ "$esc_mismatch" = 0 ] && [ "$esc_unknown" = 0 ]; then
+  escrow_ok=true
+fi
+
 # ---- 数据库 schema 版本（失败不影响整体判定，仅留空）----
 schema=$(docker exec uav-db-1 psql -U drone -d drone_platform -t -A \
   -c 'SELECT max(version) FROM schema_migrations' 2>/dev/null | tr -d '[:space:]')
@@ -86,7 +148,7 @@ schema=${schema:-unknown}
 
 # ---- 汇总 ----
 ok=false
-if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ]; then
+if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ] && [ "$escrow_ok" = true ]; then
   ok=true
 fi
 
@@ -102,6 +164,7 @@ cat > "$tmp" <<JSON
   "restore_drill": {"age_days": $drill_age_days, "max_age_days": $DRILL_MAX_AGE_DAYS, "tables": $drill_tables, "note": "$drill_note", "ok": $drill_ok},
   "containers": {"api": "$api_state", "db": "$db_state", "ok": $containers_ok},
   "cert": {"days_left": $cert_days, "min_days": $CERT_MIN_DAYS, "ok": $cert_ok},
+  "escrow": {"indexes": $esc_idx, "dup_keys": $esc_dup, "ledger_mismatch": $esc_mismatch, "unknown_tx_types": $esc_unknown, "accounts": $esc_accounts, "frozen_fen": $esc_frozen, "ok": $escrow_ok},
   "schema_version": "$schema"
 }
 JSON
