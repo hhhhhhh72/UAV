@@ -22,8 +22,9 @@
           <input class="es-input" v-model="amountYuan" type="digit" :placeholder="'单笔上限 ' + maxYuan" placeholder-class="es-ph" />
           <view class="es-btn" hover-class="es-btn-hover" :class="{ 'es-btn-loading': paying }" @tap="deposit">{{ paying ? '支付中…' : '充值' }}</view>
         </view>
-        <text class="es-tip" v-if="realPayEnabled">微信支付：付款成功由微信通知服务端入账，余额稍后自动刷新（以服务端到账为准）。冻结/退款按订单流程自动处理。</text>
-        <text class="es-tip" v-else>模拟托管通道：充值即入账（无真实资金流；微信支付商户号配置后自动切换为真实支付）。冻结/退款按订单流程自动处理。</text>
+        <text class="es-tip" v-if="payState === 'real'">微信支付：付款成功由微信通知服务端入账，余额稍后自动刷新（以服务端到账为准）。冻结/退款按订单流程自动处理。</text>
+        <text class="es-tip" v-else-if="payState === 'sim'">模拟托管通道：充值即入账（无真实资金流；微信支付商户号配置后自动切换为真实支付）。冻结/退款按订单流程自动处理。</text>
+        <text class="es-tip es-tip-warn" v-else>支付状态获取失败。为避免误入模拟通道，充值已暂停，请下拉刷新页面重试。</text>
       </view>
     </view>
 
@@ -60,10 +61,17 @@ const loadError = ref(false)
 // realPayEnabled：后端是否已开通真实微信支付。由 GET /api/v1/payments/mine 探得：
 // 未开通时该接口回 503，这是「未配置商户号」的确定信号，比在页面上写死文案可靠
 // ——商户号一旦配上，页面无需改动即自动切成真实支付。
-const realPayEnabled = ref(false)
+// payState 三态，**不能用布尔**：
+//   'real'    服务端明确回答已开通微信支付
+//   'sim'     服务端明确回答未开通（此时页面走模拟托管通道）
+//   'unknown' 还没探到 / 探测失败 —— fail-closed，见 probeRealPay
+// 为什么必须是三态：模拟通道（POST /api/v1/escrow/deposit）是**不加钱就能给自己加余额**的，
+// 一旦真实支付已开通，把"探测失败"当成"未开通"就等于一次网络抖动就把用户送到免费通道上。
+const payState = ref('unknown')
+const realPayEnabled = computed(() => payState.value === 'real')
 const paying = ref(false)
 // 真实支付单笔上限 ¥50,000（服务端 service.MaxRechargeFen）；模拟通道沿用旧的 ¥200,000。
-const maxYuan = computed(() => (realPayEnabled.value ? 50000 : 200000))
+const maxYuan = computed(() => (payState.value === 'real' ? 50000 : 200000))
 
 const txTypeLabel = (tx) => ({ deposit: '充值', freeze: '冻结', release: '学费结算', refund: '退款' }[tx.tx_type] || tx.tx_type || '-')
 /* 流水副说明：让每笔钱的去向一目了然（结算=转给课程机构，退款=钱已回账） */
@@ -75,13 +83,16 @@ const txSub = (tx) => {
   return ({ freeze: '报名时冻结学费', release: '结业结算，已划转至课程机构', refund: '订单取消或报名失败，已退回余额' }[tx.tx_type] || '')
 }
 
-/* probeRealPay 探测后端是否已开通微信支付（503 = 未开通）。失败不当错误：探测不到就按未开通处理。 */
+/* probeRealPay 探测后端是否已开通微信支付。
+   服务端恒回 200 + enabled 字段（未开通不再用 5xx——5xx 会被后端统一脱敏成
+   "internal server error"，客户端分不清"没开通"和"服务炸了"）。
+   探测失败时**保持 unknown 而不是降级为 sim**：降级会让用户落到免费模拟通道。 */
 async function probeRealPay() {
   try {
-    await request({ url: '/api/v1/payments/mine' })
-    realPayEnabled.value = true
+    const res = await request({ url: '/api/v1/payments/mine' })
+    payState.value = res && res.enabled ? 'real' : 'sim'
   } catch (e) {
-    realPayEnabled.value = false
+    payState.value = 'unknown'
   }
 }
 
@@ -141,7 +152,9 @@ async function payWithWeChat(amountFen) {
       header: { 'Idempotency-Key': 'wx-pay-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }
     })
   } catch (e) {
-    if (e && e.statusCode === 503) return false
+    // 409 = 服务端明确回「微信支付未开通」（见 internal/httpapi/payments.go 的注释：
+    // 预期状态不用 5xx，否则消息被脱敏且刷错误日志）。503 兼容旧部署。
+    if (e && (e.statusCode === 409 || e.statusCode === 503)) return false
     throw e
   }
   try {
@@ -163,10 +176,16 @@ async function deposit() {
   if (yuan <= 0) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
   if (yuan > maxYuan.value) { uni.showToast({ title: '单笔上限 ' + maxYuan.value + ' 元', icon: 'none' }); return }
   const amountFen = Math.round(yuan * 100)
+  // fail-closed：支付能力未知时拒绝充值，绝不"猜一个通道"。
+  if (payState.value === 'unknown') {
+    uni.showToast({ title: '支付状态获取失败，请下拉刷新后重试', icon: 'none' })
+    return
+  }
   if (paying.value) return
   paying.value = true
   try {
-    if (realPayEnabled.value && await payWithWeChat(amountFen)) return
+    if (payState.value === 'real' && await payWithWeChat(amountFen)) return
+    // 只有服务端**明确**回答"未开通"（payState==='sim'）才会走到这里。
     // 回退：模拟托管通道（后端未开通微信支付时）
     await request({
       url: '/api/v1/escrow/deposit',
@@ -208,6 +227,8 @@ page { background: var(--color-bg); }
 .es-btn-hover { opacity: .9; }
 /* 支付中：置灰并禁用点击（防重复拉起收银台，同一笔钱不能被发起两次） */
 .es-btn-loading { background: #9aa7b5; }
+/* 支付能力探测失败：橙色系＝需要注意且影响操作（与发布页的比例提示同一语义） */
+.es-tip-warn { color: #B54708; }
 .es-tip { display: block; font-size: 22rpx; color: #98A2B3; line-height: 1.6; margin-top: 16rpx; }
 .es-empty { text-align: center; color: #98A2B3; font-size: 24rpx; padding: 40rpx 0; }
 .es-tx { display: flex; justify-content: space-between; align-items: center; padding: 18rpx 0; border-bottom: 1rpx solid #F0F2F5; }

@@ -1408,12 +1408,19 @@ func (s *Server) h5StudyShowcaseSave(w http.ResponseWriter, r *http.Request) {
 	if len(items) == 0 {
 		items = body.Items
 	}
+	// readJSON 失败（文件缺失 / JSON 被手改坏）时 cfg 保持 nil——
+	// 读 nil map 安全，但**写 nil map 会 panic**（assignment to entry in nil map）。
+	// 这里必须显式初始化，且类型断言用 comma-ok：旧代码假定 cfg["9"] 一定是对象，
+	// 若有人把 services_config.json 里的 "9" 写成数组或字符串就会 panic → 500。
 	var cfg map[string]any
-	readJSON(_servicesFile, &_servicesMu, &cfg)
-	if cfg["9"] == nil {
-		cfg["9"] = map[string]any{}
+	if err := readJSON(_servicesFile, &_servicesMu, &cfg); err != nil || cfg == nil {
+		cfg = map[string]any{}
 	}
-	s9 := cfg["9"].(map[string]any)
+	s9, ok := cfg["9"].(map[string]any)
+	if !ok {
+		s9 = map[string]any{}
+		cfg["9"] = s9
+	}
 	s9["studyShowcase"] = items
 	writeJSON(_servicesFile, &_servicesMu, cfg)
 	respond(w, r, http.StatusOK, map[string]string{"status": "saved"})

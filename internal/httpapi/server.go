@@ -126,6 +126,11 @@ type Server struct {
 	// orderLimits 下单限频：key=买家 userID -> *regLimitLog（见 trade_order_maintenance.go）。
 	orderLimits       sync.Map
 	orderLimitEntries atomic.Int64
+	// payLimits 充值下单限频：key=用户 userID -> *regLimitLog（见 payments.go）。
+	// 与 orderLimits 同理：每调一次 prepay 都会在**微信侧真实建一个支付单**，
+	// 不加约束时一个账号几秒内就能造出成千上万个待支付订单。
+	payLimits       sync.Map
+	payLimitEntries atomic.Int64
 	// servicesCfgMu 序列化 services_config.json 的读-改-写（h5SaveServicesConfig 等）：
 	// 并发保存此前会互相覆盖字段（readJSON 与 writeJSON 各自加锁，跨调用不原子）。
 	servicesCfgMu sync.Mutex

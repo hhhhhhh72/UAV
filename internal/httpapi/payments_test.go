@@ -169,17 +169,102 @@ func TestWeChatPayPrepayRequiresAuth(t *testing.T) {
 	}
 }
 
-// TestWeChatPayDisabledReturns503 未开通微信支付时回 503（预期状态），不是 500。
-func TestWeChatPayDisabledReturns503(t *testing.T) {
+// TestWeChatPayDisabledIsNotServerError 未开通微信支付时**不得回 5xx**。
+//
+// 回归的是一个真实踩过的坑：先前 prepay 与 payments/mine 都回 503，而 fail() 对
+// status>=500 会把 message 统一脱敏成 "internal server error" 并记一条 ERROR 日志——
+// 于是「没开通」这个完全预期的状态，在客户端读起来像服务故障，在日志/监控里像真故障。
+// 生产实测印证过：GET /api/v1/payments/mine 返回 503 + {"code":"INTERNAL"}。
+//
+// 现在的约定：
+//   - POST prepay  → 409（4xx，消息原样透传）
+//   - GET  mine    → 200 + enabled:false（探测语义，不该是错误）
+func TestWeChatPayDisabledIsNotServerError(t *testing.T) {
 	// 用 newBizServer（没有 SetPaymentService）。注意这里的用户必须是 seedCommonUsers
-	// 里已入库的 user-1——用未入库的 ID 会先被 authenticate 挡成 401，测不到 503。
+	// 里已入库的 user-1——用未入库的 ID 会先被 authenticate 挡成 401，测不到本条规则。
 	app := newBizServer(t)
-	if w := requestAs(t, app, http.MethodPost, "/api/v1/payments/wechat/prepay",
-		[]byte(`{"amount_fen":10000}`), "user-1", domain.RoleIndividual); w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("未开通时 prepay 应回 503，实际 %d %s", w.Code, w.Body.String())
+
+	w := requestAs(t, app, http.MethodPost, "/api/v1/payments/wechat/prepay",
+		[]byte(`{"amount_fen":10000}`), "user-1", domain.RoleIndividual)
+	if w.Code >= 500 {
+		t.Fatalf("未开通时 prepay 不得回 5xx（会被脱敏 + 记 ERROR），实际 %d %s", w.Code, w.Body.String())
 	}
-	if w := requestAs(t, app, http.MethodGet, "/api/v1/payments/mine", nil, "user-1", domain.RoleIndividual); w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("未开通时 payments/mine 应回 503，实际 %d %s", w.Code, w.Body.String())
+	if w.Code != http.StatusConflict {
+		t.Fatalf("未开通时 prepay 应回 409，实际 %d %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "微信支付未开通") {
+		t.Fatalf("409 的消息应当原样透传，实际 %s", w.Body.String())
+	}
+
+	mw := requestAs(t, app, http.MethodGet, "/api/v1/payments/mine", nil, "user-1", domain.RoleIndividual)
+	if mw.Code != http.StatusOK {
+		t.Fatalf("未开通时 payments/mine 应回 200（探测语义），实际 %d %s", mw.Code, mw.Body.String())
+	}
+	var probe struct {
+		Data struct {
+			Enabled bool  `json:"enabled"`
+			Items   []any `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(mw.Body.Bytes(), &probe); err != nil {
+		t.Fatalf("解析探测响应: %v (%s)", err, mw.Body.String())
+	}
+	if probe.Data.Enabled {
+		t.Fatalf("未开通时 enabled 应为 false，实际 %s", mw.Body.String())
+	}
+}
+
+// TestPrepayRateLimited 充值下单限频：每成功一次都会在微信侧真实建一个支付单，
+// 不设限时一个账号能在几秒内造出成千上万个待支付订单（还会被微信风控标记商户号）。
+func TestPrepayRateLimited(t *testing.T) {
+	gw := &payStubGateway{prepayID: "prepay-xyz"}
+	app, _, _ := newPayServer(t, gw)
+
+	var last int
+	for i := 0; i < prepayMaxForTest+1; i++ {
+		last = postJSON(t, app, "/api/v1/payments/wechat/prepay", `{"amount_fen":10000}`, testPayerID).code
+	}
+	if last != http.StatusTooManyRequests {
+		t.Fatalf("第 %d 次下单应被限频回 429，实际 %d", prepayMaxForTest+1, last)
+	}
+}
+
+// prepayMaxForTest 与 internal/httpapi 里的 prepayMax 对齐（外部测试包读不到常量，
+// 改限频上限时这里要同步——不一致会让用例失败而不是静默放过）。
+const prepayMaxForTest = 10
+
+// TestSimulatedDepositClosedOncePaymentEnabled 真实支付开通后，普通用户的
+// 「模拟托管通道自助充值」必须自动关闭；否则真实支付旁边就摆着一个免费充值按钮
+// （单笔 ¥20 万、不限次数，且无外部单号时完全不做查重）。
+func TestSimulatedDepositClosedOncePaymentEnabled(t *testing.T) {
+	app, esc, _ := newPayServer(t, &payStubGateway{prepayID: "p"})
+
+	w := requestAs(t, app, http.MethodPost, "/api/v1/escrow/deposit",
+		[]byte(`{"amount_fen":100}`), testPayerID, domain.RoleIndividual)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("真实支付已开通时普通用户自助充值应 403，实际 %d %s", w.Code, w.Body.String())
+	}
+	if acc, err := esc.Balance(context.Background(), testPayerID); err == nil && acc.BalanceFen != 0 {
+		t.Fatalf("被拒绝的充值不得改动余额，实际 %d", acc.BalanceFen)
+	}
+
+	// 管理员代充（线下来款补记）不受影响。
+	aw := requestAs(t, app, http.MethodPost, "/api/v1/escrow/deposit",
+		[]byte(`{"amount_fen":100,"to_user":"`+testPayerID+`"}`), "admin-1", domain.RolePlatformAdmin)
+	if aw.Code != http.StatusCreated {
+		t.Fatalf("管理员代充应仍然可用，实际 %d %s", aw.Code, aw.Body.String())
+	}
+}
+
+// TestPaymentMineReportsEnabledWhenConfigured 已开通时探测点回 enabled:true。
+func TestPaymentMineReportsEnabledWhenConfigured(t *testing.T) {
+	app, _, _ := newPayServer(t, &payStubGateway{prepayID: "p"})
+	w := requestAs(t, app, http.MethodGet, "/api/v1/payments/mine", nil, testPayerID, domain.RoleIndividual)
+	if w.Code != http.StatusOK {
+		t.Fatalf("payments/mine 应回 200，实际 %d %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"enabled":true`) {
+		t.Fatalf("已开通时 enabled 应为 true，实际 %s", w.Body.String())
 	}
 }
 

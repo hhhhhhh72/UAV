@@ -3,7 +3,9 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"drone-platform/internal/domain"
@@ -15,6 +17,24 @@ import (
 // 注：入账渠道由服务端判定（internal_self / internal_admin），真实资金渠道只能由支付回调写入。
 func requireEscrowAdmin(a domain.Actor) bool {
 	return a.Role == domain.RolePlatformAdmin || a.Role == domain.RoleAssociationAdmin
+}
+
+// simulatedDepositAllowed 报告「模拟托管通道」（登录用户自助充值）是否还开着。
+//
+// 为什么需要它：POST /api/v1/escrow/deposit 让**任何登录用户**零成本给自己加余额
+// ——单笔上限 ¥20 万、不限次数，且 externalTxnID 传空时 DepositFromChannel 完全不做
+// 查重（查重只在有外部支付单号时生效）。它存在的唯一理由是真实支付接入前的联调/演示，
+// 本文件顶部注释写的"充值仅管理员可操作…此前任意登录用户可无限充值属 P0 印钞漏洞"
+// 说的就是这条路径。
+//
+// 所以把开关绑在支付能力上，而不是靠人记得去关：微信支付一旦开通，
+// 用户侧自助充值自动关闭，不会再出现"真实支付旁边摆着一个免费充值按钮"。
+// 确实需要保留演示通道时，显式设 ALLOW_SIMULATED_DEPOSIT=true（建议仅非生产）。
+func (s *Server) simulatedDepositAllowed() bool {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("ALLOW_SIMULATED_DEPOSIT")), "true") {
+		return true
+	}
+	return !s.paymentSvc.Enabled()
 }
 
 // isPlatformAdmin 平台管理员判定：资金对账等平台级财务数据不对协会管理员开放。
@@ -89,10 +109,15 @@ func (s *Server) escrowDeposit(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusBadRequest, errors.New("amount_fen > 0 required"))
 		return
 	}
-	// 自充值（模拟托管通道）：登录用户仅可为自己入账；管理员可指定 to_user 代充。
-	// 单笔上限 20_000_000 分（¥200000）：覆盖高单价课程/商品；模拟通道限额定闸，真实支付接入后由支付校验替代。
+	// 单笔上限 20_000_000 分（¥200000）：覆盖高单价课程/商品。
 	if in.AmountFen > 20000000 {
 		fail(w, r, http.StatusBadRequest, errors.New("单笔充值上限 200000 元"))
+		return
+	}
+	// 自助充值门禁：管理员代充（线下来款补记）任何时候都可以；
+	// 普通用户的"模拟通道自助充值"只在真实支付未开通时开放，见 simulatedDepositAllowed。
+	if !requireEscrowAdmin(a) && !s.simulatedDepositAllowed() {
+		fail(w, r, http.StatusForbidden, errors.New("自助充值已关闭，请使用微信支付充值"))
 		return
 	}
 	target := in.ToUser

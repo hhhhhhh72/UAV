@@ -8,9 +8,46 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"drone-platform/internal/service"
 )
+
+// ── 线上充值：下单限频 ──
+//
+// 每成功调一次 prepay 都会向微信**真实创建一个支付单**（2 小时内有效），
+// 同时在 payment_orders 落一行。没有约束时，一个登录账号可以在几秒内造出成千上万个
+// 微信侧待支付订单——轻则灌爆本地表，重则被微信风控标记商户号（影响的是整个平台的收款）。
+// 按「用户」维度限频：换 IP 不该绕过，共用出口 IP 的用户也不该互相拖累
+// （与 trade_order_maintenance.go 的商城下单限频同一套取舍）。
+const (
+	// prepayWindow 充值下单限频窗口。
+	prepayWindow = 10 * time.Minute
+	// prepayMax 窗口内同一用户最多发起的充值单数。
+	prepayMax = 10
+	// payLimitMaxEntries 限频表条目上限（防内存 DoS）：超限清空重建。
+	payLimitMaxEntries = 10000
+)
+
+// prepayAllowed 报告该用户在当前窗口内是否还能发起充值（含本次），并累计本次。
+func (s *Server) prepayAllowed(userID string) bool {
+	if s.payLimitEntries.Load() >= payLimitMaxEntries {
+		s.payLimits.Range(func(k, _ any) bool { s.payLimits.Delete(k); return true })
+		s.payLimitEntries.Store(0)
+	}
+	s.payLimitEntries.Add(1)
+	v, _ := s.payLimits.LoadOrStore(userID, &regLimitLog{windowStart: time.Now()})
+	log := v.(*regLimitLog)
+	log.mu.Lock()
+	defer log.mu.Unlock()
+	now := time.Now()
+	if now.Sub(log.windowStart) >= prepayWindow {
+		log.windowStart = now
+		log.count = 0
+	}
+	log.count++
+	return log.count <= prepayMax
+}
 
 // 线上充值（微信支付）handler 层。
 //
@@ -25,9 +62,18 @@ func (s *Server) wechatPayPrepay(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusUnauthorized, errors.New("authentication required"))
 		return
 	}
+	// 限频必须在调用微信之前：它的目的就是"别把请求发到微信去"。
+	if !s.prepayAllowed(a.ID) {
+		fail(w, r, http.StatusTooManyRequests, errors.New("充值下单过于频繁，请稍后再试"))
+		return
+	}
 	if !s.paymentSvc.Enabled() {
-		// 「没开通」是预期状态而非故障，回 503 让前端能给出确定文案，而不是 500 让人以为崩了。
-		fail(w, r, http.StatusServiceUnavailable, service.ErrPaymentDisabled)
+		// 「没开通」是预期状态，不是故障——所以**不能用 5xx**。
+		// fail() 对 status>=500 会做两件副作用很大的事：把 message 统一脱敏成
+		// "internal server error"（客户端再也读不到"微信支付未开通"），并且每次都记一条
+		// ERROR 日志（预期状态刷满错误日志，监控里还算一次故障）。
+		// 409 是 4xx，消息原样透传，语义是"服务器当前状态无法完成该请求"。
+		fail(w, r, http.StatusConflict, service.ErrPaymentDisabled)
 		return
 	}
 	var body struct {
@@ -48,7 +94,7 @@ func (s *Server) wechatPayPrepay(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrPaymentDisabled):
-			fail(w, r, http.StatusServiceUnavailable, err)
+			fail(w, r, http.StatusConflict, err)
 		case strings.Contains(err.Error(), "充值金额需在"):
 			fail(w, r, http.StatusBadRequest, err)
 		default:
@@ -110,7 +156,14 @@ func (s *Server) wechatPayNotify(w http.ResponseWriter, r *http.Request) {
 	writeWeChatNotify(w, http.StatusOK, "SUCCESS", "成功")
 }
 
-// GET /api/v1/payments/mine — 我的充值记录。
+// GET /api/v1/payments/mine — 我的充值记录，同时充当「真实支付是否已开通」的探测点。
+//
+// 未开通时恒回 200 + enabled:false，而不是 503：
+//   - 这个端点的职责之一是让前端判断该走微信支付还是模拟通道，属于**探测**而非失败；
+//   - 5xx 会被 fail() 脱敏 + 记 ERROR，客户端分不清"没开通"和"服务炸了"。
+//
+// 不返回 total：仓储层是「取最近 N 条」（ListByUser 带 limit），不是真分页。
+// 此前把 len(orders) 当 total 传给前端，会让它以为还有下一页、无限翻。
 func (s *Server) paymentMine(w http.ResponseWriter, r *http.Request) {
 	a, ok := authenticatedActor(r)
 	if !ok {
@@ -118,7 +171,7 @@ func (s *Server) paymentMine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.paymentSvc.Enabled() {
-		fail(w, r, http.StatusServiceUnavailable, service.ErrPaymentDisabled)
+		respond(w, r, http.StatusOK, map[string]any{"enabled": false, "items": []any{}})
 		return
 	}
 	page, pageSize := paginationFromQuery(r)
@@ -127,7 +180,9 @@ func (s *Server) paymentMine(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	respondPage(w, r, orders, len(orders), page, pageSize)
+	respond(w, r, http.StatusOK, map[string]any{
+		"enabled": true, "items": orders, "page": page, "page_size": pageSize,
+	})
 }
 
 // writeWeChatNotify 按微信支付 APIv3 的线格式写回调应答（见 wechatPayNotify 注释）。
