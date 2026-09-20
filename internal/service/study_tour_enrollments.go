@@ -27,6 +27,15 @@ var enrollPhoneRe = regexp.MustCompile(`^1[3-9]\d{9}$`)
 
 // Create 研学报名：研学存在且招募中（active）、人数上限未满；手机号格式校验。
 func (s *StudyTourEnrollmentService) Create(ctx context.Context, userID, tourID, name, phone string, adultCount, childCount int, remark string) (domain.StudyTourEnrollment, error) {
+	// 防超卖：容量校验（ListByTour 求和 → 比容量 → Create）是 check-then-act，
+	// 无锁时并发报名每一方都读到 taken=0 而全部放行。实测容量 10、200 并发收下 87 人。
+	// 与课程报名（phase3.go:137）、测试场地/场馆/赛事/活动报名同构，按研学维度加锁。
+	//
+	// 局限（与其它 7 处同款进程内键锁一致）：只在本进程内互斥，多实例部署会失效 —
+	// 那时需要库级兜底（研学报名表目前没有任何唯一索引）。
+	unlock := lockByKey("study-enroll|" + tourID)
+	defer unlock()
+
 	tour, err := s.tours.FindByID(ctx, tourID)
 	if err != nil {
 		return domain.StudyTourEnrollment{}, errors.New("研学活动不存在或已下线")
