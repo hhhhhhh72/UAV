@@ -33,7 +33,31 @@ disk_used=${disk_used:-0}
 disk_ok=false; [ "$disk_used" -lt "$DISK_MAX_PERCENT" ] && disk_ok=true
 
 # ---- 备份新鲜度 + 完整性 ----
-latest=$(ls -1t "$BACKUP_DIR"/uav-db-*.sql.gz 2>/dev/null | head -1)
+#
+# 取「最近一次**完成**的备份」，而不是「目录里最新的文件」。
+#
+# 为什么（2026-09-20 03:02 的真实误报，而且是**每天必发**）：
+#   crontab 里 `0 3 * * *` 的备份排在 `*/10 * * * *` 的快照前面，同一分钟两者同秒启动；
+#   备份要边写边落盘（约 1 秒），而快照这一秒里 `ls -1t | head -1` 正好拿到**还没写完**
+#   的那个文件，`gzip -t` 必然失败 → 判 corrupt → 03:02 告警；10 分钟后再跑文件已完整
+#   → 03:12 恢复。09-19、09-20 连着两天各发一对「异常 + 恢复」，真正的故障会被这种
+#   噪音淹掉。backup.log 里的 `OK <文件名>` 只在备份**完整落盘且非空**之后才写，
+#   用它当完成标志最可靠。
+BACKUP_LOG=${BACKUP_LOG:-$BACKUP_DIR/backup.log}
+BACKUP_SETTLE_SECONDS=${BACKUP_SETTLE_SECONDS:-180}
+latest=""
+if [ -f "$BACKUP_LOG" ]; then
+  okname=$(grep -oE 'OK[[:space:]]+uav-db-[0-9]{8}-[0-9]{6}\.sql\.gz' "$BACKUP_LOG" 2>/dev/null | tail -1 | awk '{print $2}')
+  if [ -n "$okname" ] && [ -f "$BACKUP_DIR/$okname" ]; then latest="$BACKUP_DIR/$okname"; fi
+fi
+# 兜底（没有 backup.log 的老环境）：仍按时间取最新，但跳过可能仍在写入的文件
+if [ -z "$latest" ]; then
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    f_age=$(( now_epoch - $(stat -c %Y "$f" 2>/dev/null || echo 0) ))
+    if [ "$f_age" -ge "$BACKUP_SETTLE_SECONDS" ]; then latest="$f"; break; fi
+  done < <(ls -1t "$BACKUP_DIR"/uav-db-*.sql.gz 2>/dev/null)
+fi
 backup_file=""; backup_age_hours=-1; backup_size=0; backup_integrity=missing; backup_ok=false
 if [ -n "$latest" ]; then
   backup_file=$(basename "$latest")

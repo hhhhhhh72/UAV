@@ -1,0 +1,93 @@
+#!/bin/bash
+# 运维快照的回归演练：在**临时目录**里造出各种备份现场，验证 ops-status.sh 判得对。
+#
+# 为什么单独有这个脚本（2026-09-20）：03:02 那条「运维快照异常：backup」是假阳性，
+# 根因是快照按 mtime 取「最新文件」，而 03:00 的备份与 03:00 的快照同秒启动，
+# 快照读到了 pg_dump 正在写、还没写完的半个文件 → gzip -t 失败 → 判损坏。
+# 这不是偶发：crontab 里备份条目排在前面，顺序固定，所以**每天**都会发一对
+# 「异常 + 10 分钟后恢复」。这类噪音会把真故障淹掉，必须有回归测试钉住。
+#
+# 全程 OUT / BACKUP_DIR / BACKUP_LOG / DRILL 都指向临时文件，碰不到生产快照。
+set -uo pipefail
+
+T=$(mktemp -d /tmp/ops-drill.XXXXXX)
+trap 'rm -rf "$T"' EXIT
+PROD_SNAPSHOT=/var/www/ops-status.json
+[ -f "$PROD_SNAPSHOT" ] || { echo "找不到生产快照 $PROD_SNAPSHOT"; exit 1; }
+prod_before=$(stat -c %Y "$PROD_SNAPSHOT")
+
+pass=0; fail=0
+ok()   { echo "  ok   $1"; pass=$((pass+1)); }
+bad()  { echo "  FAIL $1"; fail=$((fail+1)); }
+
+D="$T/backups"; mkdir -p "$D"
+
+# 造一份**能通过 gzip -t** 的完整备份
+mk_ok() { printf 'payload-%s' "$2" | gzip > "$D/$1"; }
+# 造一份**截断**的备份：去掉 gzip 尾部，gzip -t 必失败（模拟「正在写」）
+mk_partial() { printf 'payload-%s' "$2" | gzip > "$D/$1"; truncate -s -6 "$D/$1"; }
+
+# 取快照里的字段
+field() { python3 -c "import json,sys;d=json.load(open('$T/out.json'));print(d['backup'].get('$1'))"; }
+run() { OUT="$T/out.json" BACKUP_DIR="$D" BACKUP_LOG="${1:-$D/backup.log}" DRILL="$T/none.json" \
+        bash /root/UAV/deploy/ops-status.sh >/dev/null 2>&1; }
+
+echo "演练目录：$T"
+echo "生产快照：$PROD_SNAPSHOT（演练期间不会被改动）"
+echo
+echo "== 备份判定演练 =="
+
+# ① 今天的 bug：目录里最新的文件是「正在写」的半个，backup.log 指向上一次完整的
+rm -f "$D"/*.sql.gz "$D"/backup.log
+mk_ok uav-db-20260101-030000.sql.gz a
+touch -d '24 hours ago' "$D/uav-db-20260101-030000.sql.gz"
+printf '[2026-01-01 03:00:02] OK uav-db-20260101-030000.sql.gz (92K)\n' > "$D/backup.log"
+mk_partial uav-db-20260102-030000.sql.gz b      # 刚写完一半，mtime = 现在
+run
+if [ "$(field file)" = "uav-db-20260101-030000.sql.gz" ] && [ "$(field ok)" = "True" ]; then
+  ok "写入中的新文件被跳过，选了最近一次**完成**的备份"
+else
+  bad "选中了 $(field file) / ok=$(field ok) —— 又读了正在写的半个文件"
+fi
+
+# ② 备份真的过期（上次完成在 40 小时前）仍必须报出来
+rm -f "$D"/*.sql.gz "$D"/backup.log
+mk_ok uav-db-20260101-030000.sql.gz c
+touch -d '40 hours ago' "$D/uav-db-20260101-030000.sql.gz"
+printf '[2026-01-01 03:00:02] OK uav-db-20260101-030000.sql.gz (92K)\n' > "$D/backup.log"
+run
+if [ "$(field ok)" = "False" ]; then ok "真过期（40h）仍判不达标"; else bad "真过期却没报：ok=$(field ok)"; fi
+
+# ③ 完整的那份虽然存在，但内容损坏 → 完整性检查仍要抓住
+rm -f "$D"/*.sql.gz "$D"/backup.log
+mk_partial uav-db-20260101-030000.sql.gz d
+touch -d '2 hours ago' "$D/uav-db-20260101-030000.sql.gz"
+printf '[2026-01-01 03:00:02] OK uav-db-20260101-030000.sql.gz (92K)\n' > "$D/backup.log"
+run
+if [ "$(field integrity)" = "corrupt" ] && [ "$(field ok)" = "False" ]; then
+  ok "损坏的备份仍被 gzip -t 抓住"
+else
+  bad "损坏备份没被抓住：integrity=$(field integrity) ok=$(field ok)"
+fi
+
+# ④ 没有 backup.log 的老环境：兜底逻辑也不能挑中「还在写」的那个
+rm -f "$D"/*.sql.gz "$D"/backup.log
+mk_ok uav-db-20260101-030000.sql.gz e
+touch -d '5 minutes ago' "$D/uav-db-20260101-030000.sql.gz"
+mk_partial uav-db-20260102-030000.sql.gz f      # 最新，但还在写
+run "$T/does-not-exist.log"
+if [ "$(field file)" = "uav-db-20260101-030000.sql.gz" ] && [ "$(field ok)" = "True" ]; then
+  ok "无 backup.log 时按 settle 时间跳过写入中的文件"
+else
+  bad "兜底逻辑选中了 $(field file) / ok=$(field ok)"
+fi
+
+echo
+echo "== 结论：$pass 项通过，$fail 项失败 =="
+prod_after=$(stat -c %Y "$PROD_SNAPSHOT")
+if [ "$prod_before" = "$prod_after" ]; then
+  echo "生产快照未被改动（mtime 一致）ok"
+else
+  echo "FAIL 生产快照被改动了，演练脚本有 bug"; fail=$((fail+1))
+fi
+[ "$fail" = 0 ] || exit 1
