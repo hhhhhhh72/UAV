@@ -20,7 +20,7 @@ set -uo pipefail
 # ops-status 快照的**分项清单**：告警与日报都靠它决定「哪一项失守」。
 # 只此一份，新增分项时改这里即可。deploy/verify-alerts.sh 会拿生产快照里实际的
 # 分项与它逐项比对，漏项直接演练失败 —— 把「记得同步两份列表」交给机器。
-NOTIFY_STATUS_SECTIONS="disk backup restore_drill containers cert escrow jobs"
+NOTIFY_STATUS_SECTIONS="disk backup restore_drill containers cert escrow jobs instances"
 
 # 分项的中文名：推送里出现的是给人看的词，不是 JSON 的 key。
 notify_section_label() {
@@ -32,6 +32,7 @@ notify_section_label() {
     cert)          echo 证书 ;;
     escrow)        echo 资金 ;;
     jobs)          echo 定时任务 ;;
+    instances)     echo 实例数 ;;
     top_level)     echo 汇总 ;;
     *)             echo "$1" ;;
   esac

@@ -83,6 +83,37 @@ else
 fi
 
 echo
+echo "== 实例数判定演练（进程内键锁的前提：只允许一个 API 实例）=="
+ifield() { python3 -c "import json;d=json.load(open('$T/out.json'));print((d.get('instances') or {}).get('$1'))"; }
+toplevel() { python3 -c "import json;d=json.load(open('$T/out.json'));print(d.get('ok'))"; }
+run_env() { OUT="$T/out.json" BACKUP_DIR="$D" BACKUP_LOG="$D/backup.log" DRILL="$T/none.json" \
+        env "$@" bash /root/UAV/deploy/ops-status.sh >/dev/null 2>&1; }
+
+# ⑤ 阈值收紧到 0：真实的单实例也必须判失守 —— 证明这一节真的接进了顶层 ok，不是摆设
+run_env INSTANCE_MAX=0
+if [ "$(ifield ok)" = "False" ] && [ "$(toplevel)" = "False" ]; then
+  ok "阈值 0 时 instances 与顶层 ok 一起变红"
+else
+  bad "instances 没接进顶层判定：instances.ok=$(ifield ok) top=$(toplevel)"
+fi
+
+# ⑥ 查不到连接来源时必须报（宁可报，不可假绿 —— 与备份/告警那两次同一个口径）
+run_env ESCROW_DB=definitely_not_a_db
+if [ "$(ifield ok)" = "False" ]; then
+  ok "取不到数据库连接来源时判失守"
+else
+  bad "取不到数据却判绿：instances.ok=$(ifield ok)"
+fi
+
+# ⑦ 正常环境必须为绿，且报出真实计数
+run_env
+if [ "$(ifield ok)" = "True" ]; then
+  ok "真实单实例判绿（api 容器 $(ifield api_containers) 个、连接来源 $(ifield db_client_addrs) 个）"
+else
+  bad "正常环境却判失守：$(ifield detail)"
+fi
+
+echo
 echo "== 结论：$pass 项通过，$fail 项失败 =="
 prod_after=$(stat -c %Y "$PROD_SNAPSHOT")
 if [ "$prod_before" = "$prod_after" ]; then

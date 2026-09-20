@@ -220,6 +220,35 @@ if within "$job_hygiene" "$HYGIENE_MAX_HOURS" && within "$job_alerthb" "$alert_m
   jobs_ok=true
 fi
 
+# ============================================================
+# instances —— 只允许一个 API 实例（2026-09-20 新增）
+# ------------------------------------------------------------
+# 全仓 8 处 check-then-act（课程/研学/赛事/活动报名、测试场地/场馆预约、职位投递）
+# 用的都是**进程内**键锁（service/intent.go:48 lockByKey）。它们只在单实例下成立：
+# 多一个 API 进程，锁就各锁各的，名额类业务会一起**静默超发**（研学实测容量 10
+# 被 200 并发收下 87 人），而且没有任何机制会告诉你。
+# 这一节不试图"证明只有一个" —— 它把那个没人验证过的前提变成可验证的绊线：
+#   ① 跑着几个 uav-api 容器
+#   ② 有几个不同的 client_addr 连到本库（应用连接走 TCP；运维脚本走 docker exec
+#      的本地 socket → client_addr 为 NULL，不参与计数。生产实测单实例 = 1）
+# 取不到数据即判失守：宁可报，不可假绿（与备份/告警那两次同一个口径）。
+# ============================================================
+INSTANCE_MAX=${INSTANCE_MAX:-1}
+api_replicas=$(docker ps --filter 'ancestor=uav-api' --format '{{.Names}}' 2>/dev/null | wc -l | tr -d ' ')
+db_clients=$(docker exec uav-db-1 psql -U drone -d "$ESCROW_DB" -t -A \
+  -c "SELECT count(DISTINCT client_addr) FROM pg_stat_activity WHERE datname='$ESCROW_DB' AND client_addr IS NOT NULL" 2>/dev/null | tr -d '[:space:]')
+api_replicas=${api_replicas:-0}
+instances_note=""
+instances_ok=false
+if [ -z "$db_clients" ]; then
+  instances_note="无法统计数据库连接来源（psql 查询失败）"
+elif [ "$api_replicas" -le "$INSTANCE_MAX" ] && [ "$db_clients" -le "$INSTANCE_MAX" ]; then
+  instances_ok=true
+else
+  instances_note="检测到多实例：api 容器 $api_replicas 个、数据库连接来源 $db_clients 个（上限 $INSTANCE_MAX）—— 进程内键锁失效，名额类业务会超发"
+  echo "WARN: $instances_note" >&2
+fi
+
 # ---- 数据库 schema 版本（失败不影响整体判定，仅留空）----
 schema=$(docker exec uav-db-1 psql -U drone -d drone_platform -t -A \
   -c 'SELECT max(version) FROM schema_migrations' 2>/dev/null | tr -d '[:space:]')
@@ -227,7 +256,7 @@ schema=${schema:-unknown}
 
 # ---- 汇总 ----
 ok=false
-if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ] && [ "$escrow_ok" = true ] && [ "$jobs_ok" = true ]; then
+if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ] && [ "$escrow_ok" = true ] && [ "$jobs_ok" = true ] && [ "$instances_ok" = true ]; then
   ok=true
 fi
 
@@ -245,6 +274,7 @@ cat > "$tmp" <<JSON
   "cert": {"days_left": $cert_days, "min_days": $CERT_MIN_DAYS, "ok": $cert_ok},
   "escrow": {"indexes": $esc_idx, "dup_keys": $esc_dup, "ledger_mismatch": $esc_mismatch, "unknown_tx_types": $esc_unknown, "accounts": $esc_accounts, "frozen_fen": $esc_frozen, "ok": $escrow_ok},
   "jobs": {"hygiene_log_age_hours": $job_hygiene, "hygiene_max_hours": $HYGIENE_MAX_HOURS, "alert_heartbeat_age_hours": $job_alerthb, "alert_max_minutes": $ALERT_MAX_MINUTES, "work_report_age_hours": $job_workreport, "work_report_max_hours": $WORK_REPORT_MAX_HOURS, "ok": $jobs_ok},
+  "instances": {"api_containers": $api_replicas, "db_client_addrs": ${db_clients:-0}, "max_allowed": $INSTANCE_MAX, "detail": "$instances_note", "ok": $instances_ok},
   "schema_version": "$schema"
 }
 JSON
