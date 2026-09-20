@@ -156,12 +156,11 @@
             v-for="item in col"
             :key="item.id"
             class="ecom-card"
-            hover-class="card-press"
-            hover-stay-time="120"
+            hover-class="tap-fade"
             @tap="goProductDetail(item)"
           >
             <view class="ecom-img-wrap" :style="'padding-top:' + item.imgPad">
-              <image :src="item.image" mode="aspectFill" :class="['ecom-img', { 'img-in': item._imgOk }]" @load="onImgLoad(item)" @error="onProductImgError(item)" />
+              <image :src="item.image" mode="aspectFill" class="ecom-img" @error="onProductImgError(item)" />
               <text v-if="item.isUsed" class="ecom-used-tag">二手</text>
             </view>
             <view class="ecom-body">
@@ -181,12 +180,11 @@
           v-for="item in visibleList"
           :key="item.id"
           class="trade-card"
-          hover-class="card-press"
-          hover-stay-time="120"
+          hover-class="tap-fade"
           @tap="goDetail(item)"
         >
           <view class="trade-card-main">
-            <image :src="item.image" mode="aspectFill" :class="['trade-visual', { 'img-in': item._imgOk }]" @load="onImgLoad(item)" @error="onImageError(item)" />
+            <image :src="item.image" mode="aspectFill" class="trade-visual" @error="onImageError(item)" />
             <view class="trade-body">
               <view class="tag-row">
                 <text class="tag blue">{{ item.cat }}</text>
@@ -245,12 +243,11 @@
           v-for="item in searchResults"
           :key="item.id"
           class="ov-trade-card"
-          hover-class="card-press"
-          hover-stay-time="120"
+          hover-class="tap-fade"
           @tap="goSearchResult(item)"
         >
           <view class="ov-trade-card-main">
-            <image :src="item.image" mode="aspectFill" :class="['ov-trade-visual', { 'img-in': item._imgOk }]" @load="onImgLoad(item)" @error="onImageError(item)" />
+            <image :src="item.image" mode="aspectFill" class="ov-trade-visual" @error="onImageError(item)" />
             <view class="ov-trade-body">
               <view class="ov-tag-row">
                 <text class="ov-tag ov-tag-blue">{{ item.cat }}</text>
@@ -578,15 +575,6 @@ function onImageError(item) {
   }
 }
 
-// 图片渐显：**只在 load 之后**才挂 .img-in 触发一次淡入。
-// 起始态（没有这个类）就是完全不透明，所以万一某些机型加载缓存图不触发 load，
-// 结果也只是「没有动画」，绝不会出现空白卡片 —— 这类 fail-safe 是必须的，
-// 反面做法（先透明、等 load 再显示）一旦 load 不来就是整片白。
-function onImgLoad(item) {
-  if (noMotion.value) return
-  item._imgOk = true
-}
-
 /* ================= 过滤展示 ================= */
 const visibleList = computed(() => {
   let out = list.value
@@ -664,21 +652,6 @@ onPullDownRefresh(() => {
 }
 
 .tap-fade { opacity: 0.85; }
-
-/* ═══════ 按压反馈（只给卡片） ═══════ */
-/* 规范 visual-foundations.md:78：按压用 0.98–0.985 缩放或轻微透明变化，160–220ms。
-   卡片用缩放（.card-press）比只有透明度更像「按下去了」；小按钮继续用 .tap-fade ——
-   文字按钮缩起来会显得在抖。 */
-.trade-card, .ecom-card, .ov-trade-card {
-  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.card-press { transform: scale(0.985); opacity: 0.94; }
-
-/* ═══════ 图片渐显 ═══════ */
-/* 只在 load 之后挂 .img-in；没有这个类时图片本来就完全不透明，
-   所以加载失败/缓存不触发 load 的机型也只是「没有动画」，不会白屏。 */
-.img-in { animation: imgFade 0.28s ease-out; }
-@keyframes imgFade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ═══════ 深蓝顶部 ═══════ */
 .topbar {
@@ -887,11 +860,6 @@ onPullDownRefresh(() => {
 .hall-page.no-motion .panel-mask { animation: maskIn 0.22s ease-out; }
 .hall-page.no-motion .panel-mask.closing { animation: maskOut 0.16s ease-in forwards; }
 .hall-page.no-motion .p-chip:active { transform: none; }
-.hall-page.no-motion .card-press { transform: none; }
-.hall-page.no-motion .trade-card,
-.hall-page.no-motion .ecom-card,
-.hall-page.no-motion .ov-trade-card { transition: none; }
-.hall-page.no-motion .img-in { animation: none; }
 
 /* ═══════ 匹配条 ═══════ */
 .match-strip {
@@ -1384,12 +1352,9 @@ onPullDownRefresh(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask,
-  .img-in {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
     animation: none !important;
     transition: none !important;
   }
-  .trade-card, .ecom-card, .ov-trade-card { transition: none !important; }
-  .card-press { transform: none !important; }
 }
 </style>
