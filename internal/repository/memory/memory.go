@@ -2050,6 +2050,26 @@ func (r *courseRepo) Delete(ctx context.Context, id string) error {
 	}
 	return fmt.Errorf("course %s not found", id)
 }
+// ReserveSeat 原子占座（内存实现）：与 PG 的条件更新语义一致 —— 容量判断与
+// 自增在同一把锁内完成，不受调用方是否持键锁影响。
+func (r *courseRepo) ReserveSeat(ctx context.Context, id string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			if r.items[i].MaxStudents > 0 && r.items[i].EnrolledCount >= r.items[i].MaxStudents {
+				return false, nil // 已满
+			}
+			r.items[i].EnrolledCount++
+			if r.items[i].MaxStudents > 0 {
+				r.items[i].Remain = max(0, r.items[i].MaxStudents-r.items[i].EnrolledCount)
+			}
+			return true, nil
+		}
+	}
+	return false, nil // 课程不存在：与 PG 的 RowsAffected=0 语义对齐
+}
+
 func (r *courseRepo) BumpEnrolled(ctx context.Context, id string, delta int) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

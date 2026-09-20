@@ -278,6 +278,23 @@ func (r *courseRepo) BumpEnrolled(ctx context.Context, id string, delta int) err
 	return nil
 }
 
+// ReserveSeat 条件更新占座：容量判断与 +1 在**同一条 SQL** 里完成，
+// 因此并发与多实例都不可能超卖（RowsAffected=0 即已满或课程不存在）。
+// 对照 BumpEnrolled —— 它是无条件 +$2，超卖防线只能靠调用方的进程内键锁。
+func (r *courseRepo) ReserveSeat(ctx context.Context, id string) (bool, error) {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE training_courses
+		    SET enrolled_count = enrolled_count + 1,
+		        remain = GREATEST(0, max_students - (enrolled_count + 1)),
+		        updated_at = NOW()
+		  WHERE id = $1 AND (max_students = 0 OR enrolled_count < max_students)`,
+		id)
+	if err != nil {
+		return false, fmt.Errorf("reserve seat %s: %w", id, err)
+	}
+	return ct.RowsAffected() == 1, nil
+}
+
 // ---- Course Favorites ----
 
 func (r *courseRepo) FavoriteCourse(ctx context.Context, userID, courseID string) error {

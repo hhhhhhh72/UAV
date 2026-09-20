@@ -195,13 +195,20 @@ func (s *EnrollmentService) Enroll(ctx context.Context, userID, courseID string,
 		Status: status, PaidAmountFen: form.PaidAmountFen, CreatedAt: now}
 	// 先占名额（enrolled_count+1），再落报名记录；落库失败补偿 -1（学号不漂移）。
 	// 仅当课程存在（FindByID 成功）才占位——兼容无课程仓储的测试与历史数据。
+	// 占名额走 ReserveSeat：容量判断与 +1 在仓储层是同一条 SQL（PG）/
+	// 同一把锁（内存），所以并发与多实例都不会超卖。上面那次 FindByID 容量检查
+	// 只为给出友好文案，真正的门禁是这一步；这里再兜一次「已满」。
 	bumpOK := false
 	if s.courseRepo != nil {
-		if c, err := s.courseRepo.FindByID(ctx, courseID); err == nil {
-			_ = c
-			if err := s.courseRepo.BumpEnrolled(ctx, courseID, 1); err == nil {
-				bumpOK = true
+		if _, err := s.courseRepo.FindByID(ctx, courseID); err == nil {
+			reserved, rerr := s.courseRepo.ReserveSeat(ctx, courseID)
+			if rerr != nil {
+				return domain.Enrollment{}, fmt.Errorf("reserve seat: %w", rerr)
 			}
+			if !reserved {
+				return domain.Enrollment{}, fmt.Errorf("course is full")
+			}
+			bumpOK = true
 		}
 	}
 	if _, err := s.repo.Create(ctx, e); err != nil {

@@ -307,6 +307,11 @@ type CourseRepository interface {
 	// BumpEnrolled 报名数增减：同步维护 enrolled_count 与 remain
 	//（remain = GREATEST(0, max_students - enrolled_count)），避免前端名额展示失真。
 	BumpEnrolled(ctx context.Context, id string, delta int) error
+	// ReserveSeat 原子占座：仅当课程未满时 enrolled_count+1 并同步 remain，返回是否占到。
+	// 这是容量的**库级兜底** —— 课程维度键锁是进程内的（service/phase3.go），多一个
+	// API 进程就会一起静默超卖。max_students=0 表示不限量。课程不存在返回 (false, nil)：
+	// 调用方须按「课程不存在」处理，不要当成「已满」。
+	ReserveSeat(ctx context.Context, id string) (bool, error)
 	// FavoriteCourse/UnfavoriteCourse/ListFavoriteCourses 培训课程收藏（我的收藏列表）。
 	FavoriteCourse(ctx context.Context, userID, courseID string) error
 	UnfavoriteCourse(ctx context.Context, userID, courseID string) error
