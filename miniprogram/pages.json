@@ -156,7 +156,7 @@
     {
       "path": "pages/webview/index",
       "style": {
-        "navigationBarTitleText": "加载中..."
+        "navigationBarTitleText": "网页"
       }
     },
     {
@@ -727,13 +727,6 @@
           }
         },
         {
-          "path": "pages/mall/index",
-          "style": {
-            "navigationBarTitleText": "服务",
-            "navigationStyle": "custom"
-          }
-        },
-        {
           "path": "pages/mall/detail",
           "style": {
             "navigationBarTitleText": "商品详情",
@@ -1027,18 +1020,6 @@
             "navigationBarTextStyle": "black",
             "navigationBarBackgroundColor": "#ffffff",
             "enablePullDownRefresh": true,
-            "navigationStyle": "custom"
-          }
-        }
-      ]
-    },
-    {
-      "root": "pkg-app",
-      "pages": [
-        {
-          "path": "pages/applications/index",
-          "style": {
-            "navigationBarTitleText": "我的申请",
             "navigationStyle": "custom"
           }
         }

@@ -20,11 +20,11 @@ const PAGES = [
   ['pkg-talent/pages/study/index.vue', false],
   ['pkg-eco/pages/challenges/list.vue', true],
   ['pkg-eco/pages/projects/list.vue', true],
-  ['pkg-app/pages/applications/index.vue', false],
   ['pkg-emergency/pages/emergency/dispatches.vue', false],
   ['pkg-demand/pages/demands/favorites.vue', false],
   ['pkg-demand/pages/demands/mine.vue', false],
-  ['pkg-demand/pages/orders/mine.vue', false],
+  // 原 ['pkg-demand/pages/orders/mine.vue'] 已删：pkg-demand 下只剩 demands/* 五个页面，
+  // 订单页在主动包 pages/orders/*。留着这条会让脚本永久 [MISSING] 失败。
 ]
 
 const STALE = [

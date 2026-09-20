@@ -365,8 +365,9 @@ const ALLOWED_ROUTES = new Set([
   '/pages/messages/index',
   '/pkg-talent/pages/pilots/list', '/pkg-talent/pages/training/courses',
   '/pkg-talent/pages/experts/list', '/pkg-emergency/pages/emergency/resources', '/pkg-service/pages/compliance/news',
-  // shops 页已随 shops 表（迁移 000113）一并删除；留着这条等于放行一个必然白屏的链接
-  '/pkg-eco/pages/mall/index', '/pkg-service/pages/more/index',
+  // shops 页已随 shops 表（迁移 000113）一并删除；mall/index 是旧版服务页，已被
+  // pages/services/index 取代后删除。留着这类条目等于放行必然白屏的链接。
+  '/pkg-service/pages/more/index',
 ])
 
 const resolveBannerLink = (raw) => {
