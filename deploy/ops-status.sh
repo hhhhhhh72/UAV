@@ -249,6 +249,51 @@ else
   echo "WARN: $instances_note" >&2
 fi
 
+# ============================================================
+# counters —— 容量门禁依赖的计数列是否与真实行数一致（2026-09-20 新增）
+# ------------------------------------------------------------
+# 为什么需要：容量兜底（课程的 ReserveSeat、赛事的 reg_count 条件更新）读的都是
+# **计数列**，而不是实时 count。这一列一旦漂移，门禁就跟着错 —— 生产上真发生过两次：
+#   · competitions/association_events 的 reg_count 被种子迁移写死成演示数字
+#     （4 场赛事 + 6 场活动漂移），comp-4 是 max_teams=300 / reg_count=340，于是
+#     **该赛事永远报名失败**；evt-2026-006 是 30 个名额里只剩 4 个可报。
+#   · training_courses 有一门课 3 条真实报名却 enrolled_count=0（8 月的历史报名，
+#     计数机制之后才有），列表显示"已报 0"，而 ReserveSeat 会在此基础上再收 30 个。
+# 四类检查（口径都取自代码里写明的语义）：
+#   ① 赛事 reg_count  <> 报名行数          → 代码注释明写"保持一致"
+#   ② 活动 reg_count  <> 报名行数          → 同上
+#   ③ 课程 remain     <> max(0, 名额-已报) → TestCourseRemainIsDerived 钉住的派生公式
+#   ④ 课程 enrolled_count <  活跃报名行数  → **只查少算**：多算可能是设计使然
+#      （被驳回的报名按设计不释放座位），少算则一定是 bug
+# 取不到数据即判失守（宁可报，不可假绿）。
+# ============================================================
+counters_row=$(docker exec uav-db-1 psql -U drone -d "$ESCROW_DB" -t -A -F'|' -c "
+  SELECT
+   (SELECT count(*) FROM competitions c WHERE c.reg_count <> (SELECT count(*) FROM competition_registrations r WHERE r.competition_id=c.id)),
+   (SELECT count(*) FROM association_events e WHERE e.reg_count <> (SELECT count(*) FROM event_registrations r WHERE r.event_id=e.id)),
+   (SELECT count(*) FROM training_courses WHERE remain <> GREATEST(0, max_students - enrolled_count)),
+   (SELECT count(*) FROM training_courses c WHERE c.enrolled_count < (SELECT count(*) FROM training_enrollments e WHERE e.course_id=c.id AND e.status<>'rejected'))" 2>/dev/null | tr -d '[:space:]')
+cnt_comp=$(printf '%s' "$counters_row" | cut -d'|' -f1)
+cnt_event=$(printf '%s' "$counters_row" | cut -d'|' -f2)
+cnt_cremain=$(printf '%s' "$counters_row" | cut -d'|' -f3)
+cnt_cunder=$(printf '%s' "$counters_row" | cut -d'|' -f4)
+counters_total=0
+counters_note=""
+counters_ok=false
+if [ -z "$cnt_comp" ] || [ -z "$cnt_event" ] || [ -z "$cnt_cremain" ] || [ -z "$cnt_cunder" ]; then
+  cnt_comp=${cnt_comp:-0}; cnt_event=${cnt_event:-0}; cnt_cremain=${cnt_cremain:-0}; cnt_cunder=${cnt_cunder:-0}
+  counters_note="无法统计计数列一致性（psql 查询失败）"
+  echo "WARN: $counters_note" >&2
+else
+  counters_total=$((cnt_comp + cnt_event + cnt_cremain + cnt_cunder))
+  if [ "$counters_total" -eq 0 ]; then
+    counters_ok=true
+  else
+    counters_note="计数列漂移 $counters_total 行（赛事 $cnt_comp / 活动 $cnt_event / 课程余位 $cnt_cremain / 课程少算 $cnt_cunder）—— 容量门禁读的就是这些列"
+    echo "WARN: $counters_note" >&2
+  fi
+fi
+
 # ---- 数据库 schema 版本（失败不影响整体判定，仅留空）----
 schema=$(docker exec uav-db-1 psql -U drone -d drone_platform -t -A \
   -c 'SELECT max(version) FROM schema_migrations' 2>/dev/null | tr -d '[:space:]')
@@ -256,7 +301,7 @@ schema=${schema:-unknown}
 
 # ---- 汇总 ----
 ok=false
-if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ] && [ "$escrow_ok" = true ] && [ "$jobs_ok" = true ] && [ "$instances_ok" = true ]; then
+if [ "$disk_ok" = true ] && [ "$backup_ok" = true ] && [ "$containers_ok" = true ] && [ "$cert_ok" = true ] && [ "$drill_ok" = true ] && [ "$escrow_ok" = true ] && [ "$jobs_ok" = true ] && [ "$instances_ok" = true ] && [ "$counters_ok" = true ]; then
   ok=true
 fi
 
@@ -275,6 +320,7 @@ cat > "$tmp" <<JSON
   "escrow": {"indexes": $esc_idx, "dup_keys": $esc_dup, "ledger_mismatch": $esc_mismatch, "unknown_tx_types": $esc_unknown, "accounts": $esc_accounts, "frozen_fen": $esc_frozen, "ok": $escrow_ok},
   "jobs": {"hygiene_log_age_hours": $job_hygiene, "hygiene_max_hours": $HYGIENE_MAX_HOURS, "alert_heartbeat_age_hours": $job_alerthb, "alert_max_minutes": $ALERT_MAX_MINUTES, "work_report_age_hours": $job_workreport, "work_report_max_hours": $WORK_REPORT_MAX_HOURS, "ok": $jobs_ok},
   "instances": {"api_containers": $api_replicas, "db_client_addrs": ${db_clients:-0}, "max_allowed": $INSTANCE_MAX, "detail": "$instances_note", "ok": $instances_ok},
+  "counters": {"drift_total": $counters_total, "competition": $cnt_comp, "event": $cnt_event, "course_remain": $cnt_cremain, "course_undercount": $cnt_cunder, "detail": "$counters_note", "ok": $counters_ok},
   "schema_version": "$schema"
 }
 JSON

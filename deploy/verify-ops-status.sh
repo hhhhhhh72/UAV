@@ -114,6 +114,26 @@ else
 fi
 
 echo
+echo "== 计数列一致性判定演练 =="
+cfield() { python3 -c "import json;d=json.load(open('$T/out.json'));print((d.get('counters') or {}).get('$1'))"; }
+
+# ⑧ 查不到数据时必须报（宁可报，不可假绿）
+run_env ESCROW_DB=definitely_not_a_db
+if [ "$(cfield ok)" = "False" ]; then
+  ok "计数列查不到数据时判失守"
+else
+  bad "计数列取不到数据却判绿：ok=$(cfield ok)"
+fi
+
+# ⑨ 正常环境必须为绿且四项都为 0
+run_env
+if [ "$(cfield ok)" = "True" ] && [ "$(cfield drift_total)" = "0" ]; then
+  ok "真实环境计数列无漂移（赛事 $(cfield competition) / 活动 $(cfield event) / 课程余位 $(cfield course_remain) / 课程少算 $(cfield course_undercount)）"
+else
+  bad "计数列判定异常：ok=$(cfield ok) drift=$(cfield drift_total)"
+fi
+
+echo
 echo "== 结论：$pass 项通过，$fail 项失败 =="
 prod_after=$(stat -c %Y "$PROD_SNAPSHOT")
 if [ "$prod_before" = "$prod_after" ]; then
