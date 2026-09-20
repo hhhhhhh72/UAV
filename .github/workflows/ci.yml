@@ -110,3 +110,12 @@ jobs:
 
       - name: Build production bundle
         run: npm run build
+
+      - name: Miniprogram route check
+        # 小程序没有构建期路由校验：删了页面忘改 pages.json、或某份白名单里留着已删页面的
+        # 路径，都要等用户点进去才发现是白屏。2026-09-20 就靠它查出首页横幅白名单
+        # ALLOWED_ROUTES 里还留着已删除的 shops/index（shops 表早随迁移 000113 删掉），
+        # 以及三个早已并入统一发布表单的旧发布页仍挂在 pages.json 注册表里。
+        # 脚本在仓库根的 scripts/（不是 .tools/ —— 那个目录被 gitignore，CI 拿不到）。
+        working-directory: .
+        run: node scripts/check-miniprogram-routes.cjs

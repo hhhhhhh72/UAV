@@ -165,7 +165,7 @@ go test ./internal/...  # 全部 PASS
 
 | 项目 | 位置 | 技术栈 | 规模 |
 |------|------|--------|------|
-| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + 自研 u- 组件库 | **110 页**（主包 31 + 分包 79），5 Tab，6 分包 |
+| 微信小程序 | `miniprogram/` | uni-app + Vue3 `<script setup>` + 自研 u- 组件库 | **107 页**（主包 31 + 分包 76），5 Tab，6 分包（`node scripts/check-miniprogram-routes.cjs` 可复核注册页数并查死链） |
 | Web 管理后台 | `frontend/` | Vue 3 + Arco Design Vue + ECharts | Admin SPA（**46 条路由** + 聚合页） |
 
 **小程序设计规范**:
@@ -211,6 +211,7 @@ go test ./internal/...  # 全部 PASS
 | **前端发布差点清空站点根**（2026-09-18 排查） | `/var/www/admin` 下除了构建产物，还躺着 `frontend/public/` 之外的历史媒体（`static/home/*.jpg` 被 10 个商品封面引用）；此前的前端发布习惯是 `rm -rf /var/www/admin/*` 再解包，一旦沿用就会把这些文件连根删掉 → 商品图全部 404 | **已修复**：① 新增 `deploy/deploy-web.sh` —— 先 `cp -a` 备份到 `admin.bak.<ts>`（保留最近 3 份），再**覆盖写入 + 只清理新构建里已不存在的 `assets/*`**，绝不整目录清空；发布后强制校验 `index.html`/`assets`/`static/home/home-bg.jpg`/`images`/`video` 五处；② 把仅存在于服务器的 `home-bg.jpg` 补进 `frontend/public/static/home/`，让站点根内容重新全部由构建产物决定 |
 | **编辑 `.ps1` 后 PowerShell 报满屏语法错误**（2026-09-18） | 重写 `scripts/daily-report.ps1` 后，PS 5.1 报出十几条「表达式或语句中包含意外的标记」，报错位置的中文全是乱码（`涓€','浜?`）。根因：写文件的工具产出的是 **UTF-8 无 BOM**，而 PS 5.1 读无 BOM 的 `.ps1` 时按**系统 ANSI 代码页**（简中 936/GBK）解码 —— 中文字符串被拆坏，引号配对全乱，于是语法检查全线报错（脚本本身没问题） | **修法**：`.ps1` 里有中文就必须带 UTF-8 BOM：`[IO.File]::WriteAllText($p,$s,(New-Object Text.UTF8Encoding($true)))`。**每次 edit / 重写都会把 BOM 抹掉**，改完要补一次再跑语法检查（`[System.Management.Automation.Language.Parser]::ParseFile`）。仓库里 `scripts/clean-c.ps1` 是带 BOM 的，可作参照 |
 | **每天凌晨 03:02 一条假的备份告警**（2026-09-20，用户报） | 用户收到 `[告警] 运维快照异常：backup（09-20 03:02）`，10 分钟后又是一条「已恢复」。查下来**不是偶发，是每天必发**：crontab 里 `0 3 * * *` 的备份条目排在 `*/10 * * * *` 的快照前面，同一分钟两者同秒启动；备份要边写边落盘（实测 0–1 秒），而快照这一秒里 `ls -1t \| head -1` 正好拿到**还没写完**的那个文件，`gzip -t` 必然失败 → 判 `corrupt` → 03:02 告警；10 分钟后再跑文件已完整 → 03:12 恢复。09-19、09-20 连着两天各发一对，真正的故障反而会被这种噪音淹掉 | **已修复**：备份检查改成取「最近一次**完成**的备份」——解析 `backup.log` 里最后一条 `OK <文件名>`（该行只在备份完整落盘且非空之后才写），而不是按 mtime 取目录里最新的文件；老环境没有 backup.log 时兜底「按时间取最新、但跳过 180 秒内修改过的文件」。新增 `deploy/verify-ops-status.sh` 四项演练（写入中的新文件被跳过 / 真过期 40h 仍报 / 损坏仍被 `gzip -t` 抓住 / 无 backup.log 时的兜底），全程 `mktemp` 临时目录 + 末尾自证生产快照未被改动。**变异验证**：把逻辑改回 `ls -1t \| head -1` → 2 项 RED 且明确指出「又读了正在写的半个文件」，还原后 sha256 一致 |
+| **三个已废弃的发布页还挂在注册表里，另有一条死链藏在白名单**（2026-09-20） | 小程序**没有构建期路由校验**：`pages.json` 注册了什么就编译什么，没人核对「这页还有人跳吗」。实际查出 6 个零引用页面（`pages/webview/index`、`pkg-eco/pages/portfolios/list`、`pkg-service/pages/publish/{product,service,course}`、`pkg-app/pages/applications/index`），其中三个旧发布页**早已退化成跳转壳**（16 行，`redirectTo` 到统一的 `pages/publish/form`），却仍占着注册表；更隐蔽的是首页横幅白名单 `ALLOWED_ROUTES` 里躺着 `/pkg-eco/pages/shops/index` —— `shops` 表随迁移 `000113` 一起删了，目录都不存在，**任何横幅配到这条就是白屏**，而且白名单本意是「只放行安全路径」，等于自己开了一道后门 | **已修复**：① 删掉三个废弃发布页（含 `pages.json` 三条注册）；② 从 `ALLOWED_ROUTES` 摘掉 `shops/index`；③ 新增 `scripts/check-miniprogram-routes.cjs` 并接进 CI（frontend job）—— 校验「页面文件 ↔ pages.json ↔ 代码里写死的路由」三者，两类问题即 fail：注册了没文件、路由没注册；另附零引用页面提示。它认 `ROUTE_MAP` 这类别名表的**键**（旧路径故意不存在，`/pages/demand/list` → `/pages/demands/list`），不当死链。**注意脚本必须放 `scripts/`**：`.tools/` 被 gitignore，CI 拿不到。变异验证：抽掉一个页面文件 → 报「缺失 …vue」并 exit 1；往白名单塞一条不存在的路径 → 报「死链 …」并 exit 1；还原后全绿 |
 
 ## 本地开发
 

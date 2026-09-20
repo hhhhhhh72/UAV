@@ -978,33 +978,6 @@
           }
         },
         {
-          "path": "pages/publish/product",
-          "style": {
-            "navigationBarTitleText": "发布商品",
-            "navigationBarTextStyle": "black",
-            "navigationBarBackgroundColor": "#ffffff",
-            "navigationStyle": "custom"
-          }
-        },
-        {
-          "path": "pages/publish/service",
-          "style": {
-            "navigationBarTitleText": "发布服务能力",
-            "navigationBarTextStyle": "black",
-            "navigationBarBackgroundColor": "#ffffff",
-            "navigationStyle": "custom"
-          }
-        },
-        {
-          "path": "pages/publish/course",
-          "style": {
-            "navigationBarTitleText": "发布培训课程",
-            "navigationBarTextStyle": "black",
-            "navigationBarBackgroundColor": "#ffffff",
-            "navigationStyle": "custom"
-          }
-        },
-        {
           "path": "pages/more/index",
           "style": {
             "navigationBarTitleText": "更多功能",
