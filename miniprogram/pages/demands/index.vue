@@ -860,6 +860,9 @@ onPullDownRefresh(() => {
 .hall-page.no-motion .panel-mask { animation: maskIn 0.22s ease-out; }
 .hall-page.no-motion .panel-mask.closing { animation: maskOut 0.16s ease-in forwards; }
 .hall-page.no-motion .p-chip:active { transform: none; }
+.hall-page.no-motion .trade-card,
+.hall-page.no-motion .ov-trade-card,
+.hall-page.no-motion .ecom-card { animation: none; }
 
 /* ═══════ 匹配条 ═══════ */
 .match-strip {
@@ -912,6 +915,31 @@ onPullDownRefresh(() => {
   box-shadow: 0 3px 12px rgba(16, 24, 40, 0.045);
   border: 1px solid rgba(228, 231, 236, 0.7);
   overflow: hidden;
+}
+/* ═══════ 卡片入场（对齐 experts/list.vue:353 、jobs/list.vue:462 的既有写法） ═══════ */
+/* 只做前几张：首屏之外的卡片滚到时**不重放**，否则长列表一路乱动。
+   瀑布流两列按左右交错给延迟，读起来是「依次落位」而不是整片闪一下。
+   ⚠ 批准版设计规范（design-uav-miniprogram-prototypes/references/visual-foundations.md:82）
+   写着「不做卡片批量入场」—— 这里是按用户明确要求加的，并沿用了仓库里已经存在的同款写法，
+   不是我自己发明的新动效。要回到严格合规，删掉本段 + 下面两处 no-motion 里的卡片选择器即可。 */
+.card-list .trade-card:nth-child(-n+6),
+.ov-card-list .ov-trade-card:nth-child(-n+6),
+.ecom-col .ecom-card:nth-child(-n+3) {
+  animation: cardIn 0.22s ease-out backwards;
+}
+.card-list .trade-card:nth-child(2), .ov-card-list .ov-trade-card:nth-child(2) { animation-delay: 40ms; }
+.card-list .trade-card:nth-child(3), .ov-card-list .ov-trade-card:nth-child(3) { animation-delay: 80ms; }
+.card-list .trade-card:nth-child(4), .ov-card-list .ov-trade-card:nth-child(4) { animation-delay: 120ms; }
+.card-list .trade-card:nth-child(5), .ov-card-list .ov-trade-card:nth-child(5) { animation-delay: 160ms; }
+.card-list .trade-card:nth-child(6), .ov-card-list .ov-trade-card:nth-child(6) { animation-delay: 200ms; }
+.ecom-col:nth-child(1) .ecom-card:nth-child(2) { animation-delay: 80ms; }
+.ecom-col:nth-child(1) .ecom-card:nth-child(3) { animation-delay: 160ms; }
+.ecom-col:nth-child(2) .ecom-card:nth-child(1) { animation-delay: 40ms; }
+.ecom-col:nth-child(2) .ecom-card:nth-child(2) { animation-delay: 120ms; }
+.ecom-col:nth-child(2) .ecom-card:nth-child(3) { animation-delay: 200ms; }
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
 }
 .trade-card-main {
   display: flex;
@@ -1352,7 +1380,8 @@ onPullDownRefresh(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask {
+  .stg, .stg-arr, .p-chip, .field-panel, .panel-mask,
+  .trade-card, .ov-trade-card, .ecom-card {
     animation: none !important;
     transition: none !important;
   }
