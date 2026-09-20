@@ -101,6 +101,16 @@ func (s *TestSiteService) UpdateSite(ctx context.Context, id, name, siteType, lo
 	return s.repo.UpdateSite(ctx, site)
 }
 
+// bookingSlotErr 把库级排他约束（repository.ErrSlotTaken，migration 000120）翻译成
+// 与键锁路径同一个对外文案。库约束只在**并发/多实例**下才可能先于应用层检查报错，
+// 不翻译就会退化成笼统 500。
+func bookingSlotErr(err error) error {
+	if errors.Is(err, repository.ErrSlotTaken) {
+		return fmt.Errorf("time slot conflicted")
+	}
+	return err
+}
+
 func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, contactName, contactPhone string, startTime, endTime time.Time, bookingType, model, licenseURL, teamName string, peopleCount int, equipmentList, qualificationURL, equipmentNote, timeSlots string) (domain.TestSiteBooking, error) {
 	// 时间范围校验：结束时间必须晚于开始时间（与 EventService 同款校验）
 	if !endTime.After(startTime) {
@@ -131,7 +141,11 @@ func (s *TestSiteService) Book(ctx context.Context, siteID, userID, purpose, con
 		TeamName: teamName, PeopleCount: peopleCount,
 		EquipmentList: equipmentList, QualificationURL: qualificationURL,
 		EquipmentNote: equipmentNote, TimeSlots: timeSlots}
-	return s.repo.CreateBooking(ctx, bk)
+	created, cerr := s.repo.CreateBooking(ctx, bk)
+	if cerr != nil {
+		return domain.TestSiteBooking{}, bookingSlotErr(cerr)
+	}
+	return created, nil
 }
 func (s *TestSiteService) ReviewBooking(ctx context.Context, bookingID, status, note string) (domain.TestSiteBooking, error) {
 	// 审批复查冲突：approved 前重跑同站点时段冲突检测——
@@ -154,7 +168,15 @@ func (s *TestSiteService) ReviewBooking(ctx context.Context, bookingID, status, 
 			}
 		}
 	}
-	return s.repo.UpdateBookingStatus(ctx, bookingID, status, note)
+	updated, uerr := s.repo.UpdateBookingStatus(ctx, bookingID, status, note)
+	if uerr != nil {
+		// 审批落库时才撞上排他约束（两条重叠 pending 被并发批准）：同一句文案。
+		if errors.Is(uerr, repository.ErrSlotTaken) {
+			return domain.TestSiteBooking{}, fmt.Errorf("该时段已有预约，审批冲突")
+		}
+		return domain.TestSiteBooking{}, uerr
+	}
+	return updated, nil
 }
 
 // ListAllBookings 管理端全量预约记录（分页）。

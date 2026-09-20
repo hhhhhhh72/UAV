@@ -468,7 +468,7 @@ func (r *venueRepo) CreateBooking(ctx context.Context, b domain.VenueBooking) (d
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO venue_bookings (id,venue_id,user_id,start_time,end_time,status,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
 		b.ID, b.VenueID, b.UserID, b.StartTime, b.EndTime, b.Status, b.CreatedAt)
-	return b, err
+	return b, translateSlotConflict(err)
 }
 func (r *venueRepo) ListBookings(ctx context.Context, venueID string) ([]domain.VenueBooking, error) {
 	rows, err := r.pool.Query(ctx,

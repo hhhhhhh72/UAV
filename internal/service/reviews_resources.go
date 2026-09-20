@@ -170,5 +170,9 @@ func (s *VenueService) Book(ctx context.Context, venueID, userID string, start, 
 	}
 	bk := domain.VenueBooking{ID: nextID("booking"), VenueID: venueID,
 		UserID: userID, StartTime: start, EndTime: end, Status: "booked", CreatedAt: time.Now()}
-	return s.repo.CreateBooking(ctx, bk)
+	created, cerr := s.repo.CreateBooking(ctx, bk)
+	if cerr != nil {
+		return domain.VenueBooking{}, bookingSlotErr(cerr)
+	}
+	return created, nil
 }

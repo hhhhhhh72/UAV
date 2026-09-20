@@ -2707,12 +2707,24 @@ func (r *pgTestSiteRepo) DeleteSite(ctx context.Context, id string) error {
 	return err
 }
 
+// translateSlotConflict 把库级排他约束冲突（SQLSTATE 23P01，migration 000120 给
+// test_site_bookings / venue_bookings 加的 EXCLUDE）翻译成 repository.ErrSlotTaken。
+// 这道约束只在**并发/多实例**下才可能先于应用层检查报错（进程内键锁各锁各的），
+// 不翻译就会变成笼统 500 —— 而 pgx 原文还会被 fail() 的脱敏换掉，用户什么都看不到。
+func translateSlotConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23P01" {
+		return repository.ErrSlotTaken
+	}
+	return err
+}
+
 func (r *pgTestSiteRepo) CreateBooking(ctx context.Context, b domain.TestSiteBooking) (domain.TestSiteBooking, error) {
 	b.CreatedAt = time.Now()
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO test_site_bookings (id,site_id,user_id,purpose,start_time,end_time,contact_name,contact_phone,status,review_note,booking_type,model,license_url,team_name,people_count,equipment_list,qualification_url,equipment_note,time_slots,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
 		b.ID, b.SiteID, b.UserID, b.Purpose, b.StartTime, b.EndTime, b.ContactName, b.ContactPhone, b.Status, b.ReviewNote, b.BookingType, b.Model, b.LicenseURL, b.TeamName, b.PeopleCount, b.EquipmentList, b.QualificationURL, b.EquipmentNote, b.TimeSlots, b.CreatedAt)
-	return b, err
+	return b, translateSlotConflict(err)
 }
 func (r *pgTestSiteRepo) FindBookingByID(ctx context.Context, id string) (domain.TestSiteBooking, error) {
 	var b domain.TestSiteBooking
@@ -2730,7 +2742,8 @@ func (r *pgTestSiteRepo) UpdateBookingStatus(ctx context.Context, id, status, no
 		`UPDATE test_site_bookings SET status=$1,review_note=$2 WHERE id=$3 RETURNING id,site_id,user_id,purpose,COALESCE(start_time,'1970-01-01 00:00:00+00'::timestamptz),COALESCE(end_time,'1970-01-01 00:00:00+00'::timestamptz),contact_name,contact_phone,status,review_note,booking_type,model,license_url,team_name,people_count,equipment_list,qualification_url,equipment_note,time_slots,created_at`,
 		status, note, id).
 		Scan(&b.ID, &b.SiteID, &b.UserID, &b.Purpose, &b.StartTime, &b.EndTime, &b.ContactName, &b.ContactPhone, &b.Status, &b.ReviewNote, &b.BookingType, &b.Model, &b.LicenseURL, &b.TeamName, &b.PeopleCount, &b.EquipmentList, &b.QualificationURL, &b.EquipmentNote, &b.TimeSlots, &b.CreatedAt)
-	return b, err
+	// 审批改成 approved 时也可能撞上排他约束（两条重叠 pending 先后被批准）。
+	return b, translateSlotConflict(err)
 }
 func (r *pgTestSiteRepo) ListBookings(ctx context.Context, siteID string) ([]domain.TestSiteBooking, error) {
 	rows, err := r.pool.Query(ctx,

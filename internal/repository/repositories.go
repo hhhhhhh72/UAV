@@ -608,6 +608,10 @@ var ErrUserInUse = errors.New("user is referenced by work orders")
 // Service 转成自己的 not-found 哨兵，Handler 稳定映射 404。
 var ErrNotFound = errors.New("record not found")
 
+// ErrSlotTaken 时段已被占用：由库级排他约束（migration 000120 的 EXCLUDE）在
+// 并发/多实例下兜底抛出，语义与 service 层键锁给出的「time slot conflicted」一致。
+var ErrSlotTaken = errors.New("time slot already occupied")
+
 // ErrUserNotFound 账号不存在（或已注销：users.deleted_at 非空的行对 FindByID/All 不可见）。
 // 删除路径据此返回 404，而不是"删了个不存在的 id 却回 200"。
 var ErrUserNotFound = errors.New("user not found")
