@@ -317,6 +317,9 @@ const mapItem = (it) => {
 /* 章节计数：04 参与单位在无名册时不渲染，读完提示按实际章节数显示 */
 const sectionCount = computed(() => 3 + (d.value && d.value.roster && d.value.roster.length ? 1 : 0))
 
+// 生产环境禁止演示数据回退：接口异常时如实呈现失败态（数字诚实铁律）
+const isProduction = typeof process !== 'undefined' && process.env.NODE_ENV === 'production'
+
 const fetchData = async () => {
   loading.value = true
   err.value = false
@@ -325,14 +328,19 @@ const fetchData = async () => {
     const it = (res && res.data) || res
     if (it && it.id) d.value = mapItem(it)
     else {
-      // 接口不可用时回退演示数据
+      // 演示数据仅限开发环境；生产环境绝不回退（数字诚实铁律）
+      if (!isProduction) {
+        const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
+        d.value = mock ? mapItem(mock) : null
+      }
+      if (!d.value) err.value = true // 生产：如实呈现失败态，不留空白页
+    }
+  } catch {
+    // 演示数据仅限开发环境；生产环境绝不回退（数字诚实铁律）
+    if (!isProduction) {
       const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
       d.value = mock ? mapItem(mock) : null
     }
-  } catch {
-    // 回退演示数据
-    const mock = (MOCK_PROJECTS || []).find((x) => x.id === id)
-    d.value = mock ? mapItem(mock) : null
     if (!d.value) err.value = true
   } finally {
     loading.value = false

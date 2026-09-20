@@ -580,7 +580,7 @@ const fetchAll = async (silent = false) => {
     // 接口失败：从未成功加载过才回退演示数据；已有数据则保留，
     // 避免下拉刷新时一次网络抖动就用演示数据顶替真实列表
     if (fullList.value.length === 0) {
-      if (MOCK_CHALLENGES && MOCK_CHALLENGES.length) {
+      if (isDev && MOCK_CHALLENGES && MOCK_CHALLENGES.length) {
         fullList.value = (MOCK_CHALLENGES || []).map(mapItem)
         total.value = fullList.value.length
         mockMode.value = true

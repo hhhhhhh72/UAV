@@ -119,3 +119,18 @@ jobs:
         # 脚本在仓库根的 scripts/（不是 .tools/ —— 那个目录被 gitignore，CI 拿不到）。
         working-directory: .
         run: node scripts/check-miniprogram-routes.cjs
+
+      - name: Miniprogram mock guard check
+        # utils 下 6 个 mock 模块**自身没有任何守卫**，导出的是完整真实数组，生产是否安全
+        # 完全取决于调用点。2026-09-20 体检查出 3 个页面漏了守卫：projects/detail 整个文件
+        # 零守卫（且失败分支没置 err，生产上是空白页）、projects/list 与 challenges/list
+        # 会把编造的课题/难题当真实列表渲染，而「演示数据」横幅是 v-if="mockMode && isDev"，
+        # 生产构建里根本没有提示。
+        working-directory: .
+        run: node scripts/check-mock-guards.cjs
+
+      - name: API contract check (client ↔ backend)
+        # 前端调了后端没有的接口，或后端改了资源名前端没跟 —— 这类问题只会在用户点下去时
+        # 才暴露。逐条比对后端 mux.HandleFunc 注册点与小程序/管理后台里的调用点。
+        working-directory: .
+        run: node scripts/check-api-contract.cjs

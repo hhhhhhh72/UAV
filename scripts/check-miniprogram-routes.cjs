@@ -11,7 +11,7 @@
 //   B. 代码里写死的路由，pages.json 没注册    → 点进去 404 / 白屏
 // 另外附带打印「零引用页面」（可能是孤儿，仅提示，不影响退出码）。
 //
-// 用法：node .tools/check-miniprogram-routes.cjs
+// 用法：node scripts/check-miniprogram-routes.cjs（脚本必须放 scripts/：.tools/ 被 gitignore，CI 拿不到）
 const fs = require('fs');
 const path = require('path');
 
