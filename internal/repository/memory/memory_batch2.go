@@ -208,6 +208,28 @@ func (r *studyTourEnrollRepo) Create(ctx context.Context, e domain.StudyTourEnro
 	r.items = append(r.items, e)
 	return e, nil
 }
+// CreateWithCapacity 原子报名（内存实现）：与 PG 的 FOR UPDATE 语义一致 ——
+// 求和与写入在同一把锁内完成，不受调用方是否持键锁影响。
+func (r *studyTourEnrollRepo) CreateWithCapacity(ctx context.Context, e domain.StudyTourEnrollment, headcount, capacityLimit int) (domain.StudyTourEnrollment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if capacityLimit > 0 {
+		taken := 0
+		for _, it := range r.items {
+			if it.TourID == e.TourID && (it.Status == "pending" || it.Status == "approved") {
+				taken += it.AdultCount + it.ChildCount
+			}
+		}
+		if taken+headcount > capacityLimit {
+			return domain.StudyTourEnrollment{}, repository.ErrCapacityFull
+		}
+	}
+	e.CreatedAt = time.Now()
+	e.UpdatedAt = e.CreatedAt
+	r.items = append(r.items, e)
+	return e, nil
+}
+
 func (r *studyTourEnrollRepo) FindByID(ctx context.Context, id string) (domain.StudyTourEnrollment, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

@@ -85,7 +85,18 @@ func (s *StudyTourEnrollmentService) Create(ctx context.Context, userID, tourID,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
-	return s.repo.Create(ctx, e)
+	// 落库走 CreateWithCapacity：库层面（PG 是 FOR UPDATE 锁研学行）再做一次容量判定，
+	// 超了返回 ErrCapacityFull。上面那次预检只为给出友好文案，真正的门禁在库那层 ——
+	// 求和式容量在并发/多实例下靠进程内键锁挡不住（同类问题实测：容量 10 被 200 并发
+	// 收下 87 人）。
+	created, err := s.repo.CreateWithCapacity(ctx, e, adultCount+childCount, tour.Capacity)
+	if err != nil {
+		if errors.Is(err, repository.ErrCapacityFull) {
+			return domain.StudyTourEnrollment{}, errors.New("该研学活动名额已满")
+		}
+		return domain.StudyTourEnrollment{}, err
+	}
+	return created, nil
 }
 
 // ListMyEnrollments 我的研学报名（附研学标题/出发日期）。

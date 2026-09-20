@@ -612,6 +612,10 @@ var ErrNotFound = errors.New("record not found")
 // 并发/多实例下兜底抛出，语义与 service 层键锁给出的「time slot conflicted」一致。
 var ErrSlotTaken = errors.New("time slot already occupied")
 
+// ErrCapacityFull 名额已满：由**求和式**容量的库级兜底抛出（如研学报名在同一事务里
+// 锁住研学行后求和）。进程内键锁只在单实例下成立，多一个 API 进程就会一起超卖。
+var ErrCapacityFull = errors.New("capacity full")
+
 // ErrUserNotFound 账号不存在（或已注销：users.deleted_at 非空的行对 FindByID/All 不可见）。
 // 删除路径据此返回 404，而不是"删了个不存在的 id 却回 200"。
 var ErrUserNotFound = errors.New("user not found")
@@ -954,6 +958,12 @@ type StudyTourRepository interface {
 // StudyTourEnrollmentRepository 低空研学报名。
 type StudyTourEnrollmentRepository interface {
 	Create(ctx context.Context, v domain.StudyTourEnrollment) (domain.StudyTourEnrollment, error)
+	// CreateWithCapacity 原子报名：同一事务里先锁住研学行（SELECT … FOR UPDATE）再统计
+	// 已占用的活跃人数（pending/approved 的成人+儿童），未超容量才写入；超了返回
+	// ErrCapacityFull。容量是**求和式**的（不像课程有 enrolled_count 计数列可做条件更新），
+	// check-then-insert 在两个并发事务里都会读到同一个旧和 —— 而进程内键锁多实例失效。
+	// capacityLimit 由调用方传入（service 刚读到的研学容量；0 = 不限量）。
+	CreateWithCapacity(ctx context.Context, v domain.StudyTourEnrollment, headcount, capacityLimit int) (domain.StudyTourEnrollment, error)
 	FindByID(ctx context.Context, id string) (domain.StudyTourEnrollment, error)
 	ListByUser(ctx context.Context, userID string) ([]domain.StudyTourEnrollment, error)
 	ListByTour(ctx context.Context, tourID string) ([]domain.StudyTourEnrollment, error)

@@ -12,6 +12,49 @@ import (
 	"drone-platform/internal/service"
 )
 
+// TestStudyTourRepoCapacityWithoutLock 直接压**仓储层**（绕过 service 的研学维度键锁）：
+// 库级兜底必须自己站得住 —— 多实例部署时键锁各锁各的，只有仓储层这道才跨进程有效。
+func TestStudyTourRepoCapacityWithoutLock(t *testing.T) {
+	const (
+		capacity   = 10
+		concurrent = 200
+	)
+	ctx := context.Background()
+	repo := memory.NewStudyTourEnrollmentRepository()
+
+	var wg sync.WaitGroup
+	var ok int32
+	for i := 0; i < concurrent; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, err := repo.CreateWithCapacity(ctx, domain.StudyTourEnrollment{
+				ID: fmt.Sprintf("se-%d", i), TourID: "tour-x", UserID: fmt.Sprintf("u-%d", i),
+				Name: "张三", Phone: "13800000000", AdultCount: 1, Status: "pending",
+			}, 1, capacity)
+			if err == nil {
+				atomic.AddInt32(&ok, 1)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	items, err := repo.ListByTour(ctx, "tour-x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	taken := 0
+	for _, e := range items {
+		if e.Status == "pending" || e.Status == "approved" {
+			taken += e.AdultCount + e.ChildCount
+		}
+	}
+	t.Logf("仓储层直压：容量 %d，并发 %d → 成功 %d 条，占用 %d 人", capacity, concurrent, ok, taken)
+	if taken > capacity || int(ok) != capacity {
+		t.Fatalf("仓储层容量兜底失效：容量 %d，成功 %d 条、占用 %d 人", capacity, ok, taken)
+	}
+}
+
 // TestCourseEnrollmentNoOversell 课程报名容量的正向对照：这条链路**已经**有
 // 课程维度键锁（phase3.go:137 lockByKey("enroll-course|"+courseID)），
 // 所以 200 人抢 2 个座位应当只成功 2 条。它和上面的研学用例一起说明：
