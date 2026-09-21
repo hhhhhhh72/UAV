@@ -29,8 +29,15 @@ mk_partial() { printf 'payload-%s' "$2" | gzip > "$D/$1"; truncate -s -6 "$D/$1"
 
 # 取快照里的字段
 field() { python3 -c "import json,sys;d=json.load(open('$T/out.json'));print(d['backup'].get('$1'))"; }
-run() { OUT="$T/out.json" BACKUP_DIR="$D" BACKUP_LOG="${1:-$D/backup.log}" DRILL="$T/none.json" \
+run() { OUT="$T/out.json" BACKUP_DIR="$D" BACKUP_LOG="${1:-$D/backup.log}" UPLOADS_LOG="$D/uploads-backup.log" DRILL="$T/none.json" \
         bash /root/UAV/deploy/ops-status.sh >/dev/null 2>&1; }
+
+# 上传文件备份的"健康"现场（2026-09-21 起 backup 一节要求库备份**和**上传包都在）
+mkdir -p "$T/up"; printf 'license-image' > "$T/up/idcard.jpg"
+mk_uploads_ok() {
+  tar -czf "$D/uav-uploads-$1.tar.gz" -C "$T/up" idcard.jpg 2>/dev/null
+  printf '[2026-01-01 03:00:02] OK uav-uploads-%s.tar.gz (1K, 2 项)\n' "$1" > "$D/uploads-backup.log"
+}
 
 echo "演练目录：$T"
 echo "生产快照：$PROD_SNAPSHOT（演练期间不会被改动）"
@@ -43,6 +50,7 @@ mk_ok uav-db-20260101-030000.sql.gz a
 touch -d '24 hours ago' "$D/uav-db-20260101-030000.sql.gz"
 printf '[2026-01-01 03:00:02] OK uav-db-20260101-030000.sql.gz (92K)\n' > "$D/backup.log"
 mk_partial uav-db-20260102-030000.sql.gz b      # 刚写完一半，mtime = 现在
+mk_uploads_ok 20260101-030000
 run
 if [ "$(field file)" = "uav-db-20260101-030000.sql.gz" ] && [ "$(field ok)" = "True" ]; then
   ok "写入中的新文件被跳过，选了最近一次**完成**的备份"
@@ -75,11 +83,25 @@ rm -f "$D"/*.sql.gz "$D"/backup.log
 mk_ok uav-db-20260101-030000.sql.gz e
 touch -d '5 minutes ago' "$D/uav-db-20260101-030000.sql.gz"
 mk_partial uav-db-20260102-030000.sql.gz f      # 最新，但还在写
+mk_uploads_ok 20260101-030000
 run "$T/does-not-exist.log"
 if [ "$(field file)" = "uav-db-20260101-030000.sql.gz" ] && [ "$(field ok)" = "True" ]; then
   ok "无 backup.log 时按 settle 时间跳过写入中的文件"
 else
   bad "兜底逻辑选中了 $(field file) / ok=$(field ok)"
+fi
+
+# ⑤ 只备了数据库、没有上传包 → backup 一节必须失守
+#    （上传的营业执照/身份证影像是不可再生的原始凭据，只备库等于它们全丢）
+rm -f "$D"/*.sql.gz "$D"/backup.log "$D"/uav-uploads-*.tar.gz "$D"/uploads-backup.log
+mk_ok uav-db-20260101-030000.sql.gz g
+touch -d '2 hours ago' "$D/uav-db-20260101-030000.sql.gz"
+printf '[2026-01-01 03:00:02] OK uav-db-20260101-030000.sql.gz (92K)\n' > "$D/backup.log"
+run
+if [ "$(field integrity)" = "ok" ] && [ "$(field ok)" = "False" ] && [ "$(field uploads_integrity)" = "missing" ]; then
+  ok "缺上传包时判失守（库备份本身完好：integrity=$(field integrity)）"
+else
+  bad "缺上传包却没报：库 integrity=$(field integrity) backup.ok=$(field ok) uploads=$(field uploads_integrity)"
 fi
 
 echo

@@ -71,6 +71,26 @@ if [ -n "$latest" ]; then
   fi
 fi
 
+# ---- 上传文件备份（与库备份同批产出，独立日志）----
+# 只备库不备文件 = 「库回来了、营业执照和身份证影像全没了」，而库里还引用着它们。
+# 归进 backup 一节而不是新开分项：告警分项列表因此不用动（改动面最小）。
+UPLOADS_LOG=${UPLOADS_LOG:-$BACKUP_DIR/uploads-backup.log}
+uploads_file=""; uploads_age_hours=-1; uploads_integrity=missing
+if [ -f "$UPLOADS_LOG" ]; then
+  uok=$(grep -oE 'OK[[:space:]]+uav-uploads-[0-9]{8}-[0-9]{6}\.tar\.gz' "$UPLOADS_LOG" 2>/dev/null | tail -1 | awk '{print $2}')
+  if [ -n "$uok" ] && [ -f "$BACKUP_DIR/$uok" ]; then
+    uploads_file="$uok"
+    uage=$(( now_epoch - $(stat -c %Y "$BACKUP_DIR/$uok" 2>/dev/null || echo "$now_epoch") ))
+    uploads_age_hours=$(awk -v s="$uage" 'BEGIN{printf "%.1f", s/3600}')
+    if tar -tzf "$BACKUP_DIR/$uok" >/dev/null 2>&1; then uploads_integrity=ok; else uploads_integrity=corrupt; fi
+  fi
+fi
+if [ "$backup_ok" = true ] && [ "$uploads_integrity" = ok ] && awk -v h="$uploads_age_hours" -v m="$BACKUP_MAX_AGE_HOURS" 'BEGIN{exit !(h < m)}'; then
+  backup_ok=true
+else
+  backup_ok=false
+fi
+
 # ---- 恢复演练结果（deploy/restore-drill.sh 每周写入）----
 # 「文件存在」不等于「能恢复」：pg_dump 半途失败、磁盘写满、gzip 截断都会留下
 # 一份看起来正常却还原不出来的备份。演练结果不达标同样要报警。
@@ -313,7 +333,7 @@ cat > "$tmp" <<JSON
   "generated_epoch": $now_epoch,
   "ok": $ok,
   "disk": {"used_percent": $disk_used, "max_percent": $DISK_MAX_PERCENT, "ok": $disk_ok},
-  "backup": {"file": "$backup_file", "age_hours": $backup_age_hours, "size_bytes": $backup_size, "integrity": "$backup_integrity", "max_age_hours": $BACKUP_MAX_AGE_HOURS, "ok": $backup_ok},
+  "backup": {"file": "$backup_file", "age_hours": $backup_age_hours, "size_bytes": $backup_size, "integrity": "$backup_integrity", "uploads_file": "$uploads_file", "uploads_age_hours": $uploads_age_hours, "uploads_integrity": "$uploads_integrity", "max_age_hours": $BACKUP_MAX_AGE_HOURS, "ok": $backup_ok},
   "restore_drill": {"age_days": $drill_age_days, "max_age_days": $DRILL_MAX_AGE_DAYS, "tables": $drill_tables, "note": "$drill_note", "ok": $drill_ok},
   "containers": {"api": "$api_state", "db": "$db_state", "ok": $containers_ok},
   "cert": {"days_left": $cert_days, "min_days": $CERT_MIN_DAYS, "ok": $cert_ok},
