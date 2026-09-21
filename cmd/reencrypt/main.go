@@ -19,18 +19,9 @@ import (
 	"drone-platform/internal/crypto"
 )
 
-// encryptedColumns is the full inventory of AES-256-GCM encrypted columns.
-// Keep in sync with the repository encrypt/decrypt helpers.
-var encryptedColumns = []struct {
-	table  string
-	column string
-}{
-	{"demands", "contact"},
-	{"enterprises", "license_url"},
-	{"enterprises", "account_name"},
-	{"users", "phone_ciphertext"},
-	{"certified_pilots", "id_card"},
-}
+// 加密列清单改为引用 internal/crypto.EncryptedColumns —— **不再在本文件各写一份**。
+// 此前这里漏了 competition_registrations.id_card/.phone（实测那两列确实是密文），
+// 用它轮换密钥会跳过它们，旧密钥一丢就永久解不开（见 crypto/inventory.go 的注释）。
 
 func main() {
 	dsn := flag.String("dsn", "", "PostgreSQL DSN (DATABASE_URL)")
@@ -74,14 +65,14 @@ func main() {
 	defer conn.Close(ctx)
 
 	total := 0
-	for _, col := range encryptedColumns {
-		changed, plaintext, err := reencryptColumn(ctx, conn, col.table, col.column, oldC, newC, *apply)
+	for _, col := range crypto.EncryptedColumns {
+		changed, plaintext, err := reencryptColumn(ctx, conn, col.Table, col.Column, oldC, newC, *apply)
 		if err != nil {
-			log.Printf("[%s.%s] SKIPPED: %v", col.table, col.column, err)
+			log.Printf("[%s.%s] SKIPPED: %v", col.Table, col.Column, err)
 			continue
 		}
 		fmt.Printf("[%s.%s] %d value(s) %s | %d legacy plaintext (left as-is)\n",
-			col.table, col.column, changed, modeLabel(*apply), plaintext)
+			col.Table, col.Column, changed, modeLabel(*apply), plaintext)
 		total += changed
 	}
 	fmt.Printf("done: %d value(s) re-encrypted (%s)\n", total, modeLabel(*apply))
@@ -167,11 +158,11 @@ func verifyAll(ctx context.Context, dsn, oldKeyB64, newKeyB64 string) error {
 	defer conn.Close(ctx)
 
 	problems := 0
-	for _, col := range encryptedColumns {
+	for _, col := range crypto.EncryptedColumns {
 		rows, err := conn.Query(ctx, fmt.Sprintf(
-			"SELECT id, %s FROM %s WHERE %s IS NOT NULL AND %s <> ''", col.column, col.table, col.column, col.column))
+			"SELECT id, %s FROM %s WHERE %s IS NOT NULL AND %s <> ''", col.Column, col.Table, col.Column, col.Column))
 		if err != nil {
-			fmt.Printf("[%s.%s] SKIPPED: %v\n", col.table, col.column, err)
+			fmt.Printf("[%s.%s] SKIPPED: %v\n", col.Table, col.Column, err)
 			continue
 		}
 		for rows.Next() {
@@ -179,7 +170,7 @@ func verifyAll(ctx context.Context, dsn, oldKeyB64, newKeyB64 string) error {
 			var value string
 			if err := rows.Scan(&id, &value); err != nil {
 				rows.Close()
-				return fmt.Errorf("scan %s.%s: %w", col.table, col.column, err)
+				return fmt.Errorf("scan %s.%s: %w", col.Table, col.Column, err)
 			}
 			if _, derr := newC.Decrypt(value); derr == nil {
 				continue
@@ -187,11 +178,11 @@ func verifyAll(ctx context.Context, dsn, oldKeyB64, newKeyB64 string) error {
 			problems++
 			if oldC != nil {
 				if _, derr := oldC.Decrypt(value); derr == nil {
-					fmt.Printf("[%s.%s] MISSED (still old key): id=%v\n", col.table, col.column, id)
+					fmt.Printf("[%s.%s] MISSED (still old key): id=%v\n", col.Table, col.Column, id)
 					continue
 				}
 			}
-			fmt.Printf("[%s.%s] undecryptable (legacy plaintext?): id=%v value=%.12q…\n", col.table, col.column, id, value)
+			fmt.Printf("[%s.%s] undecryptable (legacy plaintext?): id=%v value=%.12q…\n", col.Table, col.Column, id, value)
 		}
 		rows.Close()
 	}
