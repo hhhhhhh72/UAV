@@ -13,6 +13,7 @@
 #   bash deploy/work-report.sh              # 生成并推送
 #   bash deploy/work-report.sh --dry-run    # 只打印，不推送、不动心跳
 #   DAY=2026-09-17 bash deploy/work-report.sh --dry-run
+#   DAY=2026-09-17 SKIP_FETCH=1 bash deploy/work-report.sh   # 补发（网络不通、但本地裸库已有数据）
 #
 # cron（root）：
 #   30 19 * * * /root/UAV/deploy/work-report.sh >> /root/UAV-db-backups/work-report-cron.log 2>&1
@@ -28,6 +29,24 @@ ENVFILE=${ENVFILE:-/root/UAV/alert.env}
 CONTAINER=${CONTAINER:-uav-api-1}
 DAY=${DAY:-$(date +%F)}
 MODE=${1:-}
+# SKIP_FETCH=1 跳过 git fetch，直接用本地裸库里已有的数据生成 —— **人工补发**用。
+# 场景（2026-09-21 真实发生）：服务器连不上 github.com:443（HTTPS 主站被挡，api/codeload/
+# ssh:443/22 都通），19:30 那班按设计拒发；而本地裸库其实**已经有当天全部提交**
+#（17:11 那次 fetch 是成功的）。补发只需要一个"别再 fetch"的开关。
+SKIP_FETCH=${SKIP_FETCH:-0}
+# 重试窗口：偶发封锁可能持续几十分钟，5 分钟就放弃会把一整天的汇报丢掉
+#（2026-09-20 实测：三次重试在 19:35 全部失败，当天 16 个提交一条没汇报）。
+# 每轮内部仍是 60/120/180 秒递进三次，轮与轮之间间隔 RETRY_GAP_SECONDS，
+# 直到累计等待超过 RETRY_WINDOW_SECONDS 才放弃并通知。
+RETRY_WINDOW_SECONDS=${RETRY_WINDOW_SECONDS:-9000}
+RETRY_GAP_SECONDS=${RETRY_GAP_SECONDS:-300}
+# 备用通道：2026-09-21 实测这台机器**只有 github.com:443 不通**（HTTPS 主站被挡），
+# 而 api.github.com / codeload / raw / ssh.github.com:443 / github.com:22 全通。
+# 裸库的 origin 正是被封的那个 https 地址，于是每天 19:30 只能干等。
+# 这里加一条 SSH over 443 的备用通道（需要仓库侧加只读 Deploy key，见 .pub）。
+REPORT_REMOTE_FALLBACK=${REPORT_REMOTE_FALLBACK:-ssh://git@ssh.github.com:443/hhhhhhh72/UAV.git}
+REPORT_SSH_KEY=${REPORT_SSH_KEY:-/root/.ssh/uav_report_ed25519}
+REPORT_SSH_OPTS=${REPORT_SSH_OPTS:-"ssh -i $REPORT_SSH_KEY -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"}
 
 [ -f "$ENVFILE" ] && . "$ENVFILE"
 # shellcheck source=deploy/lib-notify.sh
@@ -49,23 +68,47 @@ fi
 # 只试一次的话，这种偶发就会被记成「今天没有日报」，而且要到 30 小时后心跳告警才暴露。
 # 所以按 60/120/180 秒递进重试三次：偶发抖动基本都能自愈。
 fetch_ok=0
-for attempt in 1 2 3; do
-  fetch_timeout=$(( attempt * 60 ))
-  if timeout "$fetch_timeout" git -C "$REPO" fetch --quiet origin '+refs/heads/*:refs/heads/*' >>"$LOG" 2>&1; then
-    fetch_ok=1
-    [ "$attempt" -gt 1 ] && log "git fetch 第 $attempt 次才成功（前 $(( attempt - 1 )) 次失败）"
-    break
-  fi
-  log "git fetch 第 $attempt 次失败（超时 ${fetch_timeout}s）"
-  sleep 5
+fetch_started=$(date +%s)
+fetch_round=0
+if [ "$SKIP_FETCH" = "1" ]; then
+  fetch_ok=1
+  log "SKIP_FETCH=1：跳过 fetch，用本地裸库现有数据生成（人工补发）"
+fi
+while [ "$fetch_ok" != 1 ]; do
+  fetch_round=$((fetch_round + 1))
+  for attempt in 1 2 3; do
+    fetch_timeout=$(( attempt * 60 ))
+    if timeout "$fetch_timeout" git -C "$REPO" fetch --quiet origin '+refs/heads/*:refs/heads/*' >>"$LOG" 2>&1; then
+      fetch_ok=1
+      [ "$fetch_round" -gt 1 ] && log "git fetch 第 ${fetch_round} 轮才成功（等了 $(( ($(date +%s) - fetch_started) / 60 )) 分钟）"
+      [ "$fetch_round" -eq 1 ] && [ "$attempt" -gt 1 ] && log "git fetch 第 $attempt 次才成功"
+      break
+    fi
+    log "git fetch 失败（https，第 ${fetch_round} 轮第 ${attempt} 次，超时 ${fetch_timeout}s）"
+    # 备用通道：SSH over 443。https 通时根本不会走到这里。
+    if GIT_SSH_COMMAND="$REPORT_SSH_OPTS" timeout "$fetch_timeout" \
+         git -C "$REPO" fetch --quiet "$REPORT_REMOTE_FALLBACK" '+refs/heads/*:refs/heads/*' >>"$LOG" 2>&1; then
+      fetch_ok=1
+      log "https 不通 → 备用通道（SSH over 443）成功（第 ${fetch_round} 轮第 ${attempt} 次）"
+      break
+    fi
+    log "备用通道（SSH）也失败（第 ${fetch_round} 轮第 ${attempt} 次）"
+    sleep 5
+  done
+  [ "$fetch_ok" = 1 ] && break
+  waited=$(( $(date +%s) - fetch_started ))
+  if [ "$waited" -ge "$RETRY_WINDOW_SECONDS" ]; then break; fi
+  log "本轮三次都失败（已等 $(( waited / 60 )) 分钟），${RETRY_GAP_SECONDS}s 后重试"
+  sleep "$RETRY_GAP_SECONDS"
 done
 
 if [ "$fetch_ok" != 1 ]; then
-  log "git fetch 三次都失败 —— 不发旧数据"
+  waited_min=$(( ($(date +%s) - fetch_started) / 60 ))
+  log "git fetch 在 $waited_min 分钟内 ${fetch_round} 轮都失败 —— 不发旧数据"
   # 立刻让人知道，而不是等 30 小时后由心跳告警兜出来（那时已经隔了一天）。
   # 注意**不动心跳**：心跳的含义是「今天的日报送到了」，这条不是日报。
   if [ "$MODE" != "--dry-run" ]; then
-    notify_send "【日报异常】$(date +%m-%d) 的工作日报没能生成：服务器连不上 GitHub，已重试 3 次。历史提交还在，只是今天这份取不到数据。" || true
+    notify_send "【日报异常】$(date +%m-%d) 的工作日报没能生成：服务器连不上 GitHub（已重试 ${fetch_round} 轮、${waited_min} 分钟）。历史提交还在，只是今天这份取不到数据。" || true
   fi
   exit 1
 fi
