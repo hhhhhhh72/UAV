@@ -49,6 +49,7 @@ try:
     with open(path) as f:
         d = json.load(f)
     bad = []
+    notes = []
     # 分项清单来自 deploy/lib-notify.sh 的 NOTIFY_STATUS_SECTIONS —— **只此一份**，
     # 日报用的是同一份。此前它硬编码在这里、与 ops-status.sh 各写一套：漏掉一项时，
     # 该分项失守会让下面 `not bad` 的分支兜成 'top_level'——告警照发，但消息完全没有
@@ -58,6 +59,12 @@ try:
         v = d.get(k) or {}
         if v.get('ok') is not True:
             bad.append(k)
+            # 分项自己写的 note/detail 是最贴切的原因（如"nginx 正在服务的证书只剩 5 天，
+            # 或"证书文件与 nginx 正在服务的不一致"）。带上它，群里那条消息才是可行动的；
+            # 只说"运维快照异常：cert"等于让人自己去服务器上再查一遍。
+            n = (v.get('note') or v.get('detail') or '')
+            if isinstance(n, str) and n.strip():
+                notes.append(n.strip())
     if d.get('ok') is not True and not bad:
         bad.append('top_level')
     epoch = d.get('generated_epoch')
@@ -70,6 +77,8 @@ try:
         healthy = False
         sig = ','.join(sorted(set(b.split('(')[0] for b in bad)))
         text = '运维快照异常：' + '、'.join(bad)
+        if notes:
+            text += ' —— ' + '；'.join(notes)
 except FileNotFoundError:
     healthy = False; sig = 'snapshot_missing'; text = '运维快照文件不存在：' + path
 except Exception as exc:

@@ -156,6 +156,56 @@ else
 fi
 
 echo
+echo "== 证书判定演练（nginx 实际在服务的那张 vs 文件里的那张）=="
+certf()  { python3 -c "import json;d=json.load(open('$T/out.json'));print((d.get('cert') or {}).get('$1'))"; }
+jobf()   { python3 -c "import json;d=json.load(open('$T/out.json'));print((d.get('jobs') or {}).get('$1'))"; }
+
+# ⑩ 正常环境：天数必须是从**服务端**读出来的真实值，且文件与服务端 serial 一致
+run_env
+if [ "$(certf ok)" = "True" ] && [ "$(certf days_left)" -gt 0 ] && [ "$(certf file_serial)" = "$(certf served_serial)" ]; then
+  ok "真实环境判绿（nginx 在服务的证书剩 $(certf days_left) 天，文件与服务端 serial 一致）"
+else
+  bad "证书判定异常：ok=$(certf ok) days=$(certf days_left) note=$(certf note)"
+fi
+
+# ⑪ 阈值收紧：证明这一节真的接进了顶层 ok，不是摆设
+run_env CERT_MIN_DAYS=9999
+if [ "$(certf ok)" = "False" ] && [ "$(toplevel)" = "False" ]; then
+  ok "阈值 9999 天时 cert 与顶层 ok 一起变红"
+else
+  bad "cert 没接进顶层判定：cert.ok=$(certf ok) top=$(toplevel)"
+fi
+
+# ⑫ **换了证书文件但没 reload** —— 文件检查全绿、客户端拿到的还是旧证书。
+#    这正是自动续期上线后最可能出现的故障形态（续期脚本天天在写证书文件），
+#    而旧版检查只读文件，对它是完全瞎的。
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -keyout "$T/other.key" \
+  -out "$T/other.crt" -days 400 -nodes -subj "/CN=drill-other" >/dev/null 2>&1
+run_env CERT="$T/other.crt"
+if [ "$(certf ok)" = "False" ] && printf '%s' "$(certf note)" | grep -q 'reload'; then
+  ok "证书文件与 nginx 服务中的不一致时判失守，并点出没 reload"
+else
+  bad "文件/服务端不一致没被抓住：ok=$(certf ok) note=$(certf note)"
+fi
+
+# ⑬ 握手失败（nginx 没在跑）也必须报，不能因为读不到就沉默放过
+run_env CERT_PORT=59999
+if [ "$(certf ok)" = "False" ] && printf '%s' "$(certf note)" | grep -q '握手失败'; then
+  ok "拿不到服务端证书时判失守并说明原因"
+else
+  bad "握手失败却判绿：ok=$(certf ok) note=$(certf note)"
+fi
+
+# ⑭ 续期任务停摆（日志不再前移）→ jobs 一节必须报。
+#    光靠"证书还剩几天"要等到只剩 21 天才发现，那时距离真过期只剩 21 天，余量太薄。
+run_env JOB_CERT_RENEW_LOG="$T/does-not-exist-cert-renew.log"
+if [ "$(jobf ok)" = "False" ]; then
+  ok "续期任务停摆时 jobs 一节判失守"
+else
+  bad "续期任务停摆却没报：jobs.ok=$(jobf ok)"
+fi
+
+echo
 echo "== 结论：$pass 项通过，$fail 项失败 =="
 prod_after=$(stat -c %Y "$PROD_SNAPSHOT")
 if [ "$prod_before" = "$prod_after" ]; then

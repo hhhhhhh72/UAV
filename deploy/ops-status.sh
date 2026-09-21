@@ -17,6 +17,10 @@ set -uo pipefail
 OUT=${OUT:-/var/www/ops-status.json}
 BACKUP_DIR=${BACKUP_DIR:-$HOME/UAV-db-backups}
 CERT=${CERT:-/etc/nginx/certs/api.cqnarc.cn.fullchain.crt}
+# 服务端证书探测目标：默认打本机 443。为什么要探测而不是只读文件，见下面「证书」一节。
+CERT_HOST=${CERT_HOST:-127.0.0.1}
+CERT_PORT=${CERT_PORT:-443}
+CERT_NAME=${CERT_NAME:-api.cqnarc.cn}
 
 # 阈值集中在此，探活侧只读 ok 标志，避免两边各写一套判断而漂移。
 DISK_MAX_PERCENT=${DISK_MAX_PERCENT:-85}
@@ -119,13 +123,42 @@ containers_ok=false
 [ "$api_state" = running ] && [ "$db_state" = running ] && containers_ok=true
 
 # ---- 证书 ----
-cert_days=-1; cert_ok=false
+#
+# 两个独立信号，缺一不可（2026-09-21 重写，为自动续期做配套）：
+#   ① **nginx 实际在服务的那张证书** —— 客户端握手时真正拿到的东西（openssl s_client 打本机 443）
+#   ② **文件里的那张证书** —— nginx 配置 ssl_certificate 指向的那个文件
+#
+# 为什么必须看服务端那份：证书文件换了但 nginx 没 reload 时，**文件检查全绿**，
+# 而客户端拿到的仍然是旧证书 —— 到期当天全站 HTTPS 直接下线，快照却从没报过。
+# 这正是本项目反复踩的那一类假绿（备份静默失败 / 告警填错 URL / 周任务从没跑过）：
+# 检查的**对象**不是出故障的那个对象。证书这条尤其危险，因为续期脚本每天都在写文件。
+# 反过来只查服务端也有盲区：看得出"客户端拿到旧的"，看不出是哪个文件、差多少天。
+cert_days=-1; file_days=-1; cert_ok=false; cert_note=""
+served_serial=""; file_serial=""
+served_raw=$(echo | timeout 10 openssl s_client -connect "$CERT_HOST:$CERT_PORT" -servername "$CERT_NAME" 2>/dev/null \
+  | openssl x509 -noout -serial -enddate 2>/dev/null)
+served_serial=$(printf '%s\n' "$served_raw" | sed -n 's/^serial=//p')
+served_end=$(printf '%s\n' "$served_raw" | sed -n 's/^notAfter=//p')
+[ -n "$served_end" ] && cert_days=$(( ( $(date -d "$served_end" +%s) - now_epoch ) / 86400 ))
 if [ -f "$CERT" ]; then
-  end=$(openssl x509 -in "$CERT" -noout -enddate 2>/dev/null | cut -d= -f2)
-  if [ -n "$end" ]; then
-    cert_days=$(( ( $(date -d "$end" +%s) - now_epoch ) / 86400 ))
-    [ "$cert_days" -gt "$CERT_MIN_DAYS" ] && cert_ok=true
-  fi
+  file_serial=$(openssl x509 -in "$CERT" -noout -serial 2>/dev/null | sed 's/^serial=//')
+  file_end=$(openssl x509 -in "$CERT" -noout -enddate 2>/dev/null | cut -d= -f2)
+  [ -n "$file_end" ] && file_days=$(( ( $(date -d "$file_end" +%s) - now_epoch ) / 86400 ))
+fi
+if [ -z "$served_serial" ]; then
+  cert_note="取不到 nginx 正在服务的证书（$CERT_HOST:$CERT_PORT 握手失败 —— nginx 可能没在跑）"
+  echo "WARN: $cert_note" >&2
+elif [ "$cert_days" -le "$CERT_MIN_DAYS" ]; then
+  cert_note="nginx 正在服务的证书只剩 $cert_days 天（阈值 $CERT_MIN_DAYS 天），需要续期"
+  echo "WARN: $cert_note" >&2
+elif [ -z "$file_serial" ]; then
+  cert_note="读不到证书文件 $CERT"
+  echo "WARN: $cert_note" >&2
+elif [ "$file_serial" != "$served_serial" ]; then
+  cert_note="证书文件与 nginx 正在服务的不一致（文件 $file_serial / 服务中 $served_serial）—— 换了证书但没 reload，客户端拿到的还是旧的"
+  echo "WARN: $cert_note" >&2
+else
+  cert_ok=true
 fi
 
 # ---- 托管金（资金）不变量 ----
@@ -211,12 +244,18 @@ fi
 JOB_HYGIENE_LOG=${JOB_HYGIENE_LOG:-$HOME/UAV-db-backups/disk-hygiene.log}
 JOB_ALERT_HB=${JOB_ALERT_HB:-$HOME/UAV-db-backups/.alert-heartbeat}
 JOB_WORK_REPORT_HB=${JOB_WORK_REPORT_HB:-$HOME/UAV-db-backups/.work-report-heartbeat}
+# 证书续期（2026-09-21 起每天 04:30 由 cron 跑 deploy/cert-renew.sh）。
+# 它**有**结果产物（证书到期日），但那 60 天才变一次，证明不了"今天跑了"；
+# 而日志每天都会写一行（"证书还有 N 天，本次不续期"），所以用日志年龄做过程类心跳。
+# 26 小时 = 每天一次 + 2 小时抖动余量。
+JOB_CERT_RENEW_LOG=${JOB_CERT_RENEW_LOG:-$HOME/UAV-db-backups/cert-renew.log}
 HYGIENE_MAX_HOURS=${HYGIENE_MAX_HOURS:-26}
 ALERT_MAX_MINUTES=${ALERT_MAX_MINUTES:-60}
 # 工作日报是**日**任务（本机 17:30 生成 → scp 到服务器 → 由 post-work-report.sh 发出）：
 # 两次之间正好隔 24 小时，阈值必须留余量，否则每天都会在「上一次跑完」到「下一次该跑」
 # 之间出现一段假告警窗口。30 小时 = 24 小时 + 6 小时抖动余量。
 WORK_REPORT_MAX_HOURS=${WORK_REPORT_MAX_HOURS:-30}
+CERT_RENEW_MAX_HOURS=${CERT_RENEW_MAX_HOURS:-26}
 
 # age_hours_of 输出文件年龄（小时，一位小数）；不存在输出 -1。
 age_hours_of() {
@@ -235,8 +274,14 @@ alert_max_hours=$(awk -v m="$ALERT_MAX_MINUTES" 'BEGIN{printf "%.2f", m/60}')
 # 它真的在跑」。只在**送达**时前移的时间戳才挡得住这种假绿。
 job_workreport=$(age_hours_of "$JOB_WORK_REPORT_HB")
 
+# 证书续期：日志每天写一行，停摆超过 26 小时即说明 cron 没跑（或脚本自己挂了）。
+# 它挡的是"续期任务静默消失"这类故障 —— 光看证书到期日要等到只剩 21 天才发现，
+# 那时距离真过期只剩 21 天，余量太薄。
+job_certrenew=$(age_hours_of "$JOB_CERT_RENEW_LOG")
+
 jobs_ok=false
-if within "$job_hygiene" "$HYGIENE_MAX_HOURS" && within "$job_alerthb" "$alert_max_hours" && within "$job_workreport" "$WORK_REPORT_MAX_HOURS"; then
+if within "$job_hygiene" "$HYGIENE_MAX_HOURS" && within "$job_alerthb" "$alert_max_hours" \
+   && within "$job_workreport" "$WORK_REPORT_MAX_HOURS" && within "$job_certrenew" "$CERT_RENEW_MAX_HOURS"; then
   jobs_ok=true
 fi
 
@@ -336,9 +381,9 @@ cat > "$tmp" <<JSON
   "backup": {"file": "$backup_file", "age_hours": $backup_age_hours, "size_bytes": $backup_size, "integrity": "$backup_integrity", "uploads_file": "$uploads_file", "uploads_age_hours": $uploads_age_hours, "uploads_integrity": "$uploads_integrity", "max_age_hours": $BACKUP_MAX_AGE_HOURS, "ok": $backup_ok},
   "restore_drill": {"age_days": $drill_age_days, "max_age_days": $DRILL_MAX_AGE_DAYS, "tables": $drill_tables, "note": "$drill_note", "ok": $drill_ok},
   "containers": {"api": "$api_state", "db": "$db_state", "ok": $containers_ok},
-  "cert": {"days_left": $cert_days, "min_days": $CERT_MIN_DAYS, "ok": $cert_ok},
+  "cert": {"days_left": $cert_days, "file_days_left": $file_days, "min_days": $CERT_MIN_DAYS, "served_serial": "$served_serial", "file_serial": "$file_serial", "note": "$cert_note", "ok": $cert_ok},
   "escrow": {"indexes": $esc_idx, "dup_keys": $esc_dup, "ledger_mismatch": $esc_mismatch, "unknown_tx_types": $esc_unknown, "accounts": $esc_accounts, "frozen_fen": $esc_frozen, "ok": $escrow_ok},
-  "jobs": {"hygiene_log_age_hours": $job_hygiene, "hygiene_max_hours": $HYGIENE_MAX_HOURS, "alert_heartbeat_age_hours": $job_alerthb, "alert_max_minutes": $ALERT_MAX_MINUTES, "work_report_age_hours": $job_workreport, "work_report_max_hours": $WORK_REPORT_MAX_HOURS, "ok": $jobs_ok},
+  "jobs": {"hygiene_log_age_hours": $job_hygiene, "hygiene_max_hours": $HYGIENE_MAX_HOURS, "alert_heartbeat_age_hours": $job_alerthb, "alert_max_minutes": $ALERT_MAX_MINUTES, "work_report_age_hours": $job_workreport, "work_report_max_hours": $WORK_REPORT_MAX_HOURS, "cert_renew_log_age_hours": $job_certrenew, "cert_renew_max_hours": $CERT_RENEW_MAX_HOURS, "ok": $jobs_ok},
   "instances": {"api_containers": $api_replicas, "db_client_addrs": ${db_clients:-0}, "max_allowed": $INSTANCE_MAX, "detail": "$instances_note", "ok": $instances_ok},
   "counters": {"drift_total": $counters_total, "competition": $cnt_comp, "event": $cnt_event, "course_remain": $cnt_cremain, "course_undercount": $cnt_cunder, "detail": "$counters_note", "ok": $counters_ok},
   "schema_version": "$schema"
