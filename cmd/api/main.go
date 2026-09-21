@@ -202,41 +202,41 @@ func main() {
 	}
 
 	var (
-		demandRepo         repository.DemandRepository
-		intentRepo         repository.IntentRepository
-		workOrderRepo      repository.WorkOrderRepository
-		enterpriseRepo     repository.EnterpriseRepository
-		employmentRepo     repository.EmploymentRepository
-		contractRepo       repository.ContractRepository
-		contractTplRepo    repository.ContractTemplateRepository
-		jobRepo            repository.JobRepository
-		resumeRepo         repository.ResumeRepository
-		appRepo            repository.JobApplicationRepository
-		postRepo           repository.PostRepository
-		commentRepo        repository.CommentRepository
-		reportRepo         repository.ReportRepository
-		listingRepo        repository.ListingRepository
-		labourRepo         repository.LabourOrderRepository
-		userRepo           repository.UserRepository
-		refreshTokenRepo   repository.RefreshTokenRepository
-		certRepo           repository.CertificateRepository
-		courseRepo         repository.CourseRepository
-		instructorRepo     repository.InstructorRepository
-		pilotRepo          repository.PilotRepository
-		productRepo        repository.ProductRepository
-		repairRepo         repository.RepairRepository
-		policyRepo         repository.PolicyRepository
-		inspectRepo        repository.InspectionRepository
-		loanRepo           repository.LoanRepository
-		msgRepo            repository.MessageRepository
-		articleRepo        repository.ArticleRepository
-		reviewRepo         repository.ReviewRepository
-		venueRepo          repository.VenueRepository
-		enrollRepo         repository.EnrollmentRepository
-		tradeOrderRepo     repository.TradeOrderRepository
-		escrowRepo         repository.EscrowRepository
-		paymentOrderRepo   repository.PaymentOrderRepository
-		paymentRefundRepo  repository.PaymentRefundRepository
+		demandRepo        repository.DemandRepository
+		intentRepo        repository.IntentRepository
+		workOrderRepo     repository.WorkOrderRepository
+		enterpriseRepo    repository.EnterpriseRepository
+		employmentRepo    repository.EmploymentRepository
+		contractRepo      repository.ContractRepository
+		contractTplRepo   repository.ContractTemplateRepository
+		jobRepo           repository.JobRepository
+		resumeRepo        repository.ResumeRepository
+		appRepo           repository.JobApplicationRepository
+		postRepo          repository.PostRepository
+		commentRepo       repository.CommentRepository
+		reportRepo        repository.ReportRepository
+		listingRepo       repository.ListingRepository
+		labourRepo        repository.LabourOrderRepository
+		userRepo          repository.UserRepository
+		refreshTokenRepo  repository.RefreshTokenRepository
+		certRepo          repository.CertificateRepository
+		courseRepo        repository.CourseRepository
+		instructorRepo    repository.InstructorRepository
+		pilotRepo         repository.PilotRepository
+		productRepo       repository.ProductRepository
+		repairRepo        repository.RepairRepository
+		policyRepo        repository.PolicyRepository
+		inspectRepo       repository.InspectionRepository
+		loanRepo          repository.LoanRepository
+		msgRepo           repository.MessageRepository
+		articleRepo       repository.ArticleRepository
+		reviewRepo        repository.ReviewRepository
+		venueRepo         repository.VenueRepository
+		enrollRepo        repository.EnrollmentRepository
+		tradeOrderRepo    repository.TradeOrderRepository
+		escrowRepo        repository.EscrowRepository
+		paymentOrderRepo  repository.PaymentOrderRepository
+		paymentRefundRepo repository.PaymentRefundRepository
 		// 资源池/校企/救援案例/应急部门/协会成员：PG 实现位于 batch3_repos.go，DATABASE_URL 分支下会替换为 PG 实现。
 		poolRepo        = memory.NewResourcePoolRepository()
 		coopRepo        = memory.NewCooperationRepository()
@@ -314,7 +314,7 @@ func main() {
 		articleRepo = pgStore.NewArticleRepository()
 		reviewRepo = pgStore.NewReviewRepository()
 		venueRepo = pgStore.NewVenueRepository()
-		enrollRepo = pgStore.NewEnrollmentRepository()
+		enrollRepo = pgStore.NewEnrollmentRepository(cipher) // 报名实名字段静态加密（与 pilot/competition 同源 cipher）
 		tradeOrderRepo = pgStore.NewTradeOrderRepository()
 		escrowRepo = pgStore.NewEscrowRepository()
 		paymentOrderRepo = pgStore.NewPaymentOrderRepository()

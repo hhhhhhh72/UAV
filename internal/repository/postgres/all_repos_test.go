@@ -533,7 +533,7 @@ func TestPG_EnrollmentRepo(t *testing.T) {
 	if pgStore == nil {
 		t.Skip("PG not available")
 	}
-	r := pgStore.NewEnrollmentRepository()
+	r := pgStore.NewEnrollmentRepository(nil) // nil cipher：本用例只验证增删查改
 	id := uid("enr")
 	r.Create(context.Background(), domain.Enrollment{ID: id, CourseID: "crs-1", UserID: "u-1"})
 	r.ListByCourse(context.Background(), "crs-1")

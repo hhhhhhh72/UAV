@@ -29,6 +29,9 @@ func main() {
 	newKey := flag.String("new-key", "", "new ENCRYPTION_KEY (base64)")
 	apply := flag.Bool("apply", false, "apply re-encryption (default: dry-run)")
 	verify := flag.Bool("verify", false, "verify all values decrypt with -new-key")
+	// -encrypt-legacy：把「历史明文」也补加密。默认不动它们（原设计如此），
+	// 需要补齐加密覆盖时显式打开 —— 培训报名的实名信息、种子期建的企业账号名属于这一类。
+	encryptLegacy := flag.Bool("encrypt-legacy", false, "also encrypt values that are legacy plaintext (not old-key ciphertext)")
 	flag.Parse()
 
 	if *dsn == "" {
@@ -66,7 +69,7 @@ func main() {
 
 	total := 0
 	for _, col := range crypto.EncryptedColumns {
-		changed, plaintext, err := reencryptColumn(ctx, conn, col.Table, col.Column, oldC, newC, *apply)
+		changed, plaintext, err := reencryptColumn(ctx, conn, col.Table, col.Column, oldC, newC, *apply, *encryptLegacy)
 		if err != nil {
 			log.Printf("[%s.%s] SKIPPED: %v", col.Table, col.Column, err)
 			continue
@@ -89,7 +92,7 @@ func modeLabel(apply bool) string {
 // with the new key. Values that do not decrypt with the old key are treated as
 // legacy plaintext and left untouched (counted separately). Runs in one
 // transaction per table so a failure rolls back the whole table.
-func reencryptColumn(ctx context.Context, conn *pgx.Conn, table, column string, oldC, newC *crypto.Cipher, apply bool) (changed, plaintext int, err error) {
+func reencryptColumn(ctx context.Context, conn *pgx.Conn, table, column string, oldC, newC *crypto.Cipher, apply, encryptLegacy bool) (changed, plaintext int, err error) {
 	rows, err := conn.Query(ctx, fmt.Sprintf(
 		"SELECT id, %s FROM %s WHERE %s IS NOT NULL AND %s <> ''", column, table, column, column))
 	if err != nil {
@@ -114,8 +117,29 @@ func reencryptColumn(ctx context.Context, conn *pgx.Conn, table, column string, 
 	}
 
 	for _, r := range vals {
+		if oldC == nil {
+			// 没给旧密钥就无法区分"旧密钥密文"与"历史明文"，一律按明文计数（旧的写法会 panic）
+			plaintext++
+			continue
+		}
 		plain, derr := oldC.Decrypt(r.value)
 		if derr != nil {
+			// 不是旧密钥的密文 = 历史明文。**默认按原设计不动它**；
+			// 加了 -encrypt-legacy 就补加密（2026-09-21 起支持）—— 培训报名的实名信息、
+			// 种子期建的企业账号名都属于这一类，靠它才能把"加密范围"补齐。
+			if encryptLegacy {
+				enc, eerr := newC.Encrypt(r.value)
+				if eerr != nil {
+					return changed, plaintext, fmt.Errorf("encrypt legacy %s.%s id=%v: %w", table, column, r.id, eerr)
+				}
+				changed++
+				if apply {
+					if _, err := conn.Exec(ctx, fmt.Sprintf("UPDATE %s SET %s = $1 WHERE id = $2", table, column), enc, r.id); err != nil {
+						return changed, plaintext, fmt.Errorf("update legacy %s.%s id=%v: %w", table, column, r.id, err)
+					}
+				}
+				continue
+			}
 			plaintext++ // not old-key ciphertext: legacy plaintext, leave as-is
 			continue
 		}

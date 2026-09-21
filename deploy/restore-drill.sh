@@ -89,12 +89,28 @@ enc_ok=true
 enc_summary=""
 # 工具新鲜度：crypto 实现改了而工具没重建，演练校验的就是**旧逻辑**——那和没校验一样。
 # 部署会把 cmd/keycheck/main.go 一起带到 /root/UAV，所以源文件比二进制新 = 必须重建。
+# 工具新鲜度用**内容哈希**比对，不用 mtime：deploy-api.sh 每次解包都会对 *.go 跑
+# sed -i 去 CRLF，源文件 mtime 因此每次都被刷新 —— 按 mtime 判定会**次次误报**
+# （2026-09-21 实际发生：部署完演练立刻变红）。哈希只认内容，sed 不改内容就不会误报。
 KEYCHECK_SRC=${KEYCHECK_SRC:-/root/UAV/cmd/keycheck/main.go}
+KEYCHECK_INV=${KEYCHECK_INV:-/root/UAV/internal/crypto/inventory.go}
+KEYCHECK_HASH=${KEYCHECK_HASH:-/root/UAV/tools/keycheck.sources.sha256}
 if [ ! -x "$KEYCHECK" ]; then
   enc_ok=false; enc_summary="缺少 $KEYCHECK，无法校验加密字段"
-elif [ -f "$KEYCHECK_SRC" ] && [ "$KEYCHECK_SRC" -nt "$KEYCHECK" ]; then
-  enc_ok=false; enc_summary="$KEYCHECK_SRC 比工具新 —— 工具过期，需在开发机重建后重传"
+elif [ -f "$KEYCHECK_HASH" ] && [ -f "$KEYCHECK_SRC" ] && [ -f "$KEYCHECK_INV" ]; then
+  want=$(cut -d' ' -f1 "$KEYCHECK_HASH" | head -1)
+  got=$(cat "$KEYCHECK_SRC" "$KEYCHECK_INV" | sha256sum | cut -d' ' -f1)
+  if [ "$want" != "$got" ]; then
+    enc_ok=false
+    enc_summary="源码与工具不一致（记录 ${want:0:8} / 实测 ${got:0:8}）—— 需在开发机重建 tools/keycheck 后重传"
+  fi
 else
+  # 缺哈希清单就等于"无法确认工具是不是当前源码构建的" —— 按 fail-closed 判失败，
+  # 而不是留一句 note 放行（那样删掉清单就能让这道检查静默失效）。
+  enc_ok=false
+  enc_summary="缺少 $KEYCHECK_HASH —— 无法比对工具与源码，需重传 tools/keycheck.sources.sha256"
+fi
+if [ "$enc_ok" = true ]; then
   enc_key=$(grep -E '^ENCRYPTION_KEY=' "$ENVFILE" 2>/dev/null | head -1 | cut -d= -f2-)
   if [ -z "$enc_key" ]; then
     enc_ok=false; enc_summary="未能从 $ENVFILE 取到 ENCRYPTION_KEY"

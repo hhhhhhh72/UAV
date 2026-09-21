@@ -26,4 +26,9 @@ var EncryptedColumns = []Column{
 	{"certified_pilots", "id_card"},
 	{"competition_registrations", "id_card"},
 	{"competition_registrations", "phone"},
+	// 2026-09-21 补：培训报名的实名信息此前是**明文入库**（实测 id_card=500202100766642255、
+	// phone=19823864146），而飞手档案与赛事报名早已加密 —— 同一个仓、同一把 cipher，只有这条
+	// 链路漏了。写路径见 phase3_repos2.go 的 enrollRepo.encPII / decPII。
+	{"training_enrollments", "id_card"},
+	{"training_enrollments", "phone"},
 }

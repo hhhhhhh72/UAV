@@ -1,7 +1,11 @@
 # ---- Build stage ----
 FROM golang:1.25-alpine AS builder
 
-RUN apk add --no-cache git ca-certificates
+# Alpine 源换国内镜像：dl-cdn 从这台机器下载**每个包要 60–190 秒**（2026-09-21 实测），
+# 一次构建 12 个包 → 十几分钟；中途一抖动整个发布就失败（当天真的发生过一次，
+# 报 apk add exit 1）。阿里云镜像实测 200 且快两个数量级。
+RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories && \
+    apk add --no-cache git ca-certificates
 
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -13,7 +17,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app ./cmd/a
 # ---- Run stage ----
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN sed -i 's#dl-cdn.alpinelinux.org#mirrors.aliyun.com#g' /etc/apk/repositories && \
+    apk add --no-cache ca-certificates tzdata
 ENV TZ=Asia/Shanghai
 
 # 安全加固（审计 H1）：非 root 运行 + 最小权限——容器被 RCE 后爆炸半径受限于 appuser

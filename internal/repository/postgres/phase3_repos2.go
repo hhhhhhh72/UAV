@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"drone-platform/internal/crypto"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"drone-platform/internal/domain"
@@ -490,14 +492,58 @@ func (r *venueRepo) ListBookings(ctx context.Context, venueID string) ([]domain.
 
 // ---- Enrollment ----
 
-type enrollRepo struct{ pool *pgxpool.Pool }
+type enrollRepo struct {
+	pool   *pgxpool.Pool
+	cipher *crypto.Cipher // 报名实名字段（手机号 / 身份证号）静态加密，仿 pilotRepo / compRepo
+}
 
-func (s *Store) NewEnrollmentRepository() repository.EnrollmentRepository {
-	return &enrollRepo{pool: s.Pool()}
+func (s *Store) NewEnrollmentRepository(cipher *crypto.Cipher) repository.EnrollmentRepository {
+	return &enrollRepo{pool: s.Pool(), cipher: cipher}
+}
+
+// encPII 加密报名实名字段（cipher 为空或失败时保留明文，兼容无 ENCRYPTION_KEY 环境）。
+func (r *enrollRepo) encPII(e *domain.Enrollment) {
+	if r.cipher == nil {
+		return
+	}
+	if e.Phone != "" {
+		if enc, err := r.cipher.Encrypt(e.Phone); err == nil {
+			e.Phone = enc
+		}
+	}
+	if e.IDCard != "" {
+		if enc, err := r.cipher.Encrypt(e.IDCard); err == nil {
+			e.IDCard = enc
+		}
+	}
+}
+
+// decPII 解密报名实名字段。**解不开就置空，绝不把密文当身份证回传**（与 compRepo.decRegPII
+// 同一约定）—— 密钥被轮换/数据损坏时，界面上应是「没有」，而不是一串 base64。
+func (r *enrollRepo) decPII(e *domain.Enrollment) {
+	if r.cipher == nil {
+		return
+	}
+	if e.Phone != "" {
+		if dec, err := r.cipher.Decrypt(e.Phone); err == nil {
+			e.Phone = dec
+		} else {
+			e.Phone = ""
+		}
+	}
+	if e.IDCard != "" {
+		if dec, err := r.cipher.Decrypt(e.IDCard); err == nil {
+			e.IDCard = dec
+		} else {
+			e.IDCard = ""
+		}
+	}
 }
 
 func (r *enrollRepo) Create(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error) {
 	e.CreatedAt = time.Now()
+	saved := e // 保存明文副本：入库加密、返回给调用方的仍是明文
+	r.encPII(&e)
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO training_enrollments (id,course_id,user_id,name,phone,id_card,gender,birthday,email,education,experience,photo_url,id_card_image,id_card_back,no_crime,status,paid_amount_fen,review_note,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
 		e.ID, e.CourseID, e.UserID, e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.IDCardBack, e.NoCrime, e.Status, e.PaidAmountFen, e.ReviewNote, e.CreatedAt)
@@ -509,17 +555,19 @@ func (r *enrollRepo) Create(ctx context.Context, e domain.Enrollment) (domain.En
 		}
 		return domain.Enrollment{}, fmt.Errorf("create enrollment: %w", err)
 	}
-	return e, nil
+	return saved, nil
 }
 
 func (r *enrollRepo) Update(ctx context.Context, e domain.Enrollment) (domain.Enrollment, error) {
+	saved := e
+	r.encPII(&e)
 	_, err := r.pool.Exec(ctx,
 		`UPDATE training_enrollments SET name=$1,phone=$2,id_card=$3,gender=$4,birthday=$5,email=$6,education=$7,experience=$8,photo_url=$9,id_card_image=$10,id_card_back=$11,no_crime=$12,status=$13,paid_amount_fen=$14,review_note=$15 WHERE id=$16`,
 		e.Name, e.Phone, e.IDCard, e.Gender, e.Birthday, e.Email, e.Education, e.Experience, e.PhotoURL, e.IDCardImage, e.IDCardBack, e.NoCrime, e.Status, e.PaidAmountFen, e.ReviewNote, e.ID)
 	if err != nil {
 		return domain.Enrollment{}, fmt.Errorf("update enrollment %s: %w", e.ID, err)
 	}
-	return e, nil
+	return saved, nil
 }
 
 // UpdateStatusCas 原子状态迁移：仅当前状态 == from 时改为 to（completed 终态 CAS，
@@ -560,6 +608,7 @@ func (r *enrollRepo) ListAll(ctx context.Context, offset, limit int) ([]domain.E
 		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.IDCardBack, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.ReviewNote, &e.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan enrollment: %w", err)
 		}
+		r.decPII(&e)
 		out = append(out, e)
 	}
 	return out, total, rows.Err()
@@ -577,6 +626,7 @@ func (r *enrollRepo) ListByCourse(ctx context.Context, courseID string) ([]domai
 		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.IDCardBack, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.ReviewNote, &e.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan enrollment: %w", err)
 		}
+		r.decPII(&e)
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -596,6 +646,7 @@ func (r *enrollRepo) ListByUser(ctx context.Context, userID string) ([]domain.En
 		if err := rows.Scan(&e.ID, &e.CourseID, &e.UserID, &e.Name, &e.Phone, &e.IDCard, &e.Gender, &e.Birthday, &e.Email, &e.Education, &e.Experience, &e.PhotoURL, &e.IDCardImage, &e.IDCardBack, &e.NoCrime, &e.Status, &e.PaidAmountFen, &e.ReviewNote, &e.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan enrollment: %w", err)
 		}
+		r.decPII(&e)
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -611,6 +662,7 @@ func (r *enrollRepo) FindByUserAndCourse(ctx context.Context, userID, courseID s
 		}
 		return domain.Enrollment{}, false, fmt.Errorf("find enrollment by user and course: %w", err)
 	}
+	r.decPII(&e)
 	return e, true, nil
 }
 func (r *enrollRepo) FindByID(ctx context.Context, id string) (domain.Enrollment, error) {
@@ -621,6 +673,7 @@ func (r *enrollRepo) FindByID(ctx context.Context, id string) (domain.Enrollment
 	if err != nil {
 		return domain.Enrollment{}, fmt.Errorf("enrollment %s not found: %w", id, err)
 	}
+	r.decPII(&e)
 	return e, nil
 }
 
@@ -695,7 +748,7 @@ func (r *tradeOrderRepo) CompareAndSetStatus(ctx context.Context, id, oldStatus,
 }
 
 // Ship 卖家发货：写入快递公司/单号并把状态从 paid 迁到 shipped（条件更新，防重复发货）。
-// 两条约束放 WHERE：状态必须是 paid、且尚未写过单号（shipping_tracking=''）。
+// 两条约束放 WHERE：状态必须是 paid、且尚未写过单号（shipping_tracking=”）。
 func (r *tradeOrderRepo) Ship(ctx context.Context, id, company, tracking string) (domain.TradeOrder, error) {
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE trade_orders
@@ -1064,6 +1117,7 @@ func (r *escrowRepo) Refund(ctx context.Context, userID string, amountFen int64,
 	// 整体回滚并按幂等成功返回——付款方不会被重复退回同一笔冻结款。
 	return r.commitFundMove(ctx, btx, tx, "refund")
 }
+
 // Withdraw 出账：从冻结里扣掉、余额不动（钱离开平台）。
 // 冻结额条件更新防并发超扣；流水与余额调整同事务，重复出账由
 // idx_escrow_once_per_ref（000119 起覆盖 withdraw）挡下并整体回滚。

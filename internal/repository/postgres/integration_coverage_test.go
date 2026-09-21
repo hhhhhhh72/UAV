@@ -615,7 +615,7 @@ func TestCoverage_EnrollmentRepo(t *testing.T) {
 	if store == nil {
 		return
 	}
-	repo := store.NewEnrollmentRepository()
+	repo := store.NewEnrollmentRepository(nil)
 	userID := ug("cov-enr-user")
 	courseID := ug("cov-enr-course")
 	id := ug("cov-enr")
