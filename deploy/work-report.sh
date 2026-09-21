@@ -16,8 +16,11 @@
 #   DAY=2026-09-17 SKIP_FETCH=1 bash deploy/work-report.sh   # 补发（网络不通、但本地裸库已有数据）
 #
 # cron（root）：
-#   30 19 * * * /root/UAV/deploy/work-report.sh >> /root/UAV-db-backups/work-report-cron.log 2>&1
-#   定 19:30 而不是 17:30：服务器一直开着，晚一点能把整个下午的活都盖进来，也仍在 20:00 前。
+#   30 17 * * * /root/UAV/deploy/work-report.sh >> /root/UAV-db-backups/work-report-cron.log 2>&1
+#   2026-09-21 起定 **17:30**（负责人要求提前；此前是 19:30）。
+#   **已知代价**：17:30 之后提交的活当天看不到，也**不会补到第二天**（第二天报的是第二天的提交）。
+#   原定 19:30 就是为了盖住整个下午。要两头都占，可以再加一班次日早晨只报
+#   「昨天 17:30 之后的新增提交」—— 需要给 work_report.py 加一个 --since 口径，还没做。
 set -uo pipefail
 
 REPO=${REPO:-/root/UAV-repo.git}
@@ -31,18 +34,19 @@ DAY=${DAY:-$(date +%F)}
 MODE=${1:-}
 # SKIP_FETCH=1 跳过 git fetch，直接用本地裸库里已有的数据生成 —— **人工补发**用。
 # 场景（2026-09-21 真实发生）：服务器连不上 github.com:443（HTTPS 主站被挡，api/codeload/
-# ssh:443/22 都通），19:30 那班按设计拒发；而本地裸库其实**已经有当天全部提交**
+# ssh:443/22 都通），当天那一班按设计拒发；而本地裸库其实**已经有当天全部提交**
 #（17:11 那次 fetch 是成功的）。补发只需要一个"别再 fetch"的开关。
 SKIP_FETCH=${SKIP_FETCH:-0}
 # 重试窗口：偶发封锁可能持续几十分钟，5 分钟就放弃会把一整天的汇报丢掉
 #（2026-09-20 实测：三次重试在 19:35 全部失败，当天 16 个提交一条没汇报）。
+# 注意窗口要能盖住"这一班"：17:30 起跑 + 9000 秒 = 20:00 收工，仍在当天。
 # 每轮内部仍是 60/120/180 秒递进三次，轮与轮之间间隔 RETRY_GAP_SECONDS，
 # 直到累计等待超过 RETRY_WINDOW_SECONDS 才放弃并通知。
 RETRY_WINDOW_SECONDS=${RETRY_WINDOW_SECONDS:-9000}
 RETRY_GAP_SECONDS=${RETRY_GAP_SECONDS:-300}
 # 备用通道：2026-09-21 实测这台机器**只有 github.com:443 不通**（HTTPS 主站被挡），
 # 而 api.github.com / codeload / raw / ssh.github.com:443 / github.com:22 全通。
-# 裸库的 origin 正是被封的那个 https 地址，于是每天 19:30 只能干等。
+# 裸库的 origin 正是被封的那个 https 地址，于是每天那一班只能干等。
 # 这里加一条 SSH over 443 的备用通道（需要仓库侧加只读 Deploy key，见 .pub）。
 REPORT_REMOTE_FALLBACK=${REPORT_REMOTE_FALLBACK:-ssh://git@ssh.github.com:443/hhhhhhh72/UAV.git}
 REPORT_SSH_KEY=${REPORT_SSH_KEY:-/root/.ssh/uav_report_ed25519}
