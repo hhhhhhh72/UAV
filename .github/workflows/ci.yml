@@ -134,3 +134,13 @@ jobs:
         # 才暴露。逐条比对后端 mux.HandleFunc 注册点与小程序/管理后台里的调用点。
         working-directory: .
         run: node scripts/check-api-contract.cjs
+
+      - name: Order status role check (miniprogram)
+        # 订单状态 completed 在小程序里被展示成「待评价」，但这只对**买家**成立：
+        # 评价是买家对卖家的行为，卖家没有评价入口。第一版不问角色，于是发布方（卖家）
+        # 看着自己卖出去、买家早已评过的单，卡片写「待评价」、按钮写「已完成」，
+        # 而且永远出不去「待评价」列表（reviewed 算的是"当前用户有没有评价过"）。
+        # 用户连报两次，第二次才定位到是角色问题 —— 所以钉成检查器。
+        # 它跑的是**真正的 orderAdapter.js**（把 request/uni 换成桩），不是复刻判断逻辑。
+        working-directory: .
+        run: node scripts/check-order-status-role.cjs

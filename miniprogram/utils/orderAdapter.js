@@ -269,9 +269,15 @@ function normalizeRealOrder(t, product) {
     subtitle: productSubtitle(product),
     amount_fen: t.amount_fen ?? 0,
     quantity_label: '共 1 件',
-    due_text: STATUS_DUE_TEXT[status] || '待处理',
-    // 列表状态标签：售后单显示售后状态（结案单不回「待评价」）
-    status_text: af ? af.status : undefined,
+    // 「待评价」是**买家视角**的说法：评价是买家对卖家的行为，卖家根本没有评价入口。
+    // 此前不问角色，于是**卖家（发布方）**看着自己卖出去、买家早已评过的单，状态仍写着
+    // 「待评价」，而且永远出不去（reviewed 算的是"当前用户有没有评价过"，卖家恒为 false）
+    // —— 2026-09-22 用户（鸟咪，发布方）报的就是这个。
+    due_text: status === 'completed' && role === 'seller'
+      ? '交易已完成'
+      : (STATUS_DUE_TEXT[status] || '待处理'),
+    // 列表状态标签：售后单显示售后状态（结案单不回「待评价」）；卖家侧的 completed 是「已完成」
+    status_text: af ? af.status : (status === 'completed' && role === 'seller' ? '已完成' : undefined),
     action: statusAction(status, role, af),
     image: productImage(product) || '/static/home/demand-solar.jpg',
     created_at: t.created_at,
@@ -323,7 +329,11 @@ export async function loadOrders({ status = 'all', order_type = 'all' } = {}) {
     if (status === 'aftersale') return !!o.aftersale
     // 已评价的不再进「待评价」：此前漏了这个条件，于是角标被 isReviewed 减掉了、
     // 订单却还留在列表里 —— 角标和列表两套口径，用户看到的就是「评价完还在待评价」。
-    if (status === 'completed') return o.status === 'completed' && !o.aftersale && !o.reviewed
+    // 卖家侧一并排除：卖家没有评价入口，他卖出的 completed 单不该出现在「待评价」里
+    //（否则那条单对卖家来说永远出不去，因为 reviewed 是"当前用户是否评价过"）。
+    if (status === 'completed') {
+      return o.status === 'completed' && !o.aftersale && o.role !== 'seller' && !o.reviewed
+    }
     return o.status === status
   }
   const typeMatch = (o) => order_type === 'all' || o.type === order_type
@@ -350,8 +360,13 @@ export async function loadStatusCounts(order_type = 'all') {
     // 已评价判定以服务端 reviewed 为准，本地存储只作兜底
     const reviewed = !t.aftersale_status && t.status === 'completed' && (!!t.reviewed || isReviewed(t.id))
     const closed = !!t.aftersale_status && !actionable
+    // 卖家侧的 completed 单不是"待评价"（卖家没有评价入口）→ 用一个 counts 里没有的哨兵值，
+    // 下面那个 "counts[o.status] === undefined" 判断会把它整个跳过，不进任何角标。
+    const sellerDone = !!myId && t.seller_id === myId && !t.aftersale_status && t.status === 'completed'
     return {
-      status: actionable ? 'aftersale' : (reviewed ? 'reviewed' : (closed ? 'closed' : (t.status || 'pending'))),
+      status: actionable
+        ? 'aftersale'
+        : (sellerDone ? 'seller_done' : (reviewed ? 'reviewed' : (closed ? 'closed' : (t.status || 'pending')))),
       type: 'product',
       created_at: parseTs(t.created_at),
     }
@@ -485,7 +500,8 @@ export async function submitReview(orderId, { rating, content }) {
 // 不修改 status 字段（避免破坏状态筛选与角标统计），仅覆盖展示文案。
 // 售后单（order.aftersale 非空）不适用——结案单状态也是 completed，但应显示售后状态而非「已评价」。
 function applyReviewed(order) {
-  if (!order || order.status !== 'completed' || order.aftersale) return order
+  // 卖家没有评价入口：他的 completed 单是「已完成」，不该被套上「已评价」
+  if (!order || order.status !== 'completed' || order.aftersale || order.role === 'seller') return order
   // 服务端 reviewed 优先；本地存储兜底（刚提交完、列表还没重新拉取的那一瞬间）
   if (!order.reviewed && !isReviewed(order.id)) return order
   const detail = order.detail
