@@ -14,7 +14,8 @@
       </view>
     </view>
 
-    <!-- 五个状态入口（固定顺序与文案） -->
+    <!-- 五个状态入口（顺序与数量固定；第 4 个的字面 2026-09-22 由「待评价」改为「已完成」——
+         卖家没有评价入口，"待评价"对他不成立，而他卖出的单要有地方可去。见 orderAdapter.js 说明） -->
     <view class="status-summary">
       <view
         v-for="s in statusEntries"
@@ -177,7 +178,7 @@ const statusEntries = [
   { key: 'pending', icon: '付', label: '待付款' },
   { key: 'paid', icon: '发', label: '待发货' },
   { key: 'shipped', icon: '收', label: '待收货' },
-  { key: 'completed', icon: '评', label: '待评价' },
+  { key: 'completed', icon: '完', label: '已完成' },
   { key: 'aftersale', icon: '售', label: '退款/售后' },
 ]
 

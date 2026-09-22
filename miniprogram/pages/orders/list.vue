@@ -143,7 +143,7 @@ const STATUS_TITLE = {
   pending: '待付款订单',
   paid: '待发货订单',
   shipped: '待收货订单',
-  completed: '待评价订单',
+  completed: '已完成订单',
   aftersale: '退款/售后',
 }
 

@@ -34,7 +34,11 @@ export const ORDER_STATUS = {
   cancelled: '已取消',
 }
 
-// 状态入口固定顺序与文案，不得改动
+// 状态入口的顺序与数量保持不变（五个），只有第 4 个的**字面**在 2026-09-22 改过：
+// 「待评价」→「已完成」。原因：这一行是「待办清单 + 售后」，而买卖双方混在同一个订单中心里 ——
+// 卖家（发布方）根本没有评价入口，"待评价"对他不成立，他卖出的 completed 单既显示错、
+// 又没有别的地方可去。改成「已完成」后它装**我所有的已完成单**（我买的 + 我卖的），
+// 买家侧还没评价的仍然在卡片上写「待评价」并给「去评价」按钮，角标也照旧只提示未评价的。
 export const STATUS_KEYS = ['pending', 'paid', 'shipped', 'completed', 'aftersale']
 
 export const ORDER_TYPES = ['all', 'product', 'course', 'service']
@@ -327,13 +331,11 @@ export async function loadOrders({ status = 'all', order_type = 'all' } = {}) {
   const statusMatch = (o) => {
     if (status === 'all') return true
     if (status === 'aftersale') return !!o.aftersale
-    // 已评价的不再进「待评价」：此前漏了这个条件，于是角标被 isReviewed 减掉了、
-    // 订单却还留在列表里 —— 角标和列表两套口径，用户看到的就是「评价完还在待评价」。
-    // 卖家侧一并排除：卖家没有评价入口，他卖出的 completed 单不该出现在「待评价」里
-    //（否则那条单对卖家来说永远出不去，因为 reviewed 是"当前用户是否评价过"）。
-    if (status === 'completed') {
-      return o.status === 'completed' && !o.aftersale && o.role !== 'seller' && !o.reviewed
-    }
+    // 第 4 个入口（「已完成」）= **我所有的已完成单**：我买的（已评价/未评价都算）+ 我卖的成交单。
+    // 「有没有评价」不再决定它进不进这个列表（那是卡片上的文案与角标的事）——
+    // 买家侧没评价的卡片写「待评价」并给「去评价」，已评价的写「已评价」，
+    // 我卖的写「已完成」。只排除售后单：结案的 completed 单归「退款/售后」。
+    if (status === 'completed') return o.status === 'completed' && !o.aftersale
     return o.status === status
   }
   const typeMatch = (o) => order_type === 'all' || o.type === order_type
