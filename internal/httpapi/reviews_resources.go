@@ -33,11 +33,18 @@ func (s *Server) submitReview(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// 重复评价是业务冲突（409），不是服务故障：此前统一 500，
 		// 前端只能提示"操作失败"，用户看不出"你已经评价过了"。
-		if errors.Is(err, service.ErrReviewAlreadyExists) {
+		switch {
+		case errors.Is(err, service.ErrReviewAlreadyExists):
 			fail(w, r, http.StatusConflict, err)
-			return
+		case errors.Is(err, service.ErrReviewTargetNotFound):
+			fail(w, r, http.StatusNotFound, err)
+		case errors.Is(err, service.ErrReviewNotAllowed):
+			fail(w, r, http.StatusForbidden, err)
+		case errors.Is(err, service.ErrReviewTargetNotReady):
+			fail(w, r, http.StatusConflict, err)
+		default:
+			fail(w, r, http.StatusInternalServerError, err)
 		}
-		fail(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	respond(w, r, http.StatusCreated, rev)

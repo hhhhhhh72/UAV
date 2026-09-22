@@ -19,7 +19,7 @@ func TestNotFoundAndStateConflictSentinels(t *testing.T) {
 
 	// 评价：不存在 → ErrReviewNotFound；已通过再驳回 → ErrReviewStateConflict
 	reviewRepo := memory.NewReviewRepository()
-	reviewSvc := service.NewReviewService(reviewRepo, memory.NewWorkOrderRepository())
+	reviewSvc := service.NewReviewService(reviewRepo, memory.NewWorkOrderRepository(), nil)
 	if err := reviewSvc.Approve(ctx, "ghost"); !errors.Is(err, service.ErrReviewNotFound) {
 		t.Fatalf("通过不存在的评价应 ErrReviewNotFound，实际 %v", err)
 	}

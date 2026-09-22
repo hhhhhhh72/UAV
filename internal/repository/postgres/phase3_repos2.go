@@ -355,6 +355,30 @@ func (r *reviewRepo) ListByReviewerTarget(ctx context.Context, reviewerID, targe
 	return out, rows.Err()
 }
 
+// ListReviewedTargetIDs 批量查「这批目标里哪些已被该评价人评价过」（不含 rejected）。
+// 一次 ANY($3) 查询，替代订单列表逐单查询。
+func (r *reviewRepo) ListReviewedTargetIDs(ctx context.Context, reviewerID, targetType string, targetIDs []string) (map[string]bool, error) {
+	out := make(map[string]bool, len(targetIDs))
+	if len(targetIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT target_id FROM reviews WHERE reviewer_id=$1 AND target_type=$2 AND status<>'rejected' AND target_id=ANY($3)`,
+		reviewerID, targetType, targetIDs)
+	if err != nil {
+		return nil, fmt.Errorf("list reviewed targets: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan reviewed target: %w", err)
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
 func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error) {
 	where := ""
 	args := []any{}

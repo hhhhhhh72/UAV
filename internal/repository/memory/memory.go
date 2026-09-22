@@ -3083,6 +3083,24 @@ func (r *reviewRepo) ListByReviewerTarget(ctx context.Context, reviewerID, targe
 	return out, nil
 }
 
+// ListReviewedTargetIDs 批量查（与 PG 实现对齐：pending/approved 算已评价，rejected 不算）。
+func (r *reviewRepo) ListReviewedTargetIDs(ctx context.Context, reviewerID, targetType string, targetIDs []string) (map[string]bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	want := make(map[string]bool, len(targetIDs))
+	for _, id := range targetIDs {
+		want[id] = true
+	}
+	out := make(map[string]bool)
+	for _, rv := range r.items {
+		if rv.ReviewerID == reviewerID && rv.TargetType == targetType &&
+			rv.Status != "rejected" && want[rv.TargetID] {
+			out[rv.TargetID] = true
+		}
+	}
+	return out, nil
+}
+
 func (r *reviewRepo) ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

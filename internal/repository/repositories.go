@@ -463,6 +463,11 @@ type ReviewRepository interface {
 	// 与 ListByTarget（仅 approved，对外展示口径）分开：提交幂等必须看全量，
 	// 否则新评价处于 pending 时查重为空，同一人可以反复提交（BUG-004）。
 	ListByReviewerTarget(ctx context.Context, reviewerID, targetType, targetID string) ([]domain.Review, error)
+	// ListReviewedTargetIDs 批量查「这批目标里，哪些已被该评价人评价过」，返回集合。
+	// 口径与 Submit 的幂等判定一致：pending/approved 都算已评价，**rejected 不算**
+	//（被驳回的可以重评，否则驳回一次就永远不能再评价）。
+	// 订单列表用它一次填好 reviewed 标志，避免逐单查询（与商品名 ListByIDs 同一个防 N+1 口径）。
+	ListReviewedTargetIDs(ctx context.Context, reviewerID, targetType string, targetIDs []string) (map[string]bool, error)
 	ListAll(ctx context.Context, status string, offset, limit int) ([]domain.Review, int, error)
 	FindByID(ctx context.Context, id string) (domain.Review, error)
 	UpdateStatus(ctx context.Context, id string, status string) (domain.Review, error)

@@ -40,7 +40,7 @@ func TestReviewWorkOrderValidation(t *testing.T) {
 	if _, err := orderRepo.Create(context.Background(), wo); err != nil {
 		t.Fatalf("seed order repo: %v", err)
 	}
-	rv := service.NewReviewService(memory.NewReviewRepository(), orderRepo)
+	rv := service.NewReviewService(memory.NewReviewRepository(), orderRepo, nil)
 
 	// 需求方（发布者）可评价
 	if _, err := rv.Submit(context.Background(), pub.ID, "work_order", wo.ID, 5, "作业专业，完成及时"); err != nil {
@@ -80,7 +80,7 @@ func TestReviewWorkOrderRequiresCompleted(t *testing.T) {
 	if _, err := orderRepo.Create(context.Background(), wo); err != nil {
 		t.Fatalf("seed order repo: %v", err)
 	}
-	rv := service.NewReviewService(memory.NewReviewRepository(), orderRepo)
+	rv := service.NewReviewService(memory.NewReviewRepository(), orderRepo, nil)
 
 	if _, err := rv.Submit(context.Background(), pub.ID, "work_order", wo.ID, 5, "提前评价"); err == nil {
 		t.Fatal("review of non-completed work order should be rejected")

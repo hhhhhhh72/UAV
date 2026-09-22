@@ -17,9 +17,14 @@ import { request, BASE_URL, getStoredUser } from './request'
 
 /* ================= 常量（唯一状态/类型定义，页面不得另立） ================= */
 
-// 订单中心的状态展示映射。completed → 待评价 仅是订单中心的展示层映射：
-// 后端 completed 不记录「是否已评价」，因此「待评价/已评价」由前端临时标注，
-// 属于 mock 边界，不称为持久化真相。
+// 订单中心的状态展示映射。completed → 待评价 **仅是展示层映射**：
+// 订单状态机本身只有 pending/paid/shipped/completed，没有「已评价」这个状态。
+//
+// 「是否已评价」以**服务端**为准（2026-09-22 修）：GET /trade-orders/mine 会返回
+// reviewed（由 reviews 表按 target_type='order' 推导，且只算**当前用户**的评价）。
+// 此前只看手机本地存储（order_reviewed_prod），换设备/清缓存/在开发者工具里评价而用
+// 真机查看，订单就会退回「待评价」——用户报的「评价完还是待评价」正是这个。
+// 本地存储保留为兜底（评价提交成功、列表还没重新拉取的那一瞬间）。
 export const ORDER_STATUS = {
   pending: '待付款',
   paid: '待发货',
@@ -254,6 +259,8 @@ function normalizeRealOrder(t, product) {
     order_no: '',
     type: 'product',
     status,
+    // 服务端事实：**当前用户**是否已评价过这一单（见文件头说明）。缺字段按未评价处理。
+    reviewed: !!t.reviewed,
     role,
     source: 'real',
     origin: product?.seller_name || '低空商城',
@@ -314,7 +321,9 @@ export async function loadOrders({ status = 'all', order_type = 'all' } = {}) {
   const statusMatch = (o) => {
     if (status === 'all') return true
     if (status === 'aftersale') return !!o.aftersale
-    if (status === 'completed') return o.status === 'completed' && !o.aftersale
+    // 已评价的不再进「待评价」：此前漏了这个条件，于是角标被 isReviewed 减掉了、
+    // 订单却还留在列表里 —— 角标和列表两套口径，用户看到的就是「评价完还在待评价」。
+    if (status === 'completed') return o.status === 'completed' && !o.aftersale && !o.reviewed
     return o.status === status
   }
   const typeMatch = (o) => order_type === 'all' || o.type === order_type
@@ -338,7 +347,8 @@ export async function loadStatusCounts(order_type = 'all') {
     const needBuyerAction = t.aftersale_status === 'returning' && !!myId && t.buyer_id === myId
     const needSellerAction = t.aftersale_status === 'returned' && !!myId && t.seller_id === myId
     const actionable = asPending || needBuyerAction || needSellerAction
-    const reviewed = !t.aftersale_status && t.status === 'completed' && isReviewed(t.id)
+    // 已评价判定以服务端 reviewed 为准，本地存储只作兜底
+    const reviewed = !t.aftersale_status && t.status === 'completed' && (!!t.reviewed || isReviewed(t.id))
     const closed = !!t.aftersale_status && !actionable
     return {
       status: actionable ? 'aftersale' : (reviewed ? 'reviewed' : (closed ? 'closed' : (t.status || 'pending'))),
@@ -475,7 +485,9 @@ export async function submitReview(orderId, { rating, content }) {
 // 不修改 status 字段（避免破坏状态筛选与角标统计），仅覆盖展示文案。
 // 售后单（order.aftersale 非空）不适用——结案单状态也是 completed，但应显示售后状态而非「已评价」。
 function applyReviewed(order) {
-  if (!order || order.status !== 'completed' || order.aftersale || !isReviewed(order.id)) return order
+  if (!order || order.status !== 'completed' || order.aftersale) return order
+  // 服务端 reviewed 优先；本地存储兜底（刚提交完、列表还没重新拉取的那一瞬间）
+  if (!order.reviewed && !isReviewed(order.id)) return order
   const detail = order.detail
     ? {
         ...order.detail,

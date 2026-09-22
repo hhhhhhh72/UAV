@@ -16,13 +16,25 @@ import (
 // 单独成哨兵错误是为了让 Handler 能映射成 409 而不是 500——这是业务冲突，不是服务故障。
 var ErrReviewAlreadyExists = errors.New("您已评价过该目标")
 
+// 评价目标校验的哨兵错误。单独成哨兵是为了让 Handler 映射成 4xx 而不是笼统 500 ——
+// 「订单不存在」「不是你的订单」「订单还没完成」都是用户能看懂、也改得动的状态。
+var (
+	// ErrReviewTargetNotFound 评价目标不存在（Handler → 404）。
+	ErrReviewTargetNotFound = errors.New("评价目标不存在")
+	// ErrReviewNotAllowed 无权评价该目标（Handler → 403）。
+	ErrReviewNotAllowed = errors.New("无权评价该目标")
+	// ErrReviewTargetNotReady 目标尚未进入可评价状态（Handler → 409）。
+	ErrReviewTargetNotReady = errors.New("该目标当前状态不可评价")
+)
+
 type ReviewService struct {
 	repo      repository.ReviewRepository
-	orderRepo repository.WorkOrderRepository // 工单评价校验（target_type=work_order）用
+	orderRepo repository.WorkOrderRepository  // 工单评价校验（target_type=work_order）用
+	tradeRepo repository.TradeOrderRepository // 商城订单评价校验（target_type=order）用
 }
 
-func NewReviewService(repo repository.ReviewRepository, orderRepo repository.WorkOrderRepository) *ReviewService {
-	return &ReviewService{repo: repo, orderRepo: orderRepo}
+func NewReviewService(repo repository.ReviewRepository, orderRepo repository.WorkOrderRepository, tradeRepo repository.TradeOrderRepository) *ReviewService {
+	return &ReviewService{repo: repo, orderRepo: orderRepo, tradeRepo: tradeRepo}
 }
 
 func (s *ReviewService) Submit(ctx context.Context, reviewerID, targetType, targetID string, rating int, content string) (domain.Review, error) {
@@ -38,13 +50,34 @@ func (s *ReviewService) Submit(ctx context.Context, reviewerID, targetType, targ
 		}
 		wo, err := s.orderRepo.FindByID(ctx, targetID)
 		if err != nil {
-			return domain.Review{}, errors.New("work order not found")
+			return domain.Review{}, fmt.Errorf("%w：工单 %s", ErrReviewTargetNotFound, targetID)
 		}
 		if wo.Status != domain.WorkOrderCompleted {
-			return domain.Review{}, errors.New("only completed work orders can be reviewed")
+			return domain.Review{}, fmt.Errorf("%w（工单状态 %s）", ErrReviewTargetNotReady, wo.Status)
 		}
 		if wo.PublisherID != reviewerID && wo.WorkerID != reviewerID {
-			return domain.Review{}, errors.New("only the publisher or worker can review the work order")
+			return domain.Review{}, fmt.Errorf("%w：只有需求方或接单方可以评价该工单", ErrReviewNotAllowed)
+		}
+	}
+	// 商城订单评价闭环（2026-09-22）：此前**只有 work_order 走校验**，order 这一类
+	// 零校验 —— 不查订单存不存在、不查是不是本人买的、不查订单是否已完成，
+	// 任何登录用户都能对任意 target_id 造一条评价。
+	if targetType == "order" {
+		if s.tradeRepo == nil {
+			return domain.Review{}, errors.New("trade order repository not available")
+		}
+		o, err := s.tradeRepo.FindByID(ctx, targetID)
+		if err != nil {
+			return domain.Review{}, fmt.Errorf("%w：订单 %s", ErrReviewTargetNotFound, targetID)
+		}
+		// 只有买家可以评价：卖家评价自己的商品没有业务意义，且是刷自己好评的通道。
+		if o.BuyerID != reviewerID {
+			return domain.Review{}, fmt.Errorf("%w：只有买家可以评价该订单", ErrReviewNotAllowed)
+		}
+		// 状态机前置：只有 completed 才拿到货。pending/paid/shipped 都还没收货，
+		// aftersale/cancelled 更不该评价（订单表的 status 是纯字符串，见 phase3.go 的状态机）。
+		if o.Status != "completed" {
+			return domain.Review{}, fmt.Errorf("%w（订单状态 %s）", ErrReviewTargetNotReady, o.Status)
 		}
 	}
 	// 幂等：同一用户对同一目标已评价（pending/approved）则拒绝；被驳回后可重新评价。

@@ -318,10 +318,12 @@ type TradeOrderService struct {
 	repo     repository.TradeOrderRepository
 	prodRepo repository.ProductRepository // 订单取消时恢复商品为可售（可空）
 	escrow   *EscrowService               // 资金托管（可空：未注入时退化为纯状态机，供 dev/测试）
+	// reviewRepo 只用于给"我的订单"填 Reviewed 标记（可空：未注入时不填，不影响其它功能）
+	reviewRepo repository.ReviewRepository
 }
 
-func NewTradeOrderService(repo repository.TradeOrderRepository, prodRepo repository.ProductRepository) *TradeOrderService {
-	return &TradeOrderService{repo: repo, prodRepo: prodRepo}
+func NewTradeOrderService(repo repository.TradeOrderRepository, prodRepo repository.ProductRepository, reviewRepo repository.ReviewRepository) *TradeOrderService {
+	return &TradeOrderService{repo: repo, prodRepo: prodRepo, reviewRepo: reviewRepo}
 }
 
 // SetEscrow 注入托管金服务：注入后商城订单具备真实资金闭环
@@ -1065,8 +1067,36 @@ func (s *TradeOrderService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
 
+// ListMine 我的订单。
+//
+// 顺带填上「**我**是否已评价过这一单」的 Reviewed 标记（响应增强字段，不入库）。
+// 为什么必须有（2026-09-22 用户报「评价完订单状态还是待评价」）：订单状态机的
+// completed 在小程序里正被展示成「待评价」，而「已评价」此前**只写在手机本地存储**里
+// （orderAdapter.js 的 order_reviewed_prod），换设备、清缓存、或在开发者工具里评价而用
+// 真机查看，就立刻回到「待评价」。服务端有 reviews 表却没有把这个事实反馈给订单列表。
+//
+// 以 reviews 表为准推导，**不新增 trade_orders 冗余列**：同一个事实记两处迟早对不上
+//（2026-09-20 的 reg_count 漂移就是这一类）。一次批量查询填完，避免逐单 N+1。
 func (s *TradeOrderService) ListMine(ctx context.Context, userID string) ([]domain.TradeOrder, error) {
-	return s.repo.ListByUser(ctx, userID)
+	orders, err := s.repo.ListByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if s.reviewRepo == nil || len(orders) == 0 {
+		return orders, nil
+	}
+	ids := make([]string, 0, len(orders))
+	for _, o := range orders {
+		ids = append(ids, o.ID)
+	}
+	// fail-open：标记只是展示用，查不到就当作"未评价"——不能让一次评价查询的抖动
+	// 把整个订单列表打成 500（与商品名填充同一个口径）。
+	if reviewed, rerr := s.reviewRepo.ListReviewedTargetIDs(ctx, userID, "order", ids); rerr == nil {
+		for i := range orders {
+			orders[i].Reviewed = reviewed[orders[i].ID]
+		}
+	}
+	return orders, nil
 }
 
 func (s *TradeOrderService) ListAll(ctx context.Context, offset, limit int) ([]domain.TradeOrder, int, error) {

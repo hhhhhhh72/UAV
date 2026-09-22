@@ -21,7 +21,7 @@ func newMoneyFlow(t *testing.T) (*service.TradeOrderService, repository.ProductR
 	ctx := context.Background()
 	escrowSvc := service.NewEscrowService(memory.NewEscrowRepository())
 	prodRepo := memory.NewProductRepository()
-	tradeSvc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), prodRepo)
+	tradeSvc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), prodRepo, memory.NewReviewRepository())
 	tradeSvc.SetEscrow(escrowSvc)
 	return tradeSvc, prodRepo, escrowSvc, ctx
 }

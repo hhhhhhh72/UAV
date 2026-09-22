@@ -93,10 +93,10 @@ func newBizServerWith(t *testing.T, tune func(srv *httpapi.Server, escrow *servi
 		service.NewMessageService(memory.NewMessageRepository()),
 		service.NewEnrollmentService(memory.NewEnrollmentRepository(), courseRepo),
 		service.NewExpiryService(),
-		service.NewTradeOrderService(memory.NewTradeOrderRepository(), productRepo),
+		service.NewTradeOrderService(memory.NewTradeOrderRepository(), productRepo, memory.NewReviewRepository()),
 		escrowSvc,
 		service.NewNewsService(memory.NewArticleRepository()),
-		service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository()),
+		service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository(), memory.NewTradeOrderRepository()),
 		service.NewVenueService(memory.NewVenueRepository()),
 		userRepo, memory.NewRefreshTokenRepository(), tokens,
 	)

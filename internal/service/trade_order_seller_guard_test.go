@@ -23,7 +23,7 @@ func TestPayOrderRejectsNonexistentSellerBeforeFreezing(t *testing.T) {
 		return id == "seller-real", nil
 	})
 	prodRepo := memory.NewProductRepository()
-	tradeSvc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), prodRepo)
+	tradeSvc := service.NewTradeOrderService(memory.NewTradeOrderRepository(), prodRepo, memory.NewReviewRepository())
 	tradeSvc.SetEscrow(escrowSvc)
 
 	if _, err := escrowSvc.Deposit(ctx, "buyer-1", 500000); err != nil {

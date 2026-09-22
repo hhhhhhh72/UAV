@@ -135,7 +135,7 @@ func TestPhase3All(t *testing.T) {
 	inspections := []domain.AnnualInspection{{ID: "i1", ExpireDate: time.Now().AddDate(0, 0, 10), Status: "approved"}}
 	exp.GetExpiringInspections(inspections, 30)
 
-	to := service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository())
+	to := service.NewTradeOrderService(memory.NewTradeOrderRepository(), memory.NewProductRepository(), memory.NewReviewRepository())
 	o, _ := to.Create(context.Background(), "u-1", "prod-1", "u-2", 100000, service.OrderReceiver{}, false)
 	// paid 仅管理端可设（UpdateStatusAdmin）；买家直接改 paid 应被拒
 	if _, err := to.UpdateStatus(context.Background(), o.ID, "u-1", "paid"); err == nil {
@@ -147,7 +147,7 @@ func TestPhase3All(t *testing.T) {
 
 // === Reviews + Venues ===
 func TestReviewsVenuesAll(t *testing.T) {
-	rv := service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository())
+	rv := service.NewReviewService(memory.NewReviewRepository(), memory.NewWorkOrderRepository(), memory.NewTradeOrderRepository())
 	rv.Submit(context.Background(), "u-1", "enterprise", "ent-1", 4, "不错")
 	rv.ListByTarget(context.Background(), "enterprise", "ent-1")
 	rv.ListAll(context.Background(), "", 0, 20)

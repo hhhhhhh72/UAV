@@ -550,6 +550,15 @@ type TradeOrder struct {
 	SellerID    string `json:"seller_id"`
 	AmountFen   int64  `json:"amount_fen"`
 	Status      string `json:"status"`
+	// Reviewed 响应增强字段（**不入库**）：**当前请求者**是否已评价过本单。
+	// 由 reviews 表推导（target_type='order' 且 target_id=本单 且 reviewer=本人 且
+	// status<>'rejected'），**不新增冗余列** —— 同一个事实记两处迟早对不上
+	//（2026-09-20 的 reg_count 漂移就是这一类）。
+	//
+	// 为什么必须有它：订单状态机的 completed 在小程序里被展示成「待评价」，
+	// 而「已评价」此前**只写在手机本地存储**里（miniprogram/utils/orderAdapter.js 的
+	// order_reviewed_prod），换设备或清缓存就回到「待评价」，服务端根本没有这个事实。
+	Reviewed bool `json:"reviewed"`
 	// 售后契约：aftersale_type=refund(仅退款)/return(退货退款)；
 	// aftersale_status 为空串表示该订单从未申请过售后，其余取值：
 	//   refund 单：pending(待审核) → approved(已退款) / rejected(已驳回)

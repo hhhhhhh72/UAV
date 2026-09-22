@@ -431,7 +431,7 @@ func main() {
 
 	// 商城订单接入托管金：付款冻结买家余额 → 确认收货放款给卖家 → 取消/售后退款。
 	// 未注入时订单退化为纯状态机（供 dev/测试），注入后才有真实资金闭环。
-	tradeOrderSvc := service.NewTradeOrderService(tradeOrderRepo, productRepo)
+	tradeOrderSvc := service.NewTradeOrderService(tradeOrderRepo, productRepo, reviewRepo)
 	tradeOrderSvc.SetEscrow(escrowSvc)
 
 	app := httpapi.NewServer(
@@ -456,7 +456,7 @@ func main() {
 		tradeOrderSvc,
 		escrowSvc,
 		service.NewNewsService(articleRepo),
-		service.NewReviewService(reviewRepo, workOrderRepo),
+		service.NewReviewService(reviewRepo, workOrderRepo, tradeOrderRepo),
 		service.NewVenueService(venueRepo),
 		userRepo,
 		refreshTokenRepo,
