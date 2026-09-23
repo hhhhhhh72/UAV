@@ -84,15 +84,59 @@ def module_of(c):
     return max(tally.items(), key=lambda kv: kv[1])[0]
 
 
-def cap(s, n=24):
-    """超长就截，但**不切在半个括号里**，退到左括号之前才是完整短语。"""
+# 括号里的都是补充说明（「FOR UPDATE」「含存量行补加密」「migration 000120」），标题里不需要。
+# 全角半角都算 —— 此前 cap() 只认半角 '('，而中文提交标题全用全角 '（'，
+# 于是「别切在半个括号里」这条规则**从来没生效过**。
+PARENS = re.compile(r'[（(][^（()）]*[)）]')
+# 一个提交里用 ; 或 + 并列的多件事，拆成独立工作项。**必须在去掉括号之后**拆，
+# 否则「密钥与备份配套性校验（keycheck + 演练）」会被括号里的 + 拆坏。
+SPLIT = re.compile(r'[;；]|\s*[+＋]\s*')
+WORDISH = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
+CJK = re.compile(r'[\u4e00-\u9fff]')
+# 自然分隔符：真要截，优先截在这些地方，读起来还是完整短语
+SEPS = ('，', '、', '；', ' ', '/', '·', ',')
+
+
+def headline(s, n=24):
+    """把一条工作项压成**标题**，而不是切一半。
+
+    为什么改（2026-09-22 用户问「日报为什么带很多省略号」）：原实现把每条硬截到 24 字，
+    于是 09-21 那份报告 6 处省略号，而且断在词中间 ——
+      「证书自动续期：根因是域名未备案导致 HTTP-0…」（HTTP-01 被截断）
+      「日报取数通道加固（重试窗口 2.5h + SKI…」（SKIP_FETCH 被截断）
+      「Revert "feat…」
+    现在改成「取主干」：破折号后面是解释、冒号后面是解释，括号已经在上游去掉，
+    剩下还超长才截，且只在自然分隔符处截、**不切断英文/数字词**。
+    结果不仅更短，而且装得下更多条（300 字预算里塞的是完整短语，不是带省略号的残句）。
+    """
+    original = s.strip()
+    s = original
+    # Revert "feat(ui): 大屏首页改版" → 回退 大屏首页改版（引号里的才是主体）
+    rv = re.match(r'^[Rr]evert\s+["“「\'](.+?)["”」\']\s*$', s)
+    if rv:
+        s = '回退 ' + PREFIX.sub('', rv.group(1)).strip()
+    # 破折号之后是解释
+    s = s.split('——')[0]
+    # 全角冒号之后是解释（**不用半角 ':'** —— 那会把 19:30 → 17:30 切成 19）
+    s = s.split('：')[0]
+    # 整串被引号包起来时，引号里才是主体
+    s = re.sub(r'^["“「\'](.+?)["”」\']$', r'\1', s)
+    s = s.strip().strip('，,。;； ')
+    if not s:
+        s = original
     if len(s) <= n:
         return s
     cut = s[:n]
-    op = cut.rfind('(')
-    if op >= 0 and ')' not in cut[op:]:
-        cut = cut[:op]
-    return cut.rstrip('(/、， ；;') + '…'
+    for sep in SEPS:
+        i = cut.rfind(sep)
+        if i >= max(6, n // 2):
+            cut = cut[:i]
+            break
+    else:
+        # 没有自然分隔符：退到词边界（别把 HTTP-01 切成 HTTP-0、SKIP_FETCH 切成 SKI）
+        cut = cut.rstrip(WORDISH)
+    cut = cut.rstrip('(/、， ；;+＋.,')
+    return (cut or s[:n]) + '…'
 
 
 # 一个提交里常常塞了好几件事（「堵住自助充值印钞口;支付端点改 4xx;补下单限频」），
@@ -101,10 +145,17 @@ def cap(s, n=24):
 items = {m: [] for m in ORDER}
 for c in commits:
     m = module_of(c)
-    for frag in re.split(r'[;；]', PREFIX.sub('', c['subject']).strip()):
+    # 先去括号补充说明，再按 ; / + 拆工作项 —— 顺序不能反（见 SPLIT 的注释）
+    subject = PARENS.sub('', c['subject'])
+    for frag in SPLIT.split(PREFIX.sub('', subject).strip()):
         frag = frag.strip()
-        if frag:
-            items[m].append(cap(frag))
+        if not frag:
+            continue
+        # 按 + 拆出来的纯 ASCII 短碎片（TLS-ALPN-01、SKIP_FETCH 这种）单独成条像噪音，丢掉。
+        # 带中文的短条目（「补赛事名额的库级守护测试」）照留 —— 那是真正的工作项。
+        if len(frag) <= 12 and not CJK.search(frag):
+            continue
+        items[m].append(headline(frag))
 
 # ---------- 3. 规模、迁移、进度节点 ----------
 files = sorted({f for c in commits for f in c['files'] if f})

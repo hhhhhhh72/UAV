@@ -88,6 +88,14 @@ jobs:
       - name: Vulnerability scan (govulncheck)
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
+      - name: Work report generator check
+        # 负责人问「日报为什么带很多省略号」：真跑出来 4 天里 16 处，而且断在词中间
+        #（HTTP-01 被切成 HTTP-0、SKIP_FETCH 被切成 SKI；"别切在半个括号里"那条规则
+        # 只认半角 '('，而中文标题全用全角 '（'，从未生效）。
+        # 日报没人会逐字核对，所以这种"看着正常、实际读不成句"的假绿必须由机器守。
+        working-directory: .
+        run: bash deploy/verify-work-report.sh
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
