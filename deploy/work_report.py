@@ -16,18 +16,41 @@ repo, day_arg, deploy_note = sys.argv[1], sys.argv[2], sys.argv[3]
 
 BUDGET = 300   # 汇报要求：全文不超过 300 字
 
-# ---------- 1. 取当日提交（连同每个提交改了哪些文件） ----------
-today = time.strftime('%Y-%m-%d')
-if day_arg == today:
-    since, until = day_arg + ' 00:00:00', time.strftime('%Y-%m-%d %H:%M:%S')
-else:
-    since = day_arg + ' 00:00:00'
-    until = time.strftime('%Y-%m-%d', time.localtime(time.mktime(time.strptime(day_arg, '%Y-%m-%d')) + 86400)) + ' 00:00:00'
+# ---------- 1. 取提交（连同每个提交改了哪些文件） ----------
+# 时间窗 = **上一班的发放时刻 → 这一班的发放时刻**（滚动 24 小时），不是自然日。
+#
+# 为什么改（2026-09-23 用户：「内容好少，把昨天干的事也编进来」）：
+#   自然日窗口在 17:30 收口，于是 17:30 之后干的活**当班看不到、下一班也不管**
+#   （下一班只看新的自然日）—— 等于每天傍晚之后的工作从来没进过日报。
+#   改成滚动窗口后，每一段工作都恰好被报一次：不重复、也不漏，内容自然变多。
+REPORT_AT = '17:30:00'   # 与 crontab 里「30 17 * * *」对齐
 
-raw = subprocess.run(
-    ['git', '-C', repo, 'log', '--since=' + since, '--until=' + until,
-     '--pretty=format:@@%h|%s', '--name-only', '--no-merges', 'master'],
-    capture_output=True, text=True, errors='replace').stdout.splitlines()
+
+def window(day_arg):
+    t = time.mktime(time.strptime(day_arg, '%Y-%m-%d'))
+    prev = time.strftime('%Y-%m-%d', time.localtime(t - 86400))
+    start = '%s %s' % (prev, REPORT_AT)
+    if day_arg == time.strftime('%Y-%m-%d'):
+        # 当班**不设上界**：git 默认就取到 HEAD。
+        # 不给 --until 是故意的 —— 早先写成「取到此刻（截到秒）」，而 time.strftime 会把
+        # 小数秒抹掉：若某条提交正好发生在同一秒的后半段，它就被判成"晚于上界"而漏掉
+        #（变异测试时真踩到了：临时仓库里 3 条刚建的提交一条都没被算进来）。
+        end = None
+    else:
+        end = '%s %s' % (day_arg, REPORT_AT)       # 补看历史：取到那一班的发放时刻
+    return start, end
+
+
+since, until = window(day_arg)
+win_label = since[5:16]   # 例：09-22 17:30
+
+git_args = ['git', '-C', repo, 'log', '--since=' + since]
+if until:                      # 当班不给 --until（见 window() 里的说明）
+    git_args.append('--until=' + until)
+# 用 HEAD 而不是写死 master：CI 里 git init 默认分支可能是 main，
+# 写死分支名会让检查器在 CI 上静默查到 0 条提交（本地却正常）。
+git_args += ['--pretty=format:@@%h|%s', '--name-only', '--no-merges', 'HEAD']
+raw = subprocess.run(git_args, capture_output=True, text=True, errors='replace').stdout.splitlines()
 
 commits = []
 for line in raw:
@@ -164,7 +187,7 @@ migs = sorted({re.match(r'^migrations/(\d+)', f).group(1)
 
 t = time.strptime(day_arg, '%Y-%m-%d')
 head = '【日报 %s 周%s】' % (time.strftime('%m-%d', t), '一二三四五六日'[t.tm_wday])
-counts = '1. 提交 %d 个、%d 个文件' % (len(commits), len(files))
+counts = '1. 提交 %d 个、%d 个文件（%s 起）' % (len(commits), len(files), win_label)
 if migs:
     counts += '，%d 组数据库迁移' % len(migs)
 counts += '。'
@@ -178,24 +201,51 @@ fixed = len(head) + len(counts) + 14 + (len(node_text) + 8 if node_text else 0)
 
 
 def build(mods_present):
-    out, idx = [], 2
+    """组装正文：**把 300 字用满**，而不是平均分给每个模块。
+
+    为什么改（2026-09-23 用户：「内容好少」）：原实现把预算**平均**分给当天出现过的每个模块
+    （通常 6–8 个），每格只剩 30 来字、只装得下 1–2 条；而有的模块本来就没几条，
+    那份额度就白白空着 —— 实测 09-22 那份只用了 161/300 字、09-21 用了 167/300。
+    现在改成**轮转分配**：每轮给每个模块各加一条，谁还有货谁继续拿，直到预算用满或都没货。
+    轮转也保住了原来的优先级语义：预算不够时，靠后的模块连第一条都拿不到。
+    """
+    if not mods_present:
+        return []
+    head_cost = sum(len('%d. %s：' % (i, m)) for i, m in enumerate(mods_present, 2))
+    free = BUDGET - fixed - head_cost
+    pool, picked, used = {}, {m: [] for m in mods_present}, 0
     for m in mods_present:
-        prefix = '%d. %s：' % (idx, m)
-        share = max(8, (BUDGET - fixed) // max(1, len(mods_present)) - len(prefix))
-        picked, used, seen = [], 0, set()
+        seen, keep = set(), []
         for it in items[m]:
-            if it in seen:
-                continue
-            seen.add(it)
-            cost = len(it) + (1 if picked else 0)
-            if used + cost > share:
-                continue
-            picked.append(it)
-            used += cost
-        if picked:
-            line = prefix + '；'.join(picked)
-            out.append(line if line.endswith('…') else line + '。')
-            idx += 1
+            if it not in seen:
+                seen.add(it)
+                keep.append(it)
+        # 「X」和「回退 X」同时在时丢掉前者：净效果就是撤回了，两条一起报纯属白占额度
+        #（2026-09-20 那天就是这样：「供给大厅加卡片按压反馈」+「回退 供给大厅加卡片按压反馈」）
+        revs = {it[3:] for it in keep if it.startswith('回退 ')}
+        if revs:
+            keep = [it for it in keep if it not in revs]
+        pool[m] = keep
+    while True:
+        added = False
+        for m in mods_present:
+            while pool[m]:
+                cost = len(pool[m][0]) + (1 if picked[m] else 0)   # 分隔符「；」
+                if used + cost <= free:
+                    picked[m].append(pool[m].pop(0))
+                    used += cost
+                    added = True
+                    break
+                # 这条装不下：预算只会越来越紧，留着也不会再被选中，直接丢
+                pool[m].pop(0)
+        if not added:
+            break
+    out = []
+    for m in mods_present:
+        if not picked[m]:
+            continue
+        line = '%d. %s：' % (len(out) + 2, m) + '；'.join(picked[m])
+        out.append(line if line.endswith('…') else line + '。')
     return out
 
 
